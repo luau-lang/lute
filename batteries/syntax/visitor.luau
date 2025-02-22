@@ -11,6 +11,7 @@ type Visitor = {
 	visitGlobal: (T.AstExprGlobal) -> boolean,
 	visitCall: (T.AstExprCall) -> boolean,
 	visitBinary: (T.AstExprBinary) -> boolean,
+	visitAnonymousFunction: (T.AstExprAnonymousFunction) -> boolean,
 	visitTableItem: (T.AstExprTableItem) -> boolean,
 	visitTable: (T.AstExprTable) -> boolean,
 	visitIndexName: (T.AstExprIndexName) -> boolean,
@@ -35,6 +36,7 @@ local defaultVisitor: Visitor = {
 	visitGlobal = alwaysVisit :: any,
 	visitCall = alwaysVisit :: any,
 	visitBinary = alwaysVisit :: any,
+	visitAnonymousFunction = alwaysVisit :: any,
 	visitTableItem = alwaysVisit :: any,
 	visitTable = alwaysVisit :: any,
 	visitIndexName = alwaysVisit :: any,
@@ -146,6 +148,21 @@ local function visitBinary(node: T.AstExprBinary, visitor: Visitor)
 	end
 end
 
+local function visitFunctionBody(node: T.AstFunctionBody, visitor: Visitor)
+	visitToken(node.openParens, visitor)
+	visitPunctuated(node.parameters, visitor, visitLocal)
+	visitToken(node.closeParens, visitor)
+	visitBlock(node.body, visitor)
+	visitToken(node["end"], visitor)
+end
+
+local function visitAnonymousFunction(node: T.AstExprAnonymousFunction, visitor: Visitor)
+	if visitor.visitAnonymousFunction(node) then
+		visitToken(node["function"], visitor)
+		visitFunctionBody(node.body, visitor)
+	end
+end
+
 local function visitTableItem(node: T.AstExprTableItem, visitor: Visitor)
 	if visitor.visitTableItem(node) then
 		if node.kind == "list" then
@@ -203,6 +220,8 @@ function visitExpression(expression: T.AstExpr, visitor: Visitor)
 		visitCall(expression, visitor)
 	elseif expression.tag == "binary" then
 		visitBinary(expression, visitor)
+	elseif expression.tag == "function" then
+		visitAnonymousFunction(expression, visitor)
 	elseif expression.tag == "table" then
 		visitTable(expression, visitor)
 	elseif expression.tag == "indexname" then
