@@ -24,6 +24,7 @@ type Visitor = {
 	visitBoolean: (T.AstExprConstantBool) -> boolean,
 	visitNumber: (T.AstExprConstantNumber) -> boolean,
 	visitLocal: (T.AstLocal) -> boolean,
+	visitVarargs: (T.AstExprVarargs) -> boolean,
 }
 
 local function alwaysVisit(...: any)
@@ -52,6 +53,7 @@ local defaultVisitor: Visitor = {
 	visitBoolean = alwaysVisit :: any,
 	visitNumber = alwaysVisit :: any,
 	visitLocal = alwaysVisit :: any,
+	visitVarargs = alwaysVisit :: any,
 }
 
 local function exhaustiveMatch(value: never): never
@@ -156,6 +158,12 @@ local function visitGlobal(node: T.AstExprGlobal, visitor: Visitor)
 	end
 end
 
+local function visitVarargs(node: T.AstExprVarargs, visitor: Visitor)
+	if visitor.visitVarargs(node) then
+		visitToken(node, visitor)
+	end
+end
+
 local function visitCall(node: T.AstExprCall, visitor: Visitor)
 	if visitor.visitCall(node) then
 		visitExpression(node.func, visitor)
@@ -255,6 +263,8 @@ function visitExpression(expression: T.AstExpr, visitor: Visitor)
 		visitLocalReference(expression, visitor)
 	elseif expression.tag == "global" then
 		visitGlobal(expression, visitor)
+	elseif expression.tag == "vararg" then
+		visitVarargs(expression, visitor)
 	elseif expression.tag == "call" then
 		visitCall(expression, visitor)
 	elseif expression.tag == "binary" then
