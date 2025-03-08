@@ -1241,14 +1241,22 @@ struct AstSerialize : public Luau::AstVisitor
     void serializeStat(Luau::AstStatAssign* node)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 2);
+        lua_createtable(L, 0, preambleSize + 3);
+
+        const auto cstNode = lookupCstNode<Luau::CstStatAssign>(node);
 
         serializeNodePreamble(node, "assign");
 
-        serializeExprs(node->vars);
+        serializePunctuated(node->vars, cstNode ? cstNode->varsCommaPositions : Luau::AstArray<Luau::Position>{}, ",");
         lua_setfield(L, -2, "variables");
 
-        serializeExprs(node->values);
+        if (cstNode)
+        {
+            serializeToken(cstNode->equalsPosition, "=");
+            lua_setfield(L, -2, "equals");
+        }
+
+        serializePunctuated(node->values, cstNode ? cstNode->valuesCommaPositions : Luau::AstArray<Luau::Position>{}, ",");
         lua_setfield(L, -2, "values");
     }
 
@@ -1259,11 +1267,14 @@ struct AstSerialize : public Luau::AstVisitor
 
         serializeNodePreamble(node, "compoundassign");
 
-        serialize(node->op);
-        lua_setfield(L, -2, "operand");
-
         node->var->visit(this);
         lua_setfield(L, -2, "variable");
+
+        if (const auto cstNode = lookupCstNode<Luau::CstStatCompoundAssign>(node))
+            serializeToken(cstNode->opPosition, (Luau::toString(node->op) + "=").data());
+        else
+            serialize(node->op);
+        lua_setfield(L, -2, "operand");
 
         node->value->visit(this);
         lua_setfield(L, -2, "value");
