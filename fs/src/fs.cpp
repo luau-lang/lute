@@ -419,7 +419,6 @@ int listdir(lua_State* L)
 
                         lua_settable(L, -3);
                     }
-                    
                     delete req;
 
                     if (err != UV_EOF)
