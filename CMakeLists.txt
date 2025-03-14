@@ -5,7 +5,9 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Lute LANGUAGES CXX C)
+include(get_version.cmake)
+
+project(Lute LANGUAGES CXX C VERSION ${LUTE_VERSION})
 
 add_library(Lute.Runtime STATIC)
 add_library(Lute.Fs STATIC)

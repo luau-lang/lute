@@ -1,0 +1,130 @@
+name: Build and Release
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: lute-linux-x86_64
+            options: --c-compiler=clang --cxx-compiler=clang++
+          - os: ubuntu-24.04-arm
+            artifact_name: lute-linux-aarch64
+            options: --c-compiler=clang --cxx-compiler=clang++
+          - os: macos-latest
+            artifact_name: lute-macos-aarch64
+          - os: windows-latest
+            artifact_name: lute-windows-x86_64
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build clang
+
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew update
+        brew install cmake ninja
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install ninja
+
+    - if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Configure
+      run: python ./tools/luthier.py configure lute --config release ${{ matrix.options }}
+
+    - name: Build
+      run: python ./tools/luthier.py build lute --config release ${{ matrix.options }}
+
+    - name: Get Artifact Path
+      id: artifact_path
+      shell: bash
+      run: |
+        exe_path=$(python ./tools/luthier.py build lute --config release --which)
+        echo "Executable path: $exe_path"  # Debug print
+        echo "exe_path=$exe_path" >> "$GITHUB_OUTPUT"
+    
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        path: ${{ steps.artifact_path.outputs.exe_path }}
+        name: ${{ matrix.artifact_name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: get_version.cmake
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - run: |
+          mkdir release
+          for dir in ./artifacts/*; do
+            base_name=$(basename "$dir")
+            zip -rj release/"${base_name}.zip" "$dir"/*
+          done
+
+      - name: Get project version
+        id: get_version
+        run: |
+          VERSION=$(cmake -P get_version.cmake 2>&1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create Nightly Tag
+        id: tag_step
+        if: github.event_name == 'schedule'
+        run: |
+          DATE=$(date +%Y%m%d)
+          TAG="-nightly.$DATE"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Release Tag
+        id: tag_release
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          NIGHTLY_TAG=${{ steps.tag_step.outputs.tag }}
+          RELEASE_TAG="$VERSION$NIGHTLY_TAG"
+          echo "tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_release.outputs.tag }}
+          name: ${{ steps.tag_release.outputs.tag }}
+          draft: false
+          prerelease: ${{ github.event_name == 'schedule' }}
+          files: release/*.zip
