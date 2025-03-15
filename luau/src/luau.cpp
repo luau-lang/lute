@@ -1734,12 +1734,14 @@ struct AstSerialize : public Luau::AstVisitor
 
     bool visit(Luau::AstTypeSingletonBool* node) override
     {
-        return true;
+        serializeType(node);
+        return false;
     }
 
     bool visit(Luau::AstTypeSingletonString* node) override
     {
-        return true;
+        serializeType(node);
+        return false;
     }
 
     bool visit(Luau::AstTypeError* node) override
