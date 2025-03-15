@@ -336,6 +336,13 @@ export type AstTypeTypeof = {
 	closeParens: Token<")">,
 }
 
-export type AstType = | AstTypeReference | AstTypeSingletonBool | AstTypeSingletonString | AstTypeTypeof
+export type AstTypeGroup = {
+	tag: "group",
+	openParens: Token<"(">,
+	type: AstType,
+	closeParens: Token<">">,
+}
+
+export type AstType = | AstTypeReference | AstTypeSingletonBool | AstTypeSingletonString | AstTypeTypeof | AstTypeGroup
 
 return {}

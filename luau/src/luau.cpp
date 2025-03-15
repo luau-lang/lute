@@ -635,7 +635,7 @@ struct AstSerialize : public Luau::AstVisitor
         node->expr->visit(this);
         lua_setfield(L, -2, "expression");
 
-        serializeToken(Luau::Position{node->location.end.line, node->location.end.column - 1}, "}");
+        serializeToken(Luau::Position{node->location.end.line, node->location.end.column - 1}, ")");
         lua_setfield(L, -2, "closeParens");
     }
 
@@ -1542,6 +1542,23 @@ struct AstSerialize : public Luau::AstVisitor
         currentPosition = node->location.end;
     }
 
+    void serializeType(Luau::AstTypeGroup* node)
+    {
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 3);
+
+        serializeNodePreamble(node, "group");
+
+        serializeToken(node->location.begin, "(");
+        lua_setfield(L, -2, "openParens");
+
+        node->type->visit(this);
+        lua_setfield(L, -2, "type");
+
+        serializeToken(Luau::Position{node->location.end.line, node->location.end.column -1}, ")");
+        lua_setfield(L, -2, "closeParens");
+    }
+
     void serializeType(Luau::AstTypeError* node)
     {
         // TODO: types
@@ -1885,6 +1902,12 @@ struct AstSerialize : public Luau::AstVisitor
     bool visit(Luau::AstTypePackGeneric* node) override
     {
         return true;
+    }
+
+    bool visit(Luau::AstTypeGroup* node) override
+    {
+        serializeType(node);
+        return false;
     }
 };
 

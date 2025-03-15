@@ -33,6 +33,7 @@ type Visitor = {
 	visitTypeBoolean: (T.AstTypeSingletonBool) -> boolean,
 	visitTypeString: (T.AstTypeSingletonString) -> boolean,
 	visitTypeTypeof: (T.AstTypeTypeof) -> boolean,
+	visitTypeGroup: (T.AstTypeGroup) -> boolean,
 
 	visitToken: (T.Token) -> boolean,
 	visitNil: (T.AstExprConstantNil) -> boolean,
@@ -78,6 +79,7 @@ local defaultVisitor: Visitor = {
 	visitTypeBoolean = alwaysVisit :: any,
 	visitTypeString = alwaysVisit :: any,
 	visitTypeTypeof = alwaysVisit :: any,
+	visitTypeGroup = alwaysVisit :: any,
 
 	visitToken = alwaysVisit :: any,
 	visitNil = alwaysVisit :: any,
@@ -436,6 +438,14 @@ local function visitTypeTypeof(node: T.AstTypeTypeof, visitor: Visitor)
 	end
 end
 
+local function visitTypeGroup(node: T.AstTypeGroup, visitor: Visitor)
+	if visitor.visitTypeGroup(node) then
+		visitToken(node.openParens, visitor)
+		visitType(node.type, visitor)
+		visitToken(node.closeParens, visitor)
+	end
+end
+
 function visitExpression(expression: T.AstExpr, visitor: Visitor)
 	if expression.tag == "nil" then
 		visitNil(expression, visitor)
@@ -519,6 +529,8 @@ function visitType(type: T.AstType, visitor: Visitor)
 		visitTypeString(type, visitor)
 	elseif type.tag == "typeof" then
 		visitTypeTypeof(type, visitor)
+	elseif type.tag == "group" then
+		visitTypeGroup(type, visitor)
 	else
 		exhaustiveMatch(type.tag)
 	end
