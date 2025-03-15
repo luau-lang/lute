@@ -281,6 +281,15 @@ export type AstStatLocalFunction = {
 	body: AstFunctionBody,
 }
 
+export type AstStatTypeAlias = {
+	tag: "typealias",
+	["export"]: Token<"export">?,
+	typeToken: Token<"type">,
+	name: Token,
+	equals: Token<"=">,
+	type: AstType,
+}
+
 export type AstStat =
 	| AstStatBlock
 	| AstStatIf
@@ -297,6 +306,7 @@ export type AstStat =
 	| AstStatCompoundAssign
 	| AstStatFunction
 	| AstStatLocalFunction
+	| AstStatTypeAlias
 
 export type AstTypeSingletonBool = Token<"true" | "false"> & {
 	tag: "boolean",

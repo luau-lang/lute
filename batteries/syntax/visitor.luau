@@ -15,6 +15,7 @@ type Visitor = {
 	visitCompoundAssign: (T.AstStatCompoundAssign) -> boolean,
 	visitFunction: (T.AstStatFunction) -> boolean,
 	visitLocalFunction: (T.AstStatLocalFunction) -> boolean,
+	visitTypeAlias: (T.AstStatTypeAlias) -> boolean,
 
 	visitLocalReference: (T.AstExprLocal) -> boolean,
 	visitGlobal: (T.AstExprGlobal) -> boolean,
@@ -57,6 +58,7 @@ local defaultVisitor: Visitor = {
 	visitCompoundAssign = alwaysVisit :: any,
 	visitFunction = alwaysVisit :: any,
 	visitLocalFunction = alwaysVisit :: any,
+	visitTypeAlias = alwaysVisit :: any,
 
 	visitLocalReference = alwaysVisit :: any,
 	visitGlobal = alwaysVisit :: any,
@@ -212,6 +214,18 @@ local function visitCompoundAssign(node: T.AstStatCompoundAssign, visitor: Visit
 		visitExpression(node.variable, visitor)
 		visitToken(node.operand, visitor)
 		visitExpression(node.value, visitor)
+	end
+end
+
+local function visitTypeAlias(node: T.AstStatTypeAlias, visitor: Visitor)
+	if visitor.visitTypeAlias(node) then
+		if node.export then
+			visitToken(node.export, visitor)
+		end
+		visitToken(node.typeToken, visitor)
+		visitToken(node.name, visitor)
+		visitToken(node.equals, visitor)
+		visitType(node.type, visitor)
 	end
 end
 
@@ -455,18 +469,20 @@ function visitStatement(statement: T.AstStat, visitor: Visitor)
 		visitFunction(statement, visitor)
 	elseif statement.tag == "localfunction" then
 		visitLocalFunction(statement, visitor)
+	elseif statement.tag == "typealias" then
+		visitTypeAlias(statement, visitor)
 	else
 		exhaustiveMatch(statement.tag)
 	end
 end
 
-function visitType(ty: T.AstType, visitor: Visitor)
-	if ty.tag == "boolean" then
-		visitTypeBoolean(ty, visitor)
-	elseif ty.tag == "string" then
-		visitTypeString(ty, visitor)
+function visitType(type: T.AstType, visitor: Visitor)
+	if type.tag == "boolean" then
+		visitTypeBoolean(type, visitor)
+	elseif type.tag == "string" then
+		visitTypeString(type, visitor)
 	else
-		exhaustiveMatch(ty.tag)
+		exhaustiveMatch(type.tag)
 	end
 end
 
