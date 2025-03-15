@@ -49,6 +49,8 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         choco install ninja
+        vcpkg install zlib
+        vcpkg integrate install
 
     - if: runner.os == 'Windows'
       uses: ilammy/msvc-dev-cmd@v1

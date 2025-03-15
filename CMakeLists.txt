@@ -29,11 +29,16 @@ set(LIBUV_BUILD_TESTS OFF)
 set(LIBUV_BUILD_BENCH OFF)
 add_subdirectory(extern/libuv)
 
+# Define libuv include directory here, before it's needed by other subdirectories
+set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
+
 # wolfssl setup
 set(BUILD_SHARED_LIBS OFF)
 set(WOLFSSL_CURL "yes")
 set(WOLFSSL_EXAMPLES "no")
 set(WOLFSSL_CRYPT_TESTS "no")
+set(WOLFSSL_OPENSSLALL "yes")
+SET(WOLFSSL_EX_DATA "yes")
 add_subdirectory(extern/wolfssl)
 
 # curl setup
@@ -53,32 +58,41 @@ set(WOLFSSL_LIBRARY wolfssl)
 
 add_subdirectory(extern/curl)
 
+# uWebSockets setup
+set(WITH_WOLFSSL ON)
+set(WITH_LIBUV ON)
+# Set the correct libuv library name for uWebSockets
+set(LIBUV_LIBRARY uv_a)
+add_subdirectory(extern/uWebSockets)
+
+# Define include directories for uWebSockets and uSockets
+set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
+set(USOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/uSockets/src)
+
 #
 
 add_executable(Lute.CLI)
 set_target_properties(Lute.CLI PROPERTIES OUTPUT_NAME lute)
-
-set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 
 include(Sources.cmake)
 
 target_compile_features(Lute.Runtime PUBLIC cxx_std_17)
 target_compile_features(Lute.Fs PUBLIC cxx_std_17)
 target_compile_features(Lute.Luau PUBLIC cxx_std_17)
-target_compile_features(Lute.Net PUBLIC cxx_std_17)
+target_compile_features(Lute.Net PUBLIC cxx_std_20)
 target_compile_features(Lute.Task PUBLIC cxx_std_17)
 target_compile_features(Lute.VM PUBLIC cxx_std_17)
 target_include_directories(Lute.Runtime PUBLIC runtime/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.Fs PUBLIC fs/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.Luau PUBLIC luau/include ${LIBUV_INCLUDE_DIR})
-target_include_directories(Lute.Net PUBLIC net/include ${LIBUV_INCLUDE_DIR})
+target_include_directories(Lute.Net PUBLIC net/include ${LIBUV_INCLUDE_DIR} ${UWEBSOCKETS_INCLUDE_DIR} ${USOCKETS_INCLUDE_DIR})
 target_include_directories(Lute.Task PUBLIC task/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.VM PUBLIC vm/include ${LIBUV_INCLUDE_DIR})
 
 target_link_libraries(Lute.Runtime PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.VM uv_a)
 target_link_libraries(Lute.Fs PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.Luau PRIVATE Lute.Runtime Luau.VM uv_a Luau.Analysis Luau.Ast)
-target_link_libraries(Lute.Net PRIVATE Lute.Runtime Luau.VM uv_a ${WOLFSSL_LIBRARY} libcurl)
+target_link_libraries(Lute.Net PRIVATE Lute.Runtime Luau.VM uv_a ${WOLFSSL_LIBRARY} libcurl uWS)
 target_link_libraries(Lute.Task PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.VM PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.CLI PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.Runtime Lute.Fs Lute.Luau Lute.Net Lute.Task Lute.VM)
