@@ -1471,7 +1471,29 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeType(Luau::AstTypeTypeof* node)
     {
-        // TODO: types
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 4);
+
+        serializeNodePreamble(node, "typeof");
+
+        serializeToken(node->location.begin, "typeof");
+        lua_setfield(L, -2, "typeof");
+
+        const auto cstNode = lookupCstNode<Luau::CstTypeTypeof>(node);
+        if (cstNode)
+        {
+            serializeToken(cstNode->openPosition, "(");
+            lua_setfield(L, -2, "openParens");
+        }
+
+        node->expr->visit(this);
+        lua_setfield(L, -2, "expr");
+
+        if (cstNode)
+        {
+            serializeToken(cstNode->closePosition, ")");
+            lua_setfield(L, -2, "closeParens");
+        }
     }
 
     void serializeType(Luau::AstTypeIntersection* node)
@@ -1814,7 +1836,8 @@ struct AstSerialize : public Luau::AstVisitor
 
     bool visit(Luau::AstTypeTypeof* node) override
     {
-        return true;
+        serializeType(node);
+        return false;
     }
 
     bool visit(Luau::AstTypeUnion* node) override

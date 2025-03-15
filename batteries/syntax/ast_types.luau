@@ -328,6 +328,14 @@ export type AstTypeSingletonString = Token<string> & {
 	quoteStyle: "single" | "double",
 }
 
-export type AstType = | AstTypeReference | AstTypeSingletonBool | AstTypeSingletonString
+export type AstTypeTypeof = {
+	tag: "typeof",
+	typeof: Token<"typeof">,
+	openParens: Token<"(">,
+	expr: AstExpr,
+	closeParens: Token<")">,
+}
+
+export type AstType = | AstTypeReference | AstTypeSingletonBool | AstTypeSingletonString | AstTypeTypeof
 
 return {}
