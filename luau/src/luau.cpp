@@ -573,6 +573,32 @@ struct AstSerialize : public Luau::AstVisitor
         }
     }
 
+    void serializePunctuated(Luau::AstArray<Luau::AstTypeOrPack> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText)
+    {
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, nodes.size, 0);
+
+        for (size_t i = 0; i < nodes.size; i++)
+        {
+            lua_rawcheckstack(L, 2);
+            lua_createtable(L, 0, 2);
+
+            if (nodes.data[i].type)
+                nodes.data[i].type->visit(this);
+            else
+                nodes.data[i].typePack->visit(this);
+            lua_setfield(L, -2, "node");
+
+            if (i < separators.size)
+                serializeToken(separators.data[i], separatorText);
+            else
+                lua_pushnil(L);
+            lua_setfield(L, -2, "separator");
+
+            lua_rawseti(L, -2, i + 1);
+        }
+    }
+
     void serializePunctuated(Luau::AstArray<Luau::AstLocal*> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText)
     {
         lua_rawcheckstack(L, 2);
@@ -1390,7 +1416,47 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeType(Luau::AstTypeReference* node)
     {
-        // TODO: types
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 6);
+
+        serializeNodePreamble(node, "reference");
+
+        const auto cstNode = lookupCstNode<Luau::CstTypeReference>(node);
+
+        if (node->prefix)
+        {
+            LUAU_ASSERT(node->prefixLocation);
+            serializeToken(node->prefixLocation->begin, node->prefix->value);
+            lua_setfield(L, -2, "prefix");
+
+            if (cstNode)
+            {
+                LUAU_ASSERT(cstNode->prefixPointPosition);
+                serializeToken(*cstNode->prefixPointPosition, ".");
+                lua_setfield(L, -2, "prefixPoint");
+            }
+        }
+
+        serializeToken(node->nameLocation.begin, node->name.value);
+        lua_setfield(L, -2, "name");
+
+        if (node->hasParameterList)
+        {
+            if (cstNode)
+            {
+                serializeToken(cstNode->openParametersPosition, "<");
+                lua_setfield(L, -2, "openParameters");
+            }
+
+            serializePunctuated(node->parameters, cstNode ? cstNode->parametersCommaPositions : Luau::AstArray<Luau::Position>{}, ",");
+            lua_setfield(L, -2, "parameters");
+
+            if (cstNode)
+            {
+                serializeToken(cstNode->closeParametersPosition, ">");
+                lua_setfield(L, -2, "closeParameters");
+            }
+        }
     }
 
     void serializeType(Luau::AstTypeTable* node)
@@ -1732,7 +1798,8 @@ struct AstSerialize : public Luau::AstVisitor
 
     bool visit(Luau::AstTypeReference* node) override
     {
-        return true;
+        serializeType(node);
+        return false;
     }
 
     bool visit(Luau::AstTypeTable* node) override

@@ -308,6 +308,16 @@ export type AstStat =
 	| AstStatLocalFunction
 	| AstStatTypeAlias
 
+export type AstTypeReference = {
+	tag: "reference",
+	prefix: Token<string>?,
+	prefixPoint: Token<".">?,
+	name: Token<string>,
+	openParameters: Token<"<">?,
+	parameters: Punctuated<AstType>?,
+	closeParameters: Token<">">?,
+}
+
 export type AstTypeSingletonBool = Token<"true" | "false"> & {
 	tag: "boolean",
 	value: boolean,
@@ -318,6 +328,6 @@ export type AstTypeSingletonString = Token<string> & {
 	quoteStyle: "single" | "double",
 }
 
-export type AstType = | AstTypeSingletonBool | AstTypeSingletonString
+export type AstType = | AstTypeReference | AstTypeSingletonBool | AstTypeSingletonString
 
 return {}

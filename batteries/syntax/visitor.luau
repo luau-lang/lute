@@ -29,6 +29,7 @@ type Visitor = {
 	visitIndexExpr: (T.AstExprIndexExpr) -> boolean,
 	visitGroup: (T.AstExprGroup) -> boolean,
 
+	visitTypeReference: (T.AstTypeReference) -> boolean,
 	visitTypeBoolean: (T.AstTypeSingletonBool) -> boolean,
 	visitTypeString: (T.AstTypeSingletonString) -> boolean,
 
@@ -72,8 +73,9 @@ local defaultVisitor: Visitor = {
 	visitIndexExpr = alwaysVisit :: any,
 	visitGroup = alwaysVisit :: any,
 
-	visitTypeBoolean = alwaysVisit() :: any,
-	visitTypeString = alwaysVisit() :: any,
+	visitTypeReference = alwaysVisit :: any,
+	visitTypeBoolean = alwaysVisit :: any,
+	visitTypeString = alwaysVisit :: any,
 
 	visitToken = alwaysVisit :: any,
 	visitNil = alwaysVisit :: any,
@@ -390,6 +392,27 @@ local function visitGroup(node: T.AstExprGroup, visitor: Visitor)
 	end
 end
 
+local function visitTypeReference(node: T.AstTypeReference, visitor: Visitor)
+	if visitor.visitTypeReference(node) then
+		if node.prefix then
+			visitToken(node.prefix, visitor)
+		end
+		if node.prefixPoint then
+			visitToken(node.prefixPoint, visitor)
+		end
+		visitToken(node.name, visitor)
+		if node.openParameters then
+			visitToken(node.openParameters, visitor)
+		end
+		if node.parameters then
+			visitPunctuated(node.parameters, visitor, visitType)
+		end
+		if node.closeParameters then
+			visitToken(node.closeParameters, visitor)
+		end
+	end
+end
+
 local function visitTypeBoolean(node: T.AstTypeSingletonBool, visitor: Visitor)
 	if visitor.visitTypeBoolean(node) then
 		visitToken(node, visitor)
@@ -477,7 +500,9 @@ function visitStatement(statement: T.AstStat, visitor: Visitor)
 end
 
 function visitType(type: T.AstType, visitor: Visitor)
-	if type.tag == "boolean" then
+	if type.tag == "reference" then
+		visitTypeReference(type, visitor)
+	elseif type.tag == "boolean" then
 		visitTypeBoolean(type, visitor)
 	elseif type.tag == "string" then
 		visitTypeString(type, visitor)
