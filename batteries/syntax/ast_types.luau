@@ -298,4 +298,16 @@ export type AstStat =
 	| AstStatFunction
 	| AstStatLocalFunction
 
+export type AstTypeSingletonBool = Token<"true" | "false"> & {
+	tag: "boolean",
+	value: boolean,
+}
+
+export type AstTypeSingletonString = Token<string> & {
+	tag: "string",
+	quoteStyle: "single" | "double",
+}
+
+export type AstType = | AstTypeSingletonBool | AstTypeSingletonString
+
 return {}

@@ -1387,12 +1387,43 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeType(Luau::AstTypeSingletonBool* node)
     {
-        // TODO: types
+        serializeToken(node->location.begin, node->value ? "true" : "false", preambleSize + 1);
+        serializeNodePreamble(node, "boolean");
+
+        lua_pushboolean(L, node->value);
+        lua_setfield(L, -2, "value");
     }
 
     void serializeType(Luau::AstTypeSingletonString* node)
     {
-        // TODO: types
+        if (const auto cstNode = lookupCstNode<Luau::CstTypeSingletonString>(node))
+        {
+            serializeToken(node->location.begin, cstNode->sourceString.data, preambleSize);
+
+            switch (cstNode->quoteStyle)
+            {
+            case Luau::CstExprConstantString::QuotedSingle:
+                lua_pushstring(L, "single");
+                break;
+            case Luau::CstExprConstantString::QuotedDouble:
+                lua_pushstring(L, "double");
+                break;
+            default:
+                LUAU_ASSERT(false);
+            }
+            lua_setfield(L, -2, "quoteStyle");
+        }
+        else
+        {
+            serializeToken(node->location.begin, node->value.data, preambleSize);
+        }
+
+        serializeNodePreamble(node, "string");
+
+        // Unlike normal tokens, string content contains quotation marks that were not included during advancement
+        // For simplicity, lets set the current position manually
+        LUAU_ASSERT(currentPosition <= node->location.end);
+        currentPosition = node->location.end;
     }
 
     void serializeType(Luau::AstTypeError* node)

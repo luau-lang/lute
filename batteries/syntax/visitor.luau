@@ -28,6 +28,9 @@ type Visitor = {
 	visitIndexExpr: (T.AstExprIndexExpr) -> boolean,
 	visitGroup: (T.AstExprGroup) -> boolean,
 
+	visitTypeBoolean: (T.AstTypeSingletonBool) -> boolean,
+	visitTypeString: (T.AstTypeSingletonString) -> boolean,
+
 	visitToken: (T.Token) -> boolean,
 	visitNil: (T.AstExprConstantNil) -> boolean,
 	visitString: (T.AstExprConstantString) -> boolean,
@@ -66,6 +69,9 @@ local defaultVisitor: Visitor = {
 	visitIndexName = alwaysVisit :: any,
 	visitIndexExpr = alwaysVisit :: any,
 	visitGroup = alwaysVisit :: any,
+
+	visitTypeBoolean = alwaysVisit() :: any,
+	visitTypeString = alwaysVisit() :: any,
 
 	visitToken = alwaysVisit :: any,
 	visitNil = alwaysVisit :: any,
@@ -370,6 +376,18 @@ local function visitGroup(node: T.AstExprGroup, visitor: Visitor)
 	end
 end
 
+local function visitTypeBoolean(node: T.AstTypeSingletonBool, visitor: Visitor)
+	if visitor.visitTypeBoolean(node) then
+		visitToken(node, visitor)
+	end
+end
+
+local function visitTypeString(node: T.AstTypeSingletonString, visitor: Visitor)
+	if visitor.visitTypeString(node) then
+		visitToken(node, visitor)
+	end
+end
+
 function visitExpression(expression: T.AstExpr, visitor: Visitor)
 	if expression.tag == "nil" then
 		visitNil(expression, visitor)
@@ -439,6 +457,16 @@ function visitStatement(statement: T.AstStat, visitor: Visitor)
 		visitLocalFunction(statement, visitor)
 	else
 		exhaustiveMatch(statement.tag)
+	end
+end
+
+function visitType(ty: T.AstType, visitor: Visitor)
+	if ty.tag == "boolean" then
+		visitTypeBoolean(ty, visitor)
+	elseif ty.tag == "string" then
+		visitTypeString(ty, visitor)
+	else
+		exhaustiveMatch(ty.tag)
 	end
 end
 
