@@ -57,14 +57,14 @@ jobs:
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
         # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
         run: >
-          python ./tools/luthier configure lute
+          python ./tools/luthier.py configure lute
           --cxx_compiler=${{ matrix.cpp_compiler }}
           --c_compiler=${{ matrix.c_compiler }}
           --config=${{ matrix.build_type }}
 
       - name: luthier build
         run: >
-          python ./tools/luthier build lute
+          python ./tools/luthier.py build lute
           --cxx_compiler=${{ matrix.cpp_compiler }}
           --c_compiler=${{ matrix.c_compiler }}
           --config=${{ matrix.build_type }}
