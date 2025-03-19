@@ -172,4 +172,4 @@ function cli.help(self: Parser): ()
     end
 end
 
-return cli
+return table.freeze(cli)
