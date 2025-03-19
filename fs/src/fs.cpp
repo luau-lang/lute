@@ -115,6 +115,15 @@ struct FileHandle
     int errcode = -1;
 };
 
+l_noret luaL_errorHandle(lua_State* L, FileHandle& handle)
+{
+    #ifdef _MSC_VER
+        luaL_errorL(L, "Error writing to file with descriptor %Iu\n", handle.fileDescriptor);
+    #else
+        luaL_errorL(L, "Error writing to file with descriptor %zu\n", handle.fileDescriptor);
+    #endif
+}
+
 void setfield(lua_State* L, const char* index, int value)
 {
     lua_pushstring(L, index);
@@ -224,7 +233,7 @@ int write(lua_State* L)
         if (bytesWritten < 0)
         {
             // Error case.
-            luaL_errorL(L, "Error writing to file with descriptor %zu\n", file.fileDescriptor);
+            luaL_errorHandle(L, file);
             memset(writeBuffer, 0, sizeof(writeBuffer));
             return 0;
         }
@@ -520,7 +529,7 @@ int writestringtofile(lua_State* L)
         if (bytesWritten < 0)
         {
             // Error case.
-            luaL_errorL(L, "Error writing to file with descriptor %zu\n", handle->fileDescriptor);
+            luaL_errorHandle(L, *handle);
             cleanup(writeBuffer, sizeof(writeBuffer), *handle);
             return 0;
         }
