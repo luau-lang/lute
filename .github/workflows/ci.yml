@@ -52,6 +52,7 @@ jobs:
         run: |
           brew update
           brew install cmake ninja
+          brew unlink brotli zstd
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
