@@ -1,9 +1,0 @@
-# Unused project setting files
-*.ewt
-# Build products
-ewarm/
-Debug/
-Release/
-# Auto generated files
-settings/
-*.dep
