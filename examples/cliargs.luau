@@ -1,15 +1,13 @@
 local cli = require("@batteries/cli")
 
-local parser = cli.parser()
+local args = cli.parser()
 
-parser:add("input", "positional", { help = "Input file" })
-parser:add("verbose", "flag", { help = "Enable verbose mode", aliases = { "v" } })
-parser:add("output", "option", { help = "Output file", aliases = { "o" }, default = "default.txt" })
+args:add("input", "positional", { help = "Input file" })
+args:add("verbose", "flag", { help = "Enable verbose mode", aliases = { "v" } })
+args:add("output", "option", { help = "Output file", aliases = { "o" }, default = "default.txt" })
 
-local args = { ... }
+args:parse({ ... })
 
-parser:parse(args)
-
-print("Input File:", parser:get("input"))        -- "input.txt"
-print("Verbose Mode:", parser:has("verbose"))   -- true
-print("Output File:", parser:get("output"))     -- "result.txt"
+print("Input File:", args:get("input"))        -- "input.txt"
+print("Verbose Mode:", args:has("verbose"))   -- true
+print("Output File:", args:get("output"))     -- "result.txt"

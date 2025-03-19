@@ -24,7 +24,7 @@ type ParseResult = {
 type ParserData = {
     arguments: { [number]: ArgData },
     positional: { [number] : ArgData},
-    parsed: { [number]: ParseResult },
+    parsed: ParseResult,
 }
 
 type ParserInterface = typeof(cli)
