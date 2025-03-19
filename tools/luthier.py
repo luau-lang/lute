@@ -142,7 +142,7 @@ def getExeName(target):
 
 def getCompiler(args):
     if isMac:
-        return 'xcode-15.2'
+        return 'xcode'
     elif isWindows and args.vs2017:
         return 'vs2017'
     elif isWindows and args.vs2022:
@@ -154,8 +154,6 @@ def getConfig(args):
     return args.config
 
 def getProjectPath(args):
-    target = args.target
-
     buildDir = "build"
 
     config = getConfig(args).lower()
@@ -235,7 +233,6 @@ def build(args):
 
 def getConfigureArguments(args):
     "Returns a list of arguments to pass to configure.py based on the command line arguments provided"
-    target = args.target
     projectPath = getProjectPath(args)
 
     config = getConfig(args).lower()
@@ -275,8 +272,6 @@ def check(exitCode):
         sys.exit(exitCode)
 
 def run(args, unparsed):
-    target = args.target
-
     command = unparsed[:]
     command.insert(0, os.path.abspath(getExePath(args)))
 
@@ -327,4 +322,3 @@ if __name__ == '__main__':
         sys.exit(main(sys.argv[1:]))
     except ReportableError as e:
         print(f'Error: {e}')
-
