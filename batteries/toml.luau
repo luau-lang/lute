@@ -168,4 +168,4 @@ end
 toml.serialize = serialize
 toml.deserialize = deserialize
 
-return toml
+return table.freeze(toml)
