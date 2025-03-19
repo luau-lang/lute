@@ -17,3 +17,4 @@ compile_commands.json
 *~
 extern/libuv/libuv-static.pc
 extern/libuv/DartConfiguration.tcl
+extern/*/

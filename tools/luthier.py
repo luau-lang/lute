@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import tomllib # minimum python 3.11
 import subprocess as sp
 import sys
 
@@ -259,12 +260,44 @@ def getConfigureArguments(args):
 
     return configArgs
 
+def readTuneFile(path):
+    with open(path, 'rb') as fp:
+        return tomllib.load(fp)
+
+def fetchDependency(dependencyInfo):
+    dependency = dependencyInfo['dependency']
+
+    if not dependency:
+        raise ReportableError('tune file does not have a dependency table')
+    if not dependency.get('remote') or not dependency.get('branch'):
+        raise ReportableError('Invalid dependency info in tune file: must have `remote` and `branch` fields')
+
+    # if the directory already exists, update that directory to `branch`
+    if os.path.isdir(os.path.join('extern', dependency['name'])):
+        os.chdir(os.path.join('extern', dependency['name']))
+        check(call(['git', 'fetch', '--depth=1', 'origin', dependency['branch']]))
+        os.chdir(getSourceRoot())
+
+    # if it doesn't exist, we'll do a shallow clone
+    return call(['git', 'clone', '--depth=1', '--branch', dependency['branch'], dependency['remote'], "extern/" + dependency['name']])
+
+def fetchDependencies(args):
+    for _, _, files in os.walk('extern'):
+        for file in files:
+            if file.endswith('.tune'):
+                dependencyInfo = readTuneFile(os.path.join('extern', file))
+                check(fetchDependency(dependencyInfo))
+
+    return 0
+
+
 def configure(args):
-    """Runs configure.py to generate build files"""
+    """Runs any necessary configuration steps to generate build files"""
     cmd = [
         "cmake",
     ] + getConfigureArguments(args)
 
+    check(fetchDependencies(args))
     return call(cmd)
 
 def check(exitCode):
