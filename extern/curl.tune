@@ -1,4 +1,4 @@
 [dependency]
 name = "curl"
-remote = "git@github.com:curl/curl.git"
+remote = "https://github.com/curl/curl.git"
 branch = "curl-8_12_1"
