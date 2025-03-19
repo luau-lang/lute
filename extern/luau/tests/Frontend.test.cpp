@@ -14,10 +14,10 @@
 using namespace Luau;
 
 LUAU_FASTFLAG(LuauSolverV2);
-LUAU_FASTFLAG(DebugLuauFreezeArena);
-LUAU_FASTFLAG(DebugLuauMagicTypes);
+LUAU_FASTFLAG(DebugLuauFreezeArena)
+LUAU_FASTFLAG(DebugLuauMagicTypes)
 LUAU_FASTFLAG(LuauSelectivelyRetainDFGArena)
-LUAU_FASTFLAG(LuauBetterReverseDependencyTracking);
+LUAU_FASTFLAG(LuauModuleHoldsAstRoot)
 
 namespace
 {
@@ -1542,6 +1542,23 @@ TEST_CASE_FIXTURE(FrontendFixture, "check_module_references_allocator")
     CHECK_EQ(module->names.get(), source->names.get());
 }
 
+TEST_CASE_FIXTURE(FrontendFixture, "check_module_references_correct_ast_root")
+{
+    ScopedFastFlag sff{FFlag::LuauModuleHoldsAstRoot, true};
+    fileResolver.source["game/workspace/MyScript"] = R"(
+        print("Hello World")
+    )";
+
+    frontend.check("game/workspace/MyScript");
+
+    ModulePtr module = frontend.moduleResolver.getModule("game/workspace/MyScript");
+    SourceModule* source = frontend.getSourceModule("game/workspace/MyScript");
+    CHECK(module);
+    CHECK(source);
+
+    CHECK_EQ(module->root, source->root);
+}
+
 TEST_CASE_FIXTURE(FrontendFixture, "dfg_data_cleared_on_retain_type_graphs_unset")
 {
     ScopedFastFlag sffs[] = {{FFlag::LuauSolverV2, true}, {FFlag::LuauSelectivelyRetainDFGArena, true}};
@@ -1571,8 +1588,6 @@ return {x = a, y = b, z = c}
 
 TEST_CASE_FIXTURE(FrontendFixture, "test_traverse_dependents")
 {
-    ScopedFastFlag dependencyTracking{FFlag::LuauBetterReverseDependencyTracking, true};
-
     fileResolver.source["game/Gui/Modules/A"] = "return {hello=5, world=true}";
     fileResolver.source["game/Gui/Modules/B"] = R"(
         return require(game:GetService('Gui').Modules.A)
@@ -1605,8 +1620,6 @@ TEST_CASE_FIXTURE(FrontendFixture, "test_traverse_dependents")
 
 TEST_CASE_FIXTURE(FrontendFixture, "test_traverse_dependents_early_exit")
 {
-    ScopedFastFlag dependencyTracking{FFlag::LuauBetterReverseDependencyTracking, true};
-
     fileResolver.source["game/Gui/Modules/A"] = "return {hello=5, world=true}";
     fileResolver.source["game/Gui/Modules/B"] = R"(
         return require(game:GetService('Gui').Modules.A)
@@ -1634,8 +1647,6 @@ TEST_CASE_FIXTURE(FrontendFixture, "test_traverse_dependents_early_exit")
 
 TEST_CASE_FIXTURE(FrontendFixture, "test_dependents_stored_on_node_as_graph_updates")
 {
-    ScopedFastFlag dependencyTracking{FFlag::LuauBetterReverseDependencyTracking, true};
-
     auto updateSource = [&](const std::string& name, const std::string& source)
     {
         fileResolver.source[name] = source;
@@ -1750,7 +1761,6 @@ TEST_CASE_FIXTURE(FrontendFixture, "test_dependents_stored_on_node_as_graph_upda
 
 TEST_CASE_FIXTURE(FrontendFixture, "test_invalid_dependency_tracking_per_module_resolver")
 {
-    ScopedFastFlag dependencyTracking{FFlag::LuauBetterReverseDependencyTracking, true};
     ScopedFastFlag newSolver{FFlag::LuauSolverV2, false};
 
     fileResolver.source["game/Gui/Modules/A"] = "return {hello=5, world=true}";

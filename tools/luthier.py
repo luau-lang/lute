@@ -63,6 +63,16 @@ argParser.add_argument(
     help='print out the path to the compiled binary and exit'
 )
 
+argParser.add_argument(
+    '--cxx-compiler', dest='cxx_compiler', action='store',
+    help='C++ compiler to use',
+)
+
+argParser.add_argument(
+    '--c-compiler', dest='c_compiler', action='store',
+    help='C compiler to use',
+)
+
 if isWindows:
     vsVersionGroup = argParser.add_mutually_exclusive_group()
 
@@ -150,7 +160,10 @@ def getProjectPath(args):
 
     config = getConfig(args).lower()
 
-    return os.path.join(buildDir, getCompiler(args), config)
+    if isLinux:
+        return os.path.join(buildDir, config)
+    else:
+        return os.path.join(buildDir, getCompiler(args), config)
 
 def projectPathExists(args):
     projectPath = getProjectPath(args)
@@ -176,7 +189,6 @@ def getExePath(args):
         return os.path.join(
             buildDir,
             config.lower(),
-            container,
             exeName
         )
 
@@ -205,6 +217,9 @@ def call(*args):
 def build(args):
     targetName = args.target
     projectPath = getProjectPath(args)
+
+    if isWindows:
+        targetName = targetName + '.exe'
 
     if args.clean:
         call(['ninja', '-C', projectPath, 'clean'])
@@ -238,6 +253,12 @@ def getConfigureArguments(args):
         '-DCMAKE_BUILD_TYPE=' + config,
         '-DCMAKE_EXPORT_COMPILE_COMMANDS=1',
     ]
+
+    if args.cxx_compiler:
+        configArgs.append('-DCMAKE_CXX_COMPILER=' + args.cxx_compiler)
+
+    if args.c_compiler:
+        configArgs.append('-DCMAKE_C_COMPILER=' + args.c_compiler)
 
     return configArgs
 

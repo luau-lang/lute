@@ -10,6 +10,7 @@
 #include "Luau/Common.h"
 #include "Luau/FileResolver.h"
 #include "Luau/Frontend.h"
+#include "Luau/TimeTrace.h"
 #include "Luau/ToString.h"
 #include "Luau/Subtyping.h"
 #include "Luau/TypeInfer.h"
@@ -22,9 +23,13 @@
 LUAU_FASTFLAG(LuauSolverV2)
 LUAU_FASTINT(LuauTypeInferIterationLimit)
 LUAU_FASTINT(LuauTypeInferRecursionLimit)
+LUAU_FASTFLAGVARIABLE(DebugLuauMagicVariableNames)
+
+LUAU_FASTFLAG(LuauExposeRequireByStringAutocomplete)
 
 LUAU_FASTFLAGVARIABLE(LuauAutocompleteRefactorsForIncrementalAutocomplete)
-LUAU_FASTFLAGVARIABLE(LuauAutocompleteUseLimits)
+
+LUAU_FASTFLAGVARIABLE(LuauAutocompleteUsesModuleForTypeCompatibility)
 
 static const std::unordered_set<std::string> kStatementStartingKeywords =
     {"while", "if", "local", "repeat", "function", "do", "for", "return", "break", "continue", "type", "export"};
@@ -146,44 +151,91 @@ static std::optional<TypeId> findExpectedTypeAt(const Module& module, AstNode* n
     return *it;
 }
 
-static bool checkTypeMatch(TypeId subTy, TypeId superTy, NotNull<Scope> scope, TypeArena* typeArena, NotNull<BuiltinTypes> builtinTypes)
+static bool checkTypeMatch(
+    const Module& module,
+    TypeId subTy,
+    TypeId superTy,
+    NotNull<Scope> scope,
+    TypeArena* typeArena,
+    NotNull<BuiltinTypes> builtinTypes
+)
 {
     InternalErrorReporter iceReporter;
     UnifierSharedState unifierState(&iceReporter);
     SimplifierPtr simplifier = newSimplifier(NotNull{typeArena}, builtinTypes);
     Normalizer normalizer{typeArena, builtinTypes, NotNull{&unifierState}};
-
-    if (FFlag::LuauSolverV2)
+    if (FFlag::LuauAutocompleteUsesModuleForTypeCompatibility)
     {
-        TypeCheckLimits limits;
-        TypeFunctionRuntime typeFunctionRuntime{
-            NotNull{&iceReporter}, NotNull{&limits}
-        }; // TODO: maybe subtyping checks should not invoke user-defined type function runtime
+        if (module.checkedInNewSolver)
+        {
+            TypeCheckLimits limits;
+            TypeFunctionRuntime typeFunctionRuntime{
+                NotNull{&iceReporter}, NotNull{&limits}
+            }; // TODO: maybe subtyping checks should not invoke user-defined type function runtime
 
-        unifierState.counters.recursionLimit = FInt::LuauTypeInferRecursionLimit;
-        unifierState.counters.iterationLimit = FInt::LuauTypeInferIterationLimit;
+            unifierState.counters.recursionLimit = FInt::LuauTypeInferRecursionLimit;
+            unifierState.counters.iterationLimit = FInt::LuauTypeInferIterationLimit;
 
-        Subtyping subtyping{
-            builtinTypes, NotNull{typeArena}, NotNull{simplifier.get()}, NotNull{&normalizer}, NotNull{&typeFunctionRuntime}, NotNull{&iceReporter}
-        };
+            Subtyping subtyping{
+                builtinTypes,
+                NotNull{typeArena},
+                NotNull{simplifier.get()},
+                NotNull{&normalizer},
+                NotNull{&typeFunctionRuntime},
+                NotNull{&iceReporter}
+            };
 
-        return subtyping.isSubtype(subTy, superTy, scope).isSubtype;
+            return subtyping.isSubtype(subTy, superTy, scope).isSubtype;
+        }
+        else
+        {
+            Unifier unifier(NotNull<Normalizer>{&normalizer}, scope, Location(), Variance::Covariant);
+
+            // Cost of normalization can be too high for autocomplete response time requirements
+            unifier.normalize = false;
+            unifier.checkInhabited = false;
+
+            unifierState.counters.recursionLimit = FInt::LuauTypeInferRecursionLimit;
+            unifierState.counters.iterationLimit = FInt::LuauTypeInferIterationLimit;
+
+            return unifier.canUnify(subTy, superTy).empty();
+        }
     }
     else
     {
-        Unifier unifier(NotNull<Normalizer>{&normalizer}, scope, Location(), Variance::Covariant);
-
-        // Cost of normalization can be too high for autocomplete response time requirements
-        unifier.normalize = false;
-        unifier.checkInhabited = false;
-
-        if (FFlag::LuauAutocompleteUseLimits)
+        if (FFlag::LuauSolverV2)
         {
+            TypeCheckLimits limits;
+            TypeFunctionRuntime typeFunctionRuntime{
+                NotNull{&iceReporter}, NotNull{&limits}
+            }; // TODO: maybe subtyping checks should not invoke user-defined type function runtime
+
             unifierState.counters.recursionLimit = FInt::LuauTypeInferRecursionLimit;
             unifierState.counters.iterationLimit = FInt::LuauTypeInferIterationLimit;
-        }
 
-        return unifier.canUnify(subTy, superTy).empty();
+            Subtyping subtyping{
+                builtinTypes,
+                NotNull{typeArena},
+                NotNull{simplifier.get()},
+                NotNull{&normalizer},
+                NotNull{&typeFunctionRuntime},
+                NotNull{&iceReporter}
+            };
+
+            return subtyping.isSubtype(subTy, superTy, scope).isSubtype;
+        }
+        else
+        {
+            Unifier unifier(NotNull<Normalizer>{&normalizer}, scope, Location(), Variance::Covariant);
+
+            // Cost of normalization can be too high for autocomplete response time requirements
+            unifier.normalize = false;
+            unifier.checkInhabited = false;
+            unifierState.counters.recursionLimit = FInt::LuauTypeInferRecursionLimit;
+            unifierState.counters.iterationLimit = FInt::LuauTypeInferIterationLimit;
+
+            return unifier.canUnify(subTy, superTy).empty();
+        }
     }
 }
 
@@ -209,10 +261,10 @@ static TypeCorrectKind checkTypeCorrectKind(
 
     TypeId expectedType = follow(*typeAtPosition);
 
-    auto checkFunctionType = [typeArena, builtinTypes, moduleScope, &expectedType](const FunctionType* ftv)
+    auto checkFunctionType = [typeArena, builtinTypes, moduleScope, &expectedType, &module](const FunctionType* ftv)
     {
         if (std::optional<TypeId> firstRetTy = first(ftv->retTypes))
-            return checkTypeMatch(*firstRetTy, expectedType, moduleScope, typeArena, builtinTypes);
+            return checkTypeMatch(module, *firstRetTy, expectedType, moduleScope, typeArena, builtinTypes);
 
         return false;
     };
@@ -235,7 +287,7 @@ static TypeCorrectKind checkTypeCorrectKind(
         }
     }
 
-    return checkTypeMatch(ty, expectedType, moduleScope, typeArena, builtinTypes) ? TypeCorrectKind::Correct : TypeCorrectKind::None;
+    return checkTypeMatch(module, ty, expectedType, moduleScope, typeArena, builtinTypes) ? TypeCorrectKind::Correct : TypeCorrectKind::None;
 }
 
 enum class PropIndexType
@@ -286,7 +338,7 @@ static void autocompleteProps(
             // When called with '.', but declared with 'self', it is considered invalid if first argument is compatible
             if (std::optional<TypeId> firstArgTy = first(ftv->argTypes))
             {
-                if (checkTypeMatch(rootTy, *firstArgTy, NotNull{module.getModuleScope().get()}, typeArena, builtinTypes))
+                if (checkTypeMatch(module, rootTy, *firstArgTy, NotNull{module.getModuleScope().get()}, typeArena, builtinTypes))
                     return calledWithSelf;
             }
 
@@ -1294,6 +1346,15 @@ static AutocompleteContext autocompleteExpression(
 
     AstNode* node = ancestry.rbegin()[0];
 
+    if (FFlag::DebugLuauMagicVariableNames)
+    {
+        InternalErrorReporter ice;
+        if (auto local = node->as<AstExprLocal>(); local && local->local->name == "_luau_autocomplete_ice")
+            ice.ice("_luau_autocomplete_ice encountered", local->location);
+        if (auto global = node->as<AstExprGlobal>(); global && global->name == "_luau_autocomplete_ice")
+            ice.ice("_luau_autocomplete_ice encountered", global->location);
+    }
+
     if (node->is<AstExprIndexName>())
     {
         if (auto it = module.astTypes.find(node->asExpr()))
@@ -1460,10 +1521,14 @@ static std::optional<AutocompleteEntryMap> convertRequireSuggestionsToAutocomple
         return std::nullopt;
 
     AutocompleteEntryMap result;
-    for (const RequireSuggestion& suggestion : *suggestions)
+    for (RequireSuggestion& suggestion : *suggestions)
     {
         AutocompleteEntry entry = {AutocompleteEntryKind::RequirePath};
         entry.insertText = std::move(suggestion.fullPath);
+        if (FFlag::LuauExposeRequireByStringAutocomplete)
+        {
+            entry.tags = std::move(suggestion.tags);
+        }
         result[std::move(suggestion.label)] = std::move(entry);
     }
     return result;
@@ -1714,6 +1779,7 @@ AutocompleteResult autocomplete_(
     StringCompletionCallback callback
 )
 {
+    LUAU_TIMETRACE_SCOPE("Luau::autocomplete_", "AutocompleteCore");
     AstNode* node = ancestry.back();
 
     AstExprConstantNil dummy{Location{}};

@@ -51,6 +51,10 @@ LUAU_FASTFLAGVARIABLE(LuauMetatableTypeFunctions)
 LUAU_FASTFLAGVARIABLE(LuauClipNestedAndRecursiveUnion)
 LUAU_FASTFLAGVARIABLE(LuauDoNotGeneralizeInTypeFunctions)
 LUAU_FASTFLAGVARIABLE(LuauPreventReentrantTypeFunctionReduction)
+LUAU_FASTFLAGVARIABLE(LuauIntersectNotNil)
+LUAU_FASTFLAGVARIABLE(LuauSkipNoRefineDuringRefinement)
+LUAU_FASTFLAGVARIABLE(LuauDontForgetToReduceUnionFunc)
+LUAU_FASTFLAGVARIABLE(LuauSearchForRefineableType)
 
 namespace Luau
 {
@@ -627,6 +631,9 @@ static std::optional<TypeFunctionReductionResult<TypeId>> tryDistributeTypeFunct
             std::move(results),
             {},
         });
+
+        if (FFlag::LuauDontForgetToReduceUnionFunc && ctx->solver)
+            ctx->pushConstraint(ReduceConstraint{resultTy});
 
         return {{resultTy, Reduction::MaybeOk, {}, {}}};
     }
@@ -1932,6 +1939,33 @@ struct FindRefinementBlockers : TypeOnceVisitor
     }
 };
 
+struct ContainsRefinableType : TypeOnceVisitor
+{
+    bool found = false;
+    ContainsRefinableType() : TypeOnceVisitor(/* skipBoundTypes */ true) {}
+
+
+    bool visit(TypeId ty) override {
+        // Default case: if we find *some* type that's worth refining against,
+        // then we can claim that this type contains a refineable type.
+        found = true;
+        return false;
+    }
+
+    bool visit(TypeId Ty, const NoRefineType&) override {
+        // No refine types aren't interesting
+        return false;
+    }
+
+    bool visit(TypeId ty, const TableType&) override { return !found; }
+    bool visit(TypeId ty, const MetatableType&) override { return !found; }
+    bool visit(TypeId ty, const FunctionType&) override { return !found; }
+    bool visit(TypeId ty, const UnionType&) override { return !found; }
+    bool visit(TypeId ty, const IntersectionType&) override { return !found; }
+    bool visit(TypeId ty, const NegationType&) override { return !found; }
+
+};
+
 TypeFunctionReductionResult<TypeId> refineTypeFunction(
     TypeId instance,
     const std::vector<TypeId>& typeParams,
@@ -2005,21 +2039,27 @@ TypeFunctionReductionResult<TypeId> refineTypeFunction(
         }
         else
         {
-            /* HACK: Refinements sometimes produce a type T & ~any under the assumption
-             * that ~any is the same as any.  This is so so weird, but refinements needs
-             * some way to say "I may refine this, but I'm not sure."
-             *
-             * It does this by refining on a blocked type and deferring the decision
-             * until it is unblocked.
-             *
-             * Refinements also get negated, so we wind up with types like T & ~*blocked*
-             *
-             * We need to treat T & ~any as T in this case.
-             */
-            if (auto nt = get<NegationType>(discriminant))
+            if (FFlag::LuauSearchForRefineableType)
             {
-                if (get<NoRefineType>(follow(nt->ty)))
+                // If the discriminant type is only:
+                // - The `*no-refine*` type or,
+                // - tables, metatables, unions, intersections, functions, or negations _containing_ `*no-refine*`.
+                // There's no point in refining against it.
+                ContainsRefinableType crt;
+                crt.traverse(discriminant);
+                if (!crt.found)
                     return {target, {}};
+            }
+            else
+            {
+                if (FFlag::LuauSkipNoRefineDuringRefinement)
+                    if (get<NoRefineType>(discriminant))
+                        return {target, {}};
+                if (auto nt = get<NegationType>(discriminant))
+                {
+                    if (get<NoRefineType>(follow(nt->ty)))
+                        return {target, {}};
+                }
             }
 
             // If the target type is a table, then simplification already implements the logic to deal with refinements properly since the
@@ -2292,8 +2332,20 @@ TypeFunctionReductionResult<TypeId> intersectTypeFunction(
             continue;
 
         SimplifyResult result = simplifyIntersection(ctx->builtins, ctx->arena, resultTy, ty);
-        if (!result.blockedTypes.empty())
-            return {std::nullopt, Reduction::MaybeOk, {result.blockedTypes.begin(), result.blockedTypes.end()}, {}};
+
+        if (FFlag::LuauIntersectNotNil)
+        {
+            for (TypeId blockedType : result.blockedTypes)
+            {
+                if (!get<GenericType>(blockedType))
+                    return {std::nullopt, Reduction::MaybeOk, {result.blockedTypes.begin(), result.blockedTypes.end()}, {}};
+            }
+        }
+        else
+        {
+            if (!result.blockedTypes.empty())
+                return {std::nullopt, Reduction::MaybeOk, {result.blockedTypes.begin(), result.blockedTypes.end()}, {}};
+        }
 
         resultTy = result.result;
     }

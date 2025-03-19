@@ -18,15 +18,13 @@ LUAU_FASTINTVARIABLE(LuauParseErrorLimit, 100)
 // flag so that we don't break production games by reverting syntax changes.
 // See docs/SyntaxChanges.md for an explanation.
 LUAU_FASTFLAGVARIABLE(LuauSolverV2)
-LUAU_FASTFLAGVARIABLE(LuauAllowFragmentParsing)
 LUAU_FASTFLAGVARIABLE(LuauAllowComplexTypesInGenericParams)
 LUAU_FASTFLAGVARIABLE(LuauErrorRecoveryForTableTypes)
-LUAU_FASTFLAGVARIABLE(LuauErrorRecoveryForClassNames)
 LUAU_FASTFLAGVARIABLE(LuauFixFunctionNameStartPosition)
 LUAU_FASTFLAGVARIABLE(LuauExtendStatEndPosWithSemicolon)
 LUAU_FASTFLAGVARIABLE(LuauStoreCSTData)
 LUAU_FASTFLAGVARIABLE(LuauPreserveUnionIntersectionNodeForLeadingTokenSingleType)
-LUAU_FASTFLAGVARIABLE(LuauAstTypeGroup)
+LUAU_FASTFLAGVARIABLE(LuauAstTypeGroup3)
 LUAU_FASTFLAGVARIABLE(ParserNoErrorLimit)
 LUAU_FASTFLAGVARIABLE(LuauFixDoBlockEndLocation)
 
@@ -182,6 +180,28 @@ ParseResult Parser::parse(const char* buffer, size_t bufferSize, AstNameTable& n
     }
 }
 
+ParseExprResult Parser::parseExpr(const char* buffer, size_t bufferSize, AstNameTable& names, Allocator& allocator, ParseOptions options)
+{
+    LUAU_TIMETRACE_SCOPE("Parser::parse", "Parser");
+
+    Parser p(buffer, bufferSize, names, allocator, options);
+
+    try
+    {
+        AstExpr* expr = p.parseExpr();
+        size_t lines = p.lexer.current().location.end.line + (bufferSize > 0 && buffer[bufferSize - 1] != '\n');
+
+        return ParseExprResult{expr, lines, std::move(p.hotcomments), std::move(p.parseErrors), std::move(p.commentLocations), std::move(p.cstNodeMap)};
+    }
+    catch (ParseError& err)
+    {
+        // when catching a fatal error, append it to the list of non-fatal errors and return
+        p.parseErrors.push_back(err);
+
+        return ParseExprResult{nullptr, 0, {}, p.parseErrors, {}, std::move(p.cstNodeMap)};
+    }
+}
+
 Parser::Parser(const char* buffer, size_t bufferSize, AstNameTable& names, Allocator& allocator, const ParseOptions& options)
     : options(options)
     , lexer(buffer, bufferSize, names, options.parseFragment ? options.parseFragment->resumePosition : Position(0, 0))
@@ -197,18 +217,9 @@ Parser::Parser(const char* buffer, size_t bufferSize, AstNameTable& names, Alloc
     functionStack.reserve(8);
     functionStack.push_back(top);
 
-    if (FFlag::LuauAllowFragmentParsing)
-    {
-        nameSelf = names.getOrAdd("self");
-        nameNumber = names.getOrAdd("number");
-        nameError = names.getOrAdd(kParseNameError);
-    }
-    else
-    {
-        nameSelf = names.addStatic("self");
-        nameNumber = names.addStatic("number");
-        nameError = names.addStatic(kParseNameError);
-    }
+    nameSelf = names.getOrAdd("self");
+    nameNumber = names.getOrAdd("number");
+    nameError = names.getOrAdd(kParseNameError);
     nameNil = names.getOrAdd("nil"); // nil is a reserved keyword
 
     matchRecoveryStopOnToken.assign(Lexeme::Type::Reserved_END, 0);
@@ -231,13 +242,10 @@ Parser::Parser(const char* buffer, size_t bufferSize, AstNameTable& names, Alloc
     scratchLocal.reserve(16);
     scratchBinding.reserve(16);
 
-    if (FFlag::LuauAllowFragmentParsing)
+    if (options.parseFragment)
     {
-        if (options.parseFragment)
-        {
-            localMap = options.parseFragment->localMap;
-            localStack = options.parseFragment->localStack;
-        }
+        localMap = options.parseFragment->localMap;
+        localStack = options.parseFragment->localStack;
     }
 }
 
@@ -1298,30 +1306,17 @@ AstStat* Parser::parseDeclaration(const Location& start, const AstArray<AstAttr*
             }
             else
             {
-                if (FFlag::LuauErrorRecoveryForClassNames)
-                {
-                    Location propStart = lexer.current().location;
-                    std::optional<Name> propName = parseNameOpt("property name");
+                Location propStart = lexer.current().location;
+                std::optional<Name> propName = parseNameOpt("property name");
 
-                    if (!propName)
-                        break;
+                if (!propName)
+                    break;
 
-                    expectAndConsume(':', "property type annotation");
-                    AstType* propType = parseType();
-                    props.push_back(
-                        AstDeclaredClassProp{propName->name, propName->location, propType, false, Location(propStart, lexer.previousLocation())}
-                    );
-                }
-                else
-                {
-                    Location propStart = lexer.current().location;
-                    Name propName = parseName("property name");
-                    expectAndConsume(':', "property type annotation");
-                    AstType* propType = parseType();
-                    props.push_back(
-                        AstDeclaredClassProp{propName.name, propName.location, propType, false, Location(propStart, lexer.previousLocation())}
-                    );
-                }
+                expectAndConsume(':', "property type annotation");
+                AstType* propType = parseType();
+                props.push_back(
+                    AstDeclaredClassProp{propName->name, propName->location, propType, false, Location(propStart, lexer.previousLocation())}
+                );
             }
         }
 
@@ -1723,11 +1718,13 @@ std::pair<Location, AstTypeList> Parser::parseReturnType()
     if (lexer.current().type != Lexeme::SkinnyArrow && resultNames.empty())
     {
         // If it turns out that it's just '(A)', it's possible that there are unions/intersections to follow, so fold over it.
-        if (FFlag::LuauAstTypeGroup)
+        if (FFlag::LuauAstTypeGroup3)
         {
-            if (result.size() == 1 && varargAnnotation == nullptr)
+            if (result.size() == 1)
             {
-                AstType* returnType = parseTypeSuffix(allocator.alloc<AstTypeGroup>(location, result[0]), begin.location);
+                // TODO(CLI-140667): stop parsing type suffix when varargAnnotation != nullptr - this should be a parse error
+                AstType* inner = varargAnnotation == nullptr ? allocator.alloc<AstTypeGroup>(location, result[0]) : result[0];
+                AstType* returnType = parseTypeSuffix(inner, begin.location);
 
                 // If parseType parses nothing, then returnType->location.end only points at the last non-type-pack
                 // type to successfully parse.  We need the span of the whole annotation.
@@ -2034,6 +2031,7 @@ AstTypeOrPack Parser::parseFunctionType(bool allowPack, const AstArray<AstAttr*>
     if (lexer.current().type != ')')
         varargAnnotation = parseTypeList(params, names);
 
+    Location closeArgsLocation = lexer.current().location;
     expectMatchAndConsume(')', parameterStart, true);
 
     matchRecoveryStopOnToken[Lexeme::SkinnyArrow]--;
@@ -2052,8 +2050,8 @@ AstTypeOrPack Parser::parseFunctionType(bool allowPack, const AstArray<AstAttr*>
             return {{}, allocator.alloc<AstTypePackExplicit>(begin.location, AstTypeList{paramTypes, nullptr})};
         else
         {
-            if (FFlag::LuauAstTypeGroup)
-                return {allocator.alloc<AstTypeGroup>(Location(parameterStart.location, params[0]->location), params[0]), {}};
+            if (FFlag::LuauAstTypeGroup3)
+                return {allocator.alloc<AstTypeGroup>(Location(parameterStart.location, closeArgsLocation), params[0]), {}};
             else
                 return {params[0], {}};
         }
@@ -3562,7 +3560,7 @@ AstArray<AstTypeOrPack> Parser::parseTypeParams(Position* openingPosition, TempV
                             // the next lexeme is one that follows a type
                             // (&, |, ?), then assume that this was actually a
                             // parenthesized type.
-                            if (FFlag::LuauAstTypeGroup)
+                            if (FFlag::LuauAstTypeGroup3)
                             {
                                 auto parenthesizedType = explicitTypePack->typeList.types.data[0];
                                 parameters.push_back(

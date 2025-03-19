@@ -1,6 +1,7 @@
 // This file is part of the Luau programming language and is licensed under MIT License; see LICENSE.txt for details
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/Common.h"
+#include "Luau/Error.h"
 #include "Luau/Frontend.h"
 #include "Luau/ToString.h"
 #include "Luau/TypeInfer.h"
@@ -18,8 +19,6 @@ using namespace Luau;
 LUAU_FASTFLAG(LuauSolverV2)
 LUAU_FASTFLAG(LuauInstantiateInSubtyping)
 LUAU_FASTFLAG(LuauFixIndexerSubtypingOrdering)
-LUAU_FASTFLAG(LuauTableKeysAreRValues)
-LUAU_FASTFLAG(LuauAllowNilAssignmentToIndexer)
 LUAU_FASTFLAG(LuauTrackInteriorFreeTypesOnScope)
 LUAU_FASTFLAG(LuauTrackInteriorFreeTablesOnScope)
 LUAU_FASTFLAG(LuauDontInPlaceMutateTableType)
@@ -27,6 +26,10 @@ LUAU_FASTFLAG(LuauAllowNonSharedTableTypesInLiteral)
 LUAU_FASTFLAG(LuauFollowTableFreeze)
 LUAU_FASTFLAG(LuauPrecalculateMutatedFreeTypes2)
 LUAU_FASTFLAG(LuauDeferBidirectionalInferenceForTableAssignment)
+LUAU_FASTFLAG(LuauBidirectionalInferenceUpcast)
+LUAU_FASTFLAG(DebugLuauAssertOnForcedConstraint)
+LUAU_FASTFLAG(LuauSearchForRefineableType)
+LUAU_FASTFLAG(LuauDoNotGeneralizeInTypeFunctions)
 
 TEST_SUITE_BEGIN("TableTests");
 
@@ -1932,7 +1935,7 @@ TEST_CASE_FIXTURE(Fixture, "type_mismatch_on_massive_table_is_cut_short")
 
 TEST_CASE_FIXTURE(Fixture, "ok_to_set_nil_even_on_non_lvalue_base_expr")
 {
-    ScopedFastFlag sffs[] = {{FFlag::LuauSolverV2, true}, {FFlag::LuauAllowNilAssignmentToIndexer, true}};
+    ScopedFastFlag _{FFlag::LuauSolverV2, true};
 
     LUAU_REQUIRE_NO_ERRORS(check(R"(
         local function f(): { [string]: number }
@@ -1991,9 +1994,6 @@ TEST_CASE_FIXTURE(Fixture, "ok_to_set_nil_even_on_non_lvalue_base_expr")
 
 TEST_CASE_FIXTURE(Fixture, "ok_to_set_nil_on_generic_map")
 {
-
-    ScopedFastFlag sffs[] = {{FFlag::LuauSolverV2, true}, {FFlag::LuauAllowNilAssignmentToIndexer, true}};
-
     LUAU_REQUIRE_NO_ERRORS(check(R"(
         type MyMap<K, V> = { [K]: V }
         function set<K, V>(m: MyMap<K, V>, k: K, v: V)
@@ -2010,8 +2010,7 @@ TEST_CASE_FIXTURE(Fixture, "ok_to_set_nil_on_generic_map")
 
 TEST_CASE_FIXTURE(Fixture, "key_setting_inference_given_nil_upper_bound")
 {
-    ScopedFastFlag sffs[] = {{FFlag::LuauSolverV2, true}, {FFlag::LuauAllowNilAssignmentToIndexer, true}};
-
+    ScopedFastFlag _{FFlag::LuauSolverV2, true};
     LUAU_REQUIRE_NO_ERRORS(check(R"(
         local function setkey_object(t: { [string]: number }, v)
             t.foo = v
@@ -2942,16 +2941,12 @@ TEST_CASE_FIXTURE(Fixture, "table_length")
 
 TEST_CASE_FIXTURE(Fixture, "nil_assign_doesnt_hit_indexer")
 {
-    // CLI-100076 - Assigning a table key to `nil` in the presence of an indexer should always be permitted
-    DOES_NOT_PASS_NEW_SOLVER_GUARD();
-
-    CheckResult result = check("local a = {} a[0] = 7  a[0] = nil");
-    LUAU_REQUIRE_ERROR_COUNT(0, result);
+    LUAU_REQUIRE_NO_ERRORS(check("local a = {} a[0] = 7  a[0] = nil"));
 }
 
 TEST_CASE_FIXTURE(Fixture, "wrong_assign_does_hit_indexer")
 {
-    ScopedFastFlag sffs[] = {{FFlag::LuauSolverV2, true}, {FFlag::LuauAllowNilAssignmentToIndexer, true}};
+    ScopedFastFlag _{FFlag::LuauSolverV2, true};
 
     CheckResult result = check(R"(
         local a = {}
@@ -5055,7 +5050,6 @@ TEST_CASE_FIXTURE(Fixture, "function_check_constraint_too_eager")
 TEST_CASE_FIXTURE(BuiltinsFixture, "read_only_property_reads")
 {
     ScopedFastFlag newSolver{FFlag::LuauSolverV2, true};
-    ScopedFastFlag sff{FFlag::LuauTableKeysAreRValues, true};
 
     // none of the `t.id` accesses here should error
     auto result = check(R"(
@@ -5193,5 +5187,185 @@ TEST_CASE_FIXTURE(Fixture, "empty_union_container_overflow")
         end
     )"));
 }
+
+TEST_CASE_FIXTURE(Fixture, "inference_in_constructor")
+{
+    LUAU_CHECK_NO_ERRORS(check(R"(
+        local function new(y)
+            local t: { x: number } = { x = y }
+            return t
+        end
+    )"));
+    if (FFlag::LuauSolverV2)
+        CHECK_EQ("(number) -> { x: number }", toString(requireType("new")));
+    else
+        CHECK_EQ("(number) -> {| x: number |}", toString(requireType("new")));
+}
+
+TEST_CASE_FIXTURE(Fixture, "returning_optional_in_table")
+{
+    ScopedFastFlag sffs[] = {
+        {FFlag::LuauDeferBidirectionalInferenceForTableAssignment, true},
+        {FFlag::LuauBidirectionalInferenceUpcast, true},
+    };
+
+    LUAU_CHECK_NO_ERRORS(check(R"(
+        local Numbers = { zero = 0 }
+        local function FuncA(): { Value: number? }
+            return { Value = Numbers.zero }
+        end
+    )"));
+}
+
+TEST_CASE_FIXTURE(Fixture, "returning_mismatched_optional_in_table")
+{
+    ScopedFastFlag sffs[] = {
+        {FFlag::LuauSolverV2, true},
+        {FFlag::LuauDeferBidirectionalInferenceForTableAssignment, true},
+    };
+
+    auto result = check(R"(
+        local Numbers = { str = ( "" :: string ) }
+        local function FuncB(): { Value: number? }
+            return {
+                Value = Numbers.str
+            }
+        end
+    )");
+    LUAU_CHECK_ERROR_COUNT(1, result);
+    auto err = get<TypePackMismatch>(result.errors[0]);
+    REQUIRE(err);
+    CHECK_EQ(toString(err->givenTp), "{ Value: string }");
+    CHECK_EQ(toString(err->wantedTp), "{ Value: number? }");
+}
+
+TEST_CASE_FIXTURE(Fixture, "optional_function_in_table")
+{
+    ScopedFastFlag sffs[] = {
+        {FFlag::LuauSolverV2, true},
+        {FFlag::LuauDeferBidirectionalInferenceForTableAssignment, true},
+        {FFlag::LuauBidirectionalInferenceUpcast, true},
+    };
+
+    LUAU_CHECK_NO_ERRORS(check(R"(
+        local t: { (() -> ())? } = {
+            function() end,
+        }
+    )"));
+
+    auto result = check(R"(
+        local t: { ((number) -> ())? } = {
+            function(_: string) end,
+        }
+    )");
+
+    LUAU_CHECK_ERROR_COUNT(1, result);
+    auto err = get<TypeMismatch>(result.errors[0]);
+    REQUIRE(err);
+    CHECK_EQ(toString(err->givenType), "{(string) -> ()}");
+    CHECK_EQ(toString(err->wantedType), "{((number) -> ())?}");
+}
+
+TEST_CASE_FIXTURE(Fixture, "oss_1596_expression_in_table")
+{
+    ScopedFastFlag sffs[] = {
+        {FFlag::LuauDeferBidirectionalInferenceForTableAssignment, true},
+        {FFlag::LuauBidirectionalInferenceUpcast, true},
+    };
+
+    LUAU_CHECK_NO_ERRORS(check(R"(
+        type foo = {abc: number?}
+        local x: foo = {abc = 100}
+        local y: foo = {abc = 10 * 10}
+    )"));
+}
+
+TEST_CASE_FIXTURE(Fixture, "oss_1615_parametrized_type_alias")
+{
+    ScopedFastFlag sffs[] = {
+        {FFlag::LuauDeferBidirectionalInferenceForTableAssignment, true},
+    };
+
+    LUAU_CHECK_NO_ERRORS(check(R"(
+        type Pair<Node> = { sep: {}? }
+        local a: Pair<{}> = {
+            sep = nil,
+        }
+    )"));
+}
+
+TEST_CASE_FIXTURE(Fixture, "oss_1543_optional_generic_param")
+{
+    ScopedFastFlag sffs[] = {
+        {FFlag::LuauPrecalculateMutatedFreeTypes2, true},
+        {FFlag::LuauDeferBidirectionalInferenceForTableAssignment, true},
+    };
+
+    LUAU_CHECK_NO_ERRORS(check(R"(
+        type foo<T> = { bar: T? }
+
+        local foo: foo<any> = { bar = "foobar" }
+        local foo: foo<any> = { }
+        local foo: foo<nil> = { }
+    )"));
+}
+
+TEST_CASE_FIXTURE(Fixture, "missing_fields_bidirectional_inference")
+{
+    ScopedFastFlag sffs[] = {
+        {FFlag::LuauSolverV2, true},
+        {FFlag::LuauPrecalculateMutatedFreeTypes2, true},
+        {FFlag::LuauDeferBidirectionalInferenceForTableAssignment, true},
+    };
+
+    auto result = check(R"(
+        type Book = { title: string, author: string }
+        local b: Book = { title = "The Odyssey" }
+        local t: { Book } = {
+            { title = "The Illiad", author = "Homer" },
+            { author = "Virgil" }
+        }
+    )");
+
+    LUAU_CHECK_ERROR_COUNT(2, result);
+    auto err = get<TypeMismatch>(result.errors[0]);
+    REQUIRE(err);
+    CHECK_EQ(toString(err->givenType), "{ title: string }");
+    CHECK_EQ(toString(err->wantedType), "Book");
+    CHECK_EQ(result.errors[0].location, Location{{2, 24}, {2, 49}});
+    err = get<TypeMismatch>(result.errors[1]);
+    REQUIRE(err);
+    CHECK_EQ(toString(err->givenType), "{{ author: string } | { author: string, title: string }}");
+    CHECK_EQ(toString(err->wantedType), "{Book}");
+    CHECK_EQ(result.errors[1].location, Location{{3, 28}, {6, 9}});
+
+}
+
+TEST_CASE_FIXTURE(Fixture, "deeply_nested_classish_inference")
+{
+    ScopedFastFlag sffs[] = {
+        {FFlag::LuauSolverV2, true},
+        {FFlag::LuauDoNotGeneralizeInTypeFunctions, true},
+        {FFlag::LuauSearchForRefineableType, true},
+        {FFlag::DebugLuauAssertOnForcedConstraint, true},
+    };
+    // NOTE: This probably should be revisited after CLI-143852: we end up
+    // cyclic types with *tons* of overlap.
+    LUAU_REQUIRE_NO_ERRORS(check(R"(
+        local function f(part, flag, params)
+            local humanoid = part.Parent:FindFirstChild("Humanoid") or part.Parent.Parent:FindFirstChild("Humanoid")
+            if humanoid.Parent:GetAttribute("Blocking") then
+                if flag then
+                    params.Found = { humanoid }
+                else
+                    humanoid:Think(1)
+                end
+            else
+                humanoid:Think(2)
+            end
+        end
+    )"));
+}
+
 
 TEST_SUITE_END();

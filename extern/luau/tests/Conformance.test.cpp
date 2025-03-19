@@ -32,15 +32,10 @@ void luaC_fullgc(lua_State* L);
 void luaC_validate(lua_State* L);
 
 LUAU_FASTFLAG(LuauLibWhereErrorAutoreserve)
-LUAU_FASTFLAG(LuauMathLerp)
 LUAU_FASTFLAG(DebugLuauAbortingChecks)
 LUAU_FASTINT(CodegenHeuristicsInstructionLimit)
 LUAU_DYNAMIC_FASTFLAG(LuauStackLimit)
-LUAU_FASTFLAG(LuauVectorLibNativeCodegen)
 LUAU_FASTFLAG(LuauVectorLibNativeDot)
-LUAU_FASTFLAG(LuauVector2Constructor)
-LUAU_FASTFLAG(LuauBufferBitMethods2)
-LUAU_FASTFLAG(LuauCodeGenLimitLiveSlotReuse)
 LUAU_DYNAMIC_FASTFLAG(LuauStringFormatFixC)
 
 static lua_CompileOptions defaultOptions()
@@ -482,9 +477,8 @@ void setupUserdataHelpers(lua_State* L)
 {
     // create metatable with all the metamethods
     luaL_newmetatable(L, "vec2");
-    luaL_getmetatable(L, "vec2");
     lua_pushvalue(L, -1);
-    lua_setuserdatametatable(L, kTagVec2, -1);
+    lua_setuserdatametatable(L, kTagVec2);
 
     lua_pushcfunction(L, lua_vec2_index, nullptr);
     lua_setfield(L, -2, "__index");
@@ -655,15 +649,11 @@ TEST_CASE("Basic")
 
 TEST_CASE("Buffers")
 {
-    ScopedFastFlag luauBufferBitMethods{FFlag::LuauBufferBitMethods2, true};
-
     runConformance("buffers.luau");
 }
 
 TEST_CASE("Math")
 {
-    ScopedFastFlag LuauMathLerp{FFlag::LuauMathLerp, true};
-
     runConformance("math.luau");
 }
 
@@ -896,9 +886,7 @@ TEST_CASE("Vector")
 
 TEST_CASE("VectorLibrary")
 {
-    ScopedFastFlag luauVectorLibNativeCodegen{FFlag::LuauVectorLibNativeCodegen, true};
     ScopedFastFlag luauVectorLibNativeDot{FFlag::LuauVectorLibNativeDot, true};
-    ScopedFastFlag luauVector2Constructor{FFlag::LuauVector2Constructor, true};
 
     lua_CompileOptions copts = defaultOptions();
 
@@ -989,9 +977,6 @@ static void populateRTTI(lua_State* L, Luau::TypeId type)
 
 TEST_CASE("Types")
 {
-    ScopedFastFlag luauVector2Constructor{FFlag::LuauVector2Constructor, true};
-    ScopedFastFlag luauMathLerp{FFlag::LuauMathLerp, true};
-
     runConformance(
         "types.luau",
         [](lua_State* L)
@@ -2269,12 +2254,12 @@ TEST_CASE("UserdataApi")
 
     // tagged user data with fast metatable access
     luaL_newmetatable(L, "udata3");
-    luaL_getmetatable(L, "udata3");
-    lua_setuserdatametatable(L, 50, -1);
+    lua_pushvalue(L, -1);
+    lua_setuserdatametatable(L, 50);
 
     luaL_newmetatable(L, "udata4");
-    luaL_getmetatable(L, "udata4");
-    lua_setuserdatametatable(L, 51, -1);
+    lua_pushvalue(L, -1);
+    lua_setuserdatametatable(L, 51);
 
     void* ud7 = lua_newuserdatatagged(L, 16, 50);
     lua_getuserdatametatable(L, 50);
@@ -2622,8 +2607,6 @@ TEST_CASE("SafeEnv")
 
 TEST_CASE("Native")
 {
-    ScopedFastFlag luauCodeGenLimitLiveSlotReuse{FFlag::LuauCodeGenLimitLiveSlotReuse, true};
-
     // This tests requires code to run natively, otherwise all 'is_native' checks will fail
     if (!codegen || !luau_codegen_supported())
         return;

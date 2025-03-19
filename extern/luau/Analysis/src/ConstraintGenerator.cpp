@@ -16,6 +16,7 @@
 #include "Luau/Scope.h"
 #include "Luau/Simplify.h"
 #include "Luau/StringUtils.h"
+#include "Luau/Subtyping.h"
 #include "Luau/TableLiteralInference.h"
 #include "Luau/TimeTrace.h"
 #include "Luau/Type.h"
@@ -32,14 +33,17 @@ LUAU_FASTINT(LuauCheckRecursionLimit)
 LUAU_FASTFLAG(DebugLuauLogSolverToJson)
 LUAU_FASTFLAG(DebugLuauMagicTypes)
 LUAU_FASTFLAG(LuauPreserveUnionIntersectionNodeForLeadingTokenSingleType)
+LUAU_FASTFLAG(DebugLuauGreedyGeneralization)
 
-LUAU_FASTFLAGVARIABLE(LuauNewSolverPrePopulateClasses)
-LUAU_FASTFLAGVARIABLE(LuauNewSolverPopulateTableLocations)
 LUAU_FASTFLAGVARIABLE(LuauTrackInteriorFreeTypesOnScope)
 LUAU_FASTFLAGVARIABLE(LuauDeferBidirectionalInferenceForTableAssignment)
+LUAU_FASTFLAGVARIABLE(LuauUngeneralizedTypesForRecursiveFunctions)
+LUAU_FASTFLAGVARIABLE(LuauGlobalSelfAssignmentCycle)
 
 LUAU_FASTFLAG(LuauFreeTypesMustHaveBounds)
 LUAU_FASTFLAGVARIABLE(LuauInferLocalTypesInMultipleAssignments)
+LUAU_FASTFLAGVARIABLE(LuauDoNotLeakNilInRefinement)
+LUAU_FASTFLAGVARIABLE(LuauExtraFollows)
 
 namespace Luau
 {
@@ -527,7 +531,15 @@ void ConstraintGenerator::computeRefinement(
 
         // When the top-level expression is `t[x]`, we want to refine it into `nil`, not `never`.
         LUAU_ASSERT(refis->get(proposition->key->def));
-        refis->get(proposition->key->def)->shouldAppendNilType = (sense || !eq) && containsSubscriptedDefinition(proposition->key->def);
+        if (FFlag::LuauDoNotLeakNilInRefinement)
+        {
+            refis->get(proposition->key->def)->shouldAppendNilType =
+                (sense || !eq) && containsSubscriptedDefinition(proposition->key->def) && !proposition->implicitFromCall;
+        }
+        else 
+        {
+            refis->get(proposition->key->def)->shouldAppendNilType = (sense || !eq) && containsSubscriptedDefinition(proposition->key->def);
+        }
     }
 }
 
@@ -785,9 +797,6 @@ void ConstraintGenerator::checkAliases(const ScopePtr& scope, AstStatBlock* bloc
         }
         else if (auto classDeclaration = stat->as<AstStatDeclareClass>())
         {
-            if (!FFlag::LuauNewSolverPrePopulateClasses)
-                continue;
-
             if (scope->exportedTypeBindings.count(classDeclaration->name.value))
             {
                 auto it = classDefinitionLocations.find(classDeclaration->name.value);
@@ -1384,6 +1393,28 @@ ControlFlow ConstraintGenerator::visit(const ScopePtr& scope, AstStatFunction* f
     FunctionSignature sig = checkFunctionSignature(scope, function->func, /* expectedType */ std::nullopt, function->name->location);
     bool sigFullyDefined = !hasFreeType(sig.signature);
 
+    DefId def = dfg->getDef(function->name);
+
+    if (FFlag::LuauUngeneralizedTypesForRecursiveFunctions)
+    {
+        if (AstExprLocal* localName = function->name->as<AstExprLocal>())
+        {
+            sig.bodyScope->bindings[localName->local] = Binding{sig.signature, localName->location};
+            sig.bodyScope->lvalueTypes[def] = sig.signature;
+            sig.bodyScope->rvalueRefinements[def] = sig.signature;
+        }
+        else if (AstExprGlobal* globalName = function->name->as<AstExprGlobal>())
+        {
+            sig.bodyScope->bindings[globalName->name] = Binding{sig.signature, globalName->location};
+            sig.bodyScope->lvalueTypes[def] = sig.signature;
+            sig.bodyScope->rvalueRefinements[def] = sig.signature;
+        }
+        else if (AstExprIndexName* indexName = function->name->as<AstExprIndexName>())
+        {
+            sig.bodyScope->rvalueRefinements[def] = sig.signature;
+        }
+    }
+
     checkFunctionBody(sig.bodyScope, function->func);
     Checkpoint end = checkpoint(this);
 
@@ -1417,7 +1448,6 @@ ControlFlow ConstraintGenerator::visit(const ScopePtr& scope, AstStatFunction* f
         );
     }
 
-    DefId def = dfg->getDef(function->name);
     std::optional<TypeId> existingFunctionTy = follow(lookup(scope, function->name->location, def));
 
     if (AstExprLocal* localName = function->name->as<AstExprLocal>())
@@ -1691,7 +1721,7 @@ ControlFlow ConstraintGenerator::visit(const ScopePtr& scope, AstStatDeclareClas
 {
     // If a class with the same name was already defined, we skip over
     auto bindingIt = scope->exportedTypeBindings.find(declaredClass->name.value);
-    if (FFlag::LuauNewSolverPrePopulateClasses && bindingIt == scope->exportedTypeBindings.end())
+    if (bindingIt == scope->exportedTypeBindings.end())
         return ControlFlow::None;
 
     std::optional<TypeId> superTy = std::make_optional(builtinTypes->classType);
@@ -1708,10 +1738,7 @@ ControlFlow ConstraintGenerator::visit(const ScopePtr& scope, AstStatDeclareClas
 
         // We don't have generic classes, so this assertion _should_ never be hit.
         LUAU_ASSERT(lookupType->typeParams.size() == 0 && lookupType->typePackParams.size() == 0);
-        if (FFlag::LuauNewSolverPrePopulateClasses)
-            superTy = follow(lookupType->type);
-        else
-            superTy = lookupType->type;
+        superTy = follow(lookupType->type);
 
         if (!get<ClassType>(follow(*superTy)))
         {
@@ -1734,14 +1761,8 @@ ControlFlow ConstraintGenerator::visit(const ScopePtr& scope, AstStatDeclareClas
 
     ctv->metatable = metaTy;
 
-
-    if (FFlag::LuauNewSolverPrePopulateClasses)
-    {
-        TypeId classBindTy = bindingIt->second.type;
-        emplaceType<BoundType>(asMutable(classBindTy), classTy);
-    }
-    else
-        scope->exportedTypeBindings[className] = TypeFun{{}, classTy};
+    TypeId classBindTy = bindingIt->second.type;
+    emplaceType<BoundType>(asMutable(classBindTy), classTy);
 
     if (declaredClass->indexer)
     {
@@ -1976,7 +1997,7 @@ InferencePack ConstraintGenerator::checkPack(const ScopePtr& scope, AstExprCall*
         if (auto key = dfg->getRefinementKey(indexExpr->expr))
         {
             TypeId discriminantTy = arena->addType(BlockedType{});
-            returnRefinements.push_back(refinementArena.proposition(key, discriminantTy));
+            returnRefinements.push_back(refinementArena.implicitProposition(key, discriminantTy));
             discriminantTypes.push_back(discriminantTy);
         }
         else
@@ -1990,7 +2011,7 @@ InferencePack ConstraintGenerator::checkPack(const ScopePtr& scope, AstExprCall*
         if (auto key = dfg->getRefinementKey(arg))
         {
             TypeId discriminantTy = arena->addType(BlockedType{});
-            returnRefinements.push_back(refinementArena.proposition(key, discriminantTy));
+            returnRefinements.push_back(refinementArena.implicitProposition(key, discriminantTy));
             discriminantTypes.push_back(discriminantTy);
         }
         else
@@ -2063,7 +2084,7 @@ InferencePack ConstraintGenerator::checkPack(const ScopePtr& scope, AstExprCall*
         {
             std::vector<TypeId> unpackedTypes;
             if (args.size() > 0)
-                target = args[0];
+                target = FFlag::LuauExtraFollows ? follow(args[0]) : args[0];
             else
             {
                 target = arena->addType(BlockedType{});
@@ -2872,6 +2893,13 @@ void ConstraintGenerator::visitLValue(const ScopePtr& scope, AstExprGlobal* glob
         DefId def = dfg->getDef(global);
         rootScope->lvalueTypes[def] = rhsType;
 
+        if (FFlag::LuauGlobalSelfAssignmentCycle)
+        {
+            // Ignore possible self-assignment, it doesn't create a new constraint
+            if (annotatedTy == follow(rhsType))
+                return;
+        }
+
         // Sketchy: We're specifically looking for BlockedTypes that were
         // initially created by ConstraintGenerator::prepopulateGlobalScope.
         if (auto bt = get<BlockedType>(follow(*annotatedTy)); bt && !bt->getOwner())
@@ -2930,10 +2958,7 @@ Inference ConstraintGenerator::check(const ScopePtr& scope, AstExprTable* expr, 
 
     ttv->state = TableState::Unsealed;
     ttv->definitionModuleName = module->name;
-    if (FFlag::LuauNewSolverPopulateTableLocations)
-    {
-        ttv->definitionLocation = expr->location;
-    }
+    ttv->definitionLocation = expr->location;
     ttv->scope = scope.get();
 
     interiorTypes.back().push_back(ty);
@@ -3016,6 +3041,7 @@ Inference ConstraintGenerator::check(const ScopePtr& scope, AstExprTable* expr, 
         else
         {
             Unifier2 unifier{arena, builtinTypes, NotNull{scope.get()}, ice};
+            Subtyping sp{builtinTypes, arena, simplifier, normalizer, typeFunctionRuntime, ice};
             std::vector<TypeId> toBlock;
             // This logic is incomplete as we want to re-run this
             // _after_ blocked types have resolved, but this
@@ -3029,6 +3055,7 @@ Inference ConstraintGenerator::check(const ScopePtr& scope, AstExprTable* expr, 
                     builtinTypes,
                     arena,
                     NotNull{&unifier},
+                    NotNull{&sp},
                     *expectedType,
                     ty,
                     expr,
@@ -3230,6 +3257,9 @@ ConstraintGenerator::FunctionSignature ConstraintGenerator::checkFunctionSignatu
     if (expectedType && get<FreeType>(*expectedType))
         bindFreeType(*expectedType, actualFunctionType);
 
+    if (FFlag::DebugLuauGreedyGeneralization)
+        scopeToFunction[signatureScope.get()] = actualFunctionType;
+
     return {
         /* signature */ actualFunctionType,
         /* signatureScope */ signatureScope,
@@ -3392,11 +3422,8 @@ TypeId ConstraintGenerator::resolveTableType(const ScopePtr& scope, AstType* ty,
     TypeId tableTy = arena->addType(TableType{props, indexer, scope->level, scope.get(), TableState::Sealed});
     TableType* ttv = getMutable<TableType>(tableTy);
 
-    if (FFlag::LuauNewSolverPopulateTableLocations)
-    {
-        ttv->definitionModuleName = module->name;
-        ttv->definitionLocation = tab->location;
-    }
+    ttv->definitionModuleName = module->name;
+    ttv->definitionLocation = tab->location;
 
     return tableTy;
 }
