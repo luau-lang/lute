@@ -276,10 +276,14 @@ def fetchDependency(dependencyInfo):
     if os.path.isdir(os.path.join('extern', dependency['name'])):
         os.chdir(os.path.join('extern', dependency['name']))
         check(call(['git', 'fetch', '--depth=1', 'origin', dependency['branch']]))
+        result = call(['git', 'checkout', dependency['branch']])
+        check(call(['git', 'submodule', 'update', '--init', '--recursive', '--depth=1']))
         os.chdir(getSourceRoot())
+        return result
+
 
     # if it doesn't exist, we'll do a shallow clone
-    return call(['git', 'clone', '--depth=1', '--branch', dependency['branch'], dependency['remote'], "extern/" + dependency['name']])
+    return call(['git', 'clone', '--depth=1', '--recurse-submodules', '--branch', dependency['branch'], dependency['remote'], "extern/" + dependency['name']])
 
 def fetchDependencies(args):
     for _, _, files in os.walk('extern'):
@@ -289,7 +293,6 @@ def fetchDependencies(args):
                 check(fetchDependency(dependencyInfo))
 
     return 0
-
 
 def configure(args):
     """Runs any necessary configuration steps to generate build files"""

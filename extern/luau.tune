@@ -2,4 +2,3 @@
 name = "luau"
 remote = "git@github.com:luau-lang/luau.git"
 branch = "0.665"
-
