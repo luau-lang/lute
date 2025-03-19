@@ -1,0 +1,4 @@
+[dependency]
+name = "wolfssl"
+remote = "https://github.com/wolfSSL/wolfssl.git"
+branch = "v5.7.6-stable"

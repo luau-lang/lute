@@ -1,0 +1,4 @@
+[dependency]
+name = "luau"
+remote = "https://github.com/luau-lang/luau.git"
+branch = "0.665"

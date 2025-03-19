@@ -1,0 +1,4 @@
+[dependency]
+name = "libuv"
+remote = "https://github.com/libuv/libuv.git"
+branch = "v1.50.0"
