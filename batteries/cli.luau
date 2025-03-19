@@ -1,5 +1,5 @@
-local cliargs = {}
-cliargs.__index = cliargs
+local cli = {}
+cli.__index = cli
 
 type ArgKind = "positional" | "flag" | "option"
 type ArgOptions = {
@@ -27,18 +27,18 @@ type ParseData = {
 	parsed: { [number]: ParseResult },
 }
 
-type ParseInterface = typeof(cliargs)
-export type ParserType = setmetatable<ParseData, ParseInterface>
+type ParseInterface = typeof(cli)
+export type Parser = setmetatable<ParseData, ParseInterface>
 
-function cliargs.new(): ParserType
-	local self = setmetatable({}, cliargs) :: ParserType
+function cli.parser(): Parser
+	local self = setmetatable({}, cli) :: Parser
 	self.arguments = {}
 	self.positional = {}
 	self.parsed = { values = {}, flags = {}, fwdArgs = {} }
 	return self
 end
 
-function cliargs.add(self: ParserType, name: string, kind: ArgKind, options: ArgOptions)
+function cli.add(self: Parser, name: string, kind: ArgKind, options: ArgOptions)
 	local argument = {
 		name = name,
 		kind = kind,
@@ -51,17 +51,17 @@ function cliargs.add(self: ParserType, name: string, kind: ArgKind, options: Arg
 	end
 end
 
-function cliargs.parse(self: ParserType, args: {string}): ()
+function cli.parse(self: Parser, args: {string}): ()
 	local i = 1
 	local pos_index = 1
 	while i <= #args do
 		local arg = args[i]
-		
+
 		if arg == "--" then
 			table.move(args, i + 1, #args, 1, self.parsed.fwdArgs)
 			break
 		end
-		
+
 		if string.sub(arg, 1, 2) == "--" then
 			local name = string.sub(arg, 3)
 			local found = false
@@ -123,19 +123,19 @@ function cliargs.parse(self: ParserType, args: {string}): ()
 	end
 end
 
-function cliargs.get(self: ParserType, name: string): boolean
+function cli.get(self: Parser, name: string): boolean
 	return self.parsed.values[name]
 end
 
-function cliargs.has(self:ParserType, name: string): boolean
+function cli.has(self: Parser, name: string): boolean
 	return self.parsed.flags[name] ~= nil
 end
 
-function cliargs.getFwdArgs(): { string } | nil
+function cli.getFwdArgs(): { string } | nil
 	return self.parsed.fwdArgs
 end
 
-function cliargs.help(self: ParserType): ()
+function cli.help(self: Parser): ()
 	print("Usage:")
 	for _, argument in self.arguments do
 		local aliasStr = table.concat(argument.options.aliases or {}, ", ")
@@ -144,4 +144,4 @@ function cliargs.help(self: ParserType): ()
 	end
 end
 
-return cliargs
+return cli

@@ -1,6 +1,6 @@
-local cliargs = require("@batteries/cliargs")
+local cli = require("@batteries/cli")
 
-local parser = cliargs.new()
+local parser = cli.parser()
 
 parser:add("input", "positional", { help = "Input file" })
 parser:add("verbose", "flag", { help = "Enable verbose mode", aliases = { "v" } })
