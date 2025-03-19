@@ -46,7 +46,7 @@ function cliargs.add(self: ParserType, name: string, kind: ArgKind, options: Arg
 	}
 	table.insert(self.arguments, argument)
 
-	if kind == "POSITIONAL" then
+	if kind == "positional" then
 		table.insert(self.positional, argument)
 	end
 end
@@ -58,9 +58,7 @@ function cliargs.parse(self: ParserType, args: {string}): ()
 		local arg = args[i]
 		
 		if arg == "--" then
-			for j = i + 1, #args do
-				table.insert(self.parsed.fwdArgs, args[j])
-			end
+			table.move(args, i + 1, #args, 1, self.parsed.fwdArgs)
 			break
 		end
 		
@@ -71,7 +69,7 @@ function cliargs.parse(self: ParserType, args: {string}): ()
 				local aliases = argument.options.aliases or {}
 				if argument.name == name or table.find(aliases, name) then
 					found = true
-					if argument.kind == "OPTION" then
+					if argument.kind == "option" then
 						i += 1
 						assert(i <= #args, "Missing value for argument: " .. argument.name)
 						self.parsed.values[argument.name] = args[i]
@@ -91,7 +89,7 @@ function cliargs.parse(self: ParserType, args: {string}): ()
 					local aliases = argument.options.aliases or {}
 					if argument.name == name or table.find(aliases, name) then
 						found = true
-						if argument.kind == "OPTION" then
+						if argument.kind == "option" then
 							i += 1
 							assert(i <= #args, "Missing value for argument: " .. argument.name)
 							self.parsed.values[argument.name] = args[i]
