@@ -55,7 +55,7 @@ local function tableToToml(tbl: {}, parent: string)
 
     for k, v in subTables do
         local key = parent and (parent .. "." .. k) or k
-        
+
         if hasNestedTables(v) == true then
             result ..= tableToToml(v, key)
             continue
