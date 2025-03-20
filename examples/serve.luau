@@ -12,4 +12,4 @@ print(`Server listening on http://{server.hostname}:{server.port}`)
 print("Program ending, but server will continue running in the background")
 
 -- If you want to close the server:
--- server:close()
+-- server.close()

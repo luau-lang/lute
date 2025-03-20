@@ -266,18 +266,9 @@ bool closeServer(int serverId)
         return false;
     }
     
-    stateIt->second->running = false;
-    
     auto app = instanceIt->second;
-    auto runtime = stateIt->second->runtime;
-    
-    // Properly close the server
-    // This is a bit of a hack, but we need to ensure all resources are cleaned up
-    // We'll use a one-time scheduled task to close the server after the current loop iteration
-    runtime->schedule([app](){
-        // The app will be destroyed when the shared_ptr goes out of scope
-        // which should properly clean up all resources
-    });
+    app->close();
+    stateIt->second->running = false;
     
     serverInstances.erase(instanceIt);
     serverStates.erase(stateIt);
@@ -402,34 +393,14 @@ int serve(lua_State* L)
     lua_settable(L, -3);
     
     lua_pushstring(L, "close");
+    lua_pushinteger(L, serverId);
     lua_pushcclosurek(L, [](lua_State* L) -> int
     {
-        luaL_checktype(L, 1, LUA_TTABLE);
-        
-        lua_getfield(L, 1, "hostname");
-        std::string hostname = lua_tostring(L, -1);
-        lua_pop(L, 1);
-        
-        lua_getfield(L, 1, "port");
-        int port = lua_tointeger(L, -1);
-        lua_pop(L, 1);
-        
-        int serverId = -1;
-        for (const auto& [id, state] : serverStates) {
-            if (state->hostname == hostname && state->port == port) {
-                serverId = id;
-                break;
-            }
-        }
-        
-        if (serverId == -1) {
-            lua_pushboolean(L, false);
-            return 1;
-        }
+        int serverId = lua_tointeger(L, lua_upvalueindex(1));
         
         lua_pushboolean(L, closeServer(serverId));
         return 1;
-    }, "server_close", 0, nullptr);
+    }, "server_close", 1, nullptr);
     lua_settable(L, -3);
     
     return 1;
