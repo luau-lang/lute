@@ -35,6 +35,7 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
+        brew update
         brew unlink brotli zstd
 
     - name: Install dependencies (Windows)
