@@ -35,8 +35,6 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew update
-        brew install cmake ninja
         brew unlink brotli zstd
 
     - name: Install dependencies (Windows)
