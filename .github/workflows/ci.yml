@@ -14,15 +14,11 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            build_type: debug
           - os: ubuntu-latest
-            build_type: debug
             options: --c-compiler=gcc --cxx-compiler=g++
           - os: ubuntu-latest
-            build_type: debug
             options: --c-compiler=clang --cxx-compiler=clang++
           - os: macos-latest
-            build_type: debug
             options: --c-compiler=clang --cxx-compiler=clang++
       fail-fast: false
 
@@ -32,5 +28,5 @@ jobs:
       - name: Setup and Build Lute
         uses: ./.github/actions/setup-and-build
         with:
-          config: ${{ matrix.build_type }}
+          config: debug
           options: ${{ matrix.options }}

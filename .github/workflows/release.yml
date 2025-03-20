@@ -34,7 +34,6 @@ jobs:
       with:
         config: release
         options: ${{ matrix.options }}
-        get-artifact-path: 'true'
     
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
