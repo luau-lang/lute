@@ -4,16 +4,12 @@ description: 'Install dependencies, configure and build Lute'
 inputs:
   config:
     description: 'Build configuration (debug or release)'
-    required: true
+    required: false
     default: 'debug'
   options:
-    description: 'Additional compiler options'
+    description: 'Additional luthier options'
     required: false
     default: ''
-  get-artifact-path:
-    description: 'Whether to get and output the artifact path'
-    required: false
-    default: 'false'
 
 outputs:
   exe_path:
@@ -30,44 +26,32 @@ runs:
 
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
-      shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install -y ninja-build clang
 
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
-      shell: bash
       run: |
         brew update
         brew install cmake ninja
-        # Fix conflicts in CI
-        if [ "${{ inputs.config }}" == "debug" ]; then
-          brew unlink brotli zstd
-        fi
+        brew unlink brotli zstd
 
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        choco install ninja
+      run: choco install ninja
 
     - name: Setup MSVC
       if: runner.os == 'Windows'
       uses: ilammy/msvc-dev-cmd@v1
 
     - name: Configure Lute
-      shell: bash
-      run: |
-        python ./tools/luthier.py configure lute --config=${{ inputs.config }} ${{ inputs.options }}
+      run: python ./tools/luthier.py configure lute --config=${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build Lute
-      shell: bash
-      run: |
-        python ./tools/luthier.py build lute --config=${{ inputs.config }} ${{ inputs.options }}
+      run: python ./tools/luthier.py build lute --config=${{ inputs.config }} ${{ inputs.options }}
 
     - name: Get Artifact Path
-      if: inputs.get-artifact-path == 'true'
       id: artifact_path
       shell: bash
       run: |
