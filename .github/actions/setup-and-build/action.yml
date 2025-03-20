@@ -26,12 +26,14 @@ runs:
 
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
+      shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install -y ninja-build clang
 
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
+      shell: bash
       run: |
         brew update
         brew install cmake ninja
@@ -39,6 +41,7 @@ runs:
 
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
+      shell: bash
       run: choco install ninja
 
     - name: Setup MSVC
@@ -46,9 +49,11 @@ runs:
       uses: ilammy/msvc-dev-cmd@v1
 
     - name: Configure Lute
+      shell: bash
       run: python ./tools/luthier.py configure lute --config=${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build Lute
+      shell: bash
       run: python ./tools/luthier.py build lute --config=${{ inputs.config }} ${{ inputs.options }}
 
     - name: Get Artifact Path
