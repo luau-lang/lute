@@ -19,7 +19,6 @@ jobs:
           - os: ubuntu-latest
             options: --c-compiler=clang --cxx-compiler=clang++
           - os: macos-latest
-            options: --c-compiler=clang --cxx-compiler=clang++
       fail-fast: false
 
     steps:

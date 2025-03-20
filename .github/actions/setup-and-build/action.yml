@@ -48,6 +48,18 @@ runs:
       if: runner.os == 'Windows'
       uses: ilammy/msvc-dev-cmd@v1
 
+    - name: Cache extern folder
+      uses: actions/cache@v4
+      id: cache-extern
+      with:
+        path: extern
+        key: extern-${{ hashFiles('**/*.tune') }}
+
+    - name: Fetch Lute
+      if: steps.cache-extern.outputs.cache-hit != 'true'
+      shell: bash
+      run: python ./tools/luthier.py fetch lute
+
     - name: Configure Lute
       shell: bash
       run: python ./tools/luthier.py configure lute --config=${{ inputs.config }} ${{ inputs.options }}
