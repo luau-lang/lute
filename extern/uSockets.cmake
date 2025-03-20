@@ -32,7 +32,7 @@ add_library(uSockets STATIC ${USOCKETS_SOURCES})
 
 if(MSVC)
   target_compile_definitions(uSockets PRIVATE _HAS_CXX17=1)
-  target_compile_options(uSockets PRIVATE /std:c++17 /experimental:c11atomics)
+  target_compile_options(uSockets PRIVATE /experimental:c11atomics)
 endif()
 
 # Add options for different features
