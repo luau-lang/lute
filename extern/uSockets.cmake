@@ -9,20 +9,22 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(USOCKETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/uWebSockets/uSockets)
+
 # Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/eventing)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/crypto)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/io_uring)
+include_directories(${USOCKETS_SOURCE_DIR}/src)
+include_directories(${USOCKETS_SOURCE_DIR}/src/eventing)
+include_directories(${USOCKETS_SOURCE_DIR}/src/crypto)
+include_directories(${USOCKETS_SOURCE_DIR}/src/io_uring)
 include_directories(${LIBUV_INCLUDE_DIR})
 
 # Source files
 file(GLOB USOCKETS_SOURCES 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/eventing/*.c 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/crypto/*.c 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/crypto/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/io_uring/*.c
+    ${USOCKETS_SOURCE_DIR}/src/*.c 
+    ${USOCKETS_SOURCE_DIR}/src/eventing/*.c 
+    ${USOCKETS_SOURCE_DIR}/src/crypto/*.c 
+    ${USOCKETS_SOURCE_DIR}/src/crypto/*.cpp
+    ${USOCKETS_SOURCE_DIR}/src/io_uring/*.c
 )
 
 # Add the uSockets library

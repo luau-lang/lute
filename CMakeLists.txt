@@ -64,7 +64,8 @@ set(WITH_WOLFSSL ON)
 set(WITH_LIBUV ON)
 # Set the correct libuv library name for uWebSockets
 set(LIBUV_LIBRARY uv_a)
-add_subdirectory(extern/uWebSockets)
+include(extern/uSockets.cmake)
+include(extern/uWebSockets.cmake)
 
 # Define include directories for uWebSockets and uSockets
 set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)

@@ -5,16 +5,17 @@ project(uWebSockets LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(UWEBSOCKETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/uWebSockets)
+
 # Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/uSockets/src)
+include_directories(${UWEBSOCKETS_SOURCE_DIR}/src)
+include_directories(${UWEBSOCKETS_SOURCE_DIR}/uSockets/src)
 include_directories(${LIBUV_INCLUDE_DIR})
 
 # Add the uWebSockets interface library
 add_library(uWS INTERFACE)
 
 # Link uSockets library
-add_subdirectory(uSockets)
 target_link_libraries(uWS INTERFACE uSockets)
 
 # Add options for different features
@@ -31,11 +32,11 @@ option(WITH_ASAN "Build with AddressSanitizer support" OFF)
 
 if(WITH_LIBDEFLATE)
     target_compile_definitions(uWS INTERFACE UWS_USE_LIBDEFLATE)
-    target_include_directories(uWS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libdeflate)
+    target_include_directories(uWS INTERFACE ${UWEBSOCKETS_SOURCE_DIR}/libdeflate)
     if(MSVC)
-        target_link_libraries(uWS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libdeflate/libdeflate.lib)
+        target_link_libraries(uWS INTERFACE ${UWEBSOCKETS_SOURCE_DIR}/libdeflate/libdeflate.lib)
     else()
-        target_link_libraries(uWS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/libdeflate/libdeflate.a)
+        target_link_libraries(uWS INTERFACE ${UWEBSOCKETS_SOURCE_DIR}/libdeflate/libdeflate.a)
     endif()
 endif()
 
@@ -64,19 +65,19 @@ endif()
 if(WITH_QUIC)
     target_compile_definitions(uWS INTERFACE LIBUS_USE_QUIC)
     if(MSVC)
-        target_link_libraries(uWS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/uSockets/lsquic/src/liblsquic/liblsquic.lib)
+        target_link_libraries(uWS INTERFACE ${UWEBSOCKETS_SOURCE_DIR}/uSockets/lsquic/src/liblsquic/liblsquic.lib)
     else()
-        target_link_libraries(uWS INTERFACE pthread z m ${CMAKE_CURRENT_SOURCE_DIR}/uSockets/lsquic/src/liblsquic/liblsquic.a)
+        target_link_libraries(uWS INTERFACE pthread z m ${UWEBSOCKETS_SOURCE_DIR}/uSockets/lsquic/src/liblsquic/liblsquic.a)
     endif()
 endif()
 
 if(WITH_BORINGSSL)
-    target_include_directories(uWS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/uSockets/boringssl/include)
+    target_include_directories(uWS INTERFACE ${UWEBSOCKETS_SOURCE_DIR}/uSockets/boringssl/include)
     target_compile_definitions(uWS INTERFACE LIBUS_USE_OPENSSL)
     if(MSVC)
-        target_link_libraries(uWS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/uSockets/boringssl/build/ssl/ssl.lib ${CMAKE_CURRENT_SOURCE_DIR}/uSockets/boringssl/build/crypto/crypto.lib)
+        target_link_libraries(uWS INTERFACE ${UWEBSOCKETS_SOURCE_DIR}/uSockets/boringssl/build/ssl/ssl.lib ${UWEBSOCKETS_SOURCE_DIR}/uSockets/boringssl/build/crypto/crypto.lib)
     else()
-        target_link_libraries(uWS INTERFACE pthread ${CMAKE_CURRENT_SOURCE_DIR}/uSockets/boringssl/build/ssl/libssl.a ${CMAKE_CURRENT_SOURCE_DIR}/uSockets/boringssl/build/crypto/libcrypto.a)
+        target_link_libraries(uWS INTERFACE pthread ${UWEBSOCKETS_SOURCE_DIR}/uSockets/boringssl/build/ssl/libssl.a ${UWEBSOCKETS_SOURCE_DIR}/uSockets/boringssl/build/crypto/libcrypto.a)
     endif()
 elseif(WITH_OPENSSL)
     target_link_libraries(uWS INTERFACE ssl crypto)
