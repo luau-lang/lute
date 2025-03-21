@@ -1,0 +1,76 @@
+name: 'Setup and Build Lute'
+description: 'Install dependencies, configure and build Lute'
+
+inputs:
+  config:
+    description: 'Build configuration (debug or release)'
+    required: false
+    default: 'debug'
+  options:
+    description: 'Additional luthier options'
+    required: false
+    default: ''
+
+outputs:
+  exe_path:
+    description: 'Path to the compiled executable'
+    value: ${{ steps.artifact_path.outputs.exe_path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build clang
+
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew update
+        brew unlink brotli zstd
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: choco install ninja
+
+    - name: Setup MSVC
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Cache extern folder
+      uses: actions/cache@v4
+      id: cache-extern
+      with:
+        path: extern
+        key: extern-${{ hashFiles('extern/*.tune') }}
+
+    - name: Fetch Lute
+      if: steps.cache-extern.outputs.cache-hit != 'true'
+      shell: bash
+      run: python ./tools/luthier.py fetch lute
+
+    - name: Configure Lute
+      shell: bash
+      run: python ./tools/luthier.py configure lute --config=${{ inputs.config }} ${{ inputs.options }}
+
+    - name: Build Lute
+      shell: bash
+      run: python ./tools/luthier.py build lute --config=${{ inputs.config }} ${{ inputs.options }}
+
+    - name: Get Artifact Path
+      id: artifact_path
+      shell: bash
+      run: |
+        exe_path=$(python ./tools/luthier.py build lute --config=${{ inputs.config }} --which)
+        echo "Executable path: $exe_path"  # Debug print
+        echo "exe_path=$exe_path" >> "$GITHUB_OUTPUT"

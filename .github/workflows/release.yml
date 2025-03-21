@@ -28,51 +28,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Setup and Build Lute
+      id: build_lute
+      uses: ./.github/actions/setup-and-build
       with:
-        python-version: '3.11'
-
-    - name: Install dependencies (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build clang
-
-    - name: Install dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew update
-        brew install cmake ninja
-
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        choco install ninja
-        vcpkg install zlib
-        vcpkg integrate install
-
-    - if: runner.os == 'Windows'
-      uses: ilammy/msvc-dev-cmd@v1
-
-    - name: Configure
-      run: python ./tools/luthier.py configure lute --config release ${{ matrix.options }}
-
-    - name: Build
-      run: python ./tools/luthier.py build lute --config release ${{ matrix.options }}
-
-    - name: Get Artifact Path
-      id: artifact_path
-      shell: bash
-      run: |
-        exe_path=$(python ./tools/luthier.py build lute --config release --which)
-        echo "Executable path: $exe_path"  # Debug print
-        echo "exe_path=$exe_path" >> "$GITHUB_OUTPUT"
+        config: release
+        options: ${{ matrix.options }}
     
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        path: ${{ steps.artifact_path.outputs.exe_path }}
+        path: ${{ steps.build_lute.outputs.exe_path }}
         name: ${{ matrix.artifact_name }}
 
   release:

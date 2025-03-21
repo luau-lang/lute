@@ -11,69 +11,21 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
-      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
-      fail-fast: false
-
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        build_type: [debug]
         include:
           - os: windows-latest
           - os: ubuntu-latest
-            compiler_options: --c-compiler=gcc --cxx-compiler=g++
+            options: --c-compiler=gcc --cxx-compiler=g++
           - os: ubuntu-latest
-            compiler_options: --c-compiler=clang --cxx-compiler=clang++
+            options: --c-compiler=clang --cxx-compiler=clang++
           - os: macos-latest
-            compiler_options: --c-compiler=clang --cxx-compiler=clang++
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set reusable strings
-        # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
-        id: strings
-        shell: bash
-        run: |
-          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup and Build Lute
+        uses: ./.github/actions/setup-and-build
         with:
-          python-version: "3.11"
-
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build clang
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew update
-          brew install cmake ninja
-          brew unlink brotli zstd
-
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install ninja
-          vcpkg install zlib
-          vcpkg integrate install
-
-      - if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: luthier configure
-        # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-        # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-        run: >
-          python3 ./tools/luthier.py configure lute
-          --config=${{ matrix.build_type }}
-          ${{ matrix.compiler_options }}
-
-      - name: luthier build
-        run: >
-          python3 ./tools/luthier.py build lute
-          --config=${{ matrix.build_type }}
-          ${{ matrix.compiler_options }}
+          config: debug
+          options: ${{ matrix.options }}
