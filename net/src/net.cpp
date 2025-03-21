@@ -92,13 +92,13 @@ int getAsync(lua_State* L)
 }
 
 static const int kEmptyServerKey = 0;
-static Luau::DenseHashMap<int, std::shared_ptr<uWS::App>> serverInstances(kEmptyServerKey);
+static Luau::DenseHashMap<int, std::unique_ptr<uWS::App>> serverInstances(kEmptyServerKey);
 static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
 
 struct ServerLoopState
 {
-    std::shared_ptr<uWS::App> app;
+    uWS::App* app;
     Runtime* runtime;
     bool running = true;
     std::function<void()> loopFunction;
@@ -268,11 +268,11 @@ bool closeServer(int serverId)
         return false;
     }
     
-    auto app = serverInstances[serverId];
+    auto& app = serverInstances[serverId];
     app->close();
     serverStates[serverId]->running = false;
     
-    serverInstances[serverId] = nullptr;
+    serverInstances[serverId].reset();
     serverStates[serverId] = nullptr;
     
     return true;
@@ -319,12 +319,12 @@ int serve(lua_State* L)
     
     Runtime* runtime = getRuntime(L);
     
-    auto app = std::make_shared<uWS::App>();
+    auto app = std::make_unique<uWS::App>();
     
     int serverId = nextServerId++;
     
     auto state = std::make_shared<ServerLoopState>();
-    state->app = app;
+    state->app = app.get();
     state->runtime = runtime;
     state->hostname = hostname;
     state->port = port;
@@ -333,7 +333,7 @@ int serve(lua_State* L)
     state->handlerRef = std::make_shared<Ref>(L, -1);
     lua_pop(L, 1);
     
-    app->any("/*", [state](auto *res, auto *req)
+    state->app->any("/*", [state](auto *res, auto *req)
     {
         std::string method = std::string(req->getMethod());
         std::transform(method.begin(), method.end(), method.begin(), ::toupper);
@@ -360,7 +360,7 @@ int serve(lua_State* L)
     
     bool success = false;
     
-    app->listen(hostname, port, [&success](auto *listen_socket) {
+    state->app->listen(hostname, port, [&success](auto *listen_socket) {
         success = (listen_socket != nullptr);
     });
     
@@ -379,7 +379,7 @@ int serve(lua_State* L)
         state->runtime->schedule(state->loopFunction);
     };
     
-    serverInstances[serverId] = app;
+    serverInstances[serverId] = std::move(app);
     serverStates[serverId] = state;
     
     runtime->schedule(state->loopFunction);
