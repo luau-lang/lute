@@ -69,7 +69,6 @@ include(extern/uWebSockets.cmake)
 
 # Define include directories for uWebSockets and uSockets
 set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
-set(USOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/uSockets/src)
 
 #
 
@@ -87,7 +86,7 @@ target_compile_features(Lute.VM PUBLIC cxx_std_17)
 target_include_directories(Lute.Runtime PUBLIC runtime/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.Fs PUBLIC fs/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.Luau PUBLIC luau/include ${LIBUV_INCLUDE_DIR})
-target_include_directories(Lute.Net PUBLIC net/include ${LIBUV_INCLUDE_DIR} ${UWEBSOCKETS_INCLUDE_DIR} ${USOCKETS_INCLUDE_DIR})
+target_include_directories(Lute.Net PUBLIC net/include ${LIBUV_INCLUDE_DIR} ${UWEBSOCKETS_INCLUDE_DIR})
 target_include_directories(Lute.Task PUBLIC task/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.VM PUBLIC vm/include ${LIBUV_INCLUDE_DIR})
 
