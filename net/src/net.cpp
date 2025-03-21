@@ -4,6 +4,7 @@
 
 #include "curl/curl.h"
 #include "App.h"
+#include "Luau/DenseHash.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -92,7 +93,7 @@ int getAsync(lua_State* L)
 
 static std::unordered_map<int, std::shared_ptr<uWS::App>> serverInstances;
 static std::unordered_map<int, std::shared_ptr<struct ServerLoopState>> serverStates;
-static int nextServerId = 1;
+static int nextServerId = 0;
 
 struct ServerLoopState
 {
@@ -157,55 +158,58 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
         res->writeStatus("200 OK");
         res->writeHeader("Content-Type", "text/html");
         res->end(body);
-    } 
-    else if (lua_istable(L, responseIndex))
-    {
-        lua_getfield(L, responseIndex, "status");
-        int status = lua_isnumber(L, -1) ? lua_tointeger(L, -1) : 200;
-        lua_pop(L, 1);
-        
-        std::string statusText;
-        switch (status)
-        {
-            case 200: statusText = "200 OK"; break;
-            case 201: statusText = "201 Created"; break;
-            case 204: statusText = "204 No Content"; break;
-            case 400: statusText = "400 Bad Request"; break;
-            case 401: statusText = "401 Unauthorized"; break;
-            case 403: statusText = "403 Forbidden"; break;
-            case 404: statusText = "404 Not Found"; break;
-            case 500: statusText = "500 Internal Server Error"; break;
-            default: statusText = std::to_string(status) + " Status"; break;
-        }
-        res->writeStatus(statusText);
+        return;
+    }
 
-        lua_getfield(L, responseIndex, "headers");
-        if (lua_istable(L, -1))
-        {
-            lua_pushnil(L);
-            while (lua_next(L, -2) != 0)
-            {
-                if (lua_isstring(L, -2) && lua_isstring(L, -1))
-                {
-                    std::string headerName = lua_tostring(L, -2);
-                    std::string headerValue = lua_tostring(L, -1);
-                    res->writeHeader(headerName, headerValue);
-                }
-                lua_pop(L, 1);
-            }
-        }
-        lua_pop(L, 1);
-        
-        lua_getfield(L, responseIndex, "body");
-        std::string body = lua_isstring(L, -1) ? lua_tostring(L, -1) : "";
-        lua_pop(L, 1);
-        
-        res->end(body);
-    } 
-    else {
+    if (!lua_istable(L, responseIndex))
+    {
         res->writeStatus("500 Internal Server Error");
         res->end("Handler must return a string or a response table");
+        return;
     }
+    
+
+    lua_getfield(L, responseIndex, "status");
+    int status = lua_isnumber(L, -1) ? lua_tointeger(L, -1) : 200;
+    lua_pop(L, 1);
+    
+    std::string statusText;
+    switch (status)
+    {
+        case 200: statusText = "200 OK"; break;
+        case 201: statusText = "201 Created"; break;
+        case 204: statusText = "204 No Content"; break;
+        case 400: statusText = "400 Bad Request"; break;
+        case 401: statusText = "401 Unauthorized"; break;
+        case 403: statusText = "403 Forbidden"; break;
+        case 404: statusText = "404 Not Found"; break;
+        case 500: statusText = "500 Internal Server Error"; break;
+        default: statusText = std::to_string(status) + " Status"; break;
+    }
+    res->writeStatus(statusText);
+
+    lua_getfield(L, responseIndex, "headers");
+    if (lua_istable(L, -1))
+    {
+        lua_pushnil(L);
+        while (lua_next(L, -2) != 0)
+        {
+            if (lua_isstring(L, -2) && lua_isstring(L, -1))
+            {
+                std::string headerName = lua_tostring(L, -2);
+                std::string headerValue = lua_tostring(L, -1);
+                res->writeHeader(headerName, headerValue);
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    
+    lua_getfield(L, responseIndex, "body");
+    std::string body = lua_isstring(L, -1) ? lua_tostring(L, -1) : "";
+    lua_pop(L, 1);
+    
+    res->end(body);
 }
 
 static void processRequest(std::shared_ptr<ServerLoopState> state, auto* res, auto* req, 
