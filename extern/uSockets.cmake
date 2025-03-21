@@ -5,9 +5,6 @@ project(uSockets LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# Set the C++ standard
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(USOCKETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/uWebSockets/uSockets)
 
@@ -29,6 +26,9 @@ file(GLOB USOCKETS_SOURCES
 
 # Add the uSockets library
 add_library(uSockets STATIC ${USOCKETS_SOURCES})
+
+# Set C++17 standard for uSockets target (only affects .cpp files)
+target_compile_features(uSockets PRIVATE cxx_std_17)
 
 if(MSVC)
   target_compile_definitions(uSockets PRIVATE _HAS_CXX17=1)

@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 project(uWebSockets LANGUAGES C CXX)
 
-# Set the C++ standard
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(UWEBSOCKETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/uWebSockets)
 
@@ -14,6 +11,9 @@ include_directories(${LIBUV_INCLUDE_DIR})
 
 # Add the uWebSockets interface library
 add_library(uWS INTERFACE)
+
+# Set C++20 standard for uWS target
+target_compile_features(uWS INTERFACE cxx_std_20)
 
 # Link uSockets library
 target_link_libraries(uWS INTERFACE uSockets)
