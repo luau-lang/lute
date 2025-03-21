@@ -91,9 +91,10 @@ int getAsync(lua_State* L)
     return lua_yield(L, 0);
 }
 
-static std::unordered_map<int, std::shared_ptr<uWS::App>> serverInstances;
-static std::unordered_map<int, std::shared_ptr<struct ServerLoopState>> serverStates;
-static int nextServerId = 0;
+static const int kEmptyServerKey = 0;
+static Luau::DenseHashMap<int, std::shared_ptr<uWS::App>> serverInstances(kEmptyServerKey);
+static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
+static int nextServerId = 1;
 
 struct ServerLoopState
 {
@@ -262,20 +263,17 @@ static void processRequest(std::shared_ptr<ServerLoopState> state, auto* res, au
 
 bool closeServer(int serverId)
 {
-    auto instanceIt = serverInstances.find(serverId);
-    auto stateIt = serverStates.find(serverId);
-    
-    if (instanceIt == serverInstances.end() || stateIt == serverStates.end())
+    if (!serverInstances.contains(serverId) || !serverStates.contains(serverId))
     {
         return false;
     }
     
-    auto app = instanceIt->second;
+    auto app = serverInstances[serverId];
     app->close();
-    stateIt->second->running = false;
+    serverStates[serverId]->running = false;
     
-    serverInstances.erase(instanceIt);
-    serverStates.erase(stateIt);
+    serverInstances[serverId] = nullptr;
+    serverStates[serverId] = nullptr;
     
     return true;
 }
