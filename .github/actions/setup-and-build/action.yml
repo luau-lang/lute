@@ -41,7 +41,10 @@ runs:
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
       shell: bash
-      run: choco install ninja
+      run: |
+        choco install ninja
+        vcpkg install zlib
+        vcpkg integrate install
 
     - name: Setup MSVC
       if: runner.os == 'Windows'
