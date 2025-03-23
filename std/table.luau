@@ -33,11 +33,42 @@ local function fold<K, V, A>(table: {[K]: V}, f: (A, V) -> A, initial: A): A
     return acc
 end
 
+function isArray(tbl: {})
+    if type(tbl) ~= "table" then
+        return false
+    end
+
+    for key, _ in tbl do
+        if type(key) ~= "number" then
+            return false
+        end
+    end
+
+    return true
+end
+
+function merge(table: {}, table2: {})
+    local isAnArray = isArray(table) and isArray(table2)
+    if isAnArray then
+        for _, value in table2 do
+            table.insert(table, value)
+        end
+    else
+        for key, value in table2 do
+            table[key] = value
+        end
+    end
+
+    return table, isAnArray
+end
+
 return table.freeze({
     -- std extension for table
     map = map,
     filter = filter,
     fold = fold,
+    isArray = isArray,
+    merge = merge,
 
     -- re-exports of the table library
     clear = table.clear,
