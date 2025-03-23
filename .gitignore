@@ -18,3 +18,16 @@ compile_commands.json
 extern/libuv/libuv-static.pc
 extern/libuv/DartConfiguration.tcl
 extern/*/
+.DS_Store
+CMakeCache.txt
+CMakeFiles/cmake.check_cache
+CMakeFiles/CMakeConfigureLog.yaml
+CMakeFiles/3.31.6/CMakeCCompiler.cmake
+CMakeFiles/3.31.6/CMakeCXXCompiler.cmake
+CMakeFiles/3.31.6/CMakeDetermineCompilerABI_C.bin
+CMakeFiles/3.31.6/CMakeDetermineCompilerABI_CXX.bin
+CMakeFiles/3.31.6/CMakeSystem.cmake
+CMakeFiles/3.31.6/CompilerIdC/CMakeCCompilerId.c
+CMakeFiles/3.31.6/CompilerIdC/CMakeCCompilerId.o
+CMakeFiles/3.31.6/CompilerIdCXX/CMakeCXXCompilerId.cpp
+CMakeFiles/3.31.6/CompilerIdCXX/CMakeCXXCompilerId.o
