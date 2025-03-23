@@ -16,3 +16,11 @@ The Lute repository fundamentally contains three sets of libraries. These are as
 - `batteries`: A collection of useful, standalone Luau libraries that do not depend on `lute`.
 
 Contributions to any of these libraries are welcome, and we encourage you to open issues or pull requests if you have any feedback or contributions to make.
+
+## Build
+- `python ./tools/luthier.py fetch lute` (Download submodules)
+- `python ./tools/luthier.py configure lute --config=debug` (Configure the build)
+- `python ./tools/luthier.py build lute --config=debug` (Build the project)
+> - Replace `debug` with `release` for a release build
+> - You may need to replace `python` with `python3` depending on your system
+> - You may need to add `--c-compiler /usr/bin/clang --cxx-compiler /usr/bin/clang++` to the `configure` & `build` commands with your compiler paths.

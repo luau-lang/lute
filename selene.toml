@@ -1,0 +1,4 @@
+std="luau"
+
+[lint]
+global_usage = "allow"

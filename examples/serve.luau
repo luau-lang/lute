@@ -4,7 +4,7 @@ print("Starting server...")
 
 -- Start the server (non-blocking)
 local server = net.serve(function(req)
-    return "Hello, lute!"
+	return "Hello, lute!"
 end)
 
 print(`Server listening on http://{server.hostname}:{server.port}`)
