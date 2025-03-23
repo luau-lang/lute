@@ -1,4 +1,4 @@
-Lute [![CI](https://github.com/luau-lang/lute/actions/workflows/ci.yml/badge.svg)](https://github.com/luau-lang/lute/actions/workflows/ci.yml)
+Lute [![CI](https://github.com/asynchronousai/lute/actions/workflows/ci.yml/badge.svg)](https://github.com/asynchronousai/lute/actions/workflows/ci.yml)
 ====
 
 Lute is a standalone runtime for general-purpose programming in [Luau](https://luau.org), and a collection of optional extension libraries for Luau embedders to include to expand the capabilities of the Luau scripts in their software.
