@@ -15,6 +15,7 @@ type durationdata = {
 
 local duration = {}
 duration.__index = duration
+duration.__type = "duration"
 
 type durationinterface = typeof(duration)
 export type duration = setmetatable<durationdata, durationinterface>

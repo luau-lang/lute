@@ -71,8 +71,32 @@ local function awaitall(...: task)
 	return table.unpack(results)
 end
 
+local function wait(duration: number)
+	local seconds = if typeof(duration) == "number"
+		then duration
+		elseif typeof(duration) == "table" and duration.__type == "duration" then duration.seconds
+		else error("Expected a number or duration")
+
+	local startTime = os.clock()
+	while os.clock() - startTime < seconds do
+		task.defer()
+	end
+end
+
+local function delay(duration: number, f: () -> ())
+	coroutine.wrap(function()
+		wait(duration)
+		f()
+	end)()
+end
+
 return table.freeze({
 	create = create,
 	await = await,
 	awaitall = awaitall,
+	delay = delay,
+	wait = wait,
+
+	-- default
+	defer = task.defer,
 })

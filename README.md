@@ -21,33 +21,33 @@ Contributions to any of these libraries are welcome, and we encourage you to ope
 ### `@std/table`
 - `table.map(table: table, callback: (value: any) -> any): table`
 Transforms a table with a modifier function applied on every value.
-```lua
+```luau
 table.map({1, 2, 3}, function(value)
     return value * 2
 end) -- {2, 4, 6}
 ```
 - `table.filter(table: table, callback: (value: any) -> boolean): table`
 Filters a table with a predicate function applied on every value.
-```lua
+```luau
 table.filter({1, 2, 3}, function(value)
     return value % 2 == 0
 end) -- {2}
 ```
 - `table.fold(table: table, callback: (accumulator: any, value: any) -> any, initial: any): any`
 Folds a table with an accumulator function applied on every value.
-```lua
+```luau
 table.fold({1, 2, 3}, function(accumulator, value)
     return accumulator + value
 end, 0) -- 6
 ```
 - `table.isArray(table: table): boolean`
 Checks if a table is an array.
-```lua
+```luau
 table.isArray({1, 2, 3}) -- true
 ```
 - `table.union(table1: table, table2: table): table`
 Merges two tables into one.
-```lua
+```luau
 table.union({1, 2}, {3, 4}) -- {1, 2, 3, 4}
 
 table.union({a = 1}, {b = 2}) -- {a = 1, b = 2}
@@ -55,28 +55,59 @@ table.union({a = 1}, {b = 2}) -- {a = 1, b = 2}
 - `table.count(table: table): number`
 Counts the number of elements in a table. For arrays use `#t`, this
 is useful for dictionaries.
-```lua
+```luau
 table.count({a = 1, b = 2}) -- 2
 ```
 - `table.reverse(table: table): table`
 Reverses the order of elements in a table.
-```lua
+```luau
 table.reverse({1, 2, 3}) -- {3, 2, 1}
 ```
 - `table.difference(table1: table, table2: table): table`
 Returns the difference between two tables.
-```lua
+```luau
 table.difference({1, 2, 3}, {2, 3, 4}) -- {1}
 ```
 - `table.contains(table: table, value: any): boolean`
 Checks if a table contains a subtable.
-```lua  
+```luau
 table.contains({1, 2, 3}, {2, 3}) -- true
 ```
 - `table.set(table: table): table`
 Removes duplicate values from a array.
-```lua
+```luau
 table.set({1, 2, 2, 3}) -- {1, 2, 3}
+```
+### `@std/task`
+- `task.delay(time: number|duration, callback: () -> void): void` `task.wait(time: number|duration): void`
+Identical to Roblox variants, but can take `time.duration` as a parameter.
+```luau
+task.delay(time.duration.seconds(1), function()
+    print("Hello, world!")
+end)
+```
+- `task.create(callback: () -> void): task` & `task.await(task: task): void`
+Creates a new task.
+```luau
+local myTask = task.create(function()
+    print("Hello, world!")
+    return 42
+end)
+task.await(myTask)
+print(myTask.result) -- 42
+```
+- `task.awaitAll(task1: task, task2: task, ...): void`
+Awaits all tasks in a table.
+```luau
+local myTask1 = task.create(function()
+    return 1
+end)
+local myTask2 = task.create(function()
+    return 2
+end)
+task.awaitAll(myTask1, myTask2)
+print(myTask1.result) -- 1
+print(myTask2.result) -- 2
 ```
 ## Build
 - `python ./tools/luthier.py fetch lute` (Download submodules)
