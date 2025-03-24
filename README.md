@@ -109,6 +109,18 @@ task.awaitAll(myTask1, myTask2)
 print(myTask1.result) -- 1
 print(myTask2.result) -- 2
 ```
+## `@std/vector`
+- `vector.withx(vector: vector, x: number): vector`, `vector.withy(vector: vector, y: number): vector`, `vector.withz(vector: vector, z: number): vector`
+Sets the x component of a vector.
+```luau
+vector.withx(vector.create(1, 2, 3), 4) -- vector.create(4, 2, 3)
+```
+- `vector.rotate(vector: vector, angle: number, dimension: string): vector`
+Rotates a vector by an angle.
+```luau
+-- this will rotate the vector 90degrees around the origin over the y-axis
+vector.rotate(vector.create(1, 0, 0), math.rad(90), "y")
+```
 ## Build
 - `python ./tools/luthier.py fetch lute` (Download submodules)
 - `python ./tools/luthier.py configure lute --config=debug` (Configure the build)
