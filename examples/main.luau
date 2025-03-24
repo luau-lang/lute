@@ -1,7 +1,9 @@
 local pp = require("@batteries/pp")
 local task = require("@std/task")
-local time = require("@std/time")
+local random = require("@std/random")
 
-print("Start", os.clock())
-task.wait(time.duration.seconds(2))
-print("End", os.clock())
+local robj = random.new(os.time())
+
+print(robj:NextNumber())
+print(robj:NextNumber())
+print(robj:NextInteger(1, 10))
