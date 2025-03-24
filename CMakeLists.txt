@@ -92,7 +92,7 @@ target_include_directories(Lute.VM PUBLIC vm/include ${LIBUV_INCLUDE_DIR})
 
 target_link_libraries(Lute.Runtime PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.VM uv_a)
 target_link_libraries(Lute.Fs PRIVATE Lute.Runtime Luau.VM uv_a)
-target_link_libraries(Lute.Luau PRIVATE Lute.Runtime Luau.VM uv_a Luau.Analysis Luau.Ast)
+target_link_libraries(Lute.Luau PRIVATE Lute.Runtime Luau.VM uv_a Luau.Analysis Luau.Ast Luau.Compiler)
 target_link_libraries(Lute.Net PRIVATE Lute.Runtime Luau.VM uv_a ${WOLFSSL_LIBRARY} libcurl uWS)
 target_link_libraries(Lute.Task PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.VM PRIVATE Lute.Runtime Luau.VM uv_a)
