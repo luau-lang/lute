@@ -182,9 +182,14 @@ int create(lua_State* L) {
 
     if (args.empty() || args[0].empty())
     {
-        luaL_error(L, "process.create requires a non-empty command"); return 0;
+        luaL_error(L, "process.create requires a non-empty command");
+        return 0;
     }
-    bool use_shell = false; std::string cwd; std::map<std::string, std::string> env;
+
+    bool use_shell = false; 
+    std::string cwd;
+    std::map<std::string, std::string> env;
+
     if (lua_istable(L, 2))
     {
         lua_getfield(L, 2, "shell");
@@ -212,17 +217,17 @@ int create(lua_State* L) {
         lua_pop(L, 1);
     }
 
-    if (use_shell && args.size() > 1)
-    {
-        std::string cmd = args[0];
-        
-        for(size_t i=1; i<args.size(); ++i)
+    std::string command_str; // Used only if use_shell is true
+    if (use_shell) {
+        command_str = args[0];
+
+        for (size_t i = 1; i < args.size(); ++i)
         {
-            cmd += " ";
-            cmd += args[i];
+            command_str += " ";
+            command_str += args[i];
         }
-        
-        args = {cmd};
+
+        args = { command_str };
     }
 
     auto handle = std::make_shared<ProcessHandle>();
@@ -243,6 +248,8 @@ int create(lua_State* L) {
     std::vector<std::string> env_strings;
     std::vector<char*> env_ptr;
     if (!env.empty()) {
+        env_strings.reserve(env.size());
+        env_ptr.reserve(env.size() + 1);
         for (const auto& pair : env) {
             env_strings.push_back(pair.first + "=" + pair.second);
         }
@@ -259,11 +266,15 @@ int create(lua_State* L) {
 
     uv_pipe_init(handle->loop, &handle->stdout_pipe, 0);
     uv_pipe_init(handle->loop, &handle->stderr_pipe, 0);
+    
     options.stdio_count = 3;
     uv_stdio_container_t stdio[3];
-    stdio[0].flags = UV_INHERIT_FD; stdio[0].data.fd = 0; // Inherit stdin
-    stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE | UV_WRITABLE_PIPE); stdio[1].data.stream = (uv_stream_t*)&handle->stdout_pipe;
-    stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE | UV_WRITABLE_PIPE); stdio[2].data.stream = (uv_stream_t*)&handle->stderr_pipe;
+    stdio[0].flags = UV_INHERIT_FD;
+    stdio[0].data.fd = 0; // Inherit stdin
+    stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+    stdio[1].data.stream = (uv_stream_t*)&handle->stdout_pipe;
+    stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+    stdio[2].data.stream = (uv_stream_t*)&handle->stderr_pipe;
     options.stdio = stdio;
 
     handle->process.data = handle.get();
@@ -274,12 +285,13 @@ int create(lua_State* L) {
 
     int spawn_result = uv_spawn(handle->loop, &handle->process, &options);
 
-    if (spawn_result != 0) {
-        if (handle->resume_token) {
+    if (spawn_result != 0)
+    {
+        if (handle->resume_token)
+        {
             handle->resume_token->runtime->releasePendingToken();
             handle->resume_token.reset();
         }
-        handle->self.reset();
         handle->close_handles();
 
         lua_pushnil(L);
