@@ -6,6 +6,52 @@ on:
   workflow_dispatch:
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes since last nightly tag
+        id: check
+        run: |
+          PROCEED="true"
+
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "Schedule trigger: Checking changes..."
+
+            LATEST_NIGHTLY_TAG=$(git tag --sort=-creatordate --list '*-nightly.*' | head -n 1)
+
+            if [[ -n "$LATEST_NIGHTLY_TAG" ]]; then
+              echo "Latest nightly tag found: $LATEST_NIGHTLY_TAG"
+              LATEST_NIGHTLY_COMMIT=$(git rev-list -n 1 "$LATEST_NIGHTLY_TAG" 2>/dev/null)
+              CURRENT_HEAD_COMMIT=$(git rev-parse HEAD)
+
+              echo "Commit for tag $LATEST_NIGHTLY_TAG: $LATEST_NIGHTLY_COMMIT"
+              echo "Current HEAD commit: $CURRENT_HEAD_COMMIT"
+
+              if [[ "$LATEST_NIGHTLY_COMMIT" == "$CURRENT_HEAD_COMMIT" ]]; then
+                echo "No code changes detected since the last nightly release ($LATEST_NIGHTLY_TAG)."
+                PROCEED="false"
+              else
+                echo "Code changes detected since $LATEST_NIGHTLY_TAG. Proceeding with build."
+              fi
+            else
+              echo "No previous nightly tag found. Proceeding with build."
+            fi
+          else
+            echo "Manual trigger ('${{ github.event_name }}'). Proceeding with build."
+          fi
+
+          echo "proceed=$PROCEED" >> $GITHUB_OUTPUT
+
   build:
     strategy:
       matrix:
@@ -22,6 +68,8 @@ jobs:
             artifact_name: lute-windows-x86_64
       fail-fast: false
 
+    needs: check
+    if: ${{ needs.check.outputs.proceed == 'true' }}
     runs-on: ${{ matrix.os }}
 
     steps:
