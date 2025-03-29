@@ -371,7 +371,136 @@ int create(lua_State* L)
     return lua_yield(L, 0);
 }
 
+static int env_index(lua_State* L)
+{
+    const char* key = luaL_checkstring(L, 2);
+    char value[1024];
+    size_t size = sizeof(value);
+    int err = uv_os_getenv(key, value, &size);
+
+    if (err == UV_ENOBUFS)
+    {
+        char* buffer = (char*)malloc(size);
+        err = uv_os_getenv(key, buffer, &size);
+        if (err == 0)
+        {
+            lua_pushlstring(L, buffer, size);
+            free(buffer);
+            return 1;
+        }
+        free(buffer);
+    }
+    else if (err == UV_ENOENT)
+    {
+        lua_pushnil(L);
+        return 1;
+    }
+    else if (err != 0)
+    {
+        luaL_error(L, "Failed to get environment variable: %s", uv_strerror(err));
+        return 0;
+    }
+
+    lua_pushlstring(L, value, size);
+    return 1;
+}
+
+static int env_newindex(lua_State* L)
+{
+    const char* key = luaL_checkstring(L, 2);
+    int err;
+
+    if (lua_isnil(L, 3))
+    {
+        err = uv_os_unsetenv(key);
+    }
+    else
+    {
+        const char* value = luaL_checkstring(L, 3);
+        err = uv_os_setenv(key, value);
+    }
+
+    if (err != 0)
+    {
+        luaL_error(L, "Failed to set environment variable: %s", uv_strerror(err));
+    }
+
+    return 0;
+}
+
+typedef struct
+{
+    uv_env_item_t* items;
+    int count;
+    int index;
+} EnvIter;
+
+static int env_iter_next(lua_State* L)
+{
+    EnvIter* iter = (EnvIter*)lua_touserdata(L, lua_upvalueindex(1));
+
+    if (iter->index >= iter->count)
+    {
+        return 0;
+    }
+
+    lua_pushstring(L, iter->items[iter->index].name);
+    lua_pushstring(L, iter->items[iter->index].value);
+    iter->index++;
+    return 2;
+}
+
+static int env_iter(lua_State* L)
+{
+    uv_env_item_t* items;
+    int count;
+    int err = uv_os_environ(&items, &count);
+
+    if (err != 0)
+    {
+        luaL_error(L, "Failed to get environment variables: %s", uv_strerror(err));
+        return 0;
+    }
+
+    EnvIter* iter = (EnvIter*)lua_newuserdata(L, sizeof(EnvIter));
+    iter->items = items;
+    iter->count = count;
+    iter->index = 0;
+
+    luaL_getmetatable(L, "process.env.iterator");
+    lua_setmetatable(L, -2);
+
+    lua_pushvalue(L, -1);
+    lua_pushcclosure(L, env_iter_next, "env_iter_next", 1);
+
+    return 1;
+}
+
+static int env_iter_gc(lua_State* L)
+{
+    EnvIter* iter = (EnvIter*)lua_touserdata(L, 1);
+    if (iter->items)
+    {
+        uv_os_free_environ(iter->items, iter->count);
+        iter->items = nullptr;
+        iter->count = 0;
+    }
+    return 0;
+}
+
 } // namespace process
+
+static const luaL_Reg process_env_meta[] = {
+    {"__index", process::env_index},
+    {"__newindex", process::env_newindex},
+    {"__iter", process::env_iter},
+    {nullptr, nullptr}
+};
+
+static const luaL_Reg process_env_iter_meta[] = {
+    {"__gc", process::env_iter_gc},
+    {nullptr, nullptr}
+};
 
 int luaopen_process(lua_State* L)
 {
@@ -391,6 +520,16 @@ int luteopen_process(lua_State* L)
         lua_pushcfunction(L, func, name);
         lua_setfield(L, -2, name);
     }
+
+    luaL_newmetatable(L, "process.env.iterator");
+    luaL_register(L, nullptr, process_env_iter_meta);
+    lua_pop(L, 1);
+
+    lua_newtable(L);
+    luaL_newmetatable(L, "process.env");
+    luaL_register(L, nullptr, process_env_meta);
+    lua_setmetatable(L, -2);
+    lua_setfield(L, -2, "env");
 
     lua_setreadonly(L, -1, 1);
 
