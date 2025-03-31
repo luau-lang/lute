@@ -16,96 +16,96 @@ namespace process
 struct ProcessHandle
 {
     uv_process_t process;
-    uv_pipe_t stdout_pipe;
-    uv_pipe_t stderr_pipe;
+    uv_pipe_t stdoutPipe;
+    uv_pipe_t stderrPipe;
     uv_loop_t* loop = nullptr;
-    std::string stdout_data;
-    std::string stderr_data;
-    int64_t exit_code = -1;
-    int term_signal = 0;
+    std::string stdoutData;
+    std::string stderrData;
+    int64_t exitCode = -1;
+    int termSignal = 0;
     bool completed = false;
-    ResumeToken resume_token;
+    ResumeToken resumeToken;
     std::shared_ptr<ProcessHandle> self;
-    std::atomic<int> pending_closes{0};
+    std::atomic<int> pendingCloses{0};
 
     ~ProcessHandle() {}
 
-    void close_handles()
+    void closeHandles()
     {
-        auto close_cb = [](uv_handle_t* handle)
+        auto closeCb = [](uv_handle_t* handle)
         {
             ProcessHandle* ph = static_cast<ProcessHandle*>(handle->data);
-            if (--ph->pending_closes == 0)
+            if (--ph->pendingCloses == 0)
             {
                 ph->self.reset();
             }
         };
 
-        if (stdout_pipe.loop && uv_is_active((uv_handle_t*)&stdout_pipe))
+        if (stdoutPipe.loop && uv_is_active((uv_handle_t*)&stdoutPipe))
         {
-            pending_closes++;
-            uv_read_stop((uv_stream_t*)&stdout_pipe);
-            uv_close((uv_handle_t*)&stdout_pipe, close_cb);
+            pendingCloses++;
+            uv_read_stop((uv_stream_t*)&stdoutPipe);
+            uv_close((uv_handle_t*)&stdoutPipe, closeCb);
         }
-         if (stderr_pipe.loop && uv_is_active((uv_handle_t*)&stderr_pipe))
+         if (stderrPipe.loop && uv_is_active((uv_handle_t*)&stderrPipe))
          {
-            pending_closes++;
-            uv_read_stop((uv_stream_t*)&stderr_pipe);
-            uv_close((uv_handle_t*)&stderr_pipe, close_cb);
+            pendingCloses++;
+            uv_read_stop((uv_stream_t*)&stderrPipe);
+            uv_close((uv_handle_t*)&stderrPipe, closeCb);
          }
          if (process.loop)
          {
-            pending_closes++;
-            uv_close((uv_handle_t*)&process, close_cb);
+            pendingCloses++;
+            uv_close((uv_handle_t*)&process, closeCb);
          }
 
-        if (pending_closes == 0)
+        if (pendingCloses == 0)
         {
             self.reset();
         }
     }
 
-    void trigger_completion(bool success, const std::string& error_msg = "")
+    void triggerCompletion(bool success, const std::string& error_msg = "")
     {
         if (completed) return;
         completed = true;
 
-        close_handles();
+        closeHandles();
 
-        if (!resume_token)
+        if (!resumeToken)
         {
             return;
         }
 
         if (success)
         {
-            int64_t final_exit_code = exit_code;
-            int final_term_signal = term_signal;
-            std::string final_stdout = stdout_data;
-            std::string final_stderr = stderr_data;
-            std::string final_signal_str = final_term_signal ? std::to_string(final_term_signal) : "";
+            int64_t finalExitCode = exitCode;
+            int finalTermSignal = termSignal;
+            std::string finalStdout = stdoutData;
+            std::string finalStderr = stderrData;
+            std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
 
-            resume_token->complete([=](lua_State* L)
+            resumeToken->complete([=](lua_State* L)
             {
                 lua_createtable(L, 0, 5); // ok, exitCode, stdout, stderr, signal
 
-                bool ok = (final_exit_code == 0 && final_term_signal == 0);
+                bool ok = (finalExitCode == 0 && finalTermSignal == 0);
 
                 lua_pushboolean(L, ok);
                 lua_setfield(L, -2, "ok");
 
-                lua_pushinteger(L, final_exit_code);
+                lua_pushinteger(L, finalExitCode);
                 lua_setfield(L, -2, "exitCode");
 
-                lua_pushlstring(L, final_stdout.c_str(), final_stdout.length());
+                lua_pushlstring(L, finalStdout.c_str(), finalStdout.length());
                 lua_setfield(L, -2, "stdout");
 
-                lua_pushlstring(L, final_stderr.c_str(), final_stderr.length());
+                lua_pushlstring(L, finalStderr.c_str(), finalStderr.length());
                 lua_setfield(L, -2, "stderr");
 
-                if (!final_signal_str.empty())
+                if (!finalSignalStr.empty())
                 {
-                    lua_pushstring(L, final_signal_str.c_str());
+                    lua_pushstring(L, finalSignalStr.c_str());
                 }
                 else
                 {
@@ -118,25 +118,25 @@ struct ProcessHandle
         }
         else
         {
-            resume_token->fail("Process error: " + error_msg);
+            resumeToken->fail("Process error: " + error_msg);
         }
 
-        resume_token.reset();
+        resumeToken.reset();
     }
 };
 
-static void on_process_exit(uv_process_t* process, int64_t exit_status, int term_signal)
+static void onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
 {
     ProcessHandle* handle = static_cast<ProcessHandle*>(process->data);
     if (!handle || handle->completed) return;
 
-    handle->exit_code = exit_status;
-    handle->term_signal = term_signal;
+    handle->exitCode = exitStatus;
+    handle->termSignal = termSignal;
 
-    handle->trigger_completion(true);
+    handle->triggerCompletion(true);
 }
 
-static void on_pipe_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
+static void onPipeRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
     ProcessHandle* handle = static_cast<ProcessHandle*>(stream->data);
 
@@ -148,19 +148,19 @@ static void on_pipe_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf
 
     if (nread > 0)
     {
-        std::string* target_buffer = (stream == (uv_stream_t*)&handle->stdout_pipe)
-            ? &handle->stdout_data
-            : &handle->stderr_data;
-        target_buffer->append(buf->base, nread);
+        std::string* targetBuffer = (stream == (uv_stream_t*)&handle->stdoutPipe)
+            ? &handle->stdoutData
+            : &handle->stderrData;
+        targetBuffer->append(buf->base, nread);
     }
     else if (nread < 0)
     {
         if (nread != UV_EOF)
         {
-            std::string error_details = (stream == (uv_stream_t*)&handle->stdout_pipe) ? "stdout" : "stderr";
-            error_details += " read error: ";
-            error_details += uv_strerror(nread);
-            handle->trigger_completion(false, error_details);
+            std::string errorDetails = (stream == (uv_stream_t*)&handle->stdoutPipe) ? "stdout" : "stderr";
+            errorDetails += " read error: ";
+            errorDetails += uv_strerror(nread);
+            handle->triggerCompletion(false, errorDetails);
         }
     }
 
@@ -170,10 +170,10 @@ static void on_pipe_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf
     }
 }
 
-static void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
+static void allocBuffer(uv_handle_t* handle, size_t suggestedSize, uv_buf_t* buf)
 {
-    buf->base = (char*)malloc(suggested_size);
-    buf->len = buf->base ? suggested_size : 0;
+    buf->base = (char*)malloc(suggestedSize);
+    buf->len = buf->base ? suggestedSize : 0;
     if (!buf->base)
     {
         fprintf(stderr, "Process pipe buffer allocation failed!\n");
@@ -204,8 +204,8 @@ int create(lua_State* L)
         return 0;
     }
 
-    bool use_shell = false; 
-    std::string custom_shell;
+    bool useShell = false; 
+    std::string customShell;
     std::string cwd;
     std::map<std::string, std::string> env;
 
@@ -214,12 +214,12 @@ int create(lua_State* L)
         lua_getfield(L, 2, "shell");
         if (lua_isboolean(L, -1))
         {
-            use_shell = lua_toboolean(L, -1);
+            useShell = lua_toboolean(L, -1);
         }
         else if (lua_isstring(L, -1))
         {
-            custom_shell = lua_tostring(L, -1);
-            use_shell = true;
+            customShell = lua_tostring(L, -1);
+            useShell = true;
         }
 
         lua_pop(L, 1);
@@ -243,36 +243,36 @@ int create(lua_State* L)
         lua_pop(L, 1);
     }
 
-    if (use_shell)
+    if (useShell)
     {
-        std::string command_str = args[0];
+        std::string commandStr = args[0];
 
         for (size_t i = 1; i < args.size(); ++i)
         {
-            command_str += " ";
-            command_str += args[i];
+            commandStr += " ";
+            commandStr += args[i];
         }
 
         #ifdef _WIN32
-        const char* shell_var = "COMSPEC";
-        const char* shell_fallback = "cmd.exe";
-        const char* shell_arg = "/c";
+        const char* shellVar = "COMSPEC";
+        const char* shellFallback = "cmd.exe";
+        const char* shellArg = "/c";
         #else
-        const char* shell_var = "SHELL";
-        const char* shell_fallback = "/bin/sh";
-        const char* shell_arg = "-c";
+        const char* shellVar = "SHELL";
+        const char* shellFallback = "/bin/sh";
+        const char* shellArg = "-c";
         #endif
 
-        const char* shell = custom_shell.empty() ? nullptr : custom_shell.c_str();
+        const char* shell = customShell.empty() ? nullptr : customShell.c_str();
         if (!shell)
         {
-            char shell_buffer[1024];
-            size_t shell_size = sizeof(shell_buffer);
-            int result = uv_os_getenv(shell_var, shell_buffer, &shell_size);
-            shell = result == 0 ? shell_buffer : shell_fallback;
+            char shellBuffer[1024];
+            size_t shellSize = sizeof(shellBuffer);
+            int result = uv_os_getenv(shellVar, shellBuffer, &shellSize);
+            shell = result == 0 ? shellBuffer : shellFallback;
         }
 
-        args = {shell, shell_arg, command_str};
+        args = {shell, shellArg, commandStr};
     }
 
     auto handle = std::make_shared<ProcessHandle>();
@@ -280,50 +280,50 @@ int create(lua_State* L)
     handle->self = handle;
 
     uv_process_options_t options = {};
-    options.exit_cb = on_process_exit;
+    options.exit_cb = onProcessExit;
     options.file = args[0].c_str();
 
-    std::vector<char*> process_args_ptr;
+    std::vector<char*> processArgsPtr;
     for (const auto& arg : args)
     {
-        process_args_ptr.push_back(const_cast<char*>(arg.c_str()));
+        processArgsPtr.push_back(const_cast<char*>(arg.c_str()));
     }
-    process_args_ptr.push_back(nullptr);
-    options.args = process_args_ptr.data();
+    processArgsPtr.push_back(nullptr);
+    options.args = processArgsPtr.data();
 
-    std::vector<std::string> env_strings;
-    std::vector<char*> env_ptr;
+    std::vector<std::string> envStrings;
+    std::vector<char*> envPtr;
     if (!env.empty())
     {
         // Copy current environment into the new environment
-        uv_env_item_t* current_env_items;
-        int current_env_count;
-        int err = uv_os_environ(&current_env_items, &current_env_count);
+        uv_env_item_t* currentEnvItems;
+        int currentEnvCount;
+        int err = uv_os_environ(&currentEnvItems, &currentEnvCount);
         if (err != 0)
         {
             luaL_error(L, "Failed to get current environment: %s", uv_strerror(err));
             return 0;
         }
-        for (int i = 0; i < current_env_count; i++)
+        for (int i = 0; i < currentEnvCount; i++)
         {
-            if (current_env_items[i].name && current_env_items[i].value && env.find(current_env_items[i].name) == env.end())
+            if (currentEnvItems[i].name && currentEnvItems[i].value && env.find(currentEnvItems[i].name) == env.end())
             {
-                env[current_env_items[i].name] = current_env_items[i].value;
+                env[currentEnvItems[i].name] = currentEnvItems[i].value;
             }
         }
         // Turn the new environment into a char** array
-        env_strings.reserve(env.size());
-        env_ptr.reserve(env.size() + 1);
+        envStrings.reserve(env.size());
+        envPtr.reserve(env.size() + 1);
         for (const auto& pair : env)
         {
-            env_strings.push_back(pair.first + "=" + pair.second);
+            envStrings.push_back(pair.first + "=" + pair.second);
         }
-        for (auto& str : env_strings)
+        for (auto& str : envStrings)
         {
-            env_ptr.push_back(&str[0]);
+            envPtr.push_back(&str[0]);
         }
-        env_ptr.push_back(nullptr);
-        options.env = env_ptr.data();
+        envPtr.push_back(nullptr);
+        options.env = envPtr.data();
     }
 
     if (!cwd.empty())
@@ -331,42 +331,42 @@ int create(lua_State* L)
         options.cwd = cwd.c_str();
     }
 
-    uv_pipe_init(handle->loop, &handle->stdout_pipe, 0);
-    uv_pipe_init(handle->loop, &handle->stderr_pipe, 0);
+    uv_pipe_init(handle->loop, &handle->stdoutPipe, 0);
+    uv_pipe_init(handle->loop, &handle->stderrPipe, 0);
 
     options.stdio_count = 3;
     uv_stdio_container_t stdio[3];
     stdio[0].flags = UV_INHERIT_FD;
     stdio[0].data.fd = 0; // Inherit stdin
     stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[1].data.stream = (uv_stream_t*)&handle->stdout_pipe;
+    stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
     stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[2].data.stream = (uv_stream_t*)&handle->stderr_pipe;
+    stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
     options.stdio = stdio;
 
     handle->process.data = handle.get();
-    handle->stdout_pipe.data = handle.get();
-    handle->stderr_pipe.data = handle.get();
+    handle->stdoutPipe.data = handle.get();
+    handle->stderrPipe.data = handle.get();
 
-    handle->resume_token = getResumeToken(L);
+    handle->resumeToken = getResumeToken(L);
 
-    int spawn_result = uv_spawn(handle->loop, &handle->process, &options);
+    int spawnResult = uv_spawn(handle->loop, &handle->process, &options);
 
-    if (spawn_result != 0)
+    if (spawnResult != 0)
     {
-        if (handle->resume_token)
+        if (handle->resumeToken)
         {
-            handle->resume_token->runtime->releasePendingToken();
-            handle->resume_token.reset();
+            handle->resumeToken->runtime->releasePendingToken();
+            handle->resumeToken.reset();
         }
-        handle->close_handles();
+        handle->closeHandles();
 
-        luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawn_result));
+        luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
         return 0;
     }
 
-    uv_read_start((uv_stream_t*)&handle->stdout_pipe, alloc_buffer, on_pipe_read);
-    uv_read_start((uv_stream_t*)&handle->stderr_pipe, alloc_buffer, on_pipe_read);
+    uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
+    uv_read_start((uv_stream_t*)&handle->stderrPipe, allocBuffer, onPipeRead);
 
     return lua_yield(L, 0);
 }
