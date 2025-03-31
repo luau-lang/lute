@@ -95,7 +95,7 @@ struct ProcessHandle
                 lua_setfield(L, -2, "ok");
 
                 lua_pushinteger(L, finalExitCode);
-                lua_setfield(L, -2, "exitCode");
+                lua_setfield(L, -2, "exitcode");
 
                 lua_pushlstring(L, finalStdout.c_str(), finalStdout.length());
                 lua_setfield(L, -2, "stdout");

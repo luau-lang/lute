@@ -3,7 +3,7 @@ local task = require("@std/task")
 
 local result = process.create({ "echo", "Hello, lute!" })
 
-print(result.exitCode)
+print(result.exitcode)
 print(result.stdout)
 
 local t1 = task.create(process.create, { "echo", "-n", "One" })
