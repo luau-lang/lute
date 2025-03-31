@@ -371,7 +371,7 @@ int create(lua_State* L)
     return lua_yield(L, 0);
 }
 
-static int env_index(lua_State* L)
+static int envIndex(lua_State* L)
 {
     const char* key = luaL_checkstring(L, 2);
     char value[1024];
@@ -405,7 +405,7 @@ static int env_index(lua_State* L)
     return 1;
 }
 
-static int env_newindex(lua_State* L)
+static int envNewindex(lua_State* L)
 {
     const char* key = luaL_checkstring(L, 2);
     int err;
@@ -435,7 +435,7 @@ typedef struct
     int index;
 } EnvIter;
 
-static int env_iter_next(lua_State* L)
+static int envIterNext(lua_State* L)
 {
     EnvIter* iter = (EnvIter*)lua_touserdata(L, lua_upvalueindex(1));
 
@@ -450,7 +450,7 @@ static int env_iter_next(lua_State* L)
     return 2;
 }
 
-static int env_iter(lua_State* L)
+static int envIter(lua_State* L)
 {
     uv_env_item_t* items;
     int count;
@@ -471,12 +471,12 @@ static int env_iter(lua_State* L)
     lua_setmetatable(L, -2);
 
     lua_pushvalue(L, -1);
-    lua_pushcclosure(L, env_iter_next, "env_iter_next", 1);
+    lua_pushcclosure(L, envIterNext, "envIterNext", 1);
 
     return 1;
 }
 
-static int env_iter_gc(lua_State* L)
+static int envIterGc(lua_State* L)
 {
     EnvIter* iter = (EnvIter*)lua_touserdata(L, 1);
     if (iter->items)
@@ -490,15 +490,15 @@ static int env_iter_gc(lua_State* L)
 
 } // namespace process
 
-static const luaL_Reg process_env_meta[] = {
-    {"__index", process::env_index},
-    {"__newindex", process::env_newindex},
-    {"__iter", process::env_iter},
+static const luaL_Reg processEnvMeta[] = {
+    {"__index", process::envIndex},
+    {"__newindex", process::envNewindex},
+    {"__iter", process::envIter},
     {nullptr, nullptr}
 };
 
-static const luaL_Reg process_env_iter_meta[] = {
-    {"__gc", process::env_iter_gc},
+static const luaL_Reg processEnvIterMeta[] = {
+    {"__gc", process::envIterGc},
     {nullptr, nullptr}
 };
 
@@ -522,12 +522,12 @@ int luteopen_process(lua_State* L)
     }
 
     luaL_newmetatable(L, "process.env.iterator");
-    luaL_register(L, nullptr, process_env_iter_meta);
+    luaL_register(L, nullptr, processEnvIterMeta);
     lua_pop(L, 1);
 
     lua_newtable(L);
     luaL_newmetatable(L, "process.env");
-    luaL_register(L, nullptr, process_env_meta);
+    luaL_register(L, nullptr, processEnvMeta);
     lua_setmetatable(L, -2);
     lua_setfield(L, -2, "env");
 
