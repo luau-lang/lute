@@ -433,7 +433,7 @@ struct EnvIter
     uv_env_item_t* items;
     int count;
     int index;
-}
+};
 
 static int envIterNext(lua_State* L)
 {
