@@ -428,12 +428,12 @@ static int envNewindex(lua_State* L)
     return 0;
 }
 
-typedef struct
+struct EnvIter
 {
     uv_env_item_t* items;
     int count;
     int index;
-} EnvIter;
+}
 
 static int envIterNext(lua_State* L)
 {
