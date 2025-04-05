@@ -293,7 +293,7 @@ def fetchDependency(dependencyInfo):
         os.chdir(getSourceRoot())
         return result
 
-    if gitVersionInfo['major'] >= 2 and gitVersionInfo['minor'] >= 49:
+    if (gitVersionInfo['major'], gitVersionInfo['minor']) >= (2, 49):
         # if it doesn't exist, we'll do a shallow clone
         return call(['git', 'clone', '--depth=1', '--recurse-submodules', '--revision', dependency['revision'], dependency['remote'], "extern/" + dependency['name']])
     else:
