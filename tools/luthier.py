@@ -10,6 +10,14 @@ from os import path
 
 cwd = os.getcwd()
 
+def gitVersion():
+    gitVersionString = sp.check_output(['git', '--version'])
+    gitVersion = gitVersionString.decode('utf-8').strip().split()[-1]
+    components = gitVersion.split('.')
+    return { 'major': int(components[0]), 'minor': int(components[1]), 'patch': int(components[2]) }
+
+gitVersionInfo = gitVersion()
+
 class ReportableError(Exception):
     """This error object is used to indicate an error should be reported to the user
        without a full stack trace."""
@@ -279,15 +287,18 @@ def fetchDependency(dependencyInfo):
     # if the directory already exists, update that directory to `branch`
     if os.path.isdir(os.path.join('extern', dependency['name'])):
         os.chdir(os.path.join('extern', dependency['name']))
-        check(call(['git', 'fetch', '--depth=1', 'origin', dependency['branch']]))
-        result = call(['git', 'checkout', dependency['branch']])
+        check(call(['git', 'fetch', '--depth=1', 'origin', dependency['revision']]))
+        result = call(['git', 'checkout', dependency['revision']])
         check(call(['git', 'submodule', 'update', '--init', '--recursive', '--depth=1']))
         os.chdir(getSourceRoot())
         return result
 
-
-    # if it doesn't exist, we'll do a shallow clone
-    return call(['git', 'clone', '--depth=1', '--recurse-submodules', '--branch', dependency['branch'], dependency['remote'], "extern/" + dependency['name']])
+    if gitVersionInfo['major'] >= 2 and gitVersionInfo['minor'] >= 49:
+        # if it doesn't exist, we'll do a shallow clone
+        return call(['git', 'clone', '--depth=1', '--recurse-submodules', '--revision', dependency['revision'], dependency['remote'], "extern/" + dependency['name']])
+    else:
+        # if it doesn't exist, we'll do a shallow clone
+        return call(['git', 'clone', '--depth=1', '--recurse-submodules', '--branch', dependency['branch'], dependency['remote'], "extern/" + dependency['name']])
 
 def fetchDependencies(args):
     for _, _, files in os.walk('extern'):

@@ -1,4 +1,5 @@
 [dependency]
 name = "curl"
 remote = "https://github.com/curl/curl.git"
-branch = "curl-8_12_1"
+branch = "curl-8_13_0"
+revision = "1c3149881769e7bd79b072e48374e4c2b3678b2f"

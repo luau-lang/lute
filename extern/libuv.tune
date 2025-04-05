@@ -2,3 +2,4 @@
 name = "libuv"
 remote = "https://github.com/libuv/libuv.git"
 branch = "v1.50.0"
+revision = "8fb9cb919489a48880680a56efecff6a7dfb4504"
