@@ -12,7 +12,7 @@ cwd = os.getcwd()
 
 def gitVersion():
     gitVersionString = sp.check_output(['git', '--version'])
-    gitVersion = gitVersionString.decode('utf-8').strip().split()[-1]
+    gitVersion = gitVersionString.decode('utf-8').strip().split()[2]
     components = gitVersion.split('.')
     return { 'major': int(components[0]), 'minor': int(components[1]), 'patch': int(components[2]) }
 
