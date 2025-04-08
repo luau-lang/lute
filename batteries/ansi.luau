@@ -1,4 +1,5 @@
 local RESULT_TBL = {}
+local PREV_LEN = 0
 
 local function replaceClose(
 	str: string, close: string, replace: string, index: number, closeLen: number
@@ -14,23 +15,28 @@ local function replaceClose(
 		index = string.find(str, close, cursor, true)
 	end
 	local result = table.concat(RESULT_TBL, replace)
-	table.clear(RESULT_TBL)
 
-	return `{result}{string.sub(str, cursor)}`
+	if tblLen < PREV_LEN then
+		for idx = tblLen + 1, PREV_LEN do
+			RESULT_TBL[idx] = nil
+		end
+	end
+
+	PREV_LEN = tblLen
+	return result .. string.sub(str, cursor)
 end
 
-local function formatter(open: string, close: string, replace: string?): (string) -> string
+local function formatter(open: string, close: string, replace: string?): (s: string) -> string
 	local closeLen = #close
 	local openLen = #open
 	replace = replace or open
-	local format = `{open}%*{close}`
 
-	return function(str: string): string
-		local index = string.find(str, close, openLen + 1, true)
+	return function(s: string): string
+		local index = string.find(s, close, openLen + 1, true)
 		
-		return string.format(
-			format, if index then replaceClose(str, close, replace, index, closeLen) else str
-		)
+		return open .. 
+			(if index then replaceClose(s, close, replace, index, closeLen) else s) .. 
+			close
 	end
 end
 
