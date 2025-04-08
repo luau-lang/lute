@@ -1,27 +1,40 @@
-local function replaceClose(str: string, close: string, replace: string, index: number?): string
-	local result = ""
+local RESULT_TBL = {}
+
+local function replaceClose(
+	str: string, close: string, replace: string, index: number, closeLen: number
+): string
 	local cursor = 1
+	local tblLen = 0
+
 	while index do
-		result ..= string.sub(str, cursor, index - 1) .. replace
-		cursor = index + #close
-		local nextIndex = string.find(str, close, cursor, true)
-		index = nextIndex
+		tblLen += 1
+		-- not using table.insert because its likely the index would already be allocated
+		RESULT_TBL[tblLen] = string.sub(str, cursor, index - 1)
+		cursor = index + closeLen
+		index = string.find(str, close, cursor, true)
 	end
-	return result .. string.sub(str, cursor)
+	local result = table.concat(RESULT_TBL, replace)
+	table.clear(RESULT_TBL)
+
+	return `{result}{string.sub(str, cursor)}`
 end
 
 local function formatter(open: string, close: string, replace: string?): (string) -> string
+	local closeLen = #close
+	local openLen = #open
+	replace = replace or open
+	local format = `{open}%*{close}`
+
 	return function(str: string): string
-		local index = string.find(str, close, #open + 1, true)
-		if index then
-			return open .. replaceClose(str, close, replace or open, index) .. close
-		else
-			return open .. str .. close
-		end
+		local index = string.find(str, close, openLen + 1, true)
+		
+		return string.format(
+			format, if index then replaceClose(str, close, replace, index, closeLen) else str
+		)
 	end
 end
 
-return {
+return table.freeze({
 	reset = formatter("\x1b[0m", "\x1b[0m"),
 	bold = formatter("\x1b[1m", "\x1b[22m", "\x1b[22m\x1b[1m"),
 	dim = formatter("\x1b[2m", "\x1b[22m", "\x1b[22m\x1b[2m"),
@@ -67,4 +80,4 @@ return {
 	bgMagentaBright = formatter("\x1b[105m", "\x1b[49m"),
 	bgCyanBright = formatter("\x1b[106m", "\x1b[49m"),
 	bgWhiteBright = formatter("\x1b[107m", "\x1b[49m"),
-}
+})
