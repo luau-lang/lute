@@ -57,12 +57,16 @@ struct ExprResult
 
 static ExprResult parseExpr(std::string& source)
 {
+    // TODO: this is very bad, fix it!
+    FFlag::LuauStoreCSTData2.value = true;
+
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
 
     Luau::ParseOptions options;
     options.captureComments = true;
     options.allowDeclarationSyntax = false;
+    options.storeCstData = true;
 
     auto parseResult = Luau::Parser::parseExpr(source.data(), source.size(), *names, *allocator, options);
 
