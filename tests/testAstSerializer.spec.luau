@@ -133,6 +133,7 @@ local function test_roundtrippableAst()
 		"tests/astSerializerTests/break-continue-1.luau",
 		"tests/astSerializerTests/compound-assignment-1.luau",
 		"tests/astSerializerTests/function-declaration-1.luau",
+		"tests/astSerializerTests/function-declaration-2.luau",
 		"tests/astSerializerTests/generic-for-loop-1.luau",
 		"tests/astSerializerTests/local-function-declaration-1.luau",
 		"tests/astSerializerTests/numeric-for-loop-1.luau",
