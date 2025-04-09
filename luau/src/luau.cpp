@@ -792,6 +792,8 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeFunctionBody(Luau::AstExprFunction* node)
     {
+        const auto* cstNode = lookupCstNode<Luau::CstExprFunction>(node);
+
         lua_rawcheckstack(L, 3);
         lua_createtable(L, 0, 7);
 
@@ -807,8 +809,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "openParens");
         }
 
-        // TODO: separators
-        serializePunctuated(node->args, {}, ",");
+        serializePunctuated(node->args, cstNode ? cstNode->argsCommaPositions : Luau::AstArray<Luau::Position>{}, ",");
         lua_setfield(L, -2, "parameters");
 
         // TODO: generics, return types, etc.
