@@ -1,29 +1,18 @@
-local RESULT_TBL = {}
-local PREV_LEN = 0
 
 local function replaceClose(
 	str: string, close: string, replace: string, index: number, closeLen: number
 ): string
+	local resultTbl = {}
 	local cursor = 1
-	local tblLen = 0
-
+	
 	while index do
 		tblLen += 1
-		-- not using table.insert because its likely the index would already be allocated
-		RESULT_TBL[tblLen] = string.sub(str, cursor, index - 1)
+		table.insert(resultTbl, string.sub(str, cursor, index - 1))
 		cursor = index + closeLen
 		index = string.find(str, close, cursor, true)
 	end
-	local result = table.concat(RESULT_TBL, replace)
 
-	if tblLen < PREV_LEN then
-		for idx = tblLen + 1, PREV_LEN do
-			RESULT_TBL[idx] = nil
-		end
-	end
-
-	PREV_LEN = tblLen
-	return result .. string.sub(str, cursor)
+	return table.concat(resultTbl, replace) .. string.sub(str, cursor)
 end
 
 local function formatter(open: string, close: string, replace: string?): (s: string) -> string
