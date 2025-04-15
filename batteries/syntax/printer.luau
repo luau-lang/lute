@@ -46,31 +46,47 @@ local function printString(expr: T.AstExprConstantString): string
 	return result
 end
 
---- Returns a string representation of an AstStatBlock
-local function printBlock(block: T.AstStatBlock): string
-	local printer = visitor.createVisitor()
-	local result = ""
+type PrintVisitor = visitor.Visitor & {
+	result: string,
+}
+
+local function printVisitor()
+	local printer = visitor.createVisitor() :: PrintVisitor
+	printer.result = ""
 
 	printer.visitToken = function(node: T.Token)
-		result ..= printToken(node)
+		printer.result ..= printToken(node)
 		return false
 	end
 
 	printer.visitString = function(node: T.AstExprConstantString)
-		result ..= printString(node)
+		printer.result ..= printString(node)
 		return false
 	end
 
 	printer.visitTypeString = function(node: T.AstTypeSingletonString)
-		result ..= printString(node)
+		printer.result ..= printString(node)
 		return false
 	end
 
-	visitor.visitBlock(block, printer)
+	return printer
+end
 
-	return result
+--- Returns a string representation of an AstStatBlock
+local function printBlock(block: T.AstStatBlock): string
+	local printer = printVisitor()
+	visitor.visitBlock(block, printer)
+	return printer.result
+end
+
+--- Returns a string representation of an AstExpr
+function printExpr(block: T.AstExpr): string
+	local printer = printVisitor()
+	visitor.visitExpression(block, printer)
+	return printer.result
 end
 
 return {
 	print = printBlock,
+	printexpr = printExpr,
 }
