@@ -979,21 +979,44 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serialize(Luau::AstExprInterpString* node)
     {
+        const auto* cstNode = lookupCstNode<Luau::CstExprInterpString>(node);
+
         lua_rawcheckstack(L, 3);
         lua_createtable(L, 0, preambleSize + 2);
 
         serializeNodePreamble(node, "interpolatedstring");
 
         lua_createtable(L, node->strings.size, 0);
+        lua_createtable(L, node->expressions.size, 0);
+
         for (size_t i = 0; i < node->strings.size; i++)
         {
-            lua_pushlstring(L, node->strings.data[i].data, node->strings.data[i].size);
-            lua_rawseti(L, -2, i + 1);
-        }
-        lua_setfield(L, -2, "strings");
+            if (cstNode)
+            {
+                auto position = i > 0 ? cstNode->stringPositions.data[i] : node->location.begin;
+                serializeToken(position, std::string(cstNode->sourceStrings.data[i].data, cstNode->sourceStrings.data[i].size).data());
 
-        serializeExprs(node->expressions);
-        lua_setfield(L, -2, "expressions");
+                // Unlike normal tokens, interpolated string parts contain extra characters (`, } or {) that were not included during advancement
+                // For simplicity, lets set the current position manually. We don't have an end position for these parts, so we must compute
+                // If string part was single line, end position = current position + 2 (start and end character)
+                // If string parts was multi line, end position = current position + 1 (just end character)
+                if (position.line == currentPosition.line)
+                    currentPosition.column += 2;
+                else
+                    currentPosition.column += 1;
+            }
+            else
+                lua_pushlstring(L, node->strings.data[i].data, node->strings.data[i].size);
+            lua_rawseti(L, -3, i + 1);
+
+            if (i < node->expressions.size)
+            {
+                node->expressions.data[i]->visit(this);
+                lua_rawseti(L, -2, i + 1);
+            }
+        }
+        lua_setfield(L, -3, "expressions");
+        lua_setfield(L, -2, "strings");
     }
 
     void serialize(Luau::AstExprError* node)

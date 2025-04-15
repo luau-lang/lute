@@ -46,6 +46,31 @@ local function printString(expr: T.AstExprConstantString): string
 	return result
 end
 
+local function printInterpolatedString(expr: T.AstExprInterpString): string
+	local result = ""
+
+	for i = 1, #expr.strings do
+		printTriviaList(expr.strings[i].leadingTrivia)
+		if i == 1 then
+			result ..= "`"
+		else
+			result ..= "}"
+		end
+		result ..= expr.strings[i].text
+
+		if i == #expr.strings then
+			result ..= "`"
+			result ..= printTriviaList(expr.strings[i].trailingTrivia)
+		else
+			result ..= "{"
+			result ..= printTriviaList(expr.strings[i].trailingTrivia)
+			result ..= printExpr(expr.expressions[i])
+		end
+	end
+
+	return result
+end
+
 type PrintVisitor = visitor.Visitor & {
 	result: string,
 }
@@ -66,6 +91,11 @@ local function printVisitor()
 
 	printer.visitTypeString = function(node: T.AstTypeSingletonString)
 		printer.result ..= printString(node)
+		return false
+	end
+
+	printer.visitInterpolatedString = function(node: T.AstExprInterpString)
+		printer.result ..= printInterpolatedString(node)
 		return false
 	end
 

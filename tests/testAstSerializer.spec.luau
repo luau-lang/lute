@@ -120,6 +120,7 @@ end
 local function test_roundtrippableAst()
 	local files = {
 		"examples/a.luau",
+		"examples/ansi.luau",
 		"examples/async_read.luau",
 		"examples/b.luau",
 		"examples/badisnan.luau",
@@ -135,6 +136,7 @@ local function test_roundtrippableAst()
 		"tests/astSerializerTests/function-declaration-1.luau",
 		"tests/astSerializerTests/function-declaration-2.luau",
 		"tests/astSerializerTests/generic-for-loop-1.luau",
+		"tests/astSerializerTests/interpolated-string-1.luau",
 		"tests/astSerializerTests/local-function-declaration-1.luau",
 		"tests/astSerializerTests/numeric-for-loop-1.luau",
 		"tests/astSerializerTests/type-singletons-1.luau",

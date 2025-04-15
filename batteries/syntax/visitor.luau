@@ -31,6 +31,7 @@ export type Visitor = {
 	visitIndexName: (T.AstExprIndexName) -> boolean,
 	visitIndexExpr: (T.AstExprIndexExpr) -> boolean,
 	visitGroup: (T.AstExprGroup) -> boolean,
+	visitInterpolatedString: (T.AstExprInterpString) -> boolean,
 
 	visitTypeReference: (T.AstTypeReference) -> boolean,
 	visitTypeBoolean: (T.AstTypeSingletonBool) -> boolean,
@@ -80,6 +81,7 @@ local defaultVisitor: Visitor = {
 	visitIndexName = alwaysVisit :: any,
 	visitIndexExpr = alwaysVisit :: any,
 	visitGroup = alwaysVisit :: any,
+	visitInterpolatedString = alwaysVisit,
 
 	visitTypeReference = alwaysVisit :: any,
 	visitTypeBoolean = alwaysVisit :: any,
@@ -404,6 +406,17 @@ local function visitGroup(node: T.AstExprGroup, visitor: Visitor)
 	end
 end
 
+local function visitInterpolatedString(node: T.AstExprInterpString, visitor: Visitor)
+	if visitor.visitInterpolatedString(node) then
+		for i = 1, #node.strings do
+			visitToken(node.strings[i], visitor)
+			if i < #node.expressions then
+				visitExpression(node.expressions[i], visitor)
+			end
+		end
+	end
+end
+
 local function visitTypeReference(node: T.AstTypeReference, visitor: Visitor)
 	if visitor.visitTypeReference(node) then
 		if node.prefix then
@@ -486,6 +499,8 @@ function visitExpression(expression: T.AstExpr, visitor: Visitor)
 			visitIndexExpr(expression, visitor)
 		elseif expression.tag == "group" then
 			visitGroup(expression, visitor)
+		elseif expression.tag == "interpolatedstring" then
+			visitInterpolatedString(expression, visitor)
 		else
 			exhaustiveMatch(expression.tag)
 		end
