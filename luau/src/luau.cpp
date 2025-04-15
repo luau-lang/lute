@@ -355,6 +355,9 @@ struct AstSerialize : public Luau::AstVisitor
         {
             lua_pushstring(L, "list");
             lua_setfield(L, -2, "kind");
+
+            visit(item.value);
+            lua_setfield(L, -2, "value");
         }
         else if (item.kind == Luau::AstExprTable::Item::Record)
         {
@@ -376,7 +379,7 @@ struct AstSerialize : public Luau::AstVisitor
         }
         else if (item.kind == Luau::AstExprTable::Item::General)
         {
-            lua_pushstring(L, "record");
+            lua_pushstring(L, "general");
             lua_setfield(L, -2, "kind");
 
             if (cstNode && cstNode->indexerOpenPosition)
@@ -390,16 +393,16 @@ struct AstSerialize : public Luau::AstVisitor
 
             if (cstNode)
             {
-                if (cstNode->equalsPosition)
-                {
-                    serializeToken(cstNode->equalsPosition.value(), "=");
-                    lua_setfield(L, -2, "equals");
-                }
-
                 if (cstNode->indexerClosePosition)
                 {
                     serializeToken(cstNode->indexerClosePosition.value(), "]");
                     lua_setfield(L, -2, "indexerClose");
+                }
+
+                if (cstNode->equalsPosition)
+                {
+                    serializeToken(cstNode->equalsPosition.value(), "=");
+                    lua_setfield(L, -2, "equals");
                 }
             }
 
