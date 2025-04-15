@@ -585,4 +585,5 @@ return {
 	visitStatement = visitStatement,
 	visitExpression = visitExpression,
 	visitType = visitType,
+	visitToken = visitToken,
 }
