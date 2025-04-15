@@ -139,7 +139,12 @@ local function visitIf(node: T.AstStatIf, visitor: Visitor)
 		visitExpression(node.condition, visitor)
 		visitToken(node["then"], visitor)
 		visitBlock(node.consequent, visitor)
-		-- TODO: special handling for elseif?
+		for _, elseifNode in node.elseifs do
+			visitToken(elseifNode["elseif"], visitor)
+			visitExpression(elseifNode.condition, visitor)
+			visitToken(elseifNode["then"], visitor)
+			visitBlock(elseifNode.consequent, visitor)
+		end
 		if node["else"] then
 			visitToken(node["else"], visitor)
 		end

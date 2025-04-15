@@ -192,12 +192,20 @@ export type AstStatBlock = {
 	statements: { AstStat },
 }
 
+export type AstStatElseIf = {
+	["elseif"]: Token<"elseif">,
+	condition: AstExpr,
+	["then"]: Token<"then">,
+	consequent: AstStatBlock,
+}
+
 export type AstStatIf = {
 	tag: "conditional",
 	["if"]: Token<"if">,
 	condition: AstExpr,
 	["then"]: Token<"then">,
 	consequent: AstStatBlock,
+	elseifs: { AstStatElseIf },
 	["else"]: Token<"else">, -- TODO: this could be elseif!
 	antecedent: AstStatBlock,
 	["end"]: Token<"end">,

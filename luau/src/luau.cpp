@@ -1079,6 +1079,31 @@ struct AstSerialize : public Luau::AstVisitor
         node->thenbody->visit(this);
         lua_setfield(L, -2, "consequent");
 
+        lua_createtable(L, 0, preambleSize + 4);
+        int i = 0;
+        while (node->elsebody && node->elsebody->is<Luau::AstStatIf>())
+        {
+            lua_createtable(L, 0, 4);
+
+            auto elseif = node->elsebody->as<Luau::AstStatIf>();
+            serializeToken(elseif->location.begin, "elseif");
+            lua_setfield(L, -2, "elseif");
+
+            elseif->condition->visit(this);
+            lua_setfield(L, -2, "condition");
+
+            serializeToken(elseif->thenLocation->begin, "then");
+            lua_setfield(L, -2, "then");
+
+            elseif->thenbody->visit(this);
+            lua_setfield(L, -2, "consequent");
+
+            lua_rawseti(L, -2, i + 1);
+            node = elseif;
+            i++;
+        }
+        lua_setfield(L, -2, "elseifs");
+
         if (node->elsebody)
         {
             LUAU_ASSERT(node->elseLocation);
