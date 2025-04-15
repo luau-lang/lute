@@ -147,6 +147,7 @@ local function test_roundtrippableAst()
 		"tests/astSerializerTests/interpolated-string-2.luau",
 		"tests/astSerializerTests/local-function-declaration-1.luau",
 		"tests/astSerializerTests/numeric-for-loop-1.luau",
+		"tests/astSerializerTests/type-assertion-1.luau",
 		"tests/astSerializerTests/type-singletons-1.luau",
 		"tests/astSerializerTests/while-1.luau",
 		"tests/astSerializerTests/repeat-until-1.luau",

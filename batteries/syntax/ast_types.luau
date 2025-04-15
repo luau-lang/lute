@@ -159,6 +159,13 @@ export type AstExprInterpString = {
 	expressions: { AstExpr },
 }
 
+export type AstExprTypeAssertion = {
+	tag: "cast",
+	operand: AstExpr,
+	operator: Token<"::">,
+	annotation: AstType,
+}
+
 export type AstExpr =
 	| AstExprGroup
 	| AstExprConstantNil
@@ -176,6 +183,7 @@ export type AstExpr =
 	| AstExprUnary
 	| AstExprBinary
 	| AstExprInterpString
+	| AstExprTypeAssertion
 
 export type AstStatBlock = {
 	tag: "block",

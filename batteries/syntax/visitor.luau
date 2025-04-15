@@ -32,6 +32,7 @@ export type Visitor = {
 	visitIndexExpr: (T.AstExprIndexExpr) -> boolean,
 	visitGroup: (T.AstExprGroup) -> boolean,
 	visitInterpolatedString: (T.AstExprInterpString) -> boolean,
+	visitTypeAssertion: (T.AstExprTypeAssertion) -> boolean,
 
 	visitTypeReference: (T.AstTypeReference) -> boolean,
 	visitTypeBoolean: (T.AstTypeSingletonBool) -> boolean,
@@ -82,6 +83,7 @@ local defaultVisitor: Visitor = {
 	visitIndexExpr = alwaysVisit :: any,
 	visitGroup = alwaysVisit :: any,
 	visitInterpolatedString = alwaysVisit,
+	visitTypeAssertion = alwaysVisit,
 
 	visitTypeReference = alwaysVisit :: any,
 	visitTypeBoolean = alwaysVisit :: any,
@@ -417,6 +419,14 @@ local function visitInterpolatedString(node: T.AstExprInterpString, visitor: Vis
 	end
 end
 
+local function visitTypeAssertion(node: T.AstExprTypeAssertion, visitor: Visitor)
+	if visitor.visitTypeAssertion(node) then
+		visitExpression(node.operand, visitor)
+		visitToken(node.operator, visitor)
+		visitType(node.annotation, visitor)
+	end
+end
+
 local function visitTypeReference(node: T.AstTypeReference, visitor: Visitor)
 	if visitor.visitTypeReference(node) then
 		if node.prefix then
@@ -501,6 +511,8 @@ function visitExpression(expression: T.AstExpr, visitor: Visitor)
 			visitGroup(expression, visitor)
 		elseif expression.tag == "interpolatedstring" then
 			visitInterpolatedString(expression, visitor)
+		elseif expression.tag == "cast" then
+			visitTypeAssertion(expression, visitor)
 		else
 			exhaustiveMatch(expression.tag)
 		end

@@ -943,14 +943,20 @@ struct AstSerialize : public Luau::AstVisitor
     void serialize(Luau::AstExprTypeAssertion* node)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 2);
+        lua_createtable(L, 0, preambleSize + 3);
 
         serializeNodePreamble(node, "cast");
 
         node->expr->visit(this);
         lua_setfield(L, -2, "operand");
 
-        lua_pushnil(L); // TODO: types
+        if (const auto cstNode = lookupCstNode<Luau::CstExprTypeAssertion>(node))
+        {
+            serializeToken(cstNode->opPosition, "::");
+            lua_setfield(L, -2, "operator");
+        }
+
+        node->annotation->visit(this);
         lua_setfield(L, -2, "annotation");
     }
 
