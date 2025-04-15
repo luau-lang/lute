@@ -8,6 +8,9 @@ target_sources(Lute.Runtime PRIVATE
     runtime/src/ref.cpp
     runtime/src/require.cpp
     runtime/src/runtime.cpp
+
+    std/generated/include/lutestdlib.h
+    std/generated/src/lutestdlib.cpp
 )
 
 target_sources(Lute.Fs PRIVATE
