@@ -17,6 +17,8 @@
 const char* COMPILE_RESULT_TYPE = "CompileResult";
 
 LUAU_FASTFLAG(LuauStoreCSTData2)
+LUAU_FASTFLAG(LuauPreserveUnionIntersectionNodeForLeadingTokenSingleType)
+LUAU_FASTFLAG(LuauParseOptionalAsNode2)
 
 namespace luau
 {
@@ -33,6 +35,8 @@ static StatResult parse(std::string& source)
 {
     // TODO: this is very bad, fix it!
     FFlag::LuauStoreCSTData2.value = true;
+    FFlag::LuauPreserveUnionIntersectionNodeForLeadingTokenSingleType.value = true;
+    FFlag::LuauParseOptionalAsNode2.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -59,6 +63,8 @@ static ExprResult parseExpr(std::string& source)
 {
     // TODO: this is very bad, fix it!
     FFlag::LuauStoreCSTData2.value = true;
+    FFlag::LuauPreserveUnionIntersectionNodeForLeadingTokenSingleType.value = true;
+    FFlag::LuauParseOptionalAsNode2.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -1540,9 +1546,73 @@ struct AstSerialize : public Luau::AstVisitor
         }
     }
 
+    void serializeType(Luau::AstTypeUnion* node)
+    {
+        const auto cstNode = lookupCstNode<Luau::CstTypeUnion>(node);
+
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 4);
+
+        serializeNodePreamble(node, "union");
+
+        if (cstNode && cstNode->leadingPosition)
+        {
+            serializeToken(*cstNode->leadingPosition, "|");
+            lua_setfield(L, -2, "leading");
+        }
+
+        lua_createtable(L, node->types.size, 0);
+        size_t separatorPositions = 0;
+        for (size_t i = 0; i < node->types.size; i++)
+        {
+            lua_rawcheckstack(L, 2);
+            lua_createtable(L, 0, 2);
+
+            if (node->types.data[i]->is<Luau::AstTypeOptional>())
+            {
+                serializeToken(node->types.data[i]->location.begin, "?", 1);
+                lua_pushstring(L, "optional");
+                lua_setfield(L, -2, "tag");
+                lua_setfield(L, -2, "node");
+
+                lua_pushnil(L);
+                lua_setfield(L, -2, "separator");
+            }
+            else
+            {
+                node->types.data[i]->visit(this);
+                lua_setfield(L, -2, "node");
+
+                if (cstNode && i < node->types.size - 1 && !node->types.data[i+1]->is<Luau::AstTypeOptional>() && separatorPositions < cstNode->separatorPositions.size)
+                    serializeToken(cstNode->separatorPositions.data[separatorPositions], "|");
+                else
+                    lua_pushnil(L);
+                lua_setfield(L, -2, "separator");
+                separatorPositions++;
+            }
+
+            lua_rawseti(L, -2, i + 1);
+        }
+        lua_setfield(L, -2, "types");
+    }
+
     void serializeType(Luau::AstTypeIntersection* node)
     {
-        // TODO: types
+        const auto cstNode = lookupCstNode<Luau::CstTypeIntersection>(node);
+
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 4);
+
+        serializeNodePreamble(node, "intersection");
+
+        if (cstNode && cstNode->leadingPosition)
+        {
+            serializeToken(*cstNode->leadingPosition, "&");
+            lua_setfield(L, -2, "leading");
+        }
+
+        serializePunctuated(node->types, cstNode ? cstNode->separatorPositions : Luau::AstArray<Luau::Position>{}, "&");
+        lua_setfield(L, -2, "types");
     }
 
     void serializeType(Luau::AstTypeSingletonBool* node)
@@ -1903,12 +1973,14 @@ struct AstSerialize : public Luau::AstVisitor
 
     bool visit(Luau::AstTypeUnion* node) override
     {
-        return true;
+        serializeType(node);
+        return false;
     }
 
     bool visit(Luau::AstTypeIntersection* node) override
     {
-        return true;
+        serializeType(node);
+        return false;
     }
 
     bool visit(Luau::AstTypeSingletonBool* node) override

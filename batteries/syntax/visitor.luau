@@ -39,6 +39,8 @@ export type Visitor = {
 	visitTypeString: (T.AstTypeSingletonString) -> boolean,
 	visitTypeTypeof: (T.AstTypeTypeof) -> boolean,
 	visitTypeGroup: (T.AstTypeGroup) -> boolean,
+	visitTypeUnion: (T.AstTypeUnion) -> boolean,
+	visitTypeIntersection: (T.AstTypeIntersection) -> boolean,
 
 	visitToken: (T.Token) -> boolean,
 	visitNil: (T.AstExprConstantNil) -> boolean,
@@ -90,6 +92,8 @@ local defaultVisitor: Visitor = {
 	visitTypeString = alwaysVisit :: any,
 	visitTypeTypeof = alwaysVisit :: any,
 	visitTypeGroup = alwaysVisit :: any,
+	visitTypeUnion = alwaysVisit :: any,
+	visitTypeIntersection = alwaysVisit :: any,
 
 	visitToken = alwaysVisit :: any,
 	visitNil = alwaysVisit :: any,
@@ -477,6 +481,24 @@ local function visitTypeGroup(node: T.AstTypeGroup, visitor: Visitor)
 	end
 end
 
+local function visitTypeUnion(node: T.AstTypeUnion, visitor: Visitor)
+	if visitor.visitTypeUnion(node) then
+		if node.leading then
+			visitToken(node.leading, visitor)
+		end
+		visitPunctuated(node.types, visitor, visitType)
+	end
+end
+
+local function visitTypeIntersection(node: T.AstTypeIntersection, visitor: Visitor)
+	if visitor.visitTypeIntersection(node) then
+		if node.leading then
+			visitToken(node.leading, visitor)
+		end
+		visitPunctuated(node.types, visitor, visitType)
+	end
+end
+
 function visitExpression(expression: T.AstExpr, visitor: Visitor)
 	if visitor.visitExpression(expression) then
 		if expression.tag == "nil" then
@@ -570,6 +592,12 @@ function visitType(type: T.AstType, visitor: Visitor)
 		visitTypeTypeof(type, visitor)
 	elseif type.tag == "group" then
 		visitTypeGroup(type, visitor)
+	elseif type.tag == "union" then
+		visitTypeUnion(type, visitor)
+	elseif type.tag == "intersection" then
+		visitTypeIntersection(type, visitor)
+	elseif type.tag == "optional" then
+		visitToken(type, visitor)
 	else
 		exhaustiveMatch(type.tag)
 	end

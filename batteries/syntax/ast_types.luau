@@ -360,6 +360,29 @@ export type AstTypeGroup = {
 	closeParens: Token<">">,
 }
 
-export type AstType = | AstTypeReference | AstTypeSingletonBool | AstTypeSingletonString | AstTypeTypeof | AstTypeGroup
+export type AstTypeOptional = Token<"?"> & { tag: "optional" }
+
+export type AstTypeUnion = {
+	tag: "union",
+	leading: Token<"|">?,
+	-- Separator may be nil for AstTypeOptional
+	types: Punctuated<AstType, "|">,
+}
+
+export type AstTypeIntersection = {
+	tag: "intersection",
+	leading: Token<"&">?,
+	types: Punctuated<AstType, "&">,
+}
+
+export type AstType =
+	| AstTypeReference
+	| AstTypeSingletonBool
+	| AstTypeSingletonString
+	| AstTypeTypeof
+	| AstTypeGroup
+	| AstTypeUnion
+	| AstTypeIntersection
+	| AstTypeOptional
 
 return {}
