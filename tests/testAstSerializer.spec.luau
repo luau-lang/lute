@@ -124,6 +124,7 @@ local function test_roundtrippableAst()
 		"examples/async_read.luau",
 		"examples/b.luau",
 		"examples/badisnan.luau",
+		-- "examples/cliargs.luau", genuine failure
 		"examples/compile.luau",
 		"examples/directories.luau",
 		"examples/json.luau",
@@ -135,9 +136,12 @@ local function test_roundtrippableAst()
 		"examples/parallel_sort.luau",
 		"examples/parsing.luau",
 		"examples/process_env.luau",
+		-- "examples/process.luau", genuine failure (table?)
+		-- "examples/serve_html.luau", genuine failure (advancing)
 		"examples/serve.luau",
 		"examples/spawn_example.luau",
 		"examples/time_example.luau",
+		-- "examples/toml.luau", genuine failure
 		"examples/writeFile.luau",
 		"tests/astSerializerTests/assignment-1.luau",
 		"tests/astSerializerTests/break-continue-1.luau",
@@ -145,6 +149,7 @@ local function test_roundtrippableAst()
 		"tests/astSerializerTests/function-declaration-1.luau",
 		"tests/astSerializerTests/function-declaration-2.luau",
 		"tests/astSerializerTests/generic-for-loop-1.luau",
+		"tests/astSerializerTests/if-expression-1.luau",
 		"tests/astSerializerTests/if-statement-1.luau",
 		"tests/astSerializerTests/interpolated-string-1.luau",
 		"tests/astSerializerTests/interpolated-string-2.luau",
@@ -163,6 +168,7 @@ local function test_roundtrippableAst()
 		local source = fs.readfiletostring(path)
 		local result = printer.printfile(parser.parsefile(source))
 
+		print(result)
 		assert(source == result)
 	end
 end

@@ -973,22 +973,76 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serialize(Luau::AstExprIfElse* node)
     {
+        const auto* cstNode = lookupCstNode<Luau::CstExprIfElse>(node);
+
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 3);
+        lua_createtable(L, 0, preambleSize + 7);
 
         serializeNodePreamble(node, "conditional");
+
+        serializeToken(node->location.begin, "if");
+        lua_setfield(L, -2, "if");
 
         node->condition->visit(this);
         lua_setfield(L, -2, "condition");
 
         if (node->hasThen)
+        {
+            if (cstNode)
+            {
+                serializeToken(cstNode->thenPosition, "then");
+                lua_setfield(L, -2, "then");
+            }
+
             node->trueExpr->visit(this);
+        }
         else
             lua_pushnil(L);
         lua_setfield(L, -2, "consequent");
 
+        lua_createtable(L, 0, preambleSize + 4);
+        int i = 0;
+        while (node->hasElse && node->falseExpr->is<Luau::AstExprIfElse>())
+        {
+            lua_createtable(L, 0, 4);
+
+            node = node->falseExpr->as<Luau::AstExprIfElse>();
+            cstNode = lookupCstNode<Luau::CstExprIfElse>(node);
+
+            serializeToken(node->location.begin, "elseif");
+            lua_setfield(L, -2, "elseif");
+
+            node->condition->visit(this);
+            lua_setfield(L, -2, "condition");
+
+            if (node->hasThen)
+            {
+                if (cstNode)
+                {
+                    serializeToken(cstNode->thenPosition, "then");
+                    lua_setfield(L, -2, "then");
+                }
+
+                node->trueExpr->visit(this);
+            }
+            else
+                lua_pushnil(L);
+            lua_setfield(L, -2, "consequent");
+
+            lua_rawseti(L, -2, i + 1);
+            i++;
+        }
+        lua_setfield(L, -2, "elseifs");
+
         if (node->hasElse)
+        {
+            if (cstNode)
+            {
+                serializeToken(cstNode->elsePosition, "else");
+                lua_setfield(L, -2, "else");
+            }
             node->falseExpr->visit(this);
+        }
         else
             lua_pushnil(L);
         lua_setfield(L, -2, "antecedent");
