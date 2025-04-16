@@ -63,6 +63,8 @@ add_subdirectory(extern/curl)
 # uWebSockets setup
 set(WITH_WOLFSSL ON)
 set(WITH_LIBUV ON)
+set(WITH_ZLIB OFF)
+
 # Set the correct libuv library name for uWebSockets
 set(LIBUV_LIBRARY uv_a)
 include(extern/uSockets.cmake)
