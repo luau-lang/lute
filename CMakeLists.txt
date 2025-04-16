@@ -63,7 +63,9 @@ add_subdirectory(extern/curl)
 # uWebSockets setup
 set(WITH_WOLFSSL ON)
 set(WITH_LIBUV ON)
-set(WITH_ZLIB OFF)
+if(MSVC)
+    set(WITH_ZLIB OFF)
+endif()
 
 # Set the correct libuv library name for uWebSockets
 set(LIBUV_LIBRARY uv_a)
