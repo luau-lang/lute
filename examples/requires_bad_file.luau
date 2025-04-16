@@ -1,0 +1,2 @@
+-- errors!
+require("./badfile")
