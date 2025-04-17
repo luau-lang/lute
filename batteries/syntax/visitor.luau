@@ -43,6 +43,8 @@ export type Visitor = {
 	visitTypeGroup: (T.AstTypeGroup) -> boolean,
 	visitTypeUnion: (T.AstTypeUnion) -> boolean,
 	visitTypeIntersection: (T.AstTypeIntersection) -> boolean,
+	visitTypeArray: (T.AstTypeArray) -> boolean,
+	visitTypeTable: (T.AstTypeTable) -> boolean,
 
 	visitToken: (T.Token) -> boolean,
 	visitNil: (T.AstExprConstantNil) -> boolean,
@@ -98,6 +100,8 @@ local defaultVisitor: Visitor = {
 	visitTypeGroup = alwaysVisit :: any,
 	visitTypeUnion = alwaysVisit :: any,
 	visitTypeIntersection = alwaysVisit :: any,
+	visitTypeArray = alwaysVisit :: any,
+	visitTypeTable = alwaysVisit :: any,
 
 	visitToken = alwaysVisit :: any,
 	visitNil = alwaysVisit :: any,
@@ -537,6 +541,45 @@ local function visitTypeIntersection(node: T.AstTypeIntersection, visitor: Visit
 	end
 end
 
+local function visitTypeArray(node: T.AstTypeArray, visitor: Visitor)
+	if visitor.visitTypeArray(node) then
+		visitToken(node.openBrace, visitor)
+		if node.access then
+			visitToken(node.access, visitor)
+		end
+		visitType(node.type, visitor)
+		visitToken(node.closeBrace, visitor)
+	end
+end
+
+local function visitTypeTable(node: T.AstTypeTable, visitor: Visitor)
+	if visitor.visitTypeTable(node) then
+		visitToken(node.openBrace, visitor)
+		for _, entry in node.entries do
+			if entry.access then
+				visitToken(entry.access, visitor)
+			end
+			if entry.kind == "indexer" then
+				visitToken(entry.indexerOpen, visitor)
+				visitType(entry.key, visitor)
+				visitToken(entry.indexerClose, visitor)
+			elseif entry.kind == "stringproperty" then
+				visitToken(entry.indexerOpen, visitor)
+				visitTypeString(entry.key, visitor)
+				visitToken(entry.indexerClose, visitor)
+			else
+				visitToken(entry.key, visitor)
+			end
+			visitToken(entry.colon, visitor)
+			visitType(entry.value, visitor)
+			if entry.separator then
+				visitToken(entry.separator, visitor)
+			end
+		end
+		visitToken(node.closeBrace, visitor)
+	end
+end
+
 function visitExpression(expression: T.AstExpr, visitor: Visitor)
 	if visitor.visitExpression(expression) then
 		if expression.tag == "nil" then
@@ -640,6 +683,10 @@ function visitType(type: T.AstType, visitor: Visitor)
 		visitTypeIntersection(type, visitor)
 	elseif type.tag == "optional" then
 		visitToken(type, visitor)
+	elseif type.tag == "array" then
+		visitTypeArray(type, visitor)
+	elseif type.tag == "table" then
+		visitTypeTable(type, visitor)
 	else
 		exhaustiveMatch(type.tag)
 	end

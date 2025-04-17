@@ -412,6 +412,49 @@ export type AstTypeIntersection = {
 	types: Punctuated<AstType, "&">,
 }
 
+export type AstTypeArray = {
+	tag: "array",
+	openBrace: Token<"{">,
+	access: Token<"read" | "write">?,
+	type: AstType,
+	closeBrace: Token<"}">,
+}
+
+export type AstTypeTableItem = {
+	kind: "indexer",
+	access: Token<"read" | "write">?,
+	indexerOpen: Token<"[">,
+	key: AstType,
+	indexerClose: Token<"]">,
+	colon: Token<":">,
+	value: AstType,
+	separator: Token<"," | ";">?,
+} | {
+	kind: "stringproperty",
+	access: Token<"read" | "write">?,
+	indexerOpen: Token<"[">,
+	key: AstTypeSingletonString,
+	indexerClose: Token<"]">,
+	colon: Token<":">,
+	value: AstType,
+	separator: Token<"," | ";">?,
+} | {
+	kind: "property",
+	access: Token<"read" | "write">?,
+	key: AstTypeSingletonString,
+	indexerClose: Token<"]">,
+	colon: Token<":">,
+	value: AstType,
+	separator: Token<"," | ";">?,
+}
+
+export type AstTypeTable = {
+	tag: "table",
+	openBrace: Token<"{">,
+	entries: { AstTypeTableItem },
+	closeBrace: Token<"}">,
+}
+
 export type AstType =
 	| AstTypeReference
 	| AstTypeSingletonBool
@@ -421,5 +464,7 @@ export type AstType =
 	| AstTypeUnion
 	| AstTypeIntersection
 	| AstTypeOptional
+	| AstTypeArray
+	| AstTypeTable
 
 return {}
