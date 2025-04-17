@@ -150,6 +150,7 @@ local function test_roundtrippableAst()
 		"tests/astSerializerTests/function-declaration-2.luau",
 		"tests/astSerializerTests/generic-for-loop-1.luau",
 		"tests/astSerializerTests/if-expression-1.luau",
+		"tests/astSerializerTests/if-expression-2.luau",
 		"tests/astSerializerTests/if-statement-1.luau",
 		"tests/astSerializerTests/interpolated-string-1.luau",
 		"tests/astSerializerTests/interpolated-string-2.luau",

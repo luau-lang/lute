@@ -1002,7 +1002,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         lua_createtable(L, 0, preambleSize + 4);
         int i = 0;
-        while (node->hasElse && node->falseExpr->is<Luau::AstExprIfElse>())
+        while (node->hasElse && node->falseExpr->is<Luau::AstExprIfElse>() && (!cstNode || cstNode->isElseIf))
         {
             lua_createtable(L, 0, 4);
 
