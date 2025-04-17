@@ -17,6 +17,7 @@ export type Visitor = {
 	visitFunction: (T.AstStatFunction) -> boolean,
 	visitLocalFunction: (T.AstStatLocalFunction) -> boolean,
 	visitTypeAlias: (T.AstStatTypeAlias) -> boolean,
+	visitStatTypeFunction: (T.AstStatTypeFunction) -> boolean,
 
 	visitExpression: (T.AstExpr) -> boolean,
 	visitExpressionEnd: (T.AstExpr) -> (),
@@ -68,6 +69,7 @@ local defaultVisitor: Visitor = {
 	visitFunction = alwaysVisit :: any,
 	visitLocalFunction = alwaysVisit :: any,
 	visitTypeAlias = alwaysVisit :: any,
+	visitStatTypeFunction = alwaysVisit :: any,
 
 	visitExpression = alwaysVisit :: any,
 	visitExpressionEnd = alwaysVisit :: any,
@@ -349,6 +351,18 @@ local function visitLocalFunction(node: T.AstStatLocalFunction, visitor: Visitor
 	end
 end
 
+local function visitStatTypeFunction(node: T.AstStatTypeFunction, visitor: Visitor)
+	if visitor.visitStatTypeFunction(node) then
+		if node.export then
+			visitToken(node.export, visitor)
+		end
+		visitToken(node.type, visitor)
+		visitToken(node["function"], visitor)
+		visitToken(node.name, visitor)
+		visitFunctionBody(node.body, visitor)
+	end
+end
+
 local function visitTableItem(node: T.AstExprTableItem, visitor: Visitor)
 	if visitor.visitTableItem(node) then
 		if node.kind == "list" then
@@ -554,6 +568,8 @@ function visitStatement(statement: T.AstStat, visitor: Visitor)
 		visitLocalFunction(statement, visitor)
 	elseif statement.tag == "typealias" then
 		visitTypeAlias(statement, visitor)
+	elseif statement.tag == "typefunction" then
+		visitStatTypeFunction(statement, visitor)
 	else
 		exhaustiveMatch(statement.tag)
 	end
