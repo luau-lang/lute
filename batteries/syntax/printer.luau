@@ -50,7 +50,7 @@ local function printInterpolatedString(expr: T.AstExprInterpString): string
 	local result = ""
 
 	for i = 1, #expr.strings do
-		printTriviaList(expr.strings[i].leadingTrivia)
+		result ..= printTriviaList(expr.strings[i].leadingTrivia)
 		if i == 1 then
 			result ..= "`"
 		else
