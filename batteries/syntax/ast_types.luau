@@ -103,7 +103,10 @@ export type AstExprIndexExpr = {
 }
 
 export type AstFunctionBody = {
-	-- TODO: generics
+	openGenerics: Token<"<">?,
+	generics: Punctuated<AstGenericType>?,
+	genericPacks: Punctuated<AstGenericTypePack>?,
+	closeGenerics: Token<">">?,
 	openParens: Token<"(">,
 	-- TODO: parameters
 	parameters: Punctuated<Token<string>>,
@@ -330,6 +333,10 @@ export type AstStatTypeAlias = {
 	["export"]: Token<"export">?,
 	typeToken: Token<"type">,
 	name: Token,
+	openGenerics: Token<"<">?,
+	generics: Punctuated<AstGenericType>?,
+	genericPacks: Punctuated<AstGenericTypePack>?,
+	closeGenerics: Token<">">?,
 	equals: Token<"=">,
 	type: AstType,
 }
@@ -361,6 +368,21 @@ export type AstStat =
 	| AstStatLocalFunction
 	| AstStatTypeAlias
 	| AstStatTypeFunction
+
+export type AstGenericType = {
+	tag: "generic",
+	name: Token<string>,
+	equals: Token<"=">?,
+	default: AstType?,
+}
+
+export type AstGenericTypePack = {
+	tag: "genericpack",
+	name: Token<string>,
+	ellipsis: Token<"...">,
+	equals: Token<"=">?,
+	default: AstTypePack?,
+}
 
 export type AstTypeReference = {
 	tag: "reference",

@@ -260,6 +260,27 @@ local function visitCompoundAssign(node: T.AstStatCompoundAssign, visitor: Visit
 	end
 end
 
+local function visitGeneric(node: T.AstGenericType, visitor: Visitor)
+	visitToken(node.name, visitor)
+	if node.equals then
+		visitToken(node.equals, visitor)
+	end
+	if node.default then
+		visitType(node.default, visitor)
+	end
+end
+
+local function visitGenericPack(node: T.AstGenericTypePack, visitor: Visitor)
+	visitToken(node.name, visitor)
+	visitToken(node.ellipsis, visitor)
+	if node.equals then
+		visitToken(node.equals, visitor)
+	end
+	if node.default then
+		visitTypePack(node.default, visitor)
+	end
+end
+
 local function visitTypeAlias(node: T.AstStatTypeAlias, visitor: Visitor)
 	if visitor.visitTypeAlias(node) then
 		if node.export then
@@ -267,6 +288,18 @@ local function visitTypeAlias(node: T.AstStatTypeAlias, visitor: Visitor)
 		end
 		visitToken(node.typeToken, visitor)
 		visitToken(node.name, visitor)
+		if node.openGenerics then
+			visitToken(node.openGenerics, visitor)
+		end
+		if node.generics then
+			visitPunctuated(node.generics, visitor, visitGeneric)
+		end
+		if node.genericPacks then
+			visitPunctuated(node.genericPacks, visitor, visitGenericPack)
+		end
+		if node.closeGenerics then
+			visitToken(node.closeGenerics, visitor)
+		end
 		visitToken(node.equals, visitor)
 		visitType(node.type, visitor)
 	end
@@ -343,6 +376,18 @@ local function visitBinary(node: T.AstExprBinary, visitor: Visitor)
 end
 
 local function visitFunctionBody(node: T.AstFunctionBody, visitor: Visitor)
+	if node.openGenerics then
+		visitToken(node.openGenerics, visitor)
+	end
+	if node.generics then
+		visitPunctuated(node.generics, visitor, visitGeneric)
+	end
+	if node.genericPacks then
+		visitPunctuated(node.genericPacks, visitor, visitGenericPack)
+	end
+	if node.closeGenerics then
+		visitToken(node.closeGenerics, visitor)
+	end
 	visitToken(node.openParens, visitor)
 	visitPunctuated(node.parameters, visitor, visitLocal)
 	visitToken(node.closeParens, visitor)
