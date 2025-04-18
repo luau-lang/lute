@@ -46,6 +46,10 @@ export type Visitor = {
 	visitTypeArray: (T.AstTypeArray) -> boolean,
 	visitTypeTable: (T.AstTypeTable) -> boolean,
 
+	visitTypePackExplicit: (T.AstTypePackExplicit) -> boolean,
+	visitTypePackGeneric: (T.AstTypePackGeneric) -> boolean,
+	visitTypePackVariadic: (T.AstTypePackVariadic) -> boolean,
+
 	visitToken: (T.Token) -> boolean,
 	visitNil: (T.AstExprConstantNil) -> boolean,
 	visitString: (T.AstExprConstantString) -> boolean,
@@ -102,6 +106,10 @@ local defaultVisitor: Visitor = {
 	visitTypeIntersection = alwaysVisit :: any,
 	visitTypeArray = alwaysVisit :: any,
 	visitTypeTable = alwaysVisit :: any,
+
+	visitTypePackExplicit = alwaysVisit,
+	visitTypePackGeneric = alwaysVisit,
+	visitTypePackVariadic = alwaysVisit,
 
 	visitToken = alwaysVisit :: any,
 	visitNil = alwaysVisit :: any,
@@ -580,6 +588,31 @@ local function visitTypeTable(node: T.AstTypeTable, visitor: Visitor)
 	end
 end
 
+local function visitTypePackExplicit(node: T.AstTypePackExplicit, visitor: Visitor)
+	if visitor.visitTypePackExplicit(node) then
+		visitToken(node.openParens, visitor)
+		visitPunctuated(node.types, visitor, visitType)
+		if node.tailType then
+			visitTypePack(node.tailType, visitor)
+		end
+		visitToken(node.closeParens, visitor)
+	end
+end
+
+local function visitTypePackGeneric(node: T.AstTypePackGeneric, visitor: Visitor)
+	if visitor.visitTypePackGeneric(node) then
+		visitToken(node.name, visitor)
+		visitToken(node.ellipsis, visitor)
+	end
+end
+
+local function visitTypePackVariadic(node: T.AstTypePackVariadic, visitor: Visitor)
+	if visitor.visitTypePackVariadic(node) then
+		visitToken(node.ellipsis, visitor)
+		visitType(node.type, visitor)
+	end
+end
+
 function visitExpression(expression: T.AstExpr, visitor: Visitor)
 	if visitor.visitExpression(expression) then
 		if expression.tag == "nil" then
@@ -692,6 +725,18 @@ function visitType(type: T.AstType, visitor: Visitor)
 	end
 end
 
+function visitTypePack(type: T.AstTypePack, visitor: Visitor)
+	if type.tag == "explicit" then
+		visitTypePackExplicit(type, visitor)
+	elseif type.tag == "generic" then
+		visitTypePackGeneric(type, visitor)
+	elseif type.tag == "variadic" then
+		visitTypePackVariadic(type, visitor)
+	else
+		exhaustiveMatch(type.tag)
+	end
+end
+
 local function createVisitor()
 	return table.clone(defaultVisitor)
 end
@@ -702,5 +747,6 @@ return {
 	visitStatement = visitStatement,
 	visitExpression = visitExpression,
 	visitType = visitType,
+	visitTypePack = visitTypePack,
 	visitToken = visitToken,
 }

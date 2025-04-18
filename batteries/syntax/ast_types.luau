@@ -467,4 +467,26 @@ export type AstType =
 	| AstTypeArray
 	| AstTypeTable
 
+export type AstTypePackExplicit = {
+	tag: "explicit",
+	openParens: Token<"(">,
+	types: Punctuated<AstType>,
+	tailType: AstTypePack?,
+	closeParens: Token<")">,
+}
+
+export type AstTypePackGeneric = {
+	tag: "generic",
+	name: Token,
+	ellipsis: Token<"...">,
+}
+
+export type AstTypePackVariadic = {
+	tag: "variadic",
+	ellipsis: Token<"...">,
+	type: AstType,
+}
+
+export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
+
 return {}

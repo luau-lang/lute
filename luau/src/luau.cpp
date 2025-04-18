@@ -1955,24 +1955,60 @@ struct AstSerialize : public Luau::AstVisitor
         // TODO: types
     }
 
-    void serializeType(Luau::AstTypePack* node)
+    void serializeTypePack(Luau::AstTypePackExplicit* node)
     {
-        // TODO: types
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 4);
+
+        serializeNodePreamble(node, "explicit");
+
+        const auto cstNode = lookupCstNode<Luau::CstTypePackExplicit>(node);
+
+        serializeToken(cstNode ? cstNode->openParenthesesPosition : node->location.begin, "(");
+        lua_setfield(L, -2, "openParens");
+
+        serializePunctuated(node->typeList.types, cstNode ? cstNode->commaPositions : Luau::AstArray<Luau::Position>{}, ",");
+        lua_setfield(L, -2, "types");
+
+        if (node->typeList.tailType)
+            node->typeList.tailType->visit(this);
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "tailType");
+
+        serializeToken(cstNode ? cstNode->closeParenthesesPosition : Luau::Position{node->location.end.line, node->location.end.column -1}, ")");
+        lua_setfield(L, -2, "closeParens");
     }
 
-    void serializeType(Luau::AstTypePackExplicit* node)
+    void serializeTypePack(Luau::AstTypePackGeneric* node)
     {
-        // TODO: types
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 2);
+
+        serializeNodePreamble(node, "generic");
+
+        serializeToken(node->location.begin, node->genericName.value);
+        lua_setfield(L, -2, "name");
+
+        if (const auto cstNode = lookupCstNode<Luau::CstTypePackGeneric>(node))
+            serializeToken(cstNode->ellipsisPosition, "...");
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "ellipsis");
     }
 
-    void serializeType(Luau::AstTypePackVariadic* node)
+    void serializeTypePack(Luau::AstTypePackVariadic* node)
     {
-        // TODO: types
-    }
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 2);
 
-    void serializeType(Luau::AstTypePackGeneric* node)
-    {
-        // TODO: types
+        serializeNodePreamble(node, "variadic");
+
+        serializeToken(node->location.begin, "...");
+        lua_setfield(L, -2, "ellipsis");
+
+        node->variadicType->visit(this);
+        lua_setfield(L, -2, "type");
     }
 
     bool visit(Luau::AstExpr* node) override
@@ -2291,17 +2327,20 @@ struct AstSerialize : public Luau::AstVisitor
 
     bool visit(Luau::AstTypePackExplicit* node) override
     {
-        return true;
+        serializeTypePack(node);
+        return false;
     }
 
     bool visit(Luau::AstTypePackVariadic* node) override
     {
-        return true;
+        serializeTypePack(node);
+        return false;
     }
 
     bool visit(Luau::AstTypePackGeneric* node) override
     {
-        return true;
+        serializeTypePack(node);
+        return false;
     }
 
     bool visit(Luau::AstTypeGroup* node) override
