@@ -1,5 +1,8 @@
 #include "lute/task.h"
 
+#include "lua.h"
+#include "lualib.h"
+#include "lute/ref.h"
 #include "lute/runtime.h"
 
 namespace task
@@ -10,6 +13,19 @@ namespace task
 
         runtime->runningThreads.push_back({ true, getRefForThread(L), 0 });
         return lua_yield(L, 0);
+    };
+    
+    int lua_resume(lua_State* L)
+    {
+        Runtime* runtime = getRuntime(L);
+        lua_State* thread = lua_tothread(L, 1);
+        luaL_argexpected(L, thread, 1, "thread");
+        
+        auto ref = getRefForThread(thread);
+        
+        runtime->scheduleLuauResume(ref, [](lua_State* L) { return 0; });
+        
+        return 0;
     }
 } // namespace task
 
