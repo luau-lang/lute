@@ -482,6 +482,26 @@ export type AstTypeTable = {
 	closeBrace: Token<"}">,
 }
 
+export type AstTypeFunctionParameter = {
+	name: Token?,
+	colon: Token<":">?,
+	type: AstType,
+}
+
+export type AstTypeFunction = {
+	tag: "function",
+	openGenerics: Token<"<">?,
+	generics: Punctuated<AstGenericType>?,
+	genericPacks: Punctuated<AstGenericTypePack>?,
+	closeGenerics: Token<">">?,
+	openParens: Token<"(">,
+	parameters: Punctuated<AstTypeFunctionParameter>,
+	vararg: AstTypePack?,
+	closeParens: Token<")">,
+	returnArrow: Token<"->">,
+	-- TODO: return type
+}
+
 export type AstType =
 	| AstTypeReference
 	| AstTypeSingletonBool
@@ -493,6 +513,7 @@ export type AstType =
 	| AstTypeOptional
 	| AstTypeArray
 	| AstTypeTable
+	| AstTypeFunction
 
 export type AstTypePackExplicit = {
 	tag: "explicit",

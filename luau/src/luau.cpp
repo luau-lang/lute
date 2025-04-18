@@ -1887,7 +1887,96 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeType(Luau::AstTypeFunction* node)
     {
-        // TODO: types
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 6);
+
+        serializeNodePreamble(node, "function");
+
+        const auto cstNode = lookupCstNode<Luau::CstTypeFunction>(node);
+
+        if (node->generics.size > 0 || node->genericPacks.size > 0)
+        {
+            if (cstNode)
+                serializeToken(cstNode->openGenericsPosition, "<");
+            else
+                lua_pushnil(L);
+            lua_setfield(L, -2, "openGenerics");
+
+            auto commas = cstNode ? cstNode->genericsCommaPositions : Luau::AstArray<Luau::Position>{};
+            serializePunctuated(node->generics, commas, ",");
+            lua_setfield(L, -2, "generics");
+
+            serializePunctuated(node->genericPacks, splitArray(commas, node->generics.size), ",");
+            lua_setfield(L, -2, "genericPacks");
+
+            if (cstNode)
+                serializeToken(cstNode->closeGenericsPosition, ">");
+            else
+                lua_pushnil(L);
+            lua_setfield(L, -2, "closeGenerics");
+        }
+
+        if (cstNode)
+            serializeToken(cstNode->openArgsPosition, "(");
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "openParens");
+
+        lua_createtable(L, node->argTypes.types.size, 0);
+        for (size_t i = 0; i < node->argTypes.types.size; i++)
+        {
+            lua_rawcheckstack(L, 2);
+            lua_createtable(L, 0, 2);
+
+            {
+                lua_rawcheckstack(L, 2);
+                lua_createtable(L, 0, 3);
+                if (i < node->argNames.size && node->argNames.data[i].has_value())
+                    serializeToken(node->argNames.data[i]->second.begin, node->argNames.data[i]->first.value);
+                else
+                    lua_pushnil(L);
+                lua_setfield(L, -2, "name");
+
+                if (cstNode && i < cstNode->argumentNameColonPositions.size && cstNode->argumentNameColonPositions.data[i].has_value())
+                    serializeToken(*cstNode->argumentNameColonPositions.data[i], ":");
+                else
+                    lua_pushnil(L);
+                lua_setfield(L, -2, "colon");
+
+                node->argTypes.types.data[i]->visit(this);
+                lua_setfield(L, -2, "type");
+            }
+            lua_setfield(L, -2, "node");
+
+            if (cstNode && i < cstNode->argumentsCommaPositions.size)
+                serializeToken(cstNode->argumentsCommaPositions.data[i], ",");
+            else
+                lua_pushnil(L);
+            lua_setfield(L, -2, "separator");
+
+            lua_rawseti(L, -2, i + 1);
+        }
+        lua_setfield(L, -2, "parameters");
+
+        if (node->argTypes.tailType)
+            node->argTypes.tailType->visit(this);
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "vararg");
+
+        if (cstNode)
+            serializeToken(cstNode->closeArgsPosition, ")");
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "closeParens");
+
+        if (cstNode)
+            serializeToken(cstNode->returnArrowPosition, "->");
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "returnArrow");
+
+        // TODO: return type
     }
 
     void serializeType(Luau::AstTypeTypeof* node)
@@ -2432,7 +2521,8 @@ struct AstSerialize : public Luau::AstVisitor
 
     bool visit(Luau::AstTypeFunction* node) override
     {
-        return true;
+        serializeType(node);
+        return false;
     }
 
     bool visit(Luau::AstTypeTypeof* node) override

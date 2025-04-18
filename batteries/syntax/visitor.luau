@@ -45,6 +45,7 @@ export type Visitor = {
 	visitTypeIntersection: (T.AstTypeIntersection) -> boolean,
 	visitTypeArray: (T.AstTypeArray) -> boolean,
 	visitTypeTable: (T.AstTypeTable) -> boolean,
+	visitTypeFunction: (T.AstTypeFunction) -> boolean,
 
 	visitTypePackExplicit: (T.AstTypePackExplicit) -> boolean,
 	visitTypePackGeneric: (T.AstTypePackGeneric) -> boolean,
@@ -106,6 +107,7 @@ local defaultVisitor: Visitor = {
 	visitTypeIntersection = alwaysVisit :: any,
 	visitTypeArray = alwaysVisit :: any,
 	visitTypeTable = alwaysVisit :: any,
+	visitTypeFunction = alwaysVisit,
 
 	visitTypePackExplicit = alwaysVisit,
 	visitTypePackGeneric = alwaysVisit,
@@ -654,6 +656,41 @@ local function visitTypeTable(node: T.AstTypeTable, visitor: Visitor)
 	end
 end
 
+local function visitTypeFunctionParameter(node: T.AstTypeFunctionParameter, visitor)
+	if node.name then
+		visitToken(node.name, visitor)
+	end
+	if node.colon then
+		visitToken(node.colon, visitor)
+	end
+	visitType(node.type, visitor)
+end
+
+local function visitTypeFunction(node: T.AstTypeFunction, visitor: Visitor)
+	if visitor.visitTypeFunction(node) then
+		if node.openGenerics then
+			visitToken(node.openGenerics, visitor)
+		end
+		if node.generics then
+			visitPunctuated(node.generics, visitor, visitGeneric)
+		end
+		if node.genericPacks then
+			visitPunctuated(node.genericPacks, visitor, visitGenericPack)
+		end
+		if node.closeGenerics then
+			visitToken(node.closeGenerics, visitor)
+		end
+		visitToken(node.openParens, visitor)
+		visitPunctuated(node.parameters, visitor, visitTypeFunctionParameter)
+		if node.vararg then
+			visitTypePack(node.vararg, visitor)
+		end
+		visitToken(node.closeParens, visitor)
+		visitToken(node.returnArrow, visitor)
+		-- TODO: return type
+	end
+end
+
 local function visitTypePackExplicit(node: T.AstTypePackExplicit, visitor: Visitor)
 	if visitor.visitTypePackExplicit(node) then
 		visitToken(node.openParens, visitor)
@@ -786,6 +823,8 @@ function visitType(type: T.AstType, visitor: Visitor)
 		visitTypeArray(type, visitor)
 	elseif type.tag == "table" then
 		visitTypeTable(type, visitor)
+	elseif type.tag == "function" then
+		visitTypeFunction(type, visitor)
 	else
 		exhaustiveMatch(type.tag)
 	end
