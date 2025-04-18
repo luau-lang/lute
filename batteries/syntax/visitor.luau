@@ -142,6 +142,12 @@ end
 local function visitLocal(node: T.AstLocal, visitor: Visitor)
 	if visitor.visitLocal(node) then
 		visitToken(node.name, visitor)
+		if node.colon then
+			visitToken(node.colon, visitor)
+		end
+		if node.annotation then
+			visitType(node.annotation, visitor)
+		end
 	end
 end
 
@@ -392,7 +398,19 @@ local function visitFunctionBody(node: T.AstFunctionBody, visitor: Visitor)
 	end
 	visitToken(node.openParens, visitor)
 	visitPunctuated(node.parameters, visitor, visitLocal)
+	if node.vararg then
+		visitToken(node.vararg, visitor)
+	end
+	if node.varargColon then
+		visitToken(node.varargColon, visitor)
+	end
+	if node.varargAnnotation then
+		visitTypePack(node.varargAnnotation, visitor)
+	end
 	visitToken(node.closeParens, visitor)
+	if node.returnSpecifier then
+		visitToken(node.returnSpecifier, visitor)
+	end
 	visitBlock(node.body, visitor)
 	visitToken(node["end"], visitor)
 end
@@ -711,7 +729,9 @@ end
 
 local function visitTypePackVariadic(node: T.AstTypePackVariadic, visitor: Visitor)
 	if visitor.visitTypePackVariadic(node) then
-		visitToken(node.ellipsis, visitor)
+		if node.ellipsis then
+			visitToken(node.ellipsis, visitor)
+		end
 		visitType(node.type, visitor)
 	end
 end

@@ -341,6 +341,20 @@ struct AstSerialize : public Luau::AstVisitor
             {
                 serializeToken(local->location.begin, local->name.value);
                 lua_setfield(L, -2, "name");
+
+                // TODO: get position of colon properly
+                if (local->annotation)
+                    serializeToken(currentPosition, ":");
+                else
+                    lua_pushnil(L);
+                lua_setfield(L, -2, "colon");
+
+                if (local->annotation)
+                    local->annotation->visit(this);
+                else
+                    lua_pushnil(L);
+
+                lua_setfield(L, -2, "annotation");
             }
 
             if (local->shadow)
@@ -348,10 +362,6 @@ struct AstSerialize : public Luau::AstVisitor
             else
                 lua_pushnil(L);
             lua_setfield(L, -2, "shadows");
-
-            // TODO: types
-            lua_pushnil(L);
-            lua_setfield(L, -2, "annotation");
         }
     }
 
@@ -913,19 +923,43 @@ struct AstSerialize : public Luau::AstVisitor
         serializePunctuated(node->args, cstNode ? cstNode->argsCommaPositions : Luau::AstArray<Luau::Position>{}, ",");
         lua_setfield(L, -2, "parameters");
 
-        // TODO: return types
-
         if (node->vararg)
-            serialize(node->varargLocation);
+            serializeToken(node->varargLocation.begin, "...");
         else
             lua_pushnil(L);
         lua_setfield(L, -2, "vararg");
+
+        // TODO: get proper position of colon
+        if (node->varargAnnotation)
+            serializeToken(currentPosition, ":");
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "varargColon");
+
+        if (node->varargAnnotation)
+        {
+            if (auto variadic = node->varargAnnotation->as<Luau::AstTypePackVariadic>())
+                serializeTypePack(variadic, true);
+            else
+                node->varargAnnotation->visit(this);
+        }
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "varargAnnotation");
 
         if (node->argLocation)
         {
             serializeToken(Luau::Position{node->argLocation->end.line, node->argLocation->end.column - 1}, ")");
             lua_setfield(L, -2, "closeParens");
         }
+
+        if (node->returnAnnotation && cstNode)
+            serializeToken(cstNode->returnSpecifierPosition, ":");
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "returnSpecifier");
+
+        // TODO: return type
 
         node->body->visit(this);
         lua_setfield(L, -2, "body");
@@ -2236,14 +2270,17 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "ellipsis");
     }
 
-    void serializeTypePack(Luau::AstTypePackVariadic* node)
+    void serializeTypePack(Luau::AstTypePackVariadic* node, bool forVarArg = false)
     {
         lua_rawcheckstack(L, 2);
         lua_createtable(L, 0, preambleSize + 2);
 
         serializeNodePreamble(node, "variadic");
 
-        serializeToken(node->location.begin, "...");
+        if (!forVarArg)
+            serializeToken(node->location.begin, "...");
+        else
+            lua_pushnil(L);
         lua_setfield(L, -2, "ellipsis");
 
         node->variadicType->visit(this);

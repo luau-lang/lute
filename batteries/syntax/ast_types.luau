@@ -43,6 +43,8 @@ export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
 
 export type AstLocal = {
 	name: Token<string>,
+	colon: Token<":">?,
+	annotation: AstType?,
 }
 
 export type AstExprGroup = {
@@ -108,9 +110,12 @@ export type AstFunctionBody = {
 	genericPacks: Punctuated<AstGenericTypePack>?,
 	closeGenerics: Token<">">?,
 	openParens: Token<"(">,
-	-- TODO: parameters
-	parameters: Punctuated<Token<string>>,
+	parameters: Punctuated<AstLocal>,
+	vararg: Token<"...">?,
+	varargColon: Token<":">?,
+	varargAnnotation: AstTypePack?,
 	closeParens: Token<")">,
+	returnSpecifier: Token<":">?,
 	-- TODO: return type
 	body: AstStatBlock,
 	["end"]: Token<"end">,
@@ -531,7 +536,8 @@ export type AstTypePackGeneric = {
 
 export type AstTypePackVariadic = {
 	tag: "variadic",
-	ellipsis: Token<"...">,
+	--- May be nil when present as the vararg annotation in a function body
+	ellipsis: Token<"...">?,
 	type: AstType,
 }
 
