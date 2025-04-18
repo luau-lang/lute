@@ -481,6 +481,14 @@ local function visitIfExpression(node: T.AstExprIfElse, visitor: Visitor)
 	end
 end
 
+local function visitTypeOrPack(node: T.AstType | T.AstTypePack, visitor: Visitor)
+	if node.tag == "explicit" or node.tag == "generic" or node.tag == "variadic" then
+		visitTypePack(node, visitor)
+	else
+		visitType(node, visitor)
+	end
+end
+
 local function visitTypeReference(node: T.AstTypeReference, visitor: Visitor)
 	if visitor.visitTypeReference(node) then
 		if node.prefix then
@@ -494,7 +502,7 @@ local function visitTypeReference(node: T.AstTypeReference, visitor: Visitor)
 			visitToken(node.openParameters, visitor)
 		end
 		if node.parameters then
-			visitPunctuated(node.parameters, visitor, visitType)
+			visitPunctuated(node.parameters, visitor, visitTypeOrPack)
 		end
 		if node.closeParameters then
 			visitToken(node.closeParameters, visitor)
