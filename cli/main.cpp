@@ -73,12 +73,19 @@ lua_State* setupState(Runtime& runtime)
 
     static const luaL_Reg funcs[] = {
         {"require", lua_require},
+        
         {nullptr, nullptr},
     };
-
+    
     luaL_register(L, "_G", funcs);
     lua_pop(L, 1);
 
+    lua_pushnil(L);
+    lua_setglobal(L, "getfenv");
+    
+    lua_pushnil(L);
+    lua_setglobal(L, "setfenv");
+    
     luaL_sandbox(L);
 
     return L;
