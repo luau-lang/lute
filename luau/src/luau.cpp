@@ -349,7 +349,7 @@ struct AstSerialize : public Luau::AstVisitor
     void serialize(Luau::AstExprTable::Item& item, Luau::CstExprTable::Item* cstNode)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, 6);
+        lua_createtable(L, 0, 7);
 
         if (item.kind == Luau::AstExprTable::Item::List)
         {
