@@ -395,8 +395,15 @@ local function visitFunctionBody(node: T.AstFunctionBody, visitor: Visitor)
 	visitToken(node["end"], visitor)
 end
 
+local function visitAttribute(node: T.AstAttribute, visitor)
+	visitToken(node, visitor)
+end
+
 local function visitAnonymousFunction(node: T.AstExprAnonymousFunction, visitor: Visitor)
 	if visitor.visitAnonymousFunction(node) then
+		for _, attribute in node.attributes do
+			visitAttribute(attribute, visitor)
+		end
 		visitToken(node["function"], visitor)
 		visitFunctionBody(node.body, visitor)
 	end
@@ -404,6 +411,9 @@ end
 
 local function visitFunction(node: T.AstStatFunction, visitor: Visitor)
 	if visitor.visitFunction(node) then
+		for _, attribute in node.attributes do
+			visitAttribute(attribute, visitor)
+		end
 		visitToken(node["function"], visitor)
 		visitExpression(node.name, visitor)
 		visitFunctionBody(node.body, visitor)
@@ -412,6 +422,9 @@ end
 
 local function visitLocalFunction(node: T.AstStatLocalFunction, visitor: Visitor)
 	if visitor.visitLocalFunction(node) then
+		for _, attribute in node.attributes do
+			visitAttribute(attribute, visitor)
+		end
 		visitToken(node["local"], visitor)
 		visitToken(node["function"], visitor)
 		visitLocal(node.name, visitor)

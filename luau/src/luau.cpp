@@ -21,6 +21,7 @@ const char* COMPILE_RESULT_TYPE = "CompileResult";
 
 LUAU_FASTFLAG(LuauStoreCSTData2)
 LUAU_FASTFLAG(LuauParseOptionalAsNode2)
+LUAU_FASTFLAG(LuauFixFunctionWithAttributesStartLocation)
 
 namespace luau
 {
@@ -38,6 +39,7 @@ static StatResult parse(std::string& source)
     // TODO: this is very bad, fix it!
     FFlag::LuauStoreCSTData2.value = true;
     FFlag::LuauParseOptionalAsNode2.value = true;
+    FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -65,6 +67,7 @@ static ExprResult parseExpr(std::string& source)
     // TODO: this is very bad, fix it!
     FFlag::LuauStoreCSTData2.value = true;
     FFlag::LuauParseOptionalAsNode2.value = true;
+    FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -562,6 +565,18 @@ struct AstSerialize : public Luau::AstVisitor
         }
     }
 
+    void serializeAttributes(Luau::AstArray<Luau::AstAttr*>& attrs, size_t nrec = 0)
+    {
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, attrs.size, nrec);
+
+        for (size_t i = 0; i < attrs.size; i++)
+        {
+            serializeAttribute(attrs.data[i]);
+            lua_rawseti(L, -2, i + 1);
+        }
+    }
+
     template<typename T>
     void serializePunctuated(Luau::AstArray<T> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText)
     {
@@ -633,6 +648,23 @@ struct AstSerialize : public Luau::AstVisitor
 
             lua_rawseti(L, -2, i + 1);
         }
+    }
+
+    void serializeAttribute(Luau::AstAttr* node)
+    {
+        switch (node->type)
+        {
+        case Luau::AstAttr::Checked:
+            serializeToken(node->location.begin, "@checked");
+            break;
+        case Luau::AstAttr::Native:
+            serializeToken(node->location.begin, "@native");
+            break;
+        case Luau::AstAttr::Deprecated:
+            serializeToken(node->location.begin, "@deprecated");
+            break;
+        }
+        serializeNodePreamble(node, "attribute");
     }
 
     void serializeEof(Luau::Position eofPosition)
@@ -905,13 +937,16 @@ struct AstSerialize : public Luau::AstVisitor
     void serialize(Luau::AstExprFunction* node)
     {
         lua_rawcheckstack(L, 3);
-        lua_createtable(L, 0, preambleSize);
+        lua_createtable(L, 0, preambleSize + 3);
 
         serializeNodePreamble(node, "function");
 
-        // TODO: attributes
+        serializeAttributes(node->attributes);
+        lua_setfield(L, -2, "attributes");
 
-        serializeToken(node->location.begin, "function");
+        const auto cstNode = lookupCstNode<Luau::CstExprFunction>(node);
+
+        serializeToken(cstNode ? cstNode->functionKeywordPosition : node->location.begin, "function");
         lua_setfield(L, -2, "function");
 
         serializeFunctionBody(node);
@@ -1464,11 +1499,16 @@ struct AstSerialize : public Luau::AstVisitor
     void serializeStat(Luau::AstStatFunction* node)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 3);
+        lua_createtable(L, 0, preambleSize + 4);
 
         serializeNodePreamble(node, "function");
 
-        serializeToken(node->location.begin, "function");
+        const auto cstNode = lookupCstNode<Luau::CstStatFunction>(node);
+
+        serializeAttributes(node->func->attributes);
+        lua_setfield(L, -2, "attributes");
+
+        serializeToken(cstNode ? cstNode->functionKeywordPosition : node->location.begin, "function");
         lua_setfield(L, -2, "function");
 
         node->name->visit(this);
@@ -1481,14 +1521,19 @@ struct AstSerialize : public Luau::AstVisitor
     void serializeStat(Luau::AstStatLocalFunction* node)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 4);
+        lua_createtable(L, 0, preambleSize + 5);
 
         serializeNodePreamble(node, "localfunction");
 
-        serializeToken(node->location.begin, "local");
+        serializeAttributes(node->func->attributes);
+        lua_setfield(L, -2, "attributes");
+
+        const auto cstNode = lookupCstNode<Luau::CstStatLocalFunction>(node);
+
+        serializeToken(cstNode ? cstNode->localKeywordPosition : node->location.begin, "local");
         lua_setfield(L, -2, "local");
 
-        if (const auto cstNode = lookupCstNode<Luau::CstStatLocalFunction>(node))
+        if (cstNode)
         {
             serializeToken(cstNode->functionKeywordPosition, "function");
             lua_setfield(L, -2, "function");

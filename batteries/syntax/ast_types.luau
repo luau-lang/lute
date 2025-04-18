@@ -118,6 +118,7 @@ export type AstFunctionBody = {
 
 export type AstExprAnonymousFunction = {
 	tag: "function",
+	attributes: { AstAttribute },
 	["function"]: Token<"function">,
 	body: AstFunctionBody,
 }
@@ -313,8 +314,11 @@ export type AstStatCompoundAssign = {
 	value: AstExpr,
 }
 
+export type AstAttribute = Token<"@checked" | "@native" | "@deprecated"> & { tag: "attribute" }
+
 export type AstStatFunction = {
 	tag: "function",
+	attributes: { AstAttribute },
 	["function"]: Token<"function">,
 	name: AstExpr,
 	body: AstFunctionBody,
@@ -322,6 +326,7 @@ export type AstStatFunction = {
 
 export type AstStatLocalFunction = {
 	tag: "localfunction",
+	attributes: { AstAttribute },
 	["local"]: Token<"local">,
 	["function"]: Token<"function">,
 	name: AstLocal,
