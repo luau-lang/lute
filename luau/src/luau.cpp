@@ -333,7 +333,7 @@ struct AstSerialize : public Luau::AstVisitor
         if (lua_isnil(L, -1))
         {
             lua_pop(L, 1);
-            lua_createtable(L, 0, 3);
+            lua_createtable(L, 0, 4);
 
             // set up reference for this local into the local table
             lua_pushlightuserdata(L, local);
@@ -467,12 +467,11 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeTrivia(const std::vector<Trivia>& trivia)
     {
-        lua_rawcheckstack(L, 2);
+        lua_rawcheckstack(L, 3);
         lua_createtable(L, trivia.size(), 0);
 
         for (size_t i = 0; i < trivia.size(); i++)
         {
-            lua_rawcheckstack(L, 2);
             lua_createtable(L, 0, 3);
 
             switch (trivia[i].kind)
@@ -502,7 +501,7 @@ struct AstSerialize : public Luau::AstVisitor
     // For correct trivia computation, everything must end up going through serializeToken
     void serializeToken(Luau::Position position, const char* text, int nrec = 0)
     {
-        lua_rawcheckstack(L, 2);
+        lua_rawcheckstack(L, 3);
         lua_createtable(L, 0, nrec + 3);
 
         const auto trivia = extractTrivia(position);
@@ -535,7 +534,6 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "text");
         advancePosition(text);
 
-        lua_rawcheckstack(L, 2);
         lua_createtable(L, 0, 0);
         lua_setfield(L, -2, "trailingTrivia");
 
@@ -593,12 +591,11 @@ struct AstSerialize : public Luau::AstVisitor
     template<typename T>
     void serializePunctuated(Luau::AstArray<T> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText)
     {
-        lua_rawcheckstack(L, 2);
+        lua_rawcheckstack(L, 3);
         lua_createtable(L, nodes.size, 0);
 
         for (size_t i = 0; i < nodes.size; i++)
         {
-            lua_rawcheckstack(L, 2);
             lua_createtable(L, 0, 2);
 
             nodes.data[i]->visit(this);
@@ -642,12 +639,11 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializePunctuated(Luau::AstArray<Luau::AstLocal*> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText)
     {
-        lua_rawcheckstack(L, 2);
+        lua_rawcheckstack(L, 3);
         lua_createtable(L, nodes.size, 0);
 
         for (size_t i = 0; i < nodes.size; i++)
         {
-            lua_rawcheckstack(L, 2);
             lua_createtable(L, 0, 2);
 
             serialize(nodes.data[i]);
@@ -887,7 +883,7 @@ struct AstSerialize : public Luau::AstVisitor
         const auto* cstNode = lookupCstNode<Luau::CstExprFunction>(node);
 
         lua_rawcheckstack(L, 3);
-        lua_createtable(L, 0, 9);
+        lua_createtable(L, 0, 14);
 
         if (node->generics.size > 0 || node->genericPacks.size > 0)
         {
