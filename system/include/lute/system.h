@@ -8,7 +8,7 @@ int luaopen_system(lua_State* L);
 // open the library as a table on top of the stack
 int luteopen_system(lua_State* L);
 
-namespace system
+namespace system_lib
 {
 
 static const luaL_Reg lib[] = {

@@ -13,6 +13,7 @@
 #include "lute/net.h"
 #include "lute/options.h"
 #include "lute/process.h"
+#include "lute/system.h"
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/runtime.h"
@@ -70,6 +71,9 @@ lua_State* setupState(Runtime& runtime)
 
     luteopen_vm(L);
     lua_setfield(L, -2, "@lute/vm");
+    
+    luteopen_system(L);
+    lua_setfield(L, -2, "@lute/system");
 
     static const luaL_Reg funcs[] = {
         {"require", lua_require},

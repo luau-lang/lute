@@ -98,7 +98,7 @@ target_include_directories(Lute.Net PUBLIC net/include ${LIBUV_INCLUDE_DIR} ${UW
 target_include_directories(Lute.Task PUBLIC task/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.VM PUBLIC vm/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.Process PUBLIC process/include ${LIBUV_INCLUDE_DIR})
-target_include_directories(Lute.System PUBLIC process/include ${LIBUV_INCLUDE_DIR})
+target_include_directories(Lute.System PUBLIC system/include ${LIBUV_INCLUDE_DIR})
 
 target_link_libraries(Lute.Runtime PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.VM uv_a)
 target_link_libraries(Lute.Fs PRIVATE Lute.Runtime Luau.VM uv_a)
@@ -108,7 +108,7 @@ target_link_libraries(Lute.Task PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.VM PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.Process PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.System PRIVATE Lute.Runtime Luau.VM uv_a)
-target_link_libraries(Lute.CLI PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.Runtime Lute.Fs Lute.Luau Lute.Net Lute.Task Lute.VM Lute.Process)
+target_link_libraries(Lute.CLI PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.Runtime Lute.Fs Lute.Luau Lute.Net Lute.Task Lute.VM Lute.Process Lute.System)
 
 set(LUTE_OPTIONS)
 

@@ -55,7 +55,7 @@ target_sources(Lute.CLI PRIVATE
 )
 
 target_sources(Lute.System PRIVATE
-    system/include/system.h
+    system/include/lute/system.h
 
     system/src/system.cpp
 )
