@@ -48,8 +48,6 @@ int luteopen_system(lua_State* L)
 
     lua_pushinteger(L, (uint64_t)sysinfo.dwNumberOfProcessors);
     lua_setfield(L, -2, "threads");
-#elif
-    // TODO: linux + macos using uname.h
 #endif
 
     lua_setreadonly(L, -1, 1);
