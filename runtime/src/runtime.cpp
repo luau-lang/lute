@@ -66,7 +66,6 @@ bool Runtime::runToCompletion()
         if (L == nullptr)
         {
             fprintf(stderr, "Cannot resume a non-thread reference");
-            return false;
         }
 
         // We still have 'next' on stack to hold on to thread we are about to run
@@ -89,7 +88,6 @@ bool Runtime::runToCompletion()
                 error += "\nstacktrace:\n";
                 error += lua_debugtrace(L);
                 fprintf(stderr, "%s", error.c_str());
-                return false;
             }
 
             continue;
@@ -97,16 +95,7 @@ bool Runtime::runToCompletion()
 
         if (status != LUA_OK)
         {
-            std::string error;
-
-            if (const char* str = lua_tostring(L, -1))
-                error = str;
-
-            error += "\nstacktrace:\n";
-            error += lua_debugtrace(L);
-
-            fprintf(stderr, "%s", error.c_str());
-            return false;
+            reportError(L);
         }
 
         if (next.cont)
@@ -149,6 +138,19 @@ void Runtime::schedule(std::function<void()> f)
     continuations.push_back(std::move(f));
 
     runLoopCv.notify_one();
+}
+
+void Runtime::reportError(lua_State* L)
+{
+    std::string error;
+
+    if (const char* str = lua_tostring(L, -1))
+        error = str;
+
+    error += "\nstacktrace:\n";
+    error += lua_debugtrace(L);
+
+    fprintf(stderr, "%s", error.c_str());
 }
 
 void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)

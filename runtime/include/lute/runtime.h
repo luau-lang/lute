@@ -32,13 +32,15 @@ struct Runtime
     bool hasContinuations();
 
     void schedule(std::function<void()> f);
-
+    
     // Resume thread with the specified error
     void scheduleLuauError(std::shared_ptr<Ref> ref, std::string error);
 
     // Resume thread with the results computed by the continuation
     void scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua_State*)> cont);
-
+    
+    void reportError(lua_State* L);
+    
     // Run 'f' in a libuv work queue
     void runInWorkQueue(std::function<void()> f);
 
