@@ -66,6 +66,7 @@ bool Runtime::runToCompletion()
         if (L == nullptr)
         {
             fprintf(stderr, "Cannot resume a non-thread reference");
+            return false;
         }
 
         // We still have 'next' on stack to hold on to thread we are about to run
