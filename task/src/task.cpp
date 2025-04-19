@@ -5,6 +5,9 @@
 #include "lute/ref.h"
 #include "lute/runtime.h"
 
+// taken from extern/luau/VM/lcorolib.cpp
+static const char* const statnames[] = {"running", "suspended", "normal", "dead", "dead"};
+
 namespace task
 {
     int lua_defer(lua_State* L)
@@ -18,12 +21,29 @@ namespace task
     int lua_resume(lua_State* L)
     {
         Runtime* runtime = getRuntime(L);
+        
         lua_State* thread = lua_tothread(L, 1);
         luaL_argexpected(L, thread, 1, "thread");
         
-        auto ref = getRefForThread(thread);
+        int currentThreadStatus = lua_costatus(L, thread);
+        if (currentThreadStatus != LUA_COSUS)
+        {
+            auto ref = getRefForThread(L);
+            luaL_errorL(L, "cannot resume %s coroutine", statnames[currentThreadStatus]);
+            
+            return 1;
+        };
         
-        runtime->scheduleLuauResume(ref, [](lua_State* L) { return 0; });
+        lua_remove(L, 1);
+        
+        int args = lua_gettop(L);
+        lua_xmove(L, thread, args);
+        
+        int status = lua_resume(thread, L, args);
+        
+        if ((status != LUA_OK) && (status != LUA_YIELD) && (status != LUA_BREAK)) {
+            runtime->reportError(thread);
+        }
         
         return 0;
     }
