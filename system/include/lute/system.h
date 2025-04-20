@@ -11,8 +11,12 @@ int luteopen_system(lua_State* L);
 namespace system_lib
 {
 
+int lua_cpus(lua_State* L);
+
 static const luaL_Reg lib[] = {
+    {"cpus", lua_cpus},
+
     {nullptr, nullptr}
 };
 
-} // namespace system
+} // namespace system_lib
