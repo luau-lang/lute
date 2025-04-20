@@ -4,6 +4,7 @@
 #include <iterator>
 #include <string>
 #include <vector>
+#include <winnt.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -26,6 +27,8 @@ std::string getArchitecture()
         return "ARM64";
     else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_INTEL)
         return "x86";
+    else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_IA64)
+        return "IA-64";
     else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_UNKNOWN)
         return "unknown";
 #endif
