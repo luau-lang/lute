@@ -13,8 +13,14 @@ namespace process
 
 int create(lua_State* L);
 
+int homedir(lua_State* L);
+int cwd(lua_State* L);
+
 static const luaL_Reg lib[] = {
     {"create", create},
+    {"homedir", homedir},
+    {"cwd", cwd},
+
     {nullptr, nullptr}
 };
 

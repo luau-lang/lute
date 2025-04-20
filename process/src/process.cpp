@@ -374,6 +374,30 @@ int create(lua_State* L)
     return lua_yield(L, 0);
 }
 
+int homedir(lua_State* L)
+{
+    char homedir_buff[255];
+    size_t homedir_size = 255;
+
+    uv_os_homedir(homedir_buff, &homedir_size);
+
+    lua_pushstring(L, homedir_buff);
+
+    return 1;
+}
+
+int cwd(lua_State* L)
+{
+    char cwd_buff[255];
+    size_t cwd_size = 255;
+
+    uv_cwd(cwd_buff, &cwd_size);
+
+    lua_pushstring(L, cwd_buff);
+
+    return 1;
+};
+
 static int envIndex(lua_State* L)
 {
     const char* key = luaL_checkstring(L, 2);
@@ -526,21 +550,6 @@ int luteopen_process(lua_State* L)
     luaL_register(L, nullptr, processEnvMeta);
     lua_setmetatable(L, -2);
     lua_setfield(L, -2, "env");
-
-    char cwd_buff[255];
-    size_t cwd_size = 255;
-
-    char homedir_buff[255];
-    size_t homedir_size = 255;
-
-    uv_cwd(cwd_buff, &cwd_size);
-    uv_os_homedir(homedir_buff, &homedir_size);
-
-    lua_pushstring(L, cwd_buff);
-    lua_setfield(L, -2, "cwd");
-
-    lua_pushstring(L, homedir_buff);
-    lua_setfield(L, -2, "homedir");
 
     lua_setreadonly(L, -1, 1);
 
