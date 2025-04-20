@@ -6,38 +6,6 @@
 #include <vector>
 #include <winnt.h>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <sys/utsname.h>
-#endif
-
-std::string getArchitecture()
-{
-    // Windows
-#ifdef _WIN32
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
-
-    if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
-        return "x64";
-    else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM)
-        return "ARM";
-    else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM64)
-        return "ARM64";
-    else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_INTEL)
-        return "x86";
-    else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_IA64)
-        return "IA-64";
-    else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_UNKNOWN)
-        return "unknown";
-#endif
-
-    // TODO: other platforms
-
-    return "unknown";
-}
-
 int luaopen_system()
 {
     return 0;
@@ -59,16 +27,15 @@ int luteopen_system(lua_State* L)
     lua_pushinteger(L, (int)uv_available_parallelism());
     lua_setfield(L, -2, "threadcount");
 
-    lua_pushstring(L, getArchitecture().c_str());
-    lua_setfield(L, -2, "arch");
-
     // os
     uv_utsname_t sysinfo;
     uv_os_uname(&sysinfo);
 
-    // this produces weird strings like Windows_NT, but that will have to do.
-    lua_pushstring(L, std::string(sysinfo.sysname).c_str());
+    lua_pushstring(L, sysinfo.sysname);
     lua_setfield(L, -2, "os");
+
+    lua_pushstring(L, sysinfo.machine);
+    lua_setfield(L, -2, "arch");
 
     lua_setreadonly(L, -1, 1);
 
