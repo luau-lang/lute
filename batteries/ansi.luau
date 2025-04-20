@@ -1,27 +1,69 @@
+local process = (require)("@lute/process") -- temporary ()
+
+export type Styler = (text: string) -> string
+
+-- https://no-color.org/
+local function colorDisabled(): boolean
+	-- is it really okay to index env every style call?
+	return process.env.NO_COLOR ~= nil
+end
+
+local function searchForSubstringIn(str: string, substring: string, index: number)
+	-- last argument of string.find() turns string.find into plain substring search
+	return string.find(str, substring, index, true)
+end
+
 local function replaceClose(str: string, close: string, replace: string, index: number?): string
 	local result = ""
 	local cursor = 1
+
 	while index do
 		result ..= string.sub(str, cursor, index - 1) .. replace
+
 		cursor = index + #close
-		local nextIndex = string.find(str, close, cursor, true)
-		index = nextIndex
+
+		index = searchForSubstringIn(str, close, cursor)
 	end
+
 	return result .. string.sub(str, cursor)
 end
 
-local function formatter(open: string, close: string, replace: string?): (string) -> string
-	return function(str: string): string
-		local index = string.find(str, close, #open + 1, true)
-		if index then
-			return open .. replaceClose(str, close, replace or open, index) .. close
-		else
-			return open .. str .. close
+local function formatter(open: string, close: string, replace: string?): Styler
+	local replaceCloseWith = replace or open
+
+	local function created_formatter(str: string): string
+		if colorDisabled() then
+			return str
 		end
+
+		local index = searchForSubstringIn(str, close, #open + 1)
+		local encasedString = if index then replaceClose(str, close, replaceCloseWith, index) else str
+
+		return `{open}{encasedString}{close}`
 	end
+
+	return created_formatter
+end
+
+local function combine(...: Styler): Styler
+	local stylers = { ... }
+
+	local function combinedStyler(str: string): string
+		local result = str
+
+		for _, styler in stylers do
+			result = styler(result)
+		end
+
+		return result
+	end
+
+	return combinedStyler
 end
 
 return {
+	combine = combine,
+
 	reset = formatter("\x1b[0m", "\x1b[0m"),
 	bold = formatter("\x1b[1m", "\x1b[22m", "\x1b[22m\x1b[1m"),
 	dim = formatter("\x1b[2m", "\x1b[22m", "\x1b[22m\x1b[2m"),
