@@ -14,7 +14,7 @@ int luaopen_system(lua_State* L)
 
 int luteopen_system(lua_State* L)
 {
-    lua_createtable(L, 0, std::size(system_lib::lib) + 3);
+    lua_createtable(L, 0, std::size(system_lib::lib) + std::size(system_lib::properties));
 
     for (auto& [name, func] : system_lib::lib)
     {
@@ -25,18 +25,15 @@ int luteopen_system(lua_State* L)
         lua_setfield(L, -2, name);
     }
 
-    lua_pushinteger(L, (int)uv_available_parallelism());
-    lua_setfield(L, -2, "threadcount");
-
     // os
     uv_utsname_t sysinfo;
     uv_os_uname(&sysinfo);
 
     lua_pushstring(L, sysinfo.sysname);
-    lua_setfield(L, -2, "os");
+    lua_setfield(L, -2, kOperatingSystemProperty);
 
     lua_pushstring(L, sysinfo.machine);
-    lua_setfield(L, -2, "arch");
+    lua_setfield(L, -2, kArchitectureProperty);
 
     lua_setreadonly(L, -1, 1);
 
@@ -96,4 +93,12 @@ int lua_cpus(lua_State* L)
 
     return 1;
 }
+
+int lua_threadcount(lua_State* L)
+{
+    lua_pushinteger(L, uv_available_parallelism());
+
+    return 1;
+}
+
 } // namespace system_lib
