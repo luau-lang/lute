@@ -4,7 +4,6 @@
 #include <iterator>
 #include <string>
 #include <vector>
-#include <winnt.h>
 
 int luaopen_system()
 {
