@@ -25,7 +25,6 @@ static const luaL_Reg lib[] = {
 };
 
 static const std::string properties[] = {
-    // clang format makes this one line if i dont put a comment here
     kArchitectureProperty,
     kOperatingSystemProperty,
 };
