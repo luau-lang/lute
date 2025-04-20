@@ -1,0 +1,4 @@
+{
+     "luau-lsp.sourcemap.enabled": false,
+     "luau-lsp.platform.type": "standard"
+}
