@@ -527,6 +527,21 @@ int luteopen_process(lua_State* L)
     lua_setmetatable(L, -2);
     lua_setfield(L, -2, "env");
 
+    char cwd_buff[255];
+    size_t cwd_size = 255;
+
+    char homedir_buff[255];
+    size_t homedir_size = 255;
+
+    uv_cwd(cwd_buff, &cwd_size);
+    uv_os_homedir(homedir_buff, &homedir_size);
+
+    lua_pushstring(L, cwd_buff);
+    lua_setfield(L, -2, "cwd");
+
+    lua_pushstring(L, homedir_buff);
+    lua_setfield(L, -2, "homedir");
+
     lua_setreadonly(L, -1, 1);
 
     return 1;
