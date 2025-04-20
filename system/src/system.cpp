@@ -5,14 +5,16 @@
 #include <string>
 #include <vector>
 
-int luaopen_system()
+int luaopen_system(lua_State* L)
 {
-    return 0;
+    luaL_register(L, "system", system_lib::lib);
+
+    return 1;
 }
 
 int luteopen_system(lua_State* L)
 {
-    lua_createtable(L, 0, std::size(system_lib::lib));
+    lua_createtable(L, 0, std::size(system_lib::lib) + 3);
 
     for (auto& [name, func] : system_lib::lib)
     {
