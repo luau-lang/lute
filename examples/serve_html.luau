@@ -14,6 +14,7 @@ local server = net.serve({
 				["Content-Type"] = "text/html",
 				["X-Powered-By"] = "Lute",
 			},
+			-- stylua: ignore
 			body = [[
                 <html>
                     <head>
@@ -27,13 +28,7 @@ local server = net.serve({
                         <h1>Hello from Lute Server!</h1>
                         <p>This is a simple example of the Lute HTTP server.</p>
                         <h2>Request Details:</h2>
-                        <pre>Method: ]]
-				.. req.method
-				.. [[, Path: ]]
-				.. req.path
-				.. [[, Headers:]]
-				.. headers
-				.. [[</pre>
+                        <pre>Method: ]] .. req.method .. [[, Path: ]] .. req.path .. [[, Headers:]] .. headers ..[[</pre>
                     </body>
                 </html>
             ]],
