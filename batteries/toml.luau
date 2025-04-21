@@ -8,10 +8,10 @@ type SerializerState = {
 
 local function serializeValue(value: string | number)
 	if typeof(value) == "string" then
-		value = string.gsub(value, '\\', '\\\\')
-		value = string.gsub(value, '\n', '\\n')
-		value = string.gsub(value, '\t', '\\t')
-		return "\"" .. value .. "\""
+		value = string.gsub(value, "\\", "\\\\")
+		value = string.gsub(value, "\n", "\\n")
+		value = string.gsub(value, "\t", "\\t")
+		return '"' .. value .. '"'
 	elseif value == math.huge then
 		return "inf"
 	elseif value == -math.huge then
@@ -42,7 +42,7 @@ local function tableToToml(tbl: {}, parent: string)
 			if #v > 0 then
 				for _, entry in v do
 					result ..= "\n[[" .. (parent and parent .. "." or "") .. k .. "]]\n"
-					result ..=  tableToToml(entry, nil)
+					result ..= tableToToml(entry, nil)
 				end
 			else
 				subTables[k] = v
@@ -55,7 +55,7 @@ local function tableToToml(tbl: {}, parent: string)
 
 	for k, v in subTables do
 		local key = parent and (parent .. "." .. k) or k
-		
+
 		if hasNestedTables(v) == true then
 			result ..= tableToToml(v, key)
 			continue
@@ -70,7 +70,6 @@ local function tableToToml(tbl: {}, parent: string)
 
 	return result
 end
-
 
 local function serialize(tbl: {}): string
 	return tableToToml(tbl, nil)
@@ -128,7 +127,9 @@ local function deserialize(input: string)
 			local parent = result
 
 			for section in string.gmatch(tablePath, "([^.]+)") do
-				if not parent[section] then parent[section] = {} end
+				if not parent[section] then
+					parent[section] = {}
+				end
 				parent = parent[section]
 			end
 
@@ -140,9 +141,9 @@ local function deserialize(input: string)
 
 			if string.match(value, '^"(.*)"$') or string.match(value, "^'(.*)'$") then
 				value = string.sub(value, 2, -2)
-				value = string.gsub(value, '\\\\', '\\')
-				value = string.gsub(value, '\\n', '\n')
-				value = string.gsub(value, '\\t', '\t')
+				value = string.gsub(value, "\\\\", "\\")
+				value = string.gsub(value, "\\n", "\n")
+				value = string.gsub(value, "\\t", "\t")
 			elseif tonumber(value) then
 				value = tonumber(value)
 			elseif value == "true" then
@@ -154,7 +155,7 @@ local function deserialize(input: string)
 			elseif value == "-inf" then
 				value = -math.huge
 			elseif value == "nan" then
-				value = 0/0
+				value = 0 / 0
 			end
 
 			currentTable[key] = value
@@ -168,4 +169,4 @@ end
 toml.serialize = serialize
 toml.deserialize = deserialize
 
-return toml
+return table.freeze(toml)

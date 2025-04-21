@@ -5,7 +5,6 @@
 /cmake[.-]*/
 /coverage/
 /.vs/
-/.vscode/
 /fuzz/luau.pb.*
 /crash-*
 /default.prof*
@@ -15,3 +14,6 @@ __pycache__
 .clangd
 compile_commands.json
 *~
+extern/libuv/libuv-static.pc
+extern/libuv/DartConfiguration.tcl
+extern/*/

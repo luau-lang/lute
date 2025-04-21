@@ -42,6 +42,12 @@ target_sources(Lute.VM PRIVATE
     vm/src/vm.cpp
 )
 
+target_sources(Lute.Process PRIVATE
+    process/include/lute/process.h
+
+    process/src/process.cpp
+)
+
 target_sources(Lute.CLI PRIVATE
     cli/main.cpp
     cli/tc.h

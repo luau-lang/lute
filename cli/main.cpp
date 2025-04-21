@@ -12,6 +12,7 @@
 #include "lute/luau.h"
 #include "lute/net.h"
 #include "lute/options.h"
+#include "lute/process.h"
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/runtime.h"
@@ -61,6 +62,9 @@ lua_State* setupState(Runtime& runtime)
     luteopen_net(L);
     lua_setfield(L, -2, "@lute/net");
 
+    luteopen_process(L);
+    lua_setfield(L, -2, "@lute/process");
+
     luteopen_task(L);
     lua_setfield(L, -2, "@lute/task");
 
@@ -75,6 +79,12 @@ lua_State* setupState(Runtime& runtime)
     luaL_register(L, "_G", funcs);
     lua_pop(L, 1);
 
+    lua_pushnil(L);
+    lua_setglobal(L, "setfenv");
+    
+    lua_pushnil(L);
+    lua_setglobal(L, "getfenv");
+    
     luaL_sandbox(L);
 
     return L;

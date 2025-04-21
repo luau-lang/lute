@@ -81,13 +81,13 @@ local ESCAPE_MAP = {
 }
 
 local function serializeUnicode(codepoint: number)
-    if codepoint >= 0x10000 then
-        local high = math.floor((codepoint - 0x10000) / 0x400) + 0xD800
-        local low = ((codepoint - 0x10000) % 0x400) + 0xDC00
-        return string.format("\\u%04x\\u%04x", high, low)
-    end
+	if codepoint >= 0x10000 then
+		local high = math.floor((codepoint - 0x10000) / 0x400) + 0xD800
+		local low = ((codepoint - 0x10000) % 0x400) + 0xDC00
+		return string.format("\\u%04x\\u%04x", high, low)
+	end
 
-    return string.format("\\u%04x", codepoint)
+	return string.format("\\u%04x", codepoint)
 end
 
 local function serializeString(state: SerializerState, str: string)
@@ -297,8 +297,7 @@ local function deserializeString(state: DeserializerState): string
 				source,
 				"\\u([dD]83[dD])\\u(d[cC]%w%w)",
 				function(high, low)
-					return decodeSurrogatePair(high, low)
-						or deserializerError(state, "Invalid unicode surrogate pair")
+					return decodeSurrogatePair(high, low) or deserializerError(state, "Invalid unicode surrogate pair")
 				end :: any
 			)
 			-- Handle regular Unicode escapes
@@ -313,7 +312,7 @@ local function deserializeString(state: DeserializerState): string
 			source = string.gsub(source, "\\r", "\r")
 			source = string.gsub(source, "\\t", "\t")
 			source = string.gsub(source, '\\"', '"')
-			source = string.gsub(source, '\0', '\\')
+			source = string.gsub(source, "\0", "\\")
 
 			return source
 		end

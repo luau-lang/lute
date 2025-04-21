@@ -10,7 +10,7 @@ print(tenSeconds)
 print(fifteenSeconds)
 
 print(fiveSeconds < tenSeconds)
-print (fifteenSeconds > tenSeconds)
+print(fifteenSeconds > tenSeconds)
 
 local randomNanos = duration.nanoseconds(25038)
 print(randomNanos)
