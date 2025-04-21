@@ -44,9 +44,9 @@ runs:
       run: |
         choco install ninja
 
-    - name: Add msbuild to PATH
+    - name: Setup MSVC
       if: runner.os == 'Windows'
-      uses: microsoft/setup-msbuild@v2
+      uses: ilammy/msvc-dev-cmd@v1
 
     - name: Cache extern folder
       uses: actions/cache@v4
