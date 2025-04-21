@@ -43,8 +43,6 @@ runs:
       shell: bash
       run: |
         choco install ninja
-        vcpkg install zlib
-        vcpkg integrate install
 
     - name: Setup MSVC
       if: runner.os == 'Windows'

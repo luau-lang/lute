@@ -1,3 +1,3 @@
-print "hello there"
+print("hello there")
 
 return {}

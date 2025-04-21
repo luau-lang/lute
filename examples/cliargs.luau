@@ -8,6 +8,6 @@ args:add("output", "option", { help = "Output file", aliases = { "o" }, default 
 
 args:parse({ ... })
 
-print("Input File:", args:get("input"))        -- "input.txt"
-print("Verbose Mode:", args:has("verbose"))   -- true
-print("Output File:", args:get("output"))     -- "result.txt"
+print("Input File:", args:get("input")) -- "input.txt"
+print("Verbose Mode:", args:has("verbose")) -- true
+print("Output File:", args:get("output")) -- "result.txt"

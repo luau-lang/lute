@@ -8,7 +8,7 @@ fs.write(f, x)
 fs.close(f)
 
 local t = task.create(function()
-    return fs.readasync("temp")
+	return fs.readasync("temp")
 end)
 
 local t2 = task.await(t)

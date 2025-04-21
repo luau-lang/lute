@@ -29,3 +29,15 @@ jobs:
         with:
           config: debug
           options: ${{ matrix.options }}
+
+  check-format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Run StyLua
+        run: stylua --check .

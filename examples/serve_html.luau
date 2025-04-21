@@ -1,20 +1,21 @@
 local net = require("@lute/net")
 
 local server = net.serve({
-    port = 8080,
-    handler = function(req)
-        local headers = ""
-        for key, value in req.headers do
-            headers ..= `\n  {key}: {value}`
-        end
+	port = 8080,
+	handler = function(req)
+		local headers = ""
+		for key, value in req.headers do
+			headers ..= `\n  {key}: {value}`
+		end
 
-        return {
-            status = 200,
-            headers = {
-                ["Content-Type"] = "text/html",
-                ["X-Powered-By"] = "Lute"
-            },
-            body = [[
+		return {
+			status = 200,
+			headers = {
+				["Content-Type"] = "text/html",
+				["X-Powered-By"] = "Lute",
+			},
+			-- stylua: ignore
+			body = [[
                 <html>
                     <head>
                         <title>Lute Server Example</title>
@@ -30,9 +31,9 @@ local server = net.serve({
                         <pre>Method: ]] .. req.method .. [[, Path: ]] .. req.path .. [[, Headers:]] .. headers ..[[</pre>
                     </body>
                 </html>
-            ]]
-        }
-    end
+            ]],
+		}
+	end,
 })
 
 print(`Server listening on http://{server.hostname}:{server.port}`)

@@ -267,9 +267,6 @@ def getConfigureArguments(args):
     if args.c_compiler:
         configArgs.append('-DCMAKE_C_COMPILER=' + args.c_compiler)
 
-    if isWindows:
-        configArgs.append(f'-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake')
-
     return configArgs
 
 def readTuneFile(path):

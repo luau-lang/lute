@@ -83,6 +83,12 @@ lua_State* setupState(Runtime& runtime)
     luaL_register(L, "_G", funcs);
     lua_pop(L, 1);
 
+    lua_pushnil(L);
+    lua_setglobal(L, "setfenv");
+    
+    lua_pushnil(L);
+    lua_setglobal(L, "getfenv");
+    
     luaL_sandbox(L);
 
     return L;
