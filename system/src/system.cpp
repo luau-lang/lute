@@ -75,16 +75,16 @@ int lua_cpus(lua_State* L)
         lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.sys));
         lua_setfield(L, -2, "sys");
 
-        lua_pushnumber(L, (double)cpuInfo.cpu_times.idle);
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.idle));
         lua_setfield(L, -2, "idle");
 
-        lua_pushnumber(L, (double)cpuInfo.cpu_times.irq);
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.irq));
         lua_setfield(L, -2, "irq");
 
-        lua_pushnumber(L, (double)cpuInfo.cpu_times.nice);
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.nice));
         lua_setfield(L, -2, "nice");
 
-        lua_pushnumber(L, (double)cpuInfo.cpu_times.user);
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.user));
         lua_setfield(L, -2, "user");
 
         lua_setfield(L, -2, "times");
