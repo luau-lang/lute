@@ -71,7 +71,7 @@ int lua_cpus(lua_State* L)
         lua_createtable(L, 0, 5);
 
         // cast to double cuz int is 32bit and lua numbers are 52bit
-        lua_pushnumber(L, (double)cpuInfo.cpu_times.sys);
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.sys));
         lua_setfield(L, -2, "sys");
 
         lua_pushnumber(L, (double)cpuInfo.cpu_times.idle);
