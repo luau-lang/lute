@@ -65,25 +65,26 @@ int lua_cpus(lua_State* L)
         lua_pushstring(L, cpuInfo.model);
         lua_setfield(L, -2, "model");
 
-        lua_pushinteger(L, static_cast<int>(cpuInfo.speed));
+        lua_pushinteger(L, (int)cpuInfo.speed);
         lua_setfield(L, -2, "speed");
 
         // sys, user, idle, irq, nice
         lua_createtable(L, 0, 5);
 
-        lua_pushinteger(L, cpuInfo.cpu_times.sys);
+        // cast to double cuz uint64 has higher max n and lua numbers are 52bit
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.sys));
         lua_setfield(L, -2, "sys");
 
-        lua_pushinteger(L, cpuInfo.cpu_times.idle);
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.idle));
         lua_setfield(L, -2, "idle");
 
-        lua_pushinteger(L, cpuInfo.cpu_times.irq);
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.irq));
         lua_setfield(L, -2, "irq");
 
-        lua_pushinteger(L, cpuInfo.cpu_times.nice);
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.nice));
         lua_setfield(L, -2, "nice");
 
-        lua_pushinteger(L, cpuInfo.cpu_times.user);
+        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.user));
         lua_setfield(L, -2, "user");
 
         lua_setfield(L, -2, "times");
