@@ -16,7 +16,7 @@
 
 const char* COMPILE_RESULT_TYPE = "CompileResult";
 
-LUAU_FASTFLAG(LuauStoreCSTData)
+LUAU_FASTFLAG(LuauStoreCSTData2)
 
 namespace luau
 {
@@ -32,7 +32,7 @@ struct StatResult
 static StatResult parse(std::string& source)
 {
     // TODO: this is very bad, fix it!
-    FFlag::LuauStoreCSTData.value = true;
+    FFlag::LuauStoreCSTData2.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -1676,7 +1676,7 @@ static int index_result(lua_State* L) {
 
         return 1;
     }
-    
+
     return 0;
 }
 
