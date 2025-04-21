@@ -7,7 +7,8 @@
 
 int luaopen_system(lua_State* L)
 {
-    luaL_register(L, "system", system_lib::lib);
+    luteopen_system(L);
+    lua_setglobal(L, "system");
 
     return 1;
 }
