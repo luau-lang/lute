@@ -71,20 +71,19 @@ int lua_cpus(lua_State* L)
         // sys, user, idle, irq, nice
         lua_createtable(L, 0, 5);
 
-        // cast to double cuz int is 32bit and lua numbers are 52bit
-        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.sys));
+        lua_pushinteger(L, cpuInfo.cpu_times.sys);
         lua_setfield(L, -2, "sys");
 
-        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.idle));
+        lua_pushinteger(L, cpuInfo.cpu_times.idle);
         lua_setfield(L, -2, "idle");
 
-        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.irq));
+        lua_pushinteger(L, cpuInfo.cpu_times.irq);
         lua_setfield(L, -2, "irq");
 
-        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.nice));
+        lua_pushinteger(L, cpuInfo.cpu_times.nice);
         lua_setfield(L, -2, "nice");
 
-        lua_pushnumber(L, static_cast<double>(cpuInfo.cpu_times.user));
+        lua_pushinteger(L, cpuInfo.cpu_times.user);
         lua_setfield(L, -2, "user");
 
         lua_setfield(L, -2, "times");
