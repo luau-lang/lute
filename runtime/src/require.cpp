@@ -9,6 +9,7 @@
 #include "Luau/CodeGen.h"
 #include "Luau/Require.h"
 #include "Luau/StringUtils.h"
+#include <string>
 
 static int finishrequire(lua_State* L)
 {
@@ -128,9 +129,9 @@ static int lua_requireInternal(lua_State* L, std::string name, std::string conte
     }
     else
     {
-        RuntimeRequireContext requireContext{ context };
-        RuntimeCacheManager cacheManager{ L };
-        RuntimeErrorHandler errorHandler{ L };
+        RuntimeRequireContext requireContext{context};
+        RuntimeCacheManager cacheManager{L};
+        RuntimeErrorHandler errorHandler{L};
 
         RequireResolver resolver(std::move(name), requireContext, cacheManager, errorHandler);
 
@@ -170,10 +171,12 @@ static int lua_requireInternal(lua_State* L, std::string name, std::string conte
 
         if (status == 0)
         {
+            const std::string prefix = "module " + resolvedRequire.identifier + " must";
+
             if (lua_gettop(ML) == 0)
-                lua_pushstring(ML, "module must return a value");
+                lua_pushstring(ML, (prefix + " return a value").c_str());
             else if (!lua_istable(ML, -1) && !lua_isfunction(ML, -1))
-                lua_pushstring(ML, "module must return a table or function");
+                lua_pushstring(ML, (prefix + " return a table or function").c_str());
         }
         else if (status == LUA_YIELD)
         {
