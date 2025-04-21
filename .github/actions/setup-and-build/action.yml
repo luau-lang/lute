@@ -44,6 +44,10 @@ runs:
       run: |
         choco install ninja
 
+    - name: Add msbuild to PATH
+      if: runner.os == 'Windows'
+      uses: microsoft/setup-msbuild@v2
+
     - name: Cache extern folder
       uses: actions/cache@v4
       id: cache-extern
