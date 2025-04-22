@@ -151,7 +151,7 @@ function cli.parse(self: Parser, args: { string }): ()
 	end
 end
 
-function cli.get(self: Parser, name: string): boolean
+function cli.get(self: Parser, name: string): string
 	return self.parsed.values[name]
 end
 
