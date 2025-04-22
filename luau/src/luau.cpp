@@ -8,8 +8,6 @@
 #include <cstring>
 #include <iterator>
 
-const char* COMPILE_RESULT_TYPE = "CompileResult";
-
 namespace luau
 {
 inline int check_int_field(lua_State* L, int obj_idx, const char* field_name, int default_value)
@@ -46,7 +44,7 @@ int compile_luau(lua_State* L)
 
     new (userdata) std::string(std::move(bytecode));
 
-    luaL_getmetatable(L, COMPILE_RESULT_TYPE);
+    luaL_getmetatable(L, kCompilerResultType);
     lua_setmetatable(L, -2);
 
     return 1;
@@ -54,7 +52,7 @@ int compile_luau(lua_State* L)
 
 int load_luau(lua_State* L)
 {
-    const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
+    const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, kCompilerResultType));
     const char* chunk_name = luaL_optlstring(L, 2, "luau.load", nullptr);
 
     luau_load(L, chunk_name, bytecode_string->c_str(), bytecode_string->length(), lua_gettop(L) > 2 ? 3 : 0);
@@ -66,7 +64,7 @@ int load_luau(lua_State* L)
 
 static int index_result(lua_State* L)
 {
-    const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
+    const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, kCompilerResultType));
 
     if (std::strcmp(luaL_checkstring(L, 2), "bytecode") == 0)
     {
@@ -81,7 +79,7 @@ static int index_result(lua_State* L)
 // perform type mt registration, etc
 static int init_luau_lib(lua_State* L)
 {
-    luaL_newmetatable(L, COMPILE_RESULT_TYPE);
+    luaL_newmetatable(L, kCompilerResultType);
 
     lua_pushcfunction(L, index_result, "CompilerResult.__index");
     lua_setfield(L, -2, "__index");
