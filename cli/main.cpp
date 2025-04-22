@@ -71,7 +71,7 @@ lua_State* setupState(Runtime& runtime)
 
     luteopen_vm(L);
     lua_setfield(L, -2, "@lute/vm");
-    
+
     luteopen_system(L);
     lua_setfield(L, -2, "@lute/system");
 
@@ -85,10 +85,10 @@ lua_State* setupState(Runtime& runtime)
 
     lua_pushnil(L);
     lua_setglobal(L, "setfenv");
-    
+
     lua_pushnil(L);
     lua_setglobal(L, "getfenv");
-    
+
     luaL_sandbox(L);
 
     return L;

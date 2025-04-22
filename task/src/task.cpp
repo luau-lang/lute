@@ -4,13 +4,13 @@
 
 namespace task
 {
-    int lua_defer(lua_State* L)
-    {
-        Runtime* runtime = getRuntime(L);
+int lua_defer(lua_State* L)
+{
+    Runtime* runtime = getRuntime(L);
 
-        runtime->runningThreads.push_back({ true, getRefForThread(L), 0 });
-        return lua_yield(L, 0);
-    }
+    runtime->runningThreads.push_back({true, getRefForThread(L), 0});
+    return lua_yield(L, 0);
+}
 } // namespace task
 
 int luaopen_task(lua_State* L)

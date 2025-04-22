@@ -101,8 +101,10 @@ static std::vector<Luau::Comment> commentsWithinSpan(const std::vector<Luau::Com
     return result;
 }
 
-struct Trivia {
-    enum TriviaKind {
+struct Trivia
+{
+    enum TriviaKind
+    {
         Whitespace,
         SingleLineComment,
         MultiLineComment,
@@ -118,7 +120,7 @@ struct AstSerialize : public Luau::AstVisitor
     lua_State* L;
     Luau::CstNodeMap cstNodeMap;
     std::string_view source;
-    Luau::Position currentPosition{0,0};
+    Luau::Position currentPosition{0, 0};
     std::vector<size_t> lineOffsets;
     std::vector<Luau::Comment> commentLocations;
 
@@ -379,15 +381,15 @@ struct AstSerialize : public Luau::AstVisitor
 
             switch (trivia[i].kind)
             {
-                case Trivia::Whitespace:
-                    lua_pushstring(L, "whitespace");
-                    break;
-                case Trivia::SingleLineComment:
-                    lua_pushstring(L, "comment");
-                    break;
-                case Trivia::MultiLineComment:
-                    lua_pushstring(L, "blockcomment");
-                    break;
+            case Trivia::Whitespace:
+                lua_pushstring(L, "whitespace");
+                break;
+            case Trivia::SingleLineComment:
+                lua_pushstring(L, "comment");
+                break;
+            case Trivia::MultiLineComment:
+                lua_pushstring(L, "blockcomment");
+                break;
             }
             lua_setfield(L, -2, "tag");
 
@@ -597,7 +599,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeToken(node->location.begin, node->local->name.value);
         lua_setfield(L, -2, "token"),
 
-        serialize(node->local);
+            serialize(node->local);
         lua_setfield(L, -2, "local");
 
         lua_pushboolean(L, node->upvalue);
@@ -1668,10 +1670,12 @@ int load_luau(lua_State* L)
 
 } // namespace luau
 
-static int index_result(lua_State* L) {
+static int index_result(lua_State* L)
+{
     const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
 
-    if (std::strcmp(luaL_checkstring(L, 2), "bytecode") == 0) {
+    if (std::strcmp(luaL_checkstring(L, 2), "bytecode") == 0)
+    {
         lua_pushlstring(L, bytecode_string->c_str(), bytecode_string->size());
 
         return 1;
