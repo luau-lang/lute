@@ -63,7 +63,12 @@ local typeSortOrder: { [string]: number } = {
 	["nil"] = 10,
 }
 
-local function traverseTable(dataTable: { [unknown]: unknown }, seen: { [unknown]: boolean }, indent: number, rawStrings: boolean?)
+local function traverseTable(
+	dataTable: { [unknown]: unknown },
+	seen: { [unknown]: boolean },
+	indent: number,
+	rawStrings: boolean?
+)
 	local output = ""
 	local indentStr = string.rep("  ", indent)
 
