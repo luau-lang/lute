@@ -7,7 +7,7 @@ local function loop()
 		-- It may be useful to remove this print because it gets spammed, or implement another way
 		-- in which you can determinatively tell whether or not the thread is still active despite
 		-- an error in the other
-        print("hi")
+		print("hi")
 	end
 end
 
