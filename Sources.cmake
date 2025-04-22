@@ -18,8 +18,10 @@ target_sources(Lute.Fs PRIVATE
 
 target_sources(Lute.Luau PRIVATE
     luau/include/lute/luau.h
-
+    luau/include/lute/parser.h
+    
     luau/src/luau.cpp
+    luau/src/parser.cpp
 )
 
 target_sources(Lute.Net PRIVATE
