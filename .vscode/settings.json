@@ -1,9 +1,5 @@
 {
     "luau-lsp.fflags.enableNewSolver": true,
     "luau-lsp.sourcemap.enabled": false,
-    "luau-lsp.platform.type": "standard",
-    "files.associations": {
-        "mutex": "cpp",
-        "string": "cpp"
-    }
+    "luau-lsp.platform.type": "standard"
 }
