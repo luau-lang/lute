@@ -370,5 +370,5 @@ else
 end
 
 if exitCode ~= 0 then
-  error("Command failed with exit code " .. exitCode)
+	error("Command failed with exit code " .. exitCode)
 end
