@@ -4,17 +4,26 @@ local fs = require("@lute/fs")
 local cli = require("@batteries/cli")
 local toml = require("@batteries/toml")
 
+type Tune = {
+	dependency: {
+		name: string,
+		remote: string,
+		branch: string,
+		revision: string,
+	},
+}
+
 local cwd = process.cwd()
 
 local function gitVersion(): { major: number, minor: number, path: number }
-  local gitVersionString = process.create({ "git", "--version" }).stdout
-  local gitVersion = string.split(gitVersionString, " ")[3]
-  local components = string.split(gitVersion, ".")
-  return {
-    major = tonumber(components[1]) or 0,
-    minor = tonumber(components[2]) or 0,
-    path = tonumber(components[3]) or 0,
-  }
+	local gitVersionString = process.create({ "git", "--version" }).stdout
+	local gitVersion = string.split(gitVersionString, " ")[3]
+	local components = string.split(gitVersion, ".")
+	return {
+		major = tonumber(components[1]) or 0,
+		minor = tonumber(components[2]) or 0,
+		path = tonumber(components[3]) or 0,
+	}
 end
 
 local gitVersionInfo = gitVersion()
@@ -27,16 +36,17 @@ local isLinux = string.find(os, "linux") ~= nil
 local isUnix = not isWindows
 
 local targetMap: { [string]: { exeName: string } } = {
-  lute = {
-    exeName = "lute"
-  }
+	lute = {
+		exeName = "lute",
+	},
 }
 
 local args = cli.parser()
 
-args:add("subcommand", "positional", { help = "command to execute", required = true, })
-args:add("target", "positional", { help = "the thing to build or run", required = true, })
-args:add("verbose", "flag", { help = "show verbose compile output", aliases = { "v" }, })
+args:add("help", "flag", { help = "show the help message" })
+args:add("subcommand", "positional", { help = "command to execute", required = true })
+args:add("target", "positional", { help = "the thing to build or run", required = true })
+args:add("verbose", "flag", { help = "show verbose compile output", aliases = { "v" } })
 args:add("config", "option", { help = "configuration (default is debug)", default = "debug" })
 args:add("clean", "flag", { help = "perform a clean build" })
 args:add("which", "flag", { help = "print out the path to the compiled binary and exit", aliases = { "w" } })
@@ -44,267 +54,295 @@ args:add("cxx-compiler", "option", { help = "C++ compiler to use" })
 args:add("c-compiler", "option", { help = "C compiler to use" })
 
 if isWindows then
-  args:add("vs2017", "flag", { help = "Build with vs2017 (default is 2019)" })
-  args:add("vs2022", "flag", { help = "Build with vs2022 (default is 2019)" })
+	args:add("vs2017", "flag", { help = "Build with vs2017 (default is 2019)" })
+	args:add("vs2022", "flag", { help = "Build with vs2022 (default is 2019)" })
 end
 
 if not isWindows and not isMac and not isLinux then
-  error("Unknown platform " .. os)
+	error("Unknown platform " .. os)
 end
 
 local pathSep = if isWindows then "\\" else "/"
 
 local function joinPath(...)
-  return table.concat({ ... }, pathSep)
+	return table.concat({ ... }, pathSep)
 end
 
 local function getSourceRoot()
-  cwd = process.cwd()
+	cwd = process.cwd()
 
-  while true do
-    if fs.type(joinPath(cwd, ".LUTE_SENTINEL")) == "file" then
-      return cwd
-    end
+	while true do
+		if fs.type(joinPath(cwd, ".LUTE_SENTINEL")) == "file" then
+			return cwd
+		end
 
-    local lastSep = string.find(cwd, pathSep, -1, true)
-    if lastSep then
-      cwd = string.sub(cwd, 1, lastSep - 1)
-    else
-      break
-    end
-  end
+		local lastSep = string.find(cwd, pathSep, -1, true)
+		if lastSep then
+			cwd = string.sub(cwd, 1, lastSep - 1)
+		else
+			break
+		end
+	end
 
-  if process.env.LUTE_ROOT_DIR then
-    return process.env.LUTE_ROOT_DIR
-  end
+	if process.env.LUTE_ROOT_DIR then
+		return process.env.LUTE_ROOT_DIR
+	end
 
-  error("Could not locate lute project root.  Your cwd must be in your lute checkout, or the LUTE_ROOT_DIR environment variable must be set.")
+	error(
+		"Could not locate lute project root.  Your cwd must be in your lute checkout, or the LUTE_ROOT_DIR environment variable must be set."
+	)
 end
 
 local function cygpath(path: string): string
-  return if isMsys then
-    process.create({ "cygpath", "-u", path }).stdout
-  else
-    path
+	return if isMsys then process.create({ "cygpath", "-u", path }).stdout else path
 end
 
 local function winpath(path: string): string
-  return if isMsys then
-    process.create({ "cygpath", "-wa", path }).stdout
-  else
-    path
+	return if isMsys then process.create({ "cygpath", "-wa", path }).stdout else path
 end
 
 local function getExeName(target: string): string
-  local baseName = targetMap[target].exeName
-  local ext = if isWindows then ".exe" else ""
-  return baseName .. ext
+	local baseName = targetMap[target].exeName
+	local ext = if isWindows then ".exe" else ""
+	return baseName .. ext
 end
 
 local function getCompiler(): string
-  if isMac then
-    return "xcode"
-  elseif isWindows and args:has("vs2017") then
-    return "vs2017"
-  elseif isWindows and args:has("vs2022") then
-    return "vs2022"
-  else
-    return "vs2019"
-  end
+	if isMac then
+		return "xcode"
+	elseif isWindows and args:has("vs2017") then
+		return "vs2017"
+	elseif isWindows and args:has("vs2022") then
+		return "vs2022"
+	else
+		return "vs2019"
+	end
 end
 
 local function getConfig(): string
-  return args:get("config")
+	return args:get("config")
 end
 
 local function getProjectPath(): string
-  local buildDir = "build"
+	local buildDir = "build"
 
-  local config = string.lower(getConfig())
+	local config = string.lower(getConfig())
 
-  if isLinux then
-    return joinPath(buildDir, config)
-  else
-    return joinPath(buildDir, getCompiler(), config)
-  end
+	if isLinux then
+		return joinPath(buildDir, config)
+	else
+		return joinPath(buildDir, getCompiler(), config)
+	end
 end
 
 local function projectPathExists(): boolean
-  local projectPath = getProjectPath()
+	local projectPath = getProjectPath()
 
-  return fs.type(projectPath) == "dir"
+	return fs.type(projectPath) == "dir"
 end
 
 local function getExePath(): string
-  local target = args:get("target")
+	local target = args:get("target")
 
-  local exeName = getExeName(target)
-  local config = getConfig()
+	local exeName = getExeName(target)
+	local config = getConfig()
 
-  local buildDir = "build"
+	local buildDir = "build"
 
-  if isWindows or isMac then
-    return joinPath(buildDir, getCompiler(), string.lower(config), exeName)
-  else
-    return joinPath(buildDir, string.lower(config), exeName)
-  end
+	if isWindows or isMac then
+		return joinPath(buildDir, getCompiler(), string.lower(config), exeName)
+	else
+		return joinPath(buildDir, string.lower(config), exeName)
+	end
 end
 
 local function exeExists(): boolean
-  local exePath = getExePath()
+	local exePath = getExePath()
 
-  return fs.type(exePath) == "file"
+	return fs.type(exePath) == "file"
 end
 
 local function call(cmd: { string }, cwd: string?): number
-  print('> ' .. table.concat(cmd, " "))
+	print("> " .. table.concat(cmd, " "))
 
-  local res = process.create(cmd, { cwd = cwd })
-  print(res.stdout)
-  return res.exitcode
+	local res = process.create(cmd, { cwd = cwd })
+	print(res.stdout)
+	return res.exitcode
 end
 
 local function build()
-  local targetName = args:get("target")
-  local projectPath = getProjectPath()
+	local targetName = args:get("target")
+	local projectPath = getProjectPath()
 
-  if isWindows then
-    targetName ..= ".exe"
-  end
+	if isWindows then
+		targetName ..= ".exe"
+	end
 
-  if args:has("clean") then
-    call({ "ninja", "-C", projectPath, "clean" }, cwd)
-  end
+	if args:has("clean") then
+		call({ "ninja", "-C", projectPath, "clean" }, cwd)
+	end
 
-  local cmd = { "ninja", "-C", projectPath, targetName }
+	local cmd = { "ninja", "-C", projectPath, targetName }
 
-  return call(cmd, cwd)
+	return call(cmd, cwd)
 end
 
 local function getConfigureArguments()
-  local projectPath = getProjectPath()
+	local projectPath = getProjectPath()
 
-  local config = string.lower(getConfig())
-  if config == "debug" then
-    config = "Debug"
-  elseif config == "release" then
-    config = "Release"
-  end
+	local config = string.lower(getConfig())
+	if config == "debug" then
+		config = "Debug"
+	elseif config == "release" then
+		config = "Release"
+	end
 
-  if args:has("clean") then
-    call({ "rm", "-rf", projectPath }, cwd)
-  end
+	if args:has("clean") then
+		call({ "rm", "-rf", projectPath }, cwd)
+	end
 
-  local configArgs = { "-G=Ninja", "-B " .. projectPath, "-DCMAKE_BUILD_TYPE=" .. config, "-DCMAKE_EXPORT_COMPILE_COMMANDS=1" }
+	local configArgs =
+		{ "-G=Ninja", "-B " .. projectPath, "-DCMAKE_BUILD_TYPE=" .. config, "-DCMAKE_EXPORT_COMPILE_COMMANDS=1" }
 
-  if args:get("cxx-compiler") then
-    table.insert(configArgs, "-DCMAKE_CXX_COMPILER=" .. args:get("cxx-compiler"))
-  end
+	if args:get("cxx-compiler") then
+		table.insert(configArgs, "-DCMAKE_CXX_COMPILER=" .. args:get("cxx-compiler"))
+	end
 
-  if args:get("c-compiler") then
-    table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. args:get("c-compiler"))
-  end
+	if args:get("c-compiler") then
+		table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. args:get("c-compiler"))
+	end
 
-  return configArgs
+	return configArgs
 end
 
-local function readTuneFile(path: string)
-  return toml.deserialize(fs.readasync(path))
+local function readTuneFile(path: string): Tune
+	return toml.deserialize(fs.readasync(path))
 end
 
 local function check(exitCode: number)
-  if exitCode ~= 0 then
-    error("Command failed with exit code " .. exitCode)
-  end
+	if exitCode ~= 0 then
+		error("Command failed with exit code " .. exitCode)
+	end
 end
 
-local function fetchDependency(dependencyInfo)
-  local dependency = dependencyInfo.dependency
+local function fetchDependency(dependencyInfo: Tune)
+	local dependency = dependencyInfo.dependency
 
-  if not dependency then
-    error("tune file does not have a dependency table")
-  end
-  if not dependency.remote or not dependency.branch then
-    error("Invalid dependency info in tune file: must have `remote` and `branch` fields")
-  end
+	if not dependency then
+		error("tune file does not have a dependency table")
+	end
+	if not dependency.remote or not dependency.branch then
+		error("Invalid dependency info in tune file: must have `remote` and `branch` fields")
+	end
 
-  if fs.type(joinPath("extern", dependency.name)) == "dir" then
-    check(call({ "git", "fetch", "--depth=1", "origin", dependency.revision }, joinPath("extern", dependency.name)))
-    local result = call({ "git", "checkout", dependency.revision}, joinPath("extern", dependency.name))
-    check(call({ "git", "submodule", "update", "--init", "--recursive", "--depth=1" }, joinPath("extern", dependency.name)))
-    return result
-  end
+	if fs.type(joinPath("extern", dependency.name)) == "dir" then
+		check(call({ "git", "fetch", "--depth=1", "origin", dependency.revision }, joinPath("extern", dependency.name)))
+		local result = call({ "git", "checkout", dependency.revision }, joinPath("extern", dependency.name))
+		check(
+			call(
+				{ "git", "submodule", "update", "--init", "--recursive", "--depth=1" },
+				joinPath("extern", dependency.name)
+			)
+		)
+		return result
+	end
 
-  if gitVersionInfo.major >= 2 and gitVersionInfo.minor >= 49 then
-    return call({ 'git', 'clone', '--depth=1', '--recurse-submodules', '--revision', dependency.revision, dependency.remote, "extern/" .. dependency.name }, cwd)
-  else
-    return call({ 'git', 'clone', '--depth=1', '--recurse-submodules', '--branch', dependency.branch, dependency.remote, "extern/" .. dependency.name }, cwd)
-  end
+	if gitVersionInfo.major >= 2 and gitVersionInfo.minor >= 49 then
+		return call({
+			"git",
+			"clone",
+			"--depth=1",
+			"--recurse-submodules",
+			"--revision",
+			dependency.revision,
+			dependency.remote,
+			"extern/" .. dependency.name,
+		}, cwd)
+	else
+		return call({
+			"git",
+			"clone",
+			"--depth=1",
+			"--recurse-submodules",
+			"--branch",
+			dependency.branch,
+			dependency.remote,
+			"extern/" .. dependency.name,
+		}, cwd)
+	end
 end
 
 local function fetchDependencies(): number
-  local files = fs.listdir(joinPath(cwd, "extern"))
+	local files = fs.listdir(joinPath(cwd, "extern"))
 
-  for _, file in files do
-    -- if file.name ends with .tune
-    if string.find(file.name, "%.tune$") then
-      local dependencyInfo = readTuneFile(joinPath(cwd, "extern", file.name))
-      check(fetchDependency(dependencyInfo))
-    end
-  end
+	for _, file in files do
+		-- if file.name ends with .tune
+		if string.find(file.name, "%.tune$") then
+			local dependencyInfo = readTuneFile(joinPath(cwd, "extern", file.name))
+			check(fetchDependency(dependencyInfo))
+		end
+	end
 
-  return 0
+	return 0
 end
 
 local function configure()
-  local cmd =  { "cmake" }
-  local arguments = getConfigureArguments()
+	local cmd = { "cmake" }
+	local arguments = getConfigureArguments()
 
-  table.move(arguments, 1, #arguments, 2, cmd)
+	table.move(arguments, 1, #arguments, 2, cmd)
 
-  check(fetchDependencies())
-  return call(cmd, cwd)
+	check(fetchDependencies())
+	return call(cmd, cwd)
 end
 
 local function run()
-  local cmd = { getExePath()}
-  local forwarded = args:forwaded()
+	local cmd = { getExePath() }
+	local forwarded = args:forwaded() or {}
 
-  table.move(forwarded, 1, #forwarded, 2, cmd)
+	table.move(forwarded, 1, #forwarded, 2, cmd)
 
-  return call(cmd, cwd)
+	return call(cmd, cwd)
 end
 
 args:parse({ ... })
 
+if args:has("help") then
+	print(args:help())
+	return
+end
+
 if args:has("which") then
-  print(getExePath())
-  return
+	print(getExePath())
+	return
 end
 
 local subcommand = args:get("subcommand")
 
 if subcommand == "fetch" then
-  return fetchDependencies()
+	fetchDependencies()
+	return
 elseif subcommand == "configure" or subcommand == "tune" then
-  return configure()
+	configure()
+	return
 elseif subcommand == "build" or subcommand == "craft" then
-  if not projectPathExists() then
-    check(configure())
-  end
+	if not projectPathExists() then
+		check(configure())
+	end
 
-  return build()
+	build()
+	return
 elseif subcommand == "run" or subcommand == "play" then
-  if not projectPathExists() then
-    check(configure())
-  end
+	if not projectPathExists() then
+		check(configure())
+	end
 
-  if not exeExists() then
-    check(build())
-  end
+	if not exeExists() then
+		check(build())
+	end
 
-  return run()
+	run()
+	return
 else
-  error("Unknown subcommand " .. subcommand)
+	error("Unknown subcommand " .. subcommand)
 end
-
