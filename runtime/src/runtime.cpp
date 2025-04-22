@@ -81,17 +81,6 @@ bool Runtime::runToCompletion()
 
         if (status == LUA_YIELD)
         {
-            int results = lua_gettop(L);
-
-            if (results != 0)
-            {
-                std::string error = "Top level yield cannot return any results";
-                error += "\nstacktrace:\n";
-                error += lua_debugtrace(L);
-                fprintf(stderr, "%s", error.c_str());
-                return false;
-            }
-
             continue;
         }
 
