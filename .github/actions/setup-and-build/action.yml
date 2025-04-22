@@ -60,11 +60,11 @@ runs:
 
     - name: Configure Lute
       shell: bash
-      run: lute ./tools/luthier.luau -- configure lute --config=${{ inputs.config }} ${{ inputs.options }}
+      run: lute ./tools/luthier.luau -- configure lute --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build Lute
       shell: bash
-      run: lute ./tools/luthier.luau -- build lute --config=${{ inputs.config }} ${{ inputs.options }}
+      run: lute ./tools/luthier.luau -- build lute --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Get Artifact Path
       id: artifact_path
