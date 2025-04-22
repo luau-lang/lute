@@ -176,10 +176,10 @@ local function exeExists(): boolean
 	return safeType(exePath) == "file"
 end
 
-local function call(cmd: { string }, cwd: string?): number
+local function call(cmd: { string }, passedCwd: string?): number
 	print("> " .. table.concat(cmd, " "))
 
-	local res = process.create(cmd, { cwd = cwd })
+	local res = process.create(cmd, { cwd = passedCwd or cwd })
 	print(res.stdout)
 	if res.stderr ~= "" then
 		print(res.stderr)
@@ -196,12 +196,12 @@ local function build()
 	end
 
 	if args:has("clean") then
-		call({ "ninja", "-C", projectPath, "clean" }, cwd)
+		call({ "ninja", "-C", projectPath, "clean" })
 	end
 
 	local cmd = { "ninja", "-C", projectPath, targetName }
 
-	return call(cmd, cwd)
+	return call(cmd)
 end
 
 local function getConfigureArguments()
@@ -215,7 +215,7 @@ local function getConfigureArguments()
 	end
 
 	if args:has("clean") then
-		call({ "rm", "-rf", projectPath }, cwd)
+		call({ "rm", "-rf", projectPath })
 	end
 
 	local configArgs =
@@ -279,7 +279,7 @@ local function fetchDependency(dependencyInfo: Tune)
 			dependency.revision,
 			dependency.remote,
 			"extern/" .. dependency.name,
-		}, cwd)
+		})
 	else
 		return call({
 			"git",
@@ -290,7 +290,7 @@ local function fetchDependency(dependencyInfo: Tune)
 			dependency.branch,
 			dependency.remote,
 			"extern/" .. dependency.name,
-		}, cwd)
+		})
 	end
 end
 
@@ -315,7 +315,7 @@ local function configure()
 	table.move(arguments, 1, #arguments, 2, cmd)
 
 	check(fetchDependencies())
-	return call(cmd, cwd)
+	return call(cmd)
 end
 
 local function run()
@@ -324,7 +324,7 @@ local function run()
 
 	table.move(forwarded, 1, #forwarded, 2, cmd)
 
-	return call(cmd, cwd)
+	return call(cmd)
 end
 
 args:parse({ ... })
