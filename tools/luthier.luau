@@ -65,7 +65,7 @@ end
 local pathSep = if isWindows then "\\" else "/"
 
 local function joinPath(...)
-  return table.concat({ ... }, pathSep)
+	return table.concat({ ... }, pathSep)
 end
 
 local function projectRelative(...)
@@ -154,7 +154,7 @@ local function getBuildDir(): string
 end
 
 local function getProjectPath(): string
-  return projectRelative(getBuildDir())
+	return projectRelative(getBuildDir())
 end
 
 local function projectPathExists(): boolean
