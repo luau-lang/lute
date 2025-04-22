@@ -30,7 +30,7 @@ local gitVersionInfo = gitVersion()
 
 local os = string.lower(system.os)
 local isMsys = string.find(os, "msys") ~= nil or string.find(os, "cygwin") ~= nil
-local isWindows = isMsys or string.find(os, "win") ~= nil
+local isWindows = isMsys or string.find(os, "window") ~= nil
 local isMac = string.find(os, "darwin") ~= nil
 local isLinux = string.find(os, "linux") ~= nil
 local isUnix = not isWindows
@@ -64,19 +64,43 @@ end
 
 local pathSep = if isWindows then "\\" else "/"
 
-local function joinPath(...)
-	return table.concat({ ... }, pathSep)
+local function projectRelative(...)
+	return table.concat({ cwd, ... }, pathSep)
+end
+
+local function findLast(haystack: string, needle: string): number?
+  local lastPos
+  local currentPos = 1
+  while true do
+    local foundPos = string.find(haystack, needle, currentPos, true)
+    if foundPos then
+      lastPos = foundPos
+      currentPos = foundPos + 1
+    else
+      break -- No more occurrences
+    end
+  end
+  return lastPos
+end
+
+local function safeType(path: string): string?
+  local success, res = pcall(fs.type, path)
+  if success then
+    return res
+  else
+    return nil
+  end
 end
 
 local function getSourceRoot()
-	cwd = process.cwd()
+	local cwd = process.cwd()
 
 	while true do
-		if fs.type(joinPath(cwd, ".LUTE_SENTINEL")) == "file" then
+		if safeType(cwd .. pathSep .. ".LUTE_SENTINEL") == "file" then
 			return cwd
 		end
 
-		local lastSep = string.find(cwd, pathSep, -1, true)
+		local lastSep = findLast(cwd, pathSep)
 		if lastSep then
 			cwd = string.sub(cwd, 1, lastSep - 1)
 		else
@@ -129,16 +153,16 @@ local function getProjectPath(): string
 	local config = string.lower(getConfig())
 
 	if isLinux then
-		return joinPath(buildDir, config)
+		return projectRelative(buildDir, config)
 	else
-		return joinPath(buildDir, getCompiler(), config)
+		return projectRelative(buildDir, getCompiler(), config)
 	end
 end
 
 local function projectPathExists(): boolean
 	local projectPath = getProjectPath()
 
-	return fs.type(projectPath) == "dir"
+	return safeType(projectPath) == "dir"
 end
 
 local function getExePath(): string
@@ -150,16 +174,16 @@ local function getExePath(): string
 	local buildDir = "build"
 
 	if isWindows or isMac then
-		return joinPath(buildDir, getCompiler(), string.lower(config), exeName)
+		return projectRelative(buildDir, getCompiler(), string.lower(config), exeName)
 	else
-		return joinPath(buildDir, string.lower(config), exeName)
+		return projectRelative(buildDir, string.lower(config), exeName)
 	end
 end
 
 local function exeExists(): boolean
 	local exePath = getExePath()
 
-	return fs.type(exePath) == "file"
+	return safeType(exePath) == "file"
 end
 
 local function call(cmd: { string }, cwd: string?): number
@@ -238,13 +262,13 @@ local function fetchDependency(dependencyInfo: Tune)
 		error("Invalid dependency info in tune file: must have `remote` and `branch` fields")
 	end
 
-	if fs.type(joinPath("extern", dependency.name)) == "dir" then
-		check(call({ "git", "fetch", "--depth=1", "origin", dependency.revision }, joinPath("extern", dependency.name)))
-		local result = call({ "git", "checkout", dependency.revision }, joinPath("extern", dependency.name))
+	if safeType(projectRelative("extern", dependency.name)) == "dir" then
+		check(call({ "git", "fetch", "--depth=1", "origin", dependency.revision }, projectRelative("extern", dependency.name)))
+		local result = call({ "git", "checkout", dependency.revision }, projectRelative("extern", dependency.name))
 		check(
 			call(
 				{ "git", "submodule", "update", "--init", "--recursive", "--depth=1" },
-				joinPath("extern", dependency.name)
+				projectRelative("extern", dependency.name)
 			)
 		)
 		return result
@@ -276,12 +300,12 @@ local function fetchDependency(dependencyInfo: Tune)
 end
 
 local function fetchDependencies(): number
-	local files = fs.listdir(joinPath(cwd, "extern"))
+	local files = fs.listdir(projectRelative("extern"))
 
 	for _, file in files do
 		-- if file.name ends with .tune
 		if string.find(file.name, "%.tune$") then
-			local dependencyInfo = readTuneFile(joinPath(cwd, "extern", file.name))
+			local dependencyInfo = readTuneFile(projectRelative("extern", file.name))
 			check(fetchDependency(dependencyInfo))
 		end
 	end
@@ -309,6 +333,8 @@ local function run()
 end
 
 args:parse({ ... })
+
+cwd = getSourceRoot()
 
 if args:has("help") then
 	print(args:help())
