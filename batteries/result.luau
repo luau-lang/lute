@@ -1,11 +1,6 @@
-type T<Value> = {
-	success: true,
-	value: Value,
-} | {
-	success: false,
-	traceback: string,
-	err: string,
-}
+type T<Value> =
+    | { success: true, value: Value }
+    | { success: false, traceback: string, err: string }
 
 local result = {}
 
