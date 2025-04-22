@@ -159,7 +159,7 @@ function cli.has(self: Parser, name: string): boolean
 	return self.parsed.flags[name] ~= nil
 end
 
-function cli.forwaded(): { string }?
+function cli.forwarded(self: Parser): { string }?
 	return self.parsed.fwdArgs
 end
 

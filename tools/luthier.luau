@@ -30,7 +30,7 @@ local gitVersionInfo = gitVersion()
 
 local os = string.lower(system.os)
 local isMsys = string.find(os, "msys") ~= nil or string.find(os, "cygwin") ~= nil
-local isWindows = isMsys or string.find(os, "win32") ~= nil
+local isWindows = isMsys or string.find(os, "win") ~= nil
 local isMac = string.find(os, "darwin") ~= nil
 local isLinux = string.find(os, "linux") ~= nil
 local isUnix = not isWindows
@@ -167,6 +167,9 @@ local function call(cmd: { string }, cwd: string?): number
 
 	local res = process.create(cmd, { cwd = cwd })
 	print(res.stdout)
+  if res.stderr ~= "" then
+    print(res.stderr)
+  end
 	return res.exitcode
 end
 
@@ -298,7 +301,7 @@ end
 
 local function run()
 	local cmd = { getExePath() }
-	local forwarded = args:forwaded() or {}
+	local forwarded = args:forwarded() or {}
 
 	table.move(forwarded, 1, #forwarded, 2, cmd)
 
