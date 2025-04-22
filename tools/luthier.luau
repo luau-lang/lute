@@ -13,6 +13,8 @@ type Tune = {
 	},
 }
 
+local BUILD_DIR = "build"
+
 local cwd = process.cwd()
 
 local function gitVersion(): { major: number, minor: number, path: number }
@@ -62,8 +64,12 @@ end
 
 local pathSep = if isWindows then "\\" else "/"
 
+local function joinPath(...)
+  return table.concat({ ... }, pathSep)
+end
+
 local function projectRelative(...)
-	return table.concat({ cwd, ... }, pathSep)
+	return joinPath(cwd, ...)
 end
 
 local function findLast(haystack: string, needle: string): number?
@@ -137,16 +143,18 @@ local function getConfig(): string
 	return args:get("config")
 end
 
-local function getProjectPath(): string
-	local buildDir = "build"
-
+local function getBuildDir(): string
 	local config = string.lower(getConfig())
 
 	if isLinux then
-		return projectRelative(buildDir, config)
+		return joinPath(BUILD_DIR, config)
 	else
-		return projectRelative(buildDir, getCompiler(), config)
+		return joinPath(BUILD_DIR, getCompiler(), config)
 	end
+end
+
+local function getProjectPath(): string
+  return projectRelative(getBuildDir())
 end
 
 local function projectPathExists(): boolean
@@ -157,17 +165,9 @@ end
 
 local function getExePath(): string
 	local target = args:get("target")
-
 	local exeName = getExeName(target)
-	local config = getConfig()
 
-	local buildDir = "build"
-
-	if isWindows or isMac then
-		return projectRelative(buildDir, getCompiler(), string.lower(config), exeName)
-	else
-		return projectRelative(buildDir, string.lower(config), exeName)
-	end
+	return projectRelative(getBuildDir(), exeName)
 end
 
 local function exeExists(): boolean
