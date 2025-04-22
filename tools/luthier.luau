@@ -69,27 +69,27 @@ local function projectRelative(...)
 end
 
 local function findLast(haystack: string, needle: string): number?
-  local lastPos
-  local currentPos = 1
-  while true do
-    local foundPos = string.find(haystack, needle, currentPos, true)
-    if foundPos then
-      lastPos = foundPos
-      currentPos = foundPos + 1
-    else
-      break -- No more occurrences
-    end
-  end
-  return lastPos
+	local lastPos
+	local currentPos = 1
+	while true do
+		local foundPos = string.find(haystack, needle, currentPos, true)
+		if foundPos then
+			lastPos = foundPos
+			currentPos = foundPos + 1
+		else
+			break -- No more occurrences
+		end
+	end
+	return lastPos
 end
 
 local function safeType(path: string): string?
-  local success, res = pcall(fs.type, path)
-  if success then
-    return res
-  else
-    return nil
-  end
+	local success, res = pcall(fs.type, path)
+	if success then
+		return res
+	else
+		return nil
+	end
 end
 
 local function getSourceRoot()
@@ -191,9 +191,9 @@ local function call(cmd: { string }, cwd: string?): number
 
 	local res = process.create(cmd, { cwd = cwd })
 	print(res.stdout)
-  if res.stderr ~= "" then
-    print(res.stderr)
-  end
+	if res.stderr ~= "" then
+		print(res.stderr)
+	end
 	return res.exitcode
 end
 
@@ -263,7 +263,12 @@ local function fetchDependency(dependencyInfo: Tune)
 	end
 
 	if safeType(projectRelative("extern", dependency.name)) == "dir" then
-		check(call({ "git", "fetch", "--depth=1", "origin", dependency.revision }, projectRelative("extern", dependency.name)))
+		check(
+			call(
+				{ "git", "fetch", "--depth=1", "origin", dependency.revision },
+				projectRelative("extern", dependency.name)
+			)
+		)
 		local result = call({ "git", "checkout", dependency.revision }, projectRelative("extern", dependency.name))
 		check(
 			call(
