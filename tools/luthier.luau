@@ -302,6 +302,7 @@ local function fetchDependencies(): number
 	for _, file in files do
 		if string.find(file.name, "%.tune$") then
 			local dependencyInfo = readTuneFile(projectRelative("extern", file.name))
+			print("Fetching dependency " .. file.name)
 			check(fetchDependency(dependencyInfo))
 		end
 	end
