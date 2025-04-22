@@ -106,7 +106,8 @@ bool Runtime::runToCompletion()
             error += lua_debugtrace(L);
 
             fprintf(stderr, "%s", error.c_str());
-            return false;
+            // Log the error but continue processing other threads instead of returning false
+            continue;
         }
 
         if (next.cont)
@@ -119,21 +120,28 @@ bool Runtime::runToCompletion()
 void Runtime::runContinuously()
 {
     // TODO: another place for libuv
-    runLoopThread = std::thread([this] {
-        while (!stop)
+    runLoopThread = std::thread(
+        [this]
         {
-            // Block to wait on event
+            while (!stop)
             {
-                std::unique_lock lock(continuationMutex);
+                // Block to wait on event
+                {
+                    std::unique_lock lock(continuationMutex);
 
-                runLoopCv.wait(lock, [this] {
-                    return !continuations.empty() || stop;
-                    });
+                    runLoopCv.wait(
+                        lock,
+                        [this]
+                        {
+                            return !continuations.empty() || stop;
+                        }
+                    );
+                }
+
+                runToCompletion();
             }
-
-            runToCompletion();
         }
-    });
+    );
 }
 
 bool Runtime::hasContinuations()
@@ -155,14 +163,17 @@ void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
 {
     std::unique_lock lock(continuationMutex);
 
-    continuations.push_back([this, ref, error = std::move(error)]() mutable {
-        ref->push(GL);
-        lua_State* L = lua_tothread(GL, -1);
-        lua_pop(GL, 1);
+    continuations.push_back(
+        [this, ref, error = std::move(error)]() mutable
+        {
+            ref->push(GL);
+            lua_State* L = lua_tothread(GL, -1);
+            lua_pop(GL, 1);
 
-        lua_pushlstring(L, error.data(), error.size());
-        runningThreads.push_back({ false, ref, lua_gettop(L) });
-    });
+            lua_pushlstring(L, error.data(), error.size());
+            runningThreads.push_back({false, ref, lua_gettop(L)});
+        }
+    );
 
     runLoopCv.notify_one();
 }
@@ -171,14 +182,17 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
 {
     std::unique_lock lock(continuationMutex);
 
-    continuations.push_back([this, ref, cont = std::move(cont)]() mutable {
-        ref->push(GL);
-        lua_State* L = lua_tothread(GL, -1);
-        lua_pop(GL, 1);
+    continuations.push_back(
+        [this, ref, cont = std::move(cont)]() mutable
+        {
+            ref->push(GL);
+            lua_State* L = lua_tothread(GL, -1);
+            lua_pop(GL, 1);
 
-        int results = cont(L);
-        runningThreads.push_back({ true, ref, results });
-    });
+            int results = cont(L);
+            runningThreads.push_back({true, ref, results});
+        }
+    );
 
     runLoopCv.notify_one();
 }
@@ -190,14 +204,21 @@ void Runtime::runInWorkQueue(std::function<void()> f)
     uv_work_t* work = new uv_work_t();
     work->data = new decltype(f)(std::move(f));
 
-    uv_queue_work(loop, work, [](uv_work_t* req) {
-        auto task = *(decltype(f)*)req->data;
+    uv_queue_work(
+        loop,
+        work,
+        [](uv_work_t* req)
+        {
+            auto task = *(decltype(f)*)req->data;
 
-        task();
-    }, [](uv_work_t* req, int status) {
-        delete (decltype(f)*)req->data;
-        delete req;
-    });
+            task();
+        },
+        [](uv_work_t* req, int status)
+        {
+            delete (decltype(f)*)req->data;
+            delete req;
+        }
+    );
 }
 
 void Runtime::addPendingToken()
