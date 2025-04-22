@@ -298,8 +298,8 @@ local function fetchDependencies(): number
 	local files = fs.listdir(projectRelative("extern"))
 
 	for _, file in files do
-		-- if file.name ends with .tune
 		if string.find(file.name, "%.tune$") then
+			print(projectRelative("extern", file.name))
 			local dependencyInfo = readTuneFile(projectRelative("extern", file.name))
 			check(fetchDependency(dependencyInfo))
 		end
