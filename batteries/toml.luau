@@ -100,7 +100,7 @@ local function deserialize(input: string)
 	-- Normalize line endings: Replace Windows (\r\n) and old Mac (\r) with Unix (\n)
 	input = string.gsub(input, "\r\n", "\n")
 	input = string.gsub(input, "\r", "\n")
-	
+
 	local state: DeserializerState = {
 		buf = input,
 		cursor = 1,
