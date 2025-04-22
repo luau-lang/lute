@@ -57,7 +57,7 @@ struct LuteFileResolver : Luau::FileResolver
 
     std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node) override
     {
-	// TODO: Need to handle requires
+        // TODO: Need to handle requires
         return std::nullopt;
     }
 
@@ -69,7 +69,7 @@ struct LuteFileResolver : Luau::FileResolver
     }
 
 private:
-// TODO: add require resolver;
+    // TODO: add require resolver;
 };
 
 struct LuteConfigResolver : Luau::ConfigResolver
@@ -168,13 +168,13 @@ static bool reportModuleResult(Luau::Frontend& frontend, const Luau::ModuleName&
     }
 
     for (auto& error : cr->errors)
-        reportError(frontend,  error);
+        reportError(frontend, error);
 
     std::string humanReadableName = frontend.fileResolver->getHumanReadableModuleName(name);
     for (auto& error : cr->lintResult.errors)
-        reportWarning( humanReadableName.c_str(), error);
+        reportWarning(humanReadableName.c_str(), error);
     for (auto& warning : cr->lintResult.warnings)
-        reportWarning( humanReadableName.c_str(), warning);
+        reportWarning(humanReadableName.c_str(), warning);
 
     return cr->errors.empty() && cr->lintResult.errors.empty();
 }
@@ -193,7 +193,7 @@ std::vector<std::string> processSourceFiles(const std::vector<std::string>& sour
 {
     std::vector<std::string> files;
 
-    for (const auto& path :sourceFilesInput)
+    for (const auto& path : sourceFilesInput)
     {
         std::string normalized = normalizePath(path);
 
@@ -264,7 +264,7 @@ int typecheck(const std::vector<std::string>& sourceFilesInput)
         std::string humanReadableName = frontend.fileResolver->getHumanReadableModuleName(moduleName);
 
         Luau::TypeError error(location, moduleName, Luau::InternalError{ice.message});
-               report(
+        report(
             humanReadableName.c_str(),
             location,
             "InternalCompilerError",
@@ -276,7 +276,7 @@ int typecheck(const std::vector<std::string>& sourceFilesInput)
     int failed = 0;
 
     for (const Luau::ModuleName& name : checkedModules)
-        failed += !reportModuleResult(frontend, name,  annotate);
+        failed += !reportModuleResult(frontend, name, annotate);
 
     if (!configResolver.configErrors.empty())
     {

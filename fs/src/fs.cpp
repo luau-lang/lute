@@ -117,11 +117,11 @@ struct FileHandle
 
 l_noret luaL_errorHandle(lua_State* L, FileHandle& handle)
 {
-    #ifdef _MSC_VER
-        luaL_errorL(L, "Error writing to file with descriptor %Iu\n", handle.fileDescriptor);
-    #else
-        luaL_errorL(L, "Error writing to file with descriptor %zu\n", handle.fileDescriptor);
-    #endif
+#ifdef _MSC_VER
+    luaL_errorL(L, "Error writing to file with descriptor %Iu\n", handle.fileDescriptor);
+#else
+    luaL_errorL(L, "Error writing to file with descriptor %zu\n", handle.fileDescriptor);
+#endif
 }
 
 void setfield(lua_State* L, const char* index, int value)
@@ -322,7 +322,8 @@ int fs_mkdir(lua_State* L)
     return 0;
 }
 
-int fs_rmdir(lua_State* L) {
+int fs_rmdir(lua_State* L)
+{
     const char* path = luaL_checkstring(L, 1);
 
     uv_fs_t rmdir_req;
