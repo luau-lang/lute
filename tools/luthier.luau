@@ -29,11 +29,9 @@ end
 local gitVersionInfo = gitVersion()
 
 local os = string.lower(system.os)
-local isMsys = string.find(os, "msys") ~= nil or string.find(os, "cygwin") ~= nil
-local isWindows = isMsys or string.find(os, "window") ~= nil
+local isWindows = string.find(os, "windows") ~= nil
 local isMac = string.find(os, "darwin") ~= nil
 local isLinux = string.find(os, "linux") ~= nil
-local isUnix = not isWindows
 
 local targetMap: { [string]: { exeName: string } } = {
 	lute = {
@@ -115,14 +113,6 @@ local function getSourceRoot()
 	error(
 		"Could not locate lute project root.  Your cwd must be in your lute checkout, or the LUTE_ROOT_DIR environment variable must be set."
 	)
-end
-
-local function cygpath(path: string): string
-	return if isMsys then process.create({ "cygpath", "-u", path }).stdout else path
-end
-
-local function winpath(path: string): string
-	return if isMsys then process.create({ "cygpath", "-wa", path }).stdout else path
 end
 
 local function getExeName(target: string): string
