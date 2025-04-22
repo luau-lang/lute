@@ -21,12 +21,16 @@ local function isPrimitiveArray(array: { [unknown]: unknown })
 	return n == max
 end
 
-local function formatValue(value: unknown)
+local function formatValue(value: unknown, rawStrings: boolean?)
 	if typeof(value) ~= "string" then
 		return tostring(value)
 	end
 
-	return string.format("%q", value)
+	if rawStrings then
+		return `"{value}"`
+	else
+		return string.format("%q", value)
+	end
 end
 
 local function formatKey(key: unknown, seq: boolean)
@@ -59,7 +63,7 @@ local typeSortOrder: { [string]: number } = {
 	["nil"] = 10,
 }
 
-local function traverseTable(dataTable: { [unknown]: unknown }, seen: { [unknown]: boolean }, indent: number)
+local function traverseTable(dataTable: { [unknown]: unknown }, seen: { [unknown]: boolean }, indent: number, rawStrings: boolean?)
 	local output = ""
 	local indentStr = string.rep("  ", indent)
 
@@ -99,7 +103,7 @@ local function traverseTable(dataTable: { [unknown]: unknown }, seen: { [unknown
 		local value = dataTable[key]
 		if typeof(value) ~= "table" then
 			if isPrimitiveType[typeof(value)] then
-				output = `{output}{indentStr}{formatKey(key, inSequence)}{formatValue(value)},\n`
+				output = `{output}{indentStr}{formatKey(key, inSequence)}{formatValue(value, rawStrings)},\n`
 			end
 
 			continue
@@ -152,7 +156,7 @@ local function traverseTable(dataTable: { [unknown]: unknown }, seen: { [unknown
 			output,
 			indentStr,
 			formatKey(key, inSequence),
-			traverseTable(value :: any, seen, indent + 1),
+			traverseTable(value :: any, seen, indent + 1, rawStrings),
 			indentStr
 		)
 
@@ -162,12 +166,14 @@ local function traverseTable(dataTable: { [unknown]: unknown }, seen: { [unknown
 	return output
 end
 
-return function(data: unknown)
+return function(data: unknown, rawStrings: boolean?)
+	rawStrings = if rawStrings then rawStrings else false
+
 	-- if it's not a primitive, we'll pretty print it as a value
 	if typeof(data) ~= "table" then
-		return formatValue(data)
+		return formatValue(data, rawStrings)
 	end
 
 	-- FIXME(luau): `{[unknown]: unknown} should be treated identically to `table`
-	return "{\n" .. traverseTable(data :: { [unknown]: unknown }, { [data :: unknown] = true }, 1) .. "}"
+	return "{\n" .. traverseTable(data :: { [unknown]: unknown }, { [data :: unknown] = true }, 1, rawStrings) .. "}"
 end
