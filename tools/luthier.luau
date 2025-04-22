@@ -233,8 +233,6 @@ local function getConfigureArguments()
 end
 
 local function readTuneFile(path: string): Tune
-	print("Reading tune file " .. path)
-	print(fs.readasync(path))
 	return toml.deserialize(fs.readasync(path))
 end
 
@@ -302,8 +300,6 @@ local function fetchDependencies(): number
 	for _, file in files do
 		if string.find(file.name, "%.tune$") then
 			local dependencyInfo = readTuneFile(projectRelative("extern", file.name))
-			print("Fetching dependency " .. file.name)
-			print(dependencyInfo, dependencyInfo.dependency)
 			check(fetchDependency(dependencyInfo))
 		end
 	end
