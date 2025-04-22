@@ -346,15 +346,15 @@ local subcommand = args:get("subcommand")
 local exitCode = 0
 
 if subcommand == "fetch" then
-	local exitCode = fetchDependencies()
+	exitCode = fetchDependencies()
 elseif subcommand == "configure" or subcommand == "tune" then
-	local exitCode = configure()
+	exitCode = configure()
 elseif subcommand == "build" or subcommand == "craft" then
 	if not projectPathExists() then
 		check(configure())
 	end
 
-	local exitCode = build()
+	exitCode = build()
 elseif subcommand == "run" or subcommand == "play" then
 	if not projectPathExists() then
 		check(configure())
@@ -364,7 +364,7 @@ elseif subcommand == "run" or subcommand == "play" then
 		check(build())
 	end
 
-	local exitCode = run()
+	exitCode = run()
 else
 	error("Unknown subcommand " .. subcommand)
 end
