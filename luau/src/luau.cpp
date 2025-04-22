@@ -10,8 +10,6 @@
 
 const char* COMPILE_RESULT_TYPE = "CompileResult";
 
-LUAU_FASTFLAG(LuauStoreCSTData2)
-
 namespace luau
 {
 inline int check_int_field(lua_State* L, int obj_idx, const char* field_name, int default_value)
