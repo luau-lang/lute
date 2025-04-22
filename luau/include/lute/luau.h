@@ -10,7 +10,7 @@ int luaopen_luau(lua_State* L);
 // open the library as a table on top of the stack
 int luteopen_luau(lua_State* L);
 
-static const char kCompilerResultType[] = "CompileResult";
+static const char kCompilerResultType[] = "CompilerResult";
 
 namespace luau
 {
