@@ -87,7 +87,7 @@ local function findLast(haystack: string, needle: string): number?
 	return lastPos
 end
 
-local function safeType(path: string): string?
+local function safeFsType(path: string): string?
 	local success, res = pcall(fs.type, path)
 	if success then
 		return res
@@ -100,7 +100,7 @@ local function getSourceRoot()
 	local cwd = process.cwd()
 
 	while true do
-		if safeType(cwd .. pathSep .. ".LUTE_SENTINEL") == "file" then
+		if safeFsType(cwd .. pathSep .. ".LUTE_SENTINEL") == "file" then
 			return cwd
 		end
 
@@ -160,7 +160,7 @@ end
 local function projectPathExists(): boolean
 	local projectPath = getProjectPath()
 
-	return safeType(projectPath) == "dir"
+	return safeFsType(projectPath) == "dir"
 end
 
 local function getExePath(): string
@@ -173,7 +173,7 @@ end
 local function exeExists(): boolean
 	local exePath = getExePath()
 
-	return safeType(exePath) == "file"
+	return safeFsType(exePath) == "file"
 end
 
 local function call(cmd: { string }, passedCwd: string?): number
@@ -252,7 +252,7 @@ local function fetchDependency(dependencyInfo: Tune)
 		error("Invalid dependency info in tune file: must have `remote` and `branch` fields")
 	end
 
-	if safeType(projectRelative("extern", dependency.name)) == "dir" then
+	if safeFsType(projectRelative("extern", dependency.name)) == "dir" then
 		check(
 			call(
 				{ "git", "fetch", "--depth=1", "origin", dependency.revision },
