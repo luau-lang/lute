@@ -16,10 +16,10 @@ include_directories(${USOCKETS_SOURCE_DIR}/src/io_uring)
 include_directories(${LIBUV_INCLUDE_DIR})
 
 # Source files
-file(GLOB USOCKETS_SOURCES 
-    ${USOCKETS_SOURCE_DIR}/src/*.c 
-    ${USOCKETS_SOURCE_DIR}/src/eventing/*.c 
-    ${USOCKETS_SOURCE_DIR}/src/crypto/*.c 
+file(GLOB USOCKETS_SOURCES
+    ${USOCKETS_SOURCE_DIR}/src/*.c
+    ${USOCKETS_SOURCE_DIR}/src/eventing/*.c
+    ${USOCKETS_SOURCE_DIR}/src/crypto/*.c
     ${USOCKETS_SOURCE_DIR}/src/crypto/*.cpp
     ${USOCKETS_SOURCE_DIR}/src/io_uring/*.c
 )
@@ -57,19 +57,9 @@ if(WITH_ASIO)
     endif()
 endif()
 
-if(WITH_OPENSSL)
+if(WITH_OPENSSL OR WITH_BORINGSSL)
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
     target_link_libraries(uSockets PRIVATE ssl crypto stdc++)
-endif()
-
-if(WITH_BORINGSSL)
-    target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
-    target_include_directories(uSockets PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/boringssl/include)
-    if(MSVC)
-        target_link_libraries(uSockets PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/boringssl/build/ssl/ssl.lib ${CMAKE_CURRENT_SOURCE_DIR}/boringssl/build/crypto/crypto.lib)
-    else()
-        target_link_libraries(uSockets PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/boringssl/build/ssl/libssl.a ${CMAKE_CURRENT_SOURCE_DIR}/boringssl/build/crypto/libcrypto.a pthread stdc++)
-    endif()
 endif()
 
 if(WITH_WOLFSSL)
