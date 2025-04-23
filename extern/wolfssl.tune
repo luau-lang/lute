@@ -1,5 +1,0 @@
-[dependency]
-name = "wolfssl"
-remote = "https://github.com/wolfSSL/wolfssl.git"
-branch = "v5.7.6-stable"
-revision = "239b85c80438bf60d9a5b9e0ebe9ff097a760d0d"

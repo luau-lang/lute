@@ -21,6 +21,7 @@ runs:
   steps:
     - name: Set up Python
       uses: actions/setup-python@v5
+      uses: ilammy/setup-nasm@v1
       with:
         python-version: '3.11'
 

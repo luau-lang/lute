@@ -34,14 +34,8 @@ add_subdirectory(extern/libuv)
 # Define libuv include directory here, before it's needed by other subdirectories
 set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 
-# wolfssl setup
-set(BUILD_SHARED_LIBS OFF)
-set(WOLFSSL_CURL "yes")
-set(WOLFSSL_EXAMPLES "no")
-set(WOLFSSL_CRYPT_TESTS "no")
-set(WOLFSSL_OPENSSLALL "yes")
-SET(WOLFSSL_EX_DATA "yes")
-add_subdirectory(extern/wolfssl)
+# boringssl setup
+add_subdirectory(extern/boringssl)
 
 # curl setup
 set(USE_LIBIDN2 OFF)
@@ -55,14 +49,13 @@ set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
-set(CURL_USE_WOLFSSL ON)
-set(WOLFSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/wolfssl/include)
-set(WOLFSSL_LIBRARY wolfssl)
+set(HAVE_BORINGSSL ON)
 
 add_subdirectory(extern/curl)
 
 # uWebSockets setup
-set(WITH_WOLFSSL ON)
+set(WITH_WOLFSSL OFF)
+set(WITH_BORINGSSL ON)
 set(WITH_LIBUV ON)
 if(MSVC)
     set(WITH_ZLIB OFF)
@@ -103,7 +96,7 @@ target_include_directories(Lute.System PUBLIC system/include ${LIBUV_INCLUDE_DIR
 target_link_libraries(Lute.Runtime PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.VM uv_a)
 target_link_libraries(Lute.Fs PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.Luau PRIVATE Lute.Runtime Luau.VM uv_a Luau.Analysis Luau.Ast Luau.Compiler)
-target_link_libraries(Lute.Net PRIVATE Lute.Runtime Luau.VM uv_a ${WOLFSSL_LIBRARY} libcurl uWS)
+target_link_libraries(Lute.Net PRIVATE Lute.Runtime Luau.VM uv_a libcurl uWS)
 target_link_libraries(Lute.Task PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.VM PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.Process PRIVATE Lute.Runtime Luau.VM uv_a)
