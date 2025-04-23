@@ -44,11 +44,9 @@ runs:
       run: |
         choco install ninja
 
-    - name: Setup MSVC
+    - name: Setup MSBuild (Latest Visual Studio)
       if: runner.os == 'Windows'
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        toolset: v143
+      uses: microsoft/setup-msbuild@v1.3.1
 
     - name: Set up NASM
       if: runner.os == 'Windows'
