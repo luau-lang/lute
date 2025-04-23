@@ -1,6 +1,7 @@
 local process = require("@lute/process")
 local system = require("@lute/system")
 local fs = require("@lute/fs")
+
 local cli = require("@batteries/cli")
 local toml = require("@batteries/toml")
 
@@ -269,7 +270,7 @@ local function fetchDependency(dependencyInfo: Tune)
 		return result
 	end
 
-	if gitVersionInfo.major >= 2 and gitVersionInfo.minor >= 49 then
+	if gitVersionInfo.major >= 3 or (gitVersionInfo.major == 2 and gitVersionInfo.minor >= 49) then
 		return call({
 			"git",
 			"clone",
