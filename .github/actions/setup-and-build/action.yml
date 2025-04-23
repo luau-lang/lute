@@ -21,10 +21,11 @@ runs:
   steps:
     - name: Set up Python
       uses: actions/setup-python@v5
-      uses: ilammy/setup-nasm@v1
       with:
         python-version: '3.11'
 
+    - name: Set up NASM
+      uses: ilammy/setup-nasm@v1
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
       shell: bash
