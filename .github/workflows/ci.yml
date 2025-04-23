@@ -14,6 +14,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            options: --c-compiler=cl.exe --cxx-compiler=cl.exe
           - os: ubuntu-latest
             options: --c-compiler=gcc --cxx-compiler=g++
           - os: ubuntu-latest
