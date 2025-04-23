@@ -94,10 +94,10 @@ int luteopen_system(lua_State* L)
     uv_os_uname(&sysinfo);
 
     lua_pushstring(L, sysinfo.sysname);
-    lua_setfield(L, -2, kOperatingSystemProperty);
+    lua_setfield(L, -2, libsystem::kOperatingSystemProperty);
 
     lua_pushstring(L, sysinfo.machine);
-    lua_setfield(L, -2, kArchitectureProperty);
+    lua_setfield(L, -2, libsystem::kArchitectureProperty);
 
     lua_setreadonly(L, -1, 1);
 
