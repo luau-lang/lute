@@ -78,9 +78,16 @@ if(WITH_BORINGSSL)
     set(BORINGSSL_INCLUDE_DIR "${BORINGSSL_DIR}/include")
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
     target_compile_definitions(uSockets PRIVATE UWS_WITH_BORINGSSL)
-    target_compile_definitions(uSockets PRIVATE BORINGSSL_NO_CXX)
     include_directories(uSockets PRIVATE ${BORINGSSL_INCLUDE_DIR})
     target_link_libraries(uSockets PRIVATE ssl crypto stdc++)
+
+    # force openssl.c to compile with C++?
+    if (MSVC)
+        set_source_files_properties(
+            ${CMAKE_CURRENT_SOURCE_DIR}/extern/uWebSockets/uSockets/src/crypto/openssl.c
+            PROPERTIES LANGUAGE CXX
+        )
+    endif()
 endif()
 
 if(WITH_WOLFSSL)
