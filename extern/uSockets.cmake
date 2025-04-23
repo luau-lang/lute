@@ -32,6 +32,8 @@ target_compile_features(uSockets PRIVATE cxx_std_17)
 
 if(MSVC)
     target_compile_definitions(uSockets PRIVATE _HAS_CXX17=1)
+    target_compile_definitions(uSockets PRIVATE WIN32_LEAN_AND_MEAN)
+    target_compile_definitions(uSockets PRIVATE NOMINMAX)
     target_compile_options(uSockets PRIVATE /experimental:c11atomics)
     target_compile_options(uSockets PRIVATE /GL-)
 endif()
