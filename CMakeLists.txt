@@ -105,6 +105,7 @@ target_link_libraries(Lute.CLI PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Lu
 set(LUTE_OPTIONS)
 
 if(MSVC)
+    list(APPEND LUTE_OPTIONS /DNOCRYPT)
     list(APPEND LUTE_OPTIONS /DNOMINMAX)
     list(APPEND LUTE_OPTIONS /D_CRT_SECURE_NO_WARNINGS) # We need to use the portable CRT functions.
     list(APPEND LUTE_OPTIONS "/we4018") # Signed/unsigned mismatch
