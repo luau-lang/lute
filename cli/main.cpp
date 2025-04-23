@@ -201,46 +201,28 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
 int handleRunCommand(int argc, char** argv, int argOffset)
 {
     const char* filePath = nullptr;
-    std::vector<const char*> programArgs;
-    bool seenDoubleDash = false;
 
     for (int i = argOffset; i < argc; ++i)
     {
         const char* currentArg = argv[i];
 
-        if (seenDoubleDash)
-        {
-            programArgs.push_back(currentArg);
-        }
-        else if (strcmp(currentArg, "--") == 0)
-        {
-            seenDoubleDash = true;
-            if (!filePath)
-            {
-                fprintf(stderr, "Error: File must be specified before '--'.\n\n");
-                displayRunHelp(argv[0]);
-                return 1;
-            }
-        }
-        else if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
+        if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
             displayRunHelp(argv[0]);
             return 0;
         }
-        else if (!filePath && currentArg[0] == '-')
+        else if (currentArg[0] == '-')
         {
             fprintf(stderr, "Error: Unrecognized option '%s' for 'run' command.\n\n", currentArg);
             displayRunHelp(argv[0]);
             return 1;
         }
-        else if (!filePath)
-        {
-            filePath = currentArg;
-            programArgs.push_back(filePath); // Add path as first argument for the script
-        }
         else
         {
-            programArgs.push_back(currentArg);
+            filePath = currentArg;
+            program_argc = argc - i;
+            program_argv = &argv[i];
+            break;
         }
     }
 
@@ -250,9 +232,6 @@ int handleRunCommand(int argc, char** argv, int argOffset)
         displayRunHelp(argv[0]);
         return 1;
     }
-
-    program_argc = programArgs.size();
-    program_argv = program_argc > 0 ? const_cast<char**>(programArgs.data()) : nullptr;
 
     Runtime runtime;
     lua_State* L = setupState(runtime);
