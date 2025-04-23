@@ -54,10 +54,6 @@ args:add("which", "flag", { help = "print out the path to the compiled binary an
 args:add("cxx-compiler", "option", { help = "C++ compiler to use" })
 args:add("c-compiler", "option", { help = "C compiler to use" })
 
-if isWindows then
-	args:add("vs2017", "flag", { help = "Build with vs2017 (default is 2019)" })
-	args:add("vs2022", "flag", { help = "Build with vs2022 (default is 2019)" })
-end
 
 if not isWindows and not isMac and not isLinux then
 	error("Unknown platform " .. os)
@@ -131,12 +127,8 @@ end
 local function getCompiler(): string
 	if isMac then
 		return "xcode"
-	elseif isWindows and args:has("vs2017") then
-		return "vs2017"
-	elseif isWindows and args:has("vs2022") then
-		return "vs2022"
 	else
-		return "vs2019"
+		return "vs2022"
 	end
 end
 
