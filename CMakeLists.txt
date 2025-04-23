@@ -69,8 +69,6 @@ include(extern/uWebSockets.cmake)
 # Define include directories for uWebSockets and uSockets
 set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
 
-#
-
 add_executable(Lute.CLI)
 set_target_properties(Lute.CLI PROPERTIES OUTPUT_NAME lute)
 
