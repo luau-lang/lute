@@ -59,12 +59,12 @@ endif()
 
 if(WITH_OPENSSL)
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
-    target_link_libraries(uSockets PRIVATE ssl crypto stdc++)
+    target_link_libraries(uSockets PRIVATE ssl crypto)
 endif()
 
 if(WITH_BORINGSSL)
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
-    target_link_libraries(uSockets PRIVATE ssl crypto stdc++)
+    target_link_libraries(uSockets PRIVATE ssl crypto)
 endif()
 
 if(WITH_WOLFSSL)
