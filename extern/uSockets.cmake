@@ -54,6 +54,19 @@ if(MSVC)
     target_compile_options(uSockets PRIVATE /experimental:c11atomics)
 endif()
 
+# ASIO
+if(WITH_ASIO)
+    target_compile_definitions(uSockets PRIVATE LIBUS_USE_ASIO)
+    if(MSVC)
+        target_compile_options(uSockets PRIVATE /std:c++14)
+        target_link_libraries(uSockets PRIVATE)
+    else()
+        target_compile_options(uSockets PRIVATE -std=c++14 -pthread)
+        target_link_libraries(uSockets PRIVATE stdc++ pthread)
+    endif()
+endif()
+
+
 # Crypto backend options
 if(WITH_OPENSSL)
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
@@ -95,18 +108,6 @@ endif()
 if(WITH_GCD)
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_GCD)
     target_link_libraries(uSockets PRIVATE CoreFoundation)
-endif()
-
-# ASIO
-if(WITH_ASIO)
-    target_compile_definitions(uSockets PRIVATE LIBUS_USE_ASIO)
-    if(MSVC)
-        target_compile_options(uSockets PRIVATE /std:c++14)
-        target_link_libraries(uSockets PRIVATE)
-    else()
-        target_compile_options(uSockets PRIVATE -std=c++14 -pthread)
-        target_link_libraries(uSockets PRIVATE stdc++ pthread)
-    endif()
 endif()
 
 # ASAN
