@@ -50,11 +50,8 @@ if(WITH_OPENSSL)
 endif()
 
 if(WITH_BORINGSSL)
-    set(BORINGSSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl")
-    set(BORINGSSL_INCLUDE_DIR "${BORINGSSL_DIR}/include")
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
     target_compile_definitions(uSockets PRIVATE UWS_WITH_BORINGSSL)
-    include_directories(uSockets PRIVATE ${BORINGSSL_INCLUDE_DIR})
     target_link_libraries(uSockets PRIVATE ssl crypto)
 endif()
 
