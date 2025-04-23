@@ -226,7 +226,7 @@ int typecheck(const std::vector<std::string>& sourceFilesInput)
 
     if (sourceFiles.empty())
     {
-        fprintf(stderr, "Error: lute --check expects a file to type check.\n\n");
+        fprintf(stderr, "Error: lute check expects a file to type check.\n\n");
         return 1;
     }
 
