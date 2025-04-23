@@ -312,7 +312,8 @@ def configure(args):
         "cmake",
     ] + getConfigureArguments(args)
 
-    check(fetchDependencies(args))
+    # fetchDependencies is too slow.
+    # check(fetchDependencies(args))
     return call(cmd)
 
 def check(exitCode):
