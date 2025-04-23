@@ -53,6 +53,14 @@ if(WITH_BORINGSSL)
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
     target_compile_definitions(uSockets PRIVATE UWS_WITH_BORINGSSL)
     target_link_libraries(uSockets PRIVATE ssl crypto)
+
+    # we need to compile openssl in C++ mode with MSVC, but we also have to apply a patch to the file.
+    if (MSVC)
+        set_source_files_properties(
+            ${USOCKETS_SOURCE_DIR}/src/crypto/openssl.c
+            PROPERTIES LANGUAGE CXX
+        )
+    endif()
 endif()
 
 if(WITH_WOLFSSL)
