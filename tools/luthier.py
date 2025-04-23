@@ -82,19 +82,6 @@ argParser.add_argument(
     help='C compiler to use',
 )
 
-if isWindows:
-    vsVersionGroup = argParser.add_mutually_exclusive_group()
-
-    vsVersionGroup.add_argument(
-        '--vs2017', dest='vs2017', action='store_true',
-        help='Build with vs2017 (default is 2019)'
-    )
-
-    vsVersionGroup.add_argument(
-        '--vs2022', dest='vs2022', action='store_true',
-        help='Build with vs2022 (default is 2019)'
-    )
-
 if not isWindows and not isMac and not isLinux:
     raise ReportableError('Unknown platform ' + sys.platform)
 
@@ -153,12 +140,8 @@ def getExeName(target):
 def getCompiler(args):
     if isMac:
         return 'xcode'
-    elif isWindows and args.vs2017:
-        return 'vs2017'
-    elif isWindows and args.vs2022:
-        return 'vs2022'
     else:
-        return 'vs2019'
+        return 'vs2022'
 
 def getConfig(args):
     return args.config
