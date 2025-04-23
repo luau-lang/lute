@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(uSockets LANGUAGES C)
+project(uSockets LANGUAGES C CXX)
 
 # Set the C standard
 set(CMAKE_C_STANDARD 11)
@@ -25,14 +25,18 @@ option(WITH_GCD "Build with libdispatch support" OFF)
 option(WITH_ASAN "Build with AddressSanitizer support" OFF)
 option(WITH_QUIC "Build with QUIC support" OFF)
 
-set(USOCKETS_SOURCES
+file(GLOB USOCKETS_C_SRC
     ${USOCKETS_SOURCE_DIR}/src/*.c
     ${USOCKETS_SOURCE_DIR}/src/crypto/*.c
     ${USOCKETS_SOURCE_DIR}/src/eventing/*.c
     ${USOCKETS_SOURCE_DIR}/src/io_uring/*.c
 )
 
-add_library(uSockets STATIC ${USOCKETS_SOURCES})
+file(GLOB USOCKETS_CXX_SRC
+    ${USOCKETS_SOURCE_DIR}/src/crypto/sni_tree.cpp
+)
+
+add_library(uSockets STATIC ${USOCKETS_C_SRC} ${USOCKETS_CXX_SRC})
 
 if(MSVC)
     target_compile_definitions(uSockets PRIVATE _HAS_CXX17=1)
