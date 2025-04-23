@@ -38,9 +38,9 @@ runs:
         brew update
         brew unlink brotli zstd
 
-    - name: Setup MSBuild (Latest Visual Studio)
+    - name: Set up MSVC
       if: runner.os == 'Windows'
-      uses: microsoft/setup-msbuild@v1.3.1
+      uses: ilammy/msvc-dev-cmd@v1
 
     - name: Set up NASM
       if: runner.os == 'Windows'
