@@ -46,7 +46,7 @@ option(WITH_ASAN "Build with AddressSanitizer support" OFF)
 if(WITH_BORINGSSL)
     target_include_directories(uSockets PRIVATE ${BORINGSSL_INCLUDE_DIR})
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
-    target_link_libraries(uSockets PRIVATE ssl crypto stdc++)
+    target_link_libraries(uSockets PRIVATE ssl crypto)
 endif()
 
 if(WITH_WOLFSSL)
