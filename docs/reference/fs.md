@@ -9,7 +9,7 @@ local fs = require("@lute/fs")
 (handle: FileHandle) -> ()
 ```
 
-## listdir
+## listdir <Badge type="warning" text="yields" />
 ```luau
 (path: string) -> { { name: string, type: string }}
 ```

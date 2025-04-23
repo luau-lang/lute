@@ -4,12 +4,12 @@
 local task = require("@lute/task")
 ```
 
-## await
+## await <Badge type="warning" text="yields" />
 ```luau
 (t: task) -> any
 ```
 
-## awaitall
+## awaitall <Badge type="warning" text="yields" />
 ```luau
 (...: task) -> ...
 ```
@@ -19,7 +19,7 @@ local task = require("@lute/task")
 ((...) -> ..., ...) -> task
 ```
 
-## defer
+## defer <Badge type="warning" text="yields" />
 ```luau
 () -> ()
 ```
