@@ -47,6 +47,8 @@ runs:
     - name: Setup MSVC
       if: runner.os == 'Windows'
       uses: ilammy/msvc-dev-cmd@v1
+      with:
+        toolset: "17.0"
 
     - name: Set up NASM
       if: runner.os == 'Windows'
