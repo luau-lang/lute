@@ -158,14 +158,38 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
 
 static void displayHelp(const char* argv0)
 {
-    printf("Usage: %s [options] [file list] [--] [arg list]\n", argv0);
+    printf("Usage: %s <command> [options] [arguments...]\n", argv0);
     printf("\n");
-    printf("When file list is omitted, an interactive REPL is started instead.\n");
+    printf("Commands:\n");
+    printf("  run (default)   Run a Luau script.\n");
+    printf("  check           Type check Luau files.\n");
     printf("\n");
-    printf("Available options:\n");
-    printf("  -h, --help: Display this usage message.\n");
-    printf("  --check: Run a strict typecheck of the Luau program.\n");
-    printf("  --: declare start of arguments to be passed to the Luau program\n");
+    printf("Run Options (when using 'run' or no command):\n");
+    printf("  %s [run] <script.luau> [args...]\n", argv0);
+    printf("    Executes the script, passing [args...] to it.\n");
+    printf("\n");
+    printf("Check Options:\n");
+    printf("  %s check <file1.luau> [file2.luau...]\n", argv0);
+    printf("    Performs a type check on the specified files.\n");
+    printf("\n");
+    printf("General Options:\n");
+    printf("  -h, --help    Display this usage message.\n");
+}
+
+static void displayRunHelp(const char* argv0)
+{
+    printf("Usage: %s run <script.luau> [args...]\n", argv0);
+    printf("\n");
+    printf("Run Options:\n");
+    printf("  -h, --help    Display this usage message.\n");
+}
+
+static void displayCheckHelp(const char* argv0)
+{
+    printf("Usage: %s check <file1.luau> [file2.luau...]\n", argv0);
+    printf("\n");
+    printf("Check Options:\n");
+    printf("  -h, --help    Display this usage message.\n");
 }
 
 static int assertionHandler(const char* expr, const char* file, int line, const char* function)
@@ -174,6 +198,103 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
+int handleRunCommand(int argc, char** argv, int argOffset)
+{
+    const char* filePath = nullptr;
+    std::vector<const char*> programArgs;
+    bool seenDoubleDash = false;
+
+    for (int i = argOffset; i < argc; ++i)
+    {
+        const char* currentArg = argv[i];
+
+        if (seenDoubleDash)
+        {
+            programArgs.push_back(currentArg);
+        }
+        else if (strcmp(currentArg, "--") == 0)
+        {
+            seenDoubleDash = true;
+            if (!filePath)
+            {
+                fprintf(stderr, "Error: File must be specified before '--'.\n\n");
+                displayRunHelp(argv[0]);
+                return 1;
+            }
+        }
+        else if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
+        {
+            displayRunHelp(argv[0]);
+            return 0;
+        }
+        else if (!filePath && currentArg[0] == '-')
+        {
+            fprintf(stderr, "Error: Unrecognized option '%s' for 'run' command.\n\n", currentArg);
+            displayRunHelp(argv[0]);
+            return 1;
+        }
+        else if (!filePath)
+        {
+            filePath = currentArg;
+            programArgs.push_back(filePath); // Add path as first argument for the script
+        }
+        else
+        {
+            programArgs.push_back(currentArg);
+        }
+    }
+
+    if (!filePath)
+    {
+        fprintf(stderr, "Error: No file specified for 'run' command.\n\n");
+        displayRunHelp(argv[0]);
+        return 1;
+    }
+
+    program_argc = programArgs.size();
+    program_argv = program_argc > 0 ? const_cast<char**>(programArgs.data()) : nullptr;
+
+    Runtime runtime;
+    lua_State* L = setupState(runtime);
+
+    bool success = runFile(runtime, filePath, L);
+    return success ? 0 : 1;
+}
+
+int handleCheckCommand(int argc, char** argv, int argOffset)
+{
+    std::vector<std::string> files;
+
+    for (int i = argOffset; i < argc; ++i)
+    {
+        const char* currentArg = argv[i];
+
+        if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
+        {
+            displayCheckHelp(argv[0]);
+            return 0;
+        }
+        else if (currentArg[0] == '-')
+        {
+            fprintf(stderr, "Error: Unrecognized option '%s' for 'check' command.\n\n", currentArg);
+            displayCheckHelp(argv[0]);
+            return 1;
+        }
+        else
+        {
+            files.push_back(currentArg);
+        }
+    }
+
+    if (files.empty())
+    {
+        fprintf(stderr, "Error: No files specified for 'check' command.\n\n");
+        displayCheckHelp(argv[0]);
+        return 1;
+    }
+
+    return typecheck(files);
+}
 
 int main(int argc, char** argv)
 {
@@ -183,86 +304,33 @@ int main(int argc, char** argv)
     SetConsoleOutputCP(CP_UTF8);
 #endif
 
-    int program_args = argc;
-    bool runTypecheck = false;
-
-    for (int i = 1; i < argc; i++)
+    if (argc < 2)
     {
-        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
-        {
-            displayHelp(argv[0]);
-            return 0;
-        }
-        else if (strcmp(argv[i], "--") == 0)
-        {
-            program_args = i + 1;
-            break;
-        }
-        else if (strcmp(argv[i], "--check") == 0)
-        {
-            runTypecheck = true;
-            program_args = i + 1;
-            break;
-        }
-        else if (argv[i][0] == '-')
-        {
-            fprintf(stderr, "Error: Unrecognized option '%s'.\n\n", argv[i]);
-            displayHelp(argv[0]);
-            return 1;
-        }
-    }
-
-    program_argc = argc - program_args;
-    program_argv = &argv[program_args];
-
-    std::vector<std::string> files;
-
-    bool parsingFiles = true;
-
-    for (int i = 1; i < argc; i++)
-    {
-        if (strcmp(argv[i], "--") == 0)
-        {
-            parsingFiles = false; // stop collecting files
-            program_argc = argc - (i + 1);
-            program_argv = &argv[i + 1];
-            break;
-        }
-        else if (argv[i][0] == '-' && argv[i][1] != '\0')
-            continue;
-
-        if (parsingFiles)
-            files.push_back(std::string(argv[i])); // fix: Explicit conversion
-    }
-
-    if (program_argc == 0) // default to just running the script if no args are passed
-    {
-        program_argv = nullptr;
-    }
-
-    // Given the source files, perform a typecheck here
-    if (runTypecheck)
-    {
-        return typecheck(files);
-    }
-
-    if (files.empty())
-    {
-        fprintf(stderr, "Error: lute expects a file to run.\n\n");
+        // TODO: REPL?
         displayHelp(argv[0]);
-        return 1;
+        return 0;
     }
 
-    Runtime runtime;
+    const char* command = argv[1];
+    int argOffset = 2;
 
-    lua_State* L = setupState(runtime);
-
-    int failed = 0;
-
-    for (size_t i = 0; i < files.size(); ++i)
+    if (strcmp(command, "run") == 0)
     {
-        failed += !runFile(runtime, files[i].c_str(), L);
+        return handleRunCommand(argc, argv, argOffset);
     }
-
-    return failed ? 1 : 0;
+    else if (strcmp(command, "check") == 0)
+    {
+        return handleCheckCommand(argc, argv, argOffset);
+    }
+    else if (strcmp(command, "-h") == 0 || strcmp(command, "--help") == 0)
+    {
+        displayHelp(argv[0]);
+        return 0;
+    }
+    else
+    {
+        // Default to 'run' command
+        argOffset = 1;
+        return handleRunCommand(argc, argv, argOffset);
+    }
 }

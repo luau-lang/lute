@@ -1,19 +1,19 @@
-name: 'Setup and Build Lute'
-description: 'Install dependencies, configure and build Lute'
+name: "Setup and Build Lute"
+description: "Install dependencies, configure and build Lute"
 
 inputs:
   config:
-    description: 'Build configuration (debug or release)'
+    description: "Build configuration (debug or release)"
     required: false
-    default: 'debug'
+    default: "debug"
   options:
-    description: 'Additional luthier options'
+    description: "Additional luthier options"
     required: false
-    default: ''
+    default: ""
 
 outputs:
   exe_path:
-    description: 'Path to the compiled executable'
+    description: "Path to the compiled executable"
     value: ${{ steps.artifact_path.outputs.exe_path }}
 
 runs:
@@ -22,7 +22,7 @@ runs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: "3.11"
 
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
@@ -38,15 +38,13 @@ runs:
         brew update
         brew unlink brotli zstd
 
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        choco install ninja
-
-    - name: Setup MSVC
+    - name: Set up MSVC
       if: runner.os == 'Windows'
       uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Set up NASM
+      if: runner.os == 'Windows'
+      uses: ilammy/setup-nasm@v1
 
     - name: Cache extern folder
       uses: actions/cache@v4

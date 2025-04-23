@@ -95,7 +95,6 @@ bool Runtime::runToCompletion()
             error += lua_debugtrace(L);
 
             fprintf(stderr, "%s", error.c_str());
-            // Log the error but continue processing other threads instead of returning false
             continue;
         }
 

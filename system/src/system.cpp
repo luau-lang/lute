@@ -5,43 +5,7 @@
 #include <string>
 #include <vector>
 
-int luaopen_system(lua_State* L)
-{
-    luteopen_system(L);
-    lua_setglobal(L, "system");
-
-    return 1;
-}
-
-int luteopen_system(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(system_lib::lib) + std::size(system_lib::properties));
-
-    for (auto& [name, func] : system_lib::lib)
-    {
-        if (!name || !func)
-            break;
-
-        lua_pushcfunction(L, func, name);
-        lua_setfield(L, -2, name);
-    }
-
-    // os
-    uv_utsname_t sysinfo;
-    uv_os_uname(&sysinfo);
-
-    lua_pushstring(L, sysinfo.sysname);
-    lua_setfield(L, -2, kOperatingSystemProperty);
-
-    lua_pushstring(L, sysinfo.machine);
-    lua_setfield(L, -2, kArchitectureProperty);
-
-    lua_setreadonly(L, -1, 1);
-
-    return 1;
-}
-
-namespace system_lib
+namespace libsystem
 {
 int lua_cpus(lua_State* L)
 {
@@ -102,4 +66,40 @@ int lua_threadcount(lua_State* L)
     return 1;
 }
 
-} // namespace system_lib
+} // namespace libsystem
+
+int luaopen_system(lua_State* L)
+{
+    luteopen_system(L);
+    lua_setglobal(L, "system");
+
+    return 1;
+}
+
+int luteopen_system(lua_State* L)
+{
+    lua_createtable(L, 0, std::size(libsystem::lib) + std::size(libsystem::properties));
+
+    for (auto& [name, func] : libsystem::lib)
+    {
+        if (!name || !func)
+            break;
+
+        lua_pushcfunction(L, func, name);
+        lua_setfield(L, -2, name);
+    }
+
+    // os
+    uv_utsname_t sysinfo;
+    uv_os_uname(&sysinfo);
+
+    lua_pushstring(L, sysinfo.sysname);
+    lua_setfield(L, -2, libsystem::kOperatingSystemProperty);
+
+    lua_pushstring(L, sysinfo.machine);
+    lua_setfield(L, -2, libsystem::kArchitectureProperty);
+
+    lua_setreadonly(L, -1, 1);
+
+    return 1;
+}
