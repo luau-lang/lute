@@ -10,6 +10,7 @@ include(get_version.cmake)
 project(Lute LANGUAGES CXX C VERSION ${LUTE_VERSION})
 
 add_library(Lute.Runtime STATIC)
+add_library(Lute.Crypto STATIC)
 add_library(Lute.Fs STATIC)
 add_library(Lute.Luau STATIC)
 add_library(Lute.Net STATIC)
@@ -76,6 +77,7 @@ set_target_properties(Lute.CLI PROPERTIES OUTPUT_NAME lute)
 include(Sources.cmake)
 
 target_compile_features(Lute.Runtime PUBLIC cxx_std_17)
+target_compile_features(Lute.Crypto PUBLIC cxx_std_17)
 target_compile_features(Lute.Fs PUBLIC cxx_std_17)
 target_compile_features(Lute.Luau PUBLIC cxx_std_17)
 target_compile_features(Lute.Net PUBLIC cxx_std_17)
@@ -93,6 +95,7 @@ target_include_directories(Lute.Process PUBLIC process/include ${LIBUV_INCLUDE_D
 target_include_directories(Lute.System PUBLIC system/include ${LIBUV_INCLUDE_DIR})
 
 target_link_libraries(Lute.Runtime PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.VM uv_a)
+target_link_libraries(Lute.Crypto PRIVATE Lute.Runtime Luau.VM uv_a ssl crypto)
 target_link_libraries(Lute.Fs PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.Luau PRIVATE Lute.Runtime Luau.VM uv_a Luau.Analysis Luau.Ast Luau.Compiler)
 target_link_libraries(Lute.Net PRIVATE Lute.Runtime Luau.VM uv_a libcurl uWS)
