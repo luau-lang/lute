@@ -38,7 +38,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/aatxe/lute' }
+      { icon: 'github', link: 'https://github.com/luau-lang/lute' }
     ]
   }
 })
