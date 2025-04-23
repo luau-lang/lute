@@ -6,7 +6,7 @@ local message = "Hello, world!"
 local digest = crypto.digest(crypto.hash.sha256, message)
 
 function pretty(digest)
-    return buffer.tostring(base64.encode(digest))
+	return buffer.tostring(base64.encode(digest))
 end
 
 print(pretty(digest))

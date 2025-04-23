@@ -78,10 +78,8 @@ local function encode(input: buffer): buffer
 		buffer.writeu8(output, outputLength - 2, padding)
 		buffer.writeu8(output, outputLength - 1, padding)
 	elseif inputRemainder == 2 then
-		local chunk = bit32.bor(
-			bit32.lshift(buffer.readu8(input, inputLength - 2), 8),
-			buffer.readu8(input, inputLength - 1)
-		)
+		local chunk =
+			bit32.bor(bit32.lshift(buffer.readu8(input, inputLength - 2), 8), buffer.readu8(input, inputLength - 1))
 
 		local value1 = bit32.rshift(chunk, 10)
 		local value2 = bit32.band(bit32.rshift(chunk, 4), 0b111111)
@@ -119,8 +117,12 @@ local function decode(input: buffer): buffer
 	-- TODO: Support input without padding
 	local inputPadding = 0
 	if inputLength ~= 0 then
-		if buffer.readu8(input, inputLength - 1) == padding then inputPadding += 1 end
-		if buffer.readu8(input, inputLength - 2) == padding then inputPadding += 1 end
+		if buffer.readu8(input, inputLength - 1) == padding then
+			inputPadding += 1
+		end
+		if buffer.readu8(input, inputLength - 2) == padding then
+			inputPadding += 1
+		end
 	end
 
 	local outputLength = inputChunks * 3 - inputPadding
@@ -135,12 +137,7 @@ local function decode(input: buffer): buffer
 		local value3 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, inputIndex + 2))
 		local value4 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, inputIndex + 3))
 
-		local chunk = bit32.bor(
-			bit32.lshift(value1, 18),
-			bit32.lshift(value2, 12),
-			bit32.lshift(value3, 6),
-			value4
-		)
+		local chunk = bit32.bor(bit32.lshift(value1, 18), bit32.lshift(value2, 12), bit32.lshift(value3, 6), value4)
 
 		local character1 = bit32.rshift(chunk, 16)
 		local character2 = bit32.band(bit32.rshift(chunk, 8), 0b11111111)
