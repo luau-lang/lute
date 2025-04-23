@@ -36,6 +36,7 @@ set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 
 # boringssl setup
 add_subdirectory(extern/uWebSockets/uSockets/boringssl)
+set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/uSockets/boringssl/include)
 
 # curl setup
 set(USE_LIBIDN2 OFF)
