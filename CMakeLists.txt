@@ -18,6 +18,11 @@ add_library(Lute.VM STATIC)
 add_library(Lute.Process STATIC)
 add_library(Lute.System STATIC)
 
+if (MSVC)
+    add_definitions(-D_HAS_EXCEPTIONS=0)
+    add_compile_options(/Zc:__cplusplus)
+endif()
+
 # luau setup
 set(LUAU_BUILD_CLI OFF)
 set(LUAU_BUILD_TESTS OFF)
@@ -35,6 +40,7 @@ add_subdirectory(extern/libuv)
 set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 
 # boringssl setup
+add_definitions(-DBORINGSSL_ALLOW_CXX_RUNTIME=1)
 add_subdirectory(extern/boringssl)
 
 # curl setup
