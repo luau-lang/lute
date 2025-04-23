@@ -84,7 +84,7 @@ namespace crypto
 int luaopen_crypto(lua_State* L)
 {
     luteopen_crypto(L);
-    lua_setglobal(L, "system");
+    lua_setglobal(L, "crypto");
 
     return 1;
 }
