@@ -40,14 +40,6 @@ file(GLOB USOCKETS_CRYPTO_CPP_SRC
     ${USOCKETS_SOURCE_DIR}/src/crypto/*.cpp
 )
 
-# Remove openssl.c if using BoringSSL
-if (WITH_BORINGSSL)
-    list(REMOVE_ITEM USOCKETS_CRYPTO_C_SRC
-        ${USOCKETS_SOURCE_DIR}/src/crypto/openssl.c
-    )
-    add_definitions(-DUWS_WITH_BORINGSSL)
-endif()
-
 set(USOCKETS_SOURCES
     ${USOCKETS_C_SRC}
     ${USOCKETS_CRYPTO_C_SRC}
@@ -69,8 +61,11 @@ if(WITH_OPENSSL)
 endif()
 
 if(WITH_BORINGSSL)
+    set(BORINGSSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl")
+    set(BORINGSSL_INCLUDE_DIR "${BORINGSSL_DIR}/include")
     target_compile_definitions(uSockets PRIVATE LIBUS_USE_OPENSSL)
     target_compile_definitions(uSockets PRIVATE UWS_WITH_BORINGSSL)
+    include_directories(uSockets PRIVATE ${BORINGSSL_INCLUDE_DIR})
     target_link_libraries(uSockets PRIVATE ssl crypto stdc++)
 endif()
 
