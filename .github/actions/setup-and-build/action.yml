@@ -24,8 +24,6 @@ runs:
       with:
         python-version: '3.11'
 
-    - name: Set up NASM
-      uses: ilammy/setup-nasm@v1
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
       shell: bash
@@ -45,6 +43,10 @@ runs:
       shell: bash
       run: |
         choco install ninja
+
+    - name: Set up NASM
+      if: runner.os == 'Windows'
+      uses: ilammy/setup-nasm@v1
 
     - name: Setup MSVC
       if: runner.os == 'Windows'
