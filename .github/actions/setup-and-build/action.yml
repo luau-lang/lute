@@ -38,12 +38,6 @@ runs:
         brew update
         brew unlink brotli zstd
 
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        choco install ninja
-
     - name: Setup MSBuild (Latest Visual Studio)
       if: runner.os == 'Windows'
       uses: microsoft/setup-msbuild@v1.3.1

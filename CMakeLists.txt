@@ -50,7 +50,7 @@ set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
-set(CURL_USE_OPENSSL ON)
+set(HAVE_BORINGSSL ON)
 add_subdirectory(extern/curl)
 
 # uWebSockets setup
