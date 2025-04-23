@@ -5,7 +5,6 @@
 /cmake[.-]*/
 /coverage/
 /.vs/
-/.vscode/
 /fuzz/luau.pb.*
 /crash-*
 /default.prof*

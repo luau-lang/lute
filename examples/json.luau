@@ -1,7 +1,7 @@
 local json = require("@batteries/json")
 
 local serialize = json.serialize({
-    hello = "world"
+	hello = "world",
 }, true)
 
 print(serialize)

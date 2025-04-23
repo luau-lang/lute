@@ -63,3 +63,9 @@ target_sources(Lute.CLI PRIVATE
     cli/tc.h
     cli/tc.cpp
 )
+
+target_sources(Lute.System PRIVATE
+    system/include/lute/system.h
+
+    system/src/system.cpp
+)

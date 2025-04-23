@@ -10,6 +10,7 @@
 #include "Luau/CodeGen.h"
 #include "Luau/Require.h"
 #include "Luau/StringUtils.h"
+#include <string>
 
 static luarequire_WriteResult write(std::optional<std::string> contents, char* buffer, size_t bufferSize, size_t* sizeOut)
 {
@@ -224,9 +225,11 @@ static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, 
 
 static int load(lua_State* L, void* ctx, const char* chunkname, const char* contents)
 {
+    std::string_view chunknameView = chunkname;
+
     // FIXME: this is a temporary workaround until Luau.Require provides an
     // API for registering the @lute/* libraries.
-    if (std::string_view chunknameView = chunkname; chunknameView.rfind("@@lute/", 0) == 0)
+    if (chunknameView.rfind("@@lute/", 0) == 0)
     {
         lua_getfield(L, LUA_REGISTRYINDEX, "_MODULES");
         lua_getfield(L, -1, chunknameView.substr(1).data());
@@ -263,10 +266,12 @@ static int load(lua_State* L, void* ctx, const char* chunkname, const char* cont
 
         if (status == 0)
         {
+            const std::string prefix = "module " + std::string(chunknameView.substr(1)) + " must";
+
             if (lua_gettop(ML) == 0)
-                lua_pushstring(ML, "module must return a value");
+                lua_pushstring(ML, (prefix + " return a value").c_str());
             else if (!lua_istable(ML, -1) && !lua_isfunction(ML, -1))
-                lua_pushstring(ML, "module must return a table or function");
+                lua_pushstring(ML, (prefix + " return a table or function").c_str());
         }
         else if (status == LUA_YIELD)
         {
