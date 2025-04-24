@@ -21,12 +21,12 @@ local function isPrimitiveArray(array: { [unknown]: unknown })
 	return n == max
 end
 
-local function formatValue(value: unknown, rawStrings: boolean?)
+local function formatValue(value: unknown, options: { [string]: unknown }?)
 	if typeof(value) ~= "string" then
 		return tostring(value)
 	end
 
-	if rawStrings then
+	if options ~= nil and options.rawStrings == true then
 		return `"{value}"`
 	else
 		return string.format("%q", value)
@@ -67,7 +67,7 @@ local function traverseTable(
 	dataTable: { [unknown]: unknown },
 	seen: { [unknown]: boolean },
 	indent: number,
-	rawStrings: boolean?
+	options: { [string]: unknown }?
 )
 	local output = ""
 	local indentStr = string.rep("  ", indent)
@@ -108,7 +108,7 @@ local function traverseTable(
 		local value = dataTable[key]
 		if typeof(value) ~= "table" then
 			if isPrimitiveType[typeof(value)] then
-				output = `{output}{indentStr}{formatKey(key, inSequence)}{formatValue(value, rawStrings)},\n`
+				output = `{output}{indentStr}{formatKey(key, inSequence)}{formatValue(value, options)},\n`
 			end
 
 			continue
@@ -161,7 +161,7 @@ local function traverseTable(
 			output,
 			indentStr,
 			formatKey(key, inSequence),
-			traverseTable(value :: any, seen, indent + 1, rawStrings),
+			traverseTable(value :: any, seen, indent + 1, options),
 			indentStr
 		)
 
@@ -171,14 +171,14 @@ local function traverseTable(
 	return output
 end
 
-return function(data: unknown, rawStrings: boolean?)
-	rawStrings = if rawStrings then rawStrings else false
+return function(data: unknown, options: { [string]: unknown }?)
+	options = if options then options else {}
 
 	-- if it's not a primitive, we'll pretty print it as a value
 	if typeof(data) ~= "table" then
-		return formatValue(data, rawStrings)
+		return formatValue(data, options)
 	end
 
 	-- FIXME(luau): `{[unknown]: unknown} should be treated identically to `table`
-	return "{\n" .. traverseTable(data :: { [unknown]: unknown }, { [data :: unknown] = true }, 1, rawStrings) .. "}"
+	return "{\n" .. traverseTable(data :: { [unknown]: unknown }, { [data :: unknown] = true }, 1, options) .. "}"
 end
