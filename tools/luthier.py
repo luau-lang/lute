@@ -7,7 +7,7 @@ import subprocess as sp
 import sys
 
 from os import path
-from hashlib import sha256
+from hashlib import blake2b
 
 cwd = os.getcwd()
 
@@ -166,7 +166,7 @@ def getStdLibHash():
     restoredPath = os.getcwd()
     os.chdir(os.path.join(getSourceRoot(), 'std/libs'))
 
-    hasher = sha256()
+    hasher = blake2b()
     for dirpath, _, filenames in os.walk('.'):
         for filename in sorted(filenames):
             filepath = os.path.join(dirpath, filename)
