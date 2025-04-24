@@ -257,8 +257,8 @@ def generateStdLibFilesIfNeeded():
             f"extern const std::pair<std::string_view, std::string_view> lutestdlib[{numItems}];\n",
         ])
 
-    with open(os.path.join(getSourceRoot(), 'std/src/generated/hash.txt'), 'w') as f:
-        f.write(getStdLibHash())
+    with open("../src/generated/hash.txt", "w") as hash:
+        hash.write(getStdLibHash())
 
     os.chdir(restoredPath)
 
