@@ -45,7 +45,6 @@ export type AstLocal = {
 
 export type AstExprConstantBool = Token<"true" | "false"> & { tag: "boolean", value: boolean }
 
-
 export type AstExprConstantString = Token<string> & {
 	tag: "string",
 	quoteStyle: "single" | "double" | "block" | "interp",
