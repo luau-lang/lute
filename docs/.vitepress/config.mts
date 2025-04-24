@@ -4,6 +4,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Lute",
   description: "Luau for General-Purpose Programming",
+  base: "/lute/",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
@@ -37,7 +38,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/aatxe/lute' }
+      { icon: 'github', link: 'https://github.com/luau-lang/lute' }
     ]
   }
 })

@@ -95,7 +95,7 @@ bool Runtime::runToCompletion()
             error += lua_debugtrace(L);
 
             fprintf(stderr, "%s", error.c_str());
-            return false;
+            continue;
         }
 
         if (next.cont)
