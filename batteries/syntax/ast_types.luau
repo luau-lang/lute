@@ -86,6 +86,7 @@ export type AstExprCall = {
 	openParens: Token<"(">?,
 	arguments: Punctuated<AstExpr>,
 	closeParens: Token<")">?,
+	self: boolean,
 }
 
 export type AstExprIndexName = {

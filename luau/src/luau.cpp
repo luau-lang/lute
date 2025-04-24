@@ -821,6 +821,9 @@ struct AstSerialize : public Luau::AstVisitor
         serializePunctuated(node->args, cstNode ? cstNode->commaPositions : Luau::AstArray<Luau::Position>{}, ",");
         lua_setfield(L, -2, "arguments");
 
+        lua_pushboolean(L, node->self);
+        lua_setfield(L, -2, "self");
+
         serialize(node->argLocation);
         lua_setfield(L, -2, "argLocation");
 
