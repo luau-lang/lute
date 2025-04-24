@@ -1,2 +1,2 @@
 [tools]
-stylua = "JohnnyMorganz/StyLua@2.0.2"
+stylua = { github = "JohnnyMorganz/StyLua", version = "2.0.2" }
