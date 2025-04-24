@@ -44,3 +44,14 @@ jobs:
 
       - name: Run StyLua
         run: stylua --check .
+
+  aggregator:
+    name: Gated Commits
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    if: ${{ always() }}
+    steps:
+      - name: Aggregate
+        run: |
+          echo "All required jobs completed"
