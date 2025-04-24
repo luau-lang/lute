@@ -28,9 +28,66 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 
 static int program_argc = 0;
 static char** program_argv = nullptr;
+
+const char MAGIC_FLAG[] = "LUTEBYTE";
+const size_t MAGIC_FLAG_SIZE = sizeof(MAGIC_FLAG) - 1;
+const size_t BYTECODE_SIZE_FIELD_SIZE = sizeof(uint64_t);
+
+struct AppendedBytecodeResult
+{
+    bool found = false;
+    std::string BytecodeData;
+};
+
+AppendedBytecodeResult checkForAppendedBytecode(const char* executablePath)
+{
+    AppendedBytecodeResult result;
+    std::ifstream exeFile(executablePath, std::ios::binary | std::ios::ate);
+    if (!exeFile)
+    {
+        return result;
+    }
+
+    std::streampos fileSize = exeFile.tellg();
+    if (fileSize < (std::streampos)(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE))
+    {
+        exeFile.close();
+        return result;
+    }
+
+    std::vector<char> flagBuffer(MAGIC_FLAG_SIZE);
+    exeFile.seekg(fileSize - (std::streampos)MAGIC_FLAG_SIZE);
+    exeFile.read(flagBuffer.data(), MAGIC_FLAG_SIZE);
+
+    if (memcmp(flagBuffer.data(), MAGIC_FLAG, MAGIC_FLAG_SIZE) != 0)
+    {
+        exeFile.close();
+        return result;
+    }
+
+    uint64_t BytecodeSize;
+    exeFile.seekg(fileSize - (std::streampos)(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE));
+    exeFile.read(reinterpret_cast<char*>(&BytecodeSize), BYTECODE_SIZE_FIELD_SIZE);
+
+    if (fileSize < (std::streampos)(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE + BytecodeSize)) {
+        fprintf(stderr, "Warning: Found magic flag but file size inconsistent.\n");
+        exeFile.close();
+        return result;
+    }
+
+
+    result.BytecodeData.resize(BytecodeSize);
+    exeFile.seekg(fileSize - (std::streampos)(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE + BytecodeSize));
+    exeFile.read(&result.BytecodeData[0], BytecodeSize);
+
+    exeFile.close();
+    result.found = true;
+    return result;
+}
 
 lua_State* setupState(Runtime& runtime)
 {
@@ -163,6 +220,7 @@ static void displayHelp(const char* argv0)
     printf("Commands:\n");
     printf("  run (default)   Run a Luau script.\n");
     printf("  check           Type check Luau files.\n");
+    printf("  compile         Compile a Luau script into the executable.\n");
     printf("\n");
     printf("Run Options (when using 'run' or no command):\n");
     printf("  %s [run] <script.luau> [args...]\n", argv0);
@@ -171,6 +229,10 @@ static void displayHelp(const char* argv0)
     printf("Check Options:\n");
     printf("  %s check <file1.luau> [file2.luau...]\n", argv0);
     printf("    Performs a type check on the specified files.\n");
+    printf("\n");
+    printf("Compile Options:\n");
+    printf("  %s compile <script.luau> [output_executable]\n", argv0);
+    printf("    Compiles the script, embedding it into a new executable.\n");
     printf("\n");
     printf("General Options:\n");
     printf("  -h, --help    Display this usage message.\n");
@@ -190,6 +252,16 @@ static void displayCheckHelp(const char* argv0)
     printf("\n");
     printf("Check Options:\n");
     printf("  -h, --help    Display this usage message.\n");
+}
+
+static void displayCompileHelp(const char* argv0)
+{
+    printf("Usage: %s compile <script.luau> [output_executable]\n", argv0);
+    printf("\n");
+    printf("Compile Options:\n");
+    printf("  output_executable    Optional name for the compiled executable.\n");
+    printf("                       Defaults to '<script_name>_compiled'.\n");
+    printf("  -h, --help           Display this usage message.\n");
 }
 
 static int assertionHandler(const char* expr, const char* file, int line, const char* function)
@@ -275,9 +347,174 @@ int handleCheckCommand(int argc, char** argv, int argOffset)
     return typecheck(files);
 }
 
+int handleCompileCommand(int argc, char** argv, int argOffset)
+{
+    const char* inputFilePath = nullptr;
+    const char* outputFilePath = nullptr;
+
+    for (int i = argOffset; i < argc; ++i)
+    {
+        const char* currentArg = argv[i];
+
+        if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
+        {
+            displayCompileHelp(argv[0]);
+            return 0;
+        }
+        else if (!inputFilePath)
+        {
+            inputFilePath = currentArg;
+        }
+        else if (!outputFilePath)
+        {
+            outputFilePath = currentArg;
+        }
+        else
+        {
+            fprintf(stderr, "Error: Too many arguments for 'compile' command.\n\n");
+            displayCompileHelp(argv[0]);
+            return 1;
+        }
+    }
+
+    if (!inputFilePath)
+    {
+        fprintf(stderr, "Error: No input file specified for 'compile' command.\n\n");
+        displayCompileHelp(argv[0]);
+        return 1;
+    }
+
+    std::string outputFilePathStr;
+    if (outputFilePath)
+    {
+        outputFilePathStr = outputFilePath;
+    }
+    else
+    {
+        std::string inputBase = inputFilePath;
+        size_t lastSlash = inputBase.find_last_of("/");
+        if (lastSlash != std::string::npos) {
+            inputBase = inputBase.substr(lastSlash + 1);
+        }
+        size_t lastDot = inputBase.find_last_of('.');
+        if (lastDot != std::string::npos) {
+            inputBase = inputBase.substr(0, lastDot);
+        }
+        outputFilePathStr = inputBase;
+#ifdef _WIN32
+        outputFilePathStr += ".exe";
+#endif
+    }
+
+
+    std::optional<std::string> source = readFile(inputFilePath);
+    if (!source)
+    {
+        fprintf(stderr, "Error opening input file %s\n", inputFilePath);
+        return 1;
+    }
+
+    std::string bytecode = Luau::compile(*source, copts());
+    if (bytecode.empty())
+    {
+        fprintf(stderr, "Error compiling %s to bytecode.\n", inputFilePath);
+        // TODO: Capture and print compilation errors if possible
+        return 1;
+    }
+
+    const char* currentExecutablePath = argv[0];
+    std::ifstream exeFile(currentExecutablePath, std::ios::binary | std::ios::ate);
+    if (!exeFile)
+    {
+        fprintf(stderr, "Error opening current executable %s\n", currentExecutablePath);
+        return 1;
+    }
+    std::streamsize exeSize = exeFile.tellg();
+    exeFile.seekg(0, std::ios::beg);
+    std::vector<char> exeBuffer(exeSize);
+    if (!exeFile.read(exeBuffer.data(), exeSize))
+    {
+         fprintf(stderr, "Error reading current executable %s\n", currentExecutablePath);
+         exeFile.close();
+         return 1;
+    }
+    exeFile.close();
+
+    std::ofstream outFile(outputFilePathStr, std::ios::binary | std::ios::trunc);
+    if (!outFile) {
+        fprintf(stderr, "Error creating output file %s\n", outputFilePathStr.c_str());
+        return 1;
+    }
+
+    outFile.write(exeBuffer.data(), exeSize);
+
+    uint64_t bytecodeSize = bytecode.size();
+    outFile.write(bytecode.data(), bytecodeSize);
+
+    outFile.write(reinterpret_cast<const char*>(&bytecodeSize), BYTECODE_SIZE_FIELD_SIZE);
+
+    outFile.write(MAGIC_FLAG, MAGIC_FLAG_SIZE);
+
+    if (!outFile.good()) {
+         fprintf(stderr, "Error writing to output file %s\n", outputFilePathStr.c_str());
+         outFile.close();
+         remove(outputFilePathStr.c_str());
+         return 1;
+    }
+
+    outFile.close();
+
+    printf("Successfully compiled %s to %s\n", inputFilePath, outputFilePathStr.c_str());
+#ifndef _WIN32
+    chmod(outputFilePathStr.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+#endif
+
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
     Luau::assertHandler() = assertionHandler;
+
+    AppendedBytecodeResult embedded = checkForAppendedBytecode(argv[0]);
+    if (embedded.found)
+    {
+        Runtime runtime;
+        lua_State* GL = setupState(runtime); // Initialize state normally
+
+        lua_State* L = lua_newthread(GL);
+
+        luaL_sandboxthread(L);
+
+        // Load the embedded bytecode
+        if (luau_load(L, "=__EMBEDDED__", embedded.BytecodeData.data(), embedded.BytecodeData.size(), 0) != 0)
+        {
+            fprintf(stderr, "Error loading embedded bytecode: %s\n", lua_tostring(L, -1));
+            return 1;
+        }
+
+        if (getCodegenEnabled())
+        {
+            Luau::CodeGen::CompilationOptions nativeOptions;
+            Luau::CodeGen::compile(L, -1, nativeOptions);
+        }
+
+        if (!setupArguments(L, program_argc, program_argv))
+        {
+            fprintf(stderr, "Failed to pass arguments to Luau");
+            lua_pop(GL, 1);
+            return 1;
+        }
+
+        runtime.GL = GL;
+        runtime.runningThreads.push_back({true, getRefForThread(L), program_argc});
+
+        lua_pop(GL, 1);
+
+        bool success = runtime.runToCompletion();
+
+        return success ? 0 : 1;
+    }
 
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
@@ -300,6 +537,10 @@ int main(int argc, char** argv)
     else if (strcmp(command, "check") == 0)
     {
         return handleCheckCommand(argc, argv, argOffset);
+    }
+    else if (strcmp(command, "compile") == 0)
+    {
+        return handleCompileCommand(argc, argv, argOffset);
     }
     else if (strcmp(command, "-h") == 0 || strcmp(command, "--help") == 0)
     {
