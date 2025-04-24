@@ -210,6 +210,7 @@ int create(lua_State* L)
     bool useShell = false;
     std::string customShell;
     std::string cwd;
+    bool inheritStdio = false;
     std::map<std::string, std::string> env;
 
     if (lua_istable(L, 2))
@@ -231,6 +232,18 @@ int create(lua_State* L)
         if (!lua_isnil(L, -1))
             cwd = lua_tostring(L, -1);
 
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "stdio");
+        if (lua_isstring(L, -1))
+        {
+            std::string stdioOpt = lua_tostring(L, -1);
+            if (stdioOpt == "inherit")
+            {
+                inheritStdio = true;
+            }
+            // TODO: handle custom stdio
+        }
         lua_pop(L, 1);
 
         lua_getfield(L, 2, "env");
@@ -341,10 +354,20 @@ int create(lua_State* L)
     uv_stdio_container_t stdio[3];
     stdio[0].flags = UV_INHERIT_FD;
     stdio[0].data.fd = 0; // Inherit stdin
-    stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
-    stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
+    if (inheritStdio)
+    {
+        stdio[1].flags = UV_INHERIT_FD;
+        stdio[1].data.fd = 1; // Inherit stdout
+        stdio[2].flags = UV_INHERIT_FD;
+        stdio[2].data.fd = 2; // Inherit stderr
+    }
+    else
+    {
+        stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+        stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
+        stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+        stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
+    }
     options.stdio = stdio;
 
     handle->process.data = handle.get();
