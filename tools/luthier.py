@@ -7,6 +7,7 @@ import subprocess as sp
 import sys
 
 from os import path
+from hashlib import sha256
 
 cwd = os.getcwd()
 
@@ -161,11 +162,48 @@ def projectPathExists(args):
 
     return path.isdir(projectPath)
 
-def generateStdLibFiles():
+def getStdLibHash():
+    restoredPath = os.getcwd()
+    os.chdir(os.path.join(getSourceRoot(), 'std/libs'))
+
+    hasher = sha256()
+    for dirpath, _, filenames in os.walk('.'):
+        for filename in sorted(filenames):
+            filepath = os.path.join(dirpath, filename)
+            hasher.update(filepath.encode('utf-8'))
+            with open(filepath, 'rb') as f:
+                while chunk := f.read(1024):
+                    hasher.update(chunk)
+
+    os.chdir(restoredPath)
+    return hasher.hexdigest()
+
+def isGeneratedStdLibUpToDate():
+    hashFile = os.path.join(getSourceRoot(), 'std/src/generated/hash.txt')
+
+    if not os.path.isfile(hashFile):
+        return False
+
+    with open(hashFile, 'r') as f:
+        lines = f.readlines()
+        assert(len(lines) == 1)
+        actual = lines[0]
+        expected = getStdLibHash()
+        return actual == expected
+
+    return False
+
+def generateStdLibFilesIfNeeded():
     restoredPath = os.getcwd()
 
     os.chdir(os.path.join(getSourceRoot(), 'std'))
     os.makedirs("src/generated", exist_ok=True)
+
+    if (isGeneratedStdLibUpToDate()):
+        os.chdir(restoredPath)
+        return
+    else:
+        print("Generating code for @std libraries, files are out of date.")
 
     with open("src/generated/modules.cpp", "w") as cpp:
         cpp.writelines([
@@ -218,6 +256,9 @@ def generateStdLibFiles():
             "\n",
             f"extern const std::pair<std::string_view, std::string_view> lutestdlib[{numItems}];\n",
         ])
+
+    with open(os.path.join(getSourceRoot(), 'std/src/generated/hash.txt'), 'w') as f:
+        f.write(getStdLibHash())
 
     os.chdir(restoredPath)
 
@@ -386,26 +427,21 @@ def main(argv):
     if subcommand == "fetch":
         return fetchDependencies(args)
     elif subcommand == "configure" or subcommand == "tune":
-        generateStdLibFiles()
+        generateStdLibFilesIfNeeded()
         return configure(args)
     elif subcommand == "build" or subcommand == "craft":
-        generateStdLibFiles()
+        generateStdLibFilesIfNeeded()
         # auto configure if it's not already happened
         if not projectPathExists(args):
             check(configure(args))
         return build(args)
     elif subcommand == "run" or subcommand == "play":
+        generateStdLibFilesIfNeeded()
         # auto configure if it's not already happened
-        configured = False
         if not projectPathExists(args):
-            generateStdLibFiles()
             check(configure(args))
-            configured = True
 
         if not exeExists(args) or args.clean:
-            if not configured:
-                generateStdLibFiles()
-
             check(build(args))
 
         return run(args, unparsed)
