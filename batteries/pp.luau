@@ -22,7 +22,9 @@ local function isPrimitiveArray(array: { [unknown]: unknown })
 end
 
 local function formatValue(value: unknown, options: { [string]: unknown }?)
-	if typeof(value) ~= "string" then
+	if typeof(value) == "table" then
+		return "table" -- simple representation for table values
+	elseif typeof(value) ~= "string" then
 		return tostring(value)
 	end
 
@@ -38,7 +40,9 @@ local function formatKey(key: unknown, seq: boolean)
 		return ""
 	end
 
-	if typeof(key) ~= "string" then
+	if typeof(key) == "table" then
+		return "[table] = " -- add handling for table keys
+	elseif typeof(key) ~= "string" then
 		return `[{tostring(key)}] =`
 	end
 
@@ -74,10 +78,9 @@ local function traverseTable(
 
 	local keys = {}
 
-	for key, value in dataTable do
-		if isPrimitiveType[typeof(key)] then
-			keys[#keys + 1] = key
-		end
+	-- Collect all keys, not just primitives
+	for key, _ in dataTable do
+		keys[#keys + 1] = key
 	end
 
 	table.sort(keys, function(a: string, b: string): boolean
@@ -107,31 +110,22 @@ local function traverseTable(
 
 		local value = dataTable[key]
 		if typeof(value) ~= "table" then
-			if isPrimitiveType[typeof(value)] then
-				output = `{output}{indentStr}{formatKey(key, inSequence)}{formatValue(value, options)},\n`
-			end
-
+			output = `{output}{indentStr}{formatKey(key, inSequence)}{formatValue(value, options)},\n`
 			continue
 		end
 
 		-- prevents self-referential tables from looping infinitely
 		if seen[value] then
+			output = `{output}{indentStr}{formatKey(key, inSequence)}[Circular Reference],\n`
 			continue
 		end
 
 		seen[value] = true
 
 		local hasItems = false
-		for key, val in value do
-			if isPrimitiveType[typeof(key)] and isPrimitiveType[typeof(val)] then
-				hasItems = true
-				break
-			end
-
-			if typeof(val) == "table" then
-				hasItems = true
-				break
-			end
+		for k, val in value do
+			hasItems = true
+			break
 		end
 
 		if not hasItems then
