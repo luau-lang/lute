@@ -40,11 +40,11 @@ runs:
 
     - name: Set up MSVC
       if: runner.os == 'Windows'
-      uses: luau-lang/msvc-dev-cmd
+      uses: luau-lang/msvc-dev-cmd@v1
 
     - name: Set up NASM
       if: runner.os == 'Windows'
-      uses: luau-lang/setup-nasm
+      uses: luau-lang/setup-nasm@v1
 
     - name: Cache extern folder
       uses: actions/cache@v4
