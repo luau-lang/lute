@@ -4,6 +4,7 @@ local T = require("./ast_types")
 
 type Visitor = {
 	visitBlock: (T.AstStatBlock) -> boolean,
+	visitIf: (T.AstStatIf) -> boolean,
 	visitReturn: (T.AstStatReturn) -> boolean,
 	visitLocalDeclaration: (T.AstStatLocal) -> boolean,
 
@@ -11,11 +12,17 @@ type Visitor = {
 	visitGlobal: (T.AstExprGlobal) -> boolean,
 	visitCall: (T.AstExprCall) -> boolean,
 	visitBinary: (T.AstExprBinary) -> boolean,
+	visitAnonymousFunction: (T.AstExprAnonymousFunction) -> boolean,
+	visitTableItem: (T.AstExprTableItem) -> boolean,
 	visitTable: (T.AstExprTable) -> boolean,
 	visitIndexName: (T.AstExprIndexName) -> boolean,
+	visitGroup: (T.AstExprGroup) -> boolean,
 
 	visitToken: (T.Token) -> boolean,
+	visitNil: (T.AstExprConstantNil) -> boolean,
 	visitString: (T.AstExprConstantString) -> boolean,
+	visitBoolean: (T.AstExprConstantBool) -> boolean,
+	visitNumber: (T.AstExprConstantNumber) -> boolean,
 	visitLocal: (T.AstLocal) -> boolean,
 }
 
@@ -25,6 +32,7 @@ end
 
 local defaultVisitor: Visitor = {
 	visitBlock = alwaysVisit :: any,
+	visitIf = alwaysVisit :: any,
 	visitReturn = alwaysVisit :: any,
 	visitLocalDeclaration = alwaysVisit :: any,
 
@@ -32,11 +40,17 @@ local defaultVisitor: Visitor = {
 	visitGlobal = alwaysVisit :: any,
 	visitCall = alwaysVisit :: any,
 	visitBinary = alwaysVisit :: any,
+	visitAnonymousFunction = alwaysVisit :: any,
+	visitTableItem = alwaysVisit :: any,
 	visitTable = alwaysVisit :: any,
 	visitIndexName = alwaysVisit :: any,
+	visitGroup = alwaysVisit :: any,
 
 	visitToken = alwaysVisit :: any,
+	visitNil = alwaysVisit :: any,
 	visitString = alwaysVisit :: any,
+	visitBoolean = alwaysVisit :: any,
+	visitNumber = alwaysVisit :: any,
 	visitLocal = alwaysVisit :: any,
 }
 
@@ -71,6 +85,23 @@ local function visitBlock(block: T.AstStatBlock, visitor: Visitor)
 	end
 end
 
+local function visitIf(node: T.AstStatIf, visitor: Visitor)
+	if visitor.visitIf(node) then
+		visitToken(node["if"], visitor)
+		visitExpression(node.condition, visitor)
+		visitToken(node["then"], visitor)
+		visitBlock(node.consequent, visitor)
+		-- TODO: special handling for elseif?
+		if node["else"] then
+			visitToken(node["else"], visitor)
+		end
+		if node.antecedent then
+			visitBlock(node.antecedent, visitor)
+		end
+		visitToken(node["end"], visitor)
+	end
+end
+
 local function visitReturn(node: T.AstStatReturn, visitor: Visitor)
 	if visitor.visitReturn(node) then
 		visitToken(node["return"], visitor)
@@ -92,6 +123,24 @@ end
 local function visitString(node: T.AstExprConstantString, visitor: Visitor)
 	if visitor.visitString(node) then
 		visitor.visitToken(node)
+	end
+end
+
+local function visitNil(node: T.AstExprConstantNil, visitor: Visitor)
+	if visitor.visitNil(node) then
+		visitToken(node, visitor)
+	end
+end
+
+local function visitBoolean(node: T.AstExprConstantBool, visitor: Visitor)
+	if visitor.visitBoolean(node) then
+		visitToken(node, visitor)
+	end
+end
+
+local function visitNumber(node: T.AstExprConstantNumber, visitor: Visitor)
+	if visitor.visitNumber(node) then
+		visitToken(node, visitor)
 	end
 end
 
@@ -128,10 +177,51 @@ local function visitBinary(node: T.AstExprBinary, visitor: Visitor)
 	end
 end
 
+local function visitFunctionBody(node: T.AstFunctionBody, visitor: Visitor)
+	visitToken(node.openParens, visitor)
+	visitPunctuated(node.parameters, visitor, visitLocal)
+	visitToken(node.closeParens, visitor)
+	visitBlock(node.body, visitor)
+	visitToken(node["end"], visitor)
+end
+
+local function visitAnonymousFunction(node: T.AstExprAnonymousFunction, visitor: Visitor)
+	if visitor.visitAnonymousFunction(node) then
+		visitToken(node["function"], visitor)
+		visitFunctionBody(node.body, visitor)
+	end
+end
+
+local function visitTableItem(node: T.AstExprTableItem, visitor: Visitor)
+	if visitor.visitTableItem(node) then
+		if node.kind == "list" then
+			visitExpression(node.value, visitor)
+		elseif node.kind == "record" then
+			visitToken(node.key, visitor)
+			visitToken(node.equals, visitor)
+			visitExpression(node.value, visitor)
+		elseif node.kind == "general" then
+			visitToken(node.indexerOpen, visitor)
+			visitExpression(node.key, visitor)
+			visitToken(node.indexerClose, visitor)
+			visitToken(node.equals, visitor)
+			visitExpression(node.value, visitor)
+		else
+			exhaustiveMatch(node.kind)
+		end
+
+		if node.separator then
+			visitToken(node.separator, visitor)
+		end
+	end
+end
+
 local function visitTable(node: T.AstExprTable, visitor: Visitor)
 	if visitor.visitTable(node) then
 		visitToken(node.openBrace, visitor)
-		-- TODO: visit entries
+		for _, item in node.entries do
+			visitTableItem(item, visitor)
+		end
 		visitToken(node.closeBrace, visitor)
 	end
 end
@@ -144,8 +234,22 @@ local function visitIndexName(node: T.AstExprIndexName, visitor: Visitor)
 	end
 end
 
+local function visitGroup(node: T.AstExprGroup, visitor: Visitor)
+	if visitor.visitGroup(node) then
+		visitToken(node.openParens, visitor)
+		visitExpression(node.expression, visitor)
+		visitToken(node.closeParens, visitor)
+	end
+end
+
 function visitExpression(expression: T.AstExpr, visitor: Visitor)
-	if expression.tag == "string" then
+	if expression.tag == "nil" then
+		visitNil(expression, visitor)
+	elseif expression.tag == "boolean" then
+		visitBoolean(expression, visitor)
+	elseif expression.tag == "number" then
+		visitNumber(expression, visitor)
+	elseif expression.tag == "string" then
 		visitString(expression, visitor)
 	elseif expression.tag == "local" then
 		visitLocalReference(expression, visitor)
@@ -155,10 +259,14 @@ function visitExpression(expression: T.AstExpr, visitor: Visitor)
 		visitCall(expression, visitor)
 	elseif expression.tag == "binary" then
 		visitBinary(expression, visitor)
+	elseif expression.tag == "function" then
+		visitAnonymousFunction(expression, visitor)
 	elseif expression.tag == "table" then
 		visitTable(expression, visitor)
 	elseif expression.tag == "indexname" then
 		visitIndexName(expression, visitor)
+	elseif expression.tag == "group" then
+		visitGroup(expression, visitor)
 	else
 		exhaustiveMatch(expression.tag)
 	end
@@ -167,6 +275,8 @@ end
 function visitStatement(statement: T.AstStat, visitor: Visitor)
 	if statement.tag == "block" then
 		visitBlock(statement, visitor)
+	elseif statement.tag == "conditional" then
+		visitIf(statement, visitor)
 	elseif statement.tag == "expression" then
 		visitExpression(statement.expression, visitor)
 	elseif statement.tag == "local" then
