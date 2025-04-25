@@ -43,6 +43,8 @@ export type AstLocal = {
 	name: Token<string>,
 }
 
+export type AstExprConstantNil = Token<"nil"> & { tag: "nil" }
+
 export type AstExprConstantBool = Token<"true" | "false"> & { tag: "boolean", value: boolean }
 
 export type AstExprConstantNumber = Token<string> & { tag: "number", value: number }
@@ -135,6 +137,7 @@ export type AstExprBinary = {
 }
 
 export type AstExpr =
+	| AstExprConstantNil
 	| AstExprConstantBool
 	| AstExprConstantNumber
 	| AstExprConstantString
@@ -150,6 +153,17 @@ export type AstExpr =
 export type AstStatBlock = {
 	tag: "block",
 	statements: { AstStat },
+}
+
+export type AstStatIf = {
+	tag: "conditional",
+	["if"]: Token<"if">,
+	condition: AstExpr,
+	["then"]: Token<"then">,
+	consequent: AstStatBlock,
+	["else"]: Token<"else">, -- TODO: this could be elseif!
+	antecedent: AstStatBlock,
+	["end"]: Token<"end">,
 }
 
 export type AstStatReturn = {
@@ -171,6 +185,6 @@ export type AstStatLocal = {
 	values: Punctuated<AstExpr>,
 }
 
-export type AstStat = AstStatBlock | AstStatReturn | AstStatExpr | AstStatLocal
+export type AstStat = AstStatBlock | AstStatIf | AstStatReturn | AstStatExpr | AstStatLocal
 
 return {}

@@ -3,6 +3,7 @@
 #include "Luau/Compiler.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Parser.h"
+#include "Luau/Require.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -31,6 +32,31 @@
 
 static int program_argc = 0;
 static char** program_argv = nullptr;
+
+static void* createCliRequireContext(lua_State* L)
+{
+    void* ctx = lua_newuserdatadtor(
+        L,
+        sizeof(RequireCtx),
+        [](void* ptr)
+        {
+            static_cast<RequireCtx*>(ptr)->~RequireCtx();
+        }
+    );
+
+    if (!ctx)
+        luaL_error(L, "unable to allocate RequireCtx");
+
+    ctx = new (ctx) RequireCtx{};
+
+    // Store RequireCtx in the registry to keep it alive for the lifetime of
+    // this lua_State. Memory address is used as a key to avoid collisions.
+    lua_pushlightuserdata(L, ctx);
+    lua_insert(L, -2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return ctx;
+}
 
 lua_State* setupState(Runtime& runtime)
 {
@@ -75,13 +101,9 @@ lua_State* setupState(Runtime& runtime)
     luteopen_system(L);
     lua_setfield(L, -2, "@lute/system");
 
-    static const luaL_Reg funcs[] = {
-        {"require", lua_require},
-        {nullptr, nullptr},
-    };
-
-    luaL_register(L, "_G", funcs);
     lua_pop(L, 1);
+
+    luaopen_require(L, requireConfigInit, createCliRequireContext(L));
 
     lua_pushnil(L);
     lua_setglobal(L, "setfenv");
@@ -120,7 +142,14 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(L);
 
-    std::string chunkname = "=" + std::string(name);
+    // ignore file extension when storing module's chunkname
+    std::string chunkname = "@";
+    std::string_view nameView = name;
+    if (size_t dotPos = nameView.find_last_of('.'); dotPos != std::string_view::npos)
+    {
+        nameView.remove_suffix(nameView.size() - dotPos);
+    }
+    chunkname += nameView;
 
     std::string bytecode = Luau::compile(*source, copts());
 

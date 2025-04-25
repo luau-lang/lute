@@ -4,6 +4,7 @@ local T = require("./ast_types")
 
 type Visitor = {
 	visitBlock: (T.AstStatBlock) -> boolean,
+	visitIf: (T.AstStatIf) -> boolean,
 	visitReturn: (T.AstStatReturn) -> boolean,
 	visitLocalDeclaration: (T.AstStatLocal) -> boolean,
 
@@ -17,6 +18,7 @@ type Visitor = {
 	visitIndexName: (T.AstExprIndexName) -> boolean,
 
 	visitToken: (T.Token) -> boolean,
+	visitNil: (T.AstExprConstantNil) -> boolean,
 	visitString: (T.AstExprConstantString) -> boolean,
 	visitBoolean: (T.AstExprConstantBool) -> boolean,
 	visitNumber: (T.AstExprConstantNumber) -> boolean,
@@ -29,6 +31,7 @@ end
 
 local defaultVisitor: Visitor = {
 	visitBlock = alwaysVisit :: any,
+	visitIf = alwaysVisit :: any,
 	visitReturn = alwaysVisit :: any,
 	visitLocalDeclaration = alwaysVisit :: any,
 
@@ -42,6 +45,7 @@ local defaultVisitor: Visitor = {
 	visitIndexName = alwaysVisit :: any,
 
 	visitToken = alwaysVisit :: any,
+	visitNil = alwaysVisit :: any,
 	visitString = alwaysVisit :: any,
 	visitBoolean = alwaysVisit :: any,
 	visitNumber = alwaysVisit :: any,
@@ -79,6 +83,23 @@ local function visitBlock(block: T.AstStatBlock, visitor: Visitor)
 	end
 end
 
+local function visitIf(node: T.AstStatIf, visitor: Visitor)
+	if visitor.visitIf(node) then
+		visitToken(node["if"], visitor)
+		visitExpression(node.condition, visitor)
+		visitToken(node["then"], visitor)
+		visitBlock(node.consequent, visitor)
+		-- TODO: special handling for elseif?
+		if node["else"] then
+			visitToken(node["else"], visitor)
+		end
+		if node.antecedent then
+			visitBlock(node.antecedent, visitor)
+		end
+		visitToken(node["end"], visitor)
+	end
+end
+
 local function visitReturn(node: T.AstStatReturn, visitor: Visitor)
 	if visitor.visitReturn(node) then
 		visitToken(node["return"], visitor)
@@ -100,6 +121,12 @@ end
 local function visitString(node: T.AstExprConstantString, visitor: Visitor)
 	if visitor.visitString(node) then
 		visitor.visitToken(node)
+	end
+end
+
+local function visitNil(node: T.AstExprConstantNil, visitor: Visitor)
+	if visitor.visitNil(node) then
+		visitToken(node, visitor)
 	end
 end
 
@@ -206,7 +233,9 @@ local function visitIndexName(node: T.AstExprIndexName, visitor: Visitor)
 end
 
 function visitExpression(expression: T.AstExpr, visitor: Visitor)
-	if expression.tag == "boolean" then
+	if expression.tag == "nil" then
+		visitNil(expression, visitor)
+	elseif expression.tag == "boolean" then
 		visitBoolean(expression, visitor)
 	elseif expression.tag == "number" then
 		visitNumber(expression, visitor)
@@ -234,6 +263,8 @@ end
 function visitStatement(statement: T.AstStat, visitor: Visitor)
 	if statement.tag == "block" then
 		visitBlock(statement, visitor)
+	elseif statement.tag == "conditional" then
+		visitIf(statement, visitor)
 	elseif statement.tag == "expression" then
 		visitExpression(statement.expression, visitor)
 	elseif statement.tag == "local" then
