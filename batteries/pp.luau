@@ -1,5 +1,9 @@
 local isPrimitiveType = { string = true, number = true, boolean = true }
 
+type existingOptions = {
+	["rawStrings"] : boolean?,
+}
+
 local function isPrimitiveArray(array: { [unknown]: unknown })
 	local max, n = 0, 0
 
@@ -21,7 +25,7 @@ local function isPrimitiveArray(array: { [unknown]: unknown })
 	return n == max
 end
 
-local function formatValue(value: unknown, options: { [string]: unknown }?)
+local function formatValue(value: unknown, options: existingOptions?)
 	if typeof(value) == "table" then
 		return "table" -- simple representation for table values
 	elseif typeof(value) ~= "string" then
@@ -71,7 +75,7 @@ local function traverseTable(
 	dataTable: { [unknown]: unknown },
 	seen: { [unknown]: boolean },
 	indent: number,
-	options: { [string]: unknown }?
+	options: existingOptions?
 )
 	local output = ""
 	local indentStr = string.rep("  ", indent)
@@ -165,8 +169,8 @@ local function traverseTable(
 	return output
 end
 
-return function(data: unknown, options: { [string]: unknown }?)
-	options = if options then options else {}
+return function(data: unknown, options: existingOptions?)
+	options = if options then options else {} :: existingOptions
 
 	-- if it's not a primitive, we'll pretty print it as a value
 	if typeof(data) ~= "table" then
