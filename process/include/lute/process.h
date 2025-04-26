@@ -11,13 +11,13 @@ int luteopen_process(lua_State* L);
 namespace process
 {
 
-int create(lua_State* L);
+int run(lua_State* L);
 
 int homedir(lua_State* L);
 int cwd(lua_State* L);
 
 static const luaL_Reg lib[] = {
-    {"create", create},
+    {"run", run},
     {"homedir", homedir},
     {"cwd", cwd},
 
