@@ -363,9 +363,9 @@ int create(lua_State* L)
     else if (stdioKind == kStdioKindInherit)
     {
         stdio[1].flags = UV_INHERIT_FD;
-        stdio[1].data.fd = 1; // Inherit stdout
+        stdio[1].data.fd = 1;
         stdio[2].flags = UV_INHERIT_FD;
-        stdio[2].data.fd = 2; // Inherit stderr
+        stdio[2].data.fd = 2;
     }
     else if (stdioKind == kStdioKindDefault || stdioKind.empty())
     {
