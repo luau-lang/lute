@@ -13,7 +13,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <variant>
 
 namespace net
 {
