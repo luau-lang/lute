@@ -5,6 +5,7 @@
 #include "curl/curl.h"
 #include "App.h"
 #include "Luau/DenseHash.h"
+#include "Luau/Variant.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -98,14 +99,16 @@ int getAsync(lua_State* L)
     return lua_yield(L, 0);
 }
 
+using uWSApp = Luau::Variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSLApp>>;
+
 static const int kEmptyServerKey = 0;
-static Luau::DenseHashMap<int, std::variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSLApp>>> serverInstances(kEmptyServerKey);
+static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
 static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
 
 struct ServerLoopState
 {
-    std::variant<uWS::App*, uWS::SSLApp*> app;
+    Luau::Variant<uWS::App*, uWS::SSLApp*> app;
     Runtime* runtime;
     bool running = true;
     std::function<void()> loopFunction;
@@ -351,10 +354,10 @@ bool closeServer(int serverId)
         return false;
     }
 
-    std::visit([](auto* appPtr){ if (appPtr) appPtr->close(); }, serverStates[serverId]->app);
+    Luau::visit([](auto* appPtr){ if (appPtr) appPtr->close(); }, serverStates[serverId]->app);
     serverStates[serverId]->running = false;
 
-    std::visit([](auto& ptr){ if(ptr) ptr.reset(); }, serverInstances[serverId]);
+    Luau::visit([](auto& ptr){ if(ptr) ptr.reset(); }, serverInstances[serverId]);
     serverStates[serverId] = nullptr;
 
     return true;
@@ -452,7 +455,7 @@ int serve(lua_State* L)
     state->handlerRef = std::make_shared<Ref>(L, -1);
     lua_pop(L, 1);
 
-    std::variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSLApp>> app;
+    uWSApp app;
     bool success = false;
 
     if (tlsOptions) {
@@ -479,7 +482,7 @@ int serve(lua_State* L)
         {
             return;
         }
-        std::visit([](auto* appPtr){ if(appPtr) appPtr->run(); }, state->app);
+        Luau::visit([](auto* appPtr){ if(appPtr) appPtr->run(); }, state->app);
         state->runtime->schedule(state->loopFunction);
     };
 
