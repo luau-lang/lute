@@ -189,7 +189,7 @@ const std::string kStdioKindNone = "none";
 // TODO: add forwarding
 // const std::string kStdioKindForward = "forward";
 
-int create(lua_State* L)
+int run(lua_State* L)
 {
     std::vector<std::string> args;
     if (lua_istable(L, 1))
