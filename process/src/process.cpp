@@ -183,7 +183,7 @@ static void allocBuffer(uv_handle_t* handle, size_t suggestedSize, uv_buf_t* buf
     }
 }
 
-int create(lua_State* L)
+int run(lua_State* L)
 {
     std::vector<std::string> args;
     if (lua_istable(L, 1))

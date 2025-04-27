@@ -4,7 +4,7 @@
 local process = require("@lute/process")
 ```
 
-## create <Badge type="warning" text="yields" />
+## run <Badge type="warning" text="yields" />
 ```luau
 (args: { string }, options: ProcessOptions) -> ProcessResult
 ```
