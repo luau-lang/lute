@@ -294,11 +294,8 @@ static void processRequest(
     lua_pop(L, 1);
 }
 
-void setupAppAndListen(
-    auto* app,
-    std::shared_ptr<ServerLoopState> state,
-    bool& success
-) {
+void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& success)
+{
     app->any(
         "/*",
         [state](auto* res, auto* req)
@@ -326,10 +323,11 @@ void setupAppAndListen(
 
             std::string bodyBuffer;
             res->onData(
-                [state, res, req, method, path, query, bodyBuffer = std::move(bodyBuffer)]
-                (std::string_view data, bool last) mutable {
+                [state, res, req, method, path, query, bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
+                {
                     bodyBuffer.append(data);
-                    if (last) {
+                    if (last)
+                    {
                         processRequest(state, res, req, method, path, query, bodyBuffer);
                     }
                 }
@@ -340,7 +338,8 @@ void setupAppAndListen(
     app->listen(
         state->hostname,
         state->port,
-        [&success](auto* listen_socket) {
+        [&success](auto* listen_socket)
+        {
             success = (listen_socket != nullptr);
         }
     );
@@ -353,10 +352,24 @@ bool closeServer(int serverId)
         return false;
     }
 
-    Luau::visit([](auto* appPtr){ if (appPtr) appPtr->close(); }, serverStates[serverId]->app);
+    Luau::visit(
+        [](auto* appPtr)
+        {
+            if (appPtr)
+                appPtr->close();
+        },
+        serverStates[serverId]->app
+    );
     serverStates[serverId]->running = false;
 
-    Luau::visit([](auto& ptr){ if(ptr) ptr.reset(); }, serverInstances[serverId]);
+    Luau::visit(
+        [](auto& ptr)
+        {
+            if (ptr)
+                ptr.reset();
+        },
+        serverInstances[serverId]
+    );
     serverStates[serverId] = nullptr;
 
     return true;
@@ -457,12 +470,15 @@ int serve(lua_State* L)
     uWSApp app;
     bool success = false;
 
-    if (tlsOptions) {
+    if (tlsOptions)
+    {
         auto ssl_app = std::make_unique<uWS::SSLApp>(*tlsOptions);
         state->app = ssl_app.get();
         setupAppAndListen(ssl_app.get(), state, success);
         app = std::move(ssl_app);
-    } else {
+    }
+    else
+    {
         auto plain_app = std::make_unique<uWS::App>();
         state->app = plain_app.get();
         setupAppAndListen(plain_app.get(), state, success);
@@ -481,7 +497,14 @@ int serve(lua_State* L)
         {
             return;
         }
-        Luau::visit([](auto* appPtr){ if(appPtr) appPtr->run(); }, state->app);
+        Luau::visit(
+            [](auto* appPtr)
+            {
+                if (appPtr)
+                    appPtr->run();
+            },
+            state->app
+        );
         state->runtime->schedule(state->loopFunction);
     };
 
