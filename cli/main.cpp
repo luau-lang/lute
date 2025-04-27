@@ -129,6 +129,12 @@ bool setupArguments(lua_State* L, int argc, char** argv)
 
 static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
 {
+    if (isDirectory(name))
+    {
+        fprintf(stderr, "Error: %s is a directory\n", name);
+        return false;
+    }
+
     std::optional<std::string> source = readFile(name);
     if (!source)
     {
