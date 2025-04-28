@@ -57,19 +57,6 @@ int get(lua_State* L)
 {
     std::string url = luaL_checkstring(L, 1);
 
-    auto [error, data] = requestData(url);
-
-    if (!error.empty())
-        luaL_errorL(L, "network request failed: %s", error.c_str());
-
-    lua_pushlstring(L, data.data(), data.size());
-    return 1;
-}
-
-int getAsync(lua_State* L)
-{
-    std::string url = luaL_checkstring(L, 1);
-
     auto token = getResumeToken(L);
 
     // TODO: add cancellations
@@ -375,7 +362,7 @@ bool closeServer(int serverId)
     return true;
 }
 
-int serve(lua_State* L)
+int lua_serve(lua_State* L)
 {
     std::string hostname = "0.0.0.0";
     int port = 3000;
