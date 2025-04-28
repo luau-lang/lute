@@ -1,7 +1,7 @@
 local isPrimitiveType = { string = true, number = true, boolean = true }
 
-type existingOptions = {
-	["rawStrings"]: boolean?,
+type ExistingOptions = {
+	rawStrings: boolean?,
 }
 
 local function isPrimitiveArray(array: { [unknown]: unknown })
