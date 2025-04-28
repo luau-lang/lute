@@ -339,7 +339,7 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
                     }
                     else
                     {
-                        if (buffer.get())
+                        if (bodyBuffer.get())
                         {
                             bodyBuffer->append(data);
                         }
