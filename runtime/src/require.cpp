@@ -223,7 +223,7 @@ static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, 
     return write(getFileContents(reqCtx->currentVFSType, reqCtx->absPath, "/.luaurc"), buffer, buffer_size, size_out);
 }
 
-static int load(lua_State* L, void* ctx, const char* chunkname, const char* contents)
+static int load(lua_State* L, void* ctx, const char* path, const char* chunkname, const char* contents)
 {
     std::string_view chunknameView = chunkname;
 

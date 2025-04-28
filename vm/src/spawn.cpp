@@ -186,7 +186,7 @@ int lua_spawn(lua_State* L)
 
     // Require the target module
     RequireCtx ctx{/* sourceOverride = */ ar.source};
-    lua_pushrequire(child->GL, requireConfigInit, &ctx);
+    luarequire_pushrequire(child->GL, requireConfigInit, &ctx);
     lua_pushstring(child->GL, file);
     int status = lua_pcall(child->GL, 1, 1, 0);
 

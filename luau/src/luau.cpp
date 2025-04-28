@@ -1420,7 +1420,7 @@ struct AstSerialize : public Luau::AstVisitor
         // TODO: declarations
     }
 
-    void serializeStat(Luau::AstStatDeclareClass* node)
+    void serializeStat(Luau::AstStatDeclareExternType* node)
     {
         // TODO: declarations
     }
@@ -1845,7 +1845,7 @@ struct AstSerialize : public Luau::AstVisitor
         return false;
     }
 
-    bool visit(Luau::AstStatDeclareClass* node) override
+    bool visit(Luau::AstStatDeclareExternType* node) override
     {
         serializeStat(node);
         return false;
