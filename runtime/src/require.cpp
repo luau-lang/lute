@@ -270,8 +270,6 @@ static int load(lua_State* L, void* ctx, const char* chunkname, const char* cont
 
             if (lua_gettop(ML) == 0)
                 lua_pushstring(ML, (prefix + " return a value").c_str());
-            else if (!lua_istable(ML, -1) && !lua_isfunction(ML, -1))
-                lua_pushstring(ML, (prefix + " return a table or function").c_str());
         }
         else if (status == LUA_YIELD)
         {
