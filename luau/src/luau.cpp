@@ -1784,9 +1784,9 @@ int compile_luau(lua_State* L)
 
     if (lua_type(L, 2) == LUA_TTABLE)
     {
-        opts.optimizationLevel = check_int_field(L, 2, "optimization_level", 1);
-        opts.debugLevel = check_int_field(L, 2, "debug_level", 1);
-        opts.coverageLevel = check_int_field(L, 2, "coverage_level", 1);
+        opts.optimizationLevel = check_int_field(L, 2, "optimizationlevel", 1);
+        opts.debugLevel = check_int_field(L, 2, "debuglevel", 1);
+        opts.coverageLevel = check_int_field(L, 2, "coveragelevel", 1);
     }
 
     std::string bytecode = Luau::compile(std::string(source, source_size), opts);
