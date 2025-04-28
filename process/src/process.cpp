@@ -363,9 +363,9 @@ int run(lua_State* L)
     else if (stdioKind == kStdioKindInherit)
     {
         stdio[1].flags = UV_INHERIT_FD;
-        stdio[1].data.fd = 1;
+        stdio[1].data.fd = fileno(stdout);
         stdio[2].flags = UV_INHERIT_FD;
-        stdio[2].data.fd = 2;
+        stdio[2].data.fd = fileno(stderr);
     }
     else if (stdioKind == kStdioKindDefault || stdioKind.empty())
     {
