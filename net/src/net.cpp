@@ -247,7 +247,7 @@ static void processRequest(
     const std::string& method,
     const std::string& path,
     const std::string& query,
-    const std::string& body
+    const std::string_view& body
 )
 {
     lua_State* L = state->runtime->GL;
@@ -271,7 +271,7 @@ static void processRequest(
     lua_settable(L, -3);
 
     lua_pushstring(L, "body");
-    lua_pushstring(L, body.c_str());
+    lua_pushlstring(L, body.data(), body.size());
     lua_settable(L, -3);
 
     state->handlerRef->push(L);
@@ -321,14 +321,32 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
                 }
             );
 
-            std::string bodyBuffer;
+            std::unique_ptr<std::string> bodyBuffer;
             res->onData(
                 [state, res, req, method, path, query, bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
                 {
-                    bodyBuffer.append(data);
                     if (last)
                     {
-                        processRequest(state, res, req, method, path, query, bodyBuffer);
+                        if (bodyBuffer.get())
+                        {
+                            bodyBuffer->append(data);
+                            processRequest(state, res, req, method, path, query, *bodyBuffer);
+                        }
+                        else
+                        {
+                            processRequest(state, res, req, method, path, query, data);
+                        }
+                    }
+                    else
+                    {
+                        if (buffer.get())
+                        {
+                            bodyBuffer->append(data);
+                        }
+                        else
+                        {
+                            bodyBuffer = std::make_unique<std::string>(data);
+                        }
                     }
                 }
             );
