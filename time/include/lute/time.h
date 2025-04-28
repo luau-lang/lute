@@ -8,7 +8,7 @@ int luaopen_time(lua_State* L);
 // open the library as a table on top of the stack
 int luteopen_time(lua_State* L);
 
-namespace time_lib
+namespace libtime
 {
 int lua_now(lua_State* L);
 
@@ -18,4 +18,4 @@ static const luaL_Reg lib[] = {
     {nullptr, nullptr},
 };
 
-} // namespace time_lib
+} // namespace libtime

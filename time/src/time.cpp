@@ -4,7 +4,7 @@
 #include <iterator>
 #include <assert.h>
 
-namespace time_lib
+namespace libtime
 {
 int lua_now(lua_State* L)
 {
@@ -19,20 +19,20 @@ int lua_now(lua_State* L)
     return 1;
 }
 
-} // namespace time_lib
+} // namespace libtime
 
 int luaopen_time(lua_State* L)
 {
-    luaL_register(L, "time", time_lib::lib);
+    luaL_register(L, "time", libtime::lib);
 
     return 1;
 }
 
 int luteopen_time(lua_State* L)
 {
-    lua_createtable(L, 0, std::size(time_lib::lib));
+    lua_createtable(L, 0, std::size(libtime::lib));
 
-    for (auto& [name, func] : time_lib::lib)
+    for (auto& [name, func] : libtime::lib)
     {
         if (!name || !func)
             break;
