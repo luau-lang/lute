@@ -20,6 +20,7 @@
 #include "lute/runtime.h"
 #include "lute/task.h"
 #include "lute/vm.h"
+#include "lute/time.h"
 
 #include "tc.h"
 
@@ -100,6 +101,9 @@ lua_State* setupState(Runtime& runtime)
 
     luteopen_system(L);
     lua_setfield(L, -2, "@lute/system");
+
+    luteopen_time(L);
+    lua_setfield(L, -2, "@lute/time");
 
     lua_pop(L, 1);
 
