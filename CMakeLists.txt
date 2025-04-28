@@ -9,6 +9,17 @@ include(get_version.cmake)
 
 project(Lute LANGUAGES CXX C VERSION ${LUTE_VERSION})
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT ipo_supported)
+    if(ipo_supported)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+        message(STATUS "IPO enabled for Release build.")
+    else()
+        message(WARNING "IPO not supported by the compiler.")
+    endif()
+endif()
+
 add_library(Lute.Runtime STATIC)
 add_library(Lute.Fs STATIC)
 add_library(Lute.Luau STATIC)
