@@ -30,6 +30,7 @@ jobs:
         with:
           config: debug
           options: ${{ matrix.options }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   check-format:
     runs-on: ubuntu-latest

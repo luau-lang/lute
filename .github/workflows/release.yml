@@ -82,6 +82,7 @@ jobs:
       with:
         config: release
         options: ${{ matrix.options }}
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Upload Artifact
       uses: actions/upload-artifact@v4

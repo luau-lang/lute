@@ -54,7 +54,6 @@ args:add("which", "flag", { help = "print out the path to the compiled binary an
 args:add("cxx-compiler", "option", { help = "C++ compiler to use" })
 args:add("c-compiler", "option", { help = "C compiler to use" })
 
-
 if not isWindows and not isMac and not isLinux then
 	error("Unknown platform " .. os)
 end
