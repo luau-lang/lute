@@ -38,7 +38,7 @@ int lute_resume(lua_State* L)
     lua_xmove(L, thread, args);
 
     int resumptionStatus = lua_resume(thread, L, args);
-    if ((resumptionStatus != LUA_OK) && (resumptionStatus != LUA_YIELD) && (resumptionStatus != LUA_BREAK))
+    if (resumptionStatus != LUA_OK && resumptionStatus != LUA_YIELD && resumptionStatus != LUA_BREAK)
     {
         runtime->reportError(thread);
     }
