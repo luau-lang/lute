@@ -19,8 +19,10 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Install lute
-      uses: CompeyDev/setup-rokit@v0.1.2
+    - name: Install tools
+      uses: Roblox/setup-foreman@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'

@@ -172,11 +172,7 @@ end
 local function call(cmd: { string }, passedCwd: string?): number
 	print("> " .. table.concat(cmd, " "))
 
-	local res = process.create(cmd, { cwd = passedCwd or cwd })
-	print(res.stdout)
-	if res.stderr ~= "" then
-		print(res.stderr)
-	end
+	local res = process.create(cmd, { cwd = passedCwd or cwd, stdio = "inherit" })
 	return res.exitcode
 end
 
