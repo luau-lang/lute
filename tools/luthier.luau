@@ -181,7 +181,7 @@ local function isGeneratedStdLibUpToDate(): boolean
 end
 
 local function writeLines(file, lines: { string })
-	fs.write(file, table.concat(lines, "\n"))
+	fs.write(file, table.concat(lines, "\n") .. "\n")
 end
 
 local function generateStdLibFilesIfNeeded()
