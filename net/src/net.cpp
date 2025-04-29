@@ -280,7 +280,7 @@ static void processRequest(
     lua_remove(L, -3);
 
     int status = lua_resume(L, nullptr, 1);
-    if ((status != LUA_OK) && (status != LUA_YIELD))
+    if (status != LUA_OK && status != LUA_YIELD)
     {
         std::string error = lua_tostring(L, -1);
         lua_pop(L, 1);
