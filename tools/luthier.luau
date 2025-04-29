@@ -19,7 +19,7 @@ local BUILD_DIR = "build"
 local cwd = process.cwd()
 
 local function gitVersion(): { major: number, minor: number, path: number }
-	local gitVersionString = process.create({ "git", "--version" }).stdout
+	local gitVersionString = process.run({ "git", "--version" }).stdout
 	local gitVersion = string.split(gitVersionString, " ")[3]
 	local components = string.split(gitVersion, ".")
 	return {
@@ -171,8 +171,7 @@ end
 local function call(cmd: { string }, passedCwd: string?): number
 	print("> " .. table.concat(cmd, " "))
 
-	local res = process.create(cmd, { cwd = passedCwd or cwd, stdio = "inherit" })
-	return res.exitcode
+	return process.run(cmd, { cwd = passedCwd or cwd, stdio = "inherit" }).exitcode
 end
 
 local function build()
