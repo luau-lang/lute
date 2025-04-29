@@ -31,7 +31,6 @@ export type Visitor = {
 	visitIndexName: (T.AstExprIndexName) -> boolean,
 	visitIndexExpr: (T.AstExprIndexExpr) -> boolean,
 	visitGroup: (T.AstExprGroup) -> boolean,
-	visitInterpolatedString: (T.AstExprInterpString) -> boolean,
 
 	visitTypeReference: (T.AstTypeReference) -> boolean,
 	visitTypeBoolean: (T.AstTypeSingletonBool) -> boolean,
@@ -81,7 +80,6 @@ local defaultVisitor: Visitor = {
 	visitIndexName = alwaysVisit :: any,
 	visitIndexExpr = alwaysVisit :: any,
 	visitGroup = alwaysVisit :: any,
-	visitInterpolatedString = alwaysVisit :: any,
 
 	visitTypeReference = alwaysVisit :: any,
 	visitTypeBoolean = alwaysVisit :: any,
