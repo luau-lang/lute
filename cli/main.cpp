@@ -3,6 +3,7 @@
 #include "Luau/Compiler.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Parser.h"
+#include "Luau/Require.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -31,6 +32,31 @@
 
 static int program_argc = 0;
 static char** program_argv = nullptr;
+
+static void* createCliRequireContext(lua_State* L)
+{
+    void* ctx = lua_newuserdatadtor(
+        L,
+        sizeof(RequireCtx),
+        [](void* ptr)
+        {
+            static_cast<RequireCtx*>(ptr)->~RequireCtx();
+        }
+    );
+
+    if (!ctx)
+        luaL_error(L, "unable to allocate RequireCtx");
+
+    ctx = new (ctx) RequireCtx{};
+
+    // Store RequireCtx in the registry to keep it alive for the lifetime of
+    // this lua_State. Memory address is used as a key to avoid collisions.
+    lua_pushlightuserdata(L, ctx);
+    lua_insert(L, -2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return ctx;
+}
 
 lua_State* setupState(Runtime& runtime)
 {
@@ -75,13 +101,9 @@ lua_State* setupState(Runtime& runtime)
     luteopen_system(L);
     lua_setfield(L, -2, "@lute/system");
 
-    static const luaL_Reg funcs[] = {
-        {"require", lua_require},
-        {nullptr, nullptr},
-    };
-
-    luaL_register(L, "_G", funcs);
     lua_pop(L, 1);
+
+    luaopen_require(L, requireConfigInit, createCliRequireContext(L));
 
     lua_pushnil(L);
     lua_setglobal(L, "setfenv");
@@ -107,6 +129,12 @@ bool setupArguments(lua_State* L, int argc, char** argv)
 
 static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
 {
+    if (isDirectory(name))
+    {
+        fprintf(stderr, "Error: %s is a directory\n", name);
+        return false;
+    }
+
     std::optional<std::string> source = readFile(name);
     if (!source)
     {
@@ -120,7 +148,14 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(L);
 
-    std::string chunkname = "=" + std::string(name);
+    // ignore file extension when storing module's chunkname
+    std::string chunkname = "@";
+    std::string_view nameView = name;
+    if (size_t dotPos = nameView.find_last_of('.'); dotPos != std::string_view::npos)
+    {
+        nameView.remove_suffix(nameView.size() - dotPos);
+    }
+    chunkname += nameView;
 
     std::string bytecode = Luau::compile(*source, copts());
 
@@ -201,46 +236,28 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
 int handleRunCommand(int argc, char** argv, int argOffset)
 {
     const char* filePath = nullptr;
-    std::vector<const char*> programArgs;
-    bool seenDoubleDash = false;
 
     for (int i = argOffset; i < argc; ++i)
     {
         const char* currentArg = argv[i];
 
-        if (seenDoubleDash)
-        {
-            programArgs.push_back(currentArg);
-        }
-        else if (strcmp(currentArg, "--") == 0)
-        {
-            seenDoubleDash = true;
-            if (!filePath)
-            {
-                fprintf(stderr, "Error: File must be specified before '--'.\n\n");
-                displayRunHelp(argv[0]);
-                return 1;
-            }
-        }
-        else if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
+        if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
             displayRunHelp(argv[0]);
             return 0;
         }
-        else if (!filePath && currentArg[0] == '-')
+        else if (currentArg[0] == '-')
         {
             fprintf(stderr, "Error: Unrecognized option '%s' for 'run' command.\n\n", currentArg);
             displayRunHelp(argv[0]);
             return 1;
         }
-        else if (!filePath)
-        {
-            filePath = currentArg;
-            programArgs.push_back(filePath); // Add path as first argument for the script
-        }
         else
         {
-            programArgs.push_back(currentArg);
+            filePath = currentArg;
+            program_argc = argc - i;
+            program_argv = &argv[i];
+            break;
         }
     }
 
@@ -250,9 +267,6 @@ int handleRunCommand(int argc, char** argv, int argOffset)
         displayRunHelp(argv[0]);
         return 1;
     }
-
-    program_argc = programArgs.size();
-    program_argv = program_argc > 0 ? const_cast<char**>(programArgs.data()) : nullptr;
 
     Runtime runtime;
     lua_State* L = setupState(runtime);

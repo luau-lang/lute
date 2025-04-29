@@ -1,0 +1,2 @@
+[tools]
+stylua = { github = "JohnnyMorganz/StyLua", version = "2.0.2" }

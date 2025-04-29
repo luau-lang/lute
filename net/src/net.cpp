@@ -5,6 +5,7 @@
 #include "curl/curl.h"
 #include "App.h"
 #include "Luau/DenseHash.h"
+#include "Luau/Variant.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -56,19 +57,6 @@ int get(lua_State* L)
 {
     std::string url = luaL_checkstring(L, 1);
 
-    auto [error, data] = requestData(url);
-
-    if (!error.empty())
-        luaL_errorL(L, "network request failed: %s", error.c_str());
-
-    lua_pushlstring(L, data.data(), data.size());
-    return 1;
-}
-
-int getAsync(lua_State* L)
-{
-    std::string url = luaL_checkstring(L, 1);
-
     auto token = getResumeToken(L);
 
     // TODO: add cancellations
@@ -97,14 +85,16 @@ int getAsync(lua_State* L)
     return lua_yield(L, 0);
 }
 
+using uWSApp = Luau::Variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSLApp>>;
+
 static const int kEmptyServerKey = 0;
-static Luau::DenseHashMap<int, std::unique_ptr<uWS::App>> serverInstances(kEmptyServerKey);
+static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
 static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
 
 struct ServerLoopState
 {
-    uWS::App* app;
+    Luau::Variant<uWS::App*, uWS::SSLApp*> app;
     Runtime* runtime;
     bool running = true;
     std::function<void()> loopFunction;
@@ -291,79 +281,9 @@ static void processRequest(
     lua_pop(L, 1);
 }
 
-bool closeServer(int serverId)
+void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& success)
 {
-    if (!serverInstances.contains(serverId) || !serverStates.contains(serverId))
-    {
-        return false;
-    }
-
-    auto& app = serverInstances[serverId];
-    app->close();
-    serverStates[serverId]->running = false;
-
-    serverInstances[serverId].reset();
-    serverStates[serverId] = nullptr;
-
-    return true;
-}
-
-int serve(lua_State* L)
-{
-    std::string hostname = "0.0.0.0";
-    int port = 3000;
-    int handlerIndex = 1;
-
-    // Check if first argument is a table (config) or function (handler)
-    if (lua_istable(L, 1))
-    {
-        lua_getfield(L, 1, "hostname");
-        if (lua_isstring(L, -1))
-        {
-            hostname = lua_tostring(L, -1);
-        }
-        lua_pop(L, 1);
-
-        lua_getfield(L, 1, "port");
-        if (lua_isnumber(L, -1))
-        {
-            port = lua_tointeger(L, -1);
-        }
-        lua_pop(L, 1);
-
-        lua_getfield(L, 1, "handler");
-        if (!lua_isfunction(L, -1))
-        {
-            lua_pop(L, 1);
-            luaL_errorL(L, "handler function is required in config table");
-            return 0;
-        }
-        lua_insert(L, -1);
-        handlerIndex = lua_gettop(L);
-    }
-    else if (!lua_isfunction(L, 1))
-    {
-        luaL_errorL(L, "serve requires a handler function or config table");
-        return 0;
-    }
-
-    Runtime* runtime = getRuntime(L);
-
-    auto app = std::make_unique<uWS::App>();
-
-    int serverId = nextServerId++;
-
-    auto state = std::make_shared<ServerLoopState>();
-    state->app = app.get();
-    state->runtime = runtime;
-    state->hostname = hostname;
-    state->port = port;
-
-    lua_pushvalue(L, handlerIndex);
-    state->handlerRef = std::make_shared<Ref>(L, -1);
-    lua_pop(L, 1);
-
-    state->app->any(
+    app->any(
         "/*",
         [state](auto* res, auto* req)
         {
@@ -388,27 +308,187 @@ int serve(lua_State* L)
                 }
             );
 
+            std::unique_ptr<std::string> bodyBuffer;
             res->onData(
-                [state, res, req, method, path, query](std::string_view data, bool last)
+                [state, res, req, method, path, query, bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
                 {
-                    if (!last)
-                        return;
-                    processRequest(state, res, req, method, path, query, data);
+                    if (last)
+                    {
+                        if (bodyBuffer.get())
+                        {
+                            bodyBuffer->append(data);
+                            processRequest(state, res, req, method, path, query, *bodyBuffer);
+                        }
+                        else
+                        {
+                            processRequest(state, res, req, method, path, query, data);
+                        }
+                    }
+                    else
+                    {
+                        if (bodyBuffer.get())
+                        {
+                            bodyBuffer->append(data);
+                        }
+                        else
+                        {
+                            bodyBuffer = std::make_unique<std::string>(data);
+                        }
+                    }
                 }
             );
         }
     );
 
-    bool success = false;
-
-    state->app->listen(
-        hostname,
-        port,
+    app->listen(
+        state->hostname,
+        state->port,
         [&success](auto* listen_socket)
         {
             success = (listen_socket != nullptr);
         }
     );
+}
+
+bool closeServer(int serverId)
+{
+    if (!serverInstances.contains(serverId) || !serverStates.contains(serverId))
+    {
+        return false;
+    }
+
+    Luau::visit(
+        [](auto* appPtr)
+        {
+            if (appPtr)
+                appPtr->close();
+        },
+        serverStates[serverId]->app
+    );
+    serverStates[serverId]->running = false;
+
+    Luau::visit(
+        [](auto& ptr)
+        {
+            if (ptr)
+                ptr.reset();
+        },
+        serverInstances[serverId]
+    );
+    serverStates[serverId] = nullptr;
+
+    return true;
+}
+
+int lua_serve(lua_State* L)
+{
+    std::string hostname = "0.0.0.0";
+    int port = 3000;
+    std::optional<uWS::SocketContextOptions> tlsOptions;
+    int handlerIndex = 1;
+
+    // Check if first argument is a table (config) or function (handler)
+    if (lua_istable(L, 1))
+    {
+        lua_getfield(L, 1, "hostname");
+        if (lua_isstring(L, -1))
+        {
+            hostname = lua_tostring(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 1, "port");
+        if (lua_isnumber(L, -1))
+        {
+            port = lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 1, "tls");
+        if (lua_istable(L, -1))
+        {
+            tlsOptions.emplace();
+
+            lua_getfield(L, -1, "cert_file_name");
+            if (!lua_isstring(L, -1))
+            {
+                luaL_errorL(L, "tls config requires 'cert_file_name' (string)");
+                return 0;
+            }
+            tlsOptions->cert_file_name = lua_tostring(L, -1);
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "key_file_name");
+            if (!lua_isstring(L, -1))
+            {
+                luaL_errorL(L, "tls config requires 'key_file_name' (string)");
+                return 0;
+            }
+            tlsOptions->key_file_name = lua_tostring(L, -1);
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "passphrase");
+            if (lua_isstring(L, -1))
+            {
+                tlsOptions->passphrase = lua_tostring(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "ca_file_name");
+            if (lua_isstring(L, -1))
+            {
+                tlsOptions->ca_file_name = lua_tostring(L, -1);
+            }
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 1, "handler");
+        if (!lua_isfunction(L, -1))
+        {
+            lua_pop(L, 1);
+            luaL_errorL(L, "handler function is required in config table");
+            return 0;
+        }
+        lua_insert(L, -1);
+        handlerIndex = lua_gettop(L);
+    }
+    else if (!lua_isfunction(L, 1))
+    {
+        luaL_errorL(L, "serve requires a handler function or config table");
+        return 0;
+    }
+
+    Runtime* runtime = getRuntime(L);
+
+    int serverId = nextServerId++;
+
+    auto state = std::make_shared<ServerLoopState>();
+    state->runtime = runtime;
+    state->hostname = hostname;
+    state->port = port;
+
+    lua_pushvalue(L, handlerIndex);
+    state->handlerRef = std::make_shared<Ref>(L, -1);
+    lua_pop(L, 1);
+
+    uWSApp app;
+    bool success = false;
+
+    if (tlsOptions)
+    {
+        auto ssl_app = std::make_unique<uWS::SSLApp>(*tlsOptions);
+        state->app = ssl_app.get();
+        setupAppAndListen(ssl_app.get(), state, success);
+        app = std::move(ssl_app);
+    }
+    else
+    {
+        auto plain_app = std::make_unique<uWS::App>();
+        state->app = plain_app.get();
+        setupAppAndListen(plain_app.get(), state, success);
+        app = std::move(plain_app);
+    }
 
     if (!success)
     {
@@ -422,7 +502,14 @@ int serve(lua_State* L)
         {
             return;
         }
-        state->app->run();
+        Luau::visit(
+            [](auto* appPtr)
+            {
+                if (appPtr)
+                    appPtr->run();
+            },
+            state->app
+        );
         state->runtime->schedule(state->loopFunction);
     };
 
