@@ -435,6 +435,27 @@ int homedir(lua_State* L)
     return 1;
 }
 
+int exitFunc(lua_State* L)
+{
+    int exitCode = luaL_optinteger(L, 1, 0);
+
+    if (exitCode == 0)
+    {
+        fprintf(stderr, "Process exiting normally with code: %d\n", exitCode);
+    }
+    else
+    {
+        fprintf(stderr, "Process exiting with error code: %d\n", exitCode);
+    }
+
+    fflush(stderr);
+
+    // Exit with the provided code
+    std::exit(exitCode);
+
+    return 0; // This line will never be reached
+}
+
 int cwd(lua_State* L)
 {
     std::string buffer;
