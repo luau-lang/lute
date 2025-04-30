@@ -63,7 +63,7 @@ namespace crypto
             const char* data = lua_tolstring(L, 2, &length);
 
             void* buffer = lua_newbuffer(L, EVP_MD_size(hashFunction));
-            if (!EVP_Digest(data, length, (uint8_t*) buffer, nullptr, hashFunction, nullptr))
+            if (EVP_Digest(data, length, (uint8_t*) buffer, nullptr, hashFunction, nullptr) == 0)
                 luaL_error(L, "%s: failed to compute hash", kDigestName);
         }
         else if (lua_isbuffer(L, 2))
@@ -72,7 +72,7 @@ namespace crypto
             void* data = lua_tobuffer(L, 2, &length);
 
             void* buffer = lua_newbuffer(L, EVP_MD_size(hashFunction));
-            if (!EVP_Digest(data, length, (uint8_t*) buffer, nullptr, hashFunction, nullptr))
+            if (EVP_Digest(data, length, (uint8_t*) buffer, nullptr, hashFunction, nullptr) == 0)
                 luaL_error(L, "%s: failed to compute hash", kDigestName);
         }
 
