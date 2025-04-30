@@ -269,22 +269,26 @@ static int load(lua_State* L, void* ctx, const char* chunkname, const char* cont
             const std::string prefix = "module " + std::string(chunknameView.substr(1)) + " must";
 
             if (lua_gettop(ML) == 0)
-                lua_pushstring(ML, (prefix + " return a value, if it has no return value, you should explicitly return `nil`").c_str());
+                lua_pushstring(ML, (prefix + " return a value, if it has no return value, you should explicitly return `nil`\n").c_str());
         }
         else if (status == LUA_YIELD)
         {
-            lua_pushstring(ML, "module can not yield");
+            lua_pushstring(ML, "module can not yield\n");
         }
         else if (!lua_isstring(ML, -1))
         {
-            lua_pushstring(ML, "unknown error while running module");
+            lua_pushstring(ML, "unknown error while running module\n");
         }
     }
 
     // add ML result to L stack
     lua_xmove(ML, L, 1);
     if (lua_isstring(L, -1))
+    {
+        lua_pushstring(L, lua_debugtrace(ML));
+        lua_concat(L, 2);
         lua_error(L);
+    }
 
     // remove ML thread from L stack
     lua_remove(L, -2);
