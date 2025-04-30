@@ -13,6 +13,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <mutex>
+#include <unordered_map>
 
 namespace net
 {
@@ -57,6 +59,19 @@ int get(lua_State* L)
 {
     std::string url = luaL_checkstring(L, 1);
 
+    auto [error, data] = requestData(url);
+
+    if (!error.empty())
+        luaL_errorL(L, "network request failed: %s", error.c_str());
+
+    lua_pushlstring(L, data.data(), data.size());
+    return 1;
+}
+
+int getAsync(lua_State* L)
+{
+    std::string url = luaL_checkstring(L, 1);
+
     auto token = getResumeToken(L);
 
     // TODO: add cancellations
@@ -91,6 +106,10 @@ static const int kEmptyServerKey = 0;
 static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
 static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
+
+// Track used ports for proper error detection
+static std::mutex portMutex;
+static std::unordered_map<std::string, bool> usedPorts;
 
 struct ServerLoopState
 {
@@ -237,7 +256,7 @@ static void processRequest(
     const std::string_view& body
 )
 {
-    lua_State* L = lua_newthread(state->runtime->GL);
+    lua_State* L = state->runtime->GL;
 
     lua_createtable(L, 0, 5);
 
@@ -266,8 +285,7 @@ static void processRequest(
     lua_pushvalue(L, -2);
     lua_remove(L, -3);
 
-    int status = lua_resume(L, nullptr, 1);
-    if (status != LUA_OK && status != LUA_YIELD)
+    if (lua_pcall(L, 1, 1, 0) != 0)
     {
         std::string error = lua_tostring(L, -1);
         lua_pop(L, 1);
@@ -282,7 +300,7 @@ static void processRequest(
     lua_pop(L, 1);
 }
 
-void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& success)
+void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& success, std::string& errorMessage)
 {
     app->any(
         "/*",
@@ -344,11 +362,75 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
     app->listen(
         state->hostname,
         state->port,
-        [&success](auto* listen_socket)
+        [&success, &errorMessage, state](auto* listen_socket)
         {
-            success = (listen_socket != nullptr);
+            if (listen_socket)
+            {
+                success = true;
+            }
+            else
+            {
+                success = false;
+                // Use more specific error message for binding failures
+                errorMessage = "Failed to bind server to " + state->hostname + ":" + std::to_string(state->port) + 
+                              ", the port may be in use by another application";
+            }
         }
     );
+}
+
+// Function to check if port is already in use
+static bool isPortInUse(const std::string& hostname, int port)
+{
+    std::string key = hostname + ":" + std::to_string(port);
+    std::lock_guard<std::mutex> guard(portMutex);
+    return usedPorts.find(key) != usedPorts.end();
+}
+
+// Function to mark a port as used
+static void markPortAsUsed(const std::string& hostname, int port)
+{
+    std::string key = hostname + ":" + std::to_string(port);
+    std::lock_guard<std::mutex> guard(portMutex);
+    usedPorts[key] = true;
+}
+
+// Function to release a port
+static void releasePort(const std::string& hostname, int port)
+{
+    std::string key = hostname + ":" + std::to_string(port);
+    std::lock_guard<std::mutex> guard(portMutex);
+    usedPorts.erase(key);
+}
+
+// Enhanced hostname validation
+static bool isValidHostname(const std::string& hostname)
+{
+    // Allow common localhost values
+    if (hostname == "0.0.0.0" || hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1")
+        return true;
+    
+    // If hostname is empty, it's invalid
+    if (hostname.empty())
+        return false;
+
+    // Basic validation for domain names
+    if (hostname.length() > 255)
+        return false;
+        
+    // Check for invalid characters
+    if (hostname.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != std::string::npos)
+        return false;
+    
+    // Can't start or end with hyphen
+    if (hostname[0] == '-' || hostname[hostname.length() - 1] == '-')
+        return false;
+    
+    // Can't have consecutive dots
+    if (hostname.find("..") != std::string::npos)
+        return false;
+    
+    return true;
 }
 
 bool closeServer(int serverId)
@@ -358,15 +440,20 @@ bool closeServer(int serverId)
         return false;
     }
 
+    auto state = serverStates[serverId];
+    
+    // Release the port when server closes
+    releasePort(state->hostname, state->port);
+
     Luau::visit(
         [](auto* appPtr)
         {
             if (appPtr)
                 appPtr->close();
         },
-        serverStates[serverId]->app
+        state->app
     );
-    serverStates[serverId]->running = false;
+    state->running = false;
 
     Luau::visit(
         [](auto& ptr)
@@ -381,12 +468,13 @@ bool closeServer(int serverId)
     return true;
 }
 
-int lua_serve(lua_State* L)
+int serve(lua_State* L)
 {
     std::string hostname = "0.0.0.0";
     int port = 3000;
     std::optional<uWS::SocketContextOptions> tlsOptions;
     int handlerIndex = 1;
+    bool allowPortReuse = false;
 
     // Check if first argument is a table (config) or function (handler)
     if (lua_istable(L, 1))
@@ -402,6 +490,13 @@ int lua_serve(lua_State* L)
         if (lua_isnumber(L, -1))
         {
             port = lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 1, "allow_port_reuse");
+        if (lua_isboolean(L, -1))
+        {
+            allowPortReuse = lua_toboolean(L, -1);
         }
         lua_pop(L, 1);
 
@@ -460,6 +555,25 @@ int lua_serve(lua_State* L)
         return 0;
     }
 
+    // Pre-validate the hostname with more detailed error message
+    if (!isValidHostname(hostname))
+    {
+        std::string errorMsg = "Invalid hostname: '" + hostname + "'. Hostnames must contain only letters, numbers, periods, and hyphens.";
+        lua_pushnil(L);
+        lua_pushstring(L, errorMsg.c_str());
+        return 2;
+    }
+
+    // Check for port conflicts before attempting to bind
+    if (isPortInUse(hostname, port) && !allowPortReuse)
+    {
+        std::string errorMsg = "Port already in use: " + hostname + ":" + std::to_string(port) + 
+                              ". Try a different port or set allow_port_reuse to true.";
+        lua_pushnil(L);
+        lua_pushstring(L, errorMsg.c_str());
+        return 2;
+    }
+
     Runtime* runtime = getRuntime(L);
 
     int serverId = nextServerId++;
@@ -473,28 +587,62 @@ int lua_serve(lua_State* L)
     state->handlerRef = std::make_shared<Ref>(L, -1);
     lua_pop(L, 1);
 
-    uWSApp app;
-    bool success = false;
+    // Mark the port as used
+    markPortAsUsed(hostname, port);
 
-    if (tlsOptions)
+    bool success = false;
+    std::string errorMessage;
+    bool appCreated = false;
+
+    // Set up port reuse on Linux
+#ifdef __linux__
+    if (allowPortReuse)
     {
-        auto ssl_app = std::make_unique<uWS::SSLApp>(*tlsOptions);
-        state->app = ssl_app.get();
-        setupAppAndListen(ssl_app.get(), state, success);
-        app = std::move(ssl_app);
+        if (tlsOptions)
+        {
+            tlsOptions->options |= LIBUS_LISTEN_OPTION_REUSE_PORT;
+        }
+        else
+        {
+            uWS::AppOptions options;
+            options.options |= LIBUS_LISTEN_OPTION_REUSE_PORT;
+            auto plain_app = std::make_unique<uWS::App>(options);
+            state->app = plain_app.get();
+            setupAppAndListen(plain_app.get(), state, success, errorMessage);
+            serverInstances[serverId] = std::move(plain_app);
+            appCreated = true;
+        }
     }
-    else
+#endif
+
+    // Create the app if not already created
+    if (!appCreated)
     {
-        auto plain_app = std::make_unique<uWS::App>();
-        state->app = plain_app.get();
-        setupAppAndListen(plain_app.get(), state, success);
-        app = std::move(plain_app);
+        if (tlsOptions)
+        {
+            auto ssl_app = std::make_unique<uWS::SSLApp>(*tlsOptions);
+            state->app = ssl_app.get();
+            setupAppAndListen(ssl_app.get(), state, success, errorMessage);
+            serverInstances[serverId] = std::move(ssl_app);
+        }
+        else
+        {
+            auto plain_app = std::make_unique<uWS::App>();
+            state->app = plain_app.get();
+            setupAppAndListen(plain_app.get(), state, success, errorMessage);
+            serverInstances[serverId] = std::move(plain_app);
+        }
     }
 
     if (!success)
     {
+        // Release the port since binding failed
+        releasePort(hostname, port);
+        
+        // Return nil and error message to Lua
         lua_pushnil(L);
-        return 1;
+        lua_pushstring(L, errorMessage.c_str());
+        return 2;
     }
 
     state->loopFunction = [state]()
@@ -514,7 +662,6 @@ int lua_serve(lua_State* L)
         state->runtime->schedule(state->loopFunction);
     };
 
-    serverInstances[serverId] = std::move(app);
     serverStates[serverId] = state;
 
     runtime->schedule(state->loopFunction);
