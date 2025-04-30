@@ -183,6 +183,12 @@ static void allocBuffer(uv_handle_t* handle, size_t suggestedSize, uv_buf_t* buf
     }
 }
 
+const std::string kStdioKindDefault = "default";
+const std::string kStdioKindInherit = "inherit";
+const std::string kStdioKindNone = "none";
+// TODO: add forwarding
+// const std::string kStdioKindForward = "forward";
+
 int run(lua_State* L)
 {
     std::vector<std::string> args;
@@ -210,6 +216,7 @@ int run(lua_State* L)
     bool useShell = false;
     std::string customShell;
     std::string cwd;
+    std::string stdioKind;
     std::map<std::string, std::string> env;
 
     if (lua_istable(L, 2))
@@ -231,6 +238,14 @@ int run(lua_State* L)
         if (!lua_isnil(L, -1))
             cwd = lua_tostring(L, -1);
 
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "stdio");
+        if (lua_isstring(L, -1))
+        {
+            stdioKind = lua_tostring(L, -1);
+            // TODO: support stdin and separate stdout/stderr kinds
+        }
         lua_pop(L, 1);
 
         lua_getfield(L, 2, "env");
@@ -339,12 +354,31 @@ int run(lua_State* L)
 
     options.stdio_count = 3;
     uv_stdio_container_t stdio[3];
-    stdio[0].flags = UV_INHERIT_FD;
-    stdio[0].data.fd = 0; // Inherit stdin
-    stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
-    stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
+    stdio[0].flags = UV_IGNORE;
+    if (stdioKind == kStdioKindNone)
+    {
+        stdio[1].flags = UV_IGNORE;
+        stdio[2].flags = UV_IGNORE;
+    }
+    else if (stdioKind == kStdioKindInherit)
+    {
+        stdio[1].flags = UV_INHERIT_FD;
+        stdio[1].data.fd = fileno(stdout);
+        stdio[2].flags = UV_INHERIT_FD;
+        stdio[2].data.fd = fileno(stderr);
+    }
+    else if (stdioKind == kStdioKindDefault || stdioKind.empty())
+    {
+        stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+        stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
+        stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+        stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
+    }
+    else
+    {
+        luaL_error(L, "Invalid stdio kind: %s", stdioKind.c_str());
+        return 0;
+    }
     options.stdio = stdio;
 
     handle->process.data = handle.get();

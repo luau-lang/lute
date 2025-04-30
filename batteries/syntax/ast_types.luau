@@ -226,6 +226,70 @@ export type AstStatLocal = {
 	values: Punctuated<AstExpr>,
 }
 
+export type AstStatFor = {
+	tag: "for",
+	["for"]: Token<"for">,
+	variable: AstLocal,
+	equals: Token<"=">,
+	from: AstExpr,
+	toComma: Token<",">,
+	to: AstExpr,
+	stepComma: Token<",">?,
+	step: AstExpr?,
+	["do"]: Token<"do">,
+	body: AstStatBlock,
+	["end"]: Token<"end">,
+}
+
+export type AstStatForIn = {
+	tag: "forin",
+	["for"]: Token<"for">,
+	variables: Punctuated<Token<string>>,
+	["in"]: Token<"in">,
+	values: Punctuated<Token<string>>,
+	["do"]: Token<"do">,
+	body: AstStatBlock,
+	["end"]: Token<"end">,
+}
+
+export type AstStatAssign = {
+	tag: "assign",
+	variables: Punctuated<AstExpr>,
+	equals: Token<"=">,
+	values: Punctuated<AstExpr>,
+}
+
+export type AstStatCompoundAssign = {
+	tag: "compoundassign",
+	variable: AstExpr,
+	operand: Token, -- TODO: enforce token type,
+	value: AstExpr,
+}
+
+export type AstStatFunction = {
+	tag: "function",
+	["function"]: Token<"function">,
+	name: AstExpr,
+	body: AstFunctionBody,
+}
+
+export type AstStatLocalFunction = {
+	tag: "localfunction",
+	["local"]: Token<"local">,
+	["function"]: Token<"function">,
+	name: AstLocal,
+	body: AstFunctionBody,
+}
+
+export type AstStatTypeAlias = {
+	tag: "typealias",
+	["export"]: Token<"export">?,
+	typeToken: Token<"type">,
+	name: Token,
+	equals: Token<"=">,
+	type: AstType,
+}
+
 export type AstStat =
 	| AstStatBlock
 	| AstStatIf
@@ -236,5 +300,49 @@ export type AstStat =
 	| AstStatReturn
 	| AstStatExpr
 	| AstStatLocal
+	| AstStatFor
+	| AstStatForIn
+	| AstStatAssign
+	| AstStatCompoundAssign
+	| AstStatFunction
+	| AstStatLocalFunction
+	| AstStatTypeAlias
+
+export type AstTypeReference = {
+	tag: "reference",
+	prefix: Token<string>?,
+	prefixPoint: Token<".">?,
+	name: Token<string>,
+	openParameters: Token<"<">?,
+	parameters: Punctuated<AstType>?,
+	closeParameters: Token<">">?,
+}
+
+export type AstTypeSingletonBool = Token<"true" | "false"> & {
+	tag: "boolean",
+	value: boolean,
+}
+
+export type AstTypeSingletonString = Token<string> & {
+	tag: "string",
+	quoteStyle: "single" | "double",
+}
+
+export type AstTypeTypeof = {
+	tag: "typeof",
+	typeof: Token<"typeof">,
+	openParens: Token<"(">,
+	expr: AstExpr,
+	closeParens: Token<")">,
+}
+
+export type AstTypeGroup = {
+	tag: "group",
+	openParens: Token<"(">,
+	type: AstType,
+	closeParens: Token<">">,
+}
+
+export type AstType = | AstTypeReference | AstTypeSingletonBool | AstTypeSingletonString | AstTypeTypeof | AstTypeGroup
 
 return {}

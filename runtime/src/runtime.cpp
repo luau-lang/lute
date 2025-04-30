@@ -95,7 +95,12 @@ bool Runtime::runToCompletion()
             error += lua_debugtrace(L);
 
             fprintf(stderr, "%s", error.c_str());
-            continue;
+
+            // If we have no work to do, then exit the process.
+            if (!hasThreads() && !hasContinuations())
+                return false;
+            else
+                continue;
         }
 
         if (next.cont)
@@ -136,6 +141,11 @@ bool Runtime::hasContinuations()
 {
     std::unique_lock lock(continuationMutex);
     return !continuations.empty();
+}
+
+bool Runtime::hasThreads()
+{
+    return !runningThreads.empty();
 }
 
 void Runtime::schedule(std::function<void()> f)

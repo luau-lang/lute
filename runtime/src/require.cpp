@@ -269,9 +269,7 @@ static int load(lua_State* L, void* ctx, const char* chunkname, const char* cont
             const std::string prefix = "module " + std::string(chunknameView.substr(1)) + " must";
 
             if (lua_gettop(ML) == 0)
-                lua_pushstring(ML, (prefix + " return a value").c_str());
-            else if (!lua_istable(ML, -1) && !lua_isfunction(ML, -1))
-                lua_pushstring(ML, (prefix + " return a table or function").c_str());
+                lua_pushstring(ML, (prefix + " return a value, if it has no return value, you should explicitly return `nil`").c_str());
         }
         else if (status == LUA_YIELD)
         {

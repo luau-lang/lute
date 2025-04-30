@@ -61,6 +61,11 @@ local function printBlock(block: T.AstStatBlock): string
 		return false
 	end
 
+	printer.visitTypeString = function(node: T.AstTypeSingletonString)
+		result ..= printString(node)
+		return false
+	end
+
 	visitor.visitBlock(block, printer)
 
 	return result

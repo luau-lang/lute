@@ -30,6 +30,7 @@ struct Runtime
     void runContinuously();
 
     bool hasContinuations();
+    bool hasThreads();
 
     void schedule(std::function<void()> f);
 

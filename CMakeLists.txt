@@ -40,6 +40,18 @@ set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 add_subdirectory(extern/boringssl)
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
 
+# boringssl is openssl
+set(OPENSSL_FOUND TRUE CACHE INTERNAL "Force found status for OpenSSL")
+set(OPENSSL_INCLUDE_DIR ${BORINGSSL_INCLUDE_DIR} CACHE INTERNAL "Include dir for BoringSSL")
+
+add_library(OpenSSL::SSL INTERFACE IMPORTED GLOBAL)
+target_link_libraries(OpenSSL::SSL INTERFACE ssl)
+target_include_directories(OpenSSL::SSL INTERFACE ${BORINGSSL_INCLUDE_DIR})
+
+add_library(OpenSSL::Crypto INTERFACE IMPORTED GLOBAL)
+target_link_libraries(OpenSSL::Crypto INTERFACE crypto)
+target_include_directories(OpenSSL::Crypto INTERFACE ${BORINGSSL_INCLUDE_DIR})
+
 # curl setup
 set(USE_LIBIDN2 OFF)
 set(USE_NGHTTP2 OFF)
