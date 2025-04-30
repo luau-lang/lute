@@ -16,12 +16,6 @@
 #include <mutex>
 #include <unordered_map>
 
-// For socket reuse options on Linux
-#ifdef __linux__
-#include <sys/socket.h>
-#include <netinet/in.h>
-#endif
-
 namespace net
 {
 
@@ -602,26 +596,11 @@ int lua_serve(lua_State* L)
     bool success = false;
     std::string errorMessage;
 
-    // Create the app without port reuse for all platforms (we'll use native socket options for Linux if needed)
+    // Create the app (we'll remove direct socket option handling for now since it's not compatible)
     if (tlsOptions)
     {
         auto ssl_app = std::make_unique<uWS::SSLApp>(*tlsOptions);
         state->app = ssl_app.get();
-
-        // Apply socket options directly for Linux if port reuse is requested
-#ifdef __linux__
-        if (allowPortReuse)
-        {
-            ssl_app->getNativeHandle(
-                [](int fd)
-                {
-                    int optval = 1;
-                    setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
-                }
-            );
-        }
-#endif
-
         setupAppAndListen(ssl_app.get(), state, success, errorMessage);
         serverInstances[serverId] = std::move(ssl_app);
     }
@@ -629,21 +608,6 @@ int lua_serve(lua_State* L)
     {
         auto plain_app = std::make_unique<uWS::App>();
         state->app = plain_app.get();
-
-        // Apply socket options directly for Linux if port reuse is requested
-#ifdef __linux__
-        if (allowPortReuse)
-        {
-            plain_app->getNativeHandle(
-                [](int fd)
-                {
-                    int optval = 1;
-                    setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
-                }
-            );
-        }
-#endif
-
         setupAppAndListen(plain_app.get(), state, success, errorMessage);
         serverInstances[serverId] = std::move(plain_app);
     }
