@@ -17,7 +17,6 @@ int lua_serve(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"get", get},
-    {"getAsync", getAsync},
     {"serve", lua_serve},
     {nullptr, nullptr},
 };
