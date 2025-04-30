@@ -1,5 +1,14 @@
 {
     "luau-lsp.fflags.enableNewSolver": true,
     "luau-lsp.sourcemap.enabled": false,
-    "luau-lsp.platform.type": "standard"
+    "luau-lsp.platform.type": "standard",
+    "files.associations": {
+        "array": "cpp",
+        "istream": "cpp",
+        "locale": "cpp",
+        "variant": "cpp",
+        "complex": "cpp",
+        "memory": "cpp",
+        "future": "cpp"
+    }
 }
