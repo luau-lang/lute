@@ -1,0 +1,6 @@
+load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
+
+system_cxx_toolchain(
+name = "cxx",
+visibility = ["PUBLIC"],
+)

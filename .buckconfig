@@ -1,0 +1,41 @@
+[cells]
+  lute = lute
+  root = .
+  modes = lute/modes
+  prelude = prelude
+  toolchains = lute/toolchains
+  none = none
+
+  # configuration
+  modes = lute/configuration/modes
+  capabilities = lute/configuration/capabilities
+
+  # external dependencies
+  boringssl = extern/boringssl
+  curl = extern/curl
+  libuv = extern/libuv
+  luau = extern/luau
+  usockets = extern/uSockets
+  uws = extern/uWebSockets
+  zlib = extern/zlib
+  zstd = extern/zstd
+
+[cell_aliases]
+  settings = capabilities
+  config = prelude
+  fbcode = none
+  fbsource = none
+  fbcode_macros = none
+  buck = none
+
+[external_cells]
+  prelude = bundled
+
+[parser]
+  target_platform_detector_spec = target:root//...->prelude//platforms:default
+
+[build]
+  execution_platforms = prelude//platforms:default
+
+[project]
+ignore = .git, .cache, build

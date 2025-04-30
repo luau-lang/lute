@@ -1,0 +1,22 @@
+constraint_setting(
+    name = "compiler",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "msvc",
+    constraint_setting = ":compiler",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "clang",
+    constraint_setting = ":compiler",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "none",
+    constraint_setting = ":compiler",
+    visibility = ["PUBLIC"],
+)
