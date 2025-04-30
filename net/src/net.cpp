@@ -168,7 +168,6 @@ static void parseHeaders(auto* req, lua_State* L)
 
 static void handleResponse(auto* res, lua_State* L, int responseIndex)
 {
-    // Check if the response is a string or a table
     if (lua_isstring(L, responseIndex))
     {
         std::string body = lua_tostring(L, responseIndex);
@@ -312,7 +311,6 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
             std::string url = std::string(req->getUrl());
             std::string path = url;
 
-            // Split URL into path and query
             size_t queryPos = url.find('?');
             std::string query;
             if (queryPos != std::string::npos)
@@ -372,7 +370,6 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
             else
             {
                 success = false;
-                // Use more specific error message for binding failures
                 errorMessage = "Failed to bind server to " + state->hostname + ":" + std::to_string(state->port) +
                                ", the port may be in use by another application";
             }
@@ -380,7 +377,6 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
     );
 }
 
-// Function to check if port is already in use
 static bool isPortInUse(const std::string& hostname, int port)
 {
     std::string key = hostname + ":" + std::to_string(port);
@@ -388,7 +384,6 @@ static bool isPortInUse(const std::string& hostname, int port)
     return usedPorts.find(key) != usedPorts.end();
 }
 
-// Function to mark a port as used
 static void markPortAsUsed(const std::string& hostname, int port)
 {
     std::string key = hostname + ":" + std::to_string(port);
@@ -396,7 +391,6 @@ static void markPortAsUsed(const std::string& hostname, int port)
     usedPorts[key] = true;
 }
 
-// Function to release a port
 static void releasePort(const std::string& hostname, int port)
 {
     std::string key = hostname + ":" + std::to_string(port);
@@ -404,30 +398,23 @@ static void releasePort(const std::string& hostname, int port)
     usedPorts.erase(key);
 }
 
-// Enhanced hostname validation
 static bool isValidHostname(const std::string& hostname)
 {
-    // Allow common localhost values
     if (hostname == "0.0.0.0" || hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1")
         return true;
 
-    // If hostname is empty, it's invalid
     if (hostname.empty())
         return false;
 
-    // Basic validation for domain names
     if (hostname.length() > 255)
         return false;
 
-    // Check for invalid characters
     if (hostname.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != std::string::npos)
         return false;
 
-    // Can't start or end with hyphen
     if (hostname[0] == '-' || hostname[hostname.length() - 1] == '-')
         return false;
 
-    // Can't have consecutive dots
     if (hostname.find("..") != std::string::npos)
         return false;
 
@@ -469,7 +456,6 @@ bool closeServer(int serverId)
     return true;
 }
 
-// Implementation that matches the name in the header file
 int lua_serve(lua_State* L)
 {
     std::string hostname = "0.0.0.0";
@@ -557,7 +543,7 @@ int lua_serve(lua_State* L)
         return 0;
     }
 
-    // Pre-validate the hostname with more detailed error message
+    // Pre-validate the hostname
     if (!isValidHostname(hostname))
     {
         std::string errorMsg = "Invalid hostname: '" + hostname + "'. Hostnames must contain only letters, numbers, periods, and hyphens.";
@@ -590,7 +576,6 @@ int lua_serve(lua_State* L)
     state->handlerRef = std::make_shared<Ref>(L, -1);
     lua_pop(L, 1);
 
-    // Mark the port as used
     markPortAsUsed(hostname, port);
 
     bool success = false;
