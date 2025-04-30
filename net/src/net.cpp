@@ -372,8 +372,8 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
             {
                 success = false;
                 // Use more specific error message for binding failures
-                errorMessage = "Failed to bind server to " + state->hostname + ":" + std::to_string(state->port) + 
-                              ", the port may be in use by another application";
+                errorMessage = "Failed to bind server to " + state->hostname + ":" + std::to_string(state->port) +
+                               ", the port may be in use by another application";
             }
         }
     );
@@ -409,7 +409,7 @@ static bool isValidHostname(const std::string& hostname)
     // Allow common localhost values
     if (hostname == "0.0.0.0" || hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1")
         return true;
-    
+
     // If hostname is empty, it's invalid
     if (hostname.empty())
         return false;
@@ -417,19 +417,19 @@ static bool isValidHostname(const std::string& hostname)
     // Basic validation for domain names
     if (hostname.length() > 255)
         return false;
-        
+
     // Check for invalid characters
     if (hostname.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != std::string::npos)
         return false;
-    
+
     // Can't start or end with hyphen
     if (hostname[0] == '-' || hostname[hostname.length() - 1] == '-')
         return false;
-    
+
     // Can't have consecutive dots
     if (hostname.find("..") != std::string::npos)
         return false;
-    
+
     return true;
 }
 
@@ -441,7 +441,7 @@ bool closeServer(int serverId)
     }
 
     auto state = serverStates[serverId];
-    
+
     // Release the port when server closes
     releasePort(state->hostname, state->port);
 
@@ -468,7 +468,8 @@ bool closeServer(int serverId)
     return true;
 }
 
-int serve(lua_State* L)
+// This is the function defined in net.cpp that is called from Lua
+int lua_serve(lua_State* L)
 {
     std::string hostname = "0.0.0.0";
     int port = 3000;
@@ -567,8 +568,8 @@ int serve(lua_State* L)
     // Check for port conflicts before attempting to bind
     if (isPortInUse(hostname, port) && !allowPortReuse)
     {
-        std::string errorMsg = "Port already in use: " + hostname + ":" + std::to_string(port) + 
-                              ". Try a different port or set allow_port_reuse to true.";
+        std::string errorMsg =
+            "Port already in use: " + hostname + ":" + std::to_string(port) + ". Try a different port or set allow_port_reuse to true.";
         lua_pushnil(L);
         lua_pushstring(L, errorMsg.c_str());
         return 2;
@@ -638,7 +639,7 @@ int serve(lua_State* L)
     {
         // Release the port since binding failed
         releasePort(hostname, port);
-        
+
         // Return nil and error message to Lua
         lua_pushnil(L);
         lua_pushstring(L, errorMessage.c_str());
@@ -695,6 +696,14 @@ int serve(lua_State* L)
 
     return 1;
 }
+
+// Define function registration table - MUST use lua_serve, not serve
+static const luaL_Reg lib[] = {
+    {"get", get},
+    {"getAsync", getAsync},
+    {"serve", lua_serve}, // Make sure this matches the function name above
+    {nullptr, nullptr},
+};
 
 } // namespace net
 
