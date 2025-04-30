@@ -16,6 +16,12 @@
 #include <mutex>
 #include <unordered_map>
 
+// For socket reuse options on Linux
+#ifdef __linux__
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
+
 namespace net
 {
 
@@ -120,6 +126,7 @@ struct ServerLoopState
     std::shared_ptr<Ref> handlerRef;
     std::string hostname;
     int port;
+    bool allowPortReuse = false;
 };
 
 static void parseQuery(const std::string& query, lua_State* L)
@@ -583,6 +590,7 @@ int lua_serve(lua_State* L)
     state->runtime = runtime;
     state->hostname = hostname;
     state->port = port;
+    state->allowPortReuse = allowPortReuse;
 
     lua_pushvalue(L, handlerIndex);
     state->handlerRef = std::make_shared<Ref>(L, -1);
@@ -593,46 +601,51 @@ int lua_serve(lua_State* L)
 
     bool success = false;
     std::string errorMessage;
-    bool appCreated = false;
 
-    // Set up port reuse on Linux
-#ifdef __linux__
-    if (allowPortReuse)
+    // Create the app without port reuse for all platforms (we'll use native socket options for Linux if needed)
+    if (tlsOptions)
     {
-        if (tlsOptions)
+        auto ssl_app = std::make_unique<uWS::SSLApp>(*tlsOptions);
+        state->app = ssl_app.get();
+
+        // Apply socket options directly for Linux if port reuse is requested
+#ifdef __linux__
+        if (allowPortReuse)
         {
-            tlsOptions->options |= LIBUS_LISTEN_OPTION_REUSE_PORT;
+            ssl_app->getNativeHandle(
+                [](int fd)
+                {
+                    int optval = 1;
+                    setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+                }
+            );
         }
-        else
-        {
-            uWS::AppOptions options;
-            options.options |= LIBUS_LISTEN_OPTION_REUSE_PORT;
-            auto plain_app = std::make_unique<uWS::App>(options);
-            state->app = plain_app.get();
-            setupAppAndListen(plain_app.get(), state, success, errorMessage);
-            serverInstances[serverId] = std::move(plain_app);
-            appCreated = true;
-        }
-    }
 #endif
 
-    // Create the app if not already created
-    if (!appCreated)
+        setupAppAndListen(ssl_app.get(), state, success, errorMessage);
+        serverInstances[serverId] = std::move(ssl_app);
+    }
+    else
     {
-        if (tlsOptions)
+        auto plain_app = std::make_unique<uWS::App>();
+        state->app = plain_app.get();
+
+        // Apply socket options directly for Linux if port reuse is requested
+#ifdef __linux__
+        if (allowPortReuse)
         {
-            auto ssl_app = std::make_unique<uWS::SSLApp>(*tlsOptions);
-            state->app = ssl_app.get();
-            setupAppAndListen(ssl_app.get(), state, success, errorMessage);
-            serverInstances[serverId] = std::move(ssl_app);
+            plain_app->getNativeHandle(
+                [](int fd)
+                {
+                    int optval = 1;
+                    setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+                }
+            );
         }
-        else
-        {
-            auto plain_app = std::make_unique<uWS::App>();
-            state->app = plain_app.get();
-            setupAppAndListen(plain_app.get(), state, success, errorMessage);
-            serverInstances[serverId] = std::move(plain_app);
-        }
+#endif
+
+        setupAppAndListen(plain_app.get(), state, success, errorMessage);
+        serverInstances[serverId] = std::move(plain_app);
     }
 
     if (!success)
