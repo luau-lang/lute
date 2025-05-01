@@ -47,17 +47,17 @@ struct ProcessHandle
             uv_read_stop((uv_stream_t*)&stdoutPipe);
             uv_close((uv_handle_t*)&stdoutPipe, closeCb);
         }
-         if (stderrPipe.loop && uv_is_active((uv_handle_t*)&stderrPipe))
-         {
+        if (stderrPipe.loop && uv_is_active((uv_handle_t*)&stderrPipe))
+        {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stderrPipe);
             uv_close((uv_handle_t*)&stderrPipe, closeCb);
-         }
-         if (process.loop)
-         {
+        }
+        if (process.loop)
+        {
             pendingCloses++;
             uv_close((uv_handle_t*)&process, closeCb);
-         }
+        }
 
         if (pendingCloses == 0)
         {
@@ -67,7 +67,8 @@ struct ProcessHandle
 
     void triggerCompletion(bool success, const std::string& error_msg = "")
     {
-        if (completed) return;
+        if (completed)
+            return;
         completed = true;
 
         closeHandles();
@@ -85,36 +86,38 @@ struct ProcessHandle
             std::string finalStderr = stderrData;
             std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
 
-            resumeToken->complete([=](lua_State* L)
-            {
-                lua_createtable(L, 0, 5); // ok, exitCode, stdout, stderr, signal
-
-                bool ok = (finalExitCode == 0 && finalTermSignal == 0);
-
-                lua_pushboolean(L, ok);
-                lua_setfield(L, -2, "ok");
-
-                lua_pushinteger(L, finalExitCode);
-                lua_setfield(L, -2, "exitcode");
-
-                lua_pushlstring(L, finalStdout.c_str(), finalStdout.length());
-                lua_setfield(L, -2, "stdout");
-
-                lua_pushlstring(L, finalStderr.c_str(), finalStderr.length());
-                lua_setfield(L, -2, "stderr");
-
-                if (!finalSignalStr.empty())
+            resumeToken->complete(
+                [=](lua_State* L)
                 {
-                    lua_pushstring(L, finalSignalStr.c_str());
-                }
-                else
-                {
-                    lua_pushnil(L);
-                }
-                lua_setfield(L, -2, "signal");
+                    lua_createtable(L, 0, 5); // ok, exitCode, stdout, stderr, signal
 
-                return 1;
-            });
+                    bool ok = (finalExitCode == 0 && finalTermSignal == 0);
+
+                    lua_pushboolean(L, ok);
+                    lua_setfield(L, -2, "ok");
+
+                    lua_pushinteger(L, finalExitCode);
+                    lua_setfield(L, -2, "exitcode");
+
+                    lua_pushlstring(L, finalStdout.c_str(), finalStdout.length());
+                    lua_setfield(L, -2, "stdout");
+
+                    lua_pushlstring(L, finalStderr.c_str(), finalStderr.length());
+                    lua_setfield(L, -2, "stderr");
+
+                    if (!finalSignalStr.empty())
+                    {
+                        lua_pushstring(L, finalSignalStr.c_str());
+                    }
+                    else
+                    {
+                        lua_pushnil(L);
+                    }
+                    lua_setfield(L, -2, "signal");
+
+                    return 1;
+                }
+            );
         }
         else
         {
@@ -128,7 +131,8 @@ struct ProcessHandle
 static void onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
 {
     ProcessHandle* handle = static_cast<ProcessHandle*>(process->data);
-    if (!handle || handle->completed) return;
+    if (!handle || handle->completed)
+        return;
 
     handle->exitCode = exitStatus;
     handle->termSignal = termSignal;
@@ -142,15 +146,14 @@ static void onPipeRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 
     if (!handle || handle->completed)
     {
-        if (buf->base) free(buf->base);
+        if (buf->base)
+            free(buf->base);
         return;
     }
 
     if (nread > 0)
     {
-        std::string* targetBuffer = (stream == (uv_stream_t*)&handle->stdoutPipe)
-            ? &handle->stdoutData
-            : &handle->stderrData;
+        std::string* targetBuffer = (stream == (uv_stream_t*)&handle->stdoutPipe) ? &handle->stdoutData : &handle->stderrData;
         targetBuffer->append(buf->base, nread);
     }
     else if (nread < 0)
@@ -180,7 +183,13 @@ static void allocBuffer(uv_handle_t* handle, size_t suggestedSize, uv_buf_t* buf
     }
 }
 
-int create(lua_State* L)
+const std::string kStdioKindDefault = "default";
+const std::string kStdioKindInherit = "inherit";
+const std::string kStdioKindNone = "none";
+// TODO: add forwarding
+// const std::string kStdioKindForward = "forward";
+
+int run(lua_State* L)
 {
     std::vector<std::string> args;
     if (lua_istable(L, 1))
@@ -204,9 +213,10 @@ int create(lua_State* L)
         return 0;
     }
 
-    bool useShell = false; 
+    bool useShell = false;
     std::string customShell;
     std::string cwd;
+    std::string stdioKind;
     std::map<std::string, std::string> env;
 
     if (lua_istable(L, 2))
@@ -223,17 +233,25 @@ int create(lua_State* L)
         }
 
         lua_pop(L, 1);
-        
-        lua_getfield(L, 2, "cwd"); 
+
+        lua_getfield(L, 2, "cwd");
         if (!lua_isnil(L, -1))
             cwd = lua_tostring(L, -1);
 
         lua_pop(L, 1);
-        
+
+        lua_getfield(L, 2, "stdio");
+        if (lua_isstring(L, -1))
+        {
+            stdioKind = lua_tostring(L, -1);
+            // TODO: support stdin and separate stdout/stderr kinds
+        }
+        lua_pop(L, 1);
+
         lua_getfield(L, 2, "env");
         if (lua_istable(L, -1))
         {
-            lua_pushnil(L); 
+            lua_pushnil(L);
             while (lua_next(L, -2))
             {
                 env[luaL_checkstring(L, -2)] = luaL_checkstring(L, -1);
@@ -253,15 +271,15 @@ int create(lua_State* L)
             commandStr += args[i];
         }
 
-        #ifdef _WIN32
+#ifdef _WIN32
         const char* shellVar = "COMSPEC";
         const char* shellFallback = "cmd.exe";
         const char* shellArg = "/c";
-        #else
+#else
         const char* shellVar = "SHELL";
         const char* shellFallback = "/bin/sh";
         const char* shellArg = "-c";
-        #endif
+#endif
 
         const char* shell = customShell.empty() ? nullptr : customShell.c_str();
         if (!shell)
@@ -336,12 +354,31 @@ int create(lua_State* L)
 
     options.stdio_count = 3;
     uv_stdio_container_t stdio[3];
-    stdio[0].flags = UV_INHERIT_FD;
-    stdio[0].data.fd = 0; // Inherit stdin
-    stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
-    stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
+    stdio[0].flags = UV_IGNORE;
+    if (stdioKind == kStdioKindNone)
+    {
+        stdio[1].flags = UV_IGNORE;
+        stdio[2].flags = UV_IGNORE;
+    }
+    else if (stdioKind == kStdioKindInherit)
+    {
+        stdio[1].flags = UV_INHERIT_FD;
+        stdio[1].data.fd = fileno(stdout);
+        stdio[2].flags = UV_INHERIT_FD;
+        stdio[2].data.fd = fileno(stderr);
+    }
+    else if (stdioKind == kStdioKindDefault || stdioKind.empty())
+    {
+        stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+        stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
+        stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+        stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
+    }
+    else
+    {
+        luaL_error(L, "Invalid stdio kind: %s", stdioKind.c_str());
+        return 0;
+    }
     options.stdio = stdio;
 
     handle->process.data = handle.get();
@@ -370,6 +407,60 @@ int create(lua_State* L)
 
     return lua_yield(L, 0);
 }
+
+int homedir(lua_State* L)
+{
+    std::string buffer;
+
+    size_t homedir_size = 255;
+    buffer.reserve(homedir_size);
+
+    int status = uv_os_homedir(buffer.data(), &homedir_size);
+    if (status == UV_ENOBUFS)
+    {
+        // libuv gives us the new size if it's under sized
+        buffer.reserve(homedir_size);
+
+        status = uv_os_homedir(buffer.data(), &homedir_size);
+    }
+
+    if (status != 0)
+    {
+        luaL_error(L, "failed to get home directory");
+        return 1;
+    }
+
+    lua_pushstring(L, buffer.c_str());
+
+    return 1;
+}
+
+int cwd(lua_State* L)
+{
+    std::string buffer;
+
+    size_t cwd_size = 255;
+    buffer.reserve(cwd_size);
+
+    int status = uv_cwd(buffer.data(), &cwd_size);
+    if (status == UV_ENOBUFS)
+    {
+        // libuv gives us the new size if it's under sized
+        buffer.reserve(cwd_size);
+
+        status = uv_cwd(buffer.data(), &cwd_size);
+    }
+
+    if (status != 0)
+    {
+        luaL_error(L, "failed to get current working directory");
+        return 1;
+    }
+
+    lua_pushstring(L, buffer.c_str());
+
+    return 1;
+};
 
 static int envIndex(lua_State* L)
 {
@@ -490,17 +581,10 @@ static int envIterGc(lua_State* L)
 
 } // namespace process
 
-static const luaL_Reg processEnvMeta[] = {
-    {"__index", process::envIndex},
-    {"__newindex", process::envNewindex},
-    {"__iter", process::envIter},
-    {nullptr, nullptr}
-};
+static const luaL_Reg processEnvMeta[] =
+    {{"__index", process::envIndex}, {"__newindex", process::envNewindex}, {"__iter", process::envIter}, {nullptr, nullptr}};
 
-static const luaL_Reg processEnvIterMeta[] = {
-    {"__gc", process::envIterGc},
-    {nullptr, nullptr}
-};
+static const luaL_Reg processEnvIterMeta[] = {{"__gc", process::envIterGc}, {nullptr, nullptr}};
 
 int luaopen_process(lua_State* L)
 {

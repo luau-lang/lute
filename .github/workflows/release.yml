@@ -137,7 +137,7 @@ jobs:
           echo "tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: luau-lang/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag_release.outputs.tag }}
           name: ${{ steps.tag_release.outputs.tag }}

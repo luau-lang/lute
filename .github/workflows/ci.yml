@@ -14,6 +14,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            options: --c-compiler=cl.exe --cxx-compiler=cl.exe
           - os: ubuntu-latest
             options: --c-compiler=gcc --cxx-compiler=g++
           - os: ubuntu-latest
@@ -29,3 +30,28 @@ jobs:
         with:
           config: debug
           options: ${{ matrix.options }}
+
+  check-format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        uses: Roblox/setup-foreman@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run StyLua
+        run: stylua --check .
+
+  aggregator:
+    name: Gated Commits
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    if: ${{ always() }}
+    steps:
+      - name: Aggregate
+        run: |
+          echo "All required jobs completed"

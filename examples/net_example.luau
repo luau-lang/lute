@@ -3,7 +3,7 @@ local net = require("@lute/net")
 local task = require("@std/task")
 
 local t = task.create(function()
-    return net.getAsync("https://en.wikipedia.org/")
+	return net.getAsync("https://en.wikipedia.org/")
 end)
 
 print(task.await(t))
@@ -20,11 +20,11 @@ local together = true
 local start = os.clock()
 
 if together then
-    task.awaitall(t1, t2, t3)
+	task.awaitall(t1, t2, t3)
 else
-    task.await(t1)
-    task.await(t2)
-    task.await(t3)
+	task.await(t1)
+	task.await(t2)
+	task.await(t3)
 end
 
 print(os.clock() - start)

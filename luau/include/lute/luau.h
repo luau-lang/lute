@@ -8,7 +8,8 @@ int luaopen_luau(lua_State* L);
 // open the library as a table on top of the stack
 int luteopen_luau(lua_State* L);
 
-namespace luau {
+namespace luau
+{
 
 int luau_parse(lua_State* L);
 

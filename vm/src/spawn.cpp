@@ -3,6 +3,8 @@
 #include "lute/require.h"
 #include "lute/runtime.h"
 
+#include "Luau/Require.h"
+
 #include <memory>
 
 #include "lua.h"
@@ -120,29 +122,41 @@ static int crossVmMarshall(lua_State* L)
 
     auto source = getResumeToken(L);
 
-    target.runtime->schedule([source, target = target, args] {
-        lua_State* L = lua_newthread(target.runtime->GL);
-        luaL_sandboxthread(L);
+    target.runtime->schedule(
+        [source, target = target, args]
+        {
+            lua_State* L = lua_newthread(target.runtime->GL);
+            luaL_sandboxthread(L);
 
-        target.func->push(L);
+            target.func->push(L);
 
-        int argCount = unpackStackValue(target.runtime, L, args);
+            int argCount = unpackStackValue(target.runtime, L, args);
 
-        auto co = getRefForThread(L);
-        lua_pop(target.runtime->GL, 1);
+            auto co = getRefForThread(L);
+            lua_pop(target.runtime->GL, 1);
 
-        target.runtime->runningThreads.push_back({ true, co, argCount, [source, target = target.runtime, co] {
-            co->push(target->GL);
-            lua_State* L = lua_tothread(target->GL, -1);
-            lua_pop(target->GL, 1);
+            target.runtime->runningThreads.push_back(
+                {true,
+                 co,
+                 argCount,
+                 [source, target = target.runtime, co]
+                 {
+                     co->push(target->GL);
+                     lua_State* L = lua_tothread(target->GL, -1);
+                     lua_pop(target->GL, 1);
 
-            std::shared_ptr<Ref> rets = packStackValues(L, target);
+                     std::shared_ptr<Ref> rets = packStackValues(L, target);
 
-            source->complete([target, rets](lua_State* L) {
-                return unpackStackValue(target, L, rets);
-            });
-        }});
-    });
+                     source->complete(
+                         [target, rets](lua_State* L)
+                         {
+                             return unpackStackValue(target, L, rets);
+                         }
+                     );
+                 }}
+            );
+        }
+    );
 
     return lua_yield(L, 0);
 }
@@ -156,7 +170,8 @@ static int crossVmMarshallCont(lua_State* L, int status)
     return 0;
 }
 
-namespace vm {
+namespace vm
+{
 
 int lua_spawn(lua_State* L)
 {
@@ -170,10 +185,10 @@ int lua_spawn(lua_State* L)
     lua_getinfo(L, 1, "s", &ar);
 
     // Require the target module
-    lua_pushcclosure(child->GL, lua_requireFromSource, "require", 0);
+    RequireCtx ctx{/* sourceOverride = */ ar.source};
+    lua_pushrequire(child->GL, requireConfigInit, &ctx);
     lua_pushstring(child->GL, file);
-    lua_pushstring(child->GL, ar.source);
-    int status = lua_pcall(child->GL, 2, 1, 0);
+    int status = lua_pcall(child->GL, 1, 1, 0);
 
     if (status == LUA_ERRRUN && lua_type(child->GL, -1) == LUA_TSTRING)
     {
@@ -192,19 +207,27 @@ int lua_spawn(lua_State* L)
     if (lua_type(child->GL, -1) != LUA_TTABLE)
         luaL_error(L, "Module %s did not return a table", file);
 
-    lua_setuserdatadtor(L, kTargetFunctionTag, [](lua_State* L, void* userdata) {
-        // Current runtime VM is dropping a foreign VM Ref
-        // It has to be released in target runtime, so we copy it over
-        TargetFunction* target = (TargetFunction*)userdata;
+    lua_setuserdatadtor(
+        L,
+        kTargetFunctionTag,
+        [](lua_State* L, void* userdata)
+        {
+            // Current runtime VM is dropping a foreign VM Ref
+            // It has to be released in target runtime, so we copy it over
+            TargetFunction* target = (TargetFunction*)userdata;
 
-        // Schedule references to be removed in target runtime
-        target->runtime->schedule([func = target->func]() mutable {
-            func.reset();
-        });
+            // Schedule references to be removed in target runtime
+            target->runtime->schedule(
+                [func = target->func]() mutable
+                {
+                    func.reset();
+                }
+            );
 
-        // Remove the Ref we have in current VM, now it will not cause the actual lua_unref
-        target->~TargetFunction();
-    });
+            // Remove the Ref we have in current VM, now it will not cause the actual lua_unref
+            target->~TargetFunction();
+        }
+    );
 
     // For each function in the child VM return table, create a wrapper function in main VM which will marshall a call
     lua_createtable(L, 0, 0);
