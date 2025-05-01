@@ -1,10 +1,3 @@
---[[
-	TODO: make the args a seperate line when stylua gets replaced ie
-
-	local function replaceClose(
-		str: string, close: string, replace: string, index: number, closeLen: number
-	): string
-]]
 local function replaceClose(str: string, close: string, replace: string, index: number, closeLen: number): string
 	local resultTbl = {}
 	local cursor = 1
@@ -18,7 +11,6 @@ local function replaceClose(str: string, close: string, replace: string, index: 
 	return table.concat(resultTbl, replace) .. string.sub(str, cursor)
 end
 
---TODO: multiline args like replaceClose when stylua is replaced
 local function formatter(open: string, close: string, replace: string?): (s: string) -> string
 	local closeLen = #close
 	local openLen = #open
@@ -27,13 +19,6 @@ local function formatter(open: string, close: string, replace: string?): (s: str
 	return function(s: string): string
 		local index = string.find(s, close, openLen + 1, true)
 
-		--[[
-			TODO: seperate into multiline once stylua is replaced
-
-			open
-				..(if index then replaceClose(s, close, replace, index, closeLen) else s)
-				..close
-		]]
 		return open .. (if index then replaceClose(s, close, replace, index, closeLen) else s) .. close
 	end
 end
