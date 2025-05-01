@@ -6,7 +6,6 @@ local function replaceClose(
 	local cursor = 1
 	
 	while index do
-		tblLen += 1
 		table.insert(resultTbl, string.sub(str, cursor, index - 1))
 		cursor = index + closeLen
 		index = string.find(str, close, cursor, true)
@@ -22,10 +21,10 @@ local function formatter(open: string, close: string, replace: string?): (s: str
 
 	return function(s: string): string
 		local index = string.find(s, close, openLen + 1, true)
-		
-		return open .. 
-			(if index then replaceClose(s, close, replace, index, closeLen) else s) .. 
-			close
+		-- ternary was too long
+		local middle = (index and replaceClose(s, close, replace, index, closeLen)) or s
+
+		return open .. middle .. close
 	end
 end
 
