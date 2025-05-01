@@ -57,7 +57,7 @@ static uv_timespec64_t getTimespecFromDuration(lua_State* L, int idx)
 // creates a userdata, and returns a fresh timespec pointer to it
 static int createDurationFromTimespec(lua_State* L, uv_timespec64_t timespec)
 {
-    uv_timespec64_t* duration = static_cast<uv_timespec64_t*>(lua_newuserdatatagged(L, sizeof(uv_timespec64_t), 2));
+    uv_timespec64_t* duration = static_cast<uv_timespec64_t*>(lua_newuserdatatagged(L, sizeof(uv_timespec64_t), kDurationTag));
     *duration = timespec;
 
     luaL_getmetatable(L, kDurationType);
@@ -363,7 +363,7 @@ int lua_now(lua_State* L)
     int status = uv_clock_gettime(UV_CLOCK_MONOTONIC, &now);
     assert(status == 0);
 
-    uv_timespec64_t* timespec = static_cast<uv_timespec64_t*>(lua_newuserdatatagged(L, sizeof(uv_timespec64_t), 1));
+    uv_timespec64_t* timespec = static_cast<uv_timespec64_t*>(lua_newuserdatatagged(L, sizeof(uv_timespec64_t), kInstantTag));
 
     *timespec = now;
 
