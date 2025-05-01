@@ -14,12 +14,6 @@ void requireConfigInit(luarequire_Configuration* config);
 struct RequireCtx
 {
     RequireCtx() = default;
-    RequireCtx(std::string sourceOverride)
-        : sourceOverride(std::move(sourceOverride))
-    {
-    }
-
-    std::optional<std::string> sourceOverride = std::nullopt;
 
     std::string absPath;
     std::string relPath;
