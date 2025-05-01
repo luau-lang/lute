@@ -1,4 +1,6 @@
+-- stylua: ignore start
 
+-- stylua HATES these args being multiline even though its better
 local function replaceClose(
 	str: string, close: string, replace: string, index: number, closeLen: number
 ): string
@@ -14,19 +16,24 @@ local function replaceClose(
 	return table.concat(resultTbl, replace) .. string.sub(str, cursor)
 end
 
-local function formatter(open: string, close: string, replace: string?): (s: string) -> string
+local function formatter(
+	open: string, close: string, replace: string?
+): (s: string) -> string
 	local closeLen = #close
 	local openLen = #open
 	replace = replace or open
 
 	return function(s: string): string
 		local index = string.find(s, close, openLen + 1, true)
-		-- ternary was too long
-		local middle = (index and replaceClose(s, close, replace, index, closeLen)) or s
 
-		return open .. middle .. close
+		-- fun police formatters raining on my parade
+		return open 
+			..(if index then replaceClose(s, close, replace, index, closeLen) else s)
+			..close
 	end
 end
+
+-- stylua: ignore end
 
 return table.freeze({
 	reset = formatter("\x1b[0m", "\x1b[0m"),
