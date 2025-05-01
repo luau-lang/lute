@@ -122,6 +122,7 @@ target_link_libraries(Lute.Task PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.VM PRIVATE Lute.Runtime Luau.VM Luau.Require uv_a)
 target_link_libraries(Lute.Process PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.System PRIVATE Lute.Runtime Luau.VM uv_a)
+target_link_libraries(Lute.Time PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.CLI PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.Runtime Lute.Crypto Lute.Fs Lute.Luau Lute.Net Lute.Task Lute.VM Lute.Process Lute.System Lute.Time)
 
 set(LUTE_OPTIONS)
