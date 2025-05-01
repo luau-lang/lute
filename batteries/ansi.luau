@@ -1,9 +1,11 @@
--- stylua: ignore start
+--[[
+	TODO: make the args a seperate line when stylua gets replaced ie
 
--- stylua HATES these args being multiline even though its better
-local function replaceClose(
-	str: string, close: string, replace: string, index: number, closeLen: number
-): string
+	local function replaceClose(
+		str: string, close: string, replace: string, index: number, closeLen: number
+	): string
+]]
+local function replaceClose(str: string, close: string, replace: string, index: number, closeLen: number): string
 	local resultTbl = {}
 	local cursor = 1
 	
@@ -16,9 +18,8 @@ local function replaceClose(
 	return table.concat(resultTbl, replace) .. string.sub(str, cursor)
 end
 
-local function formatter(
-	open: string, close: string, replace: string?
-): (s: string) -> string
+--TODO: multiline args like replaceClose when stylua is replaced
+local function formatter(open: string, close: string, replace: string?): (s: string) -> string
 	local closeLen = #close
 	local openLen = #open
 	replace = replace or open
@@ -26,14 +27,16 @@ local function formatter(
 	return function(s: string): string
 		local index = string.find(s, close, openLen + 1, true)
 
-		-- fun police formatters raining on my parade
-		return open 
-			..(if index then replaceClose(s, close, replace, index, closeLen) else s)
-			..close
+		--[[
+			TODO: seperate into multiline once stylua is replaced
+
+			open
+				..(if index then replaceClose(s, close, replace, index, closeLen) else s)
+				..close
+		]]
+		return open..(if index then replaceClose(s, close, replace, index, closeLen) else s)..close
 	end
 end
-
--- stylua: ignore end
 
 return table.freeze({
 	reset = formatter("\x1b[0m", "\x1b[0m"),
