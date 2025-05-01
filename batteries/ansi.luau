@@ -1,7 +1,6 @@
 local function replaceClose(str: string, close: string, replace: string, index: number, closeLen: number): string
 	local resultTbl = {}
 	local cursor = 1
-	
 	while index do
 		table.insert(resultTbl, string.sub(str, cursor, index - 1))
 		cursor = index + closeLen
