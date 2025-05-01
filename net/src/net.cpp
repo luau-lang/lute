@@ -57,19 +57,6 @@ int get(lua_State* L)
 {
     std::string url = luaL_checkstring(L, 1);
 
-    auto [error, data] = requestData(url);
-
-    if (!error.empty())
-        luaL_errorL(L, "network request failed: %s", error.c_str());
-
-    lua_pushlstring(L, data.data(), data.size());
-    return 1;
-}
-
-int getAsync(lua_State* L)
-{
-    std::string url = luaL_checkstring(L, 1);
-
     auto token = getResumeToken(L);
 
     // TODO: add cancellations
@@ -247,10 +234,10 @@ static void processRequest(
     const std::string& method,
     const std::string& path,
     const std::string& query,
-    const std::string& body
+    const std::string_view& body
 )
 {
-    lua_State* L = state->runtime->GL;
+    lua_State* L = lua_newthread(state->runtime->GL);
 
     lua_createtable(L, 0, 5);
 
@@ -271,7 +258,7 @@ static void processRequest(
     lua_settable(L, -3);
 
     lua_pushstring(L, "body");
-    lua_pushstring(L, body.c_str());
+    lua_pushlstring(L, body.data(), body.size());
     lua_settable(L, -3);
 
     state->handlerRef->push(L);
@@ -279,7 +266,8 @@ static void processRequest(
     lua_pushvalue(L, -2);
     lua_remove(L, -3);
 
-    if (lua_pcall(L, 1, 1, 0) != 0)
+    int status = lua_resume(L, nullptr, 1);
+    if (status != LUA_OK && status != LUA_YIELD)
     {
         std::string error = lua_tostring(L, -1);
         lua_pop(L, 1);
@@ -321,14 +309,32 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
                 }
             );
 
-            std::string bodyBuffer;
+            std::unique_ptr<std::string> bodyBuffer;
             res->onData(
                 [state, res, req, method, path, query, bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
                 {
-                    bodyBuffer.append(data);
                     if (last)
                     {
-                        processRequest(state, res, req, method, path, query, bodyBuffer);
+                        if (bodyBuffer.get())
+                        {
+                            bodyBuffer->append(data);
+                            processRequest(state, res, req, method, path, query, *bodyBuffer);
+                        }
+                        else
+                        {
+                            processRequest(state, res, req, method, path, query, data);
+                        }
+                    }
+                    else
+                    {
+                        if (bodyBuffer.get())
+                        {
+                            bodyBuffer->append(data);
+                        }
+                        else
+                        {
+                            bodyBuffer = std::make_unique<std::string>(data);
+                        }
                     }
                 }
             );
@@ -375,7 +381,7 @@ bool closeServer(int serverId)
     return true;
 }
 
-int serve(lua_State* L)
+int lua_serve(lua_State* L)
 {
     std::string hostname = "0.0.0.0";
     int port = 3000;

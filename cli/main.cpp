@@ -9,6 +9,7 @@
 #include "lualib.h"
 #include "uv.h"
 
+#include "lute/crypto.h"
 #include "lute/fs.h"
 #include "lute/luau.h"
 #include "lute/net.h"
@@ -80,6 +81,9 @@ lua_State* setupState(Runtime& runtime)
     luaL_openlibs(L);
 
     luaL_findtable(L, LUA_REGISTRYINDEX, "_MODULES", 1);
+
+    luteopen_crypto(L);
+    lua_setfield(L, -2, "@lute/crypto");
 
     luteopen_fs(L);
     lua_setfield(L, -2, "@lute/fs");
