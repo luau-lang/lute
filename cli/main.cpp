@@ -21,6 +21,7 @@
 #include "lute/runtime.h"
 #include "lute/task.h"
 #include "lute/vm.h"
+#include "lute/time.h"
 
 #include "tc.h"
 
@@ -61,7 +62,7 @@ static void* createCliRequireContext(lua_State* L)
 
 static void luteopen_libs(lua_State* L)
 {
-    std::array<std::pair<const char*, lua_CFunction>, 8> libs = {{
+    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
         {"@lute/crypto", luteopen_crypto},
         {"@lute/fs", luteopen_fs},
         {"@lute/luau", luteopen_luau},
@@ -70,6 +71,7 @@ static void luteopen_libs(lua_State* L)
         {"@lute/task", luteopen_task},
         {"@lute/vm", luteopen_vm},
         {"@lute/system", luteopen_system},
+        {"@lute/time", luteopen_time},
     }};
 
     for (const auto& [name, func] : libs)
