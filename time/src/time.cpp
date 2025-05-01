@@ -154,7 +154,8 @@ static int duration__tostring(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
 
-    lua_pushfstring(L, "%lld.%09d", timespec.tv_sec, timespec.tv_nsec);
+    // fix os-specific format string difference between macos/windows and linux
+    lua_pushfstring(L, "%lld.%09d", static_cast<long long int>(timespec.tv_sec), timespec.tv_nsec);
     return 1;
 }
 
