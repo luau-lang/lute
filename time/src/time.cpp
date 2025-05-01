@@ -324,38 +324,59 @@ int lua_minutes(lua_State* L)
 
 int lua_hours(lua_State* L)
 {
-    double minutes = luaL_checknumber(L, 1);
-    if (minutes < 0)
+    double hours = luaL_checknumber(L, 1);
+    if (hours < 0)
     {
         luaL_error(L, "duration cannot be negative");
         return 0;
     }
 
-    return createDurationFromSeconds(L, minutes * SECONDS_PER_HOUR);
+    // hours can still overflow
+    if (hours > (pow(2, 63) / SECONDS_PER_HOUR))
+    {
+        luaL_error(L, "duration is too large");
+        return 0;
+    }
+
+    return createDurationFromSeconds(L, hours * SECONDS_PER_HOUR);
 }
 
 int lua_days(lua_State* L)
 {
-    double minutes = luaL_checknumber(L, 1);
-    if (minutes < 0)
+    double days = luaL_checknumber(L, 1);
+    if (days < 0)
     {
         luaL_error(L, "duration cannot be negative");
         return 0;
     }
 
-    return createDurationFromSeconds(L, minutes * SECONDS_PER_DAY);
+    // account for overflow
+    if (days > (pow(2, 63) / SECONDS_PER_DAY))
+    {
+        luaL_error(L, "duration is too large");
+        return 0;
+    }
+
+    return createDurationFromSeconds(L, days * SECONDS_PER_DAY);
 }
 
 int lua_weeks(lua_State* L)
 {
-    double minutes = luaL_checknumber(L, 1);
-    if (minutes < 0)
+    double weeks = luaL_checknumber(L, 1);
+    if (weeks < 0)
     {
         luaL_error(L, "duration cannot be negative");
         return 0;
     }
 
-    return createDurationFromSeconds(L, minutes * SECONDS_PER_WEEK);
+    // account for overflow
+    if (weeks > (pow(2, 63) / SECONDS_PER_WEEK))
+    {
+        luaL_error(L, "duration is too large");
+        return 0;
+    }
+
+    return createDurationFromSeconds(L, weeks * SECONDS_PER_WEEK);
 }
 
 } // namespace duration
