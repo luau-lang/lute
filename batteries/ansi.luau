@@ -34,7 +34,7 @@ local function formatter(open: string, close: string, replace: string?): (s: str
 				..(if index then replaceClose(s, close, replace, index, closeLen) else s)
 				..close
 		]]
-		return open..(if index then replaceClose(s, close, replace, index, closeLen) else s)..close
+		return open .. (if index then replaceClose(s, close, replace, index, closeLen) else s) .. close
 	end
 end
 
