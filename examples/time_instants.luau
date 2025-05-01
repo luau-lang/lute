@@ -1,7 +1,9 @@
 local time = require("@lute/time")
 
 local start = time.now()
-for i = 1, 100000 do
-	local _ = i * 2
+for i = 1, 10000 do
+	vector.dot(vector.one, vector.zero)
 end
-print(time.now() - start)
+local stop = time.now()
+
+print((stop - start):tomicroseconds())
