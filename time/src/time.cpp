@@ -245,10 +245,7 @@ int lua_nanoseconds(lua_State* L)
     // int32_t doesn't have enough precision for nanoseconds
     int64_t nanoseconds = static_cast<int64_t>(luaL_checknumber(L, 1));
     if (nanoseconds < 0)
-    {
         luaL_error(L, "duration cannot be negative");
-        return 0;
-    }
 
     int64_t seconds = 0;
     if (nanoseconds > NANOSECONDS_PER_SECOND)
@@ -264,10 +261,7 @@ int lua_microseconds(lua_State* L)
 {
     double microseconds = luaL_checknumber(L, 1);
     if (microseconds < 0)
-    {
         luaL_error(L, "duration cannot be negative");
-        return 0;
-    }
 
     int64_t seconds = 0;
     if (microseconds > MICROSECONDS_PER_SECOND)
@@ -283,10 +277,7 @@ int lua_milliseconds(lua_State* L)
 {
     double milliseconds = luaL_checknumber(L, 1);
     if (milliseconds < 0)
-    {
         luaL_error(L, "duration cannot be negative");
-        return 0;
-    }
 
     int64_t seconds = 0;
     if (milliseconds > MILLISECONDS_PER_SECOND)
@@ -302,10 +293,7 @@ int lua_seconds(lua_State* L)
 {
     double seconds = luaL_checknumber(L, 1);
     if (seconds < 0)
-    {
         luaL_error(L, "duration cannot be negative");
-        return 0;
-    }
 
     return createDurationFromSeconds(L, seconds);
 }
@@ -314,10 +302,7 @@ int lua_minutes(lua_State* L)
 {
     double minutes = luaL_checknumber(L, 1);
     if (minutes < 0)
-    {
         luaL_error(L, "duration cannot be negative");
-        return 0;
-    }
 
     return createDurationFromSeconds(L, minutes * SECONDS_PER_MINUTE);
 }
@@ -326,10 +311,7 @@ int lua_hours(lua_State* L)
 {
     double hours = luaL_checknumber(L, 1);
     if (hours < 0)
-    {
         luaL_error(L, "duration cannot be negative");
-        return 0;
-    }
 
     // hours can still overflow
     if (hours > (pow(2, 63) / SECONDS_PER_HOUR))
@@ -345,10 +327,7 @@ int lua_days(lua_State* L)
 {
     double days = luaL_checknumber(L, 1);
     if (days < 0)
-    {
         luaL_error(L, "duration cannot be negative");
-        return 0;
-    }
 
     // account for overflow
     if (days > (pow(2, 63) / SECONDS_PER_DAY))
@@ -364,17 +343,11 @@ int lua_weeks(lua_State* L)
 {
     double weeks = luaL_checknumber(L, 1);
     if (weeks < 0)
-    {
         luaL_error(L, "duration cannot be negative");
-        return 0;
-    }
 
     // account for overflow
     if (weeks > (pow(2, 63) / SECONDS_PER_WEEK))
-    {
         luaL_error(L, "duration is too large");
-        return 0;
-    }
 
     return createDurationFromSeconds(L, weeks * SECONDS_PER_WEEK);
 }
