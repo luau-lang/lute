@@ -1,7 +1,9 @@
+local crypto = require("@lute/crypto")
+local fs = require("@lute/fs")
 local process = require("@lute/process")
 local system = require("@lute/system")
-local fs = require("@lute/fs")
 
+local base64 = require("@batteries/base64")
 local cli = require("@batteries/cli")
 local toml = require("@batteries/toml")
 
@@ -156,6 +158,14 @@ local function projectPathExists(): boolean
 	return safeFsType(projectPath) == "dir"
 end
 
+local function hexify(digest)
+	local hex = {}
+	for i = 1, buffer.len(digest) do
+		hex[i] = string.format("%02x", buffer.readu8(digest, i - 1))
+	end
+	return table.concat(hex)
+end
+
 local function getStdLibHash(): string
 	local libsPath = projectRelative("std", "libs")
 	local libs = fs.listdir(libsPath)
@@ -166,7 +176,8 @@ local function getStdLibHash(): string
 		toHash ..= fs.readfiletostring(joinPath(libsPath, lib.name))
 	end
 
-	return toHash
+	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
+	return hexify(digest)
 end
 
 local function isGeneratedStdLibUpToDate(): boolean
