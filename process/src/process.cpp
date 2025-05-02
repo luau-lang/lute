@@ -6,6 +6,7 @@
 #include <memory>
 #include <functional>
 #include <map>
+#include <Common.h>
 
 #include "lua.h"
 #include "lualib.h"
