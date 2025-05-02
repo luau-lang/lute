@@ -12,6 +12,13 @@ target_sources(Lute.Runtime PRIVATE
     runtime/src/runtime.cpp
 )
 
+target_sources(Lute.Crypto PRIVATE
+    crypto/include/lute/crypto.h
+
+    crypto/src/crypto.cpp
+)
+
+
 target_sources(Lute.Fs PRIVATE
     fs/include/lute/fs.h
 
@@ -68,4 +75,10 @@ target_sources(Lute.System PRIVATE
     system/include/lute/system.h
 
     system/src/system.cpp
+)
+
+target_sources(Lute.Time PRIVATE
+	time/include/lute/time.h
+
+	time/src/time.cpp
 )

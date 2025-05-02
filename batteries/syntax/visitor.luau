@@ -2,8 +2,9 @@
 
 local T = require("./ast_types")
 
-type Visitor = {
+export type Visitor = {
 	visitBlock: (T.AstStatBlock) -> boolean,
+	visitBlockEnd: (T.AstStatBlock) -> (),
 	visitIf: (T.AstStatIf) -> boolean,
 	visitWhile: (T.AstStatWhile) -> boolean,
 	visitRepeat: (T.AstStatRepeat) -> boolean,
@@ -11,7 +12,14 @@ type Visitor = {
 	visitLocalDeclaration: (T.AstStatLocal) -> boolean,
 	visitFor: (T.AstStatFor) -> boolean,
 	visitForIn: (T.AstStatForIn) -> boolean,
+	visitAssign: (T.AstStatAssign) -> boolean,
+	visitCompoundAssign: (T.AstStatCompoundAssign) -> boolean,
+	visitFunction: (T.AstStatFunction) -> boolean,
+	visitLocalFunction: (T.AstStatLocalFunction) -> boolean,
+	visitTypeAlias: (T.AstStatTypeAlias) -> boolean,
 
+	visitExpression: (T.AstExpr) -> boolean,
+	visitExpressionEnd: (T.AstExpr) -> (),
 	visitLocalReference: (T.AstExprLocal) -> boolean,
 	visitGlobal: (T.AstExprGlobal) -> boolean,
 	visitCall: (T.AstExprCall) -> boolean,
@@ -23,6 +31,14 @@ type Visitor = {
 	visitIndexName: (T.AstExprIndexName) -> boolean,
 	visitIndexExpr: (T.AstExprIndexExpr) -> boolean,
 	visitGroup: (T.AstExprGroup) -> boolean,
+	visitInterpolatedString: (T.AstExprInterpString) -> boolean,
+	visitTypeAssertion: (T.AstExprTypeAssertion) -> boolean,
+
+	visitTypeReference: (T.AstTypeReference) -> boolean,
+	visitTypeBoolean: (T.AstTypeSingletonBool) -> boolean,
+	visitTypeString: (T.AstTypeSingletonString) -> boolean,
+	visitTypeTypeof: (T.AstTypeTypeof) -> boolean,
+	visitTypeGroup: (T.AstTypeGroup) -> boolean,
 
 	visitToken: (T.Token) -> boolean,
 	visitNil: (T.AstExprConstantNil) -> boolean,
@@ -39,6 +55,7 @@ end
 
 local defaultVisitor: Visitor = {
 	visitBlock = alwaysVisit :: any,
+	visitBlockEnd = alwaysVisit :: any,
 	visitIf = alwaysVisit :: any,
 	visitWhile = alwaysVisit :: any,
 	visitRepeat = alwaysVisit :: any,
@@ -46,7 +63,14 @@ local defaultVisitor: Visitor = {
 	visitLocalDeclaration = alwaysVisit :: any,
 	visitFor = alwaysVisit :: any,
 	visitForIn = alwaysVisit :: any,
+	visitAssign = alwaysVisit :: any,
+	visitCompoundAssign = alwaysVisit :: any,
+	visitFunction = alwaysVisit :: any,
+	visitLocalFunction = alwaysVisit :: any,
+	visitTypeAlias = alwaysVisit :: any,
 
+	visitExpression = alwaysVisit :: any,
+	visitExpressionEnd = alwaysVisit :: any,
 	visitLocalReference = alwaysVisit :: any,
 	visitGlobal = alwaysVisit :: any,
 	visitCall = alwaysVisit :: any,
@@ -58,6 +82,14 @@ local defaultVisitor: Visitor = {
 	visitIndexName = alwaysVisit :: any,
 	visitIndexExpr = alwaysVisit :: any,
 	visitGroup = alwaysVisit :: any,
+	visitInterpolatedString = alwaysVisit,
+	visitTypeAssertion = alwaysVisit,
+
+	visitTypeReference = alwaysVisit :: any,
+	visitTypeBoolean = alwaysVisit :: any,
+	visitTypeString = alwaysVisit :: any,
+	visitTypeTypeof = alwaysVisit :: any,
+	visitTypeGroup = alwaysVisit :: any,
 
 	visitToken = alwaysVisit :: any,
 	visitNil = alwaysVisit :: any,
@@ -96,6 +128,8 @@ local function visitBlock(block: T.AstStatBlock, visitor: Visitor)
 		for _, statement in block.statements do
 			visitStatement(statement, visitor)
 		end
+
+		visitor.visitBlockEnd(block)
 	end
 end
 
@@ -185,6 +219,34 @@ local function visitForIn(node: T.AstStatForIn, visitor: Visitor)
 	end
 end
 
+local function visitAssign(node: T.AstStatAssign, visitor: Visitor)
+	if visitor.visitAssign(node) then
+		visitPunctuated(node.variables, visitor, visitExpression)
+		visitToken(node.equals, visitor)
+		visitPunctuated(node.values, visitor, visitExpression)
+	end
+end
+
+local function visitCompoundAssign(node: T.AstStatCompoundAssign, visitor: Visitor)
+	if visitor.visitCompoundAssign(node) then
+		visitExpression(node.variable, visitor)
+		visitToken(node.operand, visitor)
+		visitExpression(node.value, visitor)
+	end
+end
+
+local function visitTypeAlias(node: T.AstStatTypeAlias, visitor: Visitor)
+	if visitor.visitTypeAlias(node) then
+		if node.export then
+			visitToken(node.export, visitor)
+		end
+		visitToken(node.typeToken, visitor)
+		visitToken(node.name, visitor)
+		visitToken(node.equals, visitor)
+		visitType(node.type, visitor)
+	end
+end
+
 local function visitString(node: T.AstExprConstantString, visitor: Visitor)
 	if visitor.visitString(node) then
 		visitor.visitToken(node)
@@ -270,6 +332,23 @@ local function visitAnonymousFunction(node: T.AstExprAnonymousFunction, visitor:
 	end
 end
 
+local function visitFunction(node: T.AstStatFunction, visitor: Visitor)
+	if visitor.visitFunction(node) then
+		visitToken(node["function"], visitor)
+		visitExpression(node.name, visitor)
+		visitFunctionBody(node.body, visitor)
+	end
+end
+
+local function visitLocalFunction(node: T.AstStatLocalFunction, visitor: Visitor)
+	if visitor.visitLocalFunction(node) then
+		visitToken(node["local"], visitor)
+		visitToken(node["function"], visitor)
+		visitLocal(node.name, visitor)
+		visitFunctionBody(node.body, visitor)
+	end
+end
+
 local function visitTableItem(node: T.AstExprTableItem, visitor: Visitor)
 	if visitor.visitTableItem(node) then
 		if node.kind == "list" then
@@ -329,39 +408,116 @@ local function visitGroup(node: T.AstExprGroup, visitor: Visitor)
 	end
 end
 
+local function visitInterpolatedString(node: T.AstExprInterpString, visitor: Visitor)
+	if visitor.visitInterpolatedString(node) then
+		for i = 1, #node.strings do
+			visitToken(node.strings[i], visitor)
+			if i < #node.expressions then
+				visitExpression(node.expressions[i], visitor)
+			end
+		end
+	end
+end
+
+local function visitTypeAssertion(node: T.AstExprTypeAssertion, visitor: Visitor)
+	if visitor.visitTypeAssertion(node) then
+		visitExpression(node.operand, visitor)
+		visitToken(node.operator, visitor)
+		visitType(node.annotation, visitor)
+	end
+end
+
+local function visitTypeReference(node: T.AstTypeReference, visitor: Visitor)
+	if visitor.visitTypeReference(node) then
+		if node.prefix then
+			visitToken(node.prefix, visitor)
+		end
+		if node.prefixPoint then
+			visitToken(node.prefixPoint, visitor)
+		end
+		visitToken(node.name, visitor)
+		if node.openParameters then
+			visitToken(node.openParameters, visitor)
+		end
+		if node.parameters then
+			visitPunctuated(node.parameters, visitor, visitType)
+		end
+		if node.closeParameters then
+			visitToken(node.closeParameters, visitor)
+		end
+	end
+end
+
+local function visitTypeBoolean(node: T.AstTypeSingletonBool, visitor: Visitor)
+	if visitor.visitTypeBoolean(node) then
+		visitToken(node, visitor)
+	end
+end
+
+local function visitTypeString(node: T.AstTypeSingletonString, visitor: Visitor)
+	if visitor.visitTypeString(node) then
+		visitToken(node, visitor)
+	end
+end
+
+local function visitTypeTypeof(node: T.AstTypeTypeof, visitor: Visitor)
+	if visitor.visitTypeTypeof(node) then
+		visitToken(node.typeof, visitor)
+		visitToken(node.openParens, visitor)
+		visitExpression(node.expr, visitor)
+		visitToken(node.closeParens, visitor)
+	end
+end
+
+local function visitTypeGroup(node: T.AstTypeGroup, visitor: Visitor)
+	if visitor.visitTypeGroup(node) then
+		visitToken(node.openParens, visitor)
+		visitType(node.type, visitor)
+		visitToken(node.closeParens, visitor)
+	end
+end
+
 function visitExpression(expression: T.AstExpr, visitor: Visitor)
-	if expression.tag == "nil" then
-		visitNil(expression, visitor)
-	elseif expression.tag == "boolean" then
-		visitBoolean(expression, visitor)
-	elseif expression.tag == "number" then
-		visitNumber(expression, visitor)
-	elseif expression.tag == "string" then
-		visitString(expression, visitor)
-	elseif expression.tag == "local" then
-		visitLocalReference(expression, visitor)
-	elseif expression.tag == "global" then
-		visitGlobal(expression, visitor)
-	elseif expression.tag == "vararg" then
-		visitVarargs(expression, visitor)
-	elseif expression.tag == "call" then
-		visitCall(expression, visitor)
-	elseif expression.tag == "unary" then
-		visitUnary(expression, visitor)
-	elseif expression.tag == "binary" then
-		visitBinary(expression, visitor)
-	elseif expression.tag == "function" then
-		visitAnonymousFunction(expression, visitor)
-	elseif expression.tag == "table" then
-		visitTable(expression, visitor)
-	elseif expression.tag == "indexname" then
-		visitIndexName(expression, visitor)
-	elseif expression.tag == "index" then
-		visitIndexExpr(expression, visitor)
-	elseif expression.tag == "group" then
-		visitGroup(expression, visitor)
-	else
-		exhaustiveMatch(expression.tag)
+	if visitor.visitExpression(expression) then
+		if expression.tag == "nil" then
+			visitNil(expression, visitor)
+		elseif expression.tag == "boolean" then
+			visitBoolean(expression, visitor)
+		elseif expression.tag == "number" then
+			visitNumber(expression, visitor)
+		elseif expression.tag == "string" then
+			visitString(expression, visitor)
+		elseif expression.tag == "local" then
+			visitLocalReference(expression, visitor)
+		elseif expression.tag == "global" then
+			visitGlobal(expression, visitor)
+		elseif expression.tag == "vararg" then
+			visitVarargs(expression, visitor)
+		elseif expression.tag == "call" then
+			visitCall(expression, visitor)
+		elseif expression.tag == "unary" then
+			visitUnary(expression, visitor)
+		elseif expression.tag == "binary" then
+			visitBinary(expression, visitor)
+		elseif expression.tag == "function" then
+			visitAnonymousFunction(expression, visitor)
+		elseif expression.tag == "table" then
+			visitTable(expression, visitor)
+		elseif expression.tag == "indexname" then
+			visitIndexName(expression, visitor)
+		elseif expression.tag == "index" then
+			visitIndexExpr(expression, visitor)
+		elseif expression.tag == "group" then
+			visitGroup(expression, visitor)
+		elseif expression.tag == "interpolatedstring" then
+			visitInterpolatedString(expression, visitor)
+		elseif expression.tag == "cast" then
+			visitTypeAssertion(expression, visitor)
+		else
+			exhaustiveMatch(expression.tag)
+		end
+
+		visitor.visitExpressionEnd(expression)
 	end
 end
 
@@ -388,8 +544,34 @@ function visitStatement(statement: T.AstStat, visitor: Visitor)
 		visitFor(statement, visitor)
 	elseif statement.tag == "forin" then
 		visitForIn(statement, visitor)
+	elseif statement.tag == "assign" then
+		visitAssign(statement, visitor)
+	elseif statement.tag == "compoundassign" then
+		visitCompoundAssign(statement, visitor)
+	elseif statement.tag == "function" then
+		visitFunction(statement, visitor)
+	elseif statement.tag == "localfunction" then
+		visitLocalFunction(statement, visitor)
+	elseif statement.tag == "typealias" then
+		visitTypeAlias(statement, visitor)
 	else
 		exhaustiveMatch(statement.tag)
+	end
+end
+
+function visitType(type: T.AstType, visitor: Visitor)
+	if type.tag == "reference" then
+		visitTypeReference(type, visitor)
+	elseif type.tag == "boolean" then
+		visitTypeBoolean(type, visitor)
+	elseif type.tag == "string" then
+		visitTypeString(type, visitor)
+	elseif type.tag == "typeof" then
+		visitTypeTypeof(type, visitor)
+	elseif type.tag == "group" then
+		visitTypeGroup(type, visitor)
+	else
+		exhaustiveMatch(type.tag)
 	end
 end
 
@@ -400,4 +582,7 @@ end
 return {
 	createVisitor = createVisitor,
 	visitBlock = visitBlock,
+	visitStatement = visitStatement,
+	visitExpression = visitExpression,
+	visitType = visitType,
 }

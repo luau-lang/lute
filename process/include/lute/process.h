@@ -16,10 +16,13 @@ int run(lua_State* L);
 int homedir(lua_State* L);
 int cwd(lua_State* L);
 
+int exitFunc(lua_State* L);
+
 static const luaL_Reg lib[] = {
     {"run", run},
     {"homedir", homedir},
     {"cwd", cwd},
+    {"exit", exitFunc},
 
     {nullptr, nullptr}
 };

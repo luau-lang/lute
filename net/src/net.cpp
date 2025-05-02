@@ -103,34 +103,34 @@ struct ServerLoopState
     int port;
 };
 
-static void parseQuery(const std::string& query, lua_State* L)
+static void parseQuery(const std::string_view& query, lua_State* L)
 {
     lua_createtable(L, 0, 0);
-    size_t start = 0;
+    size_t start = 1; // Skip the '?'
     size_t end = query.find('&');
     while (end != std::string::npos)
     {
-        std::string pair = query.substr(start, end - start);
+        std::string_view pair = std::string_view(query.data() + start, end - start);
         size_t eq = pair.find('=');
         if (eq != std::string::npos)
         {
-            std::string key = pair.substr(0, eq);
-            std::string value = pair.substr(eq + 1);
-            lua_pushstring(L, key.c_str());
-            lua_pushstring(L, value.c_str());
+            std::string_view key = std::string_view(pair.data(), eq);
+            std::string_view value = uWS::getDecodedQueryValue(key, query);
+            lua_pushlstring(L, key.data(), key.size());
+            lua_pushlstring(L, value.data(), value.size());
             lua_settable(L, -3);
         }
         start = end + 1;
         end = query.find('&', start);
     }
-    std::string pair = query.substr(start);
+    std::string_view pair = std::string_view(query.data() + start, query.size());
     size_t eq = pair.find('=');
     if (eq != std::string::npos)
     {
-        std::string key = pair.substr(0, eq);
-        std::string value = pair.substr(eq + 1);
-        lua_pushstring(L, key.c_str());
-        lua_pushstring(L, value.c_str());
+        std::string_view key = std::string_view(pair.data(), eq);
+        std::string_view value = uWS::getDecodedQueryValue(key, query);
+        lua_pushlstring(L, key.data(), key.size());
+        lua_pushlstring(L, value.data(), value.size());
         lua_settable(L, -3);
     }
 }
@@ -232,12 +232,12 @@ static void processRequest(
     auto* res,
     auto* req,
     const std::string& method,
-    const std::string& path,
-    const std::string& query,
+    const std::string_view& path,
+    const std::string_view& query,
     const std::string_view& body
 )
 {
-    lua_State* L = state->runtime->GL;
+    lua_State* L = lua_newthread(state->runtime->GL);
 
     lua_createtable(L, 0, 5);
 
@@ -246,7 +246,7 @@ static void processRequest(
     lua_settable(L, -3);
 
     lua_pushstring(L, "path");
-    lua_pushstring(L, path.c_str());
+    lua_pushlstring(L, path.data(), path.size());
     lua_settable(L, -3);
 
     lua_pushstring(L, "query");
@@ -266,7 +266,8 @@ static void processRequest(
     lua_pushvalue(L, -2);
     lua_remove(L, -3);
 
-    if (lua_pcall(L, 1, 1, 0) != 0)
+    int status = lua_resume(L, nullptr, 1);
+    if (status != LUA_OK && status != LUA_YIELD)
     {
         std::string error = lua_tostring(L, -1);
         lua_pop(L, 1);
@@ -289,16 +290,16 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
         {
             std::string method = std::string(req->getMethod());
             std::transform(method.begin(), method.end(), method.begin(), ::toupper);
-            std::string url = std::string(req->getUrl());
-            std::string path = url;
+            std::string_view url = req->getFullUrl();
+            std::string_view path = url;
 
             // Split URL into path and query
             size_t queryPos = url.find('?');
             std::string query;
             if (queryPos != std::string::npos)
             {
-                path = url.substr(0, queryPos);
-                query = url.substr(queryPos + 1);
+                path = std::string_view(url.data(), queryPos);
+                query = std::string_view(url.data() + queryPos, url.size() - queryPos);
             }
 
             res->onAborted(

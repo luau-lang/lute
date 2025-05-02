@@ -8,10 +8,6 @@ enum class VFSType
 {
     Disk,
     Std,
-
-    // FIXME: this is a temporary workaround until Luau.Require provides an
-    // API for registering the @lute/* libraries.
-    Lute,
 };
 
 struct PathResult

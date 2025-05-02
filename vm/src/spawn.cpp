@@ -185,10 +185,11 @@ int lua_spawn(lua_State* L)
     lua_getinfo(L, 1, "s", &ar);
 
     // Require the target module
-    RequireCtx ctx{/* sourceOverride = */ ar.source};
-    lua_pushrequire(child->GL, requireConfigInit, &ctx);
+    RequireCtx ctx{};
+    luarequire_pushproxyrequire(child->GL, requireConfigInit, &ctx);
     lua_pushstring(child->GL, file);
-    int status = lua_pcall(child->GL, 1, 1, 0);
+    lua_pushstring(child->GL, ar.source);
+    int status = lua_pcall(child->GL, 2, 1, 0);
 
     if (status == LUA_ERRRUN && lua_type(child->GL, -1) == LUA_TSTRING)
     {

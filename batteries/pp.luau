@@ -1,62 +1,8 @@
-local isPrimitiveType = { string = true, number = true, boolean = true }
-
 type ExistingOptions = {
 	rawStrings: boolean?,
 }
 
-local function isPrimitiveArray(array: { [unknown]: unknown })
-	local max, n = 0, 0
-
-	for key, value in array do
-		if typeof(key) ~= "number" then
-			return false
-		end
-		if key <= 0 then
-			return false
-		end
-		if not isPrimitiveType[typeof(value)] then
-			return false
-		end
-
-		max = if key > max then key else max
-		n = n + 1
-	end
-
-	return n == max
-end
-
-local function formatValue(value: unknown, options: ExistingOptions?)
-	if typeof(value) == "table" then
-		return "table" -- simple representation for table values
-	elseif typeof(value) ~= "string" then
-		return tostring(value)
-	end
-
-	if options ~= nil and options.rawStrings == true then
-		return `"{value}"`
-	else
-		return string.format("%q", value)
-	end
-end
-
-local function formatKey(key: unknown, seq: boolean)
-	if seq then
-		return ""
-	end
-
-	if typeof(key) == "table" then
-		return "[table] = " -- add handling for table keys
-	elseif typeof(key) ~= "string" then
-		return `[{tostring(key)}] =`
-	end
-
-	-- key is a simple identifier
-	if key:match("^[%a_][%w_]-$") == key then
-		return `{key} = `
-	end
-
-	return `[{string.format("%q", key)}] = `
-end
+local isPrimitiveType = { string = true, number = true, boolean = true }
 
 local typeSortOrder: { [string]: number } = {
 	["boolean"] = 1,
@@ -71,20 +17,83 @@ local typeSortOrder: { [string]: number } = {
 	["nil"] = 10,
 }
 
+local function isPrimitiveArray(array: { [unknown]: unknown }): boolean
+	local max, len = 0, #array
+
+	for key, value in array do
+		if type(key) ~= "number" then
+			return false
+		elseif key <= 0 then
+			return false
+		-- userdatas arent primitives
+		elseif not isPrimitiveType[type(value)] then
+			return false
+		end
+
+		max = math.max(key, max)
+	end
+
+	return len == max
+end
+
+local function getFormattedAdress(t: {}): string
+	return `table<({t})>`
+end
+
+local function formatValue(value: unknown, options: ExistingOptions?): string
+	if type(value) == "table" then
+		return getFormattedAdress(value) -- simple representation for table values
+	elseif type(value) ~= "string" then
+		return tostring(value)
+	end
+
+	if options and options.rawStrings then
+		return `"{value}"`
+	end
+	return string.format("%q", value)
+end
+
+local function formatKey(key: unknown, seq: boolean): string
+	if seq then
+		return ""
+	end
+
+	if type(key) == "table" then
+		return `[{getFormattedAdress(key)}] = ` -- TODO: handling for table keys
+	end
+	if type(key) ~= "string" then
+		return `[{tostring(key)}] =`
+	end
+
+	-- key is a simple identifier
+	if string.match(key, "^[%a_][%w_]-$") == key then
+		return `{key} = `
+	end
+
+	return `[{string.format("%q", key)}] = `
+end
+
+local function isEmpty(t: { [unknown]: unknown }): boolean
+	for _ in t do
+		return false
+	end
+	return true
+end
+
 local function traverseTable(
 	dataTable: { [unknown]: unknown },
 	seen: { [unknown]: boolean },
 	indent: number,
 	options: ExistingOptions?
-)
+): string
 	local output = ""
 	local indentStr = string.rep("  ", indent)
 
 	local keys = {}
 
 	-- Collect all keys, not just primitives
-	for key, _ in dataTable do
-		keys[#keys + 1] = key
+	for key in dataTable do
+		table.insert(keys, key)
 	end
 
 	table.sort(keys, function(a: string, b: string): boolean
@@ -94,7 +103,7 @@ local function traverseTable(
 			return typeSortOrder[typeofTableA] < typeSortOrder[typeofTableB]
 		end
 
-		if typeof(a) == "number" and typeof(b) == "number" then
+		if type(a) == "number" and type(b) == "number" then
 			return a < b
 		end
 
@@ -105,7 +114,7 @@ local function traverseTable(
 	local previousKey = 0
 
 	for idx, key in keys do
-		if typeof(key) == "number" and key > 0 and key - 1 == previousKey then
+		if type(key) == "number" and key > 0 and key - 1 == previousKey then
 			previousKey = key
 			inSequence = true
 		else
@@ -113,44 +122,40 @@ local function traverseTable(
 		end
 
 		local value = dataTable[key]
-		if typeof(value) ~= "table" then
+
+		if type(value) ~= "table" then
 			output = `{output}{indentStr}{formatKey(key, inSequence)}{formatValue(value, options)},\n`
 			continue
 		end
 
 		-- prevents self-referential tables from looping infinitely
 		if seen[value] then
-			output = `{output}{indentStr}{formatKey(key, inSequence)}[Circular Reference],\n`
+			output = `{output}{indentStr}{formatKey(key, inSequence)}[Circular Reference <({value})>],\n`
 			continue
+		else
+			seen[value] = true
 		end
 
-		seen[value] = true
-
-		local hasItems = false
-		for k, val in value do
-			hasItems = true
-			break
-		end
-
-		if not hasItems then
+		if isEmpty(value :: { [unknown]: unknown }) then
 			output = string.format("%s%s%s{},\n", output, indentStr, formatKey(key, inSequence))
 			continue
 		end
 
 		-- FIXME(luau): `{[unknown]: unknown} should be treated identically to `table`
 		if isPrimitiveArray(value :: { [unknown]: unknown }) then -- collapse primitive arrays
-			local valueAsArray = value :: { unknown }
+			local outputConcatTbl = table.create(#value) :: { string }
 
-			output = string.format("%s%s%s{", output, indentStr, formatKey(key, inSequence))
-
-			for index = 1, #valueAsArray do
-				output ..= formatValue(valueAsArray[index])
-				if index < #valueAsArray then
-					output ..= ", "
-				end
+			for valueIndex, valueInArray in value :: { unknown } do
+				outputConcatTbl[valueIndex] = formatValue(valueInArray)
 			end
 
-			output ..= "},\n"
+			output = string.format(
+				"%s%s%s{%*},\n",
+				output,
+				indentStr,
+				formatKey(key, inSequence),
+				table.concat(outputConcatTbl, ", ")
+			)
 			continue
 		end
 
@@ -169,14 +174,14 @@ local function traverseTable(
 	return output
 end
 
-return function(data: unknown, options: ExistingOptions?)
-	options = if options then options else {} :: ExistingOptions
+return function(data: unknown, options: ExistingOptions?): string
+	options = options or {} :: ExistingOptions
 
 	-- if it's not a primitive, we'll pretty print it as a value
-	if typeof(data) ~= "table" then
+	if type(data) ~= "table" then
 		return formatValue(data, options)
 	end
 
 	-- FIXME(luau): `{[unknown]: unknown} should be treated identically to `table`
-	return "{\n" .. traverseTable(data :: { [unknown]: unknown }, { [data :: unknown] = true }, 1, options) .. "}"
+	return `\{\n{traverseTable(data :: { [unknown]: unknown }, { [data] = true }, 1, options)}\}`
 end

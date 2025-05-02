@@ -6,6 +6,7 @@
 #include <memory>
 #include <functional>
 #include <map>
+#include "Luau/Common.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -433,6 +434,17 @@ int homedir(lua_State* L)
     lua_pushstring(L, buffer.c_str());
 
     return 1;
+}
+
+int exitFunc(lua_State* L)
+{
+    int exitCode = luaL_optinteger(L, 1, 0);
+
+
+    // Exit with the provided code
+    std::exit(exitCode);
+
+    LUAU_UNREACHABLE();
 }
 
 int cwd(lua_State* L)
