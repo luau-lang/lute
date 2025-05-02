@@ -3,7 +3,6 @@ local fs = require("@lute/fs")
 local process = require("@lute/process")
 local system = require("@lute/system")
 
-local base64 = require("@batteries/base64")
 local cli = require("@batteries/cli")
 local toml = require("@batteries/toml")
 
