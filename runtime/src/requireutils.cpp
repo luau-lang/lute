@@ -76,11 +76,6 @@ static std::pair<PathResult::Status, std::string> getSuffixWithAmbiguityCheck(VF
 
 static PathResult addSuffix(VFSType vfsType, PathResult partialResult)
 {
-    // FIXME: this is a temporary workaround until Luau.Require provides an
-    // API for registering the @lute/* libraries.
-    if (vfsType == VFSType::Lute)
-        return partialResult;
-
     if (partialResult.status != PathResult::Status::SUCCESS)
         return partialResult;
 

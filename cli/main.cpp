@@ -21,6 +21,7 @@
 #include "lute/runtime.h"
 #include "lute/task.h"
 #include "lute/vm.h"
+#include "lute/time.h"
 
 #include "tc.h"
 
@@ -59,6 +60,29 @@ static void* createCliRequireContext(lua_State* L)
     return ctx;
 }
 
+static void luteopen_libs(lua_State* L)
+{
+    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
+        {"@lute/crypto", luteopen_crypto},
+        {"@lute/fs", luteopen_fs},
+        {"@lute/luau", luteopen_luau},
+        {"@lute/net", luteopen_net},
+        {"@lute/process", luteopen_process},
+        {"@lute/task", luteopen_task},
+        {"@lute/vm", luteopen_vm},
+        {"@lute/system", luteopen_system},
+        {"@lute/time", luteopen_time},
+    }};
+
+    for (const auto& [name, func] : libs)
+    {
+        lua_pushcfunction(L, luarequire_registermodule, nullptr);
+        lua_pushstring(L, name);
+        func(L);
+        lua_call(L, 2, 0);
+    }
+}
+
 lua_State* setupState(Runtime& runtime)
 {
     // Separate VM for data copies
@@ -79,35 +103,8 @@ lua_State* setupState(Runtime& runtime)
     // register the builtin tables
     luaL_openlibs(L);
 
-    luaL_findtable(L, LUA_REGISTRYINDEX, "_MODULES", 1);
-
-    luteopen_crypto(L);
-    lua_setfield(L, -2, "@lute/crypto");
-
-    luteopen_fs(L);
-    lua_setfield(L, -2, "@lute/fs");
-
-    luteopen_luau(L);
-    lua_setfield(L, -2, "@lute/luau");
-
-    luteopen_net(L);
-    lua_setfield(L, -2, "@lute/net");
-
-    luteopen_process(L);
-    lua_setfield(L, -2, "@lute/process");
-
-    luteopen_task(L);
-    lua_setfield(L, -2, "@lute/task");
-
-    luteopen_vm(L);
-    lua_setfield(L, -2, "@lute/vm");
-
-    luteopen_system(L);
-    lua_setfield(L, -2, "@lute/system");
-
-    lua_pop(L, 1);
-
     luaopen_require(L, requireConfigInit, createCliRequireContext(L));
+    luteopen_libs(L);
 
     lua_pushnil(L);
     lua_setglobal(L, "setfenv");

@@ -76,3 +76,9 @@ target_sources(Lute.System PRIVATE
 
     system/src/system.cpp
 )
+
+target_sources(Lute.Time PRIVATE
+	time/include/lute/time.h
+
+	time/src/time.cpp
+)

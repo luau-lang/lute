@@ -153,6 +153,12 @@ export type AstExprBinary = {
 	rhsoperand: AstExpr,
 }
 
+export type AstExprInterpString = {
+	tag: "interpolatedstring",
+	strings: { Token<string> },
+	expressions: { AstExpr },
+}
+
 export type AstExpr =
 	| AstExprGroup
 	| AstExprConstantNil
@@ -169,6 +175,7 @@ export type AstExpr =
 	| AstExprTable
 	| AstExprUnary
 	| AstExprBinary
+	| AstExprInterpString
 
 export type AstStatBlock = {
 	tag: "block",
