@@ -183,5 +183,5 @@ return function(data: unknown, options: ExistingOptions?): string
 	end
 
 	-- FIXME(luau): `{[unknown]: unknown} should be treated identically to `table`
-	return `\{\n{traverseTable(data, { [data] = true }, 1, options)}\}`
+	return `\{\n{traverseTable(data :: { [unknown]: unknown }, { [data] = true }, 1, options)}\}`
 end
