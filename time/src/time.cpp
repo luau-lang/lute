@@ -360,7 +360,7 @@ int lua_now(lua_State* L)
 {
     uv_timespec64_t now;
 
-    int status = uv_clock_gettime(UV_CLOCK_MONOTONIC, &now);
+    [[maybe_unused]] int status = uv_clock_gettime(UV_CLOCK_MONOTONIC, &now);
     assert(status == 0);
 
     uv_timespec64_t* timespec = static_cast<uv_timespec64_t*>(lua_newuserdatatagged(L, sizeof(uv_timespec64_t), kInstantTag));
