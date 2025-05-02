@@ -175,7 +175,7 @@ local function traverseTable(
 end
 
 return function(data: unknown, options: ExistingOptions?): string
-	options = options or {} :: any
+	options = options or {} :: ExistingOptions
 
 	-- if it's not a primitive, we'll pretty print it as a value
 	if type(data) ~= "table" then
