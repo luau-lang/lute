@@ -238,6 +238,8 @@ static void processRequest(
 )
 {
     lua_State* L = lua_newthread(state->runtime->GL);
+    std::shared_ptr<Ref> threadRef = getRefForThread(L);
+    lua_pop(state->runtime->GL, 1);
 
     lua_createtable(L, 0, 5);
 
