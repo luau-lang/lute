@@ -46,7 +46,7 @@ local targetMap: { [string]: { exeName: string } } = {
 local args = cli.parser()
 
 args:add("help", "flag", { help = "show the help message" })
-args:add("executable", "positional", { help = "the lute executable", required = true }) -- should this be handled automatically?
+args:add("luthier", "positional", { help = "the luthier script", required = true }) -- should this be handled automatically?
 args:add("subcommand", "positional", { help = "command to execute", required = true })
 args:add("target", "positional", { help = "the thing to build or run", required = true })
 args:add("verbose", "flag", { help = "show verbose compile output", aliases = { "v" } })
