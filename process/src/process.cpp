@@ -536,6 +536,16 @@ struct EnvIter
     uv_env_item_t* items;
     int count;
     int index;
+
+    ~EnvIter()
+    {
+        if (items)
+        {
+            uv_os_free_environ(items, count);
+            items = nullptr;
+            count = 0;
+        }
+    }
 };
 
 static int envIterNext(lua_State* L)
@@ -565,13 +575,18 @@ static int envIter(lua_State* L)
         return 0;
     }
 
-    EnvIter* iter = (EnvIter*)lua_newuserdata(L, sizeof(EnvIter));
+    EnvIter* iter = (EnvIter*)lua_newuserdatadtor(
+        L,
+        sizeof(EnvIter),
+        [](void* ptr)
+        {
+            static_cast<EnvIter*>(ptr)->~EnvIter();
+        }
+    );
+
     iter->items = items;
     iter->count = count;
     iter->index = 0;
-
-    luaL_getmetatable(L, "process.env.iterator");
-    lua_setmetatable(L, -2);
 
     lua_pushvalue(L, -1);
     lua_pushcclosure(L, envIterNext, "envIterNext", 1);
@@ -579,24 +594,10 @@ static int envIter(lua_State* L)
     return 1;
 }
 
-static int envIterGc(lua_State* L)
-{
-    EnvIter* iter = (EnvIter*)lua_touserdata(L, 1);
-    if (iter->items)
-    {
-        uv_os_free_environ(iter->items, iter->count);
-        iter->items = nullptr;
-        iter->count = 0;
-    }
-    return 0;
-}
-
 } // namespace process
 
 static const luaL_Reg processEnvMeta[] =
     {{"__index", process::envIndex}, {"__newindex", process::envNewindex}, {"__iter", process::envIter}, {nullptr, nullptr}};
-
-static const luaL_Reg processEnvIterMeta[] = {{"__gc", process::envIterGc}, {nullptr, nullptr}};
 
 int luaopen_process(lua_State* L)
 {
@@ -616,10 +617,6 @@ int luteopen_process(lua_State* L)
         lua_pushcfunction(L, func, name);
         lua_setfield(L, -2, name);
     }
-
-    luaL_newmetatable(L, "process.env.iterator");
-    luaL_register(L, nullptr, processEnvIterMeta);
-    lua_pop(L, 1);
 
     lua_newtable(L);
     luaL_newmetatable(L, "process.env");
