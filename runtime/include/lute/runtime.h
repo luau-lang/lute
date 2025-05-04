@@ -29,6 +29,9 @@ struct Runtime
     // For child runtimes, run a thread waiting for work
     void runContinuously();
 
+    // Reports an error for a specified lua state.
+    void reportError(lua_State* L);
+
     bool hasContinuations();
     bool hasThreads();
 

@@ -36,6 +36,8 @@ export type Token<Kind = string> = {
 	read trailingTrivia: { Trivia },
 }
 
+export type Eof = Token<nil> & { tag: "eof" }
+
 export type Pair<T, Separator> = { node: T, separator: Token<Separator>? }
 export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
 

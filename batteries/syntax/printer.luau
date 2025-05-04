@@ -116,7 +116,15 @@ function printExpr(block: T.AstExpr): string
 	return printer.result
 end
 
+function printFile(result: { root: T.AstStatBlock, eof: T.Eof }): string
+	local printer = printVisitor()
+	visitor.visitBlock(result.root, printer)
+	visitor.visitToken(result.eof, printer)
+	return printer.result
+end
+
 return {
 	print = printBlock,
 	printexpr = printExpr,
+	printfile = printFile,
 }

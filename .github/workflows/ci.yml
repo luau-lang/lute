@@ -14,11 +14,11 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            options: --c-compiler=cl.exe --cxx-compiler=cl.exe
+            options: --c-compiler cl.exe --cxx-compiler cl.exe
           - os: ubuntu-latest
-            options: --c-compiler=gcc --cxx-compiler=g++
+            options: --c-compiler gcc --cxx-compiler g++
           - os: ubuntu-latest
-            options: --c-compiler=clang --cxx-compiler=clang++
+            options: --c-compiler clang --cxx-compiler clang++
           - os: macos-latest
       fail-fast: false
 
@@ -30,6 +30,7 @@ jobs:
         with:
           config: debug
           options: ${{ matrix.options }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   check-format:
     runs-on: ubuntu-latest

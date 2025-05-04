@@ -629,6 +629,14 @@ struct AstSerialize : public Luau::AstVisitor
         }
     }
 
+    void serializeEof(Luau::Position eofPosition)
+    {
+        serializeToken(eofPosition, "");
+
+        lua_pushstring(L, "eof");
+        lua_setfield(L, -2, "tag");
+    }
+
     void serialize(Luau::AstExprGroup* node)
     {
         lua_rawcheckstack(L, 2);
@@ -1983,11 +1991,14 @@ int luau_parse(lua_State* L)
 
     lua_rawcheckstack(L, 3);
 
-    lua_createtable(L, 0, 2);
+    lua_createtable(L, 0, 3);
 
     AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
     serializer.visit(result.parseResult.root);
     lua_setfield(L, -2, "root");
+
+    serializer.serializeEof(result.parseResult.root->location.end);
+    lua_setfield(L, -2, "eof");
 
     lua_pushnumber(L, result.parseResult.lines);
     lua_setfield(L, -2, "lines");

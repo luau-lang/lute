@@ -10,6 +10,9 @@ inputs:
     description: "Additional luthier options"
     required: false
     default: ""
+  token:
+    description: "Token for foreman"
+    required: true
 
 outputs:
   exe_path:
@@ -19,10 +22,10 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Install tools
+      uses: Roblox/setup-foreman@v1
       with:
-        python-version: "3.11"
+        token: ${{ inputs.token }}
 
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
@@ -56,20 +59,20 @@ runs:
     - name: Fetch Lute
       if: steps.cache-extern.outputs.cache-hit != 'true'
       shell: bash
-      run: python ./tools/luthier.py fetch lute
+      run: lute ./tools/luthier.luau fetch lute
 
     - name: Configure Lute
       shell: bash
-      run: python ./tools/luthier.py configure lute --config=${{ inputs.config }} ${{ inputs.options }}
+      run: lute ./tools/luthier.luau configure lute --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build Lute
       shell: bash
-      run: python ./tools/luthier.py build lute --config=${{ inputs.config }} ${{ inputs.options }}
+      run: lute ./tools/luthier.luau build lute --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Get Artifact Path
       id: artifact_path
       shell: bash
       run: |
-        exe_path=$(python ./tools/luthier.py build lute --config=${{ inputs.config }} --which)
+        exe_path=$(lute ./tools/luthier.luau build lute --config ${{ inputs.config }} --which)
         echo "Executable path: $exe_path"  # Debug print
         echo "exe_path=$exe_path" >> "$GITHUB_OUTPUT"

@@ -124,6 +124,7 @@ local function test_roundtrippableAst()
 		"examples/async_read.luau",
 		"examples/b.luau",
 		"examples/badisnan.luau",
+		"examples/compile.luau",
 		"examples/directories.luau",
 		"examples/json.luau",
 		"examples/main.luau",
@@ -134,6 +135,7 @@ local function test_roundtrippableAst()
 		"examples/parallel_sort.luau",
 		"examples/parsing.luau",
 		"examples/process_env.luau",
+		"examples/serve.luau",
 		"examples/spawn_example.luau",
 		"examples/time_example.luau",
 		"examples/writeFile.luau",
@@ -156,11 +158,9 @@ local function test_roundtrippableAst()
 	}
 
 	for _, path in files do
+		print(path)
 		local source = fs.readfiletostring(path)
-		local result = printer.print(parser.parse(source))
-
-		-- FIXME: we currently don't handle the EOF character (and its trivia) in the CST
-		result ..= "\n"
+		local result = printer.printfile(parser.parsefile(source))
 
 		assert(source == result)
 	end
