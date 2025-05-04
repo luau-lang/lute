@@ -51,7 +51,7 @@ local function combine(...: Styler): Styler
 	return combinedStyler
 end
 
-local function colorful(colorEnabled: boolean)
+local function colorful(colorEnabled: boolean?)
 	local f = formatter
 
 	if colorEnabled == nil then
