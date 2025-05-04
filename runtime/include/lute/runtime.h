@@ -33,6 +33,7 @@ struct Runtime
     void reportError(lua_State* L);
 
     bool hasContinuations();
+    bool hasThreads();
 
     void schedule(std::function<void()> f);
 

@@ -13,14 +13,11 @@ namespace net
 
 int get(lua_State* L);
 
-int getAsync(lua_State* L);
-
-int serve(lua_State* L);
+int lua_serve(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"get", get},
-    {"getAsync", getAsync},
-    {"serve", serve},
+    {"serve", lua_serve},
     {nullptr, nullptr},
 };
 
