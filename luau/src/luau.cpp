@@ -1733,9 +1733,8 @@ struct AstSerialize : public Luau::AstVisitor
                     lua_setfield(L, -2, "indexerOpen");
 
                     {
-                        // TODO: fix start position
-                        auto initialPosition = currentPosition;
-                        serializeToken(initialPosition, item.stringInfo->sourceString.data);
+                        auto initialPosition = item.stringPosition;
+                        serializeToken(item.stringPosition, item.stringInfo->sourceString.data);
 
                         switch (item.stringInfo->quoteStyle)
                         {
