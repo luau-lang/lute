@@ -1,3 +1,4 @@
+-- stylua: ignore start
 type function Foo()
 end
 
