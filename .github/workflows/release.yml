@@ -59,10 +59,9 @@ jobs:
           - os: ubuntu-latest
             artifact_name: lute-linux-x86_64
             options: --c-compiler clang --cxx-compiler clang++
-          # TODO: Re-enable once foreman works on linux arm64
-          # - os: ubuntu-24.04-arm
-          #   artifact_name: lute-linux-aarch64
-          #   options: --c-compiler clang --cxx-compiler clang++
+          - os: ubuntu-24.04-arm
+            artifact_name: lute-linux-aarch64
+            options: --c-compiler clang --cxx-compiler clang++
           - os: macos-latest
             artifact_name: lute-macos-aarch64
           - os: windows-latest
