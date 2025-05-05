@@ -6,7 +6,7 @@
 export type Formatter = (s: string, nocolor: boolean?) -> string
 
 -- @noinline (if it ever exists)
-local function format(s: string, open: string, close: string, replace: string): string 
+local function format(s: string, open: string, close: string, replace: string): string
 	local index = string.find(s, close, #open + 1, true)
 	local middle = s
 
@@ -14,7 +14,7 @@ local function format(s: string, open: string, close: string, replace: string): 
 		local closeLen = #close
 		local middleTbl = {}
 		local cursor = 1
-		
+
 		while index do
 			table.insert(middleTbl, string.sub(s, cursor, index - 1))
 			cursor = index + closeLen
@@ -27,7 +27,7 @@ local function format(s: string, open: string, close: string, replace: string): 
 	return open .. middle .. close
 end
 
-local function formatter(open: string, close: string, replace: string?): Formatter 
+local function formatter(open: string, close: string, replace: string?): Formatter
 	replace = replace or open
 
 	return function(s, nocolor)
