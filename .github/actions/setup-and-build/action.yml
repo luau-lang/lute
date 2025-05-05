@@ -23,7 +23,7 @@ runs:
   using: "composite"
   steps:
     - name: Install tools
-      uses: Roblox/setup-foreman@v1
+      uses: Roblox/setup-foreman@v3
       with:
         token: ${{ inputs.token }}
 
