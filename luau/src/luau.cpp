@@ -8,6 +8,9 @@
 #include "Luau/ToString.h"
 #include "Luau/Compiler.h"
 
+#include "lute/userdatas.h"
+
+
 #include "lua.h"
 #include "lualib.h"
 #include <cstddef>
@@ -1599,7 +1602,7 @@ struct AstSerialize : public Luau::AstVisitor
         node->type->visit(this);
         lua_setfield(L, -2, "type");
 
-        serializeToken(Luau::Position{node->location.end.line, node->location.end.column -1}, ")");
+        serializeToken(Luau::Position{node->location.end.line, node->location.end.column - 1}, ")");
         lua_setfield(L, -2, "closeParens");
     }
 
@@ -2076,7 +2079,7 @@ int compile_luau(lua_State* L)
 
     std::string bytecode = Luau::compile(std::string(source, source_size), opts);
 
-    std::string* userdata = static_cast<std::string*>(lua_newuserdata(L, sizeof(std::string)));
+    std::string* userdata = static_cast<std::string*>(lua_newuserdatatagged(L, sizeof(std::string), kCompilerResultTag));
 
     new (userdata) std::string(std::move(bytecode));
 
