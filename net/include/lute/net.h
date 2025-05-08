@@ -11,12 +11,12 @@ int luteopen_net(lua_State* L);
 namespace net
 {
 
-int get(lua_State* L);
+int request(lua_State* L);
 
 int lua_serve(lua_State* L);
 
 static const luaL_Reg lib[] = {
-    {"get", get},
+    {"request", request},
     {"serve", lua_serve},
     {nullptr, nullptr},
 };

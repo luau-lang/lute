@@ -27,7 +27,12 @@ static size_t writeFunction(void* contents, size_t size, size_t nmemb, void* con
     return fullsize;
 }
 
-static std::pair<std::string, std::vector<char>> requestData(const std::string& url)
+static std::pair<std::string, std::vector<char>> requestData(
+    const std::string& url,
+    const std::string& method,
+    const std::string& body,
+    const std::vector<std::string>& headers
+)
 {
     CURL* curl = curl_easy_init();
 
@@ -35,6 +40,7 @@ static std::pair<std::string, std::vector<char>> requestData(const std::string& 
         return {"failed to initialize", {}};
 
     std::vector<char> data;
+    struct curl_slist* headerList = nullptr;
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
@@ -42,20 +48,75 @@ static std::pair<std::string, std::vector<char>> requestData(const std::string& 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
 
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+
+    if (method != "GET") {
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
+    }
+
+    if (!body.empty()) {
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
+    }
+
+    if (!headers.empty()) {
+        for (const auto& hdr : headers)
+        {
+            headerList = curl_slist_append(headerList, hdr.c_str());
+        }
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerList);
+    }
 
     CURLcode res = curl_easy_perform(curl);
+
+    if (headerList)
+        curl_slist_free_all(headerList);
+
+    curl_easy_cleanup(curl);
 
     if (res != CURLE_OK)
         return {curl_easy_strerror(res), {}};
 
-    curl_easy_cleanup(curl);
     return {"", data};
 }
 
-int get(lua_State* L)
+int request(lua_State* L)
 {
     std::string url = luaL_checkstring(L, 1);
+
+    std::string method = "GET";
+    std::string body = "";
+    std::vector<std::string> headers;
+
+    if (lua_istable(L, 2))
+    {
+        lua_getfield(L, 2, "method");
+        if (lua_isstring(L, -1))
+            method = lua_tostring(L, -1);
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "body");
+        if (lua_isstring(L, -1))
+            body = lua_tostring(L, -1);
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "headers");
+        if (lua_istable(L, -1))
+        {
+            lua_pushnil(L);
+            while (lua_next(L, -2) != 0)
+            {
+                if (lua_isstring(L, -2) && lua_isstring(L, -1))
+                {
+                    std::string key = lua_tostring(L, -2);
+                    std::string value = lua_tostring(L, -1);
+                    std::string headerStr = key + ": " + value;
+                    headers.push_back(headerStr);
+                }
+                lua_pop(L, 1);
+            }
+        }
+        lua_pop(L, 1);
+    }
 
     auto token = getResumeToken(L);
 
@@ -63,7 +124,7 @@ int get(lua_State* L)
     token->runtime->runInWorkQueue(
         [=]
         {
-            auto [error, data] = requestData(url);
+            auto [error, data] = requestData(url, method, body, headers);
 
             if (!error.empty())
             {

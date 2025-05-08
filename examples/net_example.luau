@@ -3,16 +3,16 @@ local net = require("@lute/net")
 local task = require("@std/task")
 
 local t = task.create(function()
-	return net.getAsync("https://en.wikipedia.org/")
+	return net.request("https://en.wikipedia.org/")
 end)
 
 print(task.await(t))
 
-print(task.await(task.create(net.getAsync, "https://en.wikipedia.org/")))
+print(task.await(task.create(net.request, "https://en.wikipedia.org/")))
 
-local t1 = task.create(net.getAsync, "https://en.wikipedia.org/")
-local t2 = task.create(net.getAsync, "https://www.google.com/")
-local t3 = task.create(net.getAsync, "https://www.bing.com/")
+local t1 = task.create(net.request, "https://en.wikipedia.org/")
+local t2 = task.create(net.request, "https://www.google.com/")
+local t3 = task.create(net.request, "https://www.bing.com/")
 
 -- print(task.awaitAll(t1, t2, t3))
 
