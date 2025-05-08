@@ -29,4 +29,12 @@ end
 
 print(os.clock() - start)
 
+print(net.request("https://httpbin.org/post", {
+	method = "POST",
+	headers = {
+		["Content-Type"] = "application/json",
+	},
+	body = '{"name":"lute"}',
+}))
+
 print("completed")
