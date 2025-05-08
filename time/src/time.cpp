@@ -1,6 +1,7 @@
 #include "lute/time.h"
 #include "lua.h"
 #include "lualib.h"
+#include "lute/userdatas.h"
 #include "uv.h"
 
 #include <cmath>

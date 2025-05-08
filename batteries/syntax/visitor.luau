@@ -17,6 +17,7 @@ export type Visitor = {
 	visitFunction: (T.AstStatFunction) -> boolean,
 	visitLocalFunction: (T.AstStatLocalFunction) -> boolean,
 	visitTypeAlias: (T.AstStatTypeAlias) -> boolean,
+	visitStatTypeFunction: (T.AstStatTypeFunction) -> boolean,
 
 	visitExpression: (T.AstExpr) -> boolean,
 	visitExpressionEnd: (T.AstExpr) -> (),
@@ -33,6 +34,7 @@ export type Visitor = {
 	visitGroup: (T.AstExprGroup) -> boolean,
 	visitInterpolatedString: (T.AstExprInterpString) -> boolean,
 	visitTypeAssertion: (T.AstExprTypeAssertion) -> boolean,
+	visitIfExpression: (T.AstExprIfElse) -> boolean,
 
 	visitTypeReference: (T.AstTypeReference) -> boolean,
 	visitTypeBoolean: (T.AstTypeSingletonBool) -> boolean,
@@ -70,6 +72,7 @@ local defaultVisitor: Visitor = {
 	visitFunction = alwaysVisit :: any,
 	visitLocalFunction = alwaysVisit :: any,
 	visitTypeAlias = alwaysVisit :: any,
+	visitStatTypeFunction = alwaysVisit :: any,
 
 	visitExpression = alwaysVisit :: any,
 	visitExpressionEnd = alwaysVisit :: any,
@@ -86,6 +89,7 @@ local defaultVisitor: Visitor = {
 	visitGroup = alwaysVisit :: any,
 	visitInterpolatedString = alwaysVisit,
 	visitTypeAssertion = alwaysVisit,
+	visitIfExpression = alwaysVisit,
 
 	visitTypeReference = alwaysVisit :: any,
 	visitTypeBoolean = alwaysVisit :: any,
@@ -143,7 +147,12 @@ local function visitIf(node: T.AstStatIf, visitor: Visitor)
 		visitExpression(node.condition, visitor)
 		visitToken(node["then"], visitor)
 		visitBlock(node.consequent, visitor)
-		-- TODO: special handling for elseif?
+		for _, elseifNode in node.elseifs do
+			visitToken(elseifNode["elseif"], visitor)
+			visitExpression(elseifNode.condition, visitor)
+			visitToken(elseifNode["then"], visitor)
+			visitBlock(elseifNode.consequent, visitor)
+		end
 		if node["else"] then
 			visitToken(node["else"], visitor)
 		end
@@ -353,6 +362,18 @@ local function visitLocalFunction(node: T.AstStatLocalFunction, visitor: Visitor
 	end
 end
 
+local function visitStatTypeFunction(node: T.AstStatTypeFunction, visitor: Visitor)
+	if visitor.visitStatTypeFunction(node) then
+		if node.export then
+			visitToken(node.export, visitor)
+		end
+		visitToken(node.type, visitor)
+		visitToken(node["function"], visitor)
+		visitToken(node.name, visitor)
+		visitFunctionBody(node.body, visitor)
+	end
+end
+
 local function visitTableItem(node: T.AstExprTableItem, visitor: Visitor)
 	if visitor.visitTableItem(node) then
 		if node.kind == "list" then
@@ -428,6 +449,23 @@ local function visitTypeAssertion(node: T.AstExprTypeAssertion, visitor: Visitor
 		visitExpression(node.operand, visitor)
 		visitToken(node.operator, visitor)
 		visitType(node.annotation, visitor)
+	end
+end
+
+local function visitIfExpression(node: T.AstExprIfElse, visitor: Visitor)
+	if visitor.visitIfExpression(node) then
+		visitToken(node["if"], visitor)
+		visitExpression(node.condition, visitor)
+		visitToken(node["then"], visitor)
+		visitExpression(node.consequent, visitor)
+		for _, elseifs in node["elseifs"] do
+			visitToken(elseifs["elseif"], visitor)
+			visitExpression(elseifs.condition, visitor)
+			visitToken(elseifs["then"], visitor)
+			visitExpression(elseifs.consequent, visitor)
+		end
+		visitToken(node["else"], visitor)
+		visitExpression(node.antecedent, visitor)
 	end
 end
 
@@ -535,6 +573,8 @@ function visitExpression(expression: T.AstExpr, visitor: Visitor)
 			visitInterpolatedString(expression, visitor)
 		elseif expression.tag == "cast" then
 			visitTypeAssertion(expression, visitor)
+		elseif expression.tag == "conditional" then
+			visitIfExpression(expression, visitor)
 		else
 			exhaustiveMatch(expression.tag)
 		end
@@ -576,6 +616,8 @@ function visitStatement(statement: T.AstStat, visitor: Visitor)
 		visitLocalFunction(statement, visitor)
 	elseif statement.tag == "typealias" then
 		visitTypeAlias(statement, visitor)
+	elseif statement.tag == "typefunction" then
+		visitStatTypeFunction(statement, visitor)
 	else
 		exhaustiveMatch(statement.tag)
 	end

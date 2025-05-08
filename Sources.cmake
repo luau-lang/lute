@@ -4,6 +4,7 @@ target_sources(Lute.Runtime PRIVATE
     runtime/include/lute/require.h
     runtime/include/lute/requireutils.h
     runtime/include/lute/runtime.h
+    runtime/include/lute/userdatas.h
 
     runtime/src/options.cpp
     runtime/src/ref.cpp

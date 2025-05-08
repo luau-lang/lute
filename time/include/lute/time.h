@@ -9,9 +9,6 @@ int luaopen_time(lua_State* L);
 // open the library as a table on top of the stack
 int luteopen_time(lua_State* L);
 
-static const int kDurationTag = 2;
-static const int kInstantTag = 1;
-
 static const char kInstantType[] = "instant";
 static const char kDurationType[] = "duration";
 static const char kDurationLibraryIdentifier[] = "duration";
