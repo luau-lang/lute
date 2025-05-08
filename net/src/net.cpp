@@ -48,8 +48,6 @@ static std::pair<std::string, std::vector<char>> requestData(
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
 
-    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-
     if (method != "GET")
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
 
