@@ -50,15 +50,14 @@ static std::pair<std::string, std::vector<char>> requestData(
 
     // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
 
-    if (method != "GET") {
+    if (method != "GET")
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
-    }
 
-    if (!body.empty()) {
+    if (!body.empty())
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
-    }
 
-    if (!headers.empty()) {
+    if (!headers.empty())
+    {
         for (const auto& hdr : headers)
         {
             headerList = curl_slist_append(headerList, hdr.c_str());
