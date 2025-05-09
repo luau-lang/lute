@@ -15,23 +15,18 @@
 #include <vector>
 #include <sstream>
 
+namespace net
+{
+
+static const std::string kEmptyHeaderKey = "";
 struct CurlResponse {
     std::string error;
     std::vector<char> body;
-    std::vector<char> header;
-    long statusCode = 0;
+    Luau::DenseHashMap<std::string, std::string> headers;
+    long status = 0;
+
+    CurlResponse() : headers(kEmptyHeaderKey) {}
 };
-
-static size_t headerFunction(void* contents, size_t size, size_t nmemb, void* userp)
-{
-    std::vector<char>& target = *(std::vector<char>*)userp;
-    size_t totalSize = size * nmemb;
-    target.insert(target.end(), (char*)contents, (char*)contents + totalSize);
-    return totalSize;
-}
-
-namespace net
-{
 
 static size_t writeFunction(void* contents, size_t size, size_t nmemb, void* context)
 {
@@ -47,12 +42,13 @@ static CurlResponse requestData(
     const std::string& url,
     const std::string& method,
     const std::string& body,
-    const std::vector<std::string>& headers
+    const std::vector<std::pair<std::string, std::string>>& headers
 )
 {
     CURL* curl = curl_easy_init();
     CurlResponse resp;
-    if (!curl) {
+    if (!curl)
+    {
         resp.error = "failed to initialize";
         return resp;
     }
@@ -67,9 +63,6 @@ static CurlResponse requestData(
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
 
-    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, headerFunction);
-    curl_easy_setopt(curl, CURLOPT_HEADERDATA, &headerData);
-
     if (method != "GET")
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
 
@@ -78,9 +71,10 @@ static CurlResponse requestData(
 
     if (!headers.empty())
     {
-        for (const auto& hdr : headers)
+        for (const auto& header_pair : headers)
         {
-            headerList = curl_slist_append(headerList, hdr.c_str());
+            std::string header_str = header_pair.first + ": " + header_pair.second;
+            headerList = curl_slist_append(headerList, header_str.c_str());
         }
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerList);
     }
@@ -90,19 +84,37 @@ static CurlResponse requestData(
     if (headerList)
         curl_slist_free_all(headerList);
 
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &resp.statusCode);
-
-    curl_easy_cleanup(curl);
-
     if (res != CURLE_OK)
     {
         resp.error = curl_easy_strerror(res);
+        curl_easy_cleanup(curl);
+        return resp;
     }
-    else
+
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &resp.status);
+
+    resp.body = std::move(data);
+
+    curl_header *prev = nullptr;
+    curl_header *h;
+
+    while ((h = curl_easy_nextheader(curl, CURLH_HEADER, 0, prev)))
     {
-        resp.body = std::move(data);
-        resp.header = std::move(headerData);
+        std::string name = h->name;
+        std::string value = h->value;
+
+        if (resp.headers.contains(name))
+        {
+            resp.headers[name] += ", " + value;
+        }
+        else
+        {
+            resp.headers[name] = value;
+        }
+        prev = h;
     }
+
+    curl_easy_cleanup(curl);
     return resp;
 }
 
@@ -111,7 +123,7 @@ int request(lua_State* L)
     std::string url = luaL_checkstring(L, 1);
     std::string method = "GET";
     std::string body = "";
-    std::vector<std::string> headers;
+    std::vector<std::pair<std::string, std::string>> headers;
 
     if (lua_istable(L, 2))
     {
@@ -135,8 +147,7 @@ int request(lua_State* L)
                 {
                     std::string key = lua_tostring(L, -2);
                     std::string value = lua_tostring(L, -1);
-                    std::string headerStr = key + ": " + value;
-                    headers.push_back(headerStr);
+                    headers.emplace_back(key, value);
                 }
                 lua_pop(L, 1);
             }
@@ -152,62 +163,39 @@ int request(lua_State* L)
             if (!resp.error.empty())
             {
                 token->fail("network request failed: " + resp.error);
+                return;
             }
-            else
-            {
-                token->complete(
-                    [resp = std::move(resp)](lua_State* L)
+            
+            token->complete(
+                [resp = std::move(resp)](lua_State* L)
+                {
+                    lua_createtable(L, 0, 4);
+
+                    lua_pushstring(L, "body");
+                    lua_pushlstring(L, resp.body.data(), resp.body.size());
+                    lua_settable(L, -3);
+
+                    lua_pushstring(L, "headers");
+                    lua_createtable(L, 0, resp.headers.size());
+                    for (const auto& header : resp.headers)
                     {
-                        // Create table to return
-                        lua_newtable(L); // response table
-
-                        // Set body
-                        lua_pushstring(L, "body");
-                        lua_pushlstring(L, resp.body.data(), resp.body.size());
+                        lua_pushlstring(L, header.first.data(), header.first.size());
+                        lua_pushlstring(L, header.second.data(), header.second.size());
                         lua_settable(L, -3);
-
-                        // Set headers as a table by parsing header lines
-                        lua_pushstring(L, "headers");
-                        lua_newtable(L);
-                        {
-                            std::string headersStr(resp.header.begin(), resp.header.end());
-                            std::istringstream stream(headersStr);
-                            std::string line;
-                            while (std::getline(stream, line))
-                            {
-                                // Trim trailing '\r'
-                                if (!line.empty() && line.back() == '\r')
-                                    line.pop_back();
-                                size_t colon = line.find(':');
-                                if (colon != std::string::npos)
-                                {
-                                    std::string key = line.substr(0, colon);
-                                    std::string value = line.substr(colon + 1);
-                                    // Trim spaces
-                                    key.erase(0, key.find_first_not_of(" "));
-                                    key.erase(key.find_last_not_of(" ") + 1);
-                                    value.erase(0, value.find_first_not_of(" "));
-                                    value.erase(value.find_last_not_of(" ") + 1);
-                                    lua_pushlstring(L, key.c_str(), key.size());
-                                    lua_pushlstring(L, value.c_str(), value.size());
-                                    lua_settable(L, -3);
-                                }
-                            }
-                        }
-                        lua_settable(L, -3);
-
-                        lua_pushstring(L, "statusCode");
-                        lua_pushinteger(L, resp.statusCode);
-                        lua_settable(L, -3);
-
-                        lua_pushstring(L, "ok");
-                        lua_pushboolean(L, (resp.statusCode >= 200 && resp.statusCode < 300));
-                        lua_settable(L, -3);
-
-                        return 1;
                     }
-                );
-            }
+                    lua_settable(L, -3);
+
+                    lua_pushstring(L, "status");
+                    lua_pushinteger(L, resp.status);
+                    lua_settable(L, -3);
+
+                    lua_pushstring(L, "ok");
+                    lua_pushboolean(L, (resp.status >= 200 && resp.status < 300));
+                    lua_settable(L, -3);
+
+                    return 1;
+                }
+            );
         }
     );
 

@@ -2,13 +2,15 @@ local net = require("@lute/net")
 
 local task = require("@std/task")
 
+local pp = require("@batteries/pp")
+
 local t = task.create(function()
 	return net.request("https://en.wikipedia.org/")
 end)
 
-print(task.await(t))
+print(task.await(t).status)
 
-print(task.await(task.create(net.request, "https://en.wikipedia.org/")))
+print(pp(task.await(task.create(net.request, "https://en.wikipedia.org/")).headers))
 
 local t1 = task.create(net.request, "https://en.wikipedia.org/")
 local t2 = task.create(net.request, "https://www.google.com/")
@@ -35,6 +37,6 @@ print(net.request("https://httpbin.org/post", {
 		["Content-Type"] = "application/json",
 	},
 	body = '{"name":"lute"}',
-}))
+}).body)
 
 print("completed")
