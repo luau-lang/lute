@@ -60,7 +60,6 @@ struct Runtime
 
     std::vector<ThreadToContinue> runningThreads;
 
-private:
     std::mutex continuationMutex;
     std::vector<std::function<void()>> continuations;
 
