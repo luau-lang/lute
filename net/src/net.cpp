@@ -54,7 +54,7 @@ static CurlResponse requestData(
 
     std::vector<char> data;
     std::vector<char> headerData;
-    struct curl_slist* headerList = nullptr;
+    curl_slist* headerList = nullptr;
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
@@ -94,8 +94,8 @@ static CurlResponse requestData(
 
     resp.body = std::move(data);
 
-    curl_header *prev = nullptr;
-    curl_header *h;
+    curl_header* prev = nullptr;
+    curl_header* h;
 
     while ((h = curl_easy_nextheader(curl, CURLH_HEADER, 0, prev)))
     {
@@ -140,7 +140,7 @@ int request(lua_State* L)
         if (lua_istable(L, -1))
         {
             lua_pushnil(L);
-            while (lua_next(L, -2) != 0)
+            while (lua_next(L, -2))
             {
                 if (lua_isstring(L, -2) && lua_isstring(L, -1))
                 {
@@ -155,6 +155,8 @@ int request(lua_State* L)
     }
 
     auto token = getResumeToken(L);
+
+    // TODO: add cancellations
     token->runtime->runInWorkQueue(
         [=]
         {
@@ -205,7 +207,7 @@ using uWSApp = Luau::Variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSL
 
 static const int kEmptyServerKey = 0;
 static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
-static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
+static Luau::DenseHashMap<int, std::shared_ptr<ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
 
 struct ServerLoopState
@@ -323,7 +325,7 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
     if (lua_istable(L, -1))
     {
         lua_pushnil(L);
-        while (lua_next(L, -2) != 0)
+        while (lua_next(L, -2))
         {
             if (lua_isstring(L, -2) && lua_isstring(L, -1))
             {
