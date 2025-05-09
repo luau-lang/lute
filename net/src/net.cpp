@@ -207,7 +207,7 @@ using uWSApp = Luau::Variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSL
 
 static const int kEmptyServerKey = 0;
 static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
-static Luau::DenseHashMap<int, std::shared_ptr<ServerLoopState>> serverStates(kEmptyServerKey);
+static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
 
 struct ServerLoopState
