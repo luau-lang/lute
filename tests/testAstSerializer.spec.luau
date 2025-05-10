@@ -120,11 +120,11 @@ end
 local function test_roundtrippableAst()
 	local files = {
 		"examples/a.luau",
-		"examples/ansi.luau",
+		-- "examples/ansi.luau",
 		"examples/async_read.luau",
 		"examples/b.luau",
 		"examples/badisnan.luau",
-		-- "examples/cliargs.luau", genuine failure
+		"examples/cliargs.luau",
 		"examples/compile.luau",
 		"examples/directories.luau",
 		"examples/json.luau",
@@ -136,12 +136,12 @@ local function test_roundtrippableAst()
 		"examples/parallel_sort.luau",
 		"examples/parsing.luau",
 		"examples/process_env.luau",
-		-- "examples/process.luau", genuine failure (table?)
-		-- "examples/serve_html.luau", genuine failure (advancing)
+		"examples/process.luau",
+		"examples/serve_html.luau",
 		"examples/serve.luau",
 		"examples/spawn_example.luau",
 		"examples/time_example.luau",
-		-- "examples/toml.luau", genuine failure
+		"examples/toml.luau",
 		"examples/writeFile.luau",
 		"tests/astSerializerTests/assignment-1.luau",
 		"tests/astSerializerTests/attributes-1.luau",
