@@ -3,6 +3,8 @@
 #include "lute/require.h"
 #include "lute/runtime.h"
 
+#include "Luau/Require.h"
+
 #include <memory>
 
 #include "lua.h"
@@ -183,7 +185,8 @@ int lua_spawn(lua_State* L)
     lua_getinfo(L, 1, "s", &ar);
 
     // Require the target module
-    lua_pushcclosure(child->GL, lua_requireFromSource, "require", 0);
+    RequireCtx ctx{};
+    luarequire_pushproxyrequire(child->GL, requireConfigInit, &ctx);
     lua_pushstring(child->GL, file);
     lua_pushstring(child->GL, ar.source);
     int status = lua_pcall(child->GL, 2, 1, 0);

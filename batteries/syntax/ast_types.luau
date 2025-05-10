@@ -36,12 +36,27 @@ export type Token<Kind = string> = {
 	read trailingTrivia: { Trivia },
 }
 
+export type Eof = Token<nil> & { tag: "eof" }
+
 export type Pair<T, Separator> = { node: T, separator: Token<Separator>? }
 export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
 
 export type AstLocal = {
 	name: Token<string>,
 }
+
+export type AstExprGroup = {
+	tag: "group",
+	openParens: Token<"(">,
+	expression: AstExpr,
+	closeParens: Token<")">,
+}
+
+export type AstExprConstantNil = Token<"nil"> & { tag: "nil" }
+
+export type AstExprConstantBool = Token<"true" | "false"> & { tag: "boolean", value: boolean }
+
+export type AstExprConstantNumber = Token<string> & { tag: "number", value: number }
 
 export type AstExprConstantString = Token<string> & {
 	tag: "string",
@@ -60,6 +75,8 @@ export type AstExprGlobal = {
 	tag: "global",
 	name: Token,
 }
+
+export type AstExprVarargs = Token<"..."> & { tag: "vararg" }
 
 export type AstExprCall = {
 	tag: "call",
@@ -80,7 +97,55 @@ export type AstExprIndexName = {
 export type AstExprIndexExpr = {
 	tag: "index",
 	expr: AstExpr,
+	openBrackets: Token<"[">,
 	index: AstExpr,
+	closeBrackets: Token<"]">,
+}
+
+export type AstFunctionBody = {
+	-- TODO: generics
+	openParens: Token<"(">,
+	-- TODO: parameters
+	parameters: Punctuated<Token<string>>,
+	closeParens: Token<")">,
+	-- TODO: return type
+	body: AstStatBlock,
+	["end"]: Token<"end">,
+}
+
+export type AstExprAnonymousFunction = {
+	tag: "function",
+	["function"]: Token<"function">,
+	body: AstFunctionBody,
+}
+
+export type AstExprTableItem = | { kind: "list", value: AstExpr, separator: Token<"," | ";">? } | {
+	kind: "record",
+	key: Token<string>,
+	equals: Token<"=">,
+	value: AstExpr,
+	separator: Token<"," | ";">?,
+} | {
+	kind: "general",
+	indexerOpen: Token<"[">,
+	key: AstExpr,
+	indexerClose: Token<"]">,
+	equals: Token<"=">,
+	value: AstExpr,
+	separator: Token<"," | ";">?,
+}
+
+export type AstExprTable = {
+	tag: "table",
+	openBrace: Token<"{">,
+	entries: { AstExprTableItem },
+	closeBrace: Token<"}">,
+}
+
+export type AstExprUnary = {
+	tag: "unary",
+	operator: Token<"not" | "-" | "#">,
+	operand: AstExpr,
 }
 
 export type AstExprBinary = {
@@ -90,32 +155,101 @@ export type AstExprBinary = {
 	rhsoperand: AstExpr,
 }
 
-export type AstExprTableItem =
-	| { kind: "list", value: AstExpr }
-	| { kind: "record", key: string, equals: Token<"=">, value: AstExpr }
-	| { kind: "general", key: string, equals: Token<"=">, value: AstExpr }
+export type AstExprInterpString = {
+	tag: "interpolatedstring",
+	strings: { Token<string> },
+	expressions: { AstExpr },
+}
 
-export type AstExprTable = {
-	tag: "table",
-	openBrace: Token<"{">,
-	entries: { never },
-	closeBrace: Token<"}">,
+export type AstExprTypeAssertion = {
+	tag: "cast",
+	operand: AstExpr,
+	operator: Token<"::">,
+	annotation: AstType,
+}
+
+export type AstExprIfElseIfs = {
+	["elseif"]: Token<"elseif">,
+	condition: AstExpr,
+	["then"]: Token<"then">,
+	consequent: AstExpr,
+}
+
+export type AstExprIfElse = {
+	tag: "conditional",
+	["if"]: Token<"if">,
+	condition: AstExpr,
+	["then"]: Token<"then">,
+	consequent: AstExpr,
+	elseifs: { AstExprIfElseIfs },
+	["else"]: Token<"else">,
+	antecedent: AstExpr,
 }
 
 export type AstExpr =
+	| AstExprGroup
+	| AstExprConstantNil
+	| AstExprConstantBool
+	| AstExprConstantNumber
 	| AstExprConstantString
 	| AstExprLocal
 	| AstExprGlobal
+	| AstExprVarargs
 	| AstExprCall
 	| AstExprIndexName
 	| AstExprIndexExpr
-	| AstExprBinary
+	| AstExprAnonymousFunction
 	| AstExprTable
+	| AstExprUnary
+	| AstExprBinary
+	| AstExprInterpString
+	| AstExprTypeAssertion
+	| AstExprIfElse
 
 export type AstStatBlock = {
 	tag: "block",
 	statements: { AstStat },
 }
+
+export type AstStatElseIf = {
+	["elseif"]: Token<"elseif">,
+	condition: AstExpr,
+	["then"]: Token<"then">,
+	consequent: AstStatBlock,
+}
+
+export type AstStatIf = {
+	tag: "conditional",
+	["if"]: Token<"if">,
+	condition: AstExpr,
+	["then"]: Token<"then">,
+	consequent: AstStatBlock,
+	elseifs: { AstStatElseIf },
+	["else"]: Token<"else">, -- TODO: this could be elseif!
+	antecedent: AstStatBlock,
+	["end"]: Token<"end">,
+}
+
+export type AstStatWhile = {
+	tag: "while",
+	["while"]: Token<"while">,
+	condition: AstExpr,
+	["do"]: Token<"do">,
+	body: AstStatBlock,
+	["end"]: Token<"end">,
+}
+
+export type AstStatRepeat = {
+	tag: "repeat",
+	["repeat"]: Token<"repeat">,
+	body: AstStatBlock,
+	["until"]: Token<"until">,
+	condition: AstExpr,
+}
+
+export type AstStatBreak = Token<"break"> & { tag: "break" }
+
+export type AstStatContinue = Token<"continue"> & { tag: "continue" }
 
 export type AstStatReturn = {
 	tag: "return",
@@ -136,6 +270,156 @@ export type AstStatLocal = {
 	values: Punctuated<AstExpr>,
 }
 
-export type AstStat = AstStatBlock | AstStatReturn | AstStatExpr | AstStatLocal
+export type AstStatFor = {
+	tag: "for",
+	["for"]: Token<"for">,
+	variable: AstLocal,
+	equals: Token<"=">,
+	from: AstExpr,
+	toComma: Token<",">,
+	to: AstExpr,
+	stepComma: Token<",">?,
+	step: AstExpr?,
+	["do"]: Token<"do">,
+	body: AstStatBlock,
+	["end"]: Token<"end">,
+}
+
+export type AstStatForIn = {
+	tag: "forin",
+	["for"]: Token<"for">,
+	variables: Punctuated<Token<string>>,
+	["in"]: Token<"in">,
+	values: Punctuated<Token<string>>,
+	["do"]: Token<"do">,
+	body: AstStatBlock,
+	["end"]: Token<"end">,
+}
+
+export type AstStatAssign = {
+	tag: "assign",
+	variables: Punctuated<AstExpr>,
+	equals: Token<"=">,
+	values: Punctuated<AstExpr>,
+}
+
+export type AstStatCompoundAssign = {
+	tag: "compoundassign",
+	variable: AstExpr,
+	operand: Token, -- TODO: enforce token type,
+	value: AstExpr,
+}
+
+export type AstStatFunction = {
+	tag: "function",
+	["function"]: Token<"function">,
+	name: AstExpr,
+	body: AstFunctionBody,
+}
+
+export type AstStatLocalFunction = {
+	tag: "localfunction",
+	["local"]: Token<"local">,
+	["function"]: Token<"function">,
+	name: AstLocal,
+	body: AstFunctionBody,
+}
+
+export type AstStatTypeAlias = {
+	tag: "typealias",
+	["export"]: Token<"export">?,
+	typeToken: Token<"type">,
+	name: Token,
+	equals: Token<"=">,
+	type: AstType,
+}
+
+export type AstStatTypeFunction = {
+	tag: "typefunction",
+	["export"]: Token<"export">?,
+	type: Token<"type">,
+	["function"]: Token<"function">,
+	name: Token,
+	body: AstFunctionBody,
+}
+
+export type AstStat =
+	| AstStatBlock
+	| AstStatIf
+	| AstStatWhile
+	| AstStatRepeat
+	| AstStatBreak
+	| AstStatContinue
+	| AstStatReturn
+	| AstStatExpr
+	| AstStatLocal
+	| AstStatFor
+	| AstStatForIn
+	| AstStatAssign
+	| AstStatCompoundAssign
+	| AstStatFunction
+	| AstStatLocalFunction
+	| AstStatTypeAlias
+	| AstStatTypeFunction
+
+export type AstTypeReference = {
+	tag: "reference",
+	prefix: Token<string>?,
+	prefixPoint: Token<".">?,
+	name: Token<string>,
+	openParameters: Token<"<">?,
+	parameters: Punctuated<AstType>?,
+	closeParameters: Token<">">?,
+}
+
+export type AstTypeSingletonBool = Token<"true" | "false"> & {
+	tag: "boolean",
+	value: boolean,
+}
+
+export type AstTypeSingletonString = Token<string> & {
+	tag: "string",
+	quoteStyle: "single" | "double",
+}
+
+export type AstTypeTypeof = {
+	tag: "typeof",
+	typeof: Token<"typeof">,
+	openParens: Token<"(">,
+	expr: AstExpr,
+	closeParens: Token<")">,
+}
+
+export type AstTypeGroup = {
+	tag: "group",
+	openParens: Token<"(">,
+	type: AstType,
+	closeParens: Token<">">,
+}
+
+export type AstTypeOptional = Token<"?"> & { tag: "optional" }
+
+export type AstTypeUnion = {
+	tag: "union",
+	leading: Token<"|">?,
+	-- Separator may be nil for AstTypeOptional
+	types: Punctuated<AstType, "|">,
+}
+
+export type AstTypeIntersection = {
+	tag: "intersection",
+	leading: Token<"&">?,
+	types: Punctuated<AstType, "&">,
+}
+
+export type AstType =
+	| AstTypeReference
+	| AstTypeSingletonBool
+	| AstTypeSingletonString
+	| AstTypeTypeof
+	| AstTypeGroup
+	| AstTypeUnion
+	| AstTypeIntersection
+	| AstTypeOptional
 
 return {}

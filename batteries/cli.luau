@@ -151,7 +151,7 @@ function cli.parse(self: Parser, args: { string }): ()
 	end
 end
 
-function cli.get(self: Parser, name: string): boolean
+function cli.get(self: Parser, name: string): string
 	return self.parsed.values[name]
 end
 
@@ -159,7 +159,7 @@ function cli.has(self: Parser, name: string): boolean
 	return self.parsed.flags[name] ~= nil
 end
 
-function cli.forwaded(): { string }?
+function cli.forwarded(self: Parser): { string }?
 	return self.parsed.fwdArgs
 end
 

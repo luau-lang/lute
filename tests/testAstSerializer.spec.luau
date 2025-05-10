@@ -120,16 +120,60 @@ end
 local function test_roundtrippableAst()
 	local files = {
 		"examples/a.luau",
+		"examples/ansi.luau",
+		"examples/async_read.luau",
 		"examples/b.luau",
+		"examples/badisnan.luau",
+		-- "examples/cliargs.luau", genuine failure
+		"examples/compile.luau",
+		"examples/directories.luau",
+		"examples/json.luau",
+		"examples/main.luau",
+		"examples/net_example.luau",
+		"examples/parallel_serve_helper.luau",
+		"examples/parallel_serve.luau",
+		"examples/parallel_sort_helper.luau",
+		"examples/parallel_sort.luau",
+		"examples/parsing.luau",
+		"examples/process_env.luau",
+		-- "examples/process.luau", genuine failure (table?)
+		-- "examples/serve_html.luau", genuine failure (advancing)
+		"examples/serve.luau",
+		"examples/spawn_example.luau",
+		"examples/time_example.luau",
+		-- "examples/toml.luau", genuine failure
+		"examples/writeFile.luau",
+		"tests/astSerializerTests/assignment-1.luau",
+		"tests/astSerializerTests/break-continue-1.luau",
+		"tests/astSerializerTests/compound-assignment-1.luau",
+		"tests/astSerializerTests/compound-types-1.luau",
+		"tests/astSerializerTests/compound-types-2.luau",
+		"tests/astSerializerTests/compound-types-3.luau",
+		"tests/astSerializerTests/function-declaration-1.luau",
+		"tests/astSerializerTests/function-declaration-2.luau",
+		"tests/astSerializerTests/generic-for-loop-1.luau",
+		"tests/astSerializerTests/if-expression-1.luau",
+		"tests/astSerializerTests/if-expression-2.luau",
+		"tests/astSerializerTests/if-statement-1.luau",
+		"tests/astSerializerTests/interpolated-string-1.luau",
+		"tests/astSerializerTests/interpolated-string-2.luau",
+		"tests/astSerializerTests/local-function-declaration-1.luau",
+		"tests/astSerializerTests/numeric-for-loop-1.luau",
+		"tests/astSerializerTests/table-1.luau",
+		"tests/astSerializerTests/table-2.luau",
+		"tests/astSerializerTests/type-assertion-1.luau",
+		"tests/astSerializerTests/type-function-1.luau",
+		"tests/astSerializerTests/type-singletons-1.luau",
+		"tests/astSerializerTests/while-1.luau",
+		"tests/astSerializerTests/repeat-until-1.luau",
 	}
 
 	for _, path in files do
+		print(path)
 		local source = fs.readfiletostring(path)
-		local result = printer.print(parser.parse(source))
+		local result = printer.printfile(parser.parsefile(source))
 
-		-- FIXME: we currently don't handle the EOF character (and its trivia) in the CST
-		result ..= "\n"
-
+		print(result)
 		assert(source == result)
 	end
 end

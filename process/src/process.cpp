@@ -6,6 +6,7 @@
 #include <memory>
 #include <functional>
 #include <map>
+#include "Luau/Common.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -183,7 +184,13 @@ static void allocBuffer(uv_handle_t* handle, size_t suggestedSize, uv_buf_t* buf
     }
 }
 
-int create(lua_State* L)
+const std::string kStdioKindDefault = "default";
+const std::string kStdioKindInherit = "inherit";
+const std::string kStdioKindNone = "none";
+// TODO: add forwarding
+// const std::string kStdioKindForward = "forward";
+
+int run(lua_State* L)
 {
     std::vector<std::string> args;
     if (lua_istable(L, 1))
@@ -210,6 +217,7 @@ int create(lua_State* L)
     bool useShell = false;
     std::string customShell;
     std::string cwd;
+    std::string stdioKind;
     std::map<std::string, std::string> env;
 
     if (lua_istable(L, 2))
@@ -231,6 +239,14 @@ int create(lua_State* L)
         if (!lua_isnil(L, -1))
             cwd = lua_tostring(L, -1);
 
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "stdio");
+        if (lua_isstring(L, -1))
+        {
+            stdioKind = lua_tostring(L, -1);
+            // TODO: support stdin and separate stdout/stderr kinds
+        }
         lua_pop(L, 1);
 
         lua_getfield(L, 2, "env");
@@ -339,12 +355,31 @@ int create(lua_State* L)
 
     options.stdio_count = 3;
     uv_stdio_container_t stdio[3];
-    stdio[0].flags = UV_INHERIT_FD;
-    stdio[0].data.fd = 0; // Inherit stdin
-    stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
-    stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-    stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
+    stdio[0].flags = UV_IGNORE;
+    if (stdioKind == kStdioKindNone)
+    {
+        stdio[1].flags = UV_IGNORE;
+        stdio[2].flags = UV_IGNORE;
+    }
+    else if (stdioKind == kStdioKindInherit)
+    {
+        stdio[1].flags = UV_INHERIT_FD;
+        stdio[1].data.fd = fileno(stdout);
+        stdio[2].flags = UV_INHERIT_FD;
+        stdio[2].data.fd = fileno(stderr);
+    }
+    else if (stdioKind == kStdioKindDefault || stdioKind.empty())
+    {
+        stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+        stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
+        stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+        stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
+    }
+    else
+    {
+        luaL_error(L, "Invalid stdio kind: %s", stdioKind.c_str());
+        return 0;
+    }
     options.stdio = stdio;
 
     handle->process.data = handle.get();
@@ -399,6 +434,17 @@ int homedir(lua_State* L)
     lua_pushstring(L, buffer.c_str());
 
     return 1;
+}
+
+int exitFunc(lua_State* L)
+{
+    int exitCode = luaL_optinteger(L, 1, 0);
+
+
+    // Exit with the provided code
+    std::exit(exitCode);
+
+    LUAU_UNREACHABLE();
 }
 
 int cwd(lua_State* L)
@@ -490,6 +536,16 @@ struct EnvIter
     uv_env_item_t* items;
     int count;
     int index;
+
+    ~EnvIter()
+    {
+        if (items)
+        {
+            uv_os_free_environ(items, count);
+            items = nullptr;
+            count = 0;
+        }
+    }
 };
 
 static int envIterNext(lua_State* L)
@@ -519,13 +575,18 @@ static int envIter(lua_State* L)
         return 0;
     }
 
-    EnvIter* iter = (EnvIter*)lua_newuserdata(L, sizeof(EnvIter));
+    EnvIter* iter = (EnvIter*)lua_newuserdatadtor(
+        L,
+        sizeof(EnvIter),
+        [](void* ptr)
+        {
+            static_cast<EnvIter*>(ptr)->~EnvIter();
+        }
+    );
+
     iter->items = items;
     iter->count = count;
     iter->index = 0;
-
-    luaL_getmetatable(L, "process.env.iterator");
-    lua_setmetatable(L, -2);
 
     lua_pushvalue(L, -1);
     lua_pushcclosure(L, envIterNext, "envIterNext", 1);
@@ -533,24 +594,10 @@ static int envIter(lua_State* L)
     return 1;
 }
 
-static int envIterGc(lua_State* L)
-{
-    EnvIter* iter = (EnvIter*)lua_touserdata(L, 1);
-    if (iter->items)
-    {
-        uv_os_free_environ(iter->items, iter->count);
-        iter->items = nullptr;
-        iter->count = 0;
-    }
-    return 0;
-}
-
 } // namespace process
 
 static const luaL_Reg processEnvMeta[] =
     {{"__index", process::envIndex}, {"__newindex", process::envNewindex}, {"__iter", process::envIter}, {nullptr, nullptr}};
-
-static const luaL_Reg processEnvIterMeta[] = {{"__gc", process::envIterGc}, {nullptr, nullptr}};
 
 int luaopen_process(lua_State* L)
 {
@@ -570,10 +617,6 @@ int luteopen_process(lua_State* L)
         lua_pushcfunction(L, func, name);
         lua_setfield(L, -2, name);
     }
-
-    luaL_newmetatable(L, "process.env.iterator");
-    luaL_register(L, nullptr, processEnvIterMeta);
-    lua_pop(L, 1);
 
     lua_newtable(L);
     luaL_newmetatable(L, "process.env");

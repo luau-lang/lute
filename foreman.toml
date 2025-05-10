@@ -1,2 +1,3 @@
 [tools]
 stylua = { github = "JohnnyMorganz/StyLua", version = "2.0.2" }
+lute = { github = "luau-lang/lute", version = "0.1.0-nightly.20250503" }

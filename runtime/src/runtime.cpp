@@ -86,16 +86,13 @@ bool Runtime::runToCompletion()
 
         if (status != LUA_OK)
         {
-            std::string error;
+            reportError(L);
 
-            if (const char* str = lua_tostring(L, -1))
-                error = str;
-
-            error += "\nstacktrace:\n";
-            error += lua_debugtrace(L);
-
-            fprintf(stderr, "%s", error.c_str());
-            continue;
+            // If we have no work to do, then exit the process.
+            if (!hasThreads() && !hasContinuations())
+                return false;
+            else
+                continue;
         }
 
         if (next.cont)
@@ -103,6 +100,19 @@ bool Runtime::runToCompletion()
     }
 
     return true;
+}
+
+void Runtime::reportError(lua_State* L)
+{
+    std::string error;
+
+    if (const char* str = lua_tostring(L, -1))
+        error = str;
+
+    error += "\nstacktrace:\n";
+    error += lua_debugtrace(L);
+
+    fprintf(stderr, "%s", error.c_str());
 }
 
 void Runtime::runContinuously()
@@ -136,6 +146,11 @@ bool Runtime::hasContinuations()
 {
     std::unique_lock lock(continuationMutex);
     return !continuations.empty();
+}
+
+bool Runtime::hasThreads()
+{
+    return !runningThreads.empty();
 }
 
 void Runtime::schedule(std::function<void()> f)

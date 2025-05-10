@@ -1,0 +1,3 @@
+local x = {
+	["test"] = true,
+}

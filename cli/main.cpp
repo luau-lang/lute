@@ -3,11 +3,13 @@
 #include "Luau/Compiler.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Parser.h"
+#include "Luau/Require.h"
 
 #include "lua.h"
 #include "lualib.h"
 #include "uv.h"
 
+#include "lute/crypto.h"
 #include "lute/fs.h"
 #include "lute/luau.h"
 #include "lute/net.h"
@@ -19,6 +21,7 @@
 #include "lute/runtime.h"
 #include "lute/task.h"
 #include "lute/vm.h"
+#include "lute/time.h"
 
 #include "tc.h"
 
@@ -89,6 +92,54 @@ AppendedBytecodeResult checkForAppendedBytecode(const char* executablePath)
     return result;
 }
 
+static void* createCliRequireContext(lua_State* L)
+{
+    void* ctx = lua_newuserdatadtor(
+        L,
+        sizeof(RequireCtx),
+        [](void* ptr)
+        {
+            static_cast<RequireCtx*>(ptr)->~RequireCtx();
+        }
+    );
+
+    if (!ctx)
+        luaL_error(L, "unable to allocate RequireCtx");
+
+    ctx = new (ctx) RequireCtx{};
+
+    // Store RequireCtx in the registry to keep it alive for the lifetime of
+    // this lua_State. Memory address is used as a key to avoid collisions.
+    lua_pushlightuserdata(L, ctx);
+    lua_insert(L, -2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return ctx;
+}
+
+static void luteopen_libs(lua_State* L)
+{
+    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
+        {"@lute/crypto", luteopen_crypto},
+        {"@lute/fs", luteopen_fs},
+        {"@lute/luau", luteopen_luau},
+        {"@lute/net", luteopen_net},
+        {"@lute/process", luteopen_process},
+        {"@lute/task", luteopen_task},
+        {"@lute/vm", luteopen_vm},
+        {"@lute/system", luteopen_system},
+        {"@lute/time", luteopen_time},
+    }};
+
+    for (const auto& [name, func] : libs)
+    {
+        lua_pushcfunction(L, luarequire_registermodule, nullptr);
+        lua_pushstring(L, name);
+        func(L);
+        lua_call(L, 2, 0);
+    }
+}
+
 lua_State* setupState(Runtime& runtime)
 {
     // Separate VM for data copies
@@ -109,36 +160,8 @@ lua_State* setupState(Runtime& runtime)
     // register the builtin tables
     luaL_openlibs(L);
 
-    luaL_findtable(L, LUA_REGISTRYINDEX, "_MODULES", 1);
-
-    luteopen_fs(L);
-    lua_setfield(L, -2, "@lute/fs");
-
-    luteopen_luau(L);
-    lua_setfield(L, -2, "@lute/luau");
-
-    luteopen_net(L);
-    lua_setfield(L, -2, "@lute/net");
-
-    luteopen_process(L);
-    lua_setfield(L, -2, "@lute/process");
-
-    luteopen_task(L);
-    lua_setfield(L, -2, "@lute/task");
-
-    luteopen_vm(L);
-    lua_setfield(L, -2, "@lute/vm");
-
-    luteopen_system(L);
-    lua_setfield(L, -2, "@lute/system");
-
-    static const luaL_Reg funcs[] = {
-        {"require", lua_require},
-        {nullptr, nullptr},
-    };
-
-    luaL_register(L, "_G", funcs);
-    lua_pop(L, 1);
+    luaopen_require(L, requireConfigInit, createCliRequireContext(L));
+    luteopen_libs(L);
 
     lua_pushnil(L);
     lua_setglobal(L, "setfenv");
@@ -164,6 +187,12 @@ bool setupArguments(lua_State* L, int argc, char** argv)
 
 static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
 {
+    if (isDirectory(name))
+    {
+        fprintf(stderr, "Error: %s is a directory\n", name);
+        return false;
+    }
+
     std::optional<std::string> source = readFile(name);
     if (!source)
     {
@@ -177,7 +206,14 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(L);
 
-    std::string chunkname = "=" + std::string(name);
+    // ignore file extension when storing module's chunkname
+    std::string chunkname = "@";
+    std::string_view nameView = name;
+    if (size_t dotPos = nameView.find_last_of('.'); dotPos != std::string_view::npos)
+    {
+        nameView.remove_suffix(nameView.size() - dotPos);
+    }
+    chunkname += nameView;
 
     std::string bytecode = Luau::compile(*source, copts());
 
