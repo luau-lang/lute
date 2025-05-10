@@ -10,6 +10,7 @@ export type Visitor = {
 	visitRepeat: (T.AstStatRepeat) -> boolean,
 	visitReturn: (T.AstStatReturn) -> boolean,
 	visitLocalDeclaration: (T.AstStatLocal) -> boolean,
+	visitLocalDeclarationEnd: (T.AstStatLocal) -> (),
 	visitFor: (T.AstStatFor) -> boolean,
 	visitForIn: (T.AstStatForIn) -> boolean,
 	visitAssign: (T.AstStatAssign) -> boolean,
@@ -72,6 +73,7 @@ local defaultVisitor: Visitor = {
 	visitRepeat = alwaysVisit :: any,
 	visitReturn = alwaysVisit :: any,
 	visitLocalDeclaration = alwaysVisit :: any,
+	visitLocalDeclarationEnd = alwaysVisit :: any,
 	visitFor = alwaysVisit :: any,
 	visitForIn = alwaysVisit :: any,
 	visitAssign = alwaysVisit :: any,
@@ -217,6 +219,8 @@ local function visitLocalStatement(node: T.AstStatLocal, visitor: Visitor)
 			visitToken(node.equals, visitor)
 		end
 		visitPunctuated(node.values, visitor, visitExpression)
+
+		visitor.visitLocalDeclarationEnd(node)
 	end
 end
 
