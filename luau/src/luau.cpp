@@ -22,6 +22,7 @@ const char* COMPILE_RESULT_TYPE = "CompileResult";
 LUAU_FASTFLAG(LuauStoreCSTData2)
 LUAU_FASTFLAG(LuauParseOptionalAsNode2)
 LUAU_FASTFLAG(LuauFixFunctionWithAttributesStartLocation)
+LUAU_FASTFLAG(LuauStoreReturnTypesAsPackOnAst)
 
 namespace luau
 {
@@ -40,6 +41,7 @@ static StatResult parse(std::string& source)
     FFlag::LuauStoreCSTData2.value = true;
     FFlag::LuauParseOptionalAsNode2.value = true;
     FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
+    FFlag::LuauStoreReturnTypesAsPackOnAst.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -68,6 +70,7 @@ static ExprResult parseExpr(std::string& source)
     FFlag::LuauStoreCSTData2.value = true;
     FFlag::LuauParseOptionalAsNode2.value = true;
     FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
+    FFlag::LuauStoreReturnTypesAsPackOnAst.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -959,7 +962,11 @@ struct AstSerialize : public Luau::AstVisitor
             lua_pushnil(L);
         lua_setfield(L, -2, "returnSpecifier");
 
-        // TODO: return type
+        if (node->returnAnnotation)
+            node->returnAnnotation->visit(this);
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "returnAnnotation");
 
         node->body->visit(this);
         lua_setfield(L, -2, "body");
@@ -2010,7 +2017,8 @@ struct AstSerialize : public Luau::AstVisitor
             lua_pushnil(L);
         lua_setfield(L, -2, "returnArrow");
 
-        // TODO: return type
+        node->returnTypes->visit(this);
+        lua_setfield(L, -2, "returnTypes");
     }
 
     void serializeType(Luau::AstTypeTypeof* node)
@@ -2237,8 +2245,14 @@ struct AstSerialize : public Luau::AstVisitor
 
         const auto cstNode = lookupCstNode<Luau::CstTypePackExplicit>(node);
 
-        serializeToken(cstNode ? cstNode->openParenthesesPosition : node->location.begin, "(");
-        lua_setfield(L, -2, "openParens");
+        if (cstNode)
+        {
+            if (cstNode->hasParentheses)
+                serializeToken(cstNode->openParenthesesPosition, "(");
+            else
+                lua_pushnil(L);
+            lua_setfield(L, -2, "openParens");
+        }
 
         serializePunctuated(node->typeList.types, cstNode ? cstNode->commaPositions : Luau::AstArray<Luau::Position>{}, ",");
         lua_setfield(L, -2, "types");
@@ -2249,8 +2263,14 @@ struct AstSerialize : public Luau::AstVisitor
             lua_pushnil(L);
         lua_setfield(L, -2, "tailType");
 
-        serializeToken(cstNode ? cstNode->closeParenthesesPosition : Luau::Position{node->location.end.line, node->location.end.column -1}, ")");
-        lua_setfield(L, -2, "closeParens");
+        if (cstNode)
+        {
+            if (cstNode->hasParentheses)
+                serializeToken(cstNode->closeParenthesesPosition, ")");
+            else
+                lua_pushnil(L);
+            lua_setfield(L, -2, "closeParens");
+        }
     }
 
     void serializeTypePack(Luau::AstTypePackGeneric* node)

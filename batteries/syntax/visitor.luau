@@ -411,6 +411,9 @@ local function visitFunctionBody(node: T.AstFunctionBody, visitor: Visitor)
 	if node.returnSpecifier then
 		visitToken(node.returnSpecifier, visitor)
 	end
+	if node.returnAnnotation then
+		visitTypePack(node.returnAnnotation, visitor)
+	end
 	visitBlock(node.body, visitor)
 	visitToken(node["end"], visitor)
 end
@@ -705,18 +708,22 @@ local function visitTypeFunction(node: T.AstTypeFunction, visitor: Visitor)
 		end
 		visitToken(node.closeParens, visitor)
 		visitToken(node.returnArrow, visitor)
-		-- TODO: return type
+		visitTypePack(node.returnTypes, visitor)
 	end
 end
 
 local function visitTypePackExplicit(node: T.AstTypePackExplicit, visitor: Visitor)
 	if visitor.visitTypePackExplicit(node) then
-		visitToken(node.openParens, visitor)
+		if node.openParens then
+			visitToken(node.openParens, visitor)
+		end
 		visitPunctuated(node.types, visitor, visitType)
 		if node.tailType then
 			visitTypePack(node.tailType, visitor)
 		end
-		visitToken(node.closeParens, visitor)
+		if node.closeParens then
+			visitToken(node.closeParens, visitor)
+		end
 	end
 end
 

@@ -116,7 +116,7 @@ export type AstFunctionBody = {
 	varargAnnotation: AstTypePack?,
 	closeParens: Token<")">,
 	returnSpecifier: Token<":">?,
-	-- TODO: return type
+	returnAnnotation: AstTypePack?,
 	body: AstStatBlock,
 	["end"]: Token<"end">,
 }
@@ -504,7 +504,7 @@ export type AstTypeFunction = {
 	vararg: AstTypePack?,
 	closeParens: Token<")">,
 	returnArrow: Token<"->">,
-	-- TODO: return type
+	returnTypes: AstTypePack,
 }
 
 export type AstType =
@@ -522,10 +522,10 @@ export type AstType =
 
 export type AstTypePackExplicit = {
 	tag: "explicit",
-	openParens: Token<"(">,
+	openParens: Token<"(">?,
 	types: Punctuated<AstType>,
 	tailType: AstTypePack?,
-	closeParens: Token<")">,
+	closeParens: Token<")">?,
 }
 
 export type AstTypePackGeneric = {
