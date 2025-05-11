@@ -1,7 +1,6 @@
 {
     "languageMode": "strict",
     "aliases": {
-        "batteries": "./batteries",
-        "std": "./std/libs",
+        "batteries": "./batteries"
     }
 }

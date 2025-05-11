@@ -1,12 +1,40 @@
 #include "lute/requireutils.h"
 
 #include "Luau/FileUtils.h"
-#include "lute/stdlib.h"
+#include "lute_std_source.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <iostream>
 #include <optional>
 #include <string>
 #include <string_view>
+
+enum class StdLibModuleType
+{
+    Module,
+    Directory,
+    NotFound,
+};
+
+struct StdLibModuleResult
+{
+    StdLibModuleType type;
+    std::string_view contents;
+};
+
+StdLibModuleResult getStdLibModule(std::string_view path)
+{
+    for (const auto& [pathInLib, contents] : LUTE_STD)
+    {
+        if (path != pathInLib)
+            continue;
+        
+        return {StdLibModuleType::Module, contents};
+    }
+
+    return {StdLibModuleType::NotFound};
+}
 
 static bool isStdLibModule(const std::string& path)
 {
@@ -48,6 +76,7 @@ static std::pair<PathResult::Status, std::string> getSuffixWithAmbiguityCheck(VF
             found = true;
         }
     }
+    
     if (isADirectory(path))
     {
         if (found)

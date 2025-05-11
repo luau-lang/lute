@@ -5,6 +5,7 @@
 
 #include "Luau/Require.h"
 
+#include <iostream>
 #include <memory>
 
 #include "lua.h"
@@ -189,6 +190,7 @@ int lua_spawn(lua_State* L)
     luarequire_pushproxyrequire(child->GL, requireConfigInit, &ctx);
     lua_pushstring(child->GL, file);
     lua_pushstring(child->GL, ar.source);
+
     int status = lua_pcall(child->GL, 2, 1, 0);
 
     if (status == LUA_ERRRUN && lua_type(child->GL, -1) == LUA_TSTRING)

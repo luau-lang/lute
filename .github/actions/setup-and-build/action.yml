@@ -6,10 +6,6 @@ inputs:
     description: "Build configuration (debug or release)"
     required: false
     default: "debug"
-  options:
-    description: "Additional luthier options"
-    required: false
-    default: ""
   token:
     description: "Token for foreman"
     required: true
@@ -33,7 +29,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y ninja-build clang
+        sudo apt-get install -y ninja-build clang cmake
 
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
@@ -41,6 +37,7 @@ runs:
       run: |
         brew update
         brew unlink brotli zstd
+        brew install cmake
 
     - name: Set up MSVC
       if: runner.os == 'Windows'
@@ -49,31 +46,36 @@ runs:
     - name: Set up NASM
       if: runner.os == 'Windows'
       uses: luau-lang/setup-nasm@v1
+    
+    - name: Install CMake (Windows)
+      if: runner.os == 'Windows'
+      uses: lukka/get-cmake@latest
 
-    - name: Cache extern folder
-      uses: actions/cache@v4
-      id: cache-extern
-      with:
-        path: extern
-        key: extern-${{ hashFiles('extern/*.tune') }}
-
-    - name: Fetch Lute
-      if: steps.cache-extern.outputs.cache-hit != 'true'
+    - name: Create build directory
       shell: bash
-      run: lute ./tools/luthier.luau fetch lute
+      run: mkdir -p build
 
     - name: Configure Lute
       shell: bash
-      run: lute ./tools/luthier.luau configure lute --config ${{ inputs.config }} ${{ inputs.options }}
+      run: |
+        BUILD_TYPE=$(echo "${{ inputs.config }}" | tr '[:lower:]' '[:upper:]')
+        cmake -B build -S . -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
     - name: Build Lute
       shell: bash
-      run: lute ./tools/luthier.luau build lute --config ${{ inputs.config }} ${{ inputs.options }}
+      run: |
+        BUILD_TYPE=$(echo "${{ inputs.config }}" | tr '[:lower:]' '[:upper:]')
+        cmake --build build --config $BUILD_TYPE
 
     - name: Get Artifact Path
       id: artifact_path
       shell: bash
       run: |
-        exe_path=$(lute ./tools/luthier.luau build lute --config ${{ inputs.config }} --which)
+        if [ "${{ runner.os }}" == "Windows" ]; then
+          BUILD_TYPE=$(echo "${{ inputs.config }}" | tr '[:lower:]' '[:upper:]')
+          exe_path="build/$BUILD_TYPE/cli/lute.exe"
+        else
+          exe_path="build/cli/lute"
+        fi
         echo "Executable path: $exe_path"  # Debug print
         echo "exe_path=$exe_path" >> "$GITHUB_OUTPUT"

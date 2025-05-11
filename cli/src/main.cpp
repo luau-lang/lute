@@ -2,12 +2,10 @@
 #include "Luau/CodeGen.h"
 #include "Luau/Compiler.h"
 #include "Luau/FileUtils.h"
-#include "Luau/Parser.h"
 #include "Luau/Require.h"
 
 #include "lua.h"
 #include "lualib.h"
-#include "uv.h"
 
 #include "lute/crypto.h"
 #include "lute/fs.h"

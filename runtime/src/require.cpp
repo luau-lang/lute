@@ -10,6 +10,7 @@
 #include "Luau/CodeGen.h"
 #include "Luau/Require.h"
 #include "Luau/StringUtils.h"
+#include <iostream>
 #include <string>
 
 static luarequire_WriteResult write(std::optional<std::string> contents, char* buffer, size_t bufferSize, size_t* sizeOut)
@@ -134,6 +135,7 @@ static luarequire_NavigateResult to_child(lua_State* L, void* ctx, const char* n
 static bool is_module_present(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+
     return isFilePresent(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->suffix);
 }
 
@@ -162,6 +164,7 @@ static luarequire_WriteResult get_cache_key(lua_State* L, void* ctx, char* buffe
 static bool is_config_present(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+
     if (reqCtx->atFakeRoot)
         return true;
 
