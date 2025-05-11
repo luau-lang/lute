@@ -1,5 +1,6 @@
 #pragma once
 
-const int kDurationTag = 1;
-const int kInstantTag = 2;
-const int kCompilerResultTag = 3;
+// all tags count down from 128
+const int kDurationTag       = 127;
+const int kInstantTag        = 126;
+const int kCompilerResultTag = 125;
