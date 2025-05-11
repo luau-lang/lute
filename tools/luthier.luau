@@ -335,9 +335,7 @@ local function fetchDependency(dependencyInfo: Tune)
 
 	if safeFsType(dependencyPath) == "dir" then
 		check(call({ "git", "fetch", "--depth=1", "origin", dependency.revision }, dependencyPath))
-		local result = call({ "git", "checkout", dependency.revision }, dependencyPath)
-		check(call({ "git", "submodule", "update", "--init", "--recursive", "--depth=1" }, dependencyPath))
-		return result
+		return call({ "git", "checkout", dependency.revision }, dependencyPath)
 	end
 
 	if gitVersionInfo.major >= 3 or (gitVersionInfo.major == 2 and gitVersionInfo.minor >= 49) then
@@ -345,7 +343,6 @@ local function fetchDependency(dependencyInfo: Tune)
 			"git",
 			"clone",
 			"--depth=1",
-			"--recurse-submodules",
 			"--revision",
 			dependency.revision,
 			dependency.remote,
@@ -356,7 +353,6 @@ local function fetchDependency(dependencyInfo: Tune)
 			"git",
 			"clone",
 			"--depth=1",
-			"--recurse-submodules",
 			"--branch",
 			dependency.branch,
 			dependency.remote,

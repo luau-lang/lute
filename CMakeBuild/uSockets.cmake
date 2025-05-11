@@ -5,7 +5,7 @@ project(uSockets LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-set(USOCKETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/uWebSockets/uSockets)
+set(USOCKETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/uSockets)
 
 # Include directories
 include_directories(${USOCKETS_SOURCE_DIR}/src)
