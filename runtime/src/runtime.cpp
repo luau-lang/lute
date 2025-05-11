@@ -114,6 +114,8 @@ bool Runtime::runToCompletion()
 //
 // This API is currently unstable and may be completely changed in the future
 int Runtime::runOneIteration() {
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+    
     bool moreWork = (!runningThreads.empty() || hasContinuations() || activeTokens.load() != 0);
     if (!moreWork) {
          // Push code 1000 to indicate nothing to run
@@ -121,8 +123,6 @@ int Runtime::runOneIteration() {
         lua_pushnil(GL);
         return 2;
     }
-
-    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
     // Complete all C++ continuations
     std::vector<std::function<void()>> copy;
