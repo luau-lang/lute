@@ -33,25 +33,22 @@ set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 add_subdirectory(extern/boringssl)
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
 
-# boringssl is openssl
-set(OPENSSL_FOUND TRUE CACHE INTERNAL "Force found status for OpenSSL")
-set(OPENSSL_INCLUDE_DIR ${BORINGSSL_INCLUDE_DIR} CACHE INTERNAL "Include dir for BoringSSL")
-
-add_library(OpenSSL::SSL INTERFACE IMPORTED GLOBAL)
-target_link_libraries(OpenSSL::SSL INTERFACE ssl)
-target_include_directories(OpenSSL::SSL INTERFACE ${BORINGSSL_INCLUDE_DIR})
-
-add_library(OpenSSL::Crypto INTERFACE IMPORTED GLOBAL)
-target_link_libraries(OpenSSL::Crypto INTERFACE crypto)
-target_include_directories(OpenSSL::Crypto INTERFACE ${BORINGSSL_INCLUDE_DIR})
-
 # curl setup
+
+set(OPENSSL_FOUND TRUE CACHE BOOL "" FORCE)
+set(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/" CACHE PATH "")
+set(OPENSSL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/include" CACHE PATH "" FORCE)
+set(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}" CACHE PATH "" FORCE)
+set(OPENSSL_LIBRARIES "OpenSSL::SSL;OpenSSL::Crypto" CACHE STRING "" FORCE)
+
 set(USE_LIBIDN2 OFF)
 set(USE_NGHTTP2 OFF)
 set(CURL_USE_LIBPSL OFF)
 set(CURL_USE_LIBSSH2 OFF)
 set(CURL_ZLIB OFF CACHE STRING "Disable zlib support" FORCE)
 set(CURL_BROTLI OFF CACHE STRING "Disable brotli support" FORCE)
+set(CURL_ENABLE_SSL ON)
+set(CURL_USE_OPENSSL ON)
 set(BUILD_EXAMPLES OFF)
 set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
