@@ -1,3 +1,5 @@
+--!strict
+
 local crypto = require("@lute/crypto")
 local fs = require("@lute/fs")
 local process = require("@lute/process")
