@@ -8,16 +8,14 @@
 
 #include <cstdio>
 #include <cstring>
+#ifdef _WIN32
+#include <direct.h>
+#endif
 #include <fcntl.h>
 #include <filesystem>
 #include <map>
 #include <memory>
 #include <optional>
-#ifdef _WIN32
-#include <direct.h>
-#else
-#include <sys/fcntl.h> // on mac we do this
-#endif
 #include <sys/stat.h>
 #include <string>
 #include <stdlib.h>
