@@ -69,8 +69,8 @@ endif()
 
 # Set the correct libuv library name for uWebSockets
 set(LIBUV_LIBRARY uv_a)
-include(extern/uSockets.cmake)
-include(extern/uWebSockets.cmake)
+include(CMakeBuild/uSockets.cmake)
+include(CMakeBuild/uWebSockets.cmake)
 
 # Define include directories for uWebSockets and uSockets
 set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
