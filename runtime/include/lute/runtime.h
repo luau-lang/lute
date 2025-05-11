@@ -29,6 +29,22 @@ struct Runtime
     // For child runtimes, run a thread waiting for work
     void runContinuously();
 
+    // Runs one iteration of the scheduler, raising errors etc using luaL_error and returning results through the lua stack. 
+    //
+    // WARNING:
+    //
+    // This API is designed for embedders of Lute specifically and is under heavy design work
+    // and as such, should not be used directly by lute scheduler APIs.
+    //
+    // Codes right now:
+    // - 1000 (no work/call was a no-op), nil is second on stack
+    // - 1001 (did some? work successfully), nil is second on stack
+    // - LUA_YIELD (thread yielded), thread is second on stack
+    // - 1002 (thread succeeded), thread is second on stack
+    //
+    // This API is currently unstable and may be completely changed in the future
+    int runOneIteration();
+
     // Reports an error for a specified lua state.
     void reportError(lua_State* L);
 
