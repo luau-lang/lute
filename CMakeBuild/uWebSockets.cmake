@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 project(uWebSockets LANGUAGES C CXX)
 
-
 set(UWEBSOCKETS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/uWebSockets)
 
 # Include directories
