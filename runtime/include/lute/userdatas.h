@@ -1,5 +1,6 @@
 #pragma once
 
-const int kDurationTag = 1;
-const int kInstantTag = 2;
-const int kCompilerResultTag = 3;
+// all tags start from 800 arbitrarily.
+const int kDurationTag       = 801;
+const int kInstantTag        = 802;
+const int kCompilerResultTag = 803;
