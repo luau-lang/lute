@@ -41,8 +41,10 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static zlib" FORCE)
 add_subdirectory(extern/zlib)
 set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
 
+set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
 set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz${LIB_EXT}")
 set(ZLIB_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/extern/zlib")
+set(ZLIB_INCLUDE_DIRS "${ZLIB_INCLUDE_DIR};${ZLIB_OUTPUT_DIR}" CACHE STRING "" FORCE)
 
 # boringssl setup
 add_subdirectory(extern/boringssl)
