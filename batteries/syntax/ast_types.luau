@@ -103,7 +103,10 @@ export type AstExprIndexExpr = {
 }
 
 export type AstFunctionBody = {
-	-- TODO: generics
+	openGenerics: Token<"<">?,
+	generics: Punctuated<AstGenericType>?,
+	genericPacks: Punctuated<AstGenericTypePack>?,
+	closeGenerics: Token<">">?,
 	openParens: Token<"(">,
 	-- TODO: parameters
 	parameters: Punctuated<Token<string>>,
@@ -330,6 +333,10 @@ export type AstStatTypeAlias = {
 	["export"]: Token<"export">?,
 	typeToken: Token<"type">,
 	name: Token,
+	openGenerics: Token<"<">?,
+	generics: Punctuated<AstGenericType>?,
+	genericPacks: Punctuated<AstGenericTypePack>?,
+	closeGenerics: Token<">">?,
 	equals: Token<"=">,
 	type: AstType,
 }
@@ -362,13 +369,28 @@ export type AstStat =
 	| AstStatTypeAlias
 	| AstStatTypeFunction
 
+export type AstGenericType = {
+	tag: "generic",
+	name: Token<string>,
+	equals: Token<"=">?,
+	default: AstType?,
+}
+
+export type AstGenericTypePack = {
+	tag: "genericpack",
+	name: Token<string>,
+	ellipsis: Token<"...">,
+	equals: Token<"=">?,
+	default: AstTypePack?,
+}
+
 export type AstTypeReference = {
 	tag: "reference",
 	prefix: Token<string>?,
 	prefixPoint: Token<".">?,
 	name: Token<string>,
 	openParameters: Token<"<">?,
-	parameters: Punctuated<AstType>?,
+	parameters: Punctuated<AstType | AstTypePack>?,
 	closeParameters: Token<">">?,
 }
 
@@ -466,5 +488,27 @@ export type AstType =
 	| AstTypeOptional
 	| AstTypeArray
 	| AstTypeTable
+
+export type AstTypePackExplicit = {
+	tag: "explicit",
+	openParens: Token<"(">,
+	types: Punctuated<AstType>,
+	tailType: AstTypePack?,
+	closeParens: Token<")">,
+}
+
+export type AstTypePackGeneric = {
+	tag: "generic",
+	name: Token,
+	ellipsis: Token<"...">,
+}
+
+export type AstTypePackVariadic = {
+	tag: "variadic",
+	ellipsis: Token<"...">,
+	type: AstType,
+}
+
+export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
 
 return {}
