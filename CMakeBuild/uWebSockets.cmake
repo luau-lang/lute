@@ -40,10 +40,7 @@ if(WITH_LIBDEFLATE)
 endif()
 
 if(WITH_ZLIB)
-    target_include_directories(uWS INTERFACE
-        ${ZLIB_INCLUDE_DIRS}
-        ${CMAKE_CURRENT_BINARY_DIR}/extern/zlib
-    )
+    target_include_directories(uWS INTERFACE ${ZLIB_INCLUDE_DIRS})
     target_link_libraries(uWS INTERFACE ${ZLIB_LIBRARIES})
 else()
     target_compile_definitions(uWS INTERFACE UWS_NO_ZLIB)
