@@ -135,6 +135,7 @@ def winpath(path):
 
 def getExeName(target):
     baseName = targetMap[target].get('exeName', target)
+    assert(baseName)
     ext = '.exe' if isWindows else ''
     return baseName + ext
 
