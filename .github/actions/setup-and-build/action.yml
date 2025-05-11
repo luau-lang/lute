@@ -46,11 +46,7 @@ runs:
     - name: Set up NASM
       if: runner.os == 'Windows'
       uses: luau-lang/setup-nasm@v1
-    
-    - name: Install CMake (Windows)
-      if: runner.os == 'Windows'
-      uses: lukka/get-cmake@latest
-
+  
     - name: Create build directory
       shell: bash
       run: mkdir -p build
