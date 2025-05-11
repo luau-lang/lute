@@ -6,6 +6,9 @@ inputs:
     description: "Build configuration (debug or release)"
     required: false
     default: "debug"
+  options:
+    description: "Configure options"
+    required: true
   token:
     description: "Token for foreman"
     required: true
@@ -55,7 +58,7 @@ runs:
       shell: bash
       run: |
         BUILD_TYPE=$(echo "${{ inputs.config }}" | tr '[:lower:]' '[:upper:]')
-        cmake -B build -S . -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        cmake -B build -S . -DCMAKE_BUILD_TYPE=$BUILD_TYPE ${{ inputs.options }}
 
     - name: Build Lute
       shell: bash
