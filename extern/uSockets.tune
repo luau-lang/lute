@@ -1,0 +1,5 @@
+[dependency]
+name = "uSockets"
+remote = "https://github.com/uNetworking/uSockets.git"
+branch = "v0.8.8"
+revision = "833497e8e0988f7fd8d33cd4f6f36056c68d225d"

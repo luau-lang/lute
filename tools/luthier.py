@@ -484,16 +484,15 @@ def fetchDependency(dependencyInfo):
         os.chdir(os.path.join('extern', dependency['name']))
         check(call(['git', 'fetch', '--depth=1', 'origin', dependency['revision']]))
         result = call(['git', 'checkout', dependency['revision']])
-        check(call(['git', 'submodule', 'update', '--init', '--recursive', '--depth=1']))
         os.chdir(getSourceRoot())
         return result
 
     if (gitVersionInfo['major'], gitVersionInfo['minor']) >= (2, 49):
         # if it doesn't exist, we'll do a shallow clone
-        return call(['git', 'clone', '--depth=1', '--recurse-submodules', '--revision', dependency['revision'], dependency['remote'], "extern/" + dependency['name']])
+        return call(['git', 'clone', '--depth=1', '--revision', dependency['revision'], dependency['remote'], "extern/" + dependency['name']])
     else:
         # if it doesn't exist, we'll do a shallow clone
-        return call(['git', 'clone', '--depth=1', '--recurse-submodules', '--branch', dependency['branch'], dependency['remote'], "extern/" + dependency['name']])
+        return call(['git', 'clone', '--depth=1', '--branch', dependency['branch'], dependency['remote'], "extern/" + dependency['name']])
 
 def fetchDependencies(args):
     for _, _, files in os.walk('extern'):
