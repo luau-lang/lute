@@ -2,12 +2,13 @@ cmake_minimum_required(VERSION 3.14)
 
 # Make sure 'set' for variables is respected by options in nested files
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(get_version.cmake)
 
 project(
     Lute
-    VERSION 0.1
+    VERSION ${LUTE_VERSION}
     LANGUAGES CXX C
 )
 
