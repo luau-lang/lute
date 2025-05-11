@@ -148,7 +148,7 @@ int Runtime::runOneIteration() {
 
     // Run the next thread
     auto next = std::move(runningThreads.front());
-    runtime->runningThreads.erase(runningThreads.begin());
+    runningThreads.erase(runningThreads.begin());
 
     next.ref->push(GL);
     lua_State *L = lua_tothread(GL, -1);
