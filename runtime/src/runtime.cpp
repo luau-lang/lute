@@ -102,6 +102,104 @@ bool Runtime::runToCompletion()
     return true;
 }
 
+// Runs one iteration of the scheduler, raising errors etc using luaL_error. This API is designed for embedders of Lute and
+// as such, should not be used directly by lute scheduler APIs
+//
+// Codes right now:
+// - 1000 (no work/call was a no-op), nil is second on stack
+// - 1001 (did some? work successfully), nil is second on stack
+// - LUA_YIELD (thread yielded), thread is second on stack
+// - 1002 (thread succeeded), thread is second on stack
+//
+// This API is currently unstable and may be completely changed in the future
+int Runtime::runOneIteration() {
+    bool moreWork = (!runningThreads.empty() || hasContinuations() || activeTokens.load() != 0);
+    if (!moreWork) {
+         // Push code 1000 to indicate nothing to run
+        lua_pushinteger(runtime->GL, 1000);
+        lua_pushnil(runtime->GL);
+        return 2;
+    }
+
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+    // Complete all C++ continuations
+    std::vector<std::function<void()>> copy;
+
+    {
+        std::unique_lock lock(continuationMutex);
+        copy = std::move(continuations);
+        continuations.clear();
+    }
+
+    for (auto &&continuation : copy)
+    {
+        continuation();
+    }
+
+    if (runningThreads.empty())
+    {
+        // Push code 1001 to indicate nothing
+        lua_pushinteger(GL, 1001);
+        lua_pushnil(GL);
+        return 2;
+    }
+
+    // Run the next thread
+    auto next = std::move(runtime->runningThreads.front());
+    runtime->runningThreads.erase(runtime->runningThreads.begin());
+
+    next.ref->push(GL);
+    lua_State *L = lua_tothread(GL, -1);
+
+    if (L == nullptr)
+    {
+        luaL_error(GL, "Cannot resume a non-thread reference");
+        return -1;
+    }
+
+    // We still have 'next' on stack to hold on to thread we are about to run
+    lua_pop(runtime->GL, 1);
+
+    int status = LUA_OK;
+
+    if (!next.success)
+        status = lua_resumeerror(L, nullptr);
+    else
+        status = lua_resume(L, nullptr, next.argumentCount);
+
+    if (status == LUA_YIELD)
+    {
+        // Yielding, continue to next iteration
+        lua_pushinteger(L, LUA_YIELD);
+        lua_pushthread(L);
+        return 2;
+    }
+
+    if (status != LUA_OK)
+    {
+        std::string error;
+
+        if (const char *str = lua_tostring(L, -1))
+            error = str;
+
+        error += "\nstacktrace:\n";
+        error += lua_debugtrace(L);
+
+        luaL_error(GL, "%s", error.c_str());
+        return -1;
+    }
+
+    if (next.cont)
+    {
+        next.cont();
+    }
+
+    lua_pushinteger(runtime->GL, 1002);
+    lua_pushthread(L);
+    return 2;
+}
+
 void Runtime::reportError(lua_State* L)
 {
     std::string error;
