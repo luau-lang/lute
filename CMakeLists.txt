@@ -13,6 +13,13 @@ project(
     LANGUAGES CXX C
 )
 
+# Get the proper extension for static libraries
+if(MSVC)
+  set(LIB_EXT ".lib")
+else()
+  set(LIB_EXT ".a")
+endif()
+
 # luau setup
 set(LUAU_BUILD_CLI OFF)
 set(LUAU_BUILD_TESTS OFF)
@@ -29,17 +36,18 @@ add_subdirectory(extern/libuv)
 # Define libuv include directory here, before it's needed by other subdirectories
 set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 
+# zlib setup
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static zlib" FORCE)
+add_subdirectory(extern/zlib)
+set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
+
+set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz${LIB_EXT}")
+set(ZLIB_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/extern/zlib")
+
 # boringssl setup
 add_subdirectory(extern/boringssl)
 set(BORINGSSL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/boringssl")
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
-
-# Get the proper extension for static libraries
-if(MSVC)
-  set(LIB_EXT ".lib")
-else()
-  set(LIB_EXT ".a")
-endif()
 
 # Path to the actual files
 
@@ -70,7 +78,7 @@ set(USE_LIBIDN2 OFF)
 set(USE_NGHTTP2 OFF)
 set(CURL_USE_LIBPSL OFF)
 set(CURL_USE_LIBSSH2 OFF)
-set(CURL_ZLIB OFF CACHE STRING "Disable zlib support" FORCE)
+set(CURL_ZLIB ON)
 set(CURL_BROTLI OFF CACHE STRING "Disable brotli support" FORCE)
 set(CURL_ENABLE_SSL ON)
 set(CURL_USE_OPENSSL ON)
@@ -85,9 +93,7 @@ add_subdirectory(extern/curl)
 # uWebSockets setup
 set(WITH_BORINGSSL ON)
 set(WITH_LIBUV ON)
-if(MSVC)
-    set(WITH_ZLIB OFF)
-endif()
+set(WITH_ZLIB ON)
 
 # Set the correct libuv library name for uWebSockets
 set(LIBUV_LIBRARY uv_a)
@@ -98,7 +104,6 @@ include(CMakeBuild/uWebSockets.cmake)
 set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
 
 # Lute
-
 set(LUTE_OPTIONS)
 
 if(MSVC)
