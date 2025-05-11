@@ -12,8 +12,6 @@ project(
     LANGUAGES CXX C
 )
 
-project(Lute LANGUAGES CXX C VERSION ${LUTE_VERSION})
-
 include(tools/embed_map.cmake)
 include(tools/embed_file.cmake)
 include(tools/CPM.cmake)
