@@ -116,8 +116,8 @@ int Runtime::runOneIteration() {
     bool moreWork = (!runningThreads.empty() || hasContinuations() || activeTokens.load() != 0);
     if (!moreWork) {
          // Push code 1000 to indicate nothing to run
-        lua_pushinteger(runtime->GL, 1000);
-        lua_pushnil(runtime->GL);
+        lua_pushinteger(GL, 1000);
+        lua_pushnil(GL);
         return 2;
     }
 
@@ -146,8 +146,8 @@ int Runtime::runOneIteration() {
     }
 
     // Run the next thread
-    auto next = std::move(runtime->runningThreads.front());
-    runtime->runningThreads.erase(runtime->runningThreads.begin());
+    auto next = std::move(runningThreads.front());
+    runtime->runningThreads.erase(runningThreads.begin());
 
     next.ref->push(GL);
     lua_State *L = lua_tothread(GL, -1);
@@ -159,7 +159,7 @@ int Runtime::runOneIteration() {
     }
 
     // We still have 'next' on stack to hold on to thread we are about to run
-    lua_pop(runtime->GL, 1);
+    lua_pop(GL, 1);
 
     int status = LUA_OK;
 
@@ -195,7 +195,7 @@ int Runtime::runOneIteration() {
         next.cont();
     }
 
-    lua_pushinteger(runtime->GL, 1002);
+    lua_pushinteger(GL, 1002);
     lua_pushthread(L);
     return 2;
 }
