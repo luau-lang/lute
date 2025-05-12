@@ -15,8 +15,10 @@ project(
 
 # Get the proper extension for static libraries
 if(MSVC)
+  set(LIB_PREFIX "")
   set(LIB_EXT ".lib")
 else()
+  set(LIB_PREFIX "lib")
   set(LIB_EXT ".a")
 endif()
 
@@ -42,7 +44,7 @@ add_subdirectory(extern/zlib)
 set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
 
 set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
-set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz${LIB_EXT}")
+set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/${LIB_PREFIX}z${LIB_EXT}")
 set(ZLIB_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/zlib;${ZLIB_OUTPUT_DIR})
 set(ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE STRING "" FORCE)
 
@@ -51,16 +53,17 @@ add_subdirectory(extern/boringssl)
 set(BORINGSSL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/boringssl")
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
 
+add_library(crypto STATIC IMPORTED GLOBAL)
+add_library(ssl STATIC IMPORTED GLOBAL)
+set_target_properties(crypto PROPERTIES
+    IMPORTED_LOCATION "${BORINGSSL_OUTPUT_DIR}/${LIB_PREFIX}crypto${LIB_EXT}")
+set_target_properties(ssl PROPERTIES
+    IMPORTED_LOCATION "${BORINGSSL_OUTPUT_DIR}/${LIB_PREFIX}ssl${LIB_EXT}")
+
 # Path to the actual files
 
-# On Windows, try to use crypto.lib instead of libcrypto.lib
-if(MSVC)
-  set(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/ssl${LIB_EXT}" CACHE FILEPATH "" FORCE)
-  set(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/crypto${LIB_EXT}" CACHE FILEPATH "" FORCE)
-else()
-  set(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}" CACHE FILEPATH "" FORCE)
-  set(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}" CACHE FILEPATH "" FORCE)
-endif()
+set(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/${LIB_PREFIX}ssl${LIB_EXT}" CACHE FILEPATH "" FORCE)
+set(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/${LIB_PREFIX}crypto${LIB_EXT}" CACHE FILEPATH "" FORCE)
 set(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY};${OPENSSL_CRYPTO_LIBRARY}" CACHE STRING "" FORCE)
 
 # Debug: Print the paths to verify they're correct
@@ -73,17 +76,18 @@ set_target_properties(OpenSSL::SSL PROPERTIES
     IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
     INTERFACE_INCLUDE_DIRECTORIES "${BORINGSSL_INCLUDE_DIR}"
 )
+add_dependencies(OpenSSL::SSL ssl)
 
 add_library(OpenSSL::Crypto STATIC IMPORTED GLOBAL)
 set_target_properties(OpenSSL::Crypto PROPERTIES
     IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
     INTERFACE_INCLUDE_DIRECTORIES "${BORINGSSL_INCLUDE_DIR}"
 )
-
+add_dependencies(OpenSSL::Crypto crypto)
 
 set(OPENSSL_FOUND TRUE CACHE BOOL "Found BoringSSL" FORCE)
 set(OPENSSL_VERSION "3.0.0" CACHE STRING "Dummy version, BoringSSL" FORCE)
-set(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/" CACHE PATH "" FORCE)
+set(OPENSSL_ROOT_DIR "${BORINGSSL_OUTPUT_DIR}" CACHE PATH "" FORCE)
 set(OPENSSL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/include" CACHE PATH "" FORCE)
 set(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}" CACHE PATH "" FORCE)
 
