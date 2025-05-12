@@ -2,6 +2,6 @@
     "languageMode": "strict",
     "aliases": {
         "batteries": "./batteries",
-        "std": "./std/libs",
+        "std": "./lute/std/libs",
     }
 }
