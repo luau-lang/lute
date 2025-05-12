@@ -1,9 +1,7 @@
 @native
-local function foo()
-end
+local function foo() end
 
 @native
-function bar()
-end
+function bar() end
 
 local x = @native function() end
