@@ -299,7 +299,7 @@ export type AstStatForIn = {
 	["for"]: Token<"for">,
 	variables: Punctuated<Token<string>>,
 	["in"]: Token<"in">,
-	values: Punctuated<Token<string>>,
+	values: Punctuated<AstExpr>,
 	["do"]: Token<"do">,
 	body: AstStatBlock,
 	["end"]: Token<"end">,
