@@ -23,6 +23,7 @@
 #include "lute/vm.h"
 #include "lute/time.h"
 
+#include "compile.h"
 #include "tc.h"
 
 #ifdef _WIN32
@@ -31,66 +32,9 @@
 
 #include <string>
 #include <vector>
-#include <fstream>
 
 static int program_argc = 0;
 static char** program_argv = nullptr;
-
-const char MAGIC_FLAG[] = "LUTEBYTE";
-const size_t MAGIC_FLAG_SIZE = sizeof(MAGIC_FLAG) - 1;
-const size_t BYTECODE_SIZE_FIELD_SIZE = sizeof(uint64_t);
-
-struct AppendedBytecodeResult
-{
-    bool found = false;
-    std::string BytecodeData;
-};
-
-AppendedBytecodeResult checkForAppendedBytecode(const char* executablePath)
-{
-    AppendedBytecodeResult result;
-    std::ifstream exeFile(executablePath, std::ios::binary | std::ios::ate);
-    if (!exeFile)
-    {
-        return result;
-    }
-
-    std::streampos fileSize = exeFile.tellg();
-    if (fileSize < (std::streampos)(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE))
-    {
-        exeFile.close();
-        return result;
-    }
-
-    std::vector<char> flagBuffer(MAGIC_FLAG_SIZE);
-    exeFile.seekg(fileSize - (std::streampos)MAGIC_FLAG_SIZE);
-    exeFile.read(flagBuffer.data(), MAGIC_FLAG_SIZE);
-
-    if (memcmp(flagBuffer.data(), MAGIC_FLAG, MAGIC_FLAG_SIZE) != 0)
-    {
-        exeFile.close();
-        return result;
-    }
-
-    uint64_t BytecodeSize;
-    exeFile.seekg(fileSize - (std::streampos)(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE));
-    exeFile.read(reinterpret_cast<char*>(&BytecodeSize), BYTECODE_SIZE_FIELD_SIZE);
-
-    if (fileSize < (std::streampos)(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE + BytecodeSize)) {
-        fprintf(stderr, "Warning: Found magic flag but file size inconsistent.\n");
-        exeFile.close();
-        return result;
-    }
-
-
-    result.BytecodeData.resize(BytecodeSize);
-    exeFile.seekg(fileSize - (std::streampos)(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE + BytecodeSize));
-    exeFile.read(&result.BytecodeData[0], BytecodeSize);
-
-    exeFile.close();
-    result.found = true;
-    return result;
-}
 
 static void* createCliRequireContext(lua_State* L)
 {
@@ -185,37 +129,13 @@ bool setupArguments(lua_State* L, int argc, char** argv)
     return true;
 }
 
-static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
+static bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL)
 {
-    if (isDirectory(name))
-    {
-        fprintf(stderr, "Error: %s is a directory\n", name);
-        return false;
-    }
-
-    std::optional<std::string> source = readFile(name);
-    if (!source)
-    {
-        fprintf(stderr, "Error opening %s\n", name);
-        return false;
-    }
-
     // module needs to run in a new thread, isolated from the rest
     lua_State* L = lua_newthread(GL);
 
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(L);
-
-    // ignore file extension when storing module's chunkname
-    std::string chunkname = "@";
-    std::string_view nameView = name;
-    if (size_t dotPos = nameView.find_last_of('.'); dotPos != std::string_view::npos)
-    {
-        nameView.remove_suffix(nameView.size() - dotPos);
-    }
-    chunkname += nameView;
-
-    std::string bytecode = Luau::compile(*source, copts());
 
     if (luau_load(L, chunkname.c_str(), bytecode.data(), bytecode.size(), 0) != 0)
     {
@@ -247,6 +167,35 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
     lua_pop(GL, 1);
 
     return runtime.runToCompletion();
+}
+
+static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
+{
+    if (isDirectory(name))
+    {
+        fprintf(stderr, "Error: %s is a directory\n", name);
+        return false;
+    }
+
+    std::optional<std::string> source = readFile(name);
+    if (!source)
+    {
+        fprintf(stderr, "Error opening %s\n", name);
+        return false;
+    }
+
+    // ignore file extension when storing module's chunkname
+    std::string chunkname = "@";
+    std::string_view nameView = name;
+    if (size_t dotPos = nameView.find_last_of('.'); dotPos != std::string_view::npos)
+    {
+        nameView.remove_suffix(nameView.size() - dotPos);
+    }
+    chunkname += nameView;
+
+    std::string bytecode = Luau::compile(*source, copts());
+
+    return runBytecode(runtime, bytecode, chunkname, GL);
 }
 
 static void displayHelp(const char* argv0)
@@ -385,8 +334,8 @@ int handleCheckCommand(int argc, char** argv, int argOffset)
 
 int handleCompileCommand(int argc, char** argv, int argOffset)
 {
-    const char* inputFilePath = nullptr;
-    const char* outputFilePath = nullptr;
+    std::string inputFilePath;
+    std::string outputFilePath;
 
     for (int i = argOffset; i < argc; ++i)
     {
@@ -397,11 +346,11 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
             displayCompileHelp(argv[0]);
             return 0;
         }
-        else if (!inputFilePath)
+        else if (inputFilePath.empty())
         {
             inputFilePath = currentArg;
         }
-        else if (!outputFilePath)
+        else if (outputFilePath.empty())
         {
             outputFilePath = currentArg;
         }
@@ -413,19 +362,14 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
         }
     }
 
-    if (!inputFilePath)
+    if (inputFilePath.empty())
     {
         fprintf(stderr, "Error: No input file specified for 'compile' command.\n\n");
         displayCompileHelp(argv[0]);
         return 1;
     }
 
-    std::string outputFilePathStr;
-    if (outputFilePath)
-    {
-        outputFilePathStr = outputFilePath;
-    }
-    else
+    if (outputFilePath.empty())
     {
         std::string inputBase = inputFilePath;
         size_t lastSlash = inputBase.find_last_of("/");
@@ -436,76 +380,13 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
         if (lastDot != std::string::npos) {
             inputBase = inputBase.substr(0, lastDot);
         }
-        outputFilePathStr = inputBase;
+        outputFilePath = inputBase;
 #ifdef _WIN32
-        outputFilePathStr += ".exe";
+        outputFilePath += ".exe";
 #endif
     }
 
-
-    std::optional<std::string> source = readFile(inputFilePath);
-    if (!source)
-    {
-        fprintf(stderr, "Error opening input file %s\n", inputFilePath);
-        return 1;
-    }
-
-    std::string bytecode = Luau::compile(*source, copts());
-    if (bytecode.empty())
-    {
-        fprintf(stderr, "Error compiling %s to bytecode.\n", inputFilePath);
-        // TODO: Capture and print compilation errors if possible
-        return 1;
-    }
-
-    const char* currentExecutablePath = argv[0];
-    std::ifstream exeFile(currentExecutablePath, std::ios::binary | std::ios::ate);
-    if (!exeFile)
-    {
-        fprintf(stderr, "Error opening current executable %s\n", currentExecutablePath);
-        return 1;
-    }
-    std::streamsize exeSize = exeFile.tellg();
-    exeFile.seekg(0, std::ios::beg);
-    std::vector<char> exeBuffer(exeSize);
-    if (!exeFile.read(exeBuffer.data(), exeSize))
-    {
-         fprintf(stderr, "Error reading current executable %s\n", currentExecutablePath);
-         exeFile.close();
-         return 1;
-    }
-    exeFile.close();
-
-    std::ofstream outFile(outputFilePathStr, std::ios::binary | std::ios::trunc);
-    if (!outFile) {
-        fprintf(stderr, "Error creating output file %s\n", outputFilePathStr.c_str());
-        return 1;
-    }
-
-    outFile.write(exeBuffer.data(), exeSize);
-
-    uint64_t bytecodeSize = bytecode.size();
-    outFile.write(bytecode.data(), bytecodeSize);
-
-    outFile.write(reinterpret_cast<const char*>(&bytecodeSize), BYTECODE_SIZE_FIELD_SIZE);
-
-    outFile.write(MAGIC_FLAG, MAGIC_FLAG_SIZE);
-
-    if (!outFile.good()) {
-         fprintf(stderr, "Error writing to output file %s\n", outputFilePathStr.c_str());
-         outFile.close();
-         remove(outputFilePathStr.c_str());
-         return 1;
-    }
-
-    outFile.close();
-
-    printf("Successfully compiled %s to %s\n", inputFilePath, outputFilePathStr.c_str());
-#ifndef _WIN32
-    chmod(outputFilePathStr.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-#endif
-
-    return 0;
+    return compileScript(inputFilePath, outputFilePath, argv[0]);
 }
 
 int main(int argc, char** argv)
@@ -516,39 +397,13 @@ int main(int argc, char** argv)
     if (embedded.found)
     {
         Runtime runtime;
-        lua_State* GL = setupState(runtime); // Initialize state normally
+        lua_State* GL = setupState(runtime);
 
-        lua_State* L = lua_newthread(GL);
+        program_argc = argc;
+        program_argv = argv;
 
-        luaL_sandboxthread(L);
-
-        // Load the embedded bytecode
-        if (luau_load(L, "=__EMBEDDED__", embedded.BytecodeData.data(), embedded.BytecodeData.size(), 0) != 0)
-        {
-            fprintf(stderr, "Error loading embedded bytecode: %s\n", lua_tostring(L, -1));
-            return 1;
-        }
-
-        if (getCodegenEnabled())
-        {
-            Luau::CodeGen::CompilationOptions nativeOptions;
-            Luau::CodeGen::compile(L, -1, nativeOptions);
-        }
-
-        if (!setupArguments(L, program_argc, program_argv))
-        {
-            fprintf(stderr, "Failed to pass arguments to Luau");
-            lua_pop(GL, 1);
-            return 1;
-        }
-
-        runtime.GL = GL;
-        runtime.runningThreads.push_back({true, getRefForThread(L), program_argc});
-
-        lua_pop(GL, 1);
-
-        bool success = runtime.runToCompletion();
-
+        bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL);
+        
         return success ? 0 : 1;
     }
 
