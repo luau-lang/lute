@@ -323,7 +323,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_pushstring(L, name.value);
     }
 
-    void serialize(Luau::AstLocal* local, bool createToken = true)
+    void serialize(Luau::AstLocal* local, bool createToken = true, std::optional<Luau::Position> colonPosition = std::nullopt)
     {
         lua_rawcheckstack(L, 2);
 
@@ -347,7 +347,10 @@ struct AstSerialize : public Luau::AstVisitor
 
                 // TODO: get position of colon properly
                 if (local->annotation)
-                    serializeToken(currentPosition, ":");
+                {
+                    LUAU_ASSERT(colonPosition);
+                    serializeToken(*colonPosition, ":");
+                }
                 else
                     lua_pushnil(L);
                 lua_setfield(L, -2, "colon");
@@ -637,7 +640,7 @@ struct AstSerialize : public Luau::AstVisitor
         }
     }
 
-    void serializePunctuated(Luau::AstArray<Luau::AstLocal*> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText)
+    void serializePunctuated(Luau::AstArray<Luau::AstLocal*> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText, Luau::AstArray<Luau::Position> colonPositions)
     {
         lua_rawcheckstack(L, 3);
         lua_createtable(L, nodes.size, 0);
@@ -646,7 +649,7 @@ struct AstSerialize : public Luau::AstVisitor
         {
             lua_createtable(L, 0, 2);
 
-            serialize(nodes.data[i]);
+            serialize(nodes.data[i], /* createToken=*/ true, colonPositions.data[i]);
             lua_setfield(L, -2, "node");
 
             if (i < separators.size)
@@ -776,7 +779,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeToken(node->location.begin, node->local->name.value);
         lua_setfield(L, -2, "token"),
 
-            serialize(node->local);
+        serialize(node->local);
         lua_setfield(L, -2, "local");
 
         lua_pushboolean(L, node->upvalue);
@@ -922,7 +925,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "openParens");
         }
 
-        serializePunctuated(node->args, cstNode ? cstNode->argsCommaPositions : Luau::AstArray<Luau::Position>{}, ",");
+        serializePunctuated(node->args, cstNode ? cstNode->argsCommaPositions : Luau::AstArray<Luau::Position>{}, ",", cstNode ? cstNode->argsAnnotationColonPositions : Luau::AstArray<Luau::Position>{});
         lua_setfield(L, -2, "parameters");
 
         if (node->vararg)
@@ -931,9 +934,8 @@ struct AstSerialize : public Luau::AstVisitor
             lua_pushnil(L);
         lua_setfield(L, -2, "vararg");
 
-        // TODO: get proper position of colon
-        if (node->varargAnnotation)
-            serializeToken(currentPosition, ":");
+        if (cstNode && node->varargAnnotation)
+            serializeToken(cstNode->varargAnnotationColonPosition, ":");
         else
             lua_pushnil(L);
         lua_setfield(L, -2, "varargColon");
@@ -1386,7 +1388,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "local");
 
         const auto cstNode = lookupCstNode<Luau::CstStatLocal>(node);
-        serializePunctuated(node->vars, cstNode ? cstNode->varsCommaPositions : Luau::AstArray<Luau::Position>{}, ",");
+        serializePunctuated(node->vars, cstNode ? cstNode->varsCommaPositions : Luau::AstArray<Luau::Position>{}, ",", cstNode ? cstNode->varsAnnotationColonPositions : Luau::AstArray<Luau::Position>{});
         lua_setfield(L, -2, "variables");
 
         if (node->equalsSignLocation)
@@ -1411,7 +1413,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeToken(node->location.begin, "for");
         lua_setfield(L, -2, "for");
 
-        serialize(node->var);
+        serialize(node->var, /* createToken= */ true, cstNode ? std::make_optional(cstNode->annotationColonPosition) : std::nullopt);
         lua_setfield(L, -2, "variable");
 
         if (cstNode)
@@ -1469,7 +1471,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeToken(node->location.begin, "for");
         lua_setfield(L, -2, "for");
 
-        serializePunctuated(node->vars, cstNode ? cstNode->varsCommaPositions : Luau::AstArray<Luau::Position>{}, ",");
+        serializePunctuated(node->vars, cstNode ? cstNode->varsCommaPositions : Luau::AstArray<Luau::Position>{}, ",", cstNode ? cstNode->varsAnnotationColonPositions : Luau::AstArray<Luau::Position>{});
         lua_setfield(L, -2, "variables");
 
         if (node->hasIn)
