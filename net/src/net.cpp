@@ -219,6 +219,7 @@ struct ServerLoopState
     std::shared_ptr<Ref> handlerRef;
     std::string hostname;
     int port;
+    bool reusePort = false;
 };
 
 static void parseQuery(const std::string_view& query, lua_State* L)
@@ -462,9 +463,12 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
         }
     );
 
+    int options = state->reusePort ? LIBUS_LISTEN_DEFAULT : LIBUS_LISTEN_EXCLUSIVE_PORT;
+
     app->listen(
         state->hostname,
         state->port,
+        options,
         [&success](auto* listen_socket)
         {
             success = (listen_socket != nullptr);
@@ -506,6 +510,7 @@ int lua_serve(lua_State* L)
 {
     std::string hostname = "0.0.0.0";
     int port = 3000;
+    bool reusePort = false;
     std::optional<uWS::SocketContextOptions> tlsOptions;
     int handlerIndex = 1;
 
@@ -523,6 +528,13 @@ int lua_serve(lua_State* L)
         if (lua_isnumber(L, -1))
         {
             port = lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 1, "reuseport");
+        if (lua_isboolean(L, -1))
+        {
+            reusePort = lua_toboolean(L, -1);
         }
         lua_pop(L, 1);
 
@@ -589,6 +601,7 @@ int lua_serve(lua_State* L)
     state->runtime = runtime;
     state->hostname = hostname;
     state->port = port;
+    state->reusePort = reusePort;
 
     lua_pushvalue(L, handlerIndex);
     state->handlerRef = std::make_shared<Ref>(L, -1);
@@ -614,8 +627,8 @@ int lua_serve(lua_State* L)
 
     if (!success)
     {
-        lua_pushnil(L);
-        return 1;
+        luaL_errorL(L, "failed to listen on port %d, is it already in use? consider the reuseport option", port);
+        return 0;
     }
 
     state->loopFunction = [state]()
