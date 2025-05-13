@@ -373,11 +373,20 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
     {
         std::string inputBase = inputFilePath;
         size_t lastSlash = inputBase.find_last_of("/");
-        if (lastSlash != std::string::npos) {
+        if (lastSlash != std::string::npos)
+        {
             inputBase = inputBase.substr(lastSlash + 1);
         }
+#ifdef _WIN32
+        size_t lastBackslash = inputBase.find_last_of("\\");
+        if (lastBackslash != std::string::npos)
+        {
+            inputBase = inputBase.substr(lastBackslash + 1);
+        }
+#endif
         size_t lastDot = inputBase.find_last_of('.');
-        if (lastDot != std::string::npos) {
+        if (lastDot != std::string::npos)
+        {
             inputBase = inputBase.substr(0, lastDot);
         }
         outputFilePath = inputBase;
