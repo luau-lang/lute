@@ -43,6 +43,8 @@ export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
 
 export type AstLocal = {
 	name: Token<string>,
+	colon: Token<":">?,
+	annotation: AstType?,
 }
 
 export type AstExprGroup = {
@@ -108,16 +110,20 @@ export type AstFunctionBody = {
 	genericPacks: Punctuated<AstGenericTypePack>?,
 	closeGenerics: Token<">">?,
 	openParens: Token<"(">,
-	-- TODO: parameters
-	parameters: Punctuated<Token<string>>,
+	parameters: Punctuated<AstLocal>,
+	vararg: Token<"...">?,
+	varargColon: Token<":">?,
+	varargAnnotation: AstTypePack?,
 	closeParens: Token<")">,
-	-- TODO: return type
+	returnSpecifier: Token<":">?,
+	returnAnnotation: AstTypePack?,
 	body: AstStatBlock,
 	["end"]: Token<"end">,
 }
 
 export type AstExprAnonymousFunction = {
 	tag: "function",
+	attributes: { AstAttribute },
 	["function"]: Token<"function">,
 	body: AstFunctionBody,
 }
@@ -313,8 +319,11 @@ export type AstStatCompoundAssign = {
 	value: AstExpr,
 }
 
+export type AstAttribute = Token<"@checked" | "@native" | "@deprecated"> & { tag: "attribute" }
+
 export type AstStatFunction = {
 	tag: "function",
+	attributes: { AstAttribute },
 	["function"]: Token<"function">,
 	name: AstExpr,
 	body: AstFunctionBody,
@@ -322,6 +331,7 @@ export type AstStatFunction = {
 
 export type AstStatLocalFunction = {
 	tag: "localfunction",
+	attributes: { AstAttribute },
 	["local"]: Token<"local">,
 	["function"]: Token<"function">,
 	name: AstLocal,
@@ -477,6 +487,26 @@ export type AstTypeTable = {
 	closeBrace: Token<"}">,
 }
 
+export type AstTypeFunctionParameter = {
+	name: Token?,
+	colon: Token<":">?,
+	type: AstType,
+}
+
+export type AstTypeFunction = {
+	tag: "function",
+	openGenerics: Token<"<">?,
+	generics: Punctuated<AstGenericType>?,
+	genericPacks: Punctuated<AstGenericTypePack>?,
+	closeGenerics: Token<">">?,
+	openParens: Token<"(">,
+	parameters: Punctuated<AstTypeFunctionParameter>,
+	vararg: AstTypePack?,
+	closeParens: Token<")">,
+	returnArrow: Token<"->">,
+	returnTypes: AstTypePack,
+}
+
 export type AstType =
 	| AstTypeReference
 	| AstTypeSingletonBool
@@ -488,13 +518,14 @@ export type AstType =
 	| AstTypeOptional
 	| AstTypeArray
 	| AstTypeTable
+	| AstTypeFunction
 
 export type AstTypePackExplicit = {
 	tag: "explicit",
-	openParens: Token<"(">,
+	openParens: Token<"(">?,
 	types: Punctuated<AstType>,
 	tailType: AstTypePack?,
-	closeParens: Token<")">,
+	closeParens: Token<")">?,
 }
 
 export type AstTypePackGeneric = {
@@ -505,7 +536,8 @@ export type AstTypePackGeneric = {
 
 export type AstTypePackVariadic = {
 	tag: "variadic",
-	ellipsis: Token<"...">,
+	--- May be nil when present as the vararg annotation in a function body
+	ellipsis: Token<"...">?,
 	type: AstType,
 }
 

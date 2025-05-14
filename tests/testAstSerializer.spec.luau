@@ -144,6 +144,7 @@ local function test_roundtrippableAst()
 		-- "examples/toml.luau", genuine failure
 		"examples/writeFile.luau",
 		"tests/astSerializerTests/assignment-1.luau",
+		"tests/astSerializerTests/attributes-1.luau",
 		"tests/astSerializerTests/break-continue-1.luau",
 		"tests/astSerializerTests/compound-assignment-1.luau",
 		"tests/astSerializerTests/compound-types-1.luau",
@@ -152,6 +153,9 @@ local function test_roundtrippableAst()
 		"tests/astSerializerTests/function-declaration-1.luau",
 		"tests/astSerializerTests/function-declaration-2.luau",
 		"tests/astSerializerTests/function-declaration-3.luau",
+		"tests/astSerializerTests/function-declaration-4.luau",
+		"tests/astSerializerTests/function-type-1.luau",
+		"tests/astSerializerTests/function-type-2.luau",
 		"tests/astSerializerTests/generic-for-loop-1.luau",
 		"tests/astSerializerTests/if-expression-1.luau",
 		"tests/astSerializerTests/if-expression-2.luau",

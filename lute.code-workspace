@@ -1,0 +1,19 @@
+{
+    "folders": [
+        {
+            "path": ".",
+        }
+    ],
+    "launch": {
+        "configurations": [],
+        "compounds": []
+    },
+    "tasks": {
+        "version": "2.0.0",
+    },
+    "settings": {
+        "luau-lsp.fflags.enableNewSolver": true,
+        "luau-lsp.sourcemap.enabled": false,
+        "luau-lsp.platform.type": "standard",
+    },
+}

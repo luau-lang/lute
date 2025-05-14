@@ -45,6 +45,7 @@ export type Visitor = {
 	visitTypeIntersection: (T.AstTypeIntersection) -> boolean,
 	visitTypeArray: (T.AstTypeArray) -> boolean,
 	visitTypeTable: (T.AstTypeTable) -> boolean,
+	visitTypeFunction: (T.AstTypeFunction) -> boolean,
 
 	visitTypePackExplicit: (T.AstTypePackExplicit) -> boolean,
 	visitTypePackGeneric: (T.AstTypePackGeneric) -> boolean,
@@ -106,6 +107,7 @@ local defaultVisitor: Visitor = {
 	visitTypeIntersection = alwaysVisit :: any,
 	visitTypeArray = alwaysVisit :: any,
 	visitTypeTable = alwaysVisit :: any,
+	visitTypeFunction = alwaysVisit,
 
 	visitTypePackExplicit = alwaysVisit,
 	visitTypePackGeneric = alwaysVisit,
@@ -140,6 +142,12 @@ end
 local function visitLocal(node: T.AstLocal, visitor: Visitor)
 	if visitor.visitLocal(node) then
 		visitToken(node.name, visitor)
+		if node.colon then
+			visitToken(node.colon, visitor)
+		end
+		if node.annotation then
+			visitType(node.annotation, visitor)
+		end
 	end
 end
 
@@ -390,13 +398,35 @@ local function visitFunctionBody(node: T.AstFunctionBody, visitor: Visitor)
 	end
 	visitToken(node.openParens, visitor)
 	visitPunctuated(node.parameters, visitor, visitLocal)
+	if node.vararg then
+		visitToken(node.vararg, visitor)
+	end
+	if node.varargColon then
+		visitToken(node.varargColon, visitor)
+	end
+	if node.varargAnnotation then
+		visitTypePack(node.varargAnnotation, visitor)
+	end
 	visitToken(node.closeParens, visitor)
+	if node.returnSpecifier then
+		visitToken(node.returnSpecifier, visitor)
+	end
+	if node.returnAnnotation then
+		visitTypePack(node.returnAnnotation, visitor)
+	end
 	visitBlock(node.body, visitor)
 	visitToken(node["end"], visitor)
 end
 
+local function visitAttribute(node: T.AstAttribute, visitor)
+	visitToken(node, visitor)
+end
+
 local function visitAnonymousFunction(node: T.AstExprAnonymousFunction, visitor: Visitor)
 	if visitor.visitAnonymousFunction(node) then
+		for _, attribute in node.attributes do
+			visitAttribute(attribute, visitor)
+		end
 		visitToken(node["function"], visitor)
 		visitFunctionBody(node.body, visitor)
 	end
@@ -404,6 +434,9 @@ end
 
 local function visitFunction(node: T.AstStatFunction, visitor: Visitor)
 	if visitor.visitFunction(node) then
+		for _, attribute in node.attributes do
+			visitAttribute(attribute, visitor)
+		end
 		visitToken(node["function"], visitor)
 		visitExpression(node.name, visitor)
 		visitFunctionBody(node.body, visitor)
@@ -412,6 +445,9 @@ end
 
 local function visitLocalFunction(node: T.AstStatLocalFunction, visitor: Visitor)
 	if visitor.visitLocalFunction(node) then
+		for _, attribute in node.attributes do
+			visitAttribute(attribute, visitor)
+		end
 		visitToken(node["local"], visitor)
 		visitToken(node["function"], visitor)
 		visitLocal(node.name, visitor)
@@ -641,14 +677,53 @@ local function visitTypeTable(node: T.AstTypeTable, visitor: Visitor)
 	end
 end
 
+local function visitTypeFunctionParameter(node: T.AstTypeFunctionParameter, visitor)
+	if node.name then
+		visitToken(node.name, visitor)
+	end
+	if node.colon then
+		visitToken(node.colon, visitor)
+	end
+	visitType(node.type, visitor)
+end
+
+local function visitTypeFunction(node: T.AstTypeFunction, visitor: Visitor)
+	if visitor.visitTypeFunction(node) then
+		if node.openGenerics then
+			visitToken(node.openGenerics, visitor)
+		end
+		if node.generics then
+			visitPunctuated(node.generics, visitor, visitGeneric)
+		end
+		if node.genericPacks then
+			visitPunctuated(node.genericPacks, visitor, visitGenericPack)
+		end
+		if node.closeGenerics then
+			visitToken(node.closeGenerics, visitor)
+		end
+		visitToken(node.openParens, visitor)
+		visitPunctuated(node.parameters, visitor, visitTypeFunctionParameter)
+		if node.vararg then
+			visitTypePack(node.vararg, visitor)
+		end
+		visitToken(node.closeParens, visitor)
+		visitToken(node.returnArrow, visitor)
+		visitTypePack(node.returnTypes, visitor)
+	end
+end
+
 local function visitTypePackExplicit(node: T.AstTypePackExplicit, visitor: Visitor)
 	if visitor.visitTypePackExplicit(node) then
-		visitToken(node.openParens, visitor)
+		if node.openParens then
+			visitToken(node.openParens, visitor)
+		end
 		visitPunctuated(node.types, visitor, visitType)
 		if node.tailType then
 			visitTypePack(node.tailType, visitor)
 		end
-		visitToken(node.closeParens, visitor)
+		if node.closeParens then
+			visitToken(node.closeParens, visitor)
+		end
 	end
 end
 
@@ -661,7 +736,9 @@ end
 
 local function visitTypePackVariadic(node: T.AstTypePackVariadic, visitor: Visitor)
 	if visitor.visitTypePackVariadic(node) then
-		visitToken(node.ellipsis, visitor)
+		if node.ellipsis then
+			visitToken(node.ellipsis, visitor)
+		end
 		visitType(node.type, visitor)
 	end
 end
@@ -773,6 +850,8 @@ function visitType(type: T.AstType, visitor: Visitor)
 		visitTypeArray(type, visitor)
 	elseif type.tag == "table" then
 		visitTypeTable(type, visitor)
+	elseif type.tag == "function" then
+		visitTypeFunction(type, visitor)
 	else
 		exhaustiveMatch(type.tag)
 	end
