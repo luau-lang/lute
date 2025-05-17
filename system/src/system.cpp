@@ -1,6 +1,9 @@
 #include "lute/system.h"
 #include "lua.h"
 #include "uv.h"
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
 #include <iterator>
 #include <string>
 #include <vector>
@@ -66,6 +69,52 @@ int lua_threadcount(lua_State* L)
     return 1;
 }
 
+int lua_freememory(lua_State* L)
+{
+    lua_pushinteger(L, uv_get_free_memory()); // FIXME: this is a 64 bit int, deal with it?
+
+    return 1;
+}
+
+int lua_totalmemory(lua_State* L)
+{
+    lua_pushinteger(L, uv_get_total_memory()); // FIXME: this is a 64 bit int, deal with it?
+
+    return 1;
+}
+
+int lua_hostname(lua_State* L)
+{
+    size_t sz = UV_MAXHOSTNAMESIZE;
+    char* hostname = (char*) malloc(sz);
+
+    int res = uv_os_gethostname(hostname, &sz);
+    if (res != 0) {
+        lua_pushfstringL(L, "libuv error: %s", uv_strerror(res));
+        lua_error(L);
+        
+        return 0;
+    }
+
+    lua_pushstring(L, hostname);
+
+    return 1;
+}
+
+int lua_uptime(lua_State* L) {
+    double uptime = 0;
+    
+    int res = uv_uptime(&uptime);
+    if (res != 0) {
+        lua_pushfstringL(L, "libuv error: %s", uv_strerror(res));
+        lua_error(L);
+        return 0;
+    }
+
+    lua_pushnumber(L, uptime);
+
+    return 1;
+}
 } // namespace libsystem
 
 int luaopen_system(lua_State* L)

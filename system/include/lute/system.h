@@ -17,10 +17,18 @@ static const char kOperatingSystemProperty[] = "os";
 
 int lua_cpus(lua_State* L);
 int lua_threadcount(lua_State* L);
+int lua_freememory(lua_State* L);
+int lua_totalmemory(lua_State* L);
+int lua_hostname(lua_State* L);
+int lua_uptime(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"cpus", lua_cpus},
     {"threadcount", lua_threadcount},
+    {"freememory", lua_freememory},
+    {"totalmemory", lua_totalmemory},
+    {"hostname", lua_hostname},
+    {"uptime", lua_uptime},
 
     {nullptr, nullptr}
 };
