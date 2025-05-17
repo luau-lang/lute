@@ -1,8 +1,17 @@
 local system = require("@lute/system")
 
-print(system.os)
-print(system.arch)
-print(system.threadcount())
+print(
+	string.format(
+		"%s (%s-%s) - %d cores, uptime for %ss | freemem: %dMB | totalmem: %dMB",
+		system.hostname(),
+		system.os,
+		system.arch,
+		system.threadcount(),
+		system.uptime(),
+		system.freememory() / 1024 ^ 2,
+		system.totalmemory() / 1024 ^ 2
+	)
+)
 
 for i, cpu in system.cpus() do
 	-- print(`[core {string.format("%.02i", i)}] speed: {cpu.speed}, model: {cpu.model}`)
