@@ -10,7 +10,6 @@
 #include "Luau/CodeGen.h"
 #include "Luau/Require.h"
 #include "Luau/StringUtils.h"
-#include "Luau/FileUtils.h"
 #include <string>
 
 static luarequire_WriteResult write(std::optional<std::string> contents, char* buffer, size_t bufferSize, size_t* sizeOut)
@@ -205,7 +204,8 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(ML);
 
-    std::optional<std::string> contents = readFile(loadname);
+    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+    std::optional<std::string> contents = getFileContents(reqCtx->currentVFSType, std::string(loadname), "");;
     if (!contents)
         luaL_error(L, "could not read file '%s'", loadname);
 
