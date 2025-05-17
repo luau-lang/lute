@@ -22,6 +22,7 @@ const char* COMPILE_RESULT_TYPE = "CompileResult";
 LUAU_FASTFLAG(LuauStoreCSTData2)
 LUAU_FASTFLAG(LuauFixFunctionWithAttributesStartLocation)
 LUAU_FASTFLAG(LuauStoreReturnTypesAsPackOnAst)
+LUAU_FASTFLAG(LuauStoreLocalAnnotationColonPositions)
 
 namespace luau
 {
@@ -40,6 +41,7 @@ static StatResult parse(std::string& source)
     FFlag::LuauStoreCSTData2.value = true;
     FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
     FFlag::LuauStoreReturnTypesAsPackOnAst.value = true;
+    FFlag::LuauStoreLocalAnnotationColonPositions.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -68,6 +70,7 @@ static ExprResult parseExpr(std::string& source)
     FFlag::LuauStoreCSTData2.value = true;
     FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
     FFlag::LuauStoreReturnTypesAsPackOnAst.value = true;
+    FFlag::LuauStoreLocalAnnotationColonPositions.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -646,7 +649,7 @@ struct AstSerialize : public Luau::AstVisitor
         {
             lua_createtable(L, 0, 2);
 
-            serialize(nodes.data[i], /* createToken=*/ true, colonPositions.data[i]);
+            serialize(nodes.data[i], /* createToken=*/ true, colonPositions.size > i ? std::make_optional(colonPositions.data[i]): std::nullopt);
             lua_setfield(L, -2, "node");
 
             if (i < separators.size)
