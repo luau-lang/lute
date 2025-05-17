@@ -20,7 +20,6 @@
 const char* COMPILE_RESULT_TYPE = "CompileResult";
 
 LUAU_FASTFLAG(LuauStoreCSTData2)
-LUAU_FASTFLAG(LuauParseOptionalAsNode2)
 LUAU_FASTFLAG(LuauFixFunctionWithAttributesStartLocation)
 LUAU_FASTFLAG(LuauStoreReturnTypesAsPackOnAst)
 
@@ -39,7 +38,6 @@ static StatResult parse(std::string& source)
 {
     // TODO: this is very bad, fix it!
     FFlag::LuauStoreCSTData2.value = true;
-    FFlag::LuauParseOptionalAsNode2.value = true;
     FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
     FFlag::LuauStoreReturnTypesAsPackOnAst.value = true;
 
@@ -68,7 +66,6 @@ static ExprResult parseExpr(std::string& source)
 {
     // TODO: this is very bad, fix it!
     FFlag::LuauStoreCSTData2.value = true;
-    FFlag::LuauParseOptionalAsNode2.value = true;
     FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
     FFlag::LuauStoreReturnTypesAsPackOnAst.value = true;
 

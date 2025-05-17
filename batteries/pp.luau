@@ -80,6 +80,7 @@ local function isEmpty(t: { [unknown]: unknown }): boolean
 	return true
 end
 
+-- FIXME(luau): mark `dataTable` indexer as read-only
 local function traverseTable(
 	dataTable: { [unknown]: unknown },
 	seen: { [unknown]: boolean },
@@ -141,7 +142,6 @@ local function traverseTable(
 			continue
 		end
 
-		-- FIXME(luau): `{[unknown]: unknown} should be treated identically to `table`
 		if isPrimitiveArray(value :: { [unknown]: unknown }) then -- collapse primitive arrays
 			local outputConcatTbl = table.create(#value) :: { string }
 
@@ -182,6 +182,5 @@ return function(data: unknown, options: ExistingOptions?): string
 		return formatValue(data, options)
 	end
 
-	-- FIXME(luau): `{[unknown]: unknown} should be treated identically to `table`
 	return `\{\n{traverseTable(data :: { [unknown]: unknown }, { [data] = true }, 1, options)}\}`
 end
