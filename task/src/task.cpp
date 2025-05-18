@@ -35,11 +35,13 @@ int lua_defer(lua_State* L)
 int lua_wait(lua_State* L)
 {
     int type = lua_type(L, 1);
-
     uint64_t milliseconds = 0;
 
+    // Handle overloads
     switch (type)
     {
+        // TNONE and TNIL fall into the same default case of 0
+        // Supports nil & none
     case LUA_TNONE:
     case LUA_TNIL:
         milliseconds = 0;
@@ -48,10 +50,8 @@ int lua_wait(lua_State* L)
         milliseconds = static_cast<uint64_t>(lua_tonumber(L, 1) * 1000);
         break;
     case LUA_TUSERDATA:
-        auto timespec = getTimespecFromDuration(L, 1);
-        double seconds = getSecondsFromTimespec(timespec) * 1000;
-
-        milliseconds = static_cast<uint64_t>(seconds);
+        double seconds = getSecondsFromTimespec(getTimespecFromDuration(L, 1));
+        milliseconds = static_cast<uint64_t>(seconds * 1000);
 
         break;
     };
