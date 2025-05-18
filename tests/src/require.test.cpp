@@ -5,12 +5,13 @@
 
 #include "Luau/Require.h"
 #include "lualib.h"
+#include <memory>
 
 class LuaStateFixture
 {
 public:
     LuaStateFixture()
-    : luaState(luaL_newstate(), lua_close)
+        : luaState(luaL_newstate(), lua_close)
     {
         luaL_openlibs(luaState.get());
         L = luaState.get();
