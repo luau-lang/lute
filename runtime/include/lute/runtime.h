@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lua.h"
 #include "lute/ref.h"
 
 #include <atomic>
@@ -9,6 +10,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <variant>
 #include <vector>
 
 struct ThreadToContinue
@@ -19,12 +21,24 @@ struct ThreadToContinue
     std::function<void()> cont;
 };
 
+struct StepErr
+{
+    lua_State* L;
+};
+
+struct StepSuccess
+{
+};
+
+typedef std::variant<StepSuccess, StepErr> RuntimeStep;
+
 struct Runtime
 {
     Runtime();
     ~Runtime();
 
     bool runToCompletion();
+    RuntimeStep runOnce();
 
     // For child runtimes, run a thread waiting for work
     void runContinuously();
@@ -32,6 +46,7 @@ struct Runtime
     // Reports an error for a specified lua state.
     void reportError(lua_State* L);
 
+    bool hasWork();
     bool hasContinuations();
     bool hasThreads();
 
