@@ -42,7 +42,7 @@ static float_t sinceTimespec(uv_timespec64_t timespec)
     return diffTimespecs(now, timespec);
 }
 
-static double getSecondsFromTimespec(uv_timespec64_t timespec)
+double getSecondsFromTimespec(uv_timespec64_t timespec)
 {
     return static_cast<double>(timespec.tv_sec) + static_cast<double>(timespec.tv_nsec) / NANOSECONDS_PER_SECOND;
 }
@@ -50,7 +50,7 @@ static double getSecondsFromTimespec(uv_timespec64_t timespec)
 // Durations
 
 // returns the address of the timespec from the duration on the stack
-static uv_timespec64_t getTimespecFromDuration(lua_State* L, int idx)
+uv_timespec64_t getTimespecFromDuration(lua_State* L, int idx)
 {
     return *static_cast<uv_timespec64_t*>(luaL_checkudata(L, idx, kDurationType));
 }
