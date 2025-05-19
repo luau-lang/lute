@@ -8,8 +8,8 @@ print(
 		system.arch,
 		system.threadcount(),
 		system.uptime(),
-		system.freememory() / 1024 ^ 2,
-		system.totalmemory() / 1024 ^ 2
+		system.freememory(),
+		system.totalmemory()
 	)
 )
 
