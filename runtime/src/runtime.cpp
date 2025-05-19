@@ -58,7 +58,7 @@ RuntimeStep Runtime::runOnce()
         continuation();
 
     if (runningThreads.empty())
-        return StepSuccess{};
+        return StepEmpty{};
 
     auto next = std::move(runningThreads.front());
     runningThreads.erase(runningThreads.begin());
@@ -84,7 +84,7 @@ RuntimeStep Runtime::runOnce()
 
     if (status == LUA_YIELD)
     {
-        return StepSuccess{};
+        return StepSuccess{L};
     }
 
     if (status != LUA_OK)
@@ -95,7 +95,7 @@ RuntimeStep Runtime::runOnce()
     if (next.cont)
         next.cont();
 
-    return StepSuccess{};
+    return StepSuccess{L};
 }
 
 bool Runtime::runToCompletion()
@@ -121,6 +121,10 @@ bool Runtime::runToCompletion()
                 return false;
         }
         else if (std::holds_alternative<StepSuccess>(step))
+        {
+            continue;
+        }
+        else if (std::holds_alternative<StepEmpty>(step))
         {
             continue;
         };

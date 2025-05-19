@@ -28,9 +28,14 @@ struct StepErr
 
 struct StepSuccess
 {
+    lua_State* L;
 };
 
-typedef std::variant<StepSuccess, StepErr> RuntimeStep;
+struct StepEmpty
+{
+};
+
+typedef std::variant<StepSuccess, StepErr, StepEmpty> RuntimeStep;
 
 struct Runtime
 {
