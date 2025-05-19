@@ -34,6 +34,12 @@ targetMap = {
     'lute': {
         'exeName': 'lute',
     },
+    'Lute.CLI': {
+        'exeName': 'lute',
+    },
+    'Lute.Test': {
+        'exeName': 'lute-tests',
+    },
 }
 
 argParser = argparse.ArgumentParser(description='crafting a lute!', formatter_class=argparse.RawDescriptionHelpFormatter)

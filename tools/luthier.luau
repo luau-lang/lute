@@ -41,6 +41,12 @@ local targetMap: { [string]: { exeName: string } } = {
 	lute = {
 		exeName = "lute",
 	},
+	["Lute.CLI"] = {
+		exeName = "lute",
+	},
+	["Lute.Test"] = {
+		exeName = "lute-tests",
+	},
 }
 
 local args = cli.parser()

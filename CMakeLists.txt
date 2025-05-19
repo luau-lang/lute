@@ -88,6 +88,9 @@ set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
 add_executable(Lute.CLI)
 set_target_properties(Lute.CLI PROPERTIES OUTPUT_NAME lute)
 
+add_executable(Lute.Test)
+set_target_properties(Lute.Test PROPERTIES OUTPUT_NAME lute-tests)
+
 include(Sources.cmake)
 
 target_compile_features(Lute.Runtime PUBLIC cxx_std_17)
@@ -101,6 +104,8 @@ target_compile_features(Lute.VM PUBLIC cxx_std_17)
 target_compile_features(Lute.Process PUBLIC cxx_std_17)
 target_compile_features(Lute.System PUBLIC cxx_std_17)
 target_compile_features(Lute.Time PUBLIC cxx_std_17)
+target_compile_features(Lute.Test PUBLIC cxx_std_17)
+
 target_include_directories(Lute.Runtime PUBLIC runtime/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.Crypto PUBLIC crypto/include ${LIBUV_INCLUDE_DIR})
 target_include_directories(Lute.Fs PUBLIC fs/include ${LIBUV_INCLUDE_DIR})
@@ -124,6 +129,7 @@ target_link_libraries(Lute.Process PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.System PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.Time PRIVATE Lute.Runtime Luau.VM uv_a)
 target_link_libraries(Lute.CLI PRIVATE Luau.CLI.lib Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.Runtime Lute.Crypto Lute.Fs Lute.Luau Lute.Net Lute.Task Lute.VM Lute.Process Lute.System Lute.Time)
+target_link_libraries(Lute.Test PRIVATE Lute.Runtime)
 
 set(LUTE_OPTIONS)
 
@@ -153,3 +159,4 @@ target_compile_options(Lute.Process PRIVATE ${LUTE_OPTIONS})
 target_compile_options(Lute.System PRIVATE ${LUTE_OPTIONS})
 target_compile_options(Lute.Time PRIVATE ${LUTE_OPTIONS})
 target_compile_options(Lute.CLI PRIVATE ${LUTE_OPTIONS})
+target_compile_options(Lute.Test PRIVATE ${LUTE_OPTIONS})

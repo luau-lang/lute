@@ -153,12 +153,6 @@ static bool is_module_present(lua_State* L, void* ctx)
     return isFilePresent(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->suffix);
 }
 
-static luarequire_WriteResult get_contents(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
-{
-    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return write(getFileContents(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->suffix), buffer, buffer_size, size_out);
-}
-
 static luarequire_WriteResult get_chunkname(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
@@ -167,6 +161,12 @@ static luarequire_WriteResult get_chunkname(lua_State* L, void* ctx, char* buffe
         return write("@" + reqCtx->absPath, buffer, buffer_size, size_out);
 
     return write("@" + reqCtx->relPath, buffer, buffer_size, size_out);
+}
+
+static luarequire_WriteResult get_loadname(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
+{
+    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+    return write(reqCtx->absPath + reqCtx->suffix, buffer, buffer_size, size_out);
 }
 
 static luarequire_WriteResult get_cache_key(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
@@ -201,7 +201,7 @@ static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, 
     return write(getFileContents(reqCtx->currentVFSType, reqCtx->absPath, "/.luaurc"), buffer, buffer_size, size_out);
 }
 
-static int load(lua_State* L, void* ctx, const char* path, const char* chunkname, const char* contents)
+static int load(lua_State* L, void* ctx, const char* path, const char* chunkname, const char* loadname)
 {
     // module needs to run in a new thread, isolated from the rest
     // note: we create ML on main thread so that it doesn't inherit environment of L
@@ -212,8 +212,13 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(ML);
 
+    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+    std::optional<std::string> contents = getFileContents(reqCtx->currentVFSType, std::string(loadname), "");;
+    if (!contents)
+        luaL_error(L, "could not read file '%s'", loadname);
+
     // now we can compile & run module on the new thread
-    std::string bytecode = Luau::compile(contents, copts());
+    std::string bytecode = Luau::compile(*contents, copts());
     if (luau_load(ML, chunkname, bytecode.data(), bytecode.size(), 0) == 0)
     {
         if (getCodegenEnabled())
@@ -268,9 +273,9 @@ void requireConfigInit(luarequire_Configuration* config)
     config->to_parent = to_parent;
     config->to_child = to_child;
     config->is_module_present = is_module_present;
-    config->get_contents = get_contents;
     config->is_config_present = is_config_present;
     config->get_chunkname = get_chunkname;
+    config->get_loadname = get_loadname;
     config->get_cache_key = get_cache_key;
     config->get_config = get_config;
     config->load = load;
