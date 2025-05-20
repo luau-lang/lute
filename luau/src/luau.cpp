@@ -1649,7 +1649,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         serializeNodePreamble(node, "reference");
 
-        const auto cstNode = node->prefix || node->hasParameterList ? lookupCstNode<Luau::CstTypeReference>(node) : nullptr;
+        const auto cstNode = node->prefix || node->hasParameterList ? lookupCstNode<Luau::CstTypeReference>(node).get() : nullptr;
 
         if (node->prefix)
         {
