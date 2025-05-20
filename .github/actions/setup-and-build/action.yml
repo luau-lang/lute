@@ -71,7 +71,7 @@ runs:
 
     - name: Build ${{ inputs.target }}
       shell: bash
-      run: lute ./tools/luthier.luau build ${{ inputes.target }} --config ${{ inputs.config }} ${{ inputs.options }}
+      run: lute ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Get Artifact Path
       id: artifact_path
