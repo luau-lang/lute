@@ -6,6 +6,8 @@
 #include "Luau/Require.h"
 #include "lualib.h"
 
+#include <memory>
+
 class LuaStateFixture
 {
 public:
