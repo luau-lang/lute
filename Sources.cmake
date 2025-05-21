@@ -83,3 +83,10 @@ target_sources(Lute.Time PRIVATE
 
 	time/src/time.cpp
 )
+
+target_sources(Lute.Test PRIVATE
+    tests/src/doctest.h
+    tests/src/main.cpp
+
+    tests/src/require.test.cpp
+)

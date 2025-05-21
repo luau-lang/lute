@@ -96,6 +96,11 @@ static luarequire_NavigateResult jump_to_alias(lua_State* L, void* ctx, const ch
         reqCtx->suffix = "";
         return NAVIGATE_SUCCESS;
     }
+    else if (std::string_view(path) == "$lute")
+    {
+        reqCtx->absPath = "@lute";
+        return NAVIGATE_SUCCESS;
+    }
 
     luarequire_NavigateResult result = storePathResult(reqCtx, getAbsolutePathResult(reqCtx->currentVFSType, path));
     if (result != NAVIGATE_SUCCESS)
@@ -110,6 +115,9 @@ static luarequire_NavigateResult jump_to_alias(lua_State* L, void* ctx, const ch
 static luarequire_NavigateResult to_parent(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+
+    if (std::string_view(reqCtx->absPath) == "@lute")
+        luaL_error(L, "cannot get the parent of @lute");
 
     PathResult result = getParent(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->relPath);
     if (result.status == PathResult::Status::NOT_FOUND)
@@ -127,6 +135,10 @@ static luarequire_NavigateResult to_parent(lua_State* L, void* ctx)
 static luarequire_NavigateResult to_child(lua_State* L, void* ctx, const char* name)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+
+    if (std::string_view(reqCtx->absPath) == "@lute")
+        luaL_error(L, "'%s' is not a lute library", name);
+
     reqCtx->atFakeRoot = false;
     return storePathResult(reqCtx, getChild(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->relPath, name));
 }
@@ -134,13 +146,11 @@ static luarequire_NavigateResult to_child(lua_State* L, void* ctx, const char* n
 static bool is_module_present(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return isFilePresent(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->suffix);
-}
 
-static luarequire_WriteResult get_contents(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
-{
-    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return write(getFileContents(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->suffix), buffer, buffer_size, size_out);
+    if (std::string_view(reqCtx->absPath) == "@lute")
+        luaL_error(L, "@lute is not requirable");
+
+    return isFilePresent(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->suffix);
 }
 
 static luarequire_WriteResult get_chunkname(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
@@ -151,6 +161,12 @@ static luarequire_WriteResult get_chunkname(lua_State* L, void* ctx, char* buffe
         return write("@" + reqCtx->absPath, buffer, buffer_size, size_out);
 
     return write("@" + reqCtx->relPath, buffer, buffer_size, size_out);
+}
+
+static luarequire_WriteResult get_loadname(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
+{
+    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+    return write(reqCtx->absPath + reqCtx->suffix, buffer, buffer_size, size_out);
 }
 
 static luarequire_WriteResult get_cache_key(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
@@ -174,27 +190,19 @@ static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, 
     if (reqCtx->atFakeRoot)
     {
         std::string globalConfig = "{\n"
-                                    "    \"aliases\": {\n"
-                                    "        \"std\": \"$std\",\n"
-                                    "    }\n"
-                                    "}\n";
+                                   "    \"aliases\": {\n"
+                                   "        \"std\": \"$std\",\n"
+                                   "        \"lute\": \"$lute\",\n"
+                                   "    }\n"
+                                   "}\n";
         return write(globalConfig, buffer, buffer_size, size_out);
     }
 
     return write(getFileContents(reqCtx->currentVFSType, reqCtx->absPath, "/.luaurc"), buffer, buffer_size, size_out);
 }
 
-static int load(lua_State* L, void* ctx, const char* path, const char* chunkname, const char* contents)
+static int load(lua_State* L, void* ctx, const char* path, const char* chunkname, const char* loadname)
 {
-    std::string_view pathView = path;
-
-    if (pathView.rfind("@lute/", 0) == 0)
-    {
-        // @lute library tables are registered into require-by-string directly
-        // and are not loaded here.
-        luaL_error(L, "no luau runtime library: %s", path);
-    }
-
     // module needs to run in a new thread, isolated from the rest
     // note: we create ML on main thread so that it doesn't inherit environment of L
     lua_State* GL = lua_mainthread(L);
@@ -204,8 +212,13 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(ML);
 
+    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+    std::optional<std::string> contents = getFileContents(reqCtx->currentVFSType, std::string(loadname), "");;
+    if (!contents)
+        luaL_error(L, "could not read file '%s'", loadname);
+
     // now we can compile & run module on the new thread
-    std::string bytecode = Luau::compile(contents, copts());
+    std::string bytecode = Luau::compile(*contents, copts());
     if (luau_load(ML, chunkname, bytecode.data(), bytecode.size(), 0) == 0)
     {
         if (getCodegenEnabled())
@@ -218,7 +231,7 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
 
         if (status == 0)
         {
-            const std::string prefix = "module " + std::string(pathView) + " must";
+            const std::string prefix = "module " + std::string(path) + " must";
 
             if (lua_gettop(ML) == 0)
                 lua_pushstring(ML, (prefix + " return a value, if it has no return value, you should explicitly return `nil`\n").c_str());
@@ -260,9 +273,9 @@ void requireConfigInit(luarequire_Configuration* config)
     config->to_parent = to_parent;
     config->to_child = to_child;
     config->is_module_present = is_module_present;
-    config->get_contents = get_contents;
     config->is_config_present = is_config_present;
     config->get_chunkname = get_chunkname;
+    config->get_loadname = get_loadname;
     config->get_cache_key = get_cache_key;
     config->get_config = get_config;
     config->load = load;
