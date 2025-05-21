@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Luau/Variant.h"
 #include "lua.h"
 #include "lute/ref.h"
 
@@ -10,7 +11,6 @@
 #include <mutex>
 #include <string>
 #include <thread>
-#include <variant>
 #include <vector>
 
 struct ThreadToContinue
@@ -35,7 +35,7 @@ struct StepEmpty
 {
 };
 
-typedef std::variant<StepSuccess, StepErr, StepEmpty> RuntimeStep;
+typedef Luau::Variant<StepSuccess, StepErr, StepEmpty> RuntimeStep;
 
 struct Runtime
 {

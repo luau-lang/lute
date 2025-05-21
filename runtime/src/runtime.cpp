@@ -6,7 +6,6 @@
 
 #include <string>
 #include <assert.h>
-#include <variant>
 
 static void lua_close_checked(lua_State* L)
 {
@@ -104,30 +103,24 @@ bool Runtime::runToCompletion()
     {
         auto step = runOnce();
 
-        if (std::holds_alternative<StepErr>(step))
+        if (auto err = Luau::get_if<StepErr>(&step))
         {
-            StepErr err = std::get<StepErr>(step);
-
-            if (err.L == nullptr)
+            if (err->L == nullptr)
             {
                 fprintf(stderr, "lua_State* L is nullptr");
                 return false;
             }
 
-            reportError(err.L);
+            reportError(err->L);
 
             // ensure we exit the process with error code properly
             if (!hasWork())
                 return false;
         }
-        else if (std::holds_alternative<StepSuccess>(step))
+        else
         {
             continue;
         }
-        else if (std::holds_alternative<StepEmpty>(step))
-        {
-            continue;
-        };
     };
 
     return true;
