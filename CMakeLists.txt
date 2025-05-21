@@ -139,3 +139,4 @@ add_subdirectory(lute/time)
 
 # executables
 add_subdirectory(lute/cli)
+add_subdirectory(tests)

@@ -80,6 +80,7 @@ jobs:
       id: build_lute
       uses: ./.github/actions/setup-and-build
       with:
+        target: Lute.CLI
         config: release
         options: ${{ matrix.options }}
         token: ${{ secrets.GITHUB_TOKEN }}

@@ -35,69 +35,93 @@ Runtime::~Runtime()
         runLoopThread.join();
 }
 
+bool Runtime::hasWork()
+{
+    return hasContinuations() || hasThreads() || activeTokens.load() != 0;
+}
+
+RuntimeStep Runtime::runOnce()
+{
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+    // Complete all C++ continuations
+    std::vector<std::function<void()>> copy;
+
+    {
+        std::unique_lock lock(continuationMutex);
+        copy = std::move(continuations);
+        continuations.clear();
+    }
+
+    for (auto&& continuation : copy)
+        continuation();
+
+    if (runningThreads.empty())
+        return StepEmpty{};
+
+    auto next = std::move(runningThreads.front());
+    runningThreads.erase(runningThreads.begin());
+
+    next.ref->push(GL);
+    lua_State* L = lua_tothread(GL, -1);
+
+    if (L == nullptr)
+    {
+        fprintf(stderr, "Cannot resume a non-thread reference");
+        return StepErr{L};
+    }
+
+    // We still have 'next' on stack to hold on to thread we are about to run
+    lua_pop(GL, 1);
+
+    int status = LUA_OK;
+
+    if (!next.success)
+        status = lua_resumeerror(L, nullptr);
+    else
+        status = lua_resume(L, nullptr, next.argumentCount);
+
+    if (status == LUA_YIELD)
+    {
+        return StepSuccess{L};
+    }
+
+    if (status != LUA_OK)
+    {
+        return StepErr{L};
+    };
+
+    if (next.cont)
+        next.cont();
+
+    return StepSuccess{L};
+}
+
 bool Runtime::runToCompletion()
 {
-    // While there is some C++ or Luau code left to run (waiting for something to happen?)
-    while (!runningThreads.empty() || hasContinuations() || activeTokens.load() != 0)
+    while (hasWork())
     {
-        uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+        auto step = runOnce();
 
-        // Complete all C++ continuations
-        std::vector<std::function<void()>> copy;
-
+        if (auto err = Luau::get_if<StepErr>(&step))
         {
-            std::unique_lock lock(continuationMutex);
-            copy = std::move(continuations);
-            continuations.clear();
-        }
-
-        for (auto&& continuation : copy)
-            continuation();
-
-        if (runningThreads.empty())
-            continue;
-
-        auto next = std::move(runningThreads.front());
-        runningThreads.erase(runningThreads.begin());
-
-        next.ref->push(GL);
-        lua_State* L = lua_tothread(GL, -1);
-
-        if (L == nullptr)
-        {
-            fprintf(stderr, "Cannot resume a non-thread reference");
-            return false;
-        }
-
-        // We still have 'next' on stack to hold on to thread we are about to run
-        lua_pop(GL, 1);
-
-        int status = LUA_OK;
-
-        if (!next.success)
-            status = lua_resumeerror(L, nullptr);
-        else
-            status = lua_resume(L, nullptr, next.argumentCount);
-
-        if (status == LUA_YIELD)
-        {
-            continue;
-        }
-
-        if (status != LUA_OK)
-        {
-            reportError(L);
-
-            // If we have no work to do, then exit the process.
-            if (!hasThreads() && !hasContinuations())
+            if (err->L == nullptr)
+            {
+                fprintf(stderr, "lua_State* L is nullptr");
                 return false;
-            else
-                continue;
-        }
+            }
 
-        if (next.cont)
-            next.cont();
-    }
+            reportError(err->L);
+
+            // ensure we exit the process with error code properly
+            if (!hasWork())
+                return false;
+        }
+        else
+        {
+            continue;
+        }
+    };
 
     return true;
 }

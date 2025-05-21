@@ -12,10 +12,13 @@ namespace task
 {
 
 int lua_defer(lua_State* L);
+int lua_wait(lua_State* L);
 int lute_resume(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"defer", lua_defer},
+    {"wait", lua_wait},
+
     {"resume", lute_resume},
 
     {nullptr, nullptr},

@@ -43,6 +43,12 @@ local targetMap: { [string]: { exeName: string } } = {
 	lute = {
 		exeName = "cli/lute",
 	},
+	["Lute.CLI"] = {
+		exeName = "lute",
+	},
+	["Lute.Test"] = {
+		exeName = "lute-tests",
+	},
 }
 
 local args = cli.parser()
@@ -267,18 +273,14 @@ local function call(cmd: { string }, passedCwd: string?): number
 end
 
 local function build()
-	local targetName = args:get("target")
+	local exeName = getExeName(args:get("target"))
 	local projectPath = getProjectPath()
-
-	if isWindows then
-		targetName ..= ".exe"
-	end
 
 	if args:has("clean") then
 		call({ "ninja", "-C", projectPath, "clean" })
 	end
 
-	local cmd = { "ninja", "-C", projectPath, targetName }
+	local cmd = { "ninja", "-C", projectPath, exeName }
 
 	return call(cmd)
 end
