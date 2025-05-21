@@ -35,7 +35,7 @@ struct StepEmpty
 {
 };
 
-typedef Luau::Variant<StepSuccess, StepErr, StepEmpty> RuntimeStep;
+using RuntimeStep = Luau::Variant<StepSuccess, StepErr, StepEmpty>;
 
 struct Runtime
 {
