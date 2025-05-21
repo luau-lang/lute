@@ -126,7 +126,6 @@ bool Runtime::runToCompletion()
     return true;
 }
 
-
 void Runtime::reportError(lua_State* L)
 {
     std::string error;
