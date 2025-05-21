@@ -272,7 +272,7 @@ end
 
 local function build()
 	local exeName = getExeName(args:get("target"))
-	local projectPath = getProjectPath()			
+	local projectPath = getProjectPath()
 
 	if args:has("clean") then
 		call({ "ninja", "-C", projectPath, "clean" })
