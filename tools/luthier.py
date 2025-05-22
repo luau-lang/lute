@@ -313,11 +313,8 @@ def call(*args):
     return sp.call(*args, env=env)
 
 def build(args):
-    targetName = args.target
+    exeName = getExeName(args.target)
     projectPath = getProjectPath(args)
-
-    if isWindows:
-        targetName = targetName + '.exe'
 
     if args.clean:
         call(['ninja', '-C', projectPath, 'clean'])
@@ -326,7 +323,7 @@ def build(args):
         'ninja',
         '-C',
         projectPath,
-        targetName
+        exeName
     ]
 
     return call(cmd)

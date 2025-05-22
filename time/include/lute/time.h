@@ -2,6 +2,7 @@
 
 #include "lua.h"
 #include "lualib.h"
+#include "uv.h"
 #include <string>
 
 // open the library as a standard global luau library
@@ -12,6 +13,10 @@ int luteopen_time(lua_State* L);
 static const char kInstantType[] = "instant";
 static const char kDurationType[] = "duration";
 static const char kDurationLibraryIdentifier[] = "duration";
+
+// exposed utils
+double getSecondsFromTimespec(uv_timespec64_t timespec);
+uv_timespec64_t getTimespecFromDuration(lua_State* L, int idx);
 
 namespace duration
 {

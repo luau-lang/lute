@@ -1,0 +1,1 @@
+type Null = nil
