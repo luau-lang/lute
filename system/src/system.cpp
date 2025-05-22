@@ -81,7 +81,7 @@ int lua_freememory(lua_State* L)
 
 int lua_totalmemory(lua_State* L)
 {
-    lua_pushnumber(L,  static_cast<double>(uv_get_total_memory()) / BYTES_PER_MB);
+    lua_pushnumber(L, static_cast<double>(uv_get_total_memory()) / BYTES_PER_MB);
 
     return 1;
 }
@@ -93,12 +93,14 @@ int lua_hostname(lua_State* L)
     hostname.reserve(sz);
 
     int res = uv_os_gethostname(hostname.data(), &sz);
-    if (res == UV_ENOBUFS) {
+    if (res == UV_ENOBUFS)
+    {
         hostname.reserve(sz); // libuv updates the size to what's required
         res = uv_os_gethostname(hostname.data(), &sz);
     }
 
-    if (res != 0) {
+    if (res != 0)
+    {
         luaL_error(L, "libuv error: %s", uv_strerror(res));
     }
 
@@ -107,11 +109,13 @@ int lua_hostname(lua_State* L)
     return 1;
 }
 
-int lua_uptime(lua_State* L) {
+int lua_uptime(lua_State* L)
+{
     double uptime = 0;
-    
+
     int res = uv_uptime(&uptime);
-    if (res != 0) {
+    if (res != 0)
+    {
         luaL_error(L, "libuv error: %s", uv_strerror(res));
     }
 
