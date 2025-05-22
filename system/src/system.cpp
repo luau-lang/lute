@@ -70,18 +70,18 @@ int lua_threadcount(lua_State* L)
     return 1;
 }
 
-#define BYTES_PER_MB 1048576 // 2^20 bytes
+constexpr size_t BYTES_PER_MB = 1024 * 1024; // 2^20 bytes
 
 int lua_freememory(lua_State* L)
 {
-    lua_pushnumber(L, (double) uv_get_free_memory() / BYTES_PER_MB);
+    lua_pushnumber(L, static_cast<double>(uv_get_free_memory()) / BYTES_PER_MB);
 
     return 1;
 }
 
 int lua_totalmemory(lua_State* L)
 {
-    lua_pushnumber(L, (double) uv_get_total_memory() / BYTES_PER_MB);
+    lua_pushnumber(L,  static_cast<double>(uv_get_total_memory()) / BYTES_PER_MB);
 
     return 1;
 }
@@ -100,8 +100,6 @@ int lua_hostname(lua_State* L)
 
     if (res != 0) {
         luaL_error(L, "libuv error: %s", uv_strerror(res));
-        
-        return 0;
     }
 
     lua_pushstring(L, hostname.c_str());
@@ -115,7 +113,6 @@ int lua_uptime(lua_State* L) {
     int res = uv_uptime(&uptime);
     if (res != 0) {
         luaL_error(L, "libuv error: %s", uv_strerror(res));
-        return 0;
     }
 
     lua_pushnumber(L, uptime);
