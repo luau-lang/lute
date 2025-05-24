@@ -32,13 +32,13 @@ export type MultiLineComment = {
 export type Trivia = Whitespace | SingleLineComment | MultiLineComment
 
 export type Token<Kind = string> = {
-	read leadingTrivia: { Trivia },
-	read position: Position,
-	read text: Kind,
-	read trailingTrivia: { Trivia },
+	leadingTrivia: { Trivia },
+	position: Position,
+	text: Kind,
+	trailingTrivia: { Trivia },
 }
 
-export type Eof = Token<nil> & { tag: "eof" }
+export type Eof = Token<""> & { tag: "eof" }
 
 export type Pair<T, Separator> = { node: T, separator: Token<Separator>? }
 export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
@@ -47,6 +47,7 @@ export type AstLocal = {
 	name: Token<string>,
 	colon: Token<":">?,
 	annotation: AstType?,
+	shadows: AstLocal?,
 }
 
 export type AstExprGroup = {
@@ -84,16 +85,17 @@ export type AstExprVarargs = Token<"..."> & { tag: "vararg" }
 
 export type AstExprCall = {
 	tag: "call",
-	func: AstExpr, -- TODO: stricter?
+	func: AstExpr,
 	openParens: Token<"(">?,
 	arguments: Punctuated<AstExpr>,
 	closeParens: Token<")">?,
 	self: boolean,
+	argLocation: Location,
 }
 
 export type AstExprIndexName = {
 	tag: "indexname",
-	expr: AstExpr,
+	expression: AstExpr,
 	accessor: Token<"." | ":">,
 	index: Token<string>,
 	indexLocation: Location,
@@ -101,7 +103,7 @@ export type AstExprIndexName = {
 
 export type AstExprIndexExpr = {
 	tag: "index",
-	expr: AstExpr,
+	expression: AstExpr,
 	openBrackets: Token<"[">,
 	index: AstExpr,
 	closeBrackets: Token<"]">,
@@ -112,6 +114,7 @@ export type AstFunctionBody = {
 	generics: Punctuated<AstGenericType>?,
 	genericPacks: Punctuated<AstGenericTypePack>?,
 	closeGenerics: Token<">">?,
+	self: AstLocal?,
 	openParens: Token<"(">,
 	parameters: Punctuated<AstLocal>,
 	vararg: Token<"...">?,
@@ -237,8 +240,8 @@ export type AstStatIf = {
 	["then"]: Token<"then">,
 	consequent: AstStatBlock,
 	elseifs: { AstStatElseIf },
-	["else"]: Token<"else">, -- TODO: this could be elseif!
-	antecedent: AstStatBlock,
+	["else"]: Token<"else">?, -- TODO: this could be elseif!
+	antecedent: AstStatBlock?,
 	["end"]: Token<"end">,
 }
 
@@ -343,7 +346,7 @@ export type AstStatLocalFunction = {
 
 export type AstStatTypeAlias = {
 	tag: "typealias",
-	["export"]: Token<"export">?,
+	export: Token<"export">?,
 	typeToken: Token<"type">,
 	name: Token,
 	openGenerics: Token<"<">?,
@@ -356,7 +359,7 @@ export type AstStatTypeAlias = {
 
 export type AstStatTypeFunction = {
 	tag: "typefunction",
-	["export"]: Token<"export">?,
+	export: Token<"export">?,
 	type: Token<"type">,
 	["function"]: Token<"function">,
 	name: Token,
@@ -421,7 +424,7 @@ export type AstTypeTypeof = {
 	tag: "typeof",
 	typeof: Token<"typeof">,
 	openParens: Token<"(">,
-	expr: AstExpr,
+	expression: AstExpr,
 	closeParens: Token<")">,
 }
 
