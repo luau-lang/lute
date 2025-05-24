@@ -1,20 +1,19 @@
 --!strict
 
 local luau = require("@lute/luau")
-local T = require("./ast_types")
 
 --- Parses Luau source code into an AstStatBlock
-local function parse(source: string): T.AstStatBlock
+local function parse(source: string): luau.AstStatBlock
 	return luau.parse(source).root
 end
 
-local function parseexpr(source: string): T.AstExpr
+local function parseexpr(source: string): luau.AstExpr
 	return luau.parseexpr(source)
 end
 
 export type ParseResult = {
-	root: T.AstStatBlock,
-	eof: T.Eof,
+	root: luau.AstStatBlock,
+	eof: luau.Eof,
 }
 
 local function parsefile(source: string): ParseResult
