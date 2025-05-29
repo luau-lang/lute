@@ -2,6 +2,8 @@ add_executable(Lute.CLI)
 
 target_sources(Lute.CLI PRIVATE
     src/main.cpp
+    src/compile.h
+    src/compile.cpp
     src/tc.h
     src/tc.cpp
 )

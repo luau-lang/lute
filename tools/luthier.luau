@@ -41,7 +41,7 @@ local isLinux = string.find(os, "linux") ~= nil
 
 local targetMap: { [string]: { exeName: string } } = {
 	lute = {
-		exeName = "cli/lute",
+		exeName = "lute",
 	},
 	["Lute.CLI"] = {
 		exeName = "lute",

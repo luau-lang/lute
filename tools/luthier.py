@@ -32,7 +32,7 @@ isUnix = not isWindows
 
 targetMap = {
     'lute': {
-        'exeName': 'cli/lute',
+        'exeName': 'lute',
     },
     'Lute.CLI': {
         'exeName': 'lute',
