@@ -934,7 +934,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "body");
 
         serializeToken(node->body->location.end, "end");
-        lua_setfield(L, -2, "end");
+        lua_setfield(L, -2, "endKeyword");
     }
 
     void serialize(Luau::AstExprFunction* node)
@@ -950,7 +950,7 @@ struct AstSerialize : public Luau::AstVisitor
         const auto cstNode = lookupCstNode<Luau::CstExprFunction>(node);
 
         serializeToken(cstNode->functionKeywordPosition, "function");
-        lua_setfield(L, -2, "function");
+        lua_setfield(L, -2, "functionKeyword");
 
         serializeFunctionBody(node);
         lua_setfield(L, -2, "body");
@@ -1041,7 +1041,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeNodePreamble(node, "conditional");
 
         serializeToken(node->location.begin, "if");
-        lua_setfield(L, -2, "if");
+        lua_setfield(L, -2, "ifKeyword");
 
         node->condition->visit(this);
         lua_setfield(L, -2, "condition");
@@ -1049,7 +1049,7 @@ struct AstSerialize : public Luau::AstVisitor
         if (node->hasThen)
         {
             serializeToken(cstNode->thenPosition, "then");
-            lua_setfield(L, -2, "then");
+            lua_setfield(L, -2, "thenKeyword");
 
             node->trueExpr->visit(this);
         }
@@ -1067,7 +1067,7 @@ struct AstSerialize : public Luau::AstVisitor
             cstNode = lookupCstNode<Luau::CstExprIfElse>(node);
 
             serializeToken(node->location.begin, "elseif");
-            lua_setfield(L, -2, "elseif");
+            lua_setfield(L, -2, "elseifKeyword");
 
             node->condition->visit(this);
             lua_setfield(L, -2, "condition");
@@ -1075,7 +1075,7 @@ struct AstSerialize : public Luau::AstVisitor
             if (node->hasThen)
             {
                 serializeToken(cstNode->thenPosition, "then");
-                lua_setfield(L, -2, "then");
+                lua_setfield(L, -2, "thenKeyword");
                 node->trueExpr->visit(this);
             }
             else
@@ -1090,7 +1090,7 @@ struct AstSerialize : public Luau::AstVisitor
         if (node->hasElse)
         {
             serializeToken(cstNode->elsePosition, "else");
-            lua_setfield(L, -2, "else");
+            lua_setfield(L, -2, "elseKeyword");
             node->falseExpr->visit(this);
         }
         else
@@ -1167,13 +1167,13 @@ struct AstSerialize : public Luau::AstVisitor
         serializeNodePreamble(node, "conditional");
 
         serializeToken(node->location.begin, "if");
-        lua_setfield(L, -2, "if");
+        lua_setfield(L, -2, "ifKeyword");
 
         node->condition->visit(this);
         lua_setfield(L, -2, "condition");
 
         serializeToken(node->thenLocation->begin, "then");
-        lua_setfield(L, -2, "then");
+        lua_setfield(L, -2, "thenKeyword");
 
         node->thenbody->visit(this);
         lua_setfield(L, -2, "consequent");
@@ -1186,13 +1186,13 @@ struct AstSerialize : public Luau::AstVisitor
 
             auto elseif = node->elsebody->as<Luau::AstStatIf>();
             serializeToken(elseif->location.begin, "elseif");
-            lua_setfield(L, -2, "elseif");
+            lua_setfield(L, -2, "elseifKeyword");
 
             elseif->condition->visit(this);
             lua_setfield(L, -2, "condition");
 
             serializeToken(elseif->thenLocation->begin, "then");
-            lua_setfield(L, -2, "then");
+            lua_setfield(L, -2, "thenKeyword");
 
             elseif->thenbody->visit(this);
             lua_setfield(L, -2, "consequent");
@@ -1207,24 +1207,24 @@ struct AstSerialize : public Luau::AstVisitor
         {
             LUAU_ASSERT(node->elseLocation);
             serializeToken(node->elseLocation->begin, "else");
-            lua_setfield(L, -2, "else");
+            lua_setfield(L, -2, "elseKeyword");
 
             node->elsebody->visit(this);
             lua_setfield(L, -2, "antecedent");
 
             serializeToken(node->elsebody->location.end, "end");
-            lua_setfield(L, -2, "end");
+            lua_setfield(L, -2, "endKeyword");
         }
         else
         {
             lua_pushnil(L);
-            lua_setfield(L, -2, "else");
+            lua_setfield(L, -2, "elseKeyword");
 
             lua_pushnil(L);
             lua_setfield(L, -2, "antecedent");
 
             serializeToken(node->thenbody->location.end, "end");
-            lua_setfield(L, -2, "end");
+            lua_setfield(L, -2, "endKeyword");
         }
     }
 
@@ -1236,7 +1236,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeNodePreamble(node, "while");
 
         serializeToken(node->location.begin, "while");
-        lua_setfield(L, -2, "while");
+        lua_setfield(L, -2, "whileKeyword");
 
         node->condition->visit(this);
         lua_setfield(L, -2, "condition");
@@ -1245,13 +1245,13 @@ struct AstSerialize : public Luau::AstVisitor
             serializeToken(node->doLocation.begin, "do");
         else
             lua_pushnil(L);
-        lua_setfield(L, -2, "do");
+        lua_setfield(L, -2, "doKeyword");
 
         node->body->visit(this);
         lua_setfield(L, -2, "body");
 
         serializeToken(node->body->location.end, "end");
-        lua_setfield(L, -2, "end");
+        lua_setfield(L, -2, "endKeyword");
     }
 
     void serializeStat(Luau::AstStatRepeat* node)
@@ -1262,14 +1262,14 @@ struct AstSerialize : public Luau::AstVisitor
         serializeNodePreamble(node, "repeat");
 
         serializeToken(node->location.begin, "repeat");
-        lua_setfield(L, -2, "repeat");
+        lua_setfield(L, -2, "repeatKeyword");
 
         node->body->visit(this);
         lua_setfield(L, -2, "body");
 
         auto cstNode = lookupCstNode<Luau::CstStatRepeat>(node);
         serializeToken(cstNode->untilPosition, "until");
-        lua_setfield(L, -2, "until");
+        lua_setfield(L, -2, "untilKeyword");
 
         node->condition->visit(this);
         lua_setfield(L, -2, "condition");
@@ -1297,7 +1297,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeNodePreamble(node, "return");
 
         serializeToken(node->location.begin, "return");
-        lua_setfield(L, -2, "return");
+        lua_setfield(L, -2, "returnKeyword");
 
         const auto cstNode = lookupCstNode<Luau::CstStatReturn>(node);
         serializePunctuated(node->list, cstNode->commaPositions, ",");
@@ -1323,7 +1323,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeNodePreamble(node, "local");
 
         serializeToken(node->location.begin, "local");
-        lua_setfield(L, -2, "local");
+        lua_setfield(L, -2, "localKeyword");
 
         const auto cstNode = lookupCstNode<Luau::CstStatLocal>(node);
         serializePunctuated(node->vars, cstNode->varsCommaPositions, ",", cstNode->varsAnnotationColonPositions);
@@ -1349,7 +1349,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeNodePreamble(node, "for");
 
         serializeToken(node->location.begin, "for");
-        lua_setfield(L, -2, "for");
+        lua_setfield(L, -2, "forKeyword");
 
         serialize(node->var, /* createToken= */ true, std::make_optional(cstNode->annotationColonPosition));
         lua_setfield(L, -2, "variable");
@@ -1382,13 +1382,13 @@ struct AstSerialize : public Luau::AstVisitor
             serializeToken(node->doLocation.begin, "do");
         else
             lua_pushnil(L);
-        lua_setfield(L, -2, "do");
+        lua_setfield(L, -2, "doKeyword");
 
         node->body->visit(this);
         lua_setfield(L, -2, "body");
 
         serializeToken(node->body->location.end, "end");
-        lua_setfield(L, -2, "end");
+        lua_setfield(L, -2, "endKeyword");
     }
 
     void serializeStat(Luau::AstStatForIn* node)
@@ -1401,7 +1401,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeNodePreamble(node, "forin");
 
         serializeToken(node->location.begin, "for");
-        lua_setfield(L, -2, "for");
+        lua_setfield(L, -2, "forKeyword");
 
         serializePunctuated(node->vars, cstNode->varsCommaPositions, ",", cstNode->varsAnnotationColonPositions);
         lua_setfield(L, -2, "variables");
@@ -1410,7 +1410,7 @@ struct AstSerialize : public Luau::AstVisitor
             serializeToken(node->inLocation.begin, "in");
         else
             lua_pushnil(L);
-        lua_setfield(L, -2, "in");
+        lua_setfield(L, -2, "inKeyword");
 
         serializePunctuated(node->values, cstNode->valuesCommaPositions, ",");
         lua_setfield(L, -2, "values");
@@ -1419,13 +1419,13 @@ struct AstSerialize : public Luau::AstVisitor
             serializeToken(node->doLocation.begin, "do");
         else
             lua_pushnil(L);
-        lua_setfield(L, -2, "do");
+        lua_setfield(L, -2, "doKeyword");
 
         node->body->visit(this);
         lua_setfield(L, -2, "body");
 
         serializeToken(node->body->location.end, "end");
-        lua_setfield(L, -2, "end");
+        lua_setfield(L, -2, "endKeyword");
     }
 
     void serializeStat(Luau::AstStatAssign* node)
@@ -1478,7 +1478,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "attributes");
 
         serializeToken(cstNode->functionKeywordPosition, "function");
-        lua_setfield(L, -2, "function");
+        lua_setfield(L, -2, "functionKeyword");
 
         node->name->visit(this);
         lua_setfield(L, -2, "name");
@@ -1500,10 +1500,10 @@ struct AstSerialize : public Luau::AstVisitor
         const auto cstNode = lookupCstNode<Luau::CstStatLocalFunction>(node);
 
         serializeToken(cstNode->localKeywordPosition, "local");
-        lua_setfield(L, -2, "local");
+        lua_setfield(L, -2, "localKeyword");
 
         serializeToken(cstNode->functionKeywordPosition, "function");
-        lua_setfield(L, -2, "function");
+        lua_setfield(L, -2, "functionKeyword");
 
         serialize(node->name);
         lua_setfield(L, -2, "name");
@@ -1582,7 +1582,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "type");
 
         serializeToken(cstNode->functionKeywordPosition, "function");
-        lua_setfield(L, -2, "function");
+        lua_setfield(L, -2, "functionKeyword");
 
         serializeToken(node->nameLocation.begin, node->name.value);
         lua_setfield(L, -2, "name");
