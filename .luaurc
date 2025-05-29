@@ -2,7 +2,7 @@
     "languageMode": "strict",
     "aliases": {
         "batteries": "./batteries",
-        "std": "./std/libs",
-        "lute": "./definitions"
+        "std": "./lute/std/libs",
+        "lute": "./definitions",
     }
 }

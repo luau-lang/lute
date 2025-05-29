@@ -41,7 +41,7 @@ local isLinux = string.find(os, "linux") ~= nil
 
 local targetMap: { [string]: { exeName: string } } = {
 	lute = {
-		exeName = "lute",
+		exeName = "cli/lute",
 	},
 	["Lute.CLI"] = {
 		exeName = "lute",
@@ -416,7 +416,7 @@ local function getExePath(): string
 	local target = args:get("target")
 	local exeName = getExeName(target)
 
-	return joinPath(getProjectPath(), exeName)
+	return joinPath(getProjectPath(), "lute", exeName)
 end
 
 local function exeExists(): boolean
