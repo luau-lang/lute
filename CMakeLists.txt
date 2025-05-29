@@ -54,14 +54,15 @@ set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
 # we must empower ourselves with the spells necessary to block _all further mutation_ to a variable
 
 function(protect_variable_callback variable access value current_list_file stack)
-    if(access STREQUAL "MODIFIED_ACCESS")
+    if(access STREQUAL "MODIFIED_ACCESS" OR access STREQUAL "REMOVED_ACCESS")
         get_property(original_value GLOBAL PROPERTY _PROTECTED_${variable}_VALUE)
 
         set(${variable} "${original_value}" CACHE INTERNAL "Protected variable" FORCE)
 
-        message(WARNING "Attempt to modify protected variable ${variable} was blocked (in ${current_list_file})")
-        message(STATUS "Written value: '${value}'")
-        message(STATUS "Protected value restored: '${original_value}'")
+        message(WARNING "[PROTECT] Attempt to modify protected variable ${variable} was blocked (in ${current_list_file})")
+        message(STATUS "[PROTECT] Written value: '${value}'")
+        message(STATUS "[PROTECT] Protected value restored: '${original_value}'")
+        message(STATUS "[PROTECT] Reading ${variable} now gives ${${variable}}")
     endif()
 endfunction()
 
