@@ -72,30 +72,51 @@ local function printInterpolatedString(expr: luau.AstExprInterpString): string
 end
 
 type PrintVisitor = visitor.Visitor & {
-	result: string,
+	result: buffer,
+	cursor: number,
 }
 
 local function printVisitor()
 	local printer = visitor.createVisitor() :: PrintVisitor
-	printer.result = ""
+
+	printer.result = buffer.create(1024)
+	printer.cursor = 0
+
+	local function write(str: string)
+		local totalSize = printer.cursor + #str
+		local bufferSize = buffer.len(printer.result)
+
+		if totalSize >= bufferSize then
+			repeat
+				bufferSize *= 2
+			until bufferSize >= totalSize
+
+			local newBuffer = buffer.create(bufferSize)
+			buffer.copy(newBuffer, 0, printer.result)
+			printer.result = newBuffer
+		end
+
+		buffer.writestring(printer.result, printer.cursor, str)
+		printer.cursor = totalSize
+	end
 
 	printer.visitToken = function(node: luau.Token)
-		printer.result ..= printToken(node)
+		write(printToken(node))
 		return false
 	end
 
 	printer.visitString = function(node: luau.AstExprConstantString)
-		printer.result ..= printString(node)
+		write(printString(node))
 		return false
 	end
 
 	printer.visitTypeString = function(node: luau.AstTypeSingletonString)
-		printer.result ..= printString(node)
+		write(printString(node))
 		return false
 	end
 
 	printer.visitInterpolatedString = function(node: luau.AstExprInterpString)
-		printer.result ..= printInterpolatedString(node)
+		write(printInterpolatedString(node))
 		return false
 	end
 
@@ -106,21 +127,21 @@ end
 local function printBlock(block: luau.AstStatBlock): string
 	local printer = printVisitor()
 	visitor.visitBlock(block, printer)
-	return printer.result
+	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
 --- Returns a string representation of an AstExpr
 function printExpr(block: luau.AstExpr): string
 	local printer = printVisitor()
 	visitor.visitExpression(block, printer)
-	return printer.result
+	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
 function printFile(result: { root: luau.AstStatBlock, eof: luau.Eof }): string
 	local printer = printVisitor()
 	visitor.visitBlock(result.root, printer)
 	visitor.visitToken(result.eof, printer)
-	return printer.result
+	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
 return {
