@@ -13,7 +13,7 @@ export type request = {
     ok: boolean,
 }
 
-local function net.request(url: string, metadata: metadata): request
+function net.request(url: string, metadata: metadata?): request
 	error("not implemented")
 end
 
@@ -28,7 +28,7 @@ export type configuration = {
 }
 
 
-local function net.serve(config: configuration | handler)
+function net.serve(config: configuration | handler)
 	error("not implemented")
 end
 
