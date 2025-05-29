@@ -77,6 +77,8 @@ endfunction()
 # find_package is an evil demon, and we must use powerful spells to bind it
 set_protected_variable(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}")
 set_protected_variable(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}")
+set_protected_variable(OPENSSL_SSL_LIBRARIES "${OPENSSL_SSL_LIBRARY}")
+set_protected_variable(OPENSSL_CRYTPO_LIBRARIES "${OPENSSL_CRYTPO_LIBRARY}")
 set_protected_variable(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY};${OPENSSL_CRYPTO_LIBRARY}")
 
 add_library(OpenSSL::SSL STATIC IMPORTED GLOBAL)
