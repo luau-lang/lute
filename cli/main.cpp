@@ -23,6 +23,7 @@
 #include "lute/vm.h"
 #include "lute/time.h"
 
+#include "compile.h"
 #include "tc.h"
 
 #ifdef _WIN32
@@ -128,37 +129,13 @@ bool setupArguments(lua_State* L, int argc, char** argv)
     return true;
 }
 
-static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
+static bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL)
 {
-    if (isDirectory(name))
-    {
-        fprintf(stderr, "Error: %s is a directory\n", name);
-        return false;
-    }
-
-    std::optional<std::string> source = readFile(name);
-    if (!source)
-    {
-        fprintf(stderr, "Error opening %s\n", name);
-        return false;
-    }
-
     // module needs to run in a new thread, isolated from the rest
     lua_State* L = lua_newthread(GL);
 
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(L);
-
-    // ignore file extension when storing module's chunkname
-    std::string chunkname = "@";
-    std::string_view nameView = name;
-    if (size_t dotPos = nameView.find_last_of('.'); dotPos != std::string_view::npos)
-    {
-        nameView.remove_suffix(nameView.size() - dotPos);
-    }
-    chunkname += nameView;
-
-    std::string bytecode = Luau::compile(*source, copts());
 
     if (luau_load(L, chunkname.c_str(), bytecode.data(), bytecode.size(), 0) != 0)
     {
@@ -192,6 +169,35 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
     return runtime.runToCompletion();
 }
 
+static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
+{
+    if (isDirectory(name))
+    {
+        fprintf(stderr, "Error: %s is a directory\n", name);
+        return false;
+    }
+
+    std::optional<std::string> source = readFile(name);
+    if (!source)
+    {
+        fprintf(stderr, "Error opening %s\n", name);
+        return false;
+    }
+
+    // ignore file extension when storing module's chunkname
+    std::string chunkname = "@";
+    std::string_view nameView = name;
+    if (size_t dotPos = nameView.find_last_of('.'); dotPos != std::string_view::npos)
+    {
+        nameView.remove_suffix(nameView.size() - dotPos);
+    }
+    chunkname += nameView;
+
+    std::string bytecode = Luau::compile(*source, copts());
+
+    return runBytecode(runtime, bytecode, chunkname, GL);
+}
+
 static void displayHelp(const char* argv0)
 {
     printf("Usage: %s <command> [options] [arguments...]\n", argv0);
@@ -199,6 +205,7 @@ static void displayHelp(const char* argv0)
     printf("Commands:\n");
     printf("  run (default)   Run a Luau script.\n");
     printf("  check           Type check Luau files.\n");
+    printf("  compile         Compile a Luau script into the executable.\n");
     printf("\n");
     printf("Run Options (when using 'run' or no command):\n");
     printf("  %s [run] <script.luau> [args...]\n", argv0);
@@ -207,6 +214,10 @@ static void displayHelp(const char* argv0)
     printf("Check Options:\n");
     printf("  %s check <file1.luau> [file2.luau...]\n", argv0);
     printf("    Performs a type check on the specified files.\n");
+    printf("\n");
+    printf("Compile Options:\n");
+    printf("  %s compile <script.luau> [output_executable]\n", argv0);
+    printf("    Compiles the script, embedding it into a new executable.\n");
     printf("\n");
     printf("General Options:\n");
     printf("  -h, --help    Display this usage message.\n");
@@ -226,6 +237,16 @@ static void displayCheckHelp(const char* argv0)
     printf("\n");
     printf("Check Options:\n");
     printf("  -h, --help    Display this usage message.\n");
+}
+
+static void displayCompileHelp(const char* argv0)
+{
+    printf("Usage: %s compile <script.luau> [output_executable]\n", argv0);
+    printf("\n");
+    printf("Compile Options:\n");
+    printf("  output_executable    Optional name for the compiled executable.\n");
+    printf("                       Defaults to '<script_name>_compiled'.\n");
+    printf("  -h, --help           Display this usage message.\n");
 }
 
 static int assertionHandler(const char* expr, const char* file, int line, const char* function)
@@ -311,9 +332,89 @@ int handleCheckCommand(int argc, char** argv, int argOffset)
     return typecheck(files);
 }
 
+int handleCompileCommand(int argc, char** argv, int argOffset)
+{
+    std::string inputFilePath;
+    std::string outputFilePath;
+
+    for (int i = argOffset; i < argc; ++i)
+    {
+        const char* currentArg = argv[i];
+
+        if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
+        {
+            displayCompileHelp(argv[0]);
+            return 0;
+        }
+        else if (inputFilePath.empty())
+        {
+            inputFilePath = currentArg;
+        }
+        else if (outputFilePath.empty())
+        {
+            outputFilePath = currentArg;
+        }
+        else
+        {
+            fprintf(stderr, "Error: Too many arguments for 'compile' command.\n\n");
+            displayCompileHelp(argv[0]);
+            return 1;
+        }
+    }
+
+    if (inputFilePath.empty())
+    {
+        fprintf(stderr, "Error: No input file specified for 'compile' command.\n\n");
+        displayCompileHelp(argv[0]);
+        return 1;
+    }
+
+    if (outputFilePath.empty())
+    {
+        std::string inputBase = inputFilePath;
+        size_t lastSlash = inputBase.find_last_of("/");
+        if (lastSlash != std::string::npos)
+        {
+            inputBase = inputBase.substr(lastSlash + 1);
+        }
+#ifdef _WIN32
+        size_t lastBackslash = inputBase.find_last_of("\\");
+        if (lastBackslash != std::string::npos)
+        {
+            inputBase = inputBase.substr(lastBackslash + 1);
+        }
+#endif
+        size_t lastDot = inputBase.find_last_of('.');
+        if (lastDot != std::string::npos)
+        {
+            inputBase = inputBase.substr(0, lastDot);
+        }
+        outputFilePath = inputBase;
+#ifdef _WIN32
+        outputFilePath += ".exe";
+#endif
+    }
+
+    return compileScript(inputFilePath, outputFilePath, argv[0]);
+}
+
 int main(int argc, char** argv)
 {
     Luau::assertHandler() = assertionHandler;
+
+    AppendedBytecodeResult embedded = checkForAppendedBytecode(argv[0]);
+    if (embedded.found)
+    {
+        Runtime runtime;
+        lua_State* GL = setupState(runtime);
+
+        program_argc = argc;
+        program_argv = argv;
+
+        bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL);
+        
+        return success ? 0 : 1;
+    }
 
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
@@ -336,6 +437,10 @@ int main(int argc, char** argv)
     else if (strcmp(command, "check") == 0)
     {
         return handleCheckCommand(argc, argv, argOffset);
+    }
+    else if (strcmp(command, "compile") == 0)
+    {
+        return handleCompileCommand(argc, argv, argOffset);
     }
     else if (strcmp(command, "-h") == 0 || strcmp(command, "--help") == 0)
     {

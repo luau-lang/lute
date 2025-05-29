@@ -68,6 +68,8 @@ target_sources(Lute.Process PRIVATE
 
 target_sources(Lute.CLI PRIVATE
     cli/main.cpp
+    cli/compile.h
+    cli/compile.cpp
     cli/tc.h
     cli/tc.cpp
 )

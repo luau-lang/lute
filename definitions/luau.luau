@@ -1,3 +1,5 @@
+local luau = {}
+
 export type Position = {
 	line: number,
 	column: number,
@@ -544,4 +546,18 @@ export type AstTypePackVariadic = {
 
 export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
 
-return {}
+export type ParseResult = {
+	root: AstStatBlock,
+	eof: Eof,
+	lines: number,
+}
+
+function luau.parse(source: string): ParseResult
+	error("not implemented")
+end
+
+function luau.parseexpr(source: string): AstExpr
+	error("not implemented")
+end
+
+return luau
