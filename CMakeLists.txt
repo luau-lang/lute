@@ -54,6 +54,7 @@ set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
 # we must empower ourselves with the spells necessary to block _all further mutation_ to a variable
 
 function(protect_variable_callback variable access value current_list_file stack)
+    message(STATUS "[PROTECT] ${access} on ${variable}")
     if(access STREQUAL "MODIFIED_ACCESS" OR access STREQUAL "REMOVED_ACCESS")
         get_property(original_value GLOBAL PROPERTY _PROTECTED_${variable}_VALUE)
 
