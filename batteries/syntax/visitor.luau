@@ -507,7 +507,7 @@ end
 
 local function visitIndexName(node: luau.AstExprIndexName, visitor: Visitor)
 	if visitor.visitIndexName(node) then
-		visitExpression(node.expr, visitor)
+		visitExpression(node.expression, visitor)
 		visitToken(node.accessor, visitor)
 		visitToken(node.index, visitor)
 	end
@@ -515,7 +515,7 @@ end
 
 local function visitIndexExpr(node: luau.AstExprIndexExpr, visitor: Visitor)
 	if visitor.visitIndexExpr(node) then
-		visitExpression(node.expr, visitor)
+		visitExpression(node.expression, visitor)
 		visitToken(node.openBrackets, visitor)
 		visitExpression(node.index, visitor)
 		visitToken(node.closeBrackets, visitor)
@@ -611,7 +611,7 @@ local function visitTypeTypeof(node: luau.AstTypeTypeof, visitor: Visitor)
 	if visitor.visitTypeTypeof(node) then
 		visitToken(node.typeof, visitor)
 		visitToken(node.openParens, visitor)
-		visitExpression(node.expr, visitor)
+		visitExpression(node.expression, visitor)
 		visitToken(node.closeParens, visitor)
 	end
 end
