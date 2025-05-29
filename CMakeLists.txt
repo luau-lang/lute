@@ -51,13 +51,27 @@ add_subdirectory(extern/boringssl)
 set(BORINGSSL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/boringssl")
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
 
+# we must empower ourselves with the spells necessary to block _all further mutation_ to a variable
+
+macro(protect_variable_callback variable access value current_list_file stack)
+  if(access STREQUAL "MODIFIED_ACCESS")
+    set(${variable} "${_PROTECTED_${variable}_VALUE}" CACHE INTERNAL "Protected variable" FORCE)
+    message(WARNING "Attempt to modify protected variable ${variable} was blocked (in ${current_list_file})")
+  endif()
+endmacro()
+
+function(set_protected_variable var_name value)
+  set(_PROTECTED_${var_name}_VALUE "${value}" CACHE INTERNAL "")
+  set(${var_name} "${value}" CACHE INTERNAL "Protected variable" FORCE)
+  variable_watch(${var_name} protect_variable_callback)
+endfunction()
+
 # Path to the actual files
 
-set(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}" CACHE FILEPATH "" FORCE)
-set(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}" CACHE FILEPATH "" FORCE)
+# find_package is an evil demon, and we must use powerful spells to bind it
+set_protected_variable(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}" CACHE FILEPATH "" FORCE)
+set_protected_variable(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}" CACHE INTERNAL FILEPATH "" FORCE)
 set(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY};${OPENSSL_CRYPTO_LIBRARY}" CACHE STRING "" FORCE)
-set(LIB_EAY_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}" CACHE FILEPATH "" FORCE)
-set(SSL_EAY_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}" CACHE FILEPATH "" FORCE)
 
 add_library(OpenSSL::SSL STATIC IMPORTED GLOBAL)
 set_target_properties(OpenSSL::SSL PROPERTIES
