@@ -86,11 +86,11 @@ set_target_properties(OpenSSL::Crypto PROPERTIES
 )
 
 
-set_protected_variable(OPENSSL_FOUND TRUE CACHE BOOL "Found BoringSSL" FORCE)
-set_protected_variable(OPENSSL_VERSION "3.0.0" CACHE STRING "Dummy version, BoringSSL" FORCE)
-set_protected_variable(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/" CACHE PATH "")
-set_protected_variable(OPENSSL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/include" CACHE PATH "" FORCE)
-set_protected_variable(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}" CACHE PATH "" FORCE)
+set_protected_variable(OPENSSL_FOUND TRUE CACHE BOOL "Found BoringSSL")
+set_protected_variable(OPENSSL_VERSION "3.0.0" CACHE STRING "Dummy version, BoringSSL")
+set_protected_variable(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/")
+set_protected_variable(OPENSSL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/include")
+set_protected_variable(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}")
 
 # curl setup
 
