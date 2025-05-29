@@ -32,13 +32,13 @@ isUnix = not isWindows
 
 targetMap = {
     'lute': {
-        'exeName': 'lute',
+        'exeName': 'lute/cli/lute',
     },
     'Lute.CLI': {
-        'exeName': 'lute',
+        'exeName': 'lute/cli/lute',
     },
     'Lute.Test': {
-        'exeName': 'lute-tests',
+        'exeName': 'tests/lute-tests',
     },
 }
 
@@ -392,14 +392,12 @@ def getExePath(args):
             buildDir,
             getCompiler(args),
             config.lower(),
-            "lute",
             exeName
         )
     else: # Mac/Linux Ninja
         return os.path.join(
             buildDir,
             config.lower(),
-            "lute",
             exeName
         )
 
