@@ -71,7 +71,7 @@ endfunction()
 # find_package is an evil demon, and we must use powerful spells to bind it
 set_protected_variable(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}")
 set_protected_variable(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}")
-set(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY};${OPENSSL_CRYPTO_LIBRARY}" CACHE STRING "" FORCE)
+set_protected_variable(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY};${OPENSSL_CRYPTO_LIBRARY}")
 
 add_library(OpenSSL::SSL STATIC IMPORTED GLOBAL)
 set_target_properties(OpenSSL::SSL PROPERTIES
@@ -86,11 +86,11 @@ set_target_properties(OpenSSL::Crypto PROPERTIES
 )
 
 
-set(OPENSSL_FOUND TRUE CACHE BOOL "Found BoringSSL" FORCE)
-set(OPENSSL_VERSION "3.0.0" CACHE STRING "Dummy version, BoringSSL" FORCE)
-set(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/" CACHE PATH "")
-set(OPENSSL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/include" CACHE PATH "" FORCE)
-set(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}" CACHE PATH "" FORCE)
+set_protected_variable(OPENSSL_FOUND TRUE CACHE BOOL "Found BoringSSL" FORCE)
+set_protected_variable(OPENSSL_VERSION "3.0.0" CACHE STRING "Dummy version, BoringSSL" FORCE)
+set_protected_variable(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/" CACHE PATH "")
+set_protected_variable(OPENSSL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/include" CACHE PATH "" FORCE)
+set_protected_variable(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}" CACHE PATH "" FORCE)
 
 # curl setup
 
