@@ -21,9 +21,9 @@
 const char* COMPILE_RESULT_TYPE = "CompileResult";
 
 LUAU_FASTFLAG(LuauStoreCSTData2)
-LUAU_FASTFLAG(LuauFixFunctionWithAttributesStartLocation)
 LUAU_FASTFLAG(LuauStoreReturnTypesAsPackOnAst)
 LUAU_FASTFLAG(LuauStoreLocalAnnotationColonPositions)
+LUAU_FASTFLAG(LuauCSTForReturnTypeFunctionTail)
 
 namespace luau
 {
@@ -40,9 +40,9 @@ static StatResult parse(std::string& source)
 {
     // TODO: this is very bad, fix it!
     FFlag::LuauStoreCSTData2.value = true;
-    FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
     FFlag::LuauStoreReturnTypesAsPackOnAst.value = true;
     FFlag::LuauStoreLocalAnnotationColonPositions.value = true;
+    FFlag::LuauCSTForReturnTypeFunctionTail.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
@@ -69,9 +69,9 @@ static ExprResult parseExpr(std::string& source)
 {
     // TODO: this is very bad, fix it!
     FFlag::LuauStoreCSTData2.value = true;
-    FFlag::LuauFixFunctionWithAttributesStartLocation.value = true;
     FFlag::LuauStoreReturnTypesAsPackOnAst.value = true;
     FFlag::LuauStoreLocalAnnotationColonPositions.value = true;
+    FFlag::LuauCSTForReturnTypeFunctionTail.value = true;
 
     auto allocator = std::make_shared<Luau::Allocator>();
     auto names = std::make_shared<Luau::AstNameTable>(*allocator);
