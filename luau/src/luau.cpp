@@ -2679,8 +2679,17 @@ int compile_luau(lua_State* L)
 
 int load_luau(lua_State* L)
 {
+    lua_Debug ar;
+    int level = 1;
+
+    do
+    {
+        if (!lua_getinfo(L, level++, "s", &ar))
+            luaL_error(L, "luau.load is not supported in this context");
+    } while (ar.what[0] == 'C');
+
     const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
-    const char* chunk_name = luaL_optlstring(L, 2, "luau.load", nullptr);
+    const char* chunk_name = luaL_optlstring(L, 2, ar.source, nullptr);
 
     luau_load(L, chunk_name, bytecode_string->c_str(), bytecode_string->length(), lua_gettop(L) > 2 ? 3 : 0);
 
