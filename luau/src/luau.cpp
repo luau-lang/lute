@@ -2695,7 +2695,7 @@ int load_luau(lua_State* L)
     }
 
     std::string chunk_name = path;
-    if (chunk_name.empty() || chunk_name[0] != '@') {
+    if (lua_type(L, 2) == LUA_TSTRING) {
         chunk_name.insert(0, "@");
     }
     luau_load(L, chunk_name.c_str(), bytecode_string->c_str(), bytecode_string->length(), lua_gettop(L) > 2 ? 3 : 0);
