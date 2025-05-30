@@ -76,6 +76,9 @@ endfunction()
 # Path to the actual files
 
 # find_package is an evil demon, and we must use powerful spells to bind it
+set(OPENSSL_USE_STATIC_LIBS ON)
+set(OPENSSL_NO_LEGACY ON)
+
 set_protected_variable(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}")
 set_protected_variable(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}")
 set_protected_variable(OPENSSL_SSL_LIBRARIES "${OPENSSL_SSL_LIBRARY}")
