@@ -58,7 +58,7 @@ function(protect_variable_callback variable access value current_list_file stack
     if(access STREQUAL "MODIFIED_ACCESS" OR access STREQUAL "REMOVED_ACCESS")
         get_property(original_value GLOBAL PROPERTY _PROTECTED_${variable}_VALUE)
 
-        set(${variable} "${original_value}" CACHE "Protected variable" FORCE)
+        set(${variable} "${original_value}" CACHE STRING "Protected variable" FORCE)
 
         message(WARNING "[PROTECT] Attempt to modify protected variable ${variable} was blocked (in ${current_list_file})")
         message(STATUS "[PROTECT] Written value: '${value}'")
@@ -69,7 +69,7 @@ endfunction()
 
 function(set_protected_variable var_name value)
     set_property(GLOBAL PROPERTY _PROTECTED_${var_name}_VALUE "${value}")
-    set(${var_name} "${value}" CACHE "Protected variable" FORCE)
+    set(${var_name} "${value}" CACHE STRING "Protected variable" FORCE)
     variable_watch(${var_name} protect_variable_callback)
 endfunction()
 
