@@ -22,7 +22,7 @@ function process.cwd(): string
 	error("not implemented")
 end
 
-function process.run(name: string, args: { string }, options: ProcessRunOptions): ProcessResult
+function process.run(args: { string } | string, options: ProcessRunOptions?): ProcessResult
 	error("not implemented")
 end
 
