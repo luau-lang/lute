@@ -101,6 +101,12 @@ set_protected_variable(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/bori
 set_protected_variable(OPENSSL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/include")
 set_protected_variable(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}")
 
+# FindOpenSSL with MSVC is the problem...
+if(MSVC)
+    set_protected_variable(SSL_EAY_LIBRARY "${OPENSSL_SSL_LIBRARY}")
+    set_protected_variable(LIB_EAY_LIBRARY "${OPENSSL_CRYTPO_LIBRARY}")
+endif()
+
 # curl setup
 
 set(USE_LIBIDN2 OFF)
