@@ -1,7 +1,7 @@
 #include "lute/require.h"
 
+#include "lute/modulepath.h"
 #include "lute/options.h"
-#include "lute/requireutils.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -30,175 +30,80 @@ static luarequire_WriteResult write(std::optional<std::string> contents, char* b
     return luarequire_WriteResult::WRITE_SUCCESS;
 }
 
-static luarequire_NavigateResult storePathResult(RequireCtx* reqCtx, PathResult result)
+static luarequire_NavigateResult convert(NavigationStatus status)
 {
-    if (result.status == PathResult::Status::AMBIGUOUS)
+    if (status == NavigationStatus::Success)
+        return NAVIGATE_SUCCESS;
+    else if (status == NavigationStatus::Ambiguous)
         return NAVIGATE_AMBIGUOUS;
 
-    if (result.status == PathResult::Status::NOT_FOUND)
-        return NAVIGATE_NOT_FOUND;
-
-    reqCtx->absPath = result.absPath;
-    reqCtx->relPath = result.relPath;
-    reqCtx->suffix = result.suffix;
-
-    return NAVIGATE_SUCCESS;
+    return NAVIGATE_NOT_FOUND;
 }
 
 static bool is_require_allowed(lua_State* L, void* ctx, const char* requirer_chunkname)
 {
-    std::string_view chunkname = requirer_chunkname;
-    bool isStdin = (chunkname == "=stdin");
-    bool isFile = (!chunkname.empty() && chunkname[0] == '@');
-    bool isStdLibFile = (chunkname.size() >= 6 && chunkname.substr(0, 6) == "@@std/");
-    return isStdin || isFile || isStdLibFile;
+    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+    return reqCtx->vfs.isRequireAllowed(L, requirer_chunkname);
 }
 
 static luarequire_NavigateResult reset(lua_State* L, void* ctx, const char* requirer_chunkname)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-
-    std::string chunkname = requirer_chunkname;
-    reqCtx->atFakeRoot = false;
-
-    if ((chunkname.size() >= 6 && chunkname.substr(0, 6) == "@@std/"))
-    {
-        reqCtx->currentVFSType = VFSType::Std;
-        reqCtx->absPath = chunkname.substr(1);
-        return storePathResult(reqCtx, getAbsolutePathResult(reqCtx->currentVFSType, chunkname.substr(1)));
-    }
-    else
-    {
-        reqCtx->currentVFSType = VFSType::Disk;
-        if (chunkname == "=stdin")
-        {
-            return storePathResult(reqCtx, getStdInResult());
-        }
-        else if (!chunkname.empty() && chunkname[0] == '@')
-        {
-            return storePathResult(reqCtx, tryGetRelativePathResult(chunkname.substr(1)));
-        }
-    }
-
-    return NAVIGATE_NOT_FOUND;
+    return convert(reqCtx->vfs.reset(L, requirer_chunkname));
 }
 
 static luarequire_NavigateResult jump_to_alias(lua_State* L, void* ctx, const char* path)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-
-    if (std::string_view(path) == "$std")
-    {
-        reqCtx->atFakeRoot = false;
-        reqCtx->currentVFSType = VFSType::Std;
-        reqCtx->absPath = "@std";
-        reqCtx->relPath = "";
-        reqCtx->suffix = "";
-        return NAVIGATE_SUCCESS;
-    }
-    else if (std::string_view(path) == "$lute")
-    {
-        reqCtx->absPath = "@lute";
-        return NAVIGATE_SUCCESS;
-    }
-
-    luarequire_NavigateResult result = storePathResult(reqCtx, getAbsolutePathResult(reqCtx->currentVFSType, path));
-    if (result != NAVIGATE_SUCCESS)
-        return result;
-
-    // Jumping to an absolute path breaks the relative-require chain. The best
-    // we can do is to store the absolute path itself.
-    reqCtx->relPath = reqCtx->absPath;
-    return NAVIGATE_SUCCESS;
+    return convert(reqCtx->vfs.jumpToAlias(L, path));
 }
 
 static luarequire_NavigateResult to_parent(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-
-    if (std::string_view(reqCtx->absPath) == "@lute")
-        luaL_error(L, "cannot get the parent of @lute");
-
-    PathResult result = getParent(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->relPath);
-    if (result.status == PathResult::Status::NOT_FOUND)
-    {
-        if (reqCtx->atFakeRoot)
-            return NAVIGATE_NOT_FOUND;
-
-        reqCtx->atFakeRoot = true;
-        return NAVIGATE_SUCCESS;
-    }
-
-    return storePathResult(reqCtx, result);
+    return convert(reqCtx->vfs.toParent(L));
 }
 
 static luarequire_NavigateResult to_child(lua_State* L, void* ctx, const char* name)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-
-    if (std::string_view(reqCtx->absPath) == "@lute")
-        luaL_error(L, "'%s' is not a lute library", name);
-
-    reqCtx->atFakeRoot = false;
-    return storePathResult(reqCtx, getChild(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->relPath, name));
+    return convert(reqCtx->vfs.toChild(L, name));
 }
 
 static bool is_module_present(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-
-    if (std::string_view(reqCtx->absPath) == "@lute")
-        luaL_error(L, "@lute is not requirable");
-
-    return isFilePresent(reqCtx->currentVFSType, reqCtx->absPath, reqCtx->suffix);
+    return reqCtx->vfs.isModulePresent(L);
 }
 
 static luarequire_WriteResult get_chunkname(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-
-    if (reqCtx->currentVFSType == VFSType::Std)
-        return write("@" + reqCtx->absPath, buffer, buffer_size, size_out);
-
-    return write("@" + reqCtx->relPath, buffer, buffer_size, size_out);
+    return write(reqCtx->vfs.getChunkname(L), buffer, buffer_size, size_out);
 }
 
 static luarequire_WriteResult get_loadname(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return write(reqCtx->absPath + reqCtx->suffix, buffer, buffer_size, size_out);
+    return write(reqCtx->vfs.getLoadname(L), buffer, buffer_size, size_out);
 }
 
 static luarequire_WriteResult get_cache_key(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return write(reqCtx->absPath + reqCtx->suffix, buffer, buffer_size, size_out);
+    return write(reqCtx->vfs.getCacheKey(L), buffer, buffer_size, size_out);
 }
 
 static bool is_config_present(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    if (reqCtx->atFakeRoot)
-        return true;
-
-    return isFilePresent(reqCtx->currentVFSType, reqCtx->absPath, "/.luaurc");
+    return reqCtx->vfs.isConfigPresent(L);
 }
 
 static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    if (reqCtx->atFakeRoot)
-    {
-        std::string globalConfig = "{\n"
-                                   "    \"aliases\": {\n"
-                                   "        \"std\": \"$std\",\n"
-                                   "        \"lute\": \"$lute\",\n"
-                                   "    }\n"
-                                   "}\n";
-        return write(globalConfig, buffer, buffer_size, size_out);
-    }
-
-    return write(getFileContents(reqCtx->currentVFSType, reqCtx->absPath, "/.luaurc"), buffer, buffer_size, size_out);
+    return write(reqCtx->vfs.getConfig(L), buffer, buffer_size, size_out);
 }
 
 static int load(lua_State* L, void* ctx, const char* path, const char* chunkname, const char* loadname)
@@ -213,7 +118,7 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     luaL_sandboxthread(ML);
 
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    std::optional<std::string> contents = getFileContents(reqCtx->currentVFSType, std::string(loadname), "");;
+    std::optional<std::string> contents = reqCtx->vfs.getContents(L, loadname);
     if (!contents)
         luaL_error(L, "could not read file '%s'", loadname);
 

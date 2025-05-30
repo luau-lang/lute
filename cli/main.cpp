@@ -184,14 +184,7 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
         return false;
     }
 
-    // ignore file extension when storing module's chunkname
-    std::string chunkname = "@";
-    std::string_view nameView = name;
-    if (size_t dotPos = nameView.find_last_of('.'); dotPos != std::string_view::npos)
-    {
-        nameView.remove_suffix(nameView.size() - dotPos);
-    }
-    chunkname += nameView;
+    std::string chunkname = "@" + normalizePath(name);
 
     std::string bytecode = Luau::compile(*source, copts());
 
@@ -412,7 +405,7 @@ int main(int argc, char** argv)
         program_argv = argv;
 
         bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL);
-        
+
         return success ? 0 : 1;
     }
 

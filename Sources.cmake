@@ -1,16 +1,24 @@
 target_sources(Lute.Runtime PRIVATE
+    runtime/include/lute/filevfs.h
+    runtime/include/lute/modulepath.h
     runtime/include/lute/options.h
     runtime/include/lute/ref.h
     runtime/include/lute/require.h
+    runtime/include/lute/requirevfs.h
     runtime/include/lute/requireutils.h
     runtime/include/lute/runtime.h
+    runtime/include/lute/stdlibvfs.h
     runtime/include/lute/userdatas.h
 
+    runtime/src/filevfs.cpp
+    runtime/src/modulepath.cpp
     runtime/src/options.cpp
     runtime/src/ref.cpp
     runtime/src/require.cpp
+    runtime/src/requirevfs.cpp
     runtime/src/requireutils.cpp
     runtime/src/runtime.cpp
+    runtime/src/stdlibvfs.cpp
 )
 
 target_sources(Lute.Crypto PRIVATE
@@ -90,5 +98,6 @@ target_sources(Lute.Test PRIVATE
     tests/src/doctest.h
     tests/src/main.cpp
 
+    tests/src/modulepath.test.cpp
     tests/src/require.test.cpp
 )
