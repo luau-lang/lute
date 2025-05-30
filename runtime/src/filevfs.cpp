@@ -42,7 +42,7 @@ NavigationStatus FileVfs::resetToPath(const std::string& path)
 
         size_t firstSlash = joinedPath.find_first_of("\\/");
         LUAU_ASSERT(firstSlash != std::string::npos);
-        modulePath = ModulePath(joinedPath, firstSlash, isFile, isDirectory);
+        modulePath = ModulePath(joinedPath, firstSlash, isFile, isDirectory, normalizedPath);
     }
 
     LUAU_ASSERT(modulePath);

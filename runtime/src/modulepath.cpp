@@ -107,7 +107,11 @@ ResolvedRealPath ModulePath::getRealPath() const
     if (!found)
         return {NavigationStatus::NotFound};
 
-    return {NavigationStatus::Success, partialRealPath + suffix, relativePathToTrack};
+    std::optional<std::string> relativePathWithSuffix;
+    if (relativePathToTrack)
+        relativePathWithSuffix = *relativePathToTrack + suffix;
+
+    return {NavigationStatus::Success, partialRealPath + suffix, relativePathWithSuffix};
 }
 
 std::string ModulePath::getPotentialLuaurcPath() const
