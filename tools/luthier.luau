@@ -6,6 +6,9 @@ local system = require("@lute/system")
 local cli = require("@batteries/cli")
 local toml = require("@batteries/toml")
 
+local TYPEDEF_PATTERN = "return {%*}"
+local DICTIONARY_PATTERN = '["%*"] = [==[%*]==],'
+
 type Tune = {
 	dependency: {
 		name: string,
@@ -251,6 +254,28 @@ local function generateStdLibFilesIfNeeded()
 	fs.close(hash)
 end
 
+local function generateTypeDefinitionFiles()
+	local dictionaryEntries: { [string]: string } = {}
+
+	for _, file in fs.listdir("definitions") do
+		if file.type ~= "file" then
+			continue
+		end
+
+		local content = fs.readasync(`definitions/{file.name}`)
+
+		dictionaryEntries[file.name] = content
+	end
+
+	local stringDictionary = ""
+
+	for key, value in dictionaryEntries do
+		stringDictionary ..= string.format(DICTIONARY_PATTERN, key, value)
+	end
+
+	fs.writestringtofile("cli/commands/setup/generated-types.luau", string.format(TYPEDEF_PATTERN, stringDictionary))
+end
+
 local function getExePath(): string
 	local target = args:get("target")
 	local exeName = getExeName(target)
@@ -417,8 +442,12 @@ local exitCode = 0
 
 if subcommand == "fetch" then
 	exitCode = fetchDependencies()
+elseif subcommand == "meow" then
+	-- TODO better name
+	generateTypeDefinitionFiles()
 elseif subcommand == "configure" or subcommand == "tune" then
 	generateStdLibFilesIfNeeded()
+
 	exitCode = configure()
 elseif subcommand == "build" or subcommand == "craft" then
 	generateStdLibFilesIfNeeded()
@@ -429,6 +458,7 @@ elseif subcommand == "build" or subcommand == "craft" then
 
 	exitCode = build()
 elseif subcommand == "run" or subcommand == "play" then
+	generateTypeDefinitionFiles()
 	generateStdLibFilesIfNeeded()
 
 	if not projectPathExists() then
