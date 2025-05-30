@@ -1,1 +1,1 @@
-return {"placeholder"}
+return { "placeholder" }
