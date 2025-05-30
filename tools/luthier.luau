@@ -442,6 +442,9 @@ local exitCode = 0
 
 if subcommand == "fetch" then
 	exitCode = fetchDependencies()
+elseif subcommand == "generate" then -- TODO cutesy name for generate
+	generateTypeDefinitionFiles()
+	generateStdLibFilesIfNeeded()
 elseif subcommand == "configure" or subcommand == "tune" then
 	generateTypeDefinitionFiles()
 	generateStdLibFilesIfNeeded()
