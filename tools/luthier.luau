@@ -442,14 +442,13 @@ local exitCode = 0
 
 if subcommand == "fetch" then
 	exitCode = fetchDependencies()
-elseif subcommand == "meow" then
-	-- TODO better name
-	generateTypeDefinitionFiles()
 elseif subcommand == "configure" or subcommand == "tune" then
+	generateTypeDefinitionFiles()
 	generateStdLibFilesIfNeeded()
 
 	exitCode = configure()
 elseif subcommand == "build" or subcommand == "craft" then
+	generateTypeDefinitionFiles()
 	generateStdLibFilesIfNeeded()
 
 	if not projectPathExists() then
