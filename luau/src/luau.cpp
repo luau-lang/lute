@@ -2680,20 +2680,7 @@ int compile_luau(lua_State* L)
 int load_luau(lua_State* L)
 {
     const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
-    const char* path = luaL_optlstring(L, 2, nullptr, nullptr);
-    if (path == nullptr) {
-        lua_Debug ar;
-        int level = 1;
-        
-        do
-        {
-            if (!lua_getinfo(L, level++, "s", &ar))
-                luaL_error(L, "could not retrieve the source path of the calling function");
-        } while (ar.what[0] == 'C');
-
-        path = ar.source;
-    }
-
+    const char* path = luaL_optlstring(L, 2, "=luau.load", nullptr);
     std::string chunk_name = path;
     if (lua_type(L, 2) == LUA_TSTRING) {
         chunk_name.insert(0, "@");
