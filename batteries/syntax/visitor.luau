@@ -165,55 +165,55 @@ end
 
 local function visitIf(node: luau.AstStatIf, visitor: Visitor)
 	if visitor.visitIf(node) then
-		visitToken(node["if"], visitor)
+		visitToken(node.ifKeyword, visitor)
 		visitExpression(node.condition, visitor)
-		visitToken(node["then"], visitor)
+		visitToken(node.thenKeyword, visitor)
 		visitBlock(node.consequent, visitor)
 		for _, elseifNode in node.elseifs do
-			visitToken(elseifNode["elseif"], visitor)
+			visitToken(elseifNode.elseifKeyword, visitor)
 			visitExpression(elseifNode.condition, visitor)
-			visitToken(elseifNode["then"], visitor)
+			visitToken(elseifNode.thenKeyword, visitor)
 			visitBlock(elseifNode.consequent, visitor)
 		end
-		if node["else"] then
-			visitToken(node["else"], visitor)
+		if node.elseKeyword then
+			visitToken(node.elseKeyword, visitor)
 		end
 		if node.antecedent then
 			visitBlock(node.antecedent, visitor)
 		end
-		visitToken(node["end"], visitor)
+		visitToken(node.endKeyword, visitor)
 	end
 end
 
 local function visitWhile(node: luau.AstStatWhile, visitor: Visitor)
 	if visitor.visitWhile(node) then
-		visitToken(node["while"], visitor)
+		visitToken(node.whileKeyword, visitor)
 		visitExpression(node.condition, visitor)
-		visitToken(node["do"], visitor)
+		visitToken(node.doKeyword, visitor)
 		visitBlock(node.body, visitor)
-		visitToken(node["end"], visitor)
+		visitToken(node.endKeyword, visitor)
 	end
 end
 
 local function visitRepeat(node: luau.AstStatRepeat, visitor: Visitor)
 	if visitor.visitRepeat(node) then
-		visitToken(node["repeat"], visitor)
+		visitToken(node.repeatKeyword, visitor)
 		visitBlock(node.body, visitor)
-		visitToken(node["until"], visitor)
+		visitToken(node.untilKeyword, visitor)
 		visitExpression(node.condition, visitor)
 	end
 end
 
 local function visitReturn(node: luau.AstStatReturn, visitor: Visitor)
 	if visitor.visitReturn(node) then
-		visitToken(node["return"], visitor)
+		visitToken(node.returnKeyword, visitor)
 		visitPunctuated(node.expressions, visitor, visitExpression)
 	end
 end
 
 local function visitLocalStatement(node: luau.AstStatLocal, visitor: Visitor)
 	if visitor.visitLocalDeclaration(node) then
-		visitToken(node["local"], visitor)
+		visitToken(node.localKeyword, visitor)
 		visitPunctuated(node.variables, visitor, visitLocal)
 		if node.equals then
 			visitToken(node.equals, visitor)
@@ -226,7 +226,7 @@ end
 
 local function visitFor(node: luau.AstStatFor, visitor: Visitor)
 	if visitor.visitFor(node) then
-		visitToken(node["for"], visitor)
+		visitToken(node.forKeyword, visitor)
 		visitLocal(node.variable, visitor)
 		visitToken(node.equals, visitor)
 		visitExpression(node.from, visitor)
@@ -238,21 +238,21 @@ local function visitFor(node: luau.AstStatFor, visitor: Visitor)
 		if node.step then
 			visitExpression(node.step, visitor)
 		end
-		visitToken(node["do"], visitor)
+		visitToken(node.doKeyword, visitor)
 		visitBlock(node.body, visitor)
-		visitToken(node["end"], visitor)
+		visitToken(node.endKeyword, visitor)
 	end
 end
 
 local function visitForIn(node: luau.AstStatForIn, visitor: Visitor)
 	if visitor.visitForIn(node) then
-		visitToken(node["for"], visitor)
+		visitToken(node.forKeyword, visitor)
 		visitPunctuated(node.variables, visitor, visitLocal)
-		visitToken(node["in"], visitor)
+		visitToken(node.inKeyword, visitor)
 		visitPunctuated(node.values, visitor, visitExpression)
-		visitToken(node["do"], visitor)
+		visitToken(node.doKeyword, visitor)
 		visitBlock(node.body, visitor)
-		visitToken(node["end"], visitor)
+		visitToken(node.endKeyword, visitor)
 	end
 end
 
@@ -419,7 +419,7 @@ local function visitFunctionBody(node: luau.AstFunctionBody, visitor: Visitor)
 		visitTypePack(node.returnAnnotation, visitor)
 	end
 	visitBlock(node.body, visitor)
-	visitToken(node["end"], visitor)
+	visitToken(node.endKeyword, visitor)
 end
 
 local function visitAttribute(node: luau.AstAttribute, visitor)
@@ -431,7 +431,7 @@ local function visitAnonymousFunction(node: luau.AstExprAnonymousFunction, visit
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
-		visitToken(node["function"], visitor)
+		visitToken(node.functionKeyword, visitor)
 		visitFunctionBody(node.body, visitor)
 	end
 end
@@ -441,7 +441,7 @@ local function visitFunction(node: luau.AstStatFunction, visitor: Visitor)
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
-		visitToken(node["function"], visitor)
+		visitToken(node.functionKeyword, visitor)
 		visitExpression(node.name, visitor)
 		visitFunctionBody(node.body, visitor)
 	end
@@ -452,8 +452,8 @@ local function visitLocalFunction(node: luau.AstStatLocalFunction, visitor: Visi
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
-		visitToken(node["local"], visitor)
-		visitToken(node["function"], visitor)
+		visitToken(node.localKeyword, visitor)
+		visitToken(node.functionKeyword, visitor)
 		visitLocal(node.name, visitor)
 		visitFunctionBody(node.body, visitor)
 	end
@@ -465,7 +465,7 @@ local function visitStatTypeFunction(node: luau.AstStatTypeFunction, visitor: Vi
 			visitToken(node.export, visitor)
 		end
 		visitToken(node.type, visitor)
-		visitToken(node["function"], visitor)
+		visitToken(node.functionKeyword, visitor)
 		visitToken(node.name, visitor)
 		visitFunctionBody(node.body, visitor)
 	end
@@ -551,17 +551,17 @@ end
 
 local function visitIfExpression(node: luau.AstExprIfElse, visitor: Visitor)
 	if visitor.visitIfExpression(node) then
-		visitToken(node["if"], visitor)
+		visitToken(node.ifKeyword, visitor)
 		visitExpression(node.condition, visitor)
-		visitToken(node["then"], visitor)
+		visitToken(node.thenKeyword, visitor)
 		visitExpression(node.consequent, visitor)
-		for _, elseifs in node["elseifs"] do
-			visitToken(elseifs["elseif"], visitor)
+		for _, elseifs in node.elseifs do
+			visitToken(elseifs.elseifKeyword, visitor)
 			visitExpression(elseifs.condition, visitor)
-			visitToken(elseifs["then"], visitor)
+			visitToken(elseifs.thenKeyword, visitor)
 			visitExpression(elseifs.consequent, visitor)
 		end
-		visitToken(node["else"], visitor)
+		visitToken(node.elseKeyword, visitor)
 		visitExpression(node.antecedent, visitor)
 	end
 end
