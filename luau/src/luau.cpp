@@ -2682,9 +2682,9 @@ int load_luau(lua_State* L)
     const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
     const char* path = luaL_optlstring(L, 2, "=luau.load", nullptr);
     std::string chunk_name = path;
-    if (lua_type(L, 2) == LUA_TSTRING) {
+    if (chunk_name != "=luau.load")
         chunk_name.insert(0, "@");
-    }
+
     luau_load(L, chunk_name.c_str(), bytecode_string->c_str(), bytecode_string->length(), lua_gettop(L) > 2 ? 3 : 0);
 
     return 1;
