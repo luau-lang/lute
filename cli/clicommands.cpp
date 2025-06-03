@@ -22,3 +22,22 @@ CliModuleResult getCliModule(std::string_view path)
 
     return {CliModuleType::NotFound};
 }
+
+std::optional<CliCommandResult> getCliCommand(std::string_view command)
+{
+    const std::array<std::string, 2> pathOptions = {
+        "@cli/" + std::string(command) + ".luau",
+        "@cli/" + std::string(command) + "/init.luau"
+    };
+
+    for (const std::string& path : pathOptions)
+    {
+        CliModuleResult result = getCliModule(path);
+        if (result.type == CliModuleType::Module)
+        {
+            return CliCommandResult{result.contents, path};
+        }
+    }
+
+    return std::nullopt;
+}

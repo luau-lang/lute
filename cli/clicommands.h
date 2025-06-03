@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+#include <string>
 #include <string_view>
 
 enum class CliModuleType
@@ -16,3 +18,11 @@ struct CliModuleResult
 };
 
 CliModuleResult getCliModule(std::string_view path);
+
+struct CliCommandResult
+{
+    std::string_view contents;
+    std::string path;
+};
+
+std::optional<CliCommandResult> getCliCommand(std::string_view command);

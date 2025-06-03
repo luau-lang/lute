@@ -5,6 +5,7 @@
 #include "Luau/Parser.h"
 #include "Luau/Require.h"
 
+#include "clicommands.h"
 #include "lua.h"
 #include "lualib.h"
 #include "lute/clivfs.h"
@@ -26,6 +27,7 @@
 
 #include "compile.h"
 #include "tc.h"
+#include <iostream>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -392,6 +394,15 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
     return compileScript(inputFilePath, outputFilePath, argv[0]);
 }
 
+int handleCliCommand(CliCommandResult result)
+{
+    Runtime runtime;
+    lua_State* L = setupState(runtime);
+
+    std::string bytecode = Luau::compile(std::string(result.contents), copts());
+    return runBytecode(runtime, bytecode, "@" + result.path, L) ? 0 : 1;
+}
+
 int main(int argc, char** argv)
 {
     Luau::assertHandler() = assertionHandler;
@@ -440,6 +451,10 @@ int main(int argc, char** argv)
     {
         displayHelp(argv[0]);
         return 0;
+    }
+    else if (std::optional<CliCommandResult> result = getCliCommand(command); result)
+    {
+        return handleCliCommand(*result);
     }
     else
     {
