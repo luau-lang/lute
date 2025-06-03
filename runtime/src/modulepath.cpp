@@ -15,10 +15,16 @@ static bool hasSuffix(std::string_view str, std::string_view suffix)
     return str.size() >= suffix.size() && str.substr(str.size() - suffix.size()) == suffix;
 }
 
-ModulePath::ModulePath(std::string filePath, size_t endRootDirectory, bool (*isAFile)(const std::string&), bool (*isADirectory)(const std::string&), std::optional<std::string> relativePathToTrack)
-    : isAFile(isAFile),
-      isADirectory(isADirectory),
-      relativePathToTrack(std::move(relativePathToTrack))
+ModulePath::ModulePath(
+    std::string filePath,
+    size_t endRootDirectory,
+    bool (*isAFile)(const std::string&),
+    bool (*isADirectory)(const std::string&),
+    std::optional<std::string> relativePathToTrack
+)
+    : isAFile(isAFile)
+    , isADirectory(isADirectory)
+    , relativePathToTrack(std::move(relativePathToTrack))
 {
     for (char& c : filePath)
     {

@@ -20,7 +20,13 @@ struct ResolvedRealPath
 class ModulePath
 {
 public:
-    ModulePath(std::string filePath, size_t endRootDirectory, bool (*isAFile)(const std::string&), bool (*isADirectory)(const std::string&), std::optional<std::string> relativePathToTrack = std::nullopt);
+    ModulePath(
+        std::string filePath,
+        size_t endRootDirectory,
+        bool (*isAFile)(const std::string&),
+        bool (*isADirectory)(const std::string&),
+        std::optional<std::string> relativePathToTrack = std::nullopt
+    );
 
     ResolvedRealPath getRealPath() const;
     std::string getPotentialLuaurcPath() const;
