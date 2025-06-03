@@ -183,5 +183,6 @@ void requireConfigInit(luarequire_Configuration* config)
     config->get_loadname = get_loadname;
     config->get_cache_key = get_cache_key;
     config->get_config = get_config;
+    config->get_alias = nullptr; // We use get_config instead of get_alias.
     config->load = load;
 }
