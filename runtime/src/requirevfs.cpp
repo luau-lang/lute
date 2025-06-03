@@ -7,13 +7,8 @@
 
 #include "Luau/Common.h"
 
-RequireVfs::RequireVfs()
-    : vfsType(VFSType::Disk)
-{
-}
-
 RequireVfs::RequireVfs(CliVfs cliVfs)
-    : vfsType(VFSType::Cli), cliVfs(std::move(cliVfs))
+    : cliVfs(std::move(cliVfs))
 {
 }
 
@@ -22,7 +17,8 @@ bool RequireVfs::isRequireAllowed(lua_State* L, std::string_view requirerChunkna
     bool isStdin = (requirerChunkname == "=stdin");
     bool isFile = (!requirerChunkname.empty() && requirerChunkname[0] == '@');
     bool isStdLibFile = (requirerChunkname.size() >= 6 && requirerChunkname.substr(0, 6) == "@@std/");
-    return isStdin || isFile || isStdLibFile;
+    bool isCliFile = (requirerChunkname.size() >= 6 && requirerChunkname.substr(0, 6) == "@@cli/");
+    return isStdin || isFile || isStdLibFile || (isCliFile && cliVfs);
 }
 
 NavigationStatus RequireVfs::reset(lua_State* L, std::string_view requirerChunkname)
@@ -33,6 +29,13 @@ NavigationStatus RequireVfs::reset(lua_State* L, std::string_view requirerChunkn
     {
         vfsType = VFSType::Std;
         return stdLibVfs.resetToPath(std::string(requirerChunkname.substr(1)));
+    }
+
+    if ((requirerChunkname.size() >= 6 && requirerChunkname.substr(0, 6) == "@@cli/"))
+    {
+        vfsType = VFSType::Cli;
+        LUAU_ASSERT(cliVfs);
+        return cliVfs->resetToPath(std::string(requirerChunkname.substr(1)));
     }
 
     vfsType = VFSType::Disk;
@@ -66,6 +69,9 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
         return fileVfs.resetToPath(std::string(path));
     case VFSType::Std:
         return stdLibVfs.resetToPath(std::string(path));
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        return cliVfs->resetToPath(std::string(path));
     default:
         return NavigationStatus::NotFound;
     }
@@ -82,6 +88,10 @@ NavigationStatus RequireVfs::toParent(lua_State* L)
         break;
     case VFSType::Std:
         status = stdLibVfs.toParent();
+        break;
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        status = cliVfs->toParent();
         break;
     case VFSType::Lute:
         luaL_error(L, "cannot get the parent of @lute");
@@ -112,6 +122,9 @@ NavigationStatus RequireVfs::toChild(lua_State* L, std::string_view name)
         return fileVfs.toChild(std::string(name));
     case VFSType::Std:
         return stdLibVfs.toChild(std::string(name));
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        return cliVfs->toChild(std::string(name));
     case VFSType::Lute:
         luaL_error(L, "'%s' is not a lute library", std::string(name).c_str());
         break;
@@ -130,6 +143,9 @@ bool RequireVfs::isModulePresent(lua_State* L) const
         return fileVfs.isModulePresent();
     case VFSType::Std:
         return stdLibVfs.isModulePresent();
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        return cliVfs->isModulePresent();
     case VFSType::Lute:
         luaL_error(L, "@lute is not requirable");
         break;
@@ -152,6 +168,10 @@ std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) c
     case VFSType::Std:
         contents = stdLibVfs.getContents(loadname);
         break;
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        contents = cliVfs->getContents(loadname);
+        break;
     default:
         break;
     }
@@ -167,6 +187,9 @@ std::string RequireVfs::getChunkname(lua_State* L) const
         return "@" + fileVfs.getFilePath();
     case VFSType::Std:
         return "@" + stdLibVfs.getIdentifier();
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        return "@" + cliVfs->getIdentifier();
     default:
         return "";
     }
@@ -180,6 +203,9 @@ std::string RequireVfs::getLoadname(lua_State* L) const
         return fileVfs.getAbsoluteFilePath();
     case VFSType::Std:
         return stdLibVfs.getIdentifier();
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        return cliVfs->getIdentifier();
     default:
         return "";
     }
@@ -193,6 +219,9 @@ std::string RequireVfs::getCacheKey(lua_State* L) const
         return fileVfs.getAbsoluteFilePath();
     case VFSType::Std:
         return stdLibVfs.getIdentifier();
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        return cliVfs->getIdentifier();
     default:
         return "";
     }
@@ -209,6 +238,9 @@ bool RequireVfs::isConfigPresent(lua_State* L) const
         return fileVfs.isConfigPresent();
     case VFSType::Std:
         return stdLibVfs.isConfigPresent();
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        return cliVfs->isConfigPresent();
     default:
         return false;
     }
@@ -236,6 +268,10 @@ std::string RequireVfs::getConfig(lua_State* L) const
         break;
     case VFSType::Std:
         configContents = stdLibVfs.getConfig();
+        break;
+    case VFSType::Cli:
+        LUAU_ASSERT(cliVfs);
+        configContents = cliVfs->getConfig();
         break;
     default:
         break;

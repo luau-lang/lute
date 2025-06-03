@@ -1,2 +1,2 @@
-local result = require("./helloworld")
+local result = require("@self/helloworld")
 print(result[1])

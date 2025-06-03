@@ -25,10 +25,7 @@ CliModuleResult getCliModule(std::string_view path)
 
 std::optional<CliCommandResult> getCliCommand(std::string_view command)
 {
-    const std::array<std::string, 2> pathOptions = {
-        "@cli/" + std::string(command) + ".luau",
-        "@cli/" + std::string(command) + "/init.luau"
-    };
+    const std::array<std::string, 2> pathOptions = {"@cli/" + std::string(command) + ".luau", "@cli/" + std::string(command) + "/init.luau"};
 
     for (const std::string& path : pathOptions)
     {

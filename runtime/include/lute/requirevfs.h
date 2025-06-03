@@ -13,7 +13,7 @@
 class RequireVfs
 {
 public:
-    RequireVfs();
+    RequireVfs() = default;
     RequireVfs(CliVfs cliVfs);
 
     bool isRequireAllowed(lua_State* L, std::string_view requirerChunkname) const;
@@ -39,16 +39,16 @@ private:
     {
         Disk,
         Std,
-        Lute,
         Cli,
+        Lute,
     };
 
     VFSType vfsType = VFSType::Disk;
 
     FileVfs fileVfs;
     StdLibVfs stdLibVfs;
-    std::string lutePath;
     std::optional<CliVfs> cliVfs = std::nullopt;
+    std::string lutePath;
 
     bool atFakeRoot = false;
 };

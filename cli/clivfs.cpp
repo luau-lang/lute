@@ -30,22 +30,22 @@ static bool isCliDirectory(const std::string& path)
 
 NavigationStatus CliVfs::resetToPath(const std::string& path)
 {
-    std::string stdPrefix = "@cli/";
+    std::string cliPrefix = "@cli/";
 
     if (path == "@cli")
     {
-        modulePath = ModulePath(stdPrefix, stdPrefix.size() - 1, isCliModule, isCliDirectory);
+        modulePath = ModulePath(cliPrefix, cliPrefix.size() - 1, isCliModule, isCliDirectory);
         return NavigationStatus::Success;
     }
 
-    if (path.find_first_of(stdPrefix) != 0)
+    if (path.find_first_of(cliPrefix) != 0)
         return NavigationStatus::NotFound;
 
     CliModuleResult result = getCliModule(path);
     if (result.type == CliModuleType::NotFound)
         return NavigationStatus::NotFound;
 
-    modulePath = ModulePath(path, stdPrefix.size() - 1, isCliModule, isCliDirectory);
+    modulePath = ModulePath(path, cliPrefix.size() - 1, isCliModule, isCliDirectory);
     return NavigationStatus::Success;
 }
 

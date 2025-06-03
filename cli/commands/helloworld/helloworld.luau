@@ -1,1 +1,1 @@
-return {"Hello, world!"}
+return { "Hello, world!" }
