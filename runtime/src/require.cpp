@@ -214,7 +214,6 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
 
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
     std::optional<std::string> contents = getFileContents(reqCtx->currentVFSType, std::string(loadname), "");
-    ;
     if (!contents)
         luaL_error(L, "could not read file '%s'", loadname);
 
