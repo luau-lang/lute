@@ -1,16 +1,21 @@
 #pragma once
 
+#include "lute/clivfs.h"
 #include "lute/filevfs.h"
 #include "lute/modulepath.h"
 #include "lute/stdlibvfs.h"
 
 #include "lua.h"
 
+#include <optional>
 #include <string>
 
 class RequireVfs
 {
 public:
+    RequireVfs();
+    RequireVfs(CliVfs cliVfs);
+
     bool isRequireAllowed(lua_State* L, std::string_view requirerChunkname) const;
 
     NavigationStatus reset(lua_State* L, std::string_view requirerChunkname);
@@ -35,6 +40,7 @@ private:
         Disk,
         Std,
         Lute,
+        Cli,
     };
 
     VFSType vfsType = VFSType::Disk;
@@ -42,6 +48,7 @@ private:
     FileVfs fileVfs;
     StdLibVfs stdLibVfs;
     std::string lutePath;
+    std::optional<CliVfs> cliVfs = std::nullopt;
 
     bool atFakeRoot = false;
 };

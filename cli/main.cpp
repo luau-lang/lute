@@ -7,6 +7,7 @@
 
 #include "lua.h"
 #include "lualib.h"
+#include "lute/clivfs.h"
 #include "uv.h"
 
 #include "lute/crypto.h"
@@ -50,7 +51,7 @@ static void* createCliRequireContext(lua_State* L)
     if (!ctx)
         luaL_error(L, "unable to allocate RequireCtx");
 
-    ctx = new (ctx) RequireCtx{};
+    ctx = new (ctx) RequireCtx{CliVfs{}};
 
     // Store RequireCtx in the registry to keep it alive for the lifetime of
     // this lua_State. Memory address is used as a key to avoid collisions.

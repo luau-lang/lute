@@ -7,6 +7,16 @@
 
 #include "Luau/Common.h"
 
+RequireVfs::RequireVfs()
+    : vfsType(VFSType::Disk)
+{
+}
+
+RequireVfs::RequireVfs(CliVfs cliVfs)
+    : vfsType(VFSType::Cli), cliVfs(std::move(cliVfs))
+{
+}
+
 bool RequireVfs::isRequireAllowed(lua_State* L, std::string_view requirerChunkname) const
 {
     bool isStdin = (requirerChunkname == "=stdin");

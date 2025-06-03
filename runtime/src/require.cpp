@@ -1,5 +1,6 @@
 #include "lute/require.h"
 
+#include "lute/clivfs.h"
 #include "lute/modulepath.h"
 #include "lute/options.h"
 
@@ -186,4 +187,14 @@ void requireConfigInit(luarequire_Configuration* config)
     config->get_config = get_config;
     config->get_alias = nullptr; // We use get_config instead of get_alias.
     config->load = load;
+}
+
+RequireCtx::RequireCtx()
+    : vfs()
+{
+}
+
+RequireCtx::RequireCtx(CliVfs cliVfs)
+    : vfs(cliVfs)
+{
 }

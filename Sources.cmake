@@ -1,4 +1,5 @@
 target_sources(Lute.Runtime PRIVATE
+    runtime/include/lute/clivfs.h
     runtime/include/lute/filevfs.h
     runtime/include/lute/modulepath.h
     runtime/include/lute/options.h
@@ -73,7 +74,13 @@ target_sources(Lute.Process PRIVATE
 )
 
 target_sources(Lute.CLI PRIVATE
+    cli/generated/commands.h
+    cli/generated/commands.cpp
+
     cli/main.cpp
+    cli/clicommands.h
+    cli/clicommands.cpp
+    cli/clivfs.cpp
     cli/compile.h
     cli/compile.cpp
     cli/tc.h
