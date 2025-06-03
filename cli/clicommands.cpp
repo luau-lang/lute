@@ -4,6 +4,7 @@
 // If it is not present or outdated, re-configure using luthier.luau.
 #include "generated/commands.h"
 
+#include <array>
 #include <string_view>
 #include <utility>
 

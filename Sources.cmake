@@ -74,7 +74,7 @@ target_sources(Lute.Process PRIVATE
     process/src/process.cpp
 )
 
-target_sources(Lute.CLICommands PRIVATE
+target_sources(Lute.CLI.Commands PRIVATE
     cli/generated/commands.h
     cli/generated/commands.cpp
 
