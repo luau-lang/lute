@@ -34,7 +34,8 @@ static luarequire_NavigateResult convert(NavigationStatus status)
 {
     if (status == NavigationStatus::Success)
         return NAVIGATE_SUCCESS;
-    else if (status == NavigationStatus::Ambiguous)
+
+    if (status == NavigationStatus::Ambiguous)
         return NAVIGATE_AMBIGUOUS;
 
     return NAVIGATE_NOT_FOUND;

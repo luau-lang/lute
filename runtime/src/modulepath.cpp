@@ -51,12 +51,11 @@ ModulePath::ModulePath(std::string filePath, size_t endRootDirectory, bool (*isA
     if (endRootDirectory == pathView.size() - 1)
     {
         realPathPrefix = pathView;
+        return;
     }
-    else
-    {
-        realPathPrefix = pathView.substr(0, endRootDirectory + 1);
-        modulePath = pathView.substr(endRootDirectory + 1);
-    }
+
+    realPathPrefix = pathView.substr(0, endRootDirectory + 1);
+    modulePath = pathView.substr(endRootDirectory + 1);
 }
 
 ResolvedRealPath ModulePath::getRealPath() const
@@ -84,6 +83,7 @@ ResolvedRealPath ModulePath::getRealPath() const
             }
         }
     }
+
     if (isADirectory(partialRealPath))
     {
         if (found)
