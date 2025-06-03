@@ -213,7 +213,8 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     luaL_sandboxthread(ML);
 
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    std::optional<std::string> contents = getFileContents(reqCtx->currentVFSType, std::string(loadname), "");;
+    std::optional<std::string> contents = getFileContents(reqCtx->currentVFSType, std::string(loadname), "");
+    ;
     if (!contents)
         luaL_error(L, "could not read file '%s'", loadname);
 
@@ -279,4 +280,5 @@ void requireConfigInit(luarequire_Configuration* config)
     config->get_cache_key = get_cache_key;
     config->get_config = get_config;
     config->load = load;
+    config->get_alias = nullptr;
 }
