@@ -5,7 +5,6 @@ target_sources(Lute.Runtime PRIVATE
     runtime/include/lute/ref.h
     runtime/include/lute/require.h
     runtime/include/lute/requirevfs.h
-    runtime/include/lute/requireutils.h
     runtime/include/lute/runtime.h
     runtime/include/lute/stdlibvfs.h
     runtime/include/lute/userdatas.h
@@ -16,7 +15,6 @@ target_sources(Lute.Runtime PRIVATE
     runtime/src/ref.cpp
     runtime/src/require.cpp
     runtime/src/requirevfs.cpp
-    runtime/src/requireutils.cpp
     runtime/src/runtime.cpp
     runtime/src/stdlibvfs.cpp
 )

@@ -1,9 +1,8 @@
 #pragma once
 
-#include "lute/requireutils.h"
+#include "lute/requirevfs.h"
 
 #include "Luau/Require.h"
-#include "lute/requirevfs.h"
 
 #include <string>
 
