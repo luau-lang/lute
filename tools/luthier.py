@@ -305,7 +305,7 @@ def generateCliCommandsFilesIfNeeded():
     os.chdir(os.path.join(getSourceRoot(), 'cli'))
     os.makedirs("generated", exist_ok=True)
 
-    if (False and isGeneratedCliCommandsUpToDate()):
+    if (isGeneratedCliCommandsUpToDate()):
         os.chdir(restoredPath)
         return
     else:
@@ -375,7 +375,6 @@ def generateCliCommandsFilesIfNeeded():
     os.chdir(restoredPath)
 
 def generateFilesIfNeeded():
-    """Generates any files that need to be generated before building."""
     generateStdLibFilesIfNeeded()
     generateCliCommandsFilesIfNeeded()
 
