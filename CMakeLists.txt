@@ -39,7 +39,7 @@ set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
 
 set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
 if(MSVC)
-    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstatic.lib")
+    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.lib")
 else()
     set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.a")
 endif()
