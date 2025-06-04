@@ -171,7 +171,7 @@ def projectPathExists(args):
 
 def getStdLibHash():
     restoredPath = os.getcwd()
-    os.chdir(os.path.join(getSourceRoot(), 'std/libs'))
+    os.chdir(os.path.join(getSourceRoot(), 'lute/std/libs'))
 
     hasher = blake2b()
     for dirpath, _, filenames in os.walk('.'):
@@ -186,7 +186,7 @@ def getStdLibHash():
     return hasher.hexdigest()
 
 def isGeneratedStdLibUpToDate():
-    hashFile = os.path.join(getSourceRoot(), 'std/src/generated/hash.txt')
+    hashFile = os.path.join(getSourceRoot(), 'lute/std/src/generated/hash.txt')
 
     if not os.path.isfile(hashFile):
         return False
@@ -203,7 +203,7 @@ def isGeneratedStdLibUpToDate():
 def generateStdLibFilesIfNeeded():
     restoredPath = os.getcwd()
 
-    os.chdir(os.path.join(getSourceRoot(), 'std'))
+    os.chdir(os.path.join(getSourceRoot(), 'lute/std'))
     os.makedirs("src/generated", exist_ok=True)
 
     if (isGeneratedStdLibUpToDate()):

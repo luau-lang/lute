@@ -222,7 +222,9 @@ local function traverseFileTree(path: string, callback: (string, string) -> ())
 end
 
 local function getStdLibHash(): string
-	local libsPath = projectRelative("std", "libs")
+	local libsPath = projectRelative("lute", "std", "libs")
+	local libs = fs.listdir(libsPath)
+
 	local toHash = ""
 
 	traverseFileTree(libsPath, function(path, relativePath)
@@ -237,7 +239,7 @@ local function getStdLibHash(): string
 end
 
 local function isGeneratedStdLibUpToDate(): boolean
-	local hashFile = projectRelative("std", "src", "generated", "hash.txt")
+	local hashFile = projectRelative("lute", "std", "src", "generated", "hash.txt")
 
 	if safeFsType(hashFile) ~= "file" then
 		return false
@@ -253,7 +255,7 @@ local function writeLines(file, lines: { string })
 end
 
 local function generateStdLibFilesIfNeeded()
-	local generatedPath = projectRelative("std", "src", "generated")
+	local generatedPath = projectRelative("lute", "std", "src", "generated")
 	pcall(fs.mkdir, generatedPath)
 
 	if isGeneratedStdLibUpToDate() then
@@ -273,8 +275,8 @@ local function generateStdLibFilesIfNeeded()
 		"constexpr std::pair<std::string_view, std::string_view> lutestdlib[] = {",
 	})
 
-	local libsPath = projectRelative("std", "libs")
-	local numItems = 0
+	local libsPath = projectRelative("lute", "std", "libs")
+	local libs = fs.listdir(libsPath)
 
 	traverseFileTree(libsPath, function(path, relativePath)
 		if #relativePath == 0 then
