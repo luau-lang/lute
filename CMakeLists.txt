@@ -16,13 +16,6 @@ project(
     LANGUAGES CXX C
 )
 
-# Get the proper extension for static libraries
-if(MSVC)
-  set(LIB_EXT ".lib")
-else()
-  set(LIB_EXT ".a")
-endif()
-
 # luau setup
 set(LUAU_BUILD_CLI OFF)
 set(LUAU_BUILD_TESTS OFF)
