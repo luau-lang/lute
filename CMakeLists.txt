@@ -33,13 +33,21 @@ add_subdirectory(extern/libuv)
 set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 
 # zlib setup
+#
+set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "Do not build examples" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static zlib" FORCE)
 add_subdirectory(extern/zlib)
+
 set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
 
 set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
+
 if(MSVC)
-    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.lib")
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libzstaticd.lib")
+    else()
+        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libzstatic.lib")
+    endif()
 else()
     set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.a")
 endif()
