@@ -277,6 +277,7 @@ local function generateStdLibFilesIfNeeded()
 
 	local libsPath = projectRelative("lute", "std", "libs")
 	local libs = fs.listdir(libsPath)
+	local numItems = 0
 
 	traverseFileTree(libsPath, function(path, relativePath)
 		if #relativePath == 0 then
@@ -318,7 +319,7 @@ local function generateStdLibFilesIfNeeded()
 end
 
 local function getCliCommandsHash()
-	local libsPath = projectRelative("cli", "commands")
+	local libsPath = projectRelative("lute", "cli", "commands")
 	local toHash = ""
 
 	traverseFileTree(libsPath, function(path, relativePath)
@@ -333,7 +334,7 @@ local function getCliCommandsHash()
 end
 
 local function isGeneratedCliCommandsUpToDate()
-	local hashFile = projectRelative("cli", "generated", "hash.txt")
+	local hashFile = projectRelative("lute", "cli", "generated", "hash.txt")
 
 	if safeFsType(hashFile) ~= "file" then
 		return false
@@ -345,7 +346,7 @@ local function isGeneratedCliCommandsUpToDate()
 end
 
 local function generateCliCommandsFilesIfNeeded()
-	local generatedPath = projectRelative("cli", "generated")
+	local generatedPath = projectRelative("lute", "cli", "generated")
 	pcall(fs.mkdir, generatedPath)
 
 	if isGeneratedCliCommandsUpToDate() then
@@ -365,7 +366,7 @@ local function generateCliCommandsFilesIfNeeded()
 		"constexpr std::pair<std::string_view, std::string_view> luteclicommands[] = {",
 	})
 
-	local libsPath = projectRelative("cli", "commands")
+	local libsPath = projectRelative("lute", "cli", "commands")
 	local numItems = 0
 
 	traverseFileTree(libsPath, function(path, relativePath)
