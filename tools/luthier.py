@@ -271,7 +271,7 @@ def generateStdLibFilesIfNeeded():
 
 def getCliCommandsHash():
     restoredPath = os.getcwd()
-    os.chdir(os.path.join(getSourceRoot(), 'cli/commands'))
+    os.chdir(os.path.join(getSourceRoot(), 'lute/cli/commands'))
 
     hasher = blake2b()
     for dirpath, _, filenames in os.walk('.'):
@@ -286,7 +286,7 @@ def getCliCommandsHash():
     return hasher.hexdigest()
 
 def isGeneratedCliCommandsUpToDate():
-    hashFile = os.path.join(getSourceRoot(), 'cli/generated/hash.txt')
+    hashFile = os.path.join(getSourceRoot(), 'lute/cli/generated/hash.txt')
 
     if not os.path.isfile(hashFile):
         return False
@@ -303,7 +303,7 @@ def isGeneratedCliCommandsUpToDate():
 def generateCliCommandsFilesIfNeeded():
     restoredPath = os.getcwd()
 
-    os.chdir(os.path.join(getSourceRoot(), 'cli'))
+    os.chdir(os.path.join(getSourceRoot(), 'lute/cli'))
     os.makedirs("generated", exist_ok=True)
 
     if (isGeneratedCliCommandsUpToDate()):

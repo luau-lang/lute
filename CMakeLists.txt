@@ -5,7 +5,10 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include(CMakeBuild/get_version.cmake)
+# set the module path
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMakeBuild")
+
+include(get_version)
 
 project(
     Lute
@@ -76,13 +79,10 @@ endfunction()
 # Path to the actual files
 
 # find_package is an evil demon, and we must use powerful spells to bind it
-set(OPENSSL_USE_STATIC_LIBS ON)
-set(OPENSSL_NO_LEGACY ON)
-
 set_protected_variable(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}")
 set_protected_variable(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}")
 set_protected_variable(OPENSSL_SSL_LIBRARIES "${OPENSSL_SSL_LIBRARY}")
-set_protected_variable(OPENSSL_CRYTPO_LIBRARIES "${OPENSSL_CRYTPO_LIBRARY}")
+set_protected_variable(OPENSSL_CRYPTO_LIBRARIES "${OPENSSL_CRYTPO_LIBRARY}")
 set_protected_variable(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY};${OPENSSL_CRYPTO_LIBRARY}")
 
 add_library(OpenSSL::SSL STATIC IMPORTED GLOBAL)
@@ -105,9 +105,14 @@ set_protected_variable(OPENSSL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/b
 set_protected_variable(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}")
 
 # FindOpenSSL with MSVC is the problem...
-if(MSVC)
-    set_protected_variable(SSL_EAY_LIBRARY "${OPENSSL_SSL_LIBRARY}")
-    set_protected_variable(LIB_EAY_LIBRARY "${OPENSSL_CRYTPO_LIBRARY}")
+if(WIN32 OR MSVC)
+    set_protected_variable(LIB_EAY_LIBRARY_DEBUG "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}")
+    set_protected_variable(LIB_EAY_LIBRARY_RELEASE "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}")
+    set_protected_variable(SSL_EAY_LIBRARY_DEBUG "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}")
+    set_protected_variable(SSL_EAY_LIBRARY_RELEASE "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}")
+
+    set_protected_variable(OPENSSL_MSVC_STATIC_RT OFF)
+    set_protected_variable(OPENSSL_USE_STATIC_LIBS ON)
 endif()
 
 # curl setup
