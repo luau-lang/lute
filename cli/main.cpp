@@ -27,7 +27,6 @@
 
 #include "compile.h"
 #include "tc.h"
-#include <iostream>
 
 #ifdef _WIN32
 #include <Windows.h>
