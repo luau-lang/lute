@@ -84,8 +84,8 @@ set(WITH_ZLIB ON)
 
 # Set the correct libuv library name for uWebSockets
 set(LIBUV_LIBRARY uv_a)
-include(CMakeBuild/uSockets.cmake)
-include(CMakeBuild/uWebSockets.cmake)
+include(uSockets)
+include(uWebSockets)
 
 # Define include directories for uWebSockets and uSockets
 set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
