@@ -76,45 +76,6 @@ function(set_protected_variable var_name value)
     variable_watch(${var_name} protect_variable_callback)
 endfunction()
 
-# Path to the actual files
-
-# find_package is an evil demon, and we must use powerful spells to bind it
-set_protected_variable(OPENSSL_SSL_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}")
-set_protected_variable(OPENSSL_CRYPTO_LIBRARY "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}")
-set_protected_variable(OPENSSL_SSL_LIBRARIES "${OPENSSL_SSL_LIBRARY}")
-set_protected_variable(OPENSSL_CRYPTO_LIBRARIES "${OPENSSL_CRYTPO_LIBRARY}")
-set_protected_variable(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY};${OPENSSL_CRYPTO_LIBRARY}")
-
-add_library(OpenSSL::SSL STATIC IMPORTED GLOBAL)
-set_target_properties(OpenSSL::SSL PROPERTIES
-    IMPORTED_LOCATION "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}"
-    INTERFACE_INCLUDE_DIRECTORIES "${BORINGSSL_INCLUDE_DIR}"
-)
-
-add_library(OpenSSL::Crypto STATIC IMPORTED GLOBAL)
-set_target_properties(OpenSSL::Crypto PROPERTIES
-    IMPORTED_LOCATION "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}"
-    INTERFACE_INCLUDE_DIRECTORIES "${BORINGSSL_INCLUDE_DIR}"
-)
-
-
-set_protected_variable(OPENSSL_FOUND TRUE CACHE BOOL "Found BoringSSL")
-set_protected_variable(OPENSSL_VERSION "3.0.0" CACHE STRING "Dummy version, BoringSSL")
-set_protected_variable(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/")
-set_protected_variable(OPENSSL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/include")
-set_protected_variable(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}")
-
-# FindOpenSSL with MSVC is the problem...
-if(WIN32 OR MSVC)
-    set_protected_variable(LIB_EAY_LIBRARY_DEBUG "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}")
-    set_protected_variable(LIB_EAY_LIBRARY_RELEASE "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}")
-    set_protected_variable(SSL_EAY_LIBRARY_DEBUG "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}")
-    set_protected_variable(SSL_EAY_LIBRARY_RELEASE "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}")
-
-    set_protected_variable(OPENSSL_MSVC_STATIC_RT OFF)
-    set_protected_variable(OPENSSL_USE_STATIC_LIBS ON)
-endif()
-
 # curl setup
 
 set(USE_LIBIDN2 OFF)
