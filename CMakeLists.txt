@@ -44,7 +44,7 @@ set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
 
 if(MSVC)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstatic.lib")
+        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstaticd.lib")
     else()
         set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstatic.lib")
     endif()
