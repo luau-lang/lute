@@ -5,12 +5,11 @@
 #include "Luau/Parser.h"
 #include "Luau/Require.h"
 
-#include "clicommands.h"
 #include "lua.h"
 #include "lualib.h"
-#include "lute/clivfs.h"
 #include "uv.h"
 
+#include "lute/clivfs.h"
 #include "lute/crypto.h"
 #include "lute/fs.h"
 #include "lute/luau.h"
@@ -25,6 +24,7 @@
 #include "lute/vm.h"
 #include "lute/time.h"
 
+#include "clicommands.h"
 #include "compile.h"
 #include "tc.h"
 
