@@ -90,6 +90,10 @@ include(uWebSockets)
 # Define include directories for uWebSockets and uSockets
 set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
 
+
+# libsodium for `pwhash`
+include(libsodium)
+
 # Lute
 set(LUTE_OPTIONS)
 
