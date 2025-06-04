@@ -38,7 +38,11 @@ add_subdirectory(extern/zlib)
 set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
 
 set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
-set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz${LIB_EXT}")
+if(MSVC)
+    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/z.lib")
+else()
+    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.a")
+endif()
 set(ZLIB_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/zlib;${ZLIB_OUTPUT_DIR})
 set(ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE STRING "" FORCE)
 
@@ -46,28 +50,6 @@ set(ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE STRING "" FORCE)
 add_subdirectory(extern/boringssl)
 set(BORINGSSL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/boringssl")
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
-
-# we must empower ourselves with the spells necessary to block _all further mutation_ to a variable
-
-function(protect_variable_callback variable access value current_list_file stack)
-    message(STATUS "[PROTECT] ${access} on ${variable}")
-    if(access STREQUAL "MODIFIED_ACCESS" OR access STREQUAL "REMOVED_ACCESS")
-        get_property(original_value GLOBAL PROPERTY _PROTECTED_${variable}_VALUE)
-
-        set(${variable} "${original_value}" CACHE STRING "Protected variable" FORCE)
-
-        message(WARNING "[PROTECT] Attempt to modify protected variable ${variable} was blocked (in ${current_list_file})")
-        message(STATUS "[PROTECT] Written value: '${value}'")
-        message(STATUS "[PROTECT] Protected value restored: '${original_value}'")
-        message(STATUS "[PROTECT] Reading ${variable} now gives ${${variable}}")
-    endif()
-endfunction()
-
-function(set_protected_variable var_name value)
-    set_property(GLOBAL PROPERTY _PROTECTED_${var_name}_VALUE "${value}")
-    set(${var_name} "${value}" CACHE STRING "Protected variable" FORCE)
-    variable_watch(${var_name} protect_variable_callback)
-endfunction()
 
 # curl setup
 

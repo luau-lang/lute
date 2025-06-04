@@ -18,7 +18,7 @@ set(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/boringssl/")
 if(NOT TARGET OpenSSL::SSL)
     add_library(OpenSSL::SSL STATIC IMPORTED GLOBAL)
     set_target_properties(OpenSSL::SSL PROPERTIES
-        IMPORTED_LOCATION "${BORINGSSL_OUTPUT_DIR}/libssl${LIB_EXT}"
+        IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
         INTERFACE_INCLUDE_DIRECTORIES "${BORINGSSL_INCLUDE_DIR}"
     )
 endif()
@@ -26,7 +26,7 @@ endif()
 if(NOT TARGET OpenSSL::Crypto)
     add_library(OpenSSL::Crypto STATIC IMPORTED GLOBAL)
     set_target_properties(OpenSSL::Crypto PROPERTIES
-        IMPORTED_LOCATION "${BORINGSSL_OUTPUT_DIR}/libcrypto${LIB_EXT}"
+        IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
         INTERFACE_INCLUDE_DIRECTORIES "${BORINGSSL_INCLUDE_DIR}"
     )
 endif()
