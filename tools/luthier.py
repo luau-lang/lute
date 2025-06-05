@@ -509,7 +509,6 @@ def getTuneFilesHash():
             hasher.update(fileName.encode('utf-8'))
             hasher.update(f.read().encode('utf-8'))
 
-    print(hasher.hexdigest())
     return hasher.hexdigest()
 
 def areTuneFilesUpToDate():
