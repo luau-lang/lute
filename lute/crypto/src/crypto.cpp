@@ -102,11 +102,8 @@ namespace crypto
         if (argumentCount != 1)
             luaL_error(L, "%s: expected 1 arguments, but got %d", kPasswordHashName, argumentCount);
 
-        if (!lua_isstring(L, 1))
-            luaL_typeerrorL(L, 1, "string or buffer");
-
         size_t length = 0;
-        const char* password = lua_tolstring(L, 1, &length);
+        const char* password = luaL_checklstring(L, 1, &length);
 
         void* buffer = lua_newbuffer(L, crypto_pwhash_STRBYTES);
         if (crypto_pwhash_str((char*) buffer, password, length,
