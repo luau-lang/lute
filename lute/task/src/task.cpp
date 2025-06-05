@@ -9,6 +9,7 @@
 #include "lute/time.h"
 #include <cassert>
 #include <functional>
+#include <iterator>
 
 // taken from extern/luau/VM/lcorolib.cpp
 static const char* const statnames[] = {"running", "suspended", "normal", "dead", "dead"};
@@ -20,7 +21,45 @@ struct WaitData
     ResumeToken resumptionToken;
 
     uint64_t startedAtMs;
+
+    bool putDeltaTimeOnStack;
 };
+
+
+static void yieldLuaStateFor(lua_State* L, uint64_t milliseconds, bool putDeltaTimeOnStack)
+{
+    WaitData* yield = new WaitData();
+    uv_timer_init(uv_default_loop(), &yield->uvTimer);
+
+    yield->resumptionToken = getResumeToken(L);
+    yield->startedAtMs = uv_now(uv_default_loop());
+    yield->uvTimer.data = yield;
+    yield->putDeltaTimeOnStack = putDeltaTimeOnStack;
+
+    uv_timer_start(
+        &yield->uvTimer,
+        [](uv_timer_t* timer)
+        {
+            WaitData* yield = static_cast<WaitData*>(timer->data);
+
+            yield->resumptionToken->complete(
+                [yield](lua_State* L)
+                {
+                    int stackReturnAmount = yield->putDeltaTimeOnStack ? 1 : 0;
+                    if (stackReturnAmount)
+                        lua_pushnumber(L, static_cast<double>(uv_now(uv_default_loop()) - yield->startedAtMs) / 1000.0);
+
+                    delete yield;
+                    return stackReturnAmount;
+                }
+            );
+
+            uv_timer_stop(&yield->uvTimer);
+        },
+        milliseconds,
+        0
+    );
+}
 
 namespace task
 {
@@ -30,6 +69,27 @@ int lua_defer(lua_State* L)
 
     runtime->runningThreads.push_back({true, getRefForThread(L), 0});
     return lua_yield(L, 0);
+};
+
+int lua_spawn(lua_State* L)
+{
+    if (lua_isfunction(L, 1))
+    {
+        lua_State* NL = lua_newthread(L);
+
+        lua_xpush(L, NL, 1);
+
+        lua_remove(L, 1);
+
+        lua_insert(L, 1);
+    }
+    else if (!lua_isthread(L, 1))
+    {
+        luaL_error(L, "can only pass threads or functions to task.spawn");
+    }
+
+    lute_resume(L);
+    return 1;
 }
 
 int lua_wait(lua_State* L)
@@ -56,34 +116,7 @@ int lua_wait(lua_State* L)
         break;
     };
 
-    WaitData* yield = new WaitData();
-    uv_timer_init(uv_default_loop(), &yield->uvTimer);
-
-    yield->resumptionToken = getResumeToken(L);
-    yield->startedAtMs = uv_now(uv_default_loop());
-    yield->uvTimer.data = yield;
-
-    uv_timer_start(
-        &yield->uvTimer,
-        [](uv_timer_t* timer)
-        {
-            WaitData* yield = static_cast<WaitData*>(timer->data);
-
-            yield->resumptionToken->complete(
-                [yield](lua_State* L)
-                {
-                    lua_pushnumber(L, static_cast<double>(uv_now(uv_default_loop()) - yield->startedAtMs) / 1000.0);
-
-                    delete yield;
-                    return 1;
-                }
-            );
-
-            uv_timer_stop(&yield->uvTimer);
-        },
-        milliseconds,
-        0
-    );
+    yieldLuaStateFor(L, milliseconds, true);
 
     return lua_yield(L, 0);
 }

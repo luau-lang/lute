@@ -13,11 +13,13 @@ namespace task
 
 int lua_defer(lua_State* L);
 int lua_wait(lua_State* L);
+int lua_spawn(lua_State* L);
 int lute_resume(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"defer", lua_defer},
     {"wait", lua_wait},
+    {"spawn", lua_spawn},
 
     {"resume", lute_resume},
 
