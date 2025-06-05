@@ -67,10 +67,7 @@ ModulePath::ModulePath(
     modulePath = pathView.substr(endRootDirectory + 1);
 
     if (this->relativePathToTrack)
-    {
-        std::string_view relativePathView = removeExtension(*this->relativePathToTrack);
-        this->relativePathToTrack = relativePathView;
-    }
+        this->relativePathToTrack = removeExtension(*this->relativePathToTrack);
 }
 
 ResolvedRealPath ModulePath::getRealPath() const
