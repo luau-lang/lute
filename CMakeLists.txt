@@ -102,7 +102,7 @@ if(MSVC)
     list(APPEND LUTE_OPTIONS /D_CRT_SECURE_NO_WARNINGS) # We need to use the portable CRT functions.
     list(APPEND LUTE_OPTIONS "/we4018") # Signed/unsigned mismatch
     list(APPEND LUTE_OPTIONS "/we4388") # Also signed/unsigned mismatch
-    list (APPEND LUTE_OPTIONS "/Zc:externConstexpr") # MSVC does not comply with C++ standard by default
+    list(APPEND LUTE_OPTIONS "/Zc:externConstexpr") # MSVC does not comply with C++ standard by default
     # FIXME: list(APPEND LUTE_OPTIONS /WX) # Warnings are errors
 else()
     list(APPEND LUTE_OPTIONS -Wall) # All warnings
