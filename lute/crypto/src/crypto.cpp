@@ -1,7 +1,9 @@
 #include "lute/crypto.h"
 #include "lua.h"
 
+#include "lualib.h"
 #include "openssl/digest.h"
+#include "sodium/crypto_pwhash.h"
 
 #include <string>
 #include <vector>
@@ -46,6 +48,37 @@ namespace crypto
         luaL_typeerrorL(L, idx, "hash function");
     }
 
+    struct BinaryData
+    {
+        const void* data;
+        size_t length;
+    };
+
+    BinaryData extractData(lua_State* L, int idx)
+    {
+        if (!lua_isstring(L, 1) && !lua_isbuffer(L, 1))
+            luaL_typeerrorL(L, 1, "string or buffer");
+
+        if (lua_isstring(L, 1))
+        {
+            size_t length = 0;
+            const char* data = lua_tolstring(L, idx, &length);
+
+            return BinaryData{data, length};
+        }
+
+
+        if (lua_isbuffer(L, 1))
+        {
+            size_t length = 0;
+            void* data = lua_tobuffer(L, idx, &length);
+
+            return BinaryData{data, length};
+        }
+
+        luaL_error(L, "failed to extract binary data from stack: %d", idx);
+    }
+
     int lua_digest(lua_State* L)
     {
         int argumentCount = lua_gettop(L);
@@ -54,27 +87,66 @@ namespace crypto
 
         const env_md_st* hashFunction = getHashFunction(L, 1);
 
-        if (!lua_isstring(L, 2) && !lua_isbuffer(L, 2))
-            luaL_typeerrorL(L, 2, "string or buffer");
+        BinaryData message = extractData(L, 2);
 
-        if (lua_isstring(L, 2))
-        {
-            size_t length = 0;
-            const char* data = lua_tolstring(L, 2, &length);
+        void* buffer = lua_newbuffer(L, EVP_MD_size(hashFunction));
+        if (EVP_Digest(message.data, message.length, (uint8_t*) buffer, nullptr, hashFunction, nullptr) == 0)
+            luaL_error(L, "%s: failed to compute hash", kDigestName);
 
-            void* buffer = lua_newbuffer(L, EVP_MD_size(hashFunction));
-            if (EVP_Digest(data, length, (uint8_t*) buffer, nullptr, hashFunction, nullptr) == 0)
-                luaL_error(L, "%s: failed to compute hash", kDigestName);
+        return 1;
+    }
+
+    // hash(password: string): buffer
+    int lua_pwhash(lua_State* L)
+    {
+        int argumentCount = lua_gettop(L);
+        if (argumentCount != 1)
+            luaL_error(L, "%s: expected 1 arguments, but got %d", kPasswordHashName, argumentCount);
+
+        if (!lua_isstring(L, 1))
+            luaL_typeerrorL(L, 1, "string or buffer");
+
+        size_t length = 0;
+        const char* password = lua_tolstring(L, 1, &length);
+
+        void* buffer = lua_newbuffer(L, crypto_pwhash_STRBYTES);
+        if (crypto_pwhash_str((char*) buffer, password, length,
+                              crypto_pwhash_OPSLIMIT_SENSITIVE, crypto_pwhash_MEMLIMIT_SENSITIVE)) {
+            luaL_error(L, "%s: hit memory limit for password hashing", kPasswordHashName);
         }
-        else if (lua_isbuffer(L, 2))
-        {
-            size_t length = 0;
-            void* data = lua_tobuffer(L, 2, &length);
 
-            void* buffer = lua_newbuffer(L, EVP_MD_size(hashFunction));
-            if (EVP_Digest(data, length, (uint8_t*) buffer, nullptr, hashFunction, nullptr) == 0)
-                luaL_error(L, "%s: failed to compute hash", kDigestName);
-        }
+        return 1;
+    }
+
+    // verify(hash: buffer, password: string)
+    int lua_pwhash_verify(lua_State* L)
+    {
+        int argumentCount = lua_gettop(L);
+        if (argumentCount != 2)
+            luaL_error(L, "%s: expected 2 arguments, but got %d", kPasswordHashName, argumentCount);
+
+        size_t hashLength = crypto_pwhash_STRBYTES;
+        void* hashedPassword = luaL_checkbuffer(L, 1, &hashLength);
+
+        size_t length = 0;
+        const char* password = luaL_checklstring(L, 2, &length);
+
+        lua_pushboolean(L, crypto_pwhash_str_verify((const char*) hashedPassword, password, length) == 0);
+
+        return 1;
+    }
+
+    int makePasswordHashLibrary(lua_State* L)
+    {
+        lua_createtable(L, 0, 2);
+
+        // hash
+        lua_pushcfunction(L, lua_pwhash, kPasswordHashName);
+        lua_setfield(L, -2, kPasswordHashName);
+
+        // verify
+        lua_pushcfunction(L, lua_pwhash_verify, kVerifyPasswordHashName);
+        lua_setfield(L, -2, kVerifyPasswordHashName);
 
         return 1;
     }
@@ -104,6 +176,9 @@ int luteopen_crypto(lua_State* L)
 
     crypto::makeHashFunctionMap(L);
     lua_setfield(L, -2, crypto::kHashProperty);
+
+    crypto::makePasswordHashLibrary(L);
+    lua_setfield(L, -2, crypto::kPasswordProperty);
 
     lua_setreadonly(L, -1, 1);
 

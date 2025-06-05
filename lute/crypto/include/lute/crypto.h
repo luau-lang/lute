@@ -14,9 +14,16 @@ namespace crypto
 {
 
 static const char kHashProperty[] = "hash";
+static const char kPasswordProperty[] = "password";
 
 static const char kDigestName[] = "digest";
 int lua_digest(lua_State* L);
+
+static const char kPasswordHashName[] = "hash";
+int lua_pwhash(lua_State* L);
+
+static const char kVerifyPasswordHashName[] = "verify";
+int lua_pwhash_verify(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {kDigestName, lua_digest},
@@ -25,6 +32,7 @@ static const luaL_Reg lib[] = {
 
 static const std::string properties[] = {
     kHashProperty,
+    kPasswordProperty,
 };
 
 } // namespace crypto
