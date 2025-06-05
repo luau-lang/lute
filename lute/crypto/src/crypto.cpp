@@ -56,10 +56,10 @@ namespace crypto
 
     BinaryData extractData(lua_State* L, int idx)
     {
-        if (!lua_isstring(L, 1) && !lua_isbuffer(L, 1))
-            luaL_typeerrorL(L, 1, "string or buffer");
+        if (!lua_isstring(L, idx) && !lua_isbuffer(L, idx))
+            luaL_typeerrorL(L, idx, "string or buffer");
 
-        if (lua_isstring(L, 1))
+        if (lua_isstring(L, idx))
         {
             size_t length = 0;
             const char* data = lua_tolstring(L, idx, &length);
@@ -68,7 +68,7 @@ namespace crypto
         }
 
 
-        if (lua_isbuffer(L, 1))
+        if (lua_isbuffer(L, idx))
         {
             size_t length = 0;
             void* data = lua_tobuffer(L, idx, &length);
@@ -86,7 +86,6 @@ namespace crypto
             luaL_error(L, "%s: expected 2 arguments, but got %d", kDigestName, argumentCount);
 
         const env_md_st* hashFunction = getHashFunction(L, 1);
-
         BinaryData message = extractData(L, 2);
 
         void* buffer = lua_newbuffer(L, EVP_MD_size(hashFunction));
