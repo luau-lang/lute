@@ -56,10 +56,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             artifact_name: lute-linux-x86_64
             options: --c-compiler clang --cxx-compiler clang++
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-22.04-arm
             artifact_name: lute-linux-aarch64
             options: --c-compiler clang --cxx-compiler clang++
           - os: macos-latest
