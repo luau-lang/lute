@@ -15,6 +15,28 @@ static bool hasSuffix(std::string_view str, std::string_view suffix)
     return str.size() >= suffix.size() && str.substr(str.size() - suffix.size()) == suffix;
 }
 
+static std::string_view removeExtension(std::string_view path)
+{
+    bool removedSuffix = false;
+    for (std::string_view suffix : kInitSuffixes)
+    {
+        if (!removedSuffix && hasSuffix(path, suffix))
+        {
+            path.remove_suffix(suffix.size());
+            removedSuffix = true;
+        }
+    }
+    for (std::string_view suffix : kSuffixes)
+    {
+        if (!removedSuffix && hasSuffix(path, suffix))
+        {
+            path.remove_suffix(suffix.size());
+            removedSuffix = true;
+        }
+    }
+    return path;
+}
+
 ModulePath::ModulePath(
     std::string filePath,
     size_t endRootDirectory,
@@ -32,28 +54,9 @@ ModulePath::ModulePath(
             c = '/';
     }
 
-    std::string_view pathView = filePath;
-
-    bool removedSuffix = false;
-    for (std::string_view suffix : kInitSuffixes)
-    {
-        if (!removedSuffix && hasSuffix(pathView, suffix))
-        {
-            pathView.remove_suffix(suffix.size());
-            removedSuffix = true;
-        }
-    }
-    for (std::string_view suffix : kSuffixes)
-    {
-        if (!removedSuffix && hasSuffix(pathView, suffix))
-        {
-            pathView.remove_suffix(suffix.size());
-            removedSuffix = true;
-        }
-    }
+    std::string_view pathView = removeExtension(filePath);
 
     assert(endRootDirectory < pathView.size());
-
     if (endRootDirectory == pathView.size() - 1)
     {
         realPathPrefix = pathView;
@@ -62,6 +65,12 @@ ModulePath::ModulePath(
 
     realPathPrefix = pathView.substr(0, endRootDirectory + 1);
     modulePath = pathView.substr(endRootDirectory + 1);
+
+    if (this->relativePathToTrack)
+    {
+        std::string_view relativePathView = removeExtension(*this->relativePathToTrack);
+        this->relativePathToTrack = relativePathView;
+    }
 }
 
 ResolvedRealPath ModulePath::getRealPath() const
