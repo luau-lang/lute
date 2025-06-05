@@ -523,6 +523,44 @@ local function fetchDependency(dependencyInfo: Tune)
 	end
 end
 
+local function getTuneFilesHash(): string
+	local externPath = projectRelative("extern")
+	local files = fs.listdir(externPath)
+
+	table.sort(files, function(a, b)
+		return a.name < b.name
+	end)
+
+	local toHash = ""
+
+	for _, file in files do
+		if not string.find(file.name, ".tune") then
+			continue
+		end
+
+		if file.type ~= "file" then
+			continue
+		end
+
+		toHash ..= file.name
+		toHash ..= fs.readfiletostring(joinPath(externPath, file.name))
+	end
+
+	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
+	return hexify(digest)
+end
+
+local function areTuneFilesUpToDate(): boolean
+	local hashFile = projectRelative("extern", "generated", "hash.txt")
+
+	if safeFsType(hashFile) ~= "file" then
+		return false
+	end
+
+	local hash = fs.readfiletostring(hashFile)
+	return hash == getTuneFilesHash()
+end
+
 local function fetchDependencies(): number
 	local files = fs.listdir(projectRelative("extern"))
 
@@ -533,7 +571,23 @@ local function fetchDependencies(): number
 		end
 	end
 
+	local generatedPath = projectRelative("extern", "generated")
+	pcall(fs.mkdir, generatedPath)
+
+	local hash = fs.open(joinPath(generatedPath, "hash.txt"), "w+")
+	fs.write(hash, getTuneFilesHash())
+	fs.close(hash)
+
 	return 0
+end
+
+local function fetchDependenciesIfNeeded(): number
+	if areTuneFilesUpToDate() then
+		return 0
+	end
+
+	print("Fetching dependencies, tune files are out of date.")
+	return fetchDependencies()
 end
 
 local function configure()
@@ -542,7 +596,7 @@ local function configure()
 
 	table.move(arguments, 1, #arguments, 2, cmd)
 
-	check(fetchDependencies())
+	check(fetchDependenciesIfNeeded())
 	return call(cmd)
 end
 
