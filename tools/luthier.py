@@ -173,7 +173,7 @@ def getStdLibHash():
     restoredPath = os.getcwd()
     os.chdir(os.path.join(getSourceRoot(), 'lute/std/libs'))
 
-    hasher = blake2b()
+    hasher = blake2b(digest_size=32)
     for dirpath, _, filenames in os.walk('.'):
         for filename in sorted(filenames):
             filepath = os.path.join(dirpath, filename)
@@ -273,7 +273,7 @@ def getCliCommandsHash():
     restoredPath = os.getcwd()
     os.chdir(os.path.join(getSourceRoot(), 'lute/cli/commands'))
 
-    hasher = blake2b()
+    hasher = blake2b(digest_size=32)
     for dirpath, _, filenames in os.walk('.'):
         for filename in sorted(filenames):
             filepath = os.path.join(dirpath, filename)
@@ -494,6 +494,36 @@ def fetchDependency(dependencyInfo):
         # if it doesn't exist, we'll do a shallow clone
         return call(['git', 'clone', '--depth=1', '--branch', dependency['branch'], dependency['remote'], "extern/" + dependency['name']])
 
+def getTuneFilesHash():
+    externPath = os.path.join(getSourceRoot(), "extern")
+    files = []
+    for entry in os.scandir(externPath):
+        if entry.is_file() and entry.name.endswith(".tune"):
+            files.append(entry.name)
+    files.sort()
+
+    hasher = blake2b(digest_size=32)
+    for fileName in files:
+        filePath = os.path.join(externPath, fileName)
+        with open(filePath, "r") as f:
+            hasher.update(fileName.encode('utf-8'))
+            hasher.update(f.read().encode('utf-8'))
+
+    print(hasher.hexdigest())
+    return hasher.hexdigest()
+
+def areTuneFilesUpToDate():
+    hashFile = os.path.join(getSourceRoot(), "extern", "generated", "hash.txt")
+    if not os.path.isfile(hashFile):
+        return False
+
+    with open(hashFile, 'r') as f:
+        lines = f.readlines()
+        assert(len(lines) == 1)
+        actual = lines[0]
+        expected = getTuneFilesHash()
+        return actual == expected
+
 def fetchDependencies(args):
     for _, _, files in os.walk('extern'):
         for file in files:
@@ -501,7 +531,21 @@ def fetchDependencies(args):
                 dependencyInfo = readTuneFile(os.path.join('extern', file))
                 check(fetchDependency(dependencyInfo))
 
+    generatedPath = os.path.join(getSourceRoot(), "extern", "generated")
+    os.makedirs(generatedPath, exist_ok=True)
+
+    hashFilePath = os.path.join(generatedPath, "hash.txt")
+    with open(hashFilePath, "w") as hash:
+        hash.write(getTuneFilesHash())
+
     return 0
+
+def fetchDependenciesIfNeeded(args):
+    if areTuneFilesUpToDate():
+        return 0
+
+    print("Fetching dependencies, tune files are out of date.")
+    return fetchDependencies(args)
 
 def configure(args):
     """Runs any necessary configuration steps to generate build files"""
@@ -509,8 +553,7 @@ def configure(args):
         "cmake",
     ] + getConfigureArguments(args)
 
-    # fetchDependencies is too slow.
-    # check(fetchDependencies(args))
+    check(fetchDependenciesIfNeeded(args))
     return call(cmd)
 
 def check(exitCode):
