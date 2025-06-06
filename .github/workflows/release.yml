@@ -131,7 +131,7 @@ jobs:
       - name: Get project version
         id: get_version
         run: |
-          VERSION=$(cmake -P get_version.cmake 2>&1)
+          VERSION=$(cmake -P CMakeBuild/get_version.cmake 2>&1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create Nightly Tag
