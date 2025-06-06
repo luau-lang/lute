@@ -27,12 +27,11 @@ outputs:
     description: "Path to the compiled executable"
     value: ${{ steps.artifact_path.outputs.exe_path }}
 
-env:
-  RUNTIME: ${{ inputs.use-python-luthier && 'python' || 'lute' }}
-  EXTENSION: ${{ inputs.use-python-luthier && 'py' || 'luau' }}
-
 runs:
   using: "composite"
+  env:
+    RUNTIME: ${{ inputs.use-python-luthier && 'python' || 'lute' }}
+    EXTENSION: ${{ inputs.use-python-luthier && 'py' || 'luau' }}
   steps:
     - name: Install tools
       uses: Roblox/setup-foreman@v3
