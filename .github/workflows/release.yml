@@ -140,6 +140,7 @@ jobs:
 
       - name: Create Release
         uses: luau-lang/action-gh-release@v2
+        if: github.event_name == 'workflow_dispatch'
         with:
           tag_name: ${{ steps.tag_release.outputs.tag }}
           name: ${{ steps.tag_release.outputs.tag }}
