@@ -42,8 +42,15 @@ runs:
           echo "ext=luau" >> "$GITHUB_OUTPUT"
         fi
 
+    - name: Set up Python
+      if: inputs.use-python-luthier
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
     - name: Install tools
       uses: Roblox/setup-foreman@v3
+      if: inputs.use-python-luthier == false
       with:
         token: ${{ inputs.token }}
         allow-external-github-orgs: true
