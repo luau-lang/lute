@@ -32,6 +32,7 @@ jobs:
           config: debug
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          use-python-luthier: true
 
   test:
     runs-on: ubuntu-latest
