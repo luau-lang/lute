@@ -114,7 +114,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          sparse-checkout: get_version.cmake
+          sparse-checkout: CMakeBuild/get_version.cmake
 
       - name: Download Artifact
         uses: actions/download-artifact@v4
