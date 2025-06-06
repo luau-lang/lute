@@ -50,7 +50,6 @@ runs:
 
     - name: Install tools
       uses: Roblox/setup-foreman@v3
-      if: inputs.use-python-luthier == false
       with:
         token: ${{ inputs.token }}
         allow-external-github-orgs: true
