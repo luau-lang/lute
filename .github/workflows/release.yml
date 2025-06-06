@@ -4,6 +4,17 @@ on:
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
+    inputs:
+      use-python-luthier:
+        description: "Use the Python version of Luthier"
+        required: false
+        default: false
+        type: boolean
+      nightly:
+        description: "Trigger a nightly build"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   check:
@@ -84,6 +95,7 @@ jobs:
         config: release
         options: ${{ matrix.options }}
         token: ${{ secrets.GITHUB_TOKEN }}
+        use-python-luthier: ${{ github.event.inputs.use-python-luthier }}
     
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
@@ -124,7 +136,7 @@ jobs:
 
       - name: Create Nightly Tag
         id: tag_step
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || github.event.inputs.nightly
         run: |
           DATE=$(date +%Y%m%d)
           TAG="-nightly.$DATE"
@@ -140,9 +152,9 @@ jobs:
 
       - name: Create Release
         uses: luau-lang/action-gh-release@v2
-        if: github.event_name == 'workflow_dispatch'
         with:
           tag_name: ${{ steps.tag_release.outputs.tag }}
           name: ${{ steps.tag_release.outputs.tag }}
           draft: false
+          prerelease: ${{ github.event.inputs.nightly || github.event_name == 'schedule' }}
           files: release/*.zip
