@@ -145,5 +145,4 @@ jobs:
           tag_name: ${{ steps.tag_release.outputs.tag }}
           name: ${{ steps.tag_release.outputs.tag }}
           draft: false
-          prerelease: ${{ github.event_name == 'schedule' }}
           files: release/*.zip
