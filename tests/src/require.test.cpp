@@ -1,11 +1,11 @@
 #include "doctest.h"
 
-#include "lua.h"
 #include "lute/require.h"
 
 #include "Luau/Require.h"
+
+#include "lua.h"
 #include "lualib.h"
-#include <memory>
 
 #include <memory>
 

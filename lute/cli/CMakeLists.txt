@@ -26,7 +26,7 @@ target_sources(Lute.CLI.lib PRIVATE
 
 target_compile_features(Lute.CLI.lib PUBLIC cxx_std_17)
 target_include_directories(Lute.CLI.lib PUBLIC include)
-target_link_libraries(Lute.CLI.lib PRIVATE Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.CLI.Commands Lute.Runtime Lute.Crypto Lute.Fs Lute.Luau Lute.Net Lute.Task Lute.VM Lute.Process Lute.System Lute.Time Luau.CLI.lib)
+target_link_libraries(Lute.CLI.lib PRIVATE Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.CLI.Commands Lute.Require Lute.Runtime Lute.Crypto Lute.Fs Lute.Luau Lute.Net Lute.Task Lute.VM Lute.Process Lute.System Lute.Time Luau.CLI.lib)
 target_compile_options(Lute.CLI.lib PRIVATE ${LUTE_OPTIONS})
 
 add_executable(Lute.CLI)

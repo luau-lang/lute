@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Luau/Variant.h"
-#include "lua.h"
 #include "lute/ref.h"
 
 #include <atomic>
@@ -12,6 +11,8 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+struct lua_State;
 
 struct ThreadToContinue
 {
