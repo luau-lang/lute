@@ -3,7 +3,6 @@
 #include "lute/modulepath.h"
 
 #include "Luau/FileUtils.h"
-#include <iostream>
 
 static std::string getLuteProjectRoot()
 {
