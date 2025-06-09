@@ -1,6 +1,6 @@
 #include "lute/clivfs.h"
 
-#include "clicommands.h"
+#include "lute/clicommands.h"
 
 #include "Luau/Common.h"
 

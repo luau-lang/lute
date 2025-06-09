@@ -1,4 +1,4 @@
-#include "compile.h"
+#include "lute/compile.h"
 
 #include "lute/options.h"
 #include "uv.h"

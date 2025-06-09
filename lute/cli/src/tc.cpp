@@ -1,4 +1,4 @@
-#include "tc.h"
+#include "lute/tc.h"
 
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/Error.h"
