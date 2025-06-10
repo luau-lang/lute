@@ -1,0 +1,5 @@
+[dependency]
+name = "zlib"
+remote = "https://github.com/madler/zlib.git"
+branch = "v1.3.1"
+revision = "51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"

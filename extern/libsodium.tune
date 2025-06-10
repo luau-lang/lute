@@ -1,0 +1,5 @@
+[dependency]
+name = "libsodium"
+remote = "https://github.com/jedisct1/libsodium.git"
+branch = "1.0.20-RELEASE"
+revision = "9511c982fb1d046470a8b42aa36556cdb7da15de"

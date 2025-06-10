@@ -1,3 +1,5 @@
+--!strict
+
 local crypto = require("@lute/crypto")
 local fs = require("@lute/fs")
 local process = require("@lute/process")
@@ -42,13 +44,13 @@ local isLinux = string.find(os, "linux") ~= nil
 
 local targetMap: { [string]: { exeName: string } } = {
 	lute = {
-		exeName = "lute",
+		exeName = "lute/cli/lute",
 	},
 	["Lute.CLI"] = {
-		exeName = "lute",
+		exeName = "lute/cli/lute",
 	},
 	["Lute.Test"] = {
-		exeName = "lute-tests",
+		exeName = "tests/lute-tests",
 	},
 }
 
@@ -174,22 +176,73 @@ local function hexify(digest)
 	return table.concat(hex)
 end
 
+local function traverseFileTree(path: string, callback: (string, string) -> ())
+	local directories: { { path: string, relativePath: string } } = { { path = path, relativePath = "" } }
+
+	while #directories > 0 do
+		local currentDir = directories[1]
+		callback(currentDir.path, currentDir.relativePath)
+
+		local contents = fs.listdir(currentDir.path)
+		table.sort(contents, function(a, b)
+			return a.name < b.name
+		end)
+
+		for _, file in contents do
+			local fullPath = currentDir.path .. "/" .. file.name
+
+			if safeFsType(fullPath) ~= "file" then
+				continue
+			end
+
+			local fullRelativePath = currentDir.relativePath
+			if #fullRelativePath ~= 0 then
+				fullRelativePath ..= "/"
+			end
+			fullRelativePath ..= file.name
+
+			callback(fullPath, fullRelativePath)
+		end
+
+		for _, directory in contents do
+			local fullPath = currentDir.path .. "/" .. directory.name
+
+			if safeFsType(fullPath) ~= "dir" then
+				continue
+			end
+
+			local fullRelativePath = currentDir.relativePath
+			if #fullRelativePath ~= 0 then
+				fullRelativePath ..= "/"
+			end
+			fullRelativePath ..= directory.name
+
+			table.insert(directories, { path = fullPath, relativePath = fullRelativePath })
+		end
+
+		table.remove(directories, 1)
+	end
+end
+
 local function getStdLibHash(): string
-	local libsPath = projectRelative("std", "libs")
+	local libsPath = projectRelative("lute", "std", "libs")
 	local libs = fs.listdir(libsPath)
 
 	local toHash = ""
-	for _, lib in libs do
-		toHash ..= lib.name
-		toHash ..= fs.readfiletostring(joinPath(libsPath, lib.name))
-	end
+
+	traverseFileTree(libsPath, function(path, relativePath)
+		if safeFsType(path) == "file" then
+			toHash ..= "./" .. relativePath
+			toHash ..= fs.readfiletostring(path)
+		end
+	end)
 
 	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
 	return hexify(digest)
 end
 
 local function isGeneratedStdLibUpToDate(): boolean
-	local hashFile = projectRelative("std", "src", "generated", "hash.txt")
+	local hashFile = projectRelative("lute", "std", "src", "generated", "hash.txt")
 
 	if safeFsType(hashFile) ~= "file" then
 		return false
@@ -205,7 +258,7 @@ local function writeLines(file, lines: { string })
 end
 
 local function generateStdLibFilesIfNeeded()
-	local generatedPath = projectRelative("std", "src", "generated")
+	local generatedPath = projectRelative("lute", "std", "src", "generated")
 	pcall(fs.mkdir, generatedPath)
 
 	if isGeneratedStdLibUpToDate() then
@@ -225,14 +278,28 @@ local function generateStdLibFilesIfNeeded()
 		"constexpr std::pair<std::string_view, std::string_view> lutestdlib[] = {",
 	})
 
-	local libsPath = projectRelative("std", "libs")
+	local libsPath = projectRelative("lute", "std", "libs")
 	local libs = fs.listdir(libsPath)
+	local numItems = 0
 
-	for _, lib in libs do
-		local aliasedPath = `@std/{lib.name}`
-		local libSrc = fs.readfiletostring(joinPath(libsPath, lib.name))
-		fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
-	end
+	traverseFileTree(libsPath, function(path, relativePath)
+		if #relativePath == 0 then
+			return -- Skip the root directory
+		end
+
+		local aliasedPath = "@std/" .. relativePath
+
+		if safeFsType(path) == "file" then
+			local libSrc = fs.readfiletostring(path)
+			fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+		end
+
+		if safeFsType(path) == "dir" then
+			fs.write(cpp, `\n    \{"{aliasedPath}", "#directory"},\n`)
+		end
+
+		numItems += 1
+	end)
 
 	fs.write(cpp, "};\n")
 	fs.close(cpp)
@@ -245,7 +312,7 @@ local function generateStdLibFilesIfNeeded()
 		"#include <string_view>",
 		"#include <utility>",
 		"",
-		`extern const std::pair<std::string_view, std::string_view> lutestdlib[{#libs}];`,
+		`extern const std::pair<std::string_view, std::string_view> lutestdlib[{numItems}];`,
 	})
 	fs.close(header)
 
@@ -274,6 +341,101 @@ local function generateTypeDefinitionFiles()
 	end
 
 	fs.writestringtofile("cli/commands/setup/generated-types.luau", string.format(TYPEDEF_PATTERN, stringDictionary))
+end
+
+local function getCliCommandsHash()
+	local libsPath = projectRelative("lute", "cli", "commands")
+	local toHash = ""
+
+	traverseFileTree(libsPath, function(path, relativePath)
+		if safeFsType(path) == "file" then
+			toHash ..= "./" .. relativePath
+			toHash ..= fs.readfiletostring(path)
+		end
+	end)
+
+	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
+	return hexify(digest)
+end
+
+local function isGeneratedCliCommandsUpToDate()
+	local hashFile = projectRelative("lute", "cli", "generated", "hash.txt")
+
+	if safeFsType(hashFile) ~= "file" then
+		return false
+	end
+
+	local hash = fs.readfiletostring(hashFile)
+
+	return hash == getCliCommandsHash()
+end
+
+local function generateCliCommandsFilesIfNeeded()
+	local generatedPath = projectRelative("lute", "cli", "generated")
+	pcall(fs.mkdir, generatedPath)
+
+	if isGeneratedCliCommandsUpToDate() then
+		return
+	end
+
+	print("Generating code for CLI commands, files are out of date.")
+
+	local cpp = fs.open(joinPath(generatedPath, "commands.cpp"), "w+")
+
+	writeLines(cpp, {
+		"// This file is auto-generated by luthier.luau. Do not edit.",
+		"// Instead, you should modify the source files in `cli/commands`.",
+		"",
+		'#include "commands.h"',
+		"",
+		"constexpr std::pair<std::string_view, std::string_view> luteclicommands[] = {",
+	})
+
+	local libsPath = projectRelative("lute", "cli", "commands")
+	local numItems = 0
+
+	traverseFileTree(libsPath, function(path, relativePath)
+		if #relativePath == 0 then
+			return -- Skip the root directory
+		end
+
+		local aliasedPath = "@cli/" .. relativePath
+
+		if safeFsType(path) == "file" then
+			local libSrc = fs.readfiletostring(path)
+			fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+		end
+
+		if safeFsType(path) == "dir" then
+			fs.write(cpp, `\n    \{"{aliasedPath}", "#directory"},\n`)
+		end
+
+		numItems += 1
+	end)
+
+	fs.write(cpp, "};\n")
+	fs.close(cpp)
+
+	local header = fs.open(joinPath(generatedPath, "commands.h"), "w+")
+	writeLines(header, {
+		"// This file is auto-generated by luthier.luau. Do not edit.",
+		"#pragma once",
+		"",
+		"#include <string_view>",
+		"#include <utility>",
+		"",
+		`extern const std::pair<std::string_view, std::string_view> luteclicommands[{numItems}];`,
+	})
+	fs.close(header)
+
+	local hash = fs.open(joinPath(generatedPath, "hash.txt"), "w+")
+	fs.write(hash, getCliCommandsHash())
+	fs.close(hash)
+end
+
+local function generateFilesIfNeeded()
+	generateStdLibFilesIfNeeded()
+	generateCliCommandsFilesIfNeeded()
 end
 
 local function getExePath(): string
@@ -360,9 +522,7 @@ local function fetchDependency(dependencyInfo: Tune)
 
 	if safeFsType(dependencyPath) == "dir" then
 		check(call({ "git", "fetch", "--depth=1", "origin", dependency.revision }, dependencyPath))
-		local result = call({ "git", "checkout", dependency.revision }, dependencyPath)
-		check(call({ "git", "submodule", "update", "--init", "--recursive", "--depth=1" }, dependencyPath))
-		return result
+		return call({ "git", "checkout", dependency.revision }, dependencyPath)
 	end
 
 	if gitVersionInfo.major >= 3 or (gitVersionInfo.major == 2 and gitVersionInfo.minor >= 49) then
@@ -370,7 +530,6 @@ local function fetchDependency(dependencyInfo: Tune)
 			"git",
 			"clone",
 			"--depth=1",
-			"--recurse-submodules",
 			"--revision",
 			dependency.revision,
 			dependency.remote,
@@ -381,13 +540,50 @@ local function fetchDependency(dependencyInfo: Tune)
 			"git",
 			"clone",
 			"--depth=1",
-			"--recurse-submodules",
 			"--branch",
 			dependency.branch,
 			dependency.remote,
 			"extern/" .. dependency.name,
 		})
 	end
+end
+
+local function getTuneFilesHash(): string
+	local externPath = projectRelative("extern")
+	local files = fs.listdir(externPath)
+
+	table.sort(files, function(a, b)
+		return a.name < b.name
+	end)
+
+	local toHash = ""
+
+	for _, file in files do
+		if not string.find(file.name, ".tune") then
+			continue
+		end
+
+		if file.type ~= "file" then
+			continue
+		end
+
+		toHash ..= file.name
+		toHash ..= fs.readfiletostring(joinPath(externPath, file.name))
+	end
+
+	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
+	return hexify(digest)
+end
+
+local function areTuneFilesUpToDate(): boolean
+	local hashFile = projectRelative("extern", "generated", "hash.txt")
+
+	if safeFsType(hashFile) ~= "file" then
+		return false
+	end
+
+	local hash = fs.readfiletostring(hashFile)
+	return hash == getTuneFilesHash()
 end
 
 local function fetchDependencies(): number
@@ -400,7 +596,23 @@ local function fetchDependencies(): number
 		end
 	end
 
+	local generatedPath = projectRelative("extern", "generated")
+	pcall(fs.mkdir, generatedPath)
+
+	local hash = fs.open(joinPath(generatedPath, "hash.txt"), "w+")
+	fs.write(hash, getTuneFilesHash())
+	fs.close(hash)
+
 	return 0
+end
+
+local function fetchDependenciesIfNeeded(): number
+	if areTuneFilesUpToDate() then
+		return 0
+	end
+
+	print("Fetching dependencies, tune files are out of date.")
+	return fetchDependencies()
 end
 
 local function configure()
@@ -409,7 +621,7 @@ local function configure()
 
 	table.move(arguments, 1, #arguments, 2, cmd)
 
-	check(fetchDependencies())
+	check(fetchDependenciesIfNeeded())
 	return call(cmd)
 end
 
@@ -453,6 +665,11 @@ elseif subcommand == "configure" or subcommand == "tune" then
 elseif subcommand == "build" or subcommand == "craft" then
 	generateTypeDefinitionFiles()
 	generateStdLibFilesIfNeeded()
+elseif subcommand == "configure" or subcommand == "tune" then
+	generateFilesIfNeeded()
+	exitCode = configure()
+elseif subcommand == "build" or subcommand == "craft" then
+	generateFilesIfNeeded()
 
 	if not projectPathExists() then
 		check(configure())
@@ -460,8 +677,7 @@ elseif subcommand == "build" or subcommand == "craft" then
 
 	exitCode = build()
 elseif subcommand == "run" or subcommand == "play" then
-	generateTypeDefinitionFiles()
-	generateStdLibFilesIfNeeded()
+	generateFilesIfNeeded()
 
 	if not projectPathExists() then
 		check(configure())
