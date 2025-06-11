@@ -5,11 +5,6 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
-      use-python-luthier:
-        description: "Use the Python version of Luthier"
-        required: false
-        default: false
-        type: boolean
       nightly:
         description: "Trigger a nightly build"
         required: false
@@ -95,8 +90,7 @@ jobs:
         config: release
         options: ${{ matrix.options }}
         token: ${{ secrets.GITHUB_TOKEN }}
-        use-python-luthier: ${{ github.event.inputs.use-python-luthier }}
-    
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:

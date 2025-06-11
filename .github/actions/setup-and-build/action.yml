@@ -13,11 +13,6 @@ inputs:
     description: "Additional luthier options"
     required: false
     default: ""
-  use-python-luthier:
-    description: "Builds with the python version of luthier"
-    type: boolean
-    required: false
-    default: false
   token:
     description: "Token for foreman"
     required: true
@@ -34,19 +29,8 @@ runs:
       id: run
       shell: bash
       run: |
-        if [ "${{ inputs.use-python-luthier }}" = "true" ]; then
-          echo "runtime=python" >> "$GITHUB_OUTPUT"
-          echo "ext=py" >> "$GITHUB_OUTPUT"
-        else
           echo "runtime=lute" >> "$GITHUB_OUTPUT"
           echo "ext=luau" >> "$GITHUB_OUTPUT"
-        fi
-
-    - name: Set up Python
-      if: inputs.use-python-luthier
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
 
     - name: Install tools
       uses: Roblox/setup-foreman@v3
