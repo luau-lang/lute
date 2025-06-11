@@ -43,7 +43,6 @@ runs:
       shell: bash
       run: |
         brew update
-        brew unlink brotli zstd
 
     - name: Set up MSVC
       if: runner.os == 'Windows'
