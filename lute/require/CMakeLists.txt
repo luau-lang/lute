@@ -3,6 +3,7 @@ add_library(Lute.Require)
 target_sources(Lute.Require PRIVATE
     include/lute/clivfs.h
     include/lute/filevfs.h
+    include/lute/libraryvfs.h
     include/lute/modulepath.h
     include/lute/options.h
     include/lute/require.h
@@ -11,6 +12,7 @@ target_sources(Lute.Require PRIVATE
 
     src/clivfs.cpp
     src/filevfs.cpp
+    src/libraryvfs.cpp
     src/modulepath.cpp
     src/options.cpp
     src/require.cpp

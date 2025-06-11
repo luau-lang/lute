@@ -2,6 +2,7 @@
 
 #include "lute/clivfs.h"
 #include "lute/filevfs.h"
+#include "lute/libraryvfs.h"
 #include "lute/modulepath.h"
 #include "lute/stdlibvfs.h"
 
@@ -40,6 +41,7 @@ private:
         Disk,
         Std,
         Cli,
+        Library,
         Lute,
     };
 
@@ -48,6 +50,7 @@ private:
     FileVfs fileVfs;
     StdLibVfs stdLibVfs;
     std::optional<CliVfs> cliVfs = std::nullopt;
+    std::optional<Library::Vfs> libraryVfs = std::nullopt;
     std::string lutePath;
 
     bool atFakeRoot = false;
