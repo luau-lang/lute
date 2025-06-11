@@ -4,6 +4,10 @@ target_sources(Lute.Test PRIVATE
     src/doctest.h
     src/main.cpp
 
+    src/luteprojectroot.h
+    src/luteprojectroot.cpp
+
+    src/modulepath.test.cpp
     src/require.test.cpp)
 
 set_target_properties(Lute.Test PROPERTIES OUTPUT_NAME lute-tests)

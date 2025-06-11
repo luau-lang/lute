@@ -1,5 +1,6 @@
 #include "lute/stdlibvfs.h"
 
+#include "lute/modulepath.h"
 #include "lute/stdlib.h"
 
 #include "Luau/Common.h"
@@ -29,23 +30,19 @@ static bool isStdLibDirectory(const std::string& path)
 
 NavigationStatus StdLibVfs::resetToPath(const std::string& path)
 {
-    std::string stdPrefix = "@std/";
-
     if (path == "@std")
     {
-        modulePath = ModulePath(stdPrefix, stdPrefix.size() - 1, isStdLibModule, isStdLibDirectory);
-        return NavigationStatus::Success;
+        modulePath = ModulePath::create("@std", "", isStdLibModule, isStdLibDirectory);
+        return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
     }
+
+    std::string stdPrefix = "@std/";
 
     if (path.find_first_of(stdPrefix) != 0)
         return NavigationStatus::NotFound;
 
-    StdLibModuleResult result = getStdLibModule(path);
-    if (result.type == StdLibModuleType::NotFound)
-        return NavigationStatus::NotFound;
-
-    modulePath = ModulePath(path, stdPrefix.size() - 1, isStdLibModule, isStdLibDirectory);
-    return NavigationStatus::Success;
+    modulePath = ModulePath::create("@std", path.substr(stdPrefix.size()), isStdLibModule, isStdLibDirectory);
+    return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
 }
 
 NavigationStatus StdLibVfs::toParent()

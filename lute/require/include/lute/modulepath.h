@@ -20,9 +20,15 @@ struct ResolvedRealPath
 class ModulePath
 {
 public:
-    ModulePath(
+    // (rootDirectory + '/' + filePath) is the full path to the initial file.
+    // rootDirectory serves as the boundary for parenting, preventing toParent()
+    // from navigating above it. In the simplest cases, rootDirectory might be
+    // "C:" (Windows) or "" (Unix-like systems), but it could be a more specific
+    // directory in cases where the ModulePath is intended to power navigation
+    // strictly within a subtree of a virtual filesystem.
+    static std::optional<ModulePath> create(
+        std::string rootDirectory,
         std::string filePath,
-        size_t endRootDirectory,
         bool (*isAFile)(const std::string&),
         bool (*isADirectory)(const std::string&),
         std::optional<std::string> relativePathToTrack = std::nullopt
@@ -35,10 +41,18 @@ public:
     NavigationStatus toChild(const std::string& name);
 
 private:
+    ModulePath(
+        std::string realPathPrefix,
+        std::string modulePath,
+        bool (*isAFile)(const std::string&),
+        bool (*isADirectory)(const std::string&),
+        std::optional<std::string> relativePathToTrack = std::nullopt
+    );
+
     bool (*isAFile)(const std::string&);
     bool (*isADirectory)(const std::string&);
 
-    std::string modulePath;
     std::string realPathPrefix;
+    std::string modulePath;
     std::optional<std::string> relativePathToTrack;
 };

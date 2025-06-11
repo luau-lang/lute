@@ -17,57 +17,72 @@ static bool hasSuffix(std::string_view str, std::string_view suffix)
 
 static std::string_view removeExtension(std::string_view path)
 {
-    bool removedSuffix = false;
     for (std::string_view suffix : kInitSuffixes)
     {
-        if (!removedSuffix && hasSuffix(path, suffix))
+        if (hasSuffix(path, suffix))
         {
             path.remove_suffix(suffix.size());
-            removedSuffix = true;
+            return path;
         }
     }
     for (std::string_view suffix : kSuffixes)
     {
-        if (!removedSuffix && hasSuffix(path, suffix))
+        if (hasSuffix(path, suffix))
         {
             path.remove_suffix(suffix.size());
-            removedSuffix = true;
+            return path;
         }
     }
     return path;
 }
 
-ModulePath::ModulePath(
+std::optional<ModulePath> ModulePath::create(
+    std::string rootDirectory,
     std::string filePath,
-    size_t endRootDirectory,
     bool (*isAFile)(const std::string&),
     bool (*isADirectory)(const std::string&),
     std::optional<std::string> relativePathToTrack
 )
-    : isAFile(isAFile)
-    , isADirectory(isADirectory)
-    , relativePathToTrack(std::move(relativePathToTrack))
 {
+    for (char& c : rootDirectory)
+    {
+        if (c == '\\')
+            c = '/';
+    }
+
     for (char& c : filePath)
     {
         if (c == '\\')
             c = '/';
     }
 
-    std::string_view pathView = removeExtension(filePath);
+    std::string_view modulePath = removeExtension(filePath);
 
-    assert(endRootDirectory < pathView.size());
-    if (endRootDirectory == pathView.size() - 1)
-    {
-        realPathPrefix = pathView;
-        return;
-    }
+    if (relativePathToTrack)
+        relativePathToTrack = removeExtension(*relativePathToTrack);
 
-    realPathPrefix = pathView.substr(0, endRootDirectory + 1);
-    modulePath = pathView.substr(endRootDirectory + 1);
+    ModulePath mp = ModulePath(std::move(rootDirectory), std::string{modulePath}, isAFile, isADirectory, std::move(relativePathToTrack));
 
-    if (this->relativePathToTrack)
-        this->relativePathToTrack = removeExtension(*this->relativePathToTrack);
+    // The ModulePath must start in a valid state.
+    if (mp.getRealPath().status == NavigationStatus::NotFound)
+        return std::nullopt;
+
+    return mp;
+}
+
+ModulePath::ModulePath(
+    std::string realPathPrefix,
+    std::string modulePath,
+    bool (*isAFile)(const std::string&),
+    bool (*isADirectory)(const std::string&),
+    std::optional<std::string> relativePathToTrack
+)
+    : isAFile(isAFile)
+    , isADirectory(isADirectory)
+    , realPathPrefix(std::move(realPathPrefix))
+    , modulePath(std::move(modulePath))
+    , relativePathToTrack(std::move(relativePathToTrack))
+{
 }
 
 ResolvedRealPath ModulePath::getRealPath() const
@@ -79,7 +94,12 @@ ResolvedRealPath ModulePath::getRealPath() const
     if (size_t lastSlash = modulePath.find_last_of('/'); lastSlash != std::string::npos)
         lastComponent = modulePath.substr(lastSlash + 1);
 
-    std::string partialRealPath = realPathPrefix + modulePath;
+    std::string partialRealPath = realPathPrefix;
+    if (!modulePath.empty())
+    {
+        partialRealPath += '/';
+        partialRealPath += modulePath;
+    }
 
     if (lastComponent != "init")
     {
