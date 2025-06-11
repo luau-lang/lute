@@ -9,6 +9,12 @@ std::string getLuteProjectRootAbsolute()
     std::optional<std::string> cwd = getCurrentWorkingDirectory();
     REQUIRE(cwd);
 
+    for (char& c : *cwd)
+    {
+        if (c == '\\')
+            c = '/';
+    }
+
     std::string luteDir = *cwd;
 
     for (int i = 0; i < 20; ++i)
