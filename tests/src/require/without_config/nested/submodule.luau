@@ -1,1 +1,1 @@
-return {"result from submodule"}
+return { "result from submodule" }

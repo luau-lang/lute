@@ -4,7 +4,7 @@ assert(#args >= 3)
 
 local shouldPass = args[2] == "pass"
 
-local ok, result = pcall(require, args[3])
+local ok: boolean, result: { string } = pcall(require, args[3])
 assert(ok == shouldPass)
 
 if ok then

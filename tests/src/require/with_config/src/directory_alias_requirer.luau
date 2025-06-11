@@ -1,1 +1,1 @@
-return(require("@subdir/subdirectory_dependency"))
+return (require("@subdir/subdirectory_dependency"))
