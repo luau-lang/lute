@@ -1,5 +1,6 @@
 #include "lute/spawn.h"
 
+#include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/runtime.h"
 
@@ -9,9 +10,6 @@
 
 #include "lua.h"
 #include "lualib.h"
-
-// TODO: move setup to a reachable place as well
-lua_State* setupState(Runtime& runtime);
 
 struct TargetFunction
 {
@@ -173,13 +171,44 @@ static int crossVmMarshallCont(lua_State* L, int status)
 namespace vm
 {
 
+static void* createChildVmRequireContext(lua_State* L)
+{
+    void* ctx = lua_newuserdatadtor(
+        L,
+        sizeof(RequireCtx),
+        [](void* ptr)
+        {
+            static_cast<RequireCtx*>(ptr)->~RequireCtx();
+        }
+    );
+
+    if (!ctx)
+        luaL_error(L, "unable to allocate RequireCtx");
+
+    ctx = new (ctx) RequireCtx{};
+
+    // Store RequireCtx in the registry to keep it alive for the lifetime of
+    // this lua_State. Memory address is used as a key to avoid collisions.
+    lua_pushlightuserdata(L, ctx);
+    lua_insert(L, -2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return ctx;
+}
+
 int lua_spawn(lua_State* L)
 {
     const char* file = luaL_checkstring(L, 1);
 
     auto child = std::make_shared<Runtime>();
 
-    setupState(*child);
+    setupState(
+        *child,
+        [](lua_State* L)
+        {
+            luaopen_require(L, requireConfigInit, createChildVmRequireContext(L));
+        }
+    );
 
     lua_Debug ar;
     lua_getinfo(L, 1, "s", &ar);

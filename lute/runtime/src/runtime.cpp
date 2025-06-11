@@ -1,6 +1,19 @@
 #include "lute/runtime.h"
 
+#include "lute/crypto.h"
+#include "lute/fs.h"
+#include "lute/luau.h"
+#include "lute/net.h"
+#include "lute/process.h"
+#include "lute/system.h"
+#include "lute/task.h"
+#include "lute/vm.h"
+#include "lute/time.h"
+
+#include "Luau/Require.h"
+
 #include "lua.h"
+#include "lualib.h"
 
 #include "uv.h"
 
@@ -292,4 +305,59 @@ ResumeToken getResumeToken(lua_State* L)
     token->runtime->addPendingToken();
 
     return token;
+}
+
+static void luteopen_libs(lua_State* L)
+{
+    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
+        {"@lute/crypto", luteopen_crypto},
+        {"@lute/fs", luteopen_fs},
+        {"@lute/luau", luteopen_luau},
+        {"@lute/net", luteopen_net},
+        {"@lute/process", luteopen_process},
+        {"@lute/task", luteopen_task},
+        {"@lute/vm", luteopen_vm},
+        {"@lute/system", luteopen_system},
+        {"@lute/time", luteopen_time},
+    }};
+
+    for (const auto& [name, func] : libs)
+    {
+        lua_pushcfunction(L, luarequire_registermodule, nullptr);
+        lua_pushstring(L, name);
+        func(L);
+        lua_call(L, 2, 0);
+    }
+}
+
+lua_State* setupState(Runtime& runtime, void (*doBeforeSandbox)(lua_State*))
+{
+    // Separate VM for data copies
+    runtime.dataCopy.reset(luaL_newstate());
+
+    runtime.globalState.reset(luaL_newstate());
+
+    lua_State* L = runtime.globalState.get();
+
+    runtime.GL = L;
+
+    lua_setthreaddata(L, &runtime);
+
+    // register the builtin tables
+    luaL_openlibs(L);
+
+    luteopen_libs(L);
+
+    lua_pushnil(L);
+    lua_setglobal(L, "setfenv");
+
+    lua_pushnil(L);
+    lua_setglobal(L, "getfenv");
+
+    if (doBeforeSandbox)
+        doBeforeSandbox(L);
+
+    luaL_sandbox(L);
+
+    return L;
 }

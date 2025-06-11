@@ -2,4 +2,5 @@
 
 #include <string>
 
-std::string getLuteProjectRoot();
+std::string getLuteProjectRootAbsolute();
+std::string getLuteProjectRootRelative();

@@ -1,0 +1,21 @@
+local crypto = require("@lute/crypto")
+local fs = require("@lute/fs")
+local luau = require("@lute/luau")
+local net = require("@lute/net")
+local process = require("@lute/process")
+local task = require("@lute/task")
+local vm = require("@lute/vm")
+local system = require("@lute/system")
+local time = require("@lute/time")
+
+assert(type(crypto) == "table")
+assert(type(fs) == "table")
+assert(type(luau) == "table")
+assert(type(net) == "table")
+assert(type(process) == "table")
+assert(type(task) == "table")
+assert(type(vm) == "table")
+assert(type(system) == "table")
+assert(type(time) == "table")
+
+return { "successfully required @lute modules" }
