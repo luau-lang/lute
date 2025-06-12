@@ -1,4 +1,3 @@
-print("1")
 local result = require("@dep")
-result[#result + 1] = "externally facing dep"
+result[#result + 1] = "external"
 return result

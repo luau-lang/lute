@@ -1,2 +1,1 @@
-print("2")
-return { "required internal dep" }
+return { "internal" }
