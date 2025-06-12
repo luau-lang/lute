@@ -34,7 +34,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+      fail-fast: false
 
     steps:
       - name: Checkout code
