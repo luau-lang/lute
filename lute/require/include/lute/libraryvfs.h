@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+
 namespace Library
 {
 
@@ -33,7 +34,6 @@ class Subtree
 public:
     static std::optional<Subtree> create(Info info);
 
-    NavigationStatus resetToPath(const std::string& path);
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
 

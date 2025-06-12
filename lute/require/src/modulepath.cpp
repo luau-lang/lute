@@ -203,20 +203,3 @@ NavigationStatus ModulePath::toChild(const std::string& name)
 
     return getRealPath().status;
 }
-
-std::optional<ModulePath> ModulePath::createIfInSameScope(std::string path) const
-{
-    for (char& c : path)
-    {
-        if (c == '\\')
-            c = '/';
-    }
-
-    if (path.find(realPathPrefix + "/") != 0)
-    {
-        // The path is not in the scope of this ModulePath.
-        return std::nullopt;
-    }
-
-    return ModulePath::create(realPathPrefix, path.substr(realPathPrefix.size() + 1), isAFile, isADirectory, std::nullopt);
-}

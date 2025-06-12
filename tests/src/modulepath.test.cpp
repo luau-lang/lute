@@ -49,31 +49,3 @@ TEST_CASE("module_path")
         }
     }
 }
-
-TEST_CASE("module_path_create_if_in_same_scope")
-{
-    for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
-    {
-        std::string modulePathRoot = joinPaths(luteProjectRoot, "tests/src/modulepathroot");
-        std::string file = "module/init.luau";
-
-        std::optional<ModulePath> mp = ModulePath::create(modulePathRoot, file, isFile, isDirectory);
-        REQUIRE(mp);
-
-        SUBCASE("in_same_scope")
-        {
-            std::optional<ModulePath> newMp = mp->createIfInSameScope(joinPaths(modulePathRoot, "module/submodule.luau"));
-            CHECK(newMp);
-        }
-        SUBCASE("not_in_same_scope")
-        {
-            std::optional<ModulePath> newMp = mp->createIfInSameScope("/does/not/exist.luau");
-            CHECK(!newMp);
-        }
-        SUBCASE("in_same_scope_but_not_real")
-        {
-            std::optional<ModulePath> newMp = mp->createIfInSameScope(joinPaths(modulePathRoot, "othermodule/init.luau"));
-            CHECK(!newMp);
-        }
-    }
-}

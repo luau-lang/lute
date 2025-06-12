@@ -63,6 +63,7 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
     else if (!path.empty() && path[0] == '$')
     {
         // "$library:version" is interpreted as a library identifier.
+        vfsType = VFSType::Library;
         return libraryVfs.jumpToLibrary(std::string(path));
     }
 

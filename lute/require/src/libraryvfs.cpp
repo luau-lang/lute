@@ -49,18 +49,6 @@ Subtree::Subtree(ModulePath currentModulePath, std::string generatedRootLuaurc)
 {
 }
 
-NavigationStatus Subtree::resetToPath(const std::string& path)
-{
-    std::optional<ModulePath> mp = currentModulePath.createIfInSameScope(path);
-    if (!mp)
-        return NavigationStatus::NotFound;
-
-    currentModulePath = std::move(*mp);
-    atGeneratedRoot = false;
-
-    return NavigationStatus::Success;
-}
-
 NavigationStatus Subtree::toParent()
 {
     NavigationStatus status = currentModulePath.toParent();
