@@ -78,7 +78,7 @@ private:
     enum class VFSType
     {
         Disk,
-        Library,
+        Subtree,
     };
 
     VFSType vfsType = VFSType::Disk;

@@ -167,7 +167,7 @@ NavigationStatus Vfs::jumpToLibrary(Identifier identifier)
         return NavigationStatus::NotFound;
 
     currentSubtree = std::move(*st);
-    vfsType = VFSType::Library;
+    vfsType = VFSType::Subtree;
     atDiskFakeRoot = false;
 
     return NavigationStatus::Success;
@@ -182,7 +182,7 @@ NavigationStatus Vfs::toParent()
     case VFSType::Disk:
         status = fileVfs.toParent();
         break;
-    case VFSType::Library:
+    case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         status = currentSubtree->toParent();
         break;
@@ -211,7 +211,7 @@ NavigationStatus Vfs::toChild(const std::string& name)
     {
     case VFSType::Disk:
         return fileVfs.toChild(name);
-    case VFSType::Library:
+    case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->toChild(name);
     default:
@@ -228,7 +228,7 @@ bool Vfs::isConfigPresent() const
     {
     case VFSType::Disk:
         return fileVfs.isConfigPresent();
-    case VFSType::Library:
+    case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->isConfigPresent();
     default:
@@ -245,7 +245,7 @@ std::optional<std::string> Vfs::getConfig() const
     {
     case VFSType::Disk:
         return fileVfs.getConfig();
-    case VFSType::Library:
+    case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->getConfig();
     default:
@@ -262,7 +262,7 @@ bool Vfs::isModulePresent() const
     {
     case VFSType::Disk:
         return fileVfs.isModulePresent();
-    case VFSType::Library:
+    case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->isModulePresent();
     default:
@@ -281,7 +281,7 @@ std::string Vfs::getCurrentPath() const
     {
     case VFSType::Disk:
         return fileVfs.getAbsoluteFilePath();
-    case VFSType::Library:
+    case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->getCurrentPath();
     default:
