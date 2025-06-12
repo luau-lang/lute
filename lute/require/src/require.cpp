@@ -3,6 +3,7 @@
 #include "lute/clivfs.h"
 #include "lute/modulepath.h"
 #include "lute/options.h"
+#include "lute/requirevfs.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -11,6 +12,8 @@
 #include "Luau/CodeGen.h"
 #include "Luau/Require.h"
 #include "Luau/StringUtils.h"
+
+#include <memory>
 #include <string>
 
 static luarequire_WriteResult write(std::optional<std::string> contents, char* buffer, size_t bufferSize, size_t* sizeOut)
@@ -45,67 +48,67 @@ static luarequire_NavigateResult convert(NavigationStatus status)
 static bool is_require_allowed(lua_State* L, void* ctx, const char* requirer_chunkname)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return reqCtx->vfs.isRequireAllowed(L, requirer_chunkname);
+    return reqCtx->vfs->isRequireAllowed(L, requirer_chunkname);
 }
 
 static luarequire_NavigateResult reset(lua_State* L, void* ctx, const char* requirer_chunkname)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return convert(reqCtx->vfs.reset(L, requirer_chunkname));
+    return convert(reqCtx->vfs->reset(L, requirer_chunkname));
 }
 
 static luarequire_NavigateResult jump_to_alias(lua_State* L, void* ctx, const char* path)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return convert(reqCtx->vfs.jumpToAlias(L, path));
+    return convert(reqCtx->vfs->jumpToAlias(L, path));
 }
 
 static luarequire_NavigateResult to_parent(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return convert(reqCtx->vfs.toParent(L));
+    return convert(reqCtx->vfs->toParent(L));
 }
 
 static luarequire_NavigateResult to_child(lua_State* L, void* ctx, const char* name)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return convert(reqCtx->vfs.toChild(L, name));
+    return convert(reqCtx->vfs->toChild(L, name));
 }
 
 static bool is_module_present(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return reqCtx->vfs.isModulePresent(L);
+    return reqCtx->vfs->isModulePresent(L);
 }
 
 static luarequire_WriteResult get_chunkname(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return write(reqCtx->vfs.getChunkname(L), buffer, buffer_size, size_out);
+    return write(reqCtx->vfs->getChunkname(L), buffer, buffer_size, size_out);
 }
 
 static luarequire_WriteResult get_loadname(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return write(reqCtx->vfs.getLoadname(L), buffer, buffer_size, size_out);
+    return write(reqCtx->vfs->getLoadname(L), buffer, buffer_size, size_out);
 }
 
 static luarequire_WriteResult get_cache_key(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return write(reqCtx->vfs.getCacheKey(L), buffer, buffer_size, size_out);
+    return write(reqCtx->vfs->getCacheKey(L), buffer, buffer_size, size_out);
 }
 
 static bool is_config_present(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return reqCtx->vfs.isConfigPresent(L);
+    return reqCtx->vfs->isConfigPresent(L);
 }
 
 static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return write(reqCtx->vfs.getConfig(L), buffer, buffer_size, size_out);
+    return write(reqCtx->vfs->getConfig(L), buffer, buffer_size, size_out);
 }
 
 static int load(lua_State* L, void* ctx, const char* path, const char* chunkname, const char* loadname)
@@ -120,7 +123,7 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     luaL_sandboxthread(ML);
 
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    std::optional<std::string> contents = reqCtx->vfs.getContents(L, loadname);
+    std::optional<std::string> contents = reqCtx->vfs->getContents(L, loadname);
     if (!contents)
         luaL_error(L, "could not read file '%s'", loadname);
 
@@ -190,11 +193,11 @@ void requireConfigInit(luarequire_Configuration* config)
 }
 
 RequireCtx::RequireCtx()
-    : vfs()
+    : vfs(std::make_unique<RequireVfs>())
 {
 }
 
 RequireCtx::RequireCtx(CliVfs cliVfs)
-    : vfs(cliVfs)
+    : vfs(std::make_unique<RequireVfs>(std::move(cliVfs)))
 {
 }
