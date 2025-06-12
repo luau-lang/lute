@@ -32,6 +32,7 @@ class Subtree
 public:
     static std::optional<Subtree> create(Info info);
 
+    NavigationStatus resetToPath(const std::string& path);
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
 
@@ -39,7 +40,8 @@ public:
     std::optional<std::string> getConfig() const;
 
     bool isModulePresent() const;
-    std::optional<std::string> getContents() const;
+
+    std::string getCurrentPath() const;
 
 private:
     Subtree(ModulePath currentModulePath, std::string generatedRootLuaurc);
@@ -54,7 +56,9 @@ class Vfs
 public:
     static std::optional<Vfs> create(Info entryPoint, std::vector<std::pair<Identifier, Info>> libraries);
 
-    NavigationStatus jumpToLibrary(Identifier identifier);
+    NavigationStatus resetToPath(const std::string& path);
+    NavigationStatus jumpToLibrary(const std::string& identifierStringified);
+
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
 
@@ -62,7 +66,9 @@ public:
     std::optional<std::string> getConfig() const;
 
     bool isModulePresent() const;
-    std::optional<std::string> getContents() const;
+    std::optional<std::string> getContents(const std::string& path) const;
+
+    std::string getCurrentPath() const;
 
 private:
     Vfs(Info entryPoint, Subtree currentSubtree, std::map<Identifier, Info> libraries);

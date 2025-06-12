@@ -192,12 +192,7 @@ void requireConfigInit(luarequire_Configuration* config)
     config->load = load;
 }
 
-RequireCtx::RequireCtx()
-    : vfs(std::make_unique<RequireVfs>())
-{
-}
-
-RequireCtx::RequireCtx(CliVfs cliVfs)
-    : vfs(std::make_unique<RequireVfs>(std::move(cliVfs)))
+RequireCtx::RequireCtx(std::unique_ptr<IRequireVfs> vfs)
+    : vfs(std::move(vfs))
 {
 }

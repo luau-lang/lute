@@ -40,6 +40,8 @@ public:
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
 
+    std::optional<ModulePath> createIfInSameScope(std::string path) const;
+
 private:
     ModulePath(
         std::string realPathPrefix,

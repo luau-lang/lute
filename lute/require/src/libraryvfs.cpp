@@ -10,71 +10,6 @@
 namespace Library
 {
 
-std::optional<Vfs> Vfs::create(Info entryPoint, std::vector<std::pair<Identifier, Info>> libraries)
-{
-    std::optional<Subtree> currentSubtree = Subtree::create(entryPoint);
-    if (!currentSubtree)
-        return std::nullopt;
-
-    std::map<Identifier, Info> librariesMap;
-    for (auto& [identifier, info] : libraries)
-    {
-        librariesMap[std::move(identifier)] = std::move(info);
-    }
-
-    return Vfs{std::move(entryPoint), std::move(*currentSubtree), std::move(librariesMap)};
-}
-
-Vfs::Vfs(Info entryPoint, Subtree currentSubtree, std::map<Identifier, Info> libraries)
-    : entryInfo(std::move(entryPoint))
-    , currentSubtree(std::move(currentSubtree))
-    , libraries(std::move(libraries))
-{
-}
-
-NavigationStatus Vfs::jumpToLibrary(Identifier identifier)
-{
-    if (libraries.find(identifier) == libraries.end())
-        return NavigationStatus::NotFound;
-
-    std::optional<Subtree> st = Subtree::create(libraries[identifier]);
-    if (!st)
-        return NavigationStatus::NotFound;
-
-    currentSubtree = std::move(*st);
-    return NavigationStatus::Success;
-}
-
-NavigationStatus Vfs::toParent()
-{
-    return currentSubtree.toParent();
-}
-
-NavigationStatus Vfs::toChild(const std::string& name)
-{
-    return currentSubtree.toChild(name);
-}
-
-bool Vfs::isConfigPresent() const
-{
-    return currentSubtree.isConfigPresent();
-}
-
-std::optional<std::string> Vfs::getConfig() const
-{
-    return currentSubtree.getConfig();
-}
-
-bool Vfs::isModulePresent() const
-{
-    return currentSubtree.isModulePresent();
-}
-
-std::optional<std::string> Vfs::getContents() const
-{
-    return currentSubtree.getContents();
-}
-
 static std::string generateRootLuaurc(const std::vector<Identifier>& dependencies)
 {
     std::string rootLuaurc = "{\n    \"aliases\": {\n";
@@ -108,6 +43,18 @@ Subtree::Subtree(ModulePath currentModulePath, std::string generatedRootLuaurc)
     : currentModulePath(std::move(currentModulePath))
     , generatedRootLuaurc(std::move(generatedRootLuaurc))
 {
+}
+
+NavigationStatus Subtree::resetToPath(const std::string& path)
+{
+    std::optional<ModulePath> mp = currentModulePath.createIfInSameScope(path);
+    if (!mp)
+        return NavigationStatus::NotFound;
+
+    currentModulePath = std::move(*mp);
+    atGeneratedRoot = false;
+
+    return NavigationStatus::Success;
 }
 
 NavigationStatus Subtree::toParent()
@@ -159,13 +106,99 @@ bool Subtree::isModulePresent() const
     return isFile(result.realPath);
 }
 
-std::optional<std::string> Subtree::getContents() const
+std::string Subtree::getCurrentPath() const
 {
     ResolvedRealPath result = currentModulePath.getRealPath();
     if (result.status != NavigationStatus::Success)
+        return "";
+
+    return result.realPath;
+}
+
+std::optional<Vfs> Vfs::create(Info entryPoint, std::vector<std::pair<Identifier, Info>> libraries)
+{
+    std::optional<Subtree> currentSubtree = Subtree::create(entryPoint);
+    if (!currentSubtree)
         return std::nullopt;
 
-    return readFile(result.realPath);
+    std::map<Identifier, Info> librariesMap;
+    for (auto& [identifier, info] : libraries)
+    {
+        librariesMap[std::move(identifier)] = std::move(info);
+    }
+
+    return Vfs{std::move(entryPoint), std::move(*currentSubtree), std::move(librariesMap)};
+}
+
+Vfs::Vfs(Info entryPoint, Subtree currentSubtree, std::map<Identifier, Info> libraries)
+    : entryInfo(std::move(entryPoint))
+    , currentSubtree(std::move(currentSubtree))
+    , libraries(std::move(libraries))
+{
+}
+
+NavigationStatus Vfs::resetToPath(const std::string& path)
+{
+    return currentSubtree.resetToPath(path);
+}
+
+NavigationStatus Vfs::jumpToLibrary(const std::string& identifierStringified)
+{
+    if (identifierStringified.empty() || identifierStringified[0] != '$')
+        return NavigationStatus::NotFound;
+
+    Identifier identifier;
+    size_t colonPos = identifierStringified.find(':');
+    if (colonPos == std::string::npos)
+        return NavigationStatus::NotFound;
+
+    identifier.name = identifierStringified.substr(1, colonPos - 1);
+    identifier.version = identifierStringified.substr(colonPos + 1);
+
+    if (libraries.find(identifier) == libraries.end())
+        return NavigationStatus::NotFound;
+
+    std::optional<Subtree> st = Subtree::create(libraries.at(identifier));
+    if (!st)
+        return NavigationStatus::NotFound;
+
+    currentSubtree = std::move(*st);
+    return NavigationStatus::Success;
+}
+
+NavigationStatus Vfs::toParent()
+{
+    return currentSubtree.toParent();
+}
+
+NavigationStatus Vfs::toChild(const std::string& name)
+{
+    return currentSubtree.toChild(name);
+}
+
+bool Vfs::isConfigPresent() const
+{
+    return currentSubtree.isConfigPresent();
+}
+
+std::optional<std::string> Vfs::getConfig() const
+{
+    return currentSubtree.getConfig();
+}
+
+bool Vfs::isModulePresent() const
+{
+    return currentSubtree.isModulePresent();
+}
+
+std::optional<std::string> Vfs::getContents(const std::string& path) const
+{
+    return readFile(path);
+}
+
+std::string Vfs::getCurrentPath() const
+{
+    return currentSubtree.getCurrentPath();
 }
 
 } // namespace Library

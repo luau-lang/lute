@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lute/clivfs.h"
+#include "lute/modulepath.h"
 
 #include "Luau/Require.h"
 
@@ -35,8 +35,7 @@ public:
 
 struct RequireCtx
 {
-    RequireCtx();
-    RequireCtx(CliVfs cliVfs);
+    RequireCtx(std::unique_ptr<IRequireVfs> vfs);
 
     std::unique_ptr<IRequireVfs> vfs;
 };
