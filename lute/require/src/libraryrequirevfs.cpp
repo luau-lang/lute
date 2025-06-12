@@ -36,7 +36,7 @@ NavigationStatus RequireVfs::reset(lua_State* L, std::string_view requirerChunkn
     vfsType = VFSType::Library;
     if (requirerChunkname.empty() || requirerChunkname[0] != '@')
         return NavigationStatus::NotFound;
-    
+
     if (!isAbsolutePath(requirerChunkname.substr(1)))
     {
         // For now, we only support absolute paths in the library VFS.

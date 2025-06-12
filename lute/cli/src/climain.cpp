@@ -81,7 +81,7 @@ bool setupArguments(lua_State* L, int argc, char** argv)
     return true;
 }
 
-static bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL)
+bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL)
 {
     // module needs to run in a new thread, isolated from the rest
     lua_State* L = lua_newthread(GL);

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "modulepath.h"
+#include "lute/filevfs.h"
+#include "lute/modulepath.h"
 
 #include <map>
 #include <optional>
@@ -54,7 +55,7 @@ private:
 class Vfs
 {
 public:
-    static std::optional<Vfs> create(Info entryPoint, std::vector<std::pair<Identifier, Info>> libraries);
+    static Vfs create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> libraries);
 
     NavigationStatus resetToPath(const std::string& path);
     NavigationStatus jumpToLibrary(const std::string& identifierStringified);
@@ -71,11 +72,23 @@ public:
     std::string getCurrentPath() const;
 
 private:
-    Vfs(Info entryPoint, Subtree currentSubtree, std::map<Identifier, Info> libraries);
+    Vfs(std::map<Identifier, Info> libraries, std::string generatedRootLuaurc);
+    NavigationStatus jumpToLibrary(Identifier identifier);
 
-    Info entryInfo;
-    Subtree currentSubtree;
+    enum class VFSType
+    {
+        Disk,
+        Library,
+    };
+
+    VFSType vfsType = VFSType::Disk;
+
+    FileVfs fileVfs;
+    std::optional<Subtree> currentSubtree = std::nullopt;
     std::map<Identifier, Info> libraries;
+
+    bool atDiskFakeRoot = false;
+    std::string generatedRootLuaurc;
 };
 
 } // namespace Library

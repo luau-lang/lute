@@ -1,5 +1,6 @@
 #include "lute/libraryvfs.h"
 
+#include "Luau/Common.h"
 #include "lute/modulepath.h"
 
 #include "Luau/FileUtils.h"
@@ -27,7 +28,10 @@ std::optional<Subtree> Subtree::create(Info info)
     if (entryFile.find(info.rootDirectory) != 0)
         return std::nullopt;
 
-    if (entryFile.size() <= info.rootDirectory.size() || entryFile[info.rootDirectory.size()] != '/' || entryFile[info.rootDirectory.size()] != '\\')
+    if (entryFile.size() <= info.rootDirectory.size())
+        return std::nullopt;
+
+    if (entryFile[info.rootDirectory.size()] != '/' && entryFile[info.rootDirectory.size()] != '\\')
         return std::nullopt;
 
     std::string entryFileWithoutRoot = info.entryFile.substr(info.rootDirectory.size() + 1);
@@ -115,31 +119,38 @@ std::string Subtree::getCurrentPath() const
     return result.realPath;
 }
 
-std::optional<Vfs> Vfs::create(Info entryPoint, std::vector<std::pair<Identifier, Info>> libraries)
+Vfs Vfs::create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> libraries)
 {
-    std::optional<Subtree> currentSubtree = Subtree::create(entryPoint);
-    if (!currentSubtree)
-        return std::nullopt;
-
     std::map<Identifier, Info> librariesMap;
     for (auto& [identifier, info] : libraries)
     {
         librariesMap[std::move(identifier)] = std::move(info);
     }
 
-    return Vfs{std::move(entryPoint), std::move(*currentSubtree), std::move(librariesMap)};
+    return Vfs{std::move(librariesMap), generateRootLuaurc(directDependencies)};
 }
 
-Vfs::Vfs(Info entryPoint, Subtree currentSubtree, std::map<Identifier, Info> libraries)
-    : entryInfo(std::move(entryPoint))
-    , currentSubtree(std::move(currentSubtree))
-    , libraries(std::move(libraries))
+Vfs::Vfs(std::map<Identifier, Info> libraries, std::string generatedRootLuaurc)
+    : libraries(std::move(libraries))
+    , generatedRootLuaurc(std::move(generatedRootLuaurc))
 {
 }
 
 NavigationStatus Vfs::resetToPath(const std::string& path)
 {
-    return currentSubtree.resetToPath(path);
+    for (const auto& [identifier, info] : libraries)
+    {
+        if (path.find(info.rootDirectory) == 0)
+        {
+            return jumpToLibrary(identifier);
+        }
+    }
+
+    currentSubtree = std::nullopt;
+    vfsType = VFSType::Disk;
+    atDiskFakeRoot = false;
+
+    return fileVfs.resetToPath(path);
 }
 
 NavigationStatus Vfs::jumpToLibrary(const std::string& identifierStringified)
@@ -155,6 +166,11 @@ NavigationStatus Vfs::jumpToLibrary(const std::string& identifierStringified)
     identifier.name = identifierStringified.substr(1, colonPos - 1);
     identifier.version = identifierStringified.substr(colonPos + 1);
 
+    return jumpToLibrary(identifier);
+}
+
+NavigationStatus Vfs::jumpToLibrary(Identifier identifier)
+{
     if (libraries.find(identifier) == libraries.end())
         return NavigationStatus::NotFound;
 
@@ -163,32 +179,107 @@ NavigationStatus Vfs::jumpToLibrary(const std::string& identifierStringified)
         return NavigationStatus::NotFound;
 
     currentSubtree = std::move(*st);
+    vfsType = VFSType::Library;
+    atDiskFakeRoot = false;
+
     return NavigationStatus::Success;
 }
 
 NavigationStatus Vfs::toParent()
 {
-    return currentSubtree.toParent();
+    NavigationStatus status;
+
+    switch (vfsType)
+    {
+    case VFSType::Disk:
+        status = fileVfs.toParent();
+        break;
+    case VFSType::Library:
+        LUAU_ASSERT(currentSubtree);
+        status = currentSubtree->toParent();
+        break;
+    default:
+        status = NavigationStatus::NotFound;
+        break;
+    }
+
+    if (status == NavigationStatus::NotFound)
+    {
+        if (atDiskFakeRoot)
+            return NavigationStatus::NotFound;
+
+        atDiskFakeRoot = true;
+        return NavigationStatus::Success;
+    }
+
+    return status;
 }
 
 NavigationStatus Vfs::toChild(const std::string& name)
 {
-    return currentSubtree.toChild(name);
+    atDiskFakeRoot = false;
+
+    switch (vfsType)
+    {
+    case VFSType::Disk:
+        return fileVfs.toChild(name);
+    case VFSType::Library:
+        LUAU_ASSERT(currentSubtree);
+        return currentSubtree->toChild(name);
+    default:
+        return NavigationStatus::NotFound;
+    }
 }
 
 bool Vfs::isConfigPresent() const
 {
-    return currentSubtree.isConfigPresent();
+    if (atDiskFakeRoot)
+        return true;
+
+    switch (vfsType)
+    {
+    case VFSType::Disk:
+        return fileVfs.isConfigPresent();
+    case VFSType::Library:
+        LUAU_ASSERT(currentSubtree);
+        return currentSubtree->isConfigPresent();
+    default:
+        return false;
+    }
 }
 
 std::optional<std::string> Vfs::getConfig() const
 {
-    return currentSubtree.getConfig();
+    if (atDiskFakeRoot)
+        return generatedRootLuaurc;
+
+    switch (vfsType)
+    {
+    case VFSType::Disk:
+        return fileVfs.getConfig();
+    case VFSType::Library:
+        LUAU_ASSERT(currentSubtree);
+        return currentSubtree->getConfig();
+    default:
+        return std::nullopt;
+    }
 }
 
 bool Vfs::isModulePresent() const
 {
-    return currentSubtree.isModulePresent();
+    if (atDiskFakeRoot)
+        return false;
+
+    switch (vfsType)
+    {
+    case VFSType::Disk:
+        return fileVfs.isModulePresent();
+    case VFSType::Library:
+        LUAU_ASSERT(currentSubtree);
+        return currentSubtree->isModulePresent();
+    default:
+        return false;
+    }
 }
 
 std::optional<std::string> Vfs::getContents(const std::string& path) const
@@ -198,7 +289,16 @@ std::optional<std::string> Vfs::getContents(const std::string& path) const
 
 std::string Vfs::getCurrentPath() const
 {
-    return currentSubtree.getCurrentPath();
+    switch (vfsType)
+    {
+    case VFSType::Disk:
+        return fileVfs.getAbsoluteFilePath();
+    case VFSType::Library:
+        LUAU_ASSERT(currentSubtree);
+        return currentSubtree->getCurrentPath();
+    default:
+        return "";
+    }
 }
 
 } // namespace Library
