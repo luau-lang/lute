@@ -553,6 +553,7 @@ export type ParseResult = {
 	root: AstStatBlock,
 	eof: Eof,
 	lines: number,
+	lineOffsets: { number },
 }
 
 function luau.parse(source: string): ParseResult

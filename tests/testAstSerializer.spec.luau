@@ -3,7 +3,7 @@ local fs = require("@lute/fs")
 
 local parser = require("@batteries/syntax/parser")
 local printer = require("@batteries/syntax/printer")
-local T = require("@batteries/syntax/ast_types")
+local T = require("@lute/luau")
 
 local function assertEqualsLocation(
 	actual: T.Location,
@@ -25,7 +25,7 @@ local function test_tokenContainsLeadingSpaces()
 	local l = block.statements[1]
 	assert(l.tag == "local")
 
-	local token = l["local"]
+	local token = l.localKeyword
 	assert(#token.leadingTrivia == 1)
 	assert(token.leadingTrivia[1].tag == "whitespace")
 	assert(token.leadingTrivia[1].text == "  ")
@@ -39,7 +39,7 @@ local function test_tokenContainsLeadingNewline()
 	local l = block.statements[1]
 	assert(l.tag == "local")
 
-	local token = l["local"]
+	local token = l.localKeyword
 	assert(#token.leadingTrivia == 1)
 	assert(token.leadingTrivia[1].tag == "whitespace")
 	assert(token.leadingTrivia[1].text == "\n")
@@ -53,7 +53,7 @@ local function test_tokenContainsLeadingSingleLineComment()
 	local l = block.statements[1]
 	assert(l.tag == "local")
 
-	local token = l["local"]
+	local token = l.localKeyword
 	assert(#token.leadingTrivia == 2)
 	assert(token.leadingTrivia[1].tag == "comment")
 	assert(token.leadingTrivia[1].text == "-- comment")
@@ -70,7 +70,7 @@ local function test_tokenContainsLeadingBlockComment()
 	local l = block.statements[1]
 	assert(l.tag == "local")
 
-	local token = l["local"]
+	local token = l.localKeyword
 	assert(#token.leadingTrivia == 2)
 	assert(token.leadingTrivia[1].tag == "blockcomment")
 	assert(token.leadingTrivia[1].text == "--[[ comment ]]")
@@ -87,7 +87,7 @@ local function test_tokenizeWhitespace()
 	local l = block.statements[1]
 	assert(l.tag == "local")
 
-	local token = l["local"]
+	local token = l.localKeyword
 	assert(#token.leadingTrivia == 3)
 	assert(token.leadingTrivia[1].text == "  \n")
 	assert(token.leadingTrivia[2].text == "\t\t\n")
@@ -111,7 +111,7 @@ local function test_triviaSplitBetweenLeadingAndTrailing()
 	local secondStmt = block.statements[2]
 	assert(secondStmt.tag == "local")
 
-	local leadingToken = secondStmt["local"]
+	local leadingToken = secondStmt.localKeyword
 	assert(#leadingToken.leadingTrivia == 2)
 	assert(leadingToken.leadingTrivia[1].text == "-- comment 2")
 	assert(leadingToken.leadingTrivia[2].text == "\n")
@@ -134,6 +134,35 @@ local function test_roundtrippableAst()
 	visitDirectory("tests/astSerializerTests")
 end
 
+local function test_lineOffsetsField()
+	local singleLineCode = "local x = 1"
+	local result = luau.parse(singleLineCode)
+
+	assert(result.lineOffsets)
+	assert(type(result.lineOffsets) == "table", "lineOffsets should be a table")
+	assert(#result.lineOffsets == 1, "Should have 1 line offset for single line code") -- only line 0
+	assert(result.lineOffsets[1] == 0, "First line should start at offset 0")
+
+	local multiLineCode = "local x = 1\nlocal y = 2\nlocal z = 3"
+	local multiResult = luau.parse(multiLineCode)
+
+	assert(multiResult.lineOffsets)
+	assert(type(multiResult.lineOffsets) == "table", "lineOffsets should be a table for multiline")
+	assert(#multiResult.lineOffsets == 3, "Should have 3 line offsets for 3-line code") -- lines 0, 1, 2
+	assert(multiResult.lineOffsets[1] == 0, "First line should start at offset 0")
+	assert(multiResult.lineOffsets[2] == 12, "Second line should start after 'local x = 1\\n'")
+	assert(multiResult.lineOffsets[3] == 24, "Third line should start after 'local x = 1\\nlocal y = 2\\n'")
+
+	local emptyLineCode = "local x = 1\n\nlocal y = 2"
+	local emptyResult = luau.parse(emptyLineCode)
+
+	assert(emptyResult.lineOffsets)
+	assert(#emptyResult.lineOffsets == 3, "Should have 3 line offsets including empty line")
+	assert(emptyResult.lineOffsets[1] == 0, "First line should start at offset 0")
+	assert(emptyResult.lineOffsets[2] == 12, "Second line (empty) should start after 'local x = 1\\n'")
+	assert(emptyResult.lineOffsets[3] == 13, "Third line should start after empty line")
+end
+
 test_tokenContainsLeadingSpaces()
 test_tokenContainsLeadingNewline()
 test_tokenContainsLeadingSingleLineComment()
@@ -141,3 +170,4 @@ test_tokenContainsLeadingBlockComment()
 test_tokenizeWhitespace()
 test_triviaSplitBetweenLeadingAndTrailing()
 test_roundtrippableAst()
+test_lineOffsetsField()
