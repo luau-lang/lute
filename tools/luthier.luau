@@ -321,7 +321,42 @@ local function generateStdLibFilesIfNeeded()
 	fs.close(hash)
 end
 
+local function getTypeDefinitionsHash(): string
+	local libsPath = projectRelative("definitions")
+
+	local toHash = ""
+
+	traverseFileTree(libsPath, function(path, relativePath)
+		if safeFsType(path) == "file" then
+			toHash ..= "./" .. relativePath
+			toHash ..= fs.readfiletostring(path)
+		end
+	end)
+
+	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
+	return hexify(digest)
+end
+
+local function isGeneratedTypeDefinitionsUpToDate(): boolean
+	local hashFile = projectRelative("lute", "cli", "setup", "generated", "hash.txt")
+
+	if safeFsType(hashFile) ~= "file" then
+		return false
+	end
+
+	local hash = fs.readfiletostring(hashFile)
+
+	return hash == getTypeDefinitionsHash()
+end
+
 local function generateTypeDefinitionFiles()
+	local generatedPath = projectRelative("lute", "cli", "commands", "generated")
+	pcall(fs.mkdir, generatedPath)
+
+	if isGeneratedTypeDefinitionsUpToDate() then
+		return
+	end
+
 	local dictionaryEntries: { [string]: string } = {}
 
 	for _, file in fs.listdir("definitions") do
@@ -340,7 +375,10 @@ local function generateTypeDefinitionFiles()
 		stringDictionary ..= string.format(DICTIONARY_PATTERN, key, value)
 	end
 
-	fs.writestringtofile("cli/commands/setup/generated-types.luau", string.format(TYPEDEF_PATTERN, stringDictionary))
+	fs.writestringtofile(
+		"lute/cli/commands/setup/generated/definitions.luau",
+		string.format(TYPEDEF_PATTERN, stringDictionary)
+	)
 end
 
 local function getCliCommandsHash()
