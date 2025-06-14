@@ -2580,10 +2580,12 @@ int luau_parse(lua_State* L)
     lua_setfield(L, -2, "lines");
 
     lua_createtable(L, serializer.lineOffsets.size(), 0);
+    int j = 0;
     for (size_t i = 0; i < serializer.lineOffsets.size(); i++)
     {
+        lua_pushinteger(L, ++j);
         lua_pushnumber(L, serializer.lineOffsets[i]);
-        lua_rawseti(L, -2, i + 1);
+        lua_settable(L, -3);
     }
     lua_setfield(L, -2, "lineOffsets");
 
