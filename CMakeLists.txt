@@ -112,6 +112,7 @@ else()
 endif()
 
 # libraries
+add_subdirectory(lute/require)
 add_subdirectory(lute/runtime)
 add_subdirectory(lute/crypto)
 add_subdirectory(lute/fs)

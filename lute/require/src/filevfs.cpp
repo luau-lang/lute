@@ -17,9 +17,9 @@ NavigationStatus FileVfs::resetToStdIn()
 
     size_t firstSlash = cwd->find_first_of("\\/");
     LUAU_ASSERT(firstSlash != std::string::npos);
-    modulePath = ModulePath(*cwd + "/stdin", firstSlash, isFile, isDirectory, "./");
 
-    return NavigationStatus::Success;
+    modulePath = ModulePath::create(cwd->substr(0, firstSlash), cwd->substr(firstSlash + 1), isFile, isDirectory, "./");
+    return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
 }
 
 NavigationStatus FileVfs::resetToPath(const std::string& path)
@@ -30,7 +30,8 @@ NavigationStatus FileVfs::resetToPath(const std::string& path)
     {
         size_t firstSlash = normalizedPath.find_first_of('/');
         LUAU_ASSERT(firstSlash != std::string::npos);
-        modulePath = ModulePath(normalizedPath, firstSlash, isFile, isDirectory);
+
+        modulePath = ModulePath::create(normalizedPath.substr(0, firstSlash), normalizedPath.substr(firstSlash + 1), isFile, isDirectory);
     }
     else
     {
@@ -42,11 +43,11 @@ NavigationStatus FileVfs::resetToPath(const std::string& path)
 
         size_t firstSlash = joinedPath.find_first_of("\\/");
         LUAU_ASSERT(firstSlash != std::string::npos);
-        modulePath = ModulePath(joinedPath, firstSlash, isFile, isDirectory, normalizedPath);
+
+        modulePath = ModulePath::create(joinedPath.substr(0, firstSlash), joinedPath.substr(firstSlash + 1), isFile, isDirectory, normalizedPath);
     }
 
-    LUAU_ASSERT(modulePath);
-    return modulePath->getRealPath().status;
+    return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
 }
 
 NavigationStatus FileVfs::toParent()

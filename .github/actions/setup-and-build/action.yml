@@ -13,11 +13,6 @@ inputs:
     description: "Additional luthier options"
     required: false
     default: ""
-  use-python-luthier:
-    description: "Builds with the python version of luthier"
-    type: boolean
-    required: false
-    default: false
   token:
     description: "Token for foreman"
     required: true
@@ -30,24 +25,6 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Set runtime variables
-      id: run
-      shell: bash
-      run: |
-        if [ "${{ inputs.use-python-luthier }}" = "true" ]; then
-          echo "runtime=python" >> "$GITHUB_OUTPUT"
-          echo "ext=py" >> "$GITHUB_OUTPUT"
-        else
-          echo "runtime=lute" >> "$GITHUB_OUTPUT"
-          echo "ext=luau" >> "$GITHUB_OUTPUT"
-        fi
-
-    - name: Set up Python
-      if: inputs.use-python-luthier
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-
     - name: Install tools
       uses: Roblox/setup-foreman@v3
       with:
@@ -86,20 +63,20 @@ runs:
     - name: Fetch ${{ inputs.target }}
       if: steps.cache-extern.outputs.cache-hit != 'true'
       shell: bash
-      run: ${{ steps.run.outputs.runtime }} ./tools/luthier.${{ steps.run.outputs.ext }} fetch ${{ inputs.target }}
+      run: lute ./tools/luthier.luau fetch ${{ inputs.target }}
 
     - name: Configure ${{ inputs.target }}
       shell: bash
-      run: ${{ steps.run.outputs.runtime }} ./tools/luthier.${{ steps.run.outputs.ext }} configure ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
+      run: lute ./tools/luthier.luau configure ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build ${{ inputs.target }}
       shell: bash
-      run: ${{ steps.run.outputs.runtime }} ./tools/luthier.${{ steps.run.outputs.ext }} build ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
+      run: lute ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Get Artifact Path
       id: artifact_path
       shell: bash
       run: |
-        exe_path=$(${{ steps.run.outputs.runtime }} ./tools/luthier.${{ steps.run.outputs.ext }} build ${{ inputs.target }} --config ${{ inputs.config }} --which)
+        exe_path=$(lute ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} --which)
         echo "Executable path: $exe_path"  # Debug print
         echo "exe_path=$exe_path" >> "$GITHUB_OUTPUT"

@@ -12,20 +12,11 @@
 #include "lute/clicommands.h"
 #include "lute/clivfs.h"
 #include "lute/compile.h"
-#include "lute/crypto.h"
-#include "lute/fs.h"
-#include "lute/luau.h"
-#include "lute/net.h"
 #include "lute/options.h"
-#include "lute/process.h"
-#include "lute/system.h"
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/runtime.h"
-#include "lute/task.h"
 #include "lute/tc.h"
-#include "lute/vm.h"
-#include "lute/time.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -37,7 +28,7 @@
 static int program_argc = 0;
 static char** program_argv = nullptr;
 
-static void* createCliRequireContext(lua_State* L)
+void* createCliRequireContext(lua_State* L)
 {
     void* ctx = lua_newuserdatadtor(
         L,
@@ -62,61 +53,18 @@ static void* createCliRequireContext(lua_State* L)
     return ctx;
 }
 
-static void luteopen_libs(lua_State* L)
+lua_State* setupCliState(Runtime& runtime)
 {
-    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
-        {"@lute/crypto", luteopen_crypto},
-        {"@lute/fs", luteopen_fs},
-        {"@lute/luau", luteopen_luau},
-        {"@lute/net", luteopen_net},
-        {"@lute/process", luteopen_process},
-        {"@lute/task", luteopen_task},
-        {"@lute/vm", luteopen_vm},
-        {"@lute/system", luteopen_system},
-        {"@lute/time", luteopen_time},
-    }};
+    return setupState(
+        runtime,
+        [](lua_State* L)
+        {
+            if (Luau::CodeGen::isSupported())
+                Luau::CodeGen::create(L);
 
-    for (const auto& [name, func] : libs)
-    {
-        lua_pushcfunction(L, luarequire_registermodule, nullptr);
-        lua_pushstring(L, name);
-        func(L);
-        lua_call(L, 2, 0);
-    }
-}
-
-lua_State* setupState(Runtime& runtime)
-{
-    // Separate VM for data copies
-    runtime.dataCopy.reset(luaL_newstate());
-
-    runtime.globalState.reset(luaL_newstate());
-
-    lua_State* L = runtime.globalState.get();
-
-    runtime.GL = L;
-
-    lua_setthreaddata(L, &runtime);
-
-    /* register new libraries */
-    if (Luau::CodeGen::isSupported())
-        Luau::CodeGen::create(L);
-
-    // register the builtin tables
-    luaL_openlibs(L);
-
-    luaopen_require(L, requireConfigInit, createCliRequireContext(L));
-    luteopen_libs(L);
-
-    lua_pushnil(L);
-    lua_setglobal(L, "setfenv");
-
-    lua_pushnil(L);
-    lua_setglobal(L, "getfenv");
-
-    luaL_sandbox(L);
-
-    return L;
+            luaopen_require(L, requireConfigInit, createCliRequireContext(L));
+        }
+    );
 }
 
 bool setupArguments(lua_State* L, int argc, char** argv)
@@ -285,7 +233,7 @@ int handleRunCommand(int argc, char** argv, int argOffset)
     }
 
     Runtime runtime;
-    lua_State* L = setupState(runtime);
+    lua_State* L = setupCliState(runtime);
 
     bool success = runFile(runtime, filePath, L);
     return success ? 0 : 1;
@@ -395,7 +343,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
 int handleCliCommand(CliCommandResult result)
 {
     Runtime runtime;
-    lua_State* L = setupState(runtime);
+    lua_State* L = setupCliState(runtime);
 
     std::string bytecode = Luau::compile(std::string(result.contents), copts());
     return runBytecode(runtime, bytecode, "@" + result.path, L) ? 0 : 1;
@@ -409,7 +357,7 @@ int cliMain(int argc, char** argv)
     if (embedded.found)
     {
         Runtime runtime;
-        lua_State* GL = setupState(runtime);
+        lua_State* GL = setupCliState(runtime);
 
         program_argc = argc;
         program_argv = argv;

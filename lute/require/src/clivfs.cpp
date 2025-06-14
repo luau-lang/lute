@@ -29,23 +29,19 @@ static bool isCliDirectory(const std::string& path)
 
 NavigationStatus CliVfs::resetToPath(const std::string& path)
 {
-    std::string cliPrefix = "@cli/";
-
     if (path == "@cli")
     {
-        modulePath = ModulePath(cliPrefix, cliPrefix.size() - 1, isCliModule, isCliDirectory);
-        return NavigationStatus::Success;
+        modulePath = ModulePath::create("@cli", "", isCliModule, isCliDirectory);
+        return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
     }
+
+    std::string cliPrefix = "@cli/";
 
     if (path.find_first_of(cliPrefix) != 0)
         return NavigationStatus::NotFound;
 
-    CliModuleResult result = getCliModule(path);
-    if (result.type == CliModuleType::NotFound)
-        return NavigationStatus::NotFound;
-
-    modulePath = ModulePath(path, cliPrefix.size() - 1, isCliModule, isCliDirectory);
-    return NavigationStatus::Success;
+    modulePath = ModulePath::create("@cli", path.substr(cliPrefix.size()), isCliModule, isCliDirectory);
+    return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
 }
 
 NavigationStatus CliVfs::toParent()
