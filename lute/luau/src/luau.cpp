@@ -2565,9 +2565,9 @@ int luau_parse(lua_State* L)
         luaL_error(L, "parsing failed:\n%s", fullError.c_str());
     }
 
-    lua_rawcheckstack(L, 4);
+    lua_rawcheckstack(L, 6);
 
-    lua_createtable(L, 0, 5);
+    lua_createtable(L, 0, 4);
 
     AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
     serializer.visit(result.parseResult.root);
@@ -2580,10 +2580,9 @@ int luau_parse(lua_State* L)
     lua_setfield(L, -2, "lines");
 
     lua_createtable(L, serializer.lineOffsets.size(), 0);
-    int j = 0;
     for (size_t i = 0; i < serializer.lineOffsets.size(); i++)
     {
-        lua_pushinteger(L, ++j);
+        lua_pushinteger(L, i + 1);
         lua_pushnumber(L, serializer.lineOffsets[i]);
         lua_settable(L, -3);
     }
