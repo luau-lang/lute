@@ -534,7 +534,7 @@ local function visitInterpolatedString(node: luau.AstExprInterpString, visitor: 
 	if visitor.visitInterpolatedString(node) then
 		for i = 1, #node.strings do
 			visitToken(node.strings[i], visitor)
-			if i < #node.expressions then
+			if i <= #node.expressions then
 				visitExpression(node.expressions[i], visitor)
 			end
 		end
