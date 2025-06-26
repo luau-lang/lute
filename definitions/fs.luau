@@ -12,6 +12,15 @@ export type DirectoryEntry = {
 	type: FileType,
 }
 
+export type WatchHandle = {
+	close: (self: WatchHandle) -> (),
+}
+
+export type WatchEvent = {
+	change: boolean,
+	rename: boolean,
+}
+
 function fs.open(path: string): FileHandle
 	error("not implemented")
 end
@@ -45,10 +54,10 @@ function fs.link(src: string, dest: string): ()
 end
 
 function fs.symlink(src: string, dest: string): ()
- error("not implemented")
+	error("not implemented")
 end
 
-function fs.watch(path: string, callback: (filename: string, events: { change: boolean, rename: boolean }) -> ()): number
+function fs.watch(path: string, callback: (filename: string, event: WatchEvent) -> ()): WatchHandle
 	error("not implemented")
 end
 

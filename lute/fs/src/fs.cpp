@@ -425,19 +425,30 @@ struct WatchHandle
 {
     lua_State* L;
     std::shared_ptr<Ref> callbackReference;
-    ResumeToken resumeToken;
+    bool isClosed = false;
     uv_fs_event_t handle;
+
+    void close()
+    {
+        if (!isClosed)
+        {
+            int err = uv_fs_event_stop(&handle);
+            if (err)
+            {
+                luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
+            }
+
+            isClosed = true;
+
+            getRuntime(L)->releasePendingToken();
+
+            callbackReference.reset();
+        }
+    }
 
     ~WatchHandle()
     {
-        uv_fs_event_stop(&handle);
-
-        resumeToken->complete(
-            [](lua_State* L)
-            {
-                return 0;
-            }
-        );
+        close();
     }
 };
 
@@ -458,6 +469,8 @@ static int closeWatchHandle(lua_State* L)
         luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
     }
 
+    handle->close();
+
     return 0;
 }
 
@@ -469,7 +482,6 @@ int fs_watch(lua_State* L)
     auto* event = new (static_cast<WatchHandle*>(lua_newuserdatataggedwithmetatable(L, sizeof(WatchHandle), kWatchHandleTag))) WatchHandle{};
 
     event->L = L;
-    event->resumeToken = getResumeToken(L);
     event->callbackReference = std::make_shared<Ref>(L, 2);
     event->handle.data = event;
 
@@ -542,7 +554,9 @@ int fs_watch(lua_State* L)
         luaL_errorL(L, "%s", uv_strerror(event_start_err));
     }
 
-    return lua_yield(L, 1); // yield with the handle
+    getRuntime(L)->addPendingToken();
+
+    return 1; // return the watch handle
 }
 
 int fs_exists(lua_State* L)
@@ -909,7 +923,7 @@ int readasync(lua_State* L)
 
 static void initalizeFS(lua_State* L)
 {
-    lua_createtable(L, 0, 1);
+    luaL_newmetatable(L, "WatchHandle");
 
     lua_pushcfunction(
         L,
@@ -919,15 +933,8 @@ static void initalizeFS(lua_State* L)
 
             if (strcmp(index, "close") == 0)
             {
-                lua_pushcfunction(
-                    L,
-                    [](lua_State* L)
-                    {
-                        // Close the watch handle
-                        return 0;
-                    },
-                    "WatchHandle.close"
-                );
+                lua_pushcfunction(L, fs::closeWatchHandle, "WatchHandle.close");
+
                 return 1;
             }
 
@@ -939,6 +946,17 @@ static void initalizeFS(lua_State* L)
 
     lua_pushstring(L, "WatchHandle");
     lua_setfield(L, -2, "__type");
+
+    lua_setuserdatadtor(
+        L,
+        kWatchHandleTag,
+        [](lua_State* L, void* ud)
+        {
+            auto* handle = static_cast<fs::WatchHandle*>(ud);
+
+            handle->~WatchHandle();
+        }
+    );
 
     lua_setuserdatametatable(L, kWatchHandleTag);
 }
