@@ -333,6 +333,51 @@ int fs_rmdir(lua_State* L)
     return 0;
 }
 
+int fs_exists(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+
+    auto* req = new uv_fs_t();
+    req->data = new ResumeToken(getResumeToken(L));
+
+    int err = uv_fs_stat(
+        uv_default_loop(),
+        req,
+        path,
+        [](uv_fs_t* req)
+        {
+            auto* request_state = static_cast<ResumeToken*>(req->data);
+
+            request_state->get()->complete(
+                [req](lua_State* L)
+                {
+                    if (req->result == UV_ENOENT)
+                    {
+                        lua_pushboolean(L, false); // does not exist
+                    }
+                    else
+                    {
+                        lua_pushboolean(L, true);
+                    }
+
+                    uv_fs_req_cleanup(req);
+
+                    delete req;
+
+                    return 1;
+                }
+            );
+        }
+    );
+
+    if (err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
+
+    return lua_yield(L, 0);
+}
+
 int type(lua_State* L)
 {
     const char* path = luaL_checkstring(L, 1);

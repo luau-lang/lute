@@ -40,6 +40,10 @@ function fs.mkdir(path: string): ()
 	error("not implemented")
 end
 
+function fs.exists(path: string): boolean
+	error("not implemented")
+end
+
 function fs.listdir(path: string): { DirectoryEntry }
 	error("not implemented")
 end
