@@ -46,6 +46,9 @@ int fs_rmdir(lua_State* L);
 /* Checks if a file exists */
 int fs_exists(lua_State* L);
 
+/* Copies a file to another path */
+int fs_copy(lua_State* L);
+
 
 /* Gets the type of a file entry */
 int type(lua_State* L);
@@ -64,6 +67,7 @@ static const luaL_Reg lib[] = {
 
     {"exists", fs_exists},
     {"type", type},
+    {"copy", fs_copy},
 
     {"mkdir", fs_mkdir},
     {"listdir", listdir},

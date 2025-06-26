@@ -333,6 +333,49 @@ int fs_rmdir(lua_State* L)
     return 0;
 }
 
+static void defaultCallback(uv_fs_t* req)
+{
+    auto* request_state = static_cast<ResumeToken*>(req->data);
+
+    if (req->result)
+    {
+        request_state->get()->fail(uv_strerror(req->result));
+        uv_fs_req_cleanup(req);
+        delete req;
+        return;
+    }
+
+    request_state->get()->complete(
+        [req](lua_State* L)
+        {
+            uv_fs_req_cleanup(req);
+
+            delete req;
+
+            return 0;
+        }
+    );
+}
+
+int fs_copy(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    const char* dest = luaL_checkstring(L, 2);
+
+    auto* req = new uv_fs_t();
+    req->data = new ResumeToken(getResumeToken(L));
+
+    int err = uv_fs_copyfile(uv_default_loop(), req, path, dest, 0, defaultCallback);
+
+    if (err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
+
+    return lua_yield(L, 0);
+}
+
+
 int fs_exists(lua_State* L)
 {
     const char* path = luaL_checkstring(L, 1);
