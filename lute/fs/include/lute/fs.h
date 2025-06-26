@@ -49,6 +49,11 @@ int fs_exists(lua_State* L);
 /* Copies a file to another path */
 int fs_copy(lua_State* L);
 
+/* Creates a link to a file */
+int fs_link(lua_State* L);
+
+/* Creates a symlink to a file */
+int fs_symlink(lua_State* L);
 
 /* Gets the type of a file entry */
 int type(lua_State* L);
@@ -67,6 +72,8 @@ static const luaL_Reg lib[] = {
 
     {"exists", fs_exists},
     {"type", type},
+    {"link", fs_link},
+    {"symlink", fs_symlink},
     {"copy", fs_copy},
 
     {"mkdir", fs_mkdir},

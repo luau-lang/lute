@@ -40,6 +40,14 @@ function fs.mkdir(path: string): ()
 	error("not implemented")
 end
 
+function fs.link(src: string, dest: string): ()
+	error("not implemented")
+end
+
+function fs.symlink(src: string, dest: string): ()
+ error("not implemented")
+end
+
 function fs.exists(path: string): boolean
 	error("not implemented")
 end

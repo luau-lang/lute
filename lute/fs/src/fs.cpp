@@ -375,6 +375,50 @@ int fs_copy(lua_State* L)
     return lua_yield(L, 0);
 }
 
+int fs_link(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    const char* dest = luaL_checkstring(L, 2);
+
+    auto* req = new uv_fs_t();
+    req->data = new ResumeToken(getResumeToken(L));
+
+    int err = uv_fs_link(uv_default_loop(), req, path, dest, defaultCallback);
+
+    if (err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
+
+    return lua_yield(L, 0);
+}
+
+int fs_symlink(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    const char* dest = luaL_checkstring(L, 2);
+
+    auto* req = new uv_fs_t();
+    req->data = new ResumeToken(getResumeToken(L));
+
+    if (std::filesystem::is_directory(path))
+    {
+        req->flags = UV_FS_SYMLINK_DIR; // windows
+    }
+    else
+    {
+        req->flags = 0;
+    }
+
+    int err = uv_fs_symlink(uv_default_loop(), req, path, dest, req->flags, defaultCallback);
+
+    if (err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
+
+    return lua_yield(L, 0);
+}
 
 int fs_exists(lua_State* L)
 {
