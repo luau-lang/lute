@@ -58,6 +58,9 @@ int fs_symlink(lua_State* L);
 /* Gets the type of a file entry */
 int type(lua_State* L);
 
+/* Sets up a filesystem watch event */
+int fs_watch(lua_State* L);
+
 /* Lists the contents of a directory */
 int listdir(lua_State* L);
 
@@ -72,6 +75,8 @@ static const luaL_Reg lib[] = {
 
     {"exists", fs_exists},
     {"type", type},
+
+    {"watch", fs_watch},
     {"link", fs_link},
     {"symlink", fs_symlink},
     {"copy", fs_copy},

@@ -5,6 +5,7 @@
 #include "uv.h"
 
 #include "lute/runtime.h"
+#include "lute/userdatas.h"
 
 #include <cstdio>
 #include <cstring>
@@ -420,6 +421,130 @@ int fs_symlink(lua_State* L)
     return lua_yield(L, 0);
 }
 
+struct WatchHandle
+{
+    lua_State* L;
+    std::shared_ptr<Ref> callbackReference;
+    ResumeToken resumeToken;
+    uv_fs_event_t handle;
+
+    ~WatchHandle()
+    {
+        uv_fs_event_stop(&handle);
+
+        resumeToken->complete(
+            [](lua_State* L)
+            {
+                return 0;
+            }
+        );
+    }
+};
+
+static int closeWatchHandle(lua_State* L)
+{
+    luaL_checktype(L, 1, LUA_TUSERDATA);
+    auto* handle = static_cast<WatchHandle*>(lua_touserdatatagged(L, 1, kWatchHandleTag));
+
+    if (!handle)
+    {
+        luaL_errorL(L, "Invalid fs event handle");
+        return 0;
+    }
+
+    int err = uv_fs_event_stop(&handle->handle);
+    if (err)
+    {
+        luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
+    }
+
+    return 0;
+}
+
+int fs_watch(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+
+    auto* event = new (static_cast<WatchHandle*>(lua_newuserdatataggedwithmetatable(L, sizeof(WatchHandle), kWatchHandleTag))) WatchHandle{};
+
+    event->L = L;
+    event->resumeToken = getResumeToken(L);
+    event->callbackReference = std::make_shared<Ref>(L, 2);
+    event->handle.data = event;
+
+    int init_err = uv_fs_event_init(uv_default_loop(), &event->handle);
+
+    if (init_err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(init_err));
+    }
+
+    int event_start_err = uv_fs_event_start(
+        &event->handle,
+        [](uv_fs_event_t* handle, const char* filenamePtr, int events, int status)
+        {
+            auto* eventHandle = static_cast<WatchHandle*>(handle->data);
+
+            lua_State* newThread = lua_newthread(eventHandle->L);
+            std::shared_ptr<Ref> ref = getRefForThread(newThread);
+            Runtime* runtime = getRuntime(newThread);
+
+            std::string filename = filenamePtr ? filenamePtr : "";
+
+            runtime->scheduleLuauResume(
+                ref,
+                [=, filename = std::move(filename)](lua_State* L)
+                {
+                    // the function to the back of the stack, omit from nret
+                    eventHandle->callbackReference->push(L);
+
+                    // filename
+                    lua_pushstring(L, filename.c_str());
+
+                    // events
+                    lua_createtable(L, 0, 2);
+
+                    if ((events & UV_RENAME) == UV_RENAME)
+                    {
+                        lua_pushboolean(L, true);
+                        lua_setfield(L, -2, "rename");
+                    }
+                    else
+                    {
+                        lua_pushboolean(L, false);
+                        lua_setfield(L, -2, "rename");
+                    }
+
+                    if ((events & UV_CHANGE) == UV_CHANGE)
+                    {
+                        lua_pushboolean(L, true);
+                        lua_setfield(L, -2, "change");
+                    }
+                    else
+                    {
+                        lua_pushboolean(L, false);
+                        lua_setfield(L, -2, "change");
+                    }
+
+                    return 2;
+                }
+            );
+
+            uv_stop(handle->loop);
+        },
+        path,
+        0
+    );
+
+    if (event_start_err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(event_start_err));
+    }
+
+    return lua_yield(L, 1); // yield with the handle
+}
+
 int fs_exists(lua_State* L)
 {
     const char* path = luaL_checkstring(L, 1);
@@ -559,6 +684,9 @@ int listdir(lua_State* L)
 
                         lua_settable(L, -3);
                     }
+
+                    uv_fs_req_cleanup(req);
+
                     delete req;
 
                     if (err != UV_EOF)
@@ -779,9 +907,46 @@ int readasync(lua_State* L)
 
 } // namespace fs
 
+static void initalizeFS(lua_State* L)
+{
+    lua_createtable(L, 0, 1);
+
+    lua_pushcfunction(
+        L,
+        [](lua_State* L)
+        {
+            const char* index = luaL_checkstring(L, -1);
+
+            if (strcmp(index, "close") == 0)
+            {
+                lua_pushcfunction(
+                    L,
+                    [](lua_State* L)
+                    {
+                        // Close the watch handle
+                        return 0;
+                    },
+                    "WatchHandle.close"
+                );
+                return 1;
+            }
+
+            return 0;
+        },
+        "WatchHandle.__index"
+    );
+    lua_setfield(L, -2, "__index");
+
+    lua_pushstring(L, "WatchHandle");
+    lua_setfield(L, -2, "__type");
+
+    lua_setuserdatametatable(L, kWatchHandleTag);
+}
+
 int luaopen_fs(lua_State* L)
 {
     luaL_register(L, "fs", fs::lib);
+    initalizeFS(L);
     return 1;
 }
 
@@ -799,6 +964,8 @@ int luteopen_fs(lua_State* L)
     }
 
     lua_setreadonly(L, -1, 1);
+
+    initalizeFS(L);
 
     return 1;
 }

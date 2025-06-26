@@ -48,6 +48,10 @@ function fs.symlink(src: string, dest: string): ()
  error("not implemented")
 end
 
+function fs.watch(path: string, callback: (filename: string, events: { change: boolean, rename: boolean }) -> ()): number
+	error("not implemented")
+end
+
 function fs.exists(path: string): boolean
 	error("not implemented")
 end
