@@ -7,6 +7,14 @@ export type FileHandle = {
 
 export type FileType = "file" | "dir" | "link" | "fifo" | "socket" | "char" | "block" | "unknown"
 
+export type FileMetadata = {
+	type: FileType,
+	size: number,
+	created_at: any,
+	accessed_at: any,
+	modified_at: any,
+}
+
 export type DirectoryEntry = {
 	name: string,
 	type: FileType,
@@ -29,6 +37,10 @@ function fs.close(handle: FileHandle): ()
 end
 
 function fs.remove(path: string): ()
+	error("not implemented")
+end
+
+function fs.stat(path: string): FileMetadata
 	error("not implemented")
 end
 
