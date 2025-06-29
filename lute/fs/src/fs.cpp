@@ -109,7 +109,7 @@ std::optional<int> setFlags(const char* c, int* openFlags)
 
 static int createDurationFromTimespec32(lua_State* L, uv_timespec_t timespec)
 {
-    uv_timespec64_t extended{timespec.tv_sec, timespec.tv_nsec};
+    uv_timespec64_t extended{static_cast<int64_t>(timespec.tv_sec), static_cast<int32_t>(timespec.tv_nsec)};
     return createDurationFromTimespec(L, extended);
 }
 
