@@ -2,7 +2,7 @@ local time = require("./time")
 
 local task = {}
 
-function task.defer(thread: thread)
+function task.defer()
 	error("unimplemented")
 end
 
