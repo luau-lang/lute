@@ -6,6 +6,7 @@ export type FileHandle = {
 }
 
 export type FileType = "file" | "dir" | "link" | "fifo" | "socket" | "char" | "block" | "unknown"
+export type HandleMode = "r" | "w" | "x" | "a" | "r+" | "w+" | "x+" | "a+"
 
 export type DirectoryEntry = {
 	name: string,
@@ -21,7 +22,7 @@ export type WatchEvent = {
 	rename: boolean,
 }
 
-function fs.open(path: string): FileHandle
+function fs.open(path: string, mode: HandleMode?): FileHandle
 	error("not implemented")
 end
 
