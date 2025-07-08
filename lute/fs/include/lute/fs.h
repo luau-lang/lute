@@ -46,8 +46,23 @@ int fs_rmdir(lua_State* L);
 /* Gets the metadata of a file */
 int fs_stat(lua_State* L);
 
+/* Checks if a file exists */
+int fs_exists(lua_State* L);
+
+/* Copies a file to another path */
+int fs_copy(lua_State* L);
+
+/* Creates a link to a file */
+int fs_link(lua_State* L);
+
+/* Creates a symlink to a file */
+int fs_symlink(lua_State* L);
+
 /* Gets the type of a file entry */
 int type(lua_State* L);
+
+/* Sets up a filesystem watch event */
+int fs_watch(lua_State* L);
 
 /* Lists the contents of a directory */
 int listdir(lua_State* L);
@@ -62,7 +77,13 @@ static const luaL_Reg lib[] = {
     {"remove", fs_remove},
 
     {"stat", fs_stat},
+    {"exists", fs_exists},
     {"type", type},
+
+    {"watch", fs_watch},
+    {"link", fs_link},
+    {"symlink", fs_symlink},
+    {"copy", fs_copy},
 
     {"mkdir", fs_mkdir},
     {"listdir", listdir},

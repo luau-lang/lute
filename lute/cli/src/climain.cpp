@@ -22,7 +22,9 @@
 #include <Windows.h>
 #endif
 
+#include <iostream>
 #include <string>
+#include <filesystem>
 #include <vector>
 
 static int program_argc = 0;
@@ -197,9 +199,37 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
+static bool checkValidPath(std::filesystem::path& filePath)
+{
+    if (std::filesystem::exists(filePath))
+    {
+        return true;
+    }
+
+    // if the file has an explicit extension, dont do a fallback
+    if (filePath.has_extension()) {
+        return false;
+    }
+
+    std::filesystem::path fallbackPath = ".lute" / filePath;
+
+    for (const auto& ext : {".luau", ".lua"})
+    {
+        fallbackPath.replace_extension(ext);
+
+        if (std::filesystem::exists(fallbackPath))
+        {
+            filePath = std::move(fallbackPath);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 int handleRunCommand(int argc, char** argv, int argOffset)
 {
-    const char* filePath = nullptr;
+    std::optional<std::filesystem::path> filePath;
 
     for (int i = argOffset; i < argc; ++i)
     {
@@ -218,7 +248,7 @@ int handleRunCommand(int argc, char** argv, int argOffset)
         }
         else
         {
-            filePath = currentArg;
+            filePath.emplace(currentArg);
             program_argc = argc - i;
             program_argv = &argv[i];
             break;
@@ -235,7 +265,13 @@ int handleRunCommand(int argc, char** argv, int argOffset)
     Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
-    bool success = runFile(runtime, filePath, L);
+    if (!checkValidPath(filePath.value()))
+    {
+        std::cerr << "Error: File '" << filePath->string() << "' does not exist.\n";
+        return 1;
+    }
+
+    bool success = runFile(runtime, filePath->string().c_str(), L);
     return success ? 0 : 1;
 }
 

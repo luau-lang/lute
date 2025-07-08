@@ -2705,6 +2705,10 @@ static int init_luau_lib(lua_State* L)
 {
     luaL_newmetatable(L, COMPILE_RESULT_TYPE);
 
+    // Set __type
+    lua_pushstring(L, "CompilerResult");
+    lua_setfield(L, -2, "__type");
+
     lua_pushcfunction(L, index_result, "CompilerResult.__index");
     lua_setfield(L, -2, "__index");
 
