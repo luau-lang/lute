@@ -413,9 +413,19 @@ int fs_stat(lua_State* L)
     createDurationFromTimespec32(L, stat.st_mtim);
     lua_setfield(L, -2, "modified_at");
 
+    // permissions
+    lua_createtable(L, 0, 2);
+
+    // libuv writes this correctly cross-platform
+    bool canAnyWrite = stat.st_mode & 0222;
+    lua_pushboolean(L, !canAnyWrite);
+    lua_setfield(L, -2, "readonly");
+
+    lua_setfield(L, -2, "permissions");
+
     return 1;
 }
-  
+
 static void defaultCallback(uv_fs_t* req)
 {
     auto* request_state = static_cast<ResumeToken*>(req->data);

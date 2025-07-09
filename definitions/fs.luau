@@ -10,6 +10,7 @@ export type HandleMode = "r" | "w" | "x" | "a" | "r+" | "w+" | "x+" | "a+"
 
 export type FileMetadata = {
 	type: FileType,
+	permissions: { readonly: boolean },
 	size: number,
 	created_at: any,
 	accessed_at: any,
