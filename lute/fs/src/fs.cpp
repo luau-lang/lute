@@ -392,7 +392,7 @@ int fs_stat(lua_State* L)
     if (err)
         luaL_errorL(L, "%s", uv_strerror(err));
 
-    lua_newtable(L);
+    lua_createtable(L, 0, 6);
 
     auto stat = stat_req.statbuf;
 
