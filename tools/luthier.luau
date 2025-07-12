@@ -288,7 +288,20 @@ local function generateStdLibFilesIfNeeded()
 
 		if safeFsType(path) == "file" then
 			local libSrc = fs.readfiletostring(path)
-			fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+			if #libSrc > 16_000 then
+				-- https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/compiler-error-c2026
+				-- MSVC can't handle a single string literal being over 16380 single-byte characters,
+				-- but can if they are adjacent contatenated strings. So, we split the string line-by-line into
+				-- adjacent substrings.
+				local lines = string.split(libSrc, "\n")
+				local generatedLines = table.create(#lines)
+				for _, line in lines do
+					table.insert(generatedLines, `"{string.gsub(line, '"', '\\"')}\\n"`)
+				end
+				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
+			else
+				fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+			end
 		end
 
 		if safeFsType(path) == "dir" then
