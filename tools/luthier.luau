@@ -351,7 +351,7 @@ local function getTypeDefinitionsHash(): string
 end
 
 local function isGeneratedTypeDefinitionsUpToDate(): boolean
-	local hashFile = projectRelative("lute", "cli", "setup", "generated", "hash.txt")
+	local hashFile = projectRelative("lute", "cli", "commands", "setup", "generated", "hash.txt")
 
 	if safeFsType(hashFile) ~= "file" then
 		return false
@@ -363,12 +363,14 @@ local function isGeneratedTypeDefinitionsUpToDate(): boolean
 end
 
 local function generateTypeDefinitionFiles()
-	local generatedPath = projectRelative("lute", "cli", "commands", "generated")
+	local generatedPath = projectRelative("lute", "cli", "commands", "setup", "generated")
 	pcall(fs.mkdir, generatedPath)
 
 	if isGeneratedTypeDefinitionsUpToDate() then
 		return
 	end
+
+	print("Type definitions out of date, creating new ones.")
 
 	local dictionaryEntries: { [string]: string } = {}
 
@@ -387,6 +389,10 @@ local function generateTypeDefinitionFiles()
 	for key, value in dictionaryEntries do
 		stringDictionary ..= string.format(DICTIONARY_PATTERN, key, value)
 	end
+
+	local hash = fs.open(joinPath(generatedPath, "hash.txt"), "w+")
+	fs.write(hash, getTypeDefinitionsHash())
+	fs.close(hash)
 
 	fs.writestringtofile(
 		"lute/cli/commands/setup/generated/definitions.luau",
