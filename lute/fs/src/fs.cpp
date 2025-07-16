@@ -5,6 +5,8 @@
 #include "uv.h"
 
 #include "lute/runtime.h"
+#include "lute/time.h"
+#include "lute/userdatas.h"
 
 #include <cstdio>
 #include <cstring>
@@ -40,7 +42,6 @@
 #if !defined(S_ISFIFO) && defined(S_IFMT) && defined(S_IFIFO)
 #define S_ISFIFO(m) (((m) & S_IFMT) == S_IFIFO)
 #endif
-
 
 namespace fs
 {
@@ -105,6 +106,54 @@ std::optional<int> setFlags(const char* c, int* openFlags)
     }
 
     return modeFlags;
+}
+
+static int createDurationFromTimespec32(lua_State* L, uv_timespec_t timespec)
+{
+    uv_timespec64_t extended{static_cast<int64_t>(timespec.tv_sec), static_cast<int32_t>(timespec.tv_nsec)};
+    return createDurationFromTimespec(L, extended);
+}
+
+static const char* fileModeToType(uint64_t mode)
+{
+    if (S_ISDIR(mode))
+    {
+        return UV_TYPENAME_DIR;
+    }
+    else if (S_ISREG(mode))
+    {
+        return UV_TYPENAME_FILE;
+    }
+    else if (S_ISCHR(mode))
+    {
+        return UV_TYPENAME_CHAR;
+    }
+    else if (S_ISLNK(mode))
+    {
+        return UV_TYPENAME_LINK;
+    }
+#ifdef S_ISBLK
+    else if (S_ISBLK(mode))
+    {
+        return UV_TYPENAME_BLOCK;
+    }
+#endif
+#ifdef S_ISFIFO
+    else if (S_ISFIFO(mode))
+    {
+        return UV_TYPENAME_FIFO;
+    }
+#endif
+#ifdef S_ISSOCK
+    else if (S_ISSOCK(mode))
+    {
+        return UV_TYPENAME_SOCKET;
+    }
+#endif
+    else
+    {
+        return UV_TYPENAME_UNKNOWN;
+    }
 }
 
 struct FileHandle
@@ -333,6 +382,320 @@ int fs_rmdir(lua_State* L)
     return 0;
 }
 
+int fs_stat(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+
+    uv_fs_t stat_req;
+    int err = uv_fs_stat(uv_default_loop(), &stat_req, path, nullptr);
+
+    if (err)
+        luaL_errorL(L, "%s", uv_strerror(err));
+
+    lua_createtable(L, 0, 6);
+
+    auto stat = stat_req.statbuf;
+
+    auto type = fileModeToType(stat.st_mode);
+    lua_pushstring(L, type);
+    lua_setfield(L, -2, "type");
+
+    // this is fine unless the file is 9 petabytes
+    lua_pushnumber(L, static_cast<double>(stat.st_size));
+    lua_setfield(L, -2, "size");
+
+    createDurationFromTimespec32(L, stat.st_birthtim);
+    lua_setfield(L, -2, "created_at");
+
+    createDurationFromTimespec32(L, stat.st_atim);
+    lua_setfield(L, -2, "accessed_at");
+
+    createDurationFromTimespec32(L, stat.st_mtim);
+    lua_setfield(L, -2, "modified_at");
+
+    // permissions
+    lua_createtable(L, 0, 2);
+
+    // libuv writes this correctly cross-platform
+    bool canAnyWrite = stat.st_mode & 0222;
+    lua_pushboolean(L, !canAnyWrite);
+    lua_setfield(L, -2, "readonly");
+
+    lua_setfield(L, -2, "permissions");
+
+    return 1;
+}
+
+static void defaultCallback(uv_fs_t* req)
+{
+    auto* request_state = static_cast<ResumeToken*>(req->data);
+
+    if (req->result)
+    {
+        request_state->get()->fail(uv_strerror(req->result));
+        uv_fs_req_cleanup(req);
+        delete req;
+        return;
+    }
+
+    request_state->get()->complete(
+        [req](lua_State* L)
+        {
+            uv_fs_req_cleanup(req);
+
+            delete req;
+
+            return 0;
+        }
+    );
+}
+
+int fs_copy(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    const char* dest = luaL_checkstring(L, 2);
+
+    auto* req = new uv_fs_t();
+    req->data = new ResumeToken(getResumeToken(L));
+
+    int err = uv_fs_copyfile(uv_default_loop(), req, path, dest, 0, defaultCallback);
+
+    if (err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
+
+    return lua_yield(L, 0);
+}
+
+int fs_link(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    const char* dest = luaL_checkstring(L, 2);
+
+    auto* req = new uv_fs_t();
+    req->data = new ResumeToken(getResumeToken(L));
+
+    int err = uv_fs_link(uv_default_loop(), req, path, dest, defaultCallback);
+
+    if (err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
+
+    return lua_yield(L, 0);
+}
+
+int fs_symlink(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    const char* dest = luaL_checkstring(L, 2);
+
+    auto* req = new uv_fs_t();
+    req->data = new ResumeToken(getResumeToken(L));
+
+    if (std::filesystem::is_directory(path))
+    {
+        req->flags = UV_FS_SYMLINK_DIR; // windows
+    }
+    else
+    {
+        req->flags = 0;
+    }
+
+    int err = uv_fs_symlink(uv_default_loop(), req, path, dest, req->flags, defaultCallback);
+
+    if (err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
+
+    return lua_yield(L, 0);
+}
+
+struct WatchHandle
+{
+    lua_State* L;
+    std::shared_ptr<Ref> callbackReference;
+    bool isClosed = false;
+    uv_fs_event_t handle;
+
+    void close()
+    {
+        if (!isClosed)
+        {
+            int err = uv_fs_event_stop(&handle);
+            if (err)
+            {
+                luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
+            }
+
+            isClosed = true;
+
+            getRuntime(L)->releasePendingToken();
+
+            callbackReference.reset();
+        }
+    }
+
+    ~WatchHandle()
+    {
+        close();
+    }
+};
+
+static int closeWatchHandle(lua_State* L)
+{
+    luaL_checktype(L, 1, LUA_TUSERDATA);
+    auto* handle = static_cast<WatchHandle*>(lua_touserdatatagged(L, 1, kWatchHandleTag));
+
+    if (!handle)
+    {
+        luaL_errorL(L, "Invalid fs event handle");
+        return 0;
+    }
+
+    int err = uv_fs_event_stop(&handle->handle);
+    if (err)
+    {
+        luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
+    }
+
+    handle->close();
+
+    return 0;
+}
+
+int fs_watch(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+
+    auto* event = new (static_cast<WatchHandle*>(lua_newuserdatataggedwithmetatable(L, sizeof(WatchHandle), kWatchHandleTag))) WatchHandle{};
+
+    event->L = L;
+    event->callbackReference = std::make_shared<Ref>(L, 2);
+    event->handle.data = event;
+
+    int init_err = uv_fs_event_init(uv_default_loop(), &event->handle);
+
+    if (init_err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(init_err));
+    }
+
+    int event_start_err = uv_fs_event_start(
+        &event->handle,
+        [](uv_fs_event_t* handle, const char* filenamePtr, int events, int status)
+        {
+            auto* eventHandle = static_cast<WatchHandle*>(handle->data);
+
+            lua_State* newThread = lua_newthread(eventHandle->L);
+            std::shared_ptr<Ref> ref = getRefForThread(newThread);
+            Runtime* runtime = getRuntime(newThread);
+
+            std::string filename = filenamePtr ? filenamePtr : "";
+
+            runtime->scheduleLuauResume(
+                ref,
+                [=, filename = std::move(filename)](lua_State* L)
+                {
+                    // the function to the back of the stack, omit from nret
+                    eventHandle->callbackReference->push(L);
+
+                    // filename
+                    lua_pushstring(L, filename.c_str());
+
+                    // events
+                    lua_createtable(L, 0, 2);
+
+                    if ((events & UV_RENAME) == UV_RENAME)
+                    {
+                        lua_pushboolean(L, true);
+                        lua_setfield(L, -2, "rename");
+                    }
+                    else
+                    {
+                        lua_pushboolean(L, false);
+                        lua_setfield(L, -2, "rename");
+                    }
+
+                    if ((events & UV_CHANGE) == UV_CHANGE)
+                    {
+                        lua_pushboolean(L, true);
+                        lua_setfield(L, -2, "change");
+                    }
+                    else
+                    {
+                        lua_pushboolean(L, false);
+                        lua_setfield(L, -2, "change");
+                    }
+
+                    return 2;
+                }
+            );
+
+            uv_stop(handle->loop);
+        },
+        path,
+        0
+    );
+
+    if (event_start_err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(event_start_err));
+    }
+
+    getRuntime(L)->addPendingToken();
+
+    return 1; // return the watch handle
+}
+
+int fs_exists(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+
+    auto* req = new uv_fs_t();
+    req->data = new ResumeToken(getResumeToken(L));
+
+    int err = uv_fs_stat(
+        uv_default_loop(),
+        req,
+        path,
+        [](uv_fs_t* req)
+        {
+            auto* request_state = static_cast<ResumeToken*>(req->data);
+
+            request_state->get()->complete(
+                [req](lua_State* L)
+                {
+                    if (req->result == UV_ENOENT)
+                    {
+                        lua_pushboolean(L, false); // does not exist
+                    }
+                    else
+                    {
+                        lua_pushboolean(L, true);
+                    }
+
+                    uv_fs_req_cleanup(req);
+
+                    delete req;
+
+                    return 1;
+                }
+            );
+        }
+    );
+
+    if (err)
+    {
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
+
+    return lua_yield(L, 0);
+}
+
 int type(lua_State* L)
 {
     const char* path = luaL_checkstring(L, 1);
@@ -344,46 +707,8 @@ int type(lua_State* L)
     if (err)
         luaL_errorL(L, "%s", uv_strerror(err));
 
-    if (S_ISDIR(req.statbuf.st_mode))
-    {
-        lua_pushstring(L, UV_TYPENAME_DIR);
-    }
-    else if (S_ISREG(req.statbuf.st_mode))
-    {
-        lua_pushstring(L, UV_TYPENAME_FILE);
-    }
-    else if (S_ISCHR(req.statbuf.st_mode))
-    {
-        lua_pushstring(L, UV_TYPENAME_CHAR);
-    }
-    else if (S_ISLNK(req.statbuf.st_mode))
-    {
-        lua_pushstring(L, UV_TYPENAME_LINK);
-    }
-#ifdef S_ISBLK
-    else if (S_ISBLK(req.statbuf.st_mode))
-    {
-        lua_pushstring(L, UV_TYPENAME_BLOCK);
-    }
-#endif
-#ifdef S_ISFIFO
-    else if (S_ISFIFO(req.statbuf.st_mode))
-    {
-        lua_pushstring(L, UV_TYPENAME_FIFO);
-    }
-#endif
-#ifdef S_ISSOCK
-    else if (S_ISSOCK(req.statbuf.st_mode))
-    {
-        lua_pushstring(L, UV_TYPENAME_SOCKET);
-    }
-#endif
-    else
-    {
-        lua_pushstring(L, UV_TYPENAME_UNKNOWN);
-    }
-
-
+    auto type = fileModeToType(req.statbuf.st_mode);
+    lua_pushstring(L, type);
     uv_fs_req_cleanup(&req);
 
     return 1;
@@ -427,6 +752,9 @@ int listdir(lua_State* L)
 
                         lua_settable(L, -3);
                     }
+
+                    uv_fs_req_cleanup(req);
+
                     delete req;
 
                     if (err != UV_EOF)
@@ -647,9 +975,50 @@ int readasync(lua_State* L)
 
 } // namespace fs
 
+static void initalizeFS(lua_State* L)
+{
+    luaL_newmetatable(L, "WatchHandle");
+
+    lua_pushcfunction(
+        L,
+        [](lua_State* L)
+        {
+            const char* index = luaL_checkstring(L, -1);
+
+            if (strcmp(index, "close") == 0)
+            {
+                lua_pushcfunction(L, fs::closeWatchHandle, "WatchHandle.close");
+
+                return 1;
+            }
+
+            return 0;
+        },
+        "WatchHandle.__index"
+    );
+    lua_setfield(L, -2, "__index");
+
+    lua_pushstring(L, "WatchHandle");
+    lua_setfield(L, -2, "__type");
+
+    lua_setuserdatadtor(
+        L,
+        kWatchHandleTag,
+        [](lua_State* L, void* ud)
+        {
+            auto* handle = static_cast<fs::WatchHandle*>(ud);
+
+            handle->~WatchHandle();
+        }
+    );
+
+    lua_setuserdatametatable(L, kWatchHandleTag);
+}
+
 int luaopen_fs(lua_State* L)
 {
     luaL_register(L, "fs", fs::lib);
+    initalizeFS(L);
     return 1;
 }
 
@@ -667,6 +1036,8 @@ int luteopen_fs(lua_State* L)
     }
 
     lua_setreadonly(L, -1, 1);
+
+    initalizeFS(L);
 
     return 1;
 }

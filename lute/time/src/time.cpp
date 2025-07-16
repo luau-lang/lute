@@ -56,7 +56,7 @@ uv_timespec64_t getTimespecFromDuration(lua_State* L, int idx)
 }
 
 // creates a userdata, and returns a fresh timespec pointer to it
-static int createDurationFromTimespec(lua_State* L, uv_timespec64_t timespec)
+int createDurationFromTimespec(lua_State* L, uv_timespec64_t timespec)
 {
     uv_timespec64_t* duration = static_cast<uv_timespec64_t*>(lua_newuserdatatagged(L, sizeof(uv_timespec64_t), kDurationTag));
     *duration = timespec;
@@ -67,7 +67,7 @@ static int createDurationFromTimespec(lua_State* L, uv_timespec64_t timespec)
     return 1;
 }
 
-static int createDurationFromSeconds(lua_State* L, double seconds)
+int createDurationFromSeconds(lua_State* L, double seconds)
 {
     return createDurationFromTimespec(L, {static_cast<int64_t>(seconds), static_cast<int32_t>(fmod(seconds, 1) * NANOSECONDS_PER_SECOND)});
 }
@@ -389,6 +389,10 @@ static void init_duration_lib(lua_State* L)
     lua_pushstring(L, "The metatable is locked");
     lua_setfield(L, -2, "__metatable");
 
+    // Set __type
+    lua_pushstring(L, "duration");
+    lua_setfield(L, -2, "__type");
+
     lua_pushcfunction(L, duration__tostring, "Duration__tostring");
     lua_setfield(L, -2, "__tostring");
 
@@ -461,6 +465,10 @@ static void init_instant_lib(lua_State* L)
 
     lua_pushstring(L, "The metatable is locked");
     lua_setfield(L, -2, "__metatable");
+
+    // Set __type
+    lua_pushstring(L, "instant");
+    lua_setfield(L, -2, "__type");
 
     lua_pushcfunction(L, instant__sub, "Instant__sub");
     lua_setfield(L, -2, "__sub");
