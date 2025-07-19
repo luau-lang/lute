@@ -49,6 +49,9 @@ jobs:
           options: --c-compiler clang --cxx-compiler clang++
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Remove .luaurc file
+        run: rm .luaurc
+
       - name: Run Tests
         run: ${{ steps.build_tests.outputs.exe_path }}
 
