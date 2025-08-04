@@ -96,6 +96,7 @@ include(libsodium)
 
 # libffi setup
 set(FFI_STATIC_BUILD ON)
+set(NO_JAVA_RAW_API ON)
 include(libffi)
 
 # Lute
