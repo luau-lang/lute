@@ -570,7 +570,7 @@ function luau.compile(source: string): Bytecode
 	error("not implemented")
 end
 
-function luau.load(bytecode: Bytecode): () -> ...any
+function luau.load(bytecode: Bytecode, chunkname: string, env: { [any]: any }): () -> ...any
 	error("not implemented")
 end
 
