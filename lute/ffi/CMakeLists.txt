@@ -3,7 +3,10 @@ add_library(Lute.FFI STATIC)
 target_sources(Lute.FFI PRIVATE
     include/lute/ffi.h
 
+    src/ffi_c.h
+
     src/ffi.cpp
+    src/ffi_c.cpp
 )
 
 target_compile_features(Lute.FFI PUBLIC cxx_std_17)
