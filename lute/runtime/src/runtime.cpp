@@ -1,6 +1,7 @@
 #include "lute/runtime.h"
 
 #include "lute/crypto.h"
+#include "lute/ffi.h"
 #include "lute/fs.h"
 #include "lute/luau.h"
 #include "lute/net.h"
@@ -311,6 +312,7 @@ static void luteopen_libs(lua_State* L)
 {
     std::vector<std::pair<const char*, lua_CFunction>> libs = {{
         {"@lute/crypto", luteopen_crypto},
+        {"@lute/ffi", luteopen_ffi},
         {"@lute/fs", luteopen_fs},
         {"@lute/luau", luteopen_luau},
         {"@lute/net", luteopen_net},
