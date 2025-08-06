@@ -259,10 +259,11 @@ int write(lua_State* L)
     int wbSize = sizeof(writeBuffer);
     memset(writeBuffer, 0, sizeof(writeBuffer));
     FileHandle file = unpackFileHandle(L);
-    const char* stringToWrite = luaL_checkstring(L, 2);
+    size_t len;
+    const char* stringToWrite = luaL_checklstring(L, 2, &len);
 
     // Set up the buffer to write
-    int numBytesLeftToWrite = strlen(stringToWrite);
+    int numBytesLeftToWrite = len;
     int offset = 0;
     do
     {
@@ -834,10 +835,11 @@ int writestringtofile(lua_State* L)
 
     int wbSize = sizeof(writeBuffer);
     memset(writeBuffer, 0, sizeof(writeBuffer));
-    const char* stringToWrite = luaL_checkstring(L, 2);
+    size_t len;
+    const char* stringToWrite = luaL_checklstring(L, 2, &len);
 
     // Set up the buffer to write
-    int numBytesLeftToWrite = strlen(stringToWrite);
+    int numBytesLeftToWrite = len;
     int offset = 0;
     uv_buf_t iov;
     do
