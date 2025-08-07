@@ -1,6 +1,7 @@
 #pragma once
 
 // all tags count down from 128
-const int kDurationTag       = 127;
-const int kInstantTag        = 126;
-const int kCompilerResultTag = 125;
+constexpr int kDurationTag       = 127;
+constexpr int kInstantTag        = 126;
+constexpr int kCompilerResultTag = 125;
+constexpr int kWatchHandleTag    = 124;

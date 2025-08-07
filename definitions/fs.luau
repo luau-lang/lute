@@ -6,13 +6,32 @@ export type FileHandle = {
 }
 
 export type FileType = "file" | "dir" | "link" | "fifo" | "socket" | "char" | "block" | "unknown"
+export type HandleMode = "r" | "w" | "x" | "a" | "r+" | "w+" | "x+" | "a+"
+
+export type FileMetadata = {
+	type: FileType,
+	permissions: { readonly: boolean },
+	size: number,
+	created_at: any,
+	accessed_at: any,
+	modified_at: any,
+}
 
 export type DirectoryEntry = {
 	name: string,
 	type: FileType,
 }
 
-function fs.open(path: string): FileHandle
+export type WatchHandle = {
+	close: (self: WatchHandle) -> (),
+}
+
+export type WatchEvent = {
+	change: boolean,
+	rename: boolean,
+}
+
+function fs.open(path: string, mode: HandleMode?): FileHandle
 	error("not implemented")
 end
 
@@ -32,11 +51,35 @@ function fs.remove(path: string): ()
 	error("not implemented")
 end
 
+function fs.stat(path: string): FileMetadata
+	error("not implemented")
+end
+
 function fs.type(path: string): FileType
 	error("not implemented")
 end
 
 function fs.mkdir(path: string): ()
+	error("not implemented")
+end
+
+function fs.link(src: string, dest: string): ()
+	error("not implemented")
+end
+
+function fs.symlink(src: string, dest: string): ()
+	error("not implemented")
+end
+
+function fs.watch(path: string, callback: (filename: string, event: WatchEvent) -> ()): WatchHandle
+	error("not implemented")
+end
+
+function fs.exists(path: string): boolean
+	error("not implemented")
+end
+
+function fs.copy(src: string, dest: string): ()
 	error("not implemented")
 end
 

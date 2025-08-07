@@ -19,3 +19,4 @@ extern/libuv/libuv-static.pc
 extern/libuv/DartConfiguration.tcl
 extern/*/
 generated
+**/generated-types.luau

@@ -33,7 +33,7 @@ int lua_cpus(lua_State* L)
         lua_pushstring(L, cpuInfo.model);
         lua_setfield(L, -2, "model");
 
-        lua_pushinteger(L, (int)cpuInfo.speed);
+        lua_pushinteger(L, static_cast<int>(cpuInfo.speed));
         lua_setfield(L, -2, "speed");
 
         // sys, user, idle, irq, nice

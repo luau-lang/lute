@@ -24,6 +24,8 @@ static std::optional<std::string> readStdLibModule(const std::string& path)
 
 static bool isStdLibDirectory(const std::string& path)
 {
+    if (path == "@std")
+        return true;
     StdLibModuleResult result = getStdLibModule(path);
     return result.type == StdLibModuleType::Directory;
 }
