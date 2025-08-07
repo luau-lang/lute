@@ -1,5 +1,5 @@
 local time = {}
-local duration = {}
+
 local duration_ops = {}
 local instant = {}
 
@@ -11,35 +11,37 @@ function time.since(instant: Instant): number
 	error("not implemented")
 end
 
-function duration.nanoseconds(nanoseconds: number): Duration
+time.duration = {}
+
+function time.duration.nanoseconds(nanoseconds: number): Duration
 	error("not implemented")
 end
 
-function duration.microseconds(microseconds: number): Duration
+function time.duration.microseconds(microseconds: number): Duration
 	error("not implemented")
 end
 
-function duration.milliseconds(milliseconds: number): Duration
+function time.duration.milliseconds(milliseconds: number): Duration
 	error("not implemented")
 end
 
-function duration.seconds(seconds: number): Duration
+function time.duration.seconds(seconds: number): Duration
 	error("not implemented")
 end
 
-function duration.minutes(minutes: number): Duration
+function time.duration.minutes(minutes: number): Duration
 	error("not implemented")
 end
 
-function duration.hours(hours: number): Duration
+function time.duration.hours(hours: number): Duration
 	error("not implemented")
 end
 
-function duration.days(days: number): Duration
+function time.duration.days(days: number): Duration
 	error("not implemented")
 end
 
-function duration.weeks(weeks: number): Duration
+function time.duration.weeks(weeks: number): Duration
 	error("not implemented")
 end
 
@@ -108,5 +110,4 @@ export type Instant = setmetatable<Frozen, {
 	read __sub: (Instant, Instant) -> Duration,
 }>
 
-time.duration = duration
 return time

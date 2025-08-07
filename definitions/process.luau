@@ -19,6 +19,8 @@ export type ProcessResult = {
 
 local process = {}
 
+process.env = {} :: { [string]: string }
+
 function process.homedir(): string
 	error("not implemented")
 end
