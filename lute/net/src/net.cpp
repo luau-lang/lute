@@ -543,19 +543,19 @@ int lua_serve(lua_State* L)
         {
             tlsOptions.emplace();
 
-            lua_getfield(L, -1, "cert_file_name");
+            lua_getfield(L, -1, "certfilename");
             if (!lua_isstring(L, -1))
             {
-                luaL_errorL(L, "tls config requires 'cert_file_name' (string)");
+                luaL_errorL(L, "tls config requires 'certfilename' (string)");
                 return 0;
             }
             tlsOptions->cert_file_name = lua_tostring(L, -1);
             lua_pop(L, 1);
 
-            lua_getfield(L, -1, "key_file_name");
+            lua_getfield(L, -1, "keyfilename");
             if (!lua_isstring(L, -1))
             {
-                luaL_errorL(L, "tls config requires 'key_file_name' (string)");
+                luaL_errorL(L, "tls config requires 'keyfilename' (string)");
                 return 0;
             }
             tlsOptions->key_file_name = lua_tostring(L, -1);
@@ -568,7 +568,7 @@ int lua_serve(lua_State* L)
             }
             lua_pop(L, 1);
 
-            lua_getfield(L, -1, "ca_file_name");
+            lua_getfield(L, -1, "cafilename");
             if (lua_isstring(L, -1))
             {
                 tlsOptions->ca_file_name = lua_tostring(L, -1);

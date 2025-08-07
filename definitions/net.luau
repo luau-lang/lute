@@ -37,7 +37,7 @@ export type Configuration = {
 	hostname: string?,
 	port: number?,
 	reuseport: boolean?,
-	tls: { cert_file_name: string, key_file_name: string, passphrase: string?, ca_file_name: string? }?,
+	tls: { certfilename: string, keyfilename: string, passphrase: string?, cafilename: string? }?,
 	handler: Handler,
 }
 
