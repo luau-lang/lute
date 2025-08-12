@@ -123,13 +123,6 @@ local function printVisitor()
 	return printer
 end
 
---- Returns a string representation of an AstStatBlock
-local function printBlock(block: luau.AstStatBlock): string
-	local printer = printVisitor()
-	visitor.visitBlock(block, printer)
-	return buffer.readstring(printer.result, 0, printer.cursor)
-end
-
 --- Returns a string representation of an AstExpr
 function printExpr(block: luau.AstExpr): string
 	local printer = printVisitor()
@@ -152,7 +145,6 @@ function printFile(result: { root: luau.AstStatBlock, eof: luau.Eof }): string
 end
 
 return {
-	print = printBlock,
 	printexpr = printExpr,
 	printstatement = printStatement,
 	printfile = printFile,
