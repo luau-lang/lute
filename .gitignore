@@ -20,3 +20,4 @@ extern/libuv/DartConfiguration.tcl
 extern/*/
 generated
 **/generated-types.luau
+WARP.md
