@@ -1,189 +1,142 @@
---[[
-    Pulled from https://github.com/Reselim/Base64
-
-    Copyright (c) 2020 Reselim
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-]]
-
---!native
 --!optimize 2
+--!strict
 
-local lookupValueToCharacter = buffer.create(64)
-local lookupCharacterToValue = buffer.create(256)
+local BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+local BASE64_ENCODING_LUT = table.create(4096)
+local BASE64_DECODING_LUT = table.create(255, 0)
 
-local alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-local padding = string.byte("=")
+do
+    for i = 0, 4095 do
+        local hi = bit32.rshift(i, 6) + 1
+        local lo = bit32.band(i, 0x3F) + 1
+        BASE64_ENCODING_LUT[i + 1] =
+            bit32.bor(string.byte(BASE64_ALPHABET, hi), bit32.lshift(string.byte(BASE64_ALPHABET, lo), 8))
+    end
 
-for index = 1, 64 do
-	local value = index - 1
-	local character = string.byte(alphabet, index)
-
-	buffer.writeu8(lookupValueToCharacter, value, character)
-	buffer.writeu8(lookupCharacterToValue, character, value)
+    for i = 1, #BASE64_ALPHABET do
+        BASE64_DECODING_LUT[string.byte(BASE64_ALPHABET, i)] = i - 1
+    end
 end
 
-local function encode(input: buffer): buffer
-	local inputLength = buffer.len(input)
-	local inputChunks = math.ceil(inputLength / 3)
+local function encode(input_buffer: buffer): buffer?
+    local input_length = buffer.len(input_buffer)
 
-	local outputLength = inputChunks * 4
-	local output = buffer.create(outputLength)
+    if input_length == 0 then
+        return
+    end
 
-	-- Since we use readu32 and chunks are 3 bytes large, we can't read the last chunk here
-	for chunkIndex = 1, inputChunks - 1 do
-		local inputIndex = (chunkIndex - 1) * 3
-		local outputIndex = (chunkIndex - 1) * 4
+    local output = buffer.create(((input_length + 2) // 3) * 4)
+    local output_idx = 0
+    local i = 0
 
-		local chunk = bit32.byteswap(buffer.readu32(input, inputIndex))
+    while i + 3 <= input_length do
+        local triple = bit32.bor(
+            bit32.lshift(buffer.readu8(input_buffer, i), 16),
+            bit32.lshift(buffer.readu8(input_buffer, i + 1), 8),
+            buffer.readu8(input_buffer, i + 2)
+        )
 
-		-- 8 + 24 - (6 * index)
-		local value1 = bit32.rshift(chunk, 26)
-		local value2 = bit32.band(bit32.rshift(chunk, 20), 0b111111)
-		local value3 = bit32.band(bit32.rshift(chunk, 14), 0b111111)
-		local value4 = bit32.band(bit32.rshift(chunk, 8), 0b111111)
+        local high = bit32.band(bit32.rshift(triple, 12), 0xFFF) + 1
+        local low = bit32.band(triple, 0xFFF) + 1
 
-		buffer.writeu8(output, outputIndex, buffer.readu8(lookupValueToCharacter, value1))
-		buffer.writeu8(output, outputIndex + 1, buffer.readu8(lookupValueToCharacter, value2))
-		buffer.writeu8(output, outputIndex + 2, buffer.readu8(lookupValueToCharacter, value3))
-		buffer.writeu8(output, outputIndex + 3, buffer.readu8(lookupValueToCharacter, value4))
-	end
+        local pair0 = BASE64_ENCODING_LUT[high]
+        local pair1 = BASE64_ENCODING_LUT[low]
 
-	local inputRemainder = inputLength % 3
+        buffer.writeu32(output, output_idx, bit32.bor(pair0, bit32.lshift(pair1, 16)))
 
-	if inputRemainder == 1 then
-		local chunk = buffer.readu8(input, inputLength - 1)
+        i += 3
+        output_idx += 4
+    end
 
-		local value1 = bit32.rshift(chunk, 2)
-		local value2 = bit32.band(bit32.lshift(chunk, 4), 0b111111)
+    local rem = input_length - i
 
-		buffer.writeu8(output, outputLength - 4, buffer.readu8(lookupValueToCharacter, value1))
-		buffer.writeu8(output, outputLength - 3, buffer.readu8(lookupValueToCharacter, value2))
-		buffer.writeu8(output, outputLength - 2, padding)
-		buffer.writeu8(output, outputLength - 1, padding)
-	elseif inputRemainder == 2 then
-		local chunk =
-			bit32.bor(bit32.lshift(buffer.readu8(input, inputLength - 2), 8), buffer.readu8(input, inputLength - 1))
+    if rem == 1 then
+        local high = bit32.band(bit32.lshift(buffer.readu8(input_buffer, i), 4), 0xFF0)
 
-		local value1 = bit32.rshift(chunk, 10)
-		local value2 = bit32.band(bit32.rshift(chunk, 4), 0b111111)
-		local value3 = bit32.band(bit32.lshift(chunk, 2), 0b111111)
+        local TWO_EQUALS = 0x3D3D
+        buffer.writeu32(output, output_idx, bit32.bor(BASE64_ENCODING_LUT[high + 1], bit32.lshift(TWO_EQUALS, 16)))
+    elseif rem == 2 then
+        local first = buffer.readu8(input_buffer, i)
+        local second = buffer.readu8(input_buffer, i + 1)
+        local high = bit32.bor(bit32.lshift(first, 4), bit32.rshift(second, 4))
+        local low_idx = bit32.lshift(bit32.band(second, 0x0F), 2)
+        local low_equals = bit32.bor(string.byte(BASE64_ALPHABET, low_idx + 1), bit32.lshift(0x3D, 8))
 
-		buffer.writeu8(output, outputLength - 4, buffer.readu8(lookupValueToCharacter, value1))
-		buffer.writeu8(output, outputLength - 3, buffer.readu8(lookupValueToCharacter, value2))
-		buffer.writeu8(output, outputLength - 2, buffer.readu8(lookupValueToCharacter, value3))
-		buffer.writeu8(output, outputLength - 1, padding)
-	elseif inputRemainder == 0 and inputLength ~= 0 then
-		local chunk = bit32.bor(
-			bit32.lshift(buffer.readu8(input, inputLength - 3), 16),
-			bit32.lshift(buffer.readu8(input, inputLength - 2), 8),
-			buffer.readu8(input, inputLength - 1)
-		)
+        buffer.writeu32(output, output_idx, bit32.bor(BASE64_ENCODING_LUT[high + 1], bit32.lshift(low_equals, 16)))
+    end
 
-		local value1 = bit32.rshift(chunk, 18)
-		local value2 = bit32.band(bit32.rshift(chunk, 12), 0b111111)
-		local value3 = bit32.band(bit32.rshift(chunk, 6), 0b111111)
-		local value4 = bit32.band(chunk, 0b111111)
-
-		buffer.writeu8(output, outputLength - 4, buffer.readu8(lookupValueToCharacter, value1))
-		buffer.writeu8(output, outputLength - 3, buffer.readu8(lookupValueToCharacter, value2))
-		buffer.writeu8(output, outputLength - 2, buffer.readu8(lookupValueToCharacter, value3))
-		buffer.writeu8(output, outputLength - 1, buffer.readu8(lookupValueToCharacter, value4))
-	end
-
-	return output
+    return output
 end
 
-local function decode(input: buffer): buffer
-	local inputLength = buffer.len(input)
-	local inputChunks = math.ceil(inputLength / 4)
+local function decode(input_buffer: buffer): buffer?
+    local input_length = buffer.len(input_buffer)
 
-	-- TODO: Support input without padding
-	local inputPadding = 0
-	if inputLength ~= 0 then
-		if buffer.readu8(input, inputLength - 1) == padding then
-			inputPadding += 1
-		end
-		if buffer.readu8(input, inputLength - 2) == padding then
-			inputPadding += 1
-		end
-	end
+    if input_length == 0 then
+        return
+    end
 
-	local outputLength = inputChunks * 3 - inputPadding
-	local output = buffer.create(outputLength)
+    local padding_size = if buffer.readu16(input_buffer, input_length - 2) == 0x3D3D
+        then 2
+        elseif buffer.readu8(input_buffer, input_length - 1) == 0x3D then 1
+        else 0
 
-	for chunkIndex = 1, inputChunks - 1 do
-		local inputIndex = (chunkIndex - 1) * 4
-		local outputIndex = (chunkIndex - 1) * 3
+    local output = buffer.create(((input_length / 4) * 3) - 1)
+    local chunks = math.ceil(input_length / 4) - 1
 
-		local value1 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, inputIndex))
-		local value2 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, inputIndex + 1))
-		local value3 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, inputIndex + 2))
-		local value4 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, inputIndex + 3))
+    for chunk_idx = 1, chunks do
+        local index = (chunk_idx - 1) * 4
+        local out_index = (chunk_idx - 1) * 3
 
-		local chunk = bit32.bor(bit32.lshift(value1, 18), bit32.lshift(value2, 12), bit32.lshift(value3, 6), value4)
+        local value1 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, index)]
+        local value2 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, index + 1)]
+        local value3 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, index + 2)]
+        local value4 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, index + 3)]
 
-		local character1 = bit32.rshift(chunk, 16)
-		local character2 = bit32.band(bit32.rshift(chunk, 8), 0b11111111)
-		local character3 = bit32.band(chunk, 0b11111111)
+        local chunk = bit32.bor(bit32.lshift(value1, 18), bit32.lshift(value2, 12), bit32.lshift(value3, 6), value4)
 
-		buffer.writeu8(output, outputIndex, character1)
-		buffer.writeu8(output, outputIndex + 1, character2)
-		buffer.writeu8(output, outputIndex + 2, character3)
-	end
+        local character1 = bit32.rshift(chunk, 16)
+        local character2 = bit32.band(bit32.rshift(chunk, 8), 0b11111111)
+        local character3 = bit32.band(chunk, 0b11111111)
 
-	if inputLength ~= 0 then
-		local lastInputIndex = (inputChunks - 1) * 4
-		local lastOutputIndex = (inputChunks - 1) * 3
+        buffer.writeu8(output, out_index, character1)
+        buffer.writeu8(output, out_index + 1, character2)
+        buffer.writeu8(output, out_index + 2, character3)
+    end
 
-		local lastValue1 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, lastInputIndex))
-		local lastValue2 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, lastInputIndex + 1))
-		local lastValue3 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, lastInputIndex + 2))
-		local lastValue4 = buffer.readu8(lookupCharacterToValue, buffer.readu8(input, lastInputIndex + 3))
+    local final_idx = chunks * 4
+    local final_output_idx = chunks * 3
 
-		local lastChunk = bit32.bor(
-			bit32.lshift(lastValue1, 18),
-			bit32.lshift(lastValue2, 12),
-			bit32.lshift(lastValue3, 6),
-			lastValue4
-		)
+    local final_value_1 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, final_idx)]
+    local final_value_2 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, final_idx + 1)]
+    local final_value_3 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, final_idx + 2)]
+    local final_value_4 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, final_idx + 3)]
 
-		if inputPadding <= 2 then
-			local lastCharacter1 = bit32.rshift(lastChunk, 16)
-			buffer.writeu8(output, lastOutputIndex, lastCharacter1)
+    local final_chunk = bit32.bor(
+        bit32.lshift(final_value_1, 18),
+        bit32.lshift(final_value_2, 12),
+        bit32.lshift(final_value_3, 6),
+        final_value_4
+    )
 
-			if inputPadding <= 1 then
-				local lastCharacter2 = bit32.band(bit32.rshift(lastChunk, 8), 0b11111111)
-				buffer.writeu8(output, lastOutputIndex + 1, lastCharacter2)
+    if padding_size <= 2 then
+        local lastCharacter1 = bit32.rshift(final_chunk, 16)
+        buffer.writeu8(output, final_output_idx, lastCharacter1)
 
-				if inputPadding == 0 then
-					local lastCharacter3 = bit32.band(lastChunk, 0b11111111)
-					buffer.writeu8(output, lastOutputIndex + 2, lastCharacter3)
-				end
-			end
-		end
-	end
+        if padding_size <= 1 then
+            local lastCharacter2 = bit32.band(bit32.rshift(final_chunk, 8), 0b11111111)
+            buffer.writeu8(output, final_output_idx + 1, lastCharacter2)
 
-	return output
+            if padding_size == 0 then
+                local lastCharacter3 = bit32.band(final_chunk, 0b11111111)
+                buffer.writeu8(output, final_output_idx + 2, lastCharacter3)
+            end
+        end
+    end
+
+    return output
 end
 
-return {
-	encode = encode,
-	decode = decode,
-}
+return table.freeze({
+    encode = encode,
+    decode = decode
+})
