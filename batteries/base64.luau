@@ -19,11 +19,13 @@ do
 	end
 end
 
-local function encode(input_buffer: buffer): buffer?
+local function encode(input_buffer: buffer): buffer
+	assert(typeof(input_buffer) == "buffer", "Expected input to be a buffer")
+
 	local input_length = buffer.len(input_buffer)
 
 	if input_length == 0 then
-		return
+		return buffer.create(0)
 	end
 
 	local output = buffer.create(((input_length + 2) // 3) * 4)
@@ -69,20 +71,26 @@ local function encode(input_buffer: buffer): buffer?
 	return output
 end
 
-local function decode(input_buffer: buffer): buffer?
+local function decode(input_buffer: buffer): buffer
+	assert(typeof(input_buffer) == "buffer", "Expected input to be a buffer")
+
 	local input_length = buffer.len(input_buffer)
 
 	if input_length == 0 then
-		return
+		return buffer.create(0)
 	end
 
-	local padding_size = if buffer.readu16(input_buffer, input_length - 2) == 0x3D3D
-		then 2
-		elseif buffer.readu8(input_buffer, input_length - 1) == 0x3D then 1
-		else 0
+	local padding_size = 0
+	if input_length >= 2 and buffer.readu16(input_buffer, input_length - 2) == 0x3D3D then
+		padding_size = 2
+	elseif input_length >= 1 and buffer.readu8(input_buffer, input_length - 1) == 0x3D then
+		padding_size = 1
+	end
 
-	local output = buffer.create(((input_length / 4) * 3) - 1)
-	local chunks = math.ceil(input_length / 4) - 1
+	-- get correct output size
+	local output_length = ((input_length / 4) * 3) - padding_size
+	local output = buffer.create(output_length)
+	local chunks = input_length // 4
 
 	for chunk_idx = 1, chunks do
 		local index = (chunk_idx - 1) * 4
@@ -99,38 +107,19 @@ local function decode(input_buffer: buffer): buffer?
 		local character2 = bit32.band(bit32.rshift(chunk, 8), 0b11111111)
 		local character3 = bit32.band(chunk, 0b11111111)
 
-		buffer.writeu8(output, out_index, character1)
-		buffer.writeu8(output, out_index + 1, character2)
-		buffer.writeu8(output, out_index + 2, character3)
-	end
+		-- always write the first byte
+		if out_index < output_length then
+			buffer.writeu8(output, out_index, character1)
+		end
 
-	local final_idx = chunks * 4
-	local final_output_idx = chunks * 3
+		-- write second byte if have space (+padding)
+		if out_index + 1 < output_length then
+			buffer.writeu8(output, out_index + 1, character2)
+		end
 
-	local final_value_1 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, final_idx)]
-	local final_value_2 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, final_idx + 1)]
-	local final_value_3 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, final_idx + 2)]
-	local final_value_4 = BASE64_DECODING_LUT[buffer.readu8(input_buffer, final_idx + 3)]
-
-	local final_chunk = bit32.bor(
-		bit32.lshift(final_value_1, 18),
-		bit32.lshift(final_value_2, 12),
-		bit32.lshift(final_value_3, 6),
-		final_value_4
-	)
-
-	if padding_size <= 2 then
-		local lastCharacter1 = bit32.rshift(final_chunk, 16)
-		buffer.writeu8(output, final_output_idx, lastCharacter1)
-
-		if padding_size <= 1 then
-			local lastCharacter2 = bit32.band(bit32.rshift(final_chunk, 8), 0b11111111)
-			buffer.writeu8(output, final_output_idx + 1, lastCharacter2)
-
-			if padding_size == 0 then
-				local lastCharacter3 = bit32.band(final_chunk, 0b11111111)
-				buffer.writeu8(output, final_output_idx + 2, lastCharacter3)
-			end
+		-- Write third byte if we have space (+padding)
+		if out_index + 2 < output_length then
+			buffer.writeu8(output, out_index + 2, character3)
 		end
 	end
 
