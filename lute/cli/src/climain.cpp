@@ -150,6 +150,7 @@ static void displayHelp(const char* argv0)
     printf("  run (default)   Run a Luau script.\n");
     printf("  check           Type check Luau files.\n");
     printf("  compile         Compile a Luau script into the executable.\n");
+    printf("  setup           Generate type definition files for the language server");
     printf("\n");
     printf("Run Options (when using 'run' or no command):\n");
     printf("  lute [run] <script.luau> [args...]\n");
@@ -162,6 +163,10 @@ static void displayHelp(const char* argv0)
     printf("Compile Options:\n");
     printf("  lute compile <script.luau> [output_executable]\n");
     printf("    Compiles the script, embedding it into a new executable.\n");
+    printf("\n");
+    printf("Setup Options:\n");
+    printf("  lute setup");
+    printf("    Generates type definition files for the language server\n");
     printf("\n");
     printf("General Options:\n");
     printf("  -h, --help    Display this usage message.\n");
