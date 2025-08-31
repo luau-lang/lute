@@ -9,14 +9,17 @@
 #include "lute/task.h"
 #include "lute/vm.h"
 #include "lute/time.h"
+#include "lute/exception.h"
 
 #include "Luau/Require.h"
 
 #include "lua.h"
 #include "lualib.h"
-
 #include "uv.h"
 
+#include <cstdio>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <assert.h>
 
@@ -50,7 +53,38 @@ Runtime::~Runtime()
 
 bool Runtime::hasWork()
 {
-    return hasContinuations() || hasThreads() || activeTokens.load() != 0;
+    return hasThreads() || activeTokens.load() != 0 || hasContinuations() || hasTasks();
+}
+
+RuntimeStep Runtime::runTaskExecutor()
+{
+    std::unique_lock<std::mutex> lock{continuationMutex};
+
+    if (scheduledTasks.empty())
+    {
+        return StepEmpty{};
+    }
+
+    auto task = std::move(scheduledTasks.back());
+    scheduledTasks.pop_back();
+
+    lock.unlock();
+
+    lua_State* L = task->getThread();
+    int nargs = task->resume();
+    int status = lua_resume(L, nullptr, nargs);
+
+    if (status == LUA_YIELD)
+    {
+        return StepSuccess{L};
+    }
+
+    if (status != LUA_OK)
+    {
+        return StepErr{L};
+    }
+
+    return StepSuccess{L};
 }
 
 RuntimeStep Runtime::runOnce()
@@ -114,7 +148,24 @@ bool Runtime::runToCompletion()
 {
     while (hasWork())
     {
-        auto step = runOnce();
+        RuntimeStep step = StepEmpty{};
+        bool hasExecuted = false;
+
+        if (hasThreads() || hasContinuations() || activeTokens.load() > 0)
+        {
+            hasExecuted = true;
+            step = runOnce();
+        }
+
+        if (Luau::get_if<StepSuccess>(&step) || Luau::get_if<StepEmpty>(&step))
+        {
+            if (!hasExecuted)
+            {
+                uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+            }
+
+            step = runTaskExecutor();
+        }
 
         if (auto err = Luau::get_if<StepErr>(&step))
         {
@@ -188,6 +239,12 @@ bool Runtime::hasContinuations()
 bool Runtime::hasThreads()
 {
     return !runningThreads.empty();
+}
+
+bool Runtime::hasTasks()
+{
+    std::unique_lock lock(continuationMutex);
+    return !scheduledTasks.empty() || !yieldedTasks.empty();
 }
 
 void Runtime::schedule(std::function<void()> f)
@@ -270,6 +327,63 @@ void Runtime::releasePendingToken()
 {
     [[maybe_unused]] int before = activeTokens.fetch_sub(1);
     assert(before > 0);
+}
+
+void Runtime::addTask(std::unique_ptr<Task> task)
+{
+    std::unique_lock<std::mutex> lock(continuationMutex);
+
+    yieldedTasks.push_back(std::move(task));
+    auto& taskRef = yieldedTasks.back();
+
+    lock.unlock(); // we need to unlock to allow for immediately scheduling tasks
+
+    taskRef->start();
+}
+
+void Runtime::scheduleTask(Task* task)
+{
+    std::lock_guard<std::mutex> lock(continuationMutex);
+
+    auto it = std::find_if(
+        yieldedTasks.begin(),
+        yieldedTasks.end(),
+        [task](const auto& t)
+        {
+            return t.get() == task;
+        }
+    );
+
+    if (it != yieldedTasks.end())
+    {
+        scheduledTasks.push_back(std::move(*it));
+        yieldedTasks.erase(it);
+        return;
+    }
+
+    throw LuteException("Attempted to schedule a task that does not exist");
+}
+
+void Runtime::cancelTask(Task* task)
+{
+    std::lock_guard<std::mutex> lock(continuationMutex);
+
+    auto it = std::find_if(
+        yieldedTasks.begin(),
+        yieldedTasks.end(),
+        [task](const auto& t)
+        {
+            return t.get() == task;
+        }
+    );
+
+    if (it != yieldedTasks.end())
+    {
+        yieldedTasks.erase(it);
+        return;
+    }
+
+    throw LuteException("Attempted to cancel a task that does not exist");
 }
 
 Runtime* getRuntime(lua_State* L)
@@ -360,4 +474,14 @@ lua_State* setupState(Runtime& runtime, void (*doBeforeSandbox)(lua_State*))
     luaL_sandbox(L);
 
     return L;
+}
+
+void Task::schedule()
+{
+    runtime->scheduleTask(this);
+}
+
+void Task::cancel()
+{
+    runtime->cancelTask(this);
 }

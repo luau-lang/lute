@@ -1,11 +1,13 @@
 #pragma once
 
 #include "Luau/Variant.h"
+#include "lute/exception.h"
 #include "lute/ref.h"
 
 #include <atomic>
 #include <condition_variable>
 #include <functional>
+#include <list>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -13,6 +15,7 @@
 #include <vector>
 
 struct lua_State;
+class Task;
 
 struct ThreadToContinue
 {
@@ -44,6 +47,8 @@ struct Runtime
     ~Runtime();
 
     bool runToCompletion();
+
+    RuntimeStep runTaskExecutor();
     RuntimeStep runOnce();
 
     // For child runtimes, run a thread waiting for work
@@ -55,6 +60,7 @@ struct Runtime
     bool hasWork();
     bool hasContinuations();
     bool hasThreads();
+    bool hasTasks();
 
     void schedule(std::function<void()> f);
 
@@ -70,6 +76,15 @@ struct Runtime
     void addPendingToken();
     void releasePendingToken();
 
+    // Adds a task to the list of yielded tasks, calling its start method
+    void addTask(std::unique_ptr<Task> task);
+
+    // Moves a yielded task to the list of tasks scheduled for resumption
+    void scheduleTask(Task* task);
+
+    // Cancels a task, removing it from the list of tasks
+    void cancelTask(Task* task);
+
     // VM for this runtime
     std::unique_ptr<lua_State, void (*)(lua_State*)> globalState;
 
@@ -84,6 +99,9 @@ struct Runtime
 private:
     std::mutex continuationMutex;
     std::vector<std::function<void()>> continuations;
+
+    std::vector<std::unique_ptr<Task>> scheduledTasks;
+    std::list<std::unique_ptr<Task>> yieldedTasks;
 
     // TODO: can this be handled by libuv?
     std::atomic<bool> stop;
@@ -113,3 +131,43 @@ struct ResumeTokenData
 ResumeToken getResumeToken(lua_State* L);
 
 lua_State* setupState(Runtime& runtime, void (*doBeforeSandbox)(lua_State*));
+
+// handling of runtime tasks
+
+class Task
+{
+public:
+    Task(Runtime* runtime, lua_State* L)
+        : runtime{runtime}
+        , L{L}
+    {
+    }
+
+    virtual ~Task() = default;
+
+    // Starts the task, this should be used in particular to start libuv operations or other async tasks
+    virtual void start() = 0;
+
+    // Called in order to resume the associated Luau thread with args provided here
+    virtual int resume() = 0;
+
+    // Schedules this task for resumption on the Runtime
+    void schedule();
+
+    // Cancels this task
+    void cancel();
+
+    lua_State* getThread() const
+    {
+        return L;
+    }
+
+    Runtime* getRuntime() const
+    {
+        return runtime;
+    }
+
+private:
+    Runtime* runtime;
+    lua_State* L;
+};
