@@ -26,13 +26,17 @@ int write(lua_State* L);
 /* takes a file handle into a string and then closes it */
 int close(lua_State* L);
 
-/* reads a whole file into a string and then closes it */
-int readfiletostring(lua_State* L);
 /* writes a st */
 int writestringtofile(lua_State* L);
 
 /* Reads a file without blocking */
-int readasync(lua_State* L);
+int readfile(lua_State* L);
+
+/* reads a whole file into a string and then closes it */
+int readfiletostring(lua_State* L);
+
+/* Writes a string to a file and then closes it */
+int writefile(lua_State* L);
 
 /* Removes a file */
 int fs_remove(lua_State* L);
@@ -90,8 +94,11 @@ static const luaL_Reg lib[] = {
     {"rmdir", fs_rmdir},
 
     {"readfiletostring", readfiletostring},
+    {"readasync", readfile},
+
     {"writestringtofile", writestringtofile},
-    {"readasync", readasync},
+    {"writefile", writefile},
+
     {NULL, NULL},
 };
 
