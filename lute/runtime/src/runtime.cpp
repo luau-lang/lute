@@ -163,7 +163,7 @@ bool Runtime::runToCompletion()
             {
                 uv_run(uv_default_loop(), UV_RUN_DEFAULT);
             }
-
+            
             step = runTaskExecutor();
         }
 
@@ -329,7 +329,14 @@ void Runtime::releasePendingToken()
     assert(before > 0);
 }
 
-void Runtime::addTask(std::unique_ptr<Task> task)
+lua_State* Runtime::newThread()
+{
+    lua_State* L = lua_newthread(GL);
+
+    return L;
+}
+
+Task* Runtime::addTask(std::unique_ptr<Task> task)
 {
     std::unique_lock<std::mutex> lock(continuationMutex);
 
@@ -339,6 +346,8 @@ void Runtime::addTask(std::unique_ptr<Task> task)
     lock.unlock(); // we need to unlock to allow for immediately scheduling tasks
 
     taskRef->start();
+
+    return taskRef.get();
 }
 
 void Runtime::scheduleTask(Task* task)

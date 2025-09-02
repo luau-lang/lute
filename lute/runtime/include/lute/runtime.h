@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Luau/Common.h"
 #include "Luau/Variant.h"
 #include "lute/exception.h"
 #include "lute/ref.h"
@@ -76,8 +77,11 @@ struct Runtime
     void addPendingToken();
     void releasePendingToken();
 
+    // Creates a new thread, ready for use
+    lua_State* newThread();
+
     // Adds a task to the list of yielded tasks, calling its start method
-    void addTask(std::unique_ptr<Task> task);
+    Task* addTask(std::unique_ptr<Task> task);
 
     // Moves a yielded task to the list of tasks scheduled for resumption
     void scheduleTask(Task* task);
