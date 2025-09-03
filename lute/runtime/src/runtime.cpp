@@ -21,6 +21,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <algorithm>
 #include <assert.h>
 
 static void lua_close_checked(lua_State* L)

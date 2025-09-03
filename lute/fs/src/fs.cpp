@@ -11,7 +11,6 @@
 #include "lute/runtime.h"
 #include "lute/time.h"
 #include "lute/userdatas.h"
-#include "uv/unix.h"
 
 #include <array>
 #include <cstddef>
@@ -24,7 +23,6 @@
 #include <filesystem>
 #include <map>
 #include <memory>
-#include <sys/stat.h>
 #include <string>
 #include <stdlib.h>
 
