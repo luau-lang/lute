@@ -1,6 +1,8 @@
 add_library(Lute.Runtime)
 
 target_sources(Lute.Runtime PRIVATE
+    include/lute/async.h
+    include/lute/exception.h
     include/lute/ref.h
     include/lute/runtime.h
     include/lute/userdatas.h
