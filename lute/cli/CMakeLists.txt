@@ -1,15 +1,22 @@
-add_library(Lute.CLI.Commands STATIC)
+set(CLI_GENERATED_HEADER ${CMAKE_CURRENT_BINARY_DIR}/generated/lute_cli_files.h)
 
-target_sources(Lute.CLI.Commands PRIVATE
-    generated/commands.h
-    generated/commands.cpp
+embed_files(
+    OUTPUT_HEADER   ${CLI_GENERATED_HEADER}
+    VARIABLE_NAME   "LUTE_CLI"
+    ROOT_DIR        "${CMAKE_CURRENT_SOURCE_DIR}/commands"
+    INPUT_FILES     "${CMAKE_CURRENT_SOURCE_DIR}/commands"
+    PATH_PREFIX     "@cli/"
+)
+
+add_library(Lute.CLI.Commands STATIC
+    ${CLI_GENERATED_HEADER}
 
     include/lute/clicommands.h
     src/clicommands.cpp
 )
 
 target_compile_features(Lute.CLI.Commands PUBLIC cxx_std_17)
-target_include_directories(Lute.CLI.Commands PUBLIC include generated)
+target_include_directories(Lute.CLI.Commands PUBLIC include ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_compile_options(Lute.CLI.Commands PRIVATE ${LUTE_OPTIONS})
 
 add_library(Lute.CLI.lib STATIC)
