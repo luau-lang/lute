@@ -9,6 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMakeBuild")
 
 include(get_version)
+include(embed_files)
 
 project(
     Lute
@@ -131,3 +132,6 @@ add_subdirectory(lute/time)
 # executables
 add_subdirectory(lute/cli)
 add_subdirectory(tests)
+
+target_compile_options(Lute.CLI PRIVATE -fsanitize=address)
+target_link_options(Lute.CLI PRIVATE -fsanitize=address)
