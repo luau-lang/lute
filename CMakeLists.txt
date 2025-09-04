@@ -103,6 +103,9 @@ if(MSVC)
     list(APPEND LUTE_OPTIONS "/we4018") # Signed/unsigned mismatch
     list(APPEND LUTE_OPTIONS "/we4388") # Also signed/unsigned mismatch
     list(APPEND LUTE_OPTIONS "/Zc:externConstexpr") # MSVC does not comply with C++ standard by default
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        list(APPEND LUTE_OPTIONS "/EHsc") # The CMake clang-cl target doesn't enable exceptions by default
+    endif()
     # FIXME: list(APPEND LUTE_OPTIONS /WX) # Warnings are errors
 else()
     list(APPEND LUTE_OPTIONS -Wall) # All warnings

@@ -1,7 +1,8 @@
 {
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
+    "gen": "lute run scripts/reference.luau",
+    "dev": "npm run gen && vitepress dev",
+    "build": "npm run gen && vitepress build",
     "preview": "vitepress preview"
   },
   "devDependencies": {

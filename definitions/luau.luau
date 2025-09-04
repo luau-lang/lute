@@ -553,6 +553,7 @@ export type ParseResult = {
 	root: AstStatBlock,
 	eof: Eof,
 	lines: number,
+	lineOffsets: { number },
 }
 
 function luau.parse(source: string): ParseResult
@@ -569,7 +570,7 @@ function luau.compile(source: string): Bytecode
 	error("not implemented")
 end
 
-function luau.load(bytecode: Bytecode): () -> ...any
+function luau.load(bytecode: Bytecode, chunkname: string?, env: { [any]: any }?): (...any) -> ...any
 	error("not implemented")
 end
 

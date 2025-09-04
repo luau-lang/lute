@@ -273,7 +273,7 @@ struct AstSerialize : public Luau::AstVisitor
         return result;
     }
 
-    // Splits a list of trivia into trailing trivia for the previos token, and leading trivia for the next token
+    // Splits a list of trivia into trailing trivia for the previous token, and leading trivia for the next token
     // The trailing trivia consists of all trivia up to and including the first '\n' character seen
     static std::pair<std::vector<Trivia>, std::vector<Trivia>> splitTrivia(std::vector<Trivia> trivia)
     {
@@ -620,7 +620,12 @@ struct AstSerialize : public Luau::AstVisitor
         }
     }
 
-    void serializePunctuated(Luau::AstArray<Luau::AstLocal*> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText, Luau::AstArray<Luau::Position> colonPositions)
+    void serializePunctuated(
+        Luau::AstArray<Luau::AstLocal*> nodes,
+        Luau::AstArray<Luau::Position> separators,
+        const char* separatorText,
+        Luau::AstArray<Luau::Position> colonPositions
+    )
     {
         lua_rawcheckstack(L, 3);
         lua_createtable(L, nodes.size, 0);
@@ -629,7 +634,7 @@ struct AstSerialize : public Luau::AstVisitor
         {
             lua_createtable(L, 0, 2);
 
-            serialize(nodes.data[i], /* createToken=*/ true, colonPositions.size > i ? std::make_optional(colonPositions.data[i]): std::nullopt);
+            serialize(nodes.data[i], /* createToken=*/true, colonPositions.size > i ? std::make_optional(colonPositions.data[i]) : std::nullopt);
             lua_setfield(L, -2, "node");
 
             if (i < separators.size)
@@ -641,7 +646,6 @@ struct AstSerialize : public Luau::AstVisitor
             lua_rawseti(L, -2, i + 1);
         }
     }
-
     void serializeAttribute(Luau::AstAttr* node)
     {
         switch (node->type)
@@ -752,7 +756,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeToken(node->location.begin, node->local->name.value);
         lua_setfield(L, -2, "token"),
 
-        serialize(node->local);
+            serialize(node->local);
         lua_setfield(L, -2, "local");
 
         lua_pushboolean(L, node->upvalue);
@@ -1970,7 +1974,8 @@ struct AstSerialize : public Luau::AstVisitor
                 node->types.data[i]->visit(this);
                 lua_setfield(L, -2, "node");
 
-                if (i < node->types.size - 1 && !node->types.data[i+1]->is<Luau::AstTypeOptional>() && separatorPositions < cstNode->separatorPositions.size)
+                if (i < node->types.size - 1 && !node->types.data[i + 1]->is<Luau::AstTypeOptional>() &&
+                    separatorPositions < cstNode->separatorPositions.size)
                     serializeToken(cstNode->separatorPositions.data[separatorPositions], "|");
                 else
                     lua_pushnil(L);
@@ -2560,9 +2565,9 @@ int luau_parse(lua_State* L)
         luaL_error(L, "parsing failed:\n%s", fullError.c_str());
     }
 
-    lua_rawcheckstack(L, 3);
+    lua_rawcheckstack(L, 6);
 
-    lua_createtable(L, 0, 3);
+    lua_createtable(L, 0, 4);
 
     AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
     serializer.visit(result.parseResult.root);
@@ -2573,6 +2578,15 @@ int luau_parse(lua_State* L)
 
     lua_pushnumber(L, result.parseResult.lines);
     lua_setfield(L, -2, "lines");
+
+    lua_createtable(L, serializer.lineOffsets.size(), 0);
+    for (size_t i = 0; i < serializer.lineOffsets.size(); i++)
+    {
+        lua_pushinteger(L, i + 1);
+        lua_pushnumber(L, serializer.lineOffsets[i]);
+        lua_settable(L, -3);
+    }
+    lua_setfield(L, -2, "lineOffsets");
 
     return 1;
 }
@@ -2690,6 +2704,10 @@ static int index_result(lua_State* L)
 static int init_luau_lib(lua_State* L)
 {
     luaL_newmetatable(L, COMPILE_RESULT_TYPE);
+
+    // Set __type
+    lua_pushstring(L, "CompilerResult");
+    lua_setfield(L, -2, "__type");
 
     lua_pushcfunction(L, index_result, "CompilerResult.__index");
     lua_setfield(L, -2, "__index");

@@ -25,7 +25,9 @@
 #include <Windows.h>
 #endif
 
+#include <iostream>
 #include <string>
+#include <filesystem>
 #include <vector>
 
 static int program_argc = 0;
@@ -151,6 +153,7 @@ static void displayHelp(const char* argv0)
     printf("  run (default)   Run a Luau script.\n");
     printf("  check           Type check Luau files.\n");
     printf("  compile         Compile a Luau script into the executable.\n");
+    printf("  setup           Generate type definition files for the language server.");
     printf("\n");
     printf("Run Options (when using 'run' or no command):\n");
     printf("  lute [run] <script.luau> [args...]\n");
@@ -163,6 +166,10 @@ static void displayHelp(const char* argv0)
     printf("Compile Options:\n");
     printf("  lute compile <script.luau> [output_executable]\n");
     printf("    Compiles the script, embedding it into a new executable.\n");
+    printf("\n");
+    printf("Setup Options:\n");
+    printf("  lute setup");
+    printf("    Generates type definition files for the language server.\n");
     printf("\n");
     printf("General Options:\n");
     printf("  -h, --help    Display this usage message.\n");
@@ -200,9 +207,37 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
+static bool checkValidPath(std::filesystem::path& filePath)
+{
+    if (std::filesystem::exists(filePath))
+    {
+        return true;
+    }
+
+    // if the file has an explicit extension, dont do a fallback
+    if (filePath.has_extension()) {
+        return false;
+    }
+
+    std::filesystem::path fallbackPath = ".lute" / filePath;
+
+    for (const auto& ext : {".luau", ".lua"})
+    {
+        fallbackPath.replace_extension(ext);
+
+        if (std::filesystem::exists(fallbackPath))
+        {
+            filePath = std::move(fallbackPath);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 int handleRunCommand(int argc, char** argv, int argOffset)
 {
-    const char* filePath = nullptr;
+    std::optional<std::filesystem::path> filePath;
 
     for (int i = argOffset; i < argc; ++i)
     {
@@ -221,7 +256,7 @@ int handleRunCommand(int argc, char** argv, int argOffset)
         }
         else
         {
-            filePath = currentArg;
+            filePath.emplace(currentArg);
             program_argc = argc - i;
             program_argv = &argv[i];
             break;
@@ -238,7 +273,13 @@ int handleRunCommand(int argc, char** argv, int argOffset)
     Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
-    bool success = runFile(runtime, filePath, L);
+    if (!checkValidPath(filePath.value()))
+    {
+        std::cerr << "Error: File '" << filePath->string() << "' does not exist.\n";
+        return 1;
+    }
+
+    bool success = runFile(runtime, filePath->string().c_str(), L);
     return success ? 0 : 1;
 }
 

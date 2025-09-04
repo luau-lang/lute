@@ -8,6 +8,9 @@ local system = require("@lute/system")
 local cli = require("@batteries/cli")
 local toml = require("@batteries/toml")
 
+local TYPEDEF_PATTERN = "return {%*}"
+local DICTIONARY_PATTERN = '["%*"] = [==[%*]==],'
+
 type Tune = {
 	dependency: {
 		name: string,
@@ -288,7 +291,20 @@ local function generateStdLibFilesIfNeeded()
 
 		if safeFsType(path) == "file" then
 			local libSrc = fs.readfiletostring(path)
-			fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+			if #libSrc > 16_000 then
+				-- https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/compiler-error-c2026
+				-- MSVC can't handle a single string literal being over 16380 single-byte characters,
+				-- but can if they are adjacent contatenated strings. So, we split the string line-by-line into
+				-- adjacent substrings.
+				local lines = string.split(libSrc, "\n")
+				local generatedLines = table.create(#lines)
+				for _, line in lines do
+					table.insert(generatedLines, `"{string.gsub(line, '"', '\\"')}\\n"`)
+				end
+				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
+			else
+				fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+			end
 		end
 
 		if safeFsType(path) == "dir" then
@@ -316,6 +332,72 @@ local function generateStdLibFilesIfNeeded()
 	local hash = fs.open(joinPath(generatedPath, "hash.txt"), "w+")
 	fs.write(hash, getStdLibHash())
 	fs.close(hash)
+end
+
+local function getTypeDefinitionsHash(): string
+	local libsPath = projectRelative("definitions")
+
+	local toHash = ""
+
+	traverseFileTree(libsPath, function(path, relativePath)
+		if safeFsType(path) == "file" then
+			toHash ..= "./" .. relativePath
+			toHash ..= fs.readfiletostring(path)
+		end
+	end)
+
+	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
+	return hexify(digest)
+end
+
+local function isGeneratedTypeDefinitionsUpToDate(): boolean
+	local hashFile = projectRelative("lute", "cli", "commands", "setup", "generated", "hash.txt")
+
+	if safeFsType(hashFile) ~= "file" then
+		return false
+	end
+
+	local hash = fs.readfiletostring(hashFile)
+
+	return hash == getTypeDefinitionsHash()
+end
+
+local function generateTypeDefinitionFiles()
+	local generatedPath = projectRelative("lute", "cli", "commands", "setup", "generated")
+	pcall(fs.mkdir, generatedPath)
+
+	if isGeneratedTypeDefinitionsUpToDate() then
+		return
+	end
+
+	print("Type definitions out of date, creating new ones.")
+
+	local dictionaryEntries: { [string]: string } = {}
+
+	for _, file in fs.listdir("definitions") do
+		if file.type ~= "file" then
+			continue
+		end
+
+		local content = fs.readasync(`definitions/{file.name}`)
+
+		dictionaryEntries[file.name] = content
+	end
+
+	local stringDictionary = ""
+
+	for key, value in dictionaryEntries do
+		stringDictionary ..= string.format(DICTIONARY_PATTERN, key, value)
+	end
+
+	local hash = fs.open(joinPath(generatedPath, "hash.txt"), "w+")
+	fs.write(hash, getTypeDefinitionsHash())
+	fs.close(hash)
+
+	fs.writestringtofile(
+		"lute/cli/commands/setup/generated/definitions.luau",
+		string.format(TYPEDEF_PATTERN, stringDictionary)
+	)
 end
 
 local function getCliCommandsHash()
@@ -378,7 +460,20 @@ local function generateCliCommandsFilesIfNeeded()
 
 		if safeFsType(path) == "file" then
 			local libSrc = fs.readfiletostring(path)
-			fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+			if #libSrc > 16_000 then
+				-- https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/compiler-error-c2026
+				-- MSVC can't handle a single string literal being over 16380 single-byte characters,
+				-- but can if they are adjacent contatenated strings. So, we split the string line-by-line into
+				-- adjacent substrings.
+				local lines = string.split(libSrc, "\n")
+				local generatedLines = table.create(#lines)
+				for _, line in lines do
+					table.insert(generatedLines, `"{string.gsub(line, '"', '\\"')}\\n"`)
+				end
+				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
+			else
+				fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+			end
 		end
 
 		if safeFsType(path) == "dir" then
@@ -411,6 +506,7 @@ end
 local function generateFilesIfNeeded()
 	generateStdLibFilesIfNeeded()
 	generateCliCommandsFilesIfNeeded()
+	generateTypeDefinitionFiles()
 end
 
 local function getExePath(): string
@@ -629,6 +725,8 @@ local exitCode = 0
 
 if subcommand == "fetch" then
 	exitCode = fetchDependencies()
+elseif subcommand == "generate" then -- TODO cutesy name for generate
+	generateFilesIfNeeded()
 elseif subcommand == "configure" or subcommand == "tune" then
 	generateFilesIfNeeded()
 	exitCode = configure()
