@@ -204,14 +204,18 @@ NavigationStatus Vfs::toChild(const std::string& name)
 {
     atDiskFakeRoot = false;
 
+    NavigationStatus status;
     switch (vfsType)
     {
     case VFSType::Disk:
-        return fileVfs.toChild(name);
+        status = fileVfs.toChild(name);
+        break;
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
-        return currentSubtree->toChild(name);
+        status = currentSubtree->toChild(name);
+        break;
     }
+    return status;
 }
 
 bool Vfs::isConfigPresent() const
@@ -219,14 +223,18 @@ bool Vfs::isConfigPresent() const
     if (atDiskFakeRoot)
         return true;
 
+    bool isPresent = false;
     switch (vfsType)
     {
     case VFSType::Disk:
-        return fileVfs.isConfigPresent();
+        isPresent = fileVfs.isConfigPresent();
+        break;
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
-        return currentSubtree->isConfigPresent();
+        isPresent = currentSubtree->isConfigPresent();
+        break;
     }
+    return isPresent;
 }
 
 std::optional<std::string> Vfs::getConfig() const
@@ -234,14 +242,18 @@ std::optional<std::string> Vfs::getConfig() const
     if (atDiskFakeRoot)
         return generatedRootLuaurc;
 
+    std::optional<std::string> config;
     switch (vfsType)
     {
     case VFSType::Disk:
-        return fileVfs.getConfig();
+        config = fileVfs.getConfig();
+        break;
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
-        return currentSubtree->getConfig();
+        config = currentSubtree->getConfig();
+        break;
     }
+    return config;
 }
 
 bool Vfs::isModulePresent() const
@@ -249,14 +261,18 @@ bool Vfs::isModulePresent() const
     if (atDiskFakeRoot)
         return false;
 
+    bool isPresent = false;
     switch (vfsType)
     {
     case VFSType::Disk:
-        return fileVfs.isModulePresent();
+        isPresent = fileVfs.isModulePresent();
+        break;
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
-        return currentSubtree->isModulePresent();
+        isPresent = currentSubtree->isModulePresent();
+        break;
     }
+    return isPresent;
 }
 
 std::optional<std::string> Vfs::getContents(const std::string& path) const
@@ -266,14 +282,18 @@ std::optional<std::string> Vfs::getContents(const std::string& path) const
 
 std::string Vfs::getCurrentPath() const
 {
+    std::string path;
     switch (vfsType)
     {
     case VFSType::Disk:
-        return fileVfs.getAbsoluteFilePath();
+        path = fileVfs.getAbsoluteFilePath();
+        break;
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
-        return currentSubtree->getCurrentPath();
+        path = currentSubtree->getCurrentPath();
+        break;
     }
+    return path;
 }
 
 } // namespace Library

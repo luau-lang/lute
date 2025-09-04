@@ -67,15 +67,19 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
         return libraryVfs.jumpToLibrary(std::string(path));
     }
 
+    NavigationStatus status = NavigationStatus::NotFound;
     switch (vfsType)
     {
     case VFSType::Library:
-        return libraryVfs.resetToPath(std::string(path));
+        status = libraryVfs.resetToPath(std::string(path));
+        break;
     case VFSType::Std:
-        return stdLibVfs.resetToPath(std::string(path));
+        status = stdLibVfs.resetToPath(std::string(path));
+        break;
     case VFSType::Lute:
-        return NavigationStatus::NotFound;
+        break;
     }
+    return status;
 }
 
 NavigationStatus RequireVfs::toParent(lua_State* L)
@@ -144,7 +148,6 @@ bool RequireVfs::isModulePresent(lua_State* L) const
 std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) const
 {
     std::optional<std::string> contents;
-
     switch (vfsType)
     {
     case VFSType::Library:
@@ -156,47 +159,58 @@ std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) c
     case VFSType::Lute:
         break;
     }
-
     return contents ? *contents : "";
 }
 
 std::string RequireVfs::getChunkname(lua_State* L) const
 {
+    std::string chunkname;
     switch (vfsType)
     {
     case VFSType::Library:
-        return "@" + libraryVfs.getCurrentPath();
+        chunkname = "@" + libraryVfs.getCurrentPath();
+        break;
     case VFSType::Std:
-        return "@" + stdLibVfs.getIdentifier();
+        chunkname = "@" + stdLibVfs.getIdentifier();
+        break;
     case VFSType::Lute:
-        return "";
+        break;
     }
+    return chunkname;
 }
 
 std::string RequireVfs::getLoadname(lua_State* L) const
 {
+    std::string loadname;
     switch (vfsType)
     {
     case VFSType::Library:
-        return libraryVfs.getCurrentPath();
+        loadname = libraryVfs.getCurrentPath();
+        break;
     case VFSType::Std:
-        return stdLibVfs.getIdentifier();
+        loadname = stdLibVfs.getIdentifier();
+        break;
     case VFSType::Lute:
-        return "";
+        break;
     }
+    return loadname;
 }
 
 std::string RequireVfs::getCacheKey(lua_State* L) const
 {
+    std::string cacheKey;
     switch (vfsType)
     {
     case VFSType::Library:
-        return libraryVfs.getCurrentPath();
+        cacheKey = libraryVfs.getCurrentPath();
+        break;
     case VFSType::Std:
-        return stdLibVfs.getIdentifier();
+        cacheKey = stdLibVfs.getIdentifier();
+        break;
     case VFSType::Lute:
-        return "";
+        break;
     }
+    return cacheKey;
 }
 
 bool RequireVfs::isConfigPresent(lua_State* L) const
@@ -204,15 +218,19 @@ bool RequireVfs::isConfigPresent(lua_State* L) const
     if (atFakeRoot)
         return true;
 
+    bool isPresent = false;
     switch (vfsType)
     {
     case VFSType::Library:
-        return libraryVfs.isConfigPresent();
+        isPresent = libraryVfs.isConfigPresent();
+        break;
     case VFSType::Std:
-        return stdLibVfs.isConfigPresent();
+        isPresent = stdLibVfs.isConfigPresent();
+        break;
     case VFSType::Lute:
-        return false;
+        break;
     }
+    return isPresent;
 }
 
 std::string RequireVfs::getConfig(lua_State* L) const
@@ -229,7 +247,6 @@ std::string RequireVfs::getConfig(lua_State* L) const
     }
 
     std::optional<std::string> configContents;
-
     switch (vfsType)
     {
     case VFSType::Library:
@@ -241,7 +258,6 @@ std::string RequireVfs::getConfig(lua_State* L) const
     case VFSType::Lute:
         break;
     }
-
     return configContents ? *configContents : "";
 }
 
