@@ -63,18 +63,23 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
         return NavigationStatus::Success;
     }
 
+    NavigationStatus status = NavigationStatus::NotFound;
     switch (vfsType)
     {
     case VFSType::Disk:
-        return fileVfs.resetToPath(std::string(path));
+        status = fileVfs.resetToPath(std::string(path));
+        break;
     case VFSType::Std:
-        return stdLibVfs.resetToPath(std::string(path));
+        status = stdLibVfs.resetToPath(std::string(path));
+        break;
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
-        return cliVfs->resetToPath(std::string(path));
+        status = cliVfs->resetToPath(std::string(path));
+        break;
     case VFSType::Lute:
-        return NavigationStatus::NotFound;
+        break;
     }
+    return status;
 }
 
 NavigationStatus RequireVfs::toParent(lua_State* L)
@@ -176,7 +181,6 @@ std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) c
 std::string RequireVfs::getChunkname(lua_State* L) const
 {
     std::string chunkname;
-
     switch (vfsType)
     {
     case VFSType::Disk:
@@ -192,14 +196,12 @@ std::string RequireVfs::getChunkname(lua_State* L) const
     case VFSType::Lute:
         break;
     }
-
     return chunkname;
 }
 
 std::string RequireVfs::getLoadname(lua_State* L) const
 {
     std::string loadname;
-
     switch (vfsType)
     {
     case VFSType::Disk:
@@ -215,14 +217,12 @@ std::string RequireVfs::getLoadname(lua_State* L) const
     case VFSType::Lute:
         break;
     }
-
     return loadname;
 }
 
 std::string RequireVfs::getCacheKey(lua_State* L) const
 {
     std::string cacheKey;
-
     switch (vfsType)
     {
     case VFSType::Disk:
@@ -238,7 +238,6 @@ std::string RequireVfs::getCacheKey(lua_State* L) const
     case VFSType::Lute:
         break;
     }
-
     return cacheKey;
 }
 
@@ -248,7 +247,6 @@ bool RequireVfs::isConfigPresent(lua_State* L) const
         return true;
 
     bool isPresent = false;
-
     switch (vfsType)
     {
     case VFSType::Disk:
@@ -264,7 +262,6 @@ bool RequireVfs::isConfigPresent(lua_State* L) const
     case VFSType::Lute:
         break;
     }
-
     return isPresent;
 }
 
@@ -282,7 +279,6 @@ std::string RequireVfs::getConfig(lua_State* L) const
     }
 
     std::optional<std::string> configContents;
-
     switch (vfsType)
     {
     case VFSType::Disk:
@@ -298,6 +294,5 @@ std::string RequireVfs::getConfig(lua_State* L) const
     case VFSType::Lute:
         break;
     }
-
     return configContents ? *configContents : "";
 }
