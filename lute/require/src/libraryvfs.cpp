@@ -186,9 +186,6 @@ NavigationStatus Vfs::toParent()
         LUAU_ASSERT(currentSubtree);
         status = currentSubtree->toParent();
         break;
-    default:
-        status = NavigationStatus::NotFound;
-        break;
     }
 
     if (status == NavigationStatus::NotFound)
@@ -214,8 +211,6 @@ NavigationStatus Vfs::toChild(const std::string& name)
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->toChild(name);
-    default:
-        return NavigationStatus::NotFound;
     }
 }
 
@@ -231,8 +226,6 @@ bool Vfs::isConfigPresent() const
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->isConfigPresent();
-    default:
-        return false;
     }
 }
 
@@ -248,8 +241,6 @@ std::optional<std::string> Vfs::getConfig() const
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->getConfig();
-    default:
-        return std::nullopt;
     }
 }
 
@@ -265,8 +256,6 @@ bool Vfs::isModulePresent() const
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->isModulePresent();
-    default:
-        return false;
     }
 }
 
@@ -284,8 +273,6 @@ std::string Vfs::getCurrentPath() const
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
         return currentSubtree->getCurrentPath();
-    default:
-        return "";
     }
 }
 
