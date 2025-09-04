@@ -72,7 +72,7 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
         return cliVfs->resetToPath(std::string(path));
-    default:
+    case VFSType::Lute:
         return NavigationStatus::NotFound;
     }
 }
@@ -96,8 +96,6 @@ NavigationStatus RequireVfs::toParent(lua_State* L)
     case VFSType::Lute:
         luaL_error(L, "cannot get the parent of @lute");
         break;
-    default:
-        return NavigationStatus::NotFound;
     }
 
     if (status == NavigationStatus::NotFound)
@@ -128,8 +126,6 @@ NavigationStatus RequireVfs::toChild(lua_State* L, std::string_view name)
     case VFSType::Lute:
         luaL_error(L, "'%s' is not a lute library", std::string(name).c_str());
         break;
-    default:
-        break;
     }
 
     return NavigationStatus::NotFound;
@@ -148,8 +144,6 @@ bool RequireVfs::isModulePresent(lua_State* L) const
         return cliVfs->isModulePresent();
     case VFSType::Lute:
         luaL_error(L, "@lute is not requirable");
-        break;
-    default:
         break;
     }
 
@@ -172,7 +166,7 @@ std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) c
         LUAU_ASSERT(cliVfs);
         contents = cliVfs->getContents(loadname);
         break;
-    default:
+    case VFSType::Lute:
         break;
     }
 
@@ -190,7 +184,7 @@ std::string RequireVfs::getChunkname(lua_State* L) const
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
         return "@" + cliVfs->getIdentifier();
-    default:
+    case VFSType::Lute:
         return "";
     }
 }
@@ -206,7 +200,7 @@ std::string RequireVfs::getLoadname(lua_State* L) const
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
         return cliVfs->getIdentifier();
-    default:
+    case VFSType::Lute:
         return "";
     }
 }
@@ -222,7 +216,7 @@ std::string RequireVfs::getCacheKey(lua_State* L) const
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
         return cliVfs->getIdentifier();
-    default:
+    case VFSType::Lute:
         return "";
     }
 }
@@ -241,7 +235,7 @@ bool RequireVfs::isConfigPresent(lua_State* L) const
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
         return cliVfs->isConfigPresent();
-    default:
+    case VFSType::Lute:
         return false;
     }
 }
@@ -273,7 +267,7 @@ std::string RequireVfs::getConfig(lua_State* L) const
         LUAU_ASSERT(cliVfs);
         configContents = cliVfs->getConfig();
         break;
-    default:
+    case VFSType::Lute:
         break;
     }
 
