@@ -175,50 +175,71 @@ std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) c
 
 std::string RequireVfs::getChunkname(lua_State* L) const
 {
+    std::string chunkname;
+
     switch (vfsType)
     {
     case VFSType::Disk:
-        return "@" + fileVfs.getFilePath();
+        chunkname = "@" + fileVfs.getFilePath();
+        break;
     case VFSType::Std:
-        return "@" + stdLibVfs.getIdentifier();
+        chunkname = "@" + stdLibVfs.getIdentifier();
+        break;
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
-        return "@" + cliVfs->getIdentifier();
+        chunkname = "@" + cliVfs->getIdentifier();
+        break;
     case VFSType::Lute:
-        return "";
+        break;
     }
+
+    return chunkname;
 }
 
 std::string RequireVfs::getLoadname(lua_State* L) const
 {
+    std::string loadname;
+
     switch (vfsType)
     {
     case VFSType::Disk:
-        return fileVfs.getAbsoluteFilePath();
+        loadname = fileVfs.getAbsoluteFilePath();
+        break;
     case VFSType::Std:
-        return stdLibVfs.getIdentifier();
+        loadname = stdLibVfs.getIdentifier();
+        break;
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
-        return cliVfs->getIdentifier();
+        loadname = cliVfs->getIdentifier();
+        break;
     case VFSType::Lute:
-        return "";
+        break;
     }
+
+    return loadname;
 }
 
 std::string RequireVfs::getCacheKey(lua_State* L) const
 {
+    std::string cacheKey;
+
     switch (vfsType)
     {
     case VFSType::Disk:
-        return fileVfs.getAbsoluteFilePath();
+        cacheKey = fileVfs.getAbsoluteFilePath();
+        break;
     case VFSType::Std:
-        return stdLibVfs.getIdentifier();
+        cacheKey = stdLibVfs.getIdentifier();
+        break;
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
-        return cliVfs->getIdentifier();
+        cacheKey = cliVfs->getIdentifier();
+        break;
     case VFSType::Lute:
-        return "";
+        break;
     }
+
+    return cacheKey;
 }
 
 bool RequireVfs::isConfigPresent(lua_State* L) const
@@ -226,18 +247,25 @@ bool RequireVfs::isConfigPresent(lua_State* L) const
     if (atFakeRoot)
         return true;
 
+    bool isPresent = false;
+
     switch (vfsType)
     {
     case VFSType::Disk:
-        return fileVfs.isConfigPresent();
+        isPresent = fileVfs.isConfigPresent();
+        break;
     case VFSType::Std:
-        return stdLibVfs.isConfigPresent();
+        isPresent = stdLibVfs.isConfigPresent();
+        break;
     case VFSType::Cli:
         LUAU_ASSERT(cliVfs);
-        return cliVfs->isConfigPresent();
+        isPresent = cliVfs->isConfigPresent();
+        break;
     case VFSType::Lute:
-        return false;
+        break;
     }
+
+    return isPresent;
 }
 
 std::string RequireVfs::getConfig(lua_State* L) const
