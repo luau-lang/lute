@@ -42,7 +42,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #cmakedefine FFI_DEBUG
 
 /* Cannot use PROT_EXEC on this target, so, we revert to alternative means */
-#cmakedefine FFI_EXEC_TRAMPOLINE_TABLE
+#cmakedefine01 FFI_EXEC_TRAMPOLINE_TABLE
 
 /* Define this if you want to enable pax emulated trampolines */
 #cmakedefine FFI_MMAP_EXEC_EMUTRAMP_PAX
