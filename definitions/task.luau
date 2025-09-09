@@ -18,7 +18,7 @@ function task.resume(thread: thread): thread
 	error("unimplemented")
 end
 
-function task.delay<T..., U...>(dur: number | time.Duration, routine: (T...) -> U...): thread
+function task.delay<T..., U...>(dur: number | time.Duration, routine: (T...) -> U..., ...: T...): thread
 	error("unimplemented")
 end
 
