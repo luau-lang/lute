@@ -11,6 +11,7 @@
 #include <functional>
 #include <iterator>
 
+
 // taken from extern/luau/VM/lcorolib.cpp
 static const char* const statnames[] = {"running", "suspended", "normal", "dead", "dead"};
 
@@ -23,10 +24,10 @@ struct WaitData
     uint64_t startedAtMs;
 
     bool putDeltaTimeOnStack;
+    int nargs;
 };
 
-
-static void yieldLuaStateFor(lua_State* L, uint64_t milliseconds, bool putDeltaTimeOnStack)
+static void yieldLuaStateFor(lua_State* L, uint64_t milliseconds, bool putDeltaTimeOnStack, int nargs)
 {
     WaitData* yield = new WaitData();
     uv_timer_init(uv_default_loop(), &yield->uvTimer);
@@ -35,6 +36,7 @@ static void yieldLuaStateFor(lua_State* L, uint64_t milliseconds, bool putDeltaT
     yield->startedAtMs = uv_now(uv_default_loop());
     yield->uvTimer.data = yield;
     yield->putDeltaTimeOnStack = putDeltaTimeOnStack;
+    yield->nargs = nargs;
 
     uv_timer_start(
         &yield->uvTimer,
@@ -45,8 +47,9 @@ static void yieldLuaStateFor(lua_State* L, uint64_t milliseconds, bool putDeltaT
             yield->resumptionToken->complete(
                 [yield](lua_State* L)
                 {
-                    int stackReturnAmount = yield->putDeltaTimeOnStack ? 1 : 0;
-                    if (stackReturnAmount)
+                    int stackReturnAmount = yield->putDeltaTimeOnStack ? yield->nargs + 1 : yield->nargs;
+
+                    if (yield->putDeltaTimeOnStack)
                         lua_pushnumber(L, static_cast<double>(uv_now(uv_default_loop()) - yield->startedAtMs) / 1000.0);
 
                     delete yield;
@@ -71,16 +74,79 @@ int lua_defer(lua_State* L)
     return lua_yield(L, 0);
 };
 
+#define debugstack(L, pos) printf("lua stack spot [%d] is a \"%s\"\n", pos, lua_typename(L, lua_type(L, pos)))
+
+int lua_delay(lua_State* L)
+{
+    int type = lua_type(L, 1);
+    uint64_t milliseconds = 0;
+
+    // Handle overloads
+    switch (type)
+    {
+    default:
+        luaL_errorL(L, "invalid type %s passed into task.delay", lua_typename(L, lua_type(L, 1)));
+        break;
+
+    case LUA_TNUMBER:
+        milliseconds = static_cast<uint64_t>(lua_tonumber(L, 1) * 1000);
+        break;
+    case LUA_TUSERDATA:
+        double seconds = getSecondsFromTimespec(getTimespecFromDuration(L, 1));
+        milliseconds = static_cast<uint64_t>(seconds * 1000);
+
+        break;
+    };
+
+    // remove the wait time
+    lua_remove(L, 1);
+
+    lua_State* passedLuaState;
+
+    if (lua_isfunction(L, 1))
+    {
+        lua_State* NL = lua_newthread(L);
+        lua_pop(L, 1);
+
+        passedLuaState = NL;
+
+        // get the function
+        lua_xpush(L, NL, 1);
+
+        // remove the function
+        lua_remove(L, 1);
+    }
+    else if (lua_isthread(L, 1))
+    {
+        passedLuaState = lua_tothread(L, 1);
+        lua_remove(L, 1);
+    }
+    else
+    {
+        luaL_error(L, "can only pass threads or functions to task.spawn");
+    };
+
+    int nargs = lua_gettop(L);
+    lua_xmove(L, passedLuaState, nargs);
+
+    yieldLuaStateFor(passedLuaState, milliseconds, false, nargs);
+
+    return 1;
+}
+
 int lua_spawn(lua_State* L)
 {
     if (lua_isfunction(L, 1))
     {
         lua_State* NL = lua_newthread(L);
 
+        // transfer arguments from other lua_State to the called lua_State
         lua_xpush(L, NL, 1);
 
+        // remove the function arg
         lua_remove(L, 1);
 
+        // insert the thread
         lua_insert(L, 1);
     }
     else if (!lua_isthread(L, 1))
@@ -89,6 +155,8 @@ int lua_spawn(lua_State* L)
     }
 
     lute_resume(L);
+
+    // return the thread
     return 1;
 }
 
@@ -116,7 +184,7 @@ int lua_wait(lua_State* L)
         break;
     };
 
-    yieldLuaStateFor(L, milliseconds, true);
+    yieldLuaStateFor(L, milliseconds, true, 0);
 
     return lua_yield(L, 0);
 }
