@@ -140,14 +140,9 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
         if (status == 0)
         {
             if (lua_gettop(ML) == 1)
-            {
                 errored = false;
-            }
             else
-            {
-                const std::string prefix = "module " + std::string(path) + " must";
-                lua_pushstring(ML, (prefix + " return a single value, if it has no return value, you should explicitly return `nil`\n").c_str());
-            }
+                lua_pushfstring(ML, "module %s must return a single value, if it has no return value, you should explicitly return `nil`\n", path);
         }
         else if (status == LUA_YIELD)
         {
