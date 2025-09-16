@@ -94,6 +94,11 @@ set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
 # libsodium for `pwhash`
 include(libsodium)
 
+# libffi setup
+set(FFI_STATIC_BUILD ON)
+set(NO_JAVA_RAW_API ON)
+include(libffi)
+
 # Lute
 set(LUTE_OPTIONS)
 
@@ -118,6 +123,7 @@ endif()
 add_subdirectory(lute/require)
 add_subdirectory(lute/runtime)
 add_subdirectory(lute/crypto)
+add_subdirectory(lute/ffi)
 add_subdirectory(lute/fs)
 add_subdirectory(lute/luau)
 add_subdirectory(lute/net)
