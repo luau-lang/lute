@@ -8,6 +8,13 @@
 #include "Luau/ToString.h"
 #include "Luau/Compiler.h"
 #include "Luau/NotNull.h"
+#include "Luau/Frontend.h"
+#include "Luau/Config.h"
+#include "Luau/FileResolver.h"
+#include "Luau/BuiltinDefinitions.h"
+#include "Luau/TypeUtils.h"
+#include "Luau/Clone.h"
+#include "Luau/TypeArena.h"
 
 #include "lute/userdatas.h"
 
@@ -17,6 +24,8 @@
 #include <cstddef>
 #include <cstring>
 #include <iterator>
+#include <string>
+#include <map>
 
 const char* COMPILE_RESULT_TYPE = "CompileResult";
 
@@ -2683,6 +2692,82 @@ int load_luau(lua_State* L)
 
     return 1;
 }
+
+// DRAFTING FRONTEND API
+struct SingleModuleFileResolver : public Luau::FileResolver
+{
+    std::string moduleSource;
+
+    ~SingleModuleFileResolver() noexcept override = default;
+
+    std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
+    {
+        if (name == "main")
+        {
+            return Luau::SourceCode{moduleSource, Luau::SourceCode::Module};
+        }
+        return std::nullopt;
+    }
+};
+
+// A resolver that just provides a default configuration.
+struct DefaultConfigResolver : Luau::ConfigResolver
+{
+    const Luau::Config& getConfig(const Luau::ModuleName& name) const override
+    {
+        static Luau::Config defaultConfig;
+        // Enable type checking and linting by default.
+        defaultConfig.mode = Luau::Mode::Strict;
+        return defaultConfig;
+    }
+};
+
+// This function returns the ModulePtr
+std::shared_ptr<Luau::Module> analyzeAndGetModule(const std::string& source)
+{
+    SingleModuleFileResolver fileResolver;
+    DefaultConfigResolver configResolver;
+    fileResolver.moduleSource = source;
+
+    Luau::FrontendOptions frontendOptions;
+    frontendOptions.retainFullTypeGraphs = true; // We need the types, so this must be true!
+
+    Luau::Frontend frontend(&fileResolver, &configResolver, frontendOptions);
+    Luau::registerBuiltinGlobals(frontend, frontend.globals);
+    
+    // We run the check, which populates the Frontend's internal module cache.
+    frontend.check("main");
+
+    // After the check, we can retrieve the resulting Module object.
+    return frontend.moduleResolver.getModule("main");
+}
+
+int luau_getReturnType(lua_State* L)
+{
+    // 1. Get the source code string from Luau.
+    size_t sourceLength;
+    const char* source = luaL_checklstring(L, 1, &sourceLength);
+
+    // 2. Call our core C++ analysis function to get the Module object.
+    std::shared_ptr<Luau::Module> module = analyzeAndGetModule(std::string(source, sourceLength));
+
+    if (!module)
+    {
+        // If the module failed to compile for some reason, return nil.
+        lua_pushnil(L);
+        return 1;
+    }
+
+    // 3. Get the module's return type and convert it to a string.
+    // The returnType is a TypePackId, which represents one or more return values.
+    std::string returnTypeStr = Luau::toString(module->returnType);
+
+    // 4. Push the resulting string onto the stack to return it to Luau.
+    lua_pushlstring(L, returnTypeStr.c_str(), returnTypeStr.length());
+
+    return 1; // We are returning one value (the string).
+}
+
 
 } // namespace luau
 
