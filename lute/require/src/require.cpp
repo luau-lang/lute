@@ -126,6 +126,7 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
 
     // now we can compile & run module on the new thread
     std::string bytecode = Luau::compile(*contents, copts());
+    bool errored = true;
     if (luau_load(ML, chunkname, bytecode.data(), bytecode.size(), 0) == 0)
     {
         if (getCodegenEnabled())
@@ -138,10 +139,10 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
 
         if (status == 0)
         {
-            const std::string prefix = "module " + std::string(path) + " must";
-
-            if (lua_gettop(ML) == 0)
-                lua_pushstring(ML, (prefix + " return a value, if it has no return value, you should explicitly return `nil`\n").c_str());
+            if (lua_gettop(ML) == 1)
+                errored = false;
+            else
+                lua_pushfstring(ML, "module %s must return a single value, if it has no return value, you should explicitly return `nil`\n", path);
         }
         else if (status == LUA_YIELD)
         {
@@ -155,7 +156,7 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
 
     // add ML result to L stack
     lua_xmove(ML, L, 1);
-    if (lua_isstring(L, -1))
+    if (errored && lua_isstring(L, -1))
     {
         lua_pushstring(L, lua_debugtrace(ML));
         lua_concat(L, 2);

@@ -86,7 +86,7 @@ TEST_CASE("require_modules")
         {
             doPassingSubcase(argv, {"./without_config/luau"}, {"result from init.luau"});
         }
-        
+
         SUBCASE("init_lua")
         {
             doPassingSubcase(argv, {"./without_config/lua"}, {"result from init.lua"});
@@ -149,5 +149,17 @@ TEST_CASE("require_modules")
         {
             doPassingSubcase(argv, {"./lute/std"}, {"successfully required @std modules"});
         }
+    }
+}
+
+TEST_CASE("require_types")
+{
+    char executablePlaceholder[] = "lute";
+    for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
+    {
+        std::string requirer = joinPaths(luteProjectRoot, "tests/src/require/without_config/types/tester.luau");
+        std::vector<char*> argv = {executablePlaceholder, requirer.data()};
+
+        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
     }
 }
