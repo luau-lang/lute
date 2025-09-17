@@ -13,8 +13,7 @@
 #include "Luau/FileResolver.h"
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/TypeUtils.h"
-#include "Luau/Clone.h"
-#include "Luau/TypeArena.h"
+#include "Luau/AstQuery.h"
 
 #include "lute/userdatas.h"
 
@@ -26,6 +25,7 @@
 #include <iterator>
 #include <string>
 #include <map>
+#include <optional>
 
 const char* COMPILE_RESULT_TYPE = "CompileResult";
 
@@ -2722,24 +2722,35 @@ struct DefaultConfigResolver : Luau::ConfigResolver
     }
 };
 
+struct AnalyzeResult
+{
+    Luau::SourceModule sourceModule;
+    std::shared_ptr<Luau::Module> module;
+};
+
 // This function returns the ModulePtr
-std::shared_ptr<Luau::Module> analyzeAndGetModule(const std::string& source)
+AnalyzeResult analyzeAndGetModule(const std::string& source)
 {
     SingleModuleFileResolver fileResolver;
     DefaultConfigResolver configResolver;
     fileResolver.moduleSource = source;
 
     Luau::FrontendOptions frontendOptions;
-    frontendOptions.retainFullTypeGraphs = true; // We need the types, so this must be true!
+    frontendOptions.retainFullTypeGraphs = true;
+    frontendOptions.runLintChecks = true;
 
     Luau::Frontend frontend(&fileResolver, &configResolver, frontendOptions);
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
-    
+    Luau::freeze(frontend.globals.globalTypes);
+
     // We run the check, which populates the Frontend's internal module cache.
     frontend.check("main");
 
     // After the check, we can retrieve the resulting Module object.
-    return frontend.moduleResolver.getModule("main");
+    AnalyzeResult moduleData;
+    moduleData.sourceModule = *frontend.getSourceModule("main");
+    moduleData.module = frontend.moduleResolver.getModule("main");
+    return moduleData;
 }
 
 int luau_getReturnType(lua_State* L)
@@ -2749,7 +2760,19 @@ int luau_getReturnType(lua_State* L)
     const char* source = luaL_checklstring(L, 1, &sourceLength);
 
     // 2. Call our core C++ analysis function to get the Module object.
-    std::shared_ptr<Luau::Module> module = analyzeAndGetModule(std::string(source, sourceLength));
+    AnalyzeResult moduleData;
+    try
+    {
+        moduleData = analyzeAndGetModule(std::string(source, sourceLength));
+    }
+    catch (...)
+    {
+        printf("Exception in analyzeAndGetModule\n");
+        lua_pushstring(L, "Analysis failed");
+        return 1;
+    }
+
+    std::shared_ptr<Luau::Module> module = moduleData.module;
 
     if (!module)
     {
@@ -2758,9 +2781,35 @@ int luau_getReturnType(lua_State* L)
         return 1;
     }
 
+    Luau::ScopePtr moduleScope = module->getModuleScope();
+
+    Luau::ToStringOptions opts;
+    opts.exhaustive = true;
+    opts.useLineBreaks = true;
+    opts.functionTypeArguments = true;
+    opts.hideNamedFunctionTypeParameters = false;
+    opts.hideTableKind = false;
+    opts.scope = moduleScope;
+
+    // Check if moduleScope is valid
+    if (!moduleScope)
+    {
+        printf("Module scope is null\n");
+        lua_pushstring(L, "No module scope");
+        return 1;
+    }
+
     // 3. Get the module's return type and convert it to a string.
-    // The returnType is a TypePackId, which represents one or more return values.
-    std::string returnTypeStr = Luau::toString(module->returnType);
+    std::string returnTypeStr;
+    try
+    {
+        returnTypeStr = Luau::toString(module->returnType, opts);
+    }
+    catch (...)
+    {
+        printf("Exception in toString(returnType)\n");
+        returnTypeStr = "unknown";
+    }
 
     // 4. Push the resulting string onto the stack to return it to Luau.
     lua_pushlstring(L, returnTypeStr.c_str(), returnTypeStr.length());
