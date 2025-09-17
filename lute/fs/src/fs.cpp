@@ -18,6 +18,8 @@
 #include <cstring>
 #ifdef _WIN32
 #include <direct.h>
+#else
+#include <unistd.h>
 #endif
 #include <fcntl.h>
 #include <filesystem>
@@ -793,20 +795,40 @@ int fs_watch(lua_State* L)
     return 1;
 }
 
-class FileExistsOperation : public StatFileOperation
+class FileExistsOperation
+    : public Task
+    , public UVAsyncOperation<uv_fs_t>
 {
 public:
     FileExistsOperation(Runtime* runtime, lua_State* L, std::string path)
-        : StatFileOperation{runtime, L, std::move(path)}
+        : Task{runtime, L}
+        , path{std::move(path)}
     {
+    }
+
+    void start() override
+    {
+        int err = uv_fs_access(uv_default_loop(), getRequest(), path.c_str(), F_OK, uv_async_callback);
+
+        if (err)
+        {
+            throw LuteException{std::string{"Error stating file: "} + uv_strerror(err)};
+        }
     }
 
     int resume() override
     {
-        lua_pushboolean(getThread(), getRequest()->result != UV_ENOENT);
+        lua_pushboolean(getThread(), getRequest()->result == 0);
 
         return 1;
     }
+
+    void callback() override {
+        schedule();
+    }
+
+private:
+    std::string path;
 };
 
 int fs_exists(lua_State* L)
