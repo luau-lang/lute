@@ -13,7 +13,7 @@
 #include "Luau/FileResolver.h"
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/TypeUtils.h"
-#include "Luau/AstQuery.h"
+#include "Luau/FileUtils.h"
 
 #include "lute/userdatas.h"
 
@@ -2694,31 +2694,185 @@ int load_luau(lua_State* L)
 }
 
 // DRAFTING FRONTEND API
+// A resolver that just provides a default configuration.
+struct DefaultConfigResolver : Luau::ConfigResolver
+{
+    Luau::Config defaultConfig;
+    mutable std::unordered_map<std::string, Luau::Config> configCache;
+    mutable std::vector<std::pair<std::string, std::string>> configErrors;
+
+    DefaultConfigResolver(Luau::Mode mode)
+    {
+        defaultConfig.mode = mode;
+    }
+
+    const Luau::Config& getConfig(const Luau::ModuleName& name) const override
+    {
+        std::optional<std::string> path = getParentPath(name);
+        if (!path)
+            return defaultConfig;
+
+        return readConfigRec(*path);
+    }
+
+    const Luau::Config& readConfigRec(const std::string& path) const
+    {
+        auto it = configCache.find(path);
+        if (it != configCache.end())
+            return it->second;
+
+        std::optional<std::string> parent = getParentPath(path);
+        Luau::Config result = parent ? readConfigRec(*parent) : defaultConfig;
+
+        std::string configPath = joinPaths(path, Luau::kConfigName);
+
+        if (std::optional<std::string> contents = readFile(configPath))
+        {
+            Luau::ConfigOptions::AliasOptions aliasOpts;
+            aliasOpts.configLocation = configPath;
+            aliasOpts.overwriteAliases = true;
+
+            Luau::ConfigOptions opts;
+            opts.aliasOptions = std::move(aliasOpts);
+
+            std::optional<std::string> error = Luau::parseConfig(*contents, result, opts);
+            if (error)
+                configErrors.push_back({configPath, *error});
+        }
+
+        // print out discovered aliases, to ensure this is working
+        // for (const auto& [aliasName, aliasPath] : result.aliases) {
+        //     printf("Discovered alias: '%s' -> '%s'\n", aliasName.c_str(), aliasPath.value.c_str());
+        // }
+        // printf("At path %s\n", path.c_str());
+
+        return configCache[path] = result;
+    }
+};
+
 struct SingleModuleFileResolver : public Luau::FileResolver
 {
     std::string moduleSource;
+    const DefaultConfigResolver* configResolver;
+
+    SingleModuleFileResolver(const DefaultConfigResolver* config = nullptr)
+        : configResolver(config) {}
 
     ~SingleModuleFileResolver() noexcept override = default;
 
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
     {
-        if (name == "main")
+        Luau::SourceCode::Type sourceType;
+        std::optional<std::string> source = std::nullopt;
+
+        source = readFile(name);
+        sourceType = Luau::SourceCode::Module;
+
+        if (!source)
+            return std::nullopt;
+
+        return Luau::SourceCode{*source, sourceType};
+    }
+
+    // need to add support for Roblox globals / types
+    // resolving Roblox require structure
+    std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node) override
+    {
+        if (auto expr = node->as<Luau::AstExprConstantString>()) // resolves string require
         {
-            return Luau::SourceCode{moduleSource, Luau::SourceCode::Module};
+            std::string requirePath(expr->value.data, expr->value.size);
+            printf("Original require path: '%s' from module: %s\n", requirePath.c_str(), context->name.c_str());
+            std::optional<std::string> parent = getParentPath(context->name);
+            bool aliasPath = false;
+
+            // Apply aliases from config resolver
+            if (configResolver && context && requirePath.substr(0, 1) == "@")
+            {
+                printf("Using config resolver\n");
+                // Get the config for the current module's context
+                const Luau::Config& config = configResolver->getConfig(context->name);
+                requirePath = resolvePathWithAliases(requirePath, config.aliases);
+                printf("Resolved alias path as: %s\n", requirePath.c_str());
+                aliasPath = true;
+            }
+            
+            
+            // Try different extensions
+            std::vector<std::string> extensions = {".luau", ".lua", ""};
+            for (const auto& ext : extensions)
+            {
+                std::string fullPath = requirePath + ext;
+                // Fix: check if parent has value before using joinPaths
+                if (!aliasPath && parent)
+                {
+                    fullPath = joinPaths(*parent, fullPath);  // Dereference the optional
+                }
+                printf("Trying to read file: '%s'\n", fullPath.c_str());
+                if (readFile(fullPath))
+                {
+                    printf("Successfully found module: '%s'\n", fullPath.c_str());
+                    return {{fullPath}};
+                }
+            }
+            
+            printf("Failed to resolve module: '%s'\n", requirePath.c_str());
         }
+
         return std::nullopt;
     }
-};
 
-// A resolver that just provides a default configuration.
-struct DefaultConfigResolver : Luau::ConfigResolver
-{
-    const Luau::Config& getConfig(const Luau::ModuleName& name) const override
+    std::string getHumanReadableModuleName(const Luau::ModuleName& name) const override
     {
-        static Luau::Config defaultConfig;
-        // Enable type checking and linting by default.
-        defaultConfig.mode = Luau::Mode::Strict;
-        return defaultConfig;
+        if (name == "-")
+            return "stdin";
+        return name;
+    }
+
+private:
+    std::string resolvePathWithAliases(const std::string& path, const Luau::DenseHashMap<std::string, Luau::Config::AliasInfo>& aliases)
+    {   
+         // Split path
+        std::vector<std::string_view> paths = splitPath(path);
+        if (paths.empty())
+            return path;
+        
+        // Get the first component (the alias) and remove the @ prefix
+        std::string_view firstComponent = paths[0];
+        if (firstComponent.empty() || firstComponent[0] != '@')
+            return path;
+        std::string aliasName(firstComponent.substr(1)); // Remove the @ prefix
+        
+        // Look up the alias
+        auto aliasIt = aliases.find(aliasName);
+        if (aliasIt == NULL)
+        {
+            printf("Alias '%s' not found\n", aliasName.c_str());
+            return path;
+        }
+        
+        printf("Found alias '%s' -> '%s'\n", aliasName.c_str(), aliasIt->value.c_str());
+
+        // Start with the alias value (relative to the location of the config where it's defined)
+        std::optional<std::string> aliasRelativeDir = getParentPath(aliasIt->configLocation);
+        std::string resolvedPath;
+        if (aliasRelativeDir) {
+            printf("Alias defined relative to: %s\n", aliasRelativeDir->c_str());
+            resolvedPath = joinPaths(*aliasRelativeDir, aliasIt->value);
+        } else {
+            resolvedPath = aliasIt->value;
+        }
+        
+        // If there are remaining path components after the alias, join them
+        if (paths.size() > 1)
+        {
+            for (size_t i = 1; i < paths.size(); ++i)
+            {
+                resolvedPath = joinPaths(resolvedPath, std::string(paths[i]));
+            }
+        }
+        
+        return resolvedPath;
+
     }
 };
 
@@ -2731,9 +2885,9 @@ struct AnalyzeResult
 // This function returns the ModulePtr
 AnalyzeResult analyzeAndGetModule(const std::string& source)
 {
-    SingleModuleFileResolver fileResolver;
-    DefaultConfigResolver configResolver;
-    fileResolver.moduleSource = source;
+    DefaultConfigResolver configResolver(Luau::Mode::Strict);
+    SingleModuleFileResolver fileResolver(&configResolver);
+    // fileResolver.moduleSource = source;
 
     Luau::FrontendOptions frontendOptions;
     frontendOptions.retainFullTypeGraphs = true;
@@ -2744,12 +2898,12 @@ AnalyzeResult analyzeAndGetModule(const std::string& source)
     Luau::freeze(frontend.globals.globalTypes);
 
     // We run the check, which populates the Frontend's internal module cache.
-    frontend.check("main");
+    frontend.check(source);
 
     // After the check, we can retrieve the resulting Module object.
     AnalyzeResult moduleData;
-    moduleData.sourceModule = *frontend.getSourceModule("main");
-    moduleData.module = frontend.moduleResolver.getModule("main");
+    moduleData.sourceModule = *frontend.getSourceModule(source);
+    moduleData.module = frontend.moduleResolver.getModule(source);
     return moduleData;
 }
 
@@ -2788,8 +2942,10 @@ int luau_getReturnType(lua_State* L)
     opts.useLineBreaks = true;
     opts.functionTypeArguments = true;
     opts.hideNamedFunctionTypeParameters = false;
-    opts.hideTableKind = false;
+    opts.useQuestionMarks = true;
+    opts.hideTableKind = true;
     opts.scope = moduleScope;
+
 
     // Check if moduleScope is valid
     if (!moduleScope)
