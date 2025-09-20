@@ -83,17 +83,17 @@ int lua_delay(lua_State* L)
     // Handle overloads
     switch (type)
     {
-    default:
-        luaL_errorL(L, "invalid type %s passed into task.delay", lua_typename(L, lua_type(L, 1)));
-        break;
-
     case LUA_TNUMBER:
         milliseconds = static_cast<uint64_t>(lua_tonumber(L, 1) * 1000);
         break;
+
     case LUA_TUSERDATA:
         double seconds = getSecondsFromTimespec(getTimespecFromDuration(L, 1));
         milliseconds = static_cast<uint64_t>(seconds * 1000);
+        break;
 
+    default:
+        luaL_errorL(L, "invalid type %s passed into task.delay", lua_typename(L, lua_type(L, 1)));
         break;
     };
 
