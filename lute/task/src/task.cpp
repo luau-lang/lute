@@ -74,7 +74,6 @@ int lua_defer(lua_State* L)
     return lua_yield(L, 0);
 };
 
-#define debugstack(L, pos) printf("lua stack spot [%d] is a \"%s\"\n", pos, lua_typename(L, lua_type(L, pos)))
 
 int lua_delay(lua_State* L)
 {
