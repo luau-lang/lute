@@ -131,7 +131,7 @@ end
 
 --- Returns a string representation of an AstExpr
 function printExpr(expr: luau.AstExpr): string
-	return printNode(expr, visitor.visitExpression :: any)
+	return printNode(expr, visitor.visitExpression)
 end
 
 --- Returns a string representation of an AstStat
