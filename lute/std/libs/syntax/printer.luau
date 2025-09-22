@@ -123,7 +123,7 @@ local function printVisitor()
 	return printer
 end
 
-function printNode(node: luau.AstExpr | luau.AstStat | luau.AstType, visit: any): string
+function printNode<T>(node: T, visit: (node: T, visitor: visitor.Visitor) -> ()): string
 	local printer = printVisitor()
 	visit(node, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
@@ -131,7 +131,7 @@ end
 
 --- Returns a string representation of an AstExpr
 function printExpr(expr: luau.AstExpr): string
-	return printNode(expr, visitor.visitExpression)
+	return printNode(expr, visitor.visitExpression :: any)
 end
 
 --- Returns a string representation of an AstStat
