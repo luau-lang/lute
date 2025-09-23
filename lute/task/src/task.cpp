@@ -88,9 +88,11 @@ int lua_delay(lua_State* L)
         break;
 
     case LUA_TUSERDATA:
+    {
         double seconds = getSecondsFromTimespec(getTimespecFromDuration(L, 1));
         milliseconds = static_cast<uint64_t>(seconds * 1000);
         break;
+    }
 
     default:
         luaL_errorL(L, "invalid type %s passed into task.delay", lua_typename(L, lua_type(L, 1)));
