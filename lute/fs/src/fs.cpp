@@ -12,6 +12,8 @@
 #include <cstring>
 #ifdef _WIN32
 #include <direct.h>
+#else 
+#include <unistd.h>
 #endif
 #include <fcntl.h>
 #include <filesystem>
@@ -659,10 +661,11 @@ int fs_exists(lua_State* L)
     auto* req = new uv_fs_t();
     req->data = new ResumeToken(getResumeToken(L));
 
-    int err = uv_fs_stat(
+    int err = uv_fs_access(
         uv_default_loop(),
         req,
         path,
+        F_OK,
         [](uv_fs_t* req)
         {
             auto* request_state = static_cast<ResumeToken*>(req->data);
@@ -670,15 +673,8 @@ int fs_exists(lua_State* L)
             request_state->get()->complete(
                 [req](lua_State* L)
                 {
-                    if (req->result == UV_ENOENT)
-                    {
-                        lua_pushboolean(L, false); // does not exist
-                    }
-                    else
-                    {
-                        lua_pushboolean(L, true);
-                    }
-
+                    lua_pushboolean(L, req->result == 0);
+                    
                     uv_fs_req_cleanup(req);
 
                     delete req;
