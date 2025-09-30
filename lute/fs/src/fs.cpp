@@ -18,7 +18,7 @@
 #include <cstring>
 #ifdef _WIN32
 #include <direct.h>
-#else
+#else 
 #include <unistd.h>
 #endif
 #include <fcntl.h>
@@ -730,10 +730,8 @@ private:
                 // the function to the back of the stack, omit from nret
                 watcher->callbackReference->push(L);
 
-                // filename
                 lua_pushstring(L, filename);
 
-                // events
                 lua_createtable(L, 0, 2);
 
                 if ((events & UV_RENAME) == UV_RENAME)
@@ -757,7 +755,7 @@ private:
                     lua_pushboolean(L, false);
                     lua_setfield(L, -2, "change");
                 }
-
+                
                 return 2;
             }
         ));

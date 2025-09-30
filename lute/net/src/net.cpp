@@ -66,8 +66,11 @@ static CurlResponse requestData(
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
 
     if (!body.empty())
+    {
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
-
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, body.size());
+    }   
+    
     if (!headers.empty())
     {
         for (const auto& header_pair : headers)
@@ -133,7 +136,11 @@ int request(lua_State* L)
 
         lua_getfield(L, 2, "body");
         if (lua_isstring(L, -1))
-            body = lua_tostring(L, -1);
+        {
+            size_t len;
+            const char* data = lua_tolstring(L, -1, &len);
+            body.assign(data, data + len);
+        }
         lua_pop(L, 1);
 
         lua_getfield(L, 2, "headers");

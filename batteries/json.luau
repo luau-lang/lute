@@ -77,6 +77,7 @@ local ESCAPE_MAP = {
 	[0x0A] = string.byte("n"),
 	[0x0D] = string.byte("r"),
 	[0x09] = string.byte("t"),
+	[0x22] = string.byte('"'),
 }
 
 local function serializeUnicode(codepoint: number)
