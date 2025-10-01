@@ -1,6 +1,4 @@
-#!bin/bash
-
-fetch() {
+fetch_dep() {
   local dep_file="$1"
 
   # Ensure the file exists
@@ -28,7 +26,7 @@ fetch() {
     esac
   done < "$dep_file"
 
-  local target_dir="../extern/$name"
+  local target_dir="extern/$name"
 
   # Clone if not already present
   if [[ -d "$target_dir" ]]; then
@@ -45,14 +43,9 @@ fetch() {
   fi
 }
 
-# Fetch all the dependencies
-echo "Fetching dependencies..."
-fetch "../extern/boringssl.tune"
-fetch "../extern/curl.tune"
-fetch "../extern/libsodium.tune"
-fetch "../extern/luau.tune"
-fetch "../extern/libuv.tune"
-fetch "../extern/uSockets.tune"
-fetch "../extern/uWebSockets.tune"
-fetch "../extern/zlib.tune"
-
+for file in extern/*.tune; do
+    if [[ -f "$file" ]]; then
+    echo "Fetching dependency from: $(basename "$file")"
+    fetch_dep "extern/$(basename "$file")"
+  fi
+done
