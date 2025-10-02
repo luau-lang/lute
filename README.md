@@ -16,3 +16,7 @@ The Lute repository fundamentally contains three sets of libraries. These are as
 - `batteries`: A collection of useful, standalone Luau libraries that do not depend on `lute`.
 
 Contributions to any of these libraries are welcome, and we encourage you to open issues or pull requests if you have any feedback or contributions to make.
+### Building Lute without a `lute` executable
+- From the root directory, run `./tools/bootstrap.sh` to get lute dependencies
+- Configure with `cmake -G=Ninja -B {MacOS: build/xcode/debug | Linux: build/debug | Windows: build/vs2022/debug}  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=1`
+- Run `ninja -C {MacOS: build/xcode/debug | Linux: build/debug | Windows: build/vs2022/debug} {lute/cli/lute | tests/lute-tests}`
