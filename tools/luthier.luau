@@ -693,7 +693,10 @@ local function configure()
 	table.move(arguments, 1, #arguments, 2, cmd)
 
 	check(fetchDependenciesIfNeeded())
-	return call(cmd)
+
+	local result = call(cmd)
+	fs.copy(joinPath(getProjectPath(), "compile_commands.json"), projectRelative(BUILD_DIR, "compile_commands.json"))
+	return result
 end
 
 local function run()
