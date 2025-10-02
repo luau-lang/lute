@@ -347,7 +347,11 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
     lua_pop(L, 1);
 
     lua_getfield(L, responseIndex, "body");
-    std::string body = lua_isstring(L, -1) ? lua_tostring(L, -1) : "";
+
+    std::string body = "";
+    size_t bodyLength;
+    const char* bodyData = lua_tolstring(L, -1, &bodyLength);
+    body.assign(bodyData, bodyData + bodyLength);
     lua_pop(L, 1);
 
     res->end(body);
