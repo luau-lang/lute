@@ -1,3 +1,5 @@
+set -e
+
 fetch_dep() {
   local dep_file="$1"
 
@@ -7,27 +9,14 @@ fetch_dep() {
     return 1
   fi
 
-  # Default values
-  local name=""
-  local remote=""
-  local branch=""
-  local revision=""
+  # Extract each field by key
+  name=$(grep '^name' "$file" | sed -E 's/^name *= *"(.*)"/\1/')
+  remote=$(grep '^remote' "$file" | sed -E 's/^remote *= *"(.*)"/\1/')
+  branch=$(grep '^branch' "$file" | sed -E 's/^branch *= *"(.*)"/\1/')
+  revision=$(grep '^revision' "$file" | sed -E 's/^revision *= *"(.*)"/\1/')
 
-  # Parse the file
-  while IFS='=' read -r key value; do
-    key=$(echo "$key" | xargs)
-    value=$(echo "$value" | sed 's/"//g' | xargs)
-
-    case "$key" in
-      name) name="$value" ;;
-      remote) remote="$value" ;;
-      branch) branch="$value" ;;
-      revision) revision="$value" ;;
-    esac
-  done < "$dep_file"
-
+  # Output the parsed variables
   local target_dir="extern/$name"
- 
   # Get version string (e.g., "git version 2.50.1")
   version_str=$(git --version)
 
@@ -66,31 +55,44 @@ mkdir -p lute/std/src/generated
 cp ./tools/templates/std_impl.cpp ./lute/std/src/generated/modules.cpp
 cp ./tools/templates/std_header.h ./lute/std/src/generated/modules.h
 
+# Generate the clicommands modules.cpp file
+rm -rf lute/cli/generated
+mkdir -p lute/cli/generated
+
+cp ./tools/templates/cli_impl.cpp ./lute/cli/generated/commands.cpp
+cp ./tools/templates/cli_header.h ./lute/cli/generated/commands.h
+
 ## Configure bootstrap lute - lute stdlib
 os_type="$(uname)"
 BUILD_PATH=""
+EXE_PATH=lute/cli/lute
+OUT_BINARY=./build/bootstrapped-lute
 if [[ "$os_type" == "Linux" ]]; then
   BUILD_PATH=build/debug
 elif [[ "$os_type" == "Darwin" ]]; then
   BUILD_PATH=build/xcode/debug
 elif [[ "$os_type" == MINGW* || "$os_type" == MSYS* || "$os_type" == CYGWIN* ]]; then
-  BUILD_PATH="build/debug"
+    BUILD_PATH=build/vs2022/debug
+    EXE_PATH+=".exe"
+    OUT_BINARY+=.exe
 else
   echo "Unknown OS: $os_type, cannot bootstrap"
   return 1
 fi
+
 rm -rf build && mkdir build
 cmake -G=Ninja -B $BUILD_PATH -DCMAKE_BUILD_TYPE=Debug
 
 # Compile bootstrapping lute
-ninja -C $BUILD_PATH lute/cli/lute
+ninja -C $BUILD_PATH $EXE_PATH
 echo ""
 echo "Successfully built the bootstrapped lute - std"
 
 # Use bootstrapped lute to build lute with standard libraries included
-BOOTSTRAPPED_LUTE=./$BUILD_PATH/lute/cli/lute
-mv $BOOTSTRAPPED_LUTE ./build/bootstrapped-lute
-./build/bootstrapped-lute tools/luthier.luau build --clean Lute.CLI
+BOOTSTRAPPED_LUTE=./$BUILD_PATH/$EXE_PATH
+
+mv $BOOTSTRAPPED_LUTE $OUT_BINARY
+$OUT_BINARY tools/luthier.luau build --clean lute
 
 # optionally install bootstrapped lute
 install_requested=false

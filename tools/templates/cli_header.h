@@ -5,5 +5,5 @@
 #include <string_view>
 #include <utility>
 
-extern const std::pair<std::string_view, std::string_view> lutestdlib[1];
+extern const std::pair<std::string_view, std::string_view> luteclicommands[1];
 
