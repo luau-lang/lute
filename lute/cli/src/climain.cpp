@@ -26,6 +26,9 @@
 #include <string>
 #include <filesystem>
 #include <vector>
+#include <optional>
+#include <array>
+#include <algorithm>
 
 static int program_argc = 0;
 static char** program_argv = nullptr;
@@ -193,6 +196,10 @@ static void displayCompileHelp(const char* argv0)
     printf("Usage: lute compile <script.luau> [output_executable]\n");
     printf("\n");
     printf("Compile Options:\n");
+    printf("  --target <platform>  Target platform for cross-compilation.\n");
+    printf("                       Supported: linux-aarch64, linux-x86_64,\n");
+    printf("                       macos-aarch64, windows-x86_64\n");
+    printf("                       If not specified, uses current platform binary.\n");
     printf("  output_executable    Optional name for the compiled executable.\n");
     printf("                       Defaults to '<script_name>_compiled'.\n");
     printf("  -h, --help           Display this usage message.\n");
@@ -319,6 +326,18 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
 {
     std::string inputFilePath;
     std::string outputFilePath;
+    std::optional<std::string> target;
+
+    const std::array<std::string, 4> supportedTargets = {
+        "linux-aarch64",
+        "linux-x86_64",
+        "macos-aarch64",
+        "windows-x86_64"
+    };
+
+    auto ensureSupportedTarget = [&](const std::string& value) -> bool {
+        return std::find(supportedTargets.begin(), supportedTargets.end(), value) != supportedTargets.end();
+    };
 
     for (int i = argOffset; i < argc; ++i)
     {
@@ -328,6 +347,49 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
         {
             displayCompileHelp(argv[0]);
             return 0;
+        }
+        else if (strncmp(currentArg, "--target=", 9) == 0)
+        {
+            if (target)
+            {
+                fprintf(stderr, "Error: Duplicate '--target' option provided.\n\n");
+                displayCompileHelp(argv[0]);
+                return 1;
+            }
+
+            std::string value = currentArg + 9;
+            if (value.empty())
+            {
+                fprintf(stderr, "Error: '--target' option requires a value.\n\n");
+                displayCompileHelp(argv[0]);
+                return 1;
+            }
+
+            target = value;
+        }
+        else if (strcmp(currentArg, "--target") == 0)
+        {
+            if (target)
+            {
+                fprintf(stderr, "Error: Duplicate '--target' option provided.\n\n");
+                displayCompileHelp(argv[0]);
+                return 1;
+            }
+
+            if (i + 1 >= argc)
+            {
+                fprintf(stderr, "Error: '--target' option requires a value.\n\n");
+                displayCompileHelp(argv[0]);
+                return 1;
+            }
+
+            target = argv[++i];
+        }
+        else if (currentArg[0] == '-')
+        {
+            fprintf(stderr, "Error: Unrecognized option '%s' for 'compile' command.\n\n", currentArg);
+            displayCompileHelp(argv[0]);
+            return 1;
         }
         else if (inputFilePath.empty())
         {
@@ -349,6 +411,12 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
     {
         fprintf(stderr, "Error: No input file specified for 'compile' command.\n\n");
         displayCompileHelp(argv[0]);
+        return 1;
+    }
+
+    if (target && !ensureSupportedTarget(*target))
+    {
+        fprintf(stderr, "Unsupported target platform: %s. Supported: linux-aarch64, linux-x86_64, macos-aarch64, windows-x86_64\n", target->c_str());
         return 1;
     }
 
@@ -378,7 +446,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
 #endif
     }
 
-    return compileScript(inputFilePath, outputFilePath, argv[0]);
+    return compileScript(inputFilePath, outputFilePath, argv[0], target);
 }
 
 int handleCliCommand(CliCommandResult result)
