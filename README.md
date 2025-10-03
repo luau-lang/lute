@@ -16,7 +16,33 @@ The Lute repository fundamentally contains three sets of libraries. These are as
 - `batteries`: A collection of useful, standalone Luau libraries that do not depend on `lute`.
 
 Contributions to any of these libraries are welcome, and we encourage you to open issues or pull requests if you have any feedback or contributions to make.
-### Building Lute without a `lute` executable
-- From the root directory, run `./tools/bootstrap.sh` to get lute dependencies
-- Configure with `cmake -G=Ninja -B {MacOS: build/xcode/debug | Linux: build/debug | Windows: build/vs2022/debug}  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=1`
-- Run `ninja -C {MacOS: build/xcode/debug | Linux: build/debug | Windows: build/vs2022/debug} {lute/cli/lute | tests/lute-tests}`
+
+### Building Lute from scratch
+
+Lute uses a script built in Luau to handle pulling in vendored dependencies and embedding our Luau standard library into the `lute` executable. As a result, you typically need a `lute` executable available already in order to build it. As a result, you'd like to build `lute` entirely from scratch, you'll have to bootstrap it.
+From the root directory, run `./tools/bootstrap.sh` to build a `lute` executable. If you pass the `--install` flag, this will be
+installed to `$HOME/.lute/bin/lute` by default, with a prompt provided to select an alternative install location. Make sure to add this `lute` to your `$PATH` if you would like to have `lute` resolve to it in general.
+
+### Building Lute with `lute` installed
+
+After either bootstrapping `lute` per above or installing it using `foreman`, `rokit`, or manually from Releases, you can build modified local versions of `lute` using our build script, `luthier`, located at `./tools/luthier.luau`. To perform a clean build of Lute, you can run:
+```bash
+/path/to/lute tools/luthier.luau build --clean {lute | Lute.CLI | Lute.tests}
+```
+
+## Manually building Lute
+
+Outside of resolving the dependencies, Lute's build system is implemented today with `cmake`, meaning you can fairly easily pull external dependencies into `extern`, and then perform your own manual build with the following steps:
+
+- Copy all of the templates from `./tools/templates` into the right locations to support building a version with no embedded Luau functionality, e.g.
+  ```bash
+  mkdir -p ./lute/std/src/generated
+  cp ./tools/templates/std_impl.cpp ./lute/std/src/generated/modules.cpp
+  cp ./tools/templates/std_header.h ./lute/std/src/generated/modules.h
+  mkdir -p ./lute/cli/generated
+  cp ./tools/templates/cli_impl.cpp ./lute/cli/generated/commands.cpp
+  cp ./tools/templates/cli_header.h ./lute/cli/generated/commands.h
+  ```
+- Configure with `cmake -G=Ninja -B build  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=1`
+- Build a `lute` executable with `ninja -C build lute/cli/lute` or our test suite with `ninja -C build tests/lute-tests`.
+- Optionally, use this version to run `luthier generate` to generate the files for embedded Luau functionality.
