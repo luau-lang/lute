@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.check.outputs.proceed }}
+      nightly_tag: ${{ steps.set_nightly.outputs.nightly_tag }}
     permissions:
       contents: read
     
@@ -58,6 +59,13 @@ jobs:
 
           echo "proceed=$PROCEED" >> $GITHUB_OUTPUT
 
+      - name: Set nightly version suffix
+        id: set_nightly
+        if: github.event_name == 'schedule' || github.event.inputs.nightly
+        run: |
+          DATE=$(date +%Y%m%d)
+          echo "nightly_tag=nightly.$DATE" >> "$GITHUB_OUTPUT"
+
   build:
     strategy:
       matrix:
@@ -82,6 +90,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Set nightly version suffix
+      if: needs.check.outputs.nightly_tag
+      run: echo "LUTE_VERSION_SUFFIX=${{ needs.check.outputs.nightly_tag }}" >> "$GITHUB_ENV"
+
     - name: Setup and Build Lute
       id: build_lute
       uses: ./.github/actions/setup-and-build
@@ -98,7 +110,7 @@ jobs:
         name: ${{ matrix.artifact_name }}
 
   release:
-    needs: build
+    needs: [check, build]
     runs-on: ubuntu-latest
 
     permissions:
@@ -130,11 +142,9 @@ jobs:
 
       - name: Create Nightly Tag
         id: tag_step
-        if: github.event_name == 'schedule' || github.event.inputs.nightly
+        if: needs.check.outputs.nightly_tag
         run: |
-          DATE=$(date +%Y%m%d)
-          TAG="-nightly.$DATE"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=-${{ needs.check.outputs.nightly_tag }}" >> $GITHUB_OUTPUT
 
       - name: Create Release Tag
         id: tag_release
