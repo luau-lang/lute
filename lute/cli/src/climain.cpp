@@ -17,6 +17,7 @@
 #include "lute/require.h"
 #include "lute/runtime.h"
 #include "lute/tc.h"
+#include "lute/version.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -170,6 +171,12 @@ static void displayHelp(const char* argv0)
     printf("\n");
     printf("General Options:\n");
     printf("  -h, --help    Display this usage message.\n");
+    printf("      --version Show the lute version.\n");
+}
+
+static void displayVersion()
+{
+    printf("%s\n", LUTE_VERSION_FULL);
 }
 
 static void displayRunHelp(const char* argv0)
@@ -437,6 +444,11 @@ int cliMain(int argc, char** argv)
     else if (strcmp(command, "-h") == 0 || strcmp(command, "--help") == 0)
     {
         displayHelp(argv[0]);
+        return 0;
+    }
+    else if (strcmp(command, "--version") == 0)
+    {
+        displayVersion();
         return 0;
     }
     else if (std::optional<CliCommandResult> result = getCliCommand(command); result)
