@@ -1,0 +1,106 @@
+name: Update Luau
+
+on:
+  schedule:
+    - cron: '0 0 * * 6'
+  workflow_dispatch:
+
+jobs:
+  update-luau:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest Luau release
+        id: latest-release
+        run: |
+          # Fetch the latest release tag from luau-lang/luau
+          LATEST_TAG=$(curl -s https://api.github.com/repos/luau-lang/luau/releases/latest | jq -r '.tag_name')
+          echo "Latest Luau release: $LATEST_TAG"
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
+          # Fetch the commit hash for this tag
+          COMMIT_HASH=$(curl -s https://api.github.com/repos/luau-lang/luau/git/ref/tags/$LATEST_TAG | jq -r '.object.sha')
+          echo "Commit hash: $COMMIT_HASH"
+          echo "commit=$COMMIT_HASH" >> $GITHUB_OUTPUT
+
+      - name: Get latest Lute release
+        id: latest-lute
+        run: |
+          # Fetch the latest release tag from luau-lang/lute
+          LATEST_LUTE=$(curl -s https://api.github.com/repos/luau-lang/lute/releases | jq -r '.[0].tag_name')
+          echo "Latest Lute release: $LATEST_LUTE"
+          echo "tag=$LATEST_LUTE" >> $GITHUB_OUTPUT
+
+      - name: Check current version
+        id: current-version
+        run: |
+          CURRENT_BRANCH=$(grep '^branch' extern/luau.tune | sed -E 's/^branch *= *"(.*)"/\1/')
+          echo "Current Luau version: $CURRENT_BRANCH"
+          echo "branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
+          
+          # Get current lute version from rokit.toml
+          CURRENT_LUTE=$(grep '^lute = ' rokit.toml | sed -E 's/^lute = ".*@(.*)"/\1/')
+          echo "Current Lute version: $CURRENT_LUTE"
+          echo "lute=$CURRENT_LUTE" >> $GITHUB_OUTPUT
+
+      - name: Update version files
+        if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag || steps.current-version.outputs.lute != steps.latest-lute.outputs.tag
+        run: |
+          # Update the branch and revision in luau.tune if needed
+          if [ "${{ steps.current-version.outputs.branch }}" != "${{ steps.latest-release.outputs.tag }}" ]; then
+            sed -i 's/^branch = ".*"/branch = "${{ steps.latest-release.outputs.tag }}"/' extern/luau.tune
+            sed -i 's/^revision = ".*"/revision = "${{ steps.latest-release.outputs.commit }}"/' extern/luau.tune
+            
+            echo "Updated luau.tune:"
+            cat extern/luau.tune
+          fi
+          
+          # Update lute version in rokit.toml and foreman.toml if needed
+          if [ "${{ steps.current-version.outputs.lute }}" != "${{ steps.latest-lute.outputs.tag }}" ]; then
+            sed -i 's/^lute = "luau-lang\/lute@.*"/lute = "luau-lang\/lute@${{ steps.latest-lute.outputs.tag }}"/' rokit.toml
+            sed -i 's/^lute = { github = "luau-lang\/lute", version = ".*" }/lute = { github = "luau-lang\/lute", version = "${{ steps.latest-lute.outputs.tag }}" }/' foreman.toml
+            
+            echo "Updated rokit.toml:"
+            cat rokit.toml
+            echo ""
+            echo "Updated foreman.toml:"
+            cat foreman.toml
+          fi
+
+      - name: Create Pull Request
+        if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag || steps.current-version.outputs.lute != steps.latest-lute.outputs.tag
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update dependencies"
+          title: "Update Luau and/or Lute to latest releases"
+          body: |
+            This PR updates dependencies to their latest releases.
+            
+            **Changes:**
+            ${{ steps.current-version.outputs.branch != steps.latest-release.outputs.tag && format('- **Luau**: Updated from `{0}` to `{1}`', steps.current-version.outputs.branch, steps.latest-release.outputs.tag) || '' }}
+            ${{ steps.current-version.outputs.branch != steps.latest-release.outputs.tag && format('  - New revision: `{0}`', steps.latest-release.outputs.commit) || '' }}
+            ${{ steps.current-version.outputs.lute != steps.latest-lute.outputs.tag && format('- **Lute**: Updated from `{0}` to `{1}`', steps.current-version.outputs.lute, steps.latest-lute.outputs.tag) || '' }}
+            
+            **Release Notes:**
+            ${{ steps.current-version.outputs.branch != steps.latest-release.outputs.tag && format('- Luau: https://github.com/luau-lang/luau/releases/tag/{0}', steps.latest-release.outputs.tag) || '' }}
+            ${{ steps.current-version.outputs.lute != steps.latest-lute.outputs.tag && format('- Lute: https://github.com/luau-lang/lute/releases/tag/{0}', steps.latest-lute.outputs.tag) || '' }}
+            
+            ---
+            *This PR was automatically created by the [Update Luau workflow](https://github.com/${{ github.repository }}/actions/workflows/update-luau.yml)*
+          branch: update-dependencies-${{ github.run_number }}
+          base: primary
+          delete-branch: true
+
+      - name: No update needed
+        if: steps.current-version.outputs.branch == steps.latest-release.outputs.tag && steps.current-version.outputs.lute == steps.latest-lute.outputs.tag
+        run: |
+          echo "All dependencies are already up to date:"
+          echo "- Luau: ${{ steps.current-version.outputs.branch }}"
+          echo "- Lute: ${{ steps.current-version.outputs.lute }}"
+
