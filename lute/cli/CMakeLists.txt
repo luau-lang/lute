@@ -33,8 +33,8 @@ target_sources(Lute.CLI.lib PRIVATE
 )
 
 target_compile_features(Lute.CLI.lib PUBLIC cxx_std_17)
-target_include_directories(Lute.CLI.lib PUBLIC include ${CLI_GENERATED_INCLUDE_DIR})
-target_link_libraries(Lute.CLI.lib PRIVATE Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.CLI.Commands Lute.Require Lute.Runtime Luau.CLI.lib)
+target_include_directories(Lute.CLI.lib PUBLIC include ${CLI_GENERATED_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR})
+target_link_libraries(Lute.CLI.lib PRIVATE Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.CLI.Commands Lute.Require Lute.Runtime Luau.CLI.lib zlibstatic)
 target_compile_options(Lute.CLI.lib PRIVATE ${LUTE_OPTIONS})
 
 add_executable(Lute.CLI)

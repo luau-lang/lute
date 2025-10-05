@@ -26,6 +26,7 @@
 #include <iostream>
 #include <string>
 #include <filesystem>
+#include <fstream>
 #include <vector>
 
 static int program_argc = 0;
@@ -197,11 +198,12 @@ static void displayCheckHelp(const char* argv0)
 
 static void displayCompileHelp(const char* argv0)
 {
-    printf("Usage: lute compile <script.luau> [output_executable]\n");
+    printf("Usage: lute compile <script.luau> [output_executable] [--dump-bundle <bundle_file>]\n");
     printf("\n");
     printf("Compile Options:\n");
     printf("  output_executable    Optional name for the compiled executable.\n");
     printf("                       Defaults to '<script_name>_compiled'.\n");
+    printf("  --dump-bundle        Required path to dump the raw bundle.\n");
     printf("  -h, --help           Display this usage message.\n");
 }
 
@@ -326,6 +328,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
 {
     std::string inputFilePath;
     std::string outputFilePath;
+    std::string bundleDumpPath;
 
     for (int i = argOffset; i < argc; ++i)
     {
@@ -335,6 +338,16 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
         {
             displayCompileHelp(argv[0]);
             return 0;
+        }
+        else if (strcmp(currentArg, "--dump-bundle") == 0)
+        {
+            if (i + 1 >= argc)
+            {
+                fprintf(stderr, "Error: --dump-bundle requires a file path argument.\n\n");
+                displayCompileHelp(argv[0]);
+                return 1;
+            }
+            bundleDumpPath = argv[++i];
         }
         else if (inputFilePath.empty())
         {
@@ -385,7 +398,48 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
 #endif
     }
 
-    return compileScript(inputFilePath, outputFilePath, argv[0]);
+    // Encode the payload
+    LuteExePayload payload;
+    payload.add(inputFilePath);
+
+    LuteEncodeResult encodeResult;
+    payload.encode(encodeResult);
+
+    if (encodeResult.status != PayloadEncodeStatus::Ok)
+    {
+        fprintf(stderr, "Error encoding payload: %s\n", encodeResult.errMessage.value_or("Unknown error").c_str());
+        return 1;
+    }
+
+    // Optionally dump the bundle to a file and print statistics
+    if (!bundleDumpPath.empty())
+    {
+        std::ofstream bundleFile(bundleDumpPath, std::ios::binary);
+        if (!bundleFile)
+        {
+            fprintf(stderr, "Error: Could not open bundle dump file '%s'\n", bundleDumpPath.c_str());
+            return 1;
+        }
+        bundleFile.write(encodeResult.payload.data(), encodeResult.payload.size());
+        bundleFile.close();
+
+        printf("Bundle statistics:\n");
+        printf("  Uncompressed size: %zu bytes\n", encodeResult.uncompressedPayloadSizeBytes);
+        printf("  Compressed size:   %zu bytes\n", encodeResult.compressedPayloadSizeBytes);
+        printf("  Total payload:     %zu bytes\n", encodeResult.payload.size());
+        printf("  Bundle dumped to:  %s\n", bundleDumpPath.c_str());
+        return 0;
+    }
+
+    // Handle the compilation of the new lute executable
+    LuteExecutable exec{argv[0]};
+    if (!exec.create(outputFilePath, payload))
+    {
+        fprintf(stderr, "Error compiling executable %s\n", outputFilePath.c_str());
+        return 1;
+    }
+
+    return 0;
 }
 
 int handleCliCommand(CliCommandResult result)
@@ -401,18 +455,25 @@ int cliMain(int argc, char** argv)
 {
     Luau::assertHandler() = assertionHandler;
 
-    AppendedBytecodeResult embedded = checkForAppendedBytecode(argv[0]);
-    if (embedded.found)
+
+    LuteExecutable exec{argv[0]};
+    if (std::optional<LuteExePayload> found = exec.extract())
     {
+        printf("Allocing here");
         Runtime runtime;
         lua_State* GL = setupCliState(runtime);
 
         program_argc = argc;
         program_argv = argv;
 
-        bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL);
+        std::string entryPoint = found->entryPointPath;
+        auto entryModule = found->filePathToBytecode.find(entryPoint);
+        if (entryModule != found->filePathToBytecode.end())
+        {
+            bool success = runBytecode(runtime, entryModule->second, "=__EMBEDDED__", GL);
+            return success ? 0 : 1;
+        }
 
-        return success ? 0 : 1;
     }
 
 #ifdef _WIN32
