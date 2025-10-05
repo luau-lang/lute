@@ -80,7 +80,12 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
             }
             else
             {
-                fprintf(stderr, "Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
+                // Skip warning for built-in libraries (@std and @lute)
+                bool isBuiltinLibrary = req.find("@std/") == 0 || req.find("@lute/") == 0;
+                if (!isBuiltinLibrary)
+                {
+                    fprintf(stderr, "Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
+                }
             }
         }
 
