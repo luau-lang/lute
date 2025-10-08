@@ -1,11 +1,14 @@
 set -e
 
+# function to display commands before running them
+exe() { echo ": $@" ; "$@" ; }
+
 fetch_dep() {
   local dep_file="$1"
 
   # Ensure the file exists
   if [[ ! -f "$dep_file" ]]; then
-    echo "Dependency file not found: $dep_file"
+    echo "(ERR) dependency not found: $dep_file"
     return 1
   fi
 
@@ -28,12 +31,12 @@ fetch_dep() {
 
     # Now perform the version check
     if [[ "$gitMajor" -ge 3 || ( "$gitMajor" -eq 2 && "$gitMinor" -ge 49 ) ]]; then
-      git clone --depth=1 --revision $revision $remote $target_dir
+      exe git clone --depth=1 --revision $revision $remote $target_dir
     else
-      git clone --depth=1 --branch $branch $remote $target_dir
+      exe git clone --depth=1 --branch $branch $remote $target_dir
     fi
   else
-    echo "Could not parse Git version from: $version_str"
+    echo "(EE) could not parse Git version from: $version_str"
     exit 1
   fi
 }
@@ -43,7 +46,7 @@ find "extern" -mindepth 1 ! -name "*.tune" -prune -exec rm -rf {} +
 
 for file in extern/*.tune; do
   if [[ -f "$file" ]]; then
-    echo "Fetching dependency from: $(basename "$file")"
+    echo "(II) fetching dependency from: $(basename "$file")"
     fetch_dep "extern/$(basename "$file")"
   fi
 done
@@ -52,49 +55,46 @@ done
 rm -rf lute/std/src/generated
 mkdir -p lute/std/src/generated
 
-cp ./tools/templates/std_impl.cpp ./lute/std/src/generated/modules.cpp
-cp ./tools/templates/std_header.h ./lute/std/src/generated/modules.h
+exe cp ./tools/templates/std_impl.cpp ./lute/std/src/generated/modules.cpp
+exe cp ./tools/templates/std_header.h ./lute/std/src/generated/modules.h
 
 # Generate the clicommands modules.cpp file
 rm -rf lute/cli/generated
 mkdir -p lute/cli/generated
 
-cp ./tools/templates/cli_impl.cpp ./lute/cli/generated/commands.cpp
-cp ./tools/templates/cli_header.h ./lute/cli/generated/commands.h
+exe cp ./tools/templates/cli_impl.cpp ./lute/cli/generated/commands.cpp
+exe cp ./tools/templates/cli_header.h ./lute/cli/generated/commands.h
 
 ## Configure bootstrap lute - lute stdlib
 os_type="$(uname)"
 BUILD_PATH=""
 EXE_PATH=lute/cli/lute
-OUT_BINARY=./build/bootstrapped-lute
-if [[ "$os_type" == "Linux" ]]; then
-  BUILD_PATH=build/debug
-elif [[ "$os_type" == "Darwin" ]]; then
+OUT_BINARY=./build/lute0
+if [[ "$os_type" == "Darwin" ]]; then
   BUILD_PATH=build/xcode/debug
 elif [[ "$os_type" == MINGW* || "$os_type" == MSYS* || "$os_type" == CYGWIN* ]]; then
-    BUILD_PATH=build/vs2022/debug
-    EXE_PATH+=".exe"
-    OUT_BINARY+=.exe
+  BUILD_PATH=build/vs2022/debug
+  EXE_PATH+=".exe"
+  OUT_BINARY+=.exe
 else
-  echo "Unknown OS: $os_type, cannot bootstrap"
-  return 1
+  build_path=BUILD/DEBUG
 fi
 
 rm -rf build && mkdir build
-cmake -G=Ninja -B $BUILD_PATH -DCMAKE_BUILD_TYPE=Debug
+exe cmake -G=Ninja -B $BUILD_PATH -DCMAKE_BUILD_TYPE=Debug
 
 # Compile bootstrapping lute
-ninja -C $BUILD_PATH $EXE_PATH
+exe ninja -C $BUILD_PATH $EXE_PATH
 echo ""
-echo "Successfully built the bootstrapped lute - std"
+echo "(II) Successfully built lute0 without the standard library."
 
-# Use bootstrapped lute to build lute with standard libraries included
+# Use lute0 to build lute with the standard library included.
 BOOTSTRAPPED_LUTE=./$BUILD_PATH/$EXE_PATH
 
 mv $BOOTSTRAPPED_LUTE $OUT_BINARY
-$OUT_BINARY tools/luthier.luau build --clean lute
+exe $OUT_BINARY tools/luthier.luau build --clean lute
 
-# optionally install bootstrapped lute
+# optionally install the final built lute version
 install_requested=false
 # Parse flags
 # Loop through all command-line arguments
@@ -107,6 +107,7 @@ done
 
 INSTALL_DIR=$HOME/.lute/bin
 if $install_requested; then
+  # TODO: give the lute executable a self-install subcommand and just invoke that here instead
   read -p "Enter the path where you would like to install lute to (default: $INSTALL_DIR): " USER_PATH
 
   # If user_input is empty, keep default_path; else update it

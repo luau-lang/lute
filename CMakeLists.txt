@@ -66,6 +66,7 @@ set(USE_NGHTTP2 OFF)
 set(CURL_USE_LIBPSL OFF)
 set(CURL_USE_LIBSSH2 OFF)
 set(CURL_ZLIB ON)
+SET(CURL_ZSTD OFF CACHE STRING "Disable ZSTD" FORCE)
 set(CURL_BROTLI OFF CACHE STRING "Disable brotli support" FORCE)
 set(CURL_ENABLE_SSL ON)
 set(CURL_USE_OPENSSL ON)
@@ -89,7 +90,6 @@ include(uWebSockets)
 
 # Define include directories for uWebSockets and uSockets
 set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
-
 
 # libsodium for `pwhash`
 include(libsodium)

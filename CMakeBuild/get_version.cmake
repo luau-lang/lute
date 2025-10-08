@@ -12,4 +12,4 @@ if(LUTE_VERSION_SUFFIX)
     set(LUTE_VERSION_FULL "${LUTE_VERSION_FULL}-${LUTE_VERSION_SUFFIX}")
 endif()
 
-message("${LUTE_VERSION_FULL}")
+message("Lute Version: ${LUTE_VERSION_FULL}")
