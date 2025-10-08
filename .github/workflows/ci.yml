@@ -86,8 +86,8 @@ jobs:
     name: Gated Commits
     runs-on: ubuntu-latest
     needs:
-      - build
-    if: ${{ always() }}
+      - [build, test, check-format]
+    if: ${{ success() }}
     steps:
       - name: Aggregate
         run: |
