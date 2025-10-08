@@ -472,7 +472,7 @@ local function generateCliCommandsFilesIfNeeded()
 				end
 				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
 			else
-				fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+				fs.write(cpp, `\n    \{"{aliasedPath}", R"LUTE_CMD({libSrc})LUTE_CMD"},\n`)
 			end
 		end
 
