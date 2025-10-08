@@ -8,7 +8,7 @@ fetch_dep() {
 
   # Ensure the file exists
   if [[ ! -f "$dep_file" ]]; then
-    echo "(ERR) dependency not found: $dep_file"
+    echo "(EE) dependency not found: $dep_file"
     return 1
   fi
 
