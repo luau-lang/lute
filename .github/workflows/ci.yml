@@ -1,4 +1,4 @@
-name: build
+name: Gated Commits
 
 on:
   push:
@@ -85,10 +85,14 @@ jobs:
   aggregator:
     name: Gated Commits
     runs-on: ubuntu-latest
-    needs:
-      - build
+    needs: [build, test, check-format]
     if: ${{ always() }}
     steps:
-      - name: Aggregate
+      - name: Aggregator
         run: |
-          echo "All required jobs completed"
+          if [ "${{ needs.build.result }}" == "success" ] && [ "${{ needs.test.result }}" == "success" ] && [ "${{ needs.check-format.result }}" == "success" ]; then
+            echo "All jobs succeeded"
+          else
+            echo "One or more jobs failed"
+            exit 1
+          fi
