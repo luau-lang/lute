@@ -1,4 +1,4 @@
-name: build
+name: Gated Commits
 
 on:
   push:
