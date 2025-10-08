@@ -88,12 +88,11 @@ jobs:
     needs: [build, test, check-format]
     if: ${{ always() }}
     steps:
-      - name: Aggregate (success)
-        if: ${{ success() }}
+      - name: Aggregator
         run: |
-          echo "All required jobs succeeded"
-      - name: Aggregate (failure)
-        if: ${{ failure() }}
-        run: |
-          echo "One or more required jobs failed"
-          exit 1
+          if [ "${{ needs.build.result }}" == "success" ] && [ "${{ needs.test.result }}" == "success" ] && [ "${{ needs.check-format.result }}" == "success" ]; then
+            echo "All jobs succeeded"
+          else
+            echo "One or more jobs failed"
+            exit 1
+          fi
