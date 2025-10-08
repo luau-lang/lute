@@ -1,5 +1,4 @@
-Lute [![CI](https://github.com/luau-lang/lute/actions/workflows/ci.yml/badge.svg)](https://github.com/luau-lang/lute/actions/workflows/ci.yml)
-====
+# Lute [![CI](https://github.com/luau-lang/lute/actions/workflows/ci.yml/badge.svg)](https://github.com/luau-lang/lute/actions/workflows/ci.yml)
 
 Lute is a standalone runtime for general-purpose programming in [Luau](https://luau.org), and a collection of optional extension libraries for Luau embedders to include to expand the capabilities of the Luau scripts in their software.
 It is designed to make it readily feasible to use Luau to write any sort of general-purpose programs, including manipulating files, making network requests, opening sockets, and even making tooling that directly manipulates Luau scripts.
@@ -11,6 +10,7 @@ We would love to hear from you about your experiences working with other Luau or
 ### Lute Libraries
 
 The Lute repository fundamentally contains three sets of libraries. These are as follows:
+
 - `lute`: The core runtime libraries in C++, which provides the basic functionality for general-purpose Luau programming.
 - `std`: The standard library, which extends those core C++ libraries with additional functionality in Luau.
 - `batteries`: A collection of useful, standalone Luau libraries that do not depend on `lute`.
@@ -27,6 +27,7 @@ The `generate` step in particular is necessary to producing a full `lute` execut
 ### Building Lute with `lute` installed
 
 The most straightforward, and generally recommended, way to build a local version of `lute` is to have already installed an existing version of `lute`. Today, you can do that using a toolchain manager like [`foreman`](https://github.com/Roblox/foreman), [`rokit`](https://github.com/rojo-rbx/rokit), and [mise-en-place](https://mise.jdx.dev/), or by manually installing a prebuilt binary from our [Releases](https://github.com/luau-lang/lute/releases). With a copy of `lute` present on your system, you can then run the following to perform a clean build:
+
 ```bash
 # with `lute` on your path...
 lute tools/luthier.luau build --clean {lute | Lute.CLI | Lute.Test}
@@ -43,15 +44,15 @@ If you wish to build `lute` from scratch without a version of `lute` already pre
 
 If you wish to work very manually with the build system, you can, of course, still invoke `cmake` and `ninja` directly after pulling external dependencies into `extern` by hand. In order for the build to succeed, you'll have to provide _some_ version of a handful of generated files, but we provide empty versions to use in `./tools/templates`. A manual build therefore would look something like:
 
-  - Copy all of the templates from `./tools/templates` into the right locations to support building a version with no embedded Luau functionality, e.g.
-    ```bash
-    mkdir -p ./lute/std/src/generated
-    cp ./tools/templates/std_impl.cpp ./lute/std/src/generated/modules.cpp
-    cp ./tools/templates/std_header.h ./lute/std/src/generated/modules.h
-    mkdir -p ./lute/cli/generated
-    cp ./tools/templates/cli_impl.cpp ./lute/cli/generated/commands.cpp
-    cp ./tools/templates/cli_header.h ./lute/cli/generated/commands.h
-    ```
-  - Configure with `cmake -G=Ninja -B build  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=1`
-  - Build a `lute` executable with `ninja -C build lute/cli/lute` or our test suite with `ninja -C build tests/lute-tests`.
-  - Optionally, use this version to run `luthier generate` to generate the files for embedded Luau functionality.
+- Copy all of the templates from `./tools/templates` into the right locations to support building a version with no embedded Luau functionality, e.g.
+  ```bash
+  mkdir -p ./lute/std/src/generated
+  cp ./tools/templates/std_impl.cpp ./lute/std/src/generated/modules.cpp
+  cp ./tools/templates/std_header.h ./lute/std/src/generated/modules.h
+  mkdir -p ./lute/cli/generated
+  cp ./tools/templates/cli_impl.cpp ./lute/cli/generated/commands.cpp
+  cp ./tools/templates/cli_header.h ./lute/cli/generated/commands.h
+  ```
+- Configure with `cmake -G=Ninja -B build  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=1`
+- Build a `lute` executable with `ninja -C build lute/cli/lute` or our test suite with `ninja -C build tests/lute-tests`.
+- Optionally, use this version to run `luthier generate` to generate the files for embedded Luau functionality.
