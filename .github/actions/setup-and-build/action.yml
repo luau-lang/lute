@@ -66,7 +66,7 @@ runs:
       shell: bash
       run: |
         ./tools/bootstrap.sh
-        correct_lute=$(./build/bootstrapped-lute tools/luthier.luau build lute --config debug --which)
+        correct_lute=$(./build/lute0 tools/luthier.luau build lute --config debug --which)
         mv $correct_lute ./build/lute
         echo "luthier_lute=./build/lute" >> $GITHUB_ENV
 
