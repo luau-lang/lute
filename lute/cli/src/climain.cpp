@@ -219,7 +219,8 @@ static bool checkValidPath(std::filesystem::path& filePath)
     }
 
     // if the file has an explicit extension, dont do a fallback
-    if (filePath.has_extension()) {
+    if (filePath.has_extension())
+    {
         return false;
     }
 
@@ -453,6 +454,8 @@ int cliMain(int argc, char** argv)
     }
     else if (std::optional<CliCommandResult> result = getCliCommand(command); result)
     {
+        program_argc = argc - argOffset;
+        program_argv = &argv[argOffset];
         return handleCliCommand(*result);
     }
     else
