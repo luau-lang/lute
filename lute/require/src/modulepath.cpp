@@ -152,7 +152,7 @@ std::string ModulePath::getPotentialLuaurcPath() const
     ResolvedRealPath result = getRealPath();
 
     // No navigation has been performed; we should already be in a valid state.
-    assert(result.status == NavigationStatus::Success);
+    assert(result.status != NavigationStatus::NotFound);
 
     std::string_view directory = result.realPath;
 
@@ -189,7 +189,9 @@ NavigationStatus ModulePath::toParent()
     if (relativePathToTrack)
         relativePathToTrack = normalizePath(joinPaths(*relativePathToTrack, ".."));
 
-    return getRealPath().status;
+    // There is no ambiguity when navigating up in a tree.
+    NavigationStatus status = getRealPath().status;
+    return status == NavigationStatus::Ambiguous ? NavigationStatus::Success : status;
 }
 
 NavigationStatus ModulePath::toChild(const std::string& name)

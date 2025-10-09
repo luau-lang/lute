@@ -477,6 +477,8 @@ int cliMain(int argc, char** argv)
     }
     else if (std::optional<CliCommandResult> result = getCliCommand(command); result)
     {
+        program_argc = argc - argOffset;
+        program_argv = &argv[argOffset];
         return handleCliCommand(*result);
     }
     else

@@ -152,6 +152,21 @@ TEST_CASE("require_modules")
     }
 }
 
+TEST_CASE("require_with_parent_ambiguity")
+{
+    // This test case cannot be included in the general "require_modules" test
+    // because ambiguity prevents the test's requirer.luau from navigating to
+    // this test's entry point. Instead, we manually start the entry point here.
+
+    char executablePlaceholder[] = "lute";
+    for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
+    {
+        std::string requirer = joinPaths(luteProjectRoot, "tests/src/require/with_config/src/parent_ambiguity/folder/requirer.luau");
+        std::vector<char*> argv = {executablePlaceholder, requirer.data()};
+        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+    }
+}
+
 TEST_CASE("require_types")
 {
     char executablePlaceholder[] = "lute";

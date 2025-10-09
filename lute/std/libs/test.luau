@@ -43,8 +43,8 @@ local function simpleReporter(result: TestRunResult)
 
 	print(string.rep("-", 50))
 	print(`Total:  {result.total}`)
-	print(`Passed: {result.failed} ✓`)
-	print(`Failed: {result.passed} ✗`)
+	print(`Passed: {result.passed} ✓`)
+	print(`Failed: {result.failed} ✗`)
 	print(string.rep("=", 50) .. "\n")
 end
 
