@@ -12,9 +12,16 @@ enum class NavigationStatus
 
 struct ResolvedRealPath
 {
+    enum class PathType
+    {
+        File,
+        Directory
+    };
+
     NavigationStatus status;
     std::string realPath;
     std::optional<std::string> relativePath;
+    PathType type;
 };
 
 class ModulePath
