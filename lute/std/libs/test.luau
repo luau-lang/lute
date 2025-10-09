@@ -1,10 +1,29 @@
 --!strict
 local ps = require("@lute/process")
 type Test = () -> ()
-type TestCase = { name: string, case: Test }
-type TestCases = { TestCase }
-type TestSuite = { name: string, cases: TestCases }
 
+type Test = () -> ()
+local assert = require("./assert")
+-- Test Types
+type Test = (assert.Asserts) -> ()
+type TestCase = { name: string, case: Test }
+
+type TestSuite = { name: string, cases: { TestCase } }
+type Suite = {
+	case: (string, Test) -> (),
+}
+
+local function makesuite(name: string): (TestSuite, Suite)
+	local data: TestSuite = { name = name, cases = {} }
+	return data,
+		{
+			case = function(name: string, case: Test)
+				table.insert(data.cases, { name = name, case = case })
+			end,
+		}
+end
+
+-- Test Reporting
 type FailedTest = {
 	test: string, -- name of the test case that failed
 	assertion: string, -- name of the assertion that failed (e.g., "assert.eq")
@@ -20,8 +39,6 @@ type TestRunResult = {
 	passed: number,
 }
 
-type TestReporter = (TestRunResult) -> ()
-
 local function printFailedTest(failed: FailedTest)
 	print(`❌ {failed.test}`)
 	print(`   {failed.filename}:{failed.linenumber}`)
@@ -29,7 +46,7 @@ local function printFailedTest(failed: FailedTest)
 	print()
 end
 
-local function simpleReporter(result: TestRunResult)
+function simpleReporter(result: TestRunResult)
 	print("\n" .. string.rep("=", 50))
 	print("TEST RESULTS")
 	print(string.rep("=", 50))
@@ -48,56 +65,38 @@ local function simpleReporter(result: TestRunResult)
 	print(string.rep("=", 50) .. "\n")
 end
 
+export type TestReporter = (TestRunResult) -> ()
+
+-- Testing Environment
 type TestEnvironment = {
-	anonymous: TestCases,
+	anonymous: { TestCase },
 	suites: { TestSuite },
 	reporter: TestReporter,
-	active_suite: TestSuite?,
 }
 
 local env: TestEnvironment = { anonymous = {}, suites = {}, reporter = simpleReporter }
 
+-- Test library export surface
 local test = {}
-test.assert = {}
-local assert = test.assert
--- todo: we should add some more assertions for diffing tables!
-function assert.eq<T>(lhs: T, rhs: T)
-	if lhs ~= rhs then
-		error({ msg = `{lhs} ~= {rhs}` })
-	end
-end
-
-function assert.neq<T>(lhs: T, rhs: T)
-	if lhs == rhs then
-		error({ msg = `{lhs} == {rhs}` })
-	end
-end
-
--- register a test case
-function test.case(name: string, case: () -> ())
-	local testcase = { name = name, case = case }
-	if env.active_suite then
-		local _, cases = env.active_suite.name, env.active_suite.cases
-		table.insert(cases, testcase)
-	else
-		table.insert(env.anonymous, testcase)
-	end
-end
-
--- register a test suite
--- takes name and a function to register
-function test.suite(name: string, registerSuite: () -> ())
-	local testsuite: TestSuite = { name = name, cases = {} }
-	table.insert(env.suites, testsuite)
-	env.active_suite = testsuite
-	registerSuite()
-	env.active_suite = nil
-end
 
 function test.setreporter(reporter: TestReporter)
 	test.reporter = reporter
 end
 
+-- register an anonymous test case
+function test.case(name: string, case: Test)
+	local testcase = { name = name, case = case }
+	table.insert(env.anonymous, testcase)
+end
+
+-- register a test suite
+function test.suite(name: string, registerSuite: (Suite) -> ())
+	local suiteinternal, suiteexternal = makesuite(name)
+	registerSuite(suiteexternal)
+	table.insert(env.suites, suiteinternal)
+end
+
+-- run all the tests
 function test.run()
 	local failures: { FailedTest } = {}
 	local total = 0
@@ -122,7 +121,7 @@ function test.run()
 			failed += 1
 		end
 
-		local success = xpcall(tc.case, handlefailure)
+		local success = xpcall(tc.case, handlefailure, assert)
 		if success then
 			passed += 1
 		end
@@ -147,7 +146,7 @@ function test.run()
 				failed += 1
 			end
 
-			local success = xpcall(tc.case, handlefailure)
+			local success = xpcall(tc.case, handlefailure, assert)
 			if success then
 				passed += 1
 			end
