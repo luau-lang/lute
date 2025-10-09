@@ -232,7 +232,7 @@ static std::optional<std::string> getValidPath(std::string filePath)
         if (resolved.status != NavigationStatus::Success)
             return std::nullopt;
 
-        if (resolved.type == ResolvedRealPath::Type::File)
+        if (resolved.type == ResolvedRealPath::PathType::File)
             return resolved.realPath;
 
         return std::nullopt;

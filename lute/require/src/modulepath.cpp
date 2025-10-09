@@ -87,7 +87,7 @@ ModulePath::ModulePath(
 
 ResolvedRealPath ModulePath::getRealPath() const
 {
-    std::optional<ResolvedRealPath::Type> resolvedType;
+    std::optional<ResolvedRealPath::PathType> resolvedType;
     std::string suffix;
 
     std::string lastComponent;
@@ -110,7 +110,7 @@ ResolvedRealPath ModulePath::getRealPath() const
                 if (resolvedType)
                     return {NavigationStatus::Ambiguous};
 
-                resolvedType = ResolvedRealPath::Type::File;
+                resolvedType = ResolvedRealPath::PathType::File;
                 suffix = potentialSuffix;
             }
         }
@@ -128,13 +128,13 @@ ResolvedRealPath ModulePath::getRealPath() const
                 if (resolvedType)
                     return {NavigationStatus::Ambiguous};
 
-                resolvedType = ResolvedRealPath::Type::File;
+                resolvedType = ResolvedRealPath::PathType::File;
                 suffix = potentialSuffix;
             }
         }
 
         if (!resolvedType)
-            resolvedType = ResolvedRealPath::Type::Directory;
+            resolvedType = ResolvedRealPath::PathType::Directory;
     }
 
     if (!resolvedType)
