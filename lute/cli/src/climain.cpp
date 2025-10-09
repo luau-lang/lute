@@ -210,34 +210,34 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
+static std::optional<std::string> getWithRequireByStringSemantics(std::string filePath)
+{
+    std::string normalized = normalizePath(std::move(filePath));
+
+    std::string rootOfPath;
+    std::string restOfPath = normalized;
+    if (size_t firstSlash = normalized.find_first_of("\\/"); firstSlash != std::string::npos)
+    {
+        rootOfPath = normalized.substr(0, firstSlash);
+        restOfPath = normalized.substr(firstSlash + 1);
+    }
+
+    std::optional<ModulePath> mp = ModulePath::create(std::move(rootOfPath), std::move(restOfPath), isFile, isDirectory);
+    if (!mp)
+        return std::nullopt;
+
+    ResolvedRealPath resolved = mp->getRealPath();
+    if (resolved.status != NavigationStatus::Success)
+        return std::nullopt;
+
+    if (resolved.type == ResolvedRealPath::PathType::File)
+        return resolved.realPath;
+
+    return std::nullopt;
+};
+
 static std::optional<std::string> getValidPath(std::string filePath)
 {
-    auto getWithRequireByStringSemantics = [](std::string filePath) -> std::optional<std::string>
-    {
-        std::string normalized = normalizePath(std::move(filePath));
-
-        std::string rootOfPath;
-        std::string restOfPath = normalized;
-        if (size_t firstSlash = normalized.find_first_of("\\/"); firstSlash != std::string::npos)
-        {
-            rootOfPath = normalized.substr(0, firstSlash);
-            restOfPath = normalized.substr(firstSlash + 1);
-        }
-
-        std::optional<ModulePath> mp = ModulePath::create(std::move(rootOfPath), std::move(restOfPath), isFile, isDirectory);
-        if (!mp)
-            return std::nullopt;
-
-        ResolvedRealPath resolved = mp->getRealPath();
-        if (resolved.status != NavigationStatus::Success)
-            return std::nullopt;
-
-        if (resolved.type == ResolvedRealPath::PathType::File)
-            return resolved.realPath;
-
-        return std::nullopt;
-    };
-
     if (std::optional<std::string> path = getWithRequireByStringSemantics(filePath))
     {
         return *path;
