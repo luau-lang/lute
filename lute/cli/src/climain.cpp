@@ -239,9 +239,7 @@ static std::optional<std::string> getWithRequireByStringSemantics(std::string fi
 static std::optional<std::string> getValidPath(std::string filePath)
 {
     if (std::optional<std::string> path = getWithRequireByStringSemantics(filePath))
-    {
         return *path;
-    }
 
     // Only fallback to checking .lute/* if the original path has no extension.
     if (filePath.find('.') != std::string::npos)
