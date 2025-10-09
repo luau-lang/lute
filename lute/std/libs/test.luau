@@ -1,26 +1,57 @@
 --!strict
 local ps = require("@lute/process")
-type Test = () -> ()
-
-type Test = () -> ()
 local assert = require("./assert")
 -- Test Types
 type Test = (assert.Asserts) -> ()
 type TestCase = { name: string, case: Test }
 
-type TestSuite = { name: string, cases: { TestCase } }
-type Suite = {
-	case: (string, Test) -> (),
+type TestSuite = {
+	name: string,
+	cases: { TestCase },
+	_beforeeach: (() -> ())?,
+	_beforeall: (() -> ())?,
+	_aftereach: (() -> ())?,
+	_afterall: (() -> ())?,
+	case: (self: TestSuite, string, Test) -> (),
+	beforeeach: (self: TestSuite, () -> ()) -> (),
+	beforeall: (self: TestSuite, () -> ()) -> (),
+	aftereach: (self: TestSuite, () -> ()) -> (),
+	afterall: (self: TestSuite, () -> ()) -> (),
 }
 
-local function makesuite(name: string): (TestSuite, Suite)
-	local data: TestSuite = { name = name, cases = {} }
-	return data,
-		{
-			case = function(name: string, case: Test)
-				table.insert(data.cases, { name = name, case = case })
-			end,
-		}
+local TestSuite = {}
+TestSuite.__index = TestSuite
+
+function TestSuite.new(name: string): TestSuite
+	local self = setmetatable({
+		name = name,
+		cases = {},
+		_beforeeach = nil,
+		_beforeall = nil,
+		_aftereach = nil,
+		_afterall = nil,
+	}, TestSuite)
+	return self :: TestSuite
+end
+
+function TestSuite:case(name: string, testCase: Test)
+	table.insert(self.cases, { name = name, case = testCase })
+end
+
+function TestSuite:beforeeach(hook: () -> ())
+	self._beforeeach = hook
+end
+
+function TestSuite:beforeall(hook: () -> ())
+	self._beforeall = hook
+end
+
+function TestSuite:aftereach(hook: () -> ())
+	self._aftereach = hook
+end
+
+function TestSuite:afterall(hook: () -> ())
+	self._afterall = hook
 end
 
 -- Test Reporting
@@ -46,7 +77,7 @@ local function printFailedTest(failed: FailedTest)
 	print()
 end
 
-function simpleReporter(result: TestRunResult)
+local function simpleReporter(result: TestRunResult)
 	print("\n" .. string.rep("=", 50))
 	print("TEST RESULTS")
 	print(string.rep("=", 50))
@@ -90,10 +121,10 @@ function test.case(name: string, case: Test)
 end
 
 -- register a test suite
-function test.suite(name: string, registerSuite: (Suite) -> ())
-	local suiteinternal, suiteexternal = makesuite(name)
-	registerSuite(suiteexternal)
-	table.insert(env.suites, suiteinternal)
+function test.suite(name: string, registerFn: (TestSuite) -> ())
+	local suite = TestSuite.new(name)
+	registerFn(suite)
+	table.insert(env.suites, suite)
 end
 
 -- run all the tests
@@ -129,26 +160,99 @@ function test.run()
 
 	-- Run tests from suites
 	for _, suite in env.suites do
+		-- Run beforeall hook once per suite
+		if suite._beforeall then
+			local beforeallSuccess, beforeallErr = pcall(suite._beforeall)
+			if not beforeallSuccess then
+				-- If beforeall fails, skip all tests in the suite
+				total += #suite.cases
+				failed += #suite.cases
+				for _, tc in suite.cases do
+					local failedtest: FailedTest = {
+						test = `{suite.name}.{tc.name}`,
+						assertion = "beforeall",
+						error = `beforeall hook failed: {beforeallErr}`,
+						filename = "",
+						linenumber = 0,
+					}
+					table.insert(failures, failedtest)
+				end
+				continue
+			end
+		end
+
 		for _, tc in suite.cases do
 			total += 1
+			local testFullName = `{suite.name}.{tc.name}`
 			local function handlefailure(err)
 				local fileName, lineNumber = debug.info(4, "sl")
 				local assertName = debug.info(3, "n")
 
 				local failedtest: FailedTest = {
-					test = `{suite.name}.{tc.name}`,
+					test = testFullName,
 					assertion = assertName,
 					error = err.msg,
 					filename = fileName,
 					linenumber = lineNumber,
 				}
 				table.insert(failures, failedtest)
-				failed += 1
+			end
+
+			-- Run beforeeach hook if it exists
+			if suite._beforeeach then
+				local beforeSuccess, beforeErr = pcall(suite._beforeeach)
+				if not beforeSuccess then
+					failed += 1
+					local failedtest: FailedTest = {
+						test = testFullName,
+						assertion = "beforeeach",
+						error = `beforeeach hook failed: {beforeErr}`,
+						filename = "",
+						linenumber = 0,
+					}
+					table.insert(failures, failedtest)
+					continue
+				end
 			end
 
 			local success = xpcall(tc.case, handlefailure, assert)
+			-- Run aftereach hook if it exists (runs even if test failed)
+			if suite._aftereach then
+				local afterSuccess, afterErr = pcall(suite._aftereach)
+				if not afterSuccess then
+					-- If test passed but aftereach failed, mark as failed
+					success = false
+					local failedtest: FailedTest = {
+						test = testFullName,
+						assertion = "aftereach",
+						error = `aftereach hook failed: {afterErr}`,
+						filename = "",
+						linenumber = 0,
+					}
+					table.insert(failures, failedtest)
+				end
+			end
+			-- if the test and the teardown method passed, the test passes
 			if success then
 				passed += 1
+			else
+				failed += 1
+			end
+		end
+
+		-- Run afterall hook once per suite (runs even if tests failed)
+		if suite._afterall then
+			local afterallSuccess, afterallErr = pcall(suite._afterall)
+			if not afterallSuccess then
+				failed += 1
+				local failedtest: FailedTest = {
+					test = `{suite.name}`,
+					assertion = "afterall",
+					error = `afterall hook failed: {afterallErr}`,
+					filename = "",
+					linenumber = 0,
+				}
+				table.insert(failures, failedtest)
 			end
 		end
 	end

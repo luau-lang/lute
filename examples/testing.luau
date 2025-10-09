@@ -14,9 +14,41 @@ test.case("baz", function(assert)
 end)
 
 test.suite("MySuite", function(suite)
-	suite.case("subsuite", function(assert)
+	-- beforeall runs once before all tests in the suite
+	suite:beforeall(function()
+		print("Setting up MySuite - runs once before all tests")
+	end)
+
+	-- beforeeach runs before each individual test
+	suite:beforeeach(function()
+		print("Running before each test")
+	end)
+
+	-- aftereach runs after each individual test
+	suite:aftereach(function()
+		print("Cleaning up after each test")
+	end)
+
+	-- afterall runs once after all tests in the suite
+	suite:afterall(function()
+		print("Tearing down MySuite - runs once after all tests")
+	end)
+
+	suite:case("subsuite", function(assert)
 		assert.neq(1, 2)
 		assert.eq(1, 2)
+	end)
+
+	suite:case("another_test", function(assert)
+		assert.eq(1, 1)
+	end)
+
+	-- Example of table_eq assertion - demonstrates error reporting
+	suite:case("table_comparison", function(assert)
+		local table1 = { a = 1, b = { c = 2, d = 3 } }
+		local table2 = { a = 1, b = { c = 2, d = 3 } }
+		assert.tableeq(table1, table2)
+		assert.tableeq(table1, { a = 1 })
 	end)
 end)
 

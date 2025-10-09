@@ -1,15 +1,15 @@
 local test = require("@std/test")
 
-test.suite("SmokeSuite", function()
-	test.case("make_fail", function()
-		-- test.assert.eq(1, 2)
-		test.assert.eq(1, 1) -- comment this and uncomment above to make the test fail
+test.suite("SmokeSuite", function(suite)
+	suite:case("make_fail", function(assert)
+		-- assert.eq(1, 2)
+		assert.eq(1, 1) -- comment this and uncomment above to make the test fail
 	end)
-	test.case("make_pass", function()
-		test.assert.eq(1, 1)
+	suite:case("make_pass", function(assert)
+		assert.eq(1, 1)
 	end)
 end)
 
-test.case("Passing", function() end)
+test.case("Passing", function(assert) end)
 
 test.run()
