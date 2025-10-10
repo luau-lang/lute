@@ -10,10 +10,10 @@ local macos = osName == "darwin" or osName == "macos"
 local unix = macos or linux or osName == "unix" or osName == "posix"
 
 return table.freeze({
-    os = system.os,
+	os = system.os,
 
-    win32 = win32,
-    linux = linux,
-    macos = macos,
-    unix = unix,
+	win32 = win32,
+	linux = linux,
+	macos = macos,
+	unix = unix,
 })
