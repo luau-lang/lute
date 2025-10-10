@@ -2689,6 +2689,9 @@ int luau_requirefromcwd(lua_State* L)
         absolutePath = *resolvedPath;
     }
 
+    if (!isFile(absolutePath))
+        luaL_error(L, "file not found: %s", absolutePath.c_str());
+
     std::string chunkname = "@" + std::move(absolutePath);
     RequireCtx ctx{};
     luarequire_pushproxyrequire(L, requireConfigInit, &ctx);
