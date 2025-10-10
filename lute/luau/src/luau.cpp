@@ -1,6 +1,7 @@
 #include "lute/luau.h"
 
 #include "Luau/Ast.h"
+#include "Luau/FileUtils.h"
 #include "Luau/Location.h"
 #include "Luau/ParseResult.h"
 #include "Luau/Parser.h"
@@ -9,6 +10,7 @@
 #include "Luau/Compiler.h"
 #include "Luau/NotNull.h"
 
+#include "lute/require.h"
 #include "lute/userdatas.h"
 
 
@@ -2664,6 +2666,35 @@ int load_luau(lua_State* L)
 
     luau_load(L, chunk_name.c_str(), bytecode_string->c_str(), bytecode_string->length(), lua_gettop(L) > 2 ? 3 : 0);
 
+    return 1;
+}
+
+int luau_requirefromcwd(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+
+    std::string absolutePath = path;
+    if (!isAbsolutePath(path))
+    {
+        std::optional<std::string> cwd = getCurrentWorkingDirectory();
+        if (!cwd)
+            luaL_error(L, "failed to get current working directory");
+
+        cwd = joinPaths(*cwd, "psuedofile.luau");
+
+        std::optional<std::string> resolvedPath = resolvePath(path, *cwd);
+        if (!resolvedPath)
+            luaL_error(L, "failed to resolve path");
+
+        absolutePath = *resolvedPath;
+    }
+
+    std::string chunkname = "@" + std::move(absolutePath);
+    RequireCtx ctx{};
+    luarequire_pushproxyrequire(L, requireConfigInit, &ctx);
+    lua_pushstring(L, "@self");
+    lua_pushstring(L, chunkname.c_str());
+    lua_call(L, 2, 1);
     return 1;
 }
 
