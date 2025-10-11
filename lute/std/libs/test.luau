@@ -161,7 +161,7 @@ function test.run()
 		passed = passed,
 	}
 	env.reporter(result)
-	if failures ~= 0 then
+	if failed ~= 0 then
 		ps.exit(1)
 	end
 	ps.exit(0)
