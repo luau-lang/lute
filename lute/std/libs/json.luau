@@ -1,5 +1,3 @@
---!strict
-
 local json = {
 	--- Not actually a nil value, a newproxy stand-in for a null value since Luau has no actual representation of `null`
 	NULL = newproxy() :: nil,

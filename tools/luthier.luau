@@ -303,7 +303,7 @@ local function generateStdLibFilesIfNeeded()
 				end
 				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
 			else
-				fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+				fs.write(cpp, `\n    \{"{aliasedPath}", R"LUTE_STDLIB({libSrc})LUTE_STDLIB"},\n`)
 			end
 		end
 
