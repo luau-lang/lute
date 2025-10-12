@@ -65,6 +65,7 @@ static CurlResponse requestData(
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+    curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 
     if (method != "GET")
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
