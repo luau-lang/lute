@@ -42,19 +42,19 @@ struct ProcessHandle
             }
         };
 
-        if (stdoutPipe.loop && uv_is_active((uv_handle_t*)&stdoutPipe))
+        if (!uv_is_closing((uv_handle_t*)&stdoutPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stdoutPipe);
             uv_close((uv_handle_t*)&stdoutPipe, closeCb);
         }
-        if (stderrPipe.loop && uv_is_active((uv_handle_t*)&stderrPipe))
+        if (!uv_is_closing((uv_handle_t*)&stderrPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stderrPipe);
             uv_close((uv_handle_t*)&stderrPipe, closeCb);
         }
-        if (process.loop)
+        if (!uv_is_closing((uv_handle_t*)&process))
         {
             pendingCloses++;
             uv_close((uv_handle_t*)&process, closeCb);
