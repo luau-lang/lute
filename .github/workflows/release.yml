@@ -168,4 +168,3 @@ jobs:
         with:
           tag_name: ${{ steps.tag_release.outputs.tag }}
           draft: false
-          prerelease: ${{ github.event.inputs.nightly || github.event_name == 'schedule' }}
