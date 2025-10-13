@@ -330,7 +330,7 @@ static void luteopen_libs(lua_State* L)
     }
 }
 
-lua_State* setupState(Runtime& runtime, void (*doBeforeSandbox)(lua_State*))
+lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBeforeSandbox)
 {
     // Separate VM for data copies
     runtime.dataCopy.reset(luaL_newstate());

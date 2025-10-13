@@ -56,16 +56,18 @@ void* createCliRequireContext(lua_State* L)
     return ctx;
 }
 
-lua_State* setupCliState(Runtime& runtime)
+lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> testInit = nullptr)
 {
     return setupState(
         runtime,
-        [](lua_State* L)
+        [testInit = std::move(testInit)](lua_State* L)
         {
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
             luaopen_require(L, requireConfigInit, createCliRequireContext(L));
+            if (testInit)
+                testInit(L);
         }
     );
 }
@@ -81,7 +83,7 @@ bool setupArguments(lua_State* L, int argc, char** argv)
     return true;
 }
 
-static bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL)
+bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL)
 {
     // module needs to run in a new thread, isolated from the rest
     lua_State* L = lua_newthread(GL);

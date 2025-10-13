@@ -9,24 +9,11 @@
 
 #include "lua.h"
 #include "lualib.h"
+
+#include "cliruntimefixture.h"
 #include "luteprojectroot.h"
 
 #include <memory>
-
-class CliRuntimeFixture
-{
-public:
-    CliRuntimeFixture()
-        : runtime(std::make_unique<Runtime>())
-    {
-        L = setupCliState(*runtime);
-    }
-
-    lua_State* L;
-
-private:
-    std::unique_ptr<Runtime> runtime;
-};
 
 TEST_CASE_FIXTURE(CliRuntimeFixture, "require_exists")
 {
