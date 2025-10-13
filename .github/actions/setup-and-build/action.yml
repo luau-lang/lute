@@ -60,33 +60,16 @@ runs:
         path: extern
         key: extern-${{ hashFiles('extern/*.tune') }}
 
-    # We can currently only bootstrap correctly in ci on mac/linux
-    - name: Bootstrap Lute (Darwin/Linux only)
-      if: runner.os != 'Windows'
-      shell: bash
-      run: |
-        ./tools/bootstrap.sh
-        correct_lute=$(./build/bootstrapped-lute tools/luthier.luau build lute --config debug --which)
-        mv $correct_lute ./build/lute
-        echo "luthier_lute=./build/lute" >> $GITHUB_ENV
-
-    - name: Build ${{ inputs.target }} ${{ runner.os }}
-      if: runner.os != 'Windows'
-      shell: bash
-      run: $luthier_lute ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config}} ${{ inputs.options }}
-
     - name: Fetch ${{ inputs.target }}
-      if: steps.cache-extern.outputs.cache-hit != 'true' && runner.os == 'Windows'
+      if: steps.cache-extern.outputs.cache-hit != 'true'
       shell: bash
       run: lute ./tools/luthier.luau fetch ${{ inputs.target }}
 
     - name: Configure ${{ inputs.target }}
-      if: runner.os == 'Windows'
       shell: bash
       run: lute ./tools/luthier.luau configure ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build ${{ inputs.target }}
-      if: runner.os == 'Windows'
       shell: bash
       run: lute ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
 
@@ -94,11 +77,6 @@ runs:
       id: artifact_path
       shell: bash
       run: |
-        if [[ ${{ runner.os }} == "Windows" ]]; then
-          LUTE="lute"
-        else
-          LUTE="$luthier_lute"
-        fi
-        exe_path=$($LUTE ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} --which)
+        exe_path=$(lute ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} --which)
         echo "Executable path: $exe_path"  # Debug print
         echo "exe_path=$exe_path" >> "$GITHUB_OUTPUT"

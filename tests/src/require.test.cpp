@@ -139,6 +139,21 @@ TEST_CASE("require_modules")
     }
 }
 
+TEST_CASE("require_with_parent_ambiguity")
+{
+    // This test case cannot be included in the general "require_modules" test
+    // because ambiguity prevents the test's requirer.luau from navigating to
+    // this test's entry point. Instead, we manually start the entry point here.
+
+    char executablePlaceholder[] = "lute";
+    for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
+    {
+        std::string requirer = joinPaths(luteProjectRoot, "tests/src/require/with_config/src/parent_ambiguity/folder/requirer.luau");
+        std::vector<char*> argv = {executablePlaceholder, requirer.data()};
+        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+    }
+}
+
 TEST_CASE("require_types")
 {
     char executablePlaceholder[] = "lute";
@@ -148,5 +163,35 @@ TEST_CASE("require_types")
         std::vector<char*> argv = {executablePlaceholder, requirer.data()};
 
         CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+    }
+}
+
+TEST_CASE("require_by_string_semantics_in_cli")
+{
+    char executablePlaceholder[] = "lute";
+
+    // Expected to pass
+    for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
+    {
+        std::vector<std::string> inputPaths = {
+            joinPaths(luteProjectRoot, "tests/src/require/without_config/nested"),
+            joinPaths(luteProjectRoot, "tests/src/require/without_config/nested/init.luau"),
+            joinPaths(luteProjectRoot, "tests/src/require/without_config/nested/submodule"),
+            joinPaths(luteProjectRoot, "tests/src/require/without_config/nested/submodule.luau"),
+        };
+
+        for (std::string& inputPath : inputPaths)
+        {
+            std::vector<char*> argv = {executablePlaceholder, inputPath.data()};
+            CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        }
+    }
+
+    // Expected to fail
+    for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
+    {
+        std::string inputPath = joinPaths(luteProjectRoot, "tests/src/require/without_config/nested/init");
+        std::vector<char*> argv = {executablePlaceholder, inputPath.data()};
+        CHECK_NE(cliMain(argv.size(), argv.data()), 0);
     }
 }

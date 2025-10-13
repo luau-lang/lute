@@ -27,7 +27,6 @@
 
 #include <iostream>
 #include <string>
-#include <filesystem>
 #include <vector>
 
 static int program_argc = 0;
@@ -215,37 +214,59 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
-static bool checkValidPath(std::filesystem::path& filePath)
+static std::optional<std::string> getWithRequireByStringSemantics(std::string filePath)
 {
-    if (std::filesystem::exists(filePath))
+    std::string normalized = normalizePath(std::move(filePath));
+
+    std::string rootOfPath;
+    std::string restOfPath = normalized;
+    if (size_t firstSlash = normalized.find_first_of("\\/"); firstSlash != std::string::npos)
     {
-        return true;
+        rootOfPath = normalized.substr(0, firstSlash);
+        restOfPath = normalized.substr(firstSlash + 1);
     }
 
-    // if the file has an explicit extension, dont do a fallback
-    if (filePath.has_extension()) {
-        return false;
-    }
+    std::optional<ModulePath> mp = ModulePath::create(std::move(rootOfPath), std::move(restOfPath), isFile, isDirectory);
+    if (!mp)
+        return std::nullopt;
 
-    std::filesystem::path fallbackPath = ".lute" / filePath;
+    ResolvedRealPath resolved = mp->getRealPath();
+    if (resolved.status != NavigationStatus::Success)
+        return std::nullopt;
+
+    if (resolved.type == ResolvedRealPath::PathType::File)
+        return resolved.realPath;
+
+    return std::nullopt;
+};
+
+static std::optional<std::string> getValidPath(std::string filePath)
+{
+    if (std::optional<std::string> path = getWithRequireByStringSemantics(filePath))
+        return *path;
+
+    // Only fallback to checking .lute/* if the original path has no extension.
+    if (filePath.find('.') != std::string::npos)
+        return std::nullopt;
+
+    std::string fallbackPath = joinPaths(".lute", filePath);
+    size_t fallbackSize = fallbackPath.size();
 
     for (const auto& ext : {".luau", ".lua"})
     {
-        fallbackPath.replace_extension(ext);
+        fallbackPath.resize(fallbackSize);
+        fallbackPath += ext;
 
-        if (std::filesystem::exists(fallbackPath))
-        {
-            filePath = std::move(fallbackPath);
-            return true;
-        }
+        if (isFile(fallbackPath))
+            return fallbackPath;
     }
 
-    return false;
+    return std::nullopt;
 }
 
 int handleRunCommand(int argc, char** argv, int argOffset)
 {
-    std::optional<std::filesystem::path> filePath;
+    std::string filePath;
 
     for (int i = argOffset; i < argc; ++i)
     {
@@ -264,14 +285,14 @@ int handleRunCommand(int argc, char** argv, int argOffset)
         }
         else
         {
-            filePath.emplace(currentArg);
+            filePath = currentArg;
             program_argc = argc - i;
             program_argv = &argv[i];
             break;
         }
     }
 
-    if (!filePath)
+    if (filePath.empty())
     {
         fprintf(stderr, "Error: No file specified for 'run' command.\n\n");
         displayRunHelp(argv[0]);
@@ -281,13 +302,14 @@ int handleRunCommand(int argc, char** argv, int argOffset)
     Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
-    if (!checkValidPath(filePath.value()))
+    std::optional<std::string> validPath = getValidPath(filePath);
+    if (!validPath)
     {
-        std::cerr << "Error: File '" << filePath->string() << "' does not exist.\n";
+        std::cerr << "Error: File '" << filePath << "' does not exist.\n";
         return 1;
     }
 
-    bool success = runFile(runtime, filePath->string().c_str(), L);
+    bool success = runFile(runtime, validPath->c_str(), L);
     return success ? 0 : 1;
 }
 
@@ -457,6 +479,8 @@ int cliMain(int argc, char** argv)
     }
     else if (std::optional<CliCommandResult> result = getCliCommand(command); result)
     {
+        program_argc = argc - argOffset;
+        program_argv = &argv[argOffset];
         return handleCliCommand(*result);
     }
     else

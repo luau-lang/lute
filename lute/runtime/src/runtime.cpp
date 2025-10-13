@@ -50,12 +50,16 @@ Runtime::~Runtime()
 
 bool Runtime::hasWork()
 {
-    return hasContinuations() || hasThreads() || activeTokens.load() != 0;
+    // TODO: activeTokens and uv_loop_alive have a decent amount of overlap.
+    // Unfortunately, we do currently have some places where we add/release
+    // tokens that don't correspond to libuv activity, so for now we keep both.
+    // uv_ref/unref could be used to patch tokens into the libuv loop itself.
+    return hasContinuations() || hasThreads() || activeTokens.load() != 0 || uv_loop_alive(uv_default_loop());
 }
 
 RuntimeStep Runtime::runOnce()
 {
-    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+    uv_run(uv_default_loop(), UV_RUN_NOWAIT);
 
     // Complete all C++ continuations
     std::vector<std::function<void()>> copy;

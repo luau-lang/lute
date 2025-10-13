@@ -12,4 +12,6 @@ if(LUTE_VERSION_SUFFIX)
     set(LUTE_VERSION_FULL "${LUTE_VERSION_FULL}-${LUTE_VERSION_SUFFIX}")
 endif()
 
+# The release workflow depends on this exact message format to extract the
+# version. If making changes, update the workflow accordingly.
 message("${LUTE_VERSION_FULL}")

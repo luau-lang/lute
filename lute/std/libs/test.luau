@@ -1,5 +1,5 @@
 --!strict
-
+local ps = require("@lute/process")
 type Test = () -> ()
 type TestCase = { name: string, case: Test }
 type TestCases = { TestCase }
@@ -43,8 +43,8 @@ local function simpleReporter(result: TestRunResult)
 
 	print(string.rep("-", 50))
 	print(`Total:  {result.total}`)
-	print(`Passed: {result.failed} ✓`)
-	print(`Failed: {result.passed} ✗`)
+	print(`Passed: {result.passed} ✓`)
+	print(`Failed: {result.failed} ✗`)
 	print(string.rep("=", 50) .. "\n")
 end
 
@@ -161,6 +161,10 @@ function test.run()
 		passed = passed,
 	}
 	env.reporter(result)
+	if failed ~= 0 then
+		ps.exit(1)
+	end
+	ps.exit(0)
 end
 
 return table.freeze(test)

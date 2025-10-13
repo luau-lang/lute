@@ -87,7 +87,7 @@ ModulePath::ModulePath(
 
 ResolvedRealPath ModulePath::getRealPath() const
 {
-    bool found = false;
+    std::optional<ResolvedRealPath::PathType> resolvedType;
     std::string suffix;
 
     std::string lastComponent;
@@ -107,43 +107,44 @@ ResolvedRealPath ModulePath::getRealPath() const
         {
             if (isAFile(partialRealPath + std::string(potentialSuffix)))
             {
-                if (found)
+                if (resolvedType)
                     return {NavigationStatus::Ambiguous};
 
+                resolvedType = ResolvedRealPath::PathType::File;
                 suffix = potentialSuffix;
-                found = true;
             }
         }
     }
 
     if (isADirectory(partialRealPath))
     {
-        if (found)
+        if (resolvedType)
             return {NavigationStatus::Ambiguous};
 
         for (std::string_view potentialSuffix : kInitSuffixes)
         {
             if (isAFile(partialRealPath + std::string(potentialSuffix)))
             {
-                if (found)
+                if (resolvedType)
                     return {NavigationStatus::Ambiguous};
 
+                resolvedType = ResolvedRealPath::PathType::File;
                 suffix = potentialSuffix;
-                found = true;
             }
         }
 
-        found = true;
+        if (!resolvedType)
+            resolvedType = ResolvedRealPath::PathType::Directory;
     }
 
-    if (!found)
+    if (!resolvedType)
         return {NavigationStatus::NotFound};
 
     std::optional<std::string> relativePathWithSuffix;
     if (relativePathToTrack)
         relativePathWithSuffix = *relativePathToTrack + suffix;
 
-    return {NavigationStatus::Success, partialRealPath + suffix, relativePathWithSuffix};
+    return {NavigationStatus::Success, partialRealPath + suffix, relativePathWithSuffix, *resolvedType};
 }
 
 std::string ModulePath::getPotentialLuaurcPath() const
@@ -151,7 +152,7 @@ std::string ModulePath::getPotentialLuaurcPath() const
     ResolvedRealPath result = getRealPath();
 
     // No navigation has been performed; we should already be in a valid state.
-    assert(result.status == NavigationStatus::Success);
+    assert(result.status != NavigationStatus::NotFound);
 
     std::string_view directory = result.realPath;
 
@@ -188,7 +189,9 @@ NavigationStatus ModulePath::toParent()
     if (relativePathToTrack)
         relativePathToTrack = normalizePath(joinPaths(*relativePathToTrack, ".."));
 
-    return getRealPath().status;
+    // There is no ambiguity when navigating up in a tree.
+    NavigationStatus status = getRealPath().status;
+    return status == NavigationStatus::Ambiguous ? NavigationStatus::Success : status;
 }
 
 NavigationStatus ModulePath::toChild(const std::string& name)
