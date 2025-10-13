@@ -29,9 +29,6 @@
 #include <string>
 #include <vector>
 
-// static int program_argc = 0;
-// static char** program_argv = nullptr;
-
 void* createCliRequireContext(lua_State* L)
 {
     void* ctx = lua_newuserdatadtor(

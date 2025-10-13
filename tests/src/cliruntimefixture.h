@@ -5,6 +5,7 @@
 #include "lute/runtime.h"
 
 #include "lua.h"
+#include "lualib.h"
 
 #include "Luau/Compiler.h"
 
@@ -12,7 +13,7 @@
 
 static int capture(lua_State* L)
 {
-    const char* str = lua_tostring(L, 1);
+    const char* str = luaL_tolstring(L, 1, nullptr);
     lua_pushstring(L, "capturedoutput");
     lua_pushstring(L, str ? str : "");
     lua_settable(L, LUA_REGISTRYINDEX);
