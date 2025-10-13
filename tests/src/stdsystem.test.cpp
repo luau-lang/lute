@@ -11,7 +11,7 @@ std::string getHostOS()
 #elif defined(__APPLE__)
     return "Darwin";
 #elif defined(_WIN32)
-    return "Windows";
+    return "Windows_NT";
 #else
     return "unknown";
 #endif
