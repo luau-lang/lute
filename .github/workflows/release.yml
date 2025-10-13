@@ -154,11 +154,17 @@ jobs:
           RELEASE_TAG="$VERSION$NIGHTLY_TAG"
           echo "tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Create Release
+      - name: Create Draft Release
         uses: luau-lang/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag_release.outputs.tag }}
           name: ${{ steps.tag_release.outputs.tag }}
-          draft: false
+          draft: true
           prerelease: ${{ github.event.inputs.nightly || github.event_name == 'schedule' }}
           files: release/*.zip
+
+      - name: Publish Release
+        uses: luau-lang/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_release.outputs.tag }}
+          draft: false
