@@ -1,3 +1,5 @@
+#include "lute/climain.h"
+
 #include "Luau/Common.h"
 #include "Luau/CodeGen.h"
 #include "Luau/Compiler.h"
@@ -56,7 +58,7 @@ void* createCliRequireContext(lua_State* L)
     return ctx;
 }
 
-lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> testInit = nullptr)
+lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> testInit)
 {
     return setupState(
         runtime,
