@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <string>
 
 struct lua_State;
 struct Runtime;

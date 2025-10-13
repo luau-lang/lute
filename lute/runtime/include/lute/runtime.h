@@ -110,6 +110,6 @@ struct ResumeTokenData
     bool completed = false;
 };
 
-ResumeToken getResumeToken(lua_State* L);   
+ResumeToken getResumeToken(lua_State* L);
 
 lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBeforeSandbox);
