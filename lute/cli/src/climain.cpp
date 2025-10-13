@@ -29,8 +29,8 @@
 #include <string>
 #include <vector>
 
-static int program_argc = 0;
-static char** program_argv = nullptr;
+// static int program_argc = 0;
+// static char** program_argv = nullptr;
 
 void* createCliRequireContext(lua_State* L)
 {
@@ -84,7 +84,7 @@ bool setupArguments(lua_State* L, int argc, char** argv)
     return true;
 }
 
-bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL)
+bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL, int program_argc, char** program_argv)
 {
     // module needs to run in a new thread, isolated from the rest
     lua_State* L = lua_newthread(GL);
@@ -124,7 +124,7 @@ bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::strin
     return runtime.runToCompletion();
 }
 
-static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
+static bool runFile(Runtime& runtime, const char* name, lua_State* GL, int program_argc, char** program_argv)
 {
     if (isDirectory(name))
     {
@@ -143,7 +143,7 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
 
     std::string bytecode = Luau::compile(*source, copts());
 
-    return runBytecode(runtime, bytecode, chunkname, GL);
+    return runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv);
 }
 
 static void displayHelp(const char* argv0)
@@ -267,6 +267,8 @@ static std::optional<std::string> getValidPath(std::string filePath)
 int handleRunCommand(int argc, char** argv, int argOffset)
 {
     std::string filePath;
+    int program_argc = 0;
+    char** program_argv = nullptr;
 
     for (int i = argOffset; i < argc; ++i)
     {
@@ -309,7 +311,7 @@ int handleRunCommand(int argc, char** argv, int argOffset)
         return 1;
     }
 
-    bool success = runFile(runtime, validPath->c_str(), L);
+    bool success = runFile(runtime, validPath->c_str(), L, program_argc, program_argv);
     return success ? 0 : 1;
 }
 
@@ -414,13 +416,13 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
     return compileScript(inputFilePath, outputFilePath, argv[0]);
 }
 
-int handleCliCommand(CliCommandResult result)
+int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv)
 {
     Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
     std::string bytecode = Luau::compile(std::string(result.contents), copts());
-    return runBytecode(runtime, bytecode, "@" + result.path, L) ? 0 : 1;
+    return runBytecode(runtime, bytecode, "@" + result.path, L, program_argc, program_argv) ? 0 : 1;
 }
 
 int cliMain(int argc, char** argv)
@@ -433,10 +435,7 @@ int cliMain(int argc, char** argv)
         Runtime runtime;
         lua_State* GL = setupCliState(runtime);
 
-        program_argc = argc;
-        program_argv = argv;
-
-        bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL);
+        bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL, argc, argv);
 
         return success ? 0 : 1;
     }
@@ -479,9 +478,7 @@ int cliMain(int argc, char** argv)
     }
     else if (std::optional<CliCommandResult> result = getCliCommand(command); result)
     {
-        program_argc = argc - argOffset;
-        program_argv = &argv[argOffset];
-        return handleCliCommand(*result);
+        return handleCliCommand(*result, argc - argOffset, &argv[argOffset]);
     }
     else
     {

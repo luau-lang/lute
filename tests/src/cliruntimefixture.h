@@ -45,7 +45,7 @@ public:
     bool runCode(const std::string& source)
     {
         std::string bytecode = Luau::compile(source, Luau::CompileOptions());
-        return runBytecode(*runtime, bytecode, "=stdin", L);
+        return runBytecode(*runtime, bytecode, "=stdin", L, 0, nullptr);
     }
 
     lua_State* L;
