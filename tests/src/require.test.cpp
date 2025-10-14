@@ -2,18 +2,11 @@
 #include "doctest.h"
 
 #include "lute/climain.h"
-#include "lute/require.h"
-#include "lute/runtime.h"
-
-#include "Luau/Require.h"
 
 #include "lua.h"
-#include "lualib.h"
 
 #include "cliruntimefixture.h"
 #include "luteprojectroot.h"
-
-#include <memory>
 
 TEST_CASE_FIXTURE(CliRuntimeFixture, "require_exists")
 {

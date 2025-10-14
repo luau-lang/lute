@@ -4,12 +4,10 @@
 #include "Luau/CodeGen.h"
 #include "Luau/Compiler.h"
 #include "Luau/FileUtils.h"
-#include "Luau/Parser.h"
 #include "Luau/Require.h"
 
 #include "lua.h"
 #include "lualib.h"
-#include "uv.h"
 
 #include "lute/clicommands.h"
 #include "lute/clivfs.h"
@@ -54,18 +52,18 @@ void* createCliRequireContext(lua_State* L)
     return ctx;
 }
 
-lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> testInit)
+lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
 {
     return setupState(
         runtime,
-        [testInit = std::move(testInit)](lua_State* L)
+        [preSandboxInit = std::move(preSandboxInit)](lua_State* L)
         {
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
             luaopen_require(L, requireConfigInit, createCliRequireContext(L));
-            if (testInit)
-                testInit(L);
+            if (preSandboxInit)
+                preSandboxInit(L);
         }
     );
 }
