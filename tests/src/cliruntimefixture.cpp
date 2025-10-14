@@ -1,5 +1,3 @@
-#include "doctest.h"
-
 #include "cliruntimefixture.h"
 
 #include "lua.h"
