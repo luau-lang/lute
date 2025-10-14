@@ -161,8 +161,39 @@ function join(parts: { WindowsPathLike }): WindowsPath
 	return path
 end
 
-function normalize(path: WindowsPathLike): string
-	error("TODO")
+function normalize(path: WindowsPathLike): WindowsPath
+	if typeof(path) == "string" then
+		path = parse(path)
+	end
+	path = path :: WindowsPath
+
+	local newParts = {}
+	for _, part in path.parts do
+		if part == "" or part == "." then
+			continue
+		elseif part == ".." then
+			if path.isAbsolute then
+				if #newParts > 0 then -- if absolute, only pop if we're not at the root
+					table.remove(newParts, #newParts)
+				end
+			else -- if a relative path, we keep .. prefixes
+				if #newParts > 0 and newParts[#newParts] ~= ".." then
+					table.remove(newParts, #newParts)
+				else
+					table.insert(newParts, "..")
+				end
+			end
+		else
+			table.insert(newParts, part)
+		end
+	end
+
+	return {
+		parts = newParts,
+		isAbsolute = path.isAbsolute,
+		isUNCPath = path.isUNCPath,
+		driveLetter = path.driveLetter,
+	}
 end
 
 function parse(path: WindowsPathLike): WindowsPath

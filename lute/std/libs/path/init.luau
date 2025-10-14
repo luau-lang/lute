@@ -57,7 +57,7 @@ function join(parts: { PathLike }): PathObj
 	end
 end
 
-function normalize(path: PathLike): string
+function normalize(path: PathLike): PathObj
 	if onWindows then
 		return win32.normalize(path :: win32.WindowsPathLike)
 	else
