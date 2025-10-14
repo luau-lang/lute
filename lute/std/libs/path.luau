@@ -4,12 +4,11 @@ export type PathObj = {
     parts: { string },
     isAbsolute: boolean,
     isUNCPath: boolean,
-    driveLetter: string?
+    driveLetter: string?,
+    isWindows: boolean
 }
 
 export type PathLike = string | PathObj
-
-local DIR_SEP = if system.os == "windows" then "\\" else "/"
 
 function basename(path: PathLike): string?
     if typeof(path) == "string" then
@@ -20,7 +19,23 @@ function basename(path: PathLike): string?
 end
 
 function dirname(path: PathLike): string
-    error("TODO")
+    if typeof(path) == "string" then
+        path = parse(path)
+    end
+
+    path = path :: PathObj
+
+    if #path.parts == 0 then
+        return format(path)
+    else
+        return format({
+            parts = { table.unpack(path.parts, 1, #path.parts - 1) },
+            isAbsolute = path.isAbsolute,
+            isUNCPath = path.isUNCPath,
+            driveLetter = path.driveLetter,
+            isWindows = path.isWindows
+        })
+    end
 end
 
 function extname(path: PathLike): string
@@ -28,7 +43,39 @@ function extname(path: PathLike): string
 end
 
 function format(path: PathLike): string
-    error("TODO")
+    if typeof(path) == "string" then
+        return path
+    end
+
+    path = path :: PathObj
+
+    if #path.parts == 0 then
+        if path.isWindows then
+            if path.isUNCPath then
+                return "\\\\"
+            elseif path.driveLetter ~= nil then
+                return path.driveLetter .. ":" .. (if path.isAbsolute then "\\" else "")
+            else
+                return "."
+            end
+        else
+            return if path.isAbsolute then "/" else "."
+        end
+    elseif path.isWindows then
+        if path.isUNCPath then
+            return "\\\\" .. table.concat(path.parts, "\\")
+        elseif path.driveLetter ~= nil then
+            local drive = path.driveLetter .. ":"
+            if path.isAbsolute then
+                drive = drive .. "\\"
+            end
+            return drive .. table.concat(path.parts, "\\")
+        else
+            return table.concat(path.parts, "\\")
+        end
+    else
+        return (if path.isAbsolute then "/" else "") .. table.concat(path.parts, "/")
+    end
 end
 
 function isabsolute(path: PathLike): boolean
@@ -118,7 +165,8 @@ function parse(path: PathLike): PathObj
         parts = parts,
         isAbsolute = isAbs,
         isUNCPath = isUNC,
-        driveLetter = driveLetter
+        driveLetter = driveLetter,
+        isWindows = isWindows
     }
 end
 

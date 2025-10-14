@@ -74,11 +74,12 @@ test.suite("PathParseSuite", function()
     end)
 
     test.case("parse_pathobj_returns_same", function()
-        local originalPath = {
+        local originalPath : path.PathObj = {
             parts = {"folder", "file.txt"},
             isAbsolute = false,
             isUNCPath = false,
-            driveLetter = nil
+            driveLetter = nil,
+            isWindows = false
         }
         local result = path.parse(originalPath)
         test.assert.eq(result, originalPath)
@@ -151,7 +152,8 @@ test.suite("PathBasenameSuite", function()
             parts = {"folder", "subfolder", "file.txt"},
             isAbsolute = false,
             isUNCPath = false,
-            driveLetter = nil
+            driveLetter = nil,
+            isWindows = false
         }
         local result = path.basename(pathObj)
         test.assert.eq(result, "file.txt")
@@ -160,6 +162,197 @@ test.suite("PathBasenameSuite", function()
     test.case("basename_mixed_separators", function()
         local result = path.basename("/home/user\\documents/file.txt")
         test.assert.eq(result, "file.txt")
+    end)
+end)
+
+test.suite("PathFormatSuite", function()
+    test.case("format_unix_absolute_path", function()
+        local pathObj : path.PathObj = {
+            parts = {"home", "user", "documents", "file.txt"},
+            isAbsolute = true,
+            isUNCPath = false,
+            driveLetter = nil,
+            isWindows = false
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, "/home/user/documents/file.txt")
+    end)
+
+    test.case("format_unix_relative_path", function()
+        local pathObj : path.PathObj = {
+            parts = {"documents", "file.txt"},
+            isAbsolute = false,
+            isUNCPath = false,
+            driveLetter = nil,
+            isWindows = false
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, "documents/file.txt")
+    end)
+
+    test.case("format_windows_absolute_path", function()
+        local pathObj : path.PathObj = {
+            parts = {"Users", "username", "Documents", "file.txt"},
+            isAbsolute = true,
+            isUNCPath = false,
+            driveLetter = "C",
+            isWindows = true
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, "C:\\Users\\username\\Documents\\file.txt")
+    end)
+
+    test.case("format_windows_relative_with_drive", function()
+        local pathObj : path.PathObj = {
+            parts = {"Documents", "file.txt"},
+            isAbsolute = false,
+            isUNCPath = false,
+            driveLetter = "C",
+            isWindows = true
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, "C:Documents\\file.txt")
+    end)
+
+    test.case("format_windows_unc_path", function()
+        local pathObj : path.PathObj = {
+            parts = {"server", "share", "folder", "file.txt"},
+            isAbsolute = true,
+            isUNCPath = true,
+            driveLetter = nil,
+            isWindows = true
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, "\\\\server\\share\\folder\\file.txt")
+    end)
+
+    test.case("format_empty_relative_path", function()
+        local pathObj : path.PathObj = {
+            parts = {},
+            isAbsolute = false,
+            isUNCPath = false,
+            driveLetter = nil,
+            isWindows = false
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, ".")
+    end)
+
+    test.case("format_empty_relative_windows_path", function()
+        local pathObj : path.PathObj = {
+            parts = {},
+            isAbsolute = false,
+            isUNCPath = false,
+            driveLetter = nil,
+            isWindows = true
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, ".")
+    end)
+
+    test.case("format_root_path", function()
+        local pathObj : path.PathObj = {
+            parts = {},
+            isAbsolute = true,
+            isUNCPath = false,
+            driveLetter = nil,
+            isWindows = false
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, "/")
+    end)
+
+    test.case("format_empty_relative_path_with_drive", function()
+        local pathObj : path.PathObj = {
+            parts = {},
+            isAbsolute = false,
+            isUNCPath = false,
+            driveLetter = "C",
+            isWindows = true
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, "C:")
+    end)
+
+    test.case("format_root_path_with_drive", function()
+        local pathObj : path.PathObj = {
+            parts = {},
+            isAbsolute = true,
+            isUNCPath = false,
+            driveLetter = "C",
+            isWindows = true
+        }
+        local result = path.format(pathObj)
+        test.assert.eq(result, "C:\\")
+    end)
+
+    test.case("format_string_returns_same", function()
+        local result = path.format("/home/user/file.txt")
+        test.assert.eq(result, "/home/user/file.txt")
+    end)
+end)
+
+test.suite("PathDirnameSuite", function()
+    test.case("dirname_unix_absolute_path", function()
+        local result = path.dirname("/home/user/documents/file.txt")
+        test.assert.eq(result, "/home/user/documents")
+    end)
+
+    test.case("dirname_unix_relative_path", function()
+        local result = path.dirname("documents/file.txt")
+        test.assert.eq(result, "documents")
+    end)
+
+    test.case("dirname_windows_absolute_path", function()
+        local result = path.dirname("C:\\Users\\username\\Documents\\file.txt")
+        test.assert.eq(result, "C:\\Users\\username\\Documents")
+    end)
+
+    test.case("dirname_windows_unc_path", function()
+        local result = path.dirname("\\\\server\\share\\folder\\file.txt")
+        test.assert.eq(result, "\\\\server\\share\\folder")
+    end)
+
+    test.case("dirname_single_file", function()
+        local result = path.dirname("file.txt")
+        test.assert.eq(result, ".")
+    end)
+
+    test.case("dirname_nested_directory", function()
+        local result = path.dirname("/home/user/documents/subfolder")
+        test.assert.eq(result, "/home/user/documents")
+    end)
+
+    test.case("dirname_empty_path", function()
+        local result = path.dirname("")
+        test.assert.eq(result, ".")
+    end)
+
+    test.case("dirname_root_path", function()
+        local result = path.dirname("/")
+        test.assert.eq(result, "/")
+    end)
+
+    test.case("dirname_windows_root", function()
+        local result = path.dirname("C:\\")
+        test.assert.eq(result, "C:\\")
+    end)
+
+    test.case("dirname_pathobj", function()
+        local pathObj : path.PathObj = {
+            parts = {"folder", "subfolder", "file.txt"},
+            isAbsolute = false,
+            isUNCPath = false,
+            driveLetter = nil,
+            isWindows = false
+        }
+        local result = path.dirname(pathObj)
+        test.assert.eq(result, "folder/subfolder")
+    end)
+
+    test.case("dirname_windows_relative_with_drive", function()
+        local result = path.dirname("C:Documents\\file.txt")
+        test.assert.eq(result, "C:Documents")
     end)
 end)
 
