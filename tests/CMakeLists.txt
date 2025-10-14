@@ -4,6 +4,7 @@ target_sources(Lute.Test PRIVATE
     src/doctest.h
     src/main.cpp
     src/cliruntimefixture.h
+    src/cliruntimefixture.cpp
 
     src/luteprojectroot.h
     src/luteprojectroot.cpp
