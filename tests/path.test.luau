@@ -356,4 +356,78 @@ test.suite("PathDirnameSuite", function()
     end)
 end)
 
+test.suite("PathExtnameSuite", function()
+    test.case("extname_simple_extension", function()
+        local result = path.extname("/home/user/file.txt")
+        test.assert.eq(result, ".txt")
+    end)
+
+    test.case("extname_multiple_dots", function()
+        local result = path.extname("/home/user/archive.tar.gz")
+        test.assert.eq(result, ".gz")
+    end)
+
+    test.case("extname_no_extension", function()
+        local result = path.extname("/home/user/README")
+        test.assert.eq(result, "")
+    end)
+
+    test.case("extname_hidden_file_with_extension", function()
+        local result = path.extname("/home/user/.bashrc")
+        test.assert.eq(result, "")
+    end)
+
+    test.case("extname_hidden_file_with_real_extension", function()
+        local result = path.extname("/home/user/.config.json")
+        test.assert.eq(result, ".json")
+    end)
+
+    test.case("extname_windows_path", function()
+        local result = path.extname("C:\\Users\\username\\document.docx")
+        test.assert.eq(result, ".docx")
+    end)
+
+    test.case("extname_directory_path", function()
+        local result = path.extname("/home/user/documents")
+        test.assert.eq(result, "")
+    end)
+
+    test.case("extname_empty_path", function()
+        local result = path.extname("")
+        test.assert.eq(result, "")
+    end)
+
+    test.case("extname_root_path", function()
+        local result = path.extname("/")
+        test.assert.eq(result, "")
+    end)
+
+    test.case("extname_pathobj", function()
+        local pathObj : path.PathObj = {
+            parts = {"folder", "file.pdf"},
+            isAbsolute = false,
+            isUNCPath = false,
+            driveLetter = nil,
+            isWindows = false
+        }
+        local result = path.extname(pathObj)
+        test.assert.eq(result, ".pdf")
+    end)
+
+    test.case("extname_dot_only", function()
+        local result = path.extname("/home/user/file.")
+        test.assert.eq(result, ".")
+    end)
+
+    test.case("extname_filename_is_dot", function()
+        local result = path.extname("/home/user/.")
+        test.assert.eq(result, "")
+    end)
+
+    test.case("extname_filename_is_dotdot", function()
+        local result = path.extname("/home/user/..")
+        test.assert.eq(result, "")
+    end)
+end)
+
 test.run()

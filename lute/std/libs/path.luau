@@ -39,7 +39,28 @@ function dirname(path: PathLike): string
 end
 
 function extname(path: PathLike): string
-    error("TODO")
+    if typeof(path) == "string" then
+        path = parse(path)
+    end
+
+    path = path :: PathObj
+
+    if #path.parts == 0 then
+        return ""
+    end
+
+    local filename = path.parts[#path.parts]
+
+    if filename == "." or filename == ".." then
+        return ""
+    end
+
+    local dotIndex, _ = filename:find("%.[^%.]*$")
+    if dotIndex == nil or dotIndex == 1 then
+        return ""
+    end
+    
+    return filename:sub(dotIndex)
 end
 
 function format(path: PathLike): string
