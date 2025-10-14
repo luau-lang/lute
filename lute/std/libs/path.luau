@@ -59,7 +59,7 @@ function extname(path: PathLike): string
     if dotIndex == nil or dotIndex == 1 then
         return ""
     end
-    
+
     return filename:sub(dotIndex)
 end
 
@@ -100,10 +100,11 @@ function format(path: PathLike): string
 end
 
 function isabsolute(path: PathLike): boolean
-    if typeof(path) == "table" then
-        return path.isAbsolute
+    if typeof(path) == "string" then
+        path = parse(path)
     end
-    error("TODO")
+    path = path :: PathObj
+    return path.isAbsolute
 end
 
 function join(parts: { PathLike }): string

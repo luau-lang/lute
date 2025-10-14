@@ -430,4 +430,70 @@ test.suite("PathExtnameSuite", function()
     end)
 end)
 
+test.suite("PathIsAbsoluteSuite", function()
+    test.case("isAbsolute_unix_absolute_path", function()
+        local result = path.isAbsolute("/home/user/documents/file.txt")
+        test.assert.eq(result, true)
+    end)
+
+    test.case("isAbsolute_unix_relative_path", function()
+        local result = path.isAbsolute("documents/file.txt")
+        test.assert.eq(result, false)
+    end)
+
+    test.case("isAbsolute_windows_absolute_path", function()
+        local result = path.isAbsolute("C:\\Users\\username\\Documents\\file.txt")
+        test.assert.eq(result, true)
+    end)
+
+    test.case("isAbsolute_windows_relative_path", function()
+        local result = path.isAbsolute("Documents\\file.txt")
+        test.assert.eq(result, false)
+    end)
+
+    test.case("isAbsolute_windows_relative_with_drive", function()
+        local result = path.isAbsolute("C:Documents\\file.txt")
+        test.assert.eq(result, false)
+    end)
+
+    test.case("isAbsolute_windows_unc_path", function()
+        local result = path.isAbsolute("\\\\server\\share\\folder\\file.txt")
+        test.assert.eq(result, true)
+    end)
+
+    test.case("isAbsolute_root_path", function()
+        local result = path.isAbsolute("/")
+        test.assert.eq(result, true)
+    end)
+
+    test.case("isAbsolute_empty_path", function()
+        local result = path.isAbsolute("")
+        test.assert.eq(result, false)
+    end)
+
+    test.case("isAbsolute_pathobj_absolute", function()
+        local pathObj : path.PathObj = {
+            parts = {"home", "user", "file.txt"},
+            isAbsolute = true,
+            isUNCPath = false,
+            driveLetter = nil,
+            isWindows = false
+        }
+        local result = path.isAbsolute(pathObj)
+        test.assert.eq(result, true)
+    end)
+
+    test.case("isAbsolute_pathobj_relative", function()
+        local pathObj : path.PathObj = {
+            parts = {"folder", "file.txt"},
+            isAbsolute = false,
+            isUNCPath = false,
+            driveLetter = nil,
+            isWindows = false
+        }
+        local result = path.isAbsolute(pathObj)
+        test.assert.eq(result, false)
+    end)
+end)
+
 test.run()
