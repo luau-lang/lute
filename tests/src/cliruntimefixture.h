@@ -7,6 +7,7 @@
 #include "lua.h"
 
 #include <memory>
+#include <string>
 
 class CliRuntimeFixture
 {
