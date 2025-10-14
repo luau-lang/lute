@@ -87,14 +87,14 @@ function _joinHelper(path: PosixPath, addend: PosixPathLike): ()
 	if addend.isAbsolute then
 		local stringPath = format(path)
 		local stringAddend = format(addend)
-		error(
-			"Could not join "
-				.. (if path.isAbsolute then "absolute" else "relative")
-				.. " path "
-				.. stringPath
-				.. " and absolute path "
-				.. stringAddend
-		)
+		error(table.concat({
+			"Could not join ",
+			(if path.isAbsolute then "absolute" else "relative"),
+			" path ",
+			stringPath,
+			" and absolute path ",
+			stringAddend,
+		}))
 	end
 
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)

@@ -70,17 +70,18 @@ function format(path: WindowsPathLike): string
 		if path.isUNCPath then
 			return "\\\\"
 		elseif path.driveLetter ~= nil then
-			return path.driveLetter .. ":" .. (if path.isAbsolute then "\\" else "")
+			return table.concat({ path.driveLetter, ":", (if path.isAbsolute then "\\" else "") })
 		else
 			return "."
 		end
 	else
+		local parts = table.concat(path.parts, "\\")
 		if path.isUNCPath then
-			return "\\\\" .. table.concat(path.parts, "\\")
+			return "\\\\" .. parts
 		elseif path.driveLetter ~= nil then
-			return path.driveLetter .. ":" .. (if path.isAbsolute then "\\" else "") .. table.concat(path.parts, "\\")
+			return table.concat({ path.driveLetter, ":", (if path.isAbsolute then "\\" else ""), parts })
 		else
-			return table.concat(path.parts, "\\")
+			return parts
 		end
 	end
 end
@@ -103,27 +104,27 @@ function _joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 	if addend.isAbsolute then
 		local stringPath = format(path)
 		local stringAddend = format(addend)
-		error(
-			"Could not join "
-				.. (if path.isAbsolute then "absolute" else "relative")
-				.. " path "
-				.. stringPath
-				.. " and absolute path "
-				.. stringAddend
-		)
+		error(table.concat({
+			"Could not join ",
+			(if path.isAbsolute then "absolute" else "relative"),
+			" path ",
+			stringPath,
+			" and absolute path ",
+			stringAddend,
+		}))
 	end
 
 	if addend.isUNCPath then
 		local stringPath = format(path)
 		local stringAddend = format(addend)
-		error(
-			"Could not join "
-				.. (if path.isUNCPath then "UNC" else "non-UNC")
-				.. " path "
-				.. stringPath
-				.. " and UNC path "
-				.. stringAddend
-		)
+		error(table.concat({
+			"Could not join ",
+			(if path.isUNCPath then "UNC" else "non-UNC"),
+			" path ",
+			stringPath,
+			" and UNC path ",
+			stringAddend,
+		}))
 	end
 
 	local driveLettersIncompatible = if path.driveLetter ~= nil
@@ -133,7 +134,9 @@ function _joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 	if driveLettersIncompatible then
 		local stringPath = format(path)
 		local stringAddend = format(addend)
-		error("Could not join paths with incompatible drive letters: " .. stringPath .. " and " .. stringAddend)
+		error(
+			table.concat({ "Could not join paths with incompatible drive letters: ", stringPath, " and ", stringAddend })
+		)
 	end
 
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)
