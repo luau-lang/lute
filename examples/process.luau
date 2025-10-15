@@ -30,3 +30,5 @@ print(r7.stdout)
 
 local r8 = process.run("echo $0", { shell = "/bin/sh" })
 print(r8.stdout)
+
+process.exit(0)

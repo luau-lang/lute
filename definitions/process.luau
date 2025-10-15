@@ -33,4 +33,8 @@ function process.run(args: string | { string }, options: ProcessRunOptions?): Pr
 	error("not implemented")
 end
 
+function process.exit(exitcode: number): never
+	error("not implemented")
+end
+
 return process
