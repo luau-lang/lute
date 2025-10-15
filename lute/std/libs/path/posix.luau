@@ -5,34 +5,36 @@ export type PosixPath = {
 
 export type PosixPathLike = string | PosixPath
 
-function basename(path: PosixPathLike): string?
+local posix = {}
+
+function posix.basename(path: PosixPathLike): string?
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = posix.parse(path)
 	end
 	path = path :: PosixPath
 	return if #path.parts > 0 then path.parts[#path.parts] else nil
 end
 
-function dirname(path: PosixPathLike): string
+function posix.dirname(path: PosixPathLike): string
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = posix.parse(path)
 	end
 
 	path = path :: PosixPath
 
 	if #path.parts == 0 then
-		return format(path)
+		return posix.format(path)
 	else
-		return format({
+		return posix.format({
 			parts = { table.unpack(path.parts, 1, #path.parts - 1) },
 			isAbsolute = path.isAbsolute,
 		})
 	end
 end
 
-function extname(path: PosixPathLike): string
+function posix.extname(path: PosixPathLike): string
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = posix.parse(path)
 	end
 
 	path = path :: PosixPath
@@ -55,7 +57,7 @@ function extname(path: PosixPathLike): string
 	return filename:sub(dotIndex)
 end
 
-function format(path: PosixPathLike): string
+function posix.format(path: PosixPathLike): string
 	if typeof(path) == "string" then
 		return path
 	end
@@ -69,24 +71,24 @@ function format(path: PosixPathLike): string
 	end
 end
 
-function isabsolute(path: PosixPathLike): boolean
+function posix.isabsolute(path: PosixPathLike): boolean
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = posix.parse(path)
 	end
 	path = path :: PosixPath
 	return path.isAbsolute
 end
 
 -- In place extends path with addend
-function _joinHelper(path: PosixPath, addend: PosixPathLike): ()
+local function joinHelper(path: PosixPath, addend: PosixPathLike): ()
 	if typeof(addend) == "string" then
-		addend = parse(addend)
+		addend = posix.parse(addend)
 	end
 	addend = addend :: PosixPath
 
 	if addend.isAbsolute then
-		local stringPath = format(path)
-		local stringAddend = format(addend)
+		local stringPath = posix.format(path)
+		local stringAddend = posix.format(addend)
 		error(table.concat({
 			"Could not join ",
 			(if path.isAbsolute then "absolute" else "relative"),
@@ -100,7 +102,7 @@ function _joinHelper(path: PosixPath, addend: PosixPathLike): ()
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)
 end
 
-function join(parts: { PosixPathLike }): PosixPath
+function posix.join(parts: { PosixPathLike }): PosixPath
 	if #parts == 0 then
 		return {
 			parts = {},
@@ -108,18 +110,18 @@ function join(parts: { PosixPathLike }): PosixPath
 		}
 	end
 
-	local path = parse(parts[1])
+	local path = posix.parse(parts[1])
 
 	for i = 2, #parts do
-		_joinHelper(path, parts[i])
+		joinHelper(path, parts[i])
 	end
 
 	return path
 end
 
-function normalize(path: PosixPathLike): PosixPath
+function posix.normalize(path: PosixPathLike): PosixPath
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = posix.parse(path)
 	end
 	path = path :: PosixPath
 
@@ -150,7 +152,7 @@ function normalize(path: PosixPathLike): PosixPath
 	}
 end
 
-function parse(path: PosixPathLike): PosixPath
+function posix.parse(path: PosixPathLike): PosixPath
 	if typeof(path) == "table" then
 		return path
 	end
@@ -187,18 +189,8 @@ function parse(path: PosixPathLike): PosixPath
 	}
 end
 
-function resolve(parts: { PosixPathLike }): string
+function posix.resolve(parts: { PosixPathLike }): string
 	error("TODO")
 end
 
-return table.freeze({
-	basename = basename,
-	dirname = dirname,
-	extname = extname,
-	format = format,
-	isabsolute = isabsolute,
-	join = join,
-	normalize = normalize,
-	parse = parse,
-	resolve = resolve,
-})
+return table.freeze(posix)

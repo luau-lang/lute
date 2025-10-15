@@ -7,25 +7,27 @@ export type WindowsPath = {
 
 export type WindowsPathLike = string | WindowsPath
 
-function basename(path: WindowsPathLike): string?
+local win32 = {}
+
+function win32.basename(path: WindowsPathLike): string?
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = win32.parse(path)
 	end
 	path = path :: WindowsPath
 	return if #path.parts > 0 then path.parts[#path.parts] else nil
 end
 
-function dirname(path: WindowsPathLike): string
+function win32.dirname(path: WindowsPathLike): string
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = win32.parse(path)
 	end
 
 	path = path :: WindowsPath
 
 	if #path.parts == 0 then
-		return format(path)
+		return win32.format(path)
 	else
-		return format({
+		return win32.format({
 			parts = { table.unpack(path.parts, 1, #path.parts - 1) },
 			isAbsolute = path.isAbsolute,
 			isUNCPath = path.isUNCPath,
@@ -34,9 +36,9 @@ function dirname(path: WindowsPathLike): string
 	end
 end
 
-function extname(path: WindowsPathLike): string
+function win32.extname(path: WindowsPathLike): string
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = win32.parse(path)
 	end
 
 	path = path :: WindowsPath
@@ -59,7 +61,7 @@ function extname(path: WindowsPathLike): string
 	return filename:sub(dotIndex)
 end
 
-function format(path: WindowsPathLike): string
+function win32.format(path: WindowsPathLike): string
 	if typeof(path) == "string" then
 		return path
 	end
@@ -86,24 +88,24 @@ function format(path: WindowsPathLike): string
 	end
 end
 
-function isabsolute(path: WindowsPathLike): boolean
+function win32.isabsolute(path: WindowsPathLike): boolean
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = win32.parse(path)
 	end
 	path = path :: WindowsPath
 	return path.isAbsolute
 end
 
 -- In place extends path with addend
-function _joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
+local function joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 	if typeof(addend) == "string" then
-		addend = parse(addend)
+		addend = win32.parse(addend)
 	end
 	addend = addend :: WindowsPath
 
 	if addend.isAbsolute then
-		local stringPath = format(path)
-		local stringAddend = format(addend)
+		local stringPath = win32.format(path)
+		local stringAddend = win32.format(addend)
 		error(table.concat({
 			"Could not join ",
 			(if path.isAbsolute then "absolute" else "relative"),
@@ -115,8 +117,8 @@ function _joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 	end
 
 	if addend.isUNCPath then
-		local stringPath = format(path)
-		local stringAddend = format(addend)
+		local stringPath = win32.format(path)
+		local stringAddend = win32.format(addend)
 		error(table.concat({
 			"Could not join ",
 			(if path.isUNCPath then "UNC" else "non-UNC"),
@@ -132,8 +134,8 @@ function _joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 		else addend.driveLetter ~= nil
 
 	if driveLettersIncompatible then
-		local stringPath = format(path)
-		local stringAddend = format(addend)
+		local stringPath = win32.format(path)
+		local stringAddend = win32.format(addend)
 		error(
 			table.concat({ "Could not join paths with incompatible drive letters: ", stringPath, " and ", stringAddend })
 		)
@@ -142,7 +144,7 @@ function _joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)
 end
 
-function join(parts: { WindowsPathLike }): WindowsPath
+function win32.join(parts: { WindowsPathLike }): WindowsPath
 	if #parts == 0 then
 		return {
 			parts = {},
@@ -152,18 +154,18 @@ function join(parts: { WindowsPathLike }): WindowsPath
 		}
 	end
 
-	local path = parse(parts[1])
+	local path = win32.parse(parts[1])
 
 	for i = 2, #parts do
-		_joinHelper(path, parts[i])
+		joinHelper(path, parts[i])
 	end
 
 	return path
 end
 
-function normalize(path: WindowsPathLike): WindowsPath
+function win32.normalize(path: WindowsPathLike): WindowsPath
 	if typeof(path) == "string" then
-		path = parse(path)
+		path = win32.parse(path)
 	end
 	path = path :: WindowsPath
 
@@ -196,7 +198,7 @@ function normalize(path: WindowsPathLike): WindowsPath
 	}
 end
 
-function parse(path: WindowsPathLike): WindowsPath
+function win32.parse(path: WindowsPathLike): WindowsPath
 	if typeof(path) == "table" then
 		return path
 	end
@@ -254,18 +256,8 @@ function parse(path: WindowsPathLike): WindowsPath
 	}
 end
 
-function resolve(parts: { WindowsPathLike }): string
+function win32.resolve(parts: { WindowsPathLike }): string
 	error("TODO")
 end
 
-return table.freeze({
-	basename = basename,
-	dirname = dirname,
-	extname = extname,
-	format = format,
-	isabsolute = isabsolute,
-	join = join,
-	normalize = normalize,
-	parse = parse,
-	resolve = resolve,
-})
+return table.freeze(win32)
