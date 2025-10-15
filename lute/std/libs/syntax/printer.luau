@@ -23,26 +23,26 @@ local function printTriviaList(trivia: { luau.Trivia })
 end
 
 local function printToken(token: luau.Token): string
-	return printTriviaList(token.leadingTrivia) .. token.text .. printTriviaList(token.trailingTrivia)
+	return printTriviaList(token.leadingtrivia) .. token.text .. printTriviaList(token.trailingtrivia)
 end
 
 local function printString(expr: luau.AstExprConstantString): string
-	local result = printTriviaList(expr.leadingTrivia)
+	local result = printTriviaList(expr.leadingtrivia)
 
-	if expr.quoteStyle == "single" then
+	if expr.quotestyle == "single" then
 		result ..= `'{expr.text}'`
-	elseif expr.quoteStyle == "double" then
+	elseif expr.quotestyle == "double" then
 		result ..= `"{expr.text}"`
-	elseif expr.quoteStyle == "block" then
-		local equals = string.rep("=", expr.blockDepth)
+	elseif expr.quotestyle == "block" then
+		local equals = string.rep("=", expr.blockdepth)
 		result ..= `[{equals}[{expr.text}]{equals}]`
-	elseif expr.quoteStyle == "interp" then
+	elseif expr.quotestyle == "interp" then
 		result ..= "`" .. expr.text .. "`"
 	else
-		return exhaustiveMatch(expr.quoteStyle)
+		return exhaustiveMatch(expr.quotestyle)
 	end
 
-	result ..= printTriviaList(expr.trailingTrivia)
+	result ..= printTriviaList(expr.trailingtrivia)
 	return result
 end
 
@@ -50,7 +50,7 @@ local function printInterpolatedString(expr: luau.AstExprInterpString): string
 	local result = ""
 
 	for i = 1, #expr.strings do
-		result ..= printTriviaList(expr.strings[i].leadingTrivia)
+		result ..= printTriviaList(expr.strings[i].leadingtrivia)
 		if i == 1 then
 			result ..= "`"
 		else
@@ -60,10 +60,10 @@ local function printInterpolatedString(expr: luau.AstExprInterpString): string
 
 		if i == #expr.strings then
 			result ..= "`"
-			result ..= printTriviaList(expr.strings[i].trailingTrivia)
+			result ..= printTriviaList(expr.strings[i].trailingtrivia)
 		else
 			result ..= "{"
-			result ..= printTriviaList(expr.strings[i].trailingTrivia)
+			result ..= printTriviaList(expr.strings[i].trailingtrivia)
 			result ..= printExpr(expr.expressions[i])
 		end
 	end
