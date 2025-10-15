@@ -12,9 +12,9 @@ export type FileMetadata = {
 	type: FileType,
 	permissions: { readonly: boolean },
 	size: number,
-	created_at: any,
-	accessed_at: any,
-	modified_at: any,
+	created: any,
+	accessed: any,
+	modified: any,
 }
 
 export type DirectoryEntry = {

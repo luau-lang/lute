@@ -26,23 +26,23 @@
 
 
 #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
-#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#define S_ISREG(m) (((m)&S_IFMT) == S_IFREG)
 #endif
 
 #if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
-#define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
+#define S_ISDIR(m) (((m)&S_IFMT) == S_IFDIR)
 #endif
 
 #if !defined(S_ISCHR) && defined(S_IFMT) && defined(S_IFCHR)
-#define S_ISCHR(m) (((m) & S_IFMT) == S_IFCHR)
+#define S_ISCHR(m) (((m)&S_IFMT) == S_IFCHR)
 #endif
 
 #if !defined(S_ISLNK) && defined(S_IFMT) && defined(S_IFLNK)
-#define S_ISLNK(m) (((m) & S_IFMT) == S_IFLNK)
+#define S_ISLNK(m) (((m)&S_IFMT) == S_IFLNK)
 #endif
 
 #if !defined(S_ISFIFO) && defined(S_IFMT) && defined(S_IFIFO)
-#define S_ISFIFO(m) (((m) & S_IFMT) == S_IFIFO)
+#define S_ISFIFO(m) (((m)&S_IFMT) == S_IFIFO)
 #endif
 
 namespace fs
@@ -421,13 +421,13 @@ int fs_stat(lua_State* L)
     lua_setfield(L, -2, "size");
 
     createDurationFromTimespec32(L, stat.st_birthtim);
-    lua_setfield(L, -2, "created_at");
+    lua_setfield(L, -2, "created");
 
     createDurationFromTimespec32(L, stat.st_atim);
-    lua_setfield(L, -2, "accessed_at");
+    lua_setfield(L, -2, "accessed");
 
     createDurationFromTimespec32(L, stat.st_mtim);
-    lua_setfield(L, -2, "modified_at");
+    lua_setfield(L, -2, "modified");
 
     // permissions
     lua_createtable(L, 0, 2);
