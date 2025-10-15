@@ -921,7 +921,7 @@ uv_fs_t* createRequest(lua_State* L)
 
 ResumeCaptureInformation* getResumeInformation(uv_fs_t* req)
 {
-    return reinterpret_cast<ResumeCaptureInformation*>(req->data);
+    return static_cast<ResumeCaptureInformation*>(req->data);
 }
 
 int readasync(lua_State* L)

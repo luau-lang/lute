@@ -278,7 +278,7 @@ void Runtime::releasePendingToken()
 
 Runtime* getRuntime(lua_State* L)
 {
-    return reinterpret_cast<Runtime*>(lua_getthreaddata(lua_mainthread(L)));
+    return static_cast<Runtime*>(lua_getthreaddata(lua_mainthread(L)));
 }
 
 void ResumeTokenData::fail(std::string error)
