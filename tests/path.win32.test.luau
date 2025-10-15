@@ -6,8 +6,7 @@ local win32 = require("@std/path/win32")
 test.suite("PathWin32ParseSuite", function()
 	test.case("parse_windows_absolute_path", function()
 		local result: win32.WindowsPath = path.win32.parse("C:\\Users\\username\\Documents\\file.txt")
-		test.assert.eq(result.isAbsolute, true)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "absolute")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 4)
 		test.assert.eq(result.parts[1], "Users")
@@ -18,8 +17,7 @@ test.suite("PathWin32ParseSuite", function()
 
 	test.case("parse_windows_unc_path", function()
 		local result: win32.WindowsPath = path.win32.parse("\\\\server\\share\\folder\\file.txt")
-		test.assert.eq(result.isAbsolute, true)
-		test.assert.eq(result.isUNCPath, true)
+		test.assert.eq(result.kind, "unc")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 4)
 		test.assert.eq(result.parts[1], "server")
@@ -30,16 +28,14 @@ test.suite("PathWin32ParseSuite", function()
 
 	test.case("parse_empty_string", function()
 		local result: win32.WindowsPath = path.win32.parse("")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 0)
 	end)
 
 	test.case("parse_single_file", function()
 		local result: win32.WindowsPath = path.win32.parse("file.txt")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 1)
 		test.assert.eq(result.parts[1], "file.txt")
@@ -48,10 +44,8 @@ test.suite("PathWin32ParseSuite", function()
 	test.case("parse_pathobj_returns_same", function()
 		local originalPath: win32.WindowsPath = {
 			parts = { "folder", "file.txt" },
-			isAbsolute = false,
-			isUNCPath = false,
+			kind = "relative",
 			driveLetter = nil,
-			isWindows = false,
 		}
 		local result = path.win32.parse(originalPath)
 		test.assert.eq(result, originalPath)
@@ -59,8 +53,7 @@ test.suite("PathWin32ParseSuite", function()
 
 	test.case("parse_mixed_separators", function()
 		local result: win32.WindowsPath = path.win32.parse("/home/user\\documents/file.txt")
-		test.assert.eq(result.isAbsolute, false) -- This is a relative path on Windows
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 4)
 		test.assert.eq(result.parts[1], "home")
@@ -71,8 +64,7 @@ test.suite("PathWin32ParseSuite", function()
 
 	test.case("parse_windows_relative_with_drive", function()
 		local result: win32.WindowsPath = path.win32.parse("C:Documents\\file.txt")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 2)
 		test.assert.eq(result.parts[1], "Documents")
@@ -114,8 +106,7 @@ test.suite("PathWin32BasenameSuite", function()
 	test.case("basename_pathobj", function()
 		local pathObj: win32.WindowsPath = {
 			parts = { "folder", "subfolder", "file.txt" },
-			isAbsolute = false,
-			isUNCPath = false,
+			kind = "relative",
 			driveLetter = nil,
 		}
 		local result = path.win32.basename(pathObj)
@@ -132,8 +123,7 @@ test.suite("PathWin32FormatSuite", function()
 	test.case("format_windows_absolute_path", function()
 		local pathObj: win32.WindowsPath = {
 			parts = { "Users", "username", "Documents", "file.txt" },
-			isAbsolute = true,
-			isUNCPath = false,
+			kind = "absolute",
 			driveLetter = "C",
 		}
 		local result = path.win32.format(pathObj)
@@ -143,8 +133,7 @@ test.suite("PathWin32FormatSuite", function()
 	test.case("format_windows_relative_with_drive", function()
 		local pathObj: win32.WindowsPath = {
 			parts = { "Documents", "file.txt" },
-			isAbsolute = false,
-			isUNCPath = false,
+			kind = "relative",
 			driveLetter = "C",
 		}
 		local result = path.win32.format(pathObj)
@@ -154,8 +143,7 @@ test.suite("PathWin32FormatSuite", function()
 	test.case("format_windows_unc_path", function()
 		local pathObj: win32.WindowsPath = {
 			parts = { "server", "share", "folder", "file.txt" },
-			isAbsolute = true,
-			isUNCPath = true,
+			kind = "unc",
 			driveLetter = nil,
 		}
 		local result = path.win32.format(pathObj)
@@ -165,8 +153,7 @@ test.suite("PathWin32FormatSuite", function()
 	test.case("format_empty_relative_path", function()
 		local pathObj: win32.WindowsPath = {
 			parts = {},
-			isAbsolute = false,
-			isUNCPath = false,
+			kind = "relative",
 			driveLetter = nil,
 		}
 		local result = path.win32.format(pathObj)
@@ -176,8 +163,7 @@ test.suite("PathWin32FormatSuite", function()
 	test.case("format_empty_relative_path_with_drive", function()
 		local pathObj: win32.WindowsPath = {
 			parts = {},
-			isAbsolute = false,
-			isUNCPath = false,
+			kind = "relative",
 			driveLetter = "C",
 		}
 		local result = path.win32.format(pathObj)
@@ -187,8 +173,7 @@ test.suite("PathWin32FormatSuite", function()
 	test.case("format_root_path_with_drive", function()
 		local pathObj: win32.WindowsPath = {
 			parts = {},
-			isAbsolute = true,
-			isUNCPath = false,
+			kind = "absolute",
 			driveLetter = "C",
 		}
 		local result = path.win32.format(pathObj)
@@ -230,8 +215,7 @@ test.suite("PathWin32DirnameSuite", function()
 	test.case("dirname_pathobj", function()
 		local pathObj: win32.WindowsPath = {
 			parts = { "folder", "subfolder", "file.txt" },
-			isAbsolute = false,
-			isUNCPath = false,
+			kind = "relative",
 			driveLetter = nil,
 		}
 		local result = path.win32.dirname(pathObj)
@@ -293,8 +277,7 @@ test.suite("PathWin32ExtnameSuite", function()
 	test.case("extname_pathobj", function()
 		local pathObj: win32.WindowsPath = {
 			parts = { "folder", "file.pdf" },
-			isAbsolute = false,
-			isUNCPath = false,
+			kind = "relative",
 			driveLetter = nil,
 		}
 		local result = path.win32.extname(pathObj)
@@ -351,8 +334,7 @@ test.suite("PathWin32IsAbsoluteSuite", function()
 	test.case("isAbsolute_pathobj_absolute", function()
 		local pathObj: win32.WindowsPath = {
 			parts = { "home", "user", "file.txt" },
-			isAbsolute = true,
-			isUNCPath = false,
+			kind = "absolute",
 			driveLetter = "C",
 		}
 		local result = path.win32.isabsolute(pathObj)
@@ -362,8 +344,7 @@ test.suite("PathWin32IsAbsoluteSuite", function()
 	test.case("isAbsolute_pathobj_relative", function()
 		local pathObj: win32.WindowsPath = {
 			parts = { "folder", "file.txt" },
-			isAbsolute = false,
-			isUNCPath = false,
+			kind = "relative",
 			driveLetter = nil,
 		}
 		local result = path.win32.isabsolute(pathObj)
@@ -374,8 +355,7 @@ end)
 test.suite("PathWin32NormalizeSuite", function()
 	test.case("normalize_removes_current_directory", function()
 		local result = path.win32.normalize("C:\\Users\\.\\username\\Documents")
-		test.assert.eq(result.isAbsolute, true)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "absolute")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 3)
 		test.assert.eq(result.parts[1], "Users")
@@ -385,8 +365,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_resolves_parent_directory", function()
 		local result = path.win32.normalize("C:\\Users\\username\\..\\Documents")
-		test.assert.eq(result.isAbsolute, true)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "absolute")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 2)
 		test.assert.eq(result.parts[1], "Users")
@@ -395,8 +374,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_multiple_dots", function()
 		local result = path.win32.normalize("C:\\Users\\username\\.\\Documents\\..\\files\\.\\")
-		test.assert.eq(result.isAbsolute, true)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "absolute")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 3)
 		test.assert.eq(result.parts[1], "Users")
@@ -406,8 +384,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_relative_path", function()
 		local result = path.win32.normalize("Documents\\.\\subfolder\\..\\file.txt")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 2)
 		test.assert.eq(result.parts[1], "Documents")
@@ -416,8 +393,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_removes_empty_segments", function()
 		local result = path.win32.normalize("C:\\Users\\\\username\\\\\\Documents")
-		test.assert.eq(result.isAbsolute, true)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "absolute")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 3)
 		test.assert.eq(result.parts[1], "Users")
@@ -427,16 +403,14 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_parent_beyond_root", function()
 		local result = path.win32.normalize("C:\\Users\\..\\..\\")
-		test.assert.eq(result.isAbsolute, true)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "absolute")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 0)
 	end)
 
 	test.case("normalize_unc_path", function()
 		local result = path.win32.normalize("\\\\server\\share\\.\\folder\\..\\files")
-		test.assert.eq(result.isAbsolute, true)
-		test.assert.eq(result.isUNCPath, true)
+		test.assert.eq(result.kind, "unc")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 3)
 		test.assert.eq(result.parts[1], "server")
@@ -446,8 +420,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_relative_with_drive", function()
 		local result = path.win32.normalize("C:Documents\\.\\subfolder\\..\\file.txt")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 2)
 		test.assert.eq(result.parts[1], "Documents")
@@ -456,8 +429,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_parent_directory_only", function()
 		local result = path.win32.normalize("..")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 1)
 		test.assert.eq(result.parts[1], "..")
@@ -465,8 +437,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_multiple_parent_directories", function()
 		local result = path.win32.normalize("..\\..\\..")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 3)
 		test.assert.eq(result.parts[1], "..")
@@ -476,8 +447,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_parent_then_folder", function()
 		local result = path.win32.normalize("..\\folder\\file.txt")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 3)
 		test.assert.eq(result.parts[1], "..")
@@ -487,8 +457,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_folder_then_multiple_parents", function()
 		local result = path.win32.normalize("folder\\subfolder\\..\\..\\other")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, nil)
 		test.assert.eq(#result.parts, 1)
 		test.assert.eq(result.parts[1], "other")
@@ -497,13 +466,11 @@ test.suite("PathWin32NormalizeSuite", function()
 	test.case("normalize_pathobj", function()
 		local pathObj: win32.WindowsPath = {
 			parts = { "Users", ".", "username", "..", "Documents" },
-			isAbsolute = true,
-			isUNCPath = false,
+			kind = "absolute",
 			driveLetter = "C",
 		}
 		local result = path.win32.normalize(pathObj)
-		test.assert.eq(result.isAbsolute, true)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "absolute")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 2)
 		test.assert.eq(result.parts[1], "Users")
@@ -512,8 +479,7 @@ test.suite("PathWin32NormalizeSuite", function()
 
 	test.case("normalize_relative_with_drive_and_parent", function()
 		local result = path.win32.normalize("C:..\\folder\\file.txt")
-		test.assert.eq(result.isAbsolute, false)
-		test.assert.eq(result.isUNCPath, false)
+		test.assert.eq(result.kind, "relative")
 		test.assert.eq(result.driveLetter, "C")
 		test.assert.eq(#result.parts, 3)
 		test.assert.eq(result.parts[1], "..")

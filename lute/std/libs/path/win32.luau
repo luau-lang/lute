@@ -1,7 +1,8 @@
+export type WindowsPathKind = "unc" | "absolute" | "relative"
+
 export type WindowsPath = {
 	parts: { string },
-	isAbsolute: boolean,
-	isUNCPath: boolean,
+	kind: WindowsPathKind,
 	driveLetter: string?,
 }
 
@@ -29,8 +30,7 @@ function win32.dirname(path: WindowsPathLike): string
 	else
 		return win32.format({
 			parts = { table.unpack(path.parts, 1, #path.parts - 1) },
-			isAbsolute = path.isAbsolute,
-			isUNCPath = path.isUNCPath,
+			kind = path.kind,
 			driveLetter = path.driveLetter,
 		})
 	end
@@ -69,19 +69,19 @@ function win32.format(path: WindowsPathLike): string
 	path = path :: WindowsPath
 
 	if #path.parts == 0 then
-		if path.isUNCPath then
+		if path.kind == "unc" then
 			return "\\\\"
 		elseif path.driveLetter ~= nil then
-			return table.concat({ path.driveLetter, ":", (if path.isAbsolute then "\\" else "") })
+			return table.concat({ path.driveLetter, ":", (if path.kind == "absolute" then "\\" else "") })
 		else
 			return "."
 		end
 	else
 		local parts = table.concat(path.parts, "\\")
-		if path.isUNCPath then
+		if path.kind == "unc" then
 			return "\\\\" .. parts
 		elseif path.driveLetter ~= nil then
-			return table.concat({ path.driveLetter, ":", (if path.isAbsolute then "\\" else ""), parts })
+			return table.concat({ path.driveLetter, ":", (if path.kind == "absolute" then "\\" else ""), parts })
 		else
 			return parts
 		end
@@ -93,7 +93,7 @@ function win32.isabsolute(path: WindowsPathLike): boolean
 		path = win32.parse(path)
 	end
 	path = path :: WindowsPath
-	return path.isAbsolute
+	return path.kind == "absolute" or path.kind == "unc"
 end
 
 -- In place extends path with addend
@@ -103,28 +103,17 @@ local function joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 	end
 	addend = addend :: WindowsPath
 
-	if addend.isAbsolute then
+	if addend.kind == "absolute" or addend.kind == "unc" then
 		local stringPath = win32.format(path)
 		local stringAddend = win32.format(addend)
 		error(table.concat({
 			"Could not join ",
-			(if path.isAbsolute then "absolute" else "relative"),
+			path.kind,
 			" path ",
 			stringPath,
-			" and absolute path ",
-			stringAddend,
-		}))
-	end
-
-	if addend.isUNCPath then
-		local stringPath = win32.format(path)
-		local stringAddend = win32.format(addend)
-		error(table.concat({
-			"Could not join ",
-			(if path.isUNCPath then "UNC" else "non-UNC"),
+			" and ",
+			addend.kind,
 			" path ",
-			stringPath,
-			" and UNC path ",
 			stringAddend,
 		}))
 	end
@@ -148,8 +137,7 @@ function win32.join(parts: { WindowsPathLike }): WindowsPath
 	if #parts == 0 then
 		return {
 			parts = {},
-			isAbsolute = false,
-			isUNCPath = false,
+			kind = "relative",
 			driveLetter = nil,
 		}
 	end
@@ -174,7 +162,7 @@ function win32.normalize(path: WindowsPathLike): WindowsPath
 		if part == "" or part == "." then
 			continue
 		elseif part == ".." then
-			if path.isAbsolute then
+			if path.kind == "unc" or path.kind == "absolute" then
 				if #newParts > 0 then -- if absolute, only pop if we're not at the root
 					table.remove(newParts, #newParts)
 				end
@@ -192,8 +180,7 @@ function win32.normalize(path: WindowsPathLike): WindowsPath
 
 	return {
 		parts = newParts,
-		isAbsolute = path.isAbsolute,
-		isUNCPath = path.isUNCPath,
+		kind = path.kind,
 		driveLetter = path.driveLetter,
 	}
 end
@@ -206,29 +193,27 @@ function win32.parse(path: WindowsPathLike): WindowsPath
 		error("Expected string or PathObj")
 	end
 
-	local isAbs = false
-	local isUNC = false
+	local kind: WindowsPathKind = "relative"
 	local driveLetter = nil
 
-	-- Check if path is absolute and if it's a UNC path on Windows
+	-- Check if path is absolute and if it's a unc path on Windows
 	if string.sub(path, 1, 2) == "\\\\" then
-		-- UNC path
-		isAbs = true
-		isUNC = true
+		-- unc path
+		kind = "unc"
 	elseif string.match(path, "^%a:") ~= nil then
 		driveLetter = string.sub(path, 1, 1)
 		-- Windows: starts with drive letter + backslash (C:\)
-		isAbs = string.sub(path, 3, 3) == "\\"
+		kind = if string.sub(path, 3, 3) == "\\" then "absolute" else "relative"
 	end
 
 	local parts = {}
 	-- Windows supports mixed separators, so sub forward slashes for backslashes first
 	path = path:gsub("/", "\\")
 
-	if isUNC then
-		-- Strip out the leading \\ for UNC paths
+	if kind == "unc" then
+		-- Strip out the leading \\ for unc paths
 		parts = path:sub(3):split("\\")
-	elseif isAbs then
+	elseif kind == "absolute" then
 		-- Strip out the drive letter, colon, and backslash (C:\)
 		parts = path:sub(4):split("\\")
 	elseif driveLetter ~= nil then
@@ -250,8 +235,7 @@ function win32.parse(path: WindowsPathLike): WindowsPath
 
 	return {
 		parts = parts,
-		isAbsolute = isAbs,
-		isUNCPath = isUNC,
+		kind = kind,
 		driveLetter = driveLetter,
 	}
 end

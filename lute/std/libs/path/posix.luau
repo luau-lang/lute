@@ -1,6 +1,6 @@
 export type PosixPath = {
 	parts: { string },
-	isAbsolute: boolean,
+	absolute: boolean,
 }
 
 export type PosixPathLike = string | PosixPath
@@ -27,7 +27,7 @@ function posix.dirname(path: PosixPathLike): string
 	else
 		return posix.format({
 			parts = { table.unpack(path.parts, 1, #path.parts - 1) },
-			isAbsolute = path.isAbsolute,
+			absolute = path.absolute,
 		})
 	end
 end
@@ -65,9 +65,9 @@ function posix.format(path: PosixPathLike): string
 	path = path :: PosixPath
 
 	if #path.parts == 0 then
-		return if path.isAbsolute then "/" else "."
+		return if path.absolute then "/" else "."
 	else
-		return (if path.isAbsolute then "/" else "") .. table.concat(path.parts, "/")
+		return (if path.absolute then "/" else "") .. table.concat(path.parts, "/")
 	end
 end
 
@@ -76,7 +76,7 @@ function posix.isabsolute(path: PosixPathLike): boolean
 		path = posix.parse(path)
 	end
 	path = path :: PosixPath
-	return path.isAbsolute
+	return path.absolute
 end
 
 -- In place extends path with addend
@@ -86,12 +86,12 @@ local function joinHelper(path: PosixPath, addend: PosixPathLike): ()
 	end
 	addend = addend :: PosixPath
 
-	if addend.isAbsolute then
+	if addend.absolute then
 		local stringPath = posix.format(path)
 		local stringAddend = posix.format(addend)
 		error(table.concat({
 			"Could not join ",
-			(if path.isAbsolute then "absolute" else "relative"),
+			(if path.absolute then "absolute" else "relative"),
 			" path ",
 			stringPath,
 			" and absolute path ",
@@ -106,7 +106,7 @@ function posix.join(parts: { PosixPathLike }): PosixPath
 	if #parts == 0 then
 		return {
 			parts = {},
-			isAbsolute = false,
+			absolute = false,
 		}
 	end
 
@@ -130,7 +130,7 @@ function posix.normalize(path: PosixPathLike): PosixPath
 		if part == "" or part == "." then
 			continue
 		elseif part == ".." then
-			if path.isAbsolute then
+			if path.absolute then
 				if #newParts > 0 then -- if absolute, only pop if we're not at the root
 					table.remove(newParts, #newParts)
 				end
@@ -148,7 +148,7 @@ function posix.normalize(path: PosixPathLike): PosixPath
 
 	return {
 		parts = newParts,
-		isAbsolute = path.isAbsolute,
+		absolute = path.absolute,
 	}
 end
 
@@ -185,7 +185,7 @@ function posix.parse(path: PosixPathLike): PosixPath
 
 	return {
 		parts = parts,
-		isAbsolute = isAbs,
+		absolute = isAbs,
 	}
 end
 
