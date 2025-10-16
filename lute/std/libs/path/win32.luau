@@ -120,7 +120,9 @@ local function joinHelper(path: path, addend: pathlike): ()
 		}))
 	end
 
-	local driveLettersIncompatible = path.driveLetter ~= nil and addend.driveLetter ~= nil and addend.driveLetter:lower() ~= path.driveLetter:lower()
+	local driveLettersIncompatible = path.driveLetter ~= nil
+		and addend.driveLetter ~= nil
+		and addend.driveLetter:lower() ~= path.driveLetter:lower()
 
 	if driveLettersIncompatible then
 		local stringPath = win32.format(path)
