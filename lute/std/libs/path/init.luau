@@ -49,11 +49,11 @@ function isabsolute(path: PathLike): boolean
 	end
 end
 
-function join(parts: { PathLike }): PathObj
+function join(...:  PathLike ): PathObj
 	if onWindows then
-		return win32.join(parts :: { win32.WindowsPathLike })
+		return win32.join(...)
 	else
-		return posix.join(parts :: { posix.PosixPathLike })
+		return posix.join(...)
 	end
 end
 

@@ -102,7 +102,8 @@ local function joinHelper(path: PosixPath, addend: PosixPathLike): ()
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)
 end
 
-function posix.join(parts: { PosixPathLike }): PosixPath
+function posix.join(...: PosixPathLike): PosixPath
+	local parts = {...}
 	if #parts == 0 then
 		return {
 			parts = {},

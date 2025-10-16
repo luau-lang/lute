@@ -133,7 +133,8 @@ local function joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)
 end
 
-function win32.join(parts: { WindowsPathLike }): WindowsPath
+function win32.join(...: WindowsPathLike): WindowsPath
+	local parts = {...}
 	if #parts == 0 then
 		return {
 			parts = {},
