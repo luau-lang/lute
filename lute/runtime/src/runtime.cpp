@@ -19,6 +19,13 @@
 
 #include <string>
 #include <assert.h>
+#include <climits> // IWYU pragma: keep
+
+#ifdef PATH_MAX
+#define LUTE_PATH_MAX PATH_MAX
+#else
+#define LUTE_PATH_MAX 8192
+#endif
 
 static void lua_close_checked(lua_State* L)
 {
@@ -26,9 +33,21 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
-Runtime::Runtime()
+static std::string getExecPath(const char* argv0)
+{
+    char buf[LUTE_PATH_MAX];
+    size_t len = sizeof(buf);
+    if (uv_exepath(buf, &len) == 0)
+        return {buf, len};
+    if (argv0)
+        return argv0;
+    return {};
+}
+
+Runtime::Runtime(const char* argv0)
     : globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
+    , execPath(getExecPath(argv0))
 {
     stop.store(false);
     activeTokens.store(0);

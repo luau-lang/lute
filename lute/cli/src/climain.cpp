@@ -18,6 +18,7 @@
 #include "lute/runtime.h"
 #include "lute/tc.h"
 #include "lute/version.h"
+#include "uv.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -259,7 +260,7 @@ static std::optional<std::string> getValidPath(std::string filePath)
     return std::nullopt;
 }
 
-int handleRunCommand(int argc, char** argv, int argOffset)
+int handleRunCommand(int argc, char** argv, char* argv0, int argOffset)
 {
     std::string filePath;
     int program_argc = 0;
@@ -296,7 +297,7 @@ int handleRunCommand(int argc, char** argv, int argOffset)
         return 1;
     }
 
-    Runtime runtime;
+    Runtime runtime(argv0);
     lua_State* L = setupCliState(runtime);
 
     std::optional<std::string> validPath = getValidPath(filePath);
@@ -411,9 +412,9 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
     return compileScript(inputFilePath, outputFilePath, argv[0]);
 }
 
-int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv)
+int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, char* argv0)
 {
-    Runtime runtime;
+    Runtime runtime(argv0);
     lua_State* L = setupCliState(runtime);
 
     std::string bytecode = Luau::compile(std::string(result.contents), copts());
@@ -424,10 +425,12 @@ int cliMain(int argc, char** argv)
 {
     Luau::assertHandler() = assertionHandler;
 
+    argv = uv_setup_args(argc, argv);
+
     AppendedBytecodeResult embedded = checkForAppendedBytecode(argv[0]);
     if (embedded.found)
     {
-        Runtime runtime;
+        Runtime runtime(argv[0]);
         lua_State* GL = setupCliState(runtime);
 
         bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL, argc, argv);
@@ -451,7 +454,7 @@ int cliMain(int argc, char** argv)
 
     if (strcmp(command, "run") == 0)
     {
-        return handleRunCommand(argc, argv, argOffset);
+        return handleRunCommand(argc, argv, argv[0], argOffset);
     }
     else if (strcmp(command, "check") == 0)
     {
@@ -473,12 +476,12 @@ int cliMain(int argc, char** argv)
     }
     else if (std::optional<CliCommandResult> result = getCliCommand(command); result)
     {
-        return handleCliCommand(*result, argc - argOffset, &argv[argOffset]);
+        return handleCliCommand(*result, argc - argOffset, &argv[argOffset], argv[0]);
     }
     else
     {
         // Default to 'run' command
         argOffset = 1;
-        return handleRunCommand(argc, argv, argOffset);
+        return handleRunCommand(argc, argv, argv[0], argOffset);
     }
 }

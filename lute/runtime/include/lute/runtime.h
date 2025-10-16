@@ -40,7 +40,7 @@ using RuntimeStep = Luau::Variant<StepSuccess, StepErr, StepEmpty>;
 
 struct Runtime
 {
-    Runtime();
+    Runtime(const char* argv0 = nullptr);
     ~Runtime();
 
     bool runToCompletion();
@@ -80,6 +80,8 @@ struct Runtime
     std::unique_ptr<lua_State, void (*)(lua_State*)> dataCopy;
 
     std::vector<ThreadToContinue> runningThreads;
+
+    std::string execPath;
 
 private:
     std::mutex continuationMutex;
