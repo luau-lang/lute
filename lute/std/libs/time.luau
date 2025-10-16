@@ -74,43 +74,43 @@ function duration.weeks(weeks: number): duration
 end
 
 function duration.subsecmillis(self: duration): number
-    local self = self :: durationimpl
-    return math.floor(self.nanoseconds / NANOS_PER_MILLI)
+	local self = self :: durationimpl
+	return math.floor(self.nanoseconds / NANOS_PER_MILLI)
 end
 
 function duration.subsecmicros(self: duration): number
-    local self = self :: durationimpl
+	local self = self :: durationimpl
 	return math.floor(self.nanoseconds / NANOS_PER_MICRO)
 end
 
 function duration.subsecnanos(self: duration): number
-    local self = self :: durationimpl
+	local self = self :: durationimpl
 	return self.nanoseconds
 end
 
 function duration.toseconds(self: duration): number
-    local self = self :: durationimpl
+	local self = self :: durationimpl
 	return self.seconds + self.nanoseconds / NANOS_PER_SEC
 end
 
 function duration.tomilliseconds(self: duration): number
-    local self = self :: durationimpl
+	local self = self :: durationimpl
 	return self.seconds * MILLIS_PER_SEC + self:subsecmillis()
 end
 
 function duration.tomicroseconds(self: duration): number
-    local self = self :: durationimpl
+	local self = self :: durationimpl
 	return self.seconds * MICROS_PER_SEC + self:subsecmicros()
 end
 
 function duration.tonanoseconds(self: duration): number
-    local self = self :: durationimpl
+	local self = self :: durationimpl
 	return self.seconds * NANOS_PER_SEC + self:subsecnanos()
 end
 
 function duration.__add(a: duration, b: duration): duration
-    local a = a :: durationimpl
-    local b = b :: durationimpl
+	local a = a :: durationimpl
+	local b = b :: durationimpl
 
 	local seconds = a.seconds + b.seconds
 	local nanoseconds = a.nanoseconds + b.nanoseconds
@@ -124,8 +124,8 @@ function duration.__add(a: duration, b: duration): duration
 end
 
 function duration.__sub(a: duration, b: duration): duration
-    local a = a :: durationimpl
-    local b = b :: durationimpl
+	local a = a :: durationimpl
+	local b = b :: durationimpl
 
 	local seconds = a.seconds - b.seconds
 	local nanoseconds = a.nanoseconds - b.nanoseconds
@@ -139,7 +139,7 @@ function duration.__sub(a: duration, b: duration): duration
 end
 
 function duration.__mul(a: duration, b: number): duration
-    local a = a :: durationimpl
+	local a = a :: durationimpl
 
 	local seconds = a.seconds * b
 	local nanoseconds = a.nanoseconds * b
@@ -151,9 +151,9 @@ function duration.__mul(a: duration, b: number): duration
 end
 
 function duration.__div(a: duration, b: number): duration
-    local a = a :: durationimpl
+	local a = a :: durationimpl
 
-    local seconds, extraSeconds = a.seconds / b, a.seconds % b
+	local seconds, extraSeconds = a.seconds / b, a.seconds % b
 	local nanoseconds, extraNanos = a.nanoseconds / b, a.nanoseconds % b
 
 	nanoseconds += (extraSeconds * NANOS_PER_SEC + extraNanos) / b
@@ -162,17 +162,17 @@ function duration.__div(a: duration, b: number): duration
 end
 
 function duration.__eq(a: duration, b: duration): boolean
-    local a = a :: durationimpl
-    local b = b :: durationimpl
+	local a = a :: durationimpl
+	local b = b :: durationimpl
 
-    return a.seconds == b.seconds and a.nanoseconds == b.nanoseconds
+	return a.seconds == b.seconds and a.nanoseconds == b.nanoseconds
 end
 
 function duration.__lt(a: duration, b: duration): boolean
-    local a = a :: durationimpl
-    local b = b :: durationimpl
+	local a = a :: durationimpl
+	local b = b :: durationimpl
 
-    if a.seconds == b.seconds then
+	if a.seconds == b.seconds then
 		return a.nanoseconds < b.nanoseconds
 	end
 
@@ -180,8 +180,8 @@ function duration.__lt(a: duration, b: duration): boolean
 end
 
 function duration.__le(a: duration, b: duration): boolean
-    local a = a :: durationimpl
-    local b = b :: durationimpl
+	local a = a :: durationimpl
+	local b = b :: durationimpl
 
 	if a.seconds == b.seconds then
 		return a.nanoseconds <= b.nanoseconds
@@ -191,8 +191,8 @@ function duration.__le(a: duration, b: duration): boolean
 end
 
 function duration.__tostring(self: duration): string
-    local self = self :: durationimpl
-    return string.format("%d.%09d", self.seconds, self.nanoseconds)
+	local self = self :: durationimpl
+	return string.format("%d.%09d", self.seconds, self.nanoseconds)
 end
 
 return table.freeze({
