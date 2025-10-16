@@ -1,28 +1,28 @@
 local process = require("@lute/process")
 
-export type PosixPath = {
+export type path = {
 	parts: { string },
 	absolute: boolean,
 }
 
-export type PosixPathLike = string | PosixPath
+export type pathlike = string | path
 
 local posix = {}
 
-function posix.basename(path: PosixPathLike): string?
+function posix.basename(path: pathlike): string?
 	if typeof(path) == "string" then
 		path = posix.parse(path)
 	end
-	path = path :: PosixPath
+	path = path :: path
 	return if #path.parts > 0 then path.parts[#path.parts] else nil
 end
 
-function posix.dirname(path: PosixPathLike): string
+function posix.dirname(path: pathlike): string
 	if typeof(path) == "string" then
 		path = posix.parse(path)
 	end
 
-	path = path :: PosixPath
+	path = path :: path
 
 	if #path.parts == 0 then
 		return posix.format(path)
@@ -34,12 +34,12 @@ function posix.dirname(path: PosixPathLike): string
 	end
 end
 
-function posix.extname(path: PosixPathLike): string
+function posix.extname(path: pathlike): string
 	if typeof(path) == "string" then
 		path = posix.parse(path)
 	end
 
-	path = path :: PosixPath
+	path = path :: path
 
 	if #path.parts == 0 then
 		return ""
@@ -59,12 +59,12 @@ function posix.extname(path: PosixPathLike): string
 	return filename:sub(dotIndex)
 end
 
-function posix.format(path: PosixPathLike): string
+function posix.format(path: pathlike): string
 	if typeof(path) == "string" then
 		return path
 	end
 
-	path = path :: PosixPath
+	path = path :: path
 
 	if #path.parts == 0 then
 		return if path.absolute then "/" else "."
@@ -73,20 +73,20 @@ function posix.format(path: PosixPathLike): string
 	end
 end
 
-function posix.isabsolute(path: PosixPathLike): boolean
+function posix.isabsolute(path: pathlike): boolean
 	if typeof(path) == "string" then
 		path = posix.parse(path)
 	end
-	path = path :: PosixPath
+	path = path :: path
 	return path.absolute
 end
 
 -- In place extends path with addend
-local function joinHelper(path: PosixPath, addend: PosixPathLike): ()
+local function joinHelper(path: path, addend: pathlike): ()
 	if typeof(addend) == "string" then
 		addend = posix.parse(addend)
 	end
-	addend = addend :: PosixPath
+	addend = addend :: path
 
 	if addend.absolute then
 		local stringPath = posix.format(path)
@@ -104,7 +104,7 @@ local function joinHelper(path: PosixPath, addend: PosixPathLike): ()
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)
 end
 
-function posix.join(...: PosixPathLike): PosixPath
+function posix.join(...: pathlike): path
 	local parts = { ... }
 	if #parts == 0 then
 		return {
@@ -122,11 +122,11 @@ function posix.join(...: PosixPathLike): PosixPath
 	return path
 end
 
-function posix.normalize(path: PosixPathLike): PosixPath
+function posix.normalize(path: pathlike): path
 	if typeof(path) == "string" then
 		path = posix.parse(path)
 	end
-	path = path :: PosixPath
+	path = path :: path
 
 	local newParts = {}
 	for _, part in path.parts do
@@ -155,12 +155,12 @@ function posix.normalize(path: PosixPathLike): PosixPath
 	}
 end
 
-function posix.parse(path: PosixPathLike): PosixPath
+function posix.parse(path: pathlike): path
 	if typeof(path) == "table" then
 		return path
 	end
 	if typeof(path) ~= "string" then
-		error("Expected string or PosixPath")
+		error("Expected string or path")
 	end
 
 	local isAbs = false
@@ -192,7 +192,7 @@ function posix.parse(path: PosixPathLike): PosixPath
 	}
 end
 
-function posix.resolve(...: PosixPathLike): PosixPath
+function posix.resolve(...: pathlike): path
 	local parts = { ... }
 	if #parts == 0 then
 		return posix.parse(process.cwd())

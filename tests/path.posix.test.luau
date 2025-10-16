@@ -43,7 +43,7 @@ test.suite("PathPosixParseSuite", function()
 	end)
 
 	test.case("parse_pathobj_returns_same", function()
-		local originalPath: posix.PosixPath = {
+		local originalPath: posix.path = {
 			parts = { "folder", "file.txt" },
 			absolute = false,
 		}
@@ -84,49 +84,49 @@ test.suite("PathPosixBasenameSuite", function()
 	end)
 
 	test.case("basename_pathobj", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = { "folder", "subfolder", "file.txt" },
 			absolute = false,
 		}
-		local result = path.posix.basename(pathObj)
+		local result = path.posix.basename(pathobj)
 		test.assert.eq(result, "file.txt")
 	end)
 end)
 
 test.suite("PathPosixFormatSuite", function()
 	test.case("format_posix_absolute_path", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = { "home", "user", "documents", "file.txt" },
 			absolute = true,
 		}
-		local result = path.posix.format(pathObj)
+		local result = path.posix.format(pathobj)
 		test.assert.eq(result, "/home/user/documents/file.txt")
 	end)
 
 	test.case("format_posix_relative_path", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = { "documents", "file.txt" },
 			absolute = false,
 		}
-		local result = path.posix.format(pathObj)
+		local result = path.posix.format(pathobj)
 		test.assert.eq(result, "documents/file.txt")
 	end)
 
 	test.case("format_empty_relative_path", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = {},
 			absolute = false,
 		}
-		local result = path.posix.format(pathObj)
+		local result = path.posix.format(pathobj)
 		test.assert.eq(result, ".")
 	end)
 
 	test.case("format_root_path", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = {},
 			absolute = true,
 		}
-		local result = path.posix.format(pathObj)
+		local result = path.posix.format(pathobj)
 		test.assert.eq(result, "/")
 	end)
 
@@ -168,11 +168,11 @@ test.suite("PathPosixDirnameSuite", function()
 	end)
 
 	test.case("dirname_pathobj", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = { "folder", "subfolder", "file.txt" },
 			absolute = false,
 		}
-		local result = path.posix.dirname(pathObj)
+		local result = path.posix.dirname(pathobj)
 		test.assert.eq(result, "folder/subfolder")
 	end)
 end)
@@ -219,11 +219,11 @@ test.suite("PathPosixExtnameSuite", function()
 	end)
 
 	test.case("extname_pathobj", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = { "folder", "file.pdf" },
 			absolute = false,
 		}
-		local result = path.posix.extname(pathObj)
+		local result = path.posix.extname(pathobj)
 		test.assert.eq(result, ".pdf")
 	end)
 
@@ -265,20 +265,20 @@ test.suite("PathPosixIsAbsoluteSuite", function()
 	end)
 
 	test.case("absolute_pathobj_absolute", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = { "home", "user", "file.txt" },
 			absolute = true,
 		}
-		local result = path.posix.isabsolute(pathObj)
+		local result = path.posix.isabsolute(pathobj)
 		test.assert.eq(result, true)
 	end)
 
 	test.case("absolute_pathobj_relative", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = { "folder", "file.txt" },
 			absolute = false,
 		}
-		local result = path.posix.isabsolute(pathObj)
+		local result = path.posix.isabsolute(pathobj)
 		test.assert.eq(result, false)
 	end)
 end)
@@ -346,11 +346,11 @@ test.suite("PathPosixNormalizeSuite", function()
 	end)
 
 	test.case("normalize_pathobj", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = { "home", ".", "user", "..", "documents" },
 			absolute = true,
 		}
-		local result = path.posix.normalize(pathObj)
+		local result = path.posix.normalize(pathobj)
 		test.assert.eq(result.absolute, true)
 		test.assert.eq(#result.parts, 2)
 		test.assert.eq(result.parts[1], "home")
@@ -443,11 +443,11 @@ test.suite("PathPosixJoinSuite", function()
 	end)
 
 	test.case("join_pathobj_and_string", function()
-		local pathObj: posix.PosixPath = {
+		local pathobj: posix.path = {
 			parts = { "home", "user" },
 			absolute = true,
 		}
-		local result = path.posix.join(pathObj, "documents/file.txt")
+		local result = path.posix.join(pathobj, "documents/file.txt")
 		test.assert.eq(result.absolute, true)
 		test.assert.eq(#result.parts, 4)
 		test.assert.eq(result.parts[1], "home")

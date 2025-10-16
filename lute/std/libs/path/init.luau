@@ -3,53 +3,53 @@ local system = require("@lute/system")
 local posix = require("@self/posix")
 local win32 = require("@self/win32")
 
-export type PathObj = posix.PosixPath | win32.WindowsPath
+export type pathobj = posix.path | win32.path
 
-export type PathLike = string | PathObj
+export type pathlike = string | pathobj
 
 local onWindows = system.os == "windows"
 
-function basename(path: PathLike): string?
+function basename(path: pathlike): string?
 	if onWindows then
-		return win32.basename(path :: win32.WindowsPathLike)
+		return win32.basename(path :: win32.pathlike)
 	else
-		return posix.basename(path :: posix.PosixPathLike)
+		return posix.basename(path :: posix.pathlike)
 	end
 end
 
-function dirname(path: PathLike): string
+function dirname(path: pathlike): string
 	if onWindows then
-		return win32.dirname(path :: win32.WindowsPathLike)
+		return win32.dirname(path :: win32.pathlike)
 	else
-		return posix.dirname(path :: posix.PosixPathLike)
+		return posix.dirname(path :: posix.pathlike)
 	end
 end
 
-function extname(path: PathLike): string
+function extname(path: pathlike): string
 	if onWindows then
-		return win32.extname(path :: win32.WindowsPathLike)
+		return win32.extname(path :: win32.pathlike)
 	else
-		return posix.extname(path :: posix.PosixPathLike)
+		return posix.extname(path :: posix.pathlike)
 	end
 end
 
-function format(path: PathLike): string
+function format(path: pathlike): string
 	if onWindows then
-		return win32.format(path :: win32.WindowsPathLike)
+		return win32.format(path :: win32.pathlike)
 	else
-		return posix.format(path :: posix.PosixPathLike)
+		return posix.format(path :: posix.pathlike)
 	end
 end
 
-function isabsolute(path: PathLike): boolean
+function isabsolute(path: pathlike): boolean
 	if onWindows then
-		return win32.isabsolute(path :: win32.WindowsPathLike)
+		return win32.isabsolute(path :: win32.pathlike)
 	else
-		return posix.isabsolute(path :: posix.PosixPathLike)
+		return posix.isabsolute(path :: posix.pathlike)
 	end
 end
 
-function join(...: PathLike): PathObj
+function join(...: pathlike): pathobj
 	if onWindows then
 		return win32.join(...)
 	else
@@ -57,23 +57,23 @@ function join(...: PathLike): PathObj
 	end
 end
 
-function normalize(path: PathLike): PathObj
+function normalize(path: pathlike): pathobj
 	if onWindows then
-		return win32.normalize(path :: win32.WindowsPathLike)
+		return win32.normalize(path :: win32.pathlike)
 	else
-		return posix.normalize(path :: posix.PosixPathLike)
+		return posix.normalize(path :: posix.pathlike)
 	end
 end
 
-function parse(path: PathLike): PathObj
+function parse(path: pathlike): pathobj
 	if onWindows then
-		return win32.parse(path :: win32.WindowsPathLike)
+		return win32.parse(path :: win32.pathlike)
 	else
-		return posix.parse(path :: posix.PosixPathLike)
+		return posix.parse(path :: posix.pathlike)
 	end
 end
 
-function resolve(...: PathLike): string
+function resolve(...: pathlike): string
 	if onWindows then
 		return win32.resolve(...)
 	else
