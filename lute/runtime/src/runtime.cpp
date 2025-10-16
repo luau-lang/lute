@@ -9,6 +9,7 @@
 #include "lute/task.h"
 #include "lute/vm.h"
 #include "lute/time.h"
+#include "lute/io.h"
 
 #include "Luau/Require.h"
 
@@ -323,6 +324,7 @@ static void luteopen_libs(lua_State* L)
         {"@lute/vm", luteopen_vm},
         {"@lute/system", luteopen_system},
         {"@lute/time", luteopen_time},
+        {"@lute/io", luteopen_io},
     }};
 
     for (const auto& [name, func] : libs)
