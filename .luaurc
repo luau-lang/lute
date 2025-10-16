@@ -1,8 +1,9 @@
 {
     "languageMode": "strict",
+    "lint": { "*": true, "LocalShadow": false },
     "aliases": {
         "batteries": "./batteries",
         "std": "./lute/std/libs",
         "lute": "./definitions",
-    }
+    },
 }
