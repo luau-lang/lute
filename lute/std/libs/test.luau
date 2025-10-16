@@ -134,6 +134,73 @@ function test.run()
 	local failed = 0
 	local passed = 0
 
+	-- Error handler for beforeall hook
+	local function beforeallErrorHandler(suite: TestSuiteData)
+		return function(err)
+			-- If beforeall fails, skip all tests in the suite
+			total += #suite.cases
+			failed += #suite.cases
+			for _, tc in suite.cases do
+				local failedtest: FailedTest = {
+					test = `{suite.name}.{tc.name}`,
+					assertion = "beforeall",
+					error = `beforeall hook failed: {err}`,
+					filename = "",
+					linenumber = 0,
+				}
+				table.insert(failures, failedtest)
+			end
+			return tostring(err)
+		end
+	end
+
+	-- Error handler for beforeeach hook
+	local function beforeeachErrorHandler(testFullName: string)
+		return function(err)
+			failed += 1
+			local failedtest: FailedTest = {
+				test = testFullName,
+				assertion = "beforeeach",
+				error = `beforeeach hook failed: {err}`,
+				filename = "",
+				linenumber = 0,
+			}
+			table.insert(failures, failedtest)
+			return tostring(err)
+		end
+	end
+
+	-- Error handler for aftereach hook
+	local function afterachErrorHandler(testFullName: string)
+		return function(err)
+			local failedtest: FailedTest = {
+				test = testFullName,
+				assertion = "aftereach",
+				error = `aftereach hook failed: {err}`,
+				filename = "",
+				linenumber = 0,
+			}
+			table.insert(failures, failedtest)
+			return tostring(err)
+		end
+	end
+
+	-- Error handler for afterall hook
+	local function afterallErrorHandler(suiteName: string)
+		return function(err)
+			failed += 1
+			local failedtest: FailedTest = {
+				test = suiteName,
+				assertion = "afterall",
+				error = `afterall hook failed: {err}`,
+				filename = "",
+				linenumber = 0,
+			}
+			table.insert(failures, failedtest)
+			return tostring(err)
+		end
+	end
+
 	-- Run anonymous tests
 	for _, tc in env.anonymous do
 		total += 1
@@ -162,21 +229,9 @@ function test.run()
 	for _, suite in env.suites do
 		-- Run beforeall hook once per suite
 		if suite._beforeall then
-			local beforeallSuccess, beforeallErr = pcall(suite._beforeall)
+			local beforeallSuccess = xpcall(suite._beforeall, beforeallErrorHandler(suite))
 			if not beforeallSuccess then
 				-- If beforeall fails, skip all tests in the suite
-				total += #suite.cases
-				failed += #suite.cases
-				for _, tc in suite.cases do
-					local failedtest: FailedTest = {
-						test = `{suite.name}.{tc.name}`,
-						assertion = "beforeall",
-						error = `beforeall hook failed: {beforeallErr}`,
-						filename = "",
-						linenumber = 0,
-					}
-					table.insert(failures, failedtest)
-				end
 				continue
 			end
 		end
@@ -200,17 +255,8 @@ function test.run()
 
 			-- Run beforeeach hook if it exists
 			if suite._beforeeach then
-				local beforeSuccess, beforeErr = pcall(suite._beforeeach)
+				local beforeSuccess = xpcall(suite._beforeeach, beforeeachErrorHandler(testFullName))
 				if not beforeSuccess then
-					failed += 1
-					local failedtest: FailedTest = {
-						test = testFullName,
-						assertion = "beforeeach",
-						error = `beforeeach hook failed: {beforeErr}`,
-						filename = "",
-						linenumber = 0,
-					}
-					table.insert(failures, failedtest)
 					continue
 				end
 			end
@@ -218,18 +264,10 @@ function test.run()
 			local success = xpcall(tc.case, handlefailure, assert)
 			-- Run aftereach hook if it exists (runs even if test failed)
 			if suite._aftereach then
-				local afterSuccess, afterErr = pcall(suite._aftereach)
+				local afterSuccess = xpcall(suite._aftereach, afterachErrorHandler(testFullName))
 				if not afterSuccess then
 					-- If test passed but aftereach failed, mark as failed
 					success = false
-					local failedtest: FailedTest = {
-						test = testFullName,
-						assertion = "aftereach",
-						error = `aftereach hook failed: {afterErr}`,
-						filename = "",
-						linenumber = 0,
-					}
-					table.insert(failures, failedtest)
 				end
 			end
 			-- if the test and the teardown method passed, the test passes
@@ -242,18 +280,7 @@ function test.run()
 
 		-- Run afterall hook once per suite (runs even if tests failed)
 		if suite._afterall then
-			local afterallSuccess, afterallErr = pcall(suite._afterall)
-			if not afterallSuccess then
-				failed += 1
-				local failedtest: FailedTest = {
-					test = `{suite.name}`,
-					assertion = "afterall",
-					error = `afterall hook failed: {afterallErr}`,
-					filename = "",
-					linenumber = 0,
-				}
-				table.insert(failures, failedtest)
-			end
+			xpcall(suite._afterall, afterallErrorHandler(suite.name))
 		end
 	end
 
