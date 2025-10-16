@@ -1,3 +1,4 @@
+local system = require("@std/system")
 local test = require("@std/test")
 
 local path = require("@std/path")
@@ -582,6 +583,112 @@ test.suite("PathWin32JoinSuite", function()
 		test.assert.eq(#result.parts, 2)
 		test.assert.eq(result.parts[1], "Documents")
 		test.assert.eq(result.parts[2], "subfolder")
+	end)
+end)
+
+test.suite("PathWin32ResolveSuite", function()
+	test.case("resolve_absolute_path", function()
+		local result = path.win32.resolve("C:\\Users\\username\\Documents\\file.txt")
+		test.assert.eq(result.kind, "absolute")
+		test.assert.eq(result.driveLetter, "C")
+		test.assert.eq(#result.parts, 4)
+		test.assert.eq(result.parts[1], "Users")
+		test.assert.eq(result.parts[2], "username")
+		test.assert.eq(result.parts[3], "Documents")
+		test.assert.eq(result.parts[4], "file.txt")
+	end)
+
+	test.case("resolve_relative_path_from_cwd", function()
+		-- This test assumes we're in some working directory
+		local result = path.win32.resolve("Documents\\file.txt")
+		-- Absolute unix paths will be parsed as relative Windows paths because they don't have drive letters
+		if system.os == "windows" then
+			test.assert.eq(result.kind, "absolute")
+		else
+			test.assert.eq(result.kind, "relative")
+		end
+		-- The exact parts will depend on the current working directory
+		-- But we can check that it ends with our relative path
+		-- In an ideal world, we'd mock `process.cwd`
+		local endIndex = #result.parts
+		test.assert.eq(result.parts[endIndex - 1], "Documents")
+		test.assert.eq(result.parts[endIndex], "file.txt")
+	end)
+
+	test.case("resolve_multiple_paths", function()
+		local result = path.win32.resolve("C:\\Users", "username", "..\\admin", "Documents")
+		test.assert.eq(result.kind, "absolute")
+		test.assert.eq(result.driveLetter, "C")
+		test.assert.eq(#result.parts, 3)
+		test.assert.eq(result.parts[1], "Users")
+		test.assert.eq(result.parts[2], "admin")
+		test.assert.eq(result.parts[3], "Documents")
+	end)
+
+	test.case("resolve_with_absolute_in_middle", function()
+		local result = path.win32.resolve("relative", "D:\\absolute\\path", "more")
+		test.assert.eq(result.kind, "absolute")
+		test.assert.eq(result.driveLetter, "D")
+		test.assert.eq(#result.parts, 3)
+		test.assert.eq(result.parts[1], "absolute")
+		test.assert.eq(result.parts[2], "path")
+		test.assert.eq(result.parts[3], "more")
+	end)
+
+	test.case("resolve_unc_path", function()
+		local result = path.win32.resolve("\\\\server\\share\\folder")
+		test.assert.eq(result.kind, "unc")
+		test.assert.eq(result.driveLetter, nil)
+		test.assert.eq(#result.parts, 3)
+		test.assert.eq(result.parts[1], "server")
+		test.assert.eq(result.parts[2], "share")
+		test.assert.eq(result.parts[3], "folder")
+	end)
+
+	test.case("resolve_no_arguments", function()
+		-- Should return normalized current working directory
+		local result = path.win32.resolve()
+		-- Absolute unix paths will be parsed as relative Windows paths because they don't have drive letters
+		if system.os == "windows" then
+			test.assert.eq(result.kind, "absolute")
+		else
+			test.assert.eq(result.kind, "relative")
+		end
+		-- Can't test exact parts since cwd varies
+	end)
+
+	test.case("resolve_drive_relative_path", function()
+		local result = path.win32.resolve("C:Documents\\file.txt")
+		-- Absolute unix paths will be parsed as relative Windows paths because they don't have drive letters
+		if system.os == "windows" then
+			test.assert.eq(result.kind, "absolute")
+		else
+			test.assert.eq(result.kind, "relative")
+		end
+		test.assert.eq(result.driveLetter, "C")
+		-- The exact parts depend on cwd, but should be absolute
+		local endIndex = #result.parts
+		test.assert.eq(result.parts[endIndex - 1], "Documents")
+		test.assert.eq(result.parts[endIndex], "file.txt")
+	end)
+
+	test.case("resolve_with_dot_segments", function()
+		local result = path.win32.resolve("C:\\Users\\username", "..\\admin\\.\\Documents")
+		test.assert.eq(result.kind, "absolute")
+		test.assert.eq(result.driveLetter, "C")
+		test.assert.eq(#result.parts, 3)
+		test.assert.eq(result.parts[1], "Users")
+		test.assert.eq(result.parts[2], "admin")
+		test.assert.eq(result.parts[3], "Documents")
+	end)
+
+	test.case("resolve_empty_strings", function()
+		local result = path.win32.resolve("", "", "C:\\Users\\username")
+		test.assert.eq(result.kind, "absolute")
+		test.assert.eq(result.driveLetter, "C")
+		test.assert.eq(#result.parts, 2)
+		test.assert.eq(result.parts[1], "Users")
+		test.assert.eq(result.parts[2], "username")
 	end)
 end)
 

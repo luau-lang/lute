@@ -1,3 +1,5 @@
+local process = require("@lute/process")
+
 export type PosixPath = {
 	parts: { string },
 	absolute: boolean,
@@ -190,8 +192,36 @@ function posix.parse(path: PosixPathLike): PosixPath
 	}
 end
 
-function posix.resolve(parts: { PosixPathLike }): string
-	error("TODO")
+function posix.resolve(...: PosixPathLike): PosixPath
+	local parts = { ... }
+	if #parts == 0 then
+		return posix.parse(process.cwd())
+	end
+
+	local path = posix.parse(parts[#parts])
+
+	for i = #parts - 1, 1, -1 do
+		if posix.isabsolute(path) then
+			break
+		end
+
+		local segment = posix.parse(parts[i])
+
+		if #segment.parts == 0 then
+			continue
+		end
+
+		joinHelper(segment, path)
+		path = segment
+	end
+
+	if not posix.isabsolute(path) then
+		local cwd = posix.parse(process.cwd())
+		joinHelper(cwd, path)
+		path = cwd
+	end
+
+	return posix.normalize(path)
 end
 
 return table.freeze(posix)

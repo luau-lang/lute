@@ -1,3 +1,5 @@
+local process = require("@lute/process")
+
 export type WindowsPathKind = "unc" | "absolute" | "relative"
 
 export type WindowsPath = {
@@ -118,9 +120,7 @@ local function joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 		}))
 	end
 
-	local driveLettersIncompatible = if path.driveLetter ~= nil
-		then addend.driveLetter ~= nil and addend.driveLetter:lower() ~= path.driveLetter:lower()
-		else addend.driveLetter ~= nil
+	local driveLettersIncompatible = path.driveLetter ~= nil and addend.driveLetter ~= nil and addend.driveLetter:lower() ~= path.driveLetter:lower()
 
 	if driveLettersIncompatible then
 		local stringPath = win32.format(path)
@@ -131,6 +131,10 @@ local function joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 	end
 
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)
+
+	if path.driveLetter == nil and addend.driveLetter ~= nil then
+		path.driveLetter = addend.driveLetter
+	end
 end
 
 function win32.join(...: WindowsPathLike): WindowsPath
@@ -241,8 +245,36 @@ function win32.parse(path: WindowsPathLike): WindowsPath
 	}
 end
 
-function win32.resolve(parts: { WindowsPathLike }): string
-	error("TODO")
+function win32.resolve(...: WindowsPathLike): WindowsPath
+	local parts = { ... }
+	if #parts == 0 then
+		return win32.parse(process.cwd())
+	end
+
+	local path = win32.parse(parts[#parts])
+
+	for i = #parts - 1, 1, -1 do
+		if win32.isabsolute(path) then
+			break
+		end
+
+		local segment = win32.parse(parts[i])
+
+		if #segment.parts == 0 then
+			continue
+		end
+
+		joinHelper(segment, path)
+		path = segment
+	end
+
+	if not win32.isabsolute(path) then
+		local cwd = win32.parse(process.cwd())
+		joinHelper(cwd, path)
+		path = cwd
+	end
+
+	return win32.normalize(path)
 end
 
 return table.freeze(win32)

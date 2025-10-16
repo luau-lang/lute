@@ -1,4 +1,6 @@
+local system = require("@std/system")
 local test = require("@std/test")
+
 local path = require("@std/path")
 local posix = require("@std/path/posix")
 
@@ -459,6 +461,73 @@ test.suite("PathPosixJoinSuite", function()
 			return path.posix.join("/home/user", "/absolute/path")
 		end)
 		test.assert.eq(success, false)
+	end)
+end)
+
+test.suite("PathPosixResolveSuite", function()
+	test.case("resolve_absolute_path", function()
+		local result = path.posix.resolve("/home/user/documents/file.txt")
+		test.assert.eq(result.absolute, true)
+		test.assert.eq(#result.parts, 4)
+		test.assert.eq(result.parts[1], "home")
+		test.assert.eq(result.parts[2], "user")
+		test.assert.eq(result.parts[3], "documents")
+		test.assert.eq(result.parts[4], "file.txt")
+	end)
+
+	test.case("resolve_relative_path_from_cwd", function()
+		-- This test assumes we're in some working directory
+		local result = path.posix.resolve("documents/file.txt")
+		-- Absolute Windows paths will be parsed as relative posix paths because they don't start with /
+		test.assert.eq(result.absolute, system.os ~= "windows")
+		-- The exact parts will depend on the current working directory
+		-- But we can check that it ends with our relative path
+		local endIndex = #result.parts
+		test.assert.eq(result.parts[endIndex - 1], "documents")
+		test.assert.eq(result.parts[endIndex], "file.txt")
+	end)
+
+	test.case("resolve_multiple_paths", function()
+		local result = path.posix.resolve("/home", "user", "../admin", "documents")
+		test.assert.eq(result.absolute, true)
+		test.assert.eq(#result.parts, 3)
+		test.assert.eq(result.parts[1], "home")
+		test.assert.eq(result.parts[2], "admin")
+		test.assert.eq(result.parts[3], "documents")
+	end)
+
+	test.case("resolve_with_absolute_in_middle", function()
+		local result = path.posix.resolve("relative", "/absolute/path", "more")
+		test.assert.eq(result.absolute, true)
+		test.assert.eq(#result.parts, 3)
+		test.assert.eq(result.parts[1], "absolute")
+		test.assert.eq(result.parts[2], "path")
+		test.assert.eq(result.parts[3], "more")
+	end)
+
+	test.case("resolve_no_arguments", function()
+		-- Should return normalized current working directory
+		local result = path.posix.resolve()
+		-- Absolute Windows paths will be parsed as relative posix paths because they don't start with /
+		test.assert.eq(result.absolute, system.os ~= "windows")
+		-- Can't test exact parts since cwd varies
+	end)
+
+	test.case("resolve_empty_strings", function()
+		local result = path.posix.resolve("", "", "/home/user")
+		test.assert.eq(result.absolute, true)
+		test.assert.eq(#result.parts, 2)
+		test.assert.eq(result.parts[1], "home")
+		test.assert.eq(result.parts[2], "user")
+	end)
+
+	test.case("resolve_with_dot_segments", function()
+		local result = path.posix.resolve("/home/user", "../admin/./documents")
+		test.assert.eq(result.absolute, true)
+		test.assert.eq(#result.parts, 3)
+		test.assert.eq(result.parts[1], "home")
+		test.assert.eq(result.parts[2], "admin")
+		test.assert.eq(result.parts[3], "documents")
 	end)
 end)
 

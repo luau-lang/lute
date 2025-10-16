@@ -73,11 +73,11 @@ function parse(path: PathLike): PathObj
 	end
 end
 
-function resolve(parts: { PathLike }): string
+function resolve(...: PathLike): string
 	if onWindows then
-		return win32.resolve(parts :: { win32.WindowsPathLike })
+		return win32.resolve(...)
 	else
-		return posix.resolve(parts :: { posix.PosixPathLike })
+		return posix.resolve(...)
 	end
 end
 
