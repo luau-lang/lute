@@ -49,7 +49,7 @@ function isabsolute(path: PathLike): boolean
 	end
 end
 
-function join(...:  PathLike ): PathObj
+function join(...: PathLike): PathObj
 	if onWindows then
 		return win32.join(...)
 	else

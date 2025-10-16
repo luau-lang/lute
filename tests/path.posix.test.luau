@@ -442,7 +442,7 @@ test.suite("PathPosixJoinSuite", function()
 
 	test.case("join_pathobj_and_string", function()
 		local pathObj: posix.PosixPath = {
-			parts = {"home", "user"},
+			parts = { "home", "user" },
 			absolute = true,
 		}
 		local result = path.posix.join(pathObj, "documents/file.txt")

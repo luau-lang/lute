@@ -103,7 +103,7 @@ local function joinHelper(path: PosixPath, addend: PosixPathLike): ()
 end
 
 function posix.join(...: PosixPathLike): PosixPath
-	local parts = {...}
+	local parts = { ... }
 	if #parts == 0 then
 		return {
 			parts = {},

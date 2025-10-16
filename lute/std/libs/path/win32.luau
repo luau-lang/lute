@@ -134,7 +134,7 @@ local function joinHelper(path: WindowsPath, addend: WindowsPathLike): ()
 end
 
 function win32.join(...: WindowsPathLike): WindowsPath
-	local parts = {...}
+	local parts = { ... }
 	if #parts == 0 then
 		return {
 			parts = {},

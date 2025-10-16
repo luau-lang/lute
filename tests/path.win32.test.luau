@@ -540,7 +540,7 @@ test.suite("PathWin32JoinSuite", function()
 
 	test.case("join_pathobj_and_string", function()
 		local pathObj: win32.WindowsPath = {
-			parts = {"Users", "username"},
+			parts = { "Users", "username" },
 			kind = "absolute",
 			driveLetter = "C",
 		}
