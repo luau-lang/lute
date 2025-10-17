@@ -313,11 +313,6 @@ ResumeToken getResumeToken(lua_State* L)
 
 static void luteopen_libs(lua_State* L)
 {
-    // Simple ASAN trigger: heap buffer overflow
-    int* p = (int*)malloc(sizeof(int));
-    p[1] = 42; // out-of-bounds write
-    free(p);
-
     std::vector<std::pair<const char*, lua_CFunction>> libs = {{
         {"@lute/crypto", luteopen_crypto},
         {"@lute/fs", luteopen_fs},
