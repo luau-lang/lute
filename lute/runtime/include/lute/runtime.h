@@ -2,14 +2,12 @@
 
 #include "Luau/Variant.h"
 #include "lute/ref.h"
-
+#include "uv.h"
 #include <atomic>
-#include <condition_variable>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <vector>
 
 struct lua_State;
@@ -46,9 +44,6 @@ struct Runtime
     bool runToCompletion();
     RuntimeStep runOnce();
 
-    // For child runtimes, run a thread waiting for work
-    void runContinuously();
-
     // Reports an error for a specified lua state.
     void reportError(lua_State* L);
 
@@ -70,6 +65,9 @@ struct Runtime
     void addPendingToken();
     void releasePendingToken();
 
+    // Process queued continuations (called by uv_async callback)
+    void processContinuations();
+
     // VM for this runtime
     std::unique_ptr<lua_State, void (*)(lua_State*)> globalState;
 
@@ -85,12 +83,11 @@ private:
     std::mutex continuationMutex;
     std::vector<std::function<void()>> continuations;
 
-    // TODO: can this be handled by libuv?
-    std::atomic<bool> stop;
-    std::condition_variable runLoopCv;
-    std::thread runLoopThread;
-
     std::atomic<int> activeTokens;
+    std::atomic<bool> errorOccurred{false};
+
+    uv_async_t asyncHandle;
+    bool asyncInitialized = false;
 };
 
 Runtime* getRuntime(lua_State* L);

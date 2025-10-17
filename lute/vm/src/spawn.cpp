@@ -288,8 +288,8 @@ int lua_spawn(lua_State* L)
 
     lua_pop(child->GL, 1);
 
-    child->runContinuously();
-
+    // Child runtime is already integrated with the event loop via uv_async_t
+    // No need to explicitly start it - it will process continuations when scheduled
     return 1;
 }
 

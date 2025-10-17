@@ -70,7 +70,14 @@ int lua_defer(lua_State* L)
 {
     Runtime* runtime = getRuntime(L);
 
-    runtime->runningThreads.push_back({true, getRefForThread(L), 0});
+    // Schedule the deferred thread to run on the next event loop iteration
+    runtime->schedule(
+        [runtime, ref = getRefForThread(L)]()
+        {
+            runtime->runningThreads.push_back({true, ref, 0});
+        }
+    );
+
     return lua_yield(L, 0);
 };
 
