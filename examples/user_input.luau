@@ -1,9 +1,14 @@
+-- User input can be provided in multiple ways:
+-- 1. lute user_input.luau
+-- 2. echo "Hello!" | lute user_input.luau
+-- 3. lute user_input.luau < input_text.txt
+
 local io = require("@std/io")
 
 -- Get user input
 local input = io.input()
 print(input)
 
--- Get user input with a prompt
-local inputWithPrompt = io.input("Please enter something: ")
-print(inputWithPrompt)
+-- Alternatively, we can get user input with a prompt
+-- local inputWithPrompt = io.input("Please enter something: ")
+-- print(inputWithPrompt)
