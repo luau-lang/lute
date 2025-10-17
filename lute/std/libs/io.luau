@@ -7,13 +7,13 @@ local io = require("@lute/io")
 
 -- User input can be provided via command line stdin, piped input, or redirection from a file. See `examples/user_input.luau`.
 function input(prompt: string?): string
-    if prompt then
-        -- We temporarily use `print` for prompt until we have proper stdout support, so there is a `\n` between prompt and input.
-        print(prompt)
-    end
-    return io.input()
+	if prompt then
+		-- We temporarily use `print` for prompt until we have proper stdout support, so there is a `\n` between prompt and input.
+		print(prompt)
+	end
+	return io.input()
 end
 
 return table.freeze({
-    input = input,
+	input = input,
 })
