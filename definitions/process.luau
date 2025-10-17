@@ -1,10 +1,14 @@
+local fs = require("./fs")
+
 export type StdioKind = "default" | "inherit" | "none" | ""
 
 export type ProcessRunOptions = {
 	shell: (string | boolean)?,
 	cwd: string?,
 	stdio: StdioKind?,
-
+	-- redirect stdin/stdout to file descriptors
+	input: fs.FileHandle?,
+	output: fs.FileHandle?,
 	env: { [string]: string }?,
 }
 

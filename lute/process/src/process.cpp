@@ -219,6 +219,8 @@ int run(lua_State* L)
     std::string cwd;
     std::string stdioKind;
     std::map<std::string, std::string> env;
+    int stdinFd = -1;
+    int stdoutFd = -1;
 
     if (lua_istable(L, 2))
     {
@@ -233,6 +235,30 @@ int run(lua_State* L)
             useShell = true;
         }
 
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "input");
+        if (lua_istable(L, -1))
+        {
+            lua_getfield(L, -1, "fd");
+            if (lua_isnumber(L, -1))
+            {
+                stdinFd = lua_tointeger(L, -1);
+            }
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "output");
+        if (lua_istable(L, -1))
+        {
+            lua_getfield(L, -1, "fd");
+            if (lua_isnumber(L, -1))
+            {
+                stdoutFd = lua_tointeger(L, -1);
+            }
+            lua_pop(L, 1);
+        }
         lua_pop(L, 1);
 
         lua_getfield(L, 2, "cwd");
@@ -350,41 +376,77 @@ int run(lua_State* L)
         options.cwd = cwd.c_str();
     }
 
-    uv_pipe_init(handle->loop, &handle->stdoutPipe, 0);
-    uv_pipe_init(handle->loop, &handle->stderrPipe, 0);
-
     options.stdio_count = 3;
     uv_stdio_container_t stdio[3];
-    stdio[0].flags = UV_IGNORE;
-    if (stdioKind == kStdioKindNone)
+
+    // Configure stdin
+    if (stdinFd >= 0)
+    {
+        stdio[0].flags = UV_INHERIT_FD;
+        stdio[0].data.fd = stdinFd;
+    }
+    else
+    {
+        stdio[0].flags = UV_IGNORE;
+    }
+
+    // Determine if we need to capture stdout/stderr with pipes
+    bool captureStdout = (stdoutFd < 0) && (stdioKind != kStdioKindNone) && (stdioKind != kStdioKindInherit);
+    bool captureStderr = (stdioKind != kStdioKindNone) && (stdioKind != kStdioKindInherit);
+
+    // Initialize pipes only if we need them
+    if (captureStdout)
+    {
+        uv_pipe_init(handle->loop, &handle->stdoutPipe, 0);
+        handle->stdoutPipe.data = handle.get();
+    }
+    if (captureStderr)
+    {
+        uv_pipe_init(handle->loop, &handle->stderrPipe, 0);
+        handle->stderrPipe.data = handle.get();
+    }
+
+    // Configure stdout
+    if (stdoutFd >= 0)
+    {
+        // Redirect to file descriptor
+        stdio[1].flags = UV_INHERIT_FD;
+        stdio[1].data.fd = stdoutFd;
+    }
+    else if (stdioKind == kStdioKindNone)
     {
         stdio[1].flags = UV_IGNORE;
-        stdio[2].flags = UV_IGNORE;
     }
     else if (stdioKind == kStdioKindInherit)
     {
         stdio[1].flags = UV_INHERIT_FD;
         stdio[1].data.fd = fileno(stdout);
-        stdio[2].flags = UV_INHERIT_FD;
-        stdio[2].data.fd = fileno(stderr);
     }
-    else if (stdioKind == kStdioKindDefault || stdioKind.empty())
+    else // default or empty - capture to pipe
     {
         stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
         stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
+    }
+
+    // Configure stderr
+    if (stdioKind == kStdioKindNone)
+    {
+        stdio[2].flags = UV_IGNORE;
+    }
+    else if (stdioKind == kStdioKindInherit)
+    {
+        stdio[2].flags = UV_INHERIT_FD;
+        stdio[2].data.fd = fileno(stderr);
+    }
+    else // default or empty - capture to pipe
+    {
         stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
         stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
     }
-    else
-    {
-        luaL_error(L, "Invalid stdio kind: %s", stdioKind.c_str());
-        return 0;
-    }
+
     options.stdio = stdio;
 
     handle->process.data = handle.get();
-    handle->stdoutPipe.data = handle.get();
-    handle->stderrPipe.data = handle.get();
 
     handle->resumeToken = getResumeToken(L);
 
@@ -403,8 +465,15 @@ int run(lua_State* L)
         return 0;
     }
 
-    uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
-    uv_read_start((uv_stream_t*)&handle->stderrPipe, allocBuffer, onPipeRead);
+    // Only start reading from pipes we actually created
+    if (captureStdout)
+    {
+        uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
+    }
+    if (captureStderr)
+    {
+        uv_read_start((uv_stream_t*)&handle->stderrPipe, allocBuffer, onPipeRead);
+    }
 
     return lua_yield(L, 0);
 }
