@@ -11,10 +11,10 @@ int luteopen_io(lua_State* L);
 namespace io
 {
 
-int input(lua_State* L);
+int read(lua_State* L);
 
 static const luaL_Reg lib[] = {
-    {"input", input},
+    {"read", read},
 
     {nullptr, nullptr}
 };

@@ -15,10 +15,8 @@ namespace io
 struct IOHandle
 {
     Luau::Variant<uv_pipe_t, uv_tty_t> streamVariant;
-    uv_stream_t* stream = nullptr;
     uv_loop_t* loop = nullptr;
     ResumeToken resumeToken;
-    lua_State* L = nullptr;
     std::shared_ptr<IOHandle> self;
     uv_buf_t *buf;
 
@@ -37,8 +35,17 @@ struct IOHandle
             ioh->self.reset();
         };
 
-        uv_read_stop((uv_stream_t*)stream);
+        uv_stream_t *stream = getStream();
+        uv_read_stop(stream);
         uv_close((uv_handle_t*)stream, closeCb);
+    }
+
+    uv_stream_t* getStream() {
+        if (auto* tty = streamVariant.get_if<uv_tty_t>())
+            return (uv_stream_t*)tty;
+        if (auto* pipe = streamVariant.get_if<uv_pipe_t>())
+            return (uv_stream_t*)pipe;
+        return nullptr;
     }
 };
 
@@ -70,39 +77,30 @@ static void onTtyRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
     }
     else if (nread < 0)
     {
-        handle->resumeToken->fail("Error reading from stdin");
-    }
-    else if (nread == UV_EOF)
-    {
-        handle->resumeToken->fail("EOF reached");
+        handle->resumeToken->fail(uv_strerror(nread));
     }
 
     handle->closeHandles();
 }
 
-int input(lua_State* L)
+int read(lua_State* L)
 {
     auto handle = std::make_shared<IOHandle>();
     handle->loop = uv_default_loop();
     handle->resumeToken = getResumeToken(L);
-    handle->L = L;
     handle->self = handle;
 
     uv_handle_type ht = uv_guess_handle(fileno(stdin));
     if (ht == UV_TTY)
     {
         uv_tty_t& tty = handle->streamVariant.emplace<uv_tty_t>();
-        handle->stream = (uv_stream_t*)&tty;
         uv_tty_init(handle->loop, (uv_tty_t*)&tty, fileno(stdin), 0);
-        handle->stream->data = handle.get();
     }
     else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
     {
         uv_pipe_t& pipe = handle->streamVariant.emplace<uv_pipe_t>();
-        handle->stream = (uv_stream_t*)&pipe;
         uv_pipe_init(handle->loop, &pipe, 0);
         uv_pipe_open(&pipe, fileno(stdin));
-        handle->stream->data = handle.get();
     }
     else
     {
@@ -110,7 +108,9 @@ int input(lua_State* L)
         return 0;
     }
 
-    uv_read_start(handle->stream, allocBuffer, onTtyRead);
+    uv_stream_t *stream = handle->getStream();
+    stream->data = handle.get();
+    uv_read_start(stream, allocBuffer, onTtyRead);
     return lua_yield(L, 0);
 }
 

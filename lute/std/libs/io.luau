@@ -11,7 +11,7 @@ function input(prompt: string?): string
 		-- We temporarily use `print` for prompt until we have proper stdout support, so there is a `\n` between prompt and input.
 		print(prompt)
 	end
-	return io.input()
+	return io.read()
 end
 
 return table.freeze({
