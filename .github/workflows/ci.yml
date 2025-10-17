@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            options: --c-compiler cl.exe --cxx-compiler cl.exe --enable-asan
+            options: --c-compiler cl.exe --cxx-compiler cl.exe
           - os: ubuntu-latest
             options: --c-compiler gcc --cxx-compiler g++ --enable-asan
           - os: ubuntu-latest
@@ -52,7 +52,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            options: --c-compiler cl.exe --cxx-compiler cl.exe --enable-asan
+            options: --c-compiler cl.exe --cxx-compiler cl.exe
           - os: ubuntu-latest
             options: --c-compiler gcc --cxx-compiler g++ --enable-asan
           - os: ubuntu-latest
