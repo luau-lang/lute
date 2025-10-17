@@ -1,4 +1,5 @@
 local fs = require("@lute/fs")
+local luau = require("@lute/luau")
 
 local arguments = require("@self/lib/arguments")
 local files = require("@self/lib/files")
@@ -8,8 +9,19 @@ local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
 end
 
+local function loadFromPath(path: string): ...any
+	local migrationHandle = fs.open(path, "r")
+	assert(migrationHandle ~= nil, `Failed to open migration file at '{path}'`)
+
+	local migrationBytecode = luau.compile(fs.read(migrationHandle))
+
+	fs.close(migrationHandle)
+
+	return luau.load(migrationBytecode, path)()
+end
+
 local function loadMigration(path: string): types.Migration
-	local success, loaded = pcall(require, path)
+	local success, loaded = pcall(loadFromPath, path)
 	assert(success, `{path} failed to require: {loaded}`)
 	assert(loaded, `{path} is missing a return`)
 
