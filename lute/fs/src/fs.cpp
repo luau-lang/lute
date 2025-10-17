@@ -421,13 +421,13 @@ int fs_stat(lua_State* L)
     lua_setfield(L, -2, "size");
 
     createDurationFromTimespec32(L, stat.st_birthtim);
-    lua_setfield(L, -2, "created_at");
+    lua_setfield(L, -2, "created");
 
     createDurationFromTimespec32(L, stat.st_atim);
-    lua_setfield(L, -2, "accessed_at");
+    lua_setfield(L, -2, "accessed");
 
     createDurationFromTimespec32(L, stat.st_mtim);
-    lua_setfield(L, -2, "modified_at");
+    lua_setfield(L, -2, "modified");
 
     // permissions
     lua_createtable(L, 0, 2);
@@ -921,7 +921,7 @@ uv_fs_t* createRequest(lua_State* L)
 
 ResumeCaptureInformation* getResumeInformation(uv_fs_t* req)
 {
-    return reinterpret_cast<ResumeCaptureInformation*>(req->data);
+    return static_cast<ResumeCaptureInformation*>(req->data);
 }
 
 int readasync(lua_State* L)
