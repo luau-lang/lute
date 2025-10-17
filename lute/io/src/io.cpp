@@ -18,14 +18,9 @@ struct IOHandle
     uv_loop_t* loop = nullptr;
     ResumeToken resumeToken;
     std::shared_ptr<IOHandle> self;
-    uv_buf_t *buf;
+    std::vector<char> buffer;
 
-    ~IOHandle() {
-        if (buf) {
-            free(buf->base);
-            buf = nullptr;
-        }
-    }
+    ~IOHandle() {}
 
     void closeHandles()
     {
@@ -51,13 +46,10 @@ struct IOHandle
 
 static void allocBuffer(uv_handle_t* handle, size_t suggestedSize, uv_buf_t* buf)
 {
-    buf->base = (char*)malloc(suggestedSize);
-    buf->len = buf->base ? suggestedSize : 0;
-    if (!buf->base)
-    {
-        fprintf(stderr, "Process pipe buffer allocation failed!\n");
-    }
-    static_cast<IOHandle*>(handle->data)->buf = buf;
+    IOHandle* ioh = static_cast<IOHandle*>(handle->data);
+    ioh->buffer.resize(suggestedSize);
+    buf->base = ioh->buffer.data();
+    buf->len = ioh->buffer.size();
 }
 
 // IOHandle is closed immediately after one read since we don't need a long running stream for this API.
@@ -94,18 +86,28 @@ int read(lua_State* L)
     if (ht == UV_TTY)
     {
         uv_tty_t& tty = handle->streamVariant.emplace<uv_tty_t>();
-        uv_tty_init(handle->loop, (uv_tty_t*)&tty, fileno(stdin), 0);
+        int result = uv_tty_init(handle->loop, static_cast<uv_tty_t*>(&tty), fileno(stdin), 0);
+        if (result < 0)
+        {
+            luaL_error(L, "Failed to initialize TTY: %s", uv_strerror(result));
+            return -1;
+        }
     }
     else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
     {
         uv_pipe_t& pipe = handle->streamVariant.emplace<uv_pipe_t>();
-        uv_pipe_init(handle->loop, &pipe, 0);
-        uv_pipe_open(&pipe, fileno(stdin));
+        int result = uv_pipe_init(handle->loop, static_cast<uv_pipe_t*>(&pipe), 0);
+        if (result < 0)
+        {
+            luaL_error(L, "Failed to initialize pipe: %s", uv_strerror(result));
+            return -1;
+        }
+        uv_pipe_open(static_cast<uv_pipe_t*>(&pipe), fileno(stdin));
     }
     else
     {
-        handle->resumeToken->fail("Unsupported stdin type");
-        return 0;
+        luaL_error(L, "Unsupported stdin type");
+        return -1;
     }
 
     uv_stream_t *stream = handle->getStream();
