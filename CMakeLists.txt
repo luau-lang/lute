@@ -16,6 +16,19 @@ project(
     LANGUAGES CXX C
 )
 
+# Enable AddressSanitizer: must be set up before adding any subdirectories
+option(LUTE_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+if (LUTE_ENABLE_ASAN)
+    message(STATUS "AddressSanitizer enabled")
+    if(MSVC)
+        add_compile_options(/fsanitize=address /Oy-)
+        add_link_options(/fsanitize=address)
+    else()
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
+
 # luau setup
 set(LUAU_BUILD_CLI OFF)
 set(LUAU_BUILD_TESTS OFF)
@@ -112,19 +125,6 @@ else()
     list(APPEND LUTE_OPTIONS -Wimplicit-fallthrough)
     list(APPEND LUTE_OPTIONS -Wsign-compare) # This looks to be included in -Wall for GCC but not clang
     list(APPEND LUTE_OPTIONS -Werror) # Warnings are errors
-endif()
-
-option(LUTE_ENABLE_ASAN "Enable AddressSanitizer" OFF)
-
-if (LUTE_ENABLE_ASAN)
-    message(STATUS "AddressSanitizer enabled")
-    if(MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        add_compile_options(/fsanitize=address /Oy-)
-        add_link_options(/fsanitize=address)
-    else()
-        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
-        add_link_options(-fsanitize=address)
-    endif()
 endif()
 
 # libraries
