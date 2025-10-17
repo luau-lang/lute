@@ -5,4 +5,14 @@
 
 local io = require("@lute/io")
 
-print(io.input())
+function input(prompt: string?): string
+    if prompt then
+        -- Temporarily use `print` for prompt until we have proper stdout support
+        print(prompt)
+    end
+    return io.input()
+end
+
+return table.freeze({
+    input = input,
+})
