@@ -1,10 +1,10 @@
 local process = require("@lute/process")
 
-export type pathKind = "unc" | "absolute" | "relative"
+export type pathkind = "unc" | "absolute" | "relative"
 
 export type path = {
 	parts: { string },
-	kind: pathKind,
+	kind: pathkind,
 	driveLetter: string?,
 }
 
@@ -197,10 +197,10 @@ function win32.parse(path: pathlike): path
 		return path
 	end
 	if typeof(path) ~= "string" then
-		error("Expected string or pathobj")
+		error("Expected string or path")
 	end
 
-	local kind: pathKind = "relative"
+	local kind: pathkind = "relative"
 	local driveLetter = nil
 
 	-- Check if path is absolute and if it's a unc path on Windows

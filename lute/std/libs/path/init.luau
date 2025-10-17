@@ -3,13 +3,13 @@ local system = require("@lute/system")
 local posix = require("@self/posix")
 local win32 = require("@self/win32")
 
-export type pathobj = posix.path | win32.path
+export type path = posix.path | win32.path
 
-export type pathlike = string | pathobj
+export type pathlike = string | path
 
 local onWindows = system.os == "windows"
 
-function basename(path: pathlike): string?
+local function basename(path: pathlike): string?
 	if onWindows then
 		return win32.basename(path :: win32.pathlike)
 	else
@@ -17,7 +17,7 @@ function basename(path: pathlike): string?
 	end
 end
 
-function dirname(path: pathlike): string
+local function dirname(path: pathlike): string
 	if onWindows then
 		return win32.dirname(path :: win32.pathlike)
 	else
@@ -25,7 +25,7 @@ function dirname(path: pathlike): string
 	end
 end
 
-function extname(path: pathlike): string
+local function extname(path: pathlike): string
 	if onWindows then
 		return win32.extname(path :: win32.pathlike)
 	else
@@ -33,7 +33,7 @@ function extname(path: pathlike): string
 	end
 end
 
-function format(path: pathlike): string
+local function format(path: pathlike): string
 	if onWindows then
 		return win32.format(path :: win32.pathlike)
 	else
@@ -41,7 +41,7 @@ function format(path: pathlike): string
 	end
 end
 
-function isabsolute(path: pathlike): boolean
+local function isabsolute(path: pathlike): boolean
 	if onWindows then
 		return win32.isabsolute(path :: win32.pathlike)
 	else
@@ -49,7 +49,7 @@ function isabsolute(path: pathlike): boolean
 	end
 end
 
-function join(...: pathlike): pathobj
+local function join(...: pathlike): path
 	if onWindows then
 		return win32.join(...)
 	else
@@ -57,7 +57,7 @@ function join(...: pathlike): pathobj
 	end
 end
 
-function normalize(path: pathlike): pathobj
+local function normalize(path: pathlike): path
 	if onWindows then
 		return win32.normalize(path :: win32.pathlike)
 	else
@@ -65,7 +65,7 @@ function normalize(path: pathlike): pathobj
 	end
 end
 
-function parse(path: pathlike): pathobj
+local function parse(path: pathlike): path
 	if onWindows then
 		return win32.parse(path :: win32.pathlike)
 	else
@@ -73,7 +73,7 @@ function parse(path: pathlike): pathobj
 	end
 end
 
-function resolve(...: pathlike): string
+function resolve(...: pathlike): path
 	if onWindows then
 		return win32.resolve(...)
 	else
