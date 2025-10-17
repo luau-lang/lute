@@ -68,9 +68,9 @@ lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSa
     );
 }
 
-bool setupArguments(lua_State* L, int argc, char** argv)
+static bool setupArguments(lua_State* L, int argc, char** argv)
 {
-    if (!lua_checkstack(L, argc + 1))
+    if (!lua_checkstack(L, argc))
         return false;
 
     for (int i = 0; i < argc; ++i)
