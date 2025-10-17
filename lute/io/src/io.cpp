@@ -90,7 +90,6 @@ int read(lua_State* L)
         if (result < 0)
         {
             luaL_error(L, "Failed to initialize TTY: %s", uv_strerror(result));
-            return -1;
         }
     }
     else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
@@ -100,14 +99,12 @@ int read(lua_State* L)
         if (result < 0)
         {
             luaL_error(L, "Failed to initialize pipe: %s", uv_strerror(result));
-            return -1;
         }
         uv_pipe_open(static_cast<uv_pipe_t*>(&pipe), fileno(stdin));
     }
     else
     {
         luaL_error(L, "Unsupported stdin type");
-        return -1;
     }
 
     uv_stream_t *stream = handle->getStream();
