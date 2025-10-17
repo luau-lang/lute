@@ -114,6 +114,19 @@ else()
     list(APPEND LUTE_OPTIONS -Werror) # Warnings are errors
 endif()
 
+option(LUTE_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+
+if (LUTE_ENABLE_ASAN)
+    message(STATUS "AddressSanitizer enabled")
+    if(MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        add_compile_options(/fsanitize=address /Oy-)
+        add_link_options(/fsanitize=address)
+    else()
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
+
 # libraries
 add_subdirectory(lute/require)
 add_subdirectory(lute/runtime)

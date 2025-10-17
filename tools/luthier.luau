@@ -568,8 +568,7 @@ local function getConfigureArguments()
 	end
 
 	if args:has("enable-asan") then
-		table.insert(configArgs, "-DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
-		table.insert(configArgs, "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+		table.insert(configArgs, "-DLUTE_ENABLE_ASAN=ON")
 	end
 
 	return configArgs
