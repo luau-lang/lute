@@ -16,6 +16,15 @@ project(
     LANGUAGES CXX C
 )
 
+# Enable sanitizers globally before any subdirectory is added
+option(LUTE_ENABLE_SANITIZERS "Enable sanitizers" OFF)
+if (LUTE_ENABLE_SANITIZERS)
+    if(NOT MSVC)
+        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address,undefined)
+    endif()
+endif()
+
 # luau setup
 set(LUAU_BUILD_CLI OFF)
 set(LUAU_BUILD_TESTS OFF)
@@ -112,14 +121,6 @@ else()
     list(APPEND LUTE_OPTIONS -Wimplicit-fallthrough)
     list(APPEND LUTE_OPTIONS -Wsign-compare) # This looks to be included in -Wall for GCC but not clang
     list(APPEND LUTE_OPTIONS -Werror) # Warnings are errors
-endif()
-
-option(LUTE_ENABLE_SANITIZERS "Enable sanitizers" OFF)
-if (LUTE_ENABLE_SANITIZERS)
-    if(NOT MSVC)
-        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
-        add_link_options(-fsanitize=address,undefined)
-    endif()
 endif()
 
 # libraries
