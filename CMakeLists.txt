@@ -114,6 +114,14 @@ else()
     list(APPEND LUTE_OPTIONS -Werror) # Warnings are errors
 endif()
 
+option(LUTE_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+if (LUTE_ENABLE_ASAN)
+    if(NOT MSVC)
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
+
 # libraries
 add_subdirectory(lute/require)
 add_subdirectory(lute/runtime)
