@@ -39,8 +39,8 @@ static std::string_view removeExtension(std::string_view path)
 std::optional<ModulePath> ModulePath::create(
     std::string rootDirectory,
     std::string filePath,
-    bool (*isAFile)(const std::string&),
-    bool (*isADirectory)(const std::string&),
+    std::function<bool(const std::string&)> isAFile,
+    std::function<bool(const std::string&)> isADirectory,
     std::optional<std::string> relativePathToTrack
 )
 {
@@ -73,12 +73,12 @@ std::optional<ModulePath> ModulePath::create(
 ModulePath::ModulePath(
     std::string realPathPrefix,
     std::string modulePath,
-    bool (*isAFile)(const std::string&),
-    bool (*isADirectory)(const std::string&),
+    std::function<bool(const std::string&)> isAFile,
+    std::function<bool(const std::string&)> isADirectory,
     std::optional<std::string> relativePathToTrack
 )
-    : isAFile(isAFile)
-    , isADirectory(isADirectory)
+    : isAFile(std::move(isAFile))
+    , isADirectory(std::move(isADirectory))
     , realPathPrefix(std::move(realPathPrefix))
     , modulePath(std::move(modulePath))
     , relativePathToTrack(std::move(relativePathToTrack))

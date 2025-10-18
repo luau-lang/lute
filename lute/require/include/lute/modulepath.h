@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -36,8 +37,8 @@ public:
     static std::optional<ModulePath> create(
         std::string rootDirectory,
         std::string filePath,
-        bool (*isAFile)(const std::string&),
-        bool (*isADirectory)(const std::string&),
+        std::function<bool(const std::string&)> isAFile,
+        std::function<bool(const std::string&)> isADirectory,
         std::optional<std::string> relativePathToTrack = std::nullopt
     );
 
@@ -51,13 +52,13 @@ private:
     ModulePath(
         std::string realPathPrefix,
         std::string modulePath,
-        bool (*isAFile)(const std::string&),
-        bool (*isADirectory)(const std::string&),
+        std::function<bool(const std::string&)> isAFile,
+        std::function<bool(const std::string&)> isADirectory,
         std::optional<std::string> relativePathToTrack = std::nullopt
     );
 
-    bool (*isAFile)(const std::string&);
-    bool (*isADirectory)(const std::string&);
+    std::function<bool(const std::string&)> isAFile;
+    std::function<bool(const std::string&)> isADirectory;
 
     std::string realPathPrefix;
     std::string modulePath;
