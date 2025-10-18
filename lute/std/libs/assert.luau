@@ -13,7 +13,7 @@ function assertions.neq<T>(lhs: T, rhs: T)
 end
 
 function assertions.throwserror(callback: () -> ())
-	local success = pcall(callback) -- callback shudn't return anything, but type solver wouldn't shut up
+	local success = pcall(callback)
 	if success then
 		error({ msg = `{callback} did not throw error.` })
 	end
