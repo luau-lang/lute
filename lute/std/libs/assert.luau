@@ -15,7 +15,7 @@ end
 function assertions.throwserror(callback: () -> ())
 	local success = pcall(callback) -- callback shudn't return anything, but type solver wouldn't shut up
 	if success then
-		error({ msg = `{callback} did not throw error.`})
+		error({ msg = `{callback} did not throw error.` })
 	end
 end
 

@@ -53,7 +53,9 @@ test.suite("MySuite", function(suite)
 
 	suite:case("expect_error", function(assert)
 		local function foo(v: boolean)
-			if v then error("error") end
+			if v then
+				error("error")
+			end
 		end
 		assert.throwserror(function() -- demonstrates success (callback throws err)
 			foo(true)
