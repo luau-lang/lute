@@ -2693,7 +2693,7 @@ int load_luau(lua_State* L)
     return 1;
 }
 
-// DRAFTING FRONTEND API
+// ========== DRAFTING FRONTEND API ===========
 // A resolver that just provides a default configuration.
 struct DefaultConfigResolver : Luau::ConfigResolver
 {

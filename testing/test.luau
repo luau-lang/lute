@@ -1,3 +1,3 @@
 local luau = require("@lute/luau")
 
-print(luau.getReturnType("./testing/t.luau"))
+print(`\n{luau.getReturnType("./testing/t.luau")}`)
