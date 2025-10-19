@@ -134,21 +134,24 @@ export type AstExprAnonymousFunction = {
 	body: AstFunctionBody,
 }
 
-export type AstExprTableItem = | { kind: "list", value: AstExpr, separator: Token<"," | ";">? } | {
-	kind: "record",
-	key: Token<string>,
-	equals: Token<"=">,
-	value: AstExpr,
-	separator: Token<"," | ";">?,
-} | {
-	kind: "general",
-	indexeropen: Token<"[">,
-	key: AstExpr,
-	indexerclose: Token<"]">,
-	equals: Token<"=">,
-	value: AstExpr,
-	separator: Token<"," | ";">?,
-}
+export type AstExprTableItem =
+	| { kind: "list", value: AstExpr, separator: Token<"," | ";">? }
+	| {
+		kind: "record",
+		key: Token<string>,
+		equals: Token<"=">,
+		value: AstExpr,
+		separator: Token<"," | ";">?,
+	}
+	| {
+		kind: "general",
+		indexeropen: Token<"[">,
+		key: AstExpr,
+		indexerclose: Token<"]">,
+		equals: Token<"=">,
+		value: AstExpr,
+		separator: Token<"," | ";">?,
+	}
 
 export type AstExprTable = {
 	tag: "table",
@@ -458,33 +461,36 @@ export type AstTypeArray = {
 	closebrace: Token<"}">,
 }
 
-export type AstTypeTableItem = {
-	kind: "indexer",
-	access: Token<"read" | "write">?,
-	indexeropen: Token<"[">,
-	key: AstType,
-	indexerclose: Token<"]">,
-	colon: Token<":">,
-	value: AstType,
-	separator: Token<"," | ";">?,
-} | {
-	kind: "stringproperty",
-	access: Token<"read" | "write">?,
-	indexeropen: Token<"[">,
-	key: AstTypeSingletonString,
-	indexerclose: Token<"]">,
-	colon: Token<":">,
-	value: AstType,
-	separator: Token<"," | ";">?,
-} | {
-	kind: "property",
-	access: Token<"read" | "write">?,
-	key: AstTypeSingletonString,
-	indexerclose: Token<"]">,
-	colon: Token<":">,
-	value: AstType,
-	separator: Token<"," | ";">?,
-}
+export type AstTypeTableItem =
+	{
+		kind: "indexer",
+		access: Token<"read" | "write">?,
+		indexeropen: Token<"[">,
+		key: AstType,
+		indexerclose: Token<"]">,
+		colon: Token<":">,
+		value: AstType,
+		separator: Token<"," | ";">?,
+	}
+	| {
+		kind: "stringproperty",
+		access: Token<"read" | "write">?,
+		indexeropen: Token<"[">,
+		key: AstTypeSingletonString,
+		indexerclose: Token<"]">,
+		colon: Token<":">,
+		value: AstType,
+		separator: Token<"," | ";">?,
+	}
+	| {
+		kind: "property",
+		access: Token<"read" | "write">?,
+		key: AstTypeSingletonString,
+		indexerclose: Token<"]">,
+		colon: Token<":">,
+		value: AstType,
+		separator: Token<"," | ";">?,
+	}
 
 export type AstTypeTable = {
 	tag: "table",
