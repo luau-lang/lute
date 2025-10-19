@@ -1,4 +1,4 @@
-local system = require("@lute/system")
+local system = require("@std/system")
 
 local posix = require("@self/posix")
 local win32 = require("@self/win32")
@@ -7,7 +7,7 @@ export type path = posix.path | win32.path
 
 export type pathlike = string | path
 
-local onWindows = system.os == "windows"
+local onWindows = system.win32
 
 local function basename(path: pathlike): string?
 	if onWindows then
