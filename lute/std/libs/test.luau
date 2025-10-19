@@ -1,6 +1,6 @@
 --!strict
 local ps = require("@lute/process")
-local assert = require("./assert")
+local assert = require("@std/assert")
 -- Test Types
 type Test = (assert.Asserts) -> ()
 type TestCase = { name: string, case: Test }
