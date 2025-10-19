@@ -306,7 +306,7 @@ export type AstStatFor = {
 export type AstStatForIn = {
 	tag: "forin",
 	forkeyword: Token<"for">,
-	variables: Punctuated<Token<string>>,
+	variables: Punctuated<AstLocal>,
 	inkeyword: Token<"in">,
 	values: Punctuated<AstExpr>,
 	dokeyword: Token<"do">,
