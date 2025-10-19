@@ -200,6 +200,7 @@ static void displayHelp(const char* argv0)
     printf("Setup Options:\n");
     printf("  lute setup");
     printf("    Generates type definition files for the language server.\n");
+    printf("      --with-luaurc Adds/overwrites aliases to the type definition files to the luaurc in the working directory.\n");
     printf("\n");
     printf("General Options:\n");
     printf("  -h, --help    Display this usage message.\n");
