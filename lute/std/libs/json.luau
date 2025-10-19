@@ -47,7 +47,7 @@ local function writeSpaces(state: SerializerState)
 	if state.prettyPrint then
 		checkState(state, state.depth * 4)
 
-		for i = 0, state.depth do
+		for i = 1, state.depth do
 			buffer.writeu32(state.buf, state.cursor, 0x_20_20_20_20)
 			state.cursor += 4
 		end

@@ -16,6 +16,14 @@ project(
     LANGUAGES CXX C
 )
 
+option(LUTE_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+if (LUTE_ENABLE_ASAN)
+    if(NOT MSVC)
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
+
 # luau setup
 set(LUAU_BUILD_CLI OFF)
 set(LUAU_BUILD_TESTS OFF)

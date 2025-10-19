@@ -12,12 +12,21 @@
 #include "lute/clicommands.h"
 #include "lute/clivfs.h"
 #include "lute/compile.h"
+#include "lute/crypto.h"
+#include "lute/fs.h"
+#include "lute/luau.h"
+#include "lute/net.h"
 #include "lute/options.h"
+#include "lute/process.h"
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/runtime.h"
+#include "lute/system.h"
+#include "lute/task.h"
 #include "lute/tc.h"
+#include "lute/time.h"
 #include "lute/version.h"
+#include "lute/vm.h"
 #include "uv.h"
 
 #ifdef _WIN32
@@ -71,12 +80,37 @@ void* createCliRequireContext(lua_State* L)
     return ctx;
 }
 
+static void luteopen_libs(lua_State* L)
+{
+    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
+        {"@lute/crypto", luteopen_crypto},
+        {"@lute/fs", luteopen_fs},
+        {"@lute/luau", luteopen_luau},
+        {"@lute/net", luteopen_net},
+        {"@lute/process", luteopen_process},
+        {"@lute/task", luteopen_task},
+        {"@lute/vm", luteopen_vm},
+        {"@lute/system", luteopen_system},
+        {"@lute/time", luteopen_time},
+    }};
+
+    for (const auto& [name, func] : libs)
+    {
+        lua_pushcfunction(L, luarequire_registermodule, nullptr);
+        lua_pushstring(L, name);
+        func(L);
+        lua_call(L, 2, 0);
+    }
+}
+
 lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
 {
     return setupState(
         runtime,
         [preSandboxInit = std::move(preSandboxInit)](lua_State* L)
         {
+            luteopen_libs(L);
+
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
@@ -87,7 +121,7 @@ lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSa
     );
 }
 
-bool setupArguments(lua_State* L, int argc, char** argv)
+static bool setupArguments(lua_State* L, int argc, char** argv)
 {
     if (!lua_checkstack(L, argc))
         return false;

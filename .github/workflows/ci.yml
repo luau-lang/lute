@@ -20,10 +20,11 @@ jobs:
           - os: windows-latest
             options: --c-compiler cl.exe --cxx-compiler cl.exe
           - os: ubuntu-latest
-            options: --c-compiler gcc --cxx-compiler g++
+            options: --c-compiler gcc --cxx-compiler g++ --enable-asan
           - os: ubuntu-latest
-            options: --c-compiler clang --cxx-compiler clang++
+            options: --c-compiler clang --cxx-compiler clang++ --enable-asan
           - os: macos-latest
+            options: --enable-asan
       fail-fast: false
 
     steps:
@@ -53,10 +54,11 @@ jobs:
           - os: windows-latest
             options: --c-compiler cl.exe --cxx-compiler cl.exe
           - os: ubuntu-latest
-            options: --c-compiler gcc --cxx-compiler g++
+            options: --c-compiler gcc --cxx-compiler g++ --enable-asan
           - os: ubuntu-latest
-            options: --c-compiler clang --cxx-compiler clang++
+            options: --c-compiler clang --cxx-compiler clang++ --enable-asan
           - os: macos-latest
+            options: --enable-asan
       fail-fast: false
 
     steps:
