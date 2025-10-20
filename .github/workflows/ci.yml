@@ -95,7 +95,7 @@ jobs:
         run: stylua --check .
 
   aggregator:
-    name: Aggregate Test Results
+    name: Gated Commits
     runs-on: ubuntu-latest
     needs: [run-lutecli-luau-tests, run-lute-cxx-unittests, check-format]
     if: ${{ always() }}
