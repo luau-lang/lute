@@ -25,6 +25,13 @@ static void lua_close_checked(lua_State* L)
 
 static std::string getExecPath(const char* argv0)
 {
+    // FIXME: uv_exepath requires that uv_setup_args(argc, argv) was called.
+    // This function can allocate on some platforms. However, the state is
+    // persisted for the duration of the program and cleaning it up with
+    // uv_library_shutdown will only delete it once. This is a problem in unit
+    // tests that call cliMain multiple times. There, the function would leak
+    // memory. On the three main platforms supported by Lute however, uv doesn't
+    // require uv_setup_args to be called, so it's currently left out.
     char buf[LUTE_PATH_MAX];
     size_t len = sizeof(buf);
     if (uv_exepath(buf, &len) == 0)

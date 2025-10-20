@@ -37,24 +37,6 @@
 #include <string>
 #include <vector>
 
-namespace
-{
-
-struct UvLibraryState
-{
-    UvLibraryState(int argc, char**& argv)
-    {
-        argv = uv_setup_args(argc, argv);
-    }
-
-    ~UvLibraryState()
-    {
-        uv_library_shutdown();
-    }
-};
-
-} // namespace
-
 void* createCliRequireContext(lua_State* L)
 {
     void* ctx = lua_newuserdatadtor(
@@ -476,8 +458,6 @@ int handleCliCommand(CliCommandResult result, int program_argc, char** program_a
 int cliMain(int argc, char** argv)
 {
     Luau::assertHandler() = assertionHandler;
-
-    UvLibraryState uvlib(argc, argv);
 
     AppendedBytecodeResult embedded = checkForAppendedBytecode(argv[0]);
     if (embedded.found)
