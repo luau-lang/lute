@@ -474,6 +474,12 @@ int cwd(lua_State* L)
     return 1;
 };
 
+int execpath(lua_State* L)
+{
+    lua_pushstring(L, getRuntime(L)->execPath.c_str());
+    return 1;
+}
+
 static int envIndex(lua_State* L)
 {
     const char* key = luaL_checkstring(L, 2);
