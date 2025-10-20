@@ -156,7 +156,7 @@ local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): 
 
 		local matchAtStart = filepath:match("^" .. actualPattern) ~= nil
 		local matchAfterDir = filepath:match("/" .. actualPattern) ~= nil
-		
+
 		return matchAtStart or matchAfterDir
 	else
 		return filepath:match(glob.pattern) ~= nil
