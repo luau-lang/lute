@@ -20,8 +20,6 @@ struct IOHandle
     std::shared_ptr<IOHandle> self;
     std::vector<char> buffer;
 
-    ~IOHandle() {}
-
     void closeHandles()
     {
         auto closeCb = [](uv_handle_t* handle)
