@@ -17,7 +17,7 @@ local function create(f, ...): task
 	end)
 
 	coroutine.resume(data.co, ...)
-	return data
+	return data :: task
 end
 
 local function await(t: task)
@@ -38,9 +38,8 @@ end
 
 local function awaitall(...: task)
 	local tasks = table.pack(...)
-	tasks.n = nil
 
-	for i, v in tasks do
+	for i, v in ipairs(tasks) do
 		if not v.co then
 			error(`awaitAll: argument {i} is not a task`)
 		end

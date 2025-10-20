@@ -52,7 +52,7 @@ local function writeSpaces(state: SerializerState)
 			state.cursor += 4
 		end
 	else
-		buffer.writeu8(state.buf, state.cursor, string.byte(" "))
+		buffer.writeu8(state.buf, state.cursor, (string.byte(" ")))
 
 		state.cursor += 1
 	end
@@ -66,7 +66,7 @@ local function writeString(state: SerializerState, str: string)
 	state.cursor += #str
 end
 
-local serializeAny
+local serializeAny: (SerializerState, (Array | Object | boolean | number | string)?) -> ()
 
 local ESCAPE_MAP = {
 	[0x5C] = string.byte("\\"), -- 5C = '\'
@@ -196,7 +196,7 @@ serializeAny = function(state: SerializerState, value: Value)
 	elseif valueType == "string" then
 		serializeString(state, value :: string)
 	elseif valueType == "table" then
-		if #(value :: {}) == 0 and next(value :: {}) ~= nil then
+		if #(value :: {}) == 0 and next(value :: { [unknown]: unknown }) ~= nil then
 			serializeTable(state, value :: Object)
 		else
 			serializeArray(state, value :: Array)
@@ -329,7 +329,7 @@ local function deserializeString(state: DeserializerState): string
 	return deserializerError(state, "Unterminated string")
 end
 
-local deserialize
+local deserialize: (DeserializerState) -> (Array | Object | boolean | number | string)?
 
 local function deserializeArray(state: DeserializerState): Array
 	state.cursor += 1

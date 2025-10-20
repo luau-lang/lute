@@ -71,6 +71,21 @@ local function printInterpolatedString(expr: luau.AstExprInterpString): string
 	return result
 end
 
+local function printSingletonString(expr: luau.AstTypeSingletonString): string
+	local result = printTriviaList(expr.leadingtrivia)
+
+	if expr.quotestyle == "single" then
+		result ..= `'{expr.text}'`
+	elseif expr.quotestyle == "double" then
+		result ..= `"{expr.text}"`
+	else
+		return exhaustiveMatch(expr.quotestyle)
+	end
+
+	result ..= printTriviaList(expr.trailingtrivia)
+	return result
+end
+
 type PrintVisitor = visitor.Visitor & {
 	result: buffer,
 	cursor: number,
@@ -111,7 +126,7 @@ local function printVisitor()
 	end
 
 	printer.visitTypeString = function(node: luau.AstTypeSingletonString)
-		write(printString(node))
+		write(printSingletonString(node))
 		return false
 	end
 
