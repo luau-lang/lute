@@ -14,6 +14,7 @@
 #include "lute/compile.h"
 #include "lute/crypto.h"
 #include "lute/fs.h"
+#include "lute/io.h"
 #include "lute/luau.h"
 #include "lute/net.h"
 #include "lute/options.h"
@@ -74,6 +75,7 @@ static void luteopen_libs(lua_State* L)
         {"@lute/vm", luteopen_vm},
         {"@lute/system", luteopen_system},
         {"@lute/time", luteopen_time},
+        {"@lute/io", luteopen_io},
     }};
 
     for (const auto& [name, func] : libs)
