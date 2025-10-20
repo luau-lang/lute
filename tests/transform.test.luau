@@ -9,8 +9,16 @@ local x = math.sqrt(-1)
 local b = x ~= x
 ]]
 
-local lutePath =
-	path.format(path.join("build", if system.os == "Darwin" then "xcode" else "vs2022", "debug", "lute", "cli", "lute"))
+local lutePath = path.format(
+	path.join(
+		"build",
+		if system.macos then "xcode" elseif system.win32 then "vs2022" else "",
+		"debug",
+		"lute",
+		"cli",
+		"lute"
+	)
+)
 
 test.suite("lute transform", function(suite)
 	local transformTestDir = path.format(path.join("build", "transform_tests"))
