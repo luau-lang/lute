@@ -1,16 +1,5 @@
 #include "lute/runtime.h"
 
-#include "lute/crypto.h"
-#include "lute/fs.h"
-#include "lute/luau.h"
-#include "lute/net.h"
-#include "lute/process.h"
-#include "lute/system.h"
-#include "lute/task.h"
-#include "lute/vm.h"
-#include "lute/time.h"
-#include "lute/io.h"
-
 #include "Luau/Require.h"
 
 #include "lua.h"
@@ -279,7 +268,7 @@ void Runtime::releasePendingToken()
 
 Runtime* getRuntime(lua_State* L)
 {
-    return reinterpret_cast<Runtime*>(lua_getthreaddata(lua_mainthread(L)));
+    return static_cast<Runtime*>(lua_getthreaddata(lua_mainthread(L)));
 }
 
 void ResumeTokenData::fail(std::string error)
@@ -312,30 +301,6 @@ ResumeToken getResumeToken(lua_State* L)
     return token;
 }
 
-static void luteopen_libs(lua_State* L)
-{
-    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
-        {"@lute/crypto", luteopen_crypto},
-        {"@lute/fs", luteopen_fs},
-        {"@lute/luau", luteopen_luau},
-        {"@lute/net", luteopen_net},
-        {"@lute/process", luteopen_process},
-        {"@lute/task", luteopen_task},
-        {"@lute/vm", luteopen_vm},
-        {"@lute/system", luteopen_system},
-        {"@lute/time", luteopen_time},
-        {"@lute/io", luteopen_io},
-    }};
-
-    for (const auto& [name, func] : libs)
-    {
-        lua_pushcfunction(L, luarequire_registermodule, nullptr);
-        lua_pushstring(L, name);
-        func(L);
-        lua_call(L, 2, 0);
-    }
-}
-
 lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBeforeSandbox)
 {
     // Separate VM for data copies
@@ -351,8 +316,6 @@ lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBefore
 
     // register the builtin tables
     luaL_openlibs(L);
-
-    luteopen_libs(L);
 
     lua_pushnil(L);
     lua_setglobal(L, "setfenv");
