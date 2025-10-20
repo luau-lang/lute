@@ -26,10 +26,12 @@ target_sources(Lute.CLI.lib PRIVATE
     include/lute/climain.h
     include/lute/compile.h
     include/lute/tc.h
+    include/lute/uvstate.h
 
     src/climain.cpp
     src/compile.cpp
     src/tc.cpp
+    src/uvstate.cpp
 )
 
 target_compile_features(Lute.CLI.lib PUBLIC cxx_std_17)
