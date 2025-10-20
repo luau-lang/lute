@@ -12,7 +12,7 @@ function assertions.neq<T>(lhs: T, rhs: T)
 	end
 end
 
-function assertions.throwserror(callback: () -> ())
+function assertions.errors(callback: () -> ())
 	local success = pcall(callback)
 	if success then
 		error({ msg = `{callback} did not throw error.` })

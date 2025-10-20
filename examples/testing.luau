@@ -57,10 +57,11 @@ test.suite("MySuite", function(suite)
 				error("error")
 			end
 		end
-		assert.throwserror(function() -- demonstrates success (callback throws err)
+
+		assert.errors(function() -- demonstrates success (callback throws err)
 			foo(true)
 		end)
-		assert.throwserror(function() -- demonstrates failure (callback doesn't throw)
+		assert.errors(function() -- demonstrates failure (callback doesn't throw)
 			foo(false)
 		end)
 	end)
