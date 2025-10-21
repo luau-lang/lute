@@ -1,4 +1,4 @@
-local strings = require("./strings")
+local string = require("@std/string")
 
 export type Config = {
 	--- Prevent making changes to files
@@ -31,8 +31,8 @@ local function parse(arguments: { string }): Config
 	while i <= #arguments do
 		local argument = arguments[i]
 
-		if strings.startsWith(argument, "--") then
-			local name = strings.removePrefix(argument, "--")
+		if string.startswith(argument, "--") then
+			local name = string.removeprefix(argument, "--")
 
 			if config.migrationPath == nil then
 				-- Options before the codemod file are parsed as options for the tool itself

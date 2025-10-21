@@ -3,7 +3,7 @@ local process = require("@lute/process")
 
 local ignore = require("./ignore")
 local path = require("./path")
-local strings = require("./strings")
+local string = require("@std/string")
 
 local function extend<T>(tbl: { T }, other: { T })
 	for _, entry in other do
@@ -26,7 +26,7 @@ local function traverseDirectoryRecursive(directory: string, ignoreResolver: ign
 			extend(results, traverseDirectoryRecursive(fullPath, ignoreResolver))
 		else
 			-- TODO: allow customisation of the filter when traversing a directory. e.g., globs? file endings? ignore paths?
-			if strings.endsWith(entry.name, ".luau") or strings.endsWith(entry.name, ".lua") then
+			if string.endswith(entry.name, ".luau") or string.endswith(entry.name, ".lua") then
 				if ignoreResolver:isIgnoredFile(fullPath) then
 					print("Skipping", fullPath)
 					continue

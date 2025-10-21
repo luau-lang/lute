@@ -1,7 +1,7 @@
 local fs = require("@lute/fs")
 
 local path = require("./path")
-local strings = require("./strings")
+local string = require("@std/string")
 
 --- Performs ignore resolution on a set of
 local IgnoreResolver = {}
@@ -121,14 +121,14 @@ local function parseGitignoreContents(location: string, contents: string): Gitig
 	}
 
 	for _, line in lines do
-		line = strings.trim(line)
+		line = string.trim(line)
 
-		if line == "" or strings.startsWith(line, "#") then
+		if line == "" or string.startswith(line, "#") then
 			continue
 		end
 
-		if strings.startsWith(line, "!") then
-			local globPattern = strings.removePrefix(line, "!")
+		if string.startswith(line, "!") then
+			local globPattern = string.removeprefix(line, "!")
 			local glob = parseGlob(globPattern)
 			table.insert(ignoreData.whitelists, glob)
 		else
@@ -167,7 +167,7 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 	local matched, ignored = false, false
 
 	-- TODO: compute relative path correctly
-	local relativePath = strings.removePrefix(filepath, ignoreData.location)
+	local relativePath = string.removeprefix(filepath, ignoreData.location)
 
 	for _, ignore in ignoreData.ignores do
 		if matchesGlob(ignore, relativePath, isDirectory) then

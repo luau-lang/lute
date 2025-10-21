@@ -1,4 +1,4 @@
-local strings = require("./strings")
+local string = require("@std/string")
 
 local path = {}
 
@@ -41,8 +41,8 @@ function path.joinPath(basePath: string, file: string): string
 
 	if file == "." then
 		return basePath
-	elseif strings.startsWith(file, "./") then
-		file = strings.removePrefix(file, "./")
+	elseif string.startswith(file, "./") then
+		file = string.removeprefix(file, "./")
 	end
 
 	if basePath:sub(-1) == "/" then
