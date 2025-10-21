@@ -135,7 +135,7 @@ function test.run()
 	local passed = 0
 
 	-- Error handler for beforeall hook
-	local function beforeallErrorHandler(suite: TestSuiteData)
+	local function beforeallErrorHandler(suite: TestSuite)
 		return function(err)
 			-- If beforeall fails, skip all tests in the suite
 			total += #suite.cases
