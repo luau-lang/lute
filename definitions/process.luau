@@ -1,4 +1,6 @@
-local pathtypes = require("@std/path/types")
+local pathtype = require("@std/path/types")
+
+type path = pathtype.path
 
 export type StdioKind = "default" | "inherit" | "none" | ""
 
@@ -23,11 +25,11 @@ local process = {}
 
 process.env = {} :: { [string]: string }
 
-function process.homedir(): pathtypes.path
+function process.homedir(): path
 	error("not implemented")
 end
 
-function process.cwd(): pathtypes.path
+function process.cwd(): path
 	error("not implemented")
 end
 
@@ -39,7 +41,7 @@ function process.exit(exitcode: number): never
 	error("not implemented")
 end
 
-function process.execpath(): pathtypes.path
+function process.execpath(): path
 	error("not implemented")
 end
 

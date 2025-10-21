@@ -1,4 +1,6 @@
-local path = require("@std/path")
+local pathtype = require("@std/path/types")
+
+type pathlike = pathtype.pathlike
 
 local fs = {}
 
@@ -33,7 +35,7 @@ export type WatchEvent = {
 	rename: boolean,
 }
 
-function fs.open(path: path.pathlike, mode: HandleMode?): FileHandle
+function fs.open(path: pathlike, mode: HandleMode?): FileHandle
 	error("not implemented")
 end
 
@@ -49,62 +51,59 @@ function fs.close(handle: FileHandle): ()
 	error("not implemented")
 end
 
-function fs.remove(path: path.pathlike): ()
+function fs.remove(path: pathlike): ()
 	error("not implemented")
 end
 
-function fs.stat(path: path.pathlike): FileMetadata
+function fs.stat(path: pathlike): FileMetadata
 	error("not implemented")
 end
 
-function fs.type(path: path.pathlike): FileType
+function fs.type(path: pathlike): FileType
 	error("not implemented")
 end
 
-function fs.mkdir(path: path.pathlike): ()
+function fs.mkdir(path: pathlike): ()
 	error("not implemented")
 end
 
-function fs.link(src: path.pathlike, dest: path.pathlike): ()
+function fs.link(src: pathlike, dest: pathlike): ()
 	error("not implemented")
 end
 
-function fs.symlink(src: path.pathlike, dest: path.pathlike): ()
+function fs.symlink(src: pathlike, dest: pathlike): ()
 	error("not implemented")
 end
 
-function fs.watch(
-	path: path.pathlike,
-	callback: (filename: path.pathlike, event: WatchEvent) -> ()
-): WatchHandle
+function fs.watch(path: pathlike, callback: (filename: pathlike, event: WatchEvent) -> ()): WatchHandle
 	error("not implemented")
 end
 
-function fs.exists(path: path.pathlike): boolean
+function fs.exists(path: pathlike): boolean
 	error("not implemented")
 end
 
-function fs.copy(src: path.pathlike, dest: path.pathlike): ()
+function fs.copy(src: pathlike, dest: pathlike): ()
 	error("not implemented")
 end
 
-function fs.listdir(path: path.pathlike): { DirectoryEntry }
+function fs.listdir(path: pathlike): { DirectoryEntry }
 	error("not implemented")
 end
 
-function fs.rmdir(path: path.pathlike): ()
+function fs.rmdir(path: pathlike): ()
 	error("not implemented")
 end
 
-function fs.readfiletostring(filepath: path.pathlike): string
+function fs.readfiletostring(filepath: pathlike): string
 	error("not implemented")
 end
 
-function fs.writestringtofile(filepath: path.pathlike, contents: string): ()
+function fs.writestringtofile(filepath: pathlike, contents: string): ()
 	error("not implemented")
 end
 
-function fs.readasync(filepath: path.pathlike): string
+function fs.readasync(filepath: pathlike): string
 	error("not implemented")
 end
 
