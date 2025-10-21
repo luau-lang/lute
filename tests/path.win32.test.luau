@@ -553,6 +553,11 @@ test.suite("PathWin32JoinSuite", function(suite)
 		assert.eq(result.parts[2], "username")
 		assert.eq(result.parts[3], "Documents")
 		assert.eq(result.parts[4], "file.txt")
+		assert.eq(#pathobj.parts, 2) -- original pathobj should be unchanged
+		assert.eq(pathobj.parts[1], "Users")
+		assert.eq(pathobj.parts[2], "username")
+		assert.eq(pathobj.kind, "absolute")
+		assert.eq(pathobj.driveLetter, "C")
 	end)
 
 	suite:case("join_error_on_absolute_addend", function(assert)
