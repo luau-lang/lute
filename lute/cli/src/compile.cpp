@@ -1,17 +1,32 @@
 #include "lute/compile.h"
 
 #include "lute/options.h"
+#include "lute/process.h"
 #include "uv.h"
 
 #include <fstream>
+#include <string>
 
 const char MAGIC_FLAG[] = "LUTEBYTE";
 const size_t MAGIC_FLAG_SIZE = sizeof(MAGIC_FLAG) - 1;
 const size_t BYTECODE_SIZE_FIELD_SIZE = sizeof(uint64_t);
 
-AppendedBytecodeResult checkForAppendedBytecode(const std::string& executablePath)
+AppendedBytecodeResult checkForAppendedBytecode()
 {
     AppendedBytecodeResult result;
+
+    std::string executablePath;
+    {
+        std::string error;
+        std::optional<std::string> execPathOpt = process::getExecPath(&error);
+        if (!execPathOpt)
+        {
+            fprintf(stderr, "Could not get path to executable: %s\n", error.c_str());
+            return result;
+        }
+        executablePath = *execPathOpt;
+    }
+
     std::ifstream exeFile(executablePath, std::ios::binary | std::ios::ate);
     if (!exeFile)
     {
@@ -54,8 +69,21 @@ AppendedBytecodeResult checkForAppendedBytecode(const std::string& executablePat
     return result;
 }
 
-int compileScript(const std::string& inputFilePath, const std::string& outputFilePath, const std::string& currentExecutablePath)
+int compileScript(const std::string& inputFilePath, const std::string& outputFilePath)
 {
+    std::string currentExecutablePath;
+    ;
+    {
+        std::string error;
+        std::optional<std::string> execPathOpt = process::getExecPath(&error);
+        if (!execPathOpt)
+        {
+            fprintf(stderr, "Could not get path to current executable: %s\n", error.c_str());
+            return 1;
+        }
+        currentExecutablePath = *execPathOpt;
+    }
+
     std::optional<std::string> source = readFile(inputFilePath);
     if (!source)
     {
