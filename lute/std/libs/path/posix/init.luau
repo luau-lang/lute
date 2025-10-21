@@ -1,8 +1,8 @@
 local process = require("@lute/process")
 local types = require("@self/types")
 
-type path = types.path
-type pathlike = types.pathlike
+export type path = types.path
+export type pathlike = types.pathlike
 
 local posix = {}
 
