@@ -22,12 +22,15 @@ export default defineConfig({
       {
         text: "Reference",
         items: [
+          { text: 'crypto', link: '/reference/crypto' },
           { text: 'fs', link: '/reference/fs' },
+          { text: 'io', link: '/reference/io' },
           { text: 'luau', link: '/reference/luau' },
           { text: 'net', link: '/reference/net' },
           { text: 'process', link: '/reference/process' },
           { text: 'system', link: '/reference/system' },
           { text: 'task', link: '/reference/task' },
+          { text: 'time', link: '/reference/time' },
           { text: 'vm', link: '/reference/vm' },
         ]
       }
