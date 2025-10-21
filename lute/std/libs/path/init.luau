@@ -2,54 +2,51 @@ local system = require("@std/system")
 
 local posix = require("@self/posix")
 local win32 = require("@self/win32")
-
-export type path = posix.path | win32.path
-
-export type pathlike = string | path
+local types = require("@self/types")
 
 local onWindows = system.win32
 
-local function basename(path: pathlike): string?
+local function basename(path: types.pathlike): string?
 	if onWindows then
-		return win32.basename(path :: win32.pathlike)
+		return win32.basename(path :: types.win32pathlike)
 	else
-		return posix.basename(path :: posix.pathlike)
+		return posix.basename(path :: types.posixpathlike)
 	end
 end
 
-local function dirname(path: pathlike): string
+local function dirname(path: types.pathlike): string
 	if onWindows then
-		return win32.dirname(path :: win32.pathlike)
+		return win32.dirname(path :: types.win32pathlike)
 	else
-		return posix.dirname(path :: posix.pathlike)
+		return posix.dirname(path :: types.posixpathlike)
 	end
 end
 
-local function extname(path: pathlike): string
+local function extname(path: types.pathlike): string
 	if onWindows then
-		return win32.extname(path :: win32.pathlike)
+		return win32.extname(path :: types.win32pathlike)
 	else
-		return posix.extname(path :: posix.pathlike)
+		return posix.extname(path :: types.posixpathlike)
 	end
 end
 
-local function format(path: pathlike): string
+local function format(path: types.pathlike): string
 	if onWindows then
-		return win32.format(path :: win32.pathlike)
+		return win32.format(path :: types.win32pathlike)
 	else
-		return posix.format(path :: posix.pathlike)
+		return posix.format(path :: types.posixpathlike)
 	end
 end
 
-local function isabsolute(path: pathlike): boolean
+local function isabsolute(path: types.pathlike): boolean
 	if onWindows then
-		return win32.isabsolute(path :: win32.pathlike)
+		return win32.isabsolute(path :: types.win32pathlike)
 	else
-		return posix.isabsolute(path :: posix.pathlike)
+		return posix.isabsolute(path :: types.posixpathlike)
 	end
 end
 
-local function join(...: pathlike): path
+local function join(...: types.pathlike): types.path
 	if onWindows then
 		return win32.join(...)
 	else
@@ -57,23 +54,23 @@ local function join(...: pathlike): path
 	end
 end
 
-local function normalize(path: pathlike): path
+local function normalize(path: types.pathlike): types.path
 	if onWindows then
-		return win32.normalize(path :: win32.pathlike)
+		return win32.normalize(path :: types.win32pathlike)
 	else
-		return posix.normalize(path :: posix.pathlike)
+		return posix.normalize(path :: types.posixpathlike)
 	end
 end
 
-local function parse(path: pathlike): path
+local function parse(path: types.pathlike): types.path
 	if onWindows then
-		return win32.parse(path :: win32.pathlike)
+		return win32.parse(path :: types.win32pathlike)
 	else
-		return posix.parse(path :: posix.pathlike)
+		return posix.parse(path :: types.posixpathlike)
 	end
 end
 
-function resolve(...: pathlike): path
+function resolve(...: types.pathlike): types.path
 	if onWindows then
 		return win32.resolve(...)
 	else
@@ -84,6 +81,7 @@ end
 return table.freeze({
 	win32 = win32,
 	posix = posix,
+	types = types,
 	basename = basename,
 	dirname = dirname,
 	extname = extname,
