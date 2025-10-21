@@ -72,7 +72,6 @@ AppendedBytecodeResult checkForAppendedBytecode()
 int compileScript(const std::string& inputFilePath, const std::string& outputFilePath)
 {
     std::string currentExecutablePath;
-    ;
     {
         std::string error;
         std::optional<std::string> execPathOpt = process::getExecPath(&error);
