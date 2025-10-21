@@ -1,6 +1,6 @@
 local io = {}
 
-function io.input(): string
+function io.read(): string
 	error("unimplemented")
 end
 
