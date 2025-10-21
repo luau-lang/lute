@@ -300,7 +300,9 @@ local function generateStdLibFilesIfNeeded()
 				local lines = string.split(libSrc, "\n")
 				local generatedLines = table.create(#lines)
 				for _, line in lines do
-					table.insert(generatedLines, `"{string.gsub(line, '"', '\\"')}\\n"`)
+					local escapedLine = string.gsub(line, "\\", "\\\\")
+					escapedLine = string.gsub(escapedLine, '"', '\\"')
+					table.insert(generatedLines, `"{escapedLine}\\n"`)
 				end
 				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
 			else
@@ -337,15 +339,21 @@ end
 
 local function getTypeDefinitionsHash(): string
 	local libsPath = projectRelative("definitions")
+	local stdPath = projectRelative("lute", "std", "libs")
 
 	local toHash = ""
 
-	traverseFileTree(libsPath, function(path, relativePath)
-		if safeFsType(path) == "file" then
-			toHash ..= "./" .. relativePath
-			toHash ..= fs.readfiletostring(path)
-		end
-	end)
+	local function traverseDefs(path: string, namespace: string)
+		traverseFileTree(path, function(path, relativePath)
+			if safeFsType(path) == "file" then
+				toHash ..= `./{namespace}/{relativePath}`
+				toHash ..= fs.readfiletostring(path)
+			end
+		end)
+	end
+
+	traverseDefs(libsPath, "lute")
+	traverseDefs(stdPath, "std")
 
 	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
 	return hexify(digest)
@@ -373,17 +381,21 @@ local function generateTypeDefinitionFiles()
 
 	print("Type definitions out of date, creating new ones.")
 
+	local libsPath = projectRelative("definitions")
+	local stdPath = projectRelative("lute", "std", "libs")
 	local dictionaryEntries: { [string]: string } = {}
 
-	for _, file in fs.listdir("definitions") do
-		if file.type ~= "file" then
-			continue
-		end
-
-		local content = fs.readasync(`definitions/{file.name}`)
-
-		dictionaryEntries[file.name] = content
+	local function traverseDefs(path: string, namespace: string)
+		traverseFileTree(path, function(path, relativePath)
+			if safeFsType(path) == "file" then
+				local content = fs.readasync(path)
+				dictionaryEntries[`{namespace}/{relativePath}`] = content
+			end
+		end)
 	end
+
+	traverseDefs(libsPath, "lute")
+	traverseDefs(stdPath, "std")
 
 	local stringDictionary = ""
 
@@ -396,7 +408,7 @@ local function generateTypeDefinitionFiles()
 	fs.close(hash)
 
 	fs.writestringtofile(
-		"lute/cli/commands/setup/generated/definitions.luau",
+		projectRelative("lute", "cli", "commands", "setup", "generated", "definitions.luau"),
 		string.format(TYPEDEF_PATTERN, stringDictionary)
 	)
 end
@@ -469,7 +481,9 @@ local function generateCliCommandsFilesIfNeeded()
 				local lines = string.split(libSrc, "\n")
 				local generatedLines = table.create(#lines)
 				for _, line in lines do
-					table.insert(generatedLines, `"{string.gsub(line, '"', '\\"')}\\n"`)
+					local escapedLine = string.gsub(line, "\\", "\\\\")
+					escapedLine = string.gsub(escapedLine, '"', '\\"')
+					table.insert(generatedLines, `"{escapedLine}\\n"`)
 				end
 				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
 			else
@@ -506,8 +520,8 @@ end
 
 local function generateFilesIfNeeded()
 	generateStdLibFilesIfNeeded()
-	generateCliCommandsFilesIfNeeded()
 	generateTypeDefinitionFiles()
+	generateCliCommandsFilesIfNeeded()
 end
 
 local function getExePath(): string

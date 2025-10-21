@@ -26,7 +26,7 @@ local function printToken(token: luau.Token): string
 	return printTriviaList(token.leadingtrivia) .. token.text .. printTriviaList(token.trailingtrivia)
 end
 
-local function printString(expr: luau.AstExprConstantString): string
+local function printString(expr: luau.AstExprConstantString | luau.AstTypeSingletonString): string
 	local result = printTriviaList(expr.leadingtrivia)
 
 	if expr.quotestyle == "single" then

@@ -14,6 +14,7 @@
 #include "lute/compile.h"
 #include "lute/crypto.h"
 #include "lute/fs.h"
+#include "lute/io.h"
 #include "lute/luau.h"
 #include "lute/net.h"
 #include "lute/options.h"
@@ -74,6 +75,7 @@ static void luteopen_libs(lua_State* L)
         {"@lute/vm", luteopen_vm},
         {"@lute/system", luteopen_system},
         {"@lute/time", luteopen_time},
+        {"@lute/io", luteopen_io},
     }};
 
     for (const auto& [name, func] : libs)
@@ -176,7 +178,7 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL, int progr
     return runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv);
 }
 
-static void displayHelp(const char* argv0)
+static void displayHelp()
 {
     printf("Usage: lute <command> [options] [arguments...]\n");
     printf("\n");
@@ -201,6 +203,7 @@ static void displayHelp(const char* argv0)
     printf("Setup Options:\n");
     printf("  lute setup");
     printf("    Generates type definition files for the language server.\n");
+    printf("      --with-luaurc Defines aliases to the type definition files in the working directory's luaurc file.\n");
     printf("\n");
     printf("General Options:\n");
     printf("  -h, --help    Display this usage message.\n");
@@ -212,7 +215,7 @@ static void displayVersion()
     printf("%s\n", LUTE_VERSION_FULL);
 }
 
-static void displayRunHelp(const char* argv0)
+static void displayRunHelp()
 {
     printf("Usage: lute run <script.luau> [args...]\n");
     printf("\n");
@@ -220,7 +223,7 @@ static void displayRunHelp(const char* argv0)
     printf("  -h, --help    Display this usage message.\n");
 }
 
-static void displayCheckHelp(const char* argv0)
+static void displayCheckHelp()
 {
     printf("Usage: lute check <file1.luau> [file2.luau...]\n");
     printf("\n");
@@ -228,7 +231,7 @@ static void displayCheckHelp(const char* argv0)
     printf("  -h, --help    Display this usage message.\n");
 }
 
-static void displayCompileHelp(const char* argv0)
+static void displayCompileHelp()
 {
     printf("Usage: lute compile <script.luau> [output_executable]\n");
     printf("\n");
@@ -294,7 +297,7 @@ static std::optional<std::string> getValidPath(std::string filePath)
     return std::nullopt;
 }
 
-int handleRunCommand(int argc, char** argv, char* argv0, int argOffset)
+int handleRunCommand(int argc, char** argv, int argOffset)
 {
     std::string filePath;
     int program_argc = 0;
@@ -306,13 +309,13 @@ int handleRunCommand(int argc, char** argv, char* argv0, int argOffset)
 
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
-            displayRunHelp(argv[0]);
+            displayRunHelp();
             return 0;
         }
         else if (currentArg[0] == '-')
         {
             fprintf(stderr, "Error: Unrecognized option '%s' for 'run' command.\n\n", currentArg);
-            displayRunHelp(argv[0]);
+            displayRunHelp();
             return 1;
         }
         else
@@ -327,11 +330,11 @@ int handleRunCommand(int argc, char** argv, char* argv0, int argOffset)
     if (filePath.empty())
     {
         fprintf(stderr, "Error: No file specified for 'run' command.\n\n");
-        displayRunHelp(argv[0]);
+        displayRunHelp();
         return 1;
     }
 
-    Runtime runtime(argv0);
+    Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
     std::optional<std::string> validPath = getValidPath(filePath);
@@ -355,13 +358,13 @@ int handleCheckCommand(int argc, char** argv, int argOffset)
 
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
-            displayCheckHelp(argv[0]);
+            displayCheckHelp();
             return 0;
         }
         else if (currentArg[0] == '-')
         {
             fprintf(stderr, "Error: Unrecognized option '%s' for 'check' command.\n\n", currentArg);
-            displayCheckHelp(argv[0]);
+            displayCheckHelp();
             return 1;
         }
         else
@@ -373,7 +376,7 @@ int handleCheckCommand(int argc, char** argv, int argOffset)
     if (files.empty())
     {
         fprintf(stderr, "Error: No files specified for 'check' command.\n\n");
-        displayCheckHelp(argv[0]);
+        displayCheckHelp();
         return 1;
     }
 
@@ -391,7 +394,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
 
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
-            displayCompileHelp(argv[0]);
+            displayCompileHelp();
             return 0;
         }
         else if (inputFilePath.empty())
@@ -405,7 +408,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
         else
         {
             fprintf(stderr, "Error: Too many arguments for 'compile' command.\n\n");
-            displayCompileHelp(argv[0]);
+            displayCompileHelp();
             return 1;
         }
     }
@@ -413,7 +416,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
     if (inputFilePath.empty())
     {
         fprintf(stderr, "Error: No input file specified for 'compile' command.\n\n");
-        displayCompileHelp(argv[0]);
+        displayCompileHelp();
         return 1;
     }
 
@@ -443,12 +446,12 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
 #endif
     }
 
-    return compileScript(inputFilePath, outputFilePath, argv[0]);
+    return compileScript(inputFilePath, outputFilePath);
 }
 
-int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, char* argv0)
+int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv)
 {
-    Runtime runtime(argv0);
+    Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
     std::string bytecode = Luau::compile(std::string(result.contents), copts());
@@ -459,10 +462,10 @@ int cliMain(int argc, char** argv)
 {
     Luau::assertHandler() = assertionHandler;
 
-    AppendedBytecodeResult embedded = checkForAppendedBytecode(argv[0]);
+    AppendedBytecodeResult embedded = checkForAppendedBytecode();
     if (embedded.found)
     {
-        Runtime runtime(argv[0]);
+        Runtime runtime;
         lua_State* GL = setupCliState(runtime);
 
         bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL, argc, argv);
@@ -477,7 +480,7 @@ int cliMain(int argc, char** argv)
     if (argc < 2)
     {
         // TODO: REPL?
-        displayHelp(argv[0]);
+        displayHelp();
         return 0;
     }
 
@@ -486,7 +489,7 @@ int cliMain(int argc, char** argv)
 
     if (strcmp(command, "run") == 0)
     {
-        return handleRunCommand(argc, argv, argv[0], argOffset);
+        return handleRunCommand(argc, argv, argOffset);
     }
     else if (strcmp(command, "check") == 0)
     {
@@ -498,7 +501,7 @@ int cliMain(int argc, char** argv)
     }
     else if (strcmp(command, "-h") == 0 || strcmp(command, "--help") == 0)
     {
-        displayHelp(argv[0]);
+        displayHelp();
         return 0;
     }
     else if (strcmp(command, "--version") == 0)
@@ -508,12 +511,12 @@ int cliMain(int argc, char** argv)
     }
     else if (std::optional<CliCommandResult> result = getCliCommand(command); result)
     {
-        return handleCliCommand(*result, argc - argOffset, &argv[argOffset], argv[0]);
+        return handleCliCommand(*result, argc - argOffset, &argv[argOffset]);
     }
     else
     {
         // Default to 'run' command
         argOffset = 1;
-        return handleRunCommand(argc, argv, argv[0], argOffset);
+        return handleRunCommand(argc, argv, argOffset);
     }
 }

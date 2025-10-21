@@ -9,13 +9,6 @@
 
 #include <string>
 #include <assert.h>
-#include <climits> // IWYU pragma: keep
-
-#ifdef PATH_MAX
-#define LUTE_PATH_MAX PATH_MAX
-#else
-#define LUTE_PATH_MAX 8192
-#endif
 
 static void lua_close_checked(lua_State* L)
 {
@@ -23,28 +16,9 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
-static std::string getExecPath(const char* argv0)
-{
-    // FIXME: uv_exepath requires that uv_setup_args(argc, argv) was called.
-    // This function can allocate on some platforms. However, the state is
-    // persisted for the duration of the program and cleaning it up with
-    // uv_library_shutdown will only delete it once. This is a problem in unit
-    // tests that call cliMain multiple times. There, the function would leak
-    // memory. On the three main platforms supported by Lute however, uv doesn't
-    // require uv_setup_args to be called, so it's currently left out.
-    char buf[LUTE_PATH_MAX];
-    size_t len = sizeof(buf);
-    if (uv_exepath(buf, &len) == 0)
-        return {buf, len};
-    if (argv0)
-        return argv0;
-    return {};
-}
-
-Runtime::Runtime(const char* argv0)
+Runtime::Runtime()
     : globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
-    , execPath(getExecPath(argv0))
 {
     stop.store(false);
     activeTokens.store(0);

@@ -1,15 +1,26 @@
 #include "lute/process.h"
 #include "lute/runtime.h"
-#include <uv.h>
-#include <string>
-#include <vector>
-#include <memory>
-#include <functional>
-#include <map>
+
 #include "Luau/Common.h"
 
 #include "lua.h"
 #include "lualib.h"
+
+#include <uv.h>
+
+#include <functional>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include <climits> // IWYU pragma: keep
+#ifdef PATH_MAX
+#define LUTE_PATH_MAX PATH_MAX
+#else
+#define LUTE_PATH_MAX 8192
+#endif
 
 namespace process
 {
@@ -474,9 +485,36 @@ int cwd(lua_State* L)
     return 1;
 };
 
+std::optional<std::string> getExecPath(std::string* error)
+{
+    // Executable path is not expected to change during process lifetime, so we
+    // can safely cache it after the first retrieval.
+    static std::optional<std::string> cachedPath = std::nullopt;
+    if (cachedPath)
+        return *cachedPath;
+
+    char buf[LUTE_PATH_MAX];
+    size_t len = sizeof(buf);
+
+    if (int status = uv_exepath(buf, &len); status < 0)
+    {
+        if (error)
+            *error = uv_strerror(status);
+        return std::nullopt;
+    }
+
+    cachedPath = std::string(buf, len);
+    return *cachedPath;
+}
+
 int execpath(lua_State* L)
 {
-    lua_pushstring(L, getRuntime(L)->execPath.c_str());
+    std::string error;
+    std::optional<std::string> execPath = getExecPath(&error);
+    if (!execPath)
+        luaL_error(L, "Failed to get executable path: %s", error.c_str());
+
+    lua_pushlstring(L, execPath->c_str(), execPath->size());
     return 1;
 }
 
