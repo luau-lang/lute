@@ -1,22 +1,26 @@
 local process = require("@lute/process")
 local types = require("@self/types")
 
+type pathkind = types.pathkind
+type path = types.path
+type pathlike = types.pathlike
+
 local win32 = {}
 
-function win32.basename(path: types.win32pathlike): string?
+function win32.basename(path: pathlike): string?
 	if typeof(path) == "string" then
 		path = win32.parse(path)
 	end
-	path = path :: types.win32path
+	path = path :: path
 	return if #path.parts > 0 then path.parts[#path.parts] else nil
 end
 
-function win32.dirname(path: types.win32pathlike): string
+function win32.dirname(path: pathlike): string
 	if typeof(path) == "string" then
 		path = win32.parse(path)
 	end
 
-	path = path :: types.win32path
+	path = path :: path
 
 	if #path.parts == 0 then
 		return win32.format(path)
@@ -29,12 +33,12 @@ function win32.dirname(path: types.win32pathlike): string
 	end
 end
 
-function win32.extname(path: types.win32pathlike): string
+function win32.extname(path: pathlike): string
 	if typeof(path) == "string" then
 		path = win32.parse(path)
 	end
 
-	path = path :: types.win32path
+	path = path :: path
 
 	if #path.parts == 0 then
 		return ""
@@ -54,12 +58,12 @@ function win32.extname(path: types.win32pathlike): string
 	return filename:sub(dotIndex)
 end
 
-function win32.format(path: types.win32pathlike): string
+function win32.format(path: pathlike): string
 	if typeof(path) == "string" then
 		return path
 	end
 
-	path = path :: types.win32path
+	path = path :: path
 
 	if #path.parts == 0 then
 		if path.kind == "unc" then
@@ -81,20 +85,20 @@ function win32.format(path: types.win32pathlike): string
 	end
 end
 
-function win32.isabsolute(path: types.win32pathlike): boolean
+function win32.isabsolute(path: pathlike): boolean
 	if typeof(path) == "string" then
 		path = win32.parse(path)
 	end
-	path = path :: types.win32path
+	path = path :: path
 	return path.kind == "absolute" or path.kind == "unc"
 end
 
 -- In place extends path with addend
-local function joinHelper(path: types.win32path, addend: types.win32pathlike): ()
+local function joinHelper(path: path, addend: pathlike): ()
 	if typeof(addend) == "string" then
 		addend = win32.parse(addend)
 	end
-	addend = addend :: types.win32path
+	addend = addend :: path
 
 	if addend.kind == "absolute" or addend.kind == "unc" then
 		local stringPath = win32.format(path)
@@ -130,7 +134,7 @@ local function joinHelper(path: types.win32path, addend: types.win32pathlike): (
 	end
 end
 
-function win32.join(...: types.win32pathlike): types.win32path
+function win32.join(...: pathlike): path
 	local parts = { ... }
 	if #parts == 0 then
 		return {
@@ -149,11 +153,11 @@ function win32.join(...: types.win32pathlike): types.win32path
 	return path
 end
 
-function win32.normalize(path: types.win32pathlike): types.win32path
+function win32.normalize(path: pathlike): path
 	if typeof(path) == "string" then
 		path = win32.parse(path)
 	end
-	path = path :: types.win32path
+	path = path :: path
 
 	local newParts = {}
 	for _, part in path.parts do
@@ -183,7 +187,7 @@ function win32.normalize(path: types.win32pathlike): types.win32path
 	}
 end
 
-function win32.parse(path: types.win32pathlike): types.win32path
+function win32.parse(path: pathlike): path
 	if typeof(path) == "table" then
 		return path
 	end
@@ -191,7 +195,7 @@ function win32.parse(path: types.win32pathlike): types.win32path
 		error("Expected string or path")
 	end
 
-	local kind: types.win32pathkind = "relative"
+	local kind: pathkind = "relative"
 	local driveLetter = nil
 
 	-- Check if path is absolute and if it's a unc path on Windows
@@ -238,7 +242,7 @@ function win32.parse(path: types.win32pathlike): types.win32path
 	}
 end
 
-function win32.resolve(...: types.win32pathlike): types.win32path
+function win32.resolve(...: pathlike): path
 	local parts = { ... }
 	if #parts == 0 then
 		return win32.parse(process.cwd())

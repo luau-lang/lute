@@ -8,41 +8,41 @@ local onWindows = system.win32
 
 local function basename(path: types.pathlike): string?
 	if onWindows then
-		return win32.basename(path :: types.win32pathlike)
+		return win32.basename(path :: win32.pathlike)
 	else
-		return posix.basename(path :: types.posixpathlike)
+		return posix.basename(path :: posix.pathlike)
 	end
 end
 
 local function dirname(path: types.pathlike): string
 	if onWindows then
-		return win32.dirname(path :: types.win32pathlike)
+		return win32.dirname(path :: win32.pathlike)
 	else
-		return posix.dirname(path :: types.posixpathlike)
+		return posix.dirname(path :: posix.pathlike)
 	end
 end
 
 local function extname(path: types.pathlike): string
 	if onWindows then
-		return win32.extname(path :: types.win32pathlike)
+		return win32.extname(path :: win32.pathlike)
 	else
-		return posix.extname(path :: types.posixpathlike)
+		return posix.extname(path :: posix.pathlike)
 	end
 end
 
 local function format(path: types.pathlike): string
 	if onWindows then
-		return win32.format(path :: types.win32pathlike)
+		return win32.format(path :: win32.pathlike)
 	else
-		return posix.format(path :: types.posixpathlike)
+		return posix.format(path :: posix.pathlike)
 	end
 end
 
 local function isabsolute(path: types.pathlike): boolean
 	if onWindows then
-		return win32.isabsolute(path :: types.win32pathlike)
+		return win32.isabsolute(path :: win32.pathlike)
 	else
-		return posix.isabsolute(path :: types.posixpathlike)
+		return posix.isabsolute(path :: posix.pathlike)
 	end
 end
 
@@ -56,17 +56,17 @@ end
 
 local function normalize(path: types.pathlike): types.path
 	if onWindows then
-		return win32.normalize(path :: types.win32pathlike)
+		return win32.normalize(path :: win32.pathlike)
 	else
-		return posix.normalize(path :: types.posixpathlike)
+		return posix.normalize(path :: posix.pathlike)
 	end
 end
 
 local function parse(path: types.pathlike): types.path
 	if onWindows then
-		return win32.parse(path :: types.win32pathlike)
+		return win32.parse(path :: win32.pathlike)
 	else
-		return posix.parse(path :: types.posixpathlike)
+		return posix.parse(path :: posix.pathlike)
 	end
 end
 

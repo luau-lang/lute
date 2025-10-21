@@ -1,20 +1,7 @@
-export type win32pathkind = "unc" | "absolute" | "relative"
+local posixtypes = require("@self/posix/types")
+local win32types = require("@self/win32/types")
 
-export type posixpath = {
-	parts: { string },
-	absolute: boolean,
-}
-
-export type win32path = {
-	parts: { string },
-	kind: win32pathkind,
-	driveLetter: string?,
-}
-
-export type posixpathlike = string | posixpath
-export type win32pathlike = string | win32path
-
-export type path = posixpath | win32path
+export type path = posixtypes.path | win32types.path
 export type pathlike = string | path
 
 return {}
