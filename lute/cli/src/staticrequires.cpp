@@ -6,10 +6,7 @@
 #include "Luau/FileUtils.h"
 
 #include <cstdio>
-#include <filesystem>
 #include <queue>
-
-namespace fs = std::filesystem;
 
 // AST visitor to extract require() calls
 class RequireExtractor : public Luau::AstVisitor
@@ -48,26 +45,15 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
         std::string filePath = toProcess.front();
         toProcess.pop();
 
-        // Get absolute path for visited tracking
-        std::string absPath;
-        try
-        {
-            std::string fullPath = joinPaths(rootDirectory, filePath);
-            absPath = fs::absolute(fullPath).string();
-        }
-        catch (const std::exception& e)
-        {
-            fprintf(stderr, "Warning: Could not resolve path '%s': %s\n", filePath.c_str(), e.what());
-            continue;
-        }
+        // Get normalized path for visited tracking
+        std::string fullPath = joinPaths(rootDirectory, filePath);
+        std::string absPath = normalizePath(fullPath);
 
         // Skip if already visited (handles circular dependencies)
         if (visited.count(absPath))
             continue;
 
         visited.insert(absPath);
-
-        std::string fullPath = joinPaths(rootDirectory, filePath);
         std::optional<std::string> source = readFile(fullPath);
         if (!source)
         {
@@ -139,14 +125,14 @@ std::optional<std::string> StaticRequireTracer::resolveRequire(const std::string
     }
 
     // Helper functions for ModulePath - paths are relative to rootDirectory
-    auto isFile = [this](const std::string& path) -> bool {
+    auto isFileFunc = [this](const std::string& path) -> bool {
         std::string fullPath = joinPaths(rootDirectory, path);
-        return fs::is_regular_file(fullPath);
+        return isFile(fullPath);
     };
 
     auto isDir = [this](const std::string& path) -> bool {
         std::string fullPath = joinPaths(rootDirectory, path);
-        return fs::is_directory(fullPath);
+        return isDirectory(fullPath);
     };
 
     // Create a ModulePath with root as rootDirectory, starting at requirer's directory
@@ -154,7 +140,7 @@ std::optional<std::string> StaticRequireTracer::resolveRequire(const std::string
     std::optional<ModulePath> modulePath = ModulePath::create(
         "",  // Root is empty (relative path base)
         requirerDir,  // Start at the requirer's directory
-        isFile,
+        isFileFunc,
         isDir
     );
 
