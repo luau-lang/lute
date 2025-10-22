@@ -302,7 +302,10 @@ int run(lua_State* L)
             shell = result == 0 ? shellBuffer : shellFallback;
         }
 
-        args = {shell, shellArg, commandStr};
+        args.clear();
+        args.emplace_back(shell);
+        args.emplace_back(shellArg);
+        args.emplace_back(commandStr);
     }
 
     auto handle = std::make_shared<ProcessHandle>();
