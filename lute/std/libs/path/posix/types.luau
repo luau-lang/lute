@@ -5,4 +5,4 @@ export type path = {
 
 export type pathlike = string | path
 
-return {}
+return { "successfully exported posix path types" }
