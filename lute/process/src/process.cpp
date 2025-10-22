@@ -442,7 +442,7 @@ int homedir(lua_State* L)
         return 1;
     }
 
-    lua_pushstring(L, buffer.c_str());
+    lua_pushstring(L, buffer.c_str()); // pushing a string but want to push the path object
 
     return 1;
 }
@@ -480,7 +480,7 @@ int cwd(lua_State* L)
         return 1;
     }
 
-    lua_pushstring(L, buffer.c_str());
+    lua_pushstring(L, buffer.c_str()); // pushing a string but want to push the path object
 
     return 1;
 };

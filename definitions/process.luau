@@ -25,11 +25,11 @@ local process = {}
 
 process.env = {} :: { [string]: string }
 
-function process.homedir(): path
+function process.homedir(): string
 	error("not implemented")
 end
 
-function process.cwd(): path
+function process.cwd(): string
 	error("not implemented")
 end
 
@@ -41,7 +41,7 @@ function process.exit(exitcode: number): never
 	error("not implemented")
 end
 
-function process.execpath(): path
+function process.execpath(): string
 	error("not implemented")
 end
 
