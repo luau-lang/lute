@@ -1,6 +1,6 @@
 local string = require("@std/string")
 
-export type Config = {
+type Config = {
 	--- Prevent making changes to files
 	dryRun: boolean,
 	--- Path to the migration module to execute

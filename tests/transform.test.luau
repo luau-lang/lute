@@ -1,7 +1,6 @@
 local fs = require("@lute/fs")
 local path = require("@std/path")
 local process = require("@lute/process")
-local system = require("@std/system")
 local test = require("@std/test")
 
 local TRANSFORMEE_CONTENT = [[
@@ -9,16 +8,7 @@ local x = math.sqrt(-1)
 local b = x ~= x
 ]]
 
-local lutePath = path.format(
-	path.join(
-		"build",
-		if system.macos then "xcode" elseif system.win32 then "vs2022" else "",
-		"debug",
-		"lute",
-		"cli",
-		"lute"
-	)
-)
+local lutePath = process.execpath()
 
 test.suite("lute transform", function(suite)
 	local transformTestDir = path.format(path.join("build", "transform_tests"))
