@@ -113,15 +113,12 @@ function posix.join(...: pathlike): path
 		}
 	end
 
-	local path: path
-	if typeof(parts[1]) == "string" then
-		path = posix.parse(parts[1])
-	else
-		path = {
+	local path: path = if typeof(parts[1]) == "string"
+		then posix.parse(parts[1])
+		else {
 			parts = table.clone((parts[1] :: path).parts),
 			absolute = (parts[1] :: path).absolute,
 		}
-	end
 
 	for i = 2, #parts do
 		joinHelper(path, parts[i])
