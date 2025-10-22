@@ -6,84 +6,84 @@
 local fs = require("@lute/fs")
 local pathlib = require("@std/path")
 
-type HandleMode = fs.HandleMode
-type FileHandle = fs.FileHandle
-type FileType = fs.FileType
-type FileMetadata = fs.FileMetadata
-type DirectoryEntry = fs.DirectoryEntry
-type WatchHandle = fs.WatchHandle
-type WatchEvent = fs.WatchEvent
-type pathlike = pathlib.pathlike
+export type handlemode = fs.HandleMode
+export type filehandle = fs.FileHandle
+export type filetype = fs.FileType
+export type filemetadata = fs.FileMetadata
+export type directoryentry = fs.DirectoryEntry
+export type watchhandle = fs.WatchHandle
+export type watchevent = fs.WatchEvent
+export type pathlike = pathlib.pathlike
 
-function open(path: pathlike, mode: HandleMode?): FileHandle
+local function open(path: pathlike, mode: handlemode?): filehandle
 	return fs.open(pathlib.format(path), mode)
 end
 
-function read(handle: FileHandle): string
+local function read(handle: filehandle): string
 	return fs.read(handle)
 end
 
-function write(handle: FileHandle, contents: string): ()
+local function write(handle: filehandle, contents: string): ()
 	return fs.write(handle, contents)
 end
 
-function close(handle: FileHandle): ()
+local function close(handle: filehandle): ()
 	return fs.close(handle)
 end
 
-function remove(path: pathlike): ()
+local function remove(path: pathlike): ()
 	return fs.remove(pathlib.format(path))
 end
 
-function stat(path: pathlike): FileMetadata
+local function stat(path: pathlike): filemetadata
 	return fs.stat(pathlib.format(path))
 end
 
-function type(path: pathlike): FileType
+local function type(path: pathlike): filetype
 	return fs.type(pathlib.format(path))
 end
 
-function mkdir(path: pathlike): ()
+local function mkdir(path: pathlike): ()
 	return fs.mkdir(pathlib.format(path))
 end
 
-function link(src: pathlike, dest: pathlike): ()
+local function link(src: pathlike, dest: pathlike): ()
 	return fs.link(pathlib.format(src), pathlib.format(dest))
 end
 
-function symlink(src: pathlike, dest: pathlike): ()
+local function symlink(src: pathlike, dest: pathlike): ()
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 
-function watch(path: pathlike, callback: (filename: pathlike, event: WatchEvent) -> ()): WatchHandle
+local function watch(path: pathlike, callback: (filename: pathlike, event: watchevent) -> ()): watchhandle
 	return fs.watch(pathlib.format(path), callback)
 end
 
-function exists(path: pathlike): boolean
+local function exists(path: pathlike): boolean
 	return fs.exists(pathlib.format(path))
 end
 
-function copy(src: pathlike, dest: pathlike): ()
+local function copy(src: pathlike, dest: pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
-function listdir(path: pathlike): { DirectoryEntry }
+local function listdir(path: pathlike): { directoryentry }
 	return fs.listdir(pathlib.format(path))
 end
 
-function rmdir(path: pathlike): ()
+local function rmdir(path: pathlike): ()
 	return fs.rmdir(pathlib.format(path))
 end
 
-function readfiletostring(filepath: pathlike): string
+local function readfiletostring(filepath: pathlike): string
 	return fs.readfiletostring(pathlib.format(filepath))
 end
 
-function writestringtofile(filepath: pathlike, contents: string): ()
+local function writestringtofile(filepath: pathlike, contents: string): ()
 	return fs.writestringtofile(pathlib.format(filepath), contents)
 end
 
-function readasync(filepath: pathlike): string
+local function readasync(filepath: pathlike): string
 	return fs.readasync(pathlib.format(filepath))
 end
 

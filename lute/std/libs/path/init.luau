@@ -3,10 +3,10 @@ local system = require("@std/system")
 local posix = require("@self/posix")
 local win32 = require("@self/win32")
 
-local types = require("@self/types")
+local pathtypes = require("@self/types")
 
-export type path = types.path
-export type pathlike = types.pathlike
+export type path = pathtypes.path
+export type pathlike = pathtypes.pathlike
 
 local onWindows = system.win32
 

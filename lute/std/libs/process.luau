@@ -6,29 +6,29 @@
 local process = require("@lute/process")
 local pathlib = require("@std/path")
 
-type StdioKind = process.StdioKind
-type ProcessRunOptions = process.ProcessRunOptions
-type ProcessResult = process.ProcessResult
-type path = pathlib.path
-type pathlike = pathlib.pathlike
+export type stdiokind = process.StdioKind
+export type processrunoptions = process.ProcessRunOptions
+export type processresult = process.ProcessResult
+export type path = pathlib.path
+export type pathlike = pathlib.pathlike
 
-function homedir(): path
+local function homedir(): path
 	return pathlib.parse(process.homedir())
 end
 
-function cwd(): path
+local function cwd(): path
 	return pathlib.parse(process.cwd())
 end
 
-function run(args: string | { string }, options: ProcessRunOptions?): ProcessResult
+local function run(args: string | { string }, options: processrunoptions?): processresult
 	return process.run(args, options)
 end
 
-function exit(exitcode: number): never
+local function exit(exitcode: number): never
 	return process.exit(exitcode)
 end
 
-function execpath(): path
+local function execpath(): path
 	return pathlib.parse(process.execpath())
 end
 

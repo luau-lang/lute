@@ -1,9 +1,9 @@
 local process = require("@lute/process")
-local types = require("@self/types")
+local win32types = require("@self/types")
 
-export type pathkind = types.pathkind
-export type path = types.path
-export type pathlike = types.pathlike
+export type pathkind = win32types.pathkind
+export type path = win32types.path
+export type pathlike = win32types.pathlike
 
 local win32 = {}
 

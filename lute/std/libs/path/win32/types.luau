@@ -8,4 +8,4 @@ export type path = {
 
 export type pathlike = string | path
 
-return { "successfully exported win32 path types" }
+return {}
