@@ -52,6 +52,7 @@ local function link(src: pathlike, dest: pathlike): ()
 end
 
 local function symlink(src: pathlike, dest: pathlike): ()
+	-- make sure our path is absolute path for symlink and if your os is
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 

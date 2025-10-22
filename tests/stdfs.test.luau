@@ -57,9 +57,15 @@ test.suite("FsSuite", function(suite)
 		assert.eq(fs.type(tmpdir), "dir")
 
 		fs.remove(file)
+		assert.eq(fs.exists(file), false)
+
+		fs.rmdir(tmpdir)
 	end)
 
 	suite:case("mkdir_listdir_rmdir", function(assert)
+		if not fs.exists(tmpdir) then
+			fs.mkdir(tmpdir)
+		end
 		local dir = path.join(tmpdir, "subdir")
 		if fs.exists(dir) then
 			fs.rmdir(dir)
@@ -160,7 +166,6 @@ test.suite("FsSuite", function(suite)
 				fs.rmdir(tmpdir)
 			end
 		end
-		assert.eq(true, true)
 	end)
 end)
 
