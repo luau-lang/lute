@@ -2,15 +2,16 @@
 
 #include "lute/modulepath.h"
 
+#include "Luau/DenseHash.h"
+
+#include <functional>
 #include <optional>
 #include <string>
-#include <map>
 
 class BundleVfs
 {
 public:
-    BundleVfs() = default;
-    BundleVfs(const std::map<std::string, std::string>* bundleMap);
+    BundleVfs(const Luau::DenseHashMap<std::string, std::string>& bundleMap);
 
     NavigationStatus resetToPath(const std::string& path);
 
@@ -25,6 +26,6 @@ public:
     std::optional<std::string> getConfig() const;
 
 private:
-    const std::map<std::string, std::string>* filePathToBytecode = nullptr;
+    const Luau::DenseHashMap<std::string, std::string>& filePathToBytecode;
     std::optional<ModulePath> modulePath;
 };
