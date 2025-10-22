@@ -4,10 +4,10 @@
 
 #include <string>
 
-static const std::string BUNDLE_PREFIX = "@bundle/";
+constexpr std::string_view kBundlePrefix = "@bundle/";
 
-BundleVfs::BundleVfs(const Luau::DenseHashMap<std::string, std::string>& bundleMap)
-    : filePathToBytecode(bundleMap)
+BundleVfs::BundleVfs(Luau::DenseHashMap<std::string, std::string> bundleMap)
+    : filePathToBytecode(std::move(bundleMap))
 {
 }
 
@@ -15,8 +15,8 @@ static bool isBundleModule(const Luau::DenseHashMap<std::string, std::string>& b
 {
     // Strip @bundle/ prefix if present
     std::string lookupPath = path;
-    if (path.find(BUNDLE_PREFIX) == 0)
-        lookupPath = path.substr(BUNDLE_PREFIX.size());
+    if (path.rfind(kBundlePrefix, 0) == 0)
+        lookupPath = path.substr(kBundlePrefix.size());
 
     // Check direct file match
     if (bundleMap.find(lookupPath) != nullptr)
@@ -29,14 +29,14 @@ static bool isBundleDirectory(const Luau::DenseHashMap<std::string, std::string>
 {
     // Strip @bundle/ prefix if present
     std::string lookupPath = path;
-    if (path.find(BUNDLE_PREFIX) == 0)
-        lookupPath = path.substr(BUNDLE_PREFIX.size());
+    if (path.rfind(kBundlePrefix, 0) == 0)
+        lookupPath = path.substr(kBundlePrefix.size());
 
     // A directory exists if any file in the bundle starts with this path followed by a slash
     std::string prefix = lookupPath + "/";
     for (const auto& [filePath, _] : bundleMap)
     {
-        if (filePath.find(prefix) == 0)
+        if (filePath.rfind(prefix, 0) == 0)
             return true;
     }
 
@@ -58,11 +58,11 @@ NavigationStatus BundleVfs::resetToPath(const std::string& path)
     }
 
     // Handle "@bundle/path/to/file"
-    if (path.find(BUNDLE_PREFIX) != 0)
+    if (path.rfind(kBundlePrefix, 0) != 0)
         return NavigationStatus::NotFound;
 
     // Strip "@bundle/" to get the actual path
-    std::string filePath = path.substr(BUNDLE_PREFIX.size());
+    std::string filePath = path.substr(kBundlePrefix.size());
 
     modulePath = ModulePath::create(
         "@bundle",
@@ -103,11 +103,11 @@ std::optional<std::string> BundleVfs::getContents(const std::string& path) const
 {
     // Strip @bundle/ prefix if present
     std::string lookupPath = path;
-    if (path.find(BUNDLE_PREFIX) == 0)
-        lookupPath = path.substr(BUNDLE_PREFIX.size());
+    if (path.rfind(kBundlePrefix, 0) == 0)
+        lookupPath = path.substr(kBundlePrefix.size());
 
     // Try direct lookup
-    const auto* value = filePathToBytecode.find(lookupPath);
+    const std::string* value = filePathToBytecode.find(lookupPath);
     if (value != nullptr)
         return *value;
 

@@ -11,7 +11,7 @@
 class BundleVfs
 {
 public:
-    BundleVfs(const Luau::DenseHashMap<std::string, std::string>& bundleMap);
+    BundleVfs(Luau::DenseHashMap<std::string, std::string> bundleMap);
 
     NavigationStatus resetToPath(const std::string& path);
 
@@ -26,6 +26,6 @@ public:
     std::optional<std::string> getConfig() const;
 
 private:
-    const Luau::DenseHashMap<std::string, std::string>& filePathToBytecode;
+    const Luau::DenseHashMap<std::string, std::string> filePathToBytecode;
     std::optional<ModulePath> modulePath;
 };
