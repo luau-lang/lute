@@ -10,34 +10,33 @@ type StdioKind = process.StdioKind
 type ProcessRunOptions = process.ProcessRunOptions
 type ProcessResult = process.ProcessResult
 type path = stdPath.path
+type pathlike = stdPath.pathlike
 
-process.env = {} :: { [string]: string }
-
-function process.homedir(): path
-	local homedirStr = process.homedir()
+function homedir(): path
+	return stdPath.parse(process.homedir())
 end
 
-function process.cwd(): path
-	local cwdStr = process.cwd()
+function cwd(): path
+	return stdPath.parse(process.cwd())
 end
 
-function process.run(args: string | { string }, options: ProcessRunOptions?): ProcessResult
+function run(args: string | { string }, options: ProcessRunOptions?): ProcessResult
 	return process.run(args, options)
 end
 
-function process.exit(exitcode: number): never
+function exit(exitcode: number): never
 	return process.exit(exitcode)
 end
 
-function process.execpath(): path
-	return process.execpath()
+function execpath(): path
+	return stdPath.parse(process.execpath())
 end
 
 return table.freeze({
-	homedir = process.homedir,
-	cwd = process.cwd,
-	run = process.run,
-	exit = process.exit,
-	execpath = process.execpath,
 	env = process.env,
+	homedir = homedir,
+	cwd = cwd,
+	run = run,
+	exit = exit,
+	execpath = execpath,
 })
