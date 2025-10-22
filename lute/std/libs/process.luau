@@ -4,20 +4,20 @@
 -- Provides process-related utility functions that handles file paths as path types instead of strings
 
 local process = require("@lute/process")
-local stdPath = require("@std/path")
+local pathlib = require("@std/path")
 
 type StdioKind = process.StdioKind
 type ProcessRunOptions = process.ProcessRunOptions
 type ProcessResult = process.ProcessResult
-type path = stdPath.path
-type pathlike = stdPath.pathlike
+type path = pathlib.path
+type pathlike = pathlib.pathlike
 
 function homedir(): path
-	return stdPath.parse(process.homedir())
+	return pathlib.parse(process.homedir())
 end
 
 function cwd(): path
-	return stdPath.parse(process.cwd())
+	return pathlib.parse(process.cwd())
 end
 
 function run(args: string | { string }, options: ProcessRunOptions?): ProcessResult
@@ -29,7 +29,7 @@ function exit(exitcode: number): never
 end
 
 function execpath(): path
-	return stdPath.parse(process.execpath())
+	return pathlib.parse(process.execpath())
 end
 
 return table.freeze({
