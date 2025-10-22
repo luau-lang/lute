@@ -1,6 +1,6 @@
 local fs = require("@lute/fs")
 
-local path = require("./path")
+local path = require("@std/path")
 local string = require("@std/string")
 
 --- Performs ignore resolution on a set of
@@ -140,8 +140,8 @@ local function parseGitignoreContents(location: string, contents: string): Gitig
 	return ignoreData
 end
 
-local function parseGitignore(filepath: string): GitignoreData
-	local contents = fs.readfiletostring(filepath)
+local function parseGitignore(filepath: path.path): GitignoreData
+	local contents = fs.readfiletostring(path.format(filepath))
 	return parseGitignoreContents(assert(path.dirname(filepath)), contents)
 end
 
@@ -195,15 +195,15 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 end
 
 --- Checks whether the given file matches an ignore
-function IgnoreResolver.isIgnoredFile(self: IgnoreResolver, filepath: string)
+function IgnoreResolver.isIgnoredFile(self: IgnoreResolver, filepath: path.path)
 	local directory = path.dirname(filepath)
 	assert(directory ~= nil, "filepath has no directory!")
 
 	local ignoreData = self:_readIgnoreRecursive(directory)
-	return isIgnored(ignoreData, filepath, false)
+	return isIgnored(ignoreData, path.format(filepath), false)
 end
 
-function IgnoreResolver.isIgnoredDirectory(self: IgnoreResolver, directorypath: string)
+function IgnoreResolver.isIgnoredDirectory(self: IgnoreResolver, directorypath: path.path)
 	-- Hardcode: skip the .git directory
 	if path.basename(directorypath) == ".git" then
 		return true
@@ -212,7 +212,7 @@ function IgnoreResolver.isIgnoredDirectory(self: IgnoreResolver, directorypath: 
 	local parentDirectory = path.dirname(directorypath)
 	if parentDirectory then
 		local ignoreData = self:_readIgnoreRecursive(parentDirectory)
-		return isIgnored(ignoreData, directorypath, true)
+		return isIgnored(ignoreData, path.format(directorypath), true)
 	else
 		return false
 	end
@@ -225,7 +225,7 @@ function IgnoreResolver._readIgnoreRecursive(self: IgnoreResolver, directory: st
 
 	local parentPath = path.dirname(directory)
 	local baseIgnores = if parentPath then self:_readIgnoreRecursive(parentPath) else nil
-	local gitignorePath = path.joinPath(directory, ".gitignore")
+	local gitignorePath = path.join(directory, ".gitignore")
 
 	local exists, fileType = pcall(fs.type, gitignorePath)
 

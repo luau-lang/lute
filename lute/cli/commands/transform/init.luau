@@ -1,5 +1,6 @@
 local fs = require("@lute/fs")
 local luau = require("@lute/luau")
+local pathLib = require("@std/path")
 
 local arguments = require("@self/lib/arguments")
 local files = require("@self/lib/files")
@@ -87,7 +88,7 @@ end
 
 local function applyMigration(
 	migration: types.Migration,
-	paths: { string },
+	paths: { pathLib.path },
 	options: { [string]: string | boolean },
 	dryRun: boolean
 )
@@ -101,13 +102,15 @@ local function applyMigration(
 		migration.initialize(ctx)
 	end
 
-	for _, path in paths do
-		print(`Applying to {path}`)
+	for _, pathObj in paths do
+		local pathStr = pathLib.format(pathObj)
 
-		local source = fs.readfiletostring(path)
+		print(`Applying to {pathStr}`)
+
+		local source = fs.readfiletostring(pathStr)
 
 		local ctx = {
-			path = path,
+			path = pathStr,
 			source = source,
 			options = options,
 		}
@@ -122,17 +125,17 @@ local function applyMigration(
 		assert(typeof(result) == "string", `Transformed expected to return string, but got {typeof(result)}`)
 
 		if result == types.DELETION_MARKER then
-			print(`Marking {path} for deletion`)
-			table.insert(deletedPaths, path)
+			print(`Marking {pathStr} for deletion`)
+			table.insert(deletedPaths, pathStr)
 		elseif result ~= source and not dryRun then
-			fs.writestringtofile(path, result)
+			fs.writestringtofile(pathStr, result)
 		end
 	end
 
 	if not dryRun then
-		for _, path in deletedPaths do
-			print(`Deleting {path}`)
-			fs.remove(path)
+		for _, pathStr in deletedPaths do
+			print(`Deleting {pathStr}`)
+			fs.remove(pathStr)
 		end
 	end
 end
@@ -147,7 +150,7 @@ local function main(...: string)
 	print(`Loading migration '{args.migrationPath}'`)
 	local migration = loadMigration(args.migrationPath)
 
-	print("Finding source files")
+	print("Finding source files") -- todo: might type error
 	local files = files.getSourceFiles(args.filePaths)
 	if #files == 0 then
 		error("error: no source files provided")
