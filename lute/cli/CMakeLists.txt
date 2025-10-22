@@ -26,15 +26,17 @@ target_sources(Lute.CLI.lib PRIVATE
     include/lute/climain.h
     include/lute/compile.h
     include/lute/tc.h
+    include/lute/uvstate.h
 
     src/climain.cpp
     src/compile.cpp
     src/tc.cpp
+    src/uvstate.cpp
 )
 
 target_compile_features(Lute.CLI.lib PUBLIC cxx_std_17)
 target_include_directories(Lute.CLI.lib PUBLIC include ${CLI_GENERATED_INCLUDE_DIR})
-target_link_libraries(Lute.CLI.lib PRIVATE Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.CLI.Commands Lute.Crypto Lute.Fs Lute.Luau Lute.Net Lute.Task Lute.VM Lute.Process Lute.System Lute.Time Lute.Require Lute.Runtime Luau.CLI.lib)
+target_link_libraries(Lute.CLI.lib PRIVATE Luau.Compiler Luau.Config Luau.CodeGen Luau.Analysis Luau.VM Lute.CLI.Commands Lute.Crypto Lute.Fs Lute.IO Lute.Luau Lute.Net Lute.Task Lute.VM Lute.Process Lute.System Lute.Time Lute.Require Lute.Runtime Luau.CLI.lib)
 target_compile_options(Lute.CLI.lib PRIVATE ${LUTE_OPTIONS})
 
 add_executable(Lute.CLI)

@@ -12,6 +12,13 @@ function assertions.neq<T>(lhs: T, rhs: T)
 	end
 end
 
+function assertions.errors(callback: () -> ())
+	local success = pcall(callback)
+	if success then
+		error({ msg = `{callback} did not throw error.` })
+	end
+end
+
 -- Helper to format values for error messages
 local function formatValue(val: any): string
 	if type(val) == "nil" then

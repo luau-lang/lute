@@ -8,6 +8,6 @@ struct AppendedBytecodeResult
     std::string BytecodeData;
 };
 
-AppendedBytecodeResult checkForAppendedBytecode(const std::string& executablePath);
+AppendedBytecodeResult checkForAppendedBytecode();
 
-int compileScript(const std::string& inputFilePath, const std::string& outputFilePath, const std::string& currentExecutablePath); 
+int compileScript(const std::string& inputFilePath, const std::string& outputFilePath);

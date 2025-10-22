@@ -1,4 +1,4 @@
-name: Gated Commits
+name: CI
 
 on:
   push:

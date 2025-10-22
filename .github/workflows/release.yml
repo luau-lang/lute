@@ -163,8 +163,10 @@ jobs:
           prerelease: ${{ github.event.inputs.nightly || github.event_name == 'schedule' }}
           files: release/*.zip
 
+      - name: Wait for Tag Creation in GitHub
+        run: sleep 5
+
       - name: Publish Release
-        uses: luau-lang/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag_release.outputs.tag }}
-          draft: false
+        run: gh release edit "${{ steps.tag_release.outputs.tag }}" --draft=false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
