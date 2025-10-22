@@ -7,8 +7,8 @@ local REQUIRER_CONTENTS = [[
 local args = { ... }
 assert(#args == 2, "Expected one argument: path to Luau script to require")
 
-local requireLib = require("@std/require")
-local result = requireLib.requirebypath(args[2])
+local luau = require("@std/luau")
+local result = luau.loadbypath(args[2])
 print(result)
 ]]
 
