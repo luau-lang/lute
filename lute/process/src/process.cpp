@@ -296,7 +296,7 @@ int run(lua_State* L)
         const char* shell = customShell.empty() ? nullptr : customShell.c_str();
         if (!shell)
         {
-            char shellBuffer[1024];
+            static char shellBuffer[1024];
             size_t shellSize = sizeof(shellBuffer);
             int result = uv_os_getenv(shellVar, shellBuffer, &shellSize);
             shell = result == 0 ? shellBuffer : shellFallback;
