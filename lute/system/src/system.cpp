@@ -123,6 +123,30 @@ int lua_uptime(lua_State* L)
 
     return 1;
 }
+
+int lua_tmpdir(lua_State* L)
+{
+    size_t size = 255;
+    std::string tmpdir;
+    tmpdir.reserve(size);
+
+    int res = uv_os_tmpdir(tmpdir.data(), &size);
+    if (res == UV_ENOBUFS)
+    {
+        tmpdir.reserve(size); // libuv updates the size to what's required
+        res = uv_os_tmpdir(tmpdir.data(), &size);
+    }
+
+    if (res != 0)
+    {
+        luaL_error(L, "libuv error: %s", uv_strerror(res));
+    }
+
+    lua_pushstring(L, tmpdir.c_str());
+
+    return 1;
+    
+}
 } // namespace libsystem
 
 int luaopen_system(lua_State* L)
