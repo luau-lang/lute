@@ -21,6 +21,10 @@ function system.hostname(): string
 	error("unimplemented")
 end
 
+function system.tmpdir(): string
+	error("unimplemented")
+end
+
 function system.totalmemory(): number
 	error("unimplemented")
 end

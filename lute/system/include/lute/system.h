@@ -21,6 +21,7 @@ int lua_freememory(lua_State* L);
 int lua_totalmemory(lua_State* L);
 int lua_hostname(lua_State* L);
 int lua_uptime(lua_State* L);
+int lua_tmpdir(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"cpus", lua_cpus},
@@ -29,6 +30,7 @@ static const luaL_Reg lib[] = {
     {"totalmemory", lua_totalmemory},
     {"hostname", lua_hostname},
     {"uptime", lua_uptime},
+    {"tmpdir", lua_tmpdir},
 
     {nullptr, nullptr}
 };
