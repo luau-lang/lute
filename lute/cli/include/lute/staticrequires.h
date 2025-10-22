@@ -1,15 +1,15 @@
 #pragma once
 
+#include "Luau/DenseHash.h"
+
+#include <optional>
 #include <string>
 #include <vector>
-#include <set>
-#include <map>
-#include <optional>
 
 class StaticRequireTracer
 {
 public:
-    StaticRequireTracer() = default;
+    StaticRequireTracer();
 
     // Trace dependencies starting from an entry point file
     // rootDirectory: Base directory for resolving all requires
@@ -19,12 +19,12 @@ public:
 
     // Get the require graph built during the last trace
     // Maps each file to the list of files it requires
-    const std::map<std::string, std::vector<std::string>>& getRequireGraph() const { return requireGraph; }
+    const Luau::DenseHashMap<std::string, std::vector<std::string>>& getRequireGraph() const { return requireGraph; }
 
 private:
-    std::set<std::string> visited;
+    Luau::DenseHashSet<std::string> visited{""};
     std::vector<std::string> discovered;
-    std::map<std::string, std::vector<std::string>> requireGraph;
+    Luau::DenseHashMap<std::string, std::vector<std::string>> requireGraph{""};
     std::string rootDirectory;
 
     // Extract all require() paths from source code

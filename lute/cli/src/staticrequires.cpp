@@ -4,9 +4,11 @@
 #include "Luau/Ast.h"
 #include "Luau/Parser.h"
 #include "Luau/FileUtils.h"
+#include "Luau/VecDeque.h"
 
 #include <cstdio>
-#include <queue>
+
+StaticRequireTracer::StaticRequireTracer() = default;
 
 // AST visitor to extract require() calls
 class RequireExtractor : public Luau::AstVisitor
@@ -37,20 +39,20 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
     requireGraph.clear();
     this->rootDirectory = rootDirectory;
 
-    std::queue<std::string> toProcess;
-    toProcess.push(entryPoint);
+    Luau::VecDeque<std::string> toProcess;
+    toProcess.push_back(entryPoint);
 
     while (!toProcess.empty())
     {
         std::string filePath = toProcess.front();
-        toProcess.pop();
+        toProcess.pop_front();
 
         // Get normalized path for visited tracking
         std::string fullPath = joinPaths(rootDirectory, filePath);
         std::string absPath = normalizePath(fullPath);
 
         // Skip if already visited (handles circular dependencies)
-        if (visited.count(absPath))
+        if (visited.contains(absPath))
             continue;
 
         visited.insert(absPath);
@@ -73,7 +75,7 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
             std::optional<std::string> resolvedPath = resolveRequire(filePath, req);
             if (resolvedPath)
             {
-                toProcess.push(*resolvedPath);
+                toProcess.push_back(*resolvedPath);
                 resolvedDeps.push_back(*resolvedPath);
             }
             else

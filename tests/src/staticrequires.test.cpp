@@ -100,25 +100,29 @@ TEST_CASE("staticrequiretracer_require_graph")
     const auto& graph = tracer.getRequireGraph();
 
     // main.luau should require utils.luau and lib/helper.luau
-    REQUIRE(graph.count("main.luau") == 1);
-    const auto& mainDeps = graph.at("main.luau");
-    REQUIRE(mainDeps.size() == 2);
-    CHECK(std::find(mainDeps.begin(), mainDeps.end(), "utils.luau") != mainDeps.end());
-    CHECK(std::find(mainDeps.begin(), mainDeps.end(), "lib/helper.luau") != mainDeps.end());
+    REQUIRE(graph.contains("main.luau"));
+    const auto* mainDeps = graph.find("main.luau");
+    REQUIRE(mainDeps != nullptr);
+    REQUIRE(mainDeps->size() == 2);
+    CHECK(std::find(mainDeps->begin(), mainDeps->end(), "utils.luau") != mainDeps->end());
+    CHECK(std::find(mainDeps->begin(), mainDeps->end(), "lib/helper.luau") != mainDeps->end());
 
     // lib/helper.luau should require shared.luau
-    REQUIRE(graph.count("lib/helper.luau") == 1);
-    const auto& helperDeps = graph.at("lib/helper.luau");
-    REQUIRE(helperDeps.size() == 1);
-    CHECK(helperDeps[0] == "shared.luau");
+    REQUIRE(graph.contains("lib/helper.luau"));
+    const auto* helperDeps = graph.find("lib/helper.luau");
+    REQUIRE(helperDeps != nullptr);
+    REQUIRE(helperDeps->size() == 1);
+    CHECK((*helperDeps)[0] == "shared.luau");
 
     // utils.luau should have no dependencies
-    REQUIRE(graph.count("utils.luau") == 1);
-    const auto& utilsDeps = graph.at("utils.luau");
-    CHECK(utilsDeps.empty());
+    REQUIRE(graph.contains("utils.luau"));
+    const auto* utilsDeps = graph.find("utils.luau");
+    REQUIRE(utilsDeps != nullptr);
+    CHECK(utilsDeps->empty());
 
     // shared.luau should have no dependencies
-    REQUIRE(graph.count("shared.luau") == 1);
-    const auto& sharedDeps = graph.at("shared.luau");
-    CHECK(sharedDeps.empty());
+    REQUIRE(graph.contains("shared.luau"));
+    const auto* sharedDeps = graph.find("shared.luau");
+    REQUIRE(sharedDeps != nullptr);
+    CHECK(sharedDeps->empty());
 }
