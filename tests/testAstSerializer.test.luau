@@ -1,9 +1,9 @@
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
 local fs = require("@lute/fs")
 
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
-local T = require("@lute/luau")
+local T = require("@std/luau")
 
 local function assertEqualsLocation(
 	actual: T.Location,

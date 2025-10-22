@@ -1,5 +1,5 @@
 local fs = require("@lute/fs")
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
 
 local function requirebypath(path: string): any
 	local migrationHandle = fs.open(path, "r")

@@ -1,6 +1,6 @@
 --!strict
 
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
 
 export type Visitor = {
 	visitBlock: (luau.AstStatBlock) -> boolean,
