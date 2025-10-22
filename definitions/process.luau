@@ -1,7 +1,3 @@
-local pathtype = require("@std/path/types")
-
-type path = pathtype.path
-
 export type StdioKind = "default" | "inherit" | "none" | ""
 
 export type ProcessRunOptions = {
