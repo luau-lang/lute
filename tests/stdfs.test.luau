@@ -16,9 +16,9 @@ test.suite("FsSuite", function(suite)
 
 	suite:case("open_read_write_close_and_stat", function(assert)
 		local file = path.join(tmpdir, "file.txt")
-		assert.eq(fs.exists(file), false)
 
 		local h = fs.open(file, "w+")
+		assert.eq(fs.exists(file), true)
 		fs.write(h, "abc")
 		fs.close(h)
 
