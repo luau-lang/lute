@@ -2657,7 +2657,7 @@ int compile_luau(lua_State* L)
 int load_luau(lua_State* L)
 {
     const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
-    const char* path = lua_tostring(L, 2);
+    const char* path = luaL_checkstring(L, 2);
     int envIndex = lua_isnoneornil(L, 3) ? 0 : 3;
 
     luau_load(L, path, bytecode_string->c_str(), bytecode_string->length(), envIndex);
