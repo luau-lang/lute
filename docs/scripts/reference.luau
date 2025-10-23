@@ -1,5 +1,5 @@
-local fs = require("@std/fs")
-local process = require("@std/process")
+local fs = require("@lute/fs")
+local process = require("@lute/process")
 
 local function projectRelative(...)
 	local cwd = process.cwd()
