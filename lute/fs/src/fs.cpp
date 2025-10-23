@@ -629,7 +629,7 @@ int fs_watch(lua_State* L)
                     eventHandle->callbackReference->push(L);
 
                     // filename
-                    lua_pushstring(L, filename.c_str());
+                    lua_pushlstring(L, filename.c_str(), filename.size());
 
                     // events
                     lua_createtable(L, 0, 2);

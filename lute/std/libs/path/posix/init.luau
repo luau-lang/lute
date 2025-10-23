@@ -1,11 +1,8 @@
 local process = require("@lute/process")
+local posixtypes = require("@self/types")
 
-export type path = {
-	parts: { string },
-	absolute: boolean,
-}
-
-export type pathlike = string | path
+export type path = posixtypes.path
+export type pathlike = posixtypes.pathlike
 
 local posix = {}
 

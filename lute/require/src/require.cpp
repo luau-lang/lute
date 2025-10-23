@@ -125,7 +125,7 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
         luaL_error(L, "could not read file '%s'", loadname);
 
     // now we can compile & run module on the new thread
-    std::string bytecode = Luau::compile(*contents, copts());
+    std::string bytecode = reqCtx->vfs.isPrecompiled() ? *contents : Luau::compile(*contents, copts());
     bool errored = true;
     if (luau_load(ML, chunkname, bytecode.data(), bytecode.size(), 0) == 0)
     {
@@ -197,5 +197,10 @@ RequireCtx::RequireCtx()
 
 RequireCtx::RequireCtx(CliVfs cliVfs)
     : vfs(cliVfs)
+{
+}
+
+RequireCtx::RequireCtx(BundleVfs bundleVfs)
+    : vfs(bundleVfs)
 {
 }
