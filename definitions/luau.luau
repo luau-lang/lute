@@ -531,6 +531,7 @@ export type AstType =
 	| AstTypeArray
 	| AstTypeTable
 	| AstTypeFunction
+	| AstGenericType
 
 export type AstTypePackExplicit = {
 	tag: "explicit",
@@ -540,11 +541,11 @@ export type AstTypePackExplicit = {
 	closeparens: Token<")">?,
 }
 
-export type AstTypePackGeneric = {
-	tag: "generic",
-	name: Token,
-	ellipsis: Token<"...">,
-}
+-- export type AstTypePackGeneric = {
+-- 	tag: "generic",
+-- 	name: Token,
+-- 	ellipsis: Token<"...">,
+-- }
 
 export type AstTypePackVariadic = {
 	tag: "variadic",
@@ -553,7 +554,7 @@ export type AstTypePackVariadic = {
 	type: AstType,
 }
 
-export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
+export type AstTypePack = AstTypePackExplicit | AstGenericTypePack | AstTypePackVariadic
 
 export type ParseResult = {
 	root: AstStatBlock,

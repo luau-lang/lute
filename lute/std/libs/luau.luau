@@ -142,7 +142,7 @@ export type AstType = luteLuau.AstType
 
 export type AstTypePackExplicit = luteLuau.AstTypePackExplicit
 
-export type AstTypePackGeneric = luteLuau.AstTypePackGeneric
+-- export type AstTypePackGeneric = luteLuau.AstTypePackGeneric
 
 export type AstTypePackVariadic = luteLuau.AstTypePackVariadic
 
