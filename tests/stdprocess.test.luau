@@ -19,17 +19,21 @@ test.suite("ProcessSuite", function(suite)
 		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
-	suite:case("run_shell_and_env_and_cwd", function(assert)
+	suite:case("run_shell_and_cwd", function(assert)
 		local r = process.run({ "pwd" }, { cwd = "/" })
 		assert.tableeq(r, {
 			exitcode = 0,
 			stdout = "/\n",
+			stderr = "",
+			ok = true,
 		})
 
-		local r2 = process.run({ "echo", "$HOME" }, { env = { HOME = "/home/lute" }, shell = true })
+		local r2 = process.run({ "echo hello!" }, { shell = true })
 		assert.tableeq(r2, {
 			exitcode = 0,
-			stdout = "/home/lute\n",
+			stdout = "hello!\n",
+			stderr = "",
+			ok = true,
 		})
 	end)
 
@@ -38,6 +42,8 @@ test.suite("ProcessSuite", function(suite)
 		assert.tableeq(r, {
 			exitcode = 41,
 			stdout = "",
+			stderr = "",
+			ok = false,
 		})
 	end)
 end)

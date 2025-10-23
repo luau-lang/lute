@@ -1,7 +1,6 @@
 local test = require("@std/test")
 local path = require("@std/path")
 local fs = require("@std/fs")
-
 local tmpdir = "tmp"
 
 test.suite("FsSuite", function(suite)
@@ -27,8 +26,7 @@ test.suite("FsSuite", function(suite)
 		assert.eq(m.size, 3)
 
 		local hr = fs.open(file, "r")
-		local got = fs.read(hr)
-		assert.eq(got, "abc")
+		assert.eq(fs.read(hr), "abc")
 		fs.close(hr)
 
 		fs.remove(file)
@@ -67,7 +65,7 @@ test.suite("FsSuite", function(suite)
 
 		local entries = fs.listdir(tmpdir)
 		local found = false
-		for _, e in ipairs(entries) do
+		for _, e in entries do
 			if e.name == "subdir" then
 				found = true
 			end
