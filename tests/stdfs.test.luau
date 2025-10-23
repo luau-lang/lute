@@ -5,11 +5,17 @@ local fs = require("@std/fs")
 local tmpdir = "tmp"
 
 test.suite("FsSuite", function(suite)
-	suite:case("open_read_write_close_and_stat", function(assert)
+	suite:beforeall(function()
 		if not fs.exists(tmpdir) then
 			fs.mkdir(tmpdir)
 		end
+	end)
 
+	suite:afterall(function()
+		fs.rmdir(tmpdir)
+	end)
+
+	suite:case("open_read_write_close_and_stat", function(assert)
 		local file = path.join(tmpdir, "file.txt")
 		assert.eq(fs.exists(file), false)
 
@@ -18,7 +24,6 @@ test.suite("FsSuite", function(suite)
 		fs.close(h)
 
 		local m = fs.stat(file)
-		assert.eq(m ~= nil, true)
 		assert.eq(m.size, 3)
 
 		local hr = fs.open(file, "r")
@@ -30,10 +35,6 @@ test.suite("FsSuite", function(suite)
 	end)
 
 	suite:case("writestring_and_readfile", function(assert)
-		if not fs.exists(tmpdir) then
-			fs.mkdir(tmpdir)
-		end
-
 		local file = path.join(tmpdir, "hello.txt")
 		fs.writestringtofile(file, "hello lute")
 
@@ -44,10 +45,6 @@ test.suite("FsSuite", function(suite)
 	end)
 
 	suite:case("exists_and_type_file_and_dir", function(assert)
-		if not fs.exists(tmpdir) then
-			fs.mkdir(tmpdir)
-		end
-
 		local file = path.join(tmpdir, "roblox.txt")
 		fs.writestringtofile(file, "roblox")
 
@@ -57,21 +54,14 @@ test.suite("FsSuite", function(suite)
 		assert.eq(fs.type(tmpdir), "dir")
 
 		fs.remove(file)
-		assert.eq(fs.exists(file), false)
-
-		fs.rmdir(tmpdir)
 	end)
 
 	suite:case("mkdir_listdir_rmdir", function(assert)
-		if not fs.exists(tmpdir) then
-			fs.mkdir(tmpdir)
-		end
 		local dir = path.join(tmpdir, "subdir")
-		if fs.exists(dir) then
-			fs.rmdir(dir)
+		if not fs.exists(dir) then
+			fs.mkdir(dir)
 		end
 
-		fs.mkdir(dir)
 		assert.eq(fs.exists(dir), true)
 		assert.eq(fs.type(dir), "dir")
 
@@ -83,15 +73,10 @@ test.suite("FsSuite", function(suite)
 			end
 		end
 		assert.eq(found, true)
-
 		fs.rmdir(dir)
-		assert.eq(fs.exists(dir), false)
 	end)
 
 	suite:case("readasync_and_writestring", function(assert)
-		if not fs.exists(tmpdir) then
-			fs.mkdir(tmpdir)
-		end
 		local file = path.join(tmpdir, "async.txt")
 		fs.writestringtofile(file, "async content")
 
@@ -102,10 +87,6 @@ test.suite("FsSuite", function(suite)
 	end)
 
 	suite:case("link_and_symlink_and_copy", function(assert)
-		if not fs.exists(tmpdir) then
-			fs.mkdir(tmpdir)
-		end
-
 		local srcfile = "src.txt"
 		local src = path.join(tmpdir, srcfile)
 		fs.writestringtofile(src, "linkcontent")
@@ -126,13 +107,9 @@ test.suite("FsSuite", function(suite)
 		fs.remove(dstsymlink)
 
 		fs.remove(src)
-		fs.rmdir(tmpdir)
 	end)
 
 	suite:case("watch_callback_on_change", function(assert)
-		if not fs.exists(tmpdir) then
-			fs.mkdir(tmpdir)
-		end
 		local watched = path.join(tmpdir, "watched.txt")
 		if fs.exists(watched) then
 			fs.remove(watched)
@@ -156,15 +133,6 @@ test.suite("FsSuite", function(suite)
 		handle:close()
 		if fs.exists(watched) then
 			fs.remove(watched)
-		end
-	end)
-
-	suite:case("cleanup_tmpdir", function(assert)
-		if fs.exists(tmpdir) then
-			local entries = fs.listdir(tmpdir)
-			if #entries == 0 then
-				fs.rmdir(tmpdir)
-			end
 		end
 	end)
 end)

@@ -1,23 +1,22 @@
 local test = require("@std/test")
 local process = require("@std/process")
+local pathlib = require("@std/path")
 
 test.suite("ProcessSuite", function(suite)
 	suite:case("homedir_and_cwd_and_execpath", function(assert)
 		local hd = process.homedir()
-		assert.eq(hd ~= nil, true)
+		assert.neq(pathlib.format(hd), "")
 
 		local cwd = process.cwd()
-		assert.eq(cwd ~= nil, true)
+		assert.neq(pathlib.format(cwd), "")
 
 		local ex = process.execpath()
-		assert.eq(ex ~= nil, true)
+		assert.neq(pathlib.format(ex), "")
 	end)
 
 	suite:case("run_echo_array", function(assert)
 		local r = process.run({ "echo", "hello-from-lute" })
-		assert.eq(r.exitcode, 0)
-		assert.eq(type(r.stdout) == "string", true)
-		assert.eq(r.ok, true)
+		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
 	suite:case("run_shell_and_env_and_cwd", function(assert)
@@ -35,12 +34,6 @@ test.suite("ProcessSuite", function(suite)
 		assert.eq(r.exitcode, 41)
 		assert.eq(r.ok, false)
 	end)
-
-	-- uncomment to test process.exit (will terminate the test runner)
-	-- suite:case("process_exit", function(assert)
-	--     local ok, err = pcall(function() process.exit(0) end)
-	--     assert.eq(ok, false)
-	-- end)
 end)
 
 test.run()
