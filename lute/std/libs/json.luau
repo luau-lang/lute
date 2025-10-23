@@ -3,10 +3,9 @@ local json = {
 	null = newproxy() :: nil,
 }
 
-type jsonprimitive = nil | number | string | boolean
-type object = { [string]: value }
-type array = { [number]: value }
-export type value = jsonprimitive | array | object
+export type object = { [string]: value }
+export type array = { [number]: value }
+export type value = nil | number | string | boolean | array | object
 
 -- a unique key to identify an object vs a table
 local object_key = newproxy()
