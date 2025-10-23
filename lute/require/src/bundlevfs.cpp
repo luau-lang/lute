@@ -1,8 +1,10 @@
 #include "lute/bundlevfs.h"
 
 #include "Luau/Common.h"
+#include "Luau/DenseHash.h"
 
 #include <string>
+#include <string_view>
 
 constexpr std::string_view kBundlePrefix = "@bundle/";
 
