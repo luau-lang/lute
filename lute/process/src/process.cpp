@@ -119,7 +119,7 @@ struct ProcessHandle
 
                     if (!finalSignalStr.empty())
                     {
-                        lua_pushstring(L, finalSignalStr.c_str());
+                        lua_pushlstring(L, finalSignalStr.c_str(), finalSignalStr.size());
                     }
                     else
                     {
@@ -293,16 +293,23 @@ int run(lua_State* L)
         const char* shellArg = "-c";
 #endif
 
-        const char* shell = customShell.empty() ? nullptr : customShell.c_str();
-        if (!shell)
+        std::string resolvedShell;
+        if (customShell.empty())
         {
             char shellBuffer[1024];
             size_t shellSize = sizeof(shellBuffer);
             int result = uv_os_getenv(shellVar, shellBuffer, &shellSize);
-            shell = result == 0 ? shellBuffer : shellFallback;
+            resolvedShell = result == 0 ? shellBuffer : shellFallback;
+        }
+        else
+        {
+            resolvedShell = customShell;
         }
 
-        args = {shell, shellArg, commandStr};
+        args.clear();
+        args.emplace_back(resolvedShell);
+        args.emplace_back(shellArg);
+        args.emplace_back(commandStr);
     }
 
     auto handle = std::make_shared<ProcessHandle>();
@@ -332,6 +339,7 @@ int run(lua_State* L)
         if (err != 0)
         {
             luaL_error(L, "Failed to get current environment: %s", uv_strerror(err));
+            uv_os_free_environ(currentEnvItems, currentEnvCount);
             return 0;
         }
         for (int i = 0; i < currentEnvCount; i++)
@@ -341,6 +349,8 @@ int run(lua_State* L)
                 env[currentEnvItems[i].name] = currentEnvItems[i].value;
             }
         }
+        uv_os_free_environ(currentEnvItems, currentEnvCount);
+
         // Turn the new environment into a char** array
         envStrings.reserve(env.size());
         envPtr.reserve(env.size() + 1);
@@ -442,7 +452,7 @@ int homedir(lua_State* L)
         return 1;
     }
 
-    lua_pushstring(L, buffer.c_str());
+    lua_pushlstring(L, buffer.c_str(), buffer.size());
 
     return 1;
 }
@@ -480,7 +490,7 @@ int cwd(lua_State* L)
         return 1;
     }
 
-    lua_pushstring(L, buffer.c_str());
+    lua_pushlstring(L, buffer.c_str(), buffer.size());
 
     return 1;
 };
@@ -601,8 +611,9 @@ static int envIterNext(lua_State* L)
         return 0;
     }
 
-    lua_pushstring(L, iter->items[iter->index].name);
-    lua_pushstring(L, iter->items[iter->index].value);
+    uv_env_item_t item = iter->items[iter->index];
+    lua_pushstring(L, item.name);
+    lua_pushstring(L, item.value);
     iter->index++;
     return 2;
 }

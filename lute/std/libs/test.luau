@@ -1,5 +1,5 @@
 --!strict
-local ps = require("@lute/process")
+local ps = require("@std/process")
 local assert = require("@std/assert")
 -- Test Types
 type Test = (assert.Asserts) -> ()

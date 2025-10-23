@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lute/bundlevfs.h"
 #include "lute/clivfs.h"
 #include "lute/requirevfs.h"
 
@@ -13,6 +14,7 @@ struct RequireCtx
 {
     RequireCtx();
     RequireCtx(CliVfs cliVfs);
+    RequireCtx(BundleVfs bundleVfs);
 
     RequireVfs vfs;
 };

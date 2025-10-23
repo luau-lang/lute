@@ -1,12 +1,14 @@
 local json = {
 	--- Not actually a nil value, a newproxy stand-in for a null value since Luau has no actual representation of `null`
-	NULL = newproxy() :: nil,
+	null = newproxy() :: nil,
 }
 
-type JSONPrimitive = nil | number | string | boolean
-type Object = { [string]: Value }
-type Array = { Value }
-export type Value = JSONPrimitive | Array | Object
+export type object = { [string]: value }
+export type array = { [number]: value }
+export type value = nil | number | string | boolean | array | object
+
+-- a unique key to identify an object vs a table
+local object_key = newproxy()
 
 -- serialization
 
@@ -66,7 +68,7 @@ local function writeString(state: SerializerState, str: string)
 	state.cursor += #str
 end
 
-local serializeAny: (SerializerState, (Array | Object | boolean | number | string)?) -> ()
+local serializeAny: (SerializerState, (array | object | boolean | number | string)?) -> ()
 
 local ESCAPE_MAP = {
 	[0x5C] = string.byte("\\"), -- 5C = '\'
@@ -107,7 +109,7 @@ local function serializeString(state: SerializerState, str: string)
 	writeByte(state, string.byte('"'))
 end
 
-local function serializeArray(state: SerializerState, array: Array)
+local function serializeArray(state: SerializerState, array: array)
 	state.depth += 1
 
 	writeByte(state, string.byte("["))
@@ -142,7 +144,7 @@ local function serializeArray(state: SerializerState, array: Array)
 	writeByte(state, string.byte("]"))
 end
 
-local function serializeTable(state: SerializerState, object: Object)
+local function serializeTable(state: SerializerState, object: object)
 	writeByte(state, string.byte("{"))
 
 	if state.prettyPrint then
@@ -153,6 +155,10 @@ local function serializeTable(state: SerializerState, object: Object)
 
 	local first = true
 	for key, value in object do
+		if key == object_key then
+			continue
+		end
+
 		if not first then
 			writeByte(state, string.byte(","))
 			writeByte(state, string.byte(" "))
@@ -184,10 +190,10 @@ local function serializeTable(state: SerializerState, object: Object)
 	writeByte(state, string.byte("}"))
 end
 
-serializeAny = function(state: SerializerState, value: Value)
+serializeAny = function(state: SerializerState, value: value)
 	local valueType = type(value)
 
-	if value == json.NULL then
+	if value == json.null then
 		writeString(state, "null")
 	elseif valueType == "boolean" then
 		writeString(state, if value then "true" else "false")
@@ -197,9 +203,9 @@ serializeAny = function(state: SerializerState, value: Value)
 		serializeString(state, value :: string)
 	elseif valueType == "table" then
 		if #(value :: {}) == 0 and next(value :: { [unknown]: unknown }) ~= nil then
-			serializeTable(state, value :: Object)
+			serializeTable(state, value :: object)
 		else
-			serializeArray(state, value :: Array)
+			serializeArray(state, value :: array)
 		end
 	else
 		error("Unknown value", 2)
@@ -329,12 +335,12 @@ local function deserializeString(state: DeserializerState): string
 	return deserializerError(state, "Unterminated string")
 end
 
-local deserialize: (DeserializerState) -> (Array | Object | boolean | number | string)?
+local deserialize: (DeserializerState) -> (array | object | boolean | number | string)?
 
-local function deserializeArray(state: DeserializerState): Array
+local function deserializeArray(state: DeserializerState): array
 	state.cursor += 1
 
-	local current: Array = {}
+	local current: array = {}
 
 	local expectingValue = false
 	while state.cursor < #state.src do
@@ -369,7 +375,7 @@ local function deserializeArray(state: DeserializerState): Array
 	return current
 end
 
-local function deserializeObject(state: DeserializerState): Object
+local function deserializeObject(state: DeserializerState): object
 	state.cursor += 1
 
 	local current = {}
@@ -429,14 +435,14 @@ local function deserializeObject(state: DeserializerState): Object
 	return current
 end
 
-deserialize = function(state: DeserializerState): Value
+deserialize = function(state: DeserializerState): value
 	skipWhitespace(state)
 
 	local fourChars = string.sub(state.src, state.cursor, state.cursor + 3)
 
 	if fourChars == "null" then
 		state.cursor += 4
-		return json.NULL
+		return json.null
 	elseif fourChars == "true" then
 		state.cursor += 4
 		return true
@@ -459,7 +465,7 @@ end
 
 -- user-facing
 
-json.serialize = function(value: Value, prettyPrint: boolean?)
+function json.serialize(value: value, prettyPrint: boolean?)
 	local state: SerializerState = {
 		buf = buffer.create(1024),
 		cursor = 0,
@@ -472,13 +478,39 @@ json.serialize = function(value: Value, prettyPrint: boolean?)
 	return buffer.readstring(state.buf, 0, state.cursor)
 end
 
-json.deserialize = function(src: string)
+function json.deserialize(src: string)
 	local state = {
 		src = src,
 		cursor = 0,
 	}
 
 	return deserialize(state)
+end
+
+function json.object(props: { [string]: value }): object
+	local res: object = { [object_key] = true }
+
+	for key, value in props do
+		res[key] = value
+	end
+
+	return res
+end
+
+function json.asobject(value: value): object?
+	if typeof(value) == "table" and value[object_key] then
+		return value :: object
+	end
+
+	return nil
+end
+
+function json.asarray(value: value): array?
+	if typeof(value) == "table" and not value[object_key] then
+		return value :: array
+	end
+
+	return nil
 end
 
 return table.freeze(json)
