@@ -156,6 +156,10 @@ local function serializeTable(state: SerializerState, object: object)
 
 	local first = true
 	for key, value in object do
+		if key == object_key then
+			continue
+		end
+
 		if not first then
 			writeByte(state, string.byte(","))
 			writeByte(state, string.byte(" "))
