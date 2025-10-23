@@ -602,11 +602,7 @@ test.suite("PathWin32ResolveSuite", function(suite)
 		-- This test assumes we're in some working directory
 		local result = path.win32.resolve("Documents\\file.txt")
 		-- Absolute unix paths will be parsed as relative Windows paths because they don't have drive letters
-		if system.os == "windows" then
-			assert.eq(result.kind, "absolute")
-		else
-			assert.eq(result.kind, "relative")
-		end
+        assert.eq(result.kind, if system.win32 then "absolute" else "relative")
 		-- The exact parts will depend on the current working directory
 		-- But we can check that it ends with our relative path
 		-- In an ideal world, we'd mock `process.cwd`
@@ -649,22 +645,14 @@ test.suite("PathWin32ResolveSuite", function(suite)
 		-- Should return normalized current working directory
 		local result = path.win32.resolve()
 		-- Absolute unix paths will be parsed as relative Windows paths because they don't have drive letters
-		if system.os == "windows" then
-			assert.eq(result.kind, "absolute")
-		else
-			assert.eq(result.kind, "relative")
-		end
+        assert.eq(result.kind, if system.win32 then "absolute" else "relative")
 		-- Can't test exact parts since cwd varies
 	end)
 
 	suite:case("resolve_drive_relative_path", function(assert)
 		local result = path.win32.resolve("C:Documents\\file.txt")
 		-- Absolute unix paths will be parsed as relative Windows paths because they don't have drive letters
-		if system.os == "windows" then
-			assert.eq(result.kind, "absolute")
-		else
-			assert.eq(result.kind, "relative")
-		end
+        assert.eq(result.kind, if system.win32 then "absolute" else "relative")
 		assert.eq(result.driveLetter, "C")
 		-- The exact parts depend on cwd, but should be absolute
 		local endIndex = #result.parts
