@@ -119,7 +119,7 @@ struct ProcessHandle
 
                     if (!finalSignalStr.empty())
                     {
-                        lua_pushstring(L, finalSignalStr.c_str());
+                        lua_pushlstring(L, finalSignalStr.c_str(), finalSignalStr.size());
                     }
                     else
                     {
@@ -452,7 +452,7 @@ int homedir(lua_State* L)
         return 1;
     }
 
-    lua_pushstring(L, buffer.c_str());
+    lua_pushlstring(L, buffer.c_str(), buffer.size());
 
     return 1;
 }
@@ -490,7 +490,7 @@ int cwd(lua_State* L)
         return 1;
     }
 
-    lua_pushstring(L, buffer.c_str());
+    lua_pushlstring(L, buffer.c_str(), buffer.size());
 
     return 1;
 };
@@ -611,8 +611,9 @@ static int envIterNext(lua_State* L)
         return 0;
     }
 
-    lua_pushstring(L, iter->items[iter->index].name);
-    lua_pushstring(L, iter->items[iter->index].value);
+    uv_env_item_t item = iter->items[iter->index];
+    lua_pushstring(L, item.name);
+    lua_pushstring(L, item.value);
     iter->index++;
     return 2;
 }

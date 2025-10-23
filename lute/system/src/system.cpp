@@ -104,7 +104,7 @@ int lua_hostname(lua_State* L)
         luaL_error(L, "libuv error: %s", uv_strerror(res));
     }
 
-    lua_pushstring(L, hostname.c_str());
+    lua_pushlstring(L, hostname.c_str(), hostname.size());
 
     return 1;
 }
@@ -122,6 +122,30 @@ int lua_uptime(lua_State* L)
     lua_pushnumber(L, uptime);
 
     return 1;
+}
+
+int lua_tmpdir(lua_State* L)
+{
+    size_t size = 255;
+    std::string tmpdir;
+    tmpdir.reserve(size);
+
+    int res = uv_os_tmpdir(tmpdir.data(), &size);
+    if (res == UV_ENOBUFS)
+    {
+        tmpdir.reserve(size); // libuv updates the size to what's required
+        res = uv_os_tmpdir(tmpdir.data(), &size);
+    }
+
+    if (res != 0)
+    {
+        luaL_error(L, "libuv error: %s", uv_strerror(res));
+    }
+
+    lua_pushlstring(L, tmpdir.c_str(), tmpdir.size());
+
+    return 1;
+    
 }
 } // namespace libsystem
 
