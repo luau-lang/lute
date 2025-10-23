@@ -1,5 +1,5 @@
 local luau = require("@lute/luau")
-local fs = require("@lute/fs")
+local fs = require("@std/fs")
 
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")

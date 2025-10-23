@@ -1,6 +1,6 @@
 local definitions = require("@self/generated/definitions")
-local fs = require("@lute/fs")
-local process = require("@lute/process")
+local fs = require("@std/fs")
+local process = require("@std/process")
 local json = require("@std/json")
 
 local BASE_PATH = ".lute/typedefs/0.1.0"
