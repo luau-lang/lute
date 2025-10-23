@@ -152,6 +152,8 @@ export type ParseResult = luteLuau.ParseResult
 
 export type Bytecode = luteLuau.Bytecode
 
+export type AstNode = AstLocal | AstExpr | AstStat | AstType | AstTypePack
+
 function luau.parse(source: string): ParseResult
 	return luteLuau.parse(source)
 end

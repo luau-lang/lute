@@ -32,12 +32,8 @@ local ast = (nil :: any) :: node
 -- Example usage:
 local utils = require("./utils")
 
-local function curry(n: node): luau.AstExprCall?
-	error("Not implemented")
-end
-
 local q = newQuery(ast)
-local p = select(q, curry)
+local p = select(q, utils.selectExprCall)
 	:filter(function(call)
 		local calledFunc = call.func
 		return calledFunc.tag == "global" and calledFunc.name.text == "require"
