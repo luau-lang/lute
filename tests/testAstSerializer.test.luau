@@ -1,173 +1,169 @@
-local luau = require("@lute/luau")
+local asserts = require("@std/assert")
 local fs = require("@lute/fs")
+local luau = require("@lute/luau")
+local path = require("@std/path")
+local test = require("@std/test")
 
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local T = require("@lute/luau")
 
 local function assertEqualsLocation(
+	assert: asserts.Asserts,
 	actual: T.Location,
 	startLine: number,
 	startColumn: number,
 	endLine: number,
 	endColumn: number
 )
-	assert(actual.begin.line == startLine)
-	assert(actual.begin.column == startColumn)
-	assert(actual["end"].line == endLine)
-	assert(actual["end"].column == endColumn)
+	assert.eq(actual.begin.line, startLine)
+	assert.eq(actual.begin.column, startColumn)
+	assert.eq(actual["end"].line, endLine)
+	assert.eq(actual["end"].column, endColumn)
 end
 
-local function test_tokenContainsLeadingSpaces()
-	local block = luau.parse("  local x = 1").root
-	assert(#block.statements == 1)
+test.suite("AstSerializer", function(suite)
+	suite:case("tokenContainsLeadingSpaces", function(assert)
+		local block = luau.parse("  local x = 1").root
+		assert.eq(#block.statements, 1)
 
-	local l = block.statements[1]
-	assert(l.tag == "local")
+		local l = block.statements[1]
+		assert.eq(l.tag, "local")
 
-	local token = l.localkeyword
-	assert(#token.leadingtrivia == 1)
-	assert(token.leadingtrivia[1].tag == "whitespace")
-	assert(token.leadingtrivia[1].text == "  ")
-	assertEqualsLocation(token.leadingtrivia[1].location, 0, 0, 0, 2)
-end
+		local token = (l :: luau.AstStatLocal).localkeyword
+		assert.eq(#token.leadingtrivia, 1)
+		assert.eq(token.leadingtrivia[1].tag, "whitespace")
+		assert.eq(token.leadingtrivia[1].text, "  ")
+		assertEqualsLocation(assert, token.leadingtrivia[1].location, 0, 0, 0, 2)
+	end)
 
-local function test_tokenContainsLeadingNewline()
-	local block = luau.parse("\n" .. "local x = 1").root
-	assert(#block.statements == 1)
+	suite:case("tokenContainsLeadingNewline", function(assert)
+		local block = luau.parse("\n" .. "local x = 1").root
+		assert.eq(#block.statements, 1)
 
-	local l = block.statements[1]
-	assert(l.tag == "local")
+		local l = block.statements[1]
+		assert.eq(l.tag, "local")
 
-	local token = l.localkeyword
-	assert(#token.leadingtrivia == 1)
-	assert(token.leadingtrivia[1].tag == "whitespace")
-	assert(token.leadingtrivia[1].text == "\n")
-	assertEqualsLocation(token.leadingtrivia[1].location, 0, 0, 1, 0)
-end
+		local token = (l :: luau.AstStatLocal).localkeyword
+		assert.eq(#token.leadingtrivia, 1)
+		assert.eq(token.leadingtrivia[1].tag, "whitespace")
+		assert.eq(token.leadingtrivia[1].text, "\n")
+		assertEqualsLocation(assert, token.leadingtrivia[1].location, 0, 0, 1, 0)
+	end)
 
-local function test_tokenContainsLeadingSingleLineComment()
-	local block = luau.parse("-- comment\n" .. "local x = 1").root
-	assert(#block.statements == 1)
+	suite:case("tokenContainsLeadingSingleLineComment", function(assert)
+		local block = luau.parse("-- comment\n" .. "local x = 1").root
+		assert.eq(#block.statements, 1)
 
-	local l = block.statements[1]
-	assert(l.tag == "local")
+		local l = block.statements[1]
+		assert.eq(l.tag, "local")
 
-	local token = l.localkeyword
-	assert(#token.leadingtrivia == 2)
-	assert(token.leadingtrivia[1].tag == "comment")
-	assert(token.leadingtrivia[1].text == "-- comment")
-	assertEqualsLocation(token.leadingtrivia[1].location, 0, 0, 0, 10)
-	assert(token.leadingtrivia[2].tag == "whitespace")
-	assert(token.leadingtrivia[2].text == "\n")
-	assertEqualsLocation(token.leadingtrivia[2].location, 0, 10, 1, 0)
-end
+		local token = (l :: luau.AstStatLocal).localkeyword
+		assert.eq(#token.leadingtrivia, 2)
+		assert.eq(token.leadingtrivia[1].tag, "comment")
+		assert.eq(token.leadingtrivia[1].text, "-- comment")
+		assertEqualsLocation(assert, token.leadingtrivia[1].location, 0, 0, 0, 10)
+		assert.eq(token.leadingtrivia[2].tag, "whitespace")
+		assert.eq(token.leadingtrivia[2].text, "\n")
+		assertEqualsLocation(assert, token.leadingtrivia[2].location, 0, 10, 1, 0)
+	end)
 
-local function test_tokenContainsLeadingBlockComment()
-	local block = luau.parse("--[[ comment ]] local x = 1").root
-	assert(#block.statements == 1)
+	suite:case("tokenContainsLeadingBlockComment", function(assert)
+		local block = luau.parse("--[[ comment ]] local x = 1").root
+		assert.eq(#block.statements, 1)
 
-	local l = block.statements[1]
-	assert(l.tag == "local")
+		local l = block.statements[1]
+		assert.eq(l.tag, "local")
 
-	local token = l.localkeyword
-	assert(#token.leadingtrivia == 2)
-	assert(token.leadingtrivia[1].tag == "blockcomment")
-	assert(token.leadingtrivia[1].text == "--[[ comment ]]")
-	assertEqualsLocation(token.leadingtrivia[1].location, 0, 0, 0, 15)
-	assert(token.leadingtrivia[2].tag == "whitespace")
-	assert(token.leadingtrivia[2].text == " ")
-	assertEqualsLocation(token.leadingtrivia[2].location, 0, 15, 0, 16)
-end
+		local token = (l :: luau.AstStatLocal).localkeyword
+		assert.eq(#token.leadingtrivia, 2)
+		assert.eq(token.leadingtrivia[1].tag, "blockcomment")
+		assert.eq(token.leadingtrivia[1].text, "--[[ comment ]]")
+		assertEqualsLocation(assert, token.leadingtrivia[1].location, 0, 0, 0, 15)
+		assert.eq(token.leadingtrivia[2].tag, "whitespace")
+		assert.eq(token.leadingtrivia[2].text, " ")
+		assertEqualsLocation(assert, token.leadingtrivia[2].location, 0, 15, 0, 16)
+	end)
 
-local function test_tokenizeWhitespace()
-	local block = luau.parse("  \n\t\t\n\n" .. "local x = 1").root
-	assert(#block.statements == 1)
+	suite:case("tokenizeWhitespace", function(assert)
+		local block = luau.parse("  \n\t\t\n\n" .. "local x = 1").root
+		assert.eq(#block.statements, 1)
 
-	local l = block.statements[1]
-	assert(l.tag == "local")
+		local l = block.statements[1]
+		assert.eq(l.tag, "local")
 
-	local token = l.localkeyword
-	assert(#token.leadingtrivia == 3)
-	assert(token.leadingtrivia[1].text == "  \n")
-	assert(token.leadingtrivia[2].text == "\t\t\n")
-	assert(token.leadingtrivia[3].text == "\n")
-end
+		local token = (l :: luau.AstStatLocal).localkeyword
+		assert.eq(#token.leadingtrivia, 3)
+		assert.eq(token.leadingtrivia[1].text, "  \n")
+		assert.eq(token.leadingtrivia[2].text, "\t\t\n")
+		assert.eq(token.leadingtrivia[3].text, "\n")
+	end)
 
-local function test_triviaSplitBetweenLeadingAndTrailing()
-	local block = luau.parse("local x = 'test' -- comment\n" .. "-- comment 2\nlocal y = 'value'").root
-	assert(#block.statements == 2)
+	suite:case("triviaSplitBetweenLeadingAndTrailing", function(assert)
+		local block = luau.parse("local x = 'test' -- comment\n" .. "-- comment 2\nlocal y = 'value'").root
+		assert.eq(#block.statements, 2)
 
-	local firstStmt = block.statements[1]
-	assert(firstStmt.tag == "local")
+		local firstStmt = block.statements[1]
+		assert.eq(firstStmt.tag, "local")
 
-	local trailingToken = firstStmt.values[1].node
-	assert(trailingToken.tag == "string")
-	assert(#trailingToken.trailingtrivia == 3)
-	assert(trailingToken.trailingtrivia[1].text == " ")
-	assert(trailingToken.trailingtrivia[2].text == "-- comment")
-	assert(trailingToken.trailingtrivia[3].text == "\n")
+		local trailingToken: luau.AstExpr = (firstStmt :: luau.AstStatLocal).values[1].node
+		assert.eq(trailingToken.tag, "string")
+		trailingToken = trailingToken :: luau.AstExprConstantString
+		assert.eq(#trailingToken.trailingtrivia, 3)
+		assert.eq(trailingToken.trailingtrivia[1].text, " ")
+		assert.eq(trailingToken.trailingtrivia[2].text, "-- comment")
+		assert.eq(trailingToken.trailingtrivia[3].text, "\n")
 
-	local secondStmt = block.statements[2]
-	assert(secondStmt.tag == "local")
+		local secondStmt = block.statements[2]
+		assert.eq(secondStmt.tag, "local")
 
-	local leadingToken = secondStmt.localkeyword
-	assert(#leadingToken.leadingtrivia == 2)
-	assert(leadingToken.leadingtrivia[1].text == "-- comment 2")
-	assert(leadingToken.leadingtrivia[2].text == "\n")
-end
+		local leadingToken = (secondStmt :: luau.AstStatLocal).localkeyword
+		assert.eq(#leadingToken.leadingtrivia, 2)
+		assert.eq(leadingToken.leadingtrivia[1].text, "-- comment 2")
+		assert.eq(leadingToken.leadingtrivia[2].text, "\n")
+	end)
 
-local function test_roundtrippableAst()
-	local function visitDirectory(directory: string)
-		for _, entry in fs.listdir(directory) do
-			local path = `{directory}/{entry.name}`
-			print(path)
-			local source = fs.readfiletostring(path)
-			local result = printer.printfile(parser.parsefile(source))
+	suite:case("roundtrippableAst", function(assert)
+		local function visitDirectory(directory: string)
+			for _, entry in fs.listdir(directory) do
+				local p = path.join(directory, entry.name)
+				local source = fs.readfiletostring(path.format(p))
+				local result = printer.printfile(parser.parsefile(source))
 
-			print(result)
-			assert(source == result)
+				assert.eq(source, result)
+			end
 		end
-	end
 
-	visitDirectory("examples")
-	visitDirectory("tests/astSerializerTests")
-end
+		visitDirectory("examples")
+		visitDirectory("tests/astSerializerTests")
+	end)
 
-local function test_lineOffsetsField()
-	local singleLineCode = "local x = 1"
-	local result = luau.parse(singleLineCode)
+	suite:case("lineOffsetsField", function(assert)
+		local singleLineCode = "local x = 1"
+		local result = luau.parse(singleLineCode)
 
-	assert(result.lineoffsets)
-	assert(type(result.lineoffsets) == "table", "lineoffsets should be a table")
-	assert(#result.lineoffsets == 1, "Should have 1 line offset for single line code") -- only line 0
-	assert(result.lineoffsets[1] == 0, "First line should start at offset 0")
+		assert.eq(type(result.lineoffsets), "table")
+		assert.eq(#result.lineoffsets, 1)
+		assert.eq(result.lineoffsets[1], 0)
 
-	local multiLineCode = "local x = 1\nlocal y = 2\nlocal z = 3"
-	local multiResult = luau.parse(multiLineCode)
+		local multiLineCode = "local x = 1\nlocal y = 2\nlocal z = 3"
+		local multiResult = luau.parse(multiLineCode)
 
-	assert(multiResult.lineoffsets)
-	assert(type(multiResult.lineoffsets) == "table", "lineoffsets should be a table for multiline")
-	assert(#multiResult.lineoffsets == 3, "Should have 3 line offsets for 3-line code") -- lines 0, 1, 2
-	assert(multiResult.lineoffsets[1] == 0, "First line should start at offset 0")
-	assert(multiResult.lineoffsets[2] == 12, "Second line should start after 'local x = 1\\n'")
-	assert(multiResult.lineoffsets[3] == 24, "Third line should start after 'local x = 1\\nlocal y = 2\\n'")
+		assert.eq(type(multiResult.lineoffsets), "table")
+		assert.eq(#multiResult.lineoffsets, 3)
+		assert.eq(multiResult.lineoffsets[1], 0)
+		assert.eq(multiResult.lineoffsets[2], 12)
+		assert.eq(multiResult.lineoffsets[3], 24)
 
-	local emptyLineCode = "local x = 1\n\nlocal y = 2"
-	local emptyResult = luau.parse(emptyLineCode)
+		local emptyLineCode = "local x = 1\n\nlocal y = 2"
+		local emptyResult = luau.parse(emptyLineCode)
 
-	assert(emptyResult.lineoffsets)
-	assert(#emptyResult.lineoffsets == 3, "Should have 3 line offsets including empty line")
-	assert(emptyResult.lineoffsets[1] == 0, "First line should start at offset 0")
-	assert(emptyResult.lineoffsets[2] == 12, "Second line (empty) should start after 'local x = 1\\n'")
-	assert(emptyResult.lineoffsets[3] == 13, "Third line should start after empty line")
-end
+		assert.eq(type(emptyResult.lineoffsets), "table")
+		assert.eq(#emptyResult.lineoffsets, 3)
+		assert.eq(emptyResult.lineoffsets[1], 0)
+		assert.eq(emptyResult.lineoffsets[2], 12)
+		assert.eq(emptyResult.lineoffsets[3], 13)
+	end)
+end)
 
-test_tokenContainsLeadingSpaces()
-test_tokenContainsLeadingNewline()
-test_tokenContainsLeadingSingleLineComment()
-test_tokenContainsLeadingBlockComment()
-test_tokenizeWhitespace()
-test_triviaSplitBetweenLeadingAndTrailing()
-test_roundtrippableAst()
-test_lineOffsetsField()
+test.run()
