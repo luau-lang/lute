@@ -1,4 +1,4 @@
-local process = require("@lute/process")
+local process = require("@std/process")
 
 print(process.env.HOME)
 print(process.env.LUTE_HOME)

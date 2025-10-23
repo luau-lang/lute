@@ -1,5 +1,5 @@
 local asserts = require("@std/assert")
-local fs = require("@lute/fs")
+local fs = require("@std/fs")
 local luau = require("@lute/luau")
 local path = require("@std/path")
 local test = require("@std/test")

@@ -1,4 +1,4 @@
-local process = require("@lute/process")
+local process = require("@std/process")
 local task = require("@std/task")
 
 local result = process.run({ "echo", "Hello, lute!" })
