@@ -21,18 +21,24 @@ test.suite("ProcessSuite", function(suite)
 
 	suite:case("run_shell_and_env_and_cwd", function(assert)
 		local r = process.run({ "pwd" }, { cwd = "/" })
-		assert.eq(r.exitcode, 0)
-		assert.eq(r.stdout, "/\n")
+		assert.tableeq(r, {
+			exitcode = 0,
+			stdout = "/\n",
+		})
 
 		local r2 = process.run({ "echo", "$HOME" }, { env = { HOME = "/home/lute" }, shell = true })
-		assert.eq(r2.exitcode, 0)
-		assert.eq(r2.stdout, "/home/lute\n")
+		assert.tableeq(r2, {
+			exitcode = 0,
+			stdout = "/home/lute\n",
+		})
 	end)
 
 	suite:case("run_nonzero_exitcode", function(assert)
 		local r = process.run({ "sh", "-c", "exit 41" })
-		assert.eq(r.exitcode, 41)
-		assert.eq(r.ok, false)
+		assert.tableeq(r, {
+			exitcode = 41,
+			stdout = "",
+		})
 	end)
 end)
 
