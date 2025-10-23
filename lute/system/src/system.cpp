@@ -104,7 +104,7 @@ int lua_hostname(lua_State* L)
         luaL_error(L, "libuv error: %s", uv_strerror(res));
     }
 
-    lua_pushstring(L, hostname.c_str());
+    lua_pushlstring(L, hostname.c_str(), hostname.size());
 
     return 1;
 }
@@ -142,7 +142,7 @@ int lua_tmpdir(lua_State* L)
         luaL_error(L, "libuv error: %s", uv_strerror(res));
     }
 
-    lua_pushstring(L, tmpdir.c_str());
+    lua_pushlstring(L, tmpdir.c_str(), tmpdir.size());
 
     return 1;
     
