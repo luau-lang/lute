@@ -302,6 +302,7 @@ local function generateStdLibFilesIfNeeded()
 				for _, line in lines do
 					local escapedLine = string.gsub(line, "\\", "\\\\")
 					escapedLine = string.gsub(escapedLine, '"', '\\"')
+					escapedLine = string.gsub(escapedLine, "\r", "")
 					table.insert(generatedLines, `"{escapedLine}\\n"`)
 				end
 				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
@@ -483,6 +484,7 @@ local function generateCliCommandsFilesIfNeeded()
 				for _, line in lines do
 					local escapedLine = string.gsub(line, "\\", "\\\\")
 					escapedLine = string.gsub(escapedLine, '"', '\\"')
+					escapedLine = string.gsub(escapedLine, "\r", "")
 					table.insert(generatedLines, `"{escapedLine}\\n"`)
 				end
 				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
