@@ -473,13 +473,13 @@ int cwd(lua_State* L)
     std::string buffer;
 
     size_t cwd_size = 255;
-    buffer.reserve(cwd_size);
+    buffer.resize(cwd_size);
 
     int status = uv_cwd(buffer.data(), &cwd_size);
     if (status == UV_ENOBUFS)
     {
         // libuv gives us the new size if it's under sized
-        buffer.reserve(cwd_size);
+        buffer.resize(cwd_size);
 
         status = uv_cwd(buffer.data(), &cwd_size);
     }
@@ -490,7 +490,7 @@ int cwd(lua_State* L)
         return 1;
     }
 
-    lua_pushlstring(L, buffer.c_str(), buffer.size());
+    lua_pushlstring(L, buffer.c_str(), cwd_size);
 
     return 1;
 };

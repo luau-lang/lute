@@ -26,17 +26,17 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        working-directory: ${{ github.workspace }}/docs
+        working-directory: $/docs
 
       - name: Build docs site
         run: npm run build
-        working-directory: ${{ github.workspace }}/docs
+        working-directory: docs
 
       - name: Upload docs artifact
         id: deployment
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ github.workspace }}/docs/.vitepress/dist/
+          path: docs/.vitepress/dist/
   
   deploy:
     runs-on: ubuntu-latest
