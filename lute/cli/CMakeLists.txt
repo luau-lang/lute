@@ -25,11 +25,13 @@ add_library(Lute.CLI.lib STATIC)
 target_sources(Lute.CLI.lib PRIVATE
     include/lute/climain.h
     include/lute/compile.h
+    include/lute/staticrequires.h
     include/lute/tc.h
     include/lute/uvstate.h
 
     src/climain.cpp
     src/compile.cpp
+    src/staticrequires.cpp
     src/tc.cpp
     src/uvstate.cpp
 )

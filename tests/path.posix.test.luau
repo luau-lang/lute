@@ -454,6 +454,10 @@ test.suite("PathPosixJoinSuite", function(suite)
 		assert.eq(result.parts[2], "user")
 		assert.eq(result.parts[3], "documents")
 		assert.eq(result.parts[4], "file.txt")
+		assert.eq(#pathobj.parts, 2) -- original pathobj should be unchanged
+		assert.eq(pathobj.parts[1], "home")
+		assert.eq(pathobj.parts[2], "user")
+		assert.eq(pathobj.absolute, true)
 	end)
 
 	suite:case("join_error_on_absolute_addend", function(assert)
