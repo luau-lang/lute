@@ -4,18 +4,10 @@
 -- Provides re-exports of `@lute/system` and boolean properties for OS detection
 
 local system = require("@lute/system")
+local path = require("@std/path")
+local platforminfo = require("@self/platforminfo")
 
-local path = (require)("@std/path") -- trickery to avoid circular dependency
-local pathTypes = require("@std/path/types")
-
-local osName = string.lower(system.os)
-
-local win32 = osName == "windows_nt"
-local linux = osName == "linux"
-local macos = osName == "darwin"
-local unix = macos or linux or osName == "unix" or osName == "posix"
-
-local function tmpdir(): pathTypes.path
+local function tmpdir(): path.path
 	return path.parse(system.tmpdir())
 end
 
@@ -32,8 +24,8 @@ return table.freeze({
 	cpus = system.cpus,
 
 	-- boolean properties
-	win32 = win32,
-	linux = linux,
-	macos = macos,
-	unix = unix,
+	win32 = platforminfo.win32,
+	linux = platforminfo.linux,
+	macos = platforminfo.macos,
+	unix = platforminfo.unix,
 })
