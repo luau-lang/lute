@@ -4,9 +4,11 @@ target_sources(Lute.Runtime PRIVATE
     include/lute/ref.h
     include/lute/runtime.h
     include/lute/userdatas.h
+    include/lute/uvutils.h
 
     src/ref.cpp
     src/runtime.cpp
+    src/uvutils.cpp
 )
 
 target_compile_features(Lute.Runtime PUBLIC cxx_std_17)

@@ -1,12 +1,13 @@
 #include "lute/process.h"
 #include "lute/runtime.h"
+#include "lute/uvutils.h"
 
 #include "Luau/Common.h"
 
 #include "lua.h"
 #include "lualib.h"
 
-#include <uv.h>
+#include "uv.h"
 
 #include <functional>
 #include <map>
@@ -432,28 +433,11 @@ int run(lua_State* L)
 
 int homedir(lua_State* L)
 {
-    std::string buffer;
+    uvutils::StringResult result = uvutils::getStringFromUv(uv_os_homedir);
+    if (result.status < 0)
+        luaL_error(L, "failed to get home directory: %s", uv_strerror(result.status));
 
-    size_t homedir_size = 255;
-    buffer.reserve(homedir_size);
-
-    int status = uv_os_homedir(buffer.data(), &homedir_size);
-    if (status == UV_ENOBUFS)
-    {
-        // libuv gives us the new size if it's under sized
-        buffer.reserve(homedir_size);
-
-        status = uv_os_homedir(buffer.data(), &homedir_size);
-    }
-
-    if (status != 0)
-    {
-        luaL_error(L, "failed to get home directory");
-        return 1;
-    }
-
-    lua_pushlstring(L, buffer.c_str(), buffer.size());
-
+    lua_pushlstring(L, result.value.c_str(), result.value.size());
     return 1;
 }
 
@@ -470,28 +454,11 @@ int exitFunc(lua_State* L)
 
 int cwd(lua_State* L)
 {
-    std::string buffer;
+    uvutils::StringResult result = uvutils::getStringFromUv(uv_cwd);
+    if (result.status < 0)
+        luaL_error(L, "failed to get current working directory: %s", uv_strerror(result.status));
 
-    size_t cwd_size = 255;
-    buffer.resize(cwd_size);
-
-    int status = uv_cwd(buffer.data(), &cwd_size);
-    if (status == UV_ENOBUFS)
-    {
-        // libuv gives us the new size if it's under sized
-        buffer.resize(cwd_size);
-
-        status = uv_cwd(buffer.data(), &cwd_size);
-    }
-
-    if (status != 0)
-    {
-        luaL_error(L, "failed to get current working directory");
-        return 1;
-    }
-
-    lua_pushlstring(L, buffer.c_str(), cwd_size);
-
+    lua_pushlstring(L, result.value.c_str(), result.value.size());
     return 1;
 };
 
