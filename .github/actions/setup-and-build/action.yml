@@ -26,6 +26,7 @@ runs:
   using: "composite"
   steps:
     - name: Set checkout path as LUTE_ROOT_DIR
+      shell: bash
       run: echo "LUTE_ROOT_DIR=$(pwd)" >> $GITHUB_ENV
 
     - name: Install tools
