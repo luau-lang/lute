@@ -108,6 +108,7 @@ end
 
 local function getSourceRoot()
 	local cwd = process.cwd()
+	print("Current working directory: " .. cwd)
 
 	while true do
 		if safeFsType(cwd .. pathSep .. ".LUTE_SENTINEL") == "file" then
