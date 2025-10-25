@@ -483,7 +483,7 @@ test.suite("PathPosixResolveSuite", function(suite)
 		-- This test assumes we're in some working directory
 		local result = path.posix.resolve("documents/file.txt")
 		-- Absolute Windows paths will be parsed as relative posix paths because they don't start with /
-		assert.eq(result.absolute, system.win32)
+		assert.neq(result.absolute, system.win32)
 		-- The exact parts will depend on the current working directory
 		-- But we can check that it ends with our relative path
 		local endIndex = #result.parts
@@ -513,7 +513,7 @@ test.suite("PathPosixResolveSuite", function(suite)
 		-- Should return normalized current working directory
 		local result = path.posix.resolve()
 		-- Absolute Windows paths will be parsed as relative posix paths because they don't start with /
-		assert.eq(result.absolute, system.win32)
+		assert.neq(result.absolute, system.win32)
 		-- Can't test exact parts since cwd varies
 	end)
 
