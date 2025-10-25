@@ -23,6 +23,8 @@ return table.freeze({
 	uptime = system.uptime,
 	cpus = system.cpus,
 
+	tmpdir = tmpdir,
+
 	-- boolean properties
 	win32 = platforminfo.win32,
 	linux = platforminfo.linux,

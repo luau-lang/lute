@@ -1,6 +1,7 @@
 local fs = require("@lute/fs")
 local process = require("@lute/process")
 local path = require("@std/path")
+local system = require("@std/system")
 local test = require("@std/test")
 
 local REQUIRER_CONTENTS = [[
@@ -15,32 +16,18 @@ print(result)
 local REQUIREE_CONTENTS = [[return "Success"]]
 
 local lutePath = process.execpath()
-
-local tmpDirStr = ".tmp"
-local tmpDirExists = fs.exists(tmpDirStr)
-local testDir = path.join(tmpDirStr, "lute_require_test")
-local testDirStr = path.format(testDir)
+local tmpDir = system.tmpdir()
 
 test.suite("Lute CLI", function(suite)
-	suite:beforeall(function()
-		if not tmpDirExists then
-			fs.mkdir(tmpDirStr)
-		end
-
-		if not fs.exists(testDirStr) then
-			fs.mkdir(testDirStr)
-		end
-	end)
-
 	suite:case("help1", function(check)
 		-- Setup
 		-- Create files
-		local requirerPath = path.format(path.join(testDir, "requirer.luau"))
+		local requirerPath = path.format(path.join(tmpDir, "requirer.luau"))
 		local requirerFile = fs.open(requirerPath, "w+")
 		fs.write(requirerFile, REQUIRER_CONTENTS)
 		fs.close(requirerFile)
 
-		local requireePath = path.format(path.join(testDir, "requiree.luau"))
+		local requireePath = path.format(path.join(tmpDir, "requiree.luau"))
 		local requireeFile = fs.open(requireePath, "w+")
 		fs.write(requireeFile, REQUIREE_CONTENTS)
 		fs.close(requireeFile)
@@ -55,16 +42,6 @@ test.suite("Lute CLI", function(suite)
 		-- Cleanup
 		fs.remove(requirerPath)
 		fs.remove(requireePath)
-	end)
-
-	suite:afterall(function()
-		if fs.exists(testDirStr) then
-			fs.rmdir(testDirStr)
-		end
-
-		if not tmpDirExists then
-			fs.rmdir(tmpDirStr)
-		end
 	end)
 end)
 
