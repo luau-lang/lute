@@ -36,7 +36,7 @@ test.suite("Lute CLI", function(suite)
 		print(`Lute path: ${lutePathStr}`)
 		print(`cwd: ${process.cwd()}`)
 
-		for _, f in fs.listdir(lutePath) do
+		for _, f in fs.listdir(tmpDir) do
 			print(`tmp dir entry: ${f.name}`)
 		end
 
