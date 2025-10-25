@@ -4,7 +4,11 @@ local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
 
-local REQUIRER_CONTENTS = "print('Hello world')"
+local REQUIRER_CONTENTS = [[
+local args = { ... }
+assert(#args == 2, "Expected one argument: path to Luau script to require")
+print(args[2])
+]]
 
 local REQUIRER_CONTENTS1 = [[
 local args = { ... }
@@ -42,9 +46,9 @@ test.suite("Lute CLI", function(suite)
 			print(`tmp dir entry: {f.name}`)
 		end
 
-		local result = process.run({ lutePathStr, path.format(requirerPath) })
+		local result = process.run({ lutePathStr, path.format(requirerPath), "hello" })
 		check.eq(result.exitcode, 0)
-		check.eq(result.stdout, "Hello world\n")
+		check.eq(result.stdout, "hello\n")
 
 		-- Cleanup
 		fs.remove(requirerPath)
