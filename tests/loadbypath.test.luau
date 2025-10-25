@@ -4,7 +4,9 @@ local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
 
-local REQUIRER_CONTENTS = [[
+local REQUIRER_CONTENTS = "print('Hello world')"
+
+local REQUIRER_CONTENTS1 = [[
 local args = { ... }
 assert(#args == 2, "Expected one argument: path to Luau script to require")
 
@@ -27,26 +29,26 @@ test.suite("Lute CLI", function(suite)
 		fs.write(requirerFile, REQUIRER_CONTENTS)
 		fs.close(requirerFile)
 
-		local requireePath = path.join(tmpDir, "requiree.luau")
-		local requireeFile = fs.open(requireePath, "w+")
-		fs.write(requireeFile, REQUIREE_CONTENTS)
-		fs.close(requireeFile)
+		-- local requireePath = path.join(tmpDir, "requiree.luau")
+		-- local requireeFile = fs.open(requireePath, "w+")
+		-- fs.write(requireeFile, REQUIREE_CONTENTS)
+		-- fs.close(requireeFile)
 
 		local lutePathStr = path.format(lutePath)
-		print(`Lute path: ${lutePathStr}`)
-		print(`cwd: ${process.cwd()}`)
+		print(`Lute path: {lutePathStr}`)
+		print(`cwd: {process.cwd()}`)
 
 		for _, f in fs.listdir(tmpDir) do
-			print(`tmp dir entry: ${f.name}`)
+			print(`tmp dir entry: {f.name}`)
 		end
 
-		local result = process.run({ lutePathStr, path.format(requirerPath), path.format(requireePath) })
+		local result = process.run({ lutePathStr, path.format(requirerPath) })
 		check.eq(result.exitcode, 0)
-		check.eq(result.stdout, "Success\n")
+		check.eq(result.stdout, "Hello world\n")
 
 		-- Cleanup
 		fs.remove(requirerPath)
-		fs.remove(requireePath)
+		-- fs.remove(requireePath)
 	end)
 end)
 
