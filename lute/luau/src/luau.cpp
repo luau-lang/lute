@@ -2649,7 +2649,7 @@ int compile_luau(lua_State* L)
         sizeof(std::string),
         [](void* ptr)
         {
-            static_cast<std::string*>(ptr)->~basic_string();
+            static_cast<std::string*>(ptr)->~std::basic_string();
         }
     ));
 
