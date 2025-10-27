@@ -170,13 +170,13 @@ end
 
 function luau.loadbypath(requirePath: path.pathlike): any
 	local requirePathStr = if typeof(requirePath) == "string" then requirePath else path.format(requirePath)
-
+	print(`got script path: {requirePathStr}`)
 	local migrationHandle = fs.open(requirePathStr, "r")
-
+	print(`opened file handle`)
 	local migrationBytecode = luau.compile(fs.read(migrationHandle))
-
+	print(`compiled bytecode`)
 	fs.close(migrationHandle)
-
+	print(`closed file handle`)
 	return luau.load(migrationBytecode, requirePathStr)()
 end
 
