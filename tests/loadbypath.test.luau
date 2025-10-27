@@ -12,10 +12,12 @@ local test = require("@std/test")
 -- ]]
 
 local REQUIRER_CONTENTS = [[
+local luau = require("@std/luau")
+
 local args = { ... }
 assert(#args == 2, "Expected one argument: path to Luau script to require")
 
-local luau = require("@std/luau")
+print("CALLING LOAD")
 local result = luau.loadbypath(args[2])
 print(`RESULT: {result}`)
 ]]
