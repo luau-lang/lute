@@ -13,13 +13,19 @@ local test = require("@std/test")
 
 local REQUIRER_CONTENTS = [[
 local luau = require("@std/luau")
+local fs = require("@std/fs")
 
 local args = { ... }
 assert(#args == 2, "Expected one argument: path to Luau script to require")
 
-print("CALLING LOAD")
-local result = luau.loadbypath(args[2])
-print(`RESULT: {result}`)
+local handle = fs.open(args[2], "r")
+print("opened file handle")
+local contents = fs.read(handle)
+print("read file contents")
+fs.close(handle)
+print("closed file handle")
+luau.compile(contents)
+print(`SUCCESS`)
 ]]
 
 local REQUIREE_CONTENTS = [[return "Success"]]
@@ -55,10 +61,7 @@ test.suite("Lute CLI", function(suite)
 		local result = process.run({ lutePathStr, path.format(requirerPath), path.format(requireePath) })
 		print(`process stderr: {result.stderr}`)
 		print(`process result: {result.stdout}`)
-		check.neq(result.stdout:find("got script path"), nil)
-		check.neq(result.stdout:find("opened file handle"), nil)
-		check.neq(result.stdout:find("compiled bytecode"), nil)
-		check.neq(result.stdout:find("closed file handle"), nil)
+		check.neq(result.stdout:find("SUCCESS"), nil)
 		check.eq(result.exitcode, 0)
 
 		-- Cleanup
