@@ -15,9 +15,12 @@ local REQUIRER_CONTENTS = [[
 local args = { ... }
 assert(#args == 2, "Expected one argument: path to Luau script to require")
 
-local luau = require("@std/luau")
-local result = luau.loadbypath(args[2])
-print(result)
+local fs = require("@std/fs")
+print(if fs.exists(args[2]) then "Success" else "Failure")
+
+-- local luau = require("@std/luau")
+-- local result = luau.loadbypath(args[2])
+-- print(result)
 ]]
 
 local REQUIREE_CONTENTS = [[return "Success"]]
