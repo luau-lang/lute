@@ -53,6 +53,7 @@ test.suite("Lute CLI", function(suite)
 		-- check.eq(result, "Success")
 
 		local result = process.run({ lutePathStr, path.format(requirerPath), path.format(requireePath) })
+		print(`process stderr: {result.stderr}`)
 		print(`process result: {result.stdout}`)
 		check.neq(result.stdout:find("got script path"), nil)
 		check.neq(result.stdout:find("opened file handle"), nil)
