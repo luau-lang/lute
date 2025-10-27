@@ -51,8 +51,8 @@ test.suite("Lute CLI", function(suite)
 		check.eq(result, "Success")
 
 		local result = process.run({ lutePathStr, path.format(requirerPath), path.format(requireePath) })
-		check.eq(result.exitcode, 0)
 		check.eq(result.stdout, "Success\n")
+		check.eq(result.exitcode, 0)
 
 		-- Cleanup
 		fs.remove(requirerPath)
