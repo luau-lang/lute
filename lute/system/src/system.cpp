@@ -91,7 +91,7 @@ int lua_totalmemory(lua_State* L)
 
 int lua_hostname(lua_State* L)
 {
-    Luau::Variant<std::string, uvutils::UvError> result = uvutils::getStringFromUv(uv_os_gethostname);
+    auto result = uvutils::getStringFromUv(uv_os_gethostname);
     if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
         luaL_error(L, "failed to get hostname: %s", error->toString().c_str());
 
@@ -117,7 +117,7 @@ int lua_uptime(lua_State* L)
 
 int lua_tmpdir(lua_State* L)
 {
-    Luau::Variant<std::string, uvutils::UvError> result = uvutils::getStringFromUv(uv_os_tmpdir);
+    auto result = uvutils::getStringFromUv(uv_os_tmpdir);
     if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
         luaL_error(L, "failed to get temporary directory: %s", error->toString().c_str());
 
