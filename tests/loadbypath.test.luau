@@ -18,13 +18,13 @@ local fs = require("@std/fs")
 local args = { ... }
 assert(#args == 2, "Expected one argument: path to Luau script to require")
 
--- local handle = fs.open(args[2], "r")
--- print("opened file handle")
--- local contents = fs.read(handle)
--- print("read file contents")
--- fs.close(handle)
--- print("closed file handle")
-luau.compile("return 'Hello world'")
+local handle = fs.open(args[2], "r")
+print("opened file handle")
+local contents = fs.read(handle)
+print("read file contents")
+fs.close(handle)
+print("closed file handle")
+luau.compile(contents)
 print(`SUCCESS`)
 ]]
 
@@ -42,10 +42,10 @@ test.suite("Lute CLI", function(suite)
 		fs.write(requirerFile, REQUIRER_CONTENTS)
 		fs.close(requirerFile)
 
-		-- local requireePath = path.join(tmpDir, "requiree.luau")
-		-- local requireeFile = fs.open(requireePath, "w+")
-		-- fs.write(requireeFile, REQUIREE_CONTENTS)
-		-- fs.close(requireeFile)
+		local requireePath = path.join(tmpDir, "requiree.luau")
+		local requireeFile = fs.open(requireePath, "w+")
+		fs.write(requireeFile, REQUIREE_CONTENTS)
+		fs.close(requireeFile)
 
 		local lutePathStr = path.format(lutePath)
 		print(`Lute path: {lutePathStr}`)
@@ -55,7 +55,7 @@ test.suite("Lute CLI", function(suite)
 			print(`tmp dir entry: {f.name}`)
 		end
 
-		local result = process.run({ lutePathStr, path.format(requirerPath) })
+		local result = process.run({ lutePathStr, path.format(requirerPath), path.format(requireePath) })
 		print(`process stderr: {result.stderr}`)
 		print(`process result: {result.stdout}`)
 		check.neq(result.stdout:find("SUCCESS"), nil)
@@ -63,7 +63,7 @@ test.suite("Lute CLI", function(suite)
 
 		-- -- Cleanup
 		fs.remove(requirerPath)
-		-- fs.remove(requireePath)
+		fs.remove(requireePath)
 	end)
 end)
 

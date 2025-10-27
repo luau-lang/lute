@@ -2644,7 +2644,14 @@ int compile_luau(lua_State* L)
 
     std::string bytecode = Luau::compile(std::string(source, source_size), opts);
 
-    std::string* userdata = static_cast<std::string*>(lua_newuserdatatagged(L, sizeof(std::string), kCompilerResultTag));
+    std::string* userdata = static_cast<std::string*>(lua_newuserdatadtor(
+        L,
+        sizeof(std::string),
+        [](void* ptr)
+        {
+            static_cast<std::string*>(ptr)->~basic_string();
+        }
+    ));
 
     new (userdata) std::string(std::move(bytecode));
 
