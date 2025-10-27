@@ -177,7 +177,8 @@ function luau.loadbypath(requirePath: path.pathlike): any
 	print(`compiled bytecode`)
 	fs.close(migrationHandle)
 	print(`closed file handle`)
-	return luau.load(migrationBytecode, requirePathStr)()
+	-- return luau.load(migrationBytecode, requirePathStr)()
+	return nil
 end
 
 return luau
