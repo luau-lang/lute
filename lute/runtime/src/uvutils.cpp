@@ -5,7 +5,17 @@
 namespace uvutils
 {
 
-StringResult getStringFromUv(BufferWriter bufferWriter, size_t initialBufferSize)
+UvError::UvError(int code)
+    : code(code)
+{
+}
+
+std::string UvError::toString() const
+{
+    return uv_strerror(code);
+}
+
+Luau::Variant<std::string, UvError> getStringFromUv(BufferWriter bufferWriter, size_t initialBufferSize)
 {
     std::string buffer;
     size_t size = initialBufferSize;
@@ -20,10 +30,10 @@ StringResult getStringFromUv(BufferWriter bufferWriter, size_t initialBufferSize
     }
 
     if (writeStatus < 0)
-        return StringResult{writeStatus, ""};
+        return UvError{writeStatus};
 
     buffer.resize(size);
-    return StringResult{writeStatus, std::move(buffer)};
+    return buffer;
 }
 
 } // namespace uvutils

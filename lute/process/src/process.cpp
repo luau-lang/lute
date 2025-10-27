@@ -433,11 +433,12 @@ int run(lua_State* L)
 
 int homedir(lua_State* L)
 {
-    uvutils::StringResult result = uvutils::getStringFromUv(uv_os_homedir);
-    if (result.status < 0)
-        luaL_error(L, "failed to get home directory: %s", uv_strerror(result.status));
+    Luau::Variant<std::string, uvutils::UvError> result = uvutils::getStringFromUv(uv_os_homedir);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get home directory: %s", error->toString().c_str());
 
-    lua_pushlstring(L, result.value.c_str(), result.value.size());
+    std::string* homeDir = result.get_if<std::string>();
+    lua_pushlstring(L, homeDir->c_str(), homeDir->size());
     return 1;
 }
 
@@ -454,11 +455,12 @@ int exitFunc(lua_State* L)
 
 int cwd(lua_State* L)
 {
-    uvutils::StringResult result = uvutils::getStringFromUv(uv_cwd);
-    if (result.status < 0)
-        luaL_error(L, "failed to get current working directory: %s", uv_strerror(result.status));
+    Luau::Variant<std::string, uvutils::UvError> result = uvutils::getStringFromUv(uv_cwd);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get current working directory: %s", error->toString().c_str());
 
-    lua_pushlstring(L, result.value.c_str(), result.value.size());
+    std::string* cwd = result.get_if<std::string>();
+    lua_pushlstring(L, cwd->c_str(), cwd->size());
     return 1;
 };
 

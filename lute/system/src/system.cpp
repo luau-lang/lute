@@ -91,11 +91,12 @@ int lua_totalmemory(lua_State* L)
 
 int lua_hostname(lua_State* L)
 {
-    uvutils::StringResult result = uvutils::getStringFromUv(uv_os_gethostname);
-    if (result.status < 0)
-        luaL_error(L, "libuv error: %s", uv_strerror(result.status));
+    Luau::Variant<std::string, uvutils::UvError> result = uvutils::getStringFromUv(uv_os_gethostname);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get hostname: %s", error->toString().c_str());
 
-    lua_pushlstring(L, result.value.c_str(), result.value.size());
+    std::string* hostname = result.get_if<std::string>();
+    lua_pushlstring(L, hostname->c_str(), hostname->size());
     return 1;
 }
 
@@ -116,11 +117,12 @@ int lua_uptime(lua_State* L)
 
 int lua_tmpdir(lua_State* L)
 {
-    uvutils::StringResult result = uvutils::getStringFromUv(uv_os_tmpdir);
-    if (result.status < 0)
-        luaL_error(L, "libuv error: %s", uv_strerror(result.status));
+    Luau::Variant<std::string, uvutils::UvError> result = uvutils::getStringFromUv(uv_os_tmpdir);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get temporary directory: %s", error->toString().c_str());
 
-    lua_pushlstring(L, result.value.c_str(), result.value.size());
+    std::string* tmpDir = result.get_if<std::string>();
+    lua_pushlstring(L, tmpDir->c_str(), tmpDir->size());
     return 1;
 }
 } // namespace libsystem
