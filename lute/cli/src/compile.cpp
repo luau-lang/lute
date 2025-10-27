@@ -2,10 +2,17 @@
 
 #include "lute/options.h"
 #include "lute/process.h"
+
 #include "uv.h"
+#include "zlib.h"
 
 #include <fstream>
 #include <string>
+#include <cstring>
+
+#ifndef _WIN32
+#include <sys/stat.h>
+#endif
 
 const char MAGIC_FLAG[] = "LUTEBYTE";
 const size_t MAGIC_FLAG_SIZE = sizeof(MAGIC_FLAG) - 1;
@@ -145,4 +152,275 @@ int compileScript(const std::string& inputFilePath, const std::string& outputFil
 #endif
 
     return 0;
+}
+
+void LuteExePayload::add(const std::string& luauFilePath)
+{
+    // First file added becomes the entry point
+    if (filePaths.empty())
+    {
+        entryPointPath = luauFilePath;
+    }
+
+    filePaths.push_back(luauFilePath);
+}
+
+std::optional<LuteEncodeResult> LuteExePayload::encode()
+{
+    // Encoding an empty payload is an error
+    if (filePaths.empty())
+    {
+        return std::nullopt;        
+    }
+
+    LuteEncodeResult result;
+    // Step 1: Build uncompressed bytecode bundle
+    // Format: For each file, append [path_len][path][bytecode_size][bytecode]
+    std::string uncompressedBundle;
+    for (const auto& filePath : filePaths)
+    {
+        // Read source file from disk
+        std::optional<std::string> source = readFile(filePath);
+        if (!source)
+            return std::nullopt;
+
+        // Compile Luau source to bytecode
+        std::string bytecode = Luau::compile(*source, copts());
+        if (bytecode.empty())
+            return std::nullopt;
+
+        filePathToBytecode[filePath] = bytecode;
+
+        // Append path_length field (uint32_t, 4 bytes)
+        uint32_t pathLength = static_cast<uint32_t>(filePath.size());
+        uncompressedBundle.append(reinterpret_cast<const char*>(&pathLength), sizeof(uint32_t));
+
+        // Append path_string field (variable length)
+        uncompressedBundle.append(filePath);
+
+        // Append bytecode_size field (uint64_t, 8 bytes)
+        uint64_t bytecodeSize = bytecode.size();
+        uncompressedBundle.append(reinterpret_cast<const char*>(&bytecodeSize), sizeof(uint64_t));
+
+        // Append bytecode_data field (variable length)
+        uncompressedBundle.append(bytecode);
+    }
+
+    // Step 2: Compress the bundled bytecode using zlib
+    uLong uncompressedSize = uncompressedBundle.size();
+
+    // Calculate maximum possible compressed size
+    uLong compressedSize = compressBound(uncompressedSize);
+    std::vector<Bytef> compressedData(compressedSize);
+
+    // Compress with maximum compression level
+    int compressResult = compress2(
+        compressedData.data(),           // destination buffer
+        &compressedSize,                 // in/out: buffer size / actual compressed size
+        reinterpret_cast<const Bytef*>(uncompressedBundle.data()),  // source data
+        uncompressedSize,                // source size
+        Z_BEST_COMPRESSION               // compression level (9)
+    );
+
+    if (compressResult != Z_OK)
+        return std::nullopt;
+    result.payload.clear();
+    size_t totalBytes = compressedSize            // Size of compressed data
+                        + sizeof(uint64_t)        // Length of compressed data (uint64_t)
+                        + sizeof(uint64_t)        // Lengths of uncompressed data (uint64_t)
+                        + sizeof(uint32_t)        // Number of modules(files) in the bundle (uint32_t)
+                        + entryPointPath.length() // Module entry point path length
+                        + sizeof(uint32_t)        // Length of entry point field
+                        + MAGIC_FLAG_SIZE;        // LUTEBYTE - the magic flag that tells us to decode the bundled modules
+    result.payload.reserve(totalBytes);
+    // Step 3: Append the metadata needed
+    // Append compressed_data field (variable length, compressedSize bytes)
+    result.payload.append(reinterpret_cast<const char*>(compressedData.data()), compressedSize);
+
+    // Append compressed_size field (uint64_t, 8 bytes)
+    uint64_t compressedSizeField = compressedSize;
+    result.payload.append(reinterpret_cast<const char*>(&compressedSizeField), sizeof(uint64_t));
+
+    // Append uncompressed_size field (uint64_t, 8 bytes)
+    uint64_t uncompressedSizeField = uncompressedSize;
+    result.payload.append(reinterpret_cast<const char*>(&uncompressedSizeField), sizeof(uint64_t));
+
+    // Append num_files field (uint32_t, 4 bytes)
+    uint32_t numFiles = static_cast<uint32_t>(filePaths.size());
+    result.payload.append(reinterpret_cast<const char*>(&numFiles), sizeof(uint32_t));
+
+    // Append entry_point_path_string field (variable length)
+    result.payload.append(entryPointPath);
+
+    // Append entry_point_path_length field (uint32_t, 4 bytes)
+    uint32_t entryPointPathLength = static_cast<uint32_t>(entryPointPath.size());
+    result.payload.append(reinterpret_cast<const char*>(&entryPointPathLength), sizeof(uint32_t));
+
+    // Step 4: Append the LUTE BYTE
+    result.payload.append(MAGIC_FLAG, MAGIC_FLAG_SIZE);
+
+    result.bytesWritten = result.payload.size();
+    result.compressedPayloadSizeBytes = compressedSize;
+    result.uncompressedPayloadSizeBytes = uncompressedSize;
+    
+    return result;
+}
+
+std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view binary)
+{
+    LuteDecodeResult result;
+    result.payload.filePathToBytecode.clear();
+
+    // Check minimum size for magic flag
+    if (binary.size() < MAGIC_FLAG_SIZE + sizeof(uint32_t))
+        return std::nullopt;
+
+    // Check for LUTEBYTE magic flag at the end
+    size_t magicOffset = binary.size() - MAGIC_FLAG_SIZE;
+    if (memcmp(binary.data() + magicOffset, MAGIC_FLAG, MAGIC_FLAG_SIZE) != 0)
+        return std::nullopt;
+
+
+    // Read metadata from LUTEBYTE back to entry_point_path_length: [entry_point_path_length][entry_point_path][num_files][uncompressed_size][compressed_size][compressed_data]...[LUTEBYTE]
+    size_t pos = binary.size() - MAGIC_FLAG_SIZE;
+
+    // Read entry_point_path_length
+    if (pos < sizeof(uint32_t))
+    {
+        return std::nullopt;
+    }
+    pos -= sizeof(uint32_t);
+    uint32_t entryPointPathLength;
+    memcpy(&entryPointPathLength, binary.data() + pos, sizeof(uint32_t));
+
+    // Read entry_point_path
+    if (pos < entryPointPathLength)
+    {
+        return std::nullopt;        
+    }
+
+    pos -= entryPointPathLength;
+    result.payload.entryPointPath = std::string(binary.data() + pos, entryPointPathLength);
+
+    // Read num_files
+    if (pos < sizeof(uint32_t))
+    {
+        return std::nullopt;
+    }
+    pos -= sizeof(uint32_t);
+    uint32_t numFiles;
+    memcpy(&numFiles, binary.data() + pos, sizeof(uint32_t));
+
+    // Read uncompressed_size
+    if (pos < sizeof(uint64_t))
+    {
+        return std::nullopt;
+    }
+    pos -= sizeof(uint64_t);
+    uint64_t uncompressedSize;
+    memcpy(&uncompressedSize, binary.data() + pos, sizeof(uint64_t));
+
+    // Read compressed_size
+    if (pos < sizeof(uint64_t))
+    {
+        return std::nullopt;
+    }
+    pos -= sizeof(uint64_t);
+    uint64_t compressedSize;
+    memcpy(&compressedSize, binary.data() + pos, sizeof(uint64_t));
+
+    // Read compressed data
+    if (pos < compressedSize)
+    {
+        return std::nullopt;
+    }
+    pos -= compressedSize;
+
+    // Decompress the bundle
+    std::vector<Bytef> uncompressedData(uncompressedSize);
+    uLongf actualUncompressedSize = uncompressedSize;
+    int zlibResult = uncompress(
+        uncompressedData.data(),
+        &actualUncompressedSize,
+        reinterpret_cast<const Bytef*>(binary.data() + pos),
+        compressedSize
+    );
+
+    if (zlibResult != Z_OK)
+    {
+        return std::nullopt;
+    }
+
+    // Parse the decompressed bundle
+    std::string_view decompressedBundle(reinterpret_cast<const char*>(uncompressedData.data()), actualUncompressedSize);
+    if (!result.payload.parseFromDecompressedBundle(decompressedBundle))
+    {
+        return std::nullopt;
+    }
+
+    // Validate that the number of parsed files matches the metadata
+    if (result.payload.filePathToBytecode.size() != numFiles)
+        return std::nullopt;
+
+    // Populate result metrics
+    result.bytesRead = binary.size();
+    result.compressedPayloadSizeBytes = compressedSize;
+    result.uncompressedPayloadSizeBytes = actualUncompressedSize;
+    return result;
+}
+
+bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBundle)
+{
+    size_t offset = 0;
+    filePathToBytecode.clear();
+
+    while (offset < decompressedBundle.size())
+    {
+        // Read path length
+        if (offset + sizeof(uint32_t) > decompressedBundle.size())
+        {
+            fprintf(stderr, "Invalid bundle: incomplete path length field\n");
+            return false;
+        }
+
+        uint32_t pathLength;
+        memcpy(&pathLength, decompressedBundle.data() + offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+
+        // Read path string
+        if (offset + pathLength > decompressedBundle.size())
+        {
+            fprintf(stderr, "Invalid bundle: incomplete path string\n");
+            return false;
+        }
+
+        std::string filePath(decompressedBundle.data() + offset, pathLength);
+        offset += pathLength;
+
+        // Read bytecode size
+        if (offset + sizeof(uint64_t) > decompressedBundle.size())
+        {
+            fprintf(stderr, "Invalid bundle: incomplete bytecode size field\n");
+            return false;
+        }
+
+        uint64_t bytecodeSize;
+        memcpy(&bytecodeSize, decompressedBundle.data() + offset, sizeof(uint64_t));
+        offset += sizeof(uint64_t);
+
+        // Read bytecode
+        if (offset + bytecodeSize > decompressedBundle.size())
+        {
+            fprintf(stderr, "Invalid bundle: incomplete bytecode data\n");
+            return false;
+        }
+
+        std::string bytecode(decompressedBundle.data() + offset, bytecodeSize);
+        offset += bytecodeSize;
+
+        // Store in map
+        filePathToBytecode[filePath] = bytecode;
+    }
+
+    return true;
 }
