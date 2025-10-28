@@ -41,8 +41,6 @@ struct ProcessHandle
     std::shared_ptr<ProcessHandle> self;
     std::atomic<int> pendingCloses{0};
 
-    ~ProcessHandle() {}
-
     void closeHandles()
     {
         auto closeCb = [](uv_handle_t* handle)
@@ -604,7 +602,7 @@ static int envIter(lua_State* L)
         sizeof(EnvIter),
         [](void* ptr)
         {
-            static_cast<EnvIter*>(ptr)->~EnvIter();
+            std::destroy_at(static_cast<EnvIter*>(ptr));
         }
     );
 

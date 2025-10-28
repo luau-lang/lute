@@ -178,7 +178,7 @@ static void* createChildVmRequireContext(lua_State* L)
         sizeof(RequireCtx),
         [](void* ptr)
         {
-            static_cast<RequireCtx*>(ptr)->~RequireCtx();
+            std::destroy_at(static_cast<RequireCtx*>(ptr));
         }
     );
 
@@ -255,7 +255,7 @@ int lua_spawn(lua_State* L)
             );
 
             // Remove the Ref we have in current VM, now it will not cause the actual lua_unref
-            target->~TargetFunction();
+            std::destroy_at(target);
         }
     );
 
