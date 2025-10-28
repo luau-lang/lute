@@ -1,13 +1,16 @@
 #include "lute/system.h"
+#include "lute/uvutils.h"
+
 #include "lua.h"
 #include "lualib.h"
+
 #include "uv.h"
+
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <iterator>
 #include <string>
-#include <vector>
 
 namespace libsystem
 {
@@ -88,24 +91,12 @@ int lua_totalmemory(lua_State* L)
 
 int lua_hostname(lua_State* L)
 {
-    size_t sz = 255;
-    std::string hostname;
-    hostname.reserve(sz);
+    auto result = uvutils::getStringFromUv(uv_os_gethostname);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get hostname: %s", error->toString().c_str());
 
-    int res = uv_os_gethostname(hostname.data(), &sz);
-    if (res == UV_ENOBUFS)
-    {
-        hostname.reserve(sz); // libuv updates the size to what's required
-        res = uv_os_gethostname(hostname.data(), &sz);
-    }
-
-    if (res != 0)
-    {
-        luaL_error(L, "libuv error: %s", uv_strerror(res));
-    }
-
-    lua_pushlstring(L, hostname.c_str(), hostname.size());
-
+    std::string* hostname = result.get_if<std::string>();
+    lua_pushlstring(L, hostname->c_str(), hostname->size());
     return 1;
 }
 
@@ -126,26 +117,13 @@ int lua_uptime(lua_State* L)
 
 int lua_tmpdir(lua_State* L)
 {
-    size_t size = 255;
-    std::string tmpdir;
-    tmpdir.reserve(size);
+    auto result = uvutils::getStringFromUv(uv_os_tmpdir);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get temporary directory: %s", error->toString().c_str());
 
-    int res = uv_os_tmpdir(tmpdir.data(), &size);
-    if (res == UV_ENOBUFS)
-    {
-        tmpdir.reserve(size); // libuv updates the size to what's required
-        res = uv_os_tmpdir(tmpdir.data(), &size);
-    }
-
-    if (res != 0)
-    {
-        luaL_error(L, "libuv error: %s", uv_strerror(res));
-    }
-
-    lua_pushlstring(L, tmpdir.c_str(), tmpdir.size());
-
+    std::string* tmpDir = result.get_if<std::string>();
+    lua_pushlstring(L, tmpDir->c_str(), tmpDir->size());
     return 1;
-    
 }
 } // namespace libsystem
 

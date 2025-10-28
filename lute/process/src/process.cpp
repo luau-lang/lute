@@ -1,12 +1,13 @@
 #include "lute/process.h"
 #include "lute/runtime.h"
+#include "lute/uvutils.h"
 
 #include "Luau/Common.h"
 
 #include "lua.h"
 #include "lualib.h"
 
-#include <uv.h>
+#include "uv.h"
 
 #include <functional>
 #include <map>
@@ -432,28 +433,12 @@ int run(lua_State* L)
 
 int homedir(lua_State* L)
 {
-    std::string buffer;
+    auto result = uvutils::getStringFromUv(uv_os_homedir);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get home directory: %s", error->toString().c_str());
 
-    size_t homedir_size = 255;
-    buffer.reserve(homedir_size);
-
-    int status = uv_os_homedir(buffer.data(), &homedir_size);
-    if (status == UV_ENOBUFS)
-    {
-        // libuv gives us the new size if it's under sized
-        buffer.reserve(homedir_size);
-
-        status = uv_os_homedir(buffer.data(), &homedir_size);
-    }
-
-    if (status != 0)
-    {
-        luaL_error(L, "failed to get home directory");
-        return 1;
-    }
-
-    lua_pushlstring(L, buffer.c_str(), buffer.size());
-
+    std::string* homeDir = result.get_if<std::string>();
+    lua_pushlstring(L, homeDir->c_str(), homeDir->size());
     return 1;
 }
 
@@ -470,28 +455,12 @@ int exitFunc(lua_State* L)
 
 int cwd(lua_State* L)
 {
-    std::string buffer;
+    auto result = uvutils::getStringFromUv(uv_cwd);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get current working directory: %s", error->toString().c_str());
 
-    size_t cwd_size = 255;
-    buffer.reserve(cwd_size);
-
-    int status = uv_cwd(buffer.data(), &cwd_size);
-    if (status == UV_ENOBUFS)
-    {
-        // libuv gives us the new size if it's under sized
-        buffer.reserve(cwd_size);
-
-        status = uv_cwd(buffer.data(), &cwd_size);
-    }
-
-    if (status != 0)
-    {
-        luaL_error(L, "failed to get current working directory");
-        return 1;
-    }
-
-    lua_pushlstring(L, buffer.c_str(), buffer.size());
-
+    std::string* cwd = result.get_if<std::string>();
+    lua_pushlstring(L, cwd->c_str(), cwd->size());
     return 1;
 };
 
