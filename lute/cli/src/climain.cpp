@@ -35,6 +35,7 @@
 #endif
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -45,7 +46,7 @@ void* createCliRequireContext(lua_State* L)
         sizeof(RequireCtx),
         [](void* ptr)
         {
-            static_cast<RequireCtx*>(ptr)->~RequireCtx();
+            std::destroy_at(static_cast<RequireCtx*>(ptr));
         }
     );
 

@@ -14,9 +14,11 @@
 
 #include "lua.h"
 #include "lualib.h"
+
 #include <cstddef>
 #include <cstring>
 #include <iterator>
+#include <memory>
 #include <string>
 
 const char* COMPILE_RESULT_TYPE = "CompileResult";
@@ -2650,7 +2652,7 @@ int compile_luau(lua_State* L)
         sizeof(std::string),
         [](void* ptr)
         {
-            static_cast<std::string*>(ptr)->std::string::~string();
+            std::destroy_at(static_cast<std::string*>(ptr));
         }
     ));
 

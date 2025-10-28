@@ -1050,9 +1050,7 @@ static void initalizeFS(lua_State* L)
         kWatchHandleTag,
         [](lua_State* L, void* ud)
         {
-            auto* handle = static_cast<fs::WatchHandle*>(ud);
-
-            handle->~WatchHandle();
+            std::destroy_at(static_cast<fs::WatchHandle*>(ud));
         }
     );
 
