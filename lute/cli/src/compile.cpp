@@ -6,9 +6,10 @@
 #include "uv.h"
 #include "zlib.h"
 
+#include <cstring>
 #include <fstream>
 #include <string>
-#include <cstring>
+#include <type_traits>
 
 #ifndef _WIN32
 #include <sys/stat.h>
@@ -296,59 +297,60 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
         return std::nullopt;
     }
 
+    // Helper to read fixed-size values backwards
+    auto readValue = [&binary](size_t& pos, const char* fieldName, auto& value) -> bool
+    {
+        // We need this because the auto& parameter acts like a generic and we would like to strip out the & here
+        using T = std::decay_t<decltype(value)>;
+        if (pos < sizeof(T))
+        {
+            fprintf(stderr, "Decode failed: Incomplete %s field\n", fieldName);
+            return false;
+        }
+        pos -= sizeof(T);
+        memcpy(&value, binary.data() + pos, sizeof(T));
+        return true;
+    };
+
+    // Helper to read variable-length bytes backwards
+    auto readBytes = [&binary](size_t& pos, size_t length, const char* fieldName) -> std::optional<std::string> {
+        if (pos < length)
+        {
+            fprintf(stderr, "Decode failed: Incomplete %s field\n", fieldName);
+            return std::nullopt;
+        }
+        pos -= length;
+        return std::string(binary.data() + pos, length);
+    };
 
     // Read metadata from LUTEBYTE back to entry_point_path_length: [entry_point_path_length][entry_point_path][num_files][uncompressed_size][compressed_size][compressed_data]...[LUTEBYTE]
     size_t pos = binary.size() - MAGIC_FLAG_SIZE;
 
     // Read entry_point_path_length
-    if (pos < sizeof(uint32_t))
-    {
-        fprintf(stderr, "Decode failed: Incomplete entry point path length field\n");
-        return std::nullopt;
-    }
-    pos -= sizeof(uint32_t);
     uint32_t entryPointPathLength;
-    memcpy(&entryPointPathLength, binary.data() + pos, sizeof(uint32_t));
+    if (!readValue(pos, "entry_point_path_length", entryPointPathLength))
+        return std::nullopt;
 
     // Read entry_point_path
-    if (pos < entryPointPathLength)
-    {
-        fprintf(stderr, "Decode failed: Incomplete entry point path field\n");
+    auto entryPointPath = readBytes(pos, entryPointPathLength, "entry_point_path");
+    if (!entryPointPath)
         return std::nullopt;
-    }
-
-    pos -= entryPointPathLength;
-    result.payload.entryPointPath = std::string(binary.data() + pos, entryPointPathLength);
+    result.payload.entryPointPath = *entryPointPath;
 
     // Read num_files
-    if (pos < sizeof(uint32_t))
-    {
-        fprintf(stderr, "Decode failed: Incomplete num_files field\n");
-        return std::nullopt;
-    }
-    pos -= sizeof(uint32_t);
     uint32_t numFiles;
-    memcpy(&numFiles, binary.data() + pos, sizeof(uint32_t));
+    if (!readValue(pos, "num_files", numFiles))
+        return std::nullopt;
 
     // Read uncompressed_size
-    if (pos < sizeof(uint64_t))
-    {
-        fprintf(stderr, "Decode failed: Incomplete uncompressed_size field\n");
-        return std::nullopt;
-    }
-    pos -= sizeof(uint64_t);
     uint64_t uncompressedSize;
-    memcpy(&uncompressedSize, binary.data() + pos, sizeof(uint64_t));
+    if (!readValue(pos, "uncompressed_size", uncompressedSize))
+        return std::nullopt;
 
     // Read compressed_size
-    if (pos < sizeof(uint64_t))
-    {
-        fprintf(stderr, "Decode failed: Incomplete compressed_size field\n");
-        return std::nullopt;
-    }
-    pos -= sizeof(uint64_t);
     uint64_t compressedSize;
-    memcpy(&compressedSize, binary.data() + pos, sizeof(uint64_t));
+    if (!readValue(pos, "compressed_size", compressedSize))
+        return std::nullopt;
 
     // Read compressed data
     if (pos < compressedSize)
