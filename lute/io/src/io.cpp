@@ -34,11 +34,13 @@ struct IOHandle
     }
 
     uv_stream_t* getStream() {
-        if (auto* tty = streamVariant.get_if<uv_tty_t>())
-            return (uv_stream_t*)tty;
-        if (auto* pipe = streamVariant.get_if<uv_pipe_t>())
-            return (uv_stream_t*)pipe;
-        return nullptr;
+        return Luau::visit(
+            [](auto& stream) -> uv_stream_t*
+            {
+                return (uv_stream_t*)&stream;
+            },
+            streamVariant
+        );
     }
 };
 
