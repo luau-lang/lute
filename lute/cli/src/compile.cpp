@@ -170,7 +170,8 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
     // Encoding an empty payload is an error
     if (filePaths.empty())
     {
-        return std::nullopt;        
+        fprintf(stderr, "Encode failed: No files added to payload\n");
+        return std::nullopt;
     }
 
     LuteEncodeResult result;
@@ -182,12 +183,18 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
         // Read source file from disk
         std::optional<std::string> source = readFile(filePath);
         if (!source)
+        {
+            fprintf(stderr, "Encode failed: Could not read file '%s'\n", filePath.c_str());
             return std::nullopt;
+        }
 
         // Compile Luau source to bytecode
         std::string bytecode = Luau::compile(*source, copts());
         if (bytecode.empty())
+        {
+            fprintf(stderr, "Encode failed: Could not compile file '%s' to bytecode\n", filePath.c_str());
             return std::nullopt;
+        }
 
         filePathToBytecode[filePath] = bytecode;
 
@@ -223,7 +230,10 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
     );
 
     if (compressResult != Z_OK)
+    {
+        fprintf(stderr, "Encode failed: Compression error (zlib error %d)\n", compressResult);
         return std::nullopt;
+    }
     result.payload.clear();
     size_t totalBytes = compressedSize            // Size of compressed data
                         + sizeof(uint64_t)        // Length of compressed data (uint64_t)
@@ -273,12 +283,18 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
 
     // Check minimum size for magic flag
     if (binary.size() < MAGIC_FLAG_SIZE + sizeof(uint32_t))
+    {
+        fprintf(stderr, "Decode failed: Binary too small (%zu bytes) to contain valid payload\n", binary.size());
         return std::nullopt;
+    }
 
     // Check for LUTEBYTE magic flag at the end
     size_t magicOffset = binary.size() - MAGIC_FLAG_SIZE;
     if (memcmp(binary.data() + magicOffset, MAGIC_FLAG, MAGIC_FLAG_SIZE) != 0)
+    {
+        fprintf(stderr, "Decode failed: LUTEBYTE magic flag not found\n");
         return std::nullopt;
+    }
 
 
     // Read metadata from LUTEBYTE back to entry_point_path_length: [entry_point_path_length][entry_point_path][num_files][uncompressed_size][compressed_size][compressed_data]...[LUTEBYTE]
@@ -287,6 +303,7 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     // Read entry_point_path_length
     if (pos < sizeof(uint32_t))
     {
+        fprintf(stderr, "Decode failed: Incomplete entry point path length field\n");
         return std::nullopt;
     }
     pos -= sizeof(uint32_t);
@@ -296,7 +313,8 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     // Read entry_point_path
     if (pos < entryPointPathLength)
     {
-        return std::nullopt;        
+        fprintf(stderr, "Decode failed: Incomplete entry point path field\n");
+        return std::nullopt;
     }
 
     pos -= entryPointPathLength;
@@ -305,6 +323,7 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     // Read num_files
     if (pos < sizeof(uint32_t))
     {
+        fprintf(stderr, "Decode failed: Incomplete num_files field\n");
         return std::nullopt;
     }
     pos -= sizeof(uint32_t);
@@ -314,6 +333,7 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     // Read uncompressed_size
     if (pos < sizeof(uint64_t))
     {
+        fprintf(stderr, "Decode failed: Incomplete uncompressed_size field\n");
         return std::nullopt;
     }
     pos -= sizeof(uint64_t);
@@ -323,6 +343,7 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     // Read compressed_size
     if (pos < sizeof(uint64_t))
     {
+        fprintf(stderr, "Decode failed: Incomplete compressed_size field\n");
         return std::nullopt;
     }
     pos -= sizeof(uint64_t);
@@ -332,6 +353,7 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     // Read compressed data
     if (pos < compressedSize)
     {
+        fprintf(stderr, "Decode failed: Incomplete compressed data (expected %llu bytes)\n", static_cast<unsigned long long>(compressedSize));
         return std::nullopt;
     }
     pos -= compressedSize;
@@ -348,6 +370,7 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
 
     if (zlibResult != Z_OK)
     {
+        fprintf(stderr, "Decode failed: Decompression error (zlib error %d)\n", zlibResult);
         return std::nullopt;
     }
 
@@ -355,12 +378,16 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     std::string_view decompressedBundle(reinterpret_cast<const char*>(uncompressedData.data()), actualUncompressedSize);
     if (!result.payload.parseFromDecompressedBundle(decompressedBundle))
     {
+        fprintf(stderr, "Decode failed: Failed to parse decompressed bundle\n");
         return std::nullopt;
     }
 
     // Validate that the number of parsed files matches the metadata
     if (result.payload.filePathToBytecode.size() != numFiles)
+    {
+        fprintf(stderr, "Decode failed: Expected %u files but parsed %zu\n", numFiles, result.payload.filePathToBytecode.size());
         return std::nullopt;
+    }
 
     // Populate result metrics
     result.bytesRead = binary.size();
