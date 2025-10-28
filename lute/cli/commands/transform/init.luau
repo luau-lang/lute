@@ -117,10 +117,6 @@ local function applyMigration(
 
 		-- TODO: should we wrap in pcall? For now we don't do this to preserve stack trace
 		local result = migration.transform(ctx)
-		-- local success, result = pcall(transform, ctx)
-		-- if not success then
-		-- 	error(`Failed to apply to {path}: {result}`)
-		-- end
 
 		assert(typeof(result) == "string", `Transformed expected to return string, but got {typeof(result)}`)
 
