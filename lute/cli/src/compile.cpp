@@ -159,9 +159,7 @@ void LuteExePayload::add(const std::string& luauFilePath)
 {
     // First file added becomes the entry point
     if (filePaths.empty())
-    {
         entryPointPath = luauFilePath;
-    }
 
     filePaths.push_back(luauFilePath);
 }
