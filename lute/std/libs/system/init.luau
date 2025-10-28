@@ -14,6 +14,7 @@ end
 return table.freeze({
 	os = system.os,
 	arch = system.arch,
+	tmpdir = tmpdir,
 
 	-- function re-exports
 	threadcount = system.threadcount,

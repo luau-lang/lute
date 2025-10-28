@@ -2,7 +2,7 @@
 #include "Luau/Variant.h"
 #include "lute/runtime.h"
 
-#include <uv.h>
+#include "uv.h"
 #include <memory>
 
 #include "lua.h"
