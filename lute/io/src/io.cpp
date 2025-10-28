@@ -37,7 +37,7 @@ struct IOHandle
         return Luau::visit(
             [](auto& stream) -> uv_stream_t*
             {
-                return (uv_stream_t*)&stream;
+                return static_cast<uv_stream_t*>(&stream);
             },
             streamVariant
         );
