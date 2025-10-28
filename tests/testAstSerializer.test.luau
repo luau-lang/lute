@@ -1,12 +1,12 @@
 local asserts = require("@std/assert")
 local fs = require("@std/fs")
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
 local path = require("@std/path")
 local test = require("@std/test")
 
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
-local T = require("@lute/luau")
+local T = require("@std/luau")
 
 local function assertEqualsLocation(
 	assert: asserts.Asserts,

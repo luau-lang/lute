@@ -144,16 +144,13 @@ function win32.join(...: pathlike): path
 		}
 	end
 
-	local path: path
-	if typeof(parts[1]) == "string" then
-		path = win32.parse(parts[1])
-	else
-		path = {
+	local path: path = if typeof(parts[1]) == "string"
+		then win32.parse(parts[1])
+		else {
 			parts = table.clone((parts[1] :: path).parts),
 			kind = (parts[1] :: path).kind,
 			driveLetter = (parts[1] :: path).driveLetter,
 		}
-	end
 
 	for i = 2, #parts do
 		joinHelper(path, parts[i])

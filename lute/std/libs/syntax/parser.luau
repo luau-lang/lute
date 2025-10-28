@@ -1,6 +1,6 @@
 --!strict
 
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
 
 --- Parses Luau source code into an AstStatBlock
 local function parse(source: string): luau.AstStatBlock

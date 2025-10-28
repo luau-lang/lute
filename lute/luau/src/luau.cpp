@@ -2664,13 +2664,12 @@ int compile_luau(lua_State* L)
 
 int load_luau(lua_State* L)
 {
-    const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
-    const char* path = luaL_optlstring(L, 2, "=luau.load", nullptr);
-    std::string chunk_name = path;
-    if (chunk_name != "=luau.load")
-        chunk_name.insert(0, "@");
+    const std::string* bytecodeString = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
+    const char* chunkname = luaL_checkstring(L, 2);
+    int envIndex = lua_isnoneornil(L, 3) ? 0 : 3;
 
-    luau_load(L, chunk_name.c_str(), bytecode_string->c_str(), bytecode_string->length(), lua_gettop(L) > 2 ? 3 : 0);
+    if (luau_load(L, chunkname, bytecodeString->c_str(), bytecodeString->length(), envIndex) != 0)
+        lua_error(L);
 
     return 1;
 }

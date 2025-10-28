@@ -1,5 +1,5 @@
 --!strict
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
 local visitor = require("./visitor")
 
 local function exhaustiveMatch(value: never): never
