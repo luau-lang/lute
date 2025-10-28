@@ -12,7 +12,9 @@ target_sources(Lute.Test PRIVATE
     src/modulepath.test.cpp
     src/require.test.cpp
     src/stdsystem.test.cpp
-    src/staticrequires.test.cpp)
+    src/staticrequires.test.cpp
+    src/stdsystem.test.cpp
+    src/compile.test.cpp)
 
 set_target_properties(Lute.Test PROPERTIES OUTPUT_NAME lute-tests)
 target_compile_features(Lute.Test PUBLIC cxx_std_17)
