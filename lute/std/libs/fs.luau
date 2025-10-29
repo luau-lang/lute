@@ -15,6 +15,13 @@ export type watchhandle = fs.WatchHandle
 export type watchevent = fs.WatchEvent
 export type pathlike = pathlib.pathlike
 
+export type createdirectoryoptions = {
+	makeparents: boolean,
+}
+export type removedirectoryoptions = {
+	removeparents: boolean,
+}
+
 local function open(path: pathlike, mode: handlemode?): filehandle
 	return fs.open(pathlib.format(path), mode)
 end
@@ -41,10 +48,6 @@ end
 
 local function type(path: pathlike): filetype
 	return fs.type(pathlib.format(path))
-end
-
-local function mkdir(path: pathlike): ()
-	return fs.mkdir(pathlib.format(path))
 end
 
 local function link(src: pathlike, dest: pathlike): ()
@@ -88,6 +91,26 @@ local function readasync(filepath: pathlike): string
 	return fs.readasync(pathlib.format(filepath))
 end
 
+local function createdirectory(path: pathlike, options: createdirectoryoptions): ()
+	if options.makeparents then
+		local parts: { string } = pathlib.parse(path).parts
+
+		local subdir: pathlike = "."
+		if pathlib.isabsolute(path) then
+			subdir = pathlib.format({ absolute = true, parts = {} })
+		end
+
+		for _, part in parts do
+			subdir = pathlib.join(subdir, part)
+			if not exists(subdir) then
+				fs.mkdir(pathlib.format(subdir))
+			end
+		end
+	else
+		fs.mkdir(pathlib.format(path))
+	end
+end
+
 return table.freeze({
 	open = open,
 	read = read,
@@ -96,7 +119,6 @@ return table.freeze({
 	remove = remove,
 	stat = stat,
 	type = type,
-	mkdir = mkdir,
 	link = link,
 	symlink = symlink,
 	watch = watch,
@@ -107,4 +129,5 @@ return table.freeze({
 	readfiletostring = readfiletostring,
 	writestringtofile = writestringtofile,
 	readasync = readasync,
+	createdirectory = createdirectory,
 })

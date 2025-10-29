@@ -6,7 +6,7 @@ local tmpdir = "tmp"
 test.suite("FsSuite", function(suite)
 	suite:beforeall(function()
 		if not fs.exists(tmpdir) then
-			fs.mkdir(tmpdir)
+			fs.createdirectory(tmpdir, { makeparents = true })
 		end
 	end)
 
@@ -57,7 +57,7 @@ test.suite("FsSuite", function(suite)
 	suite:case("mkdir_listdir_rmdir", function(assert)
 		local dir = path.join(tmpdir, "subdir")
 		if not fs.exists(dir) then
-			fs.mkdir(dir)
+			fs.createdirectory(dir, { makeparents = true })
 		end
 
 		assert.eq(fs.exists(dir), true)
