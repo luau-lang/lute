@@ -1166,7 +1166,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "thenkeyword");
 
         node->thenbody->visit(this);
-        lua_setfield(L, -2, "consequent");
+        lua_setfield(L, -2, "thenblock");
 
         lua_createtable(L, 0, 0);
         int i = 0;
@@ -1185,7 +1185,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "thenkeyword");
 
             elseif->thenbody->visit(this);
-            lua_setfield(L, -2, "consequent");
+            lua_setfield(L, -2, "thenblock");
 
             lua_rawseti(L, -2, i + 1);
             node = elseif;
@@ -1200,7 +1200,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "elsekeyword");
 
             node->elsebody->visit(this);
-            lua_setfield(L, -2, "antecedent");
+            lua_setfield(L, -2, "elseblock");
 
             serializeToken(node->elsebody->location.end, "end");
             lua_setfield(L, -2, "endkeyword");
@@ -1211,7 +1211,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "elsekeyword");
 
             lua_pushnil(L);
-            lua_setfield(L, -2, "antecedent");
+            lua_setfield(L, -2, "elseblock");
 
             serializeToken(node->thenbody->location.end, "end");
             lua_setfield(L, -2, "endkeyword");

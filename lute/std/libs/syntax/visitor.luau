@@ -168,18 +168,18 @@ local function visitIf(node: luau.AstStatIf, visitor: Visitor)
 		visitToken(node.ifkeyword, visitor)
 		visitExpression(node.condition, visitor)
 		visitToken(node.thenkeyword, visitor)
-		visitBlock(node.consequent, visitor)
+		visitBlock(node.thenblock, visitor)
 		for _, elseifNode in node.elseifs do
 			visitToken(elseifNode.elseifkeyword, visitor)
 			visitExpression(elseifNode.condition, visitor)
 			visitToken(elseifNode.thenkeyword, visitor)
-			visitBlock(elseifNode.consequent, visitor)
+			visitBlock(elseifNode.thenblock, visitor)
 		end
 		if node.elsekeyword then
 			visitToken(node.elsekeyword, visitor)
 		end
-		if node.antecedent then
-			visitBlock(node.antecedent, visitor)
+		if node.elseblock then
+			visitBlock(node.elseblock, visitor)
 		end
 		visitToken(node.endkeyword, visitor)
 	end
