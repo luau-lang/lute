@@ -133,6 +133,25 @@ test.suite("FsSuite", function(suite)
 			fs.remove(watched)
 		end
 	end)
+
+	suite:case("createdirectory_makeparents_true", function(assert)
+		local nestedDir = path.join(tmpdir, "nested", "directory")
+		fs.createdirectory(nestedDir, { makeparents = true })
+		assert.eq(fs.exists(nestedDir), true)
+
+		-- TODO: create a fs.removedirectory with option to remove parents as well?
+		fs.rmdir(nestedDir)
+		fs.rmdir(path.join(tmpdir, "nested"))
+	end)
+
+	suite:case("createdirectory_makeparents_false", function(assert)
+		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
+		local success, err = pcall(function()
+			fs.createdirectory(nestedDir, { makeparents = false })
+		end)
+		assert.neq(success, true)
+		assert.neq(err, nil)
+	end)
 end)
 
 test.run()
