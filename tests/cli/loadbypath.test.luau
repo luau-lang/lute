@@ -21,7 +21,7 @@ local tmpDirExists = fs.exists(tmpDirStr)
 local testDir = path.join(tmpDirStr, "lute_require_test")
 local testDirStr = path.format(testDir)
 
-test.suite("Lute CLI", function(suite)
+test.suite("Lute CLI Run", function(suite)
 	suite:beforeall(function()
 		if not tmpDirExists then
 			fs.mkdir(tmpDirStr)
@@ -32,7 +32,7 @@ test.suite("Lute CLI", function(suite)
 		end
 	end)
 
-	suite:case("help1", function(check)
+	suite:case("loadbypath", function(check)
 		-- Setup
 		-- Create files
 		local requirerPath = path.format(path.join(testDir, "requirer.luau"))
