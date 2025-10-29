@@ -2,10 +2,10 @@ add_library(Lute.Luau STATIC)
 
 target_sources(Lute.Luau PRIVATE
     include/lute/luau.h
-    include/lute/requireluau.h
+    include/lute/staticrequire.h
 
     src/luau.cpp
-    src/requireluau.cpp
+    src/staticrequire.cpp
 )
 
 target_compile_features(Lute.Luau PUBLIC cxx_std_17)

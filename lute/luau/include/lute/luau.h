@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lute/requireluau.h"
+#include "lute/staticrequire.h"
 
 #include "lua.h"
 #include "lualib.h"

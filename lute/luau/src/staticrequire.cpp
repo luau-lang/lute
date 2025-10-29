@@ -1,4 +1,4 @@
-#include "lute/requireluau.h"
+#include "lute/staticrequire.h"
 
 #include "Luau/Common.h"
 #include "Luau/RequireNavigator.h"
@@ -38,15 +38,20 @@ using ConfigBehavior = Luau::Require::NavigationContext::ConfigBehavior;
 
 static NavigateResult convert(NavigationStatus status)
 {
+    NavigateResult result;
     switch (status)
     {
     case NavigationStatus::Success:
-        return NavigateResult::Success;
+        result = NavigateResult::Success;
+        break;
     case NavigationStatus::Ambiguous:
-        return NavigateResult::Ambiguous;
+        result = NavigateResult::Ambiguous;
+        break;
     case NavigationStatus::NotFound:
-        return NavigateResult::NotFound;
+        result = NavigateResult::NotFound;
+        break;
     }
+    return result;
 }
 
 FileVfsContext::FileVfsContext(std::string requirerChunkname)
