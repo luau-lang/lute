@@ -111,6 +111,7 @@ export type AstExprIndexExpr = {
 	closebrackets: Token<"]">,
 }
 
+-- I don't like that we have this type; a lot of its data should live in the parents, which should then have `AstStatBlock` as its body
 export type AstFunctionBody = {
 	opengenerics: Token<"<">?,
 	generics: Punctuated<AstGenericType>?,
