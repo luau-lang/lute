@@ -36,11 +36,12 @@ if not table.find(args, "--with-luaurc") then
 end
 
 local luauRcPath = `{cwd}/.luaurc`
+local luauRcPathPathlike = path.parse(luauRcPath)
 local rcFile = nil
 print(`Writing luaurc file at {luauRcPath}`)
 
-if fs.exists(luauRcPath) then
-	local contents = fs.readfiletostring(luauRcPath)
+if fs.exists(luauRcPathPathlike) then
+	local contents = fs.readfiletostring(luauRcPathPathlike)
 	rcFile = json.deserialize(contents) :: any
 
 	rcFile.aliases = rcFile.aliases or {}
@@ -50,6 +51,6 @@ if fs.exists(luauRcPath) then
 else
 	rcFile = TEMPLATE_RC_FILE
 end
-fs.writestringtofile(luauRcPath, json.serialize(rcFile, true))
+fs.writestringtofile(luauRcPathPathlike, json.serialize(rcFile, true))
 
 print(`Successfully wrote luaurc file to {luauRcPath}`)
