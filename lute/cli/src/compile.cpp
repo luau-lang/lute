@@ -522,18 +522,22 @@ std::optional<LuteExePayload> LuteExecutable::extract()
     if (fileSize < 0)
         return std::nullopt;
 
-    // Read entire file
+    // Early check: validate LUTEBYTE magic flag at end before reading entire file
+    if (fileSize < static_cast<std::streampos>(MAGIC_FLAG_SIZE))
+        return std::nullopt;
+
+    exeFile.seekg(-static_cast<std::streamoff>(MAGIC_FLAG_SIZE), std::ios::end);
+    char magicBuffer[MAGIC_FLAG_SIZE];
+    if (!exeFile.read(magicBuffer, MAGIC_FLAG_SIZE))
+        return std::nullopt;
+
+    if (memcmp(magicBuffer, MAGIC_FLAG, MAGIC_FLAG_SIZE) != 0)
+        return std::nullopt;
+
+    // Magic flag found, now read entire file
     exeFile.seekg(0, std::ios::beg);
     std::vector<char> fileData(fileSize);
     if (!exeFile.read(fileData.data(), fileSize))
-        return std::nullopt;
-
-    // Early check for LUTEBYTE magic flag before attempting decode
-    if (fileData.size() < MAGIC_FLAG_SIZE)
-        return std::nullopt;
-
-    size_t magicOffset = fileData.size() - MAGIC_FLAG_SIZE;
-    if (memcmp(fileData.data() + magicOffset, MAGIC_FLAG, MAGIC_FLAG_SIZE) != 0)
         return std::nullopt;
 
     // Decode the payload
