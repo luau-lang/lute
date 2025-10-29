@@ -1045,7 +1045,7 @@ struct AstSerialize : public Luau::AstVisitor
         }
         else
             lua_pushnil(L);
-        lua_setfield(L, -2, "trueexpr");
+        lua_setfield(L, -2, "thenexpr");
 
         lua_createtable(L, 0, preambleSize + 4);
         int i = 0;
@@ -1070,7 +1070,7 @@ struct AstSerialize : public Luau::AstVisitor
             }
             else
                 lua_pushnil(L);
-            lua_setfield(L, -2, "trueexpr");
+            lua_setfield(L, -2, "thenexpr");
 
             lua_rawseti(L, -2, i + 1);
             i++;
@@ -1085,7 +1085,7 @@ struct AstSerialize : public Luau::AstVisitor
         }
         else
             lua_pushnil(L);
-        lua_setfield(L, -2, "falseexpr");
+        lua_setfield(L, -2, "elseexpr");
     }
 
     void serialize(Luau::AstExprInterpString* node)

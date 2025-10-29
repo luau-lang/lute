@@ -62,11 +62,15 @@ export type AstExprInterpString = luteLuau.AstExprInterpString
 
 export type AstExprTypeAssertion = luteLuau.AstExprTypeAssertion
 
+export type AstExprIfElseIfs = luteLuau.AstExprIfElseIfs
+
 export type AstExprIfElse = luteLuau.AstExprIfElse
 
 export type AstExpr = luteLuau.AstExpr
 
 export type AstStatBlock = luteLuau.AstStatBlock
+
+export type AstStatElseIf = luteLuau.AstStatElseIf
 
 export type AstStatIf = luteLuau.AstStatIf
 

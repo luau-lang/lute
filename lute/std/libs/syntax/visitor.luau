@@ -554,15 +554,15 @@ local function visitIfExpression(node: luau.AstExprIfElse, visitor: Visitor)
 		visitToken(node.ifkeyword, visitor)
 		visitExpression(node.condition, visitor)
 		visitToken(node.thenkeyword, visitor)
-		visitExpression(node.trueexpr, visitor)
+		visitExpression(node.thenexpr, visitor)
 		for _, elseifs in node.elseifs do
 			visitToken(elseifs.elseifkeyword, visitor)
 			visitExpression(elseifs.condition, visitor)
 			visitToken(elseifs.thenkeyword, visitor)
-			visitExpression(elseifs.trueexpr, visitor)
+			visitExpression(elseifs.thenexpr, visitor)
 		end
 		visitToken(node.elsekeyword, visitor)
-		visitExpression(node.falseexpr, visitor)
+		visitExpression(node.elseexpr, visitor)
 	end
 end
 
