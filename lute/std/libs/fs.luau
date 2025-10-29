@@ -18,9 +18,6 @@ export type pathlike = pathlib.pathlike
 export type createdirectoryoptions = {
 	makeparents: boolean,
 }
-export type removedirectoryoptions = {
-	removeparents: boolean,
-}
 
 local function open(path: pathlike, mode: handlemode?): filehandle
 	return fs.open(pathlib.format(path), mode)
