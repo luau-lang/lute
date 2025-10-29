@@ -38,7 +38,7 @@ using ConfigBehavior = Luau::Require::NavigationContext::ConfigBehavior;
 
 static NavigateResult convert(NavigationStatus status)
 {
-    NavigateResult result;
+    NavigateResult result = NavigateResult::NotFound;
     switch (status)
     {
     case NavigationStatus::Success:
