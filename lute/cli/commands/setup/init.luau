@@ -5,6 +5,7 @@ local process = require("@std/process")
 local json = require("@std/json")
 
 local BASE_PATH = ".lute/typedefs/0.1.0"
+local BASE_PATH_PATHLIKE = path.parse(BASE_PATH)
 local BASE_PATH_PRETTY = `~/{BASE_PATH}`
 local TEMPLATE_RC_FILE = {
 	aliases = {
@@ -19,12 +20,13 @@ local args = { ... }
 
 -- TODO we're assuming the files are completely unmodified, but we really shouldn't do that.
 print(`Writing definitions at {BASE_PATH_PRETTY}`)
-fs.createdirectory(path.join(homeDir, BASE_PATH), { makeparents = true })
+fs.createdirectory(path.join(homeDir, BASE_PATH_PATHLIKE), { makeparents = true })
 
 for key, value in definitions :: { [string]: string } do
-	local filePath = `{BASE_PATH}/{key}`
+	local filePathString = `{BASE_PATH}/{key}`
+	local filePath = path.parse(filePathString)
 	fs.createdirectory(path.dirname(filePath), { makeparents = true })
-	fs.writestringtofile(`{homeDir}/{filePath}`, value)
+	fs.writestringtofile(filePath, value)
 end
 
 print(`Successfully wrote type definition files to {BASE_PATH_PRETTY}`)
