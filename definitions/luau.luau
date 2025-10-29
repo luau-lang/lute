@@ -229,7 +229,7 @@ export type AstStatBlock = {
 	statements: { AstStat },
 }
 
-export type AstStatElseIf = {
+type AstStatElseIf = {
 	elseifkeyword: Token<"elseif">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,

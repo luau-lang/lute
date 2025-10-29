@@ -68,8 +68,6 @@ export type AstExpr = luteLuau.AstExpr
 
 export type AstStatBlock = luteLuau.AstStatBlock
 
-export type AstStatElseIf = luteLuau.AstStatElseIf
-
 export type AstStatIf = luteLuau.AstStatIf
 
 export type AstStatWhile = luteLuau.AstStatWhile
