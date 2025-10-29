@@ -186,11 +186,11 @@ export type AstExprTypeAssertion = {
 	annotation: AstType,
 }
 
-export type AstExprIfElseIfs = {
+type AstExprIfElseIfs = {
 	elseifkeyword: Token<"elseif">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
-	consequent: AstExpr,
+	trueexpr: AstExpr,
 }
 
 export type AstExprIfElse = {
@@ -198,10 +198,10 @@ export type AstExprIfElse = {
 	ifkeyword: Token<"if">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
-	consequent: AstExpr,
+	trueexpr: AstExpr,
 	elseifs: { AstExprIfElseIfs },
 	elsekeyword: Token<"else">,
-	antecedent: AstExpr,
+	falseexpr: AstExpr,
 }
 
 export type AstExpr =
