@@ -23,7 +23,7 @@ local COMPILEE_CONTENTS = [[return "Hello world"]]
 local lutePath = process.execpath()
 local tmpDir = system.tmpdir()
 
-test.suite("Lute CLI", function(suite)
+test.suite("Lute CLI Compile", function(suite)
 	suite:case("help1", function(check)
 		-- Setup
 		-- Create files
