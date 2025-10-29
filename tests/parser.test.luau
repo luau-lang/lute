@@ -22,7 +22,7 @@ local function assertEqualsLocation(
 	assert.eq(actual["end"].column, endColumn)
 end
 
-test.suite("AstSerializer", function(suite)
+test.suite("Parser", function(suite)
 	suite:case("tokenContainsLeadingSpaces", function(assert)
 		local block = luau.parse("  local x = 1").root
 		assert.eq(#block.statements, 1)
@@ -135,7 +135,7 @@ test.suite("AstSerializer", function(suite)
 		end
 
 		visitDirectory("examples")
-		visitDirectory("tests/astSerializerTests")
+		visitDirectory("tests/parserExamples")
 	end)
 
 	suite:case("lineOffsetsField", function(assert)
