@@ -36,7 +36,10 @@ public:
     bool isConfigPresent(lua_State* L) const;
     std::string getConfig(lua_State* L) const;
 
-    bool isPrecompiled() const { return vfsType == VFSType::Bundle; };
+    bool isPrecompiled() const
+    {
+        return vfsType == VFSType::Bundle;
+    };
 
 private:
     enum class VFSType

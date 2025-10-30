@@ -127,12 +127,14 @@ std::optional<std::string> StaticRequireTracer::resolveRequire(const std::string
     }
 
     // Helper functions for ModulePath - paths are relative to rootDirectory
-    auto isFileFunc = [this](const std::string& path) -> bool {
+    auto isFileFunc = [this](const std::string& path) -> bool
+    {
         std::string fullPath = joinPaths(rootDirectory, path);
         return isFile(fullPath);
     };
 
-    auto isDir = [this](const std::string& path) -> bool {
+    auto isDir = [this](const std::string& path) -> bool
+    {
         std::string fullPath = joinPaths(rootDirectory, path);
         return isDirectory(fullPath);
     };
@@ -140,8 +142,8 @@ std::optional<std::string> StaticRequireTracer::resolveRequire(const std::string
     // Create a ModulePath with root as rootDirectory, starting at requirer's directory
     // This allows us to navigate up with .. beyond requirerDir, but not beyond rootDirectory
     std::optional<ModulePath> modulePath = ModulePath::create(
-        "",  // Root is empty (relative path base)
-        requirerDir,  // Start at the requirer's directory
+        "",          // Root is empty (relative path base)
+        requirerDir, // Start at the requirer's directory
         isFileFunc,
         isDir
     );
