@@ -16,7 +16,7 @@ export type watchevent = fs.WatchEvent
 export type pathlike = pathlib.pathlike
 
 export type createdirectoryoptions = {
-	makeparents: boolean,
+	makeparents: boolean?,
 }
 
 local function open(path: pathlike, mode: handlemode?): filehandle
