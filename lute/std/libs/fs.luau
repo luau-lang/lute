@@ -88,8 +88,8 @@ local function readasync(filepath: pathlike): string
 	return fs.readasync(pathlib.format(filepath))
 end
 
-local function createdirectory(path: pathlike, options: createdirectoryoptions): ()
-	if options.makeparents then
+local function createdirectory(path: pathlike, options: createdirectoryoptions?): ()
+	if options and options.makeparents then
 		local parts: { string } = pathlib.parse(path).parts
 
 		local subdir: pathlike = "."
