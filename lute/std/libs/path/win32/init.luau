@@ -1,9 +1,13 @@
 local process = require("@lute/process")
 local win32types = require("@self/types")
 
-export type pathkind = win32types.pathkind
-export type path = win32types.path
-export type pathlike = win32types.pathlike
+type PathInterface = {
+	__tostring: () -> string,
+}
+
+export type pathkind = setmetatable<win32types.pathkind, PathInterface>
+export type path = setmetatable<win32types.path, PathInterface>
+export type pathlike = setmetatable<win32types.pathlike, PathInterface>
 
 local win32 = {}
 
@@ -156,7 +160,7 @@ function win32.join(...: pathlike): path
 		joinHelper(path, parts[i])
 	end
 
-	return path
+	return setmetatable(path, win32)
 end
 
 function win32.normalize(path: pathlike): path
@@ -186,11 +190,11 @@ function win32.normalize(path: pathlike): path
 		end
 	end
 
-	return {
+	return setmetatable({
 		parts = newParts,
 		kind = path.kind,
 		driveLetter = path.driveLetter,
-	}
+	}, win32)
 end
 
 function win32.parse(path: pathlike): path
@@ -241,11 +245,11 @@ function win32.parse(path: pathlike): path
 		end
 	end
 
-	return {
+	return setmetatable({
 		parts = parts,
 		kind = kind,
 		driveLetter = driveLetter,
-	}
+	}, win32)
 end
 
 function win32.resolve(...: pathlike): path
@@ -277,7 +281,11 @@ function win32.resolve(...: pathlike): path
 		path = cwd
 	end
 
-	return win32.normalize(path)
+	return setmetatable(win32.normalize(path), win32)
+end
+
+function win32:__tostring(): string
+	return win32.format(self :: path)
 end
 
 return table.freeze(win32)

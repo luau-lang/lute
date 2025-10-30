@@ -1,3 +1,5 @@
+local pathlib = {}
+
 local platforminfo = require("@std/system/platforminfo")
 
 local posix = require("@self/posix")
@@ -5,10 +7,12 @@ local win32 = require("@self/win32")
 
 local pathtypes = require("@self/types")
 
-local pathlib = {}
+type PathInterface = {
+	__tostring: () -> string,
+}
 
-export type path = pathtypes.path
-export type pathlike = pathtypes.pathlike
+export type path = setmetatable<pathtypes.path, PathInterface>
+export type pathlike = setmetatable<pathtypes.pathlike, PathInterface>
 
 local onWindows = platforminfo.win32
 
@@ -54,37 +58,47 @@ end
 
 function pathlib.join(...: pathlike): path
 	if onWindows then
-		return win32.join(...)
+		return setmetatable(win32.join(...), pathlib)
 	else
-		return posix.join(...)
+		return setmetatable(posix.join(...), pathlib)
 	end
 end
 
 function pathlib.normalize(path: pathlike): path
 	if onWindows then
-		return win32.normalize(path :: win32.pathlike)
+		return setmetatable(win32.normalize(path :: win32.pathlike), pathlib)
 	else
-		return posix.normalize(path :: posix.pathlike)
+		return setmetatable(posix.normalize(path :: posix.pathlike), pathlib)
 	end
 end
 
 function pathlib.parse(path: pathlike): path
 	if onWindows then
-		return win32.parse(path :: win32.pathlike)
+		return setmetatable(win32.parse(path :: win32.pathlike), pathlib)
 	else
-		return posix.parse(path :: posix.pathlike)
+		return setmetatable(posix.parse(path :: posix.pathlike), pathlib)
 	end
 end
 
 function pathlib.resolve(...: pathlike): path
 	if onWindows then
-		return win32.resolve(...)
+		-- return win32.resolve(...)
+		return setmetatable(win32.resolve(...), pathlib)
 	else
-		return posix.resolve(...)
+		-- return posix.resolve(...)
+		return setmetatable(posix.resolve(...), pathlib)
 	end
 end
 
 pathlib.win32 = win32
 pathlib.posix = posix
+
+function pathlib:__tostring(): string
+	if onWindows then
+		return win32.format(self :: path)
+	else
+		return posix.format(self :: path)
+	end
+end
 
 return table.freeze(pathlib)

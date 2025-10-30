@@ -1,8 +1,12 @@
 local process = require("@lute/process")
 local posixtypes = require("@self/types")
 
-export type path = posixtypes.path
-export type pathlike = posixtypes.pathlike
+type PathInterface = {
+	__tostring: () -> string,
+}
+
+export type path = setmetatable<posixtypes.path, PathInterface>
+export type pathlike = setmetatable<posixtypes.pathlike, PathInterface>
 
 local posix = {}
 
@@ -121,7 +125,7 @@ function posix.join(...: pathlike): path
 		joinHelper(path, parts[i])
 	end
 
-	return path
+	return setmetatable(path, posix)
 end
 
 function posix.normalize(path: pathlike): path
@@ -151,10 +155,10 @@ function posix.normalize(path: pathlike): path
 		end
 	end
 
-	return {
+	return setmetatable({
 		parts = newParts,
 		absolute = path.absolute,
-	}
+	}, posix)
 end
 
 function posix.parse(path: pathlike): path
@@ -188,10 +192,10 @@ function posix.parse(path: pathlike): path
 		end
 	end
 
-	return {
+	return setmetatable({
 		parts = parts,
 		absolute = isAbs,
-	}
+	}, posix)
 end
 
 function posix.resolve(...: pathlike): path
@@ -223,7 +227,11 @@ function posix.resolve(...: pathlike): path
 		path = cwd
 	end
 
-	return posix.normalize(path)
+	return setmetatable(posix.normalize(path), posix)
+end
+
+function posix:__tostring(): string
+	return posix.format(self :: path)
 end
 
 return table.freeze(posix)
