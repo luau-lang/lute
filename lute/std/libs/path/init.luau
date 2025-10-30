@@ -7,12 +7,8 @@ local pathtypes = require("@self/types")
 
 local pathlib = {}
 
-type PathInterface = {
-	__tostring: () -> string,
-}
-
-export type path = setmetatable<pathtypes.path, PathInterface>
-export type pathlike = setmetatable<pathtypes.pathlike, PathInterface>
+export type path = pathtypes.path
+export type pathlike = pathtypes.pathlike
 
 local onWindows = platforminfo.win32
 
@@ -90,13 +86,5 @@ end
 
 pathlib.win32 = win32
 pathlib.posix = posix
-
-function pathlib:__tostring(): string
-	if onWindows then
-		return win32.format(self :: path)
-	else
-		return posix.format(self :: path)
-	end
-end
 
 return table.freeze(pathlib)

@@ -5,7 +5,7 @@ type PathInterface = {
 	__tostring: () -> string,
 }
 
-export type pathkind = setmetatable<win32types.pathkind, PathInterface>
+export type pathkind = win32types.pathkind
 export type path = setmetatable<win32types.path, PathInterface>
 export type pathlike = setmetatable<win32types.pathlike, PathInterface>
 
