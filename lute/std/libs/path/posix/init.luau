@@ -113,16 +113,16 @@ function posix.join(...: pathlike): path
 
 	local path: path = if typeof(parts[1]) == "string"
 		then posix.parse(parts[1])
-		else {
+		else setmetatable({
 			parts = table.clone((parts[1] :: path).parts),
 			absolute = (parts[1] :: path).absolute,
-		}
+		}, path_mt)
 
 	for i = 2, #parts do
 		joinHelper(path, parts[i])
 	end
 
-	return setmetatable(path, path_mt)
+	return path
 end
 
 function posix.normalize(path: pathlike): path
@@ -224,7 +224,7 @@ function posix.resolve(...: pathlike): path
 		path = cwd
 	end
 
-	return setmetatable(posix.normalize(path), path_mt)
+	return posix.normalize(path)
 end
 
 function path_mt:__tostring(): string

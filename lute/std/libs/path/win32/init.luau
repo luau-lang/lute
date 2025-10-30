@@ -147,17 +147,17 @@ function win32.join(...: pathlike): path
 
 	local path: path = if typeof(parts[1]) == "string"
 		then win32.parse(parts[1])
-		else {
+		else setmetatable({
 			parts = table.clone((parts[1] :: path).parts),
 			kind = (parts[1] :: path).kind,
 			driveLetter = (parts[1] :: path).driveLetter,
-		}
+		}, path_mt)
 
 	for i = 2, #parts do
 		joinHelper(path, parts[i])
 	end
 
-	return setmetatable(path, path_mt)
+	return path
 end
 
 function win32.normalize(path: pathlike): path
@@ -278,7 +278,7 @@ function win32.resolve(...: pathlike): path
 		path = cwd
 	end
 
-	return setmetatable(win32.normalize(path), path_mt)
+	return win32.normalize(path)
 end
 
 function path_mt:__tostring(): string
