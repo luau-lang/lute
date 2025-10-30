@@ -1,11 +1,11 @@
-local pathlib = {}
-
 local platforminfo = require("@std/system/platforminfo")
 
 local posix = require("@self/posix")
 local win32 = require("@self/win32")
 
 local pathtypes = require("@self/types")
+
+local pathlib = {}
 
 type PathInterface = {
 	__tostring: () -> string,
@@ -82,10 +82,8 @@ end
 
 function pathlib.resolve(...: pathlike): path
 	if onWindows then
-		-- return win32.resolve(...)
 		return setmetatable(win32.resolve(...), pathlib)
 	else
-		-- return posix.resolve(...)
 		return setmetatable(posix.resolve(...), pathlib)
 	end
 end
