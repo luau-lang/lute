@@ -21,6 +21,15 @@ test.suite("lute test", function(suite)
 		-- Check that it succeeds
 		assert.eq(result.exitcode, 0)
 	end)
+
+	suite:case("lute test discovers test files in custom directory", function(assert)
+		-- Run lute test with custom directory path
+		local result = process.run({ lutePath, "test", "tests/cli/discovery" })
+
+		-- Check that it discovers test files (.test.luau and .spec.luau)
+		assert.eq(result.exitcode, 0)
+		assert.neq(result.stdout:find("Found 2 test files", 1, true), nil)
+	end)
 end)
 
 test.run()
