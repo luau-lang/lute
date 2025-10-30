@@ -16,7 +16,7 @@ end
 local function findtestfilesrec(directory: path.path): { path.path }
 	local results = {}
 
-	for _, entry in fs.listdir(path.format(directory)) do
+	for _, entry in fs.listdir(directory) do
 		local fullPath = path.join(directory, entry.name)
 
 		if entry.type == "dir" then
@@ -31,17 +31,15 @@ end
 
 local function findtestfiles(paths: { string }): { path.path }
 	local files = {}
-
+	local cwd = ps.cwd()
 	for _, filepath in paths do
 		local pathObj = path.parse(filepath)
 
 		if not path.isabsolute(pathObj) then
-			pathObj = path.join(path.parse(ps.cwd()), pathObj)
+			pathObj = path.join(cwd, pathObj)
 		end
 
-		filepath = path.format(pathObj)
-
-		if fs.type(filepath) == "dir" then
+		if fs.type(pathObj) == "dir" then
 			extend(files, findtestfilesrec(pathObj))
 		elseif istestfile(filepath) then
 			table.insert(files, pathObj)

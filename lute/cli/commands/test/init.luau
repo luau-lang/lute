@@ -42,7 +42,7 @@ local function main(...: string)
 		end
 	end
 
-	local searchpath = #args > 0 and args or { "./tests" }
+	local searchpath = if #args > 0 then args else { "./tests" }
 
 	local files = finder.findtestfiles(searchpath)
 
