@@ -4,12 +4,7 @@ local process = require("@lute/process")
 local ignore = require("./ignore")
 local path = require("@std/path")
 local string = require("@std/string")
-
-local function extend<T>(tbl: { T }, other: { T })
-	for _, entry in other do
-		table.insert(tbl, entry)
-	end
-end
+local tbl = require("@std/table")
 
 local function traverseDirectoryRecursive(directory: path.path, ignoreResolver: ignore.IgnoreResolver): { path.path }
 	local results = {}
@@ -23,7 +18,7 @@ local function traverseDirectoryRecursive(directory: path.path, ignoreResolver: 
 				continue
 			end
 
-			extend(results, traverseDirectoryRecursive(fullPath, ignoreResolver))
+			tbl.extend(results, traverseDirectoryRecursive(fullPath, ignoreResolver))
 		else
 			-- TODO: allow customisation of the filter when traversing a directory. e.g., globs? file endings? ignore paths?
 			if string.endswith(entry.name, ".luau") or string.endswith(entry.name, ".lua") then
@@ -54,7 +49,7 @@ local function getSourceFiles(paths: { string }): { path.path }
 		filepath = path.format(pathObj)
 		print(filepath)
 		if fs.type(filepath) == "dir" then
-			extend(files, traverseDirectoryRecursive(pathObj, ignoreResolver))
+			tbl.extend(files, traverseDirectoryRecursive(pathObj, ignoreResolver))
 		else
 			table.insert(files, pathObj)
 		end
