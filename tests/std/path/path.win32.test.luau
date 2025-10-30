@@ -685,4 +685,20 @@ test.suite("PathWin32ResolveSuite", function(suite)
 	end)
 end)
 
+test.suite("PathWin32ToStringSuite", function(suite)
+	suite:case("toString_windows_absolute_path", function(assert)
+		local filePath = "C:\\Users\\username\\Documents\\file.txt"
+		local pathObj: win32.path = win32.parse(filePath)
+		local result = tostring(pathObj)
+		assert.eq(result, filePath)
+	end)
+
+	suite:case("toString_windows_relative_path", function(assert)
+		local filePath = "C:\\Users\\username\\Documents\\file.txt"
+		local pathObj: win32.path = path.win32.parse(filePath)
+		local result = tostring(pathObj)
+		assert.eq(result, filePath)
+	end)
+end)
+
 test.run()
