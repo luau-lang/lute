@@ -1,14 +1,11 @@
 local process = require("@lute/process")
 local posixtypes = require("@self/types")
 
-type PathInterface = {
-	__tostring: () -> string,
-}
-
-export type path = setmetatable<posixtypes.path, PathInterface>
-export type pathlike = setmetatable<posixtypes.pathlike, PathInterface>
+export type path = setmetatable<posixtypes.path, posixtypes.pathinterface>
+export type pathlike = posixtypes.pathlike
 
 local posix = {}
+local path_mt = {}
 
 function posix.basename(path: pathlike): string?
 	if typeof(path) == "string" then
@@ -108,10 +105,10 @@ end
 function posix.join(...: pathlike): path
 	local parts: { pathlike } = { ... }
 	if #parts == 0 then
-		return {
+		return setmetatable({
 			parts = {},
 			absolute = false,
-		}
+		}, path_mt)
 	end
 
 	local path: path = if typeof(parts[1]) == "string"
@@ -125,7 +122,7 @@ function posix.join(...: pathlike): path
 		joinHelper(path, parts[i])
 	end
 
-	return setmetatable(path, posix)
+	return setmetatable(path, path_mt)
 end
 
 function posix.normalize(path: pathlike): path
@@ -158,12 +155,12 @@ function posix.normalize(path: pathlike): path
 	return setmetatable({
 		parts = newParts,
 		absolute = path.absolute,
-	}, posix)
+	}, path_mt)
 end
 
 function posix.parse(path: pathlike): path
 	if typeof(path) == "table" then
-		return path
+		return setmetatable(path, path_mt)
 	end
 	if typeof(path) ~= "string" then
 		error("Expected string or path")
@@ -195,7 +192,7 @@ function posix.parse(path: pathlike): path
 	return setmetatable({
 		parts = parts,
 		absolute = isAbs,
-	}, posix)
+	}, path_mt)
 end
 
 function posix.resolve(...: pathlike): path
@@ -227,10 +224,10 @@ function posix.resolve(...: pathlike): path
 		path = cwd
 	end
 
-	return setmetatable(posix.normalize(path), posix)
+	return setmetatable(posix.normalize(path), path_mt)
 end
 
-function posix:__tostring(): string
+function path_mt:__tostring(): string
 	return posix.format(self :: path)
 end
 

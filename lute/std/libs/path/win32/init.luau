@@ -1,15 +1,12 @@
 local process = require("@lute/process")
 local win32types = require("@self/types")
 
-type PathInterface = {
-	__tostring: () -> string,
-}
-
 export type pathkind = win32types.pathkind
-export type path = setmetatable<win32types.path, PathInterface>
-export type pathlike = setmetatable<win32types.pathlike, PathInterface>
+export type path = setmetatable<win32types.path, win32types.pathinterface>
+export type pathlike = win32types.pathlike
 
 local win32 = {}
+local path_mt = {}
 
 function win32.basename(path: pathlike): string?
 	if typeof(path) == "string" then
@@ -141,11 +138,11 @@ end
 function win32.join(...: pathlike): path
 	local parts = { ... }
 	if #parts == 0 then
-		return {
+		return setmetatable({
 			parts = {},
 			kind = "relative",
 			driveLetter = nil,
-		}
+		}, path_mt)
 	end
 
 	local path: path = if typeof(parts[1]) == "string"
@@ -160,7 +157,7 @@ function win32.join(...: pathlike): path
 		joinHelper(path, parts[i])
 	end
 
-	return setmetatable(path, win32)
+	return setmetatable(path, path_mt)
 end
 
 function win32.normalize(path: pathlike): path
@@ -194,12 +191,12 @@ function win32.normalize(path: pathlike): path
 		parts = newParts,
 		kind = path.kind,
 		driveLetter = path.driveLetter,
-	}, win32)
+	}, path_mt)
 end
 
 function win32.parse(path: pathlike): path
 	if typeof(path) == "table" then
-		return path
+		return setmetatable(path, path_mt)
 	end
 	if typeof(path) ~= "string" then
 		error("Expected string or path")
@@ -249,7 +246,7 @@ function win32.parse(path: pathlike): path
 		parts = parts,
 		kind = kind,
 		driveLetter = driveLetter,
-	}, win32)
+	}, path_mt)
 end
 
 function win32.resolve(...: pathlike): path
@@ -281,10 +278,10 @@ function win32.resolve(...: pathlike): path
 		path = cwd
 	end
 
-	return setmetatable(win32.normalize(path), win32)
+	return setmetatable(win32.normalize(path), path_mt)
 end
 
-function win32:__tostring(): string
+function path_mt:__tostring(): string
 	return win32.format(self :: path)
 end
 

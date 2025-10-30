@@ -537,15 +537,17 @@ end)
 
 test.suite("PathPosixToStringSuite", function(suite)
 	suite:case("toString_posix_absolute_path", function(assert)
-		local pathobj: posix.path = posix.parse("/home/user/documents/file.txt")
+		local filePath = "/home/user/documents/file.txt"
+		local pathobj: posix.path = posix.parse(filePath)
 		local result = tostring(pathobj)
-		assert.eq(result, "/home/user/documents/file.txt")
+		assert.eq(result, filePath)
 	end)
 
 	suite:case("toString_posix_relative_path", function(assert)
-		local pathobj: posix.path = posix.parse("documents/file.txt")
+		local filePath = "documents/file.txt"
+		local pathobj: posix.path = posix.parse(filePath)
 		local result = tostring(pathobj)
-		assert.eq(result, "documents/file.txt")
+		assert.eq(result, filePath)
 	end)
 end)
 
