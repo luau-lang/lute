@@ -1,3 +1,5 @@
+local finder = require("@self/finder")
+
 local function printHelp()
 	print([[
 Usage: lute test [OPTIONS] [PATHS...]
@@ -39,6 +41,12 @@ local function main(...: string)
 			return
 		end
 	end
+
+	local searchpath = if #args > 0 then args else { "./tests" }
+
+	local files = finder.findtestfiles(searchpath)
+
+	print(`Found {#files} test files`)
 end
 
 main(...)
