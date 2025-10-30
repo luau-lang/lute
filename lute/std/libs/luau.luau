@@ -148,6 +148,8 @@ export type AstTypePackVariadic = luteLuau.AstTypePackVariadic
 
 export type AstTypePack = luteLuau.AstTypePack
 
+export type AstNode = luteLuau.AstNode
+
 export type ParseResult = luteLuau.ParseResult
 
 export type Bytecode = luteLuau.Bytecode

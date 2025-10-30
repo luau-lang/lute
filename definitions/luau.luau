@@ -36,6 +36,7 @@ export type Token<Kind = string> = {
 	position: Position,
 	text: Kind,
 	trailingtrivia: { Trivia },
+	istoken: true,
 }
 
 export type Eof = Token<""> & { tag: "eof" }
@@ -44,6 +45,7 @@ export type Pair<T, Separator> = { node: T, separator: Token<Separator>? }
 export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
 
 export type AstLocal = {
+	kind: "local",
 	name: Token<string>,
 	colon: Token<":">?,
 	annotation: AstType?,
@@ -134,6 +136,7 @@ export type AstExprAnonymousFunction = {
 	body: AstFunctionBody,
 }
 
+-- helper type for items contained in an AstExprTable, not actually an AstExpr itself
 export type AstExprTableItem =
 	| { kind: "list", value: AstExpr, separator: Token<"," | ";">? }
 	| {
@@ -186,6 +189,7 @@ export type AstExprTypeAssertion = {
 	annotation: AstType,
 }
 
+-- helper type for elseif clauses of an if-else expression, not actually an AstExpr itself
 export type AstExprIfElseIfs = {
 	elseifkeyword: Token<"elseif">,
 	condition: AstExpr,
@@ -204,8 +208,8 @@ export type AstExprIfElse = {
 	elseexpr: AstExpr,
 }
 
-export type AstExpr =
-	| AstExprGroup
+export type AstExpr = { kind: "expr" } & (
+	AstExprGroup
 	| AstExprConstantNil
 	| AstExprConstantBool
 	| AstExprConstantNumber
@@ -223,6 +227,7 @@ export type AstExpr =
 	| AstExprInterpString
 	| AstExprTypeAssertion
 	| AstExprIfElse
+)
 
 export type AstStatBlock = {
 	tag: "block",
@@ -328,7 +333,7 @@ export type AstStatCompoundAssign = {
 	value: AstExpr,
 }
 
-export type AstAttribute = Token<"@checked" | "@native" | "@deprecated"> & { tag: "attribute" }
+export type AstAttribute = Token<"@checked" | "@native" | "@deprecated"> & { kind: "attribute" }
 
 export type AstStatFunction = {
 	tag: "function",
@@ -369,8 +374,8 @@ export type AstStatTypeFunction = {
 	body: AstFunctionBody,
 }
 
-export type AstStat =
-	| AstStatBlock
+export type AstStat = { kind: "stat" } & (
+	AstStatBlock
 	| AstStatIf
 	| AstStatWhile
 	| AstStatRepeat
@@ -387,6 +392,7 @@ export type AstStat =
 	| AstStatLocalFunction
 	| AstStatTypeAlias
 	| AstStatTypeFunction
+)
 
 export type AstGenericType = {
 	tag: "generic",
@@ -519,8 +525,8 @@ export type AstTypeFunction = {
 	returntypes: AstTypePack,
 }
 
-export type AstType =
-	| AstTypeReference
+export type AstType = { kind: "type" } & (
+	AstTypeReference
 	| AstTypeSingletonBool
 	| AstTypeSingletonString
 	| AstTypeTypeof
@@ -531,6 +537,7 @@ export type AstType =
 	| AstTypeArray
 	| AstTypeTable
 	| AstTypeFunction
+)
 
 export type AstTypePackExplicit = {
 	tag: "explicit",
@@ -553,7 +560,9 @@ export type AstTypePackVariadic = {
 	type: AstType,
 }
 
-export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
+export type AstTypePack = { kind: "typepack" } & (AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic)
+
+export type AstNode = { location: Location } & (AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute)
 
 export type ParseResult = {
 	root: AstStatBlock,
