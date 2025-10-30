@@ -54,33 +54,33 @@ end
 
 function pathlib.join(...: pathlike): path
 	if onWindows then
-		return setmetatable(win32.join(...), pathlib)
+		return win32.join(...)
 	else
-		return setmetatable(posix.join(...), pathlib)
+		return posix.join(...)
 	end
 end
 
 function pathlib.normalize(path: pathlike): path
 	if onWindows then
-		return setmetatable(win32.normalize(path :: win32.pathlike), pathlib)
+		return win32.normalize(path :: win32.pathlike)
 	else
-		return setmetatable(posix.normalize(path :: posix.pathlike), pathlib)
+		return posix.normalize(path :: posix.pathlike)
 	end
 end
 
 function pathlib.parse(path: pathlike): path
 	if onWindows then
-		return setmetatable(win32.parse(path :: win32.pathlike), pathlib)
+		return win32.parse(path :: win32.pathlike)
 	else
-		return setmetatable(posix.parse(path :: posix.pathlike), pathlib)
+		return posix.parse(path :: posix.pathlike)
 	end
 end
 
 function pathlib.resolve(...: pathlike): path
 	if onWindows then
-		return setmetatable(win32.resolve(...), pathlib)
+		return win32.resolve(...)
 	else
-		return setmetatable(posix.resolve(...), pathlib)
+		return posix.resolve(...)
 	end
 end
 
