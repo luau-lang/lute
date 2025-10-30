@@ -1,19 +1,11 @@
-local test = require("@std/test")
-local path = require("@std/path")
 local fs = require("@std/fs")
-local tmpdir = "tmp"
+local path = require("@std/path")
+local system = require("@std/system")
+local test = require("@std/test")
+
+local tmpdir = system.tmpdir()
 
 test.suite("FsSuite", function(suite)
-	suite:beforeall(function()
-		if not fs.exists(tmpdir) then
-			fs.mkdir(tmpdir)
-		end
-	end)
-
-	suite:afterall(function()
-		fs.rmdir(tmpdir)
-	end)
-
 	suite:case("open_read_write_close_and_stat", function(assert)
 		local file = path.join(tmpdir, "file.txt")
 
