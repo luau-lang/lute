@@ -1,7 +1,8 @@
-local process = require("@lute/process")
+local path = require("@std/path")
+local process = require("@std/process")
 local test = require("@std/test")
 
-local lutePath = process.execpath()
+local lutePath = path.format(process.execpath())
 
 test.suite("lute test", function(suite)
 	suite:case("lute test help message", function(assert)
