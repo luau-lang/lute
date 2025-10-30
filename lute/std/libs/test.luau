@@ -127,6 +127,11 @@ function test.suite(name: string, registerFn: (TestSuite) -> ())
 	table.insert(env.suites, suite)
 end
 
+-- get all registered tests without running them (internal)
+function test._getregistered()
+	return table.freeze({ anonymous = env.anonymous, suites = env.suites })
+end
+
 -- run all the tests
 function test.run()
 	local failures: { FailedTest } = {}
