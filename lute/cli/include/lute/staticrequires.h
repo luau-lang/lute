@@ -19,7 +19,10 @@ public:
 
     // Get the require graph built during the last trace
     // Maps each file to the list of files it requires
-    const Luau::DenseHashMap<std::string, std::vector<std::string>>& getRequireGraph() const { return requireGraph; }
+    const Luau::DenseHashMap<std::string, std::vector<std::string>>& getRequireGraph() const
+    {
+        return requireGraph;
+    }
 
 private:
     Luau::DenseHashSet<std::string> visited{""};
