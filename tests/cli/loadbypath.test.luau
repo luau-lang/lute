@@ -1,6 +1,7 @@
 local fs = require("@lute/fs")
 local process = require("@lute/process")
 local path = require("@std/path")
+local system = require("@std/system")
 local test = require("@std/test")
 
 local REQUIRER_CONTENTS = [[
@@ -16,23 +17,18 @@ local REQUIREE_CONTENTS = [[return "Success"]]
 
 local lutePath = process.execpath()
 
-local tmpDirStr = ".tmp"
-local tmpDirExists = fs.exists(tmpDirStr)
+local tmpDirStr = system.tmpdir()
 local testDir = path.join(tmpDirStr, "lute_require_test")
 local testDirStr = path.format(testDir)
 
-test.suite("Lute CLI", function(suite)
+test.suite("Lute CLI Run", function(suite)
 	suite:beforeall(function()
-		if not tmpDirExists then
-			fs.mkdir(tmpDirStr)
-		end
-
 		if not fs.exists(testDirStr) then
 			fs.mkdir(testDirStr)
 		end
 	end)
 
-	suite:case("help1", function(check)
+	suite:case("loadbypath", function(check)
 		-- Setup
 		-- Create files
 		local requirerPath = path.format(path.join(testDir, "requirer.luau"))
@@ -57,10 +53,6 @@ test.suite("Lute CLI", function(suite)
 	suite:afterall(function()
 		if fs.exists(testDirStr) then
 			fs.rmdir(testDirStr)
-		end
-
-		if not tmpDirExists then
-			fs.rmdir(tmpDirStr)
 		end
 	end)
 end)

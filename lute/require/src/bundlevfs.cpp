@@ -53,8 +53,14 @@ NavigationStatus BundleVfs::resetToPath(const std::string& path)
         modulePath = ModulePath::create(
             "@bundle",
             "",
-            [this](const std::string& p) { return isBundleModule(filePathToBytecode, p); },
-            [this](const std::string& p) { return isBundleDirectory(filePathToBytecode, p); }
+            [this](const std::string& p)
+            {
+                return isBundleModule(filePathToBytecode, p);
+            },
+            [this](const std::string& p)
+            {
+                return isBundleDirectory(filePathToBytecode, p);
+            }
         );
         return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
     }
@@ -69,8 +75,14 @@ NavigationStatus BundleVfs::resetToPath(const std::string& path)
     modulePath = ModulePath::create(
         "@bundle",
         filePath,
-        [this](const std::string& p) { return isBundleModule(filePathToBytecode, p); },
-        [this](const std::string& p) { return isBundleDirectory(filePathToBytecode, p); }
+        [this](const std::string& p)
+        {
+            return isBundleModule(filePathToBytecode, p);
+        },
+        [this](const std::string& p)
+        {
+            return isBundleDirectory(filePathToBytecode, p);
+        }
     );
 
     return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;

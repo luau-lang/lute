@@ -1,19 +1,11 @@
-local test = require("@std/test")
-local path = require("@std/path")
 local fs = require("@std/fs")
-local tmpdir = "tmp"
+local path = require("@std/path")
+local system = require("@std/system")
+local test = require("@std/test")
+
+local tmpdir = system.tmpdir()
 
 test.suite("FsSuite", function(suite)
-	suite:beforeall(function()
-		if not fs.exists(tmpdir) then
-			fs.createdirectory(tmpdir, { makeparents = true })
-		end
-	end)
-
-	suite:afterall(function()
-		fs.rmdir(tmpdir)
-	end)
-
 	suite:case("open_read_write_close_and_stat", function(assert)
 		local file = path.join(tmpdir, "file.txt")
 
@@ -139,7 +131,6 @@ test.suite("FsSuite", function(suite)
 		fs.createdirectory(nestedDir, { makeparents = true })
 		assert.eq(fs.exists(nestedDir), true)
 
-		-- TODO: create a fs.removedirectory with option to remove parents as well?
 		fs.rmdir(nestedDir)
 		fs.rmdir(path.join(tmpdir, "nested"))
 	end)
@@ -148,6 +139,15 @@ test.suite("FsSuite", function(suite)
 		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
 		local success, err = pcall(function()
 			fs.createdirectory(nestedDir, { makeparents = false })
+		end)
+		assert.neq(success, true)
+		assert.neq(err, nil)
+	end)
+
+	suite:case("createdirectory_no_options", function(assert)
+		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
+		local success, err = pcall(function()
+			fs.createdirectory(nestedDir)
 		end)
 		assert.neq(success, true)
 		assert.neq(err, nil)
