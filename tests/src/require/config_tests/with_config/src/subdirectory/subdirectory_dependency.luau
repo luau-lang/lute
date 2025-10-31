@@ -1,1 +1,1 @@
-return {"result from subdirectory_dependency"}
+return { "result from subdirectory_dependency" }

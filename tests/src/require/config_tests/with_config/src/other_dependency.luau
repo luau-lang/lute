@@ -1,1 +1,1 @@
-return {"result from other_dependency"}
+return { "result from other_dependency" }

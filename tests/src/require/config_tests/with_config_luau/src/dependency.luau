@@ -1,1 +1,1 @@
-return {"result from dependency"}
+return { "result from dependency" }
