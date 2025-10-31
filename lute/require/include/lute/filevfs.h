@@ -18,7 +18,7 @@ public:
     std::string getAbsoluteFilePath() const;
     std::optional<std::string> getContents(const std::string& path) const;
 
-    bool isConfigPresent() const;
+    ConfigStatus getConfigStatus() const;
     std::optional<std::string> getConfig() const;
 
 private:

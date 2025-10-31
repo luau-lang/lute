@@ -16,6 +16,7 @@
 #include "lute/fs.h"
 #include "lute/io.h"
 #include "lute/luau.h"
+#include "lute/luauflags.h"
 #include "lute/net.h"
 #include "lute/options.h"
 #include "lute/process.h"
@@ -28,6 +29,7 @@
 #include "lute/time.h"
 #include "lute/version.h"
 #include "lute/vm.h"
+
 #include "uv.h"
 
 #ifdef _WIN32
@@ -462,6 +464,7 @@ int handleCliCommand(CliCommandResult result, int program_argc, char** program_a
 int cliMain(int argc, char** argv)
 {
     Luau::assertHandler() = assertionHandler;
+    setLuauFlags();
 
     AppendedBytecodeResult embedded = checkForAppendedBytecode();
     if (embedded.found)

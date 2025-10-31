@@ -88,10 +88,10 @@ std::optional<std::string> FileVfs::getContents(const std::string& path) const
     return readFile(path);
 }
 
-bool FileVfs::isConfigPresent() const
+ConfigStatus FileVfs::getConfigStatus() const
 {
     LUAU_ASSERT(modulePath);
-    return isFile(modulePath->getPotentialLuaurcPath());
+    return isFile(modulePath->getPotentialLuaurcPath()) ? ConfigStatus::PresentJson : ConfigStatus::Absent;
 }
 
 std::optional<std::string> FileVfs::getConfig() const

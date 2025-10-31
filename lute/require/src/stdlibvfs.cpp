@@ -77,10 +77,10 @@ std::optional<std::string> StdLibVfs::getContents(const std::string& path) const
     return readStdLibModule(path);
 }
 
-bool StdLibVfs::isConfigPresent() const
+ConfigStatus StdLibVfs::getConfigStatus() const
 {
     // Currently, we do not support .luaurc files in the standard library.
-    return false;
+    return ConfigStatus::Absent;
 }
 
 std::optional<std::string> StdLibVfs::getConfig() const
