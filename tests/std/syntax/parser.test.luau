@@ -164,6 +164,22 @@ test.suite("Parser", function(suite)
 		assert.eq(emptyResult.lineoffsets[2], 12)
 		assert.eq(emptyResult.lineoffsets[3], 13)
 	end)
+
+	suite:case("unknownAttributes", function(assert)
+		local code = [[
+			@checked
+			local function foo()
+			end
+		]]
+		local block = luau.parse(code).root
+		assert.eq(#block.statements, 1)
+
+		local l = block.statements[1]
+		assert.eq(l.tag, "localfunction")
+
+		local lf = l :: luau.AstStatLocalFunction
+		assert.eq(lf.attributes[1].text, "@checked")
+	end)
 end)
 
 test.run()

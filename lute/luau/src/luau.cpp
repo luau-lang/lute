@@ -634,23 +634,7 @@ struct AstSerialize : public Luau::AstVisitor
     }
     void serializeAttribute(Luau::AstAttr* node)
     {
-        switch (node->type)
-        {
-        case Luau::AstAttr::Checked:
-            serializeToken(node->location.begin, "@checked");
-            break;
-        case Luau::AstAttr::Native:
-            serializeToken(node->location.begin, "@native");
-            break;
-        case Luau::AstAttr::Deprecated:
-            serializeToken(node->location.begin, "@deprecated");
-            break;
-        case Luau::AstAttr::Unknown:
-            std::string value = "@";
-            value += node->name.value;
-            serializeToken(node->location.begin, value.c_str());
-            break;
-        }
+        serializeToken(node->location.begin, ("@" + std::string(node->name.value)).c_str());
         serializeNodePreamble(node, "attribute");
     }
 
