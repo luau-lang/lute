@@ -2,6 +2,7 @@
 
 #include "Luau/Common.h"
 
+#include <stdexcept>
 #include <string_view>
 
 static void setLuauFlag(std::string_view name, bool state)
