@@ -6,17 +6,15 @@ export type Context<Options = { [any]: any }> = {
 
 export type Transformer = (Context) -> string
 
-export type ConfigOption =
-	{
-		kind: "string",
-		name: string,
-		default: string?,
-	}
-	| {
-		kind: "boolean",
-		name: string,
-		default: boolean?,
-	}
+export type ConfigOption = {
+	kind: "string",
+	name: string,
+	default: string?,
+} | {
+	kind: "boolean",
+	name: string,
+	default: boolean?,
+}
 
 export type InitializationContext<Options = { [any]: any }> = {
 	options: Options,
