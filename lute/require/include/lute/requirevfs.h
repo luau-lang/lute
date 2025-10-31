@@ -33,7 +33,7 @@ public:
     std::string getLoadname(lua_State* L) const;
     std::string getCacheKey(lua_State* L) const;
 
-    bool isConfigPresent(lua_State* L) const;
+    ConfigStatus getConfigStatus(lua_State* L) const;
     std::string getConfig(lua_State* L) const;
 
     bool isPrecompiled() const

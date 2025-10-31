@@ -164,6 +164,30 @@ test.suite("Parser", function(suite)
 		assert.eq(emptyResult.lineoffsets[2], 12)
 		assert.eq(emptyResult.lineoffsets[3], 13)
 	end)
+
+	suite:case("canParseAttributes", function(assert)
+		local code = [[
+			@checked
+			local function foo()
+			end
+		]]
+		local subcases = {
+			{ attr = "@checked", code = code },
+			{ attr = "@native", code = code:gsub("checked", "native") },
+			{ attr = "@deprecated", code = code:gsub("checked", "deprecated") },
+		}
+
+		for _, subcase in ipairs(subcases) do
+			local block = luau.parse(subcase.code).root
+			assert.eq(#block.statements, 1)
+
+			local l = block.statements[1]
+			assert.eq(l.tag, "localfunction")
+
+			local lf = l :: luau.AstStatLocalFunction
+			assert.eq(lf.attributes[1].text, subcase.attr)
+		end
+	end)
 end)
 
 test.run()

@@ -11,6 +11,14 @@ enum class NavigationStatus
     NotFound
 };
 
+enum class ConfigStatus
+{
+    Absent,
+    Ambiguous,
+    PresentJson,
+    PresentLuau
+};
+
 struct ResolvedRealPath
 {
     enum class PathType

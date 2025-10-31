@@ -33,13 +33,41 @@ static luarequire_WriteResult write(std::optional<std::string> contents, char* b
 
 static luarequire_NavigateResult convert(NavigationStatus status)
 {
-    if (status == NavigationStatus::Success)
-        return NAVIGATE_SUCCESS;
+    luarequire_NavigateResult navigateResult = NAVIGATE_NOT_FOUND;
+    switch (status)
+    {
+    case NavigationStatus::Success:
+        navigateResult = NAVIGATE_SUCCESS;
+        break;
+    case NavigationStatus::Ambiguous:
+        navigateResult = NAVIGATE_AMBIGUOUS;
+        break;
+    case NavigationStatus::NotFound:
+        navigateResult = NAVIGATE_NOT_FOUND;
+        break;
+    };
+    return navigateResult;
+}
 
-    if (status == NavigationStatus::Ambiguous)
-        return NAVIGATE_AMBIGUOUS;
-
-    return NAVIGATE_NOT_FOUND;
+static luarequire_ConfigStatus convert(ConfigStatus status)
+{
+    luarequire_ConfigStatus configStatus = CONFIG_AMBIGUOUS;
+    switch (status)
+    {
+    case ConfigStatus::Absent:
+        configStatus = CONFIG_ABSENT;
+        break;
+    case ConfigStatus::Ambiguous:
+        configStatus = CONFIG_AMBIGUOUS;
+        break;
+    case ConfigStatus::PresentJson:
+        configStatus = CONFIG_PRESENT_JSON;
+        break;
+    case ConfigStatus::PresentLuau:
+        configStatus = CONFIG_PRESENT_LUAU;
+        break;
+    };
+    return configStatus;
 }
 
 static bool is_require_allowed(lua_State* L, void* ctx, const char* requirer_chunkname)
@@ -96,10 +124,10 @@ static luarequire_WriteResult get_cache_key(lua_State* L, void* ctx, char* buffe
     return write(reqCtx->vfs.getCacheKey(L), buffer, buffer_size, size_out);
 }
 
-static bool is_config_present(lua_State* L, void* ctx)
+static luarequire_ConfigStatus get_config_status(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return reqCtx->vfs.isConfigPresent(L);
+    return convert(reqCtx->vfs.getConfigStatus(L));
 }
 
 static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
@@ -181,12 +209,11 @@ void requireConfigInit(luarequire_Configuration* config)
     config->to_parent = to_parent;
     config->to_child = to_child;
     config->is_module_present = is_module_present;
-    config->is_config_present = is_config_present;
+    config->get_config_status = get_config_status;
     config->get_chunkname = get_chunkname;
     config->get_loadname = get_loadname;
     config->get_cache_key = get_cache_key;
     config->get_config = get_config;
-    config->get_alias = nullptr; // We use get_config instead of get_alias.
     config->load = load;
 }
 
