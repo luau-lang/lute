@@ -51,7 +51,7 @@ public:
     );
 
     ResolvedRealPath getRealPath() const;
-    std::string getPotentialLuaurcPath() const;
+    std::string getPotentialConfigPath(const std::string& name) const;
 
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);

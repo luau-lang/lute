@@ -3,7 +3,9 @@
 #include "lute/modulepath.h"
 
 #include "Luau/Common.h"
+#include "Luau/Config.h"
 #include "Luau/FileUtils.h"
+#include "Luau/LuauConfig.h"
 
 #include <array>
 #include <string>
@@ -91,11 +93,31 @@ std::optional<std::string> FileVfs::getContents(const std::string& path) const
 ConfigStatus FileVfs::getConfigStatus() const
 {
     LUAU_ASSERT(modulePath);
-    return isFile(modulePath->getPotentialLuaurcPath()) ? ConfigStatus::PresentJson : ConfigStatus::Absent;
+
+    bool luaurcExists = isFile(modulePath->getPotentialConfigPath(Luau::kConfigName));
+    bool luauConfigExists = isFile(modulePath->getPotentialConfigPath(Luau::kLuauConfigName));
+
+    if (luaurcExists && luauConfigExists)
+        return ConfigStatus::Ambiguous;
+    else if (luauConfigExists)
+        return ConfigStatus::PresentLuau;
+    else if (luaurcExists)
+        return ConfigStatus::PresentJson;
+
+    return ConfigStatus::Absent;
 }
 
 std::optional<std::string> FileVfs::getConfig() const
 {
     LUAU_ASSERT(modulePath);
-    return readFile(modulePath->getPotentialLuaurcPath());
+
+    ConfigStatus status = getConfigStatus();
+    LUAU_ASSERT(status == ConfigStatus::PresentJson || status == ConfigStatus::PresentLuau);
+
+    if (status == ConfigStatus::PresentJson)
+        return readFile(modulePath->getPotentialConfigPath(Luau::kConfigName));
+    else if (status == ConfigStatus::PresentLuau)
+        return readFile(modulePath->getPotentialConfigPath(Luau::kLuauConfigName));
+
+    LUAU_UNREACHABLE();
 }
