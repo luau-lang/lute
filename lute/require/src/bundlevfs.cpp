@@ -128,10 +128,10 @@ std::optional<std::string> BundleVfs::getContents(const std::string& path) const
     return std::nullopt;
 }
 
-bool BundleVfs::isConfigPresent() const
+ConfigStatus BundleVfs::getConfigStatus() const
 {
     // Currently, we do not support .luaurc files in bundles.
-    return false;
+    return ConfigStatus::Absent;
 }
 
 std::optional<std::string> BundleVfs::getConfig() const

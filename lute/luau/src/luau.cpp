@@ -645,6 +645,11 @@ struct AstSerialize : public Luau::AstVisitor
         case Luau::AstAttr::Deprecated:
             serializeToken(node->location.begin, "@deprecated");
             break;
+        case Luau::AstAttr::Unknown:
+            std::string value = "@";
+            value += node->name.value;
+            serializeToken(node->location.begin, value.c_str());
+            break;
         }
         serializeNodePreamble(node, "attribute");
     }
