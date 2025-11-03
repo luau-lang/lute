@@ -62,7 +62,8 @@ AppendedBytecodeResult checkForAppendedBytecode()
     exeFile.seekg(fileSize - static_cast<std::streampos>(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE));
     exeFile.read(reinterpret_cast<char*>(&BytecodeSize), BYTECODE_SIZE_FIELD_SIZE);
 
-    if (fileSize < static_cast<std::streampos>(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE + BytecodeSize)) {
+    if (fileSize < static_cast<std::streampos>(MAGIC_FLAG_SIZE + BYTECODE_SIZE_FIELD_SIZE + BytecodeSize))
+    {
         fprintf(stderr, "Warning: Found magic flag but file size inconsistent.\n");
         exeFile.close();
         return result;
@@ -116,14 +117,15 @@ int compileScript(const std::string& inputFilePath, const std::string& outputFil
     std::vector<char> exeBuffer(exeSize);
     if (!exeFile.read(exeBuffer.data(), exeSize))
     {
-         fprintf(stderr, "Error reading current executable %s\n", currentExecutablePath.c_str());
-         exeFile.close();
-         return 1;
+        fprintf(stderr, "Error reading current executable %s\n", currentExecutablePath.c_str());
+        exeFile.close();
+        return 1;
     }
     exeFile.close();
 
     std::ofstream outFile(outputFilePath, std::ios::binary | std::ios::trunc);
-    if (!outFile) {
+    if (!outFile)
+    {
         fprintf(stderr, "Error creating output file %s\n", outputFilePath.c_str());
         return 1;
     }
@@ -139,10 +141,10 @@ int compileScript(const std::string& inputFilePath, const std::string& outputFil
 
     if (!outFile.good())
     {
-         fprintf(stderr, "Error writing to output file %s\n", outputFilePath.c_str());
-         outFile.close();
-         remove(outputFilePath.c_str());
-         return 1;
+        fprintf(stderr, "Error writing to output file %s\n", outputFilePath.c_str());
+        outFile.close();
+        remove(outputFilePath.c_str());
+        return 1;
     }
 
     outFile.close();
@@ -221,11 +223,11 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
 
     // Compress with maximum compression level
     int compressResult = compress2(
-        compressedData.data(),           // destination buffer
-        &compressedSize,                 // in/out: buffer size / actual compressed size
-        reinterpret_cast<const Bytef*>(uncompressedBundle.data()),  // source data
-        uncompressedSize,                // source size
-        Z_BEST_COMPRESSION               // compression level (9)
+        compressedData.data(),                                     // destination buffer
+        &compressedSize,                                           // in/out: buffer size / actual compressed size
+        reinterpret_cast<const Bytef*>(uncompressedBundle.data()), // source data
+        uncompressedSize,                                          // source size
+        Z_BEST_COMPRESSION                                         // compression level (9)
     );
 
     if (compressResult != Z_OK)
@@ -271,7 +273,7 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
     result.bytesWritten = result.payload.size();
     result.compressedPayloadSizeBytes = compressedSize;
     result.uncompressedPayloadSizeBytes = uncompressedSize;
-    
+
     return result;
 }
 
@@ -311,7 +313,8 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     };
 
     // Helper to read variable-length bytes backwards
-    auto readBytes = [&binary](size_t& pos, size_t length, const char* fieldName) -> std::optional<std::string> {
+    auto readBytes = [&binary](size_t& pos, size_t length, const char* fieldName) -> std::optional<std::string>
+    {
         if (pos < length)
         {
             fprintf(stderr, "Decode failed: Incomplete %s field\n", fieldName);
@@ -321,7 +324,8 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
         return std::string(binary.data() + pos, length);
     };
 
-    // Read metadata from LUTEBYTE back to entry_point_path_length: [entry_point_path_length][entry_point_path][num_files][uncompressed_size][compressed_size][compressed_data]...[LUTEBYTE]
+    // Read metadata from LUTEBYTE back to entry_point_path_length:
+    // [entry_point_path_length][entry_point_path][num_files][uncompressed_size][compressed_size][compressed_data]...[LUTEBYTE]
     size_t pos = binary.size() - MAGIC_FLAG_SIZE;
 
     // Read entry_point_path_length
@@ -361,12 +365,8 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     // Decompress the bundle
     std::vector<Bytef> uncompressedData(uncompressedSize);
     uLongf actualUncompressedSize = uncompressedSize;
-    int zlibResult = uncompress(
-        uncompressedData.data(),
-        &actualUncompressedSize,
-        reinterpret_cast<const Bytef*>(binary.data() + pos),
-        compressedSize
-    );
+    int zlibResult =
+        uncompress(uncompressedData.data(), &actualUncompressedSize, reinterpret_cast<const Bytef*>(binary.data() + pos), compressedSize);
 
     if (zlibResult != Z_OK)
     {

@@ -1,19 +1,11 @@
-local test = require("@std/test")
-local path = require("@std/path")
 local fs = require("@std/fs")
-local tmpdir = "tmp"
+local path = require("@std/path")
+local system = require("@std/system")
+local test = require("@std/test")
+
+local tmpdir = system.tmpdir()
 
 test.suite("FsSuite", function(suite)
-	suite:beforeall(function()
-		if not fs.exists(tmpdir) then
-			fs.mkdir(tmpdir)
-		end
-	end)
-
-	suite:afterall(function()
-		fs.rmdir(tmpdir)
-	end)
-
 	suite:case("open_read_write_close_and_stat", function(assert)
 		local file = path.join(tmpdir, "file.txt")
 
@@ -57,7 +49,7 @@ test.suite("FsSuite", function(suite)
 	suite:case("mkdir_listdir_rmdir", function(assert)
 		local dir = path.join(tmpdir, "subdir")
 		if not fs.exists(dir) then
-			fs.mkdir(dir)
+			fs.createdirectory(dir, { makeparents = true })
 		end
 
 		assert.eq(fs.exists(dir), true)
@@ -132,6 +124,33 @@ test.suite("FsSuite", function(suite)
 		if fs.exists(watched) then
 			fs.remove(watched)
 		end
+	end)
+
+	suite:case("createdirectory_makeparents_true", function(assert)
+		local nestedDir = path.join(tmpdir, "nested", "directory")
+		fs.createdirectory(nestedDir, { makeparents = true })
+		assert.eq(fs.exists(nestedDir), true)
+
+		fs.rmdir(nestedDir)
+		fs.rmdir(path.join(tmpdir, "nested"))
+	end)
+
+	suite:case("createdirectory_makeparents_false", function(assert)
+		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
+		local success, err = pcall(function()
+			fs.createdirectory(nestedDir, { makeparents = false })
+		end)
+		assert.neq(success, true)
+		assert.neq(err, nil)
+	end)
+
+	suite:case("createdirectory_no_options", function(assert)
+		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
+		local success, err = pcall(function()
+			fs.createdirectory(nestedDir)
+		end)
+		assert.neq(success, true)
+		assert.neq(err, nil)
 	end)
 end)
 

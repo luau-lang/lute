@@ -1,6 +1,6 @@
-local test = require("@std/test")
-local process = require("@std/process")
 local pathlib = require("@std/path")
+local process = require("@std/process")
+local test = require("@std/test")
 
 test.suite("ProcessSuite", function(suite)
 	suite:case("homedir_and_cwd_and_execpath", function(assert)

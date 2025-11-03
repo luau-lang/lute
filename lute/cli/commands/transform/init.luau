@@ -6,6 +6,10 @@ local arguments = require("@self/lib/arguments")
 local files = require("@self/lib/files")
 local types = require("@self/lib/types")
 
+local function exhaustiveMatch(value: never): never
+	error(`Unknown value in exhaustive match: {value}`)
+end
+
 local function loadMigration(path: string): types.Migration
 	local success, loaded = pcall(luau.loadbypath, path)
 	assert(success, `{path} failed to require: {loaded}`)

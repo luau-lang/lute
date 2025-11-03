@@ -2,7 +2,7 @@
 
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/Error.h"
-#include "Luau/Transpiler.h"
+#include "Luau/PrettyPrinter.h"
 #include "Luau/TypeAttach.h"
 
 static const std::string kLuteDefinitions = R"LUTE_TYPES(

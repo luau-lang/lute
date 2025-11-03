@@ -190,7 +190,7 @@ export type AstExprIfElseIfs = {
 	elseifkeyword: Token<"elseif">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
-	consequent: AstExpr,
+	thenexpr: AstExpr,
 }
 
 export type AstExprIfElse = {
@@ -198,10 +198,10 @@ export type AstExprIfElse = {
 	ifkeyword: Token<"if">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
-	consequent: AstExpr,
+	thenexpr: AstExpr,
 	elseifs: { AstExprIfElseIfs },
 	elsekeyword: Token<"else">,
-	antecedent: AstExpr,
+	elseexpr: AstExpr,
 }
 
 export type AstExpr =
@@ -233,7 +233,7 @@ export type AstStatElseIf = {
 	elseifkeyword: Token<"elseif">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
-	consequent: AstStatBlock,
+	thenblock: AstStatBlock,
 }
 
 export type AstStatIf = {
@@ -241,10 +241,10 @@ export type AstStatIf = {
 	ifkeyword: Token<"if">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
-	consequent: AstStatBlock,
+	thenblock: AstStatBlock,
 	elseifs: { AstStatElseIf },
 	elsekeyword: Token<"else">?, -- TODO: this could be elseif!
-	antecedent: AstStatBlock?,
+	elseblock: AstStatBlock?,
 	endkeyword: Token<"end">,
 }
 

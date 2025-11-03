@@ -1,9 +1,10 @@
 local definitions = require("@self/generated/definitions")
 local fs = require("@std/fs")
+local path = require("@std/path")
 local process = require("@std/process")
 local json = require("@std/json")
 
-local BASE_PATH = ".lute/typedefs/0.1.0"
+local BASE_PATH = path.parse(".lute/typedefs/0.1.0")
 local BASE_PATH_PRETTY = `~/{BASE_PATH}`
 local TEMPLATE_RC_FILE = {
 	aliases = {
@@ -16,31 +17,14 @@ local homeDir = process.homedir()
 local cwd = process.cwd()
 local args = { ... }
 
-function mkdirdashp(home: string, subpath: string, noIncludeLast: boolean?)
-	local subdir = home
-	local parts = string.split(subpath, "/")
-	local numParts = #parts
-
-	for idx, part in parts do
-		if noIncludeLast and (idx == numParts) then
-			break
-		end
-
-		subdir = subdir .. "/" .. part
-		if not fs.exists(subdir) then
-			fs.mkdir(subdir)
-		end
-	end
-end
-
 -- TODO we're assuming the files are completely unmodified, but we really shouldn't do that.
 print(`Writing definitions at {BASE_PATH_PRETTY}`)
-mkdirdashp(homeDir, BASE_PATH)
+fs.createdirectory(path.join(homeDir, BASE_PATH), { makeparents = true })
 
 for key, value in definitions :: { [string]: string } do
-	local filePath = `{BASE_PATH}/{key}`
-	mkdirdashp(homeDir, filePath, true)
-	fs.writestringtofile(`{homeDir}/{filePath}`, value)
+	local filePath = path.parse(`{BASE_PATH}/{key}`)
+	fs.createdirectory(path.dirname(filePath), { makeparents = true })
+	fs.writestringtofile(filePath, value)
 end
 
 print(`Successfully wrote type definition files to {BASE_PATH_PRETTY}`)
@@ -49,7 +33,7 @@ if not table.find(args, "--with-luaurc") then
 	return
 end
 
-local luauRcPath = `{cwd}/.luaurc`
+local luauRcPath = path.parse(`{cwd}/.luaurc`)
 local rcFile = nil
 print(`Writing luaurc file at {luauRcPath}`)
 

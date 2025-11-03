@@ -33,11 +33,18 @@ local function fold<K, V, A>(table: { [K]: V }, f: (A, V) -> A, initial: A): A
 	return acc
 end
 
+local function extend<T>(tbl: array<T>, other: array<T>)
+	for _, entry in other do
+		table.insert(tbl, entry)
+	end
+end
+
 return table.freeze({
 	-- std extension for table
 	map = map,
 	filter = filter,
 	fold = fold,
+	extend = extend,
 
 	-- re-exports of the table library
 	clear = table.clear,

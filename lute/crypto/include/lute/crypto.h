@@ -25,10 +25,7 @@ int lua_pwhash(lua_State* L);
 static const char kVerifyPasswordHashName[] = "verify";
 int lua_pwhash_verify(lua_State* L);
 
-static const luaL_Reg lib[] = {
-    {kDigestName, lua_digest},
-    {nullptr, nullptr}
-};
+static const luaL_Reg lib[] = {{kDigestName, lua_digest}, {nullptr, nullptr}};
 
 static const std::string properties[] = {
     kHashProperty,
