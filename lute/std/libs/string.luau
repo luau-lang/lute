@@ -1,3 +1,8 @@
+--!strict
+-- @std/string
+-- stdlib for the built-in string library in Luau
+-- Provides additional utility functions for string operations
+
 local strings = {}
 
 function strings.startswith(str: string, prefix: string): boolean
@@ -33,27 +38,21 @@ function strings.trim(str: string): string
 	return str:match("^%s*(.-)%s*$") :: string
 end
 
-return table.freeze({
-	startswith = strings.startswith,
-	removeprefix = strings.removeprefix,
-	endswith = strings.endswith,
-	removesuffix = strings.removesuffix,
-	trim = strings.trim,
+-- re-exports
+strings.byte = string.byte
+strings.char = string.char
+strings.find = string.find
+strings.format = string.format
+strings.gmatch = string.gmatch
+strings.gsub = string.gsub
+strings.len = string.len
+strings.lower = string.lower
+strings.match = string.match
+strings.pack = string.pack
+strings.packsize = string.packsize
+strings.rep = string.rep
+strings.reverse = string.reverse
+strings.split = string.split
+strings.sub = string.sub
 
-	-- re-exports of the table library
-	byte = string.byte,
-	char = string.char,
-	find = string.find,
-	format = string.format,
-	gmatch = string.gmatch,
-	gsub = string.gsub,
-	len = string.len,
-	lower = string.lower,
-	match = string.match,
-	pack = string.pack,
-	packsize = string.packsize,
-	rep = string.rep,
-	reverse = string.reverse,
-	split = string.split,
-	sub = string.sub,
-})
+return table.freeze(strings)
