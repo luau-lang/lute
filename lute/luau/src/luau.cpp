@@ -1772,6 +1772,9 @@ struct AstSerialize : public Luau::AstVisitor
                         auto initialPosition = item.stringPosition;
                         serializeToken(item.stringPosition, item.stringInfo->sourceString.data);
 
+                        lua_pushstring(L, "string");
+                        lua_setfield(L, -2, "tag");
+
                         switch (item.stringInfo->quoteStyle)
                         {
                         case Luau::CstExprConstantString::QuotedSingle:
