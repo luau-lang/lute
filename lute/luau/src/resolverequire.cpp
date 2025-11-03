@@ -156,9 +156,9 @@ std::optional<std::string> resolveRequire(std::string requirePath, std::string r
     Luau::Require::Navigator navigator{context, errorCapturer};
     Luau::Require::Navigator::Status status = navigator.navigate(requirePath);
 
-    if (status != Luau::Require::Navigator::Status::Success)
+    if (status == Luau::Require::Navigator::Status::ErrorReported)
     {
-        if (error)
+        if (error && errorCapturer.error)
             *error = *errorCapturer.error;
         return std::nullopt;
     }
