@@ -136,25 +136,28 @@ export type AstExprAnonymousFunction = {
 	body: AstFunctionBody,
 }
 
--- helper type for items contained in an AstExprTable, not actually an AstExpr itself
-export type AstExprTableItem =
-	| { kind: "list", value: AstExpr, separator: Token<"," | ";">? }
-	| {
-		kind: "record",
-		key: Token<string>,
-		equals: Token<"=">,
-		value: AstExpr,
-		separator: Token<"," | ";">?,
-	}
-	| {
-		kind: "general",
-		indexeropen: Token<"[">,
-		key: AstExpr,
-		indexerclose: Token<"]">,
-		equals: Token<"=">,
-		value: AstExpr,
-		separator: Token<"," | ";">?,
-	}
+-- helper types for items contained in an AstExprTable, not actually AstExprs themselves
+export type AstExprTableItemList = { kind: "list", value: AstExpr, separator: Token<"," | ";">? }
+
+export type AstExprTableItemRecord = {
+	kind: "record",
+	key: Token<string>,
+	equals: Token<"=">,
+	value: AstExpr,
+	separator: Token<"," | ";">?,
+}
+
+export type AstExprTableItemGeneral = {
+	kind: "general",
+	indexeropen: Token<"[">,
+	key: AstExpr,
+	indexerclose: Token<"]">,
+	equals: Token<"=">,
+	value: AstExpr,
+	separator: Token<"," | ";">?,
+}
+
+export type AstExprTableItem = AstExprTableItemList | AstExprTableItemRecord | AstExprTableItemGeneral
 
 export type AstExprTable = {
 	tag: "table",
@@ -441,7 +444,7 @@ export type AstTypeGroup = {
 	tag: "group",
 	openparens: Token<"(">,
 	type: AstType,
-	closeparens: Token<">">,
+	closeparens: Token<")">,
 }
 
 export type AstTypeOptional = Token<"?"> & { tag: "optional" }
@@ -467,36 +470,38 @@ export type AstTypeArray = {
 	closebrace: Token<"}">,
 }
 
-export type AstTypeTableItem =
-	{
-		kind: "indexer",
-		access: Token<"read" | "write">?,
-		indexeropen: Token<"[">,
-		key: AstType,
-		indexerclose: Token<"]">,
-		colon: Token<":">,
-		value: AstType,
-		separator: Token<"," | ";">?,
-	}
-	| {
-		kind: "stringproperty",
-		access: Token<"read" | "write">?,
-		indexeropen: Token<"[">,
-		key: AstTypeSingletonString,
-		indexerclose: Token<"]">,
-		colon: Token<":">,
-		value: AstType,
-		separator: Token<"," | ";">?,
-	}
-	| {
-		kind: "property",
-		access: Token<"read" | "write">?,
-		key: AstTypeSingletonString,
-		indexerclose: Token<"]">,
-		colon: Token<":">,
-		value: AstType,
-		separator: Token<"," | ";">?,
-	}
+export type AstTypeTableItemIndexer = {
+	kind: "indexer",
+	access: Token<"read" | "write">?,
+	indexeropen: Token<"[">,
+	key: AstType,
+	indexerclose: Token<"]">,
+	colon: Token<":">,
+	value: AstType,
+	separator: Token<"," | ";">?,
+}
+
+export type AstTypeTableItemStringProperty = {
+	kind: "stringproperty",
+	access: Token<"read" | "write">?,
+	indexeropen: Token<"[">,
+	key: AstTypeSingletonString,
+	indexerclose: Token<"]">,
+	colon: Token<":">,
+	value: AstType,
+	separator: Token<"," | ";">?,
+}
+
+export type AstTypeTableItemProperty = {
+	kind: "property",
+	access: Token<"read" | "write">?,
+	key: Token,
+	colon: Token<":">,
+	value: AstType,
+	separator: Token<"," | ";">?,
+}
+
+export type AstTypeTableItem = AstTypeTableItemIndexer | AstTypeTableItemStringProperty | AstTypeTableItemProperty
 
 export type AstTypeTable = {
 	tag: "table",
