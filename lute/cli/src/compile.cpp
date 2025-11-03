@@ -451,3 +451,99 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
 
     return true;
 }
+
+LuteExecutable::LuteExecutable(const std::string& luteRuntimePath)
+    : executablePath(luteRuntimePath)
+{
+}
+
+bool LuteExecutable::create(const std::string& outputPath, LuteExePayload& payload)
+{
+    // Read the current executable (lute runtime)
+    std::ifstream sourceExe(executablePath, std::ios::binary | std::ios::ate);
+    if (!sourceExe)
+    {
+        fprintf(stderr, "Error: Failed to read executable '%s'\n", executablePath.c_str());
+        return false;
+    }
+
+    std::streampos exeSize = sourceExe.tellg();
+    if (exeSize < 0)
+        return false;
+
+    sourceExe.seekg(0, std::ios::beg);
+    std::vector<char> exeData(exeSize);
+    if (!sourceExe.read(exeData.data(), exeSize))
+        return false;
+
+    // Encode the payload
+    std::optional<LuteEncodeResult> encodeResult = payload.encode();
+
+    if (!encodeResult)
+    {
+        fprintf(stderr, "Error: Failed to encode payload\n");
+        return false;
+    }
+
+    // Write output file: executable + payload
+    std::ofstream outputFile(outputPath, std::ios::binary);
+    if (!outputFile)
+    {
+        fprintf(stderr, "Error: Failed to create output file '%s'\n", outputPath.c_str());
+        return false;
+    }
+
+    // Write original executable
+    outputFile.write(exeData.data(), exeData.size());
+
+    // Write encoded payload
+    outputFile.write(encodeResult->payload.data(), encodeResult->payload.size());
+
+    // Set executable permissions (using libuv's permission constants)
+#ifndef _WIN32
+    chmod(outputPath.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+#endif
+
+    return true;
+}
+
+std::optional<LuteExePayload> LuteExecutable::extract()
+{
+    if (isDirectory(executablePath))
+        return std::nullopt;
+
+    std::ifstream exeFile(executablePath, std::ios::binary | std::ios::ate);
+
+    if (!exeFile)
+        return std::nullopt;
+
+    // Get file size
+    std::streampos fileSize = exeFile.tellg();
+    if (fileSize < 0)
+        return std::nullopt;
+
+    // Early check: validate LUTEBYTE magic flag at end before reading entire file
+    if (fileSize < static_cast<std::streampos>(MAGIC_FLAG_SIZE))
+        return std::nullopt;
+
+    exeFile.seekg(-static_cast<std::streamoff>(MAGIC_FLAG_SIZE), std::ios::end);
+    char magicBuffer[MAGIC_FLAG_SIZE];
+    if (!exeFile.read(magicBuffer, MAGIC_FLAG_SIZE))
+        return std::nullopt;
+
+    if (memcmp(magicBuffer, MAGIC_FLAG, MAGIC_FLAG_SIZE) != 0)
+        return std::nullopt;
+
+    // Magic flag found, now read entire file
+    exeFile.seekg(0, std::ios::beg);
+    std::vector<char> fileData(fileSize);
+    if (!exeFile.read(fileData.data(), fileSize))
+        return std::nullopt;
+
+    // Decode the payload
+    std::optional<LuteDecodeResult> decodedPayload = LuteExePayload::decode(std::string_view(fileData.data(), fileData.size()));
+    if (!decodedPayload)
+        return std::nullopt;
+
+    return decodedPayload->payload;
+}

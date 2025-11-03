@@ -271,3 +271,188 @@ TEST_CASE("lutepayload_validates_numfiles_metadata")
     auto decodeResult = LuteExePayload::decode(corruptedPayload);
     CHECK(!decodeResult.has_value());
 }
+
+TEST_CASE("luteexecutable_single_file_roundtrip")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
+
+    // Create a temporary dummy executable as the base runtime
+    std::string dummyExePath = joinPaths(luteProjectRoot, "tests/temp_dummy_exe");
+    {
+        std::ofstream dummyExe(dummyExePath, std::ios::binary);
+        REQUIRE(dummyExe.is_open());
+        // Write some dummy data to simulate an executable
+        std::string dummyContent = "FAKE_EXECUTABLE_HEADER_DATA";
+        dummyExe.write(dummyContent.data(), dummyContent.size());
+        dummyExe.close();
+    }
+
+    // Create payload with a test file
+    LuteExePayload originalPayload;
+    originalPayload.add(testFilePath);
+
+    // Create LuteExecutable and write it out
+    std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_output_exe");
+    LuteExecutable executable(dummyExePath);
+
+    bool createSuccess = executable.create(outputExePath, originalPayload);
+    REQUIRE(createSuccess);
+
+    // Verify output file was created
+    std::ifstream checkFile(outputExePath, std::ios::binary);
+    REQUIRE(checkFile.is_open());
+    checkFile.close();
+
+    // Extract the payload from the created executable
+    LuteExecutable readExecutable(outputExePath);
+    auto extractedPayload = readExecutable.extract();
+    REQUIRE(extractedPayload.has_value());
+
+    // Verify entry point matches
+    CHECK(extractedPayload->entryPointPath == originalPayload.entryPointPath);
+
+    // Verify the file count matches
+    REQUIRE(extractedPayload->filePathToBytecode.size() == 1);
+
+    // Verify bytecode matches
+    auto originalBytecodeIt = originalPayload.filePathToBytecode.find(testFilePath);
+    auto extractedBytecodeIt = extractedPayload->filePathToBytecode.find(testFilePath);
+    REQUIRE(originalBytecodeIt != nullptr);
+    REQUIRE(extractedBytecodeIt != nullptr);
+    CHECK(*originalBytecodeIt == *extractedBytecodeIt);
+
+    // Clean up temporary files
+    std::remove(dummyExePath.c_str());
+    std::remove(outputExePath.c_str());
+}
+
+TEST_CASE("luteexecutable_multiple_files_roundtrip")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
+
+    std::vector<std::string> testFiles = {
+        joinPaths(testDir, "main.luau"),
+        joinPaths(testDir, "utils.luau"),
+        joinPaths(testDir, "lib/helper.luau"),
+        joinPaths(testDir, "shared.luau")
+    };
+
+    // Create a temporary dummy executable
+    std::string dummyExePath = joinPaths(luteProjectRoot, "tests/temp_dummy_exe_multi");
+    {
+        std::ofstream dummyExe(dummyExePath, std::ios::binary);
+        REQUIRE(dummyExe.is_open());
+        std::string dummyContent = "FAKE_EXECUTABLE_WITH_LONGER_HEADER_TO_TEST_MULTI_FILE";
+        dummyExe.write(dummyContent.data(), dummyContent.size());
+        dummyExe.close();
+    }
+
+    // Create payload with multiple files
+    LuteExePayload originalPayload;
+    for (const auto& file : testFiles)
+    {
+        originalPayload.add(file);
+    }
+
+    // First file should be the entry point
+    CHECK(originalPayload.entryPointPath == testFiles[0]);
+
+    // Create the executable
+    std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_output_exe_multi");
+    LuteExecutable executable(dummyExePath);
+
+    bool createSuccess = executable.create(outputExePath, originalPayload);
+    REQUIRE(createSuccess);
+
+    // Extract the payload
+    LuteExecutable readExecutable(outputExePath);
+    auto extractedPayload = readExecutable.extract();
+    REQUIRE(extractedPayload.has_value());
+
+    // Verify entry point
+    CHECK(extractedPayload->entryPointPath == testFiles[0]);
+
+    // Verify all files are present
+    REQUIRE(extractedPayload->filePathToBytecode.size() == testFiles.size());
+
+    // Verify each file's bytecode matches
+    for (const auto& file : testFiles)
+    {
+        auto extractedIt = extractedPayload->filePathToBytecode.find(file);
+        REQUIRE(extractedIt != nullptr);
+
+        auto originalIt = originalPayload.filePathToBytecode.find(file);
+        REQUIRE(originalIt != nullptr);
+
+        CHECK(*extractedIt == *originalIt);
+    }
+
+    // Clean up
+    std::remove(dummyExePath.c_str());
+    std::remove(outputExePath.c_str());
+}
+
+TEST_CASE("luteexecutable_extract_from_plain_executable")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+
+    // Create a plain executable without any embedded payload
+    std::string plainExePath = joinPaths(luteProjectRoot, "tests/temp_plain_exe");
+    {
+        std::ofstream plainExe(plainExePath, std::ios::binary);
+        REQUIRE(plainExe.is_open());
+        std::string content = "PLAIN_EXECUTABLE_NO_PAYLOAD";
+        plainExe.write(content.data(), content.size());
+        plainExe.close();
+    }
+
+    // Attempt to extract - should return nullopt since there's no payload
+    LuteExecutable executable(plainExePath);
+    auto extractedPayload = executable.extract();
+    CHECK(!extractedPayload.has_value());
+
+    // Clean up
+    std::remove(plainExePath.c_str());
+}
+
+TEST_CASE("luteexecutable_extract_preserves_original_executable")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
+
+    // Create dummy executable with specific content
+    std::string dummyExePath = joinPaths(luteProjectRoot, "tests/temp_dummy_exe_preserve");
+    std::string originalExeContent = "ORIGINAL_EXE_CONTENT_12345";
+    {
+        std::ofstream dummyExe(dummyExePath, std::ios::binary);
+        REQUIRE(dummyExe.is_open());
+        dummyExe.write(originalExeContent.data(), originalExeContent.size());
+        dummyExe.close();
+    }
+
+    // Create payload and executable
+    LuteExePayload payload;
+    payload.add(testFilePath);
+
+    std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_output_exe_preserve");
+    LuteExecutable executable(dummyExePath);
+    bool createSuccess = executable.create(outputExePath, payload);
+    REQUIRE(createSuccess);
+
+    // Read the output file and verify the original executable content is at the beginning
+    std::ifstream outputFile(outputExePath, std::ios::binary);
+    REQUIRE(outputFile.is_open());
+
+    std::vector<char> buffer(originalExeContent.size());
+    outputFile.read(buffer.data(), buffer.size());
+    outputFile.close();
+
+    std::string extractedPrefix(buffer.begin(), buffer.end());
+    CHECK(extractedPrefix == originalExeContent);
+
+    // Clean up
+    std::remove(dummyExePath.c_str());
+    std::remove(outputExePath.c_str());
+}

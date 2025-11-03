@@ -67,3 +67,27 @@ struct LuteDecodeResult
     size_t compressedPayloadSizeBytes = 0;
     size_t uncompressedPayloadSizeBytes = 0;
 };
+
+/**
+ * Manages creating and reading Lute executables with embedded bytecode bundles.
+ *
+ * Binary format (from end of file, reading backward):
+ *   [lute runtime executable's bytes]
+ *   [compressed bundle data]
+ *   [compressed_size: uint64_t]
+ *   [uncompressed_size: uint64_t]
+ *   [num_files: uint32_t]
+ *   [entry_point_path_string: char[entry_point_path_length]]
+ *   [entry_point_path_length: uint32_t]
+ *   [MAGIC_FLAG: "LUTEBYTE" (8 bytes)]
+ */
+struct LuteExecutable
+{
+    LuteExecutable(const std::string& luteRuntimePath);
+
+    bool create(const std::string& outputPath, LuteExePayload& payload);
+    std::optional<LuteExePayload> extract();
+
+    std::string executablePath;
+};
+
