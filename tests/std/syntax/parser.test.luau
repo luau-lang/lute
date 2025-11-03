@@ -1130,10 +1130,28 @@ test.suite("parse types", function(suite)
 		assert.eq(#funcType.generics :: luau.Punctuated<luau.AstGenericType>, 1)
 		assert.neq(funcType.genericpacks, nil)
 		assert.eq(#funcType.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>, 1)
+		assert.eq((funcType.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>)[1].node.tag, "generic")
+
+		local genericTypePack = (funcType.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>)[1].node
+		assert.eq(genericTypePack.name.text, "U")
+		assert.eq(genericTypePack.ellipsis.text, "...")
+
 		assert.neq(funcType.closegenerics, nil)
 		assert.eq((funcType.closegenerics :: luau.Token<">">).text, ">")
 		assert.neq(funcType.vararg, nil)
 		assert.eq((funcType.vararg :: luau.AstTypePack).kind, "typepack")
+
+		block = parser.parse("type T = () -> ...number")
+		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		assert.eq(typeAlias.type.tag, "function")
+
+		funcType = typeAlias.type :: luau.AstTypeFunction
+		assert.eq(funcType.returntypes.kind, "typepack")
+		assert.eq(funcType.returntypes.tag, "variadic")
+		local variadicType: luau.AstTypePackVariadic = funcType.returntypes :: any
+		assert.neq(variadicType.ellipsis, nil)
+		assert.eq((variadicType.ellipsis :: luau.Token<"...">).text, "...")
+		assert.eq(variadicType.type.tag, "reference")
 	end)
 end)
 
