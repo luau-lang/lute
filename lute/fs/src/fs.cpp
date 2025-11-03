@@ -457,7 +457,7 @@ static void defaultCallback(uv_fs_t* req)
 
     if (err)
     {
-        token->fail(uv_strerror(req->result));
+        token->fail(uv_strerror(err));
         return;
     }
 
