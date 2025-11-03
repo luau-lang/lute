@@ -498,4 +498,341 @@ test.suite("parseExpr", function(suite)
 	end)
 end)
 
+local function checkIsBlock(node: any, assert: asserts.Asserts)
+	assert.eq(node.kind, "stat")
+	assert.eq(node.tag, "block")
+end
+
+test.suite("parse", function(suite)
+	suite:case("parseEmptyProgram", function(assert)
+		local block = parser.parse("")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 0)
+	end)
+
+	suite:case("parseIfStatement", function(assert)
+		local block =
+			parser.parse("if x > 0 then print('positive') elseif x < 0 then print('negative') else print('zero') end")
+		assert.eq(#block.statements, 1)
+
+		local ifStat = block.statements[1] :: luau.AstStatIf
+		assert.eq(ifStat.tag, "conditional")
+		assert.eq(ifStat.ifkeyword.text, "if")
+		assert.eq(ifStat.condition.tag, "binary")
+		assert.eq(ifStat.thenkeyword.text, "then")
+		checkIsBlock(ifStat.consequent, assert)
+
+		local consequentBlock = ifStat.consequent
+		assert.eq(#consequentBlock.statements, 1)
+
+		assert.eq(#ifStat.elseifs, 1)
+		local elseIf = ifStat.elseifs[1]
+		assert.eq(elseIf.elseifkeyword.text, "elseif")
+		assert.eq(elseIf.condition.tag, "binary")
+		assert.eq(elseIf.thenkeyword.text, "then")
+		checkIsBlock(elseIf.consequent, assert)
+
+		assert.neq(ifStat.elsekeyword, nil)
+		assert.eq((ifStat.elsekeyword :: luau.Token<"else">).text, "else")
+		assert.neq(ifStat.antecedent, nil)
+		checkIsBlock(ifStat.antecedent, assert)
+		assert.eq(ifStat.endkeyword.text, "end")
+
+		block = parser.parse("if condition then doSomething() end")
+		assert.eq(#block.statements, 1)
+		local simpleIfStat = block.statements[1] :: luau.AstStatIf
+		assert.eq(simpleIfStat.tag, "conditional")
+		assert.eq(simpleIfStat.ifkeyword.text, "if")
+		assert.eq(simpleIfStat.condition.tag, "global")
+		assert.eq(simpleIfStat.thenkeyword.text, "then")
+		checkIsBlock(simpleIfStat.consequent, assert)
+		assert.eq(#simpleIfStat.consequent.statements, 1)
+		assert.eq(#simpleIfStat.elseifs, 0)
+		assert.eq(simpleIfStat.elsekeyword, nil)
+		assert.eq(simpleIfStat.antecedent, nil)
+		assert.eq(simpleIfStat.endkeyword.text, "end")
+	end)
+
+	suite:case("parseStatWhile", function(assert)
+		local block = parser.parse("while i <= 10 do print(i); i = i + 1 end")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+
+		local whileStat = block.statements[1] :: luau.AstStatWhile
+		assert.eq(whileStat.tag, "while")
+		assert.eq(whileStat.whilekeyword.text, "while")
+		assert.eq(whileStat.condition.tag, "binary")
+		assert.eq(whileStat.dokeyword.text, "do")
+		checkIsBlock(whileStat.body, assert)
+		assert.eq(#whileStat.body.statements, 2)
+		assert.eq(whileStat.endkeyword.text, "end")
+
+		block = parser.parse("while true do break end")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+
+		whileStat = block.statements[1] :: luau.AstStatWhile
+		assert.eq(whileStat.tag, "while")
+		assert.eq(whileStat.whilekeyword.text, "while")
+		assert.eq(whileStat.condition.tag, "boolean")
+		assert.eq(whileStat.dokeyword.text, "do")
+		checkIsBlock(whileStat.body, assert)
+		assert.eq(#whileStat.body.statements, 1)
+
+		local breakStat = whileStat.body.statements[1] :: luau.AstStat
+		assert.eq(breakStat.kind, "stat")
+		breakStat = breakStat :: luau.AstStatBreak
+		assert.eq(breakStat.tag, "break")
+		assert.eq(breakStat.text, "break")
+
+		assert.eq(whileStat.endkeyword.text, "end")
+
+		block = parser.parse("while true do continue end")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+
+		whileStat = block.statements[1] :: luau.AstStatWhile
+		assert.eq(whileStat.tag, "while")
+		assert.eq(whileStat.whilekeyword.text, "while")
+		assert.eq(whileStat.condition.tag, "boolean")
+		assert.eq(whileStat.dokeyword.text, "do")
+		checkIsBlock(whileStat.body, assert)
+		assert.eq(#whileStat.body.statements, 1)
+
+		local continueStat = whileStat.body.statements[1] :: luau.AstStat
+		assert.eq(continueStat.kind, "stat")
+		continueStat = continueStat :: luau.AstStatContinue
+		assert.eq(continueStat.tag, "continue")
+		assert.eq(continueStat.text, "continue")
+
+		assert.eq(whileStat.endkeyword.text, "end")
+	end)
+
+	suite:case("parseStatRepeat", function(assert)
+		local block = parser.parse("repeat i = i + 1; print(i) until i > 5")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+
+		local repeatStat = block.statements[1] :: luau.AstStatRepeat
+		assert.eq(repeatStat.tag, "repeat")
+		assert.eq(repeatStat.repeatKeyword.text, "repeat")
+		checkIsBlock(repeatStat.body, assert)
+		assert.eq(#repeatStat.body.statements, 2)
+		assert.eq(repeatStat.untilKeyword.text, "until")
+		assert.eq(repeatStat.condition.tag, "binary")
+	end)
+
+	suite:case("parseStatLocal", function(assert)
+		local block = parser.parse("local b, c = 1, 2")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+		assert.eq(block.statements[1].kind, "stat")
+
+		local l = block.statements[1] :: luau.AstStatLocal
+		assert.eq(l.tag, "local")
+		assert.eq(l.localkeyword.text, "local")
+		assert.eq(#l.variables, 2)
+		assert.eq(l.variables[1].node.name.text, "b")
+		assert.neq(l.variables[1].separator, nil)
+		assert.eq((l.variables[1].separator :: luau.Token<",">).text, ",")
+		assert.eq(l.variables[2].node.name.text, "c")
+		assert.eq(l.variables[2].separator, nil)
+		assert.neq(l.equals, nil)
+		assert.eq((l.equals :: luau.Token<"=">).text, "=")
+		assert.eq(#l.values, 2)
+		assert.eq(l.values[1].node.tag, "number")
+		assert.neq(l.values[1].separator, nil)
+		assert.eq((l.values[1].separator :: luau.Token<",">).text, ",")
+		assert.eq(l.values[2].node.tag, "number")
+		assert.eq(l.values[2].separator, nil)
+
+		block = parser.parse("local x")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+		assert.eq(block.statements[1].kind, "stat")
+
+		l = block.statements[1] :: luau.AstStatLocal
+		assert.eq(l.tag, "local")
+		assert.eq(l.localkeyword.text, "local")
+		assert.eq(#l.variables, 1)
+		assert.eq(l.variables[1].node.name.text, "x")
+		assert.eq(l.variables[1].separator, nil)
+		assert.eq(l.equals, nil)
+		assert.eq(#l.values, 0)
+	end)
+
+	suite:case("parseStatFor", function(assert)
+		local block = parser.parse("for i = 1, 10, 2 do print(i) end")
+		assert.eq(block.tag, "block")
+		assert.eq(#block.statements, 1)
+
+		local forStat = block.statements[1] :: luau.AstStatFor
+		assert.eq(forStat.tag, "for")
+		assert.eq(forStat.forkeyword.text, "for")
+		assert.eq(forStat.variable.name.text, "i")
+		assert.eq(forStat.equals.text, "=")
+		assert.eq(forStat.from.tag, "number")
+		assert.eq(forStat.tocomma.text, ",")
+		assert.eq(forStat.to.tag, "number")
+		assert.neq(forStat.stepcomma, nil)
+		assert.eq((forStat.stepcomma :: luau.Token<",">).text, ",")
+		assert.neq(forStat.step, nil)
+		assert.eq(((forStat.step :: any) :: luau.AstExpr).tag, "number")
+		assert.eq(forStat.dokeyword.text, "do")
+		checkIsBlock(forStat.body, assert)
+		assert.eq(#forStat.body.statements, 1)
+		assert.eq(forStat.endkeyword.text, "end")
+
+		block = parser.parse("for j = 0, 5 do print(j) end")
+		assert.eq(block.tag, "block")
+		assert.eq(#block.statements, 1)
+
+		forStat = block.statements[1] :: luau.AstStatFor
+		assert.eq(forStat.tag, "for")
+		assert.eq(forStat.forkeyword.text, "for")
+		assert.eq(forStat.variable.name.text, "j")
+		assert.eq(forStat.equals.text, "=")
+		assert.eq(forStat.from.tag, "number")
+		assert.eq(forStat.tocomma.text, ",")
+		assert.eq(forStat.to.tag, "number")
+		assert.eq(forStat.stepcomma, nil)
+		assert.eq(forStat.step, nil)
+		assert.eq(forStat.dokeyword.text, "do")
+		checkIsBlock(forStat.body, assert)
+		assert.eq(#forStat.body.statements, 1)
+		assert.eq(forStat.endkeyword.text, "end")
+	end)
+
+	suite:case("parseForInLoop", function(assert)
+		local block = parser.parse("for key, value in arr do print(key, value) end")
+		assert.eq(block.tag, "block")
+		assert.eq(#block.statements, 1)
+
+		local forInStat = block.statements[1] :: luau.AstStatForIn
+		assert.eq(forInStat.tag, "forin")
+		assert.eq(forInStat.forkeyword.text, "for")
+		assert.eq(#forInStat.variables, 2)
+		assert.eq(forInStat.variables[1].node.name.text, "key")
+		assert.eq(forInStat.variables[2].node.name.text, "value")
+		assert.eq(forInStat.inkeyword.text, "in")
+		assert.eq(#forInStat.values, 1)
+		assert.eq(forInStat.values[1].node.tag, "global")
+		assert.eq(forInStat.dokeyword.text, "do")
+		checkIsBlock(forInStat.body, assert)
+		assert.eq(#forInStat.body.statements, 1)
+		assert.eq(forInStat.endkeyword.text, "end")
+	end)
+
+	suite:case("parseStatAssign", function(assert)
+		local block = parser.parse("x = 1")
+		assert.eq(block.tag, "block")
+		assert.eq(#block.statements, 1)
+
+		local assign = block.statements[1] :: luau.AstStatAssign
+		assert.eq(assign.tag, "assign")
+		assert.eq(#assign.variables, 1)
+		assert.eq(assign.variables[1].node.tag, "global")
+		assert.eq(assign.equals.text, "=")
+		assert.eq(#assign.values, 1)
+		assert.eq(assign.values[1].node.tag, "number")
+	end)
+
+	suite:case("parseStatCompoundAssign", function(assert)
+		local block = parser.parse("x += 5")
+		assert.eq(block.tag, "block")
+		assert.eq(#block.statements, 1)
+
+		local compound = block.statements[1] :: luau.AstStatCompoundAssign
+		assert.eq(compound.tag, "compoundassign")
+		assert.eq(compound.variable.tag, "global")
+		assert.eq(compound.operand.text, "+=")
+		assert.eq(compound.value.tag, "number")
+	end)
+
+	suite:case("parseStatFunction", function(assert)
+		local block = parser.parse("@checked @native @deprecated function add(a, b) return a + b end")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+
+		local funcStat = block.statements[1] :: luau.AstStatFunction
+		assert.eq(funcStat.tag, "function")
+		assert.eq(#funcStat.attributes, 3)
+		assert.eq((funcStat.attributes[1] :: luau.AstAttribute).text, "@checked")
+		assert.eq((funcStat.attributes[2] :: luau.AstAttribute).text, "@native")
+		assert.eq((funcStat.attributes[3] :: luau.AstAttribute).text, "@deprecated")
+		assert.eq(funcStat.functionkeyword.text, "function")
+		assert.eq(funcStat.name.tag, "global")
+		assert.eq((funcStat.name :: luau.AstExprGlobal).name.text, "add")
+		-- body parsing tested in parseExprAnonymousFunction
+	end)
+
+	suite:case("parseStatLocalFunction", function(assert)
+		local block = parser.parse("local function multiply(x, y) return x * y end")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+
+		local localFuncStat = block.statements[1] :: luau.AstStatLocalFunction
+		assert.eq(localFuncStat.tag, "localfunction")
+		assert.eq(#localFuncStat.attributes, 0)
+		assert.eq(localFuncStat.localkeyword.text, "local")
+		assert.eq(localFuncStat.functionkeyword.text, "function")
+		assert.eq(localFuncStat.name.name.text, "multiply")
+	end)
+
+	suite:case("parseStatTypeAlias", function(assert)
+		local block = parser.parse("type Vector3 = {x: number, y: number, z: number}")
+		assert.eq(block.tag, "block")
+		assert.eq(#block.statements, 1)
+
+		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		assert.eq(typeAlias.tag, "typealias")
+		assert.eq(typeAlias.export, nil)
+		assert.eq(typeAlias.typeToken.text, "type")
+		assert.eq(typeAlias.name.text, "Vector3")
+		assert.eq(typeAlias.opengenerics, nil)
+		assert.eq(typeAlias.generics, nil)
+		assert.eq(typeAlias.closegenerics, nil)
+		assert.eq(typeAlias.equals.text, "=")
+		assert.eq(typeAlias.type.kind, "type")
+		assert.eq(typeAlias.type.tag, "table")
+
+		block = parser.parse("export type Point<T, U...> = {x: T, y: T, f: (U...) -> ()}")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+
+		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		assert.neq(typeAlias.export, nil)
+		assert.eq((typeAlias.export :: luau.Token<"export">).text, "export")
+		assert.neq(typeAlias.opengenerics, nil)
+		assert.eq((typeAlias.opengenerics :: luau.Token<"<">).text, "<")
+		assert.neq(typeAlias.generics, nil)
+		assert.eq(#typeAlias.generics :: luau.Punctuated<luau.AstGenericType>, 1)
+		assert.neq(typeAlias.genericpacks, nil)
+		assert.eq(#typeAlias.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>, 1)
+		assert.neq(typeAlias.closegenerics, nil)
+		assert.eq((typeAlias.closegenerics :: luau.Token<">">).text, ">")
+	end)
+
+	suite:case("parseStatTypeFunction", function(assert)
+		local block = parser.parse("type function foo() return types.number end")
+		assert.eq(block.tag, "block")
+		assert.eq(#block.statements, 1)
+
+		local typeFunc = block.statements[1] :: luau.AstStatTypeFunction
+		assert.eq(typeFunc.tag, "typefunction")
+		assert.eq(typeFunc.export, nil)
+		assert.eq(typeFunc.type.text, "type")
+		assert.eq(typeFunc.functionkeyword.text, "function")
+		assert.eq(typeFunc.name.text, "foo")
+
+		block = parser.parse("export type function foo() return types.number end")
+		assert.eq(block.tag, "block")
+		assert.eq(#block.statements, 1)
+
+		typeFunc = block.statements[1] :: luau.AstStatTypeFunction
+		assert.neq(typeFunc.export, nil)
+		assert.eq((typeFunc.export :: luau.Token<"export">).text, "export")
+	end)
+end)
+
 test.run()
