@@ -193,7 +193,7 @@ export type AstExprTypeAssertion = {
 }
 
 -- helper type for elseif clauses of an if-else expression, not actually an AstExpr itself
-export type AstExprIfElseIfs = {
+export type AstElseIfExpr = {
 	elseifkeyword: Token<"elseif">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
@@ -206,13 +206,13 @@ export type AstExprIfElse = {
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
 	thenexpr: AstExpr,
-	elseifs: { AstExprIfElseIfs },
+	elseifs: { AstElseIfExpr },
 	elsekeyword: Token<"else">,
 	elseexpr: AstExpr,
 }
 
 export type AstExpr = { kind: "expr" } & (
-	AstExprGroup
+	| AstExprGroup
 	| AstExprConstantNil
 	| AstExprConstantBool
 	| AstExprConstantNumber
@@ -237,7 +237,7 @@ export type AstStatBlock = {
 	statements: { AstStat },
 }
 
-export type AstStatElseIf = {
+export type AstElseIfStat = {
 	elseifkeyword: Token<"elseif">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
@@ -250,7 +250,7 @@ export type AstStatIf = {
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
 	thenblock: AstStatBlock,
-	elseifs: { AstStatElseIf },
+	elseifs: { AstElseIfStat },
 	elsekeyword: Token<"else">?, -- TODO: this could be elseif!
 	elseblock: AstStatBlock?,
 	endkeyword: Token<"end">,
@@ -378,7 +378,7 @@ export type AstStatTypeFunction = {
 }
 
 export type AstStat = { kind: "stat" } & (
-	AstStatBlock
+	| AstStatBlock
 	| AstStatIf
 	| AstStatWhile
 	| AstStatRepeat
@@ -531,7 +531,7 @@ export type AstTypeFunction = {
 }
 
 export type AstType = { kind: "type" } & (
-	AstTypeReference
+	| AstTypeReference
 	| AstTypeSingletonBool
 	| AstTypeSingletonString
 	| AstTypeTypeof
