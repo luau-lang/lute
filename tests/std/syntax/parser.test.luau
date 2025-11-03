@@ -520,22 +520,22 @@ test.suite("parse", function(suite)
 		assert.eq(ifStat.ifkeyword.text, "if")
 		assert.eq(ifStat.condition.tag, "binary")
 		assert.eq(ifStat.thenkeyword.text, "then")
-		checkIsBlock(ifStat.consequent, assert)
+		checkIsBlock(ifStat.thenblock, assert)
 
-		local consequentBlock = ifStat.consequent
-		assert.eq(#consequentBlock.statements, 1)
+		local thenBlock = ifStat.thenblock
+		assert.eq(#thenBlock.statements, 1)
 
 		assert.eq(#ifStat.elseifs, 1)
 		local elseIf = ifStat.elseifs[1]
 		assert.eq(elseIf.elseifkeyword.text, "elseif")
 		assert.eq(elseIf.condition.tag, "binary")
 		assert.eq(elseIf.thenkeyword.text, "then")
-		checkIsBlock(elseIf.consequent, assert)
+		checkIsBlock(elseIf.thenblock, assert)
 
 		assert.neq(ifStat.elsekeyword, nil)
 		assert.eq((ifStat.elsekeyword :: luau.Token<"else">).text, "else")
-		assert.neq(ifStat.antecedent, nil)
-		checkIsBlock(ifStat.antecedent, assert)
+		assert.neq(ifStat.elseblock, nil)
+		checkIsBlock(ifStat.elseblock, assert)
 		assert.eq(ifStat.endkeyword.text, "end")
 
 		block = parser.parse("if condition then doSomething() end")
@@ -545,11 +545,11 @@ test.suite("parse", function(suite)
 		assert.eq(simpleIfStat.ifkeyword.text, "if")
 		assert.eq(simpleIfStat.condition.tag, "global")
 		assert.eq(simpleIfStat.thenkeyword.text, "then")
-		checkIsBlock(simpleIfStat.consequent, assert)
-		assert.eq(#simpleIfStat.consequent.statements, 1)
+		checkIsBlock(simpleIfStat.thenblock, assert)
+		assert.eq(#simpleIfStat.thenblock.statements, 1)
 		assert.eq(#simpleIfStat.elseifs, 0)
 		assert.eq(simpleIfStat.elsekeyword, nil)
-		assert.eq(simpleIfStat.antecedent, nil)
+		assert.eq(simpleIfStat.elseblock, nil)
 		assert.eq(simpleIfStat.endkeyword.text, "end")
 	end)
 
