@@ -50,6 +50,12 @@ export type AstFunctionBody = luteLuau.AstFunctionBody
 
 export type AstExprAnonymousFunction = luteLuau.AstExprAnonymousFunction
 
+export type AstExprTableItemList = luteLuau.AstExprTableItemList
+
+export type AstExprTableItemRecord = luteLuau.AstExprTableItemRecord
+
+export type AstExprTableItemGeneral = luteLuau.AstExprTableItemGeneral
+
 export type AstExprTableItem = luteLuau.AstExprTableItem
 
 export type AstExprTable = luteLuau.AstExprTable
@@ -62,7 +68,7 @@ export type AstExprInterpString = luteLuau.AstExprInterpString
 
 export type AstExprTypeAssertion = luteLuau.AstExprTypeAssertion
 
-export type AstExprIfElseIfs = luteLuau.AstExprIfElseIfs
+export type AstElseIfExpr = luteLuau.AstElseIfExpr
 
 export type AstExprIfElse = luteLuau.AstExprIfElse
 
@@ -70,7 +76,7 @@ export type AstExpr = luteLuau.AstExpr
 
 export type AstStatBlock = luteLuau.AstStatBlock
 
-export type AstStatElseIf = luteLuau.AstStatElseIf
+export type AstElseIfStat = luteLuau.AstElseIfStat
 
 export type AstStatIf = luteLuau.AstStatIf
 
@@ -130,6 +136,12 @@ export type AstTypeIntersection = luteLuau.AstTypeIntersection
 
 export type AstTypeArray = luteLuau.AstTypeArray
 
+export type AstTypeTableItemIndexer = luteLuau.AstTypeTableItemIndexer
+
+export type AstTypeTableItemStringProperty = luteLuau.AstTypeTableItemStringProperty
+
+export type AstTypeTableItemProperty = luteLuau.AstTypeTableItemProperty
+
 export type AstTypeTableItem = luteLuau.AstTypeTableItem
 
 export type AstTypeTable = luteLuau.AstTypeTable
@@ -147,6 +159,8 @@ export type AstTypePackGeneric = luteLuau.AstTypePackGeneric
 export type AstTypePackVariadic = luteLuau.AstTypePackVariadic
 
 export type AstTypePack = luteLuau.AstTypePack
+
+export type AstNode = luteLuau.AstNode
 
 export type ParseResult = luteLuau.ParseResult
 
