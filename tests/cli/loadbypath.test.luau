@@ -41,7 +41,7 @@ test.suite("Lute CLI Run", function(suite)
 		fs.write(requireeFile, REQUIREE_CONTENTS)
 		fs.close(requireeFile)
 
-		local result = process.run({ tostring(lutePath), tostring(requirerPath), tostring(requireePath) })
+		local result = process.run({ tostring(lutePath), requirerPath, requireePath })
 		check.eq(result.exitcode, 0)
 		check.eq(result.stdout, "Success\n")
 
