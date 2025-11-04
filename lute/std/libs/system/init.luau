@@ -5,7 +5,7 @@
 
 local system = require("@lute/system")
 local path = require("@std/path")
-local platforminfo = require("@self/platforminfo")
+local platform = require("@self/platform")
 
 local systemlib = {}
 
@@ -25,9 +25,9 @@ systemlib.uptime = system.uptime
 systemlib.cpus = system.cpus
 
 -- boolean properties
-systemlib.win32 = platforminfo.win32
-systemlib.linux = platforminfo.linux
-systemlib.macos = platforminfo.macos
-systemlib.unix = platforminfo.unix
+systemlib.win32 = platform.win32
+systemlib.linux = platform.linux
+systemlib.macos = platform.macos
+systemlib.unix = platform.unix
 
 return table.freeze(systemlib)
