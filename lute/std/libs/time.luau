@@ -17,6 +17,8 @@ type durationdata = {
 	_nanoseconds: number,
 }
 
+local time = {}
+
 local duration = {}
 duration.__index = duration
 
@@ -168,4 +170,6 @@ function duration.__tostring(self: duration): string
 	return string.format("%d.%09d", self._seconds, self._nanoseconds)
 end
 
-return table.freeze(duration)
+time.duration = duration
+
+return table.freeze(time)
