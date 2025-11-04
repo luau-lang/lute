@@ -881,12 +881,12 @@ local function createVisitor()
 	return table.clone(defaultVisitor)
 end
 
-visitorlib.createVisitor = createVisitor
-visitorlib.visitBlock = visitBlock
-visitorlib.visitStatement = visitStatement
-visitorlib.visitExpression = visitExpression
-visitorlib.visitType = visitType
-visitorlib.visitTypePack = visitTypePack
-visitorlib.visitToken = visitToken
+visitorlib.createvisitor = createVisitor
+visitorlib.visitblock = visitBlock
+visitorlib.visitstatement = visitStatement
+visitorlib.visitexpression = visitExpression
+visitorlib.visittype = visitType
+visitorlib.visittypepack = visitTypePack
+visitorlib.visittoken = visitToken
 
 return table.freeze(visitorlib)

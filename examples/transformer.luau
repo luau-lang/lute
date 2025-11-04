@@ -1,12 +1,12 @@
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local visitor = require("@std/syntax/visitor")
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
 
 function transformation(ctx)
 	local parsedResult = parser.parsefile(ctx.source)
 
-	local v = visitor.createVisitor()
+	local v = visitor.createvisitor()
 
 	v.visitBinary = function(node: luau.AstExprBinary)
 		if node.operator.text ~= "~=" then
@@ -80,7 +80,7 @@ function transformation(ctx)
 		return false
 	end
 
-	visitor.visitBlock(parsedResult.root, v)
+	visitor.visitblock(parsedResult.root, v)
 
 	return printer.printfile(parsedResult)
 end

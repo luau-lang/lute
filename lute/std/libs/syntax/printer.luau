@@ -81,7 +81,7 @@ type PrintVisitor = visitor.Visitor & {
 }
 
 local function printVisitor()
-	local printer = visitor.createVisitor() :: PrintVisitor
+	local printer = visitor.createvisitor() :: PrintVisitor
 
 	printer.result = buffer.create(1024)
 	printer.cursor = 0
@@ -135,23 +135,23 @@ end
 
 --- Returns a string representation of an AstExpr
 function printer.printexpr(expr: luau.AstExpr): string
-	return printNode(expr, visitor.visitExpression)
+	return printNode(expr, visitor.visitexpression)
 end
 
 --- Returns a string representation of an AstStat
 function printer.printstatement(statement: luau.AstStat): string
-	return printNode(statement, visitor.visitStatement)
+	return printNode(statement, visitor.visitstatement)
 end
 
 -- Returns a string representation of an AstType
 function printer.printtype(type: luau.AstType): string
-	return printNode(type, visitor.visitType)
+	return printNode(type, visitor.visittype)
 end
 
 function printer.printfile(result: { root: luau.AstStatBlock, eof: luau.Eof }): string
 	local printer = printVisitor()
-	visitor.visitBlock(result.root, printer)
-	visitor.visitToken(result.eof, printer)
+	visitor.visitblock(result.root, printer)
+	visitor.visittoken(result.eof, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
