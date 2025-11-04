@@ -496,6 +496,22 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
         return 1;
     }
 
+    std::string absoluteEntryPoint;
+    if (isAbsolutePath(*validPath))
+    {
+        absoluteEntryPoint = *validPath;
+    }
+    else
+    {
+        std::optional<std::string> cwd = getCurrentWorkingDirectory();
+        if (!cwd)
+        {
+            fprintf(stderr, "Error: Failed to get current working directory.\n");
+            return 1;
+        }
+        absoluteEntryPoint = joinPaths(*cwd, *validPath);
+    }
+
     // Set default output path if not specified
     if (outputPath.empty())
     {
@@ -518,45 +534,19 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
 #endif
     }
 
-    // Normalize paths to be relative to working directory
-    std::string normalizedEntry = normalizePath(*validPath);
-
-    // Split into directory and filename for cleaner trace output
-    std::string rootDirectory;
-    std::string entryFilename;
-
-    size_t lastSlash = normalizedEntry.find_last_of("/\\");
-    if (lastSlash != std::string::npos)
-    {
-        rootDirectory = normalizedEntry.substr(0, lastSlash);
-        entryFilename = normalizedEntry.substr(lastSlash + 1);
-    }
-    else
-    {
-        rootDirectory = ".";
-        entryFilename = normalizedEntry;
-    }
-
     // Perform static require trace
     StaticRequireTracer tracer;
-    std::vector<std::string> discoveredFiles = tracer.trace(rootDirectory, entryFilename);
-
-    if (discoveredFiles.empty())
-    {
-        fprintf(stderr, "Error: No files discovered during require trace.\n");
-        return 1;
-    }
+    tracer.trace(absoluteEntryPoint);
 
     if (showRequireGraph)
         tracer.printRequireGraph();
 
     // Create payload and add all discovered files
+    auto staticRequirePairs = tracer.getStaticRequirePairs();
     LuteExePayload payload;
-    for (const auto& file : discoveredFiles)
+    for (const auto& [_, filePath] : tracer.getStaticRequirePairs())
     {
-        // Construct full path from root directory and relative file path
-        std::string fullPath = joinPaths(rootDirectory, file);
-        payload.add(fullPath);
+        payload.add(filePath);
     }
 
     // Encode the payload
@@ -572,7 +562,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
     if (bundleStats)
     {
         printf("\nBundle Statistics:\n");
-        printf("  Files bundled: %zu\n", discoveredFiles.size());
+        printf("  Files bundled: %zu\n", staticRequirePairs.size());
         printf("  Uncompressed size: %zu bytes\n", encodeResult->uncompressedPayloadSizeBytes);
         printf("  Compressed size: %zu bytes\n", encodeResult->compressedPayloadSizeBytes);
         printf(
