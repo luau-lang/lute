@@ -61,6 +61,7 @@ type FailedTest = {
 	error: string, -- the error message from the assertion
 	filename: string, -- source file where the failure occurred
 	linenumber: number, -- line number of the failure
+	stacktrace: string, -- full stacktrace at the point of failure
 }
 
 type TestRunResult = {
@@ -74,6 +75,10 @@ local function printFailedTest(failed: FailedTest)
 	print(`❌ {failed.test}`)
 	print(`   {failed.filename}:{failed.linenumber}`)
 	print(`   	{failed.assertion}: {failed.error}`)
+	if failed.stacktrace and failed.stacktrace ~= "" then
+		print("\tstacktrace:")
+		print(failed.stacktrace)
+	end
 	print()
 end
 
@@ -142,6 +147,7 @@ function test.run()
 	-- Error handler for beforeall hook
 	local function beforeallErrorHandler(suite: TestSuite)
 		return function(err)
+			local stacktrace = debug.traceback(message)
 			-- If beforeall fails, skip all tests in the suite
 			total += #suite.cases
 			failed += #suite.cases
@@ -152,6 +158,7 @@ function test.run()
 					error = `beforeall hook failed: {err}`,
 					filename = "",
 					linenumber = 0,
+					stacktrace = stacktrace,
 				}
 				table.insert(failures, failedtest)
 			end
@@ -162,6 +169,7 @@ function test.run()
 	-- Error handler for beforeeach hook
 	local function beforeeachErrorHandler(testFullName: string)
 		return function(err)
+			local stacktrace = debug.traceback(message)
 			failed += 1
 			local failedtest: FailedTest = {
 				test = testFullName,
@@ -169,6 +177,7 @@ function test.run()
 				error = `beforeeach hook failed: {err}`,
 				filename = "",
 				linenumber = 0,
+				stacktrace = stacktrace,
 			}
 			table.insert(failures, failedtest)
 			return tostring(err)
@@ -178,12 +187,14 @@ function test.run()
 	-- Error handler for aftereach hook
 	local function afterachErrorHandler(testFullName: string)
 		return function(err)
+			local stacktrace = debug.traceback(message)
 			local failedtest: FailedTest = {
 				test = testFullName,
 				assertion = "aftereach",
 				error = `aftereach hook failed: {err}`,
 				filename = "",
 				linenumber = 0,
+				stacktrace = stacktrace,
 			}
 			table.insert(failures, failedtest)
 			return tostring(err)
@@ -193,6 +204,7 @@ function test.run()
 	-- Error handler for afterall hook
 	local function afterallErrorHandler(suiteName: string)
 		return function(err)
+			local stacktrace = debug.traceback(message)
 			failed += 1
 			local failedtest: FailedTest = {
 				test = suiteName,
@@ -200,6 +212,7 @@ function test.run()
 				error = `afterall hook failed: {err}`,
 				filename = "",
 				linenumber = 0,
+				stacktrace = stacktrace,
 			}
 			table.insert(failures, failedtest)
 			return tostring(err)
@@ -212,6 +225,7 @@ function test.run()
 		local function handlefailure(err)
 			local fileName, lineNumber = debug.info(4, "sl")
 			local assertName = debug.info(3, "n")
+			local stacktrace = debug.traceback(message)
 
 			local failedtest: FailedTest = {
 				test = tc.name,
@@ -219,6 +233,7 @@ function test.run()
 				error = err.msg,
 				filename = fileName,
 				linenumber = lineNumber,
+				stacktrace = stacktrace,
 			}
 			table.insert(failures, failedtest)
 			failed += 1
@@ -247,6 +262,7 @@ function test.run()
 			local function handlefailure(err)
 				local fileName, lineNumber = debug.info(4, "sl")
 				local assertName = debug.info(3, "n")
+				local stacktrace = debug.traceback(message)
 
 				local failedtest: FailedTest = {
 					test = testFullName,
@@ -254,6 +270,7 @@ function test.run()
 					error = err.msg,
 					filename = fileName,
 					linenumber = lineNumber,
+					stacktrace = stacktrace,
 				}
 				table.insert(failures, failedtest)
 			end
