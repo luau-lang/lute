@@ -877,11 +877,11 @@ function visitTypePack(type: luau.AstTypePack, visitor: Visitor)
 	end
 end
 
-local function createVisitor()
+local function create()
 	return table.clone(defaultVisitor)
 end
 
-visitorlib.createvisitor = createVisitor
+visitorlib.create = create
 visitorlib.visitblock = visitBlock
 visitorlib.visitstatement = visitStatement
 visitorlib.visitexpression = visitExpression

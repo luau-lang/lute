@@ -81,7 +81,7 @@ type PrintVisitor = visitor.Visitor & {
 }
 
 local function printVisitor()
-	local printer = visitor.createvisitor() :: PrintVisitor
+	local printer = visitor.create() :: PrintVisitor
 
 	printer.result = buffer.create(1024)
 	printer.cursor = 0

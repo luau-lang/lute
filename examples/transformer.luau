@@ -6,7 +6,7 @@ local luau = require("@lute/luau")
 function transformation(ctx)
 	local parsedResult = parser.parsefile(ctx.source)
 
-	local v = visitor.createvisitor()
+	local v = visitor.create()
 
 	v.visitBinary = function(node: luau.AstExprBinary)
 		if node.operator.text ~= "~=" then

@@ -11,7 +11,7 @@ local query = {}
 --- Useful for defining declarative-based programs, where the matched nodes are mutated for the migration
 function query.selectif<T>(block: luau.AstStatBlock, predicate: (luau.AstExpr) -> T?): { T }
 	local nodes = {}
-	local finder = visitor.createvisitor()
+	local finder = visitor.create()
 
 	finder.visitExpression = function(node)
 		local result = predicate(node)
