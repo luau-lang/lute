@@ -37,7 +37,7 @@ struct LuteEncodeResult
 struct LuteExePayload
 {
     LuteExePayload() = default;
-    void add(const std::string& luauFilePath);
+    void add(const std::string& sourcePath, const std::string& bundlePath);
 
     std::optional<LuteEncodeResult> encode();
     static std::optional<LuteDecodeResult> decode(const std::string_view binary);
@@ -48,6 +48,7 @@ struct LuteExePayload
 private:
     bool parseFromDecompressedBundle(std::string_view decompressedBundle);
     std::vector<std::string> filePaths;
+    Luau::DenseHashMap<std::string, std::string> sourceToBundlePath{""};
 };
 
 struct LuteDecodeResult

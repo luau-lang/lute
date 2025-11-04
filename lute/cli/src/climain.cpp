@@ -548,6 +548,11 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
     {
         payload.add(filePath);
     }
+    // Add file with absolute path for reading and rooted path for bundle
+    // We don't want to leak your entire directory path in the bundle, so we
+    // try to pick the lowest common ancestor and keep that as the root.
+    for (const auto& [bundle, absolute] : staticRequirePairs)
+        payload.add(absolute, bundle);
 
     // Encode the payload
     printf("Compiling and bundling bytecode...\n");
