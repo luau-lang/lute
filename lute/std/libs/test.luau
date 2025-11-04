@@ -1,4 +1,7 @@
 --!strict
+-- @std/test
+-- A testing framework for Luau
+
 local ps = require("@std/process")
 local assert = require("@std/assert")
 -- Test Types
