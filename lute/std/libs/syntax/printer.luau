@@ -1,6 +1,10 @@
 --!strict
+-- @std/syntax/printer
+
 local luau = require("@std/luau")
 local visitor = require("./visitor")
+
+local printer = {}
 
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
@@ -64,7 +68,7 @@ local function printInterpolatedString(expr: luau.AstExprInterpString): string
 		else
 			result ..= "{"
 			result ..= printTriviaList(expr.strings[i].trailingtrivia)
-			result ..= printExpr(expr.expressions[i])
+			result ..= printer.printexpr(expr.expressions[i])
 		end
 	end
 
@@ -77,7 +81,7 @@ type PrintVisitor = visitor.Visitor & {
 }
 
 local function printVisitor()
-	local printer = visitor.createVisitor() :: PrintVisitor
+	local printer = visitor.create() :: PrintVisitor
 
 	printer.result = buffer.create(1024)
 	printer.cursor = 0
@@ -130,30 +134,25 @@ function printNode<T>(node: T, visit: (node: T, visitor: visitor.Visitor) -> ())
 end
 
 --- Returns a string representation of an AstExpr
-function printExpr(expr: luau.AstExpr): string
-	return printNode(expr, visitor.visitExpression)
+function printer.printexpr(expr: luau.AstExpr): string
+	return printNode(expr, visitor.visitexpression)
 end
 
 --- Returns a string representation of an AstStat
-local function printStatement(statement: luau.AstStat): string
-	return printNode(statement, visitor.visitStatement)
+function printer.printstatement(statement: luau.AstStat): string
+	return printNode(statement, visitor.visitstatement)
 end
 
 -- Returns a string representation of an AstType
-function printType(type: luau.AstType): string
-	return printNode(type, visitor.visitType)
+function printer.printtype(type: luau.AstType): string
+	return printNode(type, visitor.visittype)
 end
 
-function printFile(result: { root: luau.AstStatBlock, eof: luau.Eof }): string
+function printer.printfile(result: { root: luau.AstStatBlock, eof: luau.Eof }): string
 	local printer = printVisitor()
-	visitor.visitBlock(result.root, printer)
-	visitor.visitToken(result.eof, printer)
+	visitor.visitblock(result.root, printer)
+	visitor.visittoken(result.eof, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
-return {
-	printexpr = printExpr,
-	printstatement = printStatement,
-	printtype = printType,
-	printfile = printFile,
-}
+return table.freeze(printer)

@@ -1,4 +1,4 @@
-local system = require("@lute/system")
+local system = require("@std/system")
 
 print(
 	string.format(
@@ -7,7 +7,7 @@ print(
 		system.os,
 		system.arch,
 		system.threadcount(),
-		system.uptime(),
+		tostring(system.uptime()),
 		system.freememory(),
 		system.totalmemory()
 	)

@@ -1,5 +1,5 @@
-local fs = require("@lute/fs")
-local process = require("@lute/process")
+local fs = require("@std/fs")
+local process = require("@std/process")
 local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
@@ -24,7 +24,7 @@ local testDirStr = path.format(testDir)
 test.suite("Lute CLI Run", function(suite)
 	suite:beforeall(function()
 		if not fs.exists(testDirStr) then
-			fs.mkdir(testDirStr)
+			fs.createdirectory(testDirStr)
 		end
 	end)
 
@@ -41,7 +41,7 @@ test.suite("Lute CLI Run", function(suite)
 		fs.write(requireeFile, REQUIREE_CONTENTS)
 		fs.close(requireeFile)
 
-		local result = process.run({ lutePath, requirerPath, requireePath })
+		local result = process.run({ tostring(lutePath), requirerPath, requireePath })
 		check.eq(result.exitcode, 0)
 		check.eq(result.stdout, "Success\n")
 

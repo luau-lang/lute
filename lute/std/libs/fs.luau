@@ -6,6 +6,8 @@
 local fs = require("@lute/fs")
 local pathlib = require("@std/path")
 
+local fslib = {}
+
 export type handlemode = fs.HandleMode
 export type filehandle = fs.FileHandle
 export type filetype = fs.FileType
@@ -19,76 +21,75 @@ export type createdirectoryoptions = {
 	makeparents: boolean?,
 }
 
-local function open(path: pathlike, mode: handlemode?): filehandle
+function fslib.open(path: pathlike, mode: handlemode?): filehandle
 	return fs.open(pathlib.format(path), mode)
 end
 
-local function read(handle: filehandle): string
+function fslib.read(handle: filehandle): string
 	return fs.read(handle)
 end
 
-local function write(handle: filehandle, contents: string): ()
+function fslib.write(handle: filehandle, contents: string): ()
 	return fs.write(handle, contents)
 end
 
-local function close(handle: filehandle): ()
+function fslib.close(handle: filehandle): ()
 	return fs.close(handle)
 end
 
-local function remove(path: pathlike): ()
+function fslib.remove(path: pathlike): ()
 	return fs.remove(pathlib.format(path))
 end
 
-local function stat(path: pathlike): filemetadata
+function fslib.stat(path: pathlike): filemetadata
 	return fs.stat(pathlib.format(path))
 end
 
-local function type(path: pathlike): filetype
+function fslib.type(path: pathlike): filetype
 	return fs.type(pathlib.format(path))
 end
 
-local function link(src: pathlike, dest: pathlike): ()
+function fslib.link(src: pathlike, dest: pathlike): ()
 	return fs.link(pathlib.format(src), pathlib.format(dest))
 end
 
-local function symlink(src: pathlike, dest: pathlike): ()
-	-- make sure our path is absolute path for symlink and if your os is
+function fslib.symlink(src: pathlike, dest: pathlike): ()
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 
-local function watch(path: pathlike, callback: (filename: pathlike, event: watchevent) -> ()): watchhandle
+function fslib.watch(path: pathlike, callback: (filename: pathlike, event: watchevent) -> ()): watchhandle
 	return fs.watch(pathlib.format(path), callback)
 end
 
-local function exists(path: pathlike): boolean
+function fslib.exists(path: pathlike): boolean
 	return fs.exists(pathlib.format(path))
 end
 
-local function copy(src: pathlike, dest: pathlike): ()
+function fslib.copy(src: pathlike, dest: pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
-local function listdir(path: pathlike): { directoryentry }
+function fslib.listdir(path: pathlike): { directoryentry }
 	return fs.listdir(pathlib.format(path))
 end
 
-local function rmdir(path: pathlike): ()
+function fslib.rmdir(path: pathlike): ()
 	return fs.rmdir(pathlib.format(path))
 end
 
-local function readfiletostring(filepath: pathlike): string
+function fslib.readfiletostring(filepath: pathlike): string
 	return fs.readfiletostring(pathlib.format(filepath))
 end
 
-local function writestringtofile(filepath: pathlike, contents: string): ()
+function fslib.writestringtofile(filepath: pathlike, contents: string): ()
 	return fs.writestringtofile(pathlib.format(filepath), contents)
 end
 
-local function readasync(filepath: pathlike): string
+function fslib.readasync(filepath: pathlike): string
 	return fs.readasync(pathlib.format(filepath))
 end
 
-local function createdirectory(path: pathlike, options: createdirectoryoptions?): ()
+function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?): ()
 	if options and options.makeparents then
 		local parts: { string } = pathlib.parse(path).parts
 
@@ -99,7 +100,7 @@ local function createdirectory(path: pathlike, options: createdirectoryoptions?)
 
 		for _, part in parts do
 			subdir = pathlib.join(subdir, part)
-			if not exists(subdir) then
+			if not fslib.exists(subdir) then
 				fs.mkdir(pathlib.format(subdir))
 			end
 		end
@@ -108,23 +109,4 @@ local function createdirectory(path: pathlike, options: createdirectoryoptions?)
 	end
 end
 
-return table.freeze({
-	open = open,
-	read = read,
-	write = write,
-	close = close,
-	remove = remove,
-	stat = stat,
-	type = type,
-	link = link,
-	symlink = symlink,
-	watch = watch,
-	exists = exists,
-	copy = copy,
-	listdir = listdir,
-	rmdir = rmdir,
-	readfiletostring = readfiletostring,
-	writestringtofile = writestringtofile,
-	readasync = readasync,
-	createdirectory = createdirectory,
-})
+return table.freeze(fslib)

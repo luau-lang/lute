@@ -1,3 +1,8 @@
+--!strict
+-- @std/luau
+-- stdlib for `@lute/luau`
+-- Provides utilities for parsing and compiling Luau source code
+
 local luteLuau = require("@lute/luau")
 
 local fs = require("@lute/fs")
