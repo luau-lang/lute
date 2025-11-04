@@ -1,14 +1,7 @@
---!strict
--- @std/table
--- stdlib for the built-in table library in Luau
--- Provides additional utility functions for table operations
-
-local tablelib = {}
-
 export type array<T> = { T }
 export type dictionary<T> = { [string]: T }
 
-function tablelib.map<K, A, B>(table: { [K]: A }, f: (A) -> B): { [K]: B }
+local function map<K, A, B>(table: { [K]: A }, f: (A) -> B): { [K]: B }
 	local new = {}
 
 	for k, v in table do
@@ -18,7 +11,7 @@ function tablelib.map<K, A, B>(table: { [K]: A }, f: (A) -> B): { [K]: B }
 	return new
 end
 
-function tablelib.filter<K, V>(table: { [K]: V }, predicate: (V) -> boolean): { [K]: V }
+local function filter<K, V>(table: { [K]: V }, predicate: (V) -> boolean): { [K]: V }
 	local new = {}
 
 	for k, v in table do
@@ -30,7 +23,7 @@ function tablelib.filter<K, V>(table: { [K]: V }, predicate: (V) -> boolean): { 
 	return new
 end
 
-function tablelib.fold<K, V, A>(table: { [K]: V }, f: (A, V) -> A, initial: A): A
+local function fold<K, V, A>(table: { [K]: V }, f: (A, V) -> A, initial: A): A
 	local acc = initial
 
 	for _, v in table do
@@ -40,26 +33,32 @@ function tablelib.fold<K, V, A>(table: { [K]: V }, f: (A, V) -> A, initial: A): 
 	return acc
 end
 
-function tablelib.extend<T>(tbl: array<T>, other: array<T>)
+local function extend<T>(tbl: array<T>, other: array<T>)
 	for _, entry in other do
 		table.insert(tbl, entry)
 	end
 end
 
--- re-exports
-tablelib.clear = table.clear
-tablelib.clone = table.clone
-tablelib.concat = table.concat
-tablelib.create = table.create
-tablelib.find = table.find
-tablelib.freeze = table.freeze
-tablelib.insert = table.insert
-tablelib.isfrozen = table.isfrozen
-tablelib.maxn = table.maxn
-tablelib.move = table.move
-tablelib.pack = table.pack
-tablelib.remove = table.remove
-tablelib.sort = table.sort
-tablelib.unpack = table.unpack
+return table.freeze({
+	-- std extension for table
+	map = map,
+	filter = filter,
+	fold = fold,
+	extend = extend,
 
-return table.freeze(tablelib)
+	-- re-exports of the table library
+	clear = table.clear,
+	clone = table.clone,
+	concat = table.concat,
+	create = table.create,
+	find = table.find,
+	freeze = table.freeze,
+	insert = table.insert,
+	isfrozen = table.isfrozen,
+	maxn = table.maxn,
+	move = table.move,
+	pack = table.pack,
+	remove = table.remove,
+	sort = table.sort,
+	unpack = table.unpack,
+})
