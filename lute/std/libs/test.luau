@@ -147,7 +147,7 @@ function test.run()
 	-- Error handler for beforeall hook
 	local function beforeallErrorHandler(suite: TestSuite)
 		return function(err)
-			local stacktrace = debug.traceback(message)
+			local stacktrace = debug.traceback(tostring(err))
 			-- If beforeall fails, skip all tests in the suite
 			total += #suite.cases
 			failed += #suite.cases
@@ -169,7 +169,7 @@ function test.run()
 	-- Error handler for beforeeach hook
 	local function beforeeachErrorHandler(testFullName: string)
 		return function(err)
-			local stacktrace = debug.traceback(message)
+			local stacktrace = debug.traceback(tostring(err))
 			failed += 1
 			local failedtest: FailedTest = {
 				test = testFullName,
@@ -187,7 +187,7 @@ function test.run()
 	-- Error handler for aftereach hook
 	local function afterachErrorHandler(testFullName: string)
 		return function(err)
-			local stacktrace = debug.traceback(message)
+			local stacktrace = debug.traceback(tostring(err))
 			local failedtest: FailedTest = {
 				test = testFullName,
 				assertion = "aftereach",
@@ -204,7 +204,7 @@ function test.run()
 	-- Error handler for afterall hook
 	local function afterallErrorHandler(suiteName: string)
 		return function(err)
-			local stacktrace = debug.traceback(message)
+			local stacktrace = debug.traceback(tostring(err))
 			failed += 1
 			local failedtest: FailedTest = {
 				test = suiteName,
@@ -225,7 +225,7 @@ function test.run()
 		local function handlefailure(err)
 			local fileName, lineNumber = debug.info(4, "sl")
 			local assertName = debug.info(3, "n")
-			local stacktrace = debug.traceback(message)
+			local stacktrace = debug.traceback(tostring(err))
 
 			local failedtest: FailedTest = {
 				test = tc.name,
@@ -262,7 +262,7 @@ function test.run()
 			local function handlefailure(err)
 				local fileName, lineNumber = debug.info(4, "sl")
 				local assertName = debug.info(3, "n")
-				local stacktrace = debug.traceback(message)
+				local stacktrace = debug.traceback(tostring(err))
 
 				local failedtest: FailedTest = {
 					test = testFullName,
