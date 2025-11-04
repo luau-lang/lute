@@ -1,6 +1,10 @@
 --!strict
+-- @std/syntax/visitor
+-- Visitor pattern implementation for traversing Luau AST nodes
 
 local luau = require("@std/luau")
+
+local visitorlib = {}
 
 export type Visitor = {
 	visitBlock: (luau.AstStatBlock) -> boolean,
@@ -877,12 +881,12 @@ local function createVisitor()
 	return table.clone(defaultVisitor)
 end
 
-return {
-	createVisitor = createVisitor,
-	visitBlock = visitBlock,
-	visitStatement = visitStatement,
-	visitExpression = visitExpression,
-	visitType = visitType,
-	visitTypePack = visitTypePack,
-	visitToken = visitToken,
-}
+visitorlib.createvisitor = createVisitor
+visitorlib.visitblock = visitBlock
+visitorlib.visitstatement = visitStatement
+visitorlib.visitexpression = visitExpression
+visitorlib.visittype = visitType
+visitorlib.visittypepack = visitTypePack
+visitorlib.visittoken = visitToken
+
+return table.freeze(visitorlib)
