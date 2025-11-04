@@ -1,8 +1,8 @@
 local task = require("@lute/task")
-local time = require("@lute/time")
+local time = require("@std/time")
 
 print(task.wait(1))
-print(task.wait(time.duration.seconds(1)))
+print(task.wait(time.seconds(1)))
 print(task.wait())
 
 -- while true do
