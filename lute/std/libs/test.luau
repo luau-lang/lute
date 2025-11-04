@@ -57,8 +57,8 @@ end
 -- Test Reporting
 type FailedTest = {
 	test: string, -- name of the test case that failed
-	assertion: string?, -- name of the assertion that failed (e.g., "assert.eq")
-	error: string?, -- the error message from the assertion
+	assertion: string?, -- if an assertion failed, name of the assertion that failed (e.g., "assert.eq")
+	assertion_error: string?, -- the error message to report with a failed assertion
 	filename: string, -- source file where the failure occurred
 	linenumber: number, -- line number of the failure
 }
@@ -72,9 +72,12 @@ type TestRunResult = {
 
 local function printFailedTest(failed: FailedTest)
 	print(`❌ {failed.test}`)
-	print(`   {failed.filename}:{failed.linenumber}`)
-	if failed.assertion ~= nil and failed.error ~= nil then
-		print(`   	{failed.assertion}: {failed.error}`)
+	if failed.assertion ~= nil then
+		print(`   {failed.filename}:{failed.linenumber}`)
+		print(`   	{failed.assertion}: {failed.assertion_error}`)
+	else
+		print(`   Failed with: Runtime error in {failed.test} in:`)
+		print(`   	{failed.filename}:{failed.linenumber}`)
 	end
 	print()
 end
@@ -222,7 +225,7 @@ function test.run()
 			local failedtest: FailedTest = {
 				test = tc.name,
 				assertion = if assertName == "xpcall" then nil else assertName,
-				error = if assertName == "xpcall" then nil else err.msg,
+				assertion_error = if assertName == "xpcall" then nil else err.msg,
 				filename = fileName,
 				linenumber = lineNumber,
 			}
@@ -261,7 +264,7 @@ function test.run()
 				local failedtest: FailedTest = {
 					test = testFullName,
 					assertion = if assertName == "xpcall" then nil else assertName,
-					error = if assertName == "xpcall" then nil else err.msg,
+					assertion_error = if assertName == "xpcall" then nil else err.msg,
 					filename = fileName,
 					linenumber = lineNumber,
 				}
