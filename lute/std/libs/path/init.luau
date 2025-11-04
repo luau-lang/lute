@@ -1,4 +1,4 @@
-local platforminfo = require("@std/system/platforminfo")
+local platform = require("@std/system/platform")
 
 local posix = require("@self/posix")
 local win32 = require("@self/win32")
@@ -10,7 +10,7 @@ local pathlib = {}
 export type path = pathtypes.path
 export type pathlike = pathtypes.pathlike
 
-local onWindows = platforminfo.win32
+local onWindows = platform.win32
 
 function pathlib.basename(path: pathlike): string?
 	if onWindows then

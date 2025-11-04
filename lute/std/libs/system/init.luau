@@ -5,28 +5,29 @@
 
 local system = require("@lute/system")
 local path = require("@std/path")
-local platforminfo = require("@self/platforminfo")
+local platform = require("@self/platform")
 
-local function tmpdir(): path.path
+local systemlib = {}
+
+function systemlib.tmpdir(): path.path
 	return path.parse(system.tmpdir())
 end
 
-return table.freeze({
-	os = system.os,
-	arch = system.arch,
-	tmpdir = tmpdir,
+-- re-exports
+systemlib.os = system.os
+systemlib.arch = system.arch
 
-	-- function re-exports
-	threadcount = system.threadcount,
-	hostname = system.hostname,
-	totalmemory = system.totalmemory,
-	freememory = system.freememory,
-	uptime = system.uptime,
-	cpus = system.cpus,
+systemlib.threadcount = system.threadcount
+systemlib.hostname = system.hostname
+systemlib.totalmemory = system.totalmemory
+systemlib.freememory = system.freememory
+systemlib.uptime = system.uptime
+systemlib.cpus = system.cpus
 
-	-- boolean properties
-	win32 = platforminfo.win32,
-	linux = platforminfo.linux,
-	macos = platforminfo.macos,
-	unix = platforminfo.unix,
-})
+-- boolean properties
+systemlib.win32 = platform.win32
+systemlib.linux = platform.linux
+systemlib.macos = platform.macos
+systemlib.unix = platform.unix
+
+return table.freeze(systemlib)
