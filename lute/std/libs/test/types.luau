@@ -5,25 +5,25 @@
 -- Test Reporting
 local assert = require("./assert")
 
-export type Test = (assert.Asserts) -> ()
+export type test = (assert.asserts) -> ()
 
-export type TestCase = { name: string, case: Test }
+export type testcase = { name: string, case: test }
 
-export type TestSuite = {
+export type testsuite = {
 	name: string,
-	cases: { TestCase },
+	cases: { testcase },
 	_beforeeach: (() -> ())?,
 	_beforeall: (() -> ())?,
 	_aftereach: (() -> ())?,
 	_afterall: (() -> ())?,
-	case: (self: TestSuite, string, Test) -> (),
-	beforeeach: (self: TestSuite, () -> ()) -> (),
-	beforeall: (self: TestSuite, () -> ()) -> (),
-	aftereach: (self: TestSuite, () -> ()) -> (),
-	afterall: (self: TestSuite, () -> ()) -> (),
+	case: (self: testsuite, string, test) -> (),
+	beforeeach: (self: testsuite, () -> ()) -> (),
+	beforeall: (self: testsuite, () -> ()) -> (),
+	aftereach: (self: testsuite, () -> ()) -> (),
+	afterall: (self: testsuite, () -> ()) -> (),
 }
 
-export type FailedTest = {
+export type failedtest = {
 	test: string, -- name of the test case that failed
 	assertion: string?, -- if an assertion failed, name of the assertion that failed (e.g., "assert.eq")
 	message: string?, -- the error message to report with a failed assertion
@@ -31,22 +31,22 @@ export type FailedTest = {
 	linenumber: number, -- line number of the failure
 }
 
-export type TestRunResult = {
-	failures: { FailedTest },
+export type testrunresult = {
+	failures: { failedtest },
 	total: number,
 	failed: number,
 	passed: number,
 }
 
-export type TestReporter = (TestRunResult) -> ()
+export type testreporter = (testrunresult) -> ()
 
 -- Testing Environment
-export type TestEnvironment = {
-	anonymous: { TestCase },
-	suites: { TestSuite },
-	reporter: TestReporter,
+export type testenvironment = {
+	anonymous: { testcase },
+	suites: { testsuite },
+	reporter: testreporter,
 }
 
-export type TestRunner = (TestEnvironment) -> TestRunResult
+export type testrunner = (testenvironment) -> testrunresult
 
 return {}
