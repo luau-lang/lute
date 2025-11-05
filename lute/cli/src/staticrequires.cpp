@@ -79,7 +79,7 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
             else
             {
                 // Skip warning for built-in libraries (@std and @lute)
-                bool isBuiltinLibrary = req.find("@std/") == 0 || req.find("@lute/") == 0;
+                bool isBuiltinLibrary = req.rfind("@std/", 0) == 0 || req.rfind("@lute/", 0) == 0;
                 if (!isBuiltinLibrary)
                 {
                     fprintf(stderr, "Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
