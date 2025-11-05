@@ -1,5 +1,6 @@
 #include "Luau/FileUtils.h"
 #include "doctest.h"
+#include "lute/climain.h"
 #include "lute/compile.h"
 #include "luteprojectroot.h"
 
@@ -59,10 +60,7 @@ TEST_CASE("lutepayload_multiple_files_roundtrip")
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
 
     std::vector<std::string> testFiles = {
-        joinPaths(testDir, "main.luau"),
-        joinPaths(testDir, "utils.luau"),
-        joinPaths(testDir, "lib/helper.luau"),
-        joinPaths(testDir, "shared.luau")
+        joinPaths(testDir, "main.luau"), joinPaths(testDir, "utils.luau"), joinPaths(testDir, "lib/helper.luau"), joinPaths(testDir, "shared.luau")
     };
 
     // Create payload with multiple files
@@ -333,10 +331,7 @@ TEST_CASE("luteexecutable_multiple_files_roundtrip")
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
 
     std::vector<std::string> testFiles = {
-        joinPaths(testDir, "main.luau"),
-        joinPaths(testDir, "utils.luau"),
-        joinPaths(testDir, "lib/helper.luau"),
-        joinPaths(testDir, "shared.luau")
+        joinPaths(testDir, "main.luau"), joinPaths(testDir, "utils.luau"), joinPaths(testDir, "lib/helper.luau"), joinPaths(testDir, "shared.luau")
     };
 
     // Create a temporary dummy executable
@@ -454,5 +449,43 @@ TEST_CASE("luteexecutable_extract_preserves_original_executable")
 
     // Clean up
     std::remove(dummyExePath.c_str());
+    std::remove(outputExePath.c_str());
+}
+
+TEST_CASE("compile_command_e2e")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+
+    // Use a simple test file that prints something we can verify
+    std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
+
+    // Create a temporary output path for the compiled executable
+    std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_compiled_e2e");
+#ifdef _WIN32
+    outputExePath += ".exe";
+#endif
+
+    // Build argv for cliMain: ["lute", "compile", <testFilePath>, "--output", <outputExePath>]
+    char executablePlaceholder[] = "lute";
+    char compileCommand[] = "compile";
+    char outputFlag[] = "--output";
+
+    std::vector<char*> argv = {executablePlaceholder, compileCommand, testFilePath.data(), outputFlag, outputExePath.data()};
+
+    // Run the compile command
+    int compileResult = cliMain(argv.size(), argv.data());
+    REQUIRE(compileResult == 0);
+
+    // Verify the output file was created
+    std::ifstream checkFile(outputExePath, std::ios::binary);
+    REQUIRE(checkFile.is_open());
+    checkFile.close();
+
+    // Now run the compiled executable to verify it works
+    std::vector<char*> runArgv = {outputExePath.data()};
+    int runResult = cliMain(runArgv.size(), runArgv.data());
+    CHECK(runResult == 0);
+
+    // Clean up
     std::remove(outputExePath.c_str());
 }

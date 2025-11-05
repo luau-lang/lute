@@ -5,16 +5,6 @@
 
 #include <string_view>
 
-struct AppendedBytecodeResult
-{
-    bool found = false;
-    std::string BytecodeData;
-};
-
-AppendedBytecodeResult checkForAppendedBytecode();
-
-int compileScript(const std::string& inputFilePath, const std::string& outputFilePath);
-
 struct LuteDecodeResult;
 
 struct LuteEncodeResult
@@ -90,4 +80,3 @@ struct LuteExecutable
 
     std::string executablePath;
 };
-
