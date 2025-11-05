@@ -25,9 +25,9 @@
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/runtime.h"
+#include "lute/staticrequires.h"
 #include "lute/system.h"
 #include "lute/task.h"
-#include "lute/staticrequires.h"
 #include "lute/tc.h"
 #include "lute/time.h"
 #include "lute/version.h"
@@ -100,7 +100,7 @@ void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, s
         sizeof(RequireCtx),
         [](void* ptr)
         {
-            static_cast<RequireCtx*>(ptr)->~RequireCtx();
+            std::destroy_at(static_cast<RequireCtx*>(ptr));
         }
     );
 
@@ -136,23 +136,17 @@ lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSa
     );
 }
 
-lua_State* setupBundleState(
-    Runtime& runtime,
-    Luau::DenseHashMap<std::string, std::string> bundleMap,
-    std::function<void(lua_State*)> preSandboxInit = nullptr
-)
+lua_State* setupBundleState(Runtime& runtime, Luau::DenseHashMap<std::string, std::string> bundleMap)
 {
     return setupState(
         runtime,
-        [bundleMap = std::move(bundleMap), preSandboxInit = std::move(preSandboxInit)](lua_State* L)
+        [bundleMap = std::move(bundleMap)](lua_State* L)
         {
             luteopen_libs(L);
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
-            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, bundleMap));
-            if (preSandboxInit)
-                preSandboxInit(L);
+            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(bundleMap)));
         }
     );
 }
