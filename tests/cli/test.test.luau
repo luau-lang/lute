@@ -62,6 +62,10 @@ test.run()
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
+		assert.neq(
+			result.stdout:find(`Failed with: Runtime error in nil_field_suite.access_field_of_nil in:`, 1, true),
+			nil
+		)
 		assert.neq(result.stdout:find(`{tostring(testFilePath)}:6`, 1, true), nil)
 
 		fs.remove(testFilePath)
@@ -93,6 +97,7 @@ test.run()
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
+		assert.neq(result.stdout:find(`Failed with: Runtime error in access_field_of_nil in:`, 1, true), nil)
 		assert.neq(result.stdout:find(`{tostring(testFilePath)}:5`, 1, true), nil)
 
 		fs.remove(testFilePath)
