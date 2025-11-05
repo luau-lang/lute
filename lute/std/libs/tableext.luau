@@ -1,7 +1,7 @@
 --!strict
 -- @std/tableext
 -- stdlib for an extension of the built-in table library in Luau
--- Provides additional utility functions for table operations but does not include re-exports
+-- Provides additional utility functions for table operations
 
 local tableext = {}
 

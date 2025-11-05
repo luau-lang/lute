@@ -1,7 +1,7 @@
 --!strict
 -- @std/vectorext
 -- stdlib for an extension of the built-in vector library in Luau
--- Provides additional utility functions for vector operations but does not include re-exports
+-- Provides additional utility functions for vector operations
 
 local vectorext = {}
 
