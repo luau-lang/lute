@@ -143,18 +143,18 @@ function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
 	if nodeKind == "stat" then
 		local stat = ast :: luau.AstStat -- LUAUFIX: code too complex to typecheck
 		if stat.tag == "block" then
-			visitor.visitBlock(stat, selectVisitor)
+			visitor.visitblock(stat, selectVisitor)
 		else
-			visitor.visitStatement(stat, selectVisitor)
+			visitor.visitstatement(stat, selectVisitor)
 		end
 	elseif nodeKind == "expr" then
-		visitor.visitExpression(ast :: luau.AstExpr, selectVisitor) -- LUAUFIX: code too complex to typecheck
+		visitor.visitexpression(ast :: luau.AstExpr, selectVisitor) -- LUAUFIX: code too complex to typecheck
 	elseif nodeKind == "type" then
-		visitor.visitType(ast :: luau.AstType, selectVisitor)
+		visitor.visittype(ast :: luau.AstType, selectVisitor)
 	elseif nodeKind == "typepack" then
-		visitor.visitTypePack(ast :: luau.AstTypePack, selectVisitor)
+		visitor.visittypepack(ast :: luau.AstTypePack, selectVisitor)
 	elseif nodeKind == "token" then
-		visitor.visitToken(ast :: luau.Token, selectVisitor)
+		visitor.visittoken(ast :: luau.Token, selectVisitor)
 	else
 		error("Unsupported node kind: " .. tostring(nodeKind))
 	end

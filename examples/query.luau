@@ -1,10 +1,8 @@
 local luau = require("@std/luau")
-
-local ast = (nil :: any) :: luau.AstNode
-
--- Example usage:
 local query = require("@std/syntax/query")
 local utils = require("@std/syntax/utils")
+
+local ast = luau.parseexpr("require(OldComponent)")
 
 local p = query
 	.select(ast, utils.isExprCall)
