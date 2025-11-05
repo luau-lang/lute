@@ -1,7 +1,7 @@
 --!strict
 -- @std/stringext
 -- stdlib for an extension of the built-in string library in Luau
--- Provides additional utility functions for string operations but does not include re-exports
+-- Provides additional utility functions for string operations
 
 local stringext = {}
 
