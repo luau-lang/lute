@@ -122,59 +122,60 @@ struct LuteConfigResolver : Luau::ConfigResolver
     }
 };
 
-static void report(const char* name, const Luau::Location& loc, const char* type, const char* message)
+static void report(const char* name, const Luau::Location& loc, const char* type, const char* message, LuteReporter& reporter)
 {
     // fprintf(stderr, "%s(%d,%d): %s: %s\n", name, loc.begin.line + 1, loc.begin.column + 1, type, message);
     int columnEnd = (loc.begin.line == loc.end.line) ? loc.end.column : 100;
 
     // Use stdout to match luacheck behavior
-    fprintf(stdout, "%s:%d:%d-%d: (W0) %s: %s\n", name, loc.begin.line + 1, loc.begin.column + 1, columnEnd, type, message);
+    reporter.formatOutput("%s:%d:%d-%d: (W0) %s: %s\n", name, loc.begin.line + 1, loc.begin.column + 1, columnEnd, type, message);
 }
 
-static void reportError(const Luau::Frontend& frontend, const Luau::TypeError& error)
+static void reportError(const Luau::Frontend& frontend, const Luau::TypeError& error, LuteReporter& reporter)
 {
     std::string humanReadableName = frontend.fileResolver->getHumanReadableModuleName(error.moduleName);
 
     if (const Luau::SyntaxError* syntaxError = Luau::get_if<Luau::SyntaxError>(&error.data))
-        report(humanReadableName.c_str(), error.location, "SyntaxError", syntaxError->message.c_str());
+        report(humanReadableName.c_str(), error.location, "SyntaxError", syntaxError->message.c_str(), reporter);
     else
         report(
             humanReadableName.c_str(),
             error.location,
             "TypeError",
-            Luau::toString(error, Luau::TypeErrorToStringOptions{frontend.fileResolver}).c_str()
+            Luau::toString(error, Luau::TypeErrorToStringOptions{frontend.fileResolver}).c_str(),
+            reporter
         );
 }
 
-static void reportWarning(const char* name, const Luau::LintWarning& warning)
+static void reportWarning(const char* name, const Luau::LintWarning& warning, LuteReporter& reporter)
 {
-    report(name, warning.location, Luau::LintWarning::getName(warning.code), warning.text.c_str());
+    report(name, warning.location, Luau::LintWarning::getName(warning.code), warning.text.c_str(), reporter);
 }
 
-static bool reportModuleResult(Luau::Frontend& frontend, const Luau::ModuleName& name, bool annotate)
+static bool reportModuleResult(Luau::Frontend& frontend, const Luau::ModuleName& name, bool annotate, LuteReporter& reporter)
 {
     std::optional<Luau::CheckResult> cr = frontend.getCheckResult(name, false);
 
     if (!cr)
     {
-        fprintf(stderr, "Failed to find result for %s\n", name.c_str());
+        reporter.formatError("Failed to find result for %s\n", name.c_str());
         return false;
     }
 
     if (!frontend.getSourceModule(name))
     {
-        fprintf(stderr, "Error opening %s\n", name.c_str());
+        reporter.formatError("Error opening %s\n", name.c_str());
         return false;
     }
 
     for (auto& error : cr->errors)
-        reportError(frontend, error);
+        reportError(frontend, error, reporter);
 
     std::string humanReadableName = frontend.fileResolver->getHumanReadableModuleName(name);
     for (auto& error : cr->lintResult.errors)
-        reportWarning(humanReadableName.c_str(), error);
+        reportWarning(humanReadableName.c_str(), error, reporter);
     for (auto& warning : cr->lintResult.warnings)
-        reportWarning(humanReadableName.c_str(), warning);
+        reportWarning(humanReadableName.c_str(), warning, reporter);
 
     return cr->errors.empty() && cr->lintResult.errors.empty();
 }
@@ -220,13 +221,13 @@ std::vector<std::string> processSourceFiles(const std::vector<std::string>& sour
     return files;
 }
 
-int typecheck(const std::vector<std::string>& sourceFilesInput)
+int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& reporter)
 {
     std::vector<std::string> sourceFiles = processSourceFiles(sourceFilesInput);
 
     if (sourceFiles.empty())
     {
-        fprintf(stderr, "Error: lute check expects a file to type check.\n\n");
+        reporter.reportError("Error: lute check expects a file to type check.\n\n");
         return 1;
     }
 
@@ -268,7 +269,8 @@ int typecheck(const std::vector<std::string>& sourceFilesInput)
             humanReadableName.c_str(),
             location,
             "InternalCompilerError",
-            Luau::toString(error, Luau::TypeErrorToStringOptions{frontend.fileResolver}).c_str()
+            Luau::toString(error, Luau::TypeErrorToStringOptions{frontend.fileResolver}).c_str(),
+            reporter
         );
         return 1;
     }
@@ -276,14 +278,14 @@ int typecheck(const std::vector<std::string>& sourceFilesInput)
     int failed = 0;
 
     for (const Luau::ModuleName& name : checkedModules)
-        failed += !reportModuleResult(frontend, name, annotate);
+        failed += !reportModuleResult(frontend, name, annotate, reporter);
 
     if (!configResolver.configErrors.empty())
     {
         failed += int(configResolver.configErrors.size());
 
         for (const auto& pair : configResolver.configErrors)
-            fprintf(stderr, "%s: %s\n", pair.first.c_str(), pair.second.c_str());
+            reporter.formatError("%s: %s\n", pair.first.c_str(), pair.second.c_str());
     }
 
     return failed ? 1 : 0;
