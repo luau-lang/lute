@@ -8,8 +8,6 @@
 
 #include <cstdio>
 
-StaticRequireTracer::StaticRequireTracer() = default;
-
 // AST visitor to extract require() calls
 class RequireExtractor : public Luau::AstVisitor
 {
@@ -203,4 +201,23 @@ std::optional<std::string> StaticRequireTracer::resolveRequire(const std::string
         result = result.substr(1);
 
     return result;
+}
+
+void StaticRequireTracer::printRequireGraph() const
+{
+    printf("\nRequire dependency graph:\n");
+    for (const auto& [file, deps] : requireGraph)
+    {
+        printf("\t%s\n", file.c_str());
+        for (const auto& dep : deps)
+        {
+            printf("\t\t -> %s\n", dep.c_str());
+        }
+
+        if (deps.empty())
+        {
+            printf("\t\t(no dependencies)\n");
+        }
+    }
+    printf("\n");
 }

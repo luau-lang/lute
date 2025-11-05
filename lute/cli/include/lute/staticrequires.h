@@ -9,7 +9,7 @@
 class StaticRequireTracer
 {
 public:
-    StaticRequireTracer();
+    StaticRequireTracer() = default;
 
     // Trace dependencies starting from an entry point file
     // rootDirectory: Base directory for resolving all requires
@@ -24,6 +24,7 @@ public:
         return requireGraph;
     }
 
+    void printRequireGraph() const;
 private:
     Luau::DenseHashSet<std::string> visited{""};
     std::vector<std::string> discovered;

@@ -547,25 +547,8 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
         return 1;
     }
 
-    // Show require graph if requested
     if (showRequireGraph)
-    {
-        printf("\nRequire dependency graph:\n");
-        const auto& graph = tracer.getRequireGraph();
-        for (const auto& [file, deps] : graph)
-        {
-            printf("\t%s\n", file.c_str());
-            for (const auto& dep : deps)
-            {
-                printf("\t\t -> %s\n", dep.c_str());
-            }
-            if (deps.empty())
-            {
-                printf("\t\t(no dependencies)\n");
-            }
-        }
-        printf("\n");
-    }
+        tracer.printRequireGraph();
 
     // Create payload and add all discovered files
     LuteExePayload payload;
