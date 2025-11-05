@@ -212,7 +212,7 @@ export type AstExprIfElse = {
 	elseexpr: AstExpr,
 }
 
-export type AstExpr = { kind: "expr" } & (
+export type AstExpr = { kind: "expr"? } & (
 	| AstExprGroup
 	| AstExprConstantNil
 	| AstExprConstantBool
@@ -378,7 +378,7 @@ export type AstStatTypeFunction = {
 	body: AstFunctionBody,
 }
 
-export type AstStat = { kind: "stat" } & (
+export type AstStat = { kind: "stat"? } & (
 	| AstStatBlock
 	| AstStatIf
 	| AstStatWhile
@@ -531,7 +531,7 @@ export type AstTypeFunction = {
 	returntypes: AstTypePack,
 }
 
-export type AstType = { kind: "type" } & (
+export type AstType = { kind: "type"? } & (
 	| AstTypeReference
 	| AstTypeSingletonBool
 	| AstTypeSingletonString
@@ -566,9 +566,9 @@ export type AstTypePackVariadic = {
 	type: AstType,
 }
 
-export type AstTypePack = { kind: "typepack" } & (AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic)
+export type AstTypePack = { kind: "typepack"? } & (AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic)
 
-export type AstNode = { location: Location } & (AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute)
+export type AstNode = { location: Location? } & (AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute)
 
 export type ParseResult = {
 	root: AstStatBlock,

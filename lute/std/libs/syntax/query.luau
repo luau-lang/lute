@@ -3,7 +3,8 @@
 -- Provides utility functions for querying Luau AST nodes
 
 local luau = require("@std/luau")
-local visitor = require("@self/visitor")
+local table = require("@std/table")
+local visitor = require("@std/syntax/visitor")
 
 type node = luau.AstNode
 
@@ -16,13 +17,16 @@ type delta =
 type replacement = string | node | { delta }
 type replacements = { [node]: replacement }
 
-type query<T = node> = {
+export type query<T = node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
-	replace: (self: query<T>, repl: (T) -> replacement) -> replacements,
+	replace: (self: query<T>, repl: (T) -> replacement?) -> replacements,
+	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>,
 }
 
-local function filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
+local queryLib = {}
+
+function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	local newNodes = {}
 	for _, node in self.nodes do
 		if pred(node) then
@@ -33,34 +37,41 @@ local function filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-local function replace<T>(self: query<T>, repl: (T) -> replacement): replacements
+function queryLib.replace<T>(self: query<T>, repl: (T) -> replacement?): replacements
 	local replacements = {}
 	for _, node in self.nodes do
-		replacements[node] = repl(node)
+		local r = repl(node)
+		if r ~= nil then
+			replacements[node] = r
+		end
 	end
 	return replacements
 end
 
 -- map will return a query where its nodes are all the non-nil values returned by fn when called on each node of the original query
 -- Because of the recursion constraint, we can't actually include this as a method of query right now
-local function map<T, U>(q: query<T>, fn: (T) -> U?): query<U>
+function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 	local newNodes = {}
-	for _, node in q.nodes do
+	for _, node in self.nodes do
 		local mapped = fn(node)
 		if mapped ~= nil then
 			table.insert(newNodes, mapped)
 		end
 	end
-	return { nodes = newNodes, filter = filter, replace = replace }
+	return { nodes = newNodes, filter = self.filter, replace = self.replace, map = self.map }
 end
 
-local function select<T>(ast: node, fn: (node) -> T?): query<T>
+function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
 	local nodes: { T } = {}
 
-	local function visit(n: node)
+	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
 		local selected = fn(n)
 		if selected ~= nil then
-			table.insert(nodes, selected)
+			if selected.kind == nil then -- quick and dirty fix to check for array-like table
+				table.extend(nodes, selected)
+			else
+				table.insert(nodes, selected)
+			end
 		end
 		return true
 	end
@@ -83,7 +94,9 @@ local function select<T>(ast: node, fn: (node) -> T?): query<T>
 		visitTypeAlias = visit,
 		visitStatTypeFunction = visit,
 
-		visitExpression = visit,
+		visitExpression = function(n)
+			return true
+		end,
 		visitExpressionEnd = function(n) end,
 		visitLocalReference = visit,
 		visitGlobal = visit,
@@ -115,7 +128,9 @@ local function select<T>(ast: node, fn: (node) -> T?): query<T>
 		visitTypePackGeneric = visit,
 		visitTypePackVariadic = visit,
 
-		visitToken = visit,
+		visitToken = function(n)
+			return true
+		end,
 		visitNil = visit,
 		visitString = visit,
 		visitBoolean = visit,
@@ -124,30 +139,27 @@ local function select<T>(ast: node, fn: (node) -> T?): query<T>
 		visitVarargs = visit,
 	}
 
-	-- todo call the visitor
-	local nodeKind: string = (ast :: any).kind
+	local nodeKind: string = ast.kind
 	if nodeKind == "stat" then
-		if (ast :: any).tag == "block" then
-			visitor.visitBlock(ast :: luau.AstStatBlock, selectVisitor)
+		local stat = ast :: luau.AstStat -- LUAUFIX: code too complex to typecheck
+		if stat.tag == "block" then
+			visitor.visitBlock(stat, selectVisitor)
 		else
-			visitor.visitStatement((ast :: any) :: luau.AstStat, selectVisitor)
+			visitor.visitStatement(stat, selectVisitor)
 		end
 	elseif nodeKind == "expr" then
-		visitor.visitExpression((ast :: any) :: luau.AstExpr, selectVisitor)
+		visitor.visitExpression(ast :: luau.AstExpr, selectVisitor) -- LUAUFIX: code too complex to typecheck
 	elseif nodeKind == "type" then
-		visitor.visitType((ast :: any) :: luau.AstType, selectVisitor)
+		visitor.visitType(ast :: luau.AstType, selectVisitor)
 	elseif nodeKind == "typepack" then
-		visitor.visitTypePack((ast :: any) :: luau.AstTypePack, selectVisitor)
+		visitor.visitTypePack(ast :: luau.AstTypePack, selectVisitor)
 	elseif nodeKind == "token" then
-		visitor.visitToken((ast :: any) :: luau.Token<any>, selectVisitor)
+		visitor.visitToken(ast :: luau.Token, selectVisitor)
 	else
 		error("Unsupported node kind: " .. tostring(nodeKind))
 	end
 
-	return { nodes = nodes, filter = filter, replace = replace }
+	return { nodes = nodes, filter = queryLib.filter, replace = queryLib.replace, map = queryLib.map }
 end
 
-return table.freeze({
-	select = select,
-	map = map,
-})
+return table.freeze(queryLib)
