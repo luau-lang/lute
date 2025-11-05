@@ -21,12 +21,15 @@ int compile_luau(lua_State* L);
 
 int load_luau(lua_State* L);
 
+int luau_typeofmodule(lua_State* L);
+
 static const luaL_Reg lib[] = {
     {"parse", luau_parse},
     {"parseexpr", luau_parseexpr},
     {"compile", compile_luau},
     {"load", load_luau},
     {"resolverequire", resolverequire_luau},
+    {"typeofmodule", luau_typeofmodule},
     {nullptr, nullptr},
 };
 
