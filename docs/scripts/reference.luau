@@ -1,12 +1,6 @@
 local fs = require("@std/fs")
 local process = require("@std/process")
-local system = require("@std/system")
-
-local function projectRelative(...)
-	local cwd = process.cwd()
-	local sep = if string.find(string.lower(system.os), "windows") then "\\" else "/"
-	return table.concat({ tostring(cwd), ... }, sep)
-end
+local path = require("@std/path")
 
 local function extractPropertySignature(module: string, line: string): (string?, string?)
 	-- Match property declarations like: process.env = {} :: { [string]: string }
@@ -29,13 +23,16 @@ end
 
 -- docs for definitions/*.luau --
 
-local function parseDefinitionFile(module: string, filePath: string): { { name: string, signature: string } }
+local function parseDefinitionFile(
+	module: path.pathlike,
+	filePath: path.pathlike
+): { { name: string, signature: string } }
 	local content = fs.readfiletostring(filePath)
 	local lines = string.split(content, "\n")
 	local definitions = {}
 
 	for _, line in lines do
-		local name, signature = extractPropertySignature(module, line)
+		local name, signature = extractPropertySignature(tostring(module), line)
 
 		if name and signature then
 			table.insert(definitions, {
@@ -53,10 +50,10 @@ local function generateDefinitionsMarkdown(
 	definitions: { { name: string, signature: string } }
 ): string
 	local lines = {
-		"# " .. moduleName,
+		`# {moduleName}`,
 		"",
 		"```luau",
-		"local " .. moduleName .. ' = require("@lute/' .. moduleName .. '")',
+		`local {moduleName} = require("@lute/{moduleName}")`,
 		"```",
 		"",
 	}
@@ -76,7 +73,7 @@ local function generateDefinitionsMarkdown(
 	return table.concat(lines, "\n")
 end
 
-local function processDefinitionsDir(definitionsPath: string, referencePath: string)
+local function processDefinitionsDir(definitionsPath: path.pathlike, referencePath: path.pathlike)
 	pcall(fs.createdirectory, referencePath)
 
 	local definitionFiles = fs.listdir(definitionsPath)
@@ -84,17 +81,17 @@ local function processDefinitionsDir(definitionsPath: string, referencePath: str
 	for _, file in definitionFiles do
 		if file.type == "file" and string.find(file.name, "%.luau$") then
 			local moduleName = string.gsub(file.name, "%.luau$", "")
-			local definitionFilePath = definitionsPath .. "/" .. file.name
-			local referenceFilePath = referencePath .. "/" .. moduleName .. ".md"
+			local definitionFilePath = path.join(definitionsPath, file.name)
+			local referenceFilePath = path.join(referencePath, moduleName .. ".md")
 
-			print("Processing " .. moduleName .. "...")
+			print(`Processing {moduleName}...`)
 
 			local definitions = parseDefinitionFile(moduleName, definitionFilePath)
 			local markdown = generateDefinitionsMarkdown(moduleName, definitions)
 
 			fs.writestringtofile(referenceFilePath, markdown)
 
-			print("Generated " .. referenceFilePath)
+			print(`Generated {tostring(referenceFilePath)}`)
 		end
 	end
 end
@@ -111,13 +108,13 @@ local STDLIB_MODULE_ALIASES = {
 	system = "systemlib",
 }
 
-local function parseStdlibFile(module: string, filePath: string): { { name: string, signature: string } }
+local function parseStdlibFile(module: path.pathlike, filePath: path.pathlike): { { name: string, signature: string } }
 	local content = fs.readfiletostring(filePath)
 	local lines = string.split(content, "\n")
 	local stdlibDefinitions = {}
 
 	for _, line in lines do
-		local mod = STDLIB_MODULE_ALIASES[module] or module
+		local mod = STDLIB_MODULE_ALIASES[tostring(module)] or tostring(module)
 
 		local name, signature = extractPropertySignature(mod, line)
 
@@ -135,18 +132,22 @@ end
 local function generateStdLibMarkdown(
 	moduleName: string,
 	definitions: { { name: string, signature: string } },
-	stdlibFilePath: string
+	stdlibFilePath: path.pathlike
 ): string
-	local referencePath = projectRelative("lute/std/libs/")
-	local relativePath = string.sub(stdlibFilePath, #referencePath + 1)
+	local referencePath = path.join(process.cwd(), "lute", "std", "libs")
+
+	local refPathStr = tostring(referencePath)
+	local stdlibFilePathStr = tostring(stdlibFilePath)
+
+	local relativePath = string.sub(stdlibFilePathStr, #refPathStr + 2) -- gets the path relative to std/libs for the require path
 	relativePath = string.gsub(relativePath, "%.luau$", "")
-	local modulePath = string.gsub(relativePath, "/init$", "")
+	local requirePath = string.gsub(relativePath, "/init$", "")
 
 	local lines = {
-		"# " .. moduleName,
+		`# {moduleName}`,
 		"",
 		"```luau",
-		"local " .. moduleName .. ' = require("@std/' .. modulePath .. '")',
+		`local {moduleName} = require("@lute/{requirePath}")`,
 		"```",
 		"",
 	}
@@ -166,14 +167,14 @@ local function generateStdLibMarkdown(
 	return table.concat(lines, "\n")
 end
 
-local function processStdlibDir(sourceDir: string, referenceDir: string)
+local function processStdlibDir(sourceDir: path.pathlike, referenceDir: path.pathlike)
 	pcall(fs.createdirectory, referenceDir)
 
 	local entries = fs.listdir(sourceDir)
 
 	for _, entry in entries do
-		local sourcePath = sourceDir .. "/" .. entry.name
-		local referencePath = referenceDir .. "/" .. entry.name
+		local sourcePath = path.join(sourceDir, entry.name)
+		local referencePath = path.join(referenceDir, entry.name)
 
 		if entry.type == "dir" then
 			pcall(fs.createdirectory, referencePath)
@@ -181,29 +182,29 @@ local function processStdlibDir(sourceDir: string, referenceDir: string)
 		elseif entry.type == "file" and string.find(entry.name, "%.luau$") then
 			local moduleName = string.gsub(entry.name, "%.luau$", "")
 			if moduleName == "init" then
-				moduleName = string.match(sourceDir, "([^/\\]+)$") or moduleName
+				moduleName = string.match(tostring(sourceDir), "([^/\\]+)$") or moduleName
 			end
 
-			local referenceFilePath = referenceDir .. "/" .. moduleName .. ".md"
+			local referenceFilePath = path.join(referenceDir, moduleName .. ".md")
 
-			print("Processing " .. moduleName .. "...")
+			print(`Processing {moduleName}...`)
 
 			local stdlibDefinitions = parseStdlibFile(moduleName, sourcePath)
 			local markdown = generateStdLibMarkdown(moduleName, stdlibDefinitions, sourcePath)
 
 			fs.writestringtofile(referenceFilePath, markdown)
 
-			print("Generated " .. referenceFilePath)
+			print(`Generated {tostring(referenceFilePath)}`)
 		end
 	end
 end
 
-local definitionsPath = projectRelative("definitions")
-local referencePath = projectRelative("docs", "reference", "definitions")
+local definitionsPath = path.join(process.cwd(), "definitions")
+local referencePath = path.join(process.cwd(), "docs", "reference", "definitions")
 processDefinitionsDir(definitionsPath, referencePath)
 
-local stdlibPath = projectRelative("lute/std/libs")
-local stdlibReferencePath = projectRelative("docs", "reference", "std")
+local stdlibPath = path.join(process.cwd(), "lute", "std", "libs")
+local stdlibReferencePath = path.join(process.cwd(), "docs", "reference", "std")
 processStdlibDir(stdlibPath, stdlibReferencePath)
 
 print("Reference documentation generation complete!")
