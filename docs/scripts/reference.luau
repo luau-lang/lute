@@ -200,11 +200,11 @@ local function processStdlibDir(sourceDir: path.pathlike, referenceDir: path.pat
 end
 
 local definitionsPath = path.join(process.cwd(), "..", "definitions")
-local referencePath = path.join(process.cwd(), "docs", "reference", "definitions")
+local referencePath = path.join(process.cwd(), "reference", "definitions")
 processDefinitionsDir(definitionsPath, referencePath)
 
 local stdlibPath = path.join(process.cwd(), "..", "lute", "std", "libs")
-local stdlibReferencePath = path.join(process.cwd(), "docs", "reference", "std")
+local stdlibReferencePath = path.join(process.cwd(), "reference", "std")
 processStdlibDir(stdlibPath, stdlibReferencePath)
 
 print("Reference documentation generation complete!")
