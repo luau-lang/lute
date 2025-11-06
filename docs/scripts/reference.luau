@@ -134,7 +134,7 @@ local function generateStdLibMarkdown(
 	definitions: { { name: string, signature: string } },
 	stdlibFilePath: path.pathlike
 ): string
-	local referencePath = path.join(process.cwd(), "lute", "std", "libs")
+	local referencePath = path.join(process.cwd(), "..", "lute", "std", "libs")
 
 	local refPathStr = tostring(referencePath)
 	local stdlibFilePathStr = tostring(stdlibFilePath)
@@ -147,7 +147,7 @@ local function generateStdLibMarkdown(
 		`# {moduleName}`,
 		"",
 		"```luau",
-		`local {moduleName} = require("@lute/{requirePath}")`,
+		`local {moduleName} = require("@std/{requirePath}")`,
 		"```",
 		"",
 	}
@@ -199,12 +199,12 @@ local function processStdlibDir(sourceDir: path.pathlike, referenceDir: path.pat
 	end
 end
 
-local definitionsPath = path.join(process.cwd(), "definitions")
-local referencePath = path.join(process.cwd(), "docs", "reference", "definitions")
+local definitionsPath = path.join(process.cwd(), "..", "definitions")
+local referencePath = path.join(process.cwd(), "reference", "definitions")
 processDefinitionsDir(definitionsPath, referencePath)
 
-local stdlibPath = path.join(process.cwd(), "lute", "std", "libs")
-local stdlibReferencePath = path.join(process.cwd(), "docs", "reference", "std")
+local stdlibPath = path.join(process.cwd(), "..", "lute", "std", "libs")
+local stdlibReferencePath = path.join(process.cwd(), "reference", "std")
 processStdlibDir(stdlibPath, stdlibReferencePath)
 
 print("Reference documentation generation complete!")
