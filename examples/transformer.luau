@@ -3,7 +3,7 @@ local printer = require("@std/syntax/printer")
 local visitor = require("@std/syntax/visitor")
 local luau = require("@lute/luau")
 
-function transformation(ctx)
+local function transformation(ctx)
 	local parsedResult = parser.parsefile(ctx.source)
 
 	local v = visitor.create()
