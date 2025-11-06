@@ -8,11 +8,9 @@
 namespace Luau
 {
 
-LuteModuleResolver::LuteModuleResolver()
-{
-}
+LuteModuleResolver::LuteModuleResolver() = default;
 
-std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name)
+std::optional<Luau::SourceCode> LuteModuleResolver::readSource(const Luau::ModuleName& name)
 {
     Luau::SourceCode::Type sourceType;
     std::optional<std::string> source = std::nullopt;
@@ -27,7 +25,7 @@ std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name)
 }
 
 // We are currently resolving modules and requires only, and will add support for Roblox globals / types in a subsequent PR.
-std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node)
+std::optional<Luau::ModuleInfo> LuteModuleResolver::resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node)
 {
     if (auto expr = node->as<Luau::AstExprConstantString>())
     {

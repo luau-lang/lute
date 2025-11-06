@@ -64,7 +64,7 @@ const Luau::Config& LuteConfigResolver::readConfigRec(const std::string& path) c
         if (std::optional<std::string> contents = readFile(*luauConfigPath))
         {
             Luau::ConfigOptions::AliasOptions aliasOpts;
-            aliasOpts.configLocation = *configPath;
+            aliasOpts.configLocation = *luauConfigPath;
             aliasOpts.overwriteAliases = true;
 
             std::optional<std::string> error = Luau::extractLuauConfig(*contents, result, aliasOpts, Luau::InterruptCallbacks{});
