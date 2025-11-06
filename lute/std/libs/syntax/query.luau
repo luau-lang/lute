@@ -4,23 +4,15 @@
 
 local luau = require("@std/luau")
 local table = require("@std/table")
+local types = require("@std/syntax/types")
 local visitor = require("@std/syntax/visitor")
 
 type node = luau.AstNode
 
-type delta =
-	{ tag: "append", content: string }
-	| { tag: "prepend", content: string }
-	| { tag: "replace", content: string }
-	| { tag: "remove" }
-
-type replacement = string | node | { delta }
-type replacements = { [node]: replacement }
-
 export type query<T = node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
-	replace: (self: query<T>, repl: (T) -> replacement?) -> replacements,
+	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>,
 }
 
@@ -37,7 +29,7 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-function queryLib.replace<T>(self: query<T>, repl: (T) -> replacement?): replacements
+function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
 	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
@@ -67,7 +59,7 @@ function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
 	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
 		local selected = fn(n)
 		if selected ~= nil then
-			if selected.kind == nil then -- quick and dirty fix to check for array-like table
+			if (selected :: any).kind == nil then -- quick and dirty fix to check for array-like table
 				table.extend(nodes, selected)
 			else
 				table.insert(nodes, selected)
@@ -139,6 +131,7 @@ function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
 		visitVarargs = visit,
 	}
 
+	assert(ast.kind ~= nil, "AST should have a kind")
 	local nodeKind: string = ast.kind
 	if nodeKind == "stat" then
 		local stat = ast :: luau.AstStat -- LUAUFIX: code too complex to typecheck
