@@ -4,7 +4,7 @@ local system = require("@std/system")
 
 local function projectRelative(...)
 	local cwd = process.cwd()
-	local sep = string.find(string.lower(system.os), "windows") and "\\" or "/"
+	local sep = if string.find(string.lower(system.os), "windows") then "\\" else "/"
 	return table.concat({ tostring(cwd), ... }, sep)
 end
 
@@ -66,7 +66,7 @@ local function generateDefinitionsMarkdown(
 	end)
 
 	for _, def in definitions do
-		table.insert(lines, "## " .. moduleName .. "." .. def.name)
+		table.insert(lines, `## {moduleName}.{def.name}`)
 		table.insert(lines, "```luau")
 		table.insert(lines, def.signature)
 		table.insert(lines, "```")
@@ -156,7 +156,7 @@ local function generateStdLibMarkdown(
 	end)
 
 	for _, def in definitions do
-		table.insert(lines, "## " .. moduleName .. "." .. def.name)
+		table.insert(lines, `## {moduleName}.{def.name}`)
 		table.insert(lines, "```luau")
 		table.insert(lines, def.signature)
 		table.insert(lines, "```")
