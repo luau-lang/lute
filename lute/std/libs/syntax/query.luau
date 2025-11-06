@@ -13,7 +13,7 @@ export type query<T = node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
 	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
-	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>,
+	map: <U>(self: query<T>, fn: (T) -> (U | { U })?) -> query<U>,
 }
 
 local queryLib = {}
@@ -42,12 +42,16 @@ end
 
 -- map will return a query where its nodes are all the non-nil values returned by fn when called on each node of the original query
 -- Because of the recursion constraint, we can't actually include this as a method of query right now
-function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
+function queryLib.map<T, U>(self: query<T>, fn: (T) -> (U | { U })?): query<U>
 	local newNodes = {}
 	for _, node in self.nodes do
 		local mapped = fn(node)
 		if mapped ~= nil then
-			table.insert(newNodes, mapped)
+			if (mapped :: any).kind == nil then -- quick and dirty fix to check for array-like table
+				table.extend(newNodes, mapped)
+			else
+				table.insert(newNodes, mapped)
+			end
 		end
 	end
 	return { nodes = newNodes, filter = self.filter, replace = self.replace, map = self.map }
@@ -152,7 +156,7 @@ function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
 		error("Unsupported node kind: " .. tostring(nodeKind))
 	end
 
-	return { nodes = nodes, filter = queryLib.filter, replace = queryLib.replace, map = queryLib.map }
+	return { nodes = nodes, filter = queryLib.filter, replace = queryLib.replace, map = queryLib.map } -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 
 return table.freeze(queryLib)
