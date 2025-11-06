@@ -96,21 +96,33 @@ jobs:
 
   build-docs-site:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
+
+      - name: Install tools
+        uses: Roblox/setup-foreman@v3
         with:
-          node-version: 20
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allow-external-github-orgs: true
 
       - name: Install dependencies
-        working-directory: lute/docs
-        run: npm ci
+        run: npm install
+        working-directory: docs
 
       - name: Build docs site
-        working-directory: lute/docs
-        run: npm run gen && npx vitepress build
+        run: npm run build
+        working-directory: docs
+
+      - name: Upload docs artifact
+        id: deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist/
 
   aggregator:
     name: Gated Commits
