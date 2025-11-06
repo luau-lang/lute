@@ -74,7 +74,7 @@ local function generateDefinitionsMarkdown(
 end
 
 local function processDefinitionsDir(definitionsPath: path.pathlike, referencePath: path.pathlike)
-	pcall(fs.createdirectory, referencePath)
+	fs.createdirectory(referencePath, { makeparents = true })
 
 	local definitionFiles = fs.listdir(definitionsPath)
 
@@ -168,7 +168,7 @@ local function generateStdLibMarkdown(
 end
 
 local function processStdlibDir(sourceDir: path.pathlike, referenceDir: path.pathlike)
-	pcall(fs.createdirectory, referenceDir)
+	fs.createdirectory(referenceDir, { makeparents = true })
 
 	local entries = fs.listdir(sourceDir)
 
@@ -177,7 +177,7 @@ local function processStdlibDir(sourceDir: path.pathlike, referenceDir: path.pat
 		local referencePath = path.join(referenceDir, entry.name)
 
 		if entry.type == "dir" then
-			pcall(fs.createdirectory, referencePath)
+			fs.createdirectory(referencePath, { makeparents = true })
 			processStdlibDir(sourcePath, referencePath)
 		elseif entry.type == "file" and string.find(entry.name, "%.luau$") then
 			local moduleName = string.gsub(entry.name, "%.luau$", "")

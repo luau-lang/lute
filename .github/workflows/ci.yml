@@ -94,6 +94,24 @@ jobs:
       - name: Run StyLua
         run: stylua --check .
 
+  build-docs-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: lute/docs
+        run: npm ci
+
+      - name: Build docs site
+        working-directory: lute/docs
+        run: npm run gen && npx vitepress build
+
   aggregator:
     name: Gated Commits
     runs-on: ubuntu-latest
