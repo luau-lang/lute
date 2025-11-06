@@ -139,9 +139,6 @@ local function generateStdLibMarkdown(
 	local refPathStr = tostring(referencePath)
 	local stdlibFilePathStr = tostring(stdlibFilePath)
 
-	print(`Ref path: {refPathStr}`)
-	print(`Stdlib file path: {stdlibFilePathStr}`)
-
 	local relativePath = string.sub(stdlibFilePathStr, #refPathStr + 2) -- gets the path relative to std/libs for the require path
 	relativePath = string.gsub(relativePath, "%.luau$", "")
 	local requirePath = string.gsub(relativePath, "/init$", "")
