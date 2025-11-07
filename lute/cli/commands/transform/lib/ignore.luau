@@ -142,7 +142,7 @@ end
 
 local function parseGitignore(filepath: path.path): GitignoreData
 	local contents = fs.readfiletostring(path.format(filepath))
-	local parentDirectory = if path.basename(filepath) then path.dirname(filepath) else nil
+	local parentDirectory = if #filepath.parts > 0 then path.dirname(filepath) else nil
 	assert(parentDirectory)
 	return parseGitignoreContents(parentDirectory, contents)
 end
@@ -198,7 +198,7 @@ end
 
 --- Checks whether the given file matches an ignore
 function IgnoreResolver.isIgnoredFile(self: IgnoreResolver, filepath: path.path)
-	local directory = if path.basename(filepath) then path.dirname(filepath) else nil
+	local directory = if #filepath.parts > 0 then path.dirname(filepath) else nil
 	assert(directory ~= nil, "filepath has no directory!")
 
 	local ignoreData = self:_readIgnoreRecursive(directory)
@@ -207,11 +207,12 @@ end
 
 function IgnoreResolver.isIgnoredDirectory(self: IgnoreResolver, directorypath: path.path)
 	-- Hardcode: skip the .git directory
-	if path.basename(directorypath) == ".git" then
+	local basename = path.basename(directorypath)
+	if basename == ".git" then
 		return true
 	end
 
-	local parentDirectory = if path.basename(directorypath) then path.dirname(directorypath) else nil
+	local parentDirectory = if basename then path.dirname(directorypath) else nil
 	if parentDirectory then
 		local ignoreData = self:_readIgnoreRecursive(parentDirectory)
 		return isIgnored(ignoreData, path.format(directorypath), true)
