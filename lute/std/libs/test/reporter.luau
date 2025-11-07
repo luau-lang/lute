@@ -5,9 +5,9 @@
 local types = require("./types")
 local assert = require("./assert")
 
-type FailedTest = types.FailedTest
-type TestRunResult = types.TestRunResult
-type Assertions = assert.Asserts
+type FailedTest = types.failedtest
+type TestRunResult = types.testrunresult
+type Assertions = assert.asserts
 
 local reporter = {}
 

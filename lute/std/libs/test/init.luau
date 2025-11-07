@@ -8,11 +8,11 @@ local reporter = require("@self/reporter")
 local runner = require("@self/runner")
 local ps = require("@std/process")
 
-type Test = types.Test
-type TestCase = types.TestCase
-type TestSuite = types.TestSuite
-type TestEnvironment = types.TestEnvironment
-type TestReporter = types.TestReporter
+type Test = types.test
+type TestCase = types.testcase
+type TestSuite = types.testsuite
+type TestEnvironment = types.testenvironment
+type TestReporter = types.testreporter
 
 local TestSuite = {}
 TestSuite.__index = TestSuite
