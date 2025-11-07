@@ -12,16 +12,9 @@ LuteModuleResolver::LuteModuleResolver() = default;
 
 std::optional<Luau::SourceCode> LuteModuleResolver::readSource(const Luau::ModuleName& name)
 {
-    Luau::SourceCode::Type sourceType;
-    std::optional<std::string> source = std::nullopt;
-
-    source = readFile(name);
-    sourceType = Luau::SourceCode::Module;
-
-    if (!source)
-        return std::nullopt;
-
-    return Luau::SourceCode{*source, sourceType};
+    if (std::optional<std::string> source = readFile(name))
+        return Luau::SourceCode{*source, Luau::SourceCode::Module};
+    return std::nullopt;
 }
 
 // We are currently resolving modules and requires only, and will add support for Roblox globals / types in a subsequent PR.
