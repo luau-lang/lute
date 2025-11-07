@@ -5,10 +5,6 @@
 #include "lute/configresolver.h"
 
 #include "Luau/FileUtils.h"
-#include "Luau/LuauConfig.h"
-
-#include <sys/stat.h>
-#include <sys/types.h>
 
 TEST_CASE("configresolver")
 {

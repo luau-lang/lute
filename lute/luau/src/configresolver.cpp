@@ -1,8 +1,8 @@
 #include "lute/configresolver.h"
 
-#include "Luau/ParseResult.h"
-#include "Luau/FileUtils.h"
 #include "Luau/LuauConfig.h"
+#include "Luau/FileUtils.h"
+#include "Luau/StringUtils.h"
 
 namespace Luau
 {
@@ -40,7 +40,7 @@ const Luau::Config& LuteConfigResolver::readConfigRec(const std::string& path) c
 
     if (configPath && luauConfigPath)
     {
-        std::string ambiguousError = Luau::format("Both %s and %s files exist", Luau::kConfigName, Luau::kLuauConfigName);
+        std::string ambiguousError = format("Both %s and %s files exist", Luau::kConfigName, Luau::kLuauConfigName);
         configErrors.emplace_back(*configPath, std::move(ambiguousError));
     }
     else if (configPath)

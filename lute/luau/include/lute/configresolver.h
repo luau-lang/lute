@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Luau/LuauConfig.h"
+#include "Luau/Config.h"
 
 namespace Luau
 {
