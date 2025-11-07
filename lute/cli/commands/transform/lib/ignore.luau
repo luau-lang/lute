@@ -224,7 +224,7 @@ function IgnoreResolver._readIgnoreRecursive(self: IgnoreResolver, directory: st
 		return self._ignoreCache[directory]
 	end
 
-	local parentPath = if path.basename(directory) then path.dirname(directory) else nil -- don't continue recurring if we're at the root
+	local parentPath = if path.basename(directory) then path.dirname(directory) else nil
 	local baseIgnores = if parentPath then self:_readIgnoreRecursive(parentPath) else nil
 	local gitignorePath = path.join(directory, ".gitignore")
 
