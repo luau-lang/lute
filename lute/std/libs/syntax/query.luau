@@ -47,7 +47,7 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> (U | { U })?): query<U>
 	for _, node in self.nodes do
 		local mapped = fn(node)
 		if mapped ~= nil then
-			if (mapped :: any).kind == nil then -- quick and dirty fix to check for array-like table
+			if typeof(mapped) == "table" and (mapped :: any).kind == nil then -- quick and dirty fix to check for array-like table vs a node
 				table.extend(newNodes, mapped)
 			else
 				table.insert(newNodes, mapped)
@@ -63,7 +63,7 @@ function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
 	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
 		local selected = fn(n)
 		if selected ~= nil then
-			if (selected :: any).kind == nil then -- quick and dirty fix to check for array-like table
+			if typeof(selected) == "table" and (selected :: any).kind == nil then -- quick and dirty fix to check for array-like table vs a node
 				table.extend(nodes, selected)
 			else
 				table.insert(nodes, selected)

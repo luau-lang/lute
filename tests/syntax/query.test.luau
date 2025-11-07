@@ -1,6 +1,7 @@
-local test = require("@std/test")
-local query = require("@std/syntax/query")
 local luau = require("@std/luau")
+local parser = require("@std/syntax/parser")
+local query = require("@std/syntax/query")
+local test = require("@std/test")
 local utils = require("@std/syntax/utils")
 
 local function mockQuery<T>(nodes: { T }): query.query<T>
@@ -12,46 +13,33 @@ local function mockQuery<T>(nodes: { T }): query.query<T>
 	}
 end
 
--- Helper function to create mock number expressions
-local function createNumberExpr(value: number): luau.AstExprConstantNumber
-	return {
-		tag = "number",
-		kind = "expr",
-		value = value,
-		text = tostring(value),
-		position = { line = 1, column = 1 },
-		leadingtrivia = {},
-		trailingtrivia = {},
-	} :: any
-end
-
 test.suite("AST Query", function(suite)
 	suite:case("filter", function(assert)
 		local testQuery = mockQuery({
-			createNumberExpr(-2),
-			createNumberExpr(-1),
-			createNumberExpr(0),
-			createNumberExpr(1),
-			createNumberExpr(2),
+			parser.parseexpr("0") :: luau.AstExprConstantNumber,
+			parser.parseexpr("1") :: luau.AstExprConstantNumber,
+			parser.parseexpr("2") :: luau.AstExprConstantNumber,
+			parser.parseexpr("3") :: luau.AstExprConstantNumber,
+			parser.parseexpr("4") :: luau.AstExprConstantNumber,
 		})
 
 		local filteredQuery = testQuery:filter(function(n)
-			return n.value > 0
+			return n.value > 2
 		end)
 
 		assert.eq(#filteredQuery.nodes, 2)
-		assert.eq(filteredQuery.nodes[1].value, 1)
-		assert.eq(filteredQuery.nodes[2].value, 2)
+		assert.eq(filteredQuery.nodes[1].value, 3)
+		assert.eq(filteredQuery.nodes[2].value, 4)
 		assert.eq(filteredQuery, testQuery) -- ensure the original query is mutated
 	end)
 
 	suite:case("replace", function(assert)
 		local testQuery = mockQuery({
-			createNumberExpr(-2),
-			createNumberExpr(-1),
-			createNumberExpr(0),
-			createNumberExpr(1),
-			createNumberExpr(2),
+			parser.parseexpr("0") :: luau.AstExprConstantNumber,
+			parser.parseexpr("1") :: luau.AstExprConstantNumber,
+			parser.parseexpr("2") :: luau.AstExprConstantNumber,
+			parser.parseexpr("3") :: luau.AstExprConstantNumber,
+			parser.parseexpr("4") :: luau.AstExprConstantNumber,
 		})
 
 		local replacements = testQuery:replace(function(n): string?
@@ -62,29 +50,29 @@ test.suite("AST Query", function(suite)
 		end)
 
 		-- Should only have replacements for positive numbers
-		assert.eq(replacements[testQuery.nodes[4] :: luau.AstNode], "positive_1") -- LUAUFIX CLI-178250: shouldn't need to cast
-		assert.eq(replacements[testQuery.nodes[5] :: luau.AstNode], "positive_2") -- LUAUFIX CLI-178250: shouldn't need to cast
+		assert.eq(replacements[testQuery.nodes[2]], "positive_1") -- LUAUFIX CLI-178250: shouldn't need to cast
+		assert.eq(replacements[testQuery.nodes[3]], "positive_2") -- LUAUFIX CLI-178250: shouldn't need to cast
+		assert.eq(replacements[testQuery.nodes[4]], "positive_3") -- LUAUFIX CLI-178250: shouldn't need to cast
+		assert.eq(replacements[testQuery.nodes[5]], "positive_4") -- LUAUFIX CLI-178250: shouldn't need to cast
 
 		-- Non-positive numbers should not have replacements (nil values)
-		assert.eq(replacements[testQuery.nodes[1] :: luau.AstNode], nil) -- LUAUFIX CLI-178250: shouldn't need to cast
-		assert.eq(replacements[testQuery.nodes[2] :: luau.AstNode], nil) -- LUAUFIX CLI-178250: shouldn't need to cast
-		assert.eq(replacements[testQuery.nodes[3] :: luau.AstNode], nil) -- LUAUFIX CLI-178250: shouldn't need to cast
+		assert.eq(replacements[testQuery.nodes[1]], nil) -- LUAUFIX CLI-178250: shouldn't need to cast
 
 		-- Verify the replacement table only contains the expected entries
 		local count = 0
 		for _, _ in pairs(replacements) do
 			count = count + 1
 		end
-		assert.eq(count, 2) -- Only 2 non-nil replacements
+		assert.eq(count, 4) -- Only 2 non-nil replacements
 	end)
 
 	suite:case("map", function(assert)
 		local testQuery = mockQuery({
-			createNumberExpr(-2),
-			createNumberExpr(-1),
-			createNumberExpr(0),
-			createNumberExpr(1),
-			createNumberExpr(2),
+			parser.parseexpr("0") :: luau.AstExprConstantNumber,
+			parser.parseexpr("1") :: luau.AstExprConstantNumber,
+			parser.parseexpr("2") :: luau.AstExprConstantNumber,
+			parser.parseexpr("3") :: luau.AstExprConstantNumber,
+			parser.parseexpr("4") :: luau.AstExprConstantNumber,
 		})
 
 		local mappedQuery = query.map(testQuery, function(n: luau.AstExprConstantNumber): number?
@@ -95,9 +83,9 @@ test.suite("AST Query", function(suite)
 		end)
 
 		assert.eq(#mappedQuery.nodes, 3)
-		assert.eq(mappedQuery.nodes[1], -20)
-		assert.eq(mappedQuery.nodes[2], 0)
-		assert.eq(mappedQuery.nodes[3], 20)
+		assert.eq(mappedQuery.nodes[1], 0)
+		assert.eq(mappedQuery.nodes[2], 20)
+		assert.eq(mappedQuery.nodes[3], 40)
 	end)
 
 	suite:case("select_nums", function(assert)
