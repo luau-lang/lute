@@ -226,4 +226,8 @@ function utils.isTypePack(n: luau.AstNode): luau.AstTypePack?
 	return if n.kind == "typepack" then n else nil
 end
 
+function utils.isToken(n: luau.AstNode): luau.Token?
+	return if n.kind == "token" then n else nil
+end
+
 return table.freeze(utils)
