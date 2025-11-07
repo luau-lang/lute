@@ -1,5 +1,5 @@
 --!strict
--- @std/assert
+-- @std/test/assert
 -- Standard assertion library for Luau
 
 local assertions = {}
