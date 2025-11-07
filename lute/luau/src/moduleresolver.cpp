@@ -8,8 +8,6 @@
 namespace Luau
 {
 
-LuteModuleResolver::LuteModuleResolver() = default;
-
 std::optional<Luau::SourceCode> LuteModuleResolver::readSource(const Luau::ModuleName& name)
 {
     if (std::optional<std::string> source = readFile(name))
@@ -33,7 +31,7 @@ std::optional<Luau::ModuleInfo> LuteModuleResolver::resolveModule(const Luau::Mo
             return std::nullopt;
         }
 
-        return {{*absolutePath}};
+        return Luau::ModuleInfo{*absolutePath};
     }
 
     return std::nullopt;

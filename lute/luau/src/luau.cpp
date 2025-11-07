@@ -8,7 +8,6 @@
 #include "Luau/ToString.h"
 #include "Luau/Compiler.h"
 #include "Luau/NotNull.h"
-#include "Luau/FileResolver.h"
 
 #include "lute/userdatas.h"
 

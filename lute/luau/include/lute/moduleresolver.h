@@ -8,7 +8,7 @@ namespace Luau
 // Based on CliFileResolver in Analyze.cpp.
 struct LuteModuleResolver : Luau::FileResolver
 {
-    LuteModuleResolver();
+    LuteModuleResolver() = default;
 
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override;
 

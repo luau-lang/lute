@@ -5,7 +5,7 @@
 namespace Luau
 {
 
-// Based on CliConfigResolver in Analyze.cpp.
+// Based on LuteConfigResolver in tc.cpp.
 struct LuteConfigResolver : Luau::ConfigResolver
 {
     Luau::Config defaultConfig;
