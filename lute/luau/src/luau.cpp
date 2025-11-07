@@ -9,17 +9,11 @@
 #include "Luau/Compiler.h"
 #include "Luau/NotNull.h"
 #include "Luau/Frontend.h"
-#include "Luau/Config.h"
 #include "Luau/FileResolver.h"
 #include "Luau/BuiltinDefinitions.h"
-#include "Luau/FileUtils.h"
-#include "Luau/LuauConfig.h"
 
 #include "lute/configresolver.h"
 #include "lute/moduleresolver.h"
-#include "lute/userdatas.h"
-#include "lute/resolverequire.h"
-
 
 #include "lua.h"
 #include "lualib.h"
@@ -28,8 +22,6 @@
 #include <cstring>
 #include <iterator>
 #include <memory>
-#include <string>
-#include <map>
 #include <optional>
 #include <string>
 
@@ -2711,8 +2703,8 @@ int luau_typeofmodule(lua_State* L)
 
     frontend.check(modulePath);
 
-    Luau::ModulePtr module = frontend.moduleResolver.getModule(modulePath);
-    if (!module)
+    Luau::ModulePtr modulePtr = frontend.moduleResolver.getModule(modulePath);
+    if (!modulePtr)
     {
         lua_pushnil(L);
         return 1;
@@ -2724,9 +2716,9 @@ int luau_typeofmodule(lua_State* L)
     opts.exhaustive = true;
     opts.useLineBreaks = true;
     opts.functionTypeArguments = true;
-    opts.scope = module->getModuleScope();
+    opts.scope = modulePtr->getModuleScope();
 
-    std::string moduleTypeStr = Luau::toString(module->returnType, opts);
+    std::string moduleTypeStr = Luau::toString(modulePtr->returnType, opts);
     lua_pushlstring(L, moduleTypeStr.c_str(), moduleTypeStr.length());
     return 1;
 }
