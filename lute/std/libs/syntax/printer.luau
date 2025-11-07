@@ -7,106 +7,158 @@ local visitor = require("./visitor")
 
 local printerLib = {}
 
+type PrintVisitor = visitor.Visitor & {
+	result: buffer,
+	cursor: number,
+	write: (self: PrintVisitor, str: string) -> (),
+	printTrivia: (self: PrintVisitor, trivia: luau.Trivia) -> (),
+	printTriviaList: (self: PrintVisitor, trivia: { luau.Trivia }) -> (),
+	printToken: (self: PrintVisitor, token: luau.Token) -> (),
+	printString: (self: PrintVisitor, expr: luau.AstExprConstantString | luau.AstTypeSingletonString) -> (),
+	printInterpolatedString: (self: PrintVisitor, expr: luau.AstExprInterpString) -> (),
+	printReplacement: (self: PrintVisitor, node: luau.AstNode, replacement: types.replacement) -> (),
+}
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
 end
 
-local function printTrivia(trivia: luau.Trivia): string
+local function printTrivia(self: PrintVisitor, trivia: luau.Trivia)
 	if trivia.tag == "whitespace" or trivia.tag == "comment" or trivia.tag == "blockcomment" then
-		return trivia.text
+		self:write(trivia.text)
 	else
-		return exhaustiveMatch(trivia.tag)
+		exhaustiveMatch(trivia.tag)
 	end
 end
 
-local function printTriviaList(trivia: { luau.Trivia })
-	local result = ""
+local function printTriviaList(self: PrintVisitor, trivia: { luau.Trivia })
 	for _, trivia in trivia do
-		result ..= printTrivia(trivia)
+		self:printTrivia(trivia)
 	end
-	return result
 end
 
-local function printToken(token: luau.Token): string
-	return printTriviaList(token.leadingtrivia) .. token.text .. printTriviaList(token.trailingtrivia)
+local function printToken(self: PrintVisitor, token: luau.Token)
+	self:printTriviaList(token.leadingtrivia)
+	self:write(token.text)
+	self:printTriviaList(token.trailingtrivia)
 end
 
-local function printString(expr: luau.AstExprConstantString | luau.AstTypeSingletonString): string
-	local result = printTriviaList(expr.leadingtrivia)
+local function printString(self: PrintVisitor, expr: luau.AstExprConstantString | luau.AstTypeSingletonString)
+	self:printTriviaList(expr.leadingtrivia)
 
 	if expr.quotestyle == "single" then
-		result ..= `'{expr.text}'`
+		self:write(`'{expr.text}'`)
 	elseif expr.quotestyle == "double" then
-		result ..= `"{expr.text}"`
+		self:write(`"{expr.text}"`)
 	elseif expr.quotestyle == "block" then
 		local equals = string.rep("=", expr.blockdepth)
-		result ..= `[{equals}[{expr.text}]{equals}]`
+		self:write(`[{equals}[{expr.text}]{equals}]`)
 	elseif expr.quotestyle == "interp" then
-		result ..= "`" .. expr.text .. "`"
+		self:write("`" .. expr.text .. "`")
 	else
-		return exhaustiveMatch(expr.quotestyle)
+		exhaustiveMatch(expr.quotestyle)
 	end
 
-	result ..= printTriviaList(expr.trailingtrivia)
-	return result
+	self:printTriviaList(expr.trailingtrivia)
 end
 
-local function printInterpolatedString(expr: luau.AstExprInterpString, replacements: types.replacements?): string
-	local result = ""
-
+local function printInterpolatedString(self: PrintVisitor, expr: luau.AstExprInterpString)
 	for i = 1, #expr.strings do
-		result ..= printTriviaList(expr.strings[i].leadingtrivia)
+		self:printTriviaList(expr.strings[i].leadingtrivia)
 		if i == 1 then
-			result ..= "`"
+			self:write("`")
 		else
-			result ..= "}"
+			self:write("}")
 		end
-		result ..= expr.strings[i].text
+		self:write(expr.strings[i].text)
 
 		if i == #expr.strings then
-			result ..= "`"
-			result ..= printTriviaList(expr.strings[i].trailingtrivia)
+			self:write("`")
+			self:printTriviaList(expr.strings[i].trailingtrivia)
 		else
-			result ..= "{"
-			result ..= printTriviaList(expr.strings[i].trailingtrivia)
-			result ..= printerLib.printexpr(expr.expressions[i], replacements)
+			self:write("{")
+			self:printTriviaList(expr.strings[i].trailingtrivia)
+			visitor.visitexpression(expr.expressions[i], self)
 		end
 	end
-
-	return result
 end
 
-local function printReplacement(replacement: types.replacement): string
-	error("TODO")
+local function printReplacement(self: PrintVisitor, node: luau.AstNode, replacement: types.replacement)
+	if typeof(replacement) == "string" then
+		self:write(replacement)
+	elseif replacement.kind ~= nil then -- LUAUFIX: type solver should know replacement might have a kind field
+		-- TODO: preserve trivia
+		if replacement.kind == "expr" then
+			return visitor.visitexpression(replacement, self) -- LUAUFIX: refine replacement to be AstExpr
+		elseif replacement.kind == "stat" then
+			return visitor.visitstatement(replacement, self) -- LUAUFIX: refine replacement to be AstStat
+		elseif replacement.kind == "type" then
+			return visitor.visittype(replacement, self) -- LUAUFIX: refine replacement to be AstType
+		elseif replacement.kind == "typepack" then
+			return visitor.visittypepack(replacement, self) -- LUAUFIX: refine replacement to be AstTypePack
+		elseif replacement.kind == "local" then
+			error("TODO")
+		elseif replacement.kind == "attribute" then
+			error("TODO")
+		end
+	elseif replacement.tag ~= nil then -- LUAUFIX: type solver should know replacement might have a tag field (if it's a delta or removal)
+		if replacement.tag == "append" then
+			self:printReplacement(node, node)
+			self:printReplacement(node, replacement.content)
+		elseif replacement.tag == "prepend" then
+			self:printReplacement(node, replacement.content)
+			self:printReplacement(node, node)
+		elseif replacement.tag == "replace" then
+			self:printReplacement(node, replacement.content)
+		elseif replacement.tag == "remove" then
+			return
+		else
+			error("Unsupported tag for replacement")
+		end
+	else
+		-- Serialize prepends, then replaces, then appends (table.sort isn't stable)
+		for _, delta in replacement do
+			if delta.tag == "prepend" then
+				self:printReplacement(node, delta.content)
+			end
+		end
+		for _, delta in replacement do
+			if delta.tag == "replace" then
+				self:printReplacement(node, delta.content)
+			end
+		end
+		for _, delta in replacement do
+			if delta.tag == "append" then
+				self:printReplacement(node, delta.content)
+			end
+		end
+	end
 end
 
-type PrintVisitor = visitor.Visitor & {
-	result: buffer,
-	cursor: number,
-}
+local function write(self: PrintVisitor, str: string)
+	local totalSize = self.cursor + #str
+	local bufferSize = buffer.len(self.result)
+
+	if totalSize >= bufferSize then
+		repeat
+			bufferSize *= 2
+		until bufferSize >= totalSize
+
+		local newBuffer = buffer.create(bufferSize)
+		buffer.copy(newBuffer, 0, self.result)
+		self.result = newBuffer
+	end
+
+	buffer.writestring(self.result, self.cursor, str)
+	self.cursor = totalSize
+end
 
 local function printVisitor(replacements: types.replacements?)
 	local result = buffer.create(1024)
 	local cursor = 0
 
-	local function write(str: string)
-		local totalSize = cursor + #str
-		local bufferSize = buffer.len(result)
+	local printer: PrintVisitor = {} :: PrintVisitor
 
-		if totalSize >= bufferSize then
-			repeat
-				bufferSize *= 2
-			until bufferSize >= totalSize
-
-			local newBuffer = buffer.create(bufferSize)
-			buffer.copy(newBuffer, 0, result)
-			result = newBuffer
-		end
-
-		buffer.writestring(result, cursor, str)
-		cursor = totalSize
-	end
-
+	-- The visitor library doesn't use methods, so we access replacements through a closure
 	local function maybeReplace(node: luau.AstNode): boolean
 		if replacements == nil then
 			return true
@@ -115,82 +167,88 @@ local function printVisitor(replacements: types.replacements?)
 		if replacement == nil then
 			return true
 		end
-		write(printReplacement(replacement))
+		printer:printReplacement(node, replacement)
 		return false
 	end
 
-	local printer: PrintVisitor = {
-		visitBlock = maybeReplace,
-		visitBlockEnd = maybeReplace,
-		visitIf = maybeReplace,
-		visitWhile = maybeReplace,
-		visitRepeat = maybeReplace,
-		visitReturn = maybeReplace,
-		visitLocalDeclaration = maybeReplace,
-		visitLocalDeclarationEnd = maybeReplace,
-		visitFor = maybeReplace,
-		visitForIn = maybeReplace,
-		visitAssign = maybeReplace,
-		visitCompoundAssign = maybeReplace,
-		visitFunction = maybeReplace,
-		visitLocalFunction = maybeReplace,
-		visitTypeAlias = maybeReplace,
-		visitStatTypeFunction = maybeReplace,
+	printer.result = result
+	printer.cursor = cursor
+	printer.write = write
+	printer.printTrivia = printTrivia
+	printer.printTriviaList = printTriviaList
+	printer.printToken = printToken
+	printer.printString = printString
+	printer.printInterpolatedString = printInterpolatedString
+	printer.printReplacement = printReplacement
 
-		visitExpression = maybeReplace,
-		visitExpressionEnd = maybeReplace,
-		visitLocalReference = maybeReplace,
-		visitGlobal = maybeReplace,
-		visitCall = maybeReplace,
-		visitUnary = maybeReplace,
-		visitBinary = maybeReplace,
-		visitAnonymousFunction = maybeReplace,
-		visitTableItem = maybeReplace,
-		visitTable = maybeReplace,
-		visitIndexName = maybeReplace,
-		visitIndexExpr = maybeReplace,
-		visitGroup = maybeReplace,
-		visitInterpolatedString = function(node: luau.AstExprInterpString)
-			write(printInterpolatedString(node, replacements))
-			return false
-		end,
-		visitTypeAssertion = maybeReplace,
-		visitIfExpression = maybeReplace,
+	printer.visitBlock = maybeReplace
+	printer.visitBlockEnd = maybeReplace
+	printer.visitIf = maybeReplace
+	printer.visitWhile = maybeReplace
+	printer.visitRepeat = maybeReplace
+	printer.visitReturn = maybeReplace
+	printer.visitLocalDeclaration = maybeReplace
+	printer.visitLocalDeclarationEnd = maybeReplace
+	printer.visitFor = maybeReplace
+	printer.visitForIn = maybeReplace
+	printer.visitAssign = maybeReplace
+	printer.visitCompoundAssign = maybeReplace
+	printer.visitFunction = maybeReplace
+	printer.visitLocalFunction = maybeReplace
+	printer.visitTypeAlias = maybeReplace
+	printer.visitStatTypeFunction = maybeReplace
 
-		visitTypeReference = maybeReplace,
-		visitTypeBoolean = maybeReplace,
-		visitTypeString = function(node: luau.AstTypeSingletonString)
-			write(printString(node))
-			return false
-		end,
-		visitTypeTypeof = maybeReplace,
-		visitTypeGroup = maybeReplace,
-		visitTypeUnion = maybeReplace,
-		visitTypeIntersection = maybeReplace,
-		visitTypeArray = maybeReplace,
-		visitTypeTable = maybeReplace,
-		visitTypeFunction = maybeReplace,
+	printer.visitExpression = maybeReplace
+	printer.visitExpressionEnd = maybeReplace
+	printer.visitLocalReference = maybeReplace
+	printer.visitGlobal = maybeReplace
+	printer.visitCall = maybeReplace
+	printer.visitUnary = maybeReplace
+	printer.visitBinary = maybeReplace
+	printer.visitAnonymousFunction = maybeReplace
+	printer.visitTableItem = maybeReplace
+	printer.visitTable = maybeReplace
+	printer.visitIndexName = maybeReplace
+	printer.visitIndexExpr = maybeReplace
+	printer.visitGroup = maybeReplace
+	printer.visitInterpolatedString = function(node: luau.AstExprInterpString)
+		printer:visitInterpolatedString(node)
+		return false
+	end
+	printer.visitTypeAssertion = maybeReplace
+	printer.visitIfExpression = maybeReplace
 
-		visitTypePackExplicit = maybeReplace,
-		visitTypePackGeneric = maybeReplace,
-		visitTypePackVariadic = maybeReplace,
+	printer.visitTypeReference = maybeReplace
+	printer.visitTypeBoolean = maybeReplace
+	printer.visitTypeString = function(node: luau.AstTypeSingletonString)
+		printer:printString(node)
+		return false
+	end
+	printer.visitTypeTypeof = maybeReplace
+	printer.visitTypeGroup = maybeReplace
+	printer.visitTypeUnion = maybeReplace
+	printer.visitTypeIntersection = maybeReplace
+	printer.visitTypeArray = maybeReplace
+	printer.visitTypeTable = maybeReplace
+	printer.visitTypeFunction = maybeReplace
 
-		visitToken = function(node: luau.Token)
-			write(printToken(node))
-			return false
-		end,
-		visitNil = maybeReplace,
-		visitString = function(node: luau.AstExprConstantString)
-			write(printString(node))
-			return false
-		end,
-		visitBoolean = maybeReplace,
-		visitNumber = maybeReplace,
-		visitLocal = maybeReplace,
-		visitVarargs = maybeReplace,
-		result = result,
-		cursor = cursor,
-	}
+	printer.visitTypePackExplicit = maybeReplace
+	printer.visitTypePackGeneric = maybeReplace
+	printer.visitTypePackVariadic = maybeReplace
+
+	printer.visitToken = function(node: luau.Token)
+		printer:printToken(node)
+		return false
+	end
+	printer.visitNil = maybeReplace
+	printer.visitString = function(node: luau.AstExprConstantString)
+		printer:printString(node)
+		return false
+	end
+	printer.visitBoolean = maybeReplace
+	printer.visitNumber = maybeReplace
+	printer.visitLocal = maybeReplace
+	printer.visitVarargs = maybeReplace
 
 	return printer
 end
