@@ -13,7 +13,8 @@ export type query<T = node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
 	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
-	map: <U>(self: query<T>, fn: (T) -> (U | { U })?) -> query<U>,
+	map: <U>(self: query<T>, fn: (T) -> (U | { U })?) -> query<U>, -- recursion violation reported
+	forEach: (self: query<T>, callback: (T) -> ()) -> (),
 }
 
 local queryLib = {}
@@ -54,7 +55,13 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> (U | { U })?): query<U>
 			end
 		end
 	end
-	return { nodes = newNodes, filter = self.filter, replace = self.replace, map = self.map }
+	return { nodes = newNodes, filter = self.filter, replace = self.replace, map = self.map, forEach = self.forEach }
+end
+
+function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): ()
+	for _, node in self.nodes do
+		callback(node)
+	end
 end
 
 function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
@@ -156,7 +163,13 @@ function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
 		error("Unsupported node kind: " .. tostring(nodeKind))
 	end
 
-	return { nodes = nodes, filter = queryLib.filter, replace = queryLib.replace, map = queryLib.map } -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
+	return {
+		nodes = nodes,
+		filter = queryLib.filter,
+		replace = queryLib.replace,
+		map = queryLib.map,
+		forEach = queryLib.forEach,
+	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 
 return table.freeze(queryLib)

@@ -9,6 +9,7 @@ local function mockQuery<T>(nodes: { T }): query.query<T>
 		nodes = nodes,
 		filter = query.filter,
 		replace = query.replace,
+		forEach = query.forEach,
 		map = query.map, -- LUAUFIX: should this subtype?
 	}
 end
@@ -86,6 +87,21 @@ test.suite("AST Query", function(suite)
 		assert.eq(mappedQuery.nodes[1], 0)
 		assert.eq(mappedQuery.nodes[2], 20)
 		assert.eq(mappedQuery.nodes[3], 40)
+	end)
+
+	suite:case("forEach", function(assert)
+		local testQuery = mockQuery({
+			parser.parseexpr("0") :: luau.AstExprConstantNumber,
+			parser.parseexpr("1") :: luau.AstExprConstantNumber,
+			parser.parseexpr("2") :: luau.AstExprConstantNumber,
+		})
+
+		local sum = 0
+		testQuery:forEach(function(n: luau.AstExprConstantNumber)
+			sum = sum + n.value
+		end)
+
+		assert.eq(sum, 3) -- 0 + 1 + 2 = 3
 	end)
 
 	suite:case("select_nums", function(assert)
