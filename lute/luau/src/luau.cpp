@@ -15,6 +15,8 @@
 #include "Luau/FileUtils.h"
 #include "Luau/LuauConfig.h"
 
+#include "lute/configresolver.h"
+#include "lute/moduleresolver.h"
 #include "lute/userdatas.h"
 #include "lute/resolverequire.h"
 
@@ -2535,123 +2537,6 @@ struct AstSerialize : public Luau::AstVisitor
     }
 };
 
-// Based on CliFileResolver in Analyze.cpp.
-struct ModuleFileResolver : Luau::FileResolver
-{
-    std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
-    {
-        Luau::SourceCode::Type sourceType;
-        std::optional<std::string> source = std::nullopt;
-
-        source = readFile(name);
-        sourceType = Luau::SourceCode::Module;
-
-        if (!source)
-            return std::nullopt;
-
-        return Luau::SourceCode{*source, sourceType};
-    }
-
-    // We are currently resolving modules and requires only, and will add support for Roblox globals / types in a subsequent PR.
-    std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node) override
-    {
-        if (auto expr = node->as<Luau::AstExprConstantString>())
-        {
-            std::string requirePath(expr->value.data, expr->value.size);
-
-            std::string error;
-            std::string requirerChunkname = "@" + context->name;
-            std::optional<std::string> absolutePath = resolveRequire(requirePath, std::move(requirerChunkname), &error);
-            if (!absolutePath)
-            {
-                printf("Failed to resolve require: %s\n", error.c_str());
-                return std::nullopt;
-            }
-
-            return {{*absolutePath}};
-        }
-
-        return std::nullopt;
-    }
-};
-
-// Based on CliConfigResolver in Analyze.cpp.
-struct ModuleConfigResolver : Luau::ConfigResolver
-{
-    Luau::Config defaultConfig;
-    mutable std::unordered_map<std::string, Luau::Config> configCache;
-    mutable std::vector<std::pair<std::string, std::string>> configErrors;
-
-    ModuleConfigResolver(Luau::Mode mode)
-    {
-        defaultConfig.mode = mode;
-    }
-
-    const Luau::Config& getConfig(const Luau::ModuleName& name) const override
-    {
-        std::optional<std::string> path = getParentPath(name);
-        if (!path)
-            return defaultConfig;
-
-        return readConfigRec(*path);
-    }
-
-    const Luau::Config& readConfigRec(const std::string& path) const
-    {
-        auto it = configCache.find(path);
-        if (it != configCache.end())
-            return it->second;
-
-        std::optional<std::string> parent = getParentPath(path);
-        Luau::Config result = parent ? readConfigRec(*parent) : defaultConfig;
-
-        std::optional<std::string> configPath = joinPaths(path, Luau::kConfigName);
-        if (!isFile(*configPath))
-            configPath = std::nullopt;
-
-        std::optional<std::string> luauConfigPath = joinPaths(path, Luau::kLuauConfigName);
-        if (!isFile(*luauConfigPath))
-            luauConfigPath = std::nullopt;
-
-        if (configPath && luauConfigPath)
-        {
-            std::string ambiguousError = Luau::format("Both %s and %s files exist", Luau::kConfigName, Luau::kLuauConfigName);
-            configErrors.emplace_back(*configPath, std::move(ambiguousError));
-        }
-        else if (configPath)
-        {
-            if (std::optional<std::string> contents = readFile(*configPath))
-            {
-                Luau::ConfigOptions::AliasOptions aliasOpts;
-                aliasOpts.configLocation = *configPath;
-                aliasOpts.overwriteAliases = true;
-
-                Luau::ConfigOptions opts;
-                opts.aliasOptions = std::move(aliasOpts);
-
-                std::optional<std::string> error = Luau::parseConfig(*contents, result, opts);
-                if (error)
-                    configErrors.emplace_back(*configPath, *error);
-            }
-        }
-        else if (luauConfigPath)
-        {
-            if (std::optional<std::string> contents = readFile(*luauConfigPath))
-            {
-                Luau::ConfigOptions::AliasOptions aliasOpts;
-                aliasOpts.configLocation = *configPath;
-                aliasOpts.overwriteAliases = true;
-
-                std::optional<std::string> error = Luau::extractLuauConfig(*contents, result, aliasOpts, Luau::InterruptCallbacks{});
-                if (error)
-                    configErrors.emplace_back(*luauConfigPath, *error);
-            }
-        }
-
-        return configCache[path] = result;
-    }
-};
-
 int luau_parse(lua_State* L)
 {
     std::string source = luaL_checkstring(L, 1);
@@ -2815,12 +2700,12 @@ int luau_typeofmodule(lua_State* L)
 {
     std::string modulePath = luaL_checkstring(L, 1);
 
-    ModuleFileResolver fileResolver;
-    ModuleConfigResolver configResolver(Luau::Mode::NoCheck);
+    Luau::LuteModuleResolver moduleResolver;
+    Luau::LuteConfigResolver configResolver(Luau::Mode::NoCheck);
     Luau::FrontendOptions fopts;
     fopts.retainFullTypeGraphs = true;
 
-    Luau::Frontend frontend(&fileResolver, &configResolver, fopts);
+    Luau::Frontend frontend(&moduleResolver, &configResolver, fopts);
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
     Luau::freeze(frontend.globals.globalTypes);
 
@@ -2833,7 +2718,8 @@ int luau_typeofmodule(lua_State* L)
         return 1;
     }
 
-    // For now, we return a string representation of the module's type, but we will expand it to some Luau data structure representation of Type (similar to the AST types) in a subsequent PR.
+    // For now, we return a string representation of the module's type, but we will expand it to some Luau data structure representation of Type
+    // (similar to the AST types) in a subsequent PR.
     Luau::ToStringOptions opts;
     opts.exhaustive = true;
     opts.useLineBreaks = true;
