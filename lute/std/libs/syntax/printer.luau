@@ -10,6 +10,7 @@ local printerLib = {}
 type PrintVisitor = visitor.Visitor & {
 	result: buffer,
 	cursor: number,
+	replacements: types.replacements,
 	write: (self: PrintVisitor, str: string) -> (),
 	printTrivia: (self: PrintVisitor, trivia: luau.Trivia) -> (),
 	printTriviaList: (self: PrintVisitor, trivia: { luau.Trivia }) -> (),
@@ -96,11 +97,14 @@ local function printReplacement(self: PrintVisitor, node: luau.AstNode, replacem
 		elseif replacement.kind == "typepack" then
 			return visitor.visittypepack(replacement, self) -- LUAUFIX: refine replacement to be AstTypePack
 		elseif replacement.kind == "local" then
-			error("TODO")
+			error("TODO: Add visit function to visit library")
 		elseif replacement.kind == "attribute" then
-			error("TODO")
+			error("TODO: Add visit function to visit library")
+		else
+			error(`Unknown node kind in replacement: {replacement.kind}`)
 		end
 	elseif replacement.tag ~= nil then -- LUAUFIX: type solver should know replacement might have a tag field (if it's a delta or removal)
+		self.replacements[node] = nil -- Prevent infinite recursion
 		if replacement.tag == "append" then
 			self:printReplacement(node, node)
 			self:printReplacement(node, replacement.content)
@@ -115,6 +119,7 @@ local function printReplacement(self: PrintVisitor, node: luau.AstNode, replacem
 			error("Unsupported tag for replacement")
 		end
 	else
+		self.replacements[node] = nil -- Prevent infinite recursion
 		-- Serialize prepends, then replaces, then appends (table.sort isn't stable)
 		for _, delta in replacement do
 			if delta.tag == "prepend" then
@@ -173,6 +178,7 @@ local function printVisitor(replacements: types.replacements?)
 
 	printer.result = result
 	printer.cursor = cursor
+	printer.replacements = if replacements ~= nil then replacements else {}
 	printer.write = write
 	printer.printTrivia = printTrivia
 	printer.printTriviaList = printTriviaList
