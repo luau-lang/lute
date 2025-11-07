@@ -143,7 +143,8 @@ end
 local function parseGitignore(filepath: path.path): GitignoreData
 	local contents = fs.readfiletostring(path.format(filepath))
 	local parentDirectory = if path.basename(filepath) then path.dirname(filepath) else nil
-	return parseGitignoreContents(assert(parentDirectory), contents)
+	assert(parentDirectory)
+	return parseGitignoreContents(parentDirectory, contents)
 end
 
 local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
