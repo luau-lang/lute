@@ -1,11 +1,11 @@
 local ps = require("@std/process")
 local fs = require("@std/fs")
 local path = require("@std/path")
-local string = require("@std/string")
-local table = require("@std/table")
+local stringext = require("@std/stringext")
+local tableext = require("@std/tableext")
 
 local function istestfile(filename: string): boolean
-	return string.endswith(filename, ".test.luau") or string.endswith(filename, ".spec.luau")
+	return stringext.endswith(filename, ".test.luau") or stringext.endswith(filename, ".spec.luau")
 end
 
 local function findtestfilesrec(directory: path.path): { path.path }
@@ -15,7 +15,7 @@ local function findtestfilesrec(directory: path.path): { path.path }
 		local fullPath = path.join(directory, entry.name)
 
 		if entry.type == "dir" then
-			table.extend(results, findtestfilesrec(fullPath))
+			tableext.extend(results, findtestfilesrec(fullPath))
 		elseif istestfile(entry.name) then
 			table.insert(results, fullPath)
 		end
@@ -35,7 +35,7 @@ local function findtestfiles(paths: { string }): { path.path }
 		end
 
 		if fs.type(pathObj) == "dir" then
-			table.extend(files, findtestfilesrec(pathObj))
+			tableext.extend(files, findtestfilesrec(pathObj))
 		elseif istestfile(filepath) then
 			table.insert(files, pathObj)
 		end

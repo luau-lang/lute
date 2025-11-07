@@ -1,144 +1,21 @@
 --!strict
--- @std/test
--- A testing framework for Luau
+-- @std/test/runner
+-- Standard test runner library for Luau
 
-local ps = require("@std/process")
-local assert = require("@std/assert")
--- Test Types
-type Test = (assert.Asserts) -> ()
-type TestCase = { name: string, case: Test }
+local types = require("./types")
+local assert = require("./assert")
 
-type TestSuite = {
-	name: string,
-	cases: { TestCase },
-	_beforeeach: (() -> ())?,
-	_beforeall: (() -> ())?,
-	_aftereach: (() -> ())?,
-	_afterall: (() -> ())?,
-	case: (self: TestSuite, string, Test) -> (),
-	beforeeach: (self: TestSuite, () -> ()) -> (),
-	beforeall: (self: TestSuite, () -> ()) -> (),
-	aftereach: (self: TestSuite, () -> ()) -> (),
-	afterall: (self: TestSuite, () -> ()) -> (),
-}
+type Test = types.Test
+type TestCase = types.TestCase
+type TestSuite = types.TestSuite
+type TestEnvironment = types.TestEnvironment
+type TestReporter = types.TestReporter
+type FailedTest = types.FailedTest
+type TestRunResult = types.TestRunResult
 
-local TestSuite = {}
-TestSuite.__index = TestSuite
+local runner = {}
 
-function TestSuite.new(name: string): TestSuite
-	local self = setmetatable({
-		name = name,
-		cases = {},
-		_beforeeach = nil,
-		_beforeall = nil,
-		_aftereach = nil,
-		_afterall = nil,
-	}, TestSuite)
-	return self :: TestSuite
-end
-
-function TestSuite:case(name: string, testCase: Test)
-	table.insert(self.cases, { name = name, case = testCase })
-end
-
-function TestSuite:beforeeach(hook: () -> ())
-	self._beforeeach = hook
-end
-
-function TestSuite:beforeall(hook: () -> ())
-	self._beforeall = hook
-end
-
-function TestSuite:aftereach(hook: () -> ())
-	self._aftereach = hook
-end
-
-function TestSuite:afterall(hook: () -> ())
-	self._afterall = hook
-end
-
--- Test Reporting
-type FailedTest = {
-	test: string, -- name of the test case that failed
-	assertion: string?, -- name of the assertion that failed (e.g., "assert.eq")
-	error: string?, -- the error message from the assertion
-	filename: string, -- source file where the failure occurred
-	linenumber: number, -- line number of the failure
-}
-
-type TestRunResult = {
-	failures: { FailedTest },
-	total: number,
-	failed: number,
-	passed: number,
-}
-
-local function printFailedTest(failed: FailedTest)
-	print(`❌ {failed.test}`)
-	print(`   {failed.filename}:{failed.linenumber}`)
-	if failed.assertion ~= nil and failed.error ~= nil then
-		print(`   	{failed.assertion}: {failed.error}`)
-	end
-	print()
-end
-
-local function simpleReporter(result: TestRunResult)
-	print("\n" .. string.rep("=", 50))
-	print("TEST RESULTS")
-	print(string.rep("=", 50))
-
-	if #result.failures > 0 then
-		print(`\nFailed Tests ({#result.failures}):\n`)
-		for _, failed in result.failures do
-			printFailedTest(failed)
-		end
-	end
-
-	print(string.rep("-", 50))
-	print(`Total:  {result.total}`)
-	print(`Passed: {result.passed} ✓`)
-	print(`Failed: {result.failed} ✗`)
-	print(string.rep("=", 50) .. "\n")
-end
-
-export type TestReporter = (TestRunResult) -> ()
-
--- Testing Environment
-type TestEnvironment = {
-	anonymous: { TestCase },
-	suites: { TestSuite },
-	reporter: TestReporter,
-}
-
-local env: TestEnvironment = { anonymous = {}, suites = {}, reporter = simpleReporter }
-
--- Test library export surface
-local test = {}
-
-function test.setreporter(reporter: TestReporter)
-	test.reporter = reporter
-end
-
--- register an anonymous test case
-function test.case(name: string, case: Test)
-	local testcase = { name = name, case = case }
-	table.insert(env.anonymous, testcase)
-end
-
--- register a test suite
-function test.suite(name: string, registerFn: (TestSuite) -> ())
-	local suite = TestSuite.new(name)
-	registerFn(suite)
-	table.insert(env.suites, suite)
-end
-
--- get all registered tests without running them (internal)
-function test._registered()
-	return table.freeze({ anonymous = env.anonymous, suites = env.suites })
-end
-
--- run all the tests
-function test.run()
+function runner.run(env: TestEnvironment): TestRunResult
 	local failures: { FailedTest } = {}
 	local total = 0
 	local failed = 0
@@ -216,7 +93,7 @@ function test.run()
 		total += 1
 		local function handlefailure(err)
 			local fileName, lineNumber = debug.info(4, "sl")
-			local assertName = debug.info(3, "n")
+			local assertName: string = debug.info(3, "n")
 
 			if assertName == "xpcall" then
 				fileName, lineNumber = debug.info(2, "sl")
@@ -302,17 +179,12 @@ function test.run()
 		end
 	end
 
-	local result: TestRunResult = {
+	return {
 		failures = failures,
 		total = total,
 		failed = failed,
 		passed = passed,
 	}
-	env.reporter(result)
-	if failed ~= 0 then
-		ps.exit(1)
-	end
-	ps.exit(0)
 end
 
-return table.freeze(test)
+return table.freeze(runner)

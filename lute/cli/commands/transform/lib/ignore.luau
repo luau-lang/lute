@@ -1,7 +1,7 @@
 local fs = require("@lute/fs")
 
 local path = require("@std/path")
-local string = require("@std/string")
+local stringext = require("@std/stringext")
 
 --- Performs ignore resolution on a set of
 local IgnoreResolver = {}
@@ -121,14 +121,14 @@ local function parseGitignoreContents(location: string, contents: string): Gitig
 	}
 
 	for _, line in lines do
-		line = string.trim(line)
+		line = stringext.trim(line)
 
-		if line == "" or string.startswith(line, "#") then
+		if line == "" or stringext.startswith(line, "#") then
 			continue
 		end
 
-		if string.startswith(line, "!") then
-			local globPattern = string.removeprefix(line, "!")
+		if stringext.startswith(line, "!") then
+			local globPattern = stringext.removeprefix(line, "!")
 			local glob = parseGlob(globPattern)
 			table.insert(ignoreData.whitelists, glob)
 		else
@@ -142,7 +142,9 @@ end
 
 local function parseGitignore(filepath: path.path): GitignoreData
 	local contents = fs.readfiletostring(path.format(filepath))
-	return parseGitignoreContents(assert(path.dirname(filepath)), contents)
+	local parentDirectory = if #filepath.parts > 0 then path.dirname(filepath) else nil
+	assert(parentDirectory)
+	return parseGitignoreContents(parentDirectory, contents)
 end
 
 local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
@@ -167,7 +169,7 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 	local matched, ignored = false, false
 
 	-- TODO: compute relative path correctly
-	local relativePath = string.removeprefix(filepath, ignoreData.location)
+	local relativePath = stringext.removeprefix(filepath, ignoreData.location)
 
 	for _, ignore in ignoreData.ignores do
 		if matchesGlob(ignore, relativePath, isDirectory) then
@@ -196,7 +198,7 @@ end
 
 --- Checks whether the given file matches an ignore
 function IgnoreResolver.isIgnoredFile(self: IgnoreResolver, filepath: path.path)
-	local directory = path.dirname(filepath)
+	local directory = if #filepath.parts > 0 then path.dirname(filepath) else nil
 	assert(directory ~= nil, "filepath has no directory!")
 
 	local ignoreData = self:_readIgnoreRecursive(directory)
@@ -205,11 +207,12 @@ end
 
 function IgnoreResolver.isIgnoredDirectory(self: IgnoreResolver, directorypath: path.path)
 	-- Hardcode: skip the .git directory
-	if path.basename(directorypath) == ".git" then
+	local basename = path.basename(directorypath)
+	if basename == ".git" then
 		return true
 	end
 
-	local parentDirectory = path.dirname(directorypath)
+	local parentDirectory = if basename then path.dirname(directorypath) else nil
 	if parentDirectory then
 		local ignoreData = self:_readIgnoreRecursive(parentDirectory)
 		return isIgnored(ignoreData, path.format(directorypath), true)
@@ -223,7 +226,7 @@ function IgnoreResolver._readIgnoreRecursive(self: IgnoreResolver, directory: st
 		return self._ignoreCache[directory]
 	end
 
-	local parentPath = path.dirname(directory)
+	local parentPath = if path.basename(directory) then path.dirname(directory) else nil
 	local baseIgnores = if parentPath then self:_readIgnoreRecursive(parentPath) else nil
 	local gitignorePath = path.join(directory, ".gitignore")
 

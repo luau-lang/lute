@@ -1,13 +1,13 @@
-local table = require("@std/table")
+local tableext = require("@std/tableext")
 local task = require("@std/task")
 local time = require("@std/time")
-local vector = require("@std/vector")
+local vectorext = require("@std/vectorext")
 local system = require("@std/system")
 
-assert(type(table) == "table")
+assert(type(tableext) == "table")
 assert(type(task) == "table")
 assert(type(time) == "table")
-assert(type(vector) == "table")
+assert(type(vectorext) == "table")
 assert(type(system) == "table")
 
 return { "successfully required @std modules" }

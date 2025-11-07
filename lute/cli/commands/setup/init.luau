@@ -4,8 +4,9 @@ local path = require("@std/path")
 local process = require("@std/process")
 local json = require("@std/json")
 
-local BASE_PATH = path.parse(".lute/typedefs/0.1.0")
-local BASE_PATH_PRETTY = `~/{BASE_PATH}`
+local TYPEDEFS_PATH = path.parse(".lute/typedefs/0.1.0")
+local BASE_PATH = path.join(process.homedir(), TYPEDEFS_PATH)
+local BASE_PATH_PRETTY = `~/{TYPEDEFS_PATH}`
 local TEMPLATE_RC_FILE = {
 	aliases = {
 		lute = `{BASE_PATH_PRETTY}/lute`,
@@ -13,16 +14,14 @@ local TEMPLATE_RC_FILE = {
 	},
 }
 
-local homeDir = process.homedir()
-local cwd = process.cwd()
 local args = { ... }
 
 -- TODO we're assuming the files are completely unmodified, but we really shouldn't do that.
 print(`Writing definitions at {BASE_PATH_PRETTY}`)
-fs.createdirectory(path.join(homeDir, BASE_PATH), { makeparents = true })
+fs.createdirectory(BASE_PATH, { makeparents = true })
 
 for key, value in definitions :: { [string]: string } do
-	local filePath = path.parse(`{BASE_PATH}/{key}`)
+	local filePath = path.join(BASE_PATH, key)
 	fs.createdirectory(path.dirname(filePath), { makeparents = true })
 	fs.writestringtofile(filePath, value)
 end
@@ -33,7 +32,7 @@ if not table.find(args, "--with-luaurc") then
 	return
 end
 
-local luauRcPath = path.parse(`{cwd}/.luaurc`)
+local luauRcPath = path.join(process.cwd(), ".luaurc")
 local rcFile = nil
 print(`Writing luaurc file at {luauRcPath}`)
 

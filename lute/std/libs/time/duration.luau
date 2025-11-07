@@ -1,6 +1,5 @@
 --!strict
--- @std/time
--- Provides utility functions for time durations
+-- Submodule of @std/time that provides utility functions for time durations
 
 local NANOS_PER_SEC = 1_000_000_000
 local NANOS_PER_MILLI = 1_000_000
@@ -16,8 +15,6 @@ type durationdata = {
 	_seconds: number,
 	_nanoseconds: number,
 }
-
-local time = {}
 
 local duration = {}
 duration.__index = duration
@@ -170,6 +167,4 @@ function duration.__tostring(self: duration): string
 	return string.format("%d.%09d", self._seconds, self._nanoseconds)
 end
 
-time.duration = duration
-
-return table.freeze(time)
+return table.freeze(duration)

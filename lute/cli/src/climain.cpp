@@ -3,12 +3,14 @@
 #include "Luau/Common.h"
 #include "Luau/CodeGen.h"
 #include "Luau/Compiler.h"
+#include "Luau/DenseHash.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Require.h"
 
 #include "lua.h"
 #include "lualib.h"
 
+#include "lute/bundlevfs.h"
 #include "lute/clicommands.h"
 #include "lute/clivfs.h"
 #include "lute/compile.h"
@@ -23,6 +25,7 @@
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/runtime.h"
+#include "lute/staticrequires.h"
 #include "lute/system.h"
 #include "lute/task.h"
 #include "lute/tc.h"
@@ -90,6 +93,31 @@ static void luteopen_libs(lua_State* L)
     }
 }
 
+void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, std::string> bundleMap)
+{
+    void* ctx = lua_newuserdatadtor(
+        L,
+        sizeof(RequireCtx),
+        [](void* ptr)
+        {
+            std::destroy_at(static_cast<RequireCtx*>(ptr));
+        }
+    );
+
+    if (!ctx)
+        luaL_error(L, "unable to allocate RequireCtx");
+
+    ctx = new (ctx) RequireCtx{BundleVfs{std::move(bundleMap)}};
+
+    // Store RequireCtx in the registry to keep it alive for the lifetime of
+    // this lua_State. Memory address is used as a key to avoid collisions.
+    lua_pushlightuserdata(L, ctx);
+    lua_insert(L, -2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return ctx;
+}
+
 lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
 {
     return setupState(
@@ -104,6 +132,21 @@ lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSa
             luaopen_require(L, requireConfigInit, createCliRequireContext(L));
             if (preSandboxInit)
                 preSandboxInit(L);
+        }
+    );
+}
+
+lua_State* setupBundleState(Runtime& runtime, Luau::DenseHashMap<std::string, std::string> bundleMap)
+{
+    return setupState(
+        runtime,
+        [bundleMap = std::move(bundleMap)](lua_State* L)
+        {
+            luteopen_libs(L);
+            if (Luau::CodeGen::isSupported())
+                Luau::CodeGen::create(L);
+
+            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(bundleMap)));
         }
     );
 }
@@ -188,7 +231,7 @@ static void displayHelp()
     printf("Commands:\n");
     printf("  run (default)   Run a Luau script.\n");
     printf("  check           Type check Luau files.\n");
-    printf("  compile         Compile a Luau script into the executable.\n");
+    printf("  compile         Compile a Luau script into a standalone executable.\n");
     printf("  setup           Generate type definition files for the language server.");
     printf("\n");
     printf("Run Options (when using 'run' or no command):\n");
@@ -200,8 +243,8 @@ static void displayHelp()
     printf("    Performs a type check on the specified files.\n");
     printf("\n");
     printf("Compile Options:\n");
-    printf("  lute compile <script.luau> [output_executable]\n");
-    printf("    Compiles the script, embedding it into a new executable.\n");
+    printf("  lute compile <entry.luau> [--output <executable>]\n");
+    printf("    Compiles entry point and auto-discovered dependencies into a standalone executable.\n");
     printf("\n");
     printf("Setup Options:\n");
     printf("  lute setup");
@@ -236,12 +279,15 @@ static void displayCheckHelp()
 
 static void displayCompileHelp()
 {
-    printf("Usage: lute compile <script.luau> [output_executable]\n");
+    printf("Usage: lute compile <entry.luau> [options]\n");
     printf("\n");
     printf("Compile Options:\n");
-    printf("  output_executable    Optional name for the compiled executable.\n");
-    printf("                       Defaults to '<script_name>_compiled'.\n");
-    printf("  -h, --help           Display this usage message.\n");
+    printf("\t--output <path>         Name for the compiled executable.\n");
+    printf("\t\tDefaults to entry file's base name (with .exe on Windows).\n");
+    printf("\t--bundle-stats          Display bundle size and compression statistics.\n");
+    printf("\t--show-require-graph    Print the require dependency graph.\n");
+    printf("\t-h, --help              Display this usage message.\n");
+    printf("\n");
 }
 
 static int assertionHandler(const char* expr, const char* file, int line, const char* function)
@@ -388,9 +434,12 @@ int handleCheckCommand(int argc, char** argv, int argOffset)
 
 int handleCompileCommand(int argc, char** argv, int argOffset)
 {
-    std::string inputFilePath;
-    std::string outputFilePath;
+    std::string filePath;
+    std::string outputPath;
+    bool bundleStats = false;
+    bool showRequireGraph = false;
 
+    // Parse arguments
     for (int i = argOffset; i < argc; ++i)
     {
         const char* currentArg = argv[i];
@@ -400,56 +449,162 @@ int handleCompileCommand(int argc, char** argv, int argOffset)
             displayCompileHelp();
             return 0;
         }
-        else if (inputFilePath.empty())
+        else if (strcmp(currentArg, "--output") == 0)
         {
-            inputFilePath = currentArg;
+            if (i + 1 >= argc)
+            {
+                fprintf(stderr, "Error: --output requires a path argument.\n\n");
+                displayCompileHelp();
+                return 1;
+            }
+            outputPath = argv[++i];
         }
-        else if (outputFilePath.empty())
+        else if (strcmp(currentArg, "--bundle-stats") == 0)
+            bundleStats = true;
+        else if (strcmp(currentArg, "--show-require-graph") == 0)
+            showRequireGraph = true;
+        else if (currentArg[0] == '-')
         {
-            outputFilePath = currentArg;
+            fprintf(stderr, "Error: Unrecognized option '%s' for 'compile' command.\n\n", currentArg);
+            displayCompileHelp();
+            return 1;
+        }
+        else if (filePath.empty())
+        {
+            filePath = currentArg;
         }
         else
         {
-            fprintf(stderr, "Error: Too many arguments for 'compile' command.\n\n");
+            fprintf(stderr, "Error: Unexpected argument '%s'.\n\n", currentArg);
             displayCompileHelp();
             return 1;
         }
     }
 
-    if (inputFilePath.empty())
+    if (filePath.empty())
     {
-        fprintf(stderr, "Error: No input file specified for 'compile' command.\n\n");
+        fprintf(stderr, "Error: No file specified for 'compile' command.\n\n");
         displayCompileHelp();
         return 1;
     }
 
-    if (outputFilePath.empty())
+    // Validate file exists
+    std::optional<std::string> validPath = getValidPath(filePath);
+    if (!validPath)
     {
-        std::string inputBase = inputFilePath;
-        size_t lastSlash = inputBase.find_last_of("/");
+        fprintf(stderr, "Error: File '%s' does not exist.\n", filePath.c_str());
+        return 1;
+    }
+
+    // Set default output path if not specified
+    if (outputPath.empty())
+    {
+        // Extract base name from input file (remove directory and extension)
+        std::string baseName = *validPath;
+
+        // Remove directory path
+        size_t lastSlash = baseName.find_last_of("/\\");
         if (lastSlash != std::string::npos)
-        {
-            inputBase = inputBase.substr(lastSlash + 1);
-        }
-#ifdef _WIN32
-        size_t lastBackslash = inputBase.find_last_of("\\");
-        if (lastBackslash != std::string::npos)
-        {
-            inputBase = inputBase.substr(lastBackslash + 1);
-        }
-#endif
-        size_t lastDot = inputBase.find_last_of('.');
+            baseName = baseName.substr(lastSlash + 1);
+
+        // Remove extension
+        size_t lastDot = baseName.find_last_of('.');
         if (lastDot != std::string::npos)
-        {
-            inputBase = inputBase.substr(0, lastDot);
-        }
-        outputFilePath = inputBase;
+            baseName = baseName.substr(0, lastDot);
+
+        outputPath = baseName;
 #ifdef _WIN32
-        outputFilePath += ".exe";
+        outputPath += ".exe";
 #endif
     }
 
-    return compileScript(inputFilePath, outputFilePath);
+    // Normalize paths to be relative to working directory
+    std::string normalizedEntry = normalizePath(*validPath);
+
+    // Split into directory and filename for cleaner trace output
+    std::string rootDirectory;
+    std::string entryFilename;
+
+    size_t lastSlash = normalizedEntry.find_last_of("/\\");
+    if (lastSlash != std::string::npos)
+    {
+        rootDirectory = normalizedEntry.substr(0, lastSlash);
+        entryFilename = normalizedEntry.substr(lastSlash + 1);
+    }
+    else
+    {
+        rootDirectory = ".";
+        entryFilename = normalizedEntry;
+    }
+
+    // Perform static require trace
+    StaticRequireTracer tracer;
+    std::vector<std::string> discoveredFiles = tracer.trace(rootDirectory, entryFilename);
+
+    if (discoveredFiles.empty())
+    {
+        fprintf(stderr, "Error: No files discovered during require trace.\n");
+        return 1;
+    }
+
+    if (showRequireGraph)
+        tracer.printRequireGraph();
+
+    // Create payload and add all discovered files
+    LuteExePayload payload;
+    for (const auto& file : discoveredFiles)
+    {
+        // Construct full path from root directory and relative file path
+        std::string fullPath = joinPaths(rootDirectory, file);
+        payload.add(fullPath);
+    }
+
+    // Encode the payload
+    printf("Compiling and bundling bytecode...\n");
+    std::optional<LuteEncodeResult> encodeResult = payload.encode();
+    if (!encodeResult)
+    {
+        fprintf(stderr, "Error: Failed to encode bundle\n");
+        return 1;
+    }
+
+    // Show bundle stats if requested
+    if (bundleStats)
+    {
+        printf("\nBundle Statistics:\n");
+        printf("  Files bundled: %zu\n", discoveredFiles.size());
+        printf("  Uncompressed size: %zu bytes\n", encodeResult->uncompressedPayloadSizeBytes);
+        printf("  Compressed size: %zu bytes\n", encodeResult->compressedPayloadSizeBytes);
+        printf(
+            "  Space saved: %.2f%%\n",
+            100.0 * (1.0 - (double)encodeResult->compressedPayloadSizeBytes / (double)encodeResult->uncompressedPayloadSizeBytes)
+        );
+        printf(
+            "  Compression ratio: %.2f:1\n", (double)encodeResult->uncompressedPayloadSizeBytes / (double)encodeResult->compressedPayloadSizeBytes
+        );
+        printf("  Total payload size: %zu bytes\n", encodeResult->bytesWritten);
+        printf("\n");
+    }
+
+    // Get current executable path
+    std::string errorMsg;
+    std::optional<std::string> exePath = process::getExecPath(&errorMsg);
+    if (!exePath)
+    {
+        fprintf(stderr, "Error: Failed to get executable path: %s\n", errorMsg.c_str());
+        return 1;
+    }
+
+    // Create the executable with embedded payload
+    LuteExecutable executable(*exePath);
+    if (!executable.create(outputPath, payload))
+    {
+        fprintf(stderr, "Error: Failed to create executable.\n");
+        return 1;
+    }
+
+    printf("Created executable '%s'\n", outputPath.c_str());
+    return 0;
 }
 
 int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv)
@@ -466,15 +621,24 @@ int cliMain(int argc, char** argv)
     Luau::assertHandler() = assertionHandler;
     setLuauFlags();
 
-    AppendedBytecodeResult embedded = checkForAppendedBytecode();
-    if (embedded.found)
+    std::string err = "";
+    if (auto exePath = process::getExecPath(&err))
     {
-        Runtime runtime;
-        lua_State* GL = setupCliState(runtime);
+        LuteExecutable exe{*exePath};
+        if (auto payload = exe.extract())
+        {
+            Runtime runtime;
 
-        bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL, argc, argv);
+            lua_State* GL = setupBundleState(runtime, payload->filePathToBytecode);
 
-        return success ? 0 : 1;
+            std::string entryPoint = payload->entryPointPath;
+            auto entryModule = payload->filePathToBytecode.find(entryPoint);
+            if (entryModule != nullptr)
+            {
+                bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, GL, argc, argv);
+                return success ? 0 : 1;
+            }
+        }
     }
 
 #ifdef _WIN32
