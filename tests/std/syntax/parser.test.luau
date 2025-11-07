@@ -1,9 +1,8 @@
-local asserts = require("@std/assert")
 local fs = require("@std/fs")
 local luau = require("@std/luau")
 local path = require("@std/path")
 local test = require("@std/test")
-
+local asserts = require("@std/test/assert")
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local T = require("@std/luau")

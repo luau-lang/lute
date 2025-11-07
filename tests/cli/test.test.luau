@@ -3,9 +3,18 @@ local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
-
+local fs = require("@std/fs")
 local lutePath = path.format(process.execpath())
 local tmpDir = system.tmpdir()
+
+local expected = [[Anonymous:
+	Passing
+ExampleSuite:
+	should pass
+SmokeSuite:
+	make_fail
+	make_pass
+]]
 
 test.suite("lute test", function(suite)
 	suite:case("lute test help message", function(assert)
@@ -27,11 +36,11 @@ test.suite("lute test", function(suite)
 
 	suite:case("lute test discovers test files in custom directory", function(assert)
 		-- Run lute test with custom directory path
-		local result = process.run({ lutePath, "test", "tests/cli/discovery" })
+		local result = process.run({ lutePath, "test", "--list", "tests/cli/discovery" })
 
 		-- Check that it discovers test files (.test.luau and .spec.luau)
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Found 2 test files", 1, true), nil)
+		assert.eq(expected, result.stdout)
 	end)
 
 	suite:case("lute doesn't report xpcall as error when accessing field of nil in suite", function(assert)

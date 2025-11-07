@@ -187,7 +187,7 @@ function luau.load(bytecode: Bytecode, chunkname: string?, env: { [any]: any }?)
 	return luteLuau.load(bytecode, if chunkname ~= nil then `@{chunkname}` else "=luau.load", env)
 end
 
-function luau.loadbypath(requirePath: path.pathlike): any
+function luau.loadbypath(requirePath: path.pathlike, env: { [any]: any }?): any
 	local requirePathStr = if typeof(requirePath) == "string" then requirePath else path.format(requirePath)
 
 	local migrationHandle = fs.open(requirePathStr, "r")
@@ -196,7 +196,7 @@ function luau.loadbypath(requirePath: path.pathlike): any
 
 	fs.close(migrationHandle)
 
-	return luau.load(migrationBytecode, requirePathStr)()
+	return luau.load(migrationBytecode, requirePathStr, env)()
 end
 
 return luau
