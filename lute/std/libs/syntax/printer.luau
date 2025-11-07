@@ -212,7 +212,7 @@ local function printVisitor(replacements: types.replacements?)
 	printer.visitIndexExpr = maybeReplace
 	printer.visitGroup = maybeReplace
 	printer.visitInterpolatedString = function(node: luau.AstExprInterpString)
-		printer:visitInterpolatedString(node)
+		printer:printInterpolatedString(node)
 		return false
 	end
 	printer.visitTypeAssertion = maybeReplace
