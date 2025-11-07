@@ -142,7 +142,8 @@ end
 
 local function parseGitignore(filepath: path.path): GitignoreData
 	local contents = fs.readfiletostring(path.format(filepath))
-	return parseGitignoreContents(assert(path.dirname(filepath)), contents)
+	local parentDirectory = if path.basename(filepath) then path.dirname(filepath) else nil
+	return parseGitignoreContents(assert(parentDirectory), contents)
 end
 
 local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
@@ -196,7 +197,7 @@ end
 
 --- Checks whether the given file matches an ignore
 function IgnoreResolver.isIgnoredFile(self: IgnoreResolver, filepath: path.path)
-	local directory = path.dirname(filepath)
+	local directory = if path.basename(filepath) then path.dirname(filepath) else nil
 	assert(directory ~= nil, "filepath has no directory!")
 
 	local ignoreData = self:_readIgnoreRecursive(directory)
@@ -209,7 +210,7 @@ function IgnoreResolver.isIgnoredDirectory(self: IgnoreResolver, directorypath: 
 		return true
 	end
 
-	local parentDirectory = path.dirname(directorypath)
+	local parentDirectory = if path.basename(directorypath) then path.dirname(directorypath) else nil
 	if parentDirectory then
 		local ignoreData = self:_readIgnoreRecursive(parentDirectory)
 		return isIgnored(ignoreData, path.format(directorypath), true)
@@ -223,7 +224,7 @@ function IgnoreResolver._readIgnoreRecursive(self: IgnoreResolver, directory: st
 		return self._ignoreCache[directory]
 	end
 
-	local parentPath = path.dirname(directory)
+	local parentPath = if path.basename(directory) then path.dirname(directory) else nil -- don't continue recurring if we're at the root
 	local baseIgnores = if parentPath then self:_readIgnoreRecursive(parentPath) else nil
 	local gitignorePath = path.join(directory, ".gitignore")
 
