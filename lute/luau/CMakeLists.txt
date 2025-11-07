@@ -1,10 +1,14 @@
 add_library(Lute.Luau STATIC)
 
 target_sources(Lute.Luau PRIVATE
+    include/lute/configresolver.h
     include/lute/luau.h
+    include/lute/moduleresolver.h
     include/lute/resolverequire.h
 
+    src/configresolver.cpp
     src/luau.cpp
+    src/moduleresolver.cpp
     src/resolverequire.cpp
 )
 
