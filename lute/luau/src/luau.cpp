@@ -2688,7 +2688,7 @@ int load_luau(lua_State* L)
     return 1;
 }
 
-int luau_typeofmodule(lua_State* L)
+int typeofmodule_luau(lua_State* L)
 {
     std::string modulePath = luaL_checkstring(L, 1);
 
