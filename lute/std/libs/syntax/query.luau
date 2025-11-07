@@ -3,7 +3,7 @@
 -- Provides utility functions for querying Luau AST nodes
 
 local luau = require("@std/luau")
-local table = require("@std/table")
+local tableext = require("@std/tableext")
 local types = require("@std/syntax/types")
 local visitor = require("@std/syntax/visitor")
 
@@ -49,7 +49,7 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> (U | { U })?): query<U>
 		local mapped = fn(node)
 		if mapped ~= nil then
 			if typeof(mapped) == "table" and (mapped :: any).kind == nil then -- quick and dirty fix to check for array-like table vs a node
-				table.extend(newNodes, mapped)
+				tableext.extend(newNodes, mapped)
 			else
 				table.insert(newNodes, mapped)
 			end
@@ -71,7 +71,7 @@ function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
 		local selected = fn(n)
 		if selected ~= nil then
 			if typeof(selected) == "table" and (selected :: any).kind == nil then -- quick and dirty fix to check for array-like table vs a node
-				table.extend(nodes, selected)
+				tableext.extend(nodes, selected)
 			else
 				table.insert(nodes, selected)
 			end
