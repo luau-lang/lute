@@ -15,7 +15,7 @@ IndentCaseLabels: false
 SortIncludes: CaseInsensitive
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex: '^["]commands.*'
+  - Regex: '^["](commands|generated/).*'
     Priority: 1
   - Regex: '^["](lute|lutetest)/.*'
     Priority: 2
@@ -23,7 +23,7 @@ IncludeCategories:
     Priority: 3
   - Regex: '^["](lua).*'
     Priority: 4
-  - Regex: '^["](openssl/|sodium/).*'
+  - Regex: '^["](openssl/|sodium/|uv|curl/).*'
     Priority: 5
   - Regex: '^<[^/]*>'
     Priority: 6

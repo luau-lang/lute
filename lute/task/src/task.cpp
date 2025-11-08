@@ -7,11 +7,11 @@
 #include "lua.h"
 #include "lualib.h"
 
+#include "uv.h"
+
 #include <cassert>
 #include <functional>
 #include <iterator>
-
-#include "uv.h"
 
 
 // taken from extern/luau/VM/lcorolib.cpp

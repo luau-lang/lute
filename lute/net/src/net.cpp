@@ -8,6 +8,9 @@
 #include "lua.h"
 #include "lualib.h"
 
+#include "curl/curl.h"
+#include "uv.h"
+
 #include <memory>
 #include <optional>
 #include <string>
@@ -15,9 +18,7 @@
 #include <vector>
 
 #include "App.h"
-#include "curl/curl.h"
 #include "Loop.h"
-#include "uv.h"
 
 namespace net
 {

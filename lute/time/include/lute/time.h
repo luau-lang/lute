@@ -3,9 +3,9 @@
 #include "lua.h"
 #include "lualib.h"
 
-#include <string>
-
 #include "uv.h"
+
+#include <string>
 
 // open the library as a standard global luau library
 int luaopen_time(lua_State* L);

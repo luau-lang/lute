@@ -7,10 +7,10 @@
 #include "lua.h"
 #include "lualib.h"
 
+#include "uv.h"
+
 #include <cstdio>
 #include <cstring>
-
-#include "uv.h"
 #ifdef _WIN32
 #include <direct.h>
 #else

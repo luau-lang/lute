@@ -7,9 +7,9 @@
 #include "lua.h"
 #include "lualib.h"
 
-#include <memory>
-
 #include "uv.h"
+
+#include <memory>
 
 
 namespace io
