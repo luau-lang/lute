@@ -23,7 +23,7 @@ IncludeCategories:
     Priority: 3
   - Regex: '^["](lua).*'
     Priority: 4
-  - Regex: '^["](openssl/|sodium/|uv|curl/).*'
+  - Regex: '^["](openssl/|sodium/|uv|curl/|zlib).*'
     Priority: 5
   - Regex: '^<[^/]*>'
     Priority: 6

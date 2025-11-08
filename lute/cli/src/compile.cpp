@@ -4,13 +4,12 @@
 #include "lute/process.h"
 
 #include "uv.h"
+#include "zlib.h"
 
 #include <cstring>
 #include <fstream>
 #include <string>
 #include <type_traits>
-
-#include "zlib.h"
 
 #ifndef _WIN32
 #include <sys/stat.h>
