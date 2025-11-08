@@ -2,14 +2,13 @@
 
 #include "lute/runtime.h"
 
-#include "curl/curl.h"
-#include "App.h"
-#include "Loop.h"
 #include "Luau/DenseHash.h"
 #include "Luau/Variant.h"
 
 #include "lua.h"
 #include "lualib.h"
+
+#include "curl/curl.h"
 #include "uv.h"
 
 #include <memory>
@@ -17,6 +16,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "App.h"
+#include "Loop.h"
 
 namespace net
 {

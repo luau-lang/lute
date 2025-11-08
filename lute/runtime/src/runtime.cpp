@@ -7,8 +7,8 @@
 
 #include "uv.h"
 
-#include <string>
 #include <assert.h>
+#include <string>
 
 static void lua_close_checked(lua_State* L)
 {

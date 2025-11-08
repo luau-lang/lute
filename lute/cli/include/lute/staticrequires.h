@@ -25,6 +25,7 @@ public:
     }
 
     void printRequireGraph() const;
+
 private:
     Luau::DenseHashSet<std::string> visited{""};
     std::vector<std::string> discovered;

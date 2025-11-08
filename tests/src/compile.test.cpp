@@ -1,13 +1,16 @@
-#include "Luau/FileUtils.h"
-#include "doctest.h"
-#include "lute/climain.h"
 #include "lute/compile.h"
-#include "luteprojectroot.h"
+
+#include "lute/climain.h"
+
+#include "Luau/FileUtils.h"
 
 #include <cstring>
 #include <fstream>
 #include <string>
 #include <vector>
+
+#include "doctest.h"
+#include "luteprojectroot.h"
 
 TEST_CASE("lutepayload_single_file_roundtrip")
 {

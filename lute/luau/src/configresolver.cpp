@@ -1,7 +1,7 @@
 #include "lute/configresolver.h"
 
-#include "Luau/LuauConfig.h"
 #include "Luau/FileUtils.h"
+#include "Luau/LuauConfig.h"
 #include "Luau/StringUtils.h"
 
 namespace Luau

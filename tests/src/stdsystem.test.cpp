@@ -1,8 +1,7 @@
-#include "doctest.h"
+#include <string>
 
 #include "cliruntimefixture.h"
-
-#include <string>
+#include "doctest.h"
 
 std::string getHostOS()
 {
@@ -30,9 +29,13 @@ TEST_CASE_FIXTURE(CliRuntimeFixture, "check_std_system_env_bools")
 {
     std::string os = getHostOS();
 
-    auto checkBool = [&](const std::string& field, bool expected) {
-        runCode("local system = require(\"@std/system\")\n"
-                "capture(system." + field + ")\n");
+    auto checkBool = [&](const std::string& field, bool expected)
+    {
+        runCode(
+            "local system = require(\"@std/system\")\n"
+            "capture(system." +
+            field + ")\n"
+        );
         std::string output = getCapturedOutput();
         CHECK(output == (expected ? "true" : "false"));
     };
