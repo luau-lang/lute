@@ -1,14 +1,15 @@
 // Simplified tests for module resolver functionality using public APIs.
-#include "doctest.h"
-#include "luteprojectroot.h"
+#include "lute/moduleresolver.h"
+
+#include "lute/resolverequire.h"
 
 #include "Luau/Ast.h"
 #include "Luau/FileUtils.h"
 
-#include "lute/moduleresolver.h"
-#include "lute/resolverequire.h"
-
 #include <string>
+
+#include "doctest.h"
+#include "luteprojectroot.h"
 
 TEST_CASE("moduleresolver_read_source")
 {

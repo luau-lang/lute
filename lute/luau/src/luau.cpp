@@ -1,16 +1,15 @@
 #include "lute/luau.h"
 
-#include "Luau/Ast.h"
-#include "Luau/Location.h"
-#include "Luau/ParseResult.h"
-#include "Luau/Parser.h"
-#include "Luau/ParseOptions.h"
-#include "Luau/ToString.h"
-#include "Luau/Compiler.h"
-#include "Luau/NotNull.h"
-
 #include "lute/userdatas.h"
 
+#include "Luau/Ast.h"
+#include "Luau/Compiler.h"
+#include "Luau/Location.h"
+#include "Luau/NotNull.h"
+#include "Luau/ParseOptions.h"
+#include "Luau/Parser.h"
+#include "Luau/ParseResult.h"
+#include "Luau/ToString.h"
 
 #include "lua.h"
 #include "lualib.h"
