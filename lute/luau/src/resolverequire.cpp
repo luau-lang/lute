@@ -1,10 +1,10 @@
 #include "lute/resolverequire.h"
 
-#include "Luau/Common.h"
-#include "Luau/RequireNavigator.h"
-
 #include "lute/filevfs.h"
 #include "lute/modulepath.h"
+
+#include "Luau/Common.h"
+#include "Luau/RequireNavigator.h"
 
 #include "lua.h"
 #include "lualib.h"

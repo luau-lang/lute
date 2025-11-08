@@ -1,10 +1,10 @@
 // Tests for configuration resolver inheritance and ambiguity.
-#include "doctest.h"
-#include "luteprojectroot.h"
-
 #include "lute/configresolver.h"
 
 #include "Luau/FileUtils.h"
+
+#include "doctest.h"
+#include "luteprojectroot.h"
 
 TEST_CASE("configresolver")
 {
@@ -18,7 +18,7 @@ TEST_CASE("configresolver")
 
     // check that mode was set to strict per .luaurc
     CHECK(cfg.mode == Luau::Mode::Strict);
-    
+
     // check the alias root was set
     const Luau::Config::AliasInfo* aliasInfo = cfg.aliases.find("root");
     CHECK(aliasInfo != nullptr);

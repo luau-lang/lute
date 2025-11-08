@@ -1,15 +1,5 @@
 #include "lute/climain.h"
 
-#include "Luau/Common.h"
-#include "Luau/CodeGen.h"
-#include "Luau/Compiler.h"
-#include "Luau/DenseHash.h"
-#include "Luau/FileUtils.h"
-#include "Luau/Require.h"
-
-#include "lua.h"
-#include "lualib.h"
-
 #include "lute/bundlevfs.h"
 #include "lute/clicommands.h"
 #include "lute/clivfs.h"
@@ -32,6 +22,16 @@
 #include "lute/time.h"
 #include "lute/version.h"
 #include "lute/vm.h"
+
+#include "Luau/CodeGen.h"
+#include "Luau/Common.h"
+#include "Luau/Compiler.h"
+#include "Luau/DenseHash.h"
+#include "Luau/FileUtils.h"
+#include "Luau/Require.h"
+
+#include "lua.h"
+#include "lualib.h"
 
 #include "uv.h"
 
