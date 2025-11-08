@@ -17,7 +17,7 @@ IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: '^["](commands|generated/).*'
     Priority: 1
-  - Regex: '^["](lute|lutetest)/.*'
+  - Regex: '^["](lute)/.*'
     Priority: 2
   - Regex: '^["](Luau)/.*'
     Priority: 3
