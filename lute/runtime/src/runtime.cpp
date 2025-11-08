@@ -5,10 +5,10 @@
 #include "lua.h"
 #include "lualib.h"
 
-#include "uv.h"
-
-#include <string>
 #include <assert.h>
+#include <string>
+
+#include "uv.h"
 
 static void lua_close_checked(lua_State* L)
 {

@@ -1,12 +1,15 @@
 #include "lute/io.h"
-#include "Luau/Variant.h"
+
 #include "lute/runtime.h"
 
-#include "uv.h"
-#include <memory>
+#include "Luau/Variant.h"
 
 #include "lua.h"
 #include "lualib.h"
+
+#include <memory>
+
+#include "uv.h"
 
 
 namespace io

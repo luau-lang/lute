@@ -1,9 +1,9 @@
 #include "lute/moduleresolver.h"
 
+#include "lute/resolverequire.h"
+
 #include "Luau/Ast.h"
 #include "Luau/FileUtils.h"
-
-#include "lute/resolverequire.h"
 
 namespace Luau
 {

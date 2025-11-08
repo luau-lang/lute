@@ -1,15 +1,17 @@
 #include "lute/task.h"
 
-#include "lua.h"
-#include "lualib.h"
 #include "lute/ref.h"
 #include "lute/runtime.h"
-#include "uv.h"
-#include "lute/runtime.h"
 #include "lute/time.h"
+
+#include "lua.h"
+#include "lualib.h"
+
 #include <cassert>
 #include <functional>
 #include <iterator>
+
+#include "uv.h"
 
 
 // taken from extern/luau/VM/lcorolib.cpp

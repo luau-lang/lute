@@ -1,11 +1,11 @@
-#include "Luau/FileUtils.h"
-#include "doctest.h"
-
 #include "lute/climain.h"
+
+#include "Luau/FileUtils.h"
 
 #include "lua.h"
 
 #include "cliruntimefixture.h"
+#include "doctest.h"
 #include "luteprojectroot.h"
 
 TEST_CASE_FIXTURE(CliRuntimeFixture, "require_exists")

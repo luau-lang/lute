@@ -1,5 +1,3 @@
-#include "doctest.h"
-#include "luteprojectroot.h"
 #include "lute/staticrequires.h"
 
 #include "Luau/FileUtils.h"
@@ -7,6 +5,9 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+
+#include "doctest.h"
+#include "luteprojectroot.h"
 
 TEST_CASE("staticrequiretracer_simple_dependencies")
 {
@@ -23,12 +24,7 @@ TEST_CASE("staticrequiretracer_simple_dependencies")
     CHECK(deps[0] == "main.luau");
 
     // Verify all expected files are present (paths are relative to testDir)
-    std::vector<std::string> expectedFiles = {
-        "main.luau",
-        "utils.luau",
-        "lib/helper.luau",
-        "shared.luau"
-    };
+    std::vector<std::string> expectedFiles = {"main.luau", "utils.luau", "lib/helper.luau", "shared.luau"};
 
     for (const auto& expected : expectedFiles)
     {

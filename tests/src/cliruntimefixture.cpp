@@ -1,9 +1,9 @@
 #include "cliruntimefixture.h"
 
+#include "Luau/Compiler.h"
+
 #include "lua.h"
 #include "lualib.h"
-
-#include "Luau/Compiler.h"
 
 static int capture(lua_State* L)
 {
@@ -17,13 +17,17 @@ static int capture(lua_State* L)
 CliRuntimeFixture::CliRuntimeFixture()
     : runtime(std::make_unique<Runtime>())
 {
-    L = setupCliState(*runtime, [](lua_State* L) {
-        lua_pushstring(L, "capturedoutput");
-        lua_pushstring(L, "");
-        lua_settable(L, LUA_REGISTRYINDEX);
-        lua_pushcfunction(L, capture, "capture");
-        lua_setglobal(L, "capture");
-    });
+    L = setupCliState(
+        *runtime,
+        [](lua_State* L)
+        {
+            lua_pushstring(L, "capturedoutput");
+            lua_pushstring(L, "");
+            lua_settable(L, LUA_REGISTRYINDEX);
+            lua_pushcfunction(L, capture, "capture");
+            lua_setglobal(L, "capture");
+        }
+    );
 }
 
 std::string CliRuntimeFixture::getCapturedOutput()

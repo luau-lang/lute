@@ -2,6 +2,7 @@
 
 #include "lua.h"
 #include "lualib.h"
+
 #include <string>
 
 // open the library as a standard global luau library

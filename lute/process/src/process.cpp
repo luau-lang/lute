@@ -1,4 +1,5 @@
 #include "lute/process.h"
+
 #include "lute/runtime.h"
 #include "lute/uvutils.h"
 
@@ -7,8 +8,7 @@
 #include "lua.h"
 #include "lualib.h"
 
-#include "uv.h"
-
+#include <climits> // IWYU pragma: keep
 #include <functional>
 #include <map>
 #include <memory>
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include <climits> // IWYU pragma: keep
+#include "uv.h"
 #ifdef PATH_MAX
 #define LUTE_PATH_MAX PATH_MAX
 #else

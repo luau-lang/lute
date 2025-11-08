@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT
-#include "doctest.h"
-
 #include "lute/uvstate.h"
+
+#include "doctest.h"
 
 int main(int argc, char** argv)
 {
