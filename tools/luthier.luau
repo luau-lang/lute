@@ -757,7 +757,7 @@ elseif subcommand == "configure" or subcommand == "tune" then
 elseif subcommand == "build" or subcommand == "craft" then
 	generateFilesIfNeeded()
 
-	if not projectPathExists() then
+	if not projectPathExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 
@@ -765,7 +765,7 @@ elseif subcommand == "build" or subcommand == "craft" then
 elseif subcommand == "run" or subcommand == "play" then
 	generateFilesIfNeeded()
 
-	if not projectPathExists() then
+	if not projectPathExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 
