@@ -17,9 +17,9 @@ end
 crypto.secretbox = {}
 
 export type secretbox = {
-    read ciphertext: buffer,
-    read nonce: buffer,
-    read key: buffer,
+	read ciphertext: buffer,
+	read nonce: buffer,
+	read key: buffer,
 }
 
 function crypto.secretbox.seal(message: string | buffer): secretbox
