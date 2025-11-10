@@ -1,14 +1,11 @@
 #include "lute/require.h"
 
-#include "lute/clivfs.h"
 #include "lute/modulepath.h"
 #include "lute/options.h"
-#include "lute/requirevfs.h"
 
 #include "Luau/CodeGen.h"
 #include "Luau/Compiler.h"
 #include "Luau/Require.h"
-#include "Luau/StringUtils.h"
 
 #include "lua.h"
 #include "lualib.h"

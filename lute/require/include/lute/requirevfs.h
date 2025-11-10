@@ -3,7 +3,6 @@
 #include "lute/bundlevfs.h"
 #include "lute/clivfs.h"
 #include "lute/filevfs.h"
-#include "lute/libraryvfs.h"
 #include "lute/modulepath.h"
 #include "lute/require.h"
 #include "lute/stdlibvfs.h"
