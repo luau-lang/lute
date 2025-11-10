@@ -20,8 +20,8 @@ export default withSidebar(
   {
     // ============ [ SIDEBAR OPTIONS ] ============
     // ============ [ RESOLVING PATHS ] ============
-    documentRootPath: './',
-    scanStartPath: './reference/',
+    documentRootPath: '/',
+    scanStartPath: 'reference',
     // ============ [ GROUPING ] ============
     // collapsed: true,         // Collapse subgroups by default
     // ============ [ GETTING MENU TITLE ] ============
