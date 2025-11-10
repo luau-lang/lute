@@ -20,7 +20,7 @@ export default withSidebar(
   {
     // ============ [ SIDEBAR OPTIONS ] ============
     // ============ [ RESOLVING PATHS ] ============
-    documentRootPath: './docs/',
+    documentRootPath: './',
     scanStartPath: './',
     // ============ [ GROUPING ] ============
     // collapsed: true,         // Collapse subgroups by default
