@@ -81,6 +81,31 @@ function assertions.tableeq(lhs: { [unknown]: unknown }, rhs: { [unknown]: unkno
 	end
 end
 
+function assertions.buffereq(lhs: buffer, rhs: buffer)
+    if typeof(lhs) ~= "buffer" then
+		error(`lhs is of type {typeof(lhs)}, not buffer`)
+	end
+
+	if typeof(rhs) ~= "buffer" then
+        error(`rhs is of type {typeof(rhs)}, not buffer`)
+    end
+
+    if buffer.len(lhs) ~= buffer.len(rhs) then
+        error("buffers are of unequal length")
+    end
+
+    local len = buffer.len(lhs)
+    for offset = 0, len - 1 do
+        local left = buffer.readu8(lhs, offset)
+        local right = buffer.readu8(rhs, offset)
+
+        if left ~= right then
+            error(string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right))
+        end
+    end
+
+end
+
 export type asserts = typeof(assertions)
 
 return table.freeze(assertions)
