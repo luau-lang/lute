@@ -1,6 +1,6 @@
 local crypto = {}
 
-export type hash<T> = { write __hash: T }
+export type hash<T> = { __hash: T }
 
 crypto.hash = table.freeze({
 	md5 = {} :: hash<"md5">,
