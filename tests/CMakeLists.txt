@@ -13,6 +13,7 @@ target_sources(Lute.Test PRIVATE
     src/cliruntimefixture.cpp
     src/lutefixture.cpp
     src/luteprojectroot.cpp
+    src/testreporter.cpp
 
     # Test files
     src/compile.test.cpp
@@ -22,8 +23,7 @@ target_sources(Lute.Test PRIVATE
     src/moduleresolver.test.cpp
     src/require.test.cpp
     src/staticrequires.test.cpp
-    src/stdsystem.test.cpp
-    src/testreporter.cpp)
+    src/stdsystem.test.cpp)
 
 set_target_properties(Lute.Test PROPERTIES OUTPUT_NAME lute-tests)
 target_compile_features(Lute.Test PUBLIC cxx_std_17)
