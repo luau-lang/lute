@@ -88,21 +88,7 @@ local function printReplacement(self: PrintVisitor, node: luau.AstNode, replacem
 		self:write(replacement)
 	elseif replacement.kind ~= nil then -- LUAUFIX: type solver should know replacement might have a kind field
 		-- TODO: preserve trivia
-		if replacement.kind == "expr" then
-			return visitor.visitexpression(replacement, self) -- LUAUFIX: refine replacement to be AstExpr
-		elseif replacement.kind == "stat" then
-			return visitor.visitstatement(replacement, self) -- LUAUFIX: refine replacement to be AstStat
-		elseif replacement.kind == "type" then
-			return visitor.visittype(replacement, self) -- LUAUFIX: refine replacement to be AstType
-		elseif replacement.kind == "typepack" then
-			return visitor.visittypepack(replacement, self) -- LUAUFIX: refine replacement to be AstTypePack
-		elseif replacement.kind == "local" then
-			error("TODO: Add visit function to visit library")
-		elseif replacement.kind == "attribute" then
-			error("TODO: Add visit function to visit library")
-		else
-			error(`Unknown node kind in replacement: {replacement.kind}`)
-		end
+		visitor.visit(replacement, self) -- LUAUFIX: refine replacement to be AstNode
 	elseif replacement.tag ~= nil then -- LUAUFIX: type solver should know replacement might have a tag field (if it's a delta or removal)
 		self.replacements[node] = nil -- Prevent infinite recursion
 		if replacement.tag == "append" then
