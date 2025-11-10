@@ -1,7 +1,8 @@
 #include "lute/crypto.h"
-#include "lua.h"
 
+#include "lua.h"
 #include "lualib.h"
+
 #include "openssl/digest.h"
 #include "sodium/crypto_pwhash.h"
 

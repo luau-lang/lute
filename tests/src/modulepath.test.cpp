@@ -1,9 +1,9 @@
-#include "doctest.h"
-#include "luteprojectroot.h"
-
 #include "lute/modulepath.h"
 
 #include "Luau/FileUtils.h"
+
+#include "doctest.h"
+#include "luteprojectroot.h"
 
 TEST_CASE("module_path")
 {

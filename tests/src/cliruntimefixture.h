@@ -1,6 +1,4 @@
 #pragma once
-#include "doctest.h"
-
 #include "lute/climain.h"
 #include "lute/runtime.h"
 
@@ -8,6 +6,8 @@
 
 #include <memory>
 #include <string>
+
+#include "doctest.h"
 
 class CliRuntimeFixture
 {

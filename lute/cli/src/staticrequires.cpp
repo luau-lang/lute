@@ -1,9 +1,10 @@
-#include "lute/modulepath.h"
 #include "lute/staticrequires.h"
 
+#include "lute/modulepath.h"
+
 #include "Luau/Ast.h"
-#include "Luau/Parser.h"
 #include "Luau/FileUtils.h"
+#include "Luau/Parser.h"
 #include "Luau/VecDeque.h"
 
 #include <cstdio>

@@ -6,10 +6,10 @@
 
 #include "Luau/Require.h"
 
-#include <memory>
-
 #include "lua.h"
 #include "lualib.h"
+
+#include <memory>
 
 struct TargetFunction
 {

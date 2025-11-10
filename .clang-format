@@ -12,7 +12,21 @@ BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma
 ColumnLimit: 150
 IndentCaseLabels: false
-SortIncludes: false
+SortIncludes: CaseInsensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^["](commands|generated/).*'
+    Priority: 1
+  - Regex: '^["](lute)/.*'
+    Priority: 2
+  - Regex: '^["](Luau)/.*'
+    Priority: 3
+  - Regex: '^["](lua).*'
+    Priority: 4
+  - Regex: '^["](openssl/|sodium/|uv|curl/|zlib).*'
+    Priority: 5
+  - Regex: '^<[^/]*>'
+    Priority: 6
 IndentWidth: 4
 TabWidth: 4
 ObjCBlockIndentWidth: 4
