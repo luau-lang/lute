@@ -105,23 +105,7 @@ local function printReplacement(self: PrintVisitor, node: luau.AstNode, replacem
 			error("Unsupported tag for replacement")
 		end
 	else
-		self.replacements[node] = nil -- Prevent infinite recursion
-		-- Serialize prepends, then replaces, then appends (table.sort isn't stable)
-		for _, delta in replacement do
-			if delta.tag == "prepend" then
-				self:printReplacement(node, delta.content)
-			end
-		end
-		for _, delta in replacement do
-			if delta.tag == "replace" then
-				self:printReplacement(node, delta.content)
-			end
-		end
-		for _, delta in replacement do
-			if delta.tag == "append" then
-				self:printReplacement(node, delta.content)
-			end
-		end
+		error("Unsupported replacement type")
 	end
 end
 

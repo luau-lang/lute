@@ -179,58 +179,6 @@ local name = "World"
 
 		assert.eq(result, "")
 	end)
-
-	suite:case("multiple_deltas", function(assert)
-		local source = [[
-print(`Hello `)
-        ]]
-
-		local ast = parser.parse(source)
-		local replacements = query.select(ast, syntaxUtils.isExprCall):replace(function(s)
-			return {
-				{ tag = "prepend", content = "local name =" },
-				{ tag = "prepend", content = ' "World"\n' },
-				{ tag = "replace", content = "print(`Hello {name}`)" },
-				{ tag = "append", content = "\nprint(`Goodbye" },
-				{ tag = "append", content = " {name}`)" },
-			} :: syntaxTypes.delta
-		end)
-
-		local result = printer.printstatement(ast, replacements)
-
-		local expected = [[
-local name = "World"
-print(`Hello {name}`)
-print(`Goodbye {name}`)]]
-
-		assert.eq(result, expected)
-	end)
-
-	suite:case("multiple_deltas_order_append_before_prepend_ok", function(assert)
-		local source = [[
-print(`Hello `)
-        ]]
-
-		local ast = parser.parse(source)
-		local replacements = query.select(ast, syntaxUtils.isExprCall):replace(function(s)
-			return {
-				{ tag = "append", content = "\nprint(`Goodbye" },
-				{ tag = "replace", content = "print(`Hello {name}`)" },
-				{ tag = "prepend", content = "local name =" },
-				{ tag = "append", content = " {name}`)" },
-				{ tag = "prepend", content = ' "World"\n' },
-			} :: syntaxTypes.delta
-		end)
-
-		local result = printer.printstatement(ast, replacements)
-
-		local expected = [[
-local name = "World"
-print(`Hello {name}`)
-print(`Goodbye {name}`)]]
-
-		assert.eq(result, expected)
-	end)
 end)
 
 test.run()
