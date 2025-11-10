@@ -1,8 +1,3 @@
-#include "doctest.h"
-
-#include "lutefixture.h"
-#include "luteprojectroot.h"
-
 #include "lute/climain.h"
 #include "lute/libraryrequirevfs.h"
 #include "lute/libraryvfs.h"
@@ -18,6 +13,10 @@
 #include "lualib.h"
 
 #include <memory>
+
+#include "doctest.h"
+#include "lutefixture.h"
+#include "luteprojectroot.h"
 
 TEST_CASE_FIXTURE(LuteFixture, "library_aware_require")
 {
