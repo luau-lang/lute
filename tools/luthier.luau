@@ -66,6 +66,7 @@ args:add("clean", "flag", { help = "perform a clean build" })
 args:add("which", "flag", { help = "print out the path to the compiled binary and exit", aliases = { "w" } })
 args:add("cxx-compiler", "option", { help = "C++ compiler to use" })
 args:add("c-compiler", "option", { help = "C compiler to use" })
+args:add("enable-asan", "flag", { help = "enable AddressSanitizer" })
 
 if not isWindows and not isMac and not isLinux then
 	error("Unknown platform " .. os)
@@ -299,11 +300,14 @@ local function generateStdLibFilesIfNeeded()
 				local lines = string.split(libSrc, "\n")
 				local generatedLines = table.create(#lines)
 				for _, line in lines do
-					table.insert(generatedLines, `"{string.gsub(line, '"', '\\"')}\\n"`)
+					local escapedLine = string.gsub(line, "\\", "\\\\")
+					escapedLine = string.gsub(escapedLine, '"', '\\"')
+					escapedLine = string.gsub(escapedLine, "\r", "")
+					table.insert(generatedLines, `"{escapedLine}\\n"`)
 				end
 				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
 			else
-				fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+				fs.write(cpp, `\n    \{"{aliasedPath}", R"LUTE_STDLIB({libSrc})LUTE_STDLIB"},\n`)
 			end
 		end
 
@@ -336,15 +340,21 @@ end
 
 local function getTypeDefinitionsHash(): string
 	local libsPath = projectRelative("definitions")
+	local stdPath = projectRelative("lute", "std", "libs")
 
 	local toHash = ""
 
-	traverseFileTree(libsPath, function(path, relativePath)
-		if safeFsType(path) == "file" then
-			toHash ..= "./" .. relativePath
-			toHash ..= fs.readfiletostring(path)
-		end
-	end)
+	local function traverseDefs(path: string, namespace: string)
+		traverseFileTree(path, function(path, relativePath)
+			if safeFsType(path) == "file" then
+				toHash ..= `./{namespace}/{relativePath}`
+				toHash ..= fs.readfiletostring(path)
+			end
+		end)
+	end
+
+	traverseDefs(libsPath, "lute")
+	traverseDefs(stdPath, "std")
 
 	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
 	return hexify(digest)
@@ -372,17 +382,21 @@ local function generateTypeDefinitionFiles()
 
 	print("Type definitions out of date, creating new ones.")
 
+	local libsPath = projectRelative("definitions")
+	local stdPath = projectRelative("lute", "std", "libs")
 	local dictionaryEntries: { [string]: string } = {}
 
-	for _, file in fs.listdir("definitions") do
-		if file.type ~= "file" then
-			continue
-		end
-
-		local content = fs.readasync(`definitions/{file.name}`)
-
-		dictionaryEntries[file.name] = content
+	local function traverseDefs(path: string, namespace: string)
+		traverseFileTree(path, function(path, relativePath)
+			if safeFsType(path) == "file" then
+				local content = fs.readasync(path)
+				dictionaryEntries[`{namespace}/{relativePath}`] = content
+			end
+		end)
 	end
+
+	traverseDefs(libsPath, "lute")
+	traverseDefs(stdPath, "std")
 
 	local stringDictionary = ""
 
@@ -395,7 +409,7 @@ local function generateTypeDefinitionFiles()
 	fs.close(hash)
 
 	fs.writestringtofile(
-		"lute/cli/commands/setup/generated/definitions.luau",
+		projectRelative("lute", "cli", "commands", "setup", "generated", "definitions.luau"),
 		string.format(TYPEDEF_PATTERN, stringDictionary)
 	)
 end
@@ -468,11 +482,14 @@ local function generateCliCommandsFilesIfNeeded()
 				local lines = string.split(libSrc, "\n")
 				local generatedLines = table.create(#lines)
 				for _, line in lines do
-					table.insert(generatedLines, `"{string.gsub(line, '"', '\\"')}\\n"`)
+					local escapedLine = string.gsub(line, "\\", "\\\\")
+					escapedLine = string.gsub(escapedLine, '"', '\\"')
+					escapedLine = string.gsub(escapedLine, "\r", "")
+					table.insert(generatedLines, `"{escapedLine}\\n"`)
 				end
 				fs.write(cpp, `\n    \{"{aliasedPath}", {table.concat(generatedLines, "\n")}},\n`)
 			else
-				fs.write(cpp, `\n    \{"{aliasedPath}", R"({libSrc})"},\n`)
+				fs.write(cpp, `\n    \{"{aliasedPath}", R"LUTE_CMD({libSrc})LUTE_CMD"},\n`)
 			end
 		end
 
@@ -505,8 +522,8 @@ end
 
 local function generateFilesIfNeeded()
 	generateStdLibFilesIfNeeded()
-	generateCliCommandsFilesIfNeeded()
 	generateTypeDefinitionFiles()
+	generateCliCommandsFilesIfNeeded()
 end
 
 local function getExePath(): string
@@ -564,6 +581,10 @@ local function getConfigureArguments()
 
 	if args:get("c-compiler") then
 		table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. args:get("c-compiler"))
+	end
+
+	if args:has("enable-asan") then
+		table.insert(configArgs, "-DLUTE_ENABLE_ASAN=ON")
 	end
 
 	return configArgs
@@ -693,7 +714,10 @@ local function configure()
 	table.move(arguments, 1, #arguments, 2, cmd)
 
 	check(fetchDependenciesIfNeeded())
-	return call(cmd)
+
+	local result = call(cmd)
+	fs.copy(joinPath(getProjectPath(), "compile_commands.json"), projectRelative(BUILD_DIR, "compile_commands.json"))
+	return result
 end
 
 local function run()
@@ -733,7 +757,7 @@ elseif subcommand == "configure" or subcommand == "tune" then
 elseif subcommand == "build" or subcommand == "craft" then
 	generateFilesIfNeeded()
 
-	if not projectPathExists() then
+	if not projectPathExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 
@@ -741,7 +765,7 @@ elseif subcommand == "build" or subcommand == "craft" then
 elseif subcommand == "run" or subcommand == "play" then
 	generateFilesIfNeeded()
 
-	if not projectPathExists() then
+	if not projectPathExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 

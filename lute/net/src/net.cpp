@@ -2,29 +2,39 @@
 
 #include "lute/runtime.h"
 
-#include "curl/curl.h"
-#include "App.h"
 #include "Luau/DenseHash.h"
 #include "Luau/Variant.h"
 
 #include "lua.h"
 #include "lualib.h"
 
+#include "curl/curl.h"
+#include "uv.h"
+
+#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "App.h"
+#include "Loop.h"
 
 namespace net
 {
 
 static const std::string kEmptyHeaderKey = "";
-struct CurlResponse {
+struct CurlResponse
+{
     std::string error;
     std::vector<char> body;
     Luau::DenseHashMap<std::string, std::string> headers;
     long status = 0;
 
-    CurlResponse() : headers(kEmptyHeaderKey) {}
+    CurlResponse()
+        : headers(kEmptyHeaderKey)
+    {
+    }
 };
 
 static size_t writeFunction(void* contents, size_t size, size_t nmemb, void* context)
@@ -61,12 +71,16 @@ static CurlResponse requestData(
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+    curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 
     if (method != "GET")
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
 
     if (!body.empty())
+    {
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, body.size());
+    }
 
     if (!headers.empty())
     {
@@ -133,7 +147,11 @@ int request(lua_State* L)
 
         lua_getfield(L, 2, "body");
         if (lua_isstring(L, -1))
-            body = lua_tostring(L, -1);
+        {
+            size_t len;
+            const char* data = lua_tolstring(L, -1, &len);
+            body.assign(data, data + len);
+        }
         lua_pop(L, 1);
 
         lua_getfield(L, 2, "headers");
@@ -166,7 +184,7 @@ int request(lua_State* L)
                 token->fail("network request failed: " + resp.error);
                 return;
             }
-            
+
             token->complete(
                 [resp = std::move(resp)](lua_State* L)
                 {
@@ -340,7 +358,11 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
     lua_pop(L, 1);
 
     lua_getfield(L, responseIndex, "body");
-    std::string body = lua_isstring(L, -1) ? lua_tostring(L, -1) : "";
+
+    std::string body = "";
+    size_t bodyLength;
+    const char* bodyData = lua_tolstring(L, -1, &bodyLength);
+    body.assign(bodyData, bodyData + bodyLength);
     lua_pop(L, 1);
 
     res->end(body);
@@ -508,6 +530,8 @@ bool closeServer(int serverId)
 
 int lua_serve(lua_State* L)
 {
+    uWS::Loop::get(uv_default_loop());
+
     std::string hostname = "0.0.0.0";
     int port = 3000;
     bool reusePort = false;
@@ -631,27 +655,8 @@ int lua_serve(lua_State* L)
         return 0;
     }
 
-    state->loopFunction = [state]()
-    {
-        if (!state->running)
-        {
-            return;
-        }
-        Luau::visit(
-            [](auto* appPtr)
-            {
-                if (appPtr)
-                    appPtr->run();
-            },
-            state->app
-        );
-        state->runtime->schedule(state->loopFunction);
-    };
-
     serverInstances[serverId] = std::move(app);
     serverStates[serverId] = state;
-
-    runtime->schedule(state->loopFunction);
 
     lua_createtable(L, 0, 3);
 

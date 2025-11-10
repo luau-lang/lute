@@ -6,7 +6,7 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # set the module path
-list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMakeBuild")
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeBuild")
 
 include(get_version)
 
@@ -15,6 +15,14 @@ project(
     VERSION ${LUTE_VERSION}
     LANGUAGES CXX C
 )
+
+option(LUTE_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+if (LUTE_ENABLE_ASAN)
+    if(NOT MSVC)
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
 
 # luau setup
 set(LUAU_BUILD_CLI OFF)
@@ -66,6 +74,7 @@ set(USE_NGHTTP2 OFF)
 set(CURL_USE_LIBPSL OFF)
 set(CURL_USE_LIBSSH2 OFF)
 set(CURL_ZLIB ON)
+SET(CURL_ZSTD OFF CACHE STRING "Disable ZSTD" FORCE)
 set(CURL_BROTLI OFF CACHE STRING "Disable brotli support" FORCE)
 set(CURL_ENABLE_SSL ON)
 set(CURL_USE_OPENSSL ON)
@@ -90,7 +99,6 @@ include(uWebSockets)
 # Define include directories for uWebSockets and uSockets
 set(UWEBSOCKETS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/uWebSockets/src)
 
-
 # libsodium for `pwhash`
 include(libsodium)
 
@@ -102,8 +110,9 @@ if(MSVC)
     list(APPEND LUTE_OPTIONS /D_CRT_SECURE_NO_WARNINGS) # We need to use the portable CRT functions.
     list(APPEND LUTE_OPTIONS "/we4018") # Signed/unsigned mismatch
     list(APPEND LUTE_OPTIONS "/we4388") # Also signed/unsigned mismatch
-    list(APPEND LUTE_OPTIONS "/Zc:externConstexpr") # MSVC does not comply with C++ standard by default
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        list(APPEND LUTE_OPTIONS "/Zc:externConstexpr") # MSVC does not comply with C++ standard by default
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         list(APPEND LUTE_OPTIONS "/EHsc") # The CMake clang-cl target doesn't enable exceptions by default
     endif()
     # FIXME: list(APPEND LUTE_OPTIONS /WX) # Warnings are errors
@@ -127,6 +136,7 @@ add_subdirectory(lute/vm)
 add_subdirectory(lute/process)
 add_subdirectory(lute/system)
 add_subdirectory(lute/time)
+add_subdirectory(lute/io)
 
 # executables
 add_subdirectory(lute/cli)

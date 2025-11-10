@@ -27,8 +27,13 @@ public:
     std::string getLoadname(lua_State* L) const override;
     std::string getCacheKey(lua_State* L) const override;
 
-    bool isConfigPresent(lua_State* L) const override;
+    ConfigStatus getConfigStatus(lua_State* L) const override;
     std::string getConfig(lua_State* L) const override;
+
+    bool isPrecompiled() const override
+    {
+        return false;
+    }
 
 private:
     enum class VFSType

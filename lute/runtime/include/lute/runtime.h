@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Luau/Variant.h"
 #include "lute/ref.h"
+
+#include "Luau/Variant.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -112,4 +113,4 @@ struct ResumeTokenData
 
 ResumeToken getResumeToken(lua_State* L);
 
-lua_State* setupState(Runtime& runtime, void (*doBeforeSandbox)(lua_State*));
+lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBeforeSandbox);

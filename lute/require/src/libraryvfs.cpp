@@ -1,9 +1,11 @@
 #include "lute/libraryvfs.h"
 
-#include "Luau/Common.h"
 #include "lute/modulepath.h"
 
+#include "Luau/Common.h"
+#include "Luau/Config.h"
 #include "Luau/FileUtils.h"
+#include "Luau/LuauConfig.h"
 
 #include <optional>
 #include <string>
@@ -70,12 +72,22 @@ NavigationStatus Subtree::toChild(const std::string& name)
     return currentModulePath.toChild(name);
 }
 
-bool Subtree::isConfigPresent() const
+ConfigStatus Subtree::getConfigStatus() const
 {
     if (atGeneratedRoot)
-        return true;
+        return ConfigStatus::PresentJson;
 
-    return isFile(currentModulePath.getPotentialLuaurcPath());
+    bool luaurcExists = isFile(currentModulePath.getPotentialConfigPath(Luau::kConfigName));
+    bool luauConfigExists = isFile(currentModulePath.getPotentialConfigPath(Luau::kLuauConfigName));
+
+    if (luaurcExists && luauConfigExists)
+        return ConfigStatus::Ambiguous;
+    else if (luauConfigExists)
+        return ConfigStatus::PresentLuau;
+    else if (luaurcExists)
+        return ConfigStatus::PresentJson;
+
+    return ConfigStatus::Absent;
 }
 
 std::optional<std::string> Subtree::getConfig() const
@@ -83,7 +95,15 @@ std::optional<std::string> Subtree::getConfig() const
     if (atGeneratedRoot)
         return generatedRootLuaurc;
 
-    return readFile(currentModulePath.getPotentialLuaurcPath());
+    ConfigStatus status = getConfigStatus();
+    LUAU_ASSERT(status == ConfigStatus::PresentJson || status == ConfigStatus::PresentLuau);
+
+    if (status == ConfigStatus::PresentJson)
+        return readFile(currentModulePath.getPotentialConfigPath(Luau::kConfigName));
+    else if (status == ConfigStatus::PresentLuau)
+        return readFile(currentModulePath.getPotentialConfigPath(Luau::kLuauConfigName));
+
+    LUAU_UNREACHABLE();
 }
 
 bool Subtree::isModulePresent() const
@@ -218,23 +238,23 @@ NavigationStatus Vfs::toChild(const std::string& name)
     return status;
 }
 
-bool Vfs::isConfigPresent() const
+ConfigStatus Vfs::getConfigStatus() const
 {
     if (atDiskFakeRoot)
-        return true;
+        return ConfigStatus::PresentJson;
 
-    bool isPresent = false;
+    ConfigStatus status = ConfigStatus::Ambiguous;
     switch (vfsType)
     {
     case VFSType::Disk:
-        isPresent = fileVfs.isConfigPresent();
+        status = fileVfs.getConfigStatus();
         break;
     case VFSType::Subtree:
         LUAU_ASSERT(currentSubtree);
-        isPresent = currentSubtree->isConfigPresent();
+        status = currentSubtree->getConfigStatus();
         break;
     }
-    return isPresent;
+    return status;
 }
 
 std::optional<std::string> Vfs::getConfig() const

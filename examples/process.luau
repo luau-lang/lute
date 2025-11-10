@@ -1,4 +1,4 @@
-local process = require("@lute/process")
+local process = require("@std/process")
 local task = require("@std/task")
 
 local result = process.run({ "echo", "Hello, lute!" })
@@ -30,3 +30,5 @@ print(r7.stdout)
 
 local r8 = process.run("echo $0", { shell = "/bin/sh" })
 print(r8.stdout)
+
+process.exit(0)

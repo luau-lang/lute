@@ -1,4 +1,5 @@
 #include "lute/ref.h"
+
 #include "lute/runtime.h"
 
 #include "lua.h"
@@ -23,6 +24,7 @@ void Ref::push(lua_State* L) const
 
 std::shared_ptr<Ref> getRefForThread(lua_State* L)
 {
+    lua_rawcheckstack(L, 1);
     lua_pushthread(L);
     std::shared_ptr<Ref> ref = std::make_shared<Ref>(L, -1);
     lua_pop(L, 1);

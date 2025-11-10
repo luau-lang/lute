@@ -1,6 +1,10 @@
 --!strict
+-- @std/syntax/visitor
+-- Visitor pattern implementation for traversing Luau AST nodes
 
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
+
+local visitorlib = {}
 
 export type Visitor = {
 	visitBlock: (luau.AstStatBlock) -> boolean,
@@ -165,33 +169,33 @@ end
 
 local function visitIf(node: luau.AstStatIf, visitor: Visitor)
 	if visitor.visitIf(node) then
-		visitToken(node.ifKeyword, visitor)
+		visitToken(node.ifkeyword, visitor)
 		visitExpression(node.condition, visitor)
-		visitToken(node.thenKeyword, visitor)
-		visitBlock(node.consequent, visitor)
+		visitToken(node.thenkeyword, visitor)
+		visitBlock(node.thenblock, visitor)
 		for _, elseifNode in node.elseifs do
-			visitToken(elseifNode.elseifKeyword, visitor)
+			visitToken(elseifNode.elseifkeyword, visitor)
 			visitExpression(elseifNode.condition, visitor)
-			visitToken(elseifNode.thenKeyword, visitor)
-			visitBlock(elseifNode.consequent, visitor)
+			visitToken(elseifNode.thenkeyword, visitor)
+			visitBlock(elseifNode.thenblock, visitor)
 		end
-		if node.elseKeyword then
-			visitToken(node.elseKeyword, visitor)
+		if node.elsekeyword then
+			visitToken(node.elsekeyword, visitor)
 		end
-		if node.antecedent then
-			visitBlock(node.antecedent, visitor)
+		if node.elseblock then
+			visitBlock(node.elseblock, visitor)
 		end
-		visitToken(node.endKeyword, visitor)
+		visitToken(node.endkeyword, visitor)
 	end
 end
 
 local function visitWhile(node: luau.AstStatWhile, visitor: Visitor)
 	if visitor.visitWhile(node) then
-		visitToken(node.whileKeyword, visitor)
+		visitToken(node.whilekeyword, visitor)
 		visitExpression(node.condition, visitor)
-		visitToken(node.doKeyword, visitor)
+		visitToken(node.dokeyword, visitor)
 		visitBlock(node.body, visitor)
-		visitToken(node.endKeyword, visitor)
+		visitToken(node.endkeyword, visitor)
 	end
 end
 
@@ -206,14 +210,14 @@ end
 
 local function visitReturn(node: luau.AstStatReturn, visitor: Visitor)
 	if visitor.visitReturn(node) then
-		visitToken(node.returnKeyword, visitor)
+		visitToken(node.returnkeyword, visitor)
 		visitPunctuated(node.expressions, visitor, visitExpression)
 	end
 end
 
 local function visitLocalStatement(node: luau.AstStatLocal, visitor: Visitor)
 	if visitor.visitLocalDeclaration(node) then
-		visitToken(node.localKeyword, visitor)
+		visitToken(node.localkeyword, visitor)
 		visitPunctuated(node.variables, visitor, visitLocal)
 		if node.equals then
 			visitToken(node.equals, visitor)
@@ -226,33 +230,33 @@ end
 
 local function visitFor(node: luau.AstStatFor, visitor: Visitor)
 	if visitor.visitFor(node) then
-		visitToken(node.forKeyword, visitor)
+		visitToken(node.forkeyword, visitor)
 		visitLocal(node.variable, visitor)
 		visitToken(node.equals, visitor)
 		visitExpression(node.from, visitor)
-		visitToken(node.toComma, visitor)
+		visitToken(node.tocomma, visitor)
 		visitExpression(node.to, visitor)
-		if node.stepComma then
-			visitToken(node.stepComma, visitor)
+		if node.stepcomma then
+			visitToken(node.stepcomma, visitor)
 		end
 		if node.step then
 			visitExpression(node.step, visitor)
 		end
-		visitToken(node.doKeyword, visitor)
+		visitToken(node.dokeyword, visitor)
 		visitBlock(node.body, visitor)
-		visitToken(node.endKeyword, visitor)
+		visitToken(node.endkeyword, visitor)
 	end
 end
 
 local function visitForIn(node: luau.AstStatForIn, visitor: Visitor)
 	if visitor.visitForIn(node) then
-		visitToken(node.forKeyword, visitor)
+		visitToken(node.forkeyword, visitor)
 		visitPunctuated(node.variables, visitor, visitLocal)
-		visitToken(node.inKeyword, visitor)
+		visitToken(node.inkeyword, visitor)
 		visitPunctuated(node.values, visitor, visitExpression)
-		visitToken(node.doKeyword, visitor)
+		visitToken(node.dokeyword, visitor)
 		visitBlock(node.body, visitor)
-		visitToken(node.endKeyword, visitor)
+		visitToken(node.endkeyword, visitor)
 	end
 end
 
@@ -300,17 +304,17 @@ local function visitTypeAlias(node: luau.AstStatTypeAlias, visitor: Visitor)
 		end
 		visitToken(node.typeToken, visitor)
 		visitToken(node.name, visitor)
-		if node.openGenerics then
-			visitToken(node.openGenerics, visitor)
+		if node.opengenerics then
+			visitToken(node.opengenerics, visitor)
 		end
 		if node.generics then
 			visitPunctuated(node.generics, visitor, visitGeneric)
 		end
-		if node.genericPacks then
-			visitPunctuated(node.genericPacks, visitor, visitGenericPack)
+		if node.genericpacks then
+			visitPunctuated(node.genericpacks, visitor, visitGenericPack)
 		end
-		if node.closeGenerics then
-			visitToken(node.closeGenerics, visitor)
+		if node.closegenerics then
+			visitToken(node.closegenerics, visitor)
 		end
 		visitToken(node.equals, visitor)
 		visitType(node.type, visitor)
@@ -362,12 +366,12 @@ end
 local function visitCall(node: luau.AstExprCall, visitor: Visitor)
 	if visitor.visitCall(node) then
 		visitExpression(node.func, visitor)
-		if node.openParens then
-			visitToken(node.openParens, visitor)
+		if node.openparens then
+			visitToken(node.openparens, visitor)
 		end
 		visitPunctuated(node.arguments, visitor, visitExpression)
-		if node.closeParens then
-			visitToken(node.closeParens, visitor)
+		if node.closeparens then
+			visitToken(node.closeparens, visitor)
 		end
 	end
 end
@@ -388,38 +392,38 @@ local function visitBinary(node: luau.AstExprBinary, visitor: Visitor)
 end
 
 local function visitFunctionBody(node: luau.AstFunctionBody, visitor: Visitor)
-	if node.openGenerics then
-		visitToken(node.openGenerics, visitor)
+	if node.opengenerics then
+		visitToken(node.opengenerics, visitor)
 	end
 	if node.generics then
 		visitPunctuated(node.generics, visitor, visitGeneric)
 	end
-	if node.genericPacks then
-		visitPunctuated(node.genericPacks, visitor, visitGenericPack)
+	if node.genericpacks then
+		visitPunctuated(node.genericpacks, visitor, visitGenericPack)
 	end
-	if node.closeGenerics then
-		visitToken(node.closeGenerics, visitor)
+	if node.closegenerics then
+		visitToken(node.closegenerics, visitor)
 	end
-	visitToken(node.openParens, visitor)
+	visitToken(node.openparens, visitor)
 	visitPunctuated(node.parameters, visitor, visitLocal)
 	if node.vararg then
 		visitToken(node.vararg, visitor)
 	end
-	if node.varargColon then
-		visitToken(node.varargColon, visitor)
+	if node.varargcolon then
+		visitToken(node.varargcolon, visitor)
 	end
-	if node.varargAnnotation then
-		visitTypePack(node.varargAnnotation, visitor)
+	if node.varargannotation then
+		visitTypePack(node.varargannotation, visitor)
 	end
-	visitToken(node.closeParens, visitor)
-	if node.returnSpecifier then
-		visitToken(node.returnSpecifier, visitor)
+	visitToken(node.closeparens, visitor)
+	if node.returnspecifier then
+		visitToken(node.returnspecifier, visitor)
 	end
-	if node.returnAnnotation then
-		visitTypePack(node.returnAnnotation, visitor)
+	if node.returnannotation then
+		visitTypePack(node.returnannotation, visitor)
 	end
 	visitBlock(node.body, visitor)
-	visitToken(node.endKeyword, visitor)
+	visitToken(node.endkeyword, visitor)
 end
 
 local function visitAttribute(node: luau.AstAttribute, visitor)
@@ -431,7 +435,7 @@ local function visitAnonymousFunction(node: luau.AstExprAnonymousFunction, visit
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
-		visitToken(node.functionKeyword, visitor)
+		visitToken(node.functionkeyword, visitor)
 		visitFunctionBody(node.body, visitor)
 	end
 end
@@ -441,7 +445,7 @@ local function visitFunction(node: luau.AstStatFunction, visitor: Visitor)
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
-		visitToken(node.functionKeyword, visitor)
+		visitToken(node.functionkeyword, visitor)
 		visitExpression(node.name, visitor)
 		visitFunctionBody(node.body, visitor)
 	end
@@ -452,8 +456,8 @@ local function visitLocalFunction(node: luau.AstStatLocalFunction, visitor: Visi
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
-		visitToken(node.localKeyword, visitor)
-		visitToken(node.functionKeyword, visitor)
+		visitToken(node.localkeyword, visitor)
+		visitToken(node.functionkeyword, visitor)
 		visitLocal(node.name, visitor)
 		visitFunctionBody(node.body, visitor)
 	end
@@ -465,7 +469,7 @@ local function visitStatTypeFunction(node: luau.AstStatTypeFunction, visitor: Vi
 			visitToken(node.export, visitor)
 		end
 		visitToken(node.type, visitor)
-		visitToken(node.functionKeyword, visitor)
+		visitToken(node.functionkeyword, visitor)
 		visitToken(node.name, visitor)
 		visitFunctionBody(node.body, visitor)
 	end
@@ -480,9 +484,9 @@ local function visitTableItem(node: luau.AstExprTableItem, visitor: Visitor)
 			visitToken(node.equals, visitor)
 			visitExpression(node.value, visitor)
 		elseif node.kind == "general" then
-			visitToken(node.indexerOpen, visitor)
+			visitToken(node.indexeropen, visitor)
 			visitExpression(node.key, visitor)
-			visitToken(node.indexerClose, visitor)
+			visitToken(node.indexerclose, visitor)
 			visitToken(node.equals, visitor)
 			visitExpression(node.value, visitor)
 		else
@@ -497,11 +501,11 @@ end
 
 local function visitTable(node: luau.AstExprTable, visitor: Visitor)
 	if visitor.visitTable(node) then
-		visitToken(node.openBrace, visitor)
+		visitToken(node.openbrace, visitor)
 		for _, item in node.entries do
 			visitTableItem(item, visitor)
 		end
-		visitToken(node.closeBrace, visitor)
+		visitToken(node.closebrace, visitor)
 	end
 end
 
@@ -516,17 +520,17 @@ end
 local function visitIndexExpr(node: luau.AstExprIndexExpr, visitor: Visitor)
 	if visitor.visitIndexExpr(node) then
 		visitExpression(node.expression, visitor)
-		visitToken(node.openBrackets, visitor)
+		visitToken(node.openbrackets, visitor)
 		visitExpression(node.index, visitor)
-		visitToken(node.closeBrackets, visitor)
+		visitToken(node.closebrackets, visitor)
 	end
 end
 
 local function visitGroup(node: luau.AstExprGroup, visitor: Visitor)
 	if visitor.visitGroup(node) then
-		visitToken(node.openParens, visitor)
+		visitToken(node.openparens, visitor)
 		visitExpression(node.expression, visitor)
-		visitToken(node.closeParens, visitor)
+		visitToken(node.closeparens, visitor)
 	end
 end
 
@@ -551,18 +555,18 @@ end
 
 local function visitIfExpression(node: luau.AstExprIfElse, visitor: Visitor)
 	if visitor.visitIfExpression(node) then
-		visitToken(node.ifKeyword, visitor)
+		visitToken(node.ifkeyword, visitor)
 		visitExpression(node.condition, visitor)
-		visitToken(node.thenKeyword, visitor)
-		visitExpression(node.consequent, visitor)
+		visitToken(node.thenkeyword, visitor)
+		visitExpression(node.thenexpr, visitor)
 		for _, elseifs in node.elseifs do
-			visitToken(elseifs.elseifKeyword, visitor)
+			visitToken(elseifs.elseifkeyword, visitor)
 			visitExpression(elseifs.condition, visitor)
-			visitToken(elseifs.thenKeyword, visitor)
-			visitExpression(elseifs.consequent, visitor)
+			visitToken(elseifs.thenkeyword, visitor)
+			visitExpression(elseifs.thenexpr, visitor)
 		end
-		visitToken(node.elseKeyword, visitor)
-		visitExpression(node.antecedent, visitor)
+		visitToken(node.elsekeyword, visitor)
+		visitExpression(node.elseexpr, visitor)
 	end
 end
 
@@ -579,18 +583,18 @@ local function visitTypeReference(node: luau.AstTypeReference, visitor: Visitor)
 		if node.prefix then
 			visitToken(node.prefix, visitor)
 		end
-		if node.prefixPoint then
-			visitToken(node.prefixPoint, visitor)
+		if node.prefixpoint then
+			visitToken(node.prefixpoint, visitor)
 		end
 		visitToken(node.name, visitor)
-		if node.openParameters then
-			visitToken(node.openParameters, visitor)
+		if node.openparameters then
+			visitToken(node.openparameters, visitor)
 		end
 		if node.parameters then
 			visitPunctuated(node.parameters, visitor, visitTypeOrPack)
 		end
-		if node.closeParameters then
-			visitToken(node.closeParameters, visitor)
+		if node.closeparameters then
+			visitToken(node.closeparameters, visitor)
 		end
 	end
 end
@@ -610,17 +614,17 @@ end
 local function visitTypeTypeof(node: luau.AstTypeTypeof, visitor: Visitor)
 	if visitor.visitTypeTypeof(node) then
 		visitToken(node.typeof, visitor)
-		visitToken(node.openParens, visitor)
+		visitToken(node.openparens, visitor)
 		visitExpression(node.expression, visitor)
-		visitToken(node.closeParens, visitor)
+		visitToken(node.closeparens, visitor)
 	end
 end
 
 local function visitTypeGroup(node: luau.AstTypeGroup, visitor: Visitor)
 	if visitor.visitTypeGroup(node) then
-		visitToken(node.openParens, visitor)
+		visitToken(node.openparens, visitor)
 		visitType(node.type, visitor)
-		visitToken(node.closeParens, visitor)
+		visitToken(node.closeparens, visitor)
 	end
 end
 
@@ -644,30 +648,30 @@ end
 
 local function visitTypeArray(node: luau.AstTypeArray, visitor: Visitor)
 	if visitor.visitTypeArray(node) then
-		visitToken(node.openBrace, visitor)
+		visitToken(node.openbrace, visitor)
 		if node.access then
 			visitToken(node.access, visitor)
 		end
 		visitType(node.type, visitor)
-		visitToken(node.closeBrace, visitor)
+		visitToken(node.closebrace, visitor)
 	end
 end
 
 local function visitTypeTable(node: luau.AstTypeTable, visitor: Visitor)
 	if visitor.visitTypeTable(node) then
-		visitToken(node.openBrace, visitor)
+		visitToken(node.openbrace, visitor)
 		for _, entry in node.entries do
 			if entry.access then
 				visitToken(entry.access, visitor)
 			end
 			if entry.kind == "indexer" then
-				visitToken(entry.indexerOpen, visitor)
+				visitToken(entry.indexeropen, visitor)
 				visitType(entry.key, visitor)
-				visitToken(entry.indexerClose, visitor)
+				visitToken(entry.indexerclose, visitor)
 			elseif entry.kind == "stringproperty" then
-				visitToken(entry.indexerOpen, visitor)
+				visitToken(entry.indexeropen, visitor)
 				visitTypeString(entry.key, visitor)
-				visitToken(entry.indexerClose, visitor)
+				visitToken(entry.indexerclose, visitor)
 			else
 				visitToken(entry.key, visitor)
 			end
@@ -677,7 +681,7 @@ local function visitTypeTable(node: luau.AstTypeTable, visitor: Visitor)
 				visitToken(entry.separator, visitor)
 			end
 		end
-		visitToken(node.closeBrace, visitor)
+		visitToken(node.closebrace, visitor)
 	end
 end
 
@@ -693,40 +697,40 @@ end
 
 local function visitTypeFunction(node: luau.AstTypeFunction, visitor: Visitor)
 	if visitor.visitTypeFunction(node) then
-		if node.openGenerics then
-			visitToken(node.openGenerics, visitor)
+		if node.opengenerics then
+			visitToken(node.opengenerics, visitor)
 		end
 		if node.generics then
 			visitPunctuated(node.generics, visitor, visitGeneric)
 		end
-		if node.genericPacks then
-			visitPunctuated(node.genericPacks, visitor, visitGenericPack)
+		if node.genericpacks then
+			visitPunctuated(node.genericpacks, visitor, visitGenericPack)
 		end
-		if node.closeGenerics then
-			visitToken(node.closeGenerics, visitor)
+		if node.closegenerics then
+			visitToken(node.closegenerics, visitor)
 		end
-		visitToken(node.openParens, visitor)
+		visitToken(node.openparens, visitor)
 		visitPunctuated(node.parameters, visitor, visitTypeFunctionParameter)
 		if node.vararg then
 			visitTypePack(node.vararg, visitor)
 		end
-		visitToken(node.closeParens, visitor)
-		visitToken(node.returnArrow, visitor)
-		visitTypePack(node.returnTypes, visitor)
+		visitToken(node.closeparens, visitor)
+		visitToken(node.returnarrow, visitor)
+		visitTypePack(node.returntypes, visitor)
 	end
 end
 
 local function visitTypePackExplicit(node: luau.AstTypePackExplicit, visitor: Visitor)
 	if visitor.visitTypePackExplicit(node) then
-		if node.openParens then
-			visitToken(node.openParens, visitor)
+		if node.openparens then
+			visitToken(node.openparens, visitor)
 		end
 		visitPunctuated(node.types, visitor, visitType)
-		if node.tailType then
-			visitTypePack(node.tailType, visitor)
+		if node.tailtype then
+			visitTypePack(node.tailtype, visitor)
 		end
-		if node.closeParens then
-			visitToken(node.closeParens, visitor)
+		if node.closeparens then
+			visitToken(node.closeparens, visitor)
 		end
 	end
 end
@@ -873,16 +877,16 @@ function visitTypePack(type: luau.AstTypePack, visitor: Visitor)
 	end
 end
 
-local function createVisitor()
+local function create()
 	return table.clone(defaultVisitor)
 end
 
-return {
-	createVisitor = createVisitor,
-	visitBlock = visitBlock,
-	visitStatement = visitStatement,
-	visitExpression = visitExpression,
-	visitType = visitType,
-	visitTypePack = visitTypePack,
-	visitToken = visitToken,
-}
+visitorlib.create = create
+visitorlib.visitblock = visitBlock
+visitorlib.visitstatement = visitStatement
+visitorlib.visitexpression = visitExpression
+visitorlib.visittype = visitType
+visitorlib.visittypepack = visitTypePack
+visitorlib.visittoken = visitToken
+
+return table.freeze(visitorlib)

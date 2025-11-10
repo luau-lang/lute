@@ -1,5 +1,5 @@
-local fs = require("@lute/fs")
-local luau = require("@lute/luau")
+local fs = require("@std/fs")
+local luau = require("@std/luau")
 
 local pp = require("@batteries/pp")
 

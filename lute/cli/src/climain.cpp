@@ -1,23 +1,40 @@
-#include "Luau/Common.h"
-#include "Luau/CodeGen.h"
-#include "Luau/Compiler.h"
-#include "Luau/FileUtils.h"
-#include "Luau/Parser.h"
-#include "Luau/Require.h"
+#include "lute/climain.h"
 
-#include "lua.h"
-#include "lualib.h"
-#include "uv.h"
-
+#include "lute/bundlevfs.h"
 #include "lute/clicommands.h"
 #include "lute/clivfs.h"
 #include "lute/compile.h"
+#include "lute/crypto.h"
+#include "lute/fs.h"
+#include "lute/io.h"
+#include "lute/luau.h"
+#include "lute/luauflags.h"
+#include "lute/net.h"
 #include "lute/options.h"
+#include "lute/process.h"
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/requirevfs.h"
 #include "lute/runtime.h"
+#include "lute/staticrequires.h"
+#include "lute/system.h"
+#include "lute/task.h"
 #include "lute/tc.h"
+#include "lute/time.h"
+#include "lute/version.h"
+#include "lute/vm.h"
+
+#include "Luau/CodeGen.h"
+#include "Luau/Common.h"
+#include "Luau/Compiler.h"
+#include "Luau/DenseHash.h"
+#include "Luau/FileUtils.h"
+#include "Luau/Require.h"
+
+#include "lua.h"
+#include "lualib.h"
+
+#include "uv.h"
 
 #include <memory>
 
@@ -26,12 +43,9 @@
 #endif
 
 #include <iostream>
+#include <memory>
 #include <string>
-#include <filesystem>
 #include <vector>
-
-static int program_argc = 0;
-static char** program_argv = nullptr;
 
 void* createCliRequireContext(lua_State* L)
 {
@@ -40,7 +54,7 @@ void* createCliRequireContext(lua_State* L)
         sizeof(RequireCtx),
         [](void* ptr)
         {
-            static_cast<RequireCtx*>(ptr)->~RequireCtx();
+            std::destroy_at(static_cast<RequireCtx*>(ptr));
         }
     );
 
@@ -58,21 +72,88 @@ void* createCliRequireContext(lua_State* L)
     return ctx;
 }
 
-lua_State* setupCliState(Runtime& runtime)
+static void luteopen_libs(lua_State* L)
+{
+    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
+        {"@lute/crypto", luteopen_crypto},
+        {"@lute/fs", luteopen_fs},
+        {"@lute/luau", luteopen_luau},
+        {"@lute/net", luteopen_net},
+        {"@lute/process", luteopen_process},
+        {"@lute/task", luteopen_task},
+        {"@lute/vm", luteopen_vm},
+        {"@lute/system", luteopen_system},
+        {"@lute/time", luteopen_time},
+        {"@lute/io", luteopen_io},
+    }};
+
+    for (const auto& [name, func] : libs)
+    {
+        lua_pushcfunction(L, luarequire_registermodule, nullptr);
+        lua_pushstring(L, name);
+        func(L);
+        lua_call(L, 2, 0);
+    }
+}
+
+void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, std::string> bundleMap)
+{
+    void* ctx = lua_newuserdatadtor(
+        L,
+        sizeof(RequireCtx),
+        [](void* ptr)
+        {
+            std::destroy_at(static_cast<RequireCtx*>(ptr));
+        }
+    );
+
+    if (!ctx)
+        luaL_error(L, "unable to allocate RequireCtx");
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(bundleMap)})};
+
+    // Store RequireCtx in the registry to keep it alive for the lifetime of
+    // this lua_State. Memory address is used as a key to avoid collisions.
+    lua_pushlightuserdata(L, ctx);
+    lua_insert(L, -2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return ctx;
+}
+
+lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
 {
     return setupState(
         runtime,
-        [](lua_State* L)
+        [preSandboxInit = std::move(preSandboxInit)](lua_State* L)
         {
+            luteopen_libs(L);
+
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
             luaopen_require(L, requireConfigInit, createCliRequireContext(L));
+            if (preSandboxInit)
+                preSandboxInit(L);
         }
     );
 }
 
-bool setupArguments(lua_State* L, int argc, char** argv)
+lua_State* setupBundleState(Runtime& runtime, Luau::DenseHashMap<std::string, std::string> bundleMap)
+{
+    return setupState(
+        runtime,
+        [bundleMap = std::move(bundleMap)](lua_State* L)
+        {
+            luteopen_libs(L);
+            if (Luau::CodeGen::isSupported())
+                Luau::CodeGen::create(L);
+
+            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(bundleMap)));
+        }
+    );
+}
+
+static bool setupArguments(lua_State* L, int argc, char** argv)
 {
     if (!lua_checkstack(L, argc))
         return false;
@@ -83,7 +164,7 @@ bool setupArguments(lua_State* L, int argc, char** argv)
     return true;
 }
 
-bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL)
+bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL, int program_argc, char** program_argv)
 {
     // module needs to run in a new thread, isolated from the rest
     lua_State* L = lua_newthread(GL);
@@ -123,7 +204,7 @@ bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::strin
     return runtime.runToCompletion();
 }
 
-static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
+static bool runFile(Runtime& runtime, const char* name, lua_State* GL, int program_argc, char** program_argv)
 {
     if (isDirectory(name))
     {
@@ -142,17 +223,17 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL)
 
     std::string bytecode = Luau::compile(*source, copts());
 
-    return runBytecode(runtime, bytecode, chunkname, GL);
+    return runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv);
 }
 
-static void displayHelp(const char* argv0)
+static void displayHelp()
 {
     printf("Usage: lute <command> [options] [arguments...]\n");
     printf("\n");
     printf("Commands:\n");
     printf("  run (default)   Run a Luau script.\n");
     printf("  check           Type check Luau files.\n");
-    printf("  compile         Compile a Luau script into the executable.\n");
+    printf("  compile         Compile a Luau script into a standalone executable.\n");
     printf("  setup           Generate type definition files for the language server.");
     printf("\n");
     printf("Run Options (when using 'run' or no command):\n");
@@ -164,18 +245,25 @@ static void displayHelp(const char* argv0)
     printf("    Performs a type check on the specified files.\n");
     printf("\n");
     printf("Compile Options:\n");
-    printf("  lute compile <script.luau> [output_executable]\n");
-    printf("    Compiles the script, embedding it into a new executable.\n");
+    printf("  lute compile <entry.luau> [--output <executable>]\n");
+    printf("    Compiles entry point and auto-discovered dependencies into a standalone executable.\n");
     printf("\n");
     printf("Setup Options:\n");
     printf("  lute setup");
     printf("    Generates type definition files for the language server.\n");
+    printf("      --with-luaurc Defines aliases to the type definition files in the working directory's luaurc file.\n");
     printf("\n");
     printf("General Options:\n");
     printf("  -h, --help    Display this usage message.\n");
+    printf("      --version Show the lute version.\n");
 }
 
-static void displayRunHelp(const char* argv0)
+static void displayVersion()
+{
+    printf("%s\n", LUTE_VERSION_FULL);
+}
+
+static void displayRunHelp()
 {
     printf("Usage: lute run <script.luau> [args...]\n");
     printf("\n");
@@ -183,7 +271,7 @@ static void displayRunHelp(const char* argv0)
     printf("  -h, --help    Display this usage message.\n");
 }
 
-static void displayCheckHelp(const char* argv0)
+static void displayCheckHelp()
 {
     printf("Usage: lute check <file1.luau> [file2.luau...]\n");
     printf("\n");
@@ -191,14 +279,17 @@ static void displayCheckHelp(const char* argv0)
     printf("  -h, --help    Display this usage message.\n");
 }
 
-static void displayCompileHelp(const char* argv0)
+static void displayCompileHelp()
 {
-    printf("Usage: lute compile <script.luau> [output_executable]\n");
+    printf("Usage: lute compile <entry.luau> [options]\n");
     printf("\n");
     printf("Compile Options:\n");
-    printf("  output_executable    Optional name for the compiled executable.\n");
-    printf("                       Defaults to '<script_name>_compiled'.\n");
-    printf("  -h, --help           Display this usage message.\n");
+    printf("\t--output <path>         Name for the compiled executable.\n");
+    printf("\t\tDefaults to entry file's base name (with .exe on Windows).\n");
+    printf("\t--bundle-stats          Display bundle size and compression statistics.\n");
+    printf("\t--show-require-graph    Print the require dependency graph.\n");
+    printf("\t-h, --help              Display this usage message.\n");
+    printf("\n");
 }
 
 static int assertionHandler(const char* expr, const char* file, int line, const char* function)
@@ -207,37 +298,61 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
-static bool checkValidPath(std::filesystem::path& filePath)
+static std::optional<std::string> getWithRequireByStringSemantics(std::string filePath)
 {
-    if (std::filesystem::exists(filePath))
+    std::string normalized = normalizePath(std::move(filePath));
+
+    std::string rootOfPath;
+    std::string restOfPath = normalized;
+    if (size_t firstSlash = normalized.find_first_of("\\/"); firstSlash != std::string::npos)
     {
-        return true;
+        rootOfPath = normalized.substr(0, firstSlash);
+        restOfPath = normalized.substr(firstSlash + 1);
     }
 
-    // if the file has an explicit extension, dont do a fallback
-    if (filePath.has_extension()) {
-        return false;
-    }
+    std::optional<ModulePath> mp = ModulePath::create(std::move(rootOfPath), std::move(restOfPath), isFile, isDirectory);
+    if (!mp)
+        return std::nullopt;
 
-    std::filesystem::path fallbackPath = ".lute" / filePath;
+    ResolvedRealPath resolved = mp->getRealPath();
+    if (resolved.status != NavigationStatus::Success)
+        return std::nullopt;
+
+    if (resolved.type == ResolvedRealPath::PathType::File)
+        return resolved.realPath;
+
+    return std::nullopt;
+};
+
+static std::optional<std::string> getValidPath(std::string filePath)
+{
+    if (std::optional<std::string> path = getWithRequireByStringSemantics(filePath))
+        return *path;
+
+    // Only fallback to checking .lute/* if the original path has no extension.
+    if (filePath.find('.') != std::string::npos)
+        return std::nullopt;
+
+    std::string fallbackPath = joinPaths(".lute", filePath);
+    size_t fallbackSize = fallbackPath.size();
 
     for (const auto& ext : {".luau", ".lua"})
     {
-        fallbackPath.replace_extension(ext);
+        fallbackPath.resize(fallbackSize);
+        fallbackPath += ext;
 
-        if (std::filesystem::exists(fallbackPath))
-        {
-            filePath = std::move(fallbackPath);
-            return true;
-        }
+        if (isFile(fallbackPath))
+            return fallbackPath;
     }
 
-    return false;
+    return std::nullopt;
 }
 
 int handleRunCommand(int argc, char** argv, int argOffset)
 {
-    std::optional<std::filesystem::path> filePath;
+    std::string filePath;
+    int program_argc = 0;
+    char** program_argv = nullptr;
 
     for (int i = argOffset; i < argc; ++i)
     {
@@ -245,41 +360,42 @@ int handleRunCommand(int argc, char** argv, int argOffset)
 
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
-            displayRunHelp(argv[0]);
+            displayRunHelp();
             return 0;
         }
         else if (currentArg[0] == '-')
         {
             fprintf(stderr, "Error: Unrecognized option '%s' for 'run' command.\n\n", currentArg);
-            displayRunHelp(argv[0]);
+            displayRunHelp();
             return 1;
         }
         else
         {
-            filePath.emplace(currentArg);
+            filePath = currentArg;
             program_argc = argc - i;
             program_argv = &argv[i];
             break;
         }
     }
 
-    if (!filePath)
+    if (filePath.empty())
     {
         fprintf(stderr, "Error: No file specified for 'run' command.\n\n");
-        displayRunHelp(argv[0]);
+        displayRunHelp();
         return 1;
     }
 
     Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
-    if (!checkValidPath(filePath.value()))
+    std::optional<std::string> validPath = getValidPath(filePath);
+    if (!validPath)
     {
-        std::cerr << "Error: File '" << filePath->string() << "' does not exist.\n";
+        std::cerr << "Error: File '" << filePath << "' does not exist.\n";
         return 1;
     }
 
-    bool success = runFile(runtime, filePath->string().c_str(), L);
+    bool success = runFile(runtime, validPath->c_str(), L, program_argc, program_argv);
     return success ? 0 : 1;
 }
 
@@ -293,13 +409,13 @@ int handleCheckCommand(int argc, char** argv, int argOffset)
 
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
-            displayCheckHelp(argv[0]);
+            displayCheckHelp();
             return 0;
         }
         else if (currentArg[0] == '-')
         {
             fprintf(stderr, "Error: Unrecognized option '%s' for 'check' command.\n\n", currentArg);
-            displayCheckHelp(argv[0]);
+            displayCheckHelp();
             return 1;
         }
         else
@@ -311,7 +427,7 @@ int handleCheckCommand(int argc, char** argv, int argOffset)
     if (files.empty())
     {
         fprintf(stderr, "Error: No files specified for 'check' command.\n\n");
-        displayCheckHelp(argv[0]);
+        displayCheckHelp();
         return 1;
     }
 
@@ -320,95 +436,211 @@ int handleCheckCommand(int argc, char** argv, int argOffset)
 
 int handleCompileCommand(int argc, char** argv, int argOffset)
 {
-    std::string inputFilePath;
-    std::string outputFilePath;
+    std::string filePath;
+    std::string outputPath;
+    bool bundleStats = false;
+    bool showRequireGraph = false;
 
+    // Parse arguments
     for (int i = argOffset; i < argc; ++i)
     {
         const char* currentArg = argv[i];
 
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
-            displayCompileHelp(argv[0]);
+            displayCompileHelp();
             return 0;
         }
-        else if (inputFilePath.empty())
+        else if (strcmp(currentArg, "--output") == 0)
         {
-            inputFilePath = currentArg;
+            if (i + 1 >= argc)
+            {
+                fprintf(stderr, "Error: --output requires a path argument.\n\n");
+                displayCompileHelp();
+                return 1;
+            }
+            outputPath = argv[++i];
         }
-        else if (outputFilePath.empty())
+        else if (strcmp(currentArg, "--bundle-stats") == 0)
+            bundleStats = true;
+        else if (strcmp(currentArg, "--show-require-graph") == 0)
+            showRequireGraph = true;
+        else if (currentArg[0] == '-')
         {
-            outputFilePath = currentArg;
+            fprintf(stderr, "Error: Unrecognized option '%s' for 'compile' command.\n\n", currentArg);
+            displayCompileHelp();
+            return 1;
+        }
+        else if (filePath.empty())
+        {
+            filePath = currentArg;
         }
         else
         {
-            fprintf(stderr, "Error: Too many arguments for 'compile' command.\n\n");
-            displayCompileHelp(argv[0]);
+            fprintf(stderr, "Error: Unexpected argument '%s'.\n\n", currentArg);
+            displayCompileHelp();
             return 1;
         }
     }
 
-    if (inputFilePath.empty())
+    if (filePath.empty())
     {
-        fprintf(stderr, "Error: No input file specified for 'compile' command.\n\n");
-        displayCompileHelp(argv[0]);
+        fprintf(stderr, "Error: No file specified for 'compile' command.\n\n");
+        displayCompileHelp();
         return 1;
     }
 
-    if (outputFilePath.empty())
+    // Validate file exists
+    std::optional<std::string> validPath = getValidPath(filePath);
+    if (!validPath)
     {
-        std::string inputBase = inputFilePath;
-        size_t lastSlash = inputBase.find_last_of("/");
+        fprintf(stderr, "Error: File '%s' does not exist.\n", filePath.c_str());
+        return 1;
+    }
+
+    // Set default output path if not specified
+    if (outputPath.empty())
+    {
+        // Extract base name from input file (remove directory and extension)
+        std::string baseName = *validPath;
+
+        // Remove directory path
+        size_t lastSlash = baseName.find_last_of("/\\");
         if (lastSlash != std::string::npos)
-        {
-            inputBase = inputBase.substr(lastSlash + 1);
-        }
-#ifdef _WIN32
-        size_t lastBackslash = inputBase.find_last_of("\\");
-        if (lastBackslash != std::string::npos)
-        {
-            inputBase = inputBase.substr(lastBackslash + 1);
-        }
-#endif
-        size_t lastDot = inputBase.find_last_of('.');
+            baseName = baseName.substr(lastSlash + 1);
+
+        // Remove extension
+        size_t lastDot = baseName.find_last_of('.');
         if (lastDot != std::string::npos)
-        {
-            inputBase = inputBase.substr(0, lastDot);
-        }
-        outputFilePath = inputBase;
+            baseName = baseName.substr(0, lastDot);
+
+        outputPath = baseName;
 #ifdef _WIN32
-        outputFilePath += ".exe";
+        outputPath += ".exe";
 #endif
     }
 
-    return compileScript(inputFilePath, outputFilePath, argv[0]);
+    // Normalize paths to be relative to working directory
+    std::string normalizedEntry = normalizePath(*validPath);
+
+    // Split into directory and filename for cleaner trace output
+    std::string rootDirectory;
+    std::string entryFilename;
+
+    size_t lastSlash = normalizedEntry.find_last_of("/\\");
+    if (lastSlash != std::string::npos)
+    {
+        rootDirectory = normalizedEntry.substr(0, lastSlash);
+        entryFilename = normalizedEntry.substr(lastSlash + 1);
+    }
+    else
+    {
+        rootDirectory = ".";
+        entryFilename = normalizedEntry;
+    }
+
+    // Perform static require trace
+    StaticRequireTracer tracer;
+    std::vector<std::string> discoveredFiles = tracer.trace(rootDirectory, entryFilename);
+
+    if (discoveredFiles.empty())
+    {
+        fprintf(stderr, "Error: No files discovered during require trace.\n");
+        return 1;
+    }
+
+    if (showRequireGraph)
+        tracer.printRequireGraph();
+
+    // Create payload and add all discovered files
+    LuteExePayload payload;
+    for (const auto& file : discoveredFiles)
+    {
+        // Construct full path from root directory and relative file path
+        std::string fullPath = joinPaths(rootDirectory, file);
+        payload.add(fullPath);
+    }
+
+    // Encode the payload
+    printf("Compiling and bundling bytecode...\n");
+    std::optional<LuteEncodeResult> encodeResult = payload.encode();
+    if (!encodeResult)
+    {
+        fprintf(stderr, "Error: Failed to encode bundle\n");
+        return 1;
+    }
+
+    // Show bundle stats if requested
+    if (bundleStats)
+    {
+        printf("\nBundle Statistics:\n");
+        printf("  Files bundled: %zu\n", discoveredFiles.size());
+        printf("  Uncompressed size: %zu bytes\n", encodeResult->uncompressedPayloadSizeBytes);
+        printf("  Compressed size: %zu bytes\n", encodeResult->compressedPayloadSizeBytes);
+        printf(
+            "  Space saved: %.2f%%\n",
+            100.0 * (1.0 - (double)encodeResult->compressedPayloadSizeBytes / (double)encodeResult->uncompressedPayloadSizeBytes)
+        );
+        printf(
+            "  Compression ratio: %.2f:1\n", (double)encodeResult->uncompressedPayloadSizeBytes / (double)encodeResult->compressedPayloadSizeBytes
+        );
+        printf("  Total payload size: %zu bytes\n", encodeResult->bytesWritten);
+        printf("\n");
+    }
+
+    // Get current executable path
+    std::string errorMsg;
+    std::optional<std::string> exePath = process::getExecPath(&errorMsg);
+    if (!exePath)
+    {
+        fprintf(stderr, "Error: Failed to get executable path: %s\n", errorMsg.c_str());
+        return 1;
+    }
+
+    // Create the executable with embedded payload
+    LuteExecutable executable(*exePath);
+    if (!executable.create(outputPath, payload))
+    {
+        fprintf(stderr, "Error: Failed to create executable.\n");
+        return 1;
+    }
+
+    printf("Created executable '%s'\n", outputPath.c_str());
+    return 0;
 }
 
-int handleCliCommand(CliCommandResult result)
+int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv)
 {
     Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
     std::string bytecode = Luau::compile(std::string(result.contents), copts());
-    return runBytecode(runtime, bytecode, "@" + result.path, L) ? 0 : 1;
+    return runBytecode(runtime, bytecode, "@" + result.path, L, program_argc, program_argv) ? 0 : 1;
 }
 
 int cliMain(int argc, char** argv)
 {
     Luau::assertHandler() = assertionHandler;
+    setLuauFlags();
 
-    AppendedBytecodeResult embedded = checkForAppendedBytecode(argv[0]);
-    if (embedded.found)
+    std::string err = "";
+    if (auto exePath = process::getExecPath(&err))
     {
-        Runtime runtime;
-        lua_State* GL = setupCliState(runtime);
+        LuteExecutable exe{*exePath};
+        if (auto payload = exe.extract())
+        {
+            Runtime runtime;
 
-        program_argc = argc;
-        program_argv = argv;
+            lua_State* GL = setupBundleState(runtime, payload->filePathToBytecode);
 
-        bool success = runBytecode(runtime, embedded.BytecodeData, "=__EMBEDDED__", GL);
-
-        return success ? 0 : 1;
+            std::string entryPoint = payload->entryPointPath;
+            auto entryModule = payload->filePathToBytecode.find(entryPoint);
+            if (entryModule != nullptr)
+            {
+                bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, GL, argc, argv);
+                return success ? 0 : 1;
+            }
+        }
     }
 
 #ifdef _WIN32
@@ -418,7 +650,7 @@ int cliMain(int argc, char** argv)
     if (argc < 2)
     {
         // TODO: REPL?
-        displayHelp(argv[0]);
+        displayHelp();
         return 0;
     }
 
@@ -439,12 +671,17 @@ int cliMain(int argc, char** argv)
     }
     else if (strcmp(command, "-h") == 0 || strcmp(command, "--help") == 0)
     {
-        displayHelp(argv[0]);
+        displayHelp();
+        return 0;
+    }
+    else if (strcmp(command, "--version") == 0)
+    {
+        displayVersion();
         return 0;
     }
     else if (std::optional<CliCommandResult> result = getCliCommand(command); result)
     {
-        return handleCliCommand(*result);
+        return handleCliCommand(*result, argc - argOffset, &argv[argOffset]);
     }
     else
     {

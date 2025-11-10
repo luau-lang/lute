@@ -83,6 +83,6 @@ TEST_CASE("library_aware_require")
     REQUIRE(contents);
 
     std::string bytecode = Luau::compile(*contents, copts());
-    bool success = runBytecode(runtime, bytecode, "@" + path, L);
+    bool success = runBytecode(runtime, bytecode, "@" + path, L, 0, nullptr);
     CHECK(success);
 }

@@ -1,4 +1,11 @@
+--!strict
+-- @std/task
+-- stdlib for `@lute/task`
+-- Provides utilities for creating and managing asynchronous tasks
+
 local task = require("@lute/task")
+
+local tasklib = {}
 
 export type task = {
 	success: boolean?,
@@ -6,7 +13,7 @@ export type task = {
 	co: thread,
 }
 
-local function create(f, ...): task
+function tasklib.create(f, ...): task
 	local data = {}
 
 	data.co = coroutine.create(function(...)
@@ -17,10 +24,10 @@ local function create(f, ...): task
 	end)
 
 	coroutine.resume(data.co, ...)
-	return data
+	return data :: task
 end
 
-local function await(t: task)
+function tasklib.await(t: task)
 	if not t.co then
 		error(`await: argument 1 is not a task`)
 	end
@@ -36,11 +43,10 @@ local function await(t: task)
 	end
 end
 
-local function awaitall(...: task)
+function tasklib.awaitall(...: task)
 	local tasks = table.pack(...)
-	tasks.n = nil
 
-	for i, v in tasks do
+	for i, v in ipairs(tasks) do
 		if not v.co then
 			error(`awaitAll: argument {i} is not a task`)
 		end
@@ -71,8 +77,4 @@ local function awaitall(...: task)
 	return table.unpack(results)
 end
 
-return table.freeze({
-	create = create,
-	await = await,
-	awaitall = awaitall,
-})
+return table.freeze(tasklib)

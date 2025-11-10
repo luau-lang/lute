@@ -5,15 +5,14 @@
 #include "lute/options.h"
 #include "lute/requirevfs.h"
 
-#include "lua.h"
-#include "lualib.h"
-
-#include "Luau/Compiler.h"
 #include "Luau/CodeGen.h"
+#include "Luau/Compiler.h"
 #include "Luau/Require.h"
 #include "Luau/StringUtils.h"
 
-#include <memory>
+#include "lua.h"
+#include "lualib.h"
+
 #include <string>
 
 static luarequire_WriteResult write(std::optional<std::string> contents, char* buffer, size_t bufferSize, size_t* sizeOut)
@@ -36,13 +35,41 @@ static luarequire_WriteResult write(std::optional<std::string> contents, char* b
 
 static luarequire_NavigateResult convert(NavigationStatus status)
 {
-    if (status == NavigationStatus::Success)
-        return NAVIGATE_SUCCESS;
+    luarequire_NavigateResult navigateResult = NAVIGATE_NOT_FOUND;
+    switch (status)
+    {
+    case NavigationStatus::Success:
+        navigateResult = NAVIGATE_SUCCESS;
+        break;
+    case NavigationStatus::Ambiguous:
+        navigateResult = NAVIGATE_AMBIGUOUS;
+        break;
+    case NavigationStatus::NotFound:
+        navigateResult = NAVIGATE_NOT_FOUND;
+        break;
+    };
+    return navigateResult;
+}
 
-    if (status == NavigationStatus::Ambiguous)
-        return NAVIGATE_AMBIGUOUS;
-
-    return NAVIGATE_NOT_FOUND;
+static luarequire_ConfigStatus convert(ConfigStatus status)
+{
+    luarequire_ConfigStatus configStatus = CONFIG_AMBIGUOUS;
+    switch (status)
+    {
+    case ConfigStatus::Absent:
+        configStatus = CONFIG_ABSENT;
+        break;
+    case ConfigStatus::Ambiguous:
+        configStatus = CONFIG_AMBIGUOUS;
+        break;
+    case ConfigStatus::PresentJson:
+        configStatus = CONFIG_PRESENT_JSON;
+        break;
+    case ConfigStatus::PresentLuau:
+        configStatus = CONFIG_PRESENT_LUAU;
+        break;
+    };
+    return configStatus;
 }
 
 static bool is_require_allowed(lua_State* L, void* ctx, const char* requirer_chunkname)
@@ -99,10 +126,10 @@ static luarequire_WriteResult get_cache_key(lua_State* L, void* ctx, char* buffe
     return write(reqCtx->vfs->getCacheKey(L), buffer, buffer_size, size_out);
 }
 
-static bool is_config_present(lua_State* L, void* ctx)
+static luarequire_ConfigStatus get_config_status(lua_State* L, void* ctx)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
-    return reqCtx->vfs->isConfigPresent(L);
+    return convert(reqCtx->vfs->getConfigStatus(L));
 }
 
 static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, size_t buffer_size, size_t* size_out)
@@ -128,7 +155,8 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
         luaL_error(L, "could not read file '%s'", loadname);
 
     // now we can compile & run module on the new thread
-    std::string bytecode = Luau::compile(*contents, copts());
+    std::string bytecode = reqCtx->vfs->isPrecompiled() ? *contents : Luau::compile(*contents, copts());
+    bool errored = true;
     if (luau_load(ML, chunkname, bytecode.data(), bytecode.size(), 0) == 0)
     {
         if (getCodegenEnabled())
@@ -141,10 +169,10 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
 
         if (status == 0)
         {
-            const std::string prefix = "module " + std::string(path) + " must";
-
-            if (lua_gettop(ML) == 0)
-                lua_pushstring(ML, (prefix + " return a value, if it has no return value, you should explicitly return `nil`\n").c_str());
+            if (lua_gettop(ML) == 1)
+                errored = false;
+            else
+                lua_pushfstring(ML, "module %s must return a single value, if it has no return value, you should explicitly return `nil`\n", path);
         }
         else if (status == LUA_YIELD)
         {
@@ -158,7 +186,7 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
 
     // add ML result to L stack
     lua_xmove(ML, L, 1);
-    if (lua_isstring(L, -1))
+    if (errored && lua_isstring(L, -1))
     {
         lua_pushstring(L, lua_debugtrace(ML));
         lua_concat(L, 2);
@@ -183,12 +211,11 @@ void requireConfigInit(luarequire_Configuration* config)
     config->to_parent = to_parent;
     config->to_child = to_child;
     config->is_module_present = is_module_present;
-    config->is_config_present = is_config_present;
+    config->get_config_status = get_config_status;
     config->get_chunkname = get_chunkname;
     config->get_loadname = get_loadname;
     config->get_cache_key = get_cache_key;
     config->get_config = get_config;
-    config->get_alias = nullptr; // We use get_config instead of get_alias.
     config->load = load;
 }
 

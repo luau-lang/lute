@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lute/bundlevfs.h"
 #include "lute/clivfs.h"
 #include "lute/filevfs.h"
 #include "lute/libraryvfs.h"
@@ -17,6 +18,7 @@ class RequireVfs : public IRequireVfs
 public:
     RequireVfs() = default;
     RequireVfs(CliVfs cliVfs);
+    RequireVfs(BundleVfs bundleVfs);
 
     bool isRequireAllowed(lua_State* L, std::string_view requirerChunkname) const override;
 
@@ -33,8 +35,13 @@ public:
     std::string getLoadname(lua_State* L) const override;
     std::string getCacheKey(lua_State* L) const override;
 
-    bool isConfigPresent(lua_State* L) const override;
+    ConfigStatus getConfigStatus(lua_State* L) const override;
     std::string getConfig(lua_State* L) const override;
+
+    bool isPrecompiled() const override
+    {
+        return vfsType == VFSType::Bundle;
+    };
 
 private:
     enum class VFSType
@@ -42,6 +49,7 @@ private:
         Disk,
         Std,
         Cli,
+        Bundle,
         Lute,
     };
 
@@ -50,6 +58,7 @@ private:
     FileVfs fileVfs;
     StdLibVfs stdLibVfs;
     std::optional<CliVfs> cliVfs = std::nullopt;
+    std::optional<BundleVfs> bundleVfs = std::nullopt;
     std::string lutePath;
 
     bool atFakeRoot = false;

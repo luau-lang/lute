@@ -1,26 +1,30 @@
 #include "lute/fs.h"
 
-#include "lua.h"
-#include "lualib.h"
-#include "uv.h"
-
 #include "lute/runtime.h"
 #include "lute/time.h"
 #include "lute/userdatas.h"
+
+#include "lua.h"
+#include "lualib.h"
+
+#include "uv.h"
 
 #include <cstdio>
 #include <cstring>
 #ifdef _WIN32
 #include <direct.h>
+#else
+#include <unistd.h>
 #endif
 #include <fcntl.h>
 #include <filesystem>
 #include <map>
 #include <memory>
 #include <optional>
-#include <sys/stat.h>
-#include <string>
 #include <stdlib.h>
+#include <string>
+
+#include <sys/stat.h>
 
 
 #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
@@ -210,6 +214,7 @@ int close(lua_State* L)
 
     uv_fs_t closeReq;
     uv_fs_close(uv_default_loop(), &closeReq, file.fileDescriptor, nullptr);
+    uv_fs_req_cleanup(&closeReq);
     return 0;
 }
 
@@ -231,11 +236,12 @@ int read(lua_State* L)
         uv_fs_read(uv_default_loop(), &readReq, file.fileDescriptor, &iov, 1, -1, nullptr);
 
         numBytesRead = readReq.result;
+        uv_fs_req_cleanup(&readReq);
 
         if (numBytesRead < 0)
         {
-            luaL_errorL(L, "Error reading: %s. Closing file.\n", uv_err_name(numBytesRead));
             memset(readBuffer, 0, sizeof(readBuffer));
+            luaL_errorL(L, "Error reading: %s. Closing file.\n", uv_err_name(numBytesRead));
             return 0;
         }
 
@@ -277,12 +283,13 @@ int write(lua_State* L)
         int bytesWritten = 0;
         uv_fs_write(uv_default_loop(), &writeReq, file.fileDescriptor, &iov, 1, -1, nullptr);
         bytesWritten = writeReq.result;
+        uv_fs_req_cleanup(&writeReq);
 
         if (bytesWritten < 0)
         {
             // Error case.
-            luaL_errorHandle(L, file);
             memset(writeBuffer, 0, sizeof(writeBuffer));
+            luaL_errorHandle(L, file);
             return 0;
         }
 
@@ -302,13 +309,16 @@ std::optional<FileHandle> openHelper(lua_State* L, const char* path, const char*
 
     uv_fs_t openReq;
     int errcode = uv_fs_open(uv_default_loop(), &openReq, path, *openFlags, *modeFlags, nullptr);
-    if (openReq.result < 0)
+    auto result = openReq.result;
+    uv_fs_req_cleanup(&openReq);
+
+    if (result < 0)
     {
         luaL_errorL(L, "Error opening file %s\n", path);
         return std::nullopt;
     }
 
-    return FileHandle{openReq.result, errcode};
+    return FileHandle{result, errcode};
 }
 
 int open(lua_State* L)
@@ -343,12 +353,14 @@ void cleanup(char* buffer, int size, const FileHandle& handle)
     memset(buffer, 0, size);
     uv_fs_t closeReq;
     uv_fs_close(uv_default_loop(), &closeReq, handle.fileDescriptor, nullptr);
+    uv_fs_req_cleanup(&closeReq);
 }
 
 int fs_remove(lua_State* L)
 {
     uv_fs_t unlink_req;
     int err = uv_fs_unlink(uv_default_loop(), &unlink_req, luaL_checkstring(L, 1), nullptr);
+    uv_fs_req_cleanup(&unlink_req);
 
     if (err)
         luaL_errorL(L, "%s", uv_strerror(err));
@@ -363,6 +375,7 @@ int fs_mkdir(lua_State* L)
 
     uv_fs_t req;
     int err = uv_fs_mkdir(uv_default_loop(), &req, path, mode, nullptr);
+    uv_fs_req_cleanup(&req);
 
     if (err)
         luaL_errorL(L, "%s", uv_strerror(err));
@@ -376,6 +389,7 @@ int fs_rmdir(lua_State* L)
 
     uv_fs_t rmdir_req;
     int err = uv_fs_rmdir(uv_default_loop(), &rmdir_req, path, nullptr);
+    uv_fs_req_cleanup(&rmdir_req);
 
     if (err)
         luaL_errorL(L, "%s", uv_strerror(err));
@@ -391,7 +405,10 @@ int fs_stat(lua_State* L)
     int err = uv_fs_stat(uv_default_loop(), &stat_req, path, nullptr);
 
     if (err)
+    {
+        uv_fs_req_cleanup(&stat_req);
         luaL_errorL(L, "%s", uv_strerror(err));
+    }
 
     lua_createtable(L, 0, 6);
 
@@ -406,13 +423,13 @@ int fs_stat(lua_State* L)
     lua_setfield(L, -2, "size");
 
     createDurationFromTimespec32(L, stat.st_birthtim);
-    lua_setfield(L, -2, "created_at");
+    lua_setfield(L, -2, "created");
 
     createDurationFromTimespec32(L, stat.st_atim);
-    lua_setfield(L, -2, "accessed_at");
+    lua_setfield(L, -2, "accessed");
 
     createDurationFromTimespec32(L, stat.st_mtim);
-    lua_setfield(L, -2, "modified_at");
+    lua_setfield(L, -2, "modified");
 
     // permissions
     lua_createtable(L, 0, 2);
@@ -424,28 +441,31 @@ int fs_stat(lua_State* L)
 
     lua_setfield(L, -2, "permissions");
 
+    uv_fs_req_cleanup(&stat_req);
+
     return 1;
 }
 
 static void defaultCallback(uv_fs_t* req)
 {
     auto* request_state = static_cast<ResumeToken*>(req->data);
+    auto token = std::move(*request_state);
+    delete request_state;
 
-    if (req->result)
+    auto err = req->result;
+
+    uv_fs_req_cleanup(req);
+    delete req;
+
+    if (err)
     {
-        request_state->get()->fail(uv_strerror(req->result));
-        uv_fs_req_cleanup(req);
-        delete req;
+        token->fail(uv_strerror(err));
         return;
     }
 
-    request_state->get()->complete(
-        [req](lua_State* L)
+    token->complete(
+        [](lua_State* L)
         {
-            uv_fs_req_cleanup(req);
-
-            delete req;
-
             return 0;
         }
     );
@@ -463,6 +483,8 @@ int fs_copy(lua_State* L)
 
     if (err)
     {
+        delete static_cast<ResumeToken*>(req->data);
+        delete req;
         luaL_errorL(L, "%s", uv_strerror(err));
     }
 
@@ -481,6 +503,8 @@ int fs_link(lua_State* L)
 
     if (err)
     {
+        delete static_cast<ResumeToken*>(req->data);
+        delete req;
         luaL_errorL(L, "%s", uv_strerror(err));
     }
 
@@ -508,6 +532,8 @@ int fs_symlink(lua_State* L)
 
     if (err)
     {
+        delete static_cast<ResumeToken*>(req->data);
+        delete req;
         luaL_errorL(L, "%s", uv_strerror(err));
     }
 
@@ -605,7 +631,7 @@ int fs_watch(lua_State* L)
                     eventHandle->callbackReference->push(L);
 
                     // filename
-                    lua_pushstring(L, filename.c_str());
+                    lua_pushlstring(L, filename.c_str(), filename.size());
 
                     // events
                     lua_createtable(L, 0, 2);
@@ -659,10 +685,11 @@ int fs_exists(lua_State* L)
     auto* req = new uv_fs_t();
     req->data = new ResumeToken(getResumeToken(L));
 
-    int err = uv_fs_stat(
+    int err = uv_fs_access(
         uv_default_loop(),
         req,
         path,
+        F_OK,
         [](uv_fs_t* req)
         {
             auto* request_state = static_cast<ResumeToken*>(req->data);
@@ -670,15 +697,7 @@ int fs_exists(lua_State* L)
             request_state->get()->complete(
                 [req](lua_State* L)
                 {
-                    if (req->result == UV_ENOENT)
-                    {
-                        lua_pushboolean(L, false); // does not exist
-                    }
-                    else
-                    {
-                        lua_pushboolean(L, true);
-                    }
-
+                    lua_pushboolean(L, req->result == 0);
                     uv_fs_req_cleanup(req);
 
                     delete req;
@@ -686,11 +705,14 @@ int fs_exists(lua_State* L)
                     return 1;
                 }
             );
+            delete request_state;
         }
     );
 
     if (err)
     {
+        delete static_cast<ResumeToken*>(req->data);
+        delete req;
         luaL_errorL(L, "%s", uv_strerror(err));
     }
 
@@ -706,7 +728,10 @@ int type(lua_State* L)
     int err = uv_fs_stat(uv_default_loop(), &req, path, nullptr);
 
     if (err)
+    {
+        uv_fs_req_cleanup(&req);
         luaL_errorL(L, "%s", uv_strerror(err));
+    }
 
     auto type = fileModeToType(req.statbuf.st_mode);
     lua_pushstring(L, type);
@@ -756,6 +781,7 @@ int listdir(lua_State* L)
 
                     uv_fs_req_cleanup(req);
 
+                    delete static_cast<ResumeToken*>(req->data);
                     delete req;
 
                     if (err != UV_EOF)
@@ -768,7 +794,11 @@ int listdir(lua_State* L)
     );
 
     if (err)
+    {
+        delete static_cast<ResumeToken*>(req->data);
+        delete req;
         luaL_errorL(L, "%s", uv_strerror(err));
+    }
 
     return lua_yield(L, 0);
 }
@@ -799,11 +829,12 @@ int readfiletostring(lua_State* L)
         uv_fs_read(uv_default_loop(), &readReq, handle->fileDescriptor, &iov, 1, -1, nullptr);
 
         numBytesRead = readReq.result;
+        uv_fs_req_cleanup(&readReq);
 
         if (numBytesRead < 0)
         {
-            luaL_errorL(L, "Error reading: %s. Closing file.\n", uv_err_name(numBytesRead));
             cleanup(readBuffer, sizeof(readBuffer), *handle);
+            luaL_errorL(L, "Error reading: %s. Closing file.\n", uv_err_name(numBytesRead));
             return 0;
         }
 
@@ -854,12 +885,13 @@ int writestringtofile(lua_State* L)
         int bytesWritten = 0;
         uv_fs_write(uv_default_loop(), &writeReq, handle->fileDescriptor, &iov, 1, -1, nullptr);
         bytesWritten = writeReq.result;
+        uv_fs_req_cleanup(&writeReq);
 
         if (bytesWritten < 0)
         {
             // Error case.
-            luaL_errorHandle(L, *handle);
             cleanup(writeBuffer, sizeof(writeBuffer), *handle);
+            luaL_errorHandle(L, *handle);
             return 0;
         }
 
@@ -891,7 +923,7 @@ uv_fs_t* createRequest(lua_State* L)
 
 ResumeCaptureInformation* getResumeInformation(uv_fs_t* req)
 {
-    return reinterpret_cast<ResumeCaptureInformation*>(req->data);
+    return static_cast<ResumeCaptureInformation*>(req->data);
 }
 
 int readasync(lua_State* L)
@@ -899,7 +931,7 @@ int readasync(lua_State* L)
     const char* path = luaL_checkstring(L, 1);
 
     uv_fs_t* openReq = createRequest(L);
-    uv_fs_open(
+    int err = uv_fs_open(
         uv_default_loop(),
         openReq,
         path,
@@ -915,6 +947,7 @@ int readasync(lua_State* L)
                 info->token->fail("Error opening file");
                 uv_fs_t closeReq;
                 uv_fs_close(uv_default_loop(), &closeReq, fd, nullptr);
+                uv_fs_req_cleanup(&closeReq);
                 uv_fs_req_cleanup(req);
                 delete (ResumeCaptureInformation*)req->data;
                 delete req;
@@ -935,11 +968,13 @@ int readasync(lua_State* L)
             {
                 uv_fs_read(uv_default_loop(), &readReq, fd, &iov, 1, -1, nullptr);
                 numBytesRead = readReq.result;
+                uv_fs_req_cleanup(&readReq);
 
                 if (numBytesRead < 0)
                 {
                     uv_fs_t closeReq;
                     uv_fs_close(uv_default_loop(), &closeReq, fd, nullptr);
+                    uv_fs_req_cleanup(&closeReq);
                     // Schedule error;
                     // Also, we should free the original request. We don't have to do this for the read req since it's sycnrhonous
                     info->token->fail("Error reading file");
@@ -965,12 +1000,21 @@ int readasync(lua_State* L)
 
             uv_fs_t closeReq;
             uv_fs_close(uv_default_loop(), &closeReq, fd, nullptr);
+            uv_fs_req_cleanup(&closeReq);
+            uv_fs_req_cleanup(req);
             // free the read buffer as well as the resume information and the request
             delete (ResumeCaptureInformation*)req->data;
             delete req;
             return;
         }
     );
+
+    if (err)
+    {
+        delete static_cast<ResumeCaptureInformation*>(openReq->data);
+        delete openReq;
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
 
     return lua_yield(L, 0);
 }
@@ -1008,9 +1052,7 @@ static void initalizeFS(lua_State* L)
         kWatchHandleTag,
         [](lua_State* L, void* ud)
         {
-            auto* handle = static_cast<fs::WatchHandle*>(ud);
-
-            handle->~WatchHandle();
+            std::destroy_at(static_cast<fs::WatchHandle*>(ud));
         }
     );
 

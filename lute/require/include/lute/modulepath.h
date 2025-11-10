@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -10,11 +11,26 @@ enum class NavigationStatus
     NotFound
 };
 
+enum class ConfigStatus
+{
+    Absent,
+    Ambiguous,
+    PresentJson,
+    PresentLuau
+};
+
 struct ResolvedRealPath
 {
+    enum class PathType
+    {
+        File,
+        Directory
+    };
+
     NavigationStatus status;
     std::string realPath;
     std::optional<std::string> relativePath;
+    PathType type;
 };
 
 class ModulePath
@@ -29,13 +45,13 @@ public:
     static std::optional<ModulePath> create(
         std::string rootDirectory,
         std::string filePath,
-        bool (*isAFile)(const std::string&),
-        bool (*isADirectory)(const std::string&),
+        std::function<bool(const std::string&)> isAFile,
+        std::function<bool(const std::string&)> isADirectory,
         std::optional<std::string> relativePathToTrack = std::nullopt
     );
 
     ResolvedRealPath getRealPath() const;
-    std::string getPotentialLuaurcPath() const;
+    std::string getPotentialConfigPath(const std::string& name) const;
 
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
@@ -44,13 +60,13 @@ private:
     ModulePath(
         std::string realPathPrefix,
         std::string modulePath,
-        bool (*isAFile)(const std::string&),
-        bool (*isADirectory)(const std::string&),
+        std::function<bool(const std::string&)> isAFile,
+        std::function<bool(const std::string&)> isADirectory,
         std::optional<std::string> relativePathToTrack = std::nullopt
     );
 
-    bool (*isAFile)(const std::string&);
-    bool (*isADirectory)(const std::string&);
+    std::function<bool(const std::string&)> isAFile;
+    std::function<bool(const std::string&)> isADirectory;
 
     std::string realPathPrefix;
     std::string modulePath;

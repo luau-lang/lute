@@ -38,7 +38,7 @@ public:
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
 
-    bool isConfigPresent() const;
+    ConfigStatus getConfigStatus() const;
     std::optional<std::string> getConfig() const;
 
     bool isModulePresent() const;
@@ -64,7 +64,7 @@ public:
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
 
-    bool isConfigPresent() const;
+    ConfigStatus getConfigStatus() const;
     std::optional<std::string> getConfig() const;
 
     bool isModulePresent() const;

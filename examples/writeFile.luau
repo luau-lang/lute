@@ -1,4 +1,4 @@
-local fs = require("@lute/fs")
+local fs = require("@std/fs")
 
 --  Open a file if it doesn't exist, truncate it,
 local file = fs.open("dest", "w+")

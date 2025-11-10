@@ -1,4 +1,17 @@
 cmake_minimum_required(VERSION 3.13)
 
 set(LUTE_VERSION 0.1.0)
-message("${LUTE_VERSION}")
+
+set(LUTE_VERSION_SUFFIX_DEFAULT "$ENV{LUTE_VERSION_SUFFIX}")
+if(NOT DEFINED LUTE_VERSION_SUFFIX AND NOT "${LUTE_VERSION_SUFFIX_DEFAULT}" STREQUAL "")
+    set(LUTE_VERSION_SUFFIX "${LUTE_VERSION_SUFFIX_DEFAULT}")
+endif()
+set(LUTE_VERSION_SUFFIX "${LUTE_VERSION_SUFFIX}" CACHE STRING "Optional suffix appended to the Lute version string")
+set(LUTE_VERSION_FULL "${LUTE_VERSION}")
+if(LUTE_VERSION_SUFFIX)
+    set(LUTE_VERSION_FULL "${LUTE_VERSION_FULL}-${LUTE_VERSION_SUFFIX}")
+endif()
+
+# The release workflow depends on this exact message format to extract the
+# version. If making changes, update the workflow accordingly.
+message("${LUTE_VERSION_FULL}")

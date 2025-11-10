@@ -29,8 +29,10 @@ public:
     virtual std::string getLoadname(lua_State* L) const = 0;
     virtual std::string getCacheKey(lua_State* L) const = 0;
 
-    virtual bool isConfigPresent(lua_State* L) const = 0;
+    virtual ConfigStatus getConfigStatus(lua_State* L) const = 0;
     virtual std::string getConfig(lua_State* L) const = 0;
+
+    virtual bool isPrecompiled() const = 0;
 };
 
 struct RequireCtx

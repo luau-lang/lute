@@ -1,0 +1,40 @@
+#include "lute/moduleresolver.h"
+
+#include "lute/resolverequire.h"
+
+#include "Luau/Ast.h"
+#include "Luau/FileUtils.h"
+
+namespace Luau
+{
+
+std::optional<Luau::SourceCode> LuteModuleResolver::readSource(const Luau::ModuleName& name)
+{
+    if (std::optional<std::string> source = readFile(name))
+        return Luau::SourceCode{*source, Luau::SourceCode::Module};
+    return std::nullopt;
+}
+
+// We are currently resolving modules and requires only, and will add support for Roblox globals / types in a subsequent PR.
+std::optional<Luau::ModuleInfo> LuteModuleResolver::resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node)
+{
+    if (auto expr = node->as<Luau::AstExprConstantString>())
+    {
+        std::string requirePath(expr->value.data, expr->value.size);
+
+        std::string error;
+        std::string requirerChunkname = "@" + context->name;
+        std::optional<std::string> absolutePath = resolveRequire(requirePath, std::move(requirerChunkname), &error);
+        if (!absolutePath)
+        {
+            printf("Failed to resolve require: %s\n", error.c_str());
+            return std::nullopt;
+        }
+
+        return Luau::ModuleInfo{*absolutePath};
+    }
+
+    return std::nullopt;
+}
+
+} // namespace Luau
