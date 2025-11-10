@@ -214,25 +214,10 @@ local function printVisitor(replacements: types.replacements?)
 	return printer
 end
 
-function printNode<T>(node: T, visit: (node: T, visitor: visitor.Visitor) -> (), replacements: types.replacements?): string
+function printerLib.printnode(node: luau.AstNode, replacements: types.replacements?): string
 	local printer = printVisitor(replacements)
-	visit(node, printer)
+	visitor.visit(node, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
-end
-
---- Returns a string representation of an AstExpr
-function printerLib.printexpr(expr: luau.AstExpr, replacements: types.replacements?): string
-	return printNode(expr, visitor.visitexpression, replacements)
-end
-
---- Returns a string representation of an AstStat
-function printerLib.printstatement(statement: luau.AstStat, replacements: types.replacements?): string
-	return printNode(statement, visitor.visitstatement, replacements)
-end
-
--- Returns a string representation of an AstType
-function printerLib.printtype(type: luau.AstType, replacements: types.replacements?): string
-	return printNode(type, visitor.visittype, replacements)
 end
 
 function printerLib.printfile(

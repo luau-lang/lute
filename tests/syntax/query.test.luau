@@ -49,10 +49,10 @@ test.suite("AST Query", function(suite)
 
 		-- Verify the replacement table only contains the expected entries
 		local count = 0
-		for _, _ in pairs(replacements) do
-			count = count + 1
+		for _, _ in replacements do
+			count += 1
 		end
-		assert.eq(count, 4) -- Only 2 non-nil replacements
+		assert.eq(count, 6) -- 4 non-nil replacements + print + __root
 	end)
 
 	suite:case("map", function(assert)

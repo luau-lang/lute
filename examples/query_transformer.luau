@@ -1,13 +1,12 @@
 local luau = require("@std/luau")
 local parser = require("@std/syntax/parser")
-local printer = require("@std/syntax/printer")
 local query = require("@std/syntax/query")
 local syntax_utils = require("@std/syntax/utils")
 
 local function transform(ctx)
 	local parsedResult = parser.parsefile(ctx.source)
 
-	local replacements = query
+	return query
 		.select(parsedResult.root, syntax_utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "~="
@@ -18,8 +17,7 @@ local function transform(ctx)
 		:replace(function(bin)
 			return `math.isnan({(bin.lhsoperand :: luau.AstExprLocal).token.text})`
 		end)
-
-	return printer.printfile(parsedResult, replacements)
+		:print()
 end
 
 return transform

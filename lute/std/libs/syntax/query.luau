@@ -3,6 +3,7 @@
 -- Provides utility functions for querying Luau AST nodes
 
 local luau = require("@std/luau")
+local printer = require("@std/syntax/printer")
 local tableext = require("@std/tableext")
 local types = require("@std/syntax/types")
 local visitor = require("@std/syntax/visitor")
@@ -15,6 +16,7 @@ export type query<T = node> = {
 	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
 	map: <U>(self: query<T>, fn: (T) -> (U | { U })?) -> query<U>, -- recursion violation reported
 	forEach: (self: query<T>, callback: (T) -> ()) -> (),
+	__root: node,
 }
 
 local queryLib = {}
@@ -30,8 +32,12 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
+local function print<T>(self: types.replacements): string
+	return printer.printnode(self.__root, self)
+end
+
 function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
-	local replacements = {}
+	local replacements = { print = print, __root = self.__root }
 	for _, node in self.nodes do
 		local r = repl(node)
 		if r ~= nil then
@@ -55,7 +61,14 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> (U | { U })?): query<U>
 			end
 		end
 	end
-	return { nodes = newNodes, filter = self.filter, replace = self.replace, map = self.map, forEach = self.forEach }
+	return {
+		nodes = newNodes,
+		filter = self.filter,
+		replace = self.replace,
+		map = self.map,
+		forEach = self.forEach,
+		__root = self.__root,
+	}
 end
 
 function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): ()
@@ -150,6 +163,7 @@ function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
 		replace = queryLib.replace,
 		map = queryLib.map,
 		forEach = queryLib.forEach,
+		__root = ast,
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 

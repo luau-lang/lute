@@ -2,7 +2,6 @@ local luau = require("@std/luau")
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local query = require("@std/syntax/query")
-local syntaxTypes = require("@std/syntax/types")
 local syntaxUtils = require("@std/syntax/utils")
 local test = require("@std/test")
 
@@ -17,7 +16,7 @@ test.suite("syntax_printer", function(suite)
 			return if s.text == "World" then "1 + 2" else nil
 		end)
 
-		local result = printer.printstatement(ast, replacements)
+		local result = printer.printnode(ast, replacements)
 
 		local expected = "            local name = 1 + 2" -- TODO: preserve trivia so trailing newline is preserved
 
@@ -34,7 +33,7 @@ test.suite("syntax_printer", function(suite)
 			return if s.text == "World" then parser.parseexpr("1 + 2") else nil -- LUAUFIX: I think this is because AstExpr doesn't subtype against AstNode
 		end)
 
-		local result = printer.printstatement(ast, replacements)
+		local result = printer.printnode(ast, replacements)
 
 		local expected = "            local name = 1 + 2" -- TODO: preserve trivia so trailing newline is preserved
 
@@ -51,7 +50,7 @@ test.suite("syntax_printer", function(suite)
 			return parser.parse("local name = 1 + 2")
 		end)
 
-		local result = printer.printstatement(ast, replacements)
+		local result = printer.printnode(ast, replacements)
 
 		local expected = "local name = 1 + 2" -- TODO: preserve trivia so indentation and trailing newline is preserved
 
@@ -77,7 +76,7 @@ test.suite("syntax_printer", function(suite)
 				return ann
 			end)
 
-		local result = printer.printstatement(ast, replacements)
+		local result = printer.printnode(ast, replacements)
 
 		local expected = [[local name: string= "World"]] -- TODO: preserve trivia so space after type is preserved
 
@@ -102,7 +101,7 @@ test.suite("syntax_printer", function(suite)
 				return tp
 			end)
 
-		local result = printer.printstatement(ast, replacements)
+		local result = printer.printnode(ast, replacements)
 
 		local expected = [[type t = (...number) -> string, ...string)]] -- TODO: bug in the parser? AstTypePackExplicit is missing opening
 
