@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/reporter.h"
+
 #include "Luau/DenseHash.h"
 #include "Luau/FileUtils.h"
 
@@ -36,22 +38,25 @@ struct LuteEncodeResult
  */
 struct LuteExePayload
 {
-    LuteExePayload() = default;
-    void add(const std::string& luauFilePath);
+    LuteExePayload(LuteReporter& reporter);
+    void add(const std::string& bundlePath, const std::string& sourcePath);
 
     std::optional<LuteEncodeResult> encode();
-    static std::optional<LuteDecodeResult> decode(const std::string_view binary);
+    static std::optional<LuteDecodeResult> decode(const std::string_view binary, LuteReporter& reporter);
 
     std::string entryPointPath;
     Luau::DenseHashMap<std::string, std::string> filePathToBytecode{""}; // path -> bytecode
 
 private:
+    LuteReporter& reporter;
     bool parseFromDecompressedBundle(std::string_view decompressedBundle);
     std::vector<std::string> filePaths;
+    Luau::DenseHashMap<std::string, std::string> sourceToBundlePath{""};
 };
 
 struct LuteDecodeResult
 {
+    LuteDecodeResult(LuteReporter& reporter);
     LuteExePayload payload;
     size_t bytesRead = 0;
     size_t compressedPayloadSizeBytes = 0;
@@ -73,10 +78,11 @@ struct LuteDecodeResult
  */
 struct LuteExecutable
 {
-    LuteExecutable(const std::string& luteRuntimePath);
+    LuteExecutable(const std::string& luteRuntimePath, LuteReporter& reporter);
 
     bool create(const std::string& outputPath, LuteExePayload& payload);
     std::optional<LuteExePayload> extract();
 
     std::string executablePath;
+    LuteReporter& reporter;
 };

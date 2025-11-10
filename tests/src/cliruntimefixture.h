@@ -1,20 +1,18 @@
 #pragma once
-#include "doctest.h"
-
 #include "lute/climain.h"
 #include "lute/runtime.h"
+
+#include "lutefixture.h"
 
 #include "lua.h"
 
 #include <memory>
 #include <string>
 
-class CliRuntimeFixture
+class CliRuntimeFixture : public LuteFixture
 {
 public:
     CliRuntimeFixture();
-
-    std::string getCapturedOutput();
 
     bool runCode(const std::string& source);
 

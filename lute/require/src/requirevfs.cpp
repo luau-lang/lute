@@ -4,9 +4,9 @@
 #include "lute/modulepath.h"
 #include "lute/stdlibvfs.h"
 
-#include "lualib.h"
-
 #include "Luau/Common.h"
+
+#include "lualib.h"
 
 RequireVfs::RequireVfs(CliVfs cliVfs)
     : cliVfs(std::move(cliVfs))

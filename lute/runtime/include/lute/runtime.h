@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Luau/Variant.h"
 #include "lute/ref.h"
+
+#include "Luau/Variant.h"
 
 #include <atomic>
 #include <condition_variable>
