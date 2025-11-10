@@ -59,7 +59,7 @@ function win32.extname(path: pathlike): string
 	return filename:sub(dotIndex)
 end
 
-function win32.getdrive(path: pathlike): path
+function win32.drive(path: pathlike): path
 	if typeof(path) == "string" then
 		path = win32.parse(path)
 	end

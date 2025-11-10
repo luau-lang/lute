@@ -304,14 +304,14 @@ end)
 
 test.suite("PathWin32GetDriveSuite", function(suite)
 	suite:case("getdrive_absolute_path_string", function(assert)
-		local result = path.win32.getdrive("C:\\Users\\username\\Documents\\file.txt")
+		local result = path.win32.drive("C:\\Users\\username\\Documents\\file.txt")
 		assert.eq(result.kind, "absolute")
 		assert.eq(result.driveLetter, "C")
 		assert.eq(#result.parts, 0)
 	end)
 
 	suite:case("getdrive_relative_path_with_drive", function(assert)
-		local result = path.win32.getdrive("D:Documents\\file.txt")
+		local result = path.win32.drive("D:Documents\\file.txt")
 		assert.eq(result.kind, "absolute")
 		assert.eq(result.driveLetter, "D")
 		assert.eq(#result.parts, 0)
@@ -323,14 +323,14 @@ test.suite("PathWin32GetDriveSuite", function(suite)
 			kind = "absolute",
 			driveLetter = "E",
 		}
-		local result = path.win32.getdrive(pathobj)
+		local result = path.win32.drive(pathobj)
 		assert.eq(result.kind, "absolute")
 		assert.eq(result.driveLetter, "E")
 		assert.eq(#result.parts, 0)
 	end)
 
 	suite:case("getdrive_root_path", function(assert)
-		local result = path.win32.getdrive("F:\\")
+		local result = path.win32.drive("F:\\")
 		assert.eq(result.kind, "absolute")
 		assert.eq(result.driveLetter, "F")
 		assert.eq(#result.parts, 0)
@@ -338,7 +338,7 @@ test.suite("PathWin32GetDriveSuite", function(suite)
 
 	suite:case("getdrive_error_on_empty_path", function(assert)
 		assert.errors(function()
-			return path.win32.getdrive("")
+			return path.win32.drive("")
 		end)
 	end)
 end)
@@ -700,7 +700,7 @@ test.suite("PathWin32ResolveSuite", function(suite)
 		-- Get the drive letter from the current working directory
 		local cwd = process.cwd()
 		local cwdPath = path.win32.parse(cwd)
-		local driveLetter = if system.win32 then cwdPath.driveLetter else "C"
+		local driveLetter = if system.win32 then path.win32.drive(cwdPath).driveLetter else "C"
 
 		local testPath = driveLetter .. ":Documents\\file.txt"
 		local result = path.win32.resolve(testPath)
