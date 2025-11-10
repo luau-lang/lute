@@ -1,12 +1,15 @@
 #include "lute/staticrequires.h"
 
 #include "lute/modulepath.h"
+#include "lute/resolverequire.h"
+#include "lute/staticrequires.h"
 
 #include "Luau/Ast.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Parser.h"
 #include "Luau/VecDeque.h"
 
+#include <algorithm>
 #include <cstdio>
 
 // AST visitor to extract require() calls
@@ -36,12 +39,17 @@ StaticRequireTracer::StaticRequireTracer(LuteReporter& reporter)
 {
 }
 
-std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirectory, const std::string& entryPoint)
+void StaticRequireTracer::trace(const std::string& entryPoint)
 {
     visited.clear();
     discovered.clear();
     requireGraph.clear();
-    this->rootDirectory = rootDirectory;
+
+    if (!isAbsolutePath(entryPoint))
+    {
+        fprintf(stderr, "Error: %s isn't an absolute path\n", entryPoint.c_str());
+        return;
+    }
 
     Luau::VecDeque<std::string> toProcess;
     toProcess.push_back(entryPoint);
@@ -51,19 +59,15 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
         std::string filePath = toProcess.front();
         toProcess.pop_front();
 
-        // Get normalized path for visited tracking
-        std::string fullPath = joinPaths(rootDirectory, filePath);
-        std::string absPath = normalizePath(fullPath);
-
         // Skip if already visited (handles circular dependencies)
-        if (visited.contains(absPath))
+        if (visited.contains(filePath))
             continue;
 
-        visited.insert(absPath);
-        std::optional<std::string> source = readFile(fullPath);
+        visited.insert(filePath);
+        std::optional<std::string> source = readFile(filePath);
         if (!source)
         {
-            reporter.formatError("Warning: Could not read file '%s'\n", fullPath.c_str());
+            reporter.formatError("Warning: Could not read file '%s'\n", filePath.c_str());
             continue;
         }
 
@@ -76,7 +80,14 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
 
         for (const auto& req : requiresInFile)
         {
-            std::optional<std::string> resolvedPath = resolveRequire(filePath, req);
+            // Skip warning for built-in libraries (@std and @lute)
+            // The new and improved requireResolver is really good - it'll even handle std/lute aliases that we've built in.
+            // For now, we can just explicitly skip these, since they are provided by the runtime
+            if (req.find("@std/") == 0 || req.find("@lute/") == 0)
+                continue;
+            std::string err = "";
+            std::optional<std::string> resolvedPath = ::resolveRequire(req, "@" + filePath, &err);
+
             if (resolvedPath)
             {
                 toProcess.push_back(*resolvedPath);
@@ -87,9 +98,9 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
                 // Skip warning for built-in libraries (@std and @lute)
                 bool isBuiltinLibrary = req.rfind("@std/", 0) == 0 || req.rfind("@lute/", 0) == 0;
                 if (!isBuiltinLibrary)
-                {
                     reporter.formatError("Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
-                }
+                if (!err.empty())
+                    reporter.formatError("Warning: Could not resolve require('%s') from '%s':\n\t%s\n", req.c_str(), filePath.c_str(), err.c_str());
             }
         }
 
@@ -97,7 +108,7 @@ std::vector<std::string> StaticRequireTracer::trace(const std::string& rootDirec
         requireGraph[filePath] = std::move(resolvedDeps);
     }
 
-    return discovered;
+    lowestCommonRoot = findLowestCommonRoot(discovered);
 }
 
 std::vector<std::string> StaticRequireTracer::extractRequires(const std::string& source)
@@ -121,109 +132,105 @@ std::vector<std::string> StaticRequireTracer::extractRequires(const std::string&
     return extractor.requirePaths;
 }
 
-std::optional<std::string> StaticRequireTracer::resolveRequire(const std::string& requirer, const std::string& required)
+std::vector<std::pair<std::string, std::string>> StaticRequireTracer::getStaticRequirePairs() const
 {
-    // Get the directory containing the requiring file (relative to rootDirectory)
-    std::string requirerDir;
-    size_t lastSlash = requirer.find_last_of("/\\");
-    if (lastSlash != std::string::npos)
+    std::vector<std::pair<std::string, std::string>> pairs;
+    pairs.reserve(discovered.size());
+
+    size_t commonRootLen = lowestCommonRoot.empty() ? 0 : lowestCommonRoot.length() + 1; // +1 for the trailing slash
+
+    for (const auto& absolutePath : discovered)
     {
-        requirerDir = requirer.substr(0, lastSlash);
-    }
-    else
-    {
-        requirerDir = "";
-    }
-
-    // Helper functions for ModulePath - paths are relative to rootDirectory
-    auto isFileFunc = [this](const std::string& path) -> bool
-    {
-        std::string fullPath = joinPaths(rootDirectory, path);
-        return isFile(fullPath);
-    };
-
-    auto isDir = [this](const std::string& path) -> bool
-    {
-        std::string fullPath = joinPaths(rootDirectory, path);
-        return isDirectory(fullPath);
-    };
-
-    // Create a ModulePath with root as rootDirectory, starting at requirer's directory
-    // This allows us to navigate up with .. beyond requirerDir, but not beyond rootDirectory
-    std::optional<ModulePath> modulePath = ModulePath::create(
-        "",          // Root is empty (relative path base)
-        requirerDir, // Start at the requirer's directory
-        isFileFunc,
-        isDir
-    );
-
-    if (!modulePath)
-        return std::nullopt;
-
-    // Navigate according to the require path
-    // Split require path by '/' and navigate
-    std::string reqPath = required;
-    size_t pos = 0;
-
-    while (pos < reqPath.size())
-    {
-        size_t nextSlash = reqPath.find('/', pos);
-        std::string component;
-
-        if (nextSlash == std::string::npos)
-        {
-            component = reqPath.substr(pos);
-            pos = reqPath.size();
-        }
+        std::string bundlePath;
+        if (commonRootLen > 0 && absolutePath.length() > commonRootLen)
+            bundlePath = absolutePath.substr(commonRootLen);
         else
-        {
-            component = reqPath.substr(pos, nextSlash - pos);
-            pos = nextSlash + 1;
-        }
+            bundlePath = absolutePath;
 
-        if (component.empty() || component == ".")
-            continue;
-
-        if (component == "..")
-        {
-            if (modulePath->toParent() != NavigationStatus::Success)
-                return std::nullopt;
-        }
-        else
-        {
-            if (modulePath->toChild(component) != NavigationStatus::Success)
-                return std::nullopt;
-        }
+        pairs.emplace_back(bundlePath, absolutePath);
     }
 
-    // Get the resolved path (relative to rootDirectory)
-    ResolvedRealPath resolved = modulePath->getRealPath();
-    if (resolved.status != NavigationStatus::Success)
-        return std::nullopt;
+    return pairs;
+}
 
-    // Strip leading slash if present (occurs when root is empty)
-    std::string result = resolved.realPath;
-    if (!result.empty() && result[0] == '/')
-        result = result.substr(1);
-
-    return result;
+bool StaticRequireTracer::containsAbsolute(const std::string& absolutePath) const
+{
+    return visited.contains(absolutePath);
 }
 
 void StaticRequireTracer::printRequireGraph() const
 {
-    printf("\nRequire dependency graph:\n");
+    reporter.reportOutput("\nRequire dependency graph:");
+
+    size_t commonRootLen = lowestCommonRoot.empty() ? 0 : lowestCommonRoot.length() + 1;
+
     for (const auto& [file, deps] : requireGraph)
     {
-        printf("\t%s\n", file.c_str());
+        // Convert absolute path to bundle path for display
+        std::string displayFile;
+        if (commonRootLen > 0 && file.length() > commonRootLen)
+            displayFile = file.substr(commonRootLen);
+        else
+            displayFile = file;
+
+        reporter.formatOutput("\t%s", displayFile.c_str());
         for (const auto& dep : deps)
         {
-            printf("\t\t -> %s\n", dep.c_str());
-        }
+            // Convert absolute path to bundle path for display
+            std::string displayDep;
+            if (commonRootLen > 0 && dep.length() > commonRootLen)
+                displayDep = dep.substr(commonRootLen);
+            else
+                displayDep = dep;
 
+            reporter.formatOutput("\t\t -> %s", displayDep.c_str());
+        }
         if (deps.empty())
         {
-            printf("\t\t(no dependencies)\n");
+            reporter.reportOutput("\t\t(no dependencies)");
         }
     }
-    printf("\n");
+    reporter.reportOutput("");
+}
+
+std::string StaticRequireTracer::findLowestCommonRoot(const std::vector<std::string>& paths)
+{
+    if (paths.empty())
+        return "";
+
+    if (paths.size() == 1)
+    {
+        // For a single file, return its directory
+        size_t lastSlash = paths[0].find_last_of("/\\");
+        if (lastSlash != std::string::npos)
+            return paths[0].substr(0, lastSlash);
+        return "";
+    }
+
+    // Sort the paths - the first and last will have the maximum difference
+    std::vector<std::string> sortedPaths = paths;
+    std::sort(sortedPaths.begin(), sortedPaths.end());
+
+    const std::string& first = sortedPaths.front();
+    const std::string& last = sortedPaths.back();
+
+    // Find common prefix between first and last
+    size_t i = 0;
+    while (i < first.length() && i < last.length() && first[i] == last[i])
+    {
+        i++;
+    }
+
+    // Back up to the last directory separator
+    std::string commonPrefix = first.substr(0, i);
+    size_t lastSlash = commonPrefix.find_last_of("/\\");
+    if (lastSlash != std::string::npos)
+    {
+        // Special case: if the slash is at position 0, we're at the root directory
+        if (lastSlash == 0)
+            return "/";
+        return commonPrefix.substr(0, lastSlash);
+    }
+
+    return "";
 }

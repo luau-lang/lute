@@ -23,13 +23,17 @@ LuteExePayload::LuteExePayload(LuteReporter& reporter)
 {
 }
 
-void LuteExePayload::add(const std::string& luauFilePath)
+void LuteExePayload::add(const std::string& bundlePath, const std::string& sourcePath)
 {
     // First file added becomes the entry point
     if (filePaths.empty())
-        entryPointPath = luauFilePath;
+        entryPointPath = bundlePath;
 
-    filePaths.push_back(luauFilePath);
+    // Store the source path for reading files
+    filePaths.push_back(sourcePath);
+
+    // Map source path to bundle path
+    sourceToBundlePath[sourcePath] = bundlePath;
 }
 
 std::optional<LuteEncodeResult> LuteExePayload::encode()
@@ -45,13 +49,17 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
     // Step 1: Build uncompressed bytecode bundle
     // Format: For each file, append [path_len][path][bytecode_size][bytecode]
     std::string uncompressedBundle;
-    for (const auto& filePath : filePaths)
+    for (const auto& sourcePath : filePaths)
     {
-        // Read source file from disk
-        std::optional<std::string> source = readFile(filePath);
+        // Get the bundle path (rooted path for the bundle)
+        const std::string* bundlePathPtr = sourceToBundlePath.find(sourcePath);
+        const std::string& bundlePath = bundlePathPtr ? *bundlePathPtr : sourcePath;
+
+        // Read source file from disk using absolute source path
+        std::optional<std::string> source = readFile(sourcePath);
         if (!source)
         {
-            reporter.formatError("Encode failed: Could not read file '%s'", filePath.c_str());
+            reporter.formatError("Encode failed: Could not read file '%s'\n", sourcePath.c_str());
             return std::nullopt;
         }
 
@@ -59,18 +67,19 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
         std::string bytecode = Luau::compile(*source, copts());
         if (bytecode.empty())
         {
-            reporter.formatError("Encode failed: Could not compile file '%s' to bytecode", filePath.c_str());
+            reporter.formatError("Encode failed: Could not compile file '%s' to bytecode", sourcePath.c_str());
             return std::nullopt;
         }
 
-        filePathToBytecode[filePath] = bytecode;
+        // Store bytecode with bundle path (rooted path)
+        filePathToBytecode[bundlePath] = bytecode;
 
-        // Append path_length field (uint32_t, 4 bytes)
-        uint32_t pathLength = static_cast<uint32_t>(filePath.size());
+        // Append path_length field (uint32_t, 4 bytes) - use bundle path
+        uint32_t pathLength = static_cast<uint32_t>(bundlePath.size());
         uncompressedBundle.append(reinterpret_cast<const char*>(&pathLength), sizeof(uint32_t));
 
-        // Append path_string field (variable length)
-        uncompressedBundle.append(filePath);
+        // Append path_string field (variable length) - use bundle path
+        uncompressedBundle.append(bundlePath);
 
         // Append bytecode_size field (uint64_t, 8 bytes)
         uint64_t bytecodeSize = bytecode.size();
