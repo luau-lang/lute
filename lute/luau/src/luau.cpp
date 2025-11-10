@@ -21,7 +21,6 @@
 #include <cstring>
 #include <iterator>
 #include <memory>
-#include <optional>
 #include <string>
 
 const char* COMPILE_RESULT_TYPE = "CompileResult";
