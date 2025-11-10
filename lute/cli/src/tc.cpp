@@ -5,6 +5,9 @@
 #include "Luau/PrettyPrinter.h"
 #include "Luau/TypeAttach.h"
 
+#include "lute/configresolver.h"
+#include "lute/moduleresolver.h"
+
 static const std::string kLuteDefinitions = R"LUTE_TYPES(
 -- Net api
 declare net: {
@@ -30,7 +33,7 @@ declare function spawn(path: string): any
 
 )LUTE_TYPES";
 
-struct LuteFileResolver : Luau::FileResolver
+struct LuteFileResolver : Luau::LuteModuleResolver
 {
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
     {
@@ -55,70 +58,11 @@ struct LuteFileResolver : Luau::FileResolver
         return Luau::SourceCode{*source, sourceType};
     }
 
-    std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node) override
-    {
-        // TODO: Need to handle requires
-        return std::nullopt;
-    }
-
     std::string getHumanReadableModuleName(const Luau::ModuleName& name) const override
     {
         if (name == "-")
             return "stdin";
         return name;
-    }
-
-private:
-    // TODO: add require resolver;
-};
-
-struct LuteConfigResolver : Luau::ConfigResolver
-{
-    Luau::Config defaultConfig;
-
-    mutable std::unordered_map<std::string, Luau::Config> configCache;
-    mutable std::vector<std::pair<std::string, std::string>> configErrors;
-
-    LuteConfigResolver(Luau::Mode mode)
-    {
-        defaultConfig.mode = mode;
-    }
-
-    const Luau::Config& getConfig(const Luau::ModuleName& name) const override
-    {
-        std::optional<std::string> path = getParentPath(name);
-        if (!path)
-            return defaultConfig;
-
-        return readConfigRec(*path);
-    }
-
-    const Luau::Config& readConfigRec(const std::string& path) const
-    {
-        auto it = configCache.find(path);
-        if (it != configCache.end())
-            return it->second;
-
-        std::optional<std::string> parent = getParentPath(path);
-        Luau::Config result = parent ? readConfigRec(*parent) : defaultConfig;
-
-        std::string configPath = joinPaths(path, Luau::kConfigName);
-
-        if (std::optional<std::string> contents = readFile(configPath))
-        {
-            Luau::ConfigOptions::AliasOptions aliasOpts;
-            aliasOpts.configLocation = configPath;
-            aliasOpts.overwriteAliases = true;
-
-            Luau::ConfigOptions opts;
-            opts.aliasOptions = std::move(aliasOpts);
-
-            std::optional<std::string> error = Luau::parseConfig(*contents, result, opts);
-            if (error)
-                configErrors.push_back({configPath, *error});
-        }
-
-        return configCache[path] = result;
     }
 };
 
@@ -240,7 +184,7 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
     frontendOptions.runLintChecks = true;
 
     LuteFileResolver fileResolver;
-    LuteConfigResolver configResolver(mode);
+    Luau::LuteConfigResolver configResolver(mode);
     Luau::Frontend frontend(&fileResolver, &configResolver, frontendOptions);
 
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
