@@ -16,13 +16,7 @@ end
 
 test.suite("AST Query", function(suite)
 	suite:case("filter", function(assert)
-		local testQuery = mockQuery({
-			parser.parseexpr("0") :: luau.AstExprConstantNumber,
-			parser.parseexpr("1") :: luau.AstExprConstantNumber,
-			parser.parseexpr("2") :: luau.AstExprConstantNumber,
-			parser.parseexpr("3") :: luau.AstExprConstantNumber,
-			parser.parseexpr("4") :: luau.AstExprConstantNumber,
-		})
+		local testQuery = query.select(parser.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber)
 
 		local filteredQuery = testQuery:filter(function(n)
 			return n.value > 2
@@ -35,13 +29,7 @@ test.suite("AST Query", function(suite)
 	end)
 
 	suite:case("replace", function(assert)
-		local testQuery = mockQuery({
-			parser.parseexpr("0") :: luau.AstExprConstantNumber,
-			parser.parseexpr("1") :: luau.AstExprConstantNumber,
-			parser.parseexpr("2") :: luau.AstExprConstantNumber,
-			parser.parseexpr("3") :: luau.AstExprConstantNumber,
-			parser.parseexpr("4") :: luau.AstExprConstantNumber,
-		})
+		local testQuery = query.select(parser.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber)
 
 		local replacements = testQuery:replace(function(n): string?
 			if n.value > 0 then
@@ -68,13 +56,7 @@ test.suite("AST Query", function(suite)
 	end)
 
 	suite:case("map", function(assert)
-		local testQuery = mockQuery({
-			parser.parseexpr("0") :: luau.AstExprConstantNumber,
-			parser.parseexpr("1") :: luau.AstExprConstantNumber,
-			parser.parseexpr("2") :: luau.AstExprConstantNumber,
-			parser.parseexpr("3") :: luau.AstExprConstantNumber,
-			parser.parseexpr("4") :: luau.AstExprConstantNumber,
-		})
+		local testQuery = query.select(parser.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber)
 
 		local mappedQuery = query.map(testQuery, function(n: luau.AstExprConstantNumber): number?
 			if n.value % 2 == 0 then
@@ -90,11 +72,7 @@ test.suite("AST Query", function(suite)
 	end)
 
 	suite:case("forEach", function(assert)
-		local testQuery = mockQuery({
-			parser.parseexpr("0") :: luau.AstExprConstantNumber,
-			parser.parseexpr("1") :: luau.AstExprConstantNumber,
-			parser.parseexpr("2") :: luau.AstExprConstantNumber,
-		})
+		local testQuery = query.select(parser.parse("local _ = {0, 1, 2}"), utils.isExprConstantNumber)
 
 		local sum = 0
 		testQuery:forEach(function(n: luau.AstExprConstantNumber)
