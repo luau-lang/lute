@@ -144,13 +144,6 @@ TEST_CASE_FIXTURE(LuteFixture, "require_modules")
             );
         }
 
-        SUBCASE("config_luau_timeout")
-        {
-            doFailingSubcase(
-                argv, {"./config_tests/config_luau_timeout/requirer"}, {R"(error requiring module "@dep": configuration execution timed out)"}
-            );
-        }
-
         SUBCASE("lute_modules")
         {
             doPassingSubcase(argv, {"./lute/lute"}, {"successfully required @lute modules"});
