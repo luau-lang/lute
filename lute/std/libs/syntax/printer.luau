@@ -86,24 +86,9 @@ end
 local function printReplacement(self: PrintVisitor, node: luau.AstNode, replacement: types.replacement)
 	if typeof(replacement) == "string" then
 		self:write(replacement)
-	elseif replacement.kind ~= nil then -- LUAUFIX: type solver should know replacement might have a kind field
+	elseif replacement.kind ~= nil then -- LUAUFIX: type solver upset comparing string singleton union to nil
 		-- TODO: preserve trivia
-		visitor.visit(replacement, self) -- LUAUFIX: refine replacement to be AstNode
-	elseif replacement.tag ~= nil then -- LUAUFIX: type solver should know replacement might have a tag field (if it's a delta or removal)
-		self.replacements[node] = nil -- Prevent infinite recursion
-		if replacement.tag == "append" then
-			self:printReplacement(node, node)
-			self:printReplacement(node, replacement.content)
-		elseif replacement.tag == "prepend" then
-			self:printReplacement(node, replacement.content)
-			self:printReplacement(node, node)
-		elseif replacement.tag == "replace" then
-			self:printReplacement(node, replacement.content)
-		elseif replacement.tag == "remove" then
-			return
-		else
-			error("Unsupported tag for replacement")
-		end
+		visitor.visit(replacement, self)
 	else
 		error("Unsupported replacement type")
 	end
