@@ -3,7 +3,6 @@ local luau = require("@std/luau")
 local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
-local module = require("../src/require/without_config/module")
 
 local tmpDir = system.tmpdir()
 
