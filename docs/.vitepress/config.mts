@@ -5,6 +5,7 @@ export default withSidebar(
   defineConfig({
     title: 'Lute',
     description: 'Luau for General-Purpose Programming',
+    base: "/",
     themeConfig: {
       nav: [
         { text: 'Guide', link: '/guide/installation' },
