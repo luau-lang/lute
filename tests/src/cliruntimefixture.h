@@ -2,19 +2,17 @@
 #include "lute/climain.h"
 #include "lute/runtime.h"
 
+#include "lutefixture.h"
+
 #include "lua.h"
 
 #include <memory>
 #include <string>
 
-#include "doctest.h"
-
-class CliRuntimeFixture
+class CliRuntimeFixture : public LuteFixture
 {
 public:
     CliRuntimeFixture();
-
-    std::string getCapturedOutput();
 
     bool runCode(const std::string& source);
 

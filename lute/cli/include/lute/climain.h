@@ -4,7 +4,16 @@
 
 struct lua_State;
 struct Runtime;
+class LuteReporter;
 
 lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit = nullptr);
-int cliMain(int argc, char** argv);
-bool runBytecode(Runtime& runtime, const std::string& bytecode, const std::string& chunkname, lua_State* GL, int program_argc, char** program_argv);
+int cliMain(int argc, char** argv, LuteReporter& reporter);
+bool runBytecode(
+    Runtime& runtime,
+    const std::string& bytecode,
+    const std::string& chunkname,
+    lua_State* GL,
+    int program_argc,
+    char** program_argv,
+    LuteReporter& reporter
+);
