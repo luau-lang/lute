@@ -1,5 +1,6 @@
 #include "doctest.h"
 
+#include "lutefixture.h"
 #include "luteprojectroot.h"
 
 #include "lute/climain.h"
@@ -18,7 +19,7 @@
 
 #include <memory>
 
-TEST_CASE("library_aware_require")
+TEST_CASE_FIXTURE(LuteFixture, "library_aware_require")
 {
     Runtime runtime;
 
@@ -83,6 +84,6 @@ TEST_CASE("library_aware_require")
     REQUIRE(contents);
 
     std::string bytecode = Luau::compile(*contents, copts());
-    bool success = runBytecode(runtime, bytecode, "@" + path, L, 0, nullptr);
+    bool success = runBytecode(runtime, bytecode, "@" + path, L, 0, nullptr, getReporter());
     CHECK(success);
 }
