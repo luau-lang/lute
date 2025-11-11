@@ -75,7 +75,7 @@ test.suite("AST Query", function(suite)
 	suite:case("select_nums", function(assert)
 		local ast = luau.parse("print(1 + 2)")
 		local queryResult: query.query<luau.AstExprConstantNumber> = query.selectFromRoot(
-			ast.root :: luau.AstNode,
+			ast.root, -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 			function(n: luau.AstNode): luau.AstExprConstantNumber?
 				if n.kind == "expr" and n.tag == "number" then
 					return n
