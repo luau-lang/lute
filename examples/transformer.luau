@@ -1,11 +1,8 @@
-local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local visitor = require("@std/syntax/visitor")
 local luau = require("@lute/luau")
 
-function transformation(ctx)
-	local parsedResult = parser.parsefile(ctx.source)
-
+local function transformation(ctx)
 	local v = visitor.create()
 
 	v.visitBinary = function(node: luau.AstExprBinary)
@@ -80,9 +77,9 @@ function transformation(ctx)
 		return false
 	end
 
-	visitor.visitblock(parsedResult.root, v)
+	visitor.visitblock(ctx.parseresult.root, v)
 
-	return printer.printfile(parsedResult)
+	return printer.printfile(ctx.parseresult)
 end
 
 return transformation

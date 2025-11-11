@@ -1,6 +1,9 @@
+local luau = require("@std/luau")
+
 export type Context<Options = { [any]: any }> = {
 	path: string,
 	source: string,
+	parseresult: luau.ParseResult,
 	options: Options,
 }
 
