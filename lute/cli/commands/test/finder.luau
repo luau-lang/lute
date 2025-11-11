@@ -17,7 +17,7 @@ local function findtestfilesrec(directory: path.path): { path.path }
 		if entry.type == "dir" then
 			tableext.extend(results, findtestfilesrec(fullPath))
 		elseif istestfile(entry.name) then
-			table.insert(results, fullPath)
+			table.insert(results, path.normalize(fullPath))
 		end
 	end
 
@@ -37,7 +37,7 @@ local function findtestfiles(paths: { string }): { path.path }
 		if fs.type(pathObj) == "dir" then
 			tableext.extend(files, findtestfilesrec(pathObj))
 		elseif istestfile(filepath) then
-			table.insert(files, pathObj)
+			table.insert(files, path.normalize(pathObj))
 		end
 	end
 

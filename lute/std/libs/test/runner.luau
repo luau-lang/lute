@@ -4,6 +4,7 @@
 
 local types = require("./types")
 local assert = require("./assert")
+local path = require("@std/path")
 
 type Test = types.Test
 type TestCase = types.TestCase
@@ -103,7 +104,7 @@ function runner.run(env: TestEnvironment): TestRunResult
 				test = tc.name,
 				assertion = if assertName == "xpcall" then nil else assertName,
 				error = if assertName == "xpcall" then nil else err.msg,
-				filename = fileName,
+				filename = path.format(fileName),
 				linenumber = lineNumber,
 			}
 			table.insert(failures, failedtest)
@@ -142,7 +143,7 @@ function runner.run(env: TestEnvironment): TestRunResult
 					test = testFullName,
 					assertion = if assertName == "xpcall" then nil else assertName,
 					error = if assertName == "xpcall" then nil else err.msg,
-					filename = fileName,
+					filename = path.format(fileName),
 					linenumber = lineNumber,
 				}
 				table.insert(failures, failedtest)
