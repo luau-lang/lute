@@ -13,7 +13,7 @@ export type query<T = node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
 	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
-	map: <U>(self: query<T>, fn: (T) -> (U | { U })?) -> query<U>, -- recursion violation reported
+	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	forEach: (self: query<T>, callback: (T) -> ()) -> (),
 	__root: node,
 } -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }?) -> query<U> method
@@ -47,7 +47,6 @@ function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): t
 end
 
 -- map will return a query where its nodes are all the non-nil values returned by fn when called on each node of the original query
--- Because of the recursion constraint, we can't actually include this as a method of query right now
 function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 	local newNodes = {}
 	for _, node in self.nodes do
@@ -56,14 +55,8 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 			table.insert(newNodes, mapped)
 		end
 	end
-	return {
-		nodes = newNodes,
-		filter = self.filter,
-		replace = self.replace,
-		map = self.map,
-		forEach = self.forEach,
-		__root = self.__root,
-	}
+	self.nodes = newNodes
+	return self
 end
 
 function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): ()
