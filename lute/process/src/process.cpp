@@ -28,11 +28,14 @@ namespace process
 
 void convertCRLFtoLF(std::string& str)
 {
-      size_t pos = 0;
-      while ((pos = str.find("\r\n", pos)) != std::string::npos) {
-          str.erase(pos, 1);  // Remove the '\r'
-          pos++;  // Move past the '\n'
-      }
+    size_t writePos = 0;
+    for (size_t readPos = 0; readPos < str.size(); ++readPos)
+    {
+        if (str[readPos] == '\r' && readPos + 1 < str.size() && str[readPos + 1] == '\n')
+            continue;  // Skip the '\r' in CRLF
+        str[writePos++] = str[readPos];
+    }
+    str.resize(writePos);
 }
     
 struct ProcessHandle

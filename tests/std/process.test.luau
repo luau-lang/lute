@@ -25,7 +25,7 @@ test.suite("ProcessSuite", function(suite)
 			local root = pathlib.win32.drive(process.cwd())
 			rootdir = pathlib.format(root)
 		end
-		local r = process.run({ "pwd" }, { cwd = rootdir, shell = if system.win32 then "cmd" else "bash" })
+		local r = process.run({ "pwd" }, { cwd = rootdir })
 		assert.tableeq(r, {
 			exitcode = 0,
 			stdout = "/\n",
