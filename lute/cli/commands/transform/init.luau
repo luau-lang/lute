@@ -98,9 +98,12 @@ local function applyMigration(
 
 		local source = fs.readfiletostring(pathStr)
 
+		local parseresult = luau.parse(source)
+
 		local ctx = {
 			path = pathStr,
 			source = source,
+			parseresult = parseresult,
 			options = options,
 		}
 
