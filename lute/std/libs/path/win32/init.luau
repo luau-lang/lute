@@ -59,6 +59,24 @@ function win32.extname(path: pathlike): string
 	return filename:sub(dotIndex)
 end
 
+function win32.drive(path: pathlike): path
+	if typeof(path) == "string" then
+		path = win32.parse(path)
+	end
+
+	path = path :: path
+
+	if path.driveLetter == nil then
+		error("Path does not have a drive letter: " .. win32.format(path))
+	end
+
+	return setmetatable({
+		parts = {},
+		kind = "absolute",
+		driveLetter = path.driveLetter,
+	}, path_mt)
+end
+
 function win32.format(path: pathlike): string
 	if typeof(path) == "string" then
 		return path

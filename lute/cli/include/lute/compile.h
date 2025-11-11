@@ -1,8 +1,9 @@
 #pragma once
 
+#include "lute/reporter.h"
+
 #include "Luau/DenseHash.h"
 #include "Luau/FileUtils.h"
-#include "lute/reporter.h"
 
 #include <string_view>
 
@@ -38,7 +39,7 @@ struct LuteEncodeResult
 struct LuteExePayload
 {
     LuteExePayload(LuteReporter& reporter);
-    void add(const std::string& luauFilePath);
+    void add(const std::string& bundlePath, const std::string& sourcePath);
 
     std::optional<LuteEncodeResult> encode();
     static std::optional<LuteDecodeResult> decode(const std::string_view binary, LuteReporter& reporter);
@@ -50,6 +51,7 @@ private:
     LuteReporter& reporter;
     bool parseFromDecompressedBundle(std::string_view decompressedBundle);
     std::vector<std::string> filePaths;
+    Luau::DenseHashMap<std::string, std::string> sourceToBundlePath{""};
 };
 
 struct LuteDecodeResult

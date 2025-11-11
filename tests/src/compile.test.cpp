@@ -1,5 +1,6 @@
-#include "lute/climain.h"
 #include "lute/compile.h"
+
+#include "lute/climain.h"
 
 #include "Luau/FileUtils.h"
 
@@ -20,7 +21,7 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_single_file_roundtrip")
 
     // Create payload and add file
     LuteExePayload originalPayload{getReporter()};
-    originalPayload.add(testFilePath);
+    originalPayload.add(testFilePath, testFilePath);
 
     // Encode
     auto encodeResult = originalPayload.encode();
@@ -71,7 +72,7 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_multiple_files_roundtrip")
     LuteExePayload originalPayload{getReporter()};
     for (const auto& file : testFiles)
     {
-        originalPayload.add(file);
+        originalPayload.add(file, file);
     }
 
     // First file should be the entry point
@@ -129,7 +130,7 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_corrupted_metadata")
 
     // Create valid payload
     LuteExePayload originalPayload{getReporter()};
-    originalPayload.add(testFilePath);
+    originalPayload.add(testFilePath, testFilePath);
     auto encodeResult = originalPayload.encode();
     REQUIRE(encodeResult.has_value());
 
@@ -161,8 +162,8 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_entry_point_is_first_added")
     std::string secondFile = joinPaths(testDir, "utils.luau");
 
     LuteExePayload payload{getReporter()};
-    payload.add(firstFile);
-    payload.add(secondFile);
+    payload.add(firstFile, firstFile);
+    payload.add(secondFile, secondFile);
 
     // Entry point should be the first file added
     CHECK(payload.entryPointPath == firstFile);
@@ -174,7 +175,7 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_nonexistent_file")
     std::string nonExistentFile = joinPaths(luteProjectRoot, "tests/src/this_file_does_not_exist.luau");
 
     LuteExePayload payload{getReporter()};
-    payload.add(nonExistentFile);
+    payload.add(nonExistentFile, nonExistentFile);
 
     // Encoding should fail because file doesn't exist
     auto encodeResult = payload.encode();
@@ -198,7 +199,7 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_compression_effectiveness")
     std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/main.luau");
 
     LuteExePayload payload{getReporter()};
-    payload.add(testFilePath);
+    payload.add(testFilePath, testFilePath);
 
     auto encodeResult = payload.encode();
     REQUIRE(encodeResult.has_value());
@@ -219,12 +220,12 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_bytecode_integrity")
 
     // Create two separate payloads with the same file
     LuteExePayload payload1{getReporter()};
-    payload1.add(testFilePath);
+    payload1.add(testFilePath, testFilePath);
     auto encode1 = payload1.encode();
     REQUIRE(encode1.has_value());
 
     LuteExePayload payload2{getReporter()};
-    payload2.add(testFilePath);
+    payload2.add(testFilePath, testFilePath);
     auto encode2 = payload2.encode();
     REQUIRE(encode2.has_value());
 
@@ -246,7 +247,7 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_validates_numfiles_metadata")
 
     // Create and encode a valid payload
     LuteExePayload payload{getReporter()};
-    payload.add(testFilePath);
+    payload.add(testFilePath, testFilePath);
     auto encodeResult = payload.encode();
     REQUIRE(encodeResult.has_value());
 
@@ -292,7 +293,7 @@ TEST_CASE_FIXTURE(LuteFixture, "luteexecutable_single_file_roundtrip")
 
     // Create payload with a test file
     LuteExePayload originalPayload{getReporter()};
-    originalPayload.add(testFilePath);
+    originalPayload.add(testFilePath, testFilePath);
 
     // Create LuteExecutable and write it out
     std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_output_exe");
@@ -352,7 +353,7 @@ TEST_CASE_FIXTURE(LuteFixture, "luteexecutable_multiple_files_roundtrip")
     LuteExePayload originalPayload{getReporter()};
     for (const auto& file : testFiles)
     {
-        originalPayload.add(file);
+        originalPayload.add(file, file);
     }
 
     // First file should be the entry point
@@ -433,7 +434,7 @@ TEST_CASE_FIXTURE(LuteFixture, "luteexecutable_extract_preserves_original_execut
 
     // Create payload and executable
     LuteExePayload payload{getReporter()};
-    payload.add(testFilePath);
+    payload.add(testFilePath, testFilePath);
 
     std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_output_exe_preserve");
     LuteExecutable executable{dummyExePath, getReporter()};

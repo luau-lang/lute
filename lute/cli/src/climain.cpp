@@ -485,19 +485,27 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
         return 1;
     }
 
-    // Validate file exists
-    std::optional<std::string> validPath = getValidPath(filePath);
-    if (!validPath)
+    std::string absoluteEntryPoint;
+    if (isAbsolutePath(filePath))
     {
-        reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
-        return 1;
+        absoluteEntryPoint = filePath;
+    }
+    else
+    {
+        std::optional<std::string> cwd = getCurrentWorkingDirectory();
+        if (!cwd)
+        {
+            reporter.reportError("Error: Failed to get current working directory.\n");
+            return 1;
+        }
+        absoluteEntryPoint = normalizePath(joinPaths(*cwd, filePath));
     }
 
     // Set default output path if not specified
     if (outputPath.empty())
     {
         // Extract base name from input file (remove directory and extension)
-        std::string baseName = *validPath;
+        std::string baseName = filePath;
 
         // Remove directory path
         size_t lastSlash = baseName.find_last_of("/\\");
@@ -515,46 +523,24 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
 #endif
     }
 
-    // Normalize paths to be relative to working directory
-    std::string normalizedEntry = normalizePath(*validPath);
-
-    // Split into directory and filename for cleaner trace output
-    std::string rootDirectory;
-    std::string entryFilename;
-
-    size_t lastSlash = normalizedEntry.find_last_of("/\\");
-    if (lastSlash != std::string::npos)
-    {
-        rootDirectory = normalizedEntry.substr(0, lastSlash);
-        entryFilename = normalizedEntry.substr(lastSlash + 1);
-    }
-    else
-    {
-        rootDirectory = ".";
-        entryFilename = normalizedEntry;
-    }
-
     // Perform static require trace
     StaticRequireTracer tracer{reporter};
-    std::vector<std::string> discoveredFiles = tracer.trace(rootDirectory, entryFilename);
-
-    if (discoveredFiles.empty())
-    {
-        reporter.reportError("Error: No files discovered during require trace.");
-        return 1;
-    }
+    tracer.trace(absoluteEntryPoint);
 
     if (showRequireGraph)
         tracer.printRequireGraph();
 
     // Create payload and add all discovered files
     LuteExePayload payload{reporter};
-    for (const auto& file : discoveredFiles)
+    auto staticRequirePairs = tracer.getStaticRequirePairs();
+    // Add file with absolute path for reading and rooted path for bundle
+    // We don't want to leak your entire directory path in the bundle, so we
+    // try to pick the lowest common ancestor and keep that as the root.
+    for (const auto& [bundle, absolute] : staticRequirePairs)
     {
-        // Construct full path from root directory and relative file path
-        std::string fullPath = joinPaths(rootDirectory, file);
-        payload.add(fullPath);
+        payload.add(bundle, absolute);
     }
+
 
     // Encode the payload
     reporter.reportOutput("Compiling and bundling bytecode...");
@@ -569,7 +555,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
     if (bundleStats)
     {
         reporter.reportOutput("\nBundle Statistics:");
-        reporter.formatOutput("\tFiles bundled: %zu", discoveredFiles.size());
+        reporter.formatOutput("\tFiles bundled: %zu", staticRequirePairs.size());
         reporter.formatOutput("\tUncompressed size: %zu bytes", encodeResult->uncompressedPayloadSizeBytes);
         reporter.formatOutput("\tCompressed size: %zu bytes", encodeResult->compressedPayloadSizeBytes);
         reporter.formatOutput(
