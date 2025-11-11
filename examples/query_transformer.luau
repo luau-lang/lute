@@ -1,13 +1,10 @@
 local luau = require("@std/luau")
-local parser = require("@std/syntax/parser")
 local query = require("@std/syntax/query")
 local syntax_utils = require("@std/syntax/utils")
 
 local function transform(ctx)
-	local parsedResult = parser.parsefile(ctx.source)
-
 	return query
-		.select(parsedResult.root, syntax_utils.isExprBinary)
+		.selectFromRoot(ctx.parseresult.root, syntax_utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "~="
 				and bin.lhsoperand.tag == "local"
