@@ -49,19 +49,21 @@ function TestSuite:afterall(hook: () -> ())
 	self._afterall = hook
 end
 
-local env: TestEnvironment = { anonymous = {}, suites = {}, reporter = reporter.simple }
+local env: TestEnvironment = { anonymous = {}, suites = {}, suiteindex = {}, caseindex = {} }
 
 -- Test library export surface
 local test = {}
-
-function test.setreporter(reporter: TestReporter)
-	test.reporter = reporter
-end
 
 -- register an anonymous test case
 function test.case(name: string, case: Test)
 	local testcase = { name = name, case = case }
 	table.insert(env.anonymous, testcase)
+
+	-- Update caseindex
+	if not env.caseindex[name] then
+		env.caseindex[name] = { anonymous = {}, suites = {} }
+	end
+	table.insert(env.caseindex[name].anonymous, testcase)
 end
 
 -- register a test suite
@@ -69,11 +71,30 @@ function test.suite(name: string, registerFn: (TestSuite) -> ())
 	local suite = TestSuite.new(name)
 	registerFn(suite)
 	table.insert(env.suites, suite)
+
+	-- Update suiteindex
+	env.suiteindex[name] = suite
+
+	-- Update caseindex for all cases in this suite
+	for _, testcase in suite.cases do
+		if not env.caseindex[testcase.name] then
+			env.caseindex[testcase.name] = { anonymous = {}, suites = {} }
+		end
+		if not env.caseindex[testcase.name].suites[name] then
+			env.caseindex[testcase.name].suites[name] = {}
+		end
+		table.insert(env.caseindex[testcase.name].suites[name], testcase)
+	end
 end
 
 -- get all registered tests without running them (internal)
 function test._registered()
-	return table.freeze({ anonymous = env.anonymous, suites = env.suites })
+	return table.freeze({
+		anonymous = env.anonymous,
+		suites = env.suites,
+		suiteindex = env.suiteindex,
+		caseindex = env.caseindex,
+	})
 end
 
 -- run all the tests
