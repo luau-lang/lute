@@ -969,7 +969,6 @@ test.suite("parse types", function(suite)
 		assert.eq(pair1.node.tag, "reference")
 		assert.eq(pair1.separator, nil)
 
-		-- Wack that optional types are two whole Ast nodes, but it's how it is on the C++ side too
 		local pair2 = unionType.types[2]
 		assert.eq(pair2.node.tag, "optional")
 		assert.neq(pair2.separator, nil)
