@@ -175,10 +175,6 @@ function luau.parse(source: string): ParseResult
 	return luteLuau.parse(source)
 end
 
-function luau.parseexpr(source: string): AstExpr
-	return luteLuau.parseexpr(source)
-end
-
 function luau.compile(source: string): Bytecode
 	return luteLuau.compile(source)
 end

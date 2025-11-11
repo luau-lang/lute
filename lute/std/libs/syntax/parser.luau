@@ -2,7 +2,7 @@
 -- @std/syntax/parser
 -- Parser for Luau source code into Luau AST nodes
 
-local luau = require("@std/luau")
+local luau = require("@lute/luau")
 
 local parser = {}
 
