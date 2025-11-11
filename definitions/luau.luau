@@ -598,4 +598,9 @@ function luau.resolverequire(path: string, fromchunkname: string): string
 	error("not implemented")
 end
 
+-- For now, we return a string representation of the module's type, but we will expand it to some Luau data structure representation of Type (similar to the AST types) in a subsequent PR.
+function luau.typeofmodule(modulepath: string): string
+	error("not implemented")
+end
+
 return luau
