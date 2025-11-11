@@ -1,5 +1,5 @@
-local vectorext = require("@std/vectorext")
 local test = require("@std/test")
+local vectorext = require("@std/vectorext")
 
 test.suite("VectorExt", function(suite)
 	suite:case("withx_withy_withz", function(assert)
