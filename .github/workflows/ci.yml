@@ -40,7 +40,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Use CI .luaurc file
-        run: mv .luaurc.ci .luaurc
+        run: rm .luaurc && mv .luaurc.ci .luaurc
 
       - name: Run Luau Tests
         run: find tests -name "*.test.luau" | xargs -I {} ${{ steps.build_lute.outputs.exe_path }} run {}
