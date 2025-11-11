@@ -5,6 +5,7 @@
 
 local fs = require("@lute/fs")
 local pathlib = require("@std/path")
+local sys = require("@std/system")
 
 local fslib = {}
 
@@ -91,11 +92,18 @@ end
 
 function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?): ()
 	if options and options.makeparents then
-		local parts: { string } = pathlib.parse(path).parts
+		local parsed = pathlib.parse(path)
+		local parts: { string } = parsed.parts
 
 		local subdir: pathlike = "."
 		if pathlib.isabsolute(path) then
-			subdir = pathlib.format({ absolute = true, parts = {} })
+			if sys.win32 then
+				-- Windows path - get the drive root like "C:\"
+				subdir = pathlib.win32.drive(parsed)
+			else
+				-- POSIX absolute path - start from root "/"
+				subdir = pathlib.format({ absolute = true, parts = {} })
+			end
 		end
 
 		for _, part in parts do
