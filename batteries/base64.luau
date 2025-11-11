@@ -112,7 +112,7 @@ local function decode(input_buffer: buffer): buffer
 			error("Invalid base64 input", 2)
 		end
 		read_offset += 4
-		-- u32 BE: [B1, B2, B3, 0] = b1<<26|b2<<20|b3<<14|b4<<8, trailing 0 will be ovewriten next iteration
+		-- u32 BE: [B1, B2, B3, 0] = b1<<26|b2<<20|b3<<14|b4<<8, trailing 0 will be overwritten next iteration
 		buffer.writeu32(output, write_offset, bit32.byteswap(b1 * 0x4000000 + b2 * 0x100000 + b3 * 0x4000 + b4 * 0x100))
 		write_offset += 3
 	end

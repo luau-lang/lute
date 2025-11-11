@@ -35,7 +35,7 @@ local invalidInputs = {
 local invalidLastBytes = {
 	"====", -- all padding
 	"A==A", -- char after padding
-	"A",    -- invalid length
+	"A", -- invalid length
 	"AB==", -- impossible sequence
 	"AAB=", -- impossible sequence
 }
