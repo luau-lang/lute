@@ -1,5 +1,8 @@
 #include "lute/luau.h"
 
+#include "lute/configresolver.h"
+#include "lute/moduleresolver.h"
+
 #include "Luau/Ast.h"
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/Compiler.h"
@@ -13,9 +16,6 @@
 
 #include "lua.h"
 #include "lualib.h"
-
-#include "lute/configresolver.h"
-#include "lute/moduleresolver.h"
 
 #include <cstddef>
 #include <cstring>
@@ -1962,7 +1962,14 @@ struct AstSerialize : public Luau::AstVisitor
                 lua_setfield(L, -2, "tag");
                 lua_setfield(L, -2, "node");
 
-                lua_pushnil(L);
+                // Since this option is an optional type, the separator is always present unless it's the last type
+                if (i < node->types.size - 1 && separatorPositions < cstNode->separatorPositions.size)
+                {
+                    serializeToken(cstNode->separatorPositions.data[separatorPositions], "|");
+                    separatorPositions++;
+                }
+                else
+                    lua_pushnil(L);
                 lua_setfield(L, -2, "separator");
             }
             else
@@ -1970,13 +1977,16 @@ struct AstSerialize : public Luau::AstVisitor
                 node->types.data[i]->visit(this);
                 lua_setfield(L, -2, "node");
 
+                // If the next type is optional, we don't have a separator token
                 if (i < node->types.size - 1 && !node->types.data[i + 1]->is<Luau::AstTypeOptional>() &&
                     separatorPositions < cstNode->separatorPositions.size)
+                {
                     serializeToken(cstNode->separatorPositions.data[separatorPositions], "|");
+                    separatorPositions++;
+                }
                 else
                     lua_pushnil(L);
                 lua_setfield(L, -2, "separator");
-                separatorPositions++;
             }
 
             lua_rawseti(L, -2, i + 1);
