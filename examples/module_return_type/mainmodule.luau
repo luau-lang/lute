@@ -1,14 +1,14 @@
 local tableext = require("@std/tableext")
 
 local testFilter: { [string]: number } = {
-	["a"] = 1
+	["a"] = 1,
 }
 
 local module = {}
 
 function module.func1(a: number)
 	return function(s: string): boolean
-        return s == tostring(a)
+		return s == tostring(a)
 	end
 end
 
