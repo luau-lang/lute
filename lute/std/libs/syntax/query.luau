@@ -4,7 +4,6 @@
 
 local luau = require("@std/luau")
 local printer = require("@std/syntax/printer")
-local tableext = require("@std/tableext")
 local types = require("@std/syntax/types")
 local visitor = require("@std/syntax/visitor")
 
@@ -17,7 +16,7 @@ export type query<T = node> = {
 	map: <U>(self: query<T>, fn: (T) -> (U | { U })?) -> query<U>, -- recursion violation reported
 	forEach: (self: query<T>, callback: (T) -> ()) -> (),
 	__root: node,
-}
+} -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }?) -> query<U> method
 
 local queryLib = {}
 
@@ -49,16 +48,12 @@ end
 
 -- map will return a query where its nodes are all the non-nil values returned by fn when called on each node of the original query
 -- Because of the recursion constraint, we can't actually include this as a method of query right now
-function queryLib.map<T, U>(self: query<T>, fn: (T) -> (U | { U })?): query<U>
+function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 	local newNodes = {}
 	for _, node in self.nodes do
 		local mapped = fn(node)
 		if mapped ~= nil then
-			if typeof(mapped) == "table" and (mapped :: any).kind == nil then -- quick and dirty fix to check for array-like table vs a node
-				tableext.extend(newNodes, mapped)
-			else
-				table.insert(newNodes, mapped)
-			end
+			table.insert(newNodes, mapped)
 		end
 	end
 	return {
@@ -77,17 +72,13 @@ function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): ()
 	end
 end
 
-function queryLib.select<T>(ast: node, fn: (node) -> (T | { T })?): query<T>
+function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
 	local nodes: { T } = {}
 
 	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
 		local selected = fn(n)
 		if selected ~= nil then
-			if typeof(selected) == "table" and (selected :: any).kind == nil then -- quick and dirty fix to check for array-like table vs a node
-				tableext.extend(nodes, selected)
-			else
-				table.insert(nodes, selected)
-			end
+			table.insert(nodes, selected)
 		end
 		return true
 	end

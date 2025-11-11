@@ -12,7 +12,7 @@ test.suite("syntax_printer", function(suite)
         ]]
 
 		local ast = parser.parse(source)
-		local replacements = query.select(ast, syntaxUtils.isExprConstantString):replace(function(s)
+		local replacements = query.selectFromRoot(ast, syntaxUtils.isExprConstantString):replace(function(s)
 			return if s.text == "World" then "1 + 2" else nil
 		end)
 
@@ -29,7 +29,7 @@ test.suite("syntax_printer", function(suite)
         ]]
 
 		local ast = parser.parse(source)
-		local replacements = query.select(ast, syntaxUtils.isExprConstantString):replace(function(s)
+		local replacements = query.selectFromRoot(ast, syntaxUtils.isExprConstantString):replace(function(s)
 			return if s.text == "World" then parser.parseexpr("1 + 2") else nil -- LUAUFIX: I think this is because AstExpr doesn't subtype against AstNode
 		end)
 
@@ -46,7 +46,7 @@ test.suite("syntax_printer", function(suite)
         ]]
 
 		local ast = parser.parse(source)
-		local replacements = query.select(ast, syntaxUtils.isStatLocal):replace(function(s)
+		local replacements = query.selectFromRoot(ast, syntaxUtils.isStatLocal):replace(function(s)
 			return parser.parse("local name = 1 + 2")
 		end)
 
@@ -66,7 +66,7 @@ test.suite("syntax_printer", function(suite)
 
 		local ast = parser.parse(source)
 		local replacements = query
-			.select(ast, syntaxUtils.isStatLocal)
+			.selectFromRoot(ast, syntaxUtils.isStatLocal)
 			:map(function(assign)
 				local ann = assign.variables[1].node.annotation
 				assert.neq(ann, nil)
@@ -91,7 +91,7 @@ test.suite("syntax_printer", function(suite)
 
 		local ast = parser.parse(source)
 		local replacements = query
-			.select(ast, syntaxUtils.isStatTypeAlias)
+			.selectFromRoot(ast, syntaxUtils.isStatTypeAlias)
 			:map(function(ta)
 				if ta.type.tag == "function" then
 					return ta.type.returntypes
