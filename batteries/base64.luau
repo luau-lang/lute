@@ -1,8 +1,6 @@
 --!optimize 2
 --!strict
 
--- assume little-endian system
-assert(string.pack("=i2", 1) == "\1\0", "system must be little-endian")
 
 local BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 local BASE64_ENCODING_LUT = table.create(4096) :: { number }
