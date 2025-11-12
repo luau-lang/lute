@@ -1,11 +1,11 @@
 local printer = require("@std/syntax/printer")
 local visitor = require("@std/syntax/visitor")
-local luau = require("@lute/luau")
+local syntax = require("@std/syntax")
 
 local function transformation(ctx)
 	local v = visitor.create()
 
-	v.visitBinary = function(node: luau.AstExprBinary)
+	v.visitBinary = function(node: syntax.AstExprBinary)
 		if node.operator.text ~= "~=" then
 			return true
 		end
@@ -18,19 +18,19 @@ local function transformation(ctx)
 			return true
 		end
 
-		local operand: luau.AstExprLocal = node.lhsoperand
+		local operand: syntax.AstExprLocal = node.lhsoperand
 		operand.token.leadingtrivia = {}
 		operand.token.trailingtrivia = {}
-		local openingPosition: luau.Position = operand.token.position;
+		local openingPosition: syntax.Position = operand.token.position;
 
 		-- transform node into an AstExprCall
 		(node :: any).operator = nil
 		(node :: any).lhsoperand = nil
 		(node :: any).rhsoperand = nil
 
-		((node :: any) :: luau.AstExprCall).tag = "call"
+		((node :: any) :: syntax.AstExprCall).tag = "call"
 
-		local func: luau.AstExpr = {
+		local func: syntax.AstExpr = {
 			tag = "global",
 			name = {
 				leadingtrivia = {},
@@ -39,20 +39,20 @@ local function transformation(ctx)
 				trailingtrivia = {},
 			},
 		}
-		((node :: any) :: luau.AstExprCall).func = func
+		((node :: any) :: syntax.AstExprCall).func = func
 
-		local openparens: luau.Token<"("> = {
+		local openparens: syntax.Token<"("> = {
 			leadingtrivia = {},
 			position = { line = openingPosition.line, column = openingPosition.column + #"math.isnan" },
 			text = "(",
 			trailingtrivia = {},
 		}
-		((node :: any) :: luau.AstExprCall).openparens = openparens
+		((node :: any) :: syntax.AstExprCall).openparens = openparens
 
-		local arguments: luau.Punctuated<luau.AstExpr> = { { node = operand } }
-		((node :: any) :: luau.AstExprCall).arguments = arguments
+		local arguments: syntax.Punctuated<syntax.AstExpr> = { { node = operand } }
+		((node :: any) :: syntax.AstExprCall).arguments = arguments
 
-		local closeparens: luau.Token<")"> = {
+		local closeparens: syntax.Token<")"> = {
 			leadingtrivia = {},
 			position = {
 				line = openingPosition.line,
@@ -61,18 +61,18 @@ local function transformation(ctx)
 			text = ")",
 			trailingtrivia = {},
 		}
-		((node :: any) :: luau.AstExprCall).closeparens = closeparens;
+		((node :: any) :: syntax.AstExprCall).closeparens = closeparens;
 
-		((node :: any) :: luau.AstExprCall).self = false
+		((node :: any) :: syntax.AstExprCall).self = false
 
-		local argLocation: luau.Location = {
+		local argLocation: syntax.Location = {
 			begin = { line = openingPosition.line, column = openingPosition.column + #"math.isnan(" },
 			["end"] = {
 				line = openingPosition.line,
 				column = openingPosition.column + #"math.isnan(" + #operand.token.text,
 			},
 		}
-		((node :: any) :: luau.AstExprCall).argLocation = argLocation
+		((node :: any) :: syntax.AstExprCall).argLocation = argLocation
 
 		return false
 	end

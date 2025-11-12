@@ -1,7 +1,7 @@
 --!strict
 -- @std/syntax/printer
 
-local luau = require("@std/luau")
+local types = require("./types")
 local visitor = require("./visitor")
 
 local printer = {}
@@ -10,7 +10,7 @@ local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
 end
 
-local function printTrivia(trivia: luau.Trivia): string
+local function printTrivia(trivia: types.Trivia): string
 	if trivia.tag == "whitespace" or trivia.tag == "comment" or trivia.tag == "blockcomment" then
 		return trivia.text
 	else
@@ -18,7 +18,7 @@ local function printTrivia(trivia: luau.Trivia): string
 	end
 end
 
-local function printTriviaList(trivia: { luau.Trivia })
+local function printTriviaList(trivia: { types.Trivia })
 	local result = ""
 	for _, trivia in trivia do
 		result ..= printTrivia(trivia)
@@ -26,11 +26,11 @@ local function printTriviaList(trivia: { luau.Trivia })
 	return result
 end
 
-local function printToken(token: luau.Token): string
+local function printToken(token: types.Token): string
 	return printTriviaList(token.leadingtrivia) .. token.text .. printTriviaList(token.trailingtrivia)
 end
 
-local function printString(expr: luau.AstExprConstantString | luau.AstTypeSingletonString): string
+local function printString(expr: types.AstExprConstantString | types.AstTypeSingletonString): string
 	local result = printTriviaList(expr.leadingtrivia)
 
 	if expr.quotestyle == "single" then
@@ -50,7 +50,7 @@ local function printString(expr: luau.AstExprConstantString | luau.AstTypeSingle
 	return result
 end
 
-local function printInterpolatedString(expr: luau.AstExprInterpString): string
+local function printInterpolatedString(expr: types.AstExprInterpString): string
 	local result = ""
 
 	for i = 1, #expr.strings do
@@ -104,22 +104,22 @@ local function printVisitor()
 		printer.cursor = totalSize
 	end
 
-	printer.visitToken = function(node: luau.Token)
+	printer.visitToken = function(node: types.Token)
 		write(printToken(node))
 		return false
 	end
 
-	printer.visitString = function(node: luau.AstExprConstantString)
+	printer.visitString = function(node: types.AstExprConstantString)
 		write(printString(node))
 		return false
 	end
 
-	printer.visitTypeString = function(node: luau.AstTypeSingletonString)
+	printer.visitTypeString = function(node: types.AstTypeSingletonString)
 		write(printString(node))
 		return false
 	end
 
-	printer.visitInterpolatedString = function(node: luau.AstExprInterpString)
+	printer.visitInterpolatedString = function(node: types.AstExprInterpString)
 		write(printInterpolatedString(node))
 		return false
 	end
@@ -134,21 +134,21 @@ function printNode<T>(node: T, visit: (node: T, visitor: visitor.Visitor) -> ())
 end
 
 --- Returns a string representation of an AstExpr
-function printer.printexpr(expr: luau.AstExpr): string
+function printer.printexpr(expr: types.AstExpr): string
 	return printNode(expr, visitor.visitexpression)
 end
 
 --- Returns a string representation of an AstStat
-function printer.printstatement(statement: luau.AstStat): string
+function printer.printstatement(statement: types.AstStat): string
 	return printNode(statement, visitor.visitstatement)
 end
 
 -- Returns a string representation of an AstType
-function printer.printtype(type: luau.AstType): string
+function printer.printtype(type: types.AstType): string
 	return printNode(type, visitor.visittype)
 end
 
-function printer.printfile(result: { root: luau.AstStatBlock, eof: luau.Eof }): string
+function printer.printfile(result: { root: types.AstStatBlock, eof: types.Eof }): string
 	local printer = printVisitor()
 	visitor.visitblock(result.root, printer)
 	visitor.visittoken(result.eof, printer)

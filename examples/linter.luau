@@ -1,5 +1,5 @@
 local fs = require("@std/fs")
-local luau = require("@std/luau")
+local parser = require("@std/syntax/parser")
 
 local pp = require("@batteries/pp")
 
@@ -32,7 +32,7 @@ end
 local path = tostring(...)
 local source = fs.readfiletostring(path)
 
-local prog = luau.parse(source)
+local prog = parser.parse(source)
 
 local function lintForDivZeroByZero(prog)
 	local function unwrapParens(n)

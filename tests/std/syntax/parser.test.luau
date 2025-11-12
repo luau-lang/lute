@@ -1,10 +1,10 @@
 local fs = require("@std/fs")
-local luau = require("@std/luau")
 local path = require("@std/path")
 local test = require("@std/test")
 local asserts = require("@std/test/assert")
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
+local syntax = require("@std/syntax")
 local T = require("@std/luau")
 
 local function assertEqualsLocation(
@@ -23,13 +23,13 @@ end
 
 test.suite("Parser", function(suite)
 	suite:case("tokenContainsLeadingSpaces", function(assert)
-		local block = luau.parse("  local x = 1").root
+		local block = parser.parse("  local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: luau.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localkeyword
 		assert.eq(#token.leadingtrivia, 1)
 		assert.eq(token.leadingtrivia[1].tag, "whitespace")
 		assert.eq(token.leadingtrivia[1].text, "  ")
@@ -37,13 +37,13 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("tokenContainsLeadingNewline", function(assert)
-		local block = luau.parse("\n" .. "local x = 1").root
+		local block = parser.parse("\n" .. "local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: luau.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localkeyword
 		assert.eq(#token.leadingtrivia, 1)
 		assert.eq(token.leadingtrivia[1].tag, "whitespace")
 		assert.eq(token.leadingtrivia[1].text, "\n")
@@ -51,13 +51,13 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("tokenContainsLeadingSingleLineComment", function(assert)
-		local block = luau.parse("-- comment\n" .. "local x = 1").root
+		local block = parser.parse("-- comment\n" .. "local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: luau.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localkeyword
 		assert.eq(#token.leadingtrivia, 2)
 		assert.eq(token.leadingtrivia[1].tag, "comment")
 		assert.eq(token.leadingtrivia[1].text, "-- comment")
@@ -68,13 +68,13 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("tokenContainsLeadingBlockComment", function(assert)
-		local block = luau.parse("--[[ comment ]] local x = 1").root
+		local block = parser.parse("--[[ comment ]] local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: luau.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localkeyword
 		assert.eq(#token.leadingtrivia, 2)
 		assert.eq(token.leadingtrivia[1].tag, "blockcomment")
 		assert.eq(token.leadingtrivia[1].text, "--[[ comment ]]")
@@ -85,13 +85,13 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("tokenizeWhitespace", function(assert)
-		local block = luau.parse("  \n\t\t\n\n" .. "local x = 1").root
+		local block = parser.parse("  \n\t\t\n\n" .. "local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: luau.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localkeyword
 		assert.eq(#token.leadingtrivia, 3)
 		assert.eq(token.leadingtrivia[1].text, "  \n")
 		assert.eq(token.leadingtrivia[2].text, "\t\t\n")
@@ -99,15 +99,15 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("triviaSplitBetweenLeadingAndTrailing", function(assert)
-		local block = luau.parse("local x = 'test' -- comment\n" .. "-- comment 2\nlocal y = 'value'").root
+		local block = parser.parse("local x = 'test' -- comment\n" .. "-- comment 2\nlocal y = 'value'")
 		assert.eq(#block.statements, 2)
 
 		local firstStmt = block.statements[1]
 		assert.eq(firstStmt.tag, "local")
 
-		local trailingToken: luau.AstExpr = (firstStmt :: luau.AstStatLocal).values[1].node
+		local trailingToken: syntax.AstExpr = (firstStmt :: syntax.AstStatLocal).values[1].node
 		assert.eq(trailingToken.tag, "string")
-		local expr = trailingToken :: luau.AstExprConstantString
+		local expr = trailingToken :: syntax.AstExprConstantString
 		assert.eq(#expr.trailingtrivia, 3)
 		assert.eq(expr.trailingtrivia[1].text, " ")
 		assert.eq(expr.trailingtrivia[2].text, "-- comment")
@@ -116,7 +116,7 @@ test.suite("Parser", function(suite)
 		local secondStmt = block.statements[2]
 		assert.eq(secondStmt.tag, "local")
 
-		local leadingToken = (secondStmt :: luau.AstStatLocal).localkeyword
+		local leadingToken = (secondStmt :: syntax.AstStatLocal).localkeyword
 		assert.eq(#leadingToken.leadingtrivia, 2)
 		assert.eq(leadingToken.leadingtrivia[1].text, "-- comment 2")
 		assert.eq(leadingToken.leadingtrivia[2].text, "\n")
@@ -142,14 +142,14 @@ test.suite("Parser", function(suite)
 
 	suite:case("lineOffsetsField", function(assert)
 		local singleLineCode = "local x = 1"
-		local result = luau.parse(singleLineCode)
+		local result = parser.parsefile(singleLineCode)
 
 		assert.eq(type(result.lineoffsets), "table")
 		assert.eq(#result.lineoffsets, 1)
 		assert.eq(result.lineoffsets[1], 0)
 
 		local multiLineCode = "local x = 1\nlocal y = 2\nlocal z = 3"
-		local multiResult = luau.parse(multiLineCode)
+		local multiResult = parser.parsefile(multiLineCode)
 
 		assert.eq(type(multiResult.lineoffsets), "table")
 		assert.eq(#multiResult.lineoffsets, 3)
@@ -158,7 +158,7 @@ test.suite("Parser", function(suite)
 		assert.eq(multiResult.lineoffsets[3], 24)
 
 		local emptyLineCode = "local x = 1\n\nlocal y = 2"
-		local emptyResult = luau.parse(emptyLineCode)
+		local emptyResult = parser.parsefile(emptyLineCode)
 
 		assert.eq(type(emptyResult.lineoffsets), "table")
 		assert.eq(#emptyResult.lineoffsets, 3)
@@ -180,13 +180,13 @@ test.suite("Parser", function(suite)
 		}
 
 		for _, subcase in ipairs(subcases) do
-			local block = luau.parse(subcase.code).root
+			local block = parser.parse(subcase.code)
 			assert.eq(#block.statements, 1)
 
 			local l = block.statements[1]
 			assert.eq(l.tag, "localfunction")
 
-			local lf = l :: luau.AstStatLocalFunction
+			local lf = l :: syntax.AstStatLocalFunction
 			assert.eq(lf.attributes[1].text, subcase.attr)
 		end
 	end)
@@ -197,7 +197,7 @@ test.suite("parseExpr", function(suite)
 		local groupExpr = parser.parseexpr("(x)")
 		assert.eq(groupExpr.tag, "group")
 		assert.eq(groupExpr.kind, "expr")
-		local expr = groupExpr :: luau.AstExprGroup
+		local expr = groupExpr :: syntax.AstExprGroup
 		assert.eq(expr.openparens.text, "(")
 		assert.eq(expr.closeparens.text, ")")
 		assert.eq(expr.expression.tag, "global")
@@ -207,118 +207,118 @@ test.suite("parseExpr", function(suite)
 		local expr = parser.parseexpr("nil")
 		assert.eq(expr.tag, "nil")
 		assert.eq(expr.kind, "expr")
-		assert.eq((expr :: luau.AstExprConstantNil).text, "nil")
+		assert.eq((expr :: syntax.AstExprConstantNil).text, "nil")
 	end)
 
 	suite:case("parseExprBoolean", function(assert)
 		local trueExpr = parser.parseexpr("true")
 		assert.eq(trueExpr.tag, "boolean")
 		assert.eq(trueExpr.kind, "expr")
-		assert.eq((trueExpr :: luau.AstExprConstantBool).text, "true")
-		assert.eq((trueExpr :: luau.AstExprConstantBool).value, true)
+		assert.eq((trueExpr :: syntax.AstExprConstantBool).text, "true")
+		assert.eq((trueExpr :: syntax.AstExprConstantBool).value, true)
 
 		local falseExpr = parser.parseexpr("false")
 		assert.eq(falseExpr.tag, "boolean")
 		assert.eq(falseExpr.kind, "expr")
-		assert.eq((falseExpr :: luau.AstExprConstantBool).text, "false")
-		assert.eq((falseExpr :: luau.AstExprConstantBool).value, false)
+		assert.eq((falseExpr :: syntax.AstExprConstantBool).text, "false")
+		assert.eq((falseExpr :: syntax.AstExprConstantBool).value, false)
 	end)
 
 	suite:case("parseExprNumber", function(assert)
 		local numberExpr = parser.parseexpr("42")
 		assert.eq(numberExpr.tag, "number")
 		assert.eq(numberExpr.kind, "expr")
-		assert.eq((numberExpr :: luau.AstExprConstantNumber).text, "42")
-		assert.eq((numberExpr :: luau.AstExprConstantNumber).value, 42)
+		assert.eq((numberExpr :: syntax.AstExprConstantNumber).text, "42")
+		assert.eq((numberExpr :: syntax.AstExprConstantNumber).value, 42)
 
 		local floatExpr = parser.parseexpr("3.14")
 		assert.eq(floatExpr.tag, "number")
 		assert.eq(floatExpr.kind, "expr")
-		assert.eq((floatExpr :: luau.AstExprConstantNumber).text, "3.14")
-		assert.eq((floatExpr :: luau.AstExprConstantNumber).value, 3.14)
+		assert.eq((floatExpr :: syntax.AstExprConstantNumber).text, "3.14")
+		assert.eq((floatExpr :: syntax.AstExprConstantNumber).value, 3.14)
 	end)
 
 	suite:case("parseExprString", function(assert)
 		local singleQuoteExpr = parser.parseexpr("'hello'")
 		assert.eq(singleQuoteExpr.tag, "string")
 		assert.eq(singleQuoteExpr.kind, "expr")
-		assert.eq((singleQuoteExpr :: luau.AstExprConstantString).text, "hello")
-		assert.eq((singleQuoteExpr :: luau.AstExprConstantString).quotestyle, "single")
+		assert.eq((singleQuoteExpr :: syntax.AstExprConstantString).text, "hello")
+		assert.eq((singleQuoteExpr :: syntax.AstExprConstantString).quotestyle, "single")
 
 		local doubleQuoteExpr = parser.parseexpr('"world"')
 		assert.eq(doubleQuoteExpr.tag, "string")
 		assert.eq(doubleQuoteExpr.kind, "expr")
-		assert.eq((doubleQuoteExpr :: luau.AstExprConstantString).text, "world")
-		assert.eq((doubleQuoteExpr :: luau.AstExprConstantString).quotestyle, "double")
+		assert.eq((doubleQuoteExpr :: syntax.AstExprConstantString).text, "world")
+		assert.eq((doubleQuoteExpr :: syntax.AstExprConstantString).quotestyle, "double")
 
 		local blockQuoteExpr = parser.parseexpr("[[world]]")
 		assert.eq(blockQuoteExpr.tag, "string")
 		assert.eq(blockQuoteExpr.kind, "expr")
-		assert.eq((blockQuoteExpr :: luau.AstExprConstantString).text, "world")
-		assert.eq((blockQuoteExpr :: luau.AstExprConstantString).quotestyle, "block")
+		assert.eq((blockQuoteExpr :: syntax.AstExprConstantString).text, "world")
+		assert.eq((blockQuoteExpr :: syntax.AstExprConstantString).quotestyle, "block")
 
 		local interpExpr = parser.parseexpr("`foobar`")
 		assert.eq(interpExpr.tag, "string")
 		assert.eq(interpExpr.kind, "expr")
-		assert.eq((interpExpr :: luau.AstExprConstantString).text, "foobar")
-		assert.eq((interpExpr :: luau.AstExprConstantString).quotestyle, "interp")
+		assert.eq((interpExpr :: syntax.AstExprConstantString).text, "foobar")
+		assert.eq((interpExpr :: syntax.AstExprConstantString).quotestyle, "interp")
 	end)
 
 	suite:case("parseExprLocal", function(assert)
 		local localExpr = parser.parseexpr("x")
 		assert.eq(localExpr.tag, "global")
 		assert.eq(localExpr.kind, "expr")
-		assert.eq((localExpr :: luau.AstExprGlobal).name.text, "x")
+		assert.eq((localExpr :: syntax.AstExprGlobal).name.text, "x")
 	end)
 
 	suite:case("parseExprGlobal", function(assert)
 		local globalExpr = parser.parseexpr("_G")
 		assert.eq(globalExpr.tag, "global")
 		assert.eq(globalExpr.kind, "expr")
-		assert.eq((globalExpr :: luau.AstExprGlobal).name.text, "_G")
+		assert.eq((globalExpr :: syntax.AstExprGlobal).name.text, "_G")
 	end)
 
 	suite:case("parseExprVarargs", function(assert)
 		local varargsExpr = parser.parseexpr("...")
 		assert.eq(varargsExpr.tag, "vararg")
 		assert.eq(varargsExpr.kind, "expr")
-		assert.eq((varargsExpr :: luau.AstExprVarargs).text, "...")
+		assert.eq((varargsExpr :: syntax.AstExprVarargs).text, "...")
 	end)
 
 	suite:case("parseExprCall", function(assert)
 		local callExpr = parser.parseexpr("foo()")
 		assert.eq(callExpr.tag, "call")
 		assert.eq(callExpr.kind, "expr")
-		assert.eq((callExpr :: luau.AstExprCall).func.tag, "global")
-		assert.eq(((callExpr :: luau.AstExprCall).func :: luau.AstExprGlobal).name.text, "foo")
-		assert.eq((callExpr :: luau.AstExprCall).self, false)
-		assert.eq(#(callExpr :: luau.AstExprCall).arguments, 0)
+		assert.eq((callExpr :: syntax.AstExprCall).func.tag, "global")
+		assert.eq(((callExpr :: syntax.AstExprCall).func :: syntax.AstExprGlobal).name.text, "foo")
+		assert.eq((callExpr :: syntax.AstExprCall).self, false)
+		assert.eq(#(callExpr :: syntax.AstExprCall).arguments, 0)
 
 		local callWithArgsExpr = parser.parseexpr("bar(1, 2)")
 		assert.eq(callWithArgsExpr.tag, "call")
 		assert.eq(callWithArgsExpr.kind, "expr")
-		assert.eq(#(callWithArgsExpr :: luau.AstExprCall).arguments, 2)
-		assert.eq((callWithArgsExpr :: luau.AstExprCall).arguments[1].node.tag, "number")
-		assert.eq((callWithArgsExpr :: luau.AstExprCall).arguments[2].node.tag, "number")
+		assert.eq(#(callWithArgsExpr :: syntax.AstExprCall).arguments, 2)
+		assert.eq((callWithArgsExpr :: syntax.AstExprCall).arguments[1].node.tag, "number")
+		assert.eq((callWithArgsExpr :: syntax.AstExprCall).arguments[2].node.tag, "number")
 	end)
 
 	suite:case("parseExprIndexName", function(assert)
 		local indexExpr = parser.parseexpr("obj.field")
 		assert.eq(indexExpr.tag, "indexname")
 		assert.eq(indexExpr.kind, "expr")
-		assert.eq((indexExpr :: luau.AstExprIndexName).expression.tag, "global")
-		assert.eq((indexExpr :: luau.AstExprIndexName).accessor.text, ".")
-		assert.eq((indexExpr :: luau.AstExprIndexName).index.text, "field")
+		assert.eq((indexExpr :: syntax.AstExprIndexName).expression.tag, "global")
+		assert.eq((indexExpr :: syntax.AstExprIndexName).accessor.text, ".")
+		assert.eq((indexExpr :: syntax.AstExprIndexName).index.text, "field")
 	end)
 
 	suite:case("parseExprIndexExpr", function(assert)
 		local indexExpr = parser.parseexpr("arr[1]")
 		assert.eq(indexExpr.tag, "index")
 		assert.eq(indexExpr.kind, "expr")
-		assert.eq((indexExpr :: luau.AstExprIndexExpr).expression.tag, "global")
-		assert.eq((indexExpr :: luau.AstExprIndexExpr).index.tag, "number")
-		assert.eq((indexExpr :: luau.AstExprIndexExpr).openbrackets.text, "[")
-		assert.eq((indexExpr :: luau.AstExprIndexExpr).closebrackets.text, "]")
+		assert.eq((indexExpr :: syntax.AstExprIndexExpr).expression.tag, "global")
+		assert.eq((indexExpr :: syntax.AstExprIndexExpr).index.tag, "number")
+		assert.eq((indexExpr :: syntax.AstExprIndexExpr).openbrackets.text, "[")
+		assert.eq((indexExpr :: syntax.AstExprIndexExpr).closebrackets.text, "]")
 	end)
 
 	suite:case("parseExprAnonymousFunction", function(assert)
@@ -326,7 +326,7 @@ test.suite("parseExpr", function(suite)
 		assert.eq(anonFuncExpr.tag, "function")
 		assert.eq(anonFuncExpr.kind, "expr")
 
-		local funcExpr = anonFuncExpr :: luau.AstExprAnonymousFunction
+		local funcExpr = anonFuncExpr :: syntax.AstExprAnonymousFunction
 		assert.eq(#funcExpr.attributes, 0)
 		assert.eq(funcExpr.functionkeyword.text, "function")
 
@@ -352,7 +352,7 @@ test.suite("parseExpr", function(suite)
 		assert.eq(anonFuncExpr.tag, "function")
 		assert.eq(anonFuncExpr.kind, "expr")
 
-		funcExpr = anonFuncExpr :: luau.AstExprAnonymousFunction
+		funcExpr = anonFuncExpr :: syntax.AstExprAnonymousFunction
 		assert.eq(#funcExpr.attributes, 0)
 		assert.eq(funcExpr.functionkeyword.text, "function")
 
@@ -360,22 +360,22 @@ test.suite("parseExpr", function(suite)
 		assert.neq(funcBody.opengenerics, nil)
 		assert.neq(funcBody.generics, nil)
 
-		assert.eq(#funcBody.generics :: luau.Punctuated<luau.AstGenericType>, 1)
-		local gen = (funcBody.generics :: luau.Punctuated<luau.AstGenericType>)[1].node
+		assert.eq(#funcBody.generics :: syntax.Punctuated<syntax.AstGenericType>, 1)
+		local gen = (funcBody.generics :: syntax.Punctuated<syntax.AstGenericType>)[1].node
 		assert.eq(gen.name.text, "A")
 		assert.eq(gen.equals, nil)
 		assert.eq(gen.default, nil)
 
 		assert.neq(funcBody.genericpacks, nil)
-		assert.eq(#funcBody.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>, 1)
-		local genPack = (funcBody.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>)[1].node
+		assert.eq(#funcBody.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>, 1)
+		local genPack = (funcBody.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>)[1].node
 		assert.eq(genPack.name.text, "B")
 		assert.eq(genPack.ellipsis.text, "...")
 		assert.eq(genPack.equals, nil)
 		assert.eq(genPack.default, nil)
 
 		assert.neq(funcBody.closegenerics, nil)
-		assert.eq((funcBody.closegenerics :: luau.Token<">">).text, ">")
+		assert.eq((funcBody.closegenerics :: syntax.Token<">">).text, ">")
 
 		assert.eq(funcBody.openparens.text, "(")
 		assert.eq(#funcBody.parameters, 1)
@@ -383,29 +383,29 @@ test.suite("parseExpr", function(suite)
 		local param = funcBody.parameters[1].node
 		assert.eq(param.name.text, "a")
 		assert.neq(param.colon, nil)
-		assert.eq((param.colon :: luau.Token<":">).text, ":")
+		assert.eq((param.colon :: syntax.Token<":">).text, ":")
 		assert.neq(param.annotation, nil)
-		assert.eq((param.annotation :: luau.AstType).tag, "reference")
+		assert.eq((param.annotation :: syntax.AstType).tag, "reference")
 
 		assert.neq(funcBody.vararg, nil)
-		assert.eq((funcBody.vararg :: luau.Token<"...">).text, "...")
+		assert.eq((funcBody.vararg :: syntax.Token<"...">).text, "...")
 		assert.neq(funcBody.varargcolon, nil)
-		assert.eq((funcBody.varargcolon :: luau.Token<":">).text, ":")
+		assert.eq((funcBody.varargcolon :: syntax.Token<":">).text, ":")
 		assert.neq(funcBody.varargannotation, nil)
-		assert.eq((funcBody.varargannotation :: luau.AstTypePack).tag, "generic")
+		assert.eq((funcBody.varargannotation :: syntax.AstTypePack).tag, "generic")
 
 		assert.eq(funcBody.closeparens.text, ")")
 		assert.neq(funcBody.returnspecifier, nil)
-		assert.eq((funcBody.returnspecifier :: luau.Token<":">).text, ":")
+		assert.eq((funcBody.returnspecifier :: syntax.Token<":">).text, ":")
 		assert.neq(funcBody.returnannotation, nil)
-		assert.eq((funcBody.returnannotation :: luau.AstTypePack).tag, "explicit")
+		assert.eq((funcBody.returnannotation :: syntax.AstTypePack).tag, "explicit")
 	end)
 
 	suite:case("parseExprTable", function(assert)
 		local emptyTableExpr = parser.parseexpr("{}")
 		assert.eq(emptyTableExpr.tag, "table")
 		assert.eq(emptyTableExpr.kind, "expr")
-		local tableExpr = emptyTableExpr :: luau.AstExprTable
+		local tableExpr = emptyTableExpr :: syntax.AstExprTable
 		assert.eq(tableExpr.openbrace.text, "{")
 		assert.eq(tableExpr.closebrace.text, "}")
 		assert.eq(#tableExpr.entries, 0)
@@ -413,14 +413,14 @@ test.suite("parseExpr", function(suite)
 		local mixedTable = parser.parseexpr("{1, foo = bar; [2] = baz}")
 		assert.eq(mixedTable.tag, "table")
 		assert.eq(mixedTable.kind, "expr")
-		local mixedTableExpr = mixedTable :: luau.AstExprTable
+		local mixedTableExpr = mixedTable :: syntax.AstExprTable
 		assert.eq(#mixedTableExpr.entries, 3)
 
 		local entry1 = mixedTableExpr.entries[1]
 		assert.eq(entry1.kind, "list")
 		assert.eq(entry1.value.tag, "number")
 		assert.neq(entry1.separator, nil)
-		assert.eq((entry1.separator :: luau.Token<"," | ";">).text, ",")
+		assert.eq((entry1.separator :: syntax.Token<"," | ";">).text, ",")
 
 		local entry2: any = mixedTableExpr.entries[2]
 		assert.eq(entry2.kind, "record")
@@ -428,7 +428,7 @@ test.suite("parseExpr", function(suite)
 		assert.eq(entry2.equals.text, "=")
 		assert.eq(entry2.value.tag, "global")
 		assert.neq(entry2.separator, nil)
-		assert.eq((entry2.separator :: luau.Token<"," | ";">).text, ";")
+		assert.eq((entry2.separator :: syntax.Token<"," | ";">).text, ";")
 
 		local entry3: any = mixedTableExpr.entries[3]
 		assert.eq(entry3.kind, "general")
@@ -444,21 +444,21 @@ test.suite("parseExpr", function(suite)
 		local notExpr = parser.parseexpr("not x")
 		assert.eq(notExpr.tag, "unary")
 		assert.eq(notExpr.kind, "expr")
-		local expr = notExpr :: luau.AstExprUnary
+		local expr = notExpr :: syntax.AstExprUnary
 		assert.eq(expr.operator.text, "not")
 		assert.eq(expr.operand.tag, "global")
 
 		local negExpr = parser.parseexpr("-42")
 		assert.eq(negExpr.tag, "unary")
 		assert.eq(negExpr.kind, "expr")
-		expr = negExpr :: luau.AstExprUnary
+		expr = negExpr :: syntax.AstExprUnary
 		assert.eq(expr.operator.text, "-")
 		assert.eq(expr.operand.tag, "number")
 
 		local lenExpr = parser.parseexpr("#str")
 		assert.eq(lenExpr.tag, "unary")
 		assert.eq(lenExpr.kind, "expr")
-		expr = lenExpr :: luau.AstExprUnary
+		expr = lenExpr :: syntax.AstExprUnary
 		assert.eq(expr.operator.text, "#")
 		assert.eq(expr.operand.tag, "global")
 	end)
@@ -467,7 +467,7 @@ test.suite("parseExpr", function(suite)
 		local addExpr = parser.parseexpr("1 + 2")
 		assert.eq(addExpr.tag, "binary")
 		assert.eq(addExpr.kind, "expr")
-		local expr = addExpr :: luau.AstExprBinary
+		local expr = addExpr :: syntax.AstExprBinary
 		assert.eq(expr.lhsoperand.tag, "number")
 		assert.eq(expr.operator.text, "+")
 		assert.eq(expr.rhsoperand.tag, "number")
@@ -477,7 +477,7 @@ test.suite("parseExpr", function(suite)
 		local interpExpr = parser.parseexpr("`Hello, {name}! Today is {dayOfWeek}.`")
 		assert.eq(interpExpr.tag, "interpolatedstring")
 		assert.eq(interpExpr.kind, "expr")
-		local expr = interpExpr :: luau.AstExprInterpString
+		local expr = interpExpr :: syntax.AstExprInterpString
 		assert.eq(#expr.strings, 3)
 
 		assert.eq(expr.strings[1].text, "Hello, ")
@@ -493,7 +493,7 @@ test.suite("parseExpr", function(suite)
 		local castExpr = parser.parseexpr("x :: string")
 		assert.eq(castExpr.tag, "cast")
 		assert.eq(castExpr.kind, "expr")
-		local expr = castExpr :: luau.AstExprTypeAssertion
+		local expr = castExpr :: syntax.AstExprTypeAssertion
 		assert.eq(expr.operand.tag, "global")
 		assert.eq(expr.operator.text, "::")
 		assert.eq(expr.annotation.tag, "reference")
@@ -517,7 +517,7 @@ test.suite("parse", function(suite)
 			parser.parse("if x > 0 then print('positive') elseif x < 0 then print('negative') else print('zero') end")
 		assert.eq(#block.statements, 1)
 
-		local ifStat = block.statements[1] :: luau.AstStatIf
+		local ifStat = block.statements[1] :: syntax.AstStatIf
 		assert.eq(ifStat.tag, "conditional")
 		assert.eq(ifStat.ifkeyword.text, "if")
 		assert.eq(ifStat.condition.tag, "binary")
@@ -535,14 +535,14 @@ test.suite("parse", function(suite)
 		checkIsBlock(elseIf.thenblock, assert)
 
 		assert.neq(ifStat.elsekeyword, nil)
-		assert.eq((ifStat.elsekeyword :: luau.Token<"else">).text, "else")
+		assert.eq((ifStat.elsekeyword :: syntax.Token<"else">).text, "else")
 		assert.neq(ifStat.elseblock, nil)
 		checkIsBlock(ifStat.elseblock, assert)
 		assert.eq(ifStat.endkeyword.text, "end")
 
 		block = parser.parse("if condition then doSomething() end")
 		assert.eq(#block.statements, 1)
-		local simpleIfStat = block.statements[1] :: luau.AstStatIf
+		local simpleIfStat = block.statements[1] :: syntax.AstStatIf
 		assert.eq(simpleIfStat.tag, "conditional")
 		assert.eq(simpleIfStat.ifkeyword.text, "if")
 		assert.eq(simpleIfStat.condition.tag, "global")
@@ -560,7 +560,7 @@ test.suite("parse", function(suite)
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
-		local whileStat = block.statements[1] :: luau.AstStatWhile
+		local whileStat = block.statements[1] :: syntax.AstStatWhile
 		assert.eq(whileStat.tag, "while")
 		assert.eq(whileStat.whilekeyword.text, "while")
 		assert.eq(whileStat.condition.tag, "binary")
@@ -573,7 +573,7 @@ test.suite("parse", function(suite)
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
-		whileStat = block.statements[1] :: luau.AstStatWhile
+		whileStat = block.statements[1] :: syntax.AstStatWhile
 		assert.eq(whileStat.tag, "while")
 		assert.eq(whileStat.whilekeyword.text, "while")
 		assert.eq(whileStat.condition.tag, "boolean")
@@ -581,9 +581,9 @@ test.suite("parse", function(suite)
 		checkIsBlock(whileStat.body, assert)
 		assert.eq(#whileStat.body.statements, 1)
 
-		local breakStat = whileStat.body.statements[1] :: luau.AstStat
+		local breakStat = whileStat.body.statements[1] :: syntax.AstStat
 		assert.eq(breakStat.kind, "stat")
-		breakStat = breakStat :: luau.AstStatBreak
+		breakStat = breakStat :: syntax.AstStatBreak
 		assert.eq(breakStat.tag, "break")
 		assert.eq(breakStat.text, "break")
 
@@ -593,7 +593,7 @@ test.suite("parse", function(suite)
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
-		whileStat = block.statements[1] :: luau.AstStatWhile
+		whileStat = block.statements[1] :: syntax.AstStatWhile
 		assert.eq(whileStat.tag, "while")
 		assert.eq(whileStat.whilekeyword.text, "while")
 		assert.eq(whileStat.condition.tag, "boolean")
@@ -601,9 +601,9 @@ test.suite("parse", function(suite)
 		checkIsBlock(whileStat.body, assert)
 		assert.eq(#whileStat.body.statements, 1)
 
-		local continueStat = whileStat.body.statements[1] :: luau.AstStat
+		local continueStat = whileStat.body.statements[1] :: syntax.AstStat
 		assert.eq(continueStat.kind, "stat")
-		continueStat = continueStat :: luau.AstStatContinue
+		continueStat = continueStat :: syntax.AstStatContinue
 		assert.eq(continueStat.tag, "continue")
 		assert.eq(continueStat.text, "continue")
 
@@ -615,7 +615,7 @@ test.suite("parse", function(suite)
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
-		local repeatStat = block.statements[1] :: luau.AstStatRepeat
+		local repeatStat = block.statements[1] :: syntax.AstStatRepeat
 		assert.eq(repeatStat.tag, "repeat")
 		assert.eq(repeatStat.repeatKeyword.text, "repeat")
 		checkIsBlock(repeatStat.body, assert)
@@ -630,21 +630,21 @@ test.suite("parse", function(suite)
 		assert.eq(#block.statements, 1)
 		assert.eq(block.statements[1].kind, "stat")
 
-		local l = block.statements[1] :: luau.AstStatLocal
+		local l = block.statements[1] :: syntax.AstStatLocal
 		assert.eq(l.tag, "local")
 		assert.eq(l.localkeyword.text, "local")
 		assert.eq(#l.variables, 2)
 		assert.eq(l.variables[1].node.name.text, "b")
 		assert.neq(l.variables[1].separator, nil)
-		assert.eq((l.variables[1].separator :: luau.Token<",">).text, ",")
+		assert.eq((l.variables[1].separator :: syntax.Token<",">).text, ",")
 		assert.eq(l.variables[2].node.name.text, "c")
 		assert.eq(l.variables[2].separator, nil)
 		assert.neq(l.equals, nil)
-		assert.eq((l.equals :: luau.Token<"=">).text, "=")
+		assert.eq((l.equals :: syntax.Token<"=">).text, "=")
 		assert.eq(#l.values, 2)
 		assert.eq(l.values[1].node.tag, "number")
 		assert.neq(l.values[1].separator, nil)
-		assert.eq((l.values[1].separator :: luau.Token<",">).text, ",")
+		assert.eq((l.values[1].separator :: syntax.Token<",">).text, ",")
 		assert.eq(l.values[2].node.tag, "number")
 		assert.eq(l.values[2].separator, nil)
 
@@ -653,7 +653,7 @@ test.suite("parse", function(suite)
 		assert.eq(#block.statements, 1)
 		assert.eq(block.statements[1].kind, "stat")
 
-		l = block.statements[1] :: luau.AstStatLocal
+		l = block.statements[1] :: syntax.AstStatLocal
 		assert.eq(l.tag, "local")
 		assert.eq(l.localkeyword.text, "local")
 		assert.eq(#l.variables, 1)
@@ -668,7 +668,7 @@ test.suite("parse", function(suite)
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
-		local forStat = block.statements[1] :: luau.AstStatFor
+		local forStat = block.statements[1] :: syntax.AstStatFor
 		assert.eq(forStat.tag, "for")
 		assert.eq(forStat.forkeyword.text, "for")
 		assert.eq(forStat.variable.name.text, "i")
@@ -677,9 +677,9 @@ test.suite("parse", function(suite)
 		assert.eq(forStat.tocomma.text, ",")
 		assert.eq(forStat.to.tag, "number")
 		assert.neq(forStat.stepcomma, nil)
-		assert.eq((forStat.stepcomma :: luau.Token<",">).text, ",")
+		assert.eq((forStat.stepcomma :: syntax.Token<",">).text, ",")
 		assert.neq(forStat.step, nil)
-		assert.eq(((forStat.step :: any) :: luau.AstExpr).tag, "number")
+		assert.eq(((forStat.step :: any) :: syntax.AstExpr).tag, "number")
 		assert.eq(forStat.dokeyword.text, "do")
 		checkIsBlock(forStat.body, assert)
 		assert.eq(#forStat.body.statements, 1)
@@ -689,7 +689,7 @@ test.suite("parse", function(suite)
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
-		forStat = block.statements[1] :: luau.AstStatFor
+		forStat = block.statements[1] :: syntax.AstStatFor
 		assert.eq(forStat.tag, "for")
 		assert.eq(forStat.forkeyword.text, "for")
 		assert.eq(forStat.variable.name.text, "j")
@@ -710,7 +710,7 @@ test.suite("parse", function(suite)
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
-		local forInStat = block.statements[1] :: luau.AstStatForIn
+		local forInStat = block.statements[1] :: syntax.AstStatForIn
 		assert.eq(forInStat.tag, "forin")
 		assert.eq(forInStat.forkeyword.text, "for")
 		assert.eq(#forInStat.variables, 2)
@@ -730,7 +730,7 @@ test.suite("parse", function(suite)
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
-		local assign = block.statements[1] :: luau.AstStatAssign
+		local assign = block.statements[1] :: syntax.AstStatAssign
 		assert.eq(assign.tag, "assign")
 		assert.eq(#assign.variables, 1)
 		assert.eq(assign.variables[1].node.tag, "global")
@@ -744,7 +744,7 @@ test.suite("parse", function(suite)
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
-		local compound = block.statements[1] :: luau.AstStatCompoundAssign
+		local compound = block.statements[1] :: syntax.AstStatCompoundAssign
 		assert.eq(compound.tag, "compoundassign")
 		assert.eq(compound.variable.tag, "global")
 		assert.eq(compound.operand.text, "+=")
@@ -756,15 +756,15 @@ test.suite("parse", function(suite)
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
-		local funcStat = block.statements[1] :: luau.AstStatFunction
+		local funcStat = block.statements[1] :: syntax.AstStatFunction
 		assert.eq(funcStat.tag, "function")
 		assert.eq(#funcStat.attributes, 3)
-		assert.eq((funcStat.attributes[1] :: luau.AstAttribute).text, "@checked")
-		assert.eq((funcStat.attributes[2] :: luau.AstAttribute).text, "@native")
-		assert.eq((funcStat.attributes[3] :: luau.AstAttribute).text, "@deprecated")
+		assert.eq((funcStat.attributes[1] :: syntax.AstAttribute).text, "@checked")
+		assert.eq((funcStat.attributes[2] :: syntax.AstAttribute).text, "@native")
+		assert.eq((funcStat.attributes[3] :: syntax.AstAttribute).text, "@deprecated")
 		assert.eq(funcStat.functionkeyword.text, "function")
 		assert.eq(funcStat.name.tag, "global")
-		assert.eq((funcStat.name :: luau.AstExprGlobal).name.text, "add")
+		assert.eq((funcStat.name :: syntax.AstExprGlobal).name.text, "add")
 		-- body parsing tested in parseExprAnonymousFunction
 	end)
 
@@ -773,7 +773,7 @@ test.suite("parse", function(suite)
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
-		local localFuncStat = block.statements[1] :: luau.AstStatLocalFunction
+		local localFuncStat = block.statements[1] :: syntax.AstStatLocalFunction
 		assert.eq(localFuncStat.tag, "localfunction")
 		assert.eq(#localFuncStat.attributes, 0)
 		assert.eq(localFuncStat.localkeyword.text, "local")
@@ -786,7 +786,7 @@ test.suite("parse", function(suite)
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.tag, "typealias")
 		assert.eq(typeAlias.export, nil)
 		assert.eq(typeAlias.typeToken.text, "type")
@@ -802,17 +802,17 @@ test.suite("parse", function(suite)
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.neq(typeAlias.export, nil)
-		assert.eq((typeAlias.export :: luau.Token<"export">).text, "export")
+		assert.eq((typeAlias.export :: syntax.Token<"export">).text, "export")
 		assert.neq(typeAlias.opengenerics, nil)
-		assert.eq((typeAlias.opengenerics :: luau.Token<"<">).text, "<")
+		assert.eq((typeAlias.opengenerics :: syntax.Token<"<">).text, "<")
 		assert.neq(typeAlias.generics, nil)
-		assert.eq(#typeAlias.generics :: luau.Punctuated<luau.AstGenericType>, 1)
+		assert.eq(#typeAlias.generics :: syntax.Punctuated<syntax.AstGenericType>, 1)
 		assert.neq(typeAlias.genericpacks, nil)
-		assert.eq(#typeAlias.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>, 1)
+		assert.eq(#typeAlias.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>, 1)
 		assert.neq(typeAlias.closegenerics, nil)
-		assert.eq((typeAlias.closegenerics :: luau.Token<">">).text, ">")
+		assert.eq((typeAlias.closegenerics :: syntax.Token<">">).text, ">")
 	end)
 
 	suite:case("parseStatTypeFunction", function(assert)
@@ -820,7 +820,7 @@ test.suite("parse", function(suite)
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
-		local typeFunc = block.statements[1] :: luau.AstStatTypeFunction
+		local typeFunc = block.statements[1] :: syntax.AstStatTypeFunction
 		assert.eq(typeFunc.tag, "typefunction")
 		assert.eq(typeFunc.export, nil)
 		assert.eq(typeFunc.type.text, "type")
@@ -831,9 +831,9 @@ test.suite("parse", function(suite)
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
-		typeFunc = block.statements[1] :: luau.AstStatTypeFunction
+		typeFunc = block.statements[1] :: syntax.AstStatTypeFunction
 		assert.neq(typeFunc.export, nil)
-		assert.eq((typeFunc.export :: luau.Token<"export">).text, "export")
+		assert.eq((typeFunc.export :: syntax.Token<"export">).text, "export")
 	end)
 end)
 
@@ -841,10 +841,10 @@ test.suite("parse types", function(suite)
 	-- AstGenericType and AstGenericTypePack are tested in parseExprAnonymousFunction
 	suite:case("testTypeReference", function(assert)
 		local block = parser.parse("type MyString = string")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "reference")
 
-		local typeRef = typeAlias.type :: luau.AstTypeReference
+		local typeRef = typeAlias.type :: syntax.AstTypeReference
 		assert.eq(typeRef.prefix, nil)
 		assert.eq(typeRef.prefixpoint, nil)
 		assert.eq(typeRef.name.text, "string")
@@ -853,67 +853,67 @@ test.suite("parse types", function(suite)
 		assert.eq(typeRef.closeparameters, nil)
 
 		block = parser.parse("type MyTable = MyModule.Table<number, string>")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "reference")
 
-		typeRef = typeAlias.type :: luau.AstTypeReference
+		typeRef = typeAlias.type :: syntax.AstTypeReference
 		assert.neq(typeRef.prefix, nil)
-		assert.eq((typeRef.prefix :: luau.Token<string>).text, "MyModule")
+		assert.eq((typeRef.prefix :: syntax.Token<string>).text, "MyModule")
 		assert.neq(typeRef.prefixpoint, nil)
-		assert.eq((typeRef.prefixpoint :: luau.Token<".">).text, ".")
+		assert.eq((typeRef.prefixpoint :: syntax.Token<".">).text, ".")
 		assert.eq(typeRef.name.text, "Table")
 		assert.neq(typeRef.openparameters, nil)
-		assert.eq((typeRef.openparameters :: luau.Token<"<">).text, "<")
+		assert.eq((typeRef.openparameters :: syntax.Token<"<">).text, "<")
 		assert.neq(typeRef.parameters, nil)
-		assert.eq(#typeRef.parameters :: luau.Punctuated<luau.AstType>, 2)
-		assert.eq((typeRef.parameters :: luau.Punctuated<luau.AstType>)[1].node.tag, "reference")
-		assert.eq((typeRef.parameters :: luau.Punctuated<luau.AstType>)[2].node.tag, "reference")
+		assert.eq(#typeRef.parameters :: syntax.Punctuated<syntax.AstType>, 2)
+		assert.eq((typeRef.parameters :: syntax.Punctuated<syntax.AstType>)[1].node.tag, "reference")
+		assert.eq((typeRef.parameters :: syntax.Punctuated<syntax.AstType>)[2].node.tag, "reference")
 		assert.neq(typeRef.closeparameters, nil)
-		assert.eq((typeRef.closeparameters :: luau.Token<">">).text, ">")
+		assert.eq((typeRef.closeparameters :: syntax.Token<">">).text, ">")
 	end)
 
 	suite:case("testTypeSingletonBoolean", function(assert)
 		local block = parser.parse("type TrueType = true")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "boolean")
 
-		local singletonBool = typeAlias.type :: luau.AstTypeSingletonBool
+		local singletonBool = typeAlias.type :: syntax.AstTypeSingletonBool
 		assert.eq(singletonBool.text, "true")
 		assert.eq(singletonBool.value, true)
 
 		block = parser.parse("type FalseType = false")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "boolean")
 
-		singletonBool = typeAlias.type :: luau.AstTypeSingletonBool
+		singletonBool = typeAlias.type :: syntax.AstTypeSingletonBool
 		assert.eq(singletonBool.text, "false")
 		assert.eq(singletonBool.value, false)
 	end)
 
 	suite:case("testTypeSingletonString", function(assert)
 		local block = parser.parse("type HelloType = 'hello'")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "string")
 
-		local singletonStr = typeAlias.type :: luau.AstTypeSingletonString
+		local singletonStr = typeAlias.type :: syntax.AstTypeSingletonString
 		assert.eq(singletonStr.text, "hello")
 		assert.eq(singletonStr.quotestyle, "single")
 
 		block = parser.parse('type WorldType = "world"')
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "string")
 
-		singletonStr = typeAlias.type :: luau.AstTypeSingletonString
+		singletonStr = typeAlias.type :: syntax.AstTypeSingletonString
 		assert.eq(singletonStr.text, "world")
 		assert.eq(singletonStr.quotestyle, "double")
 	end)
 
 	suite:case("testTypeTypeof", function(assert)
 		local block = parser.parse("type T = typeof(someVariable)")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "typeof")
 
-		local typeofType = typeAlias.type :: luau.AstTypeTypeof
+		local typeofType = typeAlias.type :: syntax.AstTypeTypeof
 		assert.eq(typeofType.typeof.text, "typeof")
 		assert.eq(typeofType.openparens.text, "(")
 		assert.eq(typeofType.expression.tag, "global")
@@ -922,10 +922,10 @@ test.suite("parse types", function(suite)
 
 	suite:case("testTypeGroup", function(assert)
 		local block = parser.parse("type T = (string)")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "group")
 
-		local groupType = typeAlias.type :: luau.AstTypeGroup
+		local groupType = typeAlias.type :: syntax.AstTypeGroup
 		assert.eq(groupType.openparens.text, "(")
 		assert.eq(groupType.type.tag, "reference")
 		assert.eq(groupType.closeparens.text, ")")
@@ -933,10 +933,10 @@ test.suite("parse types", function(suite)
 
 	suite:case("testTypeUnion", function(assert)
 		local block = parser.parse("type T = string | number | boolean")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "union")
 
-		local unionType = typeAlias.type :: luau.AstTypeUnion
+		local unionType = typeAlias.type :: syntax.AstTypeUnion
 		assert.eq(unionType.leading, nil)
 		assert.eq(#unionType.types, 3)
 		assert.eq(unionType.types[1].node.tag, "reference")
@@ -944,24 +944,24 @@ test.suite("parse types", function(suite)
 		assert.eq(unionType.types[3].node.tag, "reference")
 
 		block = parser.parse("type T = | number?")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "union")
 
-		unionType = typeAlias.type :: luau.AstTypeUnion
+		unionType = typeAlias.type :: syntax.AstTypeUnion
 		assert.neq(unionType.leading, nil)
-		assert.eq((unionType.leading :: luau.Token<"|">).text, "|")
+		assert.eq((unionType.leading :: syntax.Token<"|">).text, "|")
 		assert.eq(#unionType.types, 2)
 		assert.eq(unionType.types[1].node.tag, "reference")
 		assert.eq(unionType.types[2].node.tag, "optional")
-		assert.eq((unionType.types[2].node :: luau.AstTypeOptional).text, "?")
+		assert.eq((unionType.types[2].node :: syntax.AstTypeOptional).text, "?")
 	end)
 
 	suite:case("testTypeUnionWithOptionalPart", function(assert)
 		local block = parser.parse("type T = number? | string")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "union")
 
-		local unionType = typeAlias.type :: luau.AstTypeUnion
+		local unionType = typeAlias.type :: syntax.AstTypeUnion
 		assert.eq(unionType.leading, nil)
 		assert.eq(#unionType.types, 3)
 
@@ -972,7 +972,7 @@ test.suite("parse types", function(suite)
 		local pair2 = unionType.types[2]
 		assert.eq(pair2.node.tag, "optional")
 		assert.neq(pair2.separator, nil)
-		assert.eq((pair2.separator :: luau.Token<"|">).text, "|")
+		assert.eq((pair2.separator :: syntax.Token<"|">).text, "|")
 
 		local pair3 = unionType.types[3]
 		assert.eq(pair3.node.tag, "reference")
@@ -981,10 +981,10 @@ test.suite("parse types", function(suite)
 
 	suite:case("testTypeIntersection", function(assert)
 		local block = parser.parse("type T = A & B & C")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "intersection")
 
-		local intersectionType = typeAlias.type :: luau.AstTypeIntersection
+		local intersectionType = typeAlias.type :: syntax.AstTypeIntersection
 		assert.eq(intersectionType.leading, nil)
 		assert.eq(#intersectionType.types, 3)
 		assert.eq(intersectionType.types[1].node.tag, "reference")
@@ -992,59 +992,59 @@ test.suite("parse types", function(suite)
 		assert.eq(intersectionType.types[3].node.tag, "reference")
 
 		block = parser.parse("type T = & B")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "intersection")
 
-		intersectionType = typeAlias.type :: luau.AstTypeIntersection
+		intersectionType = typeAlias.type :: syntax.AstTypeIntersection
 		assert.neq(intersectionType.leading, nil)
-		assert.eq((intersectionType.leading :: luau.Token<"&">).text, "&")
+		assert.eq((intersectionType.leading :: syntax.Token<"&">).text, "&")
 		assert.eq(#intersectionType.types, 1)
 		assert.eq(intersectionType.types[1].node.tag, "reference")
 	end)
 
 	suite:case("testTypeArray", function(assert)
 		local block = parser.parse("type T = { number }")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "array")
 
-		local arrayType = typeAlias.type :: luau.AstTypeArray
+		local arrayType = typeAlias.type :: syntax.AstTypeArray
 		assert.eq(arrayType.openbrace.text, "{")
 		assert.eq(arrayType.access, nil)
 		assert.eq(arrayType.type.tag, "reference")
 		assert.eq(arrayType.closebrace.text, "}")
 
 		block = parser.parse("type T = { read string }")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "array")
 
-		arrayType = typeAlias.type :: luau.AstTypeArray
+		arrayType = typeAlias.type :: syntax.AstTypeArray
 		assert.neq(arrayType.access, nil)
-		assert.eq((arrayType.access :: luau.Token<"read" | "write">).text, "read")
+		assert.eq((arrayType.access :: syntax.Token<"read" | "write">).text, "read")
 
 		block = parser.parse("type T = { write number }")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "array")
 
-		arrayType = typeAlias.type :: luau.AstTypeArray
+		arrayType = typeAlias.type :: syntax.AstTypeArray
 		assert.neq(arrayType.access, nil)
-		assert.eq((arrayType.access :: luau.Token<"read" | "write">).text, "write")
+		assert.eq((arrayType.access :: syntax.Token<"read" | "write">).text, "write")
 	end)
 
 	suite:case("parseTypeTable", function(assert)
 		local block = parser.parse("type T = {}")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "table")
 
-		local tableType = typeAlias.type :: luau.AstTypeTable
+		local tableType = typeAlias.type :: syntax.AstTypeTable
 		assert.eq(tableType.openbrace.text, "{")
 		assert.eq(#tableType.entries, 0)
 		assert.eq(tableType.closebrace.text, "}")
 
 		block = parser.parse("type T = {[number] : string}")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "table")
 
-		tableType = typeAlias.type :: luau.AstTypeTable
+		tableType = typeAlias.type :: syntax.AstTypeTable
 		assert.eq(#tableType.entries, 1)
 		local tableTypeItem: any = tableType.entries[1]
 		assert.eq(tableTypeItem.kind, "indexer")
@@ -1057,69 +1057,69 @@ test.suite("parse types", function(suite)
 		assert.eq(tableTypeItem.separator, nil)
 
 		block = parser.parse("type T = {['hello'] : 'world', read ['foo'] : number; write ['bar'] : boolean}")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "table")
-		tableType = typeAlias.type :: luau.AstTypeTable
+		tableType = typeAlias.type :: syntax.AstTypeTable
 		assert.eq(#tableType.entries, 3)
 		tableTypeItem = tableType.entries[1]
 		assert.eq(tableTypeItem.kind, "stringproperty")
 		assert.eq(tableTypeItem.access, nil)
 		assert.eq(tableTypeItem.indexeropen.text, "[")
-		assert.eq((tableTypeItem.key :: luau.AstTypeSingletonString).tag, "string")
-		assert.eq((tableTypeItem.key :: luau.AstTypeSingletonString).text, "hello")
+		assert.eq((tableTypeItem.key :: syntax.AstTypeSingletonString).tag, "string")
+		assert.eq((tableTypeItem.key :: syntax.AstTypeSingletonString).text, "hello")
 		assert.eq(tableTypeItem.indexerclose.text, "]")
 		assert.eq(tableTypeItem.colon.text, ":")
 		assert.eq(tableTypeItem.value.tag, "string")
 		assert.neq(tableTypeItem.separator, nil)
-		assert.eq((tableTypeItem.separator :: luau.Token<"," | ";">).text, ",")
+		assert.eq((tableTypeItem.separator :: syntax.Token<"," | ";">).text, ",")
 
 		tableTypeItem = tableType.entries[2]
 		assert.eq(tableTypeItem.kind, "stringproperty")
 		assert.neq(tableTypeItem.access, nil)
-		assert.eq((tableTypeItem.access :: luau.Token<"read" | "write">).text, "read")
+		assert.eq((tableTypeItem.access :: syntax.Token<"read" | "write">).text, "read")
 		assert.neq(tableTypeItem.separator, nil)
-		assert.eq((tableTypeItem.separator :: luau.Token<"," | ";">).text, ";")
+		assert.eq((tableTypeItem.separator :: syntax.Token<"," | ";">).text, ";")
 
 		tableTypeItem = tableType.entries[3]
 		assert.eq(tableTypeItem.kind, "stringproperty")
 		assert.neq(tableTypeItem.access, nil)
-		assert.eq((tableTypeItem.access :: luau.Token<"read" | "write">).text, "write")
+		assert.eq((tableTypeItem.access :: syntax.Token<"read" | "write">).text, "write")
 		assert.eq(tableTypeItem.separator, nil)
 
 		block = parser.parse("type T = { hello: 'world'; read foo: number, write bar: boolean }")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "table")
-		tableType = typeAlias.type :: luau.AstTypeTable
+		tableType = typeAlias.type :: syntax.AstTypeTable
 		assert.eq(#tableType.entries, 3)
 		tableTypeItem = tableType.entries[1]
 		assert.eq(tableTypeItem.kind, "property")
 		assert.eq(tableTypeItem.access, nil)
-		assert.eq((tableTypeItem.key :: luau.Token).text, "hello")
+		assert.eq((tableTypeItem.key :: syntax.Token).text, "hello")
 		assert.eq(tableTypeItem.colon.text, ":")
 		assert.eq(tableTypeItem.value.tag, "string")
 		assert.neq(tableTypeItem.separator, nil)
-		assert.eq((tableTypeItem.separator :: luau.Token<"," | ";">).text, ";")
+		assert.eq((tableTypeItem.separator :: syntax.Token<"," | ";">).text, ";")
 
 		tableTypeItem = tableType.entries[2]
 		assert.eq(tableTypeItem.kind, "property")
 		assert.neq(tableTypeItem.access, nil)
-		assert.eq((tableTypeItem.access :: luau.Token<"read" | "write">).text, "read")
+		assert.eq((tableTypeItem.access :: syntax.Token<"read" | "write">).text, "read")
 		assert.neq(tableTypeItem.separator, nil)
-		assert.eq((tableTypeItem.separator :: luau.Token<"," | ";">).text, ",")
+		assert.eq((tableTypeItem.separator :: syntax.Token<"," | ";">).text, ",")
 
 		tableTypeItem = tableType.entries[3]
 		assert.eq(tableTypeItem.kind, "property")
 		assert.neq(tableTypeItem.access, nil)
-		assert.eq((tableTypeItem.access :: luau.Token<"read" | "write">).text, "write")
+		assert.eq((tableTypeItem.access :: syntax.Token<"read" | "write">).text, "write")
 		assert.eq(tableTypeItem.separator, nil)
 	end)
 
 	suite:case("parseTypeFunction", function(assert)
 		local block = parser.parse("type T = (n : number, string) -> boolean")
-		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "function")
 
-		local funcType = typeAlias.type :: luau.AstTypeFunction
+		local funcType = typeAlias.type :: syntax.AstTypeFunction
 		assert.eq(funcType.opengenerics, nil)
 		assert.eq(funcType.generics, nil)
 		assert.eq(funcType.genericpacks, nil)
@@ -1129,9 +1129,9 @@ test.suite("parse types", function(suite)
 
 		local param = funcType.parameters[1].node
 		assert.neq(param.name, nil)
-		assert.eq((param.name :: luau.Token<string>).text, "n")
+		assert.eq((param.name :: syntax.Token<string>).text, "n")
 		assert.neq(param.colon, nil)
-		assert.eq((param.colon :: luau.Token<":">).text, ":")
+		assert.eq((param.colon :: syntax.Token<":">).text, ":")
 		assert.eq(param.type.tag, "reference")
 
 		param = funcType.parameters[2].node
@@ -1145,37 +1145,37 @@ test.suite("parse types", function(suite)
 		assert.eq(funcType.returntypes.kind, "typepack")
 
 		block = parser.parse("type T = <T, U...> (item: T, ...U) -> ()")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "function")
 
-		funcType = typeAlias.type :: luau.AstTypeFunction
+		funcType = typeAlias.type :: syntax.AstTypeFunction
 		assert.neq(funcType.opengenerics, nil)
-		assert.eq((funcType.opengenerics :: luau.Token<"<">).text, "<")
+		assert.eq((funcType.opengenerics :: syntax.Token<"<">).text, "<")
 		assert.neq(funcType.generics, nil)
-		assert.eq(#funcType.generics :: luau.Punctuated<luau.AstGenericType>, 1)
+		assert.eq(#funcType.generics :: syntax.Punctuated<syntax.AstGenericType>, 1)
 		assert.neq(funcType.genericpacks, nil)
-		assert.eq(#funcType.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>, 1)
-		assert.eq((funcType.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>)[1].node.tag, "generic")
+		assert.eq(#funcType.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>, 1)
+		assert.eq((funcType.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>)[1].node.tag, "generic")
 
-		local genericTypePack = (funcType.genericpacks :: luau.Punctuated<luau.AstGenericTypePack>)[1].node
+		local genericTypePack = (funcType.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>)[1].node
 		assert.eq(genericTypePack.name.text, "U")
 		assert.eq(genericTypePack.ellipsis.text, "...")
 
 		assert.neq(funcType.closegenerics, nil)
-		assert.eq((funcType.closegenerics :: luau.Token<">">).text, ">")
+		assert.eq((funcType.closegenerics :: syntax.Token<">">).text, ">")
 		assert.neq(funcType.vararg, nil)
-		assert.eq((funcType.vararg :: luau.AstTypePack).kind, "typepack")
+		assert.eq((funcType.vararg :: syntax.AstTypePack).kind, "typepack")
 
 		block = parser.parse("type T = () -> ...number")
-		typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "function")
 
-		funcType = typeAlias.type :: luau.AstTypeFunction
+		funcType = typeAlias.type :: syntax.AstTypeFunction
 		assert.eq(funcType.returntypes.kind, "typepack")
 		assert.eq(funcType.returntypes.tag, "variadic")
-		local variadicType: luau.AstTypePackVariadic = funcType.returntypes :: any
+		local variadicType: syntax.AstTypePackVariadic = funcType.returntypes :: any
 		assert.neq(variadicType.ellipsis, nil)
-		assert.eq((variadicType.ellipsis :: luau.Token<"...">).text, "...")
+		assert.eq((variadicType.ellipsis :: syntax.Token<"...">).text, "...")
 		assert.eq(variadicType.type.tag, "reference")
 	end)
 end)
