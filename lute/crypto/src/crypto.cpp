@@ -133,7 +133,7 @@ int lua_secretbox_seal(lua_State* L)
         size_t keyLength = 0;
         key = static_cast<uint8_t*>(luaL_checkbuffer(L, 2, &keyLength));
         if (keyLength != crypto_secretbox_keybytes())
-            luaL_error(L, "%s: keys buffer should be %d bytes", kOpenName, int(crypto_secretbox_keybytes()));
+            luaL_error(L, "%s: key buffer should be %d bytes", kOpenName, int(crypto_secretbox_keybytes()));
 
         lua_pushvalue(L, 2);
         lua_setfield(L, -2, kKeyField);
@@ -182,7 +182,7 @@ int lua_secretbox_open(lua_State* L)
     size_t keyLength = 0;
     uint8_t* key = static_cast<uint8_t*>(luaL_checkbuffer(L, 4, &keyLength));
     if (keyLength != crypto_secretbox_keybytes())
-        luaL_error(L, "%s: keys buffer should be %d bytes", kOpenName, int(crypto_secretbox_keybytes()));
+        luaL_error(L, "%s: key buffer should be %d bytes", kOpenName, int(crypto_secretbox_keybytes()));
 
     uint8_t* buffer = static_cast<uint8_t*>(lua_newbuffer(L, ciphertextLength - crypto_secretbox_macbytes()));
     if (crypto_secretbox_open_easy(buffer, ciphertext, ciphertextLength, nonce, key) != 0)
