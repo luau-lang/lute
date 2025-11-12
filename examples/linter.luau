@@ -1,5 +1,5 @@
 local fs = require("@std/fs")
-local parser = require("@std/syntax/parser")
+local syntax = require("@std/syntax")
 
 local pp = require("@batteries/pp")
 
@@ -32,7 +32,7 @@ end
 local path = tostring(...)
 local source = fs.readfiletostring(path)
 
-local prog = parser.parse(source)
+local prog = syntax.parse(source)
 
 local function lintForDivZeroByZero(prog)
 	local function unwrapParens(n)

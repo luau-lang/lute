@@ -1,7 +1,7 @@
 local fs = require("@lute/fs")
 local luau = require("@std/luau")
-local parser = require("@std/syntax/parser")
 local pathLib = require("@std/path")
+local syntax = require("@std/syntax")
 
 local arguments = require("@self/lib/arguments")
 local files = require("@self/lib/files")
@@ -99,7 +99,7 @@ local function applyMigration(
 
 		local source = fs.readfiletostring(pathStr)
 
-		local parseresult = parser.parsefile(source)
+		local parseresult = syntax.parsefile(source)
 
 		local ctx = {
 			path = pathStr,
