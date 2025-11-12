@@ -11,12 +11,12 @@ type PrintVisitor = visitor.Visitor & {
 	cursor: number,
 	replacements: types.replacements,
 	write: (self: PrintVisitor, str: string) -> (),
-	printTrivia: (self: PrintVisitor, trivia: luau.Trivia) -> (),
-	printTriviaList: (self: PrintVisitor, trivia: { luau.Trivia }) -> (),
-	printToken: (self: PrintVisitor, token: luau.Token) -> (),
-	printString: (self: PrintVisitor, expr: luau.AstExprConstantString | luau.AstTypeSingletonString) -> (),
-	printInterpolatedString: (self: PrintVisitor, expr: luau.AstExprInterpString) -> (),
-	printReplacement: (self: PrintVisitor, node: luau.AstNode, replacement: types.replacement) -> (),
+	printTrivia: (self: PrintVisitor, trivia: types.Trivia) -> (),
+	printTriviaList: (self: PrintVisitor, trivia: { types.Trivia }) -> (),
+	printToken: (self: PrintVisitor, token: types.Token) -> (),
+	printString: (self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString) -> (),
+	printInterpolatedString: (self: PrintVisitor, expr: types.AstExprInterpString) -> (),
+	printReplacement: (self: PrintVisitor, node: types.AstNode, replacement: types.replacement) -> (),
 }
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
@@ -82,7 +82,7 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 	end
 end
 
-local function printReplacement(self: PrintVisitor, node: luau.AstNode, replacement: types.replacement)
+local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: types.replacement)
 	if typeof(replacement) == "string" then
 		self:write(replacement)
 	elseif replacement.kind ~= nil then -- LUAUFIX: type solver upset comparing string singleton union to nil
@@ -130,9 +130,11 @@ local function printVisitor(replacements: types.replacements?)
 		return false
 	end
 
+	printer = visitor.create(maybeReplace) :: PrintVisitor
+
 	printer.result = result
 	printer.cursor = cursor
-	printer.replacements = if replacements ~= nil then replacements else {}
+	printer.replacements = if replacements ~= nil then replacements else {} :: types.replacements
 	printer.write = write
 	printer.printTrivia = printTrivia
 	printer.printTriviaList = printTriviaList
@@ -140,80 +142,27 @@ local function printVisitor(replacements: types.replacements?)
 	printer.printString = printString
 	printer.printInterpolatedString = printInterpolatedString
 	printer.printReplacement = printReplacement
-
-	printer.visitBlock = maybeReplace
-	printer.visitBlockEnd = maybeReplace
-	printer.visitIf = maybeReplace
-	printer.visitWhile = maybeReplace
-	printer.visitRepeat = maybeReplace
-	printer.visitReturn = maybeReplace
-	printer.visitLocalDeclaration = maybeReplace
-	printer.visitLocalDeclarationEnd = maybeReplace
-	printer.visitFor = maybeReplace
-	printer.visitForIn = maybeReplace
-	printer.visitAssign = maybeReplace
-	printer.visitCompoundAssign = maybeReplace
-	printer.visitFunction = maybeReplace
-	printer.visitLocalFunction = maybeReplace
-	printer.visitTypeAlias = maybeReplace
-	printer.visitStatTypeFunction = maybeReplace
-
-	printer.visitExpression = maybeReplace
-	printer.visitExpressionEnd = maybeReplace
-	printer.visitLocalReference = maybeReplace
-	printer.visitGlobal = maybeReplace
-	printer.visitCall = maybeReplace
-	printer.visitUnary = maybeReplace
-	printer.visitBinary = maybeReplace
-	printer.visitAnonymousFunction = maybeReplace
-	printer.visitTableItem = maybeReplace
-	printer.visitTable = maybeReplace
-	printer.visitIndexName = maybeReplace
-	printer.visitIndexExpr = maybeReplace
-	printer.visitGroup = maybeReplace
-	printer.visitInterpolatedString = function(node: luau.AstExprInterpString)
+	printer.visitInterpolatedString = function(node: types.AstExprInterpString)
 		printer:printInterpolatedString(node)
 		return false
 	end
-	printer.visitTypeAssertion = maybeReplace
-	printer.visitIfExpression = maybeReplace
-
-	printer.visitTypeReference = maybeReplace
-	printer.visitTypeBoolean = maybeReplace
 	printer.visitTypeString = function(node: types.AstTypeSingletonString)
 		printer:printString(node)
 		return false
 	end
-	printer.visitTypeTypeof = maybeReplace
-	printer.visitTypeGroup = maybeReplace
-	printer.visitTypeUnion = maybeReplace
-	printer.visitTypeIntersection = maybeReplace
-	printer.visitTypeArray = maybeReplace
-	printer.visitTypeTable = maybeReplace
-	printer.visitTypeFunction = maybeReplace
-
-	printer.visitTypePackExplicit = maybeReplace
-	printer.visitTypePackGeneric = maybeReplace
-	printer.visitTypePackVariadic = maybeReplace
-
 	printer.visitToken = function(node: types.Token)
 		printer:printToken(node)
 		return false
 	end
-	printer.visitNil = maybeReplace
 	printer.visitString = function(node: types.AstExprConstantString)
 		printer:printString(node)
 		return false
 	end
-	printer.visitBoolean = maybeReplace
-	printer.visitNumber = maybeReplace
-	printer.visitLocal = maybeReplace
-	printer.visitVarargs = maybeReplace
 
 	return printer
 end
 
-function printerLib.printnode(node: luau.AstNode, replacements: types.replacements?): string
+function printerLib.printnode(node: types.AstNode, replacements: types.replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visit(node, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
