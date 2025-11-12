@@ -1,3 +1,4 @@
+local parser = require("@self/parser")
 local types = require("@self/types")
 
 export type Position = types.Position
@@ -158,4 +159,4 @@ export type AstNode = types.AstNode
 
 export type ParseResult = types.ParseResult
 
-return {}
+return table.freeze({ parse = parser.parse, parseexpr = parser.parseexpr, parsefile = parser.parsefile })
