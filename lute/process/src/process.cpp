@@ -26,6 +26,18 @@
 namespace process
 {
 
+void convertCRLFtoLF(std::string& str)
+{
+    size_t writePos = 0;
+    for (size_t readPos = 0; readPos < str.size(); ++readPos)
+    {
+        if (str[readPos] == '\r' && readPos + 1 < str.size() && str[readPos + 1] == '\n')
+            continue;  // Skip the '\r' in CRLF
+        str[writePos++] = str[readPos];
+    }
+    str.resize(writePos);
+}
+    
 struct ProcessHandle
 {
     uv_process_t process;
@@ -96,7 +108,8 @@ struct ProcessHandle
             std::string finalStdout = stdoutData;
             std::string finalStderr = stderrData;
             std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
-
+            convertCRLFtoLF(finalStdout);
+            convertCRLFtoLF(finalStderr);
             resumeToken->complete(
                 [=](lua_State* L)
                 {

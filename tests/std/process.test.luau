@@ -1,7 +1,7 @@
 local pathlib = require("@std/path")
 local process = require("@std/process")
 local test = require("@std/test")
-
+local system = require("@std/system")
 test.suite("ProcessSuite", function(suite)
 	suite:case("homedir_and_cwd_and_execpath", function(assert)
 		local hd = process.homedir()
@@ -20,7 +20,12 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("run_shell_and_cwd", function(assert)
-		local r = process.run({ "pwd" }, { cwd = "/" })
+		local rootdir: string = "/"
+		if system.win32 then
+			local root = pathlib.win32.drive(process.cwd())
+			rootdir = pathlib.format(root)
+		end
+		local r = process.run({ "pwd" }, { cwd = rootdir })
 		assert.tableeq(r, {
 			exitcode = 0,
 			stdout = "/\n",
