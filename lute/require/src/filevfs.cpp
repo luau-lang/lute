@@ -1,11 +1,14 @@
 #include "lute/filevfs.h"
 
 #include "lute/modulepath.h"
+#include "lute/uvutils.h"
 
 #include "Luau/Common.h"
 #include "Luau/Config.h"
 #include "Luau/FileUtils.h"
 #include "Luau/LuauConfig.h"
+
+#include "uv.h"
 
 #include <array>
 #include <string>
@@ -26,7 +29,25 @@ NavigationStatus FileVfs::resetToStdIn()
 
 NavigationStatus FileVfs::resetToPath(const std::string& path)
 {
-    std::string normalizedPath = normalizePath(path);
+    std::string pathToProcess = path;
+
+    // Handle tilde expansion for home directory
+    if (!path.empty() && path[0] == '~')
+    {
+        auto result = uvutils::getStringFromUv(uv_os_homedir);
+        if (result.get_if<uvutils::UvError>() != nullptr)
+            return NavigationStatus::NotFound;
+
+        std::string* homeDir = result.get_if<std::string>();
+
+        // Replace ~ with home directory
+        if (path.size() == 1)
+            pathToProcess = *homeDir;
+        else if (path[1] == '/' || path[1] == '\\')
+            pathToProcess = *homeDir + path.substr(1);
+    }
+
+    std::string normalizedPath = normalizePath(pathToProcess);
 
     if (isAbsolutePath(normalizedPath))
     {
