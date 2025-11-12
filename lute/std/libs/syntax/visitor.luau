@@ -571,7 +571,7 @@ local function visitIfExpression(node: types.AstExprIfElse, visitor: Visitor)
 end
 
 local function visitTypeOrPack(node: types.AstType | types.AstTypePack, visitor: Visitor)
-	if node.tag == "explicit" or node.tag == "generic" or node.tag == "variadic" then
+	if node.kind == "typepack" then
 		visitTypePack(node, visitor)
 	else
 		visitType(node, visitor)
@@ -881,7 +881,7 @@ local function create()
 	return table.clone(defaultVisitor)
 end
 
-local function visit(node: luau.AstNode, visitor: Visitor)
+local function visit(node: types.AstNode, visitor: Visitor)
 	if node.kind == "stat" then
 		visitStatement(node, visitor)
 	elseif node.kind == "expr" then
