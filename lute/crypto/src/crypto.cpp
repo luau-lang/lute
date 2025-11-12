@@ -127,7 +127,7 @@ int lua_secretbox_seal(lua_State* L)
     lua_setfield(L, -2, kCiphertextField);
 
     uint8_t* key;
-    // user-provided a key
+    // user provided a key
     if (argumentCount == 2)
     {
         size_t keyLength = 0;
