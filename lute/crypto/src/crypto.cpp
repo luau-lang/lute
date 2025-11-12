@@ -98,7 +98,6 @@ int lua_digest(lua_State* L)
     return 1;
 }
 
-
 // keygen(): buffer
 int lua_secretbox_keygen(lua_State* L)
 {

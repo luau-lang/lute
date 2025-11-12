@@ -25,9 +25,9 @@ test.suite("CryptoRuntimeTests", function(suite)
 	end)
 
 	suite:case("secretbox_separate_keygen", function(assert)
-	    local key = crypto.secretbox.keygen()
+		local key = crypto.secretbox.keygen()
 
-    	local message = "Remember, remember the Fifth of November."
+		local message = "Remember, remember the Fifth of November."
 		local box = crypto.secretbox.seal(message, key)
 
 		local opened = crypto.secretbox.open(box)
