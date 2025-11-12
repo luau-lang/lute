@@ -45,9 +45,9 @@ test.suite("CryptoRuntimeTests", function(suite)
 
 		local box = crypto.secretbox.seal(buf)
 		local other = {
-    		ciphertext = buffer.readstring(box.ciphertext, 0, #message),
-            nonce = box.nonce,
-            key = box.key,
+			ciphertext = buffer.readstring(box.ciphertext, 0, #message),
+			nonce = box.nonce,
+			key = box.key,
 		}
 
 		assert.errors(function()
@@ -63,9 +63,9 @@ test.suite("CryptoRuntimeTests", function(suite)
 
 		local box = crypto.secretbox.seal(buf)
 		local other = {
-    		ciphertext = box.ciphertext,
-            nonce = box.nonce,
-            key = buffer.create(5),
+			ciphertext = box.ciphertext,
+			nonce = box.nonce,
+			key = buffer.create(5),
 		}
 
 		assert.errors(function()
