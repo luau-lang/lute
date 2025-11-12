@@ -19,15 +19,10 @@ export default withSidebar(
   }),
   {
     // ============ [ SIDEBAR OPTIONS ] ============
-    // ============ [ GROUPING ] ============
-    // collapsed: true,         // Collapse subgroups by default
-    // ============ [ GETTING MENU TITLE ] ============
-    useTitleFromFileHeading: true,
-    useTitleFromFrontmatter: true,
-    // ============ [ STYLING MENU TITLE ] ============
+    useFolderLinkFromSameNameSubFile: true,
+    useFolderLinkFromIndexFile: false,
     hyphenToSpace: true,
     underscoreToSpace: true,
-    // ============ [ SORTING ] ============
     sortMenusByName: true,
   }
 )
