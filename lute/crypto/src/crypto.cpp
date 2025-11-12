@@ -144,14 +144,21 @@ int lua_secretbox_open(lua_State* L)
     lua_getfield(L, 1, "nonce");
     lua_getfield(L, 1, "key");
 
-    BinaryData ciphertext = extractData(L, 2);
-    size_t nonceLength = crypto_secretbox_keybytes();
-    uint8_t* nonce = static_cast<uint8_t*>(luaL_checkbuffer(L, 3, &nonceLength));
-    size_t keyLength = crypto_secretbox_keybytes();
-    uint8_t* key = static_cast<uint8_t*>(luaL_checkbuffer(L, 4, &keyLength));
+    size_t ciphertextLength = 0;
+    uint8_t* ciphertext = static_cast<uint8_t*>(luaL_checkbuffer(L, 2, &ciphertextLength));
 
-    uint8_t* buffer = static_cast<uint8_t*>(lua_newbuffer(L, ciphertext.length - crypto_secretbox_macbytes()));
-    if (crypto_secretbox_open_easy(buffer, static_cast<const uint8_t*>(ciphertext.data), ciphertext.length, nonce, key) != 0)
+    size_t nonceLength = 0;
+    uint8_t* nonce = static_cast<uint8_t*>(luaL_checkbuffer(L, 3, &nonceLength));
+    if (nonceLength != crypto_secretbox_noncebytes())
+        luaL_error(L, "%s: nonce buffer should be %d bytes", kOpenName, int(crypto_secretbox_noncebytes()));
+
+    size_t keyLength = 0;
+    uint8_t* key = static_cast<uint8_t*>(luaL_checkbuffer(L, 4, &keyLength));
+    if (keyLength != crypto_secretbox_keybytes())
+        luaL_error(L, "%s: keys buffer should be %d bytes", kOpenName, int(crypto_secretbox_keybytes()));
+
+    uint8_t* buffer = static_cast<uint8_t*>(lua_newbuffer(L, ciphertextLength - crypto_secretbox_macbytes()));
+    if (crypto_secretbox_open_easy(buffer, ciphertext, ciphertextLength, nonce, key) != 0)
         luaL_error(L, "%s: failed to verify the message", kOpenName);
 
     return 1;

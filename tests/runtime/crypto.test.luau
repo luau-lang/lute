@@ -37,6 +37,42 @@ test.suite("CryptoRuntimeTests", function(suite)
 		end)
 	end)
 
+	suite:case("secretbox_no_open_string", function(assert)
+		local message = "I see no reason why gunpowder treason should ever be forgot."
+
+		local buf = buffer.create(#message)
+		buffer.writestring(buf, 0, message)
+
+		local box = crypto.secretbox.seal(buf)
+		local other = {
+    		ciphertext = buffer.readstring(box.ciphertext, 0, #message),
+            nonce = box.nonce,
+            key = box.key,
+		}
+
+		assert.errors(function()
+			crypto.secretbox.open(other)
+		end)
+	end)
+
+	suite:case("secretbox_missized_key", function(assert)
+		local message = "I see no reason why gunpowder treason should ever be forgot."
+
+		local buf = buffer.create(#message)
+		buffer.writestring(buf, 0, message)
+
+		local box = crypto.secretbox.seal(buf)
+		local other = {
+    		ciphertext = box.ciphertext,
+            nonce = box.nonce,
+            key = buffer.create(5),
+		}
+
+		assert.errors(function()
+			crypto.secretbox.open(other)
+		end)
+	end)
+
 	suite:case("secretbox_on_ill_typed_inputs", function(assert)
 		local message = "I see no reason why gunpowder treason should ever be forgot."
 
