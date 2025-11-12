@@ -24,6 +24,18 @@ test.suite("CryptoRuntimeTests", function(suite)
 		assert.buffereq(opened, buf)
 	end)
 
+	suite:case("secretbox_separate_keygen", function(assert)
+	    local key = crypto.secretbox.keygen()
+
+    	local message = "Remember, remember the Fifth of November."
+		local box = crypto.secretbox.seal(message, key)
+
+		local opened = crypto.secretbox.open(box)
+		local output = buffer.readstring(opened, 0, buffer.len(opened))
+
+		assert.eq(output, message)
+	end)
+
 	suite:case("secretbox_errors_on_tampering", function(assert)
 		local message = "Gunpowder, treason, and plot."
 		local buf = buffer.create(#message)

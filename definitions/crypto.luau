@@ -22,6 +22,10 @@ export type secretbox = {
 	read key: buffer,
 }
 
+function crypto.secretbox.keygen(): buffer
+	error("not implemented")
+end
+
 function crypto.secretbox.seal(message: string | buffer): secretbox
 	error("not implemented")
 end

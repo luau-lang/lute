@@ -98,12 +98,26 @@ int lua_digest(lua_State* L)
     return 1;
 }
 
-// seal(message: string | buffer): { ciphertext: buffer, key: buffer, nonce: buffer }
+
+// keygen(): buffer
+int lua_secretbox_keygen(lua_State* L)
+{
+    int argumentCount = lua_gettop(L);
+    if (argumentCount != 0)
+        luaL_error(L, "%s: expected no arguments, but got %d", kKeygenName, argumentCount);
+
+    uint8_t* key = static_cast<uint8_t*>(lua_newbuffer(L, crypto_secretbox_keybytes()));
+    crypto_secretbox_keygen(key);
+    
+    return 1;
+}
+
+// seal(message: string | buffer, key: buffer?): { ciphertext: buffer, key: buffer, nonce: buffer }
 int lua_secretbox_seal(lua_State* L)
 {
     int argumentCount = lua_gettop(L);
-    if (argumentCount != 1)
-        luaL_error(L, "%s: expected 1 argument, but got %d", kSealName, argumentCount);
+    if (argumentCount != 1 && argumentCount != 2)
+        luaL_error(L, "%s: expected 1 or 2 arguments, but got %d", kSealName, argumentCount);
 
     BinaryData message = extractData(L, 1);
 
@@ -113,11 +127,25 @@ int lua_secretbox_seal(lua_State* L)
     uint8_t* buffer = static_cast<uint8_t*>(lua_newbuffer(L, crypto_secretbox_macbytes() + message.length));
     lua_setfield(L, -2, kCiphertextField);
 
-    // key
-    uint8_t* key = static_cast<uint8_t*>(lua_newbuffer(L, crypto_secretbox_keybytes()));
-    crypto_secretbox_keygen(key);
-    lua_setfield(L, -2, kKeyField);
+    uint8_t* key;
+    // user-provided a key
+    if (argumentCount == 2)
+    {
+        size_t keyLength = 0;
+        key = static_cast<uint8_t*>(luaL_checkbuffer(L, 2, &keyLength));
+        if (keyLength != crypto_secretbox_keybytes())
+            luaL_error(L, "%s: keys buffer should be %d bytes", kOpenName, int(crypto_secretbox_keybytes()));
 
+        lua_pushvalue(L, 2);
+        lua_setfield(L, -2, kKeyField);
+    }
+    else
+    {
+        key = static_cast<uint8_t*>(lua_newbuffer(L, crypto_secretbox_keybytes()));
+        crypto_secretbox_keygen(key);
+        lua_setfield(L, -2, kKeyField);
+    }
+    
     // nonce
     uint8_t* nonce = static_cast<uint8_t*>(lua_newbuffer(L, crypto_secretbox_noncebytes()));
     randombytes_buf(nonce, crypto_secretbox_noncebytes());
@@ -166,7 +194,11 @@ int lua_secretbox_open(lua_State* L)
 
 int makeSecretboxLibrary(lua_State* L)
 {
-    lua_createtable(L, 0, 2);
+    lua_createtable(L, 0, 3);
+
+    // keygen
+    lua_pushcfunction(L, lua_secretbox_keygen, kKeygenName);
+    lua_setfield(L, -2, kKeygenName);
 
     // seal
     lua_pushcfunction(L, lua_secretbox_seal, kSealName);

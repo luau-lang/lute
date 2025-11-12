@@ -24,11 +24,14 @@ static const char kCiphertextField[] = "ciphertext";
 static const char kKeyField[] = "key";
 static const char kNonceField[] = "nonce";
 
+static const char kKeygenName[] = "keygen";
+int lua_secretbox_keygen(lua_State* L);
+
 static const char kSealName[] = "seal";
-int lua_seal(lua_State* L);
+int lua_secretbox_seal(lua_State* L);
 
 static const char kOpenName[] = "open";
-int lua_open(lua_State* L);
+int lua_secretbox_open(lua_State* L);
 
 static const char kPasswordHashName[] = "hash";
 int lua_pwhash(lua_State* L);
