@@ -26,6 +26,7 @@ target_sources(Lute.CLI.lib PRIVATE
     include/lute/climain.h
     include/lute/compile.h
     include/lute/luauflags.h
+    include/lute/reporter.h
     include/lute/staticrequires.h
     include/lute/tc.h
     include/lute/uvstate.h
@@ -46,6 +47,9 @@ target_compile_options(Lute.CLI.lib PRIVATE ${LUTE_OPTIONS})
 add_executable(Lute.CLI)
 
 target_sources(Lute.CLI PRIVATE
+    include/lute/clireporter.h
+
+    src/clireporter.cpp
     src/main.cpp
 )
 

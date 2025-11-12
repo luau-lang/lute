@@ -199,4 +199,10 @@ function luau.loadbypath(requirePath: path.pathlike, env: { [any]: any }?): any
 	return luau.load(migrationBytecode, requirePathStr, env)()
 end
 
+function luau.typeofmodule(modulepath: path.pathlike): string
+	local modulePathStr = if typeof(modulepath) == "string" then modulepath else path.format(modulepath)
+
+	return luteLuau.typeofmodule(modulePathStr)
+end
+
 return luau

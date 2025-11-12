@@ -6,11 +6,17 @@ target_sources(Lute.Test PRIVATE
     src/cliruntimefixture.h
     src/cliruntimefixture.cpp
 
+    src/lutefixture.h
+    src/lutefixture.cpp
+
     src/luteprojectroot.h
     src/luteprojectroot.cpp
 
     src/compile.test.cpp
     src/configresolver.test.cpp
+    src/testreporter.h
+    src/testreporter.cpp
+
     src/modulepath.test.cpp
     src/moduleresolver.test.cpp
     src/require.test.cpp

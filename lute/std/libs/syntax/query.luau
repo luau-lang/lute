@@ -3,28 +3,152 @@
 -- Provides utility functions for querying Luau AST nodes
 
 local luau = require("@std/luau")
-local visitor = require("./visitor")
+local printer = require("@std/syntax/printer")
+local types = require("@std/syntax/types")
+local visitor = require("@std/syntax/visitor")
 
-local query = {}
+type node = luau.AstNode
 
---- Selects a list of expressions from the provided block that match the provided predicate.
---- Useful for defining declarative-based programs, where the matched nodes are mutated for the migration
-function query.selectif<T>(block: luau.AstStatBlock, predicate: (luau.AstExpr) -> T?): { T }
-	local nodes = {}
-	local finder = visitor.create()
+export type query<T = node> = {
+	nodes: { T },
+	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
+	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
+	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
+	forEach: (self: query<T>, callback: (T) -> ()) -> (),
+	__root: node,
+} -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U> method
 
-	finder.visitExpression = function(node)
-		local result = predicate(node)
-		if result then
-			table.insert(nodes, result)
+local queryLib = {}
+
+function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
+	local newNodes = {}
+	for _, node in self.nodes do
+		if pred(node) then
+			table.insert(newNodes, node)
 		end
+	end
+	self.nodes = newNodes
+	return self
+end
 
+local function print<T>(self: types.replacements): string
+	return printer.printnode(self.__root, self)
+end
+
+function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
+	local replacements = { print = print, __root = self.__root }
+	for _, node in self.nodes do
+		local r = repl(node)
+		if r ~= nil then
+			replacements[node] = r
+		end
+	end
+	return replacements
+end
+
+-- map will return a query where its nodes are all the non-nil values returned by fn when called on each node of the original query
+function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
+	local newNodes = {}
+	for _, node in self.nodes do
+		local mapped = fn(node)
+		if mapped ~= nil then
+			table.insert(newNodes, mapped)
+		end
+	end
+	self.nodes = newNodes
+	return self
+end
+
+function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): ()
+	for _, node in self.nodes do
+		callback(node)
+	end
+end
+
+function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
+	local nodes: { T } = {}
+
+	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
+		local selected = fn(n)
+		if selected ~= nil then
+			table.insert(nodes, selected)
+		end
 		return true
 	end
 
-	visitor.visitblock(block, finder)
+	local selectVisitor: visitor.Visitor = {
+		visitBlock = visit,
+		visitBlockEnd = function(n) end,
+		visitIf = visit,
+		visitWhile = visit,
+		visitRepeat = visit,
+		visitReturn = visit,
+		visitLocalDeclaration = visit,
+		visitLocalDeclarationEnd = function(n) end,
+		visitFor = visit,
+		visitForIn = visit,
+		visitAssign = visit,
+		visitCompoundAssign = visit,
+		visitFunction = visit,
+		visitLocalFunction = visit,
+		visitTypeAlias = visit,
+		visitStatTypeFunction = visit,
 
-	return nodes
+		visitExpression = function(n)
+			return true
+		end,
+		visitExpressionEnd = function(n) end,
+		visitLocalReference = visit,
+		visitGlobal = visit,
+		visitCall = visit,
+		visitUnary = visit,
+		visitBinary = visit,
+		visitAnonymousFunction = visit,
+		visitTableItem = visit,
+		visitTable = visit,
+		visitIndexName = visit,
+		visitIndexExpr = visit,
+		visitGroup = visit,
+		visitInterpolatedString = visit,
+		visitTypeAssertion = visit,
+		visitIfExpression = visit,
+
+		visitTypeReference = visit,
+		visitTypeBoolean = visit,
+		visitTypeString = visit,
+		visitTypeTypeof = visit,
+		visitTypeGroup = visit,
+		visitTypeUnion = visit,
+		visitTypeIntersection = visit,
+		visitTypeArray = visit,
+		visitTypeTable = visit,
+		visitTypeFunction = visit,
+
+		visitTypePackExplicit = visit,
+		visitTypePackGeneric = visit,
+		visitTypePackVariadic = visit,
+
+		visitToken = function(n)
+			return true
+		end,
+		visitNil = visit,
+		visitString = visit,
+		visitBoolean = visit,
+		visitNumber = visit,
+		visitLocal = visit,
+		visitVarargs = visit,
+	}
+
+	visitor.visit(ast, selectVisitor)
+
+	return {
+		nodes = nodes,
+		filter = queryLib.filter,
+		replace = queryLib.replace,
+		map = queryLib.map,
+		forEach = queryLib.forEach,
+		__root = ast,
+	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 
-return table.freeze(query)
+return table.freeze(queryLib)

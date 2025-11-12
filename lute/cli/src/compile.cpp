@@ -18,13 +18,22 @@
 const char MAGIC_FLAG[] = "LUTEBYTE";
 const size_t MAGIC_FLAG_SIZE = sizeof(MAGIC_FLAG) - 1;
 
-void LuteExePayload::add(const std::string& luauFilePath)
+LuteExePayload::LuteExePayload(LuteReporter& reporter)
+    : reporter(reporter)
+{
+}
+
+void LuteExePayload::add(const std::string& bundlePath, const std::string& sourcePath)
 {
     // First file added becomes the entry point
     if (filePaths.empty())
-        entryPointPath = luauFilePath;
+        entryPointPath = bundlePath;
 
-    filePaths.push_back(luauFilePath);
+    // Store the source path for reading files
+    filePaths.push_back(sourcePath);
+
+    // Map source path to bundle path
+    sourceToBundlePath[sourcePath] = bundlePath;
 }
 
 std::optional<LuteEncodeResult> LuteExePayload::encode()
@@ -32,7 +41,7 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
     // Encoding an empty payload is an error
     if (filePaths.empty())
     {
-        fprintf(stderr, "Encode failed: No files added to payload\n");
+        reporter.reportError("Encode failed: No files added to payload");
         return std::nullopt;
     }
 
@@ -40,13 +49,17 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
     // Step 1: Build uncompressed bytecode bundle
     // Format: For each file, append [path_len][path][bytecode_size][bytecode]
     std::string uncompressedBundle;
-    for (const auto& filePath : filePaths)
+    for (const auto& sourcePath : filePaths)
     {
-        // Read source file from disk
-        std::optional<std::string> source = readFile(filePath);
+        // Get the bundle path (rooted path for the bundle)
+        const std::string* bundlePathPtr = sourceToBundlePath.find(sourcePath);
+        const std::string& bundlePath = bundlePathPtr ? *bundlePathPtr : sourcePath;
+
+        // Read source file from disk using absolute source path
+        std::optional<std::string> source = readFile(sourcePath);
         if (!source)
         {
-            fprintf(stderr, "Encode failed: Could not read file '%s'\n", filePath.c_str());
+            reporter.formatError("Encode failed: Could not read file '%s'\n", sourcePath.c_str());
             return std::nullopt;
         }
 
@@ -54,18 +67,19 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
         std::string bytecode = Luau::compile(*source, copts());
         if (bytecode.empty())
         {
-            fprintf(stderr, "Encode failed: Could not compile file '%s' to bytecode\n", filePath.c_str());
+            reporter.formatError("Encode failed: Could not compile file '%s' to bytecode", sourcePath.c_str());
             return std::nullopt;
         }
 
-        filePathToBytecode[filePath] = bytecode;
+        // Store bytecode with bundle path (rooted path)
+        filePathToBytecode[bundlePath] = bytecode;
 
-        // Append path_length field (uint32_t, 4 bytes)
-        uint32_t pathLength = static_cast<uint32_t>(filePath.size());
+        // Append path_length field (uint32_t, 4 bytes) - use bundle path
+        uint32_t pathLength = static_cast<uint32_t>(bundlePath.size());
         uncompressedBundle.append(reinterpret_cast<const char*>(&pathLength), sizeof(uint32_t));
 
-        // Append path_string field (variable length)
-        uncompressedBundle.append(filePath);
+        // Append path_string field (variable length) - use bundle path
+        uncompressedBundle.append(bundlePath);
 
         // Append bytecode_size field (uint64_t, 8 bytes)
         uint64_t bytecodeSize = bytecode.size();
@@ -93,7 +107,7 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
 
     if (compressResult != Z_OK)
     {
-        fprintf(stderr, "Encode failed: Compression error (zlib error %d)\n", compressResult);
+        reporter.formatError("Encode failed: Compression error (zlib error %d)", compressResult);
         return std::nullopt;
     }
     result.payload.clear();
@@ -138,15 +152,15 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
     return result;
 }
 
-std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view binary)
+std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view binary, LuteReporter& reporter)
 {
-    LuteDecodeResult result;
+    LuteDecodeResult result{reporter};
     result.payload.filePathToBytecode.clear();
 
     // Check minimum size for magic flag
     if (binary.size() < MAGIC_FLAG_SIZE + sizeof(uint32_t))
     {
-        fprintf(stderr, "Decode failed: Binary too small (%zu bytes) to contain valid payload\n", binary.size());
+        reporter.formatError("Decode failed: Binary too small (%zu bytes) to contain valid payload", binary.size());
         return std::nullopt;
     }
 
@@ -154,18 +168,18 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     size_t magicOffset = binary.size() - MAGIC_FLAG_SIZE;
     if (memcmp(binary.data() + magicOffset, MAGIC_FLAG, MAGIC_FLAG_SIZE) != 0)
     {
-        fprintf(stderr, "Decode failed: LUTEBYTE magic flag not found\n");
+        reporter.reportError("Decode failed: LUTEBYTE magic flag not found");
         return std::nullopt;
     }
 
     // Helper to read fixed-size values backwards
-    auto readValue = [&binary](size_t& pos, const char* fieldName, auto& value) -> bool
+    auto readValue = [&binary, &reporter](size_t& pos, const char* fieldName, auto& value) -> bool
     {
         // We need this because the auto& parameter acts like a generic and we would like to strip out the & here
         using T = std::decay_t<decltype(value)>;
         if (pos < sizeof(T))
         {
-            fprintf(stderr, "Decode failed: Incomplete %s field\n", fieldName);
+            reporter.formatError("Decode failed: Incomplete %s field", fieldName);
             return false;
         }
         pos -= sizeof(T);
@@ -174,11 +188,11 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     };
 
     // Helper to read variable-length bytes backwards
-    auto readBytes = [&binary](size_t& pos, size_t length, const char* fieldName) -> std::optional<std::string>
+    auto readBytes = [&binary, &reporter](size_t& pos, size_t length, const char* fieldName) -> std::optional<std::string>
     {
         if (pos < length)
         {
-            fprintf(stderr, "Decode failed: Incomplete %s field\n", fieldName);
+            reporter.formatError("Decode failed: Incomplete %s field", fieldName);
             return std::nullopt;
         }
         pos -= length;
@@ -218,7 +232,7 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     // Read compressed data
     if (pos < compressedSize)
     {
-        fprintf(stderr, "Decode failed: Incomplete compressed data (expected %llu bytes)\n", static_cast<unsigned long long>(compressedSize));
+        reporter.formatError("Decode failed: Incomplete compressed data (expected %llu bytes)", static_cast<unsigned long long>(compressedSize));
         return std::nullopt;
     }
     pos -= compressedSize;
@@ -231,7 +245,7 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
 
     if (zlibResult != Z_OK)
     {
-        fprintf(stderr, "Decode failed: Decompression error (zlib error %d)\n", zlibResult);
+        reporter.formatError("Decode failed: Decompression error (zlib error %d)", zlibResult);
         return std::nullopt;
     }
 
@@ -239,14 +253,14 @@ std::optional<LuteDecodeResult> LuteExePayload::decode(const std::string_view bi
     std::string_view decompressedBundle(reinterpret_cast<const char*>(uncompressedData.data()), actualUncompressedSize);
     if (!result.payload.parseFromDecompressedBundle(decompressedBundle))
     {
-        fprintf(stderr, "Decode failed: Failed to parse decompressed bundle\n");
+        reporter.reportError("Decode failed: Failed to parse decompressed bundle");
         return std::nullopt;
     }
 
     // Validate that the number of parsed files matches the metadata
     if (result.payload.filePathToBytecode.size() != numFiles)
     {
-        fprintf(stderr, "Decode failed: Expected %u files but parsed %zu\n", numFiles, result.payload.filePathToBytecode.size());
+        reporter.formatError("Decode failed: Expected %u files but parsed %zu", numFiles, result.payload.filePathToBytecode.size());
         return std::nullopt;
     }
 
@@ -267,7 +281,7 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
         // Read path length
         if (offset + sizeof(uint32_t) > decompressedBundle.size())
         {
-            fprintf(stderr, "Invalid bundle: incomplete path length field\n");
+            reporter.reportError("Invalid bundle: incomplete path length field");
             return false;
         }
 
@@ -278,7 +292,7 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
         // Read path string
         if (offset + pathLength > decompressedBundle.size())
         {
-            fprintf(stderr, "Invalid bundle: incomplete path string\n");
+            reporter.reportError("Invalid bundle: incomplete path string");
             return false;
         }
 
@@ -288,7 +302,7 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
         // Read bytecode size
         if (offset + sizeof(uint64_t) > decompressedBundle.size())
         {
-            fprintf(stderr, "Invalid bundle: incomplete bytecode size field\n");
+            reporter.reportError("Invalid bundle: incomplete bytecode size field");
             return false;
         }
 
@@ -299,7 +313,7 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
         // Read bytecode
         if (offset + bytecodeSize > decompressedBundle.size())
         {
-            fprintf(stderr, "Invalid bundle: incomplete bytecode data\n");
+            reporter.reportError("Invalid bundle: incomplete bytecode data");
             return false;
         }
 
@@ -313,8 +327,14 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
     return true;
 }
 
-LuteExecutable::LuteExecutable(const std::string& luteRuntimePath)
+LuteDecodeResult::LuteDecodeResult(LuteReporter& reporter)
+    : payload(reporter)
+{
+}
+
+LuteExecutable::LuteExecutable(const std::string& luteRuntimePath, LuteReporter& reporter)
     : executablePath(luteRuntimePath)
+    , reporter(reporter)
 {
 }
 
@@ -324,7 +344,7 @@ bool LuteExecutable::create(const std::string& outputPath, LuteExePayload& paylo
     std::ifstream sourceExe(executablePath, std::ios::binary | std::ios::ate);
     if (!sourceExe)
     {
-        fprintf(stderr, "Error: Failed to read executable '%s'\n", executablePath.c_str());
+        reporter.formatError("Error: Failed to read executable '%s'", executablePath.c_str());
         return false;
     }
 
@@ -342,7 +362,7 @@ bool LuteExecutable::create(const std::string& outputPath, LuteExePayload& paylo
 
     if (!encodeResult)
     {
-        fprintf(stderr, "Error: Failed to encode payload\n");
+        reporter.reportError("Error: Failed to encode payload");
         return false;
     }
 
@@ -350,7 +370,7 @@ bool LuteExecutable::create(const std::string& outputPath, LuteExePayload& paylo
     std::ofstream outputFile(outputPath, std::ios::binary);
     if (!outputFile)
     {
-        fprintf(stderr, "Error: Failed to create output file '%s'\n", outputPath.c_str());
+        reporter.formatError("Error: Failed to create output file '%s'", outputPath.c_str());
         return false;
     }
 
@@ -402,7 +422,7 @@ std::optional<LuteExePayload> LuteExecutable::extract()
         return std::nullopt;
 
     // Decode the payload
-    std::optional<LuteDecodeResult> decodedPayload = LuteExePayload::decode(std::string_view(fileData.data(), fileData.size()));
+    std::optional<LuteDecodeResult> decodedPayload = LuteExePayload::decode(std::string_view(fileData.data(), fileData.size()), reporter);
     if (!decodedPayload)
         return std::nullopt;
 

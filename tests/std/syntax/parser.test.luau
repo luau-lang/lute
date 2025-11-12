@@ -125,6 +125,9 @@ test.suite("Parser", function(suite)
 	suite:case("roundtrippableAst", function(assert)
 		local function visitDirectory(directory: string)
 			for _, entry in fs.listdir(directory) do
+				if entry.type ~= "file" then
+					continue
+				end
 				local p = path.join(directory, entry.name)
 				local source = fs.readfiletostring(path.format(p))
 				local result = printer.printfile(parser.parsefile(source))
@@ -951,6 +954,29 @@ test.suite("parse types", function(suite)
 		assert.eq(unionType.types[1].node.tag, "reference")
 		assert.eq(unionType.types[2].node.tag, "optional")
 		assert.eq((unionType.types[2].node :: luau.AstTypeOptional).text, "?")
+	end)
+
+	suite:case("testTypeUnionWithOptionalPart", function(assert)
+		local block = parser.parse("type T = number? | string")
+		local typeAlias = block.statements[1] :: luau.AstStatTypeAlias
+		assert.eq(typeAlias.type.tag, "union")
+
+		local unionType = typeAlias.type :: luau.AstTypeUnion
+		assert.eq(unionType.leading, nil)
+		assert.eq(#unionType.types, 3)
+
+		local pair1 = unionType.types[1]
+		assert.eq(pair1.node.tag, "reference")
+		assert.eq(pair1.separator, nil)
+
+		local pair2 = unionType.types[2]
+		assert.eq(pair2.node.tag, "optional")
+		assert.neq(pair2.separator, nil)
+		assert.eq((pair2.separator :: luau.Token<"|">).text, "|")
+
+		local pair3 = unionType.types[3]
+		assert.eq(pair3.node.tag, "reference")
+		assert.eq(pair3.separator, nil)
 	end)
 
 	suite:case("testTypeIntersection", function(assert)

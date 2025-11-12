@@ -4,4 +4,6 @@
 #include "Luau/FileUtils.h"
 #include "Luau/Frontend.h"
 
-int typecheck(const std::vector<std::string>& sourceFiles);
+#include "lute/reporter.h"
+
+int typecheck(const std::vector<std::string>& sourceFiles, LuteReporter& reporter);
