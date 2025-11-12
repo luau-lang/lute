@@ -3,7 +3,7 @@
 -- Standard test runner library for Luau
 
 local types = require("./types")
-local assert = require("./assert")
+local asserts = require("./assert")
 
 type Test = types.Test
 type TestCase = types.TestCase
@@ -110,7 +110,7 @@ function runner.run(env: TestEnvironment): TestRunResult
 			failed += 1
 		end
 
-		local success = xpcall(tc.case, handlefailure, assert)
+		local success = xpcall(tc.case, handlefailure, asserts)
 		if success then
 			passed += 1
 		end
@@ -156,7 +156,7 @@ function runner.run(env: TestEnvironment): TestRunResult
 				end
 			end
 
-			local success = xpcall(tc.case, handlefailure, assert)
+			local success = xpcall(tc.case, handlefailure, asserts)
 			-- Run aftereach hook if it exists (runs even if test failed)
 			if suite._aftereach then
 				local afterSuccess = xpcall(suite._aftereach, afterachErrorHandler(testFullName))
