@@ -152,6 +152,21 @@ test.suite("FsSuite", function(suite)
 		assert.neq(success, true)
 		assert.neq(err, nil)
 	end)
+
+	suite:case("fs_open_optional_mode", function(assert)
+		local file = path.join(tmpdir, "optional_mode.txt")
+
+		local h1 = fs.open(file, "w+")
+		fs.write(h1, "created file")
+		fs.close(h1)
+
+		local h2 = fs.open(file) -- with no mode specified, should default to "r"
+		local contents = fs.read(h2)
+		assert.eq(contents, "created file")
+		fs.close(h2)
+
+		fs.remove(file)
+	end)
 end)
 
 test.run()
