@@ -232,5 +232,6 @@ function utils.isToken(n: types.AstNode): types.Token?
 end
 
 utils.leftmosttrivia = retriever.leftmosttrivia
+utils.rightmosttrivia = retriever.rightmosttrivia
 
 return table.freeze(utils)
