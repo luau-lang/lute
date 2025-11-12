@@ -158,4 +158,7 @@ export type AstNode = luau.AstNode
 
 export type ParseResult = luau.ParseResult
 
+export type replacement = string | AstNode
+export type replacements = { [AstNode]: replacement, print: (self: replacements) -> string, __root: AstNode }
+
 return {}

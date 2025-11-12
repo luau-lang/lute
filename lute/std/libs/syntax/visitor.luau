@@ -881,6 +881,24 @@ local function create()
 	return table.clone(defaultVisitor)
 end
 
+local function visit(node: luau.AstNode, visitor: Visitor)
+	if node.kind == "stat" then
+		visitStatement(node, visitor)
+	elseif node.kind == "expr" then
+		visitExpression(node, visitor)
+	elseif node.kind == "type" then
+		visitType(node, visitor)
+	elseif node.kind == "typepack" then
+		visitTypePack(node, visitor)
+	elseif node.kind == "local" then
+		visitLocal(node, visitor)
+	elseif node.kind == "attribute" then
+		visitAttribute(node, visitor)
+	else
+		exhaustiveMatch(node.kind)
+	end
+end
+
 visitorlib.create = create
 visitorlib.visitblock = visitBlock
 visitorlib.visitstatement = visitStatement
@@ -888,5 +906,6 @@ visitorlib.visitexpression = visitExpression
 visitorlib.visittype = visitType
 visitorlib.visittypepack = visitTypePack
 visitorlib.visittoken = visitToken
+visitorlib.visit = visit
 
 return table.freeze(visitorlib)
