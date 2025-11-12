@@ -16,7 +16,7 @@ export type query<T = node> = {
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	forEach: (self: query<T>, callback: (T) -> ()) -> (),
 	__root: node,
-} -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }?) -> query<U> method
+} -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U> method
 
 local queryLib = {}
 
