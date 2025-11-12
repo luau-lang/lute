@@ -164,6 +164,8 @@ test.suite("FsSuite", function(suite)
 		local contents = fs.read(h2)
 		assert.eq(contents, "created file")
 		fs.close(h2)
+
+		fs.remove(file)
 	end)
 end)
 
