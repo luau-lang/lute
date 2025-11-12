@@ -1,3 +1,4 @@
+local retriever = require("@self/retriever")
 local types = require("./types")
 
 local utils = {}
@@ -229,5 +230,7 @@ end
 function utils.isToken(n: types.AstNode): types.Token?
 	return if n.kind == "token" then n else nil
 end
+
+utils.leftmosttrivia = retriever.leftmosttrivia
 
 return table.freeze(utils)
