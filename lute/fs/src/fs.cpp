@@ -324,21 +324,25 @@ std::optional<FileHandle> openHelper(lua_State* L, const char* path, const char*
 int open(lua_State* L)
 {
     int nArgs = lua_gettop(L);
-    const char* path = luaL_checkstring(L, 1);
-    int openFlags = 0x0000;
-    // When the number of arguments is less 2
     if (nArgs < 1)
     {
         luaL_errorL(L, "Error: no file supplied\n");
         return 0;
     }
+    const char* path = luaL_checkstring(L, 1);
 
-    if (nArgs < 2)
+    int openFlags = 0x0000;
+    const char* mode = "r";
+    // Default to read mode if no mode is supplied (i.e., mode is nil in Luau)
+    if (nArgs < 2 || lua_isnil(L, 2))
     {
         openFlags = O_RDONLY;
     }
+    else
+    {
+        mode = luaL_checkstring(L, 2);
+    }
 
-    const char* mode = luaL_checkstring(L, 2);
     if (std::optional<FileHandle> result = openHelper(L, path, mode, &openFlags))
     {
         createFileHandle(L, *result);
