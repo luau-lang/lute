@@ -9,7 +9,7 @@ export default withSidebar(
     themeConfig: {
       nav: [
         { text: 'Guide', link: '/guide/installation' },
-        { text: 'Reference', link: '/reference/' },
+        { text: 'Reference', link: '/reference/definitions/crypto' },
       ],
       search: { provider: 'local' },
       socialLinks: [
@@ -19,15 +19,11 @@ export default withSidebar(
   }),
   {
     // ============ [ SIDEBAR OPTIONS ] ============
-    // ============ [ GROUPING ] ============
-    // collapsed: true,         // Collapse subgroups by default
-    // ============ [ GETTING MENU TITLE ] ============
+    useFolderLinkFromSameNameSubFile: true,
     useTitleFromFileHeading: true,
     useTitleFromFrontmatter: true,
-    // ============ [ STYLING MENU TITLE ] ============
     hyphenToSpace: true,
     underscoreToSpace: true,
-    // ============ [ SORTING ] ============
     sortMenusByName: true,
   }
 )

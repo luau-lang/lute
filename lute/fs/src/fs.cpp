@@ -561,6 +561,8 @@ struct WatchHandle
                 luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
             }
 
+            uv_close((uv_handle_t*) &handle, nullptr);
+
             isClosed = true;
 
             getRuntime(L)->releasePendingToken();
@@ -584,12 +586,6 @@ static int closeWatchHandle(lua_State* L)
     {
         luaL_errorL(L, "Invalid fs event handle");
         return 0;
-    }
-
-    int err = uv_fs_event_stop(&handle->handle);
-    if (err)
-    {
-        luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
     }
 
     handle->close();
