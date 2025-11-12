@@ -1,4 +1,3 @@
-local luau = require("@std/luau")
 local syntax = require("@std/syntax")
 local query = require("@std/syntax/query")
 local test = require("@std/test")

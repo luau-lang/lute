@@ -2,7 +2,6 @@
 -- @std/syntax/query
 -- Provides utility functions for querying Luau AST nodes
 
-local luau = require("@std/luau")
 local printer = require("./printer")
 local types = require("./types")
 local visitor = require("./visitor")
@@ -76,68 +75,16 @@ function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
 		return true
 	end
 
-	local selectVisitor: visitor.Visitor = {
-		visitBlock = visit,
-		visitBlockEnd = function(n) end,
-		visitIf = visit,
-		visitWhile = visit,
-		visitRepeat = visit,
-		visitReturn = visit,
-		visitLocalDeclaration = visit,
-		visitLocalDeclarationEnd = function(n) end,
-		visitFor = visit,
-		visitForIn = visit,
-		visitAssign = visit,
-		visitCompoundAssign = visit,
-		visitFunction = visit,
-		visitLocalFunction = visit,
-		visitTypeAlias = visit,
-		visitStatTypeFunction = visit,
-
-		visitExpression = function(n)
-			return true
-		end,
-		visitExpressionEnd = function(n) end,
-		visitLocalReference = visit,
-		visitGlobal = visit,
-		visitCall = visit,
-		visitUnary = visit,
-		visitBinary = visit,
-		visitAnonymousFunction = visit,
-		visitTableItem = visit,
-		visitTable = visit,
-		visitIndexName = visit,
-		visitIndexExpr = visit,
-		visitGroup = visit,
-		visitInterpolatedString = visit,
-		visitTypeAssertion = visit,
-		visitIfExpression = visit,
-
-		visitTypeReference = visit,
-		visitTypeBoolean = visit,
-		visitTypeString = visit,
-		visitTypeTypeof = visit,
-		visitTypeGroup = visit,
-		visitTypeUnion = visit,
-		visitTypeIntersection = visit,
-		visitTypeArray = visit,
-		visitTypeTable = visit,
-		visitTypeFunction = visit,
-
-		visitTypePackExplicit = visit,
-		visitTypePackGeneric = visit,
-		visitTypePackVariadic = visit,
-
-		visitToken = function(n)
-			return true
-		end,
-		visitNil = visit,
-		visitString = visit,
-		visitBoolean = visit,
-		visitNumber = visit,
-		visitLocal = visit,
-		visitVarargs = visit,
-	}
+	local selectVisitor = visitor.create(visit)
+	selectVisitor.visitBlockEnd = function(n) end
+	selectVisitor.visitLocalDeclarationEnd = function(n) end
+	selectVisitor.visitExpression = function(n)
+		return true
+	end
+	selectVisitor.visitExpressionEnd = function(n) end
+	selectVisitor.visitToken = function(n)
+		return true
+	end
 
 	visitor.visit(ast, selectVisitor)
 

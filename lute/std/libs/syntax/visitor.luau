@@ -877,8 +877,69 @@ function visitTypePack(type: types.AstTypePack, visitor: Visitor)
 	end
 end
 
-local function create()
-	return table.clone(defaultVisitor)
+local function create(visit: ((types.AstNode) -> boolean)?): Visitor
+	if visit then
+		return {
+			visitBlock = visit,
+			visitBlockEnd = visit :: any,
+			visitIf = visit,
+			visitWhile = visit,
+			visitRepeat = visit,
+			visitReturn = visit,
+			visitLocalDeclaration = visit,
+			visitLocalDeclarationEnd = visit,
+			visitFor = visit,
+			visitForIn = visit,
+			visitAssign = visit,
+			visitCompoundAssign = visit,
+			visitFunction = visit,
+			visitLocalFunction = visit,
+			visitTypeAlias = visit,
+			visitStatTypeFunction = visit,
+
+			visitExpression = visit,
+			visitExpressionEnd = visit,
+			visitLocalReference = visit,
+			visitGlobal = visit,
+			visitCall = visit,
+			visitUnary = visit,
+			visitBinary = visit,
+			visitAnonymousFunction = visit,
+			visitTableItem = visit,
+			visitTable = visit,
+			visitIndexName = visit,
+			visitIndexExpr = visit,
+			visitGroup = visit,
+			visitInterpolatedString = visit,
+			visitTypeAssertion = visit,
+			visitIfExpression = visit,
+
+			visitTypeReference = visit,
+			visitTypeBoolean = visit,
+			visitTypeString = visit,
+			visitTypeTypeof = visit,
+			visitTypeGroup = visit,
+			visitTypeUnion = visit,
+			visitTypeIntersection = visit,
+			visitTypeArray = visit,
+			visitTypeTable = visit,
+			visitTypeFunction = visit,
+
+			visitTypePackExplicit = visit,
+			visitTypePackGeneric = visit,
+			visitTypePackVariadic = visit,
+
+			visitToken = visit,
+			visitNil = visit,
+			visitString = visit,
+			visitBoolean = visit,
+			visitNumber = visit,
+			visitLocal = visit,
+			visitVarargs = visit,
+		}
+	else
+		return table.clone(defaultVisitor)
+	end
 end
 
 local function visit(node: types.AstNode, visitor: Visitor)
