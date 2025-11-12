@@ -20,7 +20,6 @@ export default withSidebar(
   {
     // ============ [ SIDEBAR OPTIONS ] ============
     useFolderLinkFromSameNameSubFile: true,
-    useFolderLinkFromIndexFile: false,
     useTitleFromFileHeading: true,
     useTitleFromFrontmatter: true,
     hyphenToSpace: true,
