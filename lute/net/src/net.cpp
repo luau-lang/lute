@@ -2,14 +2,13 @@
 
 #include "lute/runtime.h"
 
-#include "curl/curl.h"
-#include "App.h"
-#include "Loop.h"
 #include "Luau/DenseHash.h"
 #include "Luau/Variant.h"
 
 #include "lua.h"
 #include "lualib.h"
+
+#include "curl/curl.h"
 #include "uv.h"
 
 #include <memory>
@@ -18,17 +17,24 @@
 #include <utility>
 #include <vector>
 
+#include "App.h"
+#include "Loop.h"
+
 namespace net
 {
 
 static const std::string kEmptyHeaderKey = "";
-struct CurlResponse {
+struct CurlResponse
+{
     std::string error;
     std::vector<char> body;
     Luau::DenseHashMap<std::string, std::string> headers;
     long status = 0;
 
-    CurlResponse() : headers(kEmptyHeaderKey) {}
+    CurlResponse()
+        : headers(kEmptyHeaderKey)
+    {
+    }
 };
 
 static size_t writeFunction(void* contents, size_t size, size_t nmemb, void* context)
@@ -74,8 +80,8 @@ static CurlResponse requestData(
     {
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, body.size());
-    }   
-    
+    }
+
     if (!headers.empty())
     {
         for (const auto& header_pair : headers)
@@ -178,7 +184,7 @@ int request(lua_State* L)
                 token->fail("network request failed: " + resp.error);
                 return;
             }
-            
+
             token->complete(
                 [resp = std::move(resp)](lua_State* L)
                 {

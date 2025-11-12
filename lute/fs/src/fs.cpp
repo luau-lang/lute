@@ -1,12 +1,13 @@
 #include "lute/fs.h"
 
-#include "lua.h"
-#include "lualib.h"
-#include "uv.h"
-
 #include "lute/runtime.h"
 #include "lute/time.h"
 #include "lute/userdatas.h"
+
+#include "lua.h"
+#include "lualib.h"
+
+#include "uv.h"
 
 #include <cstdio>
 #include <cstring>
@@ -20,9 +21,10 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <sys/stat.h>
-#include <string>
 #include <stdlib.h>
+#include <string>
+
+#include <sys/stat.h>
 
 
 #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
@@ -322,21 +324,25 @@ std::optional<FileHandle> openHelper(lua_State* L, const char* path, const char*
 int open(lua_State* L)
 {
     int nArgs = lua_gettop(L);
-    const char* path = luaL_checkstring(L, 1);
-    int openFlags = 0x0000;
-    // When the number of arguments is less 2
     if (nArgs < 1)
     {
         luaL_errorL(L, "Error: no file supplied\n");
         return 0;
     }
+    const char* path = luaL_checkstring(L, 1);
 
-    if (nArgs < 2)
+    int openFlags = 0x0000;
+    const char* mode = "r";
+    // Default to read mode if no mode is supplied (i.e., mode is nil in Luau)
+    if (nArgs < 2 || lua_isnil(L, 2))
     {
         openFlags = O_RDONLY;
     }
+    else
+    {
+        mode = luaL_checkstring(L, 2);
+    }
 
-    const char* mode = luaL_checkstring(L, 2);
     if (std::optional<FileHandle> result = openHelper(L, path, mode, &openFlags))
     {
         createFileHandle(L, *result);
@@ -457,7 +463,7 @@ static void defaultCallback(uv_fs_t* req)
 
     if (err)
     {
-        token->fail(uv_strerror(req->result));
+        token->fail(uv_strerror(err));
         return;
     }
 
@@ -555,6 +561,8 @@ struct WatchHandle
                 luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
             }
 
+            uv_close((uv_handle_t*) &handle, nullptr);
+
             isClosed = true;
 
             getRuntime(L)->releasePendingToken();
@@ -578,12 +586,6 @@ static int closeWatchHandle(lua_State* L)
     {
         luaL_errorL(L, "Invalid fs event handle");
         return 0;
-    }
-
-    int err = uv_fs_event_stop(&handle->handle);
-    if (err)
-    {
-        luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
     }
 
     handle->close();
@@ -629,7 +631,7 @@ int fs_watch(lua_State* L)
                     eventHandle->callbackReference->push(L);
 
                     // filename
-                    lua_pushstring(L, filename.c_str());
+                    lua_pushlstring(L, filename.c_str(), filename.size());
 
                     // events
                     lua_createtable(L, 0, 2);
@@ -1050,9 +1052,7 @@ static void initalizeFS(lua_State* L)
         kWatchHandleTag,
         [](lua_State* L, void* ud)
         {
-            auto* handle = static_cast<fs::WatchHandle*>(ud);
-
-            handle->~WatchHandle();
+            std::destroy_at(static_cast<fs::WatchHandle*>(ud));
         }
     );
 

@@ -1,8 +1,9 @@
-#include "doctest.h"
-
-#include "cliruntimefixture.h"
+#include "Luau/StringUtils.h"
 
 #include <string>
+
+#include "cliruntimefixture.h"
+#include "doctest.h"
 
 std::string getHostOS()
 {
@@ -21,20 +22,27 @@ TEST_CASE_FIXTURE(CliRuntimeFixture, "std_system_os_matches_host_os")
 {
     runCode(R"(
         local system = require("@std/system")
-        capture(system.os)
+        report(system.os)
     )");
-    CHECK(getCapturedOutput() == getHostOS());
+    CHECK(getReporter().getOutputs()[0] == getHostOS());
 }
 
 TEST_CASE_FIXTURE(CliRuntimeFixture, "check_std_system_env_bools")
 {
     std::string os = getHostOS();
 
-    auto checkBool = [&](const std::string& field, bool expected) {
-        runCode("local system = require(\"@std/system\")\n"
-                "capture(system." + field + ")\n");
-        std::string output = getCapturedOutput();
+    auto checkBool = [this](const std::string& field, bool expected)
+    {
+        std::string code = Luau::format(
+            R"(
+            local system = require("@std/system")
+            report(system.%s))",
+            field.c_str()
+        );
+        runCode(code);
+        std::string output = this->getReporter().getOutputs()[0];
         CHECK(output == (expected ? "true" : "false"));
+        this->getReporter().clear();
     };
 
     checkBool("win32", os == "Windows_NT");

@@ -1,12 +1,14 @@
-#include "Luau/FileUtils.h"
-#include "doctest.h"
-
 #include "lute/climain.h"
+
+#include "Luau/FileUtils.h"
 
 #include "lua.h"
 
 #include "cliruntimefixture.h"
+#include "doctest.h"
+#include "lutefixture.h"
 #include "luteprojectroot.h"
+
 
 TEST_CASE_FIXTURE(CliRuntimeFixture, "require_exists")
 {
@@ -14,9 +16,9 @@ TEST_CASE_FIXTURE(CliRuntimeFixture, "require_exists")
     CHECK(!lua_isnil(L, -1));
 }
 
-TEST_CASE("require_modules")
+TEST_CASE_FIXTURE(LuteFixture, "require_modules")
 {
-    auto doPassingSubcase = [](std::vector<char*>& argv, std::string requirePath, std::vector<std::string> expectedResults)
+    auto doPassingSubcase = [&](std::vector<char*> argv, std::string requirePath, std::vector<std::string> expectedResults)
     {
         std::string pass = "pass";
         argv.push_back(pass.data());
@@ -25,10 +27,10 @@ TEST_CASE("require_modules")
         {
             argv.push_back(result.data());
         }
-        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     };
 
-    auto doFailingSubcase = [](std::vector<char*>& argv, std::string requirePath, std::vector<std::string> expectedResults)
+    auto doFailingSubcase = [&](std::vector<char*> argv, std::string requirePath, std::vector<std::string> expectedResults)
     {
         std::string fail = "fail";
         argv.push_back(fail.data());
@@ -37,7 +39,7 @@ TEST_CASE("require_modules")
         {
             argv.push_back(result.data());
         }
-        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     };
 
     char executablePlaceholder[] = "lute";
@@ -102,22 +104,44 @@ TEST_CASE("require_modules")
 
         SUBCASE("with_module_alias")
         {
-            doPassingSubcase(argv, {"./with_config/src/alias_requirer"}, {"result from dependency"});
+            doPassingSubcase(argv, {"./config_tests/with_config/src/alias_requirer"}, {"result from dependency"});
+            doPassingSubcase(argv, {"./config_tests/with_config_luau/src/alias_requirer"}, {"result from dependency"});
         }
 
         SUBCASE("with_directory_alias")
         {
-            doPassingSubcase(argv, {"./with_config/src/directory_alias_requirer"}, {"result from subdirectory_dependency"});
+            doPassingSubcase(argv, {"./config_tests/with_config/src/directory_alias_requirer"}, {"result from subdirectory_dependency"});
+            doPassingSubcase(argv, {"./config_tests/with_config_luau/src/directory_alias_requirer"}, {"result from subdirectory_dependency"});
         }
 
         SUBCASE("with_parent_configuration_alias")
         {
-            doPassingSubcase(argv, {"./with_config/src/parent_alias_requirer"}, {"result from other_dependency"});
+            doPassingSubcase(argv, {"./config_tests/with_config/src/parent_alias_requirer"}, {"result from other_dependency"});
+            doPassingSubcase(argv, {"./config_tests/with_config_luau/src/parent_alias_requirer"}, {"result from other_dependency"});
         }
 
         SUBCASE("init_does_not_read_sibling_luaurc")
         {
-            doPassingSubcase(argv, {"./with_config/src/submodule"}, {"result from dependency"});
+            doPassingSubcase(argv, {"./config_tests/with_config/src/submodule"}, {"result from dependency"});
+            doPassingSubcase(argv, {"./config_tests/with_config_luau/src/submodule"}, {"result from dependency"});
+        }
+
+        SUBCASE("config_ambiguity")
+        {
+            doFailingSubcase(
+                argv,
+                {"./config_tests/config_ambiguity/requirer"},
+                {R"(error requiring module "@dep": could not resolve alias "dep" (ambiguous configuration file))"}
+            );
+        }
+
+        SUBCASE("config_cannot_be_required")
+        {
+            doFailingSubcase(
+                argv,
+                {"./config_tests/config_cannot_be_required/requirer"},
+                {R"(error requiring module "./.config": could not resolve child component ".config")"}
+            );
         }
 
         SUBCASE("lute_modules")
@@ -132,22 +156,33 @@ TEST_CASE("require_modules")
     }
 }
 
-TEST_CASE("require_with_parent_ambiguity")
+TEST_CASE_FIXTURE(LuteFixture, "require_with_parent_ambiguity")
 {
     // This test case cannot be included in the general "require_modules" test
     // because ambiguity prevents the test's requirer.luau from navigating to
     // this test's entry point. Instead, we manually start the entry point here.
 
     char executablePlaceholder[] = "lute";
+
+    // .luaurc
     for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
     {
-        std::string requirer = joinPaths(luteProjectRoot, "tests/src/require/with_config/src/parent_ambiguity/folder/requirer.luau");
+        std::string requirer = joinPaths(luteProjectRoot, "tests/src/require/config_tests/with_config/src/parent_ambiguity/folder/requirer.luau");
         std::vector<char*> argv = {executablePlaceholder, requirer.data()};
-        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    }
+
+    // .config.luau
+    for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
+    {
+        std::string requirer =
+            joinPaths(luteProjectRoot, "tests/src/require/config_tests/with_config_luau/src/parent_ambiguity/folder/requirer.luau");
+        std::vector<char*> argv = {executablePlaceholder, requirer.data()};
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     }
 }
 
-TEST_CASE("require_types")
+TEST_CASE_FIXTURE(LuteFixture, "require_types")
 {
     char executablePlaceholder[] = "lute";
     for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
@@ -155,11 +190,11 @@ TEST_CASE("require_types")
         std::string requirer = joinPaths(luteProjectRoot, "tests/src/require/without_config/types/tester.luau");
         std::vector<char*> argv = {executablePlaceholder, requirer.data()};
 
-        CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     }
 }
 
-TEST_CASE("require_by_string_semantics_in_cli")
+TEST_CASE_FIXTURE(LuteFixture, "require_by_string_semantics_in_cli")
 {
     char executablePlaceholder[] = "lute";
 
@@ -176,7 +211,7 @@ TEST_CASE("require_by_string_semantics_in_cli")
         for (std::string& inputPath : inputPaths)
         {
             std::vector<char*> argv = {executablePlaceholder, inputPath.data()};
-            CHECK_EQ(cliMain(argv.size(), argv.data()), 0);
+            CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
         }
     }
 
@@ -185,6 +220,6 @@ TEST_CASE("require_by_string_semantics_in_cli")
     {
         std::string inputPath = joinPaths(luteProjectRoot, "tests/src/require/without_config/nested/init");
         std::vector<char*> argv = {executablePlaceholder, inputPath.data()};
-        CHECK_NE(cliMain(argv.size(), argv.data()), 0);
+        CHECK_NE(cliMain(argv.size(), argv.data(), getReporter()), 0);
     }
 }

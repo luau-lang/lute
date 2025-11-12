@@ -50,6 +50,21 @@ test.suite("MySuite", function(suite)
 		assert.tableeq(table1, table2)
 		assert.tableeq(table1, { a = 1 })
 	end)
+
+	suite:case("expect_error", function(assert)
+		local function foo(v: boolean)
+			if v then
+				error("error")
+			end
+		end
+
+		assert.errors(function() -- demonstrates success (callback throws err)
+			foo(true)
+		end)
+		assert.errors(function() -- demonstrates failure (callback doesn't throw)
+			foo(false)
+		end)
+	end)
 end)
 
 test.run()

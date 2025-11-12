@@ -1,44 +1,29 @@
 import { defineConfig } from 'vitepress'
+import { withSidebar } from 'vitepress-sidebar'
 
-// https://vitepress.dev/reference/site-config
-export default defineConfig({
-  title: "Lute",
-  description: "Luau for General-Purpose Programming",
-  base: "/lute/",
-  themeConfig: {
-    // https://vitepress.dev/reference/default-theme-config
-    nav: [
-      { text: 'Guide', link: '/guide/installation' },
-      { text: 'Reference', link: '/reference/fs' }
-    ],
-
-    sidebar: [
-      {
-        text: "Getting Started",
-        items: [
-          { text: 'Installation', link: '/guide/installation' },
-        ]
-      },
-      {
-        text: "Reference",
-        items: [
-          { text: 'fs', link: '/reference/fs' },
-          { text: 'luau', link: '/reference/luau' },
-          { text: 'net', link: '/reference/net' },
-          { text: 'process', link: '/reference/process' },
-          { text: 'system', link: '/reference/system' },
-          { text: 'task', link: '/reference/task' },
-          { text: 'vm', link: '/reference/vm' },
-        ]
-      }
-    ],
-
-    search: {
-      provider: 'local'
+export default withSidebar(
+  defineConfig({
+    title: 'Lute',
+    description: 'Luau for General-Purpose Programming',
+    base: "/",
+    themeConfig: {
+      nav: [
+        { text: 'Guide', link: '/guide/installation' },
+        { text: 'Reference', link: '/reference/definitions/crypto' },
+      ],
+      search: { provider: 'local' },
+      socialLinks: [
+        { icon: 'github', link: 'https://github.com/luau-lang/lute' },
+      ],
     },
-
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/luau-lang/lute' }
-    ]
+  }),
+  {
+    // ============ [ SIDEBAR OPTIONS ] ============
+    useFolderLinkFromSameNameSubFile: true,
+    useTitleFromFileHeading: true,
+    useTitleFromFrontmatter: true,
+    hyphenToSpace: true,
+    underscoreToSpace: true,
+    sortMenusByName: true,
   }
-})
+)

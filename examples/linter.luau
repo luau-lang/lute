@@ -1,5 +1,5 @@
-local fs = require("@lute/fs")
-local luau = require("@lute/luau")
+local fs = require("@std/fs")
+local syntax = require("@std/syntax")
 
 local pp = require("@batteries/pp")
 
@@ -32,7 +32,7 @@ end
 local path = tostring(...)
 local source = fs.readfiletostring(path)
 
-local prog = luau.parse(source)
+local prog = syntax.parse(source)
 
 local function lintForDivZeroByZero(prog)
 	local function unwrapParens(n)

@@ -1,4 +1,4 @@
-local luau = require("@lute/luau")
+local luau = require("@std/luau")
 
 local bytecode_container = luau.compile('return "Hello, world!"')
 

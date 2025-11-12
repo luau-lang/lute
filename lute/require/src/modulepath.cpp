@@ -39,8 +39,8 @@ static std::string_view removeExtension(std::string_view path)
 std::optional<ModulePath> ModulePath::create(
     std::string rootDirectory,
     std::string filePath,
-    bool (*isAFile)(const std::string&),
-    bool (*isADirectory)(const std::string&),
+    std::function<bool(const std::string&)> isAFile,
+    std::function<bool(const std::string&)> isADirectory,
     std::optional<std::string> relativePathToTrack
 )
 {
@@ -73,12 +73,12 @@ std::optional<ModulePath> ModulePath::create(
 ModulePath::ModulePath(
     std::string realPathPrefix,
     std::string modulePath,
-    bool (*isAFile)(const std::string&),
-    bool (*isADirectory)(const std::string&),
+    std::function<bool(const std::string&)> isAFile,
+    std::function<bool(const std::string&)> isADirectory,
     std::optional<std::string> relativePathToTrack
 )
-    : isAFile(isAFile)
-    , isADirectory(isADirectory)
+    : isAFile(std::move(isAFile))
+    , isADirectory(std::move(isADirectory))
     , realPathPrefix(std::move(realPathPrefix))
     , modulePath(std::move(modulePath))
     , relativePathToTrack(std::move(relativePathToTrack))
@@ -147,7 +147,7 @@ ResolvedRealPath ModulePath::getRealPath() const
     return {NavigationStatus::Success, partialRealPath + suffix, relativePathWithSuffix, *resolvedType};
 }
 
-std::string ModulePath::getPotentialLuaurcPath() const
+std::string ModulePath::getPotentialConfigPath(const std::string& name) const
 {
     ResolvedRealPath result = getRealPath();
 
@@ -161,7 +161,7 @@ std::string ModulePath::getPotentialLuaurcPath() const
         if (hasSuffix(directory, suffix))
         {
             directory.remove_suffix(suffix.size());
-            return std::string(directory) + "/.luaurc";
+            return std::string(directory) + "/" + name;
         }
     }
     for (std::string_view suffix : kSuffixes)
@@ -169,11 +169,11 @@ std::string ModulePath::getPotentialLuaurcPath() const
         if (hasSuffix(directory, suffix))
         {
             directory.remove_suffix(suffix.size());
-            return std::string(directory) + "/.luaurc";
+            return std::string(directory) + "/" + name;
         }
     }
 
-    return std::string(directory) + "/.luaurc";
+    return std::string(directory) + "/" + name;
 }
 
 NavigationStatus ModulePath::toParent()
@@ -196,6 +196,9 @@ NavigationStatus ModulePath::toParent()
 
 NavigationStatus ModulePath::toChild(const std::string& name)
 {
+    if (name == ".config")
+        return NavigationStatus::NotFound;
+
     if (modulePath.empty())
         modulePath = name;
     else

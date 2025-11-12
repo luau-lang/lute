@@ -74,10 +74,10 @@ std::optional<std::string> CliVfs::getContents(const std::string& path) const
     return readCliModule(path);
 }
 
-bool CliVfs::isConfigPresent() const
+ConfigStatus CliVfs::getConfigStatus() const
 {
     // Currently, we do not support .luaurc files in CLI commands.
-    return false;
+    return ConfigStatus::Absent;
 }
 
 std::optional<std::string> CliVfs::getConfig() const

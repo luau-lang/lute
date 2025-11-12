@@ -1,19 +1,43 @@
 #include "lute/process.h"
+
 #include "lute/runtime.h"
-#include <uv.h>
-#include <string>
-#include <vector>
-#include <memory>
-#include <functional>
-#include <map>
+#include "lute/uvutils.h"
+
 #include "Luau/Common.h"
 
 #include "lua.h"
 #include "lualib.h"
 
+#include "uv.h"
+
+#include <climits> // IWYU pragma: keep
+#include <functional>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+#ifdef PATH_MAX
+#define LUTE_PATH_MAX PATH_MAX
+#else
+#define LUTE_PATH_MAX 8192
+#endif
+
 namespace process
 {
 
+void convertCRLFtoLF(std::string& str)
+{
+    size_t writePos = 0;
+    for (size_t readPos = 0; readPos < str.size(); ++readPos)
+    {
+        if (str[readPos] == '\r' && readPos + 1 < str.size() && str[readPos + 1] == '\n')
+            continue;  // Skip the '\r' in CRLF
+        str[writePos++] = str[readPos];
+    }
+    str.resize(writePos);
+}
+    
 struct ProcessHandle
 {
     uv_process_t process;
@@ -28,8 +52,6 @@ struct ProcessHandle
     ResumeToken resumeToken;
     std::shared_ptr<ProcessHandle> self;
     std::atomic<int> pendingCloses{0};
-
-    ~ProcessHandle() {}
 
     void closeHandles()
     {
@@ -86,7 +108,8 @@ struct ProcessHandle
             std::string finalStdout = stdoutData;
             std::string finalStderr = stderrData;
             std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
-
+            convertCRLFtoLF(finalStdout);
+            convertCRLFtoLF(finalStderr);
             resumeToken->complete(
                 [=](lua_State* L)
                 {
@@ -108,7 +131,7 @@ struct ProcessHandle
 
                     if (!finalSignalStr.empty())
                     {
-                        lua_pushstring(L, finalSignalStr.c_str());
+                        lua_pushlstring(L, finalSignalStr.c_str(), finalSignalStr.size());
                     }
                     else
                     {
@@ -282,16 +305,23 @@ int run(lua_State* L)
         const char* shellArg = "-c";
 #endif
 
-        const char* shell = customShell.empty() ? nullptr : customShell.c_str();
-        if (!shell)
+        std::string resolvedShell;
+        if (customShell.empty())
         {
             char shellBuffer[1024];
             size_t shellSize = sizeof(shellBuffer);
             int result = uv_os_getenv(shellVar, shellBuffer, &shellSize);
-            shell = result == 0 ? shellBuffer : shellFallback;
+            resolvedShell = result == 0 ? shellBuffer : shellFallback;
+        }
+        else
+        {
+            resolvedShell = customShell;
         }
 
-        args = {shell, shellArg, commandStr};
+        args.clear();
+        args.emplace_back(resolvedShell);
+        args.emplace_back(shellArg);
+        args.emplace_back(commandStr);
     }
 
     auto handle = std::make_shared<ProcessHandle>();
@@ -321,6 +351,7 @@ int run(lua_State* L)
         if (err != 0)
         {
             luaL_error(L, "Failed to get current environment: %s", uv_strerror(err));
+            uv_os_free_environ(currentEnvItems, currentEnvCount);
             return 0;
         }
         for (int i = 0; i < currentEnvCount; i++)
@@ -330,6 +361,8 @@ int run(lua_State* L)
                 env[currentEnvItems[i].name] = currentEnvItems[i].value;
             }
         }
+        uv_os_free_environ(currentEnvItems, currentEnvCount);
+
         // Turn the new environment into a char** array
         envStrings.reserve(env.size());
         envPtr.reserve(env.size() + 1);
@@ -411,28 +444,12 @@ int run(lua_State* L)
 
 int homedir(lua_State* L)
 {
-    std::string buffer;
+    auto result = uvutils::getStringFromUv(uv_os_homedir);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get home directory: %s", error->toString().c_str());
 
-    size_t homedir_size = 255;
-    buffer.reserve(homedir_size);
-
-    int status = uv_os_homedir(buffer.data(), &homedir_size);
-    if (status == UV_ENOBUFS)
-    {
-        // libuv gives us the new size if it's under sized
-        buffer.reserve(homedir_size);
-
-        status = uv_os_homedir(buffer.data(), &homedir_size);
-    }
-
-    if (status != 0)
-    {
-        luaL_error(L, "failed to get home directory");
-        return 1;
-    }
-
-    lua_pushstring(L, buffer.c_str());
-
+    std::string* homeDir = result.get_if<std::string>();
+    lua_pushlstring(L, homeDir->c_str(), homeDir->size());
     return 1;
 }
 
@@ -449,30 +466,47 @@ int exitFunc(lua_State* L)
 
 int cwd(lua_State* L)
 {
-    std::string buffer;
+    auto result = uvutils::getStringFromUv(uv_cwd);
+    if (uvutils::UvError* error = result.get_if<uvutils::UvError>())
+        luaL_error(L, "failed to get current working directory: %s", error->toString().c_str());
 
-    size_t cwd_size = 255;
-    buffer.reserve(cwd_size);
-
-    int status = uv_cwd(buffer.data(), &cwd_size);
-    if (status == UV_ENOBUFS)
-    {
-        // libuv gives us the new size if it's under sized
-        buffer.reserve(cwd_size);
-
-        status = uv_cwd(buffer.data(), &cwd_size);
-    }
-
-    if (status != 0)
-    {
-        luaL_error(L, "failed to get current working directory");
-        return 1;
-    }
-
-    lua_pushstring(L, buffer.c_str());
-
+    std::string* cwd = result.get_if<std::string>();
+    lua_pushlstring(L, cwd->c_str(), cwd->size());
     return 1;
 };
+
+std::optional<std::string> getExecPath(std::string* error)
+{
+    // Executable path is not expected to change during process lifetime, so we
+    // can safely cache it after the first retrieval.
+    static std::optional<std::string> cachedPath = std::nullopt;
+    if (cachedPath)
+        return *cachedPath;
+
+    char buf[LUTE_PATH_MAX];
+    size_t len = sizeof(buf);
+
+    if (int status = uv_exepath(buf, &len); status < 0)
+    {
+        if (error)
+            *error = uv_strerror(status);
+        return std::nullopt;
+    }
+
+    cachedPath = std::string(buf, len);
+    return *cachedPath;
+}
+
+int execpath(lua_State* L)
+{
+    std::string error;
+    std::optional<std::string> execPath = getExecPath(&error);
+    if (!execPath)
+        luaL_error(L, "Failed to get executable path: %s", error.c_str());
+
+    lua_pushlstring(L, execPath->c_str(), execPath->size());
+    return 1;
+}
 
 static int envIndex(lua_State* L)
 {
@@ -557,8 +591,9 @@ static int envIterNext(lua_State* L)
         return 0;
     }
 
-    lua_pushstring(L, iter->items[iter->index].name);
-    lua_pushstring(L, iter->items[iter->index].value);
+    uv_env_item_t item = iter->items[iter->index];
+    lua_pushstring(L, item.name);
+    lua_pushstring(L, item.value);
     iter->index++;
     return 2;
 }
@@ -580,7 +615,7 @@ static int envIter(lua_State* L)
         sizeof(EnvIter),
         [](void* ptr)
         {
-            static_cast<EnvIter*>(ptr)->~EnvIter();
+            std::destroy_at(static_cast<EnvIter*>(ptr));
         }
     );
 

@@ -1,6 +1,6 @@
-local luau = require("@lute/luau")
+local syntax = require("@std/syntax")
 
 local pretty = require("@batteries/pp")
 
-local foo = luau.parseexpr("5")
+local foo = syntax.parseexpr("5")
 print(pretty(foo))
