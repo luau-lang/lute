@@ -1,7 +1,6 @@
 --!optimize 2
 --!strict
 
-
 local BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 local BASE64_ENCODING_LUT = table.create(4096) :: { number }
 local BASE64_DECODING_LUT = buffer.create(256)
