@@ -99,7 +99,7 @@ local function applyMigration(
 
 		local source = fs.readfiletostring(pathStr)
 
-		local parseresult = parser.parse(source)
+		local parseresult = parser.parsefile(source)
 
 		local ctx = {
 			path = pathStr,
