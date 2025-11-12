@@ -3,11 +3,11 @@
 -- Provides utility functions for querying Luau AST nodes
 
 local luau = require("@std/luau")
-local printer = require("@std/syntax/printer")
-local types = require("@std/syntax/types")
-local visitor = require("@std/syntax/visitor")
+local printer = require("./printer")
+local types = require("./types")
+local visitor = require("./visitor")
 
-type node = luau.AstNode
+type node = types.AstNode
 
 export type query<T = node> = {
 	nodes: { T },

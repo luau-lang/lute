@@ -1,7 +1,6 @@
 --!strict
 -- @std/syntax/printer
 
-local luau = require("@std/luau")
 local types = require("./types")
 local visitor = require("./visitor")
 
@@ -23,7 +22,7 @@ local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
 end
 
-local function printTrivia(self: PrintVisitor, trivia: luau.Trivia)
+local function printTrivia(self: PrintVisitor, trivia: types.Trivia)
 	if trivia.tag == "whitespace" or trivia.tag == "comment" or trivia.tag == "blockcomment" then
 		self:write(trivia.text)
 	else
@@ -31,19 +30,19 @@ local function printTrivia(self: PrintVisitor, trivia: luau.Trivia)
 	end
 end
 
-local function printTriviaList(self: PrintVisitor, trivia: { luau.Trivia })
+local function printTriviaList(self: PrintVisitor, trivia: { types.Trivia })
 	for _, trivia in trivia do
 		self:printTrivia(trivia)
 	end
 end
 
-local function printToken(self: PrintVisitor, token: luau.Token)
+local function printToken(self: PrintVisitor, token: types.Token)
 	self:printTriviaList(token.leadingtrivia)
 	self:write(token.text)
 	self:printTriviaList(token.trailingtrivia)
 end
 
-local function printString(self: PrintVisitor, expr: luau.AstExprConstantString | luau.AstTypeSingletonString)
+local function printString(self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString)
 	self:printTriviaList(expr.leadingtrivia)
 
 	if expr.quotestyle == "single" then
@@ -62,7 +61,7 @@ local function printString(self: PrintVisitor, expr: luau.AstExprConstantString 
 	self:printTriviaList(expr.trailingtrivia)
 end
 
-local function printInterpolatedString(self: PrintVisitor, expr: luau.AstExprInterpString)
+local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprInterpString)
 	for i = 1, #expr.strings do
 		self:printTriviaList(expr.strings[i].leadingtrivia)
 		if i == 1 then
@@ -119,7 +118,7 @@ local function printVisitor(replacements: types.replacements?)
 	local printer: PrintVisitor = {} :: PrintVisitor
 
 	-- The visitor library doesn't use methods, so we access replacements through a closure
-	local function maybeReplace(node: luau.AstNode): boolean
+	local function maybeReplace(node: types.AstNode): boolean
 		if replacements == nil then
 			return true
 		end
@@ -181,7 +180,7 @@ local function printVisitor(replacements: types.replacements?)
 
 	printer.visitTypeReference = maybeReplace
 	printer.visitTypeBoolean = maybeReplace
-	printer.visitTypeString = function(node: luau.AstTypeSingletonString)
+	printer.visitTypeString = function(node: types.AstTypeSingletonString)
 		printer:printString(node)
 		return false
 	end
@@ -197,12 +196,12 @@ local function printVisitor(replacements: types.replacements?)
 	printer.visitTypePackGeneric = maybeReplace
 	printer.visitTypePackVariadic = maybeReplace
 
-	printer.visitToken = function(node: luau.Token)
+	printer.visitToken = function(node: types.Token)
 		printer:printToken(node)
 		return false
 	end
 	printer.visitNil = maybeReplace
-	printer.visitString = function(node: luau.AstExprConstantString)
+	printer.visitString = function(node: types.AstExprConstantString)
 		printer:printString(node)
 		return false
 	end
@@ -221,7 +220,7 @@ function printerLib.printnode(node: luau.AstNode, replacements: types.replacemen
 end
 
 function printerLib.printfile(
-	result: { root: luau.AstStatBlock, eof: luau.Eof },
+	result: { root: types.AstStatBlock, eof: types.Eof },
 	replacements: types.replacements?
 ): string
 	local printer = printVisitor(replacements)

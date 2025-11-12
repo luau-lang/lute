@@ -1,12 +1,12 @@
 local luau = require("@std/luau")
-local parser = require("@std/syntax/parser")
+local syntax = require("@std/syntax")
 local query = require("@std/syntax/query")
 local test = require("@std/test")
 local utils = require("@std/syntax/utils")
 
 test.suite("AST Query", function(suite)
 	suite:case("filter", function(assert)
-		local testQuery = query.selectFromRoot(parser.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+		local testQuery = query.selectFromRoot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
 		local filteredQuery = testQuery:filter(function(n)
 			return n.value > 2
@@ -19,7 +19,7 @@ test.suite("AST Query", function(suite)
 	end)
 
 	suite:case("replace", function(assert)
-		local testQuery = query.selectFromRoot(parser.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+		local testQuery = query.selectFromRoot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
 		local replacements = testQuery:replace(function(n): string?
 			if n.value > 0 then
@@ -46,9 +46,9 @@ test.suite("AST Query", function(suite)
 	end)
 
 	suite:case("map", function(assert)
-		local testQuery = query.selectFromRoot(parser.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+		local testQuery = query.selectFromRoot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
-		local mappedQuery = query.map(testQuery, function(n: luau.AstExprConstantNumber): number?
+		local mappedQuery = query.map(testQuery, function(n: syntax.AstExprConstantNumber): number?
 			if n.value % 2 == 0 then
 				return n.value * 10
 			end
@@ -62,10 +62,10 @@ test.suite("AST Query", function(suite)
 	end)
 
 	suite:case("forEach", function(assert)
-		local testQuery = query.selectFromRoot(parser.parse("local _ = {0, 1, 2}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+		local testQuery = query.selectFromRoot(syntax.parse("local _ = {0, 1, 2}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
 		local sum = 0
-		testQuery:forEach(function(n: luau.AstExprConstantNumber)
+		testQuery:forEach(function(n: syntax.AstExprConstantNumber)
 			sum = sum + n.value
 		end)
 
@@ -73,10 +73,10 @@ test.suite("AST Query", function(suite)
 	end)
 
 	suite:case("select_nums", function(assert)
-		local ast = luau.parse("print(1 + 2)")
-		local queryResult: query.query<luau.AstExprConstantNumber> = query.selectFromRoot(
-			ast.root, -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
-			function(n: luau.AstNode): luau.AstExprConstantNumber?
+		local ast = syntax.parse("print(1 + 2)")
+		local queryResult: query.query<syntax.AstExprConstantNumber> = query.selectFromRoot(
+			ast, -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+			function(n: syntax.AstNode): syntax.AstExprConstantNumber?
 				if n.kind == "expr" and n.tag == "number" then
 					return n
 				end
@@ -85,30 +85,30 @@ test.suite("AST Query", function(suite)
 		)
 
 		assert.eq(#queryResult.nodes, 2)
-		local num: luau.AstExpr = queryResult.nodes[1]
+		local num: syntax.AstExpr = queryResult.nodes[1]
 		assert.eq(num.kind, "expr")
 		assert.eq(num.tag, "number")
-		assert.eq((num :: luau.AstExprConstantNumber).value, 1)
+		assert.eq((num :: syntax.AstExprConstantNumber).value, 1)
 		num = queryResult.nodes[2]
 		assert.eq(num.kind, "expr")
 		assert.eq(num.tag, "number")
-		assert.eq((num :: luau.AstExprConstantNumber).value, 2)
+		assert.eq((num :: syntax.AstExprConstantNumber).value, 2)
 	end)
 
 	suite:case("select_utils", function(assert)
-		local ast = luau.parse("print(1 + 2)")
-		local queryResult: query.query<luau.AstExprConstantNumber> =
-			query.selectFromRoot(ast.root :: luau.AstNode, utils.isExprConstantNumber)
+		local ast = syntax.parse("print(1 + 2)")
+		local queryResult: query.query<syntax.AstExprConstantNumber> =
+			query.selectFromRoot(ast, utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
 		assert.eq(#queryResult.nodes, 2)
-		local num: luau.AstExpr = queryResult.nodes[1]
+		local num: syntax.AstExpr = queryResult.nodes[1]
 		assert.eq(num.kind, "expr")
 		assert.eq(num.tag, "number")
-		assert.eq((num :: luau.AstExprConstantNumber).value, 1)
+		assert.eq((num :: syntax.AstExprConstantNumber).value, 1)
 		num = queryResult.nodes[2]
 		assert.eq(num.kind, "expr")
 		assert.eq(num.tag, "number")
-		assert.eq((num :: luau.AstExprConstantNumber).value, 2)
+		assert.eq((num :: syntax.AstExprConstantNumber).value, 2)
 	end)
 end)
 
