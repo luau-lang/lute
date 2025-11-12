@@ -9,7 +9,7 @@ export default withSidebar(
     themeConfig: {
       nav: [
         { text: 'Guide', link: '/guide/installation' },
-        { text: 'Reference', link: '/reference/' },
+        { text: 'Reference', link: '/reference/definitions/crypto' },
       ],
       search: { provider: 'local' },
       socialLinks: [
