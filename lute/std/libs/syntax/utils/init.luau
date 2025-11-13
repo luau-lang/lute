@@ -231,6 +231,10 @@ function utils.isToken(n: types.AstNode): types.Token?
 	return if n.kind == "token" then n else nil
 end
 
+function utils.isAttribute(n: types.AstAttribute): types.AstAttribute?
+	return if n.kind == "attribute" then n else nil
+end
+
 utils.leftmosttrivia = retriever.leftmosttrivia
 utils.rightmosttrivia = retriever.rightmosttrivia
 

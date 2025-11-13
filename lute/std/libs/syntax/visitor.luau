@@ -67,6 +67,8 @@ export type Visitor = {
 	visitNumber: (types.AstExprConstantNumber) -> boolean,
 	visitLocal: (types.AstLocal) -> boolean,
 	visitVarargs: (types.AstExprVarargs) -> boolean,
+
+	visitAttribute: (types.AstAttribute) -> boolean,
 }
 
 local function alwaysVisit(...: any)
@@ -134,6 +136,8 @@ local defaultVisitor: Visitor = {
 	visitNumber = alwaysVisit :: any,
 	visitLocal = alwaysVisit :: any,
 	visitVarargs = alwaysVisit :: any,
+
+	visitAttribute = alwaysVisit :: any,
 }
 
 local function exhaustiveMatch(value: never): never
@@ -452,8 +456,10 @@ local function visitFunctionBody(node: types.AstFunctionBody, visitor: Visitor)
 	visitToken(node.endkeyword, visitor)
 end
 
-local function visitAttribute(node: types.AstAttribute, visitor)
-	visitToken(node, visitor)
+local function visitAttribute(node: types.AstAttribute, visitor: Visitor)
+	if visitor.visitAttribute(node) then
+		visitToken(node, visitor)
+	end
 end
 
 local function visitAnonymousFunction(node: types.AstExprAnonymousFunction, visitor: Visitor)
@@ -972,6 +978,8 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitNumber = visit,
 			visitLocal = visit,
 			visitVarargs = visit,
+
+			visitAttribute = visit,
 		}
 	else
 		return table.clone(defaultVisitor)
