@@ -12,8 +12,8 @@
 namespace Package
 {
 
-RequireVfs::RequireVfs(UserlandVfs libraryVfs)
-    : userlandVfs(std::move(libraryVfs))
+RequireVfs::RequireVfs(UserlandVfs userlandVfs)
+    : userlandVfs(std::move(userlandVfs))
 {
 }
 
@@ -34,13 +34,13 @@ NavigationStatus RequireVfs::reset(lua_State* L, std::string_view requirerChunkn
         return stdLibVfs.resetToPath(std::string(requirerChunkname.substr(1)));
     }
 
-    vfsType = VFSType::Library;
+    vfsType = VFSType::Userland;
     if (requirerChunkname.empty() || requirerChunkname[0] != '@')
         return NavigationStatus::NotFound;
 
     if (!isAbsolutePath(requirerChunkname.substr(1)))
     {
-        // For now, we only support absolute paths in the library VFS.
+        // For now, we only support absolute paths.
         return NavigationStatus::NotFound;
     }
 
@@ -63,15 +63,15 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
     }
     else if (!path.empty() && path[0] == '$')
     {
-        // "$library:version" is interpreted as a library identifier.
-        vfsType = VFSType::Library;
-        return userlandVfs.jumpToLibrary(std::string(path));
+        // "$name:version" is interpreted as an identifier.
+        vfsType = VFSType::Userland;
+        return userlandVfs.jumpToDependencySubtree(std::string(path));
     }
 
     NavigationStatus status = NavigationStatus::NotFound;
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         status = userlandVfs.resetToPath(std::string(path));
         break;
     case VFSType::Std:
@@ -89,7 +89,7 @@ NavigationStatus RequireVfs::toParent(lua_State* L)
 
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         status = userlandVfs.toParent();
         break;
     case VFSType::Std:
@@ -118,7 +118,7 @@ NavigationStatus RequireVfs::toChild(lua_State* L, std::string_view name)
 
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         return userlandVfs.toChild(std::string(name));
     case VFSType::Std:
         return stdLibVfs.toChild(std::string(name));
@@ -134,7 +134,7 @@ bool RequireVfs::isModulePresent(lua_State* L) const
 {
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         return userlandVfs.isModulePresent();
     case VFSType::Std:
         return stdLibVfs.isModulePresent();
@@ -151,7 +151,7 @@ std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) c
     std::optional<std::string> contents;
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         contents = userlandVfs.getContents(loadname);
         break;
     case VFSType::Std:
@@ -168,7 +168,7 @@ std::string RequireVfs::getChunkname(lua_State* L) const
     std::string chunkname;
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         chunkname = "@" + userlandVfs.getCurrentPath();
         break;
     case VFSType::Std:
@@ -185,7 +185,7 @@ std::string RequireVfs::getLoadname(lua_State* L) const
     std::string loadname;
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         loadname = userlandVfs.getCurrentPath();
         break;
     case VFSType::Std:
@@ -202,7 +202,7 @@ std::string RequireVfs::getCacheKey(lua_State* L) const
     std::string cacheKey;
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         cacheKey = userlandVfs.getCurrentPath();
         break;
     case VFSType::Std:
@@ -222,7 +222,7 @@ ConfigStatus RequireVfs::getConfigStatus(lua_State* L) const
     ConfigStatus status = ConfigStatus::Ambiguous;
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         status = userlandVfs.getConfigStatus();
         break;
     case VFSType::Std:
@@ -250,7 +250,7 @@ std::string RequireVfs::getConfig(lua_State* L) const
     std::optional<std::string> configContents;
     switch (vfsType)
     {
-    case VFSType::Library:
+    case VFSType::Userland:
         configContents = userlandVfs.getConfig();
         break;
     case VFSType::Std:

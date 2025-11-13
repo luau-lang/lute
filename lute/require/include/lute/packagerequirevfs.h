@@ -38,12 +38,12 @@ public:
 private:
     enum class VFSType
     {
-        Library,
+        Userland,
         Std,
         Lute,
     };
 
-    VFSType vfsType = VFSType::Library;
+    VFSType vfsType = VFSType::Userland;
 
     Package::UserlandVfs userlandVfs;
     StdLibVfs stdLibVfs;

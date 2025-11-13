@@ -150,7 +150,7 @@ NavigationStatus UserlandVfs::resetToPath(const std::string& path)
     {
         if (path.find(info.rootDirectory) == 0)
         {
-            return jumpToLibrary(identifier);
+            return jumpToDependencySubtreeImpl(identifier);
         }
     }
 
@@ -161,7 +161,7 @@ NavigationStatus UserlandVfs::resetToPath(const std::string& path)
     return fileVfs.resetToPath(path);
 }
 
-NavigationStatus UserlandVfs::jumpToLibrary(const std::string& identifierStringified)
+NavigationStatus UserlandVfs::jumpToDependencySubtree(const std::string& identifierStringified)
 {
     if (identifierStringified.empty() || identifierStringified[0] != '$')
         return NavigationStatus::NotFound;
@@ -174,10 +174,10 @@ NavigationStatus UserlandVfs::jumpToLibrary(const std::string& identifierStringi
     identifier.name = identifierStringified.substr(1, colonPos - 1);
     identifier.version = identifierStringified.substr(colonPos + 1);
 
-    return jumpToLibrary(identifier);
+    return jumpToDependencySubtreeImpl(identifier);
 }
 
-NavigationStatus UserlandVfs::jumpToLibrary(Identifier identifier)
+NavigationStatus UserlandVfs::jumpToDependencySubtreeImpl(Identifier identifier)
 {
     if (libraries.find(identifier) == libraries.end())
         return NavigationStatus::NotFound;

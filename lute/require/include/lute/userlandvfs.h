@@ -59,7 +59,7 @@ public:
     static UserlandVfs create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> libraries);
 
     NavigationStatus resetToPath(const std::string& path);
-    NavigationStatus jumpToLibrary(const std::string& identifierStringified);
+    NavigationStatus jumpToDependencySubtree(const std::string& identifierStringified);
 
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
@@ -74,7 +74,7 @@ public:
 
 private:
     UserlandVfs(std::map<Identifier, Info> libraries, std::string generatedRootLuaurc);
-    NavigationStatus jumpToLibrary(Identifier identifier);
+    NavigationStatus jumpToDependencySubtreeImpl(Identifier identifier);
 
     enum class VFSType
     {
