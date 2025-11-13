@@ -49,6 +49,7 @@ export type Visitor = {
 	visitTypeString: (types.AstTypeSingletonString) -> boolean,
 	visitTypeTypeof: (types.AstTypeTypeof) -> boolean,
 	visitTypeGroup: (types.AstTypeGroup) -> boolean,
+	visitTypeOptional: (types.AstTypeOptional) -> boolean,
 	visitTypeUnion: (types.AstTypeUnion) -> boolean,
 	visitTypeIntersection: (types.AstTypeIntersection) -> boolean,
 	visitTypeArray: (types.AstTypeArray) -> boolean,
@@ -115,6 +116,7 @@ local defaultVisitor: Visitor = {
 	visitTypeString = alwaysVisit :: any,
 	visitTypeTypeof = alwaysVisit :: any,
 	visitTypeGroup = alwaysVisit :: any,
+	visitTypeOptional = alwaysVisit :: any,
 	visitTypeUnion = alwaysVisit :: any,
 	visitTypeIntersection = alwaysVisit :: any,
 	visitTypeArray = alwaysVisit :: any,
@@ -652,6 +654,12 @@ local function visitTypeGroup(node: types.AstTypeGroup, visitor: Visitor)
 	end
 end
 
+local function visitTypeOptional(node: types.AstTypeOptional, visitor: Visitor)
+	if visitor.visitTypeOptional(node) then
+		visitToken(node, visitor)
+	end
+end
+
 local function visitTypeUnion(node: types.AstTypeUnion, visitor: Visitor)
 	if visitor.visitTypeUnion(node) then
 		if node.leading then
@@ -877,7 +885,7 @@ function visitType(type: types.AstType, visitor: Visitor)
 	elseif type.tag == "intersection" then
 		visitTypeIntersection(type, visitor)
 	elseif type.tag == "optional" then
-		visitToken(type, visitor)
+		visitTypeOptional(type, visitor)
 	elseif type.tag == "array" then
 		visitTypeArray(type, visitor)
 	elseif type.tag == "table" then
@@ -946,6 +954,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitTypeString = visit,
 			visitTypeTypeof = visit,
 			visitTypeGroup = visit,
+			visitTypeOptional = visit,
 			visitTypeUnion = visit,
 			visitTypeIntersection = visit,
 			visitTypeArray = visit,
