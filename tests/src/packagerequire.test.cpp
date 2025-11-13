@@ -33,26 +33,26 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
                 {"dep", "2.0.0"},
             };
 
-            std::string librariesRoot = luteProjectRoot + '/' + "tests/src/packages";
-            std::vector<std::pair<Package::Identifier, Package::Info>> libraries;
-            libraries.push_back(
+            std::string packagesRoot = luteProjectRoot + '/' + "tests/src/packages";
+            std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies;
+            allDependencies.push_back(
                 {{"dep", "1.0.0"},
                  {
-                     librariesRoot + '/' + "internaldep",
-                     librariesRoot + '/' + "internaldep/init.luau",
+                     packagesRoot + '/' + "internaldep",
+                     packagesRoot + '/' + "internaldep/init.luau",
                      {},
                  }}
             );
-            libraries.push_back(
+            allDependencies.push_back(
                 {{"dep", "2.0.0"},
                  {
-                     librariesRoot + '/' + "dep",
-                     librariesRoot + '/' + "dep/module.luau",
+                     packagesRoot + '/' + "dep",
+                     packagesRoot + '/' + "dep/module.luau",
                      {{"dep", "1.0.0"}},
                  }}
             );
 
-            Package::UserlandVfs libraryVfs = Package::UserlandVfs::create(std::move(directDependencies), std::move(libraries));
+            Package::UserlandVfs userlandVfs = Package::UserlandVfs::create(std::move(directDependencies), std::move(allDependencies));
 
             void* ctx = lua_newuserdatadtor(
                 L,
@@ -66,7 +66,7 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
             if (!ctx)
                 luaL_errorL(L, "unable to allocate RequireCtx");
 
-            ctx = new (ctx) RequireCtx{std::make_unique<Package::RequireVfs>(std::move(libraryVfs))};
+            ctx = new (ctx) RequireCtx{std::make_unique<Package::RequireVfs>(std::move(userlandVfs))};
 
             // Store RequireCtx in the registry to keep it alive for the lifetime of
             // this lua_State. Memory address is used as a key to avoid collisions.
