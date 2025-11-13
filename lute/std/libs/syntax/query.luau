@@ -103,37 +103,4 @@ function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 
--- function queryLib.selectTokenFromRoot<T>(ast: node, fn: ((types.Token) -> T?)?): query<T>
--- 	local nodes: { T } = {}
-
--- 	local function visit(n: node)
--- 		return true
--- 	end
-
--- 	local selectVisitor = visitor.create(visit)
--- 	selectVisitor.visitBlockEnd = function(n) end
--- 	selectVisitor.visitLocalDeclarationEnd = function(n) end
--- 	selectVisitor.visitExpressionEnd = function(n) end
--- 	selectVisitor.visitToken = function(n)
--- 		-- main question is if we want this to be encompassing of Expr nodes that are intersection of Token and additional fields
--- 		--
--- 		local selected = if fn then fn(n) else n
--- 		if selected ~= nil then
--- 			table.insert(nodes, selected)
--- 		end
--- 		return true
--- 	end
-
--- 	visitor.visit(ast, selectVisitor)
-
--- 	return {
--- 		nodes = nodes,
--- 		filter = queryLib.filter,
--- 		replace = queryLib.replace,
--- 		map = queryLib.map,
--- 		forEach = queryLib.forEach,
--- 		__root = ast,
--- 	}
--- end
-
 return table.freeze(queryLib)
