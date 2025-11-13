@@ -1,9 +1,9 @@
 #include "lute/climain.h"
-#include "lute/libraryrequirevfs.h"
-#include "lute/libraryvfs.h"
 #include "lute/options.h"
+#include "lute/packagerequirevfs.h"
 #include "lute/require.h"
 #include "lute/runtime.h"
+#include "lute/userlandvfs.h"
 
 #include "Luau/Compiler.h"
 #include "Luau/FileUtils.h"
@@ -18,7 +18,7 @@
 #include "lutefixture.h"
 #include "luteprojectroot.h"
 
-TEST_CASE_FIXTURE(LuteFixture, "library_aware_require")
+TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
 {
     Runtime runtime;
 
@@ -27,14 +27,14 @@ TEST_CASE_FIXTURE(LuteFixture, "library_aware_require")
         [](lua_State* L)
         {
             std::string luteProjectRoot = getLuteProjectRootAbsolute();
-            std::string entryRoot = luteProjectRoot + '/' + "tests/src/libraryentry";
+            std::string entryRoot = luteProjectRoot + '/' + "tests/src/packages/packageentry";
 
-            std::vector<Library::Identifier> directDependencies = {
+            std::vector<Package::Identifier> directDependencies = {
                 {"dep", "2.0.0"},
             };
 
-            std::string librariesRoot = luteProjectRoot + '/' + "tests/src/libraries";
-            std::vector<std::pair<Library::Identifier, Library::Info>> libraries;
+            std::string librariesRoot = luteProjectRoot + '/' + "tests/src/packages";
+            std::vector<std::pair<Package::Identifier, Package::Info>> libraries;
             libraries.push_back(
                 {{"dep", "1.0.0"},
                  {
@@ -52,7 +52,7 @@ TEST_CASE_FIXTURE(LuteFixture, "library_aware_require")
                  }}
             );
 
-            Library::Vfs libraryVfs = Library::Vfs::create(std::move(directDependencies), std::move(libraries));
+            Package::UserlandVfs libraryVfs = Package::UserlandVfs::create(std::move(directDependencies), std::move(libraries));
 
             void* ctx = lua_newuserdatadtor(
                 L,
@@ -66,7 +66,7 @@ TEST_CASE_FIXTURE(LuteFixture, "library_aware_require")
             if (!ctx)
                 luaL_errorL(L, "unable to allocate RequireCtx");
 
-            ctx = new (ctx) RequireCtx{std::make_unique<Library::RequireVfs>(std::move(libraryVfs))};
+            ctx = new (ctx) RequireCtx{std::make_unique<Package::RequireVfs>(std::move(libraryVfs))};
 
             // Store RequireCtx in the registry to keep it alive for the lifetime of
             // this lua_State. Memory address is used as a key to avoid collisions.
@@ -78,7 +78,7 @@ TEST_CASE_FIXTURE(LuteFixture, "library_aware_require")
         }
     );
 
-    std::string path = getLuteProjectRootAbsolute() + "/tests/src/libraryentry/entry.luau";
+    std::string path = getLuteProjectRootAbsolute() + "/tests/src/packages/packageentry/entry.luau";
     std::optional<std::string> contents = readFile(path);
     REQUIRE(contents);
 

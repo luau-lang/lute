@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace Library
+namespace Package
 {
 
 struct Identifier
@@ -53,10 +53,10 @@ private:
     bool atGeneratedRoot = false;
 };
 
-class Vfs
+class UserlandVfs
 {
 public:
-    static Vfs create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> libraries);
+    static UserlandVfs create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> libraries);
 
     NavigationStatus resetToPath(const std::string& path);
     NavigationStatus jumpToLibrary(const std::string& identifierStringified);
@@ -73,7 +73,7 @@ public:
     std::string getCurrentPath() const;
 
 private:
-    Vfs(std::map<Identifier, Info> libraries, std::string generatedRootLuaurc);
+    UserlandVfs(std::map<Identifier, Info> libraries, std::string generatedRootLuaurc);
     NavigationStatus jumpToLibrary(Identifier identifier);
 
     enum class VFSType
@@ -92,4 +92,4 @@ private:
     std::string generatedRootLuaurc;
 };
 
-} // namespace Library
+} // namespace Package

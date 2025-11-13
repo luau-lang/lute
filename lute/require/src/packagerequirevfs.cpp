@@ -1,4 +1,4 @@
-#include "lute/libraryrequirevfs.h"
+#include "lute/packagerequirevfs.h"
 
 #include "Luau/FileUtils.h"
 
@@ -9,11 +9,11 @@
 #include <string>
 #include <string_view>
 
-namespace Library
+namespace Package
 {
 
-RequireVfs::RequireVfs(Vfs libraryVfs)
-    : libraryVfs(std::move(libraryVfs))
+RequireVfs::RequireVfs(UserlandVfs libraryVfs)
+    : userlandVfs(std::move(libraryVfs))
 {
 }
 
@@ -44,7 +44,7 @@ NavigationStatus RequireVfs::reset(lua_State* L, std::string_view requirerChunkn
         return NavigationStatus::NotFound;
     }
 
-    return libraryVfs.resetToPath(std::string(requirerChunkname.substr(1)));
+    return userlandVfs.resetToPath(std::string(requirerChunkname.substr(1)));
 }
 
 NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
@@ -65,14 +65,14 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
     {
         // "$library:version" is interpreted as a library identifier.
         vfsType = VFSType::Library;
-        return libraryVfs.jumpToLibrary(std::string(path));
+        return userlandVfs.jumpToLibrary(std::string(path));
     }
 
     NavigationStatus status = NavigationStatus::NotFound;
     switch (vfsType)
     {
     case VFSType::Library:
-        status = libraryVfs.resetToPath(std::string(path));
+        status = userlandVfs.resetToPath(std::string(path));
         break;
     case VFSType::Std:
         status = stdLibVfs.resetToPath(std::string(path));
@@ -90,7 +90,7 @@ NavigationStatus RequireVfs::toParent(lua_State* L)
     switch (vfsType)
     {
     case VFSType::Library:
-        status = libraryVfs.toParent();
+        status = userlandVfs.toParent();
         break;
     case VFSType::Std:
         status = stdLibVfs.toParent();
@@ -119,7 +119,7 @@ NavigationStatus RequireVfs::toChild(lua_State* L, std::string_view name)
     switch (vfsType)
     {
     case VFSType::Library:
-        return libraryVfs.toChild(std::string(name));
+        return userlandVfs.toChild(std::string(name));
     case VFSType::Std:
         return stdLibVfs.toChild(std::string(name));
     case VFSType::Lute:
@@ -135,7 +135,7 @@ bool RequireVfs::isModulePresent(lua_State* L) const
     switch (vfsType)
     {
     case VFSType::Library:
-        return libraryVfs.isModulePresent();
+        return userlandVfs.isModulePresent();
     case VFSType::Std:
         return stdLibVfs.isModulePresent();
     case VFSType::Lute:
@@ -152,7 +152,7 @@ std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) c
     switch (vfsType)
     {
     case VFSType::Library:
-        contents = libraryVfs.getContents(loadname);
+        contents = userlandVfs.getContents(loadname);
         break;
     case VFSType::Std:
         contents = stdLibVfs.getContents(loadname);
@@ -169,7 +169,7 @@ std::string RequireVfs::getChunkname(lua_State* L) const
     switch (vfsType)
     {
     case VFSType::Library:
-        chunkname = "@" + libraryVfs.getCurrentPath();
+        chunkname = "@" + userlandVfs.getCurrentPath();
         break;
     case VFSType::Std:
         chunkname = "@" + stdLibVfs.getIdentifier();
@@ -186,7 +186,7 @@ std::string RequireVfs::getLoadname(lua_State* L) const
     switch (vfsType)
     {
     case VFSType::Library:
-        loadname = libraryVfs.getCurrentPath();
+        loadname = userlandVfs.getCurrentPath();
         break;
     case VFSType::Std:
         loadname = stdLibVfs.getIdentifier();
@@ -203,7 +203,7 @@ std::string RequireVfs::getCacheKey(lua_State* L) const
     switch (vfsType)
     {
     case VFSType::Library:
-        cacheKey = libraryVfs.getCurrentPath();
+        cacheKey = userlandVfs.getCurrentPath();
         break;
     case VFSType::Std:
         cacheKey = stdLibVfs.getIdentifier();
@@ -223,7 +223,7 @@ ConfigStatus RequireVfs::getConfigStatus(lua_State* L) const
     switch (vfsType)
     {
     case VFSType::Library:
-        status = libraryVfs.getConfigStatus();
+        status = userlandVfs.getConfigStatus();
         break;
     case VFSType::Std:
         status = stdLibVfs.getConfigStatus();
@@ -251,7 +251,7 @@ std::string RequireVfs::getConfig(lua_State* L) const
     switch (vfsType)
     {
     case VFSType::Library:
-        configContents = libraryVfs.getConfig();
+        configContents = userlandVfs.getConfig();
         break;
     case VFSType::Std:
         configContents = stdLibVfs.getConfig();
@@ -262,4 +262,4 @@ std::string RequireVfs::getConfig(lua_State* L) const
     return configContents ? *configContents : "";
 }
 
-} // namespace Library
+} // namespace Package

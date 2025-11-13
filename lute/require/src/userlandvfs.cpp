@@ -1,4 +1,4 @@
-#include "lute/libraryvfs.h"
+#include "lute/userlandvfs.h"
 
 #include "lute/modulepath.h"
 
@@ -10,7 +10,7 @@
 #include <optional>
 #include <string>
 
-namespace Library
+namespace Package
 {
 
 static std::string generateRootLuaurc(const std::vector<Identifier>& dependencies)
@@ -127,7 +127,7 @@ std::string Subtree::getCurrentPath() const
     return result.realPath;
 }
 
-Vfs Vfs::create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> libraries)
+UserlandVfs UserlandVfs::create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> libraries)
 {
     std::map<Identifier, Info> librariesMap;
     for (auto& [identifier, info] : libraries)
@@ -135,16 +135,16 @@ Vfs Vfs::create(std::vector<Identifier> directDependencies, std::vector<std::pai
         librariesMap[std::move(identifier)] = std::move(info);
     }
 
-    return Vfs{std::move(librariesMap), generateRootLuaurc(directDependencies)};
+    return UserlandVfs{std::move(librariesMap), generateRootLuaurc(directDependencies)};
 }
 
-Vfs::Vfs(std::map<Identifier, Info> libraries, std::string generatedRootLuaurc)
+UserlandVfs::UserlandVfs(std::map<Identifier, Info> libraries, std::string generatedRootLuaurc)
     : libraries(std::move(libraries))
     , generatedRootLuaurc(std::move(generatedRootLuaurc))
 {
 }
 
-NavigationStatus Vfs::resetToPath(const std::string& path)
+NavigationStatus UserlandVfs::resetToPath(const std::string& path)
 {
     for (const auto& [identifier, info] : libraries)
     {
@@ -161,7 +161,7 @@ NavigationStatus Vfs::resetToPath(const std::string& path)
     return fileVfs.resetToPath(path);
 }
 
-NavigationStatus Vfs::jumpToLibrary(const std::string& identifierStringified)
+NavigationStatus UserlandVfs::jumpToLibrary(const std::string& identifierStringified)
 {
     if (identifierStringified.empty() || identifierStringified[0] != '$')
         return NavigationStatus::NotFound;
@@ -177,7 +177,7 @@ NavigationStatus Vfs::jumpToLibrary(const std::string& identifierStringified)
     return jumpToLibrary(identifier);
 }
 
-NavigationStatus Vfs::jumpToLibrary(Identifier identifier)
+NavigationStatus UserlandVfs::jumpToLibrary(Identifier identifier)
 {
     if (libraries.find(identifier) == libraries.end())
         return NavigationStatus::NotFound;
@@ -193,7 +193,7 @@ NavigationStatus Vfs::jumpToLibrary(Identifier identifier)
     return NavigationStatus::Success;
 }
 
-NavigationStatus Vfs::toParent()
+NavigationStatus UserlandVfs::toParent()
 {
     NavigationStatus status;
 
@@ -220,7 +220,7 @@ NavigationStatus Vfs::toParent()
     return status;
 }
 
-NavigationStatus Vfs::toChild(const std::string& name)
+NavigationStatus UserlandVfs::toChild(const std::string& name)
 {
     atDiskFakeRoot = false;
 
@@ -238,7 +238,7 @@ NavigationStatus Vfs::toChild(const std::string& name)
     return status;
 }
 
-ConfigStatus Vfs::getConfigStatus() const
+ConfigStatus UserlandVfs::getConfigStatus() const
 {
     if (atDiskFakeRoot)
         return ConfigStatus::PresentJson;
@@ -257,7 +257,7 @@ ConfigStatus Vfs::getConfigStatus() const
     return status;
 }
 
-std::optional<std::string> Vfs::getConfig() const
+std::optional<std::string> UserlandVfs::getConfig() const
 {
     if (atDiskFakeRoot)
         return generatedRootLuaurc;
@@ -276,7 +276,7 @@ std::optional<std::string> Vfs::getConfig() const
     return config;
 }
 
-bool Vfs::isModulePresent() const
+bool UserlandVfs::isModulePresent() const
 {
     if (atDiskFakeRoot)
         return false;
@@ -295,12 +295,12 @@ bool Vfs::isModulePresent() const
     return isPresent;
 }
 
-std::optional<std::string> Vfs::getContents(const std::string& path) const
+std::optional<std::string> UserlandVfs::getContents(const std::string& path) const
 {
     return readFile(path);
 }
 
-std::string Vfs::getCurrentPath() const
+std::string UserlandVfs::getCurrentPath() const
 {
     std::string path;
     switch (vfsType)
@@ -316,4 +316,4 @@ std::string Vfs::getCurrentPath() const
     return path;
 }
 
-} // namespace Library
+} // namespace Package

@@ -1,16 +1,16 @@
 #pragma once
 
-#include "lute/libraryvfs.h"
 #include "lute/require.h"
 #include "lute/stdlibvfs.h"
+#include "lute/userlandvfs.h"
 
-namespace Library
+namespace Package
 {
 
 class RequireVfs : public IRequireVfs
 {
 public:
-    RequireVfs(Vfs);
+    RequireVfs(UserlandVfs);
 
     bool isRequireAllowed(lua_State* L, std::string_view requirerChunkname) const override;
 
@@ -45,11 +45,11 @@ private:
 
     VFSType vfsType = VFSType::Library;
 
-    Library::Vfs libraryVfs;
+    Package::UserlandVfs userlandVfs;
     StdLibVfs stdLibVfs;
     std::string lutePath;
 
     bool atFakeRoot = false;
 };
 
-} // namespace Library
+} // namespace Package
