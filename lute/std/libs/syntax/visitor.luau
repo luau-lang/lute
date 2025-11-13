@@ -881,7 +881,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 	if visit then
 		return {
 			visitBlock = visit,
-			visitBlockEnd = visit :: any,
+			visitBlockEnd = visit,
 			visitIf = visit,
 			visitWhile = visit,
 			visitRepeat = visit,

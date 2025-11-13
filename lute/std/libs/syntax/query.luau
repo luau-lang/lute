@@ -15,6 +15,7 @@ export type query<T = node> = {
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	forEach: (self: query<T>, callback: (T) -> ()) -> (),
 	__root: node,
+	__eof: types.Eof?,
 } -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U> method
 
 local queryLib = {}
@@ -30,12 +31,20 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-local function print<T>(self: types.replacements): string
+local function replacementPrint<T>(self: types.replacements): string
+	if self.__eof ~= nil then
+		assert(
+			self.__root.kind == "stat" and self.__root.tag == "block",
+			"If EOF is specified, root must be an AstStatBlock"
+		)
+		return printer.printfile({ eof = self.__eof, root = self.__root }, self)
+	else
 	return printer.printnode(self.__root, self)
+end
 end
 
 function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
-	local replacements = { print = print, __root = self.__root }
+	local replacements = { print = replacementPrint, __root = self.__root, __eof = self.__eof }
 	for _, node in self.nodes do
 		local r = repl(node)
 		if r ~= nil then
@@ -65,7 +74,7 @@ function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): query<T>
 	return self
 end
 
-function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
+function queryLib.selectFromRoot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
 	local nodes: { T } = {}
 
 	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
@@ -87,7 +96,8 @@ function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
 		return true
 	end
 
-	visitor.visit(ast, selectVisitor)
+	local root: node = if ast.root ~= nil then ast.root else ast
+	visitor.visit(root, selectVisitor)
 
 	return {
 		nodes = nodes,
@@ -95,7 +105,8 @@ function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
 		replace = queryLib.replace,
 		map = queryLib.map,
 		forEach = queryLib.forEach,
-		__root = ast,
+		__root = root,
+		__eof = if ast.eof ~= nil then ast.eof else nil,
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 
