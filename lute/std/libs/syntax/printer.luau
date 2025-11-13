@@ -2,6 +2,7 @@
 -- @std/syntax/printer
 
 local types = require("./types")
+local utils = require("./utils")
 local visitor = require("./visitor")
 
 local printerLib = {}
@@ -98,7 +99,6 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 	end
 
 	local rightmostTrivia = utils.rightmosttrivia(node)
-	print(`rightmosttrivia: {#rightmostTrivia}`)
 	if rightmostTrivia ~= nil then
 		self:printTriviaList(rightmostTrivia)
 	end
