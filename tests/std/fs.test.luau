@@ -167,6 +167,64 @@ test.suite("FsSuite", function(suite)
 
 		fs.remove(file)
 	end)
+
+	suite:case("removedirectory_non_recursive", function(assert)
+		local dir = path.join(tmpdir, "empty_dir")
+		fs.createdirectory(dir, { makeparents = true })
+		assert.eq(fs.exists(dir), true)
+
+		fs.removedirectory(dir)
+		assert.eq(fs.exists(dir), false)
+	end)
+
+	suite:case("removedirectory_recursive", function(assert)
+		local dir = path.join(tmpdir, "recursive_test")
+		local subdir1 = path.join(dir, "subdir1")
+		local subdir2 = path.join(dir, "subdir2")
+		local nestedDir = path.join(subdir1, "nested")
+
+		fs.createdirectory(nestedDir, { makeparents = true })
+		fs.createdirectory(subdir2, { makeparents = true })
+
+		local file1 = path.join(dir, "file1.txt")
+		local file2 = path.join(subdir1, "file2.txt")
+		local file3 = path.join(nestedDir, "file3.txt")
+
+		fs.writestringtofile(file1, "content1")
+		fs.writestringtofile(file2, "content2")
+		fs.writestringtofile(file3, "content3")
+
+		assert.eq(fs.exists(dir), true)
+		assert.eq(fs.exists(file1), true)
+		assert.eq(fs.exists(file2), true)
+		assert.eq(fs.exists(file3), true)
+
+		fs.removedirectory(dir, { recursive = true })
+
+		assert.eq(fs.exists(dir), false)
+		assert.eq(fs.exists(file1), false)
+		assert.eq(fs.exists(file2), false)
+		assert.eq(fs.exists(file3), false)
+	end)
+
+	suite:case("removedirectory_recursive_false_with_contents", function(assert)
+		local dir = path.join(tmpdir, "non_empty_dir")
+		fs.createdirectory(dir, { makeparents = true })
+
+		local file = path.join(dir, "file.txt")
+		fs.writestringtofile(file, "content")
+
+		local success, err = pcall(function()
+			fs.removedirectory(dir, { recursive = false })
+		end)
+
+		assert.neq(success, true)
+		assert.neq(err, nil)
+
+		-- Cleanup
+		fs.remove(file)
+		fs.rmdir(dir)
+	end)
 end)
 
 test.run()
