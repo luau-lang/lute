@@ -12,6 +12,7 @@ export type Visitor = {
 	visitIf: (types.AstStatIf) -> boolean,
 	visitWhile: (types.AstStatWhile) -> boolean,
 	visitRepeat: (types.AstStatRepeat) -> boolean,
+	visitBreak: (types.AstStatBreak) -> boolean,
 	visitReturn: (types.AstStatReturn) -> boolean,
 	visitLocalDeclaration: (types.AstStatLocal) -> boolean,
 	visitLocalDeclarationEnd: (types.AstStatLocal) -> (),
@@ -75,6 +76,7 @@ local defaultVisitor: Visitor = {
 	visitIf = alwaysVisit :: any,
 	visitWhile = alwaysVisit :: any,
 	visitRepeat = alwaysVisit :: any,
+	visitBreak = alwaysVisit :: any,
 	visitReturn = alwaysVisit :: any,
 	visitLocalDeclaration = alwaysVisit :: any,
 	visitLocalDeclarationEnd = alwaysVisit :: any,
@@ -205,6 +207,12 @@ local function visitRepeat(node: types.AstStatRepeat, visitor: Visitor)
 		visitBlock(node.body, visitor)
 		visitToken(node.untilKeyword, visitor)
 		visitExpression(node.condition, visitor)
+	end
+end
+
+local function visitBreak(node: types.AstStatBreak, visitor: Visitor)
+	if visitor.visitBreak(node) then
+		visitToken(node, visitor)
 	end
 end
 
@@ -811,7 +819,7 @@ function visitStatement(statement: types.AstStat, visitor: Visitor)
 	elseif statement.tag == "while" then
 		visitWhile(statement, visitor)
 	elseif statement.tag == "break" then
-		visitToken(statement, visitor)
+		visitBreak(statement, visitor)
 	elseif statement.tag == "continue" then
 		visitToken(statement, visitor)
 	elseif statement.tag == "repeat" then
@@ -885,6 +893,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitIf = visit,
 			visitWhile = visit,
 			visitRepeat = visit,
+			visitBreak = visit,
 			visitReturn = visit,
 			visitLocalDeclaration = visit,
 			visitLocalDeclarationEnd = visit,
