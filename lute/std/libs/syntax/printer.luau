@@ -44,6 +44,11 @@ local function printToken(self: PrintVisitor, token: types.Token)
 end
 
 local function printString(self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString)
+	if self.replacements[expr] ~= nil then
+		self:printReplacement(expr, self.replacements[expr])
+		return
+	end
+
 	self:printTriviaList(expr.leadingtrivia)
 
 	if expr.quotestyle == "single" then
