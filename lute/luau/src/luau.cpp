@@ -1,9 +1,12 @@
 #include "lute/luau.h"
 
-#include "lute/userdatas.h"
+#include "lute/configresolver.h"
+#include "lute/moduleresolver.h"
 
 #include "Luau/Ast.h"
+#include "Luau/BuiltinDefinitions.h"
 #include "Luau/Compiler.h"
+#include "Luau/Frontend.h"
 #include "Luau/Location.h"
 #include "Luau/NotNull.h"
 #include "Luau/ParseOptions.h"
@@ -1959,7 +1962,14 @@ struct AstSerialize : public Luau::AstVisitor
                 lua_setfield(L, -2, "tag");
                 lua_setfield(L, -2, "node");
 
-                lua_pushnil(L);
+                // Since this option is an optional type, the separator is always present unless it's the last type
+                if (i < node->types.size - 1 && separatorPositions < cstNode->separatorPositions.size)
+                {
+                    serializeToken(cstNode->separatorPositions.data[separatorPositions], "|");
+                    separatorPositions++;
+                }
+                else
+                    lua_pushnil(L);
                 lua_setfield(L, -2, "separator");
             }
             else
@@ -1967,13 +1977,16 @@ struct AstSerialize : public Luau::AstVisitor
                 node->types.data[i]->visit(this);
                 lua_setfield(L, -2, "node");
 
+                // If the next type is optional, we don't have a separator token
                 if (i < node->types.size - 1 && !node->types.data[i + 1]->is<Luau::AstTypeOptional>() &&
                     separatorPositions < cstNode->separatorPositions.size)
+                {
                     serializeToken(cstNode->separatorPositions.data[separatorPositions], "|");
+                    separatorPositions++;
+                }
                 else
                     lua_pushnil(L);
                 lua_setfield(L, -2, "separator");
-                separatorPositions++;
             }
 
             lua_rawseti(L, -2, i + 1);
@@ -2682,6 +2695,42 @@ int load_luau(lua_State* L)
 
     return 1;
 }
+
+int typeofmodule_luau(lua_State* L)
+{
+    std::string modulePath = luaL_checkstring(L, 1);
+
+    Luau::LuteModuleResolver moduleResolver;
+    Luau::LuteConfigResolver configResolver(Luau::Mode::NoCheck);
+    Luau::FrontendOptions fopts;
+    fopts.retainFullTypeGraphs = true;
+
+    Luau::Frontend frontend(&moduleResolver, &configResolver, fopts);
+    Luau::registerBuiltinGlobals(frontend, frontend.globals);
+    Luau::freeze(frontend.globals.globalTypes);
+
+    frontend.check(modulePath);
+
+    Luau::ModulePtr modulePtr = frontend.moduleResolver.getModule(modulePath);
+    if (!modulePtr)
+    {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    // For now, we return a string representation of the module's type, but we will expand it to some Luau data structure representation of Type
+    // (similar to the AST types) in a subsequent PR.
+    Luau::ToStringOptions opts;
+    opts.exhaustive = true;
+    opts.useLineBreaks = true;
+    opts.functionTypeArguments = true;
+    opts.scope = modulePtr->getModuleScope();
+
+    std::string moduleTypeStr = Luau::toString(modulePtr->returnType, opts);
+    lua_pushlstring(L, moduleTypeStr.c_str(), moduleTypeStr.length());
+    return 1;
+}
+
 
 } // namespace luau
 

@@ -324,21 +324,25 @@ std::optional<FileHandle> openHelper(lua_State* L, const char* path, const char*
 int open(lua_State* L)
 {
     int nArgs = lua_gettop(L);
-    const char* path = luaL_checkstring(L, 1);
-    int openFlags = 0x0000;
-    // When the number of arguments is less 2
     if (nArgs < 1)
     {
         luaL_errorL(L, "Error: no file supplied\n");
         return 0;
     }
+    const char* path = luaL_checkstring(L, 1);
 
-    if (nArgs < 2)
+    int openFlags = 0x0000;
+    const char* mode = "r";
+    // Default to read mode if no mode is supplied (i.e., mode is nil in Luau)
+    if (nArgs < 2 || lua_isnil(L, 2))
     {
         openFlags = O_RDONLY;
     }
+    else
+    {
+        mode = luaL_checkstring(L, 2);
+    }
 
-    const char* mode = luaL_checkstring(L, 2);
     if (std::optional<FileHandle> result = openHelper(L, path, mode, &openFlags))
     {
         createFileHandle(L, *result);
@@ -557,6 +561,8 @@ struct WatchHandle
                 luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
             }
 
+            uv_close((uv_handle_t*) &handle, nullptr);
+
             isClosed = true;
 
             getRuntime(L)->releasePendingToken();
@@ -580,12 +586,6 @@ static int closeWatchHandle(lua_State* L)
     {
         luaL_errorL(L, "Invalid fs event handle");
         return 0;
-    }
-
-    int err = uv_fs_event_stop(&handle->handle);
-    if (err)
-    {
-        luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
     }
 
     handle->close();

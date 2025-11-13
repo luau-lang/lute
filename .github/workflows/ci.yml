@@ -39,11 +39,18 @@ jobs:
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Remove .luaurc file
-        run: rm .luaurc
+      - name: Use CI .luaurc file
+        run: rm .luaurc && mv .luaurc.ci .luaurc
 
-      - name: Run Luau Tests
-        run: find tests -name "*.test.luau" | xargs -I {} ${{ steps.build_lute.outputs.exe_path }} run {}
+      - name: Run Luau Tests (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: find tests -name "*.test.luau" | xargs -I {} "${{ steps.build_lute.outputs.exe_path }}" run {}
+
+      - name: Run Luau Tests (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: for /r tests %%f in (*.test.luau) do "${{ steps.build_lute.outputs.exe_path }}" run "%%f"
 
   run-lute-cxx-unittests:
     runs-on: ${{ matrix.os }}

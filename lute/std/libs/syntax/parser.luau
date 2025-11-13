@@ -2,27 +2,22 @@
 -- @std/syntax/parser
 -- Parser for Luau source code into Luau AST nodes
 
-local luau = require("@std/luau")
+local luau = require("@lute/luau")
+local types = require("./types")
 
 local parser = {}
 
 --- Parses Luau source code into an AstStatBlock
-function parser.parse(source: string): luau.AstStatBlock
+function parser.parse(source: string): types.AstStatBlock
 	return luau.parse(source).root
 end
 
-function parser.parseexpr(source: string): luau.AstExpr
+function parser.parseexpr(source: string): types.AstExpr
 	return luau.parseexpr(source)
 end
 
-export type ParseResult = {
-	root: luau.AstStatBlock,
-	eof: luau.Eof,
-}
-
-function parser.parsefile(source: string): ParseResult
-	local result = luau.parse(source)
-	return { root = result.root, eof = result.eof }
+function parser.parsefile(source: string): types.ParseResult
+	return luau.parse(source)
 end
 
 return table.freeze(parser)

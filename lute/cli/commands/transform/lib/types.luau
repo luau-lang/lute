@@ -1,6 +1,9 @@
+local syntax = require("@std/syntax")
+
 export type Context<Options = { [any]: any }> = {
 	path: string,
 	source: string,
+	parseresult: syntax.ParseResult,
 	options: Options,
 }
 
