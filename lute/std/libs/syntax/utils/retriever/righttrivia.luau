@@ -2,15 +2,11 @@ local types = require("../../types")
 
 local retriever = {}
 
-function retriever.rightmostToken<T>(t: types.Token<T>): types.Trivia?
-	if #t.trailingtrivia > 0 then
-		return t.trailingtrivia[#t.trailingtrivia]
-	else
-		return nil
-	end
+function retriever.rightmostToken<T>(t: types.Token<T>): { types.Trivia }
+	return t.trailingtrivia
 end
 
-function retriever.rightmostPunctuated<T, S>(n: types.Punctuated<T, S>, rightmost: (T) -> types.Trivia?): types.Trivia?
+function retriever.rightmostPunctuated<T, S>(n: types.Punctuated<T, S>, rightmost: (T) -> { types.Trivia }): { types.Trivia }
 	if #n > 0 then
 		local last = n[#n]
 		if last.separator ~= nil then
@@ -19,43 +15,43 @@ function retriever.rightmostPunctuated<T, S>(n: types.Punctuated<T, S>, rightmos
 			return rightmost(last.node)
 		end
 	else
-		return nil
+		return {}
 	end
 end
 
-function retriever.rightmostExprGroup(n: types.AstExprGroup): types.Trivia?
-	return retriever.rightmostToken(n.openparens)
+function retriever.rightmostExprGroup(n: types.AstExprGroup): { types.Trivia }
+	return retriever.rightmostToken(n.closeparens)
 end
 
-function retriever.rightmostExprConstantNil(n: types.AstExprConstantNil): types.Trivia?
+function retriever.rightmostExprConstantNil(n: types.AstExprConstantNil): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostExprConstantBool(n: types.AstExprConstantBool): types.Trivia?
+function retriever.rightmostExprConstantBool(n: types.AstExprConstantBool): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostExprConstantNumber(n: types.AstExprConstantNumber): types.Trivia?
+function retriever.rightmostExprConstantNumber(n: types.AstExprConstantNumber): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostExprConstantString(n: types.AstExprConstantString): types.Trivia?
+function retriever.rightmostExprConstantString(n: types.AstExprConstantString): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostExprLocal(n: types.AstExprLocal): types.Trivia?
+function retriever.rightmostExprLocal(n: types.AstExprLocal): { types.Trivia }
 	return retriever.rightmostToken(n.token)
 end
 
-function retriever.rightmostExprGlobal(n: types.AstExprGlobal): types.Trivia?
+function retriever.rightmostExprGlobal(n: types.AstExprGlobal): { types.Trivia }
 	return retriever.rightmostToken(n.name)
 end
 
-function retriever.rightmostExprVarargs(n: types.AstExprVarargs): types.Trivia?
+function retriever.rightmostExprVarargs(n: types.AstExprVarargs): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostExprCall(n: types.AstExprCall): types.Trivia?
+function retriever.rightmostExprCall(n: types.AstExprCall): { types.Trivia }
 	if n.closeparens ~= nil then
 		return retriever.rightmostToken(n.closeparens)
 	elseif #n.arguments > 0 then
@@ -67,47 +63,47 @@ function retriever.rightmostExprCall(n: types.AstExprCall): types.Trivia?
 	end
 end
 
-function retriever.rightmostExprIndexName(n: types.AstExprIndexName): types.Trivia?
+function retriever.rightmostExprIndexName(n: types.AstExprIndexName): { types.Trivia }
 	return retriever.rightmostToken(n.index)
 end
 
-function retriever.rightmostExprIndexExpr(n: types.AstExprIndexExpr): types.Trivia?
+function retriever.rightmostExprIndexExpr(n: types.AstExprIndexExpr): { types.Trivia }
 	return retriever.rightmostToken(n.closebrackets)
 end
 
-function retriever.rightmostExprAnonymousFunction(n: types.AstExprAnonymousFunction): types.Trivia?
+function retriever.rightmostExprAnonymousFunction(n: types.AstExprAnonymousFunction): { types.Trivia }
 	return retriever.rightmostToken(n.body.endkeyword)
 end
 
-function retriever.rightmostExprTable(n: types.AstExprTable): types.Trivia?
+function retriever.rightmostExprTable(n: types.AstExprTable): { types.Trivia }
 	return retriever.rightmostToken(n.closebrace)
 end
 
-function retriever.rightmostExprUnary(n: types.AstExprUnary): types.Trivia?
+function retriever.rightmostExprUnary(n: types.AstExprUnary): { types.Trivia }
 	return retriever.rightmostExpr(n.operand)
 end
 
-function retriever.rightmostExprBinary(n: types.AstExprBinary): types.Trivia?
+function retriever.rightmostExprBinary(n: types.AstExprBinary): { types.Trivia }
 	return retriever.rightmostExpr(n.rhsoperand)
 end
 
-function retriever.rightmostExprInterpString(n: types.AstExprInterpString): types.Trivia?
+function retriever.rightmostExprInterpString(n: types.AstExprInterpString): { types.Trivia }
 	if #n.strings > 0 then
 		return retriever.rightmostToken(n.strings[#n.strings])
 	else
-		return nil
+		return {}
 	end
 end
 
-function retriever.rightmostExprTypeAssertion(n: types.AstExprTypeAssertion): types.Trivia?
+function retriever.rightmostExprTypeAssertion(n: types.AstExprTypeAssertion): { types.Trivia }
 	return retriever.rightmostType(n.annotation)
 end
 
-function retriever.rightmostExprIfElse(n: types.AstExprIfElse): types.Trivia?
+function retriever.rightmostExprIfElse(n: types.AstExprIfElse): { types.Trivia }
 	return retriever.rightmostExpr(n.elseexpr)
 end
 
-function retriever.rightmostExpr(n: types.AstExpr): types.Trivia?
+function retriever.rightmostExpr(n: types.AstExpr): { types.Trivia }
 	if n.tag == "group" then
 		return retriever.rightmostExprGroup(n)
 	elseif n.tag == "nil" then
@@ -149,35 +145,35 @@ function retriever.rightmostExpr(n: types.AstExpr): types.Trivia?
 	end
 end
 
-function retriever.rightmostStatBlock(n: types.AstStatBlock): types.Trivia?
+function retriever.rightmostStatBlock(n: types.AstStatBlock): { types.Trivia }
 	if #n.statements > 0 then
 		return retriever.rightmostStat(n.statements[#n.statements])
 	else
-		return nil
+		return {}
 	end
 end
 
-function retriever.rightmostStatIf(n: types.AstStatIf): types.Trivia?
+function retriever.rightmostStatIf(n: types.AstStatIf): { types.Trivia }
 	return retriever.rightmostToken(n.endkeyword)
 end
 
-function retriever.rightmostStatWhile(n: types.AstStatWhile): types.Trivia?
+function retriever.rightmostStatWhile(n: types.AstStatWhile): { types.Trivia }
 	return retriever.rightmostToken(n.endkeyword)
 end
 
-function retriever.rightmostStatRepeat(n: types.AstStatRepeat): types.Trivia?
+function retriever.rightmostStatRepeat(n: types.AstStatRepeat): { types.Trivia }
 	return retriever.rightmostExpr(n.condition)
 end
 
-function retriever.rightmostStatBreak(n: types.AstStatBreak): types.Trivia?
+function retriever.rightmostStatBreak(n: types.AstStatBreak): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostStatContinue(n: types.AstStatContinue): types.Trivia?
+function retriever.rightmostStatContinue(n: types.AstStatContinue): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostStatReturn(n: types.AstStatReturn): types.Trivia?
+function retriever.rightmostStatReturn(n: types.AstStatReturn): { types.Trivia }
 	if #n.expressions > 0 then
 		return retriever.rightmostPunctuated(n.expressions, retriever.rightmostExpr)
 	else
@@ -185,11 +181,11 @@ function retriever.rightmostStatReturn(n: types.AstStatReturn): types.Trivia?
 	end
 end
 
-function retriever.rightmostStatExpr(n: types.AstStatExpr): types.Trivia?
+function retriever.rightmostStatExpr(n: types.AstStatExpr): { types.Trivia }
 	return retriever.rightmostExpr(n.expression)
 end
 
-function retriever.rightmostStatLocal(n: types.AstStatLocal): types.Trivia?
+function retriever.rightmostStatLocal(n: types.AstStatLocal): { types.Trivia }
 	if #n.values > 0 then
 		return retriever.rightmostPunctuated(n.values, retriever.rightmostExpr)
 	elseif n.equals ~= nil then
@@ -201,15 +197,15 @@ function retriever.rightmostStatLocal(n: types.AstStatLocal): types.Trivia?
 	end
 end
 
-function retriever.rightmostStatFor(n: types.AstStatFor): types.Trivia?
+function retriever.rightmostStatFor(n: types.AstStatFor): { types.Trivia }
 	return retriever.rightmostToken(n.endkeyword)
 end
 
-function retriever.rightmostStatForIn(n: types.AstStatForIn): types.Trivia?
+function retriever.rightmostStatForIn(n: types.AstStatForIn): { types.Trivia }
 	return retriever.rightmostToken(n.endkeyword)
 end
 
-function retriever.rightmostStatAssign(n: types.AstStatAssign): types.Trivia?
+function retriever.rightmostStatAssign(n: types.AstStatAssign): { types.Trivia }
 	if #n.values > 0 then
 		return retriever.rightmostPunctuated(n.values, retriever.rightmostExpr)
 	else
@@ -217,27 +213,27 @@ function retriever.rightmostStatAssign(n: types.AstStatAssign): types.Trivia?
 	end
 end
 
-function retriever.rightmostStatCompoundAssign(n: types.AstStatCompoundAssign): types.Trivia?
+function retriever.rightmostStatCompoundAssign(n: types.AstStatCompoundAssign): { types.Trivia }
 	return retriever.rightmostExpr(n.value)
 end
 
-function retriever.rightmostStatFunction(n: types.AstStatFunction): types.Trivia?
+function retriever.rightmostStatFunction(n: types.AstStatFunction): { types.Trivia }
 	return retriever.rightmostToken(n.body.endkeyword)
 end
 
-function retriever.rightmostStatLocalFunction(n: types.AstStatLocalFunction): types.Trivia?
+function retriever.rightmostStatLocalFunction(n: types.AstStatLocalFunction): { types.Trivia }
 	return retriever.rightmostToken(n.body.endkeyword)
 end
 
-function retriever.rightmostStatTypeAlias(n: types.AstStatTypeAlias): types.Trivia?
+function retriever.rightmostStatTypeAlias(n: types.AstStatTypeAlias): { types.Trivia }
 	return retriever.rightmostType(n.type)
 end
 
-function retriever.rightmostStatTypeFunction(n: types.AstStatTypeFunction): types.Trivia?
+function retriever.rightmostStatTypeFunction(n: types.AstStatTypeFunction): { types.Trivia }
 	return retriever.rightmostToken(n.body.endkeyword)
 end
 
-function retriever.rightmostStat(n: types.AstStat): types.Trivia?
+function retriever.rightmostStat(n: types.AstStat): { types.Trivia }
 	if n.tag == "block" then
 		return retriever.rightmostStatBlock(n)
 	elseif n.tag == "if" then
@@ -277,19 +273,22 @@ function retriever.rightmostStat(n: types.AstStat): types.Trivia?
 	end
 end
 
-function retriever.rightmostTypeReference(n: types.AstTypeReference): types.Trivia?
+function retriever.rightmostTypeReference(n: types.AstTypeReference): { types.Trivia }
 	if n.closeparameters ~= nil then
 		return retriever.rightmostToken(n.closeparameters)
 	elseif n.parameters ~= nil and #n.parameters > 0 then
-		return retriever.rightmostPunctuated(n.parameters, function(n: types.AstType | types.AstTypePack): types.Trivia?
-			if n.kind == "type" then
-				return retriever.rightmostType(n)
-			elseif n.kind == "typepack" then
-				return retriever.rightmostTypePack(n)
-			else
-				error(`Invalid kind: {n.kind}`)
+		return retriever.rightmostPunctuated(
+			n.parameters,
+			function(n: types.AstType | types.AstTypePack): { types.Trivia }
+				if n.kind == "type" then
+					return retriever.rightmostType(n)
+				elseif n.kind == "typepack" then
+					return retriever.rightmostTypePack(n)
+				else
+					error(`Invalid kind: {n.kind}`)
+				end
 			end
-		end)
+		)
 	elseif n.openparameters ~= nil then
 		return retriever.rightmostToken(n.openparameters)
 	else
@@ -297,55 +296,55 @@ function retriever.rightmostTypeReference(n: types.AstTypeReference): types.Triv
 	end
 end
 
-function retriever.rightmostTypeSingletonBool(n: types.AstTypeSingletonBool): types.Trivia?
+function retriever.rightmostTypeSingletonBool(n: types.AstTypeSingletonBool): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostTypeSingletonString(n: types.AstTypeSingletonString): types.Trivia?
+function retriever.rightmostTypeSingletonString(n: types.AstTypeSingletonString): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostTypeTypeof(n: types.AstTypeTypeof): types.Trivia?
+function retriever.rightmostTypeTypeof(n: types.AstTypeTypeof): { types.Trivia }
 	return retriever.rightmostToken(n.closeparens)
 end
 
-function retriever.rightmostTypeGroup(n: types.AstTypeGroup): types.Trivia?
+function retriever.rightmostTypeGroup(n: types.AstTypeGroup): { types.Trivia }
 	return retriever.rightmostToken(n.closeparens)
 end
 
-function retriever.rightmostTypeUnion(n: types.AstTypeUnion): types.Trivia?
+function retriever.rightmostTypeUnion(n: types.AstTypeUnion): { types.Trivia }
 	if #n.types > 0 then
 		return retriever.rightmostPunctuated(n.types, retriever.rightmostType)
 	elseif n.leading ~= nil then
 		return retriever.rightmostToken(n.leading)
 	else
-		return nil
+		return {}
 	end
 end
 
-function retriever.rightmostTypeIntersection(n: types.AstTypeIntersection): types.Trivia?
+function retriever.rightmostTypeIntersection(n: types.AstTypeIntersection): { types.Trivia }
 	if #n.types > 0 then
 		return retriever.rightmostPunctuated(n.types, retriever.rightmostType)
 	elseif n.leading ~= nil then
 		return retriever.rightmostToken(n.leading)
 	else
-		return nil
+		return {}
 	end
 end
 
-function retriever.rightmostTypeOptional(n: types.AstTypeOptional): types.Trivia?
+function retriever.rightmostTypeOptional(n: types.AstTypeOptional): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
-function retriever.rightmostTypeArray(n: types.AstTypeArray): types.Trivia?
+function retriever.rightmostTypeArray(n: types.AstTypeArray): { types.Trivia }
 	return retriever.rightmostToken(n.closebrace)
 end
 
-function retriever.rightmostTypeTable(n: types.AstTypeTable): types.Trivia?
+function retriever.rightmostTypeTable(n: types.AstTypeTable): { types.Trivia }
 	return retriever.rightmostToken(n.closebrace)
 end
 
-function retriever.rightmostGenericType(n: types.AstGenericType): types.Trivia?
+function retriever.rightmostGenericType(n: types.AstGenericType): { types.Trivia }
 	if n.default ~= nil then
 		return retriever.rightmostType(n.default)
 	elseif n.equals ~= nil then
@@ -355,7 +354,7 @@ function retriever.rightmostGenericType(n: types.AstGenericType): types.Trivia?
 	end
 end
 
-function retriever.rightmostGenericTypePack(n: types.AstGenericTypePack): types.Trivia?
+function retriever.rightmostGenericTypePack(n: types.AstGenericTypePack): { types.Trivia }
 	if n.default ~= nil then
 		return retriever.rightmostTypePack(n.default)
 	elseif n.equals ~= nil then
@@ -365,11 +364,11 @@ function retriever.rightmostGenericTypePack(n: types.AstGenericTypePack): types.
 	end
 end
 
-function retriever.rightmostTypeFunction(n: types.AstTypeFunction): types.Trivia?
+function retriever.rightmostTypeFunction(n: types.AstTypeFunction): { types.Trivia }
 	return retriever.rightmostTypePack(n.returntypes)
 end
 
-function retriever.rightmostType(n: types.AstType): types.Trivia?
+function retriever.rightmostType(n: types.AstType): { types.Trivia }
 	if n.tag == "reference" then
 		return retriever.rightmostTypeReference(n)
 	elseif n.tag == "boolean" then
@@ -397,7 +396,7 @@ function retriever.rightmostType(n: types.AstType): types.Trivia?
 	end
 end
 
-function retriever.rightmostTypePackExplicit(n: types.AstTypePackExplicit): types.Trivia?
+function retriever.rightmostTypePackExplicit(n: types.AstTypePackExplicit): { types.Trivia }
 	if n.closeparens ~= nil then
 		return retriever.rightmostToken(n.closeparens)
 	elseif n.tailtype ~= nil then
@@ -407,19 +406,19 @@ function retriever.rightmostTypePackExplicit(n: types.AstTypePackExplicit): type
 	elseif n.openparens ~= nil then
 		return retriever.rightmostToken(n.openparens)
 	else
-		return nil
+		return {}
 	end
 end
 
-function retriever.rightmostTypePackGeneric(n: types.AstTypePackGeneric): types.Trivia?
+function retriever.rightmostTypePackGeneric(n: types.AstTypePackGeneric): { types.Trivia }
 	return retriever.rightmostToken(n.ellipsis)
 end
 
-function retriever.rightmostTypePackVariadic(n: types.AstTypePackVariadic): types.Trivia?
+function retriever.rightmostTypePackVariadic(n: types.AstTypePackVariadic): { types.Trivia }
 	return retriever.rightmostType(n.type)
 end
 
-function retriever.rightmostTypePack(n: types.AstTypePack): types.Trivia?
+function retriever.rightmostTypePack(n: types.AstTypePack): { types.Trivia }
 	if n.tag == "explicit" then
 		return retriever.rightmostTypePackExplicit(n)
 	elseif n.tag == "generic" then
@@ -431,29 +430,29 @@ function retriever.rightmostTypePack(n: types.AstTypePack): types.Trivia?
 	end
 end
 
-function retriever.rightmostLocal(n: types.AstLocal): types.Trivia?
+function retriever.rightmostLocal(n: types.AstLocal): { types.Trivia }
 	return retriever.rightmostToken(n.name)
 end
 
-function retriever.rightmostAttribute(n: types.AstAttribute): types.Trivia?
+function retriever.rightmostAttribute(n: types.AstAttribute): { types.Trivia }
 	return retriever.rightmostToken(n)
 end
 
 local retrieverLib = {}
 
-function retrieverLib.rightmosttrivia(n: types.AstNode): types.Trivia?
+function retrieverLib.rightmosttrivia(n: types.AstNode): { types.Trivia }
 	if n.kind == "expr" then
-		return retriever.rightmostExpr(n, true) :: types.Trivia?
+		return retriever.rightmostExpr(n, true) :: { types.Trivia }
 	elseif n.kind == "stat" then
-		return retriever.rightmostStat(n, true) :: types.Trivia?
+		return retriever.rightmostStat(n, true) :: { types.Trivia }
 	elseif n.kind == "type" then
-		return retriever.rightmostType(n, true) :: types.Trivia?
+		return retriever.rightmostType(n, true) :: { types.Trivia }
 	elseif n.kind == "typepack" then
-		return retriever.rightmostTypePack(n, true) :: types.Trivia?
+		return retriever.rightmostTypePack(n, true) :: { types.Trivia }
 	elseif n.kind == "local" then
-		return retriever.rightmostLocal(n, true) :: types.Trivia?
+		return retriever.rightmostLocal(n, true) :: { types.Trivia }
 	elseif n.kind == "attribute" then
-		return retriever.rightmostAttribute(n, true) :: types.Trivia?
+		return retriever.rightmostAttribute(n, true) :: { types.Trivia }
 	else
 		error(`Unknown node kind: {n.kind}`)
 	end
