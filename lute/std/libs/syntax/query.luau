@@ -58,10 +58,11 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 	return self
 end
 
-function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): ()
+function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): query<T>
 	for _, node in self.nodes do
 		callback(node)
 	end
+	return self
 end
 
 function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
