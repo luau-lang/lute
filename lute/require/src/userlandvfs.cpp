@@ -195,8 +195,7 @@ NavigationStatus UserlandVfs::jumpToDependencySubtreeImpl(Identifier identifier)
 
 NavigationStatus UserlandVfs::toParent()
 {
-    NavigationStatus status;
-
+    NavigationStatus status = NavigationStatus::NotFound;
     switch (vfsType)
     {
     case VFSType::Disk:
@@ -224,7 +223,7 @@ NavigationStatus UserlandVfs::toChild(const std::string& name)
 {
     atDiskFakeRoot = false;
 
-    NavigationStatus status;
+    NavigationStatus status = NavigationStatus::NotFound;
     switch (vfsType)
     {
     case VFSType::Disk:

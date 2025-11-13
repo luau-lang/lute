@@ -85,8 +85,7 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
 
 NavigationStatus RequireVfs::toParent(lua_State* L)
 {
-    NavigationStatus status;
-
+    NavigationStatus status = NavigationStatus::NotFound;
     switch (vfsType)
     {
     case VFSType::Userland:
@@ -97,7 +96,6 @@ NavigationStatus RequireVfs::toParent(lua_State* L)
         break;
     case VFSType::Lute:
         luaL_error(L, "cannot get the parent of @lute");
-        break;
     }
 
     if (status == NavigationStatus::NotFound)
@@ -124,7 +122,6 @@ NavigationStatus RequireVfs::toChild(lua_State* L, std::string_view name)
         return stdLibVfs.toChild(std::string(name));
     case VFSType::Lute:
         luaL_error(L, "'%s' is not a lute library", std::string(name).c_str());
-        break;
     }
 
     return NavigationStatus::NotFound;
@@ -140,7 +137,6 @@ bool RequireVfs::isModulePresent(lua_State* L) const
         return stdLibVfs.isModulePresent();
     case VFSType::Lute:
         luaL_error(L, "@lute is not requirable");
-        break;
     }
 
     return false;
