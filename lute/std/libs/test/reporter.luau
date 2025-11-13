@@ -15,7 +15,7 @@ local function printFailedTest(failed: FailedTest)
 	print(`❌ {failed.test}`)
 	if failed.assertion ~= nil then
 		print(`   {failed.filename}:{failed.linenumber}`)
-		print(`   	{failed.assertion}: {failed.error}`)
+		print(`   	{failed.assertion}: {failed.message}`)
 	else
 		print(`   Failed with: Runtime error in {failed.test} in:`)
 		print(`   	{failed.filename}:{failed.linenumber}`)
