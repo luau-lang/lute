@@ -83,6 +83,11 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 end
 
 local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: types.replacement)
+	local leftmostTrivia = utils.leftmosttrivia(node)
+	if leftmostTrivia ~= nil then
+		self:printTriviaList(leftmostTrivia)
+	end
+
 	if typeof(replacement) == "string" then
 		self:write(replacement)
 	elseif replacement.kind ~= nil then -- LUAUFIX: type solver upset comparing string singleton union to nil
@@ -90,6 +95,12 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 		visitor.visit(replacement, self)
 	else
 		error("Unsupported replacement type")
+	end
+
+	local rightmostTrivia = utils.rightmosttrivia(node)
+	print(`rightmosttrivia: {#rightmostTrivia}`)
+	if rightmostTrivia ~= nil then
+		self:printTriviaList(rightmostTrivia)
 	end
 end
 
