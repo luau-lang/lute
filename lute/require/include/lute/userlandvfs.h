@@ -56,7 +56,7 @@ private:
 class UserlandVfs
 {
 public:
-    static UserlandVfs create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> libraries);
+    static UserlandVfs create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> allDependencies);
 
     NavigationStatus resetToPath(const std::string& path);
     NavigationStatus jumpToDependencySubtree(const std::string& identifierStringified);
@@ -73,7 +73,7 @@ public:
     std::string getCurrentPath() const;
 
 private:
-    UserlandVfs(std::map<Identifier, Info> libraries, std::string generatedRootLuaurc);
+    UserlandVfs(std::map<Identifier, Info> allDependencies, std::string generatedRootLuaurc);
     NavigationStatus jumpToDependencySubtreeImpl(Identifier identifier);
 
     enum class VFSType
@@ -86,7 +86,7 @@ private:
 
     FileVfs fileVfs;
     std::optional<Subtree> currentSubtree = std::nullopt;
-    std::map<Identifier, Info> libraries;
+    std::map<Identifier, Info> allDependencies;
 
     bool atDiskFakeRoot = false;
     std::string generatedRootLuaurc;

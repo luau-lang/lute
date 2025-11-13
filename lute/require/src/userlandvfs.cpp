@@ -127,26 +127,26 @@ std::string Subtree::getCurrentPath() const
     return result.realPath;
 }
 
-UserlandVfs UserlandVfs::create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> libraries)
+UserlandVfs UserlandVfs::create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> allDependencies)
 {
-    std::map<Identifier, Info> librariesMap;
-    for (auto& [identifier, info] : libraries)
+    std::map<Identifier, Info> allDependenciesMap;
+    for (auto& [identifier, info] : allDependencies)
     {
-        librariesMap[std::move(identifier)] = std::move(info);
+        allDependenciesMap[std::move(identifier)] = std::move(info);
     }
 
-    return UserlandVfs{std::move(librariesMap), generateRootLuaurc(directDependencies)};
+    return UserlandVfs{std::move(allDependenciesMap), generateRootLuaurc(directDependencies)};
 }
 
-UserlandVfs::UserlandVfs(std::map<Identifier, Info> libraries, std::string generatedRootLuaurc)
-    : libraries(std::move(libraries))
+UserlandVfs::UserlandVfs(std::map<Identifier, Info> allDependencies, std::string generatedRootLuaurc)
+    : allDependencies(std::move(allDependencies))
     , generatedRootLuaurc(std::move(generatedRootLuaurc))
 {
 }
 
 NavigationStatus UserlandVfs::resetToPath(const std::string& path)
 {
-    for (const auto& [identifier, info] : libraries)
+    for (const auto& [identifier, info] : allDependencies)
     {
         if (path.find(info.rootDirectory) == 0)
         {
@@ -179,10 +179,10 @@ NavigationStatus UserlandVfs::jumpToDependencySubtree(const std::string& identif
 
 NavigationStatus UserlandVfs::jumpToDependencySubtreeImpl(Identifier identifier)
 {
-    if (libraries.find(identifier) == libraries.end())
+    if (allDependencies.find(identifier) == allDependencies.end())
         return NavigationStatus::NotFound;
 
-    std::optional<Subtree> st = Subtree::create(libraries.at(identifier));
+    std::optional<Subtree> st = Subtree::create(allDependencies.at(identifier));
     if (!st)
         return NavigationStatus::NotFound;
 
