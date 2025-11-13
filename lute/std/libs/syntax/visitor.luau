@@ -25,6 +25,7 @@ export type Visitor = {
 	visitLocalFunction: (types.AstStatLocalFunction) -> boolean,
 	visitTypeAlias: (types.AstStatTypeAlias) -> boolean,
 	visitStatTypeFunction: (types.AstStatTypeFunction) -> boolean,
+	visitStatExpr: (types.AstStatExpr) -> boolean,
 
 	visitExpression: (types.AstExpr) -> boolean,
 	visitExpressionEnd: (types.AstExpr) -> (),
@@ -90,6 +91,7 @@ local defaultVisitor: Visitor = {
 	visitLocalFunction = alwaysVisit :: any,
 	visitTypeAlias = alwaysVisit :: any,
 	visitStatTypeFunction = alwaysVisit :: any,
+	visitStatExpr = alwaysVisit :: any,
 
 	visitExpression = alwaysVisit :: any,
 	visitExpressionEnd = alwaysVisit :: any,
@@ -334,6 +336,12 @@ local function visitTypeAlias(node: types.AstStatTypeAlias, visitor: Visitor)
 		end
 		visitToken(node.equals, visitor)
 		visitType(node.type, visitor)
+	end
+end
+
+local function visitStatExpr(node: types.AstStatExpr, visitor: Visitor)
+	if visitor.visitStatExpr(node) then
+		visitExpression(node.expression, visitor)
 	end
 end
 
@@ -819,7 +827,7 @@ function visitStatement(statement: types.AstStat, visitor: Visitor)
 	elseif statement.tag == "conditional" then
 		visitIf(statement, visitor)
 	elseif statement.tag == "expression" then
-		visitExpression(statement.expression, visitor)
+		visitStatExpr(statement, visitor)
 	elseif statement.tag == "local" then
 		visitLocalStatement(statement, visitor)
 	elseif statement.tag == "return" then
@@ -914,6 +922,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitLocalFunction = visit,
 			visitTypeAlias = visit,
 			visitStatTypeFunction = visit,
+			visitStatExpr = visit,
 
 			visitExpression = visit,
 			visitExpressionEnd = visit,
