@@ -3,20 +3,22 @@ add_executable(Lute.Test)
 target_sources(Lute.Test PRIVATE
     src/doctest.h
     src/main.cpp
+
+    # Test fixtures and utilities
     src/cliruntimefixture.h
-    src/cliruntimefixture.cpp
-
     src/lutefixture.h
-    src/lutefixture.cpp
-
     src/luteprojectroot.h
-    src/luteprojectroot.cpp
-
-    src/compile.test.cpp
-    src/configresolver.test.cpp
     src/testreporter.h
+
+    src/cliruntimefixture.cpp
+    src/lutefixture.cpp
+    src/luteprojectroot.cpp
     src/testreporter.cpp
 
+    # Test files
+    src/compile.test.cpp
+    src/configresolver.test.cpp
+    src/libraryrequire.test.cpp
     src/modulepath.test.cpp
     src/moduleresolver.test.cpp
     src/require.test.cpp

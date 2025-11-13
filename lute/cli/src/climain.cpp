@@ -15,6 +15,7 @@
 #include "lute/ref.h"
 #include "lute/reporter.h"
 #include "lute/require.h"
+#include "lute/requirevfs.h"
 #include "lute/runtime.h"
 #include "lute/staticrequires.h"
 #include "lute/system.h"
@@ -35,6 +36,8 @@
 #include "lualib.h"
 
 #include "uv.h"
+
+#include <memory>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -113,7 +116,7 @@ void* createCliRequireContext(lua_State* L)
     if (!ctx)
         luaL_error(L, "unable to allocate RequireCtx");
 
-    ctx = new (ctx) RequireCtx{CliVfs{}};
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(CliVfs{})};
 
     // Store RequireCtx in the registry to keep it alive for the lifetime of
     // this lua_State. Memory address is used as a key to avoid collisions.
@@ -161,8 +164,7 @@ void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, s
 
     if (!ctx)
         luaL_error(L, "unable to allocate RequireCtx");
-
-    ctx = new (ctx) RequireCtx{BundleVfs{std::move(bundleMap)}};
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(bundleMap)})};
 
     // Store RequireCtx in the registry to keep it alive for the lifetime of
     // this lua_State. Memory address is used as a key to avoid collisions.

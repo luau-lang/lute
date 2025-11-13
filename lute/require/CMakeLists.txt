@@ -6,18 +6,22 @@ target_sources(Lute.Require PRIVATE
     include/lute/filevfs.h
     include/lute/modulepath.h
     include/lute/options.h
+    include/lute/packagerequirevfs.h
     include/lute/require.h
     include/lute/requirevfs.h
     include/lute/stdlibvfs.h
+    include/lute/userlandvfs.h
 
     src/bundlevfs.cpp
     src/clivfs.cpp
     src/filevfs.cpp
     src/modulepath.cpp
     src/options.cpp
+    src/packagerequirevfs.cpp
     src/require.cpp
     src/requirevfs.cpp
     src/stdlibvfs.cpp
+    src/userlandvfs.cpp
 )
 
 target_compile_features(Lute.Require PUBLIC cxx_std_17)

@@ -1,23 +1,16 @@
 #pragma once
 
-#include "lute/bundlevfs.h"
-#include "lute/clivfs.h"
-#include "lute/filevfs.h"
-#include "lute/modulepath.h"
 #include "lute/require.h"
 #include "lute/stdlibvfs.h"
+#include "lute/userlandvfs.h"
 
-#include "lua.h"
-
-#include <optional>
-#include <string>
+namespace Package
+{
 
 class RequireVfs : public IRequireVfs
 {
 public:
-    RequireVfs() = default;
-    RequireVfs(CliVfs cliVfs);
-    RequireVfs(BundleVfs bundleVfs);
+    RequireVfs(UserlandVfs);
 
     bool isRequireAllowed(lua_State* L, std::string_view requirerChunkname) const override;
 
@@ -39,26 +32,24 @@ public:
 
     bool isPrecompiled() const override
     {
-        return vfsType == VFSType::Bundle;
-    };
+        return false;
+    }
 
 private:
     enum class VFSType
     {
-        Disk,
+        Userland,
         Std,
-        Cli,
-        Bundle,
         Lute,
     };
 
-    VFSType vfsType = VFSType::Disk;
+    VFSType vfsType = VFSType::Userland;
 
-    FileVfs fileVfs;
+    Package::UserlandVfs userlandVfs;
     StdLibVfs stdLibVfs;
-    std::optional<CliVfs> cliVfs = std::nullopt;
-    std::optional<BundleVfs> bundleVfs = std::nullopt;
     std::string lutePath;
 
     bool atFakeRoot = false;
 };
+
+} // namespace Package
