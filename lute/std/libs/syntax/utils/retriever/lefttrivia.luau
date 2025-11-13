@@ -223,7 +223,7 @@ end
 function retriever.leftmostStat(n: types.AstStat): { types.Trivia }
 	if n.tag == "block" then
 		return retriever.leftmostStatBlock(n)
-	elseif n.tag == "if" then
+	elseif n.tag == "conditional" then
 		return retriever.leftmostStatIf(n)
 	elseif n.tag == "while" then
 		return retriever.leftmostStatWhile(n)

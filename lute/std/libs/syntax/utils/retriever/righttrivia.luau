@@ -236,7 +236,7 @@ end
 function retriever.rightmostStat(n: types.AstStat): { types.Trivia }
 	if n.tag == "block" then
 		return retriever.rightmostStatBlock(n)
-	elseif n.tag == "if" then
+	elseif n.tag == "conditional" then
 		return retriever.rightmostStatIf(n)
 	elseif n.tag == "while" then
 		return retriever.rightmostStatWhile(n)
