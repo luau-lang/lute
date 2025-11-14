@@ -41,7 +41,7 @@ test.suite("AST Query", function(suite)
 		for _, _ in replacements do
 			count += 1
 		end
-		assert.eq(count, 7) -- 4 non-nil replacements + print + __root + __eof
+		assert.eq(count, 4) -- 4 non-nil replacements
 	end)
 
 	suite:case("map", function(assert)

@@ -2,7 +2,6 @@
 -- @std/syntax/query
 -- Provides utility functions for querying Luau AST nodes
 
-local printer = require("./printer")
 local types = require("./types")
 local visitor = require("./visitor")
 local utils = require("./utils")
@@ -15,8 +14,6 @@ export type query<T = node> = {
 	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	forEach: (self: query<T>, callback: (T) -> ()) -> (),
-	__root: node,
-	__eof: types.Eof?,
 } -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U> method
 
 local queryLib = {}
@@ -32,20 +29,8 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-local function replacementPrint<T>(self: types.replacements): string
-	if self.__eof ~= nil then
-		assert(
-			self.__root.kind == "stat" and self.__root.tag == "block",
-			"If EOF is specified, root must be an AstStatBlock"
-		)
-		return printer.printfile({ eof = self.__eof, root = self.__root }, self)
-	else
-	return printer.printnode(self.__root, self)
-end
-end
-
 function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
-	local replacements = { print = replacementPrint, __root = self.__root, __eof = self.__eof }
+	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
 		if r ~= nil then
@@ -110,8 +95,6 @@ function queryLib.selectFromRoot<T>(ast: types.ParseResult | node, fn: (node) ->
 		replace = queryLib.replace,
 		map = queryLib.map,
 		forEach = queryLib.forEach,
-		__root = root,
-		__eof = if ast.eof ~= nil then ast.eof else nil,
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 
