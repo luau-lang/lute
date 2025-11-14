@@ -159,4 +159,4 @@ export type AstNode = types.AstNode
 
 export type ParseResult = types.ParseResult
 
-return table.freeze({ parse = parser.parse, parseexpr = parser.parseexpr, parsefile = parser.parsefile })
+return table.freeze({ parseblock = parser.parseblock, parseexpr = parser.parseexpr, parse = parser.parse })

@@ -13,7 +13,7 @@ struct LuteModuleResolver : Luau::FileResolver
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override;
 
     // We are currently resolving modules and requires only, and will add support for Roblox globals / types in a subsequent PR.
-    std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node) override;
+    std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node, const TypeCheckLimits& limits) override;
 };
 
 } // namespace Luau

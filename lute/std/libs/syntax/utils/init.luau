@@ -234,4 +234,8 @@ function utils.isBaseToken(n: types.AstNode): types.Token?
 	return if n.istoken and not n.kind then n else nil
 end
 
+function utils.isAttribute(n: types.AstAttribute): types.AstAttribute?
+	return if n.kind == "attribute" then n else nil
+end
+
 return table.freeze(utils)
