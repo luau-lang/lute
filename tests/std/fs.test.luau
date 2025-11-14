@@ -247,10 +247,7 @@ test.suite("FsSuite", function(suite)
 
 		assert.eq(#foundFiles, 4) -- should find walktest/, walktest/file1.txt, walktest/subdir/, walktest/subdir/file2.txt
 
-		fs.remove(file1)
-		fs.remove(file2)
-		fs.rmdir(subDir)
-		fs.rmdir(baseDir)
+		fs.removedirectory(baseDir, { recursive = true })
 	end)
 end)
 

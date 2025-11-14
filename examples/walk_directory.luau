@@ -33,26 +33,12 @@ end
 
 -- Walk the directory recursively
 print("Walking directory:", baseDir)
-local walker = fslib.walk(baseDir, { recursive = true })
-while true do
-	local filepath = walker()
-	if not filepath then
-		break
-	end
-	print("Found:", filepath)
+local it = fslib.walk(baseDir, { recursive = true })
+local walker = it()
+while walker do
+	print("Found:", walker)
+	walker = it()
 end
 
 -- Cleanup: remove the created directory structure
-for _, file in files do
-	local fullPath = path.join(baseDir, file)
-	print("Removing file:", fullPath)
-	fslib.remove(fullPath)
-end
-
-for _, subdir in subdirs do
-	local fullPath = path.join(baseDir, subdir)
-	print("Removing directory:", fullPath)
-	fslib.rmdir(fullPath)
-end
-
-fslib.rmdir(baseDir)
+fslib.removedirectory(baseDir, { recursive = true })
