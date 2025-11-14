@@ -22,6 +22,10 @@ export type createdirectoryoptions = {
 	makeparents: boolean?,
 }
 
+export type removedirectoryoptions = {
+	recursive: boolean?,
+}
+
 function fslib.open(path: pathlike, mode: handlemode?): filehandle
 	return fs.open(pathlib.format(path), mode)
 end
@@ -114,6 +118,26 @@ function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?)
 		end
 	else
 		fs.mkdir(pathlib.format(path))
+	end
+end
+
+function fslib.removedirectory(path: pathlike, options: removedirectoryoptions?): ()
+	if options and options.recursive then
+		-- Recursively delete all contents first
+		if fslib.exists(path) and fslib.type(path) == "dir" then
+			local entries = fslib.listdir(path)
+			for _, entry in entries do
+				local entryPath = pathlib.join(path, entry.name)
+				if entry.type == "dir" then
+					fslib.removedirectory(entryPath, { recursive = true })
+				else
+					fslib.remove(entryPath)
+				end
+			end
+			fs.rmdir(pathlib.format(path))
+		end
+	else
+		fs.rmdir(pathlib.format(path))
 	end
 end
 

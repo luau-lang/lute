@@ -18,6 +18,9 @@ local args = { ... }
 
 -- TODO we're assuming the files are completely unmodified, but we really shouldn't do that.
 print(`Writing definitions at {BASE_PATH_PRETTY}`)
+if fs.exists(BASE_PATH) then
+	fs.removedirectory(BASE_PATH, { recursive = true })
+end
 fs.createdirectory(BASE_PATH, { makeparents = true })
 
 for key, value in definitions :: { [string]: string } do
