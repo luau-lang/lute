@@ -194,7 +194,6 @@ end
 	
 	Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead.
 ]]
---
 function fslib.walk(path: pathlike, options: walkdirectoryoptions?): () -> pathlike?
 	return walkdir(path, options)
 end
