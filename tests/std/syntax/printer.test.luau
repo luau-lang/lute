@@ -822,7 +822,7 @@ function foo() return end
 		end, assert)
 	end)
 
-	suite:case("comments_in_table", function(assert)
+	suite:case("comments_in_call", function(assert)
 		local source = [[foobar(
   foo, -- what about this
   bar, -- and this
