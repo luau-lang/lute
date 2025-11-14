@@ -213,9 +213,9 @@ end
 
 local function visitRepeat(node: types.AstStatRepeat, visitor: Visitor)
 	if visitor.visitRepeat(node) then
-		visitToken(node.repeatKeyword, visitor)
+		visitToken(node.repeatkeyword, visitor)
 		visitBlock(node.body, visitor)
-		visitToken(node.untilKeyword, visitor)
+		visitToken(node.untilkeyword, visitor)
 		visitExpression(node.condition, visitor)
 	end
 end
@@ -326,7 +326,7 @@ local function visitTypeAlias(node: types.AstStatTypeAlias, visitor: Visitor)
 		if node.export then
 			visitToken(node.export, visitor)
 		end
-		visitToken(node.typeToken, visitor)
+		visitToken(node.typetoken, visitor)
 		visitToken(node.name, visitor)
 		if node.opengenerics then
 			visitToken(node.opengenerics, visitor)

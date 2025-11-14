@@ -618,10 +618,10 @@ test.suite("parse", function(suite)
 
 		local repeatStat = block.statements[1] :: syntax.AstStatRepeat
 		assert.eq(repeatStat.tag, "repeat")
-		assert.eq(repeatStat.repeatKeyword.text, "repeat")
+		assert.eq(repeatStat.repeatkeyword.text, "repeat")
 		checkIsBlock(repeatStat.body, assert)
 		assert.eq(#repeatStat.body.statements, 2)
-		assert.eq(repeatStat.untilKeyword.text, "until")
+		assert.eq(repeatStat.untilkeyword.text, "until")
 		assert.eq(repeatStat.condition.tag, "binary")
 	end)
 
@@ -790,7 +790,7 @@ test.suite("parse", function(suite)
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.tag, "typealias")
 		assert.eq(typeAlias.export, nil)
-		assert.eq(typeAlias.typeToken.text, "type")
+		assert.eq(typeAlias.typetoken.text, "type")
 		assert.eq(typeAlias.name.text, "Vector3")
 		assert.eq(typeAlias.opengenerics, nil)
 		assert.eq(typeAlias.generics, nil)
