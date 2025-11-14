@@ -22,6 +22,10 @@ export type createdirectoryoptions = {
 	makeparents: boolean?,
 }
 
+export type walkdirectoryoptions = {
+	recursive: boolean?,
+}
+
 function fslib.open(path: pathlike, mode: handlemode?): filehandle
 	return fs.open(pathlib.format(path), mode)
 end
@@ -115,6 +119,57 @@ function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?)
 	else
 		fs.mkdir(pathlib.format(path))
 	end
+end
+
+local function walkdir(path: pathlike, options: walkdirectoryoptions?): (()->(pathlike?))
+	local queue = { path }
+	local recursive = options and options.recursive or false
+
+    return function()
+        while #queue > 0 do
+            local current = table.remove(queue, 1)
+			if not current then
+				return nil
+			end
+
+			-- print(fslib.listdir("/Users/annietang/git/roblox/lute/test1"))
+
+			print(current)
+
+            if fslib.type(current) == "dir" and recursive then
+				print("above")
+				local entries: { directoryentry }
+				local co = coroutine.create(fslib.listdir)
+
+				while coroutine.status(co) ~= "dead" do
+					local success, _entries = coroutine.resume(co, current)
+					print(current)
+					print(success, _entries)
+
+					if not success then
+						error(`Error reading directory {current}: {_entries}`)
+					end
+					entries = _entries
+				end
+
+				print("below")
+				print(#entries, "entries")
+                for _, entry in entries do
+					print("Found entry: ", entry.name)
+                    local fullPath = pathlib.format(pathlib.join(current, entry.name))
+                    table.insert(queue, fullPath)
+                end
+            end
+
+            return current
+        end
+
+		return nil
+    end
+end
+
+function fslib.walk(path: pathlike, options: walkdirectoryoptions?): (()->(pathlike?))
+    return walkdir(path, options)
 end
 
 return table.freeze(fslib)
