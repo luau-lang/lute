@@ -121,55 +121,58 @@ function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?)
 	end
 end
 
-local function walkdir(path: pathlike, options: walkdirectoryoptions?): (()->(pathlike?))
+local function walkdir(path: pathlike, options: walkdirectoryoptions?): () -> pathlike?
 	local queue = { path }
 	local recursive = options and options.recursive or false
 
-    return function()
-        while #queue > 0 do
-            local current = table.remove(queue, 1)
+	return function()
+		while #queue > 0 do
+			local current = table.remove(queue, 1)
 			if not current then
 				return nil
 			end
 
-			-- print(fslib.listdir("/Users/annietang/git/roblox/lute/test1"))
-
-			print(current)
-
-            if fslib.type(current) == "dir" and recursive then
-				print("above")
-				local entries: { directoryentry }
-				local co = coroutine.create(fslib.listdir)
-
-				while coroutine.status(co) ~= "dead" do
-					local success, _entries = coroutine.resume(co, current)
-					print(current)
-					print(success, _entries)
-
-					if not success then
-						error(`Error reading directory {current}: {_entries}`)
-					end
-					entries = _entries
+			if fslib.type(current) == "dir" and recursive then
+				local entries = fslib.listdir(current)
+				for _, entry in entries do
+					local fullPath = pathlib.format(pathlib.join(current, entry.name))
+					table.insert(queue, fullPath)
 				end
+			end
 
-				print("below")
-				print(#entries, "entries")
-                for _, entry in entries do
-					print("Found entry: ", entry.name)
-                    local fullPath = pathlib.format(pathlib.join(current, entry.name))
-                    table.insert(queue, fullPath)
-                end
-            end
-
-            return current
-        end
+			return current
+		end
 
 		return nil
-    end
+	end
 end
 
-function fslib.walk(path: pathlike, options: walkdirectoryoptions?): (()->(pathlike?))
-    return walkdir(path, options)
+--[[
+	Walks the directory at the given path.
+
+	Parameters:
+		path (pathlike): The path to the directory to walk.
+		options (walkdirectoryoptions?): Optional settings for walking the directory.
+			- recursive (boolean?): If true, walks directories recursively. Default is false.
+
+	Returns:
+		A function that, when called, returns the next pathlike in the directory walk, or nil when done.
+
+	Example:
+		local walker = fslib.walk("some/directory", { recursive = true })
+		while true do
+			local filepath = walker()
+			if not filepath then
+				break
+			end
+			print(filepath)
+		end
+	
+	Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead.
+]]
+--
+function fslib.walk(path: pathlike, options: walkdirectoryoptions?): () -> pathlike?
+	return walkdir(path, options)
 end
 
 return table.freeze(fslib)
