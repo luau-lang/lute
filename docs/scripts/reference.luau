@@ -80,7 +80,7 @@ local function extractPropertySignature(
 		return nil, nil, nil, pendingDoc, inBlock, blockEq
 	end
 
-	-- 4) Try property declaration: module.name = ... :: type
+	-- 4) Match property declarations like: process.env = {} :: { [string]: string }
 	local propName, propType = string.match(line, `^{module}%.([%w_]+)%s*=%s*.-::%s*(.+)$`)
 	if propName and propType then
 		name = propName
@@ -90,11 +90,11 @@ local function extractPropertySignature(
 		return name, signature, doc, pendingDoc, inBlock, blockEq
 	end
 
-	-- 5) Try function declaration: function module.name(params): return
+	-- 5) Match function declarations like: function crypto.password.hash(password: string): buffer
 	local fullName, params, _colon, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
 	if fullName then
 		fullName = string.match(fullName, "^(.*)%b<>$") or fullName
-		returnType = (returnType == "") and "()" or returnType
+		returnType = if returnType == "" then "()" else returnType
 		name = fullName
 		signature = `{params} -> {returnType}`
 		doc = (#pendingDoc > 0) and table.concat(pendingDoc, "\n\n") or nil
@@ -113,28 +113,32 @@ end
 
 -- docs for definitions/*.luau --
 
-local function parseDefinitionFile(module: path.pathlike, filePath: path.pathlike)
+local function parseDefinitionFile(
+	module: path.pathlike,
+	filePath: path.pathlike
+): { { name: string, signature: string, doc: string? } }
 	local content = fs.readfiletostring(filePath)
 	local lines = string.split(content, "\n")
 
-	local defs = {}
+	local definitions = {}
 	local pendingDoc = {}
 	local inBlock = false
 
-	for _, line in ipairs(lines) do
-		local name, sig, doc
-		name, sig, doc, pendingDoc, inBlock = extractPropertySignature(tostring(module), line, pendingDoc, inBlock)
+	for _, line in lines do
+		local name, signature, doc
+		name, signature, doc, pendingDoc, inBlock =
+			extractPropertySignature(tostring(module), line, pendingDoc, inBlock)
 
-		if name and sig then
-			table.insert(defs, {
+		if name and signature then
+			table.insert(definitions, {
 				name = name,
-				signature = sig,
+				signature = signature,
 				doc = doc,
 			})
 		end
 	end
 
-	return defs
+	return definitions
 end
 
 local function generateDefinitionsMarkdown(
@@ -205,30 +209,33 @@ local STDLIB_MODULE_ALIASES = {
 	system = "systemlib",
 }
 
-local function parseStdlibFile(module: path.pathlike, filePath: path.pathlike)
+local function parseStdlibFile(
+	module: path.pathlike,
+	filePath: path.pathlike
+): { { name: string, signature: string, doc: string? } }
 	local content = fs.readfiletostring(filePath)
 	local lines = string.split(content, "\n")
 
-	local defs = {}
+	local stdlibDefinitions = {}
 	local pendingDoc = {}
 	local inBlock = false
 
 	local mod = STDLIB_MODULE_ALIASES[tostring(module)] or tostring(module)
 
-	for _, line in ipairs(lines) do
-		local name, sig, doc
-		name, sig, doc, pendingDoc, inBlock = extractPropertySignature(mod, line, pendingDoc, inBlock)
+	for _, line in lines do
+		local name, signature, doc
+		name, signature, doc, pendingDoc, inBlock = extractPropertySignature(mod, line, pendingDoc, inBlock)
 
-		if name and sig then
-			table.insert(defs, {
+		if name and signature then
+			table.insert(stdlibDefinitions, {
 				name = name,
-				signature = sig,
+				signature = signature,
 				doc = doc,
 			})
 		end
 	end
 
-	return defs
+	return stdlibDefinitions
 end
 
 local function generateStdLibMarkdown(
