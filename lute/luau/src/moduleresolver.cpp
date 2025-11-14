@@ -16,7 +16,7 @@ std::optional<Luau::SourceCode> LuteModuleResolver::readSource(const Luau::Modul
 }
 
 // We are currently resolving modules and requires only, and will add support for Roblox globals / types in a subsequent PR.
-std::optional<Luau::ModuleInfo> LuteModuleResolver::resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node)
+std::optional<Luau::ModuleInfo> LuteModuleResolver::resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node, const TypeCheckLimits& limits)
 {
     if (auto expr = node->as<Luau::AstExprConstantString>())
     {

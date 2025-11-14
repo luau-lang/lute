@@ -14,7 +14,7 @@ TEST_CASE("configresolver")
 
     // There is a .luaurc in tests/src/resolver; verify resolver reads it without crashing
     Luau::LuteConfigResolver configResolver(Luau::Mode::Nonstrict);
-    const Luau::Config& cfg = configResolver.getConfig(file);
+    const Luau::Config& cfg = configResolver.getConfig(file, {});
 
     // check that mode was set to strict per .luaurc
     CHECK(cfg.mode == Luau::Mode::Strict);
