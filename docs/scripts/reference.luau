@@ -1,53 +1,145 @@
 local fs = require("@std/fs")
 local process = require("@std/process")
 local path = require("@std/path")
+local stringext = require("@std/stringext")
 
-local function extractPropertySignature(module: string, line: string): (string?, string?)
-	-- Match property declarations like: process.env = {} :: { [string]: string }
+-- extractPropertySignature:
+-- module: string
+-- line: string (current line)
+-- pendingDoc: {string} (accumulated doc lines so far)
+-- inBlock: boolean (are we currently inside a block comment?)
+-- blockEq: string? (the "=" sequence used for block comment delimiting, e.g. "=" for --[=[  ; nil when not inside)
+--
+-- returns: name?, signature?, doc?, newPendingDoc, newInBlock, newBlockEq
+local function extractPropertySignature(
+	module: string,
+	line: string,
+	pendingDoc: { string },
+	inBlock: boolean,
+	blockEq: string?
+): (string?, string?, string?, { string }, boolean, string?)
+	local name, signature, doc = nil, nil, nil
+
+	-- 1) If we're *not* in a block, detect block start that may include = signs:
+	if not inBlock then
+		local eq = string.match(line, "^%s*%-%-%[(=*)%[")
+		if eq ~= nil then
+			-- start of block comment, capture any text after the opening on the same line
+			inBlock = true
+			blockEq = eq -- remember the = count for closing pattern
+
+			-- capture part after the opening delimiter, if any
+			local after = string.match(line, "^%s*%-%-%[" .. eq .. "%[(.*)$")
+			if after then
+				after = stringext.trim(after)
+				if after ~= "" then
+					table.insert(pendingDoc, after)
+				end
+			end
+
+			-- nothing else to do this line
+			return nil, nil, nil, pendingDoc, inBlock, blockEq
+		end
+	end
+
+	-- 2) If we're inside a block, accumulate until we find the matching close
+	if inBlock then
+		local eq = blockEq or ""
+		-- find the closing pattern "]]", or "]=]" etc. that matches eq
+		local closingPattern = "%]" .. eq .. "%]"
+		local before = string.match(line, "^(.-)" .. closingPattern)
+		if before then
+			-- closing found on this line
+			before = stringext.trim(before)
+			if before ~= "" then
+				table.insert(pendingDoc, before)
+			end
+
+			-- there might be trailing comment markers like "]]" on the same line;
+			-- we've already captured inner content, so we just exit block mode.
+			inBlock = false
+			blockEq = nil
+		else
+			-- still inside block: append whole line (trimmed)
+			local trimmed = stringext.trim(line)
+			if trimmed ~= "" then
+				table.insert(pendingDoc, trimmed)
+			end
+		end
+
+		return nil, nil, nil, pendingDoc, inBlock, blockEq
+	end
+
+	-- 3) Single-line comment? (-- or ---)
+	local single = string.match(line, "^%s*%-%-%-?%s?(.*)$")
+	if single then
+		local txt = stringext.trim(single)
+		if txt ~= "" then
+			table.insert(pendingDoc, txt)
+		end
+		return nil, nil, nil, pendingDoc, inBlock, blockEq
+	end
+
+	-- 4) Try property declaration: module.name = ... :: type
 	local propName, propType = string.match(line, `^{module}%.([%w_]+)%s*=%s*.-::%s*(.+)$`)
 	if propName and propType then
-		return propName, propType
+		name = propName
+		signature = propType
+		doc = (#pendingDoc > 0) and table.concat(pendingDoc, "\n\n") or nil
+		pendingDoc = {}
+		return name, signature, doc, pendingDoc, inBlock, blockEq
 	end
 
-	-- Match function declarations like: function crypto.password.hash(password: string): buffer
-	local fullName, params, _return, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
+	-- 5) Try function declaration: function module.name(params): return
+	local fullName, params, _colon, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
 	if fullName then
 		fullName = string.match(fullName, "^(.*)%b<>$") or fullName
-		returnType = if returnType == "" then "()" else returnType
-		local signature = `{params} -> {returnType}`
-		return fullName, signature
+		returnType = (returnType == "") and "()" or returnType
+		name = fullName
+		signature = `{params} -> {returnType}`
+		doc = (#pendingDoc > 0) and table.concat(pendingDoc, "\n\n") or nil
+		pendingDoc = {}
+		return name, signature, doc, pendingDoc, inBlock, blockEq
 	end
 
-	return nil, nil
+	-- 6) If we reach here and there's any non-whitespace, reset pendingDoc to clear old comments
+	if not string.match(line, "^%s*$") then
+		pendingDoc = {}
+	end
+
+	-- nothing found
+	return nil, nil, nil, pendingDoc, inBlock, blockEq
 end
 
 -- docs for definitions/*.luau --
 
-local function parseDefinitionFile(
-	module: path.pathlike,
-	filePath: path.pathlike
-): { { name: string, signature: string } }
+local function parseDefinitionFile(module: path.pathlike, filePath: path.pathlike)
 	local content = fs.readfiletostring(filePath)
 	local lines = string.split(content, "\n")
-	local definitions = {}
 
-	for _, line in lines do
-		local name, signature = extractPropertySignature(tostring(module), line)
+	local defs = {}
+	local pendingDoc = {}
+	local inBlock = false
 
-		if name and signature then
-			table.insert(definitions, {
+	for _, line in ipairs(lines) do
+		local name, sig, doc
+		name, sig, doc, pendingDoc, inBlock = extractPropertySignature(tostring(module), line, pendingDoc, inBlock)
+
+		if name and sig then
+			table.insert(defs, {
 				name = name,
-				signature = signature,
+				signature = sig,
+				doc = doc,
 			})
 		end
 	end
 
-	return definitions
+	return defs
 end
 
 local function generateDefinitionsMarkdown(
 	moduleName: string,
-	definitions: { { name: string, signature: string } }
+	definitions: { { name: string, signature: string, doc: string? } }
 ): string
 	local lines = {
 		`# {moduleName}`,
@@ -63,7 +155,12 @@ local function generateDefinitionsMarkdown(
 	end)
 
 	for _, def in definitions do
-		table.insert(lines, `## {moduleName}.{def.name}`)
+		table.insert(lines, `## {moduleName}.{def.name}\n`)
+
+		-- Insert the documentation if it exists
+		if def.doc then
+			table.insert(lines, `{def.doc}\n`)
+		end
 		table.insert(lines, "```luau")
 		table.insert(lines, def.signature)
 		table.insert(lines, "```")
@@ -108,30 +205,35 @@ local STDLIB_MODULE_ALIASES = {
 	system = "systemlib",
 }
 
-local function parseStdlibFile(module: path.pathlike, filePath: path.pathlike): { { name: string, signature: string } }
+local function parseStdlibFile(module: path.pathlike, filePath: path.pathlike)
 	local content = fs.readfiletostring(filePath)
 	local lines = string.split(content, "\n")
-	local stdlibDefinitions = {}
 
-	for _, line in lines do
-		local mod = STDLIB_MODULE_ALIASES[tostring(module)] or tostring(module)
+	local defs = {}
+	local pendingDoc = {}
+	local inBlock = false
 
-		local name, signature = extractPropertySignature(mod, line)
+	local mod = STDLIB_MODULE_ALIASES[tostring(module)] or tostring(module)
 
-		if name and signature then
-			table.insert(stdlibDefinitions, {
+	for _, line in ipairs(lines) do
+		local name, sig, doc
+		name, sig, doc, pendingDoc, inBlock = extractPropertySignature(mod, line, pendingDoc, inBlock)
+
+		if name and sig then
+			table.insert(defs, {
 				name = name,
-				signature = signature,
+				signature = sig,
+				doc = doc,
 			})
 		end
 	end
 
-	return stdlibDefinitions
+	return defs
 end
 
 local function generateStdLibMarkdown(
 	moduleName: string,
-	definitions: { { name: string, signature: string } },
+	definitions: { { name: string, signature: string, doc: string? } },
 	stdlibFilePath: path.pathlike
 ): string
 	local referencePath = path.join(process.cwd(), "..", "lute", "std", "libs")
@@ -157,7 +259,12 @@ local function generateStdLibMarkdown(
 	end)
 
 	for _, def in definitions do
-		table.insert(lines, `## {moduleName}.{def.name}`)
+		table.insert(lines, `## {moduleName}.{def.name}\n`)
+
+		-- Insert the documentation if it exists
+		if def.doc then
+			table.insert(lines, `{def.doc}\n`)
+		end
 		table.insert(lines, "```luau")
 		table.insert(lines, def.signature)
 		table.insert(lines, "```")
