@@ -171,29 +171,7 @@ local function walkdir(path: pathlike, options: walkdirectoryoptions?): () -> pa
 	end
 end
 
---[[
-	Walks the directory at the given path.
-
-	Parameters:
-		path (pathlike): The path to the directory to walk.
-		options (walkdirectoryoptions?): Optional settings for walking the directory.
-			- recursive (boolean?): If true, walks directories recursively. Default is false.
-
-	Returns:
-		A function that, when called, returns the next pathlike in the directory walk, or nil when done.
-
-	Example:
-		local walker = fslib.walk("some/directory", { recursive = true })
-		while true do
-			local filepath = walker()
-			if not filepath then
-				break
-			end
-			print(filepath)
-		end
-	
-	Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead.
-]]
+-- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead.
 function fslib.walk(path: pathlike, options: walkdirectoryoptions?): () -> pathlike?
 	return walkdir(path, options)
 end
