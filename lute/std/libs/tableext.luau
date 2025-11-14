@@ -44,7 +44,6 @@ function tableext.extend<T>(tbl: array<T>, ...: array<T>)
 	local extendees = tableext.filter(table.pack(...), function(v)
 		return typeof(v) == "table"
 	end)
-
 	tableext.foreach(extendees, function(_, other)
 		for _, entry in other do
 			table.insert(tbl, entry)
