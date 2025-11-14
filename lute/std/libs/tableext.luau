@@ -41,25 +41,23 @@ function tableext.fold<K, V, A>(table: { [K]: V }, f: (A, V) -> A, initial: A): 
 end
 
 function tableext.extend<T>(tbl: array<T>, ...: array<T>)
-	local extendees = tableext.filter(table.pack(...), function(v)
-		return typeof(v) == "table"
-	end)
-	tableext.foreach(extendees, function(_, other)
-		for _, entry in other do
+	local extendees = table.pack(...)
+	extendees.n = nil
+	for _, extendee in extendees do
+		for _, entry in extendee do
 			table.insert(tbl, entry)
 		end
-	end)
+	end
 end
 
 function tableext.merge<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
-	local mergees = tableext.filter(table.pack(...), function(v)
-		return typeof(v) == "table"
-	end)
-	tableext.foreach(mergees, function(_, toMerge)
-		for key, val in toMerge do
+	local mergees = table.pack(...)
+	mergees.n = nil
+	for _, mergee in mergees do
+		for key, val in mergee do
 			tbl[key] = val
 		end
-	end)
+	end
 	return tbl
 end
 
