@@ -30,10 +30,34 @@ test.suite("TableExt", function(suite)
 	suite:case("extend", function(assert)
 		local a: { number } = { 1, 2 }
 		local b: { number } = { 3, 4 }
-		tableext.extend(a, b)
-		assert.eq(#a, 4)
+		local c: { number } = { 5, 6 }
+		tableext.extend(a, b, c)
+		assert.eq(#a, 6)
 		assert.eq(a[3], 3)
 		assert.eq(a[4], 4)
+		assert.eq(a[5], 5)
+		assert.eq(a[6], 6)
+	end)
+
+	suite:case("merge", function(assert)
+		local a = { ["a"] = 1, ["b"] = 2 }
+		local b = { ["b"] = 3, ["c"] = 4 }
+		local c = { ["c"] = 1, ["d"] = 5 }
+		tableext.merge(a, b, c)
+		assert.eq(a["a"], 1)
+		assert.eq(a["b"], 3)
+		assert.eq(a["c"], 1)
+		assert.eq(a["d"], 5)
+	end)
+
+	suite:case("foreach", function(assert)
+		local a = { 1, 2, 3 }
+		local numCalls = 0
+		local function callback()
+			numCalls += 1
+		end
+		tableext.foreach(a, callback)
+		assert.eq(numCalls, #a)
 	end)
 end)
 
