@@ -102,7 +102,7 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
 
 NavigationStatus RequireVfs::toParent(lua_State* L)
 {
-    NavigationStatus status;
+    NavigationStatus status = NavigationStatus::NotFound;
 
     switch (vfsType)
     {
