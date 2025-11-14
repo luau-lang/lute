@@ -1,4 +1,3 @@
-local retriever = require("@self/retriever")
 local types = require("./types")
 
 local utils = {}
@@ -238,8 +237,5 @@ end
 function utils.isAttribute(n: types.AstAttribute): types.AstAttribute?
 	return if n.kind == "attribute" then n else nil
 end
-
-utils.leftmosttrivia = retriever.leftmosttrivia
-utils.rightmosttrivia = retriever.rightmosttrivia
 
 return table.freeze(utils)

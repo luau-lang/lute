@@ -1,6 +1,7 @@
 --!strict
 -- @std/syntax/printer
 
+local triviaUtils = require("./utils/trivia")
 local types = require("./types")
 local utils = require("./utils")
 local visitor = require("./visitor")
@@ -89,7 +90,7 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 end
 
 local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: types.replacement)
-	local leftmostTrivia = utils.leftmosttrivia(node)
+	local leftmostTrivia = triviaUtils.leftmosttrivia(node)
 	if leftmostTrivia ~= nil then
 		self:printTriviaList(leftmostTrivia)
 	end
@@ -103,7 +104,7 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 		error("Unsupported replacement type")
 	end
 
-	local rightmostTrivia = utils.rightmosttrivia(node)
+	local rightmostTrivia = triviaUtils.rightmosttrivia(node)
 	if rightmostTrivia ~= nil then
 		self:printTriviaList(rightmostTrivia)
 	end
