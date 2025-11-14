@@ -1,8 +1,7 @@
 local parser = require("@self/parser")
 local types = require("@self/types")
 
-export type Position = types.Position
-export type Location = types.Location
+export type span = types.span
 
 export type Whitespace = types.Whitespace
 export type SingleLineComment = types.SingleLineComment

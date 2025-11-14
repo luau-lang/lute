@@ -2,6 +2,7 @@
 
 #include "lute/configresolver.h"
 #include "lute/moduleresolver.h"
+#include "lute/userdatas.h"
 
 #include "Luau/Ast.h"
 #include "Luau/BuiltinDefinitions.h"
@@ -22,8 +23,6 @@
 #include <iterator>
 #include <memory>
 #include <string>
-
-const char* COMPILE_RESULT_TYPE = "CompileResult";
 
 namespace luau
 {
@@ -119,6 +118,82 @@ struct Trivia
     Luau::Location location;
     std::string_view text;
 };
+
+// the userdata version of `Luau::Location` because exposing this as a table was, unfortunately, very impractical
+// it happens too much all over the entire AST to do reasonably.
+struct Span
+{
+    uint32_t beginLine;
+    uint32_t beginColumn;
+    uint32_t endLine;
+    uint32_t endColumn;
+};
+
+static int createSpan(lua_State* L)
+{
+    int argumentCount = lua_gettop(L);
+    if (argumentCount != 4)
+        luaL_error(L, "%s: expected 4 arguments, but got %d", kSpanCreateName, argumentCount);
+
+    double beginline = luaL_checknumber(L, 1);
+    double begincolumn = luaL_checknumber(L, 2);
+    double endline = luaL_checknumber(L, 3);
+    double endcolumn = luaL_checknumber(L, 4);
+
+    Span* span = static_cast<Span*>(lua_newuserdatatagged(L, sizeof(Span), kSpanTag));
+
+    span->beginLine = static_cast<uint32_t>(beginline);
+    span->beginColumn = static_cast<uint32_t>(begincolumn);
+    span->endLine = static_cast<uint32_t>(endline);
+    span->endColumn = static_cast<uint32_t>(endcolumn);
+
+    luaL_getmetatable(L, kSpanType);
+    lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+static int makeSpanLibrary(lua_State* L)
+{
+    lua_createtable(L, 0, 1);
+
+    lua_pushcfunction(L, luau::createSpan, "create");
+    lua_setfield(L, -2, "create");
+
+    lua_setreadonly(L, -1, 1);
+
+    return 1;
+}
+
+static int indexSpan(lua_State* L)
+{
+    const Span* span = static_cast<Span*>(luaL_checkudata(L, 1, kSpanType));
+
+    const char* fieldName = luaL_checkstring(L, 2);
+
+    if (std::strcmp(fieldName, "beginline") == 0)
+    {
+        lua_pushnumber(L, span->beginLine);
+        return 1;
+    }
+    else if (std::strcmp(fieldName, "begincolumn") == 0)
+    {
+        lua_pushnumber(L, span->beginColumn);
+        return 1;
+    }
+    else if (std::strcmp(fieldName, "endline") == 0)
+    {
+        lua_pushnumber(L, span->endLine);
+        return 1;
+    }
+    else if (std::strcmp(fieldName, "endcolumn") == 0)
+    {
+        lua_pushnumber(L, span->endColumn);
+        return 1;
+    }
+
+    return 0;
+}
 
 struct AstSerialize : public Luau::AstVisitor
 {
@@ -281,28 +356,19 @@ struct AstSerialize : public Luau::AstVisitor
         return {std::vector<Trivia>(trivia.begin(), middleIter), std::vector<Trivia>(middleIter, trivia.end())};
     }
 
-    void serialize(Luau::Position position)
-    {
-        lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, 2);
-
-        lua_pushnumber(L, position.line);
-        lua_setfield(L, -2, "line");
-
-        lua_pushnumber(L, position.column);
-        lua_setfield(L, -2, "column");
-    }
-
     void serialize(Luau::Location location)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, 2);
 
-        serialize(location.begin);
-        lua_setfield(L, -2, "begin");
+        Span* span = static_cast<Span*>(lua_newuserdatatagged(L, sizeof(Span), kSpanTag));
 
-        serialize(location.end);
-        lua_setfield(L, -2, "end");
+        span->beginLine = location.begin.line;
+        span->beginColumn = location.begin.column;
+        span->endLine = location.end.line;
+        span->endColumn = location.end.column;
+
+        luaL_getmetatable(L, kSpanType);
+        lua_setmetatable(L, -2);
     }
 
     void serialize(Luau::AstName& name)
@@ -518,10 +584,13 @@ struct AstSerialize : public Luau::AstVisitor
         LUAU_ASSERT(lua_istable(L, -2));
         lua_setfield(L, -2, "leadingtrivia");
 
-        serialize(position);
-        lua_setfield(L, -2, "position");
+        size_t textLength = strlen(text);
 
-        lua_pushstring(L, text);
+        Luau::Position endPosition{ position.line, position.column + static_cast<uint32_t>(textLength) };
+        serialize(Luau::Location { position, endPosition });
+        lua_setfield(L, -2, "location");
+
+        lua_pushlstring(L, text, textLength);
         lua_setfield(L, -2, "text");
         advancePosition(text);
 
@@ -2680,15 +2749,29 @@ int compile_luau(lua_State* L)
 
     new (userdata) std::string(std::move(bytecode));
 
-    luaL_getmetatable(L, COMPILE_RESULT_TYPE);
+    luaL_getmetatable(L, kCompileResultType);
     lua_setmetatable(L, -2);
 
     return 1;
 }
 
+static int indexCompileResult(lua_State* L)
+{
+    const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, kCompileResultType));
+
+    if (std::strcmp(luaL_checkstring(L, 2), "bytecode") == 0)
+    {
+        lua_pushlstring(L, bytecode_string->c_str(), bytecode_string->size());
+
+        return 1;
+    }
+
+    return 0;
+}
+
 int load_luau(lua_State* L)
 {
-    const std::string* bytecodeString = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
+    const std::string* bytecodeString = static_cast<std::string*>(luaL_checkudata(L, 1, kCompileResultType));
     const char* chunkname = luaL_checkstring(L, 2);
     int envIndex = lua_isnoneornil(L, 3) ? 0 : 3;
 
@@ -2733,50 +2816,54 @@ int typeofmodule_luau(lua_State* L)
     return 1;
 }
 
-
-} // namespace luau
-
-static int index_result(lua_State* L)
-{
-    const std::string* bytecode_string = static_cast<std::string*>(luaL_checkudata(L, 1, COMPILE_RESULT_TYPE));
-
-    if (std::strcmp(luaL_checkstring(L, 2), "bytecode") == 0)
-    {
-        lua_pushlstring(L, bytecode_string->c_str(), bytecode_string->size());
-
-        return 1;
-    }
-
-    return 0;
-}
-
 // perform type mt registration, etc
-static int init_luau_lib(lua_State* L)
+static int initLuauLibrary(lua_State* L)
 {
-    luaL_newmetatable(L, COMPILE_RESULT_TYPE);
+    luaL_newmetatable(L, kCompileResultType);
 
     // Set __type
-    lua_pushstring(L, "CompilerResult");
+    lua_pushstring(L, kCompileResultType);
     lua_setfield(L, -2, "__type");
 
-    lua_pushcfunction(L, index_result, "CompilerResult.__index");
+    lua_pushcfunction(L, luau::indexCompileResult, "CompilerResult.__index");
     lua_setfield(L, -2, "__index");
+
+    lua_setreadonly(L, -1, 1);
+
+    lua_pop(L, 1);
+
+    luaL_newmetatable(L, kSpanType);
+
+    // Set __type
+    lua_pushstring(L, kSpanType);
+    lua_setfield(L, -2, "__type");
+
+    lua_pushcfunction(L, luau::indexSpan, "span.__index");
+    lua_setfield(L, -2, "__index");
+
+    lua_setreadonly(L, -1, 1);
 
     lua_pop(L, 1);
 
     return 1;
 }
 
+} // namespace luau
+
 int luaopen_luau(lua_State* L)
 {
     luaL_register(L, "luau", luau::lib);
 
-    return init_luau_lib(L);
+    return luau::initLuauLibrary(L);
 }
 
 int luteopen_luau(lua_State* L)
 {
-    lua_createtable(L, 0, std::size(luau::lib));
+    lua_createtable(L, 0, std::size(luau::lib) + std::size(luau::properties));
+
+    // span library
+    luau::makeSpanLibrary(L);
+    lua_setfield(L, -2, luau::kSpanType);
 
     for (auto& [name, func] : luau::lib)
     {
@@ -2789,5 +2876,5 @@ int luteopen_luau(lua_State* L)
 
     lua_setreadonly(L, -1, 1);
 
-    return init_luau_lib(L);
+    return luau::initLuauLibrary(L);
 }

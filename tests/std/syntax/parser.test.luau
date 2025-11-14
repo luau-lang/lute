@@ -9,16 +9,16 @@ local T = require("@std/luau")
 
 local function assertEqualsLocation(
 	assert: asserts.Asserts,
-	actual: T.Location,
+	actual: T.span,
 	startLine: number,
 	startColumn: number,
 	endLine: number,
 	endColumn: number
 )
-	assert.eq(actual.begin.line, startLine)
-	assert.eq(actual.begin.column, startColumn)
-	assert.eq(actual["end"].line, endLine)
-	assert.eq(actual["end"].column, endColumn)
+	assert.eq(actual.beginline, startLine)
+	assert.eq(actual.begincolumn, startColumn)
+	assert.eq(actual.endline, endLine)
+	assert.eq(actual.endcolumn, endColumn)
 end
 
 test.suite("Parser", function(suite)

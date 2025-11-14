@@ -65,13 +65,12 @@ local function transformation(ctx)
 
 		((node :: any) :: syntax.AstExprCall).self = false
 
-		local argLocation: syntax.Location = {
-			begin = { line = openingPosition.line, column = openingPosition.column + #"math.isnan(" },
-			["end"] = {
-				line = openingPosition.line,
-				column = openingPosition.column + #"math.isnan(" + #operand.token.text,
-			},
-		}
+		local argLocation: syntax.span = span.create(
+    		openingPosition.line,
+    		openingPosition.column + #"math.isnan(",
+    		openingPosition.line,
+    		openingPosition.column + #"math.isnan(" + #operand.token.text,
+  		)
 		((node :: any) :: syntax.AstExprCall).argLocation = argLocation
 
 		return false
