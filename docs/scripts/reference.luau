@@ -3,12 +3,12 @@ local process = require("@std/process")
 local path = require("@std/path")
 local stringext = require("@std/stringext")
 
--- extractPropertySignature:
--- module: string
--- line: string (current line)
--- pendingDoc: {string} (accumulated doc lines so far)
--- inBlock: boolean (are we currently inside a block comment?)
--- blockEq: string? (the "=" sequence used for block comment delimiting, e.g. "=" for --[=[  ; nil when not inside)
+-- extractPropertySignature: (this function runs on one line at a time so we need to keep some states for block comments)
+-- module (module name)
+-- line (current line)
+-- pendingDoc (accumulated doc lines so far)
+-- inBlock (are we currently inside a block comment?)
+-- blockEq (the "=" sequence used for block comment delimiting, e.g. "=" for --[=[  ; nil when not inside)
 --
 -- returns: name?, signature?, doc?, newPendingDoc, newInBlock, newBlockEq
 local function extractPropertySignature(
@@ -37,7 +37,6 @@ local function extractPropertySignature(
 				end
 			end
 
-			-- nothing else to do this line
 			return nil, nil, nil, pendingDoc, inBlock, blockEq
 		end
 	end
@@ -91,7 +90,7 @@ local function extractPropertySignature(
 	end
 
 	-- 5) Match function declarations like: function crypto.password.hash(password: string): buffer
-	local fullName, params, _colon, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
+	local fullName, params, _return, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
 	if fullName then
 		fullName = string.match(fullName, "^(.*)%b<>$") or fullName
 		returnType = if returnType == "" then "()" else returnType
@@ -107,7 +106,7 @@ local function extractPropertySignature(
 		pendingDoc = {}
 	end
 
-	-- nothing found
+	-- nothing found on this line
 	return nil, nil, nil, pendingDoc, inBlock, blockEq
 end
 
