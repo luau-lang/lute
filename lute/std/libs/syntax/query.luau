@@ -2,7 +2,6 @@
 -- @std/syntax/query
 -- Provides utility functions for querying Luau AST nodes
 
-local printer = require("./printer")
 local types = require("./types")
 local visitor = require("./visitor")
 local utils = require("./utils")
@@ -15,7 +14,6 @@ export type query<T = node> = {
 	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	forEach: (self: query<T>, callback: (T) -> ()) -> (),
-	__root: node,
 } -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U> method
 
 local queryLib = {}
@@ -31,12 +29,8 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-local function print<T>(self: types.replacements): string
-	return printer.printnode(self.__root, self)
-end
-
 function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
-	local replacements = { print = print, __root = self.__root }
+	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
 		if r ~= nil then
@@ -59,13 +53,14 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 	return self
 end
 
-function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): ()
+function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): query<T>
 	for _, node in self.nodes do
 		callback(node)
 	end
+	return self
 end
 
-function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
+function queryLib.selectFromRoot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
 	local nodes: { T } = {}
 
 	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
@@ -91,7 +86,8 @@ function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
 		return true
 	end
 
-	visitor.visit(ast, selectVisitor)
+	local root: node = if ast.root ~= nil then ast.root else ast
+	visitor.visit(root, selectVisitor)
 
 	return {
 		nodes = nodes,
@@ -99,7 +95,6 @@ function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
 		replace = queryLib.replace,
 		map = queryLib.map,
 		forEach = queryLib.forEach,
-		__root = ast,
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 

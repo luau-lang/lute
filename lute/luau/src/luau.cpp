@@ -1957,7 +1957,9 @@ struct AstSerialize : public Luau::AstVisitor
 
             if (node->types.data[i]->is<Luau::AstTypeOptional>())
             {
-                serializeToken(node->types.data[i]->location.begin, "?", 1);
+                serializeToken(node->types.data[i]->location.begin, "?", 2);
+                lua_pushstring(L, "type");
+                lua_setfield(L, -2, "kind");
                 lua_pushstring(L, "optional");
                 lua_setfield(L, -2, "tag");
                 lua_setfield(L, -2, "node");

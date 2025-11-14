@@ -12,6 +12,8 @@ export type Visitor = {
 	visitIf: (types.AstStatIf) -> boolean,
 	visitWhile: (types.AstStatWhile) -> boolean,
 	visitRepeat: (types.AstStatRepeat) -> boolean,
+	visitBreak: (types.AstStatBreak) -> boolean,
+	visitContinue: (types.AstStatContinue) -> boolean,
 	visitReturn: (types.AstStatReturn) -> boolean,
 	visitLocalDeclaration: (types.AstStatLocal) -> boolean,
 	visitLocalDeclarationEnd: (types.AstStatLocal) -> (),
@@ -23,6 +25,7 @@ export type Visitor = {
 	visitLocalFunction: (types.AstStatLocalFunction) -> boolean,
 	visitTypeAlias: (types.AstStatTypeAlias) -> boolean,
 	visitStatTypeFunction: (types.AstStatTypeFunction) -> boolean,
+	visitStatExpr: (types.AstStatExpr) -> boolean,
 
 	visitExpression: (types.AstExpr) -> boolean,
 	visitExpressionEnd: (types.AstExpr) -> (),
@@ -46,6 +49,7 @@ export type Visitor = {
 	visitTypeString: (types.AstTypeSingletonString) -> boolean,
 	visitTypeTypeof: (types.AstTypeTypeof) -> boolean,
 	visitTypeGroup: (types.AstTypeGroup) -> boolean,
+	visitTypeOptional: (types.AstTypeOptional) -> boolean,
 	visitTypeUnion: (types.AstTypeUnion) -> boolean,
 	visitTypeIntersection: (types.AstTypeIntersection) -> boolean,
 	visitTypeArray: (types.AstTypeArray) -> boolean,
@@ -63,6 +67,8 @@ export type Visitor = {
 	visitNumber: (types.AstExprConstantNumber) -> boolean,
 	visitLocal: (types.AstLocal) -> boolean,
 	visitVarargs: (types.AstExprVarargs) -> boolean,
+
+	visitAttribute: (types.AstAttribute) -> boolean,
 }
 
 local function alwaysVisit(...: any)
@@ -75,6 +81,8 @@ local defaultVisitor: Visitor = {
 	visitIf = alwaysVisit :: any,
 	visitWhile = alwaysVisit :: any,
 	visitRepeat = alwaysVisit :: any,
+	visitBreak = alwaysVisit :: any,
+	visitContinue = alwaysVisit :: any,
 	visitReturn = alwaysVisit :: any,
 	visitLocalDeclaration = alwaysVisit :: any,
 	visitLocalDeclarationEnd = alwaysVisit :: any,
@@ -86,6 +94,7 @@ local defaultVisitor: Visitor = {
 	visitLocalFunction = alwaysVisit :: any,
 	visitTypeAlias = alwaysVisit :: any,
 	visitStatTypeFunction = alwaysVisit :: any,
+	visitStatExpr = alwaysVisit :: any,
 
 	visitExpression = alwaysVisit :: any,
 	visitExpressionEnd = alwaysVisit :: any,
@@ -109,6 +118,7 @@ local defaultVisitor: Visitor = {
 	visitTypeString = alwaysVisit :: any,
 	visitTypeTypeof = alwaysVisit :: any,
 	visitTypeGroup = alwaysVisit :: any,
+	visitTypeOptional = alwaysVisit :: any,
 	visitTypeUnion = alwaysVisit :: any,
 	visitTypeIntersection = alwaysVisit :: any,
 	visitTypeArray = alwaysVisit :: any,
@@ -126,6 +136,8 @@ local defaultVisitor: Visitor = {
 	visitNumber = alwaysVisit :: any,
 	visitLocal = alwaysVisit :: any,
 	visitVarargs = alwaysVisit :: any,
+
+	visitAttribute = alwaysVisit :: any,
 }
 
 local function exhaustiveMatch(value: never): never
@@ -205,6 +217,18 @@ local function visitRepeat(node: types.AstStatRepeat, visitor: Visitor)
 		visitBlock(node.body, visitor)
 		visitToken(node.untilKeyword, visitor)
 		visitExpression(node.condition, visitor)
+	end
+end
+
+local function visitBreak(node: types.AstStatBreak, visitor: Visitor)
+	if visitor.visitBreak(node) then
+		visitToken(node, visitor)
+	end
+end
+
+local function visitContinue(node: types.AstStatContinue, visitor: Visitor)
+	if visitor.visitContinue(node) then
+		visitToken(node, visitor)
 	end
 end
 
@@ -321,6 +345,12 @@ local function visitTypeAlias(node: types.AstStatTypeAlias, visitor: Visitor)
 	end
 end
 
+local function visitStatExpr(node: types.AstStatExpr, visitor: Visitor)
+	if visitor.visitStatExpr(node) then
+		visitExpression(node.expression, visitor)
+	end
+end
+
 local function visitString(node: types.AstExprConstantString, visitor: Visitor)
 	if visitor.visitString(node) then
 		visitor.visitToken(node)
@@ -426,8 +456,10 @@ local function visitFunctionBody(node: types.AstFunctionBody, visitor: Visitor)
 	visitToken(node.endkeyword, visitor)
 end
 
-local function visitAttribute(node: types.AstAttribute, visitor)
-	visitToken(node, visitor)
+local function visitAttribute(node: types.AstAttribute, visitor: Visitor)
+	if visitor.visitAttribute(node) then
+		visitToken(node, visitor)
+	end
 end
 
 local function visitAnonymousFunction(node: types.AstExprAnonymousFunction, visitor: Visitor)
@@ -628,6 +660,12 @@ local function visitTypeGroup(node: types.AstTypeGroup, visitor: Visitor)
 	end
 end
 
+local function visitTypeOptional(node: types.AstTypeOptional, visitor: Visitor)
+	if visitor.visitTypeOptional(node) then
+		visitToken(node, visitor)
+	end
+end
+
 local function visitTypeUnion(node: types.AstTypeUnion, visitor: Visitor)
 	if visitor.visitTypeUnion(node) then
 		if node.leading then
@@ -803,7 +841,7 @@ function visitStatement(statement: types.AstStat, visitor: Visitor)
 	elseif statement.tag == "conditional" then
 		visitIf(statement, visitor)
 	elseif statement.tag == "expression" then
-		visitExpression(statement.expression, visitor)
+		visitStatExpr(statement, visitor)
 	elseif statement.tag == "local" then
 		visitLocalStatement(statement, visitor)
 	elseif statement.tag == "return" then
@@ -811,9 +849,9 @@ function visitStatement(statement: types.AstStat, visitor: Visitor)
 	elseif statement.tag == "while" then
 		visitWhile(statement, visitor)
 	elseif statement.tag == "break" then
-		visitToken(statement, visitor)
+		visitBreak(statement, visitor)
 	elseif statement.tag == "continue" then
-		visitToken(statement, visitor)
+		visitContinue(statement, visitor)
 	elseif statement.tag == "repeat" then
 		visitRepeat(statement, visitor)
 	elseif statement.tag == "for" then
@@ -853,7 +891,7 @@ function visitType(type: types.AstType, visitor: Visitor)
 	elseif type.tag == "intersection" then
 		visitTypeIntersection(type, visitor)
 	elseif type.tag == "optional" then
-		visitToken(type, visitor)
+		visitTypeOptional(type, visitor)
 	elseif type.tag == "array" then
 		visitTypeArray(type, visitor)
 	elseif type.tag == "table" then
@@ -881,10 +919,12 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 	if visit then
 		return {
 			visitBlock = visit,
-			visitBlockEnd = visit :: any,
+			visitBlockEnd = visit,
 			visitIf = visit,
 			visitWhile = visit,
 			visitRepeat = visit,
+			visitBreak = visit,
+			visitContinue = visit,
 			visitReturn = visit,
 			visitLocalDeclaration = visit,
 			visitLocalDeclarationEnd = visit,
@@ -896,6 +936,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitLocalFunction = visit,
 			visitTypeAlias = visit,
 			visitStatTypeFunction = visit,
+			visitStatExpr = visit,
 
 			visitExpression = visit,
 			visitExpressionEnd = visit,
@@ -919,6 +960,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitTypeString = visit,
 			visitTypeTypeof = visit,
 			visitTypeGroup = visit,
+			visitTypeOptional = visit,
 			visitTypeUnion = visit,
 			visitTypeIntersection = visit,
 			visitTypeArray = visit,
@@ -936,6 +978,8 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitNumber = visit,
 			visitLocal = visit,
 			visitVarargs = visit,
+
+			visitAttribute = visit,
 		}
 	else
 		return table.clone(defaultVisitor)

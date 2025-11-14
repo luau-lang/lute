@@ -1,7 +1,9 @@
 local fs = require("@lute/fs")
 local luau = require("@std/luau")
 local pathLib = require("@std/path")
+local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
+local syntaxTypes = require("@std/syntax/types")
 
 local arguments = require("@self/lib/arguments")
 local files = require("@self/lib/files")
@@ -99,7 +101,7 @@ local function applyMigration(
 
 		local source = fs.readfiletostring(pathStr)
 
-		local parseresult = syntax.parsefile(source)
+		local parseresult = syntax.parse(source)
 
 		local ctx = {
 			path = pathStr,
@@ -111,13 +113,24 @@ local function applyMigration(
 		-- TODO: should we wrap in pcall? For now we don't do this to preserve stack trace
 		local result = migration.transform(ctx)
 
-		assert(typeof(result) == "string", `Transformed expected to return string, but got {typeof(result)}`)
+		if typeof(result) == "string" then
+			if result == types.DELETION_MARKER then
+				print(`Marking {pathStr} for deletion`)
+				table.insert(deletedPaths, pathStr)
+			elseif result ~= source and not dryRun then
+				fs.writestringtofile(pathStr, result)
+			end
+		else
+			local replacements = result :: syntaxTypes.replacements
 
-		if result == types.DELETION_MARKER then
-			print(`Marking {pathStr} for deletion`)
-			table.insert(deletedPaths, pathStr)
-		elseif result ~= source and not dryRun then
-			fs.writestringtofile(pathStr, result)
+			local serialized = printer.printfile(parseresult, replacements)
+
+			if serialized == types.DELETION_MARKER then
+				print(`Marking {pathStr} for deletion`)
+				table.insert(deletedPaths, pathStr)
+			elseif serialized ~= source and not dryRun then
+				fs.writestringtofile(pathStr, serialized)
+			end
 		end
 	end
 

@@ -1,5 +1,5 @@
-local luau = require("@std/luau")
 local query = require("@std/syntax/query")
+local syntax = require("@std/syntax")
 local syntax_utils = require("@std/syntax/utils")
 
 local function transform(ctx)
@@ -12,9 +12,8 @@ local function transform(ctx)
 				and bin.lhsoperand.token.text == bin.rhsoperand.token.text
 		end)
 		:replace(function(bin)
-			return `math.isnan({(bin.lhsoperand :: luau.AstExprLocal).token.text})`
+			return `math.isnan({(bin.lhsoperand :: syntax.AstExprLocal).token.text})`
 		end)
-		:print()
 end
 
 return transform
