@@ -18,7 +18,6 @@ local cases = require("./libraryMigration/cases")
 -- local newFunction = newLibrary.newFunction
 -- local oldFunction = oldLibrary.oldFunction
 local function transformLocal() -- need to transform newFunction use
-	
 end
 
 -- maps oldLibrary function names to newLibrary functions
