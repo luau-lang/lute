@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Luau/Config.h"
+#include "Luau/ConfigResolver.h"
 
 namespace Luau
 {
@@ -14,7 +15,7 @@ struct LuteConfigResolver : Luau::ConfigResolver
 
     LuteConfigResolver(Luau::Mode mode);
 
-    const Luau::Config& getConfig(const Luau::ModuleName& name) const override;
+    const Luau::Config& getConfig(const Luau::ModuleName& name, const TypeCheckLimits& limits) const override;
 
     const Luau::Config& readConfigRec(const std::string& path) const;
 };
