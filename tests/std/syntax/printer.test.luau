@@ -821,6 +821,27 @@ function foo() return end
 			end)
 		end, assert)
 	end)
+
+	suite:case("comments_in_table", function(assert)
+		local source = [[foobar(
+  foo, -- what about this
+  bar, -- and this
+  baz -- and this??
+)]]
+
+		local expected = "foobar(\n  foo, -- what about this\n  bar, -- and this\n  quxx -- and this??\n)"
+
+		checkReplacement(source, expected, function(ast)
+			return query
+				.selectFromRoot(ast, syntaxUtils.isExprGlobal)
+				:filter(function(g)
+					return g.name.text == "baz"
+				end)
+				:replace(function()
+					return "quxx"
+				end)
+		end, assert)
+	end)
 end)
 
 test.run()
