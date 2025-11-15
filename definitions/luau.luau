@@ -270,9 +270,9 @@ export type AstStatWhile = {
 export type AstStatRepeat = {
 	kind: "stat",
 	tag: "repeat",
-	repeatKeyword: Token<"repeat">,
+	repeatkeyword: Token<"repeat">,
 	body: AstStatBlock,
-	untilKeyword: Token<"until">,
+	untilkeyword: Token<"until">,
 	condition: AstExpr,
 }
 
@@ -367,7 +367,7 @@ export type AstStatTypeAlias = {
 	kind: "stat",
 	tag: "typealias",
 	export: Token<"export">?,
-	typeToken: Token<"type">,
+	typetoken: Token<"type">,
 	name: Token,
 	opengenerics: Token<"<">?,
 	generics: Punctuated<AstGenericType>?,
