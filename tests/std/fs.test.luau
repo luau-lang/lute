@@ -225,6 +225,48 @@ test.suite("FsSuite", function(suite)
 		fs.remove(file)
 		fs.rmdir(dir)
 	end)
+
+	suite:case("walk_directory_recursive", function(assert)
+		local baseDir = path.join(tmpdir, "walktest")
+		local subDir = path.join(baseDir, "subdir")
+		fs.createdirectory(subDir, { makeparents = true })
+
+		local file1 = path.join(baseDir, "file1.txt")
+		local f1 = fs.open(file1, "w+")
+		fs.close(f1)
+
+		local file2 = path.join(subDir, "file2.txt")
+		local f2 = fs.open(file2, "w+")
+		fs.close(f2)
+
+		local expectedPaths = {
+			tostring(baseDir),
+			tostring(file1),
+			tostring(subDir),
+			tostring(file2),
+		}
+		local foundFiles = {}
+
+		local it = fs.walk(baseDir, { recursive = true })
+		local p = it()
+		while p do
+			table.insert(foundFiles, tostring(p))
+			p = it()
+		end
+
+		for _, expected in expectedPaths do
+			local found = false
+			for _, foundPath in foundFiles do
+				if foundPath == expected then
+					found = true
+					break
+				end
+			end
+			assert.eq(found, true)
+		end
+
+		fs.removedirectory(baseDir, { recursive = true })
+	end)
 end)
 
 test.run()
