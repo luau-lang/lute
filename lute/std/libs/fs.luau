@@ -26,7 +26,7 @@ export type removedirectoryoptions = {
 	recursive: boolean?,
 }
 
-export type walkdirectoryoptions = {
+export type walkoptions = {
 	recursive: boolean?,
 }
 
@@ -145,9 +145,8 @@ function fslib.removedirectory(path: pathlike, options: removedirectoryoptions?)
 	end
 end
 
-local function walkdir(path: pathlike, options: walkdirectoryoptions?): () -> pathlike?
+local function walkdir(path: pathlike, options: walkoptions?): () -> path?
 	local queue = { path }
-	local recursive = options and options.recursive or false
 
 	return function()
 		while #queue > 0 do
@@ -156,10 +155,10 @@ local function walkdir(path: pathlike, options: walkdirectoryoptions?): () -> pa
 				return nil
 			end
 
-			if fslib.type(current) == "dir" and recursive then
+			if fslib.type(current) == "dir" and options and options.recursive then
 				local entries = fslib.listdir(current)
 				for _, entry in entries do
-					local fullPath = pathlib.format(pathlib.join(current, entry.name))
+					local fullPath = pathlib.join(current, entry.name)
 					table.insert(queue, fullPath)
 				end
 			end
@@ -172,7 +171,7 @@ local function walkdir(path: pathlike, options: walkdirectoryoptions?): () -> pa
 end
 
 -- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead.
-function fslib.walk(path: pathlike, options: walkdirectoryoptions?): () -> pathlike?
+function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
 	return walkdir(path, options)
 end
 
