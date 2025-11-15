@@ -262,7 +262,7 @@ test.suite("FsSuite", function(suite)
 					break
 				end
 			end
-			assert.eq(found, true, `Expected path {expected} not found in walked paths`)
+			assert.eq(found, true)
 		end
 
 		fs.removedirectory(baseDir, { recursive = true })

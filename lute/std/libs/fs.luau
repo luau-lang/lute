@@ -147,7 +147,7 @@ end
 
 -- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead.
 function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
-	local queue = { path }
+	local queue = { pathlib.parse(path) }
 
 	return function()
 		while #queue > 0 do
