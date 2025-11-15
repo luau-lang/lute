@@ -1259,14 +1259,14 @@ struct AstSerialize : public Luau::AstVisitor
         serializeNodePreamble(node, "repeat", "stat");
 
         serializeToken(node->location.begin, "repeat");
-        lua_setfield(L, -2, "repeatKeyword");
+        lua_setfield(L, -2, "repeatkeyword");
 
         node->body->visit(this);
         lua_setfield(L, -2, "body");
 
         auto cstNode = lookupCstNode<Luau::CstStatRepeat>(node);
         serializeToken(cstNode->untilPosition, "until");
-        lua_setfield(L, -2, "untilKeyword");
+        lua_setfield(L, -2, "untilkeyword");
 
         node->condition->visit(this);
         lua_setfield(L, -2, "condition");
@@ -1532,7 +1532,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "export");
 
         serializeToken(cstNode->typeKeywordPosition, "type");
-        lua_setfield(L, -2, "typeToken");
+        lua_setfield(L, -2, "typetoken");
 
         serializeToken(node->nameLocation.begin, node->name.value);
         lua_setfield(L, -2, "name");
