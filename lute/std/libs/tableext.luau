@@ -67,4 +67,12 @@ function tableext.foreach<K, V>(tbl: { [K]: V }, callback: (K, V) -> ())
 	end
 end
 
+function tableext.keys<K, V>(tbl: { [K]: V }): { K }
+	local keys = {}
+	for k, _ in tbl do
+		table.insert(keys, k)
+	end
+	return keys
+end
+
 return table.freeze(tableext)

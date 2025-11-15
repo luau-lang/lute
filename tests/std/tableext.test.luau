@@ -59,6 +59,14 @@ test.suite("TableExt", function(suite)
 		tableext.foreach(a, callback)
 		assert.eq(numCalls, #a)
 	end)
+
+	suite:case("keys", function(assert)
+		local a = { a = 1, b = 2, c = 3 }
+		local keys = tableext.keys(a)
+		for _, key in keys do
+			assert.neq(a[key], nil)
+		end
+	end)
 end)
 
 test.run()
