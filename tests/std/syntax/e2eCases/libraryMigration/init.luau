@@ -16,7 +16,7 @@ local printer = require("@std/syntax/printer")
 local cases = require("./libraryMigration/cases")
 local qUtils = require("./utils")
 local getRequireStatements = qUtils.getRequireStatements
-local transformOldLibraryAccess = qUtils.transformOldLibraryAccess
+local transformLibraryAccess = qUtils.transformLibraryAccess
 
 -- local newFunction = newLibrary.newFunction
 -- local oldFunction = oldLibrary.oldFunction
@@ -53,7 +53,7 @@ end
 local function transform(block: luau.AstStatBlock): string
 	local t = t.new()
 	local oldLibAlias = transformRequires(t, block)
-	transformOldLibraryAccess(t, block, oldLibAlias, function(_, index)
+	transformLibraryAccess(t, block, oldLibAlias, function(_, index)
 		local oldFunction = index.text
 		return `newLibrary.{functionMap[oldFunction]}`
 	end)

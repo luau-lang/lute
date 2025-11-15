@@ -24,7 +24,7 @@ local function getRequireStatements(block: luau.AstStatBlock, requiredModule: st
 	return requires
 end
 
-local function transformOldLibraryAccess(
+local function transformLibraryAccess(
 	t: t.transform,
 	block: luau.AstStatBlock,
 	libAlias: string,
@@ -46,5 +46,5 @@ end
 
 return {
 	getRequireStatements = getRequireStatements,
-	transformOldLibraryAccess = transformOldLibraryAccess,
+	transformLibraryAccess = transformLibraryAccess,
 }
