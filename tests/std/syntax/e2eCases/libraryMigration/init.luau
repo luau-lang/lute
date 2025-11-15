@@ -14,6 +14,9 @@ local t = require("@std/syntax/transform")
 local utils = require("@std/syntax/utils")
 local printer = require("@std/syntax/printer")
 local cases = require("./libraryMigration/cases")
+local qUtils = require("./utils")
+local getRequireStatements = qUtils.getRequireStatements
+local transformOldLibraryAccess = qUtils.transformOldLibraryAccess
 
 -- local newFunction = newLibrary.newFunction
 -- local oldFunction = oldLibrary.oldFunction
@@ -25,25 +28,6 @@ local functionMap = {
 	["oldFunction"] = "newFunction",
 	["anotherFunction"] = "anotherNewFunction",
 }
-
--- assumes roblox requires structure
-local function getRequireStatements(block: luau.AstStatBlock, requiredModule: string?): query.query<luau.AstStatLocal>
-	local requires = query.selectFromRoot(block :: any, utils.isStatLocal):filter(function(node: luau.AstStatLocal)
-		local callValue = utils.isExprCall(node.values[1].node :: any)
-		local callIsRequire = callValue
-			and callValue.func.tag == "global"
-			and (callValue.func :: luau.AstExprGlobal).name.text == "require"
-		return if callIsRequire then true else false
-	end)
-	if requiredModule then
-		return requires:filter(function(node)
-			local requireCall = node.values[1].node :: luau.AstExprCall
-			local requireArg = utils.isExprIndexName(requireCall.arguments[1].node :: any)
-			return if requireArg then requireArg.index.text == requiredModule else false
-		end)
-	end
-	return requires
-end
 
 local function transformRequires(q: t.transform, block: luau.AstStatBlock): string
 	local oldLibRequires = getRequireStatements(block, "old")
@@ -66,24 +50,13 @@ local function transformRequires(q: t.transform, block: luau.AstStatBlock): stri
 	return oldLibAlias
 end
 
-local function transformOldLibraryAccess(t: t.transform, block: luau.AstStatBlock, oldLibAlias: string)
-	t:selectFromRoot(block :: any, utils.isExprIndexName)
-		:filter(function(node: luau.AstExprIndexName)
-			-- get root expression; determine if it's oldLib
-			return #query.selectFromRoot(node :: any, utils.isBaseToken):filter(function(node: luau.Token)
-				return node.text == oldLibAlias
-			end).nodes > 0
-		end)
-		:replace(function(node)
-			local oldFunction = node.index.text
-			return `newLibrary.{functionMap[oldFunction]}`
-		end)
-end
-
 local function transform(block: luau.AstStatBlock): string
-	local t = t.new(block :: any)
+	local t = t.new()
 	local oldLibAlias = transformRequires(t, block)
-	transformOldLibraryAccess(t, block, oldLibAlias)
+	transformOldLibraryAccess(t, block, oldLibAlias, function(_, index)
+		local oldFunction = index.text
+		return `newLibrary.{functionMap[oldFunction]}`
+	end)
 	return printer.printnode(block :: any, t.replacements)
 end
 

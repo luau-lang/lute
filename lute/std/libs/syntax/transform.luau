@@ -13,7 +13,7 @@ export type TransformData = {
 
 export type transform = typeof(setmetatable({} :: TransformData, transform))
 
-function transform.new(root: node)
+function transform.new()
 	local self = {
 		replacements = {} :: types.replacements,
 	}
