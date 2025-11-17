@@ -1,18 +1,11 @@
 local luau = require("@lute/luau")
 local t = require("@std/syntax/transform")
 local utils = require("@std/syntax/utils")
-local printer = require("@std/syntax/printer")
 local cases = require("./libraryMigration/cases")
 local qUtils = require("./utils")
 local getRequireStatements = qUtils.getRequireStatements
 local transformLibraryAccess = qUtils.transformLibraryAccess
 
--- local newFunction = newLibrary.newFunction
--- local oldFunction = oldLibrary.oldFunction
-local function transformLocal() -- need to transform newFunction use
-end
-
--- maps oldLibrary function names to newLibrary functions
 local functionMap = {
 	["oldFunction"] = "newFunction",
 	["anotherFunction"] = "anotherNewFunction",
@@ -52,5 +45,3 @@ return {
 	transform = transform,
 	cases = cases,
 }
-
--- having parent nodes will be goated! context in the tree is huge

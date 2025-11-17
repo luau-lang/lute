@@ -2,8 +2,6 @@ local luau = require("@lute/luau")
 local query = require("@std/syntax/query")
 local t = require("@std/syntax/transform")
 local utils = require("@std/syntax/utils")
-local printer = require("@std/syntax/printer")
-local cases = require("./libraryMigration/cases")
 
 -- assumes roblox requires structure
 local function getRequireStatements(block: luau.AstStatBlock, requiredModule: string?): query.query<luau.AstStatLocal>

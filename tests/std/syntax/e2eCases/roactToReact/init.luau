@@ -4,10 +4,6 @@ local utils = require("./utils")
 local printer = require("@std/syntax/printer")
 local queryUtils = require("@std/syntax/utils")
 
--- for this codemod, we want to import requires AFTER the rest of transformations
--- we do this to determine if we actually need React/ReactRoblox
---
-
 local function mount(t: Transform.transform): boolean
 	-- select all statements with mount calls
 	local mountStatements = t:selectFromRoot(t.__fileRoot, function(node)
@@ -123,11 +119,6 @@ local function createFragment(node: luau.AstExprCall)
 
 	return `React.createElement(React.Fragment, nil, {childArg})`
 end
-
-local ReactFunctionTransforms = {
-	["oneChild"] = oneChild,
-	["createFragment"] = createFragment,
-}
 
 local function indexExprKeyToStringKey(expr: string, index: string, repl: string)
 	return function(node: luau.AstExprIndexName): string?
