@@ -1,7 +1,9 @@
 --!strict
 -- @std/syntax/printer
 
+local triviaUtils = require("./utils/trivia")
 local types = require("./types")
+local utils = require("./utils")
 local visitor = require("./visitor")
 
 local printerLib = {}
@@ -43,6 +45,11 @@ local function printToken(self: PrintVisitor, token: types.Token)
 end
 
 local function printString(self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString)
+	if self.replacements[expr] ~= nil then
+		self:printReplacement(expr, self.replacements[expr])
+		return
+	end
+
 	self:printTriviaList(expr.leadingtrivia)
 
 	if expr.quotestyle == "single" then
@@ -83,6 +90,11 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 end
 
 local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: types.replacement)
+	local leftmostTrivia = triviaUtils.leftmosttrivia(node)
+	if leftmostTrivia ~= nil then
+		self:printTriviaList(leftmostTrivia)
+	end
+
 	if typeof(replacement) == "string" then
 		self:write(replacement)
 	elseif replacement.kind ~= nil then -- LUAUFIX: type solver upset comparing string singleton union to nil
@@ -90,6 +102,11 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 		visitor.visit(replacement, self)
 	else
 		error("Unsupported replacement type")
+	end
+
+	local rightmostTrivia = triviaUtils.rightmosttrivia(node)
+	if rightmostTrivia ~= nil then
+		self:printTriviaList(rightmostTrivia)
 	end
 end
 
