@@ -842,6 +842,41 @@ function foo() return end
 				end)
 		end, assert)
 	end)
+
+	suite:case("comments_in_table", function(assert)
+		local source = [[local x = {
+  foo = -- what about this
+  1, 
+  bar = 2, 
+  -- and this
+  
+  baz = 3 -- and this??
+}]]
+
+		local expected = [[local x = {
+  replaced = -- what about this
+  1, 
+  replaced = 2, 
+  -- and this
+  
+  replaced = 3 -- and this??
+}]]
+
+		checkReplacement(source, expected, function(ast)
+			return query
+				.selectFromRoot(ast, syntaxUtils.isExprTable)
+				:flatMap(function(t)
+					local l = {}
+					for _, entry in t.entries do
+						table.insert(l, entry.key)
+					end
+					return l
+				end)
+				:replace(function()
+					return "replaced"
+				end)
+		end, assert)
+	end)
 end)
 
 test.run()
