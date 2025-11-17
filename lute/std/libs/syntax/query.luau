@@ -14,9 +14,9 @@ export type query<T = node> = {
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
 	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
-	forEach: (self: query<T>, callback: (T) -> ()) -> query<T>,
-	select: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
-	flatMap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
+	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
+	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
+	flatmap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
 }
 
 local queryLib = {}
@@ -56,7 +56,7 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 	return self
 end
 
-function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): query<T>
+function queryLib.foreach<T>(self: query<T>, callback: (T) -> ()): query<T>
 	for _, node in self.nodes do
 		callback(node)
 	end
@@ -90,7 +90,7 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visi
 	return selectVisitor
 end
 
-function queryLib.select<T, U>(self: query<T>, fn: (node) -> U?): query<U>
+function queryLib.findall<T, U>(self: query<T>, fn: (node) -> U?): query<U>
 	local selectedNodes: { U } = {}
 
 	local selectVisitor = newSelectVisitor(selectedNodes, fn)
@@ -104,7 +104,7 @@ function queryLib.select<T, U>(self: query<T>, fn: (node) -> U?): query<U>
 	return self
 end
 
-function queryLib.flatMap<T, U>(self: query<T>, fn: (T) -> { U }): query<U>
+function queryLib.flatmap<T, U>(self: query<T>, fn: (T) -> { U }): query<U>
 	local newNodes: { U } = {}
 	for _, node in self.nodes do
 		local mapped = fn(node)
@@ -116,7 +116,7 @@ function queryLib.flatMap<T, U>(self: query<T>, fn: (T) -> { U }): query<U>
 	return self
 end
 
-function queryLib.selectFromRoot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
+function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
 	local nodes: { T } = {}
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
@@ -129,9 +129,9 @@ function queryLib.selectFromRoot<T>(ast: types.ParseResult | node, fn: (node) ->
 		filter = queryLib.filter,
 		replace = queryLib.replace,
 		map = queryLib.map,
-		forEach = queryLib.forEach,
-		select = queryLib.select,
-		flatMap = queryLib.flatMap,
+		foreach = queryLib.foreach,
+		findall = queryLib.findall,
+		flatmap = queryLib.flatmap,
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 
