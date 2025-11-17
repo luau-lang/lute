@@ -40,5 +40,5 @@ end
 
 return {
 	transform = transform,
-	cases = require("./apiRenameMigration/cases"),
+	cases = require("./apiSurfaceChange/cases"),
 }

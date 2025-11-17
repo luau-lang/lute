@@ -1,4 +1,4 @@
 return {
 	libraryMigration = require("./e2eCases/libraryMigration"),
-	apiRenameMigration = require("./e2eCases/apiRenameMigration"),
+	apiSurfaceChange = require("./e2eCases/apiSurfaceChange"),
 }
