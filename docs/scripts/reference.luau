@@ -246,4 +246,10 @@ local stdlibPath = path.join(process.cwd(), "..", "lute", "std", "libs")
 local stdlibReferencePath = path.join(process.cwd(), "reference", "std")
 processDirectory(stdlibPath, stdlibReferencePath, stdlibPath, "std")
 
+-- Mock module in test/ for testing purposes
+
+-- local testPath = path.join(process.cwd(), "test")
+-- local testReferencePath = path.join(process.cwd(), "test")
+-- processDirectory(testPath, testReferencePath, testPath, "test")
+
 print("Reference documentation generation complete!")
