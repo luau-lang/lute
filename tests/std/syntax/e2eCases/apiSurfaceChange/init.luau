@@ -30,12 +30,12 @@ local function transformCallArgs(t: t.transform, block: luau.AstStatBlock)
 end
 
 local function transform(block: luau.AstStatBlock): string
-	local transform = t.new()
+	local transform = t.new(block :: any)
 	qUtils.transformLibraryAccess(transform, block, "sameLibrary", function(expr, index: luau.Token)
 		return `{printer.printnode(expr :: any)}.{apiMap[index.text]}`
 	end)
 	transformCallArgs(transform, block)
-	return printer.printnode(block :: any, transform.replacements)
+	return transform:transform()
 end
 
 return {

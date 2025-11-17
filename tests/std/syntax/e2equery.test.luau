@@ -31,7 +31,7 @@ test.suite("Query and Transform e2e", function(suite)
 
 		suite:case(transformName, function(assert)
 			table.foreach(transformCases, function(_, v)
-				local initAst = parser.parse(v.initial)
+				local initAst = parser.parse(v.initial).root
 				assert.eq(format(transformFunc(initAst)), format(v.expected))
 			end)
 		end)

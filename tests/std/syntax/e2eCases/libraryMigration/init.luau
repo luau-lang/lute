@@ -1,15 +1,4 @@
---[[
-this module implements a function migration transform:
-empirical use-case is migrating from an old library to new library
-we need to update:
-    library import
-    function import
-    function usage
-
-]]
-
 local luau = require("@lute/luau")
-local query = require("@std/syntax/query")
 local t = require("@std/syntax/transform")
 local utils = require("@std/syntax/utils")
 local printer = require("@std/syntax/printer")
@@ -51,13 +40,13 @@ local function transformRequires(q: t.transform, block: luau.AstStatBlock): stri
 end
 
 local function transform(block: luau.AstStatBlock): string
-	local t = t.new()
-	local oldLibAlias = transformRequires(t, block)
-	transformLibraryAccess(t, block, oldLibAlias, function(_, index)
+	local transform = t.new(block :: any)
+	local oldLibAlias = transformRequires(transform, block)
+	transformLibraryAccess(transform, block, oldLibAlias, function(_, index)
 		local oldFunction = index.text
 		return `newLibrary.{functionMap[oldFunction]}`
 	end)
-	return printer.printnode(block :: any, t.replacements)
+	return transform:transform()
 end
 
 return {
