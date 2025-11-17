@@ -26,7 +26,7 @@ export type testsuite = {
 export type failedtest = {
 	test: string, -- name of the test case that failed
 	assertion: string?, -- if an assertion failed, name of the assertion that failed (e.g., "assert.eq")
-	message: string?, -- the error message to report with a failed assertion
+	error: string?, -- the error message to report with a failed assertion
 	filename: string, -- source file where the failure occurred
 	linenumber: number, -- line number of the failure
 }
