@@ -42,7 +42,7 @@ end
 
 function tableext.extend<T>(tbl: array<T>, ...: array<T>)
 	local extendees = table.pack(...)
-	extendees.n = nil
+	extendees.n = nil :: never
 	for _, extendee in extendees do
 		for _, entry in extendee do
 			table.insert(tbl, entry)
@@ -50,9 +50,9 @@ function tableext.extend<T>(tbl: array<T>, ...: array<T>)
 	end
 end
 
-function tableext.merge<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
+function tableext.combine<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
 	local mergees = table.pack(...)
-	mergees.n = nil
+	mergees.n = nil :: never
 	for _, mergee in mergees do
 		for key, val in mergee do
 			tbl[key] = val
