@@ -3,6 +3,20 @@ local process = require("@std/process")
 local path = require("@std/path")
 local stringext = require("@std/stringext")
 
+local STDLIB_MODULE_ALIASES = {
+	assert = "assertions",
+	fs = "fslib",
+	io = "iolib",
+	process = "processlib",
+	task = "tasklib",
+	path = "pathlib",
+	system = "systemlib",
+}
+
+local singleLineCommentPattern = "^%s*%-%-%-?%s?(.*)$"
+local blockCommentStartPattern = "^%s*%-%-%[(=*)%["
+local blankLinePattern = "^%s*$"
+
 -- extractPropertySignature: (this function runs on one line at a time so we need to keep some states for block comments)
 -- module (module name)
 -- line (current line)
@@ -22,7 +36,7 @@ local function extractPropertySignature(
 
 	-- 1) If we're *not* in a block, detect block start that may include = signs:
 	if not inBlock then
-		local eq = string.match(line, "^%s*%-%-%[(=*)%[")
+		local eq = string.match(line, blockCommentStartPattern)
 		if eq ~= nil then
 			-- start of block comment, capture any text after the opening on the same line
 			inBlock = true
@@ -70,7 +84,7 @@ local function extractPropertySignature(
 	end
 
 	-- 3) Single-line comment? (-- or ---)
-	local single = string.match(line, "^%s*%-%-%-?%s?(.*)$")
+	local single = string.match(line, singleLineCommentPattern)
 	if single then
 		local txt = stringext.trim(single)
 		if txt ~= "" then
@@ -101,8 +115,8 @@ local function extractPropertySignature(
 		return name, signature, doc, pendingDoc, inBlock, blockEq
 	end
 
-	-- 6) If we reach here and there's any non-whitespace, reset pendingDoc to clear old comments
-	if not string.match(line, "^%s*$") then
+	-- 6) If we reach here and there's any non-whitespace (i.e., code), reset pendingDoc to clear old comments
+	if not string.match(line, blankLinePattern) then
 		pendingDoc = {}
 	end
 
@@ -110,152 +124,25 @@ local function extractPropertySignature(
 	return nil, nil, nil, pendingDoc, inBlock, blockEq
 end
 
--- docs for definitions/*.luau --
-
-local function parseDefinitionFile(
-	module: path.pathlike,
-	filePath: path.pathlike
-): { { name: string, signature: string, doc: string? } }
-	local content = fs.readfiletostring(filePath)
-	local lines = string.split(content, "\n")
-
-	local definitions = {}
-	local pendingDoc = {}
-	local inBlock = false
-
-	for _, line in lines do
-		local name, signature, doc
-		name, signature, doc, pendingDoc, inBlock =
-			extractPropertySignature(tostring(module), line, pendingDoc, inBlock)
-
-		if name and signature then
-			table.insert(definitions, {
-				name = name,
-				signature = signature,
-				doc = doc,
-			})
-		end
-	end
-
-	return definitions
-end
-
-local function generateDefinitionsMarkdown(
-	moduleName: string,
-	definitions: { { name: string, signature: string, doc: string? } }
-): string
-	local lines = {
-		`# {moduleName}`,
-		"",
-		"```luau",
-		`local {moduleName} = require("@lute/{moduleName}")`,
-		"```",
-		"",
-	}
-
-	table.sort(definitions, function(a, b)
-		return a.name < b.name
-	end)
-
-	for _, def in definitions do
-		table.insert(lines, `## {moduleName}.{def.name}\n`)
-
-		-- Insert the documentation if it exists
-		if def.doc then
-			table.insert(lines, `{def.doc}\n`)
-		end
-		table.insert(lines, "```luau")
-		table.insert(lines, def.signature)
-		table.insert(lines, "```")
-		table.insert(lines, "")
-	end
-
-	return table.concat(lines, "\n")
-end
-
-local function processDefinitionsDir(definitionsPath: path.pathlike, referencePath: path.pathlike)
-	fs.createdirectory(referencePath, { makeparents = true })
-
-	local definitionFiles = fs.listdir(definitionsPath)
-
-	for _, file in definitionFiles do
-		if file.type == "file" and string.find(file.name, "%.luau$") then
-			local moduleName = string.gsub(file.name, "%.luau$", "")
-			local definitionFilePath = path.join(definitionsPath, file.name)
-			local referenceFilePath = path.join(referencePath, moduleName .. ".md")
-
-			print(`Processing {moduleName}...`)
-
-			local definitions = parseDefinitionFile(moduleName, definitionFilePath)
-			local markdown = generateDefinitionsMarkdown(moduleName, definitions)
-
-			fs.writestringtofile(referenceFilePath, markdown)
-
-			print(`Generated {tostring(referenceFilePath)}`)
-		end
-	end
-end
-
--- docs for lute/std/libs/*.luau --
-
-local STDLIB_MODULE_ALIASES = {
-	assert = "assertions",
-	fs = "fslib",
-	io = "iolib",
-	process = "processlib",
-	task = "tasklib",
-	path = "pathlib",
-	system = "systemlib",
-}
-
-local function parseStdlibFile(
-	module: path.pathlike,
-	filePath: path.pathlike
-): { { name: string, signature: string, doc: string? } }
-	local content = fs.readfiletostring(filePath)
-	local lines = string.split(content, "\n")
-
-	local stdlibDefinitions = {}
-	local pendingDoc = {}
-	local inBlock = false
-
-	local mod = STDLIB_MODULE_ALIASES[tostring(module)] or tostring(module)
-
-	for _, line in lines do
-		local name, signature, doc
-		name, signature, doc, pendingDoc, inBlock = extractPropertySignature(mod, line, pendingDoc, inBlock)
-
-		if name and signature then
-			table.insert(stdlibDefinitions, {
-				name = name,
-				signature = signature,
-				doc = doc,
-			})
-		end
-	end
-
-	return stdlibDefinitions
-end
-
-local function generateStdLibMarkdown(
+local function generateMarkdown(
 	moduleName: string,
 	definitions: { { name: string, signature: string, doc: string? } },
-	stdlibFilePath: path.pathlike
+	filePath: path.pathlike,
+	libraryPath: path.pathlike,
+	requireLibraryAlias: string
 ): string
-	local referencePath = path.join(process.cwd(), "..", "lute", "std", "libs")
+	local libPathStr = tostring(libraryPath)
+	local filePathStr = tostring(filePath)
 
-	local refPathStr = tostring(referencePath)
-	local stdlibFilePathStr = tostring(stdlibFilePath)
-
-	local relativePath = string.sub(stdlibFilePathStr, #refPathStr + 2) -- gets the path relative to std/libs for the require path
+	local relativePath = string.sub(filePathStr, #libPathStr + 2) -- gets the path relative to the require path (only relevant for subdirs like std/libs)
 	relativePath = string.gsub(relativePath, "%.luau$", "")
-	local requirePath = string.gsub(relativePath, "/init$", "")
+	local requirePath = string.gsub(relativePath, "/init$", "") -- remove trailing /init and use the module dir name
 
 	local lines = {
 		`# {moduleName}`,
 		"",
 		"```luau",
-		`local {moduleName} = require("@std/{requirePath}")`,
+		`local {moduleName} = require("@{requireLibraryAlias}/{requirePath}")`,
 		"```",
 		"",
 	}
@@ -280,44 +167,83 @@ local function generateStdLibMarkdown(
 	return table.concat(lines, "\n")
 end
 
-local function processStdlibDir(sourceDir: path.pathlike, referenceDir: path.pathlike)
-	fs.createdirectory(referenceDir, { makeparents = true })
+local function parseModule(
+	module: path.pathlike,
+	filePath: path.pathlike
+): { { name: string, signature: string, doc: string? } }
+	local content = fs.readfiletostring(filePath)
+	local lines = string.split(content, "\n")
 
-	local entries = fs.listdir(sourceDir)
+	local moduleDefinitions = {}
+	local pendingDoc = {}
+	local inBlock = false
+	local blockEq = nil
+
+	for _, line in lines do
+		local name, signature, doc
+		name, signature, doc, pendingDoc, inBlock, blockEq =
+			extractPropertySignature(tostring(module), line, pendingDoc, inBlock, blockEq)
+
+		if name and signature then
+			table.insert(moduleDefinitions, {
+				name = name,
+				signature = signature,
+				doc = doc,
+			})
+		end
+	end
+
+	return moduleDefinitions
+end
+
+local function processDirectory(
+	modulePath: path.pathlike,
+	documentationPath: path.pathlike,
+	libraryPath: path.pathlike,
+	requireLibraryAlias: string
+)
+	fs.createdirectory(documentationPath, { makeparents = true })
+
+	local entries = fs.listdir(modulePath)
 
 	for _, entry in entries do
-		local sourcePath = path.join(sourceDir, entry.name)
-		local referencePath = path.join(referenceDir, entry.name)
+		local entryPath = path.join(modulePath, entry.name)
+		local docPath = path.join(documentationPath, entry.name)
 
 		if entry.type == "dir" then
-			fs.createdirectory(referencePath, { makeparents = true })
-			processStdlibDir(sourcePath, referencePath)
+			fs.createdirectory(docPath, { makeparents = true })
+			processDirectory(entryPath, docPath, libraryPath, requireLibraryAlias)
 		elseif entry.type == "file" and string.find(entry.name, "%.luau$") then
 			local moduleName = string.gsub(entry.name, "%.luau$", "")
 			if moduleName == "init" then
-				moduleName = string.match(tostring(sourceDir), "([^/\\]+)$") or moduleName
+				moduleName = string.match(tostring(modulePath), "([^/\\]+)$") or moduleName
 			end
 
-			local referenceFilePath = path.join(referenceDir, moduleName .. ".md")
+			local documentationFilePath = path.join(documentationPath, moduleName .. ".md")
 
 			print(`Processing {moduleName}...`)
 
-			local stdlibDefinitions = parseStdlibFile(moduleName, sourcePath)
-			local markdown = generateStdLibMarkdown(moduleName, stdlibDefinitions, sourcePath)
+			local definitions = parseModule(moduleName, entryPath)
 
-			fs.writestringtofile(referenceFilePath, markdown)
+			if requireLibraryAlias == "std" then
+				moduleName = STDLIB_MODULE_ALIASES[moduleName] or moduleName
+			end
 
-			print(`Generated {tostring(referenceFilePath)}`)
+			local markdown = generateMarkdown(moduleName, definitions, entryPath, libraryPath, requireLibraryAlias)
+
+			fs.writestringtofile(documentationFilePath, markdown)
+
+			print(`Generated {tostring(documentationFilePath)}`)
 		end
 	end
 end
 
 local definitionsPath = path.join(process.cwd(), "..", "definitions")
 local referencePath = path.join(process.cwd(), "reference", "definitions")
-processDefinitionsDir(definitionsPath, referencePath)
+processDirectory(definitionsPath, referencePath, definitionsPath, "lute")
 
 local stdlibPath = path.join(process.cwd(), "..", "lute", "std", "libs")
 local stdlibReferencePath = path.join(process.cwd(), "reference", "std")
-processStdlibDir(stdlibPath, stdlibReferencePath)
+processDirectory(stdlibPath, stdlibReferencePath, stdlibPath, "std")
 
 print("Reference documentation generation complete!")
