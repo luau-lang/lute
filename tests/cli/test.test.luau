@@ -111,6 +111,110 @@ test.run()
 
 		fs.remove(testFilePath)
 	end)
+
+	suite:case("assert.eq_error_message_in_case", function(assert)
+		local testFilePath = path.join(tmpDir, "assert_eq_fails.test.luau")
+		local handle = fs.open(testFilePath, "w+")
+		fs.write(
+			handle,
+			[[
+local test = require("@std/test")
+
+test.case("eq_error", function(assert)
+	assert.eq(1, 2)
+end)
+
+test.run()
+			]]
+		)
+		fs.close(handle)
+
+		-- Run lute on the created test file
+		local result = process.run({ lutePath, tostring(testFilePath) })
+
+		-- Check that the output specifies the inequal values
+		assert.eq(result.exitcode, 1)
+		assert.neq(result.stdout:find("eq: 1 ~= 2", 1, true), nil)
+	end)
+
+	suite:case("assert.eq_error_message_in_suite", function(assert)
+		local testFilePath = path.join(tmpDir, "assert_eq_fails.test.luau")
+		local handle = fs.open(testFilePath, "w+")
+		fs.write(
+			handle,
+			[[
+local test = require("@std/test")
+
+test.suite("eq_failure_suite", function(suite)
+	suite:case("eq_error", function(assert)
+		assert.eq(1, 2)
+	end)
+end)
+
+test.run()
+			]]
+		)
+		fs.close(handle)
+
+		-- Run lute on the created test file
+		local result = process.run({ lutePath, tostring(testFilePath) })
+
+		-- Check that the output specifies the inequal values
+		assert.eq(result.exitcode, 1)
+		assert.neq(result.stdout:find("eq: 1 ~= 2", 1, true), nil)
+	end)
+
+	suite:case("assert.neq_error_message_in_case", function(assert)
+		local testFilePath = path.join(tmpDir, "assert_neq_fails.test.luau")
+		local handle = fs.open(testFilePath, "w+")
+		fs.write(
+			handle,
+			[[
+local test = require("@std/test")
+
+test.case("neq_error", function(assert)
+	assert.neq(1, 1)
+end)
+
+test.run()
+			]]
+		)
+		fs.close(handle)
+
+		-- Run lute on the created test file
+		local result = process.run({ lutePath, tostring(testFilePath) })
+
+		-- Check that the output specifies the inequal values
+		assert.eq(result.exitcode, 1)
+		assert.neq(result.stdout:find("neq: 1 == 1", 1, true), nil)
+	end)
+
+	suite:case("assert.neq_error_message_in_suite", function(assert)
+		local testFilePath = path.join(tmpDir, "assert_neq_fails.test.luau")
+		local handle = fs.open(testFilePath, "w+")
+		fs.write(
+			handle,
+			[[
+local test = require("@std/test")
+
+test.suite("neq_failure_suite", function(suite)
+	suite:case("neq_error", function(assert)
+		assert.neq(1, 1)
+	end)
+end)
+
+test.run()
+			]]
+		)
+		fs.close(handle)
+
+		-- Run lute on the created test file
+		local result = process.run({ lutePath, tostring(testFilePath) })
+
+		-- Check that the output specifies the inequal values
+		assert.eq(result.exitcode, 1)
+		assert.neq(result.stdout:find("neq: 1 == 1", 1, true), nil)
+	end)
 end)
 
 test.run()
