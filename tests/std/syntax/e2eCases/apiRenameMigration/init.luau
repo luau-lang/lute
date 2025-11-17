@@ -1,10 +1,7 @@
 local luau = require("@lute/luau")
-local query = require("@std/syntax/query")
 local t = require("@std/syntax/transform")
 local utils = require("@std/syntax/utils")
-local tableext = require("@std/tableext")
 local printer = require("@std/syntax/printer")
-local cases = require("./libraryMigration/cases")
 local qUtils = require("./utils")
 
 local apiMap = {
@@ -17,20 +14,8 @@ local apiMap = {
 
 local argReplacements = {
 	arrayFunc = function(t: t.transform, node: luau.AstExprCall)
-		t:selectFromRoot(node :: any, utils.isExprTable)
-			:map(function(tbl: luau.AstExprTable)
-				return tbl.closebrace
-			end)
-			:replace(function()
-				return ""
-			end)
-		t:selectFromRoot(node :: any, utils.isExprTable)
-			:map(function(tbl: luau.AstExprTable)
-				return tbl.openbrace
-			end)
-			:replace(function()
-				return ""
-			end)
+		local arg = node.arguments[1].node
+		t.replacements[arg :: any] = `table.unpack({printer.printnode(arg :: any)})`
 	end,
 }
 

@@ -25,7 +25,7 @@ local result = sameLibrary.arrayFunc({1, 2, 3})
 		expected = [[
 local sameLibrary = require(packagesRoot.sameLibrary)
 
-local result = sameLibrary.processArray(1, 2, 3)
+local result = sameLibrary.processArray(table.unpack({1, 2, 3}))
 ]],
 	},
 	-- Test 3: Multiple function calls with renames and type changes
@@ -41,7 +41,7 @@ local c = sameLibrary.stringFunc("hello")
 local sameLibrary = require(packagesRoot.sameLibrary)
 
 local a = sameLibrary.processNumber(42)
-local b = sameLibrary.processArray(10, 20, 30)
+local b = sameLibrary.processArray(table.unpack({10, 20, 30}))
 local c = sameLibrary.handleText("hello")
 ]],
 	},
@@ -58,19 +58,4 @@ local sameLibrary = require(packagesRoot.sameLibrary)
 local result = sameLibrary.processNumber(sameLibrary.retrieveCount())
 ]],
 	},
-	-- 	-- Test 5: Function calls with table arguments that need type conversion
-	-- 	{
-	-- 		initial = [[
-	-- local sameLibrary = require(packagesRoot.sameLibrary)
-
-	-- local data = {x = 1, y = 2}
-	-- local result = sameLibrary.processData(data)
-	-- ]],
-	-- 		expected = [[
-	-- local sameLibrary = require(packagesRoot.sameLibrary)
-
-	-- local data = {x = "1", y = "2"}
-	-- local result = sameLibrary.handleData(data)
-	-- ]],
-	-- },
 } :: { Case }

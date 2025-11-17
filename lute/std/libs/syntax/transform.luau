@@ -1,3 +1,4 @@
+local luau = require("@lute/luau")
 local query = require("@std/syntax/query")
 local types = require("@std/syntax/types")
 local tableext = require("@std/tableext")
