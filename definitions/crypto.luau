@@ -26,7 +26,7 @@ function crypto.secretbox.keygen(): buffer
 	error("not implemented")
 end
 
-function crypto.secretbox.seal(message: string | buffer): secretbox
+function crypto.secretbox.seal(message: string | buffer, key: buffer?): secretbox
 	error("not implemented")
 end
 
