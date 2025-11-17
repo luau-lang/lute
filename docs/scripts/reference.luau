@@ -17,8 +17,8 @@ local STDLIB_MODULE_ALIASES = {
 	syntax = "syntaxlib",
 }
 
-local singleLineCommentPattern = "^%s*%-%-%-?%s?(.*)$"
-local blockCommentStartPattern = "^%s*%-%-%[(=*)%["
+local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$"
+local blockCommentStartPattern = "^%s*%-%-%[(=+)%["
 local blankLinePattern = "^%s*$"
 
 -- extractPropertySignature: (this function runs on one line at a time so we need to keep some states for block comments)
@@ -62,7 +62,7 @@ local function extractPropertySignature(
 	-- 2) If we're inside a block, accumulate until we find the matching close
 	if inBlock then
 		local eq = blockEq or ""
-		-- find the closing pattern "]]", or "]=]" etc. that matches eq
+		-- find the closing pattern "]=]" that matches the # of "=" used in opening
 		local closingPattern = "%]" .. eq .. "%]"
 		local before = string.match(line, "^(.-)" .. closingPattern)
 		if before then
@@ -87,10 +87,10 @@ local function extractPropertySignature(
 		return nil, nil, nil, pendingDoc, inBlock, blockEq
 	end
 
-	-- 3) Single-line comment? (-- or ---)
-	local single = string.match(line, singleLineCommentPattern)
-	if single then
-		local txt = stringext.trim(single)
+	-- 3) Triple dash comment? (---)
+	local triple = string.match(line, tripleDashCommentPattern)
+	if triple then
+		local txt = stringext.trim(triple)
 		if txt ~= "" then
 			table.insert(pendingDoc, txt)
 		end
@@ -252,8 +252,8 @@ processDirectory(stdlibPath, stdlibReferencePath, stdlibPath, "std")
 
 -- Mock module in test/ for testing purposes
 
--- local testPath = path.join(process.cwd(), "test")
--- local testReferencePath = path.join(process.cwd(), "test")
--- processDirectory(testPath, testReferencePath, testPath, "test")
+local testPath = path.join(process.cwd(), "test")
+local testReferencePath = path.join(process.cwd(), "test")
+processDirectory(testPath, testReferencePath, testPath, "test")
 
 print("Reference documentation generation complete!")
