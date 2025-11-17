@@ -168,12 +168,8 @@ local function printVisitor(replacements: types.replacements?)
 		return false
 	end
 	printer.visitToken = function(node: types.Token)
-		if replacements ~= nil and replacements[node] then
-			return maybeReplace(node)
-		else
-			printer:printToken(node)
-			return false
-		end
+		printer:printToken(node)
+		return false
 	end
 	printer.visitString = function(node: types.AstExprConstantString)
 		printer:printString(node)
