@@ -3,25 +3,26 @@ local query = require("@std/syntax/query")
 local printer = require("@std/syntax/printer")
 local types = require("@std/syntax/types")
 local tableext = require("@std/tableext")
-type query<T> = query.query<T>
+export type query<T> = query.query<T>
 type node = types.AstNode
+type ParseResult = types.ParseResult
 
 local transform = {}
 transform.__index = transform
 
 export type TransformData = {
 	replacements: types.replacements,
-	__root: node,
+	__fileRoot: types.AstStatBlock,
 }
 
 export type transform = typeof(setmetatable({} :: TransformData, transform))
 
 -- transform is entry point for a codemod; exposes base tools you'll need
 
-function transform.new(fileRoot: node)
+function transform.new(fileRoot: types.AstStatBlock)
 	local self = {
 		replacements = {} :: types.replacements,
-		__root = fileRoot,
+		__fileRoot = fileRoot,
 	}
 
 	return setmetatable(self, transform)
@@ -39,8 +40,10 @@ function transform.selectFromRoot<T>(self: transform, ast: node, fn: (node) -> T
 	return q
 end
 
+transform.query = transform.selectFromRoot
+
 function transform.transform(self: transform): string
-	return printer.printnode(self.__root :: any, self.replacements)
+	return printer.printnode(self.__fileRoot :: any, self.replacements)
 end
 
 return table.freeze(transform)

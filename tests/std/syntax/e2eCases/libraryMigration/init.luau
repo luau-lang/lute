@@ -29,7 +29,6 @@ local function transformRequires(q: t.transform, block: luau.AstStatBlock): stri
 			return "new"
 		end)
 
-	-- change this step to get the local var in the statement
 	local oldLibVar = oldLibRequires.nodes[1].variables[1].node
 	local oldLibAlias
 	q:selectFromRoot(oldLibVar :: any, utils.isToken):replace(function(node: luau.Token)

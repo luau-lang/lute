@@ -21,8 +21,12 @@ local function styluaSrc(src: string): string
 	return fs.readfiletostring(file)
 end
 
+function trimLeadingTrailingWhitespace(src: string): string
+	return src:gsub("^%s+", ""):gsub("%s+$", "")
+end
+
 local function format(s: string): string
-	return styluaSrc(s)
+	return trimLeadingTrailingWhitespace(styluaSrc(s))
 end
 
 test.suite("Query and Transform e2e", function(suite)
