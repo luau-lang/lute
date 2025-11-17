@@ -12,7 +12,7 @@ LuteConfigResolver::LuteConfigResolver(Luau::Mode mode)
     defaultConfig.mode = mode;
 }
 
-const Luau::Config& LuteConfigResolver::getConfig(const Luau::ModuleName& name) const
+const Luau::Config& LuteConfigResolver::getConfig(const Luau::ModuleName& name, const TypeCheckLimits& limits) const
 {
     std::optional<std::string> path = getParentPath(name);
     if (!path)
