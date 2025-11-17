@@ -19,7 +19,7 @@ local STDLIB_MODULE_ALIASES = {
 
 local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$"
 local blockCommentStartPattern = "^%s*%-%-%[(=+)%["
-local blankLinePattern = "^%s*$"
+local whitespacePattern = "^%s*$"
 
 -- extractPropertySignature: (this function runs on one line at a time so we need to keep some states for block comments)
 -- module (module name)
@@ -120,7 +120,7 @@ local function extractPropertySignature(
 	end
 
 	-- 6) If we reach here and there's any non-whitespace (i.e., code), reset pendingDoc to clear old comments
-	if not string.match(line, blankLinePattern) then
+	if not string.match(line, whitespacePattern) then
 		pendingDoc = {}
 	end
 
