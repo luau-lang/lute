@@ -11,6 +11,10 @@ local STDLIB_MODULE_ALIASES = {
 	task = "tasklib",
 	path = "pathlib",
 	system = "systemlib",
+	visitor = "visitorlib",
+	query = "queryLib",
+	printer = "printerLib",
+	syntax = "syntaxlib",
 }
 
 local singleLineCommentPattern = "^%s*%-%-%-?%s?(.*)$"
