@@ -155,7 +155,9 @@ export type AstExprTableItemGeneral = {
 	separator: Token<"," | ";">?,
 }
 
-export type AstExprTableItem = AstExprTableItemList | AstExprTableItemRecord | AstExprTableItemGeneral
+export type AstExprTableItem =
+	{ istableitem: true }
+	& (AstExprTableItemList | AstExprTableItemRecord | AstExprTableItemGeneral)
 
 export type AstExprTable = {
 	kind: "expr",

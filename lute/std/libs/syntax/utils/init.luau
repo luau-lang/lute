@@ -59,7 +59,7 @@ function utils.isExprTable(n: types.AstNode): types.AstExprTable?
 end
 
 function utils.isExprTableItem(n: types.AstNode): types.AstExprTableItem?
-	return if n.kind == "list" or n.kind == "record" or n.kind == "general" then n else nil
+	return if n.istableitem then n else nil
 end
 
 function utils.isExprUnary(n: types.AstNode): types.AstExprUnary?
