@@ -40,10 +40,39 @@ function tableext.fold<K, V, A>(table: { [K]: V }, f: (A, V) -> A, initial: A): 
 	return acc
 end
 
-function tableext.extend<T>(tbl: array<T>, other: array<T>)
-	for _, entry in other do
-		table.insert(tbl, entry)
+function tableext.extend<T>(tbl: array<T>, ...: array<T>)
+	local extensions = table.pack(...)
+	extensions.n = nil :: any
+	for _, extension in extensions do
+		for _, entry in extension do
+			table.insert(tbl, entry)
+		end
 	end
+end
+
+function tableext.combine<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
+	local tables = table.pack(...)
+	tables.n = nil :: any
+	for _, tocombine in tables do
+		for key, val in tocombine do
+			tbl[key] = val
+		end
+	end
+	return tbl
+end
+
+function tableext.foreach<K, V>(tbl: { [K]: V }, f: (K, V) -> ())
+	for k, v in tbl do
+		f(k, v)
+	end
+end
+
+function tableext.keys<K, V>(tbl: { [K]: V }): { K }
+	local keys = {}
+	for k, _ in tbl do
+		table.insert(keys, k)
+	end
+	return keys
 end
 
 return table.freeze(tableext)
