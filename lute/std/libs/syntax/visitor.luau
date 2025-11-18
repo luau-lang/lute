@@ -999,6 +999,8 @@ local function visit(node: types.AstNode, visitor: Visitor)
 		visitLocal(node, visitor)
 	elseif node.kind == "attribute" then
 		visitAttribute(node, visitor)
+	elseif node.istoken then
+		visitToken(node, visitor)
 	else
 		exhaustiveMatch(node.kind)
 	end
