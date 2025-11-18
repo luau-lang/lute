@@ -2,10 +2,10 @@ local luau = {}
 
 -- this is a userdata, not a table, but it has this interface
 export type span = {
-    beginline: number,
-    begincolumn: number,
-    endline: number,
-    endcolumn: number,
+	beginline: number,
+	begincolumn: number,
+	endline: number,
+	endcolumn: number,
 }
 
 export type Whitespace = {
