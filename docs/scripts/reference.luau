@@ -21,6 +21,15 @@ local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$"
 local blockCommentStartPattern = "^%s*%-%-%[(=+)%["
 local whitespacePattern = "^%s*$"
 
+type PropertySignature = {
+	name: string?,
+	signature: string?,
+	doc: string?,
+	pendingDoc: { string },
+	inBlock: boolean,
+	blockEq: string?,
+}
+
 -- extractPropertySignature: (this function runs on one line at a time so we need to keep some states for block comments)
 -- module (module name)
 -- line (current line)
@@ -33,14 +42,7 @@ local function extractPropertySignature(
 	pendingDoc: { string },
 	inBlock: boolean,
 	blockEq: string?
-): {
-	name: string?,
-	signature: string?,
-	doc: string?,
-	pendingDoc: { string },
-	inBlock: boolean,
-	blockEq: string?,
-}
+): PropertySignature
 	-- 1) If we're *not* in a block, detect block start that may include = signs:
 	if not inBlock then
 		local eq = string.match(line, blockCommentStartPattern)
@@ -55,9 +57,6 @@ local function extractPropertySignature(
 			end
 
 			return {
-				name = nil,
-				signature = nil,
-				doc = nil,
 				pendingDoc = pendingDoc,
 				inBlock = true,
 				blockEq = eq, -- remember the = count for closing pattern
@@ -91,9 +90,6 @@ local function extractPropertySignature(
 		end
 
 		return {
-			name = nil,
-			signature = nil,
-			doc = nil,
 			pendingDoc = pendingDoc,
 			inBlock = inBlock,
 			blockEq = blockEq,
@@ -108,9 +104,6 @@ local function extractPropertySignature(
 			table.insert(pendingDoc, txt)
 		end
 		return {
-			name = nil,
-			signature = nil,
-			doc = nil,
 			pendingDoc = pendingDoc,
 			inBlock = inBlock,
 			blockEq = blockEq,
@@ -123,7 +116,7 @@ local function extractPropertySignature(
 		return {
 			name = propName,
 			signature = propType,
-			doc = (#pendingDoc > 0) and table.concat(pendingDoc, "\n\n") or nil,
+			doc = if #pendingDoc > 0 then table.concat(pendingDoc, "\n\n") else nil,
 			pendingDoc = {},
 			inBlock = inBlock,
 			blockEq = blockEq,
@@ -140,7 +133,7 @@ local function extractPropertySignature(
 		return {
 			name = fullName,
 			signature = `{params} -> {returnType}`,
-			doc = (#pendingDoc > 0) and table.concat(pendingDoc, "\n\n") or nil,
+			doc = if #pendingDoc > 0 then table.concat(pendingDoc, "\n\n") else nil,
 			pendingDoc = {},
 			inBlock = inBlock,
 			blockEq = blockEq,
@@ -154,9 +147,6 @@ local function extractPropertySignature(
 
 	-- nothing found on this line
 	return {
-		name = nil,
-		signature = nil,
-		doc = nil,
 		pendingDoc = pendingDoc,
 		inBlock = inBlock,
 		blockEq = blockEq,
@@ -219,18 +209,18 @@ local function parseModule(
 	local blockEq = nil
 
 	for _, line in lines do
-		local res = extractPropertySignature(tostring(module), line, pendingDoc, inBlock, blockEq)
+		local ps = extractPropertySignature(tostring(module), line, pendingDoc, inBlock, blockEq)
 
 		-- update state carried across lines
-		pendingDoc = res.pendingDoc
-		inBlock = res.inBlock
-		blockEq = res.blockEq
+		pendingDoc = ps.pendingDoc
+		inBlock = ps.inBlock
+		blockEq = ps.blockEq
 
-		if res.name and res.signature then
+		if ps.name and ps.signature then
 			table.insert(moduleDefinitions, {
-				name = res.name,
-				signature = res.signature,
-				doc = res.doc,
+				name = ps.name,
+				signature = ps.signature,
+				doc = ps.doc,
 			})
 		end
 	end
