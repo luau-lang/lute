@@ -113,6 +113,22 @@ test.suite("syntax_printer", function(suite)
 		end, assert)
 	end)
 
+	suite:case("expr_table_item_replacement", function(assert)
+		local source = "local tbl = { a = 1, }"
+		local expected = "local tbl = { b = 2, }"
+
+		checkReplacement(source, expected, function(ast)
+			return query
+				.findallfromroot(ast, syntaxUtils.isExprTable)
+				:map(function(node)
+					return node.entries[1]
+				end)
+				:replace(function(entry)
+					return "b = 2,"
+				end)
+		end, assert)
+	end)
+
 	suite:case("exprgroup_trivia", function(assert)
 		local source = [[local x =
 (1 + 2) -- after]]
