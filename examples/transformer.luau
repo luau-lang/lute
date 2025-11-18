@@ -21,7 +21,7 @@ local function transformation(ctx)
 		local operand: syntax.AstExprLocal = node.lhsoperand
 		operand.token.leadingtrivia = {}
 		operand.token.trailingtrivia = {}
-		local location: syntax.span = operand.token.location
+		local location: syntax.span = operand.token.location;
 
 		-- transform node into an AstExprCall
 		(node :: any).operator = nil
@@ -30,20 +30,28 @@ local function transformation(ctx)
 
 		((node :: any) :: syntax.AstExprCall).tag = "call"
 
-		local func: syntax.AstExpr = {
-			tag = "global",
-			name = {
-				leadingtrivia = {},
-				location = location,
-				text = "math.isnan",
-				trailingtrivia = {},
-			},
+		local func: syntax.AstExprGlobal = {
+    		kind = "expr",
+    		tag = "global",
+    		name = {
+     			istoken = true,
+     			leadingtrivia = {},
+    			location = location,
+    			text = "math.isnan",
+    			trailingtrivia = {},
+    		},
 		}
 		((node :: any) :: syntax.AstExprCall).func = func
 
 		local openparens: syntax.Token<"("> = {
+		    istoken = true,
 			leadingtrivia = {},
-			location = location, --  + #"math.isnan", we want to move this span, we should probably have `span:advance()` or something
+			location = syntax.span.create {
+                beginline = location.beginline,
+				begincolumn = location.begincolumn + #"math.isnan",
+				endline = location.endline,
+				endcolumn = location.endcolumn + #"math.isnan" + 1,
+			},
 			text = "(",
 			trailingtrivia = {},
 		}
@@ -53,10 +61,13 @@ local function transformation(ctx)
 		((node :: any) :: syntax.AstExprCall).arguments = arguments
 
 		local closeparens: syntax.Token<")"> = {
+		    istoken = true,
 			leadingtrivia = {},
-			position = {
-				line = openingPosition.line,
-				column = openingPosition.column + #"math.isnan(" + #operand.token.text,
+			location = syntax.span.create {
+			    beginline = location.beginline,
+				begincolumn = location.begincolumn + #"math.isnan(" + #operand.token.text,
+				endline = location.endline,
+				endcolumn = location.endcolumn + #"math.isnan(" + #operand.token.text + 1,
 			},
 			text = ")",
 			trailingtrivia = {},
@@ -65,9 +76,12 @@ local function transformation(ctx)
 
 		((node :: any) :: syntax.AstExprCall).self = false
 
-		local newBeginColumn = location.begincolumn + #"math.isnan("
-		local newEndColumn = location.endcolumn + #"math.isnan(" + #operand.token.text
-		local argLocation: syntax.span = syntax.span.create(location.beginline, newBeginColumn, location.endline, newEndColumn)
+		local argLocation: syntax.span = syntax.span.create {
+		    beginline = location.beginline,
+			begincolumn = location.begincolumn + #"math.isnan(",
+			endline = location.endline,
+			endcolumn = location.begincolumn + #"math.isnan(" + #operand.token.text,
+		};
 		((node :: any) :: syntax.AstExprCall).argLocation = argLocation
 
 		return false

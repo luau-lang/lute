@@ -132,13 +132,19 @@ struct Span
 static int createSpan(lua_State* L)
 {
     int argumentCount = lua_gettop(L);
-    if (argumentCount != 4)
-        luaL_error(L, "%s: expected 4 arguments, but got %d", kSpanCreateName, argumentCount);
+    if (argumentCount != 1)
+        luaL_error(L, "%s: expected 1 argument, but got %d", kSpanCreateName, argumentCount);
 
-    double beginline = luaL_checknumber(L, 1);
-    double begincolumn = luaL_checknumber(L, 2);
-    double endline = luaL_checknumber(L, 3);
-    double endcolumn = luaL_checknumber(L, 4);
+    // read all three of the required fields out of the table
+    lua_getfield(L, 1, "beginline");
+    lua_getfield(L, 1, "begincolumn");
+    lua_getfield(L, 1, "endline");
+    lua_getfield(L, 1, "endcolumn");
+
+    double beginline = luaL_checknumber(L, 2);
+    double begincolumn = luaL_checknumber(L, 3);
+    double endline = luaL_checknumber(L, 4);
+    double endcolumn = luaL_checknumber(L, 5);
 
     Span* span = static_cast<Span*>(lua_newuserdatatagged(L, sizeof(Span), kSpanTag));
 

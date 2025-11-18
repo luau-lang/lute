@@ -1,7 +1,15 @@
 local parser = require("@self/parser")
 local types = require("@self/types")
 
+local luau = require("@lute/luau")
+
 export type span = types.span
+
+local span = table.freeze({
+    create = function (tbl: { beginline: number, begincolumn: number, endline: number, endcolumn: number }): span
+        return luau.span.create(tbl)
+    end
+})
 
 export type Whitespace = types.Whitespace
 export type SingleLineComment = types.SingleLineComment
@@ -158,4 +166,4 @@ export type AstNode = types.AstNode
 
 export type ParseResult = types.ParseResult
 
-return table.freeze({ parseblock = parser.parseblock, parseexpr = parser.parseexpr, parse = parser.parse })
+return table.freeze({ parseblock = parser.parseblock, parseexpr = parser.parseexpr, parse = parser.parse, span = span })
