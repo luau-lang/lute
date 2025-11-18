@@ -368,10 +368,10 @@ struct AstSerialize : public Luau::AstVisitor
 
         Span* span = static_cast<Span*>(lua_newuserdatatagged(L, sizeof(Span), kSpanTag));
 
-        span->beginLine = location.begin.line;
-        span->beginColumn = location.begin.column;
-        span->endLine = location.end.line;
-        span->endColumn = location.end.column;
+        span->beginLine = location.begin.line + 1;
+        span->beginColumn = location.begin.column + 1;
+        span->endLine = location.end.line + 1;
+        span->endColumn = location.end.column + 1;
 
         luaL_getmetatable(L, kSpanType);
         lua_setmetatable(L, -2);
