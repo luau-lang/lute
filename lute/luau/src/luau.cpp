@@ -371,18 +371,24 @@ struct AstSerialize : public Luau::AstVisitor
 
         if (item.kind == Luau::AstExprTable::Item::List)
         {
-            lua_createtable(L, 0, 3);
+            lua_createtable(L, 0, 4);
             lua_pushstring(L, "list");
             lua_setfield(L, -2, "kind");
+
+            lua_pushboolean(L, 1);
+            lua_setfield(L, -2, "istableitem")
 
             visit(item.value);
             lua_setfield(L, -2, "value");
         }
         else if (item.kind == Luau::AstExprTable::Item::Record)
         {
-            lua_createtable(L, 0, 5);
+            lua_createtable(L, 0, 6);
             lua_pushstring(L, "record");
             lua_setfield(L, -2, "kind");
+
+            lua_pushboolean(L, 1);
+            lua_setfield(L, -2, "istableitem")
 
             const auto& value = item.key->as<Luau::AstExprConstantString>()->value;
             serializeToken(item.key->location.begin, std::string(value.data, value.size).data());
@@ -397,9 +403,12 @@ struct AstSerialize : public Luau::AstVisitor
         }
         else if (item.kind == Luau::AstExprTable::Item::General)
         {
-            lua_createtable(L, 0, 7);
+            lua_createtable(L, 0, 8);
             lua_pushstring(L, "general");
             lua_setfield(L, -2, "kind");
+
+            lua_pushboolean(L, 1);
+            lua_setfield(L, -2, "istableitem")
 
             LUAU_ASSERT(cstNode->indexerOpenPosition);
             serializeToken(*cstNode->indexerOpenPosition, "[");
