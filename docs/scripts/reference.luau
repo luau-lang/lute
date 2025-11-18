@@ -125,7 +125,6 @@ local function extractPropertySignature(
 
 	-- 5) Match function declarations like: function crypto.password.hash(password: string): buffer
 	local fullName, params, _return, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
-	-- print(module)
 	if fullName then
 		fullName = string.match(fullName, "^(.*)%b<>$") or fullName
 		returnType = if returnType == "" then "()" else returnType
