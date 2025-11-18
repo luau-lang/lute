@@ -11,10 +11,10 @@ local STDLIB_MODULE_ALIASES = {
 	task = "tasklib",
 	path = "pathlib",
 	system = "systemlib",
+	trivia = "retrieverLib",
 	visitor = "visitorlib",
 	query = "queryLib",
 	printer = "printerLib",
-	syntax = "syntaxlib",
 }
 
 local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$"
@@ -27,26 +27,25 @@ local whitespacePattern = "^%s*$"
 -- pendingDoc (accumulated doc lines so far)
 -- inBlock (are we currently inside a block comment?)
 -- blockEq (the "=" sequence used for block comment delimiting, e.g. "=" for --[=[  ; nil when not inside)
---
--- returns: name?, signature?, doc?, newPendingDoc, newInBlock, newBlockEq
 local function extractPropertySignature(
 	module: string,
 	line: string,
 	pendingDoc: { string },
 	inBlock: boolean,
 	blockEq: string?
-): (string?, string?, string?, { string }, boolean, string?)
-	local name, signature, doc = nil, nil, nil
-
+): {
+	name: string?,
+	signature: string?,
+	doc: string?,
+	pendingDoc: { string },
+	inBlock: boolean,
+	blockEq: string?,
+}
 	-- 1) If we're *not* in a block, detect block start that may include = signs:
 	if not inBlock then
 		local eq = string.match(line, blockCommentStartPattern)
 		if eq ~= nil then
-			-- start of block comment, capture any text after the opening on the same line
-			inBlock = true
-			blockEq = eq -- remember the = count for closing pattern
-
-			-- capture part after the opening delimiter, if any
+			-- start of block comment, capture part after the opening delimiter, if any
 			local after = string.match(line, "^%s*%-%-%[" .. eq .. "%[(.*)$")
 			if after then
 				after = stringext.trim(after)
@@ -55,7 +54,14 @@ local function extractPropertySignature(
 				end
 			end
 
-			return nil, nil, nil, pendingDoc, inBlock, blockEq
+			return {
+				name = nil,
+				signature = nil,
+				doc = nil,
+				pendingDoc = pendingDoc,
+				inBlock = true,
+				blockEq = eq, -- remember the = count for closing pattern
+			}
 		end
 	end
 
@@ -84,7 +90,14 @@ local function extractPropertySignature(
 			end
 		end
 
-		return nil, nil, nil, pendingDoc, inBlock, blockEq
+		return {
+			name = nil,
+			signature = nil,
+			doc = nil,
+			pendingDoc = pendingDoc,
+			inBlock = inBlock,
+			blockEq = blockEq,
+		}
 	end
 
 	-- 3) Triple dash comment? (---)
@@ -94,29 +107,44 @@ local function extractPropertySignature(
 		if txt ~= "" then
 			table.insert(pendingDoc, txt)
 		end
-		return nil, nil, nil, pendingDoc, inBlock, blockEq
+		return {
+			name = nil,
+			signature = nil,
+			doc = nil,
+			pendingDoc = pendingDoc,
+			inBlock = inBlock,
+			blockEq = blockEq,
+		}
 	end
 
 	-- 4) Match property declarations like: process.env = {} :: { [string]: string }
 	local propName, propType = string.match(line, `^{module}%.([%w_]+)%s*=%s*.-::%s*(.+)$`)
 	if propName and propType then
-		name = propName
-		signature = propType
-		doc = (#pendingDoc > 0) and table.concat(pendingDoc, "\n\n") or nil
-		pendingDoc = {}
-		return name, signature, doc, pendingDoc, inBlock, blockEq
+		return {
+			name = propName,
+			signature = propType,
+			doc = (#pendingDoc > 0) and table.concat(pendingDoc, "\n\n") or nil,
+			pendingDoc = {},
+			inBlock = inBlock,
+			blockEq = blockEq,
+		}
 	end
 
 	-- 5) Match function declarations like: function crypto.password.hash(password: string): buffer
 	local fullName, params, _return, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
+	-- print(module)
 	if fullName then
 		fullName = string.match(fullName, "^(.*)%b<>$") or fullName
 		returnType = if returnType == "" then "()" else returnType
-		name = fullName
-		signature = `{params} -> {returnType}`
-		doc = (#pendingDoc > 0) and table.concat(pendingDoc, "\n\n") or nil
-		pendingDoc = {}
-		return name, signature, doc, pendingDoc, inBlock, blockEq
+
+		return {
+			name = fullName,
+			signature = `{params} -> {returnType}`,
+			doc = (#pendingDoc > 0) and table.concat(pendingDoc, "\n\n") or nil,
+			pendingDoc = {},
+			inBlock = inBlock,
+			blockEq = blockEq,
+		}
 	end
 
 	-- 6) If we reach here and there's any non-whitespace (i.e., code), reset pendingDoc to clear old comments
@@ -125,7 +153,14 @@ local function extractPropertySignature(
 	end
 
 	-- nothing found on this line
-	return nil, nil, nil, pendingDoc, inBlock, blockEq
+	return {
+		name = nil,
+		signature = nil,
+		doc = nil,
+		pendingDoc = pendingDoc,
+		inBlock = inBlock,
+		blockEq = blockEq,
+	}
 end
 
 local function generateMarkdown(
@@ -184,15 +219,18 @@ local function parseModule(
 	local blockEq = nil
 
 	for _, line in lines do
-		local name, signature, doc
-		name, signature, doc, pendingDoc, inBlock, blockEq =
-			extractPropertySignature(tostring(module), line, pendingDoc, inBlock, blockEq)
+		local res = extractPropertySignature(tostring(module), line, pendingDoc, inBlock, blockEq)
 
-		if name and signature then
+		-- update state carried across lines
+		pendingDoc = res.pendingDoc
+		inBlock = res.inBlock
+		blockEq = res.blockEq
+
+		if res.name and res.signature then
 			table.insert(moduleDefinitions, {
-				name = name,
-				signature = signature,
-				doc = doc,
+				name = res.name,
+				signature = res.signature,
+				doc = res.doc,
 			})
 		end
 	end
@@ -227,12 +265,11 @@ local function processDirectory(
 
 			print(`Processing {moduleName}...`)
 
-			local definitions = parseModule(moduleName, entryPath)
-
 			if requireLibraryAlias == "std" then
 				moduleName = STDLIB_MODULE_ALIASES[moduleName] or moduleName
 			end
 
+			local definitions = parseModule(moduleName, entryPath)
 			local markdown = generateMarkdown(moduleName, definitions, entryPath, libraryPath, requireLibraryAlias)
 
 			fs.writestringtofile(documentationFilePath, markdown)
@@ -252,8 +289,8 @@ processDirectory(stdlibPath, stdlibReferencePath, stdlibPath, "std")
 
 -- Mock module in test/ for testing purposes
 
-local testPath = path.join(process.cwd(), "test")
-local testReferencePath = path.join(process.cwd(), "test")
-processDirectory(testPath, testReferencePath, testPath, "test")
+-- local testPath = path.join(process.cwd(), "test")
+-- local testReferencePath = path.join(process.cwd(), "test")
+-- processDirectory(testPath, testReferencePath, testPath, "test")
 
 print("Reference documentation generation complete!")
