@@ -3,7 +3,6 @@
 
 local triviaUtils = require("./utils/trivia")
 local types = require("./types")
-local utils = require("./utils")
 local visitor = require("./visitor")
 
 local printerLib = {}
@@ -39,6 +38,11 @@ local function printTriviaList(self: PrintVisitor, trivia: { types.Trivia })
 end
 
 local function printToken(self: PrintVisitor, token: types.Token)
+	if self.replacements[token] ~= nil then
+		self:printReplacement(token, self.replacements[token])
+		return
+	end
+
 	self:printTriviaList(token.leadingtrivia)
 	self:write(token.text)
 	self:printTriviaList(token.trailingtrivia)
@@ -69,6 +73,11 @@ local function printString(self: PrintVisitor, expr: types.AstExprConstantString
 end
 
 local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprInterpString)
+	if self.replacements[expr] ~= nil then
+		self:printReplacement(expr, self.replacements[expr])
+		return
+	end
+
 	for i = 1, #expr.strings do
 		self:printTriviaList(expr.strings[i].leadingtrivia)
 		if i == 1 then

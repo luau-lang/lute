@@ -2,6 +2,7 @@
 -- @std/syntax/query
 -- Provides utility functions for querying Luau AST nodes
 
+local tableext = require("@std/tableext")
 local types = require("./types")
 local visitor = require("./visitor")
 local utils = require("./utils")
@@ -13,8 +14,10 @@ export type query<T = node> = {
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
 	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
-	forEach: (self: query<T>, callback: (T) -> ()) -> (),
-} -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U> method
+	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
+	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
+	flatmap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
+}
 
 local queryLib = {}
 
@@ -53,16 +56,14 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 	return self
 end
 
-function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): query<T>
+function queryLib.foreach<T>(self: query<T>, callback: (T) -> ()): query<T>
 	for _, node in self.nodes do
 		callback(node)
 	end
 	return self
 end
 
-function queryLib.selectFromRoot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
-	local nodes: { T } = {}
-
+local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visitor
 	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
 		local selected = fn(n)
 		if selected ~= nil then
@@ -86,6 +87,40 @@ function queryLib.selectFromRoot<T>(ast: types.ParseResult | node, fn: (node) ->
 		return true
 	end
 
+	return selectVisitor
+end
+
+function queryLib.findall<T, U>(self: query<T>, fn: (node) -> U?): query<U>
+	local selectedNodes: { U } = {}
+
+	local selectVisitor = newSelectVisitor(selectedNodes, fn)
+
+	for _, node in self.nodes do
+		visitor.visit(node, selectVisitor)
+	end
+
+	self.nodes = selectedNodes
+
+	return self
+end
+
+function queryLib.flatmap<T, U>(self: query<T>, fn: (T) -> { U }): query<U>
+	local newNodes: { U } = {}
+	for _, node in self.nodes do
+		local mapped = fn(node)
+		if #mapped > 0 then
+			tableext.extend(newNodes, mapped)
+		end
+	end
+	self.nodes = newNodes
+	return self
+end
+
+function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
+	local nodes: { T } = {}
+
+	local selectVisitor = newSelectVisitor(nodes, fn)
+
 	local root: node = if ast.root ~= nil then ast.root else ast
 	visitor.visit(root, selectVisitor)
 
@@ -94,7 +129,9 @@ function queryLib.selectFromRoot<T>(ast: types.ParseResult | node, fn: (node) ->
 		filter = queryLib.filter,
 		replace = queryLib.replace,
 		map = queryLib.map,
-		forEach = queryLib.forEach,
+		foreach = queryLib.foreach,
+		findall = queryLib.findall,
+		flatmap = queryLib.flatmap,
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 
