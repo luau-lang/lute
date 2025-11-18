@@ -11,7 +11,7 @@ export type span = {
 luau.span = {}
 
 function luau.span.create(tbl: { beginline: number, begincolumn: number, endline: number, endcolumn: number }): span
-    error("not implemented")
+	error("not implemented")
 end
 
 export type Whitespace = {
@@ -589,8 +589,6 @@ export type ParseResult = {
 	lines: number,
 	lineoffsets: { number },
 }
-
-
 
 function luau.parse(source: string): ParseResult
 	error("not implemented")
