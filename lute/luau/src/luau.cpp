@@ -376,7 +376,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "kind");
 
             lua_pushboolean(L, 1);
-            lua_setfield(L, -2, "istableitem")
+            lua_setfield(L, -2, "istableitem");
 
             visit(item.value);
             lua_setfield(L, -2, "value");
@@ -388,7 +388,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "kind");
 
             lua_pushboolean(L, 1);
-            lua_setfield(L, -2, "istableitem")
+            lua_setfield(L, -2, "istableitem");
 
             const auto& value = item.key->as<Luau::AstExprConstantString>()->value;
             serializeToken(item.key->location.begin, std::string(value.data, value.size).data());
@@ -408,7 +408,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "kind");
 
             lua_pushboolean(L, 1);
-            lua_setfield(L, -2, "istableitem")
+            lua_setfield(L, -2, "istableitem");
 
             LUAU_ASSERT(cstNode->indexerOpenPosition);
             serializeToken(*cstNode->indexerOpenPosition, "[");
