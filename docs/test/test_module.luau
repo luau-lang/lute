@@ -9,7 +9,7 @@ test_module.property["EXAMPLE_VAR"] = "value"
 
 --- Simple function with triple dashes comment that returns hello
 function test_module.triple_dash(name: string): string
-	return "Hello!"
+	return `Hello, {name}!`
 end
 
 --- Multiple triple-dash comments (---) above function declaration
