@@ -61,9 +61,9 @@ function tableext.combine<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
 	return tbl
 end
 
-function tableext.foreach<K, V>(tbl: { [K]: V }, callback: (K, V) -> ())
+function tableext.foreach<K, V>(tbl: { [K]: V }, f: (K, V) -> ())
 	for k, v in tbl do
-		callback(k, v)
+		f(k, v)
 	end
 end
 
