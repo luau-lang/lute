@@ -6,7 +6,7 @@ local luau = require("@lute/luau")
 export type span = types.span
 
 local span = table.freeze({
-	create = luau.span.create
+	create = luau.span.create,
 })
 
 export type Whitespace = types.Whitespace
