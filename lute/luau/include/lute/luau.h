@@ -15,7 +15,7 @@ namespace luau
 
 static const char kSpanType[] = "span";
 static const char kCompileResultType[] = "CompileResult";
-static const char kSpanCreateName[] = "spanCreate";
+static const char kSpanCreateName[] = "span.create";
 
 int luau_parse(lua_State* L);
 
