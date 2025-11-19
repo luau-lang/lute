@@ -54,7 +54,7 @@ jobs:
           set _errorFlag=0
           for /r tests %%f in (*.test.luau) do (
             "${{ steps.build_lute.outputs.exe_path }}" run "%%f"
-            if ERRORLEVEL 1 set _errorFlag=1
+            echo error level: %errorlevel%
           )
           if !_errorFlag! equ 1 exit /b 1
 
