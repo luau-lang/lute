@@ -13,11 +13,11 @@ function retrieverLib.leftmosttrivia(n: types.AstNode): { types.Trivia }
 	for _, token in q.nodes do
 		if leftmostToken == nil then
 			leftmostToken = token
-		elseif token.position.line < leftmostToken.position.line then
+		elseif token.location.beginline < leftmostToken.location.beginline then
 			leftmostToken = token
 		elseif
-			token.position.line == leftmostToken.position.line
-			and token.position.column < leftmostToken.position.column
+			token.location.beginline == leftmostToken.location.beginline
+			and token.location.begincolumn < leftmostToken.location.begincolumn
 		then
 			leftmostToken = token
 		end
@@ -36,11 +36,11 @@ function retrieverLib.rightmosttrivia(n: types.AstNode): { types.Trivia }
 	for _, token in q.nodes do
 		if rightmostToken == nil then
 			rightmostToken = token
-		elseif token.position.line > rightmostToken.position.line then
+		elseif token.location.beginline > rightmostToken.location.beginline then
 			rightmostToken = token
 		elseif
-			token.position.line == rightmostToken.position.line
-			and token.position.column > rightmostToken.position.column
+			token.location.beginline == rightmostToken.location.beginline
+			and token.location.begincolumn > rightmostToken.location.begincolumn
 		then
 			rightmostToken = token
 		end

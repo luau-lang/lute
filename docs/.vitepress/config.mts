@@ -9,7 +9,7 @@ export default withSidebar(
     themeConfig: {
       nav: [
         { text: 'Guide', link: '/guide/installation' },
-        { text: 'Reference', link: '/reference/definitions/crypto' },
+        { text: 'Reference', link: '/reference/lute/crypto' },
       ],
       search: { provider: 'local' },
       socialLinks: [
@@ -25,5 +25,6 @@ export default withSidebar(
     hyphenToSpace: true,
     underscoreToSpace: true,
     sortMenusByName: true,
+    excludeByGlobPattern: ['**/test/**'],
   }
 )

@@ -254,11 +254,11 @@ local function processDirectory(
 
 			print(`Processing {moduleName}...`)
 
-			if requireLibraryAlias == "std" then
-				moduleName = STDLIB_MODULE_ALIASES[moduleName] or moduleName
-			end
+			local moduleAlias = if requireLibraryAlias == "std"
+				then STDLIB_MODULE_ALIASES[moduleName] or moduleName
+				else moduleName
 
-			local definitions = parseModule(moduleName, entryPath)
+			local definitions = parseModule(moduleAlias, entryPath)
 			local markdown = generateMarkdown(moduleName, definitions, entryPath, libraryPath, requireLibraryAlias)
 
 			fs.writestringtofile(documentationFilePath, markdown)
@@ -269,7 +269,7 @@ local function processDirectory(
 end
 
 local definitionsPath = path.join(process.cwd(), "..", "definitions")
-local referencePath = path.join(process.cwd(), "reference", "definitions")
+local referencePath = path.join(process.cwd(), "reference", "lute")
 processDirectory(definitionsPath, referencePath, definitionsPath, "lute")
 
 local stdlibPath = path.join(process.cwd(), "..", "lute", "std", "libs")

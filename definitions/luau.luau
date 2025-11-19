@@ -1,30 +1,34 @@
 local luau = {}
 
-export type Position = {
-	line: number,
-	column: number,
+-- this is a userdata, not a table, but it has this interface
+export type span = {
+	beginline: number,
+	begincolumn: number,
+	endline: number,
+	endcolumn: number,
 }
 
-export type Location = {
-	begin: Position,
-	["end"]: Position, -- TODO: do we really want to have to use brackets everywhere?
-}
+luau.span = {}
+
+function luau.span.create(tbl: { beginline: number, begincolumn: number, endline: number, endcolumn: number }): span
+	error("not implemented")
+end
 
 export type Whitespace = {
 	tag: "whitespace",
-	location: Location,
+	location: span,
 	text: string,
 }
 
 export type SingleLineComment = {
 	tag: "comment",
-	location: Location,
+	location: span,
 	text: string,
 }
 
 export type MultiLineComment = {
 	tag: "blockcomment",
-	location: Location,
+	location: span,
 	text: string,
 	-- TODO: depth: number,
 }
@@ -33,7 +37,7 @@ export type Trivia = Whitespace | SingleLineComment | MultiLineComment
 
 export type Token<Kind = string> = {
 	leadingtrivia: { Trivia },
-	position: Position,
+	location: span,
 	text: Kind,
 	trailingtrivia: { Trivia },
 	istoken: true,
@@ -86,7 +90,7 @@ export type AstExprCall = {
 	arguments: Punctuated<AstExpr>,
 	closeparens: Token<")">?,
 	self: boolean,
-	argLocation: Location,
+	argLocation: span,
 }
 
 export type AstExprIndexName = {
@@ -95,7 +99,7 @@ export type AstExprIndexName = {
 	expression: AstExpr,
 	accessor: Token<"." | ":">,
 	index: Token<string>,
-	indexlocation: Location,
+	indexlocation: span,
 }
 
 export type AstExprIndexExpr = {
@@ -135,7 +139,7 @@ export type AstExprAnonymousFunction = {
 }
 
 -- helper types for items contained in an AstExprTable, not actually AstExprs themselves
-export type AstExprTableItemList = { kind: "list", value: AstExpr, separator: Token<"," | ";">? }
+export type AstExprTableItemList = { kind: "list", value: AstExpr, separator: Token<"," | ";">?, istableitem: true }
 
 export type AstExprTableItemRecord = {
 	kind: "record",
@@ -143,6 +147,7 @@ export type AstExprTableItemRecord = {
 	equals: Token<"=">,
 	value: AstExpr,
 	separator: Token<"," | ";">?,
+	istableitem: true,
 }
 
 export type AstExprTableItemGeneral = {
@@ -153,6 +158,7 @@ export type AstExprTableItemGeneral = {
 	equals: Token<"=">,
 	value: AstExpr,
 	separator: Token<"," | ";">?,
+	istableitem: true,
 }
 
 export type AstExprTableItem = AstExprTableItemList | AstExprTableItemRecord | AstExprTableItemGeneral
@@ -577,7 +583,7 @@ export type AstTypePackVariadic = {
 
 export type AstTypePack = { kind: "typepack" } & (AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic)
 
-export type AstNode = { location: Location? } & (AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute)
+export type AstNode = { location: span? } & (AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute)
 
 export type ParseResult = {
 	root: AstStatBlock,
