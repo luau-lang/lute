@@ -57,6 +57,8 @@ local x = 1 / 0
 		local result = process.run({ lutePath, "lint", rule, violatorPath })
 
 		-- Check
+		print("STDOUT:\n", result.stdout)
+		print("STDERR:\n", result.stderr)
 		assert.eq(result.exitcode, 0)
 
 		assert.neq(result.stdout:find("warning[divide_by_zero]: Division by zero detected.", 1, true), nil)
