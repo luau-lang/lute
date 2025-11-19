@@ -269,7 +269,7 @@ local function processDirectory(
 end
 
 local definitionsPath = path.join(process.cwd(), "..", "definitions")
-local referencePath = path.join(process.cwd(), "reference", "definitions")
+local referencePath = path.join(process.cwd(), "reference", "lute")
 processDirectory(definitionsPath, referencePath, definitionsPath, "lute")
 
 local stdlibPath = path.join(process.cwd(), "..", "lute", "std", "libs")
