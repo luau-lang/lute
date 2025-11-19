@@ -25,5 +25,6 @@ export default withSidebar(
     hyphenToSpace: true,
     underscoreToSpace: true,
     sortMenusByName: true,
+    excludeByGlobPattern: ['**/test/**'],
   }
 )

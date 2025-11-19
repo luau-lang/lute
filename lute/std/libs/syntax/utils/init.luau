@@ -58,6 +58,10 @@ function utils.isExprTable(n: types.AstNode): types.AstExprTable?
 	return if n.kind == "expr" and n.tag == "table" then n else nil
 end
 
+function utils.isExprTableItem(n: types.AstNode): types.AstExprTableItem?
+	return if n.istableitem then n else nil
+end
+
 function utils.isExprUnary(n: types.AstNode): types.AstExprUnary?
 	return if n.kind == "expr" and n.tag == "unary" then n else nil
 end

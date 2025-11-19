@@ -1001,6 +1001,8 @@ local function visit(node: types.AstNode, visitor: Visitor)
 		visitAttribute(node, visitor)
 	elseif node.istoken then
 		visitToken(node, visitor)
+	elseif node.istableitem then
+		visitTableItem(node, visitor)
 	else
 		exhaustiveMatch(node.kind)
 	end
