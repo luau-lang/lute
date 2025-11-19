@@ -10,6 +10,15 @@ export type span = {
 
 luau.span = {}
 
+span.create(1, 2, 3, 4)
+
+span.create {
+    beginline = 1,
+    begincolumn = 2,
+    endline = 3,
+    endcolumn = 4,
+}
+
 function luau.span.create(tbl: { beginline: number, begincolumn: number, endline: number, endcolumn: number }): span
 	error("not implemented")
 end

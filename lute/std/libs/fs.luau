@@ -10,9 +10,13 @@ local sys = require("@std/system")
 local fslib = {}
 
 export type handlemode = fs.HandleMode
+-- file
 export type filehandle = fs.FileHandle
+-- typ
 export type filetype = fs.FileType
+-- metadata
 export type filemetadata = fs.FileMetadata
+-- item ?
 export type directoryentry = fs.DirectoryEntry
 export type watchhandle = fs.WatchHandle
 export type watchevent = fs.WatchEvent
@@ -50,6 +54,7 @@ function fslib.remove(path: pathlike): ()
 	return fs.remove(pathlib.format(path))
 end
 
+-- stat is not a good name
 function fslib.stat(path: pathlike): filemetadata
 	return fs.stat(pathlib.format(path))
 end
@@ -62,10 +67,13 @@ function fslib.link(src: pathlike, dest: pathlike): ()
 	return fs.link(pathlib.format(src), pathlib.format(dest))
 end
 
+-- symboliclink
 function fslib.symlink(src: pathlike, dest: pathlike): ()
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 
+-- fs watch callback is kinda shit
+-- ideally, we'd have a generator and this would be on a task when you want to do it cooperatively
 function fslib.watch(path: pathlike, callback: (filename: pathlike, event: watchevent) -> ()): watchhandle
 	return fs.watch(pathlib.format(path), callback)
 end
@@ -78,12 +86,9 @@ function fslib.copy(src: pathlike, dest: pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
+-- listdirectory
 function fslib.listdir(path: pathlike): { directoryentry }
 	return fs.listdir(pathlib.format(path))
-end
-
-function fslib.rmdir(path: pathlike): ()
-	return fs.rmdir(pathlib.format(path))
 end
 
 function fslib.readfiletostring(filepath: pathlike): string
@@ -92,10 +97,6 @@ end
 
 function fslib.writestringtofile(filepath: pathlike, contents: string): ()
 	return fs.writestringtofile(pathlib.format(filepath), contents)
-end
-
-function fslib.readasync(filepath: pathlike): string
-	return fs.readasync(pathlib.format(filepath))
 end
 
 function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?): ()

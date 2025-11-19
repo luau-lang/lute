@@ -5,9 +5,6 @@
 
 local tableext = {}
 
-export type array<T> = { T }
-export type dictionary<T> = { [string]: T }
-
 function tableext.map<K, A, B>(table: { [K]: A }, f: (A) -> B): { [K]: B }
 	local new = {}
 
@@ -30,17 +27,7 @@ function tableext.filter<K, V>(table: { [K]: V }, predicate: (V) -> boolean): { 
 	return new
 end
 
-function tableext.fold<K, V, A>(table: { [K]: V }, f: (A, V) -> A, initial: A): A
-	local acc = initial
-
-	for _, v in table do
-		acc = f(acc, v)
-	end
-
-	return acc
-end
-
-function tableext.extend<T>(tbl: array<T>, ...: array<T>)
+function tableext.extend<T>(tbl: {T}, ...: {T}): ()
 	local extensions = table.pack(...)
 	extensions.n = nil :: any
 	for _, extension in extensions do
@@ -61,13 +48,7 @@ function tableext.combine<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
 	return tbl
 end
 
-function tableext.foreach<K, V>(tbl: { [K]: V }, f: (K, V) -> ())
-	for k, v in tbl do
-		f(k, v)
-	end
-end
-
-function tableext.keys<K, V>(tbl: { [K]: V }): { K }
+function tableext.keys<K, V>(tbl: { [K]: V }): {K}
 	local keys = {}
 	for k, _ in tbl do
 		table.insert(keys, k)
