@@ -16,7 +16,6 @@ export default withSidebar(
         { icon: 'github', link: 'https://github.com/luau-lang/lute' },
       ],
     },
-    srcExclude: ['/test/**' ],
   }),
   {
     // ============ [ SIDEBAR OPTIONS ] ============
@@ -26,5 +25,6 @@ export default withSidebar(
     hyphenToSpace: true,
     underscoreToSpace: true,
     sortMenusByName: true,
+    excludeByGlobPattern: ['**/test/**'],
   }
 )
