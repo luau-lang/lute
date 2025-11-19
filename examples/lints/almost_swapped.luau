@@ -78,7 +78,12 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintType
 			if compFuncs.refExprsSame(currVar, nextVal) and compFuncs.refExprsSame(nextVar, currVal) then
 				table.insert(violations, { -- LUAUFIX: severity isn't inferred as a singleton, so table.insert is mad
 					lintname = name,
-					location = { begin = currStat.location.begin, ["end"] = nextStat.location["end"] },
+					location = syntax.span.create({
+						beginline = currStat.location.beginline,
+						begincolumn = currStat.location.begincolumn,
+						endline = nextStat.location.endline,
+						endcolumn = nextStat.location.endcolumn,
+					}),
 					message = message,
 					severity = "warning",
 					sourcepath = sourcepath,

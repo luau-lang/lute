@@ -6,20 +6,17 @@ local printerLib = {}
 local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 	print(`{lint.severity}[{lint.lintname}]: {lint.message}\n`)
 
-	local location = {
-		begin = { line = lint.location.begin.line + 1, column = lint.location.begin.column + 1 },
-		["end"] = { line = lint.location["end"].line + 1, column = lint.location["end"].column + 1 },
-	}
+	local location = lint.location
 	local filepath = path.format(lint.sourcepath)
 
-	if location.begin.line == location["end"].line then
-		local gutterSize = math.floor(math.log10(location["end"].line)) + 3 -- + 2 for padding around line number
+	if location.beginline == location.endline then
+		local gutterSize = math.floor(math.log10(location.endline)) + 3 -- + 2 for padding around line number
 		local blankGutter = string.rep(" ", gutterSize)
 
-		local sourceLine = ` {location.begin.line} │ {sourceLines[location.begin.line]}`
+		local sourceLine = ` {location.beginline} │ {sourceLines[location.beginline]}`
 
 		local filepathLine =
-			`{blankGutter}┌── {filepath}:{location.begin.line}:{location.begin.column}-{location["end"].column} ──`
+			`{blankGutter}┌── {filepath}:{location.beginline}:{location.begincolumn}-{location.endcolumn} ──`
 		if #filepathLine < #sourceLine then
 			filepathLine ..= string.rep("─", #sourceLine - #filepathLine)
 		end
@@ -28,26 +25,26 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 		print(`{blankGutter}│`)
 		print(sourceLine)
 		print(
-			`{blankGutter}│ {string.rep(" ", location.begin.column - 1)}{string.rep(
+			`{blankGutter}│ {string.rep(" ", location.begincolumn - 1)}{string.rep(
 				"^",
-				location["end"].column - location.begin.column
+				location.endcolumn - location.begincolumn
 			)}`
 		)
 		print(`{blankGutter}│`)
 		print()
 	else
-		local gutterSize = math.floor(math.log10(location["end"].line)) + 3 -- + 2 for padding around line number
+		local gutterSize = math.floor(math.log10(location.endline)) + 3 -- + 2 for padding around line number
 		local blankGutter = string.rep(" ", gutterSize)
 
-		local renderedSourceLines = { ` {location.begin.line} │ ╭ {sourceLines[location.begin.line]}` }
+		local renderedSourceLines = { ` {location.beginline} │ ╭ {sourceLines[location.beginline]}` }
 		local maxSourceLineLength = #renderedSourceLines[1]
-		for lineNum = location.begin.line + 1, location["end"].line do
+		for lineNum = location.beginline + 1, location.endline do
 			table.insert(renderedSourceLines, ` {lineNum} │ │ {sourceLines[lineNum]}`)
 			maxSourceLineLength = math.max(maxSourceLineLength, #renderedSourceLines[#renderedSourceLines])
 		end
 
 		local filepathLine =
-			`{blankGutter}┌── {filepath}:{location.begin.line}:{location.begin.column}-{location["end"].line}:{location["end"].column} ──`
+			`{blankGutter}┌── {filepath}:{location.beginline}:{location.begincolumn}-{location.endline}:{location.endcolumn} ──`
 		if #filepathLine < maxSourceLineLength then
 			filepathLine ..= string.rep("─", maxSourceLineLength - #filepathLine)
 		end
@@ -57,7 +54,7 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 		for _, line in renderedSourceLines do
 			print(line)
 		end
-		print(`{blankGutter}│ ╰─{string.rep("─", location["end"].column - 2)}^`)
+		print(`{blankGutter}│ ╰─{string.rep("─", location.endcolumn - 2)}^`)
 		print(`{blankGutter}│`)
 		print()
 	end

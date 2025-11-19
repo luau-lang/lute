@@ -5,7 +5,7 @@ export type severity = "error" | "warning" | "info" | "hint"
 
 export type LintViolation = {
 	lintname: string,
-	location: syntax.Location,
+	location: syntax.span,
 	message: string,
 	severity: severity,
 	sourcepath: path.path,
