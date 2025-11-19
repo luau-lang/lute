@@ -62,7 +62,7 @@ local function loadtests(testfiles: { path.path })
 		local success, err = pcall(luau.loadbypath, p, fenv)
 
 		if not success then
-			print(`Error loading {path.format(p)}: {err}`)
+			error(`Failed to load test file {path.format(p)}: {err}`)
 		end
 	end
 end

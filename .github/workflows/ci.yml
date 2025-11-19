@@ -6,8 +6,10 @@ on:
   pull_request:
     branches: ["primary"]
 
+# CI on the "primary" branch opts out of concurrency grouping by using the run's
+# unique run_id.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/primary' && github.run_id || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -45,12 +47,16 @@ jobs:
       - name: Run Luau Tests (POSIX)
         if: runner.os != 'Windows'
         shell: bash
-        run: ${{ steps.build_lute.outputs.exe_path }} test
+        run: find tests -name "*.test.luau" | xargs -I {} "${{ steps.build_lute.outputs.exe_path }}" run {}
 
       - name: Run Luau Tests (Windows)
         if: runner.os == 'Windows'
         shell: cmd
-        run: ${{ steps.build_lute.outputs.exe_path }} test
+        run: |
+          set _errorFlag=0
+          for /r tests %%f in (*.test.luau) do "${{ steps.build_lute.outputs.exe_path }}" run "%%f" || (set _errorFlag=1)
+          if %_errorFlag% neq 0 exit /b 1
+        
 
   run-lute-cxx-unittests:
     runs-on: ${{ matrix.os }}
