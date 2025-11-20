@@ -11,9 +11,9 @@ local fslib = {}
 
 export type handlemode = fs.HandleMode
 export type file = fs.FileHandle
-export type filetype = fs.FileType
+export type typ = fs.FileType
 export type metadata = fs.FileMetadata
-export type directoryentry = fs.DirectoryEntry
+export type item = fs.DirectoryEntry
 export type watchhandle = fs.WatchHandle
 export type watchevent = fs.WatchEvent
 
@@ -55,7 +55,7 @@ function fslib.metadata(path: pathlike): metadata
 	return fs.stat(pathlib.format(path))
 end
 
-function fslib.type(path: pathlike): filetype
+function fslib.type(path: pathlike): typ
 	return fs.type(pathlib.format(path))
 end
 
@@ -79,7 +79,7 @@ function fslib.copy(src: pathlike, dest: pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.listdirectory(path: pathlike): { directoryentry }
+function fslib.listdirectory(path: pathlike): { item }
 	return fs.listdir(pathlib.format(path))
 end
 
