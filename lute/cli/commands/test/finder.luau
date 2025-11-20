@@ -11,7 +11,7 @@ end
 local function findtestfilesrec(directory: path.path): { path.path }
 	local results = {}
 
-	for _, entry in fs.listdir(directory) do
+	for _, entry in fs.listdirectory(directory) do
 		local fullPath = path.join(directory, entry.name)
 
 		if entry.type == "dir" then
