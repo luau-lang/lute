@@ -249,10 +249,7 @@ local function transform(ctx)
 	return t:transform()
 end
 
-return {
-	transform = transform,
-	cases = require("./roactToReact/cases"),
-}
+return transform
 
 --[[
 

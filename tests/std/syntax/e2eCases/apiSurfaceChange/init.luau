@@ -40,7 +40,4 @@ local function transform(ctx): string
 	return transform:transform()
 end
 
-return {
-	transform = transform,
-	cases = require("./apiSurfaceChange/cases"),
-}
+return transform

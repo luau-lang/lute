@@ -1,4 +1,3 @@
-local cases = require("./libraryMigration/cases")
 local luau = require("@lute/luau")
 local t = require("@std/syntax/transform")
 local utils = require("@std/syntax/utils")
@@ -43,7 +42,4 @@ local function transform(ctx): string
 	return transform:transform()
 end
 
-return {
-	transform = transform,
-	cases = cases,
-}
+return transform
