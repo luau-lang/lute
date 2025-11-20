@@ -37,7 +37,7 @@ local function loadLintRule(path: path.pathlike): types.LintRule
 		`{path} must return a table with a 'lint' function property`
 	)
 
-	return loaded :: types.LintRule
+	return loaded :: types.LintRule -- We have to cast because we can't assert that loaded.lint is a more specific functio type
 end
 
 local function main(...: string)
