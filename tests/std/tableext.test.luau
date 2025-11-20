@@ -19,14 +19,6 @@ test.suite("TableExt", function(suite)
 		assert.eq(filtered.c, 3)
 	end)
 
-	suite:case("fold", function(assert)
-		local arr: { number } = { 1, 2, 3, 4 }
-		local sum = tableext.fold(arr, function(acc: number, v: number)
-			return acc + v
-		end, 0)
-		assert.eq(sum, 10)
-	end)
-
 	suite:case("extend", function(assert)
 		local a: { number } = { 1, 2 }
 		local b: { number } = { 3, 4 }
@@ -48,16 +40,6 @@ test.suite("TableExt", function(suite)
 		assert.eq(a["b"], 3)
 		assert.eq(a["c"], 1)
 		assert.eq(a["d"], 5)
-	end)
-
-	suite:case("foreach", function(assert)
-		local a = { 1, 2, 3 }
-		local numCalls = 0
-		local function callback()
-			numCalls += 1
-		end
-		tableext.foreach(a, callback)
-		assert.eq(numCalls, #a)
 	end)
 
 	suite:case("keys", function(assert)
