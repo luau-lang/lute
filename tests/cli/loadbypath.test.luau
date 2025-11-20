@@ -52,7 +52,7 @@ test.suite("Lute CLI Run", function(suite)
 
 	suite:afterall(function()
 		if fs.exists(testDirStr) then
-			fs.rmdir(testDirStr)
+			fs.removedirectory(testDirStr)
 		end
 	end)
 end)

@@ -31,7 +31,7 @@ local function parse(arguments: { string }): Config
 	while i <= #arguments do
 		local argument = arguments[i]
 
-		if stringext.startswith(argument, "--") then
+		if stringext.hasprefix(argument, "--") then
 			local name = stringext.removeprefix(argument, "--")
 
 			if config.migrationPath == nil then

@@ -21,7 +21,7 @@ local function traverseDirectoryRecursive(directory: path.path, ignoreResolver: 
 			tableext.extend(results, traverseDirectoryRecursive(fullPath, ignoreResolver))
 		else
 			-- TODO: allow customisation of the filter when traversing a directory. e.g., globs? file endings? ignore paths?
-			if stringext.endswith(entry.name, ".luau") or stringext.endswith(entry.name, ".lua") then
+			if stringext.hassuffix(entry.name, ".luau") or stringext.hassuffix(entry.name, ".lua") then
 				if ignoreResolver:isIgnoredFile(fullPath) then
 					print("Skipping", fullPath)
 					continue

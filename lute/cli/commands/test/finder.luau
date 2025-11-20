@@ -5,13 +5,13 @@ local stringext = require("@std/stringext")
 local tableext = require("@std/tableext")
 
 local function istestfile(filename: string): boolean
-	return stringext.endswith(filename, ".test.luau") or stringext.endswith(filename, ".spec.luau")
+	return stringext.hassuffix(filename, ".test.luau") or stringext.hassuffix(filename, ".spec.luau")
 end
 
 local function findtestfilesrec(directory: path.path): { path.path }
 	local results = {}
 
-	for _, entry in fs.listdir(directory) do
+	for _, entry in fs.listdirectory(directory) do
 		local fullPath = path.join(directory, entry.name)
 
 		if entry.type == "dir" then

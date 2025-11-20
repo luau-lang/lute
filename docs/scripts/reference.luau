@@ -235,7 +235,7 @@ local function processDirectory(
 )
 	fs.createdirectory(documentationPath, { makeparents = true })
 
-	local entries = fs.listdir(modulePath)
+	local entries = fs.listdirectory(modulePath)
 
 	for _, entry in entries do
 		local entryPath = path.join(modulePath, entry.name)

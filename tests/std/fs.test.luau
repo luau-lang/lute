@@ -14,7 +14,7 @@ test.suite("FsSuite", function(suite)
 		fs.write(h, "abc")
 		fs.close(h)
 
-		local m = fs.stat(file)
+		local m = fs.metadata(file)
 		assert.eq(m.size, 3)
 
 		local hr = fs.open(file, "r")
@@ -55,7 +55,7 @@ test.suite("FsSuite", function(suite)
 		assert.eq(fs.exists(dir), true)
 		assert.eq(fs.type(dir), "dir")
 
-		local entries = fs.listdir(tmpdir)
+		local entries = fs.listdirectory(tmpdir)
 		local found = false
 		for _, e in entries do
 			if e.name == "subdir" then
@@ -63,17 +63,7 @@ test.suite("FsSuite", function(suite)
 			end
 		end
 		assert.eq(found, true)
-		fs.rmdir(dir)
-	end)
-
-	suite:case("readasync_and_writestring", function(assert)
-		local file = path.join(tmpdir, "async.txt")
-		fs.writestringtofile(file, "async content")
-
-		local got = fs.readasync(file)
-		assert.eq(got, "async content")
-
-		fs.remove(file)
+		fs.removedirectory(dir)
 	end)
 
 	suite:case("link_and_symlink_and_copy", function(assert)
@@ -92,7 +82,7 @@ test.suite("FsSuite", function(suite)
 		fs.remove(dstcopy)
 
 		local dstsymlink = path.join(tmpdir, "dstsymlink")
-		fs.symlink(srcfile, dstsymlink)
+		fs.symboliclink(srcfile, dstsymlink)
 		assert.eq(fs.readfiletostring(dstsymlink), "linkcontent")
 		fs.remove(dstsymlink)
 
@@ -131,8 +121,8 @@ test.suite("FsSuite", function(suite)
 		fs.createdirectory(nestedDir, { makeparents = true })
 		assert.eq(fs.exists(nestedDir), true)
 
-		fs.rmdir(nestedDir)
-		fs.rmdir(path.join(tmpdir, "nested"))
+		fs.removedirectory(nestedDir)
+		fs.removedirectory(path.join(tmpdir, "nested"))
 	end)
 
 	suite:case("createdirectory_makeparents_false", function(assert)
@@ -223,7 +213,7 @@ test.suite("FsSuite", function(suite)
 
 		-- Cleanup
 		fs.remove(file)
-		fs.rmdir(dir)
+		fs.removedirectory(dir)
 	end)
 
 	suite:case("walk_directory_recursive", function(assert)

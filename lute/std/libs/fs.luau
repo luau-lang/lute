@@ -10,13 +10,14 @@ local sys = require("@std/system")
 local fslib = {}
 
 export type handlemode = fs.HandleMode
-export type filehandle = fs.FileHandle
-export type filetype = fs.FileType
-export type filemetadata = fs.FileMetadata
+export type file = fs.FileHandle
+export type type = fs.FileType
+export type metadata = fs.FileMetadata
 export type directoryentry = fs.DirectoryEntry
 export type watchhandle = fs.WatchHandle
 export type watchevent = fs.WatchEvent
-export type pathlike = pathlib.pathlike
+
+type pathlike = pathlib.pathlike
 
 export type createdirectoryoptions = {
 	makeparents: boolean?,
@@ -30,31 +31,31 @@ export type walkoptions = {
 	recursive: boolean?,
 }
 
-function fslib.open(path: pathlike, mode: handlemode?): filehandle
+function fslib.open(path: pathlike, mode: handlemode?): file
 	return fs.open(pathlib.format(path), mode)
 end
 
-function fslib.read(handle: filehandle): string
-	return fs.read(handle)
+function fslib.read(file: file): string
+	return fs.read(file)
 end
 
-function fslib.write(handle: filehandle, contents: string): ()
-	return fs.write(handle, contents)
+function fslib.write(file: file, contents: string): ()
+	return fs.write(file, contents)
 end
 
-function fslib.close(handle: filehandle): ()
-	return fs.close(handle)
+function fslib.close(file: file): ()
+	return fs.close(file)
 end
 
 function fslib.remove(path: pathlike): ()
 	return fs.remove(pathlib.format(path))
 end
 
-function fslib.stat(path: pathlike): filemetadata
+function fslib.metadata(path: pathlike): metadata
 	return fs.stat(pathlib.format(path))
 end
 
-function fslib.type(path: pathlike): filetype
+function fslib.type(path: pathlike): type
 	return fs.type(pathlib.format(path))
 end
 
@@ -62,7 +63,7 @@ function fslib.link(src: pathlike, dest: pathlike): ()
 	return fs.link(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.symlink(src: pathlike, dest: pathlike): ()
+function fslib.symboliclink(src: pathlike, dest: pathlike): ()
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 
@@ -78,12 +79,8 @@ function fslib.copy(src: pathlike, dest: pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.listdir(path: pathlike): { directoryentry }
+function fslib.listdirectory(path: pathlike): { directoryentry }
 	return fs.listdir(pathlib.format(path))
-end
-
-function fslib.rmdir(path: pathlike): ()
-	return fs.rmdir(pathlib.format(path))
 end
 
 function fslib.readfiletostring(filepath: pathlike): string
@@ -92,10 +89,6 @@ end
 
 function fslib.writestringtofile(filepath: pathlike, contents: string): ()
 	return fs.writestringtofile(pathlib.format(filepath), contents)
-end
-
-function fslib.readasync(filepath: pathlike): string
-	return fs.readasync(pathlib.format(filepath))
 end
 
 function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?): ()
@@ -129,7 +122,7 @@ function fslib.removedirectory(path: pathlike, options: removedirectoryoptions?)
 	if options and options.recursive then
 		-- Recursively delete all contents first
 		if fslib.exists(path) and fslib.type(path) == "dir" then
-			local entries = fslib.listdir(path)
+			local entries = fslib.listdirectory(path)
 			for _, entry in entries do
 				local entryPath = pathlib.join(path, entry.name)
 				if entry.type == "dir" then
@@ -157,7 +150,7 @@ function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
 			end
 
 			if fslib.type(current) == "dir" and options and options.recursive then
-				local entries = fslib.listdir(current)
+				local entries = fslib.listdirectory(current)
 				for _, entry in entries do
 					local fullPath = pathlib.join(current, entry.name)
 					table.insert(queue, fullPath)
