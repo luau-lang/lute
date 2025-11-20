@@ -5,7 +5,7 @@ local stringext = require("@std/stringext")
 local tableext = require("@std/tableext")
 
 local function istestfile(filename: string): boolean
-	return stringext.endswith(filename, ".test.luau") or stringext.endswith(filename, ".spec.luau")
+	return stringext.hassuffix(filename, ".test.luau") or stringext.hassuffix(filename, ".spec.luau")
 end
 
 local function findtestfilesrec(directory: path.path): { path.path }

@@ -123,11 +123,11 @@ local function parseGitignoreContents(location: string, contents: string): Gitig
 	for _, line in lines do
 		line = stringext.trim(line)
 
-		if line == "" or stringext.startswith(line, "#") then
+		if line == "" or stringext.hasprefix(line, "#") then
 			continue
 		end
 
-		if stringext.startswith(line, "!") then
+		if stringext.hasprefix(line, "!") then
 			local globPattern = stringext.removeprefix(line, "!")
 			local glob = parseGlob(globPattern)
 			table.insert(ignoreData.whitelists, glob)
