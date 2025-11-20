@@ -1,7 +1,6 @@
 local luau = require("@lute/luau")
 
-export type Position = luau.Position
-export type Location = luau.Location
+export type span = luau.span
 
 export type Whitespace = luau.Whitespace
 export type SingleLineComment = luau.SingleLineComment

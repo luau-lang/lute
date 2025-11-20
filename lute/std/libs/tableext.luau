@@ -41,30 +41,38 @@ function tableext.fold<K, V, A>(table: { [K]: V }, f: (A, V) -> A, initial: A): 
 end
 
 function tableext.extend<T>(tbl: array<T>, ...: array<T>)
-	local extendees = table.pack(...)
-	extendees.n = nil
-	for _, extendee in extendees do
-		for _, entry in extendee do
+	local extensions = table.pack(...)
+	extensions.n = nil :: any
+	for _, extension in extensions do
+		for _, entry in extension do
 			table.insert(tbl, entry)
 		end
 	end
 end
 
-function tableext.merge<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
-	local mergees = table.pack(...)
-	mergees.n = nil
-	for _, mergee in mergees do
-		for key, val in mergee do
+function tableext.combine<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
+	local tables = table.pack(...)
+	tables.n = nil :: any
+	for _, tocombine in tables do
+		for key, val in tocombine do
 			tbl[key] = val
 		end
 	end
 	return tbl
 end
 
-function tableext.foreach<K, V>(tbl: { [K]: V }, callback: (K, V) -> ())
+function tableext.foreach<K, V>(tbl: { [K]: V }, f: (K, V) -> ())
 	for k, v in tbl do
-		callback(k, v)
+		f(k, v)
 	end
+end
+
+function tableext.keys<K, V>(tbl: { [K]: V }): { K }
+	local keys = {}
+	for k, _ in tbl do
+		table.insert(keys, k)
+	end
+	return keys
 end
 
 return table.freeze(tableext)

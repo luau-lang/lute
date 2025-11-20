@@ -9,16 +9,16 @@ local T = require("@std/luau")
 
 local function assertEqualsLocation(
 	assert: asserts.Asserts,
-	actual: T.Location,
+	actual: T.span,
 	startLine: number,
 	startColumn: number,
 	endLine: number,
 	endColumn: number
 )
-	assert.eq(actual.begin.line, startLine)
-	assert.eq(actual.begin.column, startColumn)
-	assert.eq(actual["end"].line, endLine)
-	assert.eq(actual["end"].column, endColumn)
+	assert.eq(actual.beginline, startLine)
+	assert.eq(actual.begincolumn, startColumn)
+	assert.eq(actual.endline, endLine)
+	assert.eq(actual.endcolumn, endColumn)
 end
 
 test.suite("Parser", function(suite)
@@ -33,7 +33,7 @@ test.suite("Parser", function(suite)
 		assert.eq(#token.leadingtrivia, 1)
 		assert.eq(token.leadingtrivia[1].tag, "whitespace")
 		assert.eq(token.leadingtrivia[1].text, "  ")
-		assertEqualsLocation(assert, token.leadingtrivia[1].location, 0, 0, 0, 2)
+		assertEqualsLocation(assert, token.leadingtrivia[1].location, 1, 1, 1, 3)
 	end)
 
 	suite:case("tokenContainsLeadingNewline", function(assert)
@@ -47,7 +47,7 @@ test.suite("Parser", function(suite)
 		assert.eq(#token.leadingtrivia, 1)
 		assert.eq(token.leadingtrivia[1].tag, "whitespace")
 		assert.eq(token.leadingtrivia[1].text, "\n")
-		assertEqualsLocation(assert, token.leadingtrivia[1].location, 0, 0, 1, 0)
+		assertEqualsLocation(assert, token.leadingtrivia[1].location, 1, 1, 2, 1)
 	end)
 
 	suite:case("tokenContainsLeadingSingleLineComment", function(assert)
@@ -61,10 +61,10 @@ test.suite("Parser", function(suite)
 		assert.eq(#token.leadingtrivia, 2)
 		assert.eq(token.leadingtrivia[1].tag, "comment")
 		assert.eq(token.leadingtrivia[1].text, "-- comment")
-		assertEqualsLocation(assert, token.leadingtrivia[1].location, 0, 0, 0, 10)
+		assertEqualsLocation(assert, token.leadingtrivia[1].location, 1, 1, 1, 11)
 		assert.eq(token.leadingtrivia[2].tag, "whitespace")
 		assert.eq(token.leadingtrivia[2].text, "\n")
-		assertEqualsLocation(assert, token.leadingtrivia[2].location, 0, 10, 1, 0)
+		assertEqualsLocation(assert, token.leadingtrivia[2].location, 1, 11, 2, 1)
 	end)
 
 	suite:case("tokenContainsLeadingBlockComment", function(assert)
@@ -78,10 +78,10 @@ test.suite("Parser", function(suite)
 		assert.eq(#token.leadingtrivia, 2)
 		assert.eq(token.leadingtrivia[1].tag, "blockcomment")
 		assert.eq(token.leadingtrivia[1].text, "--[[ comment ]]")
-		assertEqualsLocation(assert, token.leadingtrivia[1].location, 0, 0, 0, 15)
+		assertEqualsLocation(assert, token.leadingtrivia[1].location, 1, 1, 1, 16)
 		assert.eq(token.leadingtrivia[2].tag, "whitespace")
 		assert.eq(token.leadingtrivia[2].text, " ")
-		assertEqualsLocation(assert, token.leadingtrivia[2].location, 0, 15, 0, 16)
+		assertEqualsLocation(assert, token.leadingtrivia[2].location, 1, 16, 1, 17)
 	end)
 
 	suite:case("tokenizeWhitespace", function(assert)

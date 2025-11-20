@@ -21,7 +21,7 @@ local function transformation(ctx)
 		local operand: syntax.AstExprLocal = node.lhsoperand
 		operand.token.leadingtrivia = {}
 		operand.token.trailingtrivia = {}
-		local openingPosition: syntax.Position = operand.token.position;
+		local location: syntax.span = operand.token.location;
 
 		-- transform node into an AstExprCall
 		(node :: any).operator = nil
@@ -30,11 +30,13 @@ local function transformation(ctx)
 
 		((node :: any) :: syntax.AstExprCall).tag = "call"
 
-		local func: syntax.AstExpr = {
+		local func: syntax.AstExprGlobal = {
+			kind = "expr",
 			tag = "global",
 			name = {
+				istoken = true,
 				leadingtrivia = {},
-				position = openingPosition,
+				location = location,
 				text = "math.isnan",
 				trailingtrivia = {},
 			},
@@ -42,8 +44,14 @@ local function transformation(ctx)
 		((node :: any) :: syntax.AstExprCall).func = func
 
 		local openparens: syntax.Token<"("> = {
+			istoken = true,
 			leadingtrivia = {},
-			position = { line = openingPosition.line, column = openingPosition.column + #"math.isnan" },
+			location = syntax.span.create({
+				beginline = location.beginline,
+				begincolumn = location.begincolumn + #"math.isnan",
+				endline = location.endline,
+				endcolumn = location.endcolumn + #"math.isnan" + 1,
+			}),
 			text = "(",
 			trailingtrivia = {},
 		}
@@ -53,11 +61,14 @@ local function transformation(ctx)
 		((node :: any) :: syntax.AstExprCall).arguments = arguments
 
 		local closeparens: syntax.Token<")"> = {
+			istoken = true,
 			leadingtrivia = {},
-			position = {
-				line = openingPosition.line,
-				column = openingPosition.column + #"math.isnan(" + #operand.token.text,
-			},
+			location = syntax.span.create({
+				beginline = location.beginline,
+				begincolumn = location.begincolumn + #"math.isnan(" + #operand.token.text,
+				endline = location.endline,
+				endcolumn = location.endcolumn + #"math.isnan(" + #operand.token.text + 1,
+			}),
 			text = ")",
 			trailingtrivia = {},
 		}
@@ -65,13 +76,12 @@ local function transformation(ctx)
 
 		((node :: any) :: syntax.AstExprCall).self = false
 
-		local argLocation: syntax.Location = {
-			begin = { line = openingPosition.line, column = openingPosition.column + #"math.isnan(" },
-			["end"] = {
-				line = openingPosition.line,
-				column = openingPosition.column + #"math.isnan(" + #operand.token.text,
-			},
-		}
+		local argLocation: syntax.span = syntax.span.create({
+			beginline = location.beginline,
+			begincolumn = location.begincolumn + #"math.isnan(",
+			endline = location.endline,
+			endcolumn = location.begincolumn + #"math.isnan(" + #operand.token.text,
+		});
 		((node :: any) :: syntax.AstExprCall).argLocation = argLocation
 
 		return false

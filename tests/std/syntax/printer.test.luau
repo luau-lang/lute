@@ -39,7 +39,7 @@ test.suite("syntax_printer", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprConstantString):replace(function(s)
+			return query.findallfromroot(ast, syntaxUtils.isExprConstantString):replace(function(s)
 				return if s.text == "World" then "1 + 2" else nil
 			end)
 		end, assert)
@@ -53,7 +53,7 @@ test.suite("syntax_printer", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprConstantString):replace(function(s)
+			return query.findallfromroot(ast, syntaxUtils.isExprConstantString):replace(function(s)
 				return if s.text == "World" then syntax.parseexpr("1 + 2") else nil
 			end)
 		end, assert)
@@ -67,7 +67,7 @@ test.suite("syntax_printer", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatLocal):replace(function(s)
+			return query.findallfromroot(ast, syntaxUtils.isStatLocal):replace(function(s)
 				return syntax.parseblock("local name = 1 + 2")
 			end)
 		end, assert)
@@ -82,7 +82,7 @@ test.suite("syntax_printer", function(suite)
 
 		checkReplacement(source, expected, function(ast)
 			return query
-				.selectFromRoot(ast, syntaxUtils.isStatLocal)
+				.findallfromroot(ast, syntaxUtils.isStatLocal)
 				:map(function(assign)
 					return assign.variables[1].node.annotation
 				end)
@@ -101,7 +101,7 @@ test.suite("syntax_printer", function(suite)
 
 		checkReplacement(source, expected, function(ast)
 			return query
-				.selectFromRoot(ast, syntaxUtils.isStatTypeAlias)
+				.findallfromroot(ast, syntaxUtils.isStatTypeAlias)
 				:map(function(ta)
 					if ta.type.tag == "function" then
 						return ta.type.returntypes
@@ -113,13 +113,29 @@ test.suite("syntax_printer", function(suite)
 		end, assert)
 	end)
 
+	suite:case("expr_table_item_replacement", function(assert)
+		local source = "local tbl = { a = 1, }"
+		local expected = "local tbl = { b = 2, }"
+
+		checkReplacement(source, expected, function(ast)
+			return query
+				.findallfromroot(ast, syntaxUtils.isExprTable)
+				:map(function(node)
+					return node.entries[1]
+				end)
+				:replace(function(entry)
+					return "b = 2,"
+				end)
+		end, assert)
+	end)
+
 	suite:case("exprgroup_trivia", function(assert)
 		local source = [[local x =
 (1 + 2) -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprGroup):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprGroup):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -131,7 +147,7 @@ nil -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprConstantNil):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprConstantNil):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -143,7 +159,7 @@ true -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprConstantBool):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprConstantBool):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -155,7 +171,7 @@ true -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprConstantNumber):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprConstantNumber):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -168,7 +184,7 @@ y -- after]]
 		local expected = "local y = 3\n\t\tlocal x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprLocal):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprLocal):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -180,7 +196,7 @@ y -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprGlobal):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprGlobal):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -192,7 +208,7 @@ y -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprVarargs):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprVarargs):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -204,7 +220,7 @@ print() -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprCall):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprCall):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -216,7 +232,7 @@ hello.world -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprIndexName):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprIndexName):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -228,7 +244,7 @@ hello['world'] -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprIndexExpr):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprIndexExpr):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -240,7 +256,7 @@ function() return end -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprAnonymousFunction):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprAnonymousFunction):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -252,7 +268,7 @@ function() return end -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprTable):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprTable):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -264,7 +280,7 @@ function() return end -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprUnary):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprUnary):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -276,7 +292,7 @@ function() return end -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprBinary):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprBinary):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -288,7 +304,7 @@ function() return end -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprInterpString):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprInterpString):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -300,7 +316,7 @@ y :: number -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprTypeAssertion):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprTypeAssertion):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -312,7 +328,7 @@ if true then 'hello' else 'world' -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExprIfElse):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprIfElse):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -324,7 +340,7 @@ if true then 'hello' else 'world', z :: string -- after]]
 		local expected = "local x, y =\nreplaced, replaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isExpr):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExpr):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -337,7 +353,7 @@ local y = 1
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatBlock):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatBlock):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -354,7 +370,7 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatIf):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatIf):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -369,7 +385,7 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatWhile):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatWhile):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -384,7 +400,7 @@ until true
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatRepeat):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatRepeat):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -399,7 +415,7 @@ end
 		local expected = "-- hello\nwhile true do\n\treplaced\nend\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatBreak):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatBreak):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -414,7 +430,7 @@ end
 		local expected = "-- hello\nwhile true do\n\treplaced\nend\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatContinue):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatContinue):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -427,7 +443,7 @@ function foo() return 1, 2 end
 		local expected = "-- hello\nfunction foo() replaced end\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatReturn):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatReturn):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -440,7 +456,7 @@ foobar()
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatExpr):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatExpr):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -453,7 +469,7 @@ local x = 1
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatLocal):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatLocal):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -468,7 +484,7 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatFor):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatFor):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -483,7 +499,7 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatForIn):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatForIn):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -497,7 +513,7 @@ y = 1
 		local expected = "-- hello\nlocal y = 2\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatAssign):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatAssign):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -511,7 +527,7 @@ y -= 1
 		local expected = "-- hello\nlocal y = 2\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatCompoundAssign):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatCompoundAssign):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -526,7 +542,7 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatFunction):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatFunction):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -541,7 +557,7 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatLocalFunction):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatLocalFunction):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -554,7 +570,7 @@ type foo = number
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatTypeAlias):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatTypeAlias):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -567,7 +583,7 @@ type function foo() return number end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStatTypeFunction):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStatTypeFunction):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -581,7 +597,7 @@ local y = 2
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isStat):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isStat):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -594,7 +610,7 @@ type foo = number
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeReference):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeReference):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -607,7 +623,7 @@ type foo = true
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeSingletonBool):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeSingletonBool):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -620,7 +636,7 @@ local x : "hello"
 		local expected = "-- hello\nlocal x : replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeSingletonString):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeSingletonString):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -633,7 +649,7 @@ type foo = typeof(123)
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeTypeof):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeTypeof):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -646,7 +662,7 @@ type foo = (number)
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeGroup):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeGroup):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -659,7 +675,7 @@ type foo = true?
 		local expected = "-- hello\ntype foo = truereplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeOptional):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeOptional):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -672,7 +688,7 @@ type foo = true? | false
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeUnion):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeUnion):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -685,7 +701,7 @@ type foo = true & false
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeIntersection):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeIntersection):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -698,7 +714,7 @@ type foo = { number }
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeArray):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeArray):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -711,7 +727,7 @@ type foo = {}
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeTable):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeTable):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -724,7 +740,7 @@ type foo = (number) -> ()
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypeFunction):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypeFunction):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -737,7 +753,7 @@ type foo = (number) -> ()
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isType):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isType):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -750,7 +766,7 @@ type foo = (number) -> (number, ...string)
 		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypePackExplicit):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypePackExplicit):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -763,7 +779,7 @@ type foo = <G...>(number) -> (number, G...)
 		local expected = "-- hello\ntype foo = <G...>(number) -> (number, replaced)\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypePackGeneric):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypePackGeneric):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -776,7 +792,7 @@ type foo = (number) -> (...number)
 		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypePackVariadic):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypePackVariadic):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -789,7 +805,7 @@ type foo = (number) -> (number, ...string)
 		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isTypePack):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isTypePack):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -802,7 +818,7 @@ local x, y = 1, 2
 		local expected = "-- hello\nlocal replaced, replaced = 1, 2\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isLocal):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isLocal):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -816,7 +832,7 @@ function foo() return end
 		local expected = "-- hello\nreplaced\nfunction foo() return end\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.selectFromRoot(ast, syntaxUtils.isAttribute):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isAttribute):replace(function()
 				return "replaced"
 			end)
 		end, assert)
@@ -833,12 +849,47 @@ function foo() return end
 
 		checkReplacement(source, expected, function(ast)
 			return query
-				.selectFromRoot(ast, syntaxUtils.isExprGlobal)
+				.findallfromroot(ast, syntaxUtils.isExprGlobal)
 				:filter(function(g)
 					return g.name.text == "baz"
 				end)
 				:replace(function()
 					return "quxx"
+				end)
+		end, assert)
+	end)
+
+	suite:case("comments_in_table", function(assert)
+		local source = [[local x = {
+  foo = -- what about this
+  1, 
+  bar = 2, 
+  -- and this
+  
+  baz = 3 -- and this??
+}]]
+
+		local expected = [[local x = {
+  replaced = -- what about this
+  1, 
+  replaced = 2, 
+  -- and this
+  
+  replaced = 3 -- and this??
+}]]
+
+		checkReplacement(source, expected, function(ast)
+			return query
+				.findallfromroot(ast, syntaxUtils.isExprTable)
+				:flatmap(function(t)
+					local l = {}
+					for _, entry in t.entries do
+						table.insert(l, entry.key)
+					end
+					return l
+				end)
+				:replace(function()
+					return "replaced"
 				end)
 		end, assert)
 	end)
