@@ -21,4 +21,5 @@ extern/*/
 generated
 **/generated-types.luau
 WARP.md
-/transform_snapshots
+
+**/result.txt
