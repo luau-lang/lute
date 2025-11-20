@@ -124,7 +124,7 @@ test.suite("Parser", function(suite)
 
 	suite:case("roundtrippableAst", function(assert)
 		local function visitDirectory(directory: string)
-			for _, entry in fs.listdir(directory) do
+			for _, entry in fs.listdirectory(directory) do
 				if entry.type ~= "file" then
 					continue
 				end
