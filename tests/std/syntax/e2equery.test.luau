@@ -53,16 +53,22 @@ test.suite("Query and Transform e2e", function(suite)
 			tableext.foreach(transformCases, function(i, v)
 				local subcase = `case{i}`
 				local subcaseBasePath = path.format(path.join(caseDir, subcase))
-				local initialPath = `{subcaseBasePath}.initial.luau`
-				local expectedPath = `{subcaseBasePath}.expected.luau`
+				safeMkDir(subcaseBasePath)
+				local initialPath = path.format(path.join(subcaseBasePath, "initial.luau"))
+				local expectedPath = path.format(path.join(subcaseBasePath, "expected.luau"))
+				local resultPath = path.format(path.join(subcaseBasePath, "result.luau"))
 
 				fs.writestringtofile(initialPath, v.initial)
 				fs.writestringtofile(expectedPath, v.expected)
 				stylua(initialPath, expectedPath)
+				local initialState = fs.readfiletostring(initialPath)
 				process.run({ lutePath, "transform", transformPath, initialPath })
 				stylua(initialPath, expectedPath)
 
 				local result = fs.readfiletostring(initialPath)
+				fs.writestringtofile(resultPath, result)
+				fs.writestringtofile(initialPath, initialState)
+
 				local expectedResult = fs.readfiletostring(expectedPath)
 
 				assert.eq(result, expectedResult)
