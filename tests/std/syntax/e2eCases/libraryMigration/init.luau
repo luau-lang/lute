@@ -14,7 +14,7 @@ local functionMap = {
 local function transformRequires(q: t.transform, block: luau.AstStatBlock): string
 	local oldLibRequires = getRequireStatements(block, "old")
 
-	q:selectFromRoot(oldLibRequires.nodes[1] :: any, utils.isExprCall)
+	q:findallfromroot(oldLibRequires.nodes[1] :: any, utils.isExprCall)
 		:map(function(node)
 			return node.arguments[1].node.index
 		end)
@@ -24,7 +24,7 @@ local function transformRequires(q: t.transform, block: luau.AstStatBlock): stri
 
 	local oldLibVar = oldLibRequires.nodes[1].variables[1].node
 	local oldLibAlias
-	q:selectFromRoot(oldLibVar :: any, utils.isToken):replace(function(node: luau.Token)
+	q:findallfromroot(oldLibVar :: any, utils.isToken):replace(function(node: luau.Token)
 		oldLibAlias = node.text
 		return "newLibrary"
 	end)

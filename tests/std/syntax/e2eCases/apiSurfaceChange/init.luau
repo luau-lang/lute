@@ -20,7 +20,7 @@ local argReplacements = {
 }
 
 local function transformCallArgs(t: t.transform, block: luau.AstStatBlock)
-	t:selectFromRoot(block, utils.isExprCall)
+	t:findallfromroot(block, utils.isExprCall)
 		:filter(function(node)
 			return node.func.index and argReplacements[node.func.index.text] ~= nil
 		end)

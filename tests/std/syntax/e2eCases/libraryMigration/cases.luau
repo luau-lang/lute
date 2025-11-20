@@ -44,7 +44,7 @@ return {
 
     return oldLibraryDiffAlias.anotherFunction(myEl)
     ]],
-            expected = [[
+		expected = [[
     local newLibrary = require(root.nested.packages.new)
 
     local myEl = newLibrary.newFunction("lol")

@@ -6,11 +6,11 @@ local queryUtils = require("@std/syntax/utils")
 
 local function mount(t: Transform.transform): boolean
 	-- select all statements with mount calls
-	local mountStatements = t:selectFromRoot(t.__fileRoot, function(node)
+	local mountStatements = t:findallfromroot(t.__fileRoot, function(node)
 		if not (queryUtils.isStatLocal(node) or queryUtils.isStatAssign(node)) then
 			return nil
 		end
-		local mount = t:selectFromRoot(node, function(n)
+		local mount = t:findallfromroot(node, function(n)
 			local mountCall = queryUtils.isExprCall(n) and n.func.tag == "indexname" and n.func.index.text == "mount"
 			return if mountCall then node else nil
 		end)
@@ -68,7 +68,7 @@ local function update(node: luau.AstExprCall)
 
 	local newUpdate = [[ReactRoblox.act(function()
 	%s.root:render(ReactRoblox.createPortal({ [%s.key] = %s } :: any, %s.parent))
-end)]]
+end)]] :: any
 	return newUpdate:format(instanceArg, instanceArg, elementArg, instanceArg)
 end
 
@@ -155,7 +155,7 @@ local function transform(ast: luau.AstStatBlock)
 	mount(t)
 
 	-- convert calls
-	t:selectFromRoot(ast, queryUtils.isExprCall)
+	t:findallfromroot(ast, queryUtils.isExprCall)
 		:filter(function(node: luau.AstExprCall)
 			local func = node.func
 			if func.tag ~= "indexname" then
@@ -172,7 +172,7 @@ local function transform(ast: luau.AstStatBlock)
 			needsMigration = needsMigration or isRoactPortal
 			return needsMigration
 		end)
-		:forEach(function(node)
+		:foreach(function(node)
 			local funcName = node.func.index.text
 			local firstCallArg = node.arguments[1].node
 			local isRoactPortal = firstCallArg.tag == "indexname" and firstCallArg.index.text == "Portal"
@@ -194,7 +194,7 @@ local function transform(ast: luau.AstStatBlock)
 	end)
 
 	-- convert index-exprs
-	t:selectFromRoot(ast, queryUtils.isExprTable):forEach(function(node: luau.AstExprTable)
+	t:findallfromroot(ast, queryUtils.isExprTable):foreach(function(node: luau.AstExprTable)
 		for _, entry in node.entries do
 			if entry.kind ~= "general" or entry.key and entry.key.tag ~= "indexname" then
 				continue
@@ -229,7 +229,7 @@ local function transform(ast: luau.AstStatBlock)
 			-- replace whole statement
 		else
 			-- just replace index and local var name of needed package
-			t:selectFromRoot(requiredModule :: any, queryUtils.isExprIndexName)
+			t:findallfromroot(requiredModule :: any, queryUtils.isExprIndexName)
 				:map(function(node)
 					return node.index
 				end)
@@ -238,7 +238,7 @@ local function transform(ast: luau.AstStatBlock)
 				end)
 
 			local roactVar = roactRequire.variables[1].node
-			t:selectFromRoot(roactVar :: any, queryUtils.isToken):replace(function(node: luau.Token)
+			t:findallfromroot(roactVar :: any, queryUtils.isToken):replace(function(node: luau.Token)
 				return if needsReactRequire then "React" else "ReactRoblox"
 			end)
 		end

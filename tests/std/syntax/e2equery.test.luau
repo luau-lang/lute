@@ -1,8 +1,8 @@
 local parser = require("@std/syntax/parser")
 local types = require("./e2eCases/types")
 local test = require("@std/test")
-local table = require("@std/tableext")
-local transforms = require("./e2eCases") :: { [string]: types.e2e }
+local tableext = require("@std/tableext")
+local transforms = require("./e2eCases")
 local process = require("@lute/process")
 local system = require("@lute/system")
 local path = require("@std/path")
@@ -30,11 +30,11 @@ local function format(s: string): string
 end
 
 test.suite("Query and Transform e2e", function(suite)
-	table.foreach(transforms, function(k, v)
+	tableext.foreach(transforms, function(k, v)
 		local transformName, transformFunc, transformCases = k, v.transform, v.cases
 
 		suite:case(transformName, function(assert)
-			table.foreach(transformCases, function(_, v)
+			tableext.foreach(transformCases, function(_, v)
 				local initAst = parser.parse(v.initial).root
 				assert.eq(format(transformFunc(initAst)), format(v.expected))
 			end)
