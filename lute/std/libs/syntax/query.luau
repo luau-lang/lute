@@ -17,6 +17,7 @@ export type query<T = node> = {
 	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
 	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
 	flatmap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
+	maptoarray: <U>(self: query<T>, fn: (T) -> U?) -> { U },
 }
 
 local queryLib = {}
@@ -116,6 +117,17 @@ function queryLib.flatmap<T, U>(self: query<T>, fn: (T) -> { U }): query<U>
 	return self
 end
 
+function queryLib.maptoarray<T, U>(self: query<T>, fn: (T) -> U?): { U }
+	local result = {}
+	for _, node in self.nodes do
+		local mapped = fn(node)
+		if mapped ~= nil then
+			table.insert(result, mapped)
+		end
+	end
+	return result
+end
+
 function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
 	local nodes: { T } = {}
 
@@ -132,6 +144,7 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -
 		foreach = queryLib.foreach,
 		findall = queryLib.findall,
 		flatmap = queryLib.flatmap,
+		maptoarray = queryLib.maptoarray,
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 

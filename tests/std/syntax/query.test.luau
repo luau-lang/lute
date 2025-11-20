@@ -208,6 +208,41 @@ test.suite("AST Query", function(suite)
 		assert.eq(locals.nodes[3].name.text, "c")
 		assert.eq(locals.nodes[4].name.text, "d")
 	end)
+
+	suite:case("maptoarray", function(assert)
+		-- Test maptoarray to convert query nodes to a simple array
+		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
+		local nums = query.findallfromroot(ast, utils.isExprConstantNumber)
+
+		local doubled = nums:maptoarray(function(n: syntax.AstExprConstantNumber): number
+			return n.value * 2
+		end)
+
+		assert.eq(#doubled, 5)
+		assert.eq(doubled[1], 0)
+		assert.eq(doubled[2], 2)
+		assert.eq(doubled[3], 4)
+		assert.eq(doubled[4], 6)
+		assert.eq(doubled[5], 8)
+	end)
+
+	suite:case("maptoarray_with_nil", function(assert)
+		-- Test maptoarray filtering out nil values
+		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
+		local nums = query.findallfromroot(ast, utils.isExprConstantNumber)
+
+		local evenOnly = nums:maptoarray(function(n: syntax.AstExprConstantNumber): number?
+			if n.value % 2 == 0 then
+				return n.value
+			end
+			return nil
+		end)
+
+		assert.eq(#evenOnly, 3)
+		assert.eq(evenOnly[1], 0)
+		assert.eq(evenOnly[2], 2)
+		assert.eq(evenOnly[3], 4)
+	end)
 end)
 
 test.run()
