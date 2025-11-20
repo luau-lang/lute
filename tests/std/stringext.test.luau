@@ -2,12 +2,12 @@ local stringext = require("@std/stringext")
 local test = require("@std/test")
 
 test.suite("StringExt", function(suite)
-	suite:case("startswith_and_endswith", function(assert)
-		assert.eq(stringext.startswith("hello", "he"), true)
-		assert.eq(stringext.startswith("hi", "hello"), false)
+	suite:case("hasprefix_and_hassuffix", function(assert)
+		assert.eq(stringext.hasprefix("hello", "he"), true)
+		assert.eq(stringext.hasprefix("hi", "hello"), false)
 
-		assert.eq(stringext.endswith("foobar", "bar"), true)
-		assert.eq(stringext.endswith("foo", "foobar"), false)
+		assert.eq(stringext.hassuffix("foobar", "bar"), true)
+		assert.eq(stringext.hassuffix("foo", "foobar"), false)
 	end)
 
 	suite:case("removeprefix_and_removesuffix", function(assert)
