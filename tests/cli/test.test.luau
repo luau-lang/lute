@@ -3,7 +3,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
-local fs = require("@std/fs")
+
 local lutePath = path.format(process.execpath())
 local tmpDir = system.tmpdir()
 
@@ -75,9 +75,14 @@ test.run()
 			result.stdout:find(`Failed with: Runtime error in nil_field_suite.access_field_of_nil in:`, 1, true),
 			nil
 		)
-		print("EXPECTED PATH: ", path.format(testFilePath))
-		print("TEST OUTPUT: ", result.stdout)
-		assert.neq(result.stdout:find(`{path.format(testFilePath)}:6`, 1, true), nil)
+		assert.neq(
+			result.stdout:find( -- filename comes from debug.info, which uses forward slashes even on Windows
+				`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`,
+				1,
+				true
+			),
+			nil
+		)
 
 		fs.remove(testFilePath)
 	end)
@@ -109,9 +114,14 @@ test.run()
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
 		assert.neq(result.stdout:find(`Failed with: Runtime error in access_field_of_nil in:`, 1, true), nil)
-		print("EXPECTED PATH: ", path.format(testFilePath))
-		print("TEST OUTPUT: ", result.stdout)
-		assert.neq(result.stdout:find(`{path.format(testFilePath)}:5`, 1, true), nil)
+		assert.neq(
+			result.stdout:find( -- filename comes from debug.info, which uses forward slashes even on Windows
+				`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`,
+				1,
+				true
+			),
+			nil
+		)
 
 		fs.remove(testFilePath)
 	end)
