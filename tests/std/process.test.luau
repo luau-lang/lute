@@ -1,7 +1,8 @@
 local pathlib = require("@std/path")
 local process = require("@std/process")
-local test = require("@std/test")
 local system = require("@std/system")
+local test = require("@std/test")
+
 test.suite("ProcessSuite", function(suite)
 	suite:case("homedir_and_cwd_and_execpath", function(assert)
 		local hd = process.homedir()
@@ -19,22 +20,33 @@ test.suite("ProcessSuite", function(suite)
 		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
-	suite:case("run_shell_and_cwd", function(assert)
+	suite:case("run_shell_and_cwd", function(check)
 		local rootdir: string = "/"
+		local root: pathlib.path? = nil
 		if system.win32 then
-			local root = pathlib.win32.drive(process.cwd())
+			root = pathlib.win32.drive(process.cwd())
 			rootdir = pathlib.format(root)
 		end
 		local r = process.run({ "pwd" }, { cwd = rootdir })
-		assert.tableeq(r, {
-			exitcode = 0,
-			stdout = "/\n",
-			stderr = "",
-			ok = true,
-		})
+		if system.win32 then
+			assert(root ~= nil and root.driveLetter ~= nil)
+			check.tableeq(r, {
+				exitcode = 0,
+				stdout = `/{root.driveLetter:lower()}\n`,
+				stderr = "",
+				ok = true,
+			})
+		else
+			check.tableeq(r, {
+				exitcode = 0,
+				stdout = "/\n",
+				stderr = "",
+				ok = true,
+			})
+		end
 
 		local r2 = process.run({ "echo hello!" }, { shell = true })
-		assert.tableeq(r2, {
+		check.tableeq(r2, {
 			exitcode = 0,
 			stdout = "hello!\n",
 			stderr = "",

@@ -7,7 +7,7 @@ local testFilter: { [string]: number } = {
 }
 
 local a = {}
-type tb = tableext.dictionary<number>
+type tb = { [string]: number }
 
 function a._a(a: number)
 	return function(s: string): types.test
