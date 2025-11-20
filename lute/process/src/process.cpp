@@ -12,6 +12,7 @@
 
 #include <climits> // IWYU pragma: keep
 #include <functional>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
@@ -32,12 +33,12 @@ void convertCRLFtoLF(std::string& str)
     for (size_t readPos = 0; readPos < str.size(); ++readPos)
     {
         if (str[readPos] == '\r' && readPos + 1 < str.size() && str[readPos + 1] == '\n')
-            continue;  // Skip the '\r' in CRLF
+            continue; // Skip the '\r' in CRLF
         str[writePos++] = str[readPos];
     }
     str.resize(writePos);
 }
-    
+
 struct ProcessHandle
 {
     uv_process_t process;
@@ -457,7 +458,7 @@ int exitFunc(lua_State* L)
 {
     int exitCode = luaL_optinteger(L, 1, 0);
 
-
+    std::cout << "Exiting with code: " << exitCode << std::endl;
     // Exit with the provided code
     std::exit(exitCode);
 
