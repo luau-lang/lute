@@ -1,7 +1,7 @@
+local cases = require("./libraryMigration/cases")
 local luau = require("@lute/luau")
 local t = require("@std/syntax/transform")
 local utils = require("@std/syntax/utils")
-local cases = require("./libraryMigration/cases")
 local qUtils = require("./utils")
 local getRequireStatements = qUtils.getRequireStatements
 local transformLibraryAccess = qUtils.transformLibraryAccess
@@ -11,7 +11,7 @@ local functionMap = {
 	["anotherFunction"] = "anotherNewFunction",
 }
 
-local function transformRequires(q: t.transform, block: luau.AstStatBlock): string
+local function transformRequires(q: t.transform, block: luau.AstStatBlock): string?
 	local oldLibRequires = getRequireStatements(block, "old")
 
 	q:findallfromroot(oldLibRequires.nodes[1] :: any, utils.isExprCall)
@@ -31,8 +31,10 @@ local function transformRequires(q: t.transform, block: luau.AstStatBlock): stri
 	return oldLibAlias
 end
 
-local function transform(block: luau.AstStatBlock): string
-	local transform = t.new(block :: any)
+local function transform(ctx): string
+	local parseresult = ctx.parseresult
+	local transform = t.new(parseresult :: any)
+	local block = parseresult.root
 	local oldLibAlias = transformRequires(transform, block)
 	transformLibraryAccess(transform, block, oldLibAlias, function(_, index)
 		local oldFunction = index.text

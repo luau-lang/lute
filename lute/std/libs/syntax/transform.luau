@@ -1,4 +1,3 @@
-local luau = require("@lute/luau")
 local query = require("@std/syntax/query")
 local printer = require("@std/syntax/printer")
 local types = require("@std/syntax/types")
@@ -12,17 +11,17 @@ transform.__index = transform
 
 export type TransformData = {
 	replacements: types.replacements,
-	__fileRoot: types.AstStatBlock,
+	__parseresult: types.ParseResult,
 }
 
 export type transform = typeof(setmetatable({} :: TransformData, transform))
 
 -- transform is entry point for a codemod; exposes base tools you'll need
 
-function transform.new(fileRoot: types.AstStatBlock)
+function transform.new(parseresult: types.ParseResult)
 	local self = {
 		replacements = {} :: types.replacements,
-		__fileRoot = fileRoot,
+		__parseresult = parseresult,
 	}
 
 	return setmetatable(self, transform)
@@ -43,7 +42,7 @@ end
 transform.query = transform.findallfromroot
 
 function transform.transform(self: transform): string
-	return printer.printnode(self.__fileRoot :: any, self.replacements)
+	return printer.printfile(self.__parseresult :: any, self.replacements)
 end
 
 return table.freeze(transform)

@@ -6,7 +6,7 @@ local queryUtils = require("@std/syntax/utils")
 
 local function mount(t: Transform.transform): boolean
 	-- select all statements with mount calls
-	local mountStatements = t:findallfromroot(t.__fileRoot, function(node)
+	local mountStatements = t:findallfromroot(t.__parseresult.root, function(node)
 		if not (queryUtils.isStatLocal(node) or queryUtils.isStatAssign(node)) then
 			return nil
 		end
@@ -112,7 +112,7 @@ local function oneChild(node: luau.AstExprCall)
 	then nil
 else React.Children.only(select(2, next(%s) :: any))]]
 
-	return ReactOneChild:format(childArg, childArg, childArg, childArg, childArg)
+	return (ReactOneChild :: any):format(childArg, childArg, childArg, childArg, childArg)
 end
 local function createFragment(node: luau.AstExprCall)
 	local childArg = printer.printnode(node.arguments[1].node :: any)
@@ -147,8 +147,10 @@ local callMigrations = {
 	["createFragment"] = createFragment,
 } :: { [string]: (luau.AstExprCall) -> string }
 
-local function transform(ast: luau.AstStatBlock)
-	local t = Transform.new(ast)
+local function transform(ctx)
+	local parseresult = ctx.parseresult
+	local ast = parseresult.root
+	local t = Transform.new(parseresult)
 	local needsReactRequire, needsReactRobloxRequire = false, false
 
 	-- convert statements

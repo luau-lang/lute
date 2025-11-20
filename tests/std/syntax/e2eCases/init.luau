@@ -1,5 +1,5 @@
 return {
-	mockLibrary = require("./e2eCases/libraryMigration"),
-	mockApiSurfaceChange = require("./e2eCases/apiSurfaceChange"),
-	mockRoactToReact = require("./e2eCases/roactToReact"),
+	libraryMigration = require("./e2eCases/libraryMigration"),
+	apiSurfaceChange = require("./e2eCases/apiSurfaceChange"),
+	roactToReact = require("./e2eCases/roactToReact"),
 }

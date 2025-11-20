@@ -30,7 +30,7 @@ return {
 	]],
 	},
 
-	-- 	-- portal case
+	-- portal case
 	{
 		initial = [[
 	local Roact = require(PackagesRoot.Roact)
@@ -69,7 +69,7 @@ return {
 	-- mount, unmout, update case
 	{
 		initial = [[
-    local Roact = require(PackagesRoot.Roact)    
+    local Roact = require(PackagesRoot.Roact)
 
     local instance = Roact.mount(element, nil, "Root")
     Roact.unmount(instance)
