@@ -28,7 +28,7 @@ test.suite("ProcessSuite", function(suite)
 		local r = process.run({ "pwd" }, { cwd = rootdir })
 		assert.tableeq(r, {
 			exitcode = 0,
-			stdout = if system.win32 then "/d\n" else "/\n",
+			stdout = rootdir .. "\n",
 			stderr = "",
 			ok = true,
 		})
