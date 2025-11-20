@@ -31,7 +31,9 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintType
 		)
 end
 
-return {
+local rule: lintTypes.LintRule = {
 	name = name,
 	lint = lint,
-} :: lintTypes.LintRule
+}
+
+return table.freeze(rule)

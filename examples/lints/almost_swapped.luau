@@ -60,7 +60,9 @@ end
 local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintTypes.LintViolation }
 	local violations = {}
 
-	query.findallfromroot(ast, utils.isStatBlock):foreach(function(block)
+	local nodes = query.findallfromroot(ast, utils.isStatBlock).nodes
+
+	for _, block in nodes do
 		for i = 1, #block.statements - 1 do
 			local currStat = block.statements[i]
 			if currStat.tag ~= "assign" or #currStat.values ~= 1 or #currStat.variables ~= 1 then
@@ -90,12 +92,14 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintType
 				})
 			end
 		end
-	end)
+	end
 
 	return violations
 end
 
-return {
+local rule: lintTypes.LintRule = {
 	name = name,
 	lint = lint,
-} :: lintTypes.LintRule
+}
+
+return table.freeze(rule)
