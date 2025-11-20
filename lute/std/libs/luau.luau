@@ -10,7 +10,7 @@ local path = require("@std/path")
 
 local luau = {}
 
-export type bytecode = luteLuau.bytecode
+export type bytecode = luteLuau.Bytecode
 
 function luau.compile(source: string): bytecode
 	return luteLuau.compile(source)

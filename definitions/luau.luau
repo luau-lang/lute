@@ -600,13 +600,13 @@ function luau.parseexpr(source: string): AstExpr
 	error("not implemented")
 end
 
-export type bytecode = { bytecode: string }
+export type Bytecode = { bytecode: string }
 
-function luau.compile(source: string): bytecode
+function luau.compile(source: string): Bytecode
 	error("not implemented")
 end
 
-function luau.load(bytecode: bytecode, chunkname: string, env: { [any]: any }?): (...any) -> ...any
+function luau.load(bytecode: Bytecode, chunkname: string, env: { [any]: any }?): (...any) -> ...any
 	error("not implemented")
 end
 
