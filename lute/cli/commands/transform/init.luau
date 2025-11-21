@@ -3,7 +3,6 @@ local luau = require("@std/luau")
 local pathLib = require("@std/path")
 local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
-local syntaxTypes = require("@std/syntax/types")
 
 local arguments = require("@self/lib/arguments")
 local files = require("@self/lib/files")
@@ -126,13 +125,13 @@ local function applyMigration(
 				error(`Could not determine basename for path {pathStr}`)
 			end
 			outputFilePath = pathLib.join(outputDirPath, baseName)
-			end
+		end
 
 		local toWrite = if typeof(result) == "string" then result else printer.printfile(parseresult, result)
 
 		if toWrite == types.DELETION_MARKER then
-				print(`Marking {pathStr} for deletion`)
-				table.insert(deletedPaths, pathStr)
+			print(`Marking {pathStr} for deletion`)
+			table.insert(deletedPaths, pathStr)
 		elseif not dryRun then
 			if outputDirPath then
 				assert(outputFilePath ~= nil)
