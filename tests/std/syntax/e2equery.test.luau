@@ -3,27 +3,11 @@ local transforms = require("./e2eCases")
 local process = require("@lute/process")
 local path = require("@std/path")
 local fs = require("@std/fs")
-local system = require("@std/system")
 
-local function styluaStr(s: string): string
-	local tmp = system.tmpdir()
-	local tmpFile = path.format(path.join(tmp, "to_stylua.luau"))
-	fs.writestringtofile(tmpFile, s)
-	process.run({ "stylua", tmpFile }, {
+local function stylua(...: string)
+	process.run({ "stylua", ... }, {
 		shell = true,
 	})
-	return fs.readfiletostring(tmpFile)
-end
-
-local function styluaTxtFiles(...: string)
-	local paths = table.pack(...)
-	for _, path in paths do
-		if typeof(path) == "string" then
-			local fileContent = fs.readfiletostring(path)
-			local formattedContent = styluaStr(fileContent)
-			fs.writestringtofile(path, formattedContent)
-		end
-	end
 end
 
 local function safeMkDir(path: string)
@@ -50,10 +34,12 @@ local function clearSnapshots()
 	end
 end
 
+print(fs.readfiletostring("./tests/std/syntax/e2eCases/roactToReact/cases/case1/initial.luau"))
+
 local function formattedTransform(initialPath: string, expectedPath: string, transformPath: string)
-	styluaTxtFiles(initialPath, expectedPath)
+	stylua(initialPath, expectedPath)
 	process.run({ lutePath, "transform", transformPath, initialPath })
-	styluaTxtFiles(initialPath)
+	stylua(initialPath)
 end
 
 clearSnapshots()
@@ -69,11 +55,15 @@ test.suite("Query and Transform e2e", function(suite)
 
 		suite:case(transformName, function(assert)
 			for i, v in fs.listdirectory(transformCasesPath) do
-				local subcase = `case{i}`
+				if v.type ~= "dir" then
+					continue
+				end
+
+				local subcase = v.name
 				local subcaseBasePath = path.format(path.join(transformCasesPath, subcase))
-				local initialPath = path.format(path.join(subcaseBasePath, "initial.txt"))
-				local expectedPath = path.format(path.join(subcaseBasePath, "expected.txt"))
-				local resultPath = path.format(path.join(subcaseBasePath, "result.txt"))
+				local initialPath = path.format(path.join(subcaseBasePath, "initial.luau"))
+				local expectedPath = path.format(path.join(subcaseBasePath, "expected.luau"))
+				local resultPath = path.format(path.join(subcaseBasePath, "result.luau"))
 
 				local initialSrc = fs.readfiletostring(initialPath)
 
