@@ -10,6 +10,8 @@ type Config = {
 	--- List of file paths to process
 	--- Note: no directory traversal or filtering has been applied on this list
 	filePaths: { string },
+	--- Directory to output transformed files to (does not overwrite original files)
+	outputDir: string?,
 }
 
 local function parse(arguments: { string }): Config
@@ -38,6 +40,10 @@ local function parse(arguments: { string }): Config
 				-- Options before the codemod file are parsed as options for the tool itself
 				if name == "dry-run" then
 					config.dryRun = true
+				elseif name == "output" then
+					i += 1
+					assert(i <= #arguments, `Missing value for '--output'`)
+					config.outputDir = arguments[i]
 				else
 					error(`Unknown flag '--{name}'`)
 				end
