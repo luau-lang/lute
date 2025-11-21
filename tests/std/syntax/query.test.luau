@@ -243,6 +243,26 @@ test.suite("AST Query", function(suite)
 		assert.eq(evenOnly[2], 2)
 		assert.eq(evenOnly[3], 4)
 	end)
+
+	suite:case("exists", function(assert)
+		local ast = syntax.parse("local x = 1")
+
+		local hasConstantNum = query.findallfromroot(ast, utils.isExprConstantNumber):exists()
+		assert.eq(hasConstantNum, true)
+		local hasLocal = query.findallfromroot(ast, utils.isStatLocal):exists()
+		assert.eq(hasLocal, true)
+		local hasFunctionCall = query.findallfromroot(ast, utils.isExprCall):exists()
+		assert.eq(hasFunctionCall, false)
+
+		local hasXToken = query.findallfromroot(ast, utils.isToken):exists(function(t)
+			return t.text == "x"
+		end)
+		assert.eq(hasXToken, true)
+		local hasYToken = query.findallfromroot(ast, utils.isToken):exists(function(t)
+			return t.text == "y"
+		end)
+		assert.eq(hasYToken, false)
+	end)
 end)
 
 test.run()

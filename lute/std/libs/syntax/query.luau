@@ -18,7 +18,7 @@ export type query<T = node> = {
 	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
 	flatmap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
 	maptoarray: <U>(self: query<T>, fn: (T) -> U?) -> { U },
-	exists: (self: query<T>, pred: (T) -> boolean) -> boolean,
+	exists: (self: query<T>, pred: ((T) -> boolean)?) -> boolean,
 }
 
 local queryLib = {}
@@ -65,7 +65,11 @@ function queryLib.foreach<T>(self: query<T>, callback: (T) -> ()): query<T>
 	return self
 end
 
-function queryLib.exists<T>(self: query<T>, predicate: (T) -> boolean): boolean
+function queryLib.exists<T>(self: query<T>, predicate: ((T) -> boolean)?): boolean
+	if not predicate then
+		return #self.nodes > 0
+	end
+
 	for _, node in self.nodes do
 		if predicate(node) then
 			return true
