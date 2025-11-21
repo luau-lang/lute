@@ -34,8 +34,6 @@ local function clearSnapshots()
 	end
 end
 
-print(fs.readfiletostring("./tests/std/syntax/e2eCases/roactToReact/cases/case1/initial.luau"))
-
 local function formattedTransform(initialPath: string, expectedPath: string, transformPath: string)
 	stylua(initialPath, expectedPath)
 	process.run({ lutePath, "transform", transformPath, initialPath })
