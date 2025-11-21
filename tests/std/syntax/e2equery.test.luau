@@ -10,38 +10,15 @@ local function stylua(...: string)
 	})
 end
 
-local function safeMkDir(path: string)
-	if not fs.exists(path) then
-		fs.createdirectory(path)
-	end
-end
-
 local lutePath = process.execpath()
-local snapshotsDir = "transform_snapshots"
-local allCasesPath = path.format(path.join(".", "tests", "std", "syntax", "e2eCases"))
 
-local function clearSnapshots()
-	if fs.exists(snapshotsDir) then
-		local it = fs.walk(snapshotsDir, { recursive = true })
-		local p = it()
-		while p do
-			local path = path.format(p)
-			if fs.type(path) == "file" then
-				fs.remove(path)
-			end
-			p = it()
-		end
-	end
-end
+local allCasesPath = path.format(path.join(".", "tests", "std", "syntax", "e2eCases"))
 
 local function formattedTransform(initialPath: string, expectedPath: string, transformPath: string)
 	stylua(initialPath, expectedPath)
 	process.run({ lutePath, "transform", transformPath, initialPath })
 	stylua(initialPath)
 end
-
-clearSnapshots()
-safeMkDir(snapshotsDir)
 
 test.suite("Query and Transform e2e", function(suite)
 	for k, _ in transforms do
