@@ -350,28 +350,69 @@ ProcessOptions parseOptions(lua_State* L, int index)
         return opts;
 
     lua_getfield(L, index, "system");
-    if (lua_isstring(L, -1))
-        opts.customShell = lua_tostring(L, -1);
+    if (!lua_isnil(L, -1))
+    {
+        if (lua_isstring(L, -1))
+        {
+            opts.customShell = lua_tostring(L, -1);
+        }
+        else
+        {
+            luaL_error(L, "process.system option 'system' must be a string");
+        }
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, index, "cwd");
     if (!lua_isnil(L, -1))
-        opts.cwd = lua_tostring(L, -1);
+    {
+        if (lua_isstring(L, -1))
+        {
+            opts.cwd = lua_tostring(L, -1);
+        }
+        else
+        {
+            luaL_error(L, "process option 'cwd' must be a string");
+        }
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, index, "stdio");
-    if (lua_isstring(L, -1))
-        opts.stdioKind = lua_tostring(L, -1);
+    if (!lua_isnil(L, -1))
+    {
+        if (lua_isstring(L, -1))
+        {
+            opts.stdioKind = lua_tostring(L, -1);
+        }
+        else
+        {
+            luaL_error(L, "process option 'stdio' must be a string");
+        }
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, index, "env");
-    if (lua_istable(L, -1))
+    if (!lua_isnil(L, -1))
     {
-        lua_pushnil(L);
-        while (lua_next(L, -2))
+        if (lua_istable(L, -1))
         {
-            opts.env[luaL_checkstring(L, -2)] = luaL_checkstring(L, -1);
-            lua_pop(L, 1);
+            lua_pushnil(L);
+            while (lua_next(L, -2))
+            {
+                if (!lua_isstring(L, -2) || !lua_isstring(L, -1))
+                {
+                    luaL_error(L, "process option 'env' must be a table of string keys and string values");
+                }
+                else
+                {
+                    opts.env[luaL_checkstring(L, -2)] = luaL_checkstring(L, -1);
+                }
+                lua_pop(L, 1);
+            }
+        }
+        else
+        {
+            luaL_error(L, "process option 'env' must be a table");
         }
     }
     lua_pop(L, 1);
@@ -381,25 +422,29 @@ ProcessOptions parseOptions(lua_State* L, int index)
 
 int run(lua_State* L)
 {
-    std::vector<std::string> args;
-    if (lua_istable(L, 1))
+    if (!lua_istable(L, 1))
     {
-        int len = lua_objlen(L, 1);
-        for (int i = 1; i <= len; i++)
-        {
-            lua_rawgeti(L, 1, i);
-            args.push_back(lua_tostring(L, -1));
-            lua_pop(L, 1);
-        }
-    }
-    else
-    {
-        args.push_back(lua_tostring(L, 1));
+        luaL_error(L, "process.run expects a table of arguments as the first parameter");
+        return 0;
     }
 
-    if (args.empty() || args[0].empty())
+    std::vector<std::string> args;
+    int len = lua_objlen(L, 1);
+    for (int i = 1; i <= len; i++)
     {
-        luaL_error(L, "process.run requires a non-empty command");
+        lua_rawgeti(L, 1, i);
+        args.push_back(lua_tostring(L, -1));
+        lua_pop(L, 1);
+    }
+
+    if (args.empty())
+    {
+        luaL_error(L, "process.run requires a non-empty table of arguments");
+        return 0;
+    }
+    if (args[0].empty())
+    {
+        luaL_error(L, "process.run requires a non-empty command as the first argument");
         return 0;
     }
 
@@ -412,7 +457,7 @@ int system(lua_State* L)
     std::string command = luaL_checkstring(L, 1);
     if (command.empty())
     {
-        luaL_error(L, "process.system requires a non-empty command");
+        luaL_error(L, "process.system requires a non-empty string as the command");
         return 0;
     }
 
