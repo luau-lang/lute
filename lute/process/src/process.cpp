@@ -152,6 +152,14 @@ struct ProcessHandle
     }
 };
 
+struct ProcessOptions
+{
+    std::string cwd;
+    std::string stdioKind;
+    std::map<std::string, std::string> env;
+    std::string customShell;  // only used by system()
+};
+
 static void onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
 {
     ProcessHandle* handle = static_cast<ProcessHandle*>(process->data);
@@ -214,7 +222,7 @@ const std::string kStdioKindNone = "none";
 // const std::string kStdioKindForward = "forward";
 
 // helper function for run() and system()
-int executionHelper(lua_State* L, std::vector<std::string> args, std::string cwd, std::string stdioKind, std::map<std::string, std::string> env)
+int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions opts)
 {
     auto handle = std::make_shared<ProcessHandle>();
     handle->loop = uv_default_loop();
@@ -234,7 +242,7 @@ int executionHelper(lua_State* L, std::vector<std::string> args, std::string cwd
 
     std::vector<std::string> envStrings;
     std::vector<char*> envPtr;
-    if (!env.empty())
+    if (!opts.env.empty())
     {
         // Copy current environment into the new environment
         uv_env_item_t* currentEnvItems;
@@ -248,17 +256,17 @@ int executionHelper(lua_State* L, std::vector<std::string> args, std::string cwd
         }
         for (int i = 0; i < currentEnvCount; i++)
         {
-            if (currentEnvItems[i].name && currentEnvItems[i].value && env.find(currentEnvItems[i].name) == env.end())
+            if (currentEnvItems[i].name && currentEnvItems[i].value && opts.env.find(currentEnvItems[i].name) == opts.env.end())
             {
-                env[currentEnvItems[i].name] = currentEnvItems[i].value;
+                opts.env[currentEnvItems[i].name] = currentEnvItems[i].value;
             }
         }
         uv_os_free_environ(currentEnvItems, currentEnvCount);
 
         // Turn the new environment into a char** array
-        envStrings.reserve(env.size());
-        envPtr.reserve(env.size() + 1);
-        for (const auto& pair : env)
+        envStrings.reserve(opts.env.size());
+        envPtr.reserve(opts.env.size() + 1);
+        for (const auto& pair : opts.env)
         {
             envStrings.push_back(pair.first + "=" + pair.second);
         }
@@ -270,9 +278,9 @@ int executionHelper(lua_State* L, std::vector<std::string> args, std::string cwd
         options.env = envPtr.data();
     }
 
-    if (!cwd.empty())
+    if (!opts.cwd.empty())
     {
-        options.cwd = cwd.c_str();
+        options.cwd = opts.cwd.c_str();
     }
 
     uv_pipe_init(handle->loop, &handle->stdoutPipe, 0);
@@ -281,19 +289,19 @@ int executionHelper(lua_State* L, std::vector<std::string> args, std::string cwd
     options.stdio_count = 3;
     uv_stdio_container_t stdio[3];
     stdio[0].flags = UV_IGNORE;
-    if (stdioKind == kStdioKindNone)
+    if (opts.stdioKind == kStdioKindNone)
     {
         stdio[1].flags = UV_IGNORE;
         stdio[2].flags = UV_IGNORE;
     }
-    else if (stdioKind == kStdioKindInherit)
+    else if (opts.stdioKind == kStdioKindInherit)
     {
         stdio[1].flags = UV_INHERIT_FD;
         stdio[1].data.fd = fileno(stdout);
         stdio[2].flags = UV_INHERIT_FD;
         stdio[2].data.fd = fileno(stderr);
     }
-    else if (stdioKind == kStdioKindDefault || stdioKind.empty())
+    else if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
     {
         stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
         stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
@@ -302,7 +310,7 @@ int executionHelper(lua_State* L, std::vector<std::string> args, std::string cwd
     }
     else
     {
-        luaL_error(L, "Invalid stdio kind: %s", stdioKind.c_str());
+        luaL_error(L, "Invalid stdio kind: %s", opts.stdioKind.c_str());
         return 0;
     }
     options.stdio = stdio;
@@ -334,23 +342,68 @@ int executionHelper(lua_State* L, std::vector<std::string> args, std::string cwd
     return lua_yield(L, 0);
 }
 
-int run(lua_State* L)
+std::vector<std::string> parseArgs(lua_State* L, int index)
 {
     std::vector<std::string> args;
-    if (lua_istable(L, 1))
+    if (lua_istable(L, index))
     {
-        int len = lua_objlen(L, 1);
+        int len = lua_objlen(L, index);
         for (int i = 1; i <= len; i++)
         {
-            lua_rawgeti(L, 1, i);
+            lua_rawgeti(L, index, i);
             args.push_back(lua_tostring(L, -1));
             lua_pop(L, 1);
         }
     }
     else
     {
-        args.push_back(lua_tostring(L, 1));
+        args.push_back(lua_tostring(L, index));
     }
+    return args;
+}
+
+ProcessOptions parseOptions(lua_State* L, int index)
+{
+    ProcessOptions opts;
+
+    if (!lua_istable(L, index))
+        return opts;
+
+    lua_getfield(L, index, "system");
+    if (lua_isstring(L, -1))
+        opts.customShell = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "cwd");
+    if (!lua_isnil(L, -1))
+        opts.cwd = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "stdio");
+    if (lua_isstring(L, -1))
+        opts.stdioKind = lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "env");
+    if (lua_istable(L, -1))
+    {
+        lua_pushnil(L);
+        while (lua_next(L, -2))
+        {
+            opts.env[luaL_checkstring(L, -2)] = luaL_checkstring(L, -1);
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+
+    return opts;
+}
+
+
+
+int run(lua_State* L)
+{
+    std::vector<std::string> args = parseArgs(L, 1);
 
     if (args.empty() || args[0].empty())
     {
@@ -358,59 +411,13 @@ int run(lua_State* L)
         return 0;
     }
 
-    std::string cwd;
-    std::string stdioKind;
-    std::map<std::string, std::string> env;
-
-    if (lua_istable(L, 2))
-    {
-        lua_getfield(L, 2, "cwd");
-        if (!lua_isnil(L, -1))
-            cwd = lua_tostring(L, -1);
-
-        lua_pop(L, 1);
-
-        lua_getfield(L, 2, "stdio");
-        if (lua_isstring(L, -1))
-        {
-            stdioKind = lua_tostring(L, -1);
-            // TODO: support stdin and separate stdout/stderr kinds
-        }
-        lua_pop(L, 1);
-
-        lua_getfield(L, 2, "env");
-        if (lua_istable(L, -1))
-        {
-            lua_pushnil(L);
-            while (lua_next(L, -2))
-            {
-                env[luaL_checkstring(L, -2)] = luaL_checkstring(L, -1);
-                lua_pop(L, 1);
-            }
-        }
-        lua_pop(L, 1);
-    }
-
-    return executionHelper(L, args, cwd, stdioKind, env);
+    ProcessOptions opts = parseOptions(L, 2);
+    return executionHelper(L, args, opts);
 }
 
 int system(lua_State* L)
 {
-    std::vector<std::string> args;
-    if (lua_istable(L, 1))
-    {
-        int len = lua_objlen(L, 1);
-        for (int i = 1; i <= len; i++)
-        {
-            lua_rawgeti(L, 1, i);
-            args.push_back(lua_tostring(L, -1));
-            lua_pop(L, 1);
-        }
-    }
-    else
-    {
-        args.push_back(lua_tostring(L, 1));
-    }
+    std::vector<std::string> args = parseArgs(L, 1);
 
     if (args.empty() || args[0].empty())
     {
@@ -418,47 +425,7 @@ int system(lua_State* L)
         return 0;
     }
 
-    std::string customShell;
-    std::string cwd;
-    std::string stdioKind;
-    std::map<std::string, std::string> env;
-
-    if (lua_istable(L, 2))
-    {
-        lua_getfield(L, 2, "system");
-        if (lua_isstring(L, -1))
-        {
-            customShell = lua_tostring(L, -1);
-        }
-
-        lua_pop(L, 1);
-
-        lua_getfield(L, 2, "cwd");
-        if (!lua_isnil(L, -1))
-            cwd = lua_tostring(L, -1);
-
-        lua_pop(L, 1);
-
-        lua_getfield(L, 2, "stdio");
-        if (lua_isstring(L, -1))
-        {
-            stdioKind = lua_tostring(L, -1);
-            // TODO: support stdin and separate stdout/stderr kinds
-        }
-        lua_pop(L, 1);
-
-        lua_getfield(L, 2, "env");
-        if (lua_istable(L, -1))
-        {
-            lua_pushnil(L);
-            while (lua_next(L, -2))
-            {
-                env[luaL_checkstring(L, -2)] = luaL_checkstring(L, -1);
-                lua_pop(L, 1);
-            }
-        }
-        lua_pop(L, 1);
-    }
+    ProcessOptions opts = parseOptions(L, 2);
 
     std::string commandStr = args[0];
 
@@ -479,7 +446,7 @@ int system(lua_State* L)
 #endif
 
     std::string resolvedShell;
-    if (customShell.empty())
+    if (opts.customShell.empty())
     {
         char shellBuffer[1024];
         size_t shellSize = sizeof(shellBuffer);
@@ -488,7 +455,7 @@ int system(lua_State* L)
     }
     else
     {
-        resolvedShell = customShell;
+        resolvedShell = opts.customShell;
     }
 
     args.clear();
@@ -496,7 +463,7 @@ int system(lua_State* L)
     args.emplace_back(shellArg);
     args.emplace_back(commandStr);
 
-    return executionHelper(L, args, cwd, stdioKind, env);
+    return executionHelper(L, args, opts);
 }
 
 int homedir(lua_State* L)
