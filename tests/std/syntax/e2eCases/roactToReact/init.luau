@@ -15,7 +15,7 @@ local function mount(block: luau.AstStatBlock): types.replacements
 
 		local mount = query.findallfromroot(node, queryUtils.isExprCall):filter(function(n)
 			if n.func.tag == "indexname" and n.func.index.text == "mount" then
-					return true
+				return true
 			end
 			return false
 		end)
@@ -81,19 +81,20 @@ local function unmount(node: luau.AstExprCall)
 	return `{instanceArg}.root:unmount()`
 end
 
-local function Portal(node: luau.AstExprCall)
+local function Portal(node: luau.AstExprCall): string?
 	local targetTable = node.arguments[2].node :: luau.AstExprTable
 	-- extract value of
 	local targetArg
 	for _, entry in targetTable.entries do
-		if entry.key and entry.key.text and entry.key.text == "target" then
+		entry = entry :: luau.AstExprTableItemGeneral
+		if entry.key and queryUtils.isToken(entry.key) and entry.key.text == "target" then
 			targetArg = printer.printnode(entry.value :: any)
 		end
 	end
 	local childrenArg = printer.printnode(node.arguments[3].node :: any)
 
 	if not targetArg then
-		return
+		return nil
 	end
 
 	return `ReactRoblox.createPortal({childrenArg}, {targetArg})`
@@ -268,21 +269,3 @@ local function transform(ctx)
 end
 
 return transform
-
---[[
-
-High level notes:
-
-- upwards navigation is rly useful; in this codemod, it'd be a lot easier / more performant to query for each function call (generally), update all those that are migrated accordingly (if we have upwards nav
-  we can get the statement by walking up tree from the call node). unfortunately, bc some of the migrations require the whole call statement (i.e local var = call),
-  we cannot do this and have to query for statements for those transforms that require the whole statement context, and separately query for calls for those transforms that only need the call node
-
-- I'm not sure of a good way around this one, just a general performance concern, it's tricky to vary operations between node world / string world.
-  When operating on a node, it is not uncommon to want to re-use parts of that node in your transformed output; currently, this will require:
-  	- for string transform: parsing the node into a string, and interpolating into your returned replacement
-	- for node transform: cloning node so it's mutable, updating accordingly (even more impractical, would never do this, just pointing out you CAN)
-
-  This incurs exponential complexity, as for each node we visit and transform in our query, we require at least an additional pass (of part of the node) to print. 
-
-- nit: annoying to have to query (visit whole tree), and get nodes I want with a predicate (this also requires additional pass: one pass to get nodes fulfilling predicate; subsequent to operate on them)
-]]

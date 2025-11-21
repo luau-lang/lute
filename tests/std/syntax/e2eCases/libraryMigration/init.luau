@@ -15,9 +15,12 @@ local function transformRequires(block: types.AstStatBlock): (string, types.repl
 	local oldLibRequires = getRequireStatements(block, "old")
 
 	local requireArgRepl = query
-		.findallfromroot(oldLibRequires.nodes[1] :: any, utils.isExprCall)
-		:map(function(node)
-			return node.arguments[1].node.index
+		.findallfromroot(oldLibRequires.nodes[1] :: types.AstNode, utils.isExprCall)
+		:map(function(node: types.AstExprCall): types.Token?
+			if utils.isExprIndexName(node.arguments[1].node) ~= nil then
+				return node.arguments[1].node.index
+			end
+			return nil
 		end)
 		:replace(function(node)
 			return "new"
