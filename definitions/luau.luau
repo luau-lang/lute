@@ -127,7 +127,6 @@ export type AstExprIndexExpr = {
 
 -- I don't like that we have this type; a lot of its data should live in the parents, which should then have `AstStatBlock` as its body
 export type AstFunctionBody = {
-	location: span,
 	opengenerics: Token<"<">?,
 	generics: Punctuated<AstGenericType>?,
 	genericpacks: Punctuated<AstGenericTypePack>?,
@@ -272,7 +271,6 @@ export type AstStatBlock = {
 }
 
 export type AstElseIfStat = {
-	location: span,
 	elseifkeyword: Token<"elseif">,
 	condition: AstExpr,
 	thenkeyword: Token<"then">,
@@ -456,7 +454,6 @@ export type AstStat = { kind: "stat" } & (
 )
 
 export type AstGenericType = {
-	location: span,
 	tag: "generic",
 	name: Token<string>,
 	equals: Token<"=">?,
@@ -464,7 +461,6 @@ export type AstGenericType = {
 }
 
 export type AstGenericTypePack = {
-	location: span,
 	tag: "genericpack",
 	name: Token<string>,
 	ellipsis: Token<"...">,
@@ -544,7 +540,6 @@ export type AstTypeArray = {
 }
 
 export type AstTypeTableItemIndexer = {
-	location: span,
 	kind: "indexer",
 	access: Token<"read" | "write">?,
 	indexeropen: Token<"[">,
@@ -556,7 +551,6 @@ export type AstTypeTableItemIndexer = {
 }
 
 export type AstTypeTableItemStringProperty = {
-	location: span,
 	kind: "stringproperty",
 	access: Token<"read" | "write">?,
 	indexeropen: Token<"[">,
@@ -568,7 +562,6 @@ export type AstTypeTableItemStringProperty = {
 }
 
 export type AstTypeTableItemProperty = {
-	location: span,
 	kind: "property",
 	access: Token<"read" | "write">?,
 	key: Token,
