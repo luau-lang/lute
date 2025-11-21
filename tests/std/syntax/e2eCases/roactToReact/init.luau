@@ -13,14 +13,14 @@ local function mount(block: luau.AstStatBlock): types.replacements
 			return nil :: any
 		end
 
-		local mount = query.findallfromroot(node, queryUtils.isExprCall):filter(function(n)
+		local isMount = query.findallfromroot(node, queryUtils.isExprCall):exists(function(n)
 			if n.func.tag == "indexname" and n.func.index.text == "mount" then
 				return true
 			end
 			return false
 		end)
 
-		return if #mount.nodes > 0 then node else nil
+		return if isMount then node else nil
 	end)
 
 	if #mountStatements.nodes == 0 then

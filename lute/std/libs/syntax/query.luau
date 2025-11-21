@@ -18,6 +18,7 @@ export type query<T = node> = {
 	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
 	flatmap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
 	maptoarray: <U>(self: query<T>, fn: (T) -> U?) -> { U },
+	exists: (self: query<T>, pred: (T) -> boolean) -> boolean,
 }
 
 local queryLib = {}
@@ -62,6 +63,15 @@ function queryLib.foreach<T>(self: query<T>, callback: (T) -> ()): query<T>
 		callback(node)
 	end
 	return self
+end
+
+function queryLib.exists<T>(self: query<T>, predicate: (T) -> boolean): boolean
+	for _, node in self.nodes do
+		if predicate(node) then
+			return true
+		end
+	end
+	return false
 end
 
 local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visitor
@@ -145,6 +155,7 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -
 		findall = queryLib.findall,
 		flatmap = queryLib.flatmap,
 		maptoarray = queryLib.maptoarray,
+		exists = queryLib.exists,
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 

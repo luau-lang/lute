@@ -27,14 +27,18 @@ local function transformLibraryAccess(
 	repl: (expr: luau.AstExpr, index: luau.Token) -> string
 )
 	return query
-		.findallfromroot(block :: any, utils.isExprIndexName)
-		:filter(function(node: luau.AstExprIndexName)
+		.findallfromroot(block :: any, function(node: luau.AstNode)
+			local indexNode = utils.isExprIndexName(node)
+			if not indexNode then
+				return nil
+			end
+
 			-- get root expression; determine if it's oldLib
-			return #query
-					.findallfromroot(node.expression :: any, utils.isBaseToken)
-					:filter(function(node: luau.Token)
-						return node.text == libAlias
-					end).nodes > 0
+			return if query.findallfromroot(indexNode.expression, utils.isBaseToken):exists(function(node: luau.Token)
+					return node.text == libAlias
+				end)
+				then indexNode
+				else nil
 		end)
 		:replace(function(node)
 			return repl(node.expression, node.index)
