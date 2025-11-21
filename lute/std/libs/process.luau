@@ -10,7 +10,7 @@ local processlib = {}
 
 export type stdiokind = process.StdioKind
 export type processrunoptions = process.ProcessRunOptions
-export type processshelloptions = process.ProcessShellOptions
+export type processsystemoptions = process.ProcessSystemOptions
 export type processresult = process.ProcessResult
 export type path = pathlib.path
 export type pathlike = pathlib.pathlike
@@ -27,8 +27,8 @@ function processlib.run(args: { string }, options: processrunoptions?): processr
 	return process.run(args, options)
 end
 
-function processlib.shell(command: string, options: processshelloptions?): processresult
-	return process.shell(command, options)
+function processlib.system(command: string, options: processsystemoptions?): processresult
+	return process.system(command, options)
 end
 
 function processlib.exit(exitcode: number): never

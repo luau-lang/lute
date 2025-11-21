@@ -7,8 +7,8 @@ export type ProcessRunOptions = {
 	env: { [string]: string }?,
 }
 
-export type ProcessShellOptions = {
-	shell: string?,
+export type ProcessSystemOptions = {
+	system: string?,
 	cwd: string?,
 	stdio: StdioKind?,
 
@@ -40,7 +40,7 @@ function process.run(args: { string }, options: ProcessRunOptions?): ProcessResu
 	error("not implemented")
 end
 
-function process.shell(command: string, options: ProcessShellOptions?): ProcessResult
+function process.system(command: string, options: ProcessSystemOptions?): ProcessResult
 	error("not implemented")
 end
 

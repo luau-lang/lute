@@ -15,7 +15,7 @@ namespace process
 {
 
 int run(lua_State* L);
-int shell(lua_State* L);
+int system(lua_State* L);
 
 int homedir(lua_State* L);
 int cwd(lua_State* L);
@@ -27,7 +27,7 @@ int execpath(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"run", run},
-    {"shell", shell},
+    {"system", system},
     {"homedir", homedir},
     {"cwd", cwd},
     {"exit", exitFunc},

@@ -20,12 +20,12 @@ test.suite("ProcessSuite", function(suite)
 		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
-	suite:case("run_echo_array_via_shell", function(assert)
-		local r = process.shell("echo hello-from-lute")
+	suite:case("run_echo_array_via_system", function(assert)
+		local r = process.system("echo hello-from-lute")
 		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
-	suite:case("run_shell_and_cwd", function(check)
+	suite:case("run_system_and_cwd", function(check)
 		local rootdir: string = "/"
 		local root: pathlib.path? = nil
 		if system.win32 then
@@ -50,7 +50,7 @@ test.suite("ProcessSuite", function(suite)
 			})
 		end
 
-		local r2 = process.shell("echo hello!")
+		local r2 = process.system("echo hello!")
 		check.tableeq(r2, {
 			exitcode = 0,
 			stdout = "hello!\n",
@@ -60,7 +60,7 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("run_nonzero_exitcode", function(assert)
-		local r = process.shell("sh -c 'exit 41'")
+		local r = process.system("sh -c 'exit 41'")
 		assert.tableeq(r, {
 			exitcode = 41,
 			stdout = "",

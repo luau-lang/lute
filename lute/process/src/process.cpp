@@ -213,7 +213,7 @@ const std::string kStdioKindNone = "none";
 // TODO: add forwarding
 // const std::string kStdioKindForward = "forward";
 
-// helper function for run() and shell()
+// helper function for run() and system()
 int executionHelper(lua_State* L, std::vector<std::string> args, std::string cwd, std::string stdioKind, std::map<std::string, std::string> env)
 {
     auto handle = std::make_shared<ProcessHandle>();
@@ -394,7 +394,7 @@ int run(lua_State* L)
     return executionHelper(L, args, cwd, stdioKind, env);
 }
 
-int shell(lua_State* L)
+int system(lua_State* L)
 {
     std::vector<std::string> args;
     if (lua_istable(L, 1))
@@ -425,7 +425,7 @@ int shell(lua_State* L)
 
     if (lua_istable(L, 2))
     {
-        lua_getfield(L, 2, "shell");
+        lua_getfield(L, 2, "system");
         if (lua_isstring(L, -1))
         {
             customShell = lua_tostring(L, -1);
