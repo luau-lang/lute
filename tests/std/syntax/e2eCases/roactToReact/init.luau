@@ -10,12 +10,14 @@ local function mount(block: luau.AstStatBlock): types.replacements
 	-- select all statements with mount calls
 	local mountStatements = query.findallfromroot(block, function(node)
 		if not (queryUtils.isStatLocal(node) or queryUtils.isStatAssign(node)) then
-			return nil
+			return nil :: any
 		end
 
-		local mount = query.findallfromroot(node, function(n)
-			local mountCall = queryUtils.isExprCall(n) and n.func.tag == "indexname" and n.func.index.text == "mount"
-			return if mountCall then node else nil
+		local mount = query.findallfromroot(node, queryUtils.isExprCall):filter(function(n)
+			if n.func.tag == "indexname" and n.func.index.text == "mount" then
+					return true
+			end
+			return false
 		end)
 
 		return if #mount.nodes > 0 then node else nil

@@ -20,7 +20,7 @@ local argReplacements = {
 }
 
 local function transformCallArgs(block: luau.AstStatBlock)
-	local argNodeToFuncName = {}
+	local argNodeToFuncName = {} :: { [luau.AstNode]: string }
 	return query
 		.findallfromroot(block, utils.isExprCall)
 		:filter(function(node: luau.AstExprCall)
@@ -28,11 +28,11 @@ local function transformCallArgs(block: luau.AstStatBlock)
 		end)
 		:map(function(node: luau.AstExprCall)
 			local arg = node.arguments[1].node
-			argNodeToFuncName[arg] = node.func.index.text
+			argNodeToFuncName[arg] = (node.func :: luau.AstExprIndexName).index.text
 			return arg
 		end)
-		:replace(function(node)
-			return argReplacements[argNodeToFuncName[node]](node)
+		:replace(function(node: luau.AstExpr)
+			return (argReplacements[argNodeToFuncName[node]] :: (luau.AstExpr) -> string)(node)
 		end)
 end
 
