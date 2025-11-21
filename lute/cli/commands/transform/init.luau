@@ -130,8 +130,12 @@ local function applyMigration(
 		local toWrite = if typeof(result) == "string" then result else printer.printfile(parseresult, result)
 
 		if toWrite == types.DELETION_MARKER then
-			print(`Marking {pathStr} for deletion`)
-			table.insert(deletedPaths, pathStr)
+			if outputDirPath then
+				print(`Skipping writing {pathStr} as it was marked for deletion`)
+			else
+				print(`Marking {pathStr} for deletion`)
+				table.insert(deletedPaths, pathStr)
+			end
 		elseif not dryRun then
 			if outputDirPath then
 				assert(outputFilePath ~= nil)
