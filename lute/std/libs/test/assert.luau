@@ -1,6 +1,7 @@
 --!strict
 -- @std/test/assert
 -- Standard assertion library for Luau
+local stringext = require("@std/stringext")
 
 local assertions = {}
 
@@ -102,6 +103,19 @@ function assertions.buffereq(lhs: buffer, rhs: buffer)
 		if left ~= right then
 			error(string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right))
 		end
+	end
+end
+
+function assertions.erroreq(func: () -> (), expectedErrorMessage: string)
+	local success, err = pcall(func)
+	if success then
+		error({ msg = `Function did not error as expected.` })
+	end
+
+	local actualErrorMessage = tostring(err)
+	-- pcall appends filename and line number of the error, so we check suffix only
+	if not stringext.hassuffix(actualErrorMessage, expectedErrorMessage) then
+		error({ msg = `Expected error message "{expectedErrorMessage}", but got "{actualErrorMessage}"` })
 	end
 end
 

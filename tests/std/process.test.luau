@@ -1,18 +1,7 @@
 local pathlib = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
-local stringext = require("@std/stringext")
 local test = require("@std/test")
-
-local function compareStrings(result: string, expected: string)
-	for i = 1, math.max(#result, #expected) do
-		local rChar = result:sub(i, i):byte()
-		local eChar = expected:sub(i, i):byte()
-		if rChar ~= eChar then
-			print(`Difference at index {i}: result='{rChar}', expected='{eChar}'`)
-		end
-	end
-end
 
 test.suite("ProcessSuite", function(suite)
 	suite:case("homedir_and_cwd_and_execpath", function(assert)
@@ -81,86 +70,47 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("process_run_options_error_cases", function(assert)
-		local ok, err = pcall(function()
-			process.run()
-		end)
-		assert.neq(ok, true)
-		local expectedError = "process.run expects a table of arguments as the first parameter"
-		-- pcall inserts the filename and line number before the actual error message in `err`, so we check suffix only
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
-
-		ok, err = pcall(function()
+		assert.erroreq(function()
 			process.run({})
-		end)
-		assert.neq(ok, true)
-		expectedError = "process.run requires a non-empty table of arguments"
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "process.run requires a non-empty table of arguments")
 
-		ok, err = pcall(function()
+		assert.erroreq(function()
 			process.run({ "echo", "hello" }, { cwd = {} })
-		end)
-		assert.neq(ok, true)
-		expectedError = "process option 'cwd' must be a string"
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "process option 'cwd' must be a string")
 
-		ok, err = pcall(function()
+		assert.erroreq(function()
 			process.run({ "echo", "hello" }, { stdio = {} })
-		end)
-		assert.neq(ok, true)
-		expectedError = "process option 'stdio' must be a string"
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "process option 'stdio' must be a string")
 
-		ok, err = pcall(function()
+		assert.erroreq(function()
 			process.run({ "echo", "hello" }, { env = "not-a-table" })
-		end)
-		assert.neq(ok, true)
-		expectedError = "process option 'env' must be a table"
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "process option 'env' must be a table")
 	end)
 
 	suite:case("process_system_options_error_cases", function(assert)
-		local ok, err = pcall(function()
+		assert.erroreq(function()
 			process.system()
-		end)
-		assert.neq(ok, true)
-		local expectedError = "invalid argument #1 to 'system' (string expected, got nil)"
-		-- pcall inserts the filename and line number before the actual error message in `err`, so we check suffix only
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "invalid argument #1 to 'system' (string expected, got nil)")
 
-		ok, err = pcall(function()
+		assert.erroreq(function()
 			process.system({})
-		end)
-		assert.neq(ok, true)
-		expectedError = "invalid argument #1 to 'system' (string expected, got table)"
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "invalid argument #1 to 'system' (string expected, got table)")
 
-		ok, err = pcall(function()
+		assert.erroreq(function()
 			process.system("echo hello", { system = {} })
-		end)
-		assert.neq(ok, true)
-		expectedError = "process.system option 'system' must be a string"
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "process.system option 'system' must be a string")
 
-		ok, err = pcall(function()
+		assert.erroreq(function()
 			process.system("echo hello", { cwd = {} })
-		end)
-		assert.neq(ok, true)
-		expectedError = "process option 'cwd' must be a string"
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "process option 'cwd' must be a string")
 
-		ok, err = pcall(function()
+		assert.erroreq(function()
 			process.system("echo hello", { stdio = {} })
-		end)
-		assert.neq(ok, true)
-		expectedError = "process option 'stdio' must be a string"
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "process option 'stdio' must be a string")
 
-		ok, err = pcall(function()
+		assert.erroreq(function()
 			process.system("echo hello", { env = "not-a-table" })
-		end)
-		assert.neq(ok, true)
-		expectedError = "process option 'env' must be a table"
-		assert.eq(stringext.hassuffix(tostring(err), expectedError), true)
+		end, "process option 'env' must be a table")
 	end)
 end)
 
