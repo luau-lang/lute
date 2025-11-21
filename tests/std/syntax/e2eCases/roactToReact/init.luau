@@ -1,16 +1,19 @@
 local luau = require("@lute/luau")
-local Transform = require("@std/syntax/transform")
+local types = require("@std/syntax/types")
+local query = require("@std/syntax/query")
 local utils = require("./utils")
 local printer = require("@std/syntax/printer")
+local tableext = require("@std/tableext")
 local queryUtils = require("@std/syntax/utils")
 
-local function mount(t: Transform.transform): boolean
+local function mount(block: luau.AstStatBlock): types.replacements
 	-- select all statements with mount calls
-	local mountStatements = t:findallfromroot(t.__parseresult.root, function(node)
+	local mountStatements = query.findallfromroot(block, function(node)
 		if not (queryUtils.isStatLocal(node) or queryUtils.isStatAssign(node)) then
 			return nil
 		end
-		local mount = t:findallfromroot(node, function(n)
+
+		local mount = query.findallfromroot(node, function(n)
 			local mountCall = queryUtils.isExprCall(n) and n.func.tag == "indexname" and n.func.index.text == "mount"
 			return if mountCall then node else nil
 		end)
@@ -19,10 +22,10 @@ local function mount(t: Transform.transform): boolean
 	end)
 
 	if #mountStatements.nodes == 0 then
-		return false
+		return {}
 	end
 
-	mountStatements:replace(function(mountStatement: luau.AstStatLocal | luau.AstStatAssign)
+	return mountStatements:replace(function(mountStatement: luau.AstStatLocal | luau.AstStatAssign)
 		-- get mounted variable
 		local mountedVar = printer.printnode(mountStatement.variables[1].node :: any)
 		local mountCall = mountStatement.values[1].node :: luau.AstExprCall
@@ -56,8 +59,6 @@ end)
 local %s = { root = root, parent = actualParent, key = actualKey }]]):format(elementArg, mountedVar)
 		return mountSetup .. "\n" .. mount
 	end)
-
-	return true
 end
 
 local function update(node: luau.AstExprCall)
@@ -150,14 +151,14 @@ local callMigrations = {
 local function transform(ctx)
 	local parseresult = ctx.parseresult
 	local ast = parseresult.root
-	local t = Transform.new(parseresult)
 	local needsReactRequire, needsReactRobloxRequire = false, false
 
 	-- convert statements
-	mount(t)
+	local fullStatementRepl = mount(ast)
 
 	-- convert calls
-	t:findallfromroot(ast, queryUtils.isExprCall)
+	local callRepl = query
+		.findallfromroot(ast, queryUtils.isExprCall)
 		:filter(function(node: luau.AstExprCall)
 			local func = node.func
 			if func.tag ~= "indexname" then
@@ -174,7 +175,7 @@ local function transform(ctx)
 			needsMigration = needsMigration or isRoactPortal
 			return needsMigration
 		end)
-		:foreach(function(node)
+		:replace(function(node)
 			local funcName = node.func.index.text
 			local firstCallArg = node.arguments[1].node
 			local isRoactPortal = firstCallArg.tag == "indexname" and firstCallArg.index.text == "Portal"
@@ -185,68 +186,83 @@ local function transform(ctx)
 				needsReactRequire = true
 			end
 
-			t.replacements[node :: any] = if isRoactPortal
-				then callMigrations["Portal"](node)
-				else callMigrations[funcName](node)
+			return if isRoactPortal then callMigrations["Portal"](node) else callMigrations[funcName](node)
 		end)
 
 	-- convert indexname
-	utils.transformLibraryAccess(t, ast, "Roact", function(_, index)
+	local libIndexNameRepl = utils.transformLibraryAccess(ast, "Roact", function(_, index)
 		return `React.{index.text}`
 	end)
 
 	-- convert index-exprs
-	t:findallfromroot(ast, queryUtils.isExprTable):foreach(function(node: luau.AstExprTable)
-		for _, entry in node.entries do
+	local libIndexExprRepl = query
+		.findallfromroot(ast, queryUtils.isExprTableItem)
+		:filter(function(entry)
 			if entry.kind ~= "general" or entry.key and entry.key.tag ~= "indexname" then
-				continue
+				return false
 			end
+
 			local key = entry.key
+			return key.index.text == "Children" or key.index.text == "Ref"
+		end)
+		:replace(function(entry: any) -- had to any caste this to shut up type solver
+			local key = entry.key :: luau.AstExprIndexName
 			local keyRepl
 			if key.index.text == "Children" then
 				keyRepl = ReactPropsTransforms["Roact.Children"](key)
 			elseif key.index.text == "Ref" then
 				keyRepl = ReactPropsTransforms["Roact.Ref"](key)
 			end
+			local entryValue = printer.printnode(entry.value)
 			if keyRepl then
 				needsReactRequire = true
 				-- couldn't replace full entry, so went with this
-				t.replacements[key :: any] = keyRepl
-				t.replacements[entry.indexerclose] = ""
-				t.replacements[entry.indexeropen] = ""
+				return `{keyRepl} = {entryValue},` :: any
 			end
-		end
-	end)
+			return entry
+		end)
 
 	-- convert/add requires based on all the above (if we need ReactRoblox, if we need React)
+	local addedRequiresRepl = {}
 	if needsReactRequire or needsReactRobloxRequire then
 		local roactRequire = utils.getRequireStatements(ast, "Roact").nodes[1]
-		local requireCall = roactRequire.values[1].node
-		local requiredModule = requireCall.arguments[1].node
+		local requireCall = roactRequire.values[1].node :: luau.AstExprCall
+		local requiredModule = requireCall.arguments[1].node :: luau.AstExprIndexName
 		if needsReactRequire and needsReactRobloxRequire then
 			-- get PackagesRoot
-			local packagesRoot = printer.printnode(requiredModule.expression)
-			t.replacements[roactRequire] =
+			local packagesRoot = printer.printnode(requiredModule.expression :: any)
+			addedRequiresRepl[roactRequire] =
 				`local React = require({packagesRoot}.React)\nlocal ReactRoblox = require({packagesRoot}.ReactRoblox)\n`
 			-- replace whole statement
 		else
 			-- just replace index and local var name of needed package
-			t:findallfromroot(requiredModule :: any, queryUtils.isExprIndexName)
+			local requireArgRepl = query
+				.findallfromroot(requireCall :: any, queryUtils.isExprIndexName)
 				:map(function(node)
-					return node.index
+					return node.index :: any
 				end)
 				:replace(function(node)
 					return if needsReactRequire then "React" else "ReactRoblox"
 				end)
 
 			local roactVar = roactRequire.variables[1].node
-			t:findallfromroot(roactVar :: any, queryUtils.isToken):replace(function(node: luau.Token)
-				return if needsReactRequire then "React" else "ReactRoblox"
-			end)
+			local requiredVarRepl = query
+				.findallfromroot(roactVar :: any, queryUtils.isToken)
+				:replace(function(node: luau.Token)
+					return if needsReactRequire then "React" else "ReactRoblox"
+				end)
+			addedRequiresRepl = tableext.combine(requireArgRepl, requiredVarRepl)
 		end
 	end
 
-	return t:transform()
+	return tableext.combine(
+		fullStatementRepl,
+		callRepl,
+		libIndexNameRepl,
+		libIndexExprRepl,
+		addedRequiresRepl :: types.replacements
+	)
+	-- return t:transform()
 end
 
 return transform

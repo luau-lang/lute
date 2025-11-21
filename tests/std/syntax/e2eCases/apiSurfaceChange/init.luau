@@ -1,8 +1,9 @@
 local luau = require("@lute/luau")
-local t = require("@std/syntax/transform")
 local utils = require("@std/syntax/utils")
 local printer = require("@std/syntax/printer")
 local qUtils = require("./utils")
+local tableext = require("@std/tableext")
+local query = require("@std/syntax/query")
 
 local apiMap = {
 	numFunc = "processNumber",
@@ -13,31 +14,36 @@ local apiMap = {
 }
 
 local argReplacements = {
-	arrayFunc = function(t: t.transform, node: luau.AstExprCall)
-		local arg = node.arguments[1].node
-		t.replacements[arg :: any] = `table.unpack({printer.printnode(arg :: any)})`
+	arrayFunc = function(arg: luau.AstExpr)
+		return `table.unpack({printer.printnode(arg :: any)})`
 	end,
 }
 
-local function transformCallArgs(t: t.transform, block: luau.AstStatBlock)
-	t:findallfromroot(block, utils.isExprCall)
-		:filter(function(node)
+local function transformCallArgs(block: luau.AstStatBlock)
+	local argNodeToFuncName = {}
+	return query
+		.findallfromroot(block, utils.isExprCall)
+		:filter(function(node: luau.AstExprCall)
 			return node.func.index and argReplacements[node.func.index.text] ~= nil
 		end)
+		:map(function(node: luau.AstExprCall)
+			local arg = node.arguments[1].node
+			argNodeToFuncName[arg] = node.func.index.text
+			return arg
+		end)
 		:replace(function(node)
-			return node.func.index and argReplacements[node.func.index.text](t, node)
+			return argReplacements[argNodeToFuncName[node]](node)
 		end)
 end
 
-local function transform(ctx): string
+local function transform(ctx)
 	local parseresult = ctx.parseresult
 	local block = parseresult.root
-	local transform = t.new(parseresult :: any)
-	qUtils.transformLibraryAccess(transform, block, "sameLibrary", function(expr, index: luau.Token)
+	local libAccessReplacements = qUtils.transformLibraryAccess(block, "sameLibrary", function(expr, index: luau.Token)
 		return `{printer.printnode(expr :: any)}.{apiMap[index.text]}`
 	end)
-	transformCallArgs(transform, block)
-	return transform:transform()
+	local argReplacements = transformCallArgs(block)
+	return tableext.combine(libAccessReplacements, argReplacements)
 end
 
 return transform

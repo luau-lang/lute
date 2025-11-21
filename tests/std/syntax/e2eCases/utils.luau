@@ -1,6 +1,5 @@
 local luau = require("@lute/luau")
 local query = require("@std/syntax/query")
-local t = require("@std/syntax/transform")
 local utils = require("@std/syntax/utils")
 
 -- assumes roblox requires structure
@@ -23,12 +22,12 @@ local function getRequireStatements(block: luau.AstStatBlock, requiredModule: st
 end
 
 local function transformLibraryAccess(
-	t: t.transform,
 	block: luau.AstStatBlock,
 	libAlias: string,
 	repl: (expr: luau.AstExpr, index: luau.Token) -> string
 )
-	t:findallfromroot(block :: any, utils.isExprIndexName)
+	return query
+		.findallfromroot(block :: any, utils.isExprIndexName)
 		:filter(function(node: luau.AstExprIndexName)
 			-- get root expression; determine if it's oldLib
 			return #query
