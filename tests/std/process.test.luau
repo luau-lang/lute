@@ -15,8 +15,13 @@ test.suite("ProcessSuite", function(suite)
 		assert.neq(pathlib.format(ex), "")
 	end)
 
-	suite:case("run_echo_array", function(assert)
+	suite:case("run_echo_array_via_run", function(assert)
 		local r = process.run({ "echo", "hello-from-lute" })
+		assert.eq(r.stdout, "hello-from-lute\n")
+	end)
+
+	suite:case("run_echo_array_via_shell", function(assert)
+		local r = process.shell("echo hello-from-lute")
 		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
@@ -45,7 +50,7 @@ test.suite("ProcessSuite", function(suite)
 			})
 		end
 
-		local r2 = process.run({ "echo hello!" }, { shell = true })
+		local r2 = process.shell("echo hello!")
 		check.tableeq(r2, {
 			exitcode = 0,
 			stdout = "hello!\n",
@@ -55,7 +60,7 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("run_nonzero_exitcode", function(assert)
-		local r = process.run({ "sh", "-c", "exit 41" })
+		local r = process.shell("sh -c 'exit 41'")
 		assert.tableeq(r, {
 			exitcode = 41,
 			stdout = "",
