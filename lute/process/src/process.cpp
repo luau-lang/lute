@@ -342,26 +342,6 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     return lua_yield(L, 0);
 }
 
-std::vector<std::string> parseArgs(lua_State* L, int index)
-{
-    std::vector<std::string> args;
-    if (lua_istable(L, index))
-    {
-        int len = lua_objlen(L, index);
-        for (int i = 1; i <= len; i++)
-        {
-            lua_rawgeti(L, index, i);
-            args.push_back(lua_tostring(L, -1));
-            lua_pop(L, 1);
-        }
-    }
-    else
-    {
-        args.push_back(lua_tostring(L, index));
-    }
-    return args;
-}
-
 ProcessOptions parseOptions(lua_State* L, int index)
 {
     ProcessOptions opts;
@@ -399,15 +379,27 @@ ProcessOptions parseOptions(lua_State* L, int index)
     return opts;
 }
 
-
-
 int run(lua_State* L)
 {
-    std::vector<std::string> args = parseArgs(L, 1);
+    std::vector<std::string> args;
+    if (lua_istable(L, 1))
+    {
+        int len = lua_objlen(L, 1);
+        for (int i = 1; i <= len; i++)
+        {
+            lua_rawgeti(L, 1, i);
+            args.push_back(lua_tostring(L, -1));
+            lua_pop(L, 1);
+        }
+    }
+    else
+    {
+        args.push_back(lua_tostring(L, 1));
+    }
 
     if (args.empty() || args[0].empty())
     {
-        luaL_error(L, "process.create requires a non-empty command");
+        luaL_error(L, "process.run requires a non-empty command");
         return 0;
     }
 
@@ -417,23 +409,14 @@ int run(lua_State* L)
 
 int system(lua_State* L)
 {
-    std::vector<std::string> args = parseArgs(L, 1);
-
-    if (args.empty() || args[0].empty())
+    std::string command = luaL_checkstring(L, 1);
+    if (command.empty())
     {
-        luaL_error(L, "process.create requires a non-empty command");
+        luaL_error(L, "process.system requires a non-empty command");
         return 0;
     }
 
     ProcessOptions opts = parseOptions(L, 2);
-
-    std::string commandStr = args[0];
-
-    for (size_t i = 1; i < args.size(); ++i)
-    {
-        commandStr += " ";
-        commandStr += args[i];
-    }
 
 #ifdef _WIN32
         const char* shellVar = "COMSPEC";
@@ -458,10 +441,11 @@ int system(lua_State* L)
         resolvedShell = opts.customShell;
     }
 
+    std::vector<std::string> args;
     args.clear();
     args.emplace_back(resolvedShell);
     args.emplace_back(shellArg);
-    args.emplace_back(commandStr);
+    args.emplace_back(command);
 
     return executionHelper(L, args, opts);
 }
