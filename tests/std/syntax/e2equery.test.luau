@@ -28,29 +28,37 @@ test.suite("Query and Transform e2e", function(suite)
 
 		assert(fs.exists(transformPath), `{transformPath} does not exist.`)
 
+		-- for each case, in .../cases/caseN/...luau
+		-- 		move intial.luau to .../cases/caseN.luau and expected.luau to .../cases/caseN.luau.expect
+		-- 		output result at .../cases/caseN.luau.result
+		--
+
 		suite:case(transformName, function(assert)
-			for i, v in fs.listdirectory(transformCasesPath) do
-				if v.type ~= "dir" then
+			for _, v in fs.listdirectory(transformCasesPath) do
+				if v.type ~= "file" then
 					continue
 				end
 
-				local subcase = v.name
-				local subcaseBasePath = path.format(path.join(transformCasesPath, subcase))
-				local initialPath = path.format(path.join(subcaseBasePath, "initial.luau"))
-				local expectedPath = path.format(path.join(subcaseBasePath, "expected.luau"))
-				local resultPath = path.format(path.join(subcaseBasePath, "result.luau"))
+				local case = v.name
+				-- print(case)
+				if case == ".luaurc" or case:find(".expect") or case:find(".result") then
+					continue
+				end
 
-				local initialSrc = fs.readfiletostring(initialPath)
+				local casePath = path.format(path.join(transformCasesPath, case))
+				local expectedPath = path.format(path.join(transformCasesPath, `{case}.expect`))
+				local resultPath = path.format(path.join(transformCasesPath, `{case}.result`))
 
-				formattedTransform(initialPath, expectedPath, transformPath)
+				local initialSrc = fs.readfiletostring(casePath)
+				formattedTransform(casePath, expectedPath, transformPath)
 
-				local result = fs.readfiletostring(initialPath)
+				local result = fs.readfiletostring(casePath)
 				fs.writestringtofile(resultPath, result)
-				fs.writestringtofile(initialPath, initialSrc)
-
+				fs.writestringtofile(casePath, initialSrc)
 				local expectedResult = fs.readfiletostring(expectedPath)
 
 				assert.eq(result, expectedResult)
+				-- output diff
 			end
 		end)
 	end

@@ -22,4 +22,4 @@ generated
 **/generated-types.luau
 WARP.md
 
-**/result.luau
+**/**.luau.result
