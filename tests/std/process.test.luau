@@ -76,11 +76,11 @@ test.suite("ProcessSuite", function(suite)
 
 		assert.erroreq(function()
 			process.run({ "echo", "hello" }, { cwd = {} })
-		end, "process option 'cwd' must be a string")
+		end, "invalid argument #-1 to 'run' (string expected, got table)")
 
 		assert.erroreq(function()
 			process.run({ "echo", "hello" }, { stdio = {} })
-		end, "process option 'stdio' must be a string")
+		end, "invalid argument #-1 to 'run' (string expected, got table)")
 
 		assert.erroreq(function()
 			process.run({ "echo", "hello" }, { env = "not-a-table" })
@@ -98,15 +98,14 @@ test.suite("ProcessSuite", function(suite)
 
 		assert.erroreq(function()
 			process.system("echo hello", { system = {} })
-		end, "process.system option 'system' must be a string")
+		end, "invalid argument #-1 to 'system' (string expected, got table)")
 
 		assert.erroreq(function()
 			process.system("echo hello", { cwd = {} })
-		end, "process option 'cwd' must be a string")
-
+		end, "invalid argument #-1 to 'system' (string expected, got table)")
 		assert.erroreq(function()
 			process.system("echo hello", { stdio = {} })
-		end, "process option 'stdio' must be a string")
+		end, "invalid argument #-1 to 'system' (string expected, got table)")
 
 		assert.erroreq(function()
 			process.system("echo hello", { env = "not-a-table" })
