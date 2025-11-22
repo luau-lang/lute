@@ -18,6 +18,7 @@ export type watchhandle = fs.WatchHandle
 export type watchevent = fs.WatchEvent
 
 type pathlike = pathlib.pathlike
+type path = pathlib.path
 
 export type createdirectoryoptions = {
 	makeparents: boolean?,
