@@ -20,6 +20,17 @@ local function formattedTransform(initialPath: string, expectedPath: string, tra
 	stylua(initialPath)
 end
 
+local function neatDiff(path: string, pathTwo: string)
+	local outputDiff = process.run({ "git", "diff", "--color=always", "--no-index", path, pathTwo }, {
+		shell = true,
+	}).stdout
+
+	local trimmedDiff = outputDiff:split("\n")
+	table.remove(trimmedDiff, 1)
+	table.remove(trimmedDiff, 1)
+	return table.concat(trimmedDiff, "\n")
+end
+
 test.suite("Query and Transform e2e", function(suite)
 	for k, _ in transforms do
 		local transformName = k
@@ -28,11 +39,6 @@ test.suite("Query and Transform e2e", function(suite)
 
 		assert(fs.exists(transformPath), `{transformPath} does not exist.`)
 
-		-- for each case, in .../cases/caseN/...luau
-		-- 		move intial.luau to .../cases/caseN.luau and expected.luau to .../cases/caseN.luau.expect
-		-- 		output result at .../cases/caseN.luau.result
-		--
-
 		suite:case(transformName, function(assert)
 			for _, v in fs.listdirectory(transformCasesPath) do
 				if v.type ~= "file" then
@@ -40,7 +46,6 @@ test.suite("Query and Transform e2e", function(suite)
 				end
 
 				local case = v.name
-				-- print(case)
 				if case == ".luaurc" or case:find(".expect") or case:find(".result") then
 					continue
 				end
@@ -57,8 +62,8 @@ test.suite("Query and Transform e2e", function(suite)
 				fs.writestringtofile(casePath, initialSrc)
 				local expectedResult = fs.readfiletostring(expectedPath)
 
-				assert.eq(result, expectedResult)
-				-- output diff
+				local outputDiff = neatDiff(expectedPath, resultPath)
+				assert.eq(result, expectedResult, `\nTransform failed to produce expected output\n{outputDiff}`)
 			end
 		end)
 	end

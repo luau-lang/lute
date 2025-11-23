@@ -4,9 +4,9 @@
 
 local assertions = {}
 
-function assertions.eq<T>(lhs: T, rhs: T)
+function assertions.eq<T>(lhs: T, rhs: T, msg: string?)
 	if lhs ~= rhs then
-		error({ msg = `{lhs} ~= {rhs}` })
+		error({ msg = msg or `{lhs} ~= {rhs}` })
 	end
 end
 
