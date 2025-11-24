@@ -1,4 +1,5 @@
 local syntax = require("@std/syntax")
+local syntaxTypes = require("@std/syntax/types")
 
 export type Context<Options = { [any]: any }> = {
 	path: string,
@@ -7,7 +8,7 @@ export type Context<Options = { [any]: any }> = {
 	options: Options,
 }
 
-export type Transformer = (Context) -> string
+export type Transformer = (Context) -> string | syntaxTypes.replacements
 
 export type ConfigOption =
 	{
