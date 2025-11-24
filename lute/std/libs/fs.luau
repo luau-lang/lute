@@ -18,6 +18,7 @@ export type watchhandle = fs.WatchHandle
 export type watchevent = fs.WatchEvent
 
 type pathlike = pathlib.pathlike
+type path = pathlib.path
 
 export type createdirectoryoptions = {
 	makeparents: boolean?,
@@ -140,7 +141,7 @@ end
 
 -- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead.
 function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
-	local queue = { pathlib.parse(path) }
+	local queue = { if typeof(path) == "string" then pathlib.parse(path) else path }
 
 	return function()
 		while #queue > 0 do
@@ -149,7 +150,7 @@ function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
 				return nil
 			end
 
-			if fslib.type(current) == "dir" and options and options.recursive then
+			if fslib.type(current) == "dir" and options and options.recursive then -- LUAUFIX: error on options.recursive because it thinks options could still be nil
 				local entries = fslib.listdirectory(current)
 				for _, entry in entries do
 					local fullPath = pathlib.join(current, entry.name)
