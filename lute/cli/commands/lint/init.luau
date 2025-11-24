@@ -37,7 +37,7 @@ local function loadLintRule(path: string): types.LintRule
 		`{path} must return a table with a 'lint' function property`
 	)
 
-	return loaded :: types.LintRule -- We have to cast because we can't assert that loaded.lint is a more specific function type
+	return loaded :: types.LintRule -- We have to cast because we can only assert that loaded.lint is the top function type, rather than a more specific function type like (ast: syntax.AstStatBlock, sourcepath: path.path) -> { LintViolation }
 end
 
 local function loadLintRules(path: string): { types.LintRule }
