@@ -93,6 +93,10 @@ test.suite("ProcessSuite", function(suite)
 		assert.erroreq(function()
 			process.run({ "echo", "hello" }, "not-a-table")
 		end, "process options must be a table")
+
+		assert.erroreq(function()
+			process.run({ huh = 42 })
+		end, "process.run requires a non-empty table of arguments")
 	end)
 
 	suite:case("process_run_arraylike_table", function(assert)
