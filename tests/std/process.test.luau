@@ -60,7 +60,7 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("run_nonzero_exitcode", function(assert)
-		local r = process.system("sh -c 'exit 41'")
+		local r = process.run({ "sh", "-c", "exit 41" })
 		assert.tableeq(r, {
 			exitcode = 41,
 			stdout = "",

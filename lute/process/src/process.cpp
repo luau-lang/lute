@@ -408,7 +408,7 @@ int run(lua_State* L)
     for (int i = 1; i <= len; i++)
     {
         lua_rawgeti(L, 1, i);
-        args.push_back(lua_tostring(L, -1));
+        args.push_back(luaL_checkstring(L, -1));
         lua_pop(L, 1);
     }
 
