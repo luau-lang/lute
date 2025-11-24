@@ -82,7 +82,7 @@ local function applyMigration(
 	paths: { pathLib.path },
 	options: { [string]: string | boolean },
 	dryRun: boolean,
-	outputDir: string?
+	outputPath: string?
 )
 	local deletedPaths = {}
 
@@ -94,10 +94,7 @@ local function applyMigration(
 		migration.initialize(ctx)
 	end
 
-	local outputDirPath = if outputDir then pathLib.parse(outputDir) else nil
-	if outputDirPath and not fs.exists(outputDirPath) then
-		error("Output directory does not exist: " .. pathLib.format(outputDirPath))
-	end
+	local outputFilePath = if outputPath then pathLib.parse(outputPath) else nil
 
 	for _, pathObj in paths do
 		local pathStr = pathLib.format(pathObj)
@@ -118,26 +115,17 @@ local function applyMigration(
 		-- TODO: should we wrap in pcall? For now we don't do this to preserve stack trace
 		local result = migration.transform(ctx)
 
-		local outputFilePath = nil
-		if outputDirPath then
-			local baseName = pathLib.basename(pathObj)
-			if baseName == nil then
-				error(`Could not determine basename for path {pathStr}`)
-			end
-			outputFilePath = pathLib.join(outputDirPath, baseName)
-		end
-
 		local toWrite = if typeof(result) == "string" then result else printer.printfile(parseresult, result)
 
 		if toWrite == types.DELETION_MARKER then
-			if outputDirPath then
+			if outputFilePath then
 				print(`Skipping writing {pathStr} as it was marked for deletion`)
 			else
 				print(`Marking {pathStr} for deletion`)
 				table.insert(deletedPaths, pathStr)
 			end
 		elseif not dryRun then
-			if outputDirPath then
+			if outputFilePath then
 				assert(outputFilePath ~= nil)
 				fs.writestringtofile(outputFilePath, toWrite)
 			elseif toWrite ~= source then
@@ -161,8 +149,8 @@ local function main(...: string)
 		print("Executing in dry run mode")
 	end
 
-	if args.outputDir then
-		print(`Output directory specified: '{args.outputDir}'`)
+	if args.outputFile then
+		print(`Output path specified: '{args.outputFile}'`)
 	end
 
 	print(`Loading migration '{args.migrationPath}'`)
@@ -178,7 +166,7 @@ local function main(...: string)
 	local migrationOptions = processMigrationOptions(migration, args.migrationOptions)
 
 	print("Applying migration")
-	applyMigration(migration, files, migrationOptions, args.dryRun, args.outputDir)
+	applyMigration(migration, files, migrationOptions, args.dryRun, args.outputFile)
 
 	print(`Processed {#files} files!`)
 end
