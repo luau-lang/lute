@@ -16,7 +16,7 @@ Lint the specified Luau file using the specified lint rule(s).
 
 OPTIONS:
   -h, --help              Show this help message
-  -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder is provided, all .luau files will be assumed to be lint rules.
+  -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder is provided, any subfolders containing init.luau files will be treated as modules exporting lint rules, while all other .luau files will be treated as individual lint rules.
 
 PATH:
   Path to the Luau file to be linted.
@@ -43,24 +43,31 @@ end
 local function loadLintRules(path: string): { types.LintRule }
 	assert(fs.exists(path), `Lint rule at path '{path}' does not exist`)
 
-	if fs.metadata(path).type == "dir" then
-		local rules = {}
+	local rules = {}
 
-		local walker = fs.walk(path, { recursive = true })
-		local curr = walker()
+	local queue: { string } = { path }
+	while #queue > 0 do
+		local currentPath = table.remove(queue, 1)
+		assert(currentPath, "We should never pop from an empty queue")
 
-		while curr ~= nil do
-			if pathLib.extname(curr) == ".luau" then
-				table.insert(rules, loadLintRule(pathLib.format(curr)))
+		if fs.metadata(currentPath).type == "dir" then
+			local currentPathObj = pathLib.parse(currentPath)
+			local initPath = pathLib.format(pathLib.join(currentPathObj, "init.luau"))
+			if fs.exists(initPath) then
+				table.insert(rules, loadLintRule(initPath))
+			else
+				local entries = fs.listdirectory(currentPath)
+				local childPaths = tableext.map(entries, function(entry)
+					return pathLib.format(pathLib.join(currentPathObj, entry.name))
+				end)
+				tableext.extend(queue, childPaths)
 			end
-
-			curr = walker()
+		else
+			table.insert(rules, loadLintRule(currentPath))
 		end
-
-		return rules
-	else
-		return { loadLintRule(path) }
 	end
+
+	return rules
 end
 
 local function main(...: string)
@@ -109,7 +116,7 @@ local function main(...: string)
 	table.sort(
 		violations,
 		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirecitonal inference should mean that annotations on a and b aren't needed
-		return a.location < b.location
+			return a.location < b.location
 		end
 	)
 
