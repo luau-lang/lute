@@ -18,6 +18,7 @@ export type watchhandle = fs.WatchHandle
 export type watchevent = fs.WatchEvent
 
 type pathlike = pathlib.pathlike
+type path = pathlib.path
 
 export type createdirectoryoptions = {
 	makeparents: boolean?,
@@ -67,8 +68,30 @@ function fslib.symboliclink(src: pathlike, dest: pathlike): ()
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.watch(path: pathlike, callback: (filename: pathlike, event: watchevent) -> ()): watchhandle
-	return fs.watch(pathlib.format(path), callback)
+--- Iterator function that yields filename and event pairs when changes occur in the watched path.
+--- Also provides a `close` method to stop watching.
+function fslib.watch(path: pathlike): () -> { filename: pathlike, event: watchevent }?
+	local queue: { { filename: pathlike, event: watchevent } } = {}
+	local handle = fs.watch(pathlib.format(path), function(filename: string, event: watchevent)
+		table.insert(queue, { filename = filename, event = event })
+	end)
+
+	local function iterator(): { filename: pathlike, event: watchevent }?
+		if #queue > 0 then
+			local item = table.remove(queue, 1)
+			return item
+		else
+			return nil
+		end
+	end
+
+	function iterator:close(): ()
+		if handle then
+			handle:close()
+		end
+	end
+
+	return iterator
 end
 
 function fslib.exists(path: pathlike): boolean

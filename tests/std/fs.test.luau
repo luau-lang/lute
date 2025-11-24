@@ -2,6 +2,7 @@ local fs = require("@std/fs")
 local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
+local task = require("@lute/task")
 
 local tmpdir = system.tmpdir()
 
@@ -96,21 +97,23 @@ test.suite("FsSuite", function(suite)
 		end
 
 		local triggered = false
-		local handle = fs.watch(tmpdir, function(filename, event)
-			if tostring(filename):find("watched.txt") then
-				triggered = true
-			end
-		end)
-
-		fs.writestringtofile(watched, "x")
+		local it = fs.watch(tmpdir)
 
 		local start = os.time()
 		while not triggered and os.time() - start < 2 do
+			local ev = it()
+			if ev and tostring(ev.filename):find("watched.txt") then
+				triggered = true
+				break
+			end
+			task.wait(0.01)
 		end
 
-		assert.eq(type(triggered) == "boolean", true)
+		fs.writestringtofile(path.join(tmpdir, "watched.txt"), "x")
 
-		handle:close()
+		assert.eq(triggered, true)
+
+		it:close()
 		if fs.exists(watched) then
 			fs.remove(watched)
 		end
