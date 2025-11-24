@@ -95,6 +95,12 @@ test.suite("ProcessSuite", function(suite)
 		end, "process options must be a table")
 	end)
 
+	suite:case("process_run_arraylike_table", function(assert)
+		-- We expect this to still work and ignore the non-string keys
+		local r = process.run({ "echo", "hello", foo = "bar" })
+		assert.eq(r.stdout, "hello\n")
+	end)
+
 	suite:case("process_system_options_error_cases", function(assert)
 		assert.erroreq(function()
 			process.system()

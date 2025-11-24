@@ -115,7 +115,7 @@ function assertions.erroreq(func: () -> (), expectedErrorMessage: string)
 	local actualErrorMessage = tostring(err)
 	-- pcall appends filename and line number of the error, so we check suffix only
 	if not stringext.hassuffix(actualErrorMessage, expectedErrorMessage) then
-		error({ msg = `Expected error message "{expectedErrorMessage}", but got "{actualErrorMessage}"` })
+		error({ msg = `Expected suffix of error message "{expectedErrorMessage}", but got "{actualErrorMessage}"` })
 	end
 end
 
