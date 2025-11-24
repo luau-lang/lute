@@ -85,6 +85,14 @@ test.suite("ProcessSuite", function(suite)
 		assert.erroreq(function()
 			process.run({ "echo", "hello" }, { env = "not-a-table" })
 		end, "process option 'env' must be a table")
+
+		assert.erroreq(function()
+			process.run({ "echo", "hello" }, "invalid_option")
+		end, "process options must be a table")
+
+		assert.erroreq(function()
+			process.run({ "echo", "hello" }, "not-a-table")
+		end, "process options must be a table")
 	end)
 
 	suite:case("process_system_options_error_cases", function(assert)
@@ -110,6 +118,10 @@ test.suite("ProcessSuite", function(suite)
 		assert.erroreq(function()
 			process.system("echo hello", { env = "not-a-table" })
 		end, "process option 'env' must be a table")
+
+		assert.erroreq(function()
+			process.system("echo hello", "invalid_option")
+		end, "process options must be a table")
 	end)
 end)
 

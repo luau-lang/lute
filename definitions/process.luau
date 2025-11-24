@@ -1,4 +1,4 @@
-export type StdioKind = "default" | "inherit" | "none" | ""
+export type StdioKind = "default" | "inherit" | "none"
 
 export type ProcessRunOptions = {
 	cwd: string?,

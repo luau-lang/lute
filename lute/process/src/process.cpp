@@ -343,8 +343,15 @@ ProcessOptions parseOptions(lua_State* L, int index)
 {
     ProcessOptions opts;
 
+    if (lua_isnoneornil(L, index))
+    {
+        return opts; // use defaults
+    }
+
     if (!lua_istable(L, index))
-        return opts;
+    {
+        luaL_error(L, "process options must be a table");
+    }
 
     lua_getfield(L, index, "system");
     if (!lua_isnil(L, -1))
@@ -451,13 +458,7 @@ int system(lua_State* L)
         resolvedShell = opts.customShell;
     }
 
-    std::vector<std::string> args;
-    args.clear();
-    args.emplace_back(resolvedShell);
-    args.emplace_back(shellArg);
-    args.emplace_back(command);
-
-    return executionHelper(L, args, opts);
+    return executionHelper(L, { resolvedShell, shellArg, command }, opts);
 }
 
 int homedir(lua_State* L)
