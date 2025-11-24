@@ -106,9 +106,12 @@ local function main(...: string)
 	for _, rule in lintRules do
 		tableext.extend(violations, rule.lint(ast, inputFilePath))
 	end
-	table.sort(violations, function(a, b)
-		return syntax.span.cmp(a.location, b.location)
-	end)
+	table.sort(
+		violations,
+		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirecitonal inference should mean that annotations on a and b aren't needed
+		return a.location < b.location
+		end
+	)
 
 	print(`Printing {#violations} violations\n`)
 	printer.printLints(violations, fileContent)

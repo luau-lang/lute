@@ -6,17 +6,6 @@ local luau = require("@lute/luau")
 export type span = types.span
 
 local span = table.freeze({
-	cmp = function(a: span, b: span): boolean
-		-- if a begins before b, a is less than b
-		-- if beginnings match, compare endings
-		if a.beginline < b.beginline or (a.beginline == b.beginline and a.begincolumn < b.begincolumn) then
-			return true
-		elseif a.beginline == b.beginline and a.begincolumn == b.begincolumn then
-			return a.endline < b.endline or (a.endline == b.endline and a.endcolumn < b.endcolumn)
-		else
-			return false
-		end
-	end,
 	create = luau.span.create,
 })
 
