@@ -72,16 +72,25 @@ end
 --- Also provides a `close` method to stop watching.
 function fslib.watch(path: pathlike): () -> { filename: pathlike, event: watchevent }?
 	local queue: { { filename: pathlike, event: watchevent } } = {}
+	local iteratorco
 	local handle = fs.watch(pathlib.format(path), function(filename: string, event: watchevent)
 		table.insert(queue, { filename = filename, event = event })
+
+		if iteratorco and coroutine.status(iteratorco) == "suspended" then
+			coroutine.resume(iteratorco)
+		end
 	end)
 
 	local function iterator(): { filename: pathlike, event: watchevent }?
-		if #queue > 0 then
-			local item = table.remove(queue, 1)
-			return item
-		else
-			return nil
+		while true do
+			if #queue > 0 then
+				local item = table.remove(queue, 1)
+				return item
+			else
+				iteratorco = coroutine.running()
+				coroutine.yield()
+				iteratorco = nil
+			end
 		end
 	end
 

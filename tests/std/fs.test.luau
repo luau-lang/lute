@@ -99,8 +99,18 @@ test.suite("FsSuite", function(suite)
 		local triggered = false
 		local it = fs.watch(tmpdir)
 
-		local start = os.time()
-		while not triggered and os.time() - start < 2 do
+		fs.writestringtofile(path.join(tmpdir, "watched.txt"), "x")
+
+		-- local start = os.time()
+		-- while not triggered and os.time() - start < 2 do
+		-- 	local ev = it()
+		-- 	if ev and tostring(ev.filename):find("watched.txt") then
+		-- 		triggered = true
+		-- 		break
+		-- 	end
+		-- 	task.wait(0.01)
+		-- end
+		while true do
 			local ev = it()
 			if ev and tostring(ev.filename):find("watched.txt") then
 				triggered = true
@@ -108,8 +118,6 @@ test.suite("FsSuite", function(suite)
 			end
 			task.wait(0.01)
 		end
-
-		fs.writestringtofile(path.join(tmpdir, "watched.txt"), "x")
 
 		assert.eq(triggered, true)
 
