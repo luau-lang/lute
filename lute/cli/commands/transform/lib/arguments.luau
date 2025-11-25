@@ -10,6 +10,8 @@ type Config = {
 	--- List of file paths to process
 	--- Note: no directory traversal or filtering has been applied on this list
 	filePaths: { string },
+	--- Path to output file (only works if a single input file is specified)
+	outputFile: string?,
 }
 
 local function parse(arguments: { string }): Config
@@ -25,6 +27,7 @@ local function parse(arguments: { string }): Config
 		migrationPath = nil :: string?,
 		migrationOptions = {},
 		filePaths = {},
+		outputFile = nil,
 	}
 
 	local i = 1
@@ -38,6 +41,10 @@ local function parse(arguments: { string }): Config
 				-- Options before the codemod file are parsed as options for the tool itself
 				if name == "dry-run" then
 					config.dryRun = true
+				elseif name == "output" then
+					i += 1
+					assert(i <= #arguments, `Missing value for '--output'`)
+					config.outputFile = arguments[i]
 				else
 					error(`Unknown flag '--{name}'`)
 				end
@@ -60,6 +67,10 @@ local function parse(arguments: { string }): Config
 	end
 
 	assert(config.migrationPath, "ASSERTION FAILED: codemodPath ~= nil")
+	assert(
+		if config.outputFile ~= nil then #config.filePaths == 1 else true,
+		"ASSERTION FAILED: When specifying an output file, only one input file is allowed"
+	)
 
 	return config
 end
