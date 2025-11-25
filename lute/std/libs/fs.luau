@@ -81,6 +81,7 @@ end
 
 --- Iterator function that yields filename and event pairs when changes occur in the watched path.
 --- Also provides a `close` method to stop watching.
+--- Note: for loops do not support yielding generalized iterators, so we cannot use fs.watch as `for _ in fs.watch(...) do` directly. A while loop can be used instead. See example/watch_directory.luau for usage.
 function fslib.watch(path: pathlike): watchiterator
 	local queue: { { filename: path, event: watchevent } } = {}
 
@@ -176,7 +177,7 @@ function fslib.removedirectory(path: pathlike, options: removedirectoryoptions?)
 	end
 end
 
--- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead.
+--- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead. See example/walk_directory.luau for usage.
 function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
 	local queue = { path }
 
