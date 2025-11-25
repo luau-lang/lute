@@ -1,16 +1,12 @@
 local luau = {}
 
 -- this is a userdata, not a table, but it has this interface
-type spandata = {
+export type span = {
 	beginline: number,
 	begincolumn: number,
 	endline: number,
 	endcolumn: number,
 }
-type spanMT = {
-	__lt: (a: spandata, b: spandata) -> boolean,
-}
-export type span = setmetatable<spandata, spanMT>
 
 luau.span = {}
 
