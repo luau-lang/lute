@@ -15,9 +15,8 @@ local lutePath = process.execpath()
 local allCasesPath = path.format(path.join(".", "tests", "std", "syntax", "e2eCases"))
 
 local function formattedTransform(initialPath: string, expectedPath: string, transformPath: string)
-	stylua(initialPath, expectedPath)
 	process.run({ lutePath, "transform", transformPath, initialPath })
-	stylua(initialPath)
+	stylua(initialPath, expectedPath)
 end
 
 local function neatDiff(path: string, pathTwo: string)

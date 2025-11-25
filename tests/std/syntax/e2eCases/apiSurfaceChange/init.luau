@@ -40,7 +40,7 @@ local function transform(ctx)
 	local parseresult = ctx.parseresult
 	local block = parseresult.root
 	local libAccessReplacements = qUtils.transformLibraryAccess(block, "sameLibrary", function(expr, index: luau.Token)
-		return `{printer.printnode(expr :: any)}.{apiMap[index.text]}`
+		return `{printer.printnode(expr)}.{apiMap[index.text]}`
 	end)
 	local argReplacements = transformCallArgs(block)
 	return tableext.combine(libAccessReplacements, argReplacements)
