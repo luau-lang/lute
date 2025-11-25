@@ -7,7 +7,7 @@ local syntax = require("@std/syntax")
 local tableext = require("@std/tableext")
 local types = require("@self/types")
 
-local USAGE = "Usage: lute lint [OPTIONS] [PATH]"
+local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 
 local function printHelp()
 	print(USAGE)
@@ -18,12 +18,12 @@ OPTIONS:
   -h, --help              Show this help message
   -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder is provided, any subfolders containing init.luau files will be treated as modules exporting lint rules, while all other .luau files will be treated as individual lint rules.
 
-PATH:
-  Path to the Luau file to be linted.
+PATHS:
+  Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
 
 EXAMPLES:
   lute lint -r examples/lints/almost_swapped.luau bad_swap.luau
-  lute lint -r examples/lints/ lintee.luau
+  lute lint -r examples/lints/ lintee.luau src_code/
 ]])
 end
 
@@ -70,11 +70,39 @@ local function loadLintRules(path: string): { types.LintRule }
 	return rules
 end
 
+local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule }): { types.LintViolation }
+	print(`Reading input file '{inputFilePath}'`)
+	local fileContent = fs.readfiletostring(inputFilePath)
+
+	print(`Parsing input file '{inputFilePath}'`)
+	local ast = syntax.parseblock(fileContent)
+
+	print("Applying lint rules")
+	local violations: { types.LintViolation } = {}
+	for _, rule in lintRules do
+		local success, err = pcall(rule.lint, ast, inputFilePath)
+		if success then
+			-- On success, err contains the returned violations
+			tableext.extend(violations, err)
+		else
+			print(`Error applying lint rule '{rule.name}': {err}`)
+		end
+	end
+
+	table.sort(
+		violations,
+		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirecitonal inference should mean that annotations on a and b aren't needed
+			return a.location < b.location
+		end
+	)
+
+	return violations
+end
+
 local function main(...: string)
 	local args = cli.parser()
 
 	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
-	args:add("input", "positional", { help = "Input file to be linted" })
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
 	-- TODO: handle multiple rules, multiple input files, ignore blobs, json output option
 
@@ -92,42 +120,47 @@ local function main(...: string)
 		return
 	end
 
-	local inputFile = args:get("input")
-	if inputFile == nil then
-		print("Error: No input file specified.\n\n" .. USAGE .. "\nUse --help for more information.")
+	local inputFiles = args:forwarded()
+	if inputFiles == nil or #inputFiles == 0 then
+		print("Error: No input files specified.\n\n" .. USAGE .. "\nUse --help for more information.")
 		return
 	end
-	local inputFilePath = pathLib.parse(inputFile)
 
 	print(`Loading lint rule(s) from '{rulePath}'`)
 	local lintRules = loadLintRules(rulePath)
 
-	print(`Reading input file '{inputFile}'`)
-	local fileContent = fs.readfiletostring(inputFilePath)
+	local allViolations = {}
 
-	print(`Parsing input file '{inputFile}'`)
-	local ast = syntax.parseblock(fileContent)
+	for _, inputPath in inputFiles do
+		local walker = fs.walk(inputPath, { recursive = true })
 
-	print("Applying lint rules")
-	local violations: { types.LintViolation } = {}
-	for _, rule in lintRules do
-		local success, err = pcall(rule.lint, ast, inputFilePath)
-		if success then
-			-- On success, err contains the returned violations
-			tableext.extend(violations, err)
-		else
-			print(`Error applying lint rule '{rule.name}': {err}`)
+		local curr = walker()
+		while curr ~= nil do
+			local inputFilePath = pathLib.parse(curr)
+
+			local extension = pathLib.extname(inputFilePath)
+			if extension == ".luau" or extension == ".lua" then
+				local success, err = pcall(lintFile, inputFilePath, lintRules)
+				if success then
+					-- Violations are returned as the second return value from pcall
+					allViolations[inputFilePath] = err
+				else
+					print(`Error linting file '{inputFilePath}': {err}`)
+				end
+			else
+				print(`Skipping non-Luau file '{inputFilePath}'`)
+			end
+
+			curr = walker()
 		end
 	end
-	table.sort(
-		violations,
-		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirectional inference should mean that annotations on a and b aren't needed
-			return a.location < b.location
-		end
-	)
 
-	print(`Printing {#violations} violations\n`)
-	printer.printLints(violations, fileContent)
+	print(`Printing violations from {#allViolations} files\n`)
+	for sourcePath, violations in allViolations do
+		if #violations > 0 then
+			printer.printLints(violations, sourcePath)
+		end
+	end
 end
 
 main(...)
