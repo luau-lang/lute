@@ -276,9 +276,8 @@ violator.luau:1:1-2:6 ──
 
 		assert.neq(
 			result.stdout:find(
-				"Error applying lint rule 'AlwaysErrors': ./lints/erroring_rule.luau:4: This rule always errors",
-				1,
-				true
+				"Error applying lint rule 'AlwaysErrors': %.[/\\]lints[/\\]erroring_rule%.luau:4: This rule always errors",
+				1
 			),
 			nil
 		)
