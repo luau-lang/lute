@@ -90,7 +90,7 @@ test.suite("FsSuite", function(suite)
 		fs.remove(src)
 	end)
 
-	suite:case("watch_callback_on_change", function(assert)
+	suite:case("watch_iterator_on_change", function(assert)
 		local watchedFileName = "watched.txt"
 		local watched = path.join(tmpdir, watchedFileName)
 		if fs.exists(watched) then
