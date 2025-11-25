@@ -62,7 +62,7 @@ local function loadLintRules(path: string): { types.LintRule }
 				end)
 				tableext.extend(queue, childPaths)
 			end
-		else
+		elseif pathLib.extname(currentPath) == ".luau" then
 			table.insert(rules, loadLintRule(currentPath))
 		end
 	end

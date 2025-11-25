@@ -6,10 +6,20 @@ local test = require("@std/test")
 
 local lutePath = path.format(process.execpath())
 local tmpDir = system.tmpdir()
+local rulesDir = path.format(path.join(".", "lints"))
+local almostSwappedExample = path.format(path.join("examples", "lints", "almost_swapped.luau"))
+local divideByZeroExample = path.format(path.join("examples", "lints", "divide_by_zero.luau"))
 
 local USAGE = "Usage: lute lint [OPTIONS] [PATH]"
 
 test.suite("lute lint", function(suite)
+	suite:beforeeach(function()
+		-- A test that creates rulesDir which fails won't cleanup after itself
+		if fs.exists(rulesDir) then
+			fs.removedirectory(rulesDir, { recursive = true })
+		end
+	end)
+
 	suite:case("lute lint help message", function(assert)
 		local result = process.run({ lutePath, "lint", "-h" })
 
@@ -43,8 +53,6 @@ test.suite("lute lint", function(suite)
 
 	suite:case("divide_by_zero", function(assert)
 		-- Setup
-		local rule = path.format(path.join("examples", "lints", "divide_by_zero.luau"))
-
 		-- Create a file that violates the rule
 		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
 		fs.writestringtofile(
@@ -56,7 +64,7 @@ local x = 1 / 0
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", rule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 0)
@@ -77,8 +85,6 @@ violator.luau:1:11-16 ──
 
 	suite:case("almost_swapped", function(assert)
 		-- Setup
-		local rule = path.format(path.join("examples", "lints", "almost_swapped.luau"))
-
 		-- Create a file that violates the rule
 		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
 		fs.writestringtofile(
@@ -105,7 +111,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", rule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", almostSwappedExample, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 0)
@@ -157,7 +163,19 @@ violator.luau:14:2-15:17 ──
 
 	suite:case("lute lint multiple rules", function(assert)
 		-- Setup
-		local ruleDir = path.format(path.join("examples", "lints"))
+		fs.createdirectory(rulesDir)
+		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
+		fs.copy(almostSwappedExample, path.join(rulesDir, "almost_swapped.luau"))
+		-- Copy divide_by_zero to rulesDir/divide_by_zero/init.luau
+		local divideByZeroDir = path.join(rulesDir, "divide_by_zero")
+		fs.createdirectory(divideByZeroDir)
+		fs.copy(divideByZeroExample, path.join(divideByZeroDir, "init.luau"))
+		fs.writestringtofile(
+			path.join(rulesDir, "bogus.txt"),
+			[[
+not a luau file
+]]
+		)
 
 		-- Create a file that violates the rule
 		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
@@ -173,7 +191,7 @@ b = a
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", ruleDir, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", rulesDir, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 0)
@@ -204,6 +222,7 @@ violator.luau:3:1-4:6 ──
 
 		-- Teardown
 		fs.remove(violatorPath)
+		fs.removedirectory(rulesDir, { recursive = true })
 	end)
 end)
 
