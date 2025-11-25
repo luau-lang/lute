@@ -96,27 +96,31 @@ test.suite("FsSuite", function(suite)
 			fs.remove(watched)
 		end
 
-		local triggered = false
 		local it = fs.watch(tmpdir)
 
-		fs.writestringtofile(path.join(tmpdir, "watched.txt"), "x")
+		-- Give the watcher a moment to initialize
+		task.wait(0.1)
 
-		-- local start = os.time()
-		-- while not triggered and os.time() - start < 2 do
-		-- 	local ev = it()
-		-- 	if ev and tostring(ev.filename):find("watched.txt") then
-		-- 		triggered = true
-		-- 		break
-		-- 	end
-		-- 	task.wait(0.01)
-		-- end
-		while true do
+		fs.writestringtofile(watched, "x")
+
+		-- Poll the iterator with a timeout
+		local triggered = false
+		local start = os.clock()
+		local timeout = 2 -- 2 second timeout
+
+		while not triggered and (os.clock() - start) < timeout do
 			local ev = it()
-			if ev and tostring(ev.filename):find("watched.txt") then
-				triggered = true
-				break
+			print("polled iterator, got:", ev)
+
+			if ev then
+				print("event details:", ev.filename, ev.event)
+				if tostring(ev.filename):find("watched") then
+					triggered = true
+					break
+				end
 			end
-			task.wait(0.01)
+
+			task.wait(0.05) -- Poll every 50ms
 		end
 
 		assert.eq(triggered, true)

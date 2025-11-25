@@ -9,6 +9,9 @@ local sys = require("@std/system")
 
 local fslib = {}
 
+local watch_mt = {}
+watch_mt.__index = watch_mt
+
 export type handlemode = fs.HandleMode
 export type file = fs.FileHandle
 export type type = fs.FileType
@@ -31,6 +34,14 @@ export type removedirectoryoptions = {
 export type walkoptions = {
 	recursive: boolean?,
 }
+
+type watchiteratordata = {
+	_handle: watchhandle,
+	_queue: { { filename: path, event: watchevent } },
+}
+
+type watchinterface = typeof(watch_mt)
+export type watchiterator = setmetatable<watchiteratordata, watchinterface>
 
 function fslib.open(path: pathlike, mode: handlemode?): file
 	return fs.open(pathlib.format(path), mode)
@@ -70,37 +81,32 @@ end
 
 --- Iterator function that yields filename and event pairs when changes occur in the watched path.
 --- Also provides a `close` method to stop watching.
-function fslib.watch(path: pathlike): () -> { filename: pathlike, event: watchevent }?
-	local queue: { { filename: pathlike, event: watchevent } } = {}
-	local iteratorco
-	local handle = fs.watch(pathlib.format(path), function(filename: string, event: watchevent)
-		table.insert(queue, { filename = filename, event = event })
+function fslib.watch(path: pathlike): watchiterator
+	local queue: { { filename: path, event: watchevent } } = {}
 
-		if iteratorco and coroutine.status(iteratorco) == "suspended" then
-			coroutine.resume(iteratorco)
-		end
+	local handle = fs.watch(pathlib.format(path), function(filename: string, event: watchevent)
+		table.insert(queue, { filename = pathlib.parse(filename), event = event })
 	end)
 
-	local function iterator(): { filename: pathlike, event: watchevent }?
-		while true do
-			if #queue > 0 then
-				local item = table.remove(queue, 1)
-				return item
-			else
-				iteratorco = coroutine.running()
-				coroutine.yield()
-				iteratorco = nil
-			end
+	local self = {
+		_handle = handle,
+		_queue = queue,
+	}
+
+	function watch_mt:__call()
+		if #self._queue > 0 then
+			return table.remove(self._queue, 1)
+		end
+		return nil
+	end
+
+	function watch_mt:close()
+		if self._handle then
+			self._handle:close()
 		end
 	end
 
-	function iterator:close(): ()
-		if handle then
-			handle:close()
-		end
-	end
-
-	return iterator
+	return setmetatable(self, watch_mt)
 end
 
 function fslib.exists(path: pathlike): boolean
