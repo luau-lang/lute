@@ -42,9 +42,11 @@ end
 
 type DiffOperation = {
 	key: "EQUAL" | "ADD" | "DELETE",
-	char: string,
+	text: string,
 	position: number?,
 }
+
+type Diff = { DiffOperation }
 
 local function edgeToDiff(curNode: EditGraphNode, a: string | { string }, b: string | { string }): DiffOperation
 	local prev = curNode.prev :: EditGraphNode
@@ -53,19 +55,19 @@ local function edgeToDiff(curNode: EditGraphNode, a: string | { string }, b: str
 	if xDiff == 1 and yDiff == 1 then
 		return {
 			key = "EQUAL",
-			char = if typeof(a) == "table" then a[curNode.x] else a:sub(curNode.x, curNode.x),
+			text = if typeof(a) == "table" then a[curNode.x] else a:sub(curNode.x, curNode.x),
 			position = curNode.y,
 		}
 	elseif xDiff == 1 then
 		return {
 			key = "DELETE",
-			char = if typeof(a) == "table" then a[curNode.x] else a:sub(curNode.x, curNode.x),
+			text = if typeof(a) == "table" then a[curNode.x] else a:sub(curNode.x, curNode.x),
 			position = curNode.x,
 		}
 	else
 		return {
 			key = "ADD",
-			char = if typeof(b) == "table" then b[curNode.y] else b:sub(curNode.y, curNode.y),
+			text = if typeof(b) == "table" then b[curNode.y] else b:sub(curNode.y, curNode.y),
 			position = curNode.y,
 		}
 	end
@@ -92,7 +94,6 @@ local function myersdiff(a: string | { string }, b: string | { string })
 
 		-- evaluate termination condition (we are at #a, #b)
 		if curNode.x == #a and curNode.y == #b then
-			print("terminating")
 			-- traversal finished; now we need to reconstruct the graph
 			while curNode.prev do
 				local diffOperation = edgeToDiff(curNode, a, b)
@@ -137,10 +138,77 @@ local function myersdiffbychar(a: string, b: string)
 	return myersdiff(a, b)
 end
 
+local function printDiffByLine(a: string, b: string)
+	local diff = myersdiffbyline(a, b)
+	for _, op in diff do
+		print(
+			if op.key == "ADD"
+				then style.bold(style.color(colors.green, `+ {op.text} {op.position}`))
+				elseif op.key == "DELETE" then style.bold(style.color(colors.red, `- {op.text} {op.position}`))
+				else `{op.text} {op.position}`
+		)
+	end
+end
 
+local function applyDiff(diff: Diff, a: string, separator: string)
+	local src = a:split(separator)
 
+	local result = {}
+	local srcCursor = 1 -- Points to the current char in Source
+	for i, op in diff do
+		if op.key == "EQUAL" then
+			-- VALIDATION: Does the source actually have this char here?
+			local actual = src[srcCursor]
+			if actual ~= op.text then
+				error(
+					string.format(
+						"Patch Error at op %d: Expected EQUAL '%s' but source had '%s'",
+						i,
+						op.text,
+						tostring(actual)
+					)
+				)
+			end
+
+			-- Apply: Add to result, consume source
+			table.insert(result, op.text)
+			srcCursor = srcCursor + 1
+		elseif op.key == "DELETE" then
+			-- VALIDATION: Are we deleting what we think we are?
+			local actual = src[srcCursor]
+			if actual ~= op.text then
+				error(
+					string.format(
+						"Patch Error at op %d: Expected DELETE '%s' but source had '%s'",
+						i,
+						op.text,
+						tostring(actual)
+					)
+				)
+			end
+
+			srcCursor = srcCursor + 1
+		elseif op.key == "ADD" then
+			table.insert(result, op.text)
+		end
+	end
+
+	return table.concat(result, separator)
+end
+
+local function applyCharDiff(diff: Diff, a: string)
+	return applyDiff(diff, a, "")
+end
+
+local function applyLineDiff(diff: Diff, a: string)
+	return applyDiff(diff, a, "\n")
+end
 
 return {
 	bychar = myersdiffbychar,
 	byline = myersdiffbyline,
+	applylinediff = applyLineDiff,
+	aplychardiff = applyCharDiff,
+	printdiffbyline = printDiffByLine,
+	-- TODO: printByChar
 }
