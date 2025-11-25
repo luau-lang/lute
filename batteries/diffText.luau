@@ -208,7 +208,7 @@ return {
 	bychar = myersdiffbychar,
 	byline = myersdiffbyline,
 	applylinediff = applyLineDiff,
-	aplychardiff = applyCharDiff,
+	applychardiff = applyCharDiff,
 	printdiffbyline = printDiffByLine,
 	-- TODO: printByChar
 }
