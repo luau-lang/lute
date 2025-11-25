@@ -5,22 +5,22 @@ local stringext = require("@std/stringext")
 
 local assertions = {}
 
-function assertions.eq<T>(lhs: T, rhs: T)
+function assertions.eq<T>(lhs: T, rhs: T, msg: string?)
 	if lhs ~= rhs then
-		error({ msg = `{lhs} ~= {rhs}` })
+		error({ msg = msg or `{lhs} ~= {rhs}` })
 	end
 end
 
-function assertions.neq<T>(lhs: T, rhs: T)
+function assertions.neq<T>(lhs: T, rhs: T, msg: string?)
 	if lhs == rhs then
-		error({ msg = `{lhs} == {rhs}` })
+		error({ msg = msg or `{lhs} == {rhs}` })
 	end
 end
 
-function assertions.errors(callback: () -> ())
+function assertions.errors(callback: () -> (), msg: string?)
 	local success = pcall(callback)
 	if success then
-		error({ msg = `{callback} did not throw error.` })
+		error({ msg = msg or `{callback} did not throw error.` })
 	end
 end
 
