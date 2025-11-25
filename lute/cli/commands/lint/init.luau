@@ -19,7 +19,7 @@ OPTIONS:
   -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder is provided, any subfolders containing init.luau files will be treated as modules exporting lint rules, while all other .luau files will be treated as individual lint rules.
 
 PATHS:
-  Path(s) to the Luau file(s) or folders containing Luau files to be linted.
+  Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
 
 EXAMPLES:
   lute lint -r examples/lints/almost_swapped.luau bad_swap.luau
@@ -132,7 +132,8 @@ local function main(...: string)
 		while curr ~= nil do
 			local inputFilePath = pathLib.parse(curr)
 
-			if pathLib.extname(inputFilePath) == ".luau" then
+			local extension = pathLib.extname(inputFilePath)
+			if extension == ".luau" or extension == ".lua" then
 				local success, err = pcall(lintFile, inputFilePath, lintRules)
 				if success then
 					-- Violations are returned as the second return value from pcall

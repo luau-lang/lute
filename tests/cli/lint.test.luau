@@ -246,7 +246,7 @@ b = a
 
 		local modulePath = path.join(tmpDir, "module")
 		fs.createdirectory(modulePath)
-		local violatorPath2 = path.format(path.join(modulePath, "violator2.luau"))
+		local violatorPath2 = path.format(path.join(modulePath, "violator2.lua"))
 		fs.writestringtofile(
 			violatorPath2,
 			[[
@@ -278,7 +278,7 @@ violator1.luau:1:11-16 ──
 		assert.neq(result.stdout:find(expected, 1, true), nil)
 
 		expected = [[
-violator2.luau:1:11-17 ──
+violator2.lua:1:11-17 ──
    │
  1 │ local y = 10 / 0
    │           ^^^^^^
@@ -298,7 +298,7 @@ violator1.luau:3:1-4:6 ──
 		assert.neq(result.stdout:find(expected, 1, true), nil)
 
 		expected = [[
-violator2.luau:5:1-6:6 ──
+violator2.lua:5:1-6:6 ──
    │
  5 │ ╭ x = y
  6 │ │ y = x
@@ -306,8 +306,7 @@ violator2.luau:5:1-6:6 ──
    │
 ]]
 		assert.neq(result.stdout:find(expected, 1, true), nil)
-		print("STDOUT:", result.stdout)
-		expected = "Skipping non%-Luau file '.+/module/not_luau%.txt'"
+		expected = "Skipping non%-Luau file '.+[/\\]module[/\\]not_luau%.txt'"
 		assert.neq(result.stdout:find(expected, 1, false), nil)
 
 		-- Teardown
@@ -315,15 +314,26 @@ violator2.luau:5:1-6:6 ──
 		fs.removedirectory(modulePath, { recursive = true })
 	end)
 
-	suite:case("lute lint file errors", function(assert)
+	suite:case("lute lint multiple files with errors recovers", function(assert)
 		-- Setup
 		-- Create multiple files that violate the rule
 		local lintee = path.format(path.join(tmpDir, "lintee.luau"))
 		fs.writestringtofile(lintee, "bogus")
 
+		local violatorPath = path.format(path.join(tmpDir, "violator1.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 1 / 0
+
+a = b
+b = a
+    ]]
+		)
+
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", "examples/lints", lintee })
+		local result = process.run({ lutePath, "lint", "-r", "examples/lints", lintee, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 0)
@@ -334,8 +344,15 @@ lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 ]]
 		assert.neq(result.stdout:find(expected, 1, true), nil)
 
+		assert.neq(result.stdout:find("warning[divide_by_zero]: Division by zero detected.", 1, true), nil)
+		assert.neq(
+			result.stdout:find("warning[almost_swapped]: This looks like a failed attempt to swap.", 1, true),
+			nil
+		)
+
 		-- Teardown
 		fs.remove(lintee)
+		fs.remove(violatorPath)
 	end)
 end)
 
