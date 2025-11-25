@@ -91,7 +91,8 @@ test.suite("FsSuite", function(suite)
 	end)
 
 	suite:case("watch_callback_on_change", function(assert)
-		local watched = path.join(tmpdir, "watched.txt")
+		local watchedFileName = "watched.txt"
+		local watched = path.join(tmpdir, watchedFileName)
 		if fs.exists(watched) then
 			fs.remove(watched)
 		end
@@ -105,18 +106,14 @@ test.suite("FsSuite", function(suite)
 
 		-- Poll the iterator with a timeout
 		local triggered = false
-		local start = os.clock()
-		local timeout = 2 -- 2 second timeout
+		local start = os.time()
 
-		while not triggered and (os.clock() - start) < timeout do
+		while not triggered and (os.time() - start) < 2 do
 			local ev = it()
-			print("polled iterator, got:", ev)
 
 			if ev then
-				print("event details:", ev.filename, ev.event)
-				if tostring(ev.filename):find("watched") then
+				if tostring(ev.filename) == watchedFileName then
 					triggered = true
-					break
 				end
 			end
 
