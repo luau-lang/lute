@@ -137,7 +137,10 @@ local function myersdiffbychar(a: string, b: string)
 	return myersdiff(a, b)
 end
 
+
+
+
 return {
-	myersdiffbychar = myersdiffbychar,
-	myersdiffbyline = myersdiffbyline,
+	bychar = myersdiffbychar,
+	byline = myersdiffbyline,
 }
