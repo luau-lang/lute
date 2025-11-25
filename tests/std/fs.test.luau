@@ -97,32 +97,27 @@ test.suite("FsSuite", function(suite)
 			fs.remove(watched)
 		end
 
-		local it = fs.watch(tmpdir)
+		local watcher = fs.watch(tmpdir)
 
-		-- Give the watcher a moment to initialize
-		task.wait(0.1)
+		task.wait(0.1) -- Give some time for the watcher to start
 
 		fs.writestringtofile(watched, "x")
 
-		-- Poll the iterator with a timeout
-		local triggered = false
-		local start = os.time()
+		local foundChange = false
+		local startTime = os.clock()
 
-		while not triggered and (os.time() - start) < 2 do
-			local ev = it()
-
-			if ev then
-				if tostring(ev.filename) == watchedFileName then
-					triggered = true
-				end
+		local event = watcher:next()
+		while event and os.clock() - startTime < 2 do
+			if event.change or event.rename then
+				foundChange = true
 			end
-
-			task.wait(0.05) -- Poll every 50ms
+			event = watcher:next()
 		end
 
-		assert.eq(triggered, true)
+		assert.eq(foundChange, true)
+		assert.eq(event == nil, true)
 
-		it:close()
+		watcher:close()
 		if fs.exists(watched) then
 			fs.remove(watched)
 		end

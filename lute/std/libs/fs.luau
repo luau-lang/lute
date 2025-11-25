@@ -9,9 +9,6 @@ local sys = require("@std/system")
 
 local fslib = {}
 
-local watch_mt = {}
-watch_mt.__index = watch_mt
-
 export type handlemode = fs.HandleMode
 export type file = fs.FileHandle
 export type type = fs.FileType
@@ -35,13 +32,10 @@ export type walkoptions = {
 	recursive: boolean?,
 }
 
-type watchiteratordata = {
-	_handle: watchhandle,
-	_queue: { { filename: path, event: watchevent } },
+type watcher = {
+	next: (watcher) -> watchevent?,
+	close: (self: watcher) -> (),
 }
-
-type watchinterface = typeof(watch_mt)
-export type watchiterator = setmetatable<watchiteratordata, watchinterface>
 
 function fslib.open(path: pathlike, mode: handlemode?): file
 	return fs.open(pathlib.format(path), mode)
@@ -82,32 +76,26 @@ end
 --- Iterator function that yields filename and event pairs when changes occur in the watched path.
 --- Also provides a `close` method to stop watching.
 --- Note: for loops do not support yielding generalized iterators, so we cannot use fs.watch as `for _ in fs.watch(...) do` directly. A while loop can be used instead. See example/watch_directory.luau for usage.
-function fslib.watch(path: pathlike): watchiterator
-	local queue: { { filename: path, event: watchevent } } = {}
-
+function fslib.watch(path: pathlike): watcher
+	local queue = {}
 	local handle = fs.watch(pathlib.format(path), function(filename: string, event: watchevent)
 		table.insert(queue, { filename = pathlib.parse(filename), event = event })
 	end)
 
-	local self = {
-		_handle = handle,
-		_queue = queue,
+	return {
+		next = function(self: watcher): watchevent?
+			if #queue == 0 then
+				return nil
+			end
+			local item = table.remove(queue, 1)
+			return item.event
+		end,
+		close = function(self: watcher): ()
+			if handle then
+				handle:close()
+			end
+		end,
 	}
-
-	function watch_mt:__call()
-		if #self._queue > 0 then
-			return table.remove(self._queue, 1)
-		end
-		return nil
-	end
-
-	function watch_mt:close()
-		if self._handle then
-			self._handle:close()
-		end
-	end
-
-	return setmetatable(self, watch_mt)
 end
 
 function fslib.exists(path: pathlike): boolean
