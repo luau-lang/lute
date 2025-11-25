@@ -1,3 +1,4 @@
+local fs = require("@std/fs")
 local path = require("@std/path")
 local types = require("./types")
 
@@ -60,12 +61,16 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 	end
 end
 
-function printerLib.printLints(lints: { types.LintViolation }, sourceContent: string): ()
+local function printLints(lints: { types.LintViolation }, sourceContent: string): ()
 	local sourceLines = sourceContent:split("\n")
 
 	for _, lint in lints do
 		printLint(lint, sourceLines)
 	end
+end
+
+function printerLib.printLints(lints: { types.LintViolation }, sourcePath: path.path): ()
+	printLints(lints, fs.readfiletostring(sourcePath))
 end
 
 return table.freeze(printerLib)

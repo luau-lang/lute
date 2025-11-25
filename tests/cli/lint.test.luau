@@ -10,13 +10,18 @@ local rulesDir = path.format(path.join(".", "lints"))
 local almostSwappedExample = path.format(path.join("examples", "lints", "almost_swapped.luau"))
 local divideByZeroExample = path.format(path.join("examples", "lints", "divide_by_zero.luau"))
 
-local USAGE = "Usage: lute lint [OPTIONS] [PATH]"
+local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 
 test.suite("lute lint", function(suite)
 	suite:beforeeach(function()
 		-- A test that creates rulesDir which fails won't cleanup after itself
 		if fs.exists(rulesDir) then
 			fs.removedirectory(rulesDir, { recursive = true })
+		end
+
+		local modulePath = path.join(tmpDir, "module")
+		if fs.exists(modulePath) then
+			fs.removedirectory(modulePath, { recursive = true })
 		end
 	end)
 
@@ -44,11 +49,11 @@ test.suite("lute lint", function(suite)
 		assert.neq(result.stdout:find("Error: No lint rules specified.", 1, true), nil)
 	end)
 
-	suite:case("lute lint no rule", function(assert)
+	suite:case("lute lint no input file", function(assert)
 		local result = process.run({ lutePath, "lint", "-r", "a_rule.luau" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Error: No input file specified.", 1, true), nil)
+		assert.neq(result.stdout:find("Error: No input files specified.", 1, true), nil)
 	end)
 
 	suite:case("divide_by_zero", function(assert)
@@ -223,6 +228,114 @@ violator.luau:3:1-4:6 ──
 		-- Teardown
 		fs.remove(violatorPath)
 		fs.removedirectory(rulesDir, { recursive = true })
+	end)
+
+	suite:case("lute lint multiple input files", function(assert)
+		-- Setup
+		-- Create multiple files that violate the rule
+		local violatorPath1 = path.format(path.join(tmpDir, "violator1.luau"))
+		fs.writestringtofile(
+			violatorPath1,
+			[[
+local x = 1 / 0
+
+a = b
+b = a
+    ]]
+		)
+
+		local modulePath = path.join(tmpDir, "module")
+		fs.createdirectory(modulePath)
+		local violatorPath2 = path.format(path.join(modulePath, "violator2.luau"))
+		fs.writestringtofile(
+			violatorPath2,
+			[[
+local y = 10 / 0
+
+local x = 0
+local y = "hello"
+x = y
+y = x
+    ]]
+		)
+		fs.writestringtofile(path.format(path.join(modulePath, "not_luau.txt")), "blablabla")
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", "examples/lints", violatorPath1, path.format(modulePath) })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.eq(#result.stdout:split("warning[divide_by_zero]: Division by zero detected."), 3)
+		local expected = [[
+violator1.luau:1:11-16 ──
+   │
+ 1 │ local x = 1 / 0
+   │           ^^^^^
+   │
+]]
+		assert.neq(result.stdout:find(expected, 1, true), nil)
+
+		expected = [[
+violator2.luau:1:11-17 ──
+   │
+ 1 │ local y = 10 / 0
+   │           ^^^^^^
+   │
+]]
+		assert.neq(result.stdout:find(expected, 1, true), nil)
+
+		assert.eq(#result.stdout:split("warning[almost_swapped]: This looks like a failed attempt to swap."), 3)
+		expected = [[
+violator1.luau:3:1-4:6 ──
+   │
+ 3 │ ╭ a = b
+ 4 │ │ b = a
+   │ ╰─────^
+   │
+]]
+		assert.neq(result.stdout:find(expected, 1, true), nil)
+
+		expected = [[
+violator2.luau:5:1-6:6 ──
+   │
+ 5 │ ╭ x = y
+ 6 │ │ y = x
+   │ ╰─────^
+   │
+]]
+		assert.neq(result.stdout:find(expected, 1, true), nil)
+
+		expected = "Skipping non%-Luau file '.+/module/not_luau%.txt'"
+		assert.neq(result.stdout:find(expected, 1, false), nil)
+
+		-- Teardown
+		fs.remove(violatorPath1)
+		fs.removedirectory(modulePath, { recursive = true })
+	end)
+
+	suite:case("lute lint file errors", function(assert)
+		-- Setup
+		-- Create multiple files that violate the rule
+		local lintee = path.format(path.join(tmpDir, "lintee.luau"))
+		fs.writestringtofile(lintee, "bogus")
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", "examples/lints", lintee })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		local expected = [[
+lintee.luau': @std/syntax/parser.luau:12: parsing failed:
+(0, 0) - (0, 5): Incomplete statement: expected assignment or a function call
+]]
+		assert.neq(result.stdout:find(expected, 1, true), nil)
+
+		-- Teardown
+		fs.remove(lintee)
 	end)
 end)
 
