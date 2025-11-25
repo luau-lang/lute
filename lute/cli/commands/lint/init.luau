@@ -111,11 +111,17 @@ local function main(...: string)
 	print("Applying lint rules")
 	local violations: { types.LintViolation } = {}
 	for _, rule in lintRules do
-		tableext.extend(violations, rule.lint(ast, inputFilePath))
+		local success, err = pcall(rule.lint, ast, inputFilePath)
+		if success then
+			-- On success, err contains the returned violations
+			tableext.extend(violations, err)
+		else
+			print(`Error applying lint rule '{rule.name}': {err}`)
+		end
 	end
 	table.sort(
 		violations,
-		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirecitonal inference should mean that annotations on a and b aren't needed
+		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirectional inference should mean that annotations on a and b aren't needed
 			return a.location < b.location
 		end
 	)
