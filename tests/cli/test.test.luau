@@ -71,8 +71,11 @@ test.run()
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
-		assert.strcontains(			result.stdout, `Failed with: Runtime error in nil_field_suite.access_field_of_nil in:`)
-		assert.strcontains(			result.stdout, 				`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`)
+		assert.strcontains(result.stdout, `Failed with: Runtime error in nil_field_suite.access_field_of_nil in:`)
+		assert.strcontains(
+			result.stdout,
+			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`
+		)
 
 		fs.remove(testFilePath)
 	end)
@@ -104,7 +107,10 @@ test.run()
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
 		assert.strcontains(result.stdout, `Failed with: Runtime error in access_field_of_nil in:`)
-		assert.strcontains(			result.stdout, 				`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`)
+		assert.strcontains(
+			result.stdout,
+			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`
+		)
 
 		fs.remove(testFilePath)
 	end)

@@ -401,7 +401,7 @@ lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 		assert.strcontains(result.stdout, expected)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
-		assert.strcontains(			result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 
 		-- Teardown
 		fs.remove(lintee)
