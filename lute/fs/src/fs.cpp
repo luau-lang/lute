@@ -661,8 +661,6 @@ int fs_watch(lua_State* L)
                     return 2;
                 }
             );
-
-            uv_stop(handle->loop);
         },
         path,
         0
