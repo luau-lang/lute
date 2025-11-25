@@ -230,6 +230,68 @@ violator.luau:3:1-4:6 ──
 		fs.removedirectory(rulesDir, { recursive = true })
 	end)
 
+	suite:case("lute lint multiple rules but one errors", function(assert)
+		-- Setup
+		fs.createdirectory(rulesDir)
+		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
+		fs.copy(almostSwappedExample, path.join(rulesDir, "almost_swapped.luau"))
+		-- Create a rule that fails
+		fs.writestringtofile(
+			path.join(rulesDir, "erroring_rule.luau"),
+			[[
+return table.freeze({
+	name = "AlwaysErrors",
+	lint = function(ast, sourcepath)
+		error("This rule always errors")
+	end,
+})
+]]
+		)
+
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+a = b
+b = a
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", rulesDir, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.neq(
+			result.stdout:find("warning[almost_swapped]: This looks like a failed attempt to swap.", 1, true),
+			nil
+		)
+		local expected = [[
+violator.luau:1:1-2:6 ──
+   │
+ 1 │ ╭ a = b
+ 2 │ │ b = a
+   │ ╰─────^
+   │
+]]
+		assert.neq(result.stdout:find(expected, 1, true), nil)
+
+		assert.neq(
+			result.stdout:find(
+				"Error applying lint rule 'AlwaysErrors': %.[/\\]lints[/\\]erroring_rule%.luau:4: This rule always errors",
+				1
+			),
+			nil
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+		fs.removedirectory(rulesDir, { recursive = true })
+	end)
+
 	suite:case("lute lint multiple input files", function(assert)
 		-- Setup
 		-- Create multiple files that violate the rule
