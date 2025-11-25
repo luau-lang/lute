@@ -201,6 +201,27 @@ static int indexSpan(lua_State* L)
     return 0;
 }
 
+static int ltSpan(lua_State* L)
+{
+    const Span* lhs = static_cast<Span*>(luaL_checkudata(L, 1, kSpanType));
+    const Span* rhs = static_cast<Span*>(luaL_checkudata(L, 2, kSpanType));
+
+    // Compare beginnings, and if they're equal, compare ends
+    if (lhs->beginLine < rhs->beginLine || (lhs->beginLine == rhs->beginLine && lhs->beginColumn < rhs->beginColumn))
+        lua_pushboolean(L, 1);
+    else if (lhs->beginLine == rhs->beginLine && lhs->beginColumn == rhs->beginColumn)
+    {
+        if (lhs->endLine < rhs->endLine || (lhs->endLine == rhs->endLine && lhs->endColumn < rhs->endColumn))
+            lua_pushboolean(L, 1);
+        else
+            lua_pushboolean(L, 0);
+    }
+    else
+        lua_pushboolean(L, 0);
+
+    return 1;
+}
+
 struct AstSerialize : public Luau::AstVisitor
 {
     lua_State* L;
@@ -601,8 +622,8 @@ struct AstSerialize : public Luau::AstVisitor
 
         size_t textLength = strlen(text);
 
-        Luau::Position endPosition{ position.line, position.column + static_cast<uint32_t>(textLength) };
-        serialize(Luau::Location { position, endPosition });
+        Luau::Position endPosition{position.line, position.column + static_cast<uint32_t>(textLength)};
+        serialize(Luau::Location{position, endPosition});
         lua_setfield(L, -2, "location");
 
         lua_pushlstring(L, text, textLength);
@@ -2855,6 +2876,9 @@ static int initLuauLibrary(lua_State* L)
 
     lua_pushcfunction(L, luau::indexSpan, "span.__index");
     lua_setfield(L, -2, "__index");
+
+    lua_pushcfunction(L, luau::ltSpan, "span.__lt");
+    lua_setfield(L, -2, "__lt");
 
     lua_setreadonly(L, -1, 1);
 
