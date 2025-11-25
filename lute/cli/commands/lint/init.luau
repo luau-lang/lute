@@ -124,29 +124,27 @@ local function main(...: string)
 	local lintRules = loadLintRules(rulePath)
 
 	local allViolations = {}
-	while #inputFiles > 0 do
-		local inputFile = table.remove(inputFiles, #inputFiles)
-		assert(inputFile ~= nil, "We should never pop from an empty inputFiles")
-		local inputFilePath = pathLib.parse(inputFile)
 
-		if fs.type(inputFilePath) == "dir" then
-			print(`Queuing files in directory '{inputFilePath}' for linting`)
+	for _, inputPath in inputFiles do
+		local walker = fs.walk(inputPath, { recursive = true })
 
-			local entries = fs.listdirectory(inputFilePath)
-			local subPaths = tableext.map(entries, function(entry)
-				return pathLib.format(pathLib.join(inputFilePath, entry.name))
-			end)
-			tableext.extend(inputFiles, subPaths)
-		elseif pathLib.extname(inputFilePath) == ".luau" then
-			local success, err = pcall(lintFile, inputFilePath, lintRules)
-			if success then
-				-- Violations are returned as the second return value from pcall
-				allViolations[inputFilePath] = err
+		local curr = walker()
+		while curr ~= nil do
+			local inputFilePath = pathLib.parse(curr)
+
+			if pathLib.extname(inputFilePath) == ".luau" then
+				local success, err = pcall(lintFile, inputFilePath, lintRules)
+				if success then
+					-- Violations are returned as the second return value from pcall
+					allViolations[inputFilePath] = err
+				else
+					print(`Error linting file '{inputFilePath}': {err}`)
+				end
 			else
-				print(`Error linting file '{inputFilePath}': {err}`)
+				print(`Skipping non-Luau file '{inputFilePath}'`)
 			end
-		else
-			print(`Skipping non-Luau file '{inputFilePath}'`)
+
+			curr = walker()
 		end
 	end
 
