@@ -306,7 +306,7 @@ violator2.luau:5:1-6:6 ──
    │
 ]]
 		assert.neq(result.stdout:find(expected, 1, true), nil)
-
+		print("STDOUT:", result.stdout)
 		expected = "Skipping non%-Luau file '.+/module/not_luau%.txt'"
 		assert.neq(result.stdout:find(expected, 1, false), nil)
 
