@@ -1,9 +1,8 @@
-local fs = require("@lute/fs")
+local fs = require("@std/fs")
 local luau = require("@std/luau")
 local pathLib = require("@std/path")
 local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
-local syntaxTypes = require("@std/syntax/types")
 
 local arguments = require("@self/lib/arguments")
 local files = require("@self/lib/files")
@@ -82,7 +81,8 @@ local function applyMigration(
 	migration: types.Migration,
 	paths: { pathLib.path },
 	options: { [string]: string | boolean },
-	dryRun: boolean
+	dryRun: boolean,
+	outputPath: string?
 )
 	local deletedPaths = {}
 
@@ -93,6 +93,8 @@ local function applyMigration(
 		}
 		migration.initialize(ctx)
 	end
+
+	local outputFilePath = if outputPath then pathLib.parse(outputPath) else nil
 
 	for _, pathObj in paths do
 		local pathStr = pathLib.format(pathObj)
@@ -113,23 +115,21 @@ local function applyMigration(
 		-- TODO: should we wrap in pcall? For now we don't do this to preserve stack trace
 		local result = migration.transform(ctx)
 
-		if typeof(result) == "string" then
-			if result == types.DELETION_MARKER then
+		local toWrite = if typeof(result) == "string" then result else printer.printfile(parseresult, result)
+
+		if toWrite == types.DELETION_MARKER then
+			if outputFilePath then
+				print(`Skipping writing {pathStr} as it was marked for deletion`)
+			else
 				print(`Marking {pathStr} for deletion`)
 				table.insert(deletedPaths, pathStr)
-			elseif result ~= source and not dryRun then
-				fs.writestringtofile(pathStr, result)
 			end
-		else
-			local replacements = result :: syntaxTypes.replacements
-
-			local serialized = printer.printfile(parseresult, replacements)
-
-			if serialized == types.DELETION_MARKER then
-				print(`Marking {pathStr} for deletion`)
-				table.insert(deletedPaths, pathStr)
-			elseif serialized ~= source and not dryRun then
-				fs.writestringtofile(pathStr, serialized)
+		elseif not dryRun then
+			if outputFilePath then
+				assert(outputFilePath ~= nil)
+				fs.writestringtofile(outputFilePath, toWrite)
+			elseif toWrite ~= source then
+				fs.writestringtofile(pathStr, toWrite)
 			end
 		end
 	end
@@ -149,6 +149,10 @@ local function main(...: string)
 		print("Executing in dry run mode")
 	end
 
+	if args.outputFile then
+		print(`Output path specified: '{args.outputFile}'`)
+	end
+
 	print(`Loading migration '{args.migrationPath}'`)
 	local migration = loadMigration(args.migrationPath)
 
@@ -162,7 +166,7 @@ local function main(...: string)
 	local migrationOptions = processMigrationOptions(migration, args.migrationOptions)
 
 	print("Applying migration")
-	applyMigration(migration, files, migrationOptions, args.dryRun)
+	applyMigration(migration, files, migrationOptions, args.dryRun, args.outputFile)
 
 	print(`Processed {#files} files!`)
 end

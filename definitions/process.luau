@@ -1,7 +1,14 @@
-export type StdioKind = "default" | "inherit" | "none" | ""
+export type StdioKind = "default" | "inherit" | "none"
 
 export type ProcessRunOptions = {
-	shell: (string | boolean)?,
+	cwd: string?,
+	stdio: StdioKind?,
+
+	env: { [string]: string }?,
+}
+
+export type ProcessSystemOptions = {
+	system: string?,
 	cwd: string?,
 	stdio: StdioKind?,
 
@@ -29,7 +36,11 @@ function process.cwd(): string
 	error("not implemented")
 end
 
-function process.run(args: string | { string }, options: ProcessRunOptions?): ProcessResult
+function process.run(args: { string }, options: ProcessRunOptions?): ProcessResult
+	error("not implemented")
+end
+
+function process.system(command: string, options: ProcessSystemOptions?): ProcessResult
 	error("not implemented")
 end
 
