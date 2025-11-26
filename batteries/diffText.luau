@@ -149,14 +149,25 @@ local function printDiffByLine(a: string, b: string)
 	end
 end
 
+local function printDiffByChar(a: string, b: string)
+	local diff = myersdiffbychar(a, b)
+	local result = ""
+	for _, op in diff do
+		result ..= if op.key == "ADD"
+			then richterm.bold(richterm.brightGreen(`{op.text}`))
+			elseif op.key == "DELETE" then richterm.bold(richterm.brightRed(`{op.text}`))
+			else `{op.text}`
+	end
+	print(result)
+end
+
 local function applyDiff(diff: Diff, a: string, separator: string)
 	local src = a:split(separator)
 
 	local result = {}
-	local srcCursor = 1 -- Points to the current char in Source
+	local srcCursor = 1 -- Points to the current char in src string
 	for i, op in diff do
 		if op.key == "EQUAL" then
-			-- VALIDATION: Does the source actually have this char here?
 			local actual = src[srcCursor]
 			if actual ~= op.text then
 				error(
@@ -172,7 +183,6 @@ local function applyDiff(diff: Diff, a: string, separator: string)
 			table.insert(result, op.text)
 			srcCursor = srcCursor + 1
 		elseif op.key == "DELETE" then
-			-- VALIDATION: Are we deleting what we think we are?
 			local actual = src[srcCursor]
 			if actual ~= op.text then
 				error(
@@ -208,5 +218,6 @@ return {
 	applylinediff = applyLineDiff,
 	applychardiff = applyCharDiff,
 	printdiffbyline = printDiffByLine,
+	printdiffbychar = printDiffByChar,
 	-- TODO: printByChar
 }
