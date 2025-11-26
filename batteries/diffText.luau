@@ -1,6 +1,5 @@
 local deque = require("@batteries/deque")
-local style = require("@batteries/style")
-local colors = style.colors
+local richterm = require("@batteries/richterm")
 
 --[[
 Algorithm Approach:
@@ -143,9 +142,9 @@ local function printDiffByLine(a: string, b: string)
 	for _, op in diff do
 		print(
 			if op.key == "ADD"
-				then style.bold(style.color(colors.green, `+ {op.text} {op.position}`))
-				elseif op.key == "DELETE" then style.bold(style.color(colors.red, `- {op.text} {op.position}`))
-				else `{op.text} {op.position}`
+				then richterm.bold(richterm.brightGreen(`+ {op.text}`))
+				elseif op.key == "DELETE" then richterm.bold(richterm.brightRed(`- {op.text}`))
+				else `{op.text}`
 		)
 	end
 end
