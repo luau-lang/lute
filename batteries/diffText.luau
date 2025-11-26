@@ -84,7 +84,7 @@ local function myersdiff(a: string | { string }, b: string | { string })
 	seen[0][0] = true
 
 	while editGraphDeque.len > 0 do
-		local curNode = editGraphDeque:pop()
+		local curNode = editGraphDeque:popfront()
 		if not seen[curNode.x] then
 			seen[curNode.x] = {}
 		end
@@ -107,7 +107,7 @@ local function myersdiff(a: string | { string }, b: string | { string })
 		if hasDiagonalEdge(curNode, a, b) then
 			if not seen[curNode.x + 1][curNode.y + 1] then
 				seen[curNode.x + 1][curNode.y + 1] = true
-				editGraphDeque:prepend(editGraphNode(curNode.x + 1, curNode.y + 1, curNode))
+				editGraphDeque:pushfront(editGraphNode(curNode.x + 1, curNode.y + 1, curNode))
 			end
 			continue
 		end
@@ -115,14 +115,14 @@ local function myersdiff(a: string | { string }, b: string | { string })
 		if curNode.x < #a then
 			if not seen[curNode.x + 1][curNode.y] then
 				seen[curNode.x + 1][curNode.y] = true
-				editGraphDeque:append(editGraphNode(curNode.x + 1, curNode.y, curNode))
+				editGraphDeque:pushback(editGraphNode(curNode.x + 1, curNode.y, curNode))
 			end
 		end
 
 		if curNode.y < #b then
 			if not seen[curNode.x][curNode.y + 1] then
 				seen[curNode.x][curNode.y + 1] = true
-				editGraphDeque:append(editGraphNode(curNode.x, curNode.y + 1, curNode))
+				editGraphDeque:pushback(editGraphNode(curNode.x, curNode.y + 1, curNode))
 			end
 		end
 	end
@@ -170,7 +170,6 @@ local function applyDiff(diff: Diff, a: string, separator: string)
 				)
 			end
 
-			-- Apply: Add to result, consume source
 			table.insert(result, op.text)
 			srcCursor = srcCursor + 1
 		elseif op.key == "DELETE" then
