@@ -29,31 +29,31 @@ test.suite("lute lint", function(suite)
 		local result = process.run({ lutePath, "lint", "-h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find(USAGE, 1, true), nil)
+		assert.strcontains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "lint", "--h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find(USAGE, 1, true), nil)
+		assert.strcontains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "lint", "--help" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find(USAGE, 1, true), nil)
+		assert.strcontains(result.stdout, USAGE)
 	end)
 
 	suite:case("lute lint no rule", function(assert)
 		local result = process.run({ lutePath, "lint" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Error: No lint rules specified.", 1, true), nil)
+		assert.strcontains(result.stdout, "Error: No lint rules specified.")
 	end)
 
 	suite:case("lute lint no input file", function(assert)
 		local result = process.run({ lutePath, "lint", "-r", "a_rule.luau" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Error: No input files specified.", 1, true), nil)
+		assert.strcontains(result.stdout, "Error: No input files specified.")
 	end)
 
 	suite:case("divide_by_zero", function(assert)
@@ -74,7 +74,7 @@ local x = 1 / 0
 		-- Check
 		assert.eq(result.exitcode, 0)
 
-		assert.neq(result.stdout:find("warning[divide_by_zero]: Division by zero detected.", 1, true), nil)
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
 		local expected = [[
 violator.luau:1:11-16 ──
    │
@@ -82,7 +82,7 @@ violator.luau:1:11-16 ──
    │           ^^^^^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
 		fs.remove(violatorPath)
@@ -121,7 +121,7 @@ end
 		-- Check
 		assert.eq(result.exitcode, 0)
 		-- We expect 4 warnings, so stdout should be split into 5 parts
-		assert.eq(#result.stdout:split("warning[almost_swapped]: This looks like a failed attempt to swap."), 5)
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.", nil, 4)
 		local expected = [[
 violator.luau:1:1-2:6 ──
    │
@@ -130,7 +130,7 @@ violator.luau:1:1-2:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator.luau:6:1-7:6 ──
@@ -140,7 +140,7 @@ violator.luau:6:1-7:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator.luau:10:1-11:10 ──
@@ -150,7 +150,7 @@ violator.luau:10:1-11:10 ──
     │ ╰─────────^
     │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator.luau:14:2-15:17 ──
@@ -160,7 +160,7 @@ violator.luau:14:2-15:17 ──
     │ ╰────────────────^
     │
 ]] -- todo: address tab shenanigans
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
 		fs.remove(violatorPath)
@@ -201,7 +201,7 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 0)
 
-		assert.neq(result.stdout:find("warning[divide_by_zero]: Division by zero detected.", 1, true), nil)
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
 		local expected = [[
 violator.luau:1:11-16 ──
    │
@@ -209,12 +209,9 @@ violator.luau:1:11-16 ──
    │           ^^^^^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
-		assert.neq(
-			result.stdout:find("warning[almost_swapped]: This looks like a failed attempt to swap.", 1, true),
-			nil
-		)
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 		expected = [[
 violator.luau:3:1-4:6 ──
    │
@@ -223,7 +220,7 @@ violator.luau:3:1-4:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
 		fs.remove(violatorPath)
@@ -265,10 +262,7 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 0)
 
-		assert.neq(
-			result.stdout:find("warning[almost_swapped]: This looks like a failed attempt to swap.", 1, true),
-			nil
-		)
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 		local expected = [[
 violator.luau:1:1-2:6 ──
    │
@@ -277,7 +271,7 @@ violator.luau:1:1-2:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		assert.neq(
 			result.stdout:find(
@@ -337,7 +331,7 @@ violator1.luau:1:11-16 ──
    │           ^^^^^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:1:11-17 ──
@@ -346,7 +340,7 @@ violator2.lua:1:11-17 ──
    │           ^^^^^^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		assert.eq(#result.stdout:split("warning[almost_swapped]: This looks like a failed attempt to swap."), 3)
 		expected = [[
@@ -357,7 +351,7 @@ violator1.luau:3:1-4:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:5:1-6:6 ──
@@ -367,7 +361,7 @@ violator2.lua:5:1-6:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 		expected = "Skipping non%-Luau file '.+[/\\]module[/\\]not_luau%.txt'"
 		assert.neq(result.stdout:find(expected, 1, false), nil)
 
@@ -404,13 +398,10 @@ b = a
 lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 (0, 0) - (0, 5): Incomplete statement: expected assignment or a function call
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
-		assert.neq(result.stdout:find("warning[divide_by_zero]: Division by zero detected.", 1, true), nil)
-		assert.neq(
-			result.stdout:find("warning[almost_swapped]: This looks like a failed attempt to swap.", 1, true),
-			nil
-		)
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 
 		-- Teardown
 		fs.remove(lintee)

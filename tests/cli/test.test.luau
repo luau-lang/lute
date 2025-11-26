@@ -23,7 +23,7 @@ test.suite("lute test", function(suite)
 
 		-- Check that it exits successfully and prints help
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Usage:", 1, true), nil)
+		assert.strcontains(result.stdout, "Usage:")
 	end)
 
 	suite:case("lute test runs successfully", function(assert)
@@ -71,17 +71,10 @@ test.run()
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
-		assert.neq(
-			result.stdout:find(`Failed with: Runtime error in nil_field_suite.access_field_of_nil in:`, 1, true),
-			nil
-		)
-		assert.neq(
-			result.stdout:find( -- filename comes from debug.info, which uses forward slashes even on Windows
-				`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`,
-				1,
-				true
-			),
-			nil
+		assert.strcontains(result.stdout, `Failed with: Runtime error in nil_field_suite.access_field_of_nil in:`)
+		assert.strcontains(
+			result.stdout,
+			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`
 		)
 
 		fs.remove(testFilePath)
@@ -113,14 +106,10 @@ test.run()
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
-		assert.neq(result.stdout:find(`Failed with: Runtime error in access_field_of_nil in:`, 1, true), nil)
-		assert.neq(
-			result.stdout:find( -- filename comes from debug.info, which uses forward slashes even on Windows
-				`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`,
-				1,
-				true
-			),
-			nil
+		assert.strcontains(result.stdout, `Failed with: Runtime error in access_field_of_nil in:`)
+		assert.strcontains(
+			result.stdout,
+			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`
 		)
 
 		fs.remove(testFilePath)
@@ -148,7 +137,7 @@ test.run()
 
 		-- Check that the output specifies the inequal values
 		assert.eq(result.exitcode, 1)
-		assert.neq(result.stdout:find("eq: 1 ~= 2", 1, true), nil)
+		assert.strcontains(result.stdout, "eq: 1 ~= 2")
 	end)
 
 	suite:case("assert.eq_error_message_in_suite", function(assert)
@@ -175,7 +164,7 @@ test.run()
 
 		-- Check that the output specifies the inequal values
 		assert.eq(result.exitcode, 1)
-		assert.neq(result.stdout:find("eq: 1 ~= 2", 1, true), nil)
+		assert.strcontains(result.stdout, "eq: 1 ~= 2")
 	end)
 
 	suite:case("assert.neq_error_message_in_case", function(assert)
@@ -200,7 +189,7 @@ test.run()
 
 		-- Check that the output specifies the inequal values
 		assert.eq(result.exitcode, 1)
-		assert.neq(result.stdout:find("neq: 1 == 1", 1, true), nil)
+		assert.strcontains(result.stdout, "neq: 1 == 1")
 	end)
 
 	suite:case("assert.neq_error_message_in_suite", function(assert)
@@ -227,7 +216,7 @@ test.run()
 
 		-- Check that the output specifies the inequal values
 		assert.eq(result.exitcode, 1)
-		assert.neq(result.stdout:find("neq: 1 == 1", 1, true), nil)
+		assert.strcontains(result.stdout, "neq: 1 == 1")
 	end)
 end)
 
