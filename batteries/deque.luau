@@ -28,9 +28,7 @@ export type Deque<T> = {
 
 local deque = {}
 
-function deque.new<T>(initValue: T?)
-	-- linked list; can pop from front or back easily
-	-- keep track of head and tail; efficiently add to/pop from head and tail
+function deque.new<T>(initValue: T?): Deque<T>
 	local self = {} :: Deque<T>
 	local initNode = dequeNode(initValue)
 	self.head = initNode
@@ -60,7 +58,6 @@ function deque.new<T>(initValue: T?)
 	end
 
 	function self.popfront(self: Deque<T>): T
-		-- remove head (get front of queue)
 		if not self.head then
 			error("Popping from empty deque")
 		end
