@@ -137,15 +137,73 @@ local function myersdiffbychar(a: string, b: string)
 	return myersdiff(a, b)
 end
 
-local function printDiffByLine(a: string, b: string)
+local function getStackedLineDiff(oldText: string, newText: string)
+	local charOps = myersdiffbychar(oldText, newText)
+	-- diffs a line by char, then constructs a visual for the old line and new line
+	-- highlights deleted chars in the old line, added chars in the new line, and keeps consistent chars present in both
+
+	local oldLineVis = ""
+	local newLineVis = ""
+
+	for _, op in charOps do
+		if op.key == "EQUAL" then
+			oldLineVis ..= richterm.red(op.text)
+			newLineVis ..= richterm.green(op.text)
+		elseif op.key == "DELETE" then
+			oldLineVis ..= richterm.bgRed(richterm.strikethrough(op.text))
+		elseif op.key == "ADD" then
+			newLineVis ..= richterm.bold(richterm.bgGreen(op.text))
+		end
+	end
+
+	return oldLineVis, newLineVis
+end
+
+local function printDiffByLineAndChar(a: string, b: string)
 	local diff = myersdiffbyline(a, b)
-	for _, op in diff do
-		print(
-			if op.key == "ADD"
-				then richterm.bold(richterm.brightGreen(`+ {op.text}`))
-				elseif op.key == "DELETE" then richterm.bold(richterm.brightRed(`- {op.text}`))
-				else `{op.text}`
-		)
+	-- if DELETE and ADD in consecutive steps (order relevant), that means a line's internal content is changing (line modification, not raw addition/removal)
+	local i = 1
+	while i <= #diff do
+		local op = diff[i]
+		if op.key == "DELETE" and diff[i + 1].key == "ADD" then
+			-- this indicates a line change
+			-- print the ~ sign and the char diff of the line
+			local srcLine, destLine = getStackedLineDiff(op.text, diff[i + 1].text)
+			print(richterm.red("- ") .. srcLine)
+
+			-- 3. Print New Line (prefixed with +)
+			print(richterm.green("+ ") .. destLine)
+			i += 2
+		else
+			print(
+				if op.key == "ADD"
+					then richterm.brightGreen(`+ {op.text}`)
+					elseif op.key == "DELETE" then richterm.brightRed(`- {op.text}`)
+					else `{op.text}`
+			)
+			i += 1
+		end
+	end
+end
+
+type LineDiffOptions = {
+	detailed: boolean?,
+	-- unified: boolean?, -- need to add side-by-side print to properly support this
+}
+
+local function printDiffByLine(a: string, b: string, options: LineDiffOptions?)
+	local diff = myersdiffbyline(a, b)
+	if options and options.detailed then
+		printDiffByLineAndChar(a, b)
+	else
+		for _, op in diff do
+			print(
+				if op.key == "ADD"
+					then richterm.bold(richterm.brightGreen(`+ {op.text}`))
+					elseif op.key == "DELETE" then richterm.bold(richterm.brightRed(`- {op.text}`))
+					else `{op.text}`
+			)
+		end
 	end
 end
 
@@ -154,8 +212,8 @@ local function printDiffByChar(a: string, b: string)
 	local result = ""
 	for _, op in diff do
 		result ..= if op.key == "ADD"
-			then richterm.bold(richterm.brightGreen(`{op.text}`))
-			elseif op.key == "DELETE" then richterm.bold(richterm.brightRed(`{op.text}`))
+			then richterm.bgBrightGreen(`{op.text}`)
+			elseif op.key == "DELETE" then richterm.bgBrightRed(`{op.text}`)
 			else `{op.text}`
 	end
 	print(result)
@@ -219,5 +277,4 @@ return {
 	applychardiff = applyCharDiff,
 	printdiffbyline = printDiffByLine,
 	printdiffbychar = printDiffByChar,
-	-- TODO: printByChar
 }
