@@ -106,8 +106,8 @@ function assertions.buffereq(lhs: buffer, rhs: buffer)
 	end
 end
 
-function assertions.erroreq(func: () -> (), expectedErrorMessage: string)
-	local success, err = pcall(func)
+function assertions.erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...)
+	local success, err = pcall(func, ...)
 	if success then
 		error({ msg = `Function did not error as expected.` })
 	end
@@ -120,18 +120,16 @@ function assertions.erroreq(func: () -> (), expectedErrorMessage: string)
 end
 
 function assertions.strcontains(haystack: string, needle: string, msg: string?, instances: number?)
-	if instances == nil then
-		instances = 1
-	end
+	instances = instances or 1
 
-	assert(instances > 0, "instances must be greater than 0") -- LUAUFIX: Type stating should mean this comparison doesn't error.
+	assert(instances > 0, "instances must be greater than 0")
 
 	if instances == 1 then
 		if haystack:find(needle, 1, true) == nil then
 			error(if msg then msg else `Expected "{haystack}" to contain "{needle}".`)
 		end
 	else
-		if #haystack:split(needle) ~= instances + 1 then -- LUAUFIX: Type stating should mean this addition doesn't error.
+		if #haystack:split(needle) ~= instances + 1 then
 			error(if msg then msg else `Expected "{haystack}" to contain "{needle}" {instances} times.`)
 		end
 	end
