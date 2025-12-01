@@ -22,7 +22,7 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_simple_dependencies")
     auto pairs = tracer.getStaticRequirePairs();
 
     // Should find: main.luau, utils.luau, lib/helper.luau, shared.luau
-    REQUIRE(pairs.size() == 4);
+    REQUIRE(pairs.size() == 5);
 
     // Entry point should be first
     CHECK(pairs[0].first == "main.luau");
@@ -34,6 +34,14 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_simple_dependencies")
         std::string absolutePath = joinPaths(tracer.getLowestCommonRoot(), expected);
         CHECK(tracer.containsAbsolute(absolutePath));
     }
+
+    // Verify .luaurc file was discovered
+    auto luaurcFiles = tracer.getLuaurcFiles();
+    REQUIRE(luaurcFiles.size() == 1);
+
+    // Check that .luaurc exists in the map
+    const std::string* luaurcContent = luaurcFiles.find(".luaurc");
+    REQUIRE(luaurcContent != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_circular_dependencies")
@@ -59,6 +67,11 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_circular_dependencies")
 
     CHECK(tracer.containsAbsolute(absoluteA));
     CHECK(tracer.containsAbsolute(absoluteB));
+
+    // Verify .luaurc file was discovered
+    auto luaurcFiles = tracer.getLuaurcFiles();
+    REQUIRE(luaurcFiles.size() == 1);
+    CHECK(luaurcFiles.find(".luaurc") != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_no_dependencies")
@@ -75,6 +88,11 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_no_dependencies")
     // utils.luau has no requires, should only return itself
     REQUIRE(pairs.size() == 1);
     CHECK(pairs[0].first == "utils.luau");
+
+    // Verify .luaurc file was discovered (should find it in the same directory)
+    auto luaurcFiles = tracer.getLuaurcFiles();
+    REQUIRE(luaurcFiles.size() == 1);
+    CHECK(luaurcFiles.find(".luaurc") != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_relative_paths")
@@ -95,6 +113,11 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_relative_paths")
 
     std::string absoluteShared = joinPaths(tracer.getLowestCommonRoot(), "shared.luau");
     CHECK(tracer.containsAbsolute(absoluteShared));
+
+    // Verify .luaurc file was discovered (should find it in parent directory)
+    auto luaurcFiles = tracer.getLuaurcFiles();
+    REQUIRE(luaurcFiles.size() == 1);
+    CHECK(luaurcFiles.find(".luaurc") != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_require_graph")
@@ -117,6 +140,11 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_require_graph")
     CHECK(tracer.containsAbsolute(utilsPath));
     CHECK(tracer.containsAbsolute(helperPath));
     CHECK(tracer.containsAbsolute(sharedPath));
+
+    // Verify .luaurc file was discovered
+    auto luaurcFiles = tracer.getLuaurcFiles();
+    REQUIRE(luaurcFiles.size() == 1);
+    CHECK(luaurcFiles.find(".luaurc") != nullptr);
 
     // Verify the graph can be printed without errors (visual inspection of output)
     tracer.printRequireGraph();
@@ -187,7 +215,7 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_bundle_paths_and_contains")
 
     // Get discovered files as pairs
     auto pairs = tracer.getStaticRequirePairs();
-    REQUIRE(pairs.size() == 4);
+    REQUIRE(pairs.size() == 5);
 
     // Verify bundle paths (without common prefix)
     std::vector<std::string> expectedBundlePaths = {"main.luau", "utils.luau", "lib/helper.luau", "shared.luau"};
@@ -216,4 +244,9 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_bundle_paths_and_contains")
     // Test non-existent module
     std::string nonExistentAbsolute = joinPaths(commonRoot, "nonexistent.luau");
     CHECK(!tracer.containsAbsolute(nonExistentAbsolute));
+
+    // Verify .luaurc file was discovered
+    auto luaurcFiles = tracer.getLuaurcFiles();
+    REQUIRE(luaurcFiles.size() == 1);
+    CHECK(luaurcFiles.find(".luaurc") != nullptr);
 }
