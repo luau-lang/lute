@@ -14,28 +14,24 @@ end
 
 local watcher = fs.watch(tmpdir)
 
--- Give the watcher a moment to initialize
-task.wait(0.1)
-
 -- Trigger a file change event
 fs.writestringtofile(watched, "x")
 
 -- Poll the iterator with a timeout of 2 seconds
-local foundChange = false
-local startTime = os.clock()
+local event
+local start = os.clock()
 
-local event = watcher:next()
-while event and os.clock() - startTime < 2 do
-	if event.change or event.rename then
-		foundChange = true
-	end
+repeat
 	event = watcher:next()
-end
+	if not event then
+		task.wait(0.01)
+	end
+until event or (os.clock() - start > 2)
 
-if foundChange then
-	print("File change detected for:", watchedFileName)
+if event then
+	print("Event detected:", event.change and "change" or "rename")
 else
-	print("No file change detected within the timeout period.")
+	print("No event detected within the timeout period.")
 end
 
 -- Cleanup, close the watcher and remove the watched file

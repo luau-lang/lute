@@ -99,23 +99,20 @@ test.suite("FsSuite", function(suite)
 
 		local watcher = fs.watch(tmpdir)
 
-		task.wait(0.1) -- Give some time for the watcher to start
-
 		fs.writestringtofile(watched, "x")
 
-		local foundChange = false
-		local startTime = os.clock()
+		local start = os.clock()
+		local event
 
-		local event = watcher:next()
-		while event and os.clock() - startTime < 2 do
-			if event.change or event.rename then
-				foundChange = true
-			end
+		repeat
 			event = watcher:next()
-		end
+			if not event then
+				task.wait(0.01)
+			end
+		until event or (os.clock() - start > 2)
 
-		assert.eq(foundChange, true)
-		assert.eq(event == nil, true)
+		assert.neq(event, nil)
+		assert.eq(event.change or event.rename, true)
 
 		watcher:close()
 		if fs.exists(watched) then
