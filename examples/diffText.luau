@@ -19,11 +19,11 @@ doSomething()
 ]]
 
 print(richterm.bold("Diff by Char"))
-diffText.printdiffbychar(src, destination)
+print(diffText.printdiffbychar(src, destination))
 print(richterm.bold("Diff by Line"))
-diffText.printdiffbyline(src, destination)
+print(diffText.printdiffbyline(src, destination))
 print(richterm.bold("Diff by Line (Detailed)"))
-diffText.printdiffbyline(src, destination, {
+print(diffText.printdiffbyline(src, destination, {
 	detailed = true,
-})
+}))
 print(richterm.bold("Diff by Line (side by side)"))

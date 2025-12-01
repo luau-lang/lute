@@ -14,7 +14,6 @@ Algorithm Approach:
 	-- we need to check neighbors, at each node, according to above logic
 ]]
 
--- hold current position, and prev node (so we can reconstruct path at end)
 type EditGraphNode = {
 	x: number,
 	y: number,
@@ -84,6 +83,7 @@ local function myersdiff(a: string | { string }, b: string | { string })
 
 	while editGraphDeque.len > 0 do
 		local curNode = editGraphDeque:popfront()
+
 		if not seen[curNode.x] then
 			seen[curNode.x] = {}
 		end
@@ -91,9 +91,9 @@ local function myersdiff(a: string | { string }, b: string | { string })
 			seen[curNode.x + 1] = {}
 		end
 
-		-- evaluate termination condition (we are at #a, #b)
+		-- we've reached bottom right vertex; indicates full edit from a -> b
 		if curNode.x == #a and curNode.y == #b then
-			-- traversal finished; now we need to reconstruct the graph
+			-- reconstruct diff operations by tracing path from termination node to start
 			while curNode.prev do
 				local diffOperation = edgeToDiff(curNode, a, b)
 				table.insert(diff, 1, diffOperation)
@@ -137,7 +137,7 @@ local function myersdiffbychar(a: string, b: string)
 	return myersdiff(a, b)
 end
 
-local function getStackedLineDiff(oldText: string, newText: string)
+local function getVisualizedDiff(oldText: string, newText: string)
 	local charOps = myersdiffbychar(oldText, newText)
 	-- diffs a line by char, then constructs a visual for the old line and new line
 	-- highlights deleted chars in the old line, added chars in the new line, and keeps consistent chars present in both
@@ -163,27 +163,31 @@ local function printDiffByLineAndChar(a: string, b: string)
 	local diff = myersdiffbyline(a, b)
 	-- if DELETE and ADD in consecutive steps (order relevant), that means a line's internal content is changing (line modification, not raw addition/removal)
 	local i = 1
+	local result = ""
 	while i <= #diff do
 		local op = diff[i]
 		if op.key == "DELETE" and diff[i + 1].key == "ADD" then
 			-- this indicates a line change
 			-- print the ~ sign and the char diff of the line
-			local srcLine, destLine = getStackedLineDiff(op.text, diff[i + 1].text)
-			print(richterm.red("- ") .. srcLine)
+			local srcLine, destLine = getVisualizedDiff(op.text, diff[i + 1].text)
+			result ..= richterm.red("- ") .. srcLine .. "\n"
 
 			-- 3. Print New Line (prefixed with +)
-			print(richterm.green("+ ") .. destLine)
+			result ..= richterm.green("+ ") .. destLine
 			i += 2
 		else
-			print(
-				if op.key == "ADD"
-					then richterm.brightGreen(`+ {op.text}`)
-					elseif op.key == "DELETE" then richterm.brightRed(`- {op.text}`)
-					else `{op.text}`
-			)
+			result ..= if op.key == "ADD"
+				then richterm.brightGreen(`+ {op.text}`)
+				elseif op.key == "DELETE" then richterm.brightRed(`- {op.text}`)
+				else `{op.text}`
+
 			i += 1
 		end
+		if i <= #diff then
+			result ..= "\n"
+		end
 	end
+	return result
 end
 
 type LineDiffOptions = {
@@ -194,16 +198,19 @@ type LineDiffOptions = {
 local function printDiffByLine(a: string, b: string, options: LineDiffOptions?)
 	local diff = myersdiffbyline(a, b)
 	if options and options.detailed then
-		printDiffByLineAndChar(a, b)
+		return printDiffByLineAndChar(a, b)
 	else
-		for _, op in diff do
-			print(
-				if op.key == "ADD"
-					then richterm.bold(richterm.brightGreen(`+ {op.text}`))
-					elseif op.key == "DELETE" then richterm.bold(richterm.brightRed(`- {op.text}`))
-					else `{op.text}`
-			)
+		local result = ""
+		for i, op in diff do
+			result ..= if op.key == "ADD"
+				then richterm.bold(richterm.brightGreen(`+ {op.text}`))
+				elseif op.key == "DELETE" then richterm.bold(richterm.brightRed(`- {op.text}`))
+				else `{op.text}`
+			if i < #diff then
+				result ..= "\n"
+			end
 		end
+		return result
 	end
 end
 
@@ -216,7 +223,7 @@ local function printDiffByChar(a: string, b: string)
 			elseif op.key == "DELETE" then richterm.bgBrightRed(`{op.text}`)
 			else `{op.text}`
 	end
-	print(result)
+	return result
 end
 
 local function applyDiff(diff: Diff, a: string, separator: string)
