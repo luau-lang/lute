@@ -26,4 +26,3 @@ print(richterm.bold("Diff by Line (Detailed)"))
 print(diffText.printdiffbyline(src, destination, {
 	detailed = true,
 }))
-print(richterm.bold("Diff by Line (side by side)"))
