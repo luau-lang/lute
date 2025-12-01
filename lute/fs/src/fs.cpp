@@ -553,28 +553,25 @@ struct WatchHandle
 
     void close()
     {
-        if (!isClosed)
+        if (isClosed)
+            return;
+
+        isClosed = true;
+
+        int err = uv_fs_event_stop(&handle);
+        if (err)
         {
-            int err = uv_fs_event_stop(&handle);
-            if (err)
-            {
-                luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
-            }
-
-            uv_close((uv_handle_t*) &handle, nullptr);
-
-            isClosed = true;
-
-            getRuntime(L)->releasePendingToken();
-
-            callbackReference.reset();
+            luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
         }
-    }
 
-    ~WatchHandle()
-    {
-        if (!isClosed)
-            close();
+        auto closeCb = [](uv_handle_t* handle)
+        {
+            WatchHandle* wh = static_cast<WatchHandle*>(handle->data);
+            wh->callbackReference.reset();
+            getRuntime(wh->L)->releasePendingToken();
+        };
+
+        uv_close((uv_handle_t*) &handle, closeCb);
     }
 };
 
