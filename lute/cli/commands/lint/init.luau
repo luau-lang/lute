@@ -7,16 +7,20 @@ local syntax = require("@std/syntax")
 local tableext = require("@std/tableext")
 local types = require("@self/types")
 
+local DEFAULT_RULES = { "almost_swapped", "divide_by_zero" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 
 local function printHelp()
 	print(USAGE)
 	print([[
-Lint the specified Luau file using the specified lint rule(s).
+Lint the specified Luau file using the specified lint rule(s) or using the default rules.
 
 OPTIONS:
   -h, --help              Show this help message
-  -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder is provided, any subfolders containing init.luau files will be treated as modules exporting lint rules, while all other .luau files will be treated as individual lint rules.
+  -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder 
+  						  is provided, any subfolders containing init.luau files will be treated as
+						  modules exporting lint rules, while all other .luau files will be treated 
+						  as individual lint rules. If unspecified, the default lint rules are used.
 
 PATHS:
   Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
@@ -27,17 +31,21 @@ EXAMPLES:
 ]])
 end
 
-local function loadLintRule(path: string): types.LintRule
-	local loaded = luau.loadbypath(path)
-	assert(loaded, `{path} failed to require`)
-	assert(typeof(loaded) == "table", `{path} must return a table`)
-	assert(typeof(loaded.name) == "string", `{path} must return a table with a 'name' string property`)
+local function assertIsLintRule(rule: unknown, path: string)
+	assert(rule, `{path} failed to require`)
+	assert(typeof(rule) == "table", `{path} must return a table`)
+	assert(typeof(rule.name) == "string", `{path} must return a table with a 'name' string property`)
 	assert(
-		typeof(loaded.lint) == "function", -- LUAUFIX: type error on loaded.lint because loaded has been refined to { read name: string }
+		typeof(rule.lint) == "function", -- LUAUFIX: type error on loaded.lint because loaded has been refined to { read name: string }
 		`{path} must return a table with a 'lint' function property`
 	)
+end
 
-	return loaded :: types.LintRule -- We have to cast because we can only assert that loaded.lint is the top function type, rather than a more specific function type like (ast: syntax.AstStatBlock, sourcepath: path.path) -> { LintViolation }
+local function loadLintRule(path: string): types.LintRule
+	local loaded = luau.loadbypath(path)
+	assertIsLintRule(loaded, path)
+
+	return loaded -- Typecast isn't needed because loaded is refined to any bc of type error in assertIsLintRule
 end
 
 local function loadLintRules(path: string): { types.LintRule }
@@ -67,6 +75,17 @@ local function loadLintRules(path: string): { types.LintRule }
 		end
 	end
 
+	return rules
+end
+
+local function loadDefaultRules(): { types.LintRule }
+	local rules = {}
+	for _, ruleName in DEFAULT_RULES do
+		local path = `@self/rules/{ruleName}`
+		local rule = require(path)
+		assertIsLintRule(rule, path)
+		table.insert(rules, rule)
+	end
 	return rules
 end
 
@@ -104,19 +123,12 @@ local function main(...: string)
 
 	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
-	-- TODO: handle multiple rules, multiple input files, ignore blobs, json output option
+	-- TODO: ignore blobs, json output option
 
 	args:parse({ ... })
 
 	if args:has("help") then
 		printHelp()
-		return
-	end
-
-	local rulePath = args:get("rules")
-	if rulePath == nil then
-		-- TODO: support default rules
-		print("Error: No lint rules specified.\n\n" .. USAGE .. "\nUse --help for more information.")
 		return
 	end
 
@@ -126,8 +138,15 @@ local function main(...: string)
 		return
 	end
 
-	print(`Loading lint rule(s) from '{rulePath}'`)
-	local lintRules = loadLintRules(rulePath)
+	local lintRules: { types.LintRule }
+	local rulePath = args:get("rules")
+	if rulePath == nil then
+		print("Using default lint rules.")
+		lintRules = loadDefaultRules()
+	else
+		print(`Loading lint rule(s) from '{rulePath}'`)
+		lintRules = loadLintRules(rulePath)
+	end
 
 	local allViolations = {}
 

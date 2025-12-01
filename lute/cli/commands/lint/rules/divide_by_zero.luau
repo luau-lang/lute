@@ -1,6 +1,4 @@
--- Check out lute/cli/commands/lint/rules for the default rules used by lute lint!
-
-local lintTypes = require("@commands/lint/types")
+local lintTypes = require("../types")
 local path = require("@std/path")
 local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
