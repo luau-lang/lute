@@ -5,22 +5,22 @@ local stringext = require("@std/stringext")
 
 local assertions = {}
 
-function assertions.eq<T>(lhs: T, rhs: T)
+function assertions.eq<T>(lhs: T, rhs: T, msg: string?)
 	if lhs ~= rhs then
-		error({ msg = `{lhs} ~= {rhs}` })
+		error({ msg = msg or `{lhs} ~= {rhs}` })
 	end
 end
 
-function assertions.neq<T>(lhs: T, rhs: T)
+function assertions.neq<T>(lhs: T, rhs: T, msg: string?)
 	if lhs == rhs then
-		error({ msg = `{lhs} == {rhs}` })
+		error({ msg = msg or `{lhs} == {rhs}` })
 	end
 end
 
-function assertions.errors(callback: () -> ())
+function assertions.errors(callback: () -> (), msg: string?)
 	local success = pcall(callback)
 	if success then
-		error({ msg = `{callback} did not throw error.` })
+		error({ msg = msg or `{callback} did not throw error.` })
 	end
 end
 
@@ -116,6 +116,24 @@ function assertions.erroreq(func: () -> (), expectedErrorMessage: string)
 	-- pcall appends filename and line number of the error, so we check suffix only
 	if not stringext.hassuffix(actualErrorMessage, expectedErrorMessage) then
 		error({ msg = `Expected suffix of error message "{expectedErrorMessage}", but got "{actualErrorMessage}"` })
+	end
+end
+
+function assertions.strcontains(haystack: string, needle: string, msg: string?, instances: number?)
+	if instances == nil then
+		instances = 1
+	end
+
+	assert(instances > 0, "instances must be greater than 0") -- LUAUFIX: Type stating should mean this comparison doesn't error.
+
+	if instances == 1 then
+		if haystack:find(needle, 1, true) == nil then
+			error(if msg then msg else `Expected "{haystack}" to contain "{needle}".`)
+		end
+	else
+		if #haystack:split(needle) ~= instances + 1 then -- LUAUFIX: Type stating should mean this addition doesn't error.
+			error(if msg then msg else `Expected "{haystack}" to contain "{needle}" {instances} times.`)
+		end
 	end
 end
 
