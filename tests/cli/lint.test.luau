@@ -7,8 +7,8 @@ local test = require("@std/test")
 local lutePath = path.format(process.execpath())
 local tmpDir = system.tmpdir()
 local rulesDir = path.format(path.join(".", "lints"))
-local almostSwappedExample = path.format(path.join("examples", "lints", "almost_swapped.luau"))
-local divideByZeroExample = path.format(path.join("examples", "lints", "divide_by_zero.luau"))
+local almostSwappedExample = path.format(path.join("lute", "cli", "commands", "lint", "rules", "almost_swapped.luau"))
+local divideByZeroExample = path.format(path.join("lute", "cli", "commands", "lint", "rules", "divide_by_zero.luau"))
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 
@@ -40,13 +40,6 @@ test.suite("lute lint", function(suite)
 
 		assert.eq(result.exitcode, 0)
 		assert.strcontains(result.stdout, USAGE)
-	end)
-
-	suite:case("lute lint no rule", function(assert)
-		local result = process.run({ lutePath, "lint" })
-
-		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, "Error: No lint rules specified.")
 	end)
 
 	suite:case("lute lint no input file", function(assert)
@@ -170,11 +163,12 @@ violator.luau:14:2-15:17 ──
 		-- Setup
 		fs.createdirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
-		fs.copy(almostSwappedExample, path.join(rulesDir, "almost_swapped.luau"))
+		-- Because the default rules require types using a relative path, we copy from examples, which uses an absolute require path
+		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
 		-- Copy divide_by_zero to rulesDir/divide_by_zero/init.luau
 		local divideByZeroDir = path.join(rulesDir, "divide_by_zero")
 		fs.createdirectory(divideByZeroDir)
-		fs.copy(divideByZeroExample, path.join(divideByZeroDir, "init.luau"))
+		fs.copy(path.join("examples", "lints", "divide_by_zero.luau"), path.join(divideByZeroDir, "init.luau"))
 		fs.writestringtofile(
 			path.join(rulesDir, "bogus.txt"),
 			[[
@@ -231,7 +225,7 @@ violator.luau:3:1-4:6 ──
 		-- Setup
 		fs.createdirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
-		fs.copy(almostSwappedExample, path.join(rulesDir, "almost_swapped.luau"))
+		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
 		-- Create a rule that fails
 		fs.writestringtofile(
 			path.join(rulesDir, "erroring_rule.luau"),
@@ -405,6 +399,51 @@ lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 
 		-- Teardown
 		fs.remove(lintee)
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("lute lint default rules", function(assert)
+		-- Create a file that violates the default almost_swapped and divide_by_zero rules
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 1 / 0
+
+a = b
+b = a
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+		local expected = [[
+violator.luau:1:11-16 ──
+   │
+ 1 │ local x = 1 / 0
+   │           ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		expected = [[
+violator.luau:3:1-4:6 ──
+   │
+ 3 │ ╭ a = b
+ 4 │ │ b = a
+   │ ╰─────^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
 		fs.remove(violatorPath)
 	end)
 end)
