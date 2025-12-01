@@ -15,12 +15,17 @@ test.suite("ProcessSuite", function(suite)
 		assert.neq(pathlib.format(ex), "")
 	end)
 
-	suite:case("run_echo_array", function(assert)
+	suite:case("run_echo_array_via_run", function(assert)
 		local r = process.run({ "echo", "hello-from-lute" })
 		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
-	suite:case("run_shell_and_cwd", function(check)
+	suite:case("run_echo_array_via_system", function(assert)
+		local r = process.system("echo hello-from-lute")
+		assert.eq(r.stdout, "hello-from-lute\n")
+	end)
+
+	suite:case("run_system_and_cwd", function(check)
 		local rootdir: string = "/"
 		local root: pathlib.path? = nil
 		if system.win32 then
@@ -45,7 +50,7 @@ test.suite("ProcessSuite", function(suite)
 			})
 		end
 
-		local r2 = process.run({ "echo hello!" }, { shell = true })
+		local r2 = process.system("echo hello!")
 		check.tableeq(r2, {
 			exitcode = 0,
 			stdout = "hello!\n",
@@ -62,6 +67,71 @@ test.suite("ProcessSuite", function(suite)
 			stderr = "",
 			ok = false,
 		})
+	end)
+
+	suite:case("process_run_options_error_cases", function(assert)
+		assert.erroreq(function()
+			process.run({})
+		end, "process.run requires a non-empty table of arguments")
+
+		assert.erroreq(function()
+			process.run({ "echo", "hello" }, { cwd = {} })
+		end, "invalid argument #-1 to 'run' (string expected, got table)")
+
+		assert.erroreq(function()
+			process.run({ "echo", "hello" }, { stdio = {} })
+		end, "invalid argument #-1 to 'run' (string expected, got table)")
+
+		assert.erroreq(function()
+			process.run({ "echo", "hello" }, { env = "not-a-table" })
+		end, "process option 'env' must be a table")
+
+		assert.erroreq(function()
+			process.run({ "echo", "hello" }, "invalid_option")
+		end, "process options must be a table")
+
+		assert.erroreq(function()
+			process.run({ "echo", "hello" }, "not-a-table")
+		end, "process options must be a table")
+
+		assert.erroreq(function()
+			process.run({ huh = 42 })
+		end, "process.run requires a non-empty table of arguments")
+	end)
+
+	suite:case("process_run_arraylike_table", function(assert)
+		-- We expect this to still work and ignore the non-string keys
+		local r = process.run({ "echo", "hello", foo = "bar" })
+		assert.eq(r.stdout, "hello\n")
+	end)
+
+	suite:case("process_system_options_error_cases", function(assert)
+		assert.erroreq(function()
+			process.system()
+		end, "invalid argument #1 to 'system' (string expected, got nil)")
+
+		assert.erroreq(function()
+			process.system({})
+		end, "invalid argument #1 to 'system' (string expected, got table)")
+
+		assert.erroreq(function()
+			process.system("echo hello", { system = {} })
+		end, "invalid argument #-1 to 'system' (string expected, got table)")
+
+		assert.erroreq(function()
+			process.system("echo hello", { cwd = {} })
+		end, "invalid argument #-1 to 'system' (string expected, got table)")
+		assert.erroreq(function()
+			process.system("echo hello", { stdio = {} })
+		end, "invalid argument #-1 to 'system' (string expected, got table)")
+
+		assert.erroreq(function()
+			process.system("echo hello", { env = "not-a-table" })
+		end, "process option 'env' must be a table")
+
+		assert.erroreq(function()
+			process.system("echo hello", "invalid_option")
+		end, "process options must be a table")
 	end)
 end)
 
