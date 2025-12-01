@@ -573,7 +573,8 @@ struct WatchHandle
 
     ~WatchHandle()
     {
-        close();
+        if (!isClosed)
+            close();
     }
 };
 
