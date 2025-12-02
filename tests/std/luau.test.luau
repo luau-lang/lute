@@ -36,12 +36,8 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 	suite:case("resolverequire", function(assert)
 		local testPath = path.join(tmpDir, "resolverequire_test.luau")
 		local testFile = fs.open(testPath, "w+")
-		fs.write(
-			testFile,
-			[[
-				print("Hello, World!")
-			]]
-		)
+
+		fs.write(testFile, 'print("Hello, World!")')
 		local resolvedPath = luau.resolverequire("@self", testPath)
 		fs.close(testFile)
 
