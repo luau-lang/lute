@@ -41,7 +41,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		local resolvedPath = luau.resolverequire("@self", testPath)
 		fs.close(testFile)
 
-		assert.eq(resolvedPath, path.format(testPath))
+		assert.eq(resolvedPath, path.format(testPath):gsub("\\", "/"))
 	end)
 end)
 
