@@ -32,6 +32,21 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		-- Basic check for now until the data structure is created
 		assert.eq(moduleTypeString, expectedOutputString)
 	end)
+
+	suite:case("resolverequire", function(assert)
+		local testPath = path.join(tmpDir, "resolverequire_test.luau")
+		local testFile = fs.open(testPath, "w+")
+		fs.write(
+			testFile,
+			[[
+				print("Hello, World!")
+			]]
+		)
+		local resolvedPath = luau.resolverequire("@self", testPath)
+		fs.close(testFile)
+
+		assert.eq(resolvedPath, path.format(testPath))
+	end)
 end)
 
 test.run()
