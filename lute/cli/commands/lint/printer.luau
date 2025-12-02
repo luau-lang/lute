@@ -37,10 +37,14 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 		local gutterSize = math.floor(math.log10(location.endline)) + 3 -- + 2 for padding around line number
 		local blankGutter = string.rep(" ", gutterSize)
 
-		local renderedSourceLines = { ` {location.beginline} │ ╭ {sourceLines[location.beginline]}` }
+		local renderedSourceLines =
+			{ ` {string.format(`%-{gutterSize - 2}d`, location.beginline)} │ ╭ {sourceLines[location.beginline]}` } -- LUAUFIX: the string.format call shouldn't error
 		local maxSourceLineLength = #renderedSourceLines[1]
 		for lineNum = location.beginline + 1, location.endline do
-			table.insert(renderedSourceLines, ` {lineNum} │ │ {sourceLines[lineNum]}`)
+			table.insert(
+				renderedSourceLines,
+				` {string.format(`%-{gutterSize - 2}d`, lineNum)} │ │ {sourceLines[lineNum]}` -- LUAUFIX: the string.format call shouldn't error
+			)
 			maxSourceLineLength = math.max(maxSourceLineLength, #renderedSourceLines[#renderedSourceLines])
 		end
 
