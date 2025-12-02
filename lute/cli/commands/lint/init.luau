@@ -106,7 +106,10 @@ local function parseSuppressions(node: syntax.AstNode): { [string]: boolean }
 	return suppressions
 end
 
-local function maybeParseSuppressions(node: syntax.AstNode, cache: { [syntax.AstNode]: { [string]: boolean } }): { [string]: boolean }
+local function maybeParseSuppressions(
+	node: syntax.AstNode,
+	cache: { [syntax.AstNode]: { [string]: boolean } }
+): { [string]: boolean }
 	local rules = cache[node]
 	if rules == nil then
 		rules = parseSuppressions(node)
@@ -139,7 +142,7 @@ local function violationIsSuppressed(
 				return true
 			end
 		end
-		
+
 		if syntax.span.subsumes(violation.location, node.location) then
 			-- The first node which is fully contained within a violation can suppress it
 			local rules = maybeParseSuppressions(node, suppressionCache)
