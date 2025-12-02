@@ -1,6 +1,10 @@
 local finder = require("@self/finder")
 local luau = require("@std/luau")
 local path = require("@std/path")
+local ps = require("@std/process")
+local testtypes = require("@std/test/types")
+local runner = require("@std/test/runner")
+local reporter = require("@std/test/reporter")
 local test = require("@std/test")
 
 local function printHelp()
@@ -58,7 +62,7 @@ local function loadtests(testfiles: { path.path })
 		local success, err = pcall(luau.loadbypath, p, fenv)
 
 		if not success then
-			print(`Error loading {path.format(p)}: {err}`)
+			error(`Failed to load test file {path.format(p)}: {err}`)
 		end
 	end
 end
@@ -85,6 +89,15 @@ local function listtests()
 	end
 end
 
+local function runtests(env: testtypes.testenvironment, runner: testtypes.testrunner, reporter: testtypes.testreporter)
+	local result = runner(env)
+	reporter(result)
+	if result.failed ~= 0 then
+		ps.exit(1)
+	end
+	ps.exit(0)
+end
+
 local function main(...: string)
 	local args = { ... }
 	local testPaths = {}
@@ -105,6 +118,9 @@ local function main(...: string)
 
 	if isListMode then
 		listtests()
+	else
+		local env = test._registered()
+		runtests(env, runner.run, reporter.simple)
 	end
 end
 
