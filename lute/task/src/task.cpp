@@ -25,12 +25,11 @@ struct WaitData
 
     uint64_t startedAtMs;
 
+    bool closed = false;
     bool putDeltaTimeOnStack;
     int nargs;
 
-    bool closed = false;
-
-    ~WaitData()
+    void close()
     {
         if (!closed)
         {
@@ -38,6 +37,11 @@ struct WaitData
             uv_close(reinterpret_cast<uv_handle_t*>(&uvTimer), nullptr);
             closed = true;
         }
+    }
+
+    ~WaitData()
+    {
+        close();
     }
 };
 
@@ -69,6 +73,8 @@ static void yieldLuaStateFor(lua_State* L, uint64_t milliseconds, bool putDeltaT
                     return stackReturnAmount;
                 }
             );
+
+            yield->close();
         },
         milliseconds,
         0
