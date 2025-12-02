@@ -293,10 +293,10 @@ local function diff(
 	end
 end
 
-return {
+return table.freeze({
 	diff = diff,
 	applylinediff = applyLineDiff,
 	applychardiff = applyCharDiff,
 	printlinediff = printLineDiff,
 	printchardiff = printCharDiff,
-}
+})

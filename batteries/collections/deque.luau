@@ -93,4 +93,4 @@ function deque.new<T>(initValue: T?): Deque<T>
 	return self
 end
 
-return deque
+return table.freeze(deque)
