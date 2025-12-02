@@ -94,7 +94,7 @@ end
 local function violationIsSuppressed(
 	violation: types.LintViolation,
 	ast: syntax.AstStatBlock,
-	suppressionCache: { [syntax.AstNode]: { string } }
+	suppressionCache: { [syntax.AstNode]: { [string]: boolean } }
 ): boolean
 	local violationSuppressed = false
 
@@ -108,15 +108,14 @@ local function violationIsSuppressed(
 				for _, trivia in leadingTrivia do
 					if trivia.tag == "blockcomment" or trivia.tag == "comment" then
 						for rule in trivia.text:gmatch("lute%-lint%-ignore%((.+)%)") do
-							print(`Found suppression for rule '{rule}'`)
-							table.insert(rules, rule)
+							rules[rule] = true
 						end
 					end
 				end
 				suppressionCache[node] = rules
 			end
 
-			if table.find(rules, violation.lintname) then
+			if rules[violation.lintname] then
 				violationSuppressed = true
 				-- If the node is suppressed, we don't need to recurse deeper
 				return false

@@ -472,7 +472,6 @@ b = a
 
 		-- Check
 		assert.eq(result.exitcode, 0)
-		print(result.stdout)
 
 		assert.strnotcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
 
