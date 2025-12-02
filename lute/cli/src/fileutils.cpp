@@ -11,12 +11,13 @@
 #include <direct.h>
 #include <windows.h>
 #else
-#include <sys/stat.h>
 #include <unistd.h>
+
+#include <sys/stat.h>
 #endif
 
 #include <cstring>
-#include <vector>
+#include "Luau/FileUtils.h"
 
 namespace Lute
 {
@@ -74,58 +75,38 @@ bool createDirectory(const std::string& path)
 #endif
 }
 
-static std::vector<std::string> splitPath(const std::string& path)
-{
-    std::vector<std::string> result;
-    size_t start = 0;
-
-    for (size_t i = 0; i < path.size(); ++i)
-    {
-        if (path[i] == '/' || path[i] == '\\')
-        {
-            if (i > start)
-                result.push_back(path.substr(start, i - start));
-            start = i + 1;
-        }
-    }
-
-    if (start < path.size())
-        result.push_back(path.substr(start));
-
-    return result;
-}
-
 bool createDirectories(const std::string& path)
 {
     if (path.empty())
         return false;
 
-    std::vector<std::string> components = splitPath(path);
+    std::vector<std::string_view> components = splitPath(path);
     std::string currentPath;
+    size_t offset = 0;
 
-    // Handle absolute paths
+    // Handle absolute paths - extract the root/prefix
+    if (isAbsolutePath(path))
+    {
 #ifdef _WIN32
-    // Check if path starts with drive letter (e.g., "C:")
-    if (path.size() >= 2 && path[1] == ':')
-    {
-        currentPath = path.substr(0, 2);
-    }
-    else if (path.size() >= 1 && (path[0] == '/' || path[0] == '\\'))
-    {
-        currentPath = path.substr(0, 1);
-    }
+        // Check if path starts with drive letter (e.g., "C:")
+        if (path.size() >= 2 && path[1] == ':')
+        {
+            currentPath = path.substr(0, 2);
+            offset = 1; // Skip the drive letter component in the loop
+        }
+        else if (path.size() >= 1 && (path[0] == '/' || path[0] == '\\'))
+        {
+            currentPath = path.substr(0, 1);
+        }
 #else
-    if (path.size() >= 1 && path[0] == '/')
-    {
         currentPath = "/";
-    }
 #endif
+    }
 
-    for (const std::string& component : components)
+    for (size_t i = offset; i < components.size(); ++i)
     {
-        if (!currentPath.empty() && currentPath.back() != '/' && currentPath.back() != '\\')
-            currentPath += '/';
-        currentPath += component;
+        const std::string_view component = components[i];
+        currentPath = joinPaths(currentPath, component);
 
         if (!createDirectory(currentPath))
         {
