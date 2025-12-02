@@ -2,7 +2,7 @@ local difftext = require("@batteries/difftext")
 local test = require("@std/test")
 
 local diff = difftext.diff
-local applybychar, applybyline = diffText.applychardiff, diffText.applylinediff
+local applybychar, applybyline = difftext.applychardiff, difftext.applylinediff
 
 -- general test assumption is that:
 --  applying a diff(strA, strB) on strAa should equal strB
