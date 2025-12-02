@@ -1,4 +1,4 @@
-local deque = require("@batteries/deque")
+local deque = require("@batteries/collections/deque")
 local test = require("@std/test")
 
 test.suite("deque", function(suite)

@@ -1,4 +1,4 @@
-local diffText = require("@batteries/diffText")
+local difftext = require("@batteries/difftext")
 local richterm = require("@batteries/richterm")
 
 local src = [[
@@ -19,10 +19,10 @@ doSomething()
 ]]
 
 print(richterm.bold("Diff by Char"))
-print(diffText.printdiffbychar(src, destination))
+print(difftext.printchardiff(src, destination))
 print(richterm.bold("Diff by Line"))
-print(diffText.printdiffbyline(src, destination))
+print(difftext.printlinediff(src, destination))
 print(richterm.bold("Diff by Line (Detailed)"))
-print(diffText.printdiffbyline(src, destination, {
+print(difftext.printlinediff(src, destination, {
 	detailed = true,
 }))

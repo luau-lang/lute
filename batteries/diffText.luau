@@ -1,4 +1,4 @@
-local deque = require("@batteries/deque")
+local deque = require("@batteries/collections/deque")
 local richterm = require("@batteries/richterm")
 
 --[[
@@ -159,7 +159,7 @@ local function getVisualizedDiff(oldText: string, newText: string)
 	return oldLineVis, newLineVis
 end
 
-local function printDiffByLineAndChar(a: string, b: string)
+local function printDiffByLineDetailed(a: string, b: string)
 	local diff = myersdiffbyline(a, b)
 	-- if DELETE and ADD in consecutive steps (order relevant), that means a line's internal content is changing (line modification, not raw addition/removal)
 	local i = 1
@@ -190,15 +190,17 @@ local function printDiffByLineAndChar(a: string, b: string)
 	return result
 end
 
-type LineDiffOptions = {
-	detailed: boolean?,
-	-- unified: boolean?, -- need to add side-by-side print to properly support this
-}
-
-local function printDiffByLine(a: string, b: string, options: LineDiffOptions?)
+local function printLineDiff(
+	a: string,
+	b: string,
+	options: {
+		detailed: boolean?,
+		-- unified: boolean?, -- need to add side-by-side print to properly support this
+	}?
+)
 	local diff = myersdiffbyline(a, b)
 	if options and options.detailed then
-		return printDiffByLineAndChar(a, b)
+		return printDiffByLineDetailed(a, b)
 	else
 		local result = ""
 		for i, op in diff do
@@ -214,7 +216,7 @@ local function printDiffByLine(a: string, b: string, options: LineDiffOptions?)
 	end
 end
 
-local function printDiffByChar(a: string, b: string)
+local function printCharDiff(a: string, b: string)
 	local diff = myersdiffbychar(a, b)
 	local result = ""
 	for _, op in diff do
@@ -277,11 +279,24 @@ local function applyLineDiff(diff: Diff, a: string)
 	return applyDiff(diff, a, "\n")
 end
 
+local function diff(
+	a: string,
+	b: string,
+	options: {
+		byLine: boolean?,
+	}?
+)
+	if options and options.byLine then
+		return myersdiffbyline(a, b)
+	else
+		return myersdiffbychar(a, b)
+	end
+end
+
 return {
-	bychar = myersdiffbychar,
-	byline = myersdiffbyline,
+	diff = diff,
 	applylinediff = applyLineDiff,
 	applychardiff = applyCharDiff,
-	printdiffbyline = printDiffByLine,
-	printdiffbychar = printDiffByChar,
+	printlinediff = printLineDiff,
+	printchardiff = printCharDiff,
 }

@@ -1,7 +1,7 @@
-local diffText = require("@batteries/diffText")
+local difftext = require("@batteries/difftext")
 local test = require("@std/test")
 
-local diffbychar, diffbyline = diffText.bychar, diffText.byline
+local diff = difftext.diff
 local applybychar, applybyline = diffText.applychardiff, diffText.applylinediff
 
 -- general test assumption is that:
@@ -21,35 +21,41 @@ end
 test.suite("diffText", function(suite)
 	suite:case("diffbychar on equal length strings", function(assert)
 		local a, b = randomString(25), randomString(25)
-		local diff = diffbychar(a, b)
+		local diff = diff(a, b)
 		assert.eq(applybychar(diff, a), b)
 	end)
 
 	suite:case("diffbychar on src shorter than destination", function(assert)
 		local a, b = randomString(15), randomString(25)
-		local diff = diffbychar(a, b)
+		local diff = diff(a, b)
 		assert.eq(applybychar(diff, a), b)
 	end)
 
 	suite:case("diffbychar on src longer than destination", function(assert)
 		local a, b = randomString(25), randomString(15)
-		local diff = diffbychar(a, b)
+		local diff = diff(a, b)
 		assert.eq(applybychar(diff, a), b)
 	end)
 
 	suite:case("diffbyline on equal length strings", function(assert)
 		local a, b = randomString(25), randomString(25)
-		local diff = diffbyline(a, b)
+		local diff = diff(a, b, {
+			byLine = true,
+		})
 		assert.eq(applybyline(diff, a), b)
 	end)
 	suite:case("diffbyline on src shorter than destination", function(assert)
 		local a, b = randomString(15), randomString(25)
-		local diff = diffbyline(a, b)
+		local diff = diff(a, b, {
+			byLine = true,
+		})
 		assert.eq(applybyline(diff, a), b)
 	end)
 	suite:case("diffbyline on src longer than destination", function(assert)
 		local a, b = randomString(25), randomString(15)
-		local diff = diffbyline(a, b)
+		local diff = diff(a, b, {
+			byLine = true,
+		})
 		assert.eq(applybyline(diff, a), b)
 	end)
 end)
