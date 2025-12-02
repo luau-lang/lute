@@ -489,6 +489,100 @@ violator.luau:9:1-10:6 ──
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("suppression is limited to following statement", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(divide_by_zero)
+local x = 1 / 0
+
+if true then
+	local y = 10 / 0
+end
+
+local z = 1 / 0
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 2)
+		local expected = [[
+violator.luau:5:12-18 ──
+   │
+ 5 │ 	local y = 10 / 0
+   │            ^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:8:11-16 ──
+   │
+ 8 │ 	local z = 1 / 0
+   │              ^^^^^
+   │
+]]
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement2", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 1 / 0
+
+-- lute-lint-ignore(divide_by_zero)
+if true then
+	local y = 10 / 0
+end
+
+local z = 1 / 0
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 2)
+		local expected = [[
+violator.luau:1:11-16 ──
+   │
+ 1 │ local x = 1 / 0
+   │           ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:8:11-16 ──
+   │
+ 8 │ local z = 1 / 0
+   │           ^^^^^
+   │
+]]
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
 end)
 
 test.run()

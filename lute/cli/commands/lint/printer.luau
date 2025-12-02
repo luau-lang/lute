@@ -38,12 +38,12 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 		local blankGutter = string.rep(" ", gutterSize)
 
 		local renderedSourceLines =
-			{ ` {string.format(`%-{gutterSize - 2}d`, location.beginline)} │ ╭ {sourceLines[location.beginline]}` } -- LUAUFIX: the string.format call shouldn't error
+			{ ` {string.format(`%-{gutterSize - 2}d`, location.beginline)} │ ╭ {sourceLines[location.beginline]}` }
 		local maxSourceLineLength = #renderedSourceLines[1]
 		for lineNum = location.beginline + 1, location.endline do
 			table.insert(
 				renderedSourceLines,
-				` {string.format(`%-{gutterSize - 2}d`, lineNum)} │ │ {sourceLines[lineNum]}` -- LUAUFIX: the string.format call shouldn't error
+				` {string.format(`%-{gutterSize - 2}d`, lineNum)} │ │ {sourceLines[lineNum]}`
 			)
 			maxSourceLineLength = math.max(maxSourceLineLength, #renderedSourceLines[#renderedSourceLines])
 		end

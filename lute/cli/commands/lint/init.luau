@@ -84,11 +84,26 @@ local function loadDefaultRules(): { types.LintRule }
 	local rules = {}
 	for _, ruleName in DEFAULT_RULES do
 		local path = `@self/rules/{ruleName}`
-		local rule = require(path)
+		local rule: types.LintRule = require(path) :: any -- Anycast to silence error from dynamic require
 		assertIsLintRule(rule, path)
 		table.insert(rules, rule)
 	end
 	return rules
+end
+
+local function parseSuppressions(node: syntax.AstNode): { [string]: boolean }
+	local suppressions: { [string]: boolean } = {}
+
+	local leadingTrivia = triviaUtils.leftmosttrivia(node)
+	for _, trivia in leadingTrivia do
+		if trivia.tag == "blockcomment" or trivia.tag == "comment" then
+			for rule in trivia.text:gmatch("lute%-lint%-ignore%((.+)%)") do
+				suppressions[rule] = true
+			end
+		end
+	end
+
+	return suppressions
 end
 
 local function violationIsSuppressed(
@@ -99,33 +114,42 @@ local function violationIsSuppressed(
 	local violationSuppressed = false
 
 	local function nodeIsSuppressed(node: syntax.AstNode): boolean
-		if syntax.span.subsumes(node.location, violation.location) then
-			local rules = suppressionCache[node]
-			if rules == nil then
-				-- Find all rules that this node suppresses
-				local leadingTrivia = triviaUtils.leftmosttrivia(node)
-				rules = {}
-				for _, trivia in leadingTrivia do
-					if trivia.tag == "blockcomment" or trivia.tag == "comment" then
-						for rule in trivia.text:gmatch("lute%-lint%-ignore%((.+)%)") do
-							rules[rule] = true
-						end
-					end
-				end
-				suppressionCache[node] = rules
-			end
-
-			if rules[violation.lintname] then
-				violationSuppressed = true
-				-- If the node is suppressed, we don't need to recurse deeper
-				return false
-			else
-				-- A deeper node might suppress this rule
-				return true
-			end
-		else
+		if not syntax.span.subsumes(node.location, violation.location) then
 			-- Violation doesn't come from this node, so don't recurse deeper
 			return false
+		end
+
+		if node.kind == "stat" and node.tag == "block" then
+			-- The logic here is a little different, since we only want suppression to apply to the first statement
+			-- If the block is empty, early exit
+			if #node.statements == 0 then
+				return false
+			end
+
+			if suppressionCache[node] == nil then
+				-- Store a sentinel value at this node to avoid reparsing suppressions
+				suppressionCache[node] = {}
+				-- Parse the rules that this node suppresses and attach them to the first statement of the block
+				suppressionCache[node.statements[1]] = parseSuppressions(node)
+				-- Recurse into the block
+				return true
+			end
+		end
+
+		local rules = suppressionCache[node]
+		if rules == nil then
+			-- Find all rules that this node suppresses
+			rules = parseSuppressions(node)
+			suppressionCache[node] = rules
+		end
+
+		if rules[violation.lintname] then
+			violationSuppressed = true
+			-- If the node is suppressed, we don't need to recurse deeper
+			return false
+		else
+			-- A deeper node might suppress this rule
+			return true
 		end
 	end
 
