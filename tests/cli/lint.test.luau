@@ -446,6 +446,50 @@ violator.luau:3:1-4:6 ──
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("lute lint warning suppression", function(assert)
+		-- Create a file that violates the default almost_swapped and divide_by_zero rules
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(divide_by_zero)
+local x = 1 / 0
+
+-- lute-lint-ignore(divide_by_zero)
+if true then
+	local y = 10 / 0
+end
+
+a = b
+b = a
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+		print(result.stdout)
+
+		assert.strnotcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		local expected = [[
+violator.luau:9:1-10:6 ──
+    │
+ 9  │ ╭ a = b
+ 10 │ │ b = a
+    │ ╰─────^
+    │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
 end)
 
 test.run()

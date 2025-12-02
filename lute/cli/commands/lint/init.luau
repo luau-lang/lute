@@ -5,7 +5,9 @@ local pathLib = require("@std/path")
 local printer = require("@self/printer")
 local syntax = require("@std/syntax")
 local tableext = require("@std/tableext")
+local triviaUtils = require("@std/syntax/utils/trivia")
 local types = require("@self/types")
+local visitor = require("@std/syntax/visitor")
 
 local DEFAULT_RULES = { "almost_swapped", "divide_by_zero" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
@@ -89,6 +91,52 @@ local function loadDefaultRules(): { types.LintRule }
 	return rules
 end
 
+local function violationIsSuppressed(
+	violation: types.LintViolation,
+	ast: syntax.AstStatBlock,
+	suppressionCache: { [syntax.AstNode]: { string } }
+): boolean
+	local violationSuppressed = false
+
+	local function nodeIsSuppressed(node: syntax.AstNode): boolean
+		if syntax.span.subsumes(node.location, violation.location) then
+			local rules = suppressionCache[node]
+			if rules == nil then
+				-- Find all rules that this node suppresses
+				local leadingTrivia = triviaUtils.leftmosttrivia(node)
+				rules = {}
+				for _, trivia in leadingTrivia do
+					if trivia.tag == "blockcomment" or trivia.tag == "comment" then
+						for rule in trivia.text:gmatch("lute%-lint%-ignore%((.+)%)") do
+							print(`Found suppression for rule '{rule}'`)
+							table.insert(rules, rule)
+						end
+					end
+				end
+				suppressionCache[node] = rules
+			end
+
+			if table.find(rules, violation.lintname) then
+				violationSuppressed = true
+				-- If the node is suppressed, we don't need to recurse deeper
+				return false
+			else
+				-- A deeper node might suppress this rule
+				return true
+			end
+		else
+			-- Violation doesn't come from this node, so don't recurse deeper
+			return false
+		end
+	end
+
+	local suppressionVisitor = visitor.create(nodeIsSuppressed)
+
+	visitor.visitblock(ast, suppressionVisitor)
+
+	return violationSuppressed
+end
+
 local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule }): { types.LintViolation }
 	print(`Reading input file '{inputFilePath}'`)
 	local fileContent = fs.readfiletostring(inputFilePath)
@@ -98,11 +146,16 @@ local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule
 
 	print("Applying lint rules")
 	local violations: { types.LintViolation } = {}
+	local suppressionCache = {}
 	for _, rule in lintRules do
 		local success, err = pcall(rule.lint, ast, inputFilePath)
 		if success then
 			-- On success, err contains the returned violations
-			tableext.extend(violations, err)
+			for _, violation in err do
+				if not violationIsSuppressed(violation, ast, suppressionCache) then
+					table.insert(violations, violation)
+				end
+			end
 		else
 			print(`Error applying lint rule '{rule.name}': {err}`)
 		end
