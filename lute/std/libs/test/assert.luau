@@ -139,7 +139,7 @@ end
 
 function assertions.strnotcontains(haystack: string, needle: string, msg: string?)
 	if haystack:find(needle, 1, true) ~= nil then
-		error(if msg then msg else `Expected "{haystack}" to not contain "{needle}".`)
+		error({ msg = if msg then msg else `Expected "{haystack}" to not contain "{needle}".` })
 	end
 end
 

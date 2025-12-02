@@ -528,10 +528,11 @@ violator.luau:5:12-18 ──
 		expected = [[
 violator.luau:8:11-16 ──
    │
- 8 │ 	local z = 1 / 0
-   │              ^^^^^
+ 8 │ local z = 1 / 0
+   │           ^^^^^
    │
 ]]
+		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
 		fs.remove(violatorPath)
@@ -579,6 +580,219 @@ violator.luau:8:11-16 ──
    │           ^^^^^
    │
 ]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement3", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local function foo()
+	-- lute-lint-ignore(divide_by_zero)
+	local y = 3 / 0
+
+	return 3 / 0
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator.luau:5:9-14 ──
+   │
+ 5 │ 	return 3 / 0
+   │         ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement4", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+if true then
+	-- lute-lint-ignore(divide_by_zero)
+	local y = 3 / 0
+
+	return 3 / 0
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator.luau:5:9-14 ──
+   │
+ 5 │ 	return 3 / 0
+   │         ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement5", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+while true do
+	-- lute-lint-ignore(divide_by_zero)
+	local y = 3 / 0
+
+	return 3 / 0
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator.luau:5:9-14 ──
+   │
+ 5 │ 	return 3 / 0
+   │         ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement6", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local t = {}
+for _, _ in t do
+	-- lute-lint-ignore(divide_by_zero)
+	local y = 3 / 0
+
+	return 3 / 0
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator.luau:6:9-14 ──
+   │
+ 6 │ 	return 3 / 0
+   │         ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression for multi node violation", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(almost_swapped)
+a = b
+b = a
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression for multi node violation", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(almost_swapped)
+a = b
+b = a
+a = b
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.", nil, 1)
+
+		local expected = [[
+violator.luau:3:1-4:6 ──
+   │
+ 3 │ ╭ b = a
+ 4 │ │ a = b
+   │ ╰─────^
+   │
+]]
+
+		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
 		fs.remove(violatorPath)

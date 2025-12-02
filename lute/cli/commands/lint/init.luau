@@ -106,6 +106,15 @@ local function parseSuppressions(node: syntax.AstNode): { [string]: boolean }
 	return suppressions
 end
 
+local function maybeParseSuppressions(node: syntax.AstNode, cache: { [syntax.AstNode]: { [string]: boolean } }): { [string]: boolean }
+	local rules = cache[node]
+	if rules == nil then
+		rules = parseSuppressions(node)
+		cache[node] = rules
+	end
+	return rules
+end
+
 local function violationIsSuppressed(
 	violation: types.LintViolation,
 	ast: syntax.AstStatBlock,
@@ -114,11 +123,6 @@ local function violationIsSuppressed(
 	local violationSuppressed = false
 
 	local function nodeIsSuppressed(node: syntax.AstNode): boolean
-		if not syntax.span.subsumes(node.location, violation.location) then
-			-- Violation doesn't come from this node, so don't recurse deeper
-			return false
-		end
-
 		if node.kind == "stat" and node.tag == "block" then
 			-- The logic here is a little different, since we only want suppression to apply to the first statement
 			-- If the block is empty, early exit
@@ -134,6 +138,21 @@ local function violationIsSuppressed(
 				-- Recurse into the block
 				return true
 			end
+		end
+		
+		if syntax.span.subsumes(violation.location, node.location) then
+			-- The first node which is fully contained within a violation can suppress it
+			local rules = maybeParseSuppressions(node, suppressionCache)
+			if rules[violation.lintname] then
+				violationSuppressed = true
+			end
+			-- No other fully contained nodes can suppress, so we can stop recursing
+			return false
+		end
+
+		if not syntax.span.subsumes(node.location, violation.location) then
+			-- Violation doesn't come from this node, so don't recurse deeper
+			return false
 		end
 
 		local rules = suppressionCache[node]
