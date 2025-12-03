@@ -94,15 +94,11 @@ local function printDiff(
 	a: string,
 	b: string,
 	options: {
-		sideBySide: boolean?,
 		detailed: boolean?,
+		-- sideBySide: boolean?
 	}?
 )
 	if options then
-		if options.sideBySide then
-			error("Side-by-side printing not supported yet.")
-		end
-
 		if options.detailed then
 			return printDiffByLineDetailed(a, b)
 		end
