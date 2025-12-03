@@ -7,8 +7,6 @@ test.suite("LuteTaskSuite", function(suite)
 		task.wait(0.5)
 		local endTime = os.clock()
 
-		print("Elapsed time: ", endTime - startTime)
-
 		-- task.wait(0.5) actually waits ~0.48 seconds :)
 		assert.eq(math.ceil(endTime - startTime) >= 0.5, true)
 	end)
