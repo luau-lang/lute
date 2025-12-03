@@ -84,15 +84,15 @@ end
 
 function assertions.buffereq(lhs: buffer, rhs: buffer)
 	if typeof(lhs) ~= "buffer" then
-		error(`lhs is of type {typeof(lhs)}, not buffer`)
+		error({ msg = `lhs is of type {typeof(lhs)}, not buffer` })
 	end
 
 	if typeof(rhs) ~= "buffer" then
-		error(`rhs is of type {typeof(rhs)}, not buffer`)
+		error({ msg = `rhs is of type {typeof(rhs)}, not buffer` })
 	end
 
 	if buffer.len(lhs) ~= buffer.len(rhs) then
-		error("buffers are of unequal length")
+		error({ msg = "buffers are of unequal length" })
 	end
 
 	local len = buffer.len(lhs)
@@ -101,15 +101,15 @@ function assertions.buffereq(lhs: buffer, rhs: buffer)
 		local right = buffer.readu8(rhs, offset)
 
 		if left ~= right then
-			error(string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right))
+			error({ msg = string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right) })
 		end
 	end
 end
 
-function assertions.erroreq(func: () -> (), expectedErrorMessage: string)
-	local success, err = pcall(func)
+function assertions.erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...)
+	local success, err = pcall(func, ...)
 	if success then
-		error({ msg = `Function did not error as expected.` })
+		error({ msg = "Function did not error as expected." })
 	end
 
 	local actualErrorMessage = tostring(err)
@@ -120,19 +120,19 @@ function assertions.erroreq(func: () -> (), expectedErrorMessage: string)
 end
 
 function assertions.strcontains(haystack: string, needle: string, msg: string?, instances: number?)
-	if instances == nil then
-		instances = 1
-	end
+	instances = instances or 1
 
-	assert(instances > 0, "instances must be greater than 0") -- LUAUFIX: Type stating should mean this comparison doesn't error.
+	if instances <= 0 then
+		error({ msg = "instances must be greater than 0" })
+	end
 
 	if instances == 1 then
 		if haystack:find(needle, 1, true) == nil then
-			error(if msg then msg else `Expected "{haystack}" to contain "{needle}".`)
+			error({ msg = if msg then msg else `Expected "{haystack}" to contain "{needle}".` })
 		end
 	else
-		if #haystack:split(needle) ~= instances + 1 then -- LUAUFIX: Type stating should mean this addition doesn't error.
-			error(if msg then msg else `Expected "{haystack}" to contain "{needle}" {instances} times.`)
+		if #haystack:split(needle) ~= instances + 1 then
+			error({ msg = if msg then msg else `Expected "{haystack}" to contain "{needle}" {instances} times.` })
 		end
 	end
 end
