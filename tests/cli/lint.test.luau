@@ -797,6 +797,38 @@ violator.luau:3:1-4:6 ──
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("nested suppressions", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(divide_by_zero)
+local function foo()
+    local x = 1/0
+    local function bar()
+        -- lute-lint-ignore(almost_swapped)
+        a = b
+		b = a
+    end
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		assert.strnotcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
 end)
 
 test.run()
