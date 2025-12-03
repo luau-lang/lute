@@ -24,7 +24,6 @@ function dequeLib.new<T>(initValue: T?): Deque<T>
 	self._head, self._tail = 0, if initValue then 0 else -1
 	if initValue then
 		self._values[self._head] = initValue
-		self._values[self._tail] = initValue
 	end
 
 	return setmetatable(self, deque)
