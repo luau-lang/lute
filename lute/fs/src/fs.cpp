@@ -636,27 +636,10 @@ int fs_watch(lua_State* L)
                     // events
                     lua_createtable(L, 0, 2);
 
-                    if ((events & UV_RENAME) == UV_RENAME)
-                    {
-                        lua_pushboolean(L, true);
-                        lua_setfield(L, -2, "rename");
-                    }
-                    else
-                    {
-                        lua_pushboolean(L, false);
-                        lua_setfield(L, -2, "rename");
-                    }
-
-                    if ((events & UV_CHANGE) == UV_CHANGE)
-                    {
-                        lua_pushboolean(L, true);
-                        lua_setfield(L, -2, "change");
-                    }
-                    else
-                    {
-                        lua_pushboolean(L, false);
-                        lua_setfield(L, -2, "change");
-                    }
+                    lua_pushboolean(L, (events & UV_RENAME) != 0);
+                    lua_setfield(L, -2, "rename");
+                    lua_pushboolean(L, (events & UV_CHANGE) != 0);
+                    lua_setfield(L, -2, "change");
 
                     return 2;
                 }
