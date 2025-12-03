@@ -5,7 +5,9 @@ local pathLib = require("@std/path")
 local printer = require("@self/printer")
 local syntax = require("@std/syntax")
 local tableext = require("@std/tableext")
+local triviaUtils = require("@std/syntax/utils/trivia")
 local types = require("@self/types")
+local visitor = require("@std/syntax/visitor")
 
 local DEFAULT_RULES = { "almost_swapped", "divide_by_zero" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
@@ -82,11 +84,94 @@ local function loadDefaultRules(): { types.LintRule }
 	local rules = {}
 	for _, ruleName in DEFAULT_RULES do
 		local path = `@self/rules/{ruleName}`
-		local rule = require(path)
+		local rule: types.LintRule = require(path) :: any -- Anycast to silence error from dynamic require
 		assertIsLintRule(rule, path)
 		table.insert(rules, rule)
 	end
 	return rules
+end
+
+local function parseSuppressions(node: syntax.AstNode): { [string]: boolean }
+	local suppressions: { [string]: boolean } = {}
+
+	local leadingTrivia = triviaUtils.leftmosttrivia(node)
+	for _, trivia in leadingTrivia do
+		if trivia.tag == "blockcomment" or trivia.tag == "comment" then
+			for rule in trivia.text:gmatch("lute%-lint%-ignore%((.+)%)") do
+				suppressions[rule] = true
+			end
+		end
+	end
+
+	return suppressions
+end
+
+local function maybeParseSuppressions(
+	node: syntax.AstNode,
+	cache: { [syntax.AstNode]: { [string]: boolean } }
+): { [string]: boolean }
+	local rules = cache[node]
+	if rules == nil then
+		rules = parseSuppressions(node)
+
+		if node.kind == "stat" and node.tag == "block" then
+			-- The logic here is a little different, since we only want suppression to apply to the first statement
+			-- Store a sentinel value at this node to avoid reparsing suppressions
+			cache[node] = {}
+			-- Parse the rules that this node suppresses and attach them to the first statement of the block
+			cache[node.statements[1]] = rules
+		end
+
+		cache[node] = rules
+	end
+	return rules
+end
+
+local function violationIsSuppressed(
+	violation: types.LintViolation,
+	ast: syntax.AstStatBlock,
+	suppressionCache: { [syntax.AstNode]: { [string]: boolean } }
+): boolean
+	local violationSuppressed = false
+
+	local function nodeIsSuppressed(node: syntax.AstNode): boolean
+		if syntax.span.subsumes(violation.location, node.location) then
+			-- The first node which is fully contained within a violation can suppress it
+			local rules = maybeParseSuppressions(node, suppressionCache)
+			if rules[violation.lintname] then
+				violationSuppressed = true
+			end
+			-- No other fully contained nodes can suppress, so we can stop recursing
+			return false
+		end
+
+		if not syntax.span.subsumes(node.location, violation.location) then
+			-- Violation doesn't come from this node, so don't recurse deeper
+			return false
+		end
+
+		local rules = maybeParseSuppressions(node, suppressionCache)
+
+		-- AstStatBlock suppressions should only apply to the first statement, not the block itself
+		if node.kind == "stat" and node.tag == "block" then
+			return true
+		end
+
+		if rules[violation.lintname] then
+			violationSuppressed = true
+			-- If the node is suppressed, we don't need to recurse deeper
+			return false
+		else
+			-- A deeper node might suppress this rule
+			return true
+		end
+	end
+
+	local suppressionVisitor = visitor.create(nodeIsSuppressed)
+
+	visitor.visitblock(ast, suppressionVisitor)
+
+	return violationSuppressed
 end
 
 local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule }): { types.LintViolation }
@@ -98,11 +183,16 @@ local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule
 
 	print("Applying lint rules")
 	local violations: { types.LintViolation } = {}
+	local suppressionCache = {}
 	for _, rule in lintRules do
 		local success, err = pcall(rule.lint, ast, inputFilePath)
 		if success then
 			-- On success, err contains the returned violations
-			tableext.extend(violations, err)
+			for _, violation in err do
+				if not violationIsSuppressed(violation, ast, suppressionCache) then
+					table.insert(violations, violation)
+				end
+			end
 		else
 			print(`Error applying lint rule '{rule.name}': {err}`)
 		end

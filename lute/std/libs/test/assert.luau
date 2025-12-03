@@ -137,6 +137,12 @@ function assertions.strcontains(haystack: string, needle: string, msg: string?, 
 	end
 end
 
+function assertions.strnotcontains(haystack: string, needle: string, msg: string?)
+	if haystack:find(needle, 1, true) ~= nil then
+		error({ msg = if msg then msg else `Expected "{haystack}" to not contain "{needle}".` })
+	end
+end
+
 export type asserts = typeof(assertions)
 
 return table.freeze(assertions)
