@@ -68,7 +68,7 @@ test.suite("deque", function(suite)
 		end, "Popping from empty deque")
 	end)
 
-	suite:case("e2e sanity check", function(assert)
+	suite:case("e2e", function(assert)
 		local deq = deque.new()
 		deq:pushback(1)
 		deq:pushback(2)
