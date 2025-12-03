@@ -44,11 +44,11 @@ test.suite("lute test", function(suite)
 		assert.strcontains(result.stdout, "Usage:")
 	end)
 
-	suite:case("lute test runs successfully", function(assert)
-		-- Run lute test without arguments
-		local result = process.run({ lutePath, "test" })
+	suite:case("lute test runs tests in discovery folder", function(assert)
+		-- Run lute test on tests/cli/discovery folder
+		local result = process.run({ lutePath, "test", "tests/cli/discovery" })
 
-		-- Check that it succeeds
+		-- Check that it runs tests and succeeds
 		assert.eq(result.exitcode, 0)
 	end)
 
@@ -81,8 +81,7 @@ test.run()
 		)
 
 		-- Run lute on the created test file
-		local result = process.run({ lutePath, tostring(testFilePath) })
-
+		local result = process.run({ lutePath, path.format(testFilePath) })
 		-- Check that the output doesn't include xpcall
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
@@ -114,7 +113,7 @@ test.run()
 		)
 
 		-- Run lute on the created test file
-		local result = process.run({ lutePath, tostring(testFilePath) })
+		local result = process.run({ lutePath, path.format(testFilePath) })
 
 		-- Check that the output doesn't include xpcall
 		assert.eq(result.exitcode, 1)
