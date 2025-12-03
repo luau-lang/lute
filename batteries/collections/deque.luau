@@ -1,68 +1,74 @@
 export type Deque<T> = {
-	values: { [number]: T },
+	__head: number,
+	__tail: number,
+	_values: { [number]: T },
+	len: number,
 	pushfront: (self: Deque<T>, value: T) -> (),
 	pushback: (self: Deque<T>, value: T) -> (),
 	popfront: (self: Deque<T>) -> T,
 	popback: (self: Deque<T>) -> T,
-	peekfront: (self: Deque<T>) -> T,
-	peekback: (self: Deque<T>) -> T,
-	len: number,
+	peekfront: (self: Deque<T>) -> T?,
+	peekback: (self: Deque<T>) -> T?,
 }
 
 local deque = {}
+deque.__len = function<T>(self: Deque<T>)
+	return self.len
+end
+deque.__index = deque
 
 function deque.new<T>(initValue: T?): Deque<T>
 	local self = {} :: Deque<T>
-	self.values = {}
-	local head, tail = 0, if initValue then 0 else -1
+	self._values = {}
+	self.__head, self.__tail = 0, if initValue then 0 else -1
 	self.len = if initValue then 1 else 0
 	if initValue then
-		self.values[head] = initValue
-		self.values[tail] = initValue
+		self._values[self.__head] = initValue
+		self._values[self.__tail] = initValue
 	end
 
-	function self.pushfront(self: Deque<T>, value: T)
-		self.len += 1
-		head -= 1
-		self.values[head] = value
-	end
+	return setmetatable(self, deque)
+end
 
-	function self.pushback(self: Deque<T>, value: T)
-		self.len += 1
-		tail += 1
-		self.values[tail] = value
-	end
+function deque.pushfront<T>(self: Deque<T>, value: T)
+	self.len += 1
+	self.__head -= 1
+	self._values[self.__head] = value
+end
 
-	function self.popfront(self: Deque<T>): T
-		if self.len < 1 then
-			error("Popping from empty deque")
-		end
-		self.len -= 1
-		local toReturn = self.values[head]
-		self.values[head] = nil
-		head += 1
-		return toReturn
-	end
+function deque.pushback<T>(self: Deque<T>, value: T)
+	self.len += 1
+	self.__tail += 1
+	self._values[self.__tail] = value
+end
 
-	function self.popback(self: Deque<T>): T
-		if self.len < 1 then
-			error("Popping from empty deque")
-		end
-		self.len -= 1
-		local toReturn = self.values[tail]
-		self.values[tail] = nil
-		tail -= 1
-		return toReturn
+function deque.popfront<T>(self: Deque<T>): T
+	if self.len < 1 then
+		error("Popping from empty deque")
 	end
+	self.len -= 1
+	local toReturn = self._values[self.__head]
+	self._values[self.__head] = nil
+	self.__head += 1
+	return toReturn
+end
 
-	function self.peekfront(self: Deque<T>)
-		return self.values[head]
+function deque.popback<T>(self: Deque<T>): T
+	if self.len < 1 then
+		error("Popping from empty deque")
 	end
-	function self.peekback(self: Deque<T>)
-		return self.values[tail]
-	end
+	self.len -= 1
+	local toReturn = self._values[self.__tail]
+	self._values[self.__tail] = nil
+	self.__tail -= 1
+	return toReturn
+end
 
-	return self
+function deque.peekfront<T>(self: Deque<T>)
+	return self._values[self.__head]
+end
+function deque.peekback<T>(self: Deque<T>)
+	return self._values[self.__tail]
 end
 
 return table.freeze(deque)

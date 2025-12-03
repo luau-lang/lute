@@ -1,3 +1,4 @@
+local assertions = require("@std/test/assert")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
@@ -16,6 +17,23 @@ SmokeSuite:
 	make_pass
 ]]
 
+local function assertErrorsWithMsg(
+	testName: string,
+	testContents: string,
+	expectedErrMsg: string,
+	assert: assertions.asserts
+)
+	local testFilePath = path.join(tmpDir, `{testName}.test.luau`)
+	fs.writestringtofile(testFilePath, testContents)
+
+	-- Run lute on the created test file
+	local result = process.run({ lutePath, tostring(testFilePath) })
+
+	-- Check that the output specifies the inequal values
+	assert.eq(result.exitcode, 1)
+	assert.strcontains(result.stdout, expectedErrMsg)
+end
+
 test.suite("lute test", function(suite)
 	suite:case("lute test help message", function(assert)
 		-- Run lute test with -h flag
@@ -23,14 +41,14 @@ test.suite("lute test", function(suite)
 
 		-- Check that it exits successfully and prints help
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Usage:", 1, true), nil)
+		assert.strcontains(result.stdout, "Usage:")
 	end)
 
-	suite:case("lute test runs successfully", function(assert)
-		-- Run lute test without arguments
-		local result = process.run({ lutePath, "test" })
+	suite:case("lute test runs tests in discovery folder", function(assert)
+		-- Run lute test on tests/cli/discovery folder
+		local result = process.run({ lutePath, "test", "tests/cli/discovery" })
 
-		-- Check that it succeeds
+		-- Check that it runs tests and succeeds
 		assert.eq(result.exitcode, 0)
 	end)
 
@@ -46,9 +64,8 @@ test.suite("lute test", function(suite)
 	suite:case("lute doesn't report xpcall as error when accessing field of nil in suite", function(assert)
 		-- Setup
 		local testFilePath = path.join(tmpDir, "nil_field_access_test.test.luau")
-		local handle = fs.open(testFilePath, "w+")
-		fs.write(
-			handle,
+		fs.writestringtofile(
+			testFilePath,
 			[[
 local test = require("@std/test")
 
@@ -62,26 +79,17 @@ end)
 test.run()
 			]]
 		)
-		fs.close(handle)
 
 		-- Run lute on the created test file
-		local result = process.run({ lutePath, tostring(testFilePath) })
-
+		local result = process.run({ lutePath, path.format(testFilePath) })
 		-- Check that the output doesn't include xpcall
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
-		assert.neq(
-			result.stdout:find(`Failed with: Runtime error in nil_field_suite.access_field_of_nil in:`, 1, true),
-			nil
-		)
-		assert.neq(
-			result.stdout:find( -- filename comes from debug.info, which uses forward slashes even on Windows
-				`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`,
-				1,
-				true
-			),
-			nil
+		assert.strcontains(result.stdout, `Failed with: Runtime error in nil_field_suite.access_field_of_nil in:`)
+		assert.strcontains(
+			result.stdout,
+			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`
 		)
 
 		fs.remove(testFilePath)
@@ -90,9 +98,8 @@ test.run()
 	suite:case("lute doesn't report xpcall as error when accessing field of nil in case", function(assert)
 		-- Setup
 		local testFilePath = path.join(tmpDir, "nil_field_access_test.test.luau")
-		local handle = fs.open(testFilePath, "w+")
-		fs.write(
-			handle,
+		fs.writestringtofile(
+			testFilePath,
 			[[
 local test = require("@std/test")
 
@@ -104,33 +111,26 @@ end)
 test.run()
 			]]
 		)
-		fs.close(handle)
 
 		-- Run lute on the created test file
-		local result = process.run({ lutePath, tostring(testFilePath) })
+		local result = process.run({ lutePath, path.format(testFilePath) })
 
 		-- Check that the output doesn't include xpcall
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
-		assert.neq(result.stdout:find(`Failed with: Runtime error in access_field_of_nil in:`, 1, true), nil)
-		assert.neq(
-			result.stdout:find( -- filename comes from debug.info, which uses forward slashes even on Windows
-				`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`,
-				1,
-				true
-			),
-			nil
+		assert.strcontains(result.stdout, `Failed with: Runtime error in access_field_of_nil in:`)
+		assert.strcontains(
+			result.stdout,
+			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`
 		)
 
 		fs.remove(testFilePath)
 	end)
 
 	suite:case("assert.eq_error_message_in_case", function(assert)
-		local testFilePath = path.join(tmpDir, "assert_eq_fails.test.luau")
-		local handle = fs.open(testFilePath, "w+")
-		fs.write(
-			handle,
+		assertErrorsWithMsg(
+			"assert_eq_fails",
 			[[
 local test = require("@std/test")
 
@@ -139,23 +139,15 @@ test.case("eq_error", function(assert)
 end)
 
 test.run()
-			]]
+			]],
+			"eq: 1 ~= 2",
+			assert
 		)
-		fs.close(handle)
-
-		-- Run lute on the created test file
-		local result = process.run({ lutePath, tostring(testFilePath) })
-
-		-- Check that the output specifies the inequal values
-		assert.eq(result.exitcode, 1)
-		assert.neq(result.stdout:find("eq: 1 ~= 2", 1, true), nil)
 	end)
 
 	suite:case("assert.eq_error_message_in_suite", function(assert)
-		local testFilePath = path.join(tmpDir, "assert_eq_fails.test.luau")
-		local handle = fs.open(testFilePath, "w+")
-		fs.write(
-			handle,
+		assertErrorsWithMsg(
+			"assert_eq_fails",
 			[[
 local test = require("@std/test")
 
@@ -166,23 +158,15 @@ test.suite("eq_failure_suite", function(suite)
 end)
 
 test.run()
-			]]
+			]],
+			"eq: 1 ~= 2",
+			assert
 		)
-		fs.close(handle)
-
-		-- Run lute on the created test file
-		local result = process.run({ lutePath, tostring(testFilePath) })
-
-		-- Check that the output specifies the inequal values
-		assert.eq(result.exitcode, 1)
-		assert.neq(result.stdout:find("eq: 1 ~= 2", 1, true), nil)
 	end)
 
 	suite:case("assert.neq_error_message_in_case", function(assert)
-		local testFilePath = path.join(tmpDir, "assert_neq_fails.test.luau")
-		local handle = fs.open(testFilePath, "w+")
-		fs.write(
-			handle,
+		assertErrorsWithMsg(
+			"assert_neq_fails",
 			[[
 local test = require("@std/test")
 
@@ -191,23 +175,15 @@ test.case("neq_error", function(assert)
 end)
 
 test.run()
-			]]
+			]],
+			"neq: 1 == 1",
+			assert
 		)
-		fs.close(handle)
-
-		-- Run lute on the created test file
-		local result = process.run({ lutePath, tostring(testFilePath) })
-
-		-- Check that the output specifies the inequal values
-		assert.eq(result.exitcode, 1)
-		assert.neq(result.stdout:find("neq: 1 == 1", 1, true), nil)
 	end)
 
 	suite:case("assert.neq_error_message_in_suite", function(assert)
-		local testFilePath = path.join(tmpDir, "assert_neq_fails.test.luau")
-		local handle = fs.open(testFilePath, "w+")
-		fs.write(
-			handle,
+		assertErrorsWithMsg(
+			"assert_neq_fails",
 			[[
 local test = require("@std/test")
 
@@ -218,16 +194,179 @@ test.suite("neq_failure_suite", function(suite)
 end)
 
 test.run()
-			]]
+			]],
+			"neq: 1 == 1",
+			assert
 		)
-		fs.close(handle)
+	end)
 
-		-- Run lute on the created test file
-		local result = process.run({ lutePath, tostring(testFilePath) })
+	suite:case("assert.tableeq_error_message_in_case", function(assert)
+		assertErrorsWithMsg(
+			"assert_tableeq_fails",
+			[[
+local test = require("@std/test")
 
-		-- Check that the output specifies the inequal values
-		assert.eq(result.exitcode, 1)
-		assert.neq(result.stdout:find("neq: 1 == 1", 1, true), nil)
+test.case("tableeq_error", function(assert)
+	assert.tableeq({ a = 1 }, { a = 2 })
+end)
+
+test.run()
+			]],
+			"tableeq: lhs[a] = 1 but rhs[a] = 2",
+			assert
+		)
+	end)
+
+	suite:case("assert.tableeq_error_message_in_suite", function(assert)
+		assertErrorsWithMsg(
+			"assert_tableeq_fails",
+			[[
+local test = require("@std/test")
+
+test.suite("tableeq_failure_suite", function(suite)
+	suite:case("tableeq_error", function(assert)
+		assert.tableeq({ a = 1 }, { a = 2 })
+	end)
+end)
+
+test.run()
+			]],
+			"tableeq: lhs[a] = 1 but rhs[a] = 2",
+			assert
+		)
+	end)
+
+	suite:case("assert.buffereq_unequal_length", function(assert)
+		assertErrorsWithMsg(
+			"assert_buffereq_fails",
+			[[
+local test = require("@std/test")
+
+test.case("buffereq_error", function(assert)
+	local buf1 = buffer.create(1)
+	local buf2 = buffer.create(2)
+	assert.buffereq(buf1, buf2)
+end)
+
+test.run()
+			]],
+			"buffers are of unequal length",
+			assert
+		)
+	end)
+
+	suite:case("assert.buffereq_error_message_in_suite", function(assert)
+		assertErrorsWithMsg(
+			"assert_buffereq_fails",
+			[[
+local test = require("@std/test")
+
+test.suite("buffereq_failure_suite", function(suite)
+	suite:case("buffereq_error", function(assert)
+		local buf1 = buffer.create(2)
+		local buf2 = buffer.create(2)
+		buffer.writeu8(buf1, 0, 84)
+		buffer.writeu8(buf2, 0, 85)
+		assert.buffereq(buf1, buf2)
+	end)
+end)
+
+test.run()
+			]],
+			"buffereq: lhs[0] = 54, but rhs[0] = 55",
+			assert
+		)
+	end)
+
+	suite:case("assert.erroreq_no_error", function(assert)
+		assertErrorsWithMsg(
+			"assert_buffereq_fails",
+			[[
+local test = require("@std/test")
+
+test.case("erroreq_error", function(assert)
+	assert.erroreq(function() return end, "expected message")
+end)
+
+test.run()
+			]],
+			"Function did not error as expected.",
+			assert
+		)
+	end)
+
+	suite:case("assert.erroreq_error_message", function(assert)
+		assertErrorsWithMsg(
+			"assert_buffereq_fails",
+			[[
+local test = require("@std/test")
+
+test.suite("erroreq_failure_suite", function(suite)
+	suite:case("erroreq_error", function(assert)
+		assert.erroreq(function() error("wrong message") end, "expected message")
+	end)
+end)
+
+test.run()
+			]],
+			'Expected suffix of error message "expected message", but got ', -- the full message contains tmpdir path to test file
+			assert
+		)
+	end)
+
+	suite:case("assert.strcontains_instances_negative", function(assert)
+		assertErrorsWithMsg(
+			"assert_buffereq_fails",
+			[[
+local test = require("@std/test")
+
+test.case("strcontains_error", function(assert)
+	assert.strcontains("hello world", "goodbye", nil, -1)
+end)
+
+test.run()
+			]],
+			"instances must be greater than 0",
+			assert
+		)
+	end)
+
+	suite:case("assert.strcontains_single_instance_fails", function(assert)
+		assertErrorsWithMsg(
+			"assert_buffereq_fails",
+			[[
+local test = require("@std/test")
+
+test.suite("strcontains_failure_suite", function(suite)
+	suite:case("strcontains_error", function(assert)
+		assert.strcontains("hello world", "goodbye")
+	end)
+end)
+
+test.run()
+			]],
+			'Expected "hello world" to contain "goodbye".',
+			assert
+		)
+	end)
+
+	suite:case("assert.strcontains_multiple_instance_fails", function(assert)
+		assertErrorsWithMsg(
+			"assert_buffereq_fails",
+			[[
+local test = require("@std/test")
+
+test.suite("strcontains_failure_suite", function(suite)
+	suite:case("strcontains_error", function(assert)
+		assert.strcontains("muahahahaha", "ha", nil, 5)
+	end)
+end)
+
+test.run()
+			]],
+			'Expected "muahahahaha" to contain "ha" 5 times.',
+			assert
+		)
 	end)
 end)
 

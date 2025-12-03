@@ -2,6 +2,7 @@ local fs = require("@std/fs")
 local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
+local task = require("@lute/task")
 
 local tmpdir = system.tmpdir()
 
@@ -89,28 +90,31 @@ test.suite("FsSuite", function(suite)
 		fs.remove(src)
 	end)
 
-	suite:case("watch_callback_on_change", function(assert)
-		local watched = path.join(tmpdir, "watched.txt")
+	suite:case("watch_iterator_on_change", function(assert)
+		local watchedFileName = "watched.txt"
+		local watched = path.join(tmpdir, watchedFileName)
 		if fs.exists(watched) then
 			fs.remove(watched)
 		end
 
-		local triggered = false
-		local handle = fs.watch(tmpdir, function(filename, event)
-			if tostring(filename):find("watched.txt") then
-				triggered = true
-			end
-		end)
+		local watcher = fs.watch(tmpdir)
 
 		fs.writestringtofile(watched, "x")
 
-		local start = os.time()
-		while not triggered and os.time() - start < 2 do
-		end
+		local start = os.clock()
+		local event
 
-		assert.eq(type(triggered) == "boolean", true)
+		repeat
+			event = watcher:next()
+			if not event then
+				task.wait(0.01)
+			end
+		until event or (os.clock() - start > 2)
 
-		handle:close()
+		assert.neq(event, nil)
+		assert.eq(event.change or event.rename, true)
+
+		watcher:close()
 		if fs.exists(watched) then
 			fs.remove(watched)
 		end

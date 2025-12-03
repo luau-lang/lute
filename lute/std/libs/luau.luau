@@ -38,4 +38,9 @@ function luau.typeofmodule(modulepath: path.pathlike): string
 	return luteLuau.typeofmodule(modulePathStr)
 end
 
+function luau.resolverequire(modulepath: string, frompath: path.pathlike): string
+	local frompathString = if typeof(frompath) == "string" then frompath else path.format(frompath)
+	return luteLuau.resolverequire(modulepath, `@{frompathString}`)
+end
+
 return luau

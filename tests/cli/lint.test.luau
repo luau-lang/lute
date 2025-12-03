@@ -7,8 +7,8 @@ local test = require("@std/test")
 local lutePath = path.format(process.execpath())
 local tmpDir = system.tmpdir()
 local rulesDir = path.format(path.join(".", "lints"))
-local almostSwappedExample = path.format(path.join("examples", "lints", "almost_swapped.luau"))
-local divideByZeroExample = path.format(path.join("examples", "lints", "divide_by_zero.luau"))
+local almostSwappedExample = path.format(path.join("lute", "cli", "commands", "lint", "rules", "almost_swapped.luau"))
+local divideByZeroExample = path.format(path.join("lute", "cli", "commands", "lint", "rules", "divide_by_zero.luau"))
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 
@@ -29,31 +29,24 @@ test.suite("lute lint", function(suite)
 		local result = process.run({ lutePath, "lint", "-h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find(USAGE, 1, true), nil)
+		assert.strcontains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "lint", "--h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find(USAGE, 1, true), nil)
+		assert.strcontains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "lint", "--help" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find(USAGE, 1, true), nil)
-	end)
-
-	suite:case("lute lint no rule", function(assert)
-		local result = process.run({ lutePath, "lint" })
-
-		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Error: No lint rules specified.", 1, true), nil)
+		assert.strcontains(result.stdout, USAGE)
 	end)
 
 	suite:case("lute lint no input file", function(assert)
 		local result = process.run({ lutePath, "lint", "-r", "a_rule.luau" })
 
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Error: No input files specified.", 1, true), nil)
+		assert.strcontains(result.stdout, "Error: No input files specified.")
 	end)
 
 	suite:case("divide_by_zero", function(assert)
@@ -74,7 +67,7 @@ local x = 1 / 0
 		-- Check
 		assert.eq(result.exitcode, 0)
 
-		assert.neq(result.stdout:find("warning[divide_by_zero]: Division by zero detected.", 1, true), nil)
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
 		local expected = [[
 violator.luau:1:11-16 ──
    │
@@ -82,7 +75,7 @@ violator.luau:1:11-16 ──
    │           ^^^^^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
 		fs.remove(violatorPath)
@@ -121,7 +114,7 @@ end
 		-- Check
 		assert.eq(result.exitcode, 0)
 		-- We expect 4 warnings, so stdout should be split into 5 parts
-		assert.eq(#result.stdout:split("warning[almost_swapped]: This looks like a failed attempt to swap."), 5)
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.", nil, 4)
 		local expected = [[
 violator.luau:1:1-2:6 ──
    │
@@ -130,7 +123,7 @@ violator.luau:1:1-2:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator.luau:6:1-7:6 ──
@@ -140,7 +133,7 @@ violator.luau:6:1-7:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator.luau:10:1-11:10 ──
@@ -150,7 +143,7 @@ violator.luau:10:1-11:10 ──
     │ ╰─────────^
     │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator.luau:14:2-15:17 ──
@@ -160,7 +153,7 @@ violator.luau:14:2-15:17 ──
     │ ╰────────────────^
     │
 ]] -- todo: address tab shenanigans
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
 		fs.remove(violatorPath)
@@ -170,11 +163,12 @@ violator.luau:14:2-15:17 ──
 		-- Setup
 		fs.createdirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
-		fs.copy(almostSwappedExample, path.join(rulesDir, "almost_swapped.luau"))
+		-- Because the default rules require types using a relative path, we copy from examples, which uses an absolute require path
+		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
 		-- Copy divide_by_zero to rulesDir/divide_by_zero/init.luau
 		local divideByZeroDir = path.join(rulesDir, "divide_by_zero")
 		fs.createdirectory(divideByZeroDir)
-		fs.copy(divideByZeroExample, path.join(divideByZeroDir, "init.luau"))
+		fs.copy(path.join("examples", "lints", "divide_by_zero.luau"), path.join(divideByZeroDir, "init.luau"))
 		fs.writestringtofile(
 			path.join(rulesDir, "bogus.txt"),
 			[[
@@ -201,7 +195,7 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 0)
 
-		assert.neq(result.stdout:find("warning[divide_by_zero]: Division by zero detected.", 1, true), nil)
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
 		local expected = [[
 violator.luau:1:11-16 ──
    │
@@ -209,12 +203,9 @@ violator.luau:1:11-16 ──
    │           ^^^^^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
-		assert.neq(
-			result.stdout:find("warning[almost_swapped]: This looks like a failed attempt to swap.", 1, true),
-			nil
-		)
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 		expected = [[
 violator.luau:3:1-4:6 ──
    │
@@ -223,7 +214,7 @@ violator.luau:3:1-4:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
 		fs.remove(violatorPath)
@@ -234,7 +225,7 @@ violator.luau:3:1-4:6 ──
 		-- Setup
 		fs.createdirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
-		fs.copy(almostSwappedExample, path.join(rulesDir, "almost_swapped.luau"))
+		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
 		-- Create a rule that fails
 		fs.writestringtofile(
 			path.join(rulesDir, "erroring_rule.luau"),
@@ -265,10 +256,7 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 0)
 
-		assert.neq(
-			result.stdout:find("warning[almost_swapped]: This looks like a failed attempt to swap.", 1, true),
-			nil
-		)
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 		local expected = [[
 violator.luau:1:1-2:6 ──
    │
@@ -277,7 +265,7 @@ violator.luau:1:1-2:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		assert.neq(
 			result.stdout:find(
@@ -337,7 +325,7 @@ violator1.luau:1:11-16 ──
    │           ^^^^^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:1:11-17 ──
@@ -346,7 +334,7 @@ violator2.lua:1:11-17 ──
    │           ^^^^^^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		assert.eq(#result.stdout:split("warning[almost_swapped]: This looks like a failed attempt to swap."), 3)
 		expected = [[
@@ -357,7 +345,7 @@ violator1.luau:3:1-4:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:5:1-6:6 ──
@@ -367,7 +355,7 @@ violator2.lua:5:1-6:6 ──
    │ ╰─────^
    │
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 		expected = "Skipping non%-Luau file '.+[/\\]module[/\\]not_luau%.txt'"
 		assert.neq(result.stdout:find(expected, 1, false), nil)
 
@@ -404,16 +392,441 @@ b = a
 lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 (0, 0) - (0, 5): Incomplete statement: expected assignment or a function call
 ]]
-		assert.neq(result.stdout:find(expected, 1, true), nil)
+		assert.strcontains(result.stdout, expected)
 
-		assert.neq(result.stdout:find("warning[divide_by_zero]: Division by zero detected.", 1, true), nil)
-		assert.neq(
-			result.stdout:find("warning[almost_swapped]: This looks like a failed attempt to swap.", 1, true),
-			nil
-		)
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 
 		-- Teardown
 		fs.remove(lintee)
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("lute lint default rules", function(assert)
+		-- Create a file that violates the default almost_swapped and divide_by_zero rules
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 1 / 0
+
+a = b
+b = a
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+		local expected = [[
+violator.luau:1:11-16 ──
+   │
+ 1 │ local x = 1 / 0
+   │           ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		expected = [[
+violator.luau:3:1-4:6 ──
+   │
+ 3 │ ╭ a = b
+ 4 │ │ b = a
+   │ ╰─────^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("lute lint warning suppression", function(assert)
+		-- Create a file that violates the default almost_swapped and divide_by_zero rules
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(divide_by_zero)
+local x = 1 / 0
+
+-- lute-lint-ignore(divide_by_zero)
+if true then
+	local y = 10 / 0
+end
+
+a = b
+b = a
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		local expected = [[
+violator.luau:9:1-10:6 ──
+    │
+ 9  │ ╭ a = b
+ 10 │ │ b = a
+    │ ╰─────^
+    │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(divide_by_zero)
+local x = 1 / 0
+
+if true then
+	local y = 10 / 0
+end
+
+local z = 1 / 0
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 2)
+		local expected = [[
+violator.luau:5:12-18 ──
+   │
+ 5 │ 	local y = 10 / 0
+   │            ^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:8:11-16 ──
+   │
+ 8 │ local z = 1 / 0
+   │           ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement2", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 1 / 0
+
+-- lute-lint-ignore(divide_by_zero)
+if true then
+	local y = 10 / 0
+end
+
+local z = 1 / 0
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 2)
+		local expected = [[
+violator.luau:1:11-16 ──
+   │
+ 1 │ local x = 1 / 0
+   │           ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:8:11-16 ──
+   │
+ 8 │ local z = 1 / 0
+   │           ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement3", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local function foo()
+	-- lute-lint-ignore(divide_by_zero)
+	local y = 3 / 0
+
+	return 3 / 0
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator.luau:5:9-14 ──
+   │
+ 5 │ 	return 3 / 0
+   │         ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement4", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+if true then
+	-- lute-lint-ignore(divide_by_zero)
+	local y = 3 / 0
+
+	return 3 / 0
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator.luau:5:9-14 ──
+   │
+ 5 │ 	return 3 / 0
+   │         ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement5", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+while true do
+	-- lute-lint-ignore(divide_by_zero)
+	local y = 3 / 0
+
+	return 3 / 0
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator.luau:5:9-14 ──
+   │
+ 5 │ 	return 3 / 0
+   │         ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression is limited to following statement6", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local t = {}
+for _, _ in t do
+	-- lute-lint-ignore(divide_by_zero)
+	local y = 3 / 0
+
+	return 3 / 0
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator.luau:6:9-14 ──
+   │
+ 6 │ 	return 3 / 0
+   │         ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression for multi node violation", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(almost_swapped)
+a = b
+b = a
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("suppression for multi node violation", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(almost_swapped)
+a = b
+b = a
+a = b
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.", nil, 1)
+
+		local expected = [[
+violator.luau:3:1-4:6 ──
+   │
+ 3 │ ╭ b = a
+ 4 │ │ a = b
+   │ ╰─────^
+   │
+]]
+
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("nested suppressions", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+-- lute-lint-ignore(divide_by_zero)
+local function foo()
+    local x = 1/0
+    local function bar()
+        -- lute-lint-ignore(almost_swapped)
+        a = b
+		b = a
+    end
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		assert.strnotcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+
+		-- Teardown
 		fs.remove(violatorPath)
 	end)
 end)
