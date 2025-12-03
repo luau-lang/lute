@@ -519,8 +519,8 @@ local z = 1 / 0
 		local expected = [[
 violator.luau:5:12-18 ──
    │
- 5 │ 	local y = 10 / 0
-   │            ^^^^^^
+ 5 │     local y = 10 / 0
+   │               ^^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -613,8 +613,8 @@ end
 		local expected = [[
 violator.luau:5:9-14 ──
    │
- 5 │ 	return 3 / 0
-   │         ^^^^^
+ 5 │     return 3 / 0
+   │            ^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -650,8 +650,8 @@ end
 		local expected = [[
 violator.luau:5:9-14 ──
    │
- 5 │ 	return 3 / 0
-   │         ^^^^^
+ 5 │     return 3 / 0
+   │            ^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -687,8 +687,8 @@ end
 		local expected = [[
 violator.luau:5:9-14 ──
    │
- 5 │ 	return 3 / 0
-   │         ^^^^^
+ 5 │     return 3 / 0
+   │            ^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -725,8 +725,8 @@ end
 		local expected = [[
 violator.luau:6:9-14 ──
    │
- 6 │ 	return 3 / 0
-   │         ^^^^^
+ 6 │     return 3 / 0
+   │            ^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
