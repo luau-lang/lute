@@ -546,32 +546,34 @@ int fs_symlink(lua_State* L)
 
 struct WatchHandle
 {
-    lua_State* L = nullptr;
+    lua_State* L;
     std::shared_ptr<Ref> callbackReference;
     bool isClosed = false;
     uv_fs_event_t handle;
- 
+
     void close()
     {
-        if (isClosed)
-            return;
-
-        isClosed = true;
-
-        int err = uv_fs_event_stop(&handle);
-        if (err)
+        if (!isClosed)
         {
-            luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
+            int err = uv_fs_event_stop(&handle);
+            if (err)
+            {
+                luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
+            }
+
+            uv_close((uv_handle_t*) &handle, nullptr);
+
+            isClosed = true;
+
+            getRuntime(L)->releasePendingToken();
+
+            callbackReference.reset();
         }
+    }
 
-        auto closeCb = [](uv_handle_t* handle)
-        {
-            WatchHandle* wh = static_cast<WatchHandle*>(handle->data);
-            wh->callbackReference.reset();
-            getRuntime(wh->L)->releasePendingToken();
-        };
-
-        uv_close((uv_handle_t*) &handle, closeCb);
+    ~WatchHandle()
+    {
+        close();
     }
 };
 
@@ -642,6 +644,8 @@ int fs_watch(lua_State* L)
                     return 2;
                 }
             );
+
+            uv_stop(handle->loop);
         },
         path,
         0
