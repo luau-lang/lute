@@ -60,8 +60,6 @@ local function printDiffByLineDetailed(a: string, b: string)
 	while i <= #diff do
 		local op = diff[i]
 
-		-- print deletes and adds in contiguous blocks, but print with chars if paired
-		-- the way git does it: if a single DELETE -> ADD, print detailed. otherwise, print deletes contiguously, and adds contiguously
 		if op.key == "DELETE" or op.key == "ADD" then
 			local deletes, adds
 			deletes, adds, i = collectConsecutiveChanges(diff, i)
