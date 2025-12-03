@@ -113,6 +113,15 @@ local function maybeParseSuppressions(
 	local rules = cache[node]
 	if rules == nil then
 		rules = parseSuppressions(node)
+
+		if node.kind == "stat" and node.tag == "block" then
+			-- The logic here is a little different, since we only want suppression to apply to the first statement
+			-- Store a sentinel value at this node to avoid reparsing suppressions
+			cache[node] = {}
+			-- Parse the rules that this node suppresses and attach them to the first statement of the block
+			cache[node.statements[1]] = rules
+		end
+
 		cache[node] = rules
 	end
 	return rules
@@ -126,23 +135,6 @@ local function violationIsSuppressed(
 	local violationSuppressed = false
 
 	local function nodeIsSuppressed(node: syntax.AstNode): boolean
-		if node.kind == "stat" and node.tag == "block" then
-			-- The logic here is a little different, since we only want suppression to apply to the first statement
-			-- If the block is empty, early exit
-			if #node.statements == 0 then
-				return false
-			end
-
-			if suppressionCache[node] == nil then
-				-- Store a sentinel value at this node to avoid reparsing suppressions
-				suppressionCache[node] = {}
-				-- Parse the rules that this node suppresses and attach them to the first statement of the block
-				suppressionCache[node.statements[1]] = parseSuppressions(node)
-				-- Recurse into the block
-				return true
-			end
-		end
-
 		if syntax.span.subsumes(violation.location, node.location) then
 			-- The first node which is fully contained within a violation can suppress it
 			local rules = maybeParseSuppressions(node, suppressionCache)
@@ -158,11 +150,11 @@ local function violationIsSuppressed(
 			return false
 		end
 
-		local rules = suppressionCache[node]
-		if rules == nil then
-			-- Find all rules that this node suppresses
-			rules = parseSuppressions(node)
-			suppressionCache[node] = rules
+		local rules = maybeParseSuppressions(node, suppressionCache)
+
+		-- AstStatBlock suppressions should only apply to the first statement, not the block itself
+		if node.kind == "stat" and node.tag == "block" then
+			return true
 		end
 
 		if rules[violation.lintname] then
