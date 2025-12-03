@@ -91,57 +91,61 @@ local function loadDefaultRules(): { types.LintRule }
 	return rules
 end
 
-local function parseSuppressions(node: syntax.AstNode): { [string]: boolean }
-	local suppressions: { [string]: boolean } = {}
+local function parseDirectives(node: syntax.AstNode): { [string]: boolean }
+	local directives: { [string]: boolean } = {}
 
 	local leadingTrivia = triviaUtils.leftmosttrivia(node)
 	for _, trivia in leadingTrivia do
 		if trivia.tag == "blockcomment" or trivia.tag == "comment" then
 			for rule in trivia.text:gmatch("lute%-lint%-ignore%((.+)%)") do
-				suppressions[rule] = true
+				directives[rule] = true -- True means ignore
+			end
+			for rule in trivia.text:gmatch("lute%-lint%-report%((.+)%)") do
+				directives[rule] = false -- False means report
 			end
 		end
 	end
 
-	return suppressions
+	return directives
 end
 
-local function maybeParseSuppressions(
+local function maybeParseDirectives(
 	node: syntax.AstNode,
 	cache: { [syntax.AstNode]: { [string]: boolean } }
 ): { [string]: boolean }
-	local rules = cache[node]
-	if rules == nil then
-		rules = parseSuppressions(node)
+	local directives = cache[node]
+	if directives == nil then
+		directives = parseDirectives(node)
 
 		if node.kind == "stat" and node.tag == "block" then
 			-- The logic here is a little different, since we only want suppression to apply to the first statement
 			-- Store a sentinel value at this node to avoid reparsing suppressions
-			cache[node] = {}
+			cache[node] = { ignores = {}, reports = {} }
 			-- Parse the rules that this node suppresses and attach them to the first statement of the block
-			cache[node.statements[1]] = rules
+			cache[node.statements[1]] = directives
 		end
 
-		cache[node] = rules
+		cache[node] = directives
 	end
-	return rules
+	return directives
 end
 
 local function violationIsSuppressed(
 	violation: types.LintViolation,
 	ast: syntax.AstStatBlock,
-	suppressionCache: { [syntax.AstNode]: { [string]: boolean } }
+	directiveCache: { [syntax.AstNode]: { [string]: boolean } }
 ): boolean
 	local violationSuppressed = false
 
+	-- We want to find the lint directive with the tightest scope that applies to this violation
 	local function nodeIsSuppressed(node: syntax.AstNode): boolean
 		if syntax.span.subsumes(violation.location, node.location) then
-			-- The first node which is fully contained within a violation can suppress it
-			local rules = maybeParseSuppressions(node, suppressionCache)
-			if rules[violation.lintname] then
-				violationSuppressed = true
-			end
-			-- No other fully contained nodes can suppress, so we can stop recursing
+			-- The first node which is fully contained within a violation has the tightest relevant directive
+			local directives = maybeParseDirectives(node, directiveCache)
+			violationSuppressed = if directives[violation.lintname] ~= nil
+				then directives[violation.lintname]
+				else violationSuppressed
+			-- No other fully contained nodes can affect whether we suppress, so we can stop recursing
 			return false
 		end
 
@@ -150,21 +154,20 @@ local function violationIsSuppressed(
 			return false
 		end
 
-		local rules = maybeParseSuppressions(node, suppressionCache)
+		local directives = maybeParseDirectives(node, directiveCache)
 
 		-- AstStatBlock suppressions should only apply to the first statement, not the block itself
 		if node.kind == "stat" and node.tag == "block" then
 			return true
 		end
 
-		if rules[violation.lintname] then
-			violationSuppressed = true
-			-- If the node is suppressed, we don't need to recurse deeper
-			return false
-		else
-			-- A deeper node might suppress this rule
-			return true
-		end
+		-- Use any directives found on this node to update suppression status
+		violationSuppressed = if directives[violation.lintname] ~= nil
+			then directives[violation.lintname]
+			else violationSuppressed
+
+		-- A deeper node might affect whether we suppress, so continue recursing
+		return true
 	end
 
 	local suppressionVisitor = visitor.create(nodeIsSuppressed)
@@ -183,13 +186,13 @@ local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule
 
 	print("Applying lint rules")
 	local violations: { types.LintViolation } = {}
-	local suppressionCache = {}
+	local directiveCache = {}
 	for _, rule in lintRules do
 		local success, err = pcall(rule.lint, ast, inputFilePath)
 		if success then
 			-- On success, err contains the returned violations
 			for _, violation in err do
-				if not violationIsSuppressed(violation, ast, suppressionCache) then
+				if not violationIsSuppressed(violation, ast, directiveCache) then
 					table.insert(violations, violation)
 				end
 			end
