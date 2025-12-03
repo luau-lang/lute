@@ -101,6 +101,7 @@ test.suite("FsSuite", function(suite)
 
 		fs.writestringtofile(watched, "x")
 
+		local triggered = false
 		local start = os.clock()
 		local event
 
@@ -108,11 +109,12 @@ test.suite("FsSuite", function(suite)
 			event = watcher:next()
 			if not event then
 				task.wait(0.01)
+			else
+				triggered = event.change or event.rename
 			end
 		until event or (os.clock() - start > 2)
 
-		assert.neq(event, nil)
-		assert.eq(event.change or event.rename, true)
+		assert.eq(triggered, true)
 
 		watcher:close()
 		if fs.exists(watched) then
