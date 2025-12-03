@@ -148,9 +148,9 @@ violator.luau:10:1-11:10 ──
 		expected = [[
 violator.luau:14:2-15:17 ──
     │
- 14 │ ╭ 	t["a"] = t["b"]
- 15 │ │ 	t["b"] = t["a"]
-    │ ╰────────────────^
+ 14 │ ╭     t["a"] = t["b"]
+ 15 │ │     t["b"] = t["a"]
+    │ ╰───────────────────^
     │
 ]] -- todo: address tab shenanigans
 		assert.strcontains(result.stdout, expected)

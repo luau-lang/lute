@@ -46,13 +46,16 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 		local gutterSize = math.floor(math.log10(location.endline)) + 3 -- + 2 for padding around line number
 		local blankGutter = string.rep(" ", gutterSize)
 
-		local renderedSourceLines =
-			{ ` {string.format(`%-{gutterSize - 2}d`, location.beginline)} │ ╭ {sourceLines[location.beginline]}` }
+		local subbedSourceLine = sourceLines[location.beginline]:gsub("\t", string.rep(" ", TAB_SIZE))
+		local renderedSourceLines = {
+			` {string.format(`%-{gutterSize - 2}d`, location.beginline)} │ ╭ {subbedSourceLine}`,
+		}
 		local maxSourceLineLength = #renderedSourceLines[1]
 		for lineNum = location.beginline + 1, location.endline do
+			subbedSourceLine = sourceLines[lineNum]:gsub("\t", string.rep(" ", TAB_SIZE))
 			table.insert(
 				renderedSourceLines,
-				` {string.format(`%-{gutterSize - 2}d`, lineNum)} │ │ {sourceLines[lineNum]}`
+				` {string.format(`%-{gutterSize - 2}d`, lineNum)} │ │ {subbedSourceLine}`
 			)
 			maxSourceLineLength = math.max(maxSourceLineLength, #renderedSourceLines[#renderedSourceLines])
 		end
@@ -68,7 +71,7 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 		for _, line in renderedSourceLines do
 			print(line)
 		end
-		print(`{blankGutter}│ ╰─{string.rep("─", location.endcolumn - 2)}^`)
+		print(`{blankGutter}│ ╰{string.rep("─", maxSourceLineLength - gutterSize - 8)}^`)
 		print(`{blankGutter}│`)
 		print()
 	end
