@@ -127,10 +127,10 @@ local function applyDiff(
 	diff: Diff,
 	a: string,
 	options: {
-		byLine: boolean?,
+		byChar: boolean?,
 	}?
 )
-	local separator = if options and options.byLine then "\n" else ""
+	local separator = if options and options.byChar then "" else "\n"
 	local src = a:split(separator)
 
 	local result = {}
@@ -173,21 +173,8 @@ local function applyDiff(
 	return table.concat(result, separator)
 end
 
-local function diff(
-	a: string,
-	b: string,
-	options: {
-		byLine: boolean?,
-	}?
-)
-	if options and options.byLine then
-		return myersdiffbyline(a, b)
-	else
-		return myersdiffbychar(a, b)
-	end
-end
-
 return table.freeze({
-	rawdiff = diff,
+	myersdiffbyline = myersdiffbyline,
+	myersdiffbychar = myersdiffbychar,
 	applydiff = applyDiff,
 })

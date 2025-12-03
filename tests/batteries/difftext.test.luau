@@ -1,8 +1,7 @@
 local difftext = require("@batteries/difftext")
 local test = require("@std/test")
 
-local diff = difftext.rawdiff
-local applydiff = difftext.applydiff
+local diff = difftext.diff
 
 -- general test assumption is that:
 --  applying a diff(strA, strB) on strAa should equal strB
@@ -21,44 +20,44 @@ end
 test.suite("diffText", function(suite)
 	suite:case("diffbychar on equal length strings", function(assert)
 		local a, b = randomString(25), randomString(25)
-		local diff = diff(a, b)
-		assert.eq(applydiff(diff, a), b)
+		local _, applydiff = diff(a, b, {
+			byChar = true,
+		})
+		assert.eq(applydiff(a), b)
 	end)
 
 	suite:case("diffbychar on src shorter than destination", function(assert)
 		local a, b = randomString(15), randomString(25)
-		local diff = diff(a, b)
-		assert.eq(applydiff(diff, a), b)
+		local _, applydiff = diff(a, b, {
+			byChar = true,
+		})
+		assert.eq(applydiff(a), b)
 	end)
 
 	suite:case("diffbychar on src longer than destination", function(assert)
 		local a, b = randomString(25), randomString(15)
-		local diff = diff(a, b)
-		assert.eq(applydiff(diff, a), b)
+		local _, applydiff = diff(a, b, {
+			byChar = true,
+		})
+		assert.eq(applydiff(a), b)
 	end)
 
 	suite:case("diffbyline on equal length strings", function(assert)
 		local a, b = randomString(25), randomString(25)
-		local diff = diff(a, b, {
-			byLine = true,
-		})
+		local _, applydiff = diff(a, b)
 
-		assert.eq(applydiff(diff, a, { byLine = true }), b)
+		assert.eq(applydiff(a), b)
 	end)
 	suite:case("diffbyline on src shorter than destination", function(assert)
 		local a, b = randomString(15), randomString(25)
-		local diff = diff(a, b, {
-			byLine = true,
-		})
+		local _, applydiff = diff(a, b)
 
-		assert.eq(applydiff(diff, a, { byLine = true }), b)
+		assert.eq(applydiff(a), b)
 	end)
 	suite:case("diffbyline on src longer than destination", function(assert)
 		local a, b = randomString(25), randomString(15)
-		local diff = diff(a, b, {
-			byLine = true,
-		})
-		assert.eq(applydiff(diff, a, { byLine = true }), b)
+		local _, applydiff = diff(a, b)
+		assert.eq(applydiff(a), b)
 	end)
 end)
 

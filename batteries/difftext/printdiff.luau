@@ -1,16 +1,9 @@
 local richterm = require("@batteries/richterm")
-local difftext = require("./difftext")
-local myersdiff = difftext.rawdiff
+local myersdiff = require("./myersdiff")
+local myersdiffbychar = myersdiff.myersdiffbychar
+local myersdiffbyline = myersdiff.myersdiffbyline
 
-type Diff = difftext.Diff
-
-local function myersdiffbychar(a: string, b: string)
-	return myersdiff(a, b)
-end
-
-local function myersdiffbyline(a: string, b: string)
-	return myersdiff(a, b, { byLine = true })
-end
+type Diff = myersdiff.Diff
 
 -- Collects consecutive DELETEs and/or ADDs starting at index i
 -- Returns: deletes array, adds array, new index position
@@ -31,26 +24,24 @@ local function collectConsecutiveChanges(diff: Diff, startIndex: number): ({ str
 	return deletes, adds, i
 end
 
-local function getLineDetailedDiff(a: string, b: string)
+local function visualizeCharDiff(a: string, b: string)
 	local charOps = myersdiffbychar(a, b)
-	-- diffs a line by char, then constructs a visual for the old line and new line
-	-- highlights deleted chars in the old line, added chars in the new line, and keeps consistent chars present in both
-
-	local oldLineVis = ""
-	local newLineVis = ""
+	-- diffs two strings by char and returns colored visual for src and destination text
+	local srcVisual = ""
+	local destVisual = ""
 
 	for _, op in charOps do
 		if op.key == "EQUAL" then
-			oldLineVis ..= richterm.red(op.text)
-			newLineVis ..= richterm.green(op.text)
+			srcVisual ..= richterm.red(op.text)
+			destVisual ..= richterm.green(op.text)
 		elseif op.key == "DELETE" then
-			oldLineVis ..= richterm.bgRed(op.text)
+			srcVisual ..= richterm.bgRed(op.text)
 		elseif op.key == "ADD" then
-			newLineVis ..= richterm.bgGreen(op.text)
+			destVisual ..= richterm.bgGreen(op.text)
 		end
 	end
 
-	return oldLineVis, newLineVis
+	return srcVisual, destVisual
 end
 
 local function printDiffByLineDetailed(a: string, b: string)
@@ -65,7 +56,7 @@ local function printDiffByLineDetailed(a: string, b: string)
 			deletes, adds, i = collectConsecutiveChanges(diff, i)
 			local pair = #deletes == 1 and #adds == 1
 			if pair then
-				local srcLine, destLine = getLineDetailedDiff(deletes[1], adds[1])
+				local srcLine, destLine = visualizeCharDiff(deletes[1], adds[1])
 				result ..= richterm.red("- ") .. srcLine .. "\n"
 				result ..= richterm.green("+ ") .. destLine
 				if i < #diff then
