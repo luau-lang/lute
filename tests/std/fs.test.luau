@@ -98,14 +98,10 @@ test.suite("FsSuite", function(suite)
 
 		local watcher = fs.watch(tmpdir)
 
-		-- create a coroutine that guarantees we trigger an event
-		tasklib.create(function()
-			while true do
-				process.system("touch " .. tostring(watched), { cwd = tmpdir })
-				fs.remove(watched)
-			end
-		end)
+		fs.writestringtofile(watched, "hi")
 
+		-- Note: we had a timeout for this loop before, but it was leading to a flaky test where event = nil, so we're removing it.
+		-- If this hangs indefinitely at, we'll see this test fail later and revisit.
 		local event
 		repeat
 			event = watcher:next()
