@@ -120,7 +120,7 @@ local function maybeParseDirectives(
 		if node.kind == "stat" and node.tag == "block" then
 			-- The logic here is a little different, since we only want suppression to apply to the first statement
 			-- Store a sentinel value at this node to avoid reparsing suppressions
-			cache[node] = { ignores = {}, reports = {} }
+			cache[node] = {}
 			-- Parse the rules that this node suppresses and attach them to the first statement of the block
 			cache[node.statements[1]] = directives
 		end
