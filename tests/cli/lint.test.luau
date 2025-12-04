@@ -969,6 +969,52 @@ violator2.lua:1:11-17 ──
 		-- Teardown
 		fs.removedirectory(modulePath, { recursive = true })
 	end)
+
+	suite:case("lute lint report directive", function(assert)
+		-- Create a file that violates the default almost_swapped and divide_by_zero rules
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 1 / 0
+-- lute-lint-ignore(divide_by_zero)
+if true then
+	local z = 3 / 0
+	-- lute-lint-report(divide_by_zero)
+	local y = 10 / 0
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 2)
+
+		local expected = [[
+violator.luau:1:11-16 ──
+   │
+ 1 │ local x = 1 / 0
+   │           ^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:6:12-18 ──
+   │
+ 6 │    local y = 10 / 0
+   │            ^^^^^^
+   │
+]]
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
 end)
 
 test.run()
