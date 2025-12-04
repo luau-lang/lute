@@ -536,8 +536,7 @@ TEST_CASE_FIXTURE(LuteFixture, "compile_command_e2e")
     checkFile.close();
 
     // Now run the compiled executable to verify it works
-    char* exePath = outputExePath.data();
-    std::vector<char*> runArgv = {exePath};
+    std::vector<char*> runArgv = {outputExePath.data()};
     auto reporter = getReporter();
     int runResult = cliMain(runArgv.size(), runArgv.data(), reporter);
     CHECK(runResult == 0);

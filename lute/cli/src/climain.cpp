@@ -220,7 +220,7 @@ lua_State* setupBundleState(
 {
     return setupState(
         runtime,
-        [luaurcFiles = std::move(luaurcFiles), bundleMap = std::move(bundleMap)](lua_State* L) mutable
+        [luaurcFiles = std::move(luaurcFiles), bundleMap = std::move(bundleMap)](lua_State* L)
         {
             luteopen_libs(L);
             if (Luau::CodeGen::isSupported())
