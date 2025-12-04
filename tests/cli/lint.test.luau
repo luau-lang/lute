@@ -49,6 +49,48 @@ test.suite("lute lint", function(suite)
 		assert.strcontains(result.stdout, "Error: No input files specified.")
 	end)
 
+	suite:case("lute lint non verbose", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(violatorPath, "")
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.eq(result.stdout, "")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("lute lint verbose", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(violatorPath, "")
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-v", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "Using default lint rules.")
+		assert.neq(result.stdout:find("Reading input file '.+violator%.luau'"), nil)
+		assert.neq(result.stdout:find("Parsing input file '.+violator%.luau'"), nil)
+		assert.strcontains(result.stdout, "Applying lint rules")
+		assert.strcontains(result.stdout, "Printing violations from 0 files")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
 	suite:case("divide_by_zero", function(assert)
 		-- Setup
 		-- Create a file that violates the rule
@@ -148,9 +190,9 @@ violator.luau:10:1-11:10 ──
 		expected = [[
 violator.luau:14:2-15:17 ──
     │
- 14 │ ╭ 	t["a"] = t["b"]
- 15 │ │ 	t["b"] = t["a"]
-    │ ╰────────────────^
+ 14 │ ╭     t["a"] = t["b"]
+ 15 │ │     t["b"] = t["a"]
+    │ ╰───────────────────^
     │
 ]] -- todo: address tab shenanigans
 		assert.strcontains(result.stdout, expected)
@@ -312,7 +354,8 @@ y = x
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", "examples/lints", violatorPath1, path.format(modulePath) })
+		local result =
+			process.run({ lutePath, "lint", "-r", "examples/lints", "-v", violatorPath1, path.format(modulePath) })
 
 		-- Check
 		assert.eq(result.exitcode, 0)
@@ -519,8 +562,8 @@ local z = 1 / 0
 		local expected = [[
 violator.luau:5:12-18 ──
    │
- 5 │ 	local y = 10 / 0
-   │            ^^^^^^
+ 5 │     local y = 10 / 0
+   │               ^^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -613,8 +656,8 @@ end
 		local expected = [[
 violator.luau:5:9-14 ──
    │
- 5 │ 	return 3 / 0
-   │         ^^^^^
+ 5 │     return 3 / 0
+   │            ^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -650,8 +693,8 @@ end
 		local expected = [[
 violator.luau:5:9-14 ──
    │
- 5 │ 	return 3 / 0
-   │         ^^^^^
+ 5 │     return 3 / 0
+   │            ^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -687,8 +730,8 @@ end
 		local expected = [[
 violator.luau:5:9-14 ──
    │
- 5 │ 	return 3 / 0
-   │         ^^^^^
+ 5 │     return 3 / 0
+   │            ^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -725,8 +768,8 @@ end
 		local expected = [[
 violator.luau:6:9-14 ──
    │
- 6 │ 	return 3 / 0
-   │         ^^^^^
+ 6 │     return 3 / 0
+   │            ^^^^^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -830,7 +873,104 @@ end
 		fs.remove(violatorPath)
 	end)
 
-	suite:case("lute lint global suppression", function(assert)
+	suite:case("json output", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 1 / 0
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-j", violatorPath })
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		local expected = [[
+{
+    "items": [
+        {
+            "items": [
+                {
+                    "message": "Division by zero detected.", 
+                    "source": "lute lint", 
+                    "code": "divide_by_zero", 
+                    "severity": 2, 
+                    "range": {
+                        "start": {
+                            "character": 10, 
+                            "line": 0
+                        }, 
+                        "end": {
+                            "character": 15, 
+                            "line": 0
+                        }
+                    }
+                }
+            ], 
+            "uri":]] -- URI has absolute tmpdir path, so we cut off here
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("lute lint respects gitignore", function(assert)
+		-- Setup
+		-- Create a module directory with a .gitignore that ignores one file
+		local modulePath = path.join(tmpDir, "module")
+		fs.createdirectory(modulePath)
+		local violatorPath1 = path.format(path.join(modulePath, "violator1.luau"))
+		fs.writestringtofile(
+			violatorPath1,
+			[[
+local x = 10 / 0
+    ]]
+		)
+		local violatorPath2 = path.format(path.join(modulePath, "violator2.luau"))
+		fs.writestringtofile(
+			violatorPath2,
+			[[
+local y = 10 / 0
+    ]]
+		)
+		fs.writestringtofile(path.format(path.join(modulePath, ".gitignore")), "violator2.luau\n")
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", path.format(modulePath) })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator1.luau:1:11-17 ──
+   │
+ 1 │ local x = 10 / 0
+   │           ^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator2.lua:1:11-17 ──
+   │
+ 1 │ local y = 10 / 0
+   │           ^^^^^^
+   │
+]]
+		assert.strnotcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.removedirectory(modulePath, { recursive = true })
+	end)
+
+	suite:case("lute lint report directive", function(assert)
 		-- Create a file that violates the default almost_swapped and divide_by_zero rules
 		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
 		fs.writestringtofile(
