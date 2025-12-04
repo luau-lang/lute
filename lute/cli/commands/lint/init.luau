@@ -11,6 +11,7 @@ local visitor = require("@std/syntax/visitor")
 
 local DEFAULT_RULES = { "almost_swapped", "divide_by_zero" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
+local VERBOSE = false
 
 local function printHelp()
 	print(USAGE)
@@ -19,6 +20,7 @@ Lint the specified Luau file using the specified lint rule(s) or using the defau
 
 OPTIONS:
   -h, --help              Show this help message
+  -v, --verbose		  	  Enable verbose output
   -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder 
   						  is provided, any subfolders containing init.luau files will be treated as
 						  modules exporting lint rules, while all other .luau files will be treated 
@@ -175,13 +177,19 @@ local function violationIsSuppressed(
 end
 
 local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule }): { types.LintViolation }
-	print(`Reading input file '{inputFilePath}'`)
+	if VERBOSE then
+		print(`Reading input file '{inputFilePath}'`)
+	end
 	local fileContent = fs.readfiletostring(inputFilePath)
 
-	print(`Parsing input file '{inputFilePath}'`)
+	if VERBOSE then
+		print(`Parsing input file '{inputFilePath}'`)
+	end
 	local ast = syntax.parseblock(fileContent)
 
-	print("Applying lint rules")
+	if VERBOSE then
+		print("Applying lint rules")
+	end
 	local violations: { types.LintViolation } = {}
 	local suppressionCache = {}
 	for _, rule in lintRules do
@@ -213,6 +221,7 @@ local function main(...: string)
 
 	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
+	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
 	-- TODO: ignore blobs, json output option
 
 	args:parse({ ... })
@@ -221,6 +230,8 @@ local function main(...: string)
 		printHelp()
 		return
 	end
+
+	VERBOSE = args:has("verbose")
 
 	local inputFiles = args:forwarded()
 	if inputFiles == nil or #inputFiles == 0 then
@@ -231,10 +242,14 @@ local function main(...: string)
 	local lintRules: { types.LintRule }
 	local rulePath = args:get("rules")
 	if rulePath == nil then
-		print("Using default lint rules.")
+		if VERBOSE then
+			print("Using default lint rules.")
+		end
 		lintRules = loadDefaultRules()
 	else
-		print(`Loading lint rule(s) from '{rulePath}'`)
+		if VERBOSE then
+			print(`Loading lint rule(s) from '{rulePath}'`)
+		end
 		lintRules = loadLintRules(rulePath)
 	end
 
@@ -256,7 +271,7 @@ local function main(...: string)
 				else
 					print(`Error linting file '{inputFilePath}': {err}`)
 				end
-			else
+			elseif VERBOSE then
 				print(`Skipping non-Luau file '{inputFilePath}'`)
 			end
 
@@ -264,7 +279,9 @@ local function main(...: string)
 		end
 	end
 
-	print(`Printing violations from {#allViolations} files\n`)
+	if VERBOSE then
+		print(`Printing violations from {#allViolations} files\n`)
+	end
 	for sourcePath, violations in allViolations do
 		if #violations > 0 then
 			printer.printLints(violations, sourcePath)
