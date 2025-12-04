@@ -18,7 +18,9 @@ local function traverseDirectoryRecursive(
 
 		if entry.type == "dir" then
 			if ignoreResolver:isIgnoredDirectory(fullPath) then
-				print("Skipping", fullPath)
+				if verbose then
+					print("Skipping", fullPath)
+				end
 				continue
 			end
 
@@ -27,7 +29,9 @@ local function traverseDirectoryRecursive(
 			-- TODO: allow customisation of the filter when traversing a directory. e.g., globs? file endings? ignore paths?
 			if stringext.hassuffix(entry.name, ".luau") or stringext.hassuffix(entry.name, ".lua") then
 				if ignoreResolver:isIgnoredFile(fullPath) then
-					print("Skipping", fullPath)
+					if verbose then
+						print("Skipping", fullPath)
+					end
 					continue
 				end
 				table.insert(results, fullPath)
