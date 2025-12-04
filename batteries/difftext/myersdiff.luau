@@ -14,7 +14,8 @@ local function editGraphNode(x: number, y: number, prev: EditGraphNode?): EditGr
 	}
 end
 
-local function hasDiagonalEdge(node: EditGraphNode, a: string | { string }, b: string | { string })
+-- true if a[x+1] == b[y+1]; indicates an EQUAL operation (no diff) is valid
+local function hasDiagonalEdge(node: EditGraphNode, a: string | { string }, b: string | { string }): boolean
 	local x, y = node.x, node.y
 	if typeof(a) == "table" and typeof(b) == "table" then
 		return x < #a and y < #b and a[x + 1] == b[y + 1]
@@ -33,6 +34,10 @@ export type DiffOperation = {
 export type Diff = { DiffOperation }
 
 local function edgeToDiff(curNode: EditGraphNode, a: string | { string }, b: string | { string }): DiffOperation
+	-- maps stepping from curNode.prev -> curNode to a diff operation
+	-- (n, n) -> (n+1, n) == DELETION of a[n]
+	-- (n, n) -> (n, n+1) == ADDITION of b[n]
+	-- (n, n) -> (n+1, n+1) == EQUAL (no diff)
 	local prev = curNode.prev :: EditGraphNode
 	local xDiff = curNode.x - prev.x
 	local yDiff = curNode.y - prev.y
@@ -57,11 +62,11 @@ local function edgeToDiff(curNode: EditGraphNode, a: string | { string }, b: str
 	end
 end
 
-local function myersdiff(a: string | { string }, b: string | { string })
+local function myersdiff(a: string | { string }, b: string | { string }): Diff
 	local start = editGraphNode(0, 0)
 	local editGraphDeque = deque.new(start)
 
-	local diff = {}
+	local diff = {} :: Diff
 	local seen = {} :: { [number]: { [number]: true } }
 	-- lua dumb, have to do this weird mapping since we can't use EditGraphNode directly (it will use table memory address equivalence, not value equivalence for hashing)
 	seen[0] = {}
@@ -115,11 +120,11 @@ local function myersdiff(a: string | { string }, b: string | { string })
 	return diff
 end
 
-local function myersdiffbyline(a: string, b: string)
+local function myersdiffbyline(a: string, b: string): Diff
 	return myersdiff(a:split("\n"), b:split("\n"))
 end
 
-local function myersdiffbychar(a: string, b: string)
+local function myersdiffbychar(a: string, b: string): Diff
 	return myersdiff(a, b)
 end
 
@@ -176,5 +181,5 @@ end
 return table.freeze({
 	myersdiffbyline = myersdiffbyline,
 	myersdiffbychar = myersdiffbychar,
-	applydiff = applyDiff,
+	applydiff = applyDiff, -- this is mainly a testing utility; maybe we prefix with _
 })

@@ -24,7 +24,7 @@ local function collectConsecutiveChanges(diff: Diff, startIndex: number): ({ str
 	return deletes, adds, i
 end
 
-local function visualizeCharDiff(a: string, b: string)
+local function visualizeCharDiff(a: string, b: string): ( string, string )
 	local charOps = myersdiffbychar(a, b)
 	-- diffs two strings by char and returns colored visual for src and destination text
 	local srcVisual = ""
@@ -44,7 +44,7 @@ local function visualizeCharDiff(a: string, b: string)
 	return srcVisual, destVisual
 end
 
-local function printDiffByLineDetailed(a: string, b: string)
+local function printDiffByLineDetailed(a: string, b: string): string
 	local diff = myersdiffbyline(a, b)
 	local i = 1
 	local result = ""
@@ -88,7 +88,7 @@ local function printDiff(
 		detailed: boolean?,
 		-- sideBySide: boolean?
 	}?
-)
+): string
 	if options then
 		if options.detailed then
 			return printDiffByLineDetailed(a, b)
