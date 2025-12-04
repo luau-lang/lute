@@ -23,8 +23,8 @@ static bool isBundleModule(const Luau::DenseHashMap<std::string, std::string>& b
 
     // Strip @bundle/ prefix if present
     std::string lookupPath = path;
-    if (path.rfind(kBundlePrefix, 0) == 0)
-        lookupPath = path.substr(kBundlePrefix.size());
+    if (path.rfind(kBundlePrefixPath, 0) == 0)
+        lookupPath = path.substr(kBundlePrefixPath.size());
 
     // The bundle root should never be treated as a file, always as a directory
     // This prevents ambiguity when there's an init.lua at the root
@@ -46,8 +46,8 @@ static bool isBundleDirectory(const Luau::DenseHashMap<std::string, std::string>
 
     // Strip @bundle/ prefix if present
     std::string lookupPath = path;
-    if (path.rfind(kBundlePrefix, 0) == 0)
-        lookupPath = path.substr(kBundlePrefix.size());
+    if (path.rfind(kBundlePrefixPath, 0) == 0)
+        lookupPath = path.substr(kBundlePrefixPath.size());
 
     // The root directory (@bundle/) exists if the bundle has any files
     if (lookupPath.empty())
@@ -85,11 +85,11 @@ NavigationStatus BundleVfs::resetToPath(const std::string& path)
     }
 
     // Handle "@bundle/path/to/file"
-    if (path.rfind(kBundlePrefix, 0) != 0)
+    if (path.rfind(kBundlePrefixPath, 0) != 0)
         return NavigationStatus::NotFound;
 
     // Strip "@bundle/" to get the actual path
-    std::string filePath = path.substr(kBundlePrefix.size());
+    std::string filePath = path.substr(kBundlePrefixPath.size());
 
     modulePath = ModulePath::create(
         "@bundle",
@@ -136,8 +136,8 @@ std::optional<std::string> BundleVfs::getContents(const std::string& path) const
 {
     // Strip @bundle/ prefix if present
     std::string lookupPath = path;
-    if (path.rfind(kBundlePrefix, 0) == 0)
-        lookupPath = path.substr(kBundlePrefix.size());
+    if (path.rfind(kBundlePrefixPath, 0) == 0)
+        lookupPath = path.substr(kBundlePrefixPath.size());
 
     // Try direct lookup
     const std::string* value = filePathToBytecode.find(lookupPath);
@@ -155,8 +155,8 @@ ConfigStatus BundleVfs::getConfigStatus() const
     std::string configPath = modulePath->getPotentialConfigPath(".luaurc");
 
     // Strip @bundle/ prefix if present
-    if (configPath.rfind(kBundlePrefix, 0) == 0)
-        configPath = configPath.substr(kBundlePrefix.size());
+    if (configPath.rfind(kBundlePrefixPath, 0) == 0)
+        configPath = configPath.substr(kBundlePrefixPath.size());
 
     // Check if this config file exists in our luaurc map
     if (luaurcFiles.find(configPath) != nullptr)
@@ -173,8 +173,8 @@ std::optional<std::string> BundleVfs::getConfig() const
     std::string configPath = modulePath->getPotentialConfigPath(".luaurc");
 
     // Strip @bundle/ prefix if present
-    if (configPath.rfind(kBundlePrefix, 0) == 0)
-        configPath = configPath.substr(kBundlePrefix.size());
+    if (configPath.rfind(kBundlePrefixPath, 0) == 0)
+        configPath = configPath.substr(kBundlePrefixPath.size());
 
     // Look up the config content in our luaurc map
     const std::string* configContent = luaurcFiles.find(configPath);
