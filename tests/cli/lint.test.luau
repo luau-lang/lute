@@ -49,6 +49,48 @@ test.suite("lute lint", function(suite)
 		assert.strcontains(result.stdout, "Error: No input files specified.")
 	end)
 
+	suite:case("lute lint non verbose", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(violatorPath, "")
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.eq(result.stdout, "")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("lute lint verbose", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(violatorPath, "")
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-v", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "Using default lint rules.")
+		assert.neq(result.stdout:find("Reading input file '.+violator%.luau'"), nil)
+		assert.neq(result.stdout:find("Parsing input file '.+violator%.luau'"), nil)
+		assert.strcontains(result.stdout, "Applying lint rules")
+		assert.strcontains(result.stdout, "Printing violations from 0 files")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
 	suite:case("divide_by_zero", function(assert)
 		-- Setup
 		-- Create a file that violates the rule
@@ -312,7 +354,8 @@ y = x
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", "examples/lints", violatorPath1, path.format(modulePath) })
+		local result =
+			process.run({ lutePath, "lint", "-r", "examples/lints", "-v", violatorPath1, path.format(modulePath) })
 
 		-- Check
 		assert.eq(result.exitcode, 0)
