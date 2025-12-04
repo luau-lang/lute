@@ -166,7 +166,11 @@ static void luteopen_libs(lua_State* L)
     }
 }
 
-void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, std::string> bundleMap)
+void* createBundleRequireContext(
+    lua_State* L,
+    Luau::DenseHashMap<std::string, std::string> luaurcFiles,
+    Luau::DenseHashMap<std::string, std::string> bundleMap
+)
 {
     void* ctx = lua_newuserdatadtor(
         L,
@@ -179,7 +183,7 @@ void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, s
 
     if (!ctx)
         luaL_error(L, "unable to allocate RequireCtx");
-    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(bundleMap)})};
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(luaurcFiles), std::move(bundleMap)})};
 
     // Store RequireCtx in the registry to keep it alive for the lifetime of
     // this lua_State. Memory address is used as a key to avoid collisions.
@@ -208,17 +212,21 @@ lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSa
     );
 }
 
-lua_State* setupBundleState(Runtime& runtime, Luau::DenseHashMap<std::string, std::string> bundleMap)
+lua_State* setupBundleState(
+    Runtime& runtime,
+    Luau::DenseHashMap<std::string, std::string> luaurcFiles,
+    Luau::DenseHashMap<std::string, std::string> bundleMap
+)
 {
     return setupState(
         runtime,
-        [bundleMap = std::move(bundleMap)](lua_State* L)
+        [luaurcFiles = std::move(luaurcFiles), bundleMap = std::move(bundleMap)](lua_State* L) mutable
         {
             luteopen_libs(L);
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
-            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(bundleMap)));
+            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(luaurcFiles), std::move(bundleMap)));
         }
     );
 }
@@ -558,6 +566,9 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
         payload.add(bundle, absolute);
     }
 
+    // Add the discovered luaurc configuration
+    payload.setLuauConfig(tracer.getLuaurcFiles());
+
 
     // Encode the payload
     reporter.reportOutput("Compiling and bundling bytecode...");
@@ -586,17 +597,8 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
         reporter.reportOutput("");
     }
 
-    // Get current executable path
-    std::string errorMsg;
-    std::optional<std::string> exePath = process::getExecPath(&errorMsg);
-    if (!exePath)
-    {
-        reporter.formatError("Error: Failed to get executable path: %s", errorMsg.c_str());
-        return 1;
-    }
-
     // Create the executable with embedded payload
-    LuteExecutable executable{*exePath, reporter};
+    LuteExecutable executable{argv[0], reporter};
     if (!executable.create(outputPath, payload))
     {
         reporter.reportError("Error: Failed to create executable.");
@@ -622,21 +624,19 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     setLuauFlags();
 
     std::string err = "";
-    if (auto exePath = process::getExecPath(&err))
-    {
-        LuteExecutable exe{*exePath, reporter};
-        if (auto payload = exe.extract())
-        {
-            Runtime runtime;
 
-            lua_State* GL = setupBundleState(runtime, payload->filePathToBytecode);
-            std::string entryPoint = payload->entryPointPath;
-            auto entryModule = payload->filePathToBytecode.find(entryPoint);
-            if (entryModule != nullptr)
-            {
-                bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, GL, argc, argv, reporter);
-                return success ? 0 : 1;
-            }
+    LuteExecutable exe{argv[0], reporter};
+    if (auto payload = exe.extract())
+    {
+        Runtime runtime;
+
+        lua_State* GL = setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
+        std::string entryPoint = payload->entryPointPath;
+        auto entryModule = payload->filePathToBytecode.find(entryPoint);
+        if (entryModule != nullptr)
+        {
+            bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, GL, argc, argv, reporter);
+            return success ? 0 : 1;
         }
     }
 
