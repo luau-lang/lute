@@ -1,8 +1,10 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
+local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
 local task = require("@lute/task")
+local tasklib = require("@std/task")
 
 local tmpdir = system.tmpdir()
 
@@ -93,17 +95,18 @@ test.suite("FsSuite", function(suite)
 	suite:case("watch_iterator_on_change", function(assert)
 		local watchedFileName = "watched.txt"
 		local watched = path.join(tmpdir, watchedFileName)
-		if fs.exists(watched) then
-			fs.remove(watched)
-		end
 
 		local watcher = fs.watch(tmpdir)
 
-		fs.writestringtofile(watched, "x")
+		-- create a coroutine that guarantees we trigger an event
+		tasklib.create(function()
+			while true do
+				process.system("touch " .. tostring(watched), { cwd = tmpdir })
+				fs.remove(watched)
+			end
+		end)
 
 		local event
-
-		-- Note: there was a timeout for the loop before, but it was leading to a flaky test where event = nil, so we're removing it.
 		repeat
 			event = watcher:next()
 			if not event then
