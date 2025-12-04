@@ -1,10 +1,8 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
-local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
 local task = require("@lute/task")
-local tasklib = require("@std/task")
 
 local tmpdir = system.tmpdir()
 
@@ -102,6 +100,7 @@ test.suite("FsSuite", function(suite)
 
 		-- Note: we had a timeout for this loop before, but it was leading to a flaky test where event = nil, so we're removing it.
 		-- If this hangs indefinitely at, we'll see this test fail later and revisit.
+		local start = os.clock()
 		local event
 		repeat
 			event = watcher:next()
@@ -110,6 +109,7 @@ test.suite("FsSuite", function(suite)
 			end
 		until event
 
+		print("Watch iterator time taken: " .. (os.clock() - start))
 		assert.neq(event, nil)
 		assert.eq(event.change or event.rename, true)
 
