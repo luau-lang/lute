@@ -44,13 +44,13 @@ public:
     bool isModulePresent() const;
 
     std::string getCurrentPath() const;
+    Info getInfo() const;
 
 private:
-    Subtree(ModulePath currentModulePath, std::string generatedRootLuaurc);
+    Subtree(ModulePath currentModulePath, Info info);
 
     ModulePath currentModulePath;
-    std::string generatedRootLuaurc;
-    bool atGeneratedRoot = false;
+    Info info;
 };
 
 class UserlandVfs
@@ -59,7 +59,7 @@ public:
     static UserlandVfs create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> allDependencies);
 
     NavigationStatus resetToPath(const std::string& path);
-    NavigationStatus jumpToDependencySubtree(const std::string& identifierStringified);
+    NavigationStatus toAliasFallback(std::string_view aliasUnprefixed);
 
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
@@ -73,8 +73,9 @@ public:
     std::string getCurrentPath() const;
 
 private:
-    UserlandVfs(std::map<Identifier, Info> allDependencies, std::string generatedRootLuaurc);
-    NavigationStatus jumpToDependencySubtreeImpl(Identifier identifier);
+    UserlandVfs(std::vector<Identifier> directDependencies, std::map<Identifier, Info> allDependencies);
+
+    NavigationStatus jumpToDependencySubtree(const Identifier& dependency);
 
     enum class VFSType
     {
@@ -86,10 +87,9 @@ private:
 
     FileVfs fileVfs;
     std::optional<Subtree> currentSubtree = std::nullopt;
-    std::map<Identifier, Info> allDependencies;
 
-    bool atDiskFakeRoot = false;
-    std::string generatedRootLuaurc;
+    std::vector<Identifier> directDependencies;
+    std::map<Identifier, Info> allDependencies;
 };
 
 } // namespace Package
