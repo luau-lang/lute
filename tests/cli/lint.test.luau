@@ -872,6 +872,57 @@ end
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("lute lint respects gitignore", function(assert)
+		-- Setup
+		-- Create a module directory with a .gitignore that ignores one file
+		local modulePath = path.join(tmpDir, "module")
+		fs.createdirectory(modulePath)
+		local violatorPath1 = path.format(path.join(modulePath, "violator1.luau"))
+		fs.writestringtofile(
+			violatorPath1,
+			[[
+local x = 10 / 0
+    ]]
+		)
+		local violatorPath2 = path.format(path.join(modulePath, "violator2.luau"))
+		fs.writestringtofile(
+			violatorPath2,
+			[[
+local y = 10 / 0
+    ]]
+		)
+		fs.writestringtofile(path.format(path.join(modulePath, ".gitignore")), "violator2.luau\n")
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", path.format(modulePath) })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		local expected = [[
+violator1.luau:1:11-17 ──
+   │
+ 1 │ local x = 10 / 0
+   │           ^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator2.lua:1:11-17 ──
+   │
+ 1 │ local y = 10 / 0
+   │           ^^^^^^
+   │
+]]
+		assert.strnotcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.removedirectory(modulePath, { recursive = true })
+	end)
 end)
 
 test.run()
