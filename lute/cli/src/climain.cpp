@@ -597,8 +597,17 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
         reporter.reportOutput("");
     }
 
+    // Get current executable path
+    std::string errorMsg;
+    std::optional<std::string> exePath = process::getExecPath(&errorMsg);
+    if (!exePath)
+    {
+        reporter.formatError("Error: Failed to get executable path: %s", errorMsg.c_str());
+        return 1;
+    }
+
     // Create the executable with embedded payload
-    LuteExecutable executable{argv[0], reporter};
+    LuteExecutable executable{*exePath, reporter};
     if (!executable.create(outputPath, payload))
     {
         reporter.reportError("Error: Failed to create executable.");

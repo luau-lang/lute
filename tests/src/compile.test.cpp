@@ -1,7 +1,6 @@
 #include "lute/compile.h"
 
 #include "lute/climain.h"
-#include "lute/process.h"
 
 #include "Luau/FileUtils.h"
 
@@ -515,16 +514,12 @@ TEST_CASE_FIXTURE(LuteFixture, "compile_command_e2e")
     outputExePath += ".exe";
 #endif
 
-    // Get the current process path to use as argv[0]
-    std::string errorMsg;
-    std::optional<std::string> currentExePath = process::getExecPath(&errorMsg);
-    REQUIRE(currentExePath.has_value());
-
-    // Build argv for cliMain: [<currentExePath>, "compile", <testFilePath>, "--output", <outputExePath>]
+    // Build argv for cliMain: ["lute", "compile", <testFilePath>, "--output", <outputExePath>]
+    char executablePlaceholder[] = "lute";
     char compileCommand[] = "compile";
     char outputFlag[] = "--output";
 
-    std::vector<char*> argv = {currentExePath->data(), compileCommand, testFilePath.data(), outputFlag, outputExePath.data()};
+    std::vector<char*> argv = {executablePlaceholder, compileCommand, testFilePath.data(), outputFlag, outputExePath.data()};
 
     // Run the compile command
     int compileResult = cliMain(argv.size(), argv.data(), getReporter());
@@ -537,8 +532,7 @@ TEST_CASE_FIXTURE(LuteFixture, "compile_command_e2e")
 
     // Now run the compiled executable to verify it works
     std::vector<char*> runArgv = {outputExePath.data()};
-    auto reporter = getReporter();
-    int runResult = cliMain(runArgv.size(), runArgv.data(), reporter);
+    int runResult = cliMain(runArgv.size(), runArgv.data(), getReporter());
     CHECK(runResult == 0);
 
     // Clean up
