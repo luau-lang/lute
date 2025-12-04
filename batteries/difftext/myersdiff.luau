@@ -67,7 +67,7 @@ local function myersdiff(a: string | { string }, b: string | { string })
 	seen[0] = {}
 	seen[0][0] = true
 
-	while editGraphDeque.len > 0 do
+	while #editGraphDeque do
 		local curNode = editGraphDeque:popfront()
 
 		if not seen[curNode.x] then
