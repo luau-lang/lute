@@ -1,5 +1,7 @@
 local cli = require("./cli")
 local fs = require("@std/fs")
+local json = require("@std/json")
+local lsp = require("@self/lsp")
 local luau = require("@std/luau")
 local pathLib = require("@std/path")
 local printer = require("@self/printer")
@@ -25,6 +27,7 @@ OPTIONS:
   						  is provided, any subfolders containing init.luau files will be treated as
 						  modules exporting lint rules, while all other .luau files will be treated 
 						  as individual lint rules. If unspecified, the default lint rules are used.
+  -j, --json              Output lint violations in JSON format matching the LSP diagnostic spec.
 
 PATHS:
   Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
@@ -222,7 +225,8 @@ local function main(...: string)
 	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
-	-- TODO: ignore blobs, json output option
+	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
+	-- TODO: ignore blobs
 
 	args:parse({ ... })
 
@@ -253,7 +257,7 @@ local function main(...: string)
 		lintRules = loadLintRules(rulePath)
 	end
 
-	local allViolations = {}
+	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
 
 	for _, inputPath in inputFiles do
 		local walker = fs.walk(inputPath, { recursive = true })
@@ -279,12 +283,16 @@ local function main(...: string)
 		end
 	end
 
-	if VERBOSE then
-		print(`Printing violations from {#allViolations} files\n`)
-	end
-	for sourcePath, violations in allViolations do
-		if #violations > 0 then
-			printer.printLints(violations, sourcePath)
+	if args:has("json") then
+		print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
+	else
+		if VERBOSE then
+			print(`Printing violations from {#allViolations} files\n`)
+		end
+		for sourcePath, violations in allViolations do
+			if #violations > 0 then
+				printer.printLints(violations, sourcePath)
+			end
 		end
 	end
 end
