@@ -1,4 +1,5 @@
-local cli = require("./cli")
+local cli = require("./lib/cli")
+local files = require("./lib/files")
 local fs = require("@std/fs")
 local json = require("@std/json")
 local lsp = require("@self/lsp")
@@ -243,6 +244,11 @@ local function main(...: string)
 		return
 	end
 
+	if VERBOSE then
+		print("Filtering input files by gitignore")
+	end
+	local inputFilePaths = files.getSourceFiles(inputFiles, VERBOSE)
+
 	local lintRules: { types.LintRule }
 	local rulePath = args:get("rules")
 	if rulePath == nil then
@@ -259,24 +265,19 @@ local function main(...: string)
 
 	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
 
-	for _, inputPath in inputFiles do
+	for _, inputPath in inputFilePaths do
 		local walker = fs.walk(inputPath, { recursive = true })
 
 		local curr = walker()
 		while curr ~= nil do
 			local inputFilePath = pathLib.parse(curr)
 
-			local extension = pathLib.extname(inputFilePath)
-			if extension == ".luau" or extension == ".lua" then
-				local success, err = pcall(lintFile, inputFilePath, lintRules)
-				if success then
-					-- Violations are returned as the second return value from pcall
-					allViolations[inputFilePath] = err
-				else
-					print(`Error linting file '{inputFilePath}': {err}`)
-				end
-			elseif VERBOSE then
-				print(`Skipping non-Luau file '{inputFilePath}'`)
+			local success, err = pcall(lintFile, inputFilePath, lintRules)
+			if success then
+				-- Violations are returned as the second return value from pcall
+				allViolations[inputFilePath] = err
+			else
+				print(`Error linting file '{inputFilePath}': {err}`)
 			end
 
 			curr = walker()
