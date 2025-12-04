@@ -873,6 +873,52 @@ end
 		fs.remove(violatorPath)
 	end)
 
+	suite:case("json output", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 1 / 0
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-j", violatorPath })
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		local expected = [[
+{
+    "items": [
+        {
+            "items": [
+                {
+                    "message": "Division by zero detected.", 
+                    "source": "lute lint", 
+                    "code": "divide_by_zero", 
+                    "severity": 2, 
+                    "range": {
+                        "start": {
+                            "character": 10, 
+                            "line": 0
+                        }, 
+                        "end": {
+                            "character": 15, 
+                            "line": 0
+                        }
+                    }
+                }
+            ], 
+            "uri":]] -- URI has absolute tmpdir path, so we cut off here
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
 	suite:case("lute lint respects gitignore", function(assert)
 		-- Setup
 		-- Create a module directory with a .gitignore that ignores one file
