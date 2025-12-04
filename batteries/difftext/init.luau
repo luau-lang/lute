@@ -1,13 +1,16 @@
 local myersdiff = require("./difftext/myersdiff")
 local printdiff = require("./difftext/printdiff")
 
+export type Diff = myersdiff.Diff
+export type ApplyDiff = (string) -> string
+
 local function diff(
 	a: string,
 	b: string,
 	options: {
 		byChar: boolean?,
 	}?
-)
+): (Diff, ApplyDiff)
 	if options and options.byChar then
 		local diff = myersdiff.myersdiffbychar(a, b)
 		return diff, function(a: string)
