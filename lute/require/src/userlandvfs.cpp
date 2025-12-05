@@ -13,21 +13,10 @@
 namespace Package
 {
 
-static std::string generateRootLuaurc(const std::vector<Identifier>& dependencies)
-{
-    std::string rootLuaurc = "{\n    \"aliases\": {\n";
-    for (const Identifier& dep : dependencies)
-    {
-        rootLuaurc += "        \"" + dep.name + "\": \"$" + dep.name + ":" + dep.version + "\",\n";
-    }
-    rootLuaurc += "    }\n}\n";
-    return rootLuaurc;
-}
-
 std::optional<Subtree> Subtree::create(Info info)
 {
     std::string_view entryFile = info.entryFile;
-    if (entryFile.find(info.rootDirectory) != 0)
+    if (entryFile.rfind(info.rootDirectory, 0) != 0)
         return std::nullopt;
 
     if (entryFile.size() <= info.rootDirectory.size())
@@ -42,41 +31,27 @@ std::optional<Subtree> Subtree::create(Info info)
     if (!currentModulePath)
         return std::nullopt;
 
-    return Subtree{std::move(*currentModulePath), generateRootLuaurc(info.dependencies)};
+    return Subtree{std::move(*currentModulePath), std::move(info)};
 }
 
-Subtree::Subtree(ModulePath currentModulePath, std::string generatedRootLuaurc)
+Subtree::Subtree(ModulePath currentModulePath, Info info)
     : currentModulePath(std::move(currentModulePath))
-    , generatedRootLuaurc(std::move(generatedRootLuaurc))
+    , info(std::move(info))
 {
 }
 
 NavigationStatus Subtree::toParent()
 {
-    NavigationStatus status = currentModulePath.toParent();
-    if (status == NavigationStatus::NotFound)
-    {
-        if (atGeneratedRoot)
-            return NavigationStatus::NotFound;
-
-        atGeneratedRoot = true;
-        return NavigationStatus::Success;
-    }
-
-    return status;
+    return currentModulePath.toParent();
 }
 
 NavigationStatus Subtree::toChild(const std::string& name)
 {
-    atGeneratedRoot = false;
     return currentModulePath.toChild(name);
 }
 
 ConfigStatus Subtree::getConfigStatus() const
 {
-    if (atGeneratedRoot)
-        return ConfigStatus::PresentJson;
-
     bool luaurcExists = isFile(currentModulePath.getPotentialConfigPath(Luau::kConfigName));
     bool luauConfigExists = isFile(currentModulePath.getPotentialConfigPath(Luau::kLuauConfigName));
 
@@ -92,9 +67,6 @@ ConfigStatus Subtree::getConfigStatus() const
 
 std::optional<std::string> Subtree::getConfig() const
 {
-    if (atGeneratedRoot)
-        return generatedRootLuaurc;
-
     ConfigStatus status = getConfigStatus();
     LUAU_ASSERT(status == ConfigStatus::PresentJson || status == ConfigStatus::PresentLuau);
 
@@ -108,9 +80,6 @@ std::optional<std::string> Subtree::getConfig() const
 
 bool Subtree::isModulePresent() const
 {
-    if (atGeneratedRoot)
-        return false;
-
     ResolvedRealPath result = currentModulePath.getRealPath();
     if (result.status != NavigationStatus::Success)
         return false;
@@ -127,20 +96,25 @@ std::string Subtree::getCurrentPath() const
     return result.realPath;
 }
 
+Info Subtree::getInfo() const
+{
+    return info;
+}
+
 UserlandVfs UserlandVfs::create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> allDependencies)
 {
-    std::map<Identifier, Info> allDependenciesMap;
+    DependencyMap allDependenciesMap{{}};
     for (auto& [identifier, info] : allDependencies)
     {
         allDependenciesMap[std::move(identifier)] = std::move(info);
     }
 
-    return UserlandVfs{std::move(allDependenciesMap), generateRootLuaurc(directDependencies)};
+    return UserlandVfs{std::move(directDependencies), std::move(allDependenciesMap)};
 }
 
-UserlandVfs::UserlandVfs(std::map<Identifier, Info> allDependencies, std::string generatedRootLuaurc)
-    : allDependencies(std::move(allDependencies))
-    , generatedRootLuaurc(std::move(generatedRootLuaurc))
+UserlandVfs::UserlandVfs(std::vector<Identifier> directDependencies, DependencyMap allDependencies)
+    : directDependencies(std::move(directDependencies))
+    , allDependencies(std::move(allDependencies))
 {
 }
 
@@ -148,47 +122,50 @@ NavigationStatus UserlandVfs::resetToPath(const std::string& path)
 {
     for (const auto& [identifier, info] : allDependencies)
     {
-        if (path.find(info.rootDirectory) == 0)
-        {
-            return jumpToDependencySubtreeImpl(identifier);
-        }
+        if (path.rfind(info.rootDirectory, 0) == 0)
+            return jumpToDependencySubtree(identifier);
     }
 
     currentSubtree = std::nullopt;
     vfsType = VFSType::Disk;
-    atDiskFakeRoot = false;
 
     return fileVfs.resetToPath(path);
 }
 
-NavigationStatus UserlandVfs::jumpToDependencySubtree(const std::string& identifierStringified)
+NavigationStatus UserlandVfs::toAliasFallback(std::string_view aliasUnprefixed)
 {
-    if (identifierStringified.empty() || identifierStringified[0] != '$')
-        return NavigationStatus::NotFound;
+    std::vector<Identifier> availableDependencies;
+    switch (vfsType)
+    {
+    case VFSType::Disk:
+        availableDependencies = directDependencies;
+        break;
+    case VFSType::Subtree:
+        LUAU_ASSERT(currentSubtree);
+        availableDependencies = currentSubtree->getInfo().dependencies;
+    }
 
-    Identifier identifier;
-    size_t colonPos = identifierStringified.find(':');
-    if (colonPos == std::string::npos)
-        return NavigationStatus::NotFound;
+    for (const Identifier& identifier : availableDependencies)
+    {
+        if (identifier.name == aliasUnprefixed)
+            return jumpToDependencySubtree(identifier);
+    }
 
-    identifier.name = identifierStringified.substr(1, colonPos - 1);
-    identifier.version = identifierStringified.substr(colonPos + 1);
-
-    return jumpToDependencySubtreeImpl(identifier);
+    return NavigationStatus::NotFound;
 }
 
-NavigationStatus UserlandVfs::jumpToDependencySubtreeImpl(Identifier identifier)
+NavigationStatus UserlandVfs::jumpToDependencySubtree(const Identifier& dependency)
 {
-    if (allDependencies.find(identifier) == allDependencies.end())
+    Info* info = allDependencies.find(dependency);
+    if (!info)
         return NavigationStatus::NotFound;
 
-    std::optional<Subtree> st = Subtree::create(allDependencies.at(identifier));
+    std::optional<Subtree> st = Subtree::create(*info);
     if (!st)
         return NavigationStatus::NotFound;
 
     currentSubtree = std::move(*st);
     vfsType = VFSType::Subtree;
-    atDiskFakeRoot = false;
 
     return NavigationStatus::Success;
 }
@@ -207,22 +184,11 @@ NavigationStatus UserlandVfs::toParent()
         break;
     }
 
-    if (status == NavigationStatus::NotFound)
-    {
-        if (atDiskFakeRoot)
-            return NavigationStatus::NotFound;
-
-        atDiskFakeRoot = true;
-        return NavigationStatus::Success;
-    }
-
     return status;
 }
 
 NavigationStatus UserlandVfs::toChild(const std::string& name)
 {
-    atDiskFakeRoot = false;
-
     NavigationStatus status = NavigationStatus::NotFound;
     switch (vfsType)
     {
@@ -239,9 +205,6 @@ NavigationStatus UserlandVfs::toChild(const std::string& name)
 
 ConfigStatus UserlandVfs::getConfigStatus() const
 {
-    if (atDiskFakeRoot)
-        return ConfigStatus::PresentJson;
-
     ConfigStatus status = ConfigStatus::Ambiguous;
     switch (vfsType)
     {
@@ -258,9 +221,6 @@ ConfigStatus UserlandVfs::getConfigStatus() const
 
 std::optional<std::string> UserlandVfs::getConfig() const
 {
-    if (atDiskFakeRoot)
-        return generatedRootLuaurc;
-
     std::optional<std::string> config;
     switch (vfsType)
     {
@@ -277,9 +237,6 @@ std::optional<std::string> UserlandVfs::getConfig() const
 
 bool UserlandVfs::isModulePresent() const
 {
-    if (atDiskFakeRoot)
-        return false;
-
     bool isPresent = false;
     switch (vfsType)
     {
