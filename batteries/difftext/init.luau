@@ -15,5 +15,5 @@ end
 
 return {
 	diff = diff,
-	printdiff = printdiff,
+	prettydiff = printdiff,
 }

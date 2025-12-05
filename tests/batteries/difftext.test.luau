@@ -311,7 +311,7 @@ test.suite("printdiff", function(suite)
 	suite:case("printdiff default - simple addition", function(assert)
 		local a = "line1\nline2"
 		local b = "line1\nline2\nline3"
-		local result = stripAnsi(difftext.printdiff(a, b))
+		local result = stripAnsi(difftext.prettydiff(a, b))
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 3)
@@ -323,7 +323,7 @@ test.suite("printdiff", function(suite)
 	suite:case("printdiff default - simple deletion", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nline3"
-		local result = stripAnsi(difftext.printdiff(a, b))
+		local result = stripAnsi(difftext.prettydiff(a, b))
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 3)
@@ -335,7 +335,7 @@ test.suite("printdiff", function(suite)
 	suite:case("printdiff default - modification", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nmodified\nline3"
-		local result = stripAnsi(difftext.printdiff(a, b))
+		local result = stripAnsi(difftext.prettydiff(a, b))
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 4)
@@ -348,7 +348,7 @@ test.suite("printdiff", function(suite)
 	suite:case("printdiff default - unchanged lines", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nline2\nline3"
-		local result = stripAnsi(difftext.printdiff(a, b))
+		local result = stripAnsi(difftext.prettydiff(a, b))
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 3)
@@ -360,7 +360,7 @@ test.suite("printdiff", function(suite)
 	suite:case("printdiff default - multiple changes", function(assert)
 		local a = "A\nB\nC\nD"
 		local b = "A\nX\nC\nY\nD"
-		local result = stripAnsi(difftext.printdiff(a, b))
+		local result = stripAnsi(difftext.prettydiff(a, b))
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 6)
@@ -375,7 +375,7 @@ test.suite("printdiff", function(suite)
 	suite:case("printdiff detailed - single line change", function(assert)
 		local a = "hello world"
 		local b = "hello universe"
-		local result = stripAnsi(difftext.printdiff(a, b, { detailed = true }))
+		local result = stripAnsi(difftext.prettydiff(a, b, { detailed = true }))
 		local lines = result:split("\n")
 
 		-- Detailed mode shows both old and new lines with character-level highlighting
@@ -387,7 +387,7 @@ test.suite("printdiff", function(suite)
 	suite:case("printdiff detailed - multiple line changes", function(assert)
 		local a = "line1\nold line\nline3"
 		local b = "line1\nnew line\nline3"
-		local result = stripAnsi(difftext.printdiff(a, b, { detailed = true }))
+		local result = stripAnsi(difftext.prettydiff(a, b, { detailed = true }))
 		local lines = result:split("\n")
 
 		-- Should have: line1, - old line, + new line, line3
@@ -401,7 +401,7 @@ test.suite("printdiff", function(suite)
 	suite:case("printdiff detailed - unchanged lines", function(assert)
 		local a = "line1\nline2"
 		local b = "line1\nline2"
-		local result = stripAnsi(difftext.printdiff(a, b, { detailed = true }))
+		local result = stripAnsi(difftext.prettydiff(a, b, { detailed = true }))
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 2)
