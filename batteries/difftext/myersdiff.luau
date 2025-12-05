@@ -1,4 +1,5 @@
 local deque = require("@batteries/collections/deque")
+local tableext = require("@std/tableext")
 local types = require("./types")
 
 type diffoperation = types.diffoperation
@@ -21,19 +22,26 @@ end
 -- true if a[x+1] == b[y+1]; indicates an EQUAL operation (no diff) is valid
 local function hasDiagonalEdge(node: EditGraphNode, a: string | { string }, b: string | { string }): boolean
 	local x, y = node.x, node.y
-	if typeof(a) == "table" and typeof(b) == "table" then
-		return x < #a and y < #b and a[x + 1] == b[y + 1]
+	if typeof(a) == "table" then
+		if typeof(b) == "table" then
+			return x < #a and y < #b and a[x + 1] == b[y + 1]
+		else
+			error("haDiagonalEdge inputs should have the same type.")
+		end
+	elseif typeof(b) == "table" then
+		error("haDiagonalEdge inputs should have the same type.")
 	end
-	a = a :: string
-	b = b :: string
+
+	a = a
+	b = b
 	return x < #a and y < #b and a:sub(x + 1, x + 1) == b:sub(y + 1, y + 1)
 end
 
 local function edgeTodiff(curNode: EditGraphNode, a: string | { string }, b: string | { string }): diffoperation?
 	-- maps stepping from curNode.prev -> curNode to a diff operation
-	-- (n, n) -> (n+1, n) == DELETION of a[n]
-	-- (n, n) -> (n, n+1) == ADDITION of b[n]
-	-- (n, n) -> (n+1, n+1) == EQUAL (no diff)
+	-- (n-1, n) -> (n, n) == DELETION of a[n]
+	-- (n, n-1) -> (n, n) == ADDITION of b[n]
+	-- (n-1, n-1) -> (n, n) == EQUAL (a[n] == b[n])
 	if not curNode.prev then
 		return nil
 	end
@@ -73,16 +81,19 @@ local function myersdiff(a: string | { string }, b: string | { string }): diff
 		-- we've reached bottom right vertex; indicates full edit from a -> b
 		if curNode.x == #a and curNode.y == #b then
 			-- reconstruct diff operations by tracing path from termination node to start
-			while curNode.prev do
-				local diffOperation = edgeTodiff(curNode, a, b) :: diffoperation
-				table.insert(diff, diffOperation)
+			local edgeOp = edgeTodiff(curNode, a, b)
+			while edgeOp do
+				table.insert(diff, edgeOp)
 				curNode = curNode.prev
+				edgeOp = if curNode then edgeTodiff(curNode, a, b) else nil
 			end
 			break
 		end
 
 		-- add neighbors (diag prioritzed, then deletion, then insertion)
 		if hasDiagonalEdge(curNode, a, b) then
+			-- algorithm optimizes for diagonal edges since they represent no diff. We want the shortest-edit-sequence (least # of diff operations)
+			-- so diagonal edges representing equality in a[n+1] & b[n+1] is always preferred
 			local edgePositionStr = `{curNode.x + 1},{curNode.y + 1}`
 			if not seen[edgePositionStr] then
 				seen[edgePositionStr] = true
@@ -108,13 +119,7 @@ local function myersdiff(a: string | { string }, b: string | { string }): diff
 		end
 	end
 
-	local i, j = 1, #diff
-	while i < j do
-		diff[i], diff[j] = diff[j], diff[i]
-		i = i + 1
-		j = j - 1
-	end
-
+	tableext.reverse(diff, true)
 	return diff
 end
 

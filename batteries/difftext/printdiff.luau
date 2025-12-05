@@ -28,27 +28,27 @@ end
 local function visualizeCharDiff(a: string, b: string): (string, string)
 	local charOps = myersdiffbychar(a, b)
 	-- diffs two strings by char and returns colored visual for src and destination text
-	local srcVisual = ""
-	local destVisual = ""
+	local srcVisual = {}
+	local destVisual = {}
 
 	for _, op in charOps do
 		if op.key == "EQUAL" then
-			srcVisual ..= richterm.brightRed(op.text)
-			destVisual ..= richterm.brightGreen(op.text)
+			table.insert(srcVisual, richterm.brightRed(op.text))
+			table.insert(destVisual, richterm.brightGreen(op.text))
 		elseif op.key == "DELETE" then
-			srcVisual ..= richterm.bgRed(op.text)
+			table.insert(srcVisual, richterm.bgRed(op.text))
 		elseif op.key == "ADD" then
-			destVisual ..= richterm.bgGreen(op.text)
+			table.insert(destVisual, richterm.bgGreen(op.text))
 		end
 	end
 
-	return srcVisual, destVisual
+	return table.concat(srcVisual, ""), table.concat(destVisual, "")
 end
 
 local function printDiffByLineDetailed(a: string, b: string): string
 	local diff = myersdiffbyline(a, b)
 	local i = 1
-	local result = {} :: { string }
+	local result: { string } = {}
 	while i <= #diff do
 		local op = diff[i]
 
@@ -76,7 +76,7 @@ local function printDiffByLineDetailed(a: string, b: string): string
 	return table.concat(result, "\n")
 end
 
-local function printDiff(
+local function prettydiff(
 	a: string,
 	b: string,
 	options: {
@@ -103,4 +103,4 @@ local function printDiff(
 	return table.concat(result, "\n")
 end
 
-return printDiff
+return prettydiff
