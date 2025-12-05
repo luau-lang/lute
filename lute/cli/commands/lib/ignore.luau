@@ -1,5 +1,4 @@
-local fs = require("@lute/fs")
-
+local fs = require("@std/fs")
 local path = require("@std/path")
 local stringext = require("@std/stringext")
 
@@ -7,7 +6,7 @@ local stringext = require("@std/stringext")
 local IgnoreResolver = {}
 IgnoreResolver.__index = IgnoreResolver
 
-type Glob = { pattern: string, onlyMatchDirectories: boolean }
+type Glob = { pattern: string, onlyMatchDirectories: boolean, matchAnywhere: boolean }
 
 type GitignoreData = {
 	location: string,
@@ -50,7 +49,9 @@ local function parseGlob(glob: string): Glob
 	-- i.e., anchor the pattern to the start
 	if glob:find("/") then
 		table.insert(lua_parts, "^")
-		if glob:sub(1, 1) == "." then
+		if glob:sub(1, 2) == "./" then
+			idx = 3
+		elseif glob:sub(1, 1) == "/" or glob:sub(1, 1) == "." then
 			idx = 2
 		end
 	else
@@ -59,7 +60,6 @@ local function parseGlob(glob: string): Glob
 		-- We can't match for two distinct patterns bc Lua lacks an OR pattern operator
 		-- Instead add unique marker we check for in matchesGlob, indicating we match
 		-- against the two distinct patterns: anchored at beginning, or after a slash
-		table.insert(lua_parts, "MATCH_ANYWHERE:")
 		matchAnywhere = true
 	end
 
@@ -108,7 +108,11 @@ local function parseGlob(glob: string): Glob
 		table.insert(lua_parts, "$")
 	end
 
-	return { pattern = table.concat(lua_parts), onlyMatchDirectories = onlyMatchDirectories }
+	return {
+		pattern = table.concat(lua_parts),
+		onlyMatchDirectories = onlyMatchDirectories,
+		matchAnywhere = matchAnywhere,
+	}
 end
 
 local function parseGitignoreContents(location: string, contents: string): GitignoreData
@@ -151,13 +155,11 @@ local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): 
 	if glob.onlyMatchDirectories and not isDirectory then
 		return false
 	end
-	-- If the pattern starts with our matchAnywhere marker, we need to test
+	-- If the pattern is marked with matchAnywhere, we need to test
 	-- both: at start of path OR after any directory separator
-	if glob.pattern:match("^MATCH_ANYWHERE:") then
-		local actualPattern = glob.pattern:gsub("^MATCH_ANYWHERE:(.*)$", "%1")
-
-		local matchAtStart = filepath:match("^" .. actualPattern) ~= nil
-		local matchAfterDir = filepath:match("/" .. actualPattern) ~= nil
+	if glob.matchAnywhere then
+		local matchAtStart = filepath:match("^" .. glob.pattern) ~= nil
+		local matchAfterDir = filepath:match("/" .. glob.pattern) ~= nil
 
 		return matchAtStart or matchAfterDir
 	else
@@ -169,7 +171,7 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 	local matched, ignored = false, false
 
 	-- TODO: compute relative path correctly
-	local relativePath = stringext.removeprefix(filepath, ignoreData.location)
+	local relativePath = stringext.removeprefix(filepath, `{ignoreData.location}/`)
 
 	for _, ignore in ignoreData.ignores do
 		if matchesGlob(ignore, relativePath, isDirectory) then
