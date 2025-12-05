@@ -2,8 +2,9 @@ local richterm = require("@batteries/richterm")
 local myersdiff = require("./myersdiff")
 local myersdiffbychar = myersdiff.myersdiffbychar
 local myersdiffbyline = myersdiff.myersdiffbyline
+local types = require("@self/types")
 
-type diff = myersdiff.diff
+type diff = types.diff
 
 -- Collects consecutive DELETEs and/or ADDs starting at index i
 -- Returns: deletes array, adds array, new index position

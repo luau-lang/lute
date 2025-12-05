@@ -1,4 +1,8 @@
 local deque = require("@batteries/collections/deque")
+local types = require("@self/types")
+
+type diffoperation = types.diffoperation
+type diff = types.diff
 
 type EditGraphNode = {
 	x: number,
@@ -24,13 +28,6 @@ local function hasDiagonalEdge(node: EditGraphNode, a: string | { string }, b: s
 	b = b :: string
 	return x < #a and y < #b and a:sub(x + 1, x + 1) == b:sub(y + 1, y + 1)
 end
-
-export type diffoperation = {
-	key: "EQUAL" | "ADD" | "DELETE",
-	text: string,
-}
-
-export type diff = { diffoperation }
 
 local function edgeTodiff(curNode: EditGraphNode, a: string | { string }, b: string | { string }): diffoperation?
 	-- maps stepping from curNode.prev -> curNode to a diff operation
