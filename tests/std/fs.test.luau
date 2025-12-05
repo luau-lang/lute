@@ -93,24 +93,23 @@ test.suite("FsSuite", function(suite)
 	suite:case("watch_iterator_on_change", function(assert)
 		local watchedFileName = "watched.txt"
 		local watched = path.join(tmpdir, watchedFileName)
-		if fs.exists(watched) then
-			fs.remove(watched)
-		end
 
 		local watcher = fs.watch(tmpdir)
 
-		fs.writestringtofile(watched, "x")
+		fs.writestringtofile(watched, "hi")
 
+		-- Note: we had a timeout for this loop before, but it was leading to a flaky test where event = nil, so we're removing it.
+		-- If this hangs indefinitely at, we'll see this test fail later and revisit.
 		local start = os.clock()
 		local event
-
 		repeat
 			event = watcher:next()
 			if not event then
 				task.wait(0.01)
 			end
-		until event or (os.clock() - start > 2)
+		until event
 
+		print("Watch iterator time taken: " .. (os.clock() - start))
 		assert.neq(event, nil)
 		assert.eq(event.change or event.rename, true)
 

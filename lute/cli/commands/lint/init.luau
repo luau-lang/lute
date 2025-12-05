@@ -1,5 +1,8 @@
-local cli = require("./cli")
+local cli = require("./lib/cli")
+local files = require("./lib/files")
 local fs = require("@std/fs")
+local json = require("@std/json")
+local lsp = require("@self/lsp")
 local luau = require("@std/luau")
 local pathLib = require("@std/path")
 local printer = require("@self/printer")
@@ -25,6 +28,7 @@ OPTIONS:
   						  is provided, any subfolders containing init.luau files will be treated as
 						  modules exporting lint rules, while all other .luau files will be treated 
 						  as individual lint rules. If unspecified, the default lint rules are used.
+  -j, --json              Output lint violations in JSON format matching the LSP diagnostic spec.
 
 PATHS:
   Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
@@ -93,57 +97,61 @@ local function loadDefaultRules(): { types.LintRule }
 	return rules
 end
 
-local function parseSuppressions(node: syntax.AstNode): { [string]: boolean }
-	local suppressions: { [string]: boolean } = {}
+local function parseDirectives(node: syntax.AstNode): { [string]: boolean }
+	local directives: { [string]: boolean } = {}
 
 	local leadingTrivia = triviaUtils.leftmosttrivia(node)
 	for _, trivia in leadingTrivia do
 		if trivia.tag == "blockcomment" or trivia.tag == "comment" then
 			for rule in trivia.text:gmatch("lute%-lint%-ignore%((.+)%)") do
-				suppressions[rule] = true
+				directives[rule] = true -- True means ignore
+			end
+			for rule in trivia.text:gmatch("lute%-lint%-report%((.+)%)") do
+				directives[rule] = false -- False means report
 			end
 		end
 	end
 
-	return suppressions
+	return directives
 end
 
-local function maybeParseSuppressions(
+local function maybeParseDirectives(
 	node: syntax.AstNode,
 	cache: { [syntax.AstNode]: { [string]: boolean } }
 ): { [string]: boolean }
-	local rules = cache[node]
-	if rules == nil then
-		rules = parseSuppressions(node)
+	local directives = cache[node]
+	if directives == nil then
+		directives = parseDirectives(node)
 
 		if node.kind == "stat" and node.tag == "block" then
 			-- The logic here is a little different, since we only want suppression to apply to the first statement
 			-- Store a sentinel value at this node to avoid reparsing suppressions
 			cache[node] = {}
 			-- Parse the rules that this node suppresses and attach them to the first statement of the block
-			cache[node.statements[1]] = rules
+			cache[node.statements[1]] = directives
 		end
 
-		cache[node] = rules
+		cache[node] = directives
 	end
-	return rules
+	return directives
 end
 
 local function violationIsSuppressed(
 	violation: types.LintViolation,
 	ast: syntax.AstStatBlock,
-	suppressionCache: { [syntax.AstNode]: { [string]: boolean } }
+	directiveCache: { [syntax.AstNode]: { [string]: boolean } }
 ): boolean
 	local violationSuppressed = false
 
+	-- We want to find the lint directive with the tightest scope that applies to this violation
 	local function nodeIsSuppressed(node: syntax.AstNode): boolean
 		if syntax.span.subsumes(violation.location, node.location) then
-			-- The first node which is fully contained within a violation can suppress it
-			local rules = maybeParseSuppressions(node, suppressionCache)
-			if rules[violation.lintname] then
-				violationSuppressed = true
-			end
-			-- No other fully contained nodes can suppress, so we can stop recursing
+			-- The first node which is fully contained within a violation has the tightest relevant directive
+			local directives = maybeParseDirectives(node, directiveCache)
+			violationSuppressed = if directives[violation.lintname] ~= nil
+				then directives[violation.lintname]
+				else violationSuppressed
+			-- No other fully contained nodes can affect whether we suppress, so we can stop recursing
 			return false
 		end
 
@@ -152,21 +160,20 @@ local function violationIsSuppressed(
 			return false
 		end
 
-		local rules = maybeParseSuppressions(node, suppressionCache)
+		local directives = maybeParseDirectives(node, directiveCache)
 
 		-- AstStatBlock suppressions should only apply to the first statement, not the block itself
 		if node.kind == "stat" and node.tag == "block" then
 			return true
 		end
 
-		if rules[violation.lintname] then
-			violationSuppressed = true
-			-- If the node is suppressed, we don't need to recurse deeper
-			return false
-		else
-			-- A deeper node might suppress this rule
-			return true
-		end
+		-- Use any directives found on this node to update suppression status
+		violationSuppressed = if directives[violation.lintname] ~= nil
+			then directives[violation.lintname]
+			else violationSuppressed
+
+		-- A deeper node might affect whether we suppress, so continue recursing
+		return true
 	end
 
 	local suppressionVisitor = visitor.create(nodeIsSuppressed)
@@ -191,13 +198,13 @@ local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule
 		print("Applying lint rules")
 	end
 	local violations: { types.LintViolation } = {}
-	local suppressionCache = {}
+	local directiveCache = {}
 	for _, rule in lintRules do
 		local success, err = pcall(rule.lint, ast, inputFilePath)
 		if success then
 			-- On success, err contains the returned violations
 			for _, violation in err do
-				if not violationIsSuppressed(violation, ast, suppressionCache) then
+				if not violationIsSuppressed(violation, ast, directiveCache) then
 					table.insert(violations, violation)
 				end
 			end
@@ -222,7 +229,8 @@ local function main(...: string)
 	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
-	-- TODO: ignore blobs, json output option
+	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
+	-- TODO: ignore blobs
 
 	args:parse({ ... })
 
@@ -239,6 +247,11 @@ local function main(...: string)
 		return
 	end
 
+	if VERBOSE then
+		print("Filtering input files by gitignore")
+	end
+	local inputFilePaths = files.getSourceFiles(inputFiles, VERBOSE)
+
 	local lintRules: { types.LintRule }
 	local rulePath = args:get("rules")
 	if rulePath == nil then
@@ -253,38 +266,37 @@ local function main(...: string)
 		lintRules = loadLintRules(rulePath)
 	end
 
-	local allViolations = {}
+	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
 
-	for _, inputPath in inputFiles do
+	for _, inputPath in inputFilePaths do
 		local walker = fs.walk(inputPath, { recursive = true })
 
 		local curr = walker()
 		while curr ~= nil do
 			local inputFilePath = pathLib.parse(curr)
 
-			local extension = pathLib.extname(inputFilePath)
-			if extension == ".luau" or extension == ".lua" then
-				local success, err = pcall(lintFile, inputFilePath, lintRules)
-				if success then
-					-- Violations are returned as the second return value from pcall
-					allViolations[inputFilePath] = err
-				else
-					print(`Error linting file '{inputFilePath}': {err}`)
-				end
-			elseif VERBOSE then
-				print(`Skipping non-Luau file '{inputFilePath}'`)
+			local success, err = pcall(lintFile, inputFilePath, lintRules)
+			if success then
+				-- Violations are returned as the second return value from pcall
+				allViolations[inputFilePath] = err
+			else
+				print(`Error linting file '{inputFilePath}': {err}`)
 			end
 
 			curr = walker()
 		end
 	end
 
-	if VERBOSE then
-		print(`Printing violations from {#allViolations} files\n`)
-	end
-	for sourcePath, violations in allViolations do
-		if #violations > 0 then
-			printer.printLints(violations, sourcePath)
+	if args:has("json") then
+		print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
+	else
+		if VERBOSE then
+			print(`Printing violations from {#allViolations} files\n`)
+		end
+		for sourcePath, violations in allViolations do
+			if #violations > 0 then
+				printer.printLints(violations, sourcePath)
+			end
 		end
 	end
 end
