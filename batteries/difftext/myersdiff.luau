@@ -25,48 +25,48 @@ local function hasDiagonalEdge(node: EditGraphNode, a: string | { string }, b: s
 	return x < #a and y < #b and a:sub(x + 1, x + 1) == b:sub(y + 1, y + 1)
 end
 
-export type DiffOperation = {
+export type diffoperation = {
 	key: "EQUAL" | "ADD" | "DELETE",
 	text: string,
-	position: number?,
 }
 
-export type Diff = { DiffOperation }
+export type diff = { diffoperation }
 
-local function edgeToDiff(curNode: EditGraphNode, a: string | { string }, b: string | { string }): DiffOperation
+local function edgeTodiff(curNode: EditGraphNode, a: string | { string }, b: string | { string }): diffoperation?
 	-- maps stepping from curNode.prev -> curNode to a diff operation
 	-- (n, n) -> (n+1, n) == DELETION of a[n]
 	-- (n, n) -> (n, n+1) == ADDITION of b[n]
 	-- (n, n) -> (n+1, n+1) == EQUAL (no diff)
-	local prev = curNode.prev :: EditGraphNode
-	local xDiff = curNode.x - prev.x
-	local yDiff = curNode.y - prev.y
-	if xDiff == 1 and yDiff == 1 then
+	if not curNode.prev then
+		return nil
+	end
+
+	local prev = curNode.prev
+	local xdiff = curNode.x - prev.x
+	local ydiff = curNode.y - prev.y
+	if xdiff == 1 and ydiff == 1 then
 		return {
 			key = "EQUAL",
 			text = if typeof(a) == "table" then a[curNode.x] else a:sub(curNode.x, curNode.x),
-			position = curNode.y,
 		}
-	elseif xDiff == 1 then
+	elseif xdiff == 1 then
 		return {
 			key = "DELETE",
 			text = if typeof(a) == "table" then a[curNode.x] else a:sub(curNode.x, curNode.x),
-			position = curNode.x,
 		}
 	else
 		return {
 			key = "ADD",
 			text = if typeof(b) == "table" then b[curNode.y] else b:sub(curNode.y, curNode.y),
-			position = curNode.y,
 		}
 	end
 end
 
-local function myersdiff(a: string | { string }, b: string | { string }): Diff
+local function myersdiff(a: string | { string }, b: string | { string }): diff
 	local start = editGraphNode(0, 0)
 	local editGraphDeque = deque.new(start)
 
-	local diff = {} :: Diff
+	local diff = {} :: diff
 	local seen = {} :: { [number]: { [number]: true } }
 	-- lua dumb, have to do this weird mapping since we can't use EditGraphNode directly (it will use table memory address equivalence, not value equivalence for hashing)
 	seen[0] = {}
@@ -86,8 +86,8 @@ local function myersdiff(a: string | { string }, b: string | { string }): Diff
 		if curNode.x == #a and curNode.y == #b then
 			-- reconstruct diff operations by tracing path from termination node to start
 			while curNode.prev do
-				local diffOperation = edgeToDiff(curNode, a, b)
-				table.insert(diff, 1, diffOperation)
+				local diffOperation = edgeTodiff(curNode, a, b) :: diffoperation
+				table.insert(diff, diffOperation)
 				curNode = curNode.prev
 			end
 			break
@@ -117,19 +117,26 @@ local function myersdiff(a: string | { string }, b: string | { string }): Diff
 		end
 	end
 
+	local i, j = 1, #diff
+	while i < j do
+		diff[i], diff[j] = diff[j], diff[i]
+		i = i + 1
+		j = j - 1
+	end
+
 	return diff
 end
 
-local function myersdiffbyline(a: string, b: string): Diff
+local function myersdiffbyline(a: string, b: string): diff
 	return myersdiff(a:split("\n"), b:split("\n"))
 end
 
-local function myersdiffbychar(a: string, b: string): Diff
+local function myersdiffbychar(a: string, b: string): diff
 	return myersdiff(a, b)
 end
 
-local function applyDiff(
-	diff: Diff,
+local function applydiff(
+	diff: diff,
 	a: string,
 	options: {
 		byChar: boolean?,
@@ -181,5 +188,5 @@ end
 return table.freeze({
 	myersdiffbyline = myersdiffbyline,
 	myersdiffbychar = myersdiffbychar,
-	applydiff = applyDiff, -- this is mainly a testing utility; maybe we prefix with _
+	applydiff = applydiff, -- this is mainly a testing utility; maybe we prefix with _
 })

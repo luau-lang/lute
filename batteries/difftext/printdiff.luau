@@ -3,11 +3,11 @@ local myersdiff = require("./myersdiff")
 local myersdiffbychar = myersdiff.myersdiffbychar
 local myersdiffbyline = myersdiff.myersdiffbyline
 
-type Diff = myersdiff.Diff
+type diff = myersdiff.diff
 
 -- Collects consecutive DELETEs and/or ADDs starting at index i
 -- Returns: deletes array, adds array, new index position
-local function collectConsecutiveChanges(diff: Diff, startIndex: number): ({ string }, { string }, number)
+local function collectConsecutiveChanges(diff: diff, startIndex: number): ({ string }, { string }, number)
 	local i = startIndex
 	local deletes = {}
 	while i <= #diff and diff[i].key == "DELETE" do
@@ -32,8 +32,8 @@ local function visualizeCharDiff(a: string, b: string): (string, string)
 
 	for _, op in charOps do
 		if op.key == "EQUAL" then
-			srcVisual ..= richterm.red(op.text)
-			destVisual ..= richterm.green(op.text)
+			srcVisual ..= richterm.brightRed(op.text)
+			destVisual ..= richterm.brightGreen(op.text)
 		elseif op.key == "DELETE" then
 			srcVisual ..= richterm.bgRed(op.text)
 		elseif op.key == "ADD" then
@@ -47,7 +47,7 @@ end
 local function printDiffByLineDetailed(a: string, b: string): string
 	local diff = myersdiffbyline(a, b)
 	local i = 1
-	local result = ""
+	local result = {} :: { string }
 	while i <= #diff do
 		local op = diff[i]
 
@@ -57,28 +57,22 @@ local function printDiffByLineDetailed(a: string, b: string): string
 			local pair = #deletes == 1 and #adds == 1
 			if pair then
 				local srcLine, destLine = visualizeCharDiff(deletes[1], adds[1])
-				result ..= richterm.red("- ") .. srcLine .. "\n"
-				result ..= richterm.green("+ ") .. destLine
-				if i < #diff then
-					result ..= "\n"
-				end
+				table.insert(result, richterm.brightRed("- ") .. srcLine)
+				table.insert(result, richterm.brightGreen("+ ") .. destLine)
 			else
 				for j, deleted in deletes do
-					result ..= richterm.red(`- {deleted}\n`)
+					table.insert(result, richterm.brightRed(`- {deleted}`))
 				end
 				for j, added in adds do
-					result ..= richterm.green(`+ {added}\n`)
+					table.insert(result, richterm.brightGreen(`+ {added}`))
 				end
 			end
 		else -- EQUAL
-			result ..= op.text
-			if i <= #diff then
-				result ..= "\n"
-			end
+			table.insert(result, op.text)
 			i += 1
 		end
 	end
-	return result
+	return table.concat(result, "\n")
 end
 
 local function printDiff(
@@ -86,7 +80,6 @@ local function printDiff(
 	b: string,
 	options: {
 		detailed: boolean?,
-		-- sideBySide: boolean?
 	}?
 ): string
 	if options then
@@ -95,18 +88,18 @@ local function printDiff(
 		end
 	end
 
-	local result = ""
+	local result = {} :: { string }
 	local diff = myersdiffbyline(a, b)
 	for i, op in diff do
-		result ..= if op.key == "ADD"
-			then richterm.brightGreen(`+ {op.text}`)
-			elseif op.key == "DELETE" then richterm.brightRed(`- {op.text}`)
-			else `{op.text}`
-		if i < #diff then
-			result ..= "\n"
-		end
+		table.insert(
+			result,
+			if op.key == "ADD"
+				then richterm.brightGreen(`+ {op.text}`)
+				elseif op.key == "DELETE" then richterm.brightRed(`- {op.text}`)
+				else `{op.text}`
+		)
 	end
-	return result
+	return table.concat(result, "\n")
 end
 
 return printDiff

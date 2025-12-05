@@ -26,9 +26,7 @@ doSomething()
 
 print(richterm.bold("Diff"))
 print(difftext.printdiff(src, destination))
-print()
 print(richterm.bold("Diff (Detailed)"))
 print(difftext.printdiff(src, destination, {
 	detailed = true,
 }))
-print()
