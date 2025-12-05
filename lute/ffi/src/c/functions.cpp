@@ -1,0 +1,177 @@
+#include "functions.h"
+#include "ffi.h"
+#include "lua.h"
+#include "lualib.h"
+#include "lute/userdatas.h"
+#include "types.h"
+#include <csetjmp>
+#include <memory>
+
+namespace
+{
+constexpr size_t ffiArgSlotsForSize(size_t byteSize)
+{
+    if (byteSize == 0)
+        return 1;
+
+    size_t slots = (byteSize + sizeof(ffi_arg) - 1) / sizeof(ffi_arg);
+    return slots == 0 ? 1 : slots;
+}
+} // namespace
+
+namespace ffi::cffi
+{
+CFunction::CFunction(void (*functionPointer)(), FunctionInfo info)
+    : functionPointer{functionPointer}
+    , functionInfo{std::move(info)}
+{
+    const size_t argCount = functionInfo.argumentTypes.size();
+
+    argumentValues = std::make_unique<ffi_arg*[]>(argCount);
+
+    for (size_t i = 0; i < argCount; ++i)
+    {
+        argumentValues[i] = new ffi_arg[ffiArgSlotsForSize(functionInfo.argumentTypes[i]->type.size)];
+    }
+
+    returnValue = std::make_unique<ffi_arg[]>(ffiArgSlotsForSize(functionInfo.returnType->type.size));
+
+    ffi_prep_cif(&cif, FFI_DEFAULT_ABI, static_cast<unsigned int>(argCount), &functionInfo.returnType->type, functionInfo.argumentTypePointers.get());
+}
+
+CFunction::~CFunction()
+{
+    for (size_t i = 0; i < functionInfo.argumentTypes.size(); ++i)
+    {
+        delete[] argumentValues[i];
+    }
+}
+
+int CFunction::luaCall(lua_State* L)
+{
+    CallState state;
+    const size_t argCount = functionInfo.argumentTypes.size();
+
+    for (size_t i = 0; i < argCount; ++i)
+    {
+        functionInfo.argumentTypes[i]->serialize(L, static_cast<int>(i + 1), argumentValues[i], state);
+    }
+
+    if (setjmp(state.errorBuffer) != 0)
+    {
+        lua_error(L);
+        return 0;
+    }
+
+    ffi_call(&cif, functionPointer, returnValue.get(), reinterpret_cast<void**>(argumentValues.get()));
+
+    return functionInfo.returnType->deserialize(L, returnValue.get());
+}
+
+static int call(lua_State* L)
+{
+    auto* cfunc = static_cast<CFunction*>(lua_touserdatatagged(L, lua_upvalueindex(1), kCFunctionTag));
+    return cfunc->luaCall(L);
+}
+
+int CFunction::pushCFunction(lua_State* L, void (*functionPointer)(), const char* name)
+{
+    new (lua_newuserdatatagged(L, sizeof(CFunction), kCFunctionTag)) CFunction{functionPointer, std::move(functionInfo)};
+
+    lua_pushcclosure(L, call, name, 1);
+    return 1;
+}
+
+int CFunctionType::deserialize(lua_State* L, const ffi_arg* data)
+{
+    return CFunction{FFI_FN(*data), functionInfo}.luaCall(L);
+}
+
+struct ClosureUserData
+{
+    ClosureUserData(lua_State* inL, int inFunctionRef, FunctionInfo* inFunctionInfo, CallState* inState, std::jmp_buf* inJumpBuffer)
+        : L{inL}
+        , functionRef{inFunctionRef}
+        , functionInfo{inFunctionInfo}
+        , state{inState}
+        , jumpBuffer{inJumpBuffer}
+    {
+    }
+
+    lua_State* L;
+    int functionRef;
+    FunctionInfo* functionInfo;
+    CallState* state;
+    std::jmp_buf* jumpBuffer;
+    ffi_cif cif;
+};
+
+static void closureTrampoline(ffi_cif* cif, void* ret, void** args, void* userdata)
+{
+    auto* data = static_cast<ClosureUserData*>(userdata);
+    lua_State* L = data->L;
+
+    lua_getref(L, data->functionRef);
+
+    const int argCount = static_cast<int>(data->functionInfo->argumentTypes.size());
+    for (int i = 0; i < argCount; ++i)
+    {
+        data->functionInfo->argumentTypes[i]->deserialize(L, reinterpret_cast<const ffi_arg*>(args[i]));
+    }
+
+    const int nresults = (data->cif.rtype->type != FFI_TYPE_VOID) ? 1 : 0;
+    const int status = lua_pcall(L, argCount, nresults, 0);
+    if (status != LUA_OK)
+    {
+        std::longjmp(*data->jumpBuffer, 1);
+        return;
+    }
+
+    if (data->cif.rtype->type != FFI_TYPE_VOID)
+    {
+        data->functionInfo->returnType->serialize(L, -1, reinterpret_cast<ffi_arg*>(ret), *data->state);
+        lua_pop(L, 1);
+    }
+}
+
+void CFunctionType::serialize(lua_State* L, int index, ffi_arg* to, CallState& state)
+{
+    luaL_checktype(L, index, LUA_TFUNCTION);
+
+    lua_pushvalue(L, index);
+    int functionRef = lua_ref(L, -1);
+    lua_pop(L, 1);
+
+    auto* userData = state.create<ClosureUserData>(ClosureUserData{L, functionRef, &functionInfo, &state, &state.errorBuffer});
+
+    ffi_status status = ffi_prep_cif(
+        &userData->cif, FFI_DEFAULT_ABI, functionInfo.argumentTypes.size(), &functionInfo.returnType->type, functionInfo.argumentTypePointers.get()
+    );
+
+    if (status != FFI_OK)
+    {
+        luaL_error(L, "Failed to prepare ffi_cif for closure");
+    }
+
+    void* boundFunction = nullptr;
+    auto closure = state.create<std::unique_ptr<ffi_closure, decltype(&ffi_closure_free)>>(
+        static_cast<ffi_closure*>(ffi_closure_alloc(sizeof(ffi_closure), &boundFunction)), ffi_closure_free
+    );
+
+    if (!closure)
+    {
+        luaL_error(L, "Failed to allocate ffi_closure");
+    }
+
+    status = ffi_prep_closure_loc(closure->get(), &userData->cif, closureTrampoline, userData, boundFunction);
+
+    if (status != FFI_OK)
+    {
+        ffi_closure_free(closure);
+        luaL_error(L, "Failed to prepare ffi_closure");
+    }
+
+    std::memcpy(to, &boundFunction, sizeof(void*));
+}
+
+} // namespace ffi::cffi
