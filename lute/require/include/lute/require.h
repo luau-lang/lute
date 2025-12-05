@@ -18,6 +18,7 @@ public:
 
     virtual NavigationStatus reset(lua_State* L, std::string_view requirerChunkname) = 0;
     virtual NavigationStatus jumpToAlias(lua_State* L, std::string_view path) = 0;
+    virtual NavigationStatus toAliasFallback(lua_State* L, std::string_view aliasUnprefixed) = 0;
 
     virtual NavigationStatus toParent(lua_State* L) = 0;
     virtual NavigationStatus toChild(lua_State* L, std::string_view name) = 0;

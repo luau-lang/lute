@@ -16,6 +16,7 @@ public:
 
     NavigationStatus reset(lua_State* L, std::string_view requirerChunkname) override;
     NavigationStatus jumpToAlias(lua_State* L, std::string_view path) override;
+    NavigationStatus toAliasFallback(lua_State* L, std::string_view aliasUnprefixed) override;
 
     NavigationStatus toParent(lua_State* L) override;
     NavigationStatus toChild(lua_State* L, std::string_view name) override;
@@ -48,8 +49,6 @@ private:
     Package::UserlandVfs userlandVfs;
     StdLibVfs stdLibVfs;
     std::string lutePath;
-
-    bool atFakeRoot = false;
 };
 
 } // namespace Package
