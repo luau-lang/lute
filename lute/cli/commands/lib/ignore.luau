@@ -155,6 +155,10 @@ local function parseGitignore(filepath: path.path): GitignoreData
 end
 
 local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
+	print(
+		`Checking if "{filepath}" matches glob pattern "{glob.pattern}" ({glob.matchAnywhere}, {glob.onlyMatchDirectories})`
+	)
+
 	if glob.onlyMatchDirectories and not isDirectory then
 		return false
 	end
