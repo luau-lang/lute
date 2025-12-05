@@ -3,7 +3,9 @@
 #include "lute/filevfs.h"
 #include "lute/modulepath.h"
 
-#include <map>
+#include "Luau/DenseHash.h"
+#include "Luau/StringUtils.h"
+
 #include <optional>
 #include <string>
 #include <utility>
@@ -17,9 +19,17 @@ struct Identifier
     std::string name;
     std::string version;
 
-    bool operator<(const Identifier& other) const
+    bool operator==(const Identifier& other) const
     {
-        return std::tie(name, version) < std::tie(other.name, other.version);
+        return std::tie(name, version) == std::tie(other.name, other.version);
+    }
+};
+
+struct IdentifierHashDefault
+{
+    size_t operator()(const Identifier& id) const
+    {
+        return Luau::detail::DenseHashDefault<std::string>()(Luau::format("%s:%s", id.name.c_str(), id.version.c_str()));
     }
 };
 
@@ -73,7 +83,9 @@ public:
     std::string getCurrentPath() const;
 
 private:
-    UserlandVfs(std::vector<Identifier> directDependencies, std::map<Identifier, Info> allDependencies);
+    using DependencyMap = Luau::DenseHashMap<Identifier, Info, IdentifierHashDefault>;
+
+    UserlandVfs(std::vector<Identifier> directDependencies, DependencyMap allDependencies);
 
     NavigationStatus jumpToDependencySubtree(const Identifier& dependency);
 
@@ -89,7 +101,7 @@ private:
     std::optional<Subtree> currentSubtree = std::nullopt;
 
     std::vector<Identifier> directDependencies;
-    std::map<Identifier, Info> allDependencies;
+    DependencyMap allDependencies;
 };
 
 } // namespace Package

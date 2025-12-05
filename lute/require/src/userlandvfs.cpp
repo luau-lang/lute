@@ -103,7 +103,7 @@ Info Subtree::getInfo() const
 
 UserlandVfs UserlandVfs::create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> allDependencies)
 {
-    std::map<Identifier, Info> allDependenciesMap;
+    DependencyMap allDependenciesMap{{}};
     for (auto& [identifier, info] : allDependencies)
     {
         allDependenciesMap[std::move(identifier)] = std::move(info);
@@ -112,7 +112,7 @@ UserlandVfs UserlandVfs::create(std::vector<Identifier> directDependencies, std:
     return UserlandVfs{std::move(directDependencies), std::move(allDependenciesMap)};
 }
 
-UserlandVfs::UserlandVfs(std::vector<Identifier> directDependencies, std::map<Identifier, Info> allDependencies)
+UserlandVfs::UserlandVfs(std::vector<Identifier> directDependencies, DependencyMap allDependencies)
     : directDependencies(std::move(directDependencies))
     , allDependencies(std::move(allDependencies))
 {
@@ -156,11 +156,11 @@ NavigationStatus UserlandVfs::toAliasFallback(std::string_view aliasUnprefixed)
 
 NavigationStatus UserlandVfs::jumpToDependencySubtree(const Identifier& dependency)
 {
-    auto it = allDependencies.find(dependency);
-    if (it == allDependencies.end())
+    Info* info = allDependencies.find(dependency);
+    if (!info)
         return NavigationStatus::NotFound;
 
-    std::optional<Subtree> st = Subtree::create(it->second);
+    std::optional<Subtree> st = Subtree::create(*info);
     if (!st)
         return NavigationStatus::NotFound;
 
