@@ -26,14 +26,12 @@ local function hasDiagonalEdge(node: EditGraphNode, a: string | { string }, b: s
 		if typeof(b) == "table" then
 			return x < #a and y < #b and a[x + 1] == b[y + 1]
 		else
-			error("haDiagonalEdge inputs should have the same type.")
+			error("hasDiagonalEdge inputs should have the same type.")
 		end
 	elseif typeof(b) == "table" then
-		error("haDiagonalEdge inputs should have the same type.")
+		error("hasDiagonalEdge inputs should have the same type.")
 	end
 
-	a = a
-	b = b
 	return x < #a and y < #b and a:sub(x + 1, x + 1) == b:sub(y + 1, y + 1)
 end
 
