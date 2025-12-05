@@ -1,6 +1,9 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
 local stringext = require("@std/stringext")
+local system = require("@std/system")
+
+local separator = if system.win32 then "\\" else "/"
 
 --- Performs ignore resolution on a set of
 local IgnoreResolver = {}
@@ -86,13 +89,13 @@ local function parseGlob(glob: string): Glob
 					idx = idx + 2
 				end
 			else
-				-- Single asterisk `*` (matches anything except /)
-				table.insert(lua_parts, "[^/]*")
+				-- Single asterisk `*` (matches anything except directory separator)
+				table.insert(lua_parts, `[^{separator}]*`)
 				idx = idx + 1
 			end
 		elseif char == "?" then
-			-- Match any single character, except for /
-			table.insert(lua_parts, "[^/]")
+			-- Match any single character, except for directory separator
+			table.insert(lua_parts, `[^{separator}]`)
 			idx = idx + 1
 		elseif char == "-" then
 			table.insert(lua_parts, "%-")
