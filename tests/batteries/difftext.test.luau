@@ -1,4 +1,5 @@
 local difftext = require("@batteries/difftext")
+local richterm = require("@batteries/richterm")
 local test = require("@std/test")
 
 local diff = difftext.diff
@@ -301,54 +302,72 @@ test.suite("myersdiff - byline", function(suite)
 	end)
 end)
 
-test.suite("printdiff", function(suite)
-	-- Helper function to strip ANSI color codes from output for easier testing
-	local function stripAnsi(str: string): string
-		local result = str:gsub("\27%[[%d;]*m", "")
-		return result
+test.suite("printdiff", function(suite: any)
+	local function composeDetailedRemoval(str: string, changedCharPos: { [number]: true })
+		local composed = richterm.brightRed("- ")
+		for i = 1, #str do
+			if changedCharPos[i] then
+				composed ..= richterm.bgRed(str:sub(i, i))
+			else
+				composed ..= richterm.brightRed(str:sub(i, i))
+			end
+		end
+		return composed
+	end
+
+	local function composeDetailedAddition(str: string, changedCharPos: { [number]: true })
+		local composed = richterm.brightGreen("+ ")
+		for i = 1, #str do
+			if changedCharPos[i] then
+				composed ..= richterm.bgGreen(str:sub(i, i))
+			else
+				composed ..= richterm.brightGreen(str:sub(i, i))
+			end
+		end
+		return composed
 	end
 
 	suite:case("printdiff default - simple addition", function(assert)
 		local a = "line1\nline2"
 		local b = "line1\nline2\nline3"
-		local result = stripAnsi(difftext.prettydiff(a, b))
+		local result = difftext.prettydiff(a, b)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 3)
 		assert.eq(lines[1], "line1")
 		assert.eq(lines[2], "line2")
-		assert.eq(lines[3], "+ line3")
+		assert.eq(lines[3], richterm.brightGreen("+ line3"))
 	end)
 
 	suite:case("printdiff default - simple deletion", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nline3"
-		local result = stripAnsi(difftext.prettydiff(a, b))
+		local result = difftext.prettydiff(a, b)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 3)
 		assert.eq(lines[1], "line1")
-		assert.eq(lines[2], "- line2")
+		assert.eq(lines[2], richterm.brightRed("- line2"))
 		assert.eq(lines[3], "line3")
 	end)
 
 	suite:case("printdiff default - modification", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nmodified\nline3"
-		local result = stripAnsi(difftext.prettydiff(a, b))
+		local result = difftext.prettydiff(a, b)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 4)
 		assert.eq(lines[1], "line1")
-		assert.eq(lines[2], "- line2")
-		assert.eq(lines[3], "+ modified")
+		assert.eq(lines[2], richterm.brightRed("- line2"))
+		assert.eq(lines[3], richterm.brightGreen("+ modified"))
 		assert.eq(lines[4], "line3")
 	end)
 
 	suite:case("printdiff default - unchanged lines", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nline2\nline3"
-		local result = stripAnsi(difftext.prettydiff(a, b))
+		local result = difftext.prettydiff(a, b)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 3)
@@ -360,48 +379,54 @@ test.suite("printdiff", function(suite)
 	suite:case("printdiff default - multiple changes", function(assert)
 		local a = "A\nB\nC\nD"
 		local b = "A\nX\nC\nY\nD"
-		local result = stripAnsi(difftext.prettydiff(a, b))
+		local result = difftext.prettydiff(a, b)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 6)
 		assert.eq(lines[1], "A")
-		assert.eq(lines[2], "- B")
-		assert.eq(lines[3], "+ X")
+		assert.eq(lines[2], richterm.brightRed("- B"))
+		assert.eq(lines[3], richterm.brightGreen("+ X"))
 		assert.eq(lines[4], "C")
-		assert.eq(lines[5], "+ Y")
+		assert.eq(lines[5], richterm.brightGreen("+ Y"))
 		assert.eq(lines[6], "D")
 	end)
 
 	suite:case("printdiff detailed - single line change", function(assert)
 		local a = "hello world"
-		local b = "hello universe"
-		local result = stripAnsi(difftext.prettydiff(a, b, { detailed = true }))
+		local b = "hello wirld"
+		local result = difftext.prettydiff(a, b, { detailed = true })
 		local lines = result:split("\n")
 
 		-- Detailed mode shows both old and new lines with character-level highlighting
 		assert.eq(#lines, 2)
-		assert.eq(lines[1], "- hello world")
-		assert.eq(lines[2], "+ hello universe")
+		assert.eq(lines[1], composeDetailedRemoval("hello world", { [8] = true }))
+		assert.eq(lines[2], composeDetailedAddition("hello wirld", { [8] = true }))
 	end)
 
 	suite:case("printdiff detailed - multiple line changes", function(assert)
 		local a = "line1\nold line\nline3"
 		local b = "line1\nnew line\nline3"
-		local result = stripAnsi(difftext.prettydiff(a, b, { detailed = true }))
+		local result = difftext.prettydiff(a, b, { detailed = true })
 		local lines = result:split("\n")
+
+		local changedChars = {
+			[1] = true,
+			[2] = true,
+			[3] = true,
+		}
 
 		-- Should have: line1, - old line, + new line, line3
 		assert.eq(#lines, 4)
 		assert.eq(lines[1], "line1")
-		assert.eq(lines[2], "- old line")
-		assert.eq(lines[3], "+ new line")
+		assert.eq(lines[2], composeDetailedRemoval("old line", changedChars))
+		assert.eq(lines[3], composeDetailedAddition("new line", changedChars))
 		assert.eq(lines[4], "line3")
 	end)
 
 	suite:case("printdiff detailed - unchanged lines", function(assert)
 		local a = "line1\nline2"
 		local b = "line1\nline2"
-		local result = stripAnsi(difftext.prettydiff(a, b, { detailed = true }))
+		local result = difftext.prettydiff(a, b, { detailed = true })
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 2)
