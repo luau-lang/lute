@@ -67,20 +67,11 @@ local function myersdiff(a: string | { string }, b: string | { string }): diff
 	local editGraphDeque = deque.new(start)
 
 	local diff = {} :: diff
-	local seen = {} :: { [number]: { [number]: true } }
-	-- lua dumb, have to do this weird mapping since we can't use EditGraphNode directly (it will use table memory address equivalence, not value equivalence for hashing)
-	seen[0] = {}
-	seen[0][0] = true
+	local seen = {} :: { [string]: true }
+	seen["0,0"] = true
 
 	while #editGraphDeque do
 		local curNode = editGraphDeque:popfront()
-
-		if not seen[curNode.x] then
-			seen[curNode.x] = {}
-		end
-		if not seen[curNode.x + 1] then
-			seen[curNode.x + 1] = {}
-		end
 
 		-- we've reached bottom right vertex; indicates full edit from a -> b
 		if curNode.x == #a and curNode.y == #b then
@@ -95,23 +86,26 @@ local function myersdiff(a: string | { string }, b: string | { string }): diff
 
 		-- add neighbors (diag prioritzed, then deletion, then insertion)
 		if hasDiagonalEdge(curNode, a, b) then
-			if not seen[curNode.x + 1][curNode.y + 1] then
-				seen[curNode.x + 1][curNode.y + 1] = true
+			local edgePositionStr = `{curNode.x + 1},{curNode.y + 1}`
+			if not seen[edgePositionStr] then
+				seen[edgePositionStr] = true
 				editGraphDeque:pushfront(editGraphNode(curNode.x + 1, curNode.y + 1, curNode))
 			end
 			continue
 		end
 
 		if curNode.x < #a then
-			if not seen[curNode.x + 1][curNode.y] then
-				seen[curNode.x + 1][curNode.y] = true
+			local edgePositionStr = `{curNode.x + 1},{curNode.y}`
+			if not seen[edgePositionStr] then
+				seen[edgePositionStr] = true
 				editGraphDeque:pushback(editGraphNode(curNode.x + 1, curNode.y, curNode))
 			end
 		end
 
 		if curNode.y < #b then
-			if not seen[curNode.x][curNode.y + 1] then
-				seen[curNode.x][curNode.y + 1] = true
+			local edgePositionStr = `{curNode.x},{curNode.y + 1}`
+			if not seen[edgePositionStr] then
+				seen[edgePositionStr] = true
 				editGraphDeque:pushback(editGraphNode(curNode.x, curNode.y + 1, curNode))
 			end
 		end
