@@ -56,4 +56,15 @@ function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 	return keys
 end
 
+function tableext.reverse<T>(tbl: { T }, inPlace: boolean?)
+	local new = if inPlace then tbl else {}
+	local i, j = 1, #tbl
+	while i <= j do
+		new[i], new[j] = tbl[j], tbl[i]
+		i += 1
+		j -= 1
+	end
+	return new
+end
+
 return table.freeze(tableext)
