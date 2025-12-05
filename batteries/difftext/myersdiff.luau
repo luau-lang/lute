@@ -129,58 +129,7 @@ local function myersdiffbychar(a: string, b: string): diff
 	return myersdiff(a, b)
 end
 
-local function applydiff(
-	diff: diff,
-	a: string,
-	options: {
-		byChar: boolean?,
-	}?
-)
-	local separator = if options and options.byChar then "" else "\n"
-	local src = a:split(separator)
-
-	local result = {}
-	local srcCursor = 1 -- Points to the current char in src string
-	for i, op in diff do
-		if op.key == "EQUAL" then
-			local actual = src[srcCursor]
-			if actual ~= op.text then
-				error(
-					string.format(
-						"Patch Error at op %d: Expected EQUAL '%s' but source had '%s'",
-						i,
-						op.text,
-						tostring(actual)
-					)
-				)
-			end
-
-			table.insert(result, op.text)
-			srcCursor = srcCursor + 1
-		elseif op.key == "DELETE" then
-			local actual = src[srcCursor]
-			if actual ~= op.text then
-				error(
-					string.format(
-						"Patch Error at op %d: Expected DELETE '%s' but source had '%s'",
-						i,
-						op.text,
-						tostring(actual)
-					)
-				)
-			end
-
-			srcCursor = srcCursor + 1
-		elseif op.key == "ADD" then
-			table.insert(result, op.text)
-		end
-	end
-
-	return table.concat(result, separator)
-end
-
 return table.freeze({
 	myersdiffbyline = myersdiffbyline,
 	myersdiffbychar = myersdiffbychar,
-	applydiff = applydiff, -- this is mainly a testing utility; maybe we prefix with _
 })
