@@ -2,7 +2,7 @@ local richterm = require("@batteries/richterm")
 local myersdiff = require("./myersdiff")
 local myersdiffbychar = myersdiff.myersdiffbychar
 local myersdiffbyline = myersdiff.myersdiffbyline
-local types = require("@self/types")
+local types = require("./types")
 
 type diff = types.diff
 

@@ -1,5 +1,5 @@
 local deque = require("@batteries/collections/deque")
-local types = require("@self/types")
+local types = require("./types")
 
 type diffoperation = types.diffoperation
 type diff = types.diff
