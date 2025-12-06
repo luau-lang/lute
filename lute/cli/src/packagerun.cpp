@@ -38,7 +38,7 @@ static std::vector<Package::Identifier> extractIdentifiers(std::string lockfileC
 
     auto it = lockfileContents.cbegin();
     std::smatch match;
-    std::regex re{R"LUTE(name = "([^"]+)"\nversion = "?([^"\n]+)"?)LUTE"};
+    std::regex re{R"LUTE(name = "([^"]+)"[\r\n]+version = "?([^"\r\n]+)"?)LUTE"};
     while (std::regex_search(it, lockfileContents.cend(), match, re))
     {
         packages.push_back(Package::Identifier{match[1].str(), match[2].str()});
