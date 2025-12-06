@@ -107,7 +107,10 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         allDependencies.emplace_back(identifier, std::move(info));
     }
 
-    printf("DUMPING DEPENDENCIES\n");
+    printf("DUMPING LOCKFILE at %s\n", lockfilePath.c_str());
+    printf("LOCKFILE CONTENTS:\n%s\n", contents->c_str());
+    
+    printf("\nDUMPING DEPENDENCIES\n");
     for (const Package::Identifier& identifier : directDependencies)
     {
         printf(" - %s@%s\n", identifier.name.c_str(), identifier.version.c_str());
