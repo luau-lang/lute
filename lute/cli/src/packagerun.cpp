@@ -107,26 +107,5 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         allDependencies.emplace_back(identifier, std::move(info));
     }
 
-    printf("DUMPING LOCKFILE at %s\n", lockfilePath.c_str());
-    printf("LOCKFILE CONTENTS:\n%s\n", contents->c_str());
-    
-    printf("\nDUMPING DEPENDENCIES\n");
-    for (const Package::Identifier& identifier : directDependencies)
-    {
-        printf(" - %s@%s\n", identifier.name.c_str(), identifier.version.c_str());
-    }
-    printf("\nDUMPING ALL DEPENDENCIES\n");
-    for (const auto& [identifier, info] : allDependencies)
-    {
-        printf(" - %s@%s\n", identifier.name.c_str(), identifier.version.c_str());
-        printf("   root: %s\n", info.rootDirectory.c_str());
-        printf("   entry: %s\n", info.entryFile.c_str());
-        printf("   deps:\n");
-        for (const Package::Identifier& dep : info.dependencies)
-        {
-            printf("     - %s@%s\n", dep.name.c_str(), dep.version.c_str());
-        }
-    }
-
     return {std::move(directDependencies), std::move(allDependencies)};
 }
