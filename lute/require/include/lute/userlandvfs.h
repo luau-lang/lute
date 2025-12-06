@@ -23,6 +23,10 @@ struct Identifier
     {
         return std::tie(name, version) == std::tie(other.name, other.version);
     }
+    bool operator!=(const Identifier& other) const
+    {
+        return !(*this == other);
+    }
 };
 
 struct IdentifierHashDefault

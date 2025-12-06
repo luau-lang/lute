@@ -11,6 +11,8 @@
 #include "lute/luauflags.h"
 #include "lute/net.h"
 #include "lute/options.h"
+#include "lute/packagerequirevfs.h"
+#include "lute/packagerun.h"
 #include "lute/process.h"
 #include "lute/ref.h"
 #include "lute/reporter.h"
@@ -22,6 +24,7 @@
 #include "lute/task.h"
 #include "lute/tc.h"
 #include "lute/time.h"
+#include "lute/userlandvfs.h"
 #include "lute/version.h"
 #include "lute/vm.h"
 
@@ -101,6 +104,12 @@ Run Options:
 	-h, --help    Display this usage message.
 )";
 
+static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkgrun <script.luau> [args...]
+
+Run Options:
+	-h, --help    Display this usage message.
+)";
+
 static const char* CHECK_HELP_STRING = R"(Usage: lute check <file1.luau> [file2.luau...]
 
 Check Options:
@@ -116,6 +125,30 @@ Compile Options:
 	--show-require-graph    Print the require dependency graph.
 	-h, --help              Display this usage message.
 )";
+
+static void luteopen_libs(lua_State* L)
+{
+    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
+        {"@lute/crypto", luteopen_crypto},
+        {"@lute/fs", luteopen_fs},
+        {"@lute/luau", luteopen_luau},
+        {"@lute/net", luteopen_net},
+        {"@lute/process", luteopen_process},
+        {"@lute/task", luteopen_task},
+        {"@lute/vm", luteopen_vm},
+        {"@lute/system", luteopen_system},
+        {"@lute/time", luteopen_time},
+        {"@lute/io", luteopen_io},
+    }};
+
+    for (const auto& [name, func] : libs)
+    {
+        lua_pushcfunction(L, luarequire_registermodule, nullptr);
+        lua_pushstring(L, name);
+        func(L);
+        lua_call(L, 2, 0);
+    }
+}
 
 void* createCliRequireContext(lua_State* L)
 {
@@ -142,28 +175,34 @@ void* createCliRequireContext(lua_State* L)
     return ctx;
 }
 
-static void luteopen_libs(lua_State* L)
+void* createPkgRequireContext(
+    lua_State* L,
+    std::vector<Package::Identifier> directDependencies,
+    std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies
+)
 {
-    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
-        {"@lute/crypto", luteopen_crypto},
-        {"@lute/fs", luteopen_fs},
-        {"@lute/luau", luteopen_luau},
-        {"@lute/net", luteopen_net},
-        {"@lute/process", luteopen_process},
-        {"@lute/task", luteopen_task},
-        {"@lute/vm", luteopen_vm},
-        {"@lute/system", luteopen_system},
-        {"@lute/time", luteopen_time},
-        {"@lute/io", luteopen_io},
-    }};
+    void* ctx = lua_newuserdatadtor(
+        L,
+        sizeof(RequireCtx),
+        [](void* ptr)
+        {
+            std::destroy_at(static_cast<RequireCtx*>(ptr));
+        }
+    );
 
-    for (const auto& [name, func] : libs)
-    {
-        lua_pushcfunction(L, luarequire_registermodule, nullptr);
-        lua_pushstring(L, name);
-        func(L);
-        lua_call(L, 2, 0);
-    }
+    if (!ctx)
+        luaL_error(L, "unable to allocate RequireCtx");
+
+    Package::UserlandVfs userlandVfs = Package::UserlandVfs::create(std::move(directDependencies), std::move(allDependencies));
+    ctx = new (ctx) RequireCtx{std::make_unique<Package::RequireVfs>(std::move(userlandVfs))};
+
+    // Store RequireCtx in the registry to keep it alive for the lifetime of
+    // this lua_State. Memory address is used as a key to avoid collisions.
+    lua_pushlightuserdata(L, ctx);
+    lua_insert(L, -2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return ctx;
 }
 
 void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, std::string> bundleMap)
@@ -204,6 +243,26 @@ lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSa
             luaopen_require(L, requireConfigInit, createCliRequireContext(L));
             if (preSandboxInit)
                 preSandboxInit(L);
+        }
+    );
+}
+
+lua_State* setupPkgCliState(
+    Runtime& runtime,
+    std::vector<Package::Identifier> directDependencies,
+    std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies
+)
+{
+    return setupState(
+        runtime,
+        [directDependencies = std::move(directDependencies), allDependencies = std::move(allDependencies)](lua_State* L)
+        {
+            luteopen_libs(L);
+
+            if (Luau::CodeGen::isSupported())
+                Luau::CodeGen::create(L);
+
+            luaopen_require(L, requireConfigInit, createPkgRequireContext(L, std::move(directDependencies), std::move(allDependencies)));
         }
     );
 }
@@ -406,6 +465,75 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
         reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
         return 1;
     }
+
+    bool success = runFile(runtime, validPath->c_str(), L, program_argc, program_argv, reporter);
+    return success ? 0 : 1;
+}
+
+int handlePackageRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporter)
+{
+    std::string filePath;
+    int program_argc = 0;
+    char** program_argv = nullptr;
+
+    for (int i = argOffset; i < argc; ++i)
+    {
+        const char* currentArg = argv[i];
+
+        if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
+        {
+            reporter.reportOutput(PKGRUN_HELP_STRING);
+            return 0;
+        }
+        else if (currentArg[0] == '-')
+        {
+            reporter.formatError("Error: Unrecognized option '%s' for 'pkgrun' command.", currentArg);
+            reporter.reportOutput(PKGRUN_HELP_STRING);
+            return 1;
+        }
+        else
+        {
+            filePath = currentArg;
+            program_argc = argc - i;
+            program_argv = &argv[i];
+            break;
+        }
+    }
+
+    if (filePath.empty())
+    {
+        reporter.reportError("Error: No file specified for 'pkgrun' command.");
+        reporter.reportOutput(PKGRUN_HELP_STRING);
+        return 1;
+    }
+
+    std::optional<std::string> validPath = getValidPath(filePath);
+    if (!validPath)
+    {
+        reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
+        return 1;
+    }
+    if (!isAbsolutePath(*validPath))
+    {
+        std::optional<std::string> cwd = getCurrentWorkingDirectory();
+        if (!cwd)
+        {
+            reporter.reportError("Error: Failed to get current working directory.\n");
+            return 1;
+        }
+        validPath = normalizePath(joinPaths(*cwd, filePath));
+    }
+
+    std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(*validPath);
+    if (!lockfile)
+    {
+        reporter.formatError("Error: No loom.lock file found for '%s'", validPath->c_str());
+        return 1;
+    }
+
+    Runtime runtime;
+    auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
+    lua_State* L = setupPkgCliState(runtime, std::move(directDependencies), std::move(allDependencies));
 
     bool success = runFile(runtime, validPath->c_str(), L, program_argc, program_argv, reporter);
     return success ? 0 : 1;
@@ -657,6 +785,10 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     if (strcmp(command, "run") == 0)
     {
         return handleRunCommand(argc, argv, argOffset, reporter);
+    }
+    else if (strcmp(command, "pkgrun") == 0)
+    {
+        return handlePackageRunCommand(argc, argv, argOffset, reporter);
     }
     else if (strcmp(command, "check") == 0)
     {
