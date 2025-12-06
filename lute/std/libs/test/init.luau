@@ -61,9 +61,10 @@ function test.case(name: string, case: Test)
 
 	-- Update caseindex
 	if not env.caseindex[name] then
-		env.caseindex[name] = { anonymous = {}, suites = {} }
+		env.caseindex[name] = { anonymous = { testcase }, suites = {} }
+	else
+		table.insert(env.caseindex[name].anonymous, testcase)
 	end
-	table.insert(env.caseindex[name].anonymous, testcase)
 end
 
 -- register a test suite

@@ -19,10 +19,6 @@ OPTIONS:
   --list                  List all discovered test cases without running them
   -s, --suite=SUITE       Run only tests in the specified suite
   -c, --case=CASE         Run only test cases matching the specified name
-  --reporter=REPORTER     Choose test reporter (default: simple)
-                          Options:
-                            simple  - Plain text output
-                            <path>  - Custom reporter from file path
 
 PATHS:
   Directories or files to search for tests (default: ./tests)
