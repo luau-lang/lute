@@ -1,5 +1,7 @@
 local test = require("@std/test")
 local transforms = require("./e2eCases")
+local difftext = require("@batteries/difftext")
+local richterm = require("@batteries/richterm")
 local process = require("@lute/process")
 local path = require("@std/path")
 local fs = require("@std/fs")
@@ -15,22 +17,12 @@ local lutePath = process.execpath()
 local allCasesPath = path.format(path.join(".", "tests", "std", "syntax", "e2eCases"))
 
 local function formattedTransform(initialPath: string, expectedPath: string, transformPath: string)
+	-- can use output file arg to simplify the testing loop
 	process.run({ lutePath, "transform", transformPath, initialPath })
 	stylua(initialPath, expectedPath)
 end
 
-local function neatDiff(path: string, pathTwo: string)
-	local outputDiff = process.run({ "git", "diff", "--color=always", "--no-index", path, pathTwo }, {
-		shell = true,
-	}).stdout
-
-	local trimmedDiff = outputDiff:split("\n")
-	table.remove(trimmedDiff, 1)
-	table.remove(trimmedDiff, 1)
-	return table.concat(trimmedDiff, "\n")
-end
-
-test.suite("Query and Transform e2e", function(suite)
+test.suite("Query and Transform e2e", function(suite: test.TestSuite)
 	for k, _ in transforms do
 		local transformName = k
 		local transformPath = path.format(path.join(allCasesPath, transformName, "init.luau"))
@@ -61,8 +53,14 @@ test.suite("Query and Transform e2e", function(suite)
 				fs.writestringtofile(casePath, initialSrc)
 				local expectedResult = fs.readfiletostring(expectedPath)
 
-				local outputDiff = neatDiff(expectedPath, resultPath)
-				assert.eq(result, expectedResult, `\nTransform failed to produce expected output\n{outputDiff}`)
+				local outputDiff = difftext.prettydiff(expectedResult, result, {
+					detailed = true,
+				})
+				assert.eq(
+					result,
+					expectedResult,
+					`\n{richterm.bold("Transform result ~= expected result")}:\n{outputDiff}`
+				)
 			end
 		end)
 	end
