@@ -11,6 +11,8 @@
 
 #include <cstdio>
 #include <cstring>
+
+#include "fs_impl.h"
 #ifdef _WIN32
 #include <direct.h>
 #else
@@ -69,6 +71,24 @@ const char* UV_DIRENT_TYPES[] = {
     UV_TYPENAME_CHAR,
     UV_TYPENAME_BLOCK,
 };
+
+static UVFile* getFileHandle(lua_State* L, int index)
+{
+    if (!lua_islightuserdata(L, index))
+    {
+        luaL_errorL(L, "Error: expected file handle");
+        return nullptr;
+    }
+
+    auto* handle = static_cast<UVFile*>(lua_tolightuserdata(L, index));
+    if (!handle)
+    {
+        luaL_errorL(L, "Error: invalid file handle");
+        return nullptr;
+    }
+
+    return handle;
+}
 
 std::optional<int> setFlags(const char* c, int* openFlags)
 {
@@ -160,165 +180,26 @@ static const char* fileModeToType(uint64_t mode)
     }
 }
 
-struct FileHandle
-{
-    ssize_t fileDescriptor = -1;
-    int errcode = -1;
-};
-
-l_noret luaL_errorHandle(lua_State* L, FileHandle& handle)
-{
-#ifdef _MSC_VER
-    luaL_errorL(L, "Error writing to file with descriptor %Iu\n", handle.fileDescriptor);
-#else
-    luaL_errorL(L, "Error writing to file with descriptor %zu\n", handle.fileDescriptor);
-#endif
-}
-
-void setfield(lua_State* L, const char* index, int value)
-{
-    lua_pushstring(L, index);
-    lua_pushinteger(L, value);
-    lua_settable(L, -3);
-}
-
-void createFileHandle(lua_State* L, const FileHandle& toCreate)
-{
-    lua_newtable(L);
-    setfield(L, "fd", toCreate.fileDescriptor);
-    setfield(L, "err", toCreate.errcode);
-}
-
-FileHandle unpackFileHandle(lua_State* L)
-{
-    FileHandle result;
-
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_getfield(L, 1, "fd");
-    lua_getfield(L, 1, "err");
-
-    ssize_t fd = luaL_checkinteger(L, -2);
-    int err = luaL_checknumber(L, -1);
-    result.fileDescriptor = fd;
-    result.errcode = err;
-
-    lua_pop(L, 2); // we got the args by value, so we can clean up the stack here
-
-    return result;
-}
-
 int close(lua_State* L)
 {
-    lua_settop(L, 1);
-    FileHandle file = unpackFileHandle(L);
-
-    uv_fs_t closeReq;
-    uv_fs_close(uv_default_loop(), &closeReq, file.fileDescriptor, nullptr);
-    uv_fs_req_cleanup(&closeReq);
-    return 0;
+    auto* handle = getFileHandle(L, 1);
+    return close_impl(L, handle);
 }
 
-static char readBuffer[1024];
 int read(lua_State* L)
 {
-    memset(readBuffer, 0, sizeof(readBuffer));
-    // discard any extra arguments passed in
-    lua_settop(L, 1);
-    FileHandle file = unpackFileHandle(L);
-
-    int numBytesRead = 0;
-    uv_fs_t readReq;
-    uv_buf_t iov = uv_buf_init(readBuffer, sizeof(readBuffer));
-    // Output data
-    std::vector<char> resultData;
-    do
-    {
-        uv_fs_read(uv_default_loop(), &readReq, file.fileDescriptor, &iov, 1, -1, nullptr);
-
-        numBytesRead = readReq.result;
-        uv_fs_req_cleanup(&readReq);
-
-        if (numBytesRead < 0)
-        {
-            memset(readBuffer, 0, sizeof(readBuffer));
-            luaL_errorL(L, "Error reading: %s. Closing file.\n", uv_err_name(numBytesRead));
-            return 0;
-        }
-
-        for (int i = 0; i < numBytesRead; i++)
-            resultData.push_back(readBuffer[i]);
-
-    } while (numBytesRead > 0);
-
-    lua_pushlstring(L, resultData.data(), resultData.size());
-
-    // Clean up the scratch space
-    memset(readBuffer, 0, sizeof(readBuffer));
-    return 1;
+    auto* handle = getFileHandle(L, 1);
+    return read_impl(L, handle);
 }
 
 int write(lua_State* L)
 {
-    char writeBuffer[4096];
+    auto* handle = getFileHandle(L, 1);
 
-    // Reset the write buffer
-    int wbSize = sizeof(writeBuffer);
-    memset(writeBuffer, 0, sizeof(writeBuffer));
-    FileHandle file = unpackFileHandle(L);
     size_t len;
-    const char* stringToWrite = luaL_checklstring(L, 2, &len);
+    const char* data = luaL_checklstring(L, 2, &len);
 
-    // Set up the buffer to write
-    int numBytesLeftToWrite = len;
-    int offset = 0;
-    do
-    {
-        // copy stringToWrite[0], numBytesLeftToWrite into write buffer
-
-        int sizeToWrite = std::min(wbSize, numBytesLeftToWrite);
-        memcpy(writeBuffer, stringToWrite + offset, sizeToWrite);
-        uv_buf_t iov = uv_buf_init(writeBuffer, sizeToWrite);
-
-        uv_fs_t writeReq;
-        int bytesWritten = 0;
-        uv_fs_write(uv_default_loop(), &writeReq, file.fileDescriptor, &iov, 1, -1, nullptr);
-        bytesWritten = writeReq.result;
-        uv_fs_req_cleanup(&writeReq);
-
-        if (bytesWritten < 0)
-        {
-            // Error case.
-            memset(writeBuffer, 0, sizeof(writeBuffer));
-            luaL_errorHandle(L, file);
-            return 0;
-        }
-
-
-        offset += bytesWritten;
-        numBytesLeftToWrite -= bytesWritten;
-    } while (numBytesLeftToWrite > 0);
-
-    return 0;
-}
-// Returns 0 on error, 1 otherwise
-std::optional<FileHandle> openHelper(lua_State* L, const char* path, const char* mode, int* openFlags)
-{
-    std::optional<int> modeFlags = setFlags(mode, openFlags);
-    if (!modeFlags)
-        return std::nullopt;
-
-    uv_fs_t openReq;
-    int errcode = uv_fs_open(uv_default_loop(), &openReq, path, *openFlags, *modeFlags, nullptr);
-    auto result = openReq.result;
-    uv_fs_req_cleanup(&openReq);
-
-    if (result < 0)
-    {
-        luaL_errorL(L, "Error opening file %s\n", path);
-        return std::nullopt;
-    }
-
-    return FileHandle{result, errcode};
+    return write_impl(L, handle, data, len);
 }
 
 int open(lua_State* L)
@@ -343,21 +224,14 @@ int open(lua_State* L)
         mode = luaL_checkstring(L, 2);
     }
 
-    if (std::optional<FileHandle> result = openHelper(L, path, mode, &openFlags))
+    std::optional<int> modeFlags = setFlags(mode, &openFlags);
+    if (!modeFlags)
     {
-        createFileHandle(L, *result);
-        return 1;
+        luaL_errorL(L, "Error decoding mode: %s\n", mode);
+        return 0;
     }
 
-    return 0;
-}
-
-void cleanup(char* buffer, int size, const FileHandle& handle)
-{
-    memset(buffer, 0, size);
-    uv_fs_t closeReq;
-    uv_fs_close(uv_default_loop(), &closeReq, handle.fileDescriptor, nullptr);
-    uv_fs_req_cleanup(&closeReq);
+    return open_impl(L, path, openFlags, *modeFlags);
 }
 
 int fs_remove(lua_State* L)
@@ -561,7 +435,7 @@ struct WatchHandle
                 luaL_errorL(L, "Error stopping fs event: %s", uv_strerror(err));
             }
 
-            uv_close((uv_handle_t*) &handle, nullptr);
+            uv_close((uv_handle_t*)&handle, nullptr);
 
             isClosed = true;
 
@@ -785,108 +659,6 @@ int listdir(lua_State* L)
 
     return lua_yield(L, 0);
 }
-
-int readfiletostring(lua_State* L)
-{
-    const char* path = luaL_checkstring(L, 1);
-    const char openMode[] = "r";
-    int openFlags = 0x0000;
-    std::optional<FileHandle> handle = openHelper(L, path, openMode, &openFlags);
-    if (!handle)
-    {
-        luaL_errorL(L, "Error opening file for reading at %s\n", path);
-        return 0;
-    }
-
-    memset(readBuffer, 0, sizeof(readBuffer));
-    // discard any extra arguments passed in
-    lua_settop(L, 1);
-
-    int numBytesRead = 0;
-    uv_fs_t readReq;
-    uv_buf_t iov = uv_buf_init(readBuffer, sizeof(readBuffer));
-    // Output data
-    std::vector<char> resultData;
-    do
-    {
-        uv_fs_read(uv_default_loop(), &readReq, handle->fileDescriptor, &iov, 1, -1, nullptr);
-
-        numBytesRead = readReq.result;
-        uv_fs_req_cleanup(&readReq);
-
-        if (numBytesRead < 0)
-        {
-            cleanup(readBuffer, sizeof(readBuffer), *handle);
-            luaL_errorL(L, "Error reading: %s. Closing file.\n", uv_err_name(numBytesRead));
-            return 0;
-        }
-
-        for (int i = 0; i < numBytesRead; i++)
-            resultData.push_back(readBuffer[i]);
-
-    } while (numBytesRead > 0);
-
-    lua_pushlstring(L, resultData.data(), resultData.size());
-
-    // Clean up the scratch space
-    cleanup(readBuffer, sizeof(readBuffer), *handle);
-    return 1;
-}
-
-int writestringtofile(lua_State* L)
-{
-    char writeBuffer[4096];
-
-    const char* path = luaL_checkstring(L, 1);
-    const char openMode[] = "w+";
-    int openFlags = 0x0000;
-    std::optional<FileHandle> handle = openHelper(L, path, openMode, &openFlags);
-    if (!handle)
-    {
-        luaL_errorL(L, "Error opening file for reading at %s\n", path);
-        return 0;
-    }
-
-    int wbSize = sizeof(writeBuffer);
-    memset(writeBuffer, 0, sizeof(writeBuffer));
-    size_t len;
-    const char* stringToWrite = luaL_checklstring(L, 2, &len);
-
-    // Set up the buffer to write
-    int numBytesLeftToWrite = len;
-    int offset = 0;
-    uv_buf_t iov;
-    do
-    {
-        // copy stringToWrite[0], numBytesLeftToWrite into write buffer
-
-        int sizeToWrite = std::min(wbSize, numBytesLeftToWrite);
-        memcpy(writeBuffer, stringToWrite + offset, sizeToWrite);
-        iov = uv_buf_init(writeBuffer, sizeToWrite);
-
-        uv_fs_t writeReq;
-        int bytesWritten = 0;
-        uv_fs_write(uv_default_loop(), &writeReq, handle->fileDescriptor, &iov, 1, -1, nullptr);
-        bytesWritten = writeReq.result;
-        uv_fs_req_cleanup(&writeReq);
-
-        if (bytesWritten < 0)
-        {
-            // Error case.
-            cleanup(writeBuffer, sizeof(writeBuffer), *handle);
-            luaL_errorHandle(L, *handle);
-            return 0;
-        }
-
-
-        offset += bytesWritten;
-        numBytesLeftToWrite -= bytesWritten;
-    } while (numBytesLeftToWrite > 0);
-
-    cleanup(writeBuffer, sizeof(writeBuffer), *handle);
-    return 0;
-}
-
 struct ResumeCaptureInformation
 {
     explicit ResumeCaptureInformation(lua_State* L)
@@ -907,99 +679,6 @@ uv_fs_t* createRequest(lua_State* L)
 ResumeCaptureInformation* getResumeInformation(uv_fs_t* req)
 {
     return static_cast<ResumeCaptureInformation*>(req->data);
-}
-
-int readasync(lua_State* L)
-{
-    const char* path = luaL_checkstring(L, 1);
-
-    uv_fs_t* openReq = createRequest(L);
-    int err = uv_fs_open(
-        uv_default_loop(),
-        openReq,
-        path,
-        O_RDONLY,
-        0,
-        [](uv_fs_t* req)
-        {
-            ResumeCaptureInformation* info = getResumeInformation(req);
-            int fd = req->result;
-
-            if (fd < 0)
-            {
-                info->token->fail("Error opening file");
-                uv_fs_t closeReq;
-                uv_fs_close(uv_default_loop(), &closeReq, fd, nullptr);
-                uv_fs_req_cleanup(&closeReq);
-                uv_fs_req_cleanup(req);
-                delete (ResumeCaptureInformation*)req->data;
-                delete req;
-                return;
-            }
-
-            // Allocate the destination buffer for reading
-            char readBuffer[1024];
-            memset(readBuffer, 0, sizeof(readBuffer));
-            uv_buf_t iov = uv_buf_init(readBuffer, sizeof(readBuffer));
-            // Read data
-            int numBytesRead = 0;
-            uv_fs_t readReq;
-            // Output data
-            std::vector<char> resultData;
-
-            do
-            {
-                uv_fs_read(uv_default_loop(), &readReq, fd, &iov, 1, -1, nullptr);
-                numBytesRead = readReq.result;
-                uv_fs_req_cleanup(&readReq);
-
-                if (numBytesRead < 0)
-                {
-                    uv_fs_t closeReq;
-                    uv_fs_close(uv_default_loop(), &closeReq, fd, nullptr);
-                    uv_fs_req_cleanup(&closeReq);
-                    // Schedule error;
-                    // Also, we should free the original request. We don't have to do this for the read req since it's sycnrhonous
-                    info->token->fail("Error reading file");
-                    uv_fs_req_cleanup(req);
-                    delete (ResumeCaptureInformation*)req->data;
-                    delete req;
-                    return;
-                }
-
-                for (int i = 0; i < numBytesRead; i++)
-                    resultData.push_back(readBuffer[i]);
-
-            } while (numBytesRead > 0);
-
-            // Push the result buffer onto the stack
-            info->token->complete(
-                [data = std::move(resultData)](lua_State* L)
-                {
-                    lua_pushlstring(L, data.data(), data.size());
-                    return 1;
-                }
-            );
-
-            uv_fs_t closeReq;
-            uv_fs_close(uv_default_loop(), &closeReq, fd, nullptr);
-            uv_fs_req_cleanup(&closeReq);
-            uv_fs_req_cleanup(req);
-            // free the read buffer as well as the resume information and the request
-            delete (ResumeCaptureInformation*)req->data;
-            delete req;
-            return;
-        }
-    );
-
-    if (err)
-    {
-        delete static_cast<ResumeCaptureInformation*>(openReq->data);
-        delete openReq;
-        luaL_errorL(L, "%s", uv_strerror(err));
-    }
-
-    return lua_yield(L, 0);
 }
 
 } // namespace fs
