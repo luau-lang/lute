@@ -32,6 +32,11 @@ export type walkoptions = {
 	recursive: boolean?,
 }
 
+type watcher = {
+	next: (watcher) -> watchevent?,
+	close: (self: watcher) -> (),
+}
+
 function fslib.open(path: pathlike, mode: handlemode?): file
 	return fs.open(pathlib.format(path), mode)
 end
@@ -68,8 +73,29 @@ function fslib.symboliclink(src: pathlike, dest: pathlike): ()
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.watch(path: pathlike, callback: (filename: pathlike, event: watchevent) -> ()): watchhandle
-	return fs.watch(pathlib.format(path), callback)
+--- Iterator function that yields filename and event pairs when changes occur in the watched path.
+--- Also provides a `close` method to stop watching.
+--- Note: for loops do not support yielding generalized iterators, so we cannot use fs.watch as `for _ in fs.watch(...) do` directly. A while loop can be used instead. See example/watch_directory.luau for usage.
+function fslib.watch(path: pathlike): watcher
+	local queue = {}
+	local handle = fs.watch(pathlib.format(path), function(filename: string, event: watchevent)
+		table.insert(queue, { filename = pathlib.parse(filename), event = event })
+	end)
+
+	return {
+		next = function(self: watcher): watchevent?
+			if #queue == 0 then
+				return nil
+			end
+			local item = table.remove(queue, 1)
+			return item.event
+		end,
+		close = function(self: watcher): ()
+			if handle then
+				handle:close()
+			end
+		end,
+	}
 end
 
 function fslib.exists(path: pathlike): boolean
@@ -139,7 +165,7 @@ function fslib.removedirectory(path: pathlike, options: removedirectoryoptions?)
 	end
 end
 
--- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead.
+--- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead. See example/walk_directory.luau for usage.
 function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
 	local queue = { path }
 

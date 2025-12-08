@@ -5,7 +5,7 @@ local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
 
 local arguments = require("@self/lib/arguments")
-local files = require("@self/lib/files")
+local files = require("./lib/files")
 local types = require("@self/lib/types")
 
 local function exhaustiveMatch(value: never): never

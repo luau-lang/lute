@@ -30,8 +30,6 @@ bool RequireVfs::isRequireAllowed(lua_State* L, std::string_view requirerChunkna
 
 NavigationStatus RequireVfs::reset(lua_State* L, std::string_view requirerChunkname)
 {
-    atFakeRoot = false;
-
     if ((requirerChunkname.size() >= 6 && requirerChunkname.substr(0, 6) == "@@std/"))
     {
         vfsType = VFSType::Std;
@@ -64,19 +62,6 @@ NavigationStatus RequireVfs::reset(lua_State* L, std::string_view requirerChunkn
 
 NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
 {
-    if (path == "$std")
-    {
-        atFakeRoot = false;
-        vfsType = VFSType::Std;
-        return stdLibVfs.resetToPath("@std");
-    }
-    else if (path == "$lute")
-    {
-        vfsType = VFSType::Lute;
-        lutePath = "@lute";
-        return NavigationStatus::Success;
-    }
-
     NavigationStatus status = NavigationStatus::NotFound;
     switch (vfsType)
     {
@@ -100,10 +85,26 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
     return status;
 }
 
+NavigationStatus RequireVfs::toAliasFallback(lua_State* L, std::string_view aliasUnprefixed)
+{
+    if (aliasUnprefixed == "std")
+    {
+        vfsType = VFSType::Std;
+        return stdLibVfs.resetToPath("@std");
+    }
+    else if (aliasUnprefixed == "lute")
+    {
+        vfsType = VFSType::Lute;
+        lutePath = "@lute";
+        return NavigationStatus::Success;
+    }
+
+    return NavigationStatus::NotFound;
+}
+
 NavigationStatus RequireVfs::toParent(lua_State* L)
 {
     NavigationStatus status = NavigationStatus::NotFound;
-
     switch (vfsType)
     {
     case VFSType::Disk:
@@ -124,23 +125,11 @@ NavigationStatus RequireVfs::toParent(lua_State* L)
         luaL_error(L, "cannot get the parent of @lute");
         break;
     }
-
-    if (status == NavigationStatus::NotFound)
-    {
-        if (atFakeRoot)
-            return NavigationStatus::NotFound;
-
-        atFakeRoot = true;
-        return NavigationStatus::Success;
-    }
-
     return status;
 }
 
 NavigationStatus RequireVfs::toChild(lua_State* L, std::string_view name)
 {
-    atFakeRoot = false;
-
     switch (vfsType)
     {
     case VFSType::Disk:
@@ -157,7 +146,6 @@ NavigationStatus RequireVfs::toChild(lua_State* L, std::string_view name)
         luaL_error(L, "'%s' is not a lute library", std::string(name).c_str());
         break;
     }
-
     return NavigationStatus::NotFound;
 }
 
@@ -287,9 +275,6 @@ std::string RequireVfs::getCacheKey(lua_State* L) const
 
 ConfigStatus RequireVfs::getConfigStatus(lua_State* L) const
 {
-    if (atFakeRoot)
-        return ConfigStatus::PresentJson;
-
     ConfigStatus status = ConfigStatus::Absent;
     switch (vfsType)
     {
@@ -315,17 +300,6 @@ ConfigStatus RequireVfs::getConfigStatus(lua_State* L) const
 
 std::string RequireVfs::getConfig(lua_State* L) const
 {
-    if (atFakeRoot)
-    {
-        std::string globalConfig = "{\n"
-                                   "    \"aliases\": {\n"
-                                   "        \"std\": \"$std\",\n"
-                                   "        \"lute\": \"$lute\",\n"
-                                   "    }\n"
-                                   "}\n";
-        return globalConfig;
-    }
-
     std::optional<std::string> configContents;
     switch (vfsType)
     {

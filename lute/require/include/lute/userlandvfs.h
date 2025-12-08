@@ -3,7 +3,9 @@
 #include "lute/filevfs.h"
 #include "lute/modulepath.h"
 
-#include <map>
+#include "Luau/DenseHash.h"
+#include "Luau/StringUtils.h"
+
 #include <optional>
 #include <string>
 #include <utility>
@@ -17,9 +19,17 @@ struct Identifier
     std::string name;
     std::string version;
 
-    bool operator<(const Identifier& other) const
+    bool operator==(const Identifier& other) const
     {
-        return std::tie(name, version) < std::tie(other.name, other.version);
+        return std::tie(name, version) == std::tie(other.name, other.version);
+    }
+};
+
+struct IdentifierHashDefault
+{
+    size_t operator()(const Identifier& id) const
+    {
+        return Luau::detail::DenseHashDefault<std::string>()(Luau::format("%s:%s", id.name.c_str(), id.version.c_str()));
     }
 };
 
@@ -44,13 +54,13 @@ public:
     bool isModulePresent() const;
 
     std::string getCurrentPath() const;
+    Info getInfo() const;
 
 private:
-    Subtree(ModulePath currentModulePath, std::string generatedRootLuaurc);
+    Subtree(ModulePath currentModulePath, Info info);
 
     ModulePath currentModulePath;
-    std::string generatedRootLuaurc;
-    bool atGeneratedRoot = false;
+    Info info;
 };
 
 class UserlandVfs
@@ -59,7 +69,7 @@ public:
     static UserlandVfs create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> allDependencies);
 
     NavigationStatus resetToPath(const std::string& path);
-    NavigationStatus jumpToDependencySubtree(const std::string& identifierStringified);
+    NavigationStatus toAliasFallback(std::string_view aliasUnprefixed);
 
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
@@ -73,8 +83,11 @@ public:
     std::string getCurrentPath() const;
 
 private:
-    UserlandVfs(std::map<Identifier, Info> allDependencies, std::string generatedRootLuaurc);
-    NavigationStatus jumpToDependencySubtreeImpl(Identifier identifier);
+    using DependencyMap = Luau::DenseHashMap<Identifier, Info, IdentifierHashDefault>;
+
+    UserlandVfs(std::vector<Identifier> directDependencies, DependencyMap allDependencies);
+
+    NavigationStatus jumpToDependencySubtree(const Identifier& dependency);
 
     enum class VFSType
     {
@@ -86,10 +99,9 @@ private:
 
     FileVfs fileVfs;
     std::optional<Subtree> currentSubtree = std::nullopt;
-    std::map<Identifier, Info> allDependencies;
 
-    bool atDiskFakeRoot = false;
-    std::string generatedRootLuaurc;
+    std::vector<Identifier> directDependencies;
+    DependencyMap allDependencies;
 };
 
 } // namespace Package

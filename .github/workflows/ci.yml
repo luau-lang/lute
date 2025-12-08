@@ -6,8 +6,10 @@ on:
   pull_request:
     branches: ["primary"]
 
+# CI on the "primary" branch opts out of concurrency grouping by using the run's
+# unique run_id.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/primary' && github.run_id || github.ref }}
   cancel-in-progress: true
 
 jobs:
