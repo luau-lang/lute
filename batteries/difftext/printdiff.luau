@@ -45,15 +45,6 @@ local function visualizeCharDiff(a: string, b: string): (string, string)
 	return table.concat(srcVisual, ""), table.concat(destVisual, "")
 end
 
--- avoids nesting ANSI characters
-local function safeColor(s: string, formatter: (string, boolean?) -> string, annotation: string)
-	local function containsAnsi(s: string)
-		return s:find("\27%[") ~= nil
-	end
-
-	return if containsAnsi(s) then formatter(annotation) .. s else formatter(annotation .. s)
-end
-
 local function formatLineSideHeader(
 	operation: types.diffoperationkey,
 	maxNumWidth: number,
@@ -93,6 +84,12 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 	local i = 1
 	local result: { string } = {}
 	local oldLine, newLine = 1, 1
+
+	-- Helper to format line numbers
+	local function lineNums(old: number?, new: number?)
+		return if includeLineNumbers then { oldLine = old, newLine = new } else nil
+	end
+
 	while i <= #diff do
 		local op = diff[i]
 
@@ -104,23 +101,11 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 				local srcLine, destLine = visualizeCharDiff(deletes[1], adds[1])
 				table.insert(
 					result,
-					richterm.brightRed(
-						formatLineSideHeader(
-							"DELETE",
-							maxLineDigits,
-							if includeLineNumbers then { oldLine = oldLine } else nil
-						)
-					) .. srcLine
+					richterm.brightRed(formatLineSideHeader("DELETE", maxLineDigits, lineNums(oldLine, nil))) .. srcLine
 				)
 				table.insert(
 					result,
-					richterm.brightGreen(
-						formatLineSideHeader(
-							"ADD",
-							maxLineDigits,
-							if includeLineNumbers then { newLine = newLine } else nil
-						)
-					) .. destLine
+					richterm.brightGreen(formatLineSideHeader("ADD", maxLineDigits, lineNums(nil, newLine))) .. destLine
 				)
 				oldLine, newLine = oldLine + 1, newLine + 1
 			else
@@ -128,11 +113,7 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 					table.insert(
 						result,
 						richterm.brightRed(
-							formatLineSideHeader(
-								"DELETE",
-								maxLineDigits,
-								if includeLineNumbers then { oldLine = oldLine } else nil
-							) .. deleted
+							formatLineSideHeader("DELETE", maxLineDigits, lineNums(oldLine, nil)) .. deleted
 						)
 					)
 					oldLine += 1
@@ -141,25 +122,14 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 					table.insert(
 						result,
 						richterm.brightGreen(
-							formatLineSideHeader(
-								"ADD",
-								maxLineDigits,
-								if includeLineNumbers then { newLine = newLine } else nil
-							) .. added
+							formatLineSideHeader("ADD", maxLineDigits, lineNums(nil, newLine)) .. added
 						)
 					)
 					newLine += 1
 				end
 			end
 		else -- EQUAL
-			table.insert(
-				result,
-				formatLineSideHeader(
-					"EQUAL",
-					maxLineDigits,
-					if includeLineNumbers then { oldLine = oldLine, newLine = newLine } else nil
-				) .. op.text
-			)
+			table.insert(result, formatLineSideHeader("EQUAL", maxLineDigits, lineNums(oldLine, newLine)) .. op.text)
 			oldLine, newLine = oldLine + 1, newLine + 1
 			i += 1
 		end
@@ -175,10 +145,8 @@ local function prettydiff(
 		includeLineNumbers: boolean?,
 	}?
 ): string
-	if options then
-		if options.detailed then
-			return printDiffByLineDetailed(a, b, options.includeLineNumbers)
-		end
+	if options and options.detailed then
+		return printDiffByLineDetailed(a, b, options.includeLineNumbers)
 	end
 
 	local result = {} :: { string }
@@ -186,48 +154,27 @@ local function prettydiff(
 	local maxNumLines = math.max(#a:split("\n"), #b:split("\n"))
 	local maxLineDigits = #tostring(maxNumLines)
 	local oldLine, newLine = 1, 1
+
+	-- Helper to format line numbers
+	local function lineNums(old: number?, new: number?)
+		return if options and options.includeLineNumbers then { oldLine = old, newLine = new } else nil
+	end
+
 	for i, op in diff do
 		if op.key == "ADD" then
 			table.insert(
 				result,
-				richterm.brightGreen(
-					formatLineSideHeader(
-						op.key,
-						maxLineDigits,
-						if options and options.includeLineNumbers
-							then {
-								newLine = newLine,
-							}
-							else nil
-					) .. op.text
-				)
+				richterm.brightGreen(formatLineSideHeader(op.key, maxLineDigits, lineNums(nil, newLine)) .. op.text)
 			)
 			newLine += 1
 		elseif op.key == "DELETE" then
 			table.insert(
 				result,
-				richterm.brightRed(formatLineSideHeader(
-					op.key,
-					maxLineDigits,
-					if options and options.includeLineNumbers
-						then {
-							oldLine = oldLine,
-						}
-						else nil
-				) .. op.text)
+				richterm.brightRed(formatLineSideHeader(op.key, maxLineDigits, lineNums(oldLine, nil)) .. op.text)
 			)
 			oldLine += 1
 		else
-			table.insert(result, formatLineSideHeader(
-				op.key,
-				maxLineDigits,
-				if options and options.includeLineNumbers
-					then {
-						oldLine = oldLine,
-						newLine = newLine,
-					}
-					else nil
-			) .. op.text)
+			table.insert(result, formatLineSideHeader(op.key, maxLineDigits, lineNums(oldLine, newLine)) .. op.text)
 			oldLine, newLine = oldLine + 1, newLine + 1
 		end
 	end
