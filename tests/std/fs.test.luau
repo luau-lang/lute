@@ -2,6 +2,7 @@ local fs = require("@std/fs")
 local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
+local task = require("@lute/task")
 
 local tmpdir = system.tmpdir()
 
@@ -89,28 +90,30 @@ test.suite("FsSuite", function(suite)
 		fs.remove(src)
 	end)
 
-	suite:case("watch_callback_on_change", function(assert)
-		local watched = path.join(tmpdir, "watched.txt")
-		if fs.exists(watched) then
-			fs.remove(watched)
-		end
+	suite:case("watch_iterator_on_change", function(assert)
+		local watchedFileName = "watched.txt"
+		local watched = path.join(tmpdir, watchedFileName)
 
-		local triggered = false
-		local handle = fs.watch(tmpdir, function(filename, event)
-			if tostring(filename):find("watched.txt") then
-				triggered = true
+		local watcher = fs.watch(tmpdir)
+
+		fs.writestringtofile(watched, "hi")
+
+		-- Note: we had a timeout for this loop before, but it was leading to a flaky test where event = nil, so we're removing it.
+		-- If this hangs indefinitely at, we'll see this test fail later and revisit.
+		local start = os.clock()
+		local event
+		repeat
+			event = watcher:next()
+			if not event then
+				task.wait(0.01)
 			end
-		end)
+		until event
 
-		fs.writestringtofile(watched, "x")
+		print("Watch iterator time taken: " .. (os.clock() - start))
+		assert.neq(event, nil)
+		assert.eq(event.change or event.rename, true)
 
-		local start = os.time()
-		while not triggered and os.time() - start < 2 do
-		end
-
-		assert.eq(type(triggered) == "boolean", true)
-
-		handle:close()
+		watcher:close()
 		if fs.exists(watched) then
 			fs.remove(watched)
 		end

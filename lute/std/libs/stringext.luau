@@ -38,4 +38,22 @@ function stringext.trim(str: string): string
 	return str:match("^%s*(.-)%s*$") :: string
 end
 
+-- Counts the number of occurrences of pattern in str between startPos and endPos (inclusive)
+function stringext.count(str: string, pattern: string, startPos: number?, endPos: number?): number
+	if startPos and endPos then
+		str = str:sub(startPos, endPos)
+	elseif startPos then
+		str = str:sub(startPos)
+	elseif endPos then
+		str = str:sub(1, endPos)
+	end
+
+	local count = 0
+	for _ in str:gmatch(pattern) do
+		count += 1
+	end
+
+	return count
+end
+
 return table.freeze(stringext)

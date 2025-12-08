@@ -23,6 +23,9 @@ static std::optional<std::string> readCliModule(const std::string& path)
 
 static bool isCliDirectory(const std::string& path)
 {
+    if (path == "@cli")
+        return true;
+
     CliModuleResult result = getCliModule(path);
     return result.type == CliModuleType::Directory;
 }

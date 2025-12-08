@@ -1,6 +1,7 @@
 --!strict
 -- @std/test/assert
 -- Standard assertion library for Luau
+local stringext = require("@std/stringext")
 
 local assertions = {}
 
@@ -10,16 +11,16 @@ function assertions.eq<T>(lhs: T, rhs: T, msg: string?)
 	end
 end
 
-function assertions.neq<T>(lhs: T, rhs: T)
+function assertions.neq<T>(lhs: T, rhs: T, msg: string?)
 	if lhs == rhs then
-		error({ msg = `{lhs} == {rhs}` })
+		error({ msg = msg or `{lhs} == {rhs}` })
 	end
 end
 
-function assertions.errors(callback: () -> ())
+function assertions.errors(callback: () -> (), msg: string?)
 	local success = pcall(callback)
 	if success then
-		error({ msg = `{callback} did not throw error.` })
+		error({ msg = msg or `{callback} did not throw error.` })
 	end
 end
 
@@ -83,15 +84,15 @@ end
 
 function assertions.buffereq(lhs: buffer, rhs: buffer)
 	if typeof(lhs) ~= "buffer" then
-		error(`lhs is of type {typeof(lhs)}, not buffer`)
+		error({ msg = `lhs is of type {typeof(lhs)}, not buffer` })
 	end
 
 	if typeof(rhs) ~= "buffer" then
-		error(`rhs is of type {typeof(rhs)}, not buffer`)
+		error({ msg = `rhs is of type {typeof(rhs)}, not buffer` })
 	end
 
 	if buffer.len(lhs) ~= buffer.len(rhs) then
-		error("buffers are of unequal length")
+		error({ msg = "buffers are of unequal length" })
 	end
 
 	local len = buffer.len(lhs)
@@ -100,8 +101,45 @@ function assertions.buffereq(lhs: buffer, rhs: buffer)
 		local right = buffer.readu8(rhs, offset)
 
 		if left ~= right then
-			error(string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right))
+			error({ msg = string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right) })
 		end
+	end
+end
+
+function assertions.erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...)
+	local success, err = pcall(func, ...)
+	if success then
+		error({ msg = "Function did not error as expected." })
+	end
+
+	local actualErrorMessage = tostring(err)
+	-- pcall appends filename and line number of the error, so we check suffix only
+	if not stringext.hassuffix(actualErrorMessage, expectedErrorMessage) then
+		error({ msg = `Expected suffix of error message "{expectedErrorMessage}", but got "{actualErrorMessage}"` })
+	end
+end
+
+function assertions.strcontains(haystack: string, needle: string, msg: string?, instances: number?)
+	instances = instances or 1
+
+	if instances <= 0 then
+		error({ msg = "instances must be greater than 0" })
+	end
+
+	if instances == 1 then
+		if haystack:find(needle, 1, true) == nil then
+			error({ msg = if msg then msg else `Expected "{haystack}" to contain "{needle}".` })
+		end
+	else
+		if #haystack:split(needle) ~= instances + 1 then
+			error({ msg = if msg then msg else `Expected "{haystack}" to contain "{needle}" {instances} times.` })
+		end
+	end
+end
+
+function assertions.strnotcontains(haystack: string, needle: string, msg: string?)
+	if haystack:find(needle, 1, true) ~= nil then
+		error({ msg = if msg then msg else `Expected "{haystack}" to not contain "{needle}".` })
 	end
 end
 

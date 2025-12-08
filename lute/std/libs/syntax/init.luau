@@ -5,9 +5,22 @@ local luau = require("@lute/luau")
 
 export type span = types.span
 
-local span = table.freeze({
+local span = {
 	create = luau.span.create,
-})
+}
+
+function span.subsumes(haystack: span, needle: span): boolean
+	return (
+		if haystack.beginline == needle.beginline
+			then haystack.begincolumn <= needle.begincolumn
+			else haystack.beginline < needle.beginline
+	)
+		and (
+			if haystack.endline == needle.endline
+				then haystack.endcolumn >= needle.endcolumn
+				else haystack.endline > needle.endline
+		)
+end
 
 export type Whitespace = types.Whitespace
 export type SingleLineComment = types.SingleLineComment
@@ -164,4 +177,9 @@ export type AstNode = types.AstNode
 
 export type ParseResult = types.ParseResult
 
-return table.freeze({ parseblock = parser.parseblock, parseexpr = parser.parseexpr, parse = parser.parse, span = span })
+return table.freeze({
+	parseblock = parser.parseblock,
+	parseexpr = parser.parseexpr,
+	parse = parser.parse,
+	span = table.freeze(span),
+})
