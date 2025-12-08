@@ -399,7 +399,11 @@ test.suite("printdiff", function(suite: any)
 
 		-- Detailed mode shows both old and new lines with character-level highlighting
 		assert.eq(#lines, 2)
-		assert.eq(lines[1], composeDetailedRemoval("hello world", { [8] = true }), `Not equal:\n{difftext.prettydiff(lines[1], composeDetailedRemoval("hello world", { [8] = true }))}`)
+		assert.eq(
+			lines[1],
+			composeDetailedRemoval("hello world", { [8] = true }),
+			`Not equal:\n{difftext.prettydiff(lines[1], composeDetailedRemoval("hello world", { [8] = true }))}`
+		)
 		assert.eq(lines[2], composeDetailedAddition("hello wirld", { [8] = true }))
 	end)
 

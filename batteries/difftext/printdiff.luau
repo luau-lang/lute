@@ -45,9 +45,17 @@ local function visualizeCharDiff(a: string, b: string): (string, string)
 	return table.concat(srcVisual, ""), table.concat(destVisual, "")
 end
 
-local function formatLineWithSideHeader(
+-- avoids nesting ANSI characters
+local function safeColor(s: string, formatter: (string, boolean?) -> string, annotation: string)
+	local function containsAnsi(s: string)
+		return s:find("\27%[") ~= nil
+	end
+
+	return if containsAnsi(s) then formatter(annotation) .. s else formatter(annotation .. s)
+end
+
+local function formatLineSideHeader(
 	operation: types.diffoperationkey,
-	line: string,
 	maxNumWidth: number,
 	lineNumbers: {
 		oldLine: number?,
@@ -67,20 +75,16 @@ local function formatLineWithSideHeader(
 	local commonPadding = padding(commonAvailableSpace)
 	local removalPadding = padding(commonAvailableSpace - 1) -- subtract one to account for additional space on the right side of deletion (deletion always of format {oldline}  |)
 	if operation == "EQUAL" then
-		return if lineNumbers then `  {commonPadding}{lineNumbers.oldLine} {lineNumbers.newLine}| {line}` else line
+		return if lineNumbers then `  {commonPadding}{lineNumbers.oldLine} {lineNumbers.newLine}| ` else ""
 	elseif operation == "ADD" then
-		return if lineNumbers
-			then richterm.brightGreen(`+ {commonPadding} {lineNumbers.newLine}| {line}`)
-			else richterm.brightGreen(`+ {line}`)
+		return if lineNumbers then `+ {commonPadding} {lineNumbers.newLine}| ` else "+ "
 	elseif operation == "DELETE" then
-		return if lineNumbers
-			then richterm.brightRed(`- {removalPadding}{lineNumbers.oldLine}  | {line}`)
-			else richterm.brightRed(`- {line}`)
+		return if lineNumbers then `- {removalPadding}{lineNumbers.oldLine}  | ` else "- "
 	end
 
 	return "" -- unreachable
 end
--- mabye just format the header instead of whole line? will be more extensible then and perhaps clear up some of the code... 
+-- mabye just format the header instead of whole line? will be more extensible then and perhaps clear up some of the code...
 
 local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers: boolean?): string
 	local maxNumLines = math.max(#a:split("\n"), #b:split("\n"))
@@ -100,32 +104,35 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 				local srcLine, destLine = visualizeCharDiff(deletes[1], adds[1])
 				table.insert(
 					result,
-					formatLineWithSideHeader(
-						"DELETE",
-						srcLine,
-						maxLineDigits,
-						if includeLineNumbers then { oldLine = oldLine } else nil
-					)
+					richterm.brightRed(
+						formatLineSideHeader(
+							"DELETE",
+							maxLineDigits,
+							if includeLineNumbers then { oldLine = oldLine } else nil
+						)
+					) .. srcLine
 				)
 				table.insert(
 					result,
-					formatLineWithSideHeader(
-						"ADD",
-						destLine,
-						maxLineDigits,
-						if includeLineNumbers then { newLine = newLine } else nil
-					)
+					richterm.brightGreen(
+						formatLineSideHeader(
+							"ADD",
+							maxLineDigits,
+							if includeLineNumbers then { newLine = newLine } else nil
+						)
+					) .. destLine
 				)
 				oldLine, newLine = oldLine + 1, newLine + 1
 			else
 				for j, deleted in deletes do
 					table.insert(
 						result,
-						formatLineWithSideHeader(
-							"DELETE",
-							deleted,
-							maxLineDigits,
-							if includeLineNumbers then { oldLine = oldLine } else nil
+						richterm.brightRed(
+							formatLineSideHeader(
+								"DELETE",
+								maxLineDigits,
+								if includeLineNumbers then { oldLine = oldLine } else nil
+							) .. deleted
 						)
 					)
 					oldLine += 1
@@ -133,11 +140,12 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 				for j, added in adds do
 					table.insert(
 						result,
-						formatLineWithSideHeader(
-							"ADD",
-							added,
-							maxLineDigits,
-							if includeLineNumbers then { newLine = newLine } else nil
+						richterm.brightGreen(
+							formatLineSideHeader(
+								"ADD",
+								maxLineDigits,
+								if includeLineNumbers then { newLine = newLine } else nil
+							) .. added
 						)
 					)
 					newLine += 1
@@ -146,12 +154,11 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 		else -- EQUAL
 			table.insert(
 				result,
-				formatLineWithSideHeader(
+				formatLineSideHeader(
 					"EQUAL",
-					op.text,
 					maxLineDigits,
 					if includeLineNumbers then { oldLine = oldLine, newLine = newLine } else nil
-				)
+				) .. op.text
 			)
 			oldLine, newLine = oldLine + 1, newLine + 1
 			i += 1
@@ -183,27 +190,44 @@ local function prettydiff(
 		if op.key == "ADD" then
 			table.insert(
 				result,
-				formatLineWithSideHeader(op.key, op.text, maxLineDigits, if options and options.includeLineNumbers then {
-					newLine = newLine,
-				} else nil)
+				richterm.brightGreen(
+					formatLineSideHeader(
+						op.key,
+						maxLineDigits,
+						if options and options.includeLineNumbers
+							then {
+								newLine = newLine,
+							}
+							else nil
+					) .. op.text
+				)
 			)
 			newLine += 1
 		elseif op.key == "DELETE" then
 			table.insert(
 				result,
-				formatLineWithSideHeader(op.key, op.text, maxLineDigits, if options and options.includeLineNumbers then {
-					oldLine = oldLine,
-				} else nil)
+				richterm.brightRed(formatLineSideHeader(
+					op.key,
+					maxLineDigits,
+					if options and options.includeLineNumbers
+						then {
+							oldLine = oldLine,
+						}
+						else nil
+				) .. op.text)
 			)
 			oldLine += 1
 		else
-			table.insert(
-				result,
-				formatLineWithSideHeader(op.key, op.text, maxLineDigits, if options and options.includeLineNumbers then {
-					oldLine = oldLine,
-					newLine = newLine,
-				} else nil)
-			)
+			table.insert(result, formatLineSideHeader(
+				op.key,
+				maxLineDigits,
+				if options and options.includeLineNumbers
+					then {
+						oldLine = oldLine,
+						newLine = newLine,
+					}
+					else nil
+			) .. op.text)
 			oldLine, newLine = oldLine + 1, newLine + 1
 		end
 	end
