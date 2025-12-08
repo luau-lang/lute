@@ -75,7 +75,6 @@ local function formatLineSideHeader(
 
 	return "" -- unreachable
 end
--- mabye just format the header instead of whole line? will be more extensible then and perhaps clear up some of the code...
 
 local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers: boolean?): string
 	local maxNumLines = math.max(#a:split("\n"), #b:split("\n"))
