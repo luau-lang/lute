@@ -184,7 +184,7 @@ test.suite("PathWin32FormatSuite", function(suite)
 
 	suite:case("format_string_returns_same", function(assert)
 		local result = path.win32.format("/home/user/file.txt")
-		assert.eq(result, "home\\user\\file.txt")
+		assert.eq(result, "/home/user/file.txt")
 	end)
 end)
 
