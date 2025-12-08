@@ -26,7 +26,16 @@ doSomething()
 
 print(richterm.bold("Diff"))
 print(difftext.prettydiff(src, destination))
+print(richterm.bold("Diff (w/ line numbers)"))
+print(difftext.prettydiff(src, destination, {
+    includeLineNumbers = true
+}))
 print(richterm.bold("Diff (Detailed)"))
 print(difftext.prettydiff(src, destination, {
 	detailed = true,
+}))
+print(richterm.bold("Diff (Detailed w/ Line Numbers)"))
+print(difftext.prettydiff(src, destination, {
+	detailed = true,
+	includeLineNumbers = true,
 }))

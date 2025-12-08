@@ -7,7 +7,7 @@ local diff = difftext.diff
 -- Each diff operation has structure: { key: "EQUAL" | "ADD" | "DELETE", text: string }
 -- Order matters - the sequence of operations defines the transformation
 
-test.suite("myersdiff - bychar", function(suite)
+test.suite("myersdiff - bychar", function(suite: any)
 	suite:case("identical strings", function(assert)
 		local a = "abc"
 		local b = "abc"
@@ -399,7 +399,7 @@ test.suite("printdiff", function(suite: any)
 
 		-- Detailed mode shows both old and new lines with character-level highlighting
 		assert.eq(#lines, 2)
-		assert.eq(lines[1], composeDetailedRemoval("hello world", { [8] = true }))
+		assert.eq(lines[1], composeDetailedRemoval("hello world", { [8] = true }), `Not equal:\n{difftext.prettydiff(lines[1], composeDetailedRemoval("hello world", { [8] = true }))}`)
 		assert.eq(lines[2], composeDetailedAddition("hello wirld", { [8] = true }))
 	end)
 
