@@ -2,6 +2,7 @@ local pathlib = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
+local windowsPath = require("@std/path/win32")
 
 test.suite("ProcessSuite", function(suite)
 	suite:case("homedir_and_cwd_and_execpath", function(assert)
@@ -29,20 +30,20 @@ test.suite("ProcessSuite", function(suite)
 		local rootdir: string = "/"
 		local root: pathlib.path? = nil
 		if system.win32 then
-			root = pathlib.win32.drive(process.cwd())
+			root = pathlib.win32.drive(process.cwd() :: windowsPath.path)
 			rootdir = pathlib.format(root)
 		end
 		local r = process.run({ "pwd" }, { cwd = rootdir })
 		if system.win32 then
-			assert(root ~= nil and root.driveLetter ~= nil)
-			check.tableeq(r, {
+			assert(root ~= nil and (root :: windowsPath.path).drive ~= nil)
+			check.tableeq(r, { -- LUAUFIX: ProcessResult </: { [unknown] : unknown } seems wrong
 				exitcode = 0,
-				stdout = `/{root.driveLetter:lower()}\n`,
+				stdout = `/{root.drive:lower()}\n`,
 				stderr = "",
 				ok = true,
 			})
 		else
-			check.tableeq(r, {
+			check.tableeq(r, { -- LUAUFIX: ProcessResult </: { [unknown] : unknown } seems wrong
 				exitcode = 0,
 				stdout = "/\n",
 				stderr = "",
@@ -51,7 +52,7 @@ test.suite("ProcessSuite", function(suite)
 		end
 
 		local r2 = process.system("echo hello!")
-		check.tableeq(r2, {
+		check.tableeq(r2, { -- LUAUFIX: ProcessResult </: { [unknown] : unknown } seems wrong
 			exitcode = 0,
 			stdout = "hello!\n",
 			stderr = "",
@@ -61,7 +62,7 @@ test.suite("ProcessSuite", function(suite)
 
 	suite:case("run_nonzero_exitcode", function(assert)
 		local r = process.run({ "sh", "-c", "exit 41" })
-		assert.tableeq(r, {
+		assert.tableeq(r, { -- LUAUFIX: ProcessResult </: { [unknown] : unknown } seems wrong
 			exitcode = 41,
 			stdout = "",
 			stderr = "",
