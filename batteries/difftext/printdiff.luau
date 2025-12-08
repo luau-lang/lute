@@ -53,24 +53,38 @@ local function formatLineSideHeader(
 		newLine: number?,
 	}?
 )
-	-- each line should be:SPACE/OP {oldLine} {newLine}|
-	-- we want numbers to be right aligned with the |
-	-- so we should just padd on the left of oldline, depending on how many chars are in our numbers tg
-	-- we want every side header to be of length: 11 (we line nums accounting for 8 of those)
-	local newLineLen = if lineNumbers then #tostring(lineNumbers.newLine or "") else 0
-	local oldLineLen = if lineNumbers then #tostring(lineNumbers.oldLine or "") else 0
-	local function padding(leftoverSpace: number)
-		return (" "):rep(leftoverSpace)
+	-- side header structure:
+	-- 		ALWAYS has length maxNumWidth*2 + 3
+	-- 		We reserve 3 chars for: op at front of line: +/-/" ", space b/w op and first line #, space b/w line #s
+	-- 		we pad each side-header according to this structure, s.t each has the proper length and maintains alignment
+
+	local function padding(width: number)
+		return (" "):rep(width)
 	end
-	local commonAvailableSpace = (maxNumWidth * 2) - (oldLineLen + newLineLen)
-	local commonPadding = padding(commonAvailableSpace)
-	local removalPadding = padding(commonAvailableSpace - 1) -- subtract one to account for additional space on the right side of deletion (deletion always of format {oldline}  |)
+
+	local oldStr = tostring(if lineNumbers then lineNumbers.oldLine else "")
+	local newStr = tostring(if lineNumbers then lineNumbers.newLine else "")
 	if operation == "EQUAL" then
-		return if lineNumbers then `  {commonPadding}{lineNumbers.oldLine} {lineNumbers.newLine}| ` else ""
+		if not lineNumbers then
+			return ""
+		end
+		local leftPad = maxNumWidth - #oldStr
+		local rightPad = maxNumWidth - #newStr
+		return `  {padding(leftPad)}{oldStr} {padding(rightPad)}{newStr}| `
 	elseif operation == "ADD" then
-		return if lineNumbers then `+ {commonPadding} {lineNumbers.newLine}| ` else "+ "
+		if not lineNumbers then
+			return "+ "
+		end
+		local leftPad = maxNumWidth -- space for missing oldLine
+		local rightPad = maxNumWidth - #newStr
+		return `+ {padding(leftPad)} {padding(rightPad)}{newStr}| `
 	elseif operation == "DELETE" then
-		return if lineNumbers then `- {removalPadding}{lineNumbers.oldLine}  | ` else "- "
+		if not lineNumbers then
+			return "- "
+		end
+		local leftPad = maxNumWidth - #oldStr
+		local rightPad = maxNumWidth -- space for missing newLine
+		return `- {padding(leftPad)}{oldStr} {padding(rightPad)}| `
 	end
 
 	return "" -- unreachable

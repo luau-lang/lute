@@ -402,7 +402,7 @@ test.suite("printdiff", function(suite: any)
 		assert.eq(#lines, 10)
 		for i, line in lines do
 			if i < 10 then
-				assert.eq(line, `    {i} {i}| line{i}`)
+				assert.eq(line, `   {i}  {i}| line{i}`)
 			else
 				assert.eq(line, `  {i} {i}| line{i}`)
 			end
@@ -468,9 +468,9 @@ test.suite("printdiff", function(suite: any)
 		assert.eq(#lines, 11)
 		for i = 1, 9 do
 			local line = lines[i]
-			assert.eq(line, `    {i} {i}| line{i}`)
+			assert.eq(line, `   {i}  {i}| line{i}`)
 		end
-		assert.eq(lines[10], composeDetailedRemoval("line10", { [5] = true, [6] = true }, " 10  | "))
+		assert.eq(lines[10], composeDetailedRemoval("line10", { [5] = true, [6] = true }, "10   | "))
 		assert.eq(lines[11], composeDetailedAddition("lineten", { [5] = true, [6] = true, [7] = true }, "   10| "))
 	end)
 end)
