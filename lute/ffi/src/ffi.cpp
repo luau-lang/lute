@@ -1,5 +1,4 @@
 #include "lute/ffi.h"
-#include "ffi_c.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -19,13 +18,24 @@ int luaopen_ffi(lua_State* L)
     return 1;
 }
 
+const struct {
+    const char* libname;
+    int (*open)(lua_State* L);
+} ABI_LIBS[] = {
+    {"c", ffi::luaopen_cffi},
+    {NULL, NULL}
+};
+
 int luteopen_ffi(lua_State* L)
 {
-    lua_createtable(L, 0, std::size(ffi::lib) - 1 + std::size(ffi::properties));
-    luaL_register(L, nullptr, ffi::lib);
+    lua_createtable(L, 0, std::size(ABI_LIBS));
 
-    ffi::openCInterface(L);
-    lua_setfield(L, -2, ffi::kCInterfaceProperty);
+    for (int i = 0; ABI_LIBS[i].libname != NULL; ++i)
+    {
+        ABI_LIBS[i].open(L);
+
+        lua_setfield(L, -2, ABI_LIBS[i].libname);
+    }
 
     lua_setreadonly(L, -1, 1);
 
