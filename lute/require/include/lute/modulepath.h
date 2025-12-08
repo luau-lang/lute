@@ -31,6 +31,7 @@ struct ResolvedRealPath
     std::string realPath;
     std::optional<std::string> relativePath;
     PathType type;
+    std::optional<std::string> errMsg;
 };
 
 class ModulePath

@@ -43,7 +43,6 @@
 #include <Windows.h>
 #endif
 
-#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -310,7 +309,8 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
-static std::optional<std::string> getWithRequireByStringSemantics(std::string filePath)
+// Returns whether the filePath could be resolved to a valid file path, and an optional string containing either the valid path or an error message
+static std::pair<bool, std::optional<std::string>> getWithRequireByStringSemantics(std::string filePath)
 {
     std::string normalized = normalizePath(std::move(filePath));
 
@@ -324,26 +324,28 @@ static std::optional<std::string> getWithRequireByStringSemantics(std::string fi
 
     std::optional<ModulePath> mp = ModulePath::create(std::move(rootOfPath), std::move(restOfPath), isFile, isDirectory);
     if (!mp)
-        return std::nullopt;
+        return {false, "Could not initialize ModulePath instance."};
 
     ResolvedRealPath resolved = mp->getRealPath();
     if (resolved.status != NavigationStatus::Success)
-        return std::nullopt;
+        return {false, resolved.errMsg};
 
     if (resolved.type == ResolvedRealPath::PathType::File)
-        return resolved.realPath;
+        return {true, resolved.realPath};
 
-    return std::nullopt;
+    return {false, resolved.errMsg};
 };
 
-static std::optional<std::string> getValidPath(std::string filePath)
+// Returns whether the filePath could be resolved to a valid file path, and an optional string containing either the valid path or an error message
+static std::pair<bool, std::optional<std::string>> getValidPath(std::string filePath)
 {
-    if (std::optional<std::string> path = getWithRequireByStringSemantics(filePath))
-        return *path;
+    auto [ok, path] = getWithRequireByStringSemantics(filePath);
+    if (ok)
+        return {true, path};
 
     // Only fallback to checking .lute/* if the original path has no extension.
     if (filePath.find('.') != std::string::npos)
-        return std::nullopt;
+        return {ok, path};
 
     std::string fallbackPath = joinPaths(".lute", filePath);
     size_t fallbackSize = fallbackPath.size();
@@ -354,10 +356,11 @@ static std::optional<std::string> getValidPath(std::string filePath)
         fallbackPath += ext;
 
         if (isFile(fallbackPath))
-            return fallbackPath;
+            return {true, fallbackPath};
     }
 
-    return std::nullopt;
+
+    return {false, std::nullopt};
 }
 
 int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporter)
@@ -400,10 +403,13 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
     Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
-    std::optional<std::string> validPath = getValidPath(filePath);
-    if (!validPath)
+    auto [ok, validPath] = getValidPath(filePath);
+    if (!ok)
     {
-        reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
+        if (validPath)
+            reporter.formatError("Error while resolving filepath '%s': %s", filePath.c_str(), validPath->c_str());
+        else
+            reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
         return 1;
     }
 
