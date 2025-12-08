@@ -66,7 +66,9 @@ function win32.drive(path: pathlike): path
 end
 
 function win32.format(path: pathlike): string
-	path = if typeof(path) == "string" then win32.parse(path) else path
+	if typeof(path) == "string" then
+		return path
+	end
 
 	if #path.parts == 0 then
 		if path.kind == "unc" then

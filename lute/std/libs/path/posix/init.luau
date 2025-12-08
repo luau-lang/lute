@@ -47,7 +47,9 @@ function posix.extname(path: pathlike): string
 end
 
 function posix.format(path: pathlike): string
-	path = if typeof(path) == "string" then posix.parse(path) else path
+	if typeof(path) == "string" then
+		return path
+	end
 
 	if #path.parts == 0 then
 		return if path.absolute then "/" else "."
