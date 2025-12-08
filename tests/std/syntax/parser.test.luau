@@ -122,23 +122,24 @@ test.suite("Parser", function(suite)
 		assert.eq(leadingToken.leadingtrivia[2].text, "\n")
 	end)
 
-	suite:case("roundtrippableAst", function(assert)
-		local function visitDirectory(directory: string)
-			for _, entry in fs.listdirectory(directory) do
-				if entry.type ~= "file" then
-					continue
-				end
+	local function visitDirectory(directory: string)
+		for _, entry in fs.listdirectory(directory) do
+			if entry.type ~= "file" then
+				continue
+			end
+
+			suite:case(`roundtrippableAst_{entry.name}`, function(assert)
 				local p = path.join(directory, entry.name)
 				local source = fs.readfiletostring(path.format(p))
 				local result = printer.printfile(parser.parse(source))
 
 				assert.eq(source, result)
-			end
+			end)
 		end
+	end
 
-		visitDirectory("examples")
-		visitDirectory("tests/parserExamples")
-	end)
+	visitDirectory("examples")
+	visitDirectory("tests/parserExamples")
 
 	suite:case("lineOffsetsField", function(assert)
 		local singleLineCode = "local x = 1"
