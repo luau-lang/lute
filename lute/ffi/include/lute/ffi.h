@@ -15,10 +15,10 @@ namespace ffi
 
 namespace cffi
 {
-int new_c_function(lua_State* L);
-int load_library(lua_State* L);
-int new_c_struct(lua_State* L);
-int new_c_box(lua_State* L);
+int newCFunction(lua_State* L);
+int loadLibrary(lua_State* L);
+int newCStruct(lua_State* L);
+int newCConstant(lua_State* L);
 }
 
 int luaopen_cffi(lua_State* L);

@@ -74,7 +74,7 @@ static int call(lua_State* L)
     return cfunc->luaCall(L);
 }
 
-int CFunction::pushCFunction(lua_State* L, void (*functionPointer)(), const char* name)
+int CFunction::pushCFunction(lua_State* L, const char* name)
 {
     new (lua_newuserdatatagged(L, sizeof(CFunction), kCFunctionTag)) CFunction{functionPointer, std::move(functionInfo)};
 
@@ -84,7 +84,7 @@ int CFunction::pushCFunction(lua_State* L, void (*functionPointer)(), const char
 
 int CFunctionType::deserialize(lua_State* L, const ffi_arg* data)
 {
-    return CFunction{FFI_FN(*data), functionInfo}.luaCall(L);
+    return CFunction{FFI_FN(*data), functionInfo}.pushCFunction(L, nullptr);
 }
 
 struct ClosureUserData
@@ -173,5 +173,33 @@ void CFunctionType::serialize(lua_State* L, int index, ffi_arg* to, CallState& s
 
     std::memcpy(to, &boundFunction, sizeof(void*));
 }
+
+static int cFunctionIncomplete(lua_State* L)
+{
+    int argCount = lua_gettop(L);
+    std::vector<UserdataReference<CType>> collectedTypes;
+
+    for (int i = 0; i < argCount; ++i)
+    {
+        collectedTypes.push_back(UserdataReference<CType>{L, 1 + i});
+    }
+
+    auto returnType = UserdataReference<CType>{L, lua_upvalueindex(1)};
+
+    new (lua_newuserdatataggedwithmetatable(L, sizeof(CFunctionType), kCTypeTag))
+        CFunctionType{FunctionInfo{std::move(collectedTypes), std::move(returnType)}};
+
+    return 1;
+}
+
+int newCFunction(lua_State* L)
+{
+    luaL_checkudata(L, 1, "ctype");
+
+    lua_pushcclosure(L, cFunctionIncomplete, "cfunctionbuilder", 1);
+
+    return 1;
+}
+
 
 } // namespace ffi::cffi

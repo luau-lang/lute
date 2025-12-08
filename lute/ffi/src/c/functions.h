@@ -67,7 +67,7 @@ public:
     ~CFunction();
 
     int luaCall(lua_State* L);
-    int pushCFunction(lua_State* L, void (*functionPointer)(), const char* name);
+    int pushCFunction(lua_State* L, const char* name);
 
 private:
     void (*functionPointer)();
@@ -89,9 +89,9 @@ public:
         type = ffi_type_pointer;
     }
 
-
     int deserialize(lua_State* L, const ffi_arg* data) override;
     void serialize(lua_State* L, int index, ffi_arg* to, CallState& state) override;
+    bool isSymbolPointer() const override { return true; }
 
     FunctionInfo functionInfo;
 };

@@ -1,15 +1,17 @@
-#include "functions.h"
+#include "ffi.h"
 #include "uv.h"
 #include "lua.h"
 #include "lualib.h"
 
 #include "library.h"
 #include "types.h"
+#include <cstring>
+#include <memory>
 
 namespace ffi::cffi
 {
 
-int load_library(lua_State* L)
+int loadLibrary(lua_State* L)
 {
     const char* lib_path = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -27,24 +29,20 @@ int load_library(lua_State* L)
     while (lua_next(L, 2) != 0)
     {
         const char* sym = luaL_checkstring(L, -2);
-        void (*sym_ptr)();
+        void* sym_ptr;
 
-        if (uv_dlsym(&lib, sym, reinterpret_cast<void**>(&sym_ptr)) != 0)
+        if (uv_dlsym(&lib, sym, &sym_ptr) != 0)
         {
             luaL_error(L, "Failed to load symbol '%s': %s", sym, uv_dlerror(&lib));
         }
 
         auto* type = static_cast<CType*>(luaL_checkudata(L, -1, "ctype"));
+        auto value = std::make_unique<ffi_arg[]>(type->type.size);
 
-        auto* func_type = dynamic_cast<CFunctionType*>(type);
-        if (!func_type)
-        {
-            luaL_error(L, "Expected function type for symbol '%s'", sym);
-        }
+        std::memcpy(value.get(), type->isSymbolPointer() ? &sym_ptr : sym_ptr, type->type.size);
 
-        CFunction function{sym_ptr, std::move(func_type->functionInfo)};
-        function.pushCFunction(L, sym_ptr, sym);
-        
+        type->deserialize(L, value.get());
+
         lua_setfield(L, 3, sym);
 
         lua_pop(L, 1);

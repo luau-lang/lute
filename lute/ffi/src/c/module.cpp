@@ -15,45 +15,12 @@
 
 namespace ffi::cffi
 {
-int pointer(lua_State* L)
-{
-    void* ptr = lua_tobuffer(L, 1, nullptr);
-    lua_pushlightuserdata(L, ptr);
-    return 1;
-}
-
-static int c_function_ctx(lua_State* L)
-{
-    int argCount = lua_gettop(L);
-    std::vector<UserdataReference<CType>> collectedTypes;
-
-    for (int i = 0; i < argCount; ++i)
-    {
-        collectedTypes.push_back(UserdataReference<CType>{L, 1 + i});
-    }
-
-    auto returnType = UserdataReference<CType>{L, lua_upvalueindex(1)};
-
-    new (lua_newuserdatataggedwithmetatable(L, sizeof(CFunctionType), kCTypeTag))
-        CFunctionType{FunctionInfo{std::move(collectedTypes), std::move(returnType)}};
-
-    return 1;
-}
-
-int new_c_function(lua_State* L)
-{
-    luaL_checkudata(L, 1, "ctype");
-
-    lua_pushcclosure(L, c_function_ctx, "cfunctionbuilder", 1);
-
-    return 1;
-}
 
 const luaL_Reg cffiLib[] = {
-    {"fn", new_c_function},
-    {"load", ffi::cffi::load_library},
-    {"ptr", ffi::cffi::pointer},
-    {"struct", ffi::cffi::new_c_struct},
+    {"fn", ffi::cffi::newCFunction},
+    {"load", ffi::cffi::loadLibrary},
+    {"struct", ffi::cffi::newCStruct},
+    {"const", ffi::cffi::newCConstant},
     {NULL, NULL}
 };
 

@@ -5,5 +5,5 @@
 namespace ffi::cffi
 {
     /// Loads a dynamic library and its symbols into Luau based off a table of symbol names and types.
-    int load_library(lua_State* L);
+    int loadLibrary(lua_State* L);
 }

@@ -8,7 +8,7 @@
 namespace ffi::cffi
 {
 
-int new_c_struct(lua_State* L)
+int newCStruct(lua_State* L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
 

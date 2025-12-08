@@ -1,7 +1,9 @@
 #pragma once
 
 #include "lua.h"
+#include "lualib.h"
 #include "ffi.h"
+
 #include <csetjmp>
 #include <functional>
 #include <vector>
@@ -116,7 +118,17 @@ public:
         return obj;
     }
 
+    const T* operator->() const
+    {
+        return obj;
+    }
+
     T* get()
+    {
+        return obj;
+    }
+
+    const T* get() const
     {
         return obj;
     }
@@ -126,6 +138,7 @@ private:
     T* obj;
     int ref = LUA_NOREF;
 };
+
 
 class CType
 {
@@ -138,4 +151,5 @@ public:
 
     virtual int deserialize(lua_State* L, const ffi_arg* data) = 0;
     virtual void serialize(lua_State* L, int index, ffi_arg* to, CallState& state) = 0;
+    virtual bool isSymbolPointer() const = 0;
 };

@@ -8,12 +8,14 @@ target_sources(Lute.FFI PRIVATE
     src/c/functions.cpp
     src/c/primitives.cpp
     src/c/structs.cpp
+    src/c/constant.cpp
 
     src/c/types.h
     src/c/primitives.h
     src/c/functions.h
     src/c/structs.h
     src/c/library.h
+    src/c/constant.h
 
     src/ffi.cpp
 )
