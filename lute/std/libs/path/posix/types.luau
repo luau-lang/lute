@@ -1,12 +1,14 @@
-export type pathinterface = {
+export type pathMT = {
 	__tostring: () -> string,
 }
 
-export type path = {
+export type pathdata = {
 	parts: { string },
 	absolute: boolean,
 }
 
-export type pathlike = string | path
+export type path = setmetatable<pathdata, pathMT>
+
+export type pathlike = string | path | pathdata
 
 return {}
