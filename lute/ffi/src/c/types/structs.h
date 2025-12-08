@@ -1,8 +1,10 @@
 #pragma once
 
-#include "types.h"
+#include "lute/ref.h"
+#include "ctypes.h"
 
 #include <memory>
+#include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -25,7 +27,7 @@ public:
         {
             elementTypePointers[i] = &std::get<1>(fields[i])->type;
         }
-        
+
         elementTypePointers[fieldCount] = nullptr;
 
         type.type = FFI_TYPE_STRUCT;
@@ -38,7 +40,10 @@ public:
 
     int deserialize(lua_State* L, const ffi_arg* data) override;
     void serialize(lua_State* L, int index, ffi_arg* to, CallState& state) override;
-    bool isSymbolPointer() const override { return false; }
+    bool isSymbolPointer() const override
+    {
+        return false;
+    }
 
 private:
     std::unique_ptr<size_t[]> elementOffsets;

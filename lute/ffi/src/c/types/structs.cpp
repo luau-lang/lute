@@ -1,9 +1,11 @@
-#include "structs.h"
-
 #include "ffi.h"
+
 #include "lua.h"
 #include "lualib.h"
+
 #include "lute/userdatas.h"
+
+#include "structs.h"
 
 namespace ffi::cffi
 {
@@ -14,25 +16,25 @@ int newCStruct(lua_State* L)
 
     std::vector<std::pair<std::string, UserdataReference<CType>>> fields;
 
-    int fieldCount = lua_objlen(L, 1);
+    size_t fieldCount = lua_objlen(L, 1);
 
-    for (int i = 0; i < fieldCount; i++)
+    for (size_t i = 0; i < fieldCount; i++)
     {
         if (lua_rawgeti(L, 1, i + 1) != LUA_TTABLE)
         {
-            luaL_error(L, "Expected field definition table at index %d", i + 1);
+            luaL_error(L, "Expected field definition table at index %zu", i + 1);
         }
 
         if (lua_rawgeti(L, -1, 1) != LUA_TSTRING)
         {
-            luaL_error(L, "Expected string for field name at index %d", i + 1);
+            luaL_error(L, "Expected string for field name at index %zu", i + 1);
         }
         std::string fieldName = luaL_checkstring(L, -1);
         lua_pop(L, 1);
 
         if (lua_rawgeti(L, -1, 2) != LUA_TUSERDATA)
         {
-            luaL_error(L, "Expected userdata for field type at index %d", i + 1);
+            luaL_error(L, "Expected userdata for field type at index %zu", i + 1);
         }
         auto fieldType = UserdataReference<CType>{L, -1};
         lua_pop(L, 2);
@@ -48,11 +50,11 @@ int newCStruct(lua_State* L)
 
 int StructCType::deserialize(lua_State* L, const ffi_arg* data)
 {
-    int fieldsCount = fields.size();
+    const size_t fieldsCount = fields.size();
 
-    lua_createtable(L, 0, fieldsCount);
+    lua_createtable(L, 0, static_cast<int>(fieldsCount));
 
-    for (int i = 0; i < fieldsCount; i++)
+    for (size_t i = 0; i < fieldsCount; i++)
     {
         auto& [name, type] = fields[i];
         type->deserialize(L, data + elementOffsets[i] / sizeof(ffi_arg));
@@ -66,9 +68,9 @@ void StructCType::serialize(lua_State* L, int index, ffi_arg* to, CallState& sta
 {
     luaL_checktype(L, index, LUA_TTABLE);
 
-    int fieldsCount = fields.size();
+    const size_t fieldsCount = fields.size();
 
-    for (int i = 0; i < fieldsCount; i++)
+    for (size_t i = 0; i < fieldsCount; i++)
     {
         auto& [name, type] = fields[i];
         lua_getfield(L, index, name.c_str());

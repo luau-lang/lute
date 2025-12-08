@@ -1,9 +1,9 @@
-#include "primitives.h"
+#include <cstring>
 
 #include "lua.h"
 #include "lualib.h"
 
-#include <cstring>
+#include "primitives.h"
 
 namespace ffi::cffi
 {

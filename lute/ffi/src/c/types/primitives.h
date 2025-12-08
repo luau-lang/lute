@@ -1,6 +1,8 @@
 #pragma once
 
-#include "types.h"
+#include "ffi.h"
+
+#include "ctypes.h"
 
 namespace ffi::cffi
 {

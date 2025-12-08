@@ -1,12 +1,15 @@
+#include <cstring>
+#include <memory>
+
 #include "ffi.h"
 #include "uv.h"
+
 #include "lua.h"
 #include "lualib.h"
 
+#include "ctypes.h"
 #include "library.h"
-#include "types.h"
-#include <cstring>
-#include <memory>
+
 
 namespace ffi::cffi
 {
@@ -33,6 +36,7 @@ int loadLibrary(lua_State* L)
 
         if (uv_dlsym(&lib, sym, &sym_ptr) != 0)
         {
+            uv_dlclose(&lib);
             luaL_error(L, "Failed to load symbol '%s': %s", sym, uv_dlerror(&lib));
         }
 

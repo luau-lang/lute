@@ -1,17 +1,16 @@
-#include "lute/ffi.h"
+#include <string_view>
+#include <vector>
 
 #include "lua.h"
 #include "lualib.h"
 
-#include "memory.h"
-#include "types.h"
-#include "primitives.h"
-#include "functions.h"
-#include "library.h"
+#include "lute/ffi.h"
 #include "lute/userdatas.h"
 
-#include <vector>
-#include <string_view>
+#include "ctypes.h"
+#include "library.h"
+#include "types/functions.h"
+#include "types/primitives.h"
 
 namespace ffi::cffi
 {

@@ -1,6 +1,8 @@
-#include "constant.h"
 #include "ffi.h"
+
 #include "lute/userdatas.h"
+
+#include "constants.h"
 #include "primitives.h"
 
 namespace ffi::cffi

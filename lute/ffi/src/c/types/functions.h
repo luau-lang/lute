@@ -1,10 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <vector>
 
 #include "ffi.h"
-#include "types.h"
+#include "ctypes.h"
+#include "lute/ref.h"
 
 namespace ffi::cffi
 {
@@ -75,7 +77,7 @@ private:
 
     FunctionInfo functionInfo;
     /// storage for argument values during a call
-    std::unique_ptr<ffi_arg*[]> argumentValues;
+    std::vector<std::unique_ptr<ffi_arg[]>> argumentValues;
     /// storage for return value during a call
     std::unique_ptr<ffi_arg[]> returnValue;
 };
