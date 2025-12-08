@@ -52,11 +52,11 @@ local function formatLineSideHeader(
 		oldLine: number?,
 		newLine: number?,
 	}?
-)
+): string
 	-- side header structure:
-	-- 		ALWAYS has length maxNumWidth*2 + 3
-	-- 		We reserve 3 chars for: op at front of line: +/-/" ", space b/w op and first line #, space b/w line #s
-	-- 		we pad each side-header according to this structure, s.t each has the proper length and maintains alignment
+	-- 		ALWAYS has length maxNumWidth*2 + 4
+	-- 		the padded structure is essentialy:
+	--{operation} {oldLine# padded to len of maxNumWidth} {newLine# padded to len = maxNumWidth}|
 
 	local function padding(width: number)
 		return (" "):rep(width)
