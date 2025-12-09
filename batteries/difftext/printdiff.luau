@@ -71,21 +71,21 @@ local function formatLineSideHeader(
 		end
 		local leftPad = maxNumWidth - #oldStr
 		local rightPad = maxNumWidth - #newStr
-		return ("  %s%s %s%s| "):format(padding(leftPad), oldStr, padding(rightPad), newStr)
+		return string.format("  %s%s %s%s| ", padding(leftPad), oldStr, padding(rightPad), newStr)
 	elseif operation == "ADD" then
 		if not lineNumbers then
 			return "+ "
 		end
 		local leftPad = maxNumWidth -- space for missing oldLine
 		local rightPad = maxNumWidth - #newStr
-		return ("+ %s %s%s| "):format(padding(leftPad), padding(rightPad), newStr)
+		return string.format("+ %s %s%s| ", padding(leftPad), padding(rightPad), newStr)
 	elseif operation == "DELETE" then
 		if not lineNumbers then
 			return "- "
 		end
 		local leftPad = maxNumWidth - #oldStr
 		local rightPad = maxNumWidth -- space for missing newLine
-		return ("- %s%s %s| "):format(padding(leftPad), oldStr, padding(rightPad))
+		return string.format("- %s%s %s| ", padding(leftPad), oldStr, padding(rightPad))
 	end
 
 	return "" -- unreachable
