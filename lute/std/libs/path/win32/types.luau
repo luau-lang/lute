@@ -1,8 +1,6 @@
-export type pathkind = "unc" | "absolute" | "relative"
+local pathinterface = require("../pathinterface")
 
-export type pathMT = {
-	__tostring: () -> string,
-}
+export type pathkind = "unc" | "absolute" | "relative"
 
 export type pathdata = {
 	parts: { string },
@@ -10,7 +8,7 @@ export type pathdata = {
 	drive: string?,
 }
 
-export type path = setmetatable<pathdata, pathMT>
+export type path = setmetatable<pathdata, pathinterface.pathinterface>
 
 export type pathlike = string | pathdata | path
 
