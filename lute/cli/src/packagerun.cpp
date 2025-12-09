@@ -36,6 +36,8 @@ static std::vector<Package::Identifier> extractIdentifiers(std::string lockfileC
 {
     std::vector<Package::Identifier> packages;
 
+    // TODO: regex matching is a temporary solution; the lockfile format is
+    // likely to change, and we will use a stable parsing solution then.
     auto it = lockfileContents.cbegin();
     std::smatch match;
     std::regex re{R"LUTE(name = "([^"]+)"[\r\n]+version = "?([^"\r\n]+)"?)LUTE"};
@@ -94,15 +96,9 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         info.rootDirectory = joinPaths(packagesPath, identifier.name);
         info.entryFile = getEntryPoint(info.rootDirectory);
 
-        // TODO: lockfile must specify transitive dependency structure; we must
-        // currently make all dependencies available to each other (naively)
-        for (const Package::Identifier& identifierInner : directDependencies)
-        {
-            if (identifier != identifierInner)
-            {
-                info.dependencies.push_back(identifierInner);
-            }
-        }
+        // TODO: lockfile must specify transitive dependency structure; we
+        // currently make all dependencies available to each other.
+        info.dependencies = directDependencies;
 
         allDependencies.emplace_back(identifier, std::move(info));
     }
