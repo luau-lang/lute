@@ -22,4 +22,5 @@ static void setLuauFlag(std::string_view name, bool state)
 void setLuauFlags()
 {
     setLuauFlag("LuauAutocompleteAttributes", true);
+    setLuauFlag("LuauCstStatDoWithStatsStart", true);
 }

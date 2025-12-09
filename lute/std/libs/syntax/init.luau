@@ -89,6 +89,8 @@ export type AstExpr = types.AstExpr
 
 export type AstStatBlock = types.AstStatBlock
 
+export type AstStatDo = types.AstStatDo
+
 export type AstElseIfStat = types.AstElseIfStat
 
 export type AstStatIf = types.AstStatIf
