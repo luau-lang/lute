@@ -327,13 +327,15 @@ static std::pair<bool, std::optional<std::string>> getWithRequireByStringSemanti
         return {false, "Could not initialize ModulePath instance."};
 
     ResolvedRealPath resolved = mp->getRealPath();
-    if (resolved.status != NavigationStatus::Success)
-        return {false, resolved.errMsg};
+    if (resolved.status == NavigationStatus::Ambiguous)
+        return {false, "Unable to tell whether path is a file or directory. Is there a same-named file or directory?"};
+    else if (resolved.status == NavigationStatus::NotFound)
+        return {false, "File or directory not found."};
 
     if (resolved.type == ResolvedRealPath::PathType::File)
         return {true, resolved.realPath};
 
-    return {false, resolved.errMsg};
+    return {false, std::nullopt};
 };
 
 // Returns whether the filePath could be resolved to a valid file path, and an optional string containing either the valid path or an error message

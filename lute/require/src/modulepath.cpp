@@ -120,13 +120,7 @@ ResolvedRealPath ModulePath::getRealPath() const
     {
         if (resolvedType)
         {
-            return {
-                NavigationStatus::Ambiguous,
-                {},
-                std::nullopt,
-                {},
-                "Unable to tell whether path is a file or directory. Is there a same-named file or directory?"
-            };
+            return {NavigationStatus::Ambiguous};
         }
 
         for (std::string_view potentialSuffix : kInitSuffixes)
