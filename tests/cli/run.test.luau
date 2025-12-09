@@ -31,7 +31,7 @@ test.suite("lute-run", function(suite)
 		assert.eq(result.exitcode, 1)
 		assert.neq(
 			result.stderr:find(
-				"Error while resolving filepath '.+/hello%.luau': Unable to tell whether path is a file or directory%. Is there a same%-named file or directory%?"
+				`Error while resolving filepath '.+{if system.win32 then "\\" else "/"}hello%.luau': Unable to tell whether path is a file or directory%. Is there a same%-named file or directory%?`
 			),
 			nil
 		)
