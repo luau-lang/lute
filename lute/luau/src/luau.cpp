@@ -55,7 +55,7 @@ struct ExprResult
     std::shared_ptr<Luau::Allocator> allocator;
     std::shared_ptr<Luau::AstNameTable> names;
 
-    Luau::ParseExprResult parseResult;
+    Luau::ParseNodeResult<Luau::AstExpr> parseResult;
 };
 
 static ExprResult parseExpr(std::string& source)
@@ -2739,7 +2739,7 @@ int luau_parseexpr(lua_State* L)
     }
 
     AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
-    serializer.visit(result.parseResult.expr);
+    serializer.visit(result.parseResult.root);
 
     return 1;
 }

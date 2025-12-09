@@ -49,6 +49,19 @@ test.suite("TableExt", function(suite)
 			assert.neq(a[key], nil)
 		end
 	end)
+
+	suite:case("reverse", function(assert)
+		-- in-place
+		local a = { 1, 2, 3 }
+		tableext.reverse(a, true)
+		assert.tableeq(a, { 3, 2, 1 })
+
+		-- return new
+		local b = { 4, 5, 6 }
+		local c = tableext.reverse(b)
+		assert.tableeq(b, { 4, 5, 6 })
+		assert.tableeq(c, { 6, 5, 4 })
+	end)
 end)
 
 test.run()
