@@ -139,9 +139,10 @@ end
 local function violationIsSuppressed(
 	violation: types.LintViolation,
 	ast: syntax.AstStatBlock,
-	directiveCache: { [syntax.AstNode]: { [string]: boolean } }
+	directiveCache: { [syntax.AstNode]: { [string]: boolean } },
+	globalIgnores: { [string]: true }
 ): boolean
-	local violationSuppressed = false
+	local violationSuppressed = globalIgnores[violation.lintname] == true
 
 	-- We want to find the lint directive with the tightest scope that applies to this violation
 	local function nodeIsSuppressed(node: syntax.AstNode): boolean
@@ -183,6 +184,20 @@ local function violationIsSuppressed(
 	return violationSuppressed
 end
 
+local function parseGlobalIgnores(trivia: { syntax.Trivia }): { [string]: true }
+	local globalIgnores: { [string]: true } = {}
+
+	for _, triv in trivia do
+		if triv.tag == "blockcomment" or triv.tag == "comment" then
+			for rule in triv.text:gmatch("lute%-lint%-global%-ignore%((.+)%)") do
+				globalIgnores[rule] = true
+			end
+		end
+	end
+
+	return globalIgnores
+end
+
 local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule }): { types.LintViolation }
 	if VERBOSE then
 		print(`Reading input file '{inputFilePath}'`)
@@ -195,6 +210,11 @@ local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule
 	local ast = syntax.parseblock(fileContent)
 
 	if VERBOSE then
+		print(`Parsing global lint ignores in '{inputFilePath}'`)
+	end
+	local globalIgnores = parseGlobalIgnores(triviaUtils.leftmosttrivia(ast))
+
+	if VERBOSE then
 		print("Applying lint rules")
 	end
 	local violations: { types.LintViolation } = {}
@@ -204,7 +224,7 @@ local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule
 		if success then
 			-- On success, err contains the returned violations
 			for _, violation in err do
-				if not violationIsSuppressed(violation, ast, directiveCache) then
+				if not violationIsSuppressed(violation, ast, directiveCache, globalIgnores) then
 					table.insert(violations, violation)
 				end
 			end

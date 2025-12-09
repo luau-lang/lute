@@ -32,13 +32,43 @@ test.suite("LuteTestCommand", function(suite)
 		assert.eq(result.exitcode, 0)
 	end)
 
-	suite:case("lute test discovers test files in custom directory", function(assert)
+	suite:case("lute_test_discovery_custom_directory", function(assert)
 		-- Run lute test with custom directory path
 		local result = process.run({ lutePath, "test", "--list", "tests/cli/discovery" })
 
 		-- Check that it discovers test files (.test.luau and .spec.luau)
 		assert.eq(result.exitcode, 0)
 		assert.eq(expected, result.stdout)
+	end)
+
+	suite:case("filter_by_suite_name", function(assert)
+		-- Run lute test with --suite flag
+		local result = process.run({ lutePath, "test", "-s", "SmokeSuite", "tests/cli/discovery" })
+
+		-- Check that it runs only tests in SmokeSuite
+		assert.eq(result.exitcode, 0)
+		assert.neq(result.stdout:find("Total:  2", 1, true), nil)
+		assert.neq(result.stdout:find("Passed: 2", 1, true), nil)
+	end)
+
+	suite:case("lute test filters by case name", function(assert)
+		-- Run lute test with --case flag
+		local result = process.run({ lutePath, "test", "--case", "make_pass", "tests/cli/discovery" })
+
+		-- Check that it runs only tests named make_pass
+		assert.eq(result.exitcode, 0)
+		assert.neq(result.stdout:find("Total:  1", 1, true), nil)
+		assert.neq(result.stdout:find("Passed: 1", 1, true), nil)
+	end)
+
+	suite:case("lute test filters by suite and case name", function(assert)
+		-- Run lute test with both --suite and --case flags
+		local result = process.run({ lutePath, "test", "-s", "SmokeSuite", "-c", "make_fail", "tests/cli/discovery" })
+
+		-- Check that it runs only make_fail in SmokeSuite
+		assert.eq(result.exitcode, 0)
+		assert.neq(result.stdout:find("Total:  1", 1, true), nil)
+		assert.neq(result.stdout:find("Passed: 1", 1, true), nil)
 	end)
 end)
 

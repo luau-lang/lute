@@ -23,6 +23,11 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_single_file_roundtrip")
     LuteExePayload originalPayload{getReporter()};
     originalPayload.add(testFilePath, testFilePath);
 
+    // Add luaurc config
+    Luau::DenseHashMap<std::string, std::string> configs{""};
+    configs[".luaurc"] = "{\"aliases\":{\"example\":\"./dep\"}}";
+    originalPayload.setLuauConfig(configs);
+
     // Encode
     auto encodeResult = originalPayload.encode();
     REQUIRE(encodeResult.has_value());
@@ -56,6 +61,12 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_single_file_roundtrip")
     auto originalIt = originalPayload.filePathToBytecode.find(testFilePath);
     REQUIRE(originalIt != nullptr);
     CHECK(*it == *originalIt);
+
+    // Verify luaurc config was preserved
+    REQUIRE(decodeResult->payload.luauConfigFiles.size() == 1);
+    auto configIt = decodeResult->payload.luauConfigFiles.find(".luaurc");
+    REQUIRE(configIt != nullptr);
+    CHECK(configIt->find("aliases") != std::string::npos);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "lutepayload_multiple_files_roundtrip")
@@ -74,6 +85,11 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_multiple_files_roundtrip")
     {
         originalPayload.add(file, file);
     }
+
+    // Add luaurc config
+    Luau::DenseHashMap<std::string, std::string> configs{""};
+    configs[".luaurc"] = "{\"aliases\":{\"example\":\"./dep\"}}";
+    originalPayload.setLuauConfig(configs);
 
     // First file should be the entry point
     CHECK(originalPayload.entryPointPath == testFiles[0]);
@@ -102,6 +118,12 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_multiple_files_roundtrip")
         // Verify bytecode matches
         CHECK(*decodedIt == *originalIt);
     }
+
+    // Verify luaurc config was preserved
+    REQUIRE(decodeResult->payload.luauConfigFiles.size() == 1);
+    auto configIt = decodeResult->payload.luauConfigFiles.find(".luaurc");
+    REQUIRE(configIt != nullptr);
+    CHECK(configIt->find("aliases") != std::string::npos);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "lutepayload_invalid_magic_flag")
@@ -295,6 +317,11 @@ TEST_CASE_FIXTURE(LuteFixture, "luteexecutable_single_file_roundtrip")
     LuteExePayload originalPayload{getReporter()};
     originalPayload.add(testFilePath, testFilePath);
 
+    // Add luaurc config
+    Luau::DenseHashMap<std::string, std::string> configs{""};
+    configs[".luaurc"] = "{\"aliases\":{\"example\":\"./dep\"}}";
+    originalPayload.setLuauConfig(configs);
+
     // Create LuteExecutable and write it out
     std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_output_exe");
     LuteExecutable executable{dummyExePath, getReporter()};
@@ -324,6 +351,12 @@ TEST_CASE_FIXTURE(LuteFixture, "luteexecutable_single_file_roundtrip")
     REQUIRE(originalBytecodeIt != nullptr);
     REQUIRE(extractedBytecodeIt != nullptr);
     CHECK(*originalBytecodeIt == *extractedBytecodeIt);
+
+    // Verify luaurc config was preserved
+    REQUIRE(extractedPayload->luauConfigFiles.size() == 1);
+    auto configIt = extractedPayload->luauConfigFiles.find(".luaurc");
+    REQUIRE(configIt != nullptr);
+    CHECK(configIt->find("aliases") != std::string::npos);
 
     // Clean up temporary files
     std::remove(dummyExePath.c_str());
@@ -355,6 +388,11 @@ TEST_CASE_FIXTURE(LuteFixture, "luteexecutable_multiple_files_roundtrip")
     {
         originalPayload.add(file, file);
     }
+
+    // Add luaurc config
+    Luau::DenseHashMap<std::string, std::string> configs{""};
+    configs[".luaurc"] = "{\"aliases\":{\"example\":\"./dep\"}}";
+    originalPayload.setLuauConfig(configs);
 
     // First file should be the entry point
     CHECK(originalPayload.entryPointPath == testFiles[0]);
@@ -388,6 +426,12 @@ TEST_CASE_FIXTURE(LuteFixture, "luteexecutable_multiple_files_roundtrip")
 
         CHECK(*extractedIt == *originalIt);
     }
+
+    // Verify luaurc config was preserved
+    REQUIRE(extractedPayload->luauConfigFiles.size() == 1);
+    auto configIt = extractedPayload->luauConfigFiles.find(".luaurc");
+    REQUIRE(configIt != nullptr);
+    CHECK(configIt->find("aliases") != std::string::npos);
 
     // Clean up
     std::remove(dummyExePath.c_str());

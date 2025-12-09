@@ -43,7 +43,6 @@
 #include <Windows.h>
 #endif
 
-#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -166,7 +165,11 @@ static void luteopen_libs(lua_State* L)
     }
 }
 
-void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, std::string> bundleMap)
+void* createBundleRequireContext(
+    lua_State* L,
+    Luau::DenseHashMap<std::string, std::string> luaurcFiles,
+    Luau::DenseHashMap<std::string, std::string> bundleMap
+)
 {
     void* ctx = lua_newuserdatadtor(
         L,
@@ -179,7 +182,7 @@ void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, s
 
     if (!ctx)
         luaL_error(L, "unable to allocate RequireCtx");
-    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(bundleMap)})};
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(luaurcFiles), std::move(bundleMap)})};
 
     // Store RequireCtx in the registry to keep it alive for the lifetime of
     // this lua_State. Memory address is used as a key to avoid collisions.
@@ -208,17 +211,21 @@ lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSa
     );
 }
 
-lua_State* setupBundleState(Runtime& runtime, Luau::DenseHashMap<std::string, std::string> bundleMap)
+lua_State* setupBundleState(
+    Runtime& runtime,
+    Luau::DenseHashMap<std::string, std::string> luaurcFiles,
+    Luau::DenseHashMap<std::string, std::string> bundleMap
+)
 {
     return setupState(
         runtime,
-        [bundleMap = std::move(bundleMap)](lua_State* L)
+        [luaurcFiles = std::move(luaurcFiles), bundleMap = std::move(bundleMap)](lua_State* L)
         {
             luteopen_libs(L);
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
-            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(bundleMap)));
+            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(luaurcFiles), std::move(bundleMap)));
         }
     );
 }
@@ -310,7 +317,8 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
-static std::optional<std::string> getWithRequireByStringSemantics(std::string filePath)
+// Returns whether the filePath could be resolved to a valid file path, and a string containing either the valid path or an error message
+static std::pair<bool, std::string> getWithRequireByStringSemantics(std::string filePath)
 {
     std::string normalized = normalizePath(std::move(filePath));
 
@@ -324,26 +332,40 @@ static std::optional<std::string> getWithRequireByStringSemantics(std::string fi
 
     std::optional<ModulePath> mp = ModulePath::create(std::move(rootOfPath), std::move(restOfPath), isFile, isDirectory);
     if (!mp)
-        return std::nullopt;
+        return {false, "Could not initialize ModulePath instance."};
 
     ResolvedRealPath resolved = mp->getRealPath();
-    if (resolved.status != NavigationStatus::Success)
-        return std::nullopt;
 
-    if (resolved.type == ResolvedRealPath::PathType::File)
-        return resolved.realPath;
-
-    return std::nullopt;
+    std::pair<bool, std::string> result;
+    switch (resolved.status)
+    {
+    case NavigationStatus::Success:
+        if (resolved.type == ResolvedRealPath::PathType::File)
+            result = {true, resolved.realPath};
+        else
+            result = {false, "Path is a directory, not a file."};
+        break;
+    case NavigationStatus::Ambiguous:
+        result = {false, "Unable to tell whether path is a file or directory. Is there a same-named file or directory?"};
+        break;
+    case NavigationStatus::NotFound:
+        result = {false, "File or directory not found."};
+        break;
+    }
+    
+    return result;
 };
 
-static std::optional<std::string> getValidPath(std::string filePath)
+// Returns whether the filePath could be resolved to a valid file path, and a string containing either the valid path or an error message
+static std::pair<bool, std::string> getValidPath(std::string filePath)
 {
-    if (std::optional<std::string> path = getWithRequireByStringSemantics(filePath))
-        return *path;
+    auto [ok, res] = getWithRequireByStringSemantics(filePath);
+    if (ok)
+        return {true, res};
 
     // Only fallback to checking .lute/* if the original path has no extension.
     if (filePath.find('.') != std::string::npos)
-        return std::nullopt;
+        return {false, res};
 
     std::string fallbackPath = joinPaths(".lute", filePath);
     size_t fallbackSize = fallbackPath.size();
@@ -354,10 +376,11 @@ static std::optional<std::string> getValidPath(std::string filePath)
         fallbackPath += ext;
 
         if (isFile(fallbackPath))
-            return fallbackPath;
+            return {true, fallbackPath};
     }
 
-    return std::nullopt;
+
+    return {false, res};
 }
 
 int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporter)
@@ -400,14 +423,15 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
     Runtime runtime;
     lua_State* L = setupCliState(runtime);
 
-    std::optional<std::string> validPath = getValidPath(filePath);
-    if (!validPath)
+    auto [ok, validPath] = getValidPath(filePath);
+    if (!ok)
     {
-        reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
+        reporter.formatError("Error while resolving filepath '%s': %s", filePath.c_str(), validPath.c_str());
+
         return 1;
     }
 
-    bool success = runFile(runtime, validPath->c_str(), L, program_argc, program_argv, reporter);
+    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter);
     return success ? 0 : 1;
 }
 
@@ -558,6 +582,9 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
         payload.add(bundle, absolute);
     }
 
+    // Add the discovered luaurc configuration
+    payload.setLuauConfig(tracer.getLuaurcFiles());
+
 
     // Encode the payload
     reporter.reportOutput("Compiling and bundling bytecode...");
@@ -622,21 +649,19 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     setLuauFlags();
 
     std::string err = "";
-    if (auto exePath = process::getExecPath(&err))
-    {
-        LuteExecutable exe{*exePath, reporter};
-        if (auto payload = exe.extract())
-        {
-            Runtime runtime;
 
-            lua_State* GL = setupBundleState(runtime, payload->filePathToBytecode);
-            std::string entryPoint = payload->entryPointPath;
-            auto entryModule = payload->filePathToBytecode.find(entryPoint);
-            if (entryModule != nullptr)
-            {
-                bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, GL, argc, argv, reporter);
-                return success ? 0 : 1;
-            }
+    LuteExecutable exe{argv[0], reporter};
+    if (auto payload = exe.extract())
+    {
+        Runtime runtime;
+
+        lua_State* GL = setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
+        std::string entryPoint = payload->entryPointPath;
+        auto entryModule = payload->filePathToBytecode.find(entryPoint);
+        if (entryModule != nullptr)
+        {
+            bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, GL, argc, argv, reporter);
+            return success ? 0 : 1;
         }
     }
 
