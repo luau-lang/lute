@@ -419,8 +419,9 @@ static std::optional<std::string> getValidPath(std::string filePath)
     return std::nullopt;
 }
 
-int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporter)
+int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness, LuteReporter& reporter)
 {
+    std::string command = packageAwareness ? "pkgrun" : "run";
     std::string filePath;
     int program_argc = 0;
     char** program_argv = nullptr;
@@ -431,13 +432,13 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
 
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
-            reporter.reportOutput(RUN_HELP_STRING);
+            reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 0;
         }
         else if (currentArg[0] == '-')
         {
-            reporter.formatError("Error: Unrecognized option '%s' for 'run' command.", currentArg);
-            reporter.reportOutput(RUN_HELP_STRING);
+            reporter.formatError("Error: Unrecognized option '%s' for '%s' command.", currentArg, command.c_str());
+            reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 1;
         }
         else
@@ -451,59 +452,8 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
 
     if (filePath.empty())
     {
-        reporter.reportError("Error: No file specified for 'run' command.");
-        reporter.reportOutput(RUN_HELP_STRING);
-        return 1;
-    }
-
-    Runtime runtime;
-    lua_State* L = setupCliState(runtime);
-
-    std::optional<std::string> validPath = getValidPath(filePath);
-    if (!validPath)
-    {
-        reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
-        return 1;
-    }
-
-    bool success = runFile(runtime, validPath->c_str(), L, program_argc, program_argv, reporter);
-    return success ? 0 : 1;
-}
-
-int handlePackageRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporter)
-{
-    std::string filePath;
-    int program_argc = 0;
-    char** program_argv = nullptr;
-
-    for (int i = argOffset; i < argc; ++i)
-    {
-        const char* currentArg = argv[i];
-
-        if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
-        {
-            reporter.reportOutput(PKGRUN_HELP_STRING);
-            return 0;
-        }
-        else if (currentArg[0] == '-')
-        {
-            reporter.formatError("Error: Unrecognized option '%s' for 'pkgrun' command.", currentArg);
-            reporter.reportOutput(PKGRUN_HELP_STRING);
-            return 1;
-        }
-        else
-        {
-            filePath = currentArg;
-            program_argc = argc - i;
-            program_argv = &argv[i];
-            break;
-        }
-    }
-
-    if (filePath.empty())
-    {
-        reporter.reportError("Error: No file specified for 'pkgrun' command.");
-        reporter.reportOutput(PKGRUN_HELP_STRING);
+        reporter.formatError("Error: No file specified for '%s' command.", command.c_str());
+        reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
         return 1;
     }
 
@@ -513,27 +463,37 @@ int handlePackageRunCommand(int argc, char** argv, int argOffset, LuteReporter& 
         reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
         return 1;
     }
-    if (!isAbsolutePath(*validPath))
-    {
-        std::optional<std::string> cwd = getCurrentWorkingDirectory();
-        if (!cwd)
-        {
-            reporter.reportError("Error: Failed to get current working directory.\n");
-            return 1;
-        }
-        validPath = normalizePath(joinPaths(*cwd, filePath));
-    }
-
-    std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(*validPath);
-    if (!lockfile)
-    {
-        reporter.formatError("Error: No loom.lock file found for '%s'", validPath->c_str());
-        return 1;
-    }
 
     Runtime runtime;
-    auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
-    lua_State* L = setupPkgCliState(runtime, std::move(directDependencies), std::move(allDependencies));
+    lua_State* L;
+
+    if (packageAwareness)
+    {
+        if (!isAbsolutePath(*validPath))
+        {
+            std::optional<std::string> cwd = getCurrentWorkingDirectory();
+            if (!cwd)
+            {
+                reporter.reportError("Error: Failed to get current working directory.\n");
+                return 1;
+            }
+            validPath = normalizePath(joinPaths(*cwd, filePath));
+        }
+
+        std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(*validPath);
+        if (!lockfile)
+        {
+            reporter.formatError("Error: No loom.lock file found for '%s'", validPath->c_str());
+            return 1;
+        }
+
+        auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
+        L = setupPkgCliState(runtime, std::move(directDependencies), std::move(allDependencies));
+    }
+    else
+    {
+        L = setupCliState(runtime);
+    }
 
     bool success = runFile(runtime, validPath->c_str(), L, program_argc, program_argv, reporter);
     return success ? 0 : 1;
@@ -784,11 +744,11 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
 
     if (strcmp(command, "run") == 0)
     {
-        return handleRunCommand(argc, argv, argOffset, reporter);
+        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ false, reporter);
     }
     else if (strcmp(command, "pkgrun") == 0)
     {
-        return handlePackageRunCommand(argc, argv, argOffset, reporter);
+        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ true, reporter);
     }
     else if (strcmp(command, "check") == 0)
     {
@@ -816,6 +776,6 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     {
         // Default to 'run' command
         argOffset = 1;
-        return handleRunCommand(argc, argv, argOffset, reporter);
+        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ false, reporter);
     }
 }
