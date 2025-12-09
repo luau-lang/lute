@@ -168,11 +168,11 @@ local function printVisitor(replacements: types.replacements?)
 	printer.printString = printString
 	printer.printInterpolatedString = printInterpolatedString
 	printer.printReplacement = printReplacement
-	printer.visitInterpolatedString = function(node: types.AstExprInterpString)
+	printer.visitExprInterpString = function(node: types.AstExprInterpString)
 		printer:printInterpolatedString(node)
 		return false
 	end
-	printer.visitTypeString = function(node: types.AstTypeSingletonString)
+	printer.visitTypeSingletonString = function(node: types.AstTypeSingletonString)
 		printer:printString(node)
 		return false
 	end
@@ -180,7 +180,7 @@ local function printVisitor(replacements: types.replacements?)
 		printer:printToken(node)
 		return false
 	end
-	printer.visitString = function(node: types.AstExprConstantString)
+	printer.visitExprConstantString = function(node: types.AstExprConstantString)
 		printer:printString(node)
 		return false
 	end

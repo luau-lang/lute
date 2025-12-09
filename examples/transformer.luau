@@ -5,7 +5,7 @@ local syntax = require("@std/syntax")
 local function transformation(ctx)
 	local v = visitor.create()
 
-	v.visitBinary = function(node: syntax.AstExprBinary)
+	v.visitExprBinary = function(node: syntax.AstExprBinary)
 		if node.operator.text ~= "~=" then
 			return true
 		end
