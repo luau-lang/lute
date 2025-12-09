@@ -5,8 +5,8 @@
 
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/Error.h"
-#include "Luau/PrettyPrinter.h"
-#include "Luau/TypeAttach.h"
+#include "Luau/FileUtils.h"
+#include "Luau/Frontend.h"
 
 static const std::string kLuteDefinitions = R"LUTE_TYPES(
 -- Net api
