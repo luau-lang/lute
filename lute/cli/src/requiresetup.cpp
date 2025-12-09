@@ -19,6 +19,10 @@
 #include "Luau/CodeGen.h"
 #include "Luau/Require.h"
 
+#include <memory>
+#include <string>
+#include <utility>
+
 static void luteopen_libs(lua_State* L)
 {
     std::vector<std::pair<const char*, lua_CFunction>> libs = {{

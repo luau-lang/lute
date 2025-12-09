@@ -23,15 +23,13 @@
 #include "lua.h"
 #include "lualib.h"
 
-#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #ifdef _WIN32
 #include <Windows.h>
 #endif
-
-#include <memory>
-#include <string>
-#include <vector>
 
 static const char* HELP_STRING = R"(Usage: lute <command> [options] [arguments...]
 

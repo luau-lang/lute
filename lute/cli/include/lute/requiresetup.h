@@ -3,6 +3,7 @@
 #include "Luau/DenseHash.h"
 
 #include <functional>
+#include <string>
 
 struct lua_State;
 struct Runtime;
