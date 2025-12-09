@@ -1,12 +1,12 @@
 #include "lute/tc.h"
 
+#include "lute/configresolver.h"
+#include "lute/moduleresolver.h"
+
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/Error.h"
 #include "Luau/PrettyPrinter.h"
 #include "Luau/TypeAttach.h"
-
-#include "lute/configresolver.h"
-#include "lute/moduleresolver.h"
 
 static const std::string kLuteDefinitions = R"LUTE_TYPES(
 -- Net api

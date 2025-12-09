@@ -222,7 +222,7 @@ static std::pair<bool, std::string> getWithRequireByStringSemantics(std::string 
         result = {false, "File or directory not found."};
         break;
     }
-    
+
     return result;
 };
 
