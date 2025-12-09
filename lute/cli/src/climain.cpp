@@ -309,7 +309,7 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
-// Returns whether the filePath could be resolved to a valid file path, and an optional string containing either the valid path or an error message
+// Returns whether the filePath could be resolved to a valid file path, and a string containing either the valid path or an error message
 static std::pair<bool, std::string> getWithRequireByStringSemantics(std::string filePath)
 {
     std::string normalized = normalizePath(std::move(filePath));
@@ -343,7 +343,7 @@ static std::pair<bool, std::string> getWithRequireByStringSemantics(std::string 
     }
 };
 
-// Returns whether the filePath could be resolved to a valid file path, and an optional string containing either the valid path or an error message
+// Returns whether the filePath could be resolved to a valid file path, and a string containing either the valid path or an error message
 static std::pair<bool, std::string> getValidPath(std::string filePath)
 {
     auto [ok, res] = getWithRequireByStringSemantics(filePath);
