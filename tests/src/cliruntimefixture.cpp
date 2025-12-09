@@ -1,13 +1,12 @@
 #include "cliruntimefixture.h"
 
+#include "lute/climain.h"
+#include "lute/requiresetup.h"
+
 #include "Luau/Compiler.h"
 
 #include "lua.h"
 #include "lualib.h"
-
-#include "Luau/Compiler.h"
-
-#include "Luau/Compiler.h"
 
 static int report(lua_State* L)
 {
