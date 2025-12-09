@@ -8,37 +8,22 @@ local function istestfile(filename: string): boolean
 	return stringext.hassuffix(filename, ".test.luau") or stringext.hassuffix(filename, ".spec.luau")
 end
 
-local function findtestfilesrec(directory: path.path): { path.path }
-	local results = {}
-
-	for _, entry in fs.listdirectory(directory) do
-		local fullPath = path.join(directory, entry.name)
-
-		if entry.type == "dir" then
-			tableext.extend(results, findtestfilesrec(fullPath))
-		elseif istestfile(entry.name) then
-			table.insert(results, path.normalize(fullPath))
+local function findtestfiles(paths: { string }): { path.path }
+	local files = {}
+	local function findfiles(p: path.pathlike)
+		local it = fs.walk(path.normalize(p), { recursive = true })
+		local file = it()
+		while file do
+			if fs.type(file) ~= "dir" and istestfile(path.format(file)) then
+				table.insert(files, path.normalize(file))
+			end
+			file = it()
 		end
 	end
 
-	return results
-end
-
-local function findtestfiles(paths: { string }): { path.path }
-	local files = {}
 	local cwd = ps.cwd()
-	for _, filepath in paths do
-		local pathObj = path.parse(filepath)
-
-		if not path.isabsolute(pathObj) then
-			pathObj = path.join(cwd, pathObj)
-		end
-
-		if fs.type(pathObj) == "dir" then
-			tableext.extend(files, findtestfilesrec(pathObj))
-		elseif istestfile(filepath) then
-			table.insert(files, path.normalize(pathObj))
-		end
+	for _, p in paths do
+		findfiles(path.join(cwd, p))
 	end
 
 	return files
