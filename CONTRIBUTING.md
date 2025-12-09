@@ -60,6 +60,25 @@ There are some additional style considerations that we do not have automated enf
 5. Small, incremental contributions are always preferred over sweeping changes. You should expect that any large sweeping change will be rejected summarily without review.
    If you're interested in working on something that _requires_ such a change, you should open an issue first to discuss the idea and get buy-in from the team.
 
+## Pull Request Guidelines
+
+When submitting a pull request:
+
+1. **PR Title:** Your PR title should be a clear, one-line sentence that makes sense as a changelog entry. This title will appear in the release notes, so write it to be informative to users. Focus on what changed from a user's perspective.
+   - Good: "Adds support for custom error handlers in the CLI"
+   - Good: "Fixes memory leak in filesystem operations"
+   - Bad: "Update code"
+   - Bad: "WIP: testing changes"
+
+2. **PR Labels:** Please label your PR with one of the following labels so it appears in the correct section of the release notes:
+   - `documentation` - Documentation improvements
+   - `std` - Changes to the standard library
+   - `batteries` - Changes to batteries (additional libraries that are useful for writing lute code)
+   - `cli` - Changes to the command line - either the c++ subcommands (run, compile, etc) or lute tooling (lint, transform, test)
+   - `runtime` - Changes to the C++ runtime
+   - `infra` - Changes to CI/CD, build system, or project infrastructure
+   - `bug` - Bug fixes
+
 ## Licensing
 
 By providing code in an issue or opening a pull request, you agree to license that code under the MIT License, and indicate that you have the legal right to do so.

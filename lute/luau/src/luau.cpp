@@ -55,7 +55,7 @@ struct ExprResult
     std::shared_ptr<Luau::Allocator> allocator;
     std::shared_ptr<Luau::AstNameTable> names;
 
-    Luau::ParseExprResult parseResult;
+    Luau::ParseNodeResult<Luau::AstExpr> parseResult;
 };
 
 static ExprResult parseExpr(std::string& source)
@@ -1252,13 +1252,35 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeStat(Luau::AstStatBlock* node)
     {
-        lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 1);
+        const auto cstNode = cstNodeMap.find(node);
+        const Luau::CstStatDo* cstDo = cstNode ? (*cstNode)->as<Luau::CstStatDo>() : nullptr;
 
-        serializeNodePreamble(node, "block", "stat");
+        if (cstDo)
+        {
+            lua_rawcheckstack(L, 2);
+            lua_createtable(L, 0, preambleSize + 3);
 
-        serializeStats(node->body);
-        lua_setfield(L, -2, "statements");
+            serializeNodePreamble(node, "do", "stat");
+
+            serializeToken(node->location.begin, "do");
+            lua_setfield(L, -2, "dokeyword");
+
+            serializeStats(node->body);
+            lua_setfield(L, -2, "body");
+
+            serializeToken(cstDo->endPosition, "end");
+            lua_setfield(L, -2, "endkeyword");
+        }
+        else
+        {
+            lua_rawcheckstack(L, 2);
+            lua_createtable(L, 0, preambleSize + 1);
+
+            serializeNodePreamble(node, "block", "stat");
+
+            serializeStats(node->body);
+            lua_setfield(L, -2, "statements");
+        }
     }
 
     void serializeStat(Luau::AstStatIf* node)
@@ -2739,7 +2761,7 @@ int luau_parseexpr(lua_State* L)
     }
 
     AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
-    serializer.visit(result.parseResult.expr);
+    serializer.visit(result.parseResult.root);
 
     return 1;
 }

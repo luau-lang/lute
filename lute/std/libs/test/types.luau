@@ -41,10 +41,16 @@ export type testrunresult = {
 export type testreporter = (testrunresult) -> ()
 
 -- Testing Environment
+export type caseindexentry = {
+	anonymous: { testcase },
+	suites: { [string]: { testcase } },
+}
+
 export type testenvironment = {
 	anonymous: { testcase },
 	suites: { testsuite },
-	reporter: testreporter,
+	suiteindex: { [string]: testsuite },
+	caseindex: { [string]: caseindexentry },
 }
 
 export type testrunner = (testenvironment) -> testrunresult
