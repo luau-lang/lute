@@ -659,27 +659,6 @@ int listdir(lua_State* L)
 
     return lua_yield(L, 0);
 }
-struct ResumeCaptureInformation
-{
-    explicit ResumeCaptureInformation(lua_State* L)
-        : token(getResumeToken(L))
-    {
-    }
-
-    ResumeToken token = nullptr;
-};
-
-uv_fs_t* createRequest(lua_State* L)
-{
-    uv_fs_t* req = new uv_fs_t();
-    req->data = new ResumeCaptureInformation(L);
-    return req;
-}
-
-ResumeCaptureInformation* getResumeInformation(uv_fs_t* req)
-{
-    return static_cast<ResumeCaptureInformation*>(req->data);
-}
 
 } // namespace fs
 
