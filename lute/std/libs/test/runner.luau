@@ -3,15 +3,16 @@
 -- Standard test runner library for Luau
 
 local types = require("./types")
-local assert = require("./assert")
+local asserts = require("./assert")
+local path = require("@std/path")
 
-type Test = types.Test
-type TestCase = types.TestCase
-type TestSuite = types.TestSuite
-type TestEnvironment = types.TestEnvironment
-type TestReporter = types.TestReporter
-type FailedTest = types.FailedTest
-type TestRunResult = types.TestRunResult
+type Test = types.test
+type TestCase = types.testcase
+type TestSuite = types.testsuite
+type TestEnvironment = types.testenvironment
+type TestReporter = types.testreporter
+type FailedTest = types.failedtest
+type TestRunResult = types.testrunresult
 
 local runner = {}
 
@@ -103,14 +104,14 @@ function runner.run(env: TestEnvironment): TestRunResult
 				test = tc.name,
 				assertion = if assertName == "xpcall" then nil else assertName,
 				error = if assertName == "xpcall" then nil else err.msg,
-				filename = fileName,
+				filename = path.format(fileName),
 				linenumber = lineNumber,
 			}
 			table.insert(failures, failedtest)
 			failed += 1
 		end
 
-		local success = xpcall(tc.case, handlefailure, assert)
+		local success = xpcall(tc.case, handlefailure, asserts)
 		if success then
 			passed += 1
 		end
@@ -142,7 +143,7 @@ function runner.run(env: TestEnvironment): TestRunResult
 					test = testFullName,
 					assertion = if assertName == "xpcall" then nil else assertName,
 					error = if assertName == "xpcall" then nil else err.msg,
-					filename = fileName,
+					filename = path.format(fileName),
 					linenumber = lineNumber,
 				}
 				table.insert(failures, failedtest)
@@ -156,7 +157,7 @@ function runner.run(env: TestEnvironment): TestRunResult
 				end
 			end
 
-			local success = xpcall(tc.case, handlefailure, assert)
+			local success = xpcall(tc.case, handlefailure, asserts)
 			-- Run aftereach hook if it exists (runs even if test failed)
 			if suite._aftereach then
 				local afterSuccess = xpcall(suite._aftereach, afterachErrorHandler(testFullName))

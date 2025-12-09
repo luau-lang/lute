@@ -1,6 +1,7 @@
 --!strict
 -- @std/syntax/printer
 
+local triviaUtils = require("./utils/trivia")
 local types = require("./types")
 local visitor = require("./visitor")
 
@@ -37,12 +38,22 @@ local function printTriviaList(self: PrintVisitor, trivia: { types.Trivia })
 end
 
 local function printToken(self: PrintVisitor, token: types.Token)
+	if self.replacements[token] ~= nil then
+		self:printReplacement(token, self.replacements[token])
+		return
+	end
+
 	self:printTriviaList(token.leadingtrivia)
 	self:write(token.text)
 	self:printTriviaList(token.trailingtrivia)
 end
 
 local function printString(self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString)
+	if self.replacements[expr] ~= nil then
+		self:printReplacement(expr, self.replacements[expr])
+		return
+	end
+
 	self:printTriviaList(expr.leadingtrivia)
 
 	if expr.quotestyle == "single" then
@@ -62,6 +73,11 @@ local function printString(self: PrintVisitor, expr: types.AstExprConstantString
 end
 
 local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprInterpString)
+	if self.replacements[expr] ~= nil then
+		self:printReplacement(expr, self.replacements[expr])
+		return
+	end
+
 	for i = 1, #expr.strings do
 		self:printTriviaList(expr.strings[i].leadingtrivia)
 		if i == 1 then
@@ -83,6 +99,11 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 end
 
 local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: types.replacement)
+	local leftmostTrivia = triviaUtils.leftmosttrivia(node)
+	if leftmostTrivia ~= nil then
+		self:printTriviaList(leftmostTrivia)
+	end
+
 	if typeof(replacement) == "string" then
 		self:write(replacement)
 	elseif replacement.kind ~= nil then -- LUAUFIX: type solver upset comparing string singleton union to nil
@@ -90,6 +111,11 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 		visitor.visit(replacement, self)
 	else
 		error("Unsupported replacement type")
+	end
+
+	local rightmostTrivia = triviaUtils.rightmosttrivia(node)
+	if rightmostTrivia ~= nil then
+		self:printTriviaList(rightmostTrivia)
 	end
 end
 
@@ -142,11 +168,11 @@ local function printVisitor(replacements: types.replacements?)
 	printer.printString = printString
 	printer.printInterpolatedString = printInterpolatedString
 	printer.printReplacement = printReplacement
-	printer.visitInterpolatedString = function(node: types.AstExprInterpString)
+	printer.visitExprInterpString = function(node: types.AstExprInterpString)
 		printer:printInterpolatedString(node)
 		return false
 	end
-	printer.visitTypeString = function(node: types.AstTypeSingletonString)
+	printer.visitTypeSingletonString = function(node: types.AstTypeSingletonString)
 		printer:printString(node)
 		return false
 	end
@@ -154,7 +180,7 @@ local function printVisitor(replacements: types.replacements?)
 		printer:printToken(node)
 		return false
 	end
-	printer.visitString = function(node: types.AstExprConstantString)
+	printer.visitExprConstantString = function(node: types.AstExprConstantString)
 		printer:printString(node)
 		return false
 	end

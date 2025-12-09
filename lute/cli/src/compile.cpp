@@ -36,6 +36,11 @@ void LuteExePayload::add(const std::string& bundlePath, const std::string& sourc
     sourceToBundlePath[sourcePath] = bundlePath;
 }
 
+void LuteExePayload::setLuauConfig(const Luau::DenseHashMap<std::string, std::string>& configs)
+{
+    luauConfigFiles = configs;
+}
+
 std::optional<LuteEncodeResult> LuteExePayload::encode()
 {
     // Encoding an empty payload is an error
@@ -46,9 +51,32 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
     }
 
     LuteEncodeResult result;
-    // Step 1: Build uncompressed bytecode bundle
-    // Format: For each file, append [path_len][path][bytecode_size][bytecode]
+    // Step 1: Build uncompressed bundle
+    // Format: [num_config_entries][config entries...][file entries...]
     std::string uncompressedBundle;
+
+    // Step 1a: Write .luaurc config files first
+    uint32_t numConfigEntries = static_cast<uint32_t>(luauConfigFiles.size());
+    uncompressedBundle.append(reinterpret_cast<const char*>(&numConfigEntries), sizeof(uint32_t));
+
+    for (const auto& [configPath, configContent] : luauConfigFiles)
+    {
+        // Append path_length field (uint32_t, 4 bytes)
+        uint32_t pathLength = static_cast<uint32_t>(configPath.size());
+        uncompressedBundle.append(reinterpret_cast<const char*>(&pathLength), sizeof(uint32_t));
+
+        // Append path_val field (variable length)
+        uncompressedBundle.append(configPath);
+
+        // Append luaurc_length field (uint32_t, 4 bytes)
+        uint32_t luaurcLength = static_cast<uint32_t>(configContent.size());
+        uncompressedBundle.append(reinterpret_cast<const char*>(&luaurcLength), sizeof(uint32_t));
+
+        // Append luaurc_contents field (variable length)
+        uncompressedBundle.append(configContent);
+    }
+
+    // Step 1b: Write bytecode files
     for (const auto& sourcePath : filePaths)
     {
         // Get the bundle path (rooted path for the bundle)
@@ -275,7 +303,69 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
 {
     size_t offset = 0;
     filePathToBytecode.clear();
+    luauConfigFiles.clear();
 
+    // Step 1: Read num_config_entries
+    if (offset + sizeof(uint32_t) > decompressedBundle.size())
+    {
+        reporter.reportError("Invalid bundle: incomplete num_config_entries field");
+        return false;
+    }
+
+    uint32_t numConfigEntries;
+    memcpy(&numConfigEntries, decompressedBundle.data() + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+
+    // Step 2: Read each config entry
+    for (uint32_t i = 0; i < numConfigEntries; ++i)
+    {
+        // Read path length
+        if (offset + sizeof(uint32_t) > decompressedBundle.size())
+        {
+            reporter.reportError("Invalid bundle: incomplete config path length field");
+            return false;
+        }
+
+        uint32_t pathLength;
+        memcpy(&pathLength, decompressedBundle.data() + offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+
+        // Read path string
+        if (offset + pathLength > decompressedBundle.size())
+        {
+            reporter.reportError("Invalid bundle: incomplete config path string");
+            return false;
+        }
+
+        std::string configPath(decompressedBundle.data() + offset, pathLength);
+        offset += pathLength;
+
+        // Read luaurc length
+        if (offset + sizeof(uint32_t) > decompressedBundle.size())
+        {
+            reporter.reportError("Invalid bundle: incomplete luaurc length field");
+            return false;
+        }
+
+        uint32_t luaurcLength;
+        memcpy(&luaurcLength, decompressedBundle.data() + offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+
+        // Read luaurc content
+        if (offset + luaurcLength > decompressedBundle.size())
+        {
+            reporter.reportError("Invalid bundle: incomplete luaurc content");
+            return false;
+        }
+
+        std::string luaurcContent(decompressedBundle.data() + offset, luaurcLength);
+        offset += luaurcLength;
+
+        // Store in map
+        luauConfigFiles[configPath] = luaurcContent;
+    }
+
+    // Step 3: Read bytecode compiled scripts
     while (offset < decompressedBundle.size())
     {
         // Read path length

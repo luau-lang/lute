@@ -1,7 +1,6 @@
 local luau = require("@lute/luau")
 
-export type Position = luau.Position
-export type Location = luau.Location
+export type span = luau.span
 
 export type Whitespace = luau.Whitespace
 export type SingleLineComment = luau.SingleLineComment
@@ -69,6 +68,8 @@ export type AstExprIfElse = luau.AstExprIfElse
 export type AstExpr = luau.AstExpr
 
 export type AstStatBlock = luau.AstStatBlock
+
+export type AstStatDo = luau.AstStatDo
 
 export type AstElseIfStat = luau.AstElseIfStat
 
@@ -159,6 +160,6 @@ export type AstNode = luau.AstNode
 export type ParseResult = luau.ParseResult
 
 export type replacement = string | AstNode
-export type replacements = { [AstNode]: replacement, print: (self: replacements) -> string, __root: AstNode }
+export type replacements = { [AstNode]: replacement }
 
 return {}

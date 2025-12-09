@@ -2,9 +2,10 @@
 -- @std/syntax/query
 -- Provides utility functions for querying Luau AST nodes
 
-local printer = require("./printer")
+local tableext = require("@std/tableext")
 local types = require("./types")
 local visitor = require("./visitor")
+local utils = require("./utils")
 
 type node = types.AstNode
 
@@ -13,9 +14,11 @@ export type query<T = node> = {
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
 	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
-	forEach: (self: query<T>, callback: (T) -> ()) -> (),
-	__root: node,
-} -- TODO: Add a select: (self: query<T>, fn: (node) -> U?) -> query<U> method and a flatMap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U> method
+	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
+	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
+	flatmap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
+	maptoarray: <U>(self: query<T>, fn: (T) -> U?) -> { U },
+}
 
 local queryLib = {}
 
@@ -30,12 +33,8 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-local function print<T>(self: types.replacements): string
-	return printer.printnode(self.__root, self)
-end
-
 function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
-	local replacements = { print = print, __root = self.__root }
+	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
 		if r ~= nil then
@@ -58,15 +57,14 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 	return self
 end
 
-function queryLib.forEach<T>(self: query<T>, callback: (T) -> ()): ()
+function queryLib.foreach<T>(self: query<T>, callback: (T) -> ()): query<T>
 	for _, node in self.nodes do
 		callback(node)
 	end
+	return self
 end
 
-function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
-	local nodes: { T } = {}
-
+local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visitor
 	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
 		local selected = fn(n)
 		if selected ~= nil then
@@ -76,25 +74,77 @@ function queryLib.selectFromRoot<T>(ast: node, fn: (node) -> T?): query<T>
 	end
 
 	local selectVisitor = visitor.create(visit)
-	selectVisitor.visitBlockEnd = function(n) end
-	selectVisitor.visitLocalDeclarationEnd = function(n) end
-	selectVisitor.visitExpression = function(n)
+	selectVisitor.visitStatBlockEnd = function(n) end
+	selectVisitor.visitStatLocalDeclarationEnd = function(n) end
+	selectVisitor.visitExpr = function(n)
 		return true
 	end
-	selectVisitor.visitExpressionEnd = function(n) end
+	selectVisitor.visitExprEnd = function(n) end
 	selectVisitor.visitToken = function(n)
+		if utils.isBaseToken(n) then
+			-- only visit if it is a base token, so we don't double count
+			return visit(n)
+		end
 		return true
 	end
 
-	visitor.visit(ast, selectVisitor)
+	return selectVisitor
+end
+
+function queryLib.findall<T, U>(self: query<T>, fn: (node) -> U?): query<U>
+	local selectedNodes: { U } = {}
+
+	local selectVisitor = newSelectVisitor(selectedNodes, fn)
+
+	for _, node in self.nodes do
+		visitor.visit(node, selectVisitor)
+	end
+
+	self.nodes = selectedNodes
+
+	return self
+end
+
+function queryLib.flatmap<T, U>(self: query<T>, fn: (T) -> { U }): query<U>
+	local newNodes: { U } = {}
+	for _, node in self.nodes do
+		local mapped = fn(node)
+		if #mapped > 0 then
+			tableext.extend(newNodes, mapped)
+		end
+	end
+	self.nodes = newNodes
+	return self
+end
+
+function queryLib.maptoarray<T, U>(self: query<T>, fn: (T) -> U?): { U }
+	local result = {}
+	for _, node in self.nodes do
+		local mapped = fn(node)
+		if mapped ~= nil then
+			table.insert(result, mapped)
+		end
+	end
+	return result
+end
+
+function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
+	local nodes: { T } = {}
+
+	local selectVisitor = newSelectVisitor(nodes, fn)
+
+	local root: node = if ast.root ~= nil then ast.root else ast
+	visitor.visit(root, selectVisitor)
 
 	return {
 		nodes = nodes,
 		filter = queryLib.filter,
 		replace = queryLib.replace,
 		map = queryLib.map,
-		forEach = queryLib.forEach,
-		__root = ast,
+		foreach = queryLib.foreach,
+		findall = queryLib.findall,
+		flatmap = queryLib.flatmap,
+		maptoarray = queryLib.maptoarray,
 	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
 end
 

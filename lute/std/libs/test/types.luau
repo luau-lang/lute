@@ -26,7 +26,7 @@ export type testsuite = {
 export type failedtest = {
 	test: string, -- name of the test case that failed
 	assertion: string?, -- if an assertion failed, name of the assertion that failed (e.g., "assert.eq")
-	message: string?, -- the error message to report with a failed assertion
+	error: string?, -- the error message to report with a failed assertion
 	filename: string, -- source file where the failure occurred
 	linenumber: number, -- line number of the failure
 }
@@ -41,10 +41,16 @@ export type testrunresult = {
 export type testreporter = (testrunresult) -> ()
 
 -- Testing Environment
+export type caseindexentry = {
+	anonymous: { testcase },
+	suites: { [string]: { testcase } },
+}
+
 export type testenvironment = {
 	anonymous: { testcase },
 	suites: { testsuite },
-	reporter: testreporter,
+	suiteindex: { [string]: testsuite },
+	caseindex: { [string]: caseindexentry },
 }
 
 export type testrunner = (testenvironment) -> testrunresult

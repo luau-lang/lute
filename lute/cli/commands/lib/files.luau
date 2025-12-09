@@ -6,7 +6,11 @@ local path = require("@std/path")
 local stringext = require("@std/stringext")
 local tableext = require("@std/tableext")
 
-local function traverseDirectoryRecursive(directory: path.path, ignoreResolver: ignore.IgnoreResolver): { path.path }
+local function traverseDirectoryRecursive(
+	directory: path.path,
+	ignoreResolver: ignore.IgnoreResolver,
+	verbose: boolean?
+): { path.path }
 	local results = {}
 
 	for _, entry in fs.listdir(path.format(directory)) do
@@ -14,19 +18,25 @@ local function traverseDirectoryRecursive(directory: path.path, ignoreResolver: 
 
 		if entry.type == "dir" then
 			if ignoreResolver:isIgnoredDirectory(fullPath) then
-				print("Skipping", fullPath)
+				if verbose then
+					print("Skipping", fullPath)
+				end
 				continue
 			end
 
-			tableext.extend(results, traverseDirectoryRecursive(fullPath, ignoreResolver))
+			tableext.extend(results, traverseDirectoryRecursive(fullPath, ignoreResolver, verbose))
 		else
 			-- TODO: allow customisation of the filter when traversing a directory. e.g., globs? file endings? ignore paths?
-			if stringext.endswith(entry.name, ".luau") or stringext.endswith(entry.name, ".lua") then
+			if stringext.hassuffix(entry.name, ".luau") or stringext.hassuffix(entry.name, ".lua") then
 				if ignoreResolver:isIgnoredFile(fullPath) then
-					print("Skipping", fullPath)
+					if verbose then
+						print("Skipping", fullPath)
+					end
 					continue
 				end
 				table.insert(results, fullPath)
+			elseif verbose then
+				print(`Skipping non-Luau file '{fullPath}'`)
 			end
 		end
 	end
@@ -34,7 +44,7 @@ local function traverseDirectoryRecursive(directory: path.path, ignoreResolver: 
 	return results
 end
 
-local function getSourceFiles(paths: { string }): { path.path }
+local function getSourceFiles(paths: { string }, verbose: boolean?): { path.path }
 	local files = {}
 
 	local ignoreResolver = ignore.new()
@@ -47,9 +57,11 @@ local function getSourceFiles(paths: { string }): { path.path }
 		end
 
 		filepath = path.format(pathObj)
-		print(filepath)
+		if verbose then
+			print(filepath)
+		end
 		if fs.type(filepath) == "dir" then
-			tableext.extend(files, traverseDirectoryRecursive(pathObj, ignoreResolver))
+			tableext.extend(files, traverseDirectoryRecursive(pathObj, ignoreResolver, verbose))
 		else
 			table.insert(files, pathObj)
 		end

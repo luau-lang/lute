@@ -1,8 +1,12 @@
 #include "lute/climain.h"
+#include "lute/fileutils.h"
+#include "lute/uvutils.h"
 
 #include "Luau/FileUtils.h"
 
 #include "lua.h"
+
+#include "uv.h"
 
 #include "cliruntimefixture.h"
 #include "doctest.h"
@@ -222,4 +226,34 @@ TEST_CASE_FIXTURE(LuteFixture, "require_by_string_semantics_in_cli")
         std::vector<char*> argv = {executablePlaceholder, inputPath.data()};
         CHECK_NE(cliMain(argv.size(), argv.data(), getReporter()), 0);
     }
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "require_check_tilde_path")
+{
+    char executablePlaceholder[] = "lute";
+    char subCommand[] = "check";
+    // Get home directory
+    auto result = uvutils::getStringFromUv(uv_os_homedir);
+    REQUIRE(result.get_if<std::string>() != nullptr);
+    std::string homeDir = *result.get_if<std::string>();
+
+    // Create test directory and test file
+    std::string testDir = joinPaths(homeDir, "lute_test_special");
+    std::string testFile = joinPaths(testDir, "foo.luau");
+    REQUIRE(Lute::createDirectories(testDir));
+
+    // Write test module file
+    REQUIRE(Lute::writeFile(testFile, "return { foo = \"bar\" }\n"));
+
+    // Run the test
+    for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
+    {
+        std::string mainPath = joinPaths(luteProjectRoot, "tests/src/require/config_tests/tilde_config/main.luau");
+        std::vector<char*> argv = {executablePlaceholder, subCommand, mainPath.data()};
+        CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    }
+
+    // Clean up
+    Lute::removeFile(testFile);
+    Lute::removeDirectory(testDir);
 }

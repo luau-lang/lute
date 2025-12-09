@@ -32,12 +32,12 @@ void convertCRLFtoLF(std::string& str)
     for (size_t readPos = 0; readPos < str.size(); ++readPos)
     {
         if (str[readPos] == '\r' && readPos + 1 < str.size() && str[readPos + 1] == '\n')
-            continue;  // Skip the '\r' in CRLF
+            continue; // Skip the '\r' in CRLF
         str[writePos++] = str[readPos];
     }
     str.resize(writePos);
 }
-    
+
 struct ProcessHandle
 {
     uv_process_t process;
@@ -152,6 +152,14 @@ struct ProcessHandle
     }
 };
 
+struct ProcessOptions
+{
+    std::string cwd;
+    std::string stdioKind;
+    std::map<std::string, std::string> env;
+    std::string customShell;  // only used by system()
+};
+
 static void onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
 {
     ProcessHandle* handle = static_cast<ProcessHandle*>(process->data);
@@ -213,117 +221,9 @@ const std::string kStdioKindNone = "none";
 // TODO: add forwarding
 // const std::string kStdioKindForward = "forward";
 
-int run(lua_State* L)
+// helper function for run() and system()
+int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions opts)
 {
-    std::vector<std::string> args;
-    if (lua_istable(L, 1))
-    {
-        int len = lua_objlen(L, 1);
-        for (int i = 1; i <= len; i++)
-        {
-            lua_rawgeti(L, 1, i);
-            args.push_back(lua_tostring(L, -1));
-            lua_pop(L, 1);
-        }
-    }
-    else
-    {
-        args.push_back(lua_tostring(L, 1));
-    }
-
-    if (args.empty() || args[0].empty())
-    {
-        luaL_error(L, "process.create requires a non-empty command");
-        return 0;
-    }
-
-    bool useShell = false;
-    std::string customShell;
-    std::string cwd;
-    std::string stdioKind;
-    std::map<std::string, std::string> env;
-
-    if (lua_istable(L, 2))
-    {
-        lua_getfield(L, 2, "shell");
-        if (lua_isboolean(L, -1))
-        {
-            useShell = lua_toboolean(L, -1);
-        }
-        else if (lua_isstring(L, -1))
-        {
-            customShell = lua_tostring(L, -1);
-            useShell = true;
-        }
-
-        lua_pop(L, 1);
-
-        lua_getfield(L, 2, "cwd");
-        if (!lua_isnil(L, -1))
-            cwd = lua_tostring(L, -1);
-
-        lua_pop(L, 1);
-
-        lua_getfield(L, 2, "stdio");
-        if (lua_isstring(L, -1))
-        {
-            stdioKind = lua_tostring(L, -1);
-            // TODO: support stdin and separate stdout/stderr kinds
-        }
-        lua_pop(L, 1);
-
-        lua_getfield(L, 2, "env");
-        if (lua_istable(L, -1))
-        {
-            lua_pushnil(L);
-            while (lua_next(L, -2))
-            {
-                env[luaL_checkstring(L, -2)] = luaL_checkstring(L, -1);
-                lua_pop(L, 1);
-            }
-        }
-        lua_pop(L, 1);
-    }
-
-    if (useShell)
-    {
-        std::string commandStr = args[0];
-
-        for (size_t i = 1; i < args.size(); ++i)
-        {
-            commandStr += " ";
-            commandStr += args[i];
-        }
-
-#ifdef _WIN32
-        const char* shellVar = "COMSPEC";
-        const char* shellFallback = "cmd.exe";
-        const char* shellArg = "/c";
-#else
-        const char* shellVar = "SHELL";
-        const char* shellFallback = "/bin/sh";
-        const char* shellArg = "-c";
-#endif
-
-        std::string resolvedShell;
-        if (customShell.empty())
-        {
-            char shellBuffer[1024];
-            size_t shellSize = sizeof(shellBuffer);
-            int result = uv_os_getenv(shellVar, shellBuffer, &shellSize);
-            resolvedShell = result == 0 ? shellBuffer : shellFallback;
-        }
-        else
-        {
-            resolvedShell = customShell;
-        }
-
-        args.clear();
-        args.emplace_back(resolvedShell);
-        args.emplace_back(shellArg);
-        args.emplace_back(commandStr);
-    }
-
     auto handle = std::make_shared<ProcessHandle>();
     handle->loop = uv_default_loop();
     handle->self = handle;
@@ -342,7 +242,7 @@ int run(lua_State* L)
 
     std::vector<std::string> envStrings;
     std::vector<char*> envPtr;
-    if (!env.empty())
+    if (!opts.env.empty())
     {
         // Copy current environment into the new environment
         uv_env_item_t* currentEnvItems;
@@ -350,23 +250,22 @@ int run(lua_State* L)
         int err = uv_os_environ(&currentEnvItems, &currentEnvCount);
         if (err != 0)
         {
-            luaL_error(L, "Failed to get current environment: %s", uv_strerror(err));
             uv_os_free_environ(currentEnvItems, currentEnvCount);
-            return 0;
+            luaL_error(L, "Failed to get current environment: %s", uv_strerror(err));
         }
         for (int i = 0; i < currentEnvCount; i++)
         {
-            if (currentEnvItems[i].name && currentEnvItems[i].value && env.find(currentEnvItems[i].name) == env.end())
+            if (currentEnvItems[i].name && currentEnvItems[i].value && opts.env.find(currentEnvItems[i].name) == opts.env.end())
             {
-                env[currentEnvItems[i].name] = currentEnvItems[i].value;
+                opts.env[currentEnvItems[i].name] = currentEnvItems[i].value;
             }
         }
         uv_os_free_environ(currentEnvItems, currentEnvCount);
 
         // Turn the new environment into a char** array
-        envStrings.reserve(env.size());
-        envPtr.reserve(env.size() + 1);
-        for (const auto& pair : env)
+        envStrings.reserve(opts.env.size());
+        envPtr.reserve(opts.env.size() + 1);
+        for (const auto& pair : opts.env)
         {
             envStrings.push_back(pair.first + "=" + pair.second);
         }
@@ -378,9 +277,9 @@ int run(lua_State* L)
         options.env = envPtr.data();
     }
 
-    if (!cwd.empty())
+    if (!opts.cwd.empty())
     {
-        options.cwd = cwd.c_str();
+        options.cwd = opts.cwd.c_str();
     }
 
     uv_pipe_init(handle->loop, &handle->stdoutPipe, 0);
@@ -389,19 +288,19 @@ int run(lua_State* L)
     options.stdio_count = 3;
     uv_stdio_container_t stdio[3];
     stdio[0].flags = UV_IGNORE;
-    if (stdioKind == kStdioKindNone)
+    if (opts.stdioKind == kStdioKindNone)
     {
         stdio[1].flags = UV_IGNORE;
         stdio[2].flags = UV_IGNORE;
     }
-    else if (stdioKind == kStdioKindInherit)
+    else if (opts.stdioKind == kStdioKindInherit)
     {
         stdio[1].flags = UV_INHERIT_FD;
         stdio[1].data.fd = fileno(stdout);
         stdio[2].flags = UV_INHERIT_FD;
         stdio[2].data.fd = fileno(stderr);
     }
-    else if (stdioKind == kStdioKindDefault || stdioKind.empty())
+    else if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
     {
         stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
         stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
@@ -410,8 +309,7 @@ int run(lua_State* L)
     }
     else
     {
-        luaL_error(L, "Invalid stdio kind: %s", stdioKind.c_str());
-        return 0;
+        luaL_error(L, "Invalid stdio kind: %s", opts.stdioKind.c_str());
     }
     options.stdio = stdio;
 
@@ -433,13 +331,134 @@ int run(lua_State* L)
         handle->closeHandles();
 
         luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
-        return 0;
     }
 
     uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
     uv_read_start((uv_stream_t*)&handle->stderrPipe, allocBuffer, onPipeRead);
 
     return lua_yield(L, 0);
+}
+
+ProcessOptions parseOptions(lua_State* L, int index)
+{
+    ProcessOptions opts;
+
+    if (lua_isnoneornil(L, index))
+    {
+        return opts; // use defaults
+    }
+
+    if (!lua_istable(L, index))
+    {
+        luaL_error(L, "process options must be a table");
+    }
+
+    lua_getfield(L, index, "system");
+    if (!lua_isnil(L, -1))
+    {
+        opts.customShell = luaL_checkstring(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "cwd");
+    if (!lua_isnil(L, -1))
+    {
+        opts.cwd = luaL_checkstring(L,-1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "stdio");
+    if (!lua_isnil(L, -1))
+    {
+        opts.stdioKind = luaL_checkstring(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "env");
+    if (!lua_isnil(L, -1))
+    {
+        if (lua_istable(L, -1))
+        {
+            lua_pushnil(L);
+            while (lua_next(L, -2))
+            {
+                opts.env[luaL_checkstring(L, -2)] = luaL_checkstring(L, -1);
+                lua_pop(L, 1);
+            }
+        }
+        else
+        {
+            luaL_error(L, "process option 'env' must be a table");
+        }
+    }
+    lua_pop(L, 1);
+
+    return opts;
+}
+
+int run(lua_State* L)
+{
+    if (!lua_istable(L, 1))
+    {
+        luaL_error(L, "process.run expects a table of arguments as the first parameter");
+    }
+
+    std::vector<std::string> args;
+    int len = lua_objlen(L, 1);
+    for (int i = 1; i <= len; i++)
+    {
+        lua_rawgeti(L, 1, i);
+        args.push_back(luaL_checkstring(L, -1));
+        lua_pop(L, 1);
+    }
+
+    if (args.empty())
+    {
+        luaL_error(L, "process.run requires a non-empty table of arguments");
+    }
+    if (args[0].empty())
+    {
+        luaL_error(L, "process.run requires a non-empty command as the first argument");
+    }
+
+    ProcessOptions opts = parseOptions(L, 2);
+    return executionHelper(L, args, opts);
+}
+
+int system(lua_State* L)
+{
+    std::string command = luaL_checkstring(L, 1);
+    if (command.empty())
+    {
+        luaL_error(L, "process.system requires a non-empty string as the command");
+    }
+
+    ProcessOptions opts = parseOptions(L, 2);
+
+#ifdef _WIN32
+        const char* shellVar = "COMSPEC";
+        const char* shellFallback = "cmd.exe";
+        const char* shellArg = "/c";
+#else
+        const char* shellVar = "SHELL";
+        const char* shellFallback = "/bin/sh";
+        const char* shellArg = "-c";
+#endif
+
+    std::string resolvedShell;
+    if (opts.customShell.empty())
+    {
+        char shellBuffer[1024];
+        size_t shellSize = sizeof(shellBuffer);
+        int result = uv_os_getenv(shellVar, shellBuffer, &shellSize);
+        resolvedShell = result == 0 ? shellBuffer : shellFallback;
+    }
+    else
+    {
+        resolvedShell = opts.customShell;
+    }
+
+    return executionHelper(L, { resolvedShell, shellArg, command }, opts);
 }
 
 int homedir(lua_State* L)
@@ -456,7 +475,6 @@ int homedir(lua_State* L)
 int exitFunc(lua_State* L)
 {
     int exitCode = luaL_optinteger(L, 1, 0);
-
 
     // Exit with the provided code
     std::exit(exitCode);

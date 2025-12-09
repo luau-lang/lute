@@ -6,13 +6,16 @@ on:
   pull_request:
     branches: ["primary"]
 
+# CI on the "primary" branch opts out of concurrency grouping by using the run's
+# unique run_id.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/primary' && github.run_id || github.ref }}
   cancel-in-progress: true
 
 jobs:
   run-lutecli-luau-tests:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
 
     strategy:
       matrix:
@@ -50,7 +53,11 @@ jobs:
       - name: Run Luau Tests (Windows)
         if: runner.os == 'Windows'
         shell: cmd
-        run: for /r tests %%f in (*.test.luau) do "${{ steps.build_lute.outputs.exe_path }}" run "%%f"
+        run: |
+          set _errorFlag=0
+          for /r tests %%f in (*.test.luau) do "${{ steps.build_lute.outputs.exe_path }}" run "%%f" || (set _errorFlag=1)
+          if %_errorFlag% neq 0 exit /b 1
+        
 
   run-lute-cxx-unittests:
     runs-on: ${{ matrix.os }}
@@ -134,12 +141,12 @@ jobs:
   aggregator:
     name: Gated Commits
     runs-on: ubuntu-latest
-    needs: [run-lutecli-luau-tests, run-lute-cxx-unittests, check-format]
+    needs: [run-lutecli-luau-tests, run-lute-cxx-unittests, check-format, build-docs-site]
     if: ${{ always() }}
     steps:
       - name: Aggregator
         run: |
-          if [ "${{ needs.run-lutecli-luau-tests.result }}" == "success" ] && [ "${{ needs.run-lute-cxx-unittests.result }}" == "success" ] && [ "${{ needs.check-format.result }}" == "success" ]; then
+          if [ "${{ needs.run-lutecli-luau-tests.result }}" == "success" ] && [ "${{ needs.run-lute-cxx-unittests.result }}" == "success" ] && [ "${{ needs.check-format.result }}" == "success" ] && [ "${{ needs.build-docs-site.result }}" == "success" ]; then
             echo "All jobs succeeded"
           else
             echo "One or more jobs failed"

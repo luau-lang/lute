@@ -1,8 +1,26 @@
 local parser = require("@self/parser")
 local types = require("@self/types")
 
-export type Position = types.Position
-export type Location = types.Location
+local luau = require("@lute/luau")
+
+export type span = types.span
+
+local span = {
+	create = luau.span.create,
+}
+
+function span.subsumes(haystack: span, needle: span): boolean
+	return (
+		if haystack.beginline == needle.beginline
+			then haystack.begincolumn <= needle.begincolumn
+			else haystack.beginline < needle.beginline
+	)
+		and (
+			if haystack.endline == needle.endline
+				then haystack.endcolumn >= needle.endcolumn
+				else haystack.endline > needle.endline
+		)
+end
 
 export type Whitespace = types.Whitespace
 export type SingleLineComment = types.SingleLineComment
@@ -70,6 +88,8 @@ export type AstExprIfElse = types.AstExprIfElse
 export type AstExpr = types.AstExpr
 
 export type AstStatBlock = types.AstStatBlock
+
+export type AstStatDo = types.AstStatDo
 
 export type AstElseIfStat = types.AstElseIfStat
 
@@ -159,4 +179,9 @@ export type AstNode = types.AstNode
 
 export type ParseResult = types.ParseResult
 
-return table.freeze({ parse = parser.parse, parseexpr = parser.parseexpr, parsefile = parser.parsefile })
+return table.freeze({
+	parseblock = parser.parseblock,
+	parseexpr = parser.parseexpr,
+	parse = parser.parse,
+	span = table.freeze(span),
+})

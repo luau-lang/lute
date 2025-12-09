@@ -5,7 +5,7 @@
 
 local stringext = {}
 
-function stringext.startswith(str: string, prefix: string): boolean
+function stringext.hasprefix(str: string, prefix: string): boolean
 	if #prefix > #str then
 		return false
 	end
@@ -14,19 +14,19 @@ function stringext.startswith(str: string, prefix: string): boolean
 end
 
 function stringext.removeprefix(str: string, prefix: string): string
-	if not stringext.startswith(str, prefix) then
+	if not stringext.hasprefix(str, prefix) then
 		return str
 	end
 
 	return str:sub(#prefix + 1)
 end
 
-function stringext.endswith(str: string, suffix: string): boolean
+function stringext.hassuffix(str: string, suffix: string): boolean
 	return str:sub(-#suffix) == suffix
 end
 
 function stringext.removesuffix(str: string, suffix: string): string
-	if not stringext.endswith(str, suffix) then
+	if not stringext.hassuffix(str, suffix) then
 		return str
 	end
 
@@ -36,6 +36,24 @@ end
 function stringext.trim(str: string): string
 	-- Pattern is guaranteed to return a result
 	return str:match("^%s*(.-)%s*$") :: string
+end
+
+-- Counts the number of occurrences of pattern in str between startPos and endPos (inclusive)
+function stringext.count(str: string, pattern: string, startPos: number?, endPos: number?): number
+	if startPos and endPos then
+		str = str:sub(startPos, endPos)
+	elseif startPos then
+		str = str:sub(startPos)
+	elseif endPos then
+		str = str:sub(1, endPos)
+	end
+
+	local count = 0
+	for _ in str:gmatch(pattern) do
+		count += 1
+	end
+
+	return count
 end
 
 return table.freeze(stringext)

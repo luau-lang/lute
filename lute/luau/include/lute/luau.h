@@ -13,6 +13,10 @@ int luteopen_luau(lua_State* L);
 namespace luau
 {
 
+static const char kSpanType[] = "span";
+static const char kCompileResultType[] = "CompileResult";
+static const char kSpanCreateName[] = "span.create";
+
 int luau_parse(lua_State* L);
 
 int luau_parseexpr(lua_State* L);
@@ -31,6 +35,10 @@ static const luaL_Reg lib[] = {
     {"resolverequire", resolverequire_luau},
     {"typeofmodule", typeofmodule_luau},
     {nullptr, nullptr},
+};
+
+static const std::string properties[] = {
+    kSpanType,
 };
 
 } // namespace luau

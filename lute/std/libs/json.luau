@@ -453,7 +453,7 @@ deserialize = function(state: DeserializerState): value
 	elseif string.sub(state.src, state.cursor, state.cursor + 4) == "false" then
 		state.cursor += 5
 		return false
-	elseif string.match(state.src, "^[%d%.]", state.cursor) then
+	elseif string.match(state.src, "^[%-%d%.]", state.cursor) then
 		-- number
 		return deserializeNumber(state)
 	elseif string.byte(state.src, state.cursor) == string.byte('"') then

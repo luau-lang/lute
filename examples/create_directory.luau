@@ -13,7 +13,7 @@ else
 	print("Failed to create directory")
 end
 
-fs.rmdir(directory)
+fs.removedirectory(directory)
 
 if not fs.exists(directory) then
 	print("Directory successfully removed")

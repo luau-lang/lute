@@ -15,7 +15,7 @@ function utils.isExprConstantNil(n: types.AstNode): types.AstExprConstantNil?
 end
 
 function utils.isExprConstantBool(n: types.AstNode): types.AstExprConstantBool?
-	return if n.kind == "expr" and n.tag == "bool" then n else nil
+	return if n.kind == "expr" and n.tag == "boolean" then n else nil
 end
 
 function utils.isExprConstantNumber(n: types.AstNode): types.AstExprConstantNumber?
@@ -56,6 +56,10 @@ end
 
 function utils.isExprTable(n: types.AstNode): types.AstExprTable?
 	return if n.kind == "expr" and n.tag == "table" then n else nil
+end
+
+function utils.isExprTableItem(n: types.AstNode): types.AstExprTableItem?
+	return if n.istableitem then n else nil
 end
 
 function utils.isExprUnary(n: types.AstNode): types.AstExprUnary?
@@ -227,7 +231,15 @@ function utils.isTypePack(n: types.AstNode): types.AstTypePack?
 end
 
 function utils.isToken(n: types.AstNode): types.Token?
-	return if n.kind == "token" then n else nil
+	return if n.istoken then n else nil
+end
+
+function utils.isBaseToken(n: types.AstNode): types.Token?
+	return if n.istoken and not n.kind then n else nil
+end
+
+function utils.isAttribute(n: types.AstAttribute): types.AstAttribute?
+	return if n.kind == "attribute" then n else nil
 end
 
 return table.freeze(utils)

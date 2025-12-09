@@ -19,21 +19,48 @@ test.suite("TableExt", function(suite)
 		assert.eq(filtered.c, 3)
 	end)
 
-	suite:case("fold", function(assert)
-		local arr: { number } = { 1, 2, 3, 4 }
-		local sum = tableext.fold(arr, function(acc: number, v: number)
-			return acc + v
-		end, 0)
-		assert.eq(sum, 10)
-	end)
-
 	suite:case("extend", function(assert)
 		local a: { number } = { 1, 2 }
 		local b: { number } = { 3, 4 }
-		tableext.extend(a, b)
-		assert.eq(#a, 4)
+		local c: { number } = { 5, 6 }
+		tableext.extend(a, b, c)
+		assert.eq(#a, 6)
 		assert.eq(a[3], 3)
 		assert.eq(a[4], 4)
+		assert.eq(a[5], 5)
+		assert.eq(a[6], 6)
+	end)
+
+	suite:case("combine", function(assert)
+		local a = { ["a"] = 1, ["b"] = 2 }
+		local b = { ["b"] = 3, ["c"] = 4 }
+		local c = { ["c"] = 1, ["d"] = 5 }
+		tableext.combine(a, b, c)
+		assert.eq(a["a"], 1)
+		assert.eq(a["b"], 3)
+		assert.eq(a["c"], 1)
+		assert.eq(a["d"], 5)
+	end)
+
+	suite:case("keys", function(assert)
+		local a = { a = 1, b = 2, c = 3 }
+		local keys = tableext.keys(a)
+		for _, key in keys do
+			assert.neq(a[key], nil)
+		end
+	end)
+
+	suite:case("reverse", function(assert)
+		-- in-place
+		local a = { 1, 2, 3 }
+		tableext.reverse(a, true)
+		assert.tableeq(a, { 3, 2, 1 })
+
+		-- return new
+		local b = { 4, 5, 6 }
+		local c = tableext.reverse(b)
+		assert.tableeq(b, { 4, 5, 6 })
+		assert.tableeq(c, { 6, 5, 4 })
 	end)
 end)
 

@@ -1,5 +1,5 @@
 -- Utilities module
-print("Utils module")
+-- print("Utils module")
 return {
 	add = function(a, b)
 		return a + b
