@@ -310,7 +310,7 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
 }
 
 // Returns whether the filePath could be resolved to a valid file path, and an optional string containing either the valid path or an error message
-static std::pair<bool, std::optional<std::string>> getWithRequireByStringSemantics(std::string filePath)
+static std::pair<bool, std::string> getWithRequireByStringSemantics(std::string filePath)
 {
     std::string normalized = normalizePath(std::move(filePath));
 
@@ -327,27 +327,32 @@ static std::pair<bool, std::optional<std::string>> getWithRequireByStringSemanti
         return {false, "Could not initialize ModulePath instance."};
 
     ResolvedRealPath resolved = mp->getRealPath();
-    if (resolved.status == NavigationStatus::Ambiguous)
+    switch (resolved.status)
+    {
+    case NavigationStatus::Success:
+        if (resolved.type == ResolvedRealPath::PathType::File)
+            return {true, resolved.realPath};
+        else
+            return {false, "Path is a directory, not a file."};
+    case NavigationStatus::Ambiguous:
         return {false, "Unable to tell whether path is a file or directory. Is there a same-named file or directory?"};
-    else if (resolved.status == NavigationStatus::NotFound)
+    case NavigationStatus::NotFound:
         return {false, "File or directory not found."};
-
-    if (resolved.type == ResolvedRealPath::PathType::File)
-        return {true, resolved.realPath};
-
-    return {false, std::nullopt};
+    default:
+        return {false, "Unknown navigation status."};
+    }
 };
 
 // Returns whether the filePath could be resolved to a valid file path, and an optional string containing either the valid path or an error message
-static std::pair<bool, std::optional<std::string>> getValidPath(std::string filePath)
+static std::pair<bool, std::string> getValidPath(std::string filePath)
 {
-    auto [ok, path] = getWithRequireByStringSemantics(filePath);
+    auto [ok, res] = getWithRequireByStringSemantics(filePath);
     if (ok)
-        return {true, path};
+        return {true, res};
 
     // Only fallback to checking .lute/* if the original path has no extension.
     if (filePath.find('.') != std::string::npos)
-        return {ok, path};
+        return {false, res};
 
     std::string fallbackPath = joinPaths(".lute", filePath);
     size_t fallbackSize = fallbackPath.size();
@@ -362,7 +367,7 @@ static std::pair<bool, std::optional<std::string>> getValidPath(std::string file
     }
 
 
-    return {false, std::nullopt};
+    return {false, res};
 }
 
 int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporter)
@@ -408,14 +413,12 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
     auto [ok, validPath] = getValidPath(filePath);
     if (!ok)
     {
-        if (validPath)
-            reporter.formatError("Error while resolving filepath '%s': %s", filePath.c_str(), validPath->c_str());
-        else
-            reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
+        reporter.formatError("Error while resolving filepath '%s': %s", filePath.c_str(), validPath.c_str());
+
         return 1;
     }
 
-    bool success = runFile(runtime, validPath->c_str(), L, program_argc, program_argv, reporter);
+    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter);
     return success ? 0 : 1;
 }
 

@@ -119,9 +119,7 @@ ResolvedRealPath ModulePath::getRealPath() const
     if (isADirectory(partialRealPath))
     {
         if (resolvedType)
-        {
             return {NavigationStatus::Ambiguous};
-        }
 
         for (std::string_view potentialSuffix : kInitSuffixes)
         {
