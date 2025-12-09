@@ -69,6 +69,8 @@ export type AstExpr = luau.AstExpr
 
 export type AstStatBlock = luau.AstStatBlock
 
+export type AstStatDo = luau.AstStatDo
+
 export type AstElseIfStat = luau.AstElseIfStat
 
 export type AstStatIf = luau.AstStatIf

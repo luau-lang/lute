@@ -9,6 +9,7 @@ local visitorlib = {}
 export type Visitor = {
 	visitBlock: (types.AstStatBlock) -> boolean,
 	visitBlockEnd: (types.AstStatBlock) -> (),
+	visitStatDo: (types.AstStatDo) -> boolean,
 	visitIf: (types.AstStatIf) -> boolean,
 	visitWhile: (types.AstStatWhile) -> boolean,
 	visitRepeat: (types.AstStatRepeat) -> boolean,
@@ -78,6 +79,7 @@ end
 local defaultVisitor: Visitor = {
 	visitBlock = alwaysVisit :: any,
 	visitBlockEnd = alwaysVisit :: any,
+	visitStatDo = alwaysVisit :: any,
 	visitIf = alwaysVisit :: any,
 	visitWhile = alwaysVisit :: any,
 	visitRepeat = alwaysVisit :: any,
@@ -176,6 +178,16 @@ local function visitBlock(block: types.AstStatBlock, visitor: Visitor)
 		end
 
 		visitor.visitBlockEnd(block)
+	end
+end
+
+local function visitStatDo(node: types.AstStatDo, visitor: Visitor)
+	if visitor.visitStatDo(node) then
+		visitToken(node.dokeyword, visitor)
+		for _, statement in node.body do
+			visitStatement(statement, visitor)
+		end
+		visitToken(node.endkeyword, visitor)
 	end
 end
 
@@ -838,6 +850,8 @@ end
 function visitStatement(statement: types.AstStat, visitor: Visitor)
 	if statement.tag == "block" then
 		visitBlock(statement, visitor)
+	elseif statement.tag == "do" then
+		visitStatDo(statement, visitor)
 	elseif statement.tag == "conditional" then
 		visitIf(statement, visitor)
 	elseif statement.tag == "expression" then
@@ -920,6 +934,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 		return {
 			visitBlock = visit,
 			visitBlockEnd = visit,
+			visitStatDo = visit,
 			visitIf = visit,
 			visitWhile = visit,
 			visitRepeat = visit,
