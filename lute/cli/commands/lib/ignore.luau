@@ -155,10 +155,6 @@ local function parseGitignore(filepath: path.path): GitignoreData
 end
 
 local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
-	print(
-		`Checking if "{filepath}" matches glob pattern "{glob.pattern}" ({glob.matchAnywhere}, {glob.onlyMatchDirectories})`
-	)
-
 	if glob.onlyMatchDirectories and not isDirectory then
 		return false
 	end
@@ -177,8 +173,7 @@ end
 local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirectory: boolean)
 	local matched, ignored = false, false
 
-	-- TODO: compute relative path correctly
-	local relativePath = stringext.removeprefix(filepath, `{ignoreData.location}/`)
+	local relativePath = path.format(path.relative(ignoreData.location, filepath))
 
 	for _, ignore in ignoreData.ignores do
 		if matchesGlob(ignore, relativePath, isDirectory) then
@@ -251,7 +246,7 @@ function IgnoreResolver._readIgnoreRecursive(self: IgnoreResolver, directory: st
 	end
 
 	if not baseIgnores then
-		baseIgnores = { location = "", ignores = {}, whitelists = {}, next = nil } :: GitignoreData
+		baseIgnores = { location = directory, ignores = {}, whitelists = {}, next = nil } :: GitignoreData
 	end
 	assert(baseIgnores, "Luau")
 
