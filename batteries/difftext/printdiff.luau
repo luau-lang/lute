@@ -58,9 +58,12 @@ local function formatLineSideHeader(
 	}?
 ): string
 	-- side header structure:
+	-- 	  if line numbers included:
 	-- 		ALWAYS has length maxNumWidth*2 + 4
 	-- 		the padded structure is essentialy:
-	--{operation} {oldLine# padded to len of maxNumWidth} {newLine# padded to len = maxNumWidth}|
+	--		{operation} {oldLine# padded to len of maxNumWidth} {newLine# padded to len = maxNumWidth}|
+	-- 	  if line numbers excluded:
+	-- 		"+ " for additions, "- " for deletions, "" for equality
 
 	local function padding(width: number)
 		return (" "):rep(width)
