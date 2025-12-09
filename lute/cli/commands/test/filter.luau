@@ -22,41 +22,10 @@ local function filtertests(
 		local caseEntry = env.caseindex[caseName]
 		if caseEntry and caseEntry.suites[suiteName] then
 			local suite = env.suiteindex[suiteName]
-			local filteredSuite = {
-				name = suite.name,
-				cases = caseEntry.suites[suiteName],
-				_beforeeach = suite._beforeeach,
-				_beforeall = suite._beforeall,
-				_aftereach = suite._aftereach,
-				_afterall = suite._afterall,
-			}
-			table.insert(filtered.suites, filteredSuite)
-		end
-		return filtered
-	end
-
-	-- Filter by suite name only
-	if suiteName then
-		local suite = env.suiteindex[suiteName]
-		if suite then
-			table.insert(filtered.suites, suite)
-		end
-		return filtered
-	end
-
-	-- Filter by case name only
-	if caseName then
-		local caseEntry = env.caseindex[caseName]
-		if caseEntry then
-			-- Add all anonymous tests with this case name
-			filtered.anonymous = caseEntry.anonymous
-
-			-- Add all suites that have tests with this case name
-			for sName, cases in caseEntry.suites do
-				local suite = env.suiteindex[sName]
+			if suite then
 				local filteredSuite = {
 					name = suite.name,
-					cases = cases,
+					cases = caseEntry.suites[suiteName],
 					_beforeeach = suite._beforeeach,
 					_beforeall = suite._beforeall,
 					_aftereach = suite._aftereach,
@@ -65,7 +34,35 @@ local function filtertests(
 				table.insert(filtered.suites, filteredSuite)
 			end
 		end
-		return filtered
+
+	-- Filter by suite name only
+	elseif suiteName then
+		local suite = env.suiteindex[suiteName]
+		if suite then
+			table.insert(filtered.suites, suite)
+		end
+	elseif caseName then
+		local caseEntry = env.caseindex[caseName]
+		if caseEntry then
+			-- Add all anonymous tests with this case name
+			filtered.anonymous = caseEntry.anonymous
+
+			-- Add all suites that have tests with this case name
+			for sName, cases in caseEntry.suites do
+				local suite = env.suiteindex[sName]
+				if suite then
+					local filteredSuite = {
+						name = suite.name,
+						cases = cases,
+						_beforeeach = suite._beforeeach,
+						_beforeall = suite._beforeall,
+						_aftereach = suite._aftereach,
+						_afterall = suite._afterall,
+					}
+					table.insert(filtered.suites, filteredSuite)
+				end
+			end
+		end
 	end
 
 	return filtered
