@@ -7,7 +7,7 @@ local diff = difftext.diff
 -- Each diff operation has structure: { key: "EQUAL" | "ADD" | "DELETE", text: string }
 -- Order matters - the sequence of operations defines the transformation
 
-test.suite("myersdiff - bychar", function(suite: any)
+test.suite("myersdiff - bychar", function(suite)
 	suite:case("identical strings", function(assert)
 		local a = "abc"
 		local b = "abc"
@@ -302,7 +302,7 @@ test.suite("myersdiff - byline", function(suite)
 	end)
 end)
 
-test.suite("printdiff", function(suite: any)
+test.suite("printdiff", function(suite)
 	local function composeDetailedRemoval(str: string, changedCharPos: { [number]: true }, sideHeader: string?)
 		local composed = richterm.brightRed(`- {sideHeader or ""}`)
 		for i = 1, #str do

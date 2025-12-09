@@ -10,7 +10,7 @@ local ps = require("@std/process")
 
 type Test = types.test
 type TestCase = types.testcase
-export type TestSuite = types.testsuite
+type TestSuite = types.testsuite
 type TestEnvironment = types.testenvironment
 type TestReporter = types.testreporter
 
