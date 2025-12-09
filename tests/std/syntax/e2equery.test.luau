@@ -16,13 +16,12 @@ local lutePath = process.execpath()
 
 local allCasesPath = path.format(path.join(".", "tests", "std", "syntax", "e2eCases"))
 
-local function formattedTransform(initialPath: string, expectedPath: string, transformPath: string)
-	-- can use output file arg to simplify the testing loop
-	process.run({ lutePath, "transform", transformPath, initialPath })
-	stylua(initialPath, expectedPath)
+local function formattedTransform(initialPath: string, expectedPath: string, transformPath: string, resultPath: string)
+	process.run({ lutePath, "transform", "--output", resultPath, transformPath, initialPath })
+	stylua(resultPath, expectedPath)
 end
 
-test.suite("Query and Transform e2e", function(suite: test.TestSuite)
+test.suite("Query and Transform e2e", function(suite: any)
 	for k, _ in transforms do
 		local transformName = k
 		local transformPath = path.format(path.join(allCasesPath, transformName, "init.luau"))
@@ -45,12 +44,9 @@ test.suite("Query and Transform e2e", function(suite: test.TestSuite)
 				local expectedPath = path.format(path.join(transformCasesPath, `{case}.expect`))
 				local resultPath = path.format(path.join(transformCasesPath, `{case}.result`))
 
-				local initialSrc = fs.readfiletostring(casePath)
-				formattedTransform(casePath, expectedPath, transformPath)
+				formattedTransform(casePath, expectedPath, transformPath, resultPath)
 
-				local result = fs.readfiletostring(casePath)
-				fs.writestringtofile(resultPath, result)
-				fs.writestringtofile(casePath, initialSrc)
+				local result = fs.readfiletostring(resultPath)
 				local expectedResult = fs.readfiletostring(expectedPath)
 
 				local outputDiff = difftext.prettydiff(expectedResult, result, {
