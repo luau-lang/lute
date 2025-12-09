@@ -7,46 +7,51 @@ local types = require("./types")
 local visitorlib = {}
 
 export type Visitor = {
-	visitBlock: (types.AstStatBlock) -> boolean,
-	visitBlockEnd: (types.AstStatBlock) -> (),
-	visitIf: (types.AstStatIf) -> boolean,
-	visitWhile: (types.AstStatWhile) -> boolean,
-	visitRepeat: (types.AstStatRepeat) -> boolean,
-	visitBreak: (types.AstStatBreak) -> boolean,
-	visitContinue: (types.AstStatContinue) -> boolean,
-	visitReturn: (types.AstStatReturn) -> boolean,
-	visitLocalDeclaration: (types.AstStatLocal) -> boolean,
-	visitLocalDeclarationEnd: (types.AstStatLocal) -> (),
-	visitFor: (types.AstStatFor) -> boolean,
-	visitForIn: (types.AstStatForIn) -> boolean,
-	visitAssign: (types.AstStatAssign) -> boolean,
-	visitCompoundAssign: (types.AstStatCompoundAssign) -> boolean,
-	visitFunction: (types.AstStatFunction) -> boolean,
-	visitLocalFunction: (types.AstStatLocalFunction) -> boolean,
-	visitTypeAlias: (types.AstStatTypeAlias) -> boolean,
+	visitStatBlock: (types.AstStatBlock) -> boolean,
+	visitStatBlockEnd: (types.AstStatBlock) -> (),
+	visitStatIf: (types.AstStatIf) -> boolean,
+	visitStatWhile: (types.AstStatWhile) -> boolean,
+	visitStatRepeat: (types.AstStatRepeat) -> boolean,
+	visitStatBreak: (types.AstStatBreak) -> boolean,
+	visitStatContinue: (types.AstStatContinue) -> boolean,
+	visitStatReturn: (types.AstStatReturn) -> boolean,
+	visitStatLocalDeclaration: (types.AstStatLocal) -> boolean,
+	visitStatLocalDeclarationEnd: (types.AstStatLocal) -> (),
+	visitStatFor: (types.AstStatFor) -> boolean,
+	visitStatForIn: (types.AstStatForIn) -> boolean,
+	visitStatAssign: (types.AstStatAssign) -> boolean,
+	visitStatCompoundAssign: (types.AstStatCompoundAssign) -> boolean,
+	visitStatFunction: (types.AstStatFunction) -> boolean,
+	visitStatLocalFunction: (types.AstStatLocalFunction) -> boolean,
+	visitStatTypeAlias: (types.AstStatTypeAlias) -> boolean,
 	visitStatTypeFunction: (types.AstStatTypeFunction) -> boolean,
 	visitStatExpr: (types.AstStatExpr) -> boolean,
 
-	visitExpression: (types.AstExpr) -> boolean,
-	visitExpressionEnd: (types.AstExpr) -> (),
-	visitLocalReference: (types.AstExprLocal) -> boolean,
-	visitGlobal: (types.AstExprGlobal) -> boolean,
-	visitCall: (types.AstExprCall) -> boolean,
-	visitUnary: (types.AstExprUnary) -> boolean,
-	visitBinary: (types.AstExprBinary) -> boolean,
-	visitAnonymousFunction: (types.AstExprAnonymousFunction) -> boolean,
-	visitTableItem: (types.AstExprTableItem) -> boolean,
-	visitTable: (types.AstExprTable) -> boolean,
-	visitIndexName: (types.AstExprIndexName) -> boolean,
-	visitIndexExpr: (types.AstExprIndexExpr) -> boolean,
-	visitGroup: (types.AstExprGroup) -> boolean,
-	visitInterpolatedString: (types.AstExprInterpString) -> boolean,
-	visitTypeAssertion: (types.AstExprTypeAssertion) -> boolean,
-	visitIfExpression: (types.AstExprIfElse) -> boolean,
+	visitExpr: (types.AstExpr) -> boolean,
+	visitExprEnd: (types.AstExpr) -> (),
+	visitExprConstantNil: (types.AstExprConstantNil) -> boolean,
+	visitExprConstantString: (types.AstExprConstantString) -> boolean,
+	visitExprConstantBool: (types.AstExprConstantBool) -> boolean,
+	visitExprConstantNumber: (types.AstExprConstantNumber) -> boolean,
+	visitExprLocal: (types.AstExprLocal) -> boolean,
+	visitExprGlobal: (types.AstExprGlobal) -> boolean,
+	visitExprCall: (types.AstExprCall) -> boolean,
+	visitExprUnary: (types.AstExprUnary) -> boolean,
+	visitExprBinary: (types.AstExprBinary) -> boolean,
+	visitExprAnonymousFunction: (types.AstExprAnonymousFunction) -> boolean,
+	visitExprTableItem: (types.AstExprTableItem) -> boolean,
+	visitExprTable: (types.AstExprTable) -> boolean,
+	visitExprIndexName: (types.AstExprIndexName) -> boolean,
+	visitExprIndexExpr: (types.AstExprIndexExpr) -> boolean,
+	visitExprGroup: (types.AstExprGroup) -> boolean,
+	visitExprInterpString: (types.AstExprInterpString) -> boolean,
+	visitExprTypeAssertion: (types.AstExprTypeAssertion) -> boolean,
+	visitExprIfElse: (types.AstExprIfElse) -> boolean,
+	visitExprVarargs: (types.AstExprVarargs) -> boolean,
 
 	visitTypeReference: (types.AstTypeReference) -> boolean,
-	visitTypeBoolean: (types.AstTypeSingletonBool) -> boolean,
-	visitTypeString: (types.AstTypeSingletonString) -> boolean,
+	visitTypeSingletonBool: (types.AstTypeSingletonBool) -> boolean,
+	visitTypeSingletonString: (types.AstTypeSingletonString) -> boolean,
 	visitTypeTypeof: (types.AstTypeTypeof) -> boolean,
 	visitTypeGroup: (types.AstTypeGroup) -> boolean,
 	visitTypeOptional: (types.AstTypeOptional) -> boolean,
@@ -61,12 +66,8 @@ export type Visitor = {
 	visitTypePackVariadic: (types.AstTypePackVariadic) -> boolean,
 
 	visitToken: (types.Token) -> boolean,
-	visitNil: (types.AstExprConstantNil) -> boolean,
-	visitString: (types.AstExprConstantString) -> boolean,
-	visitBoolean: (types.AstExprConstantBool) -> boolean,
-	visitNumber: (types.AstExprConstantNumber) -> boolean,
+
 	visitLocal: (types.AstLocal) -> boolean,
-	visitVarargs: (types.AstExprVarargs) -> boolean,
 
 	visitAttribute: (types.AstAttribute) -> boolean,
 }
@@ -76,46 +77,51 @@ local function alwaysVisit(...: any)
 end
 
 local defaultVisitor: Visitor = {
-	visitBlock = alwaysVisit :: any,
-	visitBlockEnd = alwaysVisit :: any,
-	visitIf = alwaysVisit :: any,
-	visitWhile = alwaysVisit :: any,
-	visitRepeat = alwaysVisit :: any,
-	visitBreak = alwaysVisit :: any,
-	visitContinue = alwaysVisit :: any,
-	visitReturn = alwaysVisit :: any,
-	visitLocalDeclaration = alwaysVisit :: any,
-	visitLocalDeclarationEnd = alwaysVisit :: any,
-	visitFor = alwaysVisit :: any,
-	visitForIn = alwaysVisit :: any,
-	visitAssign = alwaysVisit :: any,
-	visitCompoundAssign = alwaysVisit :: any,
-	visitFunction = alwaysVisit :: any,
-	visitLocalFunction = alwaysVisit :: any,
-	visitTypeAlias = alwaysVisit :: any,
+	visitStatBlock = alwaysVisit :: any,
+	visitStatBlockEnd = alwaysVisit :: any,
+	visitStatIf = alwaysVisit :: any,
+	visitStatWhile = alwaysVisit :: any,
+	visitStatRepeat = alwaysVisit :: any,
+	visitStatBreak = alwaysVisit :: any,
+	visitStatContinue = alwaysVisit :: any,
+	visitStatReturn = alwaysVisit :: any,
+	visitStatLocalDeclaration = alwaysVisit :: any,
+	visitStatLocalDeclarationEnd = alwaysVisit :: any,
+	visitStatFor = alwaysVisit :: any,
+	visitStatForIn = alwaysVisit :: any,
+	visitStatAssign = alwaysVisit :: any,
+	visitStatCompoundAssign = alwaysVisit :: any,
+	visitStatFunction = alwaysVisit :: any,
+	visitStatLocalFunction = alwaysVisit :: any,
+	visitStatTypeAlias = alwaysVisit :: any,
 	visitStatTypeFunction = alwaysVisit :: any,
 	visitStatExpr = alwaysVisit :: any,
 
-	visitExpression = alwaysVisit :: any,
-	visitExpressionEnd = alwaysVisit :: any,
-	visitLocalReference = alwaysVisit :: any,
-	visitGlobal = alwaysVisit :: any,
-	visitCall = alwaysVisit :: any,
-	visitUnary = alwaysVisit :: any,
-	visitBinary = alwaysVisit :: any,
-	visitAnonymousFunction = alwaysVisit :: any,
-	visitTableItem = alwaysVisit :: any,
-	visitTable = alwaysVisit :: any,
-	visitIndexName = alwaysVisit :: any,
-	visitIndexExpr = alwaysVisit :: any,
-	visitGroup = alwaysVisit :: any,
-	visitInterpolatedString = alwaysVisit,
-	visitTypeAssertion = alwaysVisit,
-	visitIfExpression = alwaysVisit,
+	visitExpr = alwaysVisit :: any,
+	visitExprConstantNil = alwaysVisit :: any,
+	visitExprConstantString = alwaysVisit :: any,
+	visitExprConstantBool = alwaysVisit :: any,
+	visitExprConstantNumber = alwaysVisit :: any,
+	visitExprEnd = alwaysVisit :: any,
+	visitExprLocal = alwaysVisit :: any,
+	visitExprGlobal = alwaysVisit :: any,
+	visitExprCall = alwaysVisit :: any,
+	visitExprUnary = alwaysVisit :: any,
+	visitExprBinary = alwaysVisit :: any,
+	visitExprAnonymousFunction = alwaysVisit :: any,
+	visitExprTableItem = alwaysVisit :: any,
+	visitExprTable = alwaysVisit :: any,
+	visitExprIndexName = alwaysVisit :: any,
+	visitExprIndexExpr = alwaysVisit :: any,
+	visitExprGroup = alwaysVisit :: any,
+	visitExprInterpString = alwaysVisit,
+	visitExprTypeAssertion = alwaysVisit,
+	visitExprIfElse = alwaysVisit,
+	visitExprVarargs = alwaysVisit :: any,
 
 	visitTypeReference = alwaysVisit :: any,
-	visitTypeBoolean = alwaysVisit :: any,
-	visitTypeString = alwaysVisit :: any,
+	visitTypeSingletonBool = alwaysVisit :: any,
+	visitTypeSingletonString = alwaysVisit :: any,
 	visitTypeTypeof = alwaysVisit :: any,
 	visitTypeGroup = alwaysVisit :: any,
 	visitTypeOptional = alwaysVisit :: any,
@@ -130,12 +136,8 @@ local defaultVisitor: Visitor = {
 	visitTypePackVariadic = alwaysVisit,
 
 	visitToken = alwaysVisit :: any,
-	visitNil = alwaysVisit :: any,
-	visitString = alwaysVisit :: any,
-	visitBoolean = alwaysVisit :: any,
-	visitNumber = alwaysVisit :: any,
+
 	visitLocal = alwaysVisit :: any,
-	visitVarargs = alwaysVisit :: any,
 
 	visitAttribute = alwaysVisit :: any,
 }
@@ -169,134 +171,134 @@ local function visitLocal(node: types.AstLocal, visitor: Visitor)
 	end
 end
 
-local function visitBlock(block: types.AstStatBlock, visitor: Visitor)
-	if visitor.visitBlock(block) then
+local function visitStatBlock(block: types.AstStatBlock, visitor: Visitor)
+	if visitor.visitStatBlock(block) then
 		for _, statement in block.statements do
 			visitStatement(statement, visitor)
 		end
 
-		visitor.visitBlockEnd(block)
+		visitor.visitStatBlockEnd(block)
 	end
 end
 
-local function visitIf(node: types.AstStatIf, visitor: Visitor)
-	if visitor.visitIf(node) then
+local function visitStatIf(node: types.AstStatIf, visitor: Visitor)
+	if visitor.visitStatIf(node) then
 		visitToken(node.ifkeyword, visitor)
-		visitExpression(node.condition, visitor)
+		visitExpr(node.condition, visitor)
 		visitToken(node.thenkeyword, visitor)
-		visitBlock(node.thenblock, visitor)
+		visitStatBlock(node.thenblock, visitor)
 		for _, elseifNode in node.elseifs do
 			visitToken(elseifNode.elseifkeyword, visitor)
-			visitExpression(elseifNode.condition, visitor)
+			visitExpr(elseifNode.condition, visitor)
 			visitToken(elseifNode.thenkeyword, visitor)
-			visitBlock(elseifNode.thenblock, visitor)
+			visitStatBlock(elseifNode.thenblock, visitor)
 		end
 		if node.elsekeyword then
 			visitToken(node.elsekeyword, visitor)
 		end
 		if node.elseblock then
-			visitBlock(node.elseblock, visitor)
+			visitStatBlock(node.elseblock, visitor)
 		end
 		visitToken(node.endkeyword, visitor)
 	end
 end
 
-local function visitWhile(node: types.AstStatWhile, visitor: Visitor)
-	if visitor.visitWhile(node) then
+local function visitStatWhile(node: types.AstStatWhile, visitor: Visitor)
+	if visitor.visitStatWhile(node) then
 		visitToken(node.whilekeyword, visitor)
-		visitExpression(node.condition, visitor)
+		visitExpr(node.condition, visitor)
 		visitToken(node.dokeyword, visitor)
-		visitBlock(node.body, visitor)
+		visitStatBlock(node.body, visitor)
 		visitToken(node.endkeyword, visitor)
 	end
 end
 
-local function visitRepeat(node: types.AstStatRepeat, visitor: Visitor)
-	if visitor.visitRepeat(node) then
+local function visitStatRepeat(node: types.AstStatRepeat, visitor: Visitor)
+	if visitor.visitStatRepeat(node) then
 		visitToken(node.repeatkeyword, visitor)
-		visitBlock(node.body, visitor)
+		visitStatBlock(node.body, visitor)
 		visitToken(node.untilkeyword, visitor)
-		visitExpression(node.condition, visitor)
+		visitExpr(node.condition, visitor)
 	end
 end
 
-local function visitBreak(node: types.AstStatBreak, visitor: Visitor)
-	if visitor.visitBreak(node) then
+local function visitStatBreak(node: types.AstStatBreak, visitor: Visitor)
+	if visitor.visitStatBreak(node) then
 		visitToken(node, visitor)
 	end
 end
 
-local function visitContinue(node: types.AstStatContinue, visitor: Visitor)
-	if visitor.visitContinue(node) then
+local function visitStatContinue(node: types.AstStatContinue, visitor: Visitor)
+	if visitor.visitStatContinue(node) then
 		visitToken(node, visitor)
 	end
 end
 
-local function visitReturn(node: types.AstStatReturn, visitor: Visitor)
-	if visitor.visitReturn(node) then
+local function visitStatReturn(node: types.AstStatReturn, visitor: Visitor)
+	if visitor.visitStatReturn(node) then
 		visitToken(node.returnkeyword, visitor)
-		visitPunctuated(node.expressions, visitor, visitExpression)
+		visitPunctuated(node.expressions, visitor, visitExpr)
 	end
 end
 
 local function visitLocalStatement(node: types.AstStatLocal, visitor: Visitor)
-	if visitor.visitLocalDeclaration(node) then
+	if visitor.visitStatLocalDeclaration(node) then
 		visitToken(node.localkeyword, visitor)
 		visitPunctuated(node.variables, visitor, visitLocal)
 		if node.equals then
 			visitToken(node.equals, visitor)
 		end
-		visitPunctuated(node.values, visitor, visitExpression)
+		visitPunctuated(node.values, visitor, visitExpr)
 
-		visitor.visitLocalDeclarationEnd(node)
+		visitor.visitStatLocalDeclarationEnd(node)
 	end
 end
 
-local function visitFor(node: types.AstStatFor, visitor: Visitor)
-	if visitor.visitFor(node) then
+local function visitStatFor(node: types.AstStatFor, visitor: Visitor)
+	if visitor.visitStatFor(node) then
 		visitToken(node.forkeyword, visitor)
 		visitLocal(node.variable, visitor)
 		visitToken(node.equals, visitor)
-		visitExpression(node.from, visitor)
+		visitExpr(node.from, visitor)
 		visitToken(node.tocomma, visitor)
-		visitExpression(node.to, visitor)
+		visitExpr(node.to, visitor)
 		if node.stepcomma then
 			visitToken(node.stepcomma, visitor)
 		end
 		if node.step then
-			visitExpression(node.step, visitor)
+			visitExpr(node.step, visitor)
 		end
 		visitToken(node.dokeyword, visitor)
-		visitBlock(node.body, visitor)
+		visitStatBlock(node.body, visitor)
 		visitToken(node.endkeyword, visitor)
 	end
 end
 
-local function visitForIn(node: types.AstStatForIn, visitor: Visitor)
-	if visitor.visitForIn(node) then
+local function visitStatForIn(node: types.AstStatForIn, visitor: Visitor)
+	if visitor.visitStatForIn(node) then
 		visitToken(node.forkeyword, visitor)
 		visitPunctuated(node.variables, visitor, visitLocal)
 		visitToken(node.inkeyword, visitor)
-		visitPunctuated(node.values, visitor, visitExpression)
+		visitPunctuated(node.values, visitor, visitExpr)
 		visitToken(node.dokeyword, visitor)
-		visitBlock(node.body, visitor)
+		visitStatBlock(node.body, visitor)
 		visitToken(node.endkeyword, visitor)
 	end
 end
 
-local function visitAssign(node: types.AstStatAssign, visitor: Visitor)
-	if visitor.visitAssign(node) then
-		visitPunctuated(node.variables, visitor, visitExpression)
+local function visitStatAssign(node: types.AstStatAssign, visitor: Visitor)
+	if visitor.visitStatAssign(node) then
+		visitPunctuated(node.variables, visitor, visitExpr)
 		visitToken(node.equals, visitor)
-		visitPunctuated(node.values, visitor, visitExpression)
+		visitPunctuated(node.values, visitor, visitExpr)
 	end
 end
 
-local function visitCompoundAssign(node: types.AstStatCompoundAssign, visitor: Visitor)
-	if visitor.visitCompoundAssign(node) then
-		visitExpression(node.variable, visitor)
+local function visitStatCompoundAssign(node: types.AstStatCompoundAssign, visitor: Visitor)
+	if visitor.visitStatCompoundAssign(node) then
+		visitExpr(node.variable, visitor)
 		visitToken(node.operand, visitor)
-		visitExpression(node.value, visitor)
+		visitExpr(node.value, visitor)
 	end
 end
 
@@ -321,8 +323,8 @@ local function visitGenericPack(node: types.AstGenericTypePack, visitor: Visitor
 	end
 end
 
-local function visitTypeAlias(node: types.AstStatTypeAlias, visitor: Visitor)
-	if visitor.visitTypeAlias(node) then
+local function visitStatTypeAlias(node: types.AstStatTypeAlias, visitor: Visitor)
+	if visitor.visitStatTypeAlias(node) then
 		if node.export then
 			visitToken(node.export, visitor)
 		end
@@ -347,81 +349,81 @@ end
 
 local function visitStatExpr(node: types.AstStatExpr, visitor: Visitor)
 	if visitor.visitStatExpr(node) then
-		visitExpression(node.expression, visitor)
+		visitExpr(node.expression, visitor)
 	end
 end
 
-local function visitString(node: types.AstExprConstantString, visitor: Visitor)
-	if visitor.visitString(node) then
+local function visitExprConstantString(node: types.AstExprConstantString, visitor: Visitor)
+	if visitor.visitExprConstantString(node) then
 		visitor.visitToken(node)
 	end
 end
 
-local function visitNil(node: types.AstExprConstantNil, visitor: Visitor)
-	if visitor.visitNil(node) then
+local function visitExprConstantNil(node: types.AstExprConstantNil, visitor: Visitor)
+	if visitor.visitExprConstantNil(node) then
 		visitToken(node, visitor)
 	end
 end
 
-local function visitBoolean(node: types.AstExprConstantBool, visitor: Visitor)
-	if visitor.visitBoolean(node) then
+local function visitExprConstantBool(node: types.AstExprConstantBool, visitor: Visitor)
+	if visitor.visitExprConstantBool(node) then
 		visitToken(node, visitor)
 	end
 end
 
-local function visitNumber(node: types.AstExprConstantNumber, visitor: Visitor)
-	if visitor.visitNumber(node) then
+local function visitExprConstantNumber(node: types.AstExprConstantNumber, visitor: Visitor)
+	if visitor.visitExprConstantNumber(node) then
 		visitToken(node, visitor)
 	end
 end
 
-local function visitLocalReference(node: types.AstExprLocal, visitor: Visitor)
-	if visitor.visitLocalReference(node) then
+local function visitExprLocal(node: types.AstExprLocal, visitor: Visitor)
+	if visitor.visitExprLocal(node) then
 		visitor.visitToken(node.token)
 	end
 end
 
-local function visitGlobal(node: types.AstExprGlobal, visitor: Visitor)
-	if visitor.visitGlobal(node) then
+local function visitExprGlobal(node: types.AstExprGlobal, visitor: Visitor)
+	if visitor.visitExprGlobal(node) then
 		visitor.visitToken(node.name)
 	end
 end
 
-local function visitVarargs(node: types.AstExprVarargs, visitor: Visitor)
-	if visitor.visitVarargs(node) then
+local function visitExprVarargs(node: types.AstExprVarargs, visitor: Visitor)
+	if visitor.visitExprVarargs(node) then
 		visitToken(node, visitor)
 	end
 end
 
-local function visitCall(node: types.AstExprCall, visitor: Visitor)
-	if visitor.visitCall(node) then
-		visitExpression(node.func, visitor)
+local function visitExprCall(node: types.AstExprCall, visitor: Visitor)
+	if visitor.visitExprCall(node) then
+		visitExpr(node.func, visitor)
 		if node.openparens then
 			visitToken(node.openparens, visitor)
 		end
-		visitPunctuated(node.arguments, visitor, visitExpression)
+		visitPunctuated(node.arguments, visitor, visitExpr)
 		if node.closeparens then
 			visitToken(node.closeparens, visitor)
 		end
 	end
 end
 
-local function visitUnary(node: types.AstExprUnary, visitor: Visitor)
-	if visitor.visitUnary(node) then
+local function visitExprUnary(node: types.AstExprUnary, visitor: Visitor)
+	if visitor.visitExprUnary(node) then
 		visitToken(node.operator, visitor)
-		visitExpression(node.operand, visitor)
+		visitExpr(node.operand, visitor)
 	end
 end
 
-local function visitBinary(node: types.AstExprBinary, visitor: Visitor)
-	if visitor.visitBinary(node) then
-		visitExpression(node.lhsoperand, visitor)
+local function visitExprBinary(node: types.AstExprBinary, visitor: Visitor)
+	if visitor.visitExprBinary(node) then
+		visitExpr(node.lhsoperand, visitor)
 		visitToken(node.operator, visitor)
-		visitExpression(node.rhsoperand, visitor)
+		visitExpr(node.rhsoperand, visitor)
 	end
 end
 
-local function visitFunctionBody(node: types.AstFunctionBody, visitor: Visitor)
+local function visitStatFunctionBody(node: types.AstFunctionBody, visitor: Visitor)
 	if node.opengenerics then
 		visitToken(node.opengenerics, visitor)
 	end
@@ -452,7 +454,7 @@ local function visitFunctionBody(node: types.AstFunctionBody, visitor: Visitor)
 	if node.returnannotation then
 		visitTypePack(node.returnannotation, visitor)
 	end
-	visitBlock(node.body, visitor)
+	visitStatBlock(node.body, visitor)
 	visitToken(node.endkeyword, visitor)
 end
 
@@ -462,36 +464,36 @@ local function visitAttribute(node: types.AstAttribute, visitor: Visitor)
 	end
 end
 
-local function visitAnonymousFunction(node: types.AstExprAnonymousFunction, visitor: Visitor)
-	if visitor.visitAnonymousFunction(node) then
+local function visitExprAnonymousFunction(node: types.AstExprAnonymousFunction, visitor: Visitor)
+	if visitor.visitExprAnonymousFunction(node) then
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
 		visitToken(node.functionkeyword, visitor)
-		visitFunctionBody(node.body, visitor)
+		visitStatFunctionBody(node.body, visitor)
 	end
 end
 
-local function visitFunction(node: types.AstStatFunction, visitor: Visitor)
-	if visitor.visitFunction(node) then
+local function visitStatFunction(node: types.AstStatFunction, visitor: Visitor)
+	if visitor.visitStatFunction(node) then
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
 		visitToken(node.functionkeyword, visitor)
-		visitExpression(node.name, visitor)
-		visitFunctionBody(node.body, visitor)
+		visitExpr(node.name, visitor)
+		visitStatFunctionBody(node.body, visitor)
 	end
 end
 
-local function visitLocalFunction(node: types.AstStatLocalFunction, visitor: Visitor)
-	if visitor.visitLocalFunction(node) then
+local function visitStatLocalFunction(node: types.AstStatLocalFunction, visitor: Visitor)
+	if visitor.visitStatLocalFunction(node) then
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
 		visitToken(node.localkeyword, visitor)
 		visitToken(node.functionkeyword, visitor)
 		visitLocal(node.name, visitor)
-		visitFunctionBody(node.body, visitor)
+		visitStatFunctionBody(node.body, visitor)
 	end
 end
 
@@ -503,24 +505,24 @@ local function visitStatTypeFunction(node: types.AstStatTypeFunction, visitor: V
 		visitToken(node.type, visitor)
 		visitToken(node.functionkeyword, visitor)
 		visitToken(node.name, visitor)
-		visitFunctionBody(node.body, visitor)
+		visitStatFunctionBody(node.body, visitor)
 	end
 end
 
-local function visitTableItem(node: types.AstExprTableItem, visitor: Visitor)
-	if visitor.visitTableItem(node) then
+local function visitExprTableItem(node: types.AstExprTableItem, visitor: Visitor)
+	if visitor.visitExprTableItem(node) then
 		if node.kind == "list" then
-			visitExpression(node.value, visitor)
+			visitExpr(node.value, visitor)
 		elseif node.kind == "record" then
 			visitToken(node.key, visitor)
 			visitToken(node.equals, visitor)
-			visitExpression(node.value, visitor)
+			visitExpr(node.value, visitor)
 		elseif node.kind == "general" then
 			visitToken(node.indexeropen, visitor)
-			visitExpression(node.key, visitor)
+			visitExpr(node.key, visitor)
 			visitToken(node.indexerclose, visitor)
 			visitToken(node.equals, visitor)
-			visitExpression(node.value, visitor)
+			visitExpr(node.value, visitor)
 		else
 			exhaustiveMatch(node.kind)
 		end
@@ -531,74 +533,74 @@ local function visitTableItem(node: types.AstExprTableItem, visitor: Visitor)
 	end
 end
 
-local function visitTable(node: types.AstExprTable, visitor: Visitor)
-	if visitor.visitTable(node) then
+local function visitExprTable(node: types.AstExprTable, visitor: Visitor)
+	if visitor.visitExprTable(node) then
 		visitToken(node.openbrace, visitor)
 		for _, item in node.entries do
-			visitTableItem(item, visitor)
+			visitExprTableItem(item, visitor)
 		end
 		visitToken(node.closebrace, visitor)
 	end
 end
 
-local function visitIndexName(node: types.AstExprIndexName, visitor: Visitor)
-	if visitor.visitIndexName(node) then
-		visitExpression(node.expression, visitor)
+local function visitExprIndexName(node: types.AstExprIndexName, visitor: Visitor)
+	if visitor.visitExprIndexName(node) then
+		visitExpr(node.expression, visitor)
 		visitToken(node.accessor, visitor)
 		visitToken(node.index, visitor)
 	end
 end
 
-local function visitIndexExpr(node: types.AstExprIndexExpr, visitor: Visitor)
-	if visitor.visitIndexExpr(node) then
-		visitExpression(node.expression, visitor)
+local function visitExprIndexExpr(node: types.AstExprIndexExpr, visitor: Visitor)
+	if visitor.visitExprIndexExpr(node) then
+		visitExpr(node.expression, visitor)
 		visitToken(node.openbrackets, visitor)
-		visitExpression(node.index, visitor)
+		visitExpr(node.index, visitor)
 		visitToken(node.closebrackets, visitor)
 	end
 end
 
-local function visitGroup(node: types.AstExprGroup, visitor: Visitor)
-	if visitor.visitGroup(node) then
+local function visitExprGroup(node: types.AstExprGroup, visitor: Visitor)
+	if visitor.visitExprGroup(node) then
 		visitToken(node.openparens, visitor)
-		visitExpression(node.expression, visitor)
+		visitExpr(node.expression, visitor)
 		visitToken(node.closeparens, visitor)
 	end
 end
 
-local function visitInterpolatedString(node: types.AstExprInterpString, visitor: Visitor)
-	if visitor.visitInterpolatedString(node) then
+local function visitExprInterpString(node: types.AstExprInterpString, visitor: Visitor)
+	if visitor.visitExprInterpString(node) then
 		for i = 1, #node.strings do
 			visitToken(node.strings[i], visitor)
 			if i <= #node.expressions then
-				visitExpression(node.expressions[i], visitor)
+				visitExpr(node.expressions[i], visitor)
 			end
 		end
 	end
 end
 
-local function visitTypeAssertion(node: types.AstExprTypeAssertion, visitor: Visitor)
-	if visitor.visitTypeAssertion(node) then
-		visitExpression(node.operand, visitor)
+local function visitExprTypeAssertion(node: types.AstExprTypeAssertion, visitor: Visitor)
+	if visitor.visitExprTypeAssertion(node) then
+		visitExpr(node.operand, visitor)
 		visitToken(node.operator, visitor)
 		visitType(node.annotation, visitor)
 	end
 end
 
-local function visitIfExpression(node: types.AstExprIfElse, visitor: Visitor)
-	if visitor.visitIfExpression(node) then
+local function visitExprIfElse(node: types.AstExprIfElse, visitor: Visitor)
+	if visitor.visitExprIfElse(node) then
 		visitToken(node.ifkeyword, visitor)
-		visitExpression(node.condition, visitor)
+		visitExpr(node.condition, visitor)
 		visitToken(node.thenkeyword, visitor)
-		visitExpression(node.thenexpr, visitor)
+		visitExpr(node.thenexpr, visitor)
 		for _, elseifs in node.elseifs do
 			visitToken(elseifs.elseifkeyword, visitor)
-			visitExpression(elseifs.condition, visitor)
+			visitExpr(elseifs.condition, visitor)
 			visitToken(elseifs.thenkeyword, visitor)
-			visitExpression(elseifs.thenexpr, visitor)
+			visitExpr(elseifs.thenexpr, visitor)
 		end
 		visitToken(node.elsekeyword, visitor)
-		visitExpression(node.elseexpr, visitor)
+		visitExpr(node.elseexpr, visitor)
 	end
 end
 
@@ -631,14 +633,14 @@ local function visitTypeReference(node: types.AstTypeReference, visitor: Visitor
 	end
 end
 
-local function visitTypeBoolean(node: types.AstTypeSingletonBool, visitor: Visitor)
-	if visitor.visitTypeBoolean(node) then
+local function visitTypeSingletonBool(node: types.AstTypeSingletonBool, visitor: Visitor)
+	if visitor.visitTypeSingletonBool(node) then
 		visitToken(node, visitor)
 	end
 end
 
-local function visitTypeString(node: types.AstTypeSingletonString, visitor: Visitor)
-	if visitor.visitTypeString(node) then
+local function visitTypeSingletonString(node: types.AstTypeSingletonString, visitor: Visitor)
+	if visitor.visitTypeSingletonString(node) then
 		visitToken(node, visitor)
 	end
 end
@@ -647,7 +649,7 @@ local function visitTypeTypeof(node: types.AstTypeTypeof, visitor: Visitor)
 	if visitor.visitTypeTypeof(node) then
 		visitToken(node.typeof, visitor)
 		visitToken(node.openparens, visitor)
-		visitExpression(node.expression, visitor)
+		visitExpr(node.expression, visitor)
 		visitToken(node.closeparens, visitor)
 	end
 end
@@ -708,7 +710,7 @@ local function visitTypeTable(node: types.AstTypeTable, visitor: Visitor)
 				visitToken(entry.indexerclose, visitor)
 			elseif entry.kind == "stringproperty" then
 				visitToken(entry.indexeropen, visitor)
-				visitTypeString(entry.key, visitor)
+				visitTypeSingletonString(entry.key, visitor)
 				visitToken(entry.indexerclose, visitor)
 			else
 				visitToken(entry.key, visitor)
@@ -789,85 +791,85 @@ local function visitTypePackVariadic(node: types.AstTypePackVariadic, visitor: V
 	end
 end
 
-function visitExpression(expression: types.AstExpr, visitor: Visitor)
-	if visitor.visitExpression(expression) then
+function visitExpr(expression: types.AstExpr, visitor: Visitor)
+	if visitor.visitExpr(expression) then
 		if expression.tag == "nil" then
-			visitNil(expression, visitor)
+			visitExprConstantNil(expression, visitor)
 		elseif expression.tag == "boolean" then
-			visitBoolean(expression, visitor)
+			visitExprConstantBool(expression, visitor)
 		elseif expression.tag == "number" then
-			visitNumber(expression, visitor)
+			visitExprConstantNumber(expression, visitor)
 		elseif expression.tag == "string" then
-			visitString(expression, visitor)
+			visitExprConstantString(expression, visitor)
 		elseif expression.tag == "local" then
-			visitLocalReference(expression, visitor)
+			visitExprLocal(expression, visitor)
 		elseif expression.tag == "global" then
-			visitGlobal(expression, visitor)
+			visitExprGlobal(expression, visitor)
 		elseif expression.tag == "vararg" then
-			visitVarargs(expression, visitor)
+			visitExprVarargs(expression, visitor)
 		elseif expression.tag == "call" then
-			visitCall(expression, visitor)
+			visitExprCall(expression, visitor)
 		elseif expression.tag == "unary" then
-			visitUnary(expression, visitor)
+			visitExprUnary(expression, visitor)
 		elseif expression.tag == "binary" then
-			visitBinary(expression, visitor)
+			visitExprBinary(expression, visitor)
 		elseif expression.tag == "function" then
-			visitAnonymousFunction(expression, visitor)
+			visitExprAnonymousFunction(expression, visitor)
 		elseif expression.tag == "table" then
-			visitTable(expression, visitor)
+			visitExprTable(expression, visitor)
 		elseif expression.tag == "indexname" then
-			visitIndexName(expression, visitor)
+			visitExprIndexName(expression, visitor)
 		elseif expression.tag == "index" then
-			visitIndexExpr(expression, visitor)
+			visitExprIndexExpr(expression, visitor)
 		elseif expression.tag == "group" then
-			visitGroup(expression, visitor)
+			visitExprGroup(expression, visitor)
 		elseif expression.tag == "interpolatedstring" then
-			visitInterpolatedString(expression, visitor)
+			visitExprInterpString(expression, visitor)
 		elseif expression.tag == "cast" then
-			visitTypeAssertion(expression, visitor)
+			visitExprTypeAssertion(expression, visitor)
 		elseif expression.tag == "conditional" then
-			visitIfExpression(expression, visitor)
+			visitExprIfElse(expression, visitor)
 		else
 			exhaustiveMatch(expression.tag)
 		end
 
-		visitor.visitExpressionEnd(expression)
+		visitor.visitExprEnd(expression)
 	end
 end
 
 function visitStatement(statement: types.AstStat, visitor: Visitor)
 	if statement.tag == "block" then
-		visitBlock(statement, visitor)
+		visitStatBlock(statement, visitor)
 	elseif statement.tag == "conditional" then
-		visitIf(statement, visitor)
+		visitStatIf(statement, visitor)
 	elseif statement.tag == "expression" then
 		visitStatExpr(statement, visitor)
 	elseif statement.tag == "local" then
 		visitLocalStatement(statement, visitor)
 	elseif statement.tag == "return" then
-		visitReturn(statement, visitor)
+		visitStatReturn(statement, visitor)
 	elseif statement.tag == "while" then
-		visitWhile(statement, visitor)
+		visitStatWhile(statement, visitor)
 	elseif statement.tag == "break" then
-		visitBreak(statement, visitor)
+		visitStatBreak(statement, visitor)
 	elseif statement.tag == "continue" then
-		visitContinue(statement, visitor)
+		visitStatContinue(statement, visitor)
 	elseif statement.tag == "repeat" then
-		visitRepeat(statement, visitor)
+		visitStatRepeat(statement, visitor)
 	elseif statement.tag == "for" then
-		visitFor(statement, visitor)
+		visitStatFor(statement, visitor)
 	elseif statement.tag == "forin" then
-		visitForIn(statement, visitor)
+		visitStatForIn(statement, visitor)
 	elseif statement.tag == "assign" then
-		visitAssign(statement, visitor)
+		visitStatAssign(statement, visitor)
 	elseif statement.tag == "compoundassign" then
-		visitCompoundAssign(statement, visitor)
+		visitStatCompoundAssign(statement, visitor)
 	elseif statement.tag == "function" then
-		visitFunction(statement, visitor)
+		visitStatFunction(statement, visitor)
 	elseif statement.tag == "localfunction" then
-		visitLocalFunction(statement, visitor)
+		visitStatLocalFunction(statement, visitor)
 	elseif statement.tag == "typealias" then
-		visitTypeAlias(statement, visitor)
+		visitStatTypeAlias(statement, visitor)
 	elseif statement.tag == "typefunction" then
 		visitStatTypeFunction(statement, visitor)
 	else
@@ -879,9 +881,9 @@ function visitType(type: types.AstType, visitor: Visitor)
 	if type.tag == "reference" then
 		visitTypeReference(type, visitor)
 	elseif type.tag == "boolean" then
-		visitTypeBoolean(type, visitor)
+		visitTypeSingletonBool(type, visitor)
 	elseif type.tag == "string" then
-		visitTypeString(type, visitor)
+		visitTypeSingletonString(type, visitor)
 	elseif type.tag == "typeof" then
 		visitTypeTypeof(type, visitor)
 	elseif type.tag == "group" then
@@ -918,46 +920,46 @@ end
 local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 	if visit then
 		return {
-			visitBlock = visit,
-			visitBlockEnd = visit,
-			visitIf = visit,
-			visitWhile = visit,
-			visitRepeat = visit,
-			visitBreak = visit,
-			visitContinue = visit,
-			visitReturn = visit,
-			visitLocalDeclaration = visit,
-			visitLocalDeclarationEnd = visit,
-			visitFor = visit,
-			visitForIn = visit,
-			visitAssign = visit,
-			visitCompoundAssign = visit,
-			visitFunction = visit,
-			visitLocalFunction = visit,
-			visitTypeAlias = visit,
+			visitStatBlock = visit,
+			visitStatBlockEnd = visit,
+			visitStatIf = visit,
+			visitStatWhile = visit,
+			visitStatRepeat = visit,
+			visitStatBreak = visit,
+			visitStatContinue = visit,
+			visitStatReturn = visit,
+			visitStatLocalDeclaration = visit,
+			visitStatLocalDeclarationEnd = visit,
+			visitStatFor = visit,
+			visitStatForIn = visit,
+			visitStatAssign = visit,
+			visitStatCompoundAssign = visit,
+			visitStatFunction = visit,
+			visitStatLocalFunction = visit,
+			visitStatTypeAlias = visit,
 			visitStatTypeFunction = visit,
 			visitStatExpr = visit,
 
-			visitExpression = visit,
-			visitExpressionEnd = visit,
-			visitLocalReference = visit,
-			visitGlobal = visit,
-			visitCall = visit,
-			visitUnary = visit,
-			visitBinary = visit,
-			visitAnonymousFunction = visit,
-			visitTableItem = visit,
-			visitTable = visit,
-			visitIndexName = visit,
-			visitIndexExpr = visit,
-			visitGroup = visit,
-			visitInterpolatedString = visit,
-			visitTypeAssertion = visit,
-			visitIfExpression = visit,
+			visitExpr = visit,
+			visitExprEnd = visit,
+			visitExprLocal = visit,
+			visitExprGlobal = visit,
+			visitExprCall = visit,
+			visitExprUnary = visit,
+			visitExprBinary = visit,
+			visitExprAnonymousFunction = visit,
+			visitExprTableItem = visit,
+			visitExprTable = visit,
+			visitExprIndexName = visit,
+			visitExprIndexExpr = visit,
+			visitExprGroup = visit,
+			visitExprInterpString = visit,
+			visitExprTypeAssertion = visit,
+			visitExprIfElse = visit,
 
 			visitTypeReference = visit,
-			visitTypeBoolean = visit,
-			visitTypeString = visit,
+			visitTypeSingletonBool = visit,
+			visitTypeSingletonString = visit,
 			visitTypeTypeof = visit,
 			visitTypeGroup = visit,
 			visitTypeOptional = visit,
@@ -972,12 +974,12 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitTypePackVariadic = visit,
 
 			visitToken = visit,
-			visitNil = visit,
-			visitString = visit,
-			visitBoolean = visit,
-			visitNumber = visit,
+			visitExprConstantNil = visit,
+			visitExprConstantString = visit,
+			visitExprConstantBool = visit,
+			visitExprConstantNumber = visit,
 			visitLocal = visit,
-			visitVarargs = visit,
+			visitExprVarargs = visit,
 
 			visitAttribute = visit,
 		}
@@ -990,7 +992,7 @@ local function visit(node: types.AstNode, visitor: Visitor)
 	if node.kind == "stat" then
 		visitStatement(node, visitor)
 	elseif node.kind == "expr" then
-		visitExpression(node, visitor)
+		visitExpr(node, visitor)
 	elseif node.kind == "type" then
 		visitType(node, visitor)
 	elseif node.kind == "typepack" then
@@ -1002,16 +1004,16 @@ local function visit(node: types.AstNode, visitor: Visitor)
 	elseif node.istoken then
 		visitToken(node, visitor)
 	elseif node.istableitem then
-		visitTableItem(node, visitor)
+		visitExprTableItem(node, visitor)
 	else
 		exhaustiveMatch(node.kind)
 	end
 end
 
 visitorlib.create = create
-visitorlib.visitblock = visitBlock
+visitorlib.visitblock = visitStatBlock
 visitorlib.visitstatement = visitStatement
-visitorlib.visitexpression = visitExpression
+visitorlib.visitexpression = visitExpr
 visitorlib.visittype = visitType
 visitorlib.visittypepack = visitTypePack
 visitorlib.visittoken = visitToken
