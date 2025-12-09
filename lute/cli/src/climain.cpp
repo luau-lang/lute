@@ -327,20 +327,25 @@ static std::pair<bool, std::string> getWithRequireByStringSemantics(std::string 
         return {false, "Could not initialize ModulePath instance."};
 
     ResolvedRealPath resolved = mp->getRealPath();
+
+    std::pair<bool, std::string> result;
     switch (resolved.status)
     {
     case NavigationStatus::Success:
         if (resolved.type == ResolvedRealPath::PathType::File)
-            return {true, resolved.realPath};
+            result = {true, resolved.realPath};
         else
-            return {false, "Path is a directory, not a file."};
+            result = {false, "Path is a directory, not a file."};
+        break;
     case NavigationStatus::Ambiguous:
-        return {false, "Unable to tell whether path is a file or directory. Is there a same-named file or directory?"};
+        result = {false, "Unable to tell whether path is a file or directory. Is there a same-named file or directory?"};
+        break;
     case NavigationStatus::NotFound:
-        return {false, "File or directory not found."};
-    default:
-        return {false, "Unknown navigation status."};
+        result = {false, "File or directory not found."};
+        break;
     }
+    
+    return result;
 };
 
 // Returns whether the filePath could be resolved to a valid file path, and a string containing either the valid path or an error message
