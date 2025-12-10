@@ -33,6 +33,6 @@ void setLuauFlags()
 {
     enableAllLuauFlags();
 
-    // Individual flags can be overriden here as needed, e.g.:
+    // Individual flags can be overridden here as needed, e.g.:
     // setLuauFlag("LuauSomeFlagThatCausedARegression", false);
 }
