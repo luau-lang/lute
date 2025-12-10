@@ -5,6 +5,7 @@
 #include "lute/luauflags.h"
 #include "lute/modulepath.h"
 #include "lute/options.h"
+#include "lute/packagerun.h"
 #include "lute/process.h"
 #include "lute/ref.h"
 #include "lute/reporter.h"
@@ -79,6 +80,12 @@ General Options:
 static const char* VERSION_STRING = LUTE_VERSION_FULL;
 
 static const char* RUN_HELP_STRING = R"(Usage: lute run <script.luau> [args...]
+
+Run Options:
+	-h, --help    Display this usage message.
+)";
+
+static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkgrun <script.luau> [args...]
 
 Run Options:
 	-h, --help    Display this usage message.
@@ -253,8 +260,9 @@ static std::pair<bool, std::string> getValidPath(std::string filePath)
     return {false, res};
 }
 
-int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporter)
+int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness, LuteReporter& reporter)
 {
+    std::string command = packageAwareness ? "pkgrun" : "run";
     std::string filePath;
     int program_argc = 0;
     char** program_argv = nullptr;
@@ -265,13 +273,13 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
 
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
-            reporter.reportOutput(RUN_HELP_STRING);
+            reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 0;
         }
         else if (currentArg[0] == '-')
         {
-            reporter.formatError("Error: Unrecognized option '%s' for 'run' command.", currentArg);
-            reporter.reportOutput(RUN_HELP_STRING);
+            reporter.formatError("Error: Unrecognized option '%s' for '%s' command.", currentArg, command.c_str());
+            reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 1;
         }
         else
@@ -285,20 +293,47 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
 
     if (filePath.empty())
     {
-        reporter.reportError("Error: No file specified for 'run' command.");
-        reporter.reportOutput(RUN_HELP_STRING);
+        reporter.formatError("Error: No file specified for '%s' command.", command.c_str());
+        reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
         return 1;
     }
-
-    Runtime runtime;
-    lua_State* L = setupCliState(runtime);
 
     auto [ok, validPath] = getValidPath(filePath);
     if (!ok)
     {
         reporter.formatError("Error while resolving filepath '%s': %s", filePath.c_str(), validPath.c_str());
-
         return 1;
+    }
+
+    Runtime runtime;
+    lua_State* L;
+
+    if (packageAwareness)
+    {
+        if (!isAbsolutePath(validPath))
+        {
+            std::optional<std::string> cwd = getCurrentWorkingDirectory();
+            if (!cwd)
+            {
+                reporter.reportError("Error: Failed to get current working directory.\n");
+                return 1;
+            }
+            validPath = normalizePath(joinPaths(*cwd, filePath));
+        }
+
+        std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(validPath);
+        if (!lockfile)
+        {
+            reporter.formatError("Error: No loom.lock file found for '%s'", validPath.c_str());
+            return 1;
+        }
+
+        auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
+        L = setupPkgCliState(runtime, std::move(directDependencies), std::move(allDependencies));
+    }
+    else
+    {
+        L = setupCliState(runtime);
     }
 
     bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter);
@@ -551,7 +586,11 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
 
     if (strcmp(command, "run") == 0)
     {
-        return handleRunCommand(argc, argv, argOffset, reporter);
+        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ false, reporter);
+    }
+    else if (strcmp(command, "pkgrun") == 0)
+    {
+        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ true, reporter);
     }
     else if (strcmp(command, "check") == 0)
     {
@@ -579,6 +618,6 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     {
         // Default to 'run' command
         argOffset = 1;
-        return handleRunCommand(argc, argv, argOffset, reporter);
+        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ false, reporter);
     }
 }

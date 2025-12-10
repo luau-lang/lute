@@ -13,6 +13,8 @@
 #include "lualib.h"
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "doctest.h"
 #include "lutefixture.h"
@@ -27,13 +29,13 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
         [](lua_State* L)
         {
             std::string luteProjectRoot = getLuteProjectRootAbsolute();
-            std::string entryRoot = luteProjectRoot + '/' + "tests/src/packages/packageentry";
+            std::string entryRoot = luteProjectRoot + '/' + "tests/src/packages/package_aware_require/packageentry";
 
             std::vector<Package::Identifier> directDependencies = {
                 {"dep", "2.0.0"},
             };
 
-            std::string packagesRoot = luteProjectRoot + '/' + "tests/src/packages";
+            std::string packagesRoot = luteProjectRoot + '/' + "tests/src/packages/package_aware_require";
             std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies;
             allDependencies.push_back(
                 {{"dep", "1.0.0"},
@@ -78,11 +80,23 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
         }
     );
 
-    std::string path = getLuteProjectRootAbsolute() + "/tests/src/packages/packageentry/entry.luau";
+    std::string path = getLuteProjectRootAbsolute() + "/tests/src/packages/package_aware_require/packageentry/entry.luau";
     std::optional<std::string> contents = readFile(path);
     REQUIRE(contents);
 
     std::string bytecode = Luau::compile(*contents, copts());
     bool success = runBytecode(runtime, bytecode, "@" + path, L, 0, nullptr, getReporter());
     CHECK(success);
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_with_lockfile")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_with_lockfile/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char subcommand[] = "pkgrun";
+    std::vector<char*> argv = {executablePlaceholder, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+    auto rep = getReporter();
 }

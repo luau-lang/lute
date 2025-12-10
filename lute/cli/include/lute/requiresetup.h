@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/userlandvfs.h"
+
 #include "Luau/DenseHash.h"
 
 #include <functional>
@@ -9,6 +11,13 @@ struct lua_State;
 struct Runtime;
 
 lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit = nullptr);
+
+lua_State* setupPkgCliState(
+    Runtime& runtime,
+    std::vector<Package::Identifier> directDependencies,
+    std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies
+);
+
 lua_State* setupBundleState(
     Runtime& runtime,
     Luau::DenseHashMap<std::string, std::string> luaurcFiles,
