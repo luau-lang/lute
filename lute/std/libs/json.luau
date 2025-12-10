@@ -348,41 +348,62 @@ end
 local deserialize: (DeserializerState) -> (array | object | boolean | number | string)?
 
 local function deserializeArray(state: DeserializerState): array
+	if currentByte(state) ~= string.byte("[") then
+		return deserializerError(state, "Expected array opening '['")
+	end
+
 	state.cursor += 1
+	skipWhitespace(state)
 
 	local current: array = {}
+	local index = 1
 
-	local expectingValue = false
-	while state.cursor < #state.src do
-		skipWhitespace(state)
+	-- empty array
+	if currentByte(state) == string.byte("]") then
+		state.cursor += 1
+		return current
+	end
 
-		if currentByte(state) == string.byte(",") then
-			expectingValue = true
-			state.cursor += 1
+	local expectingValue = true
+
+	while state.cursor <= #state.src do
+		if not expectingValue then
+			-- Expect a comma or closing bracket
+			if currentByte(state) == string.byte(",") then
+				expectingValue = true
+				state.cursor += 1
+				if not skipWhitespace(state) then
+					return deserializerError(state, "Unterminated array")
+				end
+			elseif currentByte(state) == string.byte("]") then
+				state.cursor += 1
+				return current
+			else
+				return deserializerError(state, "Expected ',' or ']' after array value")
+			end
+		else
+			-- Expect a value next
+			if currentByte(state) == string.byte("]") then
+				if index == 1 then
+					-- empty array is ok
+					state.cursor += 1
+					return current
+				else
+					return deserializerError(state, "Trailing comma in array")
+				end
+			end
+
+			table.insert(current, deserialize(state))
+			index += 1
+			expectingValue = false
 		end
 
-		skipWhitespace(state)
-
-		if currentByte(state) == string.byte("]") then
-			break
+		if not skipWhitespace(state) then
+			return deserializerError(state, "Unterminated array")
 		end
-
-		table.insert(current, deserialize(state))
-
-		expectingValue = false
 	end
 
-	if expectingValue then
-		deserializerError(state, "Trailing comma")
-	end
-
-	if not skipWhitespace(state) or currentByte(state) ~= string.byte("]") then
-		deserializerError(state, "Unterminated array")
-	end
-
-	state.cursor += 1
-
-	return current
+	return deserializerError(state, "Unterminated array")
 end
 
 local function deserializeObject(state: DeserializerState): object
@@ -464,7 +485,7 @@ deserialize = function(state: DeserializerState): value
 		return deserializeNumber(state)
 	elseif string.byte(state.src, state.cursor) == string.byte('"') then
 		return deserializeString(state)
-	elseif string.byte(state.src, state.cursor) == string.byte("[") then
+	elseif string.match(state.src, "^%[", state.cursor) then
 		return deserializeArray(state)
 	elseif string.byte(state.src, state.cursor) == string.byte("{") then
 		return deserializeObject(state)
