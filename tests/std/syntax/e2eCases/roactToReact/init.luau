@@ -265,7 +265,6 @@ local function transform(ctx)
 	end
 
 	return tableext.combine(fullStatementRepl, callRepl, libIndexNameRepl, libIndexExprRepl, addedRequiresRepl)
-	-- return t:transform()
 end
 
 return transform
