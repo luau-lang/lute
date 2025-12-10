@@ -346,7 +346,6 @@ local function deserializeString(state: DeserializerState): string
 end
 
 local deserialize: (DeserializerState) -> (array | object | boolean | number | string)?
-
 local function deserializeArray(state: DeserializerState): array
 	if currentByte(state) ~= string.byte("[") then
 		return deserializerError(state, "Expected array opening '['")
@@ -474,10 +473,10 @@ deserialize = function(state: DeserializerState): value
 	if fourChars == "null" then
 		state.cursor += 4
 		return json.null
-	elseif fourChars == "true" then
+	elseif string.match(fourChars, "^true") then
 		state.cursor += 4
 		return true
-	elseif string.sub(state.src, state.cursor, state.cursor + 4) == "false" then
+	elseif string.match(string.sub(state.src, state.cursor, state.cursor + 4), "^false") then
 		state.cursor += 5
 		return false
 	elseif string.match(state.src, "^[%-%d]", state.cursor) then
@@ -487,7 +486,7 @@ deserialize = function(state: DeserializerState): value
 		return deserializeString(state)
 	elseif string.match(state.src, "^%[", state.cursor) then
 		return deserializeArray(state)
-	elseif string.byte(state.src, state.cursor) == string.byte("{") then
+	elseif string.match(state.src, "^{", state.cursor) then
 		return deserializeObject(state)
 	end
 
