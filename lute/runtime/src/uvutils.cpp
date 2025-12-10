@@ -36,11 +36,4 @@ Luau::Variant<std::string, UvError> getStringFromUv(BufferWriter bufferWriter, s
     return buffer;
 }
 
-// UV request cleanup specializations
-template<>
-void cleanup_uv_req<uv_fs_t>(uv_fs_t* req)
-{
-    uv_fs_req_cleanup(req);
-}
-
 } // namespace uvutils

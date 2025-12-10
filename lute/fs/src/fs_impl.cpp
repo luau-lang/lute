@@ -25,11 +25,6 @@ struct FSRead : FSRequest
 
     static void readCallback(uv_fs_t* req);
 
-    static FSRead* from(uv_fs_t* req)
-    {
-        return static_cast<FSRead*>(req->data);
-    }
-
     UVFile* file = nullptr;
     std::vector<char> buffer;
     std::vector<char> chunk;
@@ -48,11 +43,6 @@ struct FSWrite : FSRequest
     }
 
     static void writeCallback(uv_fs_t* req);
-
-    static FSWrite* from(uv_fs_t* req)
-    {
-        return static_cast<FSWrite*>(req->data);
-    }
 
     UVFile* file = nullptr;
     std::vector<char> chunk;
@@ -74,31 +64,25 @@ struct FSClose : FSRequest
         delete file;
     }
 
-    static FSClose* from(uv_fs_t* req)
-    {
-        return static_cast<FSClose*>(req->data);
-    }
-
     UVFile* file = nullptr;
 };
 
 int open_impl(lua_State* L, const char* path, int flags, int mode)
 {
-    auto req = new FSRequest(L);
+    uvutils::ScopedUVRequest<FSRequest> req(L);
     uv_fs_open(
         uv_default_loop(),
-        req->get(),
+        &req->req,
         path,
         flags,
         mode,
         [](uv_fs_t* req)
         {
-            auto r = FSRequest::from(req);
+            auto r = uvutils::retake<FSRequest>(req);
             auto result = req->result;
             if (result < 0)
             {
                 r->fail("Error opening file %s: %s", req->path, uv_strerror(result));
-                delete r;
                 return;
             }
 
@@ -111,22 +95,20 @@ int open_impl(lua_State* L, const char* path, int flags, int mode)
                     return 1;
                 }
             );
-
-            delete r;
         }
     );
+    // Automatically releases when req goes out of scope
     return lua_yield(L, 0);
 }
 
 void FSRead::readCallback(uv_fs_t* req)
 {
-    auto r = FSRead::from(req);
+    auto r = uvutils::retake<FSRead>(req);
     auto bytesRead = req->result;
 
     if (bytesRead < 0)
     {
         r->fail("Error reading file: %s", uv_strerror(bytesRead));
-        delete r;
         return;
     }
 
@@ -139,7 +121,6 @@ void FSRead::readCallback(uv_fs_t* req)
                 return 1;
             }
         );
-        delete r;
         return;
     }
 
@@ -149,19 +130,17 @@ void FSRead::readCallback(uv_fs_t* req)
     // Zero out chunk buffer before next read
     std::fill(r->chunk.begin(), r->chunk.end(), 0);
 
-    // Continue reading from current position
-    uv_fs_read(uv_default_loop(), r->get(), r->file->fd.value(), &r->iov, 1, -1, FSRead::readCallback);
+    uvutils::ScopedUVRequest<FSRead> scopedReq{std::move(r)};
+    uv_fs_read(uv_default_loop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSRead::readCallback);
 }
 
 void FSWrite::writeCallback(uv_fs_t* req)
 {
-    auto w = FSWrite::from(req);
+    auto w = uvutils::retake<FSWrite>(req);
     auto bytesWritten = req->result;
-
     if (bytesWritten < 0)
     {
         w->fail("Error writing file: %s", uv_strerror(bytesWritten));
-        delete w;
         return;
     }
 
@@ -175,7 +154,6 @@ void FSWrite::writeCallback(uv_fs_t* req)
             }
         );
 
-        delete w;
         return;
     }
 
@@ -185,7 +163,8 @@ void FSWrite::writeCallback(uv_fs_t* req)
     std::copy(w->toWrite.begin() + w->offset, w->toWrite.begin() + w->offset + chunkSize, w->chunk.begin());
     w->iov = uv_buf_init(w->chunk.data(), chunkSize);
 
-    uv_fs_write(uv_default_loop(), w->get(), w->file->fd.value(), &w->iov, 1, -1, FSWrite::writeCallback);
+    uvutils::ScopedUVRequest<FSWrite> scopedReq{std::move(w)};
+    uv_fs_write(uv_default_loop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSWrite::writeCallback);
 }
 
 int read_impl(lua_State* L, UVFile* handle)
@@ -195,9 +174,9 @@ int read_impl(lua_State* L, UVFile* handle)
         luaL_errorL(L, "File handle is closed");
     }
 
-    auto req = new FSRead(L, handle);
-    uv_fs_read(uv_default_loop(), req->get(), handle->fd.value(), &req->iov, 1, -1, FSRead::readCallback);
-
+    uvutils::ScopedUVRequest<FSRead> req{L, handle};
+    uv_fs_read(uv_default_loop(), &req->req, handle->fd.value(), &req->iov, 1, -1, FSRead::readCallback);
+    // Automatically releases when req goes out of scope
     return lua_yield(L, 0);
 }
 
@@ -208,14 +187,15 @@ int write_impl(lua_State* L, UVFile* handle, const char* toWrite, size_t numByte
         luaL_errorL(L, "File handle is closed");
     }
 
-    auto req = new FSWrite(L, handle, toWrite, numBytes);
+    uvutils::ScopedUVRequest<FSWrite> req{L, handle, toWrite, numBytes};
 
     // Copy first chunk to write
     size_t chunkSize = std::min(numBytes, req->chunk.size());
     std::copy(req->toWrite.begin(), req->toWrite.begin() + chunkSize, req->chunk.begin());
     req->iov = uv_buf_init(req->chunk.data(), chunkSize);
 
-    uv_fs_write(uv_default_loop(), req->get(), handle->fd.value(), &req->iov, 1, -1, FSWrite::writeCallback);
+    uv_fs_write(uv_default_loop(), &req->req, handle->fd.value(), &req->iov, 1, -1, FSWrite::writeCallback);
+    // Automatically releases when req goes out of scope
     return lua_yield(L, 0);
 }
 
@@ -223,24 +203,22 @@ int close_impl(lua_State* L, UVFile* handle)
 {
     if (!handle->fd.has_value())
     {
-        delete handle;
         luaL_errorL(L, "File handle is already closed");
     }
 
-    auto req = new FSClose(L, handle);
+    uvutils::ScopedUVRequest<FSClose> req{L, handle};
     uv_fs_close(
         uv_default_loop(),
-        req->get(),
+        &req->req,
         handle->fd.value(),
         [](uv_fs_t* req)
         {
-            auto r = FSClose::from(req);
+            auto r = uvutils::retake<FSClose>(req);
             auto result = req->result;
 
             if (result < 0)
             {
                 r->fail("Error closing file: %s", uv_strerror(result));
-                delete r;
                 return;
             }
 
@@ -250,11 +228,9 @@ int close_impl(lua_State* L, UVFile* handle)
                     return 0;
                 }
             );
-
-            delete r;
         }
     );
-
+    // Automatically releases when req goes out of scope
     return lua_yield(L, 0);
 }
 
