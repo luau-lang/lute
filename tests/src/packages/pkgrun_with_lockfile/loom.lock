@@ -1,0 +1,9 @@
+version = 1
+
+[[package]]
+name = "dep"
+version = "1.2.3"
+
+[[package]]
+name = "internaldep"
+version = "4.5.6"

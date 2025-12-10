@@ -5,6 +5,7 @@
 #include "lute/staticrequires.h"
 
 #include "Luau/Ast.h"
+#include "Luau/Config.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Parser.h"
 #include "Luau/VecDeque.h"
@@ -44,12 +45,28 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
     visited.clear();
     discovered.clear();
     requireGraph.clear();
+    luaurcFiles.clear();
 
     if (!isAbsolutePath(entryPoint))
     {
         fprintf(stderr, "Error: %s isn't an absolute path\n", entryPoint.c_str());
         return;
     }
+
+    // Calculate the entry point directory - we should not look for .luaurc files beyond this directory
+    std::string entryPointDir = entryPoint;
+    size_t lastSlash = entryPointDir.find_last_of("/\\");
+    if (lastSlash != std::string::npos)
+    {
+        entryPointDir = entryPointDir.substr(0, lastSlash);
+    }
+    else
+    {
+        entryPointDir = "";
+    }
+
+    // Temporary set to collect absolute paths to .luaurc files
+    Luau::DenseHashSet<std::string> luaurcAbsolutePaths{""};
 
     Luau::VecDeque<std::string> toProcess;
     toProcess.push_back(entryPoint);
@@ -73,6 +90,35 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
 
         // Add to discovered list (use the relative path from rootDirectory)
         discovered.push_back(filePath);
+
+        // Discover .luaurc files in this file's directory tree
+        std::string dir = filePath;
+        size_t lastSlash = dir.find_last_of("/\\");
+        if (lastSlash != std::string::npos)
+        {
+            dir = dir.substr(0, lastSlash);
+
+            // Walk up the directory tree looking for .luaurc files, but stop at the entry point directory
+            while (!dir.empty())
+            {
+                std::string luaurcPath = dir + "/" + Luau::kConfigName;
+                if (isFile(luaurcPath))
+                {
+                    luaurcAbsolutePaths.insert(luaurcPath);
+                    break;
+                }
+
+                // Stop if we've reached the entry point directory
+                if (dir == entryPointDir)
+                    break;
+
+                // Move to parent directory
+                size_t parentSlash = dir.find_last_of("/\\");
+                if (parentSlash == std::string::npos || parentSlash == 0)
+                    break;
+                dir = dir.substr(0, parentSlash);
+            }
+        }
 
         std::vector<std::string> requiresInFile = extractRequires(*source);
 
@@ -109,6 +155,40 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
     }
 
     lowestCommonRoot = findLowestCommonRoot(discovered);
+
+    // Convert absolute .luaurc paths to LCR-relative .luaurc paths and read their content
+    size_t commonRootLen = lowestCommonRoot.empty() ? 0 : lowestCommonRoot.length() + 1; // +1 for the trailing slash
+
+    for (const auto& absolutePath : luaurcAbsolutePaths)
+    {
+        // Get the directory containing the .luaurc file and append .luaurc
+        std::string absoluteDir = absolutePath;
+        size_t lastSlash = absoluteDir.find_last_of("/\\");
+        if (lastSlash != std::string::npos)
+        {
+            absoluteDir = absoluteDir.substr(0, lastSlash);
+        }
+
+        // Convert to relative path and append .luaurc
+        std::string relativeLuaurc = ".luaurc";
+        if (commonRootLen > 0 && absoluteDir.length() > commonRootLen)
+        {
+            std::string relativeDir = absoluteDir.substr(commonRootLen);
+            relativeLuaurc = relativeDir + "/.luaurc";
+        }
+
+        // Read the .luaurc file content
+        std::optional<std::string> content = readFile(absolutePath);
+        if (content)
+        {
+            // Store using the .luaurc file path (e.g., "dir/.luaurc" or just ".luaurc")
+            luaurcFiles[relativeLuaurc] = *content;
+        }
+        else
+        {
+            reporter.formatError("Warning: Could not read .luaurc file '%s'\n", absolutePath.c_str());
+        }
+    }
 }
 
 std::vector<std::string> StaticRequireTracer::extractRequires(const std::string& source)
@@ -190,6 +270,21 @@ void StaticRequireTracer::printRequireGraph() const
             reporter.reportOutput("\t\t(no dependencies)");
         }
     }
+
+    // Print luaurc files found
+    if (!luaurcFiles.empty())
+    {
+        reporter.reportOutput("\n.luaurc files found:");
+        for (const auto& [configDir, content] : luaurcFiles)
+        {
+            reporter.formatOutput("\t%s", configDir.c_str());
+        }
+    }
+    else
+    {
+        reporter.reportOutput("\nNo .luaurc files found");
+    }
+
     reporter.reportOutput("");
 }
 

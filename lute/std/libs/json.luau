@@ -228,7 +228,7 @@ local function deserializerError(state: DeserializerState, msg: string): never
 end
 
 local function skipWhitespace(state: DeserializerState): boolean
-	state.cursor = string.find(state.src, "%S", state.cursor) :: number
+	state.cursor = string.find(state.src, "[^ \n\r\t]", state.cursor) :: number
 
 	if not state.cursor then
 		return false
@@ -242,32 +242,38 @@ local function currentByte(state: DeserializerState)
 end
 
 local function deserializeNumber(state: DeserializerState)
-	-- first "segment"
-	local nStart, nEnd = string.find(state.src, "^[%-%deE]*", state.cursor)
-
+	-- Integer part
+	local nStart, nEnd = string.find(state.src, "^-?[1-9]%d*", state.cursor)
 	if not nStart then
-		-- i dont think this is possible
-		deserializerError(state, "Could not match a number literal?")
-	end
-
-	if string.byte(state.src, nEnd :: number + 1) == string.byte(".") then -- decimal!
-		local decStart, decEnd = string.find(state.src, "^[eE%-+%d]+", nEnd :: number + 2)
-
-		if not decStart then
-			deserializerError(state, "Trailing '.' in number value")
+		nStart, nEnd = string.find(state.src, "^-?0", state.cursor)
+		if not nStart then
+			deserializerError(state, "Malformed number (bad integer part)")
 		end
 
+		local nextChar = string.byte(state.src, nEnd :: number + 1)
+		if nextChar and nextChar >= string.byte("0") and nextChar <= string.byte("9") then
+			deserializerError(state, "Malformed number (leading zeros not allowed)")
+		end
+	end
+
+	-- Decimal part
+	local decStart, decEnd = string.find(state.src, "^%.%d+", nEnd :: number + 1)
+	if decStart then
 		nEnd = decEnd
 	end
 
-	local num = tonumber(string.sub(state.src, nStart :: number, nEnd))
+	-- Exponential part
+	local expStart, expEnd = string.find(state.src, "^[eE][+-]?%d+", nEnd :: number + 1)
+	if expStart then
+		nEnd = expEnd
+	end
 
+	local num = tonumber(string.sub(state.src, nStart :: number, nEnd))
 	if not num then
 		deserializerError(state, "Malformed number value")
 	end
 
 	state.cursor = nEnd :: number + 1
-
 	return num
 end
 
@@ -340,43 +346,63 @@ local function deserializeString(state: DeserializerState): string
 end
 
 local deserialize: (DeserializerState) -> (array | object | boolean | number | string)?
-
 local function deserializeArray(state: DeserializerState): array
+	if currentByte(state) ~= string.byte("[") then
+		return deserializerError(state, "Expected array opening '['")
+	end
+
 	state.cursor += 1
+	skipWhitespace(state)
 
 	local current: array = {}
+	local index = 1
 
-	local expectingValue = false
-	while state.cursor < #state.src do
-		skipWhitespace(state)
+	-- empty array
+	if currentByte(state) == string.byte("]") then
+		state.cursor += 1
+		return current
+	end
 
-		if currentByte(state) == string.byte(",") then
-			expectingValue = true
-			state.cursor += 1
+	local expectingValue = true
+
+	while state.cursor <= #state.src do
+		if not expectingValue then
+			-- Expect a comma or closing bracket
+			if currentByte(state) == string.byte(",") then
+				expectingValue = true
+				state.cursor += 1
+				if not skipWhitespace(state) then
+					return deserializerError(state, "Unterminated array")
+				end
+			elseif currentByte(state) == string.byte("]") then
+				state.cursor += 1
+				return current
+			else
+				return deserializerError(state, "Expected ',' or ']' after array value")
+			end
+		else
+			-- Expect a value next
+			if currentByte(state) == string.byte("]") then
+				if index == 1 then
+					-- empty array is ok
+					state.cursor += 1
+					return current
+				else
+					return deserializerError(state, "Trailing comma in array")
+				end
+			end
+
+			table.insert(current, deserialize(state))
+			index += 1
+			expectingValue = false
 		end
 
-		skipWhitespace(state)
-
-		if currentByte(state) == string.byte("]") then
-			break
+		if not skipWhitespace(state) then
+			return deserializerError(state, "Unterminated array")
 		end
-
-		table.insert(current, deserialize(state))
-
-		expectingValue = false
 	end
 
-	if expectingValue then
-		deserializerError(state, "Trailing comma")
-	end
-
-	if not skipWhitespace(state) or currentByte(state) ~= string.byte("]") then
-		deserializerError(state, "Unterminated array")
-	end
-
-	state.cursor += 1
-
-	return current
+	return deserializerError(state, "Unterminated array")
 end
 
 local function deserializeObject(state: DeserializerState): object
@@ -447,20 +473,20 @@ deserialize = function(state: DeserializerState): value
 	if fourChars == "null" then
 		state.cursor += 4
 		return json.null
-	elseif fourChars == "true" then
+	elseif string.match(fourChars, "^true") then
 		state.cursor += 4
 		return true
-	elseif string.sub(state.src, state.cursor, state.cursor + 4) == "false" then
+	elseif string.match(string.sub(state.src, state.cursor, state.cursor + 4), "^false") then
 		state.cursor += 5
 		return false
-	elseif string.match(state.src, "^[%-%d%.]", state.cursor) then
-		-- number
+	elseif string.match(state.src, "^[%-%d]", state.cursor) then
+		-- potential number
 		return deserializeNumber(state)
 	elseif string.byte(state.src, state.cursor) == string.byte('"') then
 		return deserializeString(state)
-	elseif string.byte(state.src, state.cursor) == string.byte("[") then
+	elseif string.match(state.src, "^%[", state.cursor) then
 		return deserializeArray(state)
-	elseif string.byte(state.src, state.cursor) == string.byte("{") then
+	elseif string.match(state.src, "^{", state.cursor) then
 		return deserializeObject(state)
 	end
 
@@ -488,7 +514,14 @@ function json.deserialize(src: string)
 		cursor = 0,
 	}
 
-	return deserialize(state)
+	local result = deserialize(state)
+
+	-- After parsing a value, there must be no non-whitespace trailing characters.
+	if skipWhitespace(state) then
+		deserializerError(state, "Trailing characters after JSON value")
+	end
+
+	return result
 end
 
 function json.object(props: { [string]: value }): object

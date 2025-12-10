@@ -43,4 +43,4 @@ function luau.resolverequire(modulepath: string, frompath: path.pathlike): strin
 	return luteLuau.resolverequire(modulepath, `@{frompathString}`)
 end
 
-return luau
+return table.freeze(luau)

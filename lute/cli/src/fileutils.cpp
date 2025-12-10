@@ -16,8 +16,9 @@
 #include <sys/stat.h>
 #endif
 
-#include <cstring>
 #include "Luau/FileUtils.h"
+
+#include <cstring>
 
 namespace Lute
 {
