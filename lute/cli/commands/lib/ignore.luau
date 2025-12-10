@@ -100,6 +100,9 @@ local function parseGlob(glob: string): Glob
 		elseif char == "-" then
 			table.insert(lua_parts, "%-")
 			idx = idx + 1
+		elseif char == "/" or char == "\\" then
+			table.insert(lua_parts, separator)
+			idx = idx + 1
 		else
 			table.insert(lua_parts, char)
 			idx = idx + 1
