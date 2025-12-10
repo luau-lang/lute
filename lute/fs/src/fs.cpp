@@ -206,7 +206,6 @@ int open(lua_State* L)
     if (nArgs < 1)
     {
         luaL_errorL(L, "Error: no file supplied\n");
-        return 0;
     }
     const char* path = luaL_checkstring(L, 1);
 
@@ -226,7 +225,6 @@ int open(lua_State* L)
     if (!modeFlags)
     {
         luaL_errorL(L, "Error decoding mode: %s\n", mode);
-        return 0;
     }
 
     return open_impl(L, path, openFlags, *modeFlags);
