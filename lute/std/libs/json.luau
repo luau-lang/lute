@@ -16,6 +16,8 @@ local object_key = newproxy()
 
 -- serialization
 
+local bufferSize = 1024
+
 type SerializerState = {
 	buf: buffer,
 	cursor: number,
@@ -287,7 +289,14 @@ local function deserializeString(state: DeserializerState): string
 
 	local startPos = state.cursor
 
-	local result = {}
+	local buf = buffer.create(bufferSize)
+	local bufferPos = 0
+
+	local function writeByteToBuffer(byte: number, dbuf: number, dstart: number)
+		buffer.writeu8(buf, bufferPos, byte)
+		bufferPos += dbuf
+		startPos += dstart
+	end
 
 	while startPos <= #state.src do
 		local c = string.sub(state.src, startPos, startPos)
@@ -295,7 +304,7 @@ local function deserializeString(state: DeserializerState): string
 		-- End of string
 		if c == '"' then
 			state.cursor = startPos + 1
-			return table.concat(result)
+			return buffer.tostring(buf, bufferPos)
 		end
 
 		-- Normal character
@@ -303,40 +312,31 @@ local function deserializeString(state: DeserializerState): string
 			local byte = string.byte(c)
 
 			-- No raw control chars allowed
-			if byte < 0x20 then
+			if byte < string.byte(" ") then
 				return deserializerError(state, "Unescaped control character in string")
 			end
 
-			table.insert(result, c)
-			startPos += 1
+			writeByteToBuffer(byte, 1, 1)
 		else
 			-- Escape sequence
 			local source = string.sub(state.src, startPos + 1, startPos + 1)
 
 			if source == "b" then
-				table.insert(result, "\b")
-				startPos += 2
+				writeByteToBuffer(string.byte("\b"), 1, 2)
 			elseif source == "f" then
-				table.insert(result, "\f")
-				startPos += 2
+				writeByteToBuffer(string.byte("\f"), 1, 2)
 			elseif source == "n" then
-				table.insert(result, "\n")
-				startPos += 2
+				writeByteToBuffer(string.byte("\n"), 1, 2)
 			elseif source == "r" then
-				table.insert(result, "\r")
-				startPos += 2
+				writeByteToBuffer(string.byte("\r"), 1, 2)
 			elseif source == "t" then
-				table.insert(result, "\t")
-				startPos += 2
+				writeByteToBuffer(string.byte("\t"), 1, 2)
 			elseif source == '"' then
-				table.insert(result, '"')
-				startPos += 2
+				writeByteToBuffer(string.byte('"'), 1, 2)
 			elseif source == "\\" then
-				table.insert(result, "\\")
-				startPos += 2
+				writeByteToBuffer(string.byte("\\"), 1, 2)
 			elseif source == "/" then
-				table.insert(result, "/")
-				startPos += 2
+				writeByteToBuffer(string.byte("/"), 1, 2)
 			elseif source == "u" then
 				-- Unicode escape: \uXXXX
 				local hex = string.sub(state.src, startPos + 2, startPos + 5)
@@ -357,12 +357,14 @@ local function deserializeString(state: DeserializerState): string
 					if lo then
 						local lo_val = tonumber(lo, 16)
 						-- Combine surrogate halves
-						codepoint = 0x10000 + (codepoint - 0xD800) * 0x400 + (lo_val - 0xDC00)
+						codepoint = 0x10000 + (codepoint :: number - 0xD800) * 0x400 + (lo_val :: number - 0xDC00)
 						startPos += 6
 					end
 				end
 
-				table.insert(result, utf8.char(codepoint))
+				local utf8_bytes = utf8.char(codepoint)
+				buffer.writestring(buf, bufferPos, utf8_bytes)
+				bufferPos += #utf8_bytes
 			else
 				-- Invalid escape: \" already covered
 				return deserializerError(state, "Invalid escape sequence '\\" .. source .. "'")
@@ -526,7 +528,7 @@ end
 
 function json.serialize(value: value, prettyPrint: boolean?)
 	local state: SerializerState = {
-		buf = buffer.create(1024),
+		buf = buffer.create(bufferSize),
 		cursor = 0,
 		prettyPrint = prettyPrint or false,
 		depth = 0,
