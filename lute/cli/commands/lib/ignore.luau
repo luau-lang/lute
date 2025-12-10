@@ -166,7 +166,7 @@ local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): 
 	-- both: at start of path OR after any directory separator
 	if glob.matchAnywhere then
 		local matchAtStart = filepath:match("^" .. glob.pattern) ~= nil
-		local matchAfterDir = filepath:match("/" .. glob.pattern) ~= nil
+		local matchAfterDir = filepath:match(separator .. glob.pattern) ~= nil
 
 		return matchAtStart or matchAfterDir
 	else
@@ -183,7 +183,6 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 
 	local relativePath = path.format(path.relative(ignoreData.location, filepath))
 	print(`  relativePath: {relativePath}`)
-	print(`  relative path length: {#relativePath}`)
 
 	for _, ignore in ignoreData.ignores do
 		if matchesGlob(ignore, relativePath, isDirectory) then
