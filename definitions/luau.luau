@@ -274,6 +274,15 @@ export type AstStatBlock = {
 	statements: { AstStat },
 }
 
+export type AstStatDo = {
+	location: span,
+	kind: "stat",
+	tag: "do",
+	dokeyword: Token<"do">,
+	body: { AstStat }, -- TODO: change to AstStatBlock when Luau adds AstStatDo on the C++ side
+	endkeyword: Token<"end">,
+}
+
 export type AstElseIfStat = {
 	elseifkeyword: Token<"elseif">,
 	condition: AstExpr,
@@ -439,6 +448,7 @@ export type AstStatTypeFunction = {
 
 export type AstStat = { kind: "stat" } & (
 	| AstStatBlock
+	| AstStatDo
 	| AstStatIf
 	| AstStatWhile
 	| AstStatRepeat

@@ -1,13 +1,15 @@
-local fs = require("@lute/fs")
-
+local fs = require("@std/fs")
 local path = require("@std/path")
 local stringext = require("@std/stringext")
+local system = require("@std/system")
+
+local separator = if system.win32 then "\\" else "/"
 
 --- Performs ignore resolution on a set of
 local IgnoreResolver = {}
 IgnoreResolver.__index = IgnoreResolver
 
-type Glob = { pattern: string, onlyMatchDirectories: boolean }
+type Glob = { pattern: string, onlyMatchDirectories: boolean, matchAnywhere: boolean }
 
 type GitignoreData = {
 	location: string,
@@ -50,7 +52,9 @@ local function parseGlob(glob: string): Glob
 	-- i.e., anchor the pattern to the start
 	if glob:find("/") then
 		table.insert(lua_parts, "^")
-		if glob:sub(1, 1) == "." then
+		if glob:sub(1, 2) == "./" then
+			idx = 3
+		elseif glob:sub(1, 1) == "/" or glob:sub(1, 1) == "." then
 			idx = 2
 		end
 	else
@@ -59,7 +63,6 @@ local function parseGlob(glob: string): Glob
 		-- We can't match for two distinct patterns bc Lua lacks an OR pattern operator
 		-- Instead add unique marker we check for in matchesGlob, indicating we match
 		-- against the two distinct patterns: anchored at beginning, or after a slash
-		table.insert(lua_parts, "MATCH_ANYWHERE:")
 		matchAnywhere = true
 	end
 
@@ -86,16 +89,19 @@ local function parseGlob(glob: string): Glob
 					idx = idx + 2
 				end
 			else
-				-- Single asterisk `*` (matches anything except /)
-				table.insert(lua_parts, "[^/]*")
+				-- Single asterisk `*` (matches anything except directory separator)
+				table.insert(lua_parts, `[^{separator}]*`)
 				idx = idx + 1
 			end
 		elseif char == "?" then
-			-- Match any single character, except for /
-			table.insert(lua_parts, "[^/]")
+			-- Match any single character, except for directory separator
+			table.insert(lua_parts, `[^{separator}]`)
 			idx = idx + 1
 		elseif char == "-" then
 			table.insert(lua_parts, "%-")
+			idx = idx + 1
+		elseif char == "/" or char == "\\" then
+			table.insert(lua_parts, separator)
 			idx = idx + 1
 		else
 			table.insert(lua_parts, char)
@@ -108,7 +114,11 @@ local function parseGlob(glob: string): Glob
 		table.insert(lua_parts, "$")
 	end
 
-	return { pattern = table.concat(lua_parts), onlyMatchDirectories = onlyMatchDirectories }
+	return {
+		pattern = table.concat(lua_parts),
+		onlyMatchDirectories = onlyMatchDirectories,
+		matchAnywhere = matchAnywhere,
+	}
 end
 
 local function parseGitignoreContents(location: string, contents: string): GitignoreData
@@ -151,13 +161,11 @@ local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): 
 	if glob.onlyMatchDirectories and not isDirectory then
 		return false
 	end
-	-- If the pattern starts with our matchAnywhere marker, we need to test
+	-- If the pattern is marked with matchAnywhere, we need to test
 	-- both: at start of path OR after any directory separator
-	if glob.pattern:match("^MATCH_ANYWHERE:") then
-		local actualPattern = glob.pattern:gsub("^MATCH_ANYWHERE:(.*)$", "%1")
-
-		local matchAtStart = filepath:match("^" .. actualPattern) ~= nil
-		local matchAfterDir = filepath:match("/" .. actualPattern) ~= nil
+	if glob.matchAnywhere then
+		local matchAtStart = filepath:match("^" .. glob.pattern) ~= nil
+		local matchAfterDir = filepath:match(separator .. glob.pattern) ~= nil
 
 		return matchAtStart or matchAfterDir
 	else
@@ -168,8 +176,7 @@ end
 local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirectory: boolean)
 	local matched, ignored = false, false
 
-	-- TODO: compute relative path correctly
-	local relativePath = stringext.removeprefix(filepath, ignoreData.location)
+	local relativePath = path.format(path.relative(ignoreData.location, filepath))
 
 	for _, ignore in ignoreData.ignores do
 		if matchesGlob(ignore, relativePath, isDirectory) then
@@ -242,7 +249,7 @@ function IgnoreResolver._readIgnoreRecursive(self: IgnoreResolver, directory: st
 	end
 
 	if not baseIgnores then
-		baseIgnores = { location = "", ignores = {}, whitelists = {}, next = nil } :: GitignoreData
+		baseIgnores = { location = directory, ignores = {}, whitelists = {}, next = nil } :: GitignoreData
 	end
 	assert(baseIgnores, "Luau")
 

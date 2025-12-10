@@ -1,52 +1,36 @@
 #include "lute/climain.h"
 
-#include "lute/bundlevfs.h"
 #include "lute/clicommands.h"
-#include "lute/clivfs.h"
 #include "lute/compile.h"
-#include "lute/crypto.h"
-#include "lute/fs.h"
-#include "lute/io.h"
-#include "lute/luau.h"
 #include "lute/luauflags.h"
-#include "lute/net.h"
+#include "lute/modulepath.h"
 #include "lute/options.h"
+#include "lute/packagerun.h"
 #include "lute/process.h"
 #include "lute/ref.h"
 #include "lute/reporter.h"
-#include "lute/require.h"
-#include "lute/requirevfs.h"
+#include "lute/requiresetup.h"
 #include "lute/runtime.h"
 #include "lute/staticrequires.h"
-#include "lute/system.h"
-#include "lute/task.h"
 #include "lute/tc.h"
-#include "lute/time.h"
 #include "lute/version.h"
-#include "lute/vm.h"
 
 #include "Luau/CodeGen.h"
 #include "Luau/Common.h"
 #include "Luau/Compiler.h"
 #include "Luau/DenseHash.h"
 #include "Luau/FileUtils.h"
-#include "Luau/Require.h"
 
 #include "lua.h"
 #include "lualib.h"
 
-#include "uv.h"
-
-#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #ifdef _WIN32
 #include <Windows.h>
 #endif
-
-#include <iostream>
-#include <memory>
-#include <string>
-#include <vector>
 
 static const char* HELP_STRING = R"(Usage: lute <command> [options] [arguments...]
 
@@ -101,6 +85,12 @@ Run Options:
 	-h, --help    Display this usage message.
 )";
 
+static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkgrun <script.luau> [args...]
+
+Run Options:
+	-h, --help    Display this usage message.
+)";
+
 static const char* CHECK_HELP_STRING = R"(Usage: lute check <file1.luau> [file2.luau...]
 
 Check Options:
@@ -116,112 +106,6 @@ Compile Options:
 	--show-require-graph    Print the require dependency graph.
 	-h, --help              Display this usage message.
 )";
-
-void* createCliRequireContext(lua_State* L)
-{
-    void* ctx = lua_newuserdatadtor(
-        L,
-        sizeof(RequireCtx),
-        [](void* ptr)
-        {
-            std::destroy_at(static_cast<RequireCtx*>(ptr));
-        }
-    );
-
-    if (!ctx)
-        luaL_error(L, "unable to allocate RequireCtx");
-
-    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(CliVfs{})};
-
-    // Store RequireCtx in the registry to keep it alive for the lifetime of
-    // this lua_State. Memory address is used as a key to avoid collisions.
-    lua_pushlightuserdata(L, ctx);
-    lua_insert(L, -2);
-    lua_settable(L, LUA_REGISTRYINDEX);
-
-    return ctx;
-}
-
-static void luteopen_libs(lua_State* L)
-{
-    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
-        {"@lute/crypto", luteopen_crypto},
-        {"@lute/fs", luteopen_fs},
-        {"@lute/luau", luteopen_luau},
-        {"@lute/net", luteopen_net},
-        {"@lute/process", luteopen_process},
-        {"@lute/task", luteopen_task},
-        {"@lute/vm", luteopen_vm},
-        {"@lute/system", luteopen_system},
-        {"@lute/time", luteopen_time},
-        {"@lute/io", luteopen_io},
-    }};
-
-    for (const auto& [name, func] : libs)
-    {
-        lua_pushcfunction(L, luarequire_registermodule, nullptr);
-        lua_pushstring(L, name);
-        func(L);
-        lua_call(L, 2, 0);
-    }
-}
-
-void* createBundleRequireContext(lua_State* L, Luau::DenseHashMap<std::string, std::string> bundleMap)
-{
-    void* ctx = lua_newuserdatadtor(
-        L,
-        sizeof(RequireCtx),
-        [](void* ptr)
-        {
-            std::destroy_at(static_cast<RequireCtx*>(ptr));
-        }
-    );
-
-    if (!ctx)
-        luaL_error(L, "unable to allocate RequireCtx");
-    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(bundleMap)})};
-
-    // Store RequireCtx in the registry to keep it alive for the lifetime of
-    // this lua_State. Memory address is used as a key to avoid collisions.
-    lua_pushlightuserdata(L, ctx);
-    lua_insert(L, -2);
-    lua_settable(L, LUA_REGISTRYINDEX);
-
-    return ctx;
-}
-
-lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
-{
-    return setupState(
-        runtime,
-        [preSandboxInit = std::move(preSandboxInit)](lua_State* L)
-        {
-            luteopen_libs(L);
-
-            if (Luau::CodeGen::isSupported())
-                Luau::CodeGen::create(L);
-
-            luaopen_require(L, requireConfigInit, createCliRequireContext(L));
-            if (preSandboxInit)
-                preSandboxInit(L);
-        }
-    );
-}
-
-lua_State* setupBundleState(Runtime& runtime, Luau::DenseHashMap<std::string, std::string> bundleMap)
-{
-    return setupState(
-        runtime,
-        [bundleMap = std::move(bundleMap)](lua_State* L)
-        {
-            luteopen_libs(L);
-            if (Luau::CodeGen::isSupported())
-                Luau::CodeGen::create(L);
-
-            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(bundleMap)));
-        }
-    );
-}
 
 static bool setupArguments(lua_State* L, int argc, char** argv)
 {
@@ -310,7 +194,8 @@ static int assertionHandler(const char* expr, const char* file, int line, const 
     return 1;
 }
 
-static std::optional<std::string> getWithRequireByStringSemantics(std::string filePath)
+// Returns whether the filePath could be resolved to a valid file path, and a string containing either the valid path or an error message
+static std::pair<bool, std::string> getWithRequireByStringSemantics(std::string filePath)
 {
     std::string normalized = normalizePath(std::move(filePath));
 
@@ -324,26 +209,40 @@ static std::optional<std::string> getWithRequireByStringSemantics(std::string fi
 
     std::optional<ModulePath> mp = ModulePath::create(std::move(rootOfPath), std::move(restOfPath), isFile, isDirectory);
     if (!mp)
-        return std::nullopt;
+        return {false, "Could not initialize ModulePath instance."};
 
     ResolvedRealPath resolved = mp->getRealPath();
-    if (resolved.status != NavigationStatus::Success)
-        return std::nullopt;
 
-    if (resolved.type == ResolvedRealPath::PathType::File)
-        return resolved.realPath;
+    std::pair<bool, std::string> result;
+    switch (resolved.status)
+    {
+    case NavigationStatus::Success:
+        if (resolved.type == ResolvedRealPath::PathType::File)
+            result = {true, resolved.realPath};
+        else
+            result = {false, "Path is a directory, not a file."};
+        break;
+    case NavigationStatus::Ambiguous:
+        result = {false, "Unable to tell whether path is a file or directory. Is there a same-named file or directory?"};
+        break;
+    case NavigationStatus::NotFound:
+        result = {false, "File or directory not found."};
+        break;
+    }
 
-    return std::nullopt;
+    return result;
 };
 
-static std::optional<std::string> getValidPath(std::string filePath)
+// Returns whether the filePath could be resolved to a valid file path, and a string containing either the valid path or an error message
+static std::pair<bool, std::string> getValidPath(std::string filePath)
 {
-    if (std::optional<std::string> path = getWithRequireByStringSemantics(filePath))
-        return *path;
+    auto [ok, res] = getWithRequireByStringSemantics(filePath);
+    if (ok)
+        return {true, res};
 
     // Only fallback to checking .lute/* if the original path has no extension.
     if (filePath.find('.') != std::string::npos)
-        return std::nullopt;
+        return {false, res};
 
     std::string fallbackPath = joinPaths(".lute", filePath);
     size_t fallbackSize = fallbackPath.size();
@@ -354,14 +253,16 @@ static std::optional<std::string> getValidPath(std::string filePath)
         fallbackPath += ext;
 
         if (isFile(fallbackPath))
-            return fallbackPath;
+            return {true, fallbackPath};
     }
 
-    return std::nullopt;
+
+    return {false, res};
 }
 
-int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporter)
+int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness, LuteReporter& reporter)
 {
+    std::string command = packageAwareness ? "pkgrun" : "run";
     std::string filePath;
     int program_argc = 0;
     char** program_argv = nullptr;
@@ -372,13 +273,13 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
 
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
-            reporter.reportOutput(RUN_HELP_STRING);
+            reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 0;
         }
         else if (currentArg[0] == '-')
         {
-            reporter.formatError("Error: Unrecognized option '%s' for 'run' command.", currentArg);
-            reporter.reportOutput(RUN_HELP_STRING);
+            reporter.formatError("Error: Unrecognized option '%s' for '%s' command.", currentArg, command.c_str());
+            reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 1;
         }
         else
@@ -392,22 +293,50 @@ int handleRunCommand(int argc, char** argv, int argOffset, LuteReporter& reporte
 
     if (filePath.empty())
     {
-        reporter.reportError("Error: No file specified for 'run' command.");
-        reporter.reportOutput(RUN_HELP_STRING);
+        reporter.formatError("Error: No file specified for '%s' command.", command.c_str());
+        reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
+        return 1;
+    }
+
+    auto [ok, validPath] = getValidPath(filePath);
+    if (!ok)
+    {
+        reporter.formatError("Error while resolving filepath '%s': %s", filePath.c_str(), validPath.c_str());
         return 1;
     }
 
     Runtime runtime;
-    lua_State* L = setupCliState(runtime);
+    lua_State* L;
 
-    std::optional<std::string> validPath = getValidPath(filePath);
-    if (!validPath)
+    if (packageAwareness)
     {
-        reporter.formatError("Error: File '%s' does not exist.", filePath.c_str());
-        return 1;
+        if (!isAbsolutePath(validPath))
+        {
+            std::optional<std::string> cwd = getCurrentWorkingDirectory();
+            if (!cwd)
+            {
+                reporter.reportError("Error: Failed to get current working directory.\n");
+                return 1;
+            }
+            validPath = normalizePath(joinPaths(*cwd, filePath));
+        }
+
+        std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(validPath);
+        if (!lockfile)
+        {
+            reporter.formatError("Error: No loom.lock file found for '%s'", validPath.c_str());
+            return 1;
+        }
+
+        auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
+        L = setupPkgCliState(runtime, std::move(directDependencies), std::move(allDependencies));
+    }
+    else
+    {
+        L = setupCliState(runtime);
     }
 
-    bool success = runFile(runtime, validPath->c_str(), L, program_argc, program_argv, reporter);
+    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter);
     return success ? 0 : 1;
 }
 
@@ -558,6 +487,9 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
         payload.add(bundle, absolute);
     }
 
+    // Add the discovered luaurc configuration
+    payload.setLuauConfig(tracer.getLuaurcFiles());
+
 
     // Encode the payload
     reporter.reportOutput("Compiling and bundling bytecode...");
@@ -622,21 +554,19 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     setLuauFlags();
 
     std::string err = "";
-    if (auto exePath = process::getExecPath(&err))
-    {
-        LuteExecutable exe{*exePath, reporter};
-        if (auto payload = exe.extract())
-        {
-            Runtime runtime;
 
-            lua_State* GL = setupBundleState(runtime, payload->filePathToBytecode);
-            std::string entryPoint = payload->entryPointPath;
-            auto entryModule = payload->filePathToBytecode.find(entryPoint);
-            if (entryModule != nullptr)
-            {
-                bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, GL, argc, argv, reporter);
-                return success ? 0 : 1;
-            }
+    LuteExecutable exe{argv[0], reporter};
+    if (auto payload = exe.extract())
+    {
+        Runtime runtime;
+
+        lua_State* GL = setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
+        std::string entryPoint = payload->entryPointPath;
+        auto entryModule = payload->filePathToBytecode.find(entryPoint);
+        if (entryModule != nullptr)
+        {
+            bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, GL, argc, argv, reporter);
+            return success ? 0 : 1;
         }
     }
 
@@ -656,7 +586,11 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
 
     if (strcmp(command, "run") == 0)
     {
-        return handleRunCommand(argc, argv, argOffset, reporter);
+        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ false, reporter);
+    }
+    else if (strcmp(command, "pkgrun") == 0)
+    {
+        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ true, reporter);
     }
     else if (strcmp(command, "check") == 0)
     {
@@ -684,6 +618,6 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     {
         // Default to 'run' command
         argOffset = 1;
-        return handleRunCommand(argc, argv, argOffset, reporter);
+        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ false, reporter);
     }
 }

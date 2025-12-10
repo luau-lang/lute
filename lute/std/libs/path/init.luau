@@ -76,6 +76,14 @@ function pathlib.parse(path: pathlike): path
 	end
 end
 
+function pathlib.relative(from: pathlike, to: pathlike): path
+	if onWindows then
+		return win32.relative(from :: win32.pathlike, to :: win32.pathlike)
+	else
+		return posix.relative(from :: posix.pathlike, to :: posix.pathlike)
+	end
+end
+
 function pathlib.resolve(...: pathlike): path
 	if onWindows then
 		return win32.resolve(...)

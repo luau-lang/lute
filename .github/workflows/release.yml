@@ -161,6 +161,7 @@ jobs:
           name: ${{ steps.tag_release.outputs.tag }}
           draft: true
           prerelease: ${{ github.event.inputs.nightly || github.event_name == 'schedule' }}
+          generate_release_notes: true
           files: release/*.zip
 
       - name: Wait for Tag Creation in GitHub

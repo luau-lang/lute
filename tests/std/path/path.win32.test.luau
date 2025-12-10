@@ -9,7 +9,7 @@ test.suite("PathWin32ParseSuite", function(suite)
 	suite:case("parse_windows_absolute_path", function(assert)
 		local result: win32.path = path.win32.parse("C:\\Users\\username\\Documents\\file.txt")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "username")
@@ -20,7 +20,7 @@ test.suite("PathWin32ParseSuite", function(suite)
 	suite:case("parse_windows_unc_path", function(assert)
 		local result: win32.path = path.win32.parse("\\\\server\\share\\folder\\file.txt")
 		assert.eq(result.kind, "unc")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "server")
 		assert.eq(result.parts[2], "share")
@@ -31,24 +31,24 @@ test.suite("PathWin32ParseSuite", function(suite)
 	suite:case("parse_empty_string", function(assert)
 		local result: win32.path = path.win32.parse("")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 0)
 	end)
 
 	suite:case("parse_single_file", function(assert)
 		local result: win32.path = path.win32.parse("file.txt")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 1)
 		assert.eq(result.parts[1], "file.txt")
 	end)
 
 	suite:case("parse_pathobj_returns_same", function(assert)
-		local originalPath: win32.path = {
+		local originalPath: win32.path = setmetatable({
 			parts = { "folder", "file.txt" },
 			kind = "relative",
-			driveLetter = nil,
-		}
+			drive = nil :: string?,
+		}, win32.pathmt)
 		local result = path.win32.parse(originalPath)
 		assert.eq(result, originalPath)
 	end)
@@ -56,7 +56,7 @@ test.suite("PathWin32ParseSuite", function(suite)
 	suite:case("parse_mixed_separators", function(assert)
 		local result: win32.path = path.win32.parse("/home/user\\documents/file.txt")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
@@ -67,7 +67,7 @@ test.suite("PathWin32ParseSuite", function(suite)
 	suite:case("parse_windows_relative_with_drive", function(assert)
 		local result: win32.path = path.win32.parse("C:Documents\\file.txt")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "Documents")
 		assert.eq(result.parts[2], "file.txt")
@@ -106,11 +106,11 @@ test.suite("PathWin32BasenameSuite", function(suite)
 	end)
 
 	suite:case("basename_pathobj", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "folder", "subfolder", "file.txt" },
 			kind = "relative",
-			driveLetter = nil,
-		}
+			drive = nil :: string?,
+		}, win32.pathmt)
 		local result = path.win32.basename(pathobj)
 		assert.eq(result, "file.txt")
 	end)
@@ -123,61 +123,61 @@ end)
 
 test.suite("PathWin32FormatSuite", function(suite)
 	suite:case("format_windows_absolute_path", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "Users", "username", "Documents", "file.txt" },
 			kind = "absolute",
-			driveLetter = "C",
-		}
+			drive = "C" :: string?,
+		}, win32.pathmt)
 		local result = path.win32.format(pathobj)
 		assert.eq(result, "C:\\Users\\username\\Documents\\file.txt")
 	end)
 
 	suite:case("format_windows_relative_with_drive", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "Documents", "file.txt" },
 			kind = "relative",
-			driveLetter = "C",
-		}
+			drive = "C" :: string?,
+		}, win32.pathmt)
 		local result = path.win32.format(pathobj)
 		assert.eq(result, "C:Documents\\file.txt")
 	end)
 
 	suite:case("format_windows_unc_path", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "server", "share", "folder", "file.txt" },
 			kind = "unc",
-			driveLetter = nil,
-		}
+			drive = nil :: string?,
+		}, win32.pathmt)
 		local result = path.win32.format(pathobj)
 		assert.eq(result, "\\\\server\\share\\folder\\file.txt")
 	end)
 
 	suite:case("format_empty_relative_path", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = {},
 			kind = "relative",
-			driveLetter = nil,
-		}
+			drive = nil :: string?,
+		}, win32.pathmt)
 		local result = path.win32.format(pathobj)
 		assert.eq(result, ".")
 	end)
 
 	suite:case("format_empty_relative_path_with_drive", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = {},
 			kind = "relative",
-			driveLetter = "C",
-		}
+			drive = "C" :: string?,
+		}, win32.pathmt)
 		local result = path.win32.format(pathobj)
 		assert.eq(result, "C:")
 	end)
 
 	suite:case("format_root_path_with_drive", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = {},
 			kind = "absolute",
-			driveLetter = "C",
-		}
+			drive = "C" :: string?,
+		}, win32.pathmt)
 		local result = path.win32.format(pathobj)
 		assert.eq(result, "C:\\")
 	end)
@@ -215,11 +215,11 @@ test.suite("PathWin32DirnameSuite", function(suite)
 	end)
 
 	suite:case("dirname_pathobj", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "folder", "subfolder", "file.txt" },
 			kind = "relative",
-			driveLetter = nil,
-		}
+			drive = nil :: string?,
+		}, win32.pathmt)
 		local result = path.win32.dirname(pathobj)
 		assert.eq(result, "folder\\subfolder")
 	end)
@@ -277,11 +277,11 @@ test.suite("PathWin32ExtnameSuite", function(suite)
 	end)
 
 	suite:case("extname_pathobj", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "folder", "file.pdf" },
 			kind = "relative",
-			driveLetter = nil,
-		}
+			drive = nil :: string?,
+		}, win32.pathmt)
 		local result = path.win32.extname(pathobj)
 		assert.eq(result, ".pdf")
 	end)
@@ -306,39 +306,39 @@ test.suite("PathWin32GetDriveSuite", function(suite)
 	suite:case("getdrive_absolute_path_string", function(assert)
 		local result = path.win32.drive("C:\\Users\\username\\Documents\\file.txt")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 0)
 	end)
 
 	suite:case("getdrive_relative_path_with_drive", function(assert)
 		local result = path.win32.drive("D:Documents\\file.txt")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "D")
+		assert.eq(result.drive, "D")
 		assert.eq(#result.parts, 0)
 	end)
 
 	suite:case("getdrive_path_object", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "Users", "username", "Documents" },
 			kind = "absolute",
-			driveLetter = "E",
-		}
+			drive = "E" :: string?,
+		}, win32.pathmt)
 		local result = path.win32.drive(pathobj)
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "E")
+		assert.eq(result.drive, "E")
 		assert.eq(#result.parts, 0)
 	end)
 
 	suite:case("getdrive_root_path", function(assert)
 		local result = path.win32.drive("F:\\")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "F")
+		assert.eq(result.drive, "F")
 		assert.eq(#result.parts, 0)
 	end)
 
 	suite:case("getdrive_error_on_empty_path", function(assert)
 		assert.errors(function()
-			return path.win32.drive("")
+			path.win32.drive("")
 		end)
 	end)
 end)
@@ -375,21 +375,21 @@ test.suite("PathWin32IsAbsoluteSuite", function(suite)
 	end)
 
 	suite:case("isAbsolute_pathobj_absolute", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "home", "user", "file.txt" },
 			kind = "absolute",
-			driveLetter = "C",
-		}
+			drive = "C" :: string?,
+		}, win32.pathmt)
 		local result = path.win32.isabsolute(pathobj)
 		assert.eq(result, true)
 	end)
 
 	suite:case("isAbsolute_pathobj_relative", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "folder", "file.txt" },
 			kind = "relative",
-			driveLetter = nil,
-		}
+			drive = nil :: string?,
+		}, win32.pathmt)
 		local result = path.win32.isabsolute(pathobj)
 		assert.eq(result, false)
 	end)
@@ -399,7 +399,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_removes_current_directory", function(assert)
 		local result = path.win32.normalize("C:\\Users\\.\\username\\Documents")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "username")
@@ -409,7 +409,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_resolves_parent_directory", function(assert)
 		local result = path.win32.normalize("C:\\Users\\username\\..\\Documents")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "Documents")
@@ -418,7 +418,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_multiple_dots", function(assert)
 		local result = path.win32.normalize("C:\\Users\\username\\.\\Documents\\..\\files\\.\\")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "username")
@@ -428,7 +428,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_relative_path", function(assert)
 		local result = path.win32.normalize("Documents\\.\\subfolder\\..\\file.txt")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "Documents")
 		assert.eq(result.parts[2], "file.txt")
@@ -437,7 +437,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_removes_empty_segments", function(assert)
 		local result = path.win32.normalize("C:\\Users\\\\username\\\\\\Documents")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "username")
@@ -447,14 +447,14 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_parent_beyond_root", function(assert)
 		local result = path.win32.normalize("C:\\Users\\..\\..\\")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 0)
 	end)
 
 	suite:case("normalize_unc_path", function(assert)
 		local result = path.win32.normalize("\\\\server\\share\\.\\folder\\..\\files")
 		assert.eq(result.kind, "unc")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "server")
 		assert.eq(result.parts[2], "share")
@@ -464,7 +464,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_relative_with_drive", function(assert)
 		local result = path.win32.normalize("C:Documents\\.\\subfolder\\..\\file.txt")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "Documents")
 		assert.eq(result.parts[2], "file.txt")
@@ -473,7 +473,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_parent_directory_only", function(assert)
 		local result = path.win32.normalize("..")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 1)
 		assert.eq(result.parts[1], "..")
 	end)
@@ -481,7 +481,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_multiple_parent_directories", function(assert)
 		local result = path.win32.normalize("..\\..\\..")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "..")
 		assert.eq(result.parts[2], "..")
@@ -491,7 +491,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_parent_then_folder", function(assert)
 		local result = path.win32.normalize("..\\folder\\file.txt")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "..")
 		assert.eq(result.parts[2], "folder")
@@ -501,20 +501,20 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_folder_then_multiple_parents", function(assert)
 		local result = path.win32.normalize("folder\\subfolder\\..\\..\\other")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 1)
 		assert.eq(result.parts[1], "other")
 	end)
 
 	suite:case("normalize_pathobj", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "Users", ".", "username", "..", "Documents" },
 			kind = "absolute",
-			driveLetter = "C",
-		}
+			drive = "C" :: string?,
+		}, win32.pathmt)
 		local result = path.win32.normalize(pathobj)
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "Documents")
@@ -523,7 +523,7 @@ test.suite("PathWin32NormalizeSuite", function(suite)
 	suite:case("normalize_relative_with_drive_and_parent", function(assert)
 		local result = path.win32.normalize("C:..\\folder\\file.txt")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "..")
 		assert.eq(result.parts[2], "folder")
@@ -535,7 +535,7 @@ test.suite("PathWin32JoinSuite", function(suite)
 	suite:case("join_absolute_and_relative", function(assert)
 		local result = path.win32.join("C:\\Users\\username", "Documents", "file.txt")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "username")
@@ -546,7 +546,7 @@ test.suite("PathWin32JoinSuite", function(suite)
 	suite:case("join_relative_paths", function(assert)
 		local result = path.win32.join("Documents", "subfolder", "file.txt")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "Documents")
 		assert.eq(result.parts[2], "subfolder")
@@ -556,7 +556,7 @@ test.suite("PathWin32JoinSuite", function(suite)
 	suite:case("join_drive_relative_paths", function(assert)
 		local result = path.win32.join("C:Documents", "subfolder", "file.txt")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "Documents")
 		assert.eq(result.parts[2], "subfolder")
@@ -566,7 +566,7 @@ test.suite("PathWin32JoinSuite", function(suite)
 	suite:case("join_unc_and_relative", function(assert)
 		local result = path.win32.join("\\\\server\\share", "folder", "file.txt")
 		assert.eq(result.kind, "unc")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "server")
 		assert.eq(result.parts[2], "share")
@@ -577,19 +577,19 @@ test.suite("PathWin32JoinSuite", function(suite)
 	suite:case("join_no_arguments", function(assert)
 		local result = path.win32.join()
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 0)
 	end)
 
 	suite:case("join_pathobj_and_string", function(assert)
-		local pathobj: win32.path = {
+		local pathobj: win32.path = setmetatable({
 			parts = { "Users", "username" },
 			kind = "absolute",
-			driveLetter = "C",
-		}
+			drive = "C" :: string?,
+		}, win32.pathmt)
 		local result = path.win32.join(pathobj, "Documents\\file.txt")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "username")
@@ -599,7 +599,7 @@ test.suite("PathWin32JoinSuite", function(suite)
 		assert.eq(pathobj.parts[1], "Users")
 		assert.eq(pathobj.parts[2], "username")
 		assert.eq(pathobj.kind, "absolute")
-		assert.eq(pathobj.driveLetter, "C")
+		assert.eq(pathobj.drive, "C")
 	end)
 
 	suite:case("join_error_on_absolute_addend", function(assert)
@@ -626,7 +626,7 @@ test.suite("PathWin32JoinSuite", function(suite)
 	suite:case("join_compatible_drives", function(assert)
 		local result = path.win32.join("C:Documents", "C:subfolder")
 		assert.eq(result.kind, "relative")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "Documents")
 		assert.eq(result.parts[2], "subfolder")
@@ -637,7 +637,7 @@ test.suite("PathWin32ResolveSuite", function(suite)
 	suite:case("resolve_absolute_path", function(assert)
 		local result = path.win32.resolve("C:\\Users\\username\\Documents\\file.txt")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "username")
@@ -661,7 +661,7 @@ test.suite("PathWin32ResolveSuite", function(suite)
 	suite:case("resolve_multiple_paths", function(assert)
 		local result = path.win32.resolve("C:\\Users", "username", "..\\admin", "Documents")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "admin")
@@ -671,7 +671,7 @@ test.suite("PathWin32ResolveSuite", function(suite)
 	suite:case("resolve_with_absolute_in_middle", function(assert)
 		local result = path.win32.resolve("relative", "D:\\absolute\\path", "more")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "D")
+		assert.eq(result.drive, "D")
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "absolute")
 		assert.eq(result.parts[2], "path")
@@ -681,7 +681,7 @@ test.suite("PathWin32ResolveSuite", function(suite)
 	suite:case("resolve_unc_path", function(assert)
 		local result = path.win32.resolve("\\\\server\\share\\folder")
 		assert.eq(result.kind, "unc")
-		assert.eq(result.driveLetter, nil)
+		assert.eq(result.drive, nil)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "server")
 		assert.eq(result.parts[2], "share")
@@ -698,15 +698,14 @@ test.suite("PathWin32ResolveSuite", function(suite)
 
 	suite:case("resolve_drive_relative_path", function(assert)
 		-- Get the drive letter from the current working directory
-		local cwd = process.cwd()
-		local cwdPath = path.win32.parse(cwd)
-		local driveLetter = if system.win32 then path.win32.drive(cwdPath).driveLetter else "C"
+		local cwdPath = path.win32.parse(process.cwd() :: win32.pathlike)
+		local drive = if system.win32 then path.win32.drive(cwdPath).drive :: string else "C"
 
-		local testPath = driveLetter .. ":Documents\\file.txt"
+		local testPath = drive .. ":Documents\\file.txt"
 		local result = path.win32.resolve(testPath)
 		-- Absolute unix paths will be parsed as relative Windows paths because they don't have drive letters
 		assert.eq(result.kind, if system.win32 then "absolute" else "relative")
-		assert.eq(result.driveLetter, driveLetter)
+		assert.eq(result.drive, drive)
 		-- The exact parts depend on cwd, but should be absolute
 		local endIndex = #result.parts
 		assert.eq(result.parts[endIndex - 1], "Documents")
@@ -716,7 +715,7 @@ test.suite("PathWin32ResolveSuite", function(suite)
 	suite:case("resolve_with_dot_segments", function(assert)
 		local result = path.win32.resolve("C:\\Users\\username", "..\\admin\\.\\Documents")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "admin")
@@ -726,7 +725,7 @@ test.suite("PathWin32ResolveSuite", function(suite)
 	suite:case("resolve_empty_strings", function(assert)
 		local result = path.win32.resolve("", "", "C:\\Users\\username")
 		assert.eq(result.kind, "absolute")
-		assert.eq(result.driveLetter, "C")
+		assert.eq(result.drive, "C")
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "Users")
 		assert.eq(result.parts[2], "username")
@@ -746,6 +745,76 @@ test.suite("PathWin32ToStringSuite", function(suite)
 		local pathObj: win32.path = path.win32.parse(filePath)
 		local result = tostring(pathObj)
 		assert.eq(result, filePath)
+	end)
+end)
+
+test.suite("PathWin32RelativeSuite", function(suite)
+	suite:case("relative_same_path", function(assert)
+		local from = win32.parse("C:\\Users\\username\\Documents")
+		local to = win32.parse("C:\\Users\\username\\Documents")
+		local result = path.win32.relative(from, to)
+		assert.eq(result.kind, "relative")
+		assert.eq(#result.parts, 0)
+		assert.eq(result.drive, nil)
+	end)
+
+	suite:case("relative_subdirectory", function(assert)
+		local from = win32.parse("C:\\Users\\username")
+		local to = win32.parse("C:\\Users\\username\\Documents\\file.txt")
+		local result = path.win32.relative(from, to)
+		assert.eq(result.kind, "relative")
+		assert.eq(#result.parts, 2)
+		assert.eq(result.parts[1], "Documents")
+		assert.eq(result.parts[2], "file.txt")
+		assert.eq(result.drive, nil)
+	end)
+
+	suite:case("relative_parent_directory", function(assert)
+		local from = win32.parse("C:\\Users\\username\\Documents")
+		local to = win32.parse("C:\\Users\\username\\file.txt")
+		local result = path.win32.relative(from, to)
+		assert.eq(result.kind, "relative")
+		assert.eq(#result.parts, 2)
+		assert.eq(result.parts[1], "..")
+		assert.eq(result.parts[2], "file.txt")
+		assert.eq(result.drive, nil)
+	end)
+
+	suite:case("relative_different_kinds", function(assert)
+		local from = win32.parse("C:\\Users\\username\\Documents")
+		local to = win32.parse("Documents\\file.txt")
+		assert.erroreq(function()
+			path.win32.relative(from, to)
+		end, "Cannot compute relative path between different kinds of paths")
+	end)
+
+	suite:case("relative_different_drives", function(assert)
+		local from = win32.parse("C:\\Users\\username")
+		local to = win32.parse("D:\\Documents\\file.txt")
+		assert.erroreq(function()
+			path.win32.relative(from, to)
+		end, "Cannot compute relative path between different drives")
+	end)
+
+	suite:case("relative_unc_paths", function(assert)
+		local from = win32.parse("\\\\server\\share\\folder1")
+		local to = win32.parse("\\\\server\\share\\folder2\\file.txt")
+		local result = path.win32.relative(from, to)
+		assert.eq(result.kind, "relative")
+		assert.eq(#result.parts, 3)
+		assert.eq(result.parts[1], "..")
+		assert.eq(result.parts[2], "folder2")
+		assert.eq(result.parts[3], "file.txt")
+	end)
+
+	suite:case("relative_with_drive_letter_same_drive", function(assert)
+		local from = win32.parse("C:Documents")
+		local to = win32.parse("C:Documents\\subfolder\\file.txt")
+		local result = path.win32.relative(from, to)
+		assert.eq(result.kind, "relative")
+		assert.eq(#result.parts, 2)
+		assert.eq(result.parts[1], "subfolder")
+		assert.eq(result.parts[2], "file.txt")
 	end)
 end)
 

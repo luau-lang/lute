@@ -8,7 +8,7 @@ local syntax = require("@std/syntax")
 local T = require("@std/luau")
 
 local function assertEqualsLocation(
-	assert: asserts.Asserts,
+	assert: asserts.asserts,
 	actual: T.span,
 	startLine: number,
 	startColumn: number,
@@ -122,23 +122,24 @@ test.suite("Parser", function(suite)
 		assert.eq(leadingToken.leadingtrivia[2].text, "\n")
 	end)
 
-	suite:case("roundtrippableAst", function(assert)
-		local function visitDirectory(directory: string)
-			for _, entry in fs.listdirectory(directory) do
-				if entry.type ~= "file" then
-					continue
-				end
+	local function visitDirectory(directory: string)
+		for _, entry in fs.listdirectory(directory) do
+			if entry.type ~= "file" then
+				continue
+			end
+
+			suite:case(`roundtrippable_Ast_{entry.name}`, function(assert)
 				local p = path.join(directory, entry.name)
 				local source = fs.readfiletostring(path.format(p))
 				local result = printer.printfile(parser.parse(source))
 
 				assert.eq(source, result)
-			end
+			end)
 		end
+	end
 
-		visitDirectory("examples")
-		visitDirectory("tests/parserExamples")
-	end)
+	visitDirectory("examples")
+	visitDirectory("tests/parserExamples")
 
 	suite:case("lineOffsetsField", function(assert)
 		local singleLineCode = "local x = 1"
@@ -500,7 +501,7 @@ test.suite("parseExpr", function(suite)
 	end)
 end)
 
-local function checkIsBlock(node: any, assert: asserts.Asserts)
+local function checkIsBlock(node: any, assert: asserts.asserts)
 	assert.eq(node.kind, "stat")
 	assert.eq(node.tag, "block")
 end
@@ -510,6 +511,18 @@ test.suite("parse", function(suite)
 		local block = parser.parseblock("")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 0)
+	end)
+
+	suite:case("parseDoStatement", function(assert)
+		local block = parser.parseblock("do print('Hello, World!') end")
+		checkIsBlock(block, assert)
+		assert.eq(#block.statements, 1)
+
+		local doStat = block.statements[1] :: syntax.AstStatDo
+		assert.eq(doStat.tag, "do")
+		assert.eq(doStat.dokeyword.text, "do")
+		assert.eq(#doStat.body, 1)
+		assert.eq(doStat.endkeyword.text, "end")
 	end)
 
 	suite:case("parseIfStatement", function(assert)

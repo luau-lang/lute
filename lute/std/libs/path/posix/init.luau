@@ -1,26 +1,19 @@
 local process = require("@lute/process")
 local posixtypes = require("@self/types")
 
-export type path = setmetatable<posixtypes.path, posixtypes.pathinterface>
+export type path = posixtypes.path
 export type pathlike = posixtypes.pathlike
 
 local posix = {}
-local path_mt = {}
+posix.pathmt = {} :: posixtypes.pathMT
 
 function posix.basename(path: pathlike): string?
-	if typeof(path) == "string" then
-		path = posix.parse(path)
-	end
-	path = path :: path
+	path = if typeof(path) == "string" then posix.parse(path) else path
 	return if #path.parts > 0 then path.parts[#path.parts] else nil
 end
 
 function posix.dirname(path: pathlike): string
-	if typeof(path) == "string" then
-		path = posix.parse(path)
-	end
-
-	path = path :: path
+	path = if typeof(path) == "string" then posix.parse(path) else path
 
 	if #path.parts == 0 then
 		return posix.format(path)
@@ -33,11 +26,7 @@ function posix.dirname(path: pathlike): string
 end
 
 function posix.extname(path: pathlike): string
-	if typeof(path) == "string" then
-		path = posix.parse(path)
-	end
-
-	path = path :: path
+	path = if typeof(path) == "string" then posix.parse(path) else path
 
 	if #path.parts == 0 then
 		return ""
@@ -62,8 +51,6 @@ function posix.format(path: pathlike): string
 		return path
 	end
 
-	path = path :: path
-
 	if #path.parts == 0 then
 		return if path.absolute then "/" else "."
 	else
@@ -72,31 +59,20 @@ function posix.format(path: pathlike): string
 end
 
 function posix.isabsolute(path: pathlike): boolean
-	if typeof(path) == "string" then
-		path = posix.parse(path)
-	end
-	path = path :: path
+	path = if typeof(path) == "string" then posix.parse(path) else path
 	return path.absolute
 end
 
 -- In place extends path with addend
 local function joinHelper(path: path, addend: pathlike): ()
-	if typeof(addend) == "string" then
-		addend = posix.parse(addend)
-	end
-	addend = addend :: path
+	addend = if typeof(addend) == "string" then posix.parse(addend) else addend
 
 	if addend.absolute then
 		local stringPath = posix.format(path)
 		local stringAddend = posix.format(addend)
-		error(table.concat({
-			"Could not join ",
-			(if path.absolute then "absolute" else "relative"),
-			" path ",
-			stringPath,
-			" and absolute path ",
-			stringAddend,
-		}))
+		error(
+			`Could not join {if path.absolute then "absolute" else "relative"} path {stringPath} and absolute path {stringAddend}`
+		)
 	end
 
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)
@@ -108,15 +84,15 @@ function posix.join(...: pathlike): path
 		return setmetatable({
 			parts = {},
 			absolute = false,
-		}, path_mt)
+		}, posix.pathmt)
 	end
 
 	local path: path = if typeof(parts[1]) == "string"
 		then posix.parse(parts[1])
 		else setmetatable({
-			parts = table.clone((parts[1] :: path).parts),
-			absolute = (parts[1] :: path).absolute,
-		}, path_mt)
+			parts = table.clone((parts[1] :: path).parts), -- LUAUFIX: Shouldn't need cast
+			absolute = (parts[1] :: path).absolute, -- LUAUFIX: Shouldn't need cast
+		}, posix.pathmt)
 
 	for i = 2, #parts do
 		joinHelper(path, parts[i])
@@ -126,10 +102,7 @@ function posix.join(...: pathlike): path
 end
 
 function posix.normalize(path: pathlike): path
-	if typeof(path) == "string" then
-		path = posix.parse(path)
-	end
-	path = path :: path
+	path = if typeof(path) == "string" then posix.parse(path) else path
 
 	local newParts = {}
 	for _, part in path.parts do
@@ -155,12 +128,12 @@ function posix.normalize(path: pathlike): path
 	return setmetatable({
 		parts = newParts,
 		absolute = path.absolute,
-	}, path_mt)
+	}, posix.pathmt)
 end
 
 function posix.parse(path: pathlike): path
 	if typeof(path) == "table" then
-		return setmetatable(path, path_mt)
+		return setmetatable(path, posix.pathmt)
 	end
 	if typeof(path) ~= "string" then
 		error("Expected string or path")
@@ -192,7 +165,7 @@ function posix.parse(path: pathlike): path
 	return setmetatable({
 		parts = parts,
 		absolute = isAbs,
-	}, path_mt)
+	}, posix.pathmt)
 end
 
 function posix.resolve(...: pathlike): path
@@ -227,7 +200,44 @@ function posix.resolve(...: pathlike): path
 	return posix.normalize(path)
 end
 
-function path_mt:__tostring(): string
+function posix.relative(from: pathlike, to: pathlike): path
+	from = if typeof(from) == "string" then posix.parse(from) else from
+	to = if typeof(to) == "string" then posix.parse(to) else to
+
+	if from.absolute ~= to.absolute then
+		error("Cannot compute relative path between absolute and relative paths")
+	end
+
+	local commonPrefixLength = 0
+
+	for i = 1, math.min(#from.parts, #to.parts) do
+		if from.parts[i] ~= to.parts[i] then
+			break
+		end
+		commonPrefixLength += 1
+	end
+
+	local relativeParts = {}
+
+	if #from.parts > commonPrefixLength then
+		for i = commonPrefixLength + 1, #from.parts do
+			table.insert(relativeParts, "..")
+		end
+	end
+
+	if #to.parts > commonPrefixLength then
+		for i = commonPrefixLength + 1, #to.parts do
+			table.insert(relativeParts, to.parts[i])
+		end
+	end
+
+	return setmetatable({
+		parts = relativeParts,
+		absolute = false,
+	}, posix.pathmt)
+end
+
+function posix.pathmt:__tostring(): string
 	return posix.format(self :: path)
 end
 
