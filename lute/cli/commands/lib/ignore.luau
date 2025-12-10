@@ -183,6 +183,7 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 
 	local relativePath = path.format(path.relative(ignoreData.location, filepath))
 	print(`  relativePath: {relativePath}`)
+	print(`  relative path length: {#relativePath}`)
 
 	for _, ignore in ignoreData.ignores do
 		if matchesGlob(ignore, relativePath, isDirectory) then
