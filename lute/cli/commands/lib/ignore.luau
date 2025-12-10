@@ -202,6 +202,8 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 		end
 	end
 
+	print(`  matched: {matched}, ignored: {ignored}`)
+
 	if not matched and ignoreData.next then
 		return isIgnored(ignoreData.next, filepath, isDirectory)
 	end
