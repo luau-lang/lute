@@ -1,11 +1,13 @@
 #include "fs_impl.h"
 
-#include "lute/uvutils.h"
+#include "lute/UVRequest.h"
 
 #include "lua.h"
 #include "lualib.h"
 
 #include "uv.h"
+
+constexpr size_t kChunkIOSize = 4096;
 
 namespace fs
 {
@@ -18,9 +20,9 @@ struct FSRead : FSRequest
         : FSRequest(L)
         , file(file)
     {
-        chunk.resize(4096);
+        chunk.resize(kChunkIOSize);
         iov = uv_buf_init(chunk.data(), chunk.size());
-        buffer.reserve(4096);
+        buffer.reserve(kChunkIOSize);
     }
 
     static void readCallback(uv_fs_t* req);
@@ -39,7 +41,7 @@ struct FSWrite : FSRequest
         , toWrite(buf, buf + len)
         , offset(0)
     {
-        chunk.resize(4096);
+        chunk.resize(kChunkIOSize);
     }
 
     static void writeCallback(uv_fs_t* req);
@@ -97,7 +99,7 @@ int open_impl(lua_State* L, const char* path, int flags, int mode)
             );
         }
     );
-    // Automatically releases when req goes out of scope
+
     return lua_yield(L, 0);
 }
 
@@ -127,7 +129,8 @@ void FSRead::readCallback(uv_fs_t* req)
     // Append the read data to our buffer
     r->buffer.insert(r->buffer.end(), r->chunk.begin(), r->chunk.begin() + bytesRead);
 
-    // Zero out chunk buffer before next read
+    // It's possible that the next read call will read fewer than chunk.size() bytes
+    // In this case, the chunk buffer might still retain some data from this read. Just to be safe, zero it out
     std::fill(r->chunk.begin(), r->chunk.end(), 0);
 
     uvutils::ScopedUVRequest<FSRead> scopedReq{std::move(r)};
@@ -195,7 +198,7 @@ int write_impl(lua_State* L, UVFile* handle, const char* toWrite, size_t numByte
     req->iov = uv_buf_init(req->chunk.data(), chunkSize);
 
     uv_fs_write(uv_default_loop(), &req->req, handle->fd.value(), &req->iov, 1, -1, FSWrite::writeCallback);
-    // Automatically releases when req goes out of scope
+
     return lua_yield(L, 0);
 }
 
@@ -230,7 +233,7 @@ int close_impl(lua_State* L, UVFile* handle)
             );
         }
     );
-    // Automatically releases when req goes out of scope
+
     return lua_yield(L, 0);
 }
 
