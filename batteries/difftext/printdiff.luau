@@ -99,9 +99,10 @@ local function formatLineSideHeader(
 end
 
 local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers: boolean?): string
-	local maxNumLines = math.max(#a:split("\n"), #b:split("\n"))
-	local maxLineNumberLen = #tostring(maxNumLines)
-	local diff = myersdiffbyline(a, b)
+	local src, dest = a:split("\n"), b:split("\n")
+	local maxNumLines = math.max(#src, #dest)
+	local maxLineNumberLen = math.floor(math.log10(maxNumLines)) + 1
+	local diff = myersdiffbyline(src, dest)
 
 	local i = 1
 	local result: { string } = {}
@@ -188,16 +189,17 @@ local function prettydiff(
 	end
 
 	local result = {} :: { string }
-	local diff = myersdiffbyline(a, b)
-	local maxNumLines = math.max(#a:split("\n"), #b:split("\n"))
-	local maxLineNumberLen = #tostring(maxNumLines)
-	local oldLine, newLine = 1, 1
-
+	local src, dest = a:split("\n"), b:split("\n")
+	local diff = myersdiffbyline(src, dest)
 	if options and options.includeLineNumbers then
 		-- Helper to format line number tables so we don't get too verbose
 		local function lineNums(old: number?, new: number?)
 			return { oldLine = old, newLine = new }
 		end
+
+		local maxNumLines = math.max(#src, #dest)
+		local maxLineNumberLen = math.floor(math.log10(maxNumLines)) + 1
+		local oldLine, newLine = 1, 1
 
 		for i, op in diff do
 			if op.key == "ADD" then
