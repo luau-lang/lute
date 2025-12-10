@@ -228,7 +228,7 @@ local function deserializerError(state: DeserializerState, msg: string): never
 end
 
 local function skipWhitespace(state: DeserializerState): boolean
-	state.cursor = string.find(state.src, "%S", state.cursor) :: number
+	state.cursor = string.find(state.src, "[^ \n\r\t]", state.cursor) :: number
 
 	if not state.cursor then
 		return false
@@ -242,32 +242,38 @@ local function currentByte(state: DeserializerState)
 end
 
 local function deserializeNumber(state: DeserializerState)
-	-- first "segment"
-	local nStart, nEnd = string.find(state.src, "^[%-%deE]*", state.cursor)
-
+	-- Integer part
+	local nStart, nEnd = string.find(state.src, "^-?[1-9]%d*", state.cursor)
 	if not nStart then
-		-- i dont think this is possible
-		deserializerError(state, "Could not match a number literal?")
-	end
-
-	if string.byte(state.src, nEnd :: number + 1) == string.byte(".") then -- decimal!
-		local decStart, decEnd = string.find(state.src, "^[eE%-+%d]+", nEnd :: number + 2)
-
-		if not decStart then
-			deserializerError(state, "Trailing '.' in number value")
+		nStart, nEnd = string.find(state.src, "^-?0", state.cursor)
+		if not nStart then
+			deserializerError(state, "Malformed number (bad integer part)")
 		end
 
+		local nextChar = string.byte(state.src, nEnd :: number + 1)
+		if nextChar and nextChar >= string.byte("0") and nextChar <= string.byte("9") then
+			deserializerError(state, "Malformed number (leading zeros not allowed)")
+		end
+	end
+
+	-- Decimal part
+	local decStart, decEnd = string.find(state.src, "^%.%d+", nEnd :: number + 1)
+	if decStart then
 		nEnd = decEnd
 	end
 
-	local num = tonumber(string.sub(state.src, nStart :: number, nEnd))
+	-- Exponential part
+	local expStart, expEnd = string.find(state.src, "^[eE][+-]?%d+", nEnd :: number + 1)
+	if expStart then
+		nEnd = expEnd
+	end
 
+	local num = tonumber(string.sub(state.src, nStart :: number, nEnd))
 	if not num then
 		deserializerError(state, "Malformed number value")
 	end
 
 	state.cursor = nEnd :: number + 1
-
 	return num
 end
 
@@ -453,8 +459,8 @@ deserialize = function(state: DeserializerState): value
 	elseif string.sub(state.src, state.cursor, state.cursor + 4) == "false" then
 		state.cursor += 5
 		return false
-	elseif string.match(state.src, "^[%-%d%.]", state.cursor) then
-		-- number
+	elseif string.match(state.src, "^[%-%d]", state.cursor) then
+		-- potential number
 		return deserializeNumber(state)
 	elseif string.byte(state.src, state.cursor) == string.byte('"') then
 		return deserializeString(state)
@@ -488,7 +494,14 @@ function json.deserialize(src: string)
 		cursor = 0,
 	}
 
-	return deserialize(state)
+	local result = deserialize(state)
+
+	-- After parsing a value, there must be no non-whitespace trailing characters.
+	if skipWhitespace(state) then
+		deserializerError(state, "Trailing characters after JSON value")
+	end
+
+	return result
 end
 
 function json.object(props: { [string]: value }): object
