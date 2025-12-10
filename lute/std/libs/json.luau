@@ -16,6 +16,8 @@ local object_key = newproxy()
 
 -- serialization
 
+local bufferSize = 1024
+
 type SerializerState = {
 	buf: buffer,
 	cursor: number,
@@ -176,9 +178,8 @@ local function serializeTable(state: SerializerState, object: object)
 
 		writeSpaces(state)
 
-		writeByte(state, string.byte('"'))
-		writeString(state, key)
-		writeString(state, '": ')
+		serializeString(state, key)
+		writeString(state, ": ")
 
 		serializeAny(state, value)
 	end
@@ -277,75 +278,105 @@ local function deserializeNumber(state: DeserializerState)
 	return num
 end
 
-local function decodeSurrogatePair(high, low): string?
-	local highVal = tonumber(high, 16)
-	local lowVal = tonumber(low, 16)
-
-	if not highVal or not lowVal then
-		return nil -- Invalid
+local function deserializeString(state: DeserializerState): string
+	-- Must start with "
+	if currentByte(state) ~= string.byte('"') then
+		return deserializerError(state, "Expected string opening quote")
 	end
 
-	-- Calculate the actual Unicode codepoint
-	local codepoint = 0x10000 + ((highVal - 0xD800) * 0x400) + (lowVal - 0xDC00)
-	return utf8.char(codepoint)
-end
-
-local function deserializeString(state: DeserializerState): string
+	-- Skip opening quote "
 	state.cursor += 1
 
 	local startPos = state.cursor
 
-	if currentByte(state) == string.byte('"') then
-		state.cursor += 1
+	local buf = buffer.create(bufferSize)
+	local bufferPos = 0
 
-		return ""
+	local function writeByteToBuffer(byte: number, dbuf: number, dstart: number)
+		buffer.writeu8(buf, bufferPos, byte)
+		bufferPos += dbuf
+		startPos += dstart
 	end
 
-	while state.cursor <= #state.src do
-		if currentByte(state) == string.byte('"') then
-			state.cursor += 1
+	while startPos <= #state.src do
+		local c = string.sub(state.src, startPos, startPos)
 
-			local source = string.sub(state.src, startPos, state.cursor - 2)
-
-			source = string.gsub(
-				source,
-				"\\u([dD]83[dD])\\u(d[cC]%w%w)",
-				function(high, low)
-					return decodeSurrogatePair(high, low) or deserializerError(state, "Invalid unicode surrogate pair")
-				end :: any
-			)
-			-- Handle regular Unicode escapes
-			source = string.gsub(source, "\\u(%x%x%x%x)", function(code)
-				return utf8.char(tonumber(code, 16) :: number)
-			end)
-
-			source = string.gsub(source, "\\\\", "\0")
-			source = string.gsub(source, "\\b", "\b")
-			source = string.gsub(source, "\\f", "\f")
-			source = string.gsub(source, "\\n", "\n")
-			source = string.gsub(source, "\\r", "\r")
-			source = string.gsub(source, "\\t", "\t")
-			source = string.gsub(source, '\\"', '"')
-			source = string.gsub(source, "\0", "\\")
-
-			return source
+		-- End of string
+		if c == '"' then
+			state.cursor = startPos + 1
+			return buffer.tostring(buf, bufferPos)
 		end
 
-		if currentByte(state) == string.byte("\\") then
-			state.cursor += 1
-		end
+		-- Normal character
+		if c ~= "\\" then
+			local byte = string.byte(c)
 
-		state.cursor += 1
+			-- No raw control chars allowed
+			if byte < string.byte(" ") then
+				return deserializerError(state, "Unescaped control character in string")
+			end
+
+			writeByteToBuffer(byte, 1, 1)
+		else
+			-- Escape sequence
+			local source = string.sub(state.src, startPos + 1, startPos + 1)
+
+			if source == "b" then
+				writeByteToBuffer(string.byte("\b"), 1, 2)
+			elseif source == "f" then
+				writeByteToBuffer(string.byte("\f"), 1, 2)
+			elseif source == "n" then
+				writeByteToBuffer(string.byte("\n"), 1, 2)
+			elseif source == "r" then
+				writeByteToBuffer(string.byte("\r"), 1, 2)
+			elseif source == "t" then
+				writeByteToBuffer(string.byte("\t"), 1, 2)
+			elseif source == '"' then
+				writeByteToBuffer(string.byte('"'), 1, 2)
+			elseif source == "\\" then
+				writeByteToBuffer(string.byte("\\"), 1, 2)
+			elseif source == "/" then
+				writeByteToBuffer(string.byte("/"), 1, 2)
+			elseif source == "u" then
+				-- Unicode escape: \uXXXX
+				local hex = string.sub(state.src, startPos + 2, startPos + 5)
+				if not hex:match("^[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$") then
+					return deserializerError(state, "Invalid \\u escape")
+				end
+
+				local codepoint = tonumber(hex, 16)
+				if not codepoint then
+					return deserializerError(state, "Invalid \\u escape")
+				end
+				startPos += 6 -- skip \uXXXX
+
+				-- Surrogate pair
+				if codepoint >= 0xD800 and codepoint <= 0xDBFF then
+					-- Look for \uDCxx following
+					local lo = state.src:match("^\\u([dD][cdefCDEF][0-9a-fA-F][0-9a-fA-F])", startPos)
+					if lo then
+						local lo_val = tonumber(lo, 16)
+						-- Combine surrogate halves
+						codepoint = 0x10000 + (codepoint :: number - 0xD800) * 0x400 + (lo_val :: number - 0xDC00)
+						startPos += 6
+					end
+				end
+
+				local utf8_bytes = utf8.char(codepoint)
+				buffer.writestring(buf, bufferPos, utf8_bytes)
+				bufferPos += #utf8_bytes
+			else
+				-- Invalid escape: \" already covered
+				return deserializerError(state, "Invalid escape sequence '\\" .. source .. "'")
+			end
+		end
 	end
-
-	-- error
-
-	state.cursor = startPos
 
 	return deserializerError(state, "Unterminated string")
 end
 
 local deserialize: (DeserializerState) -> (array | object | boolean | number | string)?
+
 local function deserializeArray(state: DeserializerState): array
 	if currentByte(state) ~= string.byte("[") then
 		return deserializerError(state, "Expected array opening '['")
@@ -470,7 +501,7 @@ deserialize = function(state: DeserializerState): value
 
 	local fourChars = string.sub(state.src, state.cursor, state.cursor + 3)
 
-	if fourChars == "null" then
+	if string.match(fourChars, "^null") then
 		state.cursor += 4
 		return json.null
 	elseif string.match(fourChars, "^true") then
@@ -482,7 +513,7 @@ deserialize = function(state: DeserializerState): value
 	elseif string.match(state.src, "^[%-%d]", state.cursor) then
 		-- potential number
 		return deserializeNumber(state)
-	elseif string.byte(state.src, state.cursor) == string.byte('"') then
+	elseif string.match(state.src, '^"', state.cursor) then
 		return deserializeString(state)
 	elseif string.match(state.src, "^%[", state.cursor) then
 		return deserializeArray(state)
@@ -497,7 +528,7 @@ end
 
 function json.serialize(value: value, prettyPrint: boolean?)
 	local state: SerializerState = {
-		buf = buffer.create(1024),
+		buf = buffer.create(bufferSize),
 		cursor = 0,
 		prettyPrint = prettyPrint or false,
 		depth = 0,
