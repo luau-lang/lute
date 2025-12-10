@@ -21,7 +21,7 @@ local function formattedTransform(initialPath: string, expectedPath: string, tra
 	stylua(resultPath, expectedPath)
 end
 
-test.suite("Query and Transform e2e", function(suite: any)
+test.suite("Query and Transform e2e", function(suite)
 	for k, _ in transforms do
 		local transformName = k
 		local transformPath = path.format(path.join(allCasesPath, transformName, "init.luau"))

@@ -14,10 +14,7 @@ local function mount(block: luau.AstStatBlock): types.replacements
 		end
 
 		local isMount = query.findallfromroot(node, queryUtils.isExprCall):exists(function(n)
-			if n.func.tag == "indexname" and n.func.index.text == "mount" then
-				return true
-			end
-			return false
+			return n.func.tag == "indexname" and n.func.index.text == "mount"
 		end)
 
 		return if isMount then node else nil
@@ -29,7 +26,7 @@ local function mount(block: luau.AstStatBlock): types.replacements
 
 	return mountStatements:replace(function(mountStatement: luau.AstStatLocal | luau.AstStatAssign)
 		-- get mounted variable
-		local mountedVar = printer.printnode(mountStatement.variables[1].node :: any)
+		local mountedVar = printer.printnode(mountStatement.variables[1].node)
 		local mountCall = mountStatement.values[1].node :: luau.AstExprCall
 		local mountCallArgs = mountCall.arguments
 		local elementArg = printer.printnode(mountCallArgs[1].node :: any)
@@ -53,13 +50,20 @@ local function mount(block: luau.AstStatBlock): types.replacements
 			keyArg = '"ReactRoot"'
 		end
 
-		local mountSetup =
-			`local root = ReactRoblox.createRoot(Instance.new("Folder"))\nlocal actualParent = {parentArg}\nlocal actualKey = {keyArg}`
-		local mount = ([[ReactRoblox.act(function()
-	root:render(ReactRoblox.createPortal({ [actualKey] = %s } :: any, actualParent))
-end)
-local %s = { root = root, parent = actualParent, key = actualKey }]]):format(elementArg, mountedVar)
-		return mountSetup .. "\n" .. mount
+		local template = ([[
+		local root = ReactRoblox.createRoot(Instance.new("Folder"))  
+		local actualParent = %s  
+		local actualKey = %s  
+		ReactRoblox.act(function()  
+			root:render(ReactRoblox.createPortal({ [actualKey] = %s } :: any, actualParent))  
+		end)  
+		local %s = { root = root, parent = actualParent, key = actualKey }]]):format(
+			parentArg,
+			keyArg,
+			elementArg,
+			mountedVar
+		)
+		return template
 	end)
 end
 
@@ -157,10 +161,10 @@ local function transform(ctx)
 	local needsReactRequire, needsReactRobloxRequire = false, false
 
 	-- convert statements
-	local fullStatementRepl = mount(ast)
+	local fullStatementRepl: types.replacements = mount(ast)
 
 	-- convert calls
-	local callRepl = query
+	local callRepl: types.replacements = query
 		.findallfromroot(ast, queryUtils.isExprCall)
 		:filter(function(node: luau.AstExprCall)
 			local func = node.func
@@ -193,12 +197,12 @@ local function transform(ctx)
 		end)
 
 	-- convert indexname
-	local libIndexNameRepl = utils.transformLibraryAccess(ast, "Roact", function(_, index)
+	local libIndexNameRepl: types.replacements = utils.transformLibraryAccess(ast, "Roact", function(_, index)
 		return `React.{index.text}`
 	end)
 
 	-- convert index-exprs
-	local libIndexExprRepl = query
+	local libIndexExprRepl: types.replacements = query
 		.findallfromroot(ast, queryUtils.isExprTableItem)
 		:filter(function(entry)
 			if entry.kind ~= "general" or entry.key and entry.key.tag ~= "indexname" then
@@ -226,7 +230,7 @@ local function transform(ctx)
 		end)
 
 	-- convert/add requires based on all the above (if we need ReactRoblox, if we need React)
-	local addedRequiresRepl = {}
+	local addedRequiresRepl: types.replacements = {}
 	if needsReactRequire or needsReactRobloxRequire then
 		local roactRequire = utils.getRequireStatements(ast, "Roact").nodes[1]
 		local requireCall = roactRequire.values[1].node :: luau.AstExprCall
@@ -234,8 +238,10 @@ local function transform(ctx)
 		if needsReactRequire and needsReactRobloxRequire then
 			-- get PackagesRoot
 			local packagesRoot = printer.printnode(requiredModule.expression :: any)
-			addedRequiresRepl[roactRequire] =
-				`local React = require({packagesRoot}.React)\nlocal ReactRoblox = require({packagesRoot}.ReactRoblox)\n`
+			addedRequiresRepl[roactRequire] = ([[
+			local React = require(%s.React)
+			local ReactRoblox = require(%s.ReactRoblox)
+			]]):format(packagesRoot, packagesRoot)
 			-- replace whole statement
 		else
 			-- just replace index and local var name of needed package
@@ -258,13 +264,7 @@ local function transform(ctx)
 		end
 	end
 
-	return tableext.combine(
-		fullStatementRepl,
-		callRepl,
-		libIndexNameRepl,
-		libIndexExprRepl,
-		addedRequiresRepl :: types.replacements
-	)
+	return tableext.combine(fullStatementRepl, callRepl, libIndexNameRepl, libIndexExprRepl, addedRequiresRepl)
 	-- return t:transform()
 end
 
