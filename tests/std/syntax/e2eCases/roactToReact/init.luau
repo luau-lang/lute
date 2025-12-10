@@ -8,9 +8,9 @@ local queryUtils = require("@std/syntax/utils")
 
 local function mount(block: luau.AstStatBlock): types.replacements
 	-- select all statements with mount calls
-	local mountStatements = query.findallfromroot(block, function(node)
+	local mountStatements = query.findallfromroot(block, function(node): luau.AstStatLocal? | luau.AstStatAssign?
 		if not (queryUtils.isStatLocal(node) or queryUtils.isStatAssign(node)) then
-			return nil :: any
+			return nil
 		end
 
 		local isMount = query.findallfromroot(node, queryUtils.isExprCall):exists(function(n)
