@@ -77,14 +77,12 @@ static UVFile* getFileHandle(lua_State* L, int index)
     if (!lua_islightuserdata(L, index))
     {
         luaL_errorL(L, "Error: expected file handle");
-        return nullptr;
     }
 
     auto* handle = static_cast<UVFile*>(lua_tolightuserdata(L, index));
     if (!handle)
     {
         luaL_errorL(L, "Error: invalid file handle");
-        return nullptr;
     }
 
     return handle;
