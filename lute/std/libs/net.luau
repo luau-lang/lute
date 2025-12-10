@@ -13,4 +13,4 @@ function net.request(url: string, metadata: metadata?): response
 	return luteNet.request(url, metadata)
 end
 
-return net
+return table.freeze(net)
