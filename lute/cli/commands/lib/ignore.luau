@@ -158,10 +158,6 @@ local function parseGitignore(filepath: path.path): GitignoreData
 end
 
 local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
-	print(
-		`Checking if "{filepath}" (isDirectory={isDirectory}) matches glob pattern "{glob.pattern}" ({glob.matchAnywhere}, {glob.onlyMatchDirectories})`
-	)
-
 	if glob.onlyMatchDirectories and not isDirectory then
 		return false
 	end
@@ -178,14 +174,9 @@ local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): 
 end
 
 local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirectory: boolean)
-	print(`isIgnored({path.format(filepath)}, isDirectory={isDirectory})`)
-	for _, ignore in ignoreData.ignores do
-		print(`  ignore: {ignore.pattern}`)
-	end
 	local matched, ignored = false, false
 
 	local relativePath = path.format(path.relative(ignoreData.location, filepath))
-	print(`  relativePath: {relativePath}`)
 
 	for _, ignore in ignoreData.ignores do
 		if matchesGlob(ignore, relativePath, isDirectory) then
@@ -204,8 +195,6 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 			end
 		end
 	end
-
-	print(`  matched: {matched}, ignored: {ignored}`)
 
 	if not matched and ignoreData.next then
 		return isIgnored(ignoreData.next, filepath, isDirectory)
