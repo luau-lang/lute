@@ -1,6 +1,6 @@
 -- test that you can require in an alias aware fashion
 local example = require("@example/option")
-print(`Required {example.file} from alias @example`)
+-- print(`Required {example.file} from alias @example`)
 
 -- Entry point that requires other modules
 local utils = require("./utils")
@@ -11,7 +11,7 @@ local path = require("@std/path")
 
 -- Use standard library to verify it works in compiled bundles
 local cwd = path.format(process.cwd())
-print("Main module running from: " .. cwd)
+-- print("Main module running from: " .. cwd)
 
 return {
 	utils = utils,

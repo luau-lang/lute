@@ -29,6 +29,7 @@ target_sources(Lute.CLI.lib PRIVATE
     include/lute/luauflags.h
     include/lute/packagerun.h
     include/lute/reporter.h
+    include/lute/requiresetup.h
     include/lute/staticrequires.h
     include/lute/tc.h
     include/lute/uvstate.h
@@ -38,6 +39,7 @@ target_sources(Lute.CLI.lib PRIVATE
     src/fileutils.cpp
     src/luauflags.cpp
     src/packagerun.cpp
+    src/requiresetup.cpp
     src/staticrequires.cpp
     src/tc.cpp
     src/uvstate.cpp
