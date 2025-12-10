@@ -10,7 +10,7 @@ export type metadata = luteNet.Metadata
 export type response = luteNet.Response
 
 function net.request(url: string, metadata: metadata?): response
-    return luteNet.request(url, metadata)
+	return luteNet.request(url, metadata)
 end
 
 return net
