@@ -41,7 +41,13 @@ export type Configuration = {
 	handler: Handler,
 }
 
-function net.serve(config: Handler | Configuration)
+export type Server = {
+	hostname: string,
+	port: number,
+	close: () -> (),
+}
+
+function net.serve(config: Handler | Configuration): Server
 	error("not implemented")
 end
 
