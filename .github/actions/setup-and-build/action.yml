@@ -69,7 +69,7 @@ runs:
       shell: bash
       run: |
         echo "Bootstrapping Lute..."
-        ./tools/bootstrap_lute.sh
+        ./tools/bootstrap.sh
         alias lute="./build/lute0"
 
     - name: Fetch ${{ inputs.target }}
