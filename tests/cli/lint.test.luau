@@ -45,8 +45,21 @@ test.suite("lute lint", function(suite)
 	suite:case("lute lint no input file", function(assert)
 		local result = process.run({ lutePath, "lint", "-r", "a_rule.luau" })
 
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 		assert.strcontains(result.stdout, "Error: No input files specified.")
+	end)
+
+	suite:case("lute lint error code 0 with no violations", function(assert)
+		local modulePath = path.join(tmpDir, "module")
+		fs.createdirectory(modulePath)
+
+		local result = process.run({ lutePath, "lint", path.format(modulePath) })
+
+		assert.eq(result.exitcode, 0)
+
+		assert.eq(result.stdout, "")
+
+		fs.removedirectory(modulePath)
 	end)
 
 	suite:case("lute lint non verbose", function(assert)
@@ -56,7 +69,7 @@ test.suite("lute lint", function(suite)
 		fs.writestringtofile(violatorPath, "")
 
 		-- Do
-		-- Run the transformer on the transformee
+		-- Run the linter
 		local result = process.run({ lutePath, "lint", violatorPath })
 
 		-- Check
@@ -107,7 +120,7 @@ local x = 1 / 0
 		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
 		local expected = [[
@@ -154,7 +167,7 @@ end
 		local result = process.run({ lutePath, "lint", "-r", almostSwappedExample, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 		-- We expect 4 warnings, so stdout should be split into 5 parts
 		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.", nil, 4)
 		local expected = [[
@@ -235,7 +248,7 @@ b = a
 		local result = process.run({ lutePath, "lint", "-r", rulesDir, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
 		local expected = [[
@@ -296,7 +309,7 @@ b = a
 		local result = process.run({ lutePath, "lint", "-r", rulesDir, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 		local expected = [[
@@ -358,7 +371,7 @@ y = x
 			process.run({ lutePath, "lint", "-r", "examples/lints", "-v", violatorPath1, path.format(modulePath) })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.eq(#result.stdout:split("warning[divide_by_zero]: Division by zero detected."), 3)
 		local expected = [[
@@ -429,7 +442,7 @@ b = a
 		local result = process.run({ lutePath, "lint", "-r", "examples/lints", lintee, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		local expected = [[
 lintee.luau': @std/syntax/parser.luau:12: parsing failed:
@@ -463,7 +476,7 @@ b = a
 		local result = process.run({ lutePath, "lint", violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
 		local expected = [[
@@ -514,7 +527,7 @@ b = a
 		local result = process.run({ lutePath, "lint", violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strnotcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
 
@@ -556,7 +569,7 @@ local z = 1 / 0
 		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 2)
 		local expected = [[
@@ -604,7 +617,7 @@ local z = 1 / 0
 		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 2)
 		local expected = [[
@@ -650,7 +663,7 @@ end
 		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
 		local expected = [[
@@ -687,7 +700,7 @@ end
 		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
 		local expected = [[
@@ -724,7 +737,7 @@ end
 		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
 		local expected = [[
@@ -762,7 +775,7 @@ end
 		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
 		local expected = [[
@@ -822,7 +835,7 @@ a = b
 		-- Run the transformer on the transformee
 		local result = process.run({ lutePath, "lint", violatorPath })
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.", nil, 1)
 
@@ -945,7 +958,7 @@ local y = 10 / 0
 		local result = process.run({ lutePath, "lint", path.format(modulePath) })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
 		local expected = [[
@@ -991,7 +1004,7 @@ end
 		local result = process.run({ lutePath, "lint", violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 2)
 
@@ -1039,7 +1052,7 @@ end
 		local result = process.run({ lutePath, "lint", violatorPath })
 
 		-- Check
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
 
