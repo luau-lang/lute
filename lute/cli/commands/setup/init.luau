@@ -9,6 +9,7 @@ local BASE_PATH = path.join(process.homedir(), TYPEDEFS_PATH)
 local BASE_PATH_PRETTY = `~/{TYPEDEFS_PATH}`
 local TEMPLATE_RC_FILE = {
 	aliases = {
+		lint = `{BASE_PATH_PRETTY}/lint`,
 		lute = `{BASE_PATH_PRETTY}/lute`,
 		std = `{BASE_PATH_PRETTY}/std`,
 	},
