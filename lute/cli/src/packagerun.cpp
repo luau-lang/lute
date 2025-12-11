@@ -5,6 +5,8 @@
 #include "Luau/FileUtils.h"
 #include "Luau/LuauConfig.h"
 
+#include <algorithm>
+#include <cctype>
 #include <optional>
 #include <string>
 #include <string_view>
