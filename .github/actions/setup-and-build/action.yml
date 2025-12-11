@@ -16,6 +16,10 @@ inputs:
   token:
     description: "Token for foreman"
     required: true
+  use-bootstrap:
+    description: "Whether to use the bootstrap script to build the Lute used to run luthier"
+    required: false
+    default: "false"
 
 outputs:
   exe_path:
@@ -59,6 +63,14 @@ runs:
       with:
         path: extern
         key: extern-${{ hashFiles('extern/*.tune') }}
+
+    - name: Bootstrap Lute
+      if: ${{ inputs.use-bootstrap == 'true' }}
+      shell: bash
+      run: |
+        echo "Bootstrapping Lute..."
+        ./tools/bootstrap_lute.sh
+        alias lute="./build/lute0"
 
     - name: Fetch ${{ inputs.target }}
       if: steps.cache-extern.outputs.cache-hit != 'true'
