@@ -46,6 +46,21 @@ test.suite("JSONParsingTestSuite", function(suite)
 			end
 		end)
 	end
+
+	suite:case("json_object_and_asobject", function(assert)
+		local obj = json.object({
+			name = "Alice",
+			age = 30,
+		})
+		assert.eq(type(obj), "table")
+		assert.eq(obj.name, "Alice")
+		assert.eq(obj.age, 30)
+
+		local asobj = json.asobject(obj)
+		assert.eq(type(asobj), "table")
+		assert.eq(asobj.name, "Alice")
+		assert.eq(asobj.age, 30)
+	end)
 end)
 
 test.run()
