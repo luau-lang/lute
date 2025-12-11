@@ -51,13 +51,11 @@ test.run()
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
-		assert.strcontains(result.stdout, `Runtime error`)
+		assert.strcontains(result.stdout, `Failed with: Runtime error in nil_field_suite.access_field_of_nil in:`)
 		assert.strcontains(
 			result.stdout,
 			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`
 		)
-		assert.strcontains(result.stdout, `nil_field_access_test.test.luau:6: attempt to index nil with 'field'`)
-		assert.strcontains(result.stdout, `nil_field_access_test.test.luau:10`)
 
 		fs.remove(testFilePath)
 	end)
@@ -86,13 +84,11 @@ test.run()
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
-		assert.strcontains(result.stdout, `Runtime error`)
+		assert.strcontains(result.stdout, `Failed with: Runtime error in access_field_of_nil in:`)
 		assert.strcontains(
 			result.stdout,
 			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`
 		)
-		assert.strcontains(result.stdout, `nil_field_access_test.test.luau:5: attempt to index nil with 'field'`)
-		assert.strcontains(result.stdout, `nil_field_access_test.test.luau:8`)
 
 		fs.remove(testFilePath)
 	end)

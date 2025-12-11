@@ -13,16 +13,12 @@ local reporter = {}
 
 local function printFailedTest(failed: FailedTest)
 	print(`❌ {failed.test}`)
-	if failed.failure.__tag == "assertion" then
-		print(`\t{failed.failure.filename}:{failed.failure.linenumber}`)
-		print(`\t\t{failed.failure.assertion}: {failed.failure.msg}`)
-	elseif failed.failure.__tag == "lifecycle" then
-		print(`\t{failed.failure.filename}:{failed.failure.linenumber}`)
-		print(`\t\t{failed.failure.hook}: {failed.failure.msg}`)
+	if failed.assertion ~= nil then
+		print(`   {failed.filename}:{failed.linenumber}`)
+		print(`   	{failed.assertion}: {failed.error}`)
 	else
-		print(`\tRuntime error: {failed.failure.msg}`)
-		print(`Stacktrace:`)
-		print(failed.failure.stacktrace)
+		print(`   Failed with: Runtime error in {failed.test} in:`)
+		print(`   	{failed.filename}:{failed.linenumber}`)
 	end
 	print()
 end
