@@ -532,7 +532,7 @@ int lua_serve(lua_State* L)
 {
     uWS::Loop::get(uv_default_loop());
 
-    std::string hostname = "0.0.0.0";
+    std::string hostname = "localhost";
     int port = 3000;
     bool reusePort = false;
     std::optional<uWS::SocketContextOptions> tlsOptions;
