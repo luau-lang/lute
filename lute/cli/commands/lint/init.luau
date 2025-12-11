@@ -265,7 +265,7 @@ local function main(...: string)
 	local inputFiles = args:forwarded()
 	if inputFiles == nil or #inputFiles == 0 then
 		print("Error: No input files specified.\n\n" .. USAGE .. "\nUse --help for more information.")
-		return
+		process.exit(1)
 	end
 
 	if VERBOSE then
