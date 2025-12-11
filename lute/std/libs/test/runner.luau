@@ -2,9 +2,9 @@
 -- @std/test/runner
 -- Standard test runner library for Luau
 
-local types = require("./types")
 local asserts = require("./assert")
-local path = require("@std/path")
+local failure = require("./failure")
+local types = require("./types")
 
 type Test = types.test
 type TestCase = types.testcase
@@ -31,14 +31,11 @@ function runner.run(env: TestEnvironment): TestRunResult
 			for _, tc in suite.cases do
 				local failedtest: FailedTest = {
 					test = `{suite.name}.{tc.name}`,
-					assertion = "beforeall",
-					error = `beforeall hook failed: {err}`,
-					filename = "",
-					linenumber = 0,
+					failure = failure.lifecycle("beforeall", err),
 				}
 				table.insert(failures, failedtest)
 			end
-			return tostring(err)
+			return err
 		end
 	end
 
@@ -48,13 +45,10 @@ function runner.run(env: TestEnvironment): TestRunResult
 			failed += 1
 			local failedtest: FailedTest = {
 				test = testFullName,
-				assertion = "beforeeach",
-				error = `beforeeach hook failed: {err}`,
-				filename = "",
-				linenumber = 0,
+				failure = failure.lifecycle("beforeeach", err),
 			}
 			table.insert(failures, failedtest)
-			return tostring(err)
+			return err
 		end
 	end
 
@@ -63,13 +57,10 @@ function runner.run(env: TestEnvironment): TestRunResult
 		return function(err)
 			local failedtest: FailedTest = {
 				test = testFullName,
-				assertion = "aftereach",
-				error = `aftereach hook failed: {err}`,
-				filename = "",
-				linenumber = 0,
+				failure = failure.lifecycle("aftereach", err),
 			}
 			table.insert(failures, failedtest)
-			return tostring(err)
+			return err
 		end
 	end
 
@@ -79,13 +70,10 @@ function runner.run(env: TestEnvironment): TestRunResult
 			failed += 1
 			local failedtest: FailedTest = {
 				test = suiteName,
-				assertion = "afterall",
-				error = `afterall hook failed: {err}`,
-				filename = "",
-				linenumber = 0,
+				failure = failure.lifecycle("afterall", err),
 			}
 			table.insert(failures, failedtest)
-			return tostring(err)
+			return err
 		end
 	end
 
@@ -93,19 +81,10 @@ function runner.run(env: TestEnvironment): TestRunResult
 	for _, tc in env.anonymous do
 		total += 1
 		local function handlefailure(err)
-			local fileName, lineNumber = debug.info(4, "sl")
-			local assertName: string = debug.info(3, "n")
-
-			if assertName == "xpcall" then
-				fileName, lineNumber = debug.info(2, "sl")
-			end
-
+			local wasruntimefailure = not (typeof(err) == "table" and err.__tag and err.__tag == "assertion")
 			local failedtest: FailedTest = {
 				test = tc.name,
-				assertion = if assertName == "xpcall" then nil else assertName,
-				error = if assertName == "xpcall" then nil else err.msg,
-				filename = path.format(fileName),
-				linenumber = lineNumber,
+				failure = if wasruntimefailure then failure.runtimeerror(err) else err,
 			}
 			table.insert(failures, failedtest)
 			failed += 1
@@ -132,19 +111,10 @@ function runner.run(env: TestEnvironment): TestRunResult
 			total += 1
 			local testFullName = `{suite.name}.{tc.name}`
 			local function handlefailure(err)
-				local fileName, lineNumber = debug.info(4, "sl")
-				local assertName = debug.info(3, "n")
-
-				if assertName == "xpcall" then
-					fileName, lineNumber = debug.info(2, "sl")
-				end
-
+				local wasruntimefailure = not (typeof(err) == "table" and err.__tag and err.__tag == "assertion")
 				local failedtest: FailedTest = {
 					test = testFullName,
-					assertion = if assertName == "xpcall" then nil else assertName,
-					error = if assertName == "xpcall" then nil else err.msg,
-					filename = path.format(fileName),
-					linenumber = lineNumber,
+					failure = if wasruntimefailure then failure.runtimeerror(err) else err,
 				}
 				table.insert(failures, failedtest)
 			end
