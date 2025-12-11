@@ -36,10 +36,16 @@ std::optional<std::string> getAbsolutePathToNearestLockfile(std::string entryFil
 
 static std::string toLower(std::string_view str)
 {
-    std::string result;
-    result.resize(str.size());
-    for (size_t i = 0; i < str.size(); i++)
-        result[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(str[i])));
+    std::string result(str);
+    std::transform(
+        result.begin(),
+        result.end(),
+        result.begin(),
+        [](unsigned char c)
+        {
+            return std::tolower(c);
+        }
+    );
     return result;
 }
 
