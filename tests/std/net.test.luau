@@ -12,7 +12,7 @@ test.suite("NetTestSuite", function(suite)
 			end,
 		})
 
-		local response = net.request(`{server.hostname}:{server.port}`, {
+		local response = net.request(`localhost:{server.port}`, {
 			method = "GET",
 		})
 		assert.eq(true, response.ok)
