@@ -607,7 +607,7 @@ local function getConfigureArguments()
 end
 
 local function readTuneFile(path: string): Tune
-	return toml.deserialize(fs.readasync(path))
+	return toml.deserialize(readFileToString(path))
 end
 
 local function check(exitCode: number)
