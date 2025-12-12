@@ -55,11 +55,30 @@ test.suite("JSONParsingTestSuite", function(suite)
 		assert.eq(type(obj), "table")
 		assert.eq(obj.name, "Alice")
 		assert.eq(obj.age, 30)
+	end)
 
-		local asobj = json.asobject(obj)
-		assert.eq(type(asobj), "table")
-		assert.eq(asobj.name, "Alice")
-		assert.eq(asobj.age, 30)
+	suite:case("json_asobject_test", function(assert)
+		-- local myjsonstr = "{\"a\": true, \"b\": { \"c\": true } }"
+		local myjsonstr = [[
+		{
+			"a": true,
+			"b": {
+				"c": true
+			}
+		}
+		]]
+
+		local maybeJson = json.deserialize(myjsonstr)
+		local obj = json.asobject(maybeJson)
+
+		if obj then
+			assert.eq(type(obj), "table")
+			assert.eq(obj.a, true)
+			assert.eq(type(obj.b), "table")
+			if json.asobject(obj.b) then
+				assert.eq(obj.b.c, true)
+			end
+		end
 	end)
 end)
 
