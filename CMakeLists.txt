@@ -68,6 +68,11 @@ add_subdirectory(extern/boringssl)
 set(BORINGSSL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/boringssl")
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
 
+# Suppress frame-size warnings in boringssl when sanitizers are enabled
+if (LUTE_ENABLE_SANITIZERS AND NOT MSVC)
+    target_compile_options(crypto PRIVATE -Wno-frame-larger-than)
+endif()
+
 # curl setup
 
 set(USE_LIBIDN2 OFF)
