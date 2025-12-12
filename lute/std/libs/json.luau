@@ -313,7 +313,8 @@ local function deserializeString(state: DeserializerState): string
 			local source = string.sub(state.src, startPos, state.cursor - 2)
 
 			-- Validate escape sequences
-			local temp = string.gsub(source, "\\\\", "") -- Remove valid \\ first
+			-- Remove valid \\ first
+			local temp = string.gsub(source, "\\\\", "")
 
 			-- Check for invalid single-char escapes
 			if temp:match('\\[^bfnrt"\\/u]') then
@@ -433,7 +434,6 @@ local function deserializeObject(state: DeserializerState): object
 	state.cursor += 1
 
 	local current = {}
-	current[object_key] = true -- mark to identify as object
 
 	local expectingValue = false
 	while state.cursor < #state.src do
@@ -512,7 +512,9 @@ deserialize = function(state: DeserializerState): value
 	elseif string.match(state.src, "^%[", state.cursor) then
 		return deserializeArray(state)
 	elseif string.match(state.src, "^{", state.cursor) then
-		return deserializeObject(state)
+		local obj = deserializeObject(state)
+		obj[object_key] = true
+		return obj
 	end
 
 	return deserializerError(state, `Unexpected token '{string.sub(state.src, state.cursor, state.cursor)}'`)
