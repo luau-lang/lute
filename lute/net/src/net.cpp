@@ -833,7 +833,8 @@ static void parseQuery(const std::string_view& query, lua_State* L)
     }
 }
 
-static void parseHeaders(auto* req, lua_State* L)
+template <typename ReqT>
+static void parseHeaders(ReqT* req, lua_State* L)
 {
     lua_createtable(L, 0, 0);
     for (const auto& header : *req)
