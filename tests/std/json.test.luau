@@ -62,7 +62,8 @@ test.suite("JSONParsingTestSuite", function(suite)
 		{
 			"a": true,
 			"b": {
-				"c": true
+				"c": true,
+				"d": [1, 2, 3]
 			}
 		}
 		]]
@@ -76,6 +77,10 @@ test.suite("JSONParsingTestSuite", function(suite)
 			assert.eq(type(obj.b), "table")
 			if json.asobject(obj.b) then
 				assert.eq(obj.b.c, true)
+				assert.eq(type(obj.b.d), "table")
+				for i = 1, #obj.b.d do
+					assert.eq(type(obj.b.d[i]), "number")
+				end
 			end
 		end
 	end)
