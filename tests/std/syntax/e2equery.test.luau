@@ -48,8 +48,9 @@ test.suite("E2E Query Transforms", function(suite: any)
 				for _, case in cases do
 					local result, expected = formattedTransform(path.join(casesPath, case.name), transormFile)
 
-					local outputDiff = difftext.prettydiff(expected, result, {
+					local outputDiff = difftext.prettydiff(result, expected, {
 						detailed = true,
+						includeLineNumbers = true,
 					})
 
 					assert.eq(
