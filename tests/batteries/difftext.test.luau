@@ -473,6 +473,23 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[10], composeDetailedRemoval("line10", { [5] = true, [6] = true }, "10   | "))
 		assert.eq(lines[11], composeDetailedAddition("lineten", { [5] = true, [6] = true, [7] = true }, "   10| "))
 	end)
+
+	suite:case("printdiff detailed - sanity check w/ 3 digits of line numbers", function(assert)
+		local a = "unmodified\n" .. string.rep("line\n", 99) .. "unmodified"
+		local b = "modified\n" .. string.rep("line\n", 99) .. "modified"
+		local result = difftext.prettydiff(a, b, {
+			detailed = true,
+			includeLineNumbers = true,
+		})
+		local lines = result:split("\n")
+
+		assert.eq(#lines, 103)
+		assert.eq(lines[1], composeDetailedRemoval("unmodified", { [1] = true, [2] = true }, "  1    | "))
+		assert.eq(lines[2], composeDetailedAddition("modified", {}, "      1| "))
+		assert.eq(lines[101], "  100 100| line")
+		assert.eq(lines[102], composeDetailedRemoval("unmodified", { [1] = true, [2] = true }, "101    | "))
+		assert.eq(lines[103], composeDetailedAddition("modified", {}, "    101| "))
+	end)
 end)
 
 test.run()
