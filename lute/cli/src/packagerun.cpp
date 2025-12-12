@@ -86,18 +86,15 @@ static std::vector<Package::Identifier> extractIdentifiers(std::string lockfileC
         if (!package->contains("name") || !package->contains("rev"))
             return {};
 
-        const Luau::ConfigValue* name = (*package).find("name");
-        const Luau::ConfigValue* rev = (*package).find("rev");
+        const std::string* name = (*package).find("name")->get_if<std::string>();
+        const std::string* rev = (*package).find("rev")->get_if<std::string>();
 
-        const std::string* nameStr = name->get_if<std::string>();
-        const std::string* revStr = rev->get_if<std::string>();
-
-        if (!nameStr || !revStr)
+        if (!name || !rev)
             return {};
 
         Package::Identifier entry{};
-        entry.name = toLower(*nameStr);
-        entry.version = *revStr;
+        entry.name = toLower(*name);
+        entry.version = *rev;
         packages[index - 1] = std::move(entry);
     }
 
