@@ -71,9 +71,9 @@ local function formatLineSideHeader(
 	if operation == "EQUAL" then
 		return string.format(`  %{maxNumWidth}s %{maxNumWidth}s| `, oldStr, newStr)
 	elseif operation == "ADD" then
-		return string.format(`+  %{2 * maxNumWidth}s| `, newStr)
+		return string.format(`+ %{maxNumWidth}s %{maxNumWidth}s| `, "", newStr)
 	elseif operation == "DELETE" then
-		return string.format(`- %-{(2 * maxNumWidth)}s | `, oldStr)
+		return string.format(`- %{maxNumWidth}s %{maxNumWidth}s| `, oldStr, "")
 	end
 
 	error(`formatLineSideHeader called with invalid diff operation key: {operation}`)
