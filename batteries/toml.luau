@@ -159,6 +159,7 @@ local function deserialize(input: string)
 			elseif value == "-inf" then
 				value = -math.huge
 			elseif value == "nan" then
+				--lute-lint-ignore(divide_by_zero)
 				value = 0 / 0
 			end
 

@@ -53,7 +53,7 @@ local function getSourceFiles(paths: { string }, verbose: boolean?): { path.path
 		local pathObj = path.parse(filepath)
 
 		if not path.isabsolute(pathObj) then
-			pathObj = path.join(process.cwd(), pathObj)
+			pathObj = path.resolve(process.cwd(), pathObj)
 		end
 
 		filepath = path.format(pathObj)

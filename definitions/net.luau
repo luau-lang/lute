@@ -6,14 +6,14 @@ export type Metadata = {
 	headers: { [string]: string }?,
 }
 
-export type Request = {
+export type Response = {
 	body: string,
 	headers: { [string]: string },
 	status: number,
 	ok: boolean,
 }
 
-function net.request(url: string, metadata: Metadata?): Request
+function net.request(url: string, metadata: Metadata?): Response
 	error("not implemented")
 end
 
@@ -41,7 +41,13 @@ export type Configuration = {
 	handler: Handler,
 }
 
-function net.serve(config: Handler | Configuration)
+export type Server = {
+	hostname: string,
+	port: number,
+	close: () -> (),
+}
+
+function net.serve(config: Handler | Configuration): Server
 	error("not implemented")
 end
 

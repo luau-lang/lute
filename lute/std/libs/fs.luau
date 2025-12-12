@@ -111,11 +111,16 @@ function fslib.listdirectory(path: pathlike): { directoryentry }
 end
 
 function fslib.readfiletostring(filepath: pathlike): string
-	return fs.readfiletostring(pathlib.format(filepath))
+	local f = fs.open(pathlib.format(filepath), "r")
+	local contents = fs.read(f)
+	fs.close(f)
+	return contents
 end
 
 function fslib.writestringtofile(filepath: pathlike, contents: string): ()
-	return fs.writestringtofile(pathlib.format(filepath), contents)
+	local f = fs.open(pathlib.format(filepath), "w+")
+	fs.write(f, contents)
+	fs.close(f)
 end
 
 function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?): ()

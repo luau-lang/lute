@@ -35,6 +35,19 @@ local function gitVersion(): { major: number, minor: number, path: number }
 	}
 end
 
+local function readFileToString(path: string): string
+	local file = fs.open(path, "r")
+	local contents = fs.read(file)
+	fs.close(file)
+	return contents
+end
+
+local function writeStringToFile(path: string, contents: string): ()
+	local file = fs.open(path, "w+")
+	fs.write(file, contents)
+	fs.close(file)
+end
+
 local gitVersionInfo = gitVersion()
 
 local os = string.lower(system.os)
@@ -234,7 +247,7 @@ local function getStdLibHash(): string
 	traverseFileTree(libsPath, function(path, relativePath)
 		if safeFsType(path) == "file" then
 			toHash ..= "./" .. relativePath
-			toHash ..= fs.readfiletostring(path)
+			toHash ..= readFileToString(path)
 		end
 	end)
 
@@ -249,7 +262,7 @@ local function isGeneratedStdLibUpToDate(): boolean
 		return false
 	end
 
-	local hash = fs.readfiletostring(hashFile)
+	local hash = readFileToString(hashFile)
 
 	return hash == getStdLibHash()
 end
@@ -291,7 +304,7 @@ local function generateStdLibFilesIfNeeded()
 		local aliasedPath = "@std/" .. relativePath
 
 		if safeFsType(path) == "file" then
-			local libSrc = fs.readfiletostring(path)
+			local libSrc = readFileToString(path)
 			if #libSrc > 16_000 then
 				-- https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/compiler-error-c2026
 				-- MSVC can't handle a single string literal being over 16380 single-byte characters,
@@ -348,7 +361,7 @@ local function getTypeDefinitionsHash(): string
 		traverseFileTree(path, function(path, relativePath)
 			if safeFsType(path) == "file" then
 				toHash ..= `./{namespace}/{relativePath}`
-				toHash ..= fs.readfiletostring(path)
+				toHash ..= readFileToString(path)
 			end
 		end)
 	end
@@ -367,7 +380,7 @@ local function isGeneratedTypeDefinitionsUpToDate(): boolean
 		return false
 	end
 
-	local hash = fs.readfiletostring(hashFile)
+	local hash = readFileToString(hashFile)
 
 	return hash == getTypeDefinitionsHash()
 end
@@ -389,7 +402,7 @@ local function generateTypeDefinitionFiles()
 	local function traverseDefs(path: string, namespace: string)
 		traverseFileTree(path, function(path, relativePath)
 			if safeFsType(path) == "file" then
-				local content = fs.readasync(path)
+				local content = readFileToString(path)
 				dictionaryEntries[`{namespace}/{relativePath}`] = content
 			end
 		end)
@@ -397,6 +410,9 @@ local function generateTypeDefinitionFiles()
 
 	traverseDefs(libsPath, "lute")
 	traverseDefs(stdPath, "std")
+
+	dictionaryEntries["lint/types.luau"] =
+		readFileToString(projectRelative("lute", "cli", "commands", "lint", "types.luau"))
 
 	local stringDictionary = ""
 
@@ -408,7 +424,7 @@ local function generateTypeDefinitionFiles()
 	fs.write(hash, getTypeDefinitionsHash())
 	fs.close(hash)
 
-	fs.writestringtofile(
+	writeStringToFile(
 		projectRelative("lute", "cli", "commands", "setup", "generated", "definitions.luau"),
 		string.format(TYPEDEF_PATTERN, stringDictionary)
 	)
@@ -421,7 +437,7 @@ local function getCliCommandsHash()
 	traverseFileTree(libsPath, function(path, relativePath)
 		if safeFsType(path) == "file" then
 			toHash ..= "./" .. relativePath
-			toHash ..= fs.readfiletostring(path)
+			toHash ..= readFileToString(path)
 		end
 	end)
 
@@ -436,7 +452,7 @@ local function isGeneratedCliCommandsUpToDate()
 		return false
 	end
 
-	local hash = fs.readfiletostring(hashFile)
+	local hash = readFileToString(hashFile)
 
 	return hash == getCliCommandsHash()
 end
@@ -473,7 +489,7 @@ local function generateCliCommandsFilesIfNeeded()
 		local aliasedPath = "@cli/" .. relativePath
 
 		if safeFsType(path) == "file" then
-			local libSrc = fs.readfiletostring(path)
+			local libSrc = readFileToString(path)
 			if #libSrc > 16_000 then
 				-- https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/compiler-error-c2026
 				-- MSVC can't handle a single string literal being over 16380 single-byte characters,
@@ -591,7 +607,7 @@ local function getConfigureArguments()
 end
 
 local function readTuneFile(path: string): Tune
-	return toml.deserialize(fs.readasync(path))
+	return toml.deserialize(readFileToString(path))
 end
 
 local function check(exitCode: number)
@@ -660,7 +676,7 @@ local function getTuneFilesHash(): string
 		end
 
 		toHash ..= file.name
-		toHash ..= fs.readfiletostring(joinPath(externPath, file.name))
+		toHash ..= readFileToString(joinPath(externPath, file.name))
 	end
 
 	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
@@ -674,7 +690,7 @@ local function areTuneFilesUpToDate(): boolean
 		return false
 	end
 
-	local hash = fs.readfiletostring(hashFile)
+	local hash = readFileToString(hashFile)
 	return hash == getTuneFilesHash()
 end
 
