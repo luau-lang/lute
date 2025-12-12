@@ -79,7 +79,7 @@ args:add("clean", "flag", { help = "perform a clean build" })
 args:add("which", "flag", { help = "print out the path to the compiled binary and exit", aliases = { "w" } })
 args:add("cxx-compiler", "option", { help = "C++ compiler to use" })
 args:add("c-compiler", "option", { help = "C compiler to use" })
-args:add("enable-asan", "flag", { help = "enable AddressSanitizer" })
+args:add("enable-sanitizers", "flag", { help = "enable sanitizers during configuration" })
 
 if not isWindows and not isMac and not isLinux then
 	error("Unknown platform " .. os)
@@ -599,8 +599,8 @@ local function getConfigureArguments()
 		table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. args:get("c-compiler"))
 	end
 
-	if args:has("enable-asan") then
-		table.insert(configArgs, "-DLUTE_ENABLE_ASAN=ON")
+	if args:has("enable-sanitizers") then
+		table.insert(configArgs, "-DLUTE_ENABLE_SANITIZERS=ON")
 	end
 
 	return configArgs
