@@ -433,7 +433,7 @@ local function deserializeObject(state: DeserializerState): object
 	state.cursor += 1
 
 	local current = {}
-	current[object_key] = true
+	current[object_key] = true -- mark to identify as object
 
 	local expectingValue = false
 	while state.cursor < #state.src do
@@ -498,7 +498,7 @@ deserialize = function(state: DeserializerState): value
 	if string.match(fourChars, "^null") then
 		state.cursor += 4
 		return json.null
-	elseif fourChars == "true" then
+	elseif string.match(fourChars, "^true") then
 		state.cursor += 4
 		return true
 	elseif string.match(string.sub(state.src, state.cursor, state.cursor + 4), "^false") then

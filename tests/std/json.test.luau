@@ -58,7 +58,6 @@ test.suite("JSONParsingTestSuite", function(suite)
 	end)
 
 	suite:case("json_asobject_test", function(assert)
-		-- local myjsonstr = "{\"a\": true, \"b\": { \"c\": true } }"
 		local myjsonstr = [[
 		{
 			"a": true,
