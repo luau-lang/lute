@@ -62,8 +62,6 @@ local function formatLineSideHeader(
 	-- 		ALWAYS has length maxNumWidth*2 + 4
 	-- 		the padded structure is essentialy:
 	--		{operation} {oldLine# padded to len of maxNumWidth} {newLine# padded to len = maxNumWidth}|
-	-- 	  if line numbers excluded:
-	-- 		"+ " for additions, "- " for deletions, "" for equality
 
 	local oldStr = tostring(if lineNumbers then lineNumbers.oldLine else "")
 	local newStr = tostring(if lineNumbers then lineNumbers.newLine else "")
