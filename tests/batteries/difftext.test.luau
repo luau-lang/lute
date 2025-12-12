@@ -302,9 +302,9 @@ test.suite("myersdiff - byline", function(suite)
 	end)
 end)
 
-test.suite("printdiff", function(suite: any)
-	local function composeDetailedRemoval(str: string, changedCharPos: { [number]: true })
-		local composed = richterm.brightRed("- ")
+test.suite("printdiff", function(suite)
+	local function composeDetailedRemoval(str: string, changedCharPos: { [number]: true }, sideHeader: string?)
+		local composed = richterm.brightRed(`- {sideHeader or ""}`)
 		for i = 1, #str do
 			if changedCharPos[i] then
 				composed ..= richterm.bgRed(str:sub(i, i))
@@ -315,8 +315,8 @@ test.suite("printdiff", function(suite: any)
 		return composed
 	end
 
-	local function composeDetailedAddition(str: string, changedCharPos: { [number]: true })
-		local composed = richterm.brightGreen("+ ")
+	local function composeDetailedAddition(str: string, changedCharPos: { [number]: true }, sideHeader: string?)
+		local composed = richterm.brightGreen(`+ {sideHeader or ""}`)
 		for i = 1, #str do
 			if changedCharPos[i] then
 				composed ..= richterm.bgGreen(str:sub(i, i))
@@ -334,8 +334,8 @@ test.suite("printdiff", function(suite: any)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 3)
-		assert.eq(lines[1], "line1")
-		assert.eq(lines[2], "line2")
+		assert.eq(lines[1], "  line1")
+		assert.eq(lines[2], "  line2")
 		assert.eq(lines[3], richterm.brightGreen("+ line3"))
 	end)
 
@@ -346,9 +346,9 @@ test.suite("printdiff", function(suite: any)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 3)
-		assert.eq(lines[1], "line1")
+		assert.eq(lines[1], "  line1")
 		assert.eq(lines[2], richterm.brightRed("- line2"))
-		assert.eq(lines[3], "line3")
+		assert.eq(lines[3], "  line3")
 	end)
 
 	suite:case("printdiff default - modification", function(assert)
@@ -358,10 +358,10 @@ test.suite("printdiff", function(suite: any)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 4)
-		assert.eq(lines[1], "line1")
+		assert.eq(lines[1], "  line1")
 		assert.eq(lines[2], richterm.brightRed("- line2"))
 		assert.eq(lines[3], richterm.brightGreen("+ modified"))
-		assert.eq(lines[4], "line3")
+		assert.eq(lines[4], "  line3")
 	end)
 
 	suite:case("printdiff default - unchanged lines", function(assert)
@@ -371,9 +371,9 @@ test.suite("printdiff", function(suite: any)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 3)
-		assert.eq(lines[1], "line1")
-		assert.eq(lines[2], "line2")
-		assert.eq(lines[3], "line3")
+		assert.eq(lines[1], "  line1")
+		assert.eq(lines[2], "  line2")
+		assert.eq(lines[3], "  line3")
 	end)
 
 	suite:case("printdiff default - multiple changes", function(assert)
@@ -383,12 +383,30 @@ test.suite("printdiff", function(suite: any)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 6)
-		assert.eq(lines[1], "A")
+		assert.eq(lines[1], "  A")
 		assert.eq(lines[2], richterm.brightRed("- B"))
 		assert.eq(lines[3], richterm.brightGreen("+ X"))
-		assert.eq(lines[4], "C")
+		assert.eq(lines[4], "  C")
 		assert.eq(lines[5], richterm.brightGreen("+ Y"))
-		assert.eq(lines[6], "D")
+		assert.eq(lines[6], "  D")
+	end)
+
+	suite:case("printdiff default - with line numbers", function(assert)
+		local a = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"
+		local b = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"
+		local result = difftext.prettydiff(a, b, {
+			includeLineNumbers = true,
+		})
+		local lines = result:split("\n")
+
+		assert.eq(#lines, 10)
+		for i, line in lines do
+			if i < 10 then
+				assert.eq(line, `   {i}  {i}| line{i}`)
+			else
+				assert.eq(line, `  {i} {i}| line{i}`)
+			end
+		end
 	end)
 
 	suite:case("printdiff detailed - single line change", function(assert)
@@ -399,7 +417,11 @@ test.suite("printdiff", function(suite: any)
 
 		-- Detailed mode shows both old and new lines with character-level highlighting
 		assert.eq(#lines, 2)
-		assert.eq(lines[1], composeDetailedRemoval("hello world", { [8] = true }))
+		assert.eq(
+			lines[1],
+			composeDetailedRemoval("hello world", { [8] = true }),
+			`Not equal:\n{difftext.prettydiff(lines[1], composeDetailedRemoval("hello world", { [8] = true }))}`
+		)
 		assert.eq(lines[2], composeDetailedAddition("hello wirld", { [8] = true }))
 	end)
 
@@ -417,10 +439,10 @@ test.suite("printdiff", function(suite: any)
 
 		-- Should have: line1, - old line, + new line, line3
 		assert.eq(#lines, 4)
-		assert.eq(lines[1], "line1")
+		assert.eq(lines[1], "  line1")
 		assert.eq(lines[2], composeDetailedRemoval("old line", changedChars))
 		assert.eq(lines[3], composeDetailedAddition("new line", changedChars))
-		assert.eq(lines[4], "line3")
+		assert.eq(lines[4], "  line3")
 	end)
 
 	suite:case("printdiff detailed - unchanged lines", function(assert)
@@ -430,8 +452,43 @@ test.suite("printdiff", function(suite: any)
 		local lines = result:split("\n")
 
 		assert.eq(#lines, 2)
-		assert.eq(lines[1], "line1")
-		assert.eq(lines[2], "line2")
+		assert.eq(lines[1], "  line1")
+		assert.eq(lines[2], "  line2")
+	end)
+
+	suite:case("printdiff detailed - with line numbers", function(assert)
+		local a = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"
+		local b = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nlineten"
+		local result = difftext.prettydiff(a, b, {
+			detailed = true,
+			includeLineNumbers = true,
+		})
+		local lines = result:split("\n")
+
+		assert.eq(#lines, 11)
+		for i = 1, 9 do
+			local line = lines[i]
+			assert.eq(line, `   {i}  {i}| line{i}`)
+		end
+		assert.eq(lines[10], composeDetailedRemoval("line10", { [5] = true, [6] = true }, "10   | "))
+		assert.eq(lines[11], composeDetailedAddition("lineten", { [5] = true, [6] = true, [7] = true }, "   10| "))
+	end)
+
+	suite:case("printdiff detailed - sanity check w/ 3 digits of line numbers", function(assert)
+		local a = "unmodified\n" .. string.rep("line\n", 99) .. "unmodified"
+		local b = "modified\n" .. string.rep("line\n", 99) .. "modified"
+		local result = difftext.prettydiff(a, b, {
+			detailed = true,
+			includeLineNumbers = true,
+		})
+		local lines = result:split("\n")
+
+		assert.eq(#lines, 103)
+		assert.eq(lines[1], composeDetailedRemoval("unmodified", { [1] = true, [2] = true }, "  1    | "))
+		assert.eq(lines[2], composeDetailedAddition("modified", {}, "      1| "))
+		assert.eq(lines[101], "  100 100| line")
+		assert.eq(lines[102], composeDetailedRemoval("unmodified", { [1] = true, [2] = true }, "101    | "))
+		assert.eq(lines[103], composeDetailedAddition("modified", {}, "    101| "))
 	end)
 end)
 
