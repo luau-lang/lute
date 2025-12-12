@@ -1,9 +1,13 @@
 #include "lute/packagerun.h"
 
-#include "Luau/FileUtils.h"
+#include "lute/userlandvfs.h"
 
+#include "Luau/FileUtils.h"
+#include "Luau/LuauConfig.h"
+
+#include <algorithm>
+#include <cctype>
 #include <optional>
-#include <regex>
 #include <string>
 #include <string_view>
 
@@ -22,7 +26,7 @@ std::optional<std::string> getAbsolutePathToNearestLockfile(std::string entryFil
     std::optional<std::string> currentPath = getParentPath(entryFile);
     while (currentPath)
     {
-        std::string lockfilePath = joinPaths(*currentPath, "loom.lock");
+        std::string lockfilePath = joinPaths(*currentPath, "loom.lock.luau");
         if (isFile(lockfilePath))
             return lockfilePath;
 
@@ -32,19 +36,66 @@ std::optional<std::string> getAbsolutePathToNearestLockfile(std::string entryFil
     return std::nullopt;
 }
 
+static std::string toLower(std::string_view str)
+{
+    std::string result(str);
+    std::transform(
+        result.begin(),
+        result.end(),
+        result.begin(),
+        [](unsigned char c)
+        {
+            return std::tolower(c);
+        }
+    );
+    return result;
+}
+
 static std::vector<Package::Identifier> extractIdentifiers(std::string lockfileContents)
 {
-    std::vector<Package::Identifier> packages;
+    // TODO: support timing out Luau-syntax configurations
+    std::optional<Luau::ConfigTable> configOpt = Luau::extractConfig(lockfileContents, {});
+    if (!configOpt)
+        return {};
 
-    // TODO: regex matching is a temporary solution; the lockfile format is
-    // likely to change, and we will use a stable parsing solution then.
-    auto it = lockfileContents.cbegin();
-    std::smatch match;
-    std::regex re{R"LUTE(name = "([^"]+)"[\r\n]+version = "?([^"\r\n]+)"?)LUTE"};
-    while (std::regex_search(it, lockfileContents.cend(), match, re))
+    Luau::ConfigTable config = std::move(*configOpt);
+    if (!config.contains("package"))
+        return {};
+
+    Luau::ConfigTable* packageTable = config["package"].get_if<Luau::ConfigTable>();
+    if (!packageTable)
+        return {};
+
+    std::vector<Package::Identifier> packages;
+    packages.resize(packageTable->size());
+
+    for (const auto& [k, v] : *packageTable)
     {
-        packages.push_back(Package::Identifier{match[1].str(), match[2].str()});
-        it = match.suffix().first;
+        const double* key = k.get_if<double>();
+        if (!key)
+            return {};
+
+        const size_t index = static_cast<size_t>(*key);
+        if (index < 1 || packageTable->size() < index)
+            return {};
+
+        const Luau::ConfigTable* package = v.get_if<Luau::ConfigTable>();
+        if (!package)
+            return {};
+
+        if (!package->contains("name") || !package->contains("rev"))
+            return {};
+
+        const std::string* name = (*package).find("name")->get_if<std::string>();
+        const std::string* rev = (*package).find("rev")->get_if<std::string>();
+
+        if (!name || !rev)
+            return {};
+
+        Package::Identifier entry{};
+        entry.name = toLower(*name);
+        entry.version = *rev;
+        packages[index - 1] = std::move(entry);
     }
 
     return packages;

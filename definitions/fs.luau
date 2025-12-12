@@ -91,16 +91,4 @@ function fs.rmdir(path: string): ()
 	error("not implemented")
 end
 
-function fs.readfiletostring(filepath: string): string
-	error("not implemented")
-end
-
-function fs.writestringtofile(filepath: string, contents: string): ()
-	error("not implemented")
-end
-
-function fs.readasync(filepath: string): string
-	error("not implemented")
-end
-
 return fs

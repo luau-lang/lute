@@ -1,28 +1,17 @@
 --!strict
 -- @std/test/assert
 -- Standard assertion library for Luau
+
+local failure = require("./failure")
 local stringext = require("@std/stringext")
+local types = require("./types")
 
-local assertions = {}
+-- types
+type failure = types.failure
+type asserts = types.asserts
 
-function assertions.eq<T>(lhs: T, rhs: T, msg: string?)
-	if lhs ~= rhs then
-		error({ msg = msg or `{lhs} ~= {rhs}` })
-	end
-end
-
-function assertions.neq<T>(lhs: T, rhs: T, msg: string?)
-	if lhs == rhs then
-		error({ msg = msg or `{lhs} == {rhs}` })
-	end
-end
-
-function assertions.errors(callback: () -> (), msg: string?)
-	local success = pcall(callback)
-	if success then
-		error({ msg = msg or `{callback} did not throw error.` })
-	end
-end
+-- more utils
+local assertion = failure.assertion
 
 -- Helper to format values for error messages
 local function formatValue(val: any): string
@@ -74,25 +63,52 @@ local function tablesEqual(t1: unknown, t2: unknown, path: string): (boolean, st
 	return true, nil
 end
 
--- Table equality assertionsion with deep comparison
-function assertions.tableeq(lhs: { [unknown]: unknown }, rhs: { [unknown]: unknown })
-	local equal, msg = tablesEqual(lhs, rhs, "")
-	if not equal then
-		error({ msg = msg or "tables are not equal" })
+local function eq<T>(lhs: T, rhs: T, msg: string?): failure?
+	if lhs == rhs then
+		return nil
 	end
+
+	return assertion(msg or `{lhs} ~= {rhs}`)
 end
 
-function assertions.buffereq(lhs: buffer, rhs: buffer)
+local function neq<T>(lhs: T, rhs: T, msg: string?): failure?
+	if lhs ~= rhs then
+		return nil
+	end
+
+	return assertion(msg or `{lhs} == {rhs}`)
+end
+
+local function errors(callback: () -> (), msg: string?): failure?
+	local success = pcall(callback)
+	-- if the callback failed, then this assert passes
+	if not success then
+		return nil
+	end
+
+	return assertion(msg or `{callback} did not throw error.`)
+end
+
+-- Table equality assertionsion with deep comparison
+local function tableeq(lhs: { [unknown]: unknown }, rhs: { [unknown]: unknown }): failure?
+	local equal, msg = tablesEqual(lhs, rhs, "")
+	if equal then
+		return nil
+	end
+	return assertion(msg or "tables are not equal")
+end
+
+local function buffereq(lhs: buffer, rhs: buffer): failure?
 	if typeof(lhs) ~= "buffer" then
-		error({ msg = `lhs is of type {typeof(lhs)}, not buffer` })
+		return assertion(`lhs is of type {typeof(lhs)}, not buffer`)
 	end
 
 	if typeof(rhs) ~= "buffer" then
-		error({ msg = `rhs is of type {typeof(rhs)}, not buffer` })
+		return assertion(`rhs is of type {typeof(rhs)}, not buffer`)
 	end
 
 	if buffer.len(lhs) ~= buffer.len(rhs) then
-		error({ msg = "buffers are of unequal length" })
+		return assertion("buffers are of unequal length")
 	end
 
 	local len = buffer.len(lhs)
@@ -101,48 +117,73 @@ function assertions.buffereq(lhs: buffer, rhs: buffer)
 		local right = buffer.readu8(rhs, offset)
 
 		if left ~= right then
-			error({ msg = string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right) })
+			return assertion(string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right))
 		end
 	end
+	return nil
 end
 
-function assertions.erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...)
+local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...): failure?
 	local success, err = pcall(func, ...)
 	if success then
-		error({ msg = "Function did not error as expected." })
+		return assertion("Function did not error as expected.")
 	end
 
 	local actualErrorMessage = tostring(err)
 	-- pcall appends filename and line number of the error, so we check suffix only
 	if not stringext.hassuffix(actualErrorMessage, expectedErrorMessage) then
-		error({ msg = `Expected suffix of error message "{expectedErrorMessage}", but got "{actualErrorMessage}"` })
+		return assertion(`Expected suffix of error message "{expectedErrorMessage}", but got "{actualErrorMessage}"`)
 	end
+
+	return nil
 end
 
-function assertions.strcontains(haystack: string, needle: string, msg: string?, instances: number?)
+local function strcontains(haystack: string, needle: string, msg: string?, instances: number?): failure?
 	instances = instances or 1
 
 	if instances <= 0 then
-		error({ msg = "instances must be greater than 0" })
+		return assertion("instances must be greater than 0")
 	end
 
 	if instances == 1 then
 		if haystack:find(needle, 1, true) == nil then
-			error({ msg = if msg then msg else `Expected "{haystack}" to contain "{needle}".` })
+			return assertion(if msg then msg else `Expected "{haystack}" to contain "{needle}".`)
 		end
 	else
 		if #haystack:split(needle) ~= instances + 1 then
-			error({ msg = if msg then msg else `Expected "{haystack}" to contain "{needle}" {instances} times.` })
+			return assertion(if msg then msg else `Expected "{haystack}" to contain "{needle}" {instances} times.`)
 		end
 	end
+	return nil
 end
 
-function assertions.strnotcontains(haystack: string, needle: string, msg: string?)
+local function strnotcontains(haystack: string, needle: string, msg: string?): failure?
 	if haystack:find(needle, 1, true) ~= nil then
-		error({ msg = if msg then msg else `Expected "{haystack}" to not contain "{needle}".` })
+		return assertion(if msg then msg else `Expected "{haystack}" to not contain "{needle}".`)
+	end
+
+	return nil
+end
+
+-- utility for taking an assertion and wrapping it as a check that must complete successfully or will return control flow to the error handler
+local function reqassert<T...>(req: (T...) -> failure?): (T...) -> failure?
+	return function(...): failure?
+		local result: failure? = req(...)
+		if result ~= nil then
+			error(result)
+		end
+
+		return nil
 	end
 end
 
-export type asserts = typeof(assertions)
-
-return table.freeze(assertions)
+return table.freeze({
+	eq = reqassert(eq),
+	neq = reqassert(neq),
+	errors = reqassert(errors),
+	tableeq = reqassert(tableeq),
+	buffereq = reqassert(buffereq),
+	erroreq = reqassert(erroreq),
+	strcontains = reqassert(strcontains),
+	strnotcontains = reqassert(strnotcontains),
+}) :: asserts

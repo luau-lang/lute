@@ -121,8 +121,16 @@ local function myersdiff(a: string | { string }, b: string | { string }): diff
 	return diff
 end
 
-local function myersdiffbyline(a: string, b: string): diff
-	return myersdiff(a:split("\n"), b:split("\n"))
+local function myersdiffbyline(a: string | { string }, b: string | { string }): diff
+	local src = a
+	local dest = b
+	if typeof(a) == "string" then
+		src = a:split("\n")
+	end
+	if typeof(b) == "string" then
+		dest = b:split("\n")
+	end
+	return myersdiff(src, dest)
 end
 
 local function myersdiffbychar(a: string, b: string): diff

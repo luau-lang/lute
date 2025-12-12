@@ -16,6 +16,8 @@ local object_key = newproxy()
 
 -- serialization
 
+local bufferSize = 1024
+
 type SerializerState = {
 	buf: buffer,
 	cursor: number,
@@ -176,9 +178,8 @@ local function serializeTable(state: SerializerState, object: object)
 
 		writeSpaces(state)
 
-		writeByte(state, string.byte('"'))
-		writeString(state, key)
-		writeString(state, '": ')
+		serializeString(state, key)
+		writeString(state, ": ")
 
 		serializeAny(state, value)
 	end
@@ -280,40 +281,65 @@ end
 local function decodeSurrogatePair(high, low): string?
 	local highVal = tonumber(high, 16)
 	local lowVal = tonumber(low, 16)
-
 	if not highVal or not lowVal then
 		return nil -- Invalid
 	end
-
 	-- Calculate the actual Unicode codepoint
 	local codepoint = 0x10000 + ((highVal - 0xD800) * 0x400) + (lowVal - 0xDC00)
 	return utf8.char(codepoint)
 end
 
 local function deserializeString(state: DeserializerState): string
+	-- Must start with "
+	if currentByte(state) ~= string.byte('"') then
+		return deserializerError(state, "Expected string opening quote")
+	end
+
+	-- Skip opening quote "
 	state.cursor += 1
 
 	local startPos = state.cursor
 
-	if currentByte(state) == string.byte('"') then
-		state.cursor += 1
-
-		return ""
-	end
-
 	while state.cursor <= #state.src do
-		if currentByte(state) == string.byte('"') then
-			state.cursor += 1
+		local byte = currentByte(state)
 
+		-- Check for unescaped control characters (0x00-0x1F)
+		if byte < 0x20 then
+			return deserializerError(state, "Unescaped control character in string")
+		end
+
+		if byte == string.byte('"') then
+			state.cursor += 1
 			local source = string.sub(state.src, startPos, state.cursor - 2)
 
+			-- Validate escape sequences
+			-- Remove valid \\ first
+			local temp = string.gsub(source, "\\\\", "")
+
+			-- Check for invalid single-char escapes
+			if temp:match('\\[^bfnrt"\\/u]') then
+				return deserializerError(state, "Invalid escape sequence")
+			end
+
+			-- Check that all \u escapes have exactly 4 hex digits
+			if temp:match("\\u[^0-9a-fA-F]") or temp:match("\\u%x?%x?%x?$") then
+				return deserializerError(state, "Incomplete or invalid \\u escape")
+			end
+
+			-- Handle all surrogate pairs
 			source = string.gsub(
 				source,
-				"\\u([dD]83[dD])\\u(d[cC]%w%w)",
+				"\\u([dD][89aAbB][0-9a-fA-F][0-9a-fA-F])\\u([dD][c-fC-F][0-9a-fA-F][0-9a-fA-F])",
 				function(high, low)
 					return decodeSurrogatePair(high, low) or deserializerError(state, "Invalid unicode surrogate pair")
 				end :: any
 			)
+
+			-- Detect incomplete/invalid surrogates
+			if source:match("\\u[dD][89aAbB][0-9a-fA-F][0-9a-fA-F]") then
+				return deserializerError(state, "Incomplete surrogate pair")
+			end
+
 			-- Handle regular Unicode escapes
 			source = string.gsub(source, "\\u(%x%x%x%x)", function(code)
 				return utf8.char(tonumber(code, 16) :: number)
@@ -326,26 +352,25 @@ local function deserializeString(state: DeserializerState): string
 			source = string.gsub(source, "\\r", "\r")
 			source = string.gsub(source, "\\t", "\t")
 			source = string.gsub(source, '\\"', '"')
+			source = string.gsub(source, "\\/", "/")
 			source = string.gsub(source, "\0", "\\")
 
 			return source
 		end
 
-		if currentByte(state) == string.byte("\\") then
+		if byte == string.byte("\\") then
 			state.cursor += 1
 		end
 
 		state.cursor += 1
 	end
 
-	-- error
-
 	state.cursor = startPos
-
 	return deserializerError(state, "Unterminated string")
 end
 
 local deserialize: (DeserializerState) -> (array | object | boolean | number | string)?
+
 local function deserializeArray(state: DeserializerState): array
 	if currentByte(state) ~= string.byte("[") then
 		return deserializerError(state, "Expected array opening '['")
@@ -470,7 +495,7 @@ deserialize = function(state: DeserializerState): value
 
 	local fourChars = string.sub(state.src, state.cursor, state.cursor + 3)
 
-	if fourChars == "null" then
+	if string.match(fourChars, "^null") then
 		state.cursor += 4
 		return json.null
 	elseif string.match(fourChars, "^true") then
@@ -482,12 +507,14 @@ deserialize = function(state: DeserializerState): value
 	elseif string.match(state.src, "^[%-%d]", state.cursor) then
 		-- potential number
 		return deserializeNumber(state)
-	elseif string.byte(state.src, state.cursor) == string.byte('"') then
+	elseif string.match(state.src, '^"', state.cursor) then
 		return deserializeString(state)
 	elseif string.match(state.src, "^%[", state.cursor) then
 		return deserializeArray(state)
 	elseif string.match(state.src, "^{", state.cursor) then
-		return deserializeObject(state)
+		local obj = deserializeObject(state)
+		obj[object_key] = true
+		return obj
 	end
 
 	return deserializerError(state, `Unexpected token '{string.sub(state.src, state.cursor, state.cursor)}'`)
@@ -497,7 +524,7 @@ end
 
 function json.serialize(value: value, prettyPrint: boolean?)
 	local state: SerializerState = {
-		buf = buffer.create(1024),
+		buf = buffer.create(bufferSize),
 		cursor = 0,
 		prettyPrint = prettyPrint or false,
 		depth = 0,
