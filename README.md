@@ -26,7 +26,7 @@ The `generate` step in particular is necessary to producing a full `lute` execut
 
 ### Building Lute with `lute` installed
 
-The most straightforward, and generally recommended, way to build a local version of `lute` is to have already installed an existing version of `lute`. Today, you can do that using a toolchain manager like [`foreman`](https://github.com/Roblox/foreman), [`rokit`](https://github.com/rojo-rbx/rokit), and [mise-en-place](https://mise.jdx.dev/), or by manually installing a prebuilt binary from our [Releases](https://github.com/luau-lang/lute/releases). With a copy of `lute` present on your system, you can then run the following to perform a clean build:
+The most straightforward, and generally recommended, way to build a local version of `lute` is to have already installed an existing version of `lute`. Today, you can do that using a toolchain manager like [`foreman`](https://github.com/Roblox/foreman), [`aftman`](https://github.com/LPGhatguy/aftman), [`rokit`](https://github.com/rojo-rbx/rokit), and [mise-en-place](https://mise.jdx.dev/), or by manually installing a prebuilt binary from our [Releases](https://github.com/luau-lang/lute/releases). With a copy of `lute` present on your system, you can then run the following to perform a clean build:
 
 ```bash
 # with `lute` on your path...
