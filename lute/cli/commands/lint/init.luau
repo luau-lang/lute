@@ -6,6 +6,7 @@ local lsp = require("@self/lsp")
 local luau = require("@std/luau")
 local pathLib = require("@std/path")
 local printer = require("@self/printer")
+local process = require("@std/process")
 local syntax = require("@std/syntax")
 local tableext = require("@std/tableext")
 local triviaUtils = require("@std/syntax/utils/trivia")
@@ -264,7 +265,7 @@ local function main(...: string)
 	local inputFiles = args:forwarded()
 	if inputFiles == nil or #inputFiles == 0 then
 		print("Error: No input files specified.\n\n" .. USAGE .. "\nUse --help for more information.")
-		return
+		process.exit(1)
 	end
 
 	if VERBOSE then
@@ -313,11 +314,14 @@ local function main(...: string)
 		if VERBOSE then
 			print(`Printing violations from {#allViolations} files\n`)
 		end
+		local violationsFound = false
 		for sourcePath, violations in allViolations do
 			if #violations > 0 then
+				violationsFound = true
 				printer.printLints(violations, sourcePath)
 			end
 		end
+		process.exit(if violationsFound then 1 else 0)
 	end
 end
 
