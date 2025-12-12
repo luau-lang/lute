@@ -15,9 +15,12 @@ int request(lua_State* L);
 
 int lua_serve(lua_State* L);
 
+int websocket(lua_State* L);
+
 static const luaL_Reg lib[] = {
     {"request", request},
     {"serve", lua_serve},
+    {"websocket", websocket},
     {nullptr, nullptr},
 };
 
