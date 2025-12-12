@@ -148,7 +148,7 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 				result,
 				if includeLineNumbers
 					then formatLineSideHeader("EQUAL", maxLineNumberLen, lineNums(oldLine, newLine)) .. op.text
-					else "" .. op.text
+					else "  " .. op.text
 			)
 			oldLine, newLine = oldLine + 1, newLine + 1
 			i += 1
@@ -210,7 +210,7 @@ local function prettydiff(
 			elseif op.key == "DELETE" then
 				table.insert(result, brightRed("- " .. op.text))
 			else -- EQUAL
-				table.insert(result, "" .. op.text)
+				table.insert(result, "  " .. op.text)
 			end
 		end
 	end
