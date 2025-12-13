@@ -250,7 +250,6 @@ struct WebSocketHandle
         lua_pop(runtime->GL, 1);
 
         runtime->scheduleLuauResume(ref, std::move(cont));
-        uv_stop(uv_default_loop());
     }
 
     void startRecvLoop()
@@ -450,7 +449,7 @@ static int ws_send(lua_State* L)
     if (lua_isboolean(L, 3))
         binary = lua_toboolean(L, 3);
 
-    std::string payload(data, data + len);
+    auto payload = std::make_shared<std::string>(data, len);
     auto token = getResumeToken(L);
 
     token->runtime->runInWorkQueue(
@@ -468,8 +467,8 @@ static int ws_send(lua_State* L)
                 std::lock_guard<std::mutex> lock(handle->curlMutex);
                 r = curl_ws_send(
                     handle->curl,
-                    payload.data(),
-                    payload.size(),
+                    payload->data(),
+                    payload->size(),
                     &sent,
                     0,
                     binary ? CURLWS_BINARY : CURLWS_TEXT
@@ -683,6 +682,30 @@ struct PerSocketData
 static void parseQuery(const std::string_view& query, lua_State* L);
 template <typename ReqT>
 static void parseHeaders(ReqT* req, lua_State* L);
+
+static void resumeWith(
+    const std::shared_ptr<ServerLoopState>& state,
+    const std::shared_ptr<Ref>& callback,
+    std::function<int(lua_State*)> cont
+)
+{
+    if (!callback)
+        return;
+
+    lua_State* L = lua_newthread(state->runtime->GL);
+    luaL_sandboxthread(L);
+    std::shared_ptr<Ref> ref = getRefForThread(L);
+    lua_pop(state->runtime->GL, 1);
+
+    state->runtime->scheduleLuauResume(
+        ref,
+        [callback, cont = std::move(cont)](lua_State* L) mutable
+        {
+            callback->push(L);
+            return cont(L);
+        }
+    );
+}
 
 static int server_upgrade_noop(lua_State* L)
 {
@@ -1146,77 +1169,50 @@ void setupAppAndListen(AppT* app, std::shared_ptr<ServerLoopState> state, bool& 
                         data->handle->sendFn = &wsSendImpl<SSL>;
                         data->handle->closeFn = &wsCloseImpl<SSL>;
 
-                        if (!state->wsOpenRef)
-                            return;
-
-                        lua_State* L = lua_newthread(state->runtime->GL);
-                        luaL_sandboxthread(L);
-                        std::shared_ptr<Ref> ref = getRefForThread(L);
-                        lua_pop(state->runtime->GL, 1);
-
-                        state->runtime->scheduleLuauResume(
-                            ref,
-                            [state, handle = data->handle](lua_State* L)
+                        resumeWith(
+                            state,
+                            state->wsOpenRef,
+                            [handle = data->handle](lua_State* L)
                             {
-                                state->wsOpenRef->push(L);
                                 pushServerWebSocket<SSL>(L, handle);
                                 return 1;
                             }
                         );
-                        uv_stop(uv_default_loop());
                     },
                 .message =
                     [state](auto* ws, std::string_view message, uWS::OpCode opCode)
                     {
-                        if (!state->wsMessageRef)
-                            return;
-
                         auto handle = ws->getUserData()->handle;
-
-                        lua_State* L = lua_newthread(state->runtime->GL);
-                        luaL_sandboxthread(L);
-                        std::shared_ptr<Ref> ref = getRefForThread(L);
-                        lua_pop(state->runtime->GL, 1);
 
                         std::string msg(message.data(), message.size());
                         bool binary = (opCode == uWS::OpCode::BINARY);
 
-                        state->runtime->scheduleLuauResume(
-                            ref,
-                            [state, handle, msg = std::move(msg), binary](lua_State* L)
+                        resumeWith(
+                            state,
+                            state->wsMessageRef,
+                            [handle, msg = std::move(msg), binary](lua_State* L)
                             {
-                                state->wsMessageRef->push(L);
                                 pushServerWebSocket<SSL>(L, handle);
                                 lua_pushlstring(L, msg.data(), msg.size());
                                 lua_pushboolean(L, binary);
                                 return 3;
                             }
                         );
-                        uv_stop(uv_default_loop());
                     },
                 .drain =
                     [state](auto* ws)
                     {
-                        if (!state->wsDrainRef)
-                            return;
-
                         auto handle = ws->getUserData()->handle;
 
-                        lua_State* L = lua_newthread(state->runtime->GL);
-                        luaL_sandboxthread(L);
-                        std::shared_ptr<Ref> ref = getRefForThread(L);
-                        lua_pop(state->runtime->GL, 1);
-
-                        state->runtime->scheduleLuauResume(
-                            ref,
-                            [state, handle](lua_State* L)
+                        resumeWith(
+                            state,
+                            state->wsDrainRef,
+                            [handle](lua_State* L)
                             {
-                                state->wsDrainRef->push(L);
                                 pushServerWebSocket<SSL>(L, handle);
                                 return 1;
                             }
                         );
-                        uv_stop(uv_default_loop());
                     },
                 .close =
                     [state](auto* ws, int code, std::string_view message)
@@ -1228,28 +1224,19 @@ void setupAppAndListen(AppT* app, std::shared_ptr<ServerLoopState> state, bool& 
                             handle->wsPtr = nullptr;
                         }
 
-                        if (!state->wsCloseRef)
-                            return;
-
-                        lua_State* L = lua_newthread(state->runtime->GL);
-                        luaL_sandboxthread(L);
-                        std::shared_ptr<Ref> ref = getRefForThread(L);
-                        lua_pop(state->runtime->GL, 1);
-
                         std::string msg(message.data(), message.size());
 
-                        state->runtime->scheduleLuauResume(
-                            ref,
-                            [state, handle, code, msg = std::move(msg)](lua_State* L)
+                        resumeWith(
+                            state,
+                            state->wsCloseRef,
+                            [handle, code, msg = std::move(msg)](lua_State* L)
                             {
-                                state->wsCloseRef->push(L);
                                 pushServerWebSocket<SSL>(L, handle);
                                 lua_pushinteger(L, code);
                                 lua_pushlstring(L, msg.data(), msg.size());
                                 return 3;
                             }
                         );
-                        uv_stop(uv_default_loop());
                     },
             }
         );
