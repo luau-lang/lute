@@ -525,8 +525,6 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
                 query = std::string_view(url.data() + queryPos, url.size() - queryPos);
             }
 
-            // Required by uWebSockets since we return from this handler without responding.
-            std::unique_ptr<std::string> bodyBuffer;
             res->onAborted(
                 []()
                 {
@@ -534,6 +532,7 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
                 }
             );
 
+            std::unique_ptr<std::string> bodyBuffer;
             res->onData(
                 [state, res, req, method, path, query, bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
                 {
