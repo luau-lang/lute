@@ -244,12 +244,23 @@ struct WebSocketHandle
         if (!callback || !runtime)
             return;
 
-        lua_State* newThread = lua_newthread(runtime->GL);
-        luaL_sandboxthread(newThread);
-        std::shared_ptr<Ref> ref = getRefForThread(newThread);
-        lua_pop(runtime->GL, 1);
+        // This can be called from the recv thread; defer all Luau interaction to the runtime thread.
+        Runtime* rt = runtime;
+        rt->schedule(
+            [rt, callback, cont = std::move(cont)]() mutable
+            {
+                lua_State* newThread = lua_newthread(rt->GL);
+                luaL_sandboxthread(newThread);
+                std::shared_ptr<Ref> ref = getRefForThread(newThread);
+                lua_pop(rt->GL, 1);
 
-        runtime->scheduleLuauResume(ref, std::move(cont));
+                // Keep the callback alive and avoid capturing `this` in scheduled continuations.
+                callback->push(newThread);
+
+                int results = cont ? cont(newThread) : 0;
+                rt->runningThreads.push_back({true, ref, results});
+            }
+        );
     }
 
     void startRecvLoop()
@@ -265,9 +276,9 @@ struct WebSocketHandle
             {
                 scheduleCallback(
                     onOpenRef,
-                    [this](lua_State* L)
+                    [](lua_State* L)
                     {
-                        onOpenRef->push(L);
+                        (void)L;
                         return 0;
                     }
                 );
@@ -300,9 +311,8 @@ struct WebSocketHandle
                         std::string err = curl_easy_strerror(r);
                         scheduleCallback(
                             onErrorRef,
-                            [this, err](lua_State* L)
+                            [err](lua_State* L)
                             {
-                                onErrorRef->push(L);
                                 lua_pushlstring(L, err.c_str(), err.size());
                                 return 1;
                             }
@@ -332,9 +342,8 @@ struct WebSocketHandle
 
                             scheduleCallback(
                                 onCloseRef,
-                                [this, closeCode, closeReason = std::move(closeReason)](lua_State* L)
+                                [closeCode, closeReason = std::move(closeReason)](lua_State* L)
                                 {
-                                    onCloseRef->push(L);
                                     lua_pushinteger(L, closeCode);
                                     lua_pushlstring(L, closeReason.data(), closeReason.size());
                                     return 2;
@@ -380,9 +389,8 @@ struct WebSocketHandle
 
                             scheduleCallback(
                                 onMessageRef,
-                                [this, msg = std::move(msg), binary](lua_State* L)
+                                [msg = std::move(msg), binary](lua_State* L)
                                 {
-                                    onMessageRef->push(L);
                                     lua_pushlstring(L, msg.data(), msg.size());
                                     lua_pushboolean(L, binary);
                                     return 2;
@@ -1305,9 +1313,11 @@ void setupAppAndListen(AppT* app, std::shared_ptr<ServerLoopState> state, bool& 
         state->hostname,
         state->port,
         options,
-        [&success](auto* listen_socket)
+        [state, &success](auto* listen_socket)
         {
             success = (listen_socket != nullptr);
+            if (listen_socket)
+                state->port = us_socket_local_port(SSL, (struct us_socket_t*)listen_socket);
         }
     );
 }
@@ -1515,7 +1525,7 @@ int lua_serve(lua_State* L)
     lua_settable(L, -3);
 
     lua_pushstring(L, "port");
-    lua_pushinteger(L, port);
+    lua_pushinteger(L, state->port);
     lua_settable(L, -3);
 
     lua_pushstring(L, "close");

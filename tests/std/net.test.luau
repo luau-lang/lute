@@ -90,6 +90,55 @@ test.suite("NetTestSuite", function(suite)
 
 		server.close()
 	end)
+
+	suite:case("client_websocket_callbacks_do_not_uaf_after_gc", function(assert)
+		local opened = false
+
+		local server = net.serve({
+			handler = function(req: net.receivedrequest, server: net.server): net.serverresponse?
+				if server:upgrade(req) then
+					return nil
+				end
+				return {
+					status = 200,
+					body = "no upgrade",
+				}
+			end,
+			websocket = {},
+		})
+
+		local ws: net.websocket? = net.websocket(`ws://{server.hostname}:{server.port}`, {
+			onopen = function()
+				opened = true
+			end,
+			onerror = function(err: string): ()
+				error(err)
+			end,
+		})
+
+		-- Don't yield yet: let the recv thread enqueue callbacks, then GC the userdata so any
+		-- queued callback must not dereference the freed handle.
+		local start = os.clock()
+		while os.clock() - start < 0.2 do
+		end
+
+		ws = nil
+		-- `collectgarbage` is not available in the sandbox; create enough allocation pressure
+		-- to encourage the GC to finalize the userdata before we yield.
+		local junk = {}
+		for i = 1, 20000 do
+			junk[i] = string.rep("x", 1024)
+		end
+		junk = nil
+
+		start = os.clock()
+		while not opened and os.clock() - start < 2 do
+			task.defer()
+		end
+
+		assert.eq(true, opened)
+		server.close()
+	end)
 end)
 
 test.run()
