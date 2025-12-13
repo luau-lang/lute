@@ -23,6 +23,17 @@ struct ThreadToContinue
     std::function<void()> cont;
 };
 
+// Optional completion handler for threads that need to run native code once the thread finishes.
+// Attach by calling `lua_setthreaddata(thread, new ThreadCompletionHandler{...})`.
+// The runtime will invoke `onFinish` exactly once when the thread returns or errors (but not on yield),
+// then call `destroy(userdata)` and delete the handler.
+struct ThreadCompletionHandler
+{
+    void (*onFinish)(lua_State* L, int status, void* userdata) = nullptr;
+    void (*destroy)(void* userdata) = nullptr;
+    void* userdata = nullptr;
+};
+
 struct StepErr
 {
     lua_State* L;

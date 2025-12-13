@@ -93,6 +93,24 @@ RuntimeStep Runtime::runOnce()
         return StepSuccess{L};
     }
 
+    ThreadCompletionHandler* completion = static_cast<ThreadCompletionHandler*>(lua_getthreaddata(L));
+    if (completion)
+    {
+        lua_setthreaddata(L, nullptr);
+
+        if (completion->onFinish)
+            completion->onFinish(L, status, completion->userdata);
+
+        if (completion->destroy)
+            completion->destroy(completion->userdata);
+
+        delete completion;
+
+        // If a completion handler was attached, it is responsible for handling errors.
+        if (status != LUA_OK)
+            return StepSuccess{L};
+    }
+
     if (status != LUA_OK)
     {
         return StepErr{L};

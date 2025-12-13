@@ -11,9 +11,11 @@
 #include "curl/curl.h"
 #include "uv.h"
 
+#include <atomic>
 #include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -368,6 +370,54 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
     res->end(body);
 }
 
+template <typename ResT>
+struct HttpYieldContext
+{
+    ResT* res = nullptr;
+    std::atomic<bool> aborted{false};
+    std::shared_ptr<Ref> threadRef;
+};
+
+template <typename ResT>
+static void finishHttpYield(lua_State* L, int status, void* userdata)
+{
+    auto* holder = static_cast<std::shared_ptr<HttpYieldContext<ResT>>*>(userdata);
+    if (!holder || !(*holder))
+    {
+        lua_settop(L, 0);
+        return;
+    }
+
+    auto& ctx = **holder;
+    ResT* res = ctx.res;
+
+    if (!res || ctx.aborted.load())
+    {
+        lua_settop(L, 0);
+        return;
+    }
+
+    if (status == LUA_OK)
+    {
+        handleResponse(res, L, -1);
+    }
+    else
+    {
+        std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
+        res->writeStatus("500 Internal Server Error");
+        res->end("Server error: " + error);
+    }
+
+    ctx.res = nullptr;
+    lua_settop(L, 0);
+}
+
+template <typename ResT>
+static void destroyHttpYield(void* userdata)
+{
+    delete static_cast<std::shared_ptr<HttpYieldContext<ResT>>*>(userdata);
+}
+
 static void processRequest(
     std::shared_ptr<ServerLoopState> state,
     auto* res,
@@ -411,7 +461,36 @@ static void processRequest(
     lua_remove(L, -3);
 
     int status = lua_resume(L, nullptr, 1);
-    if (status != LUA_OK && status != LUA_YIELD)
+
+    if (status == LUA_YIELD)
+    {
+        using ResT = std::remove_pointer_t<decltype(res)>;
+
+        auto ctx = std::make_shared<HttpYieldContext<ResT>>();
+        ctx->res = res;
+        ctx->threadRef = std::move(threadRef);
+
+        res->onAborted(
+            [ctx]()
+            {
+                ctx->aborted.store(true);
+                ctx->res = nullptr;
+            }
+        );
+
+        auto* holder = new std::shared_ptr<HttpYieldContext<ResT>>(std::move(ctx));
+
+        auto* completion = new ThreadCompletionHandler();
+        completion->onFinish = &finishHttpYield<ResT>;
+        completion->destroy = &destroyHttpYield<ResT>;
+        completion->userdata = holder;
+
+        lua_setthreaddata(L, completion);
+        lua_settop(L, 0);
+        return;
+    }
+
+    if (status != LUA_OK)
     {
         std::string error = lua_tostring(L, -1);
         lua_pop(L, 1);
@@ -446,6 +525,8 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
                 query = std::string_view(url.data() + queryPos, url.size() - queryPos);
             }
 
+            // Required by uWebSockets since we return from this handler without responding.
+            std::unique_ptr<std::string> bodyBuffer;
             res->onAborted(
                 []()
                 {
@@ -453,7 +534,6 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
                 }
             );
 
-            std::unique_ptr<std::string> bodyBuffer;
             res->onData(
                 [state, res, req, method, path, query, bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
                 {
