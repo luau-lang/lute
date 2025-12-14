@@ -12,6 +12,7 @@
 #include "uv.h"
 
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>
@@ -227,6 +228,7 @@ static const int kEmptyServerKey = 0;
 static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
 static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
+static std::mutex serverMutex;
 
 struct ServerLoopState
 {
@@ -500,6 +502,8 @@ void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& 
 
 bool closeServer(int serverId)
 {
+    std::scoped_lock lock(serverMutex);
+
     if (!serverInstances.contains(serverId) || !serverStates.contains(serverId))
     {
         return false;
@@ -530,7 +534,8 @@ bool closeServer(int serverId)
 
 int lua_serve(lua_State* L)
 {
-    uWS::Loop::get(uv_default_loop());
+    Runtime* runtime = getRuntime(L);
+    uWS::Loop::get(runtime->getUvLoop());
 
     std::string hostname = "127.0.0.1";
     int port = 3000;
@@ -617,9 +622,11 @@ int lua_serve(lua_State* L)
         return 0;
     }
 
-    Runtime* runtime = getRuntime(L);
-
-    int serverId = nextServerId++;
+    int serverId = 0;
+    {
+        std::scoped_lock lock(serverMutex);
+        serverId = nextServerId++;
+    }
 
     auto state = std::make_shared<ServerLoopState>();
     state->runtime = runtime;
@@ -655,8 +662,11 @@ int lua_serve(lua_State* L)
         return 0;
     }
 
-    serverInstances[serverId] = std::move(app);
-    serverStates[serverId] = state;
+    {
+        std::scoped_lock lock(serverMutex);
+        serverInstances[serverId] = std::move(app);
+        serverStates[serverId] = state;
+    }
 
     lua_createtable(L, 0, 3);
 

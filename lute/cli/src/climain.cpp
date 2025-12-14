@@ -163,7 +163,11 @@ bool runBytecode(
 
     lua_pop(GL, 1);
 
-    return runtime.runToCompletion();
+    bool success = runtime.runToCompletion();
+    if (success)
+        waitForSpawnedRuntimes();
+
+    return success;
 }
 
 static bool runFile(Runtime& runtime, const char* name, lua_State* GL, int program_argc, char** program_argv, LuteReporter& reporter)

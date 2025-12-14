@@ -14,6 +14,7 @@
 #include <vector>
 
 struct lua_State;
+struct uv_loop_s;
 
 struct ThreadToContinue
 {
@@ -43,6 +44,9 @@ struct Runtime
 {
     Runtime();
     ~Runtime();
+
+    bool useDedicatedUvLoop();
+    uv_loop_s* getUvLoop() const;
 
     bool runToCompletion();
     RuntimeStep runOnce();
@@ -77,6 +81,9 @@ struct Runtime
     // Shorthand for global state
     lua_State* GL = nullptr;
 
+    // Event loop for this runtime; defaults to `uv_default_loop()`, but can be dedicated via `useDedicatedUvLoop`.
+    uv_loop_s* uvLoop = nullptr;
+
     std::mutex dataCopyMutex;
     std::unique_ptr<lua_State, void (*)(lua_State*)> dataCopy;
 
@@ -92,6 +99,8 @@ private:
     std::thread runLoopThread;
 
     std::atomic<int> activeTokens;
+
+    bool ownsUvLoop = false;
 };
 
 Runtime* getRuntime(lua_State* L);
@@ -114,3 +123,7 @@ struct ResumeTokenData
 ResumeToken getResumeToken(lua_State* L);
 
 lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBeforeSandbox);
+
+// Track child runtimes created via `@lute/vm` so the CLI can stay alive when they have work (e.g. servers).
+void registerSpawnedRuntime(const std::shared_ptr<Runtime>& runtime);
+void waitForSpawnedRuntimes();

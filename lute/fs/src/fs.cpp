@@ -233,7 +233,8 @@ int open(lua_State* L)
 int fs_remove(lua_State* L)
 {
     uv_fs_t unlink_req;
-    int err = uv_fs_unlink(uv_default_loop(), &unlink_req, luaL_checkstring(L, 1), nullptr);
+    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
+    int err = uv_fs_unlink(loop, &unlink_req, luaL_checkstring(L, 1), nullptr);
     uv_fs_req_cleanup(&unlink_req);
 
     if (err)
@@ -248,7 +249,8 @@ int fs_mkdir(lua_State* L)
     int mode = luaL_optinteger(L, 2, 0777);
 
     uv_fs_t req;
-    int err = uv_fs_mkdir(uv_default_loop(), &req, path, mode, nullptr);
+    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
+    int err = uv_fs_mkdir(loop, &req, path, mode, nullptr);
     uv_fs_req_cleanup(&req);
 
     if (err)
@@ -262,7 +264,8 @@ int fs_rmdir(lua_State* L)
     const char* path = luaL_checkstring(L, 1);
 
     uv_fs_t rmdir_req;
-    int err = uv_fs_rmdir(uv_default_loop(), &rmdir_req, path, nullptr);
+    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
+    int err = uv_fs_rmdir(loop, &rmdir_req, path, nullptr);
     uv_fs_req_cleanup(&rmdir_req);
 
     if (err)
@@ -276,7 +279,8 @@ int fs_stat(lua_State* L)
     const char* path = luaL_checkstring(L, 1);
 
     uv_fs_t stat_req;
-    int err = uv_fs_stat(uv_default_loop(), &stat_req, path, nullptr);
+    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
+    int err = uv_fs_stat(loop, &stat_req, path, nullptr);
 
     if (err)
     {
@@ -353,7 +357,8 @@ int fs_copy(lua_State* L)
     auto* req = new uv_fs_t();
     req->data = new ResumeToken(getResumeToken(L));
 
-    int err = uv_fs_copyfile(uv_default_loop(), req, path, dest, 0, defaultCallback);
+    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
+    int err = uv_fs_copyfile(loop, req, path, dest, 0, defaultCallback);
 
     if (err)
     {
@@ -373,7 +378,8 @@ int fs_link(lua_State* L)
     auto* req = new uv_fs_t();
     req->data = new ResumeToken(getResumeToken(L));
 
-    int err = uv_fs_link(uv_default_loop(), req, path, dest, defaultCallback);
+    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
+    int err = uv_fs_link(loop, req, path, dest, defaultCallback);
 
     if (err)
     {
@@ -402,7 +408,8 @@ int fs_symlink(lua_State* L)
         req->flags = 0;
     }
 
-    int err = uv_fs_symlink(uv_default_loop(), req, path, dest, req->flags, defaultCallback);
+    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
+    int err = uv_fs_symlink(loop, req, path, dest, req->flags, defaultCallback);
 
     if (err)
     {
@@ -474,7 +481,8 @@ int fs_watch(lua_State* L)
     event->callbackReference = std::make_shared<Ref>(L, 2);
     event->handle.data = event;
 
-    int init_err = uv_fs_event_init(uv_default_loop(), &event->handle);
+    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
+    int init_err = uv_fs_event_init(loop, &event->handle);
 
     if (init_err)
     {
@@ -539,7 +547,7 @@ int fs_exists(lua_State* L)
     req->data = new ResumeToken(getResumeToken(L));
 
     int err = uv_fs_access(
-        uv_default_loop(),
+        reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop()),
         req,
         path,
         F_OK,
@@ -578,7 +586,7 @@ int type(lua_State* L)
 
     uv_fs_t req;
 
-    int err = uv_fs_stat(uv_default_loop(), &req, path, nullptr);
+    int err = uv_fs_stat(reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop()), &req, path, nullptr);
 
     if (err)
     {
@@ -601,7 +609,7 @@ int listdir(lua_State* L)
     req->data = new ResumeToken(getResumeToken(L));
 
     int err = uv_fs_scandir(
-        uv_default_loop(),
+        reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop()),
         req,
         path,
         0,

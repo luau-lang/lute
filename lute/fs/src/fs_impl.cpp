@@ -20,6 +20,7 @@ struct FSRead : FSRequest
         : FSRequest(L)
         , file(file)
     {
+        loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
         chunk.resize(kChunkIOSize);
         iov = uv_buf_init(chunk.data(), chunk.size());
         buffer.reserve(kChunkIOSize);
@@ -28,6 +29,7 @@ struct FSRead : FSRequest
     static void readCallback(uv_fs_t* req);
 
     UVFile* file = nullptr;
+    uv_loop_t* loop = nullptr;
     std::vector<char> buffer;
     std::vector<char> chunk;
     uv_buf_t iov;
@@ -41,12 +43,14 @@ struct FSWrite : FSRequest
         , toWrite(buf, buf + len)
         , offset(0)
     {
+        loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
         chunk.resize(kChunkIOSize);
     }
 
     static void writeCallback(uv_fs_t* req);
 
     UVFile* file = nullptr;
+    uv_loop_t* loop = nullptr;
     std::vector<char> chunk;
     uv_buf_t iov;
     std::vector<char> toWrite;
@@ -59,6 +63,7 @@ struct FSClose : FSRequest
         : FSRequest(L)
         , file(file)
     {
+        loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
     }
 
     ~FSClose()
@@ -67,13 +72,15 @@ struct FSClose : FSRequest
     }
 
     UVFile* file = nullptr;
+    uv_loop_t* loop = nullptr;
 };
 
 int open_impl(lua_State* L, const char* path, int flags, int mode)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
+    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
     uv_fs_open(
-        uv_default_loop(),
+        loop,
         &req->req,
         path,
         flags,
@@ -134,7 +141,7 @@ void FSRead::readCallback(uv_fs_t* req)
     std::fill(r->chunk.begin(), r->chunk.end(), 0);
 
     uvutils::ScopedUVRequest<FSRead> scopedReq{std::move(r)};
-    uv_fs_read(uv_default_loop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSRead::readCallback);
+    uv_fs_read(scopedReq->loop, &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSRead::readCallback);
 }
 
 void FSWrite::writeCallback(uv_fs_t* req)
@@ -167,7 +174,7 @@ void FSWrite::writeCallback(uv_fs_t* req)
     w->iov = uv_buf_init(w->chunk.data(), chunkSize);
 
     uvutils::ScopedUVRequest<FSWrite> scopedReq{std::move(w)};
-    uv_fs_write(uv_default_loop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSWrite::writeCallback);
+    uv_fs_write(scopedReq->loop, &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSWrite::writeCallback);
 }
 
 int read_impl(lua_State* L, UVFile* handle)
@@ -178,7 +185,7 @@ int read_impl(lua_State* L, UVFile* handle)
     }
 
     uvutils::ScopedUVRequest<FSRead> req{L, handle};
-    uv_fs_read(uv_default_loop(), &req->req, handle->fd.value(), &req->iov, 1, -1, FSRead::readCallback);
+    uv_fs_read(req->loop, &req->req, handle->fd.value(), &req->iov, 1, -1, FSRead::readCallback);
     // Automatically releases when req goes out of scope
     return lua_yield(L, 0);
 }
@@ -197,7 +204,7 @@ int write_impl(lua_State* L, UVFile* handle, const char* toWrite, size_t numByte
     std::copy(req->toWrite.begin(), req->toWrite.begin() + chunkSize, req->chunk.begin());
     req->iov = uv_buf_init(req->chunk.data(), chunkSize);
 
-    uv_fs_write(uv_default_loop(), &req->req, handle->fd.value(), &req->iov, 1, -1, FSWrite::writeCallback);
+    uv_fs_write(req->loop, &req->req, handle->fd.value(), &req->iov, 1, -1, FSWrite::writeCallback);
 
     return lua_yield(L, 0);
 }
@@ -211,7 +218,7 @@ int close_impl(lua_State* L, UVFile* handle)
 
     uvutils::ScopedUVRequest<FSClose> req{L, handle};
     uv_fs_close(
-        uv_default_loop(),
+        req->loop,
         &req->req,
         handle->fd.value(),
         [](uv_fs_t* req)

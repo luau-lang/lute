@@ -82,7 +82,7 @@ static void onTtyRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 int read(lua_State* L)
 {
     auto handle = std::make_shared<IOHandle>();
-    handle->loop = uv_default_loop();
+    handle->loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
     handle->resumeToken = getResumeToken(L);
     handle->self = handle;
 

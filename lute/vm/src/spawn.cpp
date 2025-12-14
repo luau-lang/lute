@@ -4,6 +4,7 @@
 #include "lute/require.h"
 #include "lute/requirevfs.h"
 #include "lute/runtime.h"
+#include "lute/vm.h"
 
 #include "Luau/Require.h"
 
@@ -11,6 +12,8 @@
 #include "lualib.h"
 
 #include <memory>
+#include <utility>
+#include <vector>
 
 struct TargetFunction
 {
@@ -19,6 +22,40 @@ struct TargetFunction
 };
 
 constexpr int kTargetFunctionTag = 1;
+
+int luteopen_crypto(lua_State* L);
+int luteopen_fs(lua_State* L);
+int luteopen_io(lua_State* L);
+int luteopen_luau(lua_State* L);
+int luteopen_net(lua_State* L);
+int luteopen_process(lua_State* L);
+int luteopen_system(lua_State* L);
+int luteopen_task(lua_State* L);
+int luteopen_time(lua_State* L);
+
+static void luteopen_libs(lua_State* L)
+{
+    std::vector<std::pair<const char*, lua_CFunction>> libs = {{
+        {"@lute/crypto", luteopen_crypto},
+        {"@lute/fs", luteopen_fs},
+        {"@lute/luau", luteopen_luau},
+        {"@lute/net", luteopen_net},
+        {"@lute/process", luteopen_process},
+        {"@lute/task", luteopen_task},
+        {"@lute/vm", luteopen_vm},
+        {"@lute/system", luteopen_system},
+        {"@lute/time", luteopen_time},
+        {"@lute/io", luteopen_io},
+    }};
+
+    for (const auto& [name, func] : libs)
+    {
+        lua_pushcfunction(L, luarequire_registermodule, nullptr);
+        lua_pushstring(L, name);
+        func(L);
+        lua_call(L, 2, 0);
+    }
+}
 
 static bool copyLuauObject(lua_State* from, lua_State* to, int fromIdx)
 {
@@ -202,11 +239,16 @@ int lua_spawn(lua_State* L)
     const char* file = luaL_checkstring(L, 1);
 
     auto child = std::make_shared<Runtime>();
+    if (!child->useDedicatedUvLoop())
+        luaL_error(L, "Failed to spawn, unable to initialize dedicated uv loop");
+
+    registerSpawnedRuntime(child);
 
     setupState(
         *child,
         [](lua_State* L)
         {
+            luteopen_libs(L);
             luaopen_require(L, requireConfigInit, createChildVmRequireContext(L));
         }
     );

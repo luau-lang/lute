@@ -225,7 +225,7 @@ const std::string kStdioKindNone = "none";
 int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions opts)
 {
     auto handle = std::make_shared<ProcessHandle>();
-    handle->loop = uv_default_loop();
+    handle->loop = reinterpret_cast<uv_loop_t*>(getRuntime(L)->getUvLoop());
     handle->self = handle;
 
     uv_process_options_t options = {};

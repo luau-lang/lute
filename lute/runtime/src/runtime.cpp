@@ -7,8 +7,55 @@
 
 #include "uv.h"
 
+#include <algorithm>
 #include <assert.h>
+#include <chrono>
+#include <thread>
 #include <string>
+#include <vector>
+
+static std::mutex spawnedRuntimeMutex;
+static std::vector<std::weak_ptr<Runtime>> spawnedRuntimes;
+
+void registerSpawnedRuntime(const std::shared_ptr<Runtime>& runtime)
+{
+    std::scoped_lock lock(spawnedRuntimeMutex);
+    spawnedRuntimes.push_back(runtime);
+}
+
+static bool spawnedHasWork()
+{
+    std::scoped_lock lock(spawnedRuntimeMutex);
+
+    bool hasWork = false;
+
+    spawnedRuntimes.erase(
+        std::remove_if(
+            spawnedRuntimes.begin(),
+            spawnedRuntimes.end(),
+            [&hasWork](const std::weak_ptr<Runtime>& weak)
+            {
+                std::shared_ptr<Runtime> rt = weak.lock();
+                if (!rt)
+                    return true;
+
+                if (rt->hasWork())
+                    hasWork = true;
+
+                return false;
+            }
+        ),
+        spawnedRuntimes.end()
+    );
+
+    return hasWork;
+}
+
+void waitForSpawnedRuntimes()
+{
+    while (spawnedHasWork())
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+}
 
 static void lua_close_checked(lua_State* L)
 {
@@ -22,6 +69,7 @@ Runtime::Runtime()
 {
     stop.store(false);
     activeTokens.store(0);
+    uvLoop = uv_default_loop();
 }
 
 Runtime::~Runtime()
@@ -36,6 +84,54 @@ Runtime::~Runtime()
 
     if (runLoopThread.joinable())
         runLoopThread.join();
+
+    if (ownsUvLoop && uvLoop)
+    {
+        // Best-effort cleanup of any remaining handles so we can close the loop.
+        uv_stop(reinterpret_cast<uv_loop_t*>(uvLoop));
+
+        uv_walk(
+            reinterpret_cast<uv_loop_t*>(uvLoop),
+            [](uv_handle_t* handle, void* /*arg*/)
+            {
+                if (!uv_is_closing(handle))
+                    uv_close(handle, nullptr);
+            },
+            nullptr
+        );
+
+        // Run the loop to execute close callbacks.
+        while (uv_run(reinterpret_cast<uv_loop_t*>(uvLoop), UV_RUN_NOWAIT))
+        {
+        }
+
+        uv_loop_close(reinterpret_cast<uv_loop_t*>(uvLoop));
+        delete reinterpret_cast<uv_loop_t*>(uvLoop);
+        uvLoop = nullptr;
+    }
+}
+
+bool Runtime::useDedicatedUvLoop()
+{
+    if (ownsUvLoop)
+        return true;
+
+    uv_loop_t* loop = new uv_loop_t();
+    int rc = uv_loop_init(loop);
+    if (rc != 0)
+    {
+        delete loop;
+        return false;
+    }
+
+    uvLoop = loop;
+    ownsUvLoop = true;
+    return true;
+}
+
+uv_loop_s* Runtime::getUvLoop() const
+{
+    return uvLoop;
 }
 
 bool Runtime::hasWork()
@@ -44,12 +140,12 @@ bool Runtime::hasWork()
     // Unfortunately, we do currently have some places where we add/release
     // tokens that don't correspond to libuv activity, so for now we keep both.
     // uv_ref/unref could be used to patch tokens into the libuv loop itself.
-    return hasContinuations() || hasThreads() || activeTokens.load() != 0 || uv_loop_alive(uv_default_loop());
+    return hasContinuations() || hasThreads() || activeTokens.load() != 0 || uv_loop_alive(reinterpret_cast<uv_loop_t*>(uvLoop));
 }
 
 RuntimeStep Runtime::runOnce()
 {
-    uv_run(uv_default_loop(), UV_RUN_NOWAIT);
+    uv_run(reinterpret_cast<uv_loop_t*>(uvLoop), UV_RUN_NOWAIT);
 
     // Complete all C++ continuations
     std::vector<std::function<void()>> copy;
@@ -233,7 +329,7 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
 
 void Runtime::runInWorkQueue(std::function<void()> f)
 {
-    auto loop = uv_default_loop();
+    auto loop = reinterpret_cast<uv_loop_t*>(uvLoop);
 
     uv_work_t* work = new uv_work_t();
     work->data = new decltype(f)(std::move(f));
