@@ -534,9 +534,6 @@ bool closeServer(int serverId)
 
 int lua_serve(lua_State* L)
 {
-    Runtime* runtime = getRuntime(L);
-    uWS::Loop::get(runtime->getUvLoop());
-
     std::string hostname = "127.0.0.1";
     int port = 3000;
     bool reusePort = false;
@@ -621,6 +618,9 @@ int lua_serve(lua_State* L)
         luaL_errorL(L, "serve requires a handler function or config table");
         return 0;
     }
+
+    Runtime* runtime = getRuntime(L);
+    uWS::Loop::get(runtime->getUvLoop());
 
     int serverId = 0;
     {
