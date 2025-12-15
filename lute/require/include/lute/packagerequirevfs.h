@@ -16,6 +16,7 @@ public:
 
     NavigationStatus reset(lua_State* L, std::string_view requirerChunkname) override;
     NavigationStatus jumpToAlias(lua_State* L, std::string_view path) override;
+    NavigationStatus toAliasOverride(lua_State* L, std::string_view aliasUnprefixed) override;
     NavigationStatus toAliasFallback(lua_State* L, std::string_view aliasUnprefixed) override;
 
     NavigationStatus toParent(lua_State* L) override;

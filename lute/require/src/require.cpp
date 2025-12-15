@@ -87,6 +87,12 @@ static luarequire_NavigateResult jump_to_alias(lua_State* L, void* ctx, const ch
     return convert(reqCtx->vfs->jumpToAlias(L, path));
 }
 
+static luarequire_NavigateResult to_alias_override(lua_State* L, void* ctx, const char* alias_unprefixed)
+{
+    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+    return convert(reqCtx->vfs->toAliasOverride(L, alias_unprefixed));
+}
+
 static luarequire_NavigateResult to_alias_fallback(lua_State* L, void* ctx, const char* alias_unprefixed)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
@@ -211,6 +217,7 @@ void requireConfigInit(luarequire_Configuration* config)
     config->is_require_allowed = is_require_allowed;
     config->reset = reset;
     config->jump_to_alias = jump_to_alias;
+    config->to_alias_override = to_alias_override;
     config->to_alias_fallback = to_alias_fallback;
     config->to_parent = to_parent;
     config->to_child = to_child;

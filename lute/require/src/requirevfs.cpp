@@ -85,7 +85,7 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
     return status;
 }
 
-NavigationStatus RequireVfs::toAliasFallback(lua_State* L, std::string_view aliasUnprefixed)
+NavigationStatus RequireVfs::toAliasOverride(lua_State* L, std::string_view aliasUnprefixed)
 {
     if (aliasUnprefixed == "std")
     {
@@ -99,6 +99,11 @@ NavigationStatus RequireVfs::toAliasFallback(lua_State* L, std::string_view alia
         return NavigationStatus::Success;
     }
 
+    return NavigationStatus::NotFound;
+}
+
+NavigationStatus RequireVfs::toAliasFallback(lua_State* L, std::string_view aliasUnprefixed)
+{
     return NavigationStatus::NotFound;
 }
 

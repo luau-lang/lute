@@ -1,5 +1,7 @@
 #include "lute/packagerequirevfs.h"
 
+#include "lute/modulepath.h"
+
 #include "Luau/FileUtils.h"
 
 #include "lua.h"
@@ -62,7 +64,7 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
     return status;
 }
 
-NavigationStatus RequireVfs::toAliasFallback(lua_State* L, std::string_view aliasUnprefixed)
+NavigationStatus RequireVfs::toAliasOverride(lua_State* L, std::string_view aliasUnprefixed)
 {
     if (aliasUnprefixed == "std")
     {
@@ -76,8 +78,15 @@ NavigationStatus RequireVfs::toAliasFallback(lua_State* L, std::string_view alia
         return NavigationStatus::Success;
     }
 
-    vfsType = VFSType::Userland;
-    return userlandVfs.toAliasFallback(aliasUnprefixed);
+    return NavigationStatus::NotFound;
+}
+
+NavigationStatus RequireVfs::toAliasFallback(lua_State* L, std::string_view aliasUnprefixed)
+{
+    NavigationStatus status = userlandVfs.toAliasFallback(aliasUnprefixed);
+    if (status == NavigationStatus::Success)
+        vfsType = VFSType::Userland;
+    return status;
 }
 
 NavigationStatus RequireVfs::toParent(lua_State* L)
