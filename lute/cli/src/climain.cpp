@@ -70,7 +70,7 @@ Lint Options:
 	lute lint [options...] <paths...>
 		Runs linting rules on the specified Luau files.
 			--rules <path>          Path to a single lint rule or a directory containing multiple lint rules.
-                                    If not specified, default lint rules are used.
+			                        If not specified, default lint rules are used.
 
 General Options:
 	-h, --help    Display this usage message.
