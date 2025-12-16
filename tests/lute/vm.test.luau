@@ -6,14 +6,16 @@ local system = require("@std/system")
 
 test.suite("LuteVmSuite", function(suite)
 	suite:case("child_vm_has_access_to_builtins", function(assert)
-        local tmpdir = system.tmpdir()
-        local child_vm = path.join(tmpdir, "child_vm.luau")
-        local parent_vm = path.join(tmpdir, "parent_vm.luau")
+		local tmpdir = system.tmpdir()
+		local child_vm = path.join(tmpdir, "child_vm.luau")
+		local parent_vm = path.join(tmpdir, "parent_vm.luau")
 
-        do
-            local handle = fs.open(child_vm, "w+")
-            assert.eq(fs.exists(child_vm), true)
-            fs.write(handle, [[
+		do
+			local handle = fs.open(child_vm, "w+")
+			assert.eq(fs.exists(child_vm), true)
+			fs.write(
+				handle,
+				[[
                 local std_test_exists = require("@std/test") ~= nil
                 local std_test_consistent = require("@std/test") == require("@std/test")
                 local lute_vm_exists = require("@lute/vm") ~= nil
@@ -35,29 +37,33 @@ test.suite("LuteVmSuite", function(suite)
                 end
 
                 return exported
-            ]])
-            fs.close(handle)
-        end
+            ]]
+			)
+			fs.close(handle)
+		end
 
-        do
-            local handle = fs.open(parent_vm, "w+")
-            assert.eq(fs.exists(parent_vm), true)
-            fs.write(handle, [[
+		do
+			local handle = fs.open(parent_vm, "w+")
+			assert.eq(fs.exists(parent_vm), true)
+			fs.write(
+				handle,
+				[[
                 local vm = require("@lute/vm")
                 local result = vm.create("./child_vm")
                 assert(result.std_test_exists())
                 assert(result.std_test_consistent())
                 assert(result.lute_vm_exists())
                 assert(result.lute_vm_consistent())
-            ]])
-            fs.close(handle)
-        end
+            ]]
+			)
+			fs.close(handle)
+		end
 
-        local result = process.run({ path.format(process.execpath()), path.format(parent_vm)})
+		local result = process.run({ path.format(process.execpath()), path.format(parent_vm) })
 		assert.eq(result.exitcode, 0)
 
-        fs.remove(child_vm)
-        fs.remove(parent_vm)
+		fs.remove(child_vm)
+		fs.remove(parent_vm)
 	end)
 end)
 
