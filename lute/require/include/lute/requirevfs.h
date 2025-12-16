@@ -3,6 +3,7 @@
 #include "lute/bundlevfs.h"
 #include "lute/clivfs.h"
 #include "lute/filevfs.h"
+#include "lute/lutevfs.h"
 #include "lute/modulepath.h"
 #include "lute/require.h"
 #include "lute/stdlibvfs.h"
@@ -58,7 +59,7 @@ private:
 
     FileVfs fileVfs;
     StdLibVfs stdLibVfs;
+    LuteVfs luteVfs;
     std::optional<CliVfs> cliVfs = std::nullopt;
     std::optional<BundleVfs> bundleVfs = std::nullopt;
-    std::string lutePath;
 };
