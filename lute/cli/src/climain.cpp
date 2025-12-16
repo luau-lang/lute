@@ -57,19 +57,19 @@ Compile Options:
 Setup Options:
 	lute setup
 		Generates type definition files for the language server.
-            --with-luaurc           Defines aliases to the type definition files in the working directory's luaurc file.
+			--with-luaurc           Defines aliases to the type definition files in the working directory's luaurc file.
 
 Transform Options:
-    lute transform <transformer script> [options...] <files...>
-        Runs the specified code transformation on the provided Luau files.
-            --dry-run               Runs the transformation without actually overwriting or deleting any files.
-            --output <path>         Specifies an output file for a transformed file. Only valid when 
-                                    transforming a single file. If not specified, files are overwritten in place.
+	lute transform <transformer script> [options...] <files...>
+		Runs the specified code transformation on the provided Luau files.
+			--dry-run               Runs the transformation without actually overwriting or deleting any files.
+			--output <path>         Specifies an output file for a transformed file. Only valid when 
+			                        transforming a single file. If not specified, files are overwritten in place.
 
 Lint Options:
-    lute lint [options...] <paths...>
-        Runs linting rules on the specified Luau files.
-            --rules <path>          Path to a single lint rule or a directory containing multiple lint rules.
+	lute lint [options...] <paths...>
+		Runs linting rules on the specified Luau files.
+			--rules <path>          Path to a single lint rule or a directory containing multiple lint rules.
                                     If not specified, default lint rules are used.
 
 General Options:
