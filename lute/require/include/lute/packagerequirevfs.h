@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lute/lutevfs.h"
 #include "lute/require.h"
 #include "lute/stdlibvfs.h"
 #include "lute/userlandvfs.h"
@@ -49,7 +50,7 @@ private:
 
     Package::UserlandVfs userlandVfs;
     StdLibVfs stdLibVfs;
-    std::string lutePath;
+    LuteVfs luteVfs;
 };
 
 } // namespace Package

@@ -59,6 +59,7 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
         status = stdLibVfs.resetToPath(std::string(path));
         break;
     case VFSType::Lute:
+        status = luteVfs.resetToPath(std::string(path));
         break;
     }
     return status;
@@ -74,8 +75,7 @@ NavigationStatus RequireVfs::toAliasOverride(lua_State* L, std::string_view alia
     else if (aliasUnprefixed == "lute")
     {
         vfsType = VFSType::Lute;
-        lutePath = "@lute";
-        return NavigationStatus::Success;
+        return luteVfs.resetToPath("@lute");
     }
 
     return NavigationStatus::NotFound;
@@ -101,7 +101,8 @@ NavigationStatus RequireVfs::toParent(lua_State* L)
         status = stdLibVfs.toParent();
         break;
     case VFSType::Lute:
-        luaL_error(L, "cannot get the parent of @lute");
+        status = luteVfs.toParent();
+        break;
     }
 
     return status;
@@ -116,7 +117,7 @@ NavigationStatus RequireVfs::toChild(lua_State* L, std::string_view name)
     case VFSType::Std:
         return stdLibVfs.toChild(std::string(name));
     case VFSType::Lute:
-        luaL_error(L, "'%s' is not a lute library", std::string(name).c_str());
+        return luteVfs.toChild(std::string(name));
     }
 
     return NavigationStatus::NotFound;
@@ -131,7 +132,7 @@ bool RequireVfs::isModulePresent(lua_State* L) const
     case VFSType::Std:
         return stdLibVfs.isModulePresent();
     case VFSType::Lute:
-        luaL_error(L, "@lute is not requirable");
+        return luteVfs.isModulePresent();
     }
 
     return false;
@@ -149,6 +150,7 @@ std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) c
         contents = stdLibVfs.getContents(loadname);
         break;
     case VFSType::Lute:
+        contents = luteVfs.getContents(loadname);
         break;
     }
     return contents ? *contents : "";
@@ -166,6 +168,7 @@ std::string RequireVfs::getChunkname(lua_State* L) const
         chunkname = "@" + stdLibVfs.getIdentifier();
         break;
     case VFSType::Lute:
+        chunkname = "@" + luteVfs.getIdentifier();
         break;
     }
     return chunkname;
@@ -183,6 +186,7 @@ std::string RequireVfs::getLoadname(lua_State* L) const
         loadname = stdLibVfs.getIdentifier();
         break;
     case VFSType::Lute:
+        loadname = luteVfs.getIdentifier();
         break;
     }
     return loadname;
@@ -200,6 +204,7 @@ std::string RequireVfs::getCacheKey(lua_State* L) const
         cacheKey = stdLibVfs.getIdentifier();
         break;
     case VFSType::Lute:
+        cacheKey = luteVfs.getIdentifier();
         break;
     }
     return cacheKey;
@@ -217,6 +222,7 @@ ConfigStatus RequireVfs::getConfigStatus(lua_State* L) const
         status = stdLibVfs.getConfigStatus();
         break;
     case VFSType::Lute:
+        status = luteVfs.getConfigStatus();
         break;
     }
     return status;
@@ -234,6 +240,7 @@ std::string RequireVfs::getConfig(lua_State* L) const
         configContents = stdLibVfs.getConfig();
         break;
     case VFSType::Lute:
+        configContents = luteVfs.getConfig();
         break;
     }
     return configContents ? *configContents : "";
