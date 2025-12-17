@@ -1,5 +1,7 @@
+export type diffoperationkey = "EQUAL" | "ADD" | "DELETE"
+
 export type diffoperation = {
-	key: "EQUAL" | "ADD" | "DELETE",
+	key: diffoperationkey,
 	text: string,
 }
 

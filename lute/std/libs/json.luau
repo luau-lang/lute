@@ -278,6 +278,17 @@ local function deserializeNumber(state: DeserializerState)
 	return num
 end
 
+local function decodeSurrogatePair(high, low): string?
+	local highVal = tonumber(high, 16)
+	local lowVal = tonumber(low, 16)
+	if not highVal or not lowVal then
+		return nil -- Invalid
+	end
+	-- Calculate the actual Unicode codepoint
+	local codepoint = 0x10000 + ((highVal - 0xD800) * 0x400) + (lowVal - 0xDC00)
+	return utf8.char(codepoint)
+end
+
 local function deserializeString(state: DeserializerState): string
 	-- Must start with "
 	if currentByte(state) ~= string.byte('"') then
@@ -289,89 +300,72 @@ local function deserializeString(state: DeserializerState): string
 
 	local startPos = state.cursor
 
-	local buf = buffer.create(bufferSize)
-	local bufferPos = 0
+	while state.cursor <= #state.src do
+		local byte = currentByte(state)
 
-	local function writeByteToBuffer(byte: number, dbuf: number, dstart: number)
-		buffer.writeu8(buf, bufferPos, byte)
-		bufferPos += dbuf
-		startPos += dstart
-	end
-
-	while startPos <= #state.src do
-		local c = string.sub(state.src, startPos, startPos)
-
-		-- End of string
-		if c == '"' then
-			state.cursor = startPos + 1
-			return buffer.tostring(buf, bufferPos)
+		-- Check for unescaped control characters (0x00-0x1F)
+		if byte < 0x20 then
+			return deserializerError(state, "Unescaped control character in string")
 		end
 
-		-- Normal character
-		if c ~= "\\" then
-			local byte = string.byte(c)
+		if byte == string.byte('"') then
+			state.cursor += 1
+			local source = string.sub(state.src, startPos, state.cursor - 2)
 
-			-- No raw control chars allowed
-			if byte < string.byte(" ") then
-				return deserializerError(state, "Unescaped control character in string")
+			-- Validate escape sequences
+			-- Remove valid \\ first
+			local temp = string.gsub(source, "\\\\", "")
+
+			-- Check for invalid single-char escapes
+			if temp:match('\\[^bfnrt"\\/u]') then
+				return deserializerError(state, "Invalid escape sequence")
 			end
 
-			writeByteToBuffer(byte, 1, 1)
-		else
-			-- Escape sequence
-			local source = string.sub(state.src, startPos + 1, startPos + 1)
-
-			if source == "b" then
-				writeByteToBuffer(string.byte("\b"), 1, 2)
-			elseif source == "f" then
-				writeByteToBuffer(string.byte("\f"), 1, 2)
-			elseif source == "n" then
-				writeByteToBuffer(string.byte("\n"), 1, 2)
-			elseif source == "r" then
-				writeByteToBuffer(string.byte("\r"), 1, 2)
-			elseif source == "t" then
-				writeByteToBuffer(string.byte("\t"), 1, 2)
-			elseif source == '"' then
-				writeByteToBuffer(string.byte('"'), 1, 2)
-			elseif source == "\\" then
-				writeByteToBuffer(string.byte("\\"), 1, 2)
-			elseif source == "/" then
-				writeByteToBuffer(string.byte("/"), 1, 2)
-			elseif source == "u" then
-				-- Unicode escape: \uXXXX
-				local hex = string.sub(state.src, startPos + 2, startPos + 5)
-				if not hex:match("^[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$") then
-					return deserializerError(state, "Invalid \\u escape")
-				end
-
-				local codepoint = tonumber(hex, 16)
-				if not codepoint then
-					return deserializerError(state, "Invalid \\u escape")
-				end
-				startPos += 6 -- skip \uXXXX
-
-				-- Surrogate pair
-				if codepoint >= 0xD800 and codepoint <= 0xDBFF then
-					-- Look for \uDCxx following
-					local lo = state.src:match("^\\u([dD][cdefCDEF][0-9a-fA-F][0-9a-fA-F])", startPos)
-					if lo then
-						local lo_val = tonumber(lo, 16)
-						-- Combine surrogate halves
-						codepoint = 0x10000 + (codepoint :: number - 0xD800) * 0x400 + (lo_val :: number - 0xDC00)
-						startPos += 6
-					end
-				end
-
-				local utf8_bytes = utf8.char(codepoint)
-				buffer.writestring(buf, bufferPos, utf8_bytes)
-				bufferPos += #utf8_bytes
-			else
-				-- Invalid escape: \" already covered
-				return deserializerError(state, "Invalid escape sequence '\\" .. source .. "'")
+			-- Check that all \u escapes have exactly 4 hex digits
+			if temp:match("\\u[^0-9a-fA-F]") or temp:match("\\u%x?%x?%x?$") then
+				return deserializerError(state, "Incomplete or invalid \\u escape")
 			end
+
+			-- Handle all surrogate pairs
+			source = string.gsub(
+				source,
+				"\\u([dD][89aAbB][0-9a-fA-F][0-9a-fA-F])\\u([dD][c-fC-F][0-9a-fA-F][0-9a-fA-F])",
+				function(high, low)
+					return decodeSurrogatePair(high, low) or deserializerError(state, "Invalid unicode surrogate pair")
+				end :: any
+			)
+
+			-- Detect incomplete/invalid surrogates
+			if source:match("\\u[dD][89aAbB][0-9a-fA-F][0-9a-fA-F]") then
+				return deserializerError(state, "Incomplete surrogate pair")
+			end
+
+			-- Handle regular Unicode escapes
+			source = string.gsub(source, "\\u(%x%x%x%x)", function(code)
+				return utf8.char(tonumber(code, 16) :: number)
+			end)
+
+			source = string.gsub(source, "\\\\", "\0")
+			source = string.gsub(source, "\\b", "\b")
+			source = string.gsub(source, "\\f", "\f")
+			source = string.gsub(source, "\\n", "\n")
+			source = string.gsub(source, "\\r", "\r")
+			source = string.gsub(source, "\\t", "\t")
+			source = string.gsub(source, '\\"', '"')
+			source = string.gsub(source, "\\/", "/")
+			source = string.gsub(source, "\0", "\\")
+
+			return source
 		end
+
+		if byte == string.byte("\\") then
+			state.cursor += 1
+		end
+
+		state.cursor += 1
 	end
 
+	state.cursor = startPos
 	return deserializerError(state, "Unterminated string")
 end
 
@@ -518,7 +512,9 @@ deserialize = function(state: DeserializerState): value
 	elseif string.match(state.src, "^%[", state.cursor) then
 		return deserializeArray(state)
 	elseif string.match(state.src, "^{", state.cursor) then
-		return deserializeObject(state)
+		local obj = deserializeObject(state)
+		obj[object_key] = true
+		return obj
 	end
 
 	return deserializerError(state, `Unexpected token '{string.sub(state.src, state.cursor, state.cursor)}'`)

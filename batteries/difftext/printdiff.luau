@@ -3,6 +3,10 @@ local myersdiff = require("./myersdiff")
 local myersdiffbychar = myersdiff.myersdiffbychar
 local myersdiffbyline = myersdiff.myersdiffbyline
 local types = require("./types")
+local brightGreen = richterm.brightGreen
+local brightRed = richterm.brightRed
+local bgGreen = richterm.bgGreen
+local bgRed = richterm.bgRed
 
 type diff = types.diff
 
@@ -33,22 +37,61 @@ local function visualizeCharDiff(a: string, b: string): (string, string)
 
 	for _, op in charOps do
 		if op.key == "EQUAL" then
-			table.insert(srcVisual, richterm.brightRed(op.text))
-			table.insert(destVisual, richterm.brightGreen(op.text))
+			table.insert(srcVisual, brightRed(op.text))
+			table.insert(destVisual, brightGreen(op.text))
 		elseif op.key == "DELETE" then
-			table.insert(srcVisual, richterm.bgRed(op.text))
+			table.insert(srcVisual, bgRed(op.text))
 		elseif op.key == "ADD" then
-			table.insert(destVisual, richterm.bgGreen(op.text))
+			table.insert(destVisual, bgGreen(op.text))
 		end
 	end
 
 	return table.concat(srcVisual, ""), table.concat(destVisual, "")
 end
 
-local function printDiffByLineDetailed(a: string, b: string): string
-	local diff = myersdiffbyline(a, b)
+local function formatLineSideHeader(
+	operation: types.diffoperationkey,
+	maxNumWidth: number,
+	lineNumbers: {
+		oldLine: number?,
+		newLine: number?,
+	}
+): string
+	-- side header structure:
+	-- 	  if line numbers included:
+	-- 		ALWAYS has length maxNumWidth*2 + 4
+	-- 		the padded structure is essentialy:
+	--		{operation} {oldLine# padded to len of maxNumWidth} {newLine# padded to len = maxNumWidth}|
+
+	local oldStr = tostring(if lineNumbers then lineNumbers.oldLine else "")
+	local newStr = tostring(if lineNumbers then lineNumbers.newLine else "")
+	maxNumWidth = maxNumWidth or 1
+	if operation == "EQUAL" then
+		return string.format(`  %{maxNumWidth}s %{maxNumWidth}s| `, oldStr, newStr)
+	elseif operation == "ADD" then
+		return string.format(`+ %{maxNumWidth}s %{maxNumWidth}s| `, "", newStr)
+	elseif operation == "DELETE" then
+		return string.format(`- %{maxNumWidth}s %{maxNumWidth}s| `, oldStr, "")
+	end
+
+	error(`formatLineSideHeader called with invalid diff operation key: {operation}`)
+end
+
+local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers: boolean?): string
+	local src, dest = a:split("\n"), b:split("\n")
+	local maxNumLines = math.max(#src, #dest)
+	local maxLineNumberLen = math.floor(math.log10(maxNumLines)) + 1
+	local diff = myersdiffbyline(src, dest)
+
 	local i = 1
 	local result: { string } = {}
+	local oldLine, newLine = 1, 1
+
+	-- Helper to format line numbers
+	local function lineNums(old: number?, new: number?)
+		return { oldLine = old, newLine = new }
+	end
+
 	while i <= #diff do
 		local op = diff[i]
 
@@ -58,18 +101,54 @@ local function printDiffByLineDetailed(a: string, b: string): string
 			local pair = #deletes == 1 and #adds == 1
 			if pair then
 				local srcLine, destLine = visualizeCharDiff(deletes[1], adds[1])
-				table.insert(result, richterm.brightRed("- ") .. srcLine)
-				table.insert(result, richterm.brightGreen("+ ") .. destLine)
+				if includeLineNumbers then
+					table.insert(
+						result,
+						brightRed(formatLineSideHeader("DELETE", maxLineNumberLen, lineNums(oldLine, nil))) .. srcLine
+					)
+					table.insert(
+						result,
+						brightGreen(formatLineSideHeader("ADD", maxLineNumberLen, lineNums(nil, newLine))) .. destLine
+					)
+					oldLine, newLine = oldLine + 1, newLine + 1
+				else
+					table.insert(result, brightRed("- ") .. srcLine)
+					table.insert(result, brightGreen("+ ") .. destLine)
+				end
 			else
 				for j, deleted in deletes do
-					table.insert(result, richterm.brightRed(`- {deleted}`))
+					if includeLineNumbers then
+						table.insert(
+							result,
+							brightRed(
+								formatLineSideHeader("DELETE", maxLineNumberLen, lineNums(oldLine, nil)) .. deleted
+							)
+						)
+						oldLine += 1
+					else
+						table.insert(result, brightRed("- " .. deleted))
+					end
 				end
 				for j, added in adds do
-					table.insert(result, richterm.brightGreen(`+ {added}`))
+					if includeLineNumbers then
+						table.insert(
+							result,
+							brightGreen(formatLineSideHeader("ADD", maxLineNumberLen, lineNums(nil, newLine)) .. added)
+						)
+						newLine += 1
+					else
+						table.insert(result, brightGreen("+ " .. added))
+					end
 				end
 			end
 		else -- EQUAL
-			table.insert(result, op.text)
+			table.insert(
+				result,
+				if includeLineNumbers
+					then formatLineSideHeader("EQUAL", maxLineNumberLen, lineNums(oldLine, newLine)) .. op.text
+					else "  " .. op.text
+			)
+			oldLine, newLine = oldLine + 1, newLine + 1
 			i += 1
 		end
 	end
@@ -81,24 +160,57 @@ local function prettydiff(
 	b: string,
 	options: {
 		detailed: boolean?,
+		includeLineNumbers: boolean?,
 	}?
 ): string
-	if options then
-		if options.detailed then
-			return printDiffByLineDetailed(a, b)
-		end
+	if options and options.detailed then
+		return printDiffByLineDetailed(a, b, options.includeLineNumbers)
 	end
 
 	local result = {} :: { string }
-	local diff = myersdiffbyline(a, b)
-	for i, op in diff do
-		table.insert(
-			result,
-			if op.key == "ADD"
-				then richterm.brightGreen(`+ {op.text}`)
-				elseif op.key == "DELETE" then richterm.brightRed(`- {op.text}`)
-				else `{op.text}`
-		)
+	local src, dest = a:split("\n"), b:split("\n")
+	local diff = myersdiffbyline(src, dest)
+	if options and options.includeLineNumbers then
+		-- Helper to format line number tables so we don't get too verbose
+		local function lineNums(old: number?, new: number?)
+			return { oldLine = old, newLine = new }
+		end
+
+		local maxNumLines = math.max(#src, #dest)
+		local maxLineNumberLen = math.floor(math.log10(maxNumLines)) + 1
+		local oldLine, newLine = 1, 1
+
+		for i, op in diff do
+			if op.key == "ADD" then
+				table.insert(
+					result,
+					brightGreen(formatLineSideHeader(op.key, maxLineNumberLen, lineNums(nil, newLine)) .. op.text)
+				)
+				newLine += 1
+			elseif op.key == "DELETE" then
+				table.insert(
+					result,
+					brightRed(formatLineSideHeader(op.key, maxLineNumberLen, lineNums(oldLine, nil)) .. op.text)
+				)
+				oldLine += 1
+			else -- EQUAL
+				table.insert(
+					result,
+					formatLineSideHeader(op.key, maxLineNumberLen, lineNums(oldLine, newLine)) .. op.text
+				)
+				oldLine, newLine = oldLine + 1, newLine + 1
+			end
+		end
+	else
+		for i, op in diff do
+			if op.key == "ADD" then
+				table.insert(result, brightGreen("+ " .. op.text))
+			elseif op.key == "DELETE" then
+				table.insert(result, brightRed("- " .. op.text))
+			else -- EQUAL
+				table.insert(result, "  " .. op.text)
+			end
+		end
 	end
 	return table.concat(result, "\n")
 end

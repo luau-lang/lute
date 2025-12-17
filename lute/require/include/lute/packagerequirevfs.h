@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lute/lutevfs.h"
 #include "lute/require.h"
 #include "lute/stdlibvfs.h"
 #include "lute/userlandvfs.h"
@@ -16,6 +17,7 @@ public:
 
     NavigationStatus reset(lua_State* L, std::string_view requirerChunkname) override;
     NavigationStatus jumpToAlias(lua_State* L, std::string_view path) override;
+    NavigationStatus toAliasOverride(lua_State* L, std::string_view aliasUnprefixed) override;
     NavigationStatus toAliasFallback(lua_State* L, std::string_view aliasUnprefixed) override;
 
     NavigationStatus toParent(lua_State* L) override;
@@ -48,7 +50,7 @@ private:
 
     Package::UserlandVfs userlandVfs;
     StdLibVfs stdLibVfs;
-    std::string lutePath;
+    LuteVfs luteVfs;
 };
 
 } // namespace Package
