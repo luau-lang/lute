@@ -62,6 +62,27 @@ test.suite("TableExt", function(suite)
 		assert.tableeq(b, { 4, 5, 6 })
 		assert.tableeq(c, { 6, 5, 4 })
 	end)
+
+	suite:case("toset", function(assert)
+		local a = { 1, 2, 3, 2, 1 }
+		local setA = tableext.toset(a)
+		assert.eq(setA[1], true)
+		assert.eq(setA[2], true)
+		assert.eq(setA[3], true)
+		assert.eq(setA[4], nil)
+		assert.eq(setA[5], nil)
+		assert.eq(#tableext.keys(setA), 3)
+		assert.neq(#tableext.keys(setA), #a)
+
+		local b = { "a", "b", "c", "a" }
+		local setB = tableext.toset(b)
+		assert.eq(setB["a"], true)
+		assert.eq(setB["b"], true)
+		assert.eq(setB["c"], true)
+		assert.eq(setB["d"], nil)
+		assert.eq(#tableext.keys(setB), 3)
+		assert.neq(#tableext.keys(setB), #b)
+	end)
 end)
 
 test.run()
