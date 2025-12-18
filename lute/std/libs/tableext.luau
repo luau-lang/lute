@@ -47,7 +47,7 @@ function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 end
 
 function tableext.toset<T>(tbl: { T }): { [T]: true }
-	local set: { [T]: true } = {}
+	local set = {}
 	for _, v in tbl do
 		set[v] = true
 	end
