@@ -27,16 +27,6 @@ function tableext.filter<K, V>(table: { [K]: V }, predicate: (V) -> boolean): { 
 	return new
 end
 
-function tableext.extend<T>(tbl: { T }, ...: { T })
-	local extensions = table.pack(...)
-	extensions.n = nil :: any
-	for _, extension in extensions do
-		for _, entry in extension do
-			table.insert(tbl, entry)
-		end
-	end
-end
-
 function tableext.combine<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
 	local tables = table.pack(...)
 	tables.n = nil :: any
@@ -56,6 +46,24 @@ function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 	return keys
 end
 
+function tableext.toset<T>(tbl: { T }): { [T]: true }
+	local set: { [T]: true } = {}
+	for _, v in tbl do
+		set[v] = true
+	end
+	return set
+end
+
+function tableext.extend<T>(tbl: { T }, ...: { T })
+	local extensions = table.pack(...)
+	extensions.n = nil :: any
+	for _, extension in extensions do
+		for _, entry in extension do
+			table.insert(tbl, entry)
+		end
+	end
+end
+
 function tableext.reverse<T>(tbl: { T }, inplace: boolean?)
 	local new = if inplace then tbl else {}
 	local i, j = 1, #tbl
@@ -65,14 +73,6 @@ function tableext.reverse<T>(tbl: { T }, inplace: boolean?)
 		j -= 1
 	end
 	return new
-end
-
-function tableext.toset<T>(tbl: { T }): { [T]: true }
-	local set: { [T]: true } = {}
-	for _, v in tbl do
-		set[v] = true
-	end
-	return set
 end
 
 return table.freeze(tableext)
