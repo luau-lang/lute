@@ -67,4 +67,12 @@ function tableext.reverse<T>(tbl: { T }, inplace: boolean?)
 	return new
 end
 
+function tableext.toset<T>(tbl: { T }): { [T]: boolean }
+	local set = {}
+	for _, v in tbl do
+		set[v] = true
+	end
+	return set
+end
+
 return table.freeze(tableext)
