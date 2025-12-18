@@ -63,6 +63,7 @@ export type AstLocal = {
 
 export type AstExprGroup = {
 	location: span,
+	kind: "expr",
 	tag: "group",
 	openparens: Token<"(">,
 	expression: AstExpr,
