@@ -42,17 +42,26 @@ end
  the lute repo, which sucks. Intercepting @std/test requires works correctly and ensures that the correct @std/test instance gets populated
 ]]
 --
-local function lutetestrequire(req: string)
+
+local testRequireBytecode = luau.compile([[
+	local req = ...
+
 	if req == "@std/test" then
+		local test = require("@std/test")
 		return table.freeze({ case = test.case, suite = test.suite, run = function() end })
 	end
+	
 	return require(req) :: any
-end
+]])
 
 local function loadtests(testfiles: { path.path })
-	local fenv: { [unknown]: unknown } = setmetatable({ ["require"] = lutetestrequire }, { __index = _G })
 	-- Load all test files first
 	for _, p in testfiles do
+		local fenv: { [unknown]: unknown } = setmetatable(
+			{ ["require"] = luau.load(testRequireBytecode, path.format(p)) },
+			{ __index = _G }
+		)
+
 		local success, err = pcall(luau.loadbypath, p, fenv)
 
 		if not success then
