@@ -32,7 +32,7 @@ local function getCases(casesDir: path.path)
 end
 
 local transformsDir = "./tests/std/syntax/e2eCases"
-test.suite("E2E Query Transforms", function(suite: any)
+test.suite("E2E Query Transforms", function(suite)
 	local casesWalker = fs.walk(transformsDir, { recursive = true })
 	local curFile = casesWalker()
 
@@ -40,13 +40,13 @@ test.suite("E2E Query Transforms", function(suite: any)
 		if path.basename(curFile) == "init.luau" then
 			local transformDir = path.dirname(curFile)
 			local transformName = path.basename(transformDir)
-			local transormFile = path.format(curFile)
+			local transformFile = path.format(curFile)
 
-			suite:case(transformName, function(assert)
+			suite:case(transformName :: string, function(assert)
 				local casesPath = path.join(transformDir, "cases")
 				local cases = getCases(casesPath)
 				for _, case in cases do
-					local result, expected = formattedTransform(path.join(casesPath, case.name), transormFile)
+					local result, expected = formattedTransform(path.join(casesPath, case.name), transformFile)
 
 					local outputDiff = difftext.prettydiff(result, expected, {
 						detailed = true,
