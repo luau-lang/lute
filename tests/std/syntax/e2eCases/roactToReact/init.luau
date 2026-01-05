@@ -8,17 +8,20 @@ local queryUtils = require("@std/syntax/utils")
 
 local function mount(block: luau.AstStatBlock): types.replacements
 	-- select all statements with mount calls
-	local mountStatements = query.findallfromroot(block, function(node): luau.AstStatLocal? | luau.AstStatAssign?
-		if not (queryUtils.isStatLocal(node) or queryUtils.isStatAssign(node)) then
-			return nil
+	local mountStatements = query.findallfromroot(
+		block,
+		function(node: luau.AstNode): luau.AstStatLocal? | luau.AstStatAssign?
+			if not (queryUtils.isStatLocal(node) or queryUtils.isStatAssign(node)) then
+				return nil
+			end
+
+			local isMount = query.findallfromroot(node, queryUtils.isExprCall):exists(function(n: luau.AstExprCall)
+				return n.func.tag == "indexname" and n.func.index.text == "mount"
+			end)
+
+			return if isMount then node :: luau.AstStatLocal | luau.AstStatAssign else nil
 		end
-
-		local isMount = query.findallfromroot(node, queryUtils.isExprCall):exists(function(n)
-			return n.func.tag == "indexname" and n.func.index.text == "mount"
-		end)
-
-		return if isMount then node else nil
-	end)
+	)
 
 	if #mountStatements.nodes == 0 then
 		return {}
@@ -166,7 +169,7 @@ local function transform(ctx)
 	-- convert calls
 	local callRepl: types.replacements = query
 		.findallfromroot(ast, queryUtils.isExprCall)
-		:filter(function(node: luau.AstExprCall)
+		:filter(function(node)
 			local func = node.func
 			if func.tag ~= "indexname" then
 				return false
@@ -175,7 +178,8 @@ local function transform(ctx)
 				return false
 			end
 
-			local needsMigration = func.expression.token.text == "Roact" and callMigrations[func.index.text] ~= nil
+			local needsMigration = (func.expression :: luau.AstExprLocal).token.text == "Roact"
+				and callMigrations[func.index.text] ~= nil
 			-- specifically catch Roact.Portal
 			local firstCallArg = node.arguments[1].node
 			local isRoactPortal = firstCallArg.tag == "indexname" and firstCallArg.index.text == "Portal"
@@ -183,7 +187,7 @@ local function transform(ctx)
 			return needsMigration
 		end)
 		:replace(function(node)
-			local funcName = node.func.index.text
+			local funcName = (node.func :: luau.AstExprIndexName).index.text
 			local firstCallArg = node.arguments[1].node
 			local isRoactPortal = firstCallArg.tag == "indexname" and firstCallArg.index.text == "Portal"
 
