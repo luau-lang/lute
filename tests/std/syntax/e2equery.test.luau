@@ -31,7 +31,9 @@ local function getCases(casesDir: path.path)
 	end)
 end
 
-local transformsDir = "./tests/std/syntax/e2eCases"
+local testPath = debug.info(1, "s")
+local transformsDir = path.format(path.join(path.dirname(testPath), "e2eCases"))
+
 test.suite("E2E Query Transforms", function(suite)
 	local casesWalker = fs.walk(transformsDir, { recursive = true })
 	local curFile = casesWalker()
