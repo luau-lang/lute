@@ -71,5 +71,3 @@ test.suite("LuteTestCommand", function(suite)
 		assert.neq(result.stdout:find("Passed: 1", 1, true), nil)
 	end)
 end)
-
-test.run()

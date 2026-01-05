@@ -45,5 +45,3 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(resolvedPath, expected)
 	end)
 end)
-
-test.run()

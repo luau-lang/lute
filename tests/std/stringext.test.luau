@@ -36,5 +36,3 @@ test.suite("StringExt", function(suite)
 		assert.eq(stringext.count("hello world", "[hw]"), 2) -- count h and w
 	end)
 end)
-
-test.run()

@@ -3,6 +3,7 @@
 #include "lute/bundlevfs.h"
 #include "lute/clivfs.h"
 #include "lute/filevfs.h"
+#include "lute/lutevfs.h"
 #include "lute/modulepath.h"
 #include "lute/require.h"
 #include "lute/stdlibvfs.h"
@@ -23,6 +24,7 @@ public:
 
     NavigationStatus reset(lua_State* L, std::string_view requirerChunkname) override;
     NavigationStatus jumpToAlias(lua_State* L, std::string_view path) override;
+    NavigationStatus toAliasOverride(lua_State* L, std::string_view aliasUnprefixed) override;
     NavigationStatus toAliasFallback(lua_State* L, std::string_view aliasUnprefixed) override;
 
     NavigationStatus toParent(lua_State* L) override;
@@ -57,7 +59,7 @@ private:
 
     FileVfs fileVfs;
     StdLibVfs stdLibVfs;
+    LuteVfs luteVfs;
     std::optional<CliVfs> cliVfs = std::nullopt;
     std::optional<BundleVfs> bundleVfs = std::nullopt;
-    std::string lutePath;
 };

@@ -5,5 +5,3 @@ test.suite("ExampleSuite", function(suite)
 		assert.eq(2 + 2, 4)
 	end)
 end)
-
-test.run()

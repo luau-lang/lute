@@ -93,5 +93,3 @@ test.suite("deque", function(suite)
 		assert.eq(deq:peekback(), 2)
 	end)
 end)
-
-test.run()

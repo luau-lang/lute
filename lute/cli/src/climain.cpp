@@ -39,8 +39,8 @@ Commands:
 	check           Type check Luau files.
 	compile         Compile a Luau script into a standalone executable.
 	setup           Generate type definition files for the language server.
-    transform       Run a specified code transformation on specified Luau files.
-    lint            Run linting rules on specified Luau files.
+	transform       Run a specified code transformation on specified Luau files.
+	lint            Run linting rules on specified Luau files.
 
 Run Options (when using 'run' or no command):
 	lute [run] <script.luau> [args...]
@@ -57,20 +57,20 @@ Compile Options:
 Setup Options:
 	lute setup
 		Generates type definition files for the language server.
-            --with-luaurc           Defines aliases to the type definition files in the working directory's luaurc file.
+			--with-luaurc           Defines aliases to the type definition files in the working directory's luaurc file.
 
 Transform Options:
-    lute transform <transformer script> [options...] <files...>
-        Runs the specified code transformation on the provided Luau files.
-            --dry-run               Runs the transformation without actually overwriting or deleting any files.
-            --output <path>         Specifies an output file for a transformed file. Only valid when 
-                                    transforming a single file. If not specified, files are overwritten in place.
+	lute transform <transformer script> [options...] <files...>
+		Runs the specified code transformation on the provided Luau files.
+			--dry-run               Runs the transformation without actually overwriting or deleting any files.
+			--output <path>         Specifies an output file for a transformed file. Only valid when 
+			                        transforming a single file. If not specified, files are overwritten in place.
 
 Lint Options:
-    lute lint [options...] <paths...>
-        Runs linting rules on the specified Luau files.
-            --rules <path>          Path to a single lint rule or a directory containing multiple lint rules.
-                                    If not specified, default lint rules are used.
+	lute lint [options...] <paths...>
+		Runs linting rules on the specified Luau files.
+			--rules <path>          Path to a single lint rule or a directory containing multiple lint rules.
+			                        If not specified, default lint rules are used.
 
 General Options:
 	-h, --help    Display this usage message.
@@ -244,18 +244,22 @@ static std::pair<bool, std::string> getValidPath(std::string filePath)
     if (filePath.find('.') != std::string::npos)
         return {false, res};
 
-    std::string fallbackPath = joinPaths(".lute", filePath);
-    size_t fallbackSize = fallbackPath.size();
+    const std::array<std::string, 4> fallbackPaths = {
+        joinPaths(".lute", filePath + ".lua"),
+        joinPaths(".lute", filePath + ".luau"),
+        joinPaths(joinPaths(".lute", filePath), "init.lua"),
+        joinPaths(joinPaths(".lute", filePath), "init.luau"),
+    };
 
-    for (const auto& ext : {".luau", ".lua"})
+    for (std::optional<std::string> currentPath = getCurrentWorkingDirectory(); currentPath; currentPath = getParentPath(*currentPath))
     {
-        fallbackPath.resize(fallbackSize);
-        fallbackPath += ext;
-
-        if (isFile(fallbackPath))
-            return {true, fallbackPath};
+        for (const std::string& fallbackPath : fallbackPaths)
+        {
+            const std::string commandPath = joinPaths(*currentPath, fallbackPath);
+            if (isFile(commandPath))
+                return {true, commandPath};
+        }
     }
-
 
     return {false, res};
 }

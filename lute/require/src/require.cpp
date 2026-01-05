@@ -1,5 +1,6 @@
 #include "lute/require.h"
 
+#include "lute/lutevfs.h"
 #include "lute/modulepath.h"
 #include "lute/options.h"
 
@@ -87,6 +88,12 @@ static luarequire_NavigateResult jump_to_alias(lua_State* L, void* ctx, const ch
     return convert(reqCtx->vfs->jumpToAlias(L, path));
 }
 
+static luarequire_NavigateResult to_alias_override(lua_State* L, void* ctx, const char* alias_unprefixed)
+{
+    RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
+    return convert(reqCtx->vfs->toAliasOverride(L, alias_unprefixed));
+}
+
 static luarequire_NavigateResult to_alias_fallback(lua_State* L, void* ctx, const char* alias_unprefixed)
 {
     RequireCtx* reqCtx = static_cast<RequireCtx*>(ctx);
@@ -143,6 +150,16 @@ static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, 
 
 static int load(lua_State* L, void* ctx, const char* path, const char* chunkname, const char* loadname)
 {
+    // Lute modules are built-in and don't need to be compiled or executed.
+    if (strncmp(loadname, "@lute/", 6) == 0)
+    {
+        const lua_CFunction* func = kLuteModules.find(loadname);
+        LUAU_ASSERT(func);
+        lua_pushcfunction(L, *func, nullptr);
+        lua_call(L, 0, 1);
+        return 1;
+    }
+
     // module needs to run in a new thread, isolated from the rest
     // note: we create ML on main thread so that it doesn't inherit environment of L
     lua_State* GL = lua_mainthread(L);
@@ -211,6 +228,7 @@ void requireConfigInit(luarequire_Configuration* config)
     config->is_require_allowed = is_require_allowed;
     config->reset = reset;
     config->jump_to_alias = jump_to_alias;
+    config->to_alias_override = to_alias_override;
     config->to_alias_fallback = to_alias_fallback;
     config->to_parent = to_parent;
     config->to_child = to_child;

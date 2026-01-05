@@ -1,8 +1,8 @@
-local net = require("@std/net")
+local net = require("@lute/net")
 
 local server = net.serve({
 	port = 8080,
-	handler = function(req: net.receivedrequest): net.serverresponse
+	handler = function(req: net.ReceivedRequest): net.ServerResponse
 		local headers = ""
 		for key, value in req.headers do
 			headers ..= `\n  {key}: {value}`

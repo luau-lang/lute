@@ -264,5 +264,3 @@ test.suite("AST Query", function(suite)
 		assert.eq(hasYToken, false)
 	end)
 end)
-
-test.run()

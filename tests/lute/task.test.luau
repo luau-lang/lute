@@ -23,5 +23,3 @@ test.suite("LuteTaskSuite", function(suite)
 		assert.eq(endTime - startTime >= 0.5, true)
 	end)
 end)
-
-test.run()

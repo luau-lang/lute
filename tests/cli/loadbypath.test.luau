@@ -56,5 +56,3 @@ test.suite("Lute CLI Run", function(suite)
 		end
 	end)
 end)
-
-test.run()
