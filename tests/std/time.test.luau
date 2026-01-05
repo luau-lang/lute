@@ -155,5 +155,3 @@ test.suite("TimeSuite", function(suite)
 		assert.eq(tostring(d), "0.123000456")
 	end)
 end)
-
-test.run()

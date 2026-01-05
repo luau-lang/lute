@@ -121,5 +121,3 @@ test.suite("CryptoRuntimeTests", function(suite)
 		end)
 	end)
 end)
-
-test.run()

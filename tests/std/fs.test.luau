@@ -261,5 +261,3 @@ test.suite("FsSuite", function(suite)
 		fs.removedirectory(baseDir, { recursive = true })
 	end)
 end)
-
-test.run()

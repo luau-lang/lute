@@ -244,5 +244,3 @@ test.suite("AST Query", function(suite)
 		assert.eq(evenOnly[3], 4)
 	end)
 end)
-
-test.run()

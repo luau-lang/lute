@@ -135,5 +135,3 @@ test.suite("ProcessSuite", function(suite)
 		end, "process options must be a table")
 	end)
 end)
-
-test.run()

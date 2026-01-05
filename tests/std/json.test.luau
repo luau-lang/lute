@@ -85,5 +85,3 @@ test.suite("JSONParsingTestSuite", function(suite)
 		end
 	end)
 end)
-
-test.run()

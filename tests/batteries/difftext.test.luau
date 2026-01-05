@@ -491,5 +491,3 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[103], composeDetailedAddition("modified", {}, "    101| "))
 	end)
 end)
-
-test.run()

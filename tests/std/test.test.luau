@@ -338,5 +338,3 @@ test.run()
 		)
 	end)
 end)
-
-test.run()
