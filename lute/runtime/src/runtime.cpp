@@ -67,7 +67,7 @@ RuntimeStep Runtime::runOnce()
         return StepEmpty{};
 
     auto next = std::move(runningThreads.front());
-    runningThreads.erase(runningThreads.begin());
+    runningThreads.pop_front();
 
     next.ref->push(GL);
     lua_State* L = lua_tothread(GL, -1);
