@@ -76,6 +76,8 @@ test.suite("TableExt", function(suite)
 		assert.eq(setSize, 3)
 		assert.neq(setSize, #a)
 
+		-- Sanity check: sets created using an array of numbers don't break from having "gaps" between the number keys.
+
 		local foundKeys: { number } = {}
 		for key, value in setA do
 			assert.eq(value, true)
