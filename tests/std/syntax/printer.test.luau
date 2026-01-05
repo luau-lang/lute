@@ -894,5 +894,3 @@ function foo() return end
 		end, assert)
 	end)
 end)
-
-test.run()

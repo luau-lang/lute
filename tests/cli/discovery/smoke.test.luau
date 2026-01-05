@@ -11,5 +11,3 @@ test.suite("SmokeSuite", function(suite)
 end)
 
 test.case("Passing", function(assert) end)
-
-test.run()

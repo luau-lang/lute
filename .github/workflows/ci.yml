@@ -53,18 +53,7 @@ jobs:
         run: rm .luaurc && mv .luaurc.ci .luaurc
 
       - name: Run Luau Tests (POSIX)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: find tests -name "*.test.luau" | xargs -I {} "${{ steps.build_lute.outputs.exe_path }}" run {}
-
-      - name: Run Luau Tests (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: |
-          set _errorFlag=0
-          for /r tests %%f in (*.test.luau) do "${{ steps.build_lute.outputs.exe_path }}" run "%%f" || (set _errorFlag=1)
-          if %_errorFlag% neq 0 exit /b 1
-        
+        run: ${{ steps.build_lute.outputs.exe_path }} test
 
   run-lute-cxx-unittests:
     runs-on: ${{ matrix.os }}

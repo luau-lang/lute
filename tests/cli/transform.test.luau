@@ -147,5 +147,3 @@ test.suite("lute transform", function(suite)
 		fs.remove(outputPath)
 	end)
 end)
-
-test.run()

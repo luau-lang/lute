@@ -38,5 +38,3 @@ test.suite("lute-run", function(suite)
 		assert.strnotcontains(result.stdout, "Hello world")
 	end)
 end)
-
-test.run()

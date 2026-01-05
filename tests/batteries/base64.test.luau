@@ -72,5 +72,3 @@ test.suite("Base64", function(suite)
 		end)
 	end
 end)
-
-test.run()

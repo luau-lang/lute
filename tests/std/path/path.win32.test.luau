@@ -817,5 +817,3 @@ test.suite("PathWin32RelativeSuite", function(suite)
 		assert.eq(result.parts[2], "file.txt")
 	end)
 end)
-
-test.run()

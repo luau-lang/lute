@@ -66,5 +66,3 @@ test.suite("LuteVmSuite", function(suite)
 		fs.remove(parent_vm)
 	end)
 end)
-
-test.run()

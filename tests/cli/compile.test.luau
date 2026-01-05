@@ -48,5 +48,3 @@ test.suite("Lute CLI Compile", function(suite)
 		fs.remove(compileePath)
 	end)
 end)
-
-test.run()

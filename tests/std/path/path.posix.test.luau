@@ -588,5 +588,3 @@ test.suite("PathPosixRelativeSuite", function(suite)
 		end, "Cannot compute relative path between absolute and relative paths")
 	end)
 end)
-
-test.run()

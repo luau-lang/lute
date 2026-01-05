@@ -63,5 +63,3 @@ test.suite("TableExt", function(suite)
 		assert.tableeq(c, { 6, 5, 4 })
 	end)
 end)
-
-test.run()

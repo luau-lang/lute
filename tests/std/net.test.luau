@@ -22,5 +22,3 @@ test.suite("NetTestSuite", function(suite)
 		server.close()
 	end)
 end)
-
-test.run()

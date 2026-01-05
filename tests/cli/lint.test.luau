@@ -1069,5 +1069,3 @@ violator.luau:5:12-17 ──
 		fs.remove(violatorPath)
 	end)
 end)
-
-test.run()

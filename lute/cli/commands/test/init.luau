@@ -32,28 +32,10 @@ EXAMPLES:
 ]])
 end
 
---[[
- Any of the tests we load will use the instance of std/test initialized in this module (cli/commands/test/init.luau)
- Tests that run via lute test don't need to explicitly call test.run, so we'll pass an empty run function so that we don't
- execute any tests, while giving us time to remove unecessary run() calls (doing this because this doesn't support running tests just yet)
- The reason we have to inject a custom require here is because each `loadbypath` on a test file will return the "@std/test" instance provided by
- the EmbeddedStdVFS. However, running `lute test` from the root of the lute repo will use a distinct @std/test instance, which is provided by the .luaurc when running
- this file, which means the test environment won't get populated. The consequence of this is that `lute test` will work perfectly everywhere except inside of
- the lute repo, which sucks. Intercepting @std/test requires works correctly and ensures that the correct @std/test instance gets populated
-]]
---
-local function lutetestrequire(req: string)
-	if req == "@std/test" then
-		return table.freeze({ case = test.case, suite = test.suite, run = function() end })
-	end
-	return require(req) :: any
-end
-
 local function loadtests(testfiles: { path.path })
-	local fenv: { [unknown]: unknown } = setmetatable({ ["require"] = lutetestrequire }, { __index = _G })
 	-- Load all test files first
 	for _, p in testfiles do
-		local success, err = pcall(luau.loadbypath, p, fenv)
+		local success, err = pcall(luau.loadbypath, p, nil)
 
 		if not success then
 			print(`Error loading {path.format(p)}: {err}`)
