@@ -3,6 +3,7 @@
 #include "lute/ref.h"
 
 #include "Luau/Variant.h"
+#include "Luau/VecDeque.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -80,7 +81,7 @@ struct Runtime
     std::mutex dataCopyMutex;
     std::unique_ptr<lua_State, void (*)(lua_State*)> dataCopy;
 
-    std::vector<ThreadToContinue> runningThreads;
+    Luau::VecDeque<ThreadToContinue> runningThreads;
 
 private:
     std::mutex continuationMutex;
