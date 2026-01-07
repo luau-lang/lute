@@ -1107,7 +1107,7 @@ return {
 		)
 
 		local result = process.run({ lutePath, "lint", "-r", tableItemRule, violatorPath })
-		assert.eq(result.exitcode, 0)
+		assert.eq(result.exitcode, 1)
 		assert.strnotcontains(result.stdout, `Error linting file '{violatorPath}'`)
 
 		fs.remove(violatorPath)
