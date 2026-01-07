@@ -148,11 +148,9 @@ local function violationIsSuppressed(
 	-- We want to find the lint directive with the tightest scope that applies to this violation
 	local function nodeIsSuppressed(node: syntax.AstNode): boolean
 		if not node.location then -- not all nodes have location field (i.e ExprTableItem); continue recursing if we encounter these
-			print(`visiting {node.kind}, {node.tag}`)
 			return true
 		end
 
-		print(violation.location, violation.message)
 		if syntax.span.subsumes(violation.location, node.location) then
 			-- The first node which is fully contained within a violation has the tightest relevant directive
 			local directives = maybeParseDirectives(node, directiveCache)
