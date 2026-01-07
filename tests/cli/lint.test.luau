@@ -1068,4 +1068,51 @@ violator.luau:5:12-17 ──
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("lute lint does not error on table item violations", function(assert)
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		local tableItemRule = path.format(path.join(tmpDir, "tableItemRule.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local tbl = {
+	a = 1,
+	[b] = 2,
+	3,
+}
+]]
+		)
+
+		fs.writestringtofile(
+			tableItemRule,
+			[[
+local query = require("@std/syntax/query")
+local syntaxUtils = require("@std/syntax/utils")
+
+return {
+    name = "tableItem",
+    lint = function(ast, sourcepath)
+		return query.findallfromroot(ast, syntaxUtils.isExprTableItem):maptoarray(function(n)
+			return {
+				severity = "warn",
+				message = `linting table field at {n.value.location.beginline}, {n.value.location.endline}`,
+				lintname = "repro",
+				location = n.value.location,
+				sourcepath = sourcepath
+			}
+		end)
+	end
+}
+]]
+		)
+
+		local result = process.run({ lutePath, "lint", "-r", tableItemRule, violatorPath })
+		assert.eq(result.exitcode, 0)
+		assert.strnotcontains(result.stdout, `Error linting file '{violatorPath}'`)
+
+		fs.remove(violatorPath)
+		fs.remove(tableItemRule)
+	end)
 end)
+
+test.run()
