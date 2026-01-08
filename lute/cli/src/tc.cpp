@@ -22,8 +22,6 @@ declare fs: {
     close: (file) -> (),
     read: (file) -> string,
     write: (file, string) -> (),
-    readfiletostring : (string) -> string,
-    writestringtofile : (string, string) -> (),
  -- is this right? I feel like we want a promise type here
     readasync : (string) -> string,
 }
@@ -186,6 +184,7 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
     LuteFileResolver fileResolver;
     Luau::LuteConfigResolver configResolver(mode);
     Luau::Frontend frontend(&fileResolver, &configResolver, frontendOptions);
+    frontend.setLuauSolverMode(Luau::SolverMode::New);
 
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
     Luau::LoadDefinitionFileResult loadResult =
