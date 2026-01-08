@@ -22,8 +22,6 @@ declare fs: {
     close: (file) -> (),
     read: (file) -> string,
     write: (file, string) -> (),
- -- is this right? I feel like we want a promise type here
-    readasync : (string) -> string,
 }
 
 -- globals
