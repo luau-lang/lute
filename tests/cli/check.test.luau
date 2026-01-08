@@ -12,6 +12,5 @@ test.suite("LuteTypeCheck", function(suite)
 
 		local result = process.run({ lutePath, "check", testFilePath })
 		assert.eq(result.exitcode, 0)
-		fs.remove(testFilePath)
 	end)
 end)
