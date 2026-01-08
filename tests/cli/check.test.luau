@@ -28,7 +28,7 @@ add(vec2.new(0, 0), vec2.new(1,1))
 ]]
 		)
 
-		local result = process.run({lutePath, "check", testFilePath})
+		local result = process.run({ lutePath, "check", testFilePath })
 		assert.eq(result.exitcode, 0)
 		fs.remove(testFilePath)
 	end)
