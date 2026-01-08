@@ -8,27 +8,6 @@
 #include "Luau/FileUtils.h"
 #include "Luau/Frontend.h"
 
-static const std::string kLuteDefinitions = R"LUTE_TYPES(
--- Net api
-declare net: {
-    get: (string) -> string,
-    getAsync: (string) -> string,
-}
--- fs api
-declare class file end
-declare fs: {
- -- probably not the correct sig
-    open: (string, "r" | "w" | "a" | "r+" | "w+") -> file,
-    close: (file) -> (),
-    read: (file) -> string,
-    write: (file, string) -> (),
-}
-
--- globals
-declare function spawn(path: string): any
-
-)LUTE_TYPES";
-
 struct LuteFileResolver : Luau::LuteModuleResolver
 {
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
@@ -185,9 +164,6 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
     frontend.setLuauSolverMode(Luau::SolverMode::New);
 
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
-    Luau::LoadDefinitionFileResult loadResult =
-        frontend.loadDefinitionFile(frontend.globals, frontend.globals.globalScope, kLuteDefinitions, "@luau", false, false);
-    LUAU_ASSERT(loadResult.success);
     Luau::freeze(frontend.globals.globalTypes);
 
     for (const std::string& path : sourceFiles)

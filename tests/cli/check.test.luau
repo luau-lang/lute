@@ -7,7 +7,7 @@ local test = require("@std/test")
 local lutePath = path.format(process.execpath())
 local tmpDir = system.tmpdir()
 
-test.suite("lute check", function(suite)
+test.suite("LuteTypeCheck", function(suite)
 	suite:case("uses new solver", function(assert)
 		local testFilePath = path.format(path.join(tmpDir, "check_new_solver.luau"))
 		fs.writestringtofile(
