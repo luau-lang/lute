@@ -49,7 +49,23 @@ bool Runtime::hasWork()
 
 RuntimeStep Runtime::runOnce()
 {
+    printf(
+        "(before) uv_loop_alive(%s), has continuations: %s | threads: %lu | active tokens: %d\n",
+        uv_loop_alive(uv_default_loop()) ? "true" : "false",
+        hasContinuations() ? "true" : "false",
+        runningThreads.size(),
+        activeTokens.load()
+    );
+    
     uv_run(uv_default_loop(), UV_RUN_ONCE);
+    
+    printf(
+        "(after)  uv_loop_alive(%s), has continuations: %s | threads: %lu | active tokens: %d\n",
+        uv_loop_alive(uv_default_loop()) ? "true" : "false",
+        hasContinuations() ? "true" : "false",
+        runningThreads.size(),
+        activeTokens.load()
+    );
 
     // Complete all C++ continuations
     std::vector<std::function<void()>> copy;
@@ -129,6 +145,8 @@ bool Runtime::runToCompletion()
             continue;
         }
     };
+
+    printf("> Runtime::runToCompletion() finished\n");
 
     return true;
 }
