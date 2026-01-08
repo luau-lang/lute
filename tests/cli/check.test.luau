@@ -8,8 +8,9 @@ local lutePath = path.format(process.execpath())
 local tmpDir = system.tmpdir()
 
 test.suite("LuteTypeCheck", function(suite)
-	suite:case("uses new solver", function(assert)
+	suite:case("UsesNewSolver", function(assert)
 		local testFilePath = path.format(path.join(tmpDir, "check_new_solver.luau"))
+		-- This file should fail the old solver
 		fs.writestringtofile(
 			testFilePath,
 			[[
