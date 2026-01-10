@@ -26,6 +26,11 @@ test.suite("cli/lib/files", function(suite)
 		local shouldNotIgnorePath = path.join(testPath, "readme.luau")
 		fs.writestringtofile(shouldNotIgnorePath, "")
 
+		local shouldNotIgnoreDirectory = path.join(testPath, "lua")
+		fs.createdirectory(shouldNotIgnoreDirectory)
+		local shouldNotIgnoreNestedPath = path.join(shouldNotIgnoreDirectory, "readme.luau")
+		fs.writestringtofile(shouldNotIgnoreNestedPath, "")
+
 		-- Do
 		local results = files.getSourceFiles({ path.format(testPath) })
 
@@ -36,6 +41,7 @@ test.suite("cli/lib/files", function(suite)
 		end
 		assert.eq(resultPaths[path.format(shouldIgnorePath)], nil)
 		assert.eq(resultPaths[path.format(shouldNotIgnorePath)], true)
+		assert.eq(resultPaths[path.format(shouldNotIgnoreNestedPath)], true)
 
 		-- Teardown
 		fs.removedirectory(testPath, { recursive = true })
@@ -265,3 +271,5 @@ test.suite("cli/lib/files", function(suite)
 		fs.removedirectory(testPath, { recursive = true })
 	end)
 end)
+
+test.run()
