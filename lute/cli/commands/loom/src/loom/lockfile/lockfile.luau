@@ -1,5 +1,3 @@
-local toml = require("../../extern/toml")
-
 -- export type LockFileDependency = {
 -- 	name: string,
 -- 	version: string?,
@@ -21,11 +19,4 @@ export type LockFile = {
 	package: { LockFilePackage },
 }
 
-function parse(content: string): LockFile
-	local lockFile = toml.deserialize(content) :: any
-	return lockFile :: LockFile
-end
-
-return {
-	parse = parse,
-}
+return {}
