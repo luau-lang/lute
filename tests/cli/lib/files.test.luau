@@ -272,4 +272,3 @@ test.suite("cli/lib/files", function(suite)
 	end)
 end)
 
-test.run()
