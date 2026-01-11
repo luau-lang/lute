@@ -271,4 +271,3 @@ test.suite("cli/lib/files", function(suite)
 		fs.removedirectory(testPath, { recursive = true })
 	end)
 end)
-
