@@ -1214,5 +1214,3 @@ test.suite("parse types", function(suite)
 		assert.eq(variadicType.type.tag, "reference")
 	end)
 end)
-
-test.run()
