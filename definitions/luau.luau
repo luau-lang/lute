@@ -158,9 +158,16 @@ export type AstExprAnonymousFunction = {
 }
 
 -- helper types for items contained in an AstExprTable, not actually AstExprs themselves
-export type AstExprTableItemList = { kind: "list", value: AstExpr, separator: Token<"," | ";">?, istableitem: true }
+export type AstExprTableItemList = {
+	location: span,
+	kind: "list",
+	value: AstExpr,
+	separator: Token<"," | ";">?,
+	istableitem: true,
+}
 
 export type AstExprTableItemRecord = {
+	location: span,
 	kind: "record",
 	key: Token<string>,
 	equals: Token<"=">,
@@ -170,6 +177,7 @@ export type AstExprTableItemRecord = {
 }
 
 export type AstExprTableItemGeneral = {
+	location: span,
 	kind: "general",
 	indexeropen: Token<"[">,
 	key: AstExpr,

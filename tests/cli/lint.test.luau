@@ -1068,4 +1068,26 @@ violator.luau:5:12-17 ──
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("lute lint ignore (table item)", function(assert)
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local y = {
+    -- lute-lint-ignore(divide_by_zero)
+    x = 3 / 0
+}
+
+local z = 5 / 0
+]]
+		)
+
+		local result = process.run({ lutePath, "lint", violatorPath })
+		assert.eq(result.exitcode, 1)
+		assert.strnotcontains(result.stdout, `Error linting file '{violatorPath}'`)
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+
+		fs.remove(violatorPath)
+	end)
 end)
