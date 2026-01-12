@@ -206,12 +206,12 @@ local function lintString(
 	inputFilePath: pathLib.path?
 ): { types.LintViolation }
 	if VERBOSE then
-		print(`Parsing input {if inputFilePath then `file {inputFilePath}` else "string"}`)
+		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
 	local ast = syntax.parseblock(source)
 
 	if VERBOSE then
-		print(`Parsing global lint ignores in input {if inputFilePath then `file {inputFilePath}` else "string"}`)
+		print(`Parsing global lint ignores in input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
 	local globalIgnores = parseGlobalIgnores(triviaUtils.leftmosttrivia(ast))
 

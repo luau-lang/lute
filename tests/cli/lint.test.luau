@@ -46,7 +46,7 @@ test.suite("lute lint", function(suite)
 		local result = process.run({ lutePath, "lint", "-r", "a_rule.luau" })
 
 		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stdout, "Error: No input files specified.")
+		assert.strcontains(result.stdout, "Error: No input files or string input specified.")
 	end)
 
 	suite:case("lute lint error code 0 with no violations", function(assert)
@@ -1084,10 +1084,10 @@ b = a
 
 		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 		local expected = [[
-input:3:1-4:6 ──
+   ┌── input:1:1-2:6 ──
    │
- 3 │ ╭ a = b
- 4 │ │ b = a
+ 1 │ ╭ a = b
+ 2 │ │ b = a
    │ ╰─────^
    │
 ]]
@@ -1134,28 +1134,25 @@ input:3:1-4:6 ──
 		-- Check
 		assert.eq(result.exitcode, 0)
 
-		local expected = [[
-{
-    "items": [
-        {
-            "items": [
-                {
-                    "message": "Division by zero detected.", 
-                    "source": "lute lint", 
-                    "code": "divide_by_zero", 
-                    "severity": 2, 
-                    "range": {
-                        "start": {
-                            "character": 10, 
-                            "line": 0
-                        }, 
-                        "end": {
-                            "character": 15, 
-                            "line": 0
-                        }
-                    }
-                }
-            ],]]
+		local expected = [=[
+[
+    {
+        "message": "Division by zero detected.", 
+        "source": "lute lint", 
+        "code": "divide_by_zero", 
+        "severity": 2, 
+        "range": {
+            "start": {
+                "character": 10, 
+                "line": 0
+            }, 
+            "end": {
+                "character": 15, 
+                "line": 0
+            }
+        }
+    }
+]]=]
 		assert.strcontains(result.stdout, expected)
 	end)
 
