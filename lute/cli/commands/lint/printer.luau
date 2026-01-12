@@ -11,7 +11,7 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 	print(`{lint.severity}[{lint.lintname}]: {lint.message}\n`)
 
 	local location = lint.location
-	local filepath = path.format(lint.sourcepath)
+	local filepath = if lint.sourcepath then path.format(lint.sourcepath) else "input"
 
 	if location.beginline == location.endline then
 		local gutterSize = math.floor(math.log10(location.endline)) + 3 -- + 2 for padding around line number
@@ -77,7 +77,7 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 	end
 end
 
-local function printLints(lints: { types.LintViolation }, sourceContent: string): ()
+function printerLib.printLintsWithSource(lints: { types.LintViolation }, sourceContent: string): ()
 	local sourceLines = sourceContent:split("\n")
 
 	for _, lint in lints do
@@ -85,8 +85,8 @@ local function printLints(lints: { types.LintViolation }, sourceContent: string)
 	end
 end
 
-function printerLib.printLints(lints: { types.LintViolation }, sourcePath: path.path): ()
-	printLints(lints, fs.readfiletostring(sourcePath))
+function printerLib.printLintsWithPath(lints: { types.LintViolation }, sourcePath: path.path): ()
+	printerLib.printLintsWithSource(lints, fs.readfiletostring(sourcePath))
 end
 
 return table.freeze(printerLib)
