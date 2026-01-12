@@ -462,10 +462,6 @@ struct AstSerialize : public Luau::AstVisitor
 
         lua_rawcheckstack(L, 2);
 
-        // Compute end position: after separator if present, otherwise at value end
-        Luau::Position endPosition = cstNode->separator
-            ? Luau::Position{cstNode->separatorPosition->line, cstNode->separatorPosition->column + 1} // +1 accounts for separator length
-            : item.value->location.end;
 
         if (item.kind == Luau::AstExprTable::Item::List)
         {
@@ -476,7 +472,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_pushboolean(L, 1);
             lua_setfield(L, -2, "istableitem");
 
-            withLocation(Luau::Location{item.value->location.begin, endPosition});
+            withLocation(Luau::Location{item.value->location.begin, item.value->location.end});
 
             visit(item.value);
             lua_setfield(L, -2, "value");
@@ -490,7 +486,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_pushboolean(L, 1);
             lua_setfield(L, -2, "istableitem");
 
-            withLocation(Luau::Location{item.key->location.begin, endPosition});
+            withLocation(Luau::Location{item.key->location.begin, item.value->location.end});
 
             const auto& value = item.key->as<Luau::AstExprConstantString>()->value;
             serializeToken(item.key->location.begin, std::string(value.data, value.size).data());
@@ -513,7 +509,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "istableitem");
 
             LUAU_ASSERT(cstNode->indexerOpenPosition);
-            withLocation(Luau::Location{*cstNode->indexerOpenPosition, endPosition});
+            withLocation(Luau::Location{*cstNode->indexerOpenPosition, item.value->location.end});
 
             serializeToken(*cstNode->indexerOpenPosition, "[");
             lua_setfield(L, -2, "indexeropen");
