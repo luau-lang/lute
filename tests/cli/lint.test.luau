@@ -1069,6 +1069,96 @@ violator.luau:5:12-17 ──
 		fs.remove(violatorPath)
 	end)
 
+	suite:case("lute lint string input", function(assert)
+		local inputString = [[
+a = b
+b = a
+]]
+
+		-- Do
+		-- Run the linter on string input
+		local result = process.run({ lutePath, "lint", "-s", inputString })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		local expected = [[
+input:3:1-4:6 ──
+   │
+ 3 │ ╭ a = b
+ 4 │ │ b = a
+   │ ╰─────^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+	end)
+
+	suite:case("lute lint string input verbose", function(assert)
+		local inputString = "local x = 1 / 0"
+
+		-- Do
+		-- Run the linter on string input with verbose flag
+		local result = process.run({ lutePath, "lint", "-v", "-s", inputString })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(result.stdout, "Using default lint rules.")
+		assert.strcontains(result.stdout, "Parsing input string")
+		assert.strcontains(result.stdout, "Parsing global lint ignores in input string")
+		assert.strcontains(result.stdout, "Applying lint rules")
+		assert.strcontains(result.stdout, "Printing violations from string input")
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+	end)
+
+	suite:case("lute lint string input with no violations", function(assert)
+		local inputString = "local x = 1 + 2"
+
+		-- Do
+		-- Run the linter on string input
+		local result = process.run({ lutePath, "lint", "-v", "-s", inputString })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+		assert.strcontains(result.stdout, "No lint violations found.")
+	end)
+
+	suite:case("lute lint string input json output", function(assert)
+		local inputString = "local x = 1 / 0"
+
+		-- Do
+		-- Run the linter on string input with json flag
+		local result = process.run({ lutePath, "lint", "-j", "-s", inputString })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		local expected = [[
+{
+    "items": [
+        {
+            "items": [
+                {
+                    "message": "Division by zero detected.", 
+                    "source": "lute lint", 
+                    "code": "divide_by_zero", 
+                    "severity": 2, 
+                    "range": {
+                        "start": {
+                            "character": 10, 
+                            "line": 0
+                        }, 
+                        "end": {
+                            "character": 15, 
+                            "line": 0
+                        }
+                    }
+                }
+            ],]]
+		assert.strcontains(result.stdout, expected)
+	end)
+
 	suite:case("lute lint ignore (table item)", function(assert)
 		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
 		fs.writestringtofile(

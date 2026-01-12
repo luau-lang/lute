@@ -25,7 +25,7 @@ local function tag(t: lintTypes.tag): number
 	end
 end
 
-local function diagnostic(lint: lintTypes.LintViolation): lspTypes.Diagnostic
+function lsp.diagnostic(lint: lintTypes.LintViolation): lspTypes.Diagnostic
 	return table.freeze({
 		range = table.freeze({
 			start = table.freeze({
@@ -39,7 +39,7 @@ local function diagnostic(lint: lintTypes.LintViolation): lspTypes.Diagnostic
 		}),
 		severity = severity(lint.severity),
 		code = lint.lintname,
-		source = "lute lint", -- LUAUFIX: Errors because this isn't inferred as a singleton
+		source = "lute lint" :: "lute lint", -- LUAUFIX: Errors because this isn't inferred as a singleton
 		message = lint.message,
 		tags = if lint.tags then table.freeze(tableext.map(lint.tags, tag)) else nil,
 	})
@@ -51,7 +51,7 @@ local function workspaceDocumentDiagnosticReport(
 ): lspTypes.WorkspaceDocumentDiagnosticReport
 	local report = { items = {}, uri = pathLib.format(path) }
 	for _, violation in violations do
-		table.insert(report.items, diagnostic(violation))
+		table.insert(report.items, lsp.diagnostic(violation))
 	end
 	return table.freeze(report)
 end

@@ -9,12 +9,12 @@ export type LintViolation = {
 	read location: syntax.span,
 	read message: string,
 	read severity: severity,
-	read sourcepath: path.path,
+	read sourcepath: path.path?,
 	read tags: { tag }?,
 } -- TODO: add suggested fix
 
 export type LintRule = {
-	read lint: (ast: syntax.AstStatBlock, sourcepath: path.path) -> { LintViolation },
+	read lint: (ast: syntax.AstStatBlock, sourcepath: path.path?) -> { LintViolation },
 	read name: string,
 }
 
