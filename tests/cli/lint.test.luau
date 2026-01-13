@@ -180,6 +180,10 @@ violator.luau:1:1-2:6 ──
 ]]
 		assert.strcontains(result.stdout, expected)
 
+		expected = "Suggested fix: a, b = b, a"
+
+		assert.strcontains(result.stdout, expected)
+
 		expected = [[
 violator.luau:6:1-7:6 ──
    │
@@ -188,6 +192,10 @@ violator.luau:6:1-7:6 ──
    │ ╰─────^
    │
 ]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = "Suggested fix: x, y = y, x"
+
 		assert.strcontains(result.stdout, expected)
 
 		expected = [[
@@ -200,6 +208,10 @@ violator.luau:10:1-11:10 ──
 ]]
 		assert.strcontains(result.stdout, expected)
 
+		expected = "Suggested fix: t.a, t.b = t.b, t.a"
+
+		assert.strcontains(result.stdout, expected)
+
 		expected = [[
 violator.luau:14:2-15:17 ──
     │
@@ -207,7 +219,11 @@ violator.luau:14:2-15:17 ──
  15 │ │     t["b"] = t["a"]
     │ ╰───────────────────^
     │
-]] -- todo: address tab shenanigans
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = 'Suggested fix: t["a"], t["b"] = t["b"], t["a"]'
+
 		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
