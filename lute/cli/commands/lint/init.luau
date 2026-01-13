@@ -31,6 +31,8 @@ OPTIONS:
 						  as individual lint rules. If unspecified, the default lint rules are used.
   -j, --json              Output lint violations in JSON format matching the LSP diagnostic spec.
   -s, --string-input	  Lint the provided string input instead of reading from files.
+  --auto-fix			  Automatically apply fixes for lint violations that provide a suggested fix.
+						  Assumes that suggested fixes do not overlap.
 
 PATHS:
   Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
@@ -244,18 +246,98 @@ local function lintString(
 	return violations
 end
 
-local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule }): { types.LintViolation }
+type fix = {
+	location: syntax.span,
+	replacement: string,
+}
+
+local function applySuggestedFixes(source: string, fixes: { fix }): string
+	local lines = source:split("\n")
+
+	-- Sort fixes by starting location descending to avoid messing up locations of earlier fixes
+	table.sort(fixes, function(a: fix, b: fix)
+		return not (a.location < b.location)
+	end)
+
+	for _, fix in fixes do
+		local beginLine = fix.location.beginline
+		local endLine = fix.location.endline
+		local beginColumn = fix.location.begincolumn
+		local endColumn = fix.location.endcolumn
+
+		if beginLine == endLine then
+			-- Single-line fix
+			local line = lines[beginLine]
+			lines[beginLine] = line:sub(1, beginColumn - 1) .. fix.replacement .. line:sub(endColumn)
+		else
+			-- Multi-line fix
+			local firstLine = lines[beginLine]
+			local lastLine = lines[endLine]
+
+			lines[beginLine] = firstLine:sub(1, beginColumn - 1) .. fix.replacement .. lastLine:sub(endColumn)
+
+			-- Remove the lines that were replaced
+			for i = beginLine + 1, endLine do
+				lines[i] = nil -- this is cheaper than doing table.remove, but we need to handle the resulting holes later
+			end
+		end
+	end
+
+	local newLines: { string } = {}
+	for _, line in lines do -- we rely on the assumption that we'll see the entries in the same order they were created in the array
+		table.insert(newLines, line)
+	end
+
+	return table.concat(newLines, "\n")
+end
+
+local function lintFile(
+	inputFilePath: pathLib.path,
+	lintRules: { types.LintRule },
+	autofixEnabled: boolean
+): { types.LintViolation }
 	if VERBOSE then
 		print(`Reading input file '{inputFilePath}'`)
 	end
 	local fileContent = fs.readfiletostring(inputFilePath)
 
-	return lintString(fileContent, lintRules, inputFilePath)
+	local violations = lintString(fileContent, lintRules, inputFilePath)
+
+	if not autofixEnabled then
+		return violations
+	end
+
+	local hasSuggestedFixes = tableext.any(violations, function(violation)
+		return violation.suggestedfix ~= nil
+	end)
+
+	if not hasSuggestedFixes then
+		return violations
+	end
+
+	if VERBOSE then
+		print(`Applying suggested fixes to file '{inputFilePath}'`)
+	end
+
+	local fixes: { fix } = {}
+	for _, violation in violations do
+		if violation.suggestedfix ~= nil then
+			local fixLocation = violation.suggestedfix.location or violation.location
+			table.insert(fixes, { location = fixLocation, replacement = violation.suggestedfix.fix })
+		end
+	end
+
+	local newContent = applySuggestedFixes(fileContent, fixes)
+
+	fs.writestringtofile(inputFilePath, newContent)
+
+	return lintString(newContent, lintRules, inputFilePath)
 end
 
 local function lintPaths(
 	inputFilePaths: { string },
-	lintRules: { types.LintRule }
+	lintRules: { types.LintRule },
+	autofixEnabled: boolean
 ): { [pathLib.path]: { types.LintViolation } }
 	if VERBOSE then
 		print("Filtering input files by gitignore")
@@ -271,7 +353,7 @@ local function lintPaths(
 		while curr ~= nil do
 			local inputFilePath = pathLib.parse(curr)
 
-			local success, err = pcall(lintFile, inputFilePath, lintRules)
+			local success, err = pcall(lintFile, inputFilePath, lintRules, autofixEnabled)
 			if success then
 				-- Violations are returned as the second return value from pcall
 				allViolations[inputFilePath] = err
@@ -297,6 +379,11 @@ local function main(...: string)
 		"string-input",
 		"option",
 		{ help = "Lint the provided string input instead of reading from files", aliases = { "s" } }
+	)
+	args:add(
+		"auto-fix",
+		"flag",
+		{ help = "Automatically apply fixes for lint violations that provide a suggested fix" }
 	)
 
 	args:parse({ ... })
@@ -330,6 +417,10 @@ local function main(...: string)
 	end
 
 	if stringInput ~= nil then
+		if args:has("auto-fix") then
+			print("Auto-fix has no effect on string input.")
+		end
+
 		local violations = lintString(stringInput, lintRules)
 
 		if args:has("json") then
@@ -351,7 +442,12 @@ local function main(...: string)
 			process.exit(0)
 		end
 	else
-		local allViolations = lintPaths(inputFiles :: { string }, lintRules) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+		local autofixEnabled = args:has("auto-fix")
+		if autofixEnabled and VERBOSE then
+			print("Auto-fix is enabled.")
+		end
+
+		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
