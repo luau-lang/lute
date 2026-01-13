@@ -1,7 +1,9 @@
 local lintTypes = require("../types")
 local path = require("@std/path")
 local query = require("@std/syntax/query")
+local stringext = require("@std/stringext")
 local syntax = require("@std/syntax")
+local printer = require("@std/syntax/printer")
 local utils = require("@std/syntax/utils")
 
 local name = "almost_swapped"
@@ -57,7 +59,7 @@ end
 
 -- Report instances of attempted swaps like:
 -- a = b; b = a
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintTypes.LintViolation }
+local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
 	local violations = {}
 
 	local nodes = query.findallfromroot(ast, utils.isStatBlock).nodes
@@ -78,7 +80,11 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintType
 			local nextVar, nextVal = nextStat.variables[1].node, nextStat.values[1].node
 
 			if compFuncs.refExprsSame(currVar, nextVal) and compFuncs.refExprsSame(nextVar, currVal) then
-				table.insert(violations, { -- LUAUFIX: severity isn't inferred as a singleton, so table.insert is mad
+				local currVarStr = stringext.trim(printer.printnode(currVar))
+				local currValStr = stringext.trim(printer.printnode(currVal))
+				local suggestedFix = `{currVarStr}, {currValStr} = {currValStr}, {currVarStr}`
+
+				table.insert(violations, {
 					lintname = name,
 					location = syntax.span.create({
 						beginline = currStat.location.beginline,
@@ -87,8 +93,11 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintType
 						endcolumn = nextStat.location.endcolumn,
 					}),
 					message = message,
-					severity = "warning",
+					severity = "warning" :: "warning", -- LUAUFIX: cast needed because severity isn't inferred as a singleton
 					sourcepath = sourcepath,
+					suggestedfix = {
+						fix = suggestedFix,
+					},
 				})
 			end
 		end

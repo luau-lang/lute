@@ -13,7 +13,7 @@ local triviaUtils = require("@std/syntax/utils/trivia")
 local types = require("@self/types")
 local visitor = require("@std/syntax/visitor")
 
-local DEFAULT_RULES = { "almost_swapped", "divide_by_zero" }
+local DEFAULT_RULES = { "almost_swapped", "divide_by_zero", "parenthesized_conditions" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 local VERBOSE = false
 
@@ -30,6 +30,7 @@ OPTIONS:
 						  modules exporting lint rules, while all other .luau files will be treated 
 						  as individual lint rules. If unspecified, the default lint rules are used.
   -j, --json              Output lint violations in JSON format matching the LSP diagnostic spec.
+  -s, --string-input	  Lint the provided string input instead of reading from files.
 
 PATHS:
   Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
@@ -199,19 +200,18 @@ local function parseGlobalIgnores(trivia: { syntax.Trivia }): { [string]: true }
 	return globalIgnores
 end
 
-local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule }): { types.LintViolation }
+local function lintString(
+	source: string,
+	lintRules: { types.LintRule },
+	inputFilePath: pathLib.path?
+): { types.LintViolation }
 	if VERBOSE then
-		print(`Reading input file '{inputFilePath}'`)
+		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
-	local fileContent = fs.readfiletostring(inputFilePath)
+	local ast = syntax.parseblock(source)
 
 	if VERBOSE then
-		print(`Parsing input file '{inputFilePath}'`)
-	end
-	local ast = syntax.parseblock(fileContent)
-
-	if VERBOSE then
-		print(`Parsing global lint ignores in '{inputFilePath}'`)
+		print(`Parsing global lint ignores in input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
 	local globalIgnores = parseGlobalIgnores(triviaUtils.leftmosttrivia(ast))
 
@@ -244,52 +244,27 @@ local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule
 	return violations
 end
 
-local function main(...: string)
-	local args = cli.parser()
-
-	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
-	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
-	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
-	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
-	-- TODO: ignore blobs
-
-	args:parse({ ... })
-
-	if args:has("help") then
-		printHelp()
-		return
+local function lintFile(inputFilePath: pathLib.path, lintRules: { types.LintRule }): { types.LintViolation }
+	if VERBOSE then
+		print(`Reading input file '{inputFilePath}'`)
 	end
+	local fileContent = fs.readfiletostring(inputFilePath)
 
-	VERBOSE = args:has("verbose")
+	return lintString(fileContent, lintRules, inputFilePath)
+end
 
-	local inputFiles = args:forwarded()
-	if inputFiles == nil or #inputFiles == 0 then
-		print("Error: No input files specified.\n\n" .. USAGE .. "\nUse --help for more information.")
-		process.exit(1)
-	end
-
+local function lintPaths(
+	inputFilePaths: { string },
+	lintRules: { types.LintRule }
+): { [pathLib.path]: { types.LintViolation } }
 	if VERBOSE then
 		print("Filtering input files by gitignore")
 	end
-	local inputFilePaths = files.getSourceFiles(inputFiles, VERBOSE)
-
-	local lintRules: { types.LintRule }
-	local rulePath = args:get("rules")
-	if rulePath == nil then
-		if VERBOSE then
-			print("Using default lint rules.")
-		end
-		lintRules = loadDefaultRules()
-	else
-		if VERBOSE then
-			print(`Loading lint rule(s) from '{rulePath}'`)
-		end
-		lintRules = loadLintRules(rulePath)
-	end
+	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
 
 	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
 
-	for _, inputPath in inputFilePaths do
+	for _, inputPath in inputFiles do
 		local walker = fs.walk(inputPath, { recursive = true })
 
 		local curr = walker()
@@ -308,20 +283,94 @@ local function main(...: string)
 		end
 	end
 
-	if args:has("json") then
-		print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
+	return allViolations
+end
+
+local function main(...: string)
+	local args = cli.parser()
+
+	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
+	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
+	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
+	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
+	args:add(
+		"string-input",
+		"option",
+		{ help = "Lint the provided string input instead of reading from files", aliases = { "s" } }
+	)
+
+	args:parse({ ... })
+
+	if args:has("help") then
+		printHelp()
+		return
+	end
+
+	VERBOSE = args:has("verbose")
+
+	local inputFiles = args:forwarded()
+	local stringInput = args:get("string-input")
+	if (inputFiles == nil or #inputFiles == 0) and not stringInput then
+		print("Error: No input files or string input specified.\n\n" .. USAGE .. "\nUse --help for more information.")
+		process.exit(1)
+	end
+
+	local lintRules: { types.LintRule }
+	local rulePath = args:get("rules")
+	if rulePath == nil then
+		if VERBOSE then
+			print("Using default lint rules.")
+		end
+		lintRules = loadDefaultRules()
 	else
 		if VERBOSE then
-			print(`Printing violations from {#allViolations} files\n`)
+			print(`Loading lint rule(s) from '{rulePath}'`)
 		end
-		local violationsFound = false
-		for sourcePath, violations in allViolations do
-			if #violations > 0 then
-				violationsFound = true
-				printer.printLints(violations, sourcePath)
+		lintRules = loadLintRules(rulePath)
+	end
+
+	if stringInput ~= nil then
+		local violations = lintString(stringInput, lintRules)
+
+		if args:has("json") then
+			local diagnostics = tableext.map(violations, lsp.diagnostic)
+			print(json.serialize(diagnostics :: json.array, true))
+		elseif #violations > 0 then
+			if VERBOSE then
+				print(`Printing violations from string input\n`)
 			end
+
+			printer.printLintsWithSource(violations, stringInput)
+
+			process.exit(1)
+		else
+			if VERBOSE then
+				print("No lint violations found.")
+			end
+
+			process.exit(0)
 		end
-		process.exit(if violationsFound then 1 else 0)
+	else
+		local allViolations = lintPaths(inputFiles :: { string }, lintRules) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+
+		if args:has("json") then
+			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
+		else
+			if VERBOSE then
+				print(`Printing violations from {#allViolations} files\n`)
+			end
+
+			local violationsFound = false
+
+			for sourcePath, violations in allViolations do
+				if #violations > 0 then
+					violationsFound = true
+					printer.printLintsWithPath(violations, sourcePath)
+				end
+			end
+
+			process.exit(if violationsFound then 1 else 0)
+		end
 	end
 end
 

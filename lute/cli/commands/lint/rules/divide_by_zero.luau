@@ -7,7 +7,7 @@ local utils = require("@std/syntax/utils")
 local name = "divide_by_zero"
 local message = "Division by zero detected."
 
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintTypes.LintViolation }
+local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
 	return query
 		.findallfromroot(ast, utils.isExprBinary)
 		:filter(function(bin)
@@ -19,7 +19,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintType
 		:maptoarray(
 			function(
 				n: syntax.AstExprBinary
-			): lintTypes.LintViolation -- LUAUFIX: Bidiretional inference of generics should let us not need this annotation
+			): lintTypes.LintViolation -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
 				return {
 					lintname = name,
 					location = n.location,

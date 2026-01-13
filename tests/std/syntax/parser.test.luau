@@ -499,6 +499,33 @@ test.suite("parseExpr", function(suite)
 		assert.eq(expr.operator.text, "::")
 		assert.eq(expr.annotation.tag, "reference")
 	end)
+
+	-- table items serialized with location field
+	suite:case("ExprTableItem serialized with location field", function(assert)
+		local tableExpr = parser.parseexpr([[
+{
+1,
+foo = bar,
+[2] = baz 
+}
+		]])
+		assert.eq(tableExpr.tag, "table")
+		assert.eq(tableExpr.kind, "expr")
+		tableExpr = tableExpr :: syntax.AstExprTable
+		assert.eq(#tableExpr.entries, 3)
+		assert.eq(tableExpr.entries[1].location.beginline, 2)
+		assert.eq(tableExpr.entries[1].location.begincolumn, 1)
+		assert.eq(tableExpr.entries[1].location.endline, 2)
+		assert.eq(tableExpr.entries[1].location.endcolumn, 2)
+		assert.eq(tableExpr.entries[2].location.beginline, 3)
+		assert.eq(tableExpr.entries[2].location.begincolumn, 1)
+		assert.eq(tableExpr.entries[2].location.endline, 3)
+		assert.eq(tableExpr.entries[2].location.endcolumn, 10)
+		assert.eq(tableExpr.entries[3].location.beginline, 4)
+		assert.eq(tableExpr.entries[3].location.begincolumn, 1)
+		assert.eq(tableExpr.entries[3].location.endline, 4)
+		assert.eq(tableExpr.entries[3].location.endcolumn, 10)
+	end)
 end)
 
 local function checkIsBlock(node: any, assert: asserts.asserts)
