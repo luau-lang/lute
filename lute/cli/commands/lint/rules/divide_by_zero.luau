@@ -19,7 +19,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 		:maptoarray(
 			function(
 				n: syntax.AstExprBinary
-			): lintTypes.LintViolation -- LUAUFIX: Bidiretional inference of generics should let us not need this annotation
+			): lintTypes.LintViolation -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
 				return {
 					lintname = name,
 					location = n.location,
