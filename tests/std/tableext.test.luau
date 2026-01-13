@@ -109,6 +109,12 @@ test.suite("TableExt", function(suite)
 			return v > 5
 		end)
 		assert.eq(hasGreaterThanFive, false)
+
+		a = {}
+		local anyInEmpty = tableext.any(a, function(v: number)
+			return true
+		end)
+		assert.eq(anyInEmpty, false)
 	end)
 
 	suite:case("all", function(assert)
@@ -122,5 +128,11 @@ test.suite("TableExt", function(suite)
 			return v < 8
 		end)
 		assert.eq(allLessThanEight, false)
+
+		a = {}
+		local allInEmpty = tableext.all(a, function(v: number)
+			return false
+		end)
+		assert.eq(allInEmpty, true)
 	end)
 end)
