@@ -7,8 +7,10 @@ local test = require("@std/test")
 local lutePath = path.format(process.execpath())
 local tmpDir = system.tmpdir()
 local rulesDir = path.format(path.join(".", "lints"))
-local almostSwappedExample = path.format(path.join("lute", "cli", "commands", "lint", "rules", "almost_swapped.luau"))
-local divideByZeroExample = path.format(path.join("lute", "cli", "commands", "lint", "rules", "divide_by_zero.luau"))
+local almostSwappedRule = path.format(path.join("lute", "cli", "commands", "lint", "rules", "almost_swapped.luau"))
+local divideByZeroRule = path.format(path.join("lute", "cli", "commands", "lint", "rules", "divide_by_zero.luau"))
+local parenthesizedConditionsRule =
+	path.format(path.join("lute", "cli", "commands", "lint", "rules", "parenthesized_conditions.luau"))
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 
@@ -117,7 +119,7 @@ local x = 1 / 0
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -164,7 +166,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", almostSwappedExample, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", almostSwappedRule, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -582,7 +584,7 @@ local z = 1 / 0
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -630,7 +632,7 @@ local z = 1 / 0
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -676,7 +678,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -713,7 +715,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -750,7 +752,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -788,7 +790,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroExample, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -1191,6 +1193,103 @@ local z = 5 / 0
 		assert.strnotcontains(result.stdout, `Error linting file '{violatorPath}'`)
 		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
 
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("parenthesized_conditions", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+if (3 > 0) then
+	print("Hello, world!")
+elseif (false) then
+	print("This won't print.")
+end
+
+local x = if (2 < 1) then 10 elseif (true) then 3 else 20
+
+while ("hello" == "world") do
+	print("Nope.")
+end
+
+repeat
+	print("Still nope.")
+until (5 == 5)
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", parenthesizedConditionsRule, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
+			nil,
+			6
+		)
+
+		local expected = [[
+violator.luau:1:4-11 ──
+   │
+ 1 │ if (3 > 0) then
+   │    ^^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:3:8-15 ──
+   │
+ 3 │ elseif (false) then
+   │        ^^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:7:14-21 ──
+   │
+ 7 │ local x = if (2 < 1) then 10 elseif (true) then 3 else 20
+   │              ^^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:7:37-43 ──
+   │
+ 7 │ local x = if (2 < 1) then 10 elseif (true) then 3 else 20
+   │                                     ^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:9:7-27 ──
+   │
+ 9 │ while ("hello" == "world") do
+   │       ^^^^^^^^^^^^^^^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:15:7-15 ──
+    │
+ 15 │ until (5 == 5)
+    │       ^^^^^^^^
+    │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
 		fs.remove(violatorPath)
 	end)
 end)
