@@ -97,4 +97,30 @@ test.suite("TableExt", function(suite)
 		assert.eq(#tableext.keys(setB), 3)
 		assert.neq(#tableext.keys(setB), #b)
 	end)
+
+	suite:case("any", function(assert)
+		local a = { 1, 2, 3, 4, 5 }
+		local hasEven = tableext.any(a, function(v: number)
+			return v % 2 == 0
+		end)
+		assert.eq(hasEven, true)
+
+		local hasGreaterThanFive = tableext.any(a, function(v: number)
+			return v > 5
+		end)
+		assert.eq(hasGreaterThanFive, false)
+	end)
+
+	suite:case("all", function(assert)
+		local a = { 2, 4, 6, 8 }
+		local allEven = tableext.all(a, function(v: number)
+			return v % 2 == 0
+		end)
+		assert.eq(allEven, true)
+
+		local allLessThanEight = tableext.all(a, function(v: number)
+			return v < 8
+		end)
+		assert.eq(allLessThanEight, false)
+	end)
 end)
