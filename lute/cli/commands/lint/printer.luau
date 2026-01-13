@@ -75,6 +75,10 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 		print(`{blankGutter}│`)
 		print()
 	end
+
+	if lint.suggestedfix then
+		print(`Suggested fix: {lint.suggestedfix.fix}\n`)
+	end
 end
 
 function printerLib.printLintsWithSource(lints: { types.LintViolation }, sourceContent: string): ()
