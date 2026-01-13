@@ -1,4 +1,4 @@
-local args = {...}
+local args = { ... }
 
 local loom = require("@self/src/loom/loom")
 
