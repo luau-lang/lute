@@ -1253,24 +1253,6 @@ violator.luau:3:8-15 ──
 ]]
 		assert.strcontains(result.stdout, expected)
 
-		expected = [[
-violator.luau:7:14-21 ──
-   │
- 7 │ local x = if (2 < 1) then 10 elseif (true) then 3 else 20
-   │              ^^^^^^^
-   │
-]]
-		assert.strcontains(result.stdout, expected)
-
-		expected = [[
-violator.luau:7:37-43 ──
-   │
- 7 │ local x = if (2 < 1) then 10 elseif (true) then 3 else 20
-   │                                     ^^^^^^
-   │
-]]
-		assert.strcontains(result.stdout, expected)
-
 		-- Have to do this here because the path is a lot shorter on Linux, so there's more dashes to match the length of the line
 		expected = [[
 violator.luau:7:14-21 ──]]
