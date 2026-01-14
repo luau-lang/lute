@@ -292,7 +292,7 @@ fs.writestringtofile(path.join(referenceBasePath, "index.md"), referenceIndex)
 local function generateLibraryIndex(title: string, alias: string, modulePath: path.pathlike): string
 	local entries = fs.listdirectory(modulePath)
 	local modules = {}
-	
+
 	for _, entry in entries do
 		local name = entry.name
 		if entry.type == "dir" then
@@ -308,23 +308,23 @@ local function generateLibraryIndex(title: string, alias: string, modulePath: pa
 			end
 		end
 	end
-	
+
 	table.sort(modules, function(a, b)
 		return a.name < b.name
 	end)
-	
+
 	local lines = {
 		`# {title}`,
 		"",
 		"| Module | Require |",
 		"| ------ | ------- |",
 	}
-	
+
 	for _, mod in modules do
 		local link = if mod.isDir then `./{mod.name}/` else `./{mod.name}`
 		table.insert(lines, `| [{mod.name}]({link}) | \`require("@{alias}/{mod.name}")\` |`)
 	end
-	
+
 	table.insert(lines, "")
 	return table.concat(lines, "\n")
 end
