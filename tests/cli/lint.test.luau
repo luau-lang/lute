@@ -232,6 +232,60 @@ violator.luau:14:2-15:17 ──
 		fs.remove(violatorPath)
 	end)
 
+	suite:case("almost swapped auto-fix", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+a = b
+b = a
+
+local x = 0
+local y = "hello"
+x = y
+y = x
+
+local t = { a = 1, b = 2 }
+t.a = t.b
+t.b = t.a
+
+if true then
+	t["a"] = t["b"]
+	t["b"] = t["a"]
+end
+]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "--auto-fix", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0) -- After applying the auto-fix, there are no more violations
+
+		local fixedContents = fs.readfiletostring(violatorPath)
+		local expectedFixedContents = [[
+a, b = b, a
+
+local x = 0
+local y = "hello"
+x, y = y, x
+
+local t = { a = 1, b = 2 }
+t.a, t.b = t.b, t.a
+
+if true then
+	t["a"], t["b"] = t["b"], t["a"]
+end
+]]
+		assert.eq(fixedContents, expectedFixedContents)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
 	suite:case("lute lint multiple rules", function(assert)
 		-- Setup
 		fs.createdirectory(rulesDir)
@@ -1295,6 +1349,100 @@ violator.luau:15:7-15 ──
     │
 ]]
 		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("parenthesized_conditions auto-fix", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+if (3 > 0) then
+	print("Hello, world!")
+elseif (false) then
+	print("This won't print.")
+end
+
+local x = if (2 < 1) then 10 elseif (true) then 3 else 20
+
+while ("hello" == "world") do
+	print("Nope.")
+end
+
+repeat
+	print("Still nope.")
+until (5 == 5)
+]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "--auto-fix", "-r", parenthesizedConditionsRule, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		local fixedContents = fs.readfiletostring(violatorPath)
+		local expectedFixedContents = [[
+if 3 > 0 then
+	print("Hello, world!")
+elseif false then
+	print("This won't print.")
+end
+
+local x = if 2 < 1 then 10 elseif true then 3 else 20
+
+while "hello" == "world" do
+	print("Nope.")
+end
+
+repeat
+	print("Still nope.")
+until 5 == 5
+]]
+
+		assert.eq(fixedContents, expectedFixedContents)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("report violations remaining after auto-fix", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+a = b
+b = a
+
+local x = 3 / 0
+]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "--auto-fix", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1) -- After applying the auto-fix, there is still a violation
+
+		local fixedContents = fs.readfiletostring(violatorPath)
+		local expectedFixedContents = [[
+a, b = b, a
+
+local x = 3 / 0
+]]
+		assert.eq(fixedContents, expectedFixedContents)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+
+		assert.strnotcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 
 		-- Teardown
 		fs.remove(violatorPath)

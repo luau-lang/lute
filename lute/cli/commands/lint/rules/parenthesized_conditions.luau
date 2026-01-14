@@ -2,6 +2,7 @@ local lintTypes = require("../types")
 local path = require("@std/path")
 local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
+local syntaxPrinter = require("@std/syntax/printer")
 
 local name = "parenthesized_conditions"
 local message = "Luau doesn't require parentheses around conditions. You can remove them for readability."
@@ -24,6 +25,9 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 					message = message,
 					severity = "info",
 					sourcepath = sourcepath,
+					suggestedfix = {
+						fix = syntaxPrinter.printnode(ifStat.condition.expression),
+					},
 				})
 			end
 
@@ -35,6 +39,9 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 						message = message,
 						severity = "info",
 						sourcepath = sourcepath,
+						suggestedfix = {
+							fix = syntaxPrinter.printnode(elseIfStat.condition.expression),
+						},
 					})
 				end
 			end
@@ -57,6 +64,9 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 				message = message,
 				severity = "info",
 				sourcepath = sourcepath,
+				suggestedfix = {
+					fix = syntaxPrinter.printnode((n.condition :: syntax.AstExprGroup).expression),
+				},
 			})
 		end)
 
