@@ -27,7 +27,7 @@ local function extractCppRawString(content: string, varName: string): string?
 		return nil
 	end
 
-	local contentStart = startPos + #startPattern - #"R\"(" + #"R\"("
+	local contentStart = startPos + #startPattern - #'R"(' + #'R"('
 	contentStart = string.find(content, 'R"%(', startPos)
 	if not contentStart then
 		return nil
@@ -180,12 +180,12 @@ local function formatOptionsAsMarkdown(optionsText: string): string
 
 			-- Parse the option - extract just the flag part, not the description
 			-- The flag ends when we hit multiple spaces followed by a capital letter
-			
+
 			local flags, desc
-			
+
 			-- First, try to split on double+ spaces (common separator)
 			local beforeSpaces, afterSpaces = string.match(trimmed, "^(.-)%s%s+(.+)$")
-			
+
 			if beforeSpaces and afterSpaces then
 				-- Now extract just the option flags from beforeSpaces
 				-- Options are: -x, --long, --long=VAL, --long <val>, --long [val]
@@ -289,7 +289,7 @@ local function parseHelpTextFull(name: string, helpText: string, fallbackDesc: s
 			info.description = afterUsage
 		end
 	end
-	
+
 	-- Keep fallback description if we didn't find a good one
 	if info.description == "" and fallbackDesc then
 		info.description = fallbackDesc
