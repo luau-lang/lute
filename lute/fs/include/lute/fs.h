@@ -35,7 +35,7 @@ int writestringtofile(lua_State* L);
 int readasync(lua_State* L);
 
 /* Removes a file */
-int fs_remove(lua_State* L);
+int remove(lua_State* L);
 
 /* Creates a folder */
 int fs_mkdir(lua_State* L);
@@ -74,7 +74,7 @@ static const luaL_Reg lib[] = {
     {"write", write},
     {"close", close},
 
-    {"remove", fs_remove},
+    {"remove", remove},
 
     {"stat", fs_stat},
     {"exists", fs_exists},
