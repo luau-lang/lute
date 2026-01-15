@@ -14,5 +14,6 @@ bool runBytecode(
     lua_State* GL,
     int program_argc,
     char** program_argv,
-    LuteReporter& reporter
+    LuteReporter& reporter,
+    bool enableProfiling = false
 );

@@ -7,6 +7,7 @@
 #include "lute/options.h"
 #include "lute/packagerun.h"
 #include "lute/process.h"
+#include "lute/profiler.h"
 #include "lute/ref.h"
 #include "lute/reporter.h"
 #include "lute/requiresetup.h"
@@ -125,12 +126,17 @@ bool runBytecode(
     lua_State* GL,
     int program_argc,
     char** program_argv,
-    LuteReporter& reporter
+    LuteReporter& reporter,
+    bool enableProfiling
 )
 {
     // module needs to run in a new thread, isolated from the rest
     lua_State* L = lua_newthread(GL);
 
+    if (enableProfiling)
+    {
+	    profilerStart(L, 100000);
+    }
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(L);
 
@@ -163,10 +169,29 @@ bool runBytecode(
 
     lua_pop(GL, 1);
 
-    return runtime.runToCompletion();
+    bool b = runtime.runToCompletion();
+    if (enableProfiling)
+    {
+        profilerStop();
+        profilerDump("beeg.json", reporter);
+    }
+
+    return b;
 }
 
-static bool runFile(Runtime& runtime, const char* name, lua_State* GL, int program_argc, char** program_argv, LuteReporter& reporter)
+struct RunOptions
+{
+};
+
+static bool runFile(
+    Runtime& runtime,
+    const char* name,
+    lua_State* GL,
+    int program_argc,
+    char** program_argv,
+    LuteReporter& reporter,
+    bool enableProfiling
+)
 {
     if (isDirectory(name))
     {
@@ -183,9 +208,19 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL, int progr
 
     std::string chunkname = "@" + normalizePath(name);
 
-    std::string bytecode = Luau::compile(*source, copts());
+    Luau::CompileOptions opts = copts();
+    if (enableProfiling)
+    {
+	    opts.optimizationLevel = 2;
+    }
+    std::string bytecode = Luau::compile(*source, opts);
 
-    return runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv, reporter);
+
+
+    bool b = runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv, reporter, enableProfiling);
+
+
+    return b;
 }
 
 static int assertionHandler(const char* expr, const char* file, int line, const char* function)
@@ -269,6 +304,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
     std::string command = packageAwareness ? "pkg run" : "run";
     std::string filePath;
     int program_argc = 0;
+    bool enableProfiling = false;
     char** program_argv = nullptr;
 
     for (int i = argOffset; i < argc; ++i)
@@ -280,18 +316,23 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
             reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 0;
         }
+        else if (strcmp(currentArg, "--profile") == 0)
+        {
+            enableProfiling = true;
+	    reporter.reportOutput("Enabling profile");
+        }
         else if (currentArg[0] == '-')
         {
             reporter.formatError("Error: Unrecognized option '%s' for '%s' command.", currentArg, command.c_str());
             reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 1;
         }
+
         else
         {
             filePath = currentArg;
             program_argc = argc - i;
             program_argv = &argv[i];
-            break;
         }
     }
 
@@ -340,7 +381,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         L = setupCliState(runtime);
     }
 
-    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter);
+    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter, enableProfiling);
     return success ? 0 : 1;
 }
 
