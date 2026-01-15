@@ -264,7 +264,36 @@ int remove_impl(lua_State* L, const char* path)
     );
 
     return lua_yield(L, 0);
+}
 
+int mkdir_impl(lua_State* L, const char* path, int mode)
+{
+    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uv_fs_mkdir(
+        uv_default_loop(),
+        &req->req,
+        path,
+        mode,
+        [](uv_fs_t* req)
+        {
+            auto r = uvutils::retake<FSRequest>(req);
+            auto result = req->result;
+            if (result < 0)
+            {
+                r->fail("Error creating directory %s: %s", req->path, uv_strerror(result));
+                return;
+            }
+
+            r->succeed(
+                [](lua_State* L)
+                {
+                    return 0;
+                }
+            );
+        }
+    );
+
+    return lua_yield(L, 0);
 }
 
 } // namespace fs
