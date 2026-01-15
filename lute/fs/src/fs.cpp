@@ -230,7 +230,7 @@ int open(lua_State* L)
     return open_impl(L, path, openFlags, *modeFlags);
 }
 
-int fs_remove(lua_State* L)
+int remove(lua_State* L)
 {
     uv_fs_t unlink_req;
     int err = uv_fs_unlink(uv_default_loop(), &unlink_req, luaL_checkstring(L, 1), nullptr);
