@@ -38,7 +38,7 @@ int readasync(lua_State* L);
 int remove(lua_State* L);
 
 /* Creates a folder */
-int fs_mkdir(lua_State* L);
+int mkdir(lua_State* L);
 
 /* Removes a directory */
 int fs_rmdir(lua_State* L);
@@ -85,7 +85,7 @@ static const luaL_Reg lib[] = {
     {"symlink", fs_symlink},
     {"copy", fs_copy},
 
-    {"mkdir", fs_mkdir},
+    {"mkdir", mkdir},
     {"listdir", listdir},
     {"rmdir", fs_rmdir},
 
