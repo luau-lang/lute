@@ -12,7 +12,7 @@ local function executeLuauSource(source: string): any
 	return func()
 end
 
-function install(package_source: loom_types.package_source)
+function install(package_source: loom_types.PackageSource)
 	local manifestPath = "loom.config.luau"
 	local manifestContent = fs_utils.readfiletostring(manifestPath)
 	local manifestTable = executeLuauSource(manifestContent)

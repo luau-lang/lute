@@ -2,12 +2,12 @@ local fs_utils = require("../utils/fs_utils")
 local net = require("@std/net")
 local unzip = require("../../extern/unzip")
 
-export type git = {
-	installZipArchive: (self: git, name: string, version: string, content: string) -> (),
-	downloadFromGitHubArchive: (self: git, url: string, token: string?) -> string,
+export type Git = {
+	installZipArchive: (self: Git, name: string, version: string, content: string) -> (),
+	downloadFromGitHubArchive: (self: Git, url: string, token: string?) -> string,
 }
 
-local Git = {} :: git
+local Git = {} :: Git
 
 local function sanitizePath(path: string): string
 	-- Input validation

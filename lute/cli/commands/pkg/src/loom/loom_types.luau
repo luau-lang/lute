@@ -1,10 +1,10 @@
-local Git = require("./package_source/git")
-export type package_source = {
-	git: Git.git,
+local git = require("./package_source/git")
+export type PackageSource = {
+	git: git.Git,
 }
 
-export type loom = {
-	install: (self: loom) -> (),
+export type Loom = {
+	install: (self: Loom) -> (),
 }
 
 return nil
