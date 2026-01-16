@@ -250,17 +250,13 @@ int remove(lua_State* L)
 int mkdir(lua_State* L)
 {
     int nArgs = lua_gettop(L);
-    if (nArgs < 1)
+    if (nArgs != 1)
     {
-        luaL_errorL(L, "Error: no path supplied\n");
+        luaL_errorL(L, "Error: expected 1 argument\n");
     }
 
-    if (nArgs > 2)
-    {
-        luaL_errorL(L, "Error: too many arguments supplied\n");
-    }
     const char* path = luaL_checkstring(L, 1);
-    int mode = luaL_optinteger(L, 2, 0777);
+    int mode = 0777; // default permission for Unix, not used on Windows
 
     return mkdir_impl(L, path, mode);
 }
