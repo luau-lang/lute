@@ -1,6 +1,6 @@
 # compile
 
-Compile a Luau script into a standalone executable.
+Compile a Luau script, along with its dependencies, into a standalone executable.
 
 ## Usage
 
@@ -12,16 +12,30 @@ lute compile <entry.luau> [options]
 
 ### `--output <path>`
 
-Name for the compiled executable. Defaults to entry file's base name (with .exe on Windows).
+Name for the compiled executable. If omitted, defaults to entry file's base name (with .exe on Windows).
 
 ### `--bundle-stats`
 
-Display bundle size and compression statistics.
+Display compiled bytecode bundle size and compression statistics.
 
 ### `--show-require-graph`
 
-Print the require dependency graph.
+Print the dependency graph of files that have been included in the bundle.
 
 ### `-h, --help`
 
 Display this usage message.
+
+## Examples
+
+Outputs a standalone executable called foo(.exe on windows):
+
+```bash
+lute compile foo.luau
+```
+
+Outputs a standalone executable called main(.exe on windows):
+
+```bash
+lute compile foo.luau --output main
+```

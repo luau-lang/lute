@@ -1,6 +1,6 @@
 # test
 
-Run tests discovered in .test.luau and .spec.luau files.
+Run tests discovered in .test.luau and .spec.luau files (defaults to looking for files in a tests/ directory).
 
 ## Usage
 
@@ -18,11 +18,11 @@ Show this help message
 
 List all discovered test cases without running them
 
-### `-s, --suite=SUITE`
+### `-s, --suite SUITE`
 
 Run only tests in the specified suite
 
-### `-c, --case=CASE`
+### `-c, --case CASE`
 
 Run only test cases matching the specified name
 
@@ -60,4 +60,10 @@ Run all test cases named "some case":
 
 ```bash
 lute test --case "some case"
+```
+
+List tests that were discovered in my/other/testdir:
+
+```bash
+lute test --list my/other/testdir
 ```
