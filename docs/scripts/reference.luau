@@ -283,8 +283,8 @@ order: 3
 
 API reference documentation for Lute's built-in libraries.
 
-- [Lute Libraries](./lute) - Core runtime libraries (`@lute/*`)
-- [Standard Libraries](./std) - Standard library modules (`@std/*`)
+- [Lute Libraries](./lute/index.md) - Core runtime libraries (`@lute/*`)
+- [Standard Libraries](./std/index.md) - Standard library modules (`@std/*`)
 ]]
 fs.writestringtofile(path.join(referenceBasePath, "index.md"), referenceIndex)
 
