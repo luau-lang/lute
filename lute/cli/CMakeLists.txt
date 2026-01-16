@@ -25,9 +25,11 @@ add_library(Lute.CLI.lib STATIC)
 target_sources(Lute.CLI.lib PRIVATE
     include/lute/climain.h
     include/lute/compile.h
+    include/lute/coverage.h
     include/lute/fileutils.h
     include/lute/luauflags.h
     include/lute/packagerun.h
+    include/lute/profiler.h
     include/lute/reporter.h
     include/lute/requiresetup.h
     include/lute/staticrequires.h
@@ -36,9 +38,11 @@ target_sources(Lute.CLI.lib PRIVATE
 
     src/climain.cpp
     src/compile.cpp
+    src/coverage.cpp
     src/fileutils.cpp
     src/luauflags.cpp
     src/packagerun.cpp
+    src/profiler.cpp
     src/requiresetup.cpp
     src/staticrequires.cpp
     src/tc.cpp
