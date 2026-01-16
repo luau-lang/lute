@@ -1,6 +1,7 @@
 # transform
 
 Run a specified code transformation on specified Luau files.
+Individual code transormers can specify custom migration options, which are parsed as additional arguments on the command line (i.e. `lute transform transformer.luau --custom-arg=value transformee.luau`).
 
 ## Usage
 

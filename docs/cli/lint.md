@@ -1,6 +1,10 @@
 # lint
 
-Lint the specified Luau file using the specified lint rule(s) or using the default rules.
+`lute lint` is a programmable linter for Luau code, shipped as part of Lute.
+As a linter, it works to statically analyze the user's code to warn them about common pitfalls they may be falling into, or to nudge them away from discouraged coding practices.
+It is _programmable_ meaning that you can write a new lint rule for your Luau code _in Luau_.
+It's also built on top of the official Luau language stack, allowing it to leverage the same parser used by Luau and Roblox, unlike third-party linters that rely on separate, custom parser implementations.
+The examples folder contains two instances of sample lint rules.
 
 ## Usage
 
