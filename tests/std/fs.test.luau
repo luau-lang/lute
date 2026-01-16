@@ -260,4 +260,37 @@ test.suite("FsSuite", function(suite)
 
 		fs.removedirectory(baseDir, { recursive = true })
 	end)
+
+	suite:case("mkdir_with_valid_mode", function(assert)
+		local dir = path.join(tmpdir, "mode_test_dir")
+		local mode = 0x124 -- octal 0444 (read-only for everyone)
+
+		if fs.exists(dir) then
+			fs.removedirectory(dir)
+		end
+
+		fs.createdirectory(dir, { makeparents = true, mode = mode })
+		assert.eq(fs.exists(dir), true)
+
+		local metadata = fs.metadata(dir)
+		assert.eq(metadata.permissions.readonly, true)
+
+		fs.removedirectory(dir)
+	end)
+
+	suite:case("mkdir_fails_with_invalid_mode", function(assert)
+		local dir = path.join(tmpdir, "mode_test_dir_that_should_not_exist")
+		local mode = -1
+
+		if fs.exists(dir) then
+			fs.removedirectory(dir)
+		end
+
+		local success, err = pcall(function()
+			fs.createdirectory(dir, { makeparents = true, mode = mode })
+		end)
+		assert.neq(success, true)
+		assert.neq(err, nil)
+		assert.eq(fs.exists(dir), false)
+	end)
 end)

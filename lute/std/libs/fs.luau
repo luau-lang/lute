@@ -22,6 +22,7 @@ type path = pathlib.path
 
 export type createdirectoryoptions = {
 	makeparents: boolean?,
+	mode: number?, -- pass in a hexadecimal literal that corresponds to a valid octal permission mode (e.g., 0x1FF for octal 0777 permissions)
 }
 
 export type removedirectoryoptions = {
@@ -142,11 +143,19 @@ function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?)
 		for _, part in parts do
 			subdir = pathlib.join(subdir, part)
 			if not fslib.exists(subdir) then
-				fs.mkdir(pathlib.format(subdir))
+				if options.mode then
+					fs.mkdir(pathlib.format(subdir), options.mode)
+				else
+					fs.mkdir(pathlib.format(subdir))
+				end
 			end
 		end
 	else
-		fs.mkdir(pathlib.format(path))
+		if options and options.mode then
+			fs.mkdir(pathlib.format(path), options.mode)
+		else
+			fs.mkdir(pathlib.format(path))
+		end
 	end
 end
 

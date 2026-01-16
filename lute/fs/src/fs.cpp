@@ -260,7 +260,17 @@ int mkdir(lua_State* L)
         luaL_errorL(L, "Error: too many arguments supplied\n");
     }
     const char* path = luaL_checkstring(L, 1);
-    int mode = luaL_optinteger(L, 2, 0777);
+
+    int mode = 0777;
+    if (nArgs == 2)
+    {
+        mode = luaL_checkinteger(L, 2);
+        // check mode is valid octal permission
+        if (mode < 0 || mode > 0777)
+        {
+            luaL_errorL(L, "Error: invalid mode supplied\n");
+        }
+    }
 
     return mkdir_impl(L, path, mode);
 }

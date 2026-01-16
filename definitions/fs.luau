@@ -59,7 +59,9 @@ function fs.type(path: string): FileType
 	error("not implemented")
 end
 
-function fs.mkdir(path: string): ()
+--- Creates a directory at the specified path.
+--- @param mode, if specified, should be a hexadecimal literal that corresponds to a valid octal permission mode (e.g., 0x1FF for octal 0777 permissions). Default read, write, execute for everyone permissions (0777) will be used if mode not specified.
+function fs.mkdir(path: string, mode: number?): ()
 	error("not implemented")
 end
 
