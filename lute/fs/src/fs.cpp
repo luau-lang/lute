@@ -230,31 +230,39 @@ int open(lua_State* L)
     return open_impl(L, path, openFlags, *modeFlags);
 }
 
-int fs_remove(lua_State* L)
+int remove(lua_State* L)
 {
-    uv_fs_t unlink_req;
-    int err = uv_fs_unlink(uv_default_loop(), &unlink_req, luaL_checkstring(L, 1), nullptr);
-    uv_fs_req_cleanup(&unlink_req);
+    int nArgs = lua_gettop(L);
+    if (nArgs < 1)
+    {
+        luaL_errorL(L, "Error: no file supplied\n");
+    }
 
-    if (err)
-        luaL_errorL(L, "%s", uv_strerror(err));
+    if (nArgs > 1)
+    {
+        luaL_errorL(L, "Error: too many arguments supplied\n");
+    }
+    const char* path = luaL_checkstring(L, 1);
 
-    return 0;
+    return remove_impl(L, path);
 }
 
-int fs_mkdir(lua_State* L)
+int mkdir(lua_State* L)
 {
+    int nArgs = lua_gettop(L);
+    if (nArgs < 1)
+    {
+        luaL_errorL(L, "Error: no path supplied\n");
+    }
+
+    if (nArgs > 2)
+    {
+        luaL_errorL(L, "Error: too many arguments supplied\n");
+    }
     const char* path = luaL_checkstring(L, 1);
     int mode = luaL_optinteger(L, 2, 0777);
 
-    uv_fs_t req;
-    int err = uv_fs_mkdir(uv_default_loop(), &req, path, mode, nullptr);
-    uv_fs_req_cleanup(&req);
-
-    if (err)
-        luaL_errorL(L, "%s", uv_strerror(err));
-
-    return 0;
+    return mkdir_impl(L, path, mode);
 }
 
 int fs_rmdir(lua_State* L)

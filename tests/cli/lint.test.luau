@@ -7,10 +7,13 @@ local test = require("@std/test")
 local lutePath = path.format(process.execpath())
 local tmpDir = system.tmpdir()
 local rulesDir = path.format(path.join(".", "lints"))
-local almostSwappedRule = path.format(path.join("lute", "cli", "commands", "lint", "rules", "almost_swapped.luau"))
-local divideByZeroRule = path.format(path.join("lute", "cli", "commands", "lint", "rules", "divide_by_zero.luau"))
-local parenthesizedConditionsRule =
-	path.format(path.join("lute", "cli", "commands", "lint", "rules", "parenthesized_conditions.luau"))
+local defaultRulesFolder = path.format(path.join("lute", "cli", "commands", "lint", "rules"))
+local defaultRulesPaths = {
+	almost_swapped = path.format(path.join(defaultRulesFolder, "almost_swapped.luau")),
+	constant_table_comparison = path.format(path.join(defaultRulesFolder, "constant_table_comparison.luau")),
+	divide_by_zero = path.format(path.join(defaultRulesFolder, "divide_by_zero.luau")),
+	parenthesized_conditions = path.format(path.join(defaultRulesFolder, "parenthesized_conditions.luau")),
+}
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 
@@ -119,7 +122,7 @@ local x = 1 / 0
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.divide_by_zero, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -166,7 +169,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", almostSwappedRule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.almost_swapped, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -227,6 +230,60 @@ violator.luau:14:2-15:17 ──
 		expected = 'Suggested fix: t["a"], t["b"] = t["b"], t["a"]'
 
 		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("almost swapped auto-fix", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+a = b
+b = a
+
+local x = 0
+local y = "hello"
+x = y
+y = x
+
+local t = { a = 1, b = 2 }
+t.a = t.b
+t.b = t.a
+
+if true then
+	t["a"] = t["b"]
+	t["b"] = t["a"]
+end
+]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "--auto-fix", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0) -- After applying the auto-fix, there are no more violations
+
+		local fixedContents = fs.readfiletostring(violatorPath)
+		local expectedFixedContents = [[
+a, b = b, a
+
+local x = 0
+local y = "hello"
+x, y = y, x
+
+local t = { a = 1, b = 2 }
+t.a, t.b = t.b, t.a
+
+if true then
+	t["a"], t["b"] = t["b"], t["a"]
+end
+]]
+		assert.eq(fixedContents, expectedFixedContents)
 
 		-- Teardown
 		fs.remove(violatorPath)
@@ -584,7 +641,7 @@ local z = 1 / 0
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.divide_by_zero, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -632,7 +689,7 @@ local z = 1 / 0
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.divide_by_zero, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -678,7 +735,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.divide_by_zero, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -715,7 +772,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.divide_by_zero, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -752,7 +809,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.divide_by_zero, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -790,7 +847,7 @@ end
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", divideByZeroRule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.divide_by_zero, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -1223,7 +1280,7 @@ until (5 == 5)
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", parenthesizedConditionsRule, violatorPath })
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.parenthesized_conditions, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -1295,6 +1352,234 @@ violator.luau:15:7-15 ──
     │
 ]]
 		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("parenthesized_conditions auto-fix", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+if (3 > 0) then
+	print("Hello, world!")
+elseif (false) then
+	print("This won't print.")
+end
+
+local x = if (2 < 1) then 10 elseif (true) then 3 else 20
+
+while ("hello" == "world") do
+	print("Nope.")
+end
+
+repeat
+	print("Still nope.")
+until (5 == 5)
+]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({
+			lutePath,
+			"lint",
+			"--auto-fix",
+			"-r",
+			defaultRulesPaths.parenthesized_conditions,
+			violatorPath,
+		})
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		local fixedContents = fs.readfiletostring(violatorPath)
+		local expectedFixedContents = [[
+if 3 > 0 then
+	print("Hello, world!")
+elseif false then
+	print("This won't print.")
+end
+
+local x = if 2 < 1 then 10 elseif true then 3 else 20
+
+while "hello" == "world" do
+	print("Nope.")
+end
+
+repeat
+	print("Still nope.")
+until 5 == 5
+]]
+
+		assert.eq(fixedContents, expectedFixedContents)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("report violations remaining after auto-fix", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+a = b
+b = a
+
+local x = 3 / 0
+]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "--auto-fix", violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1) -- After applying the auto-fix, there is still a violation
+
+		local fixedContents = fs.readfiletostring(violatorPath)
+		local expectedFixedContents = [[
+a, b = b, a
+
+local x = 3 / 0
+]]
+		assert.eq(fixedContents, expectedFixedContents)
+
+		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+
+		assert.strnotcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("constant_table_comparison", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local a = { 1, 2, 3 } == t
+local b = t == { 4, 5, 6 }
+local c = { 1 } == t
+local d = t == ({ 4 } :: { string })
+local e = t ~= { 1, 2 }
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result =
+			process.run({ lutePath, "lint", "-r", defaultRulesPaths.constant_table_comparison, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[constant_table_comparison]: Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false.",
+			nil,
+			5
+		)
+
+		local expected = [[
+violator.luau:1:11-27 ──
+   │
+ 1 │ local a = { 1, 2, 3 } == t
+   │           ^^^^^^^^^^^^^^^^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:2:11-27 ──
+   │
+ 2 │ local b = t == { 4, 5, 6 }
+   │           ^^^^^^^^^^^^^^^^
+   │
+]]
+
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:3:11-21 ──
+   │
+ 3 │ local c = { 1 } == t
+   │           ^^^^^^^^^^
+   │
+]]
+
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:4:11-37 ──
+   │
+ 4 │ local d = t == ({ 4 } :: { string })
+   │           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   │
+]]
+
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:5:11-24 ──
+   │
+ 5 │ local e = t ~= { 1, 2 }
+   │           ^^^^^^^^^^^^^
+   │
+]]
+
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("constant_table_comparison auto-fix", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local a = {} == t
+local b = t == {}
+local c = t == ({})
+local d = t == ({} :: { string })
+local e = t ~= {}
+]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({
+			lutePath,
+			"lint",
+			"--auto-fix",
+			"-r",
+			defaultRulesPaths.constant_table_comparison,
+			violatorPath,
+		})
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		local fixedContents = fs.readfiletostring(violatorPath)
+		local expectedFixedContents = [[
+local a = next(t) == nil
+local b = next(t) == nil
+local c = next(t) == nil
+local d = next(t) == nil
+local e = next(t) ~= nil
+]]
+
+		assert.eq(fixedContents, expectedFixedContents)
 
 		-- Teardown
 		fs.remove(violatorPath)
