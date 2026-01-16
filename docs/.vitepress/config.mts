@@ -10,7 +10,7 @@ export default withSidebar(
       nav: [
         { text: 'Guide', link: '/guide/installation' },
         { text: 'CLI', link: '/cli/' },
-        { text: 'Reference', link: '/reference/lute/crypto' },
+        { text: 'Reference', link: '/reference' },
       ],
       search: { provider: 'local' },
       socialLinks: [
