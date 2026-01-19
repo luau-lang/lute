@@ -616,8 +616,22 @@ int listdir(lua_State* L)
         [](uv_fs_t* req)
         {
             auto* request_state = static_cast<ResumeToken*>(req->data);
+            auto token = std::move(*request_state);
+            delete request_state;
 
-            request_state->get()->complete(
+            auto result = req->result;
+
+            if (result < 0)
+            {
+                if (result != UV_EOF)
+                    token->fail(uv_strerror(result));
+
+                uv_fs_req_cleanup(req);
+                delete req;
+                return;
+            }
+
+            token->complete(
                 [req](lua_State* L)
                 {
                     lua_createtable(L, 1, 0);
@@ -641,12 +655,7 @@ int listdir(lua_State* L)
                     }
 
                     uv_fs_req_cleanup(req);
-
-                    delete static_cast<ResumeToken*>(req->data);
                     delete req;
-
-                    if (err != UV_EOF)
-                        luaL_errorL(L, "%s", uv_strerror(err));
 
                     return 1;
                 }
