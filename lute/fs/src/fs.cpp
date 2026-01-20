@@ -1,7 +1,6 @@
 #include "lute/fs.h"
 
 #include "lute/runtime.h"
-#include "lute/time.h"
 #include "lute/userdatas.h"
 
 #include "lua.h"
@@ -26,51 +25,8 @@
 #include <stdlib.h>
 #include <string>
 
-#include <sys/stat.h>
-
-
-#if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
-#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
-#endif
-
-#if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
-#define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
-#endif
-
-#if !defined(S_ISCHR) && defined(S_IFMT) && defined(S_IFCHR)
-#define S_ISCHR(m) (((m) & S_IFMT) == S_IFCHR)
-#endif
-
-#if !defined(S_ISLNK) && defined(S_IFMT) && defined(S_IFLNK)
-#define S_ISLNK(m) (((m) & S_IFMT) == S_IFLNK)
-#endif
-
-#if !defined(S_ISFIFO) && defined(S_IFMT) && defined(S_IFIFO)
-#define S_ISFIFO(m) (((m) & S_IFMT) == S_IFIFO)
-#endif
-
 namespace fs
 {
-
-const char* UV_TYPENAME_UNKNOWN = "unknown"; // UV_DIRENT_UNKNOWN
-const char* UV_TYPENAME_FILE = "file";       // UV_DIRENT_FILE
-const char* UV_TYPENAME_DIR = "dir";         // UV_DIRENT_DIR
-const char* UV_TYPENAME_LINK = "link";       // UV_DIRENT_LINK
-const char* UV_TYPENAME_FIFO = "fifo";       // UV_DIRENT_FIFO
-const char* UV_TYPENAME_SOCKET = "socket";   // UV_DIRENT_SOCKET
-const char* UV_TYPENAME_CHAR = "char";       // UV_DIRENT_CHAR
-const char* UV_TYPENAME_BLOCK = "block";     // UV_DIRENT_BLOCK
-
-const char* UV_DIRENT_TYPES[] = {
-    UV_TYPENAME_UNKNOWN,
-    UV_TYPENAME_FILE,
-    UV_TYPENAME_DIR,
-    UV_TYPENAME_LINK,
-    UV_TYPENAME_FIFO,
-    UV_TYPENAME_SOCKET,
-    UV_TYPENAME_CHAR,
-    UV_TYPENAME_BLOCK,
-};
 
 static UVFile* getFileHandle(lua_State* L, int index)
 {
@@ -128,54 +84,6 @@ std::optional<int> setFlags(const char* c, int* openFlags)
     }
 
     return modeFlags;
-}
-
-static int createDurationFromTimespec32(lua_State* L, uv_timespec_t timespec)
-{
-    uv_timespec64_t extended{static_cast<int64_t>(timespec.tv_sec), static_cast<int32_t>(timespec.tv_nsec)};
-    return createDurationFromTimespec(L, extended);
-}
-
-static const char* fileModeToType(uint64_t mode)
-{
-    if (S_ISDIR(mode))
-    {
-        return UV_TYPENAME_DIR;
-    }
-    else if (S_ISREG(mode))
-    {
-        return UV_TYPENAME_FILE;
-    }
-    else if (S_ISCHR(mode))
-    {
-        return UV_TYPENAME_CHAR;
-    }
-    else if (S_ISLNK(mode))
-    {
-        return UV_TYPENAME_LINK;
-    }
-#ifdef S_ISBLK
-    else if (S_ISBLK(mode))
-    {
-        return UV_TYPENAME_BLOCK;
-    }
-#endif
-#ifdef S_ISFIFO
-    else if (S_ISFIFO(mode))
-    {
-        return UV_TYPENAME_FIFO;
-    }
-#endif
-#ifdef S_ISSOCK
-    else if (S_ISSOCK(mode))
-    {
-        return UV_TYPENAME_SOCKET;
-    }
-#endif
-    else
-    {
-        return UV_TYPENAME_UNKNOWN;
-    }
 }
 
 int close(lua_State* L)
@@ -283,53 +191,11 @@ int rmdir(lua_State* L)
     return rmdir_impl(L, path);
 }
 
-int fs_stat(lua_State* L)
+int stat(lua_State* L)
 {
     const char* path = luaL_checkstring(L, 1);
 
-    uv_fs_t stat_req;
-    int err = uv_fs_stat(uv_default_loop(), &stat_req, path, nullptr);
-
-    if (err)
-    {
-        uv_fs_req_cleanup(&stat_req);
-        luaL_errorL(L, "%s", uv_strerror(err));
-    }
-
-    lua_createtable(L, 0, 6);
-
-    auto stat = stat_req.statbuf;
-
-    auto type = fileModeToType(stat.st_mode);
-    lua_pushstring(L, type);
-    lua_setfield(L, -2, "type");
-
-    // this is fine unless the file is 9 petabytes
-    lua_pushnumber(L, static_cast<double>(stat.st_size));
-    lua_setfield(L, -2, "size");
-
-    createDurationFromTimespec32(L, stat.st_birthtim);
-    lua_setfield(L, -2, "created");
-
-    createDurationFromTimespec32(L, stat.st_atim);
-    lua_setfield(L, -2, "accessed");
-
-    createDurationFromTimespec32(L, stat.st_mtim);
-    lua_setfield(L, -2, "modified");
-
-    // permissions
-    lua_createtable(L, 0, 2);
-
-    // libuv writes this correctly cross-platform
-    bool canAnyWrite = stat.st_mode & 0222;
-    lua_pushboolean(L, !canAnyWrite);
-    lua_setfield(L, -2, "readonly");
-
-    lua_setfield(L, -2, "permissions");
-
-    uv_fs_req_cleanup(&stat_req);
-
-    return 1;
+    return stat_impl(L, path);
 }
 
 static void defaultCallback(uv_fs_t* req)
@@ -588,21 +454,7 @@ int type(lua_State* L)
 {
     const char* path = luaL_checkstring(L, 1);
 
-    uv_fs_t req;
-
-    int err = uv_fs_stat(uv_default_loop(), &req, path, nullptr);
-
-    if (err)
-    {
-        uv_fs_req_cleanup(&req);
-        luaL_errorL(L, "%s", uv_strerror(err));
-    }
-
-    auto type = fileModeToType(req.statbuf.st_mode);
-    lua_pushstring(L, type);
-    uv_fs_req_cleanup(&req);
-
-    return 1;
+    return type_impl(L, path);
 }
 
 int listdir(lua_State* L)
@@ -638,7 +490,7 @@ int listdir(lua_State* L)
                         lua_pushstring(L, dir.name);
                         lua_setfield(L, -2, "name");
 
-                        lua_pushstring(L, UV_DIRENT_TYPES[dir.type]);
+                        lua_pushstring(L, fs::UV_DIRENT_TYPES[dir.type]);
                         lua_setfield(L, -2, "type");
 
                         lua_settable(L, -3);
