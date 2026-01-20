@@ -1,22 +1,23 @@
 #pragma once
 
 #include <optional>
+#include <string_view>
 
 struct lua_State;
 
 namespace fs
 {
 
-inline constexpr const char* UV_TYPENAME_UNKNOWN = "unknown"; // UV_DIRENT_UNKNOWN
-inline constexpr const char* UV_TYPENAME_FILE = "file";       // UV_DIRENT_FILE
-inline constexpr const char* UV_TYPENAME_DIR = "dir";         // UV_DIRENT_DIR
-inline constexpr const char* UV_TYPENAME_LINK = "link";       // UV_DIRENT_LINK
-inline constexpr const char* UV_TYPENAME_FIFO = "fifo";       // UV_DIRENT_FIFO
-inline constexpr const char* UV_TYPENAME_SOCKET = "socket";   // UV_DIRENT_SOCKET
-inline constexpr const char* UV_TYPENAME_CHAR = "char";       // UV_DIRENT_CHAR
-inline constexpr const char* UV_TYPENAME_BLOCK = "block";     // UV_DIRENT_BLOCK
+constexpr char UV_TYPENAME_UNKNOWN[] = "unknown"; // UV_DIRENT_UNKNOWN
+constexpr char UV_TYPENAME_FILE[] = "file";       // UV_DIRENT_FILE
+constexpr char UV_TYPENAME_DIR[] = "dir";         // UV_DIRENT_DIR
+constexpr char UV_TYPENAME_LINK[] = "link";       // UV_DIRENT_LINK
+constexpr char UV_TYPENAME_FIFO[] = "fifo";       // UV_DIRENT_FIFO
+constexpr char UV_TYPENAME_SOCKET[] = "socket";   // UV_DIRENT_SOCKET
+constexpr char UV_TYPENAME_CHAR[] = "char";       // UV_DIRENT_CHAR
+constexpr char UV_TYPENAME_BLOCK[] = "block";     // UV_DIRENT_BLOCK
 
-inline constexpr const char* UV_DIRENT_TYPES[] = {
+constexpr const char* UV_DIRENT_TYPES[] = {
     UV_TYPENAME_UNKNOWN,
     UV_TYPENAME_FILE,
     UV_TYPENAME_DIR,
