@@ -43,4 +43,5 @@ int stat_impl(lua_State* L, const char* path);
 int type_impl(lua_State* L, const char* path);
 
 int mkdir_impl(lua_State* L, const char* path, int mode);
+int rmdir_impl(lua_State* L, const char* path);
 } // namespace fs
