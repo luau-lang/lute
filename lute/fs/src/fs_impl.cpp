@@ -13,7 +13,10 @@
 #else
 #include <unistd.h>
 #endif
-
+#include <fcntl.h>
+#include <memory>
+#include <stdlib.h>
+#include <string>
 #include <sys/stat.h>
 
 #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
@@ -415,7 +418,7 @@ int exists_impl(lua_State* L, const char* path)
             auto r = uvutils::retake<FSRequest>(req);
             auto result = req->result;
 
-            if (result < 0 && result != UV_ENOENT)
+            if (result < 0)
             {
                 r->fail("exists: Error checking existence of %s: %s", req->path, uv_strerror(result));
                 return;
