@@ -1,7 +1,7 @@
-local pathLib = require("@std/path")
-local luau = require("@lute/luau")
 local lintTypes = require("./types")
 local lspTypes = require("@self/types")
+local pathLib = require("@std/path")
+local syntax = require("@std/syntax")
 local tableext = require("@std/tableext")
 
 local lsp = {}
@@ -26,7 +26,7 @@ local function tag(t: lintTypes.tag): number
 	end
 end
 
-local function getRange(location: luau.span)
+local function getRange(location: syntax.span): lspTypes.Range
 	return table.freeze({
 		start = table.freeze({
 			line = location.beginline - 1,
@@ -48,10 +48,10 @@ function lsp.diagnostic(lint: lintTypes.LintViolation): lspTypes.Diagnostic
 		message = lint.message,
 		tags = if lint.tags then table.freeze(tableext.map(lint.tags, tag)) else nil,
 		suggestedfix = if lint.suggestedfix
-			then {
+			then table.freeze({
 				fix = lint.suggestedfix.fix,
 				range = getRange(lint.suggestedfix.location or lint.location),
-			}
+			})
 			else nil,
 	})
 end
