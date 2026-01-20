@@ -501,30 +501,6 @@ int link_impl(lua_State* L, const char* path, const char* dest)
     return lua_yield(L, 0);
 }
 
-/*
-int fs_symlink(lua_State* L)
-{
-    if (std::filesystem::is_directory(path))
-    {
-        req->flags = UV_FS_SYMLINK_DIR; // windows
-    }
-    else
-    {
-        req->flags = 0;
-    }
-
-    int err = uv_fs_symlink(uv_default_loop(), req, path, dest, req->flags, defaultCallback);
-
-    if (err)
-    {
-        delete static_cast<ResumeToken*>(req->data);
-        delete req;
-        luaL_errorL(L, "%s", uv_strerror(err));
-    }
-
-    return lua_yield(L, 0);
-*/
-
 int symlink_impl(lua_State* L, const char* path, const char* dest)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
@@ -543,7 +519,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
 
             if (result < 0)
             {
-                r->fail("symlink: Error creating symlink from %s to %s: %s", req->path, req->new_path, uv_strerror(result));
+                r->fail("symlink: Error creating symlink: %s", uv_strerror(result));
                 return;
             }
 
