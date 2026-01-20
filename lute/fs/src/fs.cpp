@@ -459,65 +459,15 @@ int type(lua_State* L)
 
 int listdir(lua_State* L)
 {
-    const char* path = luaL_checkstring(L, 1);
-
-    auto* req = new uv_fs_t();
-    req->data = new ResumeToken(getResumeToken(L));
-
-    int err = uv_fs_scandir(
-        uv_default_loop(),
-        req,
-        path,
-        0,
-        [](uv_fs_t* req)
-        {
-            auto* request_state = static_cast<ResumeToken*>(req->data);
-
-            request_state->get()->complete(
-                [req](lua_State* L)
-                {
-                    lua_createtable(L, 1, 0);
-
-                    uv_dirent_t dir;
-                    int i = 0;
-                    int err = 0;
-                    while ((err = uv_fs_scandir_next(req, &dir)) >= 0)
-                    {
-                        lua_pushinteger(L, ++i);
-
-                        lua_createtable(L, 0, 2);
-
-                        lua_pushstring(L, dir.name);
-                        lua_setfield(L, -2, "name");
-
-                        lua_pushstring(L, fs::UV_DIRENT_TYPES[dir.type]);
-                        lua_setfield(L, -2, "type");
-
-                        lua_settable(L, -3);
-                    }
-
-                    uv_fs_req_cleanup(req);
-
-                    delete static_cast<ResumeToken*>(req->data);
-                    delete req;
-
-                    if (err != UV_EOF)
-                        luaL_errorL(L, "%s", uv_strerror(err));
-
-                    return 1;
-                }
-            );
-        }
-    );
-
-    if (err)
+    int nArgs = lua_gettop(L);
+    if (nArgs > 1)
     {
-        delete static_cast<ResumeToken*>(req->data);
-        delete req;
-        luaL_errorL(L, "%s", uv_strerror(err));
+        luaL_errorL(L, "listdir: too many arguments supplied\n");
     }
 
-    return lua_yield(L, 0);
+    const char* path = luaL_checkstring(L, 1);
+
+    return listdir_impl(L, path);
 }
 
 } // namespace fs

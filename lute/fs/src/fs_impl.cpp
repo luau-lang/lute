@@ -464,6 +464,7 @@ int mkdir_impl(lua_State* L, const char* path, int mode)
     return lua_yield(L, 0);
 }
 
+
 int rmdir_impl(lua_State* L, const char* path)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
@@ -485,6 +486,66 @@ int rmdir_impl(lua_State* L, const char* path)
                 [](lua_State* L)
                 {
                     return 0;
+                }
+            );
+        }
+    );
+
+    return lua_yield(L, 0);
+}
+
+
+int listdir_impl(lua_State* L, const char* path)
+{
+    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uv_fs_scandir(
+        uv_default_loop(),
+        &req->req,
+        path,
+        0,
+        [](uv_fs_t* req)
+        {
+            auto r = uvutils::retake<FSRequest>(req);
+            auto result = req->result;
+            if (result < 0)
+            {
+                r->fail("listdir: Error listing directory %s (%s)", req->path, uv_strerror(result));
+                return;
+            }
+
+            std::vector<std::pair<std::string, uv_dirent_type_t>> entries;
+            uv_dirent_t dirent;
+            int err = 0;
+            while ((err = uv_fs_scandir_next(req, &dirent)) >= 0)
+            {
+                entries.emplace_back(dirent.name, dirent.type);
+            }
+
+            if (err != UV_EOF)
+            {
+                r->fail("listdir: Error reading directory entry (%s)", uv_strerror(err));
+                return;
+            }
+
+            r->succeed(
+                [entries = std::move(entries)](lua_State* L)
+                {
+                    lua_createtable(L, entries.size(), 0);
+                    for (size_t i = 0; i < entries.size(); ++i)
+                    {
+                        lua_pushinteger(L, i + 1);
+
+                        lua_createtable(L, 0, 2);
+
+                        lua_pushstring(L, entries[i].first.c_str());
+                        lua_setfield(L, -2, "name");
+
+                        lua_pushstring(L, UV_DIRENT_TYPES[entries[i].second]);
+                        lua_setfield(L, -2, "type");
+
+                        lua_settable(L, -3);
+                    }
+                    return 1;
                 }
             );
         }
