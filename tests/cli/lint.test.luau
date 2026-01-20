@@ -1584,4 +1584,52 @@ local e = next(t) ~= nil
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("lute lint json output includes suggestedfix", function(assert)
+		local inputString = [[
+			a = b
+			b = a
+		]]
+
+		-- Do
+		-- Run the linter on string input with json flag
+		local result = process.run({ lutePath, "lint", "-j", "-s", inputString })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		local expected = [=[
+[
+    {
+        "message": "This looks like a failed attempt to swap.", 
+        "source": "lute lint", 
+        "code": "almost_swapped", 
+        "severity": 2, 
+        "range": {
+            "start": {
+                "character": 3, 
+                "line": 0
+            }, 
+            "end": {
+                "character": 8, 
+                "line": 1
+            }
+        }, 
+        "suggestedfix": {
+            "range": {
+                "start": {
+                    "character": 3, 
+                    "line": 0
+                }, 
+                "end": {
+                    "character": 8, 
+                    "line": 1
+                }
+            }, 
+            "fix": "a, b = b, a"
+        }
+    }
+]]=]
+		assert.strcontains(result.stdout, expected)
+	end)
 end)
