@@ -270,12 +270,12 @@ int rmdir(lua_State* L)
     int nArgs = lua_gettop(L);
     if (nArgs < 1)
     {
-        luaL_errorL(L, "Error: no path supplied\n");
+        luaL_errorL(L, "rmdir: no path supplied\n");
     }
 
     if (nArgs > 1)
     {
-        luaL_errorL(L, "Error: too many arguments supplied\n");
+        luaL_errorL(L, "rmdir: too many arguments supplied\n");
     }
 
     const char* path = luaL_checkstring(L, 1);
