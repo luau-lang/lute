@@ -1,7 +1,6 @@
 #pragma once
 
 #include <optional>
-#include <string_view>
 
 struct lua_State;
 
