@@ -14,6 +14,7 @@
 #include <unistd.h>
 #endif
 #include <fcntl.h>
+#include <filesystem>
 #include <memory>
 #include <stdlib.h>
 #include <string>
@@ -418,7 +419,7 @@ int exists_impl(lua_State* L, const char* path)
             auto r = uvutils::retake<FSRequest>(req);
             auto result = req->result;
 
-            if (result < 0)
+            if (result < 0 && result != UV_ENOENT)
             {
                 r->fail("exists: Error checking existence of %s: %s", req->path, uv_strerror(result));
                 return;
@@ -500,15 +501,41 @@ int link_impl(lua_State* L, const char* path, const char* dest)
     return lua_yield(L, 0);
 }
 
+/*
+int fs_symlink(lua_State* L)
+{
+    if (std::filesystem::is_directory(path))
+    {
+        req->flags = UV_FS_SYMLINK_DIR; // windows
+    }
+    else
+    {
+        req->flags = 0;
+    }
+
+    int err = uv_fs_symlink(uv_default_loop(), req, path, dest, req->flags, defaultCallback);
+
+    if (err)
+    {
+        delete static_cast<ResumeToken*>(req->data);
+        delete req;
+        luaL_errorL(L, "%s", uv_strerror(err));
+    }
+
+    return lua_yield(L, 0);
+*/
+
 int symlink_impl(lua_State* L, const char* path, const char* dest)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
+    int flags = std::filesystem::is_directory(path) ? UV_FS_SYMLINK_DIR : 0;
+
     uv_fs_symlink(
         uv_default_loop(),
         &req->req,
         path,
         dest,
-        0,
+        flags,
         [](uv_fs_t* req)
         {
             auto r = uvutils::retake<FSRequest>(req);
