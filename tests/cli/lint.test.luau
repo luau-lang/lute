@@ -1633,5 +1633,3 @@ local e = next(t) ~= nil
 		assert.strcontains(result.stdout, expected)
 	end)
 end)
-
-test.run()
