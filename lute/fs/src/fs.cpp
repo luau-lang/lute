@@ -198,98 +198,46 @@ int stat(lua_State* L)
     return stat_impl(L, path);
 }
 
-static void defaultCallback(uv_fs_t* req)
+int copy(lua_State* L)
 {
-    auto* request_state = static_cast<ResumeToken*>(req->data);
-    auto token = std::move(*request_state);
-    delete request_state;
-
-    auto err = req->result;
-
-    uv_fs_req_cleanup(req);
-    delete req;
-
-    if (err)
+    int nArgs = lua_gettop(L);
+    if (nArgs > 2)
     {
-        token->fail(uv_strerror(err));
-        return;
+        luaL_errorL(L, "copy: too many arguments supplied\n");
     }
 
-    token->complete(
-        [](lua_State* L)
-        {
-            return 0;
-        }
-    );
-}
-
-int fs_copy(lua_State* L)
-{
     const char* path = luaL_checkstring(L, 1);
     const char* dest = luaL_checkstring(L, 2);
 
-    auto* req = new uv_fs_t();
-    req->data = new ResumeToken(getResumeToken(L));
-
-    int err = uv_fs_copyfile(uv_default_loop(), req, path, dest, 0, defaultCallback);
-
-    if (err)
-    {
-        delete static_cast<ResumeToken*>(req->data);
-        delete req;
-        luaL_errorL(L, "%s", uv_strerror(err));
-    }
-
-    return lua_yield(L, 0);
+    return copy_impl(L, path, dest);
 }
 
-int fs_link(lua_State* L)
+int link(lua_State* L)
 {
+    int nArgs = lua_gettop(L);
+    if (nArgs > 2)
+    {
+        luaL_errorL(L, "link: too many arguments supplied\n");
+    }
+
     const char* path = luaL_checkstring(L, 1);
     const char* dest = luaL_checkstring(L, 2);
 
-    auto* req = new uv_fs_t();
-    req->data = new ResumeToken(getResumeToken(L));
-
-    int err = uv_fs_link(uv_default_loop(), req, path, dest, defaultCallback);
-
-    if (err)
-    {
-        delete static_cast<ResumeToken*>(req->data);
-        delete req;
-        luaL_errorL(L, "%s", uv_strerror(err));
-    }
-
-    return lua_yield(L, 0);
+    return link_impl(L, path, dest);
 }
 
-int fs_symlink(lua_State* L)
+int symlink(lua_State* L)
 {
+    int nArgs = lua_gettop(L);
+    if (nArgs > 2)
+    {
+        luaL_errorL(L, "symlink: too many arguments supplied\n");
+    }
+
     const char* path = luaL_checkstring(L, 1);
     const char* dest = luaL_checkstring(L, 2);
 
-    auto* req = new uv_fs_t();
-    req->data = new ResumeToken(getResumeToken(L));
-
-    if (std::filesystem::is_directory(path))
-    {
-        req->flags = UV_FS_SYMLINK_DIR; // windows
-    }
-    else
-    {
-        req->flags = 0;
-    }
-
-    int err = uv_fs_symlink(uv_default_loop(), req, path, dest, req->flags, defaultCallback);
-
-    if (err)
-    {
-        delete static_cast<ResumeToken*>(req->data);
-        delete req;
-        luaL_errorL(L, "%s", uv_strerror(err));
-    }
-
-    return lua_yield(L, 0);
+    return symlink_impl(L, path, dest);
 }
 
 struct WatchHandle
@@ -409,45 +357,17 @@ int fs_watch(lua_State* L)
     return 1; // return the watch handle
 }
 
-int fs_exists(lua_State* L)
+int exists(lua_State* L)
 {
-    const char* path = luaL_checkstring(L, 1);
-
-    auto* req = new uv_fs_t();
-    req->data = new ResumeToken(getResumeToken(L));
-
-    int err = uv_fs_access(
-        uv_default_loop(),
-        req,
-        path,
-        F_OK,
-        [](uv_fs_t* req)
-        {
-            auto* request_state = static_cast<ResumeToken*>(req->data);
-
-            request_state->get()->complete(
-                [req](lua_State* L)
-                {
-                    lua_pushboolean(L, req->result == 0);
-                    uv_fs_req_cleanup(req);
-
-                    delete req;
-
-                    return 1;
-                }
-            );
-            delete request_state;
-        }
-    );
-
-    if (err)
+    int nArgs = lua_gettop(L);
+    if (nArgs > 1)
     {
-        delete static_cast<ResumeToken*>(req->data);
-        delete req;
-        luaL_errorL(L, "%s", uv_strerror(err));
+        luaL_errorL(L, "exists: too many arguments supplied\n");
     }
 
-    return lua_yield(L, 0);
+    const char* path = luaL_checkstring(L, 1);
+
+    return exists_impl(L, path);
 }
 
 int type(lua_State* L)

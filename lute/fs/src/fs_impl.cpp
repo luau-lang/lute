@@ -402,6 +402,38 @@ int stat_impl(lua_State* L, const char* path)
     return lua_yield(L, 0);
 }
 
+int exists_impl(lua_State* L, const char* path)
+{
+    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uv_fs_access(
+        uv_default_loop(),
+        &req->req,
+        path,
+        F_OK,
+        [](uv_fs_t* req)
+        {
+            auto r = uvutils::retake<FSRequest>(req);
+            auto result = req->result;
+
+            if (result < 0 && result != UV_ENOENT)
+            {
+                r->fail("exists: Error checking existence of %s: %s", req->path, uv_strerror(result));
+                return;
+            }
+
+            r->succeed(
+                [exists = (result == 0)](lua_State* L)
+                {
+                    lua_pushboolean(L, exists);
+                    return 1;
+                }
+            );
+        }
+    );
+
+    return lua_yield(L, 0);
+}
+
 int type_impl(lua_State* L, const char* path)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
@@ -426,6 +458,101 @@ int type_impl(lua_State* L, const char* path)
                     auto type = fileModeToType(stat.st_mode);
                     lua_pushstring(L, type);
                     return 1;
+                }
+            );
+        }
+    );
+
+    return lua_yield(L, 0);
+}
+
+int link_impl(lua_State* L, const char* path, const char* dest)
+{
+    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uv_fs_link(
+        uv_default_loop(),
+        &req->req,
+        path,
+        dest,
+        [](uv_fs_t* req)
+        {
+            auto r = uvutils::retake<FSRequest>(req);
+            auto result = req->result;
+
+            if (result < 0)
+            {
+                r->fail("link: Error creating link from %s to %s: %s", req->path, req->new_path, uv_strerror(result));
+                return;
+            }
+
+            r->succeed(
+                [](lua_State* L)
+                {
+                    return 0;
+                }
+            );
+        }
+    );
+
+    return lua_yield(L, 0);
+}
+
+int symlink_impl(lua_State* L, const char* path, const char* dest)
+{
+    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uv_fs_symlink(
+        uv_default_loop(),
+        &req->req,
+        path,
+        dest,
+        0,
+        [](uv_fs_t* req)
+        {
+            auto r = uvutils::retake<FSRequest>(req);
+            auto result = req->result;
+
+            if (result < 0)
+            {
+                r->fail("symlink: Error creating symlink from %s to %s: %s", req->path, req->new_path, uv_strerror(result));
+                return;
+            }
+
+            r->succeed(
+                [](lua_State* L)
+                {
+                    return 0;
+                }
+            );
+        }
+    );
+
+    return lua_yield(L, 0);
+}
+
+int copy_impl(lua_State* L, const char* path, const char* dest)
+{
+    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uv_fs_copyfile(
+        uv_default_loop(),
+        &req->req,
+        path,
+        dest,
+        0,
+        [](uv_fs_t* req)
+        {
+            auto r = uvutils::retake<FSRequest>(req);
+            auto result = req->result;
+
+            if (result < 0)
+            {
+                r->fail("copy: Error copying file from %s to %s: %s", req->path, req->new_path, uv_strerror(result));
+                return;
+            }
+
+            r->succeed(
+                [](lua_State* L)
+                {
+                    return 0;
                 }
             );
         }
