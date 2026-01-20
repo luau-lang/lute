@@ -19,4 +19,5 @@ int write_impl(lua_State* L, UVFile* handle, const char* toWrite, size_t numByte
 int close_impl(lua_State* L, UVFile* handle);
 int remove_impl(lua_State* L, const char* path);
 int mkdir_impl(lua_State* L, const char* path, int mode);
+int rmdir_impl(lua_State* L, const char* path);
 } // namespace fs

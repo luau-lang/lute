@@ -265,18 +265,22 @@ int mkdir(lua_State* L)
     return mkdir_impl(L, path, mode);
 }
 
-int fs_rmdir(lua_State* L)
+int rmdir(lua_State* L)
 {
+    int nArgs = lua_gettop(L);
+    if (nArgs < 1)
+    {
+        luaL_errorL(L, "Error: no path supplied\n");
+    }
+
+    if (nArgs > 1)
+    {
+        luaL_errorL(L, "Error: too many arguments supplied\n");
+    }
+
     const char* path = luaL_checkstring(L, 1);
 
-    uv_fs_t rmdir_req;
-    int err = uv_fs_rmdir(uv_default_loop(), &rmdir_req, path, nullptr);
-    uv_fs_req_cleanup(&rmdir_req);
-
-    if (err)
-        luaL_errorL(L, "%s", uv_strerror(err));
-
-    return 0;
+    return rmdir_impl(L, path);
 }
 
 int fs_stat(lua_State* L)

@@ -41,7 +41,7 @@ int remove(lua_State* L);
 int mkdir(lua_State* L);
 
 /* Removes a directory */
-int fs_rmdir(lua_State* L);
+int rmdir(lua_State* L);
 
 /* Gets the metadata of a file */
 int fs_stat(lua_State* L);
@@ -87,7 +87,7 @@ static const luaL_Reg lib[] = {
 
     {"mkdir", mkdir},
     {"listdir", listdir},
-    {"rmdir", fs_rmdir},
+    {"rmdir", rmdir},
 
     {NULL, NULL},
 };

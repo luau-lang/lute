@@ -296,4 +296,33 @@ int mkdir_impl(lua_State* L, const char* path, int mode)
     return lua_yield(L, 0);
 }
 
+int rmdir_impl(lua_State* L, const char* path)
+{
+    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uv_fs_rmdir(
+        uv_default_loop(),
+        &req->req,
+        path,
+        [](uv_fs_t* req)
+        {
+            auto r = uvutils::retake<FSRequest>(req);
+            auto result = req->result;
+            if (result < 0)
+            {
+                r->fail("Error removing directory %s: %s", req->path, uv_strerror(result));
+                return;
+            }
+
+            r->succeed(
+                [](lua_State* L)
+                {
+                    return 0;
+                }
+            );
+        }
+    );
+
+    return lua_yield(L, 0);
+}
+
 } // namespace fs
