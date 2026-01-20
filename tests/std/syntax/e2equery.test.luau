@@ -67,5 +67,3 @@ test.suite("E2E Query Transforms", function(suite)
 		curFile = casesWalker()
 	end
 end)
-
-test.run()
