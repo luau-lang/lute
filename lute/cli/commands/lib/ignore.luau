@@ -97,8 +97,8 @@ local function parseGlob(glob: string): Glob
 			-- Match any single character, except for directory separator
 			table.insert(lua_parts, `[^{separator}]`)
 			idx = idx + 1
-		elseif char == "-" then
-			table.insert(lua_parts, "%-")
+		elseif char == "-" or char == "." then
+			table.insert(lua_parts, `%{char}`)
 			idx = idx + 1
 		elseif char == "/" or char == "\\" then
 			table.insert(lua_parts, separator)

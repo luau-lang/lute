@@ -1,0 +1,16 @@
+#include "lute/tc.h"
+
+#include "Luau/FileUtils.h"
+
+#include "doctest.h"
+#include "lutefixture.h"
+#include "luteprojectroot.h"
+
+TEST_CASE_FIXTURE(LuteFixture, "typecheck_uses_new_solver")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/newsolver.luau");
+
+    auto result = typecheck({testFilePath}, getReporter());
+    CHECK(result == 0);
+}

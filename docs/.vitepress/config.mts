@@ -9,7 +9,8 @@ export default withSidebar(
     themeConfig: {
       nav: [
         { text: 'Guide', link: '/guide/installation' },
-        { text: 'Reference', link: '/reference/lute/crypto' },
+        { text: 'CLI', link: '/cli/' },
+        { text: 'Reference', link: '/reference' },
       ],
       search: { provider: 'local' },
       socialLinks: [
@@ -19,12 +20,14 @@ export default withSidebar(
   }),
   {
     // ============ [ SIDEBAR OPTIONS ] ============
-    useFolderLinkFromSameNameSubFile: true,
+    useFolderLinkFromIndexFile: true,
+    useFolderTitleFromIndexFile: true,
     useTitleFromFileHeading: true,
     useTitleFromFrontmatter: true,
     hyphenToSpace: true,
     underscoreToSpace: true,
-    sortMenusByName: true,
+    sortMenusByFrontmatterOrder: true,
+    frontmatterOrderDefaultValue: 100,
     excludeByGlobPattern: ['**/test/**'],
   }
 )

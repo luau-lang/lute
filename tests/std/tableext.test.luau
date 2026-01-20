@@ -62,4 +62,77 @@ test.suite("TableExt", function(suite)
 		assert.tableeq(b, { 4, 5, 6 })
 		assert.tableeq(c, { 6, 5, 4 })
 	end)
+
+	suite:case("toset", function(assert)
+		local a = { 1, 2, 4, 2, 1 }
+		local setA = tableext.toset(a)
+		assert.eq(setA[1], true)
+		assert.eq(setA[2], true)
+		assert.eq(setA[3], nil)
+		assert.eq(setA[4], true)
+		assert.eq(setA[5], nil)
+
+		local setSize = #tableext.keys(setA)
+		assert.eq(setSize, 3)
+		assert.neq(setSize, #a)
+
+		-- Sanity check: sets created using an array of numbers don't break from having "gaps" between the number keys.
+
+		local foundKeys: { number } = {}
+		for key, value in setA do
+			assert.eq(value, true)
+			table.insert(foundKeys, key)
+		end
+		assert.eq(#foundKeys, setSize)
+		assert.eq(setA[foundKeys[1]], true)
+		assert.eq(setA[foundKeys[2]], true)
+		assert.eq(setA[foundKeys[3]], true)
+
+		local b = { "a", "b", "c", "a" }
+		local setB = tableext.toset(b)
+		assert.eq(setB["a"], true)
+		assert.eq(setB["b"], true)
+		assert.eq(setB["c"], true)
+		assert.eq(setB["d"], nil)
+		assert.eq(#tableext.keys(setB), 3)
+		assert.neq(#tableext.keys(setB), #b)
+	end)
+
+	suite:case("any", function(assert)
+		local a = { 1, 2, 3, 4, 5 }
+		local hasEven = tableext.any(a, function(v: number)
+			return v % 2 == 0
+		end)
+		assert.eq(hasEven, true)
+
+		local hasGreaterThanFive = tableext.any(a, function(v: number)
+			return v > 5
+		end)
+		assert.eq(hasGreaterThanFive, false)
+
+		a = {}
+		local anyInEmpty = tableext.any(a, function(v: number)
+			return true
+		end)
+		assert.eq(anyInEmpty, false)
+	end)
+
+	suite:case("all", function(assert)
+		local a = { 2, 4, 6, 8 }
+		local allEven = tableext.all(a, function(v: number)
+			return v % 2 == 0
+		end)
+		assert.eq(allEven, true)
+
+		local allLessThanEight = tableext.all(a, function(v: number)
+			return v < 8
+		end)
+		assert.eq(allLessThanEight, false)
+
+		a = {}
+		local allInEmpty = tableext.all(a, function(v: number)
+			return false
+		end)
+		assert.eq(allInEmpty, true)
+	end)
 end)

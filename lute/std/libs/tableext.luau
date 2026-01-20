@@ -27,6 +27,24 @@ function tableext.filter<K, V>(table: { [K]: V }, predicate: (V) -> boolean): { 
 	return new
 end
 
+function tableext.any<T>(arr: { T }, predicate: (T) -> boolean): boolean
+	for _, v in arr do
+		if predicate(v) then
+			return true
+		end
+	end
+	return false
+end
+
+function tableext.all<T>(arr: { T }, predicate: (T) -> boolean): boolean
+	for _, v in arr do
+		if not predicate(v) then
+			return false
+		end
+	end
+	return true
+end
+
 function tableext.extend<T>(tbl: { T }, ...: { T })
 	local extensions = table.pack(...)
 	extensions.n = nil :: any
@@ -54,6 +72,14 @@ function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 		table.insert(keys, k)
 	end
 	return keys
+end
+
+function tableext.toset<T>(tbl: { T }): { [T]: true }
+	local set: { [T]: true } = {}
+	for _, v in tbl do
+		set[v] = true
+	end
+	return set
 end
 
 function tableext.reverse<T>(tbl: { T }, inplace: boolean?)
