@@ -24,6 +24,8 @@ export type ProjectManifest = {
 	package: PackageManifest,
 }
 
+-- FIXME(Luau): running into issues with getting this to type check properly.
+-- We also should also do proper error handling because this is user input.
 function fromTable(table: any): ProjectManifest
 	assert(table.package ~= nil and type(table.package) == "table", "Expected 'package' field in manifest")
 
