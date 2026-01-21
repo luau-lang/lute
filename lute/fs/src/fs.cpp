@@ -8,7 +8,13 @@
 
 #include "uv.h"
 
+#include <cstring>
+
 #include "fs_impl.h"
+
+#include <memory>
+#include <optional>
+#include <string>
 
 namespace fs
 {
