@@ -1,10 +1,17 @@
 #pragma once
 #include <functional>
+#include <optional>
 #include <string>
 
 struct lua_State;
 struct Runtime;
 class LuteReporter;
+
+struct ProfileOptions
+{
+    std::string filename;
+    int frequency = 1000;
+};
 
 int cliMain(int argc, char** argv, LuteReporter& reporter);
 bool runBytecode(
@@ -15,5 +22,5 @@ bool runBytecode(
     int program_argc,
     char** program_argv,
     LuteReporter& reporter,
-    bool enableProfiling = false
+    std::optional<ProfileOptions> profileOptions = std::nullopt
 );

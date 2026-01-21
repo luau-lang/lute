@@ -2,11 +2,9 @@
 
 #include "lute/reporter.h"
 
-#include "Luau/Common.h"
-#include "Luau/FileUtils.h"
-
 #include "lua.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <string>
@@ -32,14 +30,14 @@ struct TraceEvent
     std::string name;
     std::string file;
     int line;
-    uint64_t timestamp;
+    uint64_t timestamp; // Timestamp in microseconds
 };
 
 struct Profiler
 {
     // static state
     lua_Callbacks* callbacks = nullptr;
-    int frequency = 100000;
+    int frequency = 10000;
     std::thread thread;
 
     // variables for communication between loop and trigger
@@ -49,7 +47,7 @@ struct Profiler
     // state for tracking stack changes (only accessed in trigger)
     std::vector<FrameInfo> previousStack;
     std::vector<TraceEvent> events;
-    uint64_t currentTimestamp = 0; // running timestamp in microseconds
+    uint64_t currentTimestamp = 0;
 
 } gProfiler;
 
@@ -78,7 +76,6 @@ static void profilerTrigger(lua_State* L, int gc)
     // lua_getinfo level walks the stack from the current call(top) to the first call(bottom) - we'll have to reverse this here
     std::reverse(currentStack.begin(), currentStack.end());
 
-    // Find where stacks diverge
     size_t commonDepth = 0;
     while (commonDepth < gProfiler.previousStack.size() && commonDepth < currentStack.size() &&
            gProfiler.previousStack[commonDepth] == currentStack[commonDepth])
@@ -87,12 +84,11 @@ static void profilerTrigger(lua_State* L, int gc)
     }
 
     // This code just implements coalescing - if the previous stack differs from the current stack like so
-    //  prev top ..|.... bottom
-    //  prev top ..|......bottom'
-    // Then for everything in the previous stack, starting from the bottom in reverse
-    // we should emit end events,
+    //  prev bottom ...... top
+    //  curr bottom  ........top'
+    // Then for everything in the previous stack, starting from the top, in reverse
+    // we should emit end events (to match the expected B nesting),
     // and for everything in the new stack, we should emit begin events, moving forward
-    // so that all the nesting works correctly.
     for (size_t i = gProfiler.previousStack.size(); i > commonDepth; i--)
     {
         const FrameInfo& frame = gProfiler.previousStack[i - 1];
@@ -117,7 +113,6 @@ static void profilerTrigger(lua_State* L, int gc)
         gProfiler.events.push_back(evt);
     }
 
-    // Advance timestamp by elapsed ticks
     gProfiler.currentTimestamp += ticks;
     gProfiler.previousStack = std::move(currentStack);
     gProfiler.callbacks->interrupt = nullptr;
@@ -165,7 +160,7 @@ void profilerStop()
     gProfiler.exit = true;
     gProfiler.thread.join();
 
-    // Emit 'E' events for any remaining frames on the stack
+    // For any of the remaining frames on the stack, insert an artificial end(E) event.
     for (size_t i = gProfiler.previousStack.size(); i > 0; i--)
     {
         const FrameInfo& frame = gProfiler.previousStack[i - 1];

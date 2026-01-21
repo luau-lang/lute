@@ -25,6 +25,9 @@
 #include "lua.h"
 #include "lualib.h"
 
+#include <chrono>
+#include <ctime>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -83,7 +86,10 @@ static const char* VERSION_STRING = LUTE_VERSION_FULL;
 static const char* RUN_HELP_STRING = R"(Usage: lute run <script.luau> [args...]
 
 Run Options:
-	-h, --help    Display this usage message.
+	--profile               Enable profiling for the script.
+	--profile-output <path> Output file for the profile (default: <datetime>_<filename>.json).
+	--frequency <hz>        Profiler sampling frequency in Hz (default: 10000).
+	-h, --help              Display this usage message.
 )";
 
 static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkg run <script.luau> [args...]
@@ -127,15 +133,15 @@ bool runBytecode(
     int program_argc,
     char** program_argv,
     LuteReporter& reporter,
-    bool enableProfiling
+    std::optional<ProfileOptions> profileOptions
 )
 {
     // module needs to run in a new thread, isolated from the rest
     lua_State* L = lua_newthread(GL);
 
-    if (enableProfiling)
+    if (profileOptions)
     {
-	    profilerStart(L, 100000);
+        profilerStart(L, profileOptions->frequency);
     }
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(L);
@@ -170,18 +176,14 @@ bool runBytecode(
     lua_pop(GL, 1);
 
     bool b = runtime.runToCompletion();
-    if (enableProfiling)
+    if (profileOptions)
     {
         profilerStop();
-        profilerDump("beeg.json", reporter);
+        profilerDump(profileOptions->filename.c_str(), reporter);
     }
 
     return b;
 }
-
-struct RunOptions
-{
-};
 
 static bool runFile(
     Runtime& runtime,
@@ -190,7 +192,7 @@ static bool runFile(
     int program_argc,
     char** program_argv,
     LuteReporter& reporter,
-    bool enableProfiling
+    std::optional<ProfileOptions> profileOptions = std::nullopt
 )
 {
     if (isDirectory(name))
@@ -209,18 +211,13 @@ static bool runFile(
     std::string chunkname = "@" + normalizePath(name);
 
     Luau::CompileOptions opts = copts();
-    if (enableProfiling)
+    if (profileOptions)
     {
-	    opts.optimizationLevel = 2;
+        opts.optimizationLevel = 2;
     }
     std::string bytecode = Luau::compile(*source, opts);
 
-
-
-    bool b = runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv, reporter, enableProfiling);
-
-
-    return b;
+    return runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv, reporter, profileOptions);
 }
 
 static int assertionHandler(const char* expr, const char* file, int line, const char* function)
@@ -305,6 +302,8 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
     std::string filePath;
     int program_argc = 0;
     bool enableProfiling = false;
+    std::string profileOutput;
+    int profileFrequency = 10000;
     char** program_argv = nullptr;
 
     for (int i = argOffset; i < argc; ++i)
@@ -319,7 +318,26 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         else if (strcmp(currentArg, "--profile") == 0)
         {
             enableProfiling = true;
-	    reporter.reportOutput("Enabling profile");
+        }
+        else if (strcmp(currentArg, "--profile-output") == 0)
+        {
+            if (i + 1 >= argc)
+            {
+                reporter.reportError("Error: --profile-output requires a path argument.");
+                reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
+                return 1;
+            }
+            profileOutput = argv[++i];
+        }
+        else if (strcmp(currentArg, "--frequency") == 0)
+        {
+            if (i + 1 >= argc)
+            {
+                reporter.reportError("Error: --frequency requires a value argument.");
+                reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
+                return 1;
+            }
+            profileFrequency = std::stoi(argv[++i]);
         }
         else if (currentArg[0] == '-')
         {
@@ -327,12 +345,12 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
             reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 1;
         }
-
         else
         {
             filePath = currentArg;
             program_argc = argc - i;
             program_argv = &argv[i];
+            break;
         }
     }
 
@@ -348,6 +366,39 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
     {
         reporter.formatError("Error while resolving filepath '%s': %s", filePath.c_str(), validPath.c_str());
         return 1;
+    }
+
+    std::optional<ProfileOptions> profileOptions;
+    if (enableProfiling)
+    {
+        ProfileOptions opts;
+        opts.frequency = profileFrequency;
+
+        if (profileOutput.empty())
+        {
+            auto now = std::chrono::system_clock::now();
+            std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+            std::tm* localTime = std::localtime(&nowTime);
+
+            char dateTimeStr[20];
+            std::strftime(dateTimeStr, sizeof(dateTimeStr), "%Y-%m-%d_%H-%M-%S", localTime);
+
+            std::string baseName = filePath;
+            size_t lastSlash = baseName.find_last_of("/\\");
+            if (lastSlash != std::string::npos)
+                baseName = baseName.substr(lastSlash + 1);
+            size_t lastDot = baseName.find_last_of('.');
+            if (lastDot != std::string::npos)
+                baseName = baseName.substr(0, lastDot);
+
+            opts.filename = std::string(dateTimeStr) + "_" + baseName + ".json";
+        }
+        else
+        {
+            opts.filename = profileOutput;
+        }
+
+        profileOptions = opts;
     }
 
     Runtime runtime;
@@ -381,7 +432,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         L = setupCliState(runtime);
     }
 
-    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter, enableProfiling);
+    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter, profileOptions);
     return success ? 0 : 1;
 }
 
