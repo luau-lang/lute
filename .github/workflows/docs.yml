@@ -16,11 +16,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
 
-      - name: Install tools
-        uses: Roblox/setup-foreman@v3
+      - name: Setup and Build Lute
+        id: build_lute
+        uses: ./.github/actions/setup-and-build
         with:
+          target: Lute.CLI
+          config: debug
+          options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          allow-external-github-orgs: true
+          use-bootstrap: true
 
       - name: Install dependencies
         run: npm install

@@ -37,7 +37,7 @@ local function printHelp()
 	print([[
 Usage: lute doc [OPTIONS]
 
-Generate type-directed Markdown documentation for Luau module(s).
+Generate Markdown documentation for Luau module(s).
 
 OPTIONS:
   -h, --help              Show this help message
