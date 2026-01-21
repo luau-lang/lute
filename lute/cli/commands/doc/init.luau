@@ -332,7 +332,7 @@ local function generateLibraryIndex(title: string, alias: string, modulePath: pa
 end
 
 local function generateAllDocs(outputDir: path.path): ()
-	local referenceBasePath = path.join(outputDir, "reference")
+	local referenceBasePath = path.join(process.cwd(), "reference")
 	fs.createdirectory(referenceBasePath, { makeparents = true })
 
 	-- Generate reference index with frontmatter for sidebar ordering
@@ -349,7 +349,7 @@ local function generateAllDocs(outputDir: path.path): ()
 	]]
 	fs.writestringtofile(path.join(referenceBasePath, "index.md"), referenceIndex)
 
-	local definitionsPath = path.join(process.cwd(), "definitions")
+	local definitionsPath = path.join(process.cwd(), "..", "definitions")
 	local referencePath = path.join(referenceBasePath, "lute")
 	processDirectory(definitionsPath, referencePath, definitionsPath, "lute")
 
@@ -357,7 +357,7 @@ local function generateAllDocs(outputDir: path.path): ()
 	local luteIndex = generateLibraryIndex("lute", "lute", definitionsPath)
 	fs.writestringtofile(path.join(referencePath, "index.md"), luteIndex)
 
-	local stdlibPath = path.join(process.cwd(), "lute", "std", "libs")
+	local stdlibPath = path.join(process.cwd(), "..", "lute", "std", "libs")
 	local stdlibReferencePath = path.join(referenceBasePath, "std")
 	processDirectory(stdlibPath, stdlibReferencePath, stdlibPath, "std")
 
