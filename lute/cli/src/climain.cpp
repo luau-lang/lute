@@ -302,8 +302,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
     std::string filePath;
     int program_argc = 0;
     bool enableProfiling = false;
-    std::string profileOutput;
-    int profileFrequency = 10000;
+    ProfileOptions profileOpts;
     char** program_argv = nullptr;
 
     for (int i = argOffset; i < argc; ++i)
@@ -327,7 +326,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
                 reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
                 return 1;
             }
-            profileOutput = argv[++i];
+            profileOpts.filename = argv[++i];
         }
         else if (strcmp(currentArg, "--frequency") == 0)
         {
@@ -337,7 +336,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
                 reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
                 return 1;
             }
-            profileFrequency = std::stoi(argv[++i]);
+            profileOpts.frequency = std::stoi(argv[++i]);
         }
         else if (currentArg[0] == '-')
         {
@@ -371,10 +370,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
     std::optional<ProfileOptions> profileOptions;
     if (enableProfiling)
     {
-        ProfileOptions opts;
-        opts.frequency = profileFrequency;
-
-        if (profileOutput.empty())
+        if (profileOpts.filename.empty())
         {
             auto now = std::chrono::system_clock::now();
             std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
@@ -391,14 +387,10 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
             if (lastDot != std::string::npos)
                 baseName = baseName.substr(0, lastDot);
 
-            opts.filename = std::string(dateTimeStr) + "_" + baseName + ".json";
-        }
-        else
-        {
-            opts.filename = profileOutput;
+            profileOpts.filename = std::string(dateTimeStr) + "_" + baseName + ".json";
         }
 
-        profileOptions = opts;
+        profileOptions.emplace(profileOpts);
     }
 
     Runtime runtime;
