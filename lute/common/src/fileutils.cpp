@@ -164,4 +164,18 @@ bool isDirectory(const std::string& path)
 #endif
 }
 
+std::string getFilenameWithoutExtension(const std::string& path)
+{
+    std::string base = path;
+    size_t lastSlash = base.find_last_of("/\\");
+    if (lastSlash != std::string::npos)
+        base = base.substr(lastSlash + 1);
+    // Once we've stripped off the last '/' in the path, we need to trim everything after .
+    // in order to handle .foo.bar suffixes
+    size_t firstDot = base.find('.');
+    if (firstDot != std::string::npos)
+        base = base.substr(0, firstDot);
+    return base;
+}
+
 } // namespace Lute

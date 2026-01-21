@@ -2,6 +2,7 @@
 
 #include "lute/clicommands.h"
 #include "lute/compile.h"
+#include "lute/fileutils.h"
 #include "lute/luauflags.h"
 #include "lute/modulepath.h"
 #include "lute/options.h"
@@ -88,7 +89,7 @@ static const char* RUN_HELP_STRING = R"(Usage: lute run <script.luau> [args...]
 Run Options:
 	--profile               Enable profiling for the script.
 	--profile-output <path> Output file for the profile (default: <datetime>_<filename>.json).
-	--frequency <hz>        Profiler sampling frequency in Hz (default: 10000).
+	--frequency <Hz>        Profiler sampling frequency in Hz (default: 10000).
 	-h, --help              Display this usage message.
 )";
 
@@ -140,9 +141,8 @@ bool runBytecode(
     lua_State* L = lua_newthread(GL);
 
     if (profileOptions)
-    {
         profilerStart(L, profileOptions->frequency);
-    }
+
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(L);
 
@@ -210,12 +210,7 @@ static bool runFile(
 
     std::string chunkname = "@" + normalizePath(name);
 
-    Luau::CompileOptions opts = copts();
-    if (profileOptions)
-    {
-        opts.optimizationLevel = 2;
-    }
-    std::string bytecode = Luau::compile(*source, opts);
+    std::string bytecode = Luau::compile(*source, copts());
 
     return runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv, reporter, profileOptions);
 }
@@ -303,6 +298,8 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
     int program_argc = 0;
     bool enableProfiling = false;
     ProfileOptions profileOpts;
+    bool hasProfileOutputArg = false;
+    bool hasProfileFreqArg = false;
     char** program_argv = nullptr;
 
     for (int i = argOffset; i < argc; ++i)
@@ -327,6 +324,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
                 return 1;
             }
             profileOpts.filename = argv[++i];
+            hasProfileOutputArg = true;
         }
         else if (strcmp(currentArg, "--frequency") == 0)
         {
@@ -337,6 +335,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
                 return 1;
             }
             profileOpts.frequency = std::stoi(argv[++i]);
+            hasProfileFreqArg = true;
         }
         else if (currentArg[0] == '-')
         {
@@ -379,18 +378,16 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
             char dateTimeStr[20];
             std::strftime(dateTimeStr, sizeof(dateTimeStr), "%Y-%m-%d_%H-%M-%S", localTime);
 
-            std::string baseName = filePath;
-            size_t lastSlash = baseName.find_last_of("/\\");
-            if (lastSlash != std::string::npos)
-                baseName = baseName.substr(lastSlash + 1);
-            size_t lastDot = baseName.find_last_of('.');
-            if (lastDot != std::string::npos)
-                baseName = baseName.substr(0, lastDot);
-
+            std::string baseName = Lute::getFilenameWithoutExtension(filePath);
             profileOpts.filename = std::string(dateTimeStr) + "_" + baseName + ".json";
         }
 
         profileOptions.emplace(profileOpts);
+    }
+    else if (hasProfileOutputArg || hasProfileFreqArg)
+    {
+        reporter.reportError("You passed --profile-output or --frequency without passing --profile.");
+        return 1;
     }
 
     Runtime runtime;

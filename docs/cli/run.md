@@ -16,8 +16,9 @@ lute <script.luau> [args...]
 ```
 
 ```bash
-lute --profile [--profile-output somefile] [--frequency <number> ] <script.luau> [args...]
+lute --profile [--profile-output somefile] [--frequency <Hz> ] <script.luau> [args...]
 ```
+
 will profile the execution of `script.luau` at the provided frequency, outputting the trace to a file called
 somefile.
 
@@ -31,7 +32,7 @@ Display this usage message.
 ### `--profile`
 
 Enable profiling for the script being passed to `lute run`. Default sampling frequency is
-10000Hz, and default profile name is <datetime>_<filename>.json.
+10000Hz, and default output filename is `<datetime>_<filename>.json`.
 
 ### `--profile-output <filename>`
 

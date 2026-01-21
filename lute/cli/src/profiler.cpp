@@ -4,9 +4,7 @@
 
 #include "lua.h"
 
-#include <algorithm>
 #include <atomic>
-#include <cstdio>
 #include <string>
 #include <thread>
 #include <vector>
@@ -26,6 +24,14 @@ struct FrameInfo
 
 struct TraceEvent
 {
+    TraceEvent(char phase, const FrameInfo& fi, uint64_t timestamp)
+        : phase(phase)
+        , name(fi.name)
+        , file(fi.file)
+        , line(fi.line)
+        , timestamp(timestamp)
+    {
+    }
     char phase; // 'B' for begin, 'E' for end
     std::string name;
     std::string file;
@@ -62,55 +68,38 @@ static void profilerTrigger(lua_State* L, int gc)
 
     std::vector<FrameInfo> currentStack;
     lua_Debug dbg;
-    int level = 0;
-    while (lua_getinfo(L, level, "sln", &dbg))
+    for (int level = 0; lua_getinfo(L, level, "sln", &dbg); ++level)
     {
         FrameInfo frame;
         frame.name = dbg.name ? dbg.name : "(anonymous)";
         frame.file = dbg.short_src ? dbg.short_src : "(unknown)";
         frame.line = dbg.linedefined;
         currentStack.push_back(frame);
-        level++;
     }
 
-    // lua_getinfo level walks the stack from the current call(top) to the first call(bottom) - we'll have to reverse this here
-    std::reverse(currentStack.begin(), currentStack.end());
-
+    // Stacks are in reverse order, i.e
+    // leaf ..... main, so we should walk backwards
     size_t commonDepth = 0;
-    while (commonDepth < gProfiler.previousStack.size() && commonDepth < currentStack.size() &&
-           gProfiler.previousStack[commonDepth] == currentStack[commonDepth])
+    size_t iterPrev = gProfiler.previousStack.size();
+    size_t iterCurr = currentStack.size();
+
+    while (iterPrev > 0 && iterCurr > 0 && gProfiler.previousStack[iterPrev - 1] == currentStack[iterCurr - 1])
     {
         commonDepth++;
+        iterPrev--;
+        iterCurr--;
     }
 
-    // This code just implements coalescing - if the previous stack differs from the current stack like so
-    //  prev bottom ...... top
-    //  curr bottom  ........top'
-    // Then for everything in the previous stack, starting from the top, in reverse
-    // we should emit end events (to match the expected B nesting),
-    // and for everything in the new stack, we should emit begin events, moving forward
-    for (size_t i = gProfiler.previousStack.size(); i > commonDepth; i--)
+    for (size_t i = 0; i < gProfiler.previousStack.size() - commonDepth; i++)
     {
-        const FrameInfo& frame = gProfiler.previousStack[i - 1];
-        TraceEvent evt;
-        evt.phase = 'E';
-        evt.name = frame.name;
-        evt.file = frame.file;
-        evt.line = frame.line;
-        evt.timestamp = gProfiler.currentTimestamp;
-        gProfiler.events.push_back(evt);
+        const FrameInfo& frame = gProfiler.previousStack.at(i);
+        gProfiler.events.emplace_back('E', frame, gProfiler.currentTimestamp);
     }
 
-    for (size_t i = commonDepth; i < currentStack.size(); i++)
+    for (size_t i = currentStack.size() - commonDepth; i > 0; i--)
     {
-        const FrameInfo& frame = currentStack[i];
-        TraceEvent evt;
-        evt.phase = 'B';
-        evt.name = frame.name;
-        evt.file = frame.file;
-        evt.line = frame.line;
-        evt.timestamp = gProfiler.currentTimestamp;
-        gProfiler.events.push_back(evt);
+        const FrameInfo& frame = currentStack.at(i - 1);
+        gProfiler.events.emplace_back('B', frame, gProfiler.currentTimestamp);
     }
 
     gProfiler.currentTimestamp += ticks;
@@ -161,16 +150,10 @@ void profilerStop()
     gProfiler.thread.join();
 
     // For any of the remaining frames on the stack, insert an artificial end(E) event.
-    for (size_t i = gProfiler.previousStack.size(); i > 0; i--)
+    for (size_t i = 0; i < gProfiler.previousStack.size(); i++)
     {
-        const FrameInfo& frame = gProfiler.previousStack[i - 1];
-        TraceEvent evt;
-        evt.phase = 'E';
-        evt.name = frame.name;
-        evt.file = frame.file;
-        evt.line = frame.line;
-        evt.timestamp = gProfiler.currentTimestamp;
-        gProfiler.events.push_back(evt);
+        const FrameInfo& frame = gProfiler.previousStack.at(i);
+        gProfiler.events.emplace_back('E', frame, gProfiler.currentTimestamp);
     }
     gProfiler.previousStack.clear();
 }

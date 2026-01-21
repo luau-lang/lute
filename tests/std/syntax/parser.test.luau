@@ -127,6 +127,9 @@ test.suite("Parser", function(suite)
 			if entry.type ~= "file" then
 				continue
 			end
+			if entry.name.sub(entry.name, -5) == ".json" then
+				continue
+			end
 
 			suite:case(`roundtrippable_Ast_{entry.name}`, function(assert)
 				local p = path.join(directory, entry.name)
