@@ -8,21 +8,7 @@
 
 #include "uv.h"
 
-#include <cstdio>
-#include <cstring>
-
 #include "fs_impl.h"
-#ifdef _WIN32
-#include <direct.h>
-#else
-#include <unistd.h>
-#endif
-#include <fcntl.h>
-#include <map>
-#include <memory>
-#include <optional>
-#include <stdlib.h>
-#include <string>
 
 namespace fs
 {

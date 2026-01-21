@@ -1,5 +1,6 @@
 #include "fs_impl.h"
 
+#include "lute/fileutils.h"
 #include "lute/time.h"
 #include "lute/UVRequest.h"
 
@@ -13,12 +14,6 @@
 #else
 #include <unistd.h>
 #endif
-#include <fcntl.h>
-#include <filesystem>
-#include <memory>
-#include <stdlib.h>
-#include <string>
-#include <sys/stat.h>
 
 #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
 #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
@@ -102,9 +97,9 @@ struct FSClose : FSRequest
     UVFile* file = nullptr;
 };
 
-struct FSTwoPaths : FSRequest
+struct FSPathPairRequest : FSRequest
 {
-    FSTwoPaths(lua_State* L, const char* src, const char* dest)
+    FSPathPairRequest(lua_State* L, const char* src, const char* dest)
         : FSRequest(L)
         , src(src)
         , dest(dest)
@@ -485,7 +480,7 @@ int type_impl(lua_State* L, const char* path)
 
 int link_impl(lua_State* L, const char* path, const char* dest)
 {
-    uvutils::ScopedUVRequest<FSTwoPaths> req{L, path, dest};
+    uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
     uv_fs_link(
         uv_default_loop(),
         &req->req,
@@ -493,7 +488,7 @@ int link_impl(lua_State* L, const char* path, const char* dest)
         dest,
         [](uv_fs_t* req)
         {
-            auto r = uvutils::retake<FSTwoPaths>(req);
+            auto r = uvutils::retake<FSPathPairRequest>(req);
             auto result = req->result;
 
             if (result < 0)
@@ -516,8 +511,11 @@ int link_impl(lua_State* L, const char* path, const char* dest)
 
 int symlink_impl(lua_State* L, const char* path, const char* dest)
 {
-    uvutils::ScopedUVRequest<FSTwoPaths> req{L, path, dest};
-    int flags = std::filesystem::is_directory(path) ? UV_FS_SYMLINK_DIR : 0;
+    uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
+    int flags = 0;
+#if _WIN32
+    flags = Lute::isDirectory(path) ? UV_FS_SYMLINK_DIR : 0;
+#endif
 
     uv_fs_symlink(
         uv_default_loop(),
@@ -527,7 +525,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
         flags,
         [](uv_fs_t* req)
         {
-            auto r = uvutils::retake<FSTwoPaths>(req);
+            auto r = uvutils::retake<FSPathPairRequest>(req);
             auto result = req->result;
 
             if (result < 0)
@@ -550,7 +548,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
 
 int copy_impl(lua_State* L, const char* path, const char* dest)
 {
-    uvutils::ScopedUVRequest<FSTwoPaths> req{L, path, dest};
+    uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
     uv_fs_copyfile(
         uv_default_loop(),
         &req->req,
@@ -559,7 +557,7 @@ int copy_impl(lua_State* L, const char* path, const char* dest)
         0,
         [](uv_fs_t* req)
         {
-            auto r = uvutils::retake<FSTwoPaths>(req);
+            auto r = uvutils::retake<FSPathPairRequest>(req);
             auto result = req->result;
 
             if (result < 0)
