@@ -1,13 +1,19 @@
 export type Diagnostic = {
-	read range: {
-		read start: { read line: number, read character: number },
-		read ["end"]: { read line: number, read character: number },
-	}, -- zero-based
+	read range: Range, -- zero-based
 	read severity: number, -- 1: Error, 2: Warning, 3: Information, 4: Hint
 	read code: string, -- lint name
 	read source: "lute lint",
 	read message: string,
 	read tags: { number }?, -- 1: Unnecessary, 2: Deprecated
+	read suggestedfix: {
+		read fix: string,
+		read range: Range,
+	}?,
+}
+
+export type Range = {
+	read start: { read line: number, read character: number },
+	read ["end"]: { read line: number, read character: number },
 }
 
 export type WorkspaceDocumentDiagnosticReport = {
