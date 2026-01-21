@@ -1,7 +1,10 @@
+local cli = require("./lib/cli")
 local fs = require("@std/fs")
-local process = require("@std/process")
 local path = require("@std/path")
+local process = require("@std/process")
 local stringext = require("@std/stringext")
+
+local DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "docs")
 
 local STDLIB_MODULE_ALIASES = {
 	assert = "assertions",
@@ -29,6 +32,22 @@ type PropertySignature = {
 	inBlock: boolean,
 	blockEq: string?,
 }
+
+local function printHelp()
+	print([[
+Usage: lute doc [OPTIONS]
+
+Generate type-directed Markdown documentation for Luau module(s).
+
+OPTIONS:
+  -h, --help              Show this help message
+  -o, --output=DIR        Output directory for generated docs (default: ./docs in current working directory)
+
+EXAMPLES:
+  lute doc                         						Generate docs to default ./docs directory
+  lute doc --output ./my-docs-folder      				Generate docs to custom directory ./my-docs-folder
+]])
+end
 
 -- extractPropertySignature: (this function runs on one line at a time so we need to keep some states for block comments)
 -- module (module name)
@@ -227,6 +246,47 @@ local function parseModule(
 	return moduleDefinitions
 end
 
+-- Helper to generate index with table of children
+local function generateLibraryIndex(title: string, alias: string, modulePath: path.pathlike): string
+	local entries = fs.listdirectory(modulePath)
+	local modules = {}
+
+	for _, entry in entries do
+		local name = entry.name
+		if entry.type == "dir" then
+			-- Check if it has an init.luau (is a module)
+			local initPath = path.join(modulePath, name, "init.luau")
+			if fs.exists(initPath) then
+				table.insert(modules, { name = name, isDir = true })
+			end
+		elseif entry.type == "file" and string.match(name, "%.luau$") then
+			local modName = string.gsub(name, "%.luau$", "")
+			if modName ~= "init" then
+				table.insert(modules, { name = modName, isDir = false })
+			end
+		end
+	end
+
+	table.sort(modules, function(a, b)
+		return a.name < b.name
+	end)
+
+	local lines = {
+		`# {title}`,
+		"",
+		"| Module | Require |",
+		"| ------ | ------- |",
+	}
+
+	for _, mod in modules do
+		local link = if mod.isDir then `./{mod.name}/` else `./{mod.name}`
+		table.insert(lines, `| [{mod.name}]({link}) | \`require("@{alias}/{mod.name}")\` |`)
+	end
+
+	table.insert(lines, "")
+	return table.concat(lines, "\n")
+end
+
 local function processDirectory(
 	modulePath: path.pathlike,
 	documentationPath: path.pathlike,
@@ -271,84 +331,72 @@ local function processDirectory(
 	end
 end
 
-local referenceBasePath = path.join(process.cwd(), "reference")
-fs.createdirectory(referenceBasePath, { makeparents = true })
+local function generateAllDocs(outputDir: path.path): ()
+	local referenceBasePath = path.join(outputDir, "reference")
+	fs.createdirectory(referenceBasePath, { makeparents = true })
 
--- Generate reference index with frontmatter for sidebar ordering
-local referenceIndex = [[---
-order: 3
----
+	-- Generate reference index with frontmatter for sidebar ordering
+	local referenceIndex = [[---
+	order: 3
+	---
 
-# Reference
+	# Reference
 
-API reference documentation for Lute's built-in libraries.
+	API reference documentation for Lute's built-in libraries.
 
-- [Lute Libraries](./lute/index.md) - Core runtime libraries (`@lute/*`)
-- [Standard Libraries](./std/index.md) - Standard library modules (`@std/*`)
-]]
-fs.writestringtofile(path.join(referenceBasePath, "index.md"), referenceIndex)
+	- [Lute Libraries](./lute/index.md) - Core runtime libraries (`@lute/*`)
+	- [Standard Libraries](./std/index.md) - Standard library modules (`@std/*`)
+	]]
+	fs.writestringtofile(path.join(referenceBasePath, "index.md"), referenceIndex)
 
--- Helper to generate index with table of children
-local function generateLibraryIndex(title: string, alias: string, modulePath: path.pathlike): string
-	local entries = fs.listdirectory(modulePath)
-	local modules = {}
+	local definitionsPath = path.join(process.cwd(), "definitions")
+	local referencePath = path.join(referenceBasePath, "lute")
+	processDirectory(definitionsPath, referencePath, definitionsPath, "lute")
 
-	for _, entry in entries do
-		local name = entry.name
-		if entry.type == "dir" then
-			-- Check if it has an init.luau (is a module)
-			local initPath = path.join(modulePath, name, "init.luau")
-			if fs.exists(initPath) then
-				table.insert(modules, { name = name, isDir = true })
-			end
-		elseif entry.type == "file" and string.match(name, "%.luau$") then
-			local modName = string.gsub(name, "%.luau$", "")
-			if modName ~= "init" then
-				table.insert(modules, { name = modName, isDir = false })
-			end
-		end
-	end
+	-- Generate lute subfolder index with table of modules
+	local luteIndex = generateLibraryIndex("lute", "lute", definitionsPath)
+	fs.writestringtofile(path.join(referencePath, "index.md"), luteIndex)
 
-	table.sort(modules, function(a, b)
-		return a.name < b.name
-	end)
+	local stdlibPath = path.join(process.cwd(), "lute", "std", "libs")
+	local stdlibReferencePath = path.join(referenceBasePath, "std")
+	processDirectory(stdlibPath, stdlibReferencePath, stdlibPath, "std")
 
-	local lines = {
-		`# {title}`,
-		"",
-		"| Module | Require |",
-		"| ------ | ------- |",
-	}
+	-- Generate std subfolder index with table of modules
+	local stdIndex = generateLibraryIndex("std", "std", stdlibPath)
+	fs.writestringtofile(path.join(stdlibReferencePath, "index.md"), stdIndex)
 
-	for _, mod in modules do
-		local link = if mod.isDir then `./{mod.name}/` else `./{mod.name}`
-		table.insert(lines, `| [{mod.name}]({link}) | \`require("@{alias}/{mod.name}")\` |`)
-	end
+	-- Mock module in test/ for testing purposes
 
-	table.insert(lines, "")
-	return table.concat(lines, "\n")
+	-- local testPath = path.join(process.cwd(), "test")
+	-- local testReferencePath = path.join(process.cwd(), "test")
+	-- processDirectory(testPath, testReferencePath, testPath, "test")
 end
 
-local definitionsPath = path.join(process.cwd(), "..", "definitions")
-local referencePath = path.join(referenceBasePath, "lute")
-processDirectory(definitionsPath, referencePath, definitionsPath, "lute")
+local function main(...: string)
+	local args = cli.parser()
 
--- Generate lute subfolder index with table of modules
-local luteIndex = generateLibraryIndex("lute", "lute", definitionsPath)
-fs.writestringtofile(path.join(referencePath, "index.md"), luteIndex)
+	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
+	args:add(
+		"output",
+		"option",
+		{ help = "Output directory for generated docs", default = tostring(DEFAULT_OUTPUT_DIR), aliases = { "o" } }
+	)
 
-local stdlibPath = path.join(process.cwd(), "..", "lute", "std", "libs")
-local stdlibReferencePath = path.join(referenceBasePath, "std")
-processDirectory(stdlibPath, stdlibReferencePath, stdlibPath, "std")
+	args:parse({ ... })
 
--- Generate std subfolder index with table of modules
-local stdIndex = generateLibraryIndex("std", "std", stdlibPath)
-fs.writestringtofile(path.join(stdlibReferencePath, "index.md"), stdIndex)
+	if args:has("help") then
+		printHelp()
+		return
+	end
 
--- Mock module in test/ for testing purposes
+	local outputDir = path.parse(args:get("output") or tostring(DEFAULT_OUTPUT_DIR))
+	if not path.isabsolute(outputDir) then
+		outputDir = path.resolve(process.cwd(), outputDir)
+	end
 
--- local testPath = path.join(process.cwd(), "test")
--- local testReferencePath = path.join(process.cwd(), "test")
--- processDirectory(testPath, testReferencePath, testPath, "test")
+	print("Generating documentation...")
+	generateAllDocs(outputDir)
+	print("Documentation generation complete! Files written to: ", tostring(outputDir))
+end
 
-print("Reference documentation generation complete!")
+main(...)
