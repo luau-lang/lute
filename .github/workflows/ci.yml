@@ -124,6 +124,16 @@ jobs:
         run: npm install
         working-directory: docs
 
+      - name: Setup and Build Lute
+        id: build_lute
+        uses: ./.github/actions/setup-and-build
+        with:
+          target: Lute.CLI
+          config: debug
+          options: ${{ matrix.options }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          use-bootstrap: true
+
       - name: Build docs site
         run: npm run build
         working-directory: docs
