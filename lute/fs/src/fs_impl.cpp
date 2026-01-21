@@ -102,6 +102,19 @@ struct FSClose : FSRequest
     UVFile* file = nullptr;
 };
 
+struct FSTwoPaths : FSRequest
+{
+    FSTwoPaths(lua_State* L, const char* src, const char* dest)
+        : FSRequest(L)
+        , src(src)
+        , dest(dest)
+    {
+    }
+
+    const std::string src;
+    const std::string dest;
+};
+
 int open_impl(lua_State* L, const char* path, int flags, int mode)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
@@ -472,7 +485,7 @@ int type_impl(lua_State* L, const char* path)
 
 int link_impl(lua_State* L, const char* path, const char* dest)
 {
-    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uvutils::ScopedUVRequest<FSTwoPaths> req{L, path, dest};
     uv_fs_link(
         uv_default_loop(),
         &req->req,
@@ -480,12 +493,12 @@ int link_impl(lua_State* L, const char* path, const char* dest)
         dest,
         [](uv_fs_t* req)
         {
-            auto r = uvutils::retake<FSRequest>(req);
+            auto r = uvutils::retake<FSTwoPaths>(req);
             auto result = req->result;
 
             if (result < 0)
             {
-                r->fail("link: Error creating link for %s: %s", req->path, uv_strerror(result));
+                r->fail("link: Error creating link from %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
                 return;
             }
 
@@ -503,7 +516,7 @@ int link_impl(lua_State* L, const char* path, const char* dest)
 
 int symlink_impl(lua_State* L, const char* path, const char* dest)
 {
-    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uvutils::ScopedUVRequest<FSTwoPaths> req{L, path, dest};
     int flags = std::filesystem::is_directory(path) ? UV_FS_SYMLINK_DIR : 0;
 
     uv_fs_symlink(
@@ -514,12 +527,12 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
         flags,
         [](uv_fs_t* req)
         {
-            auto r = uvutils::retake<FSRequest>(req);
+            auto r = uvutils::retake<FSTwoPaths>(req);
             auto result = req->result;
 
             if (result < 0)
             {
-                r->fail("symlink: Error creating symlink for %s: %s", req->path, uv_strerror(result));
+                r->fail("symlink: Error creating symlink from %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
                 return;
             }
 
@@ -537,7 +550,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
 
 int copy_impl(lua_State* L, const char* path, const char* dest)
 {
-    uvutils::ScopedUVRequest<FSRequest> req(L);
+    uvutils::ScopedUVRequest<FSTwoPaths> req{L, path, dest};
     uv_fs_copyfile(
         uv_default_loop(),
         &req->req,
@@ -546,12 +559,12 @@ int copy_impl(lua_State* L, const char* path, const char* dest)
         0,
         [](uv_fs_t* req)
         {
-            auto r = uvutils::retake<FSRequest>(req);
+            auto r = uvutils::retake<FSTwoPaths>(req);
             auto result = req->result;
 
             if (result < 0)
             {
-                r->fail("copy: Error copying file %s: %s", req->path, uv_strerror(result));
+                r->fail("copy: Error copying file from %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
                 return;
             }
 
