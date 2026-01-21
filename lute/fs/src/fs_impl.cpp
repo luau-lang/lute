@@ -485,7 +485,7 @@ int link_impl(lua_State* L, const char* path, const char* dest)
 
             if (result < 0)
             {
-                r->fail("link: Error creating link from %s to %s: %s", req->path, req->new_path, uv_strerror(result));
+                r->fail("link: Error creating link for %s: %s", req->path, uv_strerror(result));
                 return;
             }
 
@@ -519,7 +519,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
 
             if (result < 0)
             {
-                r->fail("symlink: Error creating symlink: %s", uv_strerror(result));
+                r->fail("symlink: Error creating symlink for %s: %s", req->path, uv_strerror(result));
                 return;
             }
 
@@ -551,7 +551,7 @@ int copy_impl(lua_State* L, const char* path, const char* dest)
 
             if (result < 0)
             {
-                r->fail("copy: Error copying file from %s to %s: %s", req->path, req->new_path, uv_strerror(result));
+                r->fail("copy: Error copying file %s: %s", req->path, uv_strerror(result));
                 return;
             }
 
