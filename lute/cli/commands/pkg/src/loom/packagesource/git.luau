@@ -1,4 +1,4 @@
-local fs_utils = require("../utils/fs_utils")
+local fsUtils = require("../utils/fsutils")
 local net = require("@std/net")
 local unzip = require("../../extern/unzip")
 
@@ -19,9 +19,9 @@ local function sanitizePath(path: string): string
 		error("Path cannot be empty")
 	end
 
-	local MAX_PATH_LENGTH = 255
-	if #path > MAX_PATH_LENGTH then
-		error("Path too long (max " .. MAX_PATH_LENGTH .. " characters)")
+	local maxPathLength = 255
+	if #path > maxPathLength then
+		error("Path too long (max " .. maxPathLength .. " characters)")
 	end
 
 	-- Security checks - prevent directory traversal
@@ -57,8 +57,8 @@ function Git:installZipArchive(name: string, version: string, content: string)
 		local slash = string.find(sanitized, "/")
 		assert(slash, `Expected entry name to contain a slash: {sanitized}`)
 
-		local output_path = `Packages/{name}/{string.sub(sanitized, slash)}`
-		fs_utils.writestringtofile(output_path, content)
+		local outputPath = `Packages/{name}/{string.sub(sanitized, slash)}`
+		fsUtils.writestringtofile(outputPath, content)
 	end)
 end
 

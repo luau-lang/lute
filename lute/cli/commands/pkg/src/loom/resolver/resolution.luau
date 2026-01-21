@@ -1,6 +1,6 @@
 local package = require("./package")
 local lockfile = require("../lockfile/lockfile")
-local project_manifest = require("../manifest/project_manifest")
+local projectManifest = require("../manifest/projectmanifest")
 
 type Resolution = {
 	packages: { package.Package },
@@ -14,7 +14,7 @@ function fromLockfile(lockfile: lockfile.LockFile): Resolution
 	return { packages = packages }
 end
 
-function fromManifest(manifest: project_manifest.ProjectManifest): Resolution
+function fromManifest(manifest: projectManifest.ProjectManifest): Resolution
 	local dependencies = manifest.package.dependencies
 	local packages = {}
 	for name, spec in dependencies do

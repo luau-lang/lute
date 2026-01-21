@@ -1,13 +1,13 @@
 local lockfile = require("./lockfile")
 
 function testReadLockfileSingleGitPackageNoDependencies()
-	local lockfile_content = [=[version = 1
+	local lockfileContent = [=[version = 1
 [[package]]
 name = "lockfile_single_package"
 rev = "v0.1.0"
 source_kind = "git"
 source = "https://github.com/user/repo?rev=abcdef1234567890"]=]
-	local lockFile = lockfile.parse(lockfile_content)
+	local lockFile = lockfile.parse(lockfileContent)
 
 	assert(lockFile.version == 1, "Expected lock file version to be 1")
 	assert(#lockFile.package == 1, "Expected exactly one package in the lock file")
@@ -22,7 +22,7 @@ source = "https://github.com/user/repo?rev=abcdef1234567890"]=]
 end
 
 function testReadLockfileMultiplePackagesMultipleDependencies()
-	local lockfile_content = [=[version = 1
+	local lockfileContent = [=[version = 1
 [[package]]
 name = "package_one"
 rev = "v1.0.0"
@@ -41,12 +41,12 @@ rev = "v3.0.0"
 source_kind = "git"
 source = "https://github.com/user/repo?rev=abcdef1234567890"]=]
 
-	local lockFile = lockfile.parse(lockfile_content)
+	local lockFile = lockfile.parse(lockfileContent)
 
 	assert(lockFile.version == 1, "Expected lock file version to be 1")
 	assert(#lockFile.package == 3, "Expected exactly three packages in the lock file")
 
-	local expected_packages = {
+	local expectedPackages = {
 		{
 			name = "package_one",
 			rev = "v1.0.0",
@@ -67,7 +67,7 @@ source = "https://github.com/user/repo?rev=abcdef1234567890"]=]
 		},
 	}
 
-	for i, expected in expected_packages do
+	for i, expected in expectedPackages do
 		local pkg = lockFile.package[i]
 		assert(pkg.name == expected.name, `Unexpected package name for package {expected.name}`)
 		assert(pkg.rev == expected.rev, `Unexpected package version for package {expected.name}`)

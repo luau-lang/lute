@@ -5,9 +5,9 @@ export type FileSystemInterface = {
 	writestringtofile: (path: string, content: string) -> (),
 }
 
-local fs_utils = {} :: FileSystemInterface
+local fsUtils = {} :: FileSystemInterface
 
-local function get_parent_path(path: string): string
+local function getParentPath(path: string): string
 	-- Remove any trailing slashes
 	path = path:gsub("[/\\]+$", "")
 
@@ -17,17 +17,17 @@ local function get_parent_path(path: string): string
 end
 
 local function writestringtofile(path: string, content: string): ()
-	local parent_path = get_parent_path(path)
-	fs.createdirectory(parent_path, { makeparents = true })
+	local parentPath = getParentPath(path)
+	fs.createdirectory(parentPath, { makeparents = true })
 	return fs.writestringtofile(path, content)
 end
 
-function fs_utils.readfiletostring(path: string): string
+function fsUtils.readfiletostring(path: string): string
 	return fs.readfiletostring(path)
 end
 
-function fs_utils.writestringtofile(path: string, content: string): ()
+function fsUtils.writestringtofile(path: string, content: string): ()
 	return writestringtofile(path, content)
 end
 
-return fs_utils
+return fsUtils

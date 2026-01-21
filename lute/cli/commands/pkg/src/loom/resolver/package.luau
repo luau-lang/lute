@@ -1,5 +1,5 @@
 local lockfile = require("../lockfile/lockfile")
-local manifest = require("../manifest/project_manifest")
+local manifest = require("../manifest/projectmanifest")
 export type Package = {
 	name: string,
 	rev: string,

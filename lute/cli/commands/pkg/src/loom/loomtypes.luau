@@ -1,4 +1,4 @@
-local git = require("./package_source/git")
+local git = require("./packagesource/git")
 export type PackageSource = {
 	git: git.Git,
 }

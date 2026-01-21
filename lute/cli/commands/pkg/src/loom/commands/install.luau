@@ -1,9 +1,9 @@
 local resolution = require("../resolver/resolution")
-local loom_types = require("../loom_types")
-local project_manifest = require("../manifest/project_manifest")
+local loomTypes = require("../loomtypes")
+local projectManifest = require("../manifest/projectmanifest")
 local pp = require("../../extern/pp")
 
-local fs_utils = require("../utils/fs_utils")
+local fsUtils = require("../utils/fsutils")
 local luau = require("@std/luau")
 
 local function executeLuauSource(source: string): any
@@ -12,22 +12,22 @@ local function executeLuauSource(source: string): any
 	return func()
 end
 
-function install(package_source: loom_types.PackageSource)
+function install(packageSource: loomTypes.PackageSource)
 	local manifestPath = "loom.config.luau"
-	local manifestContent = fs_utils.readfiletostring(manifestPath)
+	local manifestContent = fsUtils.readfiletostring(manifestPath)
 	local manifestTable = executeLuauSource(manifestContent)
-	local manifest = project_manifest.fromTable(manifestTable)
+	local manifest = projectManifest.fromTable(manifestTable)
 
-	local project_resolution = resolution.fromManifest(manifest)
+	local projectResolution = resolution.fromManifest(manifest)
 
-	local lockfile = resolution.toLockFile(project_resolution)
-	fs_utils.writestringtofile("loom.lock.luau", "return " .. pp(lockfile))
+	local lockfile = resolution.toLockFile(projectResolution)
+	fsUtils.writestringtofile("loom.lock.luau", "return " .. pp(lockfile))
 
-	for _, pkg in project_resolution.packages do
+	for _, pkg in projectResolution.packages do
 		print(`package: {pkg.name}, Rev: {pkg.rev}, Source: {pkg.source_kind} - {pkg.source}`)
 		if pkg.source_kind == "git" then
-			local zip_archive = package_source.git:downloadFromGitHubArchive(pkg.source)
-			package_source.git:installZipArchive(pkg.name, pkg.rev, zip_archive)
+			local zipArchive = packageSource.git:downloadFromGitHubArchive(pkg.source)
+			packageSource.git:installZipArchive(pkg.name, pkg.rev, zipArchive)
 		end
 	end
 end
