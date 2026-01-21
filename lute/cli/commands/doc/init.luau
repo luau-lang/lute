@@ -246,47 +246,6 @@ local function parseModule(
 	return moduleDefinitions
 end
 
--- Helper to generate index with table of children
-local function generateLibraryIndex(title: string, alias: string, modulePath: path.pathlike): string
-	local entries = fs.listdirectory(modulePath)
-	local modules = {}
-
-	for _, entry in entries do
-		local name = entry.name
-		if entry.type == "dir" then
-			-- Check if it has an init.luau (is a module)
-			local initPath = path.join(modulePath, name, "init.luau")
-			if fs.exists(initPath) then
-				table.insert(modules, { name = name, isDir = true })
-			end
-		elseif entry.type == "file" and string.match(name, "%.luau$") then
-			local modName = string.gsub(name, "%.luau$", "")
-			if modName ~= "init" then
-				table.insert(modules, { name = modName, isDir = false })
-			end
-		end
-	end
-
-	table.sort(modules, function(a, b)
-		return a.name < b.name
-	end)
-
-	local lines = {
-		`# {title}`,
-		"",
-		"| Module | Require |",
-		"| ------ | ------- |",
-	}
-
-	for _, mod in modules do
-		local link = if mod.isDir then `./{mod.name}/` else `./{mod.name}`
-		table.insert(lines, `| [{mod.name}]({link}) | \`require("@{alias}/{mod.name}")\` |`)
-	end
-
-	table.insert(lines, "")
-	return table.concat(lines, "\n")
-end
-
 local function processDirectory(
 	modulePath: path.pathlike,
 	documentationPath: path.pathlike,
@@ -329,6 +288,47 @@ local function processDirectory(
 			print(`Generated {tostring(documentationFilePath)}`)
 		end
 	end
+end
+
+-- Helper to generate index with table of children
+local function generateLibraryIndex(title: string, alias: string, modulePath: path.pathlike): string
+	local entries = fs.listdirectory(modulePath)
+	local modules = {}
+
+	for _, entry in entries do
+		local name = entry.name
+		if entry.type == "dir" then
+			-- Check if it has an init.luau (is a module)
+			local initPath = path.join(modulePath, name, "init.luau")
+			if fs.exists(initPath) then
+				table.insert(modules, { name = name, isDir = true })
+			end
+		elseif entry.type == "file" and string.match(name, "%.luau$") then
+			local modName = string.gsub(name, "%.luau$", "")
+			if modName ~= "init" then
+				table.insert(modules, { name = modName, isDir = false })
+			end
+		end
+	end
+
+	table.sort(modules, function(a, b)
+		return a.name < b.name
+	end)
+
+	local lines = {
+		`# {title}`,
+		"",
+		"| Module | Require |",
+		"| ------ | ------- |",
+	}
+
+	for _, mod in modules do
+		local link = if mod.isDir then `./{mod.name}/` else `./{mod.name}`
+		table.insert(lines, `| [{mod.name}]({link}) | \`require("@{alias}/{mod.name}")\` |`)
+	end
+
+	table.insert(lines, "")
+	return table.concat(lines, "\n")
 end
 
 local function generateAllDocs(outputDir: path.path): ()
