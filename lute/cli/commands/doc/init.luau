@@ -4,6 +4,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
 
+local USAGE = "Usage: lute doc [OPTIONS] [...MODULE_PATHS]"
 local DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "docs")
 
 local STDLIB_MODULE_ALIASES = {
@@ -34,18 +35,23 @@ type PropertySignature = {
 }
 
 local function printHelp()
+	print(USAGE)
 	print([[
-Usage: lute doc [OPTIONS]
-
 Generate Markdown documentation for Luau module(s).
 
 OPTIONS:
   -h, --help              Show this help message
   -o, --output=DIR        Output directory for generated docs (default: ./docs in current working directory)
 
+MODULE_PATHS:
+  Path(s) to Luau module(s) to generate documentation for. Only files with .luau or .lua extensions will be processed.
+  Paths can be absolute or relative to the current working directory.
+
 EXAMPLES:
-  lute doc                         						Generate docs to default ./docs directory
-  lute doc --output ./my-docs-folder      				Generate docs to custom directory ./my-docs-folder
+  lute doc definitions                                 Generate docs for definitions module to the default directory ./docs
+  lute doc --output ./my-docs-folder definitions       Generate docs for definitions module to custom directory ./my-docs-folder
+  lute doc definitions lute/std/libs                   Generate docs for specific modules located at ./definitions and ./lute/std/libs
+  lute doc ./absolute/module/path                      Generate docs for module at the specified absolute path
 ]])
 end
 
@@ -331,7 +337,8 @@ local function generateLibraryIndex(title: string, alias: string, modulePath: pa
 	return table.concat(lines, "\n")
 end
 
-local function generateAllDocs(outputDir: path.path): ()
+local function generateAllDocs(outputDir: path.path, modulePaths: { string }): ()
+	-- Create top-level reference index page
 	local referenceBasePath = path.join(outputDir, "reference")
 	fs.createdirectory(referenceBasePath, { makeparents = true })
 
@@ -343,27 +350,41 @@ order: 3
 # Reference
 
 API reference documentation for Lute's built-in libraries.
+]]
 
-- [Lute Libraries](./lute/index.md) - Core runtime libraries (`@lute/*`)
-- [Standard Libraries](./std/index.md) - Standard library modules (`@std/*`)
-	]]
+	-- Generate docs for each specified module path
+	for _, modulePath in modulePaths do
+		local absModulePath = if path.isabsolute(modulePath)
+			then path.parse(modulePath)
+			else path.resolve(process.cwd(), path.parse(modulePath))
+
+		-- Explicitly match the aliases for lute and std, otherwise use the last part of the path as the alias
+		local libraryAlias = absModulePath.parts[#absModulePath.parts - 1]
+		if string.match(tostring(absModulePath), "/lute/std/libs") then
+			libraryAlias = "std"
+		elseif string.match(tostring(absModulePath), "/definitions") then
+			libraryAlias = "lute"
+		end
+
+		local documentationPath = path.join(referenceBasePath, libraryAlias)
+		processDirectory(absModulePath, documentationPath, absModulePath, libraryAlias)
+
+		-- Generate module index with table of children
+		local moduleIndex = generateLibraryIndex(libraryAlias, libraryAlias, absModulePath)
+		fs.writestringtofile(path.join(documentationPath, "index.md"), moduleIndex)
+
+		-- Add to the reference index with the correct alias
+		referenceIndex ..= "\n\n- [" .. libraryAlias .. "](./" .. libraryAlias .. "/index.md)"
+
+		-- Add the existing hard-coded info for lute and std
+		if libraryAlias == "lute" then
+			referenceIndex ..= " - Core runtime library (`@lute/*`)"
+		elseif libraryAlias == "std" then
+			referenceIndex ..= " - Standard library modules (`@std/*`)"
+		end
+	end
+
 	fs.writestringtofile(path.join(referenceBasePath, "index.md"), referenceIndex)
-
-	local definitionsPath = path.join(process.cwd(), "..", "definitions")
-	local referencePath = path.join(referenceBasePath, "lute")
-	processDirectory(definitionsPath, referencePath, definitionsPath, "lute")
-
-	-- Generate lute subfolder index with table of modules
-	local luteIndex = generateLibraryIndex("lute", "lute", definitionsPath)
-	fs.writestringtofile(path.join(referencePath, "index.md"), luteIndex)
-
-	local stdlibPath = path.join(process.cwd(), "..", "lute", "std", "libs")
-	local stdlibReferencePath = path.join(referenceBasePath, "std")
-	processDirectory(stdlibPath, stdlibReferencePath, stdlibPath, "std")
-
-	-- Generate std subfolder index with table of modules
-	local stdIndex = generateLibraryIndex("std", "std", stdlibPath)
-	fs.writestringtofile(path.join(stdlibReferencePath, "index.md"), stdIndex)
 end
 
 local function main(...: string)
@@ -388,8 +409,14 @@ local function main(...: string)
 		outputDir = path.resolve(process.cwd(), outputDir)
 	end
 
+	local modulePaths = args:forwarded()
+	assert(
+		modulePaths ~= nil and #modulePaths > 0,
+		"Error: No module paths specified.\n\n" .. USAGE .. "\n\nUse --help for more information."
+	)
+
 	print("Generating documentation...")
-	generateAllDocs(outputDir)
+	generateAllDocs(outputDir, modulePaths)
 	print("Documentation generation complete! Files written to: ", tostring(outputDir))
 end
 
