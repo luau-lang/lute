@@ -1,3 +1,4 @@
+local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
@@ -36,10 +37,18 @@ test.suite("lute-doc", function(suite)
 	end)
 
 	suite:case("generate test docs specified directory", function(assert)
+		if fs.exists(tmpOutputDir) then
+			fs.removedirectory(tmpOutputDir, { recursive = true })
+		end
+
+		fs.createdirectory(tmpOutputDir)
+
 		local result = process.system(`cd docs && {lutePath} doc -o {path.format(tmpOutputDir)}`)
 
 		assert.eq(result.exitcode, 0)
 		assert.strcontains(result.stdout, "Documentation generation complete!")
 		assert.strcontains(result.stdout, tostring(tmpOutputDir)) -- "Files written to: <output dir>"
+
+		assert.eq(fs.exists(path.join(tmpOutputDir, "reference", "lute", "fs.md")), true)
 	end)
 end)

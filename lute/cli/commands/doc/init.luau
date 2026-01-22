@@ -332,7 +332,7 @@ local function generateLibraryIndex(title: string, alias: string, modulePath: pa
 end
 
 local function generateAllDocs(outputDir: path.path): ()
-	local referenceBasePath = path.join(process.cwd(), "reference")
+	local referenceBasePath = path.join(outputDir, "reference")
 	fs.createdirectory(referenceBasePath, { makeparents = true })
 
 	-- Generate reference index with frontmatter for sidebar ordering
