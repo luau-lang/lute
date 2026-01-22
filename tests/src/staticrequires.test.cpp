@@ -122,6 +122,31 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_relative_paths")
     CHECK(luaurcFiles.find(".luaurc") != nullptr);
 }
 
+TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_require_alias")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
+    std::string entryPoint = joinPaths(testDir, "lib/requirealias.luau");
+
+    StaticRequireTracer tracer{getReporter()};
+    tracer.trace(entryPoint);
+
+    auto pairs = tracer.getStaticRequirePairs();
+
+    // requirealias.luau requires @example/option.luau, should resolve correctly
+    REQUIRE(pairs.size() == 2);
+
+    CHECK(pairs[0].first == "lib/requirealias.luau");
+
+    std::string absoluteOption = joinPaths(tracer.getLowestCommonRoot(), "dep/option.luau");
+    CHECK(tracer.containsAbsolute(absoluteOption));
+
+    // Verify .luaurc file was discovered (should find it in parent directory)
+    auto luaurcFiles = tracer.getLuaurcFiles();
+    REQUIRE(luaurcFiles.size() == 1);
+    CHECK(luaurcFiles.find(".luaurc") != nullptr);
+}
+
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_require_graph")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();

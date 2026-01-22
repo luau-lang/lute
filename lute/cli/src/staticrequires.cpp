@@ -53,17 +53,17 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
         return;
     }
 
-    // Calculate the entry point directory - we should not look for .luaurc files beyond this directory
-    std::string entryPointDir = entryPoint;
-    size_t lastSlash = entryPointDir.find_last_of("/\\");
-    if (lastSlash != std::string::npos)
-    {
-        entryPointDir = entryPointDir.substr(0, lastSlash);
-    }
-    else
-    {
-        entryPointDir = "";
-    }
+    // // Calculate the entry point directory - we should not look for .luaurc files beyond this directory
+    // std::string entryPointDir = entryPoint;
+    // size_t lastSlash = entryPointDir.find_last_of("/\\");
+    // if (lastSlash != std::string::npos)
+    // {
+    //     entryPointDir = entryPointDir.substr(0, lastSlash);
+    // }
+    // else
+    // {
+    //     entryPointDir = "";
+    // }
 
     // Temporary set to collect absolute paths to .luaurc files
     Luau::DenseHashSet<std::string> luaurcAbsolutePaths{""};
@@ -108,9 +108,9 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
                     break;
                 }
 
-                // Stop if we've reached the entry point directory
-                if (dir == entryPointDir)
-                    break;
+                // // Stop if we've reached the entry point directory
+                // if (dir == entryPointDir)
+                //     break;
 
                 // Move to parent directory
                 size_t parentSlash = dir.find_last_of("/\\");
@@ -153,8 +153,15 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
         // Store the resolved dependencies in the graph
         requireGraph[filePath] = std::move(resolvedDeps);
     }
-
-    lowestCommonRoot = findLowestCommonRoot(discovered);
+    
+    // Include .luaurc files in the lowest common root calculation
+    std::vector<std::string> allPaths = discovered;
+    for (const auto& luaurcPath : luaurcAbsolutePaths)
+    {
+        allPaths.push_back(luaurcPath);
+    }
+    
+    lowestCommonRoot = findLowestCommonRoot(allPaths);
 
     // Convert absolute .luaurc paths to LCR-relative .luaurc paths and read their content
     size_t commonRootLen = lowestCommonRoot.empty() ? 0 : lowestCommonRoot.length() + 1; // +1 for the trailing slash
