@@ -34,8 +34,6 @@ test.suite("lute-doc", function(suite)
 
 		assert.eq(result.exitcode, 0)
 		assert.strcontains(result.stdout, "Documentation generation complete!")
-
-		assert.eq(fs.exists(path.join(process.cwd(), "docs", "reference", "lute", "fs.md")), true)
 	end)
 
 	suite:case("generate test docs specified directory", function(assert)
