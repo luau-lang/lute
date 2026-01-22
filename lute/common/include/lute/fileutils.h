@@ -25,4 +25,7 @@ bool removeFile(const std::string& path);
 // Remove a directory (must be empty)
 bool removeDirectory(const std::string& path);
 
+// Check if a path is a directory
+bool isDirectory(const std::string& path);
+
 } // namespace Lute
