@@ -59,6 +59,8 @@ function fs.type(path: string): FileType
 	error("not implemented")
 end
 
+--- Creates a directory at the specified path.
+--- To set the permissions mode for a directory (Unix only), see @std/process for `run` or `system` to shell out to `chmod` or the equivalent.
 function fs.mkdir(path: string): ()
 	error("not implemented")
 end
