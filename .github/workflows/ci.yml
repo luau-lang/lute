@@ -105,15 +105,11 @@ jobs:
         run: stylua --check .
 
   build-docs-site:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Build docs site
-        id: build_docs
-        uses: ./.github/workflows/docs.yml
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          deploy: false
+    uses: ./.github/workflows/docs.yml
+    with:
+      deploy: false
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
 
   lute-lint:
     runs-on: ubuntu-latest
