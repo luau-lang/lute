@@ -8,7 +8,6 @@ local difftext = require("@batteries/difftext")
 
 local FAILLIST_PATH = "tools/check-faillist.txt"
 
--- Directories to typecheck
 local TYPECHECK_PATHS = {
 	"tests",
 	"lute/std/libs",
@@ -59,15 +58,80 @@ local function writeFaillist(contents: string): ()
 end
 
 local function runTypecheck(lutePath: string, files: { string }): string
-	-- Run lute check on all files
 	local args: { string } = { lutePath, "check" }
 	for _, file in files do
 		table.insert(args, file)
 	end
-
-	print("> " .. table.concat(args, " "))
 	local result = process.run(args)
 	return result.stdout .. result.stderr
+end
+
+type ErrorEntry = {
+	file: string,
+	line: number,
+	col: number,
+	colEnd: number,
+}
+
+-- We need this so that the faillist is machine agnostic
+-- e.g. homedirs shouldnt show up in the path
+local function relativePath(p: string, cwdStr: string): string
+	local cwdWithSep = cwdStr
+	if string.sub(cwdWithSep, -1) ~= "/" then
+		cwdWithSep = cwdWithSep .. "/"
+	end
+	if string.sub(p, 1, #cwdWithSep) == cwdWithSep then
+		p = string.sub(p, #cwdWithSep + 1)
+	end
+
+	if string.sub(p, 1, 2) == "./" then
+		p = string.sub(p, 3)
+	end
+
+	return p
+end
+
+local function parseErrors(output: string, cwdStr: string): { ErrorEntry }
+	local errors: { ErrorEntry } = {}
+
+	for line in string.gmatch(output, "[^\n]+") do
+		-- Matches the output of the `report` function in tc.cpp: path:line:col-colEnd: ...
+		local file, lineNum, col, colEnd = string.match(line, "^(.+):(%d+):(%d+)-(%d+):")
+
+		if file and lineNum then
+			table.insert(errors, {
+				file = relativePath(file, cwdStr),
+				line = tonumber(lineNum) :: number,
+				col = tonumber(col) :: number,
+				colEnd = tonumber(colEnd) :: number,
+			})
+		end
+	end
+
+	return errors
+end
+
+local function sortErrors(errors: { ErrorEntry }): { ErrorEntry }
+	table.sort(errors, function(a: ErrorEntry, b: ErrorEntry)
+		if a.file ~= b.file then
+			return a.file < b.file
+		end
+		if a.line ~= b.line then
+			return a.line < b.line
+		end
+		return a.col < b.col
+	end)
+	return errors
+end
+
+local function formatFaillist(errors: { ErrorEntry }): string
+	local lines: { string } = {}
+
+	for _, err in errors do
+		table.insert(lines, `{err.file}:{err.line}:{err.col}-{err.colEnd}`)
+	end
+
+	return table.concat(lines, "\n") .. "\n"
 end
 
 local function main(args: { string })
@@ -88,22 +152,26 @@ local function main(args: { string })
 	print("Running typecheck...")
 	local output = runTypecheck(lutePath, allFiles)
 
+	local cwdStr = path.format(process.cwd())
+	local errors = parseErrors(output, cwdStr)
+	local sortedErrors = sortErrors(errors)
+	local formattedOutput = formatFaillist(sortedErrors)
+
 	local oldFaillist = readFaillist()
 
 	if shouldUpdate then
-		writeFaillist(output)
-		print(`Updated {FAILLIST_PATH}`)
+		writeFaillist(formattedOutput)
+		print(`Updated {FAILLIST_PATH} with {#sortedErrors} errors`)
 		return
 	end
 
-	-- Compare against faillist
-	if oldFaillist == output then
+	if oldFaillist == formattedOutput then
 		print("\nTypecheck passed! (output matches faillist)")
 		return
 	end
 
 	print("\nTypecheck output differs from faillist:")
-	print(difftext.prettydiff(oldFaillist, output, { detailed = true, includeLineNumbers = true }))
+	print(difftext.prettydiff(oldFaillist, formattedOutput, { detailed = true, includeLineNumbers = true }))
 	print("\nRun with --update to update the faillist, or fix the errors.")
 	process.exit(1)
 end
