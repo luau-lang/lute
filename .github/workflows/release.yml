@@ -131,6 +131,7 @@ jobs:
           mkdir release
           for dir in ./artifacts/*; do
             base_name=$(basename "$dir")
+            chmod 755 "$dir"/* # Artifacts don't preserve permissions, so re-add them.
             zip -rj release/"${base_name}.zip" "$dir"/*
           done
 
