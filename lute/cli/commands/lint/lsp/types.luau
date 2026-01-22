@@ -1,7 +1,8 @@
 export type Diagnostic = {
 	read range: Range, -- zero-based
 	read severity: number, -- 1: Error, 2: Warning, 3: Information, 4: Hint
-	read code: Code, -- lint name | value: lint name, target: URI for additional information
+	read code: string, -- lint name
+	read codeDescription: string?, -- optional property to describe the violation; can also be 
 	read source: "lute lint",
 	read message: string,
 	read tags: { number }?, -- 1: Unnecessary, 2: Deprecated
@@ -9,11 +10,6 @@ export type Diagnostic = {
 		read fix: string,
 		read range: Range,
 	}?,
-}
-
-export type Code = string | {
-	read value: string,
-	read target: string,
 }
 
 export type Range = {
