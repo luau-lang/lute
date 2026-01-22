@@ -140,10 +140,10 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
     
     // Include .luaurc files in the lowest common root calculation
     std::vector<std::string> allPaths = discovered;
-    // for (const auto& luaurcPath : luaurcAbsolutePaths)
-    // {
-    //     allPaths.push_back(luaurcPath);
-    // }
+    for (const auto& luaurcPath : luaurcAbsolutePaths)
+    {
+        allPaths.push_back(luaurcPath);
+    }
     
     lowestCommonRoot = findLowestCommonRoot(allPaths);
 
