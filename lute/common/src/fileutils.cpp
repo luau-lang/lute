@@ -144,4 +144,24 @@ bool removeDirectory(const std::string& path)
 #endif
 }
 
+bool isDirectory(const std::string& path)
+{
+#ifdef _WIN32
+    std::wstring wpath = fromUtf8(path);
+    if (wpath.empty())
+        return false;
+
+    DWORD attrs = GetFileAttributesW(wpath.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+        return false;
+
+    return (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+#else
+    struct stat pathStat;
+    if (stat(path.c_str(), &pathStat) != 0)
+        return false;
+    return S_ISDIR(pathStat.st_mode);
+#endif
+}
+
 } // namespace Lute
