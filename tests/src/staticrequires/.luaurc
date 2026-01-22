@@ -1,5 +1,6 @@
 {
     "aliases": {
-        "example": "./dep"
+        "example": "./dep",
+        "nested": "./dep/nested"
     }
 }

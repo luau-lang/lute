@@ -1,10 +1,10 @@
 -- Helper module that also requires using an alias
-local option = require("@example/option")
+local example = require("@nested/example")
 
 -- print("Helper module")
 return {
 	help = function()
 		return "helper"
 	end,
-	option = option,
+	example = example,
 }
