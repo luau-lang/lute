@@ -25,7 +25,7 @@ function install(packageSource: loomTypes.PackageSource)
 
 	for _, pkg in projectResolution.packages do
 		print(`package: {pkg.name}, Rev: {pkg.rev}, Source: {pkg.source_kind} - {pkg.source}`)
-		if pkg.source_kind == "git" then
+		if pkg.source_kind == "github" then
 			local zipArchive = packageSource.git:downloadFromGitHubArchive(pkg.source)
 			packageSource.git:installZipArchive(pkg.name, pkg.rev, zipArchive)
 		end

@@ -17,7 +17,7 @@ local function fromLockPackage(lockPackage: lockfile.LockFilePackage): Package
 end
 
 local function fromDependencySpec(name: string, spec: manifest.DependencySpec): Package
-	if spec.source_kind == "git" then
+	if spec.source_kind == "github" then
 		local source = spec.source .. "/archive/" .. spec.rev .. ".zip"
 		return {
 			name = name,
