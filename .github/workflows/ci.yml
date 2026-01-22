@@ -105,11 +105,40 @@ jobs:
         run: stylua --check .
 
   build-docs-site:
-    uses: ./.github/workflows/docs.yml
-    with:
-      deploy: false
-    secrets:
-      token: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup and Build Lute
+        id: build_lute
+        uses: ./.github/actions/setup-and-build
+        with:
+          target: Lute.CLI
+          config: debug
+          options: ${{ matrix.options }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          use-bootstrap: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: docs
+
+      - name: Build docs site
+        run: |
+          export PATH="$(dirname '${{ steps.build_lute.outputs.exe_path }}'):$PATH"
+          npm run build
+        working-directory: docs
+
+      - name: Upload docs artifact
+        id: deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist/
 
   lute-lint:
     runs-on: ubuntu-latest

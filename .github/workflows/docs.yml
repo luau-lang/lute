@@ -4,15 +4,6 @@ on:
   push:
     branches:
       - primary
-  workflow_call:
-      inputs:
-        deploy:
-          type: boolean
-          required: false
-          default: true
-      secrets:
-        token:
-          required: true
 
 jobs:
   build:
