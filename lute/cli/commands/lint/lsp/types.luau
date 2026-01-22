@@ -2,7 +2,7 @@ export type Diagnostic = {
 	read range: Range, -- zero-based
 	read severity: number, -- 1: Error, 2: Warning, 3: Information, 4: Hint
 	read code: string, -- lint name
-	read codeDescription: string?, -- optional property to describe the violation; can also be
+	read codeDescription: string?, -- optional property to describe the violation
 	read source: "lute lint",
 	read message: string,
 	read tags: { number }?, -- 1: Unnecessary, 2: Deprecated
