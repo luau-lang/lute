@@ -122,7 +122,7 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_relative_paths")
     CHECK(luaurcFiles.find(".luaurc") != nullptr);
 }
 
-TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_require_alias")
+TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_requirealias")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();
     std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
