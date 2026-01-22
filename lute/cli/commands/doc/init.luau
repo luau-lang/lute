@@ -337,15 +337,15 @@ local function generateAllDocs(outputDir: path.path): ()
 
 	-- Generate reference index with frontmatter for sidebar ordering
 	local referenceIndex = [[---
-	order: 3
-	---
+order: 3
+---
 
-	# Reference
+# Reference
 
-	API reference documentation for Lute's built-in libraries.
+API reference documentation for Lute's built-in libraries.
 
-	- [Lute Libraries](./lute/index.md) - Core runtime libraries (`@lute/*`)
-	- [Standard Libraries](./std/index.md) - Standard library modules (`@std/*`)
+- [Lute Libraries](./lute/index.md) - Core runtime libraries (`@lute/*`)
+- [Standard Libraries](./std/index.md) - Standard library modules (`@std/*`)
 	]]
 	fs.writestringtofile(path.join(referenceBasePath, "index.md"), referenceIndex)
 
@@ -364,12 +364,6 @@ local function generateAllDocs(outputDir: path.path): ()
 	-- Generate std subfolder index with table of modules
 	local stdIndex = generateLibraryIndex("std", "std", stdlibPath)
 	fs.writestringtofile(path.join(stdlibReferencePath, "index.md"), stdIndex)
-
-	-- Mock module in test/ for testing purposes
-
-	-- local testPath = path.join(process.cwd(), "test")
-	-- local testReferencePath = path.join(process.cwd(), "test")
-	-- processDirectory(testPath, testReferencePath, testPath, "test")
 end
 
 local function main(...: string)
