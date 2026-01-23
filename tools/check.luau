@@ -118,7 +118,10 @@ local function sortErrors(errors: { ErrorEntry }): { ErrorEntry }
 		if a.line ~= b.line then
 			return a.line < b.line
 		end
-		return a.col < b.col
+		if a.col ~= b.col then
+			return a.col < b.col
+		end
+		return a.colEnd < b.colEnd
 	end)
 	return errors
 end
