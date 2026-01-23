@@ -44,6 +44,7 @@ function lsp.diagnostic(lint: lintTypes.LintViolation): lspTypes.Diagnostic
 		range = getRange(lint.location),
 		severity = severity(lint.severity),
 		code = lint.lintname,
+		codeDescription = lint.target,
 		source = "lute lint" :: "lute lint", -- LUAUFIX: Annotation needed, otherwise this errors because string isn't inferred as a singleton
 		message = lint.message,
 		tags = if lint.tags then table.freeze(tableext.map(lint.tags, tag)) else nil,

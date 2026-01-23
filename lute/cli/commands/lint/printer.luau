@@ -79,6 +79,10 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 	if lint.suggestedfix then
 		print(`Suggested fix: {lint.suggestedfix.fix}\n`)
 	end
+
+	if lint.target then
+		print(`For additional info: {lint.target}\n`)
+	end
 end
 
 function printerLib.printLintsWithSource(lints: { types.LintViolation }, sourceContent: string): ()
