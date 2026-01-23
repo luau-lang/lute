@@ -85,7 +85,7 @@ Run Options:
 	-h, --help    Display this usage message.
 )";
 
-static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkgrun <script.luau> [args...]
+static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkg run <script.luau> [args...]
 
 Run Options:
 	-h, --help    Display this usage message.
@@ -266,7 +266,7 @@ static std::pair<bool, std::string> getValidPath(std::string filePath)
 
 int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness, LuteReporter& reporter)
 {
-    std::string command = packageAwareness ? "pkgrun" : "run";
+    std::string command = packageAwareness ? "pkg run" : "run";
     std::string filePath;
     int program_argc = 0;
     char** program_argv = nullptr;
@@ -586,15 +586,16 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     }
 
     const char* command = argv[1];
+    const char* subcommand = argc >= 3 ? argv[2] : nullptr;
     int argOffset = 2;
 
     if (strcmp(command, "run") == 0)
     {
         return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ false, reporter);
     }
-    else if (strcmp(command, "pkgrun") == 0)
+    else if (strcmp(command, "pkg") == 0 && subcommand && strcmp(subcommand, "run") == 0)
     {
-        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ true, reporter);
+        return handleRunCommand(argc, argv, argOffset + 1, /* packageAwareness = */ true, reporter);
     }
     else if (strcmp(command, "check") == 0)
     {

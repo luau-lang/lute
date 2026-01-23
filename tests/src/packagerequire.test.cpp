@@ -94,8 +94,9 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_with_lockfile")
     std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_with_lockfile/packageentry/entry.luau";
 
     char executablePlaceholder[] = "lute";
-    char subcommand[] = "pkgrun";
-    std::vector<char*> argv = {executablePlaceholder, subcommand, entry.data()};
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
 
     CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     auto rep = getReporter();
