@@ -49,7 +49,8 @@ bool Runtime::hasWork()
 
 RuntimeStep Runtime::runOnce()
 {
-    uv_run(uv_default_loop(), UV_RUN_NOWAIT);
+    uv_run_mode mode = (hasContinuations() || hasThreads()) ? UV_RUN_NOWAIT : UV_RUN_ONCE;
+    uv_run(uv_default_loop(), mode);
 
     // Complete all C++ continuations
     std::vector<std::function<void()>> copy;
