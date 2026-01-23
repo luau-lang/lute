@@ -1,16 +1,18 @@
---!strict
-
+local cli = require("@batteries/cli")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
-local cli = require("@batteries/cli")
+local tbl = require("@std/tableext")
 local difftext = require("@batteries/difftext")
 
 local FAILLIST_PATH = "tools/check-faillist.txt"
 
 local TYPECHECK_PATHS = {
-	"tests",
+	"examples",
+	"lute/cli",
 	"lute/std/libs",
+	"tests",
+	"tools",
 }
 
 local function collectFiles(dir: string): { string }
@@ -32,11 +34,8 @@ local function getAllFiles(): { string }
 	local allFiles: { string } = {}
 	for _, dir in TYPECHECK_PATHS do
 		local files = collectFiles(dir)
-		for _, file in files do
-			table.insert(allFiles, file)
-		end
+		tbl.extend(allFiles, files)
 	end
-	table.sort(allFiles)
 	return allFiles
 end
 
