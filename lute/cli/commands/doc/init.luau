@@ -354,9 +354,10 @@ API reference documentation for Lute's built-in libraries.
 
 	-- Generate docs for each specified module path
 	for _, modulePath in modulePaths do
-		local absModulePath = if path.isabsolute(modulePath)
-			then path.parse(modulePath)
-			else path.resolve(process.cwd(), path.parse(modulePath))
+		local modulePathObj = path.parse(modulePath)
+		local absModulePath = if path.isabsolute(modulePathObj)
+			then modulePathObj
+			else path.resolve(process.cwd(), modulePathObj)
 
 		-- Explicitly match the aliases for lute and std, otherwise use the last part of the path as the alias
 		local libraryAlias = absModulePath.parts[#absModulePath.parts - 1]

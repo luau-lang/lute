@@ -51,7 +51,6 @@ test.suite("lute-doc", function(suite)
 		fs.createdirectory(tmpOutputDir)
 
 		local result = process.system(`{lutePath} doc -o {path.format(tmpOutputDir)} definitions lute/std/libs`)
-		print(result.stdout)
 
 		assert.eq(result.exitcode, 0)
 		assert.strcontains(result.stdout, "Documentation generation complete!")
