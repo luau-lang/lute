@@ -21,6 +21,7 @@ batteries/toml.luau:166:24-28
 examples/a.luau:1:7-7
 examples/colorful.luau:1:18-47
 examples/directories.luau:3:16-25
+examples/docs/test_module.luau:30:7-12
 examples/json.luau:13:7-24
 examples/json.luau:13:7-24
 examples/lints/almost_swapped.luau:83:5-16
@@ -60,6 +61,11 @@ examples/task-delay.luau:3:15-37
 examples/task-resume.luau:12:7-7
 examples/transformee.luau:3:7-7
 examples/transformer.luau:33:38-100
+lute/cli/commands/doc/init.luau:203:2-11
+lute/cli/commands/doc/init.luau:204:10-24
+lute/cli/commands/doc/init.luau:310:5-16
+lute/cli/commands/doc/init.luau:315:5-16
+lute/cli/commands/doc/init.luau:321:10-24
 lute/cli/commands/lib/cli.luau:50:2-13
 lute/cli/commands/lib/cli.luau:50:2-13
 lute/cli/commands/lib/cli.luau:52:3-14
@@ -289,9 +295,9 @@ tests/std/json.test.luau:81:16-23
 tests/std/json.test.luau:81:16-23
 tests/std/json.test.luau:81:17-23
 tests/std/json.test.luau:81:17-23
+tests/std/json.test.luau:82:21-27
+tests/std/json.test.luau:82:21-27
 tests/std/json.test.luau:82:21-30
-tests/std/json.test.luau:82:21-27
-tests/std/json.test.luau:82:21-27
 tests/std/process.test.luau:39:18-18
 tests/std/process.test.luau:46:18-18
 tests/std/process.test.luau:55:17-18
