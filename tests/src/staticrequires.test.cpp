@@ -133,7 +133,7 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_requirealias")
 
     auto pairs = tracer.getStaticRequirePairs();
 
-    // requirealias.luau requires @otherlib/example.luau, should resolve correctly
+    // requirealias.luau requires @nested/example, should resolve correctly
     REQUIRE(pairs.size() == 2);
 
     CHECK(pairs[0].first == "dep/requirealias.luau");
