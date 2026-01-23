@@ -1,5 +1,6 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
+local strext = require("@std/stringext")
 local test = require("@std/test")
 local asserts = require("@std/test/assert")
 local parser = require("@std/syntax/parser")
@@ -127,7 +128,7 @@ test.suite("Parser", function(suite)
 			if entry.type ~= "file" then
 				continue
 			end
-			if entry.name.sub(entry.name, -5) == ".json" then
+			if strext.hassuffix(entry.name, ".json") then
 				continue
 			end
 
