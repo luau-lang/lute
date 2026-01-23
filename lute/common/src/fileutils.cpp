@@ -170,11 +170,11 @@ std::string getFilenameWithoutExtension(const std::string& path)
     size_t lastSlash = base.find_last_of("/\\");
     if (lastSlash != std::string::npos)
         base = base.substr(lastSlash + 1);
-    // Once we've stripped off the last '/' in the path, we need to trim everything after .
-    // in order to handle .foo.bar suffixes
-    size_t firstDot = base.find('.');
-    if (firstDot != std::string::npos)
-        base = base.substr(0, firstDot);
+    // Once we've stripped off the last '/' in the path, we need to trim the last '.' to get the filename.
+    // If a filename ends in .foo.bar, only the .bar will be stripped.
+    size_t lastDot = base.rfind('.');
+    if (lastDot != std::string::npos)
+        base = base.substr(0, lastDot);
     return base;
 }
 

@@ -16,6 +16,13 @@ struct FrameInfo
     std::string file;
     int line;
 
+    FrameInfo(const lua_Debug& dbg)
+        : name(dbg.name ? dbg.name : "(anonymous)")
+        , file(dbg.source ? &dbg.source[1] : "(unknown)") // TODO(Varun)replace with chunkname utils API
+        , line(dbg.linedefined)
+    {
+    }
+
     bool operator==(const FrameInfo& other) const
     {
         return name == other.name && file == other.file && line == other.line;
@@ -70,11 +77,7 @@ static void profilerTrigger(lua_State* L, int gc)
     lua_Debug dbg;
     for (int level = 0; lua_getinfo(L, level, "sln", &dbg); ++level)
     {
-        FrameInfo frame;
-        frame.name = dbg.name ? dbg.name : "(anonymous)";
-        frame.file = dbg.short_src ? dbg.short_src : "(unknown)";
-        frame.line = dbg.linedefined;
-        currentStack.push_back(frame);
+        currentStack.emplace_back(dbg);
     }
 
     // Stacks are in reverse order, i.e
