@@ -1,7 +1,7 @@
 -- TODO: Support path/registry dependencies
 export type DependencySpec = {
 	rev: string,
-	source_kind: string,
+	sourceKind: string,
 	source: string,
 }
 
@@ -38,8 +38,8 @@ function fromTable(table: any): ProjectManifest
 		for name, spec in dependencies do
 			assert(spec.rev ~= nil and type(spec.rev) == "string", "Expected 'rev' field in dependency spec")
 			assert(
-				spec.source_kind ~= nil and type(spec.source_kind) == "string",
-				"Expected 'source_kind' field in dependency spec"
+				spec.sourceKind ~= nil and type(spec.sourceKind) == "string",
+				"Expected 'sourceKind' field in dependency spec"
 			)
 			assert(spec.source ~= nil and type(spec.source) == "string", "Expected 'source' field in dependency spec")
 		end

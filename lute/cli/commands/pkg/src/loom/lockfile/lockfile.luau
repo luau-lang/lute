@@ -1,7 +1,7 @@
 -- export type LockFileDependency = {
 -- 	name: string,
 -- 	version: string?,
--- 	source_kind: string?,
+-- 	sourceKind: string?,
 -- 	source: string?,
 -- }
 
@@ -9,7 +9,7 @@
 export type LockFilePackage = {
 	name: string,
 	rev: string,
-	source_kind: string,
+	sourceKind: string,
 	source: string,
 	-- dependencies: { LockFileDependency },
 }

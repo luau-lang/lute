@@ -29,7 +29,7 @@ function toLockFile(resolution: Resolution): lockfile.LockFile
 		table.insert(lockfilePackages, {
 			name = pkg.name,
 			rev = pkg.rev,
-			source_kind = pkg.source_kind,
+			sourceKind = pkg.sourceKind,
 			source = pkg.source,
 		})
 	end

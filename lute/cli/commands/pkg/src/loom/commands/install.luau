@@ -24,8 +24,8 @@ function install(packageSource: loomTypes.PackageSource)
 	fsUtils.writestringtofile("loom.lock.luau", "return " .. pp(lockfile))
 
 	for _, pkg in projectResolution.packages do
-		print(`package: {pkg.name}, Rev: {pkg.rev}, Source: {pkg.source_kind} - {pkg.source}`)
-		if pkg.source_kind == "github" then
+		print(`package: {pkg.name}, Rev: {pkg.rev}, Source: {pkg.sourceKind} - {pkg.source}`)
+		if pkg.sourceKind == "github" then
 			local zipArchive = packageSource.git:downloadFromGitHubArchive(pkg.source)
 			packageSource.git:installZipArchive(pkg.name, pkg.rev, zipArchive)
 		end

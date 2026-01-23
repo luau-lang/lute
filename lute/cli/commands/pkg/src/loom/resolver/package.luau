@@ -3,7 +3,7 @@ local manifest = require("../manifest/projectmanifest")
 export type Package = {
 	name: string,
 	rev: string,
-	source_kind: string,
+	sourceKind: string,
 	source: string,
 }
 
@@ -11,22 +11,22 @@ local function fromLockPackage(lockPackage: lockfile.LockFilePackage): Package
 	return {
 		name = lockPackage.name,
 		rev = lockPackage.rev,
-		source_kind = lockPackage.source_kind,
+		sourceKind = lockPackage.sourceKind,
 		source = lockPackage.source,
 	}
 end
 
 local function fromDependencySpec(name: string, spec: manifest.DependencySpec): Package
-	if spec.source_kind == "github" then
+	if spec.sourceKind == "github" then
 		local source = spec.source .. "/archive/" .. spec.rev .. ".zip"
 		return {
 			name = name,
 			rev = spec.rev,
-			source_kind = spec.source_kind,
+			sourceKind = spec.sourceKind,
 			source = source,
 		}
 	else
-		error(`Unsupported source kind: {spec.source_kind} for package {name}`)
+		error(`Unsupported source kind: {spec.sourceKind} for package {name}`)
 	end
 end
 
