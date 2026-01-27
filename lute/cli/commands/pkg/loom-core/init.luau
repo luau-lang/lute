@@ -1,6 +1,6 @@
-local git = require("@self/packagesource/git")
-local types = require("@self/loomtypes")
-local install = require("@self/commands/install")
+local git = require("@self/src/packagesource/git")
+local types = require("@self/src/loomtypes")
+local install = require("@self/src/commands/install")
 
 local loom = {} :: types.Loom
 
