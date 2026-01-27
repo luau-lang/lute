@@ -28,6 +28,6 @@ export default withSidebar(
     underscoreToSpace: true,
     sortMenusByFrontmatterOrder: true,
     frontmatterOrderDefaultValue: 100,
-    excludeByGlobPattern: ['**/test/**'],
+    excludeByGlobPattern: ['**/test/**', 'README.md'],
   }
 )
