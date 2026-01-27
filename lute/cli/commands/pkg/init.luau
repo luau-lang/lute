@@ -1,6 +1,6 @@
 local args = { ... }
 
-local loom = require("@self/src/loom/loom")
+local loom = require("@self/src/loom-core")
 
 if args[1] == "install" then
 	loom:install()
