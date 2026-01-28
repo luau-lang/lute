@@ -1621,7 +1621,7 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeStat(Luau::AstStatFunction* node)
     {
-        lua_rawcheckstack(L, 2);
+        lua_rawcheckstack(L, 4);
         lua_createtable(L, 0, preambleSize + 2);
 
         serializeNodePreamble(node, "function", "stat");
@@ -1642,7 +1642,7 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeStat(Luau::AstStatLocalFunction* node)
     {
-        lua_rawcheckstack(L, 2);
+        lua_rawcheckstack(L, 4);
         lua_createtable(L, 0, preambleSize + 3);
 
         serializeNodePreamble(node, "localfunction", "stat");
@@ -1717,7 +1717,7 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeStat(Luau::AstStatTypeFunction* node)
     {
-        lua_rawcheckstack(L, 2);
+        lua_rawcheckstack(L, 3);
         lua_createtable(L, 0, preambleSize + 4);
 
         const auto cstNode = lookupCstNode<Luau::CstStatTypeFunction>(node);
