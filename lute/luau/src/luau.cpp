@@ -550,7 +550,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_pushstring(L, Luau::toString(op).data());
     }
 
-    // preambleSize should encode the size of the fields we're setting up for _all_ nodes.
+    // preambleSize should encode the size of the fields we're setting up for _all_ nodes. It consists of tag, kind, and location.
     static const size_t preambleSize = 3;
     void serializeNodePreamble(Luau::AstNode* node, const char* tag, const char* kind)
     {
@@ -960,12 +960,54 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "closebrackets");
     }
 
-    void serializeFunctionBody(Luau::AstExprFunction* node)
+    enum FunctionSerializationState
     {
+        AttributesAndFunctionKeywordSerialized,
+        FunctionKeywordSerialized,
+        NothingSerialized
+    };
+
+    // Serialization needs to happen in program-lexical order, so attributes and function keyword might have been serialized already
+    void serialize(Luau::AstExprFunction* node, FunctionSerializationState state = NothingSerialized)
+    {
+        lua_rawcheckstack(L, 3);
+        lua_createtable(L, 0, preambleSize + 17);
+
+        serializeNodePreamble(node, "function", "expr");
+
         const auto cstNode = lookupCstNode<Luau::CstExprFunction>(node);
 
-        lua_rawcheckstack(L, 3);
-        lua_createtable(L, 0, 15);
+        switch (state)
+        {
+        case AttributesAndFunctionKeywordSerialized:
+            // Attributes and function keyword are on the stack, so we just need to set them in the function expr table
+            // This is only called from serialize AstStatFunction or AstStatLocalFunction, so we assume the stack has the following structure:
+            // -3: attributes
+            // -2: functionkeyword
+            // -1: function expr table (created above)
+            lua_insert(L, -3);
+            lua_setfield(L, -3, "functionkeyword");
+            lua_setfield(L, -2, "attributes");
+            break;
+        case FunctionKeywordSerialized:
+            // Function keyword is on the stack, so we just need to set it in the function expr table
+            // This is only called from serialize AstStatTypeFunction, so we assume the stack has the following structure:
+            // -2: functionkeyword
+            // -1: function expr table (created above)
+            lua_insert(L, -2);
+            lua_setfield(L, -2, "functionkeyword");
+
+            lua_newtable(L);
+            lua_setfield(L, -2, "attributes");
+            break;
+        case NothingSerialized:
+            serializeAttributes(node->attributes);
+            lua_setfield(L, -2, "attributes");
+
+            serializeToken(cstNode->functionKeywordPosition, "function");
+            lua_setfield(L, -2, "functionkeyword");
+            break;
+        }
 
         if (node->generics.size > 0 || node->genericPacks.size > 0)
         {
@@ -1044,25 +1086,6 @@ struct AstSerialize : public Luau::AstVisitor
 
         serializeToken(node->body->location.end, "end");
         lua_setfield(L, -2, "endkeyword");
-    }
-
-    void serialize(Luau::AstExprFunction* node)
-    {
-        lua_rawcheckstack(L, 3);
-        lua_createtable(L, 0, preambleSize + 3);
-
-        serializeNodePreamble(node, "function", "expr");
-
-        serializeAttributes(node->attributes);
-        lua_setfield(L, -2, "attributes");
-
-        const auto cstNode = lookupCstNode<Luau::CstExprFunction>(node);
-
-        serializeToken(cstNode->functionKeywordPosition, "function");
-        lua_setfield(L, -2, "functionkeyword");
-
-        serializeFunctionBody(node);
-        lua_setfield(L, -2, "body");
     }
 
     void serialize(Luau::AstExprTable* node)
@@ -1599,48 +1622,46 @@ struct AstSerialize : public Luau::AstVisitor
     void serializeStat(Luau::AstStatFunction* node)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 4);
+        lua_createtable(L, 0, preambleSize + 2);
 
         serializeNodePreamble(node, "function", "stat");
 
         const auto cstNode = lookupCstNode<Luau::CstStatFunction>(node);
 
+        // Serialization needs to happen in program-lexical order, so we serialize attributes and function keyword first
         serializeAttributes(node->func->attributes);
-        lua_setfield(L, -2, "attributes");
 
         serializeToken(cstNode->functionKeywordPosition, "function");
-        lua_setfield(L, -2, "functionkeyword");
 
         node->name->visit(this);
-        lua_setfield(L, -2, "name");
+        lua_setfield(L, -4, "name");
 
-        serializeFunctionBody(node->func);
-        lua_setfield(L, -2, "body");
+        serialize(node->func, AttributesAndFunctionKeywordSerialized);
+        lua_setfield(L, -2, "func");
     }
 
     void serializeStat(Luau::AstStatLocalFunction* node)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 5);
+        lua_createtable(L, 0, preambleSize + 3);
 
         serializeNodePreamble(node, "localfunction", "stat");
 
+        // Serialization needs to happen in program-lexical order, so we serialize attributes and function keyword before the func expr
         serializeAttributes(node->func->attributes);
-        lua_setfield(L, -2, "attributes");
 
         const auto cstNode = lookupCstNode<Luau::CstStatLocalFunction>(node);
 
         serializeToken(cstNode->localKeywordPosition, "local");
-        lua_setfield(L, -2, "localkeyword");
+        lua_setfield(L, -3, "localkeyword");
 
         serializeToken(cstNode->functionKeywordPosition, "function");
-        lua_setfield(L, -2, "functionkeyword");
 
         serialize(node->name);
-        lua_setfield(L, -2, "name");
+        lua_setfield(L, -4, "name");
 
-        serializeFunctionBody(node->func);
-        lua_setfield(L, -2, "body");
+        serialize(node->func, AttributesAndFunctionKeywordSerialized);
+        lua_setfield(L, -2, "func");
     }
 
     static Luau::AstArray<Luau::Position> splitArray(Luau::AstArray<Luau::Position> arr, size_t index)
@@ -1697,7 +1718,7 @@ struct AstSerialize : public Luau::AstVisitor
     void serializeStat(Luau::AstStatTypeFunction* node)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 5);
+        lua_createtable(L, 0, preambleSize + 4);
 
         const auto cstNode = lookupCstNode<Luau::CstStatTypeFunction>(node);
 
@@ -1713,12 +1734,11 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "type");
 
         serializeToken(cstNode->functionKeywordPosition, "function");
-        lua_setfield(L, -2, "functionkeyword");
 
         serializeToken(node->nameLocation.begin, node->name.value);
-        lua_setfield(L, -2, "name");
+        lua_setfield(L, -3, "name");
 
-        serializeFunctionBody(node->body);
+        serialize(node->body, FunctionKeywordSerialized);
         lua_setfield(L, -2, "body");
     }
 

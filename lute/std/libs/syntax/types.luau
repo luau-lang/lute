@@ -39,8 +39,6 @@ export type AstExprIndexName = luau.AstExprIndexName
 
 export type AstExprIndexExpr = luau.AstExprIndexExpr
 
-export type AstFunctionBody = luau.AstFunctionBody
-
 export type AstExprFunction = luau.AstExprFunction
 
 export type AstExprTableItemList = luau.AstExprTableItemList
