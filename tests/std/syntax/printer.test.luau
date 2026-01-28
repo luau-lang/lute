@@ -250,13 +250,13 @@ hello['world'] -- after]]
 		end, assert)
 	end)
 
-	suite:case("expranonymousfunction_trivia", function(assert)
+	suite:case("exprfunction_trivia", function(assert)
 		local source = [[local x =
 function() return end -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprAnonymousFunction):replace(function()
+			return query.findallfromroot(ast, syntaxUtils.isExprFunction):replace(function()
 				return "replaced"
 			end)
 		end, assert)

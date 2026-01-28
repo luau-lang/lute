@@ -39,7 +39,7 @@ export type Visitor = {
 	visitExprCall: (types.AstExprCall) -> boolean,
 	visitExprUnary: (types.AstExprUnary) -> boolean,
 	visitExprBinary: (types.AstExprBinary) -> boolean,
-	visitExprAnonymousFunction: (types.AstExprAnonymousFunction) -> boolean,
+	visitExprFunction: (types.AstExprFunction) -> boolean,
 	visitExprTableItem: (types.AstExprTableItem) -> boolean,
 	visitExprTable: (types.AstExprTable) -> boolean,
 	visitExprIndexName: (types.AstExprIndexName) -> boolean,
@@ -110,7 +110,7 @@ local defaultVisitor: Visitor = {
 	visitExprCall = alwaysVisit :: any,
 	visitExprUnary = alwaysVisit :: any,
 	visitExprBinary = alwaysVisit :: any,
-	visitExprAnonymousFunction = alwaysVisit :: any,
+	visitExprFunction = alwaysVisit :: any,
 	visitExprTableItem = alwaysVisit :: any,
 	visitExprTable = alwaysVisit :: any,
 	visitExprIndexName = alwaysVisit :: any,
@@ -476,8 +476,8 @@ local function visitAttribute(node: types.AstAttribute, visitor: Visitor)
 	end
 end
 
-local function visitExprAnonymousFunction(node: types.AstExprAnonymousFunction, visitor: Visitor)
-	if visitor.visitExprAnonymousFunction(node) then
+local function visitExprFunction(node: types.AstExprFunction, visitor: Visitor)
+	if visitor.visitExprFunction(node) then
 		for _, attribute in node.attributes do
 			visitAttribute(attribute, visitor)
 		end
@@ -826,7 +826,7 @@ function visitExpr(expression: types.AstExpr, visitor: Visitor)
 		elseif expression.tag == "binary" then
 			visitExprBinary(expression, visitor)
 		elseif expression.tag == "function" then
-			visitExprAnonymousFunction(expression, visitor)
+			visitExprFunction(expression, visitor)
 		elseif expression.tag == "table" then
 			visitExprTable(expression, visitor)
 		elseif expression.tag == "indexname" then
@@ -962,7 +962,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitExprCall = visit,
 			visitExprUnary = visit,
 			visitExprBinary = visit,
-			visitExprAnonymousFunction = visit,
+			visitExprFunction = visit,
 			visitExprTableItem = visit,
 			visitExprTable = visit,
 			visitExprIndexName = visit,

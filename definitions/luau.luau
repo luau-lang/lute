@@ -148,7 +148,7 @@ export type AstFunctionBody = {
 	endkeyword: Token<"end">,
 }
 
-export type AstExprAnonymousFunction = {
+export type AstExprFunction = {
 	location: span,
 	kind: "expr",
 	tag: "function",
@@ -266,7 +266,7 @@ export type AstExpr = { kind: "expr" } & (
 	| AstExprCall
 	| AstExprIndexName
 	| AstExprIndexExpr
-	| AstExprAnonymousFunction
+	| AstExprFunction
 	| AstExprTable
 	| AstExprUnary
 	| AstExprBinary

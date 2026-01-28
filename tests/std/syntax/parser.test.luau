@@ -326,12 +326,12 @@ test.suite("parseExpr", function(suite)
 		assert.eq((indexExpr :: syntax.AstExprIndexExpr).closebrackets.text, "]")
 	end)
 
-	suite:case("parseExprAnonymousFunction", function(assert)
+	suite:case("parseExprFunction", function(assert)
 		local anonFuncExpr = parser.parseexpr("function(a, b) return a + b end")
 		assert.eq(anonFuncExpr.tag, "function")
 		assert.eq(anonFuncExpr.kind, "expr")
 
-		local funcExpr = anonFuncExpr :: syntax.AstExprAnonymousFunction
+		local funcExpr = anonFuncExpr :: syntax.AstExprFunction
 		assert.eq(#funcExpr.attributes, 0)
 		assert.eq(funcExpr.functionkeyword.text, "function")
 
@@ -357,7 +357,7 @@ test.suite("parseExpr", function(suite)
 		assert.eq(anonFuncExpr.tag, "function")
 		assert.eq(anonFuncExpr.kind, "expr")
 
-		funcExpr = anonFuncExpr :: syntax.AstExprAnonymousFunction
+		funcExpr = anonFuncExpr :: syntax.AstExprFunction
 		assert.eq(#funcExpr.attributes, 0)
 		assert.eq(funcExpr.functionkeyword.text, "function")
 
