@@ -1287,7 +1287,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         if (cstDo)
         {
-            lua_rawcheckstack(L, 2);
+            lua_rawcheckstack(L, 3);
             lua_createtable(L, 0, preambleSize + 3);
 
             serializeNodePreamble(node, "do", "stat");
@@ -1295,7 +1295,29 @@ struct AstSerialize : public Luau::AstVisitor
             serializeToken(node->location.begin, "do");
             lua_setfield(L, -2, "dokeyword");
 
+            // In lieu of a C++ AstStatBlock object to recurse on, manually construct a Luau AstStatBlock table
+            lua_createtable(L, 0, preambleSize + 1);
+
+            lua_pushstring(L, "block");
+            lua_setfield(L, -2, "tag");
+
+            lua_pushstring(L, "stat");
+            lua_setfield(L, -2, "kind");
+
+            Luau::Location blockLocation;
+            if (node->body.size > 0)
+            {
+                blockLocation.begin = node->body.data[0]->location.begin;
+                blockLocation.end = node->body.data[node->body.size - 1]->location.end;
+            }
+            else
+                blockLocation = node->location;
+
+            withLocation(blockLocation);
+
             serializeStats(node->body);
+            lua_setfield(L, -2, "statements");
+
             lua_setfield(L, -2, "body");
 
             serializeToken(cstDo->endPosition, "end");

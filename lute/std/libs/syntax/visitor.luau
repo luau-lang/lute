@@ -186,9 +186,7 @@ end
 local function visitStatDo(node: types.AstStatDo, visitor: Visitor)
 	if visitor.visitStatDo(node) then
 		visitToken(node.dokeyword, visitor)
-		for _, statement in node.body do
-			visitStatement(statement, visitor)
-		end
+		visitStatBlock(node.body, visitor)
 		visitToken(node.endkeyword, visitor)
 	end
 end

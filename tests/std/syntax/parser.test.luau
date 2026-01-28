@@ -548,7 +548,8 @@ test.suite("parse", function(suite)
 		local doStat = block.statements[1] :: syntax.AstStatDo
 		assert.eq(doStat.tag, "do")
 		assert.eq(doStat.dokeyword.text, "do")
-		assert.eq(#doStat.body, 1)
+		checkIsBlock(doStat.body, assert)
+		assert.eq(#doStat.body.statements, 1)
 		assert.eq(doStat.endkeyword.text, "end")
 	end)
 
