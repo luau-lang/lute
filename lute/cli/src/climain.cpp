@@ -403,7 +403,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
                 reporter.reportError("Error: Failed to get current working directory.\n");
                 return 1;
             }
-            validPath = normalizePath(joinPaths(*cwd, filePath));
+            validPath = normalizePath(joinPaths(*cwd, validPath));
         }
 
         std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(validPath);
