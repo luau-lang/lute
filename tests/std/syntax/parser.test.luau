@@ -2,15 +2,14 @@ local fs = require("@std/fs")
 local path = require("@std/path")
 local strext = require("@std/stringext")
 local test = require("@std/test")
-local asserts = require("@std/test/assert")
+local testTypes = require("@std/test/types")
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
-local T = require("@std/luau")
 
 local function assertEqualsLocation(
-	assert: asserts.asserts,
-	actual: T.span,
+	assert: testTypes.asserts,
+	actual: syntax.span,
 	startLine: number,
 	startColumn: number,
 	endLine: number,
@@ -529,7 +528,7 @@ foo = bar,
 	end)
 end)
 
-local function checkIsBlock(node: any, assert: asserts.asserts)
+local function checkIsBlock(node: any, assert: testTypes.asserts)
 	assert.eq(node.kind, "stat")
 	assert.eq(node.tag, "block")
 end
