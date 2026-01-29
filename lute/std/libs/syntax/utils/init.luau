@@ -50,7 +50,7 @@ function utils.isExprIndexExpr(n: types.AstNode): types.AstExprIndexExpr?
 	return if n.kind == "expr" and n.tag == "index" then n else nil
 end
 
-function utils.isExprAnonymousFunction(n: types.AstNode): types.AstExprAnonymousFunction?
+function utils.isExprFunction(n: types.AstNode): types.AstExprFunction?
 	return if n.kind == "expr" and n.tag == "function" then n else nil
 end
 
