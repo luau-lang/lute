@@ -235,11 +235,12 @@ jobs:
 
           echo Sending Slack notification: "$TEXT"
 
+          CHANNEL_ID="${{ secrets.SLACK_CHANNEL_ID }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -sS -o /dev/null -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
             --data "{
-              \"channel\": \"C062MQ6TZQT\",
+              \"channel\": \"$CHANNEL_ID\",
               \"text\": \"$TEXT (<$RUN_URL|view workflow run>)\"
             }"
