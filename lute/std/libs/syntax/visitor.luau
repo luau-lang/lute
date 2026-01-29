@@ -39,7 +39,7 @@ export type Visitor = {
 	visitExprCall: (types.AstExprCall) -> boolean,
 	visitExprUnary: (types.AstExprUnary) -> boolean,
 	visitExprBinary: (types.AstExprBinary) -> boolean,
-	visitExprAnonymousFunction: (types.AstExprAnonymousFunction) -> boolean,
+	visitExprFunction: (types.AstExprFunction) -> boolean,
 	visitExprTableItem: (types.AstExprTableItem) -> boolean,
 	visitExprTable: (types.AstExprTable) -> boolean,
 	visitExprIndexName: (types.AstExprIndexName) -> boolean,
@@ -110,7 +110,7 @@ local defaultVisitor: Visitor = {
 	visitExprCall = alwaysVisit :: any,
 	visitExprUnary = alwaysVisit :: any,
 	visitExprBinary = alwaysVisit :: any,
-	visitExprAnonymousFunction = alwaysVisit :: any,
+	visitExprFunction = alwaysVisit :: any,
 	visitExprTableItem = alwaysVisit :: any,
 	visitExprTable = alwaysVisit :: any,
 	visitExprIndexName = alwaysVisit :: any,
@@ -435,77 +435,83 @@ local function visitExprBinary(node: types.AstExprBinary, visitor: Visitor)
 	end
 end
 
-local function visitStatFunctionBody(node: types.AstFunctionBody, visitor: Visitor)
-	if node.opengenerics then
-		visitToken(node.opengenerics, visitor)
-	end
-	if node.generics then
-		visitPunctuated(node.generics, visitor, visitGeneric)
-	end
-	if node.genericpacks then
-		visitPunctuated(node.genericpacks, visitor, visitGenericPack)
-	end
-	if node.closegenerics then
-		visitToken(node.closegenerics, visitor)
-	end
-	visitToken(node.openparens, visitor)
-	visitPunctuated(node.parameters, visitor, visitLocal)
-	if node.vararg then
-		visitToken(node.vararg, visitor)
-	end
-	if node.varargcolon then
-		visitToken(node.varargcolon, visitor)
-	end
-	if node.varargannotation then
-		visitTypePack(node.varargannotation, visitor)
-	end
-	visitToken(node.closeparens, visitor)
-	if node.returnspecifier then
-		visitToken(node.returnspecifier, visitor)
-	end
-	if node.returnannotation then
-		visitTypePack(node.returnannotation, visitor)
-	end
-	visitStatBlock(node.body, visitor)
-	visitToken(node.endkeyword, visitor)
-end
-
 local function visitAttribute(node: types.AstAttribute, visitor: Visitor)
 	if visitor.visitAttribute(node) then
 		visitToken(node, visitor)
 	end
 end
 
-local function visitExprAnonymousFunction(node: types.AstExprAnonymousFunction, visitor: Visitor)
-	if visitor.visitExprAnonymousFunction(node) then
-		for _, attribute in node.attributes do
-			visitAttribute(attribute, visitor)
+local function visitExprFunction(
+	node: types.AstExprFunction,
+	visitor: Visitor,
+	shouldVisitAttributes: boolean?,
+	shouldVisitFunctionKeyword: boolean?
+)
+	if visitor.visitExprFunction(node) then
+		if shouldVisitAttributes ~= false then
+			for _, attribute in node.attributes do
+				visitAttribute(attribute, visitor)
+			end
 		end
-		visitToken(node.functionkeyword, visitor)
-		visitStatFunctionBody(node.body, visitor)
+		if shouldVisitFunctionKeyword ~= false then
+			visitToken(node.functionkeyword, visitor)
+		end
+		if node.opengenerics then
+			visitToken(node.opengenerics, visitor)
+		end
+		if node.generics then
+			visitPunctuated(node.generics, visitor, visitGeneric)
+		end
+		if node.genericpacks then
+			visitPunctuated(node.genericpacks, visitor, visitGenericPack)
+		end
+		if node.closegenerics then
+			visitToken(node.closegenerics, visitor)
+		end
+		visitToken(node.openparens, visitor)
+		visitPunctuated(node.parameters, visitor, visitLocal)
+		if node.vararg then
+			visitToken(node.vararg, visitor)
+		end
+		if node.varargcolon then
+			visitToken(node.varargcolon, visitor)
+		end
+		if node.varargannotation then
+			visitTypePack(node.varargannotation, visitor)
+		end
+		visitToken(node.closeparens, visitor)
+		if node.returnspecifier then
+			visitToken(node.returnspecifier, visitor)
+		end
+		if node.returnannotation then
+			visitTypePack(node.returnannotation, visitor)
+		end
+		visitStatBlock(node.body, visitor)
+		visitToken(node.endkeyword, visitor)
 	end
 end
 
 local function visitStatFunction(node: types.AstStatFunction, visitor: Visitor)
 	if visitor.visitStatFunction(node) then
-		for _, attribute in node.attributes do
+		-- We need to visit in lexical order
+		for _, attribute in node.func.attributes do
 			visitAttribute(attribute, visitor)
 		end
-		visitToken(node.functionkeyword, visitor)
+		visitToken(node.func.functionkeyword, visitor)
 		visitExpr(node.name, visitor)
-		visitStatFunctionBody(node.body, visitor)
+		visitExprFunction(node.func, visitor, false, false)
 	end
 end
 
 local function visitStatLocalFunction(node: types.AstStatLocalFunction, visitor: Visitor)
 	if visitor.visitStatLocalFunction(node) then
-		for _, attribute in node.attributes do
+		for _, attribute in node.func.attributes do
 			visitAttribute(attribute, visitor)
 		end
 		visitToken(node.localkeyword, visitor)
-		visitToken(node.functionkeyword, visitor)
+		visitToken(node.func.functionkeyword, visitor)
 		visitLocal(node.name, visitor)
-		visitStatFunctionBody(node.body, visitor)
+		visitExprFunction(node.func, visitor, false, false)
 	end
 end
 
@@ -515,9 +521,9 @@ local function visitStatTypeFunction(node: types.AstStatTypeFunction, visitor: V
 			visitToken(node.export, visitor)
 		end
 		visitToken(node.type, visitor)
-		visitToken(node.functionkeyword, visitor)
+		visitToken(node.body.functionkeyword, visitor)
 		visitToken(node.name, visitor)
-		visitStatFunctionBody(node.body, visitor)
+		visitExprFunction(node.body, visitor, true, false)
 	end
 end
 
@@ -826,7 +832,7 @@ function visitExpr(expression: types.AstExpr, visitor: Visitor)
 		elseif expression.tag == "binary" then
 			visitExprBinary(expression, visitor)
 		elseif expression.tag == "function" then
-			visitExprAnonymousFunction(expression, visitor)
+			visitExprFunction(expression, visitor)
 		elseif expression.tag == "table" then
 			visitExprTable(expression, visitor)
 		elseif expression.tag == "indexname" then
@@ -962,7 +968,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitExprCall = visit,
 			visitExprUnary = visit,
 			visitExprBinary = visit,
-			visitExprAnonymousFunction = visit,
+			visitExprFunction = visit,
 			visitExprTableItem = visit,
 			visitExprTable = visit,
 			visitExprIndexName = visit,
