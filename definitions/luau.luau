@@ -282,7 +282,7 @@ export type AstStatDo = {
 	kind: "stat",
 	tag: "do",
 	dokeyword: Token<"do">,
-	body: { AstStat }, -- TODO: change to AstStatBlock when Luau adds AstStatDo on the C++ side
+	body: AstStatBlock,
 	endkeyword: Token<"end">,
 }
 
