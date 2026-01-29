@@ -210,7 +210,8 @@ jobs:
       - name: Post-aggregation notification
         if: >
           always() &&
-          github.event_name == 'pull_request'
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/primary'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
