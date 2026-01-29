@@ -232,22 +232,18 @@ jobs:
             "https://api.github.com/repos/luau-lang/lute/actions/workflows/ci.yml/runs?branch=primary&status=completed&per_page=1" \
             | jq -r '.workflow_runs[0].conclusion')
 
-          TEXT=""
-          if [[ "$LAST_STATUS" == "success" ]] && [[ "${{ steps.aggregator.outputs.result }}" == "failure" ]]; then
-            TEXT=":rotating_light: *Lute CI has started failing*"
-          elif [[ "$LAST_STATUS" == "failure" ]] && [[ "${{ steps.aggregator.outputs.result }}" == "success" ]]; then
-            TEXT=":white_check_mark: *Lute CI is passing again*"
-          fi
-
-          if [[ -z "$TEXT" ]]; then
+          if [[ "$LAST_STATUS" == "${{ steps.aggregator.outputs.result }}" ]]; then
             echo "No status change detected. Skipping notification."
             exit 0
+          elif [[ "$LAST_STATUS" == "failure" ]]; then
+            TEXT=":white_check_mark: *Lute CI is passing again*"
+          elif [[ "$LAST_STATUS" == "success" ]]; then
+            TEXT=":rotating_light: *Lute CI has started failing*"
           fi
-
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           echo Sending Slack notification: "$TEXT"
 
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -sS -o /dev/null -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
