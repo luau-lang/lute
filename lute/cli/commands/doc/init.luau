@@ -1,5 +1,6 @@
 local cli = require("./lib/cli")
 local fs = require("@std/fs")
+local luau = require("@std/luau")
 local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
