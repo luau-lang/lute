@@ -210,8 +210,7 @@ jobs:
       - name: Post-aggregation notification
         if: >
           always() &&
-          github.event_name == 'pull_request' &&
-          github.ref == 'refs/heads/vrn-sn/fix-slow-ci-builds'
+          github.event_name == 'pull_request'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
