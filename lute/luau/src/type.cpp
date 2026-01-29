@@ -299,7 +299,7 @@ struct TypeSerialize : public Luau::TypeVisitor
         else
         {
             lua_pushnil(L);
-            lua_set-field(L, -2, "indexer");
+            lua_setfield(L, -2, "indexer");
         }
     }
 
