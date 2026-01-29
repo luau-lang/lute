@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-exit 1 # intentionally break bootstrap builds
+
 set -e
 install_requested=false
 
