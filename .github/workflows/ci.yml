@@ -41,7 +41,7 @@ jobs:
       - name: Determine if this matrix job should run
         id: should_run
         run: |
-          if [[ "${{ matrix.use-bootstrap }}" != "true" || ( "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/primary" ) ]]; then
+          if [[ "${{ matrix.use-bootstrap }}" != "true" ]] || { [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/primary" ]]; }; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
           else
             echo "proceed=false" >> "$GITHUB_OUTPUT"
@@ -209,8 +209,8 @@ jobs:
       - name: Post-aggregation notification
         if: >
           always() &&
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/primary'
+          github.event_name == 'pull_request' &&
+          github.ref == 'refs/heads/vrn-sn/fix-slow-ci-builds'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
