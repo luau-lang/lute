@@ -183,27 +183,43 @@ jobs:
     if: ${{ always() }}
     steps:
       - name: Aggregator
+        id: aggregator
         run: |
           if [ "${{ needs.run-lutecli-luau-tests.result }}" == "success" ] && [ "${{ needs.run-lute-cxx-unittests.result }}" == "success" ] && [ "${{ needs.check-format.result }}" == "success" ] && [ "${{ needs.build-docs-site.result }}" == "success" ] && [ "${{ needs.lute-lint.result }}" == "success" ] && [ "${{ needs.lute-check.result }}" == "success" ]; then
             echo "All jobs succeeded"
+            echo "result=success" >> "$GITHUB_OUTPUT"
           else
             echo "One or more jobs failed"
+            echo "result=failure" >> "$GITHUB_OUTPUT"
             exit 1
           fi
       - name: Post-aggregation notification
-        if: >
-          failure() &&
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/primary'
+        if: always()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
+          LAST_STATUS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/luau-lang/lute/actions/workflows/ci.yml/runs?branch=vrn-sn%2Ffix-slow-ci-builds&status=completed&per_page=1" \
+            | jq -r '.workflow_runs[0].conclusion')
+
+          TEXT=""
+          if [[ "$LAST_STATUS" == "success" ]] && [[ "${{ steps.aggregator.outputs.result }}" == "failure" ]]; then
+            TEXT=":rotating_light: *Lute CI has started failing*"
+          elif [[ "$LAST_STATUS" == "failure" ]] && [[ "${{ steps.aggregator.outputs.result }}" == "success" ]]; then
+            TEXT=":white_check_mark: *Lute CI is passing again*"
+          fi
+
+          if [[ -z "$TEXT" ]]; then
+            echo "No status change detected. Skipping notification."
+            exit 0
+          fi
+
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           curl -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
             --data "{
-              \"channel\": \"C062MQ6TZQT\",
-              \"text\": \":rotating_light: *Lute CI failed on \`primary\`*: <$RUN_URL|View failing workflow>\"
+              \"channel\": \"C0ACG5DGAG0\",
+              \"text\": \"$TEXT (<$RUN_URL|View workflow run>)\"
             }"
