@@ -40,8 +40,9 @@ jobs:
       # Non-bootstrap jobs always run; all jobs run on pushes to primary branch.
       - name: Determine if this matrix job should run
         id: should_run
+        shell: bash
         run: |
-          if [[ "${{ matrix.use-bootstrap }}" != "true" ]] || { [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/primary" ]]; }; then
+          if [[ "${{ matrix.use-bootstrap }}" != "true" || ( "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/primary" ) ]]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
           else
             echo "proceed=false" >> "$GITHUB_OUTPUT"
