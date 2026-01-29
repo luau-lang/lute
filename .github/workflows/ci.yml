@@ -198,12 +198,5 @@ jobs:
         run: |
           curl -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data '{
-              "channel": "C062MQ6TZQT",
-              "text": ":rotating_light: *Lute CI failed on `primary`*\n\
-              Repository: `${{ github.repository }}`\n\
-              Commit: `${{ github.sha }}`\n\
-              Author: `${{ github.actor }}`\n\
-              Run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow>"
-            }'
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data "{\"channel\":\"C062MQ6TZQT\",\"text\":\":rotating_light: *Lute CI failed on `primary`*\nRepository: `${{ github.repository }}`\nCommit: `${{ github.sha }}`\nAuthor: `${{ github.actor }}`\nRun: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow>\"}"
