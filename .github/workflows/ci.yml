@@ -22,27 +22,40 @@ jobs:
         include:
           - os: windows-latest
             options: --c-compiler cl.exe --cxx-compiler cl.exe
+            run-on-event: all
           - os: ubuntu-latest
             options: --c-compiler gcc --cxx-compiler g++ --enable-sanitizers
+            run-on-event: pull_request
           - os: ubuntu-latest
             options: --c-compiler clang --cxx-compiler clang++ --enable-sanitizers
+            run-on-event: pull_request
           - os: macos-latest
             options: --enable-sanitizers
+            run-on-event: all
+          - os: ubuntu-latest
+            options: --c-compiler gcc --cxx-compiler g++
+            use-bootstrap: true
+            run-on-event: pull_request
+          - os: ubuntu-latest
+            options: --c-compiler clang --cxx-compiler clang++
+            use-bootstrap: true
+            run-on-event: pull_request
           - os: ubuntu-latest
             options: --c-compiler gcc --cxx-compiler g++ --enable-sanitizers
             use-bootstrap: true
+            run-on-event: push
           - os: ubuntu-latest
             options: --c-compiler clang --cxx-compiler clang++ --enable-sanitizers
             use-bootstrap: true
+            run-on-event: push
       fail-fast: false
 
     steps:
-      # Non-bootstrap jobs always run; all jobs run on pushes to primary branch.
       - name: Determine if this matrix job should run
         id: should_run
         shell: bash
         run: |
-          if [[ "${{ matrix.use-bootstrap }}" != "true" || ( "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/primary" ) ]]; then
+          if [[ "${{ matrix.run-on-event }}" == "all" || "${{ matrix.run-on-event }}" == "${{ github.event_name }}" ]]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
           else
             echo "proceed=false" >> "$GITHUB_OUTPUT"
