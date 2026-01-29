@@ -130,7 +130,7 @@ struct TypeSerialize : public Luau::TypeVisitor
     }
 
     // Luau singleton type:
-    // value: (self: type) -> (string | boolean | nil)
+    // value: string | boolean | nil
     void serialize(TypeId ty, const SingletonType& stv)
     {
         lua_rawcheckstack(L, 2);
@@ -156,7 +156,7 @@ struct TypeSerialize : public Luau::TypeVisitor
     }
 
     // Luau negation type:
-    // inner: (self: type) -> type
+    // inner: type
     void serialize(TypeId ty, const NegationType& ntv)
     {
         lua_rawcheckstack(L, 2);
@@ -169,7 +169,7 @@ struct TypeSerialize : public Luau::TypeVisitor
     }
 
     // Luau union type:
-    // components: (self: type) -> {type}
+    // components: { type }
     void serialize(TypeId ty, const UnionType& utv)
     {
         lua_rawcheckstack(L, 2);
@@ -187,7 +187,7 @@ struct TypeSerialize : public Luau::TypeVisitor
     }
 
     // Luau intersection type:
-    // components: (self: type) -> {type}
+    // components: { type }
     void serialize(TypeId ty, const IntersectionType& itv)
     {
         lua_rawcheckstack(L, 2);
@@ -205,8 +205,8 @@ struct TypeSerialize : public Luau::TypeVisitor
     }
 
     // Luau generic type:
-    // name: (self: type) -> string?
-    // ispack: (self: type) -> boolean
+    // name: string?
+    // ispack: boolean
     void serialize(TypeId ty, const GenericType& gtv)
     {
         lua_rawcheckstack(L, 2);
@@ -230,9 +230,9 @@ struct TypeSerialize : public Luau::TypeVisitor
     }
 
     // Luau function type:
-    // parameters: (self: type) -> { head: {type}?, tail: type? },
-    // returns: (self: type) -> { head: {type}?, tail: type? },
-    // generics: (self: type) -> {type},
+    // parameters: { head: {type}?, tail: type? },
+    // returns: { head: {type}?, tail: type? },
+    // generics: {type},
     void serialize(TypeId ty, const FunctionType& ftv)
     {
         lua_rawcheckstack(L, 2);
@@ -259,11 +259,10 @@ struct TypeSerialize : public Luau::TypeVisitor
     }
 
     // Luau table type:
-    // properties: (self: type) -> { [type]: { read: type?, write: type? } },
-    // indexer: (self: type) -> { index: type, readresult: type, writeresult: type }?,
-    // readindexer: (self: type) -> { index: type, result: type }?,
-    // writeindexer: (self: type) -> { index: type, result: type }?,
-    // metatable: (self: type) -> type?,
+    // properties: { [type]: { read: type?, write: type? } },
+    // indexer: { index: type, readresult: type, writeresult: type }?,
+    // readindexer: { (self: type) -> { index: type, result: type } }?,
+    // writeindexer: { (self: type) -> { index: type, result: type } }?,
     void serialize(TypeId ty, const TableType& ttv)
     {
         lua_rawcheckstack(L, 2);
@@ -300,12 +299,12 @@ struct TypeSerialize : public Luau::TypeVisitor
         else
         {
             lua_pushnil(L);
-            lua_setfield(L, -2, "indexer");
+            lua_set-field(L, -2, "indexer");
         }
     }
 
     // Luau metatable type:
-    // metatable: (self: type) -> type?
+    // metatable: type?
     void serialize(TypeId ty, const MetatableType& mtv)
     {
         lua_rawcheckstack(L, 2);
@@ -322,7 +321,7 @@ struct TypeSerialize : public Luau::TypeVisitor
 
     // Luau extern type:
     // 'properties', 'metatable' are shared with table type
-    // parent: (self: type) -> type?
+    // parent: type?
     void serialize(TypeId ty, const ExternType& etv)
     {
         lua_rawcheckstack(L, 2);
@@ -442,15 +441,57 @@ struct TypeSerialize : public Luau::TypeVisitor
     }
 
     // Luau Type visitors
-    bool visit(TypeId ty, const GenericType& gtv) override
-    {
-        serialize(ty, gtv);
-        return false;
-    }
-
     bool visit(TypeId ty, const PrimitiveType& ptv) override
     {
         serialize(ty, ptv);
+        return false;
+    }
+
+    bool visit(TypeId ty, const AnyType& atv) override
+    {
+        serialize(ty, atv);
+        return false;
+    }
+
+    bool visit(TypeId ty, const UnknownType& utv) override
+    {
+        serialize(ty, utv);
+        return false;
+    }
+
+    bool visit(TypeId ty, const NeverType& ntv) override
+    {
+        serialize(ty, ntv);
+        return false;
+    }
+    
+    bool visit(TypeId ty, const SingletonType& stv) override
+    {
+        serialize(ty, stv);
+        return false;
+    }
+
+    bool visit(TypeId ty, const NegationType& ntv) override
+    {
+        serialize(ty, ntv);
+        return false;
+    }
+
+    bool visit(TypeId ty, const UnionType& utv) override
+    {
+        serialize(ty, utv);
+        return false;
+    }
+
+    bool visit(TypeId ty, const IntersectionType& itv) override
+    {
+        serialize(ty, itv);
+        return false;
+    }
+
+    bool visit(TypeId ty, const GenericType& gtv) override
+    {
+        serialize(ty, gtv);
         return false;
     }
 
@@ -472,52 +513,9 @@ struct TypeSerialize : public Luau::TypeVisitor
         return false;
     }
 
-    // used to be called ClassType right?
     bool visit(TypeId ty, const ExternType& etv) override
     {
         serialize(ty, etv);
-        return false;
-    }
-
-    bool visit(TypeId ty, const AnyType& atv) override
-    {
-        serialize(ty, atv);
-        return false;
-    }
-
-    bool visit(TypeId ty, const UnknownType& utv) override
-    {
-        serialize(ty, utv);
-        return false;
-    }
-
-    bool visit(TypeId ty, const NeverType& ntv) override
-    {
-        serialize(ty, ntv);
-        return false;
-    }
-
-    bool visit(TypeId ty, const UnionType& utv) override
-    {
-        serialize(ty, utv);
-        return false;
-    }
-
-    bool visit(TypeId ty, const IntersectionType& itv) override
-    {
-        serialize(ty, itv);
-        return false;
-    }
-    
-    bool visit(TypeId ty, const SingletonType& stv) override
-    {
-        serialize(ty, stv);
-        return false;
-    }
-
-    bool visit(TypeId ty, const NegationType& ntv) override
-    {
-        serialize(ty, ntv);
         return false;
     }
 
@@ -528,20 +526,17 @@ struct TypeSerialize : public Luau::TypeVisitor
         return false;
     }
 
-    bool visit(TypePackId tp, const GenericTypePack& gtp) override
-    {
-        serialize(tp, gtp);
-        return false;
-    }
-
     bool visit(TypePackId tp, const VariadicTypePack& vtp) override
     {
         serialize(tp, vtp);
         return false;
     }
 
-    // Not handling visit/serialize for: BoundType, FreeType, ErrorType, NoRefineType, BlockedType, PendingExpansionType, TypeFunctionInstanceType
-    // Nor their TypePacks: BoundTypePack, FreeTypePack, ErrorTypePack, BlockedTypePack, TypeFunctionInstanceTypePack
+    bool visit(TypePackId tp, const GenericTypePack& gtp) override
+    {
+        serialize(tp, gtp);
+        return false;
+    }
 };
 
 void serializeType(TypeId ty, lua_State* L)

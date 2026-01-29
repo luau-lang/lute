@@ -7,7 +7,7 @@ local test = require("@std/test")
 local tmpDir = system.tmpdir()
 
 test.suite("LuauTypeOfModuleSuite", function(suite)
-	suite:case("typeofmodule_returns_typepack_structure", function(assert)
+	suite:case("typeofmodule_returns_table", function(assert)
 		local testPath = path.join(tmpDir, "typeofmodule_test.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
@@ -26,9 +26,15 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 
 		local typePack = luau.typeofmodule(testPath)
 		assert.neq(typePack, nil)
+		if not typePack then
+			error("typePack should not be nil")
+		end
 
 		-- Verify TypePack structure: { head: {type}?, tail: type? }
 		assert.neq(typePack.head, nil)
+		if not typePack.head then
+			error("typePack.head should not be nil")
+		end
 		assert.eq(typePack.tail, nil) -- No tail for simple return
 
 		-- Verify head is an array with one element (the table type)
@@ -41,17 +47,25 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		-- Verify table has properties
 		assert.neq(returnType.properties, nil)
 
-		-- Find the example_string property
+		-- Find the example_string_func property
 		local foundProperty = false
 		for keyType, prop in pairs(returnType.properties) do
 			if keyType.tag == "singleton" and keyType.value == "example_string_func" then
 				foundProperty = true
 				assert.neq(prop.read, nil)
 				local funcType = prop.read
+				if not funcType then
+					error("Function type should not be nil")
+				end
+
 				assert.eq(funcType.tag, "function")
 				-- Verify function returns string
 				assert.neq(funcType.returns, nil)
 				assert.neq(funcType.returns.head, nil)
+				if not funcType.returns.head then
+					error("Function.returns.head should not be nil")
+				end
+
 				assert.eq(#funcType.returns.head, 1)
 				assert.eq(funcType.returns.head[1].tag, "string")
 				break
@@ -73,7 +87,14 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 
 		local typePack = luau.typeofmodule(testPath)
 		assert.neq(typePack, nil)
+		if not typePack then
+			error("typePack should not be nil")
+		end
+
 		assert.neq(typePack.head, nil)
+		if not typePack.head then
+			error("typePack.head should not be nil")
+		end
 		assert.eq(#typePack.head, 3)
 
 		-- Verify types: string, number, boolean
@@ -99,7 +120,14 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 
 		local typePack = luau.typeofmodule(testPath)
 		assert.neq(typePack, nil)
+		if not typePack then
+			error("typePack should not be nil")
+		end
+
 		assert.neq(typePack.head, nil)
+		if not typePack.head then
+			error("typePack.head should not be nil")
+		end
 		assert.eq(#typePack.head, 1)
 
 		local funcType = typePack.head[1]

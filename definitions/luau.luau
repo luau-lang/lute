@@ -748,7 +748,7 @@ export type TypePack = {
 	tail: Type?,
 }
 
-function luau.typeofmodule(modulepath: string): TypePack
+function luau.typeofmodule(modulepath: string): TypePack?
 	error("not implemented")
 end
 
