@@ -37,10 +37,21 @@ jobs:
       fail-fast: false
 
     steps:
+      # Non-bootstrap jobs always run; all jobs run on pushes to primary branch.
+      - name: Determine if this matrix job should run
+        id: should_run
+        run: |
+          if [[ "${{ matrix.use-bootstrap }}" != "true" || ( "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/primary" ) ]]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
 
       - name: Setup and Build Lute
         id: build_lute
+        if: ${{ steps.should_run.outputs.proceed == 'true' }}
         uses: ./.github/actions/setup-and-build
         with:
           target: Lute.CLI
@@ -50,9 +61,11 @@ jobs:
           use-bootstrap: ${{ matrix.use-bootstrap || 'false' }}
 
       - name: Use CI .luaurc file
+        if: ${{ steps.should_run.outputs.proceed == 'true' }}
         run: rm .luaurc && mv .luaurc.ci .luaurc
 
       - name: Run Luau Tests (POSIX)
+        if: ${{ steps.should_run.outputs.proceed == 'true' }}
         run: ${{ steps.build_lute.outputs.exe_path }} test
 
   run-lute-cxx-unittests:
@@ -194,12 +207,15 @@ jobs:
             exit 1
           fi
       - name: Post-aggregation notification
-        if: always()
+        if: >
+          always() &&
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/primary'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           LAST_STATUS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/luau-lang/lute/actions/workflows/ci.yml/runs?branch=vrn-sn%2Ffix-slow-ci-builds&status=completed&per_page=1" \
+            "https://api.github.com/repos/luau-lang/lute/actions/workflows/ci.yml/runs?branch=primary&status=completed&per_page=1" \
             | jq -r '.workflow_runs[0].conclusion')
 
           TEXT=""
