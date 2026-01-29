@@ -119,7 +119,6 @@ jobs:
           config: debug
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          use-bootstrap: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -155,7 +154,6 @@ jobs:
           config: debug
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          use-bootstrap: true
 
       - name: Run Lute Lint
         run: ${{ steps.build_lute.outputs.exe_path }} lint -v .
@@ -174,7 +172,6 @@ jobs:
           target: Lute.CLI
           config: debug
           token: ${{ secrets.GITHUB_TOKEN }}
-          use-bootstrap: true
 
       - name: Run Lute Check
         run: ${{ steps.build_lute.outputs.exe_path }} tools/check.luau ${{ steps.build_lute.outputs.exe_path }}
