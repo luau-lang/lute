@@ -239,6 +239,6 @@ jobs:
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
             --data "{
-              \"channel\": \"C0ACG5DGAG0\",
+              \"channel\": \"C062MQ6TZQT\",
               \"text\": \"$TEXT (<$RUN_URL|view workflow run>)\"
             }"
