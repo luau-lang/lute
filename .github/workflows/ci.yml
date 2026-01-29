@@ -190,3 +190,20 @@ jobs:
             echo "One or more jobs failed"
             exit 1
           fi
+      - name: Post-aggregation notification
+        if: >
+          failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{
+              "channel": "C062MQ6TZQT",
+              "text": ":rotating_light: *Lute CI failed on `primary`*\n\
+              Repository: `${{ github.repository }}`\n\
+              Commit: `${{ github.sha }}`\n\
+              Author: `${{ github.actor }}`\n\
+              Run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow>"
+            }'
