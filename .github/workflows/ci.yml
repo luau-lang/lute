@@ -192,7 +192,9 @@ jobs:
           fi
       - name: Post-aggregation notification
         if: >
-          failure()
+          failure() &&
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/primary'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
