@@ -22,13 +22,13 @@ for _, retType in ipairs(returnType.head) do
 		error("Return type table has no properties")
 	end
 
-	for keyType, prop in pairs(retType.properties) do
-		if keyType.tag == "singleton" then
-			local keyName = keyType.value
-			local propType = prop.read
-			if propType then
-				print(tostring(keyName) .. ": " .. propType.tag)
-			end
+	for name, prop in pairs(retType.properties) do
+		if prop.read then
+			print(name .. ": " .. prop.read.tag)
+		elseif prop.write then
+			print(name .. ": " .. prop.write.tag)
+		else
+			print(name .. ": (no read or write type)")
 		end
 	end
 end

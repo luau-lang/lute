@@ -49,8 +49,8 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 
 		-- Find the example_string_func property
 		local foundProperty = false
-		for keyType, prop in pairs(returnType.properties) do
-			if keyType.tag == "singleton" and keyType.value == "example_string_func" then
+		for name, prop in pairs(returnType.properties) do
+			if name == "example_string_func" then
 				foundProperty = true
 				assert.neq(prop.read, nil)
 				local funcType = prop.read

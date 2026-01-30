@@ -715,7 +715,7 @@ export type Type = {
 	components: { Type },
 
 	-- for table type
-	properties: { [Type]: { read: Type?, write: Type? } },
+	properties: { [string]: { read: Type?, write: Type? } },
 	indexer: { index: Type, readresult: Type, writeresult: Type }?,
 	readindexer: { index: Type, result: Type }?,
 	writeindexer: { index: Type, result: Type }?,
