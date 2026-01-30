@@ -701,6 +701,7 @@ export type Type = {
 		| "union"
 		| "intersection"
 		| "table"
+		| "metatable"
 		| "function"
 		| "extern"
 		| "generic",
