@@ -716,15 +716,16 @@ export type Type = {
 
 	-- for table type
 	properties: { [string]: { read: Type?, write: Type? } },
-	indexer: { index: Type, readresult: Type, writeresult: Type }?,
-	readindexer: { index: Type, result: Type }?,
-	writeindexer: { index: Type, result: Type }?,
+	indexer: { index: Type }?, -- TODO: add readresult and writeresult
+	-- TODO: readindexer: { index: type, result: type } }?,
+	-- TODO: writeindexer: { index: type, result: type } }?,
 	metatable: Type?,
 
 	-- for function type
 	parameters: { head: { Type }?, tail: Type },
 	returns: { head: { Type }?, tail: Type },
 	generics: { Type },
+	genericpacks: { TypePack },
 
 	-- for extern type
 	-- 'properties', 'metatable' are shared with table type

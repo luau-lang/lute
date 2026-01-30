@@ -102,7 +102,6 @@ struct TypeSerialize final : public Luau::TypeVisitor
             tag = "buffer";
             break;
         default:
-            tag = "nil";
             lua_error(L);
         }
 
@@ -281,8 +280,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // Luau table type:
     // properties: { string: { read: type?, write: type? } },
     // indexer: { index: type, readresult: type, writeresult: type }?,
-    // readindexer: { (self: type) -> { index: type, result: type } }?,
-    // writeindexer: { (self: type) -> { index: type, result: type } }?,
+    // [TODO] readindexer: { index: type, result: type } }?,
+    // [TODO] writeindexer: { index: type, result: type } }?,
     void serialize(TypeId ty, const TableType& ttv)
     {
         lua_rawcheckstack(L, 2);
@@ -309,15 +308,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
             lua_rawcheckstack(L, 2);
             lua_setfield(L, -2, "index");
 
-            traverse(ttv.indexer->indexResultType);
-            lua_rawcheckstack(L, 2);
-            lua_setfield(L, -2, "readresult");
-
-            traverse(ttv.indexer->indexResultType);
-            lua_rawcheckstack(L, 2);
-            lua_setfield(L, -2, "writeresult");
-
-            lua_setfield(L, -2, "indexer");
+            // TODO: implement readindexer and writeindexer from ttv.indexer->indexResultType
         }
         else
         {
