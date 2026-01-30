@@ -3,6 +3,7 @@
 #include "lute/configresolver.h"
 #include "lute/moduleresolver.h"
 #include "lute/userdatas.h"
+#include "lute/type.h"
 
 #include "Luau/Ast.h"
 #include "Luau/BuiltinDefinitions.h"
@@ -2910,16 +2911,9 @@ int typeofmodule_luau(lua_State* L)
         return 1;
     }
 
-    // For now, we return a string representation of the module's type, but we will expand it to some Luau data structure representation of Type
-    // (similar to the AST types) in a subsequent PR.
-    Luau::ToStringOptions opts;
-    opts.exhaustive = true;
-    opts.useLineBreaks = true;
-    opts.functionTypeArguments = true;
-    opts.scope = modulePtr->getModuleScope();
+    // Serialize and push the return type
+    serializeTypePack(modulePtr->returnType, L);
 
-    std::string moduleTypeStr = Luau::toString(modulePtr->returnType, opts);
-    lua_pushlstring(L, moduleTypeStr.c_str(), moduleTypeStr.length());
     return 1;
 }
 

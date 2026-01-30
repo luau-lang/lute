@@ -686,8 +686,63 @@ function luau.resolverequire(path: string, fromchunkname: string): string
 	error("not implemented")
 end
 
--- For now, we return a string representation of the module's type, but we will expand it to some Luau data structure representation of Type (similar to the AST types) in a subsequent PR.
-function luau.typeofmodule(modulepath: string): string
+export type Type = {
+	tag: "nil"
+		| "unknown"
+		| "never"
+		| "any"
+		| "boolean"
+		| "number"
+		| "string"
+		| "buffer"
+		| "thread"
+		| "singleton"
+		| "negation"
+		| "union"
+		| "intersection"
+		| "table"
+		| "metatable"
+		| "function"
+		| "extern"
+		| "generic",
+
+	-- for singleton type
+	value: string | boolean | nil,
+
+	-- for negation type
+	inner: Type,
+
+	-- for union and intersection types
+	components: { Type },
+
+	-- for table type
+	properties: { [string]: { read: Type?, write: Type? } },
+	indexer: { index: Type }?, -- TODO: add readresult and writeresult
+	-- TODO: readindexer: { index: type, result: type } }?,
+	-- TODO: writeindexer: { index: type, result: type } }?,
+	metatable: Type?,
+
+	-- for function type
+	parameters: { head: { Type }?, tail: Type },
+	returns: { head: { Type }?, tail: Type },
+	generics: { Type },
+	genericpacks: { TypePack },
+
+	-- for extern type
+	-- 'properties', 'metatable' are shared with table type
+	parent: Type?,
+
+	-- for generic type
+	name: string?,
+	ispack: boolean,
+}
+
+export type TypePack = {
+	head: { Type }?,
+	tail: Type?,
+}
+
+function luau.typeofmodule(modulepath: string): TypePack?
 	error("not implemented")
 end
 

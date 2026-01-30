@@ -160,4 +160,8 @@ export type ParseResult = luau.ParseResult
 export type replacement = string | AstNode
 export type replacements = { [AstNode]: replacement }
 
+export type Type = luau.Type
+
+export type TypePack = luau.TypePack
+
 return {}
