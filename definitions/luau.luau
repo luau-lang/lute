@@ -263,6 +263,7 @@ export type AstExpr = { kind: "expr" } & (
 	| AstExprIndexExpr
 	| AstExprFunction
 	| AstExprTable
+	| AstExprTableItem
 	| AstExprUnary
 	| AstExprBinary
 	| AstExprInterpString
