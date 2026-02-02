@@ -2914,6 +2914,10 @@ int typeofmodule_luau(lua_State* L)
     // Serialize and push the return type
     serializeTypePack(modulePtr->returnType, L);
 
+    // check the table was created and set it read-only
+    lua_rawcheckstack(L, 1);
+    lua_setreadonly(L, -1, 1);
+
     return 1;
 }
 

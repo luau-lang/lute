@@ -15,6 +15,9 @@ target_sources(Lute.Test PRIVATE
     src/luteprojectroot.cpp
     src/testreporter.cpp
 
+    src/typeserializefixture.h
+    src/typeserializefixture.cpp
+
     # Test files
     src/compile.test.cpp
     src/configresolver.test.cpp
@@ -23,6 +26,7 @@ target_sources(Lute.Test PRIVATE
     src/moduleresolver.test.cpp
     src/packagerequire.test.cpp
     src/require.test.cpp
+    src/typeserializer.test.cpp
     src/staticrequires.test.cpp
     src/stdsystem.test.cpp
     src/typecheck.test.cpp)
