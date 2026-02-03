@@ -15,7 +15,7 @@ static void requireStringField(lua_State* L, const char* field, const char* expe
     lua_getfield(L, -1, field);
     REQUIRE(lua_isstring(L, -1));
     CHECK(std::string(lua_tostring(L, -1)) == expected);
-    lua_pop(L, 1);
+    lua_pop(L, 1); // string field
 }
 
 static void requireBoolField(lua_State* L, const char* field, bool expected)
@@ -24,7 +24,7 @@ static void requireBoolField(lua_State* L, const char* field, bool expected)
     lua_getfield(L, -1, field);
     REQUIRE(lua_isboolean(L, -1));
     CHECK(lua_toboolean(L, -1) == expected);
-    lua_pop(L, 1);
+    lua_pop(L, 1); // bool field
 }
 
 // Primitive Types
@@ -37,6 +37,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_nil_type")
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "nil");
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_boolean_type")
@@ -47,6 +48,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_boolean_type")
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "boolean");
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_number_type")
@@ -57,6 +59,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_number_type")
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "number");
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_string_type")
@@ -67,6 +70,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_string_type")
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "string");
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_thread_type")
@@ -77,6 +81,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_thread_type")
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "thread");
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_buffer_type")
@@ -87,6 +92,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_buffer_type")
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "buffer");
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_any_type")
@@ -97,6 +103,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_any_type")
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "any");
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_unknown_type")
@@ -107,6 +114,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_unknown_type")
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "unknown");
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_never_type")
@@ -117,6 +125,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_never_type")
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "never");
+    lua_pop(L, 1); // type table
 }
 
 // Singleton Types
@@ -130,6 +139,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_string_singleton")
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "singleton");
     requireStringField(L, "value", "hello");
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_boolean_singleton")
@@ -141,6 +151,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_boolean_singleton")
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "singleton");
     requireBoolField(L, "value", true);
+    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_negation_type")
@@ -155,6 +166,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_negation_type")
     lua_getfield(L, -1, "inner");
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "number");
+    
+    lua_pop(L, 2); // 'inner' table + type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_union_type")
@@ -178,6 +191,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_union_type")
 
     lua_rawgeti(L, -1, 2);
     requireStringField(L, "tag", "string");
+
+    lua_pop(L, 2); // 'components' table + type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_intersection_type")
@@ -201,6 +216,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_intersection_type")
 
     lua_rawgeti(L, -1, 2);
     requireStringField(L, "tag", "string");
+
+    lua_pop(L, 2); // 'components' table + type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_generic_type")
@@ -216,6 +233,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_generic_type")
     requireStringField(L, "tag", "generic");
     requireStringField(L, "name", "T");
     requireBoolField(L, "ispack", false);
+
+    lua_pop(L, 1); // type table
 }
 
 // TODO: FunctionType, TableType, MetatableType, ExternType, TypePack, VariadicTypePack, GenericTypePack tests
