@@ -7,7 +7,7 @@
 namespace Luau
 {
 
-void serializeType(TypeId ty, lua_State* L);
-void serializeTypePack(TypePackId tp, lua_State* L);
+int serializeType(lua_State* L, TypeId ty);
+int serializeTypePack(lua_State* L, TypePackId tp);
 
 } // namespace Luau
