@@ -23,10 +23,20 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 		:maptoarray(
 			function(
 				n: syntax.AstExprBinary
-			): lintTypes.LintViolation -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
+			): lintTypes.LintViolation? -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
 				local suggestedfix = nil
-				if (n.operator.text == "/" or n.operator.text == "//") and not isZeroLiteral(n.lhsoperand) then
-					suggestedfix = table.freeze({ fix = "math.huge" })
+				if n.operator.text == "/" or n.operator.text == "//" then
+					if isZeroLiteral(n.lhsoperand) then
+						return nil
+					elseif n.lhsoperand.tag == "unary" and n.lhsoperand.operator.text == "-" then
+						if isZeroLiteral(n.lhsoperand.operand) then
+							suggestedfix = table.freeze({ fix = "0 / 0" })
+						else
+							suggestedfix = table.freeze({ fix = "-math.huge" })
+						end
+					else
+						suggestedfix = table.freeze({ fix = "math.huge" })
+					end
 				elseif n.operator.text == "%" then
 					suggestedfix = table.freeze({ fix = "0 / 0" })
 				end
