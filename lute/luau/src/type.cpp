@@ -38,26 +38,16 @@ struct TypeSerialize final : public Luau::TypeVisitor
         // Create property value table with read/write types
         lua_createtable(L, 0, 2);
         if (prop.readTy)
-        {
             traverse(*prop.readTy);
-            lua_setfield(L, -2, "read");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "read");
-        }
+        lua_setfield(L, -2, "read");
 
         if (prop.writeTy)
-        {
             traverse(*prop.writeTy);
-            lua_setfield(L, -2, "write");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "write");
-        }
+        lua_setfield(L, -2, "write");
 
         lua_settable(L, -3);
     }
@@ -143,20 +133,12 @@ struct TypeSerialize final : public Luau::TypeVisitor
         pushTag("singleton");
 
         if (auto boolSingleton = get<BooleanSingleton>(&stv))
-        {
             lua_pushboolean(L, boolSingleton->value);
-            lua_setfield(L, -2, "value");
-        }
         else if (auto strSingleton = get<StringSingleton>(&stv))
-        {
             lua_pushstring(L, strSingleton->value.c_str());
-            lua_setfield(L, -2, "value");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "value");
-        }     
+        lua_setfield(L, -2, "value");
     }
 
     // Luau negation type:
@@ -219,15 +201,10 @@ struct TypeSerialize final : public Luau::TypeVisitor
         pushTag("generic");
 
         if (!gtv.name.empty())
-        {
             lua_pushstring(L, gtv.name.c_str());
-            lua_setfield(L, -2, "name");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "name");
-        }
+        lua_setfield(L, -2, "name");
 
         lua_pushboolean(L, false); // GenericType is not a pack
         lua_setfield(L, -2, "ispack");
@@ -351,27 +328,17 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
         // Parent
         if (etv.parent)
-        {
             traverse(*etv.parent);
-            lua_setfield(L, -2, "parent");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "parent");
-        }
+        lua_setfield(L, -2, "parent");
 
         // Metatable
         if (etv.metatable)
-        {
             traverse(*etv.metatable);
-            lua_setfield(L, -2, "metatable"); 
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "metatable");
-        }
+        lua_setfield(L, -2, "metatable"); 
     }
 
     // Luau TypePack is { head: {type}?, tail: type? }
@@ -389,25 +356,19 @@ struct TypeSerialize final : public Luau::TypeVisitor
                 traverse(pack.head[i]);
                 lua_rawseti(L, -2, int(i + 1));
             }
-            lua_setfield(L, -2, "head");
         }
         else
         {
             lua_pushnil(L);
-            lua_setfield(L, -2, "head");
         }
+        lua_setfield(L, -2, "head");
 
         // Tail
         if (pack.tail)
-        {
             traverse(*pack.tail);
-            lua_setfield(L, -2, "tail");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "tail");
-        }
+        lua_setfield(L, -2, "tail");
     }
 
     // Luau VariadicTypePack is { head: nil, tail: type }
@@ -435,15 +396,10 @@ struct TypeSerialize final : public Luau::TypeVisitor
         pushTag("generic");
 
         if (!gtp.name.empty())
-        {
             lua_pushstring(L, gtp.name.c_str());
-            lua_setfield(L, -2, "name");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "name");
-        }
+        lua_setfield(L, -2, "name");
 
         lua_pushboolean(L, true); // GenericTypePack is a pack
         lua_setfield(L, -2, "ispack");
