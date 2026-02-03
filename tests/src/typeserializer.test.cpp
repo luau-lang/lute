@@ -163,6 +163,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_negation_type")
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "negation");
 
+    lua_checkstack(L, 1);
     lua_getfield(L, -1, "inner");
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "number");
@@ -182,6 +183,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_union_type")
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "union");
 
+    lua_checkstack(L, 1);
     lua_getfield(L, -1, "components");
     REQUIRE(lua_istable(L, -1));
 
@@ -207,6 +209,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_intersection_type")
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "intersection");
 
+    lua_checkstack(L, 1);
     lua_getfield(L, -1, "components");
     REQUIRE(lua_istable(L, -1));
 
