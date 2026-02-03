@@ -2,7 +2,7 @@ name: Build and Release
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       nightly:
@@ -19,7 +19,7 @@ jobs:
       nightly_tag: ${{ steps.set_nightly.outputs.nightly_tag }}
     permissions:
       contents: read
-    
+
     steps:
       - name: Validate CI status
         run: |
@@ -98,27 +98,23 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set nightly version suffix
-      if: needs.check.outputs.nightly_tag
-      run: echo "LUTE_VERSION_SUFFIX=${{ needs.check.outputs.nightly_tag }}" >> "$GITHUB_ENV"
+      - name: Setup and Build Lute
+        id: build_lute
+        uses: ./.github/actions/setup-and-build
+        with:
+          target: Lute.CLI
+          config: release
+          options: ${{ matrix.options }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Setup and Build Lute
-      id: build_lute
-      uses: ./.github/actions/setup-and-build
-      with:
-        target: Lute.CLI
-        config: release
-        options: ${{ matrix.options }}
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        path: ${{ steps.build_lute.outputs.exe_path }}
-        name: ${{ matrix.artifact_name }}
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{ steps.build_lute.outputs.exe_path }}
+          name: ${{ matrix.artifact_name }}
 
   release:
     needs: [check, build]
