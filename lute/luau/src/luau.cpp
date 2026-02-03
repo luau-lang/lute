@@ -2912,7 +2912,7 @@ int typeofmodule_luau(lua_State* L)
     }
 
     // Serialize and push the return type
-    serializeTypePack(modulePtr->returnType, L);
+    serializeTypePack(L, modulePtr->returnType);
 
     return 1;
 }
