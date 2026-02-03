@@ -129,6 +129,11 @@ jobs:
         with:
           sparse-checkout: CMakeBuild/get_version.cmake
 
+      # Used for lute --version
+      - name: Set nightly version suffix
+        if: needs.check.outputs.nightly_tag
+        run: echo "LUTE_VERSION_SUFFIX=${{ needs.check.outputs.nightly_tag }}" >> "$GITHUB_ENV"
+
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
