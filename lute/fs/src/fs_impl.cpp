@@ -114,7 +114,7 @@ int open_impl(lua_State* L, const char* path, int flags, int mode)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
     uv_fs_open(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         flags,
@@ -175,7 +175,7 @@ void FSRead::readCallback(uv_fs_t* req)
     std::fill(r->chunk.begin(), r->chunk.end(), 0);
 
     uvutils::ScopedUVRequest<FSRead> scopedReq{std::move(r)};
-    uv_fs_read(uv_default_loop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSRead::readCallback);
+    uv_fs_read(scopedReq->getLoop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSRead::readCallback);
 }
 
 void FSWrite::writeCallback(uv_fs_t* req)
@@ -208,7 +208,7 @@ void FSWrite::writeCallback(uv_fs_t* req)
     w->iov = uv_buf_init(w->chunk.data(), chunkSize);
 
     uvutils::ScopedUVRequest<FSWrite> scopedReq{std::move(w)};
-    uv_fs_write(uv_default_loop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSWrite::writeCallback);
+    uv_fs_write(scopedReq->getLoop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSWrite::writeCallback);
 }
 
 int read_impl(lua_State* L, UVFile* handle)
@@ -219,7 +219,7 @@ int read_impl(lua_State* L, UVFile* handle)
     }
 
     uvutils::ScopedUVRequest<FSRead> req{L, handle};
-    uv_fs_read(uv_default_loop(), &req->req, handle->fd.value(), &req->iov, 1, -1, FSRead::readCallback);
+    uv_fs_read(req->getLoop(), &req->req, handle->fd.value(), &req->iov, 1, -1, FSRead::readCallback);
     // Automatically releases when req goes out of scope
     return lua_yield(L, 0);
 }
@@ -238,7 +238,7 @@ int write_impl(lua_State* L, UVFile* handle, const char* toWrite, size_t numByte
     std::copy(req->toWrite.begin(), req->toWrite.begin() + chunkSize, req->chunk.begin());
     req->iov = uv_buf_init(req->chunk.data(), chunkSize);
 
-    uv_fs_write(uv_default_loop(), &req->req, handle->fd.value(), &req->iov, 1, -1, FSWrite::writeCallback);
+    uv_fs_write(req->getLoop(), &req->req, handle->fd.value(), &req->iov, 1, -1, FSWrite::writeCallback);
 
     return lua_yield(L, 0);
 }
@@ -252,7 +252,7 @@ int close_impl(lua_State* L, UVFile* handle)
 
     uvutils::ScopedUVRequest<FSClose> req{L, handle};
     uv_fs_close(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         handle->fd.value(),
         [](uv_fs_t* req)
@@ -282,7 +282,7 @@ int remove_impl(lua_State* L, const char* path)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
     uv_fs_unlink(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         [](uv_fs_t* req)
@@ -359,7 +359,7 @@ int stat_impl(lua_State* L, const char* path)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
     uv_fs_stat(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         [](uv_fs_t* req)
@@ -418,7 +418,7 @@ int exists_impl(lua_State* L, const char* path)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
     uv_fs_access(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         F_OK,
@@ -450,7 +450,7 @@ int type_impl(lua_State* L, const char* path)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
     uv_fs_stat(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         [](uv_fs_t* req)
@@ -482,7 +482,7 @@ int link_impl(lua_State* L, const char* path, const char* dest)
 {
     uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
     uv_fs_link(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         dest,
@@ -518,7 +518,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
 #endif
 
     uv_fs_symlink(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         dest,
@@ -550,7 +550,7 @@ int copy_impl(lua_State* L, const char* path, const char* dest)
 {
     uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
     uv_fs_copyfile(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         dest,
@@ -582,7 +582,7 @@ int mkdir_impl(lua_State* L, const char* path, int mode)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
     uv_fs_mkdir(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         mode,
@@ -613,7 +613,7 @@ int rmdir_impl(lua_State* L, const char* path)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
     uv_fs_rmdir(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         [](uv_fs_t* req)
@@ -643,7 +643,7 @@ int listdir_impl(lua_State* L, const char* path)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
     uv_fs_scandir(
-        uv_default_loop(),
+        req->getLoop(),
         &req->req,
         path,
         0,
