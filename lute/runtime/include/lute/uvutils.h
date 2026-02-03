@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <string>
 
+#define LUTE_ASSERT(expr) LUAU_ASSERT(expr)
+
 namespace uvutils
 {
 

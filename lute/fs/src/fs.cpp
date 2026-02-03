@@ -9,12 +9,11 @@
 #include "uv.h"
 
 #include <cstring>
-
-#include "fs_impl.h"
-
 #include <memory>
 #include <optional>
 #include <string>
+
+#include "fs_impl.h"
 
 namespace fs
 {
@@ -264,7 +263,6 @@ static int closeWatchHandle(lua_State* L)
 {
     luaL_checktype(L, 1, LUA_TUSERDATA);
     auto* handle = static_cast<WatchHandle*>(lua_touserdatatagged(L, 1, kWatchHandleTag));
-
     if (!handle)
     {
         luaL_errorL(L, "Invalid fs event handle");
@@ -287,7 +285,7 @@ int fs_watch(lua_State* L)
     event->callbackReference = std::make_shared<Ref>(L, 2);
     event->handle.data = event;
 
-    int init_err = uv_fs_event_init(uv_default_loop(), &event->handle);
+    int init_err = uv_fs_event_init(getRuntimeLoop(L), &event->handle);
 
     if (init_err)
     {

@@ -30,6 +30,7 @@ struct UVRequest
 {
     UVRequest(lua_State* L)
         : token(getResumeToken(L))
+        , loop(getRuntimeLoop(L))
     {
         req.data = this;
     }
@@ -68,8 +69,14 @@ struct UVRequest
         cleanup_uv_req(&req);
     }
 
+    uv_loop_t* getLoop()
+    {
+        return loop;
+    }
+
     ResumeToken token;
     ReqT req;
+    uv_loop_t* loop;
 };
 
 
