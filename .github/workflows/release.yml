@@ -101,6 +101,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Used for lute --version
+      - name: Set nightly version suffix
+        if: needs.check.outputs.nightly_tag
+        run: echo "LUTE_VERSION_SUFFIX=${{ needs.check.outputs.nightly_tag }}" >> "$GITHUB_ENV"
+
       - name: Setup and Build Lute
         id: build_lute
         uses: ./.github/actions/setup-and-build
@@ -128,11 +133,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           sparse-checkout: CMakeBuild/get_version.cmake
-
-      # Used for lute --version
-      - name: Set nightly version suffix
-        if: needs.check.outputs.nightly_tag
-        run: echo "LUTE_VERSION_SUFFIX=${{ needs.check.outputs.nightly_tag }}" >> "$GITHUB_ENV"
 
       - name: Download Artifact
         uses: actions/download-artifact@v4
