@@ -141,6 +141,43 @@ violator.luau:1:11-16 ──
 		fs.remove(violatorPath)
 	end)
 
+	suite:case("divide_by_zero auto-fix", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 1 / 0
+local y = -3 // 0
+local z = 4 % 0
+local nan = 0 / 0
+local negnan = -0 / 0
+]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "--auto-fix", violatorPath })
+
+		-- Check
+		print(result.stdout)
+		assert.eq(result.exitcode, 0) -- After applying the auto-fix, there are no more violations
+
+		local fixedContents = fs.readfiletostring(violatorPath)
+		local expectedFixedContents = [[
+local x = math.huge
+local y = -math.huge
+local z = 0 / 0
+local nan = 0 / 0
+local negnan = 0 / 0
+]]
+		assert.eq(fixedContents, expectedFixedContents)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
 	suite:case("almost_swapped", function(assert)
 		-- Setup
 		-- Create a file that violates the rule
@@ -997,6 +1034,19 @@ local x = 1 / 0
                             "character": 15, 
                             "line": 0
                         }
+                    }, 
+                    "suggestedfix": {
+                        "range": {
+                            "start": {
+                                "character": 10, 
+                                "line": 0
+                            }, 
+                            "end": {
+                                "character": 15, 
+                                "line": 0
+                            }
+                        }, 
+                        "fix": "math.huge"
                     }
                 }
             ], 
@@ -1225,6 +1275,19 @@ b = a
                 "character": 15, 
                 "line": 0
             }
+        }, 
+        "suggestedfix": {
+            "range": {
+                "start": {
+                    "character": 10, 
+                    "line": 0
+                }, 
+                "end": {
+                    "character": 15, 
+                    "line": 0
+                }
+            }, 
+            "fix": "math.huge"
         }
     }
 ]]=]
@@ -1431,7 +1494,7 @@ until 5 == 5
 a = b
 b = a
 
-local x = 3 / 0
+local x = t == { x = 3 }
 ]]
 		)
 
@@ -1446,11 +1509,14 @@ local x = 3 / 0
 		local expectedFixedContents = [[
 a, b = b, a
 
-local x = 3 / 0
+local x = t == { x = 3 }
 ]]
 		assert.eq(fixedContents, expectedFixedContents)
 
-		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+		assert.strcontains(
+			result.stdout,
+			"warning[constant_table_comparison]: Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false."
+		)
 
 		assert.strnotcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
 

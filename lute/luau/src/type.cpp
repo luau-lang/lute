@@ -10,6 +10,12 @@
 namespace Luau
 {
 
+static void checkStack(lua_State* L, int n)
+{
+    if (!lua_checkstack(L, n))
+        luaL_error(L, "stack overflow while serializing type");
+}
+
 // Serializer for runtime types, modeled after AstSerialize but for TypeId/TypePackId
 struct TypeSerialize final : public Luau::TypeVisitor
 {
@@ -21,7 +27,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
     }
 
-    // Helper to push the "tag" field
+    // Helper to push the "tag" field that every Luau type has
     void pushTag(const char* tag)
     {
         lua_pushstring(L, tag);
@@ -31,34 +37,24 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // Helper to push a Name, Property pair into the properties table
     void pushProperty(const std::string& name, const Property& prop)
     {
+        checkStack(L, 3); // 1 for key + 1 for value table + 1 for traverse/nil
+
         // push the Name string as the key for the property
         lua_pushstring(L, name.c_str());
 
         // Create property value table with read/write types
         lua_createtable(L, 0, 2);
         if (prop.readTy)
-        {
             traverse(*prop.readTy);
-            lua_rawcheckstack(L, 2);
-            lua_setfield(L, -2, "read");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "read");
-        }
+        lua_setfield(L, -2, "read");
 
         if (prop.writeTy)
-        {
             traverse(*prop.writeTy);
-            lua_rawcheckstack(L, 2);
-            lua_setfield(L, -2, "write");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "write");
-        }
+        lua_setfield(L, -2, "write");
 
         lua_settable(L, -3);
     }
@@ -66,6 +62,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // Helper to set the "properties" field for table and extern types
     void setPropertiesFields(const std::map<Name, Property>& props)
     {
+        checkStack(L, 1); // 1 for properties table
         lua_createtable(L, 0, props.size());
 
         for (const auto& [name, prop] : props)
@@ -74,11 +71,11 @@ struct TypeSerialize final : public Luau::TypeVisitor
         lua_setfield(L, -2, "properties");
     }
 
-    // Luau type
+    // Luau primitive type
     // tag: "nil" | "unknown" | "never" | "any" | "boolean" | "number" | "string" | "buffer" | "thread" | "singleton" | "negation" | "union" | "intersection" | "table" | "function" | "extern" | "generic"
     void serialize(TypeId ty, const PrimitiveType& ptv)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 2); // 1 for table + 1 for space to push/set remaining fields
         lua_createtable(L, 0, 1);
 
         const char* tag = nullptr;
@@ -103,7 +100,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
             tag = "buffer";
             break;
         default:
-            lua_error(L);
+            luaL_error(L, "unexpected primitive type");
         }
 
         pushTag(tag);
@@ -111,7 +108,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
     void serialize(TypeId ty, const AnyType& atv)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 2);
         lua_createtable(L, 0, 1);
 
         pushTag("any");
@@ -119,7 +116,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
     void serialize(TypeId ty, const UnknownType& utv)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 2);
         lua_createtable(L, 0, 1);
 
         pushTag("unknown");
@@ -127,7 +124,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
     void serialize(TypeId ty, const NeverType& ntv)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 2);
         lua_createtable(L, 0, 1);
 
         pushTag("never");
@@ -137,39 +134,30 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // value: string | boolean | nil
     void serialize(TypeId ty, const SingletonType& stv)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 2);
         lua_createtable(L, 0, 2);
 
         pushTag("singleton");
 
         if (auto boolSingleton = get<BooleanSingleton>(&stv))
-        {
             lua_pushboolean(L, boolSingleton->value);
-            lua_setfield(L, -2, "value");
-        }
         else if (auto strSingleton = get<StringSingleton>(&stv))
-        {
             lua_pushstring(L, strSingleton->value.c_str());
-            lua_setfield(L, -2, "value");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "value");
-        }     
+        lua_setfield(L, -2, "value");
     }
 
     // Luau negation type:
     // inner: type
     void serialize(TypeId ty, const NegationType& ntv)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 2);
         lua_createtable(L, 0, 2);
 
         pushTag("negation");
 
         traverse(ntv.ty);
-        lua_rawcheckstack(L, 2);
         lua_setfield(L, -2, "inner");
     }
 
@@ -177,7 +165,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // components: { type }
     void serialize(TypeId ty, const UnionType& utv)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 3); // 1 for table + 1 for components table + 1 for traverse
         lua_createtable(L, 0, 2);
 
         pushTag("union");
@@ -186,7 +174,6 @@ struct TypeSerialize final : public Luau::TypeVisitor
         for (size_t i = 0; i < utv.options.size(); i++)
         {
             traverse(utv.options[i]);
-            lua_rawcheckstack(L, 2);
             lua_rawseti(L, -2, i + 1);
         }
         lua_setfield(L, -2, "components");
@@ -196,7 +183,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // components: { type }
     void serialize(TypeId ty, const IntersectionType& itv)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 3); // 1 for table + 1 for components table + 1 for traverse
         lua_createtable(L, 0, 2);
 
         pushTag("intersection");
@@ -205,7 +192,6 @@ struct TypeSerialize final : public Luau::TypeVisitor
         for (size_t i = 0; i < itv.parts.size(); i++)
         {
             traverse(itv.parts[i]);
-            lua_rawcheckstack(L, 2);
             lua_rawseti(L, -2, i + 1);
         }
         lua_setfield(L, -2, "components");
@@ -216,21 +202,16 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // ispack: boolean
     void serialize(TypeId ty, const GenericType& gtv)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 2);
         lua_createtable(L, 0, 3);
 
         pushTag("generic");
 
         if (!gtv.name.empty())
-        {
             lua_pushstring(L, gtv.name.c_str());
-            lua_setfield(L, -2, "name");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "name");
-        }
+        lua_setfield(L, -2, "name");
 
         lua_pushboolean(L, false); // GenericType is not a pack
         lua_setfield(L, -2, "ispack");
@@ -240,21 +221,20 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // parameters: { head: {type}?, tail: type? },
     // returns: { head: {type}?, tail: type? },
     // generics: {type},
+    // genericpacks: {typepack}
     void serialize(TypeId ty, const FunctionType& ftv)
     {
-        lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, 4);
+        checkStack(L, 3); // max 1 for table + 1 for subtable + 1 for traverse
+        lua_createtable(L, 0, 5);
 
         pushTag("function");
 
         // Parameters
         traverse(ftv.argTypes);
-        lua_rawcheckstack(L, 2);
         lua_setfield(L, -2, "parameters");
 
         // Returns
         traverse(ftv.retTypes);
-        lua_rawcheckstack(L, 2);
         lua_setfield(L, -2, "returns");
 
         // Generics
@@ -262,7 +242,6 @@ struct TypeSerialize final : public Luau::TypeVisitor
         for (size_t i = 0; i < ftv.generics.size(); i++)
         {
             traverse(ftv.generics[i]);
-            lua_rawcheckstack(L, 2);
             lua_rawseti(L, -2, i + 1);
         }
         lua_setfield(L, -2, "generics");
@@ -272,7 +251,6 @@ struct TypeSerialize final : public Luau::TypeVisitor
         for (size_t i = 0; i < ftv.genericPacks.size(); i++)
         {
             traverse(ftv.genericPacks[i]);
-            lua_rawcheckstack(L, 2);
             lua_rawseti(L, -2, i + 1);
         }
         lua_setfield(L, -2, "genericpacks");
@@ -285,8 +263,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // [TODO] writeindexer: { index: type, result: type } }?,
     void serialize(TypeId ty, const TableType& ttv)
     {
-        lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, 4);
+        checkStack(L, 2);
+        lua_createtable(L, 0, 3);
 
         pushTag("table");
 
@@ -306,8 +284,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
         {
             lua_createtable(L, 0, 3);
             traverse(ttv.indexer->indexType);
-            lua_rawcheckstack(L, 2);
-            lua_setfield(L, -2, "index");
+            lua_setfield(L, -2, "indexer");
 
             // TODO: implement readindexer and writeindexer from ttv.indexer->indexResultType
         }
@@ -319,20 +296,19 @@ struct TypeSerialize final : public Luau::TypeVisitor
     }
 
     // Luau metatable type:
+    // table: type,
     // metatable: type?
     void serialize(TypeId ty, const MetatableType& mtv)
     {
-        lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, 2);
+        checkStack(L, 2);
+        lua_createtable(L, 0, 3);
 
         pushTag("metatable");
 
         traverse(mtv.table);
-        lua_rawcheckstack(L, 2);
         lua_setfield(L, -2, "table");
 
         traverse(mtv.metatable);
-        lua_rawcheckstack(L, 2);
         lua_setfield(L, -2, "metatable");
     }
 
@@ -341,8 +317,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // parent: type?
     void serialize(TypeId ty, const ExternType& etv)
     {
-        lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, 3);
+        checkStack(L, 2);
+        lua_createtable(L, 0, 4);
 
         pushTag("extern");
 
@@ -359,35 +335,23 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
         // Parent
         if (etv.parent)
-        {
             traverse(*etv.parent);
-            lua_rawcheckstack(L, 2);
-            lua_setfield(L, -2, "parent");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "parent");
-        }
+        lua_setfield(L, -2, "parent");
 
         // Metatable
         if (etv.metatable)
-        {
             traverse(*etv.metatable);
-            lua_rawcheckstack(L, 2);
-            lua_setfield(L, -2, "metatable"); 
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "metatable");
-        }
+        lua_setfield(L, -2, "metatable"); 
     }
 
     // Luau TypePack is { head: {type}?, tail: type? }
     void serialize(TypePackId tp, const TypePack& pack)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 3); // 1 for root table + 1 for subtable + 1 for traverse
         lua_createtable(L, 0, 2);
 
         // Head
@@ -397,35 +361,27 @@ struct TypeSerialize final : public Luau::TypeVisitor
             for (size_t i = 0; i < pack.head.size(); i++)
             {
                 traverse(pack.head[i]);
-                lua_rawcheckstack(L, 2);
                 lua_rawseti(L, -2, int(i + 1));
             }
-            lua_setfield(L, -2, "head");
         }
         else
         {
             lua_pushnil(L);
-            lua_setfield(L, -2, "head");
         }
+        lua_setfield(L, -2, "head");
 
         // Tail
         if (pack.tail)
-        {
             traverse(*pack.tail);
-            lua_rawcheckstack(L, 2);
-            lua_setfield(L, -2, "tail");
-        }
         else
-        {
             lua_pushnil(L);
-            lua_setfield(L, -2, "tail");
-        }
+        lua_setfield(L, -2, "tail");
     }
 
     // Luau VariadicTypePack is { head: nil, tail: type }
     void serialize(TypePackId tp, const VariadicTypePack& vtp)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 2);
         lua_createtable(L, 0, 2);
 
         // Head is nil
@@ -434,32 +390,26 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
         // Tail is the type
         traverse(vtp.ty);
-        lua_rawcheckstack(L, 2);
         lua_setfield(L, -2, "tail");
     }
 
-    // Luau GenericTypePack is { head: nil, tail: generic type with ispack=true }
+    // Luau GenericTypePack is
+    // name: string?
+    // ispack: boolean
     void serialize(TypePackId tp, const GenericTypePack& gtp)
     {
-        lua_rawcheckstack(L, 2);
+        checkStack(L, 2);
         lua_createtable(L, 0, 3);
+        pushTag("generic");
 
-        // Head is nil
-        lua_pushnil(L);
-        lua_setfield(L, -2, "head");
-
-        // Tail is generic type
-        lua_createtable(L, 0, 3);
-        lua_pushstring(L, "generic");
-        lua_setfield(L, -2, "tag");
         if (!gtp.name.empty())
-        {
             lua_pushstring(L, gtp.name.c_str());
-            lua_setfield(L, -2, "name");
-        }
-        lua_pushboolean(L, true); // ispack = true for generic type packs
+        else
+            lua_pushnil(L);
+        lua_setfield(L, -2, "name");
+
+        lua_pushboolean(L, true); // GenericTypePack is a pack
         lua_setfield(L, -2, "ispack");
-        lua_setfield(L, -2, "tail");
     }
 
     // Luau Type visitors
@@ -639,16 +589,20 @@ struct TypeSerialize final : public Luau::TypeVisitor
     }
 };
 
-void serializeType(TypeId ty, lua_State* L)
+int serializeType(lua_State* L, TypeId ty)
 {
     TypeSerialize serializer(L);
     serializer.traverse(ty);
+    lua_setreadonly(L, -1, 1);
+    return 1;
 }
 
-void serializeTypePack(TypePackId tp, lua_State* L)
+int serializeTypePack(lua_State* L, TypePackId tp)
 {
     TypeSerialize serializer(L);
     serializer.traverse(tp);
+    lua_setreadonly(L, -1, 1);
+    return 1;
 }
 
 } // namespace Luau
