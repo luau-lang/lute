@@ -519,36 +519,43 @@ struct TypeSerialize final : public Luau::TypeVisitor
         LUAU_ASSERT(false);
         LUAU_UNREACHABLE();
     }
+
     bool visit(TypeId ty, const BoundType& btv) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize BoundType");
         return false;
     }
+
     bool visit(TypeId ty, const FreeType& ftv) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize FreeType");
         return false;
     }
+
     bool visit(TypeId ty, const ErrorType& etv) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize ErrorType");
         return false;
     }
+
     bool visit(TypeId ty, const NoRefineType& nrt) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize NoRefineType");
         return false;
     }
+
     bool visit(TypeId ty, const BlockedType& btv) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize BlockedType");
         return false;
     }
+
     bool visit(TypeId ty, const PendingExpansionType& petv) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize PendingExpansionType");
         return false;
     }
+
     bool visit(TypeId ty, const TypeFunctionInstanceType& tfit) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize TypeFunctionInstanceType");
@@ -562,26 +569,31 @@ struct TypeSerialize final : public Luau::TypeVisitor
         LUAU_ASSERT(false);
         LUAU_UNREACHABLE();
     }
+
     bool visit(TypePackId tp, const BoundTypePack& btp) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize BoundTypePack");
         return false;
     }
+
     bool visit(TypePackId tp, const FreeTypePack& ftp) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize FreeTypePack");
         return false;
     }
+
     bool visit(TypePackId tp, const ErrorTypePack& etp) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize ErrorTypePack");
         return false;
     }
+
     bool visit(TypePackId tp, const BlockedTypePack& btp) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize BlockedTypePack");
         return false;
     }
+
     bool visit(TypePackId tp, const TypeFunctionInstanceTypePack& tfitp) override
     {
         luaL_error(L, "TypeSerialize: cannot serialize TypeFunctionInstanceTypePack");
