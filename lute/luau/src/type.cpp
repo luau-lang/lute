@@ -30,7 +30,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // Helper to push a Name, Property pair into the properties table
     void pushProperty(const std::string& name, const Property& prop)
     {
-        lua_checkstack(L, 2); // 1 for key + 1 for value table
+        lua_checkstack(L, 3); // 1 for key + 1 for value table + 1 for traverse/nil
 
         // push the Name string as the key for the property
         lua_pushstring(L, name.c_str());
@@ -158,7 +158,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // components: { type }
     void serialize(TypeId ty, const UnionType& utv)
     {
-        lua_checkstack(L, 2);
+        lua_checkstack(L, 3); // 1 for table + 1 for components table + 1 for traverse
         lua_createtable(L, 0, 2);
 
         pushTag("union");
@@ -176,7 +176,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // components: { type }
     void serialize(TypeId ty, const IntersectionType& itv)
     {
-        lua_checkstack(L, 2);
+        lua_checkstack(L, 3); // 1 for table + 1 for components table + 1 for traverse
         lua_createtable(L, 0, 2);
 
         pushTag("intersection");
@@ -217,7 +217,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // genericpacks: {typepack}
     void serialize(TypeId ty, const FunctionType& ftv)
     {
-        lua_checkstack(L, 2); // 1 for table + 1 for space to push/set remaining fields
+        lua_checkstack(L, 3); // max 1 for table + 1 for subtable + 1 for traverse
         lua_createtable(L, 0, 5);
 
         pushTag("function");
@@ -344,7 +344,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // Luau TypePack is { head: {type}?, tail: type? }
     void serialize(TypePackId tp, const TypePack& pack)
     {
-        lua_checkstack(L, 2);
+        lua_checkstack(L, 3); // 1 for root table + 1 for subtable + 1 for traverse
         lua_createtable(L, 0, 2);
 
         // Head
