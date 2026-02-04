@@ -5,6 +5,8 @@
 #include "Luau/Variant.h"
 #include "Luau/VecDeque.h"
 
+#include "uv.h"
+
 #include <atomic>
 #include <condition_variable>
 #include <functional>
@@ -72,6 +74,8 @@ struct Runtime
     void addPendingToken();
     void releasePendingToken();
 
+    uv_loop_t* getEventLoop();
+
     // VM for this runtime
     std::unique_ptr<lua_State, void (*)(lua_State*)> globalState;
 
@@ -93,9 +97,11 @@ private:
     std::thread runLoopThread;
 
     std::atomic<int> activeTokens;
+    uv_loop_t eventLoop;
 };
 
 Runtime* getRuntime(lua_State* L);
+uv_loop_t* getRuntimeLoop(lua_State* L);
 
 struct ResumeTokenData;
 using ResumeToken = std::shared_ptr<ResumeTokenData>;

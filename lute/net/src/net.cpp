@@ -530,7 +530,7 @@ bool closeServer(int serverId)
 
 int lua_serve(lua_State* L)
 {
-    uWS::Loop::get(uv_default_loop());
+    uWS::Loop::get(getRuntimeLoop(L));
 
     std::string hostname = "127.0.0.1";
     int port = 3000;

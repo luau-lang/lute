@@ -157,7 +157,7 @@ struct ProcessOptions
     std::string cwd;
     std::string stdioKind;
     std::map<std::string, std::string> env;
-    std::string customShell;  // only used by system()
+    std::string customShell; // only used by system()
 };
 
 static void onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
@@ -225,7 +225,7 @@ const std::string kStdioKindNone = "none";
 int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions opts)
 {
     auto handle = std::make_shared<ProcessHandle>();
-    handle->loop = uv_default_loop();
+    handle->loop = getRuntimeLoop(L);
     handle->self = handle;
 
     uv_process_options_t options = {};
@@ -363,7 +363,7 @@ ProcessOptions parseOptions(lua_State* L, int index)
     lua_getfield(L, index, "cwd");
     if (!lua_isnil(L, -1))
     {
-        opts.cwd = luaL_checkstring(L,-1);
+        opts.cwd = luaL_checkstring(L, -1);
     }
     lua_pop(L, 1);
 
@@ -436,13 +436,13 @@ int system(lua_State* L)
     ProcessOptions opts = parseOptions(L, 2);
 
 #ifdef _WIN32
-        const char* shellVar = "COMSPEC";
-        const char* shellFallback = "cmd.exe";
-        const char* shellArg = "/c";
+    const char* shellVar = "COMSPEC";
+    const char* shellFallback = "cmd.exe";
+    const char* shellArg = "/c";
 #else
-        const char* shellVar = "SHELL";
-        const char* shellFallback = "/bin/sh";
-        const char* shellArg = "-c";
+    const char* shellVar = "SHELL";
+    const char* shellFallback = "/bin/sh";
+    const char* shellArg = "-c";
 #endif
 
     std::string resolvedShell;
@@ -458,7 +458,7 @@ int system(lua_State* L)
         resolvedShell = opts.customShell;
     }
 
-    return executionHelper(L, { resolvedShell, shellArg, command }, opts);
+    return executionHelper(L, {resolvedShell, shellArg, command}, opts);
 }
 
 int homedir(lua_State* L)
