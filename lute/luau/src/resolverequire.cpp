@@ -18,9 +18,7 @@ class FileVfsContext : public Luau::Require::NavigationContext
 public:
     FileVfsContext(std::string requirerChunkname);
 
-    std::string getRequirerIdentifier() const override;
-
-    NavigateResult reset(const std::string& identifier) override;
+    NavigateResult resetToRequirer() override;
     NavigateResult jumpToAlias(const std::string& path) override;
 
     NavigateResult toParent() override;
@@ -82,14 +80,9 @@ FileVfsContext::FileVfsContext(std::string requirerChunkname)
 {
 }
 
-std::string FileVfsContext::getRequirerIdentifier() const
+NC::NavigateResult FileVfsContext::resetToRequirer()
 {
-    return requirerChunkname;
-}
-
-NC::NavigateResult FileVfsContext::reset(const std::string& identifier)
-{
-    return convert(vfs.resetToPath(identifier));
+    return convert(vfs.resetToPath(requirerChunkname));
 }
 
 NC::NavigateResult FileVfsContext::jumpToAlias(const std::string& path)
