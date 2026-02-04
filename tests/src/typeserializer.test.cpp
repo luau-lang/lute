@@ -11,7 +11,6 @@ using namespace Luau;
 
 static void requireStringField(lua_State* L, const char* field, const char* expected)
 {
-    lua_checkstack(L, 1);
     lua_getfield(L, -1, field);
     REQUIRE(lua_isstring(L, -1));
     CHECK(std::string(lua_tostring(L, -1)) == expected);
@@ -20,7 +19,6 @@ static void requireStringField(lua_State* L, const char* field, const char* expe
 
 static void requireBoolField(lua_State* L, const char* field, bool expected)
 {
-    lua_checkstack(L, 1);
     lua_getfield(L, -1, field);
     REQUIRE(lua_isboolean(L, -1));
     CHECK(lua_toboolean(L, -1) == expected);
@@ -33,99 +31,101 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_nil_type")
 {
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::NilType});
 
+    // We need to first ensure we have enough stack space to serialize.
+    // The stack size corresponds to the max depth needed (see lute/type.cpp).
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "nil");
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_boolean_type")
 {
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::Boolean});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "boolean");
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_number_type")
 {
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::Number});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "number");
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_string_type")
 {
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::String});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "string");
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_thread_type")
 {
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::Thread});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "thread");
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_buffer_type")
 {
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::Buffer});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "buffer");
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_any_type")
 {
     TypeId ty = arena.addType(AnyType{});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "any");
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_unknown_type")
 {
     TypeId ty = arena.addType(UnknownType{});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "unknown");
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_never_type")
 {
     TypeId ty = arena.addType(NeverType{});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "never");
-    lua_pop(L, 1); // type table
 }
 
 // Singleton Types
@@ -134,30 +134,31 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_string_singleton")
 {
     TypeId ty = arena.addType(SingletonType{StringSingleton{"hello"}});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "singleton");
     requireStringField(L, "value", "hello");
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_boolean_singleton")
 {
     TypeId ty = arena.addType(SingletonType{BooleanSingleton{true}});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "singleton");
     requireBoolField(L, "value", true);
-    lua_pop(L, 1); // type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_negation_type")
 {
     TypeId ty = arena.addType(NegationType{arena.addType(PrimitiveType{PrimitiveType::Number})});
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -167,8 +168,6 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_negation_type")
     lua_getfield(L, -1, "inner");
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "number");
-    
-    lua_pop(L, 2); // 'inner' table + type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_union_type")
@@ -178,6 +177,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_union_type")
 
     TypeId unionTy = arena.addType(UnionType{{numberTy, stringTy}});
 
+    lua_checkstack(L, 3);
     REQUIRE_EQ(Luau::serializeType(L, unionTy), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -193,8 +193,6 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_union_type")
 
     lua_rawgeti(L, -1, 2);
     requireStringField(L, "tag", "string");
-
-    lua_pop(L, 2); // 'components' table + type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_intersection_type")
@@ -204,12 +202,13 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_intersection_type")
 
     TypeId intersectionTy = arena.addType(IntersectionType{{numberTy, stringTy}});
 
+    lua_checkstack(L, 3); // Ensure enough stack for serialization. This would be size 3 
     REQUIRE_EQ(Luau::serializeType(L, intersectionTy), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "intersection");
 
-    lua_checkstack(L, 1);
+    // lua_checkstack(L, 1);
     lua_getfield(L, -1, "components");
     REQUIRE(lua_istable(L, -1));
 
@@ -219,8 +218,6 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_intersection_type")
 
     lua_rawgeti(L, -1, 2);
     requireStringField(L, "tag", "string");
-
-    lua_pop(L, 2); // 'components' table + type table
 }
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_generic_type")
@@ -230,14 +227,13 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_generic_type")
 
     TypeId ty = arena.addType(gtp);
 
+    lua_checkstack(L, 2);
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
     requireStringField(L, "tag", "generic");
     requireStringField(L, "name", "T");
     requireBoolField(L, "ispack", false);
-
-    lua_pop(L, 1); // type table
 }
 
 // TODO: FunctionType, TableType, MetatableType, ExternType, TypePack, VariadicTypePack, GenericTypePack tests
