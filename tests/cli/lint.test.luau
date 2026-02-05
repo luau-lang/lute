@@ -1699,7 +1699,53 @@ local e = next(t) ~= nil
 		assert.strcontains(result.stdout, expected)
 	end)
 
-	-- lua pattern to match ignored.luau (regardless of where it is in the path)
+	suite:case("throws error when config has invalid structure", function(assert)
+		local invalidGlobalConfig = [[
+			return {
+				lute = {
+					lint = {
+						globals = "should be table"
+					}
+				}
+			}
+		]]
+
+		local invalidIgnoresConfig = [[
+			return {
+				lute = {
+					lint = {
+						ignores = "should be table"
+					}
+				}
+			}
+		]]
+
+		local invalidRulesConfig = [[
+			return {
+				lute = {
+					lint = {
+						rules = "should be table"
+					}
+				}
+			}
+		]]
+
+		local configFile = path.join(tmpDir, ".config.luau")
+		fs.writestringtofile(path.format(configFile), invalidGlobalConfig)
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
+		assert.eq(result.exitcode, 1)
+		assert.strcontains(result.stderr, "config.globals must be a table of [string] : unknown")
+
+		fs.writestringtofile(path.format(configFile), invalidIgnoresConfig)
+		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
+		assert.eq(result.exitcode, 1)
+		assert.strcontains(result.stderr, "config.ignores must be a table of paths")
+
+		fs.writestringtofile(path.format(configFile), invalidRulesConfig)
+		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
+		assert.eq(result.exitcode, 1)
+		assert.strcontains(result.stderr, "config.rules must be a table")
+	end)
 
 	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
 		local ignoredFile = path.join(tmpDir, "ignored.luau")
