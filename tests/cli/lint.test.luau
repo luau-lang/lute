@@ -1754,6 +1754,57 @@ local e = next(t) ~= nil
 		assert.strnotcontains(result.stdout, "almost_swapped")
 		assert.strnotcontains(result.stdout, "divide_by_zero")
 	end)
+
+	suite:case("lute lint passes context through to rules", function(assert)		
+		-- custom rule that returns violating with globals and options in the message
+		local customRuleFile = path.join(tmpDir, "testRule.luau")
+		local customRuleContents = [[
+			return {
+				name = "testRule",
+				lint = function(ast, sourcepath, context)
+					return {
+						{
+							lintname = "testRule",
+							location = ast.location,
+							severity = "warn",
+							message = `Globals: {context.globals["testGlobal"]} Options: {context.options["testOption"]}`
+						}
+					}
+				end
+			}
+		]]
+		fs.writestringtofile(customRuleFile, customRuleContents)
+
+		local configFile = path.join(tmpDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					globals = {
+						["testGlobal"] = 1,
+					},
+					rules = {
+						["testRule"] = {
+							options = {
+								["testOption"] = 1,
+							}
+						}
+					}
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local tmpFile = path.join(tmpDir, "demo.luau")
+		fs.writestringtofile(tmpFile, "return 1")
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), "-r", path.format(customRuleFile), path.format(tmpFile) })
+
+		assert.eq(result.exitcode, 1)
+		assert.strcontains(result.stdout, "Globals: 1")
+		assert.strcontains(result.stdout, "Options: 1")
+	end)
 end)
 
 test.run()
