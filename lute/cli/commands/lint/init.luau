@@ -341,12 +341,13 @@ local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	ignores: { pathLib.pathlike }
+	lintConfig: types.LintConfig
 ): { [pathLib.path]: { types.LintViolation } }
 	if VERBOSE then
 		print("Filtering input files by gitignore")
 	end
 	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
+	local ignores = lintConfig.ignores or {}
 
 	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
 
@@ -434,7 +435,6 @@ local function main(...: string)
 			print(`Error loading config:\n{loadedConfig}\nProceeding with defaults.`)
 		end
 	end
-	local fileIgnores = lintConfig.ignores or {}
 
 	local lintRules: { types.LintRule }
 	local rulePath = args:get("rules")
@@ -481,7 +481,7 @@ local function main(...: string)
 			print("Auto-fix is enabled.")
 		end
 
-		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, fileIgnores) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, lintConfig) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
