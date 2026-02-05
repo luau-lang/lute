@@ -12,6 +12,7 @@ local tableext = require("@std/tableext")
 local triviaUtils = require("@std/syntax/utils/trivia")
 local types = require("@self/types")
 local visitor = require("@std/syntax/visitor")
+local confgiUtils = require("@self/configutils")
 
 local DEFAULT_RULES = { "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
@@ -25,6 +26,8 @@ Lint the specified Luau file using the specified lint rule(s) or using the defau
 OPTIONS:
   -h, --help              Show this help message
   -v, --verbose		  	  Enable verbose output
+  -c, --config [PATH]	  Path to configuration file. By default, lute lint will look for a
+  						  the .config.luau file in the calling directory.
   -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder 
   						  is provided, any subfolders containing init.luau files will be treated as
 						  modules exporting lint rules, while all other .luau files will be treated 
@@ -337,7 +340,8 @@ end
 local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
-	autofixEnabled: boolean
+	autofixEnabled: boolean,
+	ignores: { pathLib.pathlike }
 ): { [pathLib.path]: { types.LintViolation } }
 	if VERBOSE then
 		print("Filtering input files by gitignore")
@@ -352,6 +356,18 @@ local function lintPaths(
 		local curr = walker()
 		while curr ~= nil do
 			local inputFilePath = pathLib.parse(curr)
+
+			local isIgnored = false
+			for _, ignore in ignores do -- ignore matches
+				if string.match(pathLib.format(curr), pathLib.format(ignore)) then
+					isIgnored = true
+					break
+				end
+			end
+			if isIgnored then
+				curr = walker()
+				continue
+			end
 
 			local success, err = pcall(lintFile, inputFilePath, lintRules, autofixEnabled)
 			if success then
@@ -371,6 +387,7 @@ end
 local function main(...: string)
 	local args = cli.parser()
 
+	args:add("config", "option", { help = "Path to configuration file", aliases = { "c" } })
 	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
@@ -401,6 +418,23 @@ local function main(...: string)
 		print("Error: No input files or string input specified.\n\n" .. USAGE .. "\nUse --help for more information.")
 		process.exit(1)
 	end
+
+	local lintConfig: types.LintConfig = {}
+	local configPath = args:get("config")
+	if configPath == nil then
+		-- search in calling dir
+		local cwd = process.cwd()
+		configPath = pathLib.join(cwd, ".config.luau")
+	end
+	if fs.exists(configPath :: pathLib.pathlike) then
+		local success, loadedConfig = pcall(luau.loadbypath, configPath :: pathLib.pathlike, nil)
+		if success then
+			lintConfig = confgiUtils.extractConfig(loadedConfig)
+		elseif VERBOSE then
+			print(`Error loading config:\n{loadedConfig}\nProceeding with defaults.`)
+		end
+	end
+	local fileIgnores = lintConfig.ignores or {}
 
 	local lintRules: { types.LintRule }
 	local rulePath = args:get("rules")
@@ -447,7 +481,7 @@ local function main(...: string)
 			print("Auto-fix is enabled.")
 		end
 
-		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, fileIgnores) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
