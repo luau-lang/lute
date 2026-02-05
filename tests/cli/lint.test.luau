@@ -1698,4 +1698,62 @@ local e = next(t) ~= nil
 ]]=]
 		assert.strcontains(result.stdout, expected)
 	end)
+
+	-- lua pattern to match ignored.luau (regardless of where it is in the path)
+
+	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
+		local ignoredFile = path.join(tmpDir, "ignored.luau")
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+		local configFile = path.join(tmpDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "ignored%.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(ignoredFile) })
+		assert.eq(result.exitcode, 0) -- no errors
+		assert.strnotcontains(result.stdout, "almost_swapped")
+		assert.strnotcontains(result.stdout, "divide_by_zero")
+	end)
+
+	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
+		local ignoredFile = path.join(tmpDir, "ignored.luau")
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+		local configFile = path.join(tmpDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "ignored%.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", path.format(ignoredFile) }, {
+			cwd = path.format(tmpDir),
+		})
+		assert.eq(result.exitcode, 0) -- no errors
+		assert.strnotcontains(result.stdout, "almost_swapped")
+		assert.strnotcontains(result.stdout, "divide_by_zero")
+	end)
 end)
+
+test.run()
