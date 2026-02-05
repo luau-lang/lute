@@ -19,7 +19,7 @@ export type LintViolation = {
 }
 
 export type LintRule = {
-	read lint: (ast: syntax.AstStatBlock, sourcepath: path.path?) -> { LintViolation },
+	read lint: (ast: syntax.AstStatBlock, sourcepath: path.path?, context: RuleContext) -> { LintViolation },
 	read name: string,
 }
 
@@ -37,7 +37,7 @@ export type LintConfig = {
 	globals: GlobalsConfig?, -- globals to pass down to all rules via context
 	rules: {
 		paths: { path.pathlike }?, -- paths to local rules to use
-		[string]: RuleConfig,
+		[string]: RuleConfig?,
 	}?,
 }
 
