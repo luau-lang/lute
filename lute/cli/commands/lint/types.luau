@@ -23,4 +23,27 @@ export type LintRule = {
 	read name: string,
 }
 
+export type RuleConfig = {
+	ignores: { string }?,
+	severity: severity?,
+	off: true?,
+	options: unknown?,
+}
+
+export type GlobalsConfig = { [string]: unknown }
+
+export type LintConfig = {
+	ignores: { path.pathlike }?, -- globs to ignore as we walk lintee files
+	globals: GlobalsConfig?, -- globals to pass down to all rules via context
+	rules: {
+		paths: { path.pathlike }?, -- paths to local rules to use
+		[string]: RuleConfig,
+	}?,
+}
+
+export type RuleContext = {
+	globals: GlobalsConfig,
+	options: unknown,
+}
+
 return {}
