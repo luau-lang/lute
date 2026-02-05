@@ -357,6 +357,7 @@ local function lintPaths(
 		print("Filtering input files by gitignore")
 	end
 	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
+	local ignores = lintConfig.ignores or {}
 
 	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
 
