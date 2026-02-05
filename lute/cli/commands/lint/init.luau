@@ -357,10 +357,11 @@ local function lintPaths(
 		local curr = walker()
 		while curr ~= nil do
 			local inputFilePath = pathLib.parse(curr)
+			local inputFilePathString = pathLib.format(inputFilePath)
 
 			local isIgnored = false
 			for _, ignore in ignores do -- ignore matches
-				if string.match(pathLib.format(curr), pathLib.format(ignore)) then
+				if inputFilePathString:match(pathLib.format(ignore)) then
 					isIgnored = true
 					break
 				end
