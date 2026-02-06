@@ -1,5 +1,5 @@
 export type pathinterface = {
-	__tostring: () -> string,
+	__tostring: (self: pathinterface) -> string,
 }
 
 return table.freeze({})
