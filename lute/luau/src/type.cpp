@@ -1,5 +1,6 @@
 #include "lute/type.h"
 
+#include "Luau/ToString.h"
 #include "Luau/Type.h"
 #include "Luau/TypeFwd.h"
 #include "Luau/VisitType.h"
@@ -20,11 +21,63 @@ static void checkStack(lua_State* L, int n)
 struct TypeSerialize final : public Luau::TypeVisitor
 {
     lua_State* L;
+    int refsTableIndex; // Reference table for handling cyclic & shared type references. Maps TypeId/TypePackId (as lightuserdata) to the corresponding serialized table on the stack.
 
     explicit TypeSerialize(lua_State* L)
         : Luau::TypeVisitor{"TypeSerialize", /*skipBoundTypes=*/false}
         , L(L)
     {
+        // Create the refs table and store a reference to it. This table will be used to track already serialized types to handle cycles and shared references.
+        lua_createtable(L, 0, 0);
+        refsTableIndex = lua_gettop(L);
+    }
+
+    ~TypeSerialize()
+    {
+        // Pop the refs table from the stack when the serializer is destroyed
+        if (refsTableIndex > 0 && lua_gettop(L) >= refsTableIndex)
+            lua_remove(L, refsTableIndex);
+    }
+
+    void cycle(TypeId ty) override
+    {
+        lua_pushlightuserdata(L, (void*)ty);
+        lua_gettable(L, refsTableIndex);
+
+        if (lua_isnil(L, -1))
+        {
+            luaL_error(L, "TypeSerialize: cycle detected while serializing type, but TypeId %s was not found in refs table", Luau::toString(ty).data());
+        }
+    }
+
+    void cycle(TypePackId tp) override
+    {
+        lua_pushlightuserdata(L, (void*)tp);
+        lua_gettable(L, refsTableIndex);
+
+        if (lua_isnil(L, -1))
+        {
+            luaL_error(L, "TypeSerialize: cycle detected while serializing type pack, but TypePackId %s was not found in refs table", Luau::toString(tp).data());
+        }
+    }
+
+    // Register this type's serialized table in the refs table, using the TypeId as the key.
+    // Called after creating the serialized table for a type, but before traversing any child types.
+    void registerType(TypeId ty)
+    {
+        checkStack(L, 3);
+        lua_pushlightuserdata(L, (void*)ty); // TypeId pointer as key
+        lua_pushvalue(L, -2); // Copy of the serialized type table as value
+        lua_rawset(L, refsTableIndex); // refs[ty] = serializedTable
+    }
+
+    // Similar to registerType but for TypePackId
+    void registerTypePack(TypePackId tp)
+    {
+        checkStack(L, 3);
+        lua_pushlightuserdata(L, (void*)tp);
+        lua_pushvalue(L, -2);
+        lua_rawset(L, refsTableIndex);
     }
 
     // Helper to push the "tag" field that every Luau type has
@@ -77,6 +130,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2); // 1 for table + 1 for space to push/set remaining fields
         lua_createtable(L, 0, 1);
+        registerType(ty);
 
         const char* tag = nullptr;
         switch (ptv.type)
@@ -110,6 +164,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 1);
+        registerType(ty);
 
         pushTag("any");
     }
@@ -118,6 +173,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 1);
+        registerType(ty);
 
         pushTag("unknown");
     }
@@ -126,6 +182,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 1);
+        registerType(ty);
 
         pushTag("never");
     }
@@ -136,6 +193,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 2);
+        registerType(ty);
 
         pushTag("singleton");
 
@@ -154,6 +212,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 2);
+        registerType(ty);
 
         pushTag("negation");
 
@@ -167,6 +226,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 3); // 1 for table + 1 for components table + 1 for traverse
         lua_createtable(L, 0, 2);
+        registerType(ty);
 
         pushTag("union");
 
@@ -185,6 +245,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 3); // 1 for table + 1 for components table + 1 for traverse
         lua_createtable(L, 0, 2);
+        registerType(ty);
 
         pushTag("intersection");
 
@@ -204,6 +265,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 3);
+        registerType(ty);
 
         pushTag("generic");
 
@@ -226,6 +288,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 3); // max 1 for table + 1 for subtable + 1 for traverse
         lua_createtable(L, 0, 5);
+        registerType(ty);
 
         pushTag("function");
 
@@ -265,6 +328,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 3);
+        registerType(ty);
 
         pushTag("table");
 
@@ -284,6 +348,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
         {
             lua_createtable(L, 0, 3);
             traverse(ttv.indexer->indexType);
+            lua_setfield(L, -2, "index");
+
             lua_setfield(L, -2, "indexer");
 
             // TODO: implement readindexer and writeindexer from ttv.indexer->indexResultType
@@ -302,6 +368,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 3);
+        registerType(ty);
 
         pushTag("metatable");
 
@@ -319,6 +386,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 4);
+        registerType(ty);
 
         pushTag("extern");
 
@@ -353,6 +421,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 3); // 1 for root table + 1 for subtable + 1 for traverse
         lua_createtable(L, 0, 2);
+        registerTypePack(tp);
 
         // Head
         if (!pack.head.empty())
@@ -383,6 +452,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 2);
+        registerTypePack(tp);
 
         // Head is nil
         lua_pushnil(L);
@@ -400,6 +470,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 3);
+        registerTypePack(tp);
+
         pushTag("generic");
 
         if (!gtp.name.empty())
