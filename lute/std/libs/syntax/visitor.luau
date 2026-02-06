@@ -19,7 +19,9 @@ export type Visitor = {
 	visitStatLocalDeclaration: (types.AstStatLocal) -> boolean,
 	visitStatLocalDeclarationEnd: (types.AstStatLocal) -> (),
 	visitStatFor: (types.AstStatFor) -> boolean,
+	visitStatForEnd: (types.AstStatFor) -> (),
 	visitStatForIn: (types.AstStatForIn) -> boolean,
+	visitStatForInEnd: (types.AstStatForIn) -> (),
 	visitStatAssign: (types.AstStatAssign) -> boolean,
 	visitStatCompoundAssign: (types.AstStatCompoundAssign) -> boolean,
 	visitStatFunction: (types.AstStatFunction) -> boolean,
@@ -90,7 +92,9 @@ local defaultVisitor: Visitor = {
 	visitStatLocalDeclaration = alwaysVisit :: any,
 	visitStatLocalDeclarationEnd = alwaysVisit :: any,
 	visitStatFor = alwaysVisit :: any,
+	visitStatForEnd = alwaysVisit :: any,
 	visitStatForIn = alwaysVisit :: any,
+	visitStatForInEnd = alwaysVisit :: any,
 	visitStatAssign = alwaysVisit :: any,
 	visitStatCompoundAssign = alwaysVisit :: any,
 	visitStatFunction = alwaysVisit :: any,
@@ -281,6 +285,7 @@ local function visitStatFor(node: types.AstStatFor, visitor: Visitor)
 		visitToken(node.dokeyword, visitor)
 		visitStatBlock(node.body, visitor)
 		visitToken(node.endkeyword, visitor)
+		visitor.visitStatForEnd(node)
 	end
 end
 
@@ -293,6 +298,7 @@ local function visitStatForIn(node: types.AstStatForIn, visitor: Visitor)
 		visitToken(node.dokeyword, visitor)
 		visitStatBlock(node.body, visitor)
 		visitToken(node.endkeyword, visitor)
+		visitor.visitStatForInEnd(node)
 	end
 end
 
@@ -939,7 +945,9 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 	if visit then
 		return {
 			visitStatBlock = visit,
-			visitStatBlockEnd = visit,
+			visitStatBlockEnd = function(s)
+				visit(s)
+			end,
 			visitStatDo = visit,
 			visitStatIf = visit,
 			visitStatWhile = visit,
@@ -948,9 +956,17 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitStatContinue = visit,
 			visitStatReturn = visit,
 			visitStatLocalDeclaration = visit,
-			visitStatLocalDeclarationEnd = visit,
+			visitStatLocalDeclarationEnd = function(s)
+				visit(s)
+			end,
 			visitStatFor = visit,
+			visitStatForEnd = function(s)
+				visit(s)
+			end,
 			visitStatForIn = visit,
+			visitStatForInEnd = function(s)
+				visit(s)
+			end,
 			visitStatAssign = visit,
 			visitStatCompoundAssign = visit,
 			visitStatFunction = visit,
@@ -960,7 +976,9 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitStatExpr = visit,
 
 			visitExpr = visit,
-			visitExprEnd = visit,
+			visitExprEnd = function(s)
+				visit(s)
+			end,
 			visitExprLocal = visit,
 			visitExprGlobal = visit,
 			visitExprCall = visit,
