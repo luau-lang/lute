@@ -13,7 +13,8 @@ local triviaUtils = require("@std/syntax/utils/trivia")
 local types = require("@self/types")
 local visitor = require("@std/syntax/visitor")
 
-local DEFAULT_RULES = { "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions" }
+local DEFAULT_RULES =
+	{ "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions", "unused_variable" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 local VERBOSE = false
 
