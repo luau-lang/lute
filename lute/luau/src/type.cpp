@@ -37,6 +37,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
         // Pop the refs table from the stack when the serializer is destroyed
         if (refsTableIndex > 0 && lua_gettop(L) >= refsTableIndex)
             lua_remove(L, refsTableIndex);
+        else
+            luaL_error(L, "TypeSerialize: reference table index corrupted during serialization");
     }
 
     void cycle(TypeId ty) override
