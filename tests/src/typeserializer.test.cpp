@@ -34,6 +34,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_nil_type")
     // We need to first ensure we have enough stack space to serialize.
     // The stack size corresponds to the max depth needed (see lute/type.cpp).
     lua_checkstack(L, 2);
+
+    // { tag: "nil" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -45,6 +47,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_boolean_type")
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::Boolean});
 
     lua_checkstack(L, 2);
+
+    // { tag: "boolean" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -56,6 +60,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_number_type")
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::Number});
 
     lua_checkstack(L, 2);
+
+    // { tag: "number" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -67,6 +73,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_string_type")
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::String});
 
     lua_checkstack(L, 2);
+
+    // { tag: "string" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -78,6 +86,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_thread_type")
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::Thread});
 
     lua_checkstack(L, 2);
+
+    // { tag: "thread" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -89,6 +99,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_primitive_buffer_type")
     TypeId ty = arena.addType(PrimitiveType{PrimitiveType::Buffer});
 
     lua_checkstack(L, 2);
+
+    // { tag: "buffer" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -100,6 +112,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_any_type")
     TypeId ty = arena.addType(AnyType{});
 
     lua_checkstack(L, 2);
+
+    // { tag: "any" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -111,6 +125,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_unknown_type")
     TypeId ty = arena.addType(UnknownType{});
 
     lua_checkstack(L, 2);
+
+    // { tag: "unknown" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -122,6 +138,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_never_type")
     TypeId ty = arena.addType(NeverType{});
 
     lua_checkstack(L, 2);
+
+    // { tag: "never" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -135,6 +153,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_string_singleton")
     TypeId ty = arena.addType(SingletonType{StringSingleton{"hello"}});
 
     lua_checkstack(L, 2);
+
+    // { tag: "singleton", value: "hello" }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -147,6 +167,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_boolean_singleton")
     TypeId ty = arena.addType(SingletonType{BooleanSingleton{true}});
 
     lua_checkstack(L, 2);
+
+    // { tag: "singleton", value: true }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -159,6 +181,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_negation_type")
     TypeId ty = arena.addType(NegationType{arena.addType(PrimitiveType{PrimitiveType::Number})});
 
     lua_checkstack(L, 2);
+
+    // { tag: "negation", inner: { tag: "number" } }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -177,6 +201,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_union_type")
     TypeId unionTy = arena.addType(UnionType{{numberTy, stringTy}});
 
     lua_checkstack(L, 3);
+
+    // { tag: "union", components: { { tag: "number" }, { tag: "string" } } }
     REQUIRE_EQ(Luau::serializeType(L, unionTy), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -201,6 +227,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_intersection_type")
     TypeId intersectionTy = arena.addType(IntersectionType{{numberTy, stringTy}});
 
     lua_checkstack(L, 3); // Ensure enough stack for serialization. This would be size 3 
+
+    // { tag: "intersection", components: { { tag: "number" }, { tag: "string" } } }
     REQUIRE_EQ(Luau::serializeType(L, intersectionTy), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -225,6 +253,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_generic_type")
     TypeId ty = arena.addType(gtp);
 
     lua_checkstack(L, 2);
+
+    // { tag: "generic", name: "T", ispack: false }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -247,6 +277,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_function_type")
     TypeId ty = arena.addType(ftv);
 
     lua_checkstack(L, 3);
+
+    // { tag: "function", parameters: { head: { { tag: "number" } }, tail: nil }, returns: { head: nil, tail: nil }, generics: { { tag: "generic", name: "T", ispack: false } }, genericpacks: {} }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -292,6 +324,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_table_type_with_properties")
     TypeId ty = arena.addType(ttv);
 
     lua_checkstack(L, 3);
+
+    // { tag: "table", properties: { x: { read: { tag: "number" }, write: { tag: "string" } } } }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -326,6 +360,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_table_type_with_nil_property"
     TypeId ty = arena.addType(ttv);
 
     lua_checkstack(L, 3);
+
+    // { tag: "table", properties: { x: { read: { tag: "number" }, write: nil } } }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -360,6 +396,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_cyclic_table_type")
     table->props["next"] = Property::readonly(nodeType);
 
     lua_checkstack(L, 3);
+
+    // { tag: "table", properties: { value: { read: { tag: "number" } }, next: { read: <cycle> } } }
     REQUIRE_EQ(Luau::serializeType(L, nodeType), 1);
     
     REQUIRE(lua_istable(L, -1));
@@ -390,6 +428,65 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_cyclic_table_type")
     REQUIRE(lua_istable(L, -1));
     
     // Verify it has both 'value' and 'next' properties (proving it's the same cycle)
+    lua_getfield(L, -1, "value");
+    REQUIRE(lua_istable(L, -1));
+    lua_pop(L, 1);
+    
+    lua_getfield(L, -1, "next");
+    REQUIRE(lua_istable(L, -1));
+}
+
+TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_cyclic_table_deep_reference")
+{
+    // Create a cyclic type: type Node = { value: number, next: Node }
+    TypeId nodeType = arena.addType(TableType{});
+    TableType* table = getMutable<TableType>(nodeType);
+    
+    // Add the 'value' property
+    TypeId numberType = arena.addType(PrimitiveType{PrimitiveType::Number});
+    table->props["value"] = Property::readonly(numberType);
+    
+    // Add the 'next' property that references itself (creating the cycle)
+    table->props["next"] = Property::readonly(nodeType);
+
+    lua_checkstack(L, 3);
+
+    REQUIRE_EQ(Luau::serializeType(L, nodeType), 1);
+    
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "table");
+    
+    // Node.next.read
+    lua_getfield(L, -1, "properties");
+    REQUIRE(lua_istable(L, -1));
+    lua_getfield(L, -1, "next");
+    REQUIRE(lua_istable(L, -1));
+    lua_getfield(L, -1, "read");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "table");
+    
+    // Node.next.next.read (should be same table)
+    lua_getfield(L, -1, "properties");
+    REQUIRE(lua_istable(L, -1));
+    lua_getfield(L, -1, "next");
+    REQUIRE(lua_istable(L, -1));
+    lua_getfield(L, -1, "read");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "table");
+    
+    // Node.next.next.next.read (should still be same table)
+    lua_getfield(L, -1, "properties");
+    REQUIRE(lua_istable(L, -1));
+    lua_getfield(L, -1, "next");
+    REQUIRE(lua_istable(L, -1));
+    lua_getfield(L, -1, "read");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "table");
+    
+    // Verify it still has both properties (proving the cycle is maintained)
+    lua_getfield(L, -1, "properties");
+    REQUIRE(lua_istable(L, -1));
+    
     lua_getfield(L, -1, "value");
     REQUIRE(lua_istable(L, -1));
     lua_pop(L, 1);
