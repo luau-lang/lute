@@ -7,16 +7,22 @@ local visitorLib = require("@std/syntax/visitor")
 local name = "unused_variable"
 local message = "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
 
+local function isRequireCall(expr: syntax.AstExpr)
+	return expr.tag == "call" and expr.func.tag == "global" and expr.func.name.text == "require"
+end
+
 local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 	local visitor: visitorLib.Visitor & {
 		unusedLocals: { syntax.AstLocal },
 		scopes: { { [syntax.AstLocal]: boolean } },
 		ignoreReferences: { [syntax.AstLocal]: boolean },
+		requiredModules: { [string]: syntax.AstLocal },
 	} =
 		visitorLib.create() :: any
 	visitor.unusedLocals = {}
 	visitor.scopes = {}
 	visitor.ignoreReferences = {}
+	visitor.requiredModules = {}
 
 	local function popAndSaveUnusedLocals(n: syntax.AstNode)
 		-- Pop scope and save unused locals
@@ -32,6 +38,18 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 		end
 	end
 
+	local function markVisited(l: syntax.AstLocal)
+		-- Mark local as visited in closest scope
+		for i = #visitor.scopes, 1, -1 do
+			if visitor.scopes[i][l] ~= nil then
+				visitor.scopes[i][l] = true
+				return
+			end
+		end
+
+		error("Local variable not found in any scope")
+	end
+
 	function visitor.visitStatBlock(block: syntax.AstStatBlock)
 		-- Push a fresh scope
 		table.insert(visitor.scopes, {} :: { [syntax.AstLocal]: boolean })
@@ -44,9 +62,16 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 		-- For each (var, value) pair, ignore references to the var in the value
 		for i, localVar in stat.variables do
 			if stat.values[i] then
-				visitor.ignoreReferences[localVar.node] = true
-				visitorLib.visitexpression(stat.values[i].node, visitor)
-				visitor.ignoreReferences[localVar.node] = nil
+				if isRequireCall(stat.values[i].node) then
+					visitor.requiredModules[localVar.node.name.text] = localVar.node
+				else
+					visitor.ignoreReferences[localVar.node] = true
+					if localVar.node.annotation then
+						visitorLib.visittype(localVar.node.annotation, visitor)
+					end
+					visitorLib.visitexpression(stat.values[i].node, visitor)
+					visitor.ignoreReferences[localVar.node] = nil
+				end
 			end
 		end
 
@@ -145,19 +170,14 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 
 	function visitor.visitExprLocal(node: syntax.AstExprLocal)
 		local astlocal = node["local"]
+
 		if visitor.ignoreReferences[astlocal] then
 			return false
 		end
 
-		-- Mark local as visited in closest scope
-		for i = #visitor.scopes, 1, -1 do
-			if visitor.scopes[i][astlocal] ~= nil then
-				visitor.scopes[i][astlocal] = true
-				return false
-			end
-		end
+		markVisited(astlocal)
 
-		error("Local variable not found in any scope")
+		return false
 	end
 
 	function visitor.visitExprFunction(node: syntax.AstExprFunction)
@@ -173,6 +193,22 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 		visitorLib.visitblock(node.body, visitor)
 
 		popAndSaveUnusedLocals(node)
+
+		return true
+	end
+
+	function visitor.visitTypeReference(node: syntax.AstTypeReference)
+		if not node.prefix then
+			return true
+		end
+
+		local requiredModule = visitor.requiredModules[node.prefix.text]
+
+		if not requiredModule then
+			return true
+		end
+
+		markVisited(requiredModule)
 
 		return true
 	end

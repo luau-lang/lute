@@ -2304,4 +2304,32 @@ violator.luau:2:7-8 ──
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("unused_variable_16", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local lib = require("whatever")
+local _x : lib.num = 3
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
 end)
