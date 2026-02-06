@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(unused_variable)
 local crypto = {}
 
 export type hash<T> = { __hash: T }

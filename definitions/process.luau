@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(unused_variable)
 export type StdioKind = "default" | "inherit" | "none"
 
 export type ProcessRunOptions = {

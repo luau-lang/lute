@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(unused_variable)
 -- test that you can require in an alias aware fashion
 local example = require("@example/option")
 -- print(`Required {example.file} from alias @example`)

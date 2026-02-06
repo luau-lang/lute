@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(unused_variable)
 local fs = {}
 
 export type FileHandle = {

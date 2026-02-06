@@ -115,6 +115,7 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 
 				visitor.ignoreReferences[var.node["local"]] = nil
 			else
+				visitorLib.visitexpression(var.node, visitor)
 				visitorLib.visitexpression(stat.values[i].node, visitor)
 			end
 		end

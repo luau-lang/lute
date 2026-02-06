@@ -2110,8 +2110,9 @@ violator.luau:1:7-8 ──
 		fs.writestringtofile(
 			violatorPath,
 			[[
-local x = 4
-x += 1
+local function _(x)
+	return nil
+end
     ]]
 		)
 
@@ -2130,10 +2131,10 @@ x += 1
 		)
 
 		local expected = [[
-violator.luau:1:7-8 ──
+violator.luau:1:18-19 ──
    │
- 1 │ local x = 4
-   │       ^
+ 1 │ local function _(x)
+   │                  ^
    │
 ]]
 		assert.strcontains(result.stdout, expected)
@@ -2322,6 +2323,36 @@ local _x : lib.num = 3
 		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
 
 		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_17", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+for k, v in t do
+	t1[k] = v
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		print(result.stdout)
 		assert.eq(result.exitcode, 0)
 
 		assert.strnotcontains(

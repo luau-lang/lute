@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(unused_variable)
 local vm = {}
 
 function vm.create(path: string): { [any]: any }
