@@ -24,7 +24,7 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 	visitor.ignoreReferences = {}
 	visitor.requiredModules = {}
 
-	local function popAndSaveUnusedLocals(n: syntax.AstNode)
+	local function popAndSaveUnusedLocals(_: syntax.AstNode)
 		-- Pop scope and save unused locals
 		local scope = table.remove(visitor.scopes)
 		if not scope then
@@ -50,7 +50,7 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 		error("Local variable not found in any scope")
 	end
 
-	function visitor.visitStatBlock(block: syntax.AstStatBlock)
+	function visitor.visitStatBlock(_: syntax.AstStatBlock)
 		-- Push a fresh scope
 		table.insert(visitor.scopes, {} :: { [syntax.AstLocal]: boolean })
 		return true

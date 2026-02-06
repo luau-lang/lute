@@ -44,7 +44,7 @@ end
 local threadCount = 8
 local threads = {}
 
-for i = 1, threadCount do
+for _ = 1, threadCount do
 	table.insert(threads, vm.create("./parallel_sort_helper"))
 end
 

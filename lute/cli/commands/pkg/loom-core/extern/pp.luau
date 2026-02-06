@@ -114,7 +114,7 @@ local function traverseTable(
 	local inSequence = false
 	local previousKey = 0
 
-	for idx, key in keys do
+	for _, key in keys do
 		if type(key) == "number" and key > 0 and key - 1 == previousKey then
 			previousKey = key
 			inSequence = true

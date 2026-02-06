@@ -36,7 +36,7 @@ end
 
 local function middleWork(x: number): number
 	local sum = 0
-	for i = 1, 10 do
+	for _ = 1, 10 do
 		sum += innerWork(x)
 	end
 	return sum
