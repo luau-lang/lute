@@ -42,6 +42,7 @@ export type Visitor = {
 	visitExprUnary: (types.AstExprUnary) -> boolean,
 	visitExprBinary: (types.AstExprBinary) -> boolean,
 	visitExprFunction: (types.AstExprFunction) -> boolean,
+	visitExprFunctionEnd: (types.AstExprFunction) -> (),
 	visitExprTableItem: (types.AstExprTableItem) -> boolean,
 	visitExprTable: (types.AstExprTable) -> boolean,
 	visitExprIndexName: (types.AstExprIndexName) -> boolean,
@@ -115,6 +116,7 @@ local defaultVisitor: Visitor = {
 	visitExprUnary = alwaysVisit :: any,
 	visitExprBinary = alwaysVisit :: any,
 	visitExprFunction = alwaysVisit :: any,
+	visitExprFunctionEnd = alwaysVisit :: any,
 	visitExprTableItem = alwaysVisit :: any,
 	visitExprTable = alwaysVisit :: any,
 	visitExprIndexName = alwaysVisit :: any,
@@ -492,6 +494,7 @@ local function visitExprFunction(
 		end
 		visitStatBlock(node.body, visitor)
 		visitToken(node.endkeyword, visitor)
+		visitor.visitExprFunctionEnd(node)
 	end
 end
 
@@ -985,6 +988,9 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitExprUnary = visit,
 			visitExprBinary = visit,
 			visitExprFunction = visit,
+			visitExprFunctionEnd = function(s)
+				visit(s)
+			end,
 			visitExprTableItem = visit,
 			visitExprTable = visit,
 			visitExprIndexName = visit,

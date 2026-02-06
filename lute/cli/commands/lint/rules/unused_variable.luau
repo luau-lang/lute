@@ -191,12 +191,10 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 
 		table.insert(visitor.scopes, newScope)
 
-		visitorLib.visitblock(node.body, visitor)
-
-		popAndSaveUnusedLocals(node)
-
 		return true
 	end
+
+	visitor.visitExprFunctionEnd = popAndSaveUnusedLocals
 
 	function visitor.visitTypeReference(node: syntax.AstTypeReference)
 		if not node.prefix then
