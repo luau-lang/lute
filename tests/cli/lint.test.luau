@@ -162,7 +162,6 @@ local _negnan = -0 / 0
 		local result = process.run({ lutePath, "lint", "--auto-fix", violatorPath })
 
 		-- Check
-		print(result.stdout)
 		assert.eq(result.exitcode, 0) -- After applying the auto-fix, there are no more violations
 
 		local fixedContents = fs.readfiletostring(violatorPath)
@@ -2383,7 +2382,6 @@ return {
 		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
 
 		-- Check
-		print(result.stdout)
 		assert.eq(result.exitcode, 0)
 
 		assert.strnotcontains(
@@ -2392,6 +2390,49 @@ return {
 		)
 
 		assert.strnotcontains(result.stdout, "Local variable not found in any scope")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_19", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local T = {}
+function T:new()
+	self.hello = "world"
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		assert.strnotcontains(result.stdout, "Local variable not found in any scope")
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local T = {}
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
 
 		-- Teardown
 		fs.remove(violatorPath)

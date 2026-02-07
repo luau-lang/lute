@@ -17,12 +17,15 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 		scopes: { { [syntax.AstLocal]: boolean } },
 		ignoreReferences: { [syntax.AstLocal]: boolean },
 		requiredModules: { [string]: syntax.AstLocal },
+		insideMethodContext: boolean,
 	} =
 		visitorLib.create() :: any
 	visitor.unusedLocals = {}
 	visitor.scopes = {}
 	visitor.ignoreReferences = {}
 	visitor.requiredModules = {}
+	-- Used to avoid lookups to `self`
+	visitor.insideMethodContext = false
 
 	local function popAndSaveUnusedLocals(_: syntax.AstNode)
 		-- Pop scope and save unused locals
@@ -149,6 +152,13 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 			visitor.ignoreReferences[stat.name["local"]] = true
 			visitorLib.visitexpression(stat.func, visitor)
 			visitor.ignoreReferences[stat.name["local"]] = nil
+		elseif stat.name.tag == "indexname" and stat.name.accessor.text == ":" then
+			local prevMethodContext = visitor.insideMethodContext
+			visitor.insideMethodContext = true
+
+			visitorLib.visitexpression(stat.func, visitor)
+
+			visitor.insideMethodContext = prevMethodContext
 		else
 			visitorLib.visitexpression(stat.func, visitor)
 		end
@@ -170,6 +180,10 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 	end
 
 	function visitor.visitExprLocal(node: syntax.AstExprLocal)
+		if node.token.text == "self" and visitor.insideMethodContext then
+			return false
+		end
+
 		local astlocal = node["local"]
 
 		if visitor.ignoreReferences[astlocal] then
