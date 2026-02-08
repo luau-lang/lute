@@ -9,11 +9,7 @@ batteries/difftext/printdiff.luau:74:10-73
 batteries/pp.luau:97:3-14
 batteries/toml.luau:27:14-16
 batteries/toml.luau:40:14-16
-batteries/toml.luau:45:17-39
 batteries/toml.luau:45:36-38
-batteries/toml.luau:60:15-33
-batteries/toml.luau:68:14-32
-batteries/toml.luau:75:2-29
 batteries/toml.luau:75:26-28
 batteries/toml.luau:133:33-41
 batteries/toml.luau:143:23-25
@@ -539,7 +535,6 @@ tests/std/test.test.luau:282:4-9
 tests/std/test.test.luau:299:4-9
 tests/std/test.test.luau:318:4-9
 tests/std/test.test.luau:337:4-9
-tools/luthier.luau:139:10-34
 tools/luthier.luau:162:2-26
 tools/luthier.luau:201:3-12
 tools/luthier.luau:202:11-25
