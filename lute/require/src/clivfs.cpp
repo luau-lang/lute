@@ -1,10 +1,40 @@
 #include "lute/clivfs.h"
 
+#include "lute/clibatteries.h"
 #include "lute/clicommands.h"
+#include "lute/modulepath.h"
 
 #include "Luau/Common.h"
 
 #include <string>
+
+constexpr std::string_view kBatteriesAliasPrefix = "@batteries";
+constexpr std::string_view kBatteriesPrefix = "batteries";
+
+constexpr std::string_view kCliAliasPrefix = "@cli";
+
+static bool isBatteryModule(const std::string& path)
+{
+    BatteryModuleResult result = getBatteryModule(path);
+    return result.type == BatteryModuleType::Module;
+}
+
+static std::optional<std::string> readBatteryModule(const std::string& path)
+{
+    BatteryModuleResult result = getBatteryModule(path);
+    if (result.type == BatteryModuleType::Module)
+        return std::string(result.contents);
+    return std::nullopt;
+}
+
+static bool isBatteryDirectory(const std::string& path)
+{
+    if (path == kBatteriesAliasPrefix)
+        return true;
+
+    BatteryModuleResult result = getBatteryModule(path);
+    return result.type == BatteryModuleType::Directory;
+}
 
 static bool isCliModule(const std::string& path)
 {
@@ -23,7 +53,7 @@ static std::optional<std::string> readCliModule(const std::string& path)
 
 static bool isCliDirectory(const std::string& path)
 {
-    if (path == "@cli")
+    if (path == kCliAliasPrefix)
         return true;
 
     CliModuleResult result = getCliModule(path);
@@ -32,19 +62,40 @@ static bool isCliDirectory(const std::string& path)
 
 NavigationStatus CliVfs::resetToPath(const std::string& path)
 {
-    if (path == "@cli")
+    if (path == kBatteriesAliasPrefix)
     {
-        modulePath = ModulePath::create("@cli", "", isCliModule, isCliDirectory);
+        modulePath = ModulePath::create(std::string(kBatteriesAliasPrefix), "", isBatteryModule, isBatteryDirectory);
+        return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
+    }
+    else if (path == kCliAliasPrefix)
+    {
+        modulePath = ModulePath::create(std::string(kCliAliasPrefix), "", isCliModule, isCliDirectory);
         return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
     }
 
-    std::string cliPrefix = "@cli/";
+    if (path.rfind(kBatteriesAliasPrefix, 0) == 0)
+    {
+        modulePath = ModulePath::create(
+            std::string(kBatteriesAliasPrefix), path.substr(kBatteriesAliasPrefix.size() + 1), isBatteryModule, isBatteryDirectory
+        );
+        return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
+    }
+    else if (path.rfind(kCliAliasPrefix, 0) == 0)
+    {
+        std::string stripped = path.substr(kCliAliasPrefix.size() + 1);
+        modulePath = ModulePath::create(std::string(kCliAliasPrefix), stripped, isCliModule, isCliDirectory);
+        return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
+    }
 
-    if (path.find_first_of(cliPrefix) != 0)
-        return NavigationStatus::NotFound;
+    return NavigationStatus::NotFound;
+}
 
-    modulePath = ModulePath::create("@cli", path.substr(cliPrefix.size()), isCliModule, isCliDirectory);
-    return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
+NavigationStatus CliVfs::toAliasFallback(std::string_view aliasUnprefixed)
+{
+    if (aliasUnprefixed == kBatteriesPrefix)
+        return resetToPath(std::string(kBatteriesAliasPrefix));
+
+    return NavigationStatus::NotFound;
 }
 
 NavigationStatus CliVfs::toParent()
@@ -61,7 +112,10 @@ NavigationStatus CliVfs::toChild(const std::string& name)
 
 bool CliVfs::isModulePresent() const
 {
-    return getCliModule(getIdentifier()).type == CliModuleType::Module;
+    auto id = getIdentifier();
+    if (id.rfind(kBatteriesAliasPrefix, 0) == 0)
+        return getBatteryModule(id).type == BatteryModuleType::Module;
+    return getCliModule(id).type == CliModuleType::Module;
 }
 
 std::string CliVfs::getIdentifier() const
@@ -74,6 +128,8 @@ std::string CliVfs::getIdentifier() const
 
 std::optional<std::string> CliVfs::getContents(const std::string& path) const
 {
+    if (path.rfind(kBatteriesAliasPrefix, 0) == 0)
+        return readBatteryModule(path);
     return readCliModule(path);
 }
 
