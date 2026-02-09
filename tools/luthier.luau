@@ -4,7 +4,6 @@ local crypto = require("@lute/crypto")
 local fs = require("@lute/fs")
 local process = require("@lute/process")
 local system = require("@lute/system")
-local stdfs = require("@std/fs")
 local cli = require("@batteries/cli")
 local toml = require("@batteries/toml")
 
@@ -293,7 +292,7 @@ local function isBatteriesUpToDate(): boolean
 end
 
 local function generateBatteriesCommandsIfNeeded()
-	pcall(stdfs.createdirectory, luteBatteriesDir, { makeparents = true })
+	pcall(fs.mkdir, luteBatteriesDir)
 
 	if isBatteriesUpToDate() then
 		return
