@@ -2585,4 +2585,33 @@ end
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("unused_variable_24", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[=[
+function foo(t: { num: number })
+	t.num = 3
+end
+    ]=]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
 end)

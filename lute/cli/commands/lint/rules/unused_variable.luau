@@ -233,11 +233,14 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 			return false
 		end
 
-		if visitor.inLValueContext then
+		local astlocal = node["local"]
+
+		-- We only ignore writes to locals in the same scope
+		-- We don't want to warn writes to upvalues as unused
+		if visitor.inLValueContext and visitor.scopes[#visitor.scopes][astlocal] ~= nil then
 			return false
 		end
 
-		local astlocal = node["local"]
 		if visitor.ignoreReferences[astlocal] then
 			return false
 		end
