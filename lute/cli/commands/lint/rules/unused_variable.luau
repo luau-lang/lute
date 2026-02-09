@@ -18,6 +18,7 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 		ignoreReferences: { [syntax.AstLocal]: boolean },
 		requiredModules: { [string]: syntax.AstLocal },
 		insideMethodContext: boolean,
+		inLValueContext: boolean,
 	} =
 		visitorLib.create() :: any
 	visitor.unusedLocals = {}
@@ -26,6 +27,7 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 	visitor.requiredModules = {}
 	-- Used to avoid lookups to `self`
 	visitor.insideMethodContext = false
+	visitor.inLValueContext = false
 
 	local function popAndSaveUnusedLocals(_: syntax.AstNode)
 		-- Pop scope and save unused locals
@@ -109,6 +111,7 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 	function visitor.visitStatAssign(stat: syntax.AstStatAssign)
 		local i = 1
 		local callFound = false
+		local prevInLValueContext = visitor.inLValueContext
 		while i <= math.min(#stat.variables, #stat.values) do
 			local var = stat.variables[i].node
 			local val = stat.values[i].node
@@ -123,7 +126,10 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 
 				visitor.ignoreReferences[var["local"]] = nil
 			else
+				visitor.inLValueContext = true
 				visitorLib.visitexpression(var, visitor)
+				visitor.inLValueContext = prevInLValueContext
+
 				visitorLib.visitexpression(val, visitor)
 			end
 
@@ -149,6 +155,11 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 			visitorLib.visitexpression(stat.value, visitor)
 			visitor.ignoreReferences[stat.variable["local"]] = nil
 		else
+			local prevInLValueContext = visitor.inLValueContext
+			visitor.inLValueContext = true
+			visitorLib.visitexpression(stat.variable, visitor)
+			visitor.inLValueContext = prevInLValueContext
+
 			visitorLib.visitexpression(stat.value, visitor)
 		end
 
@@ -173,6 +184,13 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 			visitorLib.visitexpression(stat.func, visitor)
 
 			visitor.insideMethodContext = prevMethodContext
+		elseif stat.name.tag == "index" then
+			local prevInLValueContext = visitor.inLValueContext
+			visitor.inLValueContext = true
+			visitorLib.visitexpression(stat.name, visitor)
+			visitor.inLValueContext = prevInLValueContext
+
+			visitorLib.visitexpression(stat.func, visitor)
 		else
 			visitorLib.visitexpression(stat.func, visitor)
 		end
@@ -215,8 +233,11 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 			return false
 		end
 
-		local astlocal = node["local"]
+		if visitor.inLValueContext then
+			return false
+		end
 
+		local astlocal = node["local"]
 		if visitor.ignoreReferences[astlocal] then
 			return false
 		end
@@ -255,6 +276,17 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 		markVisited(requiredModule)
 
 		return true
+	end
+
+	function visitor.visitExprIndexExpr(node: syntax.AstExprIndexExpr)
+		visitorLib.visitexpression(node.expression, visitor)
+
+		local prevInLValueContext = visitor.inLValueContext
+		visitor.inLValueContext = false
+		visitorLib.visitexpression(node.index, visitor)
+		visitor.inLValueContext = prevInLValueContext
+
+		return false
 	end
 
 	visitorLib.visitblock(block, visitor)
