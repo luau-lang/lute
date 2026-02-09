@@ -1,4 +1,4 @@
-local cli = require("./lib/cli")
+local cli = require("@batteries/cli")
 local files = require("./lib/files")
 local fs = require("@std/fs")
 local json = require("@std/json")

@@ -11,6 +11,7 @@ public:
 
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
+    NavigationStatus toAliasFallback(std::string_view aliasUnprefixed);
 
     bool isModulePresent() const;
     std::string getIdentifier() const;

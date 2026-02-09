@@ -104,6 +104,11 @@ NavigationStatus RequireVfs::toAliasOverride(lua_State* L, std::string_view alia
 
 NavigationStatus RequireVfs::toAliasFallback(lua_State* L, std::string_view aliasUnprefixed)
 {
+    if (vfsType == VFSType::Cli)
+    {
+        LUAU_ASSERT(cliVfs);
+        return cliVfs->toAliasFallback(aliasUnprefixed);
+    }
     return NavigationStatus::NotFound;
 }
 
