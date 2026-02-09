@@ -107,21 +107,35 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 	visitor.visitStatForInEnd = popAndSaveUnusedLocals
 
 	function visitor.visitStatAssign(stat: syntax.AstStatAssign)
-		for i, var in stat.variables do
+		local i = 1
+		local callFound = false
+		while i <= math.min(#stat.variables, #stat.values) do
+			local var = stat.variables[i].node
+			local val = stat.values[i].node
 			-- An unused local doesn't become used just because it's used to assign to itself, eg:
 			-- local x
 			-- x = x + 1
-			if var.node.tag == "local" then
-				visitor.ignoreReferences[var.node["local"]] = true
+			-- However, calls, can assign to multiple variables, so we can't assume variables and values correspond 1-1 once we see a call
+			if var.tag == "local" and not callFound then
+				visitor.ignoreReferences[var["local"]] = true
 
-				visitorLib.visitexpression(stat.values[i].node, visitor)
+				visitorLib.visitexpression(val, visitor)
 
-				visitor.ignoreReferences[var.node["local"]] = nil
+				visitor.ignoreReferences[var["local"]] = nil
 			else
-				visitorLib.visitexpression(var.node, visitor)
-				visitorLib.visitexpression(stat.values[i].node, visitor)
+				visitorLib.visitexpression(var, visitor)
+				visitorLib.visitexpression(val, visitor)
 			end
+
+			if val.tag == "call" then
+				callFound = true
+			end
+
+			i = i + 1
 		end
+
+		-- If we see a call, we no longer know if variables correspond 1-1 with values, since functions can return multiple values
+		-- In this case, we stop caring about ignoring references, and only check as many values as there are variables
 
 		return false
 	end
