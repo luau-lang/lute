@@ -30,6 +30,7 @@ runs:
   using: "composite"
   steps:
     - name: Install tools
+      if: ${{ inputs.use-bootstrap == 'false' }}
       uses: Roblox/setup-foreman@v3
       with:
         token: ${{ inputs.token }}
@@ -64,31 +65,34 @@ runs:
         path: extern
         key: extern-${{ hashFiles('extern/*.tune') }}
 
-    - name: Bootstrap Lute
-      if: ${{ inputs.use-bootstrap == 'true' }}
+    - name: Bootstrap Lute (if needed) and set LUTE
       shell: bash
       run: |
-        echo "Bootstrapping Lute..."
-        ./tools/bootstrap.sh
-        alias lute="./build/lute0"
+        if [[ "${{ inputs.use-bootstrap }}" == "true" ]]; then
+          echo "Bootstrapping Lute..."
+          ./tools/bootstrap.sh
+          echo "LUTE=./build/lute0" >> $GITHUB_ENV
+        else
+          echo "LUTE=lute" >> $GITHUB_ENV
+        fi
 
     - name: Fetch ${{ inputs.target }}
       if: steps.cache-extern.outputs.cache-hit != 'true'
       shell: bash
-      run: lute ./tools/luthier.luau fetch ${{ inputs.target }}
+      run: $LUTE ./tools/luthier.luau fetch ${{ inputs.target }}
 
     - name: Configure ${{ inputs.target }}
       shell: bash
-      run: lute ./tools/luthier.luau configure ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
+      run: $LUTE ./tools/luthier.luau configure ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build ${{ inputs.target }}
       shell: bash
-      run: lute ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
+      run: $LUTE ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Get Artifact Path
       id: artifact_path
       shell: bash
       run: |
-        exe_path=$(lute ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} --which)
+        exe_path=$($LUTE ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} --which)
         echo "Executable path: $exe_path"  # Debug print
         echo "exe_path=$exe_path" >> "$GITHUB_OUTPUT"
