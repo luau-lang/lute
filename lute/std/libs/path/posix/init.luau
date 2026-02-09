@@ -1,11 +1,12 @@
 local process = require("@lute/process")
 local posixtypes = require("@self/types")
+local pathinterface = require("./pathinterface")
 
 export type path = posixtypes.path
 export type pathlike = posixtypes.pathlike
 
 local posix = {}
-posix.pathmt = {} :: posixtypes.pathMT
+posix.pathmt = {} :: pathinterface.pathinterface
 
 function posix.basename(path: pathlike): string?
 	path = if typeof(path) == "string" then posix.parse(path) else path
