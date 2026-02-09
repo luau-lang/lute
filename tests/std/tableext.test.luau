@@ -96,6 +96,10 @@ test.suite("TableExt", function(suite)
 		assert.eq(setB["d"], nil)
 		assert.eq(#tableext.keys(setB), 3)
 		assert.neq(#tableext.keys(setB), #b)
+
+		local empty = {}
+		local emptySet = tableext.toset(empty)
+		assert.eq(#emptySet, 0)
 	end)
 
 	suite:case("any", function(assert)

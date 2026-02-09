@@ -47,10 +47,10 @@ struct WaitData
 static void yieldLuaStateFor(lua_State* L, uint64_t milliseconds, bool putDeltaTimeOnStack, int nargs)
 {
     WaitData* yield = new WaitData();
-    uv_timer_init(uv_default_loop(), &yield->uvTimer);
+    uv_timer_init(getRuntimeLoop(L), &yield->uvTimer);
 
     yield->resumptionToken = getResumeToken(L);
-    yield->startedAtMs = uv_now(uv_default_loop());
+    yield->startedAtMs = uv_now(getRuntimeLoop(L));
     yield->uvTimer.data = yield;
     yield->putDeltaTimeOnStack = putDeltaTimeOnStack;
     yield->nargs = nargs;
@@ -67,12 +67,16 @@ static void yieldLuaStateFor(lua_State* L, uint64_t milliseconds, bool putDeltaT
                     int stackReturnAmount = yield->putDeltaTimeOnStack ? yield->nargs + 1 : yield->nargs;
 
                     if (yield->putDeltaTimeOnStack)
-                        lua_pushnumber(L, static_cast<double>(uv_now(uv_default_loop()) - yield->startedAtMs) / 1000.0);
+                        lua_pushnumber(L, static_cast<double>(uv_now(getRuntimeLoop(L)) - yield->startedAtMs) / 1000.0);
 
-                    uv_close(reinterpret_cast<uv_handle_t*>(&yield->uvTimer), [](uv_handle_t* handle) { 
-                        WaitData* yield = static_cast<WaitData*>(handle->data);
-                        delete yield; 
-                    });
+                    uv_close(
+                        reinterpret_cast<uv_handle_t*>(&yield->uvTimer),
+                        [](uv_handle_t* handle)
+                        {
+                            WaitData* yield = static_cast<WaitData*>(handle->data);
+                            delete yield;
+                        }
+                    );
                     return stackReturnAmount;
                 }
             );

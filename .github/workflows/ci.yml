@@ -22,25 +22,42 @@ jobs:
         include:
           - os: windows-latest
             options: --c-compiler cl.exe --cxx-compiler cl.exe
-          - os: ubuntu-latest
-            options: --c-compiler gcc --cxx-compiler g++ --enable-sanitizers
-          - os: ubuntu-latest
-            options: --c-compiler clang --cxx-compiler clang++ --enable-sanitizers
+            run-on-event: all
           - os: macos-latest
             options: --enable-sanitizers
+            run-on-event: all
+          - os: ubuntu-latest
+            options: --c-compiler gcc --cxx-compiler g++ --enable-sanitizers
+            run-on-event: pull_request
+          - os: ubuntu-latest
+            options: --c-compiler clang --cxx-compiler clang++ --enable-sanitizers
+            run-on-event: pull_request
           - os: ubuntu-latest
             options: --c-compiler gcc --cxx-compiler g++ --enable-sanitizers
             use-bootstrap: true
+            run-on-event: push
           - os: ubuntu-latest
             options: --c-compiler clang --cxx-compiler clang++ --enable-sanitizers
             use-bootstrap: true
+            run-on-event: push
       fail-fast: false
 
     steps:
+      - name: Determine if this matrix job should run
+        id: should_run
+        shell: bash
+        run: |
+          if [[ "${{ matrix.run-on-event }}" == "all" || "${{ matrix.run-on-event }}" == "${{ github.event_name }}" ]]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
 
       - name: Setup and Build Lute
         id: build_lute
+        if: ${{ steps.should_run.outputs.proceed == 'true' }}
         uses: ./.github/actions/setup-and-build
         with:
           target: Lute.CLI
@@ -50,9 +67,11 @@ jobs:
           use-bootstrap: ${{ matrix.use-bootstrap || 'false' }}
 
       - name: Use CI .luaurc file
+        if: ${{ steps.should_run.outputs.proceed == 'true' }}
         run: rm .luaurc && mv .luaurc.ci .luaurc
 
       - name: Run Luau Tests (POSIX)
+        if: ${{ steps.should_run.outputs.proceed == 'true' }}
         run: ${{ steps.build_lute.outputs.exe_path }} test
 
   run-lute-cxx-unittests:
@@ -111,21 +130,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup and Build Lute
+        id: build_lute
+        uses: ./.github/actions/setup-and-build
+        with:
+          target: Lute.CLI
+          config: debug
+          options: ${{ matrix.options }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
-
-      - name: Install tools
-        uses: Roblox/setup-foreman@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          allow-external-github-orgs: true
 
       - name: Install dependencies
         run: npm install
         working-directory: docs
 
       - name: Build docs site
-        run: npm run build
+        run: |
+          export PATH="$(dirname '${{ steps.build_lute.outputs.exe_path }}'):$PATH"
+          npm run build
         working-directory: docs
 
       - name: Upload docs artifact
@@ -149,22 +173,74 @@ jobs:
           config: debug
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          use-bootstrap: true
 
       - name: Run Lute Lint
         run: ${{ steps.build_lute.outputs.exe_path }} lint -v .
 
+  lute-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup and Build Lute
+        id: build_lute
+        uses: ./.github/actions/setup-and-build
+        with:
+          target: Lute.CLI
+          config: debug
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Lute Check
+        run: ${{ steps.build_lute.outputs.exe_path }} tools/check.luau ${{ steps.build_lute.outputs.exe_path }}
+
   aggregator:
     name: Gated Commits
     runs-on: ubuntu-latest
-    needs: [run-lutecli-luau-tests, run-lute-cxx-unittests, check-format, build-docs-site, lute-lint]
+    needs: [run-lutecli-luau-tests, run-lute-cxx-unittests, check-format, build-docs-site, lute-lint, lute-check]
     if: ${{ always() }}
     steps:
       - name: Aggregator
+        id: aggregator
         run: |
-          if [ "${{ needs.run-lutecli-luau-tests.result }}" == "success" ] && [ "${{ needs.run-lute-cxx-unittests.result }}" == "success" ] && [ "${{ needs.check-format.result }}" == "success" ] && [ "${{ needs.build-docs-site.result }}" == "success" ] && [ "${{ needs.lute-lint.result }}" == "success" ]; then
+          if [ "${{ needs.run-lutecli-luau-tests.result }}" == "success" ] && [ "${{ needs.run-lute-cxx-unittests.result }}" == "success" ] && [ "${{ needs.check-format.result }}" == "success" ] && [ "${{ needs.build-docs-site.result }}" == "success" ] && [ "${{ needs.lute-lint.result }}" == "success" ] && [ "${{ needs.lute-check.result }}" == "success" ]; then
             echo "All jobs succeeded"
+            echo "result=success" >> "$GITHUB_OUTPUT"
           else
             echo "One or more jobs failed"
+            echo "result=failure" >> "$GITHUB_OUTPUT"
             exit 1
           fi
+      - name: Post-aggregation notification
+        if: >
+          always() &&
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/primary'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          LAST_STATUS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/luau-lang/lute/actions/workflows/ci.yml/runs?branch=primary&status=completed&per_page=1" \
+            | jq -r '.workflow_runs[0].conclusion')
+
+          if [[ "$LAST_STATUS" == "${{ steps.aggregator.outputs.result }}" ]]; then
+            echo "No status change detected. Skipping notification."
+            exit 0
+          elif [[ "$LAST_STATUS" == "failure" ]]; then
+            TEXT=":white_check_mark: *Lute CI is passing again*"
+          elif [[ "$LAST_STATUS" == "success" ]]; then
+            TEXT=":rotating_light: *Lute CI has started failing*"
+          fi
+
+          echo Sending Slack notification: "$TEXT"
+
+          CHANNEL_ID="${{ secrets.SLACK_CHANNEL_ID }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -sS -o /dev/null -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data "{
+              \"channel\": \"$CHANNEL_ID\",
+              \"text\": \"$TEXT (<$RUN_URL|view workflow run>)\"
+            }"

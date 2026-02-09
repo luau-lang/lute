@@ -122,6 +122,34 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_relative_paths")
     CHECK(luaurcFiles.find(".luaurc") != nullptr);
 }
 
+TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_requirealias")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires");
+    std::string entryPoint = joinPaths(testDir, "dep/requirealias.luau");
+
+    StaticRequireTracer tracer{getReporter()};
+    tracer.trace(entryPoint);
+
+    auto pairs = tracer.getStaticRequirePairs();
+
+    // requirealias.luau requires @nested/example, should resolve correctly
+    REQUIRE(pairs.size() == 2);
+
+    CHECK(pairs[0].first == "dep/requirealias.luau");
+
+    std::string absoluteExample = joinPaths(tracer.getLowestCommonRoot(), "dep/nested/example.luau");
+    CHECK(tracer.containsAbsolute(absoluteExample));
+
+    // Verify that the lowestCommonRoot is staticrequires, NOT dep even though entry point and dependency are in dep
+    CHECK(tracer.getLowestCommonRoot() == testDir);
+
+    // Verify .luaurc file was discovered (should find it in parent directory)
+    auto luaurcFiles = tracer.getLuaurcFiles();
+    REQUIRE(luaurcFiles.size() == 1);
+    CHECK(luaurcFiles.find(".luaurc") != nullptr);
+}
+
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_require_graph")
 {
     std::string luteProjectRoot = getLuteProjectRootAbsolute();

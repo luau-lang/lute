@@ -129,14 +129,18 @@ export type AstExprIndexExpr = {
 	closebrackets: Token<"]">,
 }
 
--- I don't like that we have this type; a lot of its data should live in the parents, which should then have `AstStatBlock` as its body
-export type AstFunctionBody = {
+export type AstExprFunction = {
+	location: span,
+	kind: "expr",
+	tag: "function",
+	attributes: { AstAttribute },
+	functionkeyword: Token<"function">,
 	opengenerics: Token<"<">?,
 	generics: Punctuated<AstGenericType>?,
 	genericpacks: Punctuated<AstGenericTypePack>?,
 	closegenerics: Token<">">?,
-	self: AstLocal?,
 	openparens: Token<"(">,
+	self: AstLocal?,
 	parameters: Punctuated<AstLocal>,
 	vararg: Token<"...">?,
 	varargcolon: Token<":">?,
@@ -146,15 +150,6 @@ export type AstFunctionBody = {
 	returnannotation: AstTypePack?,
 	body: AstStatBlock,
 	endkeyword: Token<"end">,
-}
-
-export type AstExprAnonymousFunction = {
-	location: span,
-	kind: "expr",
-	tag: "function",
-	attributes: { AstAttribute },
-	functionkeyword: Token<"function">,
-	body: AstFunctionBody,
 }
 
 -- helper types for items contained in an AstExprTable, not actually AstExprs themselves
@@ -266,7 +261,7 @@ export type AstExpr = { kind: "expr" } & (
 	| AstExprCall
 	| AstExprIndexName
 	| AstExprIndexExpr
-	| AstExprAnonymousFunction
+	| AstExprFunction
 	| AstExprTable
 	| AstExprUnary
 	| AstExprBinary
@@ -287,7 +282,7 @@ export type AstStatDo = {
 	kind: "stat",
 	tag: "do",
 	dokeyword: Token<"do">,
-	body: { AstStat }, -- TODO: change to AstStatBlock when Luau adds AstStatDo on the C++ side
+	body: AstStatBlock,
 	endkeyword: Token<"end">,
 }
 
@@ -411,21 +406,17 @@ export type AstStatFunction = {
 	location: span,
 	kind: "stat",
 	tag: "function",
-	attributes: { AstAttribute },
-	functionkeyword: Token<"function">,
 	name: AstExpr,
-	body: AstFunctionBody,
+	func: AstExprFunction,
 }
 
 export type AstStatLocalFunction = {
 	location: span,
 	kind: "stat",
 	tag: "localfunction",
-	attributes: { AstAttribute },
 	localkeyword: Token<"local">,
-	functionkeyword: Token<"function">,
 	name: AstLocal,
-	body: AstFunctionBody,
+	func: AstExprFunction,
 }
 
 export type AstStatTypeAlias = {
@@ -443,15 +434,15 @@ export type AstStatTypeAlias = {
 	type: AstType,
 }
 
+-- A type function
 export type AstStatTypeFunction = {
 	location: span,
 	kind: "stat",
 	tag: "typefunction",
 	export: Token<"export">?,
 	type: Token<"type">,
-	functionkeyword: Token<"function">,
 	name: Token,
-	body: AstFunctionBody,
+	body: AstExprFunction,
 }
 
 export type AstStat = { kind: "stat" } & (
@@ -610,6 +601,7 @@ export type AstTypeFunctionParameter = {
 	type: AstType,
 }
 
+-- A type representing a Luau function
 export type AstTypeFunction = {
 	location: span,
 	kind: "type",
@@ -694,8 +686,63 @@ function luau.resolverequire(path: string, fromchunkname: string): string
 	error("not implemented")
 end
 
--- For now, we return a string representation of the module's type, but we will expand it to some Luau data structure representation of Type (similar to the AST types) in a subsequent PR.
-function luau.typeofmodule(modulepath: string): string
+export type Type = {
+	tag: "nil"
+		| "unknown"
+		| "never"
+		| "any"
+		| "boolean"
+		| "number"
+		| "string"
+		| "buffer"
+		| "thread"
+		| "singleton"
+		| "negation"
+		| "union"
+		| "intersection"
+		| "table"
+		| "metatable"
+		| "function"
+		| "extern"
+		| "generic",
+
+	-- for singleton type
+	value: string | boolean | nil,
+
+	-- for negation type
+	inner: Type,
+
+	-- for union and intersection types
+	components: { Type },
+
+	-- for table type
+	properties: { [string]: { read: Type?, write: Type? } },
+	indexer: { index: Type }?, -- TODO: add readresult and writeresult
+	-- TODO: readindexer: { index: type, result: type } }?,
+	-- TODO: writeindexer: { index: type, result: type } }?,
+	metatable: Type?,
+
+	-- for function type
+	parameters: { head: { Type }?, tail: Type },
+	returns: { head: { Type }?, tail: Type },
+	generics: { Type },
+	genericpacks: { TypePack },
+
+	-- for extern type
+	-- 'properties', 'metatable' are shared with table type
+	parent: Type?,
+
+	-- for generic type
+	name: string?,
+	ispack: boolean,
+}
+
+export type TypePack = {
+	head: { Type }?,
+	tail: Type?,
+}
+
+function luau.typeofmodule(modulepath: string): TypePack?
 	error("not implemented")
 end
 

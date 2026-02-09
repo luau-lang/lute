@@ -25,9 +25,8 @@ export default withSidebar(
     useTitleFromFileHeading: true,
     useTitleFromFrontmatter: true,
     hyphenToSpace: true,
-    underscoreToSpace: true,
     sortMenusByFrontmatterOrder: true,
     frontmatterOrderDefaultValue: 100,
-    excludeByGlobPattern: ['**/test/**'],
+    excludeByGlobPattern: ['**/test/**', 'README.md'],
   }
 )

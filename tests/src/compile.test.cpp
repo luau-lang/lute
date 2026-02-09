@@ -538,3 +538,41 @@ TEST_CASE_FIXTURE(LuteFixture, "compile_command_e2e")
     // Clean up
     std::remove(outputExePath.c_str());
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "compile_command_e2e_requirealias")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+
+    // Use a test file that has the entry point and dependencies that are below the .luaurc
+    std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires/dep/requirealias.luau");
+
+    // Create a temporary output path for the compiled executable
+    std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_compiled_e2e_requirealias");
+#ifdef _WIN32
+    outputExePath += ".exe";
+#endif
+
+    // Build argv for cliMain: ["lute", "compile", <testFilePath>, "--output", <outputExePath>]
+    char executablePlaceholder[] = "lute";
+    char compileCommand[] = "compile";
+    char outputFlag[] = "--output";
+
+    std::vector<char*> argv = {executablePlaceholder, compileCommand, testFilePath.data(), outputFlag, outputExePath.data()};
+
+    // Run the compile command
+    int compileResult = cliMain(argv.size(), argv.data(), getReporter());
+    REQUIRE(compileResult == 0);
+
+    // Verify the output file was created
+    std::ifstream checkFile(outputExePath, std::ios::binary);
+    REQUIRE(checkFile.is_open());
+    checkFile.close();
+
+    // Now run the compiled executable to verify it works
+    std::vector<char*> runArgv = {outputExePath.data()};
+    int runResult = cliMain(runArgv.size(), runArgv.data(), getReporter());
+    CHECK(runResult == 0);
+
+    // Clean up
+    std::remove(outputExePath.c_str());
+}

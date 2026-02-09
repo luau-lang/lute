@@ -2,11 +2,13 @@
 
 #include "lute/clicommands.h"
 #include "lute/compile.h"
+#include "lute/fileutils.h"
 #include "lute/luauflags.h"
 #include "lute/modulepath.h"
 #include "lute/options.h"
 #include "lute/packagerun.h"
 #include "lute/process.h"
+#include "lute/profiler.h"
 #include "lute/ref.h"
 #include "lute/reporter.h"
 #include "lute/requiresetup.h"
@@ -24,6 +26,9 @@
 #include "lua.h"
 #include "lualib.h"
 
+#include <chrono>
+#include <ctime>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -82,10 +87,13 @@ static const char* VERSION_STRING = LUTE_VERSION_FULL;
 static const char* RUN_HELP_STRING = R"(Usage: lute run <script.luau> [args...]
 
 Run Options:
-	-h, --help    Display this usage message.
+	--profile               Enable profiling for the script.
+	--profile-output <path> Output file for the profile (default: <datetime>_<filename>.json).
+	--frequency <Hz>        Profiler sampling frequency in Hz (default: 10000).
+	-h, --help              Display this usage message.
 )";
 
-static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkgrun <script.luau> [args...]
+static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkg run <script.luau> [args...]
 
 Run Options:
 	-h, --help    Display this usage message.
@@ -125,11 +133,15 @@ bool runBytecode(
     lua_State* GL,
     int program_argc,
     char** program_argv,
-    LuteReporter& reporter
+    LuteReporter& reporter,
+    std::optional<ProfileOptions> profileOptions
 )
 {
     // module needs to run in a new thread, isolated from the rest
     lua_State* L = lua_newthread(GL);
+
+    if (profileOptions)
+        profilerStart(L, profileOptions->frequency);
 
     // new thread needs to have the globals sandboxed
     luaL_sandboxthread(L);
@@ -163,10 +175,25 @@ bool runBytecode(
 
     lua_pop(GL, 1);
 
-    return runtime.runToCompletion();
+    bool b = runtime.runToCompletion();
+    if (profileOptions)
+    {
+        profilerStop();
+        profilerDump(profileOptions->filename.c_str(), reporter);
+    }
+
+    return b;
 }
 
-static bool runFile(Runtime& runtime, const char* name, lua_State* GL, int program_argc, char** program_argv, LuteReporter& reporter)
+static bool runFile(
+    Runtime& runtime,
+    const char* name,
+    lua_State* GL,
+    int program_argc,
+    char** program_argv,
+    LuteReporter& reporter,
+    std::optional<ProfileOptions> profileOptions = std::nullopt
+)
 {
     if (isDirectory(name))
     {
@@ -185,7 +212,7 @@ static bool runFile(Runtime& runtime, const char* name, lua_State* GL, int progr
 
     std::string bytecode = Luau::compile(*source, copts());
 
-    return runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv, reporter);
+    return runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv, reporter, profileOptions);
 }
 
 static int assertionHandler(const char* expr, const char* file, int line, const char* function)
@@ -266,9 +293,13 @@ static std::pair<bool, std::string> getValidPath(std::string filePath)
 
 int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness, LuteReporter& reporter)
 {
-    std::string command = packageAwareness ? "pkgrun" : "run";
+    std::string command = packageAwareness ? "pkg run" : "run";
     std::string filePath;
     int program_argc = 0;
+    bool enableProfiling = false;
+    ProfileOptions profileOpts;
+    bool hasProfileOutputArg = false;
+    bool hasProfileFreqArg = false;
     char** program_argv = nullptr;
 
     for (int i = argOffset; i < argc; ++i)
@@ -279,6 +310,32 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         {
             reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
             return 0;
+        }
+        else if (strcmp(currentArg, "--profile") == 0)
+        {
+            enableProfiling = true;
+        }
+        else if (strcmp(currentArg, "--profile-output") == 0)
+        {
+            if (i + 1 >= argc)
+            {
+                reporter.reportError("Error: --profile-output requires a path argument.");
+                reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
+                return 1;
+            }
+            profileOpts.filename = argv[++i];
+            hasProfileOutputArg = true;
+        }
+        else if (strcmp(currentArg, "--frequency") == 0)
+        {
+            if (i + 1 >= argc)
+            {
+                reporter.reportError("Error: --frequency requires a value argument.");
+                reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
+                return 1;
+            }
+            profileOpts.frequency = std::stoi(argv[++i]);
+            hasProfileFreqArg = true;
         }
         else if (currentArg[0] == '-')
         {
@@ -309,6 +366,30 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         return 1;
     }
 
+    std::optional<ProfileOptions> profileOptions;
+    if (enableProfiling)
+    {
+        if (profileOpts.filename.empty())
+        {
+            auto now = std::chrono::system_clock::now();
+            std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+            std::tm* localTime = std::localtime(&nowTime);
+
+            char dateTimeStr[20];
+            std::strftime(dateTimeStr, sizeof(dateTimeStr), "%Y-%m-%d_%H-%M-%S", localTime);
+
+            std::string baseName = Lute::getFilenameWithoutExtension(filePath);
+            profileOpts.filename = std::string(dateTimeStr) + "_" + baseName + ".json";
+        }
+
+        profileOptions.emplace(profileOpts);
+    }
+    else if (hasProfileOutputArg || hasProfileFreqArg)
+    {
+        reporter.reportError("You passed --profile-output or --frequency without passing --profile.");
+        return 1;
+    }
+
     Runtime runtime;
     lua_State* L;
 
@@ -322,7 +403,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
                 reporter.reportError("Error: Failed to get current working directory.\n");
                 return 1;
             }
-            validPath = normalizePath(joinPaths(*cwd, filePath));
+            validPath = normalizePath(joinPaths(*cwd, validPath));
         }
 
         std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(validPath);
@@ -340,7 +421,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         L = setupCliState(runtime);
     }
 
-    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter);
+    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter, profileOptions);
     return success ? 0 : 1;
 }
 
@@ -586,15 +667,16 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     }
 
     const char* command = argv[1];
+    const char* subcommand = argc >= 3 ? argv[2] : nullptr;
     int argOffset = 2;
 
     if (strcmp(command, "run") == 0)
     {
         return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ false, reporter);
     }
-    else if (strcmp(command, "pkgrun") == 0)
+    else if (strcmp(command, "pkg") == 0 && subcommand && strcmp(subcommand, "run") == 0)
     {
-        return handleRunCommand(argc, argv, argOffset, /* packageAwareness = */ true, reporter);
+        return handleRunCommand(argc, argv, argOffset + 1, /* packageAwareness = */ true, reporter);
     }
     else if (strcmp(command, "check") == 0)
     {

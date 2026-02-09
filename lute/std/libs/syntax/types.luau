@@ -39,9 +39,7 @@ export type AstExprIndexName = luau.AstExprIndexName
 
 export type AstExprIndexExpr = luau.AstExprIndexExpr
 
-export type AstFunctionBody = luau.AstFunctionBody
-
-export type AstExprAnonymousFunction = luau.AstExprAnonymousFunction
+export type AstExprFunction = luau.AstExprFunction
 
 export type AstExprTableItemList = luau.AstExprTableItemList
 
@@ -161,5 +159,9 @@ export type ParseResult = luau.ParseResult
 
 export type replacement = string | AstNode | Token
 export type replacements = { [AstNode | Token]: replacement }
+
+export type Type = luau.Type
+
+export type TypePack = luau.TypePack
 
 return {}

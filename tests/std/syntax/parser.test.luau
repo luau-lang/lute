@@ -1,15 +1,15 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
+local strext = require("@std/stringext")
 local test = require("@std/test")
-local asserts = require("@std/test/assert")
+local testTypes = require("@std/test/types")
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
-local T = require("@std/luau")
 
 local function assertEqualsLocation(
-	assert: asserts.asserts,
-	actual: T.span,
+	assert: testTypes.asserts,
+	actual: syntax.span,
 	startLine: number,
 	startColumn: number,
 	endLine: number,
@@ -127,6 +127,9 @@ test.suite("Parser", function(suite)
 			if entry.type ~= "file" then
 				continue
 			end
+			if strext.hassuffix(entry.name, ".json") then
+				continue
+			end
 
 			suite:case(`roundtrippable_Ast_{entry.name}`, function(assert)
 				local p = path.join(directory, entry.name)
@@ -180,7 +183,7 @@ test.suite("Parser", function(suite)
 			{ attr = "@deprecated", code = code:gsub("checked", "deprecated") },
 		}
 
-		for _, subcase in ipairs(subcases) do
+		for _, subcase in subcases do
 			local block = parser.parseblock(subcase.code)
 			assert.eq(#block.statements, 1)
 
@@ -188,7 +191,7 @@ test.suite("Parser", function(suite)
 			assert.eq(l.tag, "localfunction")
 
 			local lf = l :: syntax.AstStatLocalFunction
-			assert.eq(lf.attributes[1].text, subcase.attr)
+			assert.eq(lf.func.attributes[1].text, subcase.attr)
 		end
 	end)
 end)
@@ -322,84 +325,81 @@ test.suite("parseExpr", function(suite)
 		assert.eq((indexExpr :: syntax.AstExprIndexExpr).closebrackets.text, "]")
 	end)
 
-	suite:case("parseExprAnonymousFunction", function(assert)
+	suite:case("parseExprFunction", function(assert)
 		local anonFuncExpr = parser.parseexpr("function(a, b) return a + b end")
 		assert.eq(anonFuncExpr.tag, "function")
 		assert.eq(anonFuncExpr.kind, "expr")
 
-		local funcExpr = anonFuncExpr :: syntax.AstExprAnonymousFunction
+		local funcExpr = anonFuncExpr :: syntax.AstExprFunction
 		assert.eq(#funcExpr.attributes, 0)
 		assert.eq(funcExpr.functionkeyword.text, "function")
-
-		local funcBody = funcExpr.body
-		assert.eq(funcBody.opengenerics, nil)
-		assert.eq(funcBody.generics, nil)
-		assert.eq(funcBody.genericpacks, nil)
-		assert.eq(funcBody.closegenerics, nil)
-		assert.eq(funcBody.self, nil)
-		assert.eq(funcBody.openparens.text, "(")
-		assert.eq(#funcBody.parameters, 2)
-		assert.eq(funcBody.parameters[1].node.name.text, "a")
-		assert.eq(funcBody.parameters[2].node.name.text, "b")
-		assert.eq(funcBody.vararg, nil)
-		assert.eq(funcBody.varargcolon, nil)
-		assert.eq(funcBody.varargannotation, nil)
-		assert.eq(funcBody.closeparens.text, ")")
-		assert.eq(funcBody.returnspecifier, nil)
-		assert.eq(funcBody.returnannotation, nil)
-		assert.eq(funcBody.endkeyword.text, "end")
+		assert.eq(funcExpr.opengenerics, nil)
+		assert.eq(funcExpr.generics, nil)
+		assert.eq(funcExpr.genericpacks, nil)
+		assert.eq(funcExpr.closegenerics, nil)
+		assert.eq(funcExpr.self, nil)
+		assert.eq(funcExpr.openparens.text, "(")
+		assert.eq(#funcExpr.parameters, 2)
+		assert.eq(funcExpr.parameters[1].node.name.text, "a")
+		assert.eq(funcExpr.parameters[2].node.name.text, "b")
+		assert.eq(funcExpr.vararg, nil)
+		assert.eq(funcExpr.varargcolon, nil)
+		assert.eq(funcExpr.varargannotation, nil)
+		assert.eq(funcExpr.closeparens.text, ")")
+		assert.eq(funcExpr.returnspecifier, nil)
+		assert.eq(funcExpr.returnannotation, nil)
+		assert.eq(funcExpr.endkeyword.text, "end")
 
 		anonFuncExpr = parser.parseexpr("function<A, B...>(a: A, ...: B...): A return a end")
 		assert.eq(anonFuncExpr.tag, "function")
 		assert.eq(anonFuncExpr.kind, "expr")
 
-		funcExpr = anonFuncExpr :: syntax.AstExprAnonymousFunction
+		funcExpr = anonFuncExpr :: syntax.AstExprFunction
 		assert.eq(#funcExpr.attributes, 0)
 		assert.eq(funcExpr.functionkeyword.text, "function")
 
-		funcBody = funcExpr.body
-		assert.neq(funcBody.opengenerics, nil)
-		assert.neq(funcBody.generics, nil)
+		assert.neq(funcExpr.opengenerics, nil)
+		assert.neq(funcExpr.generics, nil)
 
-		assert.eq(#funcBody.generics :: syntax.Punctuated<syntax.AstGenericType>, 1)
-		local gen = (funcBody.generics :: syntax.Punctuated<syntax.AstGenericType>)[1].node
+		assert.eq(#funcExpr.generics :: syntax.Punctuated<syntax.AstGenericType>, 1)
+		local gen = (funcExpr.generics :: syntax.Punctuated<syntax.AstGenericType>)[1].node
 		assert.eq(gen.name.text, "A")
 		assert.eq(gen.equals, nil)
 		assert.eq(gen.default, nil)
 
-		assert.neq(funcBody.genericpacks, nil)
-		assert.eq(#funcBody.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>, 1)
-		local genPack = (funcBody.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>)[1].node
+		assert.neq(funcExpr.genericpacks, nil)
+		assert.eq(#funcExpr.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>, 1)
+
+		local genPack = (funcExpr.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>)[1].node
 		assert.eq(genPack.name.text, "B")
 		assert.eq(genPack.ellipsis.text, "...")
 		assert.eq(genPack.equals, nil)
 		assert.eq(genPack.default, nil)
 
-		assert.neq(funcBody.closegenerics, nil)
-		assert.eq((funcBody.closegenerics :: syntax.Token<">">).text, ">")
+		assert.neq(funcExpr.closegenerics, nil)
+		assert.eq((funcExpr.closegenerics :: syntax.Token<">">).text, ">")
 
-		assert.eq(funcBody.openparens.text, "(")
-		assert.eq(#funcBody.parameters, 1)
-
-		local param = funcBody.parameters[1].node
+		assert.eq(funcExpr.openparens.text, "(")
+		assert.eq(#funcExpr.parameters, 1)
+		local param = funcExpr.parameters[1].node
 		assert.eq(param.name.text, "a")
 		assert.neq(param.colon, nil)
 		assert.eq((param.colon :: syntax.Token<":">).text, ":")
 		assert.neq(param.annotation, nil)
 		assert.eq((param.annotation :: syntax.AstType).tag, "reference")
 
-		assert.neq(funcBody.vararg, nil)
-		assert.eq((funcBody.vararg :: syntax.Token<"...">).text, "...")
-		assert.neq(funcBody.varargcolon, nil)
-		assert.eq((funcBody.varargcolon :: syntax.Token<":">).text, ":")
-		assert.neq(funcBody.varargannotation, nil)
-		assert.eq((funcBody.varargannotation :: syntax.AstTypePack).tag, "generic")
+		assert.neq(funcExpr.vararg, nil)
+		assert.eq((funcExpr.vararg :: syntax.Token<"...">).text, "...")
+		assert.neq(funcExpr.varargcolon, nil)
+		assert.eq((funcExpr.varargcolon :: syntax.Token<":">).text, ":")
+		assert.neq(funcExpr.varargannotation, nil)
+		assert.eq((funcExpr.varargannotation :: syntax.AstTypePack).tag, "generic")
 
-		assert.eq(funcBody.closeparens.text, ")")
-		assert.neq(funcBody.returnspecifier, nil)
-		assert.eq((funcBody.returnspecifier :: syntax.Token<":">).text, ":")
-		assert.neq(funcBody.returnannotation, nil)
-		assert.eq((funcBody.returnannotation :: syntax.AstTypePack).tag, "explicit")
+		assert.eq(funcExpr.closeparens.text, ")")
+		assert.neq(funcExpr.returnspecifier, nil)
+		assert.eq((funcExpr.returnspecifier :: syntax.Token<":">).text, ":")
+		assert.neq(funcExpr.returnannotation, nil)
+		assert.eq((funcExpr.returnannotation :: syntax.AstTypePack).tag, "explicit")
 	end)
 
 	suite:case("parseExprTable", function(assert)
@@ -528,7 +528,7 @@ foo = bar,
 	end)
 end)
 
-local function checkIsBlock(node: any, assert: asserts.asserts)
+local function checkIsBlock(node: any, assert: testTypes.asserts)
 	assert.eq(node.kind, "stat")
 	assert.eq(node.tag, "block")
 end
@@ -548,7 +548,8 @@ test.suite("parse", function(suite)
 		local doStat = block.statements[1] :: syntax.AstStatDo
 		assert.eq(doStat.tag, "do")
 		assert.eq(doStat.dokeyword.text, "do")
-		assert.eq(#doStat.body, 1)
+		checkIsBlock(doStat.body, assert)
+		assert.eq(#doStat.body.statements, 1)
 		assert.eq(doStat.endkeyword.text, "end")
 	end)
 
@@ -799,14 +800,14 @@ test.suite("parse", function(suite)
 
 		local funcStat = block.statements[1] :: syntax.AstStatFunction
 		assert.eq(funcStat.tag, "function")
-		assert.eq(#funcStat.attributes, 3)
-		assert.eq((funcStat.attributes[1] :: syntax.AstAttribute).text, "@checked")
-		assert.eq((funcStat.attributes[2] :: syntax.AstAttribute).text, "@native")
-		assert.eq((funcStat.attributes[3] :: syntax.AstAttribute).text, "@deprecated")
-		assert.eq(funcStat.functionkeyword.text, "function")
+		assert.eq(#funcStat.func.attributes, 3)
+		assert.eq((funcStat.func.attributes[1] :: syntax.AstAttribute).text, "@checked")
+		assert.eq((funcStat.func.attributes[2] :: syntax.AstAttribute).text, "@native")
+		assert.eq((funcStat.func.attributes[3] :: syntax.AstAttribute).text, "@deprecated")
+		assert.eq(funcStat.func.functionkeyword.text, "function")
 		assert.eq(funcStat.name.tag, "global")
 		assert.eq((funcStat.name :: syntax.AstExprGlobal).name.text, "add")
-		-- body parsing tested in parseExprAnonymousFunction
+		-- body parsing tested in parseExprFunction
 	end)
 
 	suite:case("parseStatLocalFunction", function(assert)
@@ -816,9 +817,9 @@ test.suite("parse", function(suite)
 
 		local localFuncStat = block.statements[1] :: syntax.AstStatLocalFunction
 		assert.eq(localFuncStat.tag, "localfunction")
-		assert.eq(#localFuncStat.attributes, 0)
+		assert.eq(#localFuncStat.func.attributes, 0)
 		assert.eq(localFuncStat.localkeyword.text, "local")
-		assert.eq(localFuncStat.functionkeyword.text, "function")
+		assert.eq(localFuncStat.func.functionkeyword.text, "function")
 		assert.eq(localFuncStat.name.name.text, "multiply")
 	end)
 
@@ -865,7 +866,7 @@ test.suite("parse", function(suite)
 		assert.eq(typeFunc.tag, "typefunction")
 		assert.eq(typeFunc.export, nil)
 		assert.eq(typeFunc.type.text, "type")
-		assert.eq(typeFunc.functionkeyword.text, "function")
+		assert.eq(typeFunc.body.functionkeyword.text, "function")
 		assert.eq(typeFunc.name.text, "foo")
 
 		block = parser.parseblock("export type function foo() return types.number end")
@@ -879,7 +880,7 @@ test.suite("parse", function(suite)
 end)
 
 test.suite("parse types", function(suite)
-	-- AstGenericType and AstGenericTypePack are tested in parseExprAnonymousFunction
+	-- AstGenericType and AstGenericTypePack are tested in parseExprFunction
 	suite:case("testTypeReference", function(assert)
 		local block = parser.parseblock("type MyString = string")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias

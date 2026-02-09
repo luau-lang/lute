@@ -1,75 +1,112 @@
 #include "lute/profiler.h"
 
+#include "lute/reporter.h"
+
 #include "lua.h"
 
-#include "Luau/DenseHash.h"
-
-#include <thread>
 #include <atomic>
 #include <string>
+#include <thread>
+#include <vector>
+
+
+struct FrameInfo
+{
+    std::string name;
+    std::string file;
+    int line;
+
+    FrameInfo(const lua_Debug& dbg)
+        : name(dbg.name ? dbg.name : "(anonymous)")
+        , file(dbg.source ? &dbg.source[1] : "(unknown)") // TODO(Varun)replace with chunkname utils API
+        , line(dbg.linedefined)
+    {
+    }
+
+    bool operator==(const FrameInfo& other) const
+    {
+        return name == other.name && file == other.file && line == other.line;
+    }
+};
+
+struct TraceEvent
+{
+    TraceEvent(char phase, const FrameInfo& fi, uint64_t timestamp)
+        : phase(phase)
+        , name(fi.name)
+        , file(fi.file)
+        , line(fi.line)
+        , timestamp(timestamp)
+    {
+    }
+    char phase; // 'B' for begin, 'E' for end
+    std::string name;
+    std::string file;
+    int line;
+    uint64_t timestamp; // Timestamp in microseconds
+};
 
 struct Profiler
 {
     // static state
     lua_Callbacks* callbacks = nullptr;
-    int frequency = 1000;
+    int frequency = 10000;
     std::thread thread;
 
     // variables for communication between loop and trigger
     std::atomic<bool> exit = false;
-    std::atomic<uint64_t> ticks = 0;
-    std::atomic<uint64_t> samples = 0;
+    std::atomic<uint64_t> pendingTicks = 0;
 
-    // private state for trigger
-    uint64_t currentTicks = 0;
-    std::string stackScratch;
+    // state for tracking stack changes (only accessed in trigger)
+    std::vector<FrameInfo> previousStack;
+    std::vector<TraceEvent> events;
+    uint64_t currentTimestamp = 0;
 
-    // statistics, updated by trigger
-    Luau::DenseHashMap<std::string, uint64_t> data{""};
-    uint64_t gc[16] = {};
 } gProfiler;
 
 static void profilerTrigger(lua_State* L, int gc)
 {
-    uint64_t currentTicks = gProfiler.ticks.load();
-    uint64_t elapsedTicks = currentTicks - gProfiler.currentTicks;
-
-    if (elapsedTicks)
+    uint64_t ticks = gProfiler.pendingTicks.exchange(0);
+    if (ticks == 0)
     {
-        std::string& stack = gProfiler.stackScratch;
-
-        stack.clear();
-
-        if (gc > 0)
-            stack += "GC,GC,";
-
-        lua_Debug ar;
-        for (int level = 0; lua_getinfo(L, level, "sn", &ar); ++level)
-        {
-            if (!stack.empty())
-                stack += ';';
-
-            stack += ar.short_src;
-            stack += ',';
-            if (ar.name)
-                stack += ar.name;
-            stack += ',';
-            if (ar.linedefined > 0)
-                stack += std::to_string(ar.linedefined);
-        }
-
-        if (!stack.empty())
-        {
-            gProfiler.data[stack] += elapsedTicks;
-        }
-
-        if (gc > 0)
-        {
-            gProfiler.gc[gc] += elapsedTicks;
-        }
+        gProfiler.callbacks->interrupt = nullptr;
+        return;
     }
 
-    gProfiler.currentTicks = currentTicks;
+    std::vector<FrameInfo> currentStack;
+    lua_Debug dbg;
+    for (int level = 0; lua_getinfo(L, level, "sln", &dbg); ++level)
+    {
+        currentStack.emplace_back(dbg);
+    }
+
+    // Stacks are in reverse order, i.e
+    // leaf ..... main, so we should walk backwards
+    size_t commonDepth = 0;
+    size_t iterPrev = gProfiler.previousStack.size();
+    size_t iterCurr = currentStack.size();
+
+    while (iterPrev > 0 && iterCurr > 0 && gProfiler.previousStack[iterPrev - 1] == currentStack[iterCurr - 1])
+    {
+        commonDepth++;
+        iterPrev--;
+        iterCurr--;
+    }
+
+    for (size_t i = 0; i < gProfiler.previousStack.size() - commonDepth; i++)
+    {
+        const FrameInfo& frame = gProfiler.previousStack.at(i);
+        gProfiler.events.emplace_back('E', frame, gProfiler.currentTimestamp);
+    }
+
+    for (size_t i = currentStack.size() - commonDepth; i > 0; i--)
+    {
+        const FrameInfo& frame = currentStack.at(i - 1);
+        gProfiler.events.emplace_back('B', frame, gProfiler.currentTimestamp);
+    }
+
+    gProfiler.currentTimestamp += ticks;
+    gProfiler.previousStack = std::move(currentStack);
     gProfiler.callbacks->interrupt = nullptr;
 }
 
@@ -83,10 +120,9 @@ static void profilerLoop()
 
         if (now - last >= 1.0 / double(gProfiler.frequency))
         {
-            int64_t ticks = int64_t((now - last) * 1e6);
+            uint64_t ticks = uint64_t((now - last) * 1e6);
 
-            gProfiler.ticks += ticks;
-            gProfiler.samples++;
+            gProfiler.pendingTicks += ticks;
             gProfiler.callbacks->interrupt = profilerTrigger;
 
             last += ticks * 1e-6;
@@ -102,6 +138,10 @@ void profilerStart(lua_State* L, int frequency)
 {
     gProfiler.frequency = frequency;
     gProfiler.callbacks = lua_callbacks(L);
+    gProfiler.previousStack.clear();
+    gProfiler.events.clear();
+    gProfiler.currentTimestamp = 0;
+    gProfiler.pendingTicks = 0;
 
     gProfiler.exit = false;
     gProfiler.thread = std::thread(profilerLoop);
@@ -111,53 +151,44 @@ void profilerStop()
 {
     gProfiler.exit = true;
     gProfiler.thread.join();
+
+    // For any of the remaining frames on the stack, insert an artificial end(E) event.
+    for (size_t i = 0; i < gProfiler.previousStack.size(); i++)
+    {
+        const FrameInfo& frame = gProfiler.previousStack.at(i);
+        gProfiler.events.emplace_back('E', frame, gProfiler.currentTimestamp);
+    }
+    gProfiler.previousStack.clear();
 }
 
-void profilerDump(const char* path)
+void profilerDump(const char* path, LuteReporter& reporter)
 {
-    FILE* f = fopen(path, "wb");
-    if (!f)
+    FILE* out = fopen(path, "w");
+    if (!out)
     {
-        fprintf(stderr, "Error opening profile %s\n", path);
+        reporter.formatError("Failed to open profile output file: %s", path);
         return;
     }
 
-    uint64_t total = 0;
+    fprintf(out, "{\"traceEvents\":[\n");
 
-    for (auto& p : gProfiler.data)
+    for (size_t i = 0; i < gProfiler.events.size(); i++)
     {
-        fprintf(f, "%lld %s\n", static_cast<long long>(p.second), p.first.c_str());
-        total += p.second;
+        const TraceEvent& evt = gProfiler.events[i];
+
+        if (i > 0)
+            fprintf(out, ",\n");
+
+        fprintf(out, "{\"ph\":\"%c\",", evt.phase);
+        fprintf(out, "\"name\":\"%s\",", evt.name.c_str());
+        fprintf(out, "\"cat\":\"function\",");
+        fprintf(out, "\"pid\":1,\"tid\":1,");
+        fprintf(out, "\"ts\":%llu", static_cast<unsigned long long>(evt.timestamp));
+        fprintf(out, ",\"args\":{\"file\":\"%s\",\"line\":%d}}", evt.file.c_str(), evt.line);
     }
 
-    fclose(f);
+    fprintf(out, "\n]}\n");
+    fclose(out);
 
-    printf(
-        "Profiler dump written to %s (total runtime %.3f seconds, %lld samples, %lld stacks)\n",
-        path,
-        double(total) / 1e6,
-        static_cast<long long>(gProfiler.samples.load()),
-        static_cast<long long>(gProfiler.data.size())
-    );
-
-    uint64_t totalgc = 0;
-    for (uint64_t p : gProfiler.gc)
-        totalgc += p;
-
-    if (totalgc)
-    {
-        printf("GC: %.3f seconds (%.2f%%)", double(totalgc) / 1e6, double(totalgc) / double(total) * 100);
-
-        for (size_t i = 0; i < std::size(gProfiler.gc); ++i)
-        {
-            extern const char* luaC_statename(int state);
-
-            uint64_t p = gProfiler.gc[i];
-
-            if (p)
-                printf(", %s %.2f%%", luaC_statename(int(i)), double(p) / double(totalgc) * 100);
-        }
-
-        printf("\n");
-    }
+    reporter.reportOutput("Profile written to " + std::string(path) + " (" + std::to_string(gProfiler.events.size()) + " events)");
 }

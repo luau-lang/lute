@@ -1,5 +1,8 @@
 #include "lute/runtime.h"
 
+#include "lute/uvutils.h"
+
+#include "Luau/Common.h"
 #include "Luau/Require.h"
 
 #include "lua.h"
@@ -20,8 +23,14 @@ Runtime::Runtime()
     : globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
 {
+
     stop.store(false);
     activeTokens.store(0);
+
+    if (uv_loop_init(&eventLoop) < 0)
+    {
+        LUTE_ASSERT("Couldn't initialize runtime event loop");
+    }
 }
 
 Runtime::~Runtime()
@@ -36,6 +45,9 @@ Runtime::~Runtime()
 
     if (runLoopThread.joinable())
         runLoopThread.join();
+    // At this point, Runtime::hasWork will have returned false (i.e uv_loop_alive is false)
+    // This means there are no outstanding handles, or file descriptors or work, to do, and we can exit
+    uv_loop_close(&eventLoop);
 }
 
 bool Runtime::hasWork()
@@ -44,12 +56,13 @@ bool Runtime::hasWork()
     // Unfortunately, we do currently have some places where we add/release
     // tokens that don't correspond to libuv activity, so for now we keep both.
     // uv_ref/unref could be used to patch tokens into the libuv loop itself.
-    return hasContinuations() || hasThreads() || activeTokens.load() != 0 || uv_loop_alive(uv_default_loop());
+    return hasContinuations() || hasThreads() || activeTokens.load() != 0 || uv_loop_alive(getEventLoop());
 }
 
 RuntimeStep Runtime::runOnce()
 {
-    uv_run(uv_default_loop(), UV_RUN_NOWAIT);
+    uv_run_mode mode = (hasContinuations() || hasThreads()) ? UV_RUN_NOWAIT : UV_RUN_ONCE;
+    uv_run(getEventLoop(), mode);
 
     // Complete all C++ continuations
     std::vector<std::function<void()>> copy;
@@ -233,8 +246,7 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
 
 void Runtime::runInWorkQueue(std::function<void()> f)
 {
-    auto loop = uv_default_loop();
-
+    auto loop = getEventLoop();
     uv_work_t* work = new uv_work_t();
     work->data = new decltype(f)(std::move(f));
 
@@ -266,9 +278,19 @@ void Runtime::releasePendingToken()
     assert(before > 0);
 }
 
+uv_loop_t* Runtime::getEventLoop()
+{
+    return &eventLoop;
+}
+
 Runtime* getRuntime(lua_State* L)
 {
     return static_cast<Runtime*>(lua_getthreaddata(lua_mainthread(L)));
+}
+
+uv_loop_t* getRuntimeLoop(lua_State* L)
+{
+    return getRuntime(L)->getEventLoop();
 }
 
 void ResumeTokenData::fail(std::string error)

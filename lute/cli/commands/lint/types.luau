@@ -14,6 +14,7 @@ export type LintViolation = {
 		read location: syntax.span?, -- if nil, applies to whole violation location
 		read fix: string,
 	}?,
+	read target: string?, -- Additional information on the violation (e.g link to docs)
 	read tags: { tag }?,
 }
 

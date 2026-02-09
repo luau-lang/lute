@@ -5,6 +5,8 @@
 
 local tableext = {}
 
+-- Functions on general tables
+
 function tableext.map<K, A, B>(table: { [K]: A }, f: (A) -> B): { [K]: B }
 	local new = {}
 
@@ -27,34 +29,6 @@ function tableext.filter<K, V>(table: { [K]: V }, predicate: (V) -> boolean): { 
 	return new
 end
 
-function tableext.any<T>(arr: { T }, predicate: (T) -> boolean): boolean
-	for _, v in arr do
-		if predicate(v) then
-			return true
-		end
-	end
-	return false
-end
-
-function tableext.all<T>(arr: { T }, predicate: (T) -> boolean): boolean
-	for _, v in arr do
-		if not predicate(v) then
-			return false
-		end
-	end
-	return true
-end
-
-function tableext.extend<T>(tbl: { T }, ...: { T })
-	local extensions = table.pack(...)
-	extensions.n = nil :: any
-	for _, extension in extensions do
-		for _, entry in extension do
-			table.insert(tbl, entry)
-		end
-	end
-end
-
 function tableext.combine<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
 	local tables = table.pack(...)
 	tables.n = nil :: any
@@ -74,12 +48,24 @@ function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 	return keys
 end
 
+-- Functions on array-like tables
+
 function tableext.toset<T>(tbl: { T }): { [T]: true }
 	local set: { [T]: true } = {}
 	for _, v in tbl do
 		set[v] = true
 	end
 	return set
+end
+
+function tableext.extend<T>(tbl: { T }, ...: { T })
+	local extensions = table.pack(...)
+	extensions.n = nil :: any
+	for _, extension in extensions do
+		for _, entry in extension do
+			table.insert(tbl, entry)
+		end
+	end
 end
 
 function tableext.reverse<T>(tbl: { T }, inplace: boolean?)
@@ -91,6 +77,24 @@ function tableext.reverse<T>(tbl: { T }, inplace: boolean?)
 		j -= 1
 	end
 	return new
+end
+
+function tableext.any<T>(arr: { T }, predicate: (T) -> boolean): boolean
+	for _, v in arr do
+		if predicate(v) then
+			return true
+		end
+	end
+	return false
+end
+
+function tableext.all<T>(arr: { T }, predicate: (T) -> boolean): boolean
+	for _, v in arr do
+		if not predicate(v) then
+			return false
+		end
+	end
+	return true
 end
 
 return table.freeze(tableext)

@@ -59,9 +59,7 @@ export type AstExprIndexName = types.AstExprIndexName
 
 export type AstExprIndexExpr = types.AstExprIndexExpr
 
-export type AstFunctionBody = types.AstFunctionBody
-
-export type AstExprAnonymousFunction = types.AstExprAnonymousFunction
+export type AstExprFunction = types.AstExprFunction
 
 export type AstExprTableItemList = types.AstExprTableItemList
 

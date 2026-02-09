@@ -144,4 +144,38 @@ bool removeDirectory(const std::string& path)
 #endif
 }
 
+bool isDirectory(const std::string& path)
+{
+#ifdef _WIN32
+    std::wstring wpath = fromUtf8(path);
+    if (wpath.empty())
+        return false;
+
+    DWORD attrs = GetFileAttributesW(wpath.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+        return false;
+
+    return (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+#else
+    struct stat pathStat;
+    if (stat(path.c_str(), &pathStat) != 0)
+        return false;
+    return S_ISDIR(pathStat.st_mode);
+#endif
+}
+
+std::string getFilenameWithoutExtension(const std::string& path)
+{
+    std::string base = path;
+    size_t lastSlash = base.find_last_of("/\\");
+    if (lastSlash != std::string::npos)
+        base = base.substr(lastSlash + 1);
+    // Once we've stripped off the last '/' in the path, we need to trim the last '.' to get the filename.
+    // If a filename ends in .foo.bar, only the .bar will be stripped.
+    size_t lastDot = base.rfind('.');
+    if (lastDot != std::string::npos)
+        base = base.substr(0, lastDot);
+    return base;
+}
+
 } // namespace Lute

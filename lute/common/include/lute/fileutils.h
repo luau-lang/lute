@@ -1,7 +1,6 @@
 // This file is part of the Lute programming language and is licensed under MIT License
 #pragma once
 
-#include <optional>
 #include <string>
 
 namespace Lute
@@ -24,5 +23,11 @@ bool removeFile(const std::string& path);
 
 // Remove a directory (must be empty)
 bool removeDirectory(const std::string& path);
+
+
+bool isDirectory(const std::string& path);
+
+// Get the name of a file without its extension
+std::string getFilenameWithoutExtension(const std::string& path);
 
 } // namespace Lute
