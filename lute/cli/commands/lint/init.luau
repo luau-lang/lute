@@ -12,7 +12,7 @@ local tableext = require("@std/tableext")
 local triviaUtils = require("@std/syntax/utils/trivia")
 local types = require("@self/types")
 local visitor = require("@std/syntax/visitor")
-local confgiUtils = require("@self/configutils")
+local configUtils = require("@self/configutils")
 
 local DEFAULT_RULES = { "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
@@ -347,7 +347,7 @@ local function lintPaths(
 		print("Filtering input files by gitignore")
 	end
 	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
-	local ignores = lintConfig.ignores or {}
+	local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
 
 	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
 
@@ -431,7 +431,7 @@ local function main(...: string)
 	if fs.exists(configPath :: pathLib.pathlike) then
 		local success, loadedConfig = pcall(luau.loadbypath, configPath :: pathLib.pathlike, nil)
 		if success then
-			lintConfig = confgiUtils.extractConfig(loadedConfig)
+			lintConfig = configUtils.extractConfig(loadedConfig)
 		elseif VERBOSE then
 			print(`Error loading config:\n{loadedConfig}\nProceeding with defaults.`)
 		end
