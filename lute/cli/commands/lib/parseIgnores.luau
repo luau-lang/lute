@@ -155,8 +155,39 @@ local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): 
 	end
 end
 
+local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirectory: boolean)
+	local matched, ignored = false, false
+
+	local relativePath = path.format(path.relative(ignoreData.location, filepath))
+
+	for _, ignore in ignoreData.ignores do
+		if matchesGlob(ignore, relativePath, isDirectory) then
+			matched = true
+			ignored = true
+			break
+		end
+	end
+
+	if ignored then
+		for _, whitelist in ignoreData.whitelists do
+			if matchesGlob(whitelist, filepath, isDirectory) then
+				matched = true
+				ignored = false
+				break
+			end
+		end
+	end
+
+	if not matched and ignoreData.next then
+		return isIgnored(ignoreData.next, filepath, isDirectory)
+	end
+
+	return ignored
+end
+
 return {
 	parseIgnoreContents = parseIgnoreContents,
 	parseGitignore = parseGitignore,
 	matchesGlob = matchesGlob,
+	isIgnored = isIgnored,
 }
