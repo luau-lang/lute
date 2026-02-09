@@ -8,14 +8,9 @@ local parseGitignore = parseIgnores.parseGitignore
 local IgnoreResolver = {}
 IgnoreResolver.__index = IgnoreResolver
 
-type Glob = { pattern: string, onlyMatchDirectories: boolean, matchAnywhere: boolean }
+type Glob = parseIgnores.Glob
 
-type GitignoreData = {
-	location: string,
-	ignores: { Glob },
-	whitelists: { Glob },
-	next: GitignoreData?,
-}
+type GitignoreData = parseIgnores.GitignoreData
 
 type IgnoreResolverData = {
 	_ignoreCache: { [string]: GitignoreData },
