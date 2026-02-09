@@ -43,6 +43,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
     void cycle(TypeId ty) override
     {
+        checkStack(L, 1);
         lua_pushlightuserdata(L, (void*)ty);
         lua_gettable(L, refsTableIndex);
 
@@ -54,6 +55,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
     void cycle(TypePackId tp) override
     {
+        checkStack(L, 1);
         lua_pushlightuserdata(L, (void*)tp);
         lua_gettable(L, refsTableIndex);
 
