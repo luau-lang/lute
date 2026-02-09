@@ -69,7 +69,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         checkStack(L, 3);
         lua_pushlightuserdata(L, (void*)ty); // TypeId pointer as key
-        lua_pushvalue(L, -2); // Copy of the serialized type table as value
+        lua_pushvalue(L, -2); // Reference to the serialized type table as value
         lua_rawset(L, refsTableIndex); // refs[ty] = serializedTable
     }
 

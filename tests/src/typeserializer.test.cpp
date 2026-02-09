@@ -278,6 +278,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_function_type")
 
     lua_checkstack(L, 3);
 
+    // <T>(number) -> ()
     // { tag: "function", parameters: { head: { { tag: "number" } }, tail: nil }, returns: { head: nil, tail: nil }, generics: { { tag: "generic", name: "T", ispack: false } }, genericpacks: {} }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
@@ -286,23 +287,32 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_function_type")
 
     lua_getfield(L, -1, "parameters");
     REQUIRE(lua_istable(L, -1));
+
     lua_getfield(L, -1, "head");
     REQUIRE(lua_istable(L, -1));
     lua_rawgeti(L, -1, 1);
     requireStringField(L, "tag", "number");
-    lua_pop(L, 3); // head, parameters, function
+    lua_pop(L, 2); // head[0], head
+
+    lua_getfield(L, -1, "tail");
+    REQUIRE(lua_isnil(L, -1));
+    lua_pop(L, 2); // tail, parameters
 
     lua_getfield(L, -1, "returns");
     REQUIRE(lua_istable(L, -1));
     lua_getfield(L, -1, "head");
     REQUIRE(lua_isnil(L, -1)); // no return types
-    lua_pop(L, 2); // returns, function
+    lua_pop(L, 1); // head
+    lua_getfield(L, -1, "tail");
+    REQUIRE(lua_isnil(L, -1)); // no return types
+    lua_pop(L, 2); // tail, returns
 
     lua_getfield(L, -1, "generics");
     REQUIRE(lua_istable(L, -1));
     lua_rawgeti(L, -1, 1);
     requireStringField(L, "tag", "generic");
     requireStringField(L, "name", "T");
+    requireBoolField(L, "ispack", false);
     lua_pop(L, 2); // generics, function
 
     lua_getfield(L, -1, "genericpacks");
@@ -325,6 +335,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_table_type_with_properties")
 
     lua_checkstack(L, 3);
 
+    // { read x: number, write x: string }
     // { tag: "table", properties: { x: { read: { tag: "number" }, write: { tag: "string" } } } }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
@@ -401,6 +412,8 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_cyclic_table_type")
     REQUIRE_EQ(Luau::serializeType(L, nodeType), 1);
     
     REQUIRE(lua_istable(L, -1));
+    int root = lua_absindex(L, -1);
+
     requireStringField(L, "tag", "table");
     
     // Check properties field exists
@@ -421,78 +434,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_cyclic_table_type")
     lua_getfield(L, -1, "read");
     REQUIRE(lua_istable(L, -1));
     
-    // The 'read' type of 'next' should be the same table as the root
-    // We verify by checking that it has the same properties
-    requireStringField(L, "tag", "table");
-    lua_getfield(L, -1, "properties");
-    REQUIRE(lua_istable(L, -1));
-    
-    // Verify it has both 'value' and 'next' properties (proving it's the same cycle)
-    lua_getfield(L, -1, "value");
-    REQUIRE(lua_istable(L, -1));
-    lua_pop(L, 1);
-    
-    lua_getfield(L, -1, "next");
-    REQUIRE(lua_istable(L, -1));
-}
-
-TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_cyclic_table_deep_reference")
-{
-    // Create a cyclic type: type Node = { value: number, next: Node }
-    TypeId nodeType = arena.addType(TableType{});
-    TableType* table = getMutable<TableType>(nodeType);
-    
-    // Add the 'value' property
-    TypeId numberType = arena.addType(PrimitiveType{PrimitiveType::Number});
-    table->props["value"] = Property::readonly(numberType);
-    
-    // Add the 'next' property that references itself (creating the cycle)
-    table->props["next"] = Property::readonly(nodeType);
-
-    lua_checkstack(L, 3);
-
-    REQUIRE_EQ(Luau::serializeType(L, nodeType), 1);
-    
-    REQUIRE(lua_istable(L, -1));
-    requireStringField(L, "tag", "table");
-    
-    // Node.next.read
-    lua_getfield(L, -1, "properties");
-    REQUIRE(lua_istable(L, -1));
-    lua_getfield(L, -1, "next");
-    REQUIRE(lua_istable(L, -1));
-    lua_getfield(L, -1, "read");
-    REQUIRE(lua_istable(L, -1));
-    requireStringField(L, "tag", "table");
-    
-    // Node.next.next.read (should be same table)
-    lua_getfield(L, -1, "properties");
-    REQUIRE(lua_istable(L, -1));
-    lua_getfield(L, -1, "next");
-    REQUIRE(lua_istable(L, -1));
-    lua_getfield(L, -1, "read");
-    REQUIRE(lua_istable(L, -1));
-    requireStringField(L, "tag", "table");
-    
-    // Node.next.next.next.read (should still be same table)
-    lua_getfield(L, -1, "properties");
-    REQUIRE(lua_istable(L, -1));
-    lua_getfield(L, -1, "next");
-    REQUIRE(lua_istable(L, -1));
-    lua_getfield(L, -1, "read");
-    REQUIRE(lua_istable(L, -1));
-    requireStringField(L, "tag", "table");
-    
-    // Verify it still has both properties (proving the cycle is maintained)
-    lua_getfield(L, -1, "properties");
-    REQUIRE(lua_istable(L, -1));
-    
-    lua_getfield(L, -1, "value");
-    REQUIRE(lua_istable(L, -1));
-    lua_pop(L, 1);
-    
-    lua_getfield(L, -1, "next");
-    REQUIRE(lua_istable(L, -1));
+    REQUIRE(lua_rawequal(L, root, -1)); // The 'next' property's read type should be the same table as the root (cycle)
 }
 
 // TODO: MetatableType, ExternType, TypePack, VariadicTypePack, GenericTypePack tests
