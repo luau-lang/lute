@@ -351,14 +351,12 @@ local function lintPaths(
 
 		local curr = walker()
 		while curr ~= nil do
-			local inputFilePath = pathLib.parse(curr)
-
-			local success, err = pcall(lintFile, inputFilePath, lintRules, autofixEnabled)
+			local success, err = pcall(lintFile, curr, lintRules, autofixEnabled)
 			if success then
 				-- Violations are returned as the second return value from pcall
-				allViolations[inputFilePath] = err
+				allViolations[curr] = err
 			else
-				print(`Error linting file '{inputFilePath}': {err}`)
+				print(`Error linting file '{curr}': {err}`)
 			end
 
 			curr = walker()
