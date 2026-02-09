@@ -193,6 +193,23 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 		return false
 	end
 
+	function visitor.visitStatRepeat(stat: syntax.AstStatRepeat)
+		-- Push a fresh scope
+		table.insert(visitor.scopes, {} :: { [syntax.AstLocal]: boolean })
+
+		-- Manually visit the block's states so we can keep the scope around
+		for _, bodyStat in stat.body.statements do
+			visitorLib.visitstatement(bodyStat, visitor)
+		end
+
+		-- Visit the condition with the same scope as the body
+		visitorLib.visitexpression(stat.condition, visitor)
+
+		popAndSaveUnusedLocals(stat)
+
+		return false
+	end
+
 	function visitor.visitExprLocal(node: syntax.AstExprLocal)
 		if node.token.text == "self" and visitor.insideMethodContext then
 			return false
