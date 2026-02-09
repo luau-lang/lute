@@ -15,7 +15,7 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 	local visitor: visitorLib.Visitor & {
 		unusedLocals: { syntax.AstLocal },
 		scopes: { { [syntax.AstLocal]: boolean } },
-		ignoreReferences: { [syntax.AstLocal]: boolean },
+		ignoreReferences: { [syntax.AstLocal]: true },
 		requiredModules: { [string]: syntax.AstLocal },
 		insideMethodContext: boolean,
 		inLValueContext: boolean,
