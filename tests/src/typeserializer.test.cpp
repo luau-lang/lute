@@ -434,7 +434,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_cyclic_table_type")
     lua_getfield(L, -1, "read");
     REQUIRE(lua_istable(L, -1));
     
-    REQUIRE(lua_rawequal(L, root, -1)); // The 'next' property's read type should be the same table as the root (cycle)
+    REQUIRE(lua_equal(L, root, -1)); // The 'next' property's read type should be the same table as the root (cycle)
 }
 
 // TODO: MetatableType, ExternType, TypePack, VariadicTypePack, GenericTypePack tests
