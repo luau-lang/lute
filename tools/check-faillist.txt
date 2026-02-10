@@ -228,9 +228,6 @@ tests/batteries/collections/deque.test.luau:61:13-16
 tests/batteries/collections/deque.test.luau:81:13-16
 tests/batteries/collections/deque.test.luau:86:13-16
 tests/batteries/collections/deque.test.luau:91:13-16
-tests/cli/check.test.luau:1:7-8
-tests/cli/check.test.luau:4:7-12
-tests/cli/test.test.luau:3:7-12
 tests/runtime/crypto.test.luau:66:26-30
 tests/runtime/crypto.test.luau:108:56-68
 tests/runtime/crypto.test.luau:112:72-84
