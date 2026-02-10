@@ -2677,7 +2677,7 @@ end
 		return {
 			lute = {
 				lint = {
-					ignores = { "ignored%.luau" }
+					ignores = { "**/ignored.luau" }
 				}
 			}
 		}
@@ -2703,7 +2703,7 @@ end
 		return {
 			lute = {
 				lint = {
-					ignores = { "ignored%.luau" }
+					ignores = { "**/ignored.luau" }
 				}
 			}
 		}
@@ -2718,3 +2718,5 @@ end
 		assert.strnotcontains(result.stdout, "divide_by_zero")
 	end)
 end)
+
+test.run()

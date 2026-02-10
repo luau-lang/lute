@@ -13,6 +13,7 @@ local triviaUtils = require("@std/syntax/utils/trivia")
 local types = require("@self/types")
 local visitor = require("@std/syntax/visitor")
 local configUtils = require("@self/configutils")
+local parseIgnores = require("./lib/parseIgnores")
 
 local DEFAULT_RULES =
 	{ "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions", "unused_variable" }
@@ -342,13 +343,13 @@ local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	lintConfig: types.LintConfig
+	_lintConfig: types.LintConfig, -- will be used in follow-up PRs
+	ignoreData: parseIgnores.GitignoreData
 ): { [pathLib.path]: { types.LintViolation } }
 	if VERBOSE then
 		print("Filtering input files by gitignore")
 	end
 	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
-	local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
 
 	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
 
@@ -360,12 +361,12 @@ local function lintPaths(
 			local inputFilePathString = pathLib.format(curr)
 
 			local isIgnored = false
-			for _, ignore in ignores do -- ignore matches
-				if inputFilePathString:match(pathLib.format(ignore)) then
-					isIgnored = true
-					break
-				end
+
+			if parseIgnores.isIgnored(ignoreData, inputFilePathString, fs.type(inputFilePathString) == "dir") then
+				isIgnored = true
+				break
 			end
+
 			if isIgnored then
 				curr = walker()
 				continue
@@ -482,7 +483,13 @@ local function main(...: string)
 			print("Auto-fix is enabled.")
 		end
 
-		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, lintConfig) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+		local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
+		local rootLocation = if fs.exists(configPath)
+			then pathLib.dirname(configPath)
+			else pathLib.format(process.cwd())
+		local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
+
+		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, lintConfig, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
