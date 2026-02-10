@@ -2718,5 +2718,3 @@ end
 		assert.strnotcontains(result.stdout, "divide_by_zero")
 	end)
 end)
-
-test.run()
