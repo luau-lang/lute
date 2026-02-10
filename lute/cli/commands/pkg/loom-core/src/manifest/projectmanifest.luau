@@ -35,7 +35,7 @@ function fromTable(table: any): ProjectManifest
 	assert(package.version ~= nil and type(package.version) == "string", "Expected 'rev' field in package manifest")
 	if package.dependencies ~= nil then
 		local dependencies = package.dependencies
-		for name, spec in dependencies do
+		for _, spec in dependencies do
 			assert(spec.rev ~= nil and type(spec.rev) == "string", "Expected 'rev' field in dependency spec")
 			assert(
 				spec.sourceKind ~= nil and type(spec.sourceKind) == "string",

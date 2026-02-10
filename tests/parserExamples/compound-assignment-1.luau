@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(unused_variable)
 local x = 1
 local y = 2
 

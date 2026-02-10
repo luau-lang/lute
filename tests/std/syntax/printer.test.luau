@@ -6,16 +6,6 @@ local syntaxTypes = require("@std/syntax/types")
 local syntaxUtils = require("@std/syntax/utils")
 local test = require("@std/test")
 
-local function compareStrings(result: string, expected: string)
-	for i = 1, math.max(#result, #expected) do
-		local rChar = result:sub(i, i):byte()
-		local eChar = expected:sub(i, i):byte()
-		if rChar ~= eChar then
-			print(`Difference at index {i}: result='{rChar}', expected='{eChar}'`)
-		end
-	end
-end
-
 local function checkReplacement(
 	source: string,
 	expected: string,
@@ -67,7 +57,7 @@ test.suite("syntax_printer", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatLocal):replace(function(s)
+			return query.findallfromroot(ast, syntaxUtils.isStatLocal):replace(function(_)
 				return syntax.parseblock("local name = 1 + 2")
 			end)
 		end, assert)
@@ -86,7 +76,7 @@ test.suite("syntax_printer", function(suite)
 				:map(function(assign)
 					return assign.variables[1].node.annotation
 				end)
-				:replace(function(t)
+				:replace(function(_)
 					return ann
 				end)
 		end, assert)
@@ -107,7 +97,7 @@ test.suite("syntax_printer", function(suite)
 						return ta.type.returntypes
 					end
 				end)
-				:replace(function(t)
+				:replace(function(_)
 					return tp
 				end)
 		end, assert)
@@ -123,7 +113,7 @@ test.suite("syntax_printer", function(suite)
 				:map(function(node)
 					return node.entries[1]
 				end)
-				:replace(function(entry)
+				:replace(function(_)
 					return "b = 2,"
 				end)
 		end, assert)

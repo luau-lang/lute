@@ -116,7 +116,7 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 					table.insert(result, brightGreen("+ ") .. destLine)
 				end
 			else
-				for j, deleted in deletes do
+				for _, deleted in deletes do
 					if includeLineNumbers then
 						table.insert(
 							result,
@@ -129,7 +129,7 @@ local function printDiffByLineDetailed(a: string, b: string, includeLineNumbers:
 						table.insert(result, brightRed("- " .. deleted))
 					end
 				end
-				for j, added in adds do
+				for _, added in adds do
 					if includeLineNumbers then
 						table.insert(
 							result,
@@ -180,7 +180,7 @@ local function prettydiff(
 		local maxLineNumberLen = math.floor(math.log10(maxNumLines)) + 1
 		local oldLine, newLine = 1, 1
 
-		for i, op in diff do
+		for _, op in diff do
 			if op.key == "ADD" then
 				table.insert(
 					result,
@@ -202,7 +202,7 @@ local function prettydiff(
 			end
 		end
 	else
-		for i, op in diff do
+		for _, op in diff do
 			if op.key == "ADD" then
 				table.insert(result, brightGreen("+ " .. op.text))
 			elseif op.key == "DELETE" then

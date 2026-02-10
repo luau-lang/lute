@@ -43,10 +43,10 @@ local function sanitizePath(path: string): string
 	return normalized
 end
 
-function Git:installZipArchive(name: string, version: string, content: string)
+function Git:installZipArchive(name: string, _version: string, content: string)
 	local reader = unzip.load(buffer.fromstring(content))
 
-	reader:walk(function(entry, depth)
+	reader:walk(function(entry, _depth)
 		if entry.isDirectory then
 			return
 		end

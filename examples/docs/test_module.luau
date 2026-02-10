@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(unused_variable)
 -- This file creates a mock module called test_module with random mock functions and different types of comments to test the reference doc generator reference.luau
 -- See output documentation file generated in this folder `test_module.md`
 

@@ -1,3 +1,3 @@
-local function x()
+local function _()
 	call(1)
 end
