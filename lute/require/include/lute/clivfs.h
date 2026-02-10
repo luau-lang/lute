@@ -11,6 +11,7 @@ public:
 
     NavigationStatus toParent();
     NavigationStatus toChild(const std::string& name);
+    NavigationStatus toAliasFallback(std::string_view aliasUnprefixed);
 
     bool isModulePresent() const;
     std::string getIdentifier() const;
@@ -21,4 +22,11 @@ public:
 
 private:
     std::optional<ModulePath> modulePath;
+
+    enum class Tracking
+    {
+        Batteries,
+        CLI
+    };
+    Tracking alias = Tracking::CLI;
 };
