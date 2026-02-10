@@ -41,9 +41,7 @@ static size_t writeFunction(char* ptr, size_t size, size_t nmemb, void* userdata
 {
     std::vector<char>* target = static_cast<std::vector<char>*>(userdata);
     size_t fullsize = size * nmemb;
-
     target->insert(target->end(), ptr, ptr + fullsize);
-
     return fullsize;
 }
 
