@@ -517,7 +517,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_generic_type_pack")
 
     TypePackId tp = arena.addTypePack(gtp);
 
-    lua_checkstack(L, 2);
+    lua_checkstack(L, 1);
 
     // { tag: "generic", name: "T", ispack: true }
     REQUIRE_EQ(Luau::serializeTypePack(L, tp), 1);

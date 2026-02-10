@@ -734,7 +734,7 @@ export type Type = {
 	parent: Type?,
 
 	-- for generic type
-	name: string?,
+	name: string,
 	ispack: boolean,
 }
 
@@ -744,11 +744,11 @@ export type TypePack = {
 	tail: TypePack?,
 
 	-- for variadic type packs
-	type: Type?,
-	hidden: boolean?,
+	type: Type,
+	hidden: boolean,
 
 	-- for generic type packs
-	name: string?,
+	name: string,
 	ispack: boolean,
 }
 

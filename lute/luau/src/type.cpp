@@ -421,7 +421,9 @@ struct TypeSerialize final : public Luau::TypeVisitor
         lua_setfield(L, -2, "metatable"); 
     }
 
-    // Luau TypePack is { head: {type}?, tail: typepack? }
+    // Luau TypePack is 
+    // head: {type}?
+    // tail: typepack?
     void serialize(TypePackId tp, const TypePack& pack)
     {
         checkStack(L, 3); // 1 for root table + 1 for subtable + 1 for traverse
