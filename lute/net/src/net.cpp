@@ -37,7 +37,7 @@ struct CurlResponse
     }
 };
 
-static size_t writeFunction(void* contents, size_t size, size_t nmemb, void* context)
+static size_t writeFunction(char* contents, size_t size, size_t nmemb, void* context)
 {
     std::vector<char>& target = *(std::vector<char>*)context;
     size_t fullsize = size * nmemb;
