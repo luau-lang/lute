@@ -428,8 +428,8 @@ local function main(...: string)
 		local cwd = process.cwd()
 		configPath = pathLib.join(cwd, ".config.luau")
 	end
-	if fs.exists(configPath :: pathLib.pathlike) then
-		local success, loadedConfig = pcall(luau.loadbypath, configPath :: pathLib.pathlike, nil)
+	if fs.exists(configPath) then
+		local success, loadedConfig = pcall(luau.loadbypath, configPath :: pathLib.pathlike)
 		if success then
 			lintConfig = configUtils.extractConfig(loadedConfig)
 		elseif VERBOSE then
