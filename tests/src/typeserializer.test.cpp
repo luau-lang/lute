@@ -437,7 +437,96 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_cyclic_table_type")
     REQUIRE(lua_equal(L, root, -1)); // The 'next' property's read type should be the same table as the root (cycle)
 }
 
-// TODO: MetatableType, ExternType, TypePack, VariadicTypePack, GenericTypePack tests
+// TODO: MetatableType, ExternType tests
+
+TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_simple_type_pack_nil_tail")
+{
+    TypeId numberTy = arena.addType(PrimitiveType{PrimitiveType::Number});
+    TypePackId tp = arena.addTypePack(TypePack{{numberTy}, std::nullopt});
+
+    lua_checkstack(L, 2);
+
+    // { head: { tag: "number" }, tail: nil }
+    REQUIRE_EQ(Luau::serializeTypePack(L, tp), 1);
+
+    REQUIRE(lua_istable(L, -1));
+
+    lua_getfield(L, -1, "head");
+    REQUIRE(lua_istable(L, -1));
+    lua_rawgeti(L, -1, 1);
+    requireStringField(L, "tag", "number");
+    lua_pop(L, 2); // head[0], head
+
+    lua_getfield(L, -1, "tail");
+    REQUIRE(lua_isnil(L, -1)); // no tail
+}
+
+TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_type_pack_with_head_and_tail")
+{
+    TypeId numberTy = arena.addType(PrimitiveType{PrimitiveType::Number});
+    TypeId stringTy = arena.addType(PrimitiveType{PrimitiveType::String});
+    TypePackId tailTp = arena.addTypePack(TypePack{{stringTy}, std::nullopt});
+    TypePackId tp = arena.addTypePack(TypePack{{numberTy}, tailTp});
+
+    lua_checkstack(L, 3);
+
+    // { head: { tag: "number" }, tail: { head: { tag: "string" }, tail: nil } }
+    REQUIRE_EQ(Luau::serializeTypePack(L, tp), 1);
+
+    REQUIRE(lua_istable(L, -1));
+
+    lua_getfield(L, -1, "head");
+    REQUIRE(lua_istable(L, -1));
+    lua_rawgeti(L, -1, 1);
+    requireStringField(L, "tag", "number");
+    lua_pop(L, 2); // head[0], head 
+
+    lua_getfield(L, -1, "tail");
+    REQUIRE(lua_istable(L, -1));
+    lua_getfield(L, -1, "head");
+    REQUIRE(lua_istable(L, -1));
+    lua_rawgeti(L, -1, 1);
+    requireStringField(L, "tag", "string");
+}
+
+TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_variadic_type_pack")
+{
+    TypeId numberTy = arena.addType(PrimitiveType{PrimitiveType::Number});
+    TypePackId tp = arena.addTypePack(VariadicTypePack{numberTy, true});
+
+    lua_checkstack(L, 2);
+
+    // { tag: "variadic", type: { tag: "number" }, hidden: true }
+    REQUIRE_EQ(Luau::serializeTypePack(L, tp), 1);
+
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "variadic");
+
+    lua_getfield(L, -1, "type");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "number");
+    lua_pop(L, 1); // type
+
+    requireBoolField(L, "hidden", true);
+}
+
+TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_generic_type_pack")
+{
+    GenericTypePack gtp;
+    gtp.name = "T";
+
+    TypePackId tp = arena.addTypePack(gtp);
+
+    lua_checkstack(L, 2);
+
+    // { tag: "generic", name: "T", ispack: true }
+    REQUIRE_EQ(Luau::serializeTypePack(L, tp), 1);
+
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "generic");
+    requireStringField(L, "name", "T");
+    requireBoolField(L, "ispack", true);
+}
 
 // Non-Serialized Types
 

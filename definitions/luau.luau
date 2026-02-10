@@ -724,8 +724,8 @@ export type Type = {
 	metatable: Type?,
 
 	-- for function type
-	parameters: { head: { Type }?, tail: Type },
-	returns: { head: { Type }?, tail: Type },
+	parameters: TypePack,
+	returns: TypePack,
 	generics: { Type },
 	genericpacks: { TypePack },
 
@@ -739,8 +739,17 @@ export type Type = {
 }
 
 export type TypePack = {
+	tag: "typepack" | "variadic" | "generic",
 	head: { Type }?,
-	tail: Type?,
+	tail: TypePack?,
+
+	-- for variadic type packs
+	type: Type?,
+	hidden: boolean?,
+
+	-- for generic type packs
+	name: string?,
+	ispack: boolean,
 }
 
 function luau.typeofmodule(modulepath: string): TypePack?

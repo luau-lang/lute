@@ -420,12 +420,14 @@ struct TypeSerialize final : public Luau::TypeVisitor
         lua_setfield(L, -2, "metatable"); 
     }
 
-    // Luau TypePack is { head: {type}?, tail: type? }
+    // Luau TypePack is { head: {type}?, tail: typepack? }
     void serialize(TypePackId tp, const TypePack& pack)
     {
         checkStack(L, 3); // 1 for root table + 1 for subtable + 1 for traverse
         lua_createtable(L, 0, 2);
         registerTypePack(tp);
+
+        pushTag("typepack");
 
         // Head
         if (!pack.head.empty())
@@ -451,20 +453,21 @@ struct TypeSerialize final : public Luau::TypeVisitor
         lua_setfield(L, -2, "tail");
     }
 
-    // Luau VariadicTypePack is { head: nil, tail: type }
+    // Luau VariadicTypePack is 
+    // type: type
+    // hidden: boolean
     void serialize(TypePackId tp, const VariadicTypePack& vtp)
     {
         checkStack(L, 2);
         lua_createtable(L, 0, 2);
         registerTypePack(tp);
 
-        // Head is nil
-        lua_pushnil(L);
-        lua_setfield(L, -2, "head");
+        pushTag("variadic");
 
-        // Tail is the type
         traverse(vtp.ty);
-        lua_setfield(L, -2, "tail");
+        lua_setfield(L, -2, "type");
+        lua_pushboolean(L, vtp.hidden);
+        lua_setfield(L, -2, "hidden");
     }
 
     // Luau GenericTypePack is
