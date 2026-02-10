@@ -1,5 +1,5 @@
 -- stylua: ignore
-local x =
+local _ =
 	`test`
 
 -- stylua: ignore

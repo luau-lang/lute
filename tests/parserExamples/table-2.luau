@@ -1,3 +1,3 @@
-local x = {
+local _ = {
 	["test"] = true,
 }

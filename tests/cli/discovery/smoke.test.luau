@@ -10,4 +10,4 @@ test.suite("SmokeSuite", function(suite)
 	end)
 end)
 
-test.case("Passing", function(assert) end)
+test.case("Passing", function(_) end)

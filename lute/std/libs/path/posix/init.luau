@@ -221,7 +221,7 @@ function posix.relative(from: pathlike, to: pathlike): path
 	local relativeParts = {}
 
 	if #from.parts > commonPrefixLength then
-		for i = commonPrefixLength + 1, #from.parts do
+		for _ = commonPrefixLength + 1, #from.parts do
 			table.insert(relativeParts, "..")
 		end
 	end

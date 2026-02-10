@@ -46,11 +46,6 @@ end
 local function listtests()
 	-- Gets all registered tests using the shared test instance
 	local registered = test._registered()
-	local totalTests = #registered.anonymous
-
-	for _, suite in registered.suites do
-		totalTests += #suite.cases
-	end
 
 	print("Anonymous:")
 	for _, tc in registered.anonymous do

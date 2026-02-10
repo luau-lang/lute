@@ -74,12 +74,12 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visi
 	end
 
 	local selectVisitor = visitor.create(visit)
-	selectVisitor.visitStatBlockEnd = function(n) end
-	selectVisitor.visitStatLocalDeclarationEnd = function(n) end
-	selectVisitor.visitExpr = function(n)
+	selectVisitor.visitStatBlockEnd = function(_) end
+	selectVisitor.visitStatLocalDeclarationEnd = function(_) end
+	selectVisitor.visitExpr = function(_)
 		return true
 	end
-	selectVisitor.visitExprEnd = function(n) end
+	selectVisitor.visitExprEnd = function(_) end
 	selectVisitor.visitToken = function(n)
 		if utils.isBaseToken(n) then
 			-- only visit if it is a base token, so we don't double count

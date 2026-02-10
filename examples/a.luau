@@ -1,1 +1,1 @@
-local x = require("./b")
+local _ = require("./b")

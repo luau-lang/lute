@@ -240,7 +240,6 @@ end
 
 local function getStdLibHash(): string
 	local libsPath = projectRelative("lute", "std", "libs")
-	local libs = fs.listdir(libsPath)
 
 	local toHash = ""
 
@@ -293,7 +292,6 @@ local function generateStdLibFilesIfNeeded()
 	})
 
 	local libsPath = projectRelative("lute", "std", "libs")
-	local libs = fs.listdir(libsPath)
 	local numItems = 0
 
 	traverseFileTree(libsPath, function(path, relativePath)

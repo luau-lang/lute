@@ -83,14 +83,14 @@ function fslib.watch(path: pathlike): watcher
 	end)
 
 	return {
-		next = function(self: watcher): watchevent?
+		next = function(_self: watcher): watchevent?
 			if #queue == 0 then
 				return nil
 			end
 			local item = table.remove(queue, 1)
 			return item.event
 		end,
-		close = function(self: watcher): ()
+		close = function(_self: watcher): ()
 			if handle then
 				handle:close()
 			end
