@@ -1,1 +1,1 @@
-local x = 1 :: number
+local _ = 1 :: number

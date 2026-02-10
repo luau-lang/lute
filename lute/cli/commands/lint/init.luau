@@ -1,4 +1,4 @@
-local cli = require("./lib/cli")
+local cli = require("@batteries/cli")
 local files = require("./lib/files")
 local fs = require("@std/fs")
 local json = require("@std/json")
@@ -14,7 +14,8 @@ local types = require("@self/types")
 local visitor = require("@std/syntax/visitor")
 local configUtils = require("@self/configutils")
 
-local DEFAULT_RULES = { "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions" }
+local DEFAULT_RULES =
+	{ "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions", "unused_variable" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 local VERBOSE = false
 
@@ -356,8 +357,7 @@ local function lintPaths(
 
 		local curr = walker()
 		while curr ~= nil do
-			local inputFilePath = pathLib.parse(curr)
-			local inputFilePathString = pathLib.format(inputFilePath)
+			local inputFilePathString = pathLib.format(curr)
 
 			local isIgnored = false
 			for _, ignore in ignores do -- ignore matches
@@ -371,12 +371,12 @@ local function lintPaths(
 				continue
 			end
 
-			local success, err = pcall(lintFile, inputFilePath, lintRules, autofixEnabled)
+			local success, err = pcall(lintFile, curr, lintRules, autofixEnabled)
 			if success then
 				-- Violations are returned as the second return value from pcall
-				allViolations[inputFilePath] = err
+				allViolations[curr] = err
 			else
-				print(`Error linting file '{inputFilePath}': {err}`)
+				print(`Error linting file '{curr}': {err}`)
 			end
 
 			curr = walker()

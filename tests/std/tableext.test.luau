@@ -115,7 +115,7 @@ test.suite("TableExt", function(suite)
 		assert.eq(hasGreaterThanFive, false)
 
 		a = {}
-		local anyInEmpty = tableext.any(a, function(v: number)
+		local anyInEmpty = tableext.any(a, function(_: number)
 			return true
 		end)
 		assert.eq(anyInEmpty, false)
@@ -134,7 +134,7 @@ test.suite("TableExt", function(suite)
 		assert.eq(allLessThanEight, false)
 
 		a = {}
-		local allInEmpty = tableext.all(a, function(v: number)
+		local allInEmpty = tableext.all(a, function(_: number)
 			return false
 		end)
 		assert.eq(allInEmpty, true)

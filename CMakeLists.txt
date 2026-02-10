@@ -130,6 +130,7 @@ else()
 endif()
 
 # libraries
+add_subdirectory(lute/batteries)
 add_subdirectory(lute/common)
 add_subdirectory(lute/require)
 add_subdirectory(lute/runtime)

@@ -1,7 +1,5 @@
-local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
-local system = require("@std/system")
 local test = require("@std/test")
 
 local lutePath = path.format(process.execpath())

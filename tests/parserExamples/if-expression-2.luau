@@ -1,5 +1,5 @@
 -- stylua: ignore
-local x = if true
+local _ = if true
 	then call()
 	else if false
 		then call()

@@ -1,4 +1,4 @@
-local cli = require("./lib/cli")
+local cli = require("@batteries/cli")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")

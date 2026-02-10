@@ -1,1 +1,1 @@
-local x = require("@tilde/foo")
+local _x = require("@tilde/foo")

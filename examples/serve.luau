@@ -3,7 +3,7 @@ local net = require("@lute/net")
 print("Starting server...")
 
 -- Start the server (non-blocking)
-local server = net.serve(function(req)
+local server = net.serve(function(_)
 	return "Hello, lute!"
 end)
 
