@@ -20,6 +20,6 @@ local argIndexNames = query.map(p, function(call: syntax.AstExprCall)
 	return call.arguments[1].node :: syntax.AstExprIndexName
 end)
 
-local replacements = argIndexNames:replace(function(node)
+local _replacements = argIndexNames:replace(function(_)
 	return "NewComponent"
 end)
