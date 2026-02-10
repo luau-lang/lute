@@ -62,29 +62,23 @@ static bool isCliDirectory(const std::string& path)
 
 NavigationStatus CliVfs::resetToPath(const std::string& path)
 {
+    alias = path.rfind(kBatteriesAliasPrefix, 0) == 0 ? Tracking::Batteries : Tracking::CLI;
+
     if (path == kBatteriesAliasPrefix)
     {
         modulePath = ModulePath::create(std::string(kBatteriesAliasPrefix), "", isBatteryModule, isBatteryDirectory);
         return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
     }
-    else if (path == kCliAliasPrefix)
+    else
     {
-        modulePath = ModulePath::create(std::string(kCliAliasPrefix), "", isCliModule, isCliDirectory);
-        return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
-    }
-
-    if (path.rfind(kBatteriesAliasPrefix, 0) == 0)
-    {
-        modulePath = ModulePath::create(
-            std::string(kBatteriesAliasPrefix), path.substr(kBatteriesAliasPrefix.size() + 1), isBatteryModule, isBatteryDirectory
-        );
-        return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
-    }
-    else if (path.rfind(kCliAliasPrefix, 0) == 0)
-    {
-        std::string stripped = path.substr(kCliAliasPrefix.size() + 1);
-        modulePath = ModulePath::create(std::string(kCliAliasPrefix), stripped, isCliModule, isCliDirectory);
-        return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
+        auto modulePrefix = std::string(alias == Tracking::Batteries ? kBatteriesAliasPrefix : kCliAliasPrefix);
+        auto modFunc = alias == Tracking::Batteries ? isBatteryModule : isCliModule;
+        auto dirFunc = alias == Tracking::Batteries ? isBatteryDirectory : isCliDirectory;
+        if (path.rfind(modulePrefix, 0) == 0)
+        {
+            modulePath = ModulePath::create(modulePrefix, path.substr(modulePrefix.size() + 1), modFunc, dirFunc);
+            return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
+        }
     }
 
     return NavigationStatus::NotFound;
@@ -113,9 +107,7 @@ NavigationStatus CliVfs::toChild(const std::string& name)
 bool CliVfs::isModulePresent() const
 {
     auto id = getIdentifier();
-    if (id.rfind(kBatteriesAliasPrefix, 0) == 0)
-        return getBatteryModule(id).type == BatteryModuleType::Module;
-    return getCliModule(id).type == CliModuleType::Module;
+    return alias == Tracking::Batteries ? getBatteryModule(id).type == BatteryModuleType::Module : getCliModule(id).type == CliModuleType::Module;
 }
 
 std::string CliVfs::getIdentifier() const
@@ -128,9 +120,7 @@ std::string CliVfs::getIdentifier() const
 
 std::optional<std::string> CliVfs::getContents(const std::string& path) const
 {
-    if (path.rfind(kBatteriesAliasPrefix, 0) == 0)
-        return readBatteryModule(path);
-    return readCliModule(path);
+    return alias == Tracking::Batteries ? readBatteryModule(path) : readCliModule(path);
 }
 
 ConfigStatus CliVfs::getConfigStatus() const

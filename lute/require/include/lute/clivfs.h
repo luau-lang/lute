@@ -22,4 +22,11 @@ public:
 
 private:
     std::optional<ModulePath> modulePath;
+
+    enum class Tracking
+    {
+        Batteries,
+        CLI
+    };
+    Tracking alias = Tracking::CLI;
 };
