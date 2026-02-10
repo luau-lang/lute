@@ -18,7 +18,7 @@ local parseIgnores = {}
 
 --- Converts a glob pattern into a Luau string pattern for efficient matching
 --- The output pattern should be matched against a filepath that is relative to the .gitignore location
-function parseIgnores.parseGlob(glob: string): Glob
+local function parseGlob(glob: string): Glob
 	local onlyMatchDirectories = false
 
 	if glob:sub(-1) == "/" then
