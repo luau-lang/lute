@@ -352,24 +352,20 @@ local function lintPaths(
 	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
 
 	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
+	local hasIgnores = #ignoreData.ignores > 0
 
 	for _, inputPath in inputFiles do
 		local walker = fs.walk(inputPath, { recursive = true })
 
 		local curr = walker()
 		while curr ~= nil do
-			local inputFilePathString = pathLib.format(curr)
+			if hasIgnores then
+				local inputFilePathString = pathLib.format(curr)
 
-			local isIgnored = false
-
-			if parseIgnores.isIgnored(ignoreData, inputFilePathString, fs.type(inputFilePathString) == "dir") then
-				isIgnored = true
-				break
-			end
-
-			if isIgnored then
-				curr = walker()
-				continue
+				if parseIgnores.isIgnored(ignoreData, inputFilePathString, fs.type(inputFilePathString) == "dir") then
+					curr = walker()
+					continue
+				end
 			end
 
 			local success, err = pcall(lintFile, curr, lintRules, autofixEnabled)
