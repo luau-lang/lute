@@ -14,9 +14,11 @@ export type GitignoreData = {
 
 local separator = if system.win32 then "\\" else "/"
 
+local parseIgnores = {}
+
 --- Converts a glob pattern into a Luau string pattern for efficient matching
 --- The output pattern should be matched against a filepath that is relative to the .gitignore location
-local function parseGlob(glob: string): Glob
+function parseIgnores.parseGlob(glob: string): Glob
 	local onlyMatchDirectories = false
 
 	if glob:sub(-1) == "/" then
@@ -103,7 +105,7 @@ local function parseGlob(glob: string): Glob
 	}
 end
 
-local function parseIgnoreContents(location: string, contents: string | { string }): GitignoreData
+function parseIgnores.parseIgnoreContents(location: string, contents: string | { string }): GitignoreData
 	local lines = if typeof(contents) == "string" then contents:split("\n") else contents
 
 	local ignoreData: GitignoreData = {
@@ -132,14 +134,14 @@ local function parseIgnoreContents(location: string, contents: string | { string
 	return ignoreData
 end
 
-local function parseGitignore(filepath: path.path): GitignoreData
+function parseIgnores.parseGitignore(filepath: path.path): GitignoreData
 	local contents = fs.readfiletostring(path.format(filepath))
 	local parentDirectory = if #filepath.parts > 0 then path.dirname(filepath) else nil
 	assert(parentDirectory)
-	return parseIgnoreContents(parentDirectory, contents)
+	return parseIgnores.parseIgnoreContents(parentDirectory, contents)
 end
 
-local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
+function parseIgnores.matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): boolean
 	if glob.onlyMatchDirectories and not isDirectory then
 		return false
 	end
@@ -155,13 +157,13 @@ local function matchesGlob(glob: Glob, filepath: string, isDirectory: boolean): 
 	end
 end
 
-local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirectory: boolean)
+function parseIgnores.isIgnored(ignoreData: GitignoreData, filepath: string, isDirectory: boolean)
 	local matched, ignored = false, false
 
 	local relativePath = path.format(path.relative(ignoreData.location, filepath))
 
 	for _, ignore in ignoreData.ignores do
-		if matchesGlob(ignore, relativePath, isDirectory) then
+		if parseIgnores.matchesGlob(ignore, relativePath, isDirectory) then
 			matched = true
 			ignored = true
 			break
@@ -170,7 +172,7 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 
 	if ignored then
 		for _, whitelist in ignoreData.whitelists do
-			if matchesGlob(whitelist, filepath, isDirectory) then
+			if parseIgnores.matchesGlob(whitelist, filepath, isDirectory) then
 				matched = true
 				ignored = false
 				break
@@ -179,15 +181,10 @@ local function isIgnored(ignoreData: GitignoreData, filepath: string, isDirector
 	end
 
 	if not matched and ignoreData.next then
-		return isIgnored(ignoreData.next, filepath, isDirectory)
+		return parseIgnores.isIgnored(ignoreData.next, filepath, isDirectory)
 	end
 
 	return ignored
 end
 
-return {
-	parseIgnoreContents = parseIgnoreContents,
-	parseGitignore = parseGitignore,
-	matchesGlob = matchesGlob,
-	isIgnored = isIgnored,
-}
+return table.freeze(parseIgnores)
