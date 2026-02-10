@@ -366,7 +366,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     }
 
     // Luau metatable type:
-    // table: type,
+    // same as table type, but with an additional field:
     // metatable: type?
     void serialize(TypeId ty, const MetatableType& mtv)
     {
@@ -377,7 +377,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
         pushTag("metatable");
 
         traverse(mtv.table);
-        lua_setfield(L, -2, "table");
+        // update this in a separate PR
+        // lua_setfield(L, -2, "table");
 
         traverse(mtv.metatable);
         lua_setfield(L, -2, "metatable");
@@ -424,7 +425,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     void serialize(TypePackId tp, const TypePack& pack)
     {
         checkStack(L, 3); // 1 for root table + 1 for subtable + 1 for traverse
-        lua_createtable(L, 0, 2);
+        lua_createtable(L, 0, 3);
         registerTypePack(tp);
 
         pushTag("typepack");
@@ -459,7 +460,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     void serialize(TypePackId tp, const VariadicTypePack& vtp)
     {
         checkStack(L, 2);
-        lua_createtable(L, 0, 2);
+        lua_createtable(L, 0, 3);
         registerTypePack(tp);
 
         pushTag("variadic");

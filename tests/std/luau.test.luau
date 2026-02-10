@@ -30,7 +30,9 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 			error("typePack should not be nil")
 		end
 
-		-- Verify TypePack structure: { head: {type}?, tail: type? }
+		-- Verify TypePack structure: { head: {type}?, tail: typepack? }
+		assert.eq(typePack.tag, "typepack")
+
 		assert.neq(typePack.head, nil)
 		if not typePack.head then
 			error("typePack.head should not be nil")
@@ -91,17 +93,32 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 			error("typePack should not be nil")
 		end
 
+		-- Verify TypePack structure: { head: {type}?, tail: typepack? }
+		assert.eq(typePack.tag, "typepack")
+
+		-- Head: string, number
 		assert.neq(typePack.head, nil)
 		if not typePack.head then
 			error("typePack.head should not be nil")
 		end
-		assert.eq(#typePack.head, 3)
+		assert.eq(#typePack.head, 2)
 
-		-- Verify types: string, number, boolean
 		assert.eq(typePack.head[1].tag, "string")
 		assert.eq(typePack.head[2].tag, "number")
-		assert.eq(typePack.head[3].tag, "boolean")
-		assert.eq(typePack.tail, nil)
+
+		-- Tail: boolean
+		assert.neq(typePack.tail, nil)
+		if not typePack.tail then
+			error("typePack.tail should not be nil")
+		end
+
+		assert.neq(typePack.tail.head, nil)
+		if not typePack.tail.head then
+			error("typePack.tail.head should not be nil")
+		end
+		assert.eq(#typePack.tail.head, 1)
+
+		assert.eq(typePack.tail.head[1].tag, "boolean")
 	end)
 
 	suite:case("typeofmodule_returns_typepack_with_variadic_tail", function(assert)
@@ -110,10 +127,10 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		fs.write(
 			testFile,
 			[[
-			local function variadic(...: string): ...string
+			local function variadic_func(...: string): ...string
 				return ...
 			end
-			return variadic
+			return variadic_func
 		]]
 		)
 		fs.close(testFile)
@@ -124,6 +141,8 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 			error("typePack should not be nil")
 		end
 
+		assert.eq(typePack.tag, "typepack")
+
 		assert.neq(typePack.head, nil)
 		if not typePack.head then
 			error("typePack.head should not be nil")
@@ -133,9 +152,14 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		local funcType = typePack.head[1]
 		assert.eq(funcType.tag, "function")
 		assert.neq(funcType.returns, nil)
-		-- Variadic return should have tail set to the variadic type
-		assert.neq(funcType.returns.tail, nil)
-		assert.eq(funcType.returns.tail.tag, "string")
+
+		assert.eq(funcType.returns.tag, "variadic")
+
+		assert.neq(funcType.returns.type, nil)
+		if not funcType.returns.type then
+			error("Function.returns.type should not be nil")
+		end
+		assert.eq(funcType.returns.type.tag, "string")
 	end)
 
 	suite:case("resolverequire", function(assert)
