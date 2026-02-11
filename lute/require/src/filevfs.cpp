@@ -1,5 +1,6 @@
 #include "lute/filevfs.h"
 
+#include "lute/common.h"
 #include "lute/modulepath.h"
 #include "lute/uvutils.h"
 
@@ -21,7 +22,7 @@ NavigationStatus FileVfs::resetToStdIn()
         return NavigationStatus::NotFound;
 
     size_t firstSlash = cwd->find_first_of("\\/");
-    LUAU_ASSERT(firstSlash != std::string::npos);
+    LUTE_ASSERT(firstSlash != std::string::npos);
 
     modulePath = ModulePath::create(cwd->substr(0, firstSlash), cwd->substr(firstSlash + 1), isFile, isDirectory, "./");
     return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
@@ -52,7 +53,7 @@ NavigationStatus FileVfs::resetToPath(const std::string& path)
     if (isAbsolutePath(normalizedPath))
     {
         size_t firstSlash = normalizedPath.find_first_of('/');
-        LUAU_ASSERT(firstSlash != std::string::npos);
+        LUTE_ASSERT(firstSlash != std::string::npos);
 
         modulePath = ModulePath::create(normalizedPath.substr(0, firstSlash), normalizedPath.substr(firstSlash + 1), isFile, isDirectory);
     }
@@ -65,7 +66,7 @@ NavigationStatus FileVfs::resetToPath(const std::string& path)
         std::string joinedPath = normalizePath(*cwd + "/" + normalizedPath);
 
         size_t firstSlash = joinedPath.find_first_of("\\/");
-        LUAU_ASSERT(firstSlash != std::string::npos);
+        LUTE_ASSERT(firstSlash != std::string::npos);
 
         modulePath = ModulePath::create(joinedPath.substr(0, firstSlash), joinedPath.substr(firstSlash + 1), isFile, isDirectory, normalizedPath);
     }
@@ -75,13 +76,13 @@ NavigationStatus FileVfs::resetToPath(const std::string& path)
 
 NavigationStatus FileVfs::toParent()
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toParent();
 }
 
 NavigationStatus FileVfs::toChild(const std::string& name)
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toChild(name);
 }
 
@@ -92,17 +93,17 @@ bool FileVfs::isModulePresent() const
 
 std::string FileVfs::getFilePath() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     ResolvedRealPath result = modulePath->getRealPath();
-    LUAU_ASSERT(result.status == NavigationStatus::Success);
+    LUTE_ASSERT(result.status == NavigationStatus::Success);
     return result.relativePath ? *result.relativePath : result.realPath;
 }
 
 std::string FileVfs::getAbsoluteFilePath() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     ResolvedRealPath result = modulePath->getRealPath();
-    LUAU_ASSERT(result.status == NavigationStatus::Success);
+    LUTE_ASSERT(result.status == NavigationStatus::Success);
     return result.realPath;
 }
 
@@ -113,7 +114,7 @@ std::optional<std::string> FileVfs::getContents(const std::string& path) const
 
 ConfigStatus FileVfs::getConfigStatus() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
 
     bool luaurcExists = isFile(modulePath->getPotentialConfigPath(Luau::kConfigName));
     bool luauConfigExists = isFile(modulePath->getPotentialConfigPath(Luau::kLuauConfigName));
@@ -130,15 +131,15 @@ ConfigStatus FileVfs::getConfigStatus() const
 
 std::optional<std::string> FileVfs::getConfig() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
 
     ConfigStatus status = getConfigStatus();
-    LUAU_ASSERT(status == ConfigStatus::PresentJson || status == ConfigStatus::PresentLuau);
+    LUTE_ASSERT(status == ConfigStatus::PresentJson || status == ConfigStatus::PresentLuau);
 
     if (status == ConfigStatus::PresentJson)
         return readFile(modulePath->getPotentialConfigPath(Luau::kConfigName));
     else if (status == ConfigStatus::PresentLuau)
         return readFile(modulePath->getPotentialConfigPath(Luau::kLuauConfigName));
 
-    LUAU_UNREACHABLE();
+    LUTE_UNREACHABLE();
 }

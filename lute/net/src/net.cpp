@@ -1,5 +1,6 @@
 #include "lute/net.h"
 
+#include "lute/common.h"
 #include "lute/runtime.h"
 
 #include "Luau/DenseHash.h"
@@ -37,13 +38,13 @@ struct CurlResponse
     }
 };
 
-static size_t writeFunction(void* contents, size_t size, size_t nmemb, void* context)
+static size_t writeFunction(char* ptr, size_t size, size_t nmemb, void* userdata)
 {
-    std::vector<char>& target = *(std::vector<char>*)context;
+    std::vector<char>* target = static_cast<std::vector<char>*>(userdata);
+    LUTE_ASSERT(target);
+
     size_t fullsize = size * nmemb;
-
-    target.insert(target.end(), (char*)contents, (char*)contents + fullsize);
-
+    target->insert(target->end(), ptr, ptr + fullsize);
     return fullsize;
 }
 

@@ -1,5 +1,6 @@
 #include "lute/require.h"
 
+#include "lute/common.h"
 #include "lute/lutevfs.h"
 #include "lute/modulepath.h"
 #include "lute/options.h"
@@ -154,7 +155,7 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     if (strncmp(loadname, "@lute/", 6) == 0)
     {
         const lua_CFunction* func = kLuteModules.find(loadname);
-        LUAU_ASSERT(func);
+        LUTE_ASSERT(func);
         lua_pushcfunction(L, *func, nullptr);
         lua_call(L, 0, 1);
         return 1;

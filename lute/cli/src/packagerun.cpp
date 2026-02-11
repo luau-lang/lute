@@ -1,5 +1,6 @@
 #include "lute/packagerun.h"
 
+#include "lute/common.h"
 #include "lute/userlandvfs.h"
 
 #include "Luau/FileUtils.h"
@@ -127,7 +128,7 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
     const std::string& lockfilePath
 )
 {
-    LUAU_ASSERT(isFile(lockfilePath));
+    LUTE_ASSERT(isFile(lockfilePath));
 
     std::optional<std::string> contents = readFile(lockfilePath);
     if (!contents)

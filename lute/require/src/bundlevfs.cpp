@@ -1,5 +1,7 @@
 #include "lute/bundlevfs.h"
 
+#include "lute/common.h"
+
 #include "Luau/Common.h"
 #include "Luau/DenseHash.h"
 
@@ -109,13 +111,13 @@ NavigationStatus BundleVfs::resetToPath(const std::string& path)
 
 NavigationStatus BundleVfs::toParent()
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toParent();
 }
 
 NavigationStatus BundleVfs::toChild(const std::string& name)
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toChild(name);
 }
 
@@ -126,9 +128,9 @@ bool BundleVfs::isModulePresent() const
 
 std::string BundleVfs::getIdentifier() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     ResolvedRealPath result = modulePath->getRealPath();
-    LUAU_ASSERT(result.status == NavigationStatus::Success);
+    LUTE_ASSERT(result.status == NavigationStatus::Success);
     return result.realPath;
 }
 
@@ -149,7 +151,7 @@ std::optional<std::string> BundleVfs::getContents(const std::string& path) const
 
 ConfigStatus BundleVfs::getConfigStatus() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
 
     // Get the potential config path for the current module path
     std::string configPath = modulePath->getPotentialConfigPath(".luaurc");
@@ -167,7 +169,7 @@ ConfigStatus BundleVfs::getConfigStatus() const
 
 std::optional<std::string> BundleVfs::getConfig() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
 
     // Get the potential config path for the current module path
     std::string configPath = modulePath->getPotentialConfigPath(".luaurc");
