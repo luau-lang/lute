@@ -460,7 +460,6 @@ tests/std/test.test.luau:282:4-9
 tests/std/test.test.luau:299:4-9
 tests/std/test.test.luau:318:4-9
 tests/std/test.test.luau:337:4-9
-tools/luthier.luau:135:10-34
 tools/luthier.luau:158:2-26
 tools/luthier.luau:197:3-12
 tools/luthier.luau:198:11-25
