@@ -1,5 +1,6 @@
 #include "lute/climain.h"
 #include "lute/fileutils.h"
+#include "lute/resolverequire.h"
 #include "lute/uvutils.h"
 
 #include "Luau/FileUtils.h"
@@ -8,11 +9,12 @@
 
 #include "uv.h"
 
+#include <iostream>
+
 #include "cliruntimefixture.h"
 #include "doctest.h"
 #include "lutefixture.h"
 #include "luteprojectroot.h"
-
 
 TEST_CASE_FIXTURE(CliRuntimeFixture, "require_exists")
 {
@@ -257,3 +259,40 @@ TEST_CASE_FIXTURE(LuteFixture, "require_check_tilde_path")
     Lute::removeFile(testFile);
     Lute::removeDirectory(testDir);
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "resolverequire_windows_relative_path_sensitivity")
+{
+    const std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    const std::string paths = joinPaths(luteProjectRoot, "tests/src/require/relativedir");
+    std::cout << "dir: " << paths << std::endl;
+    const std::string testPath = joinPaths(paths, "root.luau");
+    std::string err;
+    auto res = resolveRequire("./a", "@" + testPath, &err);
+
+
+    if (!res)
+    {
+        std::cout << "uhoh" << std::endl;
+        REQUIRE(res);
+    }
+    else
+    {
+        std::cout << "Found: " << *res << std::endl;
+    }
+
+    const std::string otherPath = joinPaths(paths, "a.luau");
+    std::string err2;
+    auto res2 = resolveRequire("./b", "@" + otherPath, &err2);
+
+    if (!res2)
+    {
+        std::cout << "uh oh again?" << std::endl;
+	REQUIRE(res2);
+    }
+    else
+    {
+	    std::cout << "found_other: " << *res << std::endl;
+    }
+    
+}
+
