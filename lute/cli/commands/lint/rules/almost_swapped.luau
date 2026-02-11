@@ -8,6 +8,7 @@ local utils = require("@std/syntax/utils")
 
 local name = "almost_swapped"
 local message = "This looks like a failed attempt to swap."
+local target = "https://lute.luau.org/cli/lint/almost_swapped.html"
 
 local compFuncs = {}
 
@@ -98,6 +99,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 					suggestedfix = {
 						fix = suggestedFix,
 					},
+					target = target,
 				})
 			end
 		end

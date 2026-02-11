@@ -6,6 +6,7 @@ local syntaxPrinter = require("@std/syntax/printer")
 
 local name = "parenthesized_conditions"
 local message = "Luau doesn't require parentheses around conditions. You can remove them for readability."
+local target = "https://lute.luau.org/cli/lint/parenthesized_conditions.html"
 
 local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
 	local violations: { lintTypes.LintViolation } = {}
@@ -28,6 +29,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 					suggestedfix = {
 						fix = syntaxPrinter.printnode(ifStat.condition.expression),
 					},
+					target = target,
 				})
 			end
 
@@ -42,6 +44,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 						suggestedfix = {
 							fix = syntaxPrinter.printnode(elseIfStat.condition.expression),
 						},
+						target = target,
 					})
 				end
 			end
@@ -67,6 +70,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 				suggestedfix = {
 					fix = syntaxPrinter.printnode((n.condition :: syntax.AstExprGroup).expression),
 				},
+				target = target,
 			})
 		end)
 
