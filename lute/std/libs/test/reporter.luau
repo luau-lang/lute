@@ -3,11 +3,9 @@
 -- Standard test reporter library for Luau
 
 local types = require("./types")
-local assert = require("./assert")
 
 type FailedTest = types.failedtest
 type TestRunResult = types.testrunresult
-type Assertions = assert.asserts
 
 local reporter = {}
 

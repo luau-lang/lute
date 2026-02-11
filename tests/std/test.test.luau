@@ -1,4 +1,4 @@
-local assertions = require("@std/test/assert")
+local testtypes = require("@std/test/types")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
@@ -12,7 +12,7 @@ local function assertErrorsWithMsg(
 	testName: string,
 	testContents: string,
 	expectedErrMsg: string,
-	assert: assertions.asserts
+	assert: testtypes.asserts
 )
 	local testFilePath = path.join(tmpDir, `{testName}.test.luau`)
 	fs.writestringtofile(testFilePath, testContents)
