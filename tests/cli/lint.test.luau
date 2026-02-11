@@ -2777,5 +2777,3 @@ end
 		})
 	end)
 end)
-
-test.run()
