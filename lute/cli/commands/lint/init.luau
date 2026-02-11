@@ -426,7 +426,7 @@ local function main(...: string)
 		configPath = pathLib.join(cwd, ".config.luau")
 	end
 	if fs.exists(configPath) then
-		local success, loadedConfig = pcall(luau.loadbypath, configPath :: pathLib.pathlike)
+		local success, loadedConfig = pcall(luau.loadbypath, configPath)
 		if success then
 			lintConfig = configUtils.extractConfig(loadedConfig)
 		elseif VERBOSE then
