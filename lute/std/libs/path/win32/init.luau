@@ -1,12 +1,13 @@
 local process = require("@lute/process")
 local win32types = require("@self/types")
+local pathinterface = require("./pathinterface")
 
 export type pathkind = win32types.pathkind
 export type path = win32types.path
 export type pathlike = win32types.pathlike
 
 local win32 = {}
-win32.pathmt = {} :: win32types.pathMT
+win32.pathmt = {} :: pathinterface.pathinterface
 
 function win32.basename(path: pathlike): string?
 	path = if typeof(path) == "string" then win32.parse(path) else path
@@ -256,7 +257,7 @@ function win32.relative(from: pathlike, to: pathlike): path
 	local relativeParts = {}
 
 	if #from.parts > commonPrefixLength then
-		for i = commonPrefixLength + 1, #from.parts do
+		for _ = commonPrefixLength + 1, #from.parts do
 			table.insert(relativeParts, "..")
 		end
 	end

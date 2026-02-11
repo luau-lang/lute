@@ -3,7 +3,7 @@ local net = require("@lute/net")
 return {
 	serve = function()
 		net.serve({
-			handler = function(req)
+			handler = function(_)
 				return "Hello, lute!"
 			end,
 			reuseport = true,

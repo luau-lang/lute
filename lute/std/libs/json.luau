@@ -55,7 +55,7 @@ local function writeSpaces(state: SerializerState)
 	if state.prettyPrint then
 		checkState(state, state.depth * 4)
 
-		for i = 1, state.depth do
+		for _ = 1, state.depth do
 			buffer.writeu32(state.buf, state.cursor, 0x_20_20_20_20)
 			state.cursor += 4
 		end
@@ -101,7 +101,7 @@ local function serializeString(state: SerializerState, str: string)
 
 	writeByte(state, string.byte('"'))
 
-	for pos, codepoint in utf8.codes(str) do
+	for _, codepoint in utf8.codes(str) do
 		if ESCAPE_MAP[codepoint] then
 			writeByte(state, string.byte("\\"))
 			writeByte(state, ESCAPE_MAP[codepoint])

@@ -2,7 +2,6 @@ local ps = require("@std/process")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local stringext = require("@std/stringext")
-local tableext = require("@std/tableext")
 
 local function istestfile(filename: string): boolean
 	return stringext.hassuffix(filename, ".test.luau") or stringext.hassuffix(filename, ".spec.luau")

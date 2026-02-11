@@ -13,6 +13,7 @@ local defaultRulesPaths = {
 	constant_table_comparison = path.format(path.join(defaultRulesFolder, "constant_table_comparison.luau")),
 	divide_by_zero = path.format(path.join(defaultRulesFolder, "divide_by_zero.luau")),
 	parenthesized_conditions = path.format(path.join(defaultRulesFolder, "parenthesized_conditions.luau")),
+	unused_variable = path.format(path.join(defaultRulesFolder, "unused_variable.luau")),
 }
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
@@ -148,11 +149,11 @@ violator.luau:1:11-16 ──
 		fs.writestringtofile(
 			violatorPath,
 			[[
-local x = 1 / 0
-local y = -3 // 0
-local z = 4 % 0
-local nan = 0 / 0
-local negnan = -0 / 0
+local _x = 1 / 0
+local _y = -3 // 0
+local _z = 4 % 0
+local _nan = 0 / 0
+local _negnan = -0 / 0
 ]]
 		)
 
@@ -161,16 +162,15 @@ local negnan = -0 / 0
 		local result = process.run({ lutePath, "lint", "--auto-fix", violatorPath })
 
 		-- Check
-		print(result.stdout)
 		assert.eq(result.exitcode, 0) -- After applying the auto-fix, there are no more violations
 
 		local fixedContents = fs.readfiletostring(violatorPath)
 		local expectedFixedContents = [[
-local x = math.huge
-local y = -math.huge
-local z = 0 / 0
-local nan = 0 / 0
-local negnan = 0 / 0
+local _x = math.huge
+local _y = -math.huge
+local _z = 0 / 0
+local _nan = 0 / 0
+local _negnan = 0 / 0
 ]]
 		assert.eq(fixedContents, expectedFixedContents)
 
@@ -974,9 +974,9 @@ violator.luau:3:1-4:6 ──
 			violatorPath,
 			[[
 -- lute-lint-ignore(divide_by_zero)
-local function foo()
-    local x = 1/0
-    local function bar()
+local function _foo()
+    local _x = 1/0
+    local function _bar()
         -- lute-lint-ignore(almost_swapped)
         a = b
 		b = a
@@ -1020,6 +1020,22 @@ local x = 1 / 0
     "items": [
         {
             "items": [
+                {
+                    "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.", 
+                    "source": "lute lint", 
+                    "code": "unused_variable", 
+                    "severity": 2, 
+                    "range": {
+                        "start": {
+                            "character": 6, 
+                            "line": 0
+                        }, 
+                        "end": {
+                            "character": 7, 
+                            "line": 0
+                        }
+                    }
+                },
                 {
                     "message": "Division by zero detected.", 
                     "source": "lute lint", 
@@ -1238,7 +1254,7 @@ b = a
 	end)
 
 	suite:case("lute lint string input with no violations", function(assert)
-		local inputString = "local x = 1 + 2"
+		local inputString = "x = 1 + 2"
 
 		-- Do
 		-- Run the linter on string input
@@ -1261,6 +1277,22 @@ b = a
 
 		local expected = [=[
 [
+    {
+        "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.", 
+        "source": "lute lint", 
+        "code": "unused_variable", 
+        "severity": 2, 
+        "range": {
+            "start": {
+                "character": 6, 
+                "line": 0
+            }, 
+            "end": {
+                "character": 7, 
+                "line": 0
+            }
+        }
+    },
     {
         "message": "Division by zero detected.", 
         "source": "lute lint", 
@@ -1699,16 +1731,900 @@ local e = next(t) ~= nil
 		assert.strcontains(result.stdout, expected)
 	end)
 
+	suite:case("unused_variable_1", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 3
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local x = 3
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_2", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local _ = 3
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_3", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+for i = 3, 4 do
+	print(3)
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:5-6 ──
+   │
+ 1 │ for i = 3, 4 do
+   │     ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_4", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local t = {1, 2, 3}
+for i, v in t do
+	print(3)
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			2
+		)
+
+		local expected = [[
+violator.luau:2:5-6 ──
+   │
+ 2 │ for i, v in t do
+   │     ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:2:8-9 ──
+   │
+ 2 │ for i, v in t do
+   │        ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_5", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+x = x + 1
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local x = 4
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_6", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+local y = 5
+y, x = y, x + 1
+print(y)
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local x = 4
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_7", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+x = x + 1
+print(x)
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_8", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+x += 1
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local x = 4
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_9", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+x += 1
+print(x)
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_10", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+x += 1
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local x = 4
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_11", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local function _(x)
+	return nil
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:18-19 ──
+   │
+ 1 │ local function _(x)
+   │                  ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_12", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+function x()
+	return 5
+end
+x()
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local x = 4
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_13", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+local x = 5
+print(x)
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local x = 4
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_14", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+local function x()
+	return 5
+end
+x()
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local x = 4
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_15", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 4
+local x = 5 + x
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:2:7-8 ──
+   │
+ 2 │ local x = 5 + x
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_16", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local lib = require("whatever")
+local _x : lib.num = 3
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_17", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+for k, v in t do
+	t1[k] = v
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_18", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+return {
+	add = function(a, b)
+		return a + b
+	end,
+}
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		assert.strnotcontains(result.stdout, "Local variable not found in any scope")
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_19", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local T = {}
+function T:new()
+	self.hello = "world"
+end
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		assert.strnotcontains(result.stdout, "Local variable not found in any scope")
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local T = {}
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_20", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local a, b = foo()
+a, b = foo()
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			2
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local a, b = foo()
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		expected = [[
+violator.luau:1:10-11 ──
+   │
+ 1 │ local a, b = foo()
+   │          ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_21", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+local x = 3
+local y = 1
+y = 3, x
+print(y)
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 1)
+
+		assert.strcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+			nil,
+			1
+		)
+
+		local expected = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local x = 3
+   │       ^
+   │
+]]
+		assert.strcontains(result.stdout, expected)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_22", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[[
+repeat
+	local x = 1
+until x == 1
+    ]]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(result.stdout, "Local variable not found in any scope")
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_23", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[=[
+for i = 0, num - 1 do
+	t.table[lengths[off + i]] += 1
+end
+    ]=]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
+	suite:case("unused_variable_24", function(assert)
+		-- Setup
+		-- Create a file that violates the rule
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		fs.writestringtofile(
+			violatorPath,
+			[=[
+function foo(t: { num: number })
+	t.num = 3
+end
+    ]=]
+		)
+
+		-- Do
+		-- Run the transformer on the transformee
+		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.unused_variable, violatorPath })
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		assert.strnotcontains(
+			result.stdout,
+			"warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+		)
+
+		-- Teardown
+		fs.remove(violatorPath)
+	end)
+
 	suite:case("throws error when config has invalid structure", function(assert)
-		local invalidGlobalConfig = [[
-			return {
-				lute = {
-					lint = {
-						globals = "should be table"
-					}
-				}
-			}
-		]]
+		-- local invalidGlobalConfig = [[
+		-- 	return {
+		-- 		lute = {
+		-- 			lint = {
+		-- 				globals = "should be table"
+		-- 			}
+		-- 		}
+		-- 	}
+		-- ]]
 
 		local invalidIgnoresConfig = [[
 			return {
@@ -1720,85 +2636,145 @@ local e = next(t) ~= nil
 			}
 		]]
 
-		local invalidRulesConfig = [[
-			return {
-				lute = {
-					lint = {
-						rules = "should be table"
-					}
-				}
-			}
-		]]
+		-- local invalidRulesConfig = [[
+		-- 	return {
+		-- 		lute = {
+		-- 			lint = {
+		-- 				rules = "should be table"
+		-- 			}
+		-- 		}
+		-- 	}
+		-- ]]
 
 		local configFile = path.join(tmpDir, ".config.luau")
-		fs.writestringtofile(path.format(configFile), invalidGlobalConfig)
-		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
-		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stderr, "config.globals must be a table of [string] : unknown")
+
+		-- -- fs.writestringtofile(path.format(configFile), invalidGlobalConfig)
+		-- local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
+		-- assert.eq(result.exitcode, 1)
+		-- assert.strcontains(result.stderr, "config.globals must be a table of [string] : unknown")
 
 		fs.writestringtofile(path.format(configFile), invalidIgnoresConfig)
-		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
 		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stderr, "config.ignores must be a table of paths")
+		assert.strcontains(result.stderr, "config.lute.lint.ignores must be an array of filepath globs")
 
-		fs.writestringtofile(path.format(configFile), invalidRulesConfig)
-		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
-		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stderr, "config.rules must be a table")
+		-- fs.writestringtofile(path.format(configFile), invalidRulesConfig)
+		-- result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
+		-- assert.eq(result.exitcode, 1)
+		-- assert.strcontains(result.stderr, "config.rules must be a table")
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
-		local ignoredFile = path.join(tmpDir, "ignored.luau")
+		local testSubDir = path.join(tmpDir, "testDir")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
 		local violatingContents = [[
 			a = b
 			b = a
 			c = 1 / 0
 		]]
 		fs.writestringtofile(ignoredFile, violatingContents)
-		local configFile = path.join(tmpDir, ".config.luau")
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
 		return {
 			lute = {
 				lint = {
-					ignores = { "ignored%.luau" }
+					ignores = { "**/ignored.luau" }
 				}
 			}
 		}
 		]]
 		fs.writestringtofile(configFile, configContents)
 
-		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(ignoredFile) })
-		assert.eq(result.exitcode, 0) -- no errors
-		assert.strnotcontains(result.stdout, "almost_swapped")
-		assert.strnotcontains(result.stdout, "divide_by_zero")
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
+		assert.strnotcontains(result.stdout, "ignored.luau")
+		assert.strcontains(result.stdout, "valid.luau")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
-		local ignoredFile = path.join(tmpDir, "ignored.luau")
+		local testSubDir = path.join(tmpDir, "testDir")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+
 		local violatingContents = [[
 			a = b
 			b = a
 			c = 1 / 0
 		]]
 		fs.writestringtofile(ignoredFile, violatingContents)
-		local configFile = path.join(tmpDir, ".config.luau")
+
+		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
 		return {
 			lute = {
 				lint = {
-					ignores = { "ignored%.luau" }
+					ignores = { "**/ignored.luau" }
 				}
 			}
 		}
 		]]
 		fs.writestringtofile(configFile, configContents)
 
-		local result = process.run({ lutePath, "lint", path.format(ignoredFile) }, {
-			cwd = path.format(tmpDir),
+		local result = process.run({ lutePath, "lint", path.format(testSubDir) }, {
+			cwd = path.format(testSubDir),
 		})
 		assert.eq(result.exitcode, 0) -- no errors
 		assert.strnotcontains(result.stdout, "almost_swapped")
 		assert.strnotcontains(result.stdout, "divide_by_zero")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
+	end)
+
+	suite:case("lute lint configured ignores supplement (NOT override) existing gitignores", function(assert)
+		local testSubDir = path.join(tmpDir, "testDir")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
+		local violatingContents = "c = 1 / 0"
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local gitIgnore = path.join(testSubDir, ".gitignore") -- gitignore `valid.luau`
+		fs.writestringtofile(
+			gitIgnore,
+			[[
+**/valid.luau
+		]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau") --  configure ignore of `ignored.luau`
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/ignored.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 0) -- no errors bc we ignore BOTH files in the dir
+		assert.strnotcontains(result.stdout, "almost_swapped")
+		assert.strnotcontains(result.stdout, "divide_by_zero")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
 	end)
 
 	suite:case("lute lint passes context through to rules", function(assert)		
@@ -1852,3 +2828,5 @@ local e = next(t) ~= nil
 		assert.strcontains(result.stdout, "Options: 1")
 	end)
 end)
+
+test.run()

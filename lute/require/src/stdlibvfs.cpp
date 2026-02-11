@@ -1,5 +1,6 @@
 #include "lute/stdlibvfs.h"
 
+#include "lute/common.h"
 #include "lute/modulepath.h"
 #include "lute/stdlib.h"
 
@@ -49,13 +50,13 @@ NavigationStatus StdLibVfs::resetToPath(const std::string& path)
 
 NavigationStatus StdLibVfs::toParent()
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toParent();
 }
 
 NavigationStatus StdLibVfs::toChild(const std::string& name)
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toChild(name);
 }
 
@@ -66,9 +67,9 @@ bool StdLibVfs::isModulePresent() const
 
 std::string StdLibVfs::getIdentifier() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     ResolvedRealPath result = modulePath->getRealPath();
-    LUAU_ASSERT(result.status == NavigationStatus::Success);
+    LUTE_ASSERT(result.status == NavigationStatus::Success);
     return result.realPath;
 }
 

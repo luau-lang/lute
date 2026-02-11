@@ -1,5 +1,6 @@
 #include "lute/lutevfs.h"
 
+#include "lute/common.h"
 #include "lute/crypto.h"
 #include "lute/fs.h"
 #include "lute/io.h"
@@ -61,29 +62,29 @@ NavigationStatus LuteVfs::resetToPath(const std::string& path)
 
 NavigationStatus LuteVfs::toParent()
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toParent();
 }
 
 NavigationStatus LuteVfs::toChild(const std::string& name)
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toChild(name);
 }
 
 bool LuteVfs::isModulePresent() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     ResolvedRealPath result = modulePath->getRealPath();
-    LUAU_ASSERT(result.status == NavigationStatus::Success);
+    LUTE_ASSERT(result.status == NavigationStatus::Success);
     return result.type == ResolvedRealPath::PathType::File;
 }
 
 std::string LuteVfs::getIdentifier() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     ResolvedRealPath result = modulePath->getRealPath();
-    LUAU_ASSERT(result.status == NavigationStatus::Success);
+    LUTE_ASSERT(result.status == NavigationStatus::Success);
     return result.realPath;
 }
 

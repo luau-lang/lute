@@ -1,4 +1,4 @@
-local cli = require("./lib/cli")
+local cli = require("@batteries/cli")
 local files = require("./lib/files")
 local fs = require("@std/fs")
 local json = require("@std/json")
@@ -12,9 +12,11 @@ local tableext = require("@std/tableext")
 local triviaUtils = require("@std/syntax/utils/trivia")
 local types = require("@self/types")
 local visitor = require("@std/syntax/visitor")
-local confgiUtils = require("@self/configutils")
+local configUtils = require("@self/configutils")
+local parseIgnores = require("./lib/parseIgnores")
 
-local DEFAULT_RULES = { "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions" }
+local DEFAULT_RULES =
+	{ "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions", "unused_variable" }
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 local VERBOSE = false
 
@@ -351,42 +353,37 @@ local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	lintConfig: types.LintConfig
+	lintConfig: types.LintConfig, -- will be used in follow-up PRs
+	ignoreData: parseIgnores.GitignoreData
 ): { [pathLib.path]: { types.LintViolation } }
 	if VERBOSE then
 		print("Filtering input files by gitignore")
 	end
 	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
-	local ignores = lintConfig.ignores or {}
 
 	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
+	local hasIgnores = #ignoreData.ignores > 0
 
 	for _, inputPath in inputFiles do
 		local walker = fs.walk(inputPath, { recursive = true })
 
 		local curr = walker()
 		while curr ~= nil do
-			local inputFilePath = pathLib.parse(curr)
-			local inputFilePathString = pathLib.format(inputFilePath)
+			if hasIgnores then
+				local inputFilePathString = pathLib.format(curr)
 
-			local isIgnored = false
-			for _, ignore in ignores do -- ignore matches
-				if inputFilePathString:match(pathLib.format(ignore)) then
-					isIgnored = true
-					break
+				if parseIgnores.isIgnored(ignoreData, inputFilePathString, fs.type(inputFilePathString) == "dir") then
+					curr = walker()
+					continue
 				end
 			end
-			if isIgnored then
-				curr = walker()
-				continue
-			end
 
-			local success, err = pcall(lintFile, inputFilePath, lintRules, autofixEnabled, lintConfig)
+			local success, err = pcall(lintFile, curr, lintRules, autofixEnabled, lintConfig)
 			if success then
 				-- Violations are returned as the second return value from pcall
-				allViolations[inputFilePath] = err
+				allViolations[curr] = err
 			else
-				print(`Error linting file '{inputFilePath}': {err}`)
+				print(`Error linting file '{curr}': {err}`)
 			end
 
 			curr = walker()
@@ -438,10 +435,10 @@ local function main(...: string)
 		local cwd = process.cwd()
 		configPath = pathLib.join(cwd, ".config.luau")
 	end
-	if fs.exists(configPath :: pathLib.pathlike) then
-		local success, loadedConfig = pcall(luau.loadbypath, configPath :: pathLib.pathlike, nil)
+	if fs.exists(configPath) then
+		local success, loadedConfig = pcall(luau.loadbypath, configPath)
 		if success then
-			lintConfig = confgiUtils.extractConfig(loadedConfig)
+			lintConfig = configUtils.extractConfig(loadedConfig)
 		elseif VERBOSE then
 			print(`Error loading config:\n{loadedConfig}\nProceeding with defaults.`)
 		end
@@ -492,7 +489,13 @@ local function main(...: string)
 			print("Auto-fix is enabled.")
 		end
 
-		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, lintConfig) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+		local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
+		local rootLocation = if fs.exists(configPath)
+			then pathLib.format(pathLib.dirname(configPath))
+			else pathLib.format(process.cwd())
+		local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
+
+		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, lintConfig, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
