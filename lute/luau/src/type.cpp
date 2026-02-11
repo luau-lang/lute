@@ -1,5 +1,7 @@
 #include "lute/type.h"
 
+#include "lute/common.h"
+
 #include "Luau/ToString.h"
 #include "Luau/Type.h"
 #include "Luau/TypeFwd.h"
@@ -592,8 +594,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         // NOTE: `TypeSerialize` should explicitly visit _all_ types and type packs,
         // otherwise it's prone to serializing types that should not be serialized.
-        LUAU_ASSERT(false);
-        LUAU_UNREACHABLE();
+        LUTE_ASSERT(false);
+        LUTE_UNREACHABLE();
     }
 
     bool visit(TypeId ty, const BoundType& btv) override
@@ -642,8 +644,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
     {
         // NOTE: `TypeSerialize` should explicitly visit _all_ types and type packs,
         // otherwise it's prone to serializing type packs that should not be serialized.
-        LUAU_ASSERT(false);
-        LUAU_UNREACHABLE();
+        LUTE_ASSERT(false);
+        LUTE_UNREACHABLE();
     }
 
     bool visit(TypePackId tp, const BoundTypePack& btp) override

@@ -1,9 +1,6 @@
 #include "lute/runtime.h"
 
-#include "lute/uvutils.h"
-
-#include "Luau/Common.h"
-#include "Luau/Require.h"
+#include "lute/common.h"
 
 #include "lua.h"
 #include "lualib.h"
