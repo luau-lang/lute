@@ -127,7 +127,7 @@ test.suite("Parser", function(suite)
 			if entry.type ~= "file" then
 				continue
 			end
-			if strext.hassuffix(entry.name, ".json") then
+			if not strext.hassuffix(entry.name, ".luau") then
 				continue
 			end
 
