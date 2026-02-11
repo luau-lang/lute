@@ -2665,8 +2665,11 @@ end
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
-		local ignoredFile = path.join(tmpDir, "ignored.luau")
-		local notIgnoredFile = path.join(tmpDir, "valid.luau")
+		local testSubDir = path.join(tmpDir, "testDir")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
 		local violatingContents = [[
 			a = b
 			b = a
@@ -2675,7 +2678,7 @@ end
 		fs.writestringtofile(ignoredFile, violatingContents)
 		fs.writestringtofile(notIgnoredFile, violatingContents)
 
-		local configFile = path.join(tmpDir, ".config.luau")
+		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
 		return {
 			lute = {
@@ -2687,19 +2690,22 @@ end
 		]]
 		fs.writestringtofile(configFile, configContents)
 
-		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(ignoredFile) })
-		assert.eq(result.exitcode, 0) -- no errors
-		assert.strnotcontains(result.stdout, "almost_swapped")
-		assert.strnotcontains(result.stdout, "divide_by_zero")
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
+		assert.strnotcontains(result.stdout, "ignored.luau")
+		assert.strcontains(result.stdout, "valid.luau")
 
-		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(notIgnoredFile) })
-		assert.eq(result.exitcode, 1) -- violations caught
-		assert.strcontains(result.stdout, "[almost_swapped]")
-		assert.strcontains(result.stdout, "[divide_by_zero]")
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
-		local ignoredFile = path.join(tmpDir, "ignored.luau")
+		local testSubDir = path.join(tmpDir, "testDir")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+
 		local violatingContents = [[
 			a = b
 			b = a
@@ -2707,9 +2713,7 @@ end
 		]]
 		fs.writestringtofile(ignoredFile, violatingContents)
 
-		local configSubDir = path.join(tmpDir, "configDir")
-		fs.createdirectory(configSubDir)
-		local configFile = path.join(configSubDir, ".config.luau")
+		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
 		return {
 			lute = {
@@ -2721,11 +2725,57 @@ end
 		]]
 		fs.writestringtofile(configFile, configContents)
 
-		local result = process.run({ lutePath, "lint", path.format(ignoredFile) }, {
-			cwd = path.format(configSubDir),
+		local result = process.run({ lutePath, "lint", path.format(testSubDir) }, {
+			cwd = path.format(testSubDir),
 		})
 		assert.eq(result.exitcode, 0) -- no errors
 		assert.strnotcontains(result.stdout, "almost_swapped")
 		assert.strnotcontains(result.stdout, "divide_by_zero")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
+	end)
+
+	suite:case("lute lint configured ignores supplement (NOT override) existing gitignores", function(assert)
+		local testSubDir = path.join(tmpDir, "testDir")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
+		local violatingContents = "c = 1 / 0"
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local gitIgnore = path.join(testSubDir, ".gitignore") -- gitignore `valid.luau`
+		fs.writestringtofile(
+			gitIgnore,
+			[[
+**/valid.luau
+		]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau") --  configure ignore of `ignored.luau`
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/ignored.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 0) -- no errors bc we ignore BOTH files in the dir
+		assert.strnotcontains(result.stdout, "almost_swapped")
+		assert.strnotcontains(result.stdout, "divide_by_zero")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
 	end)
 end)
+
+test.run()
