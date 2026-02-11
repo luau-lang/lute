@@ -9,6 +9,7 @@ local utils = require("@std/syntax/utils")
 local name = "constant_table_comparison"
 local message =
 	"Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false."
+local target = "https://lute.luau.org/cli/lint/constant_table_comparison.html"
 
 local function isTableLiteral(expr: syntax.AstExpr): boolean
 	return expr.tag == "table"
@@ -62,6 +63,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 							fix = suggestedFix,
 						}
 						else nil,
+					target = target,
 				}
 			end
 		)

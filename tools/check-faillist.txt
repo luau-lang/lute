@@ -66,9 +66,9 @@ lute/cli/commands/lint/printer.luau:51:7-62
 lute/cli/commands/lint/printer.luau:51:7-62
 lute/cli/commands/lint/printer.luau:58:8-52
 lute/cli/commands/lint/printer.luau:58:8-52
-lute/cli/commands/lint/rules/parenthesized_conditions.luau:22:5-16
-lute/cli/commands/lint/rules/parenthesized_conditions.luau:36:6-17
-lute/cli/commands/lint/rules/parenthesized_conditions.luau:61:4-15
+lute/cli/commands/lint/rules/parenthesized_conditions.luau:23:5-16
+lute/cli/commands/lint/rules/parenthesized_conditions.luau:38:6-17
+lute/cli/commands/lint/rules/parenthesized_conditions.luau:64:4-15
 lute/cli/commands/pkg/loom-core/extern/pp.luau:97:3-14
 lute/cli/commands/pkg/loom-core/extern/pp.luau:97:3-14
 lute/cli/commands/pkg/loom-core/extern/unzip/crc.luau:25:42-59

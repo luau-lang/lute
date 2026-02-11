@@ -1038,6 +1038,7 @@ local x = 1 / 0
                 },
                 {
                     "message": "Division by zero detected.", 
+                    "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html", 
                     "source": "lute lint", 
                     "code": "divide_by_zero", 
                     "severity": 2, 
@@ -1295,6 +1296,7 @@ b = a
     },
     {
         "message": "Division by zero detected.", 
+        "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html", 
         "source": "lute lint", 
         "code": "divide_by_zero", 
         "severity": 2, 
@@ -1700,6 +1702,7 @@ local e = next(t) ~= nil
 [
     {
         "message": "This looks like a failed attempt to swap.", 
+        "codeDescription": "https://lute.luau.org/cli/lint/almost_swapped.html", 
         "source": "lute lint", 
         "code": "almost_swapped", 
         "severity": 2, 
