@@ -35,6 +35,8 @@ export type AstExprVarargs = luau.AstExprVarargs
 
 export type AstExprCall = luau.AstExprCall
 
+export type AstExprInstantiate = luau.AstExprInstantiate
+
 export type AstExprIndexName = luau.AstExprIndexName
 
 export type AstExprIndexExpr = luau.AstExprIndexExpr

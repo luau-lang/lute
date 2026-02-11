@@ -55,6 +55,8 @@ export type AstExprVarargs = types.AstExprVarargs
 
 export type AstExprCall = types.AstExprCall
 
+export type AstExprInstantiate = types.AstExprInstantiate
+
 export type AstExprIndexName = types.AstExprIndexName
 
 export type AstExprIndexExpr = types.AstExprIndexExpr

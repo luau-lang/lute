@@ -920,6 +920,34 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "closeparens");
     }
 
+    void serialize(Luau::AstExprInstantiate* node)
+    {
+        const auto& cstNode = lookupCstNode<Luau::CstExprExplicitTypeInstantiation>(node)->instantiation;
+
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 6);
+
+        serializeNodePreamble(node, "instantiate", "expr");
+
+        node->expr->visit(this);
+        lua_setfield(L, -2, "expr");
+
+        serializeToken(cstNode.leftArrow1Position, "<");
+        lua_setfield(L, -2, "leftarrow1");
+
+        serializeToken(cstNode.leftArrow2Position, "<");
+        lua_setfield(L, -2, "leftarrow2");
+
+        serializePunctuated(node->typeArguments, cstNode.commaPositions, ",");
+        lua_setfield(L, -2, "typearguments");
+
+        serializeToken(cstNode.rightArrow1Position, ">");
+        lua_setfield(L, -2, "rightarrow1");
+
+        serializeToken(cstNode.rightArrow2Position, ">");
+        lua_setfield(L, -2, "rightarrow2");
+    }
+
     void serialize(Luau::AstExprIndexName* node)
     {
         lua_rawcheckstack(L, 2);
@@ -2419,6 +2447,12 @@ struct AstSerialize : public Luau::AstVisitor
     }
 
     bool visit(Luau::AstExprCall* node) override
+    {
+        serialize(node);
+        return false;
+    }
+
+    bool visit(Luau::AstExprInstantiate* node) override
     {
         serialize(node);
         return false;
