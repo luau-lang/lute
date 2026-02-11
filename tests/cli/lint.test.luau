@@ -2780,7 +2780,7 @@ end
 		})
 	end)
 
-	suite:case("lute lint passes context through to rules", function(assert)		
+	suite:case("lute lint passes context through to rules", function(assert)
 		-- custom rule that returns violating with globals and options in the message
 		local customRuleFile = path.join(tmpDir, "testRule.luau")
 		local customRuleContents = [[
@@ -2824,7 +2824,15 @@ end
 		local tmpFile = path.join(tmpDir, "demo.luau")
 		fs.writestringtofile(tmpFile, "return 1")
 
-		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), "-r", path.format(customRuleFile), path.format(tmpFile) })
+		local result = process.run({
+			lutePath,
+			"lint",
+			"-c",
+			path.format(configFile),
+			"-r",
+			path.format(customRuleFile),
+			path.format(tmpFile),
+		})
 
 		assert.eq(result.exitcode, 1)
 		assert.strcontains(result.stdout, "Globals: 1")
