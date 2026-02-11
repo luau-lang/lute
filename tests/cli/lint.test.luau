@@ -2706,7 +2706,7 @@ end
 			c = 1 / 0
 		]]
 		fs.writestringtofile(ignoredFile, violatingContents)
-		
+
 		local configSubDir = path.join(tmpDir, "configDir")
 		fs.createdirectory(configSubDir)
 		local configFile = path.join(configSubDir, ".config.luau")
@@ -2729,5 +2729,3 @@ end
 		assert.strnotcontains(result.stdout, "divide_by_zero")
 	end)
 end)
-
-test.run()
