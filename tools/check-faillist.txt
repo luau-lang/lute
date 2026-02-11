@@ -89,7 +89,6 @@ lute/cli/commands/test/filter.luau:34:5-16
 lute/cli/commands/test/filter.luau:34:5-16
 lute/cli/commands/test/filter.luau:62:6-17
 lute/cli/commands/test/filter.luau:62:6-17
-lute/cli/commands/test/init.luau:121:42-44
 lute/cli/commands/transform/init.luau:16:26-30
 lute/cli/commands/transform/lib/arguments.luau:47:26-37
 lute/cli/commands/transform/lib/arguments.luau:47:26-37
