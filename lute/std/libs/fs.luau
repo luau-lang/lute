@@ -3,6 +3,7 @@
 -- stdlib for `@lute/fs`
 -- Provides file system utility functions that handles file paths as path types instead of strings
 
+local deque = require("@batteries/collections/deque")
 local fs = require("@lute/fs")
 local pathlib = require("@std/path")
 local sys = require("@std/system")
@@ -77,17 +78,17 @@ end
 --- Also provides a `close` method to stop watching.
 --- Note: for loops do not support yielding generalized iterators, so we cannot use fs.watch as `for _ in fs.watch(...) do` directly. A while loop can be used instead. See example/watch_directory.luau for usage.
 function fslib.watch(path: pathlike): watcher
-	local queue: { { filename: pathlib.path, event: watchevent } } = {}
+	local deq = deque.new()
 	local handle = fs.watch(pathlib.format(path), function(filename: string, event: watchevent)
-		table.insert(queue, { filename = pathlib.parse(filename), event = event })
+		deq:pushback({ filename = pathlib.parse(filename), event = event })
 	end)
 
 	return {
 		next = function(_self: watcher): watchevent?
-			if #queue == 0 then
+			if not deq:peekfront() then
 				return nil
 			end
-			local item = table.remove(queue, 1)
+			local item = deq:popfront()
 			assert(item)
 			return item.event
 		end,
