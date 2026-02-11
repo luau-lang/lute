@@ -77,7 +77,7 @@ end
 --- Also provides a `close` method to stop watching.
 --- Note: for loops do not support yielding generalized iterators, so we cannot use fs.watch as `for _ in fs.watch(...) do` directly. A while loop can be used instead. See example/watch_directory.luau for usage.
 function fslib.watch(path: pathlike): watcher
-	local queue = {}
+	local queue: { { filename: pathlib.path, event: watchevent } } = {}
 	local handle = fs.watch(pathlib.format(path), function(filename: string, event: watchevent)
 		table.insert(queue, { filename = pathlib.parse(filename), event = event })
 	end)
@@ -88,6 +88,7 @@ function fslib.watch(path: pathlike): watcher
 				return nil
 			end
 			local item = table.remove(queue, 1)
+			assert(item)
 			return item.event
 		end,
 		close = function(_self: watcher): ()

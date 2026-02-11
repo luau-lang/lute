@@ -1,4 +1,4 @@
-local assertLib = require("@std/test/assert")
+local testtypes = require("@std/test/types")
 local printer = require("@std/syntax/printer")
 local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
@@ -10,7 +10,7 @@ local function checkReplacement(
 	source: string,
 	expected: string,
 	transformFn: (syntaxTypes.AstNode) -> syntaxTypes.replacements?,
-	assert: assertLib.asserts
+	assert: testtypes.asserts
 )
 	local ast = syntax.parse(source)
 	local replacements = transformFn(ast.root)
