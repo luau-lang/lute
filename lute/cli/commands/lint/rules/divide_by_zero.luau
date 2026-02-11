@@ -6,6 +6,7 @@ local utils = require("@std/syntax/utils")
 
 local name = "divide_by_zero"
 local message = "Division by zero detected."
+local target = "https://lute.luau.org/cli/lint/divide_by_zero.html"
 
 local function isZeroLiteral(expr: syntax.AstExpr): boolean
 	return expr.kind == "expr" and expr.tag == "number" and expr.value == 0
@@ -48,6 +49,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 					severity = "warning",
 					sourcepath = sourcepath,
 					suggestedfix = suggestedfix,
+					target = target,
 				}
 			end
 		)

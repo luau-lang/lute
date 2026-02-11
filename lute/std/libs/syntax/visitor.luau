@@ -43,6 +43,7 @@ export type Visitor = {
 	visitExprBinary: (types.AstExprBinary) -> boolean,
 	visitExprFunction: (types.AstExprFunction) -> boolean,
 	visitExprFunctionEnd: (types.AstExprFunction) -> (),
+	visitExprInstantiate: (types.AstExprInstantiate) -> boolean,
 	visitExprTableItem: (types.AstExprTableItem) -> boolean,
 	visitExprTable: (types.AstExprTable) -> boolean,
 	visitExprIndexName: (types.AstExprIndexName) -> boolean,
@@ -117,6 +118,7 @@ local defaultVisitor: Visitor = {
 	visitExprBinary = alwaysVisit :: any,
 	visitExprFunction = alwaysVisit :: any,
 	visitExprFunctionEnd = alwaysVisit :: any,
+	visitExprInstantiate = alwaysVisit,
 	visitExprTableItem = alwaysVisit :: any,
 	visitExprTable = alwaysVisit :: any,
 	visitExprIndexName = alwaysVisit :: any,
@@ -176,6 +178,14 @@ local function visitLocal(node: types.AstLocal, visitor: Visitor)
 		if node.annotation then
 			visitType(node.annotation, visitor)
 		end
+	end
+end
+
+local function visitTypeOrTypePack(node: types.AstType | types.AstTypePack, visitor: Visitor)
+	if node.kind == "type" then
+		visitType(node, visitor)
+	else
+		visitTypePack(node, visitor)
 	end
 end
 
@@ -495,6 +505,17 @@ local function visitExprFunction(
 		visitStatBlock(node.body, visitor)
 		visitToken(node.endkeyword, visitor)
 		visitor.visitExprFunctionEnd(node)
+	end
+end
+
+local function visitExprInstantiate(node: types.AstExprInstantiate, visitor: Visitor)
+	if visitor.visitExprInstantiate(node) then
+		visitExpr(node.expr, visitor)
+		visitToken(node.leftarrow1, visitor)
+		visitToken(node.leftarrow2, visitor)
+		visitPunctuated(node.typearguments, visitor, visitTypeOrTypePack)
+		visitToken(node.rightarrow1, visitor)
+		visitToken(node.rightarrow2, visitor)
 	end
 end
 
@@ -840,6 +861,8 @@ function visitExpr(expression: types.AstExpr, visitor: Visitor)
 			visitExprBinary(expression, visitor)
 		elseif expression.tag == "function" then
 			visitExprFunction(expression, visitor)
+		elseif expression.tag == "instantiate" then
+			visitExprInstantiate(expression, visitor)
 		elseif expression.tag == "table" then
 			visitExprTable(expression, visitor)
 		elseif expression.tag == "indexname" then
@@ -991,6 +1014,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitExprFunctionEnd = function(s)
 				visit(s)
 			end,
+			visitExprInstantiate = visit,
 			visitExprTableItem = visit,
 			visitExprTable = visit,
 			visitExprIndexName = visit,

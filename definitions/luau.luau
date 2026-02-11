@@ -110,6 +110,18 @@ export type AstExprCall = {
 	argLocation: span,
 }
 
+export type AstExprInstantiate = {
+	location: span,
+	kind: "expr",
+	tag: "instantiate",
+	expr: AstExpr,
+	leftarrow1: Token<"<">,
+	leftarrow2: Token<"<">,
+	typearguments: Punctuated<AstType | AstTypePack>,
+	rightarrow1: Token<">">,
+	rightarrow2: Token<">">,
+}
+
 export type AstExprIndexName = {
 	location: span,
 	kind: "expr",
@@ -260,6 +272,7 @@ export type AstExpr = { kind: "expr" } & (
 	| AstExprGlobal
 	| AstExprVarargs
 	| AstExprCall
+	| AstExprInstantiate
 	| AstExprIndexName
 	| AstExprIndexExpr
 	| AstExprFunction
@@ -724,8 +737,8 @@ export type Type = {
 	metatable: Type?,
 
 	-- for function type
-	parameters: { head: { Type }?, tail: Type },
-	returns: { head: { Type }?, tail: Type },
+	parameters: TypePack,
+	returns: TypePack,
 	generics: { Type },
 	genericpacks: { TypePack },
 
@@ -734,13 +747,22 @@ export type Type = {
 	parent: Type?,
 
 	-- for generic type
-	name: string?,
+	name: string,
 	ispack: boolean,
 }
 
 export type TypePack = {
+	tag: "typepack" | "variadic" | "generic",
 	head: { Type }?,
-	tail: Type?,
+	tail: TypePack?,
+
+	-- for variadic type packs
+	type: Type,
+	hidden: boolean,
+
+	-- for generic type packs
+	name: string,
+	ispack: boolean,
 }
 
 function luau.typeofmodule(modulepath: string): TypePack?
