@@ -17,7 +17,32 @@
 #include <string>
 #include <utility>
 
-static void* createCliRequireContext(lua_State* L)
+static void* createRunRequireContext(lua_State* L)
+{
+    void* ctx = lua_newuserdatadtor(
+        L,
+        sizeof(RequireCtx),
+        [](void* ptr)
+        {
+            std::destroy_at(static_cast<RequireCtx*>(ptr));
+        }
+    );
+
+    if (!ctx)
+        luaL_error(L, "unable to allocate RequireCtx");
+
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>()};
+
+    // Store RequireCtx in the registry to keep it alive for the lifetime of
+    // this lua_State. Memory address is used as a key to avoid collisions.
+    lua_pushlightuserdata(L, ctx);
+    lua_insert(L, -2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return ctx;
+}
+
+static void* createCliCommandRequireContext(lua_State* L)
 {
     void* ctx = lua_newuserdatadtor(
         L,
@@ -42,7 +67,7 @@ static void* createCliRequireContext(lua_State* L)
     return ctx;
 }
 
-static void* createPkgRequireContext(
+static void* createPkgRunRequireContext(
     lua_State* L,
     std::vector<Package::Identifier> directDependencies,
     std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies
@@ -100,7 +125,7 @@ static void* createBundleRequireContext(
     return ctx;
 }
 
-lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
+lua_State* setupRunState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
 {
     return setupState(
         runtime,
@@ -109,14 +134,30 @@ lua_State* setupCliState(Runtime& runtime, std::function<void(lua_State*)> preSa
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
-            luaopen_require(L, requireConfigInit, createCliRequireContext(L));
+            luaopen_require(L, requireConfigInit, createRunRequireContext(L));
             if (preSandboxInit)
                 preSandboxInit(L);
         }
     );
 }
 
-lua_State* setupPkgCliState(
+lua_State* setupCliCommandState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
+{
+    return setupState(
+        runtime,
+        [preSandboxInit = std::move(preSandboxInit)](lua_State* L)
+        {
+            if (Luau::CodeGen::isSupported())
+                Luau::CodeGen::create(L);
+
+            luaopen_require(L, requireConfigInit, createCliCommandRequireContext(L));
+            if (preSandboxInit)
+                preSandboxInit(L);
+        }
+    );
+}
+
+lua_State* setupPkgRunState(
     Runtime& runtime,
     std::vector<Package::Identifier> directDependencies,
     std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies
@@ -129,7 +170,7 @@ lua_State* setupPkgCliState(
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
-            luaopen_require(L, requireConfigInit, createPkgRequireContext(L, std::move(directDependencies), std::move(allDependencies)));
+            luaopen_require(L, requireConfigInit, createPkgRunRequireContext(L, std::move(directDependencies), std::move(allDependencies)));
         }
     );
 }
