@@ -46,8 +46,8 @@ test.suite("LuteTestCommand", function(suite)
 
 		-- Check that it runs only tests in SmokeSuite
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Total:  2", 1, true), nil)
-		assert.neq(result.stdout:find("Passed: 2", 1, true), nil)
+		assert.neq(result.stdout:find("of 2", 1, true), nil)
+		assert.neq(result.stdout:find("2 passed", 1, true), nil)
 	end)
 
 	suite:case("lute test filters by case name", function(assert)
@@ -56,8 +56,8 @@ test.suite("LuteTestCommand", function(suite)
 
 		-- Check that it runs only tests named make_pass
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Total:  1", 1, true), nil)
-		assert.neq(result.stdout:find("Passed: 1", 1, true), nil)
+		assert.neq(result.stdout:find("of 1", 1, true), nil)
+		assert.neq(result.stdout:find("1 passed", 1, true), nil)
 	end)
 
 	suite:case("lute test filters by suite and case name", function(assert)
@@ -66,7 +66,7 @@ test.suite("LuteTestCommand", function(suite)
 
 		-- Check that it runs only make_fail in SmokeSuite
 		assert.eq(result.exitcode, 0)
-		assert.neq(result.stdout:find("Total:  1", 1, true), nil)
-		assert.neq(result.stdout:find("Passed: 1", 1, true), nil)
+		assert.neq(result.stdout:find("of 1", 1, true), nil)
+		assert.neq(result.stdout:find("1 passed", 1, true), nil)
 	end)
 end)

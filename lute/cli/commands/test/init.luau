@@ -5,7 +5,7 @@ local path = require("@std/path")
 local ps = require("@std/process")
 local testtypes = require("@std/test/types")
 local runner = require("@std/test/runner")
-local reporter = require("@std/test/reporter")
+local reporter = require("@self/reporter")
 local test = require("@std/test")
 
 local function printHelp()
@@ -119,7 +119,7 @@ local function main(...: string)
 	else
 		local env = test._registered()
 		local filteredEnv = filter.filtertests(env, suiteName, caseName)
-		runtests(filteredEnv, runner.run, reporter.simple)
+		runtests(filteredEnv, runner.run, reporter.color)
 	end
 end
 
