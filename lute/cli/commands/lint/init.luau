@@ -228,13 +228,13 @@ local function lintString(
 	end
 	local violations: { types.LintViolation } = {}
 	local directiveCache = {}
-	local rulesConfig = config.rules or {}
+	local rulesConfig = if config.rules ~= nil then config.rules else {}
 	for _, rule in lintRules do
-		local ruleConfig: types.RuleConfig = rulesConfig[rule.name] or {}
+		local ruleConfig: types.RuleConfig = if rulesConfig[rule.name] ~= nil then rulesConfig[rule.name] else {}
 
 		local context: types.RuleContext = {
-			globals = config.globals or {},
-			options = ruleConfig.options or {},
+			globals = if config.globals ~= nil then config.globals else {},
+			options = if ruleConfig.options ~= nil then ruleConfig.options else {},
 		}
 
 		local success, err = pcall(rule.lint, ast, inputFilePath, context)
