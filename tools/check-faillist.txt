@@ -61,9 +61,16 @@ lute/cli/commands/doc/init.luau:204:10-24
 lute/cli/commands/doc/init.luau:310:5-16
 lute/cli/commands/doc/init.luau:315:5-16
 lute/cli/commands/doc/init.luau:321:10-24
+lute/cli/commands/lint/configutils.luau:19:55-73
+lute/cli/commands/lint/configutils.luau:19:55-73
 lute/cli/commands/lint/init.luau:56:10-18
 lute/cli/commands/lint/init.luau:428:15-24
-lute/cli/commands/lint/init.luau:429:33-37
+lute/cli/commands/lint/init.luau:429:56-65
+lute/cli/commands/lint/init.luau:429:56-65
+lute/cli/commands/lint/init.luau:429:56-65
+lute/cli/commands/lint/init.luau:429:56-65
+lute/cli/commands/lint/init.luau:429:56-65
+lute/cli/commands/lint/init.luau:429:56-65
 lute/cli/commands/lint/init.luau:483:37-46
 lute/cli/commands/lint/init.luau:484:40-49
 lute/cli/commands/lint/printer.luau:51:7-62
@@ -453,6 +460,7 @@ tests/std/test.test.luau:282:4-9
 tests/std/test.test.luau:299:4-9
 tests/std/test.test.luau:318:4-9
 tests/std/test.test.luau:337:4-9
+tools/luthier.luau:135:10-34
 tools/luthier.luau:158:2-26
 tools/luthier.luau:197:3-12
 tools/luthier.luau:198:11-25
