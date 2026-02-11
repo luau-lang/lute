@@ -2666,12 +2666,15 @@ end
 
 	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
 		local ignoredFile = path.join(tmpDir, "ignored.luau")
+		local notIgnoredFile = path.join(tmpDir, "valid.luau")
 		local violatingContents = [[
 			a = b
 			b = a
 			c = 1 / 0
 		]]
 		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
 		local configFile = path.join(tmpDir, ".config.luau")
 		local configContents = [[
 		return {
@@ -2688,6 +2691,11 @@ end
 		assert.eq(result.exitcode, 0) -- no errors
 		assert.strnotcontains(result.stdout, "almost_swapped")
 		assert.strnotcontains(result.stdout, "divide_by_zero")
+
+		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(notIgnoredFile) })
+		assert.eq(result.exitcode, 1) -- violations caught
+		assert.strcontains(result.stdout, "[almost_swapped]")
+		assert.strcontains(result.stdout, "[divide_by_zero]")
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
@@ -2698,7 +2706,10 @@ end
 			c = 1 / 0
 		]]
 		fs.writestringtofile(ignoredFile, violatingContents)
-		local configFile = path.join(tmpDir, ".config.luau")
+		
+		local configSubDir = path.join(tmpDir, "configDir")
+		fs.createdirectory(configSubDir)
+		local configFile = path.join(configSubDir, ".config.luau")
 		local configContents = [[
 		return {
 			lute = {
@@ -2711,10 +2722,12 @@ end
 		fs.writestringtofile(configFile, configContents)
 
 		local result = process.run({ lutePath, "lint", path.format(ignoredFile) }, {
-			cwd = path.format(tmpDir),
+			cwd = path.format(configSubDir),
 		})
 		assert.eq(result.exitcode, 0) -- no errors
 		assert.strnotcontains(result.stdout, "almost_swapped")
 		assert.strnotcontains(result.stdout, "divide_by_zero")
 	end)
 end)
+
+test.run()
