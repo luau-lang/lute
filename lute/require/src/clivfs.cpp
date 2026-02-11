@@ -2,6 +2,7 @@
 
 #include "lute/clibatteries.h"
 #include "lute/clicommands.h"
+#include "lute/common.h"
 #include "lute/modulepath.h"
 
 #include "Luau/Common.h"
@@ -94,13 +95,13 @@ NavigationStatus CliVfs::toAliasFallback(std::string_view aliasUnprefixed)
 
 NavigationStatus CliVfs::toParent()
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toParent();
 }
 
 NavigationStatus CliVfs::toChild(const std::string& name)
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     return modulePath->toChild(name);
 }
 
@@ -112,9 +113,9 @@ bool CliVfs::isModulePresent() const
 
 std::string CliVfs::getIdentifier() const
 {
-    LUAU_ASSERT(modulePath);
+    LUTE_ASSERT(modulePath);
     ResolvedRealPath result = modulePath->getRealPath();
-    LUAU_ASSERT(result.status == NavigationStatus::Success);
+    LUTE_ASSERT(result.status == NavigationStatus::Success);
     return result.realPath;
 }
 
