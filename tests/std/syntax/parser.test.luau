@@ -127,7 +127,7 @@ test.suite("Parser", function(suite)
 			if entry.type ~= "file" then
 				continue
 			end
-			if strext.hassuffix(entry.name, ".json") then
+			if not strext.hassuffix(entry.name, ".luau") then
 				continue
 			end
 
@@ -304,6 +304,26 @@ test.suite("parseExpr", function(suite)
 		assert.eq(#(callWithArgsExpr :: syntax.AstExprCall).arguments, 2)
 		assert.eq((callWithArgsExpr :: syntax.AstExprCall).arguments[1].node.tag, "number")
 		assert.eq((callWithArgsExpr :: syntax.AstExprCall).arguments[2].node.tag, "number")
+	end)
+
+	suite:case("parseExprInstantiate", function(assert)
+		local callExpr = parser.parseexpr("foo<<string, ...number>>()")
+		assert.eq(callExpr.kind, "expr")
+		assert.eq(callExpr.tag, "call")
+
+		local instExpr = (callExpr :: syntax.AstExprCall).func
+		assert.eq(instExpr.tag, "instantiate")
+		assert.eq(instExpr.kind, "expr")
+		assert.eq((instExpr :: syntax.AstExprInstantiate).expr.tag, "global")
+		assert.eq((instExpr :: syntax.AstExprInstantiate).leftarrow1.text, "<")
+		assert.eq((instExpr :: syntax.AstExprInstantiate).leftarrow2.text, "<")
+		assert.eq(#(instExpr :: syntax.AstExprInstantiate).typearguments, 2)
+		assert.eq(((instExpr :: syntax.AstExprInstantiate).typearguments[1].node).kind, "type")
+		assert.eq(((instExpr :: syntax.AstExprInstantiate).typearguments[1].node).tag, "reference")
+		assert.eq(((instExpr :: syntax.AstExprInstantiate).typearguments[2].node).kind, "typepack")
+		assert.eq(((instExpr :: syntax.AstExprInstantiate).typearguments[2].node).tag, "variadic")
+		assert.eq((instExpr :: syntax.AstExprInstantiate).rightarrow1.text, ">")
+		assert.eq((instExpr :: syntax.AstExprInstantiate).rightarrow2.text, ">")
 	end)
 
 	suite:case("parseExprIndexName", function(assert)

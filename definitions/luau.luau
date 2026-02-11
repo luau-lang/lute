@@ -110,6 +110,18 @@ export type AstExprCall = {
 	argLocation: span,
 }
 
+export type AstExprInstantiate = {
+	location: span,
+	kind: "expr",
+	tag: "instantiate",
+	expr: AstExpr,
+	leftarrow1: Token<"<">,
+	leftarrow2: Token<"<">,
+	typearguments: Punctuated<AstType | AstTypePack>,
+	rightarrow1: Token<">">,
+	rightarrow2: Token<">">,
+}
+
 export type AstExprIndexName = {
 	location: span,
 	kind: "expr",
@@ -260,6 +272,7 @@ export type AstExpr = { kind: "expr" } & (
 	| AstExprGlobal
 	| AstExprVarargs
 	| AstExprCall
+	| AstExprInstantiate
 	| AstExprIndexName
 	| AstExprIndexExpr
 	| AstExprFunction
