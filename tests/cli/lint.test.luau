@@ -2617,4 +2617,166 @@ end
 		-- Teardown
 		fs.remove(violatorPath)
 	end)
+
+	suite:case("throws error when config has invalid structure", function(assert)
+		-- local invalidGlobalConfig = [[
+		-- 	return {
+		-- 		lute = {
+		-- 			lint = {
+		-- 				globals = "should be table"
+		-- 			}
+		-- 		}
+		-- 	}
+		-- ]]
+
+		local invalidIgnoresConfig = [[
+			return {
+				lute = {
+					lint = {
+						ignores = "should be table"
+					}
+				}
+			}
+		]]
+
+		-- local invalidRulesConfig = [[
+		-- 	return {
+		-- 		lute = {
+		-- 			lint = {
+		-- 				rules = "should be table"
+		-- 			}
+		-- 		}
+		-- 	}
+		-- ]]
+
+		local configFile = path.join(tmpDir, ".config.luau")
+
+		-- -- fs.writestringtofile(path.format(configFile), invalidGlobalConfig)
+		-- local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
+		-- assert.eq(result.exitcode, 1)
+		-- assert.strcontains(result.stderr, "config.globals must be a table of [string] : unknown")
+
+		fs.writestringtofile(path.format(configFile), invalidIgnoresConfig)
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
+		assert.eq(result.exitcode, 1)
+		assert.strcontains(result.stderr, "config.lute.lint.ignores must be an array of filepath globs")
+
+		-- fs.writestringtofile(path.format(configFile), invalidRulesConfig)
+		-- result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
+		-- assert.eq(result.exitcode, 1)
+		-- assert.strcontains(result.stderr, "config.rules must be a table")
+	end)
+
+	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
+		local testSubDir = path.join(tmpDir, "testDir")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/ignored.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
+		assert.strnotcontains(result.stdout, "ignored.luau")
+		assert.strcontains(result.stdout, "valid.luau")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
+	end)
+
+	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
+		local testSubDir = path.join(tmpDir, "testDir")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/ignored.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", path.format(testSubDir) }, {
+			cwd = path.format(testSubDir),
+		})
+		assert.eq(result.exitcode, 0) -- no errors
+		assert.strnotcontains(result.stdout, "almost_swapped")
+		assert.strnotcontains(result.stdout, "divide_by_zero")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
+	end)
+
+	suite:case("lute lint configured ignores supplement (NOT override) existing gitignores", function(assert)
+		local testSubDir = path.join(tmpDir, "testDir")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
+		local violatingContents = "c = 1 / 0"
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local gitIgnore = path.join(testSubDir, ".gitignore") -- gitignore `valid.luau`
+		fs.writestringtofile(
+			gitIgnore,
+			[[
+**/valid.luau
+		]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau") --  configure ignore of `ignored.luau`
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/ignored.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 0) -- no errors bc we ignore BOTH files in the dir
+		assert.strnotcontains(result.stdout, "almost_swapped")
+		assert.strnotcontains(result.stdout, "divide_by_zero")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
+	end)
 end)
