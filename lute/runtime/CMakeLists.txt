@@ -15,5 +15,5 @@ target_sources(Lute.Runtime PRIVATE
 
 target_compile_features(Lute.Runtime PUBLIC cxx_std_17)
 target_include_directories(Lute.Runtime PUBLIC "include" ${LIBUV_INCLUDE_DIR})
-target_link_libraries(Lute.Runtime PRIVATE Luau.Common Luau.Require Luau.VM uv_a)
+target_link_libraries(Lute.Runtime PRIVATE Luau.Require Luau.VM Lute.Common uv_a)
 target_compile_options(Lute.Runtime PRIVATE ${LUTE_OPTIONS})

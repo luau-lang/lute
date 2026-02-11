@@ -1,5 +1,6 @@
 #include "lute/process.h"
 
+#include "lute/common.h"
 #include "lute/runtime.h"
 #include "lute/uvutils.h"
 
@@ -479,7 +480,7 @@ int exitFunc(lua_State* L)
     // Exit with the provided code
     std::exit(exitCode);
 
-    LUAU_UNREACHABLE();
+    LUTE_UNREACHABLE();
 }
 
 int cwd(lua_State* L)
