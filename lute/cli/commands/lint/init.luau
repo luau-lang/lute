@@ -234,7 +234,7 @@ local function lintString(
 
 		local context: types.RuleContext = {
 			globals = config.globals or {},
-			options = ruleConfig.options,
+			options = ruleConfig.options or {},
 		}
 
 		local success, err = pcall(rule.lint, ast, inputFilePath, context)
