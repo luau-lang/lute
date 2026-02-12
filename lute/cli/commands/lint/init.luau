@@ -65,10 +65,14 @@ local function loadLintRule(path: string): types.LintRule
 	return loaded -- Typecast isn't needed because loaded is refined to any bc of type error in assertIsLintRule
 end
 
-local function loadLintRules(path: string): { types.LintRule }
+local function loadLintRules(
+	path: string,
+	config: types.LintConfig,
+	rootLocation: string
+): ({ types.LintRule }, types.RuleConfigurations, types.RuleIgnores)
 	assert(fs.exists(path), `Lint rule at path '{path}' does not exist`)
 
-	local rules = {}
+	local rules, ruleConfigs: types.RuleConfigurations, ruleIgnores = {}, {}, {}
 
 	local queue: { string } = { path }
 	while #queue > 0 do
@@ -79,7 +83,14 @@ local function loadLintRules(path: string): { types.LintRule }
 			local currentPathObj = pathLib.parse(currentPath)
 			local initPath = pathLib.format(pathLib.join(currentPathObj, "init.luau"))
 			if fs.exists(initPath) then
-				table.insert(rules, loadLintRule(initPath))
+				local lintRule = loadLintRule(initPath)
+				table.insert(rules, lintRule)
+				local ruleConfig: types.RuleConfig = if config.rules ~= nil
+						and config.rules[lintRule.name] ~= nil
+					then config.rules[lintRule.name]
+					else {}
+				ruleConfigs[lintRule.name] = ruleConfig
+				ruleIgnores[lintRule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores or {})
 			else
 				local entries = fs.listdirectory(currentPath)
 				local childPaths = tableext.map(entries, function(entry)
@@ -88,22 +99,37 @@ local function loadLintRules(path: string): { types.LintRule }
 				tableext.extend(queue, childPaths)
 			end
 		elseif pathLib.extname(currentPath) == ".luau" then
-			table.insert(rules, loadLintRule(currentPath))
+			local lintRule = loadLintRule(currentPath)
+			table.insert(rules, lintRule)
+			local ruleConfig: types.RuleConfig = if config.rules ~= nil and config.rules[lintRule.name] ~= nil
+				then config.rules[lintRule.name]
+				else {}
+			ruleConfigs[lintRule.name] = ruleConfig
+			ruleIgnores[lintRule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores or {})
 		end
 	end
 
-	return rules
+	return rules, ruleConfigs, ruleIgnores
 end
 
-local function loadDefaultRules(): { types.LintRule }
-	local rules = {}
+local function loadDefaultRules(
+	config: types.LintConfig,
+	rootLocation: string
+): ({ types.LintRule }, types.RuleConfigurations, types.RuleIgnores)
+	local rules, ruleConfigs, ruleIgnores = {}, {}, {}
 	for _, ruleName in DEFAULT_RULES do
 		local path = `@self/rules/{ruleName}`
 		local rule: types.LintRule = require(path) :: any -- Anycast to silence error from dynamic require
 		assertIsLintRule(rule, path)
 		table.insert(rules, rule)
+
+		local ruleConfig: types.RuleConfig = if config.rules ~= nil and config.rules[rule.name] ~= nil
+			then config.rules[rule.name]
+			else {}
+		ruleConfigs[rule.name] = ruleConfig
+		ruleIgnores[rule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores or {})
 	end
-	return rules
+	return rules, ruleConfigs, ruleIgnores
 end
 
 local function parseDirectives(node: syntax.AstNode): { [string]: boolean }
@@ -211,7 +237,7 @@ local function lintString(
 	source: string,
 	lintRules: { types.LintRule },
 	inputFilePath: pathLib.path?,
-	config: types.LintConfig
+	configData: types.RuleConfigData
 ): { types.LintViolation }
 	if VERBOSE then
 		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
@@ -228,13 +254,24 @@ local function lintString(
 	end
 	local violations: { types.LintViolation } = {}
 	local directiveCache = {}
-	local rulesConfig = if config.rules ~= nil then config.rules else {}
 	for _, rule in lintRules do
-		local ruleConfig: types.RuleConfig = if rulesConfig[rule.name] ~= nil then rulesConfig[rule.name] else {}
+		if inputFilePath then
+			-- check if rule-specific ignores omit the current path
+			if
+				parseIgnores.isIgnored(
+					configData.ruleIgnores[rule.name],
+					pathLib.format(inputFilePath),
+					fs.type(inputFilePath) == "dir"
+				)
+			then
+				continue
+			end
+		end
 
-		local context: types.RuleContext = {
-			globals = if config.globals ~= nil then config.globals else {},
-			options = if ruleConfig.options ~= nil then ruleConfig.options else {},
+		local ruleConfig = configData.ruleConfigs[rule.name]
+		local context = {
+			globals = configData.globals,
+			options = if ruleConfig then ruleConfig.options else {},
 		}
 
 		local success, err = pcall(rule.lint, ast, inputFilePath, context)
@@ -309,14 +346,14 @@ local function lintFile(
 	inputFilePath: pathLib.path,
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	lintConfig: types.LintConfig
+	configData: types.RuleConfigData
 ): { types.LintViolation }
 	if VERBOSE then
 		print(`Reading input file '{inputFilePath}'`)
 	end
 	local fileContent = fs.readfiletostring(inputFilePath)
 
-	local violations = lintString(fileContent, lintRules, inputFilePath, lintConfig)
+	local violations = lintString(fileContent, lintRules, inputFilePath, configData)
 
 	if not autofixEnabled then
 		return violations
@@ -346,14 +383,14 @@ local function lintFile(
 
 	fs.writestringtofile(inputFilePath, newContent)
 
-	return lintString(newContent, lintRules, inputFilePath, lintConfig)
+	return lintString(newContent, lintRules, inputFilePath, configData)
 end
 
 local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	lintConfig: types.LintConfig, -- will be used in follow-up PRs
+	configData: types.RuleConfigData,
 	ignoreData: parseIgnores.GitignoreData
 ): { [pathLib.path]: { types.LintViolation } }
 	if VERBOSE then
@@ -378,7 +415,7 @@ local function lintPaths(
 				end
 			end
 
-			local success, err = pcall(lintFile, curr, lintRules, autofixEnabled, lintConfig)
+			local success, err = pcall(lintFile, curr, lintRules, autofixEnabled, configData)
 			if success then
 				-- Violations are returned as the second return value from pcall
 				allViolations[curr] = err
@@ -445,25 +482,40 @@ local function main(...: string)
 	end
 
 	local lintRules: { types.LintRule }
+	local ruleConfigurations: types.RuleConfigurations = {}
+	local ruleIgnoreData: types.RuleIgnores = {}
+
+	local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
+	local rootLocation = if fs.exists(configPath)
+		then pathLib.format(pathLib.dirname(configPath))
+		else pathLib.format(process.cwd())
+	local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
+
 	local rulePath = args:get("rules")
 	if rulePath == nil then
 		if VERBOSE then
 			print("Using default lint rules.")
 		end
-		lintRules = loadDefaultRules()
+		lintRules, ruleConfigurations, ruleIgnoreData = loadDefaultRules(lintConfig, rootLocation)
 	else
 		if VERBOSE then
 			print(`Loading lint rule(s) from '{rulePath}'`)
 		end
-		lintRules = loadLintRules(rulePath)
+		lintRules, ruleConfigurations, ruleIgnoreData = loadLintRules(rulePath, lintConfig, rootLocation)
 	end
+
+	local configContextData = {
+		globals = if lintConfig.globals ~= nil then lintConfig.globals else {},
+		ruleConfigs = ruleConfigurations,
+		ruleIgnores = ruleIgnoreData,
+	}
 
 	if stringInput ~= nil then
 		if args:has("auto-fix") then
 			print("Auto-fix has no effect on string input.")
 		end
 
-		local violations = lintString(stringInput, lintRules, nil, lintConfig)
+		local violations = lintString(stringInput, lintRules, nil, configContextData)
 
 		if args:has("json") then
 			local diagnostics = tableext.map(violations, lsp.diagnostic)
@@ -489,13 +541,8 @@ local function main(...: string)
 			print("Auto-fix is enabled.")
 		end
 
-		local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
-		local rootLocation = if fs.exists(configPath)
-			then pathLib.format(pathLib.dirname(configPath))
-			else pathLib.format(process.cwd())
-		local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
-
-		local allViolations = lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, lintConfig, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+		local allViolations =
+			lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, configContextData, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))

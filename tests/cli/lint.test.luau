@@ -2669,7 +2669,9 @@ end
 
 	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
 		local testSubDir = path.join(tmpDir, "testDir")
-		fs.createdirectory(testSubDir)
+		if not fs.exists(testSubDir) then
+			fs.createdirectory(testSubDir)
+		end
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 		local notIgnoredFile = path.join(testSubDir, "valid.luau")
@@ -2705,7 +2707,9 @@ end
 
 	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
 		local testSubDir = path.join(tmpDir, "testDir")
-		fs.createdirectory(testSubDir)
+		if not fs.exists(testSubDir) then
+			fs.createdirectory(testSubDir)
+		end
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 
@@ -2742,7 +2746,9 @@ end
 
 	suite:case("lute lint configured ignores supplement (NOT override) existing gitignores", function(assert)
 		local testSubDir = path.join(tmpDir, "testDir")
-		fs.createdirectory(testSubDir)
+		if not fs.exists(testSubDir) then
+			fs.createdirectory(testSubDir)
+		end
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 		local notIgnoredFile = path.join(testSubDir, "valid.luau")
@@ -2781,8 +2787,13 @@ end
 	end)
 
 	suite:case("lute lint passes context through to rules", function(assert)
+		local testSubDir = path.join(tmpDir, "testDir")
+		if not fs.exists(testSubDir) then
+			fs.createdirectory(testSubDir)
+		end
+
 		-- custom rule that returns violating with globals and options in the message
-		local customRuleFile = path.join(tmpDir, "testRule.luau")
+		local customRuleFile = path.join(testSubDir, "testRule.luau")
 		local customRuleContents = [[
 			return {
 				name = "testRule",
@@ -2800,7 +2811,7 @@ end
 		]]
 		fs.writestringtofile(customRuleFile, customRuleContents)
 
-		local configFile = path.join(tmpDir, ".config.luau")
+		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
 		return {
 			lute = {
@@ -2821,9 +2832,6 @@ end
 		]]
 		fs.writestringtofile(configFile, configContents)
 
-		local tmpFile = path.join(tmpDir, "demo.luau")
-		fs.writestringtofile(tmpFile, "return 1")
-
 		local result = process.run({
 			lutePath,
 			"lint",
@@ -2831,11 +2839,67 @@ end
 			path.format(configFile),
 			"-r",
 			path.format(customRuleFile),
-			path.format(tmpFile),
+			"-s",
+			"local x = 1",
 		})
 
 		assert.eq(result.exitcode, 1)
 		assert.strcontains(result.stdout, "Globals: 1")
 		assert.strcontains(result.stdout, "Options: 1")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
+	end)
+
+	suite:case("lute lint accounts for rule-specific ignores", function(assert)
+		local testSubDir = path.join(tmpDir, "testDir")
+		if not fs.exists(testSubDir) then
+			fs.createdirectory(testSubDir)
+		end
+
+		local violatorFile = path.join(testSubDir, "violator.luau")
+		fs.writestringtofile(
+			violatorFile,
+			[[
+		local x = 1 / 0
+		local a, b
+		a = b
+		b = a
+]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["divide_by_zero"] = {
+					ignores = { "**/violator.luau" }
+				}
+			}
+		}
+	}
+}
+]]
+		fs.writestringtofile(configFile, configContents)
+
+		-- assert that violations are present without config
+		local result = process.run({ lutePath, "lint", path.format(violatorFile) })
+		assert.eq(result.exitcode, 1) -- should be violations
+		assert.strcontains(result.stdout, "violator.luau")
+		assert.strcontains(result.stdout, "[divide_by_zero]")
+		assert.strcontains(result.stdout, "[almost_swapped]")
+
+		-- with config, there should be violations but NOT for divide_by_zero
+		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) })
+		assert.eq(result.exitcode, 1) -- should be no violations
+		assert.strnotcontains(result.stdout, "[divide_by_zero]")
+		assert.strcontains(result.stdout, "[almost_swapped]")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
 	end)
 end)

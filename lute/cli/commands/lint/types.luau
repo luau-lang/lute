@@ -1,4 +1,5 @@
 local syntax = require("@std/syntax")
+local parseIgnores = require("../lib/parseIgnores")
 local path = require("@std/path")
 
 export type severity = "error" | "warning" | "info" | "hint"
@@ -24,7 +25,7 @@ export type LintRule = {
 }
 
 export type RuleConfig = {
-	-- ignores: { string }?,
+	ignores: { string }?,
 	-- severity: severity?,
 	-- off: true?,
 	options: unknown?,
@@ -44,6 +45,16 @@ export type LintConfig = {
 export type RuleContext = {
 	globals: GlobalsConfig,
 	options: unknown,
+}
+
+export type RuleConfigurations = { [string]: RuleConfig }
+
+export type RuleIgnores = { [string]: parseIgnores.GitignoreData }
+
+export type RuleConfigData = {
+	globals: GlobalsConfig,
+	ruleConfigs: RuleConfigurations,
+	ruleIgnores: RuleIgnores,
 }
 
 return {}
