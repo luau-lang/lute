@@ -78,7 +78,9 @@ local function registerRule(
 		then config.rules[rule.name]
 		else {}
 	ruleConfigs[rule.name] = ruleConfig
-	ruleIgnores[rule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores or {})
+	if ruleConfig.ignores ~= nil then
+		ruleIgnores[rule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores)
+	end
 end
 
 local function loadLintRules(
@@ -255,14 +257,8 @@ local function lintString(
 		if inputFilePath then
 			-- check if rule-specific ignores omit the current path
 			local ruleIgnores = configData.ruleIgnores[rule.name]
-			if
-				#ruleIgnores.ignores > 0
-				and parseIgnores.isIgnored(
-					configData.ruleIgnores[rule.name],
-					pathLib.format(inputFilePath),
-					fs.type(inputFilePath) == "dir"
-				)
-			then
+			local isDir = fs.type(inputFilePath) == "dir"
+			if ruleIgnores ~= nil and parseIgnores.isIgnored(ruleIgnores, pathLib.format(inputFilePath), isDir) then
 				continue
 			end
 		end

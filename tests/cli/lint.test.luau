@@ -2668,7 +2668,7 @@ end
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
-		local testSubDir = path.join(tmpDir, "testDir")
+		local testSubDir = path.join(tmpDir, "module")
 		if not fs.exists(testSubDir) then
 			fs.createdirectory(testSubDir)
 		end
@@ -2745,7 +2745,7 @@ end
 	end)
 
 	suite:case("lute lint configured ignores supplement (NOT override) existing gitignores", function(assert)
-		local testSubDir = path.join(tmpDir, "testDir")
+		local testSubDir = path.join(tmpDir, "module")
 		if not fs.exists(testSubDir) then
 			fs.createdirectory(testSubDir)
 		end
@@ -2787,7 +2787,7 @@ end
 	end)
 
 	suite:case("lute lint supports configured directory ignores", function(assert)
-		local testSubDir = path.join(tmpDir, "ignoreTest")
+		local testSubDir = path.join(tmpDir, "module")
 		if not fs.exists(testSubDir) then
 			fs.createdirectory(testSubDir)
 		end
@@ -2839,7 +2839,7 @@ end
 	end)
 
 	suite:case("lute lint passes context through to rules", function(assert)
-		local testSubDir = path.join(tmpDir, "testDir")
+		local testSubDir = path.join(tmpDir, "module")
 		if not fs.exists(testSubDir) then
 			fs.createdirectory(testSubDir)
 		end
@@ -2874,7 +2874,7 @@ end
 					rules = {
 						["testRule"] = {
 							options = {
-								["testOption"] = 1,
+								["testOption"] = "nice",
 							}
 						}
 					}
@@ -2897,7 +2897,7 @@ end
 
 		assert.eq(result.exitcode, 1)
 		assert.strcontains(result.stdout, "Globals: 1")
-		assert.strcontains(result.stdout, "Options: 1")
+		assert.strcontains(result.stdout, "Options: nice")
 
 		fs.removedirectory(testSubDir, {
 			recursive = true,
@@ -2905,7 +2905,7 @@ end
 	end)
 
 	suite:case("lute lint accounts for rule-specific ignores", function(assert)
-		local testSubDir = path.join(tmpDir, "testDir")
+		local testSubDir = path.join(tmpDir, "module")
 		if not fs.exists(testSubDir) then
 			fs.createdirectory(testSubDir)
 		end
@@ -2945,7 +2945,9 @@ return {
 		assert.strcontains(result.stdout, "[almost_swapped]")
 
 		-- with config, there should be violations but NOT for divide_by_zero
-		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) })
+		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) }, {
+			cwd = path.format(tmpDir),
+		})
 		assert.eq(result.exitcode, 1) -- should be no violations
 		assert.strnotcontains(result.stdout, "[divide_by_zero]")
 		assert.strcontains(result.stdout, "[almost_swapped]")
@@ -2956,7 +2958,7 @@ return {
 	end)
 
 	suite:case("lute lint accounts for rule-specific directory ignores", function(assert)
-		local testSubDir = path.join(tmpDir, "ruleIgnoreDir")
+		local testSubDir = path.join(tmpDir, "module")
 		if not fs.exists(testSubDir) then
 			fs.createdirectory(testSubDir)
 		end
