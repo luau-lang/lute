@@ -1022,6 +1022,7 @@ local x = 1 / 0
             "items": [
                 {
                     "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.", 
+                    "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html", 
                     "source": "lute lint", 
                     "code": "unused_variable", 
                     "severity": 2, 
@@ -1280,6 +1281,7 @@ b = a
 [
     {
         "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.", 
+        "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html", 
         "source": "lute lint", 
         "code": "unused_variable", 
         "severity": 2, 
