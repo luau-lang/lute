@@ -257,8 +257,7 @@ local function lintString(
 		if inputFilePath then
 			-- check if rule-specific ignores omit the current path
 			local ruleIgnores = configData.ruleIgnores[rule.name]
-			local isDir = fs.type(inputFilePath) == "dir"
-			if ruleIgnores ~= nil and parseIgnores.isIgnored(ruleIgnores, pathLib.format(inputFilePath), isDir) then
+			if ruleIgnores ~= nil and parseIgnores.isIgnored(ruleIgnores, pathLib.format(inputFilePath), false) then
 				continue
 			end
 		end
