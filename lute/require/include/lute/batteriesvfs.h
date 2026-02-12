@@ -4,13 +4,13 @@
 
 #include <optional>
 
-class CliVfs
+class BatteriesVfs
 {
 public:
     NavigationStatus resetToPath(const std::string& path);
 
     NavigationStatus toParent();
-    NavigationStatus toChild(const std::string& name);
+    NavigationStatus toChild(const std::string& path);
 
     bool isModulePresent() const;
     std::string getIdentifier() const;

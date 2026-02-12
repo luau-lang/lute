@@ -414,11 +414,11 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         }
 
         auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
-        L = setupPkgCliState(runtime, std::move(directDependencies), std::move(allDependencies));
+        L = setupPkgRunState(runtime, std::move(directDependencies), std::move(allDependencies));
     }
     else
     {
-        L = setupCliState(runtime);
+        L = setupRunState(runtime);
     }
 
     bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter, profileOptions);
@@ -627,7 +627,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
 int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, LuteReporter& reporter)
 {
     Runtime runtime;
-    lua_State* L = setupCliState(runtime);
+    lua_State* L = setupCliCommandState(runtime);
 
     std::string bytecode = Luau::compile(std::string(result.contents), copts());
     return runBytecode(runtime, bytecode, "@" + result.path, L, program_argc, program_argv, reporter) ? 0 : 1;
