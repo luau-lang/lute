@@ -65,6 +65,22 @@ local function loadLintRule(path: string): types.LintRule
 	return loaded -- Typecast isn't needed because loaded is refined to any bc of type error in assertIsLintRule
 end
 
+local function registerRule(
+	rule: types.LintRule,
+	config: types.LintConfig,
+	rootLocation: string,
+	rules: { types.LintRule },
+	ruleConfigs: types.RuleConfigurations,
+	ruleIgnores: types.RuleIgnores
+)
+	table.insert(rules, rule)
+	local ruleConfig: types.RuleConfig = if config.rules ~= nil and config.rules[rule.name] ~= nil
+		then config.rules[rule.name]
+		else {}
+	ruleConfigs[rule.name] = ruleConfig
+	ruleIgnores[rule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores or {})
+end
+
 local function loadLintRules(
 	path: string,
 	config: types.LintConfig,
@@ -83,14 +99,7 @@ local function loadLintRules(
 			local currentPathObj = pathLib.parse(currentPath)
 			local initPath = pathLib.format(pathLib.join(currentPathObj, "init.luau"))
 			if fs.exists(initPath) then
-				local lintRule = loadLintRule(initPath)
-				table.insert(rules, lintRule)
-				local ruleConfig: types.RuleConfig = if config.rules ~= nil
-						and config.rules[lintRule.name] ~= nil
-					then config.rules[lintRule.name]
-					else {}
-				ruleConfigs[lintRule.name] = ruleConfig
-				ruleIgnores[lintRule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores or {})
+				registerRule(loadLintRule(initPath), config, rootLocation, rules, ruleConfigs, ruleIgnores)
 			else
 				local entries = fs.listdirectory(currentPath)
 				local childPaths = tableext.map(entries, function(entry)
@@ -99,13 +108,7 @@ local function loadLintRules(
 				tableext.extend(queue, childPaths)
 			end
 		elseif pathLib.extname(currentPath) == ".luau" then
-			local lintRule = loadLintRule(currentPath)
-			table.insert(rules, lintRule)
-			local ruleConfig: types.RuleConfig = if config.rules ~= nil and config.rules[lintRule.name] ~= nil
-				then config.rules[lintRule.name]
-				else {}
-			ruleConfigs[lintRule.name] = ruleConfig
-			ruleIgnores[lintRule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores or {})
+			registerRule(loadLintRule(currentPath), config, rootLocation, rules, ruleConfigs, ruleIgnores)
 		end
 	end
 
@@ -121,13 +124,7 @@ local function loadDefaultRules(
 		local path = `@self/rules/{ruleName}`
 		local rule: types.LintRule = require(path) :: any -- Anycast to silence error from dynamic require
 		assertIsLintRule(rule, path)
-		table.insert(rules, rule)
-
-		local ruleConfig: types.RuleConfig = if config.rules ~= nil and config.rules[rule.name] ~= nil
-			then config.rules[rule.name]
-			else {}
-		ruleConfigs[rule.name] = ruleConfig
-		ruleIgnores[rule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores or {})
+		registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
 	end
 	return rules, ruleConfigs, ruleIgnores
 end
