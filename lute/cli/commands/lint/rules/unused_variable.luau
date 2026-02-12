@@ -297,7 +297,11 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 	return visitor.unusedLocals
 end
 
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
+local function lint(
+	ast: syntax.AstStatBlock,
+	sourcepath: path.path?,
+	_context: lintTypes.RuleContext
+): { lintTypes.LintViolation }
 	return tableext.map(unusedLocals(ast), function(l)
 		return table.freeze({
 			lintname = name,
