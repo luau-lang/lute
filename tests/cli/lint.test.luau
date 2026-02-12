@@ -2786,6 +2786,58 @@ end
 		})
 	end)
 
+	suite:case("lute lint supports configured directory ignores", function(assert)
+		local testSubDir = path.join(tmpDir, "ignoreTest")
+		if not fs.exists(testSubDir) then
+			fs.createdirectory(testSubDir)
+		end
+
+		-- Create a nested directory structure with violating files
+		local nestedDir = path.join(testSubDir, "shouldBeIgnored")
+		fs.createdirectory(nestedDir)
+
+		local file1 = path.join(nestedDir, "file1.luau")
+		local file2 = path.join(nestedDir, "file2.luau")
+		local file3 = path.join(testSubDir, "notIgnored.luau")
+
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(file1, violatingContents)
+		fs.writestringtofile(file2, violatingContents)
+		fs.writestringtofile(file3, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/shouldBeIgnored/**" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 1) -- errors but ONLY from notIgnored.luau
+
+		-- Should NOT contain violations from the ignored directory
+		assert.strnotcontains(result.stdout, "file1.luau")
+		assert.strnotcontains(result.stdout, "file2.luau")
+
+		-- Should contain violations from the non-ignored file
+		assert.strcontains(result.stdout, "notIgnored.luau")
+		assert.strcontains(result.stdout, "divide_by_zero")
+		assert.strcontains(result.stdout, "almost_swapped")
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
+	end)
+
 	suite:case("lute lint passes context through to rules", function(assert)
 		local testSubDir = path.join(tmpDir, "testDir")
 		if not fs.exists(testSubDir) then
@@ -2902,4 +2954,58 @@ return {
 			recursive = true,
 		})
 	end)
+
+	suite:case("lute lint accounts for rule-specific directory ignores", function(assert)
+		local testSubDir = path.join(tmpDir, "ruleIgnoreDir")
+		if not fs.exists(testSubDir) then
+			fs.createdirectory(testSubDir)
+		end
+
+		local ignoredDir = path.join(testSubDir, "ignoredDir")
+		fs.createdirectory(ignoredDir)
+
+		local ignoredFile = path.join(ignoredDir, "violator.luau")
+		local notIgnoredFile = path.join(testSubDir, "nonIgnored.luau")
+
+		local violatingContents = [[
+local x = 1 / 0
+local a, b
+a = b
+b = a
+]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["divide_by_zero"] = {
+					ignores = { "**/ignoredDir/**" }
+				}
+			}
+		}
+	}
+}
+]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 1)
+
+		-- Both files should still report almost_swapped (the non-ignored rule)
+		assert.strcontains(result.stdout, "[almost_swapped]", nil, 2)
+
+		-- Only 1 divide_by_zero: from the non-ignored file, not from ignoredDir
+		assert.strcontains(result.stdout, "[divide_by_zero]", nil, 1)
+		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
+
+		fs.removedirectory(testSubDir, {
+			recursive = true,
+		})
+	end)
 end)
+
+test.run()
