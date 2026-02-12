@@ -18,6 +18,14 @@ local defaultRulesPaths = {
 	unused_variable = path.format(path.join(defaultRulesFolder, "unused_variable.luau")),
 }
 
+local LINT_RULE_MESSAGES = {
+	almost_swapped = "warning[almost_swapped]: This looks like a failed attempt to swap.",
+	constant_table_comparison = "warning[constant_table_comparison]: Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false.",
+	divide_by_zero = "warning[divide_by_zero]: Division by zero detected.",
+	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
+	unused_variable = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+}
+
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 
 type lintTestParams = {
@@ -147,7 +155,7 @@ local x = 1 / 0
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:1:11-16 ──
@@ -205,7 +213,7 @@ end
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.almost_swapped,
 			outputExpectations = {
-				{ expectedOutput = "warning[almost_swapped]: This looks like a failed attempt to swap.", count = 4 },
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 4 },
 				{
 					expectedOutput = [[
 violator.luau:1:1-2:6 ──
@@ -337,7 +345,7 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
 		local expected = [[
 violator.luau:1:11-16 ──
    │
@@ -347,7 +355,7 @@ violator.luau:1:11-16 ──
 ]]
 		assert.strcontains(result.stdout, expected)
 
-		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
 		expected = [[
 violator.luau:3:1-4:6 ──
    │
@@ -399,7 +407,7 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
 		local expected = [[
 violator.luau:1:1-2:6 ──
    │
@@ -461,7 +469,7 @@ y = x
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.eq(#result.stdout:split("warning[divide_by_zero]: Division by zero detected."), 3)
+		assert.eq(#result.stdout:split(LINT_RULE_MESSAGES.divide_by_zero), 3)
 		local expected = [[
 violator1.luau:1:11-16 ──
    │
@@ -480,7 +488,7 @@ violator2.lua:1:11-17 ──
 ]]
 		assert.strcontains(result.stdout, expected)
 
-		assert.eq(#result.stdout:split("warning[almost_swapped]: This looks like a failed attempt to swap."), 3)
+		assert.eq(#result.stdout:split(LINT_RULE_MESSAGES.almost_swapped), 3)
 		expected = [[
 violator1.luau:3:1-4:6 ──
    │
@@ -538,8 +546,8 @@ lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 ]]
 		assert.strcontains(result.stdout, expected)
 
-		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
-		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
 
 		-- Teardown
 		fs.remove(lintee)
@@ -556,7 +564,7 @@ b = a
 ]],
 			expectedExitCode = 1,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:1:11-16 ──
@@ -567,7 +575,7 @@ violator.luau:1:11-16 ──
 ]],
 					count = 1,
 				},
-				{ expectedOutput = "warning[almost_swapped]: This looks like a failed attempt to swap.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:3:1-4:6 ──
@@ -599,8 +607,8 @@ b = a
 ]],
 			expectedExitCode = 1,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 0 },
-				{ expectedOutput = "warning[almost_swapped]: This looks like a failed attempt to swap.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 0 },
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:9:1-10:6 ──
@@ -632,8 +640,8 @@ b = a
 ]],
 			expectedExitCode = 1,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 0 },
-				{ expectedOutput = "warning[almost_swapped]: This looks like a failed attempt to swap.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 0 },
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:9:1-10:6 ──
@@ -672,7 +680,7 @@ local z = 1 / 0
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 2)
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, nil, 2)
 		local expected = [[
 violator.luau:5:12-18 ──
    │
@@ -710,7 +718,7 @@ local z = 1 / 0
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 2 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 2 },
 				{
 					expectedOutput = [[
 violator.luau:1:11-16 ──
@@ -748,7 +756,7 @@ end
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:5:9-14 ──
@@ -776,7 +784,7 @@ end
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:5:9-14 ──
@@ -804,7 +812,7 @@ end
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:5:9-14 ──
@@ -833,7 +841,7 @@ end
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:6:9-14 ──
@@ -857,7 +865,7 @@ b = a
     ]],
 			expectedExitCode = 0,
 			outputExpectations = {
-				{ expectedOutput = "warning[almost_swapped]: This looks like a failed attempt to swap.", count = 0 },
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 0 },
 			},
 		})
 	end)
@@ -872,7 +880,7 @@ a = b
     ]],
 			expectedExitCode = 1,
 			outputExpectations = {
-				{ expectedOutput = "warning[almost_swapped]: This looks like a failed attempt to swap.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:3:1-4:6 ──
@@ -903,8 +911,8 @@ end
     ]],
 			expectedExitCode = 0,
 			outputExpectations = {
-				{ expectedOutput = "warning[almost_swapped]: This looks like a failed attempt to swap.", count = 0 },
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 0 },
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 0 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 0 },
 			},
 		})
 	end)
@@ -1005,7 +1013,7 @@ local y = 10 / 0
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.", nil, 1)
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, nil, 1)
 		local expected = [[
 violator1.luau:1:11-17 ──
    │
@@ -1041,7 +1049,7 @@ end
     ]],
 			expectedExitCode = 1,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 2 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 2 },
 				{
 					expectedOutput = [[
 violator.luau:1:11-16 ──
@@ -1080,7 +1088,7 @@ end
     ]],
 			expectedExitCode = 1,
 			outputExpectations = {
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
 					expectedOutput = [[
 violator.luau:5:12-17 ──
@@ -1108,7 +1116,7 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, "warning[almost_swapped]: This looks like a failed attempt to swap.")
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
 		local expected = [[
    ┌── input:1:1-2:6 ──
    │
@@ -1135,7 +1143,7 @@ b = a
 		assert.strcontains(result.stdout, "Parsing global lint ignores in input string")
 		assert.strcontains(result.stdout, "Applying lint rules")
 		assert.strcontains(result.stdout, "Printing violations from string input")
-		assert.strcontains(result.stdout, "warning[divide_by_zero]: Division by zero detected.")
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
 	end)
 
 	suite:case("lute lint string input with no violations", function(assert)
@@ -1225,7 +1233,7 @@ local z = 5 / 0
 			expectedExitCode = 1,
 			outputExpectations = {
 				{ expectedOutput = "Error linting file", count = 0 },
-				{ expectedOutput = "warning[divide_by_zero]: Division by zero detected.", count = 1 },
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 			},
 		})
 	end)
@@ -1253,7 +1261,7 @@ until (5 == 5)
 			rulePath = defaultRulesPaths.parenthesized_conditions,
 			outputExpectations = {
 				{
-					expectedOutput = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
+					expectedOutput = LINT_RULE_MESSAGES.parenthesized_conditions,
 					count = 6,
 				},
 				{
@@ -1383,10 +1391,10 @@ local x = t == { x = 3 }
 ]],
 			outputExpectations = {
 				{
-					expectedOutput = "warning[constant_table_comparison]: Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false.",
+					expectedOutput = LINT_RULE_MESSAGES.constant_table_comparison,
 					count = 1,
 				},
-				{ expectedOutput = "warning[almost_swapped]: This looks like a failed attempt to swap.", count = 0 },
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 0 },
 			},
 		})
 	end)
@@ -1404,7 +1412,7 @@ local e = t ~= { 1, 2 }
 			rulePath = defaultRulesPaths.constant_table_comparison,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[constant_table_comparison]: Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false.",
+					expectedOutput = LINT_RULE_MESSAGES.constant_table_comparison,
 					count = 5,
 				},
 				{
@@ -1540,7 +1548,7 @@ local x = 3
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1566,7 +1574,7 @@ local _ = 3
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 0,
 				},
 			},
@@ -1584,7 +1592,7 @@ end
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1613,7 +1621,7 @@ end
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 2,
 				},
 				{
@@ -1650,7 +1658,7 @@ x = x + 1
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1679,7 +1687,7 @@ print(y)
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1707,7 +1715,7 @@ print(x)
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 0,
 				},
 			},
@@ -1724,7 +1732,7 @@ x += 1
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1752,7 +1760,7 @@ print(x)
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 0,
 				},
 			},
@@ -1769,7 +1777,7 @@ x += 1
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1797,7 +1805,7 @@ end
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1827,7 +1835,7 @@ x()
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1855,7 +1863,7 @@ print(x)
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1885,7 +1893,7 @@ x()
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1912,7 +1920,7 @@ local x = 5 + x
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -1939,7 +1947,7 @@ local _x : lib.num = 3
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 0,
 				},
 			},
@@ -1957,7 +1965,7 @@ end
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 0,
 				},
 			},
@@ -1977,7 +1985,7 @@ return {
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 0,
 				},
 				{ expectedOutput = "Local variable not found in any scope", count = 0 },
@@ -1997,7 +2005,7 @@ end
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{ expectedOutput = "Local variable not found in any scope", count = 0 },
@@ -2025,7 +2033,7 @@ a, b = foo()
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 2,
 				},
 				{
@@ -2064,7 +2072,7 @@ print(y)
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 1,
 				},
 				{
@@ -2093,7 +2101,7 @@ until x == 1
 			outputExpectations = {
 				{ expectedOutput = "Local variable not found in any scope", count = 0 },
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 0,
 				},
 			},
@@ -2111,7 +2119,7 @@ end
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 0,
 				},
 			},
@@ -2129,7 +2137,7 @@ end
 			rulePath = defaultRulesPaths.unused_variable,
 			outputExpectations = {
 				{
-					expectedOutput = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
 					count = 0,
 				},
 			},
