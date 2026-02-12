@@ -78,10 +78,10 @@ lute/cli/commands/lint/printer.luau:51:7-62
 lute/cli/commands/lint/printer.luau:51:7-62
 lute/cli/commands/lint/printer.luau:58:8-52
 lute/cli/commands/lint/printer.luau:58:8-52
-lute/cli/commands/lint/rules/parenthesized_conditions.luau:23:5-16
-lute/cli/commands/lint/rules/parenthesized_conditions.luau:38:6-17
-lute/cli/commands/lint/rules/parenthesized_conditions.luau:64:4-15
-lute/cli/commands/lint/rules/unused_variable.luau:303:3-100
+lute/cli/commands/lint/rules/parenthesized_conditions.luau:27:5-16
+lute/cli/commands/lint/rules/parenthesized_conditions.luau:42:6-17
+lute/cli/commands/lint/rules/parenthesized_conditions.luau:68:4-15
+lute/cli/commands/lint/rules/unused_variable.luau:307:3-100
 lute/cli/commands/pkg/loom-core/extern/pp.luau:97:3-14
 lute/cli/commands/pkg/loom-core/extern/pp.luau:97:3-14
 lute/cli/commands/pkg/loom-core/extern/unzip/crc.luau:25:42-59
@@ -370,6 +370,7 @@ tests/std/syntax/query.test.luau:41:7-7
 tests/std/tableext.test.luau:57:18-18
 tests/std/tableext.test.luau:62:18-18
 tests/std/tableext.test.luau:63:18-18
+tools/luthier.luau:135:10-34
 tools/luthier.luau:158:2-26
 tools/luthier.luau:197:3-12
 tools/luthier.luau:198:11-25
