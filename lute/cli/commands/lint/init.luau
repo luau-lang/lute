@@ -257,8 +257,10 @@ local function lintString(
 	for _, rule in lintRules do
 		if inputFilePath then
 			-- check if rule-specific ignores omit the current path
+			local ruleIgnores = configData.ruleIgnores[rule.name]
 			if
-				parseIgnores.isIgnored(
+				#ruleIgnores.ignores > 0
+				and parseIgnores.isIgnored(
 					configData.ruleIgnores[rule.name],
 					pathLib.format(inputFilePath),
 					fs.type(inputFilePath) == "dir"
@@ -271,7 +273,7 @@ local function lintString(
 		local ruleConfig = configData.ruleConfigs[rule.name]
 		local context = {
 			globals = configData.globals,
-			options = if ruleConfig then ruleConfig.options else {},
+			options = if ruleConfig.options then ruleConfig.options else {},
 		}
 
 		local success, err = pcall(rule.lint, ast, inputFilePath, context)
