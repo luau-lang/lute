@@ -10,7 +10,7 @@ Unused variables can result in less readable code in the best case, and worse pe
 
 ## Example violations
 
-`constant_table_comparison` will warn on the following:
+`unused_variable` will warn on the following:
 
 ```luau
 local function _(x)
