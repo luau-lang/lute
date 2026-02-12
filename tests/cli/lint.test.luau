@@ -936,7 +936,7 @@ local x = 1 / 0
                     "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html", 
                     "source": "lute lint", 
                     "code": "unused_variable", 
-                    "severity": 2, 
+                    "severity": 1, 
                     "range": {
                         "start": {
                             "character": 6, 
@@ -953,7 +953,7 @@ local x = 1 / 0
                     "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html", 
                     "source": "lute lint", 
                     "code": "divide_by_zero", 
-                    "severity": 2, 
+                    "severity": 1, 
                     "range": {
                         "start": {
                             "character": 10, 
@@ -1176,7 +1176,7 @@ b = a
         "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html", 
         "source": "lute lint", 
         "code": "unused_variable", 
-        "severity": 2, 
+        "severity": 1, 
         "range": {
             "start": {
                 "character": 6, 
@@ -1193,7 +1193,7 @@ b = a
         "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html", 
         "source": "lute lint", 
         "code": "divide_by_zero", 
-        "severity": 2, 
+        "severity": 1, 
         "range": {
             "start": {
                 "character": 10, 
@@ -1512,7 +1512,7 @@ local e = next(t) ~= nil
         "codeDescription": "https://lute.luau.org/cli/lint/almost_swapped.html", 
         "source": "lute lint", 
         "code": "almost_swapped", 
-        "severity": 2, 
+        "severity": 1, 
         "range": {
             "start": {
                 "character": 3, 
