@@ -28,10 +28,11 @@ export type RuleConfig = {
 	ignores: { string }?,
 	-- severity: severity?,
 	-- off: true?,
-	options: unknown?,
+	options: RuleOptions?,
 }
 
 export type GlobalsConfig = { [string]: unknown }
+export type RuleOptions = { [string]: unknown }
 
 export type LintConfig = {
 	ignores: { path.pathlike }?, -- globs/paths to ignore as we walk lintee files
@@ -44,7 +45,7 @@ export type LintConfig = {
 
 export type RuleContext = {
 	globals: GlobalsConfig,
-	options: unknown,
+	options: RuleOptions,
 }
 
 export type RuleConfigurations = { [string]: RuleConfig }
