@@ -437,7 +437,85 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_cyclic_table_type")
     REQUIRE(lua_equal(L, root, -1)); // The 'next' property's read type should be the same table as the root (cycle)
 }
 
-// TODO: MetatableType, ExternType tests
+TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_metatable_type")
+{
+    // Create a metatable type: { __index: number } with metatable { __mode: string }
+    TypeId numberType = arena.addType(PrimitiveType{PrimitiveType::Number});
+    TypeId stringType = arena.addType(PrimitiveType{PrimitiveType::String});
+    TableType metatable;
+    metatable.props["__mode"] = Property::readonly(stringType);
+    TypeId metatableType = arena.addType(metatable);
+    TableType tty;
+    tty.props["__index"] = Property::readonly(numberType);
+
+    TypeId ttyType = arena.addType(tty);
+    TypeId tableType = arena.addType(MetatableType{ttyType, metatableType});
+
+    lua_checkstack(L, 3);
+
+    // { tag: "table", properties: { __index: { read: { tag: "number" } } } }, metatable: { tag: "table", properties: { __mode: { read: { tag: "string" } } } }
+    REQUIRE_EQ(Luau::serializeType(L, tableType), 1);
+
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "table");  
+
+    lua_getfield(L, -1, "properties");
+    REQUIRE(lua_istable(L, -1));
+
+    lua_getfield(L, -1, "__index");
+    REQUIRE(lua_istable(L, -1));
+
+    lua_getfield(L, -1, "read");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "number");
+    lua_pop(L, 3); // pop read type, __index property, properties field
+
+    lua_getfield(L, -1, "metatable");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "table");
+
+    lua_getfield(L, -1, "properties");
+    REQUIRE(lua_istable(L, -1));
+    lua_getfield(L, -1, "__mode");
+    REQUIRE(lua_istable(L, -1));
+    lua_getfield(L, -1, "read");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "string"); 
+}
+
+TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_extern_type_with_parent_and_metatable")
+{
+    TypeId parentType = arena.addType(TableType{});
+    TypeId metatableType = arena.addType(TableType{});
+
+    TypeId ty = arena.addType(ExternType{
+        "MyExtern",
+        {},
+        parentType,
+        metatableType,
+        {},
+        nullptr,
+        "Module",
+        std::nullopt
+    });
+
+    lua_checkstack(L, 3);
+
+    // { tag: "extern", parent: { tag: "table" }, metatable: { tag: "table" } }
+    REQUIRE_EQ(Luau::serializeType(L, ty), 1);
+
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "extern");
+
+    lua_getfield(L, -1, "parent");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "table");
+    lua_pop(L, 1); // parent
+
+    lua_getfield(L, -1, "metatable");
+    REQUIRE(lua_istable(L, -1));
+    requireStringField(L, "tag", "table");
+}
 
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_simple_type_pack_nil_tail")
 {

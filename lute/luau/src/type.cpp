@@ -368,7 +368,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     }
 
     // Luau metatable type:
-    // table: type,
+    // same as table type, but with an additional field:
     // metatable: type?
     void serialize(TypeId ty, const MetatableType& mtv)
     {
@@ -376,10 +376,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
         lua_createtable(L, 0, 3);
         registerType(ty);
 
-        pushTag("metatable");
-
         traverse(mtv.table);
-        lua_setfield(L, -2, "table");
 
         traverse(mtv.metatable);
         lua_setfield(L, -2, "metatable");
