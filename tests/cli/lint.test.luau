@@ -2938,7 +2938,9 @@ return {
 		fs.writestringtofile(configFile, configContents)
 
 		-- assert that violations are present without config
-		local result = process.run({ lutePath, "lint", path.format(violatorFile) })
+		local result = process.run({ lutePath, "lint", path.format(violatorFile) }, {
+			cwd = path.format(process.homedir()),
+		})
 		assert.eq(result.exitcode, 1) -- should be violations
 		assert.strcontains(result.stdout, "violator.luau")
 		assert.strcontains(result.stdout, "[divide_by_zero]")
@@ -2946,7 +2948,7 @@ return {
 
 		-- with config, there should be violations but NOT for divide_by_zero
 		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) }, {
-			cwd = path.format(tmpDir),
+			cwd = path.format(process.homedir()),
 		})
 		assert.eq(result.exitcode, 1) -- should be no violations
 		assert.strnotcontains(result.stdout, "[divide_by_zero]")
