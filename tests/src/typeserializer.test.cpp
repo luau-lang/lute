@@ -451,7 +451,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_metatable_type")
     TypeId ttyType = arena.addType(tty);
     TypeId tableType = arena.addType(MetatableType{ttyType, metatableType});
 
-    lua_checkstack(L, 3);
+    lua_checkstack(L, 4);
 
     // { tag: "table", properties: { __index: { read: { tag: "number" } } } }, metatable: { tag: "table", properties: { __mode: { read: { tag: "string" } } } }
     REQUIRE_EQ(Luau::serializeType(L, tableType), 1);
@@ -499,7 +499,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_extern_type_with_parent_and_m
         std::nullopt
     });
 
-    lua_checkstack(L, 3);
+    lua_checkstack(L, 2);
 
     // { tag: "extern", parent: { tag: "table" }, metatable: { tag: "table" } }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
