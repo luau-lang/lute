@@ -307,7 +307,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 			severity = "warning",
 			sourcepath = sourcepath,
 			target = target,
-		})
+		}) -- LUAUFIX: Table literal doesn't subtype against lintTypes.LintViolation for some reason
 	end)
 end
 
