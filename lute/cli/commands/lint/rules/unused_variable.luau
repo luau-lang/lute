@@ -6,6 +6,7 @@ local visitorLib = require("@std/syntax/visitor")
 
 local name = "unused_variable"
 local message = "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
+local target = "https://lute.luau.org/cli/lint/unused_variable.html"
 
 local function isRequireCall(expr: syntax.AstExpr)
 	return expr.tag == "call" and expr.func.tag == "global" and expr.func.name.text == "require"
@@ -302,14 +303,15 @@ local function lint(
 	sourcepath: path.path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
-	return tableext.map(unusedLocals(ast), function(l)
+	return tableext.map(unusedLocals(ast), function(l): lintTypes.LintViolation
 		return table.freeze({
 			lintname = name,
 			location = l.location,
 			message = message,
 			severity = "warning",
 			sourcepath = sourcepath,
-		}) :: lintTypes.LintViolation
+			target = target,
+		}) -- LUAUFIX: Table literal doesn't subtype against lintTypes.LintViolation for some reason
 	end)
 end
 

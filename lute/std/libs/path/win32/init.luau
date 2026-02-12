@@ -195,8 +195,9 @@ function win32.parse(path: pathlike): path
 		kind = "unc"
 	elseif string.match(path, "^%a:") ~= nil then
 		driveLetter = string.sub(path, 1, 1)
-		-- Windows: starts with drive letter + backslash (C:\)
-		kind = if string.sub(path, 3, 3) == "\\" then "absolute" else "relative"
+		-- Windows: starts with drive letter + separator (C:\ or C:/)
+		local sep = path:sub(3, 3)
+		kind = if sep == "\\" or sep == "/" then "absolute" else "relative"
 	end
 
 	local parts = {}
