@@ -8,13 +8,13 @@ local lsp = {}
 
 local function severity(sev: lintTypes.severity): number
 	if sev == "error" then
-		return 1
+		return 0
 	elseif sev == "warning" then
-		return 2
+		return 1
 	elseif sev == "info" then
-		return 3
+		return 2
 	else
-		return 4
+		return 3
 	end
 end
 
