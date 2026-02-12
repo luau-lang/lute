@@ -65,8 +65,6 @@ lute/cli/commands/lint/configutils.luau:19:55-73
 lute/cli/commands/lint/configutils.luau:19:55-73
 lute/cli/commands/lint/init.luau:56:10-18
 lute/cli/commands/lint/init.luau:78:8-30
-lute/cli/commands/lint/init.luau:271:61-67
-lute/cli/commands/lint/init.luau:271:61-67
 lute/cli/commands/lint/init.luau:469:15-24
 lute/cli/commands/lint/init.luau:470:56-65
 lute/cli/commands/lint/init.luau:470:56-65
