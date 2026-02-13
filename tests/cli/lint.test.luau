@@ -14,6 +14,7 @@ local defaultRulesPaths = {
 	almost_swapped = path.format(path.join(defaultRulesFolder, "almost_swapped.luau")),
 	constant_table_comparison = path.format(path.join(defaultRulesFolder, "constant_table_comparison.luau")),
 	divide_by_zero = path.format(path.join(defaultRulesFolder, "divide_by_zero.luau")),
+	duplicate_keys = path.format(path.join(defaultRulesFolder, "duplicate_keys.luau")),
 	parenthesized_conditions = path.format(path.join(defaultRulesFolder, "parenthesized_conditions.luau")),
 	unused_variable = path.format(path.join(defaultRulesFolder, "unused_variable.luau")),
 }
@@ -22,6 +23,7 @@ local LINT_RULE_MESSAGES = {
 	almost_swapped = "warning[almost_swapped]: This looks like a failed attempt to swap.",
 	constant_table_comparison = "warning[constant_table_comparison]: Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false.",
 	divide_by_zero = "warning[divide_by_zero]: Division by zero detected.",
+	duplicate_keys = "warning[duplicate_keys]: Duplicate keys detected in table literal.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
 	unused_variable = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
 }
@@ -2305,6 +2307,157 @@ end
 
 		fs.removedirectory(testSubDir, {
 			recursive = true,
+		})
+	end)
+
+	suite:case("duplicate_keys list duplicates", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { 1, 2, [2] = 3 }
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.duplicate_keys,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:1:19-26 ──
+   │
+ 1 │ local t = { 1, 2, [2] = 3 }
+   │                   ^^^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("duplicate_keys record duplicates", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { a = 1, a = 2 }
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.duplicate_keys,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:1:20-25 ──
+   │
+ 1 │ local t = { a = 1, a = 2 }
+   │                    ^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("duplicate_keys general string duplicates", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { ["a"] = 1, ["a"] = 2 }
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.duplicate_keys,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:1:24-33 ──
+   │
+ 1 │ local t = { ["a"] = 1, ["a"] = 2 }
+   │                        ^^^^^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("duplicate_keys general number duplicates", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { [1] = 1, [1] = 2 }
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.duplicate_keys,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:1:22-29 ──
+   │
+ 1 │ local t = { [1] = 1, [1] = 2 }
+   │                      ^^^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("duplicate_keys general number clashes with array part", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { 1, 2, [2] = 3 }
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.duplicate_keys,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:1:19-26 ──
+   │
+ 1 │ local t = { 1, 2, [2] = 3 }
+   │                   ^^^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("duplicate_keys general string and record entry duplicates", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { ["a"] = 1, a = 2 }
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.duplicate_keys,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:1:24-29 ──
+   │
+ 1 │ local t = { ["a"] = 1, a = 2 }
+   │                        ^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("duplicate_keys doesn't warn on general 0", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { [0] = 1 }
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.duplicate_keys,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 0 },
+			},
 		})
 	end)
 end)

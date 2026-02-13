@@ -15,8 +15,14 @@ local visitor = require("@std/syntax/visitor")
 local configUtils = require("@self/configutils")
 local parseIgnores = require("./lib/parseIgnores")
 
-local DEFAULT_RULES =
-	{ "almost_swapped", "constant_table_comparison", "divide_by_zero", "parenthesized_conditions", "unused_variable" }
+local DEFAULT_RULES = {
+	"almost_swapped",
+	"constant_table_comparison",
+	"divide_by_zero",
+	"duplicate_keys",
+	"parenthesized_conditions",
+	"unused_variable",
+}
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 local VERBOSE = false
 
