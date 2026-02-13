@@ -2290,6 +2290,7 @@ local t = { 1, 2, [2] = 3 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2313,6 +2314,7 @@ local t = { a = 1, a = 2 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2336,6 +2338,7 @@ local t = { ["a"] = 1, ["a"] = 2 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2359,6 +2362,7 @@ local t = { [1] = 1, [1] = 2 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2382,6 +2386,7 @@ local t = { 1, 2, [2] = 3 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2405,6 +2410,7 @@ local t = { ["a"] = 1, a = 2 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2428,6 +2434,7 @@ local t = { [0] = 1 }
 ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 0 },
 			},
