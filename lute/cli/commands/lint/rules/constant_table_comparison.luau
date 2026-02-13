@@ -29,7 +29,11 @@ local function isEmptyTableLiteral(expr: syntax.AstExpr): boolean
 	end
 end
 
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
+local function lint(
+	ast: syntax.AstStatBlock,
+	sourcepath: path.path?,
+	_context: lintTypes.RuleContext
+): { lintTypes.LintViolation }
 	return query
 		.findallfromroot(ast, utils.isExprBinary)
 		:filter(function(bin)

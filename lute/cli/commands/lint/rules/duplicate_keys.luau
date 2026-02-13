@@ -8,7 +8,11 @@ local name = "duplicate_keys"
 local message = "Duplicate keys detected in table literal."
 local target = "https://lute.luau.org/cli/lint/duplicate_keys.html"
 
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
+local function lint(
+	ast: syntax.AstStatBlock,
+	sourcepath: path.path?,
+	_context: lintTypes.RuleContext
+): { lintTypes.LintViolation }
 	local function makeViolation(location: syntax.span): lintTypes.LintViolation
 		return {
 			lintname = name,

@@ -8,7 +8,11 @@ local name = "parenthesized_conditions"
 local message = "Luau doesn't require parentheses around conditions. You can remove them for readability."
 local target = "https://lute.luau.org/cli/lint/parenthesized_conditions.html"
 
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
+local function lint(
+	ast: syntax.AstStatBlock,
+	sourcepath: path.path?,
+	_context: lintTypes.RuleContext
+): { lintTypes.LintViolation }
 	local violations: { lintTypes.LintViolation } = {}
 
 	query

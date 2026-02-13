@@ -2198,7 +2198,7 @@ end
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
-		local testSubDir = path.join(tmpDir, "testDir")
+		local testSubDir = path.join(tmpDir, "module")
 		fs.createdirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2227,10 +2227,6 @@ end
 		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
 		assert.strnotcontains(result.stdout, "ignored.luau")
 		assert.strcontains(result.stdout, "valid.luau")
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
@@ -2264,14 +2260,10 @@ end
 		assert.eq(result.exitcode, 0) -- no errors
 		assert.strnotcontains(result.stdout, "almost_swapped")
 		assert.strnotcontains(result.stdout, "divide_by_zero")
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 
 	suite:case("lute lint configured ignores supplement (NOT override) existing gitignores", function(assert)
-		local testSubDir = path.join(tmpDir, "testDir")
+		local testSubDir = path.join(tmpDir, "module")
 		fs.createdirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2304,10 +2296,6 @@ end
 		assert.eq(result.exitcode, 0) -- no errors bc we ignore BOTH files in the dir
 		assert.strnotcontains(result.stdout, "almost_swapped")
 		assert.strnotcontains(result.stdout, "divide_by_zero")
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 
 	suite:case("duplicate_keys list duplicates", function(assert)
@@ -2459,5 +2447,206 @@ local t = { [0] = 1 }
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 0 },
 			},
 		})
+	end)
+
+	suite:case("lute lint supports configured directory ignores", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
+
+		-- Create a nested directory structure with violating files
+		local nestedDir = path.join(testSubDir, "shouldBeIgnored")
+		fs.createdirectory(nestedDir)
+
+		local file1 = path.join(nestedDir, "file1.luau")
+		local file2 = path.join(nestedDir, "file2.luau")
+		local file3 = path.join(testSubDir, "notIgnored.luau")
+
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(file1, violatingContents)
+		fs.writestringtofile(file2, violatingContents)
+		fs.writestringtofile(file3, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/shouldBeIgnored/**" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 1) -- errors but ONLY from notIgnored.luau
+
+		-- Should NOT contain violations from the ignored directory
+		assert.strnotcontains(result.stdout, "file1.luau")
+		assert.strnotcontains(result.stdout, "file2.luau")
+
+		-- Should contain violations from the non-ignored file
+		assert.strcontains(result.stdout, "notIgnored.luau")
+		assert.strcontains(result.stdout, "divide_by_zero")
+		assert.strcontains(result.stdout, "almost_swapped")
+	end)
+
+	suite:case("lute lint passes context through to rules", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
+
+		-- custom rule that returns violating with globals and options in the message
+		local customRuleFile = path.join(testSubDir, "testRule.luau")
+		local customRuleContents = [[
+			return {
+				name = "testRule",
+				lint = function(ast, sourcepath, context)
+					return {
+						{
+							lintname = "testRule",
+							location = ast.location,
+							severity = "warn",
+							message = `Globals: {context.globals["testGlobal"]} Options: {context.options["testOption"]}`
+						}
+					}
+				end
+			}
+		]]
+		fs.writestringtofile(customRuleFile, customRuleContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					globals = {
+						["testGlobal"] = 1,
+					},
+					rules = {
+						["testRule"] = {
+							options = {
+								["testOption"] = "nice",
+							}
+						}
+					}
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({
+			lutePath,
+			"lint",
+			"-c",
+			path.format(configFile),
+			"-r",
+			path.format(customRuleFile),
+			"-s",
+			"local x = 1",
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strcontains(result.stdout, "Globals: 1")
+		assert.strcontains(result.stdout, "Options: nice")
+	end)
+
+	suite:case("lute lint accounts for rule-specific ignores", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
+
+		local violatorFile = path.join(testSubDir, "violator.luau")
+		fs.writestringtofile(
+			violatorFile,
+			[[
+		local x = 1 / 0
+		local a, b
+		a = b
+		b = a
+]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["divide_by_zero"] = {
+					ignores = { "**/violator.luau" }
+				}
+			}
+		}
+	}
+}
+]]
+		fs.writestringtofile(configFile, configContents)
+
+		-- assert that violations are present without config
+		local result = process.run({ lutePath, "lint", path.format(violatorFile) }, {
+			cwd = path.format(process.homedir()),
+		})
+		assert.eq(result.exitcode, 1) -- should be violations
+		assert.strcontains(result.stdout, "violator.luau")
+		assert.strcontains(result.stdout, "[divide_by_zero]")
+		assert.strcontains(result.stdout, "[almost_swapped]")
+
+		-- with config, there should be violations but NOT for divide_by_zero
+		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) }, {
+			cwd = path.format(process.homedir()),
+		})
+		assert.eq(result.exitcode, 1) -- should be no violations
+		assert.strnotcontains(result.stdout, "[divide_by_zero]")
+		assert.strcontains(result.stdout, "[almost_swapped]")
+	end)
+
+	suite:case("lute lint accounts for rule-specific directory ignores", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
+
+		local ignoredDir = path.join(testSubDir, "ignoredDir")
+		fs.createdirectory(ignoredDir)
+
+		local ignoredFile = path.join(ignoredDir, "violator.luau")
+		local notIgnoredFile = path.join(testSubDir, "nonIgnored.luau")
+
+		local violatingContents = [[
+local x = 1 / 0
+local a, b
+a = b
+b = a
+]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["divide_by_zero"] = {
+					ignores = { "**/ignoredDir/**" }
+				}
+			}
+		}
+	}
+}
+]]
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 1)
+
+		-- Both files should still report almost_swapped (the non-ignored rule)
+		assert.strcontains(result.stdout, "[almost_swapped]", nil, 2)
+
+		-- Only 1 divide_by_zero: from the non-ignored file, not from ignoredDir
+		assert.strcontains(result.stdout, "[divide_by_zero]", nil, 1)
+		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
 	end)
 end)

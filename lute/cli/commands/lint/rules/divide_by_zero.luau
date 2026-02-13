@@ -12,7 +12,11 @@ local function isZeroLiteral(expr: syntax.AstExpr): boolean
 	return expr.kind == "expr" and expr.tag == "number" and expr.value == 0
 end
 
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
+local function lint(
+	ast: syntax.AstStatBlock,
+	sourcepath: path.path?,
+	_context: lintTypes.RuleContext
+): { lintTypes.LintViolation }
 	return query
 		.findallfromroot(ast, utils.isExprBinary)
 		:filter(function(bin)
