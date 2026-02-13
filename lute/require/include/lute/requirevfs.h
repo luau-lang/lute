@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lute/batteriesvfs.h"
 #include "lute/bundlevfs.h"
 #include "lute/clivfs.h"
 #include "lute/filevfs.h"
@@ -53,6 +54,7 @@ private:
         Cli,
         Bundle,
         Lute,
+        Batteries, // Only for internal use
     };
 
     VFSType vfsType = VFSType::Disk;
@@ -60,6 +62,7 @@ private:
     FileVfs fileVfs;
     StdLibVfs stdLibVfs;
     LuteVfs luteVfs;
+    BatteriesVfs batteriesVfs;
     std::optional<CliVfs> cliVfs = std::nullopt;
     std::optional<BundleVfs> bundleVfs = std::nullopt;
 };

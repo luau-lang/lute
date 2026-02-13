@@ -20,7 +20,7 @@ static int report(lua_State* L)
 CliRuntimeFixture::CliRuntimeFixture()
     : runtime(std::make_unique<Runtime>())
 {
-    L = setupCliState(
+    L = setupRunState(
         *runtime,
         [rep = reporter.get()](lua_State* L)
         {
