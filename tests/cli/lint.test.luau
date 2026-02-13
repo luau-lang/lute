@@ -939,6 +939,9 @@ local x = 1 / 0
                     "source": "lute lint", 
                     "code": "unused_variable", 
                     "severity": 2, 
+                    "tags": [
+                        1
+                    ], 
                     "range": {
                         "start": {
                             "character": 6, 
@@ -1179,6 +1182,9 @@ b = a
         "source": "lute lint", 
         "code": "unused_variable", 
         "severity": 2, 
+        "tags": [
+            1
+        ], 
         "range": {
             "start": {
                 "character": 6, 
