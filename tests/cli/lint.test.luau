@@ -2199,9 +2199,7 @@ end
 
 	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		if not fs.exists(testSubDir) then
-			fs.createdirectory(testSubDir)
-		end
+		fs.createdirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 		local notIgnoredFile = path.join(testSubDir, "valid.luau")
@@ -2229,17 +2227,11 @@ end
 		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
 		assert.strnotcontains(result.stdout, "ignored.luau")
 		assert.strcontains(result.stdout, "valid.luau")
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
 		local testSubDir = path.join(tmpDir, "testDir")
-		if not fs.exists(testSubDir) then
-			fs.createdirectory(testSubDir)
-		end
+		fs.createdirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 
@@ -2268,17 +2260,11 @@ end
 		assert.eq(result.exitcode, 0) -- no errors
 		assert.strnotcontains(result.stdout, "almost_swapped")
 		assert.strnotcontains(result.stdout, "divide_by_zero")
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 
 	suite:case("lute lint configured ignores supplement (NOT override) existing gitignores", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		if not fs.exists(testSubDir) then
-			fs.createdirectory(testSubDir)
-		end
+		fs.createdirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 		local notIgnoredFile = path.join(testSubDir, "valid.luau")
@@ -2310,10 +2296,6 @@ end
 		assert.eq(result.exitcode, 0) -- no errors bc we ignore BOTH files in the dir
 		assert.strnotcontains(result.stdout, "almost_swapped")
 		assert.strnotcontains(result.stdout, "divide_by_zero")
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 
 	suite:case("duplicate_keys list duplicates", function(assert)
@@ -2469,9 +2451,7 @@ local t = { [0] = 1 }
 
 	suite:case("lute lint supports configured directory ignores", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		if not fs.exists(testSubDir) then
-			fs.createdirectory(testSubDir)
-		end
+		fs.createdirectory(testSubDir)
 
 		-- Create a nested directory structure with violating files
 		local nestedDir = path.join(testSubDir, "shouldBeIgnored")
@@ -2513,17 +2493,11 @@ local t = { [0] = 1 }
 		assert.strcontains(result.stdout, "notIgnored.luau")
 		assert.strcontains(result.stdout, "divide_by_zero")
 		assert.strcontains(result.stdout, "almost_swapped")
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 
 	suite:case("lute lint passes context through to rules", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		if not fs.exists(testSubDir) then
-			fs.createdirectory(testSubDir)
-		end
+		fs.createdirectory(testSubDir)
 
 		-- custom rule that returns violating with globals and options in the message
 		local customRuleFile = path.join(testSubDir, "testRule.luau")
@@ -2579,17 +2553,11 @@ local t = { [0] = 1 }
 		assert.eq(result.exitcode, 1)
 		assert.strcontains(result.stdout, "Globals: 1")
 		assert.strcontains(result.stdout, "Options: nice")
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 
 	suite:case("lute lint accounts for rule-specific ignores", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		if not fs.exists(testSubDir) then
-			fs.createdirectory(testSubDir)
-		end
+		fs.createdirectory(testSubDir)
 
 		local violatorFile = path.join(testSubDir, "violator.luau")
 		fs.writestringtofile(
@@ -2634,17 +2602,11 @@ return {
 		assert.eq(result.exitcode, 1) -- should be no violations
 		assert.strnotcontains(result.stdout, "[divide_by_zero]")
 		assert.strcontains(result.stdout, "[almost_swapped]")
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 
 	suite:case("lute lint accounts for rule-specific directory ignores", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		if not fs.exists(testSubDir) then
-			fs.createdirectory(testSubDir)
-		end
+		fs.createdirectory(testSubDir)
 
 		local ignoredDir = path.join(testSubDir, "ignoredDir")
 		fs.createdirectory(ignoredDir)
@@ -2686,9 +2648,5 @@ return {
 		-- Only 1 divide_by_zero: from the non-ignored file, not from ignoredDir
 		assert.strcontains(result.stdout, "[divide_by_zero]", nil, 1)
 		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
-
-		fs.removedirectory(testSubDir, {
-			recursive = true,
-		})
 	end)
 end)
