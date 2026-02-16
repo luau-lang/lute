@@ -508,13 +508,10 @@ local function main(...: string)
 	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rules and lintConfig.rules.paths
 		then lintConfig.rules.paths
 		else {}
-	local rootFromCWD = pathLib.relative(process.cwd(), rootLocation)
 	for _, path in configuredRulePaths do
-		-- for consistency, we ensure all paths are loaded relative to CWD
-		local relativeToRoot = pathLib.relative(rootLocation, path)
-		local relativeRulePath = pathLib.join(rootFromCWD, relativeToRoot)
+		local resolvedPath = pathLib.resolve(rootLocation, path)
 		local loadedRules, loadedConfigs, loadedIgnoreData =
-			loadLintRules(pathLib.format(relativeRulePath), lintConfig, rootLocation)
+			loadLintRules(pathLib.format(resolvedPath), lintConfig, rootLocation)
 		tableext.extend(lintRules, loadedRules)
 		tableext.combine(ruleConfigurations, loadedConfigs)
 		tableext.combine(ruleIgnoreData, loadedIgnoreData)
