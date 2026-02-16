@@ -2650,12 +2650,14 @@ return {
 		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
 	end)
 
-	suite:case("rules given by config.rules.paths are loaded (in addition to CLI-passed rules) and ran", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+	suite:case(
+		"rules given by config.rules.paths are loaded (in addition to CLI-passed rules) and ran",
+		function(assert)
+			local testSubDir = path.join(tmpDir, "module")
+			fs.createdirectory(testSubDir)
 
-		local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
-		local configuredRuleContents = [[
+			local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
+			local configuredRuleContents = [[
 		return {
 			name = "configuredRule",
 			lint = function(ast, sourcepath, context)
@@ -2670,9 +2672,9 @@ return {
 			end
 		}
 		]]
-		fs.writestringtofile(configuredRulePath, configuredRuleContents)
-		local cliProvidedRulePath = path.join(testSubDir, "cliProvidedRule.luau")
-		local cliProvidedRuleContents = [[
+			fs.writestringtofile(configuredRulePath, configuredRuleContents)
+			local cliProvidedRulePath = path.join(testSubDir, "cliProvidedRule.luau")
+			local cliProvidedRuleContents = [[
 			return {
 			name = "cliRule",
 			lint = function(ast, sourcepath, context)
@@ -2687,10 +2689,10 @@ return {
 			end
 		}
 		]]
-		fs.writestringtofile(cliProvidedRulePath, cliProvidedRuleContents)
+			fs.writestringtofile(cliProvidedRulePath, cliProvidedRuleContents)
 
-		local configFile = path.join(testSubDir, ".config.luau")
-		local configContents = ([[
+			local configFile = path.join(testSubDir, ".config.luau")
+			local configContents = ([[
 		return {
 			lute = {
 				lint = {
@@ -2701,22 +2703,23 @@ return {
 			}
 		}
 		]]):format(path.format(configuredRulePath))
-		fs.writestringtofile(configFile, configContents)
+			fs.writestringtofile(configFile, configContents)
 
-		local result = process.run({
-			lutePath,
-			"lint",
-			"-c",
-			path.format(configFile),
-			"-r",
-			path.format(cliProvidedRulePath),
-			path.format(configFile),
-		})
-		assert.eq(result.exitcode, 1)
-		-- both config-given and CLI-given rules should have ran
-		assert.strcontains(result.stdout, "Configured Rule Ran.")
-		assert.strcontains(result.stdout, "CLI Rule Ran.")
-	end)
+			local result = process.run({
+				lutePath,
+				"lint",
+				"-c",
+				path.format(configFile),
+				"-r",
+				path.format(cliProvidedRulePath),
+				path.format(configFile),
+			})
+			assert.eq(result.exitcode, 1)
+			-- both config-given and CLI-given rules should have ran
+			assert.strcontains(result.stdout, "Configured Rule Ran.")
+			assert.strcontains(result.stdout, "CLI Rule Ran.")
+		end
+	)
 
 	suite:case(
 		"lute lint properly loads rule-specific configuration for rules provided by config.rules.paths",
