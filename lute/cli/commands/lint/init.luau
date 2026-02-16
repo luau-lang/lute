@@ -504,6 +504,22 @@ local function main(...: string)
 		lintRules, ruleConfigurations, ruleIgnoreData = loadLintRules(rulePath, lintConfig, rootLocation)
 	end
 
+	-- load rules from config rules path; these should be loaded specifically relative to rootLocation
+	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rules and lintConfig.rules.paths
+		then lintConfig.rules.paths
+		else {}
+	local rootFromCWD = pathLib.relative(process.cwd(), rootLocation)
+	for _, path in configuredRulePaths do
+		-- for consistency, we ensure all paths are loaded relative to CWD
+		local relativeToRoot = pathLib.relative(rootLocation, path)
+		local relativeRulePath = pathLib.join(rootFromCWD, relativeToRoot)
+		local loadedRules, loadedConfigs, loadedIgnoreData =
+			loadLintRules(pathLib.format(relativeRulePath), lintConfig, rootLocation)
+		tableext.extend(lintRules, loadedRules)
+		tableext.combine(ruleConfigurations, loadedConfigs)
+		tableext.combine(ruleIgnoreData, loadedIgnoreData)
+	end
+
 	local configContextData = {
 		globals = if lintConfig.globals ~= nil then lintConfig.globals else {},
 		ruleConfigs = ruleConfigurations,
