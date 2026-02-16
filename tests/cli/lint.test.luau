@@ -2230,7 +2230,7 @@ end
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
-		local testSubDir = path.join(tmpDir, "testDir")
+		local testSubDir = path.join(tmpDir, "module")
 		fs.createdirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2649,4 +2649,142 @@ return {
 		assert.strcontains(result.stdout, "[divide_by_zero]", nil, 1)
 		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
 	end)
+
+	suite:case("rules given by config.rules.paths are loaded (in addition to CLI-passed rules) and ran", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
+
+		local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
+		local configuredRuleContents = [[
+		return {
+			name = "configuredRule",
+			lint = function(ast, sourcepath, context)
+				return {
+					{
+						lintname = "configuredRule",
+						severity = "warn",
+						message = "Configured Rule Ran.",
+						location = ast.location
+					}
+				}
+			end
+		}
+		]]
+		fs.writestringtofile(configuredRulePath, configuredRuleContents)
+		local cliProvidedRulePath = path.join(testSubDir, "cliProvidedRule.luau")
+		local cliProvidedRuleContents = [[
+			return {
+			name = "cliRule",
+			lint = function(ast, sourcepath, context)
+				return {
+					{
+						lintname = "cliRule",
+						severity = "warn",
+						message = "CLI Rule Ran.",
+						location = ast.location
+					}
+				}
+			end
+		}
+		]]
+		fs.writestringtofile(cliProvidedRulePath, cliProvidedRuleContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = ([[
+		return {
+			lute = {
+				lint = {
+					rules = {
+						paths = { "%s" },
+					}
+				}
+			}
+		}
+		]]):format(path.format(configuredRulePath))
+		fs.writestringtofile(configFile, configContents)
+
+		local result = process.run({
+			lutePath,
+			"lint",
+			"-c",
+			path.format(configFile),
+			"-r",
+			path.format(cliProvidedRulePath),
+			path.format(configFile),
+		})
+		assert.eq(result.exitcode, 1)
+		-- both config-given and CLI-given rules should have ran
+		assert.strcontains(result.stdout, "Configured Rule Ran.")
+		assert.strcontains(result.stdout, "CLI Rule Ran.")
+	end)
+
+	suite:case(
+		"lute lint properly loads rule-specific configuration for rules provided by config.rules.paths",
+		function(assert)
+			local testSubDir = path.join(tmpDir, "module")
+			fs.createdirectory(testSubDir)
+
+			local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
+			local configuredRuleContents = [[
+		return {
+			name = "configuredRule",
+			lint = function(ast, sourcepath, context)
+				return {
+					{
+						lintname = "configuredRule",
+						severity = "warn",
+						message = `Configured Rule Ran with options.a = {context.options.a}`,
+						location = ast.location
+					}
+				}
+			end
+		}
+		]]
+			fs.writestringtofile(configuredRulePath, configuredRuleContents)
+
+			local configFile = path.join(testSubDir, ".config.luau")
+			local configContents = ([[
+		return {
+			lute = {
+				lint = {
+					rules = {
+						paths = { "%s" },
+						["configuredRule"] = {
+							ignores = { "**/ignoredDir/**" },
+							options = {
+								a = 1,
+							}
+						}
+					}
+				}
+			}
+		}
+		]]):format(path.format(configuredRulePath))
+			fs.writestringtofile(configFile, configContents)
+
+			local ignoredDir = path.join(testSubDir, "ignored")
+			local notIgnoredDir = path.join(testSubDir, "not_ignored")
+			fs.createdirectory(ignoredDir)
+			fs.createdirectory(notIgnoredDir)
+			local ignoredFile = path.join(ignoredDir, "ignored.luau")
+			local notIgnoredFile = path.join(notIgnoredDir, "valid.luau")
+			local violatingContents = "print('hello world')"
+			fs.writestringtofile(ignoredFile, violatingContents)
+			fs.writestringtofile(notIgnoredFile, violatingContents)
+
+			local result = process.run({
+				lutePath,
+				"lint",
+				"-c",
+				path.format(configFile),
+				path.format(testSubDir),
+			})
+			assert.eq(result.exitcode, 1) -- errors
+			assert.strcontains(result.stdout, "configuredRule", nil, 1) -- only 1 violation, since we ignore the other file
+			assert.strnotcontains(result.stdout, "ignored.luau")
+			assert.strcontains(result.stdout, "Configured Rule Ran with options.a = 1") -- options are correctly passed through
+		end
+	)
 end)
+
+test.run()
