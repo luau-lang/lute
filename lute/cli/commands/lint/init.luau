@@ -504,7 +504,7 @@ local function main(...: string)
 		lintRules, ruleConfigurations, ruleIgnoreData = loadLintRules(rulePath, lintConfig, rootLocation)
 	end
 
-	-- load rules from config rules path; these should be loaded specifically relative to rootLocation
+	-- load local rules from config rules path
 	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rules and lintConfig.rules.paths
 		then lintConfig.rules.paths
 		else {}
