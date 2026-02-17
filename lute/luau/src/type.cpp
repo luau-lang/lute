@@ -372,11 +372,8 @@ struct TypeSerialize final : public Luau::TypeVisitor
     // metatable: type?
     void serialize(TypeId ty, const MetatableType& mtv)
     {
-        checkStack(L, 2);
-        lua_createtable(L, 0, 2);
-        registerType(ty);
-
         traverse(mtv.table);
+        registerType(ty);
 
         traverse(mtv.metatable);
         lua_setfield(L, -2, "metatable");
