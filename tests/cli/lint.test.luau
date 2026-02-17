@@ -2654,7 +2654,8 @@ return {
 		local testSubDir = path.join(tmpDir, "module")
 		fs.createdirectory(testSubDir)
 
-		local violatorFile = path.join(testSubDir, "violator.luau")
+		local violationDir = path.join(testSubDir, "violator")
+		local violatorFile = path.format(path.join(violationDir, "violator.luau"))
 		fs.writestringtofile(violatorFile, "local x = 1 / 0")
 
 		local configFile = path.join(testSubDir, ".config.luau")
@@ -2674,17 +2675,15 @@ return {
 		fs.writestringtofile(configFile, configContents)
 
 		-- assert that severity is "warning" without config applied
-		local result = process.run({ lutePath, "lint", path.format(violatorFile) })
+		local result = process.run({ lutePath, "lint", violatorFile })
 		assert.eq(result.exitcode, 1)
 		assert.strcontains(result.stdout, "warning[divide_by_zero]")
 		assert.strnotcontains(result.stdout, "error[divide_by_zero]")
 
 		-- with config applied, severity is now "error"
-		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) })
+		result = process.run({ lutePath, "lint", "-c", path.format(configFile), violatorFile })
 		assert.eq(result.exitcode, 1)
 		assert.strnotcontains(result.stdout, "warning[divide_by_zero]")
 		assert.strcontains(result.stdout, "error[divide_by_zero]")
 	end)
 end)
-
-test.run()
