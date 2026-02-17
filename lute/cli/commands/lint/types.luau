@@ -6,17 +6,17 @@ export type severity = "error" | "warning" | "info" | "hint"
 export type tag = "unnecessary" | "deprecated"
 
 export type LintViolation = {
-	read lintname: string,
-	read location: syntax.span,
-	read message: string,
-	read severity: severity,
-	read sourcepath: path.path?,
-	read suggestedfix: {
-		read location: syntax.span?, -- if nil, applies to whole violation location
-		read fix: string,
+	lintname: string,
+	location: syntax.span,
+	message: string,
+	severity: severity,
+	sourcepath: path.path?,
+	suggestedfix: {
+		location: syntax.span?, -- if nil, applies to whole violation location
+		fix: string,
 	}?,
-	read target: string?, -- Additional information on the violation (e.g link to docs)
-	read tags: { tag }?,
+	target: string?, -- Additional information on the violation (e.g link to docs)
+	tags: { tag }?,
 }
 
 export type LintRule = {
