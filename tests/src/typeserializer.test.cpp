@@ -539,6 +539,7 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_simple_type_pack_nil_tail")
     REQUIRE(lua_isnil(L, -1)); // no tail
 }
 
+
 TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_type_pack_with_head_and_tail")
 {
     TypeId numberTy = arena.addType(PrimitiveType{PrimitiveType::Number});
