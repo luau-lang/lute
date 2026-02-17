@@ -2686,5 +2686,3 @@ return {
 		assert.strcontains(result.stdout, "error[divide_by_zero]")
 	end)
 end)
-
-test.run()
