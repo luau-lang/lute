@@ -2712,11 +2712,11 @@ return {
 				path.format(configFile),
 				"-r",
 				path.format(cliProvidedRulePath),
-				path.format(configFile),
+				path.format(testSubDir),
 			})
 			assert.eq(result.exitcode, 1)
 			-- both config-given and CLI-given rules should have ran
-			assert.strcontains(result.stdout, "Configured Rule Ran.")
+			assert.strcontains(result.stdout, "Configured Rule Ran.", result.stderr)
 			assert.strcontains(result.stdout, "CLI Rule Ran.")
 		end
 	)
@@ -2783,7 +2783,7 @@ return {
 				path.format(testSubDir),
 			})
 			assert.eq(result.exitcode, 1) -- errors
-			assert.strcontains(result.stdout, "configuredRule", nil, 1) -- only 1 violation, since we ignore the other file
+			assert.strcontains(result.stdout, "configuredRule", result.stderr, 1) -- only 1 violation, since we ignore the other file
 			assert.strnotcontains(result.stdout, "ignored.luau")
 			assert.strcontains(result.stdout, "Configured Rule Ran with options.a = 1") -- options are correctly passed through
 		end
