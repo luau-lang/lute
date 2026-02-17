@@ -66,11 +66,11 @@ local function assertIsLintRule(rule: unknown, path: string)
 	)
 end
 
-local function loadLintRule(path: string): types.LintRule
+local function loadLintRule(path: string): types.LintRule?
 	local loaded = luau.loadbypath(path)
-	assertIsLintRule(loaded, path)
+	local success, _ = pcall(assertIsLintRule, loaded, path)
 
-	return loaded -- Typecast isn't needed because loaded is refined to any bc of type error in assertIsLintRule
+	return if success then loaded else nil -- Typecast isn't needed because loaded is refined to any bc of type error in assertIsLintRule
 end
 
 local function registerRule(
@@ -109,7 +109,12 @@ local function loadLintRules(
 			local currentPathObj = pathLib.parse(currentPath)
 			local initPath = pathLib.format(pathLib.join(currentPathObj, "init.luau"))
 			if fs.exists(initPath) then
-				registerRule(loadLintRule(initPath), config, rootLocation, rules, ruleConfigs, ruleIgnores)
+				local rule = loadLintRule(initPath)
+				if rule then
+					registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
+				elseif VERBOSE then
+					print(`Error loading lint rule from {currentPath}`)
+				end
 			else
 				local entries = fs.listdirectory(currentPath)
 				local childPaths = tableext.map(entries, function(entry)
@@ -118,7 +123,12 @@ local function loadLintRules(
 				tableext.extend(queue, childPaths)
 			end
 		elseif pathLib.extname(currentPath) == ".luau" then
-			registerRule(loadLintRule(currentPath), config, rootLocation, rules, ruleConfigs, ruleIgnores)
+			local rule = loadLintRule(currentPath)
+			if rule then
+				registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
+			elseif VERBOSE then
+				print(`Error loading lint rule from {currentPath}`)
+			end
 		end
 	end
 
