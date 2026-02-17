@@ -27,7 +27,7 @@ export type LintRule = {
 export type RuleConfig = {
 	ignores: { string }?,
 	severity: severity?,
-	-- off: true?,
+	off: true?,
 	options: RuleOptions?,
 }
 
