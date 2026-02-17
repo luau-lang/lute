@@ -2652,6 +2652,7 @@ return {
 
 	suite:case("default rules configured with off do NOT run", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
 
 		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
@@ -2689,6 +2690,7 @@ return {
 
 	suite:case("custom rules configured with off do NOT run", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
 
 		local customRuleFile = path.join(testSubDir, "customRule.luau")
 		local customRuleContents = [[
