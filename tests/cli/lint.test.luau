@@ -2649,4 +2649,39 @@ return {
 		assert.strcontains(result.stdout, "[divide_by_zero]", nil, 1)
 		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
 	end)
+
+	suite:case("configured rule severity overrides default", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+
+		local violatorFile = path.join(testSubDir, "violator.luau")
+		fs.writestringtofile(violatorFile, "local x = 1 / 0")
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["divide_by_zero"] = {
+					severity = "error"
+				}
+			}
+		}
+	}
+}
+]]
+		fs.writestringtofile(configFile, configContents)
+
+		-- assert that severity is "warning" without config applied
+		local result = process.run({ lutePath, "lint", path.format(violatorFile) })
+		assert.eq(result.exitcode, 1)
+		assert.strcontains(result.stdout, "warning[divide_by_zero]")
+		assert.strnotcontains(result.stdout, "error[divide_by_zero]")
+
+		-- with config applied, severity is now "error"
+		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) })
+		assert.eq(result.exitcode, 1)
+		assert.strnotcontains(result.stdout, "warning[divide_by_zero]")
+		assert.strcontains(result.stdout, "error[divide_by_zero]")
+	end)
 end)
