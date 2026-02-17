@@ -2647,6 +2647,7 @@ return {
 		fs.createdirectory(testSubDir)
 
 		local violationDir = path.join(testSubDir, "violator")
+		fs.createdirectory(violationDir)
 		local violatorFile = path.format(path.join(violationDir, "violator.luau"))
 		fs.writestringtofile(violatorFile, "local x = 1 / 0")
 
@@ -2679,3 +2680,5 @@ return {
 		assert.strcontains(result.stdout, "error[divide_by_zero]")
 	end)
 end)
+
+test.run()
