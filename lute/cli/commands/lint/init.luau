@@ -283,6 +283,7 @@ local function lintString(
 			for _, violation in err do
 				if not violationIsSuppressed(violation, ast, directiveCache, globalIgnores) then
 					violation.severity = if overwrittenSeverity then overwrittenSeverity else violation.severity
+					table.insert(violations, violation)
 				end
 			end
 		else
