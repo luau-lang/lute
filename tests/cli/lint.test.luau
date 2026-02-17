@@ -35,6 +35,7 @@ type lintTestParams = {
 	expectedExitCode: number,
 	rulePath: string?,
 	expectedAutofixContents: string?,
+	disableDefaultLints: true?,
 	extraOptions: { string }?,
 	outputExpectations: { { expectedOutput: string, count: number } }?,
 }
@@ -56,6 +57,10 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 
 	if params.expectedAutofixContents then
 		table.insert(lintArgs, "--auto-fix")
+	end
+
+	if params.disableDefaultLints then
+		table.insert(lintArgs, "--no-default-lints")
 	end
 
 	if params.extraOptions then
@@ -139,7 +144,6 @@ test.suite("lute lint", function(suite)
 			expectedExitCode = 0,
 			extraOptions = { "-v" },
 			outputExpectations = {
-				{ expectedOutput = "Using default lint rules.", count = 1 },
 				{ expectedOutput = "Applying lint rules", count = 1 },
 				{ expectedOutput = "Printing violations from 0 files", count = 1 },
 			},
@@ -156,6 +160,7 @@ local x = 1 / 0
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
@@ -214,6 +219,7 @@ end
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.almost_swapped,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 4 },
 				{
@@ -311,7 +317,6 @@ end
 	end)
 
 	suite:case("lute lint custom rules dir", function(assert)
-		-- TODO: Use new helper after adding option to turn off default rules
 		-- Setup
 		fs.createdirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
@@ -328,53 +333,47 @@ not a luau file
 ]]
 		)
 
-		-- Create a file that violates the rule
-		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
-		fs.writestringtofile(
-			violatorPath,
-			[[
+		lintTestHelper(assert, {
+			content = [[
 local x = 1 / 0
 
 a = b
 b = a
-    ]]
-		)
-
-		-- Do
-		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", rulesDir, violatorPath })
-
-		-- Check
-		assert.eq(result.exitcode, 1)
-
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
-		local expected = [[
+]],
+			expectedExitCode = 1,
+			rulePath = rulesDir,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
+				{
+					expectedOutput = [[
 violator.luau:1:11-16 ──
    │
  1 │ local x = 1 / 0
    │           ^^^^^
    │
-]]
-		assert.strcontains(result.stdout, expected)
-
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
-		expected = [[
+]],
+					count = 1,
+				},
+				{
+					expectedOutput = [[
 violator.luau:3:1-4:6 ──
    │
  3 │ ╭ a = b
  4 │ │ b = a
    │ ╰─────^
    │
-]]
-		assert.strcontains(result.stdout, expected)
+]],
+					count = 1,
+				},
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 1 },
+			},
+		})
 
-		-- Teardown
-		fs.remove(violatorPath)
 		fs.removedirectory(rulesDir, { recursive = true })
 	end)
 
 	suite:case("lute lint multiple rules but one errors", function(assert)
-		-- TODO: Use new helper after adding option to turn off default rules
 		-- Setup
 		fs.createdirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
@@ -392,36 +391,30 @@ return table.freeze({
 ]]
 		)
 
-		-- Create a file that violates the rule
-		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
-		fs.writestringtofile(
-			violatorPath,
-			[[
-a = b
+		local output = lintTestHelper(assert, {
+			content = [[a = b
 b = a
-    ]]
-		)
-
-		-- Do
-		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", rulesDir, violatorPath })
-
-		-- Check
-		assert.eq(result.exitcode, 1)
-
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
-		local expected = [[
-violator.luau:1:1-2:6 ──
+]],
+			expectedExitCode = 1,
+			rulePath = rulesDir,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 1 },
+				{
+					expectedOutput = [[violator.luau:1:1-2:6 ──
    │
  1 │ ╭ a = b
  2 │ │ b = a
    │ ╰─────^
    │
-]]
-		assert.strcontains(result.stdout, expected)
+]],
+					count = 1,
+				},
+			},
+		})
 
 		assert.neq(
-			result.stdout:find(
+			output:find(
 				"Error applying lint rule 'AlwaysErrors': %.[/\\]lints[/\\]erroring_rule%.luau:4: This rule always errors",
 				1
 			),
@@ -429,7 +422,6 @@ violator.luau:1:1-2:6 ──
 		)
 
 		-- Teardown
-		fs.remove(violatorPath)
 		fs.removedirectory(rulesDir, { recursive = true })
 	end)
 
@@ -465,8 +457,7 @@ y = x
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result =
-			process.run({ lutePath, "lint", "-r", "examples/lints", "-v", violatorPath1, path.format(modulePath) })
+		local result = process.run({ lutePath, "lint", "-v", violatorPath1, path.format(modulePath) })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -632,77 +623,39 @@ violator.luau:9:1-10:6 ──
 -- lute-lint-ignore(divide_by_zero)
 local x = 1 / 0
 
--- lute-lint-ignore(divide_by_zero)
-if true then
-	local y = 10 / 0
-end
-
-a = b
-b = a
-]],
-			expectedExitCode = 1,
-			outputExpectations = {
-				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 0 },
-				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 1 },
-				{
-					expectedOutput = [[
-violator.luau:9:1-10:6 ──
-    │
- 9  │ ╭ a = b
- 10 │ │ b = a
-    │ ╰─────^
-    │
-]],
-					count = 1,
-				},
-			},
-		})
-
-		-- Setup
-		-- Create a file that violates the rule
-		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
-		fs.writestringtofile(
-			violatorPath,
-			[[
--- lute-lint-ignore(divide_by_zero)
-local x = 1 / 0
-
 if true then
 	local y = 10 / 0
 end
 
 local z = 1 / 0
-    ]]
-		)
-
-		-- Do
-		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", defaultRulesPaths.divide_by_zero, violatorPath })
-
-		-- Check
-		assert.eq(result.exitcode, 1)
-
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, nil, 2)
-		local expected = [[
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.divide_by_zero,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 2 },
+				{
+					expectedOutput = [[
 violator.luau:5:12-18 ──
    │
  5 │     local y = 10 / 0
    │               ^^^^^^
    │
-]]
-		assert.strcontains(result.stdout, expected)
-
-		expected = [[
+]],
+					count = 1,
+				},
+				{
+					expectedOutput = [[
 violator.luau:8:11-16 ──
    │
  8 │ local z = 1 / 0
    │           ^^^^^
    │
-]]
-		assert.strcontains(result.stdout, expected)
-
-		-- Teardown
-		fs.remove(violatorPath)
+]],
+					count = 1,
+				},
+			},
+		})
 	end)
 
 	suite:case("suppression is limited to following statement2", function(assert)
@@ -719,6 +672,7 @@ local z = 1 / 0
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 2 },
 				{
@@ -757,6 +711,7 @@ end
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
@@ -785,6 +740,7 @@ end
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
@@ -813,6 +769,7 @@ end
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
@@ -842,6 +799,7 @@ end
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.divide_by_zero,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.divide_by_zero, count = 1 },
 				{
@@ -939,6 +897,9 @@ local x = 1 / 0
                     "source": "lute lint", 
                     "code": "unused_variable", 
                     "severity": 2, 
+                    "tags": [
+                        1
+                    ], 
                     "range": {
                         "start": {
                             "character": 6, 
@@ -1141,7 +1102,6 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, "Using default lint rules.")
 		assert.strcontains(result.stdout, "Parsing input string")
 		assert.strcontains(result.stdout, "Parsing global lint ignores in input string")
 		assert.strcontains(result.stdout, "Applying lint rules")
@@ -1179,6 +1139,9 @@ b = a
         "source": "lute lint", 
         "code": "unused_variable", 
         "severity": 2, 
+        "tags": [
+            1
+        ], 
         "range": {
             "start": {
                 "character": 6, 
@@ -1263,6 +1226,7 @@ until (5 == 5)
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.parenthesized_conditions,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.parenthesized_conditions,
@@ -1359,6 +1323,7 @@ until (5 == 5)
 ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.parenthesized_conditions,
+			disableDefaultLints = true,
 			expectedAutofixContents = [[
 if 3 > 0 then
 	print("Hello, world!")
@@ -1414,6 +1379,7 @@ local e = t ~= { 1, 2 }
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.constant_table_comparison,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.constant_table_comparison,
@@ -1484,6 +1450,7 @@ local e = t ~= {}
 ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.constant_table_comparison,
+			disableDefaultLints = true,
 			expectedAutofixContents = [[
 local a = next(t) == nil
 local b = next(t) == nil
@@ -1550,6 +1517,7 @@ local x = 3
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1576,6 +1544,7 @@ local _ = 3
     ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1594,6 +1563,7 @@ end
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1623,6 +1593,7 @@ end
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1660,6 +1631,7 @@ x = x + 1
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1689,6 +1661,7 @@ print(y)
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1717,6 +1690,7 @@ print(x)
     ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1734,6 +1708,7 @@ x += 1
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1762,6 +1737,7 @@ print(x)
     ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1779,6 +1755,7 @@ x += 1
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1807,6 +1784,7 @@ end
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1837,6 +1815,7 @@ x()
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1865,6 +1844,7 @@ print(x)
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1895,6 +1875,7 @@ x()
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1922,6 +1903,7 @@ local x = 5 + x
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1949,6 +1931,7 @@ local _x : lib.num = 3
     ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1967,6 +1950,7 @@ end
     ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -1987,6 +1971,7 @@ return {
     ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -2007,6 +1992,7 @@ end
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -2035,6 +2021,7 @@ a, b = foo()
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -2074,6 +2061,7 @@ print(y)
     ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -2102,6 +2090,7 @@ until x == 1
     ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = "Local variable not found in any scope", count = 0 },
 				{
@@ -2121,6 +2110,7 @@ end
     ]=],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -2139,6 +2129,7 @@ end
     ]=],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{
 					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
@@ -2305,6 +2296,7 @@ local t = { 1, 2, [2] = 3 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2328,6 +2320,7 @@ local t = { a = 1, a = 2 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2351,6 +2344,7 @@ local t = { ["a"] = 1, ["a"] = 2 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2374,6 +2368,7 @@ local t = { [1] = 1, [1] = 2 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2397,6 +2392,7 @@ local t = { 1, 2, [2] = 3 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2420,6 +2416,7 @@ local t = { ["a"] = 1, a = 2 }
 ]],
 			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
 				{
@@ -2443,6 +2440,7 @@ local t = { [0] = 1 }
 ]],
 			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.duplicate_keys,
+			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 0 },
 			},

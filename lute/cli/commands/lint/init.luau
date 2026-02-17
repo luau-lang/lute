@@ -28,6 +28,7 @@ local VERBOSE = false
 
 local function printHelp()
 	print(USAGE)
+	-- Ordering of options: help + verbose fist, then options with aliases in alphabetical order, then options without aliases in alphabetical order
 	print([[
 Lint the specified Luau file using the specified lint rule(s) or using the default rules.
 
@@ -36,14 +37,15 @@ OPTIONS:
   -v, --verbose		  	  Enable verbose output
   -c, --config [PATH]	  Path to configuration file. By default, lute lint will look for a
   						  the .config.luau file in the calling directory.
+  -j, --json              Output lint violations in JSON format matching the LSP diagnostic spec.
   -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder 
   						  is provided, any subfolders containing init.luau files will be treated as
 						  modules exporting lint rules, while all other .luau files will be treated 
 						  as individual lint rules. If unspecified, the default lint rules are used.
-  -j, --json              Output lint violations in JSON format matching the LSP diagnostic spec.
   -s, --string-input	  Lint the provided string input instead of reading from files.
   --auto-fix			  Automatically apply fixes for lint violations that provide a suggested fix.
 						  Assumes that suggested fixes do not overlap.
+  --no-default-lints	  Disables the default lint rules.
 
 PATHS:
   Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
@@ -436,21 +438,22 @@ end
 local function main(...: string)
 	local args = cli.parser()
 
-	args:add("config", "option", { help = "Path to configuration file", aliases = { "c" } })
-	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
-	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
-	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
-	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
-	args:add(
-		"string-input",
-		"option",
-		{ help = "Lint the provided string input instead of reading from files", aliases = { "s" } }
-	)
 	args:add(
 		"auto-fix",
 		"flag",
 		{ help = "Automatically apply fixes for lint violations that provide a suggested fix" }
 	)
+	args:add("config", "option", { help = "Path to configuration file", aliases = { "c" } })
+	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
+	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
+	args:add("no-default-lints", "flag", { help = "Disables the default lint rules" })
+	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
+	args:add(
+		"string-input",
+		"option",
+		{ help = "Lint the provided string input instead of reading from files", aliases = { "s" } }
+	)
+	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
 
 	args:parse({ ... })
 
@@ -484,7 +487,7 @@ local function main(...: string)
 		end
 	end
 
-	local lintRules: { types.LintRule }
+	local lintRules: { types.LintRule } = {}
 	local ruleConfigurations: types.RuleConfigurations = {}
 	local ruleIgnoreData: types.RuleIgnores = {}
 
@@ -494,17 +497,23 @@ local function main(...: string)
 		else pathLib.format(process.cwd())
 	local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
 
-	local rulePath = args:get("rules")
-	if rulePath == nil then
+	if args:has("no-default-lints") then
 		if VERBOSE then
-			print("Using default lint rules.")
+			print("Default lint rules have been disabled.")
 		end
-		lintRules, ruleConfigurations, ruleIgnoreData = loadDefaultRules(lintConfig, rootLocation)
 	else
+		lintRules, ruleConfigurations, ruleIgnoreData = loadDefaultRules(lintConfig, rootLocation)
+	end
+
+	local rulePath = args:get("rules")
+	if rulePath then
 		if VERBOSE then
 			print(`Loading lint rule(s) from '{rulePath}'`)
 		end
-		lintRules, ruleConfigurations, ruleIgnoreData = loadLintRules(rulePath, lintConfig, rootLocation)
+		local customRules, customConfigs, customIgnores = loadLintRules(rulePath, lintConfig, rootLocation)
+		tableext.extend(lintRules, customRules)
+		tableext.combine(ruleConfigurations, customConfigs)
+		tableext.combine(ruleIgnoreData, customIgnores)
 	end
 
 	local configContextData = {

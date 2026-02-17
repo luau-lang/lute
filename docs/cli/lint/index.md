@@ -35,6 +35,14 @@ Output lint violations in JSON format matching the LSP diagnostic spec.
 
 Lint the provided string input instead of reading from files.
 
+### `--auto-fix`
+
+Automatically apply fixes for lint violations that provide a suggested fix. Assumes that suggested fixes do not overlap. Does nothing when linting string input.
+
+### `--no-default-lints`
+
+Disables the default lint rules.
+
 ## Arguments
 
 Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
