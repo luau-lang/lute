@@ -771,7 +771,7 @@ local function visitTypeTable(node: types.AstTypeTable, visitor: Visitor)
 	end
 end
 
-local function visitTypeFunctionParameter(node: types.AstTypeFunctionParameter, visitor)
+local function visitFunctionTypeParameter(node: types.AstFunctionTypeParameter, visitor)
 	if node.name then
 		visitToken(node.name, visitor)
 	end
@@ -796,7 +796,7 @@ local function visitTypeFunction(node: types.AstTypeFunction, visitor: Visitor)
 			visitToken(node.closegenerics, visitor)
 		end
 		visitToken(node.openparens, visitor)
-		visitPunctuated(node.parameters, visitor, visitTypeFunctionParameter)
+		visitPunctuated(node.parameters, visitor, visitFunctionTypeParameter)
 		if node.vararg then
 			visitTypePack(node.vararg, visitor)
 		end

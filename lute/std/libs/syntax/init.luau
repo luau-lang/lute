@@ -161,7 +161,7 @@ export type AstTableTypeItem = types.AstTableTypeItem
 
 export type AstTypeTable = types.AstTypeTable
 
-export type AstTypeFunctionParameter = types.AstTypeFunctionParameter
+export type AstFunctionTypeParameter = types.AstFunctionTypeParameter
 
 export type AstTypeFunction = types.AstTypeFunction
 

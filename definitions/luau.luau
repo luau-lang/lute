@@ -608,7 +608,7 @@ export type AstTypeTable = {
 	closebrace: Token<"}">,
 }
 
-export type AstTypeFunctionParameter = {
+export type AstFunctionTypeParameter = {
 	location: span,
 	name: Token?,
 	colon: Token<":">?,
@@ -625,7 +625,7 @@ export type AstTypeFunction = {
 	genericpacks: Punctuated<AstGenericTypePack>?,
 	closegenerics: Token<">">?,
 	openparens: Token<"(">,
-	parameters: Punctuated<AstTypeFunctionParameter>,
+	parameters: Punctuated<AstFunctionTypeParameter>,
 	vararg: AstTypePack?,
 	closeparens: Token<")">,
 	returnarrow: Token<"->">,

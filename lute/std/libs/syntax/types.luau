@@ -141,7 +141,7 @@ export type AstTableTypeItem = luau.AstTableTypeItem
 
 export type AstTypeTable = luau.AstTypeTable
 
-export type AstTypeFunctionParameter = luau.AstTypeFunctionParameter
+export type AstFunctionTypeParameter = luau.AstFunctionTypeParameter
 
 export type AstTypeFunction = luau.AstTypeFunction
 
