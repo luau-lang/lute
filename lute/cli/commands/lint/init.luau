@@ -275,17 +275,12 @@ local function lintString(
 		}
 
 		local success, err = pcall(rule.lint, ast, inputFilePath, context)
+		local overwrittenSeverity = ruleConfig.severity
 		if success then
 			-- On success, err contains the returned violations
 			for _, violation in err do
 				if not violationIsSuppressed(violation, ast, directiveCache, globalIgnores) then
-					if ruleConfig.severity then
-						local cloned = table.clone(violation)
-						cloned.severity = ruleConfig.severity
-						table.insert(violations, cloned)
-					else
-						table.insert(violations, violation)
-					end
+					violation.severity = if overwrittenSeverity then overwrittenSeverity else violation.severity
 				end
 			end
 		else
