@@ -43,13 +43,13 @@ export type AstExprIndexExpr = luau.AstExprIndexExpr
 
 export type AstExprFunction = luau.AstExprFunction
 
-export type AstExprTableItemList = luau.AstExprTableItemList
+export type AstTableExprListItem = luau.AstTableExprListItem
 
-export type AstExprTableItemRecord = luau.AstExprTableItemRecord
+export type AstTableExprRecordItem = luau.AstTableExprRecordItem
 
-export type AstExprTableItemGeneral = luau.AstExprTableItemGeneral
+export type AstTableExprGeneralItem = luau.AstTableExprGeneralItem
 
-export type AstExprTableItem = luau.AstExprTableItem
+export type AstTableExprItem = luau.AstTableExprItem
 
 export type AstExprTable = luau.AstExprTable
 

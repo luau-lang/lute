@@ -63,13 +63,13 @@ export type AstExprIndexExpr = types.AstExprIndexExpr
 
 export type AstExprFunction = types.AstExprFunction
 
-export type AstExprTableItemList = types.AstExprTableItemList
+export type AstTableExprListItem = types.AstTableExprListItem
 
-export type AstExprTableItemRecord = types.AstExprTableItemRecord
+export type AstTableExprRecordItem = types.AstTableExprRecordItem
 
-export type AstExprTableItemGeneral = types.AstExprTableItemGeneral
+export type AstTableExprGeneralItem = types.AstTableExprGeneralItem
 
-export type AstExprTableItem = types.AstExprTableItem
+export type AstTableExprItem = types.AstTableExprItem
 
 export type AstExprTable = types.AstExprTable
 

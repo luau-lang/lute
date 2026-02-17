@@ -166,7 +166,7 @@ export type AstExprFunction = {
 }
 
 -- helper types for items contained in an AstExprTable, not actually AstExprs themselves
-export type AstExprTableItemList = {
+export type AstTableExprListItem = {
 	location: span,
 	kind: "list",
 	value: AstExpr,
@@ -174,7 +174,7 @@ export type AstExprTableItemList = {
 	istableitem: true,
 }
 
-export type AstExprTableItemRecord = {
+export type AstTableExprRecordItem = {
 	location: span,
 	kind: "record",
 	key: Token<string>,
@@ -184,7 +184,7 @@ export type AstExprTableItemRecord = {
 	istableitem: true,
 }
 
-export type AstExprTableItemGeneral = {
+export type AstTableExprGeneralItem = {
 	location: span,
 	kind: "general",
 	indexeropen: Token<"[">,
@@ -196,14 +196,14 @@ export type AstExprTableItemGeneral = {
 	istableitem: true,
 }
 
-export type AstExprTableItem = AstExprTableItemList | AstExprTableItemRecord | AstExprTableItemGeneral
+export type AstTableExprItem = AstTableExprListItem | AstTableExprRecordItem | AstTableExprGeneralItem
 
 export type AstExprTable = {
 	location: span,
 	kind: "expr",
 	tag: "table",
 	openbrace: Token<"{">,
-	entries: { AstExprTableItem },
+	entries: { AstTableExprItem },
 	closebrace: Token<"}">,
 }
 
