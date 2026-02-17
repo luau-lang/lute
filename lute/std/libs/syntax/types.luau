@@ -131,13 +131,13 @@ export type AstTypeIntersection = luau.AstTypeIntersection
 
 export type AstTypeArray = luau.AstTypeArray
 
-export type AstTypeTableItemIndexer = luau.AstTypeTableItemIndexer
+export type AstTableTypeItemIndexer = luau.AstTableTypeItemIndexer
 
-export type AstTypeTableItemStringProperty = luau.AstTypeTableItemStringProperty
+export type AstTableTypeItemStringProperty = luau.AstTableTypeItemStringProperty
 
-export type AstTypeTableItemProperty = luau.AstTypeTableItemProperty
+export type AstTableTypeItemProperty = luau.AstTableTypeItemProperty
 
-export type AstTypeTableItem = luau.AstTypeTableItem
+export type AstTableTypeItem = luau.AstTableTypeItem
 
 export type AstTypeTable = luau.AstTypeTable
 

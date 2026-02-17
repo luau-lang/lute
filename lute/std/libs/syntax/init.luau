@@ -151,13 +151,13 @@ export type AstTypeIntersection = types.AstTypeIntersection
 
 export type AstTypeArray = types.AstTypeArray
 
-export type AstTypeTableItemIndexer = types.AstTypeTableItemIndexer
+export type AstTableTypeItemIndexer = types.AstTableTypeItemIndexer
 
-export type AstTypeTableItemStringProperty = types.AstTypeTableItemStringProperty
+export type AstTableTypeItemStringProperty = types.AstTableTypeItemStringProperty
 
-export type AstTypeTableItemProperty = types.AstTypeTableItemProperty
+export type AstTableTypeItemProperty = types.AstTableTypeItemProperty
 
-export type AstTypeTableItem = types.AstTypeTableItem
+export type AstTableTypeItem = types.AstTableTypeItem
 
 export type AstTypeTable = types.AstTypeTable
 

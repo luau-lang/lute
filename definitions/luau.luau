@@ -566,7 +566,7 @@ export type AstTypeArray = {
 	closebrace: Token<"}">,
 }
 
-export type AstTypeTableItemIndexer = {
+export type AstTableTypeItemIndexer = {
 	kind: "indexer",
 	access: Token<"read" | "write">?,
 	indexeropen: Token<"[">,
@@ -577,7 +577,7 @@ export type AstTypeTableItemIndexer = {
 	separator: Token<"," | ";">?,
 }
 
-export type AstTypeTableItemStringProperty = {
+export type AstTableTypeItemStringProperty = {
 	kind: "stringproperty",
 	access: Token<"read" | "write">?,
 	indexeropen: Token<"[">,
@@ -588,7 +588,7 @@ export type AstTypeTableItemStringProperty = {
 	separator: Token<"," | ";">?,
 }
 
-export type AstTypeTableItemProperty = {
+export type AstTableTypeItemProperty = {
 	kind: "property",
 	access: Token<"read" | "write">?,
 	key: Token,
@@ -597,14 +597,14 @@ export type AstTypeTableItemProperty = {
 	separator: Token<"," | ";">?,
 }
 
-export type AstTypeTableItem = AstTypeTableItemIndexer | AstTypeTableItemStringProperty | AstTypeTableItemProperty
+export type AstTableTypeItem = AstTableTypeItemIndexer | AstTableTypeItemStringProperty | AstTableTypeItemProperty
 
 export type AstTypeTable = {
 	location: span,
 	kind: "type",
 	tag: "table",
 	openbrace: Token<"{">,
-	entries: { AstTypeTableItem },
+	entries: { AstTableTypeItem },
 	closebrace: Token<"}">,
 }
 
