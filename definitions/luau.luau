@@ -64,6 +64,7 @@ export type AstLocal = {
 
 export type AstExprGroup = {
 	location: span,
+	kind: "expr",
 	tag: "group",
 	openparens: Token<"(">,
 	expression: AstExpr,
@@ -262,7 +263,7 @@ export type AstExprIfElse = {
 	elseexpr: AstExpr,
 }
 
-export type AstExpr = { kind: "expr" } & (
+export type AstExpr =
 	| AstExprGroup
 	| AstExprConstantNil
 	| AstExprConstantBool
@@ -282,7 +283,6 @@ export type AstExpr = { kind: "expr" } & (
 	| AstExprInterpString
 	| AstExprTypeAssertion
 	| AstExprIfElse
-)
 
 export type AstStatBlock = {
 	location: span,
@@ -459,7 +459,7 @@ export type AstStatTypeFunction = {
 	body: AstExprFunction,
 }
 
-export type AstStat = { kind: "stat" } & (
+export type AstStat =
 	| AstStatBlock
 	| AstStatDo
 	| AstStatIf
@@ -478,7 +478,6 @@ export type AstStat = { kind: "stat" } & (
 	| AstStatLocalFunction
 	| AstStatTypeAlias
 	| AstStatTypeFunction
-)
 
 export type AstGenericType = {
 	tag: "generic",
@@ -632,7 +631,7 @@ export type AstTypeFunction = {
 	returntypes: AstTypePack,
 }
 
-export type AstType = { kind: "type" } & (
+export type AstType =
 	| AstTypeReference
 	| AstTypeSingletonBool
 	| AstTypeSingletonString
@@ -644,7 +643,6 @@ export type AstType = { kind: "type" } & (
 	| AstTypeArray
 	| AstTypeTable
 	| AstTypeFunction
-)
 
 export type AstTypePackExplicit = {
 	location: span,
@@ -667,9 +665,9 @@ export type AstTypePackVariadic = {
 	type: AstType,
 }
 
-export type AstTypePack = { kind: "typepack" } & (AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic)
+export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
 
-export type AstNode = { location: span } & (AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute)
+export type AstNode = AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute
 
 export type ParseResult = {
 	root: AstStatBlock,
