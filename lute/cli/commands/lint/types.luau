@@ -12,8 +12,8 @@ export type LintViolation = {
 	severity: severity,
 	sourcepath: path.path?,
 	suggestedfix: {
-		location: syntax.span?, -- if nil, applies to whole violation location
-		fix: string,
+		read location: syntax.span?, -- if nil, applies to whole violation location
+		read fix: string,
 	}?,
 	target: string?, -- Additional information on the violation (e.g link to docs)
 	tags: { tag }?,
