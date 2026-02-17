@@ -311,6 +311,7 @@ local function lint(
 			severity = "warning",
 			sourcepath = sourcepath,
 			target = target,
+			tags = { "unnecessary" },
 		} -- LUAUFIX: Table literal doesn't subtype against lintTypes.LintViolation for some reason
 	end)
 end
