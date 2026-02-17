@@ -2230,7 +2230,7 @@ end
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
-		local testSubDir = path.join(tmpDir, "testDir")
+		local testSubDir = path.join(tmpDir, "module")
 		fs.createdirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2686,3 +2686,5 @@ return {
 		assert.strcontains(result.stdout, "error[divide_by_zero]")
 	end)
 end)
+
+test.run()
