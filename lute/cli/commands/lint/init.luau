@@ -87,6 +87,7 @@ local function registerRule(
 	if ruleConfig.off then
 		return
 	end
+
 	table.insert(rules, rule)
 	ruleConfigs[rule.name] = ruleConfig
 	if ruleConfig.ignores ~= nil then

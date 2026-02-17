@@ -2694,11 +2694,11 @@ return {
 		local customRuleContents = [[
 		return {
 			name = "customRule",
-			lint = function(ast, sourcepath, context)
+			lint = function(ast, _sourcepath, _context)
 				return {
 					{
 						lintname = "customRule",
-						severity = "warn",
+						severity = "warning",
 						message = "customRule",
 						location = ast.location,
 					}
@@ -2740,5 +2740,7 @@ return {
 		})
 		assert.eq(result.exitcode, 0)
 		assert.strnotcontains(result.stdout, "customRule")
+
+		fs.remove(customRuleFile)
 	end)
 end)
