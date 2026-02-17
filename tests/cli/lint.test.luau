@@ -2230,7 +2230,7 @@ end
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
-		local testSubDir = path.join(tmpDir, "testDir")
+		local testSubDir = path.join(tmpDir, "module")
 		fs.createdirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2654,7 +2654,7 @@ return {
 		local testSubDir = path.join(tmpDir, "module")
 		fs.createdirectory(testSubDir)
 
-		local configFile = path.join(testSubDir, ".config.luau")
+		local configFile = path.join(tmpDir, ".config.luau")
 		local configContents = [[
 		return {
 			lute = {
@@ -2692,7 +2692,7 @@ return {
 		local testSubDir = path.join(tmpDir, "module")
 		fs.createdirectory(testSubDir)
 
-		local customRuleFile = path.join(testSubDir, "customRule.luau")
+		local customRuleFile = path.join(tmpDir, "customRule.luau")
 		local customRuleContents = [[
 		return {
 			name = "customRule",
