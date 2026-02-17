@@ -79,13 +79,15 @@ local function registerRule(
 	ruleConfigs: types.RuleConfigurations,
 	ruleIgnores: types.RuleIgnores
 )
-	table.insert(rules, rule)
 	local ruleConfig: types.RuleConfig = if config.rules ~= nil and config.rules[rule.name] ~= nil
 		then config.rules[rule.name]
 		else {}
-	ruleConfigs[rule.name] = ruleConfig
-	if ruleConfig.ignores ~= nil then
-		ruleIgnores[rule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores)
+	if not ruleConfig.off then
+		table.insert(rules, rule)
+		ruleConfigs[rule.name] = ruleConfig
+		if ruleConfig.ignores ~= nil then
+			ruleIgnores[rule.name] = parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores)
+		end
 	end
 end
 

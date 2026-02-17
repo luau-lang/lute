@@ -2649,4 +2649,96 @@ return {
 		assert.strcontains(result.stdout, "[divide_by_zero]", nil, 1)
 		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
 	end)
+
+	suite:case("default rules configured with off do NOT run", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					rules = {
+						["almost_swapped"] = {
+							off = true,
+						}
+					}
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		local violatingFile = path.join(testSubDir, "violate.luau")
+		local violationContents = [[
+			a = b
+			b = a
+		]]
+		fs.writestringtofile(violatingFile, violationContents)
+
+		-- confirm file violations with no config
+		local result = process.run({ lutePath, "lint", path.format(violatingFile) })
+		assert.eq(result.exitcode, 1)
+		assert.strcontains(result.stdout, "almost_swapped")
+
+		-- confirm file doesn't violate with disabled rule config
+		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatingFile) })
+		assert.eq(result.exitcode, 0)
+		assert.strnotcontains(result.stdout, "almost_swapped")
+	end)
+
+	suite:case("custom rules configured with off do NOT run", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+
+		local customRuleFile = path.join(testSubDir, "customRule.luau")
+		local customRuleContents = [[
+		return {
+			name = "customRule",
+			lint = function(ast, sourcepath, context)
+				return {
+					{
+						lintname = "customRule",
+						severity = "warn",
+						message = "customRule",
+						location = ast.location,
+					}
+				}
+			end
+		}
+		]]
+		fs.writestringtofile(customRuleFile, customRuleContents)
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					rules = {
+						["customRule"] = {
+							off = true,
+						}
+					}
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		-- confirm violations with no config
+		local result = process.run({ lutePath, "lint", "-r", path.format(customRuleFile), path.format(customRuleFile) })
+		assert.eq(result.exitcode, 1)
+		assert.strcontains(result.stdout, "customRule")
+
+		-- confirm file doesn't violate with disabled rule config
+		result = process.run({
+			lutePath,
+			"lint",
+			"-c",
+			path.format(configFile),
+			"-r",
+			path.format(customRuleFile),
+			path.format(customRuleFile),
+		})
+		assert.eq(result.exitcode, 0)
+		assert.strnotcontains(result.stdout, "customRule")
+	end)
 end)
