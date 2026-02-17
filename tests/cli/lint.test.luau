@@ -2652,6 +2652,7 @@ return {
 
 	suite:case("configured rule severity overrides default", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
 
 		local violatorFile = path.join(testSubDir, "violator.luau")
 		fs.writestringtofile(violatorFile, "local x = 1 / 0")
