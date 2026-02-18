@@ -1,5 +1,4 @@
 local syntax = require("@std/syntax")
-local parseIgnores = require("../lib/parseIgnores")
 local path = require("@std/path")
 
 export type severity = "error" | "warning" | "info" | "hint"
@@ -50,7 +49,17 @@ export type RuleContext = {
 
 export type RuleConfigurations = { [string]: RuleConfig }
 
-export type RuleIgnores = { [string]: parseIgnores.GitignoreData }
+-- Copied from parseIgnores
+type Glob = { pattern: string, onlyMatchDirectories: boolean, matchAnywhere: boolean }
+
+type GitignoreData = {
+	location: string,
+	ignores: { Glob },
+	whitelists: { Glob },
+	next: GitignoreData?,
+}
+
+export type RuleIgnores = { [string]: GitignoreData }
 
 export type RuleConfigData = {
 	globals: GlobalsConfig,
