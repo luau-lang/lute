@@ -2925,5 +2925,3 @@ return {
 		end
 	)
 end)
-
-test.run()
