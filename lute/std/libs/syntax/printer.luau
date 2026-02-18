@@ -194,10 +194,7 @@ function printerLib.printnode(node: types.AstNode, replacements: types.replaceme
 	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
-function printerLib.printfile(
-	result: { root: types.AstStatBlock, eof: types.Eof },
-	replacements: types.replacements?
-): string
+function printerLib.printfile(result: types.ParseResult, replacements: types.replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visitblock(result.root, printer)
 	visitor.visittoken(result.eof, printer)
