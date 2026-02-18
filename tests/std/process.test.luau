@@ -75,6 +75,11 @@ test.suite("ProcessSuite", function(suite)
 			process.run({})
 		end, "process.run requires a non-empty table of arguments")
 
+		-- All of these tests intentionally pass values of the incorrect
+		-- type to `process.run`: this is to ensure that the error
+		-- handling on the runtime side is correct (for example, does not
+		-- crash because we expected a table and got a string).
+
 		assert.erroreq(function()
 			process.run({ "echo", "hello" }, { cwd = {} :: any })
 		end, "invalid argument #-1 to 'run' (string expected, got table)")
@@ -107,6 +112,11 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("process_system_options_error_cases", function(assert)
+		-- All of these tests intentionally pass values of the incorrect
+		-- type to `process.system`: this is to ensure that the error
+		-- handling on the runtime side is correct (for example, does not
+		-- crash because we expected a table and got a string).
+
 		assert.erroreq(function()
 			(process.system :: any)()
 		end, "invalid argument #1 to 'system' (string expected, got nil)")
