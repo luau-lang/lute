@@ -286,7 +286,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     }
 
     // Luau function type:
-    // parameters: { head: {type}?, tail: type? },
+    // parameters: { tag: "typepack", head: { { name: string?, type: Type } }?, tail: TypePack? }
     // returns: { head: {type}?, tail: type? },
     // generics: {type},
     // genericpacks: {typepack}
@@ -298,7 +298,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
         pushTag("function");
 
-        // Parameters
+        // Parameters -- need to process argNames as well for better serialization of parameter types
         traverse(ftv.argTypes);
         lua_setfield(L, -2, "parameters");
 

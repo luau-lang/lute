@@ -33,6 +33,7 @@ function luau.loadbypath(requirePath: path.pathlike, env: { [any]: any }?): any
 end
 
 export type TypePack = luteLuau.TypePack
+export type Type = luteLuau.Type
 
 function luau.typeofmodule(modulepath: path.pathlike): TypePack?
 	local modulePathStr = if typeof(modulepath) == "string" then modulepath else path.format(modulepath)

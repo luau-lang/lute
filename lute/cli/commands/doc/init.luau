@@ -1,8 +1,10 @@
 local cli = require("@batteries/cli")
 local fs = require("@std/fs")
+local luau = require("@std/luau")
 local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
+local typeprinter = require("@std/syntax/typeprinter")
 
 local USAGE = "Usage: lute doc [OPTIONS] [...MODULE_PATHS]"
 local DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "docs")
@@ -21,17 +23,14 @@ local STDLIB_MODULE_ALIASES = {
 	printer = "printerLib",
 }
 
-local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$"
-local blockCommentStartPattern = "^%s*%-%-%[(=+)%["
+local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$" -- `---`
+local blockCommentStartPattern = "^%s*%-%-%[(=*)%[" -- `--[[` or `--[=[` etc.
 local whitespacePattern = "^%s*$"
 
-type PropertySignature = {
-	name: string?,
-	signature: string?,
+type Definition = {
+	name: string,
+	signature: string,
 	doc: string?,
-	pendingDoc: { string },
-	inBlock: boolean,
-	blockEq: string?,
 }
 
 local function printHelp()
@@ -55,24 +54,38 @@ EXAMPLES:
 ]])
 end
 
--- extractPropertySignature: (this function runs on one line at a time so we need to keep some states for block comments)
--- module (module name)
--- line (current line)
--- pendingDoc (accumulated doc lines so far)
--- inBlock (are we currently inside a block comment?)
--- blockEq (the "=" sequence used for block comment delimiting, e.g. "=" for --[=[  ; nil when not inside)
-local function extractPropertySignature(
-	module: string,
-	line: string,
-	pendingDoc: { string },
-	inBlock: boolean,
-	blockEq: string?
-): PropertySignature
-	-- 1) If we're *not* in a block, detect block start that may include = signs:
-	if not inBlock then
+local function collectDocs(content: string, moduleAlias: string): { [string]: string }
+	local lines = string.split(content, "\n")
+	local pendingDoc = {}
+	local docMap = {}
+	local inBlock = false
+	local blockEq: string? = nil
+
+	for _, line in lines do
+		-- handle block comment continuation
+		if inBlock then
+			local eq = blockEq or ""
+			local closingPattern = "%]" .. eq .. "%]"
+			local before = string.match(line, "^(.-)" .. closingPattern)
+			if before then
+				before = stringext.trim(before)
+				if before ~= "" then
+					table.insert(pendingDoc, before)
+				end
+				inBlock = false
+				blockEq = nil
+			else
+				local trimmed = stringext.trim(line)
+				if trimmed ~= "" then
+					table.insert(pendingDoc, trimmed)
+				end
+			end
+			continue
+		end
+
+		-- detect block comment start
 		local eq = string.match(line, blockCommentStartPattern)
-		if eq ~= nil then
-			-- start of block comment, capture part after the opening delimiter, if any
+		if eq then
 			local after = string.match(line, "^%s*%-%-%[" .. eq .. "%[(.*)$")
 			if after then
 				after = stringext.trim(after)
@@ -80,106 +93,53 @@ local function extractPropertySignature(
 					table.insert(pendingDoc, after)
 				end
 			end
-
-			return {
-				pendingDoc = pendingDoc,
-				inBlock = true,
-				blockEq = eq, -- remember the = count for closing pattern
-			}
+			inBlock = true
+			blockEq = eq
+			continue
 		end
-	end
 
-	-- 2) If we're inside a block, accumulate until we find the matching close
-	if inBlock then
-		local eq = blockEq or ""
-		-- find the closing pattern "]=]" that matches the # of "=" used in opening
-		local closingPattern = "%]" .. eq .. "%]"
-		local before = string.match(line, "^(.-)" .. closingPattern)
-		if before then
-			-- closing found on this line
-			before = stringext.trim(before)
-			if before ~= "" then
-				table.insert(pendingDoc, before)
+		-- triple-dash comment
+		local triple = string.match(line, tripleDashCommentPattern)
+		if triple then
+			local txt = stringext.trim(triple)
+			if txt ~= "" then
+				table.insert(pendingDoc, txt)
 			end
+			continue
+		end
 
-			-- there might be trailing comment markers like "]]" on the same line;
-			-- we've already captured inner content, so we just exit block mode.
-			inBlock = false
-			blockEq = nil
-		else
-			-- still inside block: append whole line (trimmed)
-			local trimmed = stringext.trim(line)
-			if trimmed ~= "" then
-				table.insert(pendingDoc, trimmed)
+		-- property assignment
+		local propName = string.match(line, `^{moduleAlias}%.([%w_]+)%s*=`)
+		if propName then
+			if #pendingDoc > 0 then
+				docMap[propName] = table.concat(pendingDoc, "\n\n")
+				pendingDoc = {}
 			end
+			continue
 		end
 
-		return {
-			pendingDoc = pendingDoc,
-			inBlock = inBlock,
-			blockEq = blockEq,
-		}
-	end
-
-	-- 3) Triple dash comment? (---)
-	local triple = string.match(line, tripleDashCommentPattern)
-	if triple then
-		local txt = stringext.trim(triple)
-		if txt ~= "" then
-			table.insert(pendingDoc, txt)
+		-- function declaration
+		local fnName = string.match(line, `^function%s+{moduleAlias}%.([%w_]+)`)
+		if fnName then
+			if #pendingDoc > 0 then
+				docMap[fnName] = table.concat(pendingDoc, "\n\n")
+				pendingDoc = {}
+			end
+			continue
 		end
-		return {
-			pendingDoc = pendingDoc,
-			inBlock = inBlock,
-			blockEq = blockEq,
-		}
+
+		-- reset on real code
+		if not string.match(line, whitespacePattern) then
+			pendingDoc = {}
+		end
 	end
 
-	-- 4) Match property declarations like: process.env = {} :: { [string]: string }
-	local propName, propType = string.match(line, `^{module}%.([%w_]+)%s*=%s*.-::%s*(.+)$`)
-	if propName and propType then
-		return {
-			name = propName,
-			signature = propType,
-			doc = if #pendingDoc > 0 then table.concat(pendingDoc, "\n\n") else nil,
-			pendingDoc = {},
-			inBlock = inBlock,
-			blockEq = blockEq,
-		}
-	end
-
-	-- 5) Match function declarations like: function crypto.password.hash(password: string): buffer
-	local fullName, params, _return, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
-	if fullName then
-		fullName = string.match(fullName, "^(.*)%b<>$") or fullName
-		returnType = if returnType == "" then "()" else returnType
-
-		return {
-			name = fullName,
-			signature = `{params} -> {returnType}`,
-			doc = if #pendingDoc > 0 then table.concat(pendingDoc, "\n\n") else nil,
-			pendingDoc = {},
-			inBlock = inBlock,
-			blockEq = blockEq,
-		}
-	end
-
-	-- 6) If we reach here and there's any non-whitespace (i.e., code), reset pendingDoc to clear old comments
-	if not string.match(line, whitespacePattern) then
-		pendingDoc = {}
-	end
-
-	-- nothing found on this line
-	return {
-		pendingDoc = pendingDoc,
-		inBlock = inBlock,
-		blockEq = blockEq,
-	}
+	return docMap
 end
 
 local function generateMarkdown(
 	moduleName: string,
-	definitions: { { name: string, signature: string, doc: string? } },
+	definitions: { Definition },
 	filePath: path.pathlike,
 	libraryPath: path.pathlike,
 	requireLibraryAlias: string
@@ -220,31 +180,31 @@ local function generateMarkdown(
 	return table.concat(lines, "\n")
 end
 
-local function parseModule(
-	module: path.pathlike,
-	filePath: path.pathlike
-): { { name: string, signature: string, doc: string? } }
+local function parseModule(moduleAlias: string, filePath: path.pathlike): { Definition }
 	local content = fs.readfiletostring(filePath)
-	local lines = string.split(content, "\n")
+	local docMap = collectDocs(content, moduleAlias)
+
+	local tp = luau.typeofmodule(filePath)
+	if not tp or not tp.head or #tp.head == 0 then
+		return {}
+	end
+
+	local moduleType = tp.head[1]
+	if moduleType.tag ~= "table" or not moduleType.properties then
+		return {}
+	end
 
 	local moduleDefinitions = {}
-	local pendingDoc = {}
-	local inBlock = false
-	local blockEq = nil
 
-	for _, line in lines do
-		local ps = extractPropertySignature(tostring(module), line, pendingDoc, inBlock, blockEq)
-
-		-- update state carried across lines
-		pendingDoc = ps.pendingDoc
-		inBlock = ps.inBlock
-		blockEq = ps.blockEq
-
-		if ps.name and ps.signature then
+	for name, prop in pairs(moduleType.properties) do
+		if prop.read then
+			print(`Processing definition: {moduleAlias}.{name}`)
+			local sig = typeprinter.renderType(prop.read)
+			print(`Signature: {sig}`)
 			table.insert(moduleDefinitions, {
-				name = ps.name,
-				signature = ps.signature,
-				doc = ps.doc,
+				name = name,
+				signature = sig,
+				doc = docMap[name],
 			})
 		end
 	end

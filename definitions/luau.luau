@@ -736,6 +736,13 @@ export type Type = {
 	metatable: Type?,
 
 	-- for function type
+	-- TODO: need the name for parameters, so probably something like:
+	-- parameters: {
+	-- 	tag: "typepack",
+	-- 	head: { { name: string?, type: Type } }?,
+	-- 	tail: TypePack?,
+	-- }, but need to update the C++ code to serialize this correctly
+	-- parameters: TypePack,
 	parameters: TypePack,
 	returns: TypePack,
 	generics: { Type },

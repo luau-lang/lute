@@ -2934,6 +2934,7 @@ int typeofmodule_luau(lua_State* L)
     fopts.retainFullTypeGraphs = true;
 
     Luau::Frontend frontend(&moduleResolver, &configResolver, fopts);
+    frontend.setLuauSolverMode(Luau::SolverMode::New);
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
     Luau::freeze(frontend.globals.globalTypes);
 
@@ -2948,6 +2949,13 @@ int typeofmodule_luau(lua_State* L)
 
     // Serialize and push the return type
     serializeTypePack(L, modulePtr->returnType);
+    // Luau::dump(modulePtr->exportedTypeBindings);
+
+    // return the exported types as well
+
+    
+    // Uncomment to see the return type for debugging
+    Luau::dump(modulePtr->returnType);
 
     return 1;
 }

@@ -11,6 +11,9 @@ crypto.hash = table.freeze({
 	blake2b256 = {} :: hash<"blake2b256">,
 })
 
+--[[
+	testing the block comment without = here
+]]
 function crypto.digest(hash: hash<any>, message: string | buffer): buffer
 	error("not implemented")
 end
@@ -23,6 +26,9 @@ export type secretbox = {
 	read key: buffer,
 }
 
+--[=[
+	testing the block comment here
+]=]
 function crypto.secretbox.keygen(): buffer
 	error("not implemented")
 end
