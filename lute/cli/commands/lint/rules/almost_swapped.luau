@@ -89,7 +89,7 @@ local function lint(
 				local currValStr = stringext.trim(printer.printnode(currVal))
 				local suggestedFix = `{currVarStr}, {currValStr} = {currValStr}, {currVarStr}`
 
-				table.insert(violations, {
+				table.insert(violations, { -- LUAUFIX: inserted table isn't inferred as a LintViolation
 					lintname = name,
 					location = syntax.span.create({
 						beginline = currStat.location.beginline,
