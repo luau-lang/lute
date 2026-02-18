@@ -699,7 +699,7 @@ local function getConfigureArguments()
 
 	local c_compiler = args:get("c-compiler")
 
-	if  c_compiler then
+	if c_compiler then
 		table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. c_compiler)
 	end
 
