@@ -8,6 +8,7 @@ export type Deque<T> = {
 	popback: (self: Deque<T>) -> T,
 	peekfront: (self: Deque<T>) -> T?,
 	peekback: (self: Deque<T>) -> T?,
+	__len: (self: Deque<T>) -> number,
 }
 
 local deque = {}

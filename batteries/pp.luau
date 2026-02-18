@@ -90,14 +90,17 @@ local function traverseTable(
 	local output = ""
 	local indentStr = string.rep("  ", indent)
 
-	local keys = {}
+	-- LUAUFIX: We shouldn't need this annotation.
+	local keys: { unknown } = {}
 
 	-- Collect all keys, not just primitives
 	for key in dataTable do
 		table.insert(keys, key)
 	end
 
-	table.sort(keys, function(a: string, b: string): boolean
+	-- NOTE: We shouldn't need the annotations on `a` and `b`, but
+	-- the new solver is not happy.
+	table.sort(keys, function(a: unknown, b: unknown): boolean
 		local typeofTableA, typeofTableB = typeof(dataTable[a]), typeof(dataTable[b])
 
 		if typeofTableA ~= typeofTableB then

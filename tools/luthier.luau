@@ -155,7 +155,7 @@ local function getCompiler(): string
 end
 
 local function getConfig(): string
-	return args:get("config")
+	return assert(args:get("config"))
 end
 
 local function getBuildDir(): string
@@ -194,7 +194,7 @@ local function traverseFileTree(path: string, callback: (string, string) -> ())
 		callback(currentDir.path, currentDir.relativePath)
 
 		local contents = fs.listdir(currentDir.path)
-		table.sort(contents, function(a, b)
+		table.sort(contents, function(a: fs.DirectoryEntry, b: fs.DirectoryEntry)
 			return a.name < b.name
 		end)
 
@@ -691,12 +691,16 @@ local function getConfigureArguments()
 	local configArgs =
 		{ "-G=Ninja", "-B " .. projectPath, "-DCMAKE_BUILD_TYPE=" .. config, "-DCMAKE_EXPORT_COMPILE_COMMANDS=1" }
 
-	if args:get("cxx-compiler") then
-		table.insert(configArgs, "-DCMAKE_CXX_COMPILER=" .. args:get("cxx-compiler"))
+	local cxx_compiler = args:get("cxx-compiler")
+
+	if cxx_compiler then
+		table.insert(configArgs, "-DCMAKE_CXX_COMPILER=" .. cxx_compiler)
 	end
 
-	if args:get("c-compiler") then
-		table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. args:get("c-compiler"))
+	local c_compiler = args:get("c-compiler")
+
+	if  c_compiler then
+		table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. c_compiler)
 	end
 
 	if args:has("enable-sanitizers") then
@@ -707,7 +711,9 @@ local function getConfigureArguments()
 end
 
 local function readTuneFile(path: string): Tune
-	return toml.deserialize(readFileToString(path))
+	-- We're promising that the thing we read _actually_ looks like a `Tune`,
+	-- this could be ill advised.
+	return toml.deserialize(readFileToString(path)) :: Tune
 end
 
 local function check(exitCode: number)
@@ -760,7 +766,7 @@ local function getTuneFilesHash(): string
 	local externPath = projectRelative("extern")
 	local files = fs.listdir(externPath)
 
-	table.sort(files, function(a, b)
+	table.sort(files, function(a: fs.DirectoryEntry, b: fs.DirectoryEntry)
 		return a.name < b.name
 	end)
 
@@ -890,8 +896,10 @@ elseif subcommand == "run" or subcommand == "play" then
 	end
 
 	exitCode = run()
-else
+elseif subcommand ~= nil then
 	error("Unknown subcommand " .. subcommand)
+else
+	error("No subcommand given.")
 end
 
 if exitCode ~= 0 then

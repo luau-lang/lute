@@ -172,6 +172,9 @@ export type AstExprTableItemList = {
 	value: AstExpr,
 	separator: Token<"," | ";">?,
 	istableitem: true,
+	-- This is here so that the type of
+	-- AstExprTableItem is coherent.
+	key: nil,
 }
 
 export type AstExprTableItemRecord = {

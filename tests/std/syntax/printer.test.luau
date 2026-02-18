@@ -93,9 +93,7 @@ test.suite("syntax_printer", function(suite)
 			return query
 				.findallfromroot(ast, syntaxUtils.isStatTypeAlias)
 				:map(function(ta)
-					if ta.type.tag == "function" then
-						return ta.type.returntypes
-					end
+					return if ta.type.tag == "function" then ta.type.returntypes else nil
 				end)
 				:replace(function(_)
 					return tp

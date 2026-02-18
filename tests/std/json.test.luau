@@ -69,7 +69,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 		]]
 
 		local maybeJson = json.deserialize(myjsonstr)
-		local obj = json.asobject(maybeJson)
+		local obj: any = json.asobject(maybeJson)
 
 		if obj then
 			assert.eq(type(obj), "table")

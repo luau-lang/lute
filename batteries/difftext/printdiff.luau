@@ -67,11 +67,11 @@ local function formatLineSideHeader(
 	local newStr = tostring(if lineNumbers then lineNumbers.newLine else "")
 	maxNumWidth = maxNumWidth or 1
 	if operation == "EQUAL" then
-		return string.format(`  %{maxNumWidth}s %{maxNumWidth}s| `, oldStr, newStr)
+		return string.format(`  %{maxNumWidth}s %{maxNumWidth}s| ` :: any, oldStr, newStr)
 	elseif operation == "ADD" then
-		return string.format(`+ %{maxNumWidth}s %{maxNumWidth}s| `, "", newStr)
+		return string.format(`+ %{maxNumWidth}s %{maxNumWidth}s| ` :: any, "", newStr)
 	elseif operation == "DELETE" then
-		return string.format(`- %{maxNumWidth}s %{maxNumWidth}s| `, oldStr, "")
+		return string.format(`- %{maxNumWidth}s %{maxNumWidth}s| ` :: any, oldStr, "")
 	end
 
 	error(`formatLineSideHeader called with invalid diff operation key: {operation}`)
