@@ -56,21 +56,41 @@ EXAMPLES:
 ]])
 end
 
-local function assertIsLintRule(rule: unknown, path: string)
-	assert(rule, `{path} failed to require`)
-	assert(typeof(rule) == "table", `{path} must return a table`)
-	assert(typeof(rule.name) == "string", `{path} must return a table with a 'name' string property`)
-	assert(
-		typeof(rule.lint) == "function", -- LUAUFIX: type error on loaded.lint because loaded has been refined to { read name: string }
-		`{path} must return a table with a 'lint' function property`
-	)
+local function isLintRule(rule: unknown, path: string): boolean
+	if not rule then
+		if VERBOSE then
+			print(`Error loading lint rule from {path}: failed to require`)
+		end
+		return false
+	end
+
+	if typeof(rule) ~= "table" then
+		if VERBOSE then
+			print(`Error loading lint rule from {path}: must return a table`)
+		end
+		return false
+	end
+
+	if typeof(rule.name) ~= "string" then
+		if VERBOSE then
+			print(`Error loading lint rule from {path}: must return a table with a 'name' string property`)
+		end
+		return false
+	end
+
+	if typeof(rule.lint) ~= "function" then
+		if VERBOSE then
+			print(`Error loading lint rule from {path}: must return a table with a 'lint' function property`)
+		end
+		return false
+	end
+
+	return true
 end
 
 local function loadLintRule(path: string): types.LintRule?
 	local loaded = luau.loadbypath(path)
-	local success, _ = pcall(assertIsLintRule, loaded, path)
-
-	return if success then loaded else nil -- Typecast isn't needed because loaded is refined to any bc of type error in assertIsLintRule
+	return if isLintRule(loaded, path) then loaded else nil -- Typecast isn't needed because loaded is refined to any bc of type error in isLintRule
 end
 
 local function registerRule(
@@ -116,8 +136,6 @@ local function loadLintRules(
 				local rule = loadLintRule(initPath)
 				if rule then
 					registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
-				elseif VERBOSE then
-					print(`Error loading lint rule from {currentPath}`)
 				end
 			else
 				local entries = fs.listdirectory(currentPath)
@@ -130,8 +148,6 @@ local function loadLintRules(
 			local rule = loadLintRule(currentPath)
 			if rule then
 				registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
-			elseif VERBOSE then
-				print(`Error loading lint rule from {currentPath}`)
 			end
 		end
 	end
@@ -147,7 +163,7 @@ local function loadDefaultRules(
 	for _, ruleName in DEFAULT_RULES do
 		local path = `@self/rules/{ruleName}`
 		local rule: types.LintRule = require(path) :: any -- Anycast to silence error from dynamic require
-		assertIsLintRule(rule, path)
+		assert(isLintRule(rule, path), `Invalid default lint rule: {path}`)
 		registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
 	end
 	return rules, ruleConfigs, ruleIgnores
