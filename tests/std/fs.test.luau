@@ -209,8 +209,8 @@ test.suite("FsSuite", function(suite)
 
 		local success, err = pcall(function()
 			fs.removedirectory(dir, { recursive = false })
-			-- NOTE: We should add an overload to `pcall` that allows
-			-- passing a function that returns no arguments.
+			-- FIXME(Luau): We should add an overload to `pcall` that allows
+			-- passing a function that returns an empty pack.
 			return nil
 		end)
 

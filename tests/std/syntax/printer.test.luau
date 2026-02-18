@@ -872,7 +872,9 @@ function foo() return end
 				:flatmap(function(t)
 					local l = {}
 					for _, entry in t.entries do
-						table.insert(l, entry.key)
+						if entry.kind ~= "list" then
+							table.insert(l, entry.key)
+						end
 					end
 					return l
 				end)

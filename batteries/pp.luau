@@ -90,7 +90,7 @@ local function traverseTable(
 	local output = ""
 	local indentStr = string.rep("  ", indent)
 
-	-- LUAUFIX: We shouldn't need this annotation.
+	-- FIXME(Luau): We shouldn't need this annotation.
 	local keys: { unknown } = {}
 
 	-- Collect all keys, not just primitives
@@ -98,9 +98,7 @@ local function traverseTable(
 		table.insert(keys, key)
 	end
 
-	-- NOTE: We shouldn't need the annotations on `a` and `b`, but
-	-- the new solver is not happy.
-	table.sort(keys, function(a: unknown, b: unknown): boolean
+	table.sort(keys, function(a, b): boolean
 		local typeofTableA, typeofTableB = typeof(dataTable[a]), typeof(dataTable[b])
 
 		if typeofTableA ~= typeofTableB then

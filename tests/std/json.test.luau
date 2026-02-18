@@ -3,6 +3,7 @@ local path = require("@std/path")
 local test = require("@std/test")
 local json = require("@std/json")
 local stringext = require("@std/stringext")
+local failure = require("@std/test/failure")
 
 local suiteDir = "tests/std/JSONParsingTestSuite"
 
@@ -69,17 +70,22 @@ test.suite("JSONParsingTestSuite", function(suite)
 		]]
 
 		local maybeJson = json.deserialize(myjsonstr)
-		local obj: any = json.asobject(maybeJson)
+		local obj = json.asobject(maybeJson)
 
 		if obj then
 			assert.eq(type(obj), "table")
 			assert.eq(obj.a, true)
 			assert.eq(type(obj.b), "table")
-			if json.asobject(obj.b) then
-				assert.eq(obj.b.c, true)
-				assert.eq(type(obj.b.d), "table")
-				for i = 1, #obj.b.d do
-					assert.eq(type(obj.b.d[i]), "number")
+			local obj_b = json.asobject(obj.b);
+			if obj_b then
+				assert.eq(obj_b.c, true)
+				local obj_b_d = obj_b.d
+				if typeof(obj_b_d) ~= "table" then
+					failure.assertion(`Expected obj.b.d to be a table, was a {typeof(obj_b_d)}`)
+					return
+				end
+				for i = 1, #obj_b_d do
+					assert.eq(type(obj_b_d[i]), "number")
 				end
 			end
 		end

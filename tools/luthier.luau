@@ -692,13 +692,11 @@ local function getConfigureArguments()
 		{ "-G=Ninja", "-B " .. projectPath, "-DCMAKE_BUILD_TYPE=" .. config, "-DCMAKE_EXPORT_COMPILE_COMMANDS=1" }
 
 	local cxx_compiler = args:get("cxx-compiler")
-
 	if cxx_compiler then
 		table.insert(configArgs, "-DCMAKE_CXX_COMPILER=" .. cxx_compiler)
 	end
 
 	local c_compiler = args:get("c-compiler")
-
 	if c_compiler then
 		table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. c_compiler)
 	end
@@ -766,6 +764,7 @@ local function getTuneFilesHash(): string
 	local externPath = projectRelative("extern")
 	local files = fs.listdir(externPath)
 
+	-- FIXME(Luau): bidirectional typing.
 	table.sort(files, function(a: fs.DirectoryEntry, b: fs.DirectoryEntry)
 		return a.name < b.name
 	end)
