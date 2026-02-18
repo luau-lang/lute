@@ -20,13 +20,25 @@ local TYPECHECK_PATHS = {
 	"tools",
 }
 
+local EXCLUDE_TYPECHECK = {
+	"tests/std/snapshots",
+}
+
 local function collectFiles(dir: string): { string }
 	local files: { string } = {}
 	local it = fs.walk(dir, { recursive = true })
 	local p = it()
 	while p do
 		local pathStr = path.format(p)
-		if fs.type(p) == "file" and string.match(pathStr, "%.luau$") then
+		local excluded = false
+		for _, excl in EXCLUDE_TYPECHECK do
+			if string.find(pathStr, excl, 1, true) then
+				excluded = true
+				break
+			end
+		end
+
+		if not excluded and fs.type(p) == "file" and string.match(pathStr, "%.luau$") then
 			table.insert(files, pathStr)
 		end
 		p = it()

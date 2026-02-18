@@ -1,0 +1,17 @@
+
+==================================================
+TEST RESULTS
+==================================================
+
+Failed Tests (1):
+
+❌ erroreq_failure_suite.erroreq_error
+	<ROOT>/tests/std/snapshots/assert_erroreq_error_message.snap.luau:5
+		erroreq: Expected suffix of error message "expected message", but got "<ROOT>/tests/std/snapshots/assert_erroreq_error_message.snap.luau:5: wrong message"
+
+--------------------------------------------------
+Total:  1
+Passed: 0 ✓
+Failed: 1 ✗
+==================================================
+

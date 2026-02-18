@@ -1,0 +1,17 @@
+
+==================================================
+TEST RESULTS
+==================================================
+
+Failed Tests (1):
+
+❌ buffereq_failure_suite.buffereq_error
+	<ROOT>/tests/std/snapshots/buffereq_failure_suite.snap.luau:9
+		buffereq: lhs[0] = 54, but rhs[0] = 55
+
+--------------------------------------------------
+Total:  1
+Passed: 0 ✓
+Failed: 1 ✗
+==================================================
+
