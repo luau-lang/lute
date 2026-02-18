@@ -76,7 +76,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 			assert.eq(type(obj), "table")
 			assert.eq(obj.a, true)
 			assert.eq(type(obj.b), "table")
-			local obj_b = json.asobject(obj.b);
+			local obj_b = json.asobject(obj.b)
 			if obj_b then
 				assert.eq(obj_b.c, true)
 				local obj_b_d = obj_b.d
