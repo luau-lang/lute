@@ -304,7 +304,7 @@ local function lint(
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return tableext.map(unusedLocals(ast), function(l): lintTypes.LintViolation
-		return table.freeze({
+		return {
 			lintname = name,
 			location = l.location,
 			message = message,
@@ -312,7 +312,7 @@ local function lint(
 			sourcepath = sourcepath,
 			target = target,
 			tags = { "unnecessary" },
-		}) -- LUAUFIX: Table literal doesn't subtype against lintTypes.LintViolation for some reason
+		} -- LUAUFIX: Table literal doesn't subtype against lintTypes.LintViolation for some reason
 	end)
 end
 

@@ -2,6 +2,7 @@ local cli = require("@batteries/cli")
 local files = require("./lib/files")
 local fs = require("@std/fs")
 local json = require("@std/json")
+local internalTypes = require("@self/internaltypes")
 local lsp = require("@self/lsp")
 local luau = require("@std/luau")
 local pathLib = require("@std/path")
@@ -56,33 +57,53 @@ EXAMPLES:
 ]])
 end
 
-local function assertIsLintRule(rule: unknown, path: string)
-	assert(rule, `{path} failed to require`)
-	assert(typeof(rule) == "table", `{path} must return a table`)
-	assert(typeof(rule.name) == "string", `{path} must return a table with a 'name' string property`)
-	assert(
-		typeof(rule.lint) == "function", -- LUAUFIX: type error on loaded.lint because loaded has been refined to { read name: string }
-		`{path} must return a table with a 'lint' function property`
-	)
+local function isLintRule(rule: unknown, path: string): boolean
+	if not rule then
+		if VERBOSE then
+			print(`Error loading lint rule from {path}: failed to require`)
+		end
+		return false
+	end
+
+	if typeof(rule) ~= "table" then
+		if VERBOSE then
+			print(`Error loading lint rule from {path}: must return a table`)
+		end
+		return false
+	end
+
+	if typeof(rule.name) ~= "string" then
+		if VERBOSE then
+			print(`Error loading lint rule from {path}: must return a table with a 'name' string property`)
+		end
+		return false
+	end
+
+	if typeof(rule.lint) ~= "function" then -- LUAUFIX: rule got refined to { read name : string } so accessing lint errors
+		if VERBOSE then
+			print(`Error loading lint rule from {path}: must return a table with a 'lint' function property`)
+		end
+		return false
+	end
+
+	return true
 end
 
-local function loadLintRule(path: string): types.LintRule
+local function loadLintRule(path: string): types.LintRule?
 	local loaded = luau.loadbypath(path)
-	assertIsLintRule(loaded, path)
-
-	return loaded -- Typecast isn't needed because loaded is refined to any bc of type error in assertIsLintRule
+	return if isLintRule(loaded, path) then loaded else nil -- Typecast isn't needed because loaded is refined to any bc of type error in isLintRule
 end
 
 local function registerRule(
 	rule: types.LintRule,
-	config: types.LintConfig,
+	config: internalTypes.LintConfig,
 	rootLocation: string,
 	rules: { types.LintRule },
-	ruleConfigs: types.RuleConfigurations,
-	ruleIgnores: types.RuleIgnores
+	ruleConfigs: internalTypes.RuleConfigurations,
+	ruleIgnores: internalTypes.RuleIgnores
 )
-	local ruleConfig: types.RuleConfig = if config.rules ~= nil and config.rules[rule.name] ~= nil
-		then config.rules[rule.name]
+	local ruleConfig: internalTypes.RuleConfig = if config.rules ~= nil and config.rules[rule.name] ~= nil
+		then config.rules[rule.name] :: internalTypes.RuleConfig -- Refinement doesn't support dynamic indexing, so we need to assert the type here
 		else {}
 	if ruleConfig.off then
 		return
@@ -97,12 +118,12 @@ end
 
 local function loadLintRules(
 	path: string,
-	config: types.LintConfig,
+	config: internalTypes.LintConfig,
 	rootLocation: string
-): ({ types.LintRule }, types.RuleConfigurations, types.RuleIgnores)
+): ({ types.LintRule }, internalTypes.RuleConfigurations, internalTypes.RuleIgnores)
 	assert(fs.exists(path), `Lint rule at path '{path}' does not exist`)
 
-	local rules, ruleConfigs: types.RuleConfigurations, ruleIgnores = {}, {}, {}
+	local rules, ruleConfigs: internalTypes.RuleConfigurations, ruleIgnores = {}, {}, {}
 
 	local queue: { string } = { path }
 	while #queue > 0 do
@@ -113,7 +134,10 @@ local function loadLintRules(
 			local currentPathObj = pathLib.parse(currentPath)
 			local initPath = pathLib.format(pathLib.join(currentPathObj, "init.luau"))
 			if fs.exists(initPath) then
-				registerRule(loadLintRule(initPath), config, rootLocation, rules, ruleConfigs, ruleIgnores)
+				local rule = loadLintRule(initPath)
+				if rule then
+					registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
+				end
 			else
 				local entries = fs.listdirectory(currentPath)
 				local childPaths = tableext.map(entries, function(entry)
@@ -122,7 +146,10 @@ local function loadLintRules(
 				tableext.extend(queue, childPaths)
 			end
 		elseif pathLib.extname(currentPath) == ".luau" then
-			registerRule(loadLintRule(currentPath), config, rootLocation, rules, ruleConfigs, ruleIgnores)
+			local rule = loadLintRule(currentPath)
+			if rule then
+				registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
+			end
 		end
 	end
 
@@ -130,14 +157,14 @@ local function loadLintRules(
 end
 
 local function loadDefaultRules(
-	config: types.LintConfig,
+	config: internalTypes.LintConfig,
 	rootLocation: string
-): ({ types.LintRule }, types.RuleConfigurations, types.RuleIgnores)
+): ({ types.LintRule }, internalTypes.RuleConfigurations, internalTypes.RuleIgnores)
 	local rules, ruleConfigs, ruleIgnores = {}, {}, {}
 	for _, ruleName in DEFAULT_RULES do
 		local path = `@self/rules/{ruleName}`
 		local rule: types.LintRule = require(path) :: any -- Anycast to silence error from dynamic require
-		assertIsLintRule(rule, path)
+		assert(isLintRule(rule, path), `Invalid default lint rule: {path}`)
 		registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
 	end
 	return rules, ruleConfigs, ruleIgnores
@@ -248,7 +275,7 @@ local function lintString(
 	source: string,
 	lintRules: { types.LintRule },
 	inputFilePath: pathLib.path?,
-	configData: types.RuleConfigData
+	configData: internalTypes.RuleConfigData
 ): { types.LintViolation }
 	if VERBOSE then
 		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
@@ -281,10 +308,12 @@ local function lintString(
 		}
 
 		local success, err = pcall(rule.lint, ast, inputFilePath, context)
+		local overwrittenSeverity = ruleConfig.severity
 		if success then
 			-- On success, err contains the returned violations
 			for _, violation in err do
 				if not violationIsSuppressed(violation, ast, directiveCache, globalIgnores) then
+					violation.severity = if overwrittenSeverity then overwrittenSeverity else violation.severity
 					table.insert(violations, violation)
 				end
 			end
@@ -352,7 +381,7 @@ local function lintFile(
 	inputFilePath: pathLib.path,
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	configData: types.RuleConfigData
+	configData: internalTypes.RuleConfigData
 ): { types.LintViolation }
 	if VERBOSE then
 		print(`Reading input file '{inputFilePath}'`)
@@ -396,7 +425,7 @@ local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	configData: types.RuleConfigData,
+	configData: internalTypes.RuleConfigData,
 	ignoreData: parseIgnores.GitignoreData
 ): { [pathLib.path]: { types.LintViolation } }
 	if VERBOSE then
@@ -472,7 +501,7 @@ local function main(...: string)
 		process.exit(1)
 	end
 
-	local lintConfig: types.LintConfig = {}
+	local lintConfig: internalTypes.LintConfig = {}
 	local configPath = args:get("config")
 	if configPath == nil then
 		-- search in calling dir
@@ -489,8 +518,8 @@ local function main(...: string)
 	end
 
 	local lintRules: { types.LintRule } = {}
-	local ruleConfigurations: types.RuleConfigurations = {}
-	local ruleIgnoreData: types.RuleIgnores = {}
+	local ruleConfigurations: internalTypes.RuleConfigurations = {}
+	local ruleIgnoreData: internalTypes.RuleIgnores = {}
 
 	local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
 	local rootLocation = if fs.exists(configPath)

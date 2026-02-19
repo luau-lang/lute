@@ -105,11 +105,11 @@ test.suite("CryptoRuntimeTests", function(suite)
 		end)
 
 		assert.errors(function()
-			crypto.secretbox.open({ ciphertext = message, key = buffer.create(), nonce = "woof" } :: any)
+			crypto.secretbox.open({ ciphertext = message, key = buffer.create(0), nonce = "woof" } :: any)
 		end)
 
 		assert.errors(function()
-			crypto.secretbox.open({ ciphertext = message, key = "woof", nonce = buffer.create() } :: any)
+			crypto.secretbox.open({ ciphertext = message, key = "woof", nonce = buffer.create(0) } :: any)
 		end)
 
 		assert.errors(function()

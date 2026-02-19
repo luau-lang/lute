@@ -23,7 +23,7 @@ local function serializeValue(value: string | number)
 	end
 end
 
-local function hasNestedTables(tbl: {})
+local function hasNestedTables(tbl: { [unknown]: unknown })
 	for _, v in tbl do
 		if typeof(v) == "table" and next(v) ~= nil then
 			return true
@@ -32,7 +32,7 @@ local function hasNestedTables(tbl: {})
 	return false
 end
 
-local function tableToToml(tbl: {}, parent: string)
+local function tableToToml(tbl: { [any]: any }, parent: string?)
 	local result = ""
 	local subTables = {}
 	local hasDirectValues = false
@@ -71,7 +71,7 @@ local function tableToToml(tbl: {}, parent: string)
 	return result
 end
 
-local function serialize(tbl: {}): string
+local function serialize(tbl: { [any]: any }): string
 	return tableToToml(tbl, nil)
 end
 
@@ -130,7 +130,7 @@ local function deserialize(input: string)
 			local tablePath = string.match(line, "^%[(.-)%]$")
 			local parent = result
 
-			for section in string.gmatch(tablePath, "([^.]+)") do
+			for section in string.gmatch(tablePath :: string, "([^.]+)") do
 				if not parent[section] then
 					parent[section] = {}
 				end
@@ -140,9 +140,10 @@ local function deserialize(input: string)
 			currentTable = parent
 		elseif string.match(line, "^(.-)%s*=%s*(.-)$") then
 			local key, value = string.match(line, "^(.-)%s*=%s*(.-)$")
+			assert(key and value)
 			key = string.match(key, "^%s*(.-)%s*$")
 			value = string.match(value, "^%s*(.-)%s*$")
-
+			assert(key and value)
 			if string.match(value, '^"(.*)"$') or string.match(value, "^'(.*)'$") then
 				value = string.sub(value, 2, -2)
 				value = string.gsub(value, "\\\\", "\\")
