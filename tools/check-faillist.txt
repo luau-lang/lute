@@ -64,7 +64,10 @@ lute/cli/commands/lint/rules/almost_swapped.luau:92:5-16
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:27:5-16
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:42:6-17
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:68:4-15
-lute/cli/commands/lint/rules/unused_variable.luau:309:15-24
+lute/cli/commands/lint/rules/unused_variable.luau:34:31-49
+lute/cli/commands/lint/rules/unused_variable.luau:34:67-76
+lute/cli/commands/lint/rules/unused_variable.luau:34:67-80
+lute/cli/commands/lint/rules/unused_variable.luau:429:15-24
 lute/cli/commands/pkg/loom-core/extern/pp.luau:97:3-14
 lute/cli/commands/pkg/loom-core/extern/pp.luau:97:3-14
 lute/cli/commands/pkg/loom-core/extern/unzip/crc.luau:25:42-59
