@@ -2,6 +2,7 @@ local cli = require("@batteries/cli")
 local files = require("./lib/files")
 local fs = require("@std/fs")
 local json = require("@std/json")
+local internalTypes = require("@self/internaltypes")
 local lsp = require("@self/lsp")
 local luau = require("@std/luau")
 local pathLib = require("@std/path")
@@ -78,7 +79,7 @@ local function isLintRule(rule: unknown, path: string): boolean
 		return false
 	end
 
-	if typeof(rule.lint) ~= "function" then
+	if typeof(rule.lint) ~= "function" then -- LUAUFIX: rule got refined to { read name : string } so accessing lint errors
 		if VERBOSE then
 			print(`Error loading lint rule from {path}: must return a table with a 'lint' function property`)
 		end
@@ -95,14 +96,14 @@ end
 
 local function registerRule(
 	rule: types.LintRule,
-	config: types.LintConfig,
+	config: internalTypes.LintConfig,
 	rootLocation: string,
 	rules: { types.LintRule },
-	ruleConfigs: types.RuleConfigurations,
-	ruleIgnores: types.RuleIgnores
+	ruleConfigs: internalTypes.RuleConfigurations,
+	ruleIgnores: internalTypes.RuleIgnores
 )
-	local ruleConfig: types.RuleConfig = if config.ruleConfigs ~= nil and config.ruleConfigs[rule.name] ~= nil
-		then config.ruleConfigs[rule.name]
+	local ruleConfig: internalTypes.RuleConfig = if config.ruleConfigs ~= nil and config.ruleConfigs[rule.name] ~= nil
+		then config.ruleConfigs[rule.name] :: internalTypes.RuleConfig -- Refinement doesn't support dynamic indexing, so we need to assert the type here
 		else {}
 	if ruleConfig.off then
 		return
@@ -117,12 +118,12 @@ end
 
 local function loadLintRules(
 	path: string,
-	config: types.LintConfig,
+	config: internalTypes.LintConfig,
 	rootLocation: string
-): ({ types.LintRule }, types.RuleConfigurations, types.RuleIgnores)
+): ({ types.LintRule }, internalTypes.RuleConfigurations, internalTypes.RuleIgnores)
 	assert(fs.exists(path), `Lint rule at path '{path}' does not exist`)
 
-	local rules, ruleConfigs: types.RuleConfigurations, ruleIgnores = {}, {}, {}
+	local rules, ruleConfigs: internalTypes.RuleConfigurations, ruleIgnores = {}, {}, {}
 
 	local queue: { string } = { path }
 	while #queue > 0 do
@@ -156,9 +157,9 @@ local function loadLintRules(
 end
 
 local function loadDefaultRules(
-	config: types.LintConfig,
+	config: internalTypes.LintConfig,
 	rootLocation: string
-): ({ types.LintRule }, types.RuleConfigurations, types.RuleIgnores)
+): ({ types.LintRule }, internalTypes.RuleConfigurations, internalTypes.RuleIgnores)
 	local rules, ruleConfigs, ruleIgnores = {}, {}, {}
 	for _, ruleName in DEFAULT_RULES do
 		local path = `@self/rules/{ruleName}`
@@ -274,7 +275,7 @@ local function lintString(
 	source: string,
 	lintRules: { types.LintRule },
 	inputFilePath: pathLib.path?,
-	configData: types.RuleConfigData
+	configData: internalTypes.RuleConfigData
 ): { types.LintViolation }
 	if VERBOSE then
 		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
@@ -380,7 +381,7 @@ local function lintFile(
 	inputFilePath: pathLib.path,
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	configData: types.RuleConfigData
+	configData: internalTypes.RuleConfigData
 ): { types.LintViolation }
 	if VERBOSE then
 		print(`Reading input file '{inputFilePath}'`)
@@ -424,7 +425,7 @@ local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	configData: types.RuleConfigData,
+	configData: internalTypes.RuleConfigData,
 	ignoreData: parseIgnores.GitignoreData
 ): { [pathLib.path]: { types.LintViolation } }
 	if VERBOSE then
@@ -500,7 +501,7 @@ local function main(...: string)
 		process.exit(1)
 	end
 
-	local lintConfig: types.LintConfig = {}
+	local lintConfig: internalTypes.LintConfig = {}
 	local configPath = args:get("config")
 	if configPath == nil then
 		-- search in calling dir
@@ -517,8 +518,8 @@ local function main(...: string)
 	end
 
 	local lintRules: { types.LintRule } = {}
-	local ruleConfigurations: types.RuleConfigurations = {}
-	local ruleIgnoreData: types.RuleIgnores = {}
+	local ruleConfigurations: internalTypes.RuleConfigurations = {}
+	local ruleIgnoreData: internalTypes.RuleIgnores = {}
 
 	local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
 	local rootLocation = if fs.exists(configPath)

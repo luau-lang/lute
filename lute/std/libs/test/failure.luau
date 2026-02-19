@@ -15,7 +15,7 @@ function failures.assertion(msg: string): failure
 end
 
 -- Generates the debug information needed to describe assertion failure locations
-function failures.lifecycle(hook: hook, err): failure
+function failures.lifecycle(hook: types.hook, err): failure
 	-- we need to go 5 function calls up to get to the actual assertion that invoked this
 	local filename, linenumber = debug.info(3, "sl")
 	return { hook = hook, msg = tostring(err), filename = filename, linenumber = linenumber, __tag = "lifecycle" }

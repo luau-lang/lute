@@ -1,6 +1,5 @@
-local syntax = require("@std/syntax")
-local parseIgnores = require("../lib/parseIgnores")
 local path = require("@std/path")
+local syntax = require("@std/syntax")
 
 export type severity = "error" | "warning" | "info" | "hint"
 export type tag = "unnecessary" | "deprecated"
@@ -19,43 +18,17 @@ export type LintViolation = {
 	tags: { tag }?,
 }
 
-export type LintRule = {
-	read lint: (ast: syntax.AstStatBlock, sourcepath: path.path?, context: RuleContext) -> { LintViolation },
-	read name: string,
-}
-
-export type RuleConfig = {
-	ignores: { string }?,
-	severity: severity?,
-	off: true?,
-	options: RuleOptions?,
-}
-
 export type GlobalsConfig = { [string]: unknown }
 export type RuleOptions = { [string]: unknown }
-
-export type LintConfig = {
-	ignores: { path.pathlike }?, -- globs/paths to ignore as we walk lintee files
-	globals: GlobalsConfig?, -- globals to pass down to all rules via context
-	rulePaths: { path.pathlike }?, -- paths to local rules to use
-	ruleConfigs: {
-		[string]: RuleConfig?,
-	}?,
-}
 
 export type RuleContext = {
 	globals: GlobalsConfig,
 	options: RuleOptions,
 }
 
-export type RuleConfigurations = { [string]: RuleConfig }
-
-export type RuleIgnores = { [string]: parseIgnores.GitignoreData }
-
-export type RuleConfigData = {
-	globals: GlobalsConfig,
-	ruleConfigs: RuleConfigurations,
-	ruleIgnores: RuleIgnores,
+export type LintRule = {
+	read lint: (ast: syntax.AstStatBlock, sourcepath: path.path?, context: RuleContext) -> { LintViolation },
+	read name: string,
 }
 
 return {}

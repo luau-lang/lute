@@ -93,9 +93,7 @@ test.suite("syntax_printer", function(suite)
 			return query
 				.findallfromroot(ast, syntaxUtils.isStatTypeAlias)
 				:map(function(ta)
-					if ta.type.tag == "function" then
-						return ta.type.returntypes
-					end
+					return if ta.type.tag == "function" then ta.type.returntypes else nil
 				end)
 				:replace(function(_)
 					return tp
@@ -874,7 +872,9 @@ function foo() return end
 				:flatmap(function(t)
 					local l = {}
 					for _, entry in t.entries do
-						table.insert(l, entry.key)
+						if entry.kind ~= "list" then
+							table.insert(l, entry.key)
+						end
 					end
 					return l
 				end)

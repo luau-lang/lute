@@ -34,8 +34,10 @@ type lintTestParams = {
 	content: string,
 	expectedExitCode: number,
 	rulePath: string?,
+	customRuleContents: string?,
 	expectedAutofixContents: string?,
 	disableDefaultLints: true?,
+	configContents: string?,
 	extraOptions: { string }?,
 	outputExpectations: { { expectedOutput: string, count: number } }?,
 }
@@ -47,12 +49,18 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 	fs.writestringtofile(violatorPath, params.content)
 
 	-- Do
-	-- Run the transformer on the transformee
 	local lintArgs = { lutePath, "lint" }
 
-	if params.rulePath then
+	if params.rulePath and params.customRuleContents then
+		error("Cannot specify both rulePath and customRuleContents")
+	elseif params.rulePath then
 		table.insert(lintArgs, "-r")
 		table.insert(lintArgs, params.rulePath)
+	elseif params.customRuleContents then
+		local customRulePath = path.format(path.join(tmpDir, "custom_rule.luau"))
+		fs.writestringtofile(customRulePath, params.customRuleContents)
+		table.insert(lintArgs, "-r")
+		table.insert(lintArgs, customRulePath)
 	end
 
 	if params.expectedAutofixContents then
@@ -61,6 +69,14 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 
 	if params.disableDefaultLints then
 		table.insert(lintArgs, "--no-default-lints")
+	end
+
+	-- Create a config file if specified
+	if params.configContents then
+		local configPath = path.format(path.join(tmpDir, ".config.luau"))
+		fs.writestringtofile(configPath, params.configContents)
+		table.insert(lintArgs, "-c")
+		table.insert(lintArgs, configPath)
 	end
 
 	if params.extraOptions then
@@ -88,9 +104,6 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 			end
 		end
 	end
-
-	-- Teardown
-	fs.remove(violatorPath)
 
 	return result.stdout
 end
@@ -528,7 +541,7 @@ b = a
 
 		-- Do
 		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "lint", "-r", "examples/lints", lintee, violatorPath })
+		local result = process.run({ lutePath, "lint", lintee, violatorPath })
 
 		-- Check
 		assert.eq(result.exitcode, 1)
@@ -2494,11 +2507,7 @@ local t = { [0] = 1 }
 	end)
 
 	suite:case("lute lint passes context through to rules", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
-
 		-- custom rule that returns violating with globals and options in the message
-		local customRuleFile = path.join(testSubDir, "testRule.luau")
 		local customRuleContents = [[
 			return {
 				name = "testRule",
@@ -2514,9 +2523,7 @@ local t = { [0] = 1 }
 				end
 			}
 		]]
-		fs.writestringtofile(customRuleFile, customRuleContents)
 
-		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
 		return {
 			lute = {
@@ -2535,22 +2542,15 @@ local t = { [0] = 1 }
 			}
 		}
 		]]
-		fs.writestringtofile(configFile, configContents)
 
-		local result = process.run({
-			lutePath,
-			"lint",
-			"-c",
-			path.format(configFile),
-			"-r",
-			path.format(customRuleFile),
-			"-s",
-			"local x = 1",
+		lintTestHelper(assert, {
+			content = "local x = 1",
+			expectedExitCode = 1,
+			customRuleContents = customRuleContents,
+			configContents = configContents,
+			disableDefaultLints = true,
+			outputExpectations = { { expectedOutput = "Globals: 1 Options: nice", count = 1 } },
 		})
-
-		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stdout, "Globals: 1")
-		assert.strcontains(result.stdout, "Options: nice")
 	end)
 
 	suite:case("lute lint accounts for rule-specific ignores", function(assert)
@@ -2597,7 +2597,7 @@ return {
 		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) }, {
 			cwd = path.format(process.homedir()),
 		})
-		assert.eq(result.exitcode, 1) -- should be no violations
+		assert.eq(result.exitcode, 1)
 		assert.strnotcontains(result.stdout, "[divide_by_zero]")
 		assert.strcontains(result.stdout, "[almost_swapped]")
 	end)
@@ -2649,10 +2649,11 @@ return {
 	end)
 
 	suite:case("default rules configured with off do NOT run", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+		local violationContents = [[
+			a = b
+			b = a
+		]]
 
-		local configFile = path.join(tmpDir, ".config.luau")
 		local configContents = [[
 		return {
 			lute = {
@@ -2666,31 +2667,16 @@ return {
 			}
 		}
 		]]
-		fs.writestringtofile(configFile, configContents)
 
-		local violatingFile = path.join(testSubDir, "violate.luau")
-		local violationContents = [[
-			a = b
-			b = a
-		]]
-		fs.writestringtofile(violatingFile, violationContents)
-
-		-- confirm file violations with no config
-		local result = process.run({ lutePath, "lint", path.format(violatingFile) })
-		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stdout, "almost_swapped")
-
-		-- confirm file doesn't violate with disabled rule config
-		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatingFile) })
-		assert.eq(result.exitcode, 0)
-		assert.strnotcontains(result.stdout, "almost_swapped")
+		lintTestHelper(assert, {
+			content = violationContents,
+			expectedExitCode = 0,
+			configContents = configContents,
+			outputExpectations = { { expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 0 } },
+		})
 	end)
 
 	suite:case("custom rules configured with off do NOT run", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
-
-		local customRuleFile = path.join(tmpDir, "customRule.luau")
 		local customRuleContents = [[
 		return {
 			name = "customRule",
@@ -2706,8 +2692,7 @@ return {
 			end
 		}
 		]]
-		fs.writestringtofile(customRuleFile, customRuleContents)
-		local configFile = path.join(testSubDir, ".config.luau")
+
 		local configContents = [[
 		return {
 			lute = {
@@ -2721,39 +2706,28 @@ return {
 			}
 		}
 		]]
-		fs.writestringtofile(configFile, configContents)
 
 		-- confirm violations with no config
-		local result = process.run({ lutePath, "lint", "-r", path.format(customRuleFile), path.format(customRuleFile) })
-		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stdout, "customRule")
+		lintTestHelper(assert, {
+			content = customRuleContents,
+			expectedExitCode = 1,
+			customRuleContents = customRuleContents,
+			disableDefaultLints = true,
+			outputExpectations = { { expectedOutput = "customRule", count = 1 } },
+		})
 
 		-- confirm file doesn't violate with disabled rule config
-		result = process.run({
-			lutePath,
-			"lint",
-			"-c",
-			path.format(configFile),
-			"-r",
-			path.format(customRuleFile),
-			path.format(customRuleFile),
+		lintTestHelper(assert, {
+			content = customRuleContents,
+			expectedExitCode = 0,
+			customRuleContents = customRuleContents,
+			disableDefaultLints = true,
+			configContents = configContents,
+			outputExpectations = { { expectedOutput = "customRule", count = 0 } },
 		})
-		assert.eq(result.exitcode, 0)
-		assert.strnotcontains(result.stdout, "customRule")
-
-		fs.remove(customRuleFile)
 	end)
 
 	suite:case("configured rule severity overrides default", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
-
-		local violationDir = path.join(testSubDir, "violator")
-		fs.createdirectory(violationDir)
-		local violatorFile = path.format(path.join(violationDir, "violator.luau"))
-		fs.writestringtofile(violatorFile, "local x = 1 / 0")
-
-		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
 return {
 	lute = {
@@ -2767,19 +2741,16 @@ return {
 	}
 }
 ]]
-		fs.writestringtofile(configFile, configContents)
 
-		-- assert that severity is "warning" without config applied
-		local result = process.run({ lutePath, "lint", violatorFile })
-		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stdout, "warning[divide_by_zero]")
-		assert.strnotcontains(result.stdout, "error[divide_by_zero]")
-
-		-- with config applied, severity is now "error"
-		result = process.run({ lutePath, "lint", "-c", path.format(configFile), violatorFile })
-		assert.eq(result.exitcode, 1)
-		assert.strnotcontains(result.stdout, "warning[divide_by_zero]")
-		assert.strcontains(result.stdout, "error[divide_by_zero]")
+		lintTestHelper(assert, {
+			content = "local _ = 1 / 0",
+			expectedExitCode = 1,
+			configContents = configContents,
+			outputExpectations = {
+				{ expectedOutput = "error[divide_by_zero]", count = 1 },
+				{ expectedOutput = "warning[divide_by_zero]", count = 0 },
+			},
+		})
 	end)
 
 	suite:case("rules given by config.rulePaths are loaded (in addition to CLI-passed rules) and ran", function(assert)
