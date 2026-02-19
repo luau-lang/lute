@@ -2822,17 +2822,15 @@ return {
 		fs.writestringtofile(cliProvidedRulePath, cliProvidedRuleContents)
 
 		local configFile = path.join(testSubDir, ".config.luau")
-		-- Escape backslashes so the path survives being embedded in a Luau string literal
-		local escapedRulePath = path.format(configuredRulePath):gsub("\\", "\\\\")
 		local configContents = ([[
 		return {
 			lute = {
 				lint = {
-					rulePaths = { "%s" },
+					rulePaths = { %q },
 				}
 			}
 		}
-		]]):format(escapedRulePath)
+		]]):format(path.format(configuredRulePath))
 		fs.writestringtofile(configFile, configContents)
 
 		local result = process.run({
@@ -2875,13 +2873,11 @@ return {
 			fs.writestringtofile(configuredRulePath, configuredRuleContents)
 
 			local configFile = path.join(testSubDir, ".config.luau")
-			-- Escape backslashes so the path survives being embedded in a Luau string literal (Windows)
-			local escapedRulePath = path.format(configuredRulePath):gsub("\\", "\\\\")
 			local configContents = ([[
 		return {
 			lute = {
 				lint = {
-					rulePaths = { "%s" },
+					rulePaths = { %q },
 					ruleConfigs = {
 						["configuredRule"] = {
 							ignores = { "**/ignoredDir/**" },
@@ -2893,7 +2889,7 @@ return {
 				}
 			}
 		}
-		]]):format(escapedRulePath)
+		]]):format(path.format(configuredRulePath))
 			fs.writestringtofile(configFile, configContents)
 
 			local ignoredDir = path.join(testSubDir, "ignoredDir")
