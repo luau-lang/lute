@@ -31,7 +31,7 @@ local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie):
 		return entry.vals
 	elseif
 		(func.tag == "indexname" and func.expression.tag == "global")
-		or (func.tag == "index" and func.expression.tag == "global" and func.index.tag == "string") -- LUAUFIX: Refinement bug here: func should be narrowed to AstExprIndexExpr
+		or (func.tag == "index" and func.expression.tag == "global" and func.index.tag == "string") -- LUAUFIX: Refinement bug here: func should be narrowed to AstExprIndexExpr (CLI-190889)
 	then
 		func = func :: syntax.AstExprIndexName | syntax.AstExprIndexExpr
 		local branch = writeOnlyAPIs.entries[(func.expression :: syntax.AstExprGlobal).name.text]
