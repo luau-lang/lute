@@ -64,6 +64,7 @@ export type AstLocal = {
 
 export type AstExprGroup = {
 	location: span,
+	kind: "expr",
 	tag: "group",
 	openparens: Token<"(">,
 	expression: AstExpr,
@@ -166,7 +167,7 @@ export type AstExprFunction = {
 }
 
 -- helper types for items contained in an AstExprTable, not actually AstExprs themselves
-export type AstExprTableItemList = {
+export type AstTableExprListItem = {
 	location: span,
 	kind: "list",
 	value: AstExpr,
@@ -174,7 +175,7 @@ export type AstExprTableItemList = {
 	istableitem: true,
 }
 
-export type AstExprTableItemRecord = {
+export type AstTableExprRecordItem = {
 	location: span,
 	kind: "record",
 	key: Token<string>,
@@ -184,7 +185,7 @@ export type AstExprTableItemRecord = {
 	istableitem: true,
 }
 
-export type AstExprTableItemGeneral = {
+export type AstTableExprGeneralItem = {
 	location: span,
 	kind: "general",
 	indexeropen: Token<"[">,
@@ -196,14 +197,14 @@ export type AstExprTableItemGeneral = {
 	istableitem: true,
 }
 
-export type AstExprTableItem = AstExprTableItemList | AstExprTableItemRecord | AstExprTableItemGeneral
+export type AstTableExprItem = AstTableExprListItem | AstTableExprRecordItem | AstTableExprGeneralItem
 
 export type AstExprTable = {
 	location: span,
 	kind: "expr",
 	tag: "table",
 	openbrace: Token<"{">,
-	entries: { AstExprTableItem },
+	entries: { AstTableExprItem },
 	closebrace: Token<"}">,
 }
 
@@ -262,7 +263,7 @@ export type AstExprIfElse = {
 	elseexpr: AstExpr,
 }
 
-export type AstExpr = { kind: "expr" } & (
+export type AstExpr =
 	| AstExprGroup
 	| AstExprConstantNil
 	| AstExprConstantBool
@@ -282,7 +283,6 @@ export type AstExpr = { kind: "expr" } & (
 	| AstExprInterpString
 	| AstExprTypeAssertion
 	| AstExprIfElse
-)
 
 export type AstStatBlock = {
 	location: span,
@@ -459,7 +459,7 @@ export type AstStatTypeFunction = {
 	body: AstExprFunction,
 }
 
-export type AstStat = { kind: "stat" } & (
+export type AstStat =
 	| AstStatBlock
 	| AstStatDo
 	| AstStatIf
@@ -478,7 +478,6 @@ export type AstStat = { kind: "stat" } & (
 	| AstStatLocalFunction
 	| AstStatTypeAlias
 	| AstStatTypeFunction
-)
 
 export type AstGenericType = {
 	tag: "generic",
@@ -566,7 +565,7 @@ export type AstTypeArray = {
 	closebrace: Token<"}">,
 }
 
-export type AstTypeTableItemIndexer = {
+export type AstTableTypeItemIndexer = {
 	kind: "indexer",
 	access: Token<"read" | "write">?,
 	indexeropen: Token<"[">,
@@ -577,7 +576,7 @@ export type AstTypeTableItemIndexer = {
 	separator: Token<"," | ";">?,
 }
 
-export type AstTypeTableItemStringProperty = {
+export type AstTableTypeItemStringProperty = {
 	kind: "stringproperty",
 	access: Token<"read" | "write">?,
 	indexeropen: Token<"[">,
@@ -588,7 +587,7 @@ export type AstTypeTableItemStringProperty = {
 	separator: Token<"," | ";">?,
 }
 
-export type AstTypeTableItemProperty = {
+export type AstTableTypeItemProperty = {
 	kind: "property",
 	access: Token<"read" | "write">?,
 	key: Token,
@@ -597,18 +596,18 @@ export type AstTypeTableItemProperty = {
 	separator: Token<"," | ";">?,
 }
 
-export type AstTypeTableItem = AstTypeTableItemIndexer | AstTypeTableItemStringProperty | AstTypeTableItemProperty
+export type AstTableTypeItem = AstTableTypeItemIndexer | AstTableTypeItemStringProperty | AstTableTypeItemProperty
 
 export type AstTypeTable = {
 	location: span,
 	kind: "type",
 	tag: "table",
 	openbrace: Token<"{">,
-	entries: { AstTypeTableItem },
+	entries: { AstTableTypeItem },
 	closebrace: Token<"}">,
 }
 
-export type AstTypeFunctionParameter = {
+export type AstFunctionTypeParameter = {
 	location: span,
 	name: Token?,
 	colon: Token<":">?,
@@ -625,14 +624,14 @@ export type AstTypeFunction = {
 	genericpacks: Punctuated<AstGenericTypePack>?,
 	closegenerics: Token<">">?,
 	openparens: Token<"(">,
-	parameters: Punctuated<AstTypeFunctionParameter>,
+	parameters: Punctuated<AstFunctionTypeParameter>,
 	vararg: AstTypePack?,
 	closeparens: Token<")">,
 	returnarrow: Token<"->">,
 	returntypes: AstTypePack,
 }
 
-export type AstType = { kind: "type" } & (
+export type AstType =
 	| AstTypeReference
 	| AstTypeSingletonBool
 	| AstTypeSingletonString
@@ -644,7 +643,6 @@ export type AstType = { kind: "type" } & (
 	| AstTypeArray
 	| AstTypeTable
 	| AstTypeFunction
-)
 
 export type AstTypePackExplicit = {
 	location: span,
@@ -667,9 +665,9 @@ export type AstTypePackVariadic = {
 	type: AstType,
 }
 
-export type AstTypePack = { kind: "typepack" } & (AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic)
+export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
 
-export type AstNode = { location: span } & (AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute)
+export type AstNode = AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute
 
 export type ParseResult = {
 	root: AstStatBlock,
