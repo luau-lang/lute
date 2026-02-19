@@ -102,8 +102,9 @@ local function registerRule(
 	ruleConfigs: internalTypes.RuleConfigurations,
 	ruleIgnores: internalTypes.RuleIgnores
 )
-	local ruleConfig: internalTypes.RuleConfig = if config.ruleConfigs ~= nil and config.ruleConfigs[rule.name] ~= nil
-		then config.ruleConfigs[rule.name] :: internalTypes.RuleConfig -- Refinement doesn't support dynamic indexing, so we need to assert the type here
+	local ruleConfig: internalTypes.RuleConfig = if config.ruleconfigs ~= nil
+			and config.ruleconfigs[rule.name] ~= nil
+		then config.ruleconfigs[rule.name] :: internalTypes.RuleConfig -- Refinement doesn't support dynamic indexing, so we need to assert the type here
 		else {}
 	if ruleConfig.off then
 		return
@@ -547,7 +548,7 @@ local function main(...: string)
 	end
 
 	-- load local rules from config rules path
-	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rulePaths then lintConfig.rulePaths else {}
+	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rulepaths then lintConfig.rulepaths else {}
 	for _, path in configuredRulePaths do
 		local resolvedPath = pathLib.resolve(rootLocation, path)
 		local loadedRules, loadedConfigs, loadedIgnoreData =

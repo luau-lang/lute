@@ -2531,7 +2531,7 @@ local t = { [0] = 1 }
 					globals = {
 						["testGlobal"] = 1,
 					},
-					ruleConfigs = {
+					ruleconfigs = {
 						["testRule"] = {
 							options = {
 								["testOption"] = "nice",
@@ -2573,7 +2573,7 @@ local t = { [0] = 1 }
 return {
 	lute = {
 		lint = {
-			ruleConfigs = {
+			ruleconfigs = {
 				["divide_by_zero"] = {
 					ignores = { "**/violator.luau" }
 				}
@@ -2626,7 +2626,7 @@ b = a
 return {
 	lute = {
 		lint = {
-			ruleConfigs = {
+			ruleconfigs = {
 				["divide_by_zero"] = {
 					ignores = { "**/ignoredDir/**" }
 				}
@@ -2658,7 +2658,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					ruleConfigs = {
+					ruleconfigs = {
 						["almost_swapped"] = {
 							off = true,
 						}
@@ -2697,7 +2697,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					ruleConfigs = {
+					ruleconfigs = {
 						["customRule"] = {
 							off = true,
 						}
@@ -2732,7 +2732,7 @@ return {
 return {
 	lute = {
 		lint = {
-			ruleConfigs = {
+			ruleconfigs = {
 				["divide_by_zero"] = {
 					severity = "error"
 				}
@@ -2753,7 +2753,7 @@ return {
 		})
 	end)
 
-	suite:case("rules given by config.rulePaths are loaded (in addition to CLI-passed rules) and ran", function(assert)
+	suite:case("rules given by config.rulepaths are loaded (in addition to CLI-passed rules) and ran", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
 		fs.createdirectory(testSubDir)
 
@@ -2797,7 +2797,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					rulePaths = { %q },
+					rulepaths = { %q },
 				}
 			}
 		}
@@ -2820,7 +2820,7 @@ return {
 	end)
 
 	suite:case(
-		"lute lint properly loads rule-specific configuration for rules provided by config.rulePaths",
+		"lute lint properly loads rule-specific configuration for rules provided by config.rulepaths",
 		function(assert)
 			local testSubDir = path.join(tmpDir, "module")
 			fs.createdirectory(testSubDir)
@@ -2849,8 +2849,8 @@ return {
 		return {
 			lute = {
 				lint = {
-					rulePaths = { %q },
-					ruleConfigs = {
+					rulepaths = { %q },
+					ruleconfigs = {
 						["configuredRule"] = {
 							ignores = { "**/ignoredDir/**" },
 							options = {
