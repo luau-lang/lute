@@ -2754,69 +2754,63 @@ return {
 	end)
 
 	suite:case("rules given by config.rulepaths are loaded (in addition to CLI-passed rules) and ran", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
-
-		local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
-		local configuredRuleContents = [[
+		-- Create the config-provided rule (loaded via config.rulepaths, NOT via -r)
+		local configuredRulePath = path.format(path.join(tmpDir, "configuredRule.luau"))
+		fs.writestringtofile(
+			configuredRulePath,
+			[[
+return {
+	name = "configuredRule",
+	lint = function(ast, sourcepath, context)
 		return {
-			name = "configuredRule",
-			lint = function(ast, sourcepath, context)
-				return {
-					{
-						lintname = "configuredRule",
-						severity = "warn",
-						message = "Configured Rule Ran.",
-						location = ast.location
-					}
-				}
-			end
-		}
-		]]
-		fs.writestringtofile(configuredRulePath, configuredRuleContents)
-		local cliProvidedRulePath = path.join(testSubDir, "cliProvidedRule.luau")
-		local cliProvidedRuleContents = [[
-			return {
-			name = "cliRule",
-			lint = function(ast, sourcepath, context)
-				return {
-					{
-						lintname = "cliRule",
-						severity = "warn",
-						message = "CLI Rule Ran.",
-						location = ast.location
-					}
-				}
-			end
-		}
-		]]
-		fs.writestringtofile(cliProvidedRulePath, cliProvidedRuleContents)
-
-		local configFile = path.join(testSubDir, ".config.luau")
-		local configContents = ([[
-		return {
-			lute = {
-				lint = {
-					rulepaths = { %q },
-				}
+			{
+				lintname = "configuredRule",
+				severity = "warn",
+				message = "Configured Rule Ran.",
+				location = ast.location
 			}
 		}
-		]]):format(path.format(configuredRulePath))
-		fs.writestringtofile(configFile, configContents)
+	end
+}
+]]
+		)
 
-		local result = process.run({
-			lutePath,
-			"lint",
-			"-c",
-			path.format(configFile),
-			"-r",
-			path.format(cliProvidedRulePath),
-			path.format(testSubDir),
+		-- The CLI-provided rule is passed via customRuleContents (which uses -r),
+		-- while the config-provided rule is referenced via config.rulepaths
+		lintTestHelper(assert, {
+			content = "local x = 1",
+			expectedExitCode = 1,
+			customRuleContents = [[
+return {
+	name = "cliRule",
+	lint = function(ast, sourcepath, context)
+		return {
+			{
+				lintname = "cliRule",
+				severity = "warn",
+				message = "CLI Rule Ran.",
+				location = ast.location
+			}
+		}
+	end
+}
+]],
+			configContents = ([[
+return {
+	lute = {
+		lint = {
+			rulepaths = { %q },
+		}
+	}
+}
+]]):format(configuredRulePath),
+			disableDefaultLints = true,
+			outputExpectations = {
+				-- both config-given and CLI-given rules should have ran
+				{ expectedOutput = "Configured Rule Ran.", count = 1 },
+				{ expectedOutput = "CLI Rule Ran.", count = 1 },
+			},
 		})
-		assert.eq(result.exitcode, 1)
-		-- both config-given and CLI-given rules should have ran
-		assert.strcontains(result.stdout, "Configured Rule Ran.")
-		assert.strcontains(result.stdout, "CLI Rule Ran.")
 	end)
 
 	suite:case(
