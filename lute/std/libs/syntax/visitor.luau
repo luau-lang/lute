@@ -44,7 +44,7 @@ export type Visitor = {
 	visitExprFunction: (types.AstExprFunction) -> boolean,
 	visitExprFunctionEnd: (types.AstExprFunction) -> (),
 	visitExprInstantiate: (types.AstExprInstantiate) -> boolean,
-	visitExprTableItem: (types.AstExprTableItem) -> boolean,
+	visitTableExprItem: (types.AstTableExprItem) -> boolean,
 	visitExprTable: (types.AstExprTable) -> boolean,
 	visitExprIndexName: (types.AstExprIndexName) -> boolean,
 	visitExprIndexExpr: (types.AstExprIndexExpr) -> boolean,
@@ -119,7 +119,7 @@ local defaultVisitor: Visitor = {
 	visitExprFunction = alwaysVisit :: any,
 	visitExprFunctionEnd = alwaysVisit :: any,
 	visitExprInstantiate = alwaysVisit,
-	visitExprTableItem = alwaysVisit :: any,
+	visitTableExprItem = alwaysVisit :: any,
 	visitExprTable = alwaysVisit :: any,
 	visitExprIndexName = alwaysVisit :: any,
 	visitExprIndexExpr = alwaysVisit :: any,
@@ -555,8 +555,8 @@ local function visitStatTypeFunction(node: types.AstStatTypeFunction, visitor: V
 	end
 end
 
-local function visitExprTableItem(node: types.AstExprTableItem, visitor: Visitor)
-	if visitor.visitExprTableItem(node) then
+local function visitTableExprItem(node: types.AstTableExprItem, visitor: Visitor)
+	if visitor.visitTableExprItem(node) then
 		if node.kind == "list" then
 			visitExpr(node.value, visitor)
 		elseif node.kind == "record" then
@@ -583,7 +583,7 @@ local function visitExprTable(node: types.AstExprTable, visitor: Visitor)
 	if visitor.visitExprTable(node) then
 		visitToken(node.openbrace, visitor)
 		for _, item in node.entries do
-			visitExprTableItem(item, visitor)
+			visitTableExprItem(item, visitor)
 		end
 		visitToken(node.closebrace, visitor)
 	end
@@ -771,7 +771,7 @@ local function visitTypeTable(node: types.AstTypeTable, visitor: Visitor)
 	end
 end
 
-local function visitTypeFunctionParameter(node: types.AstTypeFunctionParameter, visitor)
+local function visitFunctionTypeParameter(node: types.AstFunctionTypeParameter, visitor)
 	if node.name then
 		visitToken(node.name, visitor)
 	end
@@ -796,7 +796,7 @@ local function visitTypeFunction(node: types.AstTypeFunction, visitor: Visitor)
 			visitToken(node.closegenerics, visitor)
 		end
 		visitToken(node.openparens, visitor)
-		visitPunctuated(node.parameters, visitor, visitTypeFunctionParameter)
+		visitPunctuated(node.parameters, visitor, visitFunctionTypeParameter)
 		if node.vararg then
 			visitTypePack(node.vararg, visitor)
 		end
@@ -1015,7 +1015,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 				visit(s)
 			end,
 			visitExprInstantiate = visit,
-			visitExprTableItem = visit,
+			visitTableExprItem = visit,
 			visitExprTable = visit,
 			visitExprIndexName = visit,
 			visitExprIndexExpr = visit,
@@ -1071,7 +1071,7 @@ local function visit(node: types.AstNode, visitor: Visitor)
 	elseif node.istoken then
 		visitToken(node, visitor)
 	elseif node.istableitem then
-		visitExprTableItem(node, visitor)
+		visitTableExprItem(node, visitor)
 	else
 		exhaustiveMatch(node.kind)
 	end
