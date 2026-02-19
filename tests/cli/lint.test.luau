@@ -2524,7 +2524,7 @@ local t = { [0] = 1 }
 					globals = {
 						["testGlobal"] = 1,
 					},
-					ruleConfigs {
+					ruleConfigs = {
 						["testRule"] = {
 							options = {
 								["testOption"] = "nice",
@@ -2573,7 +2573,7 @@ local t = { [0] = 1 }
 return {
 	lute = {
 		lint = {
-			ruleConfigs {
+			ruleConfigs = {
 				["divide_by_zero"] = {
 					ignores = { "**/violator.luau" }
 				}
@@ -2626,7 +2626,7 @@ b = a
 return {
 	lute = {
 		lint = {
-			ruleConfigs {
+			ruleConfigs = {
 				["divide_by_zero"] = {
 					ignores = { "**/ignoredDir/**" }
 				}
@@ -2657,7 +2657,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					ruleConfigs {
+					ruleConfigs = {
 						["almost_swapped"] = {
 							off = true,
 						}
@@ -2712,7 +2712,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					ruleConfigs {
+					ruleConfigs = {
 						["customRule"] = {
 							off = true,
 						}
@@ -2758,7 +2758,7 @@ return {
 return {
 	lute = {
 		lint = {
-			ruleConfigs {
+			ruleConfigs = {
 				["divide_by_zero"] = {
 					severity = "error"
 				}
@@ -2782,14 +2782,12 @@ return {
 		assert.strcontains(result.stdout, "error[divide_by_zero]")
 	end)
 
-	suite:case(
-		"rules given by config.rules.paths are loaded (in addition to CLI-passed rules) and ran",
-		function(assert)
-			local testSubDir = path.join(tmpDir, "module")
-			fs.createdirectory(testSubDir)
+	suite:case("rules given by config.rulePaths are loaded (in addition to CLI-passed rules) and ran", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
 
-			local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
-			local configuredRuleContents = [[
+		local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
+		local configuredRuleContents = [[
 		return {
 			name = "configuredRule",
 			lint = function(ast, sourcepath, context)
@@ -2804,9 +2802,9 @@ return {
 			end
 		}
 		]]
-			fs.writestringtofile(configuredRulePath, configuredRuleContents)
-			local cliProvidedRulePath = path.join(testSubDir, "cliProvidedRule.luau")
-			local cliProvidedRuleContents = [[
+		fs.writestringtofile(configuredRulePath, configuredRuleContents)
+		local cliProvidedRulePath = path.join(testSubDir, "cliProvidedRule.luau")
+		local cliProvidedRuleContents = [[
 			return {
 			name = "cliRule",
 			lint = function(ast, sourcepath, context)
@@ -2821,42 +2819,39 @@ return {
 			end
 		}
 		]]
-			fs.writestringtofile(cliProvidedRulePath, cliProvidedRuleContents)
+		fs.writestringtofile(cliProvidedRulePath, cliProvidedRuleContents)
 
-			local configFile = path.join(testSubDir, ".config.luau")
-			-- Escape backslashes so the path survives being embedded in a Luau string literal (Windows)
-			local escapedRulePath = path.format(configuredRulePath):gsub("\\", "\\\\")
-			local configContents = ([[
+		local configFile = path.join(testSubDir, ".config.luau")
+		-- Escape backslashes so the path survives being embedded in a Luau string literal
+		local escapedRulePath = path.format(configuredRulePath):gsub("\\", "\\\\")
+		local configContents = ([[
 		return {
 			lute = {
 				lint = {
-					ruleConfigs {
-						paths = { "%s" },
-					}
+					rulePaths = { "%s" },
 				}
 			}
 		}
 		]]):format(escapedRulePath)
-			fs.writestringtofile(configFile, configContents)
+		fs.writestringtofile(configFile, configContents)
 
-			local result = process.run({
-				lutePath,
-				"lint",
-				"-c",
-				path.format(configFile),
-				"-r",
-				path.format(cliProvidedRulePath),
-				path.format(testSubDir),
-			})
-			assert.eq(result.exitcode, 1)
-			-- both config-given and CLI-given rules should have ran
-			assert.strcontains(result.stdout, "Configured Rule Ran.")
-			assert.strcontains(result.stdout, "CLI Rule Ran.")
-		end
-	)
+		local result = process.run({
+			lutePath,
+			"lint",
+			"-c",
+			path.format(configFile),
+			"-r",
+			path.format(cliProvidedRulePath),
+			path.format(testSubDir),
+		})
+		assert.eq(result.exitcode, 1)
+		-- both config-given and CLI-given rules should have ran
+		assert.strcontains(result.stdout, "Configured Rule Ran.")
+		assert.strcontains(result.stdout, "CLI Rule Ran.")
+	end)
 
 	suite:case(
-		"lute lint properly loads rule-specific configuration for rules provided by config.rules.paths",
+		"lute lint properly loads rule-specific configuration for rules provided by config.rulePaths",
 		function(assert)
 			local testSubDir = path.join(tmpDir, "module")
 			fs.createdirectory(testSubDir)
@@ -2886,8 +2881,8 @@ return {
 		return {
 			lute = {
 				lint = {
-					ruleConfigs {
-						paths = { "%s" },
+					rulePaths = { "%s" },
+					ruleConfigs = {
 						["configuredRule"] = {
 							ignores = { "**/ignoredDir/**" },
 							options = {
@@ -2901,7 +2896,7 @@ return {
 		]]):format(escapedRulePath)
 			fs.writestringtofile(configFile, configContents)
 
-			local ignoredDir = path.join(testSubDir, "ignored")
+			local ignoredDir = path.join(testSubDir, "ignoredDir")
 			local notIgnoredDir = path.join(testSubDir, "not_ignored")
 			fs.createdirectory(ignoredDir)
 			fs.createdirectory(notIgnoredDir)
