@@ -3,13 +3,13 @@ local luau = {}
 
 -- this is a userdata, not a table, but it has this interface
 type spandata = {
-	beginline: number,
-	begincolumn: number,
-	endline: number,
-	endcolumn: number,
+	read beginline: number,
+	read begincolumn: number,
+	read endline: number,
+	read endcolumn: number,
 }
 type spanMT = {
-	__lt: (a: spandata, b: spandata) -> boolean,
+	read __lt: (a: spandata, b: spandata) -> boolean,
 }
 export type span = setmetatable<spandata, spanMT>
 
@@ -20,37 +20,37 @@ function luau.span.create(tbl: { beginline: number, begincolumn: number, endline
 end
 
 export type Whitespace = {
-	tag: "whitespace",
-	location: span,
-	text: string,
+	read tag: "whitespace",
+	read location: span,
+	read text: string,
 }
 
 export type SingleLineComment = {
-	tag: "comment",
-	location: span,
-	text: string,
+	read tag: "comment",
+	read location: span,
+	read text: string,
 }
 
 export type MultiLineComment = {
-	tag: "blockcomment",
-	location: span,
-	text: string,
+	read tag: "blockcomment",
+	read location: span,
+	read text: string,
 	-- TODO: depth: number,
 }
 
 export type Trivia = Whitespace | SingleLineComment | MultiLineComment
 
 export type Token<Kind = string> = {
-	leadingtrivia: { Trivia },
-	location: span,
-	text: Kind,
-	trailingtrivia: { Trivia },
-	istoken: true,
+	read leadingtrivia: { Trivia },
+	read location: span,
+	read text: Kind,
+	read trailingtrivia: { Trivia },
+	read istoken: true,
 }
 
-export type Eof = Token<""> & { tag: "eof" }
+export type Eof = Token<""> & { read tag: "eof" }
 
-export type Pair<T, Separator> = { node: T, separator: Token<Separator>? }
+export type Pair<T, Separator> = { read node: T, read separator: Token<Separator>? }
 export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
 
 export type AstLocal = {
