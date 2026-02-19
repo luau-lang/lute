@@ -194,6 +194,7 @@ local function traverseFileTree(path: string, callback: (string, string) -> ())
 		callback(currentDir.path, currentDir.relativePath)
 
 		local contents = fs.listdir(currentDir.path)
+		-- FIXME(Luau): bidirectional typing
 		table.sort(contents, function(a: fs.DirectoryEntry, b: fs.DirectoryEntry)
 			return a.name < b.name
 		end)
