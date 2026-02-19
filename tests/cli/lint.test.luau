@@ -2864,7 +2864,8 @@ return {
 						lintname = "configuredRule",
 						severity = "warn",
 						message = `Configured Rule Ran with options.a = {context.options.a}`,
-						location = ast.location
+						location = ast.location,
+						sourcepath = sourcepath,
 					}
 				}
 			end
@@ -2910,8 +2911,8 @@ return {
 				path.format(testSubDir),
 			})
 			assert.eq(result.exitcode, 1) -- errors
-			assert.strcontains(result.stdout, "configuredRule", nil, 1) -- only 1 violation, since we ignore the other file
 			assert.strnotcontains(result.stdout, "ignored.luau")
+			assert.strcontains(result.stdout, "valid.luau")
 			assert.strcontains(result.stdout, "Configured Rule Ran with options.a = 1") -- options are correctly passed through
 		end
 	)
