@@ -2430,7 +2430,7 @@ return {
 			]],
 			outputExpectations = {
 				{
-					expectedOutput = "Error applying lint rule 'unused_variable': lute/cli/commands/lint/rules/unused_variable.luau:395: Invalid API '$deeply.nested.api' in options. Only APIs up to 2 levels deep are supported.",
+					expectedOutput = "Invalid API 'deeply.nested.api' in options. Only APIs up to 2 levels deep are supported.",
 					count = 1,
 				},
 			},
@@ -2461,7 +2461,7 @@ return {
 			]],
 			outputExpectations = {
 				{
-					expectedOutput = "Error applying lint rule 'unused_variable': lute/cli/commands/lint/rules/unused_variable.luau:402: API 'myApi' is already defined as part of a write-only API, so 'myApi' cannot be added as a write-only API.",
+					expectedOutput = "API 'myApi' is already defined as part of a write-only API, so 'myApi' cannot be added as a write-only API.",
 					count = 1,
 				},
 			},

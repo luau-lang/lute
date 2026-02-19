@@ -392,7 +392,7 @@ local function lint(
 	for k, v in context.options do
 		local parts = k:split(".")
 		if #parts < 1 or #parts > 2 then
-			error(`Invalid API '${k}' in options. Only APIs up to 2 levels deep are supported.`)
+			error(`Invalid API '{k}' in options. Only APIs up to 2 levels deep are supported.`)
 		end
 
 		if #parts == 1 then
