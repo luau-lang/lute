@@ -75,24 +75,29 @@ test.suite("ProcessSuite", function(suite)
 			process.run({})
 		end, "process.run requires a non-empty table of arguments")
 
+		-- All of these tests intentionally pass values of the incorrect
+		-- type to `process.run`: this is to ensure that the error
+		-- handling on the runtime side is correct (for example, does not
+		-- crash because we expected a table and got a string).
+
 		assert.erroreq(function()
-			process.run({ "echo", "hello" }, { cwd = {} })
+			process.run({ "echo", "hello" }, { cwd = {} :: any })
 		end, "invalid argument #-1 to 'run' (string expected, got table)")
 
 		assert.erroreq(function()
-			process.run({ "echo", "hello" }, { stdio = {} })
+			process.run({ "echo", "hello" }, { stdio = {} :: any })
 		end, "invalid argument #-1 to 'run' (string expected, got table)")
 
 		assert.erroreq(function()
-			process.run({ "echo", "hello" }, { env = "not-a-table" })
+			process.run({ "echo", "hello" }, { env = "not-a-table" :: any })
 		end, "process option 'env' must be a table")
 
 		assert.erroreq(function()
-			process.run({ "echo", "hello" }, "invalid_option")
+			process.run({ "echo", "hello" }, "invalid_option" :: any)
 		end, "process options must be a table")
 
 		assert.erroreq(function()
-			process.run({ "echo", "hello" }, "not-a-table")
+			process.run({ "echo", "hello" }, "not-a-table" :: any)
 		end, "process options must be a table")
 
 		assert.erroreq(function()
@@ -107,31 +112,36 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("process_system_options_error_cases", function(assert)
+		-- All of these tests intentionally pass values of the incorrect
+		-- type to `process.system`: this is to ensure that the error
+		-- handling on the runtime side is correct (for example, does not
+		-- crash because we expected a table and got a string).
+
 		assert.erroreq(function()
-			process.system()
+			(process.system :: any)()
 		end, "invalid argument #1 to 'system' (string expected, got nil)")
 
 		assert.erroreq(function()
-			process.system({})
+			process.system({} :: any)
 		end, "invalid argument #1 to 'system' (string expected, got table)")
 
 		assert.erroreq(function()
-			process.system("echo hello", { system = {} })
+			process.system("echo hello", { system = {} :: any })
 		end, "invalid argument #-1 to 'system' (string expected, got table)")
 
 		assert.erroreq(function()
-			process.system("echo hello", { cwd = {} })
+			process.system("echo hello", { cwd = {} :: any })
 		end, "invalid argument #-1 to 'system' (string expected, got table)")
 		assert.erroreq(function()
-			process.system("echo hello", { stdio = {} })
+			process.system("echo hello", { stdio = {} :: any })
 		end, "invalid argument #-1 to 'system' (string expected, got table)")
 
 		assert.erroreq(function()
-			process.system("echo hello", { env = "not-a-table" })
+			process.system("echo hello", { env = "not-a-table" :: any })
 		end, "process option 'env' must be a table")
 
 		assert.erroreq(function()
-			process.system("echo hello", "invalid_option")
+			process.system("echo hello", "invalid_option" :: any)
 		end, "process options must be a table")
 	end)
 end)
