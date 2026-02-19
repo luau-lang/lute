@@ -10,16 +10,32 @@ local snapty = require("./types")
 local function artifactpath(filepath: path.path): string
 	local f = path.format(filepath)
 	assert(strext.hassuffix(f, ".snap.luau"), `expected {f} to have suffix .snap.luau`)
-	return string.sub(f, 1, #f - 5) -- strips ".luau"
+	return strext.removesuffix(f, ".luau") -- strips ".luau"
 end
 
-local function normalizeSnapshotOutput(output: string): string
-	local function posixify(str)
-		local posixy, _ = string.gsub(str, [[\]], "/")
-		return posixy
-	end
+local function posixify(str)
+	local posixy, _ = string.gsub(str, [[\]], "/")
+	return posixy
+end
 
-	local cwd = posixify(path.format(path.normalize(process.cwd())))
+local function normalizeSnapshotOutput(output: string, normalizedCwd: string): string
+	local nobackslash = posixify(output)
+	local replacedCwd, _ = string.gsub(nobackslash, normalizedCwd, "<ROOT>")
+	return replacedCwd
+end
+
+local runner = {}
+
+function runner.runsnapshots(files: { path.path }): snapty.snapresult
+	local result: snapty.snapresult = {
+		passed = {},
+		failed = {},
+		new = {},
+	}
+
+	local execpath = path.format(process.execpath())
+
+	-- Compute the normalized current working directory exactly once
 	--[[
 		Paths can have '.' characters in them, but gsub takes patterns as arguments and a '.' will match any single character.
 		E.g. Interpreting "/foo/bar.baz" as a pattern, will match "/foo/bar[any char]baz".
@@ -28,27 +44,14 @@ local function normalizeSnapshotOutput(output: string): string
 		with the '.' matching pattern '%.'(itself represented by escaping the %, '%%.').
 	]]
 	--
+	local cwd = posixify(path.format(process.cwd()))
 	cwd, _ = string.gsub(cwd, "%.", "%%.")
-	local nobackslash = posixify(output)
-	local replacedCwd, _ = string.gsub(nobackslash, cwd, "<ROOT>")
-	return replacedCwd
-end
-
-local function runsnapshots(files: { path.path }): snapty.snapresult
-	local result: snapty.snapresult = {
-		passed = {},
-		failed = {},
-		new = {},
-		errors = {},
-	}
-
-	local execpath = path.format(process.execpath())
 
 	for _, filepath in files do
 		local artifactpath = artifactpath(filepath)
 
 		local proc = process.run({ execpath, path.format(filepath) })
-		local actual = normalizeSnapshotOutput(proc.stdout)
+		local actual = normalizeSnapshotOutput(proc.stdout, cwd)
 
 		if not fs.exists(artifactpath) then
 			-- No artifact file yet — this is a new snapshot
@@ -83,4 +86,4 @@ local function runsnapshots(files: { path.path }): snapty.snapresult
 	return result
 end
 
-return table.freeze({ runsnapshots = runsnapshots })
+return table.freeze(runner)

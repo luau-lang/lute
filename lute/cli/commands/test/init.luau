@@ -81,18 +81,17 @@ local function main(...: string)
 	end
 
 	local forwarded = args:forwarded()
-
 	-- Check if this is a snapshot subcommand
 	if forwarded and #forwarded > 0 and forwarded[1] == "snapshots" then
-		local searchpaths = {}
-		for idx = 2, #forwarded do
-			table.insert(searchpaths, forwarded[idx])
+		if #forwarded == 1 then
+			runsnapshots({ "./tests" }, args:has("update"), args:has("interactive"))
+		else
+			local searchpaths = {}
+			for idx = 2, #forwarded do
+				table.insert(searchpaths, forwarded[idx])
+			end
+			runsnapshots(searchpaths, args:has("update"), args:has("interactive"))
 		end
-		if #searchpaths == 0 then
-			table.insert(searchpaths, "./tests")
-		end
-		runsnapshots(searchpaths, args:has("update"), args:has("interactive"))
-		return
 	end
 
 	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./tests" }

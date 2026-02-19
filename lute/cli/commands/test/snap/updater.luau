@@ -4,6 +4,7 @@ local io = require("@std/io")
 local path = require("@std/path")
 local sty = require("./styles")
 local ps = require("@std/process")
+local strext = require("@std/stringext")
 
 -- Write content directly to a .snap artifact file.
 -- Used both for creating new snapshots and updating existing ones.
@@ -41,8 +42,7 @@ local function acceptInteractive(failures: { snapty.snapfail }, news: { snapty.s
 		end
 		local prompt = sty.dim("[a]ccept  [r]eject  [A]ccept all  > ")
 		local choice = io.input(prompt)
-		local subbed, _ = choice:gsub("%s+", "")
-		return subbed
+		return strext.trim(choice)
 	end
 
 	local function updateArtifact(choice, artifactpath, content): boolean
@@ -72,14 +72,18 @@ local function acceptInteractive(failures: { snapty.snapfail }, news: { snapty.s
 		print(n.actual)
 		print("")
 
-		-- show the prompt here
-		local choice = prompt(acceptAll)
-		if choice == "A" then
-			acceptAll = true
-			choice = "a"
+		local ok = false
+		if acceptAll then
+			ok = updateArtifact("a", n.artifactpath, n.actual)
+		else
+			local choice = prompt(acceptAll)
+			if choice == "A" then
+				acceptAll = true
+				choice = "a"
+			end
+			ok = updateArtifact(choice, n.artifactpath, n.actual)
 		end
 
-		local ok = updateArtifact(choice, n.artifactpath, n.actual)
 		accepted += if ok then 1 else 0
 	end
 
@@ -88,22 +92,26 @@ local function acceptInteractive(failures: { snapty.snapfail }, news: { snapty.s
 		print("")
 		print(f.diff)
 		print("")
-
-		-- show the prompt here
-		local choice = prompt(acceptAll)
-		if choice == "A" then
-			acceptAll = true
-			choice = "a"
+		local ok = false
+		if acceptAll then
+			ok = updateArtifact("a", f.artifactpath, f.actual)
+		else
+			local choice = prompt(acceptAll)
+			if choice == "A" then
+				acceptAll = true
+				choice = "a"
+			end
+			ok = updateArtifact(choice, f.artifactpath, f.actual)
 		end
-
-		local ok = updateArtifact(choice, f.artifactpath, f.actual)
 		accepted += if ok then 1 else 0
 	end
 
 	return accepted
 end
 
-local function updatesnapshot(result: snapty.snapresult, update: boolean, interactive: boolean)
+local update = {}
+
+function update.updatesnapshot(result: snapty.snapresult, update: boolean, interactive: boolean)
 	local hasNew = #result.new > 0
 	local hasFailed = #result.failed > 0
 	if hasNew or hasFailed then
@@ -128,4 +136,4 @@ local function updatesnapshot(result: snapty.snapresult, update: boolean, intera
 	ps.exit(0)
 end
 
-return table.freeze({ updatesnapshot = updatesnapshot })
+return table.freeze(update)
