@@ -523,7 +523,7 @@ local function main(...: string)
 
 	local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
 	local rootLocation = if fs.exists(configPath)
-		then pathLib.format(pathLib.dirname(configPath))
+		then pathLib.format(pathLib.resolve(pathLib.dirname(configPath)))
 		else pathLib.format(process.cwd())
 	local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
 
