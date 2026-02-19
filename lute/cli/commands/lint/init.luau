@@ -21,6 +21,7 @@ local DEFAULT_RULES = {
 	"constant_table_comparison",
 	"divide_by_zero",
 	"duplicate_keys",
+	"empty_if_block",
 	"parenthesized_conditions",
 	"unused_variable",
 }
