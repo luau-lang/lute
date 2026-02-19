@@ -51,20 +51,12 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 	-- Do
 	local lintArgs = { lutePath, "lint" }
 
-	if params.rulePath then
-		if params.customRuleContents then
-			error("Cannot specify both rulePath and customRuleContents")
-		end
-
+	if params.rulePath and params.customRuleContents then
+		error("Cannot specify both rulePath and customRuleContents")
+	elseif params.rulePath then
 		table.insert(lintArgs, "-r")
 		table.insert(lintArgs, params.rulePath)
-	end
-
-	if params.customRuleContents then
-		if params.rulePath then
-			error("Cannot specify both rulePath and customRuleContents")
-		end
-
+	elseif params.customRuleContents then
 		local customRulePath = path.format(path.join(tmpDir, "custom_rule.luau"))
 		fs.writestringtofile(customRulePath, params.customRuleContents)
 		table.insert(lintArgs, "-r")
