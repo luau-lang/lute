@@ -37,8 +37,8 @@ export type RuleOptions = { [string]: unknown }
 export type LintConfig = {
 	ignores: { path.pathlike }?, -- globs/paths to ignore as we walk lintee files
 	globals: GlobalsConfig?, -- globals to pass down to all rules via context
-	rules: {
-		paths: { path.pathlike }?, -- paths to local rules to use
+	rulePaths: { path.pathlike }?, -- paths to local rules to use
+	ruleConfigs: {
 		[string]: RuleConfig?,
 	}?,
 }

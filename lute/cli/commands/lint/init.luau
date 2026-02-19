@@ -101,8 +101,8 @@ local function registerRule(
 	ruleConfigs: types.RuleConfigurations,
 	ruleIgnores: types.RuleIgnores
 )
-	local ruleConfig: types.RuleConfig = if config.rules ~= nil and config.rules[rule.name] ~= nil
-		then config.rules[rule.name]
+	local ruleConfig: types.RuleConfig = if config.ruleConfigs ~= nil and config.ruleConfigs[rule.name] ~= nil
+		then config.ruleConfigs[rule.name]
 		else {}
 	if ruleConfig.off then
 		return
@@ -546,9 +546,7 @@ local function main(...: string)
 	end
 
 	-- load local rules from config rules path
-	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rules and lintConfig.rules.paths
-		then lintConfig.rules.paths
-		else {}
+	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rulePaths then lintConfig.rulePaths else {}
 	for _, path in configuredRulePaths do
 		local resolvedPath = pathLib.resolve(rootLocation, path)
 		local loadedRules, loadedConfigs, loadedIgnoreData =

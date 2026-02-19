@@ -2164,7 +2164,7 @@ end
 		-- 	return {
 		-- 		lute = {
 		-- 			lint = {
-		-- 				rules = "should be table"
+		-- 				ruleConfigs "should be table"
 		-- 			}
 		-- 		}
 		-- 	}
@@ -2524,7 +2524,7 @@ local t = { [0] = 1 }
 					globals = {
 						["testGlobal"] = 1,
 					},
-					rules = {
+					ruleConfigs {
 						["testRule"] = {
 							options = {
 								["testOption"] = "nice",
@@ -2573,7 +2573,7 @@ local t = { [0] = 1 }
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleConfigs {
 				["divide_by_zero"] = {
 					ignores = { "**/violator.luau" }
 				}
@@ -2626,7 +2626,7 @@ b = a
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleConfigs {
 				["divide_by_zero"] = {
 					ignores = { "**/ignoredDir/**" }
 				}
@@ -2657,7 +2657,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					rules = {
+					ruleConfigs {
 						["almost_swapped"] = {
 							off = true,
 						}
@@ -2712,7 +2712,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					rules = {
+					ruleConfigs {
 						["customRule"] = {
 							off = true,
 						}
@@ -2758,7 +2758,7 @@ return {
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleConfigs {
 				["divide_by_zero"] = {
 					severity = "error"
 				}
@@ -2830,7 +2830,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					rules = {
+					ruleConfigs {
 						paths = { "%s" },
 					}
 				}
@@ -2886,7 +2886,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					rules = {
+					ruleConfigs {
 						paths = { "%s" },
 						["configuredRule"] = {
 							ignores = { "**/ignoredDir/**" },
