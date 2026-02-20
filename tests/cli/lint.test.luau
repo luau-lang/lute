@@ -2507,6 +2507,74 @@ local t = { [0] = 1 }
 		assert.strcontains(result.stdout, "almost_swapped")
 	end)
 
+	suite:case("lute lint handles ignores with relative config path", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/ignored.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		-- Pass config as a relative path, setting cwd to ensure relative config path is correct
+		local result = process.run({ lutePath, "lint", "-c", ".config.luau", "." }, {
+			cwd = path.format(testSubDir),
+		})
+		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
+		assert.strnotcontains(result.stdout, "ignored.luau")
+		assert.strcontains(result.stdout, "valid.luau")
+	end)
+
+	suite:case("lute lint handles ignores with absolute config path", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/ignored.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		-- Pass config as an absolute path, with cwd set to a different directory (homedir)
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
+		assert.strnotcontains(result.stdout, "ignored.luau")
+		assert.strcontains(result.stdout, "valid.luau")
+	end)
+
 	suite:case("lute lint passes context through to rules", function(assert)
 		-- custom rule that returns violating with globals and options in the message
 		local customRuleContents = [[

@@ -508,7 +508,11 @@ local function main(...: string)
 		-- search in calling dir
 		local cwd = process.cwd()
 		configPath = pathLib.join(cwd, ".config.luau")
+	elseif fs.type(configPath) ~= "file" then
+		print(`Error: Configuration path must point to a file, not {fs.type(configPath)}`)
+		process.exit(1)
 	end
+
 	if fs.exists(configPath) then
 		local success, loadedConfig = pcall(luau.loadbypath, configPath)
 		if success then
@@ -524,7 +528,7 @@ local function main(...: string)
 
 	local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
 	local rootLocation = if fs.exists(configPath)
-		then pathLib.format(pathLib.dirname(configPath))
+		then pathLib.format(pathLib.resolve(pathLib.dirname(configPath)))
 		else pathLib.format(process.cwd())
 	local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
 
