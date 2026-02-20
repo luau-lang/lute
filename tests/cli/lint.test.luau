@@ -2859,7 +2859,7 @@ return {
 		)
 
 		-- The CLI-provided rule is passed via customRuleContents (which uses -r),
-		-- while the config-provided rule is referenced via config.rulepaths
+		-- while the config-provided rules are referenced via config.rulepaths
 		lintTestHelper(assert, {
 			content = "local x = 1",
 			expectedExitCode = 1,
@@ -2969,5 +2969,3 @@ return {
 		end
 	)
 end)
-
-test.run()
