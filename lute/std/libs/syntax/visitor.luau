@@ -1015,7 +1015,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 				visit(s)
 			end,
 			visitExprInstantiate = visit,
-			visitTableExprItem = visit,
+			visitTableExprItem = visit :: (types.AstTableExprItem) -> boolean,
 			visitExprTable = visit,
 			visitExprIndexName = visit,
 			visitExprIndexExpr = visit,
@@ -1040,7 +1040,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitTypePackGeneric = visit,
 			visitTypePackVariadic = visit,
 
-			visitToken = visit,
+			visitToken = visit :: (types.Token) -> boolean,
 			visitExprConstantNil = visit,
 			visitExprConstantString = visit,
 			visitExprConstantBool = visit,
@@ -1068,10 +1068,10 @@ local function visit(node: types.AstNode, visitor: Visitor)
 		visitLocal(node, visitor)
 	elseif node.kind == "attribute" then
 		visitAttribute(node, visitor)
-	elseif node.istoken then
-		visitToken(node, visitor)
-	elseif node.istableitem then
-		visitTableExprItem(node, visitor)
+	elseif (node :: types.Token).istoken then
+		visitToken(node :: types.Token, visitor)
+	elseif (node :: types.AstTableExprItem).istableitem then
+		visitTableExprItem(node :: types.AstTableExprItem, visitor)
 	else
 		exhaustiveMatch(node.kind)
 	end
