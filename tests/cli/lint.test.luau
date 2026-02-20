@@ -34,6 +34,7 @@ type lintTestParams = {
 	content: string,
 	expectedExitCode: number,
 	rulePath: string?,
+	processOptions: process.processrunoptions?,
 	customRuleContents: string?,
 	expectedAutofixContents: string?,
 	disableDefaultLints: true?,
@@ -85,7 +86,7 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 
 	table.insert(lintArgs, violatorPath)
 
-	local result = process.run(lintArgs)
+	local result = process.run(lintArgs, params.processOptions)
 
 	-- Check
 	assert.eq(result.exitcode, params.expectedExitCode)
@@ -2754,25 +2755,39 @@ return {
 	end)
 
 	suite:case("rules given by config.rulepaths are loaded (in addition to CLI-passed rules) and ran", function(assert)
-		-- Create the config-provided rule (loaded via config.rulepaths, NOT via -r)
-		local configuredRulePath = path.format(path.join(tmpDir, "configuredRule.luau"))
-		fs.writestringtofile(
-			configuredRulePath,
-			[[
+		local ruleTemplate = [[
 return {
-	name = "configuredRule",
+	name = %q,
 	lint = function(ast, sourcepath, context)
 		return {
 			{
-				lintname = "configuredRule",
+				lintname = %q,
 				severity = "warn",
-				message = "Configured Rule Ran.",
+				message = %q,
 				location = ast.location
 			}
 		}
 	end
 }
-]]
+		]]
+		-- Create the config-provided rules (loaded via config.rulepaths, NOT via -r)
+		local configuredAbsoluteRulePath = path.format(path.join(tmpDir, "configuredAbsRule.luau"))
+		fs.writestringtofile(
+			configuredAbsoluteRulePath,
+			(ruleTemplate :: any):format(
+				"configuredAbsoluteRule",
+				"configuredAbsoluteRule",
+				"configuredAbsoluteRule ran."
+			)
+		)
+		local configuredRelativePath = path.format(path.join(tmpDir, "configuredRelativeRule.luau"))
+		fs.writestringtofile(
+			configuredRelativePath,
+			(ruleTemplate :: any):format(
+				"configuredRelativeRule",
+				"configuredRelativeRule",
+				"configuredRelativeRule ran."
+			)
 		)
 
 		-- The CLI-provided rule is passed via customRuleContents (which uses -r),
@@ -2799,16 +2814,20 @@ return {
 return {
 	lute = {
 		lint = {
-			rulepaths = { %q },
+			rulepaths = { %q, "./configuredRelativeRule.luau" },
 		}
 	}
 }
-]]):format(configuredRulePath),
+]]):format(configuredAbsoluteRulePath),
 			disableDefaultLints = true,
 			outputExpectations = {
 				-- both config-given and CLI-given rules should have ran
-				{ expectedOutput = "Configured Rule Ran.", count = 1 },
+				{ expectedOutput = "configuredAbsoluteRule ran.", count = 1 },
+				{ expectedOutput = "configuredRelativeRule ran.", count = 1 },
 				{ expectedOutput = "CLI Rule Ran.", count = 1 },
+			},
+			processOptions = {
+				cwd = path.format(tmpDir),
 			},
 		})
 	end)
@@ -2882,3 +2901,5 @@ return {
 		end
 	)
 end)
+
+test.run()
