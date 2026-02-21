@@ -90,7 +90,7 @@ local function errors(callback: () -> (), msg: string?): failure?
 end
 
 -- Table equality assertionsion with deep comparison
-local function tableeq(lhs: { [unknown]: unknown }, rhs: { [unknown]: unknown }): failure?
+local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }): failure?
 	local equal, msg = tablesEqual(lhs, rhs, "")
 	if equal then
 		return nil

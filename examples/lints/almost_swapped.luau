@@ -59,7 +59,7 @@ end
 
 -- Report instances of attempted swaps like:
 -- a = b; b = a
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintTypes.LintViolation }
+local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
 	local violations = {}
 
 	local nodes = query.findallfromroot(ast, utils.isStatBlock).nodes
@@ -80,7 +80,10 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintType
 			local nextVar, nextVal = nextStat.variables[1].node, nextStat.values[1].node
 
 			if compFuncs.refExprsSame(currVar, nextVal) and compFuncs.refExprsSame(nextVar, currVal) then
-				table.insert(violations, { -- LUAUFIX: severity isn't inferred as a singleton, so table.insert is mad
+ 				-- FIXME(Luau):
+				--	1. We don't infer "warning" as a singleton.
+				--	2. Bidirectional type checking of tables does not kick in.
+				table.insert(violations, {
 					lintname = name,
 					location = syntax.span.create({
 						beginline = currStat.location.beginline,
@@ -91,7 +94,10 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path): { lintType
 					message = message,
 					severity = "warning",
 					sourcepath = sourcepath,
-				})
+					-- We should be able to remove this assertion
+					-- once we can bidirectionally infer instantiated
+					-- generic functions.
+				} :: lintTypes.LintViolation)
 			end
 		end
 	end
