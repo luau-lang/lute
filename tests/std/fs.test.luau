@@ -1,3 +1,4 @@
+local failure = require("@std/test/failure")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local system = require("@std/system")
@@ -110,7 +111,10 @@ test.suite("FsSuite", function(suite)
 		until event
 
 		print("Watch iterator time taken: " .. (os.clock() - start))
-		assert.neq(event, nil)
+		if event == nil then
+			failure.assertion("watcher event was nil")
+			return
+		end
 		assert.eq(event.change or event.rename, true)
 
 		watcher:close()
