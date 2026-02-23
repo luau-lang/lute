@@ -45,7 +45,7 @@ type Config = {
             -- Array of paths from which to load local lint rules (similar to -r CLI option)
             rulepaths: { [string] }?,
             -- Specify per-rule options and overrides
-            rules: {
+            ruleconfigs: {
                 [RuleName]: {
                     -- Array of globs (.gitignore style) that are EXEMPT from this rule
                     ignores: { string }?,
