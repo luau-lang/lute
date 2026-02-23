@@ -1,6 +1,5 @@
 batteries/cli.luau:144:36-75
 batteries/cli.luau:148:6-45
-batteries/difftext/myersdiff.luau:76:8-22
 batteries/toml.luau:167:24-28
 examples/colorful.luau:1:18-47
 examples/net_example.luau:8:2-48
@@ -148,17 +147,6 @@ lute/std/libs/syntax/visitor.luau:1036:21-25
 lute/std/libs/syntax/visitor.luau:1036:21-25
 lute/std/libs/syntax/visitor.luau:1036:21-25
 lute/std/libs/syntax/visitor.luau:1036:21-25
-tests/batteries/collections/deque.test.luau:9:13-16
-tests/batteries/collections/deque.test.luau:16:13-16
-tests/batteries/collections/deque.test.luau:24:13-16
-tests/batteries/collections/deque.test.luau:32:13-16
-tests/batteries/collections/deque.test.luau:39:13-16
-tests/batteries/collections/deque.test.luau:48:13-16
-tests/batteries/collections/deque.test.luau:55:13-16
-tests/batteries/collections/deque.test.luau:61:13-16
-tests/batteries/collections/deque.test.luau:81:13-16
-tests/batteries/collections/deque.test.luau:86:13-16
-tests/batteries/collections/deque.test.luau:91:13-16
 tests/src/packages/package_aware_require/dep/module.luau:1:16-30
 tests/src/packages/pkgrun_with_lockfile/Packages/dep/src/init.luau:1:16-38
 tests/src/require/config_tests/config_ambiguity/requirer.luau:1:8-22
