@@ -1,17 +1,13 @@
-export type Deque<T> = {
+type DequeData<T> = {
 	_head: number,
 	_tail: number,
 	_values: { [number]: T },
-	pushfront: (self: Deque<T>, value: T) -> (),
-	pushback: (self: Deque<T>, value: T) -> (),
-	popfront: (self: Deque<T>) -> T,
-	popback: (self: Deque<T>) -> T,
-	peekfront: (self: Deque<T>) -> T?,
-	peekback: (self: Deque<T>) -> T?,
-	__len: (self: Deque<T>) -> number,
 }
 
 local deque = {}
+
+export type Deque<T> = setmetatable<DequeData<T>, typeof(deque)>
+
 deque.__index = deque
 deque.__len = function<T>(self: Deque<T>)
 	return self._tail - self._head + 1
