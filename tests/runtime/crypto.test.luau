@@ -63,7 +63,9 @@ test.suite("CryptoRuntimeTests", function(suite)
 		}
 
 		assert.errors(function()
-			crypto.secretbox.open(other)
+			-- We are testing that this fails when `ciphertext` is a string
+			-- rather than a buffer, so we must lie to Luau.
+			crypto.secretbox.open(other :: any)
 		end)
 	end)
 

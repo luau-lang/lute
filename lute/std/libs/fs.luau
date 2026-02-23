@@ -78,8 +78,12 @@ end
 --- Also provides a `close` method to stop watching.
 --- Note: for loops do not support yielding generalized iterators, so we cannot use fs.watch as `for _ in fs.watch(...) do` directly. A while loop can be used instead. See example/watch_directory.luau for usage.
 function fslib.watch(path: pathlike): watcher
-	local deq = deque.new()
-	local handle = fs.watch(pathlib.format(path), function(filename: string, event: watchevent)
+	-- In the future this could be written with explicit instantiation syntax
+	-- as in:
+	--
+	--	deque.new<<{ filename: path, event: watchevent }>>()
+	local deq = deque.new(nil :: { filename: path, event: watchevent }?)
+	local handle = fs.watch(pathlib.format(path), function(filename, event)
 		deq:pushback({ filename = pathlib.parse(filename), event = event })
 	end)
 

@@ -28,7 +28,7 @@ end
 ]]
 
 --- this should also not be captured because there is non function or property code
-local ignore = "value"
+local _ignore = "value"
 
 --[=[
  Block comment with equals above function declaration
