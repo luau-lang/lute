@@ -33,6 +33,8 @@ Path to a single file containing lute lint configuration table. If unspecified, 
 
 Configuration expects the following structure:
 ```luau
+type RuleName = string
+
 type Config = {
     lute: {
         lint: {
@@ -44,7 +46,7 @@ type Config = {
             rulepaths: { [string] }?,
             -- Specify per-rule options and overrides
             rules: {
-                [string]: {
+                [RuleName]: {
                     -- Array of globs (.gitignore style) that are EXEMPT from this rule
                     ignores: { string }?,
                     -- Override a rule's default severity
