@@ -29,7 +29,7 @@ Path to a single lint rule or a folder containing lint rules. If a folder is pro
 
 ### `-c, --config [CONFIG]`
 
-Path to a single file containing lute lint configuration table. If unspecified, lute lint will look for a `.config.luau` file in the working directory from which it is invoked.
+Path to file containing lute lint configuration table. If unspecified, lute lint will look for a `.config.luau` file in the working directory from which it is invoked.
 
 Configuration expects the following structure:
 ```luau
