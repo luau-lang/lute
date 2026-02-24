@@ -103,8 +103,7 @@ local function registerRule(
 	ruleIgnores: internalTypes.RuleIgnores
 )
 	local ruleConfig: internalTypes.RuleConfig = if config.ruleconfigs ~= nil
-			and config.ruleconfigs[rule.name] ~= nil
-		then config.ruleconfigs[rule.name] :: internalTypes.RuleConfig -- Refinement doesn't support dynamic indexing, so we need to assert the type here
+		then config.ruleconfigs[rule.name] or {}
 		else {}
 	if ruleConfig.off then
 		return
