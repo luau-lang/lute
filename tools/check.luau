@@ -14,7 +14,6 @@ local TYPECHECK_PATHS = {
 	"tests/batteries",
 	"tests/cli",
 	"tests/lute",
-	"tests/runtime",
 	"tests/src",
 	"tests/std",
 	"tools",
