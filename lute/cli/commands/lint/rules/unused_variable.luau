@@ -8,11 +8,47 @@ local name = "unused_variable"
 local message = "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused."
 local target = "https://lute.luau.org/cli/lint/unused_variable.html"
 
+type leaf = { tag: "leaf", vals: { [number]: true } }
+
+type branch = { tag: "branch", entries: { [string]: leaf } }
+
+-- We assume that we only need 2 levels of depth, since there currently no APIs nested more than 2 levels.
+-- If we need more levels in the future, we can generalize, but this greatly simplifies the logic.
+type smallTrie = { tag: "root", entries: { [string]: branch | leaf } }
+
 local function isRequireCall(expr: syntax.AstExpr)
 	return expr.tag == "call" and expr.func.tag == "global" and expr.func.name.text == "require"
 end
 
-local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
+local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie): { [number]: true }?
+	if func.tag == "global" then
+		local entry = writeOnlyAPIs.entries[func.name.text]
+
+		if not entry or entry.tag ~= "leaf" then
+			return nil
+		end
+
+		return entry.vals
+	elseif
+		(func.tag == "indexname" and func.expression.tag == "global")
+		or (func.tag == "index" and func.expression.tag == "global" and func.index.tag == "string") -- LUAUFIX: Refinement bug here: func should be narrowed to AstExprIndexExpr (CLI-190889)
+	then
+		func = func :: syntax.AstExprIndexName | syntax.AstExprIndexExpr
+		local branch = writeOnlyAPIs.entries[(func.expression :: syntax.AstExprGlobal).name.text]
+
+		if not branch or branch.tag ~= "branch" then
+			return nil
+		end
+
+		local entry = branch.entries[(func.index :: syntax.Token<string>).text]
+
+		return if entry then entry.vals else nil
+	else
+		return nil
+	end
+end
+
+local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie): { syntax.AstLocal }
 	local visitor: visitorLib.Visitor & {
 		unusedLocals: { syntax.AstLocal },
 		scopes: { { [syntax.AstLocal]: boolean } },
@@ -293,26 +329,110 @@ local function unusedLocals(block: syntax.AstStatBlock): { syntax.AstLocal }
 		return false
 	end
 
+	function visitor.visitExprCall(node: syntax.AstExprCall)
+		local writeOnlyIndices = getWriteOnlyArgs(node.func, writeOnlyAPIs)
+
+		if not writeOnlyIndices then
+			return true
+		end
+
+		visitorLib.visitexpression(node.func, visitor)
+
+		for i, arg in node.arguments do
+			if writeOnlyIndices[i] then
+				local prevInLValueContext = visitor.inLValueContext
+				visitor.inLValueContext = true
+				visitorLib.visitexpression(arg.node, visitor)
+				visitor.inLValueContext = prevInLValueContext
+			else
+				visitorLib.visitexpression(arg.node, visitor)
+			end
+		end
+
+		return false
+	end
+
 	visitorLib.visitblock(block, visitor)
 
 	return visitor.unusedLocals
 end
 
+local function isPositiveInt(v: unknown): boolean
+	return type(v) == "number" and v > 0 and math.floor(v) == v
+end
+
 local function lint(
 	ast: syntax.AstStatBlock,
 	sourcepath: path.path?,
-	_context: lintTypes.RuleContext
+	context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
-	return tableext.map(unusedLocals(ast), function(l): lintTypes.LintViolation
+	-- Validate context.options, which should be of form { ["api"] = { number } },
+	-- where the number keys represent argument indices which only write to their passed values.
+	for api, args in context.options do
+		local errorMessage =
+			`Expected options for API '{api}' to be an array of argument indices which only write to their passed values`
+		if type(args) ~= "table" then
+			error(errorMessage)
+		end
+
+		for k, v in args do
+			if not isPositiveInt(k) or not isPositiveInt(v) then
+				error(errorMessage)
+			end
+		end
+	end
+
+	local writeOnlyAPIs: smallTrie = {
+		tag = "root",
+		entries = {
+			table = { tag = "branch", entries = { insert = { tag = "leaf", vals = { [1] = true } } } },
+		},
+	}
+
+	for k, v in context.options do
+		local parts = k:split(".")
+		if #parts < 1 or #parts > 2 then
+			error(`Invalid API '{k}' in options. Only APIs up to 2 levels deep are supported.`)
+		end
+
+		if #parts == 1 then
+			local entry = writeOnlyAPIs.entries[parts[1]]
+
+			if entry then
+				error(
+					`API '{parts[1]}' is already defined as {if entry.tag == "branch" then "part of " else ""}a write-only API, so '{k}' cannot be added as a write-only API.`
+				)
+			end
+
+			writeOnlyAPIs.entries[parts[1]] = { tag = "leaf", vals = tableext.toset(v :: { number }) } -- We validate v above, so the cast is ok
+		else
+			if not writeOnlyAPIs.entries[parts[1]] then
+				writeOnlyAPIs.entries[parts[1]] = {
+					tag = "branch",
+					entries = { [parts[2]] = { tag = "leaf", vals = tableext.toset(v :: { number }) } },
+				}
+			else
+				local branch = writeOnlyAPIs.entries[parts[1]]
+				if branch.tag ~= "branch" then
+					error(
+						`API '{parts[1]}' is already defined as a write-only API, so '{k}' cannot be added as a write-only API.`
+					)
+				end
+				branch.entries[parts[2]] = { tag = "leaf", vals = tableext.toset(v :: { number }) } -- We validate v above, so the cast is ok
+			end
+		end
+	end
+
+	return tableext.map(unusedLocals(ast, writeOnlyAPIs), function(l): lintTypes.LintViolation
 		return {
 			lintname = name,
-			location = l.location,
+			location = l.location, -- LUAUFIX: Bidirectional inference should let us know that l : syntax.AstLocal
 			message = message,
 			severity = "warning",
 			sourcepath = sourcepath,
 			target = target,
 			tags = { "unnecessary" },
-		} -- LUAUFIX: Table literal doesn't subtype against lintTypes.LintViolation for some reason
+		}
 	end)
 end
 
