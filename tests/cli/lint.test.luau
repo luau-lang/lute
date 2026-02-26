@@ -34,6 +34,7 @@ type lintTestParams = {
 	content: string,
 	expectedExitCode: number,
 	rulePath: string?,
+	processOptions: process.processrunoptions?,
 	customRuleContents: string?,
 	expectedAutofixContents: string?,
 	disableDefaultLints: true?,
@@ -85,7 +86,7 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 
 	table.insert(lintArgs, violatorPath)
 
-	local result = process.run(lintArgs)
+	local result = process.run(lintArgs, params.processOptions)
 
 	-- Check
 	assert.eq(result.exitcode, params.expectedExitCode)
@@ -2493,7 +2494,7 @@ return {
 		-- 	return {
 		-- 		lute = {
 		-- 			lint = {
-		-- 				rules = "should be table"
+		-- 				ruleConfigs "should be table"
 		-- 			}
 		-- 		}
 		-- 	}
@@ -2915,7 +2916,7 @@ local t = { [0] = 1 }
 					globals = {
 						["testGlobal"] = 1,
 					},
-					rules = {
+					ruleconfigs = {
 						["testRule"] = {
 							options = {
 								["testOption"] = "nice",
@@ -2957,7 +2958,7 @@ local t = { [0] = 1 }
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["divide_by_zero"] = {
 					ignores = { "**/violator.luau" }
 				}
@@ -3010,7 +3011,7 @@ b = a
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["divide_by_zero"] = {
 					ignores = { "**/ignoredDir/**" }
 				}
@@ -3042,7 +3043,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					rules = {
+					ruleconfigs = {
 						["almost_swapped"] = {
 							off = true,
 						}
@@ -3081,7 +3082,7 @@ return {
 		return {
 			lute = {
 				lint = {
-					rules = {
+					ruleconfigs = {
 						["customRule"] = {
 							off = true,
 						}
@@ -3116,7 +3117,7 @@ return {
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["divide_by_zero"] = {
 					severity = "error"
 				}
@@ -3136,4 +3137,151 @@ return {
 			},
 		})
 	end)
+
+	suite:case("rules given by config.rulepaths are loaded (in addition to CLI-passed rules) and ran", function(assert)
+		local ruleTemplate = [[
+return {
+	name = %q,
+	lint = function(ast, sourcepath, context)
+		return {
+			{
+				lintname = %q,
+				severity = "warn",
+				message = %q,
+				location = ast.location
+			}
+		}
+	end
+}
+		]]
+		-- Create the config-provided rules (loaded via config.rulepaths, NOT via -r)
+		local configuredAbsoluteRulePath = path.format(path.join(tmpDir, "configuredAbsRule.luau"))
+		fs.writestringtofile(
+			configuredAbsoluteRulePath,
+			(ruleTemplate :: any):format(
+				"configuredAbsoluteRule",
+				"configuredAbsoluteRule",
+				"configuredAbsoluteRule ran."
+			)
+		)
+		local configuredRelativePath = path.format(path.join(tmpDir, "configuredRelativeRule.luau"))
+		fs.writestringtofile(
+			configuredRelativePath,
+			(ruleTemplate :: any):format(
+				"configuredRelativeRule",
+				"configuredRelativeRule",
+				"configuredRelativeRule ran."
+			)
+		)
+
+		-- The CLI-provided rule is passed via customRuleContents (which uses -r),
+		-- while the config-provided rules are referenced via config.rulepaths
+		lintTestHelper(assert, {
+			content = "local x = 1",
+			expectedExitCode = 1,
+			customRuleContents = [[
+return {
+	name = "cliRule",
+	lint = function(ast, sourcepath, context)
+		return {
+			{
+				lintname = "cliRule",
+				severity = "warn",
+				message = "CLI Rule Ran.",
+				location = ast.location
+			}
+		}
+	end
+}
+]],
+			configContents = ([[
+return {
+	lute = {
+		lint = {
+			rulepaths = { %q, "./configuredRelativeRule.luau" },
+		}
+	}
+}
+]]):format(configuredAbsoluteRulePath),
+			disableDefaultLints = true,
+			outputExpectations = {
+				-- both config-given and CLI-given rules should have ran
+				{ expectedOutput = "configuredAbsoluteRule ran.", count = 1 },
+				{ expectedOutput = "configuredRelativeRule ran.", count = 1 },
+				{ expectedOutput = "CLI Rule Ran.", count = 1 },
+			},
+			processOptions = {
+				cwd = path.format(tmpDir),
+			},
+		})
+	end)
+
+	suite:case(
+		"lute lint properly loads rule-specific configuration for rules provided by config.rulepaths",
+		function(assert)
+			local testSubDir = path.join(tmpDir, "module")
+			fs.createdirectory(testSubDir)
+
+			local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
+			local configuredRuleContents = [[
+		return {
+			name = "configuredRule",
+			lint = function(ast, sourcepath, context)
+				return {
+					{
+						lintname = "configuredRule",
+						severity = "warn",
+						message = `Configured Rule Ran with options.a = {context.options.a}`,
+						location = ast.location,
+						sourcepath = sourcepath,
+					}
+				}
+			end
+		}
+		]]
+			fs.writestringtofile(configuredRulePath, configuredRuleContents)
+
+			local configFile = path.join(testSubDir, ".config.luau")
+			local configContents = ([[
+		return {
+			lute = {
+				lint = {
+					rulepaths = { %q },
+					ruleconfigs = {
+						["configuredRule"] = {
+							ignores = { "**/ignoredDir/**" },
+							options = {
+								a = 1,
+							}
+						}
+					}
+				}
+			}
+		}
+		]]):format(path.format(configuredRulePath))
+			fs.writestringtofile(configFile, configContents)
+
+			local ignoredDir = path.join(testSubDir, "ignoredDir")
+			local notIgnoredDir = path.join(testSubDir, "not_ignored")
+			fs.createdirectory(ignoredDir)
+			fs.createdirectory(notIgnoredDir)
+			local ignoredFile = path.join(ignoredDir, "ignored.luau")
+			local notIgnoredFile = path.join(notIgnoredDir, "valid.luau")
+			local violatingContents = "print('hello world')"
+			fs.writestringtofile(ignoredFile, violatingContents)
+			fs.writestringtofile(notIgnoredFile, violatingContents)
+
+			local result = process.run({
+				lutePath,
+				"lint",
+				"-c",
+				path.format(configFile),
+				path.format(testSubDir),
+			})
+			assert.eq(result.exitcode, 1) -- errors
+			assert.strnotcontains(result.stdout, "ignored.luau")
+			assert.strcontains(result.stdout, "valid.luau")
+			assert.strcontains(result.stdout, "Configured Rule Ran with options.a = 1") -- options are correctly passed through
+		end
+	)
 end)
