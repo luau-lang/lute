@@ -2154,6 +2154,322 @@ end
 		})
 	end)
 
+	suite:case("unused_variable with table.insert default write-only API", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = {}
+table.insert(t, 1)
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
+					count = 1,
+				},
+				{
+					expectedOutput = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local t = {}
+   │       ^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("unused_variable with custom write-only API (single level)", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local output = {}
+myWrite(output, "data")
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["unused_variable"] = {
+					options = {
+						myWrite = { 1 }
+					}
+				}
+			}
+		}
+	}
+}
+			]],
+			outputExpectations = {
+				{
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
+					count = 1,
+				},
+				{
+					expectedOutput = [[
+violator.luau:1:7-13 ──
+   │
+ 1 │ local output = {}
+   │       ^^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("unused_variable with custom write-only API (nested)", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local buffer = {}
+fs.write(buffer, "content")
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["unused_variable"] = {
+					options = {
+						["fs.write"] = { 1 }
+					}
+				}
+			}
+		}
+	}
+}
+			]],
+			outputExpectations = {
+				{
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
+					count = 1,
+				},
+				{
+					expectedOutput = [[
+violator.luau:1:7-13 ──
+   │
+ 1 │ local buffer = {}
+   │       ^^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("unused_variable with custom write-only API (nested, index expr access)", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local buffer = {}
+fs["write"](buffer, "content")
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["unused_variable"] = {
+					options = {
+						["fs.write"] = { 1 }
+					}
+				}
+			}
+		}
+	}
+}
+			]],
+			outputExpectations = {
+				{
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
+					count = 1,
+				},
+				{
+					expectedOutput = [[
+violator.luau:1:7-13 ──
+   │
+ 1 │ local buffer = {}
+   │       ^^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("unused_variable with multiple write-only args", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local a = {}
+local b = {}
+myMultiWrite(a, b, "data")
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["unused_variable"] = {
+					options = {
+						myMultiWrite = { 1, 2 }
+					}
+				}
+			}
+		}
+	}
+}
+			]],
+			outputExpectations = {
+				{
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
+					count = 2,
+				},
+				{
+					expectedOutput = [[
+violator.luau:1:7-8 ──
+   │
+ 1 │ local a = {}
+   │       ^
+   │
+]],
+					count = 1,
+				},
+				{
+					expectedOutput = [[
+violator.luau:2:7-8 ──
+   │
+ 2 │ local b = {}
+   │       ^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("unused_variable with write-only arg at position 2", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local config = "read"
+local output = {}
+myFunc(config, output)
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["unused_variable"] = {
+					options = {
+						myFunc = { 2 }
+					}
+				}
+			}
+		}
+	}
+}
+			]],
+			outputExpectations = {
+				{
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
+					count = 1,
+				},
+				{
+					expectedOutput = [[
+violator.luau:2:7-13 ──
+   │
+ 2 │ local output = {}
+   │       ^^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("unused_variable with deep nesting errors", function(assert)
+		lintTestHelper(assert, {
+			content = "local x = 1",
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["unused_variable"] = {
+					options = {
+						["deeply.nested.api"] = { 1 }
+					}
+				}
+			}
+		}
+	}
+}
+			]],
+			outputExpectations = {
+				{
+					expectedOutput = "Invalid API 'deeply.nested.api' in options. Only APIs up to 2 levels deep are supported.",
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("unused_variable with conflicting API definitions errors", function(assert)
+		lintTestHelper(assert, {
+			content = "local x = 1",
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			configContents = [[
+return {
+	lute = {
+		lint = {
+			rules = {
+				["unused_variable"] = {
+					options = {
+						myApi = { 1 },
+						["myApi.nested"] = { 1 }
+					}
+				}
+			}
+		}
+	}
+}
+			]],
+			outputExpectations = {
+				{
+					expectedOutput = "API 'myApi' is already defined as part of a write-only API, so 'myApi' cannot be added as a write-only API.",
+					count = 1,
+				},
+			},
+		})
+	end)
+
 	suite:case("throws error when config has invalid structure", function(assert)
 		-- local invalidGlobalConfig = [[
 		-- 	return {
@@ -2506,6 +2822,74 @@ local t = { [0] = 1 }
 		assert.strcontains(result.stdout, "notIgnored.luau")
 		assert.strcontains(result.stdout, "divide_by_zero")
 		assert.strcontains(result.stdout, "almost_swapped")
+	end)
+
+	suite:case("lute lint handles ignores with relative config path", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/ignored.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		-- Pass config as a relative path, setting cwd to ensure relative config path is correct
+		local result = process.run({ lutePath, "lint", "-c", ".config.luau", "." }, {
+			cwd = path.format(testSubDir),
+		})
+		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
+		assert.strnotcontains(result.stdout, "ignored.luau")
+		assert.strcontains(result.stdout, "valid.luau")
+	end)
+
+	suite:case("lute lint handles ignores with absolute config path", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createdirectory(testSubDir)
+
+		local ignoredFile = path.join(testSubDir, "ignored.luau")
+		local notIgnoredFile = path.join(testSubDir, "valid.luau")
+		local violatingContents = [[
+			a = b
+			b = a
+			c = 1 / 0
+		]]
+		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writestringtofile(notIgnoredFile, violatingContents)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		local configContents = [[
+		return {
+			lute = {
+				lint = {
+					ignores = { "**/ignored.luau" }
+				}
+			}
+		}
+		]]
+		fs.writestringtofile(configFile, configContents)
+
+		-- Pass config as an absolute path, with cwd set to a different directory (homedir)
+		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
+		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
+		assert.strnotcontains(result.stdout, "ignored.luau")
+		assert.strcontains(result.stdout, "valid.luau")
 	end)
 
 	suite:case("lute lint passes context through to rules", function(assert)

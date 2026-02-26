@@ -1,7 +1,7 @@
 local process = require("@std/process")
 local task = require("@std/task")
 
-process.system("echo hello", { cwd = {} })
+process.system("echo hello", {})
 
 local result = process.run({ "echo", "Hello, lute!" })
 

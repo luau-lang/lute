@@ -7,13 +7,17 @@ local function istestfile(filename: string): boolean
 	return stringext.hassuffix(filename, ".test.luau") or stringext.hassuffix(filename, ".spec.luau")
 end
 
-local function findtestfiles(paths: { string }): { path.path }
+local function issnapfile(filename: string): boolean
+	return stringext.hassuffix(filename, ".snap.luau")
+end
+
+local function findfiles(paths: { string }, predicate: (string) -> boolean): { path.path }
 	local files = {}
-	local function findfiles(p: path.pathlike)
+	local function walk(p: path.pathlike)
 		local it = fs.walk(path.normalize(p), { recursive = true })
 		local file = it()
 		while file do
-			if fs.type(file) ~= "dir" and istestfile(path.format(file)) then
+			if fs.type(file) ~= "dir" and predicate(path.format(file)) then
 				table.insert(files, path.normalize(file))
 			end
 			file = it()
@@ -22,10 +26,22 @@ local function findtestfiles(paths: { string }): { path.path }
 
 	local cwd = ps.cwd()
 	for _, p in paths do
-		findfiles(path.join(cwd, p))
+		if path.isabsolute(p) then
+			walk(p)
+		else
+			walk(path.join(cwd, p))
+		end
 	end
 
 	return files
 end
 
-return table.freeze({ findtestfiles = findtestfiles })
+local function findtestfiles(paths: { string }): { path.path }
+	return findfiles(paths, istestfile)
+end
+
+local function findsnapfiles(paths: { string }): { path.path }
+	return findfiles(paths, issnapfile)
+end
+
+return table.freeze({ findtestfiles = findtestfiles, findsnapfiles = findsnapfiles })

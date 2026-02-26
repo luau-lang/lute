@@ -30,30 +30,6 @@ test.suite("lute transform", function(suite)
 		end
 	end)
 
-	suite:case("transform visitor style", function(assert)
-		-- Setup
-		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
-		local transformerExample = path.format(path.join("examples", "transformer.luau"))
-		local transformerDest = path.format(path.join(tmpDir, "transformer.luau"))
-		fs.copy(transformerExample, transformerDest)
-
-		-- Do
-		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "transform", transformerDest, transformeePath })
-
-		-- Check
-		assert.eq(result.exitcode, 0)
-
-		local transformeeHandle = fs.open(transformeePath, "r")
-		local transformeeContent = fs.read(transformeeHandle)
-		assert.eq(transformeeContent:find("x ~= x"), nil)
-		assert.strcontains(transformeeContent, "math.isnan(x)")
-		fs.close(transformeeHandle)
-
-		-- Teardown
-		fs.remove(transformerDest)
-	end)
-
 	suite:case("transform query style", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau

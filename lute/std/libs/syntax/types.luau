@@ -43,13 +43,13 @@ export type AstExprIndexExpr = luau.AstExprIndexExpr
 
 export type AstExprFunction = luau.AstExprFunction
 
-export type AstExprTableItemList = luau.AstExprTableItemList
+export type AstTableExprListItem = luau.AstTableExprListItem
 
-export type AstExprTableItemRecord = luau.AstExprTableItemRecord
+export type AstTableExprRecordItem = luau.AstTableExprRecordItem
 
-export type AstExprTableItemGeneral = luau.AstExprTableItemGeneral
+export type AstTableExprGeneralItem = luau.AstTableExprGeneralItem
 
-export type AstExprTableItem = luau.AstExprTableItem
+export type AstTableExprItem = luau.AstTableExprItem
 
 export type AstExprTable = luau.AstExprTable
 
@@ -131,17 +131,17 @@ export type AstTypeIntersection = luau.AstTypeIntersection
 
 export type AstTypeArray = luau.AstTypeArray
 
-export type AstTypeTableItemIndexer = luau.AstTypeTableItemIndexer
+export type AstTableTypeItemIndexer = luau.AstTableTypeItemIndexer
 
-export type AstTypeTableItemStringProperty = luau.AstTypeTableItemStringProperty
+export type AstTableTypeItemStringProperty = luau.AstTableTypeItemStringProperty
 
-export type AstTypeTableItemProperty = luau.AstTypeTableItemProperty
+export type AstTableTypeItemProperty = luau.AstTableTypeItemProperty
 
-export type AstTypeTableItem = luau.AstTypeTableItem
+export type AstTableTypeItem = luau.AstTableTypeItem
 
 export type AstTypeTable = luau.AstTypeTable
 
-export type AstTypeFunctionParameter = luau.AstTypeFunctionParameter
+export type AstFunctionTypeParameter = luau.AstFunctionTypeParameter
 
 export type AstTypeFunction = luau.AstTypeFunction
 
