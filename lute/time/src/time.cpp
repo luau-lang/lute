@@ -242,6 +242,33 @@ static int instant__sub(lua_State* L)
     return createDurationFromSeconds(L, static_cast<double>(diffTimespecs(left, right)));
 }
 
+static int instant__eq(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromInstant(L, 1);
+    uv_timespec64_t right = getTimespecFromInstant(L, 2);
+
+    lua_pushboolean(L, left.tv_sec == right.tv_sec && left.tv_nsec == right.tv_nsec);
+    return 1;
+}
+
+static int instant__lt(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromInstant(L, 1);
+    uv_timespec64_t right = getTimespecFromInstant(L, 2);
+
+    lua_pushboolean(L, left.tv_sec < right.tv_sec || (left.tv_sec == right.tv_sec && left.tv_nsec < right.tv_nsec));
+    return 1;
+}
+
+static int instant__le(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromInstant(L, 1);
+    uv_timespec64_t right = getTimespecFromInstant(L, 2);
+
+    lua_pushboolean(L, left.tv_sec < right.tv_sec || (left.tv_sec == right.tv_sec && left.tv_nsec <= right.tv_nsec));
+    return 1;
+}
+
 namespace duration
 {
 int lua_nanoseconds(lua_State* L)
@@ -475,6 +502,15 @@ static void init_instant_lib(lua_State* L)
 
     lua_pushcfunction(L, instant__sub, "Instant__sub");
     lua_setfield(L, -2, "__sub");
+
+    lua_pushcfunction(L, instant__eq, "Instant__eq");
+    lua_setfield(L, -2, "__eq");
+
+    lua_pushcfunction(L, instant__lt, "Instant__lt");
+    lua_setfield(L, -2, "__lt");
+
+    lua_pushcfunction(L, instant__le, "Instant__le");
+    lua_setfield(L, -2, "__le");
 
     // __index table
     lua_createtable(L, 0, 2);
