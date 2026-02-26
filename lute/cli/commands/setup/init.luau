@@ -30,6 +30,9 @@ for key, value in definitions :: { [string]: string } do
 	fs.writestringtofile(filePath, value)
 end
 
+local typedefsLuauRcPath = path.join(BASE_PATH, ".luaurc")
+fs.writestringtofile(typedefsLuauRcPath, json.serialize(TEMPLATE_RC_FILE, true))
+
 print(`Successfully wrote type definition files to {BASE_PATH_PRETTY}`)
 
 if not table.find(args, "--with-luaurc") then
