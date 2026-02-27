@@ -2194,7 +2194,7 @@ myWrite(output, "data")
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["unused_variable"] = {
 					options = {
 						myWrite = { 1 }
@@ -2237,7 +2237,7 @@ fs.write(buffer, "content")
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["unused_variable"] = {
 					options = {
 						["fs.write"] = { 1 }
@@ -2280,7 +2280,7 @@ fs["write"](buffer, "content")
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["unused_variable"] = {
 					options = {
 						["fs.write"] = { 1 }
@@ -2324,7 +2324,7 @@ myMultiWrite(a, b, "data")
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["unused_variable"] = {
 					options = {
 						myMultiWrite = { 1, 2 }
@@ -2378,7 +2378,7 @@ myFunc(config, output)
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["unused_variable"] = {
 					options = {
 						myFunc = { 2 }
@@ -2418,7 +2418,7 @@ violator.luau:2:7-13 ──
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["unused_variable"] = {
 					options = {
 						["deeply.nested.api"] = { 1 }
@@ -2448,7 +2448,7 @@ return {
 return {
 	lute = {
 		lint = {
-			rules = {
+			ruleconfigs = {
 				["unused_variable"] = {
 					options = {
 						myApi = { 1 },
