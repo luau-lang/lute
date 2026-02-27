@@ -81,12 +81,8 @@ lute/cli/commands/transform/lib/arguments.luau:47:26-37
 lute/cli/commands/transform/lib/arguments.luau:47:26-37
 lute/cli/commands/transform/lib/arguments.luau:75:9-14
 lute/cli/commands/transform/lib/arguments.luau:75:9-14
-lute/std/libs/fs.luau:141:34-39
-lute/std/libs/fs.luau:141:34-39
-lute/std/libs/fs.luau:190:52-68
-lute/std/libs/fs.luau:190:52-68
-lute/std/libs/fs.luau:198:11-17
-lute/std/libs/fs.luau:198:11-17
+lute/std/libs/fs.luau:192:52-68
+lute/std/libs/fs.luau:192:52-68
 lute/std/libs/syntax/printer.luau:41:23-27
 lute/std/libs/syntax/printer.luau:41:23-27
 lute/std/libs/syntax/printer.luau:42:25-29
