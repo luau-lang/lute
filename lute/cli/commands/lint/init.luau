@@ -21,6 +21,7 @@ local DEFAULT_RULES = {
 	"constant_table_comparison",
 	"divide_by_zero",
 	"duplicate_keys",
+	"empty_if_block",
 	"parenthesized_conditions",
 	"unused_variable",
 }
@@ -324,7 +325,7 @@ local function lintString(
 
 	table.sort(
 		violations,
-		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirecitonal inference should mean that annotations on a and b aren't needed
+		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirectional inference should mean that annotations on a and b aren't needed
 			return a.location < b.location
 		end
 	)
