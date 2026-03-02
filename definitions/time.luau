@@ -109,6 +109,9 @@ export type Instant = setmetatable<Frozen, {
 	read __metatable: "The metatable is locked!",
 	read __index: typeof(table.freeze(instant)),
 	read __sub: (Instant, Instant) -> Duration,
+	read __eq: (Instant, Instant) -> boolean,
+	read __lt: (Instant, Instant) -> boolean,
+	read __le: (Instant, Instant) -> boolean,
 }>
 
 return time

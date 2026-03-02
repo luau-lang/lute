@@ -103,8 +103,8 @@ local function registerRule(
 	ruleConfigs: internalTypes.RuleConfigurations,
 	ruleIgnores: internalTypes.RuleIgnores
 )
-	local ruleConfig: internalTypes.RuleConfig = if config.rules ~= nil and config.rules[rule.name] ~= nil
-		then config.rules[rule.name] :: internalTypes.RuleConfig -- Refinement doesn't support dynamic indexing, so we need to assert the type here
+	local ruleConfig: internalTypes.RuleConfig = if config.ruleconfigs ~= nil
+		then config.ruleconfigs[rule.name] or {}
 		else {}
 	if ruleConfig.off then
 		return
@@ -549,6 +549,17 @@ local function main(...: string)
 		tableext.extend(lintRules, customRules)
 		tableext.combine(ruleConfigurations, customConfigs)
 		tableext.combine(ruleIgnoreData, customIgnores)
+	end
+
+	-- load local rules from config rules path
+	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rulepaths then lintConfig.rulepaths else {}
+	for _, path in configuredRulePaths do
+		local resolvedPath = pathLib.resolve(rootLocation, path)
+		local loadedRules, loadedConfigs, loadedIgnoreData =
+			loadLintRules(pathLib.format(resolvedPath), lintConfig, rootLocation)
+		tableext.extend(lintRules, loadedRules)
+		tableext.combine(ruleConfigurations, loadedConfigs)
+		tableext.combine(ruleIgnoreData, loadedIgnoreData)
 	end
 
 	local configContextData = {
