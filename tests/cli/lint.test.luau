@@ -3444,7 +3444,7 @@ violator.luau:5:1-10:4 ──
 	suite:case("empty_if_block with comments (comments_count = true)", function(assert)
 		local configContents = [[
 return {
-	lute = { lint = { rules = {
+	lute = { lint = { ruleconfigs = {
 		empty_if_block = {
 			options = {
 				comments_count = true,

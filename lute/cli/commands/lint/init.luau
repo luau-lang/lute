@@ -325,7 +325,7 @@ local function lintString(
 
 	table.sort(
 		violations,
-		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirecitonal inference should mean that annotations on a and b aren't needed
+		function(a: types.LintViolation, b: types.LintViolation) -- LUAUFIX: bidirectional inference should mean that annotations on a and b aren't needed
 			return a.location < b.location
 		end
 	)
