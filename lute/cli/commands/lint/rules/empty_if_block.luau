@@ -33,7 +33,7 @@ local function isBlockEmpty(
 		return true
 	end
 
-    -- if comments_count is true, the block is not empty when it contains comments.
+	-- if comments_count is true, the block is not empty when it contains comments.
 	if containsComment(leadingTrivia) or containsComment(trailingTrivia) then
 		return false
 	end
