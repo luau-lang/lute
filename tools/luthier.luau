@@ -286,7 +286,6 @@ local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
 		print(`Delimiter {delimiter} cannot be greater than length 16. Please shorten the embedded module name`)
 		process.exit(1)
 	end
-	
 
 	local cpp = fs.open(joinPath(config.outputDir, cppFile), "w+")
 
