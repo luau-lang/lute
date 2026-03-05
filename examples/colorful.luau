@@ -1,11 +1,11 @@
-local colorful = require("@batteries/colorful")
+local richterm = require("@batteries/richterm")
 
-print(colorful.red("This is red text!"))
-print(colorful.bgRed("This is red background!"))
-print(colorful.bold("This is bold text!"))
-print(colorful.underline("This is underlined text!"))
-print(colorful.dim(colorful.italic("This is dim italic text!")))
+print(richterm.red("This is red text!"))
+print(richterm.bgRed("This is red background!"))
+print(richterm.bold("This is bold text!"))
+print(richterm.underline("This is underlined text!"))
+print(richterm.dim(richterm.italic("This is dim italic text!")))
 
-print(colorful.red(`red({colorful.blue(`blue({colorful.green("green")})`)})`))
+print(richterm.red(`red({richterm.blue(`blue({richterm.green("green")})`)})`))
 
-print(colorful.combine(colorful.red, colorful.bold)("This is bold red text!"))
+print(richterm.combine(richterm.red, richterm.bold)("This is bold red text!"))
