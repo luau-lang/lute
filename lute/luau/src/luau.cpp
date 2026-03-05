@@ -131,24 +131,30 @@ struct Span
 
 static Span checkSpan(lua_State* L, int index)
 {
+	lua_checkstack(L, 1);
+
     if (!lua_istable(L, index))
         luaL_typeerror(L, index, "span");
 
     if (lua_getfield(L, index, "beginline") == LUA_TNIL)
         luaL_typeerror(L, index, "span");
     int beginLine = lua_tonumber(L, -1);
+    lua_pop(L, 1);
 
     if (lua_getfield(L, index, "begincolumn") == LUA_TNIL)
         luaL_typeerror(L, index, "span");
     int beginColumn = lua_tonumber(L, -1);
+    lua_pop(L, 1);
 
     if (lua_getfield(L, index, "endline") == LUA_TNIL)
         luaL_typeerror(L, index, "span");
     int endLine = lua_tonumber(L, -1);
+    lua_pop(L, 1);
 
     if (lua_getfield(L, index, "endcolumn") == LUA_TNIL)
         luaL_typeerror(L, index, "span");
     int endColumn = lua_tonumber(L, -1);
+    lua_pop(L, 1);
 
     return {static_cast<uint32_t>(beginLine), static_cast<uint32_t>(beginColumn), static_cast<uint32_t>(endLine), static_cast<uint32_t>(endColumn)};
 }
