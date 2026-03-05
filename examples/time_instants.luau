@@ -6,4 +6,7 @@ for _ = 1, 10000 do
 end
 local stop = time.now()
 
+assert(stop > start)
+assert(stop ~= start)
+assert(start == start)
 print((stop - start):tomicroseconds())

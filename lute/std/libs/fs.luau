@@ -7,6 +7,7 @@ local deque = require("@batteries/collections/deque")
 local fs = require("@lute/fs")
 local pathlib = require("@std/path")
 local sys = require("@std/system")
+local win32paths = require("@std/path/win32")
 
 local fslib = {}
 
@@ -20,6 +21,7 @@ export type watchevent = fs.WatchEvent
 
 type pathlike = pathlib.pathlike
 type path = pathlib.path
+type win32path = win32paths.path
 
 export type createdirectoryoptions = {
 	makeparents: boolean?,
@@ -138,7 +140,7 @@ function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?)
 		if pathlib.isabsolute(path) then
 			if sys.win32 then
 				-- Windows path - get the drive root like "C:\"
-				subdir = pathlib.win32.drive(parsed)
+				subdir = pathlib.win32.drive(parsed :: win32path)
 			else
 				-- POSIX absolute path - start from root "/"
 				subdir = pathlib.format({ absolute = true, parts = {} })
@@ -178,7 +180,7 @@ end
 
 --- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead. See example/walk_directory.luau for usage.
 function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
-	local queue = { path }
+	local queue: { path } = { pathlib.parse(path) }
 
 	return function()
 		while #queue > 0 do
