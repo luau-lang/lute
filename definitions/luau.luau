@@ -1,7 +1,6 @@
 -- lute-lint-global-ignore(unused_variable)
 local luau = {}
 
--- this is a userdata, not a table, but it has this interface
 type spandata = {
 	read beginline: number,
 	read begincolumn: number,
