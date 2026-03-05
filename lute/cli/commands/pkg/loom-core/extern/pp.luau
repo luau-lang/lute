@@ -90,14 +90,15 @@ local function traverseTable(
 	local output = ""
 	local indentStr = string.rep("  ", indent)
 
-	local keys = {}
+	local keys: {unknown} = {}
 
 	-- Collect all keys, not just primitives
 	for key in dataTable do
 		table.insert(keys, key)
 	end
 
-	table.sort(keys, function(a: string, b: string): boolean
+	-- LUAUFIX: we should not need to explicitly instantiate the type of `table.sort`
+	table.sort<<unknown>>(keys, function(a, b)
 		local typeofTableA, typeofTableB = typeof(dataTable[a]), typeof(dataTable[b])
 
 		if typeofTableA ~= typeofTableB then
