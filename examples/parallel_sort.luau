@@ -2,7 +2,7 @@ local vm = require("@lute/vm")
 
 local task = require("@std/task")
 
-local function getslice(t, n, m)
+local function getslice(t, n: number, m: number)
 	local size = math.ceil(#t / m)
 
 	local slice = table.create(size)
@@ -10,7 +10,7 @@ local function getslice(t, n, m)
 	return slice
 end
 
-local function merge(t1, t2, comp)
+local function merge<T>(t1: {T}, t2: {T}, comp: (T, T) -> lt<T>)
 	local t = table.create(#t1 + #t2)
 	local pos1, pos2, pos = 1, 1, 1
 
@@ -42,13 +42,13 @@ local function merge(t1, t2, comp)
 end
 
 local threadCount = 8
-local threads = {}
+local threads: {{ [any]: any }} = {}
 
 for _ = 1, threadCount do
 	table.insert(threads, vm.create("./parallel_sort_helper"))
 end
 
-local function parallelMergeSort(t, comp)
+local function parallelMergeSort<T>(t: {T}, comp: (T, T) -> lt<T>): {T}
 	local slices = {}
 
 	for i = 1, threadCount do
@@ -56,12 +56,13 @@ local function parallelMergeSort(t, comp)
 	end
 
 	local tomerge = table.pack(task.awaitall(table.unpack(slices)))
-	tomerge.n = nil
+	tomerge.n = nil :: any
 
 	while #tomerge > 1 do
 		local next = {}
 		for i = 1, #tomerge, 2 do
-			table.insert(next, merge(tomerge[i], tomerge[i + 1], comp))
+			-- LUAUFIX: we should not need to explicitly cast these arrays to {T}
+			table.insert(next, merge(tomerge[i] :: {T}, tomerge[i + 1] :: {T}, comp))
 		end
 
 		tomerge = next
@@ -81,13 +82,14 @@ end
 local t2 = table.clone(t)
 
 local startseq = os.clock()
-table.sort(t, function(a, b)
+table.sort(t, function(a: number, b: number)
 	return a < b
 end)
 print("sequential in:", os.clock() - startseq)
 
 local startparallel = os.clock()
-t2 = parallelMergeSort(t2, function(a, b)
+-- LUAUFIX: we should not need to explicitly instantiate the type here
+t2 = parallelMergeSort<<number>>(t2, function(a, b)
 	return a < b
 end)
 print("parallel in:", os.clock() - startparallel)
