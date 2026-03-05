@@ -165,6 +165,24 @@ test.suite("FsSuite", function(suite)
 		fs.remove(file)
 	end)
 
+	suite:case("open_write_creates_new_file", function(assert)
+		local file = path.join(tmpdir, "new_write_only.txt")
+
+		-- Ensure file does not exist
+		if fs.exists(file) then
+			fs.remove(file)
+		end
+
+		local h = fs.open(file, "w")
+		assert.eq(fs.exists(file), true)
+		fs.write(h, "hello")
+		fs.close(h)
+
+		assert.eq(fs.readfiletostring(file), "hello")
+
+		fs.remove(file)
+	end)
+
 	suite:case("removedirectory_non_recursive", function(assert)
 		local dir = path.join(tmpdir, "empty_dir")
 		fs.createdirectory(dir, { makeparents = true })
