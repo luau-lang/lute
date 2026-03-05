@@ -47,7 +47,8 @@ std::optional<int> setFlags(const char* c, int* openFlags)
             *openFlags |= O_RDONLY;
             break;
         case 'w':
-            *openFlags |= O_WRONLY | O_TRUNC;
+            *openFlags |= O_WRONLY | O_TRUNC | O_CREAT;
+            modeFlags = 0666;
             break;
         case 'x':
             *openFlags |= O_CREAT | O_EXCL;
