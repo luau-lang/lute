@@ -159,6 +159,8 @@ static int createSpan(lua_State* L)
     if (argumentCount != 1)
         luaL_error(L, "%s: expected 1 argument, but got %d", kSpanCreateName, argumentCount);
 
+    lua_checkstack(L, 2);
+
     // check that the argument is compliant with the span interface!
     Span span = checkSpan(L, 1);
 
@@ -186,6 +188,8 @@ static int createSpan(lua_State* L)
 
 static int makeSpanLibrary(lua_State* L)
 {
+    lua_checkstack(L, 2);
+
     lua_createtable(L, 0, 1);
 
     lua_pushcfunction(L, luau::createSpan, "create");
@@ -201,6 +205,8 @@ static int ltSpan(lua_State* L)
 {
     Span lhs = checkSpan(L, 1);
     Span rhs = checkSpan(L, 2);
+
+    lua_checkstack(L, 2);
 
     // Compare beginnings, and if they're equal, compare ends
     if (lhs.beginLine < rhs.beginLine || (lhs.beginLine == rhs.beginLine && lhs.beginColumn < rhs.beginColumn))
