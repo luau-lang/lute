@@ -87,12 +87,12 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 					violations,
 					{
 						lintname = name,
-						location = syntax.span.create {
+						location = syntax.span.create({
 							beginline = currStat.location.beginline,
 							begincolumn = currStat.location.begincolumn,
 							endline = nextStat.location.endline,
 							endcolumn = nextStat.location.endcolumn,
-						},
+						}),
 						message = message,
 						severity = "warning",
 						sourcepath = sourcepath,
