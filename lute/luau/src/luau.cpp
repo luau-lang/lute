@@ -121,8 +121,6 @@ struct Trivia
     std::string_view text;
 };
 
-// the userdata version of `Luau::Location` because exposing this as a table was, unfortunately, very impractical
-// it happens too much all over the entire AST to do reasonably.
 struct Span
 {
     uint32_t beginLine;
@@ -131,32 +129,57 @@ struct Span
     uint32_t endColumn;
 };
 
+static Span checkSpan(lua_State* L, int index)
+{
+    if (!lua_istable(L, index))
+        luaL_typeerror(L, index, "span");
+
+    if (lua_getfield(L, index, "beginline") == LUA_TNIL)
+        luaL_typeerror(L, index, "span");
+    int beginLine = lua_tonumber(L, -1);
+
+    if (lua_getfield(L, index, "begincolumn") == LUA_TNIL)
+        luaL_typeerror(L, index, "span");
+    int beginColumn = lua_tonumber(L, -1);
+
+    if (lua_getfield(L, index, "endline") == LUA_TNIL)
+        luaL_typeerror(L, index, "span");
+    int endLine = lua_tonumber(L, -1);
+
+    if (lua_getfield(L, index, "endcolumn") == LUA_TNIL)
+        luaL_typeerror(L, index, "span");
+    int endColumn = lua_tonumber(L, -1);
+
+    return {static_cast<uint32_t>(beginLine), static_cast<uint32_t>(beginColumn), static_cast<uint32_t>(endLine), static_cast<uint32_t>(endColumn)};
+}
+
 static int createSpan(lua_State* L)
 {
     int argumentCount = lua_gettop(L);
     if (argumentCount != 1)
         luaL_error(L, "%s: expected 1 argument, but got %d", kSpanCreateName, argumentCount);
 
-    // read all three of the required fields out of the table
-    lua_getfield(L, 1, "beginline");
-    lua_getfield(L, 1, "begincolumn");
-    lua_getfield(L, 1, "endline");
-    lua_getfield(L, 1, "endcolumn");
+    // check that the argument is compliant with the span interface!
+    Span span = checkSpan(L, 1);
 
-    double beginline = luaL_checknumber(L, 2);
-    double begincolumn = luaL_checknumber(L, 3);
-    double endline = luaL_checknumber(L, 4);
-    double endcolumn = luaL_checknumber(L, 5);
+    lua_createtable(L, 0, 4);
 
-    Span* span = static_cast<Span*>(lua_newuserdatatagged(L, sizeof(Span), kSpanTag));
+    lua_pushinteger(L, span.beginLine);
+    lua_setfield(L, -2, "beginline");
 
-    span->beginLine = static_cast<uint32_t>(beginline);
-    span->beginColumn = static_cast<uint32_t>(begincolumn);
-    span->endLine = static_cast<uint32_t>(endline);
-    span->endColumn = static_cast<uint32_t>(endcolumn);
+    lua_pushinteger(L, span.beginColumn);
+    lua_setfield(L, -2, "begincolumn");
+
+    lua_pushinteger(L, span.endLine);
+    lua_setfield(L, -2, "endline");
+
+    lua_pushinteger(L, span.endColumn);
+    lua_setfield(L, -2, "endcolumn");
 
     luaL_getmetatable(L, kSpanType);
     lua_setmetatable(L, -2);
+
+    lua_setreadonly(L, -1, 1);
 
     return 1;
 }
@@ -173,47 +196,18 @@ static int makeSpanLibrary(lua_State* L)
     return 1;
 }
 
-static int indexSpan(lua_State* L)
-{
-    const Span* span = static_cast<Span*>(luaL_checkudata(L, 1, kSpanType));
-
-    const char* fieldName = luaL_checkstring(L, 2);
-
-    if (std::strcmp(fieldName, "beginline") == 0)
-    {
-        lua_pushnumber(L, span->beginLine);
-        return 1;
-    }
-    else if (std::strcmp(fieldName, "begincolumn") == 0)
-    {
-        lua_pushnumber(L, span->beginColumn);
-        return 1;
-    }
-    else if (std::strcmp(fieldName, "endline") == 0)
-    {
-        lua_pushnumber(L, span->endLine);
-        return 1;
-    }
-    else if (std::strcmp(fieldName, "endcolumn") == 0)
-    {
-        lua_pushnumber(L, span->endColumn);
-        return 1;
-    }
-
-    return 0;
-}
 
 static int ltSpan(lua_State* L)
 {
-    const Span* lhs = static_cast<Span*>(luaL_checkudata(L, 1, kSpanType));
-    const Span* rhs = static_cast<Span*>(luaL_checkudata(L, 2, kSpanType));
+    Span lhs = checkSpan(L, 1);
+    Span rhs = checkSpan(L, 2);
 
     // Compare beginnings, and if they're equal, compare ends
-    if (lhs->beginLine < rhs->beginLine || (lhs->beginLine == rhs->beginLine && lhs->beginColumn < rhs->beginColumn))
+    if (lhs.beginLine < rhs.beginLine || (lhs.beginLine == rhs.beginLine && lhs.beginColumn < rhs.beginColumn))
         lua_pushboolean(L, 1);
-    else if (lhs->beginLine == rhs->beginLine && lhs->beginColumn == rhs->beginColumn)
+    else if (lhs.beginLine == rhs.beginLine && lhs.beginColumn == rhs.beginColumn)
     {
-        if (lhs->endLine < rhs->endLine || (lhs->endLine == rhs->endLine && lhs->endColumn < rhs->endColumn))
+        if (lhs.endLine < rhs.endLine || (lhs.endLine == rhs.endLine && lhs.endColumn < rhs.endColumn))
             lua_pushboolean(L, 1);
         else
             lua_pushboolean(L, 0);
@@ -389,15 +383,24 @@ struct AstSerialize : public Luau::AstVisitor
     {
         lua_rawcheckstack(L, 2);
 
-        Span* span = static_cast<Span*>(lua_newuserdatatagged(L, sizeof(Span), kSpanTag));
+        lua_createtable(L, 0, 4);
 
-        span->beginLine = location.begin.line + 1;
-        span->beginColumn = location.begin.column + 1;
-        span->endLine = location.end.line + 1;
-        span->endColumn = location.end.column + 1;
+        lua_pushinteger(L, location.begin.line + 1);
+        lua_setfield(L, -2, "beginline");
+
+        lua_pushinteger(L, location.begin.column + 1);
+        lua_setfield(L, -2, "begincolumn");
+
+        lua_pushinteger(L, location.end.line + 1);
+        lua_setfield(L, -2, "endline");
+
+        lua_pushinteger(L, location.end.column + 1);
+        lua_setfield(L, -2, "endcolumn");
 
         luaL_getmetatable(L, kSpanType);
         lua_setmetatable(L, -2);
+
+        lua_setreadonly(L, -1, 1);
     }
 
     void serialize(Luau::AstName& name)
@@ -2969,13 +2972,6 @@ static int initLuauLibrary(lua_State* L)
     lua_pop(L, 1);
 
     luaL_newmetatable(L, kSpanType);
-
-    // Set __type
-    lua_pushstring(L, kSpanType);
-    lua_setfield(L, -2, "__type");
-
-    lua_pushcfunction(L, luau::indexSpan, "span.__index");
-    lua_setfield(L, -2, "__index");
 
     lua_pushcfunction(L, luau::ltSpan, "span.__lt");
     lua_setfield(L, -2, "__lt");
