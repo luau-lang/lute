@@ -15,6 +15,7 @@ local defaultRulesPaths = {
 	constant_table_comparison = path.format(path.join(defaultRulesFolder, "constant_table_comparison.luau")),
 	divide_by_zero = path.format(path.join(defaultRulesFolder, "divide_by_zero.luau")),
 	duplicate_keys = path.format(path.join(defaultRulesFolder, "duplicate_keys.luau")),
+	empty_if_block = path.format(path.join(defaultRulesFolder, "empty_if_block.luau")),
 	parenthesized_conditions = path.format(path.join(defaultRulesFolder, "parenthesized_conditions.luau")),
 	unused_variable = path.format(path.join(defaultRulesFolder, "unused_variable.luau")),
 }
@@ -24,6 +25,7 @@ local LINT_RULE_MESSAGES = {
 	constant_table_comparison = "warning[constant_table_comparison]: Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false.",
 	divide_by_zero = "warning[divide_by_zero]: Division by zero detected.",
 	duplicate_keys = "warning[duplicate_keys]: Duplicate keys detected in table literal.",
+	empty_if_block = "warning[empty_if_block]: Empty if block detected. Consider removing it or adding to it.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
 	unused_variable = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
 }
@@ -3284,4 +3286,200 @@ return {
 			assert.strcontains(result.stdout, "Configured Rule Ran with options.a = 1") -- options are correctly passed through
 		end
 	)
+
+	suite:case("empty_if_block basic", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.empty_if_block,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.empty_if_block, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:1:1-2:4 ──
+   │
+ 1 │ ╭ if true then
+ 2 │ │ end
+   │ ╰────────────^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("empty_if_block with non empty block", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	print("hello")
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.empty_if_block,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.empty_if_block, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("empty_if_block with empty else", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	print("hello")
+else
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.empty_if_block,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.empty_if_block, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:1:1-4:4 ──
+   │
+ 1 │ ╭ if true then
+ 2 │ │     print("hello")
+ 3 │ │ else
+ 4 │ │ end
+   │ ╰──────────────────^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("empty_if_block with empty elseifs", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	print("hello")
+elseif true then
+elseif false then
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.empty_if_block,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.empty_if_block, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:1:1-5:4 ──
+   │
+ 1 │ ╭ if true then
+ 2 │ │     print("hello")
+ 3 │ │ elseif true then
+ 4 │ │ elseif false then
+ 5 │ │ end
+   │ ╰──────────────────^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("empty_if_block with comments (comments_count = false)", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	-- This is a comment
+end
+
+if false then
+	-- Another comment
+	-- More comments
+else
+	-- Comment in else
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.empty_if_block,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.empty_if_block, count = 2 },
+				{
+					expectedOutput = [[
+violator.luau:1:1-3:4 ──
+   │
+ 1 │ ╭ if true then
+ 2 │ │     -- This is a comment
+ 3 │ │ end
+   │ ╰────────────────────────^
+   │
+]],
+					count = 1,
+				},
+				{
+					expectedOutput = [[
+violator.luau:5:1-10:4 ──
+    │
+ 5  │ ╭ if false then
+ 6  │ │     -- Another comment
+ 7  │ │     -- More comments
+ 8  │ │ else
+ 9  │ │     -- Comment in else
+ 10 │ │ end
+    │ ╰──────────────────────^
+    │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("empty_if_block with comments (comments_count = true)", function(assert)
+		local configContents = [[
+return {
+	lute = { lint = { ruleconfigs = {
+		empty_if_block = {
+			options = {
+				comments_count = true,
+			},
+		},
+	} } },
+}
+]]
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	-- This is a comment
+end
+
+if false then
+	-- comment
+else
+	-- Comment in else
+end
+
+if true then
+	--comment
+elseif true then
+	-- Comment in elseif
+elseif false then
+	-- Comment in elseif
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.empty_if_block,
+			disableDefaultLints = true,
+			configContents = configContents,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.empty_if_block, count = 0 },
+			},
+		})
+	end)
 end)
