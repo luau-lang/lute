@@ -443,6 +443,13 @@ local function generateFilesIfNeeded()
 		arrayName = "lutebatteries",
 		moduleName = "batteries",
 	})
+	generateEmbeddedModulesIfNeeded({
+		sourcePath = projectRelative("definitions"),
+		outputDir = projectRelative("lute", "definitions", "src", "generated"),
+		alias = "@lute",
+		arrayName = "lutedefinitions",
+		moduleName = "modules",
+	})
 end
 
 local function getExePath(): string
