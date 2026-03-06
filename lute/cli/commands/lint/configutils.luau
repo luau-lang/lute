@@ -31,8 +31,16 @@ local function assertValidConfig(candidate: any)
 	end
 
 	if candidate.ruleconfigs then
-		assert(typeof(candidate.ruleconfigs) == "table", "config.lute.lint.ruleconfigs must be a table with string keys")
-		assertTableStructure(candidate.ruleconfigs, "string", nil, "config.lute.lint.ruleconfigs must be a table with string keys")
+		assert(
+			typeof(candidate.ruleconfigs) == "table",
+			"config.lute.lint.ruleconfigs must be a table with string keys"
+		)
+		assertTableStructure(
+			candidate.ruleconfigs,
+			"string",
+			nil,
+			"config.lute.lint.ruleconfigs must be a table with string keys"
+		)
 	end
 end
 
