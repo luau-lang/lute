@@ -39,7 +39,7 @@ static void deepFreeze(lua_State* L)
     lua_rawcheckstack(L, 2);
 
     lua_pushnil(L);
-    while (lua_next(L, -1) != 0)
+    while (lua_next(L, -2) != 0)
     {
         // Freeze the value if it's a table
         if (lua_istable(L, -1))
