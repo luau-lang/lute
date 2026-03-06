@@ -21,8 +21,8 @@ local function assertValidConfig(candidate: any)
 	end
 
 	if candidate.globals then
-		assert(typeof(candidate.globals) == "table", "config.lute.lint must be a table with string keys")
-		assertTableStructure(candidate.globals, "string", nil, "config.lute.lint must be a table with string keys")
+		assert(typeof(candidate.globals) == "table", "config.lute.lint.globals must be a table with string keys")
+		assertTableStructure(candidate.globals, "string", nil, "config.lute.lint.globals must be a table with string keys")
 	end
 
 	if candidate.rulepaths then
