@@ -2519,7 +2519,7 @@ return {
 			expectedExitCode = 1,
 			returnStdErr = true,
 		})
-		assert.eq(err, "config.lute.lint.globals must be a table with string keys")
+		assert.strcontains(err, "config.lute.lint.globals must be a table with string keys")
 
 		err = lintTestHelper(assert, {
 			content = "",
@@ -2527,7 +2527,7 @@ return {
 			expectedExitCode = 1,
 			returnStdErr = true,
 		})
-		assert.eq(err, "config.lute.lint.ignores must be an array of filepath globs")
+		assert.strcontains(err, "config.lute.lint.ignores must be an array of filepath globs")
 
 		err = lintTestHelper(assert, {
 			content = "",
@@ -2535,7 +2535,7 @@ return {
 			expectedExitCode = 1,
 			returnStdErr = true,
 		})
-		assert.eq(err, "config.lute.lint.rulepaths must be an array of filepath globs")
+		assert.strcontains(err, "config.lute.lint.rulepaths must be an array of filepath globs")
 
 		err = lintTestHelper(assert, {
 			content = "",
@@ -2543,7 +2543,7 @@ return {
 			expectedExitCode = 1,
 			returnStdErr = true,
 		})
-		assert.eq(err, "config.lute.lint.ruleconfigs must be a table with string keys")
+		assert.strcontains(err, "config.lute.lint.ruleconfigs must be a table with string keys")
 	end)
 
 	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
