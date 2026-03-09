@@ -40,6 +40,7 @@ function processlib.execpath(): path
 end
 
 -- re-exports
+processlib.args = process.args
 processlib.env = process.env
 
 return table.freeze(processlib)

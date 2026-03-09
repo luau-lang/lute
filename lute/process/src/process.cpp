@@ -678,7 +678,25 @@ int luteopen_process(lua_State* L)
     lua_setmetatable(L, -2);
     lua_setfield(L, -2, "env");
 
-    lua_setreadonly(L, -1, 1);
+    // Create process.args table
+    Runtime* runtime = getRuntime(L);
+    if (runtime)
+    {
+        lua_createtable(L, static_cast<int>(runtime->args.size()), 0);
+        for (int i = 0; i < static_cast<int>(runtime->args.size()); ++i)
+        {
+            lua_pushlstring(L, runtime->args[i].c_str(), runtime->args[i].size());
+            lua_rawseti(L, -2, i + 1);
+        }
+    }
+    else
+    {
+        lua_createtable(L, 0, 0);
+    }
+    lua_setreadonly(L, -1, 1); // args table
+    lua_setfield(L, -2, "args");
+
+    lua_setreadonly(L, -1, 1); // process table
 
     return 1;
 }
