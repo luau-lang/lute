@@ -38,8 +38,8 @@ local function printTriviaList(self: PrintVisitor, trivia: { types.Trivia })
 end
 
 local function printToken(self: PrintVisitor, token: types.Token)
-	if self.replacements[token] ~= nil then
-		self:printReplacement(token, self.replacements[token])
+	if self.replacements[token :: types.AstNode] ~= nil then
+		self:printReplacement(token :: types.AstNode, self.replacements[token :: types.AstNode])
 		return
 	end
 
@@ -151,7 +151,7 @@ local function printVisitor(replacements: types.replacements?)
 		if replacement == nil then
 			return true
 		end
-		printer:printReplacement(node, replacement)
+		printer:printReplacement(node, replacement :: any) -- remove any cast once code to complex no longer emitted
 		return false
 	end
 

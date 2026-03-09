@@ -1033,7 +1033,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitTypeUnion = visit,
 			visitTypeIntersection = visit,
 			visitTypeArray = visit,
-			visitTypeTable = visit,
+			visitTypeTable = visit :: (types.AstTypeTable) -> boolean, -- LUAUFIX: Remove cast once code too complex no longer emitted
 			visitTypeFunction = visit,
 
 			visitTypePackExplicit = visit,
