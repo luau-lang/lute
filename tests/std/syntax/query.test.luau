@@ -114,7 +114,7 @@ test.suite("AstQuery", function(suite)
 	suite:case("findallTokens", function(assert)
 		local ast = syntax.parse("local x = 1 or nil")
 		-- verify that query doesn't doubly count tokens
-		local queryResult = query.findallfromroot(ast, utils.isToken)
+		local queryResult = query.findallfromroot(ast, utils.isToken :: any) -- LUAUFIX: Remove any cast once code too complex is no longer emitted
 		assert.eq(#queryResult.nodes, 6)
 		queryResult:foreach(function(node)
 			assert.eq(node.kind, "token")
