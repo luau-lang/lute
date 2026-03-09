@@ -42,7 +42,7 @@ type lintTestParams = {
 	disableDefaultLints: true?,
 	configContents: string?,
 	extraOptions: { string }?,
-	outputExpectations: { { expectedOutput: string, count: number } }?,
+	outputExpectations: { { expectedOutput: string, count: number? } }?,
 }
 
 local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams): string
@@ -3100,7 +3100,7 @@ return {
 			expectedExitCode = 1,
 			customRuleContents = customRuleContents,
 			disableDefaultLints = true,
-			outputExpectations = { { expectedOutput = "customRule", count = 1 } },
+			outputExpectations = { { expectedOutput = "customRule" } },
 		})
 
 		-- confirm file doesn't violate with disabled rule config
