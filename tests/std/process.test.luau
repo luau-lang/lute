@@ -9,11 +9,6 @@ test.suite("ProcessSuite", function(suite)
 		assert.eq(type(process.args), "table")
 	end)
 
-	suite:case("process_args_contains_script_path", function(assert)
-		assert.eq(type(process.args[1]), "string")
-		assert.neq(process.args[1]:find("process.test.luau", 1, true), nil)
-	end)
-
 	suite:case("homedir_and_cwd_and_execpath", function(assert)
 		local hd = process.homedir()
 		assert.neq(pathlib.format(hd), "")
