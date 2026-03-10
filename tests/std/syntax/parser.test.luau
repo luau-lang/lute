@@ -150,25 +150,25 @@ test.suite("Parser", function(suite)
 
 		assert.eq(type(result.lineoffsets), "table")
 		assert.eq(#result.lineoffsets, 1)
-		assert.eq(result.lineoffsets[1], 0)
+		assert.eq(result.lineoffsets[1], 1)
 
 		local multiLineCode = "local x = 1\nlocal y = 2\nlocal z = 3"
 		local multiResult = parser.parse(multiLineCode)
 
 		assert.eq(type(multiResult.lineoffsets), "table")
 		assert.eq(#multiResult.lineoffsets, 3)
-		assert.eq(multiResult.lineoffsets[1], 0)
-		assert.eq(multiResult.lineoffsets[2], 12)
-		assert.eq(multiResult.lineoffsets[3], 24)
+		assert.eq(multiResult.lineoffsets[1], 1)
+		assert.eq(multiResult.lineoffsets[2], 13)
+		assert.eq(multiResult.lineoffsets[3], 25)
 
 		local emptyLineCode = "local x = 1\n\nlocal y = 2"
 		local emptyResult = parser.parse(emptyLineCode)
 
 		assert.eq(type(emptyResult.lineoffsets), "table")
 		assert.eq(#emptyResult.lineoffsets, 3)
-		assert.eq(emptyResult.lineoffsets[1], 0)
-		assert.eq(emptyResult.lineoffsets[2], 12)
-		assert.eq(emptyResult.lineoffsets[3], 13)
+		assert.eq(emptyResult.lineoffsets[1], 1)
+		assert.eq(emptyResult.lineoffsets[2], 13)
+		assert.eq(emptyResult.lineoffsets[3], 14)
 	end)
 
 	suite:case("canParseAttributes", function(assert)
@@ -1239,5 +1239,707 @@ test.suite("parse types", function(suite)
 		assert.neq(variadicType.ellipsis, nil)
 		assert.eq((variadicType.ellipsis :: syntax.Token<"...">).text, "...")
 		assert.eq(variadicType.type.tag, "reference")
+	end)
+end)
+
+test.suite("AST_nodes_frozen", function(suite)
+	local frozenTableMessage = "attempt to modify a readonly table"
+
+	-- Expression nodes
+	suite:case("AstExprGroup_frozen", function(assert)
+		local expr = parser.parseexpr("(x)")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "group")
+		assert.erroreq(function()
+			(expr :: any).tag = "modified"
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprConstantNil_frozen", function(assert)
+		local expr = parser.parseexpr("nil")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "nil")
+		assert.erroreq(function()
+			(expr :: any).value = 123
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprConstantBool_frozen", function(assert)
+		local expr = parser.parseexpr("true")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "boolean")
+		assert.erroreq(function()
+			(expr :: any).value = false
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprConstantNumber_frozen", function(assert)
+		local expr = parser.parseexpr("42")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "number")
+		assert.erroreq(function()
+			(expr :: any).value = 99
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprConstantString_frozen", function(assert)
+		local expr = parser.parseexpr("'hello'")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "string")
+		assert.erroreq(function()
+			(expr :: any).quotestyle = "double"
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprLocal_frozen", function(assert)
+		local block = parser.parseblock("local x = 1\nreturn x")
+		local returnStat = block.statements[2] :: syntax.AstStatReturn
+		local expr = returnStat.expressions[1].node
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "local")
+		assert.erroreq(function()
+			(expr :: any).upvalue = true
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprGlobal_frozen", function(assert)
+		local expr = parser.parseexpr("_G")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "global")
+		assert.erroreq(function()
+			(expr :: any).name = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprVarargs_frozen", function(assert)
+		local expr = parser.parseexpr("...")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "vararg")
+		assert.erroreq(function()
+			(expr :: any).tag = "modified"
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprCall_frozen", function(assert)
+		local expr = parser.parseexpr("foo(1, 2)")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "call")
+		assert.erroreq(function()
+			(expr :: any).func = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((expr :: any).arguments, nil :: any)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprInstantiate_frozen", function(assert)
+		local callExpr = parser.parseexpr("foo<<number, string>>()")
+		assert.eq(callExpr.tag, "call")
+		local expr = (callExpr :: syntax.AstExprCall).func
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "instantiate")
+		assert.erroreq(function()
+			(expr :: any).expr = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((expr :: any).typearguments, nil :: any)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprIndexName_frozen", function(assert)
+		local expr = parser.parseexpr("obj.field")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "indexname")
+		assert.erroreq(function()
+			(expr :: any).expression = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprIndexExpr_frozen", function(assert)
+		local expr = parser.parseexpr("obj[key]")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "index")
+		assert.erroreq(function()
+			(expr :: any).expression = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprFunction_frozen", function(assert)
+		local expr = parser.parseexpr("@checked function<A, B...>(x, y) return x + y end")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "function")
+		assert.erroreq(function()
+			(expr :: any).body = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((expr :: any).parameters, nil :: any)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((expr :: any).attributes, nil :: any)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((expr :: any).generics, nil :: any)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((expr :: any).genericpacks, nil :: any)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprTable_frozen", function(assert)
+		local expr = parser.parseexpr("{ a = 1, [2] = 3, 4 }")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "table")
+		assert.erroreq(function()
+			(expr :: any).openbrace = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((expr :: any).entries, nil :: any)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(expr :: any).entries[1].kind = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(expr :: any).entries[2].kind = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(expr :: any).entries[3].kind = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprUnary_frozen", function(assert)
+		local expr = parser.parseexpr("-x")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "unary")
+		assert.erroreq(function()
+			(expr :: any).operand = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprBinary_frozen", function(assert)
+		local expr = parser.parseexpr("x + y")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "binary")
+		assert.erroreq(function()
+			(expr :: any).lhsoperand = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprInterpString_frozen", function(assert)
+		local expr = parser.parseexpr("`hello {x}`")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "interpolatedstring")
+		assert.erroreq(function()
+			table.insert((expr :: any).strings, nil :: any)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((expr :: any).expressions, nil :: any)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprTypeAssertion_frozen", function(assert)
+		local expr = parser.parseexpr("x :: number")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "cast")
+		assert.erroreq(function()
+			(expr :: any).operand = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstExprIfElse_frozen", function(assert)
+		local expr = parser.parseexpr("if x then 1 elseif y then 2 else 3")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "conditional")
+		assert.erroreq(function()
+			(expr :: any).condition = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((expr :: any).elseifs, nil :: any)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(expr :: any).elseifs[1].condition = nil
+		end, frozenTableMessage)
+	end)
+
+	-- Statement nodes
+	suite:case("AstStatBlock_frozen", function(assert)
+		local block = parser.parseblock("local x = 1\nlocal y = 2")
+		assert.eq(block.kind, "stat")
+		assert.eq(block.tag, "block")
+		assert.erroreq(function()
+			table.insert((block :: any).statements, nil :: any)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(block :: any).tag = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatDo_frozen", function(assert)
+		local block = parser.parseblock("do local x = 1 end")
+		local doStat = block.statements[1] :: syntax.AstStatDo
+		assert.eq(doStat.kind, "stat")
+		assert.eq(doStat.tag, "do")
+		assert.erroreq(function()
+			(doStat :: any).body = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatIf_frozen", function(assert)
+		local block = parser.parseblock("if x then local y = 1 elseif z then local w = 2 else local v = 3 end")
+		local ifStat = block.statements[1] :: syntax.AstStatIf
+		assert.eq(ifStat.kind, "stat")
+		assert.eq(ifStat.tag, "conditional")
+		assert.erroreq(function()
+			(ifStat :: any).condition = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((ifStat :: any).elseifs, nil :: any)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(ifStat :: any).elseifs[1].condition = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatWhile_frozen", function(assert)
+		local block = parser.parseblock("while x do local y = 1 end")
+		local whileStat = block.statements[1] :: syntax.AstStatWhile
+		assert.eq(whileStat.kind, "stat")
+		assert.eq(whileStat.tag, "while")
+		assert.erroreq(function()
+			(whileStat :: any).condition = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatRepeat_frozen", function(assert)
+		local block = parser.parseblock("repeat local x = 1 until x > 10")
+		local repeatStat = block.statements[1] :: syntax.AstStatRepeat
+		assert.eq(repeatStat.kind, "stat")
+		assert.eq(repeatStat.tag, "repeat")
+		assert.erroreq(function()
+			(repeatStat :: any).body = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatBreak_frozen", function(assert)
+		local block = parser.parseblock("while true do break end")
+		local whileStat = block.statements[1] :: syntax.AstStatWhile
+		local breakStat = whileStat.body.statements[1] :: syntax.AstStatBreak
+		assert.eq(breakStat.kind, "stat")
+		assert.eq(breakStat.tag, "break")
+		assert.erroreq(function()
+			(breakStat :: any).tag = "modified"
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatContinue_frozen", function(assert)
+		local block = parser.parseblock("while true do continue end")
+		local whileStat = block.statements[1] :: syntax.AstStatWhile
+		local continueStat = whileStat.body.statements[1] :: syntax.AstStatContinue
+		assert.eq(continueStat.kind, "stat")
+		assert.eq(continueStat.tag, "continue")
+		assert.erroreq(function()
+			(continueStat :: any).tag = "modified"
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatReturn_frozen", function(assert)
+		local block = parser.parseblock("return 1, 2, 3")
+		local returnStat = block.statements[1] :: syntax.AstStatReturn
+		assert.eq(returnStat.kind, "stat")
+		assert.eq(returnStat.tag, "return")
+		assert.erroreq(function()
+			(returnStat :: any).returnkeyword = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((returnStat :: any).expressions, nil)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatExpr_frozen", function(assert)
+		local block = parser.parseblock("foo()")
+		local exprStat = block.statements[1] :: syntax.AstStatExpr
+		assert.eq(exprStat.kind, "stat")
+		assert.eq(exprStat.tag, "expression")
+		assert.erroreq(function()
+			(exprStat :: any).expression = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatLocal_frozen", function(assert)
+		local block = parser.parseblock("local x, y = 1, 2")
+		local localStat = block.statements[1] :: syntax.AstStatLocal
+		assert.eq(localStat.kind, "stat")
+		assert.eq(localStat.tag, "local")
+		assert.erroreq(function()
+			(localStat :: any).localkeyword = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((localStat :: any).variables, nil)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((localStat :: any).values, nil)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatFor_frozen", function(assert)
+		local block = parser.parseblock("for i = 1, 10, 2 do local x = i end")
+		local forStat = block.statements[1] :: syntax.AstStatFor
+		assert.eq(forStat.kind, "stat")
+		assert.eq(forStat.tag, "for")
+		assert.erroreq(function()
+			(forStat :: any).variable = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatForIn_frozen", function(assert)
+		local block = parser.parseblock("for k, v in pairs(t) do local x = k end")
+		local forInStat = block.statements[1] :: syntax.AstStatForIn
+		assert.eq(forInStat.kind, "stat")
+		assert.eq(forInStat.tag, "forin")
+		assert.erroreq(function()
+			(forInStat :: any).inkeyword = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((forInStat :: any).variables, nil)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((forInStat :: any).values, nil)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatAssign_frozen", function(assert)
+		local block = parser.parseblock("x, y = 1, 2")
+		local assignStat = block.statements[1] :: syntax.AstStatAssign
+		assert.eq(assignStat.kind, "stat")
+		assert.eq(assignStat.tag, "assign")
+		assert.erroreq(function()
+			(assignStat :: any).equals = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((assignStat :: any).variables, nil)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((assignStat :: any).values, nil)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatCompoundAssign_frozen", function(assert)
+		local block = parser.parseblock("x += 5")
+		local compoundStat = block.statements[1] :: syntax.AstStatCompoundAssign
+		assert.eq(compoundStat.kind, "stat")
+		assert.eq(compoundStat.tag, "compoundassign")
+		assert.erroreq(function()
+			(compoundStat :: any).variable = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatFunction_frozen", function(assert)
+		local block = parser.parseblock("function foo() end")
+		local funcStat = block.statements[1] :: syntax.AstStatFunction
+		assert.eq(funcStat.kind, "stat")
+		assert.eq(funcStat.tag, "function")
+		assert.erroreq(function()
+			(funcStat :: any).name = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatLocalFunction_frozen", function(assert)
+		local block = parser.parseblock("local function foo() end")
+		local localFuncStat = block.statements[1] :: syntax.AstStatLocalFunction
+		assert.eq(localFuncStat.kind, "stat")
+		assert.eq(localFuncStat.tag, "localfunction")
+		assert.erroreq(function()
+			(localFuncStat :: any).name = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatTypeAlias_frozen", function(assert)
+		local block = parser.parseblock("type Foo<T> = T")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		assert.eq(typeAlias.kind, "stat")
+		assert.eq(typeAlias.tag, "typealias")
+		assert.erroreq(function()
+			(typeAlias :: any).name = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstStatTypeFunction_frozen", function(assert)
+		local block = parser.parseblock("type function foo() return function() end end")
+		local typeFunc = block.statements[1] :: syntax.AstStatTypeFunction
+		assert.eq(typeFunc.kind, "stat")
+		assert.eq(typeFunc.tag, "typefunction")
+		assert.erroreq(function()
+			(typeFunc :: any).name = nil
+		end, frozenTableMessage)
+	end)
+
+	-- Type nodes
+	suite:case("AstTypeReference_frozen", function(assert)
+		local block = parser.parseblock("type Foo = Bar<T>")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local typeRef = typeAlias.type :: syntax.AstTypeReference
+		assert.eq(typeRef.kind, "type")
+		assert.eq(typeRef.tag, "reference")
+		assert.erroreq(function()
+			(typeRef :: any).name = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeSingletonBool_frozen", function(assert)
+		local block = parser.parseblock("type Foo = true")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local singletonBool = typeAlias.type :: syntax.AstTypeSingletonBool
+		assert.eq(singletonBool.kind, "type")
+		assert.eq(singletonBool.tag, "boolean")
+		assert.erroreq(function()
+			(singletonBool :: any).value = false
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeSingletonString_frozen", function(assert)
+		local block = parser.parseblock("type Foo = 'hello'")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local singletonStr = typeAlias.type :: syntax.AstTypeSingletonString
+		assert.eq(singletonStr.kind, "type")
+		assert.eq(singletonStr.tag, "string")
+		assert.erroreq(function()
+			(singletonStr :: any).quotestyle = "double"
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeTypeof_frozen", function(assert)
+		local block = parser.parseblock("type Foo = typeof(x)")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local typeofType = typeAlias.type :: syntax.AstTypeTypeof
+		assert.eq(typeofType.kind, "type")
+		assert.eq(typeofType.tag, "typeof")
+		assert.erroreq(function()
+			(typeofType :: any).expression = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeGroup_frozen", function(assert)
+		local block = parser.parseblock("type Foo = (Bar)")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local groupType = typeAlias.type :: syntax.AstTypeGroup
+		assert.eq(groupType.kind, "type")
+		assert.eq(groupType.tag, "group")
+		assert.erroreq(function()
+			(groupType :: any).type = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeOptional_frozen", function(assert)
+		local block = parser.parseblock("type Foo = string?")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local unionType = typeAlias.type :: syntax.AstTypeUnion
+		local optionalType = unionType.types[2].node :: syntax.AstTypeOptional
+		assert.eq(optionalType.kind, "type")
+		assert.eq(optionalType.tag, "optional")
+		assert.erroreq(function()
+			(optionalType :: any).kind = "modified"
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeUnion_frozen", function(assert)
+		local block = parser.parseblock("type Foo = string | number")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local unionType = typeAlias.type :: syntax.AstTypeUnion
+		assert.eq(unionType.kind, "type")
+		assert.eq(unionType.tag, "union")
+		assert.erroreq(function()
+			(unionType :: any).leading = "modified"
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((unionType :: any).types, nil)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeIntersection_frozen", function(assert)
+		local block = parser.parseblock("type Foo = A & B")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local intersectionType = typeAlias.type :: syntax.AstTypeIntersection
+		assert.eq(intersectionType.kind, "type")
+		assert.eq(intersectionType.tag, "intersection")
+		assert.erroreq(function()
+			(intersectionType :: any).leading = "modified"
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((intersectionType :: any).types, nil)
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeArray_frozen", function(assert)
+		local block = parser.parseblock("type Foo = {string}")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local arrayType = typeAlias.type :: syntax.AstTypeArray
+		assert.eq(arrayType.kind, "type")
+		assert.eq(arrayType.tag, "array")
+		assert.erroreq(function()
+			(arrayType :: any).type = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeTable_frozen", function(assert)
+		local block = parser.parseblock('type Foo = { a: number, [string]: boolean, ["hello"]: "world" }')
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local tableType = typeAlias.type :: syntax.AstTypeTable
+		assert.eq(tableType.kind, "type")
+		assert.eq(tableType.tag, "table")
+		assert.erroreq(function()
+			(tableType :: any).openbrace = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((tableType :: any).entries, nil)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(tableType :: any).entries[1].kind = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(tableType :: any).entries[2].kind = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(tableType :: any).entries[3].kind = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypeFunction_frozen", function(assert)
+		local block = parser.parseblock("type Foo = (x: number) -> string")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local funcType = typeAlias.type :: syntax.AstTypeFunction
+		assert.eq(funcType.kind, "type")
+		assert.eq(funcType.tag, "function")
+		assert.erroreq(function()
+			(funcType :: any).returnspecifier = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(funcType :: any).parameters[1].node.name = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypePackExplicit_frozen", function(assert)
+		local block = parser.parseblock("type Foo = (number, string) -> (boolean, string)")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local funcType = typeAlias.type :: syntax.AstTypeFunction
+		local typePack = funcType.returntypes :: syntax.AstTypePackExplicit
+		assert.eq(typePack.kind, "typepack")
+		assert.eq(typePack.tag, "explicit")
+		assert.erroreq(function()
+			(typePack :: any).openparens = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstTypePackVariadic_frozen", function(assert)
+		local block = parser.parseblock("type Foo = () -> ...number")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local funcType = typeAlias.type :: syntax.AstTypeFunction
+		local typePack = funcType.returntypes :: syntax.AstTypePackVariadic
+		assert.eq(typePack.kind, "typepack")
+		assert.eq(typePack.tag, "variadic")
+		assert.erroreq(function()
+			(typePack :: any).type = nil
+		end, frozenTableMessage)
+	end)
+
+	-- Other node types
+	suite:case("AstLocal_frozen", function(assert)
+		local block = parser.parseblock("local x: number = 1")
+		local localStat = block.statements[1] :: syntax.AstStatLocal
+		local local_ = localStat.variables[1].node
+		assert.eq(local_.kind, "local")
+		assert.erroreq(function()
+			(local_ :: any).name = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstGenericType_frozen", function(assert)
+		local block = parser.parseblock("type Foo<T = number> = T")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local generic = (typeAlias.generics :: any)[1].node
+		assert.eq(generic.tag, "generic")
+		assert.erroreq(function()
+			generic.name = nil
+		end, frozenTableMessage)
+	end)
+
+	suite:case("AstGenericTypePack_frozen", function(assert)
+		local block = parser.parseblock("type Foo<T, U...> = (T, U...) -> ()")
+		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
+		local genericPack = (typeAlias.genericpacks :: any)[1].node
+		assert.eq(genericPack.tag, "generic")
+		assert.eq(genericPack.kind, "typepack")
+		assert.erroreq(function()
+			genericPack.name = nil
+		end, frozenTableMessage)
+	end)
+
+	-- Token type
+	suite:case("Token_frozen", function(assert)
+		local block = parser.parseblock("local x = 1")
+		local localStat = block.statements[1] :: syntax.AstStatLocal
+		local token = localStat.localkeyword
+		assert.eq(token.istoken, true)
+		assert.erroreq(function()
+			(token :: any).text = "modified"
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((token :: any).leadingtrivia, nil)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((token :: any).trailingtrivia, nil)
+		end, frozenTableMessage)
+	end)
+
+	-- Trivia types
+	suite:case("Trivia_frozen", function(assert)
+		local block = parser.parseblock([=[
+	-- This is a comment
+	--[[This is a multiline comment
+		hello
+	]]
+
+	local x = 1
+	]=])
+		local localStat = block.statements[1] :: syntax.AstStatLocal
+		local trivias = localStat.localkeyword.leadingtrivia
+		for _, trivia in trivias do
+			assert.erroreq(function()
+				(trivia :: any).text = "modified"
+			end, frozenTableMessage)
+		end
+	end)
+
+	-- ParseResult type
+	suite:case("ParseResult_frozen", function(assert)
+		local result = parser.parse("local x = 1")
+		assert.erroreq(function()
+			(result :: any).root = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			table.insert((result :: any).lineoffsets, nil)
+		end, frozenTableMessage)
+	end)
+
+	-- Pair type (used in Punctuated)
+	suite:case("Pair_frozen", function(assert)
+		local block = parser.parseblock("local x, y = 1, 2")
+		local localStat = block.statements[1] :: syntax.AstStatLocal
+		local pair = localStat.variables[1]
+		assert.erroreq(function()
+			(pair :: any).node = nil
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(pair :: any).separator = nil
+		end, frozenTableMessage)
+	end)
+
+	-- Eof type
+	suite:case("Eof_frozen", function(assert)
+		local result = parser.parse("local x = 1")
+		local eof = result.eof
+		assert.eq(eof.tag, "eof")
+		assert.eq(eof.istoken, true)
+		assert.erroreq(function()
+			(eof :: any).tag = "modified"
+		end, frozenTableMessage)
 	end)
 end)
