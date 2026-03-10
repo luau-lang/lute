@@ -58,7 +58,7 @@ function tableext.toset<T>(tbl: { T }): { [T]: true }
 	return set
 end
 
-function tableext.extend<T>(tbl: { T }, ...: { T })
+function tableext.extend<T>(tbl: { T }, ...: { T }): ()
 	local extensions = table.pack(...)
 	extensions.n = nil :: any
 	for _, extension in extensions do
@@ -68,7 +68,7 @@ function tableext.extend<T>(tbl: { T }, ...: { T })
 	end
 end
 
-function tableext.reverse<T>(tbl: { T }, inplace: boolean?)
+function tableext.reverse<T>(tbl: { T }, inplace: boolean?): { T }
 	local new = if inplace then tbl else {}
 	local i, j = 1, #tbl
 	while i <= j do
