@@ -56,7 +56,8 @@ local function getAllFiles(): { string }
 end
 
 local function readFaillist(): string
-	local ok, file = pcall(fs.open, FAILLIST_PATH, "r")
+	-- LUAUFIX: the type of pcall is breaking things here, so we must cast
+	local ok: boolean, file: fs.file = (pcall :: any)(fs.open, FAILLIST_PATH, "r")
 	if not ok or not file then
 		return ""
 	end
