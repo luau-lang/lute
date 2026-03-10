@@ -150,25 +150,25 @@ test.suite("Parser", function(suite)
 
 		assert.eq(type(result.lineoffsets), "table")
 		assert.eq(#result.lineoffsets, 1)
-		assert.eq(result.lineoffsets[1], 0)
+		assert.eq(result.lineoffsets[1], 1)
 
 		local multiLineCode = "local x = 1\nlocal y = 2\nlocal z = 3"
 		local multiResult = parser.parse(multiLineCode)
 
 		assert.eq(type(multiResult.lineoffsets), "table")
 		assert.eq(#multiResult.lineoffsets, 3)
-		assert.eq(multiResult.lineoffsets[1], 0)
-		assert.eq(multiResult.lineoffsets[2], 12)
-		assert.eq(multiResult.lineoffsets[3], 24)
+		assert.eq(multiResult.lineoffsets[1], 1)
+		assert.eq(multiResult.lineoffsets[2], 13)
+		assert.eq(multiResult.lineoffsets[3], 25)
 
 		local emptyLineCode = "local x = 1\n\nlocal y = 2"
 		local emptyResult = parser.parse(emptyLineCode)
 
 		assert.eq(type(emptyResult.lineoffsets), "table")
 		assert.eq(#emptyResult.lineoffsets, 3)
-		assert.eq(emptyResult.lineoffsets[1], 0)
-		assert.eq(emptyResult.lineoffsets[2], 12)
-		assert.eq(emptyResult.lineoffsets[3], 13)
+		assert.eq(emptyResult.lineoffsets[1], 1)
+		assert.eq(emptyResult.lineoffsets[2], 13)
+		assert.eq(emptyResult.lineoffsets[3], 14)
 	end)
 
 	suite:case("canParseAttributes", function(assert)
