@@ -423,7 +423,7 @@ local function lint(
 		end
 	end
 
-	return tableext.map(unusedLocals(ast, writeOnlyAPIs), function(l): lintTypes.LintViolation
+	return tableext.map(unusedLocals(ast, writeOnlyAPIs), function(l: syntax.AstLocal): lintTypes.LintViolation
 		return {
 			lintname = name,
 			location = l.location, -- LUAUFIX: Bidirectional inference should let us know that l : syntax.AstLocal
