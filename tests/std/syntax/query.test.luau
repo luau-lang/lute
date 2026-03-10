@@ -38,7 +38,8 @@ test.suite("AST Query", function(suite)
 
 		-- Verify the replacement table only contains the expected entries
 		local count = 0
-		for _, _ in replacements do
+		-- LUAUFIX: code too complex error here from `replacements` type being very large
+		for _, _ in replacements :: any do
 			count += 1
 		end
 		assert.eq(count, 4) -- 4 non-nil replacements
