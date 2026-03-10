@@ -27,7 +27,7 @@ local function parse(arguments: { string }): Config
 		migrationPath = nil :: string?,
 		migrationOptions = {},
 		filePaths = {},
-		outputFile = nil,
+		outputFile = nil :: string?,
 	}
 
 	local i = 1

@@ -4,7 +4,6 @@
 #include "lute/configresolver.h"
 #include "lute/moduleresolver.h"
 #include "lute/type.h"
-#include "lute/userdatas.h"
 
 #include "Luau/Ast.h"
 #include "Luau/BuiltinDefinitions.h"

@@ -4,7 +4,7 @@ local types = require("../types")
 local retrieverLib = {}
 
 function retrieverLib.leftmosttrivia(n: types.AstNode): { types.Trivia }
-	local q: query.query<types.Token> = query.findallfromroot(n, function(n)
+	local q = query.findallfromroot<<types.Token>>(n, function(n: types.Token)
 		return if n.istoken ~= nil and n.istoken then n else nil
 	end)
 
@@ -27,7 +27,7 @@ function retrieverLib.leftmosttrivia(n: types.AstNode): { types.Trivia }
 end
 
 function retrieverLib.rightmosttrivia(n: types.AstNode): { types.Trivia }
-	local q: query.query<types.Token> = query.findallfromroot(n, function(n)
+	local q = query.findallfromroot<<types.Token>>(n, function(n: types.Token)
 		return if n.istoken ~= nil and n.istoken then n else nil
 	end)
 
