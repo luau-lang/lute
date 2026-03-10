@@ -29,21 +29,25 @@ test.suite("ProcessSuite", function(suite)
 	suite:case("run_system_and_cwd", function(check)
 		local rootdir: string = "/"
 		local root: pathlib.path? = nil
+
 		if system.win32 then
 			root = pathlib.win32.drive(process.cwd() :: windowsPath.path)
 			rootdir = pathlib.format(root)
 		end
-		local r = process.run({ "pwd" }, { cwd = rootdir })
+
+		-- LUAUFIX: we shouldn't need to upcast the result of `process.system` to `{ [any]: any }`
+		local r = process.run({ "pwd" }, { cwd = rootdir }) :: { [any]: any }
+
 		if system.win32 then
 			assert(root ~= nil and (root :: windowsPath.path).drive ~= nil)
-			check.tableeq(r, { -- LUAUFIX: ProcessResult </: { [unknown] : unknown } seems wrong
+			check.tableeq(r, {
 				exitcode = 0,
 				stdout = `/{root.drive:lower()}\n`,
 				stderr = "",
 				ok = true,
 			})
 		else
-			check.tableeq(r, { -- LUAUFIX: ProcessResult </: { [unknown] : unknown } seems wrong
+			check.tableeq(r, {
 				exitcode = 0,
 				stdout = "/\n",
 				stderr = "",
@@ -51,8 +55,9 @@ test.suite("ProcessSuite", function(suite)
 			})
 		end
 
-		local r2 = process.system("echo hello!")
-		check.tableeq(r2, { -- LUAUFIX: ProcessResult </: { [unknown] : unknown } seems wrong
+		-- LUAUFIX: we shouldn't need to upcast the result of `process.system` to `{ [any]: any }`
+		local r2 = process.system("echo hello!") :: { [any]: any }
+		check.tableeq(r2, {
 			exitcode = 0,
 			stdout = "hello!\n",
 			stderr = "",
@@ -61,8 +66,9 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("run_nonzero_exitcode", function(assert)
-		local r = process.run({ "sh", "-c", "exit 41" })
-		assert.tableeq(r, { -- LUAUFIX: ProcessResult </: { [unknown] : unknown } seems wrong
+		-- LUAUFIX: we shouldn't need to upcast the result of `process.run` to `{ [any]: any }`
+		local r = process.run({ "sh", "-c", "exit 41" }) :: { [any]: any }
+		assert.tableeq(r, {
 			exitcode = 41,
 			stdout = "",
 			stderr = "",

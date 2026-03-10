@@ -136,6 +136,9 @@ test.suite("FsSuite", function(suite)
 		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
 		local success, err = pcall(function()
 			fs.createdirectory(nestedDir, { makeparents = false })
+
+			-- LUAUFIX: pcall's type is wrong, and we can mitigate that by returning nil from this function
+			return nil
 		end)
 		assert.neq(success, true)
 		assert.neq(err, nil)
@@ -145,6 +148,9 @@ test.suite("FsSuite", function(suite)
 		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
 		local success, err = pcall(function()
 			fs.createdirectory(nestedDir)
+
+			-- LUAUFIX: pcall's type is wrong, and we can mitigate that by returning nil from this function
+			return nil
 		end)
 		assert.neq(success, true)
 		assert.neq(err, nil)

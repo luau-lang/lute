@@ -27,7 +27,7 @@ function tasklib.create(f, ...): task
 	return data :: task
 end
 
-function tasklib.await(t: task)
+function tasklib.await(t: task): any
 	if not t.co then
 		error(`await: argument 1 is not a task`)
 	end
@@ -43,7 +43,7 @@ function tasklib.await(t: task)
 	end
 end
 
-function tasklib.awaitall(...: task)
+function tasklib.awaitall(...: task): ...unknown
 	local tasks = table.pack(...)
 
 	for i, v in ipairs(tasks) do

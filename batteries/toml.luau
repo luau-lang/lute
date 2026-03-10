@@ -6,7 +6,7 @@ type SerializerState = {
 	cursor: number,
 }
 
-local function serializeValue(value: string | number)
+local function serializeValue(value: string | number): string
 	if typeof(value) == "string" then
 		value = string.gsub(value, "\\", "\\\\")
 		value = string.gsub(value, "\n", "\\n")
@@ -23,7 +23,7 @@ local function serializeValue(value: string | number)
 	end
 end
 
-local function hasNestedTables(tbl: { [unknown]: unknown })
+local function hasNestedTables(tbl: { [unknown]: unknown }): boolean
 	for _, v in tbl do
 		if typeof(v) == "table" and next(v) ~= nil then
 			return true
@@ -32,7 +32,7 @@ local function hasNestedTables(tbl: { [unknown]: unknown })
 	return false
 end
 
-local function tableToToml(tbl: { [any]: any }, parent: string?)
+local function tableToToml(tbl: { [any]: any }, parent: string?): string
 	local result = ""
 	local subTables = {}
 	local hasDirectValues = false
@@ -81,7 +81,7 @@ type DeserializerState = {
 	cursor: number,
 }
 
-local function skipWhitespace(state: DeserializerState)
+local function skipWhitespace(state: DeserializerState): ()
 	local pos = state.cursor
 	while pos <= string.len(state.buf) and string.match(string.sub(state.buf, pos, pos), "%s") do
 		pos += 1
@@ -89,14 +89,14 @@ local function skipWhitespace(state: DeserializerState)
 	state.cursor = pos
 end
 
-local function readLine(state: DeserializerState)
+local function readLine(state: DeserializerState): string
 	local nextLine = string.find(state.buf, "\n", state.cursor) or string.len(state.buf) + 1
 	local line = string.sub(state.buf, state.cursor, nextLine - 1)
 	state.cursor = nextLine + 1
 	return line
 end
 
-local function deserialize(input: string)
+local function deserialize(input: string): { [string]: unknown }
 	-- Normalize line endings: Replace Windows (\r\n) and old Mac (\r) with Unix (\n)
 	input = string.gsub(input, "\r\n", "\n")
 	input = string.gsub(input, "\r", "\n")
@@ -105,7 +105,7 @@ local function deserialize(input: string)
 		buf = input,
 		cursor = 1,
 	}
-	local result = {}
+	local result: { [string]: unknown } = {}
 	local currentTable = result
 	local arrayTables = {}
 
@@ -118,7 +118,7 @@ local function deserialize(input: string)
 		end
 
 		if string.match(line, "^%[%[(.-)%]%]$") then
-			local tableName = string.match(line, "^%[%[(.-)%]%]$")
+			local tableName = string.match(line, "^%[%[(.-)%]%]$") or ""
 			arrayTables[tableName] = arrayTables[tableName] or {}
 
 			local newEntry = {}

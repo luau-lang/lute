@@ -16,7 +16,7 @@ type ArgData = {
 }
 
 type ParseResult = {
-	values: { [string]: string },
+	values: { [string]: string? },
 	flags: { [string]: boolean },
 	fwdArgs: { string },
 }
