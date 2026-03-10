@@ -29,6 +29,32 @@
 namespace luau
 {
 
+// Recursively freezes the table at the top of the stack and any descendant tables.
+// The table must be at the top of the stack when called.
+static void deepFreeze(lua_State* L)
+{
+    if (!lua_istable(L, -1))
+        luaL_error(L, "expected table to freeze");
+
+    lua_rawcheckstack(L, 2);
+
+    lua_pushnil(L);
+    while (lua_next(L, -2) != 0)
+    {
+        // Freeze the value if it's a table
+        if (lua_istable(L, -1))
+            deepFreeze(L);
+
+        // Pop value, keep key for next iteration
+        lua_pop(L, 1);
+    }
+
+    if (lua_getreadonly(L, -1))
+        return;
+
+    lua_setreadonly(L, -1, 1);
+}
+
 struct StatResult
 {
     std::shared_ptr<Luau::Allocator> allocator;
@@ -131,7 +157,7 @@ struct Span
 
 static Span checkSpan(lua_State* L, int index)
 {
-	lua_checkstack(L, 1);
+    lua_checkstack(L, 1);
 
     if (!lua_istable(L, index))
         luaL_typeerror(L, index, "span");
@@ -2818,10 +2844,12 @@ int luau_parse(lua_State* L)
     for (size_t i = 0; i < serializer.lineOffsets.size(); i++)
     {
         lua_pushinteger(L, i + 1);
-        lua_pushnumber(L, serializer.lineOffsets[i]);
+        lua_pushnumber(L, serializer.lineOffsets[i] + 1);
         lua_settable(L, -3);
     }
     lua_setfield(L, -2, "lineoffsets");
+
+    deepFreeze(L);
 
     return 1;
 }
@@ -2862,6 +2890,8 @@ int luau_parseexpr(lua_State* L)
 
     AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
     serializer.visit(result.parseResult.root);
+
+    deepFreeze(L);
 
     return 1;
 }
