@@ -20,7 +20,7 @@ local function checkReplacement(
 	assert.eq(result, expected)
 end
 
-test.suite("syntax_printer", function(suite)
+test.suite("SyntaxPrinter", function(suite)
 	suite:case("string_replacement", function(assert)
 		local source = [[
             local name = "World"

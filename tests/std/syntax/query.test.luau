@@ -3,7 +3,7 @@ local query = require("@std/syntax/query")
 local test = require("@std/test")
 local utils = require("@std/syntax/utils")
 
-test.suite("AST Query", function(suite)
+test.suite("AstQuery", function(suite)
 	suite:case("filter", function(assert)
 		local testQuery = query.findallfromroot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 

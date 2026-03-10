@@ -7,8 +7,8 @@ local diff = difftext.diff
 -- Each diff operation has structure: { key: "EQUAL" | "ADD" | "DELETE", text: string }
 -- Order matters - the sequence of operations defines the transformation
 
-test.suite("myersdiff - bychar", function(suite)
-	suite:case("identical strings", function(assert)
+test.suite("MyersDiffByChar", function(suite)
+	suite:case("identical_strings", function(assert)
 		local a = "abc"
 		local b = "abc"
 		local diffResult = diff(a, b, { byChar = true })
@@ -21,7 +21,7 @@ test.suite("myersdiff - bychar", function(suite)
 		assert.eq(diffResult[3].text, "c")
 	end)
 
-	suite:case("single character change in middle", function(assert)
+	suite:case("single_character_change_in_middle", function(assert)
 		local a = "abc"
 		local b = "axc"
 		local diffResult = diff(a, b, { byChar = true })
@@ -37,7 +37,7 @@ test.suite("myersdiff - bychar", function(suite)
 		assert.eq(diffResult[4].text, "c")
 	end)
 
-	suite:case("character addition at start", function(assert)
+	suite:case("character_addition_at_start", function(assert)
 		local a = "bc"
 		local b = "abc"
 		local diffResult = diff(a, b, { byChar = true })
@@ -51,7 +51,7 @@ test.suite("myersdiff - bychar", function(suite)
 		assert.eq(diffResult[3].text, "c")
 	end)
 
-	suite:case("character addition at end", function(assert)
+	suite:case("character_addition_at_end", function(assert)
 		local a = "ab"
 		local b = "abc"
 		local diffResult = diff(a, b, { byChar = true })
@@ -65,7 +65,7 @@ test.suite("myersdiff - bychar", function(suite)
 		assert.eq(diffResult[3].text, "c")
 	end)
 
-	suite:case("character deletion at start", function(assert)
+	suite:case("character_deletion_at_start", function(assert)
 		local a = "abc"
 		local b = "bc"
 		local diffResult = diff(a, b, { byChar = true })
@@ -79,7 +79,7 @@ test.suite("myersdiff - bychar", function(suite)
 		assert.eq(diffResult[3].text, "c")
 	end)
 
-	suite:case("character deletion at end", function(assert)
+	suite:case("character_deletion_at_end", function(assert)
 		local a = "abc"
 		local b = "ab"
 		local diffResult = diff(a, b, { byChar = true })
@@ -93,7 +93,7 @@ test.suite("myersdiff - bychar", function(suite)
 		assert.eq(diffResult[3].text, "c")
 	end)
 
-	suite:case("multiple consecutive changes", function(assert)
+	suite:case("multiple_consecutive_changes", function(assert)
 		local a = "abc"
 		local b = "xyz"
 		local diffResult = diff(a, b, { byChar = true })
@@ -113,7 +113,7 @@ test.suite("myersdiff - bychar", function(suite)
 		assert.eq(diffResult[6].text, "z")
 	end)
 
-	suite:case("empty to non-empty", function(assert)
+	suite:case("empty_to_non_empty", function(assert)
 		local a = ""
 		local b = "hi"
 		local diffResult = diff(a, b, { byChar = true })
@@ -125,7 +125,7 @@ test.suite("myersdiff - bychar", function(suite)
 		assert.eq(diffResult[2].text, "i")
 	end)
 
-	suite:case("non-empty to empty", function(assert)
+	suite:case("non_empty_to_empty", function(assert)
 		local a = "hi"
 		local b = ""
 		local diffResult = diff(a, b, { byChar = true })
@@ -138,8 +138,8 @@ test.suite("myersdiff - bychar", function(suite)
 	end)
 end)
 
-test.suite("myersdiff - byline", function(suite)
-	suite:case("identical multiline strings", function(assert)
+test.suite("MyersDiffByLine", function(suite)
+	suite:case("identical_multiline_strings", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nline2\nline3"
 		local diffResult = diff(a, b)
@@ -153,7 +153,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[3].text, "line3")
 	end)
 
-	suite:case("add line at start", function(assert)
+	suite:case("add_line_at_start", function(assert)
 		local a = "line2\nline3"
 		local b = "line1\nline2\nline3"
 		local diffResult = diff(a, b)
@@ -167,7 +167,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[3].text, "line3")
 	end)
 
-	suite:case("add line at end", function(assert)
+	suite:case("add_line_at_end", function(assert)
 		local a = "line1\nline2"
 		local b = "line1\nline2\nline3"
 		local diffResult = diff(a, b)
@@ -181,7 +181,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[3].text, "line3")
 	end)
 
-	suite:case("add line in middle", function(assert)
+	suite:case("add_line_in_middle", function(assert)
 		local a = "line1\nline3"
 		local b = "line1\nline2\nline3"
 		local diffResult = diff(a, b)
@@ -195,7 +195,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[3].text, "line3")
 	end)
 
-	suite:case("delete line at start", function(assert)
+	suite:case("delete_line_at_start", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line2\nline3"
 		local diffResult = diff(a, b)
@@ -209,7 +209,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[3].text, "line3")
 	end)
 
-	suite:case("delete line at end", function(assert)
+	suite:case("delete_line_at_end", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nline2"
 		local diffResult = diff(a, b)
@@ -223,7 +223,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[3].text, "line3")
 	end)
 
-	suite:case("delete line in middle", function(assert)
+	suite:case("delete_line_in_middle", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nline3"
 		local diffResult = diff(a, b)
@@ -237,7 +237,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[3].text, "line3")
 	end)
 
-	suite:case("modify single line", function(assert)
+	suite:case("modify_single_line", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nmodified\nline3"
 		local diffResult = diff(a, b)
@@ -253,7 +253,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[4].text, "line3")
 	end)
 
-	suite:case("multiple line changes", function(assert)
+	suite:case("multiple_line_changes", function(assert)
 		local a = "A\nB\nC\nD"
 		local b = "A\nX\nC\nY\nD"
 		local diffResult = diff(a, b)
@@ -273,7 +273,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[6].text, "D")
 	end)
 
-	suite:case("empty to multiline", function(assert)
+	suite:case("empty_to_multiline", function(assert)
 		local a = ""
 		local b = "line1\nline2"
 		local diffResult = diff(a, b)
@@ -287,7 +287,7 @@ test.suite("myersdiff - byline", function(suite)
 		assert.eq(diffResult[3].text, "line2")
 	end)
 
-	suite:case("multiline to empty", function(assert)
+	suite:case("multiline_to_empty", function(assert)
 		local a = "line1\nline2"
 		local b = ""
 		local diffResult = diff(a, b)
@@ -302,7 +302,7 @@ test.suite("myersdiff - byline", function(suite)
 	end)
 end)
 
-test.suite("printdiff", function(suite)
+test.suite("PrintDiff", function(suite)
 	local function composeDetailedRemoval(str: string, changedCharPos: { [number]: true }, sideHeader: string?)
 		local composed = richterm.brightRed(`- {sideHeader or ""}`)
 		for i = 1, #str do
@@ -327,7 +327,7 @@ test.suite("printdiff", function(suite)
 		return composed
 	end
 
-	suite:case("printdiff default - simple addition", function(assert)
+	suite:case("printdiff_default_simple_addition", function(assert)
 		local a = "line1\nline2"
 		local b = "line1\nline2\nline3"
 		local result = difftext.prettydiff(a, b)
@@ -339,7 +339,7 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[3], richterm.brightGreen("+ line3"))
 	end)
 
-	suite:case("printdiff default - simple deletion", function(assert)
+	suite:case("printdiff_default_simple_deletion", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nline3"
 		local result = difftext.prettydiff(a, b)
@@ -351,7 +351,7 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[3], "  line3")
 	end)
 
-	suite:case("printdiff default - modification", function(assert)
+	suite:case("printdiff_default_modification", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nmodified\nline3"
 		local result = difftext.prettydiff(a, b)
@@ -364,7 +364,7 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[4], "  line3")
 	end)
 
-	suite:case("printdiff default - unchanged lines", function(assert)
+	suite:case("printdiff_default_unchanged_lines", function(assert)
 		local a = "line1\nline2\nline3"
 		local b = "line1\nline2\nline3"
 		local result = difftext.prettydiff(a, b)
@@ -376,7 +376,7 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[3], "  line3")
 	end)
 
-	suite:case("printdiff default - multiple changes", function(assert)
+	suite:case("printdiff_default_multiple_changes", function(assert)
 		local a = "A\nB\nC\nD"
 		local b = "A\nX\nC\nY\nD"
 		local result = difftext.prettydiff(a, b)
@@ -391,7 +391,7 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[6], "  D")
 	end)
 
-	suite:case("printdiff default - with line numbers", function(assert)
+	suite:case("printdiff_default_with_line_numbers", function(assert)
 		local a = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"
 		local b = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"
 		local result = difftext.prettydiff(a, b, {
@@ -409,7 +409,7 @@ test.suite("printdiff", function(suite)
 		end
 	end)
 
-	suite:case("printdiff detailed - single line change", function(assert)
+	suite:case("printdiff_detailed_single_line_change", function(assert)
 		local a = "hello world"
 		local b = "hello wirld"
 		local result = difftext.prettydiff(a, b, { detailed = true })
@@ -425,7 +425,7 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[2], composeDetailedAddition("hello wirld", { [8] = true }))
 	end)
 
-	suite:case("printdiff detailed - multiple line changes", function(assert)
+	suite:case("printdiff_detailed_multiple_line_changes", function(assert)
 		local a = "line1\nold line\nline3"
 		local b = "line1\nnew line\nline3"
 		local result = difftext.prettydiff(a, b, { detailed = true })
@@ -445,7 +445,7 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[4], "  line3")
 	end)
 
-	suite:case("printdiff detailed - unchanged lines", function(assert)
+	suite:case("printdiff_detailed_unchanged_lines", function(assert)
 		local a = "line1\nline2"
 		local b = "line1\nline2"
 		local result = difftext.prettydiff(a, b, { detailed = true })
@@ -456,7 +456,7 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[2], "  line2")
 	end)
 
-	suite:case("printdiff detailed - with line numbers", function(assert)
+	suite:case("printdiff_detailed_with_line_numbers", function(assert)
 		local a = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"
 		local b = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nlineten"
 		local result = difftext.prettydiff(a, b, {
@@ -474,7 +474,7 @@ test.suite("printdiff", function(suite)
 		assert.eq(lines[11], composeDetailedAddition("lineten", { [5] = true, [6] = true, [7] = true }, "   10| "))
 	end)
 
-	suite:case("printdiff detailed - sanity check w/ 3 digits of line numbers", function(assert)
+	suite:case("printdiff_detailed_sanity_check_w/_3_digits_of_line_numbers", function(assert)
 		local a = "unmodified\n" .. string.rep("line\n", 99) .. "unmodified"
 		local b = "modified\n" .. string.rep("line\n", 99) .. "modified"
 		local result = difftext.prettydiff(a, b, {
