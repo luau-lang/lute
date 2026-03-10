@@ -1,4 +1,4 @@
-local CRC32_TABLE = table.create(256) :: {number}
+local CRC32_TABLE = table.create(256) :: { number }
 
 -- TODO: Maybe compute this AoT as an optimization
 -- Initialize the lookup table and lock it in place

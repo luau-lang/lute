@@ -90,7 +90,7 @@ local function traverseTable(
 	local output = ""
 	local indentStr = string.rep("  ", indent)
 
-	local keys: {unknown} = {}
+	local keys: { unknown } = {}
 
 	-- Collect all keys, not just primitives
 	for key in dataTable do

@@ -304,7 +304,7 @@ type Module = { name: string, isDir: boolean }
 -- Helper to generate index with table of children
 local function generateLibraryIndex(title: string, alias: string, modulePath: path.pathlike): string
 	local entries = fs.listdirectory(modulePath)
-	local modules: {Module} = {}
+	local modules: { Module } = {}
 
 	for _, entry in entries do
 		local name = entry.name

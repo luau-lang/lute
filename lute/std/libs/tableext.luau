@@ -40,7 +40,7 @@ function tableext.combine<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
 	return tbl
 end
 
-function tableext.keys<K, V>(tbl: { [K]: V }): {K}
+function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 	local keys = {}
 	for k, _ in tbl do
 		table.insert(keys, k)
@@ -50,7 +50,7 @@ end
 
 -- Functions on array-like tables
 
-function tableext.toset<T>(tbl: {T}): { [T]: true }
+function tableext.toset<T>(tbl: { T }): { [T]: true }
 	local set: { [T]: true } = {}
 	for _, v in tbl do
 		set[v] = true
@@ -58,7 +58,7 @@ function tableext.toset<T>(tbl: {T}): { [T]: true }
 	return set
 end
 
-function tableext.extend<T>(tbl: {T}, ...: {T}): ()
+function tableext.extend<T>(tbl: { T }, ...: { T }): ()
 	local extensions = table.pack(...)
 	extensions.n = nil :: any
 	for _, extension in extensions do
@@ -68,7 +68,7 @@ function tableext.extend<T>(tbl: {T}, ...: {T}): ()
 	end
 end
 
-function tableext.reverse<T>(tbl: {T}, inplace: boolean?): {T}
+function tableext.reverse<T>(tbl: { T }, inplace: boolean?): { T }
 	local new = if inplace then tbl else {}
 	local i, j = 1, #tbl
 	while i <= j do
@@ -79,7 +79,7 @@ function tableext.reverse<T>(tbl: {T}, inplace: boolean?): {T}
 	return new
 end
 
-function tableext.any<T>(arr: {T}, predicate: (T) -> boolean): boolean
+function tableext.any<T>(arr: { T }, predicate: (T) -> boolean): boolean
 	for _, v in arr do
 		if predicate(v) then
 			return true
@@ -88,7 +88,7 @@ function tableext.any<T>(arr: {T}, predicate: (T) -> boolean): boolean
 	return false
 end
 
-function tableext.all<T>(arr: {T}, predicate: (T) -> boolean): boolean
+function tableext.all<T>(arr: { T }, predicate: (T) -> boolean): boolean
 	for _, v in arr do
 		if not predicate(v) then
 			return false
