@@ -170,6 +170,10 @@ bool runBytecode(
         return false;
     }
 
+    runtime.args.clear();
+    for (int i = 0; i < program_argc; ++i)
+        runtime.args.emplace_back(program_argv[i]);
+
     runtime.GL = GL;
     runtime.runningThreads.push_back({true, getRefForThread(L), program_argc});
 
