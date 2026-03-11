@@ -48,7 +48,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 		end)
 	end
 
-	suite:case("json_object_and_asobject", function(assert)
+	suite:case("jsonObjectAndAsObject", function(assert)
 		local obj = json.object({
 			name = "Alice",
 			age = 30,
@@ -58,7 +58,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 		assert.eq(obj.age, 30)
 	end)
 
-	suite:case("json_asobject_test", function(assert)
+	suite:case("jsonAsObjectTest", function(assert)
 		local myjsonstr = [[
 		{
 			"a": true,

@@ -30,7 +30,7 @@ test.suite("LuteTransform", function(suite)
 		end
 	end)
 
-	suite:case("transform_query_style", function(assert)
+	suite:case("transformQueryStyle", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
 		local transformerExample = path.format(path.join("examples", "query_transformer.luau"))
@@ -54,7 +54,7 @@ test.suite("LuteTransform", function(suite)
 		fs.remove(transformerDest)
 	end)
 
-	suite:case("transform_output_directory_happy_path", function(assert)
+	suite:case("transformOutputDirectoryHappyPath", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
 		local transformerExample = path.format(path.join("examples", "query_transformer.luau"))
@@ -89,7 +89,7 @@ test.suite("LuteTransform", function(suite)
 		fs.remove(outputPath)
 	end)
 
-	suite:case("transform_output_creates_file_if_it_doesnt_exist", function(assert)
+	suite:case("transformOutputCreatesFileIfItDoesntExist", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
 		local transformerExample = path.format(path.join("examples", "query_transformer.luau"))

@@ -17,7 +17,7 @@ test.suite("LuteRun", function(suite)
 		end
 	end)
 
-	suite:case("same_named_file_and_directory", function(assert)
+	suite:case("sameNamedFileAndDirectory", function(assert)
 		-- Setup
 		fs.createdirectory(rundir)
 		fs.createdirectory(pathlib.join(rundir, "hello"))

@@ -26,7 +26,7 @@ local function assertErrorsWithMsg(
 end
 
 test.suite("LuteStdTestFramework", function(suite)
-	suite:case("lute_doesnt_report_xpcall_as_error_when_accessing_field_of_nil_in_suite", function(assert)
+	suite:case("luteDoesntReportXpcallAsErrorWhenAccessingFieldOfNilInSuite", function(assert)
 		-- Setup
 		local testFilePath = path.join(tmpDir, "nil_field_access_test.test.luau")
 		fs.writestringtofile(
@@ -35,7 +35,7 @@ test.suite("LuteStdTestFramework", function(suite)
 local test = require("@std/test")
 
 test.suite("nil_field_suite", function(suite)
-	suite:case("access_field_of_nil", function(assert)
+	suite:case("accessFieldOfNil", function(assert)
 		local t = nil
 		local value = t.field -- This will cause an error
 	end)
@@ -62,7 +62,7 @@ test.run()
 		fs.remove(testFilePath)
 	end)
 
-	suite:case("lute_doesnt_report_xpcall_as_error_when_accessing_field_of_nil_in_case", function(assert)
+	suite:case("luteDoesntReportXpcallAsErrorWhenAccessingFieldOfNilInCase", function(assert)
 		-- Setup
 		local testFilePath = path.join(tmpDir, "nil_field_access_test.test.luau")
 		fs.writestringtofile(
@@ -70,7 +70,7 @@ test.run()
 			[[
 local test = require("@std/test")
 
-test.case("access_field_of_nil", function(assert)
+test.case("accessFieldOfNil", function(assert)
 	local t = nil
 	local value = t.field -- This will cause an error
 end)
@@ -97,13 +97,13 @@ test.run()
 		fs.remove(testFilePath)
 	end)
 
-	suite:case("assert.eq_error_message_in_case", function(assert)
+	suite:case("assert.eqErrorMessageInCase", function(assert)
 		assertErrorsWithMsg(
 			"assert_eq_fails",
 			[[
 local test = require("@std/test")
 
-test.case("eq_error", function(assert)
+test.case("eqError", function(assert)
 	assert.eq(1, 2)
 end)
 
@@ -114,14 +114,14 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.eq_error_message_in_suite", function(assert)
+	suite:case("assert.eqErrorMessageInSuite", function(assert)
 		assertErrorsWithMsg(
 			"assert_eq_fails",
 			[[
 local test = require("@std/test")
 
 test.suite("eq_failure_suite", function(suite)
-	suite:case("eq_error", function(assert)
+	suite:case("eqError", function(assert)
 		assert.eq(1, 2)
 	end)
 end)
@@ -133,13 +133,13 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.neq_error_message_in_case", function(assert)
+	suite:case("assert.neqErrorMessageInCase", function(assert)
 		assertErrorsWithMsg(
 			"assert_neq_fails",
 			[[
 local test = require("@std/test")
 
-test.case("neq_error", function(assert)
+test.case("neqError", function(assert)
 	assert.neq(1, 1)
 end)
 
@@ -150,14 +150,14 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.neq_error_message_in_suite", function(assert)
+	suite:case("assert.neqErrorMessageInSuite", function(assert)
 		assertErrorsWithMsg(
 			"assert_neq_fails",
 			[[
 local test = require("@std/test")
 
 test.suite("neq_failure_suite", function(suite)
-	suite:case("neq_error", function(assert)
+	suite:case("neqError", function(assert)
 		assert.neq(1, 1)
 	end)
 end)
@@ -169,13 +169,13 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.tableeq_error_message_in_case", function(assert)
+	suite:case("assert.tableeqErrorMessageInCase", function(assert)
 		assertErrorsWithMsg(
 			"assert_tableeq_fails",
 			[[
 local test = require("@std/test")
 
-test.case("tableeq_error", function(assert)
+test.case("tableeqError", function(assert)
 	assert.tableeq({ a = 1 }, { a = 2 })
 end)
 
@@ -186,14 +186,14 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.tableeq_error_message_in_suite", function(assert)
+	suite:case("assert.tableeqErrorMessageInSuite", function(assert)
 		assertErrorsWithMsg(
 			"assert_tableeq_fails",
 			[[
 local test = require("@std/test")
 
 test.suite("tableeq_failure_suite", function(suite)
-	suite:case("tableeq_error", function(assert)
+	suite:case("tableeqError", function(assert)
 		assert.tableeq({ a = 1 }, { a = 2 })
 	end)
 end)
@@ -205,13 +205,13 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.buffereq_unequal_length", function(assert)
+	suite:case("assert.buffereqUnequalLength", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
-test.case("buffereq_error", function(assert)
+test.case("buffereqError", function(assert)
 	local buf1 = buffer.create(1)
 	local buf2 = buffer.create(2)
 	assert.buffereq(buf1, buf2)
@@ -224,14 +224,14 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.buffereq_error_message_in_suite", function(assert)
+	suite:case("assert.buffereqErrorMessageInSuite", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
 test.suite("buffereq_failure_suite", function(suite)
-	suite:case("buffereq_error", function(assert)
+	suite:case("buffereqError", function(assert)
 		local buf1 = buffer.create(2)
 		local buf2 = buffer.create(2)
 		buffer.writeu8(buf1, 0, 84)
@@ -247,13 +247,13 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.erroreq_no_error", function(assert)
+	suite:case("assert.erroreqNoError", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
-test.case("erroreq_error", function(assert)
+test.case("erroreqError", function(assert)
 	assert.erroreq(function() return end, "expected message")
 end)
 
@@ -264,14 +264,14 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.erroreq_error_message", function(assert)
+	suite:case("assert.erroreqErrorMessage", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
 test.suite("erroreq_failure_suite", function(suite)
-	suite:case("erroreq_error", function(assert)
+	suite:case("erroreqError", function(assert)
 		assert.erroreq(function() error("wrong message") end, "expected message")
 	end)
 end)
@@ -283,13 +283,13 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.strcontains_instances_negative", function(assert)
+	suite:case("assert.strcontainsInstancesNegative", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
-test.case("strcontains_error", function(assert)
+test.case("strcontainsError", function(assert)
 	assert.strcontains("hello world", "goodbye", nil, -1)
 end)
 
@@ -300,14 +300,14 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.strcontains_single_instance_fails", function(assert)
+	suite:case("assert.strcontainsSingleInstanceFails", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
 test.suite("strcontains_failure_suite", function(suite)
-	suite:case("strcontains_error", function(assert)
+	suite:case("strcontainsError", function(assert)
 		assert.strcontains("hello world", "goodbye")
 	end)
 end)
@@ -319,14 +319,14 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.strcontains_multiple_instance_fails", function(assert)
+	suite:case("assert.strcontainsMultipleInstanceFails", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
 test.suite("strcontains_failure_suite", function(suite)
-	suite:case("strcontains_error", function(assert)
+	suite:case("strcontainsError", function(assert)
 		assert.strcontains("muahahahaha", "ha", nil, 5)
 	end)
 end)
