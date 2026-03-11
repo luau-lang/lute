@@ -295,7 +295,7 @@ local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
 		"",
 		`#include "{headerFile}"`,
 		"",
-		`const std::pair<std::string_view, std::string_view> {config.arrayName}[] = \{`,
+		`constexpr std::pair<std::string_view, std::string_view> {config.arrayName}[] = \{`,
 	})
 
 	local numItems = 0
