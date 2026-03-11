@@ -3,7 +3,7 @@ local test = require("@std/test")
 local crypto = require("@lute/crypto")
 
 test.suite("CryptoRuntimeTests", function(suite)
-	suite:case("secretbox_is_a_roundtrip_strings", function(assert)
+	suite:case("secretboxIsARoundtripStrings", function(assert)
 		local message = "Remember, remember the Fifth of November."
 		local box = crypto.secretbox.seal(message)
 
@@ -13,7 +13,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 		assert.eq(output, message)
 	end)
 
-	suite:case("secretbox_is_a_roundtrip_buffers", function(assert)
+	suite:case("secretboxIsARoundtripBuffers", function(assert)
 		local message = "Gunpowder, treason, and plot."
 		local buf = buffer.create(#message)
 		buffer.writestring(buf, 0, message)
@@ -24,7 +24,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 		assert.buffereq(opened, buf)
 	end)
 
-	suite:case("secretbox_separate_keygen", function(assert)
+	suite:case("secretboxSeparateKeygen", function(assert)
 		local key = crypto.secretbox.keygen()
 
 		local message = "Remember, remember the Fifth of November."
@@ -36,7 +36,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 		assert.eq(output, message)
 	end)
 
-	suite:case("secretbox_errors_on_tampering", function(assert)
+	suite:case("secretboxErrorsOnTampering", function(assert)
 		local message = "Gunpowder, treason, and plot."
 		local buf = buffer.create(#message)
 		buffer.writestring(buf, 0, message)
@@ -49,7 +49,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 		end)
 	end)
 
-	suite:case("secretbox_no_open_string", function(assert)
+	suite:case("secretboxNoOpenString", function(assert)
 		local message = "I see no reason why gunpowder treason should ever be forgot."
 
 		local buf = buffer.create(#message)
@@ -69,7 +69,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 		end)
 	end)
 
-	suite:case("secretbox_missized_key", function(assert)
+	suite:case("secretboxMissizedKey", function(assert)
 		local message = "I see no reason why gunpowder treason should ever be forgot."
 
 		local buf = buffer.create(#message)
@@ -87,7 +87,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 		end)
 	end)
 
-	suite:case("secretbox_on_ill_typed_inputs", function(assert)
+	suite:case("secretboxOnIllTypedInputs", function(assert)
 		local message = "I see no reason why gunpowder treason should ever be forgot."
 
 		assert.errors(function()

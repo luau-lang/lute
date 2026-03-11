@@ -2,7 +2,7 @@ local tableext = require("@std/tableext")
 local test = require("@std/test")
 
 test.suite("TableExt", function(suite)
-	suite:case("map_and_filter", function(assert)
+	suite:case("mapAndFilter", function(assert)
 		local t: { [string]: number } = { a = 1, b = 2, c = 3 }
 		local mapped = tableext.map(t, function(v: number)
 			return v * 2

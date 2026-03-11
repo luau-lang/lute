@@ -5,7 +5,7 @@ local process = require("@std/process")
 local system = require("@std/system")
 
 test.suite("LuteVmSuite", function(suite)
-	suite:case("child_vm_has_access_to_builtins", function(assert)
+	suite:case("childVmHasAccessToBuiltins", function(assert)
 		local tmpdir = system.tmpdir()
 		local child_vm = path.join(tmpdir, "child_vm.luau")
 		local parent_vm = path.join(tmpdir, "parent_vm.luau")

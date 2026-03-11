@@ -5,12 +5,12 @@ local test = require("@std/test")
 local lutePath = path.format(process.execpath())
 
 local expected = [[Anonymous:
-	Passing
+	passing
 ExampleSuite:
-	should pass
+	shouldPass
 SmokeSuite:
-	make_fail
-	make_pass
+	makeFail
+	makePass
 ]]
 
 test.suite("LuteTestCommand", function(suite)
@@ -52,7 +52,7 @@ test.suite("LuteTestCommand", function(suite)
 
 	suite:case("luteTestFiltersByCaseName", function(assert)
 		-- Run lute test with --case flag
-		local result = process.run({ lutePath, "test", "--case", "make_pass", "tests/cli/discovery" })
+		local result = process.run({ lutePath, "test", "--case", "makePass", "tests/cli/discovery" })
 
 		-- Check that it runs only tests named make_pass
 		assert.eq(result.exitcode, 0)
@@ -62,7 +62,7 @@ test.suite("LuteTestCommand", function(suite)
 
 	suite:case("luteTestFiltersBySuiteAndCaseName", function(assert)
 		-- Run lute test with both --suite and --case flags
-		local result = process.run({ lutePath, "test", "-s", "SmokeSuite", "-c", "make_fail", "tests/cli/discovery" })
+		local result = process.run({ lutePath, "test", "-s", "SmokeSuite", "-c", "makeFail", "tests/cli/discovery" })
 
 		-- Check that it runs only make_fail in SmokeSuite
 		assert.eq(result.exitcode, 0)

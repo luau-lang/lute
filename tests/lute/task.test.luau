@@ -2,7 +2,7 @@ local test = require("@std/test")
 local task = require("@lute/task")
 
 test.suite("LuteTaskSuite", function(suite)
-	suite:case("simple_task_wait", function(assert)
+	suite:case("simpleTaskWait", function(assert)
 		local startTime = os.clock()
 		task.wait(0.5)
 		local endTime = os.clock()
@@ -11,7 +11,7 @@ test.suite("LuteTaskSuite", function(suite)
 		assert.eq(math.ceil(endTime - startTime) >= 0.5, true)
 	end)
 
-	suite:case("task_wait_in_loop", function(assert)
+	suite:case("taskWaitInLoop", function(assert)
 		local startTime = os.clock()
 		local elapsed = 0
 		while elapsed < 0.5 do
