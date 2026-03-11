@@ -44,7 +44,7 @@ export type Token<Kind = string> = {
 	read location: span,
 	read text: Kind,
 	read trailingtrivia: { Trivia },
-	read istoken: true,
+	read kind: "token",
 }
 
 export type Eof = Token<""> & { read tag: "eof" }
@@ -713,7 +713,7 @@ export type AstTypePackVariadic = {
 
 export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
 
-export type AstNode = AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute
+export type AstNode = AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute | Token
 
 export type ParseResult = {
 	read root: AstStatBlock,

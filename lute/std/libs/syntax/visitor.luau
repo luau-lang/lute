@@ -77,79 +77,79 @@ export type Visitor = {
 	visitAttribute: (types.AstAttribute) -> boolean,
 }
 
-local function alwaysVisit(...: any)
+local function alwaysVisit(...: types.AstNode)
 	return true
 end
 
 local defaultVisitor: Visitor = {
-	visitStatBlock = alwaysVisit :: any,
-	visitStatBlockEnd = alwaysVisit :: any,
-	visitStatDo = alwaysVisit :: any,
-	visitStatIf = alwaysVisit :: any,
-	visitStatWhile = alwaysVisit :: any,
-	visitStatRepeat = alwaysVisit :: any,
-	visitStatBreak = alwaysVisit :: any,
-	visitStatContinue = alwaysVisit :: any,
-	visitStatReturn = alwaysVisit :: any,
-	visitStatLocalDeclaration = alwaysVisit :: any,
-	visitStatLocalDeclarationEnd = alwaysVisit :: any,
-	visitStatFor = alwaysVisit :: any,
-	visitStatForEnd = alwaysVisit :: any,
-	visitStatForIn = alwaysVisit :: any,
-	visitStatForInEnd = alwaysVisit :: any,
-	visitStatAssign = alwaysVisit :: any,
-	visitStatCompoundAssign = alwaysVisit :: any,
-	visitStatFunction = alwaysVisit :: any,
-	visitStatLocalFunction = alwaysVisit :: any,
-	visitStatTypeAlias = alwaysVisit :: any,
-	visitStatTypeFunction = alwaysVisit :: any,
-	visitStatExpr = alwaysVisit :: any,
+	visitStatBlock = alwaysVisit,
+	visitStatBlockEnd = alwaysVisit :: (types.AstNode) -> (),
+	visitStatDo = alwaysVisit,
+	visitStatIf = alwaysVisit,
+	visitStatWhile = alwaysVisit,
+	visitStatRepeat = alwaysVisit,
+	visitStatBreak = alwaysVisit,
+	visitStatContinue = alwaysVisit,
+	visitStatReturn = alwaysVisit,
+	visitStatLocalDeclaration = alwaysVisit,
+	visitStatLocalDeclarationEnd = alwaysVisit :: (types.AstNode) -> (),
+	visitStatFor = alwaysVisit,
+	visitStatForEnd = alwaysVisit :: (types.AstNode) -> (),
+	visitStatForIn = alwaysVisit,
+	visitStatForInEnd = alwaysVisit :: (types.AstNode) -> (),
+	visitStatAssign = alwaysVisit,
+	visitStatCompoundAssign = alwaysVisit,
+	visitStatFunction = alwaysVisit,
+	visitStatLocalFunction = alwaysVisit,
+	visitStatTypeAlias = alwaysVisit,
+	visitStatTypeFunction = alwaysVisit,
+	visitStatExpr = alwaysVisit,
 
-	visitExpr = alwaysVisit :: any,
-	visitExprConstantNil = alwaysVisit :: any,
-	visitExprConstantString = alwaysVisit :: any,
-	visitExprConstantBool = alwaysVisit :: any,
-	visitExprConstantNumber = alwaysVisit :: any,
-	visitExprEnd = alwaysVisit :: any,
-	visitExprLocal = alwaysVisit :: any,
-	visitExprGlobal = alwaysVisit :: any,
-	visitExprCall = alwaysVisit :: any,
-	visitExprUnary = alwaysVisit :: any,
-	visitExprBinary = alwaysVisit :: any,
-	visitExprFunction = alwaysVisit :: any,
-	visitExprFunctionEnd = alwaysVisit :: any,
+	visitExpr = alwaysVisit,
+	visitExprConstantNil = alwaysVisit,
+	visitExprConstantString = alwaysVisit,
+	visitExprConstantBool = alwaysVisit,
+	visitExprConstantNumber = alwaysVisit,
+	visitExprEnd = alwaysVisit :: (types.AstNode) -> (),
+	visitExprLocal = alwaysVisit,
+	visitExprGlobal = alwaysVisit,
+	visitExprCall = alwaysVisit,
+	visitExprUnary = alwaysVisit,
+	visitExprBinary = alwaysVisit,
+	visitExprFunction = alwaysVisit,
+	visitExprFunctionEnd = alwaysVisit :: (types.AstNode) -> (),
 	visitExprInstantiate = alwaysVisit,
-	visitTableExprItem = alwaysVisit :: any,
-	visitExprTable = alwaysVisit :: any,
-	visitExprIndexName = alwaysVisit :: any,
-	visitExprIndexExpr = alwaysVisit :: any,
-	visitExprGroup = alwaysVisit :: any,
+	visitTableExprItem = alwaysVisit :: (types.AstTableExprItem) -> boolean,
+	visitExprTable = alwaysVisit,
+	visitExprIndexName = alwaysVisit,
+	visitExprIndexExpr = alwaysVisit,
+	visitExprGroup = alwaysVisit,
 	visitExprInterpString = alwaysVisit,
 	visitExprTypeAssertion = alwaysVisit,
 	visitExprIfElse = alwaysVisit,
-	visitExprVarargs = alwaysVisit :: any,
+	visitExprVarargs = alwaysVisit,
 
-	visitTypeReference = alwaysVisit :: any,
-	visitTypeSingletonBool = alwaysVisit :: any,
-	visitTypeSingletonString = alwaysVisit :: any,
-	visitTypeTypeof = alwaysVisit :: any,
-	visitTypeGroup = alwaysVisit :: any,
-	visitTypeOptional = alwaysVisit :: any,
-	visitTypeUnion = alwaysVisit :: any,
-	visitTypeIntersection = alwaysVisit :: any,
-	visitTypeArray = alwaysVisit :: any,
-	visitTypeTable = alwaysVisit :: any,
+	visitTypeReference = alwaysVisit,
+	visitTypeSingletonBool = alwaysVisit,
+	visitTypeSingletonString = alwaysVisit,
+	visitTypeTypeof = alwaysVisit,
+	visitTypeGroup = alwaysVisit,
+	visitTypeOptional = alwaysVisit,
+	visitTypeUnion = alwaysVisit,
+	visitTypeIntersection = alwaysVisit,
+	visitTypeArray = alwaysVisit,
+	visitTypeTable = alwaysVisit,
 	visitTypeFunction = alwaysVisit,
 
 	visitTypePackExplicit = alwaysVisit,
 	visitTypePackGeneric = alwaysVisit,
 	visitTypePackVariadic = alwaysVisit,
 
-	visitToken = alwaysVisit :: any,
+	visitToken = alwaysVisit,
 
-	visitLocal = alwaysVisit :: any,
+	visitLocal = alwaysVisit,
 
-	visitAttribute = alwaysVisit :: any,
+	visitAttribute = alwaysVisit,
 }
 
 local function exhaustiveMatch(value: never): never
@@ -1068,8 +1068,8 @@ local function visit(node: types.AstNode, visitor: Visitor)
 		visitLocal(node, visitor)
 	elseif node.kind == "attribute" then
 		visitAttribute(node, visitor)
-	elseif (node :: types.Token).istoken then
-		visitToken(node :: types.Token, visitor)
+	elseif node.kind == "token" then
+		visitToken(node, visitor)
 	elseif (node :: types.AstTableExprItem).istableitem then
 		visitTableExprItem(node :: types.AstTableExprItem, visitor)
 	else

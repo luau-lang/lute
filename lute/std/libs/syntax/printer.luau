@@ -106,8 +106,7 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 
 	if typeof(replacement) == "string" then
 		self:write(replacement)
-	elseif replacement.kind ~= nil then -- LUAUFIX: type solver upset comparing string singleton union to nil
-		-- TODO: preserve trivia
+	elseif replacement.kind ~= nil then
 		visitor.visit(replacement, self)
 	else
 		error("Unsupported replacement type")

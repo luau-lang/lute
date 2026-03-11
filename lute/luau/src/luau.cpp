@@ -682,8 +682,8 @@ struct AstSerialize : public Luau::AstVisitor
         lua_createtable(L, 0, 0);
         lua_setfield(L, -2, "trailingtrivia");
 
-        lua_pushboolean(L, 1);
-        lua_setfield(L, -2, "istoken");
+        lua_pushstring(L, "token");
+        lua_setfield(L, -2, "kind");
 
         lastTokenRef = lua_ref(L, -1);
     }

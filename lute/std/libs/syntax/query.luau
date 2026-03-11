@@ -65,7 +65,7 @@ function queryLib.foreach<T>(self: query<T>, callback: (T) -> ()): query<T>
 end
 
 local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visitor
-	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
+	local function visit(n: node)
 		local selected = fn(n)
 		if selected ~= nil then
 			table.insert(nodes, selected)
@@ -80,13 +80,6 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visi
 		return true
 	end
 	selectVisitor.visitExprEnd = function(_) end
-	selectVisitor.visitToken = function(n)
-		if utils.isBaseToken(n) then
-			-- only visit if it is a base token, so we don't double count
-			return visit(n)
-		end
-		return true
-	end
 
 	return selectVisitor
 end

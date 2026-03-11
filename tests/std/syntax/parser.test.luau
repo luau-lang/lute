@@ -1893,7 +1893,7 @@ test.suite("AST_nodes_frozen", function(suite)
 		local block = parser.parseblock("local x = 1")
 		local localStat = block.statements[1] :: syntax.AstStatLocal
 		local token = localStat.localkeyword
-		assert.eq(token.istoken, true)
+		assert.eq(token.kind, "token")
 		assert.erroreq(function()
 			(token :: any).text = "modified"
 		end, frozenTableMessage)
@@ -1953,7 +1953,7 @@ test.suite("AST_nodes_frozen", function(suite)
 		local result = parser.parse("local x = 1")
 		local eof = result.eof
 		assert.eq(eof.tag, "eof")
-		assert.eq(eof.istoken, true)
+		assert.eq(eof.kind, "token")
 		assert.erroreq(function()
 			(eof :: any).tag = "modified"
 		end, frozenTableMessage)
