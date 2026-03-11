@@ -26,7 +26,7 @@ local function assertErrorsWithMsg(
 end
 
 test.suite("LuteStdTestFramework", function(suite)
-	suite:case("lute doesn't report xpcall as error when accessing field of nil in suite", function(assert)
+	suite:case("lute_doesnt_report_xpcall_as_error_when_accessing_field_of_nil_in_suite", function(assert)
 		-- Setup
 		local testFilePath = path.join(tmpDir, "nil_field_access_test.test.luau")
 		fs.writestringtofile(
@@ -62,7 +62,7 @@ test.run()
 		fs.remove(testFilePath)
 	end)
 
-	suite:case("lute doesn't report xpcall as error when accessing field of nil in case", function(assert)
+	suite:case("lute_doesnt_report_xpcall_as_error_when_accessing_field_of_nil_in_case", function(assert)
 		-- Setup
 		local testFilePath = path.join(tmpDir, "nil_field_access_test.test.luau")
 		fs.writestringtofile(

@@ -14,7 +14,7 @@ local tmpDir = system.tmpdir()
 local transformeePath = path.format(path.join(tmpDir, "transformee.luau"))
 local outputPath = path.format(path.join(tmpDir, "transformee_output.luau"))
 
-test.suite("lute transform", function(suite)
+test.suite("LuteTransform", function(suite)
 	suite:beforeeach(function()
 		-- Create a transformee file
 		local transformeeHandle = fs.open(transformeePath, "w+")
@@ -30,7 +30,7 @@ test.suite("lute transform", function(suite)
 		end
 	end)
 
-	suite:case("transform query style", function(assert)
+	suite:case("transform_query_style", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
 		local transformerExample = path.format(path.join("examples", "query_transformer.luau"))
@@ -54,7 +54,7 @@ test.suite("lute transform", function(suite)
 		fs.remove(transformerDest)
 	end)
 
-	suite:case("transform output directory happy path", function(assert)
+	suite:case("transform_output_directory_happy_path", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
 		local transformerExample = path.format(path.join("examples", "query_transformer.luau"))
@@ -89,7 +89,7 @@ test.suite("lute transform", function(suite)
 		fs.remove(outputPath)
 	end)
 
-	suite:case("transform output creates file if it doesn't exist", function(assert)
+	suite:case("transform_output_creates_file_if_it_doesnt_exist", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
 		local transformerExample = path.format(path.join("examples", "query_transformer.luau"))

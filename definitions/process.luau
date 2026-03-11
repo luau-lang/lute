@@ -27,6 +27,7 @@ export type ProcessResult = {
 
 local process = {}
 
+process.args = {} :: { string }
 process.env = {} :: { [string]: string }
 
 function process.homedir(): string

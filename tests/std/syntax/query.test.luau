@@ -3,7 +3,7 @@ local query = require("@std/syntax/query")
 local test = require("@std/test")
 local utils = require("@std/syntax/utils")
 
-test.suite("AST Query", function(suite)
+test.suite("AstQuery", function(suite)
 	suite:case("filter", function(assert)
 		local testQuery = query.findallfromroot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
@@ -38,7 +38,8 @@ test.suite("AST Query", function(suite)
 
 		-- Verify the replacement table only contains the expected entries
 		local count = 0
-		for _, _ in replacements do
+		-- LUAUFIX: code too complex error here from `replacements` type being very large
+		for _, _ in replacements :: any do
 			count += 1
 		end
 		assert.eq(count, 4) -- 4 non-nil replacements

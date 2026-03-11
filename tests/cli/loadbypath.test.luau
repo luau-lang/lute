@@ -21,7 +21,7 @@ local tmpDirStr = system.tmpdir()
 local testDir = path.join(tmpDirStr, "lute_require_test")
 local testDirStr = path.format(testDir)
 
-test.suite("Lute CLI Run", function(suite)
+test.suite("LuteCliRun", function(suite)
 	suite:beforeall(function()
 		if not fs.exists(testDirStr) then
 			fs.createdirectory(testDirStr)

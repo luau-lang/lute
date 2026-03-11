@@ -23,8 +23,8 @@ local COMPILEE_CONTENTS = [[return "Hello world"]]
 local lutePath = process.execpath()
 local tmpDir = system.tmpdir()
 
-test.suite("Lute CLI Compile", function(suite)
-	suite:case("Run compile", function(check)
+test.suite("LuteCliCompile", function(suite)
+	suite:case("run_compile", function(check)
 		-- Setup
 		-- Create files
 		local compilerPath = path.join(tmpDir, "compiler.luau")

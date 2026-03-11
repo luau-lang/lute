@@ -4,7 +4,6 @@
 #include "lute/configresolver.h"
 #include "lute/moduleresolver.h"
 #include "lute/type.h"
-#include "lute/userdatas.h"
 
 #include "Luau/Ast.h"
 #include "Luau/BuiltinDefinitions.h"
@@ -2844,7 +2843,7 @@ int luau_parse(lua_State* L)
     for (size_t i = 0; i < serializer.lineOffsets.size(); i++)
     {
         lua_pushinteger(L, i + 1);
-        lua_pushnumber(L, serializer.lineOffsets[i]);
+        lua_pushnumber(L, serializer.lineOffsets[i] + 1);
         lua_settable(L, -3);
     }
     lua_setfield(L, -2, "lineoffsets");
