@@ -14,7 +14,7 @@ test.suite("CliLibFiles", function(suite)
 		end
 	end)
 
-	suite:case("parse_simple_file_pattern", function(assert)
+	suite:case("parseSimpleFilePattern", function(assert)
 		-- Setup
 		fs.createdirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
@@ -47,7 +47,7 @@ test.suite("CliLibFiles", function(suite)
 		fs.removedirectory(testPath, { recursive = true })
 	end)
 
-	suite:case("parse_directory_pattern", function(assert)
+	suite:case("parseDirectoryPattern", function(assert)
 		-- Setup
 		fs.createdirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
@@ -82,7 +82,7 @@ test.suite("CliLibFiles", function(suite)
 		fs.removedirectory(testPath, { recursive = true })
 	end)
 
-	suite:case("parse_negation_pattern", function(assert)
+	suite:case("parseNegationPattern", function(assert)
 		-- Setup
 		fs.createdirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
@@ -109,7 +109,7 @@ test.suite("CliLibFiles", function(suite)
 		fs.removedirectory(testPath, { recursive = true })
 	end)
 
-	suite:case("parse_leading_double_asterisk_pattern", function(assert)
+	suite:case("parseLeadingDoubleAsteriskPattern", function(assert)
 		-- Setup
 		fs.createdirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
@@ -139,7 +139,7 @@ test.suite("CliLibFiles", function(suite)
 		fs.removedirectory(testPath, { recursive = true })
 	end)
 
-	suite:case("parse_trailing_double_asterisk_pattern", function(assert)
+	suite:case("parseTrailingDoubleAsteriskPattern", function(assert)
 		-- Setup
 		fs.createdirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
@@ -173,7 +173,7 @@ test.suite("CliLibFiles", function(suite)
 		fs.removedirectory(testPath, { recursive = true })
 	end)
 
-	suite:case("parse_middle_double_asterisk_pattern", function(assert)
+	suite:case("parseMiddleDoubleAsteriskPattern", function(assert)
 		-- Setup
 		fs.createdirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
@@ -210,7 +210,7 @@ test.suite("CliLibFiles", function(suite)
 		fs.removedirectory(testPath, { recursive = true })
 	end)
 
-	suite:case("parse_rooted_pattern", function(assert)
+	suite:case("parseRootedPattern", function(assert)
 		-- Setup
 		fs.createdirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
@@ -241,7 +241,7 @@ test.suite("CliLibFiles", function(suite)
 		fs.removedirectory(testPath, { recursive = true })
 	end)
 
-	suite:case("parse_question_mark_pattern", function(assert)
+	suite:case("parseQuestionMarkPattern", function(assert)
 		-- Setup
 		fs.createdirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")

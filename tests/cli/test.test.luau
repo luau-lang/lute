@@ -14,7 +14,7 @@ SmokeSuite:
 ]]
 
 test.suite("LuteTestCommand", function(suite)
-	suite:case("lute_test_help_message", function(assert)
+	suite:case("luteTestHelpMessage", function(assert)
 		-- Run lute test with -h flag
 		local result = process.run({ lutePath, "test", "-h" })
 
@@ -23,7 +23,7 @@ test.suite("LuteTestCommand", function(suite)
 		assert.strcontains(result.stdout, "Usage:")
 	end)
 
-	suite:case("lute_test_runs_tests_in_discovery_folder", function(assert)
+	suite:case("luteTestRunsTestsInDiscoveryFolder", function(assert)
 		-- Run lute test on tests/cli/discovery folder
 		local result = process.run({ lutePath, "test", "tests/cli/discovery" })
 
@@ -31,7 +31,7 @@ test.suite("LuteTestCommand", function(suite)
 		assert.eq(result.exitcode, 0)
 	end)
 
-	suite:case("lute_test_discovery_custom_directory", function(assert)
+	suite:case("luteTestDiscoveryCustomDirectory", function(assert)
 		-- Run lute test with custom directory path
 		local result = process.run({ lutePath, "test", "--list", "tests/cli/discovery" })
 
@@ -40,7 +40,7 @@ test.suite("LuteTestCommand", function(suite)
 		assert.eq(expected, result.stdout)
 	end)
 
-	suite:case("filter_by_suite_name", function(assert)
+	suite:case("filterBySuiteName", function(assert)
 		-- Run lute test with --suite flag
 		local result = process.run({ lutePath, "test", "-s", "SmokeSuite", "tests/cli/discovery" })
 
@@ -50,7 +50,7 @@ test.suite("LuteTestCommand", function(suite)
 		assert.neq(result.stdout:find("2 passed", 1, true), nil)
 	end)
 
-	suite:case("lute_test_filters_by_case_name", function(assert)
+	suite:case("luteTestFiltersByCaseName", function(assert)
 		-- Run lute test with --case flag
 		local result = process.run({ lutePath, "test", "--case", "make_pass", "tests/cli/discovery" })
 
@@ -60,7 +60,7 @@ test.suite("LuteTestCommand", function(suite)
 		assert.neq(result.stdout:find("1 passed", 1, true), nil)
 	end)
 
-	suite:case("lute_test_filters_by_suite_and_case_name", function(assert)
+	suite:case("luteTestFiltersBySuiteAndCaseName", function(assert)
 		-- Run lute test with both --suite and --case flags
 		local result = process.run({ lutePath, "test", "-s", "SmokeSuite", "-c", "make_fail", "tests/cli/discovery" })
 

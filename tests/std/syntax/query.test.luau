@@ -72,7 +72,7 @@ test.suite("AstQuery", function(suite)
 		assert.eq(sum, 3) -- 0 + 1 + 2 = 3
 	end)
 
-	suite:case("findall_nums", function(assert)
+	suite:case("findallNums", function(assert)
 		local ast = syntax.parse("print(1 + 2)")
 		local queryResult: query.query<syntax.AstExprConstantNumber> = query.findallfromroot(
 			ast, -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
@@ -95,7 +95,7 @@ test.suite("AstQuery", function(suite)
 		assert.eq((num :: syntax.AstExprConstantNumber).value, 2)
 	end)
 
-	suite:case("findall_utils", function(assert)
+	suite:case("findallUtils", function(assert)
 		local ast = syntax.parse("print(1 + 2)")
 		local queryResult: query.query<syntax.AstExprConstantNumber> =
 			query.findallfromroot(ast, utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
@@ -111,7 +111,7 @@ test.suite("AstQuery", function(suite)
 		assert.eq((num :: syntax.AstExprConstantNumber).value, 2)
 	end)
 
-	suite:case("findall_tokens", function(assert)
+	suite:case("findallTokens", function(assert)
 		local ast = syntax.parse("local x = 1 or nil")
 		-- verify that query doesn't doubly count tokens
 		local queryResult = query.findallfromroot(ast, utils.isToken)
@@ -175,7 +175,7 @@ test.suite("AstQuery", function(suite)
 		assert.eq(locals.nodes[2].tag, "binary")
 	end)
 
-	suite:case("flatmap_empty", function(assert)
+	suite:case("flatmapEmpty", function(assert)
 		-- Test flatmap with some nodes returning empty arrays
 		local ast = syntax.parse("local x; local y = 1; local z")
 		local locals = query.findallfromroot(ast, utils.isStatLocal):flatmap(function(l)
@@ -192,7 +192,7 @@ test.suite("AstQuery", function(suite)
 		assert.eq((locals.nodes[1] :: syntax.AstExprConstantNumber).value, 1)
 	end)
 
-	suite:case("flatmap_multiple", function(assert)
+	suite:case("flatmapMultiple", function(assert)
 		-- Test flatmap with nodes that return multiple items
 		local ast = syntax.parse("local a, b = 1, 2; local c, d = 3, 4, 5")
 		local locals = query.findallfromroot(ast, utils.isStatLocal):flatmap(function(l: syntax.AstStatLocal)
@@ -227,7 +227,7 @@ test.suite("AstQuery", function(suite)
 		assert.eq(doubled[5], 8)
 	end)
 
-	suite:case("maptoarray_with_nil", function(assert)
+	suite:case("maptoarrayWithNil", function(assert)
 		-- Test maptoarray filtering out nil values
 		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
 		local nums = query.findallfromroot(ast, utils.isExprConstantNumber)
