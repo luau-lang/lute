@@ -5,7 +5,6 @@
 local tableext = require("@std/tableext")
 local types = require("./types")
 local visitor = require("./visitor")
-local utils = require("./utils")
 
 type node = types.AstNode
 
