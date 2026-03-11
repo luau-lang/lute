@@ -250,13 +250,13 @@ end
 
 local function visitStatBreak(node: types.AstStatBreak, visitor: Visitor)
 	if visitor.visitStatBreak(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 
 local function visitStatContinue(node: types.AstStatContinue, visitor: Visitor)
 	if visitor.visitStatContinue(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 
@@ -383,25 +383,25 @@ end
 
 local function visitExprConstantString(node: types.AstExprConstantString, visitor: Visitor)
 	if visitor.visitExprConstantString(node) then
-		visitor.visitToken(node)
+		visitor.visitToken(node.token)
 	end
 end
 
 local function visitExprConstantNil(node: types.AstExprConstantNil, visitor: Visitor)
 	if visitor.visitExprConstantNil(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 
 local function visitExprConstantBool(node: types.AstExprConstantBool, visitor: Visitor)
 	if visitor.visitExprConstantBool(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 
 local function visitExprConstantNumber(node: types.AstExprConstantNumber, visitor: Visitor)
 	if visitor.visitExprConstantNumber(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 
@@ -419,7 +419,7 @@ end
 
 local function visitExprVarargs(node: types.AstExprVarargs, visitor: Visitor)
 	if visitor.visitExprVarargs(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 
@@ -453,7 +453,7 @@ end
 
 local function visitAttribute(node: types.AstAttribute, visitor: Visitor)
 	if visitor.visitAttribute(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 
@@ -681,13 +681,13 @@ end
 
 local function visitTypeSingletonBool(node: types.AstTypeSingletonBool, visitor: Visitor)
 	if visitor.visitTypeSingletonBool(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 
 local function visitTypeSingletonString(node: types.AstTypeSingletonString, visitor: Visitor)
 	if visitor.visitTypeSingletonString(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 
@@ -710,7 +710,7 @@ end
 
 local function visitTypeOptional(node: types.AstTypeOptional, visitor: Visitor)
 	if visitor.visitTypeOptional(node) then
-		visitToken(node, visitor)
+		visitToken(node.token, visitor)
 	end
 end
 

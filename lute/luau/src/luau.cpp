@@ -801,8 +801,11 @@ struct AstSerialize : public Luau::AstVisitor
     }
     void serializeAttribute(Luau::AstAttr* node)
     {
-        serializeToken(node->location.begin, ("@" + std::string(node->name.value)).c_str());
         lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize); // location, kind, token
+
+        serializeToken(node->location.begin, ("@" + std::string(node->name.value)).c_str());
+        lua_setfield(L, -2, "token");
 
         lua_pushstring(L, "attribute");
         lua_setfield(L, -2, "kind");
@@ -837,34 +840,51 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serialize(Luau::AstExprConstantNil* node)
     {
-        serializeToken(node->location.begin, "nil", preambleSize);
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 1);
+
         serializeNodePreamble(node, "nil", "expr");
+
+        serializeToken(node->location.begin, "nil", preambleSize);
+        lua_setfield(L, -2, "token");
     }
 
     void serialize(Luau::AstExprConstantBool* node)
     {
-        serializeToken(node->location.begin, node->value ? "true" : "false", preambleSize + 1);
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 2);
+
         serializeNodePreamble(node, "boolean", "expr");
 
         lua_pushboolean(L, node->value);
         lua_setfield(L, -2, "value");
+
+        serializeToken(node->location.begin, node->value ? "true" : "false", preambleSize + 1);
+        lua_setfield(L, -2, "token");
     }
 
     void serialize(Luau::AstExprConstantNumber* node)
     {
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 2);
+
         const auto cstNode = lookupCstNode<Luau::CstExprConstantNumber>(node);
 
-        serializeToken(node->location.begin, cstNode->value.data, preambleSize + 1);
         serializeNodePreamble(node, "number", "expr");
 
         lua_pushnumber(L, node->value);
         lua_setfield(L, -2, "value");
+
+        serializeToken(node->location.begin, cstNode->value.data, preambleSize + 1);
+        lua_setfield(L, -2, "token");
     }
 
     void serialize(Luau::AstExprConstantString* node)
     {
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 3);
+
         const auto cstNode = lookupCstNode<Luau::CstExprConstantString>(node);
-        serializeToken(node->location.begin, cstNode->sourceString.data, preambleSize + 2);
         serializeNodePreamble(node, "string", "expr");
 
         switch (cstNode->quoteStyle)
@@ -886,6 +906,9 @@ struct AstSerialize : public Luau::AstVisitor
 
         lua_pushnumber(L, cstNode->blockDepth);
         lua_setfield(L, -2, "blockdepth");
+
+        serializeToken(node->location.begin, cstNode->sourceString.data, preambleSize + 2);
+        lua_setfield(L, -2, "token");
 
         // Unlike normal tokens, string content contains quotation marks that were not included during advancement
         // For simplicity, lets set the current position manually
@@ -923,8 +946,13 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serialize(Luau::AstExprVarargs* node)
     {
-        serializeToken(node->location.begin, "...", preambleSize);
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 1);
+
         serializeNodePreamble(node, "vararg", "expr");
+
+        serializeToken(node->location.begin, "...", preambleSize);
+        lua_setfield(L, -2, "token");
     }
 
     void serialize(Luau::AstExprCall* node)
@@ -1524,15 +1552,23 @@ struct AstSerialize : public Luau::AstVisitor
     void serializeStat(Luau::AstStatBreak* node)
     {
         lua_rawcheckstack(L, 2);
-        serializeToken(node->location.begin, "break", preambleSize);
+        lua_createtable(L, 0, preambleSize + 1);
+
         serializeNodePreamble(node, "break", "stat");
+
+        serializeToken(node->location.begin, "break", preambleSize);
+        lua_setfield(L, -2, "token");
     }
 
     void serializeStat(Luau::AstStatContinue* node)
     {
         lua_rawcheckstack(L, 2);
-        serializeToken(node->location.begin, "continue", preambleSize);
+        lua_createtable(L, 0, preambleSize + 1);
+
         serializeNodePreamble(node, "continue", "stat");
+
+        serializeToken(node->location.begin, "continue", preambleSize);
+        lua_setfield(L, -2, "token");
     }
 
     void serializeStat(Luau::AstStatReturn* node)
@@ -2017,8 +2053,17 @@ struct AstSerialize : public Luau::AstVisitor
                     lua_setfield(L, -2, "indexeropen");
 
                     {
-                        auto initialPosition = item.stringPosition;
-                        serializeToken(item.stringPosition, item.stringInfo->sourceString.data);
+                        lua_rawcheckstack(L, 2);
+                        lua_createtable(L, 0, preambleSize + 2);
+
+                        Luau::Position initialPosition = item.stringPosition;
+                        Luau::Position endPosition = {
+                            initialPosition.line, initialPosition.column + static_cast<uint32_t>(strlen(item.stringInfo->sourceString.data))
+                        };
+                        withLocation(Luau::Location{initialPosition, endPosition});
+
+                        lua_pushstring(L, "type");
+                        lua_setfield(L, -2, "kind");
 
                         lua_pushstring(L, "string");
                         lua_setfield(L, -2, "tag");
@@ -2035,6 +2080,9 @@ struct AstSerialize : public Luau::AstVisitor
                             LUTE_ASSERT(false);
                         }
                         lua_setfield(L, -2, "quotestyle");
+
+                        serializeToken(item.stringPosition, item.stringInfo->sourceString.data);
+                        lua_setfield(L, -2, "token");
 
                         // Unlike normal tokens, string content contains quotation marks that were not included during advancement
                         // For simplicity, lets set the current position manually
@@ -2203,11 +2251,13 @@ struct AstSerialize : public Luau::AstVisitor
 
             if (node->types.data[i]->is<Luau::AstTypeOptional>())
             {
+                lua_createtable(L, 0, preambleSize + 1);
+
+                serializeNodePreamble(node->types.data[i], "optional", "type");
+
                 serializeToken(node->types.data[i]->location.begin, "?", 2);
-                lua_pushstring(L, "type");
-                lua_setfield(L, -2, "kind");
-                lua_pushstring(L, "optional");
-                lua_setfield(L, -2, "tag");
+                lua_setfield(L, -2, "token");
+
                 lua_setfield(L, -2, "node");
 
                 // Since this option is an optional type, the separator is always present unless it's the last type
@@ -2263,17 +2313,24 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeType(Luau::AstTypeSingletonBool* node)
     {
-        serializeToken(node->location.begin, node->value ? "true" : "false", preambleSize + 1);
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 2);
+
         serializeNodePreamble(node, "boolean", "type");
 
         lua_pushboolean(L, node->value);
         lua_setfield(L, -2, "value");
+
+        serializeToken(node->location.begin, node->value ? "true" : "false", preambleSize + 1);
+        lua_setfield(L, -2, "token");
     }
 
     void serializeType(Luau::AstTypeSingletonString* node)
     {
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 2);
+
         const auto cstNode = lookupCstNode<Luau::CstTypeSingletonString>(node);
-        serializeToken(node->location.begin, cstNode->sourceString.data, preambleSize + 1);
         serializeNodePreamble(node, "string", "type");
 
         switch (cstNode->quoteStyle)
@@ -2288,6 +2345,9 @@ struct AstSerialize : public Luau::AstVisitor
             LUTE_ASSERT(false);
         }
         lua_setfield(L, -2, "quotestyle");
+
+        serializeToken(node->location.begin, cstNode->sourceString.data);
+        lua_setfield(L, -2, "token");
 
         // Unlike normal tokens, string content contains quotation marks that were not included during advancement
         // For simplicity, lets set the current position manually
