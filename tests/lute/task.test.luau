@@ -22,4 +22,119 @@ test.suite("LuteTaskSuite", function(suite)
 
 		assert.eq(endTime - startTime >= 0.5, true)
 	end)
+
+	suite:case("taskSpawnFunctionNoArgsCoroutineStatus", function(assert)
+		local thread = task.spawn(function()
+			task.wait(2)
+		end)
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
+
+	-- task.spawn with thread, 0 args
+	suite:case("taskSpawnThreadNoArgsCoroutineStatus", function(assert)
+		local co = coroutine.create(function()
+			task.wait(2)
+		end)
+		local thread = task.spawn(co)
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
+
+	-- task.spawn with function, >0 args
+	suite:case("taskSpawnFunctionWithArgsCoroutineStatus", function(assert)
+		local thread = task.spawn(function(a, b, c)
+			task.wait(2)
+		end, "hello", "world", "boom")
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
+
+	-- task.spawn with thread, >0 args
+	suite:case("taskSpawnThreadWithArgsCoroutineStatus", function(assert)
+		local co = coroutine.create(function(a, b, c)
+			task.wait(2)
+		end)
+		local thread = task.spawn(co, "hello", "world", "boom")
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
+
+	-- task.defer with function, 0 args
+	suite:case("taskDeferFunctionNoArgsCoroutineStatus", function(assert)
+		local thread = task.defer(function()
+			task.wait(2)
+		end)
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
+
+	-- task.defer with thread, 0 args
+	suite:case("taskDeferThreadNoArgsCoroutineStatus", function(assert)
+		local co = coroutine.create(function()
+			task.wait(2)
+		end)
+		local thread = task.defer(co)
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
+
+	-- task.defer with function, >0 args
+	suite:case("taskDeferFunctionWithArgsCoroutineStatus", function(assert)
+		local thread = task.defer(function(a, b, c)
+			task.wait(2)
+		end, "hello", "world", "boom")
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
+
+	-- task.defer with thread, >0 args
+	suite:case("taskDeferThreadWithArgsCoroutineStatus", function(assert)
+		local co = coroutine.create(function(a, b, c)
+			task.wait(2)
+		end)
+		local thread = task.defer(co, "hello", "world", "boom")
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
+
+	-- task.resume with thread, 0 args
+	suite:case("taskResumeThreadNoArgsCoroutineStatus", function(assert)
+		local co = coroutine.create(function()
+			task.wait(2)
+		end)
+		local thread = task.resume(co)
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
+
+	-- task.resume with thread, >0 args
+	suite:case("taskResumeThreadWithArgsCoroutineStatus", function(assert)
+		local co = coroutine.create(function(a, b, c)
+			task.wait(2)
+		end)
+		local thread = task.resume(co, "hello", "world", "boom")
+
+		local status = coroutine.status(thread)
+		assert.eq(status, "suspended")
+		coroutine.close(thread)
+	end)
 end)
