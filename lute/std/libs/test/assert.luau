@@ -138,7 +138,7 @@ local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: s
 	return nil
 end
 
-local function strcontains(haystack: string, needle: string, msg: string?, instances: number?): failure?
+local function strcontains(haystack: string, needle: string, instances: number?, msg: string?): failure?
 	if instances == nil then
 		if haystack:find(needle, 1, true) == nil then
 			return assertion(if msg then msg else `Expected "{haystack}" to contain "{needle}".`)

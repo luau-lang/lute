@@ -290,7 +290,7 @@ test.run()
 local test = require("@std/test")
 
 test.case("strcontains_error", function(assert)
-	assert.strcontains("hello world", "goodbye", nil, -1)
+	assert.strcontains("hello world", "goodbye", -1)
 end)
 
 test.run()
@@ -327,7 +327,7 @@ local test = require("@std/test")
 
 test.suite("strcontains_failure_suite", function(suite)
 	suite:case("strcontains_error", function(assert)
-		assert.strcontains("muahahahaha", "ha", nil, 5)
+		assert.strcontains("muahahahaha", "ha", 5)
 	end)
 end)
 

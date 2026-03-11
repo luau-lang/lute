@@ -103,7 +103,7 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 			if expectation.count == 0 then
 				assert.strnotcontains(result.stdout, expectation.expectedOutput)
 			else
-				assert.strcontains(result.stdout, expectation.expectedOutput, nil, expectation.count)
+				assert.strcontains(result.stdout, expectation.expectedOutput, expectation.count)
 			end
 		end
 	end
@@ -993,7 +993,7 @@ local y = 10 / 0
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, nil, 1)
+		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, 1)
 		local expected = [[
 violator1.luau:1:11-17 ──
    │
@@ -3028,10 +3028,10 @@ return {
 		assert.eq(result.exitcode, 1)
 
 		-- Both files should still report almost_swapped (the non-ignored rule)
-		assert.strcontains(result.stdout, "[almost_swapped]", nil, 2)
+		assert.strcontains(result.stdout, "[almost_swapped]", 2)
 
 		-- Only 1 divide_by_zero: from the non-ignored file, not from ignoredDir
-		assert.strcontains(result.stdout, "[divide_by_zero]", nil, 1)
+		assert.strcontains(result.stdout, "[divide_by_zero]", 1)
 		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
 	end)
 

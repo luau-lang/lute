@@ -35,7 +35,7 @@ export type asserts = {
 	tableeq: ({ [any]: any }, { [any]: any }) -> failure?,
 	buffereq: (buffer, buffer) -> failure?,
 	erroreq: <A...>((A...) -> ...unknown, string, A...) -> failure?,
-	strcontains: (string, string, string?, number?) -> failure?,
+	strcontains: (string, string, number?, string?) -> failure?,
 	strnotcontains: (string, string, string?) -> failure?,
 }
 
