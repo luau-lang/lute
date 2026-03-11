@@ -8,7 +8,7 @@ local task = require("@lute/task")
 local tmpdir = system.tmpdir()
 
 test.suite("FsSuite", function(suite)
-	suite:case("open_read_write_close_and_stat", function(assert)
+	suite:case("openReadWriteCloseAndStat", function(assert)
 		local file = path.join(tmpdir, "file.txt")
 
 		local h = fs.open(file, "w+")
@@ -26,7 +26,7 @@ test.suite("FsSuite", function(suite)
 		fs.remove(file)
 	end)
 
-	suite:case("writestring_and_readfile", function(assert)
+	suite:case("writeStringAndReadfile", function(assert)
 		local file = path.join(tmpdir, "hello.txt")
 		fs.writestringtofile(file, "hello lute")
 
@@ -36,7 +36,7 @@ test.suite("FsSuite", function(suite)
 		fs.remove(file)
 	end)
 
-	suite:case("exists_and_type_file_and_dir", function(assert)
+	suite:case("existsAndTypeFileAndDir", function(assert)
 		local file = path.join(tmpdir, "roblox.txt")
 		fs.writestringtofile(file, "roblox")
 
@@ -48,7 +48,7 @@ test.suite("FsSuite", function(suite)
 		fs.remove(file)
 	end)
 
-	suite:case("mkdir_listdir_rmdir", function(assert)
+	suite:case("mkdirListdirRmdir", function(assert)
 		local dir = path.join(tmpdir, "subdir")
 		if not fs.exists(dir) then
 			fs.createdirectory(dir, { makeparents = true })
@@ -68,7 +68,7 @@ test.suite("FsSuite", function(suite)
 		fs.removedirectory(dir)
 	end)
 
-	suite:case("link_and_symlink_and_copy", function(assert)
+	suite:case("linkAndSymlinkAndCopy", function(assert)
 		local srcfile = "src.txt"
 		local src = path.join(tmpdir, srcfile)
 		fs.writestringtofile(src, "linkcontent")
@@ -91,7 +91,7 @@ test.suite("FsSuite", function(suite)
 		fs.remove(src)
 	end)
 
-	suite:case("watch_iterator_on_change", function(assert)
+	suite:case("watchIteratorOnChange", function(assert)
 		local watchedFileName = "watched.txt"
 		local watched = path.join(tmpdir, watchedFileName)
 
@@ -123,7 +123,7 @@ test.suite("FsSuite", function(suite)
 		end
 	end)
 
-	suite:case("createdirectory_makeparents_true", function(assert)
+	suite:case("createDirectoryMakeparentsTrue", function(assert)
 		local nestedDir = path.join(tmpdir, "nested", "directory")
 		fs.createdirectory(nestedDir, { makeparents = true })
 		assert.eq(fs.exists(nestedDir), true)
@@ -132,7 +132,7 @@ test.suite("FsSuite", function(suite)
 		fs.removedirectory(path.join(tmpdir, "nested"))
 	end)
 
-	suite:case("createdirectory_makeparents_false", function(assert)
+	suite:case("createdirectoryMakeparentsFalse", function(assert)
 		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
 		local success, err = pcall(function()
 			fs.createdirectory(nestedDir, { makeparents = false })
@@ -144,7 +144,7 @@ test.suite("FsSuite", function(suite)
 		assert.neq(err, nil)
 	end)
 
-	suite:case("createdirectory_no_options", function(assert)
+	suite:case("createDirectoryNoOptions", function(assert)
 		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
 		local success, err = pcall(function()
 			fs.createdirectory(nestedDir)
@@ -156,7 +156,7 @@ test.suite("FsSuite", function(suite)
 		assert.neq(err, nil)
 	end)
 
-	suite:case("fs_open_optional_mode", function(assert)
+	suite:case("fsOpenOptionalMode", function(assert)
 		local file = path.join(tmpdir, "optional_mode.txt")
 
 		local h1 = fs.open(file, "w+")
@@ -171,7 +171,7 @@ test.suite("FsSuite", function(suite)
 		fs.remove(file)
 	end)
 
-	suite:case("open_write_creates_new_file", function(assert)
+	suite:case("openWriteCreatesNewFile", function(assert)
 		local file = path.join(tmpdir, "new_write_only.txt")
 
 		-- Ensure file does not exist
@@ -189,7 +189,7 @@ test.suite("FsSuite", function(suite)
 		fs.remove(file)
 	end)
 
-	suite:case("removedirectory_non_recursive", function(assert)
+	suite:case("removeDirectoryNonRecursive", function(assert)
 		local dir = path.join(tmpdir, "empty_dir")
 		fs.createdirectory(dir, { makeparents = true })
 		assert.eq(fs.exists(dir), true)
@@ -198,7 +198,7 @@ test.suite("FsSuite", function(suite)
 		assert.eq(fs.exists(dir), false)
 	end)
 
-	suite:case("removedirectory_recursive", function(assert)
+	suite:case("removeDirectoryRecursive", function(assert)
 		local dir = path.join(tmpdir, "recursive_test")
 		local subdir1 = path.join(dir, "subdir1")
 		local subdir2 = path.join(dir, "subdir2")
@@ -228,7 +228,7 @@ test.suite("FsSuite", function(suite)
 		assert.eq(fs.exists(file3), false)
 	end)
 
-	suite:case("removedirectory_recursive_false_with_contents", function(assert)
+	suite:case("removeDirectoryRecursiveFalseWithContents", function(assert)
 		local dir = path.join(tmpdir, "non_empty_dir")
 		fs.createdirectory(dir, { makeparents = true })
 
@@ -250,7 +250,7 @@ test.suite("FsSuite", function(suite)
 		fs.removedirectory(dir)
 	end)
 
-	suite:case("walk_directory_recursive", function(assert)
+	suite:case("walkDirectoryRecursive", function(assert)
 		local baseDir = path.join(tmpdir, "walktest")
 		local subDir = path.join(baseDir, "subdir")
 		fs.createdirectory(subDir, { makeparents = true })

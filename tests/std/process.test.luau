@@ -5,11 +5,11 @@ local test = require("@std/test")
 local windowsPath = require("@std/path/win32")
 
 test.suite("ProcessSuite", function(suite)
-	suite:case("process_args_is_table", function(assert)
+	suite:case("processArgsIsTable", function(assert)
 		assert.eq(type(process.args), "table")
 	end)
 
-	suite:case("homedir_and_cwd_and_execpath", function(assert)
+	suite:case("homedirAndCwdAndExecpath", function(assert)
 		local hd = process.homedir()
 		assert.neq(pathlib.format(hd), "")
 
@@ -20,17 +20,17 @@ test.suite("ProcessSuite", function(suite)
 		assert.neq(pathlib.format(ex), "")
 	end)
 
-	suite:case("run_echo_array_via_run", function(assert)
+	suite:case("runEchoArrayViaRun", function(assert)
 		local r = process.run({ "echo", "hello-from-lute" })
 		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
-	suite:case("run_echo_array_via_system", function(assert)
+	suite:case("runEchoArrayViaSystem", function(assert)
 		local r = process.system("echo hello-from-lute")
 		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
-	suite:case("run_system_and_cwd", function(check)
+	suite:case("runSystemAndCwd", function(check)
 		local rootdir: string = "/"
 		local root: pathlib.path? = nil
 
@@ -69,7 +69,7 @@ test.suite("ProcessSuite", function(suite)
 		})
 	end)
 
-	suite:case("run_nonzero_exitcode", function(assert)
+	suite:case("runNonzeroExitcode", function(assert)
 		-- LUAUFIX: we shouldn't need to upcast the result of `process.run` to `{ [any]: any }`
 		local r = process.run({ "sh", "-c", "exit 41" }) :: { [any]: any }
 		assert.tableeq(r, {
@@ -80,7 +80,7 @@ test.suite("ProcessSuite", function(suite)
 		})
 	end)
 
-	suite:case("process_run_options_error_cases", function(assert)
+	suite:case("processRunOptionsErrorCases", function(assert)
 		assert.erroreq(function()
 			process.run({})
 		end, "process.run requires a non-empty table of arguments")
@@ -115,13 +115,13 @@ test.suite("ProcessSuite", function(suite)
 		end, "process.run requires a non-empty table of arguments")
 	end)
 
-	suite:case("process_run_arraylike_table", function(assert)
+	suite:case("processRunArraylikeTable", function(assert)
 		-- We expect this to still work and ignore the non-string keys
 		local r = process.run({ "echo", "hello", foo = "bar" })
 		assert.eq(r.stdout, "hello\n")
 	end)
 
-	suite:case("process_system_options_error_cases", function(assert)
+	suite:case("processSystemOptionsErrorCases", function(assert)
 		-- All of these tests intentionally pass values of the incorrect
 		-- type to `process.system`: this is to ensure that the error
 		-- handling on the runtime side is correct (for example, does not

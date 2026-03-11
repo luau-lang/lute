@@ -7,7 +7,7 @@ local test = require("@std/test")
 local tmpDir = system.tmpdir()
 
 test.suite("LuauTypeOfModuleSuite", function(suite)
-	suite:case("typeofmodule_returns_table", function(assert)
+	suite:case("typeofmoduleReturnsTable", function(assert)
 		local testPath = path.join(tmpDir, "typeofmodule_test.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
@@ -76,7 +76,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(foundProperty, true, "Should find example_string_func property")
 	end)
 
-	suite:case("typeofmodule_returns_typepack_with_multiple_values", function(assert)
+	suite:case("typeofmoduleReturnsTypepackWithMultipleValues", function(assert)
 		local testPath = path.join(tmpDir, "typeofmodule_multiple.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
@@ -108,7 +108,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(typePack.head[3].tag, "boolean")
 	end)
 
-	suite:case("typeofmodule_returns_typepack_with_variadic_tail", function(assert)
+	suite:case("typeofmoduleReturnsTypepackWithVariadicTail", function(assert)
 		local testPath = path.join(tmpDir, "typeofmodule_variadic.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(

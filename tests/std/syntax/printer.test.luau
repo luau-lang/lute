@@ -21,7 +21,7 @@ local function checkReplacement(
 end
 
 test.suite("SyntaxPrinter", function(suite)
-	suite:case("string_replacement", function(assert)
+	suite:case("stringReplacement", function(assert)
 		local source = [[
             local name = "World"
 ]]
@@ -35,7 +35,7 @@ test.suite("SyntaxPrinter", function(suite)
 		end, assert)
 	end)
 
-	suite:case("expr_replacement", function(assert)
+	suite:case("exprReplacement", function(assert)
 		local source = [[
             local name = "World"
 ]]
@@ -49,7 +49,7 @@ test.suite("SyntaxPrinter", function(suite)
 		end, assert)
 	end)
 
-	suite:case("stat_replacement", function(assert)
+	suite:case("statReplacement", function(assert)
 		local source = [[
             local name = "World"
 ]]
@@ -63,7 +63,7 @@ test.suite("SyntaxPrinter", function(suite)
 		end, assert)
 	end)
 
-	suite:case("type_replacement", function(assert)
+	suite:case("typeReplacement", function(assert)
 		local source = [[local name: number = "World"]]
 		local expected = [[local name: string = "World"]]
 
@@ -82,7 +82,7 @@ test.suite("SyntaxPrinter", function(suite)
 		end, assert)
 	end)
 
-	suite:case("type_pack_replacement", function(assert)
+	suite:case("typePackReplacement", function(assert)
 		local source = [[type t = (...number) -> ()]]
 		local expected = [[type t = (...number) -> string, ...string)]]
 
@@ -101,7 +101,7 @@ test.suite("SyntaxPrinter", function(suite)
 		end, assert)
 	end)
 
-	suite:case("expr_table_item_replacement", function(assert)
+	suite:case("exprTableItemReplacement", function(assert)
 		local source = "local tbl = { a = 1, }"
 		local expected = "local tbl = { b = 2, }"
 
@@ -117,7 +117,7 @@ test.suite("SyntaxPrinter", function(suite)
 		end, assert)
 	end)
 
-	suite:case("exprgroup_trivia", function(assert)
+	suite:case("exprGroupTrivia", function(assert)
 		local source = [[local x =
 (1 + 2) -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -129,7 +129,7 @@ test.suite("SyntaxPrinter", function(suite)
 		end, assert)
 	end)
 
-	suite:case("exprnil_trivia", function(assert)
+	suite:case("exprNilTrivia", function(assert)
 		local source = [[local x =
 nil -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -141,7 +141,7 @@ nil -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprbool_trivia", function(assert)
+	suite:case("exprBoolTrivia", function(assert)
 		local source = [[local x =
 true -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -153,7 +153,7 @@ true -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprnumber_trivia", function(assert)
+	suite:case("exprNumberTrivia", function(assert)
 		local source = [[local x =
 235 -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -165,7 +165,7 @@ true -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprlocal_trivia", function(assert)
+	suite:case("exprLocalTrivia", function(assert)
 		local source = [[local y = 3
 		local x =
 y -- after]]
@@ -178,7 +178,7 @@ y -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprglobal_trivia", function(assert)
+	suite:case("exprGlobalTrivia", function(assert)
 		local source = [[local x =
 y -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -190,7 +190,7 @@ y -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprvarargs_trivia", function(assert)
+	suite:case("exprVarargsTrivia", function(assert)
 		local source = [[local x =
 ... -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -202,7 +202,7 @@ y -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprcall_trivia", function(assert)
+	suite:case("exprCallTrivia", function(assert)
 		local source = [[local x =
 print() -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -214,7 +214,7 @@ print() -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprindexname_trivia", function(assert)
+	suite:case("exprIndexNameTrivia", function(assert)
 		local source = [[local x =
 hello.world -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -226,7 +226,7 @@ hello.world -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprindexexpr_trivia", function(assert)
+	suite:case("exprIndexExprTrivia", function(assert)
 		local source = [[local x =
 hello['world'] -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -238,7 +238,7 @@ hello['world'] -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprfunction_trivia", function(assert)
+	suite:case("exprFunctionTrivia", function(assert)
 		local source = [[local x =
 function() return end -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -250,7 +250,7 @@ function() return end -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprtable_trivia", function(assert)
+	suite:case("exprTableTrivia", function(assert)
 		local source = [[local x =
 {} -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -262,7 +262,7 @@ function() return end -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprunary_trivia", function(assert)
+	suite:case("exprUnaryTrivia", function(assert)
 		local source = [[local x =
 #t -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -274,7 +274,7 @@ function() return end -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprbinary_trivia", function(assert)
+	suite:case("exprBinaryTrivia", function(assert)
 		local source = [[local x =
 3 + 2 -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -286,7 +286,7 @@ function() return end -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprinterpstring_trivia", function(assert)
+	suite:case("exprInterpStringTrivia", function(assert)
 		local source = [[local x =
 `hello {"world"}` -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -298,7 +298,7 @@ function() return end -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprtypeassertion_trivia", function(assert)
+	suite:case("exprTypeAssertionTrivia", function(assert)
 		local source = [[local x =
 y :: number -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -310,7 +310,7 @@ y :: number -- after]]
 		end, assert)
 	end)
 
-	suite:case("exprifelse_trivia", function(assert)
+	suite:case("exprIfElseTrivia", function(assert)
 		local source = [[local x =
 if true then 'hello' else 'world' -- after]]
 		local expected = "local x =\nreplaced -- after"
@@ -322,7 +322,7 @@ if true then 'hello' else 'world' -- after]]
 		end, assert)
 	end)
 
-	suite:case("expr_trivia", function(assert)
+	suite:case("exprTrivia", function(assert)
 		local source = [[local x, y =
 if true then 'hello' else 'world', z :: string -- after]]
 		local expected = "local x, y =\nreplaced, replaced -- after"
@@ -334,7 +334,7 @@ if true then 'hello' else 'world', z :: string -- after]]
 		end, assert)
 	end)
 
-	suite:case("statblock_trivia", function(assert)
+	suite:case("statBlockTrivia", function(assert)
 		local source = [[-- hello
 local y = 1
 -- world]]
@@ -347,7 +347,7 @@ local y = 1
 		end, assert)
 	end)
 
-	suite:case("statif_trivia", function(assert)
+	suite:case("statIfTrivia", function(assert)
 		local source = [[-- hello
 if true then
 	return 1
@@ -364,7 +364,7 @@ end
 		end, assert)
 	end)
 
-	suite:case("statwhile_trivia", function(assert)
+	suite:case("statWhileTrivia", function(assert)
 		local source = [[-- hello
 while true do
 	print("hello")
@@ -379,7 +379,7 @@ end
 		end, assert)
 	end)
 
-	suite:case("statrepeat_trivia", function(assert)
+	suite:case("statRepeatTrivia", function(assert)
 		local source = [[-- hello
 repeat
 	print("hello")
@@ -394,7 +394,7 @@ until true
 		end, assert)
 	end)
 
-	suite:case("statbreak_trivia", function(assert)
+	suite:case("statBreakTrivia", function(assert)
 		local source = [[-- hello
 while true do
 	break
@@ -409,7 +409,7 @@ end
 		end, assert)
 	end)
 
-	suite:case("statcontinue_trivia", function(assert)
+	suite:case("statContinueTrivia", function(assert)
 		local source = [[-- hello
 while true do
 	continue
@@ -424,7 +424,7 @@ end
 		end, assert)
 	end)
 
-	suite:case("statreturn_trivia", function(assert)
+	suite:case("statReturnTrivia", function(assert)
 		local source = [[-- hello
 function foo() return 1, 2 end
 -- world]]
@@ -437,7 +437,7 @@ function foo() return 1, 2 end
 		end, assert)
 	end)
 
-	suite:case("statexpr_trivia", function(assert)
+	suite:case("statExprTrivia", function(assert)
 		local source = [[-- hello
 foobar()
 -- world]]
@@ -450,7 +450,7 @@ foobar()
 		end, assert)
 	end)
 
-	suite:case("statlocal_trivia", function(assert)
+	suite:case("statLocalTrivia", function(assert)
 		local source = [[-- hello
 local x = 1
 -- world]]
@@ -463,7 +463,7 @@ local x = 1
 		end, assert)
 	end)
 
-	suite:case("statfor_trivia", function(assert)
+	suite:case("statForTrivia", function(assert)
 		local source = [[-- hello
 for i = 1, 10 do
 	print(i)
@@ -478,7 +478,7 @@ end
 		end, assert)
 	end)
 
-	suite:case("statforin_trivia", function(assert)
+	suite:case("statForInTrivia", function(assert)
 		local source = [[-- hello
 for i in {1, 2, 3} do
 	print(i)
@@ -493,7 +493,7 @@ end
 		end, assert)
 	end)
 
-	suite:case("statassign_trivia", function(assert)
+	suite:case("statAssignTrivia", function(assert)
 		local source = [[-- hello
 local y = 2
 y = 1
@@ -507,7 +507,7 @@ y = 1
 		end, assert)
 	end)
 
-	suite:case("statcompoundassign_trivia", function(assert)
+	suite:case("statCompoundAssignTrivia", function(assert)
 		local source = [[-- hello
 local y = 2
 y -= 1
@@ -521,7 +521,7 @@ y -= 1
 		end, assert)
 	end)
 
-	suite:case("statfunction_trivia", function(assert)
+	suite:case("statFunctionTrivia", function(assert)
 		local source = [[-- hello
 function foo()
 	return 1
@@ -536,7 +536,7 @@ end
 		end, assert)
 	end)
 
-	suite:case("statlocalfunction_trivia", function(assert)
+	suite:case("statLocalFunctionTrivia", function(assert)
 		local source = [[-- hello
 local function foo()
 	return 1
@@ -551,7 +551,7 @@ end
 		end, assert)
 	end)
 
-	suite:case("stattypealias_trivia", function(assert)
+	suite:case("statTypeAliasTrivia", function(assert)
 		local source = [[-- hello
 type foo = number
 -- world]]
@@ -564,7 +564,7 @@ type foo = number
 		end, assert)
 	end)
 
-	suite:case("stattypefunction_trivia", function(assert)
+	suite:case("statTypeFunctionTrivia", function(assert)
 		local source = [[-- hello
 type function foo() return number end
 -- world]]
@@ -577,7 +577,7 @@ type function foo() return number end
 		end, assert)
 	end)
 
-	suite:case("stat_trivia", function(assert)
+	suite:case("statTrivia", function(assert)
 		local source = [[-- hello
 local x = 1
 local y = 2
@@ -591,7 +591,7 @@ local y = 2
 		end, assert)
 	end)
 
-	suite:case("typereference_trivia", function(assert)
+	suite:case("typeReferenceTrivia", function(assert)
 		local source = [[-- hello
 type foo = number
 -- world]]
@@ -604,7 +604,7 @@ type foo = number
 		end, assert)
 	end)
 
-	suite:case("typesingletonbool_trivia", function(assert)
+	suite:case("typeSingletonBoolTrivia", function(assert)
 		local source = [[-- hello
 type foo = true
 -- world]]
@@ -617,7 +617,7 @@ type foo = true
 		end, assert)
 	end)
 
-	suite:case("typesingletonstring_trivia", function(assert)
+	suite:case("typeSingletonStringTrivia", function(assert)
 		local source = [[-- hello
 local x : "hello"
 -- world]]
@@ -630,7 +630,7 @@ local x : "hello"
 		end, assert)
 	end)
 
-	suite:case("typetypeof_trivia", function(assert)
+	suite:case("typeTypeOfTrivia", function(assert)
 		local source = [[-- hello
 type foo = typeof(123)
 -- world]]
@@ -643,7 +643,7 @@ type foo = typeof(123)
 		end, assert)
 	end)
 
-	suite:case("typegroup_trivia", function(assert)
+	suite:case("typeGroupTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number)
 -- world]]
@@ -656,7 +656,7 @@ type foo = (number)
 		end, assert)
 	end)
 
-	suite:case("typeoptional_trivia", function(assert)
+	suite:case("typeOptionalTrivia", function(assert)
 		local source = [[-- hello
 type foo = true?
 -- world]]
@@ -669,7 +669,7 @@ type foo = true?
 		end, assert)
 	end)
 
-	suite:case("typeunion_trivia", function(assert)
+	suite:case("typeUnionTrivia", function(assert)
 		local source = [[-- hello
 type foo = true? | false
 -- world]]
@@ -682,7 +682,7 @@ type foo = true? | false
 		end, assert)
 	end)
 
-	suite:case("typeintersection_trivia", function(assert)
+	suite:case("typeIntersectionTrivia", function(assert)
 		local source = [[-- hello
 type foo = true & false
 -- world]]
@@ -695,7 +695,7 @@ type foo = true & false
 		end, assert)
 	end)
 
-	suite:case("typearray_trivia", function(assert)
+	suite:case("typeArrayTrivia", function(assert)
 		local source = [[-- hello
 type foo = { number }
 -- world]]
@@ -708,7 +708,7 @@ type foo = { number }
 		end, assert)
 	end)
 
-	suite:case("typetable_trivia", function(assert)
+	suite:case("typeTableTrivia", function(assert)
 		local source = [[-- hello
 type foo = {}
 -- world]]
@@ -721,7 +721,7 @@ type foo = {}
 		end, assert)
 	end)
 
-	suite:case("typefunction_trivia", function(assert)
+	suite:case("typeFunctionTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> ()
 -- world]]
@@ -734,7 +734,7 @@ type foo = (number) -> ()
 		end, assert)
 	end)
 
-	suite:case("type_trivia", function(assert)
+	suite:case("typeTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> ()
 -- world]]
@@ -747,7 +747,7 @@ type foo = (number) -> ()
 		end, assert)
 	end)
 
-	suite:case("typepackexplicit_trivia", function(assert)
+	suite:case("typePackExplicitTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> (number, ...string)
 -- world]]
@@ -760,7 +760,7 @@ type foo = (number) -> (number, ...string)
 		end, assert)
 	end)
 
-	suite:case("typepackgeneric_trivia", function(assert)
+	suite:case("typePackGenericTrivia", function(assert)
 		local source = [[-- hello
 type foo = <G...>(number) -> (number, G...)
 -- world]]
@@ -773,7 +773,7 @@ type foo = <G...>(number) -> (number, G...)
 		end, assert)
 	end)
 
-	suite:case("typepackvariadic_trivia", function(assert)
+	suite:case("typePackVariadicTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> (...number)
 -- world]]
@@ -786,7 +786,7 @@ type foo = (number) -> (...number)
 		end, assert)
 	end)
 
-	suite:case("typepack_trivia", function(assert)
+	suite:case("typePackTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> (number, ...string)
 -- world]]
@@ -799,7 +799,7 @@ type foo = (number) -> (number, ...string)
 		end, assert)
 	end)
 
-	suite:case("local_trivia", function(assert)
+	suite:case("localTrivia", function(assert)
 		local source = [[-- hello
 local x, y = 1, 2
 -- world]]
@@ -812,7 +812,7 @@ local x, y = 1, 2
 		end, assert)
 	end)
 
-	suite:case("attribute_trivia", function(assert)
+	suite:case("attributeTrivia", function(assert)
 		local source = [[-- hello
 @checked
 function foo() return end
@@ -826,7 +826,7 @@ function foo() return end
 		end, assert)
 	end)
 
-	suite:case("comments_in_call", function(assert)
+	suite:case("commentsInCall", function(assert)
 		local source = [[foobar(
   foo, -- what about this
   bar, -- and this
@@ -847,7 +847,7 @@ function foo() return end
 		end, assert)
 	end)
 
-	suite:case("comments_in_table", function(assert)
+	suite:case("commentsInTable", function(assert)
 		local source = [[local x = {
   foo = -- what about this
   1, 
