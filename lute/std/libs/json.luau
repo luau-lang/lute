@@ -25,7 +25,7 @@ type SerializerState = {
 	depth: number,
 }
 
-local function checkState(state: SerializerState, len: number)
+local function checkState(state: SerializerState, len: number): ()
 	local curLen = buffer.len(state.buf)
 
 	if state.cursor + len < curLen then
@@ -39,7 +39,7 @@ local function checkState(state: SerializerState, len: number)
 	state.buf = newBuffer
 end
 
-local function writeByte(state: SerializerState, byte: number)
+local function writeByte(state: SerializerState, byte: number): ()
 	checkState(state, 1)
 
 	buffer.writeu8(state.buf, state.cursor, byte)
@@ -47,7 +47,7 @@ local function writeByte(state: SerializerState, byte: number)
 	state.cursor += 1
 end
 
-local function writeSpaces(state: SerializerState)
+local function writeSpaces(state: SerializerState): ()
 	if state.depth == 0 then
 		return
 	end
@@ -66,7 +66,7 @@ local function writeSpaces(state: SerializerState)
 	end
 end
 
-local function writeString(state: SerializerState, str: string)
+local function writeString(state: SerializerState, str: string): ()
 	checkState(state, #str)
 
 	buffer.writestring(state.buf, state.cursor, str)
@@ -86,7 +86,7 @@ local ESCAPE_MAP = {
 	[0x22] = string.byte('"'),
 }
 
-local function serializeUnicode(codepoint: number)
+local function serializeUnicode(codepoint: number): string
 	if codepoint >= 0x10000 then
 		local high = math.floor((codepoint - 0x10000) / 0x400) + 0xD800
 		local low = ((codepoint - 0x10000) % 0x400) + 0xDC00
@@ -96,7 +96,7 @@ local function serializeUnicode(codepoint: number)
 	return string.format("\\u%04x", codepoint)
 end
 
-local function serializeString(state: SerializerState, str: string)
+local function serializeString(state: SerializerState, str: string): ()
 	checkState(state, #str)
 
 	writeByte(state, string.byte('"'))
@@ -115,7 +115,7 @@ local function serializeString(state: SerializerState, str: string)
 	writeByte(state, string.byte('"'))
 end
 
-local function serializeArray(state: SerializerState, array: array)
+local function serializeArray(state: SerializerState, array: array): ()
 	state.depth += 1
 
 	writeByte(state, string.byte("["))
@@ -150,7 +150,7 @@ local function serializeArray(state: SerializerState, array: array)
 	writeByte(state, string.byte("]"))
 end
 
-local function serializeTable(state: SerializerState, object: object)
+local function serializeTable(state: SerializerState, object: object): ()
 	writeByte(state, string.byte("{"))
 
 	if state.prettyPrint then
@@ -195,7 +195,7 @@ local function serializeTable(state: SerializerState, object: object)
 	writeByte(state, string.byte("}"))
 end
 
-serializeAny = function(state: SerializerState, value: value)
+serializeAny = function(state: SerializerState, value: value): ()
 	local valueType = type(value)
 
 	if value == json.null then
@@ -238,11 +238,11 @@ local function skipWhitespace(state: DeserializerState): boolean
 	return true
 end
 
-local function currentByte(state: DeserializerState)
-	return string.byte(state.src, state.cursor)
+local function currentByte(state: DeserializerState): number
+	return (string.byte(state.src, state.cursor))
 end
 
-local function deserializeNumber(state: DeserializerState)
+local function deserializeNumber(state: DeserializerState): number?
 	-- Integer part
 	local nStart, nEnd = string.find(state.src, "^-?[1-9]%d*", state.cursor)
 	if not nStart then
@@ -522,7 +522,7 @@ end
 
 -- user-facing
 
-function json.serialize(value: value, prettyPrint: boolean?)
+function json.serialize(value: value, prettyPrint: boolean?): string
 	local state: SerializerState = {
 		buf = buffer.create(bufferSize),
 		cursor = 0,
@@ -535,7 +535,7 @@ function json.serialize(value: value, prettyPrint: boolean?)
 	return buffer.readstring(state.buf, 0, state.cursor)
 end
 
-function json.deserialize(src: string)
+function json.deserialize(src: string): (array | object | boolean | number | string)?
 	local state = {
 		src = src,
 		cursor = 0,

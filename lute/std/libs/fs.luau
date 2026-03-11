@@ -181,6 +181,7 @@ end
 --- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead. See example/walk_directory.luau for usage.
 function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
 	local queue: { path } = { pathlib.parse(path) }
+	local recursive = if options then options.recursive else false
 
 	return function()
 		while #queue > 0 do
@@ -189,7 +190,7 @@ function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
 				return nil
 			end
 
-			if fslib.type(current) == "dir" and options and options.recursive then -- LUAUFIX: error on options.recursive because it thinks options could still be nil
+			if fslib.type(current) == "dir" and recursive then
 				local entries = fslib.listdirectory(current)
 				for _, entry in entries do
 					local fullPath = pathlib.join(current, entry.name)

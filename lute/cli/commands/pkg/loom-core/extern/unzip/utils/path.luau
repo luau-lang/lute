@@ -44,7 +44,7 @@ local function replaceBackslashes(input: string, replacement: "/"): string
 		return "\\\\" .. input:sub(3):gsub("\\", replacement)
 	else
 		-- Replace all single backslashes
-		return input:gsub("\\", replacement)
+		return (input:gsub("\\", replacement))
 	end
 end
 
