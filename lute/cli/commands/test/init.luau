@@ -14,7 +14,7 @@ local updater = require("@self/snap/updater")
 local function loadtests(testfiles: { path.path })
 	-- Load all test files first
 	for _, p in testfiles do
-		local success, err = pcall(luau.loadbypath, p, nil)
+		local success, err = pcall(luau.loadModule, p, nil)
 
 		if not success then
 			print(`Error loading {path.format(p)}: {err}`)

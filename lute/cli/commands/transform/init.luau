@@ -13,7 +13,7 @@ local function exhaustiveMatch(value: never): never
 end
 
 local function loadMigration(path: string): types.Migration
-	local success, loaded = pcall(luau.loadbypath, path, nil)
+	local success, loaded = pcall(luau.loadModule, path, nil)
 	assert(success, `{path} failed to require: {loaded}`)
 	assert(loaded, `{path} is missing a return`)
 
