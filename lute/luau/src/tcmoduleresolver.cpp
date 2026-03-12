@@ -24,7 +24,7 @@ std::optional<Luau::ModuleInfo> LuteTypeCheckModuleResolver::resolveModule(const
 
         std::string error;
         std::string requirerChunkname = "@" + context->name;
-        std::optional<std::string> absolutePath = resolveRequire(requirePath, std::move(requirerChunkname), &error);
+        std::optional<std::string> absolutePath = ::resolveModule(requirePath, std::move(requirerChunkname), &error);
         if (!absolutePath)
         {
             printf("Failed to resolve require: %s\n", error.c_str());

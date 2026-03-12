@@ -116,7 +116,7 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
             if (req.find("@std/") == 0 || req.find("@lute/") == 0)
                 continue;
             std::string err = "";
-            std::optional<std::string> resolvedPath = ::resolveRequire(req, "@" + filePath, &err);
+            std::optional<std::string> resolvedPath = ::resolveModule(req, "@" + filePath, &err);
 
             if (resolvedPath)
             {

@@ -133,7 +133,7 @@ void ErrorCapturer::reportError(std::string message)
 }
 
 // Public API
-std::optional<std::string> resolveRequire(std::string requirePath, std::string requirerChunkname, std::string* error)
+std::optional<std::string> resolveModule(std::string requirePath, std::string requirerChunkname, std::string* error)
 {
     if (requirerChunkname.empty() || requirerChunkname[0] != '@')
     {
@@ -165,7 +165,7 @@ int resolveModule_luau(lua_State* L)
     std::string requirerChunkname = luaL_checkstring(L, 2);
 
     std::string error;
-    std::optional<std::string> absolutePath = resolveRequire(requirePath, requirerChunkname, &error);
+    std::optional<std::string> absolutePath = resolveModule(requirePath, requirerChunkname, &error);
     if (!absolutePath)
         luaL_error(L, "%s", error.c_str());
 
