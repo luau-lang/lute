@@ -1,4 +1,4 @@
-#include "lute/resolverequire.h"
+#include "lute/resolvemodule.h"
 
 #include "lute/filevfs.h"
 #include "lute/modulepath.h"
@@ -159,7 +159,7 @@ std::optional<std::string> resolveRequire(std::string requirePath, std::string r
     return absolutePath;
 }
 
-int resolverequire_luau(lua_State* L)
+int resolveModule_luau(lua_State* L)
 {
     std::string requirePath = luaL_checkstring(L, 1);
     std::string requirerChunkname = luaL_checkstring(L, 2);

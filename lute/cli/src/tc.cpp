@@ -8,7 +8,7 @@
 #include "Luau/FileUtils.h"
 #include "Luau/Frontend.h"
 
-struct LuteFileResolver : Luau::LuteModuleResolver
+struct LuteFileResolver : Luau::LuteTypeCheckModuleResolver
 {
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
     {

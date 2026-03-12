@@ -716,7 +716,7 @@ function luau.load(bytecode: Bytecode, chunkname: string, env: { [any]: any }?):
 	error("not implemented")
 end
 
-function luau.resolverequire(path: string, fromchunkname: string): string
+function luau.resolveModule(path: string, fromchunkname: string): string
 	error("not implemented")
 end
 

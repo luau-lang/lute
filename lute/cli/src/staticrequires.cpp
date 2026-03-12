@@ -1,7 +1,7 @@
 #include "lute/staticrequires.h"
 
 #include "lute/modulepath.h"
-#include "lute/resolverequire.h"
+#include "lute/resolvemodule.h"
 #include "lute/staticrequires.h"
 
 #include "Luau/Ast.h"
