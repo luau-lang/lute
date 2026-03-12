@@ -40,9 +40,9 @@ function luau.typeofmodule(modulepath: path.pathlike): TypePack?
 	return luteLuau.typeofmodule(modulePathStr)
 end
 
-function luau.resolverequire(modulepath: string, frompath: path.pathlike): string
+function luau.resolveModule(modulepath: string, frompath: path.pathlike): path.pathlike
 	local frompathString = if typeof(frompath) == "string" then frompath else path.format(frompath)
-	return luteLuau.resolverequire(modulepath, `@{frompathString}`)
+	return luteLuau.resolveModule(modulepath, `@{frompathString}`)
 end
 
 return table.freeze(luau)

@@ -2,7 +2,7 @@
 
 #include "lute/common.h"
 #include "lute/configresolver.h"
-#include "lute/moduleresolver.h"
+#include "lute/tcmoduleresolver.h"
 #include "lute/type.h"
 
 #include "Luau/Ast.h"
@@ -2972,7 +2972,7 @@ int typeofmodule_luau(lua_State* L)
 {
     std::string modulePath = luaL_checkstring(L, 1);
 
-    Luau::LuteModuleResolver moduleResolver;
+    Luau::LuteTypeCheckModuleResolver moduleResolver;
     Luau::LuteConfigResolver configResolver(Luau::Mode::NoCheck);
     Luau::FrontendOptions fopts;
     fopts.retainFullTypeGraphs = true;

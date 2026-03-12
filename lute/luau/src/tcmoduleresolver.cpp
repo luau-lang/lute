@@ -1,6 +1,6 @@
-#include "lute/moduleresolver.h"
+#include "lute/tcmoduleresolver.h"
 
-#include "lute/resolverequire.h"
+#include "lute/resolvemodule.h"
 
 #include "Luau/Ast.h"
 #include "Luau/FileUtils.h"
@@ -8,7 +8,7 @@
 namespace Luau
 {
 
-std::optional<Luau::SourceCode> LuteModuleResolver::readSource(const Luau::ModuleName& name)
+std::optional<Luau::SourceCode> LuteTypeCheckModuleResolver::readSource(const Luau::ModuleName& name)
 {
     if (std::optional<std::string> source = readFile(name))
         return Luau::SourceCode{*source, Luau::SourceCode::Module};
@@ -16,7 +16,7 @@ std::optional<Luau::SourceCode> LuteModuleResolver::readSource(const Luau::Modul
 }
 
 // We are currently resolving modules and requires only, and will add support for Roblox globals / types in a subsequent PR.
-std::optional<Luau::ModuleInfo> LuteModuleResolver::resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node, const TypeCheckLimits& limits)
+std::optional<Luau::ModuleInfo> LuteTypeCheckModuleResolver::resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node, const TypeCheckLimits& limits)
 {
     if (auto expr = node->as<Luau::AstExprConstantString>())
     {
@@ -24,7 +24,7 @@ std::optional<Luau::ModuleInfo> LuteModuleResolver::resolveModule(const Luau::Mo
 
         std::string error;
         std::string requirerChunkname = "@" + context->name;
-        std::optional<std::string> absolutePath = resolveRequire(requirePath, std::move(requirerChunkname), &error);
+        std::optional<std::string> absolutePath = ::resolveModule(requirePath, std::move(requirerChunkname), &error);
         if (!absolutePath)
         {
             printf("Failed to resolve require: %s\n", error.c_str());

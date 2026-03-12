@@ -149,12 +149,12 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(funcType.returns.type.tag, "string")
 	end)
 
-	suite:case("resolverequire", function(assert)
-		local testPath = path.join(tmpDir, "resolverequire_test.luau")
+	suite:case("resolveModule", function(assert)
+		local testPath = path.join(tmpDir, "resolvemodule_test.luau")
 		local testFile = fs.open(testPath, "w+")
 
 		fs.write(testFile, 'print("Hello, World!")')
-		local resolvedPath = luau.resolverequire("@self", testPath)
+		local resolvedPath = luau.resolveModule("@self", testPath)
 		fs.close(testFile)
 
 		local expected = path.format(testPath):gsub("\\", "/")

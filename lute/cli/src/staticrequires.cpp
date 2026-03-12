@@ -1,7 +1,7 @@
 #include "lute/staticrequires.h"
 
 #include "lute/modulepath.h"
-#include "lute/resolverequire.h"
+#include "lute/resolvemodule.h"
 #include "lute/staticrequires.h"
 
 #include "Luau/Ast.h"
@@ -116,7 +116,7 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
             if (req.find("@std/") == 0 || req.find("@lute/") == 0)
                 continue;
             std::string err = "";
-            std::optional<std::string> resolvedPath = ::resolveRequire(req, "@" + filePath, &err);
+            std::optional<std::string> resolvedPath = ::resolveModule(req, "@" + filePath, &err);
 
             if (resolvedPath)
             {

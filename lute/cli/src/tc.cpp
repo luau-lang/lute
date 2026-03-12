@@ -1,14 +1,14 @@
 #include "lute/tc.h"
 
 #include "lute/configresolver.h"
-#include "lute/moduleresolver.h"
+#include "lute/tcmoduleresolver.h"
 
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/Error.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Frontend.h"
 
-struct LuteFileResolver : Luau::LuteModuleResolver
+struct LuteFileResolver : Luau::LuteTypeCheckModuleResolver
 {
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
     {
