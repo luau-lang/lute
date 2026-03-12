@@ -110,10 +110,10 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
 
         for (const auto& req : requiresInFile)
         {
-            // Skip warning for built-in libraries (@std and @lute)
+            // Skip warning for built-in libraries (@std, @lute, @batteries)
             // The new and improved requireResolver is really good - it'll even handle std/lute aliases that we've built in.
             // For now, we can just explicitly skip these, since they are provided by the runtime
-            if (req.find("@std/") == 0 || req.find("@lute/") == 0)
+            if (req.find("@std/") == 0 || req.find("@lute/") == 0 || req.find("@batteries/") == 0)
                 continue;
             std::string err = "";
             std::optional<std::string> resolvedPath = ::resolveModule(req, "@" + filePath, &err);
@@ -125,10 +125,7 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
             }
             else
             {
-                // Skip warning for built-in libraries (@std and @lute)
-                bool isBuiltinLibrary = req.rfind("@std/", 0) == 0 || req.rfind("@lute/", 0) == 0;
-                if (!isBuiltinLibrary)
-                    reporter.formatError("Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
+                reporter.formatError("Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
                 if (!err.empty())
                     reporter.formatError("Warning: Could not resolve require('%s') from '%s':\n\t%s\n", req.c_str(), filePath.c_str(), err.c_str());
             }

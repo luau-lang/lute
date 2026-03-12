@@ -12,25 +12,16 @@ struct LuteFileResolver : Luau::LuteTypeCheckModuleResolver
 {
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
     {
-        Luau::SourceCode::Type sourceType;
-        std::optional<std::string> source = std::nullopt;
-
         // If the module name is "-", then read source from stdin
         if (name == "-")
         {
-            source = readStdin();
-            sourceType = Luau::SourceCode::Script;
-        }
-        else
-        {
-            source = readFile(name);
-            sourceType = Luau::SourceCode::Module;
+            std::optional<std::string> source = readStdin();
+            if (!source)
+                return std::nullopt;
+            return Luau::SourceCode{*source, Luau::SourceCode::Script};
         }
 
-        if (!source)
-            return std::nullopt;
-
-        return Luau::SourceCode{*source, sourceType};
+        return Luau::LuteTypeCheckModuleResolver::readSource(name);
     }
 
     std::string getHumanReadableModuleName(const Luau::ModuleName& name) const override
