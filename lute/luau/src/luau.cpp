@@ -641,10 +641,10 @@ struct AstSerialize : public Luau::AstVisitor
     }
 
     // For correct trivia computation, everything must end up going through serializeToken
-    void serializeToken(Luau::Position position, const char* text, int nrec = 0)
+    void serializeToken(Luau::Position position, const char* text)
     {
         lua_rawcheckstack(L, 3);
-        lua_createtable(L, 0, nrec + 5);
+        lua_createtable(L, 0, 5);
 
         const auto trivia = extractTrivia(position);
         if (lastTokenRef != LUA_NOREF)
@@ -845,7 +845,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         serializeNodePreamble(node, "nil", "expr");
 
-        serializeToken(node->location.begin, "nil", preambleSize);
+        serializeToken(node->location.begin, "nil");
         lua_setfield(L, -2, "token");
     }
 
@@ -859,7 +859,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_pushboolean(L, node->value);
         lua_setfield(L, -2, "value");
 
-        serializeToken(node->location.begin, node->value ? "true" : "false", preambleSize + 1);
+        serializeToken(node->location.begin, node->value ? "true" : "false");
         lua_setfield(L, -2, "token");
     }
 
@@ -875,7 +875,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_pushnumber(L, node->value);
         lua_setfield(L, -2, "value");
 
-        serializeToken(node->location.begin, cstNode->value.data, preambleSize + 1);
+        serializeToken(node->location.begin, cstNode->value.data);
         lua_setfield(L, -2, "token");
     }
 
@@ -907,7 +907,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_pushnumber(L, cstNode->blockDepth);
         lua_setfield(L, -2, "blockdepth");
 
-        serializeToken(node->location.begin, cstNode->sourceString.data, preambleSize + 2);
+        serializeToken(node->location.begin, cstNode->sourceString.data);
         lua_setfield(L, -2, "token");
 
         // Unlike normal tokens, string content contains quotation marks that were not included during advancement
@@ -951,7 +951,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         serializeNodePreamble(node, "vararg", "expr");
 
-        serializeToken(node->location.begin, "...", preambleSize);
+        serializeToken(node->location.begin, "...");
         lua_setfield(L, -2, "token");
     }
 
@@ -1556,7 +1556,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         serializeNodePreamble(node, "break", "stat");
 
-        serializeToken(node->location.begin, "break", preambleSize);
+        serializeToken(node->location.begin, "break");
         lua_setfield(L, -2, "token");
     }
 
@@ -1567,7 +1567,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         serializeNodePreamble(node, "continue", "stat");
 
-        serializeToken(node->location.begin, "continue", preambleSize);
+        serializeToken(node->location.begin, "continue");
         lua_setfield(L, -2, "token");
     }
 
@@ -2255,7 +2255,7 @@ struct AstSerialize : public Luau::AstVisitor
 
                 serializeNodePreamble(node->types.data[i], "optional", "type");
 
-                serializeToken(node->types.data[i]->location.begin, "?", 2);
+                serializeToken(node->types.data[i]->location.begin, "?");
                 lua_setfield(L, -2, "token");
 
                 lua_setfield(L, -2, "node");
@@ -2321,7 +2321,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_pushboolean(L, node->value);
         lua_setfield(L, -2, "value");
 
-        serializeToken(node->location.begin, node->value ? "true" : "false", preambleSize + 1);
+        serializeToken(node->location.begin, node->value ? "true" : "false");
         lua_setfield(L, -2, "token");
     }
 
