@@ -10,8 +10,12 @@ namespace Luau
 
 std::optional<Luau::SourceCode> LuteTypeCheckModuleResolver::readSource(const Luau::ModuleName& name)
 {
+    if (const std::string* source = sourceCache.find(name))
+        return Luau::SourceCode{*source, Luau::SourceCode::Module};
+
     if (std::optional<std::string> source = readFile(name))
         return Luau::SourceCode{*source, Luau::SourceCode::Module};
+
     return std::nullopt;
 }
 
@@ -23,15 +27,23 @@ std::optional<Luau::ModuleInfo> LuteTypeCheckModuleResolver::resolveModule(const
         std::string requirePath(expr->value.data, expr->value.size);
 
         std::string error;
-        std::string requirerChunkname = "@" + context->name;
-        std::optional<std::string> absolutePath = ::resolveModule(requirePath, std::move(requirerChunkname), &error);
-        if (!absolutePath)
+        std::string requirerChunkname = context->name;
+        if (requirerChunkname.empty() || requirerChunkname[0] != '@')
+            requirerChunkname = "@" + requirerChunkname;
+
+        std::optional<ResolvedModule> resolved = ::resolveForTypeCheck(requirePath, std::move(requirerChunkname), &error);
+        if (!resolved)
         {
             printf("Failed to resolve require: %s\n", error.c_str());
             return std::nullopt;
         }
 
-        return Luau::ModuleInfo{*absolutePath};
+        if (resolved->source)
+        {
+            sourceCache[resolved->path] = *resolved->source;
+        }
+
+        return Luau::ModuleInfo{resolved->path};
     }
 
     return std::nullopt;
