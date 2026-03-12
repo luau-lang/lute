@@ -91,7 +91,7 @@ local function isLintRule(rule: unknown, path: string): boolean
 end
 
 local function loadLintRule(path: string): types.LintRule?
-	local loaded = luau.loadbypath(path)
+	local loaded = luau.loadModule(path)
 	return if isLintRule(loaded, path) then loaded else nil -- Typecast isn't needed because loaded is refined to any bc of type error in isLintRule
 end
 
@@ -514,7 +514,7 @@ local function main(...: string)
 	end
 
 	if fs.exists(configPath) then
-		local success, loadedConfig = pcall(luau.loadbypath, configPath)
+		local success, loadedConfig = pcall(luau.loadModule, configPath)
 		if success then
 			lintConfig = configUtils.extractConfig(loadedConfig)
 		elseif VERBOSE then
