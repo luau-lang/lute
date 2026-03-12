@@ -12,7 +12,7 @@ local USAGE = "Usage: lute doc [OPTIONS]"
 
 -- Will add specific module test case (see examples/docs) once --module option is added
 test.suite("LuteDoc", function(suite)
-	suite:case("lute_doc_help_message", function(assert)
+	suite:case("luteDocHelpMessage", function(assert)
 		local result = process.run({ lutePath, "doc", "-h" })
 
 		assert.eq(result.exitcode, 0)
@@ -29,21 +29,21 @@ test.suite("LuteDoc", function(suite)
 		assert.strcontains(result.stdout, USAGE)
 	end)
 
-	suite:case("lute_doc_no_modules_provided", function(assert)
+	suite:case("luteDocNoModulesProvided", function(assert)
 		local result = process.system(`{lutePath} doc`)
 
 		assert.eq(result.exitcode, 1)
 		assert.strcontains(result.stderr, "Error: No module paths specified.")
 	end)
 
-	suite:case("lute_doc_default_directory", function(assert)
+	suite:case("luteDocDefaultDirectory", function(assert)
 		local result = process.system(`{lutePath} doc definitions lute/std/libs`)
 
 		assert.eq(result.exitcode, 0)
 		assert.strcontains(result.stdout, "Documentation generation complete!")
 	end)
 
-	suite:case("lute_doc_specified_directory", function(assert)
+	suite:case("luteDocSpecifiedDirectory", function(assert)
 		if fs.exists(tmpOutputDir) then
 			fs.removedirectory(tmpOutputDir, { recursive = true })
 		end

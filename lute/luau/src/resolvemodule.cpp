@@ -1,4 +1,4 @@
-#include "lute/resolverequire.h"
+#include "lute/resolvemodule.h"
 
 #include "lute/filevfs.h"
 #include "lute/modulepath.h"
@@ -133,7 +133,7 @@ void ErrorCapturer::reportError(std::string message)
 }
 
 // Public API
-std::optional<std::string> resolveRequire(std::string requirePath, std::string requirerChunkname, std::string* error)
+std::optional<std::string> resolveModule(std::string requirePath, std::string requirerChunkname, std::string* error)
 {
     if (requirerChunkname.empty() || requirerChunkname[0] != '@')
     {
@@ -159,13 +159,13 @@ std::optional<std::string> resolveRequire(std::string requirePath, std::string r
     return absolutePath;
 }
 
-int resolverequire_luau(lua_State* L)
+int resolveModule_luau(lua_State* L)
 {
     std::string requirePath = luaL_checkstring(L, 1);
     std::string requirerChunkname = luaL_checkstring(L, 2);
 
     std::string error;
-    std::optional<std::string> absolutePath = resolveRequire(requirePath, requirerChunkname, &error);
+    std::optional<std::string> absolutePath = resolveModule(requirePath, requirerChunkname, &error);
     if (!absolutePath)
         luaL_error(L, "%s", error.c_str());
 
