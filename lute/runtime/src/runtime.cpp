@@ -93,8 +93,6 @@ RuntimeStep Runtime::runOnce()
 
     int status = LUA_OK;
 
-    int co_status = lua_costatus(GL, L);
-
     // It's possible for a spawned task to be killed by a coroutine.close()
     // before it gets processed in the runningThreads queue. This leads to situations where a thread was scheduled to resume
     // but has already been killed.
@@ -108,7 +106,7 @@ RuntimeStep Runtime::runOnce()
     // 6) We can just step over it, because
     // a) if it scheduled a resume, the corresponding pending token will have been cleared
     // b) the corresponding ref for the lua state will be freed at the end of Runtime::runOnce()
-
+    int co_status = lua_costatus(GL, L);
     if (co_status == LUA_COFIN)
     {
         return StepSuccess{L};

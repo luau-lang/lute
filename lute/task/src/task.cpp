@@ -99,7 +99,7 @@ struct LuaThread
         , runtime(getRuntime(parent))
     {
         // At this point, the lua stack should look like:
-        // [function, (args...]
+        // [function, args...]
         // or
         // [thread, args...]
 
@@ -107,7 +107,7 @@ struct LuaThread
         // If passed a function, we push the function and the 0 or more arguments onto a newly created thread's stack
         int toPush = lua_gettop(parent);
         // We only want to resume with the actual number of arguments here, regardless of if the first argument is a thread or a function
-        int numResumeArgs = numResumeArgs = toPush > 1 ? toPush - 1 : 0;
+        int numResumeArgs = toPush > 1 ? toPush - 1 : 0;
         if (!lua_checkstack(L, 1))
             luaL_error(L, "Not enough stack space to create a new thread");
         if (lua_isfunction(parent, 1))
@@ -188,14 +188,33 @@ int lua_spawn(lua_State* L)
     return newThread.resume();
 }
 
+int lua_deferSelf(lua_State* L)
+{
+    if (lua_gettop(L) != 0)
+    {
+        luaL_error(L, "task.deferSelf does not take any arguments");
+        return 0;
+    }
+    lua_pushthread(L);
+    LuaThread newThread{L};
+    newThread.defer();
+    return lua_yield(L, 0);
+}
+
 int lua_defer(lua_State* L)
 {
+
     LuaThread newThread{L};
     return newThread.defer();
 }
 
 int lute_resume(lua_State* L)
 {
+    if (!lua_isthread(L, 1))
+    {
+        luaL_error(L, "Expected a thread as the first argument.");
+        return 0;
+    }
     LuaThread newThread{L};
     return newThread.resume();
 }
