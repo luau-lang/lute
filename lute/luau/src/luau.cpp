@@ -2,7 +2,7 @@
 
 #include "lute/common.h"
 #include "lute/configresolver.h"
-#include "lute/moduleresolver.h"
+#include "lute/tcmoduleresolver.h"
 #include "lute/type.h"
 
 #include "Luau/Ast.h"

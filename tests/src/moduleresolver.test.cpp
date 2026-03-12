@@ -1,5 +1,5 @@
 // Simplified tests for module resolver functionality using public APIs.
-#include "lute/moduleresolver.h"
+#include "lute/tcmoduleresolver.h"
 
 #include "lute/resolvemodule.h"
 

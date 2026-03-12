@@ -1,7 +1,7 @@
 #include "lute/tc.h"
 
 #include "lute/configresolver.h"
-#include "lute/moduleresolver.h"
+#include "lute/tcmoduleresolver.h"
 
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/Error.h"

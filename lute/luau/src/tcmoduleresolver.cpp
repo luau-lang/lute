@@ -1,4 +1,4 @@
-#include "lute/moduleresolver.h"
+#include "lute/tcmoduleresolver.h"
 
 #include "lute/resolvemodule.h"
 
