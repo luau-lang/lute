@@ -166,8 +166,8 @@ local function deserialize(input: string): { [string]: unknown }
 				arrayTables[tableName] = {}
 				local parts = splitTablePath(tableName)
 				local leaf = parts[#parts]
-				local parent = ensurePath(result, parts, #parts - 1)
-				parent[leaf] = arrayTables[tableName]
+				local _parent = ensurePath(result, parts, #parts - 1)
+				_parent[leaf] = arrayTables[tableName]
 			end
 
 			local newEntry = {}
