@@ -28,7 +28,7 @@ Run only test cases matching the specified name
 
 ## Arguments
 
-Directories or files to search for tests (default: ./tests)
+Directories or files to search for tests (default: ./)
 
 ## Examples
 
