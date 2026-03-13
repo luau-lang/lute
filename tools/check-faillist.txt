@@ -1,3 +1,4 @@
+batteries/toml.luau:123:9-15
 examples/net_example.luau:8:2-48
 examples/net_example.luau:13:33-43
 examples/net_example.luau:15:24-34
@@ -84,6 +85,18 @@ lute/std/libs/syntax/visitor.luau:1036:21-25
 lute/std/libs/syntax/visitor.luau:1036:21-25
 lute/std/libs/syntax/visitor.luau:1036:21-25
 lute/std/libs/syntax/visitor.luau:1036:21-25
+tests/batteries/toml.test.luau:14:13-30
+tests/batteries/toml.test.luau:15:13-30
+tests/batteries/toml.test.luau:20:13-22
+tests/batteries/toml.test.luau:27:14-38
+tests/batteries/toml.test.luau:28:13-37
+tests/batteries/toml.test.luau:35:14-38
+tests/batteries/toml.test.luau:36:13-37
+tests/batteries/toml.test.luau:43:14-28
+tests/batteries/toml.test.luau:44:14-28
+tests/batteries/toml.test.luau:45:13-27
+tests/batteries/toml.test.luau:73:13-37
+tests/batteries/toml.test.luau:74:13-37
 tests/src/packages/package_aware_require/dep/module.luau:1:16-30
 tests/src/packages/pkgrun_with_lockfile/Packages/dep/src/init.luau:1:16-38
 tests/src/require/config_tests/config_ambiguity/requirer.luau:1:8-22
