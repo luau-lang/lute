@@ -161,3 +161,54 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(resolvedPath, expected)
 	end)
 end)
+
+test.suite("LuauGetAllRequiresSuite", function(suite)
+	suite:case("getAllRequiresBasic", function(assert)
+		local requires = luau.getAllRequires([[
+			local crypto = require("@lute/crypto")
+			local base64 = require("@batteries/base64")
+			print("hello")
+		]])
+		assert.eq(#requires, 2)
+		assert.eq(requires[1], "@lute/crypto")
+		assert.eq(requires[2], "@batteries/base64")
+	end)
+
+	suite:case("getAllRequiresEmpty", function(assert)
+		local requires = luau.getAllRequires([[
+			local hello = 1
+			print("world")
+		]])
+		assert.eq(#requires, 0)
+	end)
+
+	suite:case("getAllRequiresNonStringArg", function(assert)
+		local requires = luau.getAllRequires([[
+			local mod = require(someVariable)
+			local other = require("@std/test")
+		]])
+		assert.eq(#requires, 1)
+		assert.eq(requires[1], "@std/test")
+	end)
+
+	suite:case("getAllRequiresNoArgs", function(assert)
+		local requires = luau.getAllRequires([[
+			require()
+			local fs = require("@std/fs")
+		]])
+		assert.eq(#requires, 1)
+		assert.eq(requires[1], "@std/fs")
+	end)
+
+	suite:case("getAllRequiresRelativePaths", function(assert)
+		local requires = luau.getAllRequires([[
+			local a = require("./libs/dependency")
+			local b = require("../utils/helper")
+			local c = require("@std/test")
+		]])
+		assert.eq(#requires, 3)
+		assert.eq(requires[1], "./libs/dependency")
+		assert.eq(requires[2], "../utils/helper")
+		assert.eq(requires[3], "@std/test")
+	end)
+end)

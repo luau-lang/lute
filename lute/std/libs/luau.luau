@@ -7,6 +7,9 @@ local luteLuau = require("@lute/luau")
 
 local fs = require("@lute/fs")
 local path = require("@std/path")
+local syntax = require("@std/syntax")
+local utils = require("@std/syntax/utils")
+local query = require("@std/syntax/query")
 
 local luau = {}
 
@@ -43,6 +46,28 @@ end
 function luau.resolveModule(modulepath: string, frompath: path.pathlike): path.pathlike
 	local frompathString = if typeof(frompath) == "string" then frompath else path.format(frompath)
 	return luteLuau.resolveModule(modulepath, `@{frompathString}`)
+end
+
+function luau.getAllRequires(src: string): { string }
+	local ast = luteLuau.parse(src)
+
+	local requireCalls = query.findallfromroot(ast, utils.isExprCall):filter(function(call)
+		return call.func.tag == "global" and (call.func :: syntax.AstExprGlobal).name.text == "require"
+	end)
+
+	return requireCalls:maptoarray(function(call: syntax.AstExprCall): string?
+		local firstArg = call.arguments[1]
+		if firstArg == nil then
+			return nil
+		end
+
+		local argNode = firstArg.node
+		if argNode.tag ~= "string" then
+			return nil
+		end
+
+		return (argNode :: syntax.AstExprConstantString).text
+	end)
 end
 
 return table.freeze(luau)
