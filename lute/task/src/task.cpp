@@ -108,7 +108,7 @@ struct LuaThread
         int toPush = lua_gettop(parent);
         // We only want to resume with the actual number of arguments here, regardless of if the first argument is a thread or a function
         int numResumeArgs = toPush > 1 ? toPush - 1 : 0;
-        if (!lua_checkstack(L, 1))
+        if (!lua_checkstack(parent, 1))
             luaL_error(L, "Not enough stack space to create a new thread");
         if (lua_isfunction(parent, 1))
         {
@@ -163,7 +163,7 @@ struct LuaThread
         if (!ok)
         {
             runtime->reportError(child);
-            return 1;
+	    return 1;
         }
 
         return 1;

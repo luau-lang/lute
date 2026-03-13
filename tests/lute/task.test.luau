@@ -23,6 +23,18 @@ test.suite("LuteTaskSuite", function(suite)
 		assert.eq(endTime - startTime >= 0.5, true)
 	end)
 
+	suite:case("taskSpawn0ArgsErrors", function(assert)
+		assert.errors(function()
+			(task.spawn :: any)()
+		end)
+	end)
+
+	suite:case("taskDefer0ArgsErrors", function(assert)
+		assert.errors(function()
+			(task.defer :: any)()
+		end)
+	end)
+
 	suite:case("taskSpawnFunctionNoArgsCoroutineStatus", function(assert)
 		local thread = task.spawn(function()
 			task.wait(2)
