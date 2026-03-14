@@ -23,12 +23,17 @@ local EXCLUDE_TYPECHECK = {
 	"tests/std/snapshots",
 }
 
+local function normalizePath(p: string): string
+	local normalized = string.gsub(p, "\\", "/")
+	return normalized
+end
+
 local function collectFiles(dir: string): { string }
 	local files: { string } = {}
 	local it = fs.walk(dir, { recursive = true })
 	local p = it()
 	while p do
-		local pathStr = path.format(p)
+		local pathStr = normalizePath(path.format(p))
 		local excluded = false
 		for _, excl in EXCLUDE_TYPECHECK do
 			if string.find(pathStr, excl, 1, true) then
@@ -62,7 +67,7 @@ local function readFaillist(): string
 		return ""
 	end
 
-	local contents = fs.read(file)
+	local contents = string.gsub(fs.read(file), "\r", "")
 	fs.close(file)
 	return contents
 end
@@ -116,7 +121,7 @@ local function parseErrors(output: string, cwdStr: string): { ErrorEntry }
 
 		if file and lineNum then
 			table.insert(errors, {
-				file = relativePath(file, cwdStr),
+				file = relativePath(normalizePath(file), cwdStr),
 				line = tonumber(lineNum) :: number,
 				col = tonumber(col) :: number,
 				colEnd = tonumber(colEnd) :: number,
@@ -171,7 +176,7 @@ local function main(args: { string })
 	print("Running typecheck...")
 	local output = runTypecheck(lutePath, allFiles)
 
-	local cwdStr = path.format(process.cwd())
+	local cwdStr = normalizePath(path.format(process.cwd()))
 	local errors = parseErrors(output, cwdStr)
 	local sortedErrors = sortErrors(errors)
 	local formattedOutput = formatFaillist(sortedErrors)
