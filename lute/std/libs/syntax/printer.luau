@@ -54,22 +54,22 @@ local function printString(self: PrintVisitor, expr: types.AstExprConstantString
 		return
 	end
 
-	self:printTriviaList(expr.leadingtrivia)
+	self:printTriviaList(expr.token.leadingtrivia)
 
 	if expr.quotestyle == "single" then
-		self:write(`'{expr.text}'`)
+		self:write(`'{expr.token.text}'`)
 	elseif expr.quotestyle == "double" then
-		self:write(`"{expr.text}"`)
+		self:write(`"{expr.token.text}"`)
 	elseif expr.quotestyle == "block" then
 		local equals = string.rep("=", expr.blockdepth)
-		self:write(`[{equals}[{expr.text}]{equals}]`)
+		self:write(`[{equals}[{expr.token.text}]{equals}]`)
 	elseif expr.quotestyle == "interp" then
-		self:write("`" .. expr.text .. "`")
+		self:write("`" .. expr.token.text .. "`")
 	else
 		exhaustiveMatch(expr.quotestyle)
 	end
 
-	self:printTriviaList(expr.trailingtrivia)
+	self:printTriviaList(expr.token.trailingtrivia)
 end
 
 local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprInterpString)
@@ -106,8 +106,7 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 
 	if typeof(replacement) == "string" then
 		self:write(replacement)
-	elseif replacement.kind ~= nil then -- LUAUFIX: type solver upset comparing string singleton union to nil
-		-- TODO: preserve trivia
+	elseif replacement.kind ~= nil then
 		visitor.visit(replacement, self)
 	else
 		error("Unsupported replacement type")

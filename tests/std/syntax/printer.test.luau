@@ -30,7 +30,7 @@ test.suite("SyntaxPrinter", function(suite)
 
 		checkReplacement(source, expected, function(ast)
 			return query.findallfromroot(ast, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.text == "World" then "1 + 2" else nil
+				return if s.token.text == "World" then "1 + 2" else nil
 			end)
 		end, assert)
 	end)
@@ -44,7 +44,7 @@ test.suite("SyntaxPrinter", function(suite)
 
 		checkReplacement(source, expected, function(ast)
 			return query.findallfromroot(ast, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.text == "World" then syntax.parseexpr("1 + 2") else nil
+				return if s.token.text == "World" then syntax.parseexpr("1 + 2") else nil
 			end)
 		end, assert)
 	end)

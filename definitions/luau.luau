@@ -44,7 +44,7 @@ export type Token<Kind = string> = {
 	read location: span,
 	read text: Kind,
 	read trailingtrivia: { Trivia },
-	read istoken: true,
+	read kind: "token",
 }
 
 export type Eof = Token<""> & { read tag: "eof" }
@@ -70,28 +70,36 @@ export type AstExprGroup = {
 	read closeparens: Token<")">,
 }
 
-export type AstExprConstantNil = Token<"nil"> & { read location: span, read kind: "expr", read tag: "nil" }
+export type AstExprConstantNil = {
+	read location: span,
+	read kind: "expr",
+	read tag: "nil",
+	read token: Token<"nil">,
+}
 
-export type AstExprConstantBool = Token<"true" | "false"> & {
+export type AstExprConstantBool = {
 	read location: span,
 	read kind: "expr",
 	read tag: "boolean",
 	read value: boolean,
+	read token: Token<"true" | "false">,
 }
 
-export type AstExprConstantNumber = Token<string> & {
+export type AstExprConstantNumber = {
 	read location: span,
 	read kind: "expr",
 	read tag: "number",
 	read value: number,
+	read token: Token<string>,
 }
 
-export type AstExprConstantString = Token<string> & {
+export type AstExprConstantString = {
 	read location: span,
 	read kind: "expr",
 	read tag: "string",
 	read quotestyle: "single" | "double" | "block" | "interp",
 	read blockdepth: number,
+	read token: Token<string>,
 }
 
 export type AstExprLocal = {
@@ -105,7 +113,12 @@ export type AstExprLocal = {
 
 export type AstExprGlobal = { read location: span, read kind: "expr", read tag: "global", read name: Token }
 
-export type AstExprVarargs = Token<"..."> & { read location: span, read kind: "expr", read tag: "vararg" }
+export type AstExprVarargs = {
+	read location: span,
+	read kind: "expr",
+	read tag: "vararg",
+	read token: Token<"...">,
+}
 
 export type AstExprCall = {
 	read location: span,
@@ -350,9 +363,14 @@ export type AstStatRepeat = {
 	read condition: AstExpr,
 }
 
-export type AstStatBreak = Token<"break"> & { read location: span, read kind: "stat", read tag: "break" }
+export type AstStatBreak = { read location: span, read kind: "stat", read tag: "break", read token: Token<"break"> }
 
-export type AstStatContinue = Token<"continue"> & { read location: span, read kind: "stat", read tag: "continue" }
+export type AstStatContinue = {
+	read location: span,
+	read kind: "stat",
+	read tag: "continue",
+	read token: Token<"continue">,
+}
 
 export type AstStatReturn = {
 	read location: span,
@@ -427,7 +445,11 @@ export type AstStatCompoundAssign = {
 	read value: AstExpr,
 }
 
-export type AstAttribute = Token<"@checked" | "@native" | "@deprecated"> & { read location: span, read kind: "attribute" }
+export type AstAttribute = {
+	read location: span,
+	read kind: "attribute",
+	read token: Token<"@checked" | "@native" | "@deprecated">,
+}
 
 export type AstStatFunction = {
 	read location: span,
@@ -519,18 +541,20 @@ export type AstTypeReference = {
 	read closeparameters: Token<">">?,
 }
 
-export type AstTypeSingletonBool = Token<"true" | "false"> & {
+export type AstTypeSingletonBool = {
 	read location: span,
 	read kind: "type",
 	read tag: "boolean",
 	read value: boolean,
+	read token: Token<"true" | "false">,
 }
 
-export type AstTypeSingletonString = Token<string> & {
+export type AstTypeSingletonString = {
 	read location: span,
 	read kind: "type",
 	read tag: "string",
 	read quotestyle: "single" | "double",
+	read token: Token<string>,
 }
 
 export type AstTypeTypeof = {
@@ -552,7 +576,7 @@ export type AstTypeGroup = {
 	read closeparens: Token<")">,
 }
 
-export type AstTypeOptional = Token<"?"> & { read location: span, read kind: "type", read tag: "optional" }
+export type AstTypeOptional = { read location: span, read kind: "type", read tag: "optional", read token: Token<"?"> }
 
 export type AstTypeUnion = {
 	read location: span,
@@ -689,7 +713,7 @@ export type AstTypePackVariadic = {
 
 export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
 
-export type AstNode = AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute
+export type AstNode = AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute | Token
 
 export type ParseResult = {
 	read root: AstStatBlock,
