@@ -29,9 +29,11 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.token.text == "World" then "1 + 2" else nil
-			end)
+			return query
+				.findallfromroot(ast :: any, syntaxUtils.isExprConstantString)
+				:replace(function(s) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+					return if s.token.text == "World" then "1 + 2" else nil
+				end)
 		end, assert)
 	end)
 
@@ -43,9 +45,11 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.token.text == "World" then syntax.parseexpr("1 + 2") else nil
-			end)
+			return query
+				.findallfromroot(ast :: any, syntaxUtils.isExprConstantString)
+				:replace(function(s) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+					return if s.token.text == "World" then syntax.parseexpr("1 + 2") else nil
+				end)
 		end, assert)
 	end)
 

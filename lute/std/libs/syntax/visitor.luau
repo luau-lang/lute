@@ -138,7 +138,7 @@ local defaultVisitor: Visitor = {
 	visitTypeUnion = alwaysVisit,
 	visitTypeIntersection = alwaysVisit,
 	visitTypeArray = alwaysVisit,
-	visitTypeTable = alwaysVisit,
+	visitTypeTable = alwaysVisit :: (types.AstTypeTable) -> boolean, -- LUAUFIX: Code too complex emitted in absence of cast
 	visitTypeFunction = alwaysVisit,
 
 	visitTypePackExplicit = alwaysVisit,

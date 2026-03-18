@@ -107,7 +107,7 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 	if typeof(replacement) == "string" then
 		self:write(replacement)
 	elseif replacement.kind ~= nil then
-		visitor.visit(replacement, self)
+		visitor.visit(replacement :: types.AstNode, self) -- LUAUFIX: Code too complex emitted in absence of cast because AstNode is very large
 	else
 		error("Unsupported replacement type")
 	end
