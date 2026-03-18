@@ -125,7 +125,7 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: node = if (ast :: types.ParseResult).root ~= nil then (ast :: types.ParseResult).root else ast :: any -- LUAUFIX: Replace any cast with (ast :: node) once code too complex no longer emitted
+	local root: node = if (ast :: types.ParseResult).root ~= nil then (ast :: types.ParseResult).root else ast :: node
 	visitor.visit(root, selectVisitor)
 
 	return {
@@ -136,7 +136,7 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -
 		foreach = queryLib.foreach,
 		findall = queryLib.findall :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
 		flatmap = queryLib.flatmap,
-		maptoarray = queryLib.maptoarray :: any,
+		maptoarray = queryLib.maptoarray :: any, -- Any cast because maptoarray has generics quantified at a different level than the query type expects
 	}
 end
 

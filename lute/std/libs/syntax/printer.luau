@@ -38,8 +38,8 @@ local function printTriviaList(self: PrintVisitor, trivia: { types.Trivia })
 end
 
 local function printToken(self: PrintVisitor, token: types.Token)
-	if self.replacements[token :: types.AstNode] ~= nil then
-		self:printReplacement(token :: types.AstNode, self.replacements[token :: types.AstNode])
+	if self.replacements[token] ~= nil then
+		self:printReplacement(token, self.replacements[token])
 		return
 	end
 
