@@ -125,7 +125,7 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: node = if (ast :: types.ParseResult).root ~= nil then (ast :: types.ParseResult).root else ast :: node
+	local root: node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {
