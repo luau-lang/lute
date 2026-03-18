@@ -94,7 +94,7 @@ local function main(...: string)
 		end
 	end
 
-	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./tests" }
+	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./" }
 	loadtests(finder.findtestfiles(searchpath))
 
 	if args:has("list") then
