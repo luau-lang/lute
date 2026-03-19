@@ -37,9 +37,9 @@ hello
 ```
 
 ### Generating random numbers with Luau builtins
-Let's move on to implementing this guessing game. We need to generate a random number, whcih Luau already provides via the `random` function on the `math` table. 
+Let's move on to implementing this guessing game. We need to generate a random number, which Luau already provides via the `random` function on the `math` table. 
 
-This highlights an important distinction between Luau and Lute - **Luau** provides builtin functions that operate on the primitive types, e.g. `string`, `math`, `buffer`, etc, while **Lute** provides utilities for interacting with the outside world (for example, user input, the file system, http requests). In this case, the `math.random` function is provided by Luau and will suffice for our purposes. We'll set a limit of 100, so that math.random will not generate numbers that are too small.
+This highlights an important distinction between Luau and Lute - **Luau** provides builtin functions that operate on the primitive types, e.g. `string`, `math`, `buffer`, etc, while **Lute** provides utilities for interacting with the outside world e.g. user input, the file system, http requests. In this case, the `math.random` function is provided by Luau and will suffice for our purposes. We'll set a limit of 100, so that math.random will not generate numbers that are too small.
 
 ```luau
 local io = require("@std/io")
