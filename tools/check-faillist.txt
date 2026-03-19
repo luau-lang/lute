@@ -58,10 +58,10 @@ lute/std/libs/syntax/query.luau:137:13-28
 lute/std/libs/syntax/query.luau:137:13-28
 lute/std/libs/syntax/query.luau:139:16-34
 lute/std/libs/syntax/query.luau:139:16-34
-lute/std/libs/syntax/utils/init.luau:62:12-24
-lute/std/libs/syntax/utils/init.luau:62:12-24
-lute/std/libs/syntax/utils/init.luau:62:31-31
-lute/std/libs/syntax/utils/init.luau:62:31-31
+lute/std/libs/syntax/utils/init.luau:68:12-24
+lute/std/libs/syntax/utils/init.luau:68:12-24
+lute/std/libs/syntax/utils/init.luau:68:31-31
+lute/std/libs/syntax/utils/init.luau:68:31-31
 lute/std/libs/syntax/utils/trivia.luau:7:12-47
 lute/std/libs/syntax/utils/trivia.luau:7:12-47
 lute/std/libs/syntax/utils/trivia.luau:30:12-47
