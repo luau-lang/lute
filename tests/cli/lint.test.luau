@@ -207,9 +207,9 @@ local _negnan = -0 / 0
 			expectedAutofixContents = [[
 local _x = math.huge
 local _y = -math.huge
-local _z = 0 / 0
-local _nan = 0 / 0
-local _negnan = 0 / 0
+local _z = math.nan
+local _nan = math.nan
+local _negnan = math.nan
 ]],
 		})
 	end)

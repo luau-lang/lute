@@ -30,7 +30,7 @@ end
 
 function compFuncs.exprIndexExprsSame(a: syntax.AstExprIndexExpr, b: syntax.AstExprIndexExpr): boolean
 	if a.index.tag == "string" and b.index.tag == "string" then
-		if a.index.text ~= b.index.text then
+		if a.index.token.text ~= b.index.token.text then
 			return false
 		else
 			return compFuncs.refExprsSame(a.expression, b.expression)

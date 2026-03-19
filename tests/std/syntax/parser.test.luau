@@ -108,10 +108,10 @@ test.suite("Parser", function(suite)
 		local trailingToken: syntax.AstExpr = (firstStmt :: syntax.AstStatLocal).values[1].node
 		assert.eq(trailingToken.tag, "string")
 		local expr = trailingToken :: syntax.AstExprConstantString
-		assert.eq(#expr.trailingtrivia, 3)
-		assert.eq(expr.trailingtrivia[1].text, " ")
-		assert.eq(expr.trailingtrivia[2].text, "-- comment")
-		assert.eq(expr.trailingtrivia[3].text, "\n")
+		assert.eq(#expr.token.trailingtrivia, 3)
+		assert.eq(expr.token.trailingtrivia[1].text, " ")
+		assert.eq(expr.token.trailingtrivia[2].text, "-- comment")
+		assert.eq(expr.token.trailingtrivia[3].text, "\n")
 
 		local secondStmt = block.statements[2]
 		assert.eq(secondStmt.tag, "local")
@@ -191,7 +191,7 @@ test.suite("Parser", function(suite)
 			assert.eq(l.tag, "localfunction")
 
 			local lf = l :: syntax.AstStatLocalFunction
-			assert.eq(lf.func.attributes[1].text, subcase.attr)
+			assert.eq(lf.func.attributes[1].token.text, subcase.attr)
 		end
 	end)
 end)
@@ -211,20 +211,20 @@ test.suite("parseExpr", function(suite)
 		local expr = parser.parseexpr("nil")
 		assert.eq(expr.tag, "nil")
 		assert.eq(expr.kind, "expr")
-		assert.eq((expr :: syntax.AstExprConstantNil).text, "nil")
+		assert.eq((expr :: syntax.AstExprConstantNil).token.text, "nil")
 	end)
 
 	suite:case("parseExprBoolean", function(assert)
 		local trueExpr = parser.parseexpr("true")
 		assert.eq(trueExpr.tag, "boolean")
 		assert.eq(trueExpr.kind, "expr")
-		assert.eq((trueExpr :: syntax.AstExprConstantBool).text, "true")
+		assert.eq((trueExpr :: syntax.AstExprConstantBool).token.text, "true")
 		assert.eq((trueExpr :: syntax.AstExprConstantBool).value, true)
 
 		local falseExpr = parser.parseexpr("false")
 		assert.eq(falseExpr.tag, "boolean")
 		assert.eq(falseExpr.kind, "expr")
-		assert.eq((falseExpr :: syntax.AstExprConstantBool).text, "false")
+		assert.eq((falseExpr :: syntax.AstExprConstantBool).token.text, "false")
 		assert.eq((falseExpr :: syntax.AstExprConstantBool).value, false)
 	end)
 
@@ -232,13 +232,13 @@ test.suite("parseExpr", function(suite)
 		local numberExpr = parser.parseexpr("42")
 		assert.eq(numberExpr.tag, "number")
 		assert.eq(numberExpr.kind, "expr")
-		assert.eq((numberExpr :: syntax.AstExprConstantNumber).text, "42")
+		assert.eq((numberExpr :: syntax.AstExprConstantNumber).token.text, "42")
 		assert.eq((numberExpr :: syntax.AstExprConstantNumber).value, 42)
 
 		local floatExpr = parser.parseexpr("3.14")
 		assert.eq(floatExpr.tag, "number")
 		assert.eq(floatExpr.kind, "expr")
-		assert.eq((floatExpr :: syntax.AstExprConstantNumber).text, "3.14")
+		assert.eq((floatExpr :: syntax.AstExprConstantNumber).token.text, "3.14")
 		assert.eq((floatExpr :: syntax.AstExprConstantNumber).value, 3.14)
 	end)
 
@@ -246,25 +246,25 @@ test.suite("parseExpr", function(suite)
 		local singleQuoteExpr = parser.parseexpr("'hello'")
 		assert.eq(singleQuoteExpr.tag, "string")
 		assert.eq(singleQuoteExpr.kind, "expr")
-		assert.eq((singleQuoteExpr :: syntax.AstExprConstantString).text, "hello")
+		assert.eq((singleQuoteExpr :: syntax.AstExprConstantString).token.text, "hello")
 		assert.eq((singleQuoteExpr :: syntax.AstExprConstantString).quotestyle, "single")
 
 		local doubleQuoteExpr = parser.parseexpr('"world"')
 		assert.eq(doubleQuoteExpr.tag, "string")
 		assert.eq(doubleQuoteExpr.kind, "expr")
-		assert.eq((doubleQuoteExpr :: syntax.AstExprConstantString).text, "world")
+		assert.eq((doubleQuoteExpr :: syntax.AstExprConstantString).token.text, "world")
 		assert.eq((doubleQuoteExpr :: syntax.AstExprConstantString).quotestyle, "double")
 
 		local blockQuoteExpr = parser.parseexpr("[[world]]")
 		assert.eq(blockQuoteExpr.tag, "string")
 		assert.eq(blockQuoteExpr.kind, "expr")
-		assert.eq((blockQuoteExpr :: syntax.AstExprConstantString).text, "world")
+		assert.eq((blockQuoteExpr :: syntax.AstExprConstantString).token.text, "world")
 		assert.eq((blockQuoteExpr :: syntax.AstExprConstantString).quotestyle, "block")
 
 		local interpExpr = parser.parseexpr("`foobar`")
 		assert.eq(interpExpr.tag, "string")
 		assert.eq(interpExpr.kind, "expr")
-		assert.eq((interpExpr :: syntax.AstExprConstantString).text, "foobar")
+		assert.eq((interpExpr :: syntax.AstExprConstantString).token.text, "foobar")
 		assert.eq((interpExpr :: syntax.AstExprConstantString).quotestyle, "interp")
 	end)
 
@@ -286,7 +286,7 @@ test.suite("parseExpr", function(suite)
 		local varargsExpr = parser.parseexpr("...")
 		assert.eq(varargsExpr.tag, "vararg")
 		assert.eq(varargsExpr.kind, "expr")
-		assert.eq((varargsExpr :: syntax.AstExprVarargs).text, "...")
+		assert.eq((varargsExpr :: syntax.AstExprVarargs).token.text, "...")
 	end)
 
 	suite:case("parseExprCall", function(assert)
@@ -647,7 +647,7 @@ test.suite("parse", function(suite)
 		assert.eq(breakStat.kind, "stat")
 		breakStat = breakStat :: syntax.AstStatBreak
 		assert.eq(breakStat.tag, "break")
-		assert.eq(breakStat.text, "break")
+		assert.eq(breakStat.token.text, "break")
 
 		assert.eq(whileStat.endkeyword.text, "end")
 
@@ -667,7 +667,7 @@ test.suite("parse", function(suite)
 		assert.eq(continueStat.kind, "stat")
 		continueStat = continueStat :: syntax.AstStatContinue
 		assert.eq(continueStat.tag, "continue")
-		assert.eq(continueStat.text, "continue")
+		assert.eq(continueStat.token.text, "continue")
 
 		assert.eq(whileStat.endkeyword.text, "end")
 	end)
@@ -821,9 +821,9 @@ test.suite("parse", function(suite)
 		local funcStat = block.statements[1] :: syntax.AstStatFunction
 		assert.eq(funcStat.tag, "function")
 		assert.eq(#funcStat.func.attributes, 3)
-		assert.eq((funcStat.func.attributes[1] :: syntax.AstAttribute).text, "@checked")
-		assert.eq((funcStat.func.attributes[2] :: syntax.AstAttribute).text, "@native")
-		assert.eq((funcStat.func.attributes[3] :: syntax.AstAttribute).text, "@deprecated")
+		assert.eq((funcStat.func.attributes[1] :: syntax.AstAttribute).token.text, "@checked")
+		assert.eq((funcStat.func.attributes[2] :: syntax.AstAttribute).token.text, "@native")
+		assert.eq((funcStat.func.attributes[3] :: syntax.AstAttribute).token.text, "@deprecated")
 		assert.eq(funcStat.func.functionkeyword.text, "function")
 		assert.eq(funcStat.name.tag, "global")
 		assert.eq((funcStat.name :: syntax.AstExprGlobal).name.text, "add")
@@ -940,7 +940,7 @@ test.suite("parse types", function(suite)
 		assert.eq(typeAlias.type.tag, "boolean")
 
 		local singletonBool = typeAlias.type :: syntax.AstTypeSingletonBool
-		assert.eq(singletonBool.text, "true")
+		assert.eq(singletonBool.token.text, "true")
 		assert.eq(singletonBool.value, true)
 
 		block = parser.parseblock("type FalseType = false")
@@ -948,7 +948,7 @@ test.suite("parse types", function(suite)
 		assert.eq(typeAlias.type.tag, "boolean")
 
 		singletonBool = typeAlias.type :: syntax.AstTypeSingletonBool
-		assert.eq(singletonBool.text, "false")
+		assert.eq(singletonBool.token.text, "false")
 		assert.eq(singletonBool.value, false)
 	end)
 
@@ -958,7 +958,7 @@ test.suite("parse types", function(suite)
 		assert.eq(typeAlias.type.tag, "string")
 
 		local singletonStr = typeAlias.type :: syntax.AstTypeSingletonString
-		assert.eq(singletonStr.text, "hello")
+		assert.eq(singletonStr.token.text, "hello")
 		assert.eq(singletonStr.quotestyle, "single")
 
 		block = parser.parseblock('type WorldType = "world"')
@@ -966,7 +966,7 @@ test.suite("parse types", function(suite)
 		assert.eq(typeAlias.type.tag, "string")
 
 		singletonStr = typeAlias.type :: syntax.AstTypeSingletonString
-		assert.eq(singletonStr.text, "world")
+		assert.eq(singletonStr.token.text, "world")
 		assert.eq(singletonStr.quotestyle, "double")
 	end)
 
@@ -1015,7 +1015,7 @@ test.suite("parse types", function(suite)
 		assert.eq(#unionType.types, 2)
 		assert.eq(unionType.types[1].node.tag, "reference")
 		assert.eq(unionType.types[2].node.tag, "optional")
-		assert.eq((unionType.types[2].node :: syntax.AstTypeOptional).text, "?")
+		assert.eq((unionType.types[2].node :: syntax.AstTypeOptional).token.text, "?")
 	end)
 
 	suite:case("testTypeUnionWithOptionalPart", function(assert)
@@ -1127,8 +1127,9 @@ test.suite("parse types", function(suite)
 		assert.eq(tableTypeItem.kind, "stringproperty")
 		assert.eq(tableTypeItem.access, nil)
 		assert.eq(tableTypeItem.indexeropen.text, "[")
+		assert.eq((tableTypeItem.key :: syntax.AstTypeSingletonString).kind, "type")
 		assert.eq((tableTypeItem.key :: syntax.AstTypeSingletonString).tag, "string")
-		assert.eq((tableTypeItem.key :: syntax.AstTypeSingletonString).text, "hello")
+		assert.eq((tableTypeItem.key :: syntax.AstTypeSingletonString).token.text, "hello")
 		assert.eq(tableTypeItem.indexerclose.text, "]")
 		assert.eq(tableTypeItem.colon.text, ":")
 		assert.eq(tableTypeItem.value.tag, "string")
@@ -1260,7 +1261,10 @@ test.suite("AST_nodes_frozen", function(suite)
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "nil")
 		assert.erroreq(function()
-			(expr :: any).value = 123
+			(expr :: any).tag = "modified"
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(expr :: any).token.text = "blah"
 		end, frozenTableMessage)
 	end)
 
@@ -1269,7 +1273,10 @@ test.suite("AST_nodes_frozen", function(suite)
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "boolean")
 		assert.erroreq(function()
-			(expr :: any).value = false
+			(expr :: any).tag = "modified"
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(expr :: any).token.text = "blah"
 		end, frozenTableMessage)
 	end)
 
@@ -1278,7 +1285,10 @@ test.suite("AST_nodes_frozen", function(suite)
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "number")
 		assert.erroreq(function()
-			(expr :: any).value = 99
+			(expr :: any).tag = "modified"
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(expr :: any).token.text = "blah"
 		end, frozenTableMessage)
 	end)
 
@@ -1287,7 +1297,10 @@ test.suite("AST_nodes_frozen", function(suite)
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "string")
 		assert.erroreq(function()
-			(expr :: any).quotestyle = "double"
+			(expr :: any).tag = "modified"
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			(expr :: any).token.text = "blah"
 		end, frozenTableMessage)
 	end)
 
@@ -1376,6 +1389,9 @@ test.suite("AST_nodes_frozen", function(suite)
 		end, frozenTableMessage)
 		assert.erroreq(function()
 			table.insert((expr :: any).attributes, nil :: any)
+		end, frozenTableMessage)
+		assert.erroreq(function()
+			((expr :: syntax.AstExprFunction).attributes[1] :: any).token.text = "@modified"
 		end, frozenTableMessage)
 		assert.erroreq(function()
 			table.insert((expr :: any).generics, nil :: any)
@@ -1877,7 +1893,7 @@ test.suite("AST_nodes_frozen", function(suite)
 		local block = parser.parseblock("local x = 1")
 		local localStat = block.statements[1] :: syntax.AstStatLocal
 		local token = localStat.localkeyword
-		assert.eq(token.istoken, true)
+		assert.eq(token.kind, "token")
 		assert.erroreq(function()
 			(token :: any).text = "modified"
 		end, frozenTableMessage)
@@ -1937,7 +1953,7 @@ test.suite("AST_nodes_frozen", function(suite)
 		local result = parser.parse("local x = 1")
 		local eof = result.eof
 		assert.eq(eof.tag, "eof")
-		assert.eq(eof.istoken, true)
+		assert.eq(eof.kind, "token")
 		assert.erroreq(function()
 			(eof :: any).tag = "modified"
 		end, frozenTableMessage)
