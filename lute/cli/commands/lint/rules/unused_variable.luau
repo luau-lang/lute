@@ -1,6 +1,7 @@
 local lintTypes = require("../types")
 local path = require("@std/path")
 local syntax = require("@std/syntax")
+local utils = require("@std/syntax/utils")
 local tableext = require("@std/tableext")
 local visitorLib = require("@std/syntax/visitor")
 
@@ -15,10 +16,6 @@ type branch = { tag: "branch", entries: { [string]: leaf } }
 -- We assume that we only need 2 levels of depth, since there currently no APIs nested more than 2 levels.
 -- If we need more levels in the future, we can generalize, but this greatly simplifies the logic.
 type smallTrie = { tag: "root", entries: { [string]: branch | leaf } }
-
-local function isRequireCall(expr: syntax.AstExpr)
-	return expr.tag == "call" and expr.func.tag == "global" and expr.func.name.text == "require"
-end
 
 local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie): { [number]: true }?
 	if func.tag == "global" then
@@ -111,7 +108,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		-- For each (var, value) pair, ignore references to the var in the value
 		for i, localVar in stat.variables do
 			if stat.values[i] then
-				if isRequireCall(stat.values[i].node) then
+				if utils.isRequireCall(stat.values[i].node) then
 					visitor.requiredModules[localVar.node.name.text] = localVar.node
 				else
 					visitor.ignoreReferences[localVar.node] = true

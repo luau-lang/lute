@@ -42,6 +42,12 @@ function utils.isExprCall(n: types.AstNode): types.AstExprCall?
 	return if n.kind == "expr" and n.tag == "call" then n else nil
 end
 
+function utils.isRequireCall(n: types.AstNode): types.AstExprCall?
+	local call = utils.isExprCall(n)
+	local global = call and utils.isExprGlobal(call.func)
+	return if global and global.name.text == "require" then call else nil
+end
+
 function utils.isExprIndexName(n: types.AstNode): types.AstExprIndexName?
 	return if n.kind == "expr" and n.tag == "indexname" then n else nil
 end
