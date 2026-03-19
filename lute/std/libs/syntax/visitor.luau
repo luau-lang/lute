@@ -138,7 +138,7 @@ local defaultVisitor: Visitor = {
 	visitTypeUnion = alwaysVisit,
 	visitTypeIntersection = alwaysVisit,
 	visitTypeArray = alwaysVisit,
-	visitTypeTable = alwaysVisit,
+	visitTypeTable = alwaysVisit :: (types.AstTypeTable) -> boolean, -- LUAUFIX: Code too complex emitted in absence of cast
 	visitTypeFunction = alwaysVisit,
 
 	visitTypePackExplicit = alwaysVisit,
@@ -1033,7 +1033,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitTypeUnion = visit,
 			visitTypeIntersection = visit,
 			visitTypeArray = visit,
-			visitTypeTable = visit,
+			visitTypeTable = visit :: (types.AstTypeTable) -> boolean, -- LUAUFIX: Remove cast once code too complex no longer emitted
 			visitTypeFunction = visit,
 
 			visitTypePackExplicit = visit,

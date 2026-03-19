@@ -37,7 +37,7 @@ function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): t
 	for _, node in self.nodes do
 		local r = repl(node)
 		if r ~= nil then
-			replacements[node] = r
+			replacements[node] = r :: any -- LUAUFIX: remove any cast once code too complex no longer emitted
 		end
 	end
 	return replacements
@@ -125,19 +125,19 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: node = if ast.root ~= nil then ast.root else ast
+	local root: node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {
 		nodes = nodes,
 		filter = queryLib.filter,
-		replace = queryLib.replace,
-		map = queryLib.map,
+		replace = queryLib.replace :: any, -- LUAUFIX: Remove any cast once code too complex no longer emitted
+		map = queryLib.map :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
 		foreach = queryLib.foreach,
-		findall = queryLib.findall,
+		findall = queryLib.findall :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
 		flatmap = queryLib.flatmap,
-		maptoarray = queryLib.maptoarray,
-	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
+		maptoarray = queryLib.maptoarray :: any, -- Any cast because maptoarray has generics quantified at a different level than the query type expects
+	}
 end
 
 return table.freeze(queryLib)
