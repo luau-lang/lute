@@ -94,7 +94,7 @@ namespace task
 
 struct LuaThread
 {
-    LuaThread(lua_State* L)
+    LuaThread(lua_State* L, std::string_view caller = "")
         : parent(L)
         , runtime(getRuntime(parent))
     {
@@ -123,7 +123,7 @@ struct LuaThread
         }
         else
         {
-            luaL_error(parent, "Expected a thread or function as the first argument.");
+            luaL_error(parent, "%s: Expected a thread or function as the first argument.", caller.data());
         }
         this->resumeArgs = numResumeArgs;
 
@@ -163,7 +163,7 @@ struct LuaThread
         if (!ok)
         {
             runtime->reportError(child);
-	    return 1;
+            return 1;
         }
 
         return 1;
@@ -184,7 +184,7 @@ private:
 
 int lua_spawn(lua_State* L)
 {
-    LuaThread newThread{L};
+    LuaThread newThread{L, "task.spawn"};
     return newThread.resume();
 }
 
@@ -196,7 +196,7 @@ int lua_deferSelf(lua_State* L)
         return 0;
     }
     lua_pushthread(L);
-    LuaThread newThread{L};
+    LuaThread newThread{L, "task.deferSelf"};
     newThread.defer();
     return lua_yield(L, 0);
 }
@@ -204,7 +204,7 @@ int lua_deferSelf(lua_State* L)
 int lua_defer(lua_State* L)
 {
 
-    LuaThread newThread{L};
+    LuaThread newThread{L, "task.defer"};
     return newThread.defer();
 }
 
@@ -215,7 +215,7 @@ int lute_resume(lua_State* L)
         luaL_error(L, "Expected a thread as the first argument.");
         return 0;
     }
-    LuaThread newThread{L};
+    LuaThread newThread{L, "task.resume"};
     return newThread.resume();
 }
 
