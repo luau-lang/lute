@@ -4,7 +4,12 @@ order: 5
 
 # Writing Tests
 
-As mentioned [here](../dev-tooling/index), `lute` comes with a builtin utility for discovering and running tests. In this chapter we'll see how you can write tests against this framework and execute them. This can help you improve your confidence in the correctness of your code. We'll look at how we could test the code from the guessing game chapter, specifically the code that handles argument parsing.
+As mentioned [here](../dev-tooling/index), `lute` comes with a builtin utility
+for discovering and running tests. In this chapter we'll see how you can write
+tests against this framework and execute them. This can help you improve your
+confidence in the correctness of your code. We'll look at how we could test the
+code from the guessing game chapter, specifically the code that handles argument
+parsing.
 
 ### Setting up your project
 
@@ -37,7 +42,11 @@ end
 return table.freeze({ getArgs = getArgs})
 ```
 
-This defines a module that exports a single frozen(immutable) table that has a single function on it - the getArgs function from the last chapter. This function (purportedly) parses a set of command line arguments and either errors, returns a number if a --max \<number\> was passed, or 100. Let's try to test this!
+This defines a module that exports a single frozen(immutable) table that has a
+single function on it - the getArgs function from the last chapter. This
+function (purportedly) parses a set of command line arguments and either errors,
+returns a number if a --max \<number\> was passed, or 100. Let's try to test
+this!
 
 
 ### Using @std/test
@@ -57,7 +66,10 @@ test.case("maxOverridesValue", function(asserts)
 end)
 ```
 
-To start, let's write a simple test that asserts that when getArgs is invoked with a `--max` argument that it returns that value as a number. To match how command line arguments are passed, we'll explicitly pass the first argument (the name of the script).
+To start, let's write a simple test that asserts that when getArgs is invoked
+with a `--max` argument that it returns that value as a number. To match how
+command line arguments are passed, we'll explicitly pass the first argument (the
+name of the script).
 
 ```luau
 local test = require("@std/test")
@@ -73,7 +85,8 @@ end)
 
 
 ### Running test cases
-To run this test, from the root of your project directory run `lute test`. You should see output like this:
+To run this test, from the root of your project directory run `lute test`. You
+should see output like this:
 ```bash
 ──────────────────────────────────────────────────
 Results: 1 passed, 0 failed of 1
@@ -103,7 +116,9 @@ test.case("noPassingMax", function(asserts)
 end)
 ```
 
-Great! It looks like these tests pass. Now let's try something slightly more interesting. If you pass `--max` without a corresponding number argument, we throw an error. Let's try checking for that:
+Great! It looks like these tests pass. Now let's try something slightly more
+interesting. If you pass `--max` without a corresponding number argument, we
+throw an error. Let's try checking for that:
 ```luau
 local test = require("@std/test")
 local utils = require("../utils")
@@ -129,10 +144,14 @@ test.case("noArgToMax", function(asserts)
 	end)
 end)
 ```
-We've used the `errors` assertions to check for the case where we haven't passed a number to `--max`. 
+We've used the `errors` assertions to check for the case where we haven't passed
+a number to `--max`. 
 
 ### Using Test Suites to organize tests
- While we're at it, we can also wrap all of these tests into a single test suite, which will group these tests together. Test suites also allow you to use lifecycle methods like `beforeeach/all`, `aftereach/all` to control setup and tear down for tests.
+ While we're at it, we can also wrap all of these tests into a single test
+ suite, which will group these tests together. Test suites also allow you to use
+ lifecycle methods like `beforeeach/all`, `aftereach/all` to control setup and
+ tear down for tests.
 
 ```luau
 local test = require("@std/test")
@@ -169,8 +188,7 @@ Re-running the tests produces:
 Results: 3 passed, 0 failed of 3
 ```
 
-:::info
-You can re-run individual or groups of tests using:
+:::info You can re-run individual or groups of tests using:
 ```bash
 lute test -c caseName # run tests with the name caseName
 lute test -s suiteName # run all tests with the name suiteName
@@ -189,7 +207,8 @@ suite:case("unsupportedArgument", function(asserts)
 end)
 ```
 
-If you run this, you'll see that it doesn't throw, and `lute test` provides a stacktrace showing what went wrong:
+If you run this, you'll see that it doesn't throw, and `lute test` provides a
+stacktrace showing what went wrong:
 ```
 Failures:
 
@@ -198,7 +217,9 @@ Failures:
         errors: function: 0x000000012f859740 did not throw error.
 ```
 
-This shows us a bug in our getArgs implementation - what if the user passes the right number of arguments but supplies an unsupported option? In this case, the fix is to error in the case that the second argument to getArgs isn't `--max`:
+This shows us a bug in our getArgs implementation - what if the user passes the
+right number of arguments but supplies an unsupported option? In this case, the
+fix is to error in the case that the second argument to getArgs isn't `--max`:
 ```luau
 local function getArgs(args) : number
     if #args == 2 then
