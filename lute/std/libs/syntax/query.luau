@@ -11,11 +11,7 @@ type Node = types.AstNode
 export type query<T = Node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
-<<<<<<< HEAD
-	replace: (self: query<T>, repl: (T) -> types.Replacement?) -> types.Replacements,
-=======
-	replace: (self: query<T>, repl: (T) -> string?) -> types.replacements,
->>>>>>> 6024ee4d4dab3700c7afab30d836b33a1248268d
+	replace: (self: query<T>, repl: (T) -> string?) -> types.Replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
 	findall: <U>(self: query<T>, fn: (Node) -> U?) -> query<U>,
@@ -36,11 +32,7 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-<<<<<<< HEAD
-function queryLib.replace<T>(self: query<T>, repl: (T) -> types.Replacement?): types.Replacements
-=======
-function queryLib.replace<T>(self: query<T>, repl: (T) -> string?): types.replacements
->>>>>>> 6024ee4d4dab3700c7afab30d836b33a1248268d
+function queryLib.replace<T>(self: query<T>, repl: (T) -> string?): types.Replacements
 	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
@@ -133,7 +125,7 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | Node, fn: (Node) -
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: Node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to Node once code too complex no longer emitted
+	local root: Node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {
