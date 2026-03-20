@@ -9,6 +9,7 @@ local fs = require("@lute/fs")
 local path = require("@std/path")
 local query = require("@std/syntax/query")
 local utils = require("@std/syntax/utils")
+local printer = require("@std/syntax/printer")
 
 local luau = {}
 
@@ -18,7 +19,7 @@ export type TypePack = luteLuau.TypePack
 
 export type RequireNode = {
 	resolvedPath: string?,
-	requireStr: string?,
+	requireContent: string?,
 	requireAst: luteLuau.AstExprCall,
 }
 
@@ -73,14 +74,16 @@ function luau.requires(filePath: path.pathlike): { RequireNode }
 			return nil
 		end
 
-		local requireStr: string? = nil
+		local content: string? = nil
 		if argNode.tag == "string" then
-			requireStr = (argNode :: luteLuau.AstExprConstantString).token.text
+			content = (argNode :: luteLuau.AstExprConstantString).token.text
+		else
+			content = printer.printnode(argNode)
 		end
 
 		local resolved: string? = nil
-		if requireStr ~= nil then
-			local ok, result = pcall(luteLuau.resolveModule, requireStr, `@{filePathStr}`)
+		if content ~= nil then
+			local ok, result = pcall(luteLuau.resolveModule, content, `@{filePathStr}`)
 			if ok then
 				resolved = result
 			end
@@ -88,7 +91,7 @@ function luau.requires(filePath: path.pathlike): { RequireNode }
 
 		return {
 			resolvedPath = resolved,
-			requireStr = requireStr,
+			requireContent = content,
 			requireAst = call,
 		}
 	end)
