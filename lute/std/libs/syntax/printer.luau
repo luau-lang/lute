@@ -17,7 +17,7 @@ type PrintVisitor = visitor.Visitor & {
 	printToken: (self: PrintVisitor, token: types.Token) -> (),
 	printString: (self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString) -> (),
 	printInterpolatedString: (self: PrintVisitor, expr: types.AstExprInterpString) -> (),
-	printReplacement: (self: PrintVisitor, node: types.AstNode, replacement: types.Replacement) -> (),
+	printReplacement: (self: PrintVisitor, node: types.AstNode, replacement: string) -> (),
 }
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
@@ -98,19 +98,14 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 	end
 end
 
-local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: types.Replacement)
+local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: string)
 	local leftmostTrivia = triviaUtils.leftmosttrivia(node)
 	if leftmostTrivia ~= nil then
 		self:printTriviaList(leftmostTrivia)
 	end
 
-	if typeof(replacement) == "string" then
-		self:write(replacement)
-	elseif replacement.kind ~= nil then
-		visitor.visit(replacement :: any, self) -- LUAUFIX: Code too complex emitted in absence of cast because AstNode is very large
-	else
-		error("Unsupported replacement type")
-	end
+	assert(typeof(replacement) == "string", "Unsupported replacement type")
+	self:write(replacement)
 
 	local rightmostTrivia = triviaUtils.rightmosttrivia(node)
 	if rightmostTrivia ~= nil then
@@ -147,11 +142,11 @@ local function printVisitor(replacements: types.Replacements?)
 		if replacements == nil then
 			return true
 		end
-		local replacement = replacements[node]
+		local replacement: string? = replacements[node]
 		if replacement == nil then
 			return true
 		end
-		printer:printReplacement(node, replacement :: any) -- remove any cast once code to complex no longer emitted
+		printer:printReplacement(node, replacement)
 		return false
 	end
 
