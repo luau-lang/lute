@@ -10,14 +10,14 @@ local printerLib = {}
 type PrintVisitor = visitor.Visitor & {
 	result: buffer,
 	cursor: number,
-	replacements: types.replacements,
+	replacements: types.Replacements,
 	write: (self: PrintVisitor, str: string) -> (),
 	printTrivia: (self: PrintVisitor, trivia: types.Trivia) -> (),
 	printTriviaList: (self: PrintVisitor, trivia: { types.Trivia }) -> (),
 	printToken: (self: PrintVisitor, token: types.Token) -> (),
 	printString: (self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString) -> (),
 	printInterpolatedString: (self: PrintVisitor, expr: types.AstExprInterpString) -> (),
-	printReplacement: (self: PrintVisitor, node: types.AstNode, replacement: types.replacement) -> (),
+	printReplacement: (self: PrintVisitor, node: types.AstNode, replacement: types.Replacement) -> (),
 }
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
@@ -98,7 +98,7 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 	end
 end
 
-local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: types.replacement)
+local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: types.Replacement)
 	local leftmostTrivia = triviaUtils.leftmosttrivia(node)
 	if leftmostTrivia ~= nil then
 		self:printTriviaList(leftmostTrivia)
@@ -136,7 +136,7 @@ local function write(self: PrintVisitor, str: string)
 	self.cursor = totalSize
 end
 
-local function printVisitor(replacements: types.replacements?)
+local function printVisitor(replacements: types.Replacements?)
 	local result = buffer.create(1024)
 	local cursor = 0
 
@@ -159,7 +159,7 @@ local function printVisitor(replacements: types.replacements?)
 
 	printer.result = result
 	printer.cursor = cursor
-	printer.replacements = if replacements ~= nil then replacements else {} :: types.replacements
+	printer.replacements = if replacements ~= nil then replacements else {} :: types.Replacements
 	printer.write = write
 	printer.printTrivia = printTrivia
 	printer.printTriviaList = printTriviaList
@@ -187,13 +187,13 @@ local function printVisitor(replacements: types.replacements?)
 	return printer
 end
 
-function printerLib.printnode(node: types.AstNode, replacements: types.replacements?): string
+function printerLib.printnode(node: types.AstNode, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visit(node, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
-function printerLib.printfile(result: types.ParseResult, replacements: types.replacements?): string
+function printerLib.printfile(result: types.ParseResult, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visitblock(result.root, printer)
 	visitor.visittoken(result.eof, printer)

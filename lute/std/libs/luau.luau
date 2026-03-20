@@ -10,13 +10,13 @@ local path = require("@std/path")
 
 local luau = {}
 
-export type bytecode = luteLuau.Bytecode
+export type Bytecode = luteLuau.Bytecode
 
-function luau.compile(source: string): bytecode
+function luau.compile(source: string): Bytecode
 	return luteLuau.compile(source)
 end
 
-function luau.load(bytecode: bytecode, chunkname: string?, env: { [any]: any }?): (...any) -> ...any
+function luau.load(bytecode: Bytecode, chunkname: string?, env: { [any]: any }?): (...any) -> ...any
 	return luteLuau.load(bytecode, if chunkname ~= nil then `@{chunkname}` else "=luau.load", env)
 end
 

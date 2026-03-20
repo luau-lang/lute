@@ -8,26 +8,26 @@ local pathlib = require("@std/path")
 
 local processlib = {}
 
-export type stdiokind = process.StdioKind
-export type processrunoptions = process.ProcessRunOptions
-export type processsystemoptions = process.ProcessSystemOptions
-export type processresult = process.ProcessResult
-export type path = pathlib.path
-export type pathlike = pathlib.pathlike
+export type StdioKind = process.StdioKind
+export type ProcessRunOptions = process.ProcessRunOptions
+export type ProcessSystemOptions = process.ProcessSystemOptions
+export type ProcessResult = process.ProcessResult
+export type Path = pathlib.Path
+export type Pathlike = pathlib.Pathlike
 
-function processlib.homedir(): path
+function processlib.homedir(): Path
 	return pathlib.parse(process.homedir())
 end
 
-function processlib.cwd(): path
+function processlib.cwd(): Path
 	return pathlib.parse(process.cwd())
 end
 
-function processlib.run(args: { string }, options: processrunoptions?): processresult
+function processlib.run(args: { string }, options: ProcessRunOptions?): ProcessResult
 	return process.run(args, options)
 end
 
-function processlib.system(command: string, options: processsystemoptions?): processresult
+function processlib.system(command: string, options: ProcessSystemOptions?): ProcessResult
 	return process.system(command, options)
 end
 
@@ -35,7 +35,7 @@ function processlib.exit(exitcode: number): never
 	return process.exit(exitcode)
 end
 
-function processlib.execpath(): path
+function processlib.execpath(): Path
 	return pathlib.parse(process.execpath())
 end
 

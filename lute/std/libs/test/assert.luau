@@ -7,8 +7,8 @@ local stringext = require("@std/stringext")
 local types = require("./types")
 
 -- types
-type failure = types.failure
-type asserts = types.asserts
+type Failure = types.Failure
+type Asserts = types.Asserts
 
 -- more utils
 local assertion = failure.assertion
@@ -63,7 +63,7 @@ local function tablesEqual(t1: unknown, t2: unknown, path: string): (boolean, st
 	return true, nil
 end
 
-local function eq<T>(lhs: T, rhs: T, msg: string?): failure?
+local function eq<T>(lhs: T, rhs: T, msg: string?): Failure?
 	if lhs == rhs then
 		return nil
 	end
@@ -71,7 +71,7 @@ local function eq<T>(lhs: T, rhs: T, msg: string?): failure?
 	return assertion(msg or `{lhs} ~= {rhs}`)
 end
 
-local function neq<T>(lhs: T, rhs: T, msg: string?): failure?
+local function neq<T>(lhs: T, rhs: T, msg: string?): Failure?
 	if lhs ~= rhs then
 		return nil
 	end
@@ -79,7 +79,7 @@ local function neq<T>(lhs: T, rhs: T, msg: string?): failure?
 	return assertion(msg or `{lhs} == {rhs}`)
 end
 
-local function errors(callback: () -> (), msg: string?): failure?
+local function errors(callback: () -> (), msg: string?): Failure?
 	local success = pcall(callback)
 	-- if the callback failed, then this assert passes
 	if not success then
@@ -90,7 +90,7 @@ local function errors(callback: () -> (), msg: string?): failure?
 end
 
 -- Table equality assertionsion with deep comparison
-local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }): failure?
+local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }): Failure?
 	local equal, msg = tablesEqual(lhs, rhs, "")
 	if equal then
 		return nil
@@ -98,7 +98,7 @@ local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }): failure?
 	return assertion(msg or "tables are not equal")
 end
 
-local function buffereq(lhs: buffer, rhs: buffer): failure?
+local function buffereq(lhs: buffer, rhs: buffer): Failure?
 	if typeof(lhs) ~= "buffer" then
 		return assertion(`lhs is of type {typeof(lhs)}, not buffer`)
 	end
@@ -123,7 +123,7 @@ local function buffereq(lhs: buffer, rhs: buffer): failure?
 	return nil
 end
 
-local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...): failure?
+local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...): Failure?
 	local success, err = pcall(func, ...)
 	if success then
 		return assertion("Function did not error as expected.")
@@ -138,7 +138,7 @@ local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: s
 	return nil
 end
 
-local function strcontains(haystack: string, needle: string, instances: number?, msg: string?): failure?
+local function strcontains(haystack: string, needle: string, instances: number?, msg: string?): Failure?
 	if instances == nil then
 		if haystack:find(needle, 1, true) == nil then
 			return assertion(if msg then msg else `Expected "{haystack}" to contain "{needle}".`)
@@ -160,7 +160,7 @@ local function strcontains(haystack: string, needle: string, instances: number?,
 	return nil
 end
 
-local function strnotcontains(haystack: string, needle: string, msg: string?): failure?
+local function strnotcontains(haystack: string, needle: string, msg: string?): Failure?
 	if haystack:find(needle, 1, true) ~= nil then
 		return assertion(if msg then msg else `Expected "{haystack}" to not contain "{needle}".`)
 	end
@@ -169,9 +169,9 @@ local function strnotcontains(haystack: string, needle: string, msg: string?): f
 end
 
 -- utility for taking an assertion and wrapping it as a check that must complete successfully or will return control flow to the error handler
-local function reqassert<T...>(req: (T...) -> failure?): (T...) -> failure?
-	return function(...): failure?
-		local result: failure? = req(...)
+local function reqassert<T...>(req: (T...) -> Failure?): (T...) -> Failure?
+	return function(...): Failure?
+		local result: Failure? = req(...)
 		if result ~= nil then
 			error(result)
 		end
@@ -189,4 +189,4 @@ return table.freeze({
 	erroreq = reqassert(erroreq),
 	strcontains = reqassert(strcontains),
 	strnotcontains = reqassert(strnotcontains),
-}) :: asserts
+}) :: Asserts

@@ -6,13 +6,13 @@ local asserts = require("./assert")
 local failure = require("./failure")
 local types = require("./types")
 
-type Test = types.test
-type TestCase = types.testcase
-type TestSuite = types.testsuite
-type TestEnvironment = types.testenvironment
-type TestReporter = types.testreporter
-type FailedTest = types.failedtest
-type TestRunResult = types.testrunresult
+type Test = types.Test
+type TestCase = types.TestCase
+type TestSuite = types.TestSuite
+type TestEnvironment = types.TestEnvironment
+type TestReporter = types.TestReporter
+type FailedTest = types.FailedTest
+type TestRunResult = types.TestRunResult
 
 local runner = {}
 
