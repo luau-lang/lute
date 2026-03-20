@@ -29,7 +29,7 @@ local function lint(
 
 	function visitor.visitStatFunction(stat: syntax.AstStatFunction)
 		-- depth > 1 means we're inside a nested block (not the top-level block)
-		if depth > 1 then
+		if depth > 1 and stat.name.tag ~= "indexname" then
 			table.insert(violations, {
 				lintname = name,
 				location = stat.location,

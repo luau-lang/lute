@@ -3553,4 +3553,24 @@ end
 			},
 		})
 	end)
+
+	suite:case("globalFunctionInScopeAllowsTableMethods", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	local t = {}
+	function t:foo()
+	end
+	function t.bar()
+	end
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 0 },
+			},
+		})
+	end)
 end)
