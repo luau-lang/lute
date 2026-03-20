@@ -16,6 +16,7 @@ local defaultRulesPaths = {
 	divide_by_zero = path.format(path.join(defaultRulesFolder, "divide_by_zero.luau")),
 	duplicate_keys = path.format(path.join(defaultRulesFolder, "duplicate_keys.luau")),
 	empty_if_block = path.format(path.join(defaultRulesFolder, "empty_if_block.luau")),
+	global_function_in_scope = path.format(path.join(defaultRulesFolder, "global_function_in_scope.luau")),
 	parenthesized_conditions = path.format(path.join(defaultRulesFolder, "parenthesized_conditions.luau")),
 	unused_variable = path.format(path.join(defaultRulesFolder, "unused_variable.luau")),
 }
@@ -26,6 +27,7 @@ local LINT_RULE_MESSAGES = {
 	divide_by_zero = "warning[divide_by_zero]: Division by zero detected.",
 	duplicate_keys = "warning[duplicate_keys]: Duplicate keys detected in table literal.",
 	empty_if_block = "warning[empty_if_block]: Empty if block detected. Consider removing it or adding to it.",
+	global_function_in_scope = "warning[global_function_in_scope]: Non-local function declaration found inside a nested scope. Use 'local function' instead, or move this to the top level.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
 	unused_variable = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
 }
@@ -3479,6 +3481,75 @@ end
 			configContents = configContents,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.empty_if_block, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("globalFunctionInScopeWarnsInsideIf", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	function foo()
+	end
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 1 },
+			},
+		})
+	end)
+
+	suite:case("globalFunctionInScopeWarnsInsideFunction", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function outer()
+	function inner()
+	end
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 1 },
+			},
+		})
+	end)
+
+	suite:case("globalFunctionInScopeAllowsTopLevel", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+function foo()
+end
+
+function bar()
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("globalFunctionInScopeAllowsLocalFunctionNested", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	local function foo()
+	end
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 0 },
 			},
 		})
 	end)
