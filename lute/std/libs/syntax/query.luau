@@ -11,7 +11,7 @@ type node = types.AstNode
 export type query<T = node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
-	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
+	replace: (self: query<T>, repl: (T) -> string?) -> types.replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
 	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
@@ -32,12 +32,12 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
+function queryLib.replace<T>(self: query<T>, repl: (T) -> string?): types.replacements
 	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
 		if r ~= nil then
-			replacements[node] = r :: any -- LUAUFIX: remove any cast once code too complex no longer emitted
+			replacements[node] = r
 		end
 	end
 	return replacements
@@ -131,7 +131,7 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -
 	return {
 		nodes = nodes,
 		filter = queryLib.filter,
-		replace = queryLib.replace :: any, -- LUAUFIX: Remove any cast once code too complex no longer emitted
+		replace = queryLib.replace,
 		map = queryLib.map :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
 		foreach = queryLib.foreach,
 		findall = queryLib.findall :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
