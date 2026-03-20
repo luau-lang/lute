@@ -29,11 +29,9 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query
-				.findallfromroot(ast :: any, syntaxUtils.isExprConstantString)
-				:replace(function(s) -- LUAUFIX: Remove any cast once code too complex no longer emitted
-					return if s.token.text == "World" then "1 + 2" else nil
-				end)
+			return query.findallfromroot(ast :: any, syntaxUtils.isExprConstantString):replace(function(s)
+				return if s.token.text == "World" then "1 + 2" else nil
+			end)
 		end, assert)
 	end)
 
@@ -45,11 +43,9 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query
-				.findallfromroot(ast :: any, syntaxUtils.isExprConstantString)
-				:replace(function(s) -- LUAUFIX: Remove any cast once code too complex no longer emitted
-					return if s.token.text == "World" then syntax.parseexpr("1 + 2") else nil
-				end)
+			return query.findallfromroot(ast :: any, syntaxUtils.isExprConstantString):replace(function(s)
+				return if s.token.text == "World" then "1 + 2" else nil
+			end)
 		end, assert)
 	end)
 
@@ -64,7 +60,7 @@ test.suite("SyntaxPrinter", function(suite)
 			return query
 				.findallfromroot(ast :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function(_)
-					return syntax.parseblock("local name = 1 + 2")
+					return "local name = 1 + 2"
 				end)
 		end, assert)
 	end)
@@ -83,7 +79,7 @@ test.suite("SyntaxPrinter", function(suite)
 					return assign.variables[1].node.annotation
 				end)
 				:replace(function(_)
-					return ann
+					return printer.printnode(ann :: any) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				end)
 		end, assert)
 	end)
@@ -102,7 +98,7 @@ test.suite("SyntaxPrinter", function(suite)
 					return if ta.type.tag == "function" then ta.type.returntypes else nil
 				end)
 				:replace(function(_)
-					return tp
+					return printer.printnode(tp)
 				end)
 		end, assert)
 	end)
