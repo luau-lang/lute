@@ -1,7 +1,7 @@
 local internalTypes = require("./internaltypes")
 
-local function assertTableStructure(arr: { [any]: any }, keytype: string, valuetype: string?, err: string)
-	for k, v in arr do
+local function assertTableStructure(tbl: { [unknown]: unknown }, keytype: string, valuetype: string?, err: string)
+	for k, v in tbl do
 		assert(typeof(k) == keytype, err)
 		if valuetype then
 			assert(typeof(v) == valuetype, err)
