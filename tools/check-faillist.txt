@@ -11,8 +11,8 @@ examples/process.luau:17:7-15
 examples/process.luau:18:7-15
 examples/process.luau:19:7-15
 examples/task-resume.luau:3:38-100
-lute/cli/commands/lint/configutils.luau:19:55-73
-lute/cli/commands/lint/configutils.luau:19:55-73
+lute/cli/commands/lint/configutils.luau:53:55-73
+lute/cli/commands/lint/configutils.luau:53:55-73
 lute/cli/commands/lint/init.luau:84:12-20
 lute/cli/commands/lint/init.luau:312:61-67
 lute/cli/commands/lint/init.luau:517:15-24
