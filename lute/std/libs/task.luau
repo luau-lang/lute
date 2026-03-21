@@ -33,7 +33,7 @@ function tasklib.await(t: task): any
 	end
 
 	while t.success == nil do
-		task.defer()
+		task.deferSelf()
 	end
 
 	if t.success then
@@ -59,7 +59,7 @@ function tasklib.awaitall(...: task): ...unknown
 		for _, v in tasks do
 			if v.success == nil then
 				done = false
-				task.defer()
+				task.deferSelf()
 			end
 		end
 	end

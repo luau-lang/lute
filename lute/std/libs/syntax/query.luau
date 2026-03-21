@@ -11,7 +11,7 @@ type node = types.AstNode
 export type query<T = node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
-	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
+	replace: (self: query<T>, repl: (T) -> string?) -> types.replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
 	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
@@ -32,7 +32,7 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
+function queryLib.replace<T>(self: query<T>, repl: (T) -> string?): types.replacements
 	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
@@ -125,19 +125,19 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: node = if ast.root ~= nil then ast.root else ast
+	local root: node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {
 		nodes = nodes,
 		filter = queryLib.filter,
 		replace = queryLib.replace,
-		map = queryLib.map,
+		map = queryLib.map :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
 		foreach = queryLib.foreach,
-		findall = queryLib.findall,
+		findall = queryLib.findall :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
 		flatmap = queryLib.flatmap,
-		maptoarray = queryLib.maptoarray,
-	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
+		maptoarray = queryLib.maptoarray :: any, -- Any cast because maptoarray has generics quantified at a different level than the query type expects
+	}
 end
 
 return table.freeze(queryLib)
