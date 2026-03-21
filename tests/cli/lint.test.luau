@@ -2474,8 +2474,10 @@ return {
 		})
 	end)
 
-	suite:case("throwsErrorWhenConfigHasInvalidStructure", function(assert)
-		local invalidGlobalConfig = [[
+	suite:case("throwsErrorWhenConfigHasInvalidGlobals", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
 			return {
 				lute = {
 					lint = {
@@ -2483,9 +2485,17 @@ return {
 					}
 				}
 			}
-		]]
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strcontains(err, "config.lute.lint.globals must be a table with string keys")
+	end)
 
-		local invalidIgnoresConfig = [[
+	suite:case("throwsErrorWhenConfigHasInvalidIgnores", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
 			return {
 				lute = {
 					lint = {
@@ -2493,9 +2503,17 @@ return {
 					}
 				}
 			}
-		]]
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strcontains(err, "config.lute.lint.ignores must be an array of filepath globs")
+	end)
 
-		local invalidRulePaths = [[
+	suite:case("throwsErrorWhenConfigHasInvalidRulePaths", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
 			return {
 				lute = {
 					lint = {
@@ -2503,9 +2521,17 @@ return {
 					}
 				}
 			}
-		]]
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strcontains(err, "config.lute.lint.rulepaths must be an array of filepath globs")
+	end)
 
-		local invalidRulesConfig = [[
+	suite:case("throwsErrorWhenConfigHasInvalidRuleConfigs", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
 			return {
 				lute = {
 					lint = {
@@ -2513,35 +2539,7 @@ return {
 					}
 				}
 			}
-		]]
-
-		local err = lintTestHelper(assert, {
-			content = "",
-			configContents = invalidGlobalConfig,
-			expectedExitCode = 1,
-			returnStdErr = true,
-		})
-		assert.strcontains(err, "config.lute.lint.globals must be a table with string keys")
-
-		err = lintTestHelper(assert, {
-			content = "",
-			configContents = invalidIgnoresConfig,
-			expectedExitCode = 1,
-			returnStdErr = true,
-		})
-		assert.strcontains(err, "config.lute.lint.ignores must be an array of filepath globs")
-
-		err = lintTestHelper(assert, {
-			content = "",
-			configContents = invalidRulePaths,
-			expectedExitCode = 1,
-			returnStdErr = true,
-		})
-		assert.strcontains(err, "config.lute.lint.rulepaths must be an array of filepath globs")
-
-		err = lintTestHelper(assert, {
-			content = "",
-			configContents = invalidRulesConfig,
+		]],
 			expectedExitCode = 1,
 			returnStdErr = true,
 		})
