@@ -9,8 +9,8 @@ local function assertTableStructure(tbl: { [unknown]: unknown }, keytype: string
 	end
 end
 
-local function assertIsArray(arr: { any }, valuetype: string, err: string)
-	return assertTableStructure(arr, "number", valuetype, err)
+local function assertIsArray(tbl: { [unknown]: unknown }, valuetype: string, err: string)
+	return assertTableStructure(tbl, "number", valuetype, err)
 end
 
 -- we expect .config.luau file structured s.t top level table has: table.lute.lint field
