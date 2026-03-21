@@ -22,6 +22,7 @@ local DEFAULT_RULES = {
 	"divide_by_zero",
 	"duplicate_keys",
 	"empty_if_block",
+	"global_function_in_scope",
 	"parenthesized_conditions",
 	"unused_variable",
 }
