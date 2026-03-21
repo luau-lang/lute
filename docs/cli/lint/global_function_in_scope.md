@@ -9,7 +9,7 @@ This lint rule warns when a non-local `function` declaration appears inside a ne
 
 A `function foo() end` declaration without the `local` keyword inside a nested scope implicitly creates or assigns to a global variable. This is almost always unintentional and can lead to:
 
-- Accidental global pollution, where the function leaks into the global environment.
+- Accidental pollution of the global namespace, where the function leaks out of the scope in which its being defined.
 - Confusing behavior, because the assignment only happens when the enclosing scope executes.
 - Harder-to-debug shadowing issues when another scope references the same global name.
 
