@@ -2,6 +2,7 @@
 
 #include "lute/common.h"
 #include "lute/runtime.h"
+#include "lute/UVStream.h"
 #include "lute/uvutils.h"
 
 #include "Luau/Common.h"
@@ -12,6 +13,7 @@
 #include "uv.h"
 
 #include <climits> // IWYU pragma: keep
+#include <cstdio>
 #include <functional>
 #include <map>
 #include <memory>
@@ -24,28 +26,32 @@
 #define LUTE_PATH_MAX 8192
 #endif
 
+static int crossPlatformFileno(FILE* stream)
+{
+#ifdef _WIN32
+    return _fileno(stream);
+#else
+    return fileno(stream);
+#endif
+}
+
+
 namespace process
 {
 
-// Loads the current process environment into `map`. Returns the libuv error
-// code on failure, or an empty optional on success.
-static std::optional<int> getEnvironmentVariables(std::map<std::string, std::string>& map)
+const std::string kStdioKindDefault = "default";
+const std::string kStdioKindInherit = "inherit";
+const std::string kStdioKindNone = "none";
+// TODO: add forwarding
+// const std::string kStdioKindForward = "forward";
+
+struct ProcessOptions
 {
-    uv_env_item_t* items;
-    int count;
-    int err = uv_os_environ(&items, &count);
-    if (err != 0)
-        return err;
-
-    for (int i = 0; i < count; i++)
-    {
-        if (items[i].name && items[i].value)
-            map[items[i].name] = items[i].value;
-    }
-
-    uv_os_free_environ(items, count);
-    return std::nullopt;
-}
+    std::string cwd;
+    std::string stdioKind = kStdioKindDefault;
+    std::map<std::string, std::string> env;
+    std::string customShell; // only used by system()
+};
 
 void convertCRLFtoLF(std::string& str)
 {
@@ -59,83 +65,338 @@ void convertCRLFtoLF(std::string& str)
     str.resize(writePos);
 }
 
+struct ProcessExecutionState
+{
+
+    // Your process is ready to finish:
+    // a) stdout stream has signalled error or EOF
+    // b) ditto for stderr stream
+    // c) Process has finished
+    static constexpr int kWaitOnNForProcessCompletion = 3;
+    ProcessExecutionState(int maxCompletions = kWaitOnNForProcessCompletion)
+        : completed(false)
+        , processCanComplete(maxCompletions)
+        , exitCode(-1)
+        , termSignal(0)
+    {
+    }
+
+
+    void signalProcessCompletion(int64_t exitCode, int termSignal)
+    {
+        this->exitCode = exitCode;
+        this->termSignal = termSignal;
+        processCanComplete--;
+    }
+
+    void signalPipeClose()
+    {
+        processCanComplete--;
+    }
+
+    int64_t getExitCode() const
+    {
+        return exitCode;
+    }
+
+    int getTermSignal() const
+    {
+        return termSignal;
+    }
+
+    bool isReadyToComplete() const
+    {
+        return processCanComplete == 0;
+    }
+
+    void signalProcessError(std::string err)
+    {
+        errors.emplace_back(err);
+    }
+
+    bool hasErrors() const
+    {
+        return !errors.empty();
+    }
+
+    std::vector<std::string>& getErrors()
+    {
+        return errors;
+    }
+
+    std::string stdoutData;
+    std::string stderrData;
+    bool completed;
+
+private:
+    // Requires onStreamEnd for stderr/stdout/processExit
+    std::atomic<int> processCanComplete;
+    int64_t exitCode;
+    int termSignal;
+    std::vector<std::string> errors;
+};
+
+/**
+The process handle is a tricky class that coordinates a processes' life cycle.
+This does not get exposed as a user data. Instead the current thread yields
+while the process runs and on completion the current coroutine resumes. This
+comment will try to document how process spawning and completion currently
+works.
+
+While running, a state of a running process is tracked by the struct
+ProcessExecutionState. This tracks a variable called `processCanComplete`. A
+process is allowed to 'complete' when a) the stdout and stderr stream signals
+EOF, and b) the processExit callback gets called. Each of the callbacks
+decrements `processCanComplete` and then calls `tryComplete`.
+
+tryComplete now attempts to schedule close callbacks for each of the pipes we
+opened - input, output, error pipes. We increment a pending closes variable and
+decrement it when the close finishes execution. The process handle stores a self
+reference so that it stays alive long enough across all the various libuv
+callbacks. We need to ensure this self reference is freed when appropriate.
+
+Some callouts:
+
+- Stdiokind makes this tricky! If you spin up a process in the default mode, we
+  actively create a pipe and initialize it with certain settings. However, child
+  processes inherit the file descriptors of the parent. This means you have to
+  be very careful here about calling onRead on the uvutils::PipeStream. A child
+  process that is Inherit or None will never receive any data as the pipe object
+  doesn't get connected to the file descriptor (only the parent gets this).
+  However, the actual pipe object sending EOF is a pre-requisite to closing the
+  process
+
+- We need to close stdin/stdout/stderr in order for the process to close
+  successfully. If you spawn a process in default mode, and then it spawns a
+  process in inherit mode, there is no api to send data to the child process (we
+  don't have process interception). The child process will wait for input
+  indefinitely (which will never come). For that reason, we can pre-emptively
+  close the pipe in the parent process after spawning, which lets the child see
+  EOF and avoid hanging indefinitely. When we have an actual process.spawn that
+  lets you intercept file descriptors, we can revisit this.
+ */
 struct ProcessHandle
 {
     uv_process_t process;
-    uv_pipe_t stdinPipe;
-    uv_pipe_t stdoutPipe;
-    uv_pipe_t stderrPipe;
     uv_loop_t* loop = nullptr;
-    std::string stdoutData;
-    std::string stderrData;
-    int64_t exitCode = -1;
-    int termSignal = 0;
-    bool completed = false;
+
     ResumeToken resumeToken;
     std::shared_ptr<ProcessHandle> self;
-    std::atomic<int> pendingCloses{1};
+    std::atomic<int> pendingCloses{0};
 
-    static void onHandleClose(uv_handle_t* handle)
+    std::unique_ptr<uvutils::PipeStream> stdinPipe;
+    std::unique_ptr<uvutils::PipeStream> stdoutPipe;
+    std::unique_ptr<uvutils::PipeStream> stderrPipe;
+    ProcessExecutionState state;
+    std::string stdioKind;
+
+    uv_process_options_t options;
+    uv_stdio_container_t stdio[3];
+    std::vector<char*> processArguments;
+    std::vector<std::string> environmentStrings;
+    std::vector<char*> environmentVarString;
+
+    ProcessHandle(lua_State* L, ProcessOptions& opts, std::vector<std::string>& args, int waitForN, std::string context = "Process Spawn")
+        : loop(getRuntimeLoop(L))
+        , resumeToken(getResumeToken(L))
+        , stdinPipe(std::make_unique<uvutils::PipeStream>(loop, false, context + " stdin pipe"))
+        , stdoutPipe(std::make_unique<uvutils::PipeStream>(loop, false, context + " stdout pipe"))
+        , stderrPipe(std::make_unique<uvutils::PipeStream>(loop, false, context + " stderr pipe"))
+        , state(waitForN)
+        , stdioKind(opts.stdioKind)
+        , options({})
     {
-        ProcessHandle* ph = static_cast<ProcessHandle*>(handle->data);
-        if (--ph->pendingCloses == 0)
-            ph->self.reset();
+        // When the process finishes, what do we do?
+        options.exit_cb = ProcessHandle::onProcessExit;
+        // Program to execute
+        options.file = args[0].c_str();
+
+        // Set up all the arguments to the process (args[0] must be passed)
+        for (const auto& arg : args)
+        {
+            processArguments.push_back(const_cast<char*>(arg.c_str()));
+        }
+        processArguments.push_back(nullptr);
+        options.args = processArguments.data();
+
+        // Pass a current working directory, if it exists
+        // Note - in a separate pass, make these optional
+        if (!opts.cwd.empty())
+        {
+            options.cwd = opts.cwd.c_str();
+        }
+
+        // Set up the processes environment variables
+        if (!opts.env.empty())
+        {
+            if (auto err = uvutils::getEnvironmentVariables(opts.env))
+            {
+                luaL_error(L, "Failed to get current environment: %s", uv_strerror(*err));
+            }
+            for (const auto& [key, value] : opts.env)
+                environmentStrings.push_back(key + "=" + value);
+            for (auto& str : environmentStrings)
+                environmentVarString.push_back(str.data());
+            environmentVarString.push_back(nullptr);
+            options.env = environmentVarString.data();
+        }
+
+        // Setup input output for the process
+        options.stdio_count = 3;
+
+        if (opts.stdioKind == kStdioKindNone)
+        {
+            stdio[0].flags = UV_IGNORE;
+            stdio[1].flags = UV_IGNORE;
+            stdio[2].flags = UV_IGNORE;
+        }
+        else if (opts.stdioKind == kStdioKindInherit)
+        {
+            stdio[0].flags = UV_INHERIT_FD;
+            stdio[0].data.fd = crossPlatformFileno(stdin);
+            stdio[1].flags = UV_INHERIT_FD;
+            stdio[1].data.fd = crossPlatformFileno(stdout);
+            stdio[2].flags = UV_INHERIT_FD;
+            stdio[2].data.fd = crossPlatformFileno(stderr);
+        }
+        else if (opts.stdioKind == kStdioKindDefault)
+        {
+            stdio[0].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE);
+            stdio[0].data.stream = (uv_stream_t*)&stdinPipe->stream;
+            stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+            stdio[1].data.stream = (uv_stream_t*)&stdoutPipe->stream;
+            stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+            stdio[2].data.stream = (uv_stream_t*)&stderrPipe->stream;
+        }
+
+        options.stdio = stdio;
+
+        process.data = this;
+    }
+
+    void spawn(lua_State* L)
+    {
+        int spawnResult = uv_spawn(loop, &process, &options);
+        if (spawnResult != 0)
+        {
+            resumeToken->runtime->releasePendingToken();
+            closeHandles();
+            luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
+        }
+
+        if (stdioKind == kStdioKindDefault)
+        {
+            // Close our write end of stdin so the child sees EOF instead of
+            // blocking forever on a read.
+            stdinPipe->close([]() {});
+
+            // If we have created a pipe, then this process must be responsible for closing this pipe
+            // If we haven't, then these pipes should be considered closed?
+            stdoutPipe->read(
+                [this](std::string_view input)
+                {
+                    state.stdoutData.append(input);
+                },
+                [this](std::optional<std::string> err)
+                {
+                    state.signalPipeClose();
+                    tryComplete(err);
+                }
+            );
+
+            stderrPipe->read(
+                [this](std::string_view input)
+                {
+                    state.stderrData.append(input);
+                },
+                [this](std::optional<std::string> err)
+                {
+                    state.signalPipeClose();
+                    tryComplete(err);
+                }
+            );
+        }
+    }
+
+    void onHandleClose()
+    {
+        if (--pendingCloses == 0)
+            self.reset();
+    }
+
+    void closePipe(std::unique_ptr<uvutils::PipeStream>& pipe)
+    {
+        if (pipe->isClosed())
+            return;
+        pendingCloses++;
+        pipe->close(
+            [this]()
+            {
+                onHandleClose();
+            }
+        );
     }
 
     void closeHandles()
     {
-        if (!uv_is_closing((uv_handle_t*)&stdinPipe))
-        {
-            pendingCloses++;
-            uv_read_stop((uv_stream_t*)&stdinPipe);
-            uv_close((uv_handle_t*)&stdinPipe, onHandleClose);
-        }
+        closePipe(stdinPipe);
+        closePipe(stdoutPipe);
+        closePipe(stderrPipe);
 
-        if (!uv_is_closing((uv_handle_t*)&stdoutPipe))
-        {
-            pendingCloses++;
-            uv_read_stop((uv_stream_t*)&stdoutPipe);
-            uv_close((uv_handle_t*)&stdoutPipe, onHandleClose);
-        }
-
-        if (!uv_is_closing((uv_handle_t*)&stderrPipe))
-        {
-            pendingCloses++;
-            uv_read_stop((uv_stream_t*)&stderrPipe);
-            uv_close((uv_handle_t*)&stderrPipe, onHandleClose);
-        }
         if (!uv_is_closing((uv_handle_t*)&process))
         {
             pendingCloses++;
-            uv_close((uv_handle_t*)&process, onHandleClose);
+            uv_close(
+                (uv_handle_t*)&process,
+                [](uv_handle_t* handle)
+                {
+                    auto ph = static_cast<ProcessHandle*>(handle->data);
+                    ph->onHandleClose();
+                }
+            );
         }
 
-        if (--pendingCloses == 0)
-        {
+        if (pendingCloses == 0)
             self.reset();
-        }
     }
 
-    void triggerCompletion(bool success, const std::string& error_msg = "")
+
+    static void onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
     {
-        if (completed)
+        ProcessHandle* handle = static_cast<ProcessHandle*>(process->data);
+        if (!handle || handle->state.completed)
             return;
-        completed = true;
 
-        closeHandles();
+        handle->state.signalProcessCompletion(exitStatus, termSignal);
+        handle->tryComplete();
+    }
 
-        if (!resumeToken)
+    void tryComplete(std::optional<std::string> errorMessage = std::nullopt)
+    {
+        if (errorMessage)
         {
-            return;
+            state.signalProcessError(*errorMessage);
         }
+        if (state.completed)
+            return;
 
-        if (success)
+        if (!state.isReadyToComplete())
+            return;
+
+        completeProcessExecution();
+    }
+
+    void completeProcessExecution()
+    {
+        state.completed = true;
+
+        if (!state.hasErrors())
         {
-            int64_t finalExitCode = exitCode;
-            int finalTermSignal = termSignal;
-            // TODO: should we we put any leftover stdin data into the output here?
-            std::string finalStdout = stdoutData;
-            std::string finalStderr = stderrData;
+            int64_t finalExitCode = state.getExitCode();
+            int finalTermSignal = state.getTermSignal();
+            // TODO: should we put any leftover stdin data into the output here?
+            std::string finalStdout = state.stdoutData;
+            std::string finalStderr = state.stderrData;
             std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
             convertCRLFtoLF(finalStdout);
             convertCRLFtoLF(finalStderr);
@@ -174,209 +435,28 @@ struct ProcessHandle
         }
         else
         {
-            resumeToken->fail("Process error: " + error_msg);
+            std::string msg = "Process failed because: \n";
+            for (auto msg : state.getErrors())
+            {
+                msg += msg + "\n";
+            }
+            resumeToken->fail(msg);
         }
 
-        resumeToken.reset();
+        closeHandles();
     }
 };
-
-struct ProcessOptions
-{
-    std::string cwd;
-    std::string stdioKind;
-    std::map<std::string, std::string> env;
-    std::string customShell; // only used by system()
-};
-
-static void onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
-{
-    ProcessHandle* handle = static_cast<ProcessHandle*>(process->data);
-    if (!handle || handle->completed)
-        return;
-
-    handle->exitCode = exitStatus;
-    handle->termSignal = termSignal;
-
-    handle->triggerCompletion(true);
-}
-
-static void onPipeRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
-{
-    ProcessHandle* handle = static_cast<ProcessHandle*>(stream->data);
-
-    if (!handle || handle->completed)
-    {
-        if (buf->base)
-            free(buf->base);
-        return;
-    }
-
-    if (nread > 0)
-    {
-        std::string* targetBuffer = (stream == (uv_stream_t*)&handle->stdoutPipe) ? &handle->stdoutData : &handle->stderrData;
-        targetBuffer->append(buf->base, nread);
-    }
-    else if (nread < 0)
-    {
-        if (nread != UV_EOF)
-        {
-            std::string errorDetails = (stream == (uv_stream_t*)&handle->stdoutPipe) ? "stdout" : "stderr";
-            errorDetails += " read error: ";
-            errorDetails += uv_strerror(nread);
-            handle->triggerCompletion(false, errorDetails);
-        }
-    }
-
-    if (buf->base)
-    {
-        free(buf->base);
-    }
-}
-
-static void allocBuffer(uv_handle_t* handle, size_t suggestedSize, uv_buf_t* buf)
-{
-    buf->base = (char*)malloc(suggestedSize);
-    buf->len = buf->base ? suggestedSize : 0;
-    if (!buf->base)
-    {
-        fprintf(stderr, "Process pipe buffer allocation failed!\n");
-    }
-}
-
-const std::string kStdioKindDefault = "default";
-const std::string kStdioKindInherit = "inherit";
-const std::string kStdioKindNone = "none";
-// TODO: add forwarding
-// const std::string kStdioKindForward = "forward";
 
 // helper function for run() and system()
 int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions opts)
 {
-    auto handle = std::make_shared<ProcessHandle>();
-    handle->loop = getRuntimeLoop(L);
+    // If the stdiokind is default, then a process has completed when the process exit callback gets invoked, the stderr stream is closed, and the
+    // stdout stream is closed
+    // If we're in inherit mode, we just need the process exit callback to be invoked.
+    int waitFor = opts.stdioKind == kStdioKindDefault ? 3 : 1;
+    auto handle = std::make_shared<ProcessHandle>(L, opts, args, waitFor, "Process Spawn");
     handle->self = handle;
-
-    uv_process_options_t options = {};
-    options.exit_cb = onProcessExit;
-    options.file = args[0].c_str();
-
-    std::vector<char*> processArgsPtr;
-    for (const auto& arg : args)
-    {
-        processArgsPtr.push_back(const_cast<char*>(arg.c_str()));
-    }
-    processArgsPtr.push_back(nullptr);
-    options.args = processArgsPtr.data();
-
-    std::vector<std::string> envStrings;
-    std::vector<char*> envPtr;
-    if (!opts.env.empty())
-    {
-        // Copy current environment into the new environment
-        std::map<std::string, std::string> currentEnv;
-        if (std::optional<int> err = getEnvironmentVariables(currentEnv))
-            luaL_error(L, "Failed to get current environment: %s", uv_strerror(*err));
-
-        for (const auto& [name, value] : currentEnv)
-        {
-            if (opts.env.find(name) == opts.env.end())
-                opts.env[name] = value;
-        }
-
-        // Turn the new environment into a char** array
-        envStrings.reserve(opts.env.size());
-        envPtr.reserve(opts.env.size() + 1);
-
-        for (const auto& pair : opts.env)
-        {
-            envStrings.push_back(pair.first + "=" + pair.second);
-        }
-
-        for (auto& str : envStrings)
-        {
-            envPtr.push_back(&str[0]);
-        }
-        envPtr.push_back(nullptr);
-
-        options.env = envPtr.data();
-    }
-
-    if (!opts.cwd.empty())
-    {
-        options.cwd = opts.cwd.c_str();
-    }
-
-    uv_pipe_init(handle->loop, &handle->stdinPipe, 0);
-    uv_pipe_init(handle->loop, &handle->stdoutPipe, 0);
-    uv_pipe_init(handle->loop, &handle->stderrPipe, 0);
-
-    options.stdio_count = 3;
-    uv_stdio_container_t stdio[3];
-    if (opts.stdioKind == kStdioKindNone)
-    {
-        stdio[0].flags = UV_IGNORE;
-        stdio[1].flags = UV_IGNORE;
-        stdio[2].flags = UV_IGNORE;
-    }
-    else if (opts.stdioKind == kStdioKindInherit)
-    {
-        stdio[0].flags = UV_INHERIT_FD;
-        stdio[0].data.fd = fileno(stdin);
-        stdio[1].flags = UV_INHERIT_FD;
-        stdio[1].data.fd = fileno(stdout);
-        stdio[2].flags = UV_INHERIT_FD;
-        stdio[2].data.fd = fileno(stderr);
-    }
-    else if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
-    {
-        stdio[0].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE);
-        stdio[0].data.stream = (uv_stream_t*)&handle->stdinPipe;
-        stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-        stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
-        stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-        stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
-    }
-    else
-    {
-        luaL_error(L, "Invalid stdio kind: %s", opts.stdioKind.c_str());
-    }
-    options.stdio = stdio;
-
-    handle->process.data = handle.get();
-    handle->stdinPipe.data = handle.get();
-    handle->stdoutPipe.data = handle.get();
-    handle->stderrPipe.data = handle.get();
-
-    handle->resumeToken = getResumeToken(L);
-
-    int spawnResult = uv_spawn(handle->loop, &handle->process, &options);
-
-    if (spawnResult != 0)
-    {
-        if (handle->resumeToken)
-        {
-            handle->resumeToken->runtime->releasePendingToken();
-            handle->resumeToken.reset();
-        }
-        handle->closeHandles();
-
-        luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
-    }
-
-    // In the default stdio mode we create a pipe for the child's stdin so that
-    // future APIs can feed data to it, but there is no API to write to it yet.
-    // Close our write end immediately so the child sees EOF on stdin instead
-    // of blocking forever on a read.
-    if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
-    {
-        handle->pendingCloses++;
-        uv_close((uv_handle_t*)&handle->stdinPipe, ProcessHandle::onHandleClose);
-    }
-
-    uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
-    uv_read_start((uv_stream_t*)&handle->stderrPipe, allocBuffer, onPipeRead);
-
+    handle->spawn(L);
     return lua_yield(L, 0);
 }
 
@@ -412,7 +492,16 @@ ProcessOptions parseOptions(lua_State* L, int index)
     if (!lua_isnil(L, -1))
     {
         opts.stdioKind = luaL_checkstring(L, -1);
+        if (opts.stdioKind != kStdioKindNone && opts.stdioKind != kStdioKindDefault && opts.stdioKind != kStdioKindInherit)
+        {
+            luaL_error(L, "Invalid stdio kind: %s", opts.stdioKind.c_str());
+        }
     }
+    else
+    {
+        opts.stdioKind = kStdioKindDefault;
+    }
+
     lua_pop(L, 1);
 
     lua_getfield(L, index, "env");
