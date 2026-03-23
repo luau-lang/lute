@@ -17,7 +17,7 @@ end
 
 crypto.secretbox = {}
 
-export type Secretbox = {
+export type SecretBox = {
 	read ciphertext: buffer,
 	read nonce: buffer,
 	read key: buffer,
@@ -27,11 +27,11 @@ function crypto.secretbox.keygen(): buffer
 	error("not implemented")
 end
 
-function crypto.secretbox.seal(message: string | buffer, key: buffer?): Secretbox
+function crypto.secretbox.seal(message: string | buffer, key: buffer?): SecretBox
 	error("not implemented")
 end
 
-function crypto.secretbox.open(box: Secretbox): buffer
+function crypto.secretbox.open(box: SecretBox): buffer
 	error("not implemented")
 end
 
