@@ -6,15 +6,15 @@ local tableext = require("@std/tableext")
 local types = require("./types")
 local visitor = require("./visitor")
 
-type node = types.AstNode
+type Node = types.AstNode
 
-export type query<T = node> = {
+export type query<T = Node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
-	replace: (self: query<T>, repl: (T) -> string?) -> types.replacements,
+	replace: (self: query<T>, repl: (T) -> string?) -> types.Replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
-	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
+	findall: <U>(self: query<T>, fn: (Node) -> U?) -> query<U>,
 	flatmap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
 	maptoarray: <U>(self: query<T>, fn: (T) -> U?) -> { U },
 }
@@ -32,7 +32,7 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-function queryLib.replace<T>(self: query<T>, repl: (T) -> string?): types.replacements
+function queryLib.replace<T>(self: query<T>, repl: (T) -> string?): types.Replacements
 	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
@@ -63,8 +63,8 @@ function queryLib.foreach<T>(self: query<T>, callback: (T) -> ()): query<T>
 	return self
 end
 
-local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visitor
-	local function visit(n: node)
+local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visitor
+	local function visit(n: Node)
 		local selected = fn(n)
 		if selected ~= nil then
 			table.insert(nodes, selected)
@@ -83,7 +83,7 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visi
 	return selectVisitor
 end
 
-function queryLib.findall<T, U>(self: query<T>, fn: (node) -> U?): query<U>
+function queryLib.findall<T, U>(self: query<T>, fn: (Node) -> U?): query<U>
 	local selectedNodes: { U } = {}
 
 	local selectVisitor = newSelectVisitor(selectedNodes, fn)
@@ -120,12 +120,12 @@ function queryLib.maptoarray<T, U>(self: query<T>, fn: (T) -> U?): { U }
 	return result
 end
 
-function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
+function queryLib.findallfromroot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): query<T>
 	local nodes: { T } = {}
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
+	local root: Node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {

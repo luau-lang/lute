@@ -13,7 +13,7 @@ local function lint(
 	sourcepath: path.path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
-	local function makeViolation(location: syntax.span): lintTypes.LintViolation
+	local function makeViolation(location: syntax.Span): lintTypes.LintViolation
 		return {
 			lintname = name,
 			location = location,

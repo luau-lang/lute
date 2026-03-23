@@ -38,7 +38,7 @@ type lintTestParams = {
 	content: string,
 	expectedExitCode: number,
 	rulePath: string?,
-	processOptions: process.processrunoptions?,
+	processOptions: process.ProcessRunOptions?,
 	customRuleContents: string?,
 	expectedAutofixContents: string?,
 	disableDefaultLints: true?,
@@ -47,7 +47,7 @@ type lintTestParams = {
 	outputExpectations: { { expectedOutput: string, count: number? } }?,
 }
 
-local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams): string
+local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams): string
 	-- Setup
 	-- Create a file that violates the rule
 	local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
