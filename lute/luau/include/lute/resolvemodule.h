@@ -8,7 +8,7 @@ struct lua_State;
 struct ResolvedModule
 {
     std::string path;
-    std::optional<std::string> source;
+    std::string source;
 };
 
 std::optional<std::string> resolveModule(std::string requirePath, std::string requirerChunkname, std::string* error);

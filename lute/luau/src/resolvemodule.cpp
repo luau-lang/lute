@@ -1,12 +1,9 @@
 #include "lute/resolvemodule.h"
 
 #include "lute/batteriesvfs.h"
-#include "lute/clibatteries.h"
 #include "lute/filevfs.h"
-#include "lute/lutemodules.h"
 #include "lute/lutevfs.h"
 #include "lute/modulepath.h"
-#include "lute/stdlib.h"
 #include "lute/stdlibvfs.h"
 
 #include "Luau/FileUtils.h"
@@ -18,7 +15,114 @@
 #include <optional>
 #include <string>
 
-// LuteTypeCheckVfs
+using NC = Luau::Require::NavigationContext;
+
+static NC::NavigateResult convert(NavigationStatus status)
+{
+    NC::NavigateResult result = NC::NavigateResult::NotFound;
+    switch (status)
+    {
+    case NavigationStatus::Success:
+        result = NC::NavigateResult::Success;
+        break;
+    case NavigationStatus::Ambiguous:
+        result = NC::NavigateResult::Ambiguous;
+        break;
+    case NavigationStatus::NotFound:
+        result = NC::NavigateResult::NotFound;
+        break;
+    }
+    return result;
+}
+
+static NC::ConfigStatus convert(ConfigStatus status)
+{
+    NC::ConfigStatus result = NC::ConfigStatus::Ambiguous;
+    switch (status)
+    {
+    case ConfigStatus::Absent:
+        result = NC::ConfigStatus::Absent;
+        break;
+    case ConfigStatus::Ambiguous:
+        result = NC::ConfigStatus::Ambiguous;
+        break;
+    case ConfigStatus::PresentJson:
+        result = NC::ConfigStatus::PresentJson;
+        break;
+    case ConfigStatus::PresentLuau:
+        result = NC::ConfigStatus::PresentLuau;
+        break;
+    }
+    return result;
+}
+
+// FileVfsContext
+class FileVfsContext : public Luau::Require::NavigationContext
+{
+public:
+    FileVfsContext(std::string requirerChunkname);
+
+    NavigateResult resetToRequirer() override;
+    NavigateResult jumpToAlias(const std::string& path) override;
+
+    NavigateResult toParent() override;
+    NavigateResult toChild(const std::string& component) override;
+
+    ConfigStatus getConfigStatus() const override;
+
+    ConfigBehavior getConfigBehavior() const override;
+    std::optional<std::string> getAlias(const std::string& alias) const override;
+    std::optional<std::string> getConfig() const override;
+
+    FileVfs vfs;
+    std::string requirerChunkname;
+};
+
+FileVfsContext::FileVfsContext(std::string requirerChunkname)
+    : requirerChunkname(std::move(requirerChunkname))
+{
+}
+
+NC::NavigateResult FileVfsContext::resetToRequirer()
+{
+    return convert(vfs.resetToPath(requirerChunkname));
+}
+
+NC::NavigateResult FileVfsContext::jumpToAlias(const std::string& path)
+{
+    return convert(vfs.resetToPath(path));
+}
+
+NC::NavigateResult FileVfsContext::toParent()
+{
+    return convert(vfs.toParent());
+}
+
+NC::NavigateResult FileVfsContext::toChild(const std::string& component)
+{
+    return convert(vfs.toChild(component));
+}
+
+NC::ConfigStatus FileVfsContext::getConfigStatus() const
+{
+    return convert(vfs.getConfigStatus());
+}
+
+NC::ConfigBehavior FileVfsContext::getConfigBehavior() const
+{
+    return NC::ConfigBehavior::GetConfig;
+}
+
+std::optional<std::string> FileVfsContext::getAlias(const std::string& alias) const
+{
+    return std::nullopt;
+}
+
+std::optional<std::string> FileVfsContext::getConfig() const
+{
+    return vfs.getConfig();
+}
+
 struct LuteTypeCheckVfs
 {
     FileVfs fileVfs;
@@ -116,71 +220,20 @@ struct LuteTypeCheckVfs
         if (identifier.empty())
             return std::nullopt;
 
-        if (identifier.rfind("@std", 0) == 0)
+        switch (vfsType)
         {
-            StdLibModuleResult result = getStdLibModule(identifier);
-            if (result.type == StdLibModuleType::Module)
-                return std::string(result.contents);
+        case VFSType::Std:
+            return stdLibVfs.getContents(identifier);
+        case VFSType::Lute:
+            return luteVfs.getContents(identifier);
+        case VFSType::Batteries:
+            return batteriesVfs.getContents(identifier);
+        default:
+            return readFile(identifier);
         }
-        else if (identifier.rfind("@lute", 0) == 0)
-        {
-            LuteModuleResult result = getLuteModule(identifier);
-            if (result.type == LuteModuleType::Module)
-                return std::string(result.contents);
-        }
-        else if (identifier.rfind("@batteries", 0) == 0)
-        {
-            BatteryModuleResult result = getBatteryModule(identifier);
-            if (result.type == BatteryModuleType::Module)
-                return std::string(result.contents);
-        }
-
-        return readFile(identifier);
     }
 };
 
-using NC = Luau::Require::NavigationContext;
-
-static NC::NavigateResult convert(NavigationStatus status)
-{
-    NC::NavigateResult result = NC::NavigateResult::NotFound;
-    switch (status)
-    {
-    case NavigationStatus::Success:
-        result = NC::NavigateResult::Success;
-        break;
-    case NavigationStatus::Ambiguous:
-        result = NC::NavigateResult::Ambiguous;
-        break;
-    case NavigationStatus::NotFound:
-        result = NC::NavigateResult::NotFound;
-        break;
-    }
-    return result;
-}
-
-static NC::ConfigStatus convert(ConfigStatus status)
-{
-    NC::ConfigStatus result = NC::ConfigStatus::Ambiguous;
-    switch (status)
-    {
-    case ConfigStatus::Absent:
-        result = NC::ConfigStatus::Absent;
-        break;
-    case ConfigStatus::Ambiguous:
-        result = NC::ConfigStatus::Ambiguous;
-        break;
-    case ConfigStatus::PresentJson:
-        result = NC::ConfigStatus::PresentJson;
-        break;
-    case ConfigStatus::PresentLuau:
-        result = NC::ConfigStatus::PresentLuau;
-        break;
-    }
-    return result;
-}
-
-// LuteTypeCheckContext
 class LuteTypeCheckContext : public Luau::Require::NavigationContext
 {
 public:
@@ -191,8 +244,7 @@ public:
 
     NavigateResult resetToRequirer() override
     {
-        NavigateResult res = convert(vfs.resetToPath(requirerChunkname));
-        return res;
+        return convert(vfs.resetToPath(requirerChunkname));
     }
 
     NavigateResult jumpToAlias(const std::string& path) override
@@ -232,17 +284,8 @@ public:
 
     ConfigStatus getConfigStatus() const override
     {
-        switch (vfs.vfsType)
-        {
-        case LuteTypeCheckVfs::VFSType::Disk:
+        if (vfs.vfsType == LuteTypeCheckVfs::VFSType::Disk)
             return convert(vfs.fileVfs.getConfigStatus());
-        case LuteTypeCheckVfs::VFSType::Std:
-            return convert(vfs.stdLibVfs.getConfigStatus());
-        case LuteTypeCheckVfs::VFSType::Lute:
-            return convert(vfs.luteVfs.getConfigStatus());
-        case LuteTypeCheckVfs::VFSType::Batteries:
-            return convert(vfs.batteriesVfs.getConfigStatus());
-        }
         return NC::ConfigStatus::Absent;
     }
 
@@ -264,17 +307,8 @@ public:
 
     std::optional<std::string> getConfig() const override
     {
-        switch (vfs.vfsType)
-        {
-        case LuteTypeCheckVfs::VFSType::Disk:
+        if (vfs.vfsType == LuteTypeCheckVfs::VFSType::Disk)
             return vfs.fileVfs.getConfig();
-        case LuteTypeCheckVfs::VFSType::Std:
-            return vfs.stdLibVfs.getConfig();
-        case LuteTypeCheckVfs::VFSType::Lute:
-            return vfs.luteVfs.getConfig();
-        case LuteTypeCheckVfs::VFSType::Batteries:
-            return vfs.batteriesVfs.getConfig();
-        }
         return std::nullopt;
     }
 
@@ -305,7 +339,7 @@ std::optional<std::string> resolveModule(std::string requirePath, std::string re
         return std::nullopt;
     }
 
-    LuteTypeCheckContext context{requirerChunkname};
+    FileVfsContext context{requirerChunkname.substr(1)};
     ErrorCapturer errorCapturer{};
 
     Luau::Require::Navigator navigator{context, errorCapturer};
@@ -318,8 +352,8 @@ std::optional<std::string> resolveModule(std::string requirePath, std::string re
         return std::nullopt;
     }
 
-    std::string result = context.vfs.getIdentifier();
-    return result;
+    std::string absolutePath = context.vfs.getAbsoluteFilePath();
+    return absolutePath;
 }
 
 std::optional<ResolvedModule> resolveForTypeCheck(std::string requirePath, std::string requirerChunkname, std::string* error)
@@ -344,9 +378,17 @@ std::optional<ResolvedModule> resolveForTypeCheck(std::string requirePath, std::
         return std::nullopt;
     }
 
+    std::optional<std::string> source = context.vfs.readSource();
+    if (!source)
+    {
+        if (error)
+            *error = "failed to read source for '" + context.vfs.getIdentifier() + "'";
+        return std::nullopt;
+    }
+
     ResolvedModule result;
     result.path = context.vfs.getIdentifier();
-    result.source = context.vfs.readSource();
+    result.source = std::move(*source);
 
     return result;
 }

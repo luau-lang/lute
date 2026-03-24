@@ -110,10 +110,10 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
 
         for (const auto& req : requiresInFile)
         {
-            // Skip warning for built-in libraries (@std, @lute, @batteries)
+            // Skip warning for built-in libraries (@std and @lute)
             // The new and improved requireResolver is really good - it'll even handle std/lute aliases that we've built in.
             // For now, we can just explicitly skip these, since they are provided by the runtime
-            if (req.find("@std/") == 0 || req.find("@lute/") == 0 || req.find("@batteries/") == 0)
+            if (req.find("@std/") == 0 || req.find("@lute/") == 0)
                 continue;
             std::string err = "";
             std::optional<std::string> resolvedPath = ::resolveModule(req, "@" + filePath, &err);
@@ -125,7 +125,10 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
             }
             else
             {
-                reporter.formatError("Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
+                // Skip warning for built-in libraries (@std and @lute)
+                bool isBuiltinLibrary = req.rfind("@std/", 0) == 0 || req.rfind("@lute/", 0) == 0;
+                if (!isBuiltinLibrary)
+                    reporter.formatError("Warning: Could not resolve require('%s') from '%s'\n", req.c_str(), filePath.c_str());
                 if (!err.empty())
                     reporter.formatError("Warning: Could not resolve require('%s') from '%s':\n\t%s\n", req.c_str(), filePath.c_str(), err.c_str());
             }
@@ -134,14 +137,14 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
         // Store the resolved dependencies in the graph
         requireGraph[filePath] = std::move(resolvedDeps);
     }
-    
+
     // Include .luaurc files in the lowest common root calculation
     std::vector<std::string> allPaths = discovered;
     for (const auto& luaurcPath : luaurcAbsolutePaths)
     {
         allPaths.push_back(luaurcPath);
     }
-    
+
     lowestCommonRoot = findLowestCommonRoot(allPaths);
 
     // Convert absolute .luaurc paths to LCR-relative .luaurc paths and read their content

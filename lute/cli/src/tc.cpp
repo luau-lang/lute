@@ -8,30 +8,6 @@
 #include "Luau/FileUtils.h"
 #include "Luau/Frontend.h"
 
-struct LuteFileResolver : Luau::LuteTypeCheckModuleResolver
-{
-    std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
-    {
-        // If the module name is "-", then read source from stdin
-        if (name == "-")
-        {
-            std::optional<std::string> source = readStdin();
-            if (!source)
-                return std::nullopt;
-            return Luau::SourceCode{*source, Luau::SourceCode::Script};
-        }
-
-        return Luau::LuteTypeCheckModuleResolver::readSource(name);
-    }
-
-    std::string getHumanReadableModuleName(const Luau::ModuleName& name) const override
-    {
-        if (name == "-")
-            return "stdin";
-        return name;
-    }
-};
-
 static void report(const char* name, const Luau::Location& loc, const char* type, const char* message, LuteReporter& reporter)
 {
     // fprintf(stderr, "%s(%d,%d): %s: %s\n", name, loc.begin.line + 1, loc.begin.column + 1, type, message);
@@ -149,7 +125,7 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
     frontendOptions.retainFullTypeGraphs = annotate;
     frontendOptions.runLintChecks = true;
 
-    LuteFileResolver fileResolver;
+    Luau::LuteTypeCheckModuleResolver fileResolver;
     Luau::LuteConfigResolver configResolver(mode);
     Luau::Frontend frontend(Luau::SolverMode::New, &fileResolver, &configResolver, frontendOptions);
 
