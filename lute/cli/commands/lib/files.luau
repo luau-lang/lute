@@ -7,10 +7,10 @@ local stringext = require("@std/stringext")
 local tableext = require("@std/tableext")
 
 local function traverseDirectoryRecursive(
-	directory: path.path,
+	directory: path.Path,
 	ignoreResolver: ignore.IgnoreResolver,
 	verbose: boolean?
-): { path.path }
+): { path.Path }
 	local results = {}
 
 	for _, entry in fs.listdir(path.format(directory)) do
@@ -44,7 +44,7 @@ local function traverseDirectoryRecursive(
 	return results
 end
 
-local function getSourceFiles(paths: { string }, verbose: boolean?): { path.path }
+local function getSourceFiles(paths: { string }, verbose: boolean?): { path.Path }
 	local files = {}
 
 	local ignoreResolver = ignore.new()

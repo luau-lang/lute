@@ -93,7 +93,7 @@ function printerLib.printLintsWithSource(lints: { types.LintViolation }, sourceC
 	end
 end
 
-function printerLib.printLintsWithPath(lints: { types.LintViolation }, sourcePath: path.path): ()
+function printerLib.printLintsWithPath(lints: { types.LintViolation }, sourcePath: path.Path): ()
 	printerLib.printLintsWithSource(lints, fs.readfiletostring(sourcePath))
 end
 

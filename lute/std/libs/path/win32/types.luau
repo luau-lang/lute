@@ -1,15 +1,15 @@
 local pathinterface = require("../pathinterface")
 
-export type pathkind = "unc" | "absolute" | "relative"
+export type Pathkind = "unc" | "absolute" | "relative"
 
-export type pathdata = {
+export type PathData = {
 	parts: { string },
-	kind: pathkind,
+	kind: Pathkind,
 	drive: string?,
 }
 
-export type path = setmetatable<pathdata, pathinterface.pathinterface>
+export type Path = setmetatable<PathData, pathinterface.PathInterface>
 
-export type pathlike = string | pathdata | path
+export type Pathlike = string | PathData | Path
 
 return {}

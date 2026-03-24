@@ -12,8 +12,8 @@ export type StdioKind = process.StdioKind
 export type ProcessRunOptions = process.ProcessRunOptions
 export type ProcessSystemOptions = process.ProcessSystemOptions
 export type ProcessResult = process.ProcessResult
-export type path = pathlib.path
-export type pathlike = pathlib.pathlike
+export type Path = pathlib.Path
+export type Pathlike = pathlib.Pathlike
 
 function processlib.homedir(): path
 	return pathlib.parse(process.homedir())

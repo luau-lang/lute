@@ -9,7 +9,7 @@ export type LintViolation = {
 	location: syntax.Span,
 	message: string,
 	severity: severity,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	suggestedfix: {
 		read location: syntax.Span?, -- if nil, applies to whole violation location
 		read fix: string,
@@ -27,7 +27,7 @@ export type RuleContext = {
 }
 
 export type LintRule = {
-	read lint: (ast: syntax.AstStatBlock, sourcepath: path.path?, context: RuleContext) -> { LintViolation },
+	read lint: (ast: syntax.AstStatBlock, sourcepath: path.Path?, context: RuleContext) -> { LintViolation },
 	read name: string,
 }
 

@@ -79,7 +79,7 @@ end
 
 local function applyMigration(
 	migration: types.Migration,
-	paths: { pathLib.path },
+	paths: { pathLib.Path },
 	options: { [string]: string | boolean },
 	dryRun: boolean,
 	outputPath: string?

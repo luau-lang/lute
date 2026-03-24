@@ -20,7 +20,7 @@ function luau.load(bytecode: Bytecode, chunkname: string?, env: { [any]: any }?)
 	return luteLuau.load(bytecode, if chunkname ~= nil then `@{chunkname}` else "=luau.load", env)
 end
 
-function luau.loadModule(requirePath: path.pathlike, env: { [any]: any }?): any
+function luau.loadModule(requirePath: path.Pathlike, env: { [any]: any }?): any
 	local requirePathStr = if typeof(requirePath) == "string" then requirePath else path.format(requirePath)
 
 	local migrationHandle = fs.open(requirePathStr, "r")
@@ -34,13 +34,13 @@ end
 
 export type TypePack = luteLuau.TypePack
 
-function luau.typeofmodule(modulepath: path.pathlike): TypePack?
+function luau.typeofmodule(modulepath: path.Pathlike): TypePack?
 	local modulePathStr = if typeof(modulepath) == "string" then modulepath else path.format(modulepath)
 
 	return luteLuau.typeofmodule(modulePathStr)
 end
 
-function luau.resolveModule(modulepath: string, frompath: path.pathlike): path.pathlike
+function luau.resolveModule(modulepath: string, frompath: path.Pathlike): path.Pathlike
 	local frompathString = if typeof(frompath) == "string" then frompath else path.format(frompath)
 	return luteLuau.resolveModule(modulepath, `@{frompathString}`)
 end

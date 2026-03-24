@@ -32,10 +32,10 @@ test.suite("ProcessSuite", function(suite)
 
 	suite:case("runSystemAndCwd", function(check)
 		local rootdir: string = "/"
-		local root: pathlib.path? = nil
+		local root: pathlib.Path? = nil
 
 		if system.win32 then
-			root = pathlib.win32.drive(process.cwd() :: windowsPath.path)
+			root = pathlib.win32.drive(process.cwd() :: windowsPath.Path)
 			rootdir = pathlib.format(root)
 		end
 
@@ -43,7 +43,7 @@ test.suite("ProcessSuite", function(suite)
 		local r = process.run({ "pwd" }, { cwd = rootdir }) :: { [any]: any }
 
 		if system.win32 then
-			assert(root ~= nil and (root :: windowsPath.path).drive ~= nil)
+			assert(root ~= nil and (root :: windowsPath.Path).drive ~= nil)
 			check.tableeq(r, {
 				exitcode = 0,
 				stdout = `/{root.drive:lower()}\n`,
