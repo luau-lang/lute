@@ -39,7 +39,7 @@ local function listtests()
 	end
 end
 
-local function runtests(env: testtypes.testenvironment, runner: testtypes.testrunner, reporter: testtypes.testreporter)
+local function runtests(env: testtypes.TestEnvironment, runner: testtypes.TestRunner, reporter: testtypes.TestReporter)
 	local result = runner(env)
 
 	reporter(result)
@@ -94,13 +94,13 @@ local function main(...: string)
 		end
 	end
 
-	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./tests" }
+	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./" }
 	loadtests(finder.findtestfiles(searchpath))
 
 	if args:has("list") then
 		listtests()
 	else
-		local env = test._registered() :: testtypes.testenvironment
+		local env = test._registered() :: testtypes.TestEnvironment
 		local filteredEnv = filter.filtertests(env, args:get("suite"), args:get("case"))
 		runtests(filteredEnv, runner.run, reporter.color)
 	end

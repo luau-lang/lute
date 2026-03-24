@@ -151,8 +151,7 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
 
     LuteFileResolver fileResolver;
     Luau::LuteConfigResolver configResolver(mode);
-    Luau::Frontend frontend(&fileResolver, &configResolver, frontendOptions);
-    frontend.setLuauSolverMode(Luau::SolverMode::New);
+    Luau::Frontend frontend(Luau::SolverMode::New, &fileResolver, &configResolver, frontendOptions);
 
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
     Luau::freeze(frontend.globals.globalTypes);

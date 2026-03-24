@@ -160,8 +160,7 @@ local function deserialize(input: string): { [string]: unknown }
 			elseif value == "-inf" then
 				value = -math.huge
 			elseif value == "nan" then
-				--lute-lint-ignore(divide_by_zero)
-				value = 0 / 0
+				value = math.nan
 			end
 
 			currentTable[key] = value

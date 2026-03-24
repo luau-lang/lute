@@ -8,7 +8,7 @@ export type Context<Options = { [any]: any }> = {
 	options: Options,
 }
 
-export type Transformer = (Context) -> string | syntaxTypes.replacements
+export type Transformer = (Context) -> string | syntaxTypes.Replacements
 
 export type ConfigOption =
 	{

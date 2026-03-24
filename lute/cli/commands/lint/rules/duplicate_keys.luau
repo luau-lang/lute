@@ -13,7 +13,7 @@ local function lint(
 	sourcepath: path.path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
-	local function makeViolation(location: syntax.span): lintTypes.LintViolation
+	local function makeViolation(location: syntax.Span): lintTypes.LintViolation
 		return {
 			lintname = name,
 			location = location,
@@ -45,10 +45,10 @@ local function lint(
 					seenKeys[entry.key.text] = true
 				elseif entry.kind == "general" then
 					if entry.key.tag == "string" then
-						if seenKeys[entry.key.text] then
+						if seenKeys[entry.key.token.text] then
 							table.insert(violations, makeViolation(entry.location))
 						end
-						seenKeys[entry.key.text] = true
+						seenKeys[entry.key.token.text] = true
 					elseif entry.key.tag == "number" then
 						if seenKeys[entry.key.value] then
 							table.insert(violations, makeViolation(entry.location))

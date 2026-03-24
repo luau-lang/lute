@@ -93,6 +93,25 @@ RuntimeStep Runtime::runOnce()
 
     int status = LUA_OK;
 
+    // It's possible for a spawned task to be killed by a coroutine.close()
+    // before it gets processed in the runningThreads queue. This leads to situations where a thread was scheduled to resume
+    // but has already been killed.
+
+    // One example:
+    // 1) Main thread executes task.defer on a coroutine.create thread
+    // 2) Code is queued up on the thread
+    // 3) coroutine.cancel is invoked
+    // 4) runtime evaluates callbacks
+    // 5) runtime evaluates running threads <- UH OH, found a thread that was scheduled to resume but has already been killed
+    // 6) We can just step over it, because
+    // a) if it scheduled a resume, the corresponding pending token will have been cleared
+    // b) the corresponding ref for the lua state will be freed at the end of Runtime::runOnce()
+    int co_status = lua_costatus(GL, L);
+    if (co_status == LUA_COFIN)
+    {
+        return StepSuccess{L};
+    }
+
     if (!next.success)
         status = lua_resumeerror(L, nullptr);
     else
@@ -311,10 +330,8 @@ void ResumeTokenData::complete(std::function<int(lua_State*)> cont)
 ResumeToken getResumeToken(lua_State* L)
 {
     ResumeToken token = std::make_shared<ResumeTokenData>();
-
     token->runtime = getRuntime(L);
     token->ref = getRefForThread(L);
-
     token->runtime->addPendingToken();
 
     return token;

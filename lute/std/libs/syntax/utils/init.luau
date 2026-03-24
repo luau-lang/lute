@@ -58,8 +58,8 @@ function utils.isExprTable(n: types.AstNode): types.AstExprTable?
 	return if n.kind == "expr" and n.tag == "table" then n else nil
 end
 
-function utils.isTableExprItem(n: types.AstNode): types.AstTableExprItem?
-	return if n.istableitem then n else nil
+function utils.isTableExprItem(n: types.AstNode | types.AstTableExprItem): types.AstTableExprItem?
+	return if (n :: types.AstTableExprItem).istableitem then n :: types.AstTableExprItem else nil
 end
 
 function utils.isExprUnary(n: types.AstNode): types.AstExprUnary?
@@ -231,11 +231,7 @@ function utils.isTypePack(n: types.AstNode): types.AstTypePack?
 end
 
 function utils.isToken(n: types.AstNode): types.Token?
-	return if n.istoken then n else nil
-end
-
-function utils.isBaseToken(n: types.AstNode): types.Token?
-	return if n.istoken and not n.kind then n else nil
+	return if n.kind == "token" then n else nil
 end
 
 function utils.isAttribute(n: types.AstNode): types.AstAttribute?

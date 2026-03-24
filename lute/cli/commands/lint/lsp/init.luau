@@ -26,7 +26,7 @@ local function tag(t: lintTypes.tag): number
 	end
 end
 
-local function getRange(location: syntax.span): lspTypes.Range
+local function getRange(location: syntax.Span): lspTypes.Range
 	return table.freeze({
 		start = table.freeze({
 			line = location.beginline - 1,

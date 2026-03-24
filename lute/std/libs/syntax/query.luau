@@ -5,17 +5,16 @@
 local tableext = require("@std/tableext")
 local types = require("./types")
 local visitor = require("./visitor")
-local utils = require("./utils")
 
-type node = types.AstNode
+type Node = types.AstNode
 
-export type query<T = node> = {
+export type query<T = Node> = {
 	nodes: { T },
 	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
-	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
+	replace: (self: query<T>, repl: (T) -> string?) -> types.Replacements,
 	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
 	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
-	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
+	findall: <U>(self: query<T>, fn: (Node) -> U?) -> query<U>,
 	flatmap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
 	maptoarray: <U>(self: query<T>, fn: (T) -> U?) -> { U },
 }
@@ -33,7 +32,7 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
+function queryLib.replace<T>(self: query<T>, repl: (T) -> string?): types.Replacements
 	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
@@ -64,8 +63,8 @@ function queryLib.foreach<T>(self: query<T>, callback: (T) -> ()): query<T>
 	return self
 end
 
-local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visitor
-	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
+local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visitor
+	local function visit(n: Node)
 		local selected = fn(n)
 		if selected ~= nil then
 			table.insert(nodes, selected)
@@ -80,18 +79,11 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visi
 		return true
 	end
 	selectVisitor.visitExprEnd = function(_) end
-	selectVisitor.visitToken = function(n)
-		if utils.isBaseToken(n) then
-			-- only visit if it is a base token, so we don't double count
-			return visit(n)
-		end
-		return true
-	end
 
 	return selectVisitor
 end
 
-function queryLib.findall<T, U>(self: query<T>, fn: (node) -> U?): query<U>
+function queryLib.findall<T, U>(self: query<T>, fn: (Node) -> U?): query<U>
 	local selectedNodes: { U } = {}
 
 	local selectVisitor = newSelectVisitor(selectedNodes, fn)
@@ -128,24 +120,24 @@ function queryLib.maptoarray<T, U>(self: query<T>, fn: (T) -> U?): { U }
 	return result
 end
 
-function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
+function queryLib.findallfromroot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): query<T>
 	local nodes: { T } = {}
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: node = if ast.root ~= nil then ast.root else ast
+	local root: Node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {
 		nodes = nodes,
 		filter = queryLib.filter,
 		replace = queryLib.replace,
-		map = queryLib.map,
+		map = queryLib.map :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
 		foreach = queryLib.foreach,
-		findall = queryLib.findall,
+		findall = queryLib.findall :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
 		flatmap = queryLib.flatmap,
-		maptoarray = queryLib.maptoarray,
-	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
+		maptoarray = queryLib.maptoarray :: any, -- Any cast because maptoarray has generics quantified at a different level than the query type expects
+	}
 end
 
 return table.freeze(queryLib)
