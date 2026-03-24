@@ -40,8 +40,8 @@ test.suite("CliLibFiles", function(suite)
 			resultPaths[path.format(p)] = true
 		end
 		assert.eq(resultPaths[path.format(shouldIgnorePath)], nil)
-		assert.eq(resultPaths[path.format(shouldNotIgnorePath)], true)
-		assert.eq(resultPaths[path.format(shouldNotIgnoreNestedPath)], true)
+		assert.truthy(resultPaths[path.format(shouldNotIgnorePath)])
+		assert.truthy(resultPaths[path.format(shouldNotIgnoreNestedPath)])
 
 		-- Teardown
 		fs.removedirectory(testPath, { recursive = true })
@@ -76,7 +76,7 @@ test.suite("CliLibFiles", function(suite)
 		end
 		assert.eq(resultPaths[path.format(shouldIgnoreFile)], nil)
 		assert.eq(resultPaths[path.format(shouldIgnoreNestedFile)], nil)
-		assert.eq(resultPaths[path.format(shouldNotIgnoreFile)], true)
+		assert.truthy(resultPaths[path.format(shouldNotIgnoreFile)])
 
 		-- Teardown
 		fs.removedirectory(testPath, { recursive = true })
@@ -103,7 +103,7 @@ test.suite("CliLibFiles", function(suite)
 			resultPaths[path.format(p)] = true
 		end
 		assert.eq(resultPaths[path.format(shouldIgnorePath)], nil)
-		assert.eq(resultPaths[path.format(shouldNotIgnorePath)], true)
+		assert.truthy(resultPaths[path.format(shouldNotIgnorePath)])
 
 		-- Teardown
 		fs.removedirectory(testPath, { recursive = true })
@@ -133,7 +133,7 @@ test.suite("CliLibFiles", function(suite)
 			resultPaths[path.format(p)] = true
 		end
 		assert.eq(resultPaths[path.format(shouldIgnorePath)], nil)
-		assert.eq(resultPaths[path.format(shouldntIgnorePath)], true)
+		assert.truthy(resultPaths[path.format(shouldntIgnorePath)])
 
 		-- Teardown
 		fs.removedirectory(testPath, { recursive = true })
@@ -167,7 +167,7 @@ test.suite("CliLibFiles", function(suite)
 		end
 		assert.eq(resultPaths[path.format(shouldIgnorePath)], nil)
 		assert.eq(resultPaths[path.format(shouldIgnorePath2)], nil)
-		assert.eq(resultPaths[path.format(shouldntIgnorePath)], true)
+		assert.truthy(resultPaths[path.format(shouldntIgnorePath)])
 
 		-- Teardown
 		fs.removedirectory(testPath, { recursive = true })
@@ -204,7 +204,7 @@ test.suite("CliLibFiles", function(suite)
 		end
 		assert.eq(resultPaths[path.format(shouldIgnorePath)], nil)
 		assert.eq(resultPaths[path.format(shouldIgnorePath2)], nil)
-		assert.eq(resultPaths[path.format(shouldntIgnorePath)], true)
+		assert.truthy(resultPaths[path.format(shouldntIgnorePath)])
 
 		-- Teardown
 		fs.removedirectory(testPath, { recursive = true })
@@ -235,7 +235,7 @@ test.suite("CliLibFiles", function(suite)
 			resultPaths[path.format(p)] = true
 		end
 		assert.eq(resultPaths[(path.format(shouldIgnorePath))], nil)
-		assert.eq(resultPaths[path.format(shouldNotIgnorePath)], true)
+		assert.truthy(resultPaths[path.format(shouldNotIgnorePath)])
 
 		-- Teardown
 		fs.removedirectory(testPath, { recursive = true })
@@ -265,7 +265,7 @@ test.suite("CliLibFiles", function(suite)
 		end
 		assert.eq(resultPaths[path.format(shouldIgnorePath1)], nil)
 		assert.eq(resultPaths[path.format(shouldIgnorePath2)], nil)
-		assert.eq(resultPaths[path.format(shouldNotIgnorePath)], true)
+		assert.truthy(resultPaths[path.format(shouldNotIgnorePath)])
 
 		-- Teardown
 		fs.removedirectory(testPath, { recursive = true })
