@@ -118,7 +118,7 @@ local function ensurePath(root: { [string]: unknown }, parts: { string }, depth:
 		if not current[parts[i]] then
 			current[parts[i]] = {}
 		end
-		current = current[parts[i]]
+		current = current[parts[i]] :: { [string]: unknown }
 	end
 	return current
 end
