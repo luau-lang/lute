@@ -84,7 +84,7 @@ local function truthy(value: unknown, msg: string?): Failure?
 		return nil
 	end
 
-	return assertion(msg or `Expected {formatValue(value)} to be truthy.`)
+	return assertion(msg or `Expected a truthy value, but got {formatValue(value)}`)
 end
 
 local function errors(callback: () -> (), msg: string?): Failure?
