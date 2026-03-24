@@ -12,7 +12,7 @@ local function assertErrorsWithMsg(
 	testName: string,
 	testContents: string,
 	expectedErrMsg: string,
-	assert: testtypes.asserts
+	assert: testtypes.Asserts
 )
 	local testFilePath = path.join(tmpDir, `{testName}.test.luau`)
 	fs.writestringtofile(testFilePath, testContents)

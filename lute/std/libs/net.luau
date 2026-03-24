@@ -6,10 +6,10 @@ local net = require("@lute/net")
 
 local netlib = {}
 
-export type metadata = net.Metadata
-export type response = net.Response
+export type Metadata = net.Metadata
+export type Response = net.Response
 
-function netlib.request(url: string, metadata: metadata?): response
+function netlib.request(url: string, metadata: Metadata?): Response
 	return net.request(url, metadata)
 end
 

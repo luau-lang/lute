@@ -11,48 +11,48 @@ local win32paths = require("@std/path/win32")
 
 local fslib = {}
 
-export type handlemode = fs.HandleMode
-export type file = fs.FileHandle
-export type type = fs.FileType
-export type metadata = fs.FileMetadata
-export type directoryentry = fs.DirectoryEntry
-export type watchhandle = fs.WatchHandle
-export type watchevent = fs.WatchEvent
+export type HandleMode = fs.HandleMode
+export type File = fs.FileHandle
+export type FileType = fs.FileType
+export type FileMetadata = fs.FileMetadata
+export type DirectoryEntry = fs.DirectoryEntry
+export type WatchHandle = fs.WatchHandle
+export type WatchEvent = fs.WatchEvent
 
 type pathlike = pathlib.pathlike
 type path = pathlib.path
 type win32path = win32paths.path
 
-export type createdirectoryoptions = {
+export type CreateDirectoryOptions = {
 	makeparents: boolean?,
 }
 
-export type removedirectoryoptions = {
+export type RemoveDirectoryOptions = {
 	recursive: boolean?,
 }
 
-export type walkoptions = {
+export type WalkOptions = {
 	recursive: boolean?,
 }
 
-type watcher = {
-	next: (watcher) -> watchevent?,
-	close: (self: watcher) -> (),
+type Watcher = {
+	next: (Watcher) -> WatchEvent?,
+	close: (self: Watcher) -> (),
 }
 
-function fslib.open(path: pathlike, mode: handlemode?): file
+function fslib.open(path: pathlike, mode: HandleMode?): File
 	return fs.open(pathlib.format(path), mode)
 end
 
-function fslib.read(file: file): string
+function fslib.read(file: File): string
 	return fs.read(file)
 end
 
-function fslib.write(file: file, contents: string): ()
+function fslib.write(file: File, contents: string): ()
 	return fs.write(file, contents)
 end
 
-function fslib.close(file: file): ()
+function fslib.close(file: File): ()
 	return fs.close(file)
 end
 
@@ -60,11 +60,11 @@ function fslib.remove(path: pathlike): ()
 	return fs.remove(pathlib.format(path))
 end
 
-function fslib.metadata(path: pathlike): metadata
+function fslib.metadata(path: pathlike): FileMetadata
 	return fs.stat(pathlib.format(path))
 end
 
-function fslib.type(path: pathlike): type
+function fslib.type(path: pathlike): FileType
 	return fs.type(pathlib.format(path))
 end
 
@@ -79,18 +79,18 @@ end
 --- Iterator function that yields filename and event pairs when changes occur in the watched path.
 --- Also provides a `close` method to stop watching.
 --- Note: for loops do not support yielding generalized iterators, so we cannot use fs.watch as `for _ in fs.watch(...) do` directly. A while loop can be used instead. See example/watch_directory.luau for usage.
-function fslib.watch(path: pathlike): watcher
+function fslib.watch(path: pathlike): Watcher
 	-- In the future this could be written with explicit instantiation syntax
 	-- as in:
 	--
 	--	deque.new<<{ filename: path, event: watchevent }>>()
-	local deq = deque.new(nil :: { filename: path, event: watchevent }?)
+	local deq = deque.new(nil :: { filename: path, event: WatchEvent }?)
 	local handle = fs.watch(pathlib.format(path), function(filename, event)
 		deq:pushback({ filename = pathlib.parse(filename), event = event })
 	end)
 
 	return {
-		next = function(_self: watcher): watchevent?
+		next = function(_self: Watcher): WatchEvent?
 			if not deq:peekfront() then
 				return nil
 			end
@@ -98,7 +98,7 @@ function fslib.watch(path: pathlike): watcher
 			assert(item)
 			return item.event
 		end,
-		close = function(_self: watcher): ()
+		close = function(_self: Watcher): ()
 			if handle then
 				handle:close()
 			end
@@ -114,7 +114,7 @@ function fslib.copy(src: pathlike, dest: pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.listdirectory(path: pathlike): { directoryentry }
+function fslib.listdirectory(path: pathlike): { DirectoryEntry }
 	return fs.listdir(pathlib.format(path))
 end
 
@@ -131,7 +131,7 @@ function fslib.writestringtofile(filepath: pathlike, contents: string): ()
 	fs.close(f)
 end
 
-function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?): ()
+function fslib.createdirectory(path: pathlike, options: CreateDirectoryOptions?): ()
 	if options and options.makeparents then
 		local parsed = pathlib.parse(path)
 		local parts: { string } = parsed.parts
@@ -158,7 +158,7 @@ function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?)
 	end
 end
 
-function fslib.removedirectory(path: pathlike, options: removedirectoryoptions?): ()
+function fslib.removedirectory(path: pathlike, options: RemoveDirectoryOptions?): ()
 	if options and options.recursive then
 		-- Recursively delete all contents first
 		if fslib.exists(path) and fslib.type(path) == "dir" then
@@ -179,7 +179,7 @@ function fslib.removedirectory(path: pathlike, options: removedirectoryoptions?)
 end
 
 --- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead. See example/walk_directory.luau for usage.
-function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
+function fslib.walk(path: pathlike, options: WalkOptions?): () -> path?
 	local queue: { path } = { pathlib.parse(path) }
 	local recursive = if options then options.recursive else false
 

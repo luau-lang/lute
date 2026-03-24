@@ -5,7 +5,7 @@
 local duration = require("@self/duration")
 local time = {}
 
-export type duration = duration.duration
+export type Duration = duration.Duration
 
 time.duration = duration
 
