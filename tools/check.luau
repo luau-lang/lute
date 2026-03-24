@@ -63,7 +63,7 @@ end
 
 local function readFaillist(): string
 	-- LUAUFIX: the type of pcall is breaking things here, so we must cast
-	local ok: boolean, file: fs.file = (pcall :: any)(fs.open, FAILLIST_PATH, "r")
+	local ok: boolean, file: fs.File = (pcall :: any)(fs.open, FAILLIST_PATH, "r")
 	if not ok or not file then
 		return ""
 	end

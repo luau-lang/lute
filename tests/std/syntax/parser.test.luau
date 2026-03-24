@@ -8,8 +8,8 @@ local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
 
 local function assertEqualsLocation(
-	assert: testTypes.asserts,
-	actual: syntax.span,
+	assert: testTypes.Asserts,
+	actual: syntax.Span,
 	startLine: number,
 	startColumn: number,
 	endLine: number,
@@ -548,7 +548,7 @@ foo = bar,
 	end)
 end)
 
-local function checkIsBlock(node: any, assert: testTypes.asserts)
+local function checkIsBlock(node: any, assert: testTypes.Asserts)
 	assert.eq(node.kind, "stat")
 	assert.eq(node.tag, "block")
 end

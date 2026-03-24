@@ -4,8 +4,8 @@
 
 local types = require("./types")
 
-type FailedTest = types.failedtest
-type TestRunResult = types.testrunresult
+type FailedTest = types.FailedTest
+type TestRunResult = types.TestRunResult
 
 local reporter = {}
 

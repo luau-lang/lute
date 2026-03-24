@@ -9,8 +9,8 @@ local test = require("@std/test")
 local function checkReplacement(
 	source: string,
 	expected: string,
-	transformFn: (syntaxTypes.AstNode) -> syntaxTypes.replacements?,
-	assert: testtypes.asserts
+	transformFn: (syntaxTypes.AstNode) -> syntaxTypes.Replacements?,
+	assert: testtypes.Asserts
 )
 	local ast = syntax.parse(source)
 	local replacements = transformFn(ast.root)

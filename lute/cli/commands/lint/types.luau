@@ -6,12 +6,12 @@ export type tag = "unnecessary" | "deprecated"
 
 export type LintViolation = {
 	lintname: string,
-	location: syntax.span,
+	location: syntax.Span,
 	message: string,
 	severity: severity,
 	sourcepath: path.path?,
 	suggestedfix: {
-		read location: syntax.span?, -- if nil, applies to whole violation location
+		read location: syntax.Span?, -- if nil, applies to whole violation location
 		read fix: string,
 	}?,
 	target: string?, -- Additional information on the violation (e.g link to docs)
