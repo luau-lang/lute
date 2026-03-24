@@ -63,7 +63,7 @@ local function tablesEqual(t1: unknown, t2: unknown, path: string): (boolean, st
 	return true, nil
 end
 
-local function eq<T>(lhs: unknown, rhs: unknown, msg: string?): Failure?
+local function eq<T>(lhs: T, rhs: T, msg: string?): Failure?
 	if lhs == rhs then
 		return nil
 	end
@@ -71,7 +71,7 @@ local function eq<T>(lhs: unknown, rhs: unknown, msg: string?): Failure?
 	return assertion(msg or `{lhs} ~= {rhs}`)
 end
 
-local function neq<T>(lhs: unknown, rhs: unknown, msg: string?): Failure?
+local function neq<T>(lhs: T, rhs: T, msg: string?): Failure?
 	if lhs ~= rhs then
 		return nil
 	end
