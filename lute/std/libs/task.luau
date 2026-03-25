@@ -45,6 +45,7 @@ end
 
 function tasklib.awaitall(...: Task): ...unknown
 	local tasks = table.pack(...)
+	tasks.n = nil :: never
 
 	for i, v in ipairs(tasks) do
 		if not v.co then
