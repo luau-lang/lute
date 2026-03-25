@@ -84,7 +84,7 @@ local function that(value: unknown, msg: string?): Failure?
 		return nil
 	end
 
-	return assertion(msg or `Expected a that value, but got {formatValue(value)}`)
+	return assertion(msg or `Expected a truthy value, but got {formatValue(value)}`)
 end
 
 local function errors(callback: () -> (), msg: string?): Failure?
