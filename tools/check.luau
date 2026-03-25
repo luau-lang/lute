@@ -23,7 +23,7 @@ local EXCLUDE_TYPECHECK = {
 	"tests/std/snapshots",
 }
 
-local function posixify(p: path.pathlike): string
+local function posixify(p: path.Pathlike): string
 	local normalized = path.normalize(p)
 	local posixy, _ = string.gsub(path.format(normalized), "\\", "/")
 	return posixy

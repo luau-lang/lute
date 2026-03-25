@@ -12,14 +12,14 @@ export type StdioKind = process.StdioKind
 export type ProcessRunOptions = process.ProcessRunOptions
 export type ProcessSystemOptions = process.ProcessSystemOptions
 export type ProcessResult = process.ProcessResult
-export type path = pathlib.path
-export type pathlike = pathlib.pathlike
+export type Path = pathlib.Path
+export type Pathlike = pathlib.Pathlike
 
-function processlib.homedir(): path
+function processlib.homedir(): Path
 	return pathlib.parse(process.homedir())
 end
 
-function processlib.cwd(): path
+function processlib.cwd(): Path
 	return pathlib.parse(process.cwd())
 end
 
@@ -35,7 +35,7 @@ function processlib.exit(exitcode: number): never
 	return process.exit(exitcode)
 end
 
-function processlib.execpath(): path
+function processlib.execpath(): Path
 	return pathlib.parse(process.execpath())
 end
 

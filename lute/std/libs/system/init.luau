@@ -9,7 +9,7 @@ local platform = require("@self/platform")
 
 local systemlib = {}
 
-function systemlib.tmpdir(): path.path
+function systemlib.tmpdir(): path.Path
 	return path.parse(system.tmpdir())
 end
 

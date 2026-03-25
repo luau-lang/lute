@@ -370,7 +370,7 @@ end
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	-- Validate context.options, which should be of form { ["api"] = { number } },

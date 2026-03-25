@@ -10,7 +10,7 @@ local target = "https://lute.luau.org/cli/lint/global_function_in_scope.html"
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	local violations: { lintTypes.LintViolation } = {}

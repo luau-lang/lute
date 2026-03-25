@@ -11,9 +11,9 @@ local function issnapfile(filename: string): boolean
 	return stringext.hassuffix(filename, ".snap.luau")
 end
 
-local function findfiles(paths: { string }, predicate: (string) -> boolean): { path.path }
+local function findfiles(paths: { string }, predicate: (string) -> boolean): { path.Path }
 	local files = {}
-	local function walk(p: path.pathlike)
+	local function walk(p: path.Pathlike)
 		local it = fs.walk(path.normalize(p), { recursive = true })
 		local file = it()
 		while file do
@@ -36,11 +36,11 @@ local function findfiles(paths: { string }, predicate: (string) -> boolean): { p
 	return files
 end
 
-local function findtestfiles(paths: { string }): { path.path }
+local function findtestfiles(paths: { string }): { path.Path }
 	return findfiles(paths, istestfile)
 end
 
-local function findsnapfiles(paths: { string }): { path.path }
+local function findsnapfiles(paths: { string }): { path.Path }
 	return findfiles(paths, issnapfile)
 end
 

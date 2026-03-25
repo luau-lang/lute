@@ -10,7 +10,7 @@ local target = "https://lute.luau.org/cli/lint/duplicate_keys.html"
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	local function makeViolation(location: syntax.Span): lintTypes.LintViolation

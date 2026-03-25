@@ -276,7 +276,7 @@ end
 local function lintString(
 	source: string,
 	lintRules: { types.LintRule },
-	inputFilePath: pathLib.path?,
+	inputFilePath: pathLib.Path?,
 	configData: internalTypes.RuleConfigData
 ): { types.LintViolation }
 	if VERBOSE then
@@ -380,7 +380,7 @@ local function applySuggestedFixes(source: string, fixes: { fix }): string
 end
 
 local function lintFile(
-	inputFilePath: pathLib.path,
+	inputFilePath: pathLib.Path,
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
 	configData: internalTypes.RuleConfigData
@@ -429,13 +429,13 @@ local function lintPaths(
 	autofixEnabled: boolean,
 	configData: internalTypes.RuleConfigData,
 	ignoreData: parseIgnores.GitignoreData
-): { [pathLib.path]: { types.LintViolation } }
+): { [pathLib.Path]: { types.LintViolation } }
 	if VERBOSE then
 		print("Filtering input files by gitignore")
 	end
 	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
 
-	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
+	local allViolations: { [pathLib.Path]: { types.LintViolation } } = {}
 	local hasIgnores = #ignoreData.ignores > 0
 
 	for _, inputPath in inputFiles do
@@ -553,7 +553,7 @@ local function main(...: string)
 	end
 
 	-- load local rules from config rules path
-	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rulepaths then lintConfig.rulepaths else {}
+	local configuredRulePaths: { pathLib.Pathlike } = if lintConfig.rulepaths then lintConfig.rulepaths else {}
 	for _, path in configuredRulePaths do
 		local resolvedPath = pathLib.resolve(rootLocation, path)
 		local loadedRules, loadedConfigs, loadedIgnoreData =

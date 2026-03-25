@@ -7,52 +7,52 @@ local pathtypes = require("@self/types")
 
 local pathlib = {}
 
-export type path = pathtypes.path
-export type pathlike = pathtypes.pathlike
+export type Path = pathtypes.Path
+export type Pathlike = pathtypes.Pathlike
 
 local onWindows = platform.win32
 
-function pathlib.basename(path: pathlike): string?
+function pathlib.basename(path: Pathlike): string?
 	if onWindows then
-		return win32.basename(path :: win32.pathlike)
+		return win32.basename(path :: win32.Pathlike)
 	else
-		return posix.basename(path :: posix.pathlike)
+		return posix.basename(path :: posix.Pathlike)
 	end
 end
 
-function pathlib.dirname(path: pathlike): string
+function pathlib.dirname(path: Pathlike): string
 	if onWindows then
-		return win32.dirname(path :: win32.pathlike)
+		return win32.dirname(path :: win32.Pathlike)
 	else
-		return posix.dirname(path :: posix.pathlike)
+		return posix.dirname(path :: posix.Pathlike)
 	end
 end
 
-function pathlib.extname(path: pathlike): string
+function pathlib.extname(path: Pathlike): string
 	if onWindows then
-		return win32.extname(path :: win32.pathlike)
+		return win32.extname(path :: win32.Pathlike)
 	else
-		return posix.extname(path :: posix.pathlike)
+		return posix.extname(path :: posix.Pathlike)
 	end
 end
 
-function pathlib.format(path: pathlike): string
+function pathlib.format(path: Pathlike): string
 	if onWindows then
-		return win32.format(path :: win32.pathlike)
+		return win32.format(path :: win32.Pathlike)
 	else
-		return posix.format(path :: posix.pathlike)
+		return posix.format(path :: posix.Pathlike)
 	end
 end
 
-function pathlib.isabsolute(path: pathlike): boolean
+function pathlib.isabsolute(path: Pathlike): boolean
 	if onWindows then
-		return win32.isabsolute(path :: win32.pathlike)
+		return win32.isabsolute(path :: win32.Pathlike)
 	else
-		return posix.isabsolute(path :: posix.pathlike)
+		return posix.isabsolute(path :: posix.Pathlike)
 	end
 end
 
-function pathlib.join(...: pathlike): path
+function pathlib.join(...: Pathlike): Path
 	if onWindows then
 		return win32.join(...)
 	else
@@ -60,31 +60,31 @@ function pathlib.join(...: pathlike): path
 	end
 end
 
-function pathlib.normalize(path: pathlike): path
+function pathlib.normalize(path: Pathlike): Path
 	if onWindows then
-		return win32.normalize(path :: win32.pathlike)
+		return win32.normalize(path :: win32.Pathlike)
 	else
-		return posix.normalize(path :: posix.pathlike)
+		return posix.normalize(path :: posix.Pathlike)
 	end
 end
 
-function pathlib.parse(path: pathlike): path
+function pathlib.parse(path: Pathlike): Path
 	if onWindows then
-		return win32.parse(path :: win32.pathlike)
+		return win32.parse(path :: win32.Pathlike)
 	else
-		return posix.parse(path :: posix.pathlike)
+		return posix.parse(path :: posix.Pathlike)
 	end
 end
 
-function pathlib.relative(from: pathlike, to: pathlike): path
+function pathlib.relative(from: Pathlike, to: Pathlike): Path
 	if onWindows then
-		return win32.relative(from :: win32.pathlike, to :: win32.pathlike)
+		return win32.relative(from :: win32.Pathlike, to :: win32.Pathlike)
 	else
-		return posix.relative(from :: posix.pathlike, to :: posix.pathlike)
+		return posix.relative(from :: posix.Pathlike, to :: posix.Pathlike)
 	end
 end
 
-function pathlib.resolve(...: pathlike): path
+function pathlib.resolve(...: Pathlike): Path
 	if onWindows then
 		return win32.resolve(...)
 	else
