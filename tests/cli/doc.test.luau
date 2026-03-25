@@ -56,8 +56,8 @@ test.suite("LuteDoc", function(suite)
 		assert.strcontains(result.stdout, "Documentation generation complete!")
 		assert.strcontains(result.stdout, tostring(tmpOutputDir)) -- "Files written to: <output dir>"
 
-		assert.truthy(fs.exists(path.join(tmpOutputDir, "reference", "lute", "fs.md")))
-		assert.truthy(fs.exists(path.join(tmpOutputDir, "reference", "std", "fs.md")))
+		assert.that(fs.exists(path.join(tmpOutputDir, "reference", "lute", "fs.md")))
+		assert.that(fs.exists(path.join(tmpOutputDir, "reference", "std", "fs.md")))
 
 		fs.removedirectory(tmpOutputDir, { recursive = true })
 	end)

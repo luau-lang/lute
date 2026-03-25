@@ -79,12 +79,12 @@ local function neq<T>(lhs: T, rhs: T, msg: string?): Failure?
 	return assertion(msg or `{lhs} == {rhs}`)
 end
 
-local function truthy(value: unknown, msg: string?): Failure?
+local function that(value: unknown, msg: string?): Failure?
 	if value then
 		return nil
 	end
 
-	return assertion(msg or `Expected a truthy value, but got {formatValue(value)}`)
+	return assertion(msg or `Expected a that value, but got {formatValue(value)}`)
 end
 
 local function errors(callback: () -> (), msg: string?): Failure?
@@ -197,5 +197,5 @@ return table.freeze({
 	erroreq = reqassert(erroreq),
 	strcontains = reqassert(strcontains),
 	strnotcontains = reqassert(strnotcontains),
-	truthy = reqassert(truthy),
+	that = reqassert(that),
 }) :: Asserts

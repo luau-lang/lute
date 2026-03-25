@@ -66,10 +66,10 @@ test.suite("TableExt", function(suite)
 	suite:case("toset", function(assert)
 		local a = { 1, 2, 4, 2, 1 }
 		local setA = tableext.toset(a)
-		assert.truthy(setA[1])
-		assert.truthy(setA[2])
+		assert.that(setA[1])
+		assert.that(setA[2])
 		assert.eq(setA[3], nil)
-		assert.truthy(setA[4])
+		assert.that(setA[4])
 		assert.eq(setA[5], nil)
 
 		local setSize = #tableext.keys(setA)
@@ -80,19 +80,19 @@ test.suite("TableExt", function(suite)
 
 		local foundKeys: { number } = {}
 		for key, value in setA do
-			assert.truthy(value)
+			assert.that(value)
 			table.insert(foundKeys, key)
 		end
 		assert.eq(#foundKeys, setSize)
-		assert.truthy(setA[foundKeys[1]])
-		assert.truthy(setA[foundKeys[2]])
-		assert.truthy(setA[foundKeys[3]])
+		assert.that(setA[foundKeys[1]])
+		assert.that(setA[foundKeys[2]])
+		assert.that(setA[foundKeys[3]])
 
 		local b = { "a", "b", "c", "a" }
 		local setB = tableext.toset(b)
-		assert.truthy(setB["a"])
-		assert.truthy(setB["b"])
-		assert.truthy(setB["c"])
+		assert.that(setB["a"])
+		assert.that(setB["b"])
+		assert.that(setB["c"])
 		assert.eq(setB["d"], nil)
 		assert.eq(#tableext.keys(setB), 3)
 		assert.neq(#tableext.keys(setB), #b)
@@ -107,7 +107,7 @@ test.suite("TableExt", function(suite)
 		local hasEven = tableext.any(a, function(v: number)
 			return v % 2 == 0
 		end)
-		assert.truthy(hasEven)
+		assert.that(hasEven)
 
 		local hasGreaterThanFive = tableext.any(a, function(v: number)
 			return v > 5
@@ -126,7 +126,7 @@ test.suite("TableExt", function(suite)
 		local allEven = tableext.all(a, function(v: number)
 			return v % 2 == 0
 		end)
-		assert.truthy(allEven)
+		assert.that(allEven)
 
 		local allLessThanEight = tableext.all(a, function(v: number)
 			return v < 8
@@ -137,6 +137,6 @@ test.suite("TableExt", function(suite)
 		local allInEmpty = tableext.all(a, function(_: number)
 			return false
 		end)
-		assert.truthy(allInEmpty)
+		assert.that(allInEmpty)
 	end)
 end)

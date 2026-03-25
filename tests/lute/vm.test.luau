@@ -12,7 +12,7 @@ test.suite("LuteVmSuite", function(suite)
 
 		do
 			local handle = fs.open(child_vm, "w+")
-			assert.truthy(fs.exists(child_vm))
+			assert.that(fs.exists(child_vm))
 			fs.write(
 				handle,
 				[[
@@ -44,7 +44,7 @@ test.suite("LuteVmSuite", function(suite)
 
 		do
 			local handle = fs.open(parent_vm, "w+")
-			assert.truthy(fs.exists(parent_vm))
+			assert.that(fs.exists(parent_vm))
 			fs.write(
 				handle,
 				[[

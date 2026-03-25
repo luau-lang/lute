@@ -3,10 +3,10 @@ local test = require("@std/test")
 
 test.suite("StringExt", function(suite)
 	suite:case("hasprefixAndHassuffix", function(assert)
-		assert.truthy(stringext.hasprefix("hello", "he"))
+		assert.that(stringext.hasprefix("hello", "he"))
 		assert.eq(stringext.hasprefix("hi", "hello"), false)
 
-		assert.truthy(stringext.hassuffix("foobar", "bar"))
+		assert.that(stringext.hassuffix("foobar", "bar"))
 		assert.eq(stringext.hassuffix("foo", "foobar"), false)
 	end)
 

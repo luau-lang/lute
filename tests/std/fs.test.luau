@@ -12,7 +12,7 @@ test.suite("FsSuite", function(suite)
 		local file = path.join(tmpdir, "file.txt")
 
 		local h = fs.open(file, "w+")
-		assert.truthy(fs.exists(file))
+		assert.that(fs.exists(file))
 		fs.write(h, "abc")
 		fs.close(h)
 
@@ -40,9 +40,9 @@ test.suite("FsSuite", function(suite)
 		local file = path.join(tmpdir, "roblox.txt")
 		fs.writestringtofile(file, "roblox")
 
-		assert.truthy(fs.exists(file))
+		assert.that(fs.exists(file))
 		assert.eq(fs.type(file), "file")
-		assert.truthy(fs.exists(tmpdir))
+		assert.that(fs.exists(tmpdir))
 		assert.eq(fs.type(tmpdir), "dir")
 
 		fs.remove(file)
@@ -54,7 +54,7 @@ test.suite("FsSuite", function(suite)
 			fs.createdirectory(dir, { makeparents = true })
 		end
 
-		assert.truthy(fs.exists(dir))
+		assert.that(fs.exists(dir))
 		assert.eq(fs.type(dir), "dir")
 
 		local entries = fs.listdirectory(tmpdir)
@@ -64,7 +64,7 @@ test.suite("FsSuite", function(suite)
 				found = true
 			end
 		end
-		assert.truthy(found)
+		assert.that(found)
 		fs.removedirectory(dir)
 	end)
 
@@ -115,7 +115,7 @@ test.suite("FsSuite", function(suite)
 			failure.assertion("watcher event was nil")
 			return
 		end
-		assert.truthy(event.change or event.rename)
+		assert.that(event.change or event.rename)
 
 		watcher:close()
 		if fs.exists(watched) then
@@ -126,7 +126,7 @@ test.suite("FsSuite", function(suite)
 	suite:case("createDirectoryMakeparentsTrue", function(assert)
 		local nestedDir = path.join(tmpdir, "nested", "directory")
 		fs.createdirectory(nestedDir, { makeparents = true })
-		assert.truthy(fs.exists(nestedDir))
+		assert.that(fs.exists(nestedDir))
 
 		fs.removedirectory(nestedDir)
 		fs.removedirectory(path.join(tmpdir, "nested"))
@@ -180,7 +180,7 @@ test.suite("FsSuite", function(suite)
 		end
 
 		local h = fs.open(file, "w")
-		assert.truthy(fs.exists(file))
+		assert.that(fs.exists(file))
 		fs.write(h, "hello")
 		fs.close(h)
 
@@ -192,7 +192,7 @@ test.suite("FsSuite", function(suite)
 	suite:case("removeDirectoryNonRecursive", function(assert)
 		local dir = path.join(tmpdir, "empty_dir")
 		fs.createdirectory(dir, { makeparents = true })
-		assert.truthy(fs.exists(dir))
+		assert.that(fs.exists(dir))
 
 		fs.removedirectory(dir)
 		assert.eq(fs.exists(dir), false)
@@ -215,10 +215,10 @@ test.suite("FsSuite", function(suite)
 		fs.writestringtofile(file2, "content2")
 		fs.writestringtofile(file3, "content3")
 
-		assert.truthy(fs.exists(dir))
-		assert.truthy(fs.exists(file1))
-		assert.truthy(fs.exists(file2))
-		assert.truthy(fs.exists(file3))
+		assert.that(fs.exists(dir))
+		assert.that(fs.exists(file1))
+		assert.that(fs.exists(file2))
+		assert.that(fs.exists(file3))
 
 		fs.removedirectory(dir, { recursive = true })
 
@@ -286,7 +286,7 @@ test.suite("FsSuite", function(suite)
 					break
 				end
 			end
-			assert.truthy(found)
+			assert.that(found)
 		end
 
 		fs.removedirectory(baseDir, { recursive = true })

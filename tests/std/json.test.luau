@@ -26,18 +26,18 @@ test.suite("JSONParsingTestSuite", function(suite)
 
 			if stringext.hasprefix(name, "y_") then
 				-- valid JSON: must parse
-				assert.truthy(ok)
+				assert.that(ok)
 
 				-- serialize the parsed value and ensure it parses again
 				local _ok2, _ser = pcall(function()
 					return json.serialize(parsed)
 				end)
-				assert.truthy(_ok2)
+				assert.that(_ok2)
 
 				local _ok3 = pcall(function()
 					json.deserialize(_ser)
 				end)
-				assert.truthy(_ok3)
+				assert.that(_ok3)
 			elseif stringext.hasprefix(name, "n_") then
 				-- invalid JSON: must fail to parse
 				assert.eq(ok, false)
@@ -74,11 +74,11 @@ test.suite("JSONParsingTestSuite", function(suite)
 
 		if obj then
 			assert.eq(type(obj), "table")
-			assert.truthy(obj.a)
+			assert.that(obj.a)
 			assert.eq(type(obj.b), "table")
 			local obj_b = json.asobject(obj.b)
 			if obj_b then
-				assert.truthy(obj_b.c)
+				assert.that(obj_b.c)
 				local obj_b_d = obj_b.d
 				if typeof(obj_b_d) ~= "table" then
 					failure.assertion(`Expected obj.b.d to be a table, was a {typeof(obj_b_d)}`)

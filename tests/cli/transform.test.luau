@@ -111,7 +111,7 @@ test.suite("LuteTransform", function(suite)
 		fs.close(transformeeHandle)
 
 		-- Check that the output file has been created and written to
-		assert.truthy(fs.exists(outputPath))
+		assert.that(fs.exists(outputPath))
 		local h = fs.open(outputPath, "r")
 		local outputContent = fs.read(h)
 		assert.eq(outputContent:find("x ~= x"), nil)

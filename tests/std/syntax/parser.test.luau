@@ -219,7 +219,7 @@ test.suite("parseExpr", function(suite)
 		assert.eq(trueExpr.tag, "boolean")
 		assert.eq(trueExpr.kind, "expr")
 		assert.eq((trueExpr :: syntax.AstExprConstantBool).token.text, "true")
-		assert.truthy((trueExpr :: syntax.AstExprConstantBool).value)
+		assert.that((trueExpr :: syntax.AstExprConstantBool).value)
 
 		local falseExpr = parser.parseexpr("false")
 		assert.eq(falseExpr.tag, "boolean")
@@ -941,7 +941,7 @@ test.suite("parse types", function(suite)
 
 		local singletonBool = typeAlias.type :: syntax.AstTypeSingletonBool
 		assert.eq(singletonBool.token.text, "true")
-		assert.truthy(singletonBool.value)
+		assert.that(singletonBool.value)
 
 		block = parser.parseblock("type FalseType = false")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
