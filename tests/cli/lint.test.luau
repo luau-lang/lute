@@ -37,6 +37,7 @@ local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 type lintTestParams = {
 	content: string,
 	expectedExitCode: number,
+	returnStdErr: true?,
 	rulePath: string?,
 	processOptions: process.ProcessRunOptions?,
 	customRuleContents: string?,
@@ -110,7 +111,7 @@ local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams)
 		end
 	end
 
-	return result.stdout
+	return if params.returnStdErr then result.stderr else result.stdout
 end
 
 test.suite("lute lint", function(suite)
@@ -2473,18 +2474,28 @@ return {
 		})
 	end)
 
-	suite:case("throwsErrorWhenConfigHasInvalidStructure", function(assert)
-		-- local invalidGlobalConfig = [[
-		-- 	return {
-		-- 		lute = {
-		-- 			lint = {
-		-- 				globals = "should be table"
-		-- 			}
-		-- 		}
-		-- 	}
-		-- ]]
+	suite:case("throwsErrorWhenConfigHasInvalidGlobals", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
+			return {
+				lute = {
+					lint = {
+						globals = "should be table"
+					}
+				}
+			}
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strcontains(err, "config.lute.lint.globals must be a table with string keys")
+	end)
 
-		local invalidIgnoresConfig = [[
+	suite:case("throwsErrorWhenConfigHasInvalidIgnores", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
 			return {
 				lute = {
 					lint = {
@@ -2492,34 +2503,47 @@ return {
 					}
 				}
 			}
-		]]
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strcontains(err, "config.lute.lint.ignores must be an array of filepath globs")
+	end)
 
-		-- local invalidRulesConfig = [[
-		-- 	return {
-		-- 		lute = {
-		-- 			lint = {
-		-- 				ruleConfigs "should be table"
-		-- 			}
-		-- 		}
-		-- 	}
-		-- ]]
+	suite:case("throwsErrorWhenConfigHasInvalidRulePaths", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
+			return {
+				lute = {
+					lint = {
+						rulepaths = "should be table"
+					}
+				}
+			}
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strcontains(err, "config.lute.lint.rulepaths must be an array of filepath globs")
+	end)
 
-		local configFile = path.join(tmpDir, ".config.luau")
-
-		-- -- fs.writestringtofile(path.format(configFile), invalidGlobalConfig)
-		-- local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
-		-- assert.eq(result.exitcode, 1)
-		-- assert.strcontains(result.stderr, "config.globals must be a table of [string] : unknown")
-
-		fs.writestringtofile(path.format(configFile), invalidIgnoresConfig)
-		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
-		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stderr, "config.lute.lint.ignores must be an array of filepath globs")
-
-		-- fs.writestringtofile(path.format(configFile), invalidRulesConfig)
-		-- result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
-		-- assert.eq(result.exitcode, 1)
-		-- assert.strcontains(result.stderr, "config.rules must be a table")
+	suite:case("throwsErrorWhenConfigHasInvalidRuleConfigs", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
+			return {
+				lute = {
+					lint = {
+						ruleconfigs = "should be table"
+					}
+				}
+			}
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strcontains(err, "config.lute.lint.ruleconfigs must be a table with string keys")
 	end)
 
 	suite:case("luteLintAccountsForConfiguredIgnoresConfigPassedAsArg", function(assert)

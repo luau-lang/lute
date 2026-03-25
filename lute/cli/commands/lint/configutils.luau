@@ -1,10 +1,16 @@
 local internalTypes = require("./internaltypes")
 
-local function assertIsArray(arr: { any }, type: string, err: string)
-	for k, v in arr do
-		assert(typeof(k) == "number", err)
-		assert(typeof(v) == type, err)
+local function assertTableStructure(tbl: { [unknown]: unknown }, keytype: string, valuetype: string?, err: string)
+	for k, v in tbl do
+		assert(typeof(k) == keytype, err)
+		if valuetype then
+			assert(typeof(v) == valuetype, err)
+		end
 	end
+end
+
+local function assertIsArray(tbl: { [unknown]: unknown }, valuetype: string, err: string)
+	return assertTableStructure(tbl, "number", valuetype, err)
 end
 
 -- we expect .config.luau file structured s.t top level table has: table.lute.lint field
@@ -12,6 +18,34 @@ local function assertValidConfig(candidate: any)
 	if candidate.ignores then
 		assert(typeof(candidate.ignores) == "table", "config.lute.lint.ignores must be an array of filepath globs")
 		assertIsArray(candidate.ignores, "string", "config.lute.lint.ignores must be an array of filepath globs")
+	end
+
+	if candidate.globals then
+		assert(typeof(candidate.globals) == "table", "config.lute.lint.globals must be a table with string keys")
+		assertTableStructure(
+			candidate.globals,
+			"string",
+			nil,
+			"config.lute.lint.globals must be a table with string keys"
+		)
+	end
+
+	if candidate.rulepaths then
+		assert(typeof(candidate.rulepaths) == "table", "config.lute.lint.rulepaths must be an array of filepath globs")
+		assertIsArray(candidate.rulepaths, "string", "config.lute.lint.rulepaths must be an array of filepath globs")
+	end
+
+	if candidate.ruleconfigs then
+		assert(
+			typeof(candidate.ruleconfigs) == "table",
+			"config.lute.lint.ruleconfigs must be a table with string keys"
+		)
+		assertTableStructure(
+			candidate.ruleconfigs,
+			"string",
+			nil,
+			"config.lute.lint.ruleconfigs must be a table with string keys"
+		)
 	end
 end
 
