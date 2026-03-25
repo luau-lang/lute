@@ -8,8 +8,8 @@ local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
 
 local function assertEqualsLocation(
-	assert: testTypes.asserts,
-	actual: syntax.span,
+	assert: testTypes.Asserts,
+	actual: syntax.Span,
 	startLine: number,
 	startColumn: number,
 	endLine: number,
@@ -219,7 +219,7 @@ test.suite("parseExpr", function(suite)
 		assert.eq(trueExpr.tag, "boolean")
 		assert.eq(trueExpr.kind, "expr")
 		assert.eq((trueExpr :: syntax.AstExprConstantBool).token.text, "true")
-		assert.eq((trueExpr :: syntax.AstExprConstantBool).value, true)
+		assert.that((trueExpr :: syntax.AstExprConstantBool).value)
 
 		local falseExpr = parser.parseexpr("false")
 		assert.eq(falseExpr.tag, "boolean")
@@ -548,7 +548,7 @@ foo = bar,
 	end)
 end)
 
-local function checkIsBlock(node: any, assert: testTypes.asserts)
+local function checkIsBlock(node: any, assert: testTypes.Asserts)
 	assert.eq(node.kind, "stat")
 	assert.eq(node.tag, "block")
 end
@@ -941,7 +941,7 @@ test.suite("parse types", function(suite)
 
 		local singletonBool = typeAlias.type :: syntax.AstTypeSingletonBool
 		assert.eq(singletonBool.token.text, "true")
-		assert.eq(singletonBool.value, true)
+		assert.that(singletonBool.value)
 
 		block = parser.parseblock("type FalseType = false")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias

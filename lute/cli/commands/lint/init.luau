@@ -22,6 +22,7 @@ local DEFAULT_RULES = {
 	"divide_by_zero",
 	"duplicate_keys",
 	"empty_if_block",
+	"global_function_in_scope",
 	"parenthesized_conditions",
 	"unused_variable",
 }
@@ -334,7 +335,7 @@ local function lintString(
 end
 
 type fix = {
-	location: syntax.span,
+	location: syntax.Span,
 	replacement: string,
 }
 
@@ -577,7 +578,7 @@ local function main(...: string)
 
 		if args:has("json") then
 			local diagnostics = tableext.map(violations, lsp.diagnostic)
-			print(json.serialize(diagnostics :: json.array, true))
+			print(json.serialize(diagnostics :: json.Array, true))
 		elseif #violations > 0 then
 			if VERBOSE then
 				print(`Printing violations from string input\n`)
@@ -603,7 +604,7 @@ local function main(...: string)
 			lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, configContextData, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
-			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
+			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))
 		else
 			if VERBOSE then
 				print(`Printing violations from {#allViolations} files\n`)

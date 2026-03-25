@@ -3,13 +3,13 @@ local types = require("@self/types")
 
 local luau = require("@lute/luau")
 
-export type span = types.span
+export type Span = types.Span
 
 local span = {
 	create = luau.span.create,
 }
 
-function span.subsumes(haystack: span, needle: span): boolean
+function span.subsumes(haystack: Span, needle: Span): boolean
 	return (
 		if haystack.beginline == needle.beginline
 			then haystack.begincolumn <= needle.begincolumn

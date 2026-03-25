@@ -1,11 +1,11 @@
 local testtypes = require("@std/test/types")
 
 local function filtertests(
-	env: testtypes.testenvironment,
+	env: testtypes.TestEnvironment,
 	suiteName: string?,
 	caseName: string?
-): testtypes.testenvironment
-	local filtered: testtypes.testenvironment = {
+): testtypes.TestEnvironment
+	local filtered: testtypes.TestEnvironment = {
 		anonymous = {},
 		suites = {},
 		suiteindex = {},
