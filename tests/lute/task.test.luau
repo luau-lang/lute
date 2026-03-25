@@ -8,7 +8,7 @@ test.suite("LuteTaskSuite", function(suite)
 		local endTime = os.clock()
 
 		-- task.wait(0.5) actually waits ~0.48 seconds :)
-		assert.eq(math.ceil(endTime - startTime) >= 0.5, true)
+		assert.that(math.ceil(endTime - startTime) >= 0.5)
 	end)
 
 	suite:case("taskWaitInLoop", function(assert)
@@ -20,7 +20,7 @@ test.suite("LuteTaskSuite", function(suite)
 		end
 		local endTime = os.clock()
 
-		assert.eq(endTime - startTime >= 0.5, true)
+		assert.that(endTime - startTime >= 0.5)
 	end)
 
 	suite:case("taskSpawn0ArgsErrors", function(assert)
