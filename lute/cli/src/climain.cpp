@@ -630,7 +630,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
 
 void setupVersionLibrary(lua_State* L)
 {
-    lua_checkstack(L, 3);
+    lua_checkstack(L, 2);
 
     lua_createtable(L, 0, 3);
 
