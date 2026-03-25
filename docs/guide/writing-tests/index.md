@@ -4,12 +4,11 @@ order: 5
 
 # Writing Tests
 
-As mentioned [here](../dev-tooling/index), `lute` comes with a builtin utility
-for discovering and running tests. In this chapter we'll see how you can write
+As mentioned [here](../dev-tooling/index), `lute` features a builtin utility
+for discovering and running tests. In this chapter, we'll see how you can write
 tests against this framework and execute them. This can help you improve your
-confidence in the correctness of your code. We'll look at how we could test the
-code from the guessing game chapter, specifically the code that handles argument
-parsing.
+confidence in the correctness of your code. Specifically we'll look at the code
+from the guessing game chapter, and test the code that handles argument parsing.
 
 ### Setting up your project
 
@@ -17,8 +16,7 @@ To get started, set up a project structure that has these files:
 ```
 project/
     utils.luau
-    tests/
-        args.test.luau
+    args.test.luau
 ```
 
 Inside of `utils.luau`, add the following code:
@@ -42,15 +40,17 @@ end
 return table.freeze({ getArgs = getArgs})
 ```
 
-This defines a module that exports a single frozen(immutable) table that has a
-single function on it - the getArgs function from the last chapter. This
-function (purportedly) parses a set of command line arguments and either errors,
-returns a number if a --max \<number\> was passed, or 100. Let's try to test
-this!
+This defines a module that exports a single frozen (i.e. immutable or read-only) table that has a
+single function on it --- the getArgs function from the last chapter. 
+
+This function (purportedly) parses a set of command line arguments and either
+errors, returns a number if a --max \<number\> was passed, or 100. Let's try to test this! 
 
 
 ### Using @std/test
-First, let's pull in `@std/test` and our utility file:
+First, open up `args.test.luau` in your favorite text editor.
+
+We will need to require `@std/test` as well as the code we are trying to test:
 
 ```luau
 local test = require("@std/test")
@@ -59,21 +59,35 @@ local test = require("@std/test")
 Next up, a simple test case:
 ```luau
 local test = require("@std/test")
-local utils = require("../utils")
+local utils = require("./utils")
 
 test.case("maxOverridesValue", function(asserts)
     -- What should happen here ?
 end)
 ```
 
-To start, let's write a simple test that asserts that when getArgs is invoked
-with a `--max` argument that it returns that value as a number. To match how
-command line arguments are passed, we'll explicitly pass the first argument (the
-name of the script).
+To start, let's write a simple test that asserts that when `getArgs` is invoked
+with a `--max` argument, that it returns that value as a number. In order to
+match the behaviour of the command line in our testing code, we'll want to
+include an extra argument with the name of the script being called.
+
+:::info 
+Command line arguments are conventionally passed with the following
+format: \<name of program\> <rest of the arguments...\>
+
+For example, when you run:
+```bash
+lute args.test.luau
+```
+your shell will pass `lute`, `args.test.luau` as the arguments to `lute`.
+
+Following that same convention, `lute` will pass `args.test.luau`as well as the
+remainder of the arguments as the first argument to the script being run. 
+:::
 
 ```luau
 local test = require("@std/test")
-local utils = require("../utils")
+local utils = require("./utils")
 
 test.case("maxOverridesValue", function(asserts)
     local fakeArgs = { "fakeScript.luau", "--max", "20"}
@@ -92,21 +106,17 @@ should see output like this:
 Results: 1 passed, 0 failed of 1
 ```
 
-Excellent! Our test passed.
+Excellent! Our first test passed, but we should write more.
 
 ### Adding more tests
 
-Let's add one more more:
+In this next test, we'll add a test for the case where we don't pass a `--max`
+argument:
 ```luau
 local test = require("@std/test")
-local utils = require("../utils")
+local utils = require("./utils")
 
-test.case("maxOverridesValue", function(asserts)
-    local fakeArgs = { "fakeScript.luau", "--max", "20"}
-    local result = utils.getArgs(fakeArgs)
-
-    asserts.eq(20, result)
-end)
+...
 
 test.case("noPassingMax", function(asserts)
     local fakeArgs = { "fakeScript.luau"}
@@ -116,48 +126,40 @@ test.case("noPassingMax", function(asserts)
 end)
 ```
 
-Great! It looks like these tests pass. Now let's try something slightly more
-interesting. If you pass `--max` without a corresponding number argument, we
-throw an error. Let's try checking for that:
+Great! It looks like these tests pass. Let's keep going! 
+
+What happens if you pass `--max` without a corresponding number argument? If we
+look at the implementation of the `getArgs` function, it looks like it raises an
+exception, using the  builtin Luau function `error`. Thankfully, `lute` lets us test for code that raises exceptions using the `errors` assertion.
+
 ```luau
 local test = require("@std/test")
-local utils = require("../utils")
-
-test.case("maxOverridesValue", function(asserts)
-    local fakeArgs = { "fakeScript.luau", "--max", "20"}
-    local result = utils.getArgs(fakeArgs)
-
-    asserts.eq(20, result)
-end)
-
-test.case("noPassingMax", function(asserts)
-    local fakeArgs = { "fakeScript.luau"}
-    local result = utils.getArgs(fakeArgs)
-
-    asserts.eq(100, result)
-end)
+local utils = require("./utils")
+...
 
 test.case("noArgToMax", function(asserts)
     local fakeArgs = { "fakeScript.luau", "--max"}
-    asserts.errors(function()
-			utils.getArgs(fakeArgs)
-	end)
+    assert.errors(function()
+        utils.getArgs(fakeArgs)
+    end)
+
 end)
 ```
-We've used the `errors` assertions to check for the case where we haven't passed
-a number to `--max`. 
+This assertion will run the code `utils.getArgs(fakeArgs)`. If it raises an
+error, then the assertion will intercept it and succeed. If not, the assertion
+will fail, which will be reported as a failed test case.
 
 ### Using Test Suites to organize tests
- While we're at it, we can also wrap all of these tests into a single test
- suite, which will group these tests together. Test suites also allow you to use
- lifecycle methods like `beforeeach/all`, `aftereach/all` to control setup and
- tear down for tests.
+While we're at it, we can also wrap all of these tests into a single test
+suite, which will group these tests together. Test suites also allow you to use
+lifecycle methods like `beforeeach/all`, `aftereach/all` to control setup and
+tear down for tests.
 
 ```luau
 local test = require("@std/test")
-local utils = require("../utils")
+local utils = require("./utils")
 
-test.suite("getArgsTest", function(suite)
+test.suite("GetArgsTest", function(suite)
 	suite:case("maxOverridesValue", function(asserts)
 		local fakeArgs = { "fakeScript.luau", "--max", "20" }
 		local result = utils.getArgs(fakeArgs)
@@ -196,8 +198,38 @@ lute test tests/path/to/.test.luau # run the tests in a particular file
 ```
 :::
 
+:::info
+One situation where you might to use the aforementioned test suite lifecycle methods is when your tests operate on files on
+files in a temporary directory. For example, testing that some code can create a
+set of files. When subsequent tests execute, they may be operating in a
+directory filled with files leftover from a previous test.
+
+In this situation, you could use the `beforeeach` method to execute some cleanup
+of the temporary directory:
+
+```luau
+local test = require("@std/test")
+local fs = require("@std/fs")
+local path = require("@std/path")
+local system = require("@std/system")
+
+-- a temporary directory for tests to operate in
+local testDir = path.join(system.tmpdir(), "test")
+
+test.suite("FileCreation", function()
+    test.beforeeach(function()
+        --Deletes the contents of the test directory before each test
+        fs.removedirectory(testDir, {recursive = true})
+        --Recreates the directory so it exists for the next test to use it
+        fs.createdirectory(testDir)
+    end)
+end)
+
+```
+:::
+
 ### Fixing failed tests
-So far so good. Let's take a look at a different test case! Try this one out:
+So far, so good, let's take at what happens when a test case fails! Try this one out:
 ```luau
 suite:case("unsupportedArgument", function(asserts)
     local fakeArgs = { "fakeScript.luau", "--what", "foo"}
@@ -217,9 +249,9 @@ Failures:
         errors: function: 0x000000012f859740 did not throw error.
 ```
 
-This shows us a bug in our getArgs implementation - what if the user passes the
+This shows us a bug in our `getArgs` implementation - what if the user passes the
 right number of arguments but supplies an unsupported option? In this case, the
-fix is to error in the case that the second argument to getArgs isn't `--max`:
+fix is to error in the case that the second argument to `getArgs` isn't `--max`:
 ```luau
 local function getArgs(args) : number
     if #args == 2 then
