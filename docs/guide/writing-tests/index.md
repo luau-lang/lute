@@ -54,6 +54,7 @@ We will need to require `@std/test` as well as the code we are trying to test:
 
 ```luau
 local test = require("@std/test")
+local utils = require("./utils")
 ```
 
 Next up, a simple test case:
@@ -71,6 +72,18 @@ with a `--max` argument, that it returns that value as a number. In order to
 match the behaviour of the command line in our testing code, we'll want to
 include an extra argument with the name of the script being called.
 
+```luau
+local test = require("@std/test")
+local utils = require("./utils")
+
+test.case("maxOverridesValue", function(asserts)
+    local fakeArgs = { "fakeScript.luau", "--max", "20"}
+    local result = utils.getArgs(fakeArgs)
+
+    asserts.eq(20, result)
+end)
+```
+
 :::info 
 Command line arguments are conventionally passed with the following
 format: \<name of program\> <rest of the arguments...\>
@@ -84,19 +97,6 @@ your shell will pass `lute`, `args.test.luau` as the arguments to `lute`.
 Following that same convention, `lute` will pass `args.test.luau`as well as the
 remainder of the arguments as the first argument to the script being run. 
 :::
-
-```luau
-local test = require("@std/test")
-local utils = require("./utils")
-
-test.case("maxOverridesValue", function(asserts)
-    local fakeArgs = { "fakeScript.luau", "--max", "20"}
-    local result = utils.getArgs(fakeArgs)
-
-    asserts.eq(20, result)
-end)
-```
-
 
 ### Running test cases
 To run this test, from the root of your project directory run `lute test`. You
@@ -130,7 +130,11 @@ Great! It looks like these tests pass. Let's keep going!
 
 What happens if you pass `--max` without a corresponding number argument? If we
 look at the implementation of the `getArgs` function, it looks like it raises an
-exception, using the  builtin Luau function `error`. Thankfully, `lute` lets us test for code that raises exceptions using the `errors` assertion.
+exception, using the builtin Luau function `error`. Raising an exception is a
+reasonable thing to do here, and we'll want to test that our program correctly
+raises an exception when `--max` doesn't get passed a number.
+
+In order to assert this behaviour we'll need to use the `errors` assertion.
 
 ```luau
 local test = require("@std/test")
