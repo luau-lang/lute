@@ -98,7 +98,7 @@ int createDurationFromSeconds(lua_State* L, double seconds)
 static int duration_tonanoseconds(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, static_cast<double>(timespec.tv_sec) * NANOSECONDS_PER_SECOND + timespec.tv_nsec);
+    lua_pushnumber(L, static_cast<double>(timespec.tv_sec * NANOSECONDS_PER_SECOND) + timespec.tv_nsec);
     return 1;
 }
 
