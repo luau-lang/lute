@@ -23,6 +23,13 @@ local function serializeValue(value: string | number): string
 	end
 end
 
+local function quoteKey(key: string): string
+	if not string.match(key, "^[%w_-]+$") then
+		return '"' .. key .. '"'
+	end
+	return key
+end
+
 local function hasNestedTables(tbl: { [unknown]: unknown }): boolean
 	for _, v in tbl do
 		if typeof(v) == "table" and next(v) ~= nil then
@@ -41,7 +48,7 @@ local function tableToToml(tbl: { [any]: any }, parent: string?): string
 		if typeof(v) == "table" and next(v) ~= nil then
 			if #v > 0 then
 				for _, entry in v do
-					result ..= "\n[[" .. (parent and parent .. "." or "") .. k .. "]]\n"
+					result ..= "\n[[" .. (parent and parent .. "." or "") .. quoteKey(k) .. "]]\n"
 					result ..= tableToToml(entry, nil)
 				end
 			else
@@ -49,12 +56,12 @@ local function tableToToml(tbl: { [any]: any }, parent: string?): string
 			end
 		else
 			hasDirectValues = true
-			result ..= k .. " = " .. serializeValue(v) .. "\n"
+			result ..= quoteKey(k) .. " = " .. serializeValue(v) .. "\n"
 		end
 	end
 
 	for k, v in subTables do
-		local key = parent and (parent .. "." .. k) or k
+		local key = parent and (parent .. "." .. quoteKey(k)) or quoteKey(k)
 
 		if hasNestedTables(v) == true then
 			result ..= tableToToml(v, key)
@@ -80,6 +87,41 @@ type DeserializerState = {
 	buf: string,
 	cursor: number,
 }
+
+local function splitTablePath(path: string): { string }
+	local parts = {}
+	local index = 1
+	local pathLen = string.len(path)
+
+	while index <= pathLen do
+		local symbol = string.sub(path, index, index)
+		if symbol == "." then
+			index += 1
+		elseif symbol == '"' or symbol == "'" then
+			local closePos = string.find(path, symbol, index + 1, true) or pathLen + 1
+			table.insert(parts, string.sub(path, index + 1, closePos - 1))
+			index = closePos + 1
+		else
+			local nextSpecial = string.find(path, "[.\"']", index)
+			local segEnd = if nextSpecial then nextSpecial - 1 else pathLen
+			table.insert(parts, string.sub(path, index, segEnd))
+			index = segEnd + 1
+		end
+	end
+
+	return parts
+end
+
+local function ensurePath(root: { [string]: unknown }, parts: { string }, depth: number?): { [string]: unknown }
+	local current = root
+	for i = 1, depth or #parts do
+		if not current[parts[i]] then
+			current[parts[i]] = {}
+		end
+		current = current[parts[i]] :: { [string]: unknown }
+	end
+	return current
+end
 
 local function skipWhitespace(state: DeserializerState): ()
 	local pos = state.cursor
@@ -119,31 +161,30 @@ local function deserialize(input: string): { [string]: unknown }
 
 		if string.match(line, "^%[%[(.-)%]%]$") then
 			local tableName = string.match(line, "^%[%[(.-)%]%]$") or ""
-			arrayTables[tableName] = arrayTables[tableName] or {}
+
+			if not arrayTables[tableName] then
+				arrayTables[tableName] = {}
+				local parts = splitTablePath(tableName)
+				local leaf = parts[#parts]
+				local _parent = ensurePath(result, parts, #parts - 1)
+				_parent[leaf] = arrayTables[tableName]
+			end
 
 			local newEntry = {}
 			table.insert(arrayTables[tableName], newEntry)
-
-			result[tableName] = arrayTables[tableName]
 			currentTable = newEntry
 		elseif string.match(line, "^%[(.-)%]$") then
 			local tablePath = string.match(line, "^%[(.-)%]$")
-			local parent = result
-
-			for section in string.gmatch(tablePath :: string, "([^.]+)") do
-				if not parent[section] then
-					parent[section] = {}
-				end
-				parent = parent[section]
-			end
-
-			currentTable = parent
+			currentTable = ensurePath(result, splitTablePath(tablePath :: string))
 		elseif string.match(line, "^(.-)%s*=%s*(.-)$") then
 			local key, value = string.match(line, "^(.-)%s*=%s*(.-)$")
 			assert(key and value)
 			key = string.match(key, "^%s*(.-)%s*$")
 			value = string.match(value, "^%s*(.-)%s*$")
 			assert(key and value)
+			if string.match(key, '^"(.*)"$') or string.match(key, "^'(.*)'$") then
+				key = string.sub(key, 2, -2)
+			end
 			if string.match(value, '^"(.*)"$') or string.match(value, "^'(.*)'$") then
 				value = string.sub(value, 2, -2)
 				value = string.gsub(value, "\\\\", "\\")
