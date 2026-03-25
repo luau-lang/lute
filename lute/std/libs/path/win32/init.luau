@@ -2,7 +2,7 @@ local process = require("@lute/process")
 local win32types = require("@self/types")
 local pathinterface = require("./pathinterface")
 
-export type Pathkind = win32types.Pathkind
+export type PathKind = win32types.PathKind
 export type Path = win32types.Path
 export type Pathlike = win32types.Pathlike
 
@@ -186,7 +186,7 @@ function win32.parse(path: Pathlike): Path
 		error("Expected string or path")
 	end
 
-	local kind: Pathkind = "relative"
+	local kind: PathKind = "relative"
 	local driveLetter = nil
 
 	-- Check if path is absolute and if it's a unc path on Windows

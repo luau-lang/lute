@@ -1,10 +1,10 @@
 local pathinterface = require("../pathinterface")
 
-export type Pathkind = "unc" | "absolute" | "relative"
+export type PathKind = "unc" | "absolute" | "relative"
 
 export type PathData = {
 	parts: { string },
-	kind: Pathkind,
+	kind: PathKind,
 	drive: string?,
 }
 
