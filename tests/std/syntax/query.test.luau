@@ -74,7 +74,7 @@ test.suite("AstQuery", function(suite)
 
 	suite:case("findallNums", function(assert)
 		local ast = syntax.parse("print(1 + 2)")
-		local queryResult: query.query<syntax.AstExprConstantNumber> = query.findallfromroot(
+		local queryResult: query.Query<syntax.AstExprConstantNumber> = query.findallfromroot(
 			ast, -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 			function(n: syntax.AstNode): syntax.AstExprConstantNumber?
 				if n.kind == "expr" and n.tag == "number" then
@@ -97,7 +97,7 @@ test.suite("AstQuery", function(suite)
 
 	suite:case("findallUtils", function(assert)
 		local ast = syntax.parse("print(1 + 2)")
-		local queryResult: query.query<syntax.AstExprConstantNumber> =
+		local queryResult: query.Query<syntax.AstExprConstantNumber> =
 			query.findallfromroot(ast, utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
 		assert.eq(#queryResult.nodes, 2)
