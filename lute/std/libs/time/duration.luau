@@ -7,6 +7,10 @@ export type Duration = time.Duration
 
 local duration = {}
 
+function duration.create(seconds: number, subsecnanos: number): Duration
+	return time.duration.create(seconds, subsecnanos)
+end
+
 function duration.nanoseconds(nanoseconds: number): Duration
 	return time.duration.nanoseconds(nanoseconds)
 end
