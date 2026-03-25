@@ -12,15 +12,15 @@
 #include <cstdint>
 #include <iterator>
 
-const int64_t NANOSECONDS_PER_SECOND = 1000000000;
-const int64_t MICROSECONDS_PER_SECOND = 1000000;
+const int64_t NANOSECONDS_PER_SECOND = 1'000'000'000;
+const int64_t MICROSECONDS_PER_SECOND = 1'000'000;
 const int64_t MILLISECONDS_PER_SECOND = 1000;
 const int64_t SECONDS_PER_MINUTE = 60;
 const int64_t SECONDS_PER_HOUR = 3600;
-const int64_t SECONDS_PER_DAY = 86400;
-const int64_t SECONDS_PER_WEEK = 604800;
+const int64_t SECONDS_PER_DAY = 86'400;
+const int64_t SECONDS_PER_WEEK = 604'800;
 const int64_t NANOSECONDS_PER_MICROSECOND = 1000;
-const int64_t NANOSECONDS_PER_MILLISECOND = 1000000;
+const int64_t NANOSECONDS_PER_MILLISECOND = 1'000'000;
 
 // Timespec helpers
 static float_t diffTimespecs(uv_timespec64_t left, uv_timespec64_t right)
