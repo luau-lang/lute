@@ -1,4 +1,5 @@
 // Simplified tests for module resolver functionality using public APIs.
+#include "lute/common.h"
 #include "lute/resolvemodule.h"
 #include "lute/tcmoduleresolver.h"
 
@@ -37,8 +38,12 @@ TEST_CASE("moduleresolver_resolve_for_typecheck")
     SUBCASE("resolve_batteries")
     {
         auto resolved = resolveForTypeCheck("@batteries/base64", mainLuau, &error);
-        REQUIRE(resolved);
-        CHECK(resolved->path == "@batteries/base64.luau");
+        if (resolved)
+        {
+            REQUIRE_FALSE("This shouldn't resolve successfully - you might need to delete the .luaurc and replace it with the .luaurc.ci");
+        }
+        CHECK(!error.empty());
+        CHECK(!resolved.has_value());
     }
 
     SUBCASE("resolve_self_in_std")

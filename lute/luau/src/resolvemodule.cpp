@@ -274,7 +274,7 @@ public:
             vfs.vfsType = LuteTypeCheckVfs::VFSType::Lute;
             return convert(vfs.luteVfs.resetToPath("@lute"));
         }
-        else if (aliasUnprefixed == "batteries")
+        else if (aliasUnprefixed == "batteries" && vfs.vfsType != LuteTypeCheckVfs::VFSType::Disk)
         {
             vfs.vfsType = LuteTypeCheckVfs::VFSType::Batteries;
             return convert(vfs.batteriesVfs.resetToPath("@batteries"));

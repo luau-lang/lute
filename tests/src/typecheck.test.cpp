@@ -23,3 +23,12 @@ TEST_CASE_FIXTURE(LuteFixture, "typecheck_all_builtins")
     auto result = typecheck({testFilePath}, getReporter());
     CHECK(result == 0);
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "typecheck_user_code_doesnt_pass_with_batteries")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/typecheck/batteries_failure.luau");
+
+    auto result = typecheck({testFilePath}, getReporter());
+    CHECK(result == 1);
+}

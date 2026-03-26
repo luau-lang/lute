@@ -5,13 +5,3 @@ local _system = require("@std/system")
 local _task = require("@std/task")
 local _time = require("@std/time")
 
-local _base64 = require("@batteries/base64")
-local _cli = require("@batteries/cli")
-local _pp = require("@batteries/pp")
-local _result = require("@batteries/result")
-local _richterm = require("@batteries/richterm")
-local _toml = require("@batteries/toml")
-local _deque = require("@batteries/collections/deque")
-local _difftext = require("@batteries/difftext")
-
-print("All builtins loaded")
