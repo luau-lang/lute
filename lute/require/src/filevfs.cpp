@@ -57,7 +57,7 @@ NavigationStatus FileVfs::resetToPath(const std::string& path)
 
         modulePath = ModulePath::create(normalizedPath.substr(0, firstSlash), normalizedPath.substr(firstSlash + 1), isFile, isDirectory);
     }
-    else
+    else if (!modulePath)
     {
         std::optional<std::string> cwd = getCurrentWorkingDirectory();
         if (!cwd)
@@ -69,6 +69,18 @@ NavigationStatus FileVfs::resetToPath(const std::string& path)
         LUTE_ASSERT(firstSlash != std::string::npos);
 
         modulePath = ModulePath::create(joinedPath.substr(0, firstSlash), joinedPath.substr(firstSlash + 1), isFile, isDirectory, normalizedPath);
+    }
+    else
+    {
+        ModulePathNavigationContext nc = ModulePathNavigationContext(*modulePath);
+        Luau::Require::ErrorHandler er;
+        Luau::Require::Navigator navigator(nc, er);
+        Luau::Require::Navigator::Status status = navigator.navigate("@self/" + normalizedPath);
+
+        if (status == Luau::Require::Navigator::Status::ErrorReported)
+            return NavigationStatus::NotFound;
+
+        modulePath = nc.getCurrentModulePath();
     }
 
     return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Luau/RequireNavigator.h"
+
 #include <functional>
 #include <optional>
 #include <string>
@@ -71,4 +73,82 @@ private:
     std::string realPathPrefix;
     std::string modulePath;
     std::optional<std::string> relativePathToTrack;
+};
+
+class ModulePathNavigationContext : public Luau::Require::NavigationContext
+{
+public:
+    ModulePathNavigationContext(ModulePath modulePath)
+        : current(std::move(modulePath))
+        , start(current)
+    {
+    }
+
+    ModulePath getCurrentModulePath() const
+    {
+        return current;
+    }
+
+    NavigateResult resetToRequirer() override
+    {
+        current = start;
+        return NavigateResult::Success;
+    }
+
+    NavigateResult jumpToAlias(const std::string& path) override
+    {
+        return NavigateResult::NotFound;
+    }
+
+    NavigateResult toParent() override
+    {
+        return convert(current.toParent());
+    }
+
+    NavigateResult toChild(const std::string& component) override
+    {
+        return convert(current.toChild(component));
+    }
+
+    ConfigStatus getConfigStatus() const override
+    {
+        return ConfigStatus::Absent;
+    }
+
+    ConfigBehavior getConfigBehavior() const override
+    {
+        return ConfigBehavior::GetConfig;
+    }
+
+    std::optional<std::string> getAlias(const std::string& alias) const override
+    {
+        return std::nullopt;
+    }
+
+    std::optional<std::string> getConfig() const override
+    {
+        return std::nullopt;
+    }
+
+private:
+    ModulePath current;
+    ModulePath start;
+
+    NavigateResult convert(NavigationStatus status) const
+    {
+        NavigateResult result = NavigateResult::NotFound;
+        switch (status)
+        {
+        case NavigationStatus::Success:
+            result = NavigateResult::Success;
+            break;
+        case NavigationStatus::Ambiguous:
+            result = NavigateResult::Ambiguous;
+            break;
+        case NavigationStatus::NotFound:
+            result = NavigateResult::NotFound;
+            break;
+        }
+        return result;
+    }
 };
