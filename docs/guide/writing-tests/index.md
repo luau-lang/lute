@@ -41,10 +41,10 @@ return table.freeze({ getArgs = getArgs})
 ```
 
 This defines a module that exports a single frozen (i.e. immutable or read-only) table that has a
-single function on it --- the getArgs function from the last chapter. 
+single function on it --- the `getArgs` function from the last chapter. 
 
 This function (purportedly) parses a set of command line arguments and either
-errors, returns a number if a --max \<number\> was passed, or 100. Let's try to test this! 
+errors, returns a number if a `--max <number>` was passed, or 100. Let's try to test this! 
 
 
 ### Using @std/test
@@ -86,7 +86,7 @@ end)
 
 :::info 
 Command line arguments are conventionally passed with the following
-format: \<name of program\> <rest of the arguments...\>
+format: `<name of program> <rest of the arguments...>`
 
 For example, when you run:
 ```bash
@@ -126,7 +126,7 @@ test.case("noPassingMax", function(asserts)
 end)
 ```
 
-Great! It looks like these tests pass. Let's keep going! 
+Great! It looks like these tests pass too. Let's keep going! 
 
 What happens if you pass `--max` without a corresponding number argument? If we
 look at the implementation of the `getArgs` function, it looks like it raises an
@@ -156,7 +156,7 @@ will fail, which will be reported as a failed test case.
 ### Using Test Suites to organize tests
 While we're at it, we can also wrap all of these tests into a single test
 suite, which will group these tests together. Test suites also allow you to use
-lifecycle methods like `beforeeach/all`, `aftereach/all` to control setup and
+lifecycle methods like `beforeeach`, `beforeall`, `aftereach`, and `afterall` to control setup and
 tear down for tests.
 
 ```luau
