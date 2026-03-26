@@ -37,6 +37,7 @@ export type Asserts = {
 	erroreq: <A...>((A...) -> ...unknown, string, A...) -> Failure?,
 	strcontains: (string, string, number?, string?) -> Failure?,
 	strnotcontains: (string, string, string?) -> Failure?,
+	that: (unknown, string?) -> Failure?,
 }
 
 export type Test = (Asserts) -> ()

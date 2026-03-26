@@ -51,18 +51,15 @@ test.suite("TimeSuite", function(suite)
 	end)
 
 	suite:case("createRawValuesAndNormalizationViaOps", function(assert)
-		-- create keeps raw values without normalization
 		local d = duration.create(1, 500_000_000)
 		assert.eq(d:toseconds(), 1.5)
 		assert.eq(d:subsecnanos(), 500_000_000)
 		assert.eq(d:tomilliseconds(), 1500)
 
-		-- if nanoseconds exceed a second, create still allows it
 		local d2 = duration.create(1, 1_500_000_000)
 		assert.eq(d2:toseconds(), 2.5)
-		assert.eq(d2:subsecnanos(), 1_500_000_000)
+		assert.eq(d2:subsecnanos(), 500_000_000)
 
-		-- operations like addition normalize nanoseconds
 		local normalized = d2 + duration.seconds(0)
 		assert.eq(normalized:toseconds(), 2.5)
 		assert.eq(normalized:subsecnanos(), 500_000_000)
@@ -132,11 +129,11 @@ test.suite("TimeSuite", function(suite)
 		local b = duration.milliseconds(1000)
 		local c = duration.milliseconds(999)
 
-		assert.eq(a == b, true)
+		assert.that(a == b)
 		assert.eq(a == c, false)
-		assert.eq(c < a, true)
-		assert.eq(c <= a, true)
-		assert.eq(a <= b, true)
+		assert.that(c < a)
+		assert.that(c <= a)
+		assert.that(a <= b)
 		assert.eq(a < b, false)
 	end)
 

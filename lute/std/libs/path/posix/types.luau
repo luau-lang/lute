@@ -1,12 +1,12 @@
 local pathinterface = require("../pathinterface")
 
-export type pathdata = {
+export type PathData = {
 	parts: { string },
 	absolute: boolean,
 }
 
-export type path = setmetatable<pathdata, pathinterface.pathinterface>
+export type Path = setmetatable<PathData, pathinterface.PathInterface>
 
-export type pathlike = string | path | pathdata
+export type Pathlike = string | Path | PathData
 
 return {}

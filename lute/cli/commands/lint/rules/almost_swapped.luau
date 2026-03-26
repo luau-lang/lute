@@ -62,7 +62,7 @@ end
 -- a = b; b = a
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	local violations = {}

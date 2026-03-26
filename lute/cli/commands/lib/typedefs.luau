@@ -1,7 +1,10 @@
 local path = require("@std/path")
 local process = require("@std/process")
 
-local TYPEDEFS_VERSION = "0.1.0"
+type version = { version: string, versionSuffix: string, versionFull: string }
+local version: version = _G["version"]
+
+local TYPEDEFS_VERSION = version.version
 local TYPEDEFS_BASE_DIR = `.lute/typedefs/{TYPEDEFS_VERSION}`
 local TYPEDEFS_RELATIVE_DIR = `~/{TYPEDEFS_BASE_DIR}`
 local TYPEDEFS_PATH = path.join(process.homedir(), TYPEDEFS_BASE_DIR)

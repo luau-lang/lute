@@ -10,7 +10,7 @@ local target = "https://lute.luau.org/cli/lint/parenthesized_conditions.html"
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	local violations: { lintTypes.LintViolation } = {}

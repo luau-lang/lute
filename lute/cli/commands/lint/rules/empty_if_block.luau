@@ -43,7 +43,7 @@ end
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	-- Get the comments_count option from the rule configuration

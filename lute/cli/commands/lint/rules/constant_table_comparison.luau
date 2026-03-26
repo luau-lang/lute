@@ -31,7 +31,7 @@ end
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query

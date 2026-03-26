@@ -7,7 +7,7 @@ local snapty = require("./types")
 
 -- Derive the .snap artifact path from a .snap.luau file path.
 -- e.g. /foo/bar.snap.luau -> /foo/bar.snap
-local function artifactpath(filepath: path.path): string
+local function artifactpath(filepath: path.Path): string
 	local f = path.format(filepath)
 	assert(strext.hassuffix(f, ".snap.luau"), `expected {f} to have suffix .snap.luau`)
 	return strext.removesuffix(f, ".luau") -- strips ".luau"
@@ -26,7 +26,7 @@ end
 
 local runner = {}
 
-function runner.runsnapshots(files: { path.path }): snapty.snapresult
+function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 	local result: snapty.snapresult = {
 		passed = {},
 		failed = {},

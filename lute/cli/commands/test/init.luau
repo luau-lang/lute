@@ -11,7 +11,7 @@ local test = require("@std/test")
 local snaprunner = require("@self/snap/runner")
 local updater = require("@self/snap/updater")
 
-local function loadtests(testfiles: { path.path })
+local function loadtests(testfiles: { path.Path })
 	-- Load all test files first
 	for _, p in testfiles do
 		local success, err = pcall(luau.loadModule, p, nil)

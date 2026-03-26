@@ -56,7 +56,7 @@ function tasklib.awaitall(...: Task): ...unknown
 
 	while not done do
 		done = true
-		for _, v in tasks do
+		for _, v in ipairs(tasks) do
 			if v.success == nil then
 				done = false
 				task.deferSelf()
@@ -66,7 +66,7 @@ function tasklib.awaitall(...: Task): ...unknown
 
 	local results = {}
 
-	for _, v in tasks do
+	for _, v in ipairs(tasks) do
 		if v.success then
 			table.insert(results, v.result)
 		else

@@ -182,8 +182,8 @@ type Definition = { name: string, signature: string, doc: string? }
 local function generateMarkdown(
 	moduleName: string,
 	definitions: { Definition },
-	filePath: path.pathlike,
-	libraryPath: path.pathlike,
+	filePath: path.Pathlike,
+	libraryPath: path.Pathlike,
 	requireLibraryAlias: string
 ): string
 	local libPathStr = tostring(libraryPath)
@@ -224,8 +224,8 @@ local function generateMarkdown(
 end
 
 local function parseModule(
-	module: path.pathlike,
-	filePath: path.pathlike
+	module: path.Pathlike,
+	filePath: path.Pathlike
 ): { { name: string, signature: string, doc: string? } }
 	local content = fs.readfiletostring(filePath)
 	local lines = string.split(content, "\n")
@@ -256,9 +256,9 @@ local function parseModule(
 end
 
 local function processDirectory(
-	modulePath: path.pathlike,
-	documentationPath: path.pathlike,
-	libraryPath: path.pathlike,
+	modulePath: path.Pathlike,
+	documentationPath: path.Pathlike,
+	libraryPath: path.Pathlike,
 	requireLibraryAlias: string
 )
 	fs.createdirectory(documentationPath, { makeparents = true })
@@ -302,7 +302,7 @@ end
 type Module = { name: string, isDir: boolean }
 
 -- Helper to generate index with table of children
-local function generateLibraryIndex(title: string, alias: string, modulePath: path.pathlike): string
+local function generateLibraryIndex(title: string, alias: string, modulePath: path.Pathlike): string
 	local entries = fs.listdirectory(modulePath)
 	local modules: { Module } = {}
 
@@ -343,7 +343,7 @@ local function generateLibraryIndex(title: string, alias: string, modulePath: pa
 	return table.concat(lines, "\n")
 end
 
-local function generateAllDocs(outputDir: path.path, modulePaths: { string }): ()
+local function generateAllDocs(outputDir: path.Path, modulePaths: { string }): ()
 	-- Create top-level reference index page
 	local referenceBasePath = path.join(outputDir, "reference")
 	fs.createdirectory(referenceBasePath, { makeparents = true })

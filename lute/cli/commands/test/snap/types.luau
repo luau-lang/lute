@@ -1,12 +1,12 @@
 local path = require("@std/path")
 
 export type snappass = {
-	filepath: path.path,
+	filepath: path.Path,
 	artifactpath: string,
 }
 
 export type snapfail = {
-	filepath: path.path,
+	filepath: path.Path,
 	artifactpath: string,
 	actual: string,
 	expected: string,
@@ -15,7 +15,7 @@ export type snapfail = {
 }
 
 export type snapnew = {
-	filepath: path.path,
+	filepath: path.Path,
 	artifactpath: string,
 	actual: string,
 }

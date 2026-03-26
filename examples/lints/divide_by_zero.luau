@@ -9,7 +9,7 @@ local utils = require("@std/syntax/utils")
 local name = "divide_by_zero"
 local message = "Division by zero detected."
 
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
+local function lint(ast: syntax.AstStatBlock, sourcepath: path.Path?): { lintTypes.LintViolation }
 	return query
 		.findallfromroot(ast, utils.isExprBinary)
 		:filter(function(bin)
