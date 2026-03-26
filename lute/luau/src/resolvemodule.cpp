@@ -139,6 +139,15 @@ struct LuteTypeCheckVfs
     };
     VFSType vfsType = VFSType::Disk;
 
+    NavigationStatus jumpToAlias(const std::string& path)
+    {
+        if (vfsType == VFSType::Disk)
+        {
+            return fileVfs.jumpToAlias(path);
+        }
+        return resetToPath(path);
+    }
+
     NavigationStatus resetToPath(const std::string& path)
     {
         if (path.rfind("@std", 0) == 0)
@@ -249,7 +258,7 @@ public:
 
     NavigateResult jumpToAlias(const std::string& path) override
     {
-        return convert(vfs.resetToPath(path));
+        return convert(vfs.jumpToAlias(path));
     }
 
     NavigateResult toParent() override
@@ -296,12 +305,6 @@ public:
 
     std::optional<std::string> getAlias(const std::string& alias) const override
     {
-        if (alias == "std")
-            return "@std";
-        if (alias == "lute")
-            return "@lute";
-        if (alias == "batteries")
-            return "@batteries";
         return std::nullopt;
     }
 
