@@ -24,6 +24,7 @@ int createDurationFromSeconds(lua_State* L, double seconds);
 
 namespace duration
 {
+int lua_createduration(lua_State* L);
 int lua_nanoseconds(lua_State* L);
 int lua_microseconds(lua_State* L);
 int lua_milliseconds(lua_State* L);
@@ -34,6 +35,7 @@ int lua_days(lua_State* L);
 int lua_weeks(lua_State* L);
 
 static const luaL_Reg lib[] = {
+    {"create", lua_createduration},
     {"nanoseconds", lua_nanoseconds},
     {"microseconds", lua_microseconds},
     {"milliseconds", lua_milliseconds},

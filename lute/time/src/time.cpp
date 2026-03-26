@@ -12,15 +12,15 @@
 #include <cstdint>
 #include <iterator>
 
-const int64_t NANOSECONDS_PER_SECOND = 1000000000;
-const int64_t MICROSECONDS_PER_SECOND = 1000000;
+const int64_t NANOSECONDS_PER_SECOND = 1'000'000'000;
+const int64_t MICROSECONDS_PER_SECOND = 1'000'000;
 const int64_t MILLISECONDS_PER_SECOND = 1000;
 const int64_t SECONDS_PER_MINUTE = 60;
 const int64_t SECONDS_PER_HOUR = 3600;
-const int64_t SECONDS_PER_DAY = 86400;
-const int64_t SECONDS_PER_WEEK = 604800;
+const int64_t SECONDS_PER_DAY = 86'400;
+const int64_t SECONDS_PER_WEEK = 604'800;
 const int64_t NANOSECONDS_PER_MICROSECOND = 1000;
-const int64_t NANOSECONDS_PER_MILLISECOND = 1000000;
+const int64_t NANOSECONDS_PER_MILLISECOND = 1'000'000;
 
 // Timespec helpers
 static float_t diffTimespecs(uv_timespec64_t left, uv_timespec64_t right)
@@ -50,6 +50,25 @@ double getSecondsFromTimespec(uv_timespec64_t timespec)
     return static_cast<double>(timespec.tv_sec) + static_cast<double>(timespec.tv_nsec) / NANOSECONDS_PER_SECOND;
 }
 
+uv_timespec64_t getTimespecFromSeconds(double seconds)
+{
+	int64_t sec = static_cast<int64_t>(seconds);
+	int32_t nsec = static_cast<int32_t>(fmod(seconds, 1) * NANOSECONDS_PER_SECOND);
+	return {sec, nsec};
+}
+
+uint64_t getNanosecondsFromTimespec(uv_timespec64_t timespec)
+{
+	return timespec.tv_sec * NANOSECONDS_PER_SECOND + timespec.tv_nsec;
+}
+
+uv_timespec64_t getTimespecFromNanoseconds(int64_t nanoseconds)
+{
+	int64_t sec = nanoseconds / NANOSECONDS_PER_SECOND ;
+	int32_t nsec = static_cast<int32_t>(fmod(nanoseconds, NANOSECONDS_PER_SECOND));
+	return {sec, nsec};
+}
+
 // Durations
 
 // returns the address of the timespec from the duration on the stack
@@ -72,7 +91,7 @@ int createDurationFromTimespec(lua_State* L, uv_timespec64_t timespec)
 
 int createDurationFromSeconds(lua_State* L, double seconds)
 {
-    return createDurationFromTimespec(L, {static_cast<int64_t>(seconds), static_cast<int32_t>(fmod(seconds, 1) * NANOSECONDS_PER_SECOND)});
+    return createDurationFromTimespec(L, getTimespecFromSeconds(seconds));
 }
 
 // Duration methods
@@ -86,14 +105,14 @@ static int duration_tonanoseconds(lua_State* L)
 static int duration_tomicroseconds(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, getSecondsFromTimespec(timespec) * MICROSECONDS_PER_SECOND);
+    lua_pushnumber(L, static_cast<double>(timespec.tv_sec) * MICROSECONDS_PER_SECOND + timespec.tv_nsec / NANOSECONDS_PER_MICROSECOND);
     return 1;
 }
 
 static int duration_tomilliseconds(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, getSecondsFromTimespec(timespec) * MILLISECONDS_PER_SECOND);
+    lua_pushnumber(L, static_cast<double>(timespec.tv_sec) * MILLISECONDS_PER_SECOND + timespec.tv_nsec / NANOSECONDS_PER_MILLISECOND);
     return 1;
 }
 
@@ -121,35 +140,35 @@ static int duration_tohours(lua_State* L)
 static int duration_todays(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, getSecondsFromTimespec(timespec) / SECONDS_PER_DAY);
+    lua_pushinteger(L, getSecondsFromTimespec(timespec) / SECONDS_PER_DAY);
     return 1;
 }
 
 static int duration_toweeks(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, getSecondsFromTimespec(timespec) / SECONDS_PER_WEEK);
+    lua_pushinteger(L, getSecondsFromTimespec(timespec) / SECONDS_PER_WEEK);
     return 1;
 }
 
 static int duration_subsecnanos(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, timespec.tv_nsec);
+    lua_pushinteger(L, timespec.tv_nsec);
     return 1;
 }
 
 static int duration_subsecmicros(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, static_cast<double>(timespec.tv_nsec) / NANOSECONDS_PER_MICROSECOND);
+    lua_pushinteger(L, timespec.tv_nsec / NANOSECONDS_PER_MICROSECOND);
     return 1;
 }
 
 static int duration_subsecmillis(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, static_cast<double>(timespec.tv_nsec) / NANOSECONDS_PER_MILLISECOND);
+    lua_pushinteger(L, timespec.tv_nsec / NANOSECONDS_PER_MILLISECOND);
     return 1;
 }
 
@@ -169,7 +188,7 @@ static int duration__add(lua_State* L)
     uv_timespec64_t right = getTimespecFromDuration(L, 2);
 
     uv_timespec64_t result = {left.tv_sec + right.tv_sec, left.tv_nsec + right.tv_nsec};
-    if (result.tv_nsec > NANOSECONDS_PER_SECOND)
+    if (result.tv_nsec >= NANOSECONDS_PER_SECOND)
     {
         result.tv_sec += 1;
         result.tv_nsec -= NANOSECONDS_PER_SECOND;
@@ -190,6 +209,24 @@ static int duration__sub(lua_State* L)
         result.tv_nsec += NANOSECONDS_PER_SECOND;
     }
 
+    return createDurationFromTimespec(L, {result.tv_sec >= 0 ? result.tv_sec : 0, result.tv_nsec >= 0 ? result.tv_nsec : 0});
+}
+
+static int duration__mul(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromDuration(L, 1);
+    double factor = luaL_checknumber(L, 2);
+
+    uv_timespec64_t result = getTimespecFromNanoseconds(getNanosecondsFromTimespec(left) * factor);
+    return createDurationFromTimespec(L, {result.tv_sec >= 0 ? result.tv_sec : 0, result.tv_nsec >= 0 ? result.tv_nsec : 0});
+}
+
+static int duration__div(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromDuration(L, 1);
+    double factor = luaL_checknumber(L, 2);
+
+    uv_timespec64_t result = getTimespecFromNanoseconds(getNanosecondsFromTimespec(left) / factor);
     return createDurationFromTimespec(L, {result.tv_sec >= 0 ? result.tv_sec : 0, result.tv_nsec >= 0 ? result.tv_nsec : 0});
 }
 
@@ -242,17 +279,61 @@ static int instant__sub(lua_State* L)
     return createDurationFromSeconds(L, static_cast<double>(diffTimespecs(left, right)));
 }
 
+static int instant__eq(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromInstant(L, 1);
+    uv_timespec64_t right = getTimespecFromInstant(L, 2);
+
+    lua_pushboolean(L, left.tv_sec == right.tv_sec && left.tv_nsec == right.tv_nsec);
+    return 1;
+}
+
+static int instant__lt(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromInstant(L, 1);
+    uv_timespec64_t right = getTimespecFromInstant(L, 2);
+
+    lua_pushboolean(L, left.tv_sec < right.tv_sec || (left.tv_sec == right.tv_sec && left.tv_nsec < right.tv_nsec));
+    return 1;
+}
+
+static int instant__le(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromInstant(L, 1);
+    uv_timespec64_t right = getTimespecFromInstant(L, 2);
+
+    lua_pushboolean(L, left.tv_sec < right.tv_sec || (left.tv_sec == right.tv_sec && left.tv_nsec <= right.tv_nsec));
+    return 1;
+}
+
 namespace duration
 {
+
+int lua_createduration(lua_State* L)
+{
+    int64_t seconds = luaL_checkinteger(L, 1);
+    int64_t nanoseconds = static_cast<int64_t>(luaL_checkinteger(L, 2));
+    if (seconds < 0 || nanoseconds < 0)
+        luaL_error(L, "duration components cannot be negative");
+
+    if (nanoseconds >= NANOSECONDS_PER_SECOND)
+    {
+        seconds += nanoseconds / NANOSECONDS_PER_SECOND;
+        nanoseconds = fmod(nanoseconds, NANOSECONDS_PER_SECOND);
+    }
+
+    return createDurationFromTimespec(L, {seconds, static_cast<int32_t>(nanoseconds)});
+}
+
 int lua_nanoseconds(lua_State* L)
 {
     // int32_t doesn't have enough precision for nanoseconds
-    int64_t nanoseconds = static_cast<int64_t>(luaL_checknumber(L, 1));
+    int64_t nanoseconds = static_cast<int64_t>(luaL_checkinteger(L, 1));
     if (nanoseconds < 0)
         luaL_error(L, "duration cannot be negative");
 
     int64_t seconds = 0;
-    if (nanoseconds > NANOSECONDS_PER_SECOND)
+    if (nanoseconds >= NANOSECONDS_PER_SECOND)
     {
         seconds = static_cast<int64_t>(nanoseconds / NANOSECONDS_PER_SECOND);
         nanoseconds = static_cast<int64_t>(fmod(nanoseconds, NANOSECONDS_PER_SECOND));
@@ -283,14 +364,9 @@ int lua_milliseconds(lua_State* L)
     if (milliseconds < 0)
         luaL_error(L, "duration cannot be negative");
 
-    int64_t seconds = 0;
-    if (milliseconds > MILLISECONDS_PER_SECOND)
-    {
-        seconds = static_cast<int64_t>(milliseconds / MILLISECONDS_PER_SECOND);
-        milliseconds = fmod(milliseconds, MILLISECONDS_PER_SECOND);
-    }
+    uint64_t nanoseconds = milliseconds * NANOSECONDS_PER_MILLISECOND;
 
-    return createDurationFromTimespec(L, {seconds, static_cast<int32_t>(milliseconds * NANOSECONDS_PER_MILLISECOND)});
+    return createDurationFromTimespec(L, getTimespecFromNanoseconds(nanoseconds));
 }
 
 int lua_seconds(lua_State* L)
@@ -405,6 +481,12 @@ static void init_duration_lib(lua_State* L)
     lua_pushcfunction(L, duration__sub, "Duration__sub");
     lua_setfield(L, -2, "__sub");
 
+    lua_pushcfunction(L, duration__mul, "Duration__mul");
+    lua_setfield(L, -2, "__mul");
+
+    lua_pushcfunction(L, duration__div, "Duration__div");
+    lua_setfield(L, -2, "__div");
+
     lua_pushcfunction(L, duration__eq, "Duration__eq");
     lua_setfield(L, -2, "__eq");
 
@@ -475,6 +557,15 @@ static void init_instant_lib(lua_State* L)
 
     lua_pushcfunction(L, instant__sub, "Instant__sub");
     lua_setfield(L, -2, "__sub");
+
+    lua_pushcfunction(L, instant__eq, "Instant__eq");
+    lua_setfield(L, -2, "__eq");
+
+    lua_pushcfunction(L, instant__lt, "Instant__lt");
+    lua_setfield(L, -2, "__lt");
+
+    lua_pushcfunction(L, instant__le, "Instant__le");
+    lua_setfield(L, -2, "__le");
 
     // __index table
     lua_createtable(L, 0, 2);

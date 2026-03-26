@@ -3,13 +3,13 @@ local types = require("@self/types")
 
 local luau = require("@lute/luau")
 
-export type span = types.span
+export type Span = types.Span
 
 local span = {
 	create = luau.span.create,
 }
 
-function span.subsumes(haystack: span, needle: span): boolean
+function span.subsumes(haystack: Span, needle: Span): boolean
 	return (
 		if haystack.beginline == needle.beginline
 			then haystack.begincolumn <= needle.begincolumn
@@ -63,13 +63,13 @@ export type AstExprIndexExpr = types.AstExprIndexExpr
 
 export type AstExprFunction = types.AstExprFunction
 
-export type AstExprTableItemList = types.AstExprTableItemList
+export type AstTableExprListItem = types.AstTableExprListItem
 
-export type AstExprTableItemRecord = types.AstExprTableItemRecord
+export type AstTableExprRecordItem = types.AstTableExprRecordItem
 
-export type AstExprTableItemGeneral = types.AstExprTableItemGeneral
+export type AstTableExprGeneralItem = types.AstTableExprGeneralItem
 
-export type AstExprTableItem = types.AstExprTableItem
+export type AstTableExprItem = types.AstTableExprItem
 
 export type AstExprTable = types.AstExprTable
 
@@ -151,17 +151,17 @@ export type AstTypeIntersection = types.AstTypeIntersection
 
 export type AstTypeArray = types.AstTypeArray
 
-export type AstTypeTableItemIndexer = types.AstTypeTableItemIndexer
+export type AstTableTypeItemIndexer = types.AstTableTypeItemIndexer
 
-export type AstTypeTableItemStringProperty = types.AstTypeTableItemStringProperty
+export type AstTableTypeItemStringProperty = types.AstTableTypeItemStringProperty
 
-export type AstTypeTableItemProperty = types.AstTypeTableItemProperty
+export type AstTableTypeItemProperty = types.AstTableTypeItemProperty
 
-export type AstTypeTableItem = types.AstTypeTableItem
+export type AstTableTypeItem = types.AstTableTypeItem
 
 export type AstTypeTable = types.AstTypeTable
 
-export type AstTypeFunctionParameter = types.AstTypeFunctionParameter
+export type AstFunctionTypeParameter = types.AstFunctionTypeParameter
 
 export type AstTypeFunction = types.AstTypeFunction
 

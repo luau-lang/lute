@@ -170,6 +170,10 @@ bool runBytecode(
         return false;
     }
 
+    runtime.args.clear();
+    for (int i = 0; i < program_argc; ++i)
+        runtime.args.emplace_back(program_argv[i]);
+
     runtime.GL = GL;
     runtime.runningThreads.push_back({true, getRefForThread(L), program_argc});
 
@@ -624,10 +628,28 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
     return 0;
 }
 
+void setupVersionLibrary(lua_State* L)
+{
+    lua_checkstack(L, 2);
+
+    lua_createtable(L, 0, 3);
+
+    lua_pushstring(L, LUTE_VERSION);
+    lua_setfield(L, -2, "version");
+
+    lua_pushstring(L, LUTE_VERSION_SUFFIX);
+    lua_setfield(L, -2, "versionSuffix");
+
+    lua_pushstring(L, LUTE_VERSION_FULL);
+    lua_setfield(L, -2, "versionFull");
+
+    lua_setglobal(L, "version");
+}
+
 int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, LuteReporter& reporter)
 {
     Runtime runtime;
-    lua_State* L = setupCliCommandState(runtime);
+    lua_State* L = setupCliCommandState(runtime, setupVersionLibrary);
 
     std::string bytecode = Luau::compile(std::string(result.contents), copts());
     return runBytecode(runtime, bytecode, "@" + result.path, L, program_argc, program_argv, reporter) ? 0 : 1;

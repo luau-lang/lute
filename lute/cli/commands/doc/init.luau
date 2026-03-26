@@ -137,11 +137,13 @@ local function collectDocs(content: string, moduleAlias: string): { [string]: st
 	return docMap
 end
 
+type Definition = { name: string, signature: string, doc: string? }
+
 local function generateMarkdown(
 	moduleName: string,
 	definitions: { Definition },
-	filePath: path.pathlike,
-	libraryPath: path.pathlike,
+	filePath: path.Pathlike,
+	libraryPath: path.Pathlike,
 	requireLibraryAlias: string
 ): string
 	local libPathStr = tostring(libraryPath)
@@ -160,7 +162,8 @@ local function generateMarkdown(
 		"",
 	}
 
-	table.sort(definitions, function(a, b)
+	-- LUAUFIX: we should not need to explicitly instantiate the type of `table.sort` here
+	table.sort<<Definition>>(definitions, function(a, b)
 		return a.name < b.name
 	end)
 
@@ -180,7 +183,14 @@ local function generateMarkdown(
 	return table.concat(lines, "\n")
 end
 
+<<<<<<< HEAD
 local function parseModule(moduleAlias: string, filePath: path.pathlike): { Definition }
+=======
+local function parseModule(
+	module: path.Pathlike,
+	filePath: path.Pathlike
+): { { name: string, signature: string, doc: string? } }
+>>>>>>> 12c0ca3956b34eb97a13832fdd76ecf7574387a7
 	local content = fs.readfiletostring(filePath)
 	local docMap = collectDocs(content, moduleAlias)
 
@@ -213,9 +223,9 @@ local function parseModule(moduleAlias: string, filePath: path.pathlike): { Defi
 end
 
 local function processDirectory(
-	modulePath: path.pathlike,
-	documentationPath: path.pathlike,
-	libraryPath: path.pathlike,
+	modulePath: path.Pathlike,
+	documentationPath: path.Pathlike,
+	libraryPath: path.Pathlike,
 	requireLibraryAlias: string
 )
 	fs.createdirectory(documentationPath, { makeparents = true })
@@ -256,10 +266,12 @@ local function processDirectory(
 	end
 end
 
+type Module = { name: string, isDir: boolean }
+
 -- Helper to generate index with table of children
-local function generateLibraryIndex(title: string, alias: string, modulePath: path.pathlike): string
+local function generateLibraryIndex(title: string, alias: string, modulePath: path.Pathlike): string
 	local entries = fs.listdirectory(modulePath)
-	local modules = {}
+	local modules: { Module } = {}
 
 	for _, entry in entries do
 		local name = entry.name
@@ -277,7 +289,8 @@ local function generateLibraryIndex(title: string, alias: string, modulePath: pa
 		end
 	end
 
-	table.sort(modules, function(a, b)
+	-- LUAUFIX: we should not need to explicitly instantiate the type of `table.sort`
+	table.sort<<Module>>(modules, function(a, b)
 		return a.name < b.name
 	end)
 
@@ -297,7 +310,7 @@ local function generateLibraryIndex(title: string, alias: string, modulePath: pa
 	return table.concat(lines, "\n")
 end
 
-local function generateAllDocs(outputDir: path.path, modulePaths: { string }): ()
+local function generateAllDocs(outputDir: path.Path, modulePaths: { string }): ()
 	-- Create top-level reference index page
 	local referenceBasePath = path.join(outputDir, "reference")
 	fs.createdirectory(referenceBasePath, { makeparents = true })

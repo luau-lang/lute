@@ -51,6 +51,6 @@ private:
     std::vector<std::string> extractRequires(const std::string& source);
 
     // Resolve a require path relative to the requiring file
-    std::optional<std::string> resolveRequire(const std::string& requirer, const std::string& required);
+    std::optional<std::string> resolveModule(const std::string& requirer, const std::string& required);
     LuteReporter& reporter;
 };

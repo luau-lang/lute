@@ -26,7 +26,7 @@ local function tag(t: lintTypes.tag): number
 	end
 end
 
-local function getRange(location: syntax.span): lspTypes.Range
+local function getRange(location: syntax.Span): lspTypes.Range
 	return table.freeze({
 		start = table.freeze({
 			line = location.beginline - 1,
@@ -58,7 +58,7 @@ function lsp.diagnostic(lint: lintTypes.LintViolation): lspTypes.Diagnostic
 end
 
 local function workspaceDocumentDiagnosticReport(
-	path: pathLib.path,
+	path: pathLib.Path,
 	violations: { lintTypes.LintViolation }
 ): lspTypes.WorkspaceDocumentDiagnosticReport
 	local report = { items = {}, uri = pathLib.format(path) }
@@ -69,7 +69,7 @@ local function workspaceDocumentDiagnosticReport(
 end
 
 function lsp.workspaceDiagnosticReport(
-	violations: { [pathLib.path]: { lintTypes.LintViolation } }
+	violations: { [pathLib.Path]: { lintTypes.LintViolation } }
 ): lspTypes.WorkspaceDiagnosticReport
 	local report = {
 		items = {},

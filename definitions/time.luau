@@ -14,6 +14,10 @@ end
 
 time.duration = {}
 
+function time.duration.create(seconds: number, subsecnanos: number): Duration
+	error("not implemented")
+end
+
 function time.duration.nanoseconds(nanoseconds: number): Duration
 	error("not implemented")
 end
@@ -100,6 +104,8 @@ export type Duration = setmetatable<Frozen, {
 	read __index: typeof(table.freeze(duration_ops)),
 	read __add: (Duration, Duration) -> Duration,
 	read __sub: (Duration, Duration) -> Duration,
+	read __mul: (Duration, number) -> Duration,
+	read __div: (Duration, number) -> Duration,
 	read __eq: (Duration, Duration) -> boolean,
 	read __lt: (Duration, Duration) -> boolean,
 	read __le: (Duration, Duration) -> boolean,
@@ -109,6 +115,9 @@ export type Instant = setmetatable<Frozen, {
 	read __metatable: "The metatable is locked!",
 	read __index: typeof(table.freeze(instant)),
 	read __sub: (Instant, Instant) -> Duration,
+	read __eq: (Instant, Instant) -> boolean,
+	read __lt: (Instant, Instant) -> boolean,
+	read __le: (Instant, Instant) -> boolean,
 }>
 
 return time

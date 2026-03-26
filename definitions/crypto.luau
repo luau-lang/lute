@@ -1,26 +1,26 @@
 -- lute-lint-global-ignore(unused_variable)
 local crypto = {}
 
-export type hash<T> = { __hash: T }
+export type Hash<T> = { __hash: T }
 
 crypto.hash = table.freeze({
-	md5 = {} :: hash<"md5">,
-	sha1 = {} :: hash<"sha1">,
-	sha256 = {} :: hash<"sha256">,
-	sha512 = {} :: hash<"sha512">,
-	blake2b256 = {} :: hash<"blake2b256">,
+	md5 = {} :: Hash<"md5">,
+	sha1 = {} :: Hash<"sha1">,
+	sha256 = {} :: Hash<"sha256">,
+	sha512 = {} :: Hash<"sha512">,
+	blake2b256 = {} :: Hash<"blake2b256">,
 })
 
 --[[
 	testing the block comment without = here
 ]]
-function crypto.digest(hash: hash<any>, message: string | buffer): buffer
+function crypto.digest(hash: Hash<any>, message: string | buffer): buffer
 	error("not implemented")
 end
 
 crypto.secretbox = {}
 
-export type secretbox = {
+export type SecretBox = {
 	read ciphertext: buffer,
 	read nonce: buffer,
 	read key: buffer,
@@ -33,11 +33,11 @@ function crypto.secretbox.keygen(): buffer
 	error("not implemented")
 end
 
-function crypto.secretbox.seal(message: string | buffer, key: buffer?): secretbox
+function crypto.secretbox.seal(message: string | buffer, key: buffer?): SecretBox
 	error("not implemented")
 end
 
-function crypto.secretbox.open(box: secretbox): buffer
+function crypto.secretbox.open(box: SecretBox): buffer
 	error("not implemented")
 end
 

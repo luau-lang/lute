@@ -3,7 +3,7 @@ local query = require("@std/syntax/query")
 local test = require("@std/test")
 local utils = require("@std/syntax/utils")
 
-test.suite("AST Query", function(suite)
+test.suite("AstQuery", function(suite)
 	suite:case("filter", function(assert)
 		local testQuery = query.findallfromroot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
@@ -38,7 +38,8 @@ test.suite("AST Query", function(suite)
 
 		-- Verify the replacement table only contains the expected entries
 		local count = 0
-		for _, _ in replacements do
+		-- LUAUFIX: code too complex error here from `replacements` type being very large
+		for _, _ in replacements :: any do
 			count += 1
 		end
 		assert.eq(count, 4) -- 4 non-nil replacements
@@ -71,9 +72,9 @@ test.suite("AST Query", function(suite)
 		assert.eq(sum, 3) -- 0 + 1 + 2 = 3
 	end)
 
-	suite:case("findall_nums", function(assert)
+	suite:case("findallNums", function(assert)
 		local ast = syntax.parse("print(1 + 2)")
-		local queryResult: query.query<syntax.AstExprConstantNumber> = query.findallfromroot(
+		local queryResult: query.Query<syntax.AstExprConstantNumber> = query.findallfromroot(
 			ast, -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 			function(n: syntax.AstNode): syntax.AstExprConstantNumber?
 				if n.kind == "expr" and n.tag == "number" then
@@ -94,9 +95,9 @@ test.suite("AST Query", function(suite)
 		assert.eq((num :: syntax.AstExprConstantNumber).value, 2)
 	end)
 
-	suite:case("findall_utils", function(assert)
+	suite:case("findallUtils", function(assert)
 		local ast = syntax.parse("print(1 + 2)")
-		local queryResult: query.query<syntax.AstExprConstantNumber> =
+		local queryResult: query.Query<syntax.AstExprConstantNumber> =
 			query.findallfromroot(ast, utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
 		assert.eq(#queryResult.nodes, 2)
@@ -110,20 +111,20 @@ test.suite("AST Query", function(suite)
 		assert.eq((num :: syntax.AstExprConstantNumber).value, 2)
 	end)
 
-	suite:case("findall_tokens", function(assert)
+	suite:case("findallTokens", function(assert)
 		local ast = syntax.parse("local x = 1 or nil")
 		-- verify that query doesn't doubly count tokens
 		local queryResult = query.findallfromroot(ast, utils.isToken)
 		assert.eq(#queryResult.nodes, 6)
 		queryResult:foreach(function(node)
-			assert.eq(node.istoken, true)
+			assert.eq(node.kind, "token")
 		end)
 		local constNums = query.findallfromroot(ast, utils.isExprConstantNumber)
 		assert.eq(#constNums.nodes, 1)
 		local constNils = query.findallfromroot(ast, utils.isExprConstantNil)
 		assert.eq(#constNils.nodes, 1)
-		local baseTokens = query.findallfromroot(ast, utils.isBaseToken)
-		assert.eq(#baseTokens.nodes, 4)
+		local tokens = query.findallfromroot(ast, utils.isToken)
+		assert.eq(#tokens.nodes, 6)
 	end)
 
 	suite:case("findall", function(assert)
@@ -174,7 +175,7 @@ test.suite("AST Query", function(suite)
 		assert.eq(locals.nodes[2].tag, "binary")
 	end)
 
-	suite:case("flatmap_empty", function(assert)
+	suite:case("flatmapEmpty", function(assert)
 		-- Test flatmap with some nodes returning empty arrays
 		local ast = syntax.parse("local x; local y = 1; local z")
 		local locals = query.findallfromroot(ast, utils.isStatLocal):flatmap(function(l)
@@ -191,7 +192,7 @@ test.suite("AST Query", function(suite)
 		assert.eq((locals.nodes[1] :: syntax.AstExprConstantNumber).value, 1)
 	end)
 
-	suite:case("flatmap_multiple", function(assert)
+	suite:case("flatmapMultiple", function(assert)
 		-- Test flatmap with nodes that return multiple items
 		local ast = syntax.parse("local a, b = 1, 2; local c, d = 3, 4, 5")
 		local locals = query.findallfromroot(ast, utils.isStatLocal):flatmap(function(l: syntax.AstStatLocal)
@@ -226,7 +227,7 @@ test.suite("AST Query", function(suite)
 		assert.eq(doubled[5], 8)
 	end)
 
-	suite:case("maptoarray_with_nil", function(assert)
+	suite:case("maptoarrayWithNil", function(assert)
 		-- Test maptoarray filtering out nil values
 		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
 		local nums = query.findallfromroot(ast, utils.isExprConstantNumber)

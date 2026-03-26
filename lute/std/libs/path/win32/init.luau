@@ -2,19 +2,19 @@ local process = require("@lute/process")
 local win32types = require("@self/types")
 local pathinterface = require("./pathinterface")
 
-export type pathkind = win32types.pathkind
-export type path = win32types.path
-export type pathlike = win32types.pathlike
+export type PathKind = win32types.PathKind
+export type Path = win32types.Path
+export type Pathlike = win32types.Pathlike
 
 local win32 = {}
-win32.pathmt = {} :: pathinterface.pathinterface
+win32.pathmt = {} :: pathinterface.PathInterface
 
-function win32.basename(path: pathlike): string?
+function win32.basename(path: Pathlike): string?
 	path = if typeof(path) == "string" then win32.parse(path) else path
 	return if #path.parts > 0 then path.parts[#path.parts] else nil
 end
 
-function win32.dirname(path: pathlike): string
+function win32.dirname(path: Pathlike): string
 	path = if typeof(path) == "string" then win32.parse(path) else path
 
 	if #path.parts == 0 then
@@ -28,7 +28,7 @@ function win32.dirname(path: pathlike): string
 	end
 end
 
-function win32.extname(path: pathlike): string
+function win32.extname(path: Pathlike): string
 	path = if typeof(path) == "string" then win32.parse(path) else path
 
 	if #path.parts == 0 then
@@ -49,7 +49,7 @@ function win32.extname(path: pathlike): string
 	return filename:sub(dotIndex)
 end
 
-function win32.drive(path: pathlike): path
+function win32.drive(path: Pathlike): Path
 	path = if typeof(path) == "string" then win32.parse(path) else path
 
 	if path.drive == nil then
@@ -61,12 +61,12 @@ function win32.drive(path: pathlike): path
 			parts = {},
 			kind = "absolute",
 			drive = path.drive,
-		} :: win32types.pathdata,
+		} :: win32types.PathData,
 		win32.pathmt
 	)
 end
 
-function win32.format(path: pathlike): string
+function win32.format(path: Pathlike): string
 	if typeof(path) == "string" then
 		return path
 	end
@@ -91,13 +91,13 @@ function win32.format(path: pathlike): string
 	end
 end
 
-function win32.isabsolute(path: pathlike): boolean
+function win32.isabsolute(path: Pathlike): boolean
 	path = if typeof(path) == "string" then win32.parse(path) else path
 	return path.kind ~= "relative"
 end
 
 -- In place extends path with addend
-local function joinHelper(path: path, addend: pathlike): ()
+local function joinHelper(path: Path, addend: Pathlike): ()
 	addend = if typeof(addend) == "string" then win32.parse(addend) else addend
 
 	if addend.kind ~= "relative" then
@@ -119,7 +119,7 @@ local function joinHelper(path: path, addend: pathlike): ()
 	end
 end
 
-function win32.join(...: pathlike): path
+function win32.join(...: Pathlike): Path
 	local parts = { ... }
 	if #parts == 0 then
 		return setmetatable(
@@ -127,17 +127,17 @@ function win32.join(...: pathlike): path
 				parts = {},
 				kind = "relative",
 				drive = nil,
-			} :: win32types.pathdata, -- Cast needed because of table invariance
+			} :: win32types.PathData, -- Cast needed because of table invariance
 			win32.pathmt
 		)
 	end
 
-	local path: path = if typeof(parts[1]) == "string"
+	local path: Path = if typeof(parts[1]) == "string"
 		then win32.parse(parts[1])
 		else setmetatable({
-			parts = table.clone((parts[1] :: path).parts), -- LUAUFIX: Shouldn't need cast, refinement should remove string from possible types of parts[1]
-			kind = (parts[1] :: path).kind, -- LUAUFIX: Shouldn't need cast, refinement should remove string from possible types of parts[1]
-			drive = (parts[1] :: path).drive, -- LUAUFIX: Shouldn't need cast, refinement should remove string from possible types of parts[1]
+			parts = table.clone((parts[1] :: Path).parts), -- LUAUFIX: Shouldn't need cast, refinement should remove string from possible types of parts[1]
+			kind = (parts[1] :: Path).kind, -- LUAUFIX: Shouldn't need cast, refinement should remove string from possible types of parts[1]
+			drive = (parts[1] :: Path).drive, -- LUAUFIX: Shouldn't need cast, refinement should remove string from possible types of parts[1]
 		}, win32.pathmt)
 
 	for i = 2, #parts do
@@ -147,7 +147,7 @@ function win32.join(...: pathlike): path
 	return path
 end
 
-function win32.normalize(path: pathlike): path
+function win32.normalize(path: Pathlike): Path
 	path = if typeof(path) == "string" then win32.parse(path) else path
 
 	local newParts = {}
@@ -178,7 +178,7 @@ function win32.normalize(path: pathlike): path
 	}, win32.pathmt)
 end
 
-function win32.parse(path: pathlike): path
+function win32.parse(path: Pathlike): Path
 	if typeof(path) == "table" then
 		return setmetatable(path, win32.pathmt)
 	end
@@ -186,7 +186,7 @@ function win32.parse(path: pathlike): path
 		error("Expected string or path")
 	end
 
-	local kind: pathkind = "relative"
+	local kind: PathKind = "relative"
 	local driveLetter = nil
 
 	-- Check if path is absolute and if it's a unc path on Windows
@@ -234,7 +234,7 @@ function win32.parse(path: pathlike): path
 	}, win32.pathmt)
 end
 
-function win32.relative(from: pathlike, to: pathlike): path
+function win32.relative(from: Pathlike, to: Pathlike): Path
 	from = if typeof(from) == "string" then win32.parse(from) else from
 	to = if typeof(to) == "string" then win32.parse(to) else to
 
@@ -276,7 +276,7 @@ function win32.relative(from: pathlike, to: pathlike): path
 	}, win32.pathmt)
 end
 
-function win32.resolve(...: pathlike): path
+function win32.resolve(...: Pathlike): Path
 	local parts = { ... }
 	if #parts == 0 then
 		return win32.parse(process.cwd())
@@ -309,7 +309,7 @@ function win32.resolve(...: pathlike): path
 end
 
 function win32.pathmt:__tostring(): string
-	return win32.format(self :: path)
+	return win32.format(self :: Path)
 end
 
 return table.freeze(win32)

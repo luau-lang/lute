@@ -7,13 +7,13 @@ local task = require("@lute/task")
 
 local tasklib = {}
 
-export type task = {
+export type Task = {
 	success: boolean?,
 	result: any,
 	co: thread,
 }
 
-function tasklib.create(f, ...): task
+function tasklib.create(f, ...): Task
 	local data = {}
 
 	data.co = coroutine.create(function(...)
@@ -24,16 +24,16 @@ function tasklib.create(f, ...): task
 	end)
 
 	coroutine.resume(data.co, ...)
-	return data :: task
+	return data :: Task
 end
 
-function tasklib.await(t: task)
+function tasklib.await(t: Task): any
 	if not t.co then
 		error(`await: argument 1 is not a task`)
 	end
 
 	while t.success == nil do
-		task.defer()
+		task.deferSelf()
 	end
 
 	if t.success then
@@ -43,7 +43,7 @@ function tasklib.await(t: task)
 	end
 end
 
-function tasklib.awaitall(...: task)
+function tasklib.awaitall(...: Task): ...unknown
 	local tasks = table.pack(...)
 
 	for i, v in ipairs(tasks) do
@@ -56,17 +56,17 @@ function tasklib.awaitall(...: task)
 
 	while not done do
 		done = true
-		for _, v in tasks do
+		for _, v in ipairs(tasks) do
 			if v.success == nil then
 				done = false
-				task.defer()
+				task.deferSelf()
 			end
 		end
 	end
 
 	local results = {}
 
-	for _, v in tasks do
+	for _, v in ipairs(tasks) do
 		if v.success then
 			table.insert(results, v.result)
 		else

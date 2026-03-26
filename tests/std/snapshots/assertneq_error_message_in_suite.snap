@@ -1,0 +1,17 @@
+
+==================================================
+TEST RESULTS
+==================================================
+
+Failed Tests (1):
+
+❌ neq_failure_suite.neq_error
+	<ROOT>/tests/std/snapshots/assertneq_error_message_in_suite.snap.luau:5
+		neq: 1 == 1
+
+--------------------------------------------------
+Total:  1
+Passed: 0 ✓
+Failed: 1 ✗
+==================================================
+

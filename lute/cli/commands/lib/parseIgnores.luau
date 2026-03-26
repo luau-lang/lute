@@ -134,7 +134,7 @@ function parseIgnores.parseIgnoreContents(location: string, contents: string | {
 	return ignoreData
 end
 
-function parseIgnores.parseGitignore(filepath: path.path): GitignoreData
+function parseIgnores.parseGitignore(filepath: path.Path): GitignoreData
 	local contents = fs.readfiletostring(path.format(filepath))
 	local parentDirectory = if #filepath.parts > 0 then path.dirname(filepath) else nil
 	assert(parentDirectory)

@@ -16,7 +16,7 @@ type ArgData = {
 }
 
 type ParseResult = {
-	values: { [string]: string },
+	values: { [string]: string? },
 	flags: { [string]: boolean },
 	fwdArgs: { string },
 }
@@ -41,7 +41,7 @@ function cli.parser(): Parser
 end
 
 function cli.add(self: Parser, name: string, kind: ArgKind, options: ArgOptions): ()
-	local argument = {
+	local argument: ArgData = {
 		name = name,
 		kind = kind,
 		options = options or { aliases = {}, required = false },

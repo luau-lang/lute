@@ -87,6 +87,9 @@ struct Runtime
 
     Luau::VecDeque<ThreadToContinue> runningThreads;
 
+    // CLI arguments passed after the script filename
+    std::vector<std::string> args;
+
 private:
     std::mutex continuationMutex;
     std::vector<std::function<void()>> continuations;

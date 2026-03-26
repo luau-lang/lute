@@ -3,6 +3,7 @@ local path = require("@std/path")
 local test = require("@std/test")
 local json = require("@std/json")
 local stringext = require("@std/stringext")
+local failure = require("@std/test/failure")
 
 local suiteDir = "tests/std/JSONParsingTestSuite"
 
@@ -25,18 +26,18 @@ test.suite("JSONParsingTestSuite", function(suite)
 
 			if stringext.hasprefix(name, "y_") then
 				-- valid JSON: must parse
-				assert.eq(ok, true)
+				assert.that(ok)
 
 				-- serialize the parsed value and ensure it parses again
 				local _ok2, _ser = pcall(function()
 					return json.serialize(parsed)
 				end)
-				assert.eq(_ok2, true)
+				assert.that(_ok2)
 
 				local _ok3 = pcall(function()
 					json.deserialize(_ser)
 				end)
-				assert.eq(_ok3, true)
+				assert.that(_ok3)
 			elseif stringext.hasprefix(name, "n_") then
 				-- invalid JSON: must fail to parse
 				assert.eq(ok, false)
@@ -47,7 +48,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 		end)
 	end
 
-	suite:case("json_object_and_asobject", function(assert)
+	suite:case("jsonObjectAndAsObject", function(assert)
 		local obj = json.object({
 			name = "Alice",
 			age = 30,
@@ -57,7 +58,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 		assert.eq(obj.age, 30)
 	end)
 
-	suite:case("json_asobject_test", function(assert)
+	suite:case("jsonAsObjectTest", function(assert)
 		local myjsonstr = [[
 		{
 			"a": true,
@@ -73,13 +74,18 @@ test.suite("JSONParsingTestSuite", function(suite)
 
 		if obj then
 			assert.eq(type(obj), "table")
-			assert.eq(obj.a, true)
+			assert.that(obj.a)
 			assert.eq(type(obj.b), "table")
-			if json.asobject(obj.b) then
-				assert.eq(obj.b.c, true)
-				assert.eq(type(obj.b.d), "table")
-				for i = 1, #obj.b.d do
-					assert.eq(type(obj.b.d[i]), "number")
+			local obj_b = json.asobject(obj.b)
+			if obj_b then
+				assert.that(obj_b.c)
+				local obj_b_d = obj_b.d
+				if typeof(obj_b_d) ~= "table" then
+					failure.assertion(`Expected obj.b.d to be a table, was a {typeof(obj_b_d)}`)
+					return
+				end
+				for i = 1, #obj_b_d do
+					assert.eq(type(obj_b_d[i]), "number")
 				end
 			end
 		end

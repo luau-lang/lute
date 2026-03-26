@@ -4,7 +4,7 @@ local time = require("@std/time")
 local duration = time.duration
 
 test.suite("TimeSuite", function(suite)
-	suite:case("constructors_seconds_millis_micros_nanos", function(assert)
+	suite:case("constructorsSecondsMillisMicroNanos", function(assert)
 		-- seconds
 		local d1 = duration.seconds(5)
 		assert.eq(d1:tomilliseconds(), 5000)
@@ -36,7 +36,7 @@ test.suite("TimeSuite", function(suite)
 		assert.eq(d5:subsecnanos(), 0)
 	end)
 
-	suite:case("constructors_minutes_hours_days_weeks", function(assert)
+	suite:case("constructorsMinutesHoursDaysWeeks", function(assert)
 		local mins = duration.minutes(3)
 		assert.eq(mins:toseconds(), 180)
 
@@ -50,25 +50,22 @@ test.suite("TimeSuite", function(suite)
 		assert.eq(weeks:toseconds(), 2 * 7 * 24 * 60 * 60)
 	end)
 
-	suite:case("create_raw_values_and_normalization_via_ops", function(assert)
-		-- create keeps raw values without normalization
+	suite:case("createRawValuesAndNormalizationViaOps", function(assert)
 		local d = duration.create(1, 500_000_000)
 		assert.eq(d:toseconds(), 1.5)
 		assert.eq(d:subsecnanos(), 500_000_000)
 		assert.eq(d:tomilliseconds(), 1500)
 
-		-- if nanoseconds exceed a second, create still allows it
 		local d2 = duration.create(1, 1_500_000_000)
 		assert.eq(d2:toseconds(), 2.5)
-		assert.eq(d2:subsecnanos(), 1_500_000_000)
+		assert.eq(d2:subsecnanos(), 500_000_000)
 
-		-- operations like addition normalize nanoseconds
 		local normalized = d2 + duration.seconds(0)
 		assert.eq(normalized:toseconds(), 2.5)
 		assert.eq(normalized:subsecnanos(), 500_000_000)
 	end)
 
-	suite:case("subsecond_accessors", function(assert)
+	suite:case("subsecondAccessors", function(assert)
 		local d = duration.milliseconds(987)
 		assert.eq(d:subsecmillis(), 987)
 
@@ -79,7 +76,7 @@ test.suite("TimeSuite", function(suite)
 		assert.eq(d3:subsecnanos(), 123_456_789 % 1_000_000_000)
 	end)
 
-	suite:case("conversions_to_ms_us_ns", function(assert)
+	suite:case("conversionsToMsUsNs", function(assert)
 		local d = duration.seconds(2)
 		assert.eq(d:tomilliseconds(), 2000)
 		assert.eq(d:tomicroseconds(), 2_000_000)
@@ -92,7 +89,7 @@ test.suite("TimeSuite", function(suite)
 		assert.eq(mix:tonanoseconds(), 1_801_000_890)
 	end)
 
-	suite:case("addition_normalizes_nanoseconds", function(assert)
+	suite:case("additionNormalizesNanoseconds", function(assert)
 		local a = duration.milliseconds(800)
 		local b = duration.milliseconds(300)
 		local c = a + b
@@ -105,7 +102,7 @@ test.suite("TimeSuite", function(suite)
 		assert.eq(c2:subsecnanos(), 100_000_000)
 	end)
 
-	suite:case("subtraction_borrows_nanoseconds", function(assert)
+	suite:case("subtractionBorrowsNanoseconds", function(assert)
 		local a = duration.milliseconds(1100) -- 1s 100ms
 		local b = duration.milliseconds(200)
 		local c = a - b -- 900ms after borrow
@@ -115,7 +112,7 @@ test.suite("TimeSuite", function(suite)
 		assert.eq(d:tomilliseconds(), 0)
 	end)
 
-	suite:case("multiplication_and_division", function(assert)
+	suite:case("multiplicationAndDivision", function(assert)
 		local a = duration.milliseconds(250)
 		local twice = a * 2
 		assert.eq(twice:tomilliseconds(), 500)
@@ -127,20 +124,20 @@ test.suite("TimeSuite", function(suite)
 		assert.eq(c:tomilliseconds(), 1000)
 	end)
 
-	suite:case("comparisons_and_equality", function(assert)
+	suite:case("comparisonsAndEquality", function(assert)
 		local a = duration.seconds(1)
 		local b = duration.milliseconds(1000)
 		local c = duration.milliseconds(999)
 
-		assert.eq(a == b, true)
+		assert.that(a == b)
 		assert.eq(a == c, false)
-		assert.eq(c < a, true)
-		assert.eq(c <= a, true)
-		assert.eq(a <= b, true)
+		assert.that(c < a)
+		assert.that(c <= a)
+		assert.that(a <= b)
 		assert.eq(a < b, false)
 	end)
 
-	suite:case("tostring_format", function(assert)
+	suite:case("tostringFormat", function(assert)
 		local a = duration.seconds(1)
 		assert.eq(tostring(a), "1.000000000")
 

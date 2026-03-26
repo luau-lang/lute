@@ -1,0 +1,17 @@
+
+==================================================
+TEST RESULTS
+==================================================
+
+Failed Tests (1):
+
+❌ erroreq_error
+	<ROOT>/tests/std/snapshots/assert_error_eq_no_error.snap.luau:4
+		erroreq: Function did not error as expected.
+
+--------------------------------------------------
+Total:  1
+Passed: 0 ✓
+Failed: 1 ✗
+==================================================
+

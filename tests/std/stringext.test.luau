@@ -2,15 +2,15 @@ local stringext = require("@std/stringext")
 local test = require("@std/test")
 
 test.suite("StringExt", function(suite)
-	suite:case("hasprefix_and_hassuffix", function(assert)
-		assert.eq(stringext.hasprefix("hello", "he"), true)
+	suite:case("hasprefixAndHassuffix", function(assert)
+		assert.that(stringext.hasprefix("hello", "he"))
 		assert.eq(stringext.hasprefix("hi", "hello"), false)
 
-		assert.eq(stringext.hassuffix("foobar", "bar"), true)
+		assert.that(stringext.hassuffix("foobar", "bar"))
 		assert.eq(stringext.hassuffix("foo", "foobar"), false)
 	end)
 
-	suite:case("removeprefix_and_removesuffix", function(assert)
+	suite:case("removeprefixAndRemovesuffix", function(assert)
 		assert.eq(stringext.removeprefix("hello", "he"), "llo")
 		assert.eq(stringext.removeprefix("hello", "nope"), "hello")
 

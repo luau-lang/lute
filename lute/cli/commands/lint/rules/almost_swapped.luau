@@ -30,7 +30,7 @@ end
 
 function compFuncs.exprIndexExprsSame(a: syntax.AstExprIndexExpr, b: syntax.AstExprIndexExpr): boolean
 	if a.index.tag == "string" and b.index.tag == "string" then
-		if a.index.text ~= b.index.text then
+		if a.index.token.text ~= b.index.token.text then
 			return false
 		else
 			return compFuncs.refExprsSame(a.expression, b.expression)
@@ -62,7 +62,7 @@ end
 -- a = b; b = a
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	local violations = {}
@@ -89,7 +89,7 @@ local function lint(
 				local currValStr = stringext.trim(printer.printnode(currVal))
 				local suggestedFix = `{currVarStr}, {currValStr} = {currValStr}, {currVarStr}`
 
-				table.insert(violations, {
+				table.insert(violations, { -- LUAUFIX: inserted table isn't inferred as a LintViolation
 					lintname = name,
 					location = syntax.span.create({
 						beginline = currStat.location.beginline,

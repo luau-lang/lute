@@ -42,6 +42,12 @@ function utils.isExprCall(n: types.AstNode): types.AstExprCall?
 	return if n.kind == "expr" and n.tag == "call" then n else nil
 end
 
+function utils.isRequireCall(n: types.AstNode): types.AstExprCall?
+	local call = utils.isExprCall(n)
+	local global = call and utils.isExprGlobal(call.func)
+	return if global and global.name.text == "require" then call else nil
+end
+
 function utils.isExprIndexName(n: types.AstNode): types.AstExprIndexName?
 	return if n.kind == "expr" and n.tag == "indexname" then n else nil
 end
@@ -58,8 +64,8 @@ function utils.isExprTable(n: types.AstNode): types.AstExprTable?
 	return if n.kind == "expr" and n.tag == "table" then n else nil
 end
 
-function utils.isExprTableItem(n: types.AstNode): types.AstExprTableItem?
-	return if n.istableitem then n else nil
+function utils.isTableExprItem(n: types.AstNode | types.AstTableExprItem): types.AstTableExprItem?
+	return if (n :: types.AstTableExprItem).istableitem then n :: types.AstTableExprItem else nil
 end
 
 function utils.isExprUnary(n: types.AstNode): types.AstExprUnary?
@@ -231,14 +237,10 @@ function utils.isTypePack(n: types.AstNode): types.AstTypePack?
 end
 
 function utils.isToken(n: types.AstNode): types.Token?
-	return if n.istoken then n else nil
+	return if n.kind == "token" then n else nil
 end
 
-function utils.isBaseToken(n: types.AstNode): types.Token?
-	return if n.istoken and not n.kind then n else nil
-end
-
-function utils.isAttribute(n: types.AstAttribute): types.AstAttribute?
+function utils.isAttribute(n: types.AstNode): types.AstAttribute?
 	return if n.kind == "attribute" then n else nil
 end
 

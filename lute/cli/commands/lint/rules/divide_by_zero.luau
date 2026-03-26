@@ -14,7 +14,7 @@ end
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query
@@ -32,10 +32,10 @@ local function lint(
 				local suggestedfix = nil
 				if n.operator.text == "/" or n.operator.text == "//" then
 					if isZeroLiteral(n.lhsoperand) then
-						return nil
+						suggestedfix = table.freeze({ fix = "math.nan" })
 					elseif n.lhsoperand.tag == "unary" and n.lhsoperand.operator.text == "-" then
 						if isZeroLiteral(n.lhsoperand.operand) then
-							suggestedfix = table.freeze({ fix = "0 / 0" })
+							suggestedfix = table.freeze({ fix = "math.nan" })
 						else
 							suggestedfix = table.freeze({ fix = "-math.huge" })
 						end
@@ -43,7 +43,7 @@ local function lint(
 						suggestedfix = table.freeze({ fix = "math.huge" })
 					end
 				elseif n.operator.text == "%" then
-					suggestedfix = table.freeze({ fix = "0 / 0" })
+					suggestedfix = table.freeze({ fix = "math.nan" })
 				end
 
 				return {

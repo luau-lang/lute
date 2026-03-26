@@ -1,5 +1,8 @@
 local rt = require("@batteries/richterm")
+local path = require("@std/path")
 local tys = require("@std/test/types")
+local snapty = require("./snap/types")
+local snapsty = require("./snap/styles")
 
 local function splitStacktrace(stacktrace: string): { string }
 	local lines = {}
@@ -20,7 +23,7 @@ local location = rt.cyan
 local dim = rt.dim
 local separator = dim
 
-local function printFailure(failed: tys.failedtest)
+local function printFailure(failed: tys.FailedTest)
 	print(fail("  FAIL ") .. testname(failed.test))
 	if failed.failure.__tag == "assertion" then
 		print(location(`\t{failed.failure.filename}:{failed.failure.linenumber}`))
@@ -37,7 +40,7 @@ local function printFailure(failed: tys.failedtest)
 	end
 end
 
-local function printSummary(result: tys.testrunresult)
+local function printSummary(result: tys.TestRunResult)
 	print(separator(string.rep("─", 50)))
 	print(
 		rt.bold("Results: ")
@@ -48,7 +51,7 @@ local function printSummary(result: tys.testrunresult)
 	)
 end
 
-local function colorReporter(result: tys.testrunresult)
+local function colorReporter(result: tys.TestRunResult)
 	if #result.failures > 0 then
 		print("")
 		print(fail("Failures:"))
@@ -62,4 +65,44 @@ local function colorReporter(result: tys.testrunresult)
 	printSummary(result)
 end
 
-return { color = colorReporter }
+local function snapReporter(result: snapty.snapresult)
+	local total = #result.passed + #result.failed + #result.new
+
+	for _, p in result.passed do
+		print(snapsty.pass("\tPASS ") .. snapsty.filepath(path.format(p.filepath)))
+	end
+
+	for _, n in result.new do
+		print(snapsty.newstyle("\tNEW ") .. snapsty.filepath(path.format(n.filepath)))
+	end
+
+	if #result.failed > 0 then
+		print("")
+		print(snapsty.fail("Failures:"))
+		print("")
+		for _, f in result.failed do
+			print(snapsty.fail("\tFAIL ") .. snapsty.filepath(path.format(f.filepath)))
+			print("")
+			if f.stderr and f.stderr ~= "" then
+				print(snapsty.dim(`Failed to execute test process with err {f.stderr}`))
+				print("")
+			end
+
+			print(f.diff)
+			print("")
+		end
+	end
+
+	print(separator(string.rep("─", 50)))
+	local parts = {}
+	table.insert(parts, snapsty.pass(`{#result.passed} passed`))
+	if #result.new > 0 then
+		table.insert(parts, snapsty.newstyle(`{#result.new} new`))
+	end
+	if #result.failed > 0 then
+		table.insert(parts, snapsty.fail(`{#result.failed} failed`))
+	end
+	print(snapsty.bold("Snapshots: ") .. table.concat(parts, snapsty.dim(", ")) .. snapsty.dim(` of {total}`))
+end
+
+return table.freeze({ color = colorReporter, snap = snapReporter })

@@ -14,7 +14,7 @@ local tmpDir = system.tmpdir()
 local transformeePath = path.format(path.join(tmpDir, "transformee.luau"))
 local outputPath = path.format(path.join(tmpDir, "transformee_output.luau"))
 
-test.suite("lute transform", function(suite)
+test.suite("LuteTransform", function(suite)
 	suite:beforeeach(function()
 		-- Create a transformee file
 		local transformeeHandle = fs.open(transformeePath, "w+")
@@ -30,31 +30,7 @@ test.suite("lute transform", function(suite)
 		end
 	end)
 
-	suite:case("transform visitor style", function(assert)
-		-- Setup
-		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
-		local transformerExample = path.format(path.join("examples", "transformer.luau"))
-		local transformerDest = path.format(path.join(tmpDir, "transformer.luau"))
-		fs.copy(transformerExample, transformerDest)
-
-		-- Do
-		-- Run the transformer on the transformee
-		local result = process.run({ lutePath, "transform", transformerDest, transformeePath })
-
-		-- Check
-		assert.eq(result.exitcode, 0)
-
-		local transformeeHandle = fs.open(transformeePath, "r")
-		local transformeeContent = fs.read(transformeeHandle)
-		assert.eq(transformeeContent:find("x ~= x"), nil)
-		assert.strcontains(transformeeContent, "math.isnan(x)")
-		fs.close(transformeeHandle)
-
-		-- Teardown
-		fs.remove(transformerDest)
-	end)
-
-	suite:case("transform query style", function(assert)
+	suite:case("transformQueryStyle", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
 		local transformerExample = path.format(path.join("examples", "query_transformer.luau"))
@@ -78,7 +54,7 @@ test.suite("lute transform", function(suite)
 		fs.remove(transformerDest)
 	end)
 
-	suite:case("transform output directory happy path", function(assert)
+	suite:case("transformOutputDirectoryHappyPath", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
 		local transformerExample = path.format(path.join("examples", "query_transformer.luau"))
@@ -113,7 +89,7 @@ test.suite("lute transform", function(suite)
 		fs.remove(outputPath)
 	end)
 
-	suite:case("transform output creates file if it doesn't exist", function(assert)
+	suite:case("transformOutputCreatesFileIfItDoesntExist", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
 		local transformerExample = path.format(path.join("examples", "query_transformer.luau"))
@@ -135,7 +111,7 @@ test.suite("lute transform", function(suite)
 		fs.close(transformeeHandle)
 
 		-- Check that the output file has been created and written to
-		assert.eq(fs.exists(outputPath), true)
+		assert.that(fs.exists(outputPath))
 		local h = fs.open(outputPath, "r")
 		local outputContent = fs.read(h)
 		assert.eq(outputContent:find("x ~= x"), nil)

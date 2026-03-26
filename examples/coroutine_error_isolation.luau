@@ -2,7 +2,7 @@ local task = require("@lute/task")
 
 local function loop()
 	while true do
-		task.defer()
+		task.deferSelf()
 
 		-- It may be useful to remove this print because it gets spammed, or implement another way
 		-- in which you can determinatively tell whether or not the thread is still active despite
@@ -13,7 +13,7 @@ end
 
 local function otherloop()
 	while true do
-		task.defer()
+		task.deferSelf()
 
 		if math.random(1, 2) == 1 then
 			error("oops")

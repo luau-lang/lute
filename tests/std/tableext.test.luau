@@ -2,7 +2,7 @@ local tableext = require("@std/tableext")
 local test = require("@std/test")
 
 test.suite("TableExt", function(suite)
-	suite:case("map_and_filter", function(assert)
+	suite:case("mapAndFilter", function(assert)
 		local t: { [string]: number } = { a = 1, b = 2, c = 3 }
 		local mapped = tableext.map(t, function(v: number)
 			return v * 2
@@ -66,10 +66,10 @@ test.suite("TableExt", function(suite)
 	suite:case("toset", function(assert)
 		local a = { 1, 2, 4, 2, 1 }
 		local setA = tableext.toset(a)
-		assert.eq(setA[1], true)
-		assert.eq(setA[2], true)
+		assert.that(setA[1])
+		assert.that(setA[2])
 		assert.eq(setA[3], nil)
-		assert.eq(setA[4], true)
+		assert.that(setA[4])
 		assert.eq(setA[5], nil)
 
 		local setSize = #tableext.keys(setA)
@@ -80,19 +80,19 @@ test.suite("TableExt", function(suite)
 
 		local foundKeys: { number } = {}
 		for key, value in setA do
-			assert.eq(value, true)
+			assert.that(value)
 			table.insert(foundKeys, key)
 		end
 		assert.eq(#foundKeys, setSize)
-		assert.eq(setA[foundKeys[1]], true)
-		assert.eq(setA[foundKeys[2]], true)
-		assert.eq(setA[foundKeys[3]], true)
+		assert.that(setA[foundKeys[1]])
+		assert.that(setA[foundKeys[2]])
+		assert.that(setA[foundKeys[3]])
 
 		local b = { "a", "b", "c", "a" }
 		local setB = tableext.toset(b)
-		assert.eq(setB["a"], true)
-		assert.eq(setB["b"], true)
-		assert.eq(setB["c"], true)
+		assert.that(setB["a"])
+		assert.that(setB["b"])
+		assert.that(setB["c"])
 		assert.eq(setB["d"], nil)
 		assert.eq(#tableext.keys(setB), 3)
 		assert.neq(#tableext.keys(setB), #b)
@@ -107,7 +107,7 @@ test.suite("TableExt", function(suite)
 		local hasEven = tableext.any(a, function(v: number)
 			return v % 2 == 0
 		end)
-		assert.eq(hasEven, true)
+		assert.that(hasEven)
 
 		local hasGreaterThanFive = tableext.any(a, function(v: number)
 			return v > 5
@@ -126,7 +126,7 @@ test.suite("TableExt", function(suite)
 		local allEven = tableext.all(a, function(v: number)
 			return v % 2 == 0
 		end)
-		assert.eq(allEven, true)
+		assert.that(allEven)
 
 		local allLessThanEight = tableext.all(a, function(v: number)
 			return v < 8
@@ -137,6 +137,6 @@ test.suite("TableExt", function(suite)
 		local allInEmpty = tableext.all(a, function(_: number)
 			return false
 		end)
-		assert.eq(allInEmpty, true)
+		assert.that(allInEmpty)
 	end)
 end)

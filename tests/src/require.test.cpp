@@ -210,6 +210,8 @@ TEST_CASE_FIXTURE(LuteFixture, "require_by_string_semantics_in_cli")
             joinPaths(luteProjectRoot, "tests/src/require/without_config/nested/init.luau"),
             joinPaths(luteProjectRoot, "tests/src/require/without_config/nested/submodule"),
             joinPaths(luteProjectRoot, "tests/src/require/without_config/nested/submodule.luau"),
+            joinPaths(luteProjectRoot, "tests/src/require/config_tests/with_config/src/unprefixed_relative_alias/requirer.luau"),
+            joinPaths(luteProjectRoot, "tests/src/require/config_tests/with_config_luau/src/unprefixed_relative_alias/requirer.luau"),
         };
 
         for (std::string& inputPath : inputPaths)

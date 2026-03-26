@@ -9,7 +9,7 @@ local args = { ... }
 assert(#args == 2, "Expected one argument: path to Luau script to require")
 
 local luau = require("@std/luau")
-local result = luau.loadbypath(args[2])
+local result = luau.loadModule(args[2])
 print(result)
 ]]
 
@@ -21,14 +21,14 @@ local tmpDirStr = system.tmpdir()
 local testDir = path.join(tmpDirStr, "lute_require_test")
 local testDirStr = path.format(testDir)
 
-test.suite("Lute CLI Run", function(suite)
+test.suite("LuteCliRun", function(suite)
 	suite:beforeall(function()
 		if not fs.exists(testDirStr) then
 			fs.createdirectory(testDirStr)
 		end
 	end)
 
-	suite:case("loadbypath", function(check)
+	suite:case("loadModule", function(check)
 		-- Setup
 		-- Create files
 		local requirerPath = path.format(path.join(testDir, "requirer.luau"))
