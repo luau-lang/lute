@@ -40,7 +40,7 @@ TEST_CASE("moduleresolver_resolve_for_typecheck")
         auto resolved = resolveForTypeCheck("@batteries/base64", mainLuau, &error);
         if (resolved)
         {
-            REQUIRE_FALSE("This shouldn't resolve successfully - you might need to delete the .luaurc and replace it with the .luaurc.ci");
+            REQUIRE_FALSE_MESSAGE(false, "This shouldn't resolve successfully - you might need to delete the .luaurc and replace it with the .luaurc.ci");
         }
         CHECK(!error.empty());
         CHECK(!resolved.has_value());
