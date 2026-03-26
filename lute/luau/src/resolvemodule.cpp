@@ -90,7 +90,7 @@ NC::NavigateResult FileVfsContext::resetToRequirer()
 
 NC::NavigateResult FileVfsContext::jumpToAlias(const std::string& path)
 {
-    return convert(vfs.resetToPath(path));
+    return convert(vfs.jumpToAlias(path));
 }
 
 NC::NavigateResult FileVfsContext::toParent()
