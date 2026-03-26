@@ -7,13 +7,19 @@ local task = require("@lute/task")
 ## task.defer
 
 ```luau
+<T..., U...>((T...) -> (U...) | thread, T...) -> (thread)
+```
+
+## task.deferSelf
+
+```luau
 () -> (unknown...)
 ```
 
 ## task.delay
 
 ```luau
-<T..., U...>(number | {}, (T...) -> (U...), T...) -> (thread)
+<T..., U...>(number | {}, thread | (T...) -> (U...), T...) -> (thread)
 ```
 
 ## task.resume

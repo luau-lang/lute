@@ -4,6 +4,12 @@
 local process = require("@lute/process")
 ```
 
+## process.args
+
+```luau
+{ [number]: any }
+```
+
 ## process.cwd
 
 ```luau

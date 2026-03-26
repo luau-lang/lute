@@ -137,8 +137,6 @@ local function collectDocs(content: string, moduleAlias: string): { [string]: st
 	return docMap
 end
 
-type Definition = { name: string, signature: string, doc: string? }
-
 local function generateMarkdown(
 	moduleName: string,
 	definitions: { Definition },
@@ -183,16 +181,12 @@ local function generateMarkdown(
 	return table.concat(lines, "\n")
 end
 
-<<<<<<< HEAD
-local function parseModule(moduleAlias: string, filePath: path.pathlike): { Definition }
-=======
 local function parseModule(
 	module: path.Pathlike,
 	filePath: path.Pathlike
 ): { { name: string, signature: string, doc: string? } }
->>>>>>> 12c0ca3956b34eb97a13832fdd76ecf7574387a7
 	local content = fs.readfiletostring(filePath)
-	local docMap = collectDocs(content, moduleAlias)
+	local docMap = collectDocs(content, module)
 
 	local tp = luau.typeofmodule(filePath)
 	if not tp or not tp.head or #tp.head == 0 then
@@ -208,7 +202,7 @@ local function parseModule(
 
 	for name, prop in pairs(moduleType.properties) do
 		if prop.read then
-			print(`Processing definition: {moduleAlias}.{name}`)
+			print(`Processing definition: {module}.{name}`)
 			local sig = typeprinter.renderType(prop.read)
 			print(`Signature: {sig}`)
 			table.insert(moduleDefinitions, {
