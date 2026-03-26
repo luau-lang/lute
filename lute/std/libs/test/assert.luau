@@ -63,14 +63,6 @@ local function tablesEqual(t1: unknown, t2: unknown, path: string): (boolean, st
 	return true, nil
 end
 
-local function eq<T>(lhs: T, rhs: T, msg: string?): Failure?
-	if lhs == rhs then
-		return nil
-	end
-
-	return assertion(msg or `{lhs} ~= {rhs}`)
-end
-
 local function neq<T>(lhs: T, rhs: T, msg: string?): Failure?
 	if lhs ~= rhs then
 		return nil
@@ -144,6 +136,30 @@ local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: s
 	end
 
 	return nil
+end
+
+local function eq<T>(lhs: unknown, rhs: unknown, msg: string?): Failure?
+	-- Simple equality check for non-tables
+	if lhs == rhs then
+		return nil
+	end
+
+	-- Handle type mismatch
+	if typeof(lhs) ~= typeof(rhs) then
+		return assertion(msg or `lhs is of type {typeof(lhs)}, but rhs is of type {typeof(rhs)}`)
+	end
+
+	-- Check for buffer equality
+	if typeof(lhs) == "buffer" then
+		return buffereq(lhs :: buffer, rhs :: buffer)
+	end
+
+	-- Check for table equality
+	if typeof(lhs) == "table" then
+		return tableeq(lhs :: { [any]: any }, rhs :: { [any]: any })
+	end
+
+	return assertion(msg or `{lhs} ~= {rhs}`)
 end
 
 local function strcontains(haystack: string, needle: string, instances: number?, msg: string?): Failure?

@@ -72,7 +72,7 @@ test.suite("ProcessSuite", function(suite)
 	suite:case("runNonzeroExitcode", function(assert)
 		-- LUAUFIX: we shouldn't need to upcast the result of `process.run` to `{ [any]: any }`
 		local r = process.run({ "sh", "-c", "exit 41" }) :: { [any]: any }
-		assert.tableeq(r, {
+		assert.eq(r, {
 			exitcode = 41,
 			stdout = "",
 			stderr = "",

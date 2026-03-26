@@ -54,13 +54,13 @@ test.suite("TableExt", function(suite)
 		-- in-place
 		local a = { 1, 2, 3 }
 		tableext.reverse(a, true)
-		assert.tableeq(a, { 3, 2, 1 })
+		assert.eq(a, { 3, 2, 1 })
 
 		-- return new
 		local b = { 4, 5, 6 }
 		local c = tableext.reverse(b)
-		assert.tableeq(b, { 4, 5, 6 })
-		assert.tableeq(c, { 6, 5, 4 })
+		assert.eq(b, { 4, 5, 6 })
+		assert.eq(c, { 6, 5, 4 })
 	end)
 
 	suite:case("toset", function(assert)

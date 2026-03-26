@@ -7,6 +7,7 @@ test.suite("buffereq_failure_suite", function(suite)
 		buffer.writeu8(buf1, 0, 84)
 		buffer.writeu8(buf2, 0, 85)
 		assert.buffereq(buf1, buf2)
+		assert.eq(buf1, buf2)
 	end)
 end)
 
