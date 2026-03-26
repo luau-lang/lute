@@ -86,6 +86,9 @@ NC::NavigateResult FileVfsContext::resetToRequirer()
 
 NC::NavigateResult FileVfsContext::jumpToAlias(const std::string& path)
 {
+    if (isBarePath(path))
+        return convert(walkBarePath(path, vfs));
+
     return convert(vfs.resetToPath(path));
 }
 

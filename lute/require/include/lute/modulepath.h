@@ -3,6 +3,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 
 enum class NavigationStatus
 {
@@ -10,6 +11,29 @@ enum class NavigationStatus
     Ambiguous,
     NotFound
 };
+
+bool isBarePath(std::string_view path);
+
+template<typename Vfs>
+NavigationStatus walkBarePath(std::string_view path, Vfs& vfs)
+{
+    NavigationStatus status = NavigationStatus::Success;
+    while (!path.empty())
+    {
+        size_t sep = path.find('/');
+        std::string_view component = (sep == std::string_view::npos) ? path : path.substr(0, sep);
+
+        if (component == "..")
+            status = vfs.toParent();
+        else if (component != ".")
+            status = vfs.toChild(std::string(component));
+
+        if (status != NavigationStatus::Success)
+            return status;
+        path = (sep == std::string_view::npos) ? std::string_view{} : path.substr(sep + 1);
+    }
+    return status;
+}
 
 enum class ConfigStatus
 {

@@ -209,3 +209,23 @@ NavigationStatus ModulePath::toChild(const std::string& name)
 
     return getRealPath().status;
 }
+
+bool isBarePath(std::string_view path)
+{
+    if (path.empty())
+        return false;
+    // Absolute, tilde, or alias-prefixed paths are not implicitly relative.
+    if (path[0] == '@' || path[0] == '/' || path[0] == '~')
+        return false;
+    // Windows absolute path.
+    if (path.size() >= 2 && path[1] == ':')
+        return false;
+    // Paths starting with "./" or "../" are already explicitly relative and
+    // handled correctly by Luau's navigator, so only "." and ".." without a
+    // trailing slash, and bare names like "src", need implicit treatment.
+    if (path.size() >= 2 && path[0] == '.' && path[1] == '/')
+        return false;
+    if (path.size() >= 3 && path[0] == '.' && path[1] == '.' && path[2] == '/')
+        return false;
+    return true;
+}

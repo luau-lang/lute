@@ -53,6 +53,8 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
     switch (vfsType)
     {
     case VFSType::Userland:
+        if (isBarePath(path))
+            return walkBarePath(path, userlandVfs);
         status = userlandVfs.resetToPath(std::string(path));
         break;
     case VFSType::Std:

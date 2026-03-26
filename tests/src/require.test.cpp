@@ -148,6 +148,11 @@ TEST_CASE_FIXTURE(LuteFixture, "require_modules")
             );
         }
 
+        SUBCASE("bare_alias_is_implicitly_relative")
+        {
+            doPassingSubcase(argv, {"./config_tests/bare_alias/requirer"}, {"result from bare alias module"});
+        }
+
         SUBCASE("lute_modules")
         {
             doPassingSubcase(argv, {"./lute/lute"}, {"successfully required @lute modules"});
