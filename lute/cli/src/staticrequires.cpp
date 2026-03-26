@@ -137,14 +137,14 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
         // Store the resolved dependencies in the graph
         requireGraph[filePath] = std::move(resolvedDeps);
     }
-    
+
     // Include .luaurc files in the lowest common root calculation
     std::vector<std::string> allPaths = discovered;
     for (const auto& luaurcPath : luaurcAbsolutePaths)
     {
         allPaths.push_back(luaurcPath);
     }
-    
+
     lowestCommonRoot = findLowestCommonRoot(allPaths);
 
     // Convert absolute .luaurc paths to LCR-relative .luaurc paths and read their content
