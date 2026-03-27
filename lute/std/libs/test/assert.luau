@@ -131,7 +131,7 @@ local function buffereq(lhs: buffer, rhs: buffer): Failure?
 	return nil
 end
 
-local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...): Failure?
+local function throws<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...): Failure?
 	local success, err = pcall(func, ...)
 	if success then
 		return assertion("Function did not error as expected.")
@@ -194,7 +194,7 @@ return table.freeze({
 	errors = reqassert(errors),
 	tableeq = reqassert(tableeq),
 	buffereq = reqassert(buffereq),
-	erroreq = reqassert(erroreq),
+	throws = reqassert(throws),
 	strcontains = reqassert(strcontains),
 	strnotcontains = reqassert(strnotcontains),
 	that = reqassert(that),
