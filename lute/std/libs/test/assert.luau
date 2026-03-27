@@ -89,6 +89,8 @@ local function errors(callback: () -> (), msg: string?): Failure?
 	return assertion(msg or `{callback} did not throw error.`)
 end
 
+-- FIXME(Luau): We would like this to be two read-only indexers, but the
+-- best option we have otherwise is two error suppressing indexers.
 -- Table equality assertionsion with deep comparison
 local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }): Failure?
 	local equal, msg = tablesEqual(lhs, rhs, "")
@@ -138,7 +140,7 @@ local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: s
 	return nil
 end
 
-local function eq<T>(lhs: unknown, rhs: unknown, msg: string?): Failure?
+local function eq(lhs: unknown, rhs: unknown, msg: string?): Failure?
 	-- Simple equality check for non-tables
 	if lhs == rhs then
 		return nil
@@ -208,8 +210,6 @@ return table.freeze({
 	eq = reqassert(eq),
 	neq = reqassert(neq),
 	errors = reqassert(errors),
-	tableeq = reqassert(tableeq),
-	buffereq = reqassert(buffereq),
 	erroreq = reqassert(erroreq),
 	strcontains = reqassert(strcontains),
 	strnotcontains = reqassert(strnotcontains),

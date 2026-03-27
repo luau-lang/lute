@@ -133,84 +133,6 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.eqTableEqErrorMessageInCase", function(assert)
-		assertErrorsWithMsg(
-			"assert_eq_fails",
-			[[
-local test = require("@std/test")
-
-test.case("eqOnTableError", function(assert)
-	assert.eq({ a = 1 }, { a = 2 })
-end)
-
-test.run()
-			]],
-			"tableeq: lhs[a] = 1 but rhs[a] = 2",
-			assert
-		)
-	end)
-
-	suite:case("assert.eqTableEqErrorMessageInSuite", function(assert)
-		assertErrorsWithMsg(
-			"assert_eq_fails",
-			[[
-local test = require("@std/test")
-
-test.suite("eq_failure_suite", function(suite)
-	suite:case("eqOnTableError", function(assert)
-		assert.eq({ a = 1 }, { a = 2 })
-	end)
-end)
-
-test.run()
-			]],
-			"tableeq: lhs[a] = 1 but rhs[a] = 2",
-			assert
-		)
-	end)
-
-	suite:case("assert.eqBufferEqUnequalLength", function(assert)
-		assertErrorsWithMsg(
-			"assert_eq_fails",
-			[[
-local test = require("@std/test")
-
-test.case("eqOnBufferError", function(assert)
-	local buf1 = buffer.create(1)
-	local buf2 = buffer.create(2)
-	assert.eq(buf1, buf2)
-end)
-
-test.run()
-			]],
-			"buffers are of unequal length",
-			assert
-		)
-	end)
-
-	suite:case("assert.eqBufferEqErrorMessageInSuite", function(assert)
-		assertErrorsWithMsg(
-			"assert_eq_fails",
-			[[
-local test = require("@std/test")
-
-test.suite("buffereq_failure_suite", function(suite)
-	suite:case("eqOnBufferError", function(assert)
-		local buf1 = buffer.create(2)
-		local buf2 = buffer.create(2)
-		buffer.writeu8(buf1, 0, 84)
-		buffer.writeu8(buf2, 0, 85)
-		assert.eq(buf1, buf2)
-	end)
-end)
-
-test.run()
-			]],
-			"buffereq: lhs[0] = 54, but rhs[0] = 55",
-			assert
-		)
-	end)
-
 	suite:case("assert.neqErrorMessageInCase", function(assert)
 		assertErrorsWithMsg(
 			"assert_neq_fails",
@@ -254,7 +176,7 @@ test.run()
 local test = require("@std/test")
 
 test.case("tableeqError", function(assert)
-	assert.tableeq({ a = 1 }, { a = 2 })
+	assert.eq({ a = 1 }, { a = 2 })
 end)
 
 test.run()
@@ -272,7 +194,7 @@ local test = require("@std/test")
 
 test.suite("tableeq_failure_suite", function(suite)
 	suite:case("tableeqError", function(assert)
-		assert.tableeq({ a = 1 }, { a = 2 })
+		assert.eq({ a = 1 }, { a = 2 })
 	end)
 end)
 
@@ -292,7 +214,7 @@ local test = require("@std/test")
 test.case("buffereqError", function(assert)
 	local buf1 = buffer.create(1)
 	local buf2 = buffer.create(2)
-	assert.buffereq(buf1, buf2)
+	assert.eq(buf1, buf2)
 end)
 
 test.run()
@@ -314,7 +236,7 @@ test.suite("buffereq_failure_suite", function(suite)
 		local buf2 = buffer.create(2)
 		buffer.writeu8(buf1, 0, 84)
 		buffer.writeu8(buf2, 0, 85)
-		assert.buffereq(buf1, buf2)
+		assert.eq(buf1, buf2)
 	end)
 end)
 

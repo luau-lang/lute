@@ -30,10 +30,6 @@ export type Asserts = {
 	eq: <T>(T, T, string?) -> Failure?,
 	neq: <T>(T, T, string?) -> Failure?,
 	errors: (() -> (), string?) -> Failure?,
-	-- FIXME(Luau): We would like this to be two read-only indexers, but the
-	-- best option we have otherwise is two error suppressing indexers.
-	tableeq: ({ [any]: any }, { [any]: any }) -> Failure?,
-	buffereq: (buffer, buffer) -> Failure?,
 	erroreq: <A...>((A...) -> ...unknown, string, A...) -> Failure?,
 	strcontains: (string, string, number?, string?) -> Failure?,
 	strnotcontains: (string, string, string?) -> Failure?,

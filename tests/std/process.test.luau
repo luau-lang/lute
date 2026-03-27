@@ -44,14 +44,14 @@ test.suite("ProcessSuite", function(suite)
 
 		if system.win32 then
 			assert(root ~= nil and (root :: windowsPath.Path).drive ~= nil)
-			check.tableeq(r, {
+			check.eq(r, {
 				exitcode = 0,
 				stdout = `/{root.drive:lower()}\n`,
 				stderr = "",
 				ok = true,
 			})
 		else
-			check.tableeq(r, {
+			check.eq(r, {
 				exitcode = 0,
 				stdout = "/\n",
 				stderr = "",
@@ -61,7 +61,7 @@ test.suite("ProcessSuite", function(suite)
 
 		-- LUAUFIX: we shouldn't need to upcast the result of `process.system` to `{ [any]: any }`
 		local r2 = process.system("echo hello!") :: { [any]: any }
-		check.tableeq(r2, {
+		check.eq(r2, {
 			exitcode = 0,
 			stdout = "hello!\n",
 			stderr = "",
