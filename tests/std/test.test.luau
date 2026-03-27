@@ -247,14 +247,14 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.throwsNoError", function(assert)
+	suite:case("assert.throwsWithNoError", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
-test.case("throwsError", function(assert)
-	assert.throws(function() return end, "expected message")
+test.case("erroreqError", function(assert)
+	assert.throwsWith(function() return end, "expected message")
 end)
 
 test.run()
@@ -264,15 +264,15 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.throwsErrorMessage", function(assert)
+	suite:case("assert.throwsWithErrorMessage", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
-test.suite("throws_failure_suite", function(suite)
-	suite:case("throwsError", function(assert)
-		assert.throws(function() error("wrong message") end, "expected message")
+test.suite("erroreq_failure_suite", function(suite)
+	suite:case("erroreqError", function(assert)
+		assert.throwsWith(function() error("wrong message") end, "expected message")
 	end)
 end)
 

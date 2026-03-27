@@ -2474,7 +2474,7 @@ return {
 		})
 	end)
 
-	suite:case("throwsErrorWhenConfigHasInvalidGlobals", function(assert)
+	suite:case("erroreqErrorWhenConfigHasInvalidGlobals", function(assert)
 		local err = lintTestHelper(assert, {
 			content = "",
 			configContents = [[
@@ -2492,7 +2492,7 @@ return {
 		assert.strcontains(err, "config.lute.lint.globals must be a table with string keys")
 	end)
 
-	suite:case("throwsErrorWhenConfigHasInvalidIgnores", function(assert)
+	suite:case("erroreqErrorWhenConfigHasInvalidIgnores", function(assert)
 		local err = lintTestHelper(assert, {
 			content = "",
 			configContents = [[
@@ -2510,7 +2510,7 @@ return {
 		assert.strcontains(err, "config.lute.lint.ignores must be an array of filepath globs")
 	end)
 
-	suite:case("throwsErrorWhenConfigHasInvalidRulePaths", function(assert)
+	suite:case("erroreqErrorWhenConfigHasInvalidRulePaths", function(assert)
 		local err = lintTestHelper(assert, {
 			content = "",
 			configContents = [[
@@ -2528,7 +2528,7 @@ return {
 		assert.strcontains(err, "config.lute.lint.rulepaths must be an array of filepath globs")
 	end)
 
-	suite:case("throwsErrorWhenConfigHasInvalidRuleConfigs", function(assert)
+	suite:case("erroreqErrorWhenConfigHasInvalidRuleConfigs", function(assert)
 		local err = lintTestHelper(assert, {
 			content = "",
 			configContents = [[

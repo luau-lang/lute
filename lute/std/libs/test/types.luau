@@ -34,7 +34,7 @@ export type Asserts = {
 	-- best option we have otherwise is two error suppressing indexers.
 	tableeq: ({ [any]: any }, { [any]: any }) -> Failure?,
 	buffereq: (buffer, buffer) -> Failure?,
-	throws: <A...>((A...) -> ...unknown, string, A...) -> Failure?,
+	erroreq: <A...>((A...) -> ...unknown, string, A...) -> Failure?,
 	strcontains: (string, string, number?, string?) -> Failure?,
 	strnotcontains: (string, string, string?) -> Failure?,
 	that: (unknown, string?) -> Failure?,

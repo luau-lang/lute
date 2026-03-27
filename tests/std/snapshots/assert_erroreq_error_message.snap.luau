@@ -1,8 +1,8 @@
 local test = require("@std/test")
 
-test.suite("throws_failure_suite", function(suite)
-	suite:case("throws_error", function(assert)
-		assert.throws(function()
+test.suite("erroreq_failure_suite", function(suite)
+	suite:case("erroreq_error", function(assert)
+		assert.throwsWith(function()
 			error("wrong message")
 		end, "expected message")
 	end)

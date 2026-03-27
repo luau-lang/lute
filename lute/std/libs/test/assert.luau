@@ -87,7 +87,7 @@ local function that(value: unknown, msg: string?): Failure?
 	return assertion(msg or `Expected a truthy value, but got {formatValue(value)}`)
 end
 
-local function errors(callback: () -> (), msg: string?): Failure?
+local function throws(callback: () -> (), msg: string?): Failure?
 	local success = pcall(callback)
 	-- if the callback failed, then this assert passes
 	if not success then
@@ -131,7 +131,7 @@ local function buffereq(lhs: buffer, rhs: buffer): Failure?
 	return nil
 end
 
-local function throws<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...): Failure?
+local function throwsWith<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...): Failure?
 	local success, err = pcall(func, ...)
 	if success then
 		return assertion("Function did not error as expected.")
@@ -191,10 +191,10 @@ end
 return table.freeze({
 	eq = reqassert(eq),
 	neq = reqassert(neq),
-	errors = reqassert(errors),
+	throws = reqassert(throws),
 	tableeq = reqassert(tableeq),
 	buffereq = reqassert(buffereq),
-	throws = reqassert(throws),
+	throwsWith = reqassert(throwsWith),
 	strcontains = reqassert(strcontains),
 	strnotcontains = reqassert(strnotcontains),
 	that = reqassert(that),

@@ -58,7 +58,7 @@ test.suite("Base64", function(suite)
 
 	for _, invalid in invalidInputs do
 		suite:case("invalidDecode: '" .. invalid .. "'", function(assert)
-			assert.errors(function()
+			assert.throws(function()
 				dec(invalid)
 			end)
 		end)
@@ -66,7 +66,7 @@ test.suite("Base64", function(suite)
 
 	for _, invalid in invalidLastBytes do
 		suite:case("invalidDecodeLastBytes: '" .. invalid .. "'", function(assert)
-			assert.errors(function()
+			assert.throws(function()
 				dec(invalid)
 			end)
 		end)
