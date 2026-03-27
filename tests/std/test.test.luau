@@ -254,7 +254,7 @@ test.run()
 local test = require("@std/test")
 
 test.case("throwsWithError", function(assert)
-	assert.throwsWith(function() return end, "expected message")
+	assert.throwsWith("expected message", function() return end)
 end)
 
 test.run()
@@ -272,7 +272,7 @@ local test = require("@std/test")
 
 test.suite("throwsWith_failure_suite", function(suite)
 	suite:case("throwsWithError", function(assert)
-		assert.throwsWith(function() error("wrong message") end, "expected message")
+		assert.throwsWith("expected message", function() error("wrong message") end)
 	end)
 end)
 

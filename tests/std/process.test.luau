@@ -81,38 +81,38 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("processRunOptionsErrorCases", function(assert)
-		assert.throwsWith(function()
+		assert.throwsWith("process.run requires a non-empty table of arguments", function()
 			process.run({})
-		end, "process.run requires a non-empty table of arguments")
+		end)
 
 		-- All of these tests intentionally pass values of the incorrect
 		-- type to `process.run`: this is to ensure that the error
 		-- handling on the runtime side is correct (for example, does not
 		-- crash because we expected a table and got a string).
 
-		assert.throwsWith(function()
+		assert.throwsWith("invalid argument #-1 to 'run' (string expected, got table)", function()
 			process.run({ "echo", "hello" }, { cwd = {} :: any })
-		end, "invalid argument #-1 to 'run' (string expected, got table)")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("invalid argument #-1 to 'run' (string expected, got table)", function()
 			process.run({ "echo", "hello" }, { stdio = {} :: any })
-		end, "invalid argument #-1 to 'run' (string expected, got table)")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("process option 'env' must be a table", function()
 			process.run({ "echo", "hello" }, { env = "not-a-table" :: any })
-		end, "process option 'env' must be a table")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("process options must be a table", function()
 			process.run({ "echo", "hello" }, "invalid_option" :: any)
-		end, "process options must be a table")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("process options must be a table", function()
 			process.run({ "echo", "hello" }, "not-a-table" :: any)
-		end, "process options must be a table")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("process.run requires a non-empty table of arguments", function()
 			process.run({ huh = 42 })
-		end, "process.run requires a non-empty table of arguments")
+		end)
 	end)
 
 	suite:case("processRunArraylikeTable", function(assert)
@@ -127,31 +127,31 @@ test.suite("ProcessSuite", function(suite)
 		-- handling on the runtime side is correct (for example, does not
 		-- crash because we expected a table and got a string).
 
-		assert.throwsWith(function()
+		assert.throwsWith("invalid argument #1 to 'system' (string expected, got nil)", function()
 			(process.system :: any)()
-		end, "invalid argument #1 to 'system' (string expected, got nil)")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("invalid argument #1 to 'system' (string expected, got table)", function()
 			process.system({} :: any)
-		end, "invalid argument #1 to 'system' (string expected, got table)")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("invalid argument #-1 to 'system' (string expected, got table)", function()
 			process.system("echo hello", { system = {} :: any })
-		end, "invalid argument #-1 to 'system' (string expected, got table)")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("invalid argument #-1 to 'system' (string expected, got table)", function()
 			process.system("echo hello", { cwd = {} :: any })
-		end, "invalid argument #-1 to 'system' (string expected, got table)")
-		assert.throwsWith(function()
+		end)
+		assert.throwsWith("invalid argument #-1 to 'system' (string expected, got table)", function()
 			process.system("echo hello", { stdio = {} :: any })
-		end, "invalid argument #-1 to 'system' (string expected, got table)")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("process option 'env' must be a table", function()
 			process.system("echo hello", { env = "not-a-table" :: any })
-		end, "process option 'env' must be a table")
+		end)
 
-		assert.throwsWith(function()
+		assert.throwsWith("process options must be a table", function()
 			process.system("echo hello", "invalid_option" :: any)
-		end, "process options must be a table")
+		end)
 	end)
 end)

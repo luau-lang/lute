@@ -1,9 +1,9 @@
 local test = require("@std/test")
 
 test.case("throwsWithError", function(assert)
-	assert.throwsWith(function()
+	assert.throwsWith("expected message", function()
 		return
-	end, "expected message")
+	end)
 end)
 
 test.run()
