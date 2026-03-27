@@ -75,6 +75,18 @@ renderType = function(t: types.Type, visited: { [any]: boolean }): string
 		end
 
 		local params = renderTypePack(t.parameters, visited)
+
+		local argnames = t.argnames or {}
+		if #argnames > 0 then
+			local paramParts = {}
+			local paramTypes = string.split(params, ", ")
+			for i, argname in ipairs(argnames) do
+				local paramType = paramTypes[i] or "_"
+				table.insert(paramParts, tostring(argname) .. ": " .. paramType)
+			end
+			params = table.concat(paramParts, ", ")
+		end
+
 		local returns = renderTypePack(t.returns, visited)
 
 		local genericStr = if #generics > 0 then "<" .. table.concat(generics, ", ") .. ">" else ""

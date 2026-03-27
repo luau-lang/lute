@@ -9,7 +9,7 @@ local crypto = require("@lute/crypto")
 testing the block comment without = here
 
 ```luau
-({ __hash: any }, string | buffer) -> (buffer)
+(hash: { __hash: any }, message: string | buffer) -> (buffer)
 ```
 
 ## crypto.hash
@@ -21,7 +21,7 @@ testing the block comment without = here
 ## crypto.password
 
 ```luau
-{ hash: (string) -> (buffer), verify: (buffer, string) -> (boolean) }
+{ hash: (password: string) -> (buffer), verify: (hash: buffer, password: string) -> (boolean) }
 ```
 
 ## crypto.secretbox
@@ -29,5 +29,5 @@ testing the block comment without = here
 testing the block comment here
 
 ```luau
-{ seal: (string | buffer, buffer | nil) -> ({ ciphertext: buffer, key: buffer, nonce: buffer }), open: ({ ciphertext: buffer, key: buffer, nonce: buffer }) -> (buffer), keygen: () -> (buffer) }
+{ seal: (message: string | buffer, key: buffer | nil) -> ({ ciphertext: buffer, key: buffer, nonce: buffer }), open: (box: { ciphertext: buffer) -> (buffer), keygen: () -> (buffer) }
 ```

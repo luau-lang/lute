@@ -7,7 +7,7 @@ local time = require("@lute/time")
 ## time.duration
 
 ```luau
-{ seconds: (number) -> ({}), microseconds: (number) -> ({}), milliseconds: (number) -> ({}), create: (number, number) -> ({}), minutes: (number) -> ({}), nanoseconds: (number) -> ({}), weeks: (number) -> ({}), hours: (number) -> ({}), days: (number) -> ({}) }
+{ seconds: (seconds: number) -> ({}), microseconds: (microseconds: number) -> ({}), milliseconds: (milliseconds: number) -> ({}), create: (seconds: number, subsecnanos: number) -> ({}), minutes: (minutes: number) -> ({}), nanoseconds: (nanoseconds: number) -> ({}), weeks: (weeks: number) -> ({}), hours: (hours: number) -> ({}), days: (days: number) -> ({}) }
 ```
 
 ## time.now
@@ -19,5 +19,5 @@ local time = require("@lute/time")
 ## time.since
 
 ```luau
-({}) -> (number)
+(instant: {}) -> (number)
 ```

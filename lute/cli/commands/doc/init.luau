@@ -54,7 +54,7 @@ EXAMPLES:
 ]])
 end
 
-local function collectDocs(content: string, moduleAlias: string): { [string]: string }
+local function collectDocs(content: string, moduleAlias: path.Pathlike): { [string]: string }
 	local lines = string.split(content, "\n")
 	local pendingDoc = {}
 	local docMap = {}

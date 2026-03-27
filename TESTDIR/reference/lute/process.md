@@ -31,7 +31,7 @@ local process = require("@lute/process")
 ## process.exit
 
 ```luau
-(number) -> (never)
+(exitcode: number) -> (never)
 ```
 
 ## process.homedir
@@ -43,11 +43,11 @@ local process = require("@lute/process")
 ## process.run
 
 ```luau
-({ [number]: any }, { env: { [string]: any } | nil, cwd: string | nil, stdio: "default" | "inherit" | "none" | nil } | nil) -> ({ exitcode: number, stderr: string, stdout: string, ok: boolean, signal: string | nil })
+(args: { [number]: any }, options: { env: { [string]: any } | nil) -> ({ exitcode: number, stderr: string, stdout: string, ok: boolean, signal: string | nil })
 ```
 
 ## process.system
 
 ```luau
-(string, { env: { [string]: any } | nil, cwd: string | nil, stdio: "default" | "inherit" | "none" | nil, system: string | nil } | nil) -> ({ exitcode: number, stderr: string, stdout: string, ok: boolean, signal: string | nil })
+(command: string, options: { env: { [string]: any } | nil) -> ({ exitcode: number, stderr: string, stdout: string, ok: boolean, signal: string | nil })
 ```
