@@ -5,6 +5,7 @@
 #include "lute/fs.h"
 #include "lute/io.h"
 #include "lute/luau.h"
+#include "lute/lutemodules.h"
 #include "lute/modulepath.h"
 #include "lute/net.h"
 #include "lute/process.h"
@@ -90,8 +91,10 @@ std::string LuteVfs::getIdentifier() const
 
 std::optional<std::string> LuteVfs::getContents(const std::string& path) const
 {
-    // Lute modules have no source code.
-    return "";
+    LuteModuleResult result = getLuteModule(path);
+    if (result.type == LuteModuleType::Module)
+        return std::string(result.contents);
+    return std::nullopt;
 }
 
 ConfigStatus LuteVfs::getConfigStatus() const

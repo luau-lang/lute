@@ -1,6 +1,6 @@
 {
     "languageMode": "strict",
     "aliases": {
-        "commands": "./lute/cli/commands"
+        "batteries": "../../batteries"
     }
 }
