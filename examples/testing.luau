@@ -58,7 +58,7 @@ test.suite("MySuite", function(suite)
 			end
 		end
 
-		assert.throws(function() -- demonstrates success (callback erroreq err)
+		assert.throws(function() -- demonstrates success (callback throws err)
 			foo(true)
 		end)
 		assert.throws(function() -- demonstrates failure (callback doesn't throw)
