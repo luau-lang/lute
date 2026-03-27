@@ -274,12 +274,17 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_function_type")
     TypePackId retTypes = arena.addTypePack(TypePack{{}, std::nullopt});
 
     FunctionType ftv{{genericTy}, {}, argTypes, retTypes};
+
+    FunctionArgument arg;
+    arg.name = "x";
+    ftv.argNames.push_back(arg);
+
     TypeId ty = arena.addType(ftv);
 
     lua_checkstack(L, 3);
 
-    // <T>(number) -> ()
-    // { tag: "function", parameters: { head: { { tag: "number" } }, tail: nil }, returns: { head: nil, tail: nil }, generics: { { tag: "generic", name: "T", ispack: false } }, genericpacks: {} }
+    // <T>(x: number) -> ()
+    // { tag: "function", parameters: { head: { { tag: "number" } }, tail: nil }, argnames: { "x" }, returns: { head: nil, tail: nil }, generics: { { tag: "generic", name: "T", ispack: false } }, genericpacks: {} }
     REQUIRE_EQ(Luau::serializeType(L, ty), 1);
 
     REQUIRE(lua_istable(L, -1));
@@ -297,6 +302,13 @@ TEST_CASE_FIXTURE(TypeSerializeFixture, "serialize_function_type")
     lua_getfield(L, -1, "tail");
     REQUIRE(lua_isnil(L, -1));
     lua_pop(L, 2); // tail, parameters
+
+    lua_getfield(L, -1, "argnames");
+    REQUIRE(lua_istable(L, -1));
+    lua_rawgeti(L, -1, 1);
+    REQUIRE(lua_isstring(L, -1));
+    CHECK(std::string(lua_tostring(L, -1)) == "x");
+    lua_pop(L, 2); // argnames[0], argnames
 
     lua_getfield(L, -1, "returns");
     REQUIRE(lua_istable(L, -1));

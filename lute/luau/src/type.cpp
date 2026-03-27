@@ -287,13 +287,14 @@ struct TypeSerialize final : public Luau::TypeVisitor
 
     // Luau function type:
     // parameters: { head: {type}?, tail: type? },
+    // argnames: { string? },
     // returns: { head: {type}?, tail: type? },
     // generics: {type},
     // genericpacks: {typepack}
     void serialize(TypeId ty, const FunctionType& ftv)
     {
         checkStack(L, 3); // max 1 for table + 1 for subtable + 1 for traverse
-        lua_createtable(L, 0, 5);
+        lua_createtable(L, 0, 6);
         registerType(ty);
 
         pushTag("function");
@@ -301,6 +302,18 @@ struct TypeSerialize final : public Luau::TypeVisitor
         // Parameters
         traverse(ftv.argTypes);
         lua_setfield(L, -2, "parameters");
+
+        // ArgNames
+        lua_createtable(L, ftv.argNames.size(), 0);
+        for (size_t i = 0; i < ftv.argNames.size(); i++)
+        {
+            if (!ftv.argNames[i].has_value())
+                lua_pushnil(L);
+            else
+                lua_pushstring(L, ftv.argNames[i]->name.c_str());
+            lua_rawseti(L, -2, i + 1);
+        }
+        lua_setfield(L, -2, "argnames");
 
         // Returns
         traverse(ftv.retTypes);
