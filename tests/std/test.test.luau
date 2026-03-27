@@ -253,7 +253,7 @@ test.run()
 			[[
 local test = require("@std/test")
 
-test.case("erroreqError", function(assert)
+test.case("throwsWithError", function(assert)
 	assert.throwsWith(function() return end, "expected message")
 end)
 
@@ -270,8 +270,8 @@ test.run()
 			[[
 local test = require("@std/test")
 
-test.suite("erroreq_failure_suite", function(suite)
-	suite:case("erroreqError", function(assert)
+test.suite("throwsWith_failure_suite", function(suite)
+	suite:case("throwsWithError", function(assert)
 		assert.throwsWith(function() error("wrong message") end, "expected message")
 	end)
 end)

@@ -1,6 +1,6 @@
 local test = require("@std/test")
 
-test.case("erroreq_error", function(assert)
+test.case("throwsWithError", function(assert)
 	assert.throwsWith(function()
 		return
 	end, "expected message")

@@ -5,9 +5,9 @@ TEST RESULTS
 
 Failed Tests (1):
 
-❌ throws_error
+❌ throwsWithError
 	<ROOT>/tests/std/snapshots/assert_error_eq_no_error.snap.luau:4
-		throws: Function did not error as expected.
+		throwsWith: Function did not error as expected.
 
 --------------------------------------------------
 Total:  1
