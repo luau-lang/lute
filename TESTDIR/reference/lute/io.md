@@ -6,6 +6,6 @@ local io = require("@lute/io")
 
 ## io.read
 
-```luau
+```lua
 () -> (string)
 ```

@@ -172,7 +172,7 @@ local function generateMarkdown(
 		if def.doc then
 			table.insert(lines, `{def.doc}\n`)
 		end
-		table.insert(lines, "```luau")
+		table.insert(lines, "```lua")
 		table.insert(lines, def.signature)
 		table.insert(lines, "```")
 		table.insert(lines, "")

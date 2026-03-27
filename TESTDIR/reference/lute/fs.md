@@ -6,31 +6,31 @@ local fs = require("@lute/fs")
 
 ## fs.close
 
-```luau
-(handle: { fd: number) -> ()
+```lua
+(handle: { err: number, fd: number }) -> ()
 ```
 
 ## fs.copy
 
-```luau
+```lua
 (src: string, dest: string) -> ()
 ```
 
 ## fs.exists
 
-```luau
+```lua
 (path: string) -> (boolean)
 ```
 
 ## fs.link
 
-```luau
+```lua
 (src: string, dest: string) -> ()
 ```
 
 ## fs.listdir
 
-```luau
+```lua
 (path: string) -> ({ [number]: any })
 ```
 
@@ -40,60 +40,60 @@ Creates a directory at the specified path.
 
 To set the permissions mode for a directory (Unix only), see @std/process for `run` or `system` to shell out to `chmod` or the equivalent.
 
-```luau
+```lua
 (path: string) -> ()
 ```
 
 ## fs.open
 
-```luau
-(path: string, mode: "r" | "w" | "x" | "a" | "r+" | "w+" | "x+" | "a+" | nil) -> ({ fd: number, err: number })
+```lua
+(path: string, mode: "a" | "a+" | "r" | "r+" | "w" | "w+" | "x" | "x+"?) -> ({ err: number, fd: number })
 ```
 
 ## fs.read
 
-```luau
-(handle: { fd: number) -> (string)
+```lua
+(handle: { err: number, fd: number }) -> (string)
 ```
 
 ## fs.remove
 
-```luau
+```lua
 (path: string) -> ()
 ```
 
 ## fs.rmdir
 
-```luau
+```lua
 (path: string) -> ()
 ```
 
 ## fs.stat
 
-```luau
-(path: string) -> ({ created: any, type: "file" | "dir" | "link" | "fifo" | "socket" | "char" | "block" | "unknown", accessed: any, modified: any, permissions: { readonly: boolean }, size: number })
+```lua
+(path: string) -> ({ accessed: any, created: any, modified: any, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" })
 ```
 
 ## fs.symlink
 
-```luau
+```lua
 (src: string, dest: string) -> ()
 ```
 
 ## fs.type
 
-```luau
-(path: string) -> ("file" | "dir" | "link" | "fifo" | "socket" | "char" | "block" | "unknown")
+```lua
+(path: string) -> ("block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown")
 ```
 
 ## fs.watch
 
-```luau
-(path: string, callback: (filename: string) -> ({ close: (self: <recursive>) -> () })
+```lua
+(path: string, callback: (filename: string, event: { change: boolean, rename: boolean }) -> ()) -> ({ close: (self: t1) -> () })
 ```
 
 ## fs.write
 
-```luau
-(handle: { fd: number, contents: err: number }) -> ()
+```lua
+(handle: { err: number, fd: number }, contents: string) -> ()
 ```

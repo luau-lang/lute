@@ -6,54 +6,54 @@ local system = require("@lute/system")
 
 ## system.arch
 
-```luau
+```lua
 string
 ```
 
 ## system.cpus
 
-```luau
+```lua
 () -> ({ [number]: any })
 ```
 
 ## system.freememory
 
-```luau
+```lua
 () -> (number)
 ```
 
 ## system.hostname
 
-```luau
+```lua
 () -> (string)
 ```
 
 ## system.os
 
-```luau
+```lua
 string
 ```
 
 ## system.threadcount
 
-```luau
+```lua
 () -> (number)
 ```
 
 ## system.tmpdir
 
-```luau
+```lua
 () -> (string)
 ```
 
 ## system.totalmemory
 
-```luau
+```lua
 () -> (number)
 ```
 
 ## system.uptime
 
-```luau
+```lua
 () -> (number)
 ```

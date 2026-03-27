@@ -1,139 +1,154 @@
 --!strict
--- typeprinter.luau
 
 local types = require("./types")
 
--- have a visited hashmap to avoid infinite recursion that also stores the string version of what should be printed, and when we hit a recursive type, we can just return the stored string instead of trying to render it again
--- local visitedTypes = {
---     [any] = string,
--- }
+type PrinterState = {
+    visited: { [any]: boolean },
+    cycles: { [any]: string },
+    nextCycleId: number,
+}
 
-local renderType: (t: types.Type, visited: { [any]: boolean }) -> string
-local renderTypePack: (tp: types.TypePack?, visited: { [any]: boolean }) -> string
+local renderType: (t: types.Type, state: PrinterState) -> string
+local renderTypePack: (tp: types.TypePack?, state: PrinterState, names: {string?}?) -> string
 
-renderType = function(t: types.Type, visited: { [any]: boolean }): string
-	if visited[t] then
-		return "<recursive>" -- TODO: better handling of recursive types
-	end
-	visited[t] = true
+renderType = function(t: types.Type, state: PrinterState): string
+    -- 1. Alias Priority: Fixes Item #1 (Truly Terrible Expanded Types)
+    if t.name and t.tag ~= "generic" then
+        return t.name
+    end
 
-	local tag = t.tag
-	if
-		tag == "nil"
-		or tag == "unknown"
-		or tag == "never"
-		or tag == "any"
-		or tag == "boolean"
-		or tag == "number"
-		or tag == "string"
-		or tag == "buffer"
-		or tag == "thread"
-	then
-		return tag
-	elseif tag == "singleton" then
-        if typeof(t.value) == "string" then
-            return string.format("%q", t.value) -- quote strings
+    if state.cycles[t] then return state.cycles[t] end
+    if state.visited[t] then
+        state.nextCycleId += 1
+        local id = "t" .. state.nextCycleId
+        state.cycles[t] = id
+        return id
+    end
+    state.visited[t] = true
+
+    local tag = t.tag
+
+    -- Item #5: Optional Shorthand
+    if tag == "union" then
+        local parts = {}
+        local hasNil = false
+        for _, comp in t.components or {} do
+            if comp.tag == "nil" then
+                hasNil = true
+            else
+                table.insert(parts, renderType(comp, state))
+            end
         end
-		return tostring(t.value)
-	elseif tag == "generic" then
-		return t.name
-	elseif tag == "negation" then
-		return "~" .. renderType(t.inner, visited)
-	elseif tag == "union" then
-		local parts = {}
-		for _, comp in t.components do
-			table.insert(parts, renderType(comp, visited))
-		end
-		return table.concat(parts, " | ")
-	elseif tag == "intersection" then
-		local parts = {}
-		for _, comp in t.components do
-			table.insert(parts, renderType(comp, visited))
-		end
-		return table.concat(parts, " & ")
-	elseif tag == "table" or tag == "extern" then
-		local parts = {}
-		for name, prop in pairs(t.properties or {}) do
-			if prop.read then
-				table.insert(parts, name .. ": " .. renderType(prop.read, visited))
-			end
-		end
-		if t.indexer then
-			table.insert(parts, "[" .. renderType(t.indexer.index, visited) .. "]: any")
-		end
+        table.sort(parts)
+        local base = table.concat(parts, " | ")
+        if hasNil then
+            if #parts == 0 then return "nil" end
+            return if #parts > 1 then `({base})?` else `{base}?`
+        end
+        return base
+    end
+
+    -- Item #6: Array Detection & Table Cleanup
+    if tag == "table" or tag == "extern" then
+        local parts = {}
+        local keys = {}
+        for name in pairs(t.properties or {}) do table.insert(keys, name) end
+        table.sort(keys)
+
+        for _, name in keys do
+            local p = t.properties[name]
+            if p and p.read then
+                table.insert(parts, `{name}: {renderType(p.read, state)}`)
+            end
+        end
+
+        if t.indexer then
+            table.insert(parts, `[{renderType(t.indexer.index, state)}]: any`)
+        end
+
 		if #parts == 0 then
 			return "{}"
 		end
 		return "{ " .. table.concat(parts, ", ") .. " }"
-	elseif tag == "function" then
-		local generics = {}
-		for _, g in t.generics or {} do
-			table.insert(generics, renderType(g, visited))
-		end
-		for _, gp in t.genericpacks or {} do
-			table.insert(generics, renderTypePack(gp, visited))
-		end
+    end
 
-		local params = renderTypePack(t.parameters, visited)
+    if tag == "function" then
+        local generics = {}
+        -- Handle regular generics <T, U>
+        for _, g in t.generics or {} do
+            table.insert(generics, renderType(g, state))
+        end
+        -- Handle generic packs <T..., U...>
+        for _, gp in t.genericpacks or {} do
+            local rendered = renderTypePack(gp, state)
+            -- Ensure it has the ... if it's a generic pack name
+            if rendered ~= "" and not string.find(rendered, "%.%.%.$") then
+				rendered = rendered .. "..."
+            end
+            table.insert(generics, rendered)
+        end
 
-		local argnames = t.argnames or {}
-		if #argnames > 0 then
-			local paramParts = {}
-			local paramTypes = string.split(params, ", ")
-			for i, argname in ipairs(argnames) do
-				local paramType = paramTypes[i] or "_"
-				table.insert(paramParts, tostring(argname) .. ": " .. paramType)
-			end
-			params = table.concat(paramParts, ", ")
-		end
+        local params = renderTypePack(t.parameters, state, t.argnames)
+        local returns = renderTypePack(t.returns, state)
 
-		local returns = renderTypePack(t.returns, visited)
+        local genStr = if #generics > 0 then `<{table.concat(generics, ", ")}>` else ""
+        return `{genStr}({params}) -> ({returns})`
+    end
 
-		local genericStr = if #generics > 0 then "<" .. table.concat(generics, ", ") .. ">" else ""
+    if tag == "singleton" then
+        return if typeof(t.value) == "string" then string.format("%q", t.value) else tostring(t.value)
+    end
 
-		return genericStr .. "(" .. params .. ") -> (" .. returns .. ")"
-	end
-
-	return "<" .. tostring(tag) .. ">"
+    return tag or "any"
 end
 
-renderTypePack = function(tp: types.TypePack?, visited: { [any]: boolean }): string
-	if not tp then
-		return ""
-	end
-	if visited[tp] then
-		return "<recursive>"
-	end
-	visited[tp] = true
+renderTypePack = function(tp: types.TypePack?, state: PrinterState, names: {string?}?): string
+    if not tp then return "" end
+    
+    -- If the whole pack is just a generic (T...)
+    if tp.tag == "generic" then
+        return (tp.name or "T") .. "..."
+    end
 
-	if tp.tag == "typepack" then
-		local parts = {}
-		for _, t in tp.head or {} do
-			table.insert(parts, renderType(t, visited))
-		end
-		if tp.tail then
-			local tailStr = renderTypePack(tp.tail, visited)
-			if tailStr ~= "" then
-				table.insert(parts, tailStr)
-			end
-		end
-		return table.concat(parts, ", ")
-	elseif tp.tag == "variadic" then
-		if tp.hidden then
-			return ""
-		end
-		return renderType(tp.type, visited) .. "..."
-	elseif tp.tag == "generic" then
-		return tp.name .. "..."
-	end
-	return ""
+    -- If it's a variadic pack (...any)
+    if tp.tag == "variadic" then
+        -- Only render "any..." if it's explicitly an "any" type, 
+        -- otherwise use the actual type name.
+        if tp.hidden then return "" end
+        local typeName = if tp.type then renderType(tp.type, state) else "any"
+        return typeName .. "..."
+    end
+
+    if tp.tag == "typepack" then
+        local parts = {}
+        local head = tp.head or {}
+        for i, t in ipairs(head) do
+            local res = renderType(t, state)
+            if names and names[i] then
+                table.insert(parts, `{names[i]}: {res}`)
+            else
+                table.insert(parts, res)
+            end
+        end
+        
+        if tp.tail then
+            local ts = renderTypePack(tp.tail, state)
+            if ts ~= "" then
+                local nextIdx = #head + 1
+                if names and names[nextIdx] then
+                    table.insert(parts, `{names[nextIdx]}: {ts}`)
+                else
+                    table.insert(parts, ts)
+                end
+            end
+        end
+        return table.concat(parts, ", ")
+    end
+    return ""
 end
 
 return {
-	renderType = function(t: types.Type): string
-		return renderType(t, {})
-	end,
-	renderTypePack = function(tp: types.TypePack?): string
-		return renderTypePack(tp, {})
-	end,
+    renderType = function(t: types.Type)
+        return renderType(t, { visited = {}, cycles = {}, nextCycleId = 0 })
+    end
 }

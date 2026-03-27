@@ -6,6 +6,6 @@ local vm = require("@lute/vm")
 
 ## vm.create
 
-```luau
+```lua
 (path: string) -> ({ [any]: any })
 ```

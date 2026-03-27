@@ -6,48 +6,48 @@ local process = require("@lute/process")
 
 ## process.args
 
-```luau
+```lua
 { [number]: any }
 ```
 
 ## process.cwd
 
-```luau
+```lua
 () -> (string)
 ```
 
 ## process.env
 
-```luau
+```lua
 { [string]: any }
 ```
 
 ## process.execpath
 
-```luau
+```lua
 () -> (string)
 ```
 
 ## process.exit
 
-```luau
+```lua
 (exitcode: number) -> (never)
 ```
 
 ## process.homedir
 
-```luau
+```lua
 () -> (string)
 ```
 
 ## process.run
 
-```luau
-(args: { [number]: any }, options: { env: { [string]: any } | nil) -> ({ exitcode: number, stderr: string, stdout: string, ok: boolean, signal: string | nil })
+```lua
+(args: { [number]: any }, options: { cwd: string?, env: { [string]: any }?, stdio: "default" | "inherit" | "none"? }?) -> ({ exitcode: number, ok: boolean, signal: string?, stderr: string, stdout: string })
 ```
 
 ## process.system
 
-```luau
-(command: string, options: { env: { [string]: any } | nil) -> ({ exitcode: number, stderr: string, stdout: string, ok: boolean, signal: string | nil })
+```lua
+(command: string, options: { cwd: string?, env: { [string]: any }?, stdio: "default" | "inherit" | "none"?, system: string? }?) -> ({ exitcode: number, ok: boolean, signal: string?, stderr: string, stdout: string })
 ```
