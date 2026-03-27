@@ -286,7 +286,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
     }
 
     // Luau function type:
-    // parameters: { tag: "typepack", head: { { name: string?, type: Type } }?, tail: TypePack? }
+    // parameters: { head: {type}?, tail: type? },
     // argnames: { string? },
     // returns: { head: {type}?, tail: type? },
     // generics: {type},
@@ -303,7 +303,7 @@ struct TypeSerialize final : public Luau::TypeVisitor
         traverse(ftv.argTypes);
         lua_setfield(L, -2, "parameters");
 
-        // Arg names
+        // ArgNames
         lua_createtable(L, ftv.argNames.size(), 0);
         for (size_t i = 0; i < ftv.argNames.size(); i++)
         {
