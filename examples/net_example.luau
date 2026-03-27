@@ -22,7 +22,7 @@ local together = true
 local start = os.clock()
 
 if together then
-	task.awaitall(t1, t2, t3)
+	task.awaitAll(t1, t2, t3)
 else
 	task.await(t1)
 	task.await(t2)

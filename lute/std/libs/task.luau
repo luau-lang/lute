@@ -3,7 +3,7 @@
 -- stdlib for `@lute/task`
 -- Provides utilities for creating and managing asynchronous tasks
 
-local task = require("@lute/task")
+local lutetask = require("@lute/task")
 
 local tasklib = {}
 
@@ -12,6 +12,26 @@ export type Task = {
 	result: any,
 	co: thread,
 }
+
+function tasklib.spawn<T..., U...>(routine: ((T...) -> U...) | thread, ...: T...): thread
+	return lutetask.spawn(routine, ...)
+end
+
+function tasklib.defer<T..., U...>(routine: ((T...) -> U...) | thread, ...: T...): thread
+	return lutetask.defer(routine, ...)
+end
+
+function tasklib.delay<T..., U...>(dur: number, routine: ((T...) -> U...) | thread, ...: T...): thread
+	return lutetask.delay(dur, routine, ...)
+end
+
+function tasklib.wait(dur: number?): number
+	return lutetask.wait(dur)
+end
+
+function tasklib.cancel(thread: thread)
+	coroutine.close(thread)
+end
 
 function tasklib.create(f, ...): Task
 	local data = {}
@@ -33,7 +53,7 @@ function tasklib.await(t: Task): any
 	end
 
 	while t.success == nil do
-		task.deferSelf()
+		lutetask.deferSelf()
 	end
 
 	if t.success then
@@ -43,7 +63,7 @@ function tasklib.await(t: Task): any
 	end
 end
 
-function tasklib.awaitall(...: Task): ...unknown
+function tasklib.awaitAll(...: Task): ...unknown
 	local tasks = table.pack(...)
 
 	for i, v in ipairs(tasks) do
@@ -59,7 +79,7 @@ function tasklib.awaitall(...: Task): ...unknown
 		for _, v in ipairs(tasks) do
 			if v.success == nil then
 				done = false
-				task.deferSelf()
+				lutetask.deferSelf()
 			end
 		end
 	end

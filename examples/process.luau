@@ -12,7 +12,7 @@ local t1 = task.create(process.run, { "echo", "-n", "One" })
 local t2 = task.create(process.run, { "echo", "-n", "Two" })
 local t3 = task.create(process.run, { "echo", "-n", "Three" })
 
-local r1, r2, r3 = task.awaitall(t1, t2, t3)
+local r1, r2, r3 = task.awaitAll(t1, t2, t3)
 
 print(r1.stdout)
 print(r2.stdout)
