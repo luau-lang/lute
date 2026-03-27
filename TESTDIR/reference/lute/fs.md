@@ -4,96 +4,132 @@
 local fs = require("@lute/fs")
 ```
 
+## Summary
+
+| Function / Property | Description |
+| :--- | :--- |
+| [type](#fstype) |  |
+| [write](#fswrite) |  |
+| [close](#fsclose) |  |
+| [read](#fsread) |  |
+| [remove](#fsremove) |  |
+| [open](#fsopen) |  |
+| [listdir](#fslistdir) |  |
+| [mkdir](#fsmkdir) | Creates a directory at the specified path. |
+| [copy](#fscopy) |  |
+| [exists](#fsexists) |  |
+| [link](#fslink) |  |
+| [symlink](#fssymlink) |  |
+| [watch](#fswatch) |  |
+| [stat](#fsstat) |  |
+| [rmdir](#fsrmdir) |  |
+
+---
+
+## fs.type
+```luau
+function type(path: string) -> ("block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown")
+```
+
+---
+
+## fs.write
+```luau
+function write(handle: { err: number, fd: number }, contents: string) -> ()
+```
+
+---
+
 ## fs.close
-
-```lua
-(handle: { err: number, fd: number }) -> ()
+```luau
+function close(handle: { err: number, fd: number }) -> ()
 ```
 
-## fs.copy
+---
 
-```lua
-(src: string, dest: string) -> ()
+## fs.read
+```luau
+function read(handle: { err: number, fd: number }) -> (string)
 ```
 
-## fs.exists
+---
 
-```lua
-(path: string) -> (boolean)
+## fs.remove
+```luau
+function remove(path: string) -> ()
 ```
 
-## fs.link
+---
 
-```lua
-(src: string, dest: string) -> ()
+## fs.open
+```luau
+function open(path: string, mode: "a" | "a+" | "r" | "r+" | "w" | "w+" | "x" | "x+"?) -> ({ err: number, fd: number })
 ```
+
+---
 
 ## fs.listdir
-
-```lua
-(path: string) -> ({ [number]: any })
+```luau
+function listdir(path: string) -> ({ [number]: any })
 ```
 
-## fs.mkdir
+---
 
+## fs.mkdir
+```luau
+function mkdir(path: string) -> ()
+```
 Creates a directory at the specified path.
 
 To set the permissions mode for a directory (Unix only), see @std/process for `run` or `system` to shell out to `chmod` or the equivalent.
 
-```lua
-(path: string) -> ()
+---
+
+## fs.copy
+```luau
+function copy(src: string, dest: string) -> ()
 ```
 
-## fs.open
+---
 
-```lua
-(path: string, mode: "a" | "a+" | "r" | "r+" | "w" | "w+" | "x" | "x+"?) -> ({ err: number, fd: number })
+## fs.exists
+```luau
+function exists(path: string) -> (boolean)
 ```
 
-## fs.read
+---
 
-```lua
-(handle: { err: number, fd: number }) -> (string)
+## fs.link
+```luau
+function link(src: string, dest: string) -> ()
 ```
 
-## fs.remove
-
-```lua
-(path: string) -> ()
-```
-
-## fs.rmdir
-
-```lua
-(path: string) -> ()
-```
-
-## fs.stat
-
-```lua
-(path: string) -> ({ accessed: any, created: any, modified: any, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" })
-```
+---
 
 ## fs.symlink
-
-```lua
-(src: string, dest: string) -> ()
+```luau
+function symlink(src: string, dest: string) -> ()
 ```
 
-## fs.type
-
-```lua
-(path: string) -> ("block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown")
-```
+---
 
 ## fs.watch
-
-```lua
-(path: string, callback: (filename: string, event: { change: boolean, rename: boolean }) -> ()) -> ({ close: (self: t1) -> () })
+```luau
+function watch(path: string, callback: (filename: string, event: { change: boolean, rename: boolean }) -> ()) -> ({ close: (self: t1) -> () })
 ```
 
-## fs.write
+---
 
-```lua
-(handle: { err: number, fd: number }, contents: string) -> ()
+## fs.stat
+```luau
+function stat(path: string) -> ({ accessed: any, created: any, modified: any, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" })
 ```
+
+---
+
+## fs.rmdir
+```luau
+function rmdir(path: string) -> ()
+```
+
+---

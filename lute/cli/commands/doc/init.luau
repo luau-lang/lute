@@ -152,33 +152,42 @@ local function generateMarkdown(
 	local requirePath = string.gsub(relativePath, "/init$", "") -- remove trailing /init and use the module dir name
 
 	local lines = {
-		`# {moduleName}`,
+        `# {moduleName}`,
 		"",
 		"```luau",
 		`local {moduleName} = require("@{requireLibraryAlias}/{requirePath}")`,
 		"```",
 		"",
-	}
+        "## Summary",
+        "",
+        "| Function / Property | Description |",
+        "| :--- | :--- |",
+    }
 
-	-- LUAUFIX: we should not need to explicitly instantiate the type of `table.sort` here
-	table.sort<<Definition>>(definitions, function(a, b)
-		return a.name < b.name
-	end)
+	-- summary table with links to detailed reference
+    for _, def in definitions do
+        local summary = if def.doc then string.split(def.doc, "\n")[1] else ""
+        table.insert(lines, `| [{def.name}](#{moduleName:lower()}{def.name:lower()}) | {summary} |`)
+    end
 
-	for _, def in definitions do
-		table.insert(lines, `## {moduleName}.{def.name}\n`)
+    table.insert(lines, "\n---\n")
 
-		-- Insert the documentation if it exists
-		if def.doc then
-			table.insert(lines, `{def.doc}\n`)
-		end
-		table.insert(lines, "```lua")
-		table.insert(lines, def.signature)
-		table.insert(lines, "```")
-		table.insert(lines, "")
-	end
+    -- detailed API reference
+    for _, def in definitions do
+        table.insert(lines, `## {moduleName}.{def.name}`)
 
-	return table.concat(lines, "\n")
+        table.insert(lines, "```luau")
+        table.insert(lines, `function {def.name}{def.signature}`)
+        table.insert(lines, "```")
+
+        if def.doc then
+            table.insert(lines, def.doc)
+        end
+        
+        table.insert(lines, "\n---\n")
+    end
+
+    return table.concat(lines, "\n")
 end
 
 local function parseModule(

@@ -4,8 +4,17 @@
 local io = require("@lute/io")
 ```
 
-## io.read
+## Summary
 
-```lua
-() -> (string)
+| Function / Property | Description |
+| :--- | :--- |
+| [read](#ioread) |  |
+
+---
+
+## io.read
+```luau
+function read() -> (string)
 ```
+
+---

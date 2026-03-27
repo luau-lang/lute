@@ -4,56 +4,81 @@
 local system = require("@lute/system")
 ```
 
+## Summary
+
+| Function / Property | Description |
+| :--- | :--- |
+| [arch](#systemarch) |  |
+| [freememory](#systemfreememory) |  |
+| [tmpdir](#systemtmpdir) |  |
+| [cpus](#systemcpus) |  |
+| [hostname](#systemhostname) |  |
+| [uptime](#systemuptime) |  |
+| [os](#systemos) |  |
+| [totalmemory](#systemtotalmemory) |  |
+| [threadcount](#systemthreadcount) |  |
+
+---
+
 ## system.arch
-
-```lua
-string
+```luau
+function archstring
 ```
 
-## system.cpus
-
-```lua
-() -> ({ [number]: any })
-```
+---
 
 ## system.freememory
-
-```lua
-() -> (number)
+```luau
+function freememory() -> (number)
 ```
 
-## system.hostname
-
-```lua
-() -> (string)
-```
-
-## system.os
-
-```lua
-string
-```
-
-## system.threadcount
-
-```lua
-() -> (number)
-```
+---
 
 ## system.tmpdir
-
-```lua
-() -> (string)
+```luau
+function tmpdir() -> (string)
 ```
 
-## system.totalmemory
+---
 
-```lua
-() -> (number)
+## system.cpus
+```luau
+function cpus() -> ({ [number]: any })
 ```
+
+---
+
+## system.hostname
+```luau
+function hostname() -> (string)
+```
+
+---
 
 ## system.uptime
-
-```lua
-() -> (number)
+```luau
+function uptime() -> (number)
 ```
+
+---
+
+## system.os
+```luau
+function osstring
+```
+
+---
+
+## system.totalmemory
+```luau
+function totalmemory() -> (number)
+```
+
+---
+
+## system.threadcount
+```luau
+function threadcount() -> (number)
+```
+
+---
