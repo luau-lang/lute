@@ -160,4 +160,48 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		local expected = path.format(testPath):gsub("\\", "/")
 		assert.eq(resolvedPath, expected)
 	end)
+
+	suite:case("resolveConfigWithConfig", function(assert)
+		local testDir = path.join(tmpDir, "resolveconfig_test")
+		fs.createdirectory(testDir, { makeparents = true })
+
+		-- .luaurc with known config values
+		local configPath = path.join(testDir, ".luaurc")
+		local configFile = fs.open(configPath, "w+")
+		fs.write(configFile, '{"languageMode": "strict", "aliases": {"root": "./src"}}')
+		fs.close(configFile)
+
+		local testPath = path.join(testDir, "test.luau")
+		local testFile = fs.open(testPath, "w+")
+		fs.write(testFile, "content")
+		fs.close(testFile)
+
+		local config = luau.resolveConfig(testPath)
+		assert.neq(config, nil)
+		assert.eq(config.languageMode, "strict")
+		assert.neq(config.aliases, nil)
+		assert.neq(config.aliases.root, nil)
+		assert.eq(config.aliases.root.value, "./src")
+		assert.eq(config.aliases.root.originalCase, "root")
+		assert.eq(config.typeErrors, true)
+		assert.eq(config.lintErrors, false)
+	end)
+
+	suite:case("resolveConfigWithoutConfig", function(assert)
+		-- Subdirectory without a .luaurc
+		local testDir = path.join(tmpDir, "resolveconfig_default_test")
+		fs.createdirectory(testDir, { makeparents = true })
+
+		local testPath = path.join(testDir, "test.luau")
+		local testFile = fs.open(testPath, "w+")
+		fs.write(testFile, "content")
+		fs.close(testFile)
+
+		-- Fallback behavior when no .luaurc is found in the directory hierarchy
+		local config = luau.resolveConfig(testPath)
+		assert.neq(config, nil)
+		assert.eq(config.languageMode, "nonstrict")
+		assert.eq(config.typeErrors, true)
+		assert.eq(config.lintErrors, false)
+	end)
 end)

@@ -5,12 +5,14 @@ target_sources(Lute.Luau PRIVATE
     include/lute/luau.h
     include/lute/tcmoduleresolver.h
     include/lute/resolvemodule.h
+    include/lute/resolveconfig.h
     include/lute/type.h
 
     src/configresolver.cpp
     src/luau.cpp
     src/tcmoduleresolver.cpp
     src/resolvemodule.cpp
+    src/resolveconfig.cpp
     src/type.cpp
 )
 

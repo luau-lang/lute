@@ -722,6 +722,27 @@ export type ParseResult = {
 	read lineoffsets: { number },
 }
 
+export type AliasInfo = {
+	read value: string,
+	read originalCase: string,
+}
+
+export type ConfigError = {
+	read path: string,
+	read message: string,
+}
+
+export type LuauConfig = {
+	read languageMode: "strict" | "nonstrict" | "nocheck" | "definition",
+	read aliases: { [string]: AliasInfo },
+	read lintErrors: boolean,
+	read typeErrors: boolean,
+	read globals: { string },
+	read enabledLint: { [string]: boolean },
+	read fatalLint: { [string]: boolean },
+	read configErrors: { ConfigError }?,
+}
+
 function luau.parse(source: string): ParseResult
 	error("not implemented")
 end
@@ -741,6 +762,10 @@ function luau.load(bytecode: Bytecode, chunkname: string, env: { [any]: any }?):
 end
 
 function luau.resolveModule(path: string, fromchunkname: string): string
+	error("not implemented")
+end
+
+function luau.resolveConfig(path: string): LuauConfig
 	error("not implemented")
 end
 
