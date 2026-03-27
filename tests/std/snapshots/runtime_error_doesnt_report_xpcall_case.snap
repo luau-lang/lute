@@ -14,7 +14,7 @@ Stacktrace:
 <ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall_case.snap.luau:5
 @std/test/runner.luau:93 function run
 @std/test/init.luau:103 function run
-<ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall_case.snap.luau:8
+<ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall_case.snap.luau:9
 
 
 --------------------------------------------------
