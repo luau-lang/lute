@@ -153,12 +153,12 @@ local function eq(lhs: unknown, rhs: unknown, msg: string?): Failure?
 
 	-- Check for buffer equality
 	if typeof(lhs) == "buffer" then
-		buffereq(lhs :: buffer, rhs :: buffer)
+		return buffereq(lhs :: buffer, rhs :: buffer)
 	end
 
 	-- Check for table equality
 	if typeof(lhs) == "table" then
-		tableeq(lhs :: { [any]: any }, rhs :: { [any]: any })
+		return tableeq(lhs :: { [any]: any }, rhs :: { [any]: any })
 	end
 
 	return assertion(msg or `{lhs} ~= {rhs}`)

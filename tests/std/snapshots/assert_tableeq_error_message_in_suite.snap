@@ -6,8 +6,8 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ tableeq_failure_suite.tableeq_error
-	<ROOT>/tests/std/snapshots/assert_tableeq_error_message_in_suite.snap.luau:5
-		eq: table: 0x00000007a4d4b520 ~= table: 0x00000007a4d4b4f0
+	@std/test/assert.luau:200
+		tableeq: lhs[a] = 1 but rhs[a] = 2
 
 --------------------------------------------------
 Total:  1
