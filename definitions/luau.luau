@@ -781,6 +781,7 @@ export type Type = {
 
 	-- for function type
 	parameters: TypePack,
+	argnames: { string? },
 	returns: TypePack,
 	generics: { Type },
 	genericpacks: { TypePack },
