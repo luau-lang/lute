@@ -9,7 +9,6 @@
 #include "lute/packagerun.h"
 #include "lute/process.h"
 #include "lute/profiler.h"
-#include "lute/ref.h"
 #include "lute/reporter.h"
 #include "lute/requiresetup.h"
 #include "lute/runtime.h"
@@ -115,84 +114,45 @@ Compile Options:
 	-h, --help              Display this usage message.
 )";
 
-static bool setupArguments(lua_State* L, int argc, char** argv)
-{
-    if (!lua_checkstack(L, argc))
-        return false;
-
-    for (int i = 0; i < argc; ++i)
-        lua_pushstring(L, argv[i]);
-
-    return true;
-}
-
-bool runBytecode(
+static bool runBytecode(
     Runtime& runtime,
     const std::string& bytecode,
     const std::string& chunkname,
-    lua_State* GL,
     int program_argc,
     char** program_argv,
     LuteReporter& reporter,
-    std::optional<ProfileOptions> profileOptions
+    std::optional<ProfileOptions> profileOptions = std::nullopt
 )
 {
-    // module needs to run in a new thread, isolated from the rest
-    lua_State* L = lua_newthread(GL);
+    bool success = runtime.runBytecode(
+        bytecode,
+        chunkname,
+        program_argc,
+        program_argv,
+        [&](lua_State* L)
+        {
+            if (getCodegenEnabled())
+            {
+                Luau::CodeGen::CompilationOptions nativeOptions;
+                Luau::CodeGen::compile(L, -1, nativeOptions);
+            }
+            if (profileOptions)
+                profilerStart(L, profileOptions->frequency);
+        }
+    );
 
-    if (profileOptions)
-        profilerStart(L, profileOptions->frequency);
-
-    // new thread needs to have the globals sandboxed
-    luaL_sandboxthread(L);
-
-    if (luau_load(L, chunkname.c_str(), bytecode.data(), bytecode.size(), 0) != 0)
-    {
-        if (const char* str = lua_tostring(L, -1))
-            reporter.reportError(str);
-        else
-            reporter.reportError("Failed to load bytecode");
-
-        lua_pop(GL, 1);
-        return false;
-    }
-
-    if (getCodegenEnabled())
-    {
-        Luau::CodeGen::CompilationOptions nativeOptions;
-        Luau::CodeGen::compile(L, -1, nativeOptions);
-    }
-
-    if (!setupArguments(L, program_argc, program_argv))
-    {
-        reporter.reportError("Failed to pass arguments to Luau");
-        lua_pop(GL, 1);
-        return false;
-    }
-
-    runtime.args.clear();
-    for (int i = 0; i < program_argc; ++i)
-        runtime.args.emplace_back(program_argv[i]);
-
-    runtime.GL = GL;
-    runtime.runningThreads.push_back({true, getRefForThread(L), program_argc});
-
-    lua_pop(GL, 1);
-
-    bool b = runtime.runToCompletion();
     if (profileOptions)
     {
         profilerStop();
         profilerDump(profileOptions->filename.c_str(), reporter);
     }
 
-    return b;
+    return success;
 }
 
 static bool runFile(
     Runtime& runtime,
     const char* name,
-    lua_State* GL,
     int program_argc,
     char** program_argv,
     LuteReporter& reporter,
@@ -216,7 +176,7 @@ static bool runFile(
 
     std::string bytecode = Luau::compile(*source, copts());
 
-    return runBytecode(runtime, bytecode, chunkname, GL, program_argc, program_argv, reporter, profileOptions);
+    return runBytecode(runtime, bytecode, chunkname, program_argc, program_argv, reporter, profileOptions);
 }
 
 static int assertionHandler(const char* expr, const char* file, int line, const char* function)
@@ -395,7 +355,6 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
     }
 
     Runtime runtime;
-    lua_State* L;
 
     if (packageAwareness)
     {
@@ -418,14 +377,14 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         }
 
         auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
-        L = setupPkgRunState(runtime, std::move(directDependencies), std::move(allDependencies));
+        setupPkgRunState(runtime, std::move(directDependencies), std::move(allDependencies));
     }
     else
     {
-        L = setupRunState(runtime);
+        setupRunState(runtime);
     }
 
-    bool success = runFile(runtime, validPath.c_str(), L, program_argc, program_argv, reporter, profileOptions);
+    bool success = runFile(runtime, validPath.c_str(), program_argc, program_argv, reporter, profileOptions);
     return success ? 0 : 1;
 }
 
@@ -649,10 +608,9 @@ void setupVersionLibrary(lua_State* L)
 int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, LuteReporter& reporter)
 {
     Runtime runtime;
-    lua_State* L = setupCliCommandState(runtime, setupVersionLibrary);
+    setupCliCommandState(runtime, setupVersionLibrary);
 
-    std::string bytecode = Luau::compile(std::string(result.contents), copts());
-    return runBytecode(runtime, bytecode, "@" + result.path, L, program_argc, program_argv, reporter) ? 0 : 1;
+    return runtime.runSource(std::string(result.contents), copts(), "@" + result.path, program_argc, program_argv) ? 0 : 1;
 }
 
 int cliMain(int argc, char** argv, LuteReporter& reporter)
@@ -667,12 +625,12 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     {
         Runtime runtime;
 
-        lua_State* GL = setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
+        setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
         std::string entryPoint = payload->entryPointPath;
         auto entryModule = payload->filePathToBytecode.find(entryPoint);
         if (entryModule != nullptr)
         {
-            bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, GL, argc, argv, reporter);
+            bool success = runBytecode(runtime, *entryModule, "@@bundle/" + entryPoint, argc, argv, reporter);
             return success ? 0 : 1;
         }
     }

@@ -20,6 +20,7 @@ target_sources(Lute.Test PRIVATE
 
     # Test files
     src/compile.test.cpp
+    src/runsource.test.cpp
     src/configresolver.test.cpp
     src/lutefs.test.cpp
     src/modulepath.test.cpp

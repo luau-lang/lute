@@ -18,6 +18,11 @@
 
 struct lua_State;
 
+namespace Luau
+{
+struct CompileOptions;
+}
+
 struct ThreadToContinue
 {
     bool success = false;
@@ -75,6 +80,26 @@ struct Runtime
     void releasePendingToken();
 
     uv_loop_t* getEventLoop();
+
+    // Load and run bytecode.
+    // If provided, onLoaded is called after bytecode is loaded
+    // with the loaded function at the top of the stack.
+    bool runBytecode(
+        const std::string& bytecode,
+        const std::string& chunkname,
+        int argc = 0,
+        char** argv = nullptr,
+        std::function<void(lua_State*)> onLoaded = nullptr
+    );
+
+    // Compile Luau source and run it.
+    bool runSource(
+        const std::string& source,
+        const Luau::CompileOptions& compileOptions,
+        const std::string& chunkname = "=stdin",
+        int argc = 0,
+        char** argv = nullptr
+    );
 
     // VM for this runtime
     std::unique_ptr<lua_State, void (*)(lua_State*)> globalState;
