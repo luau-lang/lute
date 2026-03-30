@@ -87,14 +87,14 @@ local function that(value: unknown, msg: string?): Failure?
 	return assertion(msg or `Expected a truthy value, but got {formatValue(value)}`)
 end
 
-local function errors(callback: () -> (), msg: string?): Failure?
-	local success = pcall(callback)
+local function throws<T...>(func: (T...) -> ...unknown, ...: T...): Failure?
+	local success = pcall(func, ...)
 	-- if the callback failed, then this assert passes
 	if not success then
 		return nil
 	end
 
-	return assertion(msg or `{callback} did not throw error.`)
+	return assertion(`{func} did not throw error.`)
 end
 
 -- Table equality assertionsion with deep comparison
@@ -131,16 +131,21 @@ local function buffereq(lhs: buffer, rhs: buffer): Failure?
 	return nil
 end
 
-local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: string, ...: A...): Failure?
+local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...): Failure?
 	local success, err = pcall(func, ...)
 	if success then
-		return assertion("Function did not error as expected.")
+		return assertion(`Expected function to throw/raise error.`)
 	end
 
 	local actualErrorMessage = tostring(err)
-	-- pcall appends filename and line number of the error, so we check suffix only
-	if not stringext.hassuffix(actualErrorMessage, expectedErrorMessage) then
-		return assertion(`Expected suffix of error message "{expectedErrorMessage}", but got "{actualErrorMessage}"`)
+
+	if typeof(with) == "string" then
+		-- pcall appends filename and line number of the error, so we check suffix only
+		if not stringext.hassuffix(actualErrorMessage, with) then
+			return assertion(`Expected suffix of error message "{with}", but got "{actualErrorMessage}"`)
+		end
+	else
+		return eq(err, with, `Expected error "{with}", but got "{formatValue(err)}"`)
 	end
 
 	return nil
@@ -191,10 +196,10 @@ end
 return table.freeze({
 	eq = reqassert(eq),
 	neq = reqassert(neq),
-	errors = reqassert(errors),
+	throws = reqassert(throws),
 	tableeq = reqassert(tableeq),
 	buffereq = reqassert(buffereq),
-	erroreq = reqassert(erroreq),
+	throwsWith = reqassert(throwsWith),
 	strcontains = reqassert(strcontains),
 	strnotcontains = reqassert(strnotcontains),
 	that = reqassert(that),

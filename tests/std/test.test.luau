@@ -247,32 +247,32 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.erroreqNoError", function(assert)
+	suite:case("assert.throwsWithNoError", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
-test.case("erroreqError", function(assert)
-	assert.erroreq(function() return end, "expected message")
+test.case("throwsWithError", function(assert)
+	assert.throwsWith("expected message", function() return end)
 end)
 
 test.run()
 			]],
-			"Function did not error as expected.",
+			"Expected function to throw/raise error.",
 			assert
 		)
 	end)
 
-	suite:case("assert.erroreqErrorMessage", function(assert)
+	suite:case("assert.throwsWithErrorMessage", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
-test.suite("erroreq_failure_suite", function(suite)
-	suite:case("erroreqError", function(assert)
-		assert.erroreq(function() error("wrong message") end, "expected message")
+test.suite("throwsWith_failure_suite", function(suite)
+	suite:case("throwsWithError", function(assert)
+		assert.throwsWith("expected message", function() error("wrong message") end)
 	end)
 end)
 
