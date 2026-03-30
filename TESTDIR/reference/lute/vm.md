@@ -16,5 +16,4 @@ local vm = require("@lute/vm")
 ```luau
 function create(path: string) -> ({ [any]: any })
 ```
-
 ---

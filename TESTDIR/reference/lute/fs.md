@@ -8,71 +8,89 @@ local fs = require("@lute/fs")
 
 | Function / Property | Description |
 | :--- | :--- |
-| [type](#fstype) |  |
-| [write](#fswrite) |  |
 | [close](#fsclose) |  |
-| [read](#fsread) |  |
-| [remove](#fsremove) |  |
-| [open](#fsopen) |  |
-| [listdir](#fslistdir) |  |
-| [mkdir](#fsmkdir) | Creates a directory at the specified path. |
 | [copy](#fscopy) |  |
 | [exists](#fsexists) |  |
 | [link](#fslink) |  |
-| [symlink](#fssymlink) |  |
-| [watch](#fswatch) |  |
-| [stat](#fsstat) |  |
+| [listdir](#fslistdir) |  |
+| [mkdir](#fsmkdir) | Creates a directory at the specified path. |
+| [open](#fsopen) |  |
+| [read](#fsread) |  |
+| [remove](#fsremove) |  |
 | [rmdir](#fsrmdir) |  |
+| [stat](#fsstat) |  |
+| [symlink](#fssymlink) |  |
+| [type](#fstype) |  |
+| [watch](#fswatch) |  |
+| [write](#fswrite) |  |
 
 ---
 
-## fs.type
+## Types
+
+### DirectoryEntry
 ```luau
-function type(path: string) -> ("block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown")
+type DirectoryEntry = { name: string, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" }
 ```
 
----
-
-## fs.write
+### FileHandle
 ```luau
-function write(handle: { err: number, fd: number }, contents: string) -> ()
+type FileHandle = { err: number, fd: number }
 ```
 
----
+### FileMetadata
+```luau
+type FileMetadata = { accessed: any, created: any, modified: any, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" }
+```
+
+### FileType
+```luau
+type FileType = "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown"
+```
+
+### HandleMode
+```luau
+type HandleMode = "a" | "a+" | "r" | "r+" | "w" | "w+" | "x" | "x+"
+```
+
+### WatchEvent
+```luau
+type WatchEvent = { change: boolean, rename: boolean }
+```
+
+### WatchHandle
+```luau
+type WatchHandle = { close: (self: t1) -> () }
+```
 
 ## fs.close
 ```luau
 function close(handle: { err: number, fd: number }) -> ()
 ```
-
 ---
 
-## fs.read
+## fs.copy
 ```luau
-function read(handle: { err: number, fd: number }) -> (string)
+function copy(src: string, dest: string) -> ()
 ```
-
 ---
 
-## fs.remove
+## fs.exists
 ```luau
-function remove(path: string) -> ()
+function exists(path: string) -> (boolean)
 ```
-
 ---
 
-## fs.open
+## fs.link
 ```luau
-function open(path: string, mode: "a" | "a+" | "r" | "r+" | "w" | "w+" | "x" | "x+"?) -> ({ err: number, fd: number })
+function link(src: string, dest: string) -> ()
 ```
-
 ---
 
 ## fs.listdir
 ```luau
 function listdir(path: string) -> ({ [number]: any })
 ```
-
 ---
 
 ## fs.mkdir
@@ -85,51 +103,56 @@ To set the permissions mode for a directory (Unix only), see @std/process for `r
 
 ---
 
-## fs.copy
+## fs.open
 ```luau
-function copy(src: string, dest: string) -> ()
+function open(path: string, mode: "a" | "a+" | "r" | "r+" | "w" | "w+" | "x" | "x+"?) -> ({ err: number, fd: number })
 ```
-
 ---
 
-## fs.exists
+## fs.read
 ```luau
-function exists(path: string) -> (boolean)
+function read(handle: { err: number, fd: number }) -> (string)
 ```
-
 ---
 
-## fs.link
+## fs.remove
 ```luau
-function link(src: string, dest: string) -> ()
+function remove(path: string) -> ()
 ```
-
----
-
-## fs.symlink
-```luau
-function symlink(src: string, dest: string) -> ()
-```
-
----
-
-## fs.watch
-```luau
-function watch(path: string, callback: (filename: string, event: { change: boolean, rename: boolean }) -> ()) -> ({ close: (self: t1) -> () })
-```
-
----
-
-## fs.stat
-```luau
-function stat(path: string) -> ({ accessed: any, created: any, modified: any, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" })
-```
-
 ---
 
 ## fs.rmdir
 ```luau
 function rmdir(path: string) -> ()
 ```
+---
 
+## fs.stat
+```luau
+function stat(path: string) -> ({ accessed: any, created: any, modified: any, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" })
+```
+---
+
+## fs.symlink
+```luau
+function symlink(src: string, dest: string) -> ()
+```
+---
+
+## fs.type
+```luau
+function type(path: string) -> ("block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown")
+```
+---
+
+## fs.watch
+```luau
+function watch(path: string, callback: (filename: string, event: { change: boolean, rename: boolean }) -> ()) -> ({ close: (self: t1) -> () })
+```
+---
+
+## fs.write
+```luau
+function write(handle: { err: number, fd: number }, contents: string) -> ()
+```
 ---

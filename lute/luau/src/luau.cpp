@@ -15,6 +15,7 @@
 #include "Luau/Parser.h"
 #include "Luau/ParseResult.h"
 #include "Luau/ToString.h"
+#include "Luau/TypeInfer.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -3053,15 +3054,21 @@ int typeofmodule_luau(lua_State* L)
 
     // Serialize and push the return type
     serializeTypePack(L, modulePtr->returnType);
-    // Luau::dump(modulePtr->exportedTypeBindings);
 
-    // return the exported types as well
-
+    // second return value: A table of exported type aliases
+    // mapping [string TypeName] = SerializedTypeObject
+    lua_newtable(L);
+    for (const auto& [name, typeFun] : modulePtr->exportedTypeBindings)
+    {
+        lua_pushstring(L, name.c_str());
+        serializeType(L, typeFun.type); // TODO: need to call TypeChecker::instantiateTypeFun
+        lua_rawset(L, -3);
+    }
     
     // Uncomment to see the return type for debugging
-    Luau::dump(modulePtr->returnType);
+    // Luau::dump(modulePtr->returnType);
 
-    return 1;
+    return 2;
 }
 
 // perform type mt registration, etc

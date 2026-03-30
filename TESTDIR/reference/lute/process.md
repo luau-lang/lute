@@ -8,69 +8,83 @@ local process = require("@lute/process")
 
 | Function / Property | Description |
 | :--- | :--- |
-| [execpath](#processexecpath) |  |
-| [cwd](#processcwd) |  |
-| [exit](#processexit) |  |
 | [args](#processargs) |  |
+| [cwd](#processcwd) |  |
 | [env](#processenv) |  |
-| [run](#processrun) |  |
+| [execpath](#processexecpath) |  |
+| [exit](#processexit) |  |
 | [homedir](#processhomedir) |  |
+| [run](#processrun) |  |
 | [system](#processsystem) |  |
 
 ---
 
-## process.execpath
+## Types
+
+### ProcessResult
 ```luau
-function execpath() -> (string)
+type ProcessResult = { exitcode: number, ok: boolean, signal: string?, stderr: string, stdout: string }
 ```
 
+### ProcessRunOptions
+```luau
+type ProcessRunOptions = { cwd: string?, env: { [string]: any }?, stdio: "default" | "inherit" | "none"? }
+```
+
+### ProcessSystemOptions
+```luau
+type ProcessSystemOptions = { cwd: string?, env: { [string]: any }?, stdio: "default" | "inherit" | "none"?, system: string? }
+```
+
+### StdioKind
+```luau
+type StdioKind = "default" | "inherit" | "none"
+```
+
+## process.args
+```luau
+function args{ [number]: any }
+```
 ---
 
 ## process.cwd
 ```luau
 function cwd() -> (string)
 ```
-
----
-
-## process.exit
-```luau
-function exit(exitcode: number) -> (never)
-```
-
----
-
-## process.args
-```luau
-function args{ [number]: any }
-```
-
 ---
 
 ## process.env
 ```luau
 function env{ [string]: any }
 ```
-
 ---
 
-## process.run
+## process.execpath
 ```luau
-function run(args: { [number]: any }, options: { cwd: string?, env: { [string]: any }?, stdio: "default" | "inherit" | "none"? }?) -> ({ exitcode: number, ok: boolean, signal: string?, stderr: string, stdout: string })
+function execpath() -> (string)
 ```
+---
 
+## process.exit
+```luau
+function exit(exitcode: number) -> (never)
+```
 ---
 
 ## process.homedir
 ```luau
 function homedir() -> (string)
 ```
+---
 
+## process.run
+```luau
+function run(args: { [number]: any }, options: { cwd: string?, env: { [string]: any }?, stdio: "default" | "inherit" | "none"? }?) -> ({ exitcode: number, ok: boolean, signal: string?, stderr: string, stdout: string })
+```
 ---
 
 ## process.system
 ```luau
 function system(command: string, options: { cwd: string?, env: { [string]: any }?, stdio: "default" | "inherit" | "none"?, system: string? }?) -> ({ exitcode: number, ok: boolean, signal: string?, stderr: string, stdout: string })
 ```
-
 ---

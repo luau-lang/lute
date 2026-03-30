@@ -138,91 +138,105 @@ local function collectDocs(content: string, moduleAlias: path.Pathlike): { [stri
 end
 
 local function generateMarkdown(
-	moduleName: string,
-	definitions: { Definition },
-	filePath: path.Pathlike,
-	libraryPath: path.Pathlike,
-	requireLibraryAlias: string
+    moduleName: string,
+    definitions: { Definition },
+    exportedTypes: { [string]: any },
+    filePath: path.Pathlike,
+    libraryPath: path.Pathlike,
+    requireLibraryAlias: string
 ): string
-	local libPathStr = tostring(libraryPath)
-	local filePathStr = tostring(filePath)
+    local libPathStr = tostring(libraryPath)
+    local filePathStr = tostring(filePath)
 
-	local relativePath = string.sub(filePathStr, #libPathStr + 2) -- gets the path relative to the require path (only relevant for subdirs like std/libs)
-	relativePath = string.gsub(relativePath, "%.luau$", "")
-	local requirePath = string.gsub(relativePath, "/init$", "") -- remove trailing /init and use the module dir name
+    local relativePath = string.sub(filePathStr, #libPathStr + 2)
+    relativePath = string.gsub(relativePath, "%.luau$", "")
+    local requirePath = string.gsub(relativePath, "/init$", "")
 
-	local lines = {
+    local lines = {
         `# {moduleName}`,
-		"",
-		"```luau",
-		`local {moduleName} = require("@{requireLibraryAlias}/{requirePath}")`,
-		"```",
-		"",
+        "",
+        "```luau",
+        `local {moduleName} = require("@{requireLibraryAlias}/{requirePath}")`,
+        "```",
+        "",
         "## Summary",
         "",
         "| Function / Property | Description |",
         "| :--- | :--- |",
     }
 
-	-- summary table with links to detailed reference
+    -- Sort definitions alphabetically
+    table.sort(definitions, function(a, b) return a.name < b.name end)
+
     for _, def in definitions do
         local summary = if def.doc then string.split(def.doc, "\n")[1] else ""
-        table.insert(lines, `| [{def.name}](#{moduleName:lower()}{def.name:lower()}) | {summary} |`)
+        -- Slugify link for Markdown compatibility
+        local anchor = `{moduleName:lower()}{def.name:lower()}`
+        table.insert(lines, `| [{def.name}](#{anchor}) | {summary} |`)
     end
 
     table.insert(lines, "\n---\n")
 
-    -- detailed API reference
+    -- User-Defined Types Glossary Section
+    local typeNames = {}
+    for name in pairs(exportedTypes) do table.insert(typeNames, name) end
+    
+    if #typeNames > 0 then
+        table.sort(typeNames)
+        table.insert(lines, "## Types\n")
+        for _, tName in typeNames do
+            table.insert(lines, `### {tName}`)
+            table.insert(lines, "```luau")
+            -- We pass nil for aliases here so the glossary actually expands the definition
+            local definition = typeprinter.renderType(exportedTypes[tName], nil)
+            table.insert(lines, `type {tName} = {definition}`)
+            table.insert(lines, "```\n")
+        end
+    end
+
+    -- Detailed API reference
     for _, def in definitions do
         table.insert(lines, `## {moduleName}.{def.name}`)
-
         table.insert(lines, "```luau")
         table.insert(lines, `function {def.name}{def.signature}`)
         table.insert(lines, "```")
-
-        if def.doc then
-            table.insert(lines, def.doc)
-        end
-        
-        table.insert(lines, "\n---\n")
+        if def.doc then table.insert(lines, def.doc .. "\n") end
+        table.insert(lines, "---\n")
     end
 
     return table.concat(lines, "\n")
 end
 
-local function parseModule(
-	module: path.Pathlike,
-	filePath: path.Pathlike
-): { { name: string, signature: string, doc: string? } }
-	local content = fs.readfiletostring(filePath)
-	local docMap = collectDocs(content, module)
+local function parseModule(module: path.Pathlike, filePath: path.Pathlike)
+    local content = fs.readfiletostring(filePath)
+    local docMap = collectDocs(content, module)
+    local returnTypePack, exportedTypes = luau.typeofmodule(filePath)
+    
+    if not returnTypePack or not returnTypePack.head or #returnTypePack.head == 0 then
+        return {}, {}
+    end
 
-	local tp = luau.typeofmodule(filePath)
-	if not tp or not tp.head or #tp.head == 0 then
-		return {}
-	end
+    local aliasMap = {}
+    if exportedTypes then
+        for name, typeObj in pairs(exportedTypes) do
+            aliasMap[typeObj] = name
+        end
+    end
 
-	local moduleType = tp.head[1]
-	if moduleType.tag ~= "table" or not moduleType.properties then
-		return {}
-	end
+    local moduleType = returnTypePack.head[1]
+    local moduleDefinitions = {}
+    for name, prop in pairs(moduleType.properties or {}) do
+        if prop.read then
+            local sig = typeprinter.renderType(prop.read, aliasMap)
+            table.insert(moduleDefinitions, {
+                name = name,
+                signature = sig,
+                doc = docMap[name],
+            })
+        end
+    end
 
-	local moduleDefinitions = {}
-
-	for name, prop in pairs(moduleType.properties) do
-		if prop.read then
-			print(`Processing definition: {module}.{name}`)
-			local sig = typeprinter.renderType(prop.read)
-			print(`Signature: {sig}`)
-			table.insert(moduleDefinitions, {
-				name = name,
-				signature = sig,
-				doc = docMap[name],
-			})
-		end
-	end
-
-	return moduleDefinitions
+    return moduleDefinitions, exportedTypes
 end
 
 local function processDirectory(
@@ -259,8 +273,8 @@ local function processDirectory(
 				then STDLIB_MODULE_ALIASES[moduleName] or moduleName
 				else moduleName
 
-			local definitions = parseModule(moduleAlias, entryPath)
-			local markdown = generateMarkdown(moduleName, definitions, entryPath, libraryPath, requireLibraryAlias)
+			local definitions, exportedTypes = parseModule(moduleAlias, entryPath)
+			local markdown = generateMarkdown(moduleName, definitions, exportedTypes, entryPath, libraryPath, requireLibraryAlias)
 
 			fs.writestringtofile(documentationFilePath, markdown)
 
