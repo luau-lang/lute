@@ -259,7 +259,7 @@ end)
 
 test.run()
 			]],
-			"Function did not error as expected.",
+			"Expected function to throw/raise error.",
 			assert
 		)
 	end)

@@ -134,7 +134,7 @@ end
 local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...): Failure?
 	local success, err = pcall(func, ...)
 	if success then
-		return assertion(`Expected {func} to throw/raise error.`)
+		return assertion(`Expected function to throw/raise error.`)
 	end
 
 	local actualErrorMessage = tostring(err)
