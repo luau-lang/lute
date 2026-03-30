@@ -2,10 +2,10 @@
 local luau = {}
 
 type SpanData = {
-	read beginline: number,
-	read begincolumn: number,
-	read endline: number,
-	read endcolumn: number,
+	read beginLine: number,
+	read beginColumn: number,
+	read endLine: number,
+	read endColumn: number,
 }
 type SpanMT = {
 	read __lt: (a: SpanData, b: SpanData) -> boolean,
@@ -14,7 +14,7 @@ export type Span = setmetatable<SpanData, SpanMT>
 
 luau.span = {}
 
-function luau.span.create(tbl: { beginline: number, begincolumn: number, endline: number, endcolumn: number }): Span
+function luau.span.create(tbl: { beginLine: number, beginColumn: number, endLine: number, endColumn: number }): Span
 	error("not implemented")
 end
 

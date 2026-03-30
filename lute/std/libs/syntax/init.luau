@@ -11,14 +11,14 @@ local span = {
 
 function span.subsumes(haystack: Span, needle: Span): boolean
 	return (
-		if haystack.beginline == needle.beginline
-			then haystack.begincolumn <= needle.begincolumn
-			else haystack.beginline < needle.beginline
+		if haystack.beginLine == needle.beginLine
+			then haystack.beginColumn <= needle.beginColumn
+			else haystack.beginLine < needle.beginLine
 	)
 		and (
-			if haystack.endline == needle.endline
-				then haystack.endcolumn >= needle.endcolumn
-				else haystack.endline > needle.endline
+			if haystack.endLine == needle.endLine
+				then haystack.endColumn >= needle.endColumn
+				else haystack.endLine > needle.endLine
 		)
 end
 

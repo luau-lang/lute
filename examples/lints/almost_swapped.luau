@@ -88,10 +88,10 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.Path?): { lintTyp
 					{
 						lintname = name,
 						location = syntax.span.create({
-							beginline = currStat.location.beginline,
-							begincolumn = currStat.location.begincolumn,
-							endline = nextStat.location.endline,
-							endcolumn = nextStat.location.endcolumn,
+							beginLine = currStat.location.beginLine,
+							beginColumn = currStat.location.beginColumn,
+							endLine = nextStat.location.endLine,
+							endColumn = nextStat.location.endColumn,
 						}),
 						message = message,
 						severity = "warning",
