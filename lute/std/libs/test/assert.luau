@@ -123,7 +123,10 @@ local function buffereq(lhs: buffer, rhs: buffer, depth: number?): Failure?
 		local right = buffer.readu8(rhs, offset)
 
 		if left ~= right then
-			return assertion(string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right), stackdepth)
+			return assertion(
+				string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right),
+				stackdepth
+			)
 		end
 	end
 	return nil
