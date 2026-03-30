@@ -134,7 +134,7 @@ end
 local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...): Failure?
 	local success, err = pcall(func, ...)
 	if success then
-		return assertion("Function did not error as expected.")
+		return assertion(`Expected {func} to throw/raise error.`)
 	end
 
 	local actualErrorMessage = tostring(err)
@@ -145,7 +145,7 @@ local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...
 			return assertion(`Expected suffix of error message "{with}", but got "{actualErrorMessage}"`)
 		end
 	else
-		return eq(err, with, `Expected error message {formatValue(with)}, but got {formatValue(err)}`)
+		return eq(err, with, `Expected error "{with}", but got "{formatValue(err)}"`)
 	end
 
 	return nil
