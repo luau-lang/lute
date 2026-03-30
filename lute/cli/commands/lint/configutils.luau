@@ -50,13 +50,15 @@ local function assertValidConfig(candidate: any)
 end
 
 local function extractConfig(candidate: any): internalTypes.LintConfig
-	local luteLintConfig = if candidate.lute ~= nil then candidate.lute.lint else nil -- LUAUFIX: I would expect candidate : any to silence this error
-	if luteLintConfig then
-		assertValidConfig(luteLintConfig)
-		return luteLintConfig
+	if candidate.lute == nil or candidate.lute.lint == nil then
+		return {}
 	end
 
-	return {}
+	local luteLintConfig = candidate.lute.lint
+
+	assertValidConfig(luteLintConfig)
+
+	return luteLintConfig :: internalTypes.LintConfig
 end
 
 return {
