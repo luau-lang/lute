@@ -92,25 +92,31 @@ end
 -- FIXME(Luau): We would like this to be two read-only indexers, but the
 -- best option we have otherwise is two error suppressing indexers.
 -- Table equality assertionsion with deep comparison
-local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }): Failure?
+local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }, depth: number?): Failure?
+	local stackdepth = depth or 4
+	stackdepth = stackdepth + 1 -- account for this function call
+
 	local equal, msg = tablesEqual(lhs, rhs, "")
 	if equal then
 		return nil
 	end
-	return assertion(msg or "tables are not equal")
+	return assertion(msg or "tables are not equal", stackdepth)
 end
 
-local function buffereq(lhs: buffer, rhs: buffer): Failure?
+local function buffereq(lhs: buffer, rhs: buffer, depth: number?): Failure?
+	local stackdepth = depth or 4
+	stackdepth = stackdepth + 1 -- account for this function call
+
 	if typeof(lhs) ~= "buffer" then
-		return assertion(`lhs is of type {typeof(lhs)}, not buffer`)
+		return assertion(`lhs is of type {typeof(lhs)}, not buffer`, stackdepth)
 	end
 
 	if typeof(rhs) ~= "buffer" then
-		return assertion(`rhs is of type {typeof(rhs)}, not buffer`)
+		return assertion(`rhs is of type {typeof(rhs)}, not buffer`, stackdepth)
 	end
 
 	if buffer.len(lhs) ~= buffer.len(rhs) then
-		return assertion("buffers are of unequal length")
+		return assertion("buffers are of unequal length", stackdepth)
 	end
 
 	local len = buffer.len(lhs)
@@ -119,7 +125,7 @@ local function buffereq(lhs: buffer, rhs: buffer): Failure?
 		local right = buffer.readu8(rhs, offset)
 
 		if left ~= right then
-			return assertion(string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right))
+			return assertion(string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right), stackdepth)
 		end
 	end
 	return nil
@@ -141,6 +147,8 @@ local function erroreq<A...>(func: (A...) -> ...unknown, expectedErrorMessage: s
 end
 
 local function eq(lhs: unknown, rhs: unknown, msg: string?): Failure?
+	local stackdepth = 4
+
 	-- Simple equality check for non-tables
 	if lhs == rhs then
 		return nil
@@ -153,12 +161,12 @@ local function eq(lhs: unknown, rhs: unknown, msg: string?): Failure?
 
 	-- Check for buffer equality
 	if typeof(lhs) == "buffer" then
-		return buffereq(lhs :: buffer, rhs :: buffer)
+		return buffereq(lhs :: buffer, rhs :: buffer, stackdepth)
 	end
 
 	-- Check for table equality
 	if typeof(lhs) == "table" then
-		return tableeq(lhs :: { [any]: any }, rhs :: { [any]: any })
+		return tableeq(lhs :: { [any]: any }, rhs :: { [any]: any }, stackdepth)
 	end
 
 	return assertion(msg or `{lhs} ~= {rhs}`)
