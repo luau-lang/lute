@@ -11,7 +11,6 @@ examples/process.luau:17:7-15
 examples/process.luau:18:7-15
 examples/process.luau:19:7-15
 examples/task-resume.luau:3:38-100
-lute/cli/commands/lint/init.luau:84:12-20
 lute/cli/commands/lint/rules/almost_swapped.luau:92:5-16
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:27:5-16
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:42:6-17

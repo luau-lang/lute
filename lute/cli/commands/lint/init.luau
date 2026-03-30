@@ -81,7 +81,7 @@ local function isLintRule(rule: unknown, path: string): boolean
 		return false
 	end
 
-	if typeof(rule.lint) ~= "function" then -- LUAUFIX: rule got refined to { read name : string } so accessing lint errors
+	if typeof((rule :: { lint: unknown }).lint) ~= "function" then -- LUAUFIX: rule got refined to { read name : string } so accessing prop lint errors
 		if VERBOSE then
 			print(`Error loading lint rule from {path}: must return a table with a 'lint' function property`)
 		end
