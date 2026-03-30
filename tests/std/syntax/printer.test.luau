@@ -89,13 +89,13 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = [[type t = (...number) -> string, ...string)]]
 
 		local stat = syntax.parseblock("type t = () -> (string, ...string)")
-		local tp = ((stat.statements[1] :: syntaxTypes.AstStatTypeAlias).type :: syntaxTypes.AstTypeFunction).returntypes
+		local tp = ((stat.statements[1] :: syntaxTypes.AstStatTypeAlias).type :: syntaxTypes.AstTypeFunction).returnTypes
 
 		checkReplacement(source, expected, function(ast)
 			return query
 				.findallfromroot(ast :: any, syntaxUtils.isStatTypeAlias) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:map(function(ta)
-					return if ta.type.tag == "function" then ta.type.returntypes else nil
+					return if ta.type.tag == "function" then ta.type.returnTypes else nil
 				end)
 				:replace(function(_)
 					return printer.printnode(tp)
