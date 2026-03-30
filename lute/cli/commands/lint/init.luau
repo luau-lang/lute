@@ -505,14 +505,15 @@ local function main(...: string)
 
 	local lintConfig: internalTypes.LintConfig = {}
 	local passedConfigVal = args:get("config")
+
+	if passedConfigVal and fs.type(passedConfigVal) ~= "file" then
+		print(`Error: Configuration path must point to a file, not {fs.type(passedConfigVal)}`)
+		process.exit(1)
+	end
+
 	local configPath: pathLib.Pathlike = if passedConfigVal
 		then passedConfigVal
 		else pathLib.join(process.cwd(), ".config.luau")
-
-	if fs.type(configPath) ~= "file" then
-		print(`Error: Configuration path must point to a file, not {fs.type(configPath)}`)
-		process.exit(1)
-	end
 
 	if fs.exists(configPath) then
 		local success, loadedConfig = pcall(luau.loadModule, configPath, nil)
