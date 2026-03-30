@@ -29,8 +29,8 @@ export type Failure =
 export type Asserts = {
 	eq: <T>(T, T, string?) -> Failure?,
 	neq: <T>(T, T, string?) -> Failure?,
-	errors: (() -> (), string?) -> Failure?,
-	erroreq: <A...>((A...) -> ...unknown, string, A...) -> Failure?,
+	throws: <T...>((T...) -> ...unknown, T...) -> Failure?,
+	throwsWith: <T...>(any, (T...) -> ...unknown, T...) -> Failure?,
 	strcontains: (string, string, number?, string?) -> Failure?,
 	strnotcontains: (string, string, string?) -> Failure?,
 	that: (unknown, string?) -> Failure?,
