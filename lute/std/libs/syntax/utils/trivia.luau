@@ -26,7 +26,7 @@ function retrieverLib.leftmosttrivia(n: types.AstNode): { types.Trivia }
 		end
 	end
 
-	return if leftmostToken ~= nil then leftmostToken.leadingtrivia else {}
+	return if leftmostToken ~= nil then leftmostToken.leadingTrivia else {}
 end
 
 function retrieverLib.rightmosttrivia(n: types.AstNode): { types.Trivia }
@@ -52,7 +52,7 @@ function retrieverLib.rightmosttrivia(n: types.AstNode): { types.Trivia }
 		end
 	end
 
-	return if rightmostToken ~= nil then rightmostToken.trailingtrivia else {}
+	return if rightmostToken ~= nil then rightmostToken.trailingTrivia else {}
 end
 
 return table.freeze(retrieverLib)

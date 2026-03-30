@@ -43,9 +43,9 @@ local function printToken(self: PrintVisitor, token: types.Token)
 		return
 	end
 
-	self:printTriviaList(token.leadingtrivia)
+	self:printTriviaList(token.leadingTrivia)
 	self:write(token.text)
-	self:printTriviaList(token.trailingtrivia)
+	self:printTriviaList(token.trailingTrivia)
 end
 
 local function printString(self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString)
@@ -54,7 +54,7 @@ local function printString(self: PrintVisitor, expr: types.AstExprConstantString
 		return
 	end
 
-	self:printTriviaList(expr.token.leadingtrivia)
+	self:printTriviaList(expr.token.leadingTrivia)
 
 	if expr.quotestyle == "single" then
 		self:write(`'{expr.token.text}'`)
@@ -69,7 +69,7 @@ local function printString(self: PrintVisitor, expr: types.AstExprConstantString
 		exhaustiveMatch(expr.quotestyle)
 	end
 
-	self:printTriviaList(expr.token.trailingtrivia)
+	self:printTriviaList(expr.token.trailingTrivia)
 end
 
 local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprInterpString)
@@ -79,7 +79,7 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 	end
 
 	for i = 1, #expr.strings do
-		self:printTriviaList(expr.strings[i].leadingtrivia)
+		self:printTriviaList(expr.strings[i].leadingTrivia)
 		if i == 1 then
 			self:write("`")
 		else
@@ -89,10 +89,10 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 
 		if i == #expr.strings then
 			self:write("`")
-			self:printTriviaList(expr.strings[i].trailingtrivia)
+			self:printTriviaList(expr.strings[i].trailingTrivia)
 		else
 			self:write("{")
-			self:printTriviaList(expr.strings[i].trailingtrivia)
+			self:printTriviaList(expr.strings[i].trailingTrivia)
 			visitor.visitexpression(expr.expressions[i], self)
 		end
 	end

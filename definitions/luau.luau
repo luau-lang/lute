@@ -40,10 +40,10 @@ export type MultiLineComment = {
 export type Trivia = Whitespace | SingleLineComment | MultiLineComment
 
 export type Token<Kind = string> = {
-	read leadingtrivia: { Trivia },
+	read leadingTrivia: { Trivia },
 	read location: Span,
 	read text: Kind,
-	read trailingtrivia: { Trivia },
+	read trailingTrivia: { Trivia },
 	read kind: "token",
 }
 

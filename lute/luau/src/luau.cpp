@@ -655,7 +655,7 @@ struct AstSerialize : public Luau::AstVisitor
             LUTE_ASSERT(lua_istable(L, -1));
 
             serializeTrivia(trailingTrivia);
-            lua_setfield(L, -2, "trailingtrivia");
+            lua_setfield(L, -2, "trailingTrivia");
             lua_pop(L, 1);
             lua_unref(L, lastTokenRef);
             lastTokenRef = LUA_NOREF;
@@ -667,7 +667,7 @@ struct AstSerialize : public Luau::AstVisitor
             serializeTrivia(trivia);
         }
         LUTE_ASSERT(lua_istable(L, -2));
-        lua_setfield(L, -2, "leadingtrivia");
+        lua_setfield(L, -2, "leadingTrivia");
 
         size_t textLength = strlen(text);
 
@@ -680,7 +680,7 @@ struct AstSerialize : public Luau::AstVisitor
         advancePosition(text);
 
         lua_createtable(L, 0, 0);
-        lua_setfield(L, -2, "trailingtrivia");
+        lua_setfield(L, -2, "trailingTrivia");
 
         lua_pushstring(L, "token");
         lua_setfield(L, -2, "kind");
