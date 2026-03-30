@@ -94,7 +94,6 @@ end
 -- Table equality assertionsion with deep comparison
 local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }, depth: number?): Failure?
 	local stackdepth = depth or 4
-	stackdepth = stackdepth + 1 -- account for this function call
 
 	local equal, msg = tablesEqual(lhs, rhs, "")
 	if equal then
@@ -105,7 +104,6 @@ end
 
 local function buffereq(lhs: buffer, rhs: buffer, depth: number?): Failure?
 	local stackdepth = depth or 4
-	stackdepth = stackdepth + 1 -- account for this function call
 
 	if typeof(lhs) ~= "buffer" then
 		return assertion(`lhs is of type {typeof(lhs)}, not buffer`, stackdepth)
@@ -161,12 +159,14 @@ local function eq(lhs: unknown, rhs: unknown, msg: string?): Failure?
 
 	-- Check for buffer equality
 	if typeof(lhs) == "buffer" then
-		return buffereq(lhs :: buffer, rhs :: buffer, stackdepth)
+		-- increment stack depth for debug info by 1 when calling buffereq to account for additional function call (eq -> buffereq)
+		return buffereq(lhs :: buffer, rhs :: buffer, stackdepth + 1)
 	end
 
 	-- Check for table equality
 	if typeof(lhs) == "table" then
-		return tableeq(lhs :: { [any]: any }, rhs :: { [any]: any }, stackdepth)
+		-- increment stack depth for debug info by 1 when calling tableeq to account for additional function call (eq -> tableeq)
+		return tableeq(lhs :: { [any]: any }, rhs :: { [any]: any }, stackdepth + 1)
 	end
 
 	return assertion(msg or `{lhs} ~= {rhs}`)
