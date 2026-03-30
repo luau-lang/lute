@@ -6,7 +6,7 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ tableeq_error
-	@std/test/assert.luau:200
+	<ROOT>/tests/std/snapshots/assert_tableeq_error_message_in_case.snap.luau:4
 		tableeq: lhs[a] = 1 but rhs[a] = 2
 
 --------------------------------------------------
