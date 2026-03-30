@@ -161,22 +161,22 @@ static Span checkSpan(lua_State* L, int index)
     if (!lua_istable(L, index))
         luaL_typeerror(L, index, "span");
 
-    if (lua_getfield(L, index, "beginline") == LUA_TNIL)
+    if (lua_getfield(L, index, "beginLine") == LUA_TNIL)
         luaL_typeerror(L, index, "span");
     int beginLine = lua_tonumber(L, -1);
     lua_pop(L, 1);
 
-    if (lua_getfield(L, index, "begincolumn") == LUA_TNIL)
+    if (lua_getfield(L, index, "beginColumn") == LUA_TNIL)
         luaL_typeerror(L, index, "span");
     int beginColumn = lua_tonumber(L, -1);
     lua_pop(L, 1);
 
-    if (lua_getfield(L, index, "endline") == LUA_TNIL)
+    if (lua_getfield(L, index, "endLine") == LUA_TNIL)
         luaL_typeerror(L, index, "span");
     int endLine = lua_tonumber(L, -1);
     lua_pop(L, 1);
 
-    if (lua_getfield(L, index, "endcolumn") == LUA_TNIL)
+    if (lua_getfield(L, index, "endColumn") == LUA_TNIL)
         luaL_typeerror(L, index, "span");
     int endColumn = lua_tonumber(L, -1);
     lua_pop(L, 1);
@@ -198,16 +198,16 @@ static int createSpan(lua_State* L)
     lua_createtable(L, 0, 4);
 
     lua_pushinteger(L, span.beginLine);
-    lua_setfield(L, -2, "beginline");
+    lua_setfield(L, -2, "beginLine");
 
     lua_pushinteger(L, span.beginColumn);
-    lua_setfield(L, -2, "begincolumn");
+    lua_setfield(L, -2, "beginColumn");
 
     lua_pushinteger(L, span.endLine);
-    lua_setfield(L, -2, "endline");
+    lua_setfield(L, -2, "endLine");
 
     lua_pushinteger(L, span.endColumn);
-    lua_setfield(L, -2, "endcolumn");
+    lua_setfield(L, -2, "endColumn");
 
     luaL_getmetatable(L, kSpanType);
     lua_setmetatable(L, -2);
@@ -423,16 +423,16 @@ struct AstSerialize : public Luau::AstVisitor
         lua_createtable(L, 0, 4);
 
         lua_pushinteger(L, location.begin.line + 1);
-        lua_setfield(L, -2, "beginline");
+        lua_setfield(L, -2, "beginLine");
 
         lua_pushinteger(L, location.begin.column + 1);
-        lua_setfield(L, -2, "begincolumn");
+        lua_setfield(L, -2, "beginColumn");
 
         lua_pushinteger(L, location.end.line + 1);
-        lua_setfield(L, -2, "endline");
+        lua_setfield(L, -2, "endLine");
 
         lua_pushinteger(L, location.end.column + 1);
-        lua_setfield(L, -2, "endcolumn");
+        lua_setfield(L, -2, "endColumn");
 
         luaL_getmetatable(L, kSpanType);
         lua_setmetatable(L, -2);
@@ -655,7 +655,7 @@ struct AstSerialize : public Luau::AstVisitor
             LUTE_ASSERT(lua_istable(L, -1));
 
             serializeTrivia(trailingTrivia);
-            lua_setfield(L, -2, "trailingtrivia");
+            lua_setfield(L, -2, "trailingTrivia");
             lua_pop(L, 1);
             lua_unref(L, lastTokenRef);
             lastTokenRef = LUA_NOREF;
@@ -667,7 +667,7 @@ struct AstSerialize : public Luau::AstVisitor
             serializeTrivia(trivia);
         }
         LUTE_ASSERT(lua_istable(L, -2));
-        lua_setfield(L, -2, "leadingtrivia");
+        lua_setfield(L, -2, "leadingTrivia");
 
         size_t textLength = strlen(text);
 
@@ -680,7 +680,7 @@ struct AstSerialize : public Luau::AstVisitor
         advancePosition(text);
 
         lua_createtable(L, 0, 0);
-        lua_setfield(L, -2, "trailingtrivia");
+        lua_setfield(L, -2, "trailingTrivia");
 
         lua_pushstring(L, "token");
         lua_setfield(L, -2, "kind");

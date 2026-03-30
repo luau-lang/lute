@@ -15,10 +15,10 @@ local function assertEqualsLocation(
 	endLine: number,
 	endColumn: number
 )
-	assert.eq(actual.beginline, startLine)
-	assert.eq(actual.begincolumn, startColumn)
-	assert.eq(actual.endline, endLine)
-	assert.eq(actual.endcolumn, endColumn)
+	assert.eq(actual.beginLine, startLine)
+	assert.eq(actual.beginColumn, startColumn)
+	assert.eq(actual.endLine, endLine)
+	assert.eq(actual.endColumn, endColumn)
 end
 
 test.suite("Parser", function(suite)
@@ -30,10 +30,10 @@ test.suite("Parser", function(suite)
 		assert.eq(l.tag, "local")
 
 		local token = (l :: syntax.AstStatLocal).localkeyword
-		assert.eq(#token.leadingtrivia, 1)
-		assert.eq(token.leadingtrivia[1].tag, "whitespace")
-		assert.eq(token.leadingtrivia[1].text, "  ")
-		assertEqualsLocation(assert, token.leadingtrivia[1].location, 1, 1, 1, 3)
+		assert.eq(#token.leadingTrivia, 1)
+		assert.eq(token.leadingTrivia[1].tag, "whitespace")
+		assert.eq(token.leadingTrivia[1].text, "  ")
+		assertEqualsLocation(assert, token.leadingTrivia[1].location, 1, 1, 1, 3)
 	end)
 
 	suite:case("tokenContainsLeadingNewline", function(assert)
@@ -44,10 +44,10 @@ test.suite("Parser", function(suite)
 		assert.eq(l.tag, "local")
 
 		local token = (l :: syntax.AstStatLocal).localkeyword
-		assert.eq(#token.leadingtrivia, 1)
-		assert.eq(token.leadingtrivia[1].tag, "whitespace")
-		assert.eq(token.leadingtrivia[1].text, "\n")
-		assertEqualsLocation(assert, token.leadingtrivia[1].location, 1, 1, 2, 1)
+		assert.eq(#token.leadingTrivia, 1)
+		assert.eq(token.leadingTrivia[1].tag, "whitespace")
+		assert.eq(token.leadingTrivia[1].text, "\n")
+		assertEqualsLocation(assert, token.leadingTrivia[1].location, 1, 1, 2, 1)
 	end)
 
 	suite:case("tokenContainsLeadingSingleLineComment", function(assert)
@@ -58,13 +58,13 @@ test.suite("Parser", function(suite)
 		assert.eq(l.tag, "local")
 
 		local token = (l :: syntax.AstStatLocal).localkeyword
-		assert.eq(#token.leadingtrivia, 2)
-		assert.eq(token.leadingtrivia[1].tag, "comment")
-		assert.eq(token.leadingtrivia[1].text, "-- comment")
-		assertEqualsLocation(assert, token.leadingtrivia[1].location, 1, 1, 1, 11)
-		assert.eq(token.leadingtrivia[2].tag, "whitespace")
-		assert.eq(token.leadingtrivia[2].text, "\n")
-		assertEqualsLocation(assert, token.leadingtrivia[2].location, 1, 11, 2, 1)
+		assert.eq(#token.leadingTrivia, 2)
+		assert.eq(token.leadingTrivia[1].tag, "comment")
+		assert.eq(token.leadingTrivia[1].text, "-- comment")
+		assertEqualsLocation(assert, token.leadingTrivia[1].location, 1, 1, 1, 11)
+		assert.eq(token.leadingTrivia[2].tag, "whitespace")
+		assert.eq(token.leadingTrivia[2].text, "\n")
+		assertEqualsLocation(assert, token.leadingTrivia[2].location, 1, 11, 2, 1)
 	end)
 
 	suite:case("tokenContainsLeadingBlockComment", function(assert)
@@ -75,13 +75,13 @@ test.suite("Parser", function(suite)
 		assert.eq(l.tag, "local")
 
 		local token = (l :: syntax.AstStatLocal).localkeyword
-		assert.eq(#token.leadingtrivia, 2)
-		assert.eq(token.leadingtrivia[1].tag, "blockcomment")
-		assert.eq(token.leadingtrivia[1].text, "--[[ comment ]]")
-		assertEqualsLocation(assert, token.leadingtrivia[1].location, 1, 1, 1, 16)
-		assert.eq(token.leadingtrivia[2].tag, "whitespace")
-		assert.eq(token.leadingtrivia[2].text, " ")
-		assertEqualsLocation(assert, token.leadingtrivia[2].location, 1, 16, 1, 17)
+		assert.eq(#token.leadingTrivia, 2)
+		assert.eq(token.leadingTrivia[1].tag, "blockcomment")
+		assert.eq(token.leadingTrivia[1].text, "--[[ comment ]]")
+		assertEqualsLocation(assert, token.leadingTrivia[1].location, 1, 1, 1, 16)
+		assert.eq(token.leadingTrivia[2].tag, "whitespace")
+		assert.eq(token.leadingTrivia[2].text, " ")
+		assertEqualsLocation(assert, token.leadingTrivia[2].location, 1, 16, 1, 17)
 	end)
 
 	suite:case("tokenizeWhitespace", function(assert)
@@ -92,10 +92,10 @@ test.suite("Parser", function(suite)
 		assert.eq(l.tag, "local")
 
 		local token = (l :: syntax.AstStatLocal).localkeyword
-		assert.eq(#token.leadingtrivia, 3)
-		assert.eq(token.leadingtrivia[1].text, "  \n")
-		assert.eq(token.leadingtrivia[2].text, "\t\t\n")
-		assert.eq(token.leadingtrivia[3].text, "\n")
+		assert.eq(#token.leadingTrivia, 3)
+		assert.eq(token.leadingTrivia[1].text, "  \n")
+		assert.eq(token.leadingTrivia[2].text, "\t\t\n")
+		assert.eq(token.leadingTrivia[3].text, "\n")
 	end)
 
 	suite:case("triviaSplitBetweenLeadingAndTrailing", function(assert)
@@ -108,18 +108,18 @@ test.suite("Parser", function(suite)
 		local trailingToken: syntax.AstExpr = (firstStmt :: syntax.AstStatLocal).values[1].node
 		assert.eq(trailingToken.tag, "string")
 		local expr = trailingToken :: syntax.AstExprConstantString
-		assert.eq(#expr.token.trailingtrivia, 3)
-		assert.eq(expr.token.trailingtrivia[1].text, " ")
-		assert.eq(expr.token.trailingtrivia[2].text, "-- comment")
-		assert.eq(expr.token.trailingtrivia[3].text, "\n")
+		assert.eq(#expr.token.trailingTrivia, 3)
+		assert.eq(expr.token.trailingTrivia[1].text, " ")
+		assert.eq(expr.token.trailingTrivia[2].text, "-- comment")
+		assert.eq(expr.token.trailingTrivia[3].text, "\n")
 
 		local secondStmt = block.statements[2]
 		assert.eq(secondStmt.tag, "local")
 
 		local leadingToken = (secondStmt :: syntax.AstStatLocal).localkeyword
-		assert.eq(#leadingToken.leadingtrivia, 2)
-		assert.eq(leadingToken.leadingtrivia[1].text, "-- comment 2")
-		assert.eq(leadingToken.leadingtrivia[2].text, "\n")
+		assert.eq(#leadingToken.leadingTrivia, 2)
+		assert.eq(leadingToken.leadingTrivia[1].text, "-- comment 2")
+		assert.eq(leadingToken.leadingTrivia[2].text, "\n")
 	end)
 
 	local function visitDirectory(directory: string)
@@ -533,18 +533,18 @@ foo = bar,
 		assert.eq(tableExpr.kind, "expr")
 		tableExpr = tableExpr :: syntax.AstExprTable
 		assert.eq(#tableExpr.entries, 3)
-		assert.eq(tableExpr.entries[1].location.beginline, 2)
-		assert.eq(tableExpr.entries[1].location.begincolumn, 1)
-		assert.eq(tableExpr.entries[1].location.endline, 2)
-		assert.eq(tableExpr.entries[1].location.endcolumn, 2)
-		assert.eq(tableExpr.entries[2].location.beginline, 3)
-		assert.eq(tableExpr.entries[2].location.begincolumn, 1)
-		assert.eq(tableExpr.entries[2].location.endline, 3)
-		assert.eq(tableExpr.entries[2].location.endcolumn, 10)
-		assert.eq(tableExpr.entries[3].location.beginline, 4)
-		assert.eq(tableExpr.entries[3].location.begincolumn, 1)
-		assert.eq(tableExpr.entries[3].location.endline, 4)
-		assert.eq(tableExpr.entries[3].location.endcolumn, 10)
+		assert.eq(tableExpr.entries[1].location.beginLine, 2)
+		assert.eq(tableExpr.entries[1].location.beginColumn, 1)
+		assert.eq(tableExpr.entries[1].location.endLine, 2)
+		assert.eq(tableExpr.entries[1].location.endColumn, 2)
+		assert.eq(tableExpr.entries[2].location.beginLine, 3)
+		assert.eq(tableExpr.entries[2].location.beginColumn, 1)
+		assert.eq(tableExpr.entries[2].location.endLine, 3)
+		assert.eq(tableExpr.entries[2].location.endColumn, 10)
+		assert.eq(tableExpr.entries[3].location.beginLine, 4)
+		assert.eq(tableExpr.entries[3].location.beginColumn, 1)
+		assert.eq(tableExpr.entries[3].location.endLine, 4)
+		assert.eq(tableExpr.entries[3].location.endColumn, 10)
 	end)
 end)
 
@@ -1898,10 +1898,10 @@ test.suite("AST_nodes_frozen", function(suite)
 			(token :: any).text = "modified"
 		end)
 		assert.throwsWith(frozenTableMessage, function()
-			table.insert((token :: any).leadingtrivia, nil)
+			table.insert((token :: any).leadingTrivia, nil)
 		end)
 		assert.throwsWith(frozenTableMessage, function()
-			table.insert((token :: any).trailingtrivia, nil)
+			table.insert((token :: any).trailingTrivia, nil)
 		end)
 	end)
 
@@ -1916,7 +1916,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	local x = 1
 	]=])
 		local localStat = block.statements[1] :: syntax.AstStatLocal
-		local trivias = localStat.localkeyword.leadingtrivia
+		local trivias = localStat.localkeyword.leadingTrivia
 		for _, trivia in trivias do
 			assert.throwsWith(frozenTableMessage, function()
 				(trivia :: any).text = "modified"

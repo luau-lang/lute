@@ -348,10 +348,10 @@ local function applySuggestedFixes(source: string, fixes: { fix }): string
 	end)
 
 	for _, fix in fixes do
-		local beginLine = fix.location.beginline
-		local endLine = fix.location.endline
-		local beginColumn = fix.location.begincolumn
-		local endColumn = fix.location.endcolumn
+		local beginLine = fix.location.beginLine
+		local endLine = fix.location.endLine
+		local beginColumn = fix.location.beginColumn
+		local endColumn = fix.location.endColumn
 
 		if beginLine == endLine then
 			-- Single-line fix

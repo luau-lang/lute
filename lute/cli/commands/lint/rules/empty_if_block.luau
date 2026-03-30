@@ -59,11 +59,11 @@ local function lint(
 			isBlockEmpty(
 				ifStat.thenblock,
 				commentsCount,
-				ifStat.thenkeyword.trailingtrivia,
+				ifStat.thenkeyword.trailingTrivia,
 				if #ifStat.elseifs > 0 -- trailingToken
-					then ifStat.elseifs[1].elseifkeyword.leadingtrivia
-					elseif ifStat.elsekeyword then ifStat.elsekeyword.leadingtrivia
-					else ifStat.endkeyword.leadingtrivia
+					then ifStat.elseifs[1].elseifkeyword.leadingTrivia
+					elseif ifStat.elsekeyword then ifStat.elsekeyword.leadingTrivia
+					else ifStat.endkeyword.leadingTrivia
 			)
 		then
 			return {
@@ -82,11 +82,11 @@ local function lint(
 				isBlockEmpty(
 					elseIfStat.thenblock,
 					commentsCount,
-					elseIfStat.thenkeyword.trailingtrivia,
+					elseIfStat.thenkeyword.trailingTrivia,
 					if i < #ifStat.elseifs -- trailingToken
-						then ifStat.elseifs[i + 1].elseifkeyword.leadingtrivia
-						elseif ifStat.elsekeyword then ifStat.elsekeyword.leadingtrivia
-						else ifStat.endkeyword.leadingtrivia
+						then ifStat.elseifs[i + 1].elseifkeyword.leadingTrivia
+						elseif ifStat.elsekeyword then ifStat.elsekeyword.leadingTrivia
+						else ifStat.endkeyword.leadingTrivia
 				)
 			then
 				return {
@@ -107,8 +107,8 @@ local function lint(
 				isBlockEmpty(
 					ifStat.elseblock,
 					commentsCount,
-					ifStat.elsekeyword.trailingtrivia,
-					ifStat.endkeyword.leadingtrivia
+					ifStat.elsekeyword.trailingTrivia,
+					ifStat.endkeyword.leadingTrivia
 				)
 			then
 				return {

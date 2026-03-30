@@ -92,10 +92,10 @@ local function lint(
 				table.insert(violations, { -- LUAUFIX: inserted table isn't inferred as a LintViolation
 					lintname = name,
 					location = syntax.span.create({
-						beginline = currStat.location.beginline,
-						begincolumn = currStat.location.begincolumn,
-						endline = nextStat.location.endline,
-						endcolumn = nextStat.location.endcolumn,
+						beginLine = currStat.location.beginLine,
+						beginColumn = currStat.location.beginColumn,
+						endLine = nextStat.location.endLine,
+						endColumn = nextStat.location.endColumn,
 					}),
 					message = message,
 					severity = "warning" :: "warning", -- LUAUFIX: cast needed because severity isn't inferred as a singleton
