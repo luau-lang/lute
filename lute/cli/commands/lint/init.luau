@@ -304,7 +304,7 @@ local function lintString(
 		end
 
 		local ruleConfig = configData.ruleConfigs[rule.name]
-		local context = {
+		local context: types.RuleContext = {
 			globals = configData.globals,
 			options = if ruleConfig.options then ruleConfig.options else {},
 		}
@@ -504,18 +504,18 @@ local function main(...: string)
 	end
 
 	local lintConfig: internalTypes.LintConfig = {}
-	local configPath = args:get("config")
-	if configPath == nil then
-		-- search in calling dir
-		local cwd = process.cwd()
-		configPath = pathLib.join(cwd, ".config.luau")
-	elseif fs.type(configPath) ~= "file" then
+	local passedConfigVal = args:get("config")
+	local configPath: pathLib.Pathlike = if passedConfigVal
+		then passedConfigVal
+		else pathLib.join(process.cwd(), ".config.luau")
+
+	if fs.type(configPath) ~= "file" then
 		print(`Error: Configuration path must point to a file, not {fs.type(configPath)}`)
 		process.exit(1)
 	end
 
 	if fs.exists(configPath) then
-		local success, loadedConfig = pcall(luau.loadModule, configPath)
+		local success, loadedConfig = pcall(luau.loadModule, configPath, nil)
 		if success then
 			lintConfig = configUtils.extractConfig(loadedConfig)
 		elseif VERBOSE then
