@@ -132,26 +132,6 @@ local function buffereq(lhs: buffer, rhs: buffer, depth: number?): Failure?
 	return nil
 end
 
-local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...): Failure?
-	local success, err = pcall(func, ...)
-	if success then
-		return assertion(`Expected function to throw/raise error.`)
-	end
-
-	local actualErrorMessage = tostring(err)
-
-	if typeof(with) == "string" then
-		-- pcall appends filename and line number of the error, so we check suffix only
-		if not stringext.hassuffix(actualErrorMessage, with) then
-			return assertion(`Expected suffix of error message "{with}", but got "{actualErrorMessage}"`)
-		end
-	else
-		return eq(err, with, `Expected error "{with}", but got "{formatValue(err)}"`)
-	end
-
-	return nil
-end
-
 local function eq(lhs: unknown, rhs: unknown, msg: string?): Failure?
 	local stackdepth = 4
 
@@ -178,6 +158,26 @@ local function eq(lhs: unknown, rhs: unknown, msg: string?): Failure?
 	end
 
 	return assertion(msg or `{lhs} ~= {rhs}`)
+end
+
+local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...): Failure?
+	local success, err = pcall(func, ...)
+	if success then
+		return assertion(`Expected function to throw/raise error.`)
+	end
+
+	local actualErrorMessage = tostring(err)
+
+	if typeof(with) == "string" then
+		-- pcall appends filename and line number of the error, so we check suffix only
+		if not stringext.hassuffix(actualErrorMessage, with) then
+			return assertion(`Expected suffix of error message "{with}", but got "{actualErrorMessage}"`)
+		end
+	else
+		return eq(err, with, `Expected error "{with}", but got "{formatValue(err)}"`)
+	end
+
+	return nil
 end
 
 local function strcontains(haystack: string, needle: string, instances: number?, msg: string?): Failure?
