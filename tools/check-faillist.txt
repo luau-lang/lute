@@ -15,10 +15,6 @@ lute/cli/commands/lint/rules/almost_swapped.luau:92:5-16
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:27:5-16
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:42:6-17
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:68:4-15
-lute/cli/commands/test/filter.luau:34:5-16
-lute/cli/commands/test/filter.luau:34:5-16
-lute/cli/commands/test/filter.luau:62:6-17
-lute/cli/commands/test/filter.luau:62:6-17
 tests/src/packages/package_aware_require/dep/module.luau:1:16-30
 tests/src/packages/pkgrun_with_lockfile/Packages/dep/src/init.luau:1:16-38
 tests/src/require/config_tests/config_ambiguity/requirer.luau:1:8-22

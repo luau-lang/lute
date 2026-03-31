@@ -1,4 +1,6 @@
 #pragma once
+#include "lute/profiler.h"
+
 #include <functional>
 #include <optional>
 #include <string>
@@ -6,12 +8,6 @@
 struct lua_State;
 struct Runtime;
 class LuteReporter;
-
-struct ProfileOptions
-{
-    std::string filename;
-    int frequency = 10000;
-};
 
 int cliMain(int argc, char** argv, LuteReporter& reporter);
 bool runBytecode(
