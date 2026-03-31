@@ -46,4 +46,11 @@ function luau.resolveModule(modulepath: string, frompath: path.Pathlike): path.P
 	return luteLuau.resolveModule(modulepath, `@{frompathString}`)
 end
 
+export type LuauConfig = luteLuau.LuauConfig
+
+function luau.resolveConfig(filepath: path.Pathlike): LuauConfig
+	local filepathString = if typeof(filepath) == "string" then filepath else path.format(filepath)
+	return luteLuau.resolveConfig(filepathString)
+end
+
 return table.freeze(luau)
