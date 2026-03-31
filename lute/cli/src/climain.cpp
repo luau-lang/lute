@@ -114,6 +114,12 @@ Compile Options:
 	-h, --help              Display this usage message.
 )";
 
+struct ProfileOptions
+{
+    std::string filename;
+    int frequency = 10000;
+};
+
 static bool runBytecode(
     Runtime& runtime,
     const std::string& bytecode,

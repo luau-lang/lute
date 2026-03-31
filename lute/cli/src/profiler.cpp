@@ -50,7 +50,7 @@ struct Profiler
 {
     // static state
     lua_Callbacks* callbacks = nullptr;
-    int frequency = ProfileOptions{}.frequency;
+    int frequency = 10000;
     std::thread thread;
 
     // variables for communication between loop and trigger
