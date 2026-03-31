@@ -81,7 +81,7 @@ local function isLintRule(rule: unknown, path: string): boolean
 		return false
 	end
 
-	if typeof(rule.lint) ~= "function" then -- LUAUFIX: rule got refined to { read name : string } so accessing lint errors
+	if typeof((rule :: { lint: unknown }).lint) ~= "function" then -- LUAUFIX: rule got refined to { read name : string } so accessing prop lint errors
 		if VERBOSE then
 			print(`Error loading lint rule from {path}: must return a table with a 'lint' function property`)
 		end
@@ -304,7 +304,7 @@ local function lintString(
 		end
 
 		local ruleConfig = configData.ruleConfigs[rule.name]
-		local context = {
+		local context: types.RuleContext = {
 			globals = configData.globals,
 			options = if ruleConfig.options then ruleConfig.options else {},
 		}
@@ -348,10 +348,10 @@ local function applySuggestedFixes(source: string, fixes: { fix }): string
 	end)
 
 	for _, fix in fixes do
-		local beginLine = fix.location.beginline
-		local endLine = fix.location.endline
-		local beginColumn = fix.location.begincolumn
-		local endColumn = fix.location.endcolumn
+		local beginLine = fix.location.beginLine
+		local endLine = fix.location.endLine
+		local beginColumn = fix.location.beginColumn
+		local endColumn = fix.location.endColumn
 
 		if beginLine == endLine then
 			-- Single-line fix
@@ -504,18 +504,19 @@ local function main(...: string)
 	end
 
 	local lintConfig: internalTypes.LintConfig = {}
-	local configPath = args:get("config")
-	if configPath == nil then
-		-- search in calling dir
-		local cwd = process.cwd()
-		configPath = pathLib.join(cwd, ".config.luau")
-	elseif fs.type(configPath) ~= "file" then
-		print(`Error: Configuration path must point to a file, not {fs.type(configPath)}`)
+	local passedConfigVal = args:get("config")
+
+	if passedConfigVal and fs.type(passedConfigVal) ~= "file" then
+		print(`Error: Configuration path must point to a file, not {fs.type(passedConfigVal)}`)
 		process.exit(1)
 	end
 
+	local configPath: pathLib.Pathlike = if passedConfigVal
+		then passedConfigVal
+		else pathLib.join(process.cwd(), ".config.luau")
+
 	if fs.exists(configPath) then
-		local success, loadedConfig = pcall(luau.loadModule, configPath)
+		local success, loadedConfig = pcall(luau.loadModule, configPath, nil)
 		if success then
 			lintConfig = configUtils.extractConfig(loadedConfig)
 		elseif VERBOSE then
