@@ -148,27 +148,27 @@ test.suite("Parser", function(suite)
 		local singleLineCode = "local x = 1"
 		local result = parser.parse(singleLineCode)
 
-		assert.eq(type(result.lineoffsets), "table")
-		assert.eq(#result.lineoffsets, 1)
-		assert.eq(result.lineoffsets[1], 1)
+		assert.eq(type(result.lineOffsets), "table")
+		assert.eq(#result.lineOffsets, 1)
+		assert.eq(result.lineOffsets[1], 1)
 
 		local multiLineCode = "local x = 1\nlocal y = 2\nlocal z = 3"
 		local multiResult = parser.parse(multiLineCode)
 
-		assert.eq(type(multiResult.lineoffsets), "table")
-		assert.eq(#multiResult.lineoffsets, 3)
-		assert.eq(multiResult.lineoffsets[1], 1)
-		assert.eq(multiResult.lineoffsets[2], 13)
-		assert.eq(multiResult.lineoffsets[3], 25)
+		assert.eq(type(multiResult.lineOffsets), "table")
+		assert.eq(#multiResult.lineOffsets, 3)
+		assert.eq(multiResult.lineOffsets[1], 1)
+		assert.eq(multiResult.lineOffsets[2], 13)
+		assert.eq(multiResult.lineOffsets[3], 25)
 
 		local emptyLineCode = "local x = 1\n\nlocal y = 2"
 		local emptyResult = parser.parse(emptyLineCode)
 
-		assert.eq(type(emptyResult.lineoffsets), "table")
-		assert.eq(#emptyResult.lineoffsets, 3)
-		assert.eq(emptyResult.lineoffsets[1], 1)
-		assert.eq(emptyResult.lineoffsets[2], 13)
-		assert.eq(emptyResult.lineoffsets[3], 14)
+		assert.eq(type(emptyResult.lineOffsets), "table")
+		assert.eq(#emptyResult.lineOffsets, 3)
+		assert.eq(emptyResult.lineOffsets[1], 1)
+		assert.eq(emptyResult.lineOffsets[2], 13)
+		assert.eq(emptyResult.lineOffsets[3], 14)
 	end)
 
 	suite:case("canParseAttributes", function(assert)
@@ -908,11 +908,11 @@ test.suite("parse types", function(suite)
 
 		local typeRef = typeAlias.type :: syntax.AstTypeReference
 		assert.eq(typeRef.prefix, nil)
-		assert.eq(typeRef.prefixpoint, nil)
+		assert.eq(typeRef.prefixPoint, nil)
 		assert.eq(typeRef.name.text, "string")
-		assert.eq(typeRef.openparameters, nil)
+		assert.eq(typeRef.openParameters, nil)
 		assert.eq(typeRef.parameters, nil)
-		assert.eq(typeRef.closeparameters, nil)
+		assert.eq(typeRef.closeParameters, nil)
 
 		block = parser.parseblock("type MyTable = MyModule.Table<number, string>")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
@@ -921,17 +921,17 @@ test.suite("parse types", function(suite)
 		typeRef = typeAlias.type :: syntax.AstTypeReference
 		assert.neq(typeRef.prefix, nil)
 		assert.eq((typeRef.prefix :: syntax.Token<string>).text, "MyModule")
-		assert.neq(typeRef.prefixpoint, nil)
-		assert.eq((typeRef.prefixpoint :: syntax.Token<".">).text, ".")
+		assert.neq(typeRef.prefixPoint, nil)
+		assert.eq((typeRef.prefixPoint :: syntax.Token<".">).text, ".")
 		assert.eq(typeRef.name.text, "Table")
-		assert.neq(typeRef.openparameters, nil)
-		assert.eq((typeRef.openparameters :: syntax.Token<"<">).text, "<")
+		assert.neq(typeRef.openParameters, nil)
+		assert.eq((typeRef.openParameters :: syntax.Token<"<">).text, "<")
 		assert.neq(typeRef.parameters, nil)
 		assert.eq(#typeRef.parameters :: syntax.Punctuated<syntax.AstType>, 2)
 		assert.eq((typeRef.parameters :: syntax.Punctuated<syntax.AstType>)[1].node.tag, "reference")
 		assert.eq((typeRef.parameters :: syntax.Punctuated<syntax.AstType>)[2].node.tag, "reference")
-		assert.neq(typeRef.closeparameters, nil)
-		assert.eq((typeRef.closeparameters :: syntax.Token<">">).text, ">")
+		assert.neq(typeRef.closeParameters, nil)
+		assert.eq((typeRef.closeParameters :: syntax.Token<">">).text, ">")
 	end)
 
 	suite:case("testTypeSingletonBoolean", function(assert)
@@ -977,9 +977,9 @@ test.suite("parse types", function(suite)
 
 		local typeofType = typeAlias.type :: syntax.AstTypeTypeof
 		assert.eq(typeofType.typeof.text, "typeof")
-		assert.eq(typeofType.openparens.text, "(")
+		assert.eq(typeofType.openParens.text, "(")
 		assert.eq(typeofType.expression.tag, "global")
-		assert.eq(typeofType.closeparens.text, ")")
+		assert.eq(typeofType.closeParens.text, ")")
 	end)
 
 	suite:case("testTypeGroup", function(assert)
@@ -988,9 +988,9 @@ test.suite("parse types", function(suite)
 		assert.eq(typeAlias.type.tag, "group")
 
 		local groupType = typeAlias.type :: syntax.AstTypeGroup
-		assert.eq(groupType.openparens.text, "(")
+		assert.eq(groupType.openParens.text, "(")
 		assert.eq(groupType.type.tag, "reference")
-		assert.eq(groupType.closeparens.text, ")")
+		assert.eq(groupType.closeParens.text, ")")
 	end)
 
 	suite:case("testTypeUnion", function(assert)
@@ -1070,10 +1070,10 @@ test.suite("parse types", function(suite)
 		assert.eq(typeAlias.type.tag, "array")
 
 		local arrayType = typeAlias.type :: syntax.AstTypeArray
-		assert.eq(arrayType.openbrace.text, "{")
+		assert.eq(arrayType.openBrace.text, "{")
 		assert.eq(arrayType.access, nil)
 		assert.eq(arrayType.type.tag, "reference")
-		assert.eq(arrayType.closebrace.text, "}")
+		assert.eq(arrayType.closeBrace.text, "}")
 
 		block = parser.parseblock("type T = { read string }")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
@@ -1098,9 +1098,9 @@ test.suite("parse types", function(suite)
 		assert.eq(typeAlias.type.tag, "table")
 
 		local tableType = typeAlias.type :: syntax.AstTypeTable
-		assert.eq(tableType.openbrace.text, "{")
+		assert.eq(tableType.openBrace.text, "{")
 		assert.eq(#tableType.entries, 0)
-		assert.eq(tableType.closebrace.text, "}")
+		assert.eq(tableType.closeBrace.text, "}")
 
 		block = parser.parseblock("type T = {[number] : string}")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
@@ -1111,9 +1111,9 @@ test.suite("parse types", function(suite)
 		local tableTypeItem: any = tableType.entries[1]
 		assert.eq(tableTypeItem.kind, "indexer")
 		assert.eq(tableTypeItem.access, nil)
-		assert.eq(tableTypeItem.indexeropen.text, "[")
+		assert.eq(tableTypeItem.indexerOpen.text, "[")
 		assert.eq(tableTypeItem.key.tag, "reference")
-		assert.eq(tableTypeItem.indexerclose.text, "]")
+		assert.eq(tableTypeItem.indexerClose.text, "]")
 		assert.eq(tableTypeItem.colon.text, ":")
 		assert.eq(tableTypeItem.value.tag, "reference")
 		assert.eq(tableTypeItem.separator, nil)
@@ -1126,11 +1126,11 @@ test.suite("parse types", function(suite)
 		tableTypeItem = tableType.entries[1]
 		assert.eq(tableTypeItem.kind, "stringproperty")
 		assert.eq(tableTypeItem.access, nil)
-		assert.eq(tableTypeItem.indexeropen.text, "[")
+		assert.eq(tableTypeItem.indexerOpen.text, "[")
 		assert.eq((tableTypeItem.key :: syntax.AstTypeSingletonString).kind, "type")
 		assert.eq((tableTypeItem.key :: syntax.AstTypeSingletonString).tag, "string")
 		assert.eq((tableTypeItem.key :: syntax.AstTypeSingletonString).token.text, "hello")
-		assert.eq(tableTypeItem.indexerclose.text, "]")
+		assert.eq(tableTypeItem.indexerClose.text, "]")
 		assert.eq(tableTypeItem.colon.text, ":")
 		assert.eq(tableTypeItem.value.tag, "string")
 		assert.neq(tableTypeItem.separator, nil)
@@ -1183,11 +1183,11 @@ test.suite("parse types", function(suite)
 		assert.eq(typeAlias.type.tag, "function")
 
 		local funcType = typeAlias.type :: syntax.AstTypeFunction
-		assert.eq(funcType.opengenerics, nil)
+		assert.eq(funcType.openGenerics, nil)
 		assert.eq(funcType.generics, nil)
-		assert.eq(funcType.genericpacks, nil)
-		assert.eq(funcType.closegenerics, nil)
-		assert.eq(funcType.openparens.text, "(")
+		assert.eq(funcType.genericPacks, nil)
+		assert.eq(funcType.closeGenerics, nil)
+		assert.eq(funcType.openParens.text, "(")
 		assert.eq(#funcType.parameters, 2)
 
 		local param = funcType.parameters[1].node
@@ -1203,29 +1203,29 @@ test.suite("parse types", function(suite)
 		assert.eq(param.type.tag, "reference")
 
 		assert.eq(funcType.vararg, nil)
-		assert.eq(funcType.closeparens.text, ")")
-		assert.eq(funcType.returnarrow.text, "->")
-		assert.eq(funcType.returntypes.kind, "typepack")
+		assert.eq(funcType.closeParens.text, ")")
+		assert.eq(funcType.returnArrow.text, "->")
+		assert.eq(funcType.returnTypes.kind, "typepack")
 
 		block = parser.parseblock("type T = <T, U...> (item: T, ...U) -> ()")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "function")
 
 		funcType = typeAlias.type :: syntax.AstTypeFunction
-		assert.neq(funcType.opengenerics, nil)
-		assert.eq((funcType.opengenerics :: syntax.Token<"<">).text, "<")
+		assert.neq(funcType.openGenerics, nil)
+		assert.eq((funcType.openGenerics :: syntax.Token<"<">).text, "<")
 		assert.neq(funcType.generics, nil)
 		assert.eq(#funcType.generics :: syntax.Punctuated<syntax.AstGenericType>, 1)
-		assert.neq(funcType.genericpacks, nil)
-		assert.eq(#funcType.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>, 1)
-		assert.eq((funcType.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>)[1].node.tag, "generic")
+		assert.neq(funcType.genericPacks, nil)
+		assert.eq(#funcType.genericPacks :: syntax.Punctuated<syntax.AstGenericTypePack>, 1)
+		assert.eq((funcType.genericPacks :: syntax.Punctuated<syntax.AstGenericTypePack>)[1].node.tag, "generic")
 
-		local genericTypePack = (funcType.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>)[1].node
+		local genericTypePack = (funcType.genericPacks :: syntax.Punctuated<syntax.AstGenericTypePack>)[1].node
 		assert.eq(genericTypePack.name.text, "U")
 		assert.eq(genericTypePack.ellipsis.text, "...")
 
-		assert.neq(funcType.closegenerics, nil)
-		assert.eq((funcType.closegenerics :: syntax.Token<">">).text, ">")
+		assert.neq(funcType.closeGenerics, nil)
+		assert.eq((funcType.closeGenerics :: syntax.Token<">">).text, ">")
 		assert.neq(funcType.vararg, nil)
 		assert.eq((funcType.vararg :: syntax.AstTypePack).kind, "typepack")
 
@@ -1234,9 +1234,9 @@ test.suite("parse types", function(suite)
 		assert.eq(typeAlias.type.tag, "function")
 
 		funcType = typeAlias.type :: syntax.AstTypeFunction
-		assert.eq(funcType.returntypes.kind, "typepack")
-		assert.eq(funcType.returntypes.tag, "variadic")
-		local variadicType: syntax.AstTypePackVariadic = funcType.returntypes :: any
+		assert.eq(funcType.returnTypes.kind, "typepack")
+		assert.eq(funcType.returnTypes.tag, "variadic")
+		local variadicType: syntax.AstTypePackVariadic = funcType.returnTypes :: any
 		assert.neq(variadicType.ellipsis, nil)
 		assert.eq((variadicType.ellipsis :: syntax.Token<"...">).text, "...")
 		assert.eq(variadicType.type.tag, "reference")
@@ -1802,7 +1802,7 @@ test.suite("AST_nodes_frozen", function(suite)
 		assert.eq(tableType.kind, "type")
 		assert.eq(tableType.tag, "table")
 		assert.throwsWith(frozenTableMessage, function()
-			(tableType :: any).openbrace = nil
+			(tableType :: any).openBrace = nil
 		end)
 		assert.throwsWith(frozenTableMessage, function()
 			table.insert((tableType :: any).entries, nil)
@@ -1836,11 +1836,11 @@ test.suite("AST_nodes_frozen", function(suite)
 		local block = parser.parseblock("type Foo = (number, string) -> (boolean, string)")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local funcType = typeAlias.type :: syntax.AstTypeFunction
-		local typePack = funcType.returntypes :: syntax.AstTypePackExplicit
+		local typePack = funcType.returnTypes :: syntax.AstTypePackExplicit
 		assert.eq(typePack.kind, "typepack")
 		assert.eq(typePack.tag, "explicit")
 		assert.throwsWith(frozenTableMessage, function()
-			(typePack :: any).openparens = nil
+			(typePack :: any).openParens = nil
 		end)
 	end)
 
@@ -1848,7 +1848,7 @@ test.suite("AST_nodes_frozen", function(suite)
 		local block = parser.parseblock("type Foo = () -> ...number")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local funcType = typeAlias.type :: syntax.AstTypeFunction
-		local typePack = funcType.returntypes :: syntax.AstTypePackVariadic
+		local typePack = funcType.returnTypes :: syntax.AstTypePackVariadic
 		assert.eq(typePack.kind, "typepack")
 		assert.eq(typePack.tag, "variadic")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1931,7 +1931,7 @@ test.suite("AST_nodes_frozen", function(suite)
 			(result :: any).root = nil
 		end)
 		assert.throwsWith(frozenTableMessage, function()
-			table.insert((result :: any).lineoffsets, nil)
+			table.insert((result :: any).lineOffsets, nil)
 		end)
 	end)
 

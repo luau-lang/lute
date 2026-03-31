@@ -534,11 +534,11 @@ export type AstTypeReference = {
 	read kind: "type",
 	read tag: "reference",
 	read prefix: Token<string>?,
-	read prefixpoint: Token<".">?,
+	read prefixPoint: Token<".">?,
 	read name: Token<string>,
-	read openparameters: Token<"<">?,
+	read openParameters: Token<"<">?,
 	read parameters: Punctuated<AstType | AstTypePack>?,
-	read closeparameters: Token<">">?,
+	read closeParameters: Token<">">?,
 }
 
 export type AstTypeSingletonBool = {
@@ -562,18 +562,18 @@ export type AstTypeTypeof = {
 	read kind: "type",
 	read tag: "typeof",
 	read typeof: Token<"typeof">,
-	read openparens: Token<"(">,
+	read openParens: Token<"(">,
 	read expression: AstExpr,
-	read closeparens: Token<")">,
+	read closeParens: Token<")">,
 }
 
 export type AstTypeGroup = {
 	read location: Span,
 	read kind: "type",
 	read tag: "group",
-	read openparens: Token<"(">,
+	read openParens: Token<"(">,
 	read type: AstType,
-	read closeparens: Token<")">,
+	read closeParens: Token<")">,
 }
 
 export type AstTypeOptional = { read location: Span, read kind: "type", read tag: "optional", read token: Token<"?"> }
@@ -599,18 +599,18 @@ export type AstTypeArray = {
 	read location: Span,
 	read kind: "type",
 	read tag: "array",
-	read openbrace: Token<"{">,
+	read openBrace: Token<"{">,
 	read access: Token<"read" | "write">?,
 	read type: AstType,
-	read closebrace: Token<"}">,
+	read closeBrace: Token<"}">,
 }
 
 export type AstTableTypeItemIndexer = {
 	read kind: "indexer",
 	read access: Token<"read" | "write">?,
-	read indexeropen: Token<"[">,
+	read indexerOpen: Token<"[">,
 	read key: AstType,
-	read indexerclose: Token<"]">,
+	read indexerClose: Token<"]">,
 	read colon: Token<":">,
 	read value: AstType,
 	read separator: Token<"," | ";">?,
@@ -619,9 +619,9 @@ export type AstTableTypeItemIndexer = {
 export type AstTableTypeItemStringProperty = {
 	read kind: "stringproperty",
 	read access: Token<"read" | "write">?,
-	read indexeropen: Token<"[">,
+	read indexerOpen: Token<"[">,
 	read key: AstTypeSingletonString,
-	read indexerclose: Token<"]">,
+	read indexerClose: Token<"]">,
 	read colon: Token<":">,
 	read value: AstType,
 	read separator: Token<"," | ";">?,
@@ -642,9 +642,9 @@ export type AstTypeTable = {
 	read location: Span,
 	read kind: "type",
 	read tag: "table",
-	read openbrace: Token<"{">,
+	read openBrace: Token<"{">,
 	read entries: { AstTableTypeItem },
-	read closebrace: Token<"}">,
+	read closeBrace: Token<"}">,
 }
 
 export type AstFunctionTypeParameter = {
@@ -659,16 +659,16 @@ export type AstTypeFunction = {
 	read location: Span,
 	read kind: "type",
 	read tag: "function",
-	read opengenerics: Token<"<">?,
+	read openGenerics: Token<"<">?,
 	read generics: Punctuated<AstGenericType>?,
-	read genericpacks: Punctuated<AstGenericTypePack>?,
-	read closegenerics: Token<">">?,
-	read openparens: Token<"(">,
+	read genericPacks: Punctuated<AstGenericTypePack>?,
+	read closeGenerics: Token<">">?,
+	read openParens: Token<"(">,
 	read parameters: Punctuated<AstFunctionTypeParameter>,
 	read vararg: AstTypePack?,
-	read closeparens: Token<")">,
-	read returnarrow: Token<"->">,
-	read returntypes: AstTypePack,
+	read closeParens: Token<")">,
+	read returnArrow: Token<"->">,
+	read returnTypes: AstTypePack,
 }
 
 export type AstType =
@@ -688,10 +688,10 @@ export type AstTypePackExplicit = {
 	read location: Span,
 	read kind: "typepack",
 	read tag: "explicit",
-	read openparens: Token<"(">?,
+	read openParens: Token<"(">?,
 	read types: Punctuated<AstType>,
-	read tailtype: AstTypePack?,
-	read closeparens: Token<")">?,
+	read tailType: AstTypePack?,
+	read closeParens: Token<")">?,
 }
 
 export type AstTypePackGeneric = {
@@ -719,7 +719,7 @@ export type ParseResult = {
 	read root: AstStatBlock,
 	read eof: Eof,
 	read lines: number,
-	read lineoffsets: { number },
+	read lineOffsets: { number },
 }
 
 function luau.parse(source: string): ParseResult
