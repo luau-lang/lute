@@ -47,8 +47,8 @@ test.suite("MySuite", function(suite)
 	suite:case("table_comparison", function(assert)
 		local table1 = { a = 1, b = { c = 2, d = 3 } }
 		local table2 = { a = 1, b = { c = 2, d = 3 } }
-		assert.tableeq(table1, table2)
-		assert.tableeq(table1, { a = 1 })
+		assert.eq(table1, table2)
+		assert.eq(table1, { a = 1 })
 	end)
 
 	suite:case("expect_error", function(assert)

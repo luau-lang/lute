@@ -9,7 +9,7 @@ Failed Tests (1):
 	Runtime error: <ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall_case.snap.luau:5: attempt to index nil with 'field'
 Stacktrace:
 <ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall_case.snap.luau:5: attempt to index nil with 'field'
-@std/test/failure.luau:27 function runtimeerror
+@std/test/failure.luau:29 function runtimeerror
 @std/test/runner.luau:87 function handlefailure
 <ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall_case.snap.luau:5
 @std/test/runner.luau:93 function run
