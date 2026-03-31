@@ -55,7 +55,7 @@ local function parallelMergeSort<T>(t: { T }, comp: (T, T) -> lt<T>): { T }
 		table.insert(slices, task.create(threads[i].sort, getslice(t, i, threadCount)))
 	end
 
-	local tomerge = table.pack(task.awaitall(table.unpack(slices)))
+	local tomerge = table.pack(task.awaitAll(table.unpack(slices)))
 	tomerge.n = nil :: any
 
 	while #tomerge > 1 do
