@@ -56,17 +56,17 @@ local function printString(self: PrintVisitor, expr: types.AstExprConstantString
 
 	self:printTriviaList(expr.token.leadingTrivia)
 
-	if expr.quotestyle == "single" then
+	if expr.quoteStyle == "single" then
 		self:write(`'{expr.token.text}'`)
-	elseif expr.quotestyle == "double" then
+	elseif expr.quoteStyle == "double" then
 		self:write(`"{expr.token.text}"`)
-	elseif expr.quotestyle == "block" then
-		local equals = string.rep("=", expr.blockdepth)
+	elseif expr.quoteStyle == "block" then
+		local equals = string.rep("=", expr.blockDepth)
 		self:write(`[{equals}[{expr.token.text}]{equals}]`)
-	elseif expr.quotestyle == "interp" then
+	elseif expr.quoteStyle == "interp" then
 		self:write("`" .. expr.token.text .. "`")
 	else
-		exhaustiveMatch(expr.quotestyle)
+		exhaustiveMatch(expr.quoteStyle)
 	end
 
 	self:printTriviaList(expr.token.trailingTrivia)

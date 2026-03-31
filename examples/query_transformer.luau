@@ -7,12 +7,12 @@ local function transform(ctx)
 		.findallfromroot(ctx.parseresult.root, syntax_utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "~="
-				and bin.lhsoperand.tag == "local"
-				and bin.rhsoperand.tag == "local"
-				and bin.lhsoperand.token.text == bin.rhsoperand.token.text
+				and bin.lhsOperand.tag == "local"
+				and bin.rhsOperand.tag == "local"
+				and bin.lhsOperand.token.text == bin.rhsOperand.token.text
 		end)
 		:replace(function(bin)
-			return `math.isnan({(bin.lhsoperand :: syntax.AstExprLocal).token.text})`
+			return `math.isnan({(bin.lhsOperand :: syntax.AstExprLocal).token.text})`
 		end)
 end
 

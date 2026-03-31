@@ -65,9 +65,9 @@ export type AstExprGroup = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "group",
-	read openparens: Token<"(">,
+	read openParens: Token<"(">,
 	read expression: AstExpr,
-	read closeparens: Token<")">,
+	read closeParens: Token<")">,
 }
 
 export type AstExprConstantNil = {
@@ -97,8 +97,8 @@ export type AstExprConstantString = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "string",
-	read quotestyle: "single" | "double" | "block" | "interp",
-	read blockdepth: number,
+	read quoteStyle: "single" | "double" | "block" | "interp",
+	read blockDepth: number,
 	read token: Token<string>,
 }
 
@@ -125,9 +125,9 @@ export type AstExprCall = {
 	read kind: "expr",
 	read tag: "call",
 	read func: AstExpr,
-	read openparens: Token<"(">?,
+	read openParens: Token<"(">?,
 	read arguments: Punctuated<AstExpr>,
-	read closeparens: Token<")">?,
+	read closeParens: Token<")">?,
 	read self: boolean,
 	read argLocation: Span,
 }
@@ -137,11 +137,11 @@ export type AstExprInstantiate = {
 	read kind: "expr",
 	read tag: "instantiate",
 	read expr: AstExpr,
-	read leftarrow1: Token<"<">,
-	read leftarrow2: Token<"<">,
-	read typearguments: Punctuated<AstType | AstTypePack>,
-	read rightarrow1: Token<">">,
-	read rightarrow2: Token<">">,
+	read leftArrow1: Token<"<">,
+	read leftArrow2: Token<"<">,
+	read typeArguments: Punctuated<AstType | AstTypePack>,
+	read rightArrow1: Token<">">,
+	read rightArrow2: Token<">">,
 }
 
 export type AstExprIndexName = {
@@ -151,7 +151,7 @@ export type AstExprIndexName = {
 	read expression: AstExpr,
 	read accessor: Token<"." | ":">,
 	read index: Token<string>,
-	read indexlocation: Span,
+	read indexLocation: Span,
 }
 
 export type AstExprIndexExpr = {
@@ -159,9 +159,9 @@ export type AstExprIndexExpr = {
 	read kind: "expr",
 	read tag: "index",
 	read expression: AstExpr,
-	read openbrackets: Token<"[">,
+	read openBrackets: Token<"[">,
 	read index: AstExpr,
-	read closebrackets: Token<"]">,
+	read closeBrackets: Token<"]">,
 }
 
 export type AstExprFunction = {
@@ -169,22 +169,22 @@ export type AstExprFunction = {
 	read kind: "expr",
 	read tag: "function",
 	read attributes: { AstAttribute },
-	read functionkeyword: Token<"function">,
-	read opengenerics: Token<"<">?,
+	read functionKeyword: Token<"function">,
+	read openGenerics: Token<"<">?,
 	read generics: Punctuated<AstGenericType>?,
-	read genericpacks: Punctuated<AstGenericTypePack>?,
-	read closegenerics: Token<">">?,
-	read openparens: Token<"(">,
+	read genericPacks: Punctuated<AstGenericTypePack>?,
+	read closeGenerics: Token<">">?,
+	read openParens: Token<"(">,
 	read self: AstLocal?,
 	read parameters: Punctuated<AstLocal>,
 	read vararg: Token<"...">?,
-	read varargcolon: Token<":">?,
-	read varargannotation: AstTypePack?,
-	read closeparens: Token<")">,
-	read returnspecifier: Token<":">?,
-	read returnannotation: AstTypePack?,
+	read varargColon: Token<":">?,
+	read varargAnnotation: AstTypePack?,
+	read closeParens: Token<")">,
+	read returnSpecifier: Token<":">?,
+	read returnAnnotation: AstTypePack?,
 	read body: AstStatBlock,
-	read endkeyword: Token<"end">,
+	read endKeyword: Token<"end">,
 }
 
 -- helper types for items contained in an AstExprTable, not actually AstExprs themselves
@@ -193,7 +193,7 @@ export type AstTableExprListItem = {
 	read kind: "list",
 	read value: AstExpr,
 	read separator: Token<"," | ";">?,
-	read istableitem: true,
+	read isTableItem: true,
 }
 
 export type AstTableExprRecordItem = {
@@ -203,19 +203,19 @@ export type AstTableExprRecordItem = {
 	read equals: Token<"=">,
 	read value: AstExpr,
 	read separator: Token<"," | ";">?,
-	read istableitem: true,
+	read isTableItem: true,
 }
 
 export type AstTableExprGeneralItem = {
 	read location: Span,
 	read kind: "general",
-	read indexeropen: Token<"[">,
+	read indexerOpen: Token<"[">,
 	read key: AstExpr,
-	read indexerclose: Token<"]">,
+	read indexerClose: Token<"]">,
 	read equals: Token<"=">,
 	read value: AstExpr,
 	read separator: Token<"," | ";">?,
-	read istableitem: true,
+	read isTableItem: true,
 }
 
 export type AstTableExprItem = AstTableExprListItem | AstTableExprRecordItem | AstTableExprGeneralItem
@@ -224,9 +224,9 @@ export type AstExprTable = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "table",
-	read openbrace: Token<"{">,
+	read openBrace: Token<"{">,
 	read entries: { AstTableExprItem },
-	read closebrace: Token<"}">,
+	read closeBrace: Token<"}">,
 }
 
 export type AstExprUnary = {
@@ -241,9 +241,9 @@ export type AstExprBinary = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "binary",
-	read lhsoperand: AstExpr,
+	read lhsOperand: AstExpr,
 	read operator: Token,
-	read rhsoperand: AstExpr,
+	read rhsOperand: AstExpr,
 }
 
 export type AstExprInterpString = {
@@ -265,23 +265,23 @@ export type AstExprTypeAssertion = {
 
 -- helper type for elseif clauses of an if-else expression, not actually an AstExpr itself
 export type AstElseIfExpr = {
-	read elseifkeyword: Token<"elseif">,
+	read elseIfKeyword: Token<"elseif">,
 	read condition: AstExpr,
-	read thenkeyword: Token<"then">,
-	read thenexpr: AstExpr,
+	read thenKeyword: Token<"then">,
+	read thenExpr: AstExpr,
 }
 
 export type AstExprIfElse = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "conditional",
-	read ifkeyword: Token<"if">,
+	read ifKeyword: Token<"if">,
 	read condition: AstExpr,
-	read thenkeyword: Token<"then">,
-	read thenexpr: AstExpr,
+	read thenKeyword: Token<"then">,
+	read thenExpr: AstExpr,
 	read elseifs: { AstElseIfExpr },
-	read elsekeyword: Token<"else">,
-	read elseexpr: AstExpr,
+	read elseKeyword: Token<"else">,
+	read elseExpr: AstExpr,
 }
 
 export type AstExpr =
@@ -553,7 +553,7 @@ export type AstTypeSingletonString = {
 	read location: Span,
 	read kind: "type",
 	read tag: "string",
-	read quotestyle: "single" | "double",
+	read quoteStyle: "single" | "double",
 	read token: Token<string>,
 }
 

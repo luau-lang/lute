@@ -40,7 +40,7 @@ local function lint(
 			return bin.operator.text == "==" or bin.operator.text == "~="
 		end)
 		:filter(function(bin)
-			return isTableLiteral(bin.rhsoperand) or isTableLiteral(bin.lhsoperand)
+			return isTableLiteral(bin.rhsOperand) or isTableLiteral(bin.lhsOperand)
 		end)
 		:maptoarray(
 			function(
@@ -48,12 +48,12 @@ local function lint(
 			): lintTypes.LintViolation -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
 				local suggestedFix: string? = nil
 
-				if isEmptyTableLiteral(bin.lhsoperand) then
+				if isEmptyTableLiteral(bin.lhsOperand) then
 					suggestedFix =
-						`next({stringext.trim(syntaxPrinter.printnode(bin.rhsoperand))}) {bin.operator.text} nil`
-				elseif isEmptyTableLiteral(bin.rhsoperand) then
+						`next({stringext.trim(syntaxPrinter.printnode(bin.rhsOperand))}) {bin.operator.text} nil`
+				elseif isEmptyTableLiteral(bin.rhsOperand) then
 					suggestedFix =
-						`next({stringext.trim(syntaxPrinter.printnode(bin.lhsoperand))}) {bin.operator.text} nil`
+						`next({stringext.trim(syntaxPrinter.printnode(bin.lhsOperand))}) {bin.operator.text} nil`
 				end
 
 				return {

@@ -65,7 +65,7 @@ function utils.isExprTable(n: types.AstNode): types.AstExprTable?
 end
 
 function utils.isTableExprItem(n: types.AstNode | types.AstTableExprItem): types.AstTableExprItem?
-	return if (n :: types.AstTableExprItem).istableitem then n :: types.AstTableExprItem else nil
+	return if (n :: types.AstTableExprItem).isTableItem then n :: types.AstTableExprItem else nil
 end
 
 function utils.isExprUnary(n: types.AstNode): types.AstExprUnary?
