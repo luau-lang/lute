@@ -29,7 +29,7 @@ test.suite("Parser", function(suite)
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: syntax.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localKeyword
 		assert.eq(#token.leadingTrivia, 1)
 		assert.eq(token.leadingTrivia[1].tag, "whitespace")
 		assert.eq(token.leadingTrivia[1].text, "  ")
@@ -43,7 +43,7 @@ test.suite("Parser", function(suite)
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: syntax.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localKeyword
 		assert.eq(#token.leadingTrivia, 1)
 		assert.eq(token.leadingTrivia[1].tag, "whitespace")
 		assert.eq(token.leadingTrivia[1].text, "\n")
@@ -57,7 +57,7 @@ test.suite("Parser", function(suite)
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: syntax.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localKeyword
 		assert.eq(#token.leadingTrivia, 2)
 		assert.eq(token.leadingTrivia[1].tag, "comment")
 		assert.eq(token.leadingTrivia[1].text, "-- comment")
@@ -74,7 +74,7 @@ test.suite("Parser", function(suite)
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: syntax.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localKeyword
 		assert.eq(#token.leadingTrivia, 2)
 		assert.eq(token.leadingTrivia[1].tag, "blockcomment")
 		assert.eq(token.leadingTrivia[1].text, "--[[ comment ]]")
@@ -91,7 +91,7 @@ test.suite("Parser", function(suite)
 		local l = block.statements[1]
 		assert.eq(l.tag, "local")
 
-		local token = (l :: syntax.AstStatLocal).localkeyword
+		local token = (l :: syntax.AstStatLocal).localKeyword
 		assert.eq(#token.leadingTrivia, 3)
 		assert.eq(token.leadingTrivia[1].text, "  \n")
 		assert.eq(token.leadingTrivia[2].text, "\t\t\n")
@@ -116,7 +116,7 @@ test.suite("Parser", function(suite)
 		local secondStmt = block.statements[2]
 		assert.eq(secondStmt.tag, "local")
 
-		local leadingToken = (secondStmt :: syntax.AstStatLocal).localkeyword
+		local leadingToken = (secondStmt :: syntax.AstStatLocal).localKeyword
 		assert.eq(#leadingToken.leadingTrivia, 2)
 		assert.eq(leadingToken.leadingTrivia[1].text, "-- comment 2")
 		assert.eq(leadingToken.leadingTrivia[2].text, "\n")
@@ -567,10 +567,10 @@ test.suite("parse", function(suite)
 
 		local doStat = block.statements[1] :: syntax.AstStatDo
 		assert.eq(doStat.tag, "do")
-		assert.eq(doStat.dokeyword.text, "do")
+		assert.eq(doStat.doKeyword.text, "do")
 		checkIsBlock(doStat.body, assert)
 		assert.eq(#doStat.body.statements, 1)
-		assert.eq(doStat.endkeyword.text, "end")
+		assert.eq(doStat.endKeyword.text, "end")
 	end)
 
 	suite:case("parseIfStatement", function(assert)
@@ -581,40 +581,40 @@ test.suite("parse", function(suite)
 
 		local ifStat = block.statements[1] :: syntax.AstStatIf
 		assert.eq(ifStat.tag, "conditional")
-		assert.eq(ifStat.ifkeyword.text, "if")
+		assert.eq(ifStat.ifKeyword.text, "if")
 		assert.eq(ifStat.condition.tag, "binary")
-		assert.eq(ifStat.thenkeyword.text, "then")
-		checkIsBlock(ifStat.thenblock, assert)
+		assert.eq(ifStat.thenKeyword.text, "then")
+		checkIsBlock(ifStat.thenBlock, assert)
 
-		local thenBlock = ifStat.thenblock
+		local thenBlock = ifStat.thenBlock
 		assert.eq(#thenBlock.statements, 1)
 
 		assert.eq(#ifStat.elseifs, 1)
 		local elseIf = ifStat.elseifs[1]
-		assert.eq(elseIf.elseifkeyword.text, "elseif")
+		assert.eq(elseIf.elseIfKeyword.text, "elseif")
 		assert.eq(elseIf.condition.tag, "binary")
-		assert.eq(elseIf.thenkeyword.text, "then")
-		checkIsBlock(elseIf.thenblock, assert)
+		assert.eq(elseIf.thenKeyword.text, "then")
+		checkIsBlock(elseIf.thenBlock, assert)
 
-		assert.neq(ifStat.elsekeyword, nil)
-		assert.eq((ifStat.elsekeyword :: syntax.Token<"else">).text, "else")
-		assert.neq(ifStat.elseblock, nil)
-		checkIsBlock(ifStat.elseblock, assert)
-		assert.eq(ifStat.endkeyword.text, "end")
+		assert.neq(ifStat.elseKeyword, nil)
+		assert.eq((ifStat.elseKeyword :: syntax.Token<"else">).text, "else")
+		assert.neq(ifStat.elseBlock, nil)
+		checkIsBlock(ifStat.elseBlock, assert)
+		assert.eq(ifStat.endKeyword.text, "end")
 
 		block = parser.parseblock("if condition then doSomething() end")
 		assert.eq(#block.statements, 1)
 		local simpleIfStat = block.statements[1] :: syntax.AstStatIf
 		assert.eq(simpleIfStat.tag, "conditional")
-		assert.eq(simpleIfStat.ifkeyword.text, "if")
+		assert.eq(simpleIfStat.ifKeyword.text, "if")
 		assert.eq(simpleIfStat.condition.tag, "global")
-		assert.eq(simpleIfStat.thenkeyword.text, "then")
-		checkIsBlock(simpleIfStat.thenblock, assert)
-		assert.eq(#simpleIfStat.thenblock.statements, 1)
+		assert.eq(simpleIfStat.thenKeyword.text, "then")
+		checkIsBlock(simpleIfStat.thenBlock, assert)
+		assert.eq(#simpleIfStat.thenBlock.statements, 1)
 		assert.eq(#simpleIfStat.elseifs, 0)
-		assert.eq(simpleIfStat.elsekeyword, nil)
-		assert.eq(simpleIfStat.elseblock, nil)
-		assert.eq(simpleIfStat.endkeyword.text, "end")
+		assert.eq(simpleIfStat.elseKeyword, nil)
+		assert.eq(simpleIfStat.elseBlock, nil)
+		assert.eq(simpleIfStat.endKeyword.text, "end")
 	end)
 
 	suite:case("parseStatWhile", function(assert)
@@ -624,12 +624,12 @@ test.suite("parse", function(suite)
 
 		local whileStat = block.statements[1] :: syntax.AstStatWhile
 		assert.eq(whileStat.tag, "while")
-		assert.eq(whileStat.whilekeyword.text, "while")
+		assert.eq(whileStat.whileKeyword.text, "while")
 		assert.eq(whileStat.condition.tag, "binary")
-		assert.eq(whileStat.dokeyword.text, "do")
+		assert.eq(whileStat.doKeyword.text, "do")
 		checkIsBlock(whileStat.body, assert)
 		assert.eq(#whileStat.body.statements, 2)
-		assert.eq(whileStat.endkeyword.text, "end")
+		assert.eq(whileStat.endKeyword.text, "end")
 
 		block = parser.parseblock("while true do break end")
 		checkIsBlock(block, assert)
@@ -637,9 +637,9 @@ test.suite("parse", function(suite)
 
 		whileStat = block.statements[1] :: syntax.AstStatWhile
 		assert.eq(whileStat.tag, "while")
-		assert.eq(whileStat.whilekeyword.text, "while")
+		assert.eq(whileStat.whileKeyword.text, "while")
 		assert.eq(whileStat.condition.tag, "boolean")
-		assert.eq(whileStat.dokeyword.text, "do")
+		assert.eq(whileStat.doKeyword.text, "do")
 		checkIsBlock(whileStat.body, assert)
 		assert.eq(#whileStat.body.statements, 1)
 
@@ -649,7 +649,7 @@ test.suite("parse", function(suite)
 		assert.eq(breakStat.tag, "break")
 		assert.eq(breakStat.token.text, "break")
 
-		assert.eq(whileStat.endkeyword.text, "end")
+		assert.eq(whileStat.endKeyword.text, "end")
 
 		block = parser.parseblock("while true do continue end")
 		checkIsBlock(block, assert)
@@ -657,9 +657,9 @@ test.suite("parse", function(suite)
 
 		whileStat = block.statements[1] :: syntax.AstStatWhile
 		assert.eq(whileStat.tag, "while")
-		assert.eq(whileStat.whilekeyword.text, "while")
+		assert.eq(whileStat.whileKeyword.text, "while")
 		assert.eq(whileStat.condition.tag, "boolean")
-		assert.eq(whileStat.dokeyword.text, "do")
+		assert.eq(whileStat.doKeyword.text, "do")
 		checkIsBlock(whileStat.body, assert)
 		assert.eq(#whileStat.body.statements, 1)
 
@@ -669,7 +669,7 @@ test.suite("parse", function(suite)
 		assert.eq(continueStat.tag, "continue")
 		assert.eq(continueStat.token.text, "continue")
 
-		assert.eq(whileStat.endkeyword.text, "end")
+		assert.eq(whileStat.endKeyword.text, "end")
 	end)
 
 	suite:case("parseStatRepeat", function(assert)
@@ -679,10 +679,10 @@ test.suite("parse", function(suite)
 
 		local repeatStat = block.statements[1] :: syntax.AstStatRepeat
 		assert.eq(repeatStat.tag, "repeat")
-		assert.eq(repeatStat.repeatkeyword.text, "repeat")
+		assert.eq(repeatStat.repeatKeyword.text, "repeat")
 		checkIsBlock(repeatStat.body, assert)
 		assert.eq(#repeatStat.body.statements, 2)
-		assert.eq(repeatStat.untilkeyword.text, "until")
+		assert.eq(repeatStat.untilKeyword.text, "until")
 		assert.eq(repeatStat.condition.tag, "binary")
 	end)
 
@@ -694,7 +694,7 @@ test.suite("parse", function(suite)
 
 		local l = block.statements[1] :: syntax.AstStatLocal
 		assert.eq(l.tag, "local")
-		assert.eq(l.localkeyword.text, "local")
+		assert.eq(l.localKeyword.text, "local")
 		assert.eq(#l.variables, 2)
 		assert.eq(l.variables[1].node.name.text, "b")
 		assert.neq(l.variables[1].separator, nil)
@@ -717,7 +717,7 @@ test.suite("parse", function(suite)
 
 		l = block.statements[1] :: syntax.AstStatLocal
 		assert.eq(l.tag, "local")
-		assert.eq(l.localkeyword.text, "local")
+		assert.eq(l.localKeyword.text, "local")
 		assert.eq(#l.variables, 1)
 		assert.eq(l.variables[1].node.name.text, "x")
 		assert.eq(l.variables[1].separator, nil)
@@ -732,20 +732,20 @@ test.suite("parse", function(suite)
 
 		local forStat = block.statements[1] :: syntax.AstStatFor
 		assert.eq(forStat.tag, "for")
-		assert.eq(forStat.forkeyword.text, "for")
+		assert.eq(forStat.forKeyword.text, "for")
 		assert.eq(forStat.variable.name.text, "i")
 		assert.eq(forStat.equals.text, "=")
 		assert.eq(forStat.from.tag, "number")
-		assert.eq(forStat.tocomma.text, ",")
+		assert.eq(forStat.toComma.text, ",")
 		assert.eq(forStat.to.tag, "number")
-		assert.neq(forStat.stepcomma, nil)
-		assert.eq((forStat.stepcomma :: syntax.Token<",">).text, ",")
+		assert.neq(forStat.stepComma, nil)
+		assert.eq((forStat.stepComma :: syntax.Token<",">).text, ",")
 		assert.neq(forStat.step, nil)
 		assert.eq(((forStat.step :: any) :: syntax.AstExpr).tag, "number")
-		assert.eq(forStat.dokeyword.text, "do")
+		assert.eq(forStat.doKeyword.text, "do")
 		checkIsBlock(forStat.body, assert)
 		assert.eq(#forStat.body.statements, 1)
-		assert.eq(forStat.endkeyword.text, "end")
+		assert.eq(forStat.endKeyword.text, "end")
 
 		block = parser.parseblock("for j = 0, 5 do print(j) end")
 		assert.eq(block.tag, "block")
@@ -753,18 +753,18 @@ test.suite("parse", function(suite)
 
 		forStat = block.statements[1] :: syntax.AstStatFor
 		assert.eq(forStat.tag, "for")
-		assert.eq(forStat.forkeyword.text, "for")
+		assert.eq(forStat.forKeyword.text, "for")
 		assert.eq(forStat.variable.name.text, "j")
 		assert.eq(forStat.equals.text, "=")
 		assert.eq(forStat.from.tag, "number")
-		assert.eq(forStat.tocomma.text, ",")
+		assert.eq(forStat.toComma.text, ",")
 		assert.eq(forStat.to.tag, "number")
-		assert.eq(forStat.stepcomma, nil)
+		assert.eq(forStat.stepComma, nil)
 		assert.eq(forStat.step, nil)
-		assert.eq(forStat.dokeyword.text, "do")
+		assert.eq(forStat.doKeyword.text, "do")
 		checkIsBlock(forStat.body, assert)
 		assert.eq(#forStat.body.statements, 1)
-		assert.eq(forStat.endkeyword.text, "end")
+		assert.eq(forStat.endKeyword.text, "end")
 	end)
 
 	suite:case("parseForInLoop", function(assert)
@@ -774,17 +774,17 @@ test.suite("parse", function(suite)
 
 		local forInStat = block.statements[1] :: syntax.AstStatForIn
 		assert.eq(forInStat.tag, "forin")
-		assert.eq(forInStat.forkeyword.text, "for")
+		assert.eq(forInStat.forKeyword.text, "for")
 		assert.eq(#forInStat.variables, 2)
 		assert.eq(forInStat.variables[1].node.name.text, "key")
 		assert.eq(forInStat.variables[2].node.name.text, "value")
-		assert.eq(forInStat.inkeyword.text, "in")
+		assert.eq(forInStat.inKeyword.text, "in")
 		assert.eq(#forInStat.values, 1)
 		assert.eq(forInStat.values[1].node.tag, "global")
-		assert.eq(forInStat.dokeyword.text, "do")
+		assert.eq(forInStat.doKeyword.text, "do")
 		checkIsBlock(forInStat.body, assert)
 		assert.eq(#forInStat.body.statements, 1)
-		assert.eq(forInStat.endkeyword.text, "end")
+		assert.eq(forInStat.endKeyword.text, "end")
 	end)
 
 	suite:case("parseStatAssign", function(assert)
@@ -838,7 +838,7 @@ test.suite("parse", function(suite)
 		local localFuncStat = block.statements[1] :: syntax.AstStatLocalFunction
 		assert.eq(localFuncStat.tag, "localfunction")
 		assert.eq(#localFuncStat.func.attributes, 0)
-		assert.eq(localFuncStat.localkeyword.text, "local")
+		assert.eq(localFuncStat.localKeyword.text, "local")
 		assert.eq(localFuncStat.func.functionkeyword.text, "function")
 		assert.eq(localFuncStat.name.name.text, "multiply")
 	end)
@@ -851,11 +851,11 @@ test.suite("parse", function(suite)
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.tag, "typealias")
 		assert.eq(typeAlias.export, nil)
-		assert.eq(typeAlias.typetoken.text, "type")
+		assert.eq(typeAlias.typeToken.text, "type")
 		assert.eq(typeAlias.name.text, "Vector3")
-		assert.eq(typeAlias.opengenerics, nil)
+		assert.eq(typeAlias.openGenerics, nil)
 		assert.eq(typeAlias.generics, nil)
-		assert.eq(typeAlias.closegenerics, nil)
+		assert.eq(typeAlias.closeGenerics, nil)
 		assert.eq(typeAlias.equals.text, "=")
 		assert.eq(typeAlias.type.kind, "type")
 		assert.eq(typeAlias.type.tag, "table")
@@ -867,14 +867,14 @@ test.suite("parse", function(suite)
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.neq(typeAlias.export, nil)
 		assert.eq((typeAlias.export :: syntax.Token<"export">).text, "export")
-		assert.neq(typeAlias.opengenerics, nil)
-		assert.eq((typeAlias.opengenerics :: syntax.Token<"<">).text, "<")
+		assert.neq(typeAlias.openGenerics, nil)
+		assert.eq((typeAlias.openGenerics :: syntax.Token<"<">).text, "<")
 		assert.neq(typeAlias.generics, nil)
 		assert.eq(#typeAlias.generics :: syntax.Punctuated<syntax.AstGenericType>, 1)
-		assert.neq(typeAlias.genericpacks, nil)
-		assert.eq(#typeAlias.genericpacks :: syntax.Punctuated<syntax.AstGenericTypePack>, 1)
-		assert.neq(typeAlias.closegenerics, nil)
-		assert.eq((typeAlias.closegenerics :: syntax.Token<">">).text, ">")
+		assert.neq(typeAlias.genericPacks, nil)
+		assert.eq(#typeAlias.genericPacks :: syntax.Punctuated<syntax.AstGenericTypePack>, 1)
+		assert.neq(typeAlias.closeGenerics, nil)
+		assert.eq((typeAlias.closeGenerics :: syntax.Token<">">).text, ">")
 	end)
 
 	suite:case("parseStatTypeFunction", function(assert)
@@ -1563,7 +1563,7 @@ test.suite("AST_nodes_frozen", function(suite)
 		assert.eq(returnStat.kind, "stat")
 		assert.eq(returnStat.tag, "return")
 		assert.throwsWith(frozenTableMessage, function()
-			(returnStat :: any).returnkeyword = nil
+			(returnStat :: any).returnKeyword = nil
 		end)
 		assert.throwsWith(frozenTableMessage, function()
 			table.insert((returnStat :: any).expressions, nil)
@@ -1586,7 +1586,7 @@ test.suite("AST_nodes_frozen", function(suite)
 		assert.eq(localStat.kind, "stat")
 		assert.eq(localStat.tag, "local")
 		assert.throwsWith(frozenTableMessage, function()
-			(localStat :: any).localkeyword = nil
+			(localStat :: any).localKeyword = nil
 		end)
 		assert.throwsWith(frozenTableMessage, function()
 			table.insert((localStat :: any).variables, nil)
@@ -1612,7 +1612,7 @@ test.suite("AST_nodes_frozen", function(suite)
 		assert.eq(forInStat.kind, "stat")
 		assert.eq(forInStat.tag, "forin")
 		assert.throwsWith(frozenTableMessage, function()
-			(forInStat :: any).inkeyword = nil
+			(forInStat :: any).inKeyword = nil
 		end)
 		assert.throwsWith(frozenTableMessage, function()
 			table.insert((forInStat :: any).variables, nil)
@@ -1880,7 +1880,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	suite:case("astGenericTypePackFrozen", function(assert)
 		local block = parser.parseblock("type Foo<T, U...> = (T, U...) -> ()")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
-		local genericPack = (typeAlias.genericpacks :: any)[1].node
+		local genericPack = (typeAlias.genericPacks :: any)[1].node
 		assert.eq(genericPack.tag, "generic")
 		assert.eq(genericPack.kind, "typepack")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1892,7 +1892,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	suite:case("tokenFrozen", function(assert)
 		local block = parser.parseblock("local x = 1")
 		local localStat = block.statements[1] :: syntax.AstStatLocal
-		local token = localStat.localkeyword
+		local token = localStat.localKeyword
 		assert.eq(token.kind, "token")
 		assert.throwsWith(frozenTableMessage, function()
 			(token :: any).text = "modified"
@@ -1916,7 +1916,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	local x = 1
 	]=])
 		local localStat = block.statements[1] :: syntax.AstStatLocal
-		local trivias = localStat.localkeyword.leadingTrivia
+		local trivias = localStat.localKeyword.leadingTrivia
 		for _, trivia in trivias do
 			assert.throwsWith(frozenTableMessage, function()
 				(trivia :: any).text = "modified"
