@@ -51,7 +51,7 @@ local function main(...: string)
 
 	if not fs.exists(typedefs.TYPEDEFS_PATH) then
 		print("Running lute setup first...")
-		local result = process.run({ path.format(process.execpath()), "setup" }, { stdio = "inherit" })
+		local result = process.run({ path.format(process.execPath()), "setup" }, { stdio = "inherit" })
 		if not result.ok then
 			print("Error: lute setup failed.")
 			process.exit(1)

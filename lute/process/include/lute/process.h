@@ -23,7 +23,7 @@ int cwd(lua_State* L);
 int exitFunc(lua_State* L);
 
 std::optional<std::string> getExecPath(std::string* error);
-int execpath(lua_State* L);
+int execPath(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"run", run},
@@ -31,7 +31,7 @@ static const luaL_Reg lib[] = {
     {"homedir", homedir},
     {"cwd", cwd},
     {"exit", exitFunc},
-    {"execpath", execpath},
+    {"execPath", execPath},
 
     {nullptr, nullptr}
 };

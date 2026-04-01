@@ -6,7 +6,7 @@ local tableext = require("@std/tableext")
 local test = require("@std/test")
 local testTypes = require("@std/test/types")
 
-local lutePath = path.format(process.execpath())
+local lutePath = path.format(process.execPath())
 local tmpDir = system.tmpdir()
 local rulesDir = path.format(path.join(".", "lints"))
 local defaultRulesFolder = path.format(path.join("lute", "cli", "commands", "lint", "rules"))

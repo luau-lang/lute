@@ -16,7 +16,7 @@ test.suite("ProcessSuite", function(suite)
 		local cwd = process.cwd()
 		assert.neq(pathlib.format(cwd), "")
 
-		local ex = process.execpath()
+		local ex = process.execPath()
 		assert.neq(pathlib.format(ex), "")
 	end)
 

@@ -35,8 +35,8 @@ function processlib.exit(exitcode: number): never
 	return process.exit(exitcode)
 end
 
-function processlib.execpath(): Path
-	return pathlib.parse(process.execpath())
+function processlib.execPath(): Path
+	return pathlib.parse(process.execPath())
 end
 
 -- re-exports

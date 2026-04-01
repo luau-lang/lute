@@ -6,7 +6,7 @@ local test = require("@std/test")
 
 local tmpDir = system.tmpdir()
 local tmpOutputDir = path.join(tmpDir, "lute-doc-output")
-local lutePath = path.format(process.execpath())
+local lutePath = path.format(process.execPath())
 
 local USAGE = "Usage: lute doc [OPTIONS]"
 

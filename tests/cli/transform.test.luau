@@ -1,6 +1,6 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
-local process = require("@lute/process")
+local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
 
@@ -9,7 +9,7 @@ local x = math.sqrt(-1)
 local b = x ~= x
 ]]
 
-local lutePath = process.execpath()
+local lutePath = path.format(process.execPath())
 local tmpDir = system.tmpdir()
 local transformeePath = path.format(path.join(tmpDir, "transformee.luau"))
 local outputPath = path.format(path.join(tmpDir, "transformee_output.luau"))

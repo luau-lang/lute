@@ -20,7 +20,7 @@ print(`SUCCESS`)
 
 local COMPILEE_CONTENTS = [[return "Hello world"]]
 
-local lutePath = process.execpath()
+local lutePath = process.execPath()
 local tmpDir = system.tmpdir()
 
 test.suite("LuteCliCompile", function(suite)
