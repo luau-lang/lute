@@ -65,7 +65,7 @@ test.suite("AstQuery", function(suite)
 		local testQuery = query.findallfromroot(syntax.parse("local _ = {0, 1, 2}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
 
 		local sum = 0
-		testQuery:foreach(function(n: syntax.AstExprConstantNumber)
+		testQuery:forEach(function(n: syntax.AstExprConstantNumber)
 			sum = sum + n.value
 		end)
 
@@ -116,7 +116,7 @@ test.suite("AstQuery", function(suite)
 		-- verify that query doesn't doubly count tokens
 		local queryResult = query.findallfromroot(ast, utils.isToken)
 		assert.eq(#queryResult.nodes, 6)
-		queryResult:foreach(function(node)
+		queryResult:forEach(function(node)
 			assert.eq(node.kind, "token")
 		end)
 		local constNums = query.findallfromroot(ast, utils.isExprConstantNumber)
@@ -130,7 +130,7 @@ test.suite("AstQuery", function(suite)
 	suite:case("findall", function(assert)
 		-- Test selecting from a query of binary expressions to find their operands
 		local ast = syntax.parse("local x = 1 + 2")
-		local nums = query.findallfromroot(ast, utils.isExprBinary):findall(utils.isExprConstantNumber)
+		local nums = query.findallfromroot(ast, utils.isExprBinary):findAll(utils.isExprConstantNumber)
 
 		assert.eq(#nums.nodes, 2)
 		assert.eq(nums.nodes[1].value, 1)
@@ -143,12 +143,12 @@ test.suite("AstQuery", function(suite)
 		local tables = query.findallfromroot(ast, utils.isExprTable)
 
 		-- Select all binary expressions within the table
-		local binaryExprs = tables:findall(utils.isExprBinary)
+		local binaryExprs = tables:findAll(utils.isExprBinary)
 
 		assert.eq(#binaryExprs.nodes, 2)
 
 		-- Now select all numbers from those binary expressions
-		local numbers = binaryExprs:findall(utils.isExprConstantNumber)
+		local numbers = binaryExprs:findAll(utils.isExprConstantNumber)
 
 		assert.eq(#numbers.nodes, 4)
 		assert.eq(numbers.nodes[1].value, 1)
@@ -160,7 +160,7 @@ test.suite("AstQuery", function(suite)
 	suite:case("flatmap", function(assert)
 		-- Test flatmap to collect multiple items from each node
 		local ast = syntax.parse("local x = 1 + 2; local y = 3 + 4")
-		local locals = query.findallfromroot(ast, utils.isStatLocal):flatmap(function(l)
+		local locals = query.findallfromroot(ast, utils.isStatLocal):flatMap(function(l)
 			local values = {}
 			for _, v in l.values do
 				table.insert(values, v.node)
@@ -178,7 +178,7 @@ test.suite("AstQuery", function(suite)
 	suite:case("flatmapEmpty", function(assert)
 		-- Test flatmap with some nodes returning empty arrays
 		local ast = syntax.parse("local x; local y = 1; local z")
-		local locals = query.findallfromroot(ast, utils.isStatLocal):flatmap(function(l)
+		local locals = query.findallfromroot(ast, utils.isStatLocal):flatMap(function(l)
 			local values = {}
 			for _, v in l.values do
 				table.insert(values, v.node)
@@ -195,7 +195,7 @@ test.suite("AstQuery", function(suite)
 	suite:case("flatmapMultiple", function(assert)
 		-- Test flatmap with nodes that return multiple items
 		local ast = syntax.parse("local a, b = 1, 2; local c, d = 3, 4, 5")
-		local locals = query.findallfromroot(ast, utils.isStatLocal):flatmap(function(l: syntax.AstStatLocal)
+		local locals = query.findallfromroot(ast, utils.isStatLocal):flatMap(function(l: syntax.AstStatLocal)
 			local vars = {}
 			for _, v in l.variables do
 				table.insert(vars, v.node)
@@ -215,7 +215,7 @@ test.suite("AstQuery", function(suite)
 		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
 		local nums = query.findallfromroot(ast, utils.isExprConstantNumber)
 
-		local doubled = nums:maptoarray(function(n: syntax.AstExprConstantNumber): number
+		local doubled = nums:mapToArray(function(n: syntax.AstExprConstantNumber): number
 			return n.value * 2
 		end)
 
@@ -232,7 +232,7 @@ test.suite("AstQuery", function(suite)
 		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
 		local nums = query.findallfromroot(ast, utils.isExprConstantNumber)
 
-		local evenOnly = nums:maptoarray(function(n: syntax.AstExprConstantNumber): number?
+		local evenOnly = nums:mapToArray(function(n: syntax.AstExprConstantNumber): number?
 			if n.value % 2 == 0 then
 				return n.value
 			end

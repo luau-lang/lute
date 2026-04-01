@@ -18,7 +18,7 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.Path?): { lintTyp
 		:filter(function(bin)
 			return bin.rhsOperand.kind == "expr" and bin.rhsOperand.tag == "number" and bin.rhsOperand.value == 0
 		end)
-		:maptoarray(
+		:mapToArray(
 			-- FIXME(Luau): We would need bidirectional inference of generics
 			-- and return types to remove this annotation.
 			function(n): lintTypes.LintViolation

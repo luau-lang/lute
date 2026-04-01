@@ -25,7 +25,7 @@ local function lint(
 		:filter(function(bin)
 			return isZeroLiteral(bin.rhsOperand)
 		end)
-		:maptoarray(
+		:mapToArray(
 			function(
 				n: syntax.AstExprBinary
 			): lintTypes.LintViolation? -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation

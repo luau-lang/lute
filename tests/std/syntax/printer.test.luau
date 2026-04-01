@@ -979,7 +979,7 @@ function foo() return end
 		checkReplacement(source, expected, function(ast)
 			return query
 				.findallfromroot(ast :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
-				:flatmap(function(t)
+				:flatMap(function(t)
 					local l = {}
 					for _, entry in t.entries do
 						if entry.kind ~= "list" then

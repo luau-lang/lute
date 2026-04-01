@@ -22,7 +22,7 @@ local function lint(
 			end
 			return nil
 		end)
-		:foreach(function(ifStat)
+		:forEach(function(ifStat)
 			if ifStat.condition.tag == "group" then
 				table.insert(violations, {
 					lintname = name,
@@ -64,7 +64,7 @@ local function lint(
 		:filter(function(n)
 			return n.condition.tag == "group"
 		end)
-		:foreach(function(n)
+		:forEach(function(n)
 			table.insert(violations, {
 				lintname = name,
 				location = n.condition.location,

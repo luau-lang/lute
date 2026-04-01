@@ -42,7 +42,7 @@ local function lint(
 		:filter(function(bin)
 			return isTableLiteral(bin.rhsOperand) or isTableLiteral(bin.lhsOperand)
 		end)
-		:maptoarray(
+		:mapToArray(
 			function(
 				bin: syntax.AstExprBinary
 			): lintTypes.LintViolation -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
