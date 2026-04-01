@@ -6,7 +6,7 @@ local test = require("@std/test")
 
 local tmpDir = system.tmpdir()
 
-test.suite("LuautypeofModuleSuite", function(suite)
+test.suite("LuauTypeofModuleSuite", function(suite)
 	suite:case("typeofModuleReturnsTable", function(assert)
 		local testPath = path.join(tmpDir, "typeofModule_test.luau")
 		local testFile = fs.open(testPath, "w+")
