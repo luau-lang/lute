@@ -24,7 +24,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 				return json.deserialize(src)
 			end)
 
-			if stringext.hasprefix(name, "y_") then
+			if stringext.hasPrefix(name, "y_") then
 				-- valid JSON: must parse
 				assert.that(ok)
 
@@ -38,7 +38,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 					json.deserialize(_ser)
 				end)
 				assert.that(_ok3)
-			elseif stringext.hasprefix(name, "n_") then
+			elseif stringext.hasPrefix(name, "n_") then
 				-- invalid JSON: must fail to parse
 				assert.eq(ok, false)
 			else

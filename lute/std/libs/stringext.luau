@@ -5,7 +5,7 @@
 
 local stringext = {}
 
-function stringext.hasprefix(str: string, prefix: string): boolean
+function stringext.hasPrefix(str: string, prefix: string): boolean
 	if #prefix > #str then
 		return false
 	end
@@ -13,20 +13,20 @@ function stringext.hasprefix(str: string, prefix: string): boolean
 	return str:sub(1, #prefix) == prefix
 end
 
-function stringext.removeprefix(str: string, prefix: string): string
-	if not stringext.hasprefix(str, prefix) then
+function stringext.removePrefix(str: string, prefix: string): string
+	if not stringext.hasPrefix(str, prefix) then
 		return str
 	end
 
 	return str:sub(#prefix + 1)
 end
 
-function stringext.hassuffix(str: string, suffix: string): boolean
+function stringext.hasSuffix(str: string, suffix: string): boolean
 	return str:sub(-#suffix) == suffix
 end
 
-function stringext.removesuffix(str: string, suffix: string): string
-	if not stringext.hassuffix(str, suffix) then
+function stringext.removeSuffix(str: string, suffix: string): string
+	if not stringext.hasSuffix(str, suffix) then
 		return str
 	end
 
