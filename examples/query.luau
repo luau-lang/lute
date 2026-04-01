@@ -4,7 +4,7 @@ local utils = require("@std/syntax/utils")
 
 local ast = syntax.parseExpr("require(OldComponent)")
 
-local p = query.findallfromroot(ast, utils.isRequireCall):filter(function(call)
+local p = query.findAllFromRoot(ast, utils.isRequireCall):filter(function(call)
 	local firstArg = call.arguments[1].node
 	return firstArg.tag == "indexname" and firstArg.index.text == "OldComponent"
 end)

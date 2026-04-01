@@ -18,7 +18,7 @@ local function lint(
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query
-		.findallfromroot(ast, utils.isExprBinary)
+		.findAllFromRoot(ast, utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "/" or bin.operator.text == "//" or bin.operator.text == "%"
 		end)

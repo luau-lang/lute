@@ -25,7 +25,7 @@ local function lint(
 	end
 
 	return query
-		.findallfromroot(ast, utils.isExprTable)
+		.findAllFromRoot(ast, utils.isExprTable)
 		:flatMap(function(tableExpr: syntax.AstExprTable): { lintTypes.LintViolation }
 			local violations = {}
 

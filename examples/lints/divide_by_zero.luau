@@ -11,7 +11,7 @@ local message = "Division by zero detected."
 
 local function lint(ast: syntax.AstStatBlock, sourcepath: path.Path?): { lintTypes.LintViolation }
 	return query
-		.findallfromroot(ast, utils.isExprBinary)
+		.findAllFromRoot(ast, utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "/" or bin.operator.text == "//" or bin.operator.text == "%"
 		end)

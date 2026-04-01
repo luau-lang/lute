@@ -16,7 +16,7 @@ local function lint(
 	local violations: { lintTypes.LintViolation } = {}
 
 	query
-		.findallfromroot(ast, function(node: syntax.AstNode): (syntax.AstExprIfElse | syntax.AstStatIf)?
+		.findAllFromRoot(ast, function(node: syntax.AstNode): (syntax.AstExprIfElse | syntax.AstStatIf)?
 			if (node.kind == "expr" or node.kind == "stat") and node.tag == "conditional" then
 				return node
 			end
@@ -55,7 +55,7 @@ local function lint(
 		end)
 
 	query
-		.findallfromroot(ast, function(node: syntax.AstNode): (syntax.AstStatWhile | syntax.AstStatRepeat)?
+		.findAllFromRoot(ast, function(node: syntax.AstNode): (syntax.AstStatWhile | syntax.AstStatRepeat)?
 			if node.kind == "stat" and (node.tag == "while" or node.tag == "repeat") then
 				return node
 			end

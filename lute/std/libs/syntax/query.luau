@@ -120,7 +120,7 @@ function queryLib.mapToArray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
 	return result
 end
 
-function queryLib.findallfromroot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
+function queryLib.findAllFromRoot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
 	local nodes: { T } = {}
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
