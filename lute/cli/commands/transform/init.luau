@@ -115,7 +115,7 @@ local function applyMigration(
 		-- TODO: should we wrap in pcall? For now we don't do this to preserve stack trace
 		local result = migration.transform(ctx)
 
-		local toWrite = if typeof(result) == "string" then result else printer.printfile(parseresult, result)
+		local toWrite = if typeof(result) == "string" then result else printer.printFile(parseresult, result)
 
 		if toWrite == types.DELETION_MARKER then
 			if outputFilePath then

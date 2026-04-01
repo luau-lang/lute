@@ -67,7 +67,7 @@ local function lint(
 ): { lintTypes.LintViolation }
 	local violations = {}
 
-	local nodes = query.findallfromroot(ast, utils.isStatBlock).nodes
+	local nodes = query.findAllFromRoot(ast, utils.isStatBlock).nodes
 
 	for _, block in nodes do
 		for i = 1, #block.statements - 1 do
@@ -85,8 +85,8 @@ local function lint(
 			local nextVar, nextVal = nextStat.variables[1].node, nextStat.values[1].node
 
 			if compFuncs.refExprsSame(currVar, nextVal) and compFuncs.refExprsSame(nextVar, currVal) then
-				local currVarStr = stringext.trim(printer.printnode(currVar))
-				local currValStr = stringext.trim(printer.printnode(currVal))
+				local currVarStr = stringext.trim(printer.printNode(currVar))
+				local currValStr = stringext.trim(printer.printNode(currVal))
 				local suggestedFix = `{currVarStr}, {currValStr} = {currValStr}, {currVarStr}`
 
 				table.insert(violations, { -- LUAUFIX: inserted table isn't inferred as a LintViolation

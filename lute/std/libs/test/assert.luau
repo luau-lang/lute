@@ -170,7 +170,7 @@ local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...
 
 	if typeof(with) == "string" then
 		-- pcall appends filename and line number of the error, so we check suffix only
-		if not stringext.hassuffix(actualErrorMessage, with) then
+		if not stringext.hasSuffix(actualErrorMessage, with) then
 			return assertion(`Expected suffix of error message "{with}", but got "{actualErrorMessage}"`)
 		end
 	else

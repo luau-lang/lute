@@ -117,12 +117,12 @@ function parseIgnores.parseIgnoreContents(location: string, contents: string | {
 	for _, line in lines do
 		line = stringext.trim(line)
 
-		if line == "" or stringext.hasprefix(line, "#") then
+		if line == "" or stringext.hasPrefix(line, "#") then
 			continue
 		end
 
-		if stringext.hasprefix(line, "!") then
-			local globPattern = stringext.removeprefix(line, "!")
+		if stringext.hasPrefix(line, "!") then
+			local globPattern = stringext.removePrefix(line, "!")
 			local glob = parseGlob(globPattern)
 			table.insert(ignoreData.whitelists, glob)
 		else

@@ -1078,12 +1078,12 @@ local function visit(node: types.AstNode, visitor: Visitor)
 end
 
 visitorlib.create = create
-visitorlib.visitblock = visitStatBlock
-visitorlib.visitstatement = visitStatement
-visitorlib.visitexpression = visitExpr
-visitorlib.visittype = visitType
-visitorlib.visittypepack = visitTypePack
-visitorlib.visittoken = visitToken
+visitorlib.visitBlock = visitStatBlock
+visitorlib.visitStatement = visitStatement
+visitorlib.visitExpression = visitExpr
+visitorlib.visitType = visitType
+visitorlib.visitTypePack = visitTypePack
+visitorlib.visitToken = visitToken
 visitorlib.visit = visit
 
 return table.freeze(visitorlib)
