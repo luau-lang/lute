@@ -11,7 +11,7 @@ local projectName = "myproject"
 local projectDir = pathlib.join(workdir, projectName)
 
 test.suite("LuteNew", function(suite)
-	suite:beforeeach(function()
+	suite:beforeEach(function()
 		if fs.exists(workdir) then
 			fs.removeDirectory(workdir, { recursive = true })
 		end

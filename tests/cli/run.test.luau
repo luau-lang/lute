@@ -11,7 +11,7 @@ local rundir = pathlib.join(tmpdir, "lute-run")
 local lutePath = pathlib.format(process.execPath())
 
 test.suite("LuteRun", function(suite)
-	suite:beforeeach(function()
+	suite:beforeEach(function()
 		if fs.exists(rundir) then
 			fs.removeDirectory(rundir, { recursive = true })
 		end

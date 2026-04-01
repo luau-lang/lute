@@ -15,14 +15,14 @@ local transformeePath = path.format(path.join(tmpDir, "transformee.luau"))
 local outputPath = path.format(path.join(tmpDir, "transformee_output.luau"))
 
 test.suite("LuteTransform", function(suite)
-	suite:beforeeach(function()
+	suite:beforeEach(function()
 		-- Create a transformee file
 		local transformeeHandle = fs.open(transformeePath, "w+")
 		fs.write(transformeeHandle, TRANSFORMEE_CONTENT)
 		fs.close(transformeeHandle)
 	end)
 
-	suite:aftereach(function()
+	suite:afterEach(function()
 		-- Remove the transformee file
 		fs.remove(transformeePath)
 		if fs.exists(outputPath) then

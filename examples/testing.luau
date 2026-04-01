@@ -14,23 +14,23 @@ test.case("baz", function(assert)
 end)
 
 test.suite("MySuite", function(suite)
-	-- beforeall runs once before all tests in the suite
-	suite:beforeall(function()
+	-- beforeAll runs once before all tests in the suite
+	suite:beforeAll(function()
 		print("Setting up MySuite - runs once before all tests")
 	end)
 
-	-- beforeeach runs before each individual test
-	suite:beforeeach(function()
+	-- beforeEach runs before each individual test
+	suite:beforeEach(function()
 		print("Running before each test")
 	end)
 
-	-- aftereach runs after each individual test
-	suite:aftereach(function()
+	-- afterEach runs after each individual test
+	suite:afterEach(function()
 		print("Cleaning up after each test")
 	end)
 
-	-- afterall runs once after all tests in the suite
-	suite:afterall(function()
+	-- afterAll runs once after all tests in the suite
+	suite:afterAll(function()
 		print("Tearing down MySuite - runs once after all tests")
 	end)
 
