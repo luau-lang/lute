@@ -408,12 +408,12 @@ local function lint(
 				)
 			end
 
-			writeOnlyAPIs.entries[parts[1]] = { tag = "leaf", vals = tableext.toset(v :: { number }) } -- We validate v above, so the cast is ok
+			writeOnlyAPIs.entries[parts[1]] = { tag = "leaf", vals = tableext.toSet(v :: { number }) } -- We validate v above, so the cast is ok
 		else
 			if not writeOnlyAPIs.entries[parts[1]] then
 				writeOnlyAPIs.entries[parts[1]] = {
 					tag = "branch",
-					entries = { [parts[2]] = { tag = "leaf", vals = tableext.toset(v :: { number }) } },
+					entries = { [parts[2]] = { tag = "leaf", vals = tableext.toSet(v :: { number }) } },
 				}
 			else
 				local branch = writeOnlyAPIs.entries[parts[1]]
@@ -422,7 +422,7 @@ local function lint(
 						`API '{parts[1]}' is already defined as a write-only API, so '{k}' cannot be added as a write-only API.`
 					)
 				end
-				branch.entries[parts[2]] = { tag = "leaf", vals = tableext.toset(v :: { number }) } -- We validate v above, so the cast is ok
+				branch.entries[parts[2]] = { tag = "leaf", vals = tableext.toSet(v :: { number }) } -- We validate v above, so the cast is ok
 			end
 		end
 	end

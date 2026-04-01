@@ -3,7 +3,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 
 local filePath = path.join(process.cwd(), "examples", "module_return_type", "mainmodule.luau")
-local returnType = luau.typeofmodule(filePath)
+local returnType = luau.typeofModule(filePath)
 
 if not returnType then
 	error("Failed to get module return type")
