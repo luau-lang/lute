@@ -26,10 +26,10 @@ int lua_tmpdir(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"cpus", lua_cpus},
-    {"threadcount", lua_threadcount},
-    {"freememory", lua_freememory},
-    {"totalmemory", lua_totalmemory},
-    {"hostname", lua_hostname},
+    {"threadCount", lua_threadcount},
+    {"freeMemory", lua_freememory},
+    {"totalMemory", lua_totalmemory},
+    {"hostName", lua_hostname},
     {"uptime", lua_uptime},
     {"tmpdir", lua_tmpdir},
 

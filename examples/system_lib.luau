@@ -3,13 +3,13 @@ local system = require("@std/system")
 print(
 	string.format(
 		"%s (%s-%s) - %d cores, uptime for %ss | freemem: %dMB | totalmem: %dMB",
-		system.hostname(),
+		system.hostName(),
 		system.os,
 		system.arch,
-		system.threadcount(),
+		system.threadCount(),
 		tostring(system.uptime()),
-		system.freememory(),
-		system.totalmemory()
+		system.freeMemory(),
+		system.totalMemory()
 	)
 )
 
