@@ -4,14 +4,9 @@
 
 local types = require("@self/types")
 
-local reporter = require("@self/reporter")
-local runner = require("@self/runner")
-local ps = require("@std/process")
-
 type Test = types.Test
 type TestCase = types.TestCase
 type TestSuite = types.TestSuite
-type TestEnvironment = types.TestEnvironment
 type TestReporter = types.TestReporter
 
 local TestSuite = {}
@@ -49,7 +44,7 @@ function TestSuite:afterAll(hook: () -> ())
 	self._afterAll = hook
 end
 
-local env: TestEnvironment = { anonymous = {}, suites = {}, suiteindex = {}, caseindex = {} }
+local env = require("@self/env")
 
 -- Test library export surface
 local test = {}
@@ -96,16 +91,6 @@ function test._registered()
 		suiteindex = env.suiteindex,
 		caseindex = env.caseindex,
 	})
-end
-
--- run all the tests
-function test.run()
-	local failed = runner.run(env)
-	reporter.simple(failed)
-	if failed.failed ~= 0 then
-		ps.exit(1)
-	end
-	ps.exit(0)
 end
 
 return table.freeze(test)

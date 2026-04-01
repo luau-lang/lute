@@ -1,9 +1,11 @@
 --!strict
 -- @std/test/runner
 -- Standard test runner library for Luau
+local ps = require("@std/process")
 
 local asserts = require("./assert")
 local failure = require("./failure")
+local reporter = require("./reporter")
 local types = require("./types")
 
 type Test = types.Test
@@ -156,6 +158,17 @@ function runner.run(env: TestEnvironment): TestRunResult
 		failed = failed,
 		passed = passed,
 	}
+end
+
+-- run all the tests
+function runner.runRegisteredTests()
+	local env = require("./env")
+	local result = runner.run(env)
+	reporter.simple(result)
+	if result.failed ~= 0 then
+		ps.exit(1)
+	end
+	ps.exit(0)
 end
 
 return table.freeze(runner)

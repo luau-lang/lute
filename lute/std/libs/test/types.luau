@@ -2,8 +2,6 @@
 -- @std/test/types
 -- Standard test types library for Luau
 
--- Test Reporting
-
 export type Hook = "beforeEach" | "beforeAll" | "afterEach" | "afterAll"
 export type Failure =
 	{
