@@ -22,7 +22,7 @@ local testDir = path.join(tmpDirStr, "lute_require_test")
 local testDirStr = path.format(testDir)
 
 test.suite("LuteCliRun", function(suite)
-	suite:beforeall(function()
+	suite:beforeAll(function()
 		if not fs.exists(testDirStr) then
 			fs.createDirectory(testDirStr)
 		end
@@ -50,7 +50,7 @@ test.suite("LuteCliRun", function(suite)
 		fs.remove(requireePath)
 	end)
 
-	suite:afterall(function()
+	suite:afterAll(function()
 		if fs.exists(testDirStr) then
 			fs.removeDirectory(testDirStr)
 		end

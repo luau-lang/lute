@@ -115,7 +115,7 @@ local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams)
 end
 
 test.suite("lute lint", function(suite)
-	suite:beforeeach(function()
+	suite:beforeEach(function()
 		-- A test that creates rulesDir which fails won't cleanup after itself
 		if fs.exists(rulesDir) then
 			fs.removeDirectory(rulesDir, { recursive = true })

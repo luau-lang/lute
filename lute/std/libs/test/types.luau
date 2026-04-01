@@ -4,7 +4,7 @@
 
 -- Test Reporting
 
-export type Hook = "beforeeach" | "beforeall" | "aftereach" | "afterall"
+export type Hook = "beforeEach" | "beforeAll" | "afterEach" | "afterAll"
 export type Failure =
 	{
 		assertion: string, -- name of the assertion
@@ -43,15 +43,15 @@ export type TestCase = { name: string, case: Test }
 export type TestSuite = {
 	name: string,
 	cases: { TestCase },
-	_beforeeach: (() -> ())?,
-	_beforeall: (() -> ())?,
-	_aftereach: (() -> ())?,
-	_afterall: (() -> ())?,
+	_beforeEach: (() -> ())?,
+	_beforeAll: (() -> ())?,
+	_afterEach: (() -> ())?,
+	_afterAll: (() -> ())?,
 	case: (self: TestSuite, string, Test) -> (),
-	beforeeach: (self: TestSuite, () -> ()) -> (),
-	beforeall: (self: TestSuite, () -> ()) -> (),
-	aftereach: (self: TestSuite, () -> ()) -> (),
-	afterall: (self: TestSuite, () -> ()) -> (),
+	beforeEach: (self: TestSuite, () -> ()) -> (),
+	beforeAll: (self: TestSuite, () -> ()) -> (),
+	afterEach: (self: TestSuite, () -> ()) -> (),
+	afterAll: (self: TestSuite, () -> ()) -> (),
 }
 
 export type FailedTest = {

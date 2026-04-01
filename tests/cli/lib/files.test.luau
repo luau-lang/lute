@@ -8,7 +8,7 @@ local tmpdir = system.tmpdir()
 local testPath = path.join(tmpdir, "gitignore_test")
 
 test.suite("CliLibFiles", function(suite)
-	suite:beforeeach(function()
+	suite:beforeEach(function()
 		if fs.exists(testPath) then
 			fs.removeDirectory(testPath, { recursive = true })
 		end
