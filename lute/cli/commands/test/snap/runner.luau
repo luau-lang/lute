@@ -9,8 +9,8 @@ local snapty = require("./types")
 -- e.g. /foo/bar.snap.luau -> /foo/bar.snap
 local function artifactpath(filepath: path.Path): string
 	local f = path.format(filepath)
-	assert(strext.hassuffix(f, ".snap.luau"), `expected {f} to have suffix .snap.luau`)
-	return strext.removesuffix(f, ".luau") -- strips ".luau"
+	assert(strext.hasSuffix(f, ".snap.luau"), `expected {f} to have suffix .snap.luau`)
+	return strext.removeSuffix(f, ".luau") -- strips ".luau"
 end
 
 local function posixify(str)
