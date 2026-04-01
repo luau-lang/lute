@@ -137,7 +137,7 @@ function fslib.createdirectory(path: Pathlike, options: CreateDirectoryOptions?)
 		local parts: { string } = parsed.parts
 
 		local subdir: Pathlike = "."
-		if pathlib.isabsolute(path) then
+		if pathlib.isAbsolute(path) then
 			if sys.win32 then
 				-- Windows path - get the drive root like "C:\"
 				subdir = pathlib.win32.drive(parsed :: win32path)
