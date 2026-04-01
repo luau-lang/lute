@@ -99,7 +99,7 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 end
 
 local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: string)
-	local leftmostTrivia = triviaUtils.leftmosttrivia(node)
+	local leftmostTrivia = triviaUtils.leftmostTrivia(node)
 	if leftmostTrivia ~= nil then
 		self:printTriviaList(leftmostTrivia)
 	end
@@ -107,7 +107,7 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 	assert(typeof(replacement) == "string", "Unsupported replacement type")
 	self:write(replacement)
 
-	local rightmostTrivia = triviaUtils.rightmosttrivia(node)
+	local rightmostTrivia = triviaUtils.rightmostTrivia(node)
 	if rightmostTrivia ~= nil then
 		self:printTriviaList(rightmostTrivia)
 	end

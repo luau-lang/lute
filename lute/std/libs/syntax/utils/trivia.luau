@@ -3,7 +3,7 @@ local types = require("../types")
 
 local retrieverLib = {}
 
-function retrieverLib.leftmosttrivia(n: types.AstNode): { types.Trivia }
+function retrieverLib.leftmostTrivia(n: types.AstNode): { types.Trivia }
 	local q = query.findAllFromRoot<<types.Token>>(
 		n :: any,
 		function(n: types.AstNode) -- LUAUFIX: Code too complex emitted because AstNode is very large
@@ -29,7 +29,7 @@ function retrieverLib.leftmosttrivia(n: types.AstNode): { types.Trivia }
 	return if leftmostToken ~= nil then leftmostToken.leadingTrivia else {}
 end
 
-function retrieverLib.rightmosttrivia(n: types.AstNode): { types.Trivia }
+function retrieverLib.rightmostTrivia(n: types.AstNode): { types.Trivia }
 	local q = query.findAllFromRoot(
 		n :: any,
 		function(n: types.AstNode) -- LUAUFIX: Code too complex emitted because AstNode is very large

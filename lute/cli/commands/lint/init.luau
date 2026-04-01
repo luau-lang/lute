@@ -175,7 +175,7 @@ end
 local function parseDirectives(node: syntax.AstNode): { [string]: boolean }
 	local directives: { [string]: boolean } = {}
 
-	local leadingTrivia = triviaUtils.leftmosttrivia(node)
+	local leadingTrivia = triviaUtils.leftmostTrivia(node)
 	for _, trivia in leadingTrivia do
 		if trivia.tag == "blockcomment" or trivia.tag == "comment" then
 			for rule in trivia.text:gmatch("lute%-lint%-ignore%((.+)%)") do
@@ -287,7 +287,7 @@ local function lintString(
 	if VERBOSE then
 		print(`Parsing global lint ignores in input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
-	local globalIgnores = parseGlobalIgnores(triviaUtils.leftmosttrivia(ast))
+	local globalIgnores = parseGlobalIgnores(triviaUtils.leftmostTrivia(ast))
 
 	if VERBOSE then
 		print("Applying lint rules")
