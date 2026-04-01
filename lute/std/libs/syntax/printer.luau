@@ -93,7 +93,7 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 		else
 			self:write("{")
 			self:printTriviaList(expr.strings[i].trailingTrivia)
-			visitor.visitexpression(expr.expressions[i], self)
+			visitor.visitExpression(expr.expressions[i], self)
 		end
 	end
 end
@@ -190,8 +190,8 @@ end
 
 function printerLib.printFile(result: types.ParseResult, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
-	visitor.visitblock(result.root, printer)
-	visitor.visittoken(result.eof, printer)
+	visitor.visitBlock(result.root, printer)
+	visitor.visitToken(result.eof, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 

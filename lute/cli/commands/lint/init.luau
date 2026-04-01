@@ -254,7 +254,7 @@ local function violationIsSuppressed(
 
 	local suppressionVisitor = visitor.create(nodeIsSuppressed)
 
-	visitor.visitblock(ast, suppressionVisitor)
+	visitor.visitBlock(ast, suppressionVisitor)
 
 	return violationSuppressed
 end

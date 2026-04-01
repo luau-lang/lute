@@ -113,9 +113,9 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 				else
 					visitor.ignoreReferences[localVar.node] = true
 					if localVar.node.annotation then
-						visitorLib.visittype(localVar.node.annotation, visitor)
+						visitorLib.visitType(localVar.node.annotation, visitor)
 					end
-					visitorLib.visitexpression(stat.values[i].node, visitor)
+					visitorLib.visitExpression(stat.values[i].node, visitor)
 					visitor.ignoreReferences[localVar.node] = nil
 				end
 			end
@@ -163,15 +163,15 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 			if var.tag == "local" and not callFound then
 				visitor.ignoreReferences[var["local"]] = true
 
-				visitorLib.visitexpression(val, visitor)
+				visitorLib.visitExpression(val, visitor)
 
 				visitor.ignoreReferences[var["local"]] = nil
 			else
 				visitor.inLValueContext = true
-				visitorLib.visitexpression(var, visitor)
+				visitorLib.visitExpression(var, visitor)
 				visitor.inLValueContext = prevInLValueContext
 
-				visitorLib.visitexpression(val, visitor)
+				visitorLib.visitExpression(val, visitor)
 			end
 
 			if val.tag == "call" then
@@ -193,15 +193,15 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		-- x += x + 1
 		if stat.variable.tag == "local" then
 			visitor.ignoreReferences[stat.variable["local"]] = true
-			visitorLib.visitexpression(stat.value, visitor)
+			visitorLib.visitExpression(stat.value, visitor)
 			visitor.ignoreReferences[stat.variable["local"]] = nil
 		else
 			local prevInLValueContext = visitor.inLValueContext
 			visitor.inLValueContext = true
-			visitorLib.visitexpression(stat.variable, visitor)
+			visitorLib.visitExpression(stat.variable, visitor)
 			visitor.inLValueContext = prevInLValueContext
 
-			visitorLib.visitexpression(stat.value, visitor)
+			visitorLib.visitExpression(stat.value, visitor)
 		end
 
 		return false
@@ -216,24 +216,24 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 			end
 
 			visitor.ignoreReferences[stat.name["local"]] = true
-			visitorLib.visitexpression(stat.func, visitor)
+			visitorLib.visitExpression(stat.func, visitor)
 			visitor.ignoreReferences[stat.name["local"]] = nil
 		elseif stat.name.tag == "indexname" and stat.name.accessor.text == ":" then
 			local prevMethodContext = visitor.insideMethodContext
 			visitor.insideMethodContext = true
 
-			visitorLib.visitexpression(stat.func, visitor)
+			visitorLib.visitExpression(stat.func, visitor)
 
 			visitor.insideMethodContext = prevMethodContext
 		elseif stat.name.tag == "index" then
 			local prevInLValueContext = visitor.inLValueContext
 			visitor.inLValueContext = true
-			visitorLib.visitexpression(stat.name, visitor)
+			visitorLib.visitExpression(stat.name, visitor)
 			visitor.inLValueContext = prevInLValueContext
 
-			visitorLib.visitexpression(stat.func, visitor)
+			visitorLib.visitExpression(stat.func, visitor)
 		else
-			visitorLib.visitexpression(stat.func, visitor)
+			visitorLib.visitExpression(stat.func, visitor)
 		end
 
 		return false
@@ -243,7 +243,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		-- Recursive functions don't count as references to themselves
 		visitor.ignoreReferences[stat.name] = true
 
-		visitorLib.visitexpression(stat.func, visitor)
+		visitorLib.visitExpression(stat.func, visitor)
 
 		visitor.ignoreReferences[stat.name] = nil
 
@@ -258,11 +258,11 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 
 		-- Manually visit the block's states so we can keep the scope around
 		for _, bodyStat in stat.body.statements do
-			visitorLib.visitstatement(bodyStat, visitor)
+			visitorLib.visitStatement(bodyStat, visitor)
 		end
 
 		-- Visit the condition with the same scope as the body
-		visitorLib.visitexpression(stat.condition, visitor)
+		visitorLib.visitExpression(stat.condition, visitor)
 
 		popAndSaveUnusedLocals(stat)
 
@@ -323,11 +323,11 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 	end
 
 	function visitor.visitExprIndexExpr(node: syntax.AstExprIndexExpr)
-		visitorLib.visitexpression(node.expression, visitor)
+		visitorLib.visitExpression(node.expression, visitor)
 
 		local prevInLValueContext = visitor.inLValueContext
 		visitor.inLValueContext = false
-		visitorLib.visitexpression(node.index, visitor)
+		visitorLib.visitExpression(node.index, visitor)
 		visitor.inLValueContext = prevInLValueContext
 
 		return false
@@ -340,23 +340,23 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 			return true
 		end
 
-		visitorLib.visitexpression(node.func, visitor)
+		visitorLib.visitExpression(node.func, visitor)
 
 		for i, arg in node.arguments do
 			if writeOnlyIndices[i] then
 				local prevInLValueContext = visitor.inLValueContext
 				visitor.inLValueContext = true
-				visitorLib.visitexpression(arg.node, visitor)
+				visitorLib.visitExpression(arg.node, visitor)
 				visitor.inLValueContext = prevInLValueContext
 			else
-				visitorLib.visitexpression(arg.node, visitor)
+				visitorLib.visitExpression(arg.node, visitor)
 			end
 		end
 
 		return false
 	end
 
-	visitorLib.visitblock(block, visitor)
+	visitorLib.visitBlock(block, visitor)
 
 	return visitor.unusedLocals
 end
