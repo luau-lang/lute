@@ -25,8 +25,8 @@ local function lint(
 	end
 
 	return query
-		.findallfromroot(ast, utils.isExprTable)
-		:flatmap(function(tableExpr: syntax.AstExprTable): { lintTypes.LintViolation }
+		.findAllFromRoot(ast, utils.isExprTable)
+		:flatMap(function(tableExpr: syntax.AstExprTable): { lintTypes.LintViolation }
 			local violations = {}
 
 			local seenKeys: { [string | number]: true } = {}

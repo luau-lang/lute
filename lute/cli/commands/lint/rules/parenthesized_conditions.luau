@@ -16,13 +16,13 @@ local function lint(
 	local violations: { lintTypes.LintViolation } = {}
 
 	query
-		.findallfromroot(ast, function(node: syntax.AstNode): (syntax.AstExprIfElse | syntax.AstStatIf)?
+		.findAllFromRoot(ast, function(node: syntax.AstNode): (syntax.AstExprIfElse | syntax.AstStatIf)?
 			if (node.kind == "expr" or node.kind == "stat") and node.tag == "conditional" then
 				return node
 			end
 			return nil
 		end)
-		:foreach(function(ifStat)
+		:forEach(function(ifStat)
 			if ifStat.condition.tag == "group" then
 				table.insert(violations, {
 					lintname = name,
@@ -31,7 +31,7 @@ local function lint(
 					severity = "info",
 					sourcepath = sourcepath,
 					suggestedfix = {
-						fix = syntaxPrinter.printnode(ifStat.condition.expression),
+						fix = syntaxPrinter.printNode(ifStat.condition.expression),
 					},
 					target = target,
 				})
@@ -46,7 +46,7 @@ local function lint(
 						severity = "info",
 						sourcepath = sourcepath,
 						suggestedfix = {
-							fix = syntaxPrinter.printnode(elseIfStat.condition.expression),
+							fix = syntaxPrinter.printNode(elseIfStat.condition.expression),
 						},
 						target = target,
 					})
@@ -55,7 +55,7 @@ local function lint(
 		end)
 
 	query
-		.findallfromroot(ast, function(node: syntax.AstNode): (syntax.AstStatWhile | syntax.AstStatRepeat)?
+		.findAllFromRoot(ast, function(node: syntax.AstNode): (syntax.AstStatWhile | syntax.AstStatRepeat)?
 			if node.kind == "stat" and (node.tag == "while" or node.tag == "repeat") then
 				return node
 			end
@@ -64,7 +64,7 @@ local function lint(
 		:filter(function(n)
 			return n.condition.tag == "group"
 		end)
-		:foreach(function(n)
+		:forEach(function(n)
 			table.insert(violations, {
 				lintname = name,
 				location = n.condition.location,
@@ -72,7 +72,7 @@ local function lint(
 				severity = "info",
 				sourcepath = sourcepath,
 				suggestedfix = {
-					fix = syntaxPrinter.printnode((n.condition :: syntax.AstExprGroup).expression),
+					fix = syntaxPrinter.printNode((n.condition :: syntax.AstExprGroup).expression),
 				},
 				target = target,
 			})

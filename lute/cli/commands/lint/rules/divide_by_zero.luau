@@ -18,14 +18,14 @@ local function lint(
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query
-		.findallfromroot(ast, utils.isExprBinary)
+		.findAllFromRoot(ast, utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "/" or bin.operator.text == "//" or bin.operator.text == "%"
 		end)
 		:filter(function(bin)
 			return isZeroLiteral(bin.rhsOperand)
 		end)
-		:maptoarray(
+		:mapToArray(
 			function(
 				n: syntax.AstExprBinary
 			): lintTypes.LintViolation? -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation

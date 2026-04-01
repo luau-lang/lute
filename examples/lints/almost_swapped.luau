@@ -62,7 +62,7 @@ end
 local function lint(ast: syntax.AstStatBlock, sourcepath: path.Path?): { lintTypes.LintViolation }
 	local violations = {}
 
-	local nodes = query.findallfromroot(ast, utils.isStatBlock).nodes
+	local nodes = query.findAllFromRoot(ast, utils.isStatBlock).nodes
 
 	for _, block in nodes do
 		for i = 1, #block.statements - 1 do

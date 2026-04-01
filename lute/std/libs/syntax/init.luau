@@ -180,8 +180,8 @@ export type AstNode = types.AstNode
 export type ParseResult = types.ParseResult
 
 return table.freeze({
-	parseblock = parser.parseblock,
-	parseexpr = parser.parseexpr,
+	parseBlock = parser.parseBlock,
+	parseExpr = parser.parseExpr,
 	parse = parser.parse,
 	span = table.freeze(span),
 })

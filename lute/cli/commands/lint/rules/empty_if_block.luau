@@ -53,7 +53,7 @@ local function lint(
 	end
 
 	-- Find all if statements
-	return query.findallfromroot(ast, utils.isStatIf):map(function(ifStat): lintTypes.LintViolation?
+	return query.findAllFromRoot(ast, utils.isStatIf):map(function(ifStat): lintTypes.LintViolation?
 		-- Check if the then block is empty
 		if
 			isBlockEmpty(

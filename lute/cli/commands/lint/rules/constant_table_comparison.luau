@@ -35,14 +35,14 @@ local function lint(
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query
-		.findallfromroot(ast, utils.isExprBinary)
+		.findAllFromRoot(ast, utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "==" or bin.operator.text == "~="
 		end)
 		:filter(function(bin)
 			return isTableLiteral(bin.rhsOperand) or isTableLiteral(bin.lhsOperand)
 		end)
-		:maptoarray(
+		:mapToArray(
 			function(
 				bin: syntax.AstExprBinary
 			): lintTypes.LintViolation -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
@@ -50,10 +50,10 @@ local function lint(
 
 				if isEmptyTableLiteral(bin.lhsOperand) then
 					suggestedFix =
-						`next({stringext.trim(syntaxPrinter.printnode(bin.rhsOperand))}) {bin.operator.text} nil`
+						`next({stringext.trim(syntaxPrinter.printNode(bin.rhsOperand))}) {bin.operator.text} nil`
 				elseif isEmptyTableLiteral(bin.rhsOperand) then
 					suggestedFix =
-						`next({stringext.trim(syntaxPrinter.printnode(bin.lhsOperand))}) {bin.operator.text} nil`
+						`next({stringext.trim(syntaxPrinter.printNode(bin.lhsOperand))}) {bin.operator.text} nil`
 				end
 
 				return {

@@ -23,7 +23,7 @@ end
 
 test.suite("Parser", function(suite)
 	suite:case("tokenContainsLeadingSpaces", function(assert)
-		local block = parser.parseblock("  local x = 1")
+		local block = parser.parseBlock("  local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
@@ -37,7 +37,7 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("tokenContainsLeadingNewline", function(assert)
-		local block = parser.parseblock("\n" .. "local x = 1")
+		local block = parser.parseBlock("\n" .. "local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
@@ -51,7 +51,7 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("tokenContainsLeadingSingleLineComment", function(assert)
-		local block = parser.parseblock("-- comment\n" .. "local x = 1")
+		local block = parser.parseBlock("-- comment\n" .. "local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
@@ -68,7 +68,7 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("tokenContainsLeadingBlockComment", function(assert)
-		local block = parser.parseblock("--[[ comment ]] local x = 1")
+		local block = parser.parseBlock("--[[ comment ]] local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
@@ -85,7 +85,7 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("tokenizeWhitespace", function(assert)
-		local block = parser.parseblock("  \n\t\t\n\n" .. "local x = 1")
+		local block = parser.parseBlock("  \n\t\t\n\n" .. "local x = 1")
 		assert.eq(#block.statements, 1)
 
 		local l = block.statements[1]
@@ -99,7 +99,7 @@ test.suite("Parser", function(suite)
 	end)
 
 	suite:case("triviaSplitBetweenLeadingAndTrailing", function(assert)
-		local block = parser.parseblock("local x = 'test' -- comment\n" .. "-- comment 2\nlocal y = 'value'")
+		local block = parser.parseBlock("local x = 'test' -- comment\n" .. "-- comment 2\nlocal y = 'value'")
 		assert.eq(#block.statements, 2)
 
 		local firstStmt = block.statements[1]
@@ -134,7 +134,7 @@ test.suite("Parser", function(suite)
 			suite:case(`roundtrippable_Ast_{entry.name}`, function(assert)
 				local p = path.join(directory, entry.name)
 				local source = fs.readfiletostring(path.format(p))
-				local result = printer.printfile(parser.parse(source))
+				local result = printer.printFile(parser.parse(source))
 
 				assert.eq(source, result)
 			end)
@@ -184,7 +184,7 @@ test.suite("Parser", function(suite)
 		}
 
 		for _, subcase in subcases do
-			local block = parser.parseblock(subcase.code)
+			local block = parser.parseBlock(subcase.code)
 			assert.eq(#block.statements, 1)
 
 			local l = block.statements[1]
@@ -198,7 +198,7 @@ end)
 
 test.suite("parseExpr", function(suite)
 	suite:case("parseExprGroup", function(assert)
-		local groupExpr = parser.parseexpr("(x)")
+		local groupExpr = parser.parseExpr("(x)")
 		assert.eq(groupExpr.tag, "group")
 		assert.eq(groupExpr.kind, "expr")
 		local expr = groupExpr :: syntax.AstExprGroup
@@ -208,20 +208,20 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprNil", function(assert)
-		local expr = parser.parseexpr("nil")
+		local expr = parser.parseExpr("nil")
 		assert.eq(expr.tag, "nil")
 		assert.eq(expr.kind, "expr")
 		assert.eq((expr :: syntax.AstExprConstantNil).token.text, "nil")
 	end)
 
 	suite:case("parseExprBoolean", function(assert)
-		local trueExpr = parser.parseexpr("true")
+		local trueExpr = parser.parseExpr("true")
 		assert.eq(trueExpr.tag, "boolean")
 		assert.eq(trueExpr.kind, "expr")
 		assert.eq((trueExpr :: syntax.AstExprConstantBool).token.text, "true")
 		assert.that((trueExpr :: syntax.AstExprConstantBool).value)
 
-		local falseExpr = parser.parseexpr("false")
+		local falseExpr = parser.parseExpr("false")
 		assert.eq(falseExpr.tag, "boolean")
 		assert.eq(falseExpr.kind, "expr")
 		assert.eq((falseExpr :: syntax.AstExprConstantBool).token.text, "false")
@@ -229,13 +229,13 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprNumber", function(assert)
-		local numberExpr = parser.parseexpr("42")
+		local numberExpr = parser.parseExpr("42")
 		assert.eq(numberExpr.tag, "number")
 		assert.eq(numberExpr.kind, "expr")
 		assert.eq((numberExpr :: syntax.AstExprConstantNumber).token.text, "42")
 		assert.eq((numberExpr :: syntax.AstExprConstantNumber).value, 42)
 
-		local floatExpr = parser.parseexpr("3.14")
+		local floatExpr = parser.parseExpr("3.14")
 		assert.eq(floatExpr.tag, "number")
 		assert.eq(floatExpr.kind, "expr")
 		assert.eq((floatExpr :: syntax.AstExprConstantNumber).token.text, "3.14")
@@ -243,25 +243,25 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprString", function(assert)
-		local singleQuoteExpr = parser.parseexpr("'hello'")
+		local singleQuoteExpr = parser.parseExpr("'hello'")
 		assert.eq(singleQuoteExpr.tag, "string")
 		assert.eq(singleQuoteExpr.kind, "expr")
 		assert.eq((singleQuoteExpr :: syntax.AstExprConstantString).token.text, "hello")
 		assert.eq((singleQuoteExpr :: syntax.AstExprConstantString).quoteStyle, "single")
 
-		local doubleQuoteExpr = parser.parseexpr('"world"')
+		local doubleQuoteExpr = parser.parseExpr('"world"')
 		assert.eq(doubleQuoteExpr.tag, "string")
 		assert.eq(doubleQuoteExpr.kind, "expr")
 		assert.eq((doubleQuoteExpr :: syntax.AstExprConstantString).token.text, "world")
 		assert.eq((doubleQuoteExpr :: syntax.AstExprConstantString).quoteStyle, "double")
 
-		local blockQuoteExpr = parser.parseexpr("[[world]]")
+		local blockQuoteExpr = parser.parseExpr("[[world]]")
 		assert.eq(blockQuoteExpr.tag, "string")
 		assert.eq(blockQuoteExpr.kind, "expr")
 		assert.eq((blockQuoteExpr :: syntax.AstExprConstantString).token.text, "world")
 		assert.eq((blockQuoteExpr :: syntax.AstExprConstantString).quoteStyle, "block")
 
-		local interpExpr = parser.parseexpr("`foobar`")
+		local interpExpr = parser.parseExpr("`foobar`")
 		assert.eq(interpExpr.tag, "string")
 		assert.eq(interpExpr.kind, "expr")
 		assert.eq((interpExpr :: syntax.AstExprConstantString).token.text, "foobar")
@@ -269,28 +269,28 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprLocal", function(assert)
-		local localExpr = parser.parseexpr("x")
+		local localExpr = parser.parseExpr("x")
 		assert.eq(localExpr.tag, "global")
 		assert.eq(localExpr.kind, "expr")
 		assert.eq((localExpr :: syntax.AstExprGlobal).name.text, "x")
 	end)
 
 	suite:case("parseExprGlobal", function(assert)
-		local globalExpr = parser.parseexpr("_G")
+		local globalExpr = parser.parseExpr("_G")
 		assert.eq(globalExpr.tag, "global")
 		assert.eq(globalExpr.kind, "expr")
 		assert.eq((globalExpr :: syntax.AstExprGlobal).name.text, "_G")
 	end)
 
 	suite:case("parseExprVarargs", function(assert)
-		local varargsExpr = parser.parseexpr("...")
+		local varargsExpr = parser.parseExpr("...")
 		assert.eq(varargsExpr.tag, "vararg")
 		assert.eq(varargsExpr.kind, "expr")
 		assert.eq((varargsExpr :: syntax.AstExprVarargs).token.text, "...")
 	end)
 
 	suite:case("parseExprCall", function(assert)
-		local callExpr = parser.parseexpr("foo()")
+		local callExpr = parser.parseExpr("foo()")
 		assert.eq(callExpr.tag, "call")
 		assert.eq(callExpr.kind, "expr")
 		assert.eq((callExpr :: syntax.AstExprCall).func.tag, "global")
@@ -298,7 +298,7 @@ test.suite("parseExpr", function(suite)
 		assert.eq((callExpr :: syntax.AstExprCall).self, false)
 		assert.eq(#(callExpr :: syntax.AstExprCall).arguments, 0)
 
-		local callWithArgsExpr = parser.parseexpr("bar(1, 2)")
+		local callWithArgsExpr = parser.parseExpr("bar(1, 2)")
 		assert.eq(callWithArgsExpr.tag, "call")
 		assert.eq(callWithArgsExpr.kind, "expr")
 		assert.eq(#(callWithArgsExpr :: syntax.AstExprCall).arguments, 2)
@@ -307,7 +307,7 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprInstantiate", function(assert)
-		local callExpr = parser.parseexpr("foo<<string, ...number>>()")
+		local callExpr = parser.parseExpr("foo<<string, ...number>>()")
 		assert.eq(callExpr.kind, "expr")
 		assert.eq(callExpr.tag, "call")
 
@@ -327,7 +327,7 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprIndexName", function(assert)
-		local indexExpr = parser.parseexpr("obj.field")
+		local indexExpr = parser.parseExpr("obj.field")
 		assert.eq(indexExpr.tag, "indexname")
 		assert.eq(indexExpr.kind, "expr")
 		assert.eq((indexExpr :: syntax.AstExprIndexName).expression.tag, "global")
@@ -336,7 +336,7 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprIndexExpr", function(assert)
-		local indexExpr = parser.parseexpr("arr[1]")
+		local indexExpr = parser.parseExpr("arr[1]")
 		assert.eq(indexExpr.tag, "index")
 		assert.eq(indexExpr.kind, "expr")
 		assert.eq((indexExpr :: syntax.AstExprIndexExpr).expression.tag, "global")
@@ -346,7 +346,7 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprFunction", function(assert)
-		local anonFuncExpr = parser.parseexpr("function(a, b) return a + b end")
+		local anonFuncExpr = parser.parseExpr("function(a, b) return a + b end")
 		assert.eq(anonFuncExpr.tag, "function")
 		assert.eq(anonFuncExpr.kind, "expr")
 
@@ -370,7 +370,7 @@ test.suite("parseExpr", function(suite)
 		assert.eq(funcExpr.returnAnnotation, nil)
 		assert.eq(funcExpr.endKeyword.text, "end")
 
-		anonFuncExpr = parser.parseexpr("function<A, B...>(a: A, ...: B...): A return a end")
+		anonFuncExpr = parser.parseExpr("function<A, B...>(a: A, ...: B...): A return a end")
 		assert.eq(anonFuncExpr.tag, "function")
 		assert.eq(anonFuncExpr.kind, "expr")
 
@@ -423,7 +423,7 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprTable", function(assert)
-		local emptyTableExpr = parser.parseexpr("{}")
+		local emptyTableExpr = parser.parseExpr("{}")
 		assert.eq(emptyTableExpr.tag, "table")
 		assert.eq(emptyTableExpr.kind, "expr")
 		local tableExpr = emptyTableExpr :: syntax.AstExprTable
@@ -431,7 +431,7 @@ test.suite("parseExpr", function(suite)
 		assert.eq(tableExpr.closeBrace.text, "}")
 		assert.eq(#tableExpr.entries, 0)
 
-		local mixedTable = parser.parseexpr("{1, foo = bar; [2] = baz}")
+		local mixedTable = parser.parseExpr("{1, foo = bar; [2] = baz}")
 		assert.eq(mixedTable.tag, "table")
 		assert.eq(mixedTable.kind, "expr")
 		local mixedTableExpr = mixedTable :: syntax.AstExprTable
@@ -462,21 +462,21 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprUnary", function(assert)
-		local notExpr = parser.parseexpr("not x")
+		local notExpr = parser.parseExpr("not x")
 		assert.eq(notExpr.tag, "unary")
 		assert.eq(notExpr.kind, "expr")
 		local expr = notExpr :: syntax.AstExprUnary
 		assert.eq(expr.operator.text, "not")
 		assert.eq(expr.operand.tag, "global")
 
-		local negExpr = parser.parseexpr("-42")
+		local negExpr = parser.parseExpr("-42")
 		assert.eq(negExpr.tag, "unary")
 		assert.eq(negExpr.kind, "expr")
 		expr = negExpr :: syntax.AstExprUnary
 		assert.eq(expr.operator.text, "-")
 		assert.eq(expr.operand.tag, "number")
 
-		local lenExpr = parser.parseexpr("#str")
+		local lenExpr = parser.parseExpr("#str")
 		assert.eq(lenExpr.tag, "unary")
 		assert.eq(lenExpr.kind, "expr")
 		expr = lenExpr :: syntax.AstExprUnary
@@ -485,7 +485,7 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprBinary", function(assert)
-		local addExpr = parser.parseexpr("1 + 2")
+		local addExpr = parser.parseExpr("1 + 2")
 		assert.eq(addExpr.tag, "binary")
 		assert.eq(addExpr.kind, "expr")
 		local expr = addExpr :: syntax.AstExprBinary
@@ -495,7 +495,7 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprInterpString", function(assert)
-		local interpExpr = parser.parseexpr("`Hello, {name}! Today is {dayOfWeek}.`")
+		local interpExpr = parser.parseExpr("`Hello, {name}! Today is {dayOfWeek}.`")
 		assert.eq(interpExpr.tag, "interpolatedstring")
 		assert.eq(interpExpr.kind, "expr")
 		local expr = interpExpr :: syntax.AstExprInterpString
@@ -511,7 +511,7 @@ test.suite("parseExpr", function(suite)
 	end)
 
 	suite:case("parseExprTypeAssertion", function(assert)
-		local castExpr = parser.parseexpr("x :: string")
+		local castExpr = parser.parseExpr("x :: string")
 		assert.eq(castExpr.tag, "cast")
 		assert.eq(castExpr.kind, "expr")
 		local expr = castExpr :: syntax.AstExprTypeAssertion
@@ -522,7 +522,7 @@ test.suite("parseExpr", function(suite)
 
 	-- table items serialized with location field
 	suite:case("exprTableItemSerializedWithLocationField", function(assert)
-		local tableExpr = parser.parseexpr([[
+		local tableExpr = parser.parseExpr([[
 {
 1,
 foo = bar,
@@ -555,13 +555,13 @@ end
 
 test.suite("parse", function(suite)
 	suite:case("parseEmptyProgram", function(assert)
-		local block = parser.parseblock("")
+		local block = parser.parseBlock("")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 0)
 	end)
 
 	suite:case("parseDoStatement", function(assert)
-		local block = parser.parseblock("do print('Hello, World!') end")
+		local block = parser.parseBlock("do print('Hello, World!') end")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
@@ -574,7 +574,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseIfStatement", function(assert)
-		local block = parser.parseblock(
+		local block = parser.parseBlock(
 			"if x > 0 then print('positive') elseif x < 0 then print('negative') else print('zero') end"
 		)
 		assert.eq(#block.statements, 1)
@@ -602,7 +602,7 @@ test.suite("parse", function(suite)
 		checkIsBlock(ifStat.elseBlock, assert)
 		assert.eq(ifStat.endKeyword.text, "end")
 
-		block = parser.parseblock("if condition then doSomething() end")
+		block = parser.parseBlock("if condition then doSomething() end")
 		assert.eq(#block.statements, 1)
 		local simpleIfStat = block.statements[1] :: syntax.AstStatIf
 		assert.eq(simpleIfStat.tag, "conditional")
@@ -618,7 +618,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatWhile", function(assert)
-		local block = parser.parseblock("while i <= 10 do print(i); i = i + 1 end")
+		local block = parser.parseBlock("while i <= 10 do print(i); i = i + 1 end")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
@@ -631,7 +631,7 @@ test.suite("parse", function(suite)
 		assert.eq(#whileStat.body.statements, 2)
 		assert.eq(whileStat.endKeyword.text, "end")
 
-		block = parser.parseblock("while true do break end")
+		block = parser.parseBlock("while true do break end")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
@@ -651,7 +651,7 @@ test.suite("parse", function(suite)
 
 		assert.eq(whileStat.endKeyword.text, "end")
 
-		block = parser.parseblock("while true do continue end")
+		block = parser.parseBlock("while true do continue end")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
@@ -673,7 +673,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatRepeat", function(assert)
-		local block = parser.parseblock("repeat i = i + 1; print(i) until i > 5")
+		local block = parser.parseBlock("repeat i = i + 1; print(i) until i > 5")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
@@ -687,7 +687,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatLocal", function(assert)
-		local block = parser.parseblock("local b, c = 1, 2")
+		local block = parser.parseBlock("local b, c = 1, 2")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 		assert.eq(block.statements[1].kind, "stat")
@@ -710,7 +710,7 @@ test.suite("parse", function(suite)
 		assert.eq(l.values[2].node.tag, "number")
 		assert.eq(l.values[2].separator, nil)
 
-		block = parser.parseblock("local x")
+		block = parser.parseBlock("local x")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 		assert.eq(block.statements[1].kind, "stat")
@@ -726,7 +726,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatFor", function(assert)
-		local block = parser.parseblock("for i = 1, 10, 2 do print(i) end")
+		local block = parser.parseBlock("for i = 1, 10, 2 do print(i) end")
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
@@ -747,7 +747,7 @@ test.suite("parse", function(suite)
 		assert.eq(#forStat.body.statements, 1)
 		assert.eq(forStat.endKeyword.text, "end")
 
-		block = parser.parseblock("for j = 0, 5 do print(j) end")
+		block = parser.parseBlock("for j = 0, 5 do print(j) end")
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
@@ -768,7 +768,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseForInLoop", function(assert)
-		local block = parser.parseblock("for key, value in arr do print(key, value) end")
+		local block = parser.parseBlock("for key, value in arr do print(key, value) end")
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
@@ -788,7 +788,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatAssign", function(assert)
-		local block = parser.parseblock("x = 1")
+		local block = parser.parseBlock("x = 1")
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
@@ -802,7 +802,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatCompoundAssign", function(assert)
-		local block = parser.parseblock("x += 5")
+		local block = parser.parseBlock("x += 5")
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
@@ -814,7 +814,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatFunction", function(assert)
-		local block = parser.parseblock("@checked @native @deprecated function add(a, b) return a + b end")
+		local block = parser.parseBlock("@checked @native @deprecated function add(a, b) return a + b end")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
@@ -831,7 +831,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatLocalFunction", function(assert)
-		local block = parser.parseblock("local function multiply(x, y) return x * y end")
+		local block = parser.parseBlock("local function multiply(x, y) return x * y end")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
@@ -844,7 +844,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatTypeAlias", function(assert)
-		local block = parser.parseblock("type Vector3 = {x: number, y: number, z: number}")
+		local block = parser.parseBlock("type Vector3 = {x: number, y: number, z: number}")
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
@@ -860,7 +860,7 @@ test.suite("parse", function(suite)
 		assert.eq(typeAlias.type.kind, "type")
 		assert.eq(typeAlias.type.tag, "table")
 
-		block = parser.parseblock("export type Point<T, U...> = {x: T, y: T, f: (U...) -> ()}")
+		block = parser.parseBlock("export type Point<T, U...> = {x: T, y: T, f: (U...) -> ()}")
 		checkIsBlock(block, assert)
 		assert.eq(#block.statements, 1)
 
@@ -878,7 +878,7 @@ test.suite("parse", function(suite)
 	end)
 
 	suite:case("parseStatTypeFunction", function(assert)
-		local block = parser.parseblock("type function foo() return types.number end")
+		local block = parser.parseBlock("type function foo() return types.number end")
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
@@ -889,7 +889,7 @@ test.suite("parse", function(suite)
 		assert.eq(typeFunc.body.functionKeyword.text, "function")
 		assert.eq(typeFunc.name.text, "foo")
 
-		block = parser.parseblock("export type function foo() return types.number end")
+		block = parser.parseBlock("export type function foo() return types.number end")
 		assert.eq(block.tag, "block")
 		assert.eq(#block.statements, 1)
 
@@ -902,7 +902,7 @@ end)
 test.suite("parse types", function(suite)
 	-- AstGenericType and AstGenericTypePack are tested in parseExprFunction
 	suite:case("testTypeReference", function(assert)
-		local block = parser.parseblock("type MyString = string")
+		local block = parser.parseBlock("type MyString = string")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "reference")
 
@@ -914,7 +914,7 @@ test.suite("parse types", function(suite)
 		assert.eq(typeRef.parameters, nil)
 		assert.eq(typeRef.closeParameters, nil)
 
-		block = parser.parseblock("type MyTable = MyModule.Table<number, string>")
+		block = parser.parseBlock("type MyTable = MyModule.Table<number, string>")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "reference")
 
@@ -935,7 +935,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("testTypeSingletonBoolean", function(assert)
-		local block = parser.parseblock("type TrueType = true")
+		local block = parser.parseBlock("type TrueType = true")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "boolean")
 
@@ -943,7 +943,7 @@ test.suite("parse types", function(suite)
 		assert.eq(singletonBool.token.text, "true")
 		assert.that(singletonBool.value)
 
-		block = parser.parseblock("type FalseType = false")
+		block = parser.parseBlock("type FalseType = false")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "boolean")
 
@@ -953,7 +953,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("testTypeSingletonString", function(assert)
-		local block = parser.parseblock("type HelloType = 'hello'")
+		local block = parser.parseBlock("type HelloType = 'hello'")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "string")
 
@@ -961,7 +961,7 @@ test.suite("parse types", function(suite)
 		assert.eq(singletonStr.token.text, "hello")
 		assert.eq(singletonStr.quoteStyle, "single")
 
-		block = parser.parseblock('type WorldType = "world"')
+		block = parser.parseBlock('type WorldType = "world"')
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "string")
 
@@ -971,7 +971,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("testTypeTypeof", function(assert)
-		local block = parser.parseblock("type T = typeof(someVariable)")
+		local block = parser.parseBlock("type T = typeof(someVariable)")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "typeof")
 
@@ -983,7 +983,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("testTypeGroup", function(assert)
-		local block = parser.parseblock("type T = (string)")
+		local block = parser.parseBlock("type T = (string)")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "group")
 
@@ -994,7 +994,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("testTypeUnion", function(assert)
-		local block = parser.parseblock("type T = string | number | boolean")
+		local block = parser.parseBlock("type T = string | number | boolean")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "union")
 
@@ -1005,7 +1005,7 @@ test.suite("parse types", function(suite)
 		assert.eq(unionType.types[2].node.tag, "reference")
 		assert.eq(unionType.types[3].node.tag, "reference")
 
-		block = parser.parseblock("type T = | number?")
+		block = parser.parseBlock("type T = | number?")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "union")
 
@@ -1019,7 +1019,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("testTypeUnionWithOptionalPart", function(assert)
-		local block = parser.parseblock("type T = number? | string")
+		local block = parser.parseBlock("type T = number? | string")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "union")
 
@@ -1042,7 +1042,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("testTypeIntersection", function(assert)
-		local block = parser.parseblock("type T = A & B & C")
+		local block = parser.parseBlock("type T = A & B & C")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "intersection")
 
@@ -1053,7 +1053,7 @@ test.suite("parse types", function(suite)
 		assert.eq(intersectionType.types[2].node.tag, "reference")
 		assert.eq(intersectionType.types[3].node.tag, "reference")
 
-		block = parser.parseblock("type T = & B")
+		block = parser.parseBlock("type T = & B")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "intersection")
 
@@ -1065,7 +1065,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("testTypeArray", function(assert)
-		local block = parser.parseblock("type T = { number }")
+		local block = parser.parseBlock("type T = { number }")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "array")
 
@@ -1075,7 +1075,7 @@ test.suite("parse types", function(suite)
 		assert.eq(arrayType.type.tag, "reference")
 		assert.eq(arrayType.closeBrace.text, "}")
 
-		block = parser.parseblock("type T = { read string }")
+		block = parser.parseBlock("type T = { read string }")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "array")
 
@@ -1083,7 +1083,7 @@ test.suite("parse types", function(suite)
 		assert.neq(arrayType.access, nil)
 		assert.eq((arrayType.access :: syntax.Token<"read" | "write">).text, "read")
 
-		block = parser.parseblock("type T = { write number }")
+		block = parser.parseBlock("type T = { write number }")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "array")
 
@@ -1093,7 +1093,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("parseTypeTable", function(assert)
-		local block = parser.parseblock("type T = {}")
+		local block = parser.parseBlock("type T = {}")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "table")
 
@@ -1102,7 +1102,7 @@ test.suite("parse types", function(suite)
 		assert.eq(#tableType.entries, 0)
 		assert.eq(tableType.closeBrace.text, "}")
 
-		block = parser.parseblock("type T = {[number] : string}")
+		block = parser.parseBlock("type T = {[number] : string}")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "table")
 
@@ -1118,7 +1118,7 @@ test.suite("parse types", function(suite)
 		assert.eq(tableTypeItem.value.tag, "reference")
 		assert.eq(tableTypeItem.separator, nil)
 
-		block = parser.parseblock("type T = {['hello'] : 'world', read ['foo'] : number; write ['bar'] : boolean}")
+		block = parser.parseBlock("type T = {['hello'] : 'world', read ['foo'] : number; write ['bar'] : boolean}")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "table")
 		tableType = typeAlias.type :: syntax.AstTypeTable
@@ -1149,7 +1149,7 @@ test.suite("parse types", function(suite)
 		assert.eq((tableTypeItem.access :: syntax.Token<"read" | "write">).text, "write")
 		assert.eq(tableTypeItem.separator, nil)
 
-		block = parser.parseblock("type T = { hello: 'world'; read foo: number, write bar: boolean }")
+		block = parser.parseBlock("type T = { hello: 'world'; read foo: number, write bar: boolean }")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "table")
 		tableType = typeAlias.type :: syntax.AstTypeTable
@@ -1178,7 +1178,7 @@ test.suite("parse types", function(suite)
 	end)
 
 	suite:case("parseTypeFunction", function(assert)
-		local block = parser.parseblock("type T = (n : number, string) -> boolean")
+		local block = parser.parseBlock("type T = (n : number, string) -> boolean")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "function")
 
@@ -1207,7 +1207,7 @@ test.suite("parse types", function(suite)
 		assert.eq(funcType.returnArrow.text, "->")
 		assert.eq(funcType.returnTypes.kind, "typepack")
 
-		block = parser.parseblock("type T = <T, U...> (item: T, ...U) -> ()")
+		block = parser.parseBlock("type T = <T, U...> (item: T, ...U) -> ()")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "function")
 
@@ -1229,7 +1229,7 @@ test.suite("parse types", function(suite)
 		assert.neq(funcType.vararg, nil)
 		assert.eq((funcType.vararg :: syntax.AstTypePack).kind, "typepack")
 
-		block = parser.parseblock("type T = () -> ...number")
+		block = parser.parseBlock("type T = () -> ...number")
 		typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.type.tag, "function")
 
@@ -1248,7 +1248,7 @@ test.suite("AST_nodes_frozen", function(suite)
 
 	-- Expression nodes
 	suite:case("astExprGroupFrozen", function(assert)
-		local expr = parser.parseexpr("(x)")
+		local expr = parser.parseExpr("(x)")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "group")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1257,7 +1257,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprConstantNilFrozen", function(assert)
-		local expr = parser.parseexpr("nil")
+		local expr = parser.parseExpr("nil")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "nil")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1269,7 +1269,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprConstantBoolFrozen", function(assert)
-		local expr = parser.parseexpr("true")
+		local expr = parser.parseExpr("true")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "boolean")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1281,7 +1281,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprConstantNumberFrozen", function(assert)
-		local expr = parser.parseexpr("42")
+		local expr = parser.parseExpr("42")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "number")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1293,7 +1293,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprConstantStringFrozen", function(assert)
-		local expr = parser.parseexpr("'hello'")
+		local expr = parser.parseExpr("'hello'")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "string")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1305,7 +1305,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprLocalFrozen", function(assert)
-		local block = parser.parseblock("local x = 1\nreturn x")
+		local block = parser.parseBlock("local x = 1\nreturn x")
 		local returnStat = block.statements[2] :: syntax.AstStatReturn
 		local expr = returnStat.expressions[1].node
 		assert.eq(expr.kind, "expr")
@@ -1316,7 +1316,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprGlobalFrozen", function(assert)
-		local expr = parser.parseexpr("_G")
+		local expr = parser.parseExpr("_G")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "global")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1325,7 +1325,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprVarargsFrozen", function(assert)
-		local expr = parser.parseexpr("...")
+		local expr = parser.parseExpr("...")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "vararg")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1334,7 +1334,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprCallFrozen", function(assert)
-		local expr = parser.parseexpr("foo(1, 2)")
+		local expr = parser.parseExpr("foo(1, 2)")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "call")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1346,7 +1346,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprInstantiateFrozen", function(assert)
-		local callExpr = parser.parseexpr("foo<<number, string>>()")
+		local callExpr = parser.parseExpr("foo<<number, string>>()")
 		assert.eq(callExpr.tag, "call")
 		local expr = (callExpr :: syntax.AstExprCall).func
 		assert.eq(expr.kind, "expr")
@@ -1360,7 +1360,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprIndexNameFrozen", function(assert)
-		local expr = parser.parseexpr("obj.field")
+		local expr = parser.parseExpr("obj.field")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "indexname")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1369,7 +1369,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprIndexExprFrozen", function(assert)
-		local expr = parser.parseexpr("obj[key]")
+		local expr = parser.parseExpr("obj[key]")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "index")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1378,7 +1378,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprFunctionFrozen", function(assert)
-		local expr = parser.parseexpr("@checked function<A, B...>(x, y) return x + y end")
+		local expr = parser.parseExpr("@checked function<A, B...>(x, y) return x + y end")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "function")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1402,7 +1402,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprTableFrozen", function(assert)
-		local expr = parser.parseexpr("{ a = 1, [2] = 3, 4 }")
+		local expr = parser.parseExpr("{ a = 1, [2] = 3, 4 }")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "table")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1423,7 +1423,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprUnaryFrozen", function(assert)
-		local expr = parser.parseexpr("-x")
+		local expr = parser.parseExpr("-x")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "unary")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1432,7 +1432,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprBinaryFrozen", function(assert)
-		local expr = parser.parseexpr("x + y")
+		local expr = parser.parseExpr("x + y")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "binary")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1441,7 +1441,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprInterpStringFrozen", function(assert)
-		local expr = parser.parseexpr("`hello {x}`")
+		local expr = parser.parseExpr("`hello {x}`")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "interpolatedstring")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1453,7 +1453,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprTypeAssertionFrozen", function(assert)
-		local expr = parser.parseexpr("x :: number")
+		local expr = parser.parseExpr("x :: number")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "cast")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1462,7 +1462,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astExprIfElseFrozen", function(assert)
-		local expr = parser.parseexpr("if x then 1 elseif y then 2 else 3")
+		local expr = parser.parseExpr("if x then 1 elseif y then 2 else 3")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "conditional")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1478,7 +1478,7 @@ test.suite("AST_nodes_frozen", function(suite)
 
 	-- Statement nodes
 	suite:case("astStatBlockFrozen", function(assert)
-		local block = parser.parseblock("local x = 1\nlocal y = 2")
+		local block = parser.parseBlock("local x = 1\nlocal y = 2")
 		assert.eq(block.kind, "stat")
 		assert.eq(block.tag, "block")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1490,7 +1490,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatDoFrozen", function(assert)
-		local block = parser.parseblock("do local x = 1 end")
+		local block = parser.parseBlock("do local x = 1 end")
 		local doStat = block.statements[1] :: syntax.AstStatDo
 		assert.eq(doStat.kind, "stat")
 		assert.eq(doStat.tag, "do")
@@ -1500,7 +1500,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatIfFrozen", function(assert)
-		local block = parser.parseblock("if x then local y = 1 elseif z then local w = 2 else local v = 3 end")
+		local block = parser.parseBlock("if x then local y = 1 elseif z then local w = 2 else local v = 3 end")
 		local ifStat = block.statements[1] :: syntax.AstStatIf
 		assert.eq(ifStat.kind, "stat")
 		assert.eq(ifStat.tag, "conditional")
@@ -1516,7 +1516,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatWhileFrozen", function(assert)
-		local block = parser.parseblock("while x do local y = 1 end")
+		local block = parser.parseBlock("while x do local y = 1 end")
 		local whileStat = block.statements[1] :: syntax.AstStatWhile
 		assert.eq(whileStat.kind, "stat")
 		assert.eq(whileStat.tag, "while")
@@ -1526,7 +1526,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatRepeatFrozen", function(assert)
-		local block = parser.parseblock("repeat local x = 1 until x > 10")
+		local block = parser.parseBlock("repeat local x = 1 until x > 10")
 		local repeatStat = block.statements[1] :: syntax.AstStatRepeat
 		assert.eq(repeatStat.kind, "stat")
 		assert.eq(repeatStat.tag, "repeat")
@@ -1536,7 +1536,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatBreakFrozen", function(assert)
-		local block = parser.parseblock("while true do break end")
+		local block = parser.parseBlock("while true do break end")
 		local whileStat = block.statements[1] :: syntax.AstStatWhile
 		local breakStat = whileStat.body.statements[1] :: syntax.AstStatBreak
 		assert.eq(breakStat.kind, "stat")
@@ -1547,7 +1547,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatContinueFrozen", function(assert)
-		local block = parser.parseblock("while true do continue end")
+		local block = parser.parseBlock("while true do continue end")
 		local whileStat = block.statements[1] :: syntax.AstStatWhile
 		local continueStat = whileStat.body.statements[1] :: syntax.AstStatContinue
 		assert.eq(continueStat.kind, "stat")
@@ -1558,7 +1558,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatReturnFrozen", function(assert)
-		local block = parser.parseblock("return 1, 2, 3")
+		local block = parser.parseBlock("return 1, 2, 3")
 		local returnStat = block.statements[1] :: syntax.AstStatReturn
 		assert.eq(returnStat.kind, "stat")
 		assert.eq(returnStat.tag, "return")
@@ -1571,7 +1571,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatExprFrozen", function(assert)
-		local block = parser.parseblock("foo()")
+		local block = parser.parseBlock("foo()")
 		local exprStat = block.statements[1] :: syntax.AstStatExpr
 		assert.eq(exprStat.kind, "stat")
 		assert.eq(exprStat.tag, "expression")
@@ -1581,7 +1581,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatLocalFrozen", function(assert)
-		local block = parser.parseblock("local x, y = 1, 2")
+		local block = parser.parseBlock("local x, y = 1, 2")
 		local localStat = block.statements[1] :: syntax.AstStatLocal
 		assert.eq(localStat.kind, "stat")
 		assert.eq(localStat.tag, "local")
@@ -1597,7 +1597,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatForFrozen", function(assert)
-		local block = parser.parseblock("for i = 1, 10, 2 do local x = i end")
+		local block = parser.parseBlock("for i = 1, 10, 2 do local x = i end")
 		local forStat = block.statements[1] :: syntax.AstStatFor
 		assert.eq(forStat.kind, "stat")
 		assert.eq(forStat.tag, "for")
@@ -1607,7 +1607,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatForInFrozen", function(assert)
-		local block = parser.parseblock("for k, v in pairs(t) do local x = k end")
+		local block = parser.parseBlock("for k, v in pairs(t) do local x = k end")
 		local forInStat = block.statements[1] :: syntax.AstStatForIn
 		assert.eq(forInStat.kind, "stat")
 		assert.eq(forInStat.tag, "forin")
@@ -1623,7 +1623,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatAssignFrozen", function(assert)
-		local block = parser.parseblock("x, y = 1, 2")
+		local block = parser.parseBlock("x, y = 1, 2")
 		local assignStat = block.statements[1] :: syntax.AstStatAssign
 		assert.eq(assignStat.kind, "stat")
 		assert.eq(assignStat.tag, "assign")
@@ -1639,7 +1639,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatCompoundAssignFrozen", function(assert)
-		local block = parser.parseblock("x += 5")
+		local block = parser.parseBlock("x += 5")
 		local compoundStat = block.statements[1] :: syntax.AstStatCompoundAssign
 		assert.eq(compoundStat.kind, "stat")
 		assert.eq(compoundStat.tag, "compoundassign")
@@ -1649,7 +1649,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatFunctionFrozen", function(assert)
-		local block = parser.parseblock("function foo() end")
+		local block = parser.parseBlock("function foo() end")
 		local funcStat = block.statements[1] :: syntax.AstStatFunction
 		assert.eq(funcStat.kind, "stat")
 		assert.eq(funcStat.tag, "function")
@@ -1659,7 +1659,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatLocalFunctionFrozen", function(assert)
-		local block = parser.parseblock("local function foo() end")
+		local block = parser.parseBlock("local function foo() end")
 		local localFuncStat = block.statements[1] :: syntax.AstStatLocalFunction
 		assert.eq(localFuncStat.kind, "stat")
 		assert.eq(localFuncStat.tag, "localfunction")
@@ -1669,7 +1669,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatTypeAliasFrozen", function(assert)
-		local block = parser.parseblock("type Foo<T> = T")
+		local block = parser.parseBlock("type Foo<T> = T")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		assert.eq(typeAlias.kind, "stat")
 		assert.eq(typeAlias.tag, "typealias")
@@ -1679,7 +1679,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astStatTypeFunctionFrozen", function(assert)
-		local block = parser.parseblock("type function foo() return function() end end")
+		local block = parser.parseBlock("type function foo() return function() end end")
 		local typeFunc = block.statements[1] :: syntax.AstStatTypeFunction
 		assert.eq(typeFunc.kind, "stat")
 		assert.eq(typeFunc.tag, "typefunction")
@@ -1690,7 +1690,7 @@ test.suite("AST_nodes_frozen", function(suite)
 
 	-- Type nodes
 	suite:case("astTypeReferenceFrozen", function(assert)
-		local block = parser.parseblock("type Foo = Bar<T>")
+		local block = parser.parseBlock("type Foo = Bar<T>")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local typeRef = typeAlias.type :: syntax.AstTypeReference
 		assert.eq(typeRef.kind, "type")
@@ -1701,7 +1701,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeSingletonBoolFrozen", function(assert)
-		local block = parser.parseblock("type Foo = true")
+		local block = parser.parseBlock("type Foo = true")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local singletonBool = typeAlias.type :: syntax.AstTypeSingletonBool
 		assert.eq(singletonBool.kind, "type")
@@ -1712,7 +1712,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeSingletonStringFrozen", function(assert)
-		local block = parser.parseblock("type Foo = 'hello'")
+		local block = parser.parseBlock("type Foo = 'hello'")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local singletonStr = typeAlias.type :: syntax.AstTypeSingletonString
 		assert.eq(singletonStr.kind, "type")
@@ -1723,7 +1723,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeTypeofFrozen", function(assert)
-		local block = parser.parseblock("type Foo = typeof(x)")
+		local block = parser.parseBlock("type Foo = typeof(x)")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local typeofType = typeAlias.type :: syntax.AstTypeTypeof
 		assert.eq(typeofType.kind, "type")
@@ -1734,7 +1734,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeGroupFrozen", function(assert)
-		local block = parser.parseblock("type Foo = (Bar)")
+		local block = parser.parseBlock("type Foo = (Bar)")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local groupType = typeAlias.type :: syntax.AstTypeGroup
 		assert.eq(groupType.kind, "type")
@@ -1745,7 +1745,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeOptionalFrozen", function(assert)
-		local block = parser.parseblock("type Foo = string?")
+		local block = parser.parseBlock("type Foo = string?")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local unionType = typeAlias.type :: syntax.AstTypeUnion
 		local optionalType = unionType.types[2].node :: syntax.AstTypeOptional
@@ -1757,7 +1757,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeUnionFrozen", function(assert)
-		local block = parser.parseblock("type Foo = string | number")
+		local block = parser.parseBlock("type Foo = string | number")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local unionType = typeAlias.type :: syntax.AstTypeUnion
 		assert.eq(unionType.kind, "type")
@@ -1771,7 +1771,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeIntersectionFrozen", function(assert)
-		local block = parser.parseblock("type Foo = A & B")
+		local block = parser.parseBlock("type Foo = A & B")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local intersectionType = typeAlias.type :: syntax.AstTypeIntersection
 		assert.eq(intersectionType.kind, "type")
@@ -1785,7 +1785,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeArrayFrozen", function(assert)
-		local block = parser.parseblock("type Foo = {string}")
+		local block = parser.parseBlock("type Foo = {string}")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local arrayType = typeAlias.type :: syntax.AstTypeArray
 		assert.eq(arrayType.kind, "type")
@@ -1796,7 +1796,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeTableFrozen", function(assert)
-		local block = parser.parseblock('type Foo = { a: number, [string]: boolean, ["hello"]: "world" }')
+		local block = parser.parseBlock('type Foo = { a: number, [string]: boolean, ["hello"]: "world" }')
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local tableType = typeAlias.type :: syntax.AstTypeTable
 		assert.eq(tableType.kind, "type")
@@ -1819,7 +1819,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypeFunctionFrozen", function(assert)
-		local block = parser.parseblock("type Foo = (x: number) -> string")
+		local block = parser.parseBlock("type Foo = (x: number) -> string")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local funcType = typeAlias.type :: syntax.AstTypeFunction
 		assert.eq(funcType.kind, "type")
@@ -1833,7 +1833,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypePackExplicitFrozen", function(assert)
-		local block = parser.parseblock("type Foo = (number, string) -> (boolean, string)")
+		local block = parser.parseBlock("type Foo = (number, string) -> (boolean, string)")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local funcType = typeAlias.type :: syntax.AstTypeFunction
 		local typePack = funcType.returnTypes :: syntax.AstTypePackExplicit
@@ -1845,7 +1845,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astTypePackVariadicFrozen", function(assert)
-		local block = parser.parseblock("type Foo = () -> ...number")
+		local block = parser.parseBlock("type Foo = () -> ...number")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local funcType = typeAlias.type :: syntax.AstTypeFunction
 		local typePack = funcType.returnTypes :: syntax.AstTypePackVariadic
@@ -1858,7 +1858,7 @@ test.suite("AST_nodes_frozen", function(suite)
 
 	-- Other node types
 	suite:case("astLocalFrozen", function(assert)
-		local block = parser.parseblock("local x: number = 1")
+		local block = parser.parseBlock("local x: number = 1")
 		local localStat = block.statements[1] :: syntax.AstStatLocal
 		local local_ = localStat.variables[1].node
 		assert.eq(local_.kind, "local")
@@ -1868,7 +1868,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astGenericTypeFrozen", function(assert)
-		local block = parser.parseblock("type Foo<T = number> = T")
+		local block = parser.parseBlock("type Foo<T = number> = T")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local generic = (typeAlias.generics :: any)[1].node
 		assert.eq(generic.tag, "generic")
@@ -1878,7 +1878,7 @@ test.suite("AST_nodes_frozen", function(suite)
 	end)
 
 	suite:case("astGenericTypePackFrozen", function(assert)
-		local block = parser.parseblock("type Foo<T, U...> = (T, U...) -> ()")
+		local block = parser.parseBlock("type Foo<T, U...> = (T, U...) -> ()")
 		local typeAlias = block.statements[1] :: syntax.AstStatTypeAlias
 		local genericPack = (typeAlias.genericPacks :: any)[1].node
 		assert.eq(genericPack.tag, "generic")
@@ -1890,7 +1890,7 @@ test.suite("AST_nodes_frozen", function(suite)
 
 	-- Token type
 	suite:case("tokenFrozen", function(assert)
-		local block = parser.parseblock("local x = 1")
+		local block = parser.parseBlock("local x = 1")
 		local localStat = block.statements[1] :: syntax.AstStatLocal
 		local token = localStat.localKeyword
 		assert.eq(token.kind, "token")
@@ -1907,7 +1907,7 @@ test.suite("AST_nodes_frozen", function(suite)
 
 	-- Trivia types
 	suite:case("triviaFrozen", function(assert)
-		local block = parser.parseblock([=[
+		local block = parser.parseBlock([=[
 	-- This is a comment
 	--[[This is a multiline comment
 		hello
@@ -1937,7 +1937,7 @@ test.suite("AST_nodes_frozen", function(suite)
 
 	-- Pair type (used in Punctuated)
 	suite:case("pairFrozen", function(assert)
-		local block = parser.parseblock("local x, y = 1, 2")
+		local block = parser.parseBlock("local x, y = 1, 2")
 		local localStat = block.statements[1] :: syntax.AstStatLocal
 		local pair = localStat.variables[1]
 		assert.throwsWith(frozenTableMessage, function()

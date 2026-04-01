@@ -4,7 +4,7 @@ local syntax_utils = require("@std/syntax/utils")
 
 local function transform(ctx)
 	return query
-		.findallfromroot(ctx.parseresult.root, syntax_utils.isExprBinary)
+		.findAllFromRoot(ctx.parseresult.root, syntax_utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "~="
 				and bin.lhsOperand.tag == "local"
