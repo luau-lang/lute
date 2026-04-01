@@ -141,7 +141,7 @@ local function loadLintRules(
 					registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
 				end
 			else
-				local entries = fs.listdirectory(currentPath)
+				local entries = fs.listDirectory(currentPath)
 				local childPaths = tableext.map(entries, function(entry)
 					return pathLib.format(pathLib.join(currentPathObj, entry.name))
 				end)
@@ -388,7 +388,7 @@ local function lintFile(
 	if VERBOSE then
 		print(`Reading input file '{inputFilePath}'`)
 	end
-	local fileContent = fs.readfiletostring(inputFilePath)
+	local fileContent = fs.readFileToString(inputFilePath)
 
 	local violations = lintString(fileContent, lintRules, inputFilePath, configData)
 
@@ -418,7 +418,7 @@ local function lintFile(
 
 	local newContent = applySuggestedFixes(fileContent, fixes)
 
-	fs.writestringtofile(inputFilePath, newContent)
+	fs.writeStringToFile(inputFilePath, newContent)
 
 	return lintString(newContent, lintRules, inputFilePath, configData)
 end

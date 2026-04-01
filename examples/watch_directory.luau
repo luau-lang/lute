@@ -15,7 +15,7 @@ end
 local watcher = fs.watch(tmpdir)
 
 -- Trigger a file change event
-fs.writestringtofile(watched, "x")
+fs.writeStringToFile(watched, "x")
 
 -- Poll the iterator with a timeout of 2 seconds
 local event

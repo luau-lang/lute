@@ -18,12 +18,12 @@ end
 
 local function writestringtofile(path: string, content: string): ()
 	local parentPath = getParentPath(path)
-	fs.createdirectory(parentPath, { makeparents = true })
-	return fs.writestringtofile(path, content)
+	fs.createDirectory(parentPath, { makeparents = true })
+	return fs.writeStringToFile(path, content)
 end
 
 function fsUtils.readfiletostring(path: string): string
-	return fs.readfiletostring(path)
+	return fs.readFileToString(path)
 end
 
 function fsUtils.writestringtofile(path: string, content: string): ()

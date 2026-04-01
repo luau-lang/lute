@@ -15,7 +15,7 @@ local function assertErrorsWithMsg(
 	assert: testtypes.Asserts
 )
 	local testFilePath = path.join(tmpDir, `{testName}.test.luau`)
-	fs.writestringtofile(testFilePath, testContents)
+	fs.writeStringToFile(testFilePath, testContents)
 
 	-- Run lute on the created test file
 	local result = process.run({ lutePath, tostring(testFilePath) })
@@ -29,7 +29,7 @@ test.suite("LuteStdTestFramework", function(suite)
 	suite:case("luteDoesntReportXpcallAsErrorWhenAccessingFieldOfNilInSuite", function(assert)
 		-- Setup
 		local testFilePath = path.join(tmpDir, "nil_field_access_test.test.luau")
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			testFilePath,
 			[[
 local test = require("@std/test")
@@ -65,7 +65,7 @@ test.run()
 	suite:case("luteDoesntReportXpcallAsErrorWhenAccessingFieldOfNilInCase", function(assert)
 		-- Setup
 		local testFilePath = path.join(tmpDir, "nil_field_access_test.test.luau")
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			testFilePath,
 			[[
 local test = require("@std/test")

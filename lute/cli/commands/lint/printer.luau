@@ -94,7 +94,7 @@ function printerLib.printLintsWithSource(lints: { types.LintViolation }, sourceC
 end
 
 function printerLib.printLintsWithPath(lints: { types.LintViolation }, sourcePath: path.Path): ()
-	printerLib.printLintsWithSource(lints, fs.readfiletostring(sourcePath))
+	printerLib.printLintsWithSource(lints, fs.readFileToString(sourcePath))
 end
 
 return table.freeze(printerLib)

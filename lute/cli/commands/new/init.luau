@@ -58,24 +58,24 @@ local function main(...: string)
 		end
 	end
 
-	fs.createdirectory(projectPath)
+	fs.createDirectory(projectPath)
 
 	local mainScript = path.join(projectPath, "main.luau")
 	local testScript = path.join(projectPath, "main.test.luau")
 
-	fs.writestringtofile(
+	fs.writeStringToFile(
 		mainScript,
 		[[print("Hello, world!")
 ]]
 	)
 
-	fs.writestringtofile(
+	fs.writeStringToFile(
 		testScript,
 		[[local _test = require("@std/test")
 ]]
 	)
 
-	fs.writestringtofile(path.join(projectPath, ".config.luau"), typedefs.generateConfigDotLuau("strict"))
+	fs.writeStringToFile(path.join(projectPath, ".config.luau"), typedefs.generateConfigDotLuau("strict"))
 
 	print(`Created project '{projectName}'`)
 	print("")

@@ -45,10 +45,10 @@ test.suite("LuteDoc", function(suite)
 
 	suite:case("luteDocSpecifiedDirectory", function(assert)
 		if fs.exists(tmpOutputDir) then
-			fs.removedirectory(tmpOutputDir, { recursive = true })
+			fs.removeDirectory(tmpOutputDir, { recursive = true })
 		end
 
-		fs.createdirectory(tmpOutputDir)
+		fs.createDirectory(tmpOutputDir)
 
 		local result = process.system(`{lutePath} doc -o {path.format(tmpOutputDir)} definitions lute/std/libs`)
 
@@ -59,6 +59,6 @@ test.suite("LuteDoc", function(suite)
 		assert.that(fs.exists(path.join(tmpOutputDir, "reference", "lute", "fs.md")))
 		assert.that(fs.exists(path.join(tmpOutputDir, "reference", "std", "fs.md")))
 
-		fs.removedirectory(tmpOutputDir, { recursive = true })
+		fs.removeDirectory(tmpOutputDir, { recursive = true })
 	end)
 end)
