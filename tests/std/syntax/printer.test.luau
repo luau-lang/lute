@@ -69,7 +69,7 @@ test.suite("SyntaxPrinter", function(suite)
 		local source = [[local name: number = "World"]]
 		local expected = [[local name: string = "World"]]
 
-		local stat = syntax.parseblock("local x: string")
+		local stat = syntax.parseBlock("local x: string")
 		local ann = (stat.statements[1] :: syntaxTypes.AstStatLocal).variables[1].node.annotation
 
 		checkReplacement(source, expected, function(ast)
@@ -88,7 +88,7 @@ test.suite("SyntaxPrinter", function(suite)
 		local source = [[type t = (...number) -> ()]]
 		local expected = [[type t = (...number) -> string, ...string)]]
 
-		local stat = syntax.parseblock("type t = () -> (string, ...string)")
+		local stat = syntax.parseBlock("type t = () -> (string, ...string)")
 		local tp = ((stat.statements[1] :: syntaxTypes.AstStatTypeAlias).type :: syntaxTypes.AstTypeFunction).returnTypes
 
 		checkReplacement(source, expected, function(ast)

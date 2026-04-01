@@ -726,7 +726,7 @@ function luau.parse(source: string): ParseResult
 	error("not implemented")
 end
 
-function luau.parseexpr(source: string): AstExpr
+function luau.parseExpr(source: string): AstExpr
 	error("not implemented")
 end
 

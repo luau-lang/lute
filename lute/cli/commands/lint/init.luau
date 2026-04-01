@@ -282,7 +282,7 @@ local function lintString(
 	if VERBOSE then
 		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
-	local ast = syntax.parseblock(source)
+	local ast = syntax.parseBlock(source)
 
 	if VERBOSE then
 		print(`Parsing global lint ignores in input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
