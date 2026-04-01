@@ -8,7 +8,7 @@ local failure = require("@std/test/failure")
 local suiteDir = "tests/std/JSONParsingTestSuite"
 
 test.suite("JSONParsingTestSuite", function(suite)
-	for _, entry in fs.listdirectory(suiteDir) do
+	for _, entry in fs.listDirectory(suiteDir) do
 		if entry.type ~= "file" then
 			continue
 		end
@@ -17,7 +17,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 
 		suite:case(name, function(assert)
 			local p = path.join(suiteDir, name)
-			local src = fs.readfiletostring(path.format(p))
+			local src = fs.readFileToString(path.format(p))
 
 			-- attempt to parse .json and print the error if it fails
 			local ok, parsed = pcall(function()

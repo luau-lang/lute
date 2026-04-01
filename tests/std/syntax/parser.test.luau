@@ -123,7 +123,7 @@ test.suite("Parser", function(suite)
 	end)
 
 	local function visitDirectory(directory: string)
-		for _, entry in fs.listdirectory(directory) do
+		for _, entry in fs.listDirectory(directory) do
 			if entry.type ~= "file" then
 				continue
 			end
@@ -133,7 +133,7 @@ test.suite("Parser", function(suite)
 
 			suite:case(`roundtrippable_Ast_{entry.name}`, function(assert)
 				local p = path.join(directory, entry.name)
-				local source = fs.readfiletostring(path.format(p))
+				local source = fs.readFileToString(path.format(p))
 				local result = printer.printfile(parser.parse(source))
 
 				assert.eq(source, result)

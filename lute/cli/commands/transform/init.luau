@@ -101,7 +101,7 @@ local function applyMigration(
 
 		print(`Applying to {pathStr}`)
 
-		local source = fs.readfiletostring(pathStr)
+		local source = fs.readFileToString(pathStr)
 
 		local parseresult = syntax.parse(source)
 
@@ -127,9 +127,9 @@ local function applyMigration(
 		elseif not dryRun then
 			if outputFilePath then
 				assert(outputFilePath ~= nil)
-				fs.writestringtofile(outputFilePath, toWrite)
+				fs.writeStringToFile(outputFilePath, toWrite)
 			elseif toWrite ~= source then
-				fs.writestringtofile(pathStr, toWrite)
+				fs.writeStringToFile(pathStr, toWrite)
 			end
 		end
 	end

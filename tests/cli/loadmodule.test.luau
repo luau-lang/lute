@@ -24,7 +24,7 @@ local testDirStr = path.format(testDir)
 test.suite("LuteCliRun", function(suite)
 	suite:beforeall(function()
 		if not fs.exists(testDirStr) then
-			fs.createdirectory(testDirStr)
+			fs.createDirectory(testDirStr)
 		end
 	end)
 
@@ -52,7 +52,7 @@ test.suite("LuteCliRun", function(suite)
 
 	suite:afterall(function()
 		if fs.exists(testDirStr) then
-			fs.removedirectory(testDirStr)
+			fs.removeDirectory(testDirStr)
 		end
 	end)
 end)

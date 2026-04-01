@@ -227,7 +227,7 @@ local function parseModule(
 	module: path.Pathlike,
 	filePath: path.Pathlike
 ): { { name: string, signature: string, doc: string? } }
-	local content = fs.readfiletostring(filePath)
+	local content = fs.readFileToString(filePath)
 	local lines = string.split(content, "\n")
 
 	local moduleDefinitions = {}
@@ -261,16 +261,16 @@ local function processDirectory(
 	libraryPath: path.Pathlike,
 	requireLibraryAlias: string
 )
-	fs.createdirectory(documentationPath, { makeparents = true })
+	fs.createDirectory(documentationPath, { makeParents = true })
 
-	local entries = fs.listdirectory(modulePath)
+	local entries = fs.listDirectory(modulePath)
 
 	for _, entry in entries do
 		local entryPath = path.join(modulePath, entry.name)
 		local docPath = path.join(documentationPath, entry.name)
 
 		if entry.type == "dir" then
-			fs.createdirectory(docPath, { makeparents = true })
+			fs.createDirectory(docPath, { makeParents = true })
 			processDirectory(entryPath, docPath, libraryPath, requireLibraryAlias)
 		elseif entry.type == "file" and string.find(entry.name, "%.luau$") then
 			local moduleName = string.gsub(entry.name, "%.luau$", "")
@@ -292,7 +292,7 @@ local function processDirectory(
 			local definitions = parseModule(moduleAlias, entryPath)
 			local markdown = generateMarkdown(moduleName, definitions, entryPath, libraryPath, requireLibraryAlias)
 
-			fs.writestringtofile(documentationFilePath, markdown)
+			fs.writeStringToFile(documentationFilePath, markdown)
 
 			print(`Generated {tostring(documentationFilePath)}`)
 		end
@@ -303,7 +303,7 @@ type Module = { name: string, isDir: boolean }
 
 -- Helper to generate index with table of children
 local function generateLibraryIndex(title: string, alias: string, modulePath: path.Pathlike): string
-	local entries = fs.listdirectory(modulePath)
+	local entries = fs.listDirectory(modulePath)
 	local modules: { Module } = {}
 
 	for _, entry in entries do
@@ -346,7 +346,7 @@ end
 local function generateAllDocs(outputDir: path.Path, modulePaths: { string }): ()
 	-- Create top-level reference index page
 	local referenceBasePath = path.join(outputDir, "reference")
-	fs.createdirectory(referenceBasePath, { makeparents = true })
+	fs.createDirectory(referenceBasePath, { makeParents = true })
 
 	-- Generate reference index with frontmatter for sidebar ordering
 	local referenceIndex = [[---
@@ -378,7 +378,7 @@ API reference documentation for Lute's built-in libraries.
 
 		-- Generate module index with table of children
 		local moduleIndex = generateLibraryIndex(libraryAlias, libraryAlias, absModulePath)
-		fs.writestringtofile(path.join(documentationPath, "index.md"), moduleIndex)
+		fs.writeStringToFile(path.join(documentationPath, "index.md"), moduleIndex)
 
 		-- Add to the reference index with the correct alias
 		referenceIndex ..= "\n\n- [" .. libraryAlias .. "](./" .. libraryAlias .. "/index.md)"
@@ -391,7 +391,7 @@ API reference documentation for Lute's built-in libraries.
 		end
 	end
 
-	fs.writestringtofile(path.join(referenceBasePath, "index.md"), referenceIndex)
+	fs.writeStringToFile(path.join(referenceBasePath, "index.md"), referenceIndex)
 end
 
 local function main(...: string)

@@ -13,9 +13,9 @@ local projectDir = pathlib.join(workdir, projectName)
 test.suite("LuteNew", function(suite)
 	suite:beforeeach(function()
 		if fs.exists(workdir) then
-			fs.removedirectory(workdir, { recursive = true })
+			fs.removeDirectory(workdir, { recursive = true })
 		end
-		fs.createdirectory(workdir)
+		fs.createDirectory(workdir)
 	end)
 
 	suite:case("createsProjectDirectory", function(assert)
@@ -30,7 +30,7 @@ test.suite("LuteNew", function(suite)
 
 		local mainPath = pathlib.join(workdir, projectName, "main.luau")
 		assert.that(fs.exists(mainPath))
-		local contents = fs.readfiletostring(mainPath)
+		local contents = fs.readFileToString(mainPath)
 		assert.strcontains(contents, "Hello, world!")
 	end)
 
@@ -39,7 +39,7 @@ test.suite("LuteNew", function(suite)
 
 		local testPath = pathlib.join(workdir, projectName, "main.test.luau")
 		assert.that(fs.exists(testPath))
-		local contents = fs.readfiletostring(testPath)
+		local contents = fs.readFileToString(testPath)
 		assert.strcontains(contents, "@std/test")
 	end)
 
@@ -48,7 +48,7 @@ test.suite("LuteNew", function(suite)
 
 		local configPath = pathlib.join(workdir, projectName, ".config.luau")
 		assert.that(fs.exists(configPath))
-		local contents = fs.readfiletostring(configPath)
+		local contents = fs.readFileToString(configPath)
 		assert.strcontains(contents, "strict")
 	end)
 
@@ -67,7 +67,7 @@ test.suite("LuteNew", function(suite)
 	end)
 
 	suite:case("failsWhenDirectoryAlreadyExists", function(assert)
-		fs.createdirectory(pathlib.join(workdir, projectName))
+		fs.createDirectory(pathlib.join(workdir, projectName))
 
 		local result = process.run({ lutePath, "new", projectName }, { cwd = pathlib.format(workdir) })
 

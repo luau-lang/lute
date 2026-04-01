@@ -24,7 +24,7 @@ type Path = pathlib.Path
 type win32path = win32paths.Path
 
 export type CreateDirectoryOptions = {
-	makeparents: boolean?,
+	makeParents: boolean?,
 }
 
 export type RemoveDirectoryOptions = {
@@ -72,7 +72,7 @@ function fslib.link(src: Pathlike, dest: Pathlike): ()
 	return fs.link(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.symboliclink(src: Pathlike, dest: Pathlike): ()
+function fslib.symbolicLink(src: Pathlike, dest: Pathlike): ()
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 
@@ -114,25 +114,25 @@ function fslib.copy(src: Pathlike, dest: Pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.listdirectory(path: Pathlike): { DirectoryEntry }
+function fslib.listDirectory(path: Pathlike): { DirectoryEntry }
 	return fs.listdir(pathlib.format(path))
 end
 
-function fslib.readfiletostring(filepath: Pathlike): string
+function fslib.readFileToString(filepath: Pathlike): string
 	local f = fs.open(pathlib.format(filepath), "r")
 	local contents = fs.read(f)
 	fs.close(f)
 	return contents
 end
 
-function fslib.writestringtofile(filepath: Pathlike, contents: string): ()
+function fslib.writeStringToFile(filepath: Pathlike, contents: string): ()
 	local f = fs.open(pathlib.format(filepath), "w+")
 	fs.write(f, contents)
 	fs.close(f)
 end
 
-function fslib.createdirectory(path: Pathlike, options: CreateDirectoryOptions?): ()
-	if options and options.makeparents then
+function fslib.createDirectory(path: Pathlike, options: CreateDirectoryOptions?): ()
+	if options and options.makeParents then
 		local parsed = pathlib.parse(path)
 		local parts: { string } = parsed.parts
 
@@ -158,15 +158,15 @@ function fslib.createdirectory(path: Pathlike, options: CreateDirectoryOptions?)
 	end
 end
 
-function fslib.removedirectory(path: Pathlike, options: RemoveDirectoryOptions?): ()
+function fslib.removeDirectory(path: Pathlike, options: RemoveDirectoryOptions?): ()
 	if options and options.recursive then
 		-- Recursively delete all contents first
 		if fslib.exists(path) and fslib.type(path) == "dir" then
-			local entries = fslib.listdirectory(path)
+			local entries = fslib.listDirectory(path)
 			for _, entry in entries do
 				local entryPath = pathlib.join(path, entry.name)
 				if entry.type == "dir" then
-					fslib.removedirectory(entryPath, { recursive = true })
+					fslib.removeDirectory(entryPath, { recursive = true })
 				else
 					fslib.remove(entryPath)
 				end
@@ -191,7 +191,7 @@ function fslib.walk(path: Pathlike, options: WalkOptions?): () -> Path?
 			end
 
 			if fslib.type(current) == "dir" and recursive then
-				local entries = fslib.listdirectory(current)
+				local entries = fslib.listDirectory(current)
 				for _, entry in entries do
 					local fullPath = pathlib.join(current, entry.name)
 					table.insert(queue, fullPath)

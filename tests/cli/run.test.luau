@@ -13,17 +13,17 @@ local lutePath = pathlib.format(process.execpath())
 test.suite("LuteRun", function(suite)
 	suite:beforeeach(function()
 		if fs.exists(rundir) then
-			fs.removedirectory(rundir, { recursive = true })
+			fs.removeDirectory(rundir, { recursive = true })
 		end
 	end)
 
 	suite:case("sameNamedFileAndDirectory", function(assert)
 		-- Setup
-		fs.createdirectory(rundir)
-		fs.createdirectory(pathlib.join(rundir, "hello"))
+		fs.createDirectory(rundir)
+		fs.createDirectory(pathlib.join(rundir, "hello"))
 
 		local helloFilePath = pathlib.join(rundir, "hello.luau")
-		fs.writestringtofile(helloFilePath, "print('Hello world')")
+		fs.writeStringToFile(helloFilePath, "print('Hello world')")
 
 		-- Execute
 		local result = process.run({ lutePath, pathlib.format(helloFilePath) })

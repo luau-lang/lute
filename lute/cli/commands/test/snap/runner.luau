@@ -63,7 +63,7 @@ function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 			continue
 		end
 
-		local expected = fs.readfiletostring(artifactpath)
+		local expected = fs.readFileToString(artifactpath)
 
 		if actual == expected then
 			table.insert(result.passed, { filepath = filepath, artifactpath = artifactpath })
