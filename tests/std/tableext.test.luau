@@ -63,9 +63,9 @@ test.suite("TableExt", function(suite)
 		assert.eq(c, { 6, 5, 4 })
 	end)
 
-	suite:case("toset", function(assert)
+	suite:case("toSet", function(assert)
 		local a = { 1, 2, 4, 2, 1 }
-		local setA = tableext.toset(a)
+		local setA = tableext.toSet(a)
 		assert.that(setA[1])
 		assert.that(setA[2])
 		assert.eq(setA[3], nil)
@@ -89,7 +89,7 @@ test.suite("TableExt", function(suite)
 		assert.that(setA[foundKeys[3]])
 
 		local b = { "a", "b", "c", "a" }
-		local setB = tableext.toset(b)
+		local setB = tableext.toSet(b)
 		assert.that(setB["a"])
 		assert.that(setB["b"])
 		assert.that(setB["c"])
@@ -98,7 +98,7 @@ test.suite("TableExt", function(suite)
 		assert.neq(#tableext.keys(setB), #b)
 
 		local empty = {}
-		local emptySet = tableext.toset(empty)
+		local emptySet = tableext.toSet(empty)
 		assert.eq(#emptySet, 0)
 	end)
 

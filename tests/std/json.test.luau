@@ -48,7 +48,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 		end)
 	end
 
-	suite:case("jsonObjectAndAsObject", function(assert)
+	suite:case("jsonObjectAndasObject", function(assert)
 		local obj = json.object({
 			name = "Alice",
 			age = 30,
@@ -58,7 +58,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 		assert.eq(obj.age, 30)
 	end)
 
-	suite:case("jsonAsObjectTest", function(assert)
+	suite:case("jsonasObjectTest", function(assert)
 		local myjsonstr = [[
 		{
 			"a": true,
@@ -70,13 +70,13 @@ test.suite("JSONParsingTestSuite", function(suite)
 		]]
 
 		local maybeJson = json.deserialize(myjsonstr)
-		local obj = json.asobject(maybeJson)
+		local obj = json.asObject(maybeJson)
 
 		if obj then
 			assert.eq(type(obj), "table")
 			assert.that(obj.a)
 			assert.eq(type(obj.b), "table")
-			local obj_b = json.asobject(obj.b)
+			local obj_b = json.asObject(obj.b)
 			if obj_b then
 				assert.that(obj_b.c)
 				local obj_b_d = obj_b.d

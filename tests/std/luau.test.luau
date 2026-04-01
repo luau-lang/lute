@@ -6,9 +6,9 @@ local test = require("@std/test")
 
 local tmpDir = system.tmpdir()
 
-test.suite("LuauTypeOfModuleSuite", function(suite)
-	suite:case("typeofmoduleReturnsTable", function(assert)
-		local testPath = path.join(tmpDir, "typeofmodule_test.luau")
+test.suite("LuautypeofModuleSuite", function(suite)
+	suite:case("typeofModuleReturnsTable", function(assert)
+		local testPath = path.join(tmpDir, "typeofModule_test.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
 			testFile,
@@ -24,7 +24,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		)
 		fs.close(testFile)
 
-		local typePack = luau.typeofmodule(testPath)
+		local typePack = luau.typeofModule(testPath)
 		assert.neq(typePack, nil)
 		if not typePack then
 			error("typePack should not be nil")
@@ -76,8 +76,8 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(foundProperty, true, "Should find example_string_func property")
 	end)
 
-	suite:case("typeofmoduleReturnsTypepackWithMultipleValues", function(assert)
-		local testPath = path.join(tmpDir, "typeofmodule_multiple.luau")
+	suite:case("typeofModuleReturnsTypepackWithMultipleValues", function(assert)
+		local testPath = path.join(tmpDir, "typeofModule_multiple.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
 			testFile,
@@ -87,7 +87,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		)
 		fs.close(testFile)
 
-		local typePack = luau.typeofmodule(testPath)
+		local typePack = luau.typeofModule(testPath)
 		assert.neq(typePack, nil)
 		if not typePack then
 			error("typePack should not be nil")
@@ -108,8 +108,8 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(typePack.head[3].tag, "boolean")
 	end)
 
-	suite:case("typeofmoduleReturnsTypepackWithVariadicTail", function(assert)
-		local testPath = path.join(tmpDir, "typeofmodule_variadic.luau")
+	suite:case("typeofModuleReturnsTypepackWithVariadicTail", function(assert)
+		local testPath = path.join(tmpDir, "typeofModule_variadic.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
 			testFile,
@@ -122,7 +122,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		)
 		fs.close(testFile)
 
-		local typePack = luau.typeofmodule(testPath)
+		local typePack = luau.typeofModule(testPath)
 		assert.neq(typePack, nil)
 		if not typePack then
 			error("typePack should not be nil")
