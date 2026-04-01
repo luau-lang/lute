@@ -243,24 +243,24 @@ test.suite("PathPosixExtnameSuite", function(suite)
 	end)
 end)
 
-test.suite("PathPosixIsAbsoluteSuite", function(suite)
+test.suite("PathPosixisAbsoluteSuite", function(suite)
 	suite:case("absolutePosixAbsolutePath", function(assert)
-		local result = path.posix.isabsolute("/home/user/documents/file.txt")
+		local result = path.posix.isAbsolute("/home/user/documents/file.txt")
 		assert.that(result)
 	end)
 
 	suite:case("absolutePosixRelativePath", function(assert)
-		local result = path.posix.isabsolute("documents/file.txt")
+		local result = path.posix.isAbsolute("documents/file.txt")
 		assert.eq(result, false)
 	end)
 
 	suite:case("absoluteRootPath", function(assert)
-		local result = path.posix.isabsolute("/")
+		local result = path.posix.isAbsolute("/")
 		assert.that(result)
 	end)
 
 	suite:case("absoluteEmptyPath", function(assert)
-		local result = path.posix.isabsolute("")
+		local result = path.posix.isAbsolute("")
 		assert.eq(result, false)
 	end)
 
@@ -269,7 +269,7 @@ test.suite("PathPosixIsAbsoluteSuite", function(suite)
 			parts = { "home", "user", "file.txt" },
 			absolute = true,
 		}, posix.pathmt)
-		local result = path.posix.isabsolute(pathobj)
+		local result = path.posix.isAbsolute(pathobj)
 		assert.that(result)
 	end)
 
@@ -278,7 +278,7 @@ test.suite("PathPosixIsAbsoluteSuite", function(suite)
 			parts = { "folder", "file.txt" },
 			absolute = false,
 		}, posix.pathmt)
-		local result = path.posix.isabsolute(pathobj)
+		local result = path.posix.isAbsolute(pathobj)
 		assert.eq(result, false)
 	end)
 end)

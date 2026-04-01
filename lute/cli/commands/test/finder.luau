@@ -26,7 +26,7 @@ local function findfiles(paths: { string }, predicate: (string) -> boolean): { p
 
 	local cwd = ps.cwd()
 	for _, p in paths do
-		if path.isabsolute(p) then
+		if path.isAbsolute(p) then
 			walk(p)
 		else
 			walk(path.join(cwd, p))

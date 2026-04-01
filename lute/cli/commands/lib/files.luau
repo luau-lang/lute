@@ -52,7 +52,7 @@ local function getSourceFiles(paths: { string }, verbose: boolean?): { path.Path
 	for _, filepath in paths do
 		local pathObj = path.parse(filepath)
 
-		if not path.isabsolute(pathObj) then
+		if not path.isAbsolute(pathObj) then
 			pathObj = path.resolve(process.cwd(), pathObj)
 		end
 

@@ -361,7 +361,7 @@ API reference documentation for Lute's built-in libraries.
 	-- Generate docs for each specified module path
 	for _, modulePath in modulePaths do
 		local modulePathObj = path.parse(modulePath)
-		local absModulePath = if path.isabsolute(modulePathObj)
+		local absModulePath = if path.isAbsolute(modulePathObj)
 			then modulePathObj
 			else path.resolve(process.cwd(), modulePathObj)
 
@@ -412,7 +412,7 @@ local function main(...: string)
 	end
 
 	local outputDir = path.parse(args:get("output") or tostring(DEFAULT_OUTPUT_DIR))
-	if not path.isabsolute(outputDir) then
+	if not path.isAbsolute(outputDir) then
 		outputDir = path.resolve(process.cwd(), outputDir)
 	end
 
