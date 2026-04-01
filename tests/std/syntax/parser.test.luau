@@ -134,7 +134,7 @@ test.suite("Parser", function(suite)
 			suite:case(`roundtrippable_Ast_{entry.name}`, function(assert)
 				local p = path.join(directory, entry.name)
 				local source = fs.readfiletostring(path.format(p))
-				local result = printer.printfile(parser.parse(source))
+				local result = printer.printFile(parser.parse(source))
 
 				assert.eq(source, result)
 			end)

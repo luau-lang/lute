@@ -15,7 +15,7 @@ local function checkReplacement(
 	local ast = syntax.parse(source)
 	local replacements = transformFn(ast.root)
 
-	local result = printer.printfile(ast, replacements)
+	local result = printer.printFile(ast, replacements)
 
 	assert.eq(result, expected)
 end
