@@ -49,14 +49,23 @@ for _ = 1, threadCount do
 end
 
 local function parallelMergeSort<T>(t: { T }, comp: (T, T) -> lt<T>): { T }
-	local slices = {}
+	local results: { { T } } = {}
+	local done = 0
 
 	for i = 1, threadCount do
-		table.insert(slices, task.create(threads[i].sort, getslice(t, i, threadCount)))
+		local idx = i
+		local slice = getslice(t, idx, threadCount)
+		task.spawn(function()
+			results[idx] = threads[idx].sort(slice)
+			done += 1
+		end)
 	end
 
-	local tomerge = table.pack(task.awaitAll(table.unpack(slices)))
-	tomerge.n = nil :: any
+	while done < threadCount do
+		task.wait()
+	end
+
+	local tomerge = results
 
 	while #tomerge > 1 do
 		local next = {}

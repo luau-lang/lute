@@ -1,5 +1,4 @@
 local process = require("@std/process")
-local task = require("@std/task")
 
 process.system("echo hello", {})
 
@@ -8,11 +7,9 @@ local result = process.run({ "echo", "Hello, lute!" })
 print(result.exitcode)
 print(result.stdout)
 
-local t1 = task.create(process.run, { "echo", "-n", "One" })
-local t2 = task.create(process.run, { "echo", "-n", "Two" })
-local t3 = task.create(process.run, { "echo", "-n", "Three" })
-
-local r1, r2, r3 = task.awaitAll(t1, t2, t3)
+local r1 = process.run({ "echo", "-n", "One" })
+local r2 = process.run({ "echo", "-n", "Two" })
+local r3 = process.run({ "echo", "-n", "Three" })
 
 print(r1.stdout)
 print(r2.stdout)
