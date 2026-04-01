@@ -50,10 +50,10 @@ local function lint(
 
 				if isEmptyTableLiteral(bin.lhsOperand) then
 					suggestedFix =
-						`next({stringext.trim(syntaxPrinter.printnode(bin.rhsOperand))}) {bin.operator.text} nil`
+						`next({stringext.trim(syntaxPrinter.printNode(bin.rhsOperand))}) {bin.operator.text} nil`
 				elseif isEmptyTableLiteral(bin.rhsOperand) then
 					suggestedFix =
-						`next({stringext.trim(syntaxPrinter.printnode(bin.lhsOperand))}) {bin.operator.text} nil`
+						`next({stringext.trim(syntaxPrinter.printNode(bin.lhsOperand))}) {bin.operator.text} nil`
 				end
 
 				return {

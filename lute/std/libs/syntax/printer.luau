@@ -182,7 +182,7 @@ local function printVisitor(replacements: types.Replacements?)
 	return printer
 end
 
-function printerLib.printnode(node: types.AstNode, replacements: types.Replacements?): string
+function printerLib.printNode(node: types.AstNode, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visit(node, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)

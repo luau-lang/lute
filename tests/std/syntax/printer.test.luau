@@ -79,7 +79,7 @@ test.suite("SyntaxPrinter", function(suite)
 					return assign.variables[1].node.annotation
 				end)
 				:replace(function(_)
-					return printer.printnode(ann :: any) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+					return printer.printNode(ann :: any) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				end)
 		end, assert)
 	end)
@@ -98,7 +98,7 @@ test.suite("SyntaxPrinter", function(suite)
 					return if ta.type.tag == "function" then ta.type.returnTypes else nil
 				end)
 				:replace(function(_)
-					return printer.printnode(tp)
+					return printer.printNode(tp)
 				end)
 		end, assert)
 	end)

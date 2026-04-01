@@ -31,7 +31,7 @@ local function lint(
 					severity = "info",
 					sourcepath = sourcepath,
 					suggestedfix = {
-						fix = syntaxPrinter.printnode(ifStat.condition.expression),
+						fix = syntaxPrinter.printNode(ifStat.condition.expression),
 					},
 					target = target,
 				})
@@ -46,7 +46,7 @@ local function lint(
 						severity = "info",
 						sourcepath = sourcepath,
 						suggestedfix = {
-							fix = syntaxPrinter.printnode(elseIfStat.condition.expression),
+							fix = syntaxPrinter.printNode(elseIfStat.condition.expression),
 						},
 						target = target,
 					})
@@ -72,7 +72,7 @@ local function lint(
 				severity = "info",
 				sourcepath = sourcepath,
 				suggestedfix = {
-					fix = syntaxPrinter.printnode((n.condition :: syntax.AstExprGroup).expression),
+					fix = syntaxPrinter.printNode((n.condition :: syntax.AstExprGroup).expression),
 				},
 				target = target,
 			})
