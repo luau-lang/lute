@@ -180,7 +180,7 @@ local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...
 	return nil
 end
 
-local function strcontains(haystack: string, needle: string, instances: number?, msg: string?): Failure?
+local function strContains(haystack: string, needle: string, instances: number?, msg: string?): Failure?
 	if instances == nil then
 		if haystack:find(needle, 1, true) == nil then
 			return assertion(if msg then msg else `Expected "{haystack}" to contain "{needle}".`)
@@ -202,7 +202,7 @@ local function strcontains(haystack: string, needle: string, instances: number?,
 	return nil
 end
 
-local function strnotcontains(haystack: string, needle: string, msg: string?): Failure?
+local function strNotContains(haystack: string, needle: string, msg: string?): Failure?
 	if haystack:find(needle, 1, true) ~= nil then
 		return assertion(if msg then msg else `Expected "{haystack}" to not contain "{needle}".`)
 	end
@@ -227,7 +227,7 @@ return table.freeze({
 	neq = reqassert(neq),
 	throws = reqassert(throws),
 	throwsWith = reqassert(throwsWith),
-	strcontains = reqassert(strcontains),
-	strnotcontains = reqassert(strnotcontains),
+	strContains = reqassert(strContains),
+	strNotContains = reqassert(strNotContains),
 	that = reqassert(that),
 }) :: Asserts

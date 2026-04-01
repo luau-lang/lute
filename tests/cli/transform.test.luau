@@ -47,7 +47,7 @@ test.suite("LuteTransform", function(suite)
 		local transformeeHandle = fs.open(transformeePath, "r")
 		local transformeeContent = fs.read(transformeeHandle)
 		assert.eq(transformeeContent:find("x ~= x"), nil)
-		assert.strcontains(transformeeContent, "math.isnan(x)")
+		assert.strContains(transformeeContent, "math.isnan(x)")
 		fs.close(transformeeHandle)
 
 		-- Teardown
@@ -81,7 +81,7 @@ test.suite("LuteTransform", function(suite)
 		h = fs.open(outputPath, "r")
 		local outputContent = fs.read(h)
 		assert.eq(outputContent:find("x ~= x"), nil)
-		assert.strcontains(outputContent, "math.isnan(x)")
+		assert.strContains(outputContent, "math.isnan(x)")
 		fs.close(h)
 
 		-- Teardown
@@ -115,7 +115,7 @@ test.suite("LuteTransform", function(suite)
 		local h = fs.open(outputPath, "r")
 		local outputContent = fs.read(h)
 		assert.eq(outputContent:find("x ~= x"), nil)
-		assert.strcontains(outputContent, "math.isnan(x)")
+		assert.strContains(outputContent, "math.isnan(x)")
 		fs.close(h)
 
 		-- Teardown
