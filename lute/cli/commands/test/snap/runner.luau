@@ -33,7 +33,7 @@ function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 		new = {},
 	}
 
-	local execpath = path.format(process.execpath())
+	local execpath = path.format(process.execPath())
 
 	-- Compute the normalized current working directory exactly once
 	--[[

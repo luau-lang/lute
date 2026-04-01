@@ -15,7 +15,7 @@ print(result)
 
 local REQUIREE_CONTENTS = [[return "Success"]]
 
-local lutePath = process.execpath()
+local lutePath = process.execPath()
 
 local tmpDirStr = system.tmpdir()
 local testDir = path.join(tmpDirStr, "lute_require_test")

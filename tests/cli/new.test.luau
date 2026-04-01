@@ -6,7 +6,7 @@ local test = require("@std/test")
 
 local tmpdir = system.tmpdir()
 local workdir = pathlib.join(tmpdir, "lute-new")
-local lutePath = pathlib.format(process.execpath())
+local lutePath = pathlib.format(process.execPath())
 local projectName = "myproject"
 local projectDir = pathlib.join(workdir, projectName)
 

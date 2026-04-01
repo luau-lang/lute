@@ -8,7 +8,7 @@ local tmpdir = system.tmpdir()
 
 local rundir = pathlib.join(tmpdir, "lute-run")
 
-local lutePath = pathlib.format(process.execpath())
+local lutePath = pathlib.format(process.execPath())
 
 test.suite("LuteRun", function(suite)
 	suite:beforeeach(function()
