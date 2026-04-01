@@ -22,7 +22,7 @@ local function assertErrorsWithMsg(
 
 	-- Check that the output specifies the inequal values
 	assert.eq(result.exitcode, 1)
-	assert.strcontains(result.stdout, expectedErrMsg)
+	assert.strContains(result.stdout, expectedErrMsg)
 end
 
 test.suite("LuteStdTestFramework", function(suite)
@@ -51,13 +51,13 @@ test.run()
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
-		assert.strcontains(result.stdout, `Runtime error`)
-		assert.strcontains(
+		assert.strContains(result.stdout, `Runtime error`)
+		assert.strContains(
 			result.stdout,
 			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`
 		)
-		assert.strcontains(result.stdout, `nil_field_access_test.test.luau:6: attempt to index nil with 'field'`)
-		assert.strcontains(result.stdout, `nil_field_access_test.test.luau:10`)
+		assert.strContains(result.stdout, `nil_field_access_test.test.luau:6: attempt to index nil with 'field'`)
+		assert.strContains(result.stdout, `nil_field_access_test.test.luau:10`)
 
 		fs.remove(testFilePath)
 	end)
@@ -86,13 +86,13 @@ test.run()
 		assert.eq(result.exitcode, 1)
 		assert.eq(result.stdout:find("xpcall", 1, true), nil)
 		-- Check that the error points to filepath + correct line number
-		assert.strcontains(result.stdout, `Runtime error`)
-		assert.strcontains(
+		assert.strContains(result.stdout, `Runtime error`)
+		assert.strContains(
 			result.stdout,
 			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`
 		)
-		assert.strcontains(result.stdout, `nil_field_access_test.test.luau:5: attempt to index nil with 'field'`)
-		assert.strcontains(result.stdout, `nil_field_access_test.test.luau:8`)
+		assert.strContains(result.stdout, `nil_field_access_test.test.luau:5: attempt to index nil with 'field'`)
+		assert.strContains(result.stdout, `nil_field_access_test.test.luau:8`)
 
 		fs.remove(testFilePath)
 	end)
@@ -283,14 +283,14 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.strcontainsInstancesNegative", function(assert)
+	suite:case("assert.strContainsInstancesNegative", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
 local test = require("@std/test")
 
 test.case("strcontainsError", function(assert)
-	assert.strcontains("hello world", "goodbye", -1)
+	assert.strContains("hello world", "goodbye", -1)
 end)
 
 test.run()
@@ -300,7 +300,7 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.strcontainsSingleInstanceFails", function(assert)
+	suite:case("assert.strContainsSingleInstanceFails", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
@@ -308,7 +308,7 @@ local test = require("@std/test")
 
 test.suite("strcontains_failure_suite", function(suite)
 	suite:case("strcontainsError", function(assert)
-		assert.strcontains("hello world", "goodbye")
+		assert.strContains("hello world", "goodbye")
 	end)
 end)
 
@@ -319,7 +319,7 @@ test.run()
 		)
 	end)
 
-	suite:case("assert.strcontainsMultipleInstanceFails", function(assert)
+	suite:case("assert.strContainsMultipleInstanceFails", function(assert)
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
@@ -327,7 +327,7 @@ local test = require("@std/test")
 
 test.suite("strcontains_failure_suite", function(suite)
 	suite:case("strcontainsError", function(assert)
-		assert.strcontains("muahahahaha", "ha", 5)
+		assert.strContains("muahahahaha", "ha", 5)
 	end)
 end)
 

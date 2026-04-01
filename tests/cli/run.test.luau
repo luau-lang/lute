@@ -35,6 +35,6 @@ test.suite("LuteRun", function(suite)
 			),
 			nil
 		)
-		assert.strnotcontains(result.stdout, "Hello world")
+		assert.strNotContains(result.stdout, "Hello world")
 	end)
 end)

@@ -104,9 +104,9 @@ local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams)
 	if params.outputExpectations then
 		for _, expectation in params.outputExpectations do
 			if expectation.count == 0 then
-				assert.strnotcontains(result.stdout, expectation.expectedOutput)
+				assert.strNotContains(result.stdout, expectation.expectedOutput)
 			else
-				assert.strcontains(result.stdout, expectation.expectedOutput, expectation.count)
+				assert.strContains(result.stdout, expectation.expectedOutput, expectation.count)
 			end
 		end
 	end
@@ -131,24 +131,24 @@ test.suite("lute lint", function(suite)
 		local result = process.run({ lutePath, "lint", "-h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, USAGE)
+		assert.strContains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "lint", "--h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, USAGE)
+		assert.strContains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "lint", "--help" })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, USAGE)
+		assert.strContains(result.stdout, USAGE)
 	end)
 
 	suite:case("luteLintNoInputFile", function(assert)
 		local result = process.run({ lutePath, "lint", "-r", "a_rule.luau" })
 
 		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stdout, "Error: No input files or string input specified.")
+		assert.strContains(result.stdout, "Error: No input files or string input specified.")
 	end)
 
 	suite:case("luteLintErrorCode0WithNoViolations", function(assert)
@@ -489,7 +489,7 @@ violator1.luau:1:11-16 ──
    │           ^^^^^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:1:11-17 ──
@@ -498,7 +498,7 @@ violator2.lua:1:11-17 ──
    │           ^^^^^^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
 		assert.eq(#result.stdout:split(LINT_RULE_MESSAGES.almost_swapped), 3)
 		expected = [[
@@ -509,7 +509,7 @@ violator1.luau:3:1-4:6 ──
    │ ╰─────^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:5:1-6:6 ──
@@ -519,7 +519,7 @@ violator2.lua:5:1-6:6 ──
    │ ╰─────^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 		expected = "Skipping non%-Luau file '.+[/\\]module[/\\]not_luau%.txt'"
 		assert.neq(result.stdout:find(expected, 1, false), nil)
 
@@ -556,10 +556,10 @@ b = a
 lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 (0, 0) - (0, 5): Incomplete statement: expected assignment or a function call
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
 
 		-- Teardown
 		fs.remove(lintee)
@@ -996,7 +996,7 @@ local y = 10 / 0
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, 1)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, 1)
 		local expected = [[
 violator1.luau:1:11-17 ──
    │
@@ -1004,7 +1004,7 @@ violator1.luau:1:11-17 ──
    │           ^^^^^^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:1:11-17 ──
@@ -1013,7 +1013,7 @@ violator2.lua:1:11-17 ──
    │           ^^^^^^
    │
 ]]
-		assert.strnotcontains(result.stdout, expected)
+		assert.strNotContains(result.stdout, expected)
 
 		-- Teardown
 		fs.removeDirectory(modulePath, { recursive = true })
@@ -1099,7 +1099,7 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
 		local expected = [[
    ┌── input:1:1-2:6 ──
    │
@@ -1108,7 +1108,7 @@ b = a
    │ ╰─────^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 	end)
 
 	suite:case("luteLintStringInputVerbose", function(assert)
@@ -1121,11 +1121,11 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, "Parsing input string")
-		assert.strcontains(result.stdout, "Parsing global lint ignores in input string")
-		assert.strcontains(result.stdout, "Applying lint rules")
-		assert.strcontains(result.stdout, "Printing violations from string input")
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+		assert.strContains(result.stdout, "Parsing input string")
+		assert.strContains(result.stdout, "Parsing global lint ignores in input string")
+		assert.strContains(result.stdout, "Applying lint rules")
+		assert.strContains(result.stdout, "Printing violations from string input")
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
 	end)
 
 	suite:case("luteLintStringInputWithNoViolations", function(assert)
@@ -1137,7 +1137,7 @@ b = a
 
 		-- Check
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, "No lint violations found.")
+		assert.strContains(result.stdout, "No lint violations found.")
 	end)
 
 	suite:case("luteLintStringInputJsonOutput", function(assert)
@@ -1203,7 +1203,7 @@ b = a
         }
     }
 ]]=]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 	end)
 
 	suite:case("luteLintIgnoreTableItem", function(assert)
@@ -1526,7 +1526,7 @@ local e = next(t) ~= nil
         }
     }
 ]]=]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 	end)
 
 	suite:case("unusedVariable1", function(assert)
@@ -2489,7 +2489,7 @@ return {
 			expectedExitCode = 1,
 			returnStdErr = true,
 		})
-		assert.strcontains(err, "config.lute.lint.globals must be a table with string keys")
+		assert.strContains(err, "config.lute.lint.globals must be a table with string keys")
 	end)
 
 	suite:case("throwsErrorWhenConfigHasInvalidIgnores", function(assert)
@@ -2507,7 +2507,7 @@ return {
 			expectedExitCode = 1,
 			returnStdErr = true,
 		})
-		assert.strcontains(err, "config.lute.lint.ignores must be an array of filepath globs")
+		assert.strContains(err, "config.lute.lint.ignores must be an array of filepath globs")
 	end)
 
 	suite:case("throwsErrorWhenConfigHasInvalidRulePaths", function(assert)
@@ -2525,7 +2525,7 @@ return {
 			expectedExitCode = 1,
 			returnStdErr = true,
 		})
-		assert.strcontains(err, "config.lute.lint.rulepaths must be an array of filepath globs")
+		assert.strContains(err, "config.lute.lint.rulepaths must be an array of filepath globs")
 	end)
 
 	suite:case("throwsErrorWhenConfigHasInvalidRuleConfigs", function(assert)
@@ -2543,7 +2543,7 @@ return {
 			expectedExitCode = 1,
 			returnStdErr = true,
 		})
-		assert.strcontains(err, "config.lute.lint.ruleconfigs must be a table with string keys")
+		assert.strContains(err, "config.lute.lint.ruleconfigs must be a table with string keys")
 	end)
 
 	suite:case("luteLintAccountsForConfiguredIgnoresConfigPassedAsArg", function(assert)
@@ -2574,8 +2574,8 @@ return {
 
 		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
 		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
-		assert.strnotcontains(result.stdout, "ignored.luau")
-		assert.strcontains(result.stdout, "valid.luau")
+		assert.strNotContains(result.stdout, "ignored.luau")
+		assert.strContains(result.stdout, "valid.luau")
 	end)
 
 	suite:case("luteLintAccountsForConfiguredIgnoresConfigAutoDetected", function(assert)
@@ -2607,8 +2607,8 @@ return {
 			cwd = path.format(testSubDir),
 		})
 		assert.eq(result.exitcode, 0) -- no errors
-		assert.strnotcontains(result.stdout, "almost_swapped")
-		assert.strnotcontains(result.stdout, "divide_by_zero")
+		assert.strNotContains(result.stdout, "almost_swapped")
+		assert.strNotContains(result.stdout, "divide_by_zero")
 	end)
 
 	suite:case("luteLintConfiguredIgnoresSupplementNotOverrideExistingGitignores", function(assert)
@@ -2643,8 +2643,8 @@ return {
 
 		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
 		assert.eq(result.exitcode, 0) -- no errors bc we ignore BOTH files in the dir
-		assert.strnotcontains(result.stdout, "almost_swapped")
-		assert.strnotcontains(result.stdout, "divide_by_zero")
+		assert.strNotContains(result.stdout, "almost_swapped")
+		assert.strNotContains(result.stdout, "divide_by_zero")
 	end)
 
 	suite:case("duplicateKeysListDuplicates", function(assert)
@@ -2842,13 +2842,13 @@ local t = { [0] = 1 }
 		assert.eq(result.exitcode, 1) -- errors but ONLY from notIgnored.luau
 
 		-- Should NOT contain violations from the ignored directory
-		assert.strnotcontains(result.stdout, "file1.luau")
-		assert.strnotcontains(result.stdout, "file2.luau")
+		assert.strNotContains(result.stdout, "file1.luau")
+		assert.strNotContains(result.stdout, "file2.luau")
 
 		-- Should contain violations from the non-ignored file
-		assert.strcontains(result.stdout, "notIgnored.luau")
-		assert.strcontains(result.stdout, "divide_by_zero")
-		assert.strcontains(result.stdout, "almost_swapped")
+		assert.strContains(result.stdout, "notIgnored.luau")
+		assert.strContains(result.stdout, "divide_by_zero")
+		assert.strContains(result.stdout, "almost_swapped")
 	end)
 
 	suite:case("luteLintHandlesIgnoresWithRelativeConfigPath", function(assert)
@@ -2882,8 +2882,8 @@ local t = { [0] = 1 }
 			cwd = path.format(testSubDir),
 		})
 		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
-		assert.strnotcontains(result.stdout, "ignored.luau")
-		assert.strcontains(result.stdout, "valid.luau")
+		assert.strNotContains(result.stdout, "ignored.luau")
+		assert.strContains(result.stdout, "valid.luau")
 	end)
 
 	suite:case("luteLintHandlesIgnoresWithAbsoluteConfigPath", function(assert)
@@ -2915,8 +2915,8 @@ local t = { [0] = 1 }
 		-- Pass config as an absolute path, with cwd set to a different directory (homedir)
 		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
 		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
-		assert.strnotcontains(result.stdout, "ignored.luau")
-		assert.strcontains(result.stdout, "valid.luau")
+		assert.strNotContains(result.stdout, "ignored.luau")
+		assert.strContains(result.stdout, "valid.luau")
 	end)
 
 	suite:case("luteLintPassesContextThroughToRules", function(assert)
@@ -3002,17 +3002,17 @@ return {
 			cwd = path.format(process.homedir()),
 		})
 		assert.eq(result.exitcode, 1) -- should be violations
-		assert.strcontains(result.stdout, "violator.luau")
-		assert.strcontains(result.stdout, "[divide_by_zero]")
-		assert.strcontains(result.stdout, "[almost_swapped]")
+		assert.strContains(result.stdout, "violator.luau")
+		assert.strContains(result.stdout, "[divide_by_zero]")
+		assert.strContains(result.stdout, "[almost_swapped]")
 
 		-- with config, there should be violations but NOT for divide_by_zero
 		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) }, {
 			cwd = path.format(process.homedir()),
 		})
 		assert.eq(result.exitcode, 1)
-		assert.strnotcontains(result.stdout, "[divide_by_zero]")
-		assert.strcontains(result.stdout, "[almost_swapped]")
+		assert.strNotContains(result.stdout, "[divide_by_zero]")
+		assert.strContains(result.stdout, "[almost_swapped]")
 	end)
 
 	suite:case("luteLintAccountsForRuleSpecificDirectoryIgnores", function(assert)
@@ -3054,11 +3054,11 @@ return {
 		assert.eq(result.exitcode, 1)
 
 		-- Both files should still report almost_swapped (the non-ignored rule)
-		assert.strcontains(result.stdout, "[almost_swapped]", 2)
+		assert.strContains(result.stdout, "[almost_swapped]", 2)
 
 		-- Only 1 divide_by_zero: from the non-ignored file, not from ignoredDir
-		assert.strcontains(result.stdout, "[divide_by_zero]", 1)
-		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
+		assert.strContains(result.stdout, "[divide_by_zero]", 1)
+		assert.strContains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
 	end)
 
 	suite:case("defaultRulesConfiguredWithOffDoNotRun", function(assert)
@@ -3307,9 +3307,9 @@ return {
 				path.format(testSubDir),
 			})
 			assert.eq(result.exitcode, 1) -- errors
-			assert.strnotcontains(result.stdout, "ignored.luau")
-			assert.strcontains(result.stdout, "valid.luau")
-			assert.strcontains(result.stdout, "Configured Rule Ran with options.a = 1") -- options are correctly passed through
+			assert.strNotContains(result.stdout, "ignored.luau")
+			assert.strContains(result.stdout, "valid.luau")
+			assert.strContains(result.stdout, "Configured Rule Ran with options.a = 1") -- options are correctly passed through
 		end
 	)
 

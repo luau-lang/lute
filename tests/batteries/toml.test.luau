@@ -62,7 +62,7 @@ test.suite("TOML serialization", function(suite)
 	suite:case("keyWithDotIsQuoted", function(assert)
 		local input = { images = { ["icon.png"] = { assetId = "123" } } }
 		local output = toml.serialize(input)
-		assert.strcontains(output, '"icon.png"')
+		assert.strContains(output, '"icon.png"')
 	end)
 
 	suite:case("roundTrip", function(assert)
