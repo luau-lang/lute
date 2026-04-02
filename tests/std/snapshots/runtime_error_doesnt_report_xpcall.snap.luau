@@ -1,4 +1,5 @@
 local test = require("@std/test")
+local runner = require("@std/test/runner")
 
 test.suite("nil_field_suite", function(suite)
 	suite:case("access_field_of_nil", function(assert)
@@ -8,4 +9,4 @@ test.suite("nil_field_suite", function(suite)
 	end)
 end)
 
-require("@std/test/runner").runRegisteredTests()
+runner.runRegisteredTests()

@@ -1,7 +1,8 @@
 local test = require("@std/test")
+local runner = require("@std/test/runner")
 
 test.case("neq_error", function(assert)
 	assert.neq(1, 1)
 end)
 
-require("@std/test/runner").runRegisteredTests()
+runner.runRegisteredTests()

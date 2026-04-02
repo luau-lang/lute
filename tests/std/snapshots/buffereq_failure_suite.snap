@@ -6,7 +6,7 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ buffereq_failure_suite.buffereq_error
-	<ROOT>/tests/std/snapshots/buffereq_failure_suite.snap.luau:9
+	<ROOT>/tests/std/snapshots/buffereq_failure_suite.snap.luau:10
 		buffereq: lhs[0] = 54, but rhs[0] = 55
 
 --------------------------------------------------

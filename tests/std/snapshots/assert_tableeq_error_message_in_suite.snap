@@ -6,7 +6,7 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ tableeq_failure_suite.tableeq_error
-	<ROOT>/tests/std/snapshots/assert_tableeq_error_message_in_suite.snap.luau:5
+	<ROOT>/tests/std/snapshots/assert_tableeq_error_message_in_suite.snap.luau:6
 		tableeq: lhs[a] = 1 but rhs[a] = 2
 
 --------------------------------------------------

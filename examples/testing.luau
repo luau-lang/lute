@@ -1,4 +1,5 @@
 local test = require("@std/test")
+local runner = require("@std/test/runner")
 
 test.case("foo", function(assert)
 	assert.eq(3, 3)
@@ -67,4 +68,4 @@ test.suite("MySuite", function(suite)
 	end)
 end)
 
-require("@std/test/runner").runRegisteredTests()
+runner.runRegisteredTests()

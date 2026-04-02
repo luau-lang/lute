@@ -3,6 +3,7 @@
 -- Standard test library for Luau
 
 local types = require("@self/types")
+local env = require("@self/env")
 
 type Test = types.Test
 type TestCase = types.TestCase
@@ -43,8 +44,6 @@ end
 function TestSuite:afterAll(hook: () -> ())
 	self._afterAll = hook
 end
-
-local env = require("@self/env")
 
 -- Test library export surface
 local test = {}

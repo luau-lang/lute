@@ -1,4 +1,5 @@
 local test = require("@std/test")
+local runner = require("@std/test/runner")
 
 test.case("throwsWithError", function(assert)
 	assert.throwsWith("expected message", function()
@@ -6,4 +7,4 @@ test.case("throwsWithError", function(assert)
 	end)
 end)
 
-require("@std/test/runner").runRegisteredTests()
+runner.runRegisteredTests()

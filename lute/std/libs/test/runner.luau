@@ -7,6 +7,7 @@ local asserts = require("./assert")
 local failure = require("./failure")
 local reporter = require("./reporter")
 local types = require("./types")
+local env = require("./env")
 
 type Test = types.Test
 type TestCase = types.TestCase
@@ -162,7 +163,6 @@ end
 
 -- run all the tests
 function runner.runRegisteredTests()
-	local env = require("./env")
 	local result = runner.run(env)
 	reporter.simple(result)
 	if result.failed ~= 0 then
