@@ -2,7 +2,8 @@ local task = require("@lute/task")
 
 local c = coroutine.create(function()
 	print("hello")
-	print(coroutine.yield())
+	-- We don't know what subsequent calls to coroutine.yield produce.
+	print(coroutine.yield() :: any)
 	print("wtf")
 end)
 

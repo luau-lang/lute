@@ -1,16 +1,3 @@
-examples/net_example.luau:8:2-48
-examples/net_example.luau:13:33-43
-examples/net_example.luau:15:24-34
-examples/net_example.luau:16:24-34
-examples/net_example.luau:17:24-34
-examples/parallel_sort_helper.luau:4:11-15
-examples/process.luau:11:24-34
-examples/process.luau:12:24-34
-examples/process.luau:13:24-34
-examples/process.luau:17:7-15
-examples/process.luau:18:7-15
-examples/process.luau:19:7-15
-examples/task-resume.luau:3:38-100
 lute/cli/commands/lint/rules/almost_swapped.luau:92:5-16
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:27:5-16
 lute/cli/commands/lint/rules/parenthesized_conditions.luau:42:6-17
