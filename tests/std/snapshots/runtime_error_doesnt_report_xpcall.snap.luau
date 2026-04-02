@@ -8,4 +8,4 @@ test.suite("nil_field_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()

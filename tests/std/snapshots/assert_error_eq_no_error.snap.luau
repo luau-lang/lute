@@ -6,4 +6,4 @@ test.case("throwsWithError", function(assert)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()

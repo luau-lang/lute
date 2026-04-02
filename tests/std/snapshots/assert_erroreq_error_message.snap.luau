@@ -8,4 +8,4 @@ test.suite("throwsWith_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()

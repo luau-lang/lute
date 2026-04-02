@@ -6,4 +6,4 @@ test.case("access_field_of_nil", function(assert)
 	print(value)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()

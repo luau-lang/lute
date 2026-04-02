@@ -67,4 +67,4 @@ test.suite("MySuite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()

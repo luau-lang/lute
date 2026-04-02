@@ -4,4 +4,4 @@ test.case("neq_error", function(assert)
 	assert.neq(1, 1)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()

@@ -6,4 +6,4 @@ test.case("buffereq_error", function(assert)
 	assert.eq(buf1, buf2)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()

@@ -4,4 +4,4 @@ test.case("eq_error", function(assert)
 	assert.eq(1, 2)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()

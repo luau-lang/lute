@@ -41,7 +41,7 @@ test.suite("nil_field_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]]
 		)
 
@@ -75,7 +75,7 @@ test.case("accessFieldOfNil", function(assert)
 	local value = t.field -- This will cause an error
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]]
 		)
 
@@ -107,7 +107,7 @@ test.case("eqError", function(assert)
 	assert.eq(1, 2)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"eq: 1 ~= 2",
 			assert
@@ -126,7 +126,7 @@ test.suite("eq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"eq: 1 ~= 2",
 			assert
@@ -143,7 +143,7 @@ test.case("neqError", function(assert)
 	assert.neq(1, 1)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"neq: 1 == 1",
 			assert
@@ -162,7 +162,7 @@ test.suite("neq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"neq: 1 == 1",
 			assert
@@ -179,7 +179,7 @@ test.case("tableeqError", function(assert)
 	assert.eq({ a = 1 }, { a = 2 })
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"tableeq: lhs[a] = 1 but rhs[a] = 2",
 			assert
@@ -198,7 +198,7 @@ test.suite("tableeq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"tableeq: lhs[a] = 1 but rhs[a] = 2",
 			assert
@@ -217,7 +217,7 @@ test.case("buffereqError", function(assert)
 	assert.eq(buf1, buf2)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"buffers are of unequal length",
 			assert
@@ -240,7 +240,7 @@ test.suite("buffereq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"buffereq: lhs[0] = 54, but rhs[0] = 55",
 			assert
@@ -257,7 +257,7 @@ test.case("throwsWithError", function(assert)
 	assert.throwsWith("expected message", function() return end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"Expected function to throw/raise error.",
 			assert
@@ -276,7 +276,7 @@ test.suite("throwsWith_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			'Expected suffix of error message "expected message", but got ', -- the full message contains tmpdir path to test file
 			assert
@@ -293,7 +293,7 @@ test.case("strcontainsError", function(assert)
 	assert.strContains("hello world", "goodbye", -1)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			"instances must be greater than 0",
 			assert
@@ -312,7 +312,7 @@ test.suite("strcontains_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			'Expected "hello world" to contain "goodbye".',
 			assert
@@ -331,7 +331,7 @@ test.suite("strcontains_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
 			]],
 			'Expected "muahahahaha" to contain "ha" 5 times.',
 			assert

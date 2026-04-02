@@ -10,4 +10,4 @@ test.suite("buffereq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+require("@std/test/runner").runRegisteredTests()
