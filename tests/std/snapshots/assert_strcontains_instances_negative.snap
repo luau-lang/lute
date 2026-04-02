@@ -6,8 +6,8 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ strcontains_error
-	<ROOT>/tests/std/snapshots/assert_strcontains_instances_negative.snap.luau:4
-		strcontains: instances must be greater than 0
+	<ROOT>/tests/std/snapshots/assert_strcontains_instances_negative.snap.luau:5
+		strContains: instances must be greater than 0
 
 --------------------------------------------------
 Total:  1

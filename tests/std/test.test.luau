@@ -32,8 +32,8 @@ test.suite("LuteStdTestFramework", function(suite)
 		fs.writeStringToFile(
 			testFilePath,
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
-
 test.suite("nil_field_suite", function(suite)
 	suite:case("accessFieldOfNil", function(assert)
 		local t = nil
@@ -41,7 +41,7 @@ test.suite("nil_field_suite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]]
 		)
 
@@ -68,6 +68,7 @@ test.run()
 		fs.writeStringToFile(
 			testFilePath,
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.case("accessFieldOfNil", function(assert)
@@ -75,7 +76,7 @@ test.case("accessFieldOfNil", function(assert)
 	local value = t.field -- This will cause an error
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]]
 		)
 
@@ -89,10 +90,10 @@ test.run()
 		assert.strContains(result.stdout, `Runtime error`)
 		assert.strContains(
 			result.stdout,
-			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:5`
+			`{if system.win32 then path.format(testFilePath):gsub("\\", "/") else path.format(testFilePath)}:6`
 		)
-		assert.strContains(result.stdout, `nil_field_access_test.test.luau:5: attempt to index nil with 'field'`)
-		assert.strContains(result.stdout, `nil_field_access_test.test.luau:8`)
+		assert.strContains(result.stdout, `nil_field_access_test.test.luau:6: attempt to index nil with 'field'`)
+		assert.strContains(result.stdout, `nil_field_access_test.test.luau:9`)
 
 		fs.remove(testFilePath)
 	end)
@@ -101,13 +102,14 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_eq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.case("eqError", function(assert)
 	assert.eq(1, 2)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"eq: 1 ~= 2",
 			assert
@@ -118,6 +120,7 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_eq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.suite("eq_failure_suite", function(suite)
@@ -126,7 +129,7 @@ test.suite("eq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"eq: 1 ~= 2",
 			assert
@@ -137,13 +140,14 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_neq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.case("neqError", function(assert)
 	assert.neq(1, 1)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"neq: 1 == 1",
 			assert
@@ -154,6 +158,7 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_neq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.suite("neq_failure_suite", function(suite)
@@ -162,7 +167,7 @@ test.suite("neq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"neq: 1 == 1",
 			assert
@@ -173,13 +178,14 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_tableeq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.case("tableeqError", function(assert)
 	assert.eq({ a = 1 }, { a = 2 })
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"tableeq: lhs[a] = 1 but rhs[a] = 2",
 			assert
@@ -190,6 +196,7 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_tableeq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.suite("tableeq_failure_suite", function(suite)
@@ -198,7 +205,7 @@ test.suite("tableeq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"tableeq: lhs[a] = 1 but rhs[a] = 2",
 			assert
@@ -209,6 +216,7 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.case("buffereqError", function(assert)
@@ -217,7 +225,7 @@ test.case("buffereqError", function(assert)
 	assert.eq(buf1, buf2)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"buffers are of unequal length",
 			assert
@@ -228,6 +236,7 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.suite("buffereq_failure_suite", function(suite)
@@ -240,7 +249,7 @@ test.suite("buffereq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"buffereq: lhs[0] = 54, but rhs[0] = 55",
 			assert
@@ -251,13 +260,14 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.case("throwsWithError", function(assert)
 	assert.throwsWith("expected message", function() return end)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"Expected function to throw/raise error.",
 			assert
@@ -268,6 +278,7 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.suite("throwsWith_failure_suite", function(suite)
@@ -276,7 +287,7 @@ test.suite("throwsWith_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			'Expected suffix of error message "expected message", but got ', -- the full message contains tmpdir path to test file
 			assert
@@ -287,13 +298,14 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.case("strcontainsError", function(assert)
 	assert.strContains("hello world", "goodbye", -1)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			"instances must be greater than 0",
 			assert
@@ -304,6 +316,7 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.suite("strcontains_failure_suite", function(suite)
@@ -312,7 +325,7 @@ test.suite("strcontains_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			'Expected "hello world" to contain "goodbye".',
 			assert
@@ -323,6 +336,7 @@ test.run()
 		assertErrorsWithMsg(
 			"assert_buffereq_fails",
 			[[
+local runner = require("@std/test/runner")
 local test = require("@std/test")
 
 test.suite("strcontains_failure_suite", function(suite)
@@ -331,7 +345,7 @@ test.suite("strcontains_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()
 			]],
 			'Expected "muahahahaha" to contain "ha" 5 times.',
 			assert

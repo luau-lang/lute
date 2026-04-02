@@ -6,7 +6,7 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ buffereq_error
-	<ROOT>/tests/std/snapshots/assert_buffereq_unequal_length.snap.luau:6
+	<ROOT>/tests/std/snapshots/assert_buffereq_unequal_length.snap.luau:7
 		buffereq: buffers are of unequal length
 
 --------------------------------------------------

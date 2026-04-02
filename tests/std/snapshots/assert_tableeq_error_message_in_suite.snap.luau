@@ -1,4 +1,5 @@
 local test = require("@std/test")
+local runner = require("@std/test/runner")
 
 test.suite("tableeq_failure_suite", function(suite)
 	suite:case("tableeq_error", function(assert)
@@ -6,4 +7,4 @@ test.suite("tableeq_failure_suite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()
