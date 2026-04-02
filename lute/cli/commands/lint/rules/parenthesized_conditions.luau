@@ -24,32 +24,42 @@ local function lint(
 		end)
 		:forEach(function(ifStat)
 			if ifStat.condition.tag == "group" then
-				table.insert(violations, {
-					lintname = name,
-					location = ifStat.condition.location,
-					message = message,
-					severity = "info",
-					sourcepath = sourcepath,
-					suggestedfix = {
-						fix = syntaxPrinter.printNode(ifStat.condition.expression),
-					},
-					target = target,
-				})
-			end
-
-			for _, elseIfStat in ifStat.elseifs do
-				if elseIfStat.condition.tag == "group" then
-					table.insert(violations, {
+				-- LUAUFIX remove cast once we bump luau version 716
+				-- https://github.com/luau-lang/lute/issues/932
+				table.insert(
+					violations,
+					{
 						lintname = name,
-						location = elseIfStat.condition.location,
+						location = ifStat.condition.location,
 						message = message,
 						severity = "info",
 						sourcepath = sourcepath,
 						suggestedfix = {
-							fix = syntaxPrinter.printNode(elseIfStat.condition.expression),
+							fix = syntaxPrinter.printNode(ifStat.condition.expression),
 						},
 						target = target,
-					})
+					} :: lintTypes.LintViolation
+				)
+			end
+
+			for _, elseIfStat in ifStat.elseifs do
+				if elseIfStat.condition.tag == "group" then
+					-- LUAUFIX remove cast once we bump luau version 716
+					-- https://github.com/luau-lang/lute/issues/932
+					table.insert(
+						violations,
+						{
+							lintname = name,
+							location = elseIfStat.condition.location,
+							message = message,
+							severity = "info",
+							sourcepath = sourcepath,
+							suggestedfix = {
+								fix = syntaxPrinter.printNode(elseIfStat.condition.expression),
+							},
+							target = target,
+						} :: lintTypes.LintViolation
+					)
 				end
 			end
 		end)
@@ -65,17 +75,22 @@ local function lint(
 			return n.condition.tag == "group"
 		end)
 		:forEach(function(n)
-			table.insert(violations, {
-				lintname = name,
-				location = n.condition.location,
-				message = message,
-				severity = "info",
-				sourcepath = sourcepath,
-				suggestedfix = {
-					fix = syntaxPrinter.printNode((n.condition :: syntax.AstExprGroup).expression),
-				},
-				target = target,
-			})
+			-- LUAUFIX remove cast once we bump luau version to 716
+			-- https://github.com/luau-lang/lute/issues/932
+			table.insert(
+				violations,
+				{
+					lintname = name,
+					location = n.condition.location,
+					message = message,
+					severity = "info",
+					sourcepath = sourcepath,
+					suggestedfix = {
+						fix = syntaxPrinter.printNode((n.condition :: syntax.AstExprGroup).expression),
+					},
+					target = target,
+				} :: lintTypes.LintViolation
+			)
 		end)
 
 	return violations
