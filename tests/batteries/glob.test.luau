@@ -25,7 +25,7 @@ local function runGlob(folder: Folder, pattern: string): { string }
 	buildTree(folder, root)
 
 	local prefix = root .. "/"
-	local raw = glob(prefix .. pattern)
+	local raw = glob.glob(prefix .. pattern)
 	local stripped = {}
 	for _, p in raw do
 		if string.sub(p, 1, #prefix) == prefix then
