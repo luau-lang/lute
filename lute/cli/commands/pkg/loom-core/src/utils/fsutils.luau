@@ -18,7 +18,9 @@ end
 
 local function writestringtofile(path: string, content: string): ()
 	local parentPath = getParentPath(path)
-	fs.createDirectory(parentPath, { makeparents = true })
+	if parentPath ~= "" then
+		fs.createDirectory(parentPath, { makeparents = true })
+	end
 	return fs.writeStringToFile(path, content)
 end
 
