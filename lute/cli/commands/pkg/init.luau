@@ -1,9 +1,9 @@
 local args = { ... }
 
-local loom = require("@self/loom-core")
+local install = require("@self/loom-core/src/commands/install")
 
 if args[1] == "install" then
-	loom:install()
+	install()
 else
 	error("Usage: `lute pkg install`")
 end

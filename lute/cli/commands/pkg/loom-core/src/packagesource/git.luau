@@ -43,7 +43,7 @@ local function sanitizePath(path: string): string
 	return normalized
 end
 
-function Git:installZipArchive(name: string, _version: string, content: string)
+function Git.installZipArchive(name: string, _version: string, content: string)
 	local reader = unzip.load(buffer.fromstring(content))
 
 	reader:walk(function(entry, _depth)
@@ -62,14 +62,12 @@ function Git:installZipArchive(name: string, _version: string, content: string)
 	end)
 end
 
-function Git:downloadFromGitHubArchive(url: string): string
+function Git.downloadFromGitHubArchive(url: string, token: string?): string
 	local headers = {}
 
-	-- TODO: support token authentication.
-	-- local token = nil
-	-- if token ~= nil and token ~= "" then
-	-- 	headers["Authorization"] = `Bearer {token}`
-	-- end
+	if token ~= nil and token ~= "" then
+		headers["Authorization"] = `Bearer {token}`
+	end
 
 	local response = net.request(url, { method = "GET", headers = headers })
 	local body = response.body
