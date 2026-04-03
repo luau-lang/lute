@@ -88,8 +88,10 @@ function Git:downloadFromGitHubArchive(url: string): string
 	end
 
 	local response = net.request(url, { method = "GET", headers = headers })
-	local body = response.body
-	return body
+	if not response.ok then
+		error(`Failed to download {url}: HTTP {response.status}\n{string.sub(response.body, 1, 200)}`)
+	end
+	return response.body
 end
 
 return Git
