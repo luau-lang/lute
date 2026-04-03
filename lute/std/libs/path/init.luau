@@ -1,9 +1,9 @@
 local platform = require("@std/system/platform")
 
 local posix = require("@self/posix")
-local win32 = require("@self/win32")
 
 local pathtypes = require("@self/types")
+local win32 = require("@self/win32")
 
 local pathlib = {}
 

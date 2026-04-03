@@ -1,7 +1,7 @@
+local luau = require("@lute/luau")
+
 local parser = require("@self/parser")
 local types = require("@self/types")
-
-local luau = require("@lute/luau")
 
 export type Span = types.Span
 

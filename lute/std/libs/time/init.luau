@@ -3,6 +3,7 @@
 -- Provides utility functions for time
 
 local luteTime = require("@lute/time")
+
 local duration = require("@self/duration")
 
 local time = {}

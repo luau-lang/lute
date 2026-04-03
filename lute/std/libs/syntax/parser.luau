@@ -3,6 +3,7 @@
 -- Parser for Luau source code into Luau AST nodes
 
 local luau = require("@lute/luau")
+
 local types = require("./types")
 
 local parser = {}

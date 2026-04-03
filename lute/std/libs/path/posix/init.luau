@@ -1,5 +1,7 @@
 local process = require("@lute/process")
+
 local posixtypes = require("@self/types")
+
 local pathinterface = require("./pathinterface")
 
 export type Path = posixtypes.Path

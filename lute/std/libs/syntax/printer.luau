@@ -1,8 +1,8 @@
+local types = require("./types")
 --!strict
 -- @std/syntax/printer
 
 local triviaUtils = require("./utils/trivia")
-local types = require("./types")
 local visitor = require("./visitor")
 
 local printerLib = {}

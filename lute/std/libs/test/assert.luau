@@ -1,9 +1,10 @@
+local stringext = require("@std/stringext")
+
 --!strict
 -- @std/test/assert
 -- Standard assertion library for Luau
 
 local failure = require("./failure")
-local stringext = require("@std/stringext")
 local types = require("./types")
 
 -- types

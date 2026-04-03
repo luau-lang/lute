@@ -3,6 +3,7 @@
 -- Provides utility functions for querying Luau AST nodes
 
 local tableext = require("@std/tableext")
+
 local types = require("./types")
 local visitor = require("./visitor")
 

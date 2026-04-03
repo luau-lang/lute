@@ -1,3 +1,4 @@
+local fs = require("@lute/fs")
 --!strict
 -- @std/luau
 -- stdlib for `@lute/luau`
@@ -5,7 +6,6 @@
 
 local luteLuau = require("@lute/luau")
 
-local fs = require("@lute/fs")
 local path = require("@std/path")
 
 local luau = {}

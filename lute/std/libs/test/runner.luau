@@ -4,10 +4,10 @@
 local ps = require("@std/process")
 
 local asserts = require("./assert")
+local env = require("./env")
 local failure = require("./failure")
 local reporter = require("./reporter")
 local types = require("./types")
-local env = require("./env")
 
 type Test = types.Test
 type TestCase = types.TestCase

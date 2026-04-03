@@ -4,7 +4,9 @@
 -- Provides re-exports of `@lute/system` and boolean properties for OS detection
 
 local system = require("@lute/system")
+
 local path = require("@std/path")
+
 local platform = require("@self/platform")
 
 local systemlib = {}

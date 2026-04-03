@@ -1,13 +1,15 @@
+local fs = require("@lute/fs")
+
+local pathlib = require("@std/path")
+local win32paths = require("@std/path/win32")
+local sys = require("@std/system")
+
 --!strict
 -- @std/fs
 -- stdlib for `@lute/fs`
 -- Provides file system utility functions that handles file paths as path types instead of strings
 
 local deque = require("@batteries/collections/deque")
-local fs = require("@lute/fs")
-local pathlib = require("@std/path")
-local sys = require("@std/system")
-local win32paths = require("@std/path/win32")
 
 local fslib = {}
 

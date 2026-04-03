@@ -1,9 +1,9 @@
+local env = require("@self/env")
 --!strict
 -- @std/test
 -- Standard test library for Luau
 
 local types = require("@self/types")
-local env = require("@self/env")
 
 type Test = types.Test
 type TestCase = types.TestCase
