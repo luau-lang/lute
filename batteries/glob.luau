@@ -1,10 +1,10 @@
 --[[
-    Given an absolute path, returns a list of paths in the filesystem which match
-    the given pattern.
-    
-    The implementation here follows the Rust implementation of glob.
+    Glob pattern matching and filesystem discovery.
 
-    These are the rules:
+    `glob.match(pattern, input)` tests whether a path matches a glob pattern.
+    `glob.discover(pattern)` walks the filesystem returning all matching paths.
+
+    The implementation follows the Rust glob crate. The rules are:
 
     - `?` matches any single character (not `/`)
     - `*` matches any (possibly empty) sequence of characters (not `/`)
@@ -20,128 +20,163 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
 
-local function matches(pattern: string, name: string, pi: number?, ni: number?): boolean
-	local pattern_index = pi or 1
-	local name_index = ni or 1
-	while pattern_index <= #pattern do
-		local pc = string.sub(pattern, pattern_index, pattern_index)
-		if pc == "*" then
-			pattern_index += 1
-			for i = name_index, #name + 1 do
-				if matches(pattern, name, pattern_index, i) then
+local function matchesSegment(pattern: string, name: string, patternStart: number?, nameStart: number?): boolean
+	local patternIndex = patternStart or 1
+	local nameIndex = nameStart or 1
+	while patternIndex <= #pattern do
+		local patternChar = string.sub(pattern, patternIndex, patternIndex)
+		if patternChar == "*" then
+			patternIndex += 1
+			for candidateIndex = nameIndex, #name + 1 do
+				if matchesSegment(pattern, name, patternIndex, candidateIndex) then
 					return true
 				end
 			end
 			return false
-		elseif pc == "?" then
-			if name_index > #name then
+		elseif patternChar == "?" then
+			if nameIndex > #name then
 				return false
 			end
-			pattern_index += 1
-			name_index += 1
-		elseif pc == "[" then
-			if name_index > #name then
+			patternIndex += 1
+			nameIndex += 1
+		elseif patternChar == "[" then
+			if nameIndex > #name then
 				return false
 			end
-			local nc = string.sub(name, name_index, name_index)
-			pattern_index += 1
-			local negate = string.sub(pattern, pattern_index, pattern_index) == "!"
+			local nameChar = string.sub(name, nameIndex, nameIndex)
+			patternIndex += 1
+			local negate = string.sub(pattern, patternIndex, patternIndex) == "!"
 			if negate then
-				pattern_index += 1
+				patternIndex += 1
 			end
 			local found = false
-			while pattern_index <= #pattern and string.sub(pattern, pattern_index, pattern_index) ~= "]" do
-				local lo = string.sub(pattern, pattern_index, pattern_index)
-				pattern_index += 1
+			while patternIndex <= #pattern and string.sub(pattern, patternIndex, patternIndex) ~= "]" do
+				local rangeLow = string.sub(pattern, patternIndex, patternIndex)
+				patternIndex += 1
 				if
-					string.sub(pattern, pattern_index, pattern_index) == "-"
-					and pattern_index + 1 <= #pattern
-					and string.sub(pattern, pattern_index + 1, pattern_index + 1) ~= "]"
+					string.sub(pattern, patternIndex, patternIndex) == "-"
+					and patternIndex + 1 <= #pattern
+					and string.sub(pattern, patternIndex + 1, patternIndex + 1) ~= "]"
 				then
-					pattern_index += 1
-					local hi = string.sub(pattern, pattern_index, pattern_index)
-					pattern_index += 1
-					if nc >= lo and nc <= hi then
+					patternIndex += 1
+					local rangeHigh = string.sub(pattern, patternIndex, patternIndex)
+					patternIndex += 1
+					if nameChar >= rangeLow and nameChar <= rangeHigh then
 						found = true
 					end
 				else
-					if nc == lo then
+					if nameChar == rangeLow then
 						found = true
 					end
 				end
 			end
-			pattern_index += 1
+			patternIndex += 1
 			if negate then
 				found = not found
 			end
 			if not found then
 				return false
 			end
-			name_index += 1
+			nameIndex += 1
 		else
-			if name_index > #name or string.sub(name, name_index, name_index) ~= pc then
+			if nameIndex > #name or string.sub(name, nameIndex, nameIndex) ~= patternChar then
 				return false
 			end
-			pattern_index += 1
-			name_index += 1
+			patternIndex += 1
+			nameIndex += 1
 		end
 	end
-	return name_index > #name
+	return nameIndex > #name
 end
 
-local function walk(dir: string, segments: { string }, si: number, results: { string })
-	if si > #segments then
-		return
-	end
-	local ok, entries = pcall(fs.listDirectory, dir)
-	if not ok then
-		return
-	end
-	local segment = segments[si]
-	local isLast = si == #segments
-	if segment == "**" then
-		if not isLast then
-			walk(dir, segments, si + 1, results)
-		end
-		for _, entry in entries do
-			local entryPath = path.format(path.join(dir, entry.name))
-			if isLast then
-				table.insert(results, entryPath)
-			end
-			if entry.type == "dir" then
-				walk(entryPath, segments, si, results)
-			end
-		end
-	else
-		for _, entry in entries do
-			if matches(segment, entry.name) then
-				local entryPath = path.format(path.join(dir, entry.name))
-				if isLast then
-					table.insert(results, entryPath)
-				elseif entry.type == "dir" then
-					walk(entryPath, segments, si + 1, results)
+type MatchResult = "match" | "no_match" | "partial"
+
+-- Matches input path segments against pattern segments, returning:
+--   "match"    — full match (all pattern and input segments consumed)
+--   "partial"  — input consumed but pattern segments remain (worth descending)
+--   "no_match" — input diverges from pattern (prune)
+local function matchStep(
+	patternSegments: { string },
+	inputSegments: { string },
+	patternIndex: number,
+	inputIndex: number
+): MatchResult
+	while patternIndex <= #patternSegments do
+		local segment = patternSegments[patternIndex]
+		if segment == "**" then
+			local best: MatchResult = "no_match"
+			for candidateIndex = inputIndex, #inputSegments + 1 do
+				local result = matchStep(patternSegments, inputSegments, patternIndex + 1, candidateIndex)
+				if result == "match" then
+					return "match"
+				elseif result == "partial" then
+					best = "partial"
 				end
 			end
+			return best
+		else
+			if inputIndex > #inputSegments then
+				return "partial"
+			end
+			if not matchesSegment(segment, inputSegments[inputIndex]) then
+				return "no_match"
+			end
+			patternIndex += 1
+			inputIndex += 1
+		end
+	end
+	if inputIndex > #inputSegments then
+		return "match"
+	end
+	return "no_match"
+end
+
+local function walk(directory: string, segments: { string }, segmentIndex: number, results: { string })
+	if segmentIndex > #segments then
+		return
+	end
+	local success, entries = pcall(fs.listDirectory, directory)
+	if not success then
+		return
+	end
+	for _, entry in entries do
+		local result = matchStep(segments, { entry.name }, segmentIndex, 1)
+		if result == "no_match" then
+			continue
+		end
+		local entryPath = path.format(path.join(directory, entry.name))
+		if result == "match" then
+			table.insert(results, entryPath)
+		end
+		if entry.type == "dir" then
+			walk(entryPath, segments, segmentIndex, results)
 		end
 	end
 end
 
--- We define as a table to allow future expansion with parameterised variants
 local glob = {}
 
-function glob.glob(input: path.Pathlike): { string }
+-- Returns true if the given path matches the glob pattern, without touching the filesystem.
+function glob.match(pattern: path.Pathlike, input: path.Pathlike): boolean
+	local patternParts = path.parse(pattern).parts
+	local inputParts = path.parse(input).parts
+	return matchStep(patternParts, inputParts, 1, 1) == "match"
+end
+
+-- Walks the filesystem and returns all paths matching the glob pattern.
+function glob.discover(input: path.Pathlike): { string }
 	local parsed = path.parse(input)
 	local parts: { string } = parsed.parts
 
-	local splitAt = #parts + 1
-	for i, part in parts do
+	local firstGlobIndex = #parts + 1
+	for index, part in parts do
 		if string.find(part, "[%*%?%[]") then
-			splitAt = i
+			firstGlobIndex = index
 			break
 		end
 	end
 
-	if splitAt > #parts then
+	if firstGlobIndex > #parts then
 		local formatted = path.format(parsed)
 		if fs.exists(formatted) then
 			return { formatted }
@@ -150,9 +185,9 @@ function glob.glob(input: path.Pathlike): { string }
 	end
 
 	local prefixPath = table.clone(parsed)
-	prefixPath.parts = { table.unpack(parts, 1, splitAt - 1) }
+	prefixPath.parts = { table.unpack(parts, 1, firstGlobIndex - 1) }
 	local prefix = path.format(prefixPath)
-	local segments = { table.unpack(parts, splitAt) }
+	local segments = { table.unpack(parts, firstGlobIndex) }
 
 	local results: { string } = {}
 	walk(prefix, segments, 1, results)

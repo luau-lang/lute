@@ -35,7 +35,7 @@ local function runGlob(folder: Folder, pattern: string): { string }
 	fs.createDirectory(root)
 	buildTree(folder, root)
 
-	local raw = glob.glob(path.join(root, pattern))
+	local raw = glob.discover(path.join(root, pattern))
 	local stripped = {}
 	for _, result in raw do
 		local rel = path.relative(root, result)
@@ -197,4 +197,89 @@ test.suite("Glob", function(suite)
 
 	-- cleanup
 	pcall(fs.removeDirectory, root, { recursive = true })
+end)
+
+test.suite("GlobMatch", function(suite)
+	-- star wildcard
+
+	suite:case("starMatchesFilename", function(assert)
+		assert.eq(glob.match("*.txt", "hello.txt"), true)
+	end)
+
+	suite:case("starDoesNotCrossDirectories", function(assert)
+		assert.eq(glob.match("*.txt", "dir/hello.txt"), false)
+	end)
+
+	suite:case("starInNestedPattern", function(assert)
+		assert.eq(glob.match("src/*.lua", "src/main.lua"), true)
+		assert.eq(glob.match("src/*.lua", "src/lib/main.lua"), false)
+	end)
+
+	suite:case("starMatchesEmptySequence", function(assert)
+		assert.eq(glob.match("a*", "a"), true)
+	end)
+
+	-- question mark
+
+	suite:case("questionMarkMatchesSingleChar", function(assert)
+		assert.eq(glob.match("a?", "a1"), true)
+		assert.eq(glob.match("a?", "a12"), false)
+		assert.eq(glob.match("a?", "a"), false)
+	end)
+
+	-- character classes
+
+	suite:case("characterClass", function(assert)
+		assert.eq(glob.match("[abc].txt", "a.txt"), true)
+		assert.eq(glob.match("[abc].txt", "d.txt"), false)
+	end)
+
+	suite:case("negatedCharacterClass", function(assert)
+		assert.eq(glob.match("[!a].txt", "b.txt"), true)
+		assert.eq(glob.match("[!a].txt", "a.txt"), false)
+	end)
+
+	suite:case("characterRange", function(assert)
+		assert.eq(glob.match("[a-c].txt", "b.txt"), true)
+		assert.eq(glob.match("[a-c].txt", "z.txt"), false)
+	end)
+
+	-- double star
+
+	suite:case("doubleStarMatchesAcrossDirectories", function(assert)
+		assert.eq(glob.match("**/*.txt", "a.txt"), true)
+		assert.eq(glob.match("**/*.txt", "sub/b.txt"), true)
+		assert.eq(glob.match("**/*.txt", "sub/deep/c.txt"), true)
+	end)
+
+	suite:case("doubleStarInMiddle", function(assert)
+		assert.eq(glob.match("a/**/x.txt", "a/x.txt"), true)
+		assert.eq(glob.match("a/**/x.txt", "a/b/x.txt"), true)
+		assert.eq(glob.match("a/**/x.txt", "a/b/c/x.txt"), true)
+		assert.eq(glob.match("a/**/x.txt", "b/x.txt"), false)
+	end)
+
+	suite:case("doubleStarAtEnd", function(assert)
+		assert.eq(glob.match("src/**", "src/a.txt"), true)
+		assert.eq(glob.match("src/**", "src/sub/b.txt"), true)
+	end)
+
+	-- literal path
+
+	suite:case("literalMatch", function(assert)
+		assert.eq(glob.match("hello.txt", "hello.txt"), true)
+		assert.eq(glob.match("hello.txt", "world.txt"), false)
+	end)
+
+	suite:case("literalNestedMatch", function(assert)
+		assert.eq(glob.match("src/main.lua", "src/main.lua"), true)
+		assert.eq(glob.match("src/main.lua", "lib/main.lua"), false)
+	end)
+
+	-- no match
+
+	suite:case("mismatchedDepth", function(assert)
+		assert.eq(glob.match("a/b", "a/b/c"), false)
+		assert.eq(glob.match("a/b/c", "a/b"), false)
+	end)
 end)
