@@ -139,17 +139,31 @@ local function walk(directory: string, segments: { string }, segmentIndex: numbe
 	if not success then
 		return
 	end
-	for _, entry in entries do
-		local result = matchStep(segments, { entry.name }, segmentIndex, 1)
-		if result == "no_match" then
-			continue
+	local segment = segments[segmentIndex]
+	local isLast = segmentIndex == #segments
+	if segment == "**" then
+		if not isLast then
+			walk(directory, segments, segmentIndex + 1, results)
 		end
-		local entryPath = path.format(path.join(directory, entry.name))
-		if result == "match" then
-			table.insert(results, entryPath)
+		for _, entry in entries do
+			local entryPath = path.format(path.join(directory, entry.name))
+			if isLast then
+				table.insert(results, entryPath)
+			end
+			if entry.type == "dir" then
+				walk(entryPath, segments, segmentIndex, results)
+			end
 		end
-		if entry.type == "dir" then
-			walk(entryPath, segments, segmentIndex, results)
+	else
+		for _, entry in entries do
+			if matchesSegment(segment, entry.name) then
+				local entryPath = path.format(path.join(directory, entry.name))
+				if isLast then
+					table.insert(results, entryPath)
+				elseif entry.type == "dir" then
+					walk(entryPath, segments, segmentIndex + 1, results)
+				end
+			end
 		end
 	end
 end
