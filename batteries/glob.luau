@@ -149,10 +149,9 @@ function glob.glob(input: path.Pathlike): { string }
 		return {}
 	end
 
-	local prefix = path.format({
-		parts = { table.unpack(parts, 1, splitAt - 1) },
-		absolute = parsed.absolute,
-	})
+	local prefixPath = table.clone(parsed)
+	prefixPath.parts = { table.unpack(parts, 1, splitAt - 1) }
+	local prefix = path.format(prefixPath)
 	local segments = { table.unpack(parts, splitAt) }
 
 	local results: { string } = {}
