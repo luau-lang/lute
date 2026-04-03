@@ -1,5 +1,6 @@
 local fs = require("@std/fs")
 local glob = require("@batteries/glob")
+local path = require("@std/path")
 local test = require("@std/test")
 
 type Folder = { [string]: Hierarchy }
@@ -9,14 +10,24 @@ local root = "./test-glob-hierarchy"
 
 local function buildTree(folder: Folder, base: string)
 	for name, hierarchy in folder do
-		local full = base .. "/" .. name
+		local full = path.format(path.join(base, name))
 		if hierarchy == "file" then
 			fs.writeStringToFile(full, "content")
 		else
 			fs.createDirectory(full)
-			buildTree(hierarchy, full)
+			buildTree(hierarchy :: Folder, full)
 		end
 	end
+end
+
+-- Asserts that actual paths match expected paths written with forward slashes,
+-- normalizing the expected values to the platform's native separator.
+local function assertPaths(assert: any, actual: { string }, expected: { string })
+	local normalized = {}
+	for _, s in expected do
+		table.insert(normalized, path.format(path.parse(s)))
+	end
+	assert.eq(actual, normalized)
 end
 
 local function runGlob(folder: Folder, pattern: string): { string }
@@ -24,15 +35,14 @@ local function runGlob(folder: Folder, pattern: string): { string }
 	fs.createDirectory(root)
 	buildTree(folder, root)
 
-	local prefix = root .. "/"
-	local raw = glob.glob(prefix .. pattern)
+	local raw = glob.glob(path.join(root, pattern))
 	local stripped = {}
-	for _, p in raw do
-		if string.sub(p, 1, #prefix) == prefix then
-			table.insert(stripped, string.sub(p, #prefix + 1))
-		else
-			error(`path {p} does not start with {prefix}`)
+	for _, result in raw do
+		local rel = path.relative(root, result)
+		if #rel.parts > 0 and rel.parts[1] == ".." then
+			error(`path {result} is not under {root} - accidental root escape`)
 		end
+		table.insert(stripped, path.format(rel))
 	end
 	return stripped
 end
@@ -44,14 +54,14 @@ test.suite("Glob", function(suite)
 		local results = runGlob({
 			["hello.txt"] = "file",
 		}, "hello.txt")
-		assert.eq(results, { "hello.txt" })
+		assertPaths(assert, results, { "hello.txt" })
 	end)
 
 	suite:case("literalPathNotFound", function(assert)
 		local results = runGlob({
 			["hello.txt"] = "file",
 		}, "missing.txt")
-		assert.eq(results, {})
+		assertPaths(assert, results, {})
 	end)
 
 	-- star wildcard
@@ -62,7 +72,7 @@ test.suite("Glob", function(suite)
 			["b.txt"] = "file",
 			["subdir"] = {},
 		}, "*")
-		assert.eq(results, { "a.txt", "b.txt", "subdir" })
+		assertPaths(assert, results, { "a.txt", "b.txt", "subdir" })
 	end)
 
 	suite:case("starWithExtensionFilter", function(assert)
@@ -71,7 +81,7 @@ test.suite("Glob", function(suite)
 			["b.txt"] = "file",
 			["c.lua"] = "file",
 		}, "*.lua")
-		assert.eq(results, { "a.lua", "c.lua" })
+		assertPaths(assert, results, { "a.lua", "c.lua" })
 	end)
 
 	suite:case("starDoesNotCrossDirectories", function(assert)
@@ -81,7 +91,7 @@ test.suite("Glob", function(suite)
 			},
 			["top.txt"] = "file",
 		}, "*.txt")
-		assert.eq(results, { "top.txt" })
+		assertPaths(assert, results, { "top.txt" })
 	end)
 
 	suite:case("starInNestedDirectory", function(assert)
@@ -92,14 +102,14 @@ test.suite("Glob", function(suite)
 				["ModuleC"] = { ["src"] = {} },
 			},
 		}, "modules/*")
-		assert.eq(results, { "modules/ModuleA", "modules/ModuleB", "modules/ModuleC" })
+		assertPaths(assert, results, { "modules/ModuleA", "modules/ModuleB", "modules/ModuleC" })
 	end)
 
 	suite:case("noMatches", function(assert)
 		local results = runGlob({
 			["a.txt"] = "file",
 		}, "*.lua")
-		assert.eq(results, {})
+		assertPaths(assert, results, {})
 	end)
 
 	-- question mark wildcard
@@ -111,7 +121,7 @@ test.suite("Glob", function(suite)
 			["a12"] = "file",
 			["b1"] = "file",
 		}, "a?")
-		assert.eq(results, { "a1", "a2" })
+		assertPaths(assert, results, { "a1", "a2" })
 	end)
 
 	-- character classes
@@ -123,7 +133,7 @@ test.suite("Glob", function(suite)
 			["c1"] = "file",
 			["d1"] = "file",
 		}, "[abc]1")
-		assert.eq(results, { "a1", "b1", "c1" })
+		assertPaths(assert, results, { "a1", "b1", "c1" })
 	end)
 
 	suite:case("negatedCharacterClass", function(assert)
@@ -132,7 +142,7 @@ test.suite("Glob", function(suite)
 			["b1"] = "file",
 			["c1"] = "file",
 		}, "[!a]1")
-		assert.eq(results, { "b1", "c1" })
+		assertPaths(assert, results, { "b1", "c1" })
 	end)
 
 	suite:case("characterRange", function(assert)
@@ -142,7 +152,7 @@ test.suite("Glob", function(suite)
 			["c1"] = "file",
 			["z1"] = "file",
 		}, "[a-c]1")
-		assert.eq(results, { "a1", "b1", "c1" })
+		assertPaths(assert, results, { "a1", "b1", "c1" })
 	end)
 
 	-- double star
@@ -157,7 +167,7 @@ test.suite("Glob", function(suite)
 				},
 			},
 		}, "**/*.txt")
-		assert.eq(results, { "a.txt", "sub/b.txt", "sub/deep/c.txt" })
+		assertPaths(assert, results, { "a.txt", "sub/b.txt", "sub/deep/c.txt" })
 	end)
 
 	suite:case("doubleStarInMiddle", function(assert)
@@ -172,7 +182,7 @@ test.suite("Glob", function(suite)
 				},
 			},
 		}, "a/**/x.txt")
-		assert.eq(results, { "a/b/c/x.txt", "a/b/x.txt", "a/x.txt" })
+		assertPaths(assert, results, { "a/b/c/x.txt", "a/b/x.txt", "a/x.txt" })
 	end)
 
 	suite:case("doubleStarAtEnd", function(assert)
@@ -182,7 +192,7 @@ test.suite("Glob", function(suite)
 				["b.txt"] = "file",
 			},
 		}, "**")
-		assert.eq(results, { "a.txt", "sub", "sub/b.txt" })
+		assertPaths(assert, results, { "a.txt", "sub", "sub/b.txt" })
 	end)
 
 	-- cleanup
