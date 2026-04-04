@@ -19,7 +19,7 @@ project(
 # Enable sanitizers globally before any subdirectory is added
 option(LUTE_ENABLE_SANITIZERS "Enable sanitizers" OFF)
 if (LUTE_ENABLE_SANITIZERS)
-    if(NOT MSVC)
+    if(NOT WIN32)
         add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
         add_link_options(-fsanitize=address,undefined)
     endif()
@@ -49,16 +49,12 @@ add_subdirectory(extern/zlib)
 
 set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
 
+# Expose zlib as the standard ZLIB::ZLIB alias so that downstream find_package(ZLIB)
+# calls (e.g. curl) get a real CMake target with a proper build-dependency edge rather
+# than an IMPORTED target pointing at a raw path (which Ninja cannot build).
 set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
-
-if(MSVC)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstaticd.lib")
-    else()
-        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstatic.lib")
-    endif()
-else()
-    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.a")
+if(NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB ALIAS zlibstatic)
 endif()
 set(ZLIB_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/zlib;${ZLIB_OUTPUT_DIR})
 set(ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE STRING "" FORCE)
@@ -69,7 +65,7 @@ set(BORINGSSL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/boringssl")
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
 
 # Suppress frame-size warnings in boringssl when sanitizers are enabled
-if (LUTE_ENABLE_SANITIZERS AND NOT MSVC)
+if (LUTE_ENABLE_SANITIZERS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     target_compile_options(crypto PRIVATE -Wno-frame-larger-than)
 endif()
 
