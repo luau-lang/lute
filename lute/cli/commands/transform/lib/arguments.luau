@@ -12,6 +12,8 @@ type Config = {
 	filePaths: { string },
 	--- Path to output file (only works if a single input file is specified)
 	outputFile: string?,
+	-- Interactive mode
+	interactive: boolean,
 }
 
 local function parse(arguments: { string }): Config
@@ -28,6 +30,7 @@ local function parse(arguments: { string }): Config
 		migrationOptions = {},
 		filePaths = {},
 		outputFile = nil :: string?,
+		interactive = false,
 	}
 
 	local i = 1
@@ -45,6 +48,8 @@ local function parse(arguments: { string }): Config
 					i += 1
 					assert(i <= #arguments, `Missing value for '--output'`)
 					config.outputFile = arguments[i]
+				elseif name == "interactive" then
+					config.interactive = true
 				else
 					error(`Unknown flag '--{name}'`)
 				end

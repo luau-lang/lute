@@ -4,12 +4,21 @@ local pathLib = require("@std/path")
 local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
 
+local richterm = require("@batteries/richterm")
+local io = require("@std/io")
+local printDiffHunks = require("./transform/printDiffHunks")
 local arguments = require("@self/lib/arguments")
 local files = require("./lib/files")
 local types = require("@self/lib/types")
 
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
+end
+
+local function confirmChange(prompt: string): boolean
+	local userInput = io.input(prompt)
+	local answer = userInput:match("^%s*(.-)%s*$") or ""
+	return answer:lower() == "y"
 end
 
 local function loadMigration(path: string): types.Migration
@@ -82,6 +91,7 @@ local function applyMigration(
 	paths: { pathLib.Path },
 	options: { [string]: string | boolean },
 	dryRun: boolean,
+	interactive: boolean,
 	outputPath: string?
 )
 	local deletedPaths = {}
@@ -121,15 +131,34 @@ local function applyMigration(
 			if outputFilePath then
 				print(`Skipping writing {pathStr} as it was marked for deletion`)
 			else
-				print(`Marking {pathStr} for deletion`)
-				table.insert(deletedPaths, pathStr)
+				local deletionConfirmed = true
+				if interactive then
+					-- prompt to confirm deletion
+					deletionConfirmed = confirmChange(richterm.bold(`\nDelete {pathStr}? (y/n)`))
+				end
+
+				if deletionConfirmed then
+					print(`Marking {pathStr} for deletion`)
+					table.insert(deletedPaths, pathStr)
+				end
 			end
 		elseif not dryRun then
 			if outputFilePath then
 				assert(outputFilePath ~= nil)
 				fs.writeStringToFile(outputFilePath, toWrite)
 			elseif toWrite ~= source then
-				fs.writeStringToFile(pathStr, toWrite)
+				local changesConfirmed = true
+				if interactive then
+					local fileDiff = printDiffHunks(source, toWrite)
+
+					-- First: print out diff w/ option to accept / deny
+					print(`\n` .. fileDiff .. `\n`)
+					changesConfirmed = confirmChange(richterm.bold(`Accept changes to {pathStr}? (y/n)`))
+					print(if changesConfirmed then `Changes confirmed` else `Changes denied` .. `\n`)
+				end
+				if changesConfirmed then
+					fs.writeStringToFile(pathStr, toWrite)
+				end
 			end
 		end
 	end
@@ -149,6 +178,10 @@ local function main(...: string)
 		print("Executing in dry run mode")
 	end
 
+	if args.interactive then
+		print("Executing in interactive mode")
+	end
+
 	if args.outputFile then
 		print(`Output path specified: '{args.outputFile}'`)
 	end
@@ -166,7 +199,7 @@ local function main(...: string)
 	local migrationOptions = processMigrationOptions(migration, args.migrationOptions)
 
 	print("Applying migration")
-	applyMigration(migration, files, migrationOptions, args.dryRun, args.outputFile)
+	applyMigration(migration, files, migrationOptions, args.dryRun, args.interactive, args.outputFile)
 
 	print(`Processed {#files} files!`)
 end
