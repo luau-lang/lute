@@ -36,12 +36,7 @@ local function sanitizePath(path: string): string
 	normalized = normalized:gsub("^/+", "")
 
 	-- Security check - prevent directory traversal via ".." path components
-	if
-		normalized == ".."
-		or normalized:match("^%.%./")
-		or normalized:match("/%.%./")
-		or normalized:match("/%.%.$")
-	then
+	if normalized == ".." or normalized:match("^%.%./") or normalized:match("/%.%./") or normalized:match("/%.%.$") then
 		error("Path contains '..' (directory traversal attempt)")
 	end
 
