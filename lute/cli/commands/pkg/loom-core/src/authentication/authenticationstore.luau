@@ -2,6 +2,7 @@ local fs = require("@std/fs")
 local luau = require("@std/luau")
 local path = require("@std/path")
 local process = require("@std/process")
+local pp = require("../../extern/pp")
 
 export type AuthenticationEntry = {
 	token: string,
@@ -42,6 +43,21 @@ local function loadAuthenticationStore(): AuthenticationStore
 	return result
 end
 
+local function saveAuthenticationStore(store: AuthenticationStore)
+	local authPath = getAuthenticationFilePath()
+	local authDir = path.format(path.parse(path.dirname(authPath)))
+	fs.createDirectory(authDir, { makeParents = true })
+	fs.writeStringToFile(authPath, "return " .. pp(store) .. "\n")
+end
+
+local function saveAuthenticationToken(domain: string, token: string)
+	local store = loadAuthenticationStore()
+	store[domain] = { token = token }
+	saveAuthenticationStore(store)
+	print(`Credentials saved for {domain}`)
+end
+
 return {
 	loadAuthenticationStore = loadAuthenticationStore,
+	saveAuthenticationToken = saveAuthenticationToken,
 }
