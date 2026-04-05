@@ -1,6 +1,0 @@
-{
-    "languageMode": "strict",
-    "aliases": {
-        "commands": "./lute/cli/commands"
-    }
-}
