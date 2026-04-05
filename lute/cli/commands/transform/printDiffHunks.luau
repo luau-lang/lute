@@ -31,7 +31,7 @@ local function trimDiff(diff: string)
 		if isDiffLine(line) then
 			table.insert(activeHunk, line)
 			inDiff = true
-		elseif inDiff and diffBuffer < hunk_CONTEXT_LIMIT then
+		elseif inDiff and diffBuffer < PATCH_CONTEXT_LIMIT then
 			table.insert(activeHunk, line)
 			diffBuffer += 1
 		else
