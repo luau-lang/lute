@@ -107,7 +107,7 @@ RuntimeStep Runtime::runOnce()
     // a) if it scheduled a resume, the corresponding pending token will have been cleared
     // b) the corresponding ref for the lua state will be freed at the end of Runtime::runOnce()
     int co_status = lua_costatus(GL, L);
-    if (co_status == LUA_COFIN || co_status == LUA_COERR)
+    if (co_status == LUA_COFIN)
     {
         return StepSuccess{L};
     }
