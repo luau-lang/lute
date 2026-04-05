@@ -15,7 +15,7 @@ local function isDiffLine(line: string)
 	return getDiffType(line) ~= nil
 end
 
-local hunk_CONTEXT_LIMIT = 3
+local PATCH_CONTEXT_LIMIT = 3
 local function trimDiff(diff: string)
 	--[[
         iterate thru diff
