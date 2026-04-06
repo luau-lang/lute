@@ -253,8 +253,12 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
             lua_State* L = lua_tothread(GL, -1);
             lua_pop(GL, 1);
 
+            bool isAlive = !lua_isthreadreset(L);
             int results = cont(L);
-            runningThreads.push_back({true, ref, results});
+            if (isAlive)
+            {
+                runningThreads.push_back({true, ref, results});
+            }
         }
     );
 
