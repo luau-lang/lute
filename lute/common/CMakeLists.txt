@@ -3,6 +3,7 @@ add_library(Lute.Common STATIC)
 target_sources(Lute.Common PRIVATE
     include/lute/common.h
     include/lute/fileutils.h
+    include/lute/reporter.h
 
     src/fileutils.cpp
 )
