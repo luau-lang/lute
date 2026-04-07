@@ -2,7 +2,7 @@
     Glob pattern matching and filesystem discovery.
 
     `glob.match(pattern, input)` tests whether a path matches a glob pattern.
-    `glob.discover(pattern)` walks the filesystem returning all matching paths.
+    `glob.discover(pattern)` walks the filesystem returning all matching `Path`s.
 
     The implementation follows the Rust glob crate. The rules are:
 
@@ -131,7 +131,7 @@ local function matchStep(
 	return "no_match"
 end
 
-local function walk(directory: string, segments: { string }, segmentIndex: number, results: { string })
+local function walk(directory: path.Pathlike, segments: { string }, segmentIndex: number, results: { path.Path })
 	if segmentIndex > #segments then
 		return
 	end
@@ -146,7 +146,7 @@ local function walk(directory: string, segments: { string }, segmentIndex: numbe
 			walk(directory, segments, segmentIndex + 1, results)
 		end
 		for _, entry in entries do
-			local entryPath = path.format(path.join(directory, entry.name))
+			local entryPath = path.join(directory, entry.name)
 			if isLast then
 				table.insert(results, entryPath)
 			end
@@ -157,7 +157,7 @@ local function walk(directory: string, segments: { string }, segmentIndex: numbe
 	else
 		for _, entry in entries do
 			if matchesSegment(segment, entry.name) then
-				local entryPath = path.format(path.join(directory, entry.name))
+				local entryPath = path.join(directory, entry.name)
 				if isLast then
 					table.insert(results, entryPath)
 				elseif entry.type == "dir" then
@@ -178,7 +178,7 @@ function glob.match(pattern: path.Pathlike, input: path.Pathlike): boolean
 end
 
 -- Walks the filesystem and returns all paths matching the glob pattern.
-function glob.discover(input: path.Pathlike): { string }
+function glob.discover(input: path.Pathlike): { path.Path }
 	local parsed = path.parse(input)
 	local parts: { string } = parsed.parts
 
@@ -191,21 +191,21 @@ function glob.discover(input: path.Pathlike): { string }
 	end
 
 	if firstGlobIndex > #parts then
-		local formatted = path.format(parsed)
-		if fs.exists(formatted) then
-			return { formatted }
+		if fs.exists(parsed) then
+			return { parsed }
 		end
 		return {}
 	end
 
 	local prefixPath = table.clone(parsed)
 	prefixPath.parts = { table.unpack(parts, 1, firstGlobIndex - 1) }
-	local prefix = path.format(prefixPath)
 	local segments = { table.unpack(parts, firstGlobIndex) }
 
-	local results: { string } = {}
-	walk(prefix, segments, 1, results)
-	table.sort(results)
+	local results: { path.Path } = {}
+	walk(prefixPath, segments, 1, results)
+	table.sort(results, function(a, b)
+		return tostring(a) < tostring(b)
+	end)
 	return results
 end
 
