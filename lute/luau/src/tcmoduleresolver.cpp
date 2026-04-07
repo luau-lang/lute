@@ -46,7 +46,7 @@ std::optional<Luau::ModuleInfo> LuteTypeCheckModuleResolver::resolveModule(
         std::optional<ResolvedModule> resolved = ::resolveForTypeCheck(requirePath, std::move(requirerChunkname), &error);
         if (!resolved)
         {
-            reporter.formatError("Failed to resolve require: %s", error.c_str());
+            reporter.formatError("Failed to resolve require: %s\n", error.c_str());
             return std::nullopt;
         }
 
