@@ -3,12 +3,11 @@ local luau = require("@std/luau")
 local pathLib = require("@std/path")
 local process = require("@std/process")
 local printer = require("@std/syntax/printer")
-local stringext = require("@std/stringext")
 local syntax = require("@std/syntax")
 
 local cli = require("@batteries/cli")
 local files = require("./lib/files")
-local types = require("@self/lib/types")
+local types = require("@self/types")
 
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
