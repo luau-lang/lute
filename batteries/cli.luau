@@ -1,7 +1,7 @@
 local cli = {}
 cli.__index = cli
 
-type ArgKind = "positional" | "flag" | "option"
+type ArgKind = "positional" | "flag" | "option" | "variadic"
 type ArgOptions = {
 	help: string?,
 	aliases: { string }?,
@@ -18,12 +18,14 @@ type ArgData = {
 type ParseResult = {
 	values: { [string]: string? },
 	flags: { [string]: boolean },
+	variadics: { string },
 	fwdArgs: { string },
 }
 
 type ParserData = {
 	arguments: { [number]: ArgData },
 	positional: { [number]: ArgData },
+	variadicArg: ArgData?,
 	parsed: ParseResult,
 }
 
@@ -34,7 +36,8 @@ function cli.parser(): Parser
 	local self = {
 		arguments = {},
 		positional = {},
-		parsed = { values = {}, flags = {}, fwdArgs = {} },
+		variadicArg = nil :: ArgData?,
+		parsed = { values = {}, flags = {}, variadics = {}, fwdArgs = {} },
 	}
 
 	return setmetatable(self, cli)
@@ -50,6 +53,8 @@ function cli.add(self: Parser, name: string, kind: ArgKind, options: ArgOptions)
 	table.insert(self.arguments, argument)
 	if kind == "positional" then
 		table.insert(self.positional, argument)
+	elseif kind == "variadic" then
+		self.variadicArg = argument
 	end
 end
 
@@ -133,16 +138,24 @@ function cli.parse(self: Parser, args: { string }): ()
 			continue
 		end
 
+		-- if we have a variadic argument, we can take this argument as one
+		if self.variadicArg then
+			table.insert(self.parsed.variadics, arg)
+			continue
+		end
+
 		-- otherwise, the argument is forwarded on
 		table.insert(self.parsed.fwdArgs, arg)
 	end
 
 	-- check that all required arguments are present, and set any default values as needed
 	for _, argument in self.arguments do
-		assert(argument)
-
-		if argument.options.required and self.parsed.values[argument.name] == nil then
-			assert(self.parsed.values[argument.name], "Missing required argument: " .. argument.name)
+		if argument.options.required then
+			if argument.kind == "variadic" then
+				assert(#self.parsed.variadics > 0, "Missing required variadic argument: " .. argument.name)
+			else
+				assert(self.parsed.values[argument.name], "Missing required argument: " .. argument.name)
+			end
 		end
 
 		if self.parsed.values[argument.name] == nil and argument.options.default then
@@ -157,6 +170,10 @@ end
 
 function cli.has(self: Parser, name: string): boolean
 	return self.parsed.flags[name] ~= nil
+end
+
+function cli.variadics(self: Parser): { string }
+	return self.parsed.variadics
 end
 
 function cli.forwarded(self: Parser): { string }?
