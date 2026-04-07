@@ -16,4 +16,8 @@ function iolib.input(prompt: string?): string
 	return io.read()
 end
 
+function iolib.flush(): ()
+	io.flush()
+end
+
 return table.freeze(iolib)

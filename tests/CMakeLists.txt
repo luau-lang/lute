@@ -29,7 +29,8 @@ target_sources(Lute.Test PRIVATE
     src/typeserializer.test.cpp
     src/staticrequires.test.cpp
     src/stdsystem.test.cpp
-    src/typecheck.test.cpp)
+    src/typecheck.test.cpp
+    src/io.test.cpp)
 
 set_target_properties(Lute.Test PROPERTIES OUTPUT_NAME lute-tests)
 target_compile_features(Lute.Test PUBLIC cxx_std_17)

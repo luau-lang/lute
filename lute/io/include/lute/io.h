@@ -12,9 +12,11 @@ namespace io
 {
 
 int read(lua_State* L);
+int flush(lua_State* L);
 
 static const luaL_Reg lib[] = {
     {"read", read},
+    {"flush", flush},
 
     {nullptr, nullptr}
 };

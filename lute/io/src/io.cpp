@@ -113,6 +113,13 @@ int read(lua_State* L)
     return lua_yield(L, 0);
 }
 
+int flush(lua_State* L)
+{
+    if (fflush(stdout) != 0)
+        luaL_error(L, "Failed to flush stdout");
+    return 0;
+}
+
 } // namespace io
 
 int luaopen_io(lua_State* L)
