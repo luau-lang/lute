@@ -203,9 +203,6 @@ function glob.discover(input: path.Pathlike): { path.Path }
 
 	local results: { path.Path } = {}
 	walk(prefixPath, segments, 1, results)
-	table.sort(results, function(a, b)
-		return tostring(a) < tostring(b)
-	end)
 	return results
 end
 
