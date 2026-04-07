@@ -394,7 +394,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         return 1;
     }
 
-    Runtime runtime;
+    Runtime runtime{reporter};
     lua_State* L;
 
     if (packageAwareness)
@@ -648,7 +648,7 @@ void setupVersionLibrary(lua_State* L)
 
 int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, LuteReporter& reporter)
 {
-    Runtime runtime;
+    Runtime runtime{reporter};
     lua_State* L = setupCliCommandState(runtime, setupVersionLibrary);
 
     std::string bytecode = Luau::compile(std::string(result.contents), copts());
@@ -665,7 +665,7 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     LuteExecutable exe{argv[0], reporter};
     if (auto payload = exe.extract())
     {
-        Runtime runtime;
+        Runtime runtime{reporter};
 
         lua_State* GL = setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
         std::string entryPoint = payload->entryPointPath;

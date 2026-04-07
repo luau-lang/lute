@@ -16,8 +16,9 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
-Runtime::Runtime()
-    : globalState(nullptr, lua_close_checked)
+Runtime::Runtime(LuteReporter& reporter)
+    : reporter(reporter)
+    , globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
 {
 
@@ -84,7 +85,7 @@ RuntimeStep Runtime::runOnce()
 
     if (L == nullptr)
     {
-        fprintf(stderr, "Cannot resume a non-thread reference");
+        reporter.reportError("Cannot resume a non-thread reference");
         return StepErr{L};
     }
 
@@ -143,7 +144,7 @@ bool Runtime::runToCompletion()
         {
             if (err->L == nullptr)
             {
-                fprintf(stderr, "lua_State* L is nullptr");
+                reporter.reportError("lua_State* L is nullptr");
                 return false;
             }
 
@@ -172,7 +173,7 @@ void Runtime::reportError(lua_State* L)
     error += "\nstacktrace:\n";
     error += lua_debugtrace(L);
 
-    fprintf(stderr, "%s", error.c_str());
+    reporter.reportError(error);
 }
 
 void Runtime::runContinuously()
