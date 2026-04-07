@@ -5,6 +5,7 @@ local fs = require("@lute/fs")
 local process = require("@lute/process")
 local system = require("@lute/system")
 local cli = require("@batteries/cli")
+local richterm = require("@batteries/richterm")
 local toml = require("@batteries/toml")
 
 type Tune = {
@@ -534,7 +535,7 @@ local function check(exitCode: number)
 end
 
 local function usageError(message: string)
-	print(`Error: {message}`)
+	print(richterm.combine(richterm.bold, richterm.red)(`Error: {message}`))
 	print()
 	args:help()
 	process.exit(1)
