@@ -60,6 +60,27 @@ TEST_CASE("moduleresolver_resolve_for_typecheck")
         CHECK(resolved->path == "@lute/process.luau");
     }
 
+    SUBCASE("resolve_lute_net_from_std")
+    {
+        auto resolved = resolveForTypeCheck("@lute/net", "@std/process.luau", &error);
+        REQUIRE(resolved);
+        CHECK(resolved->path == "@lute/net/init.luau");
+    }
+
+    SUBCASE("resolve_lute_net_client_from_std")
+    {
+        auto resolved = resolveForTypeCheck("@lute/net/client", "@std/process.luau", &error);
+        REQUIRE(resolved);
+        CHECK(resolved->path == "@lute/net/client.luau");
+    }
+
+    SUBCASE("resolve_lute_net_server_from_std")
+    {
+        auto resolved = resolveForTypeCheck("@lute/net/server", "@std/process.luau", &error);
+        REQUIRE(resolved);
+        CHECK(resolved->path == "@lute/net/server.luau");
+    }
+
     SUBCASE("resolve_std_from_batteries")
     {
         auto resolved = resolveForTypeCheck("@std/process", "@batteries/base64.luau", &error);
