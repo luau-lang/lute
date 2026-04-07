@@ -3032,7 +3032,8 @@ int typeofModule_luau(lua_State* L)
 {
     std::string modulePath = luaL_checkstring(L, 1);
 
-    Luau::LuteTypeCheckModuleResolver moduleResolver;
+    StderrReporter stderrReporter;
+    Luau::LuteTypeCheckModuleResolver moduleResolver{stderrReporter};
     Luau::LuteConfigResolver configResolver(Luau::Mode::NoCheck);
     Luau::FrontendOptions fopts;
     fopts.retainFullTypeGraphs = true;

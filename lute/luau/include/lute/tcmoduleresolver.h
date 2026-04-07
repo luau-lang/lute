@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/reporter.h"
+
 #include "Luau/DenseHash.h"
 #include "Luau/FileResolver.h"
 
@@ -12,7 +14,7 @@ namespace Luau
 // Based on CliFileResolver in Analyze.cpp.
 struct LuteTypeCheckModuleResolver : Luau::FileResolver
 {
-    LuteTypeCheckModuleResolver() = default;
+    explicit LuteTypeCheckModuleResolver(LuteReporter& reporter) : reporter(reporter) {}
 
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override;
 
@@ -21,6 +23,7 @@ struct LuteTypeCheckModuleResolver : Luau::FileResolver
     std::string getHumanReadableModuleName(const Luau::ModuleName& name) const override;
 
     Luau::DenseHashMap<std::string, std::string> sourceCache{""};
+    LuteReporter& reporter;
 };
 
 } // namespace Luau
