@@ -214,7 +214,10 @@ function cli.usage(self: Parser, name: string): string
 end
 
 function cli.help(self: Parser, formatter: ((s: string) -> string)?): ()
-	local fmt = formatter or function(s) return s end
+	local fmt = formatter or function(s)
+		return s
+	end
+
 	print(fmt("Usage:"))
 	for _, argument in self.arguments do
 		if argument.options.hidden then
