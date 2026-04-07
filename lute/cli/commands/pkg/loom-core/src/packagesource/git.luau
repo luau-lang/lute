@@ -24,11 +24,6 @@ local function sanitizePath(path: string): string
 		error("Path too long (max " .. maxPathLength .. " characters)")
 	end
 
-	-- Security checks - prevent directory traversal
-	if path:match("%.%.") then
-		error("Path contains '..' (directory traversal attempt)")
-	end
-
 	-- Remove/reject dangerous characters
 	if path:match("[\0\r\n]") then
 		error("Path contains invalid control characters")
@@ -39,6 +34,11 @@ local function sanitizePath(path: string): string
 
 	-- Remove leading slashes but preserve trailing slash for directories
 	normalized = normalized:gsub("^/+", "")
+
+	-- Security check - prevent directory traversal via ".." path components
+	if normalized == ".." or normalized:match("^%.%./") or normalized:match("/%.%./") or normalized:match("/%.%.$") then
+		error("Path contains '..' (directory traversal attempt)")
+	end
 
 	return normalized
 end
