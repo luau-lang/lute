@@ -533,6 +533,13 @@ local function check(exitCode: number)
 	end
 end
 
+local function usageError(message: string)
+	print(`Error: {message}`)
+	print()
+	args:help()
+	process.exit(1)
+end
+
 local function fetchDependency(dependencyInfo: Tune)
 	local dependency = dependencyInfo.dependency
 
@@ -663,7 +670,11 @@ local function run()
 	return call(cmd)
 end
 
-args:parse({ ... })
+local ok, err = pcall(args.parse, args, { ... })
+if not ok then
+	-- Strip the "file:line: " prefix that Lua prepends to error messages
+	usageError(string.gsub(tostring(err), "^.+:%d+: ", ""))
+end
 
 cwd = getSourceRoot()
 
@@ -709,9 +720,9 @@ elseif subcommand == "run" or subcommand == "play" then
 
 	exitCode = run()
 elseif subcommand ~= nil then
-	error("Unknown subcommand " .. subcommand)
+	usageError(`Unknown subcommand '{subcommand}'`)
 else
-	error("No subcommand given.")
+	usageError("No subcommand given.")
 end
 
 if exitCode ~= 0 then
