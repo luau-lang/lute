@@ -534,10 +534,18 @@ local function check(exitCode: number)
 	end
 end
 
+local function printHelp()
+	print("luthier — a build tool for lute")
+	args:help(function(str)
+		return richterm.combine(richterm.bold, richterm.yellow)(str)
+	end)
+end
+
 local function usageError(message: string)
-	print(richterm.combine(richterm.bold, richterm.red)(`Error: {message}`))
+	local lowercased = string.lower(string.sub(message, 1, 1)) .. string.sub(message, 2)
+	print(richterm.combine(richterm.bold, richterm.red)(`Error: {lowercased}`))
 	print()
-	args:help()
+	printHelp()
 	process.exit(1)
 end
 
@@ -680,7 +688,7 @@ end
 cwd = getSourceRoot()
 
 if args:has("help") then
-	print(args:help())
+	printHelp()
 	return
 end
 

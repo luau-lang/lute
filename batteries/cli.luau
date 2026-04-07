@@ -180,12 +180,13 @@ function cli.forwarded(self: Parser): { string }?
 	return self.parsed.fwdArgs
 end
 
-function cli.help(self: Parser): ()
-	print("Usage:")
+function cli.help(self: Parser, formatter: ((s: string) -> string)?): ()
+	local fmt = formatter or function(s) return s end
+	print(fmt("Usage:"))
 	for _, argument in self.arguments do
 		local aliasStr = table.concat(argument.options.aliases or {}, ", ")
 		local reqStr = if argument.options.required then "(required) " else ""
-		print(string.format("  --%s (-%s) - %s%s", argument.name, aliasStr, reqStr, argument.options.help or ""))
+		print(fmt(string.format("  --%s (-%s) - %s%s", argument.name, aliasStr, reqStr, argument.options.help or "")))
 	end
 end
 
