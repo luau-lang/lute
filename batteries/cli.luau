@@ -138,7 +138,7 @@ function cli.parse(self: Parser, args: { string }): ()
 			continue
 		end
 
-		-- if we have a variadic argument, we can take this argument as one
+		-- if we have a variadic argument, we can take this argument as part of it
 		if self.variadicArg then
 			table.insert(self.parsed.variadics, arg)
 			continue
