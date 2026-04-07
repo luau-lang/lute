@@ -8,6 +8,11 @@
 namespace Luau
 {
 
+LuteTypeCheckModuleResolver::LuteTypeCheckModuleResolver(LuteReporter& reporter)
+    : reporter(reporter)
+{
+}
+
 std::optional<Luau::SourceCode> LuteTypeCheckModuleResolver::readSource(const Luau::ModuleName& name)
 {
     if (name == "-")

@@ -4,7 +4,6 @@ target_sources(Lute.Luau PRIVATE
     include/lute/configresolver.h
     include/lute/luau.h
     include/lute/tcmoduleresolver.h
-    include/lute/tcreporter.h
     include/lute/resolvemodule.h
     include/lute/type.h
 
