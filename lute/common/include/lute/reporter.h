@@ -51,18 +51,3 @@ private:
         return std::string(format);
     }
 };
-
-// Concrete reporter that writes errors to stderr and output to stdout
-class StderrReporter : public LuteReporter
-{
-public:
-    void reportError(const std::string& message) override
-    {
-        std::fprintf(stderr, "%s\n", message.c_str());
-    }
-
-    void reportOutput(const std::string& message) override
-    {
-        std::fprintf(stdout, "%s\n", message.c_str());
-    }
-};
