@@ -557,6 +557,26 @@ local function subcommandUsage(subcommand: string): string
 	return args:usage(`luthier {subcommand}`)
 end
 
+local subcommands: { { string } } = {
+	{ "fetch" },
+	{ "generate" },
+	{ "configure", "tune" },
+	{ "build", "craft" },
+	{ "run", "play" },
+}
+
+local function availableSubcommands(): string
+	local parts = {}
+	for _, group in subcommands do
+		if #group > 1 then
+			table.insert(parts, `{group[1]} (or {group[2]})`)
+		else
+			table.insert(parts, group[1])
+		end
+	end
+	return `Available subcommands: {table.concat(parts, ", ")}`
+end
+
 local function availableTargets(): string
 	local targets = {}
 	for name in targetMap do
@@ -700,7 +720,7 @@ local ok, err = pcall(args.parse, args, { ... })
 if not ok then
 	-- Strip the "file:line: " prefix that Lua prepends to error messages
 	local message = string.gsub(tostring(err), "^.+:%d+: ", "")
-	usageError(message)
+	usageError(message, availableSubcommands())
 end
 
 cwd = getSourceRoot()
@@ -755,9 +775,9 @@ elseif subcommand == "run" or subcommand == "play" then
 
 	exitCode = run()
 elseif subcommand ~= nil then
-	usageError(`Unknown subcommand '{subcommand}'`)
+	usageError(`Unknown subcommand '{subcommand}'`, availableSubcommands())
 else
-	usageError("No subcommand given.")
+	usageError("No subcommand given.", availableSubcommands())
 end
 
 if exitCode ~= 0 then
