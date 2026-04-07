@@ -4,7 +4,6 @@
 
 #include "Luau/FileUtils.h"
 
-#include <cstring>
 #include <string>
 
 #include "doctest.h"
