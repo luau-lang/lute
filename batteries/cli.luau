@@ -7,6 +7,7 @@ type ArgOptions = {
 	aliases: { string }?,
 	default: string?,
 	required: boolean?,
+	hidden: boolean?,
 }
 
 type ArgData = {
@@ -180,10 +181,46 @@ function cli.forwarded(self: Parser): { string }?
 	return self.parsed.fwdArgs
 end
 
+function cli.usage(self: Parser, name: string): string
+	local parts = { name }
+
+	for _, arg in self.positional do
+		if not arg.options.hidden then
+			if arg.options.required then
+				table.insert(parts, `<{arg.name}>`)
+			else
+				table.insert(parts, `[{arg.name}]`)
+			end
+		end
+	end
+
+	for _, arg in self.arguments do
+		if not arg.options.hidden and arg.kind ~= "positional" and arg.kind ~= "variadic" then
+			table.insert(parts, "[options]")
+			break
+		end
+	end
+
+	if self.variadicArg and not self.variadicArg.options.hidden then
+		local v = self.variadicArg
+		if v.options.required then
+			table.insert(parts, `<{v.name}...>`)
+		else
+			table.insert(parts, `[{v.name}...]`)
+		end
+	end
+
+	return table.concat(parts, " ")
+end
+
 function cli.help(self: Parser, formatter: ((s: string) -> string)?): ()
 	local fmt = formatter or function(s) return s end
 	print(fmt("Usage:"))
 	for _, argument in self.arguments do
+		if argument.options.hidden then
+			continue
+		end
+
 		local aliasStr = table.concat(argument.options.aliases or {}, ", ")
 		local reqStr = if argument.options.required then "(required) " else ""
 		print(fmt(string.format("  --%s (-%s) - %s%s", argument.name, aliasStr, reqStr, argument.options.help or "")))

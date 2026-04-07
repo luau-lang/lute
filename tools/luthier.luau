@@ -67,8 +67,8 @@ local targetMap: { [string]: { exeName: string } } = {
 local args = cli.parser()
 
 args:add("help", "flag", { help = "show the help message" })
-args:add("luthier", "positional", { help = "the luthier script", required = true }) -- should this be handled automatically?
-args:add("subcommand", "positional", { help = "command to execute", required = true })
+args:add("luthier", "positional", { help = "the luthier script", required = true, hidden = true }) -- should this be handled automatically?
+args:add("subcommand", "positional", { help = "command to execute", required = true, hidden = true })
 args:add("target", "positional", { help = "the thing to build or run" })
 args:add("verbose", "flag", { help = "show verbose compile output", aliases = { "v" } })
 args:add("config", "option", { help = "configuration (default is debug)", default = "debug" })
@@ -541,15 +541,20 @@ local function printHelp()
 	end)
 end
 
-local function usageError(message: string, details: string?)
+local function usageError(message: string, details: string?, usage: string?)
 	local lowercased = string.lower(string.sub(message, 1, 1)) .. string.sub(message, 2)
 	print(richterm.combine(richterm.bold, richterm.red)(`Error: {lowercased}`))
+	print(richterm.combine(richterm.bold, richterm.yellow)(`Usage: {usage or args:usage("luthier <subcommand>")}`))
 	if details then
 		print(richterm.combine(richterm.bold, richterm.yellow)(details))
 	end
 	print()
 	printHelp()
 	process.exit(1)
+end
+
+local function subcommandUsage(subcommand: string): string
+	return args:usage(`luthier {subcommand}`)
 end
 
 local function availableTargets(): string
@@ -694,7 +699,8 @@ end
 local ok, err = pcall(args.parse, args, { ... })
 if not ok then
 	-- Strip the "file:line: " prefix that Lua prepends to error messages
-	usageError(string.gsub(tostring(err), "^.+:%d+: ", ""))
+	local message = string.gsub(tostring(err), "^.+:%d+: ", "")
+	usageError(message)
 end
 
 cwd = getSourceRoot()
@@ -722,7 +728,7 @@ elseif subcommand == "configure" or subcommand == "tune" then
 	exitCode = configure()
 elseif subcommand == "build" or subcommand == "craft" then
 	if not args:get("target") then
-		usageError(`{subcommand} requires a target`, availableTargets())
+		usageError(`{subcommand} requires a target`, availableTargets(), subcommandUsage(subcommand))
 	end
 
 	generateFilesIfNeeded()
@@ -734,7 +740,7 @@ elseif subcommand == "build" or subcommand == "craft" then
 	exitCode = build()
 elseif subcommand == "run" or subcommand == "play" then
 	if not args:get("target") then
-		usageError(`{subcommand} requires a target`, availableTargets())
+		usageError(`{subcommand} requires a target`, availableTargets(), subcommandUsage(subcommand))
 	end
 
 	generateFilesIfNeeded()
