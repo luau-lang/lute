@@ -168,6 +168,11 @@ local function main(...: string)
 	args:add("dry-run", "flag", { help = "Preview changes without writing any files" })
 	args:add("output", "option", { help = "Write output to this file (single input only)", aliases = { "o" } })
 	args:add("migration-path", "positional", { help = "Path to the migration script to run" })
+	args:add(
+		"files",
+		"variadic",
+		{ help = "Files or directories to apply the migration to (defaults to current directory if not specified)" }
+	)
 	args:parse({ ... })
 
 	if args:has("help") then
@@ -186,20 +191,16 @@ local function main(...: string)
 
 	-- Split forwarded args into file paths and migration options.
 	-- Non-flag tokens are file paths; --name value pairs are migration options.
-	local filePaths: { string } = {}
+	local filePaths: { string } = args:variadics()
 	local migrationOptions: { [string]: string } = {}
 	local forwarded = args:forwarded() or {}
 	local i = 1
 	while i <= #forwarded do
 		local token = forwarded[i]
-		if stringext.hasPrefix(token, "--") then
-			local name = string.sub(token, 3)
-			i += 1
-			assert(i <= #forwarded, `Missing value for '--{name}'`)
-			migrationOptions[name] = forwarded[i]
-		else
-			table.insert(filePaths, token)
-		end
+		local name = string.sub(token, 3)
+		i += 1
+		assert(i <= #forwarded, `Missing value for '--{name}'`)
+		migrationOptions[name] = forwarded[i]
 		i += 1
 	end
 

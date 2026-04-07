@@ -118,6 +118,37 @@ test.suite("LuteTransform", function(suite)
 		fs.remove(outputPath)
 	end)
 
+	suite:case("transformForwardedOptions", function(assert)
+		-- Setup
+		local transformerExample = path.format(path.join("examples", "options_transformer.luau"))
+		local transformerDest = path.format(path.join(tmpDir, "options_transformer.luau"))
+		fs.copy(transformerExample, transformerDest)
+
+		-- Do
+		-- Run the transformer with a forwarded option overriding the default functionName
+		local result = process.run({
+			lutePath,
+			"transform",
+			transformerDest,
+			transformeePath,
+			"--",
+			"--functionName",
+			"number.isNaN",
+		})
+
+		-- Check
+		assert.eq(result.exitcode, 0)
+
+		local transformeeHandle = fs.open(transformeePath, "r")
+		local transformeeContent = fs.read(transformeeHandle)
+		assert.strNotContains(transformeeContent, "x ~= x")
+		assert.strContains(transformeeContent, "number.isNaN(x)")
+		fs.close(transformeeHandle)
+
+		-- Teardown
+		fs.remove(transformerDest)
+	end)
+
 	suite:case("transformOutputCreatesFileIfItDoesntExist", function(assert)
 		-- Setup
 		-- Copy examples/transformer.luau to build/transform_tests/transformer.luau
