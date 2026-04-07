@@ -1,10 +1,12 @@
 local fs = require("@std/fs")
 local luau = require("@std/luau")
 local pathLib = require("@std/path")
+local process = require("@std/process")
 local printer = require("@std/syntax/printer")
+local stringext = require("@std/stringext")
 local syntax = require("@std/syntax")
 
-local arguments = require("@self/lib/arguments")
+local cli = require("@batteries/cli")
 local files = require("./lib/files")
 local types = require("@self/lib/types")
 
@@ -142,33 +144,91 @@ local function applyMigration(
 	end
 end
 
-local function main(...: string)
-	local args = arguments.parse({ ... })
+local USAGE = "Usage: lute transform [options] <migration-path> [files...] [-- [--option value...]]"
 
-	if args.dryRun then
+local function printHelp()
+	print(USAGE)
+	print([[
+Apply the specified code transformation to the given files.
+
+OPTIONS:
+  -h, --help              Show this help message
+  --dry-run               Preview changes without writing files
+  -o, --output [FILE]     Write output to a single file instead of in-place (only works if a single input file is specified)
+
+lute transform also supports forwarding options to the code transformation script by placing them after a '--' separator. For example:
+
+  lute transform my-migration.luau files/ -- --option value
+	]])
+end
+
+local function main(...: string)
+	local args = cli.parser()
+	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
+	args:add("dry-run", "flag", { help = "Preview changes without writing any files" })
+	args:add("output", "option", { help = "Write output to this file (single input only)", aliases = { "o" } })
+	args:add("migration-path", "positional", { help = "Path to the migration script to run" })
+	args:parse({ ... })
+
+	if args:has("help") then
+		printHelp()
+		return
+	end
+
+	local migrationPath = args:get("migration-path")
+	if not migrationPath then
+		print(`Error: No code transformation script specified.\n\n{USAGE}\nUse --help for more information.`)
+		process.exit(1)
+	end
+
+	local dryRun = args:has("dry-run")
+	local outputFile = args:get("output")
+
+	-- Split forwarded args into file paths and migration options.
+	-- Non-flag tokens are file paths; --name value pairs are migration options.
+	local filePaths: { string } = {}
+	local migrationOptions: { [string]: string } = {}
+	local forwarded = args:forwarded() or {}
+	local i = 1
+	while i <= #forwarded do
+		local token = forwarded[i]
+		if stringext.hasPrefix(token, "--") then
+			local name = string.sub(token, 3)
+			i += 1
+			assert(i <= #forwarded, `Missing value for '--{name}'`)
+			migrationOptions[name] = forwarded[i]
+		else
+			table.insert(filePaths, token)
+		end
+		i += 1
+	end
+
+	assert(outputFile == nil or #filePaths == 1, "When specifying an output file, only one input file is allowed")
+
+	if dryRun then
 		print("Executing in dry run mode")
 	end
 
-	if args.outputFile then
-		print(`Output path specified: '{args.outputFile}'`)
+	if outputFile then
+		print(`Output path specified: '{outputFile}'`)
 	end
 
-	print(`Loading migration '{args.migrationPath}'`)
-	local migration = loadMigration(args.migrationPath)
+	print(`Loading migration '{migrationPath}'`)
+	local migration = loadMigration(migrationPath)
 
-	print("Finding source files") -- todo: might type error
-	local files = files.getSourceFiles(args.filePaths)
-	if #files == 0 then
+	print("Finding source files")
+	local sourceFiles = files.getSourceFiles(filePaths)
+	if #sourceFiles == 0 then
 		error("error: no source files provided")
 	end
 
 	print("Processing migration options")
-	local migrationOptions = processMigrationOptions(migration, args.migrationOptions)
+	local processedOptions = processMigrationOptions(migration, migrationOptions)
 
 	print("Applying migration")
-	applyMigration(migration, files, migrationOptions, args.dryRun, args.outputFile)
+	applyMigration(migration, sourceFiles, processedOptions, dryRun, outputFile)
 
-	print(`Processed {#files} files!`)
+	print(`Processed {#sourceFiles} files!`)
 end
 
 main(...)

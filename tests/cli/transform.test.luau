@@ -14,6 +14,8 @@ local tmpDir = system.tmpdir()
 local transformeePath = path.format(path.join(tmpDir, "transformee.luau"))
 local outputPath = path.format(path.join(tmpDir, "transformee_output.luau"))
 
+local USAGE = "Usage: lute transform [options] <migration-path> [files...] [-- [--option value...]]"
+
 test.suite("LuteTransform", function(suite)
 	suite:beforeEach(function()
 		-- Create a transformee file
@@ -28,6 +30,33 @@ test.suite("LuteTransform", function(suite)
 		if fs.exists(outputPath) then
 			fs.remove(outputPath)
 		end
+	end)
+
+	suite:case("luteLintTransformMessage", function(assert)
+		local result = process.run({ lutePath, "transform", "-h" })
+
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, USAGE)
+
+		result = process.run({ lutePath, "transform", "--h" })
+
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, USAGE)
+
+		result = process.run({ lutePath, "transform", "--help" })
+
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, USAGE)
+	end)
+
+	suite:case("luteLintMissingTransformationScript", function(assert)
+		local result = process.run({ lutePath, "transform" })
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(
+			result.stdout,
+			`Error: No code transformation script specified.\n\n{USAGE}\nUse --help for more information.`
+		)
 	end)
 
 	suite:case("transformQueryStyle", function(assert)
