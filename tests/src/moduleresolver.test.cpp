@@ -10,9 +10,9 @@
 #include "luteprojectroot.h"
 #include "tcmoduleresolverfixture.h"
 
-static Luau::AstExprConstantString makeStringNode(const char* path)
+static Luau::AstExprConstantString makeStringNode(std::string path)
 {
-    Luau::AstArray<char> value{const_cast<char*>(path), std::strlen(path)};
+    Luau::AstArray<char> value{path.data(), path.size()};
     return Luau::AstExprConstantString(Luau::Location{}, value, Luau::AstExprConstantString::QuotedSimple);
 }
 
