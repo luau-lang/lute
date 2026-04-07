@@ -69,7 +69,7 @@ local args = cli.parser()
 args:add("help", "flag", { help = "show the help message" })
 args:add("luthier", "positional", { help = "the luthier script", required = true }) -- should this be handled automatically?
 args:add("subcommand", "positional", { help = "command to execute", required = true })
-args:add("target", "positional", { help = "the thing to build or run", required = true })
+args:add("target", "positional", { help = "the thing to build or run" })
 args:add("verbose", "flag", { help = "show verbose compile output", aliases = { "v" } })
 args:add("config", "option", { help = "configuration (default is debug)", default = "debug" })
 args:add("clean", "flag", { help = "perform a clean build" })
@@ -541,12 +541,24 @@ local function printHelp()
 	end)
 end
 
-local function usageError(message: string)
+local function usageError(message: string, details: string?)
 	local lowercased = string.lower(string.sub(message, 1, 1)) .. string.sub(message, 2)
 	print(richterm.combine(richterm.bold, richterm.red)(`Error: {lowercased}`))
+	if details then
+		print(richterm.combine(richterm.bold, richterm.yellow)(details))
+	end
 	print()
 	printHelp()
 	process.exit(1)
+end
+
+local function availableTargets(): string
+	local targets = {}
+	for name in targetMap do
+		table.insert(targets, name)
+	end
+	table.sort(targets)
+	return `available targets: {table.concat(targets, ", ")}`
 end
 
 local function fetchDependency(dependencyInfo: Tune)
@@ -709,6 +721,10 @@ elseif subcommand == "configure" or subcommand == "tune" then
 	generateFilesIfNeeded()
 	exitCode = configure()
 elseif subcommand == "build" or subcommand == "craft" then
+	if not args:get("target") then
+		usageError(`{subcommand} requires a target`, availableTargets())
+	end
+
 	generateFilesIfNeeded()
 
 	if not projectPathExists() or not areTuneFilesUpToDate() then
@@ -717,6 +733,10 @@ elseif subcommand == "build" or subcommand == "craft" then
 
 	exitCode = build()
 elseif subcommand == "run" or subcommand == "play" then
+	if not args:get("target") then
+		usageError(`{subcommand} requires a target`, availableTargets())
+	end
+
 	generateFilesIfNeeded()
 
 	if not projectPathExists() or not areTuneFilesUpToDate() then
