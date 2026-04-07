@@ -236,6 +236,12 @@ test.suite("CLI variadic arguments", function(suite)
 		p:parse({ "a.txt" })
 		assert.eq(p:variadics("files"), { "a.txt" })
 	end)
+
+	suite:case("argsBeforeDashDashStillForwardedWithoutVariadic", function(assert)
+		local p = cli.parser()
+		p:parse({ "a.txt", "--", "b.txt" })
+		assert.eq(p:forwarded(), { "a.txt", "b.txt" })
+	end)
 end)
 
 test.suite("CLI mixed usage", function(suite)

@@ -69,7 +69,7 @@ function cli.parse(self: Parser, args: { string }): ()
 
 		-- if the argument is exactly "--", we pass everything along
 		if arg == "--" then
-			table.move(args, i + 1, #args, 1, self.parsed.fwdArgs)
+			table.move(args, i + 1, #args, #self.parsed.fwdArgs + 1, self.parsed.fwdArgs)
 			break
 		end
 
