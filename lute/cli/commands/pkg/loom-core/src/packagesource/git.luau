@@ -1,10 +1,12 @@
+local authenticationStore = require("../authentication/authenticationstore")
 local fsUtils = require("../utils/fsutils")
 local net = require("@std/net")
+local process = require("@std/process")
 local unzip = require("../../extern/unzip")
 
 export type Git = {
 	installZipArchive: (self: Git, name: string, version: string, content: string) -> (),
-	downloadFromGitHubArchive: (self: Git, url: string, token: string?) -> string,
+	downloadFromGitHubArchive: (self: Git, url: string) -> string,
 }
 
 local Git = {} :: Git
@@ -43,6 +45,21 @@ local function sanitizePath(path: string): string
 	return normalized
 end
 
+local function getGithubAuthenticationToken(): string?
+	local githubToken = process.env.GITHUB_TOKEN
+	if githubToken ~= nil then
+		return githubToken
+	end
+
+	local store = authenticationStore.loadAuthenticationStore()
+	local entry = store["github.com"]
+	if entry ~= nil then
+		return entry.token
+	end
+
+	return nil
+end
+
 function Git:installZipArchive(name: string, _version: string, content: string)
 	local reader = unzip.load(buffer.fromstring(content))
 
@@ -65,15 +82,16 @@ end
 function Git:downloadFromGitHubArchive(url: string): string
 	local headers = {}
 
-	-- TODO: support token authentication.
-	-- local token = nil
-	-- if token ~= nil and token ~= "" then
-	-- 	headers["Authorization"] = `Bearer {token}`
-	-- end
+	local token = getGithubAuthenticationToken()
+	if token ~= nil and token ~= "" then
+		headers["Authorization"] = `Bearer {token}`
+	end
 
 	local response = net.request(url, { method = "GET", headers = headers })
-	local body = response.body
-	return body
+	if not response.ok then
+		error(`Failed to download {url}: HTTP {response.status}\n{string.sub(response.body, 1, 200)}`)
+	end
+	return response.body
 end
 
 return Git
