@@ -203,6 +203,18 @@ function glob.discover(input: path.Pathlike): { path.Path }
 
 	local results: { path.Path } = {}
 	walk(prefixPath, segments, 1, results)
+	-- To ensure a consistent sort order across POSIX and Windows, we sort by
+	-- parts rather than sorting based on string representation, which ensures
+	-- that code implicitly dependent on the ordering (e.g. snapshot tests) do
+	-- not break when running on different platforms.
+	table.sort(results, function(a: path.Path, b: path.Path)
+		for i = 1, math.min(#a.parts, #b.parts) do
+			if a.parts[i] ~= b.parts[i] then
+				return a.parts[i] < b.parts[i]
+			end
+		end
+		return #a.parts < #b.parts
+	end)
 	return results
 end
 
