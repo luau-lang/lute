@@ -96,10 +96,25 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
                 bool luaurcExists = isFile(luaurcPath);
                 bool luauConfigExists = isFile(luauConfigPath);
 
-                if (luaurcExists)
-                    configAbsolutePaths.insert(luaurcPath);
-                if (luauConfigExists)
+                if (luaurcExists && luauConfigExists)
+                {
+                    reporter.formatError(
+                        "Warning: Both %s and %s exist in '%s', preferring %s\n",
+                        Luau::kConfigName,
+                        Luau::kLuauConfigName,
+                        dir.c_str(),
+                        Luau::kLuauConfigName
+                    );
                     configAbsolutePaths.insert(luauConfigPath);
+                }
+                else if (luauConfigExists)
+                {
+                    configAbsolutePaths.insert(luauConfigPath);
+                }
+                else if (luaurcExists)
+                {
+                    configAbsolutePaths.insert(luaurcPath);
+                }
 
                 if (luaurcExists || luauConfigExists)
                     break;
