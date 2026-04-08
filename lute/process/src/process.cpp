@@ -653,6 +653,8 @@ std::optional<std::string> Process::getExecPath(std::string* error)
     return *cachedPath;
 }
 
+const char* const Process::properties[] = {"env", "args"};
+
 const luaL_Reg Process::lib[] = {
     {"run", process::run},
     {"system", process::system},
@@ -665,7 +667,7 @@ const luaL_Reg Process::lib[] = {
 
 int Process::pushLibrary(lua_State* L)
 {
-    lua_createtable(L, 0, std::size(Process::lib));
+    lua_createtable(L, 0, std::size(Process::lib) + std::size(Process::properties));
 
     for (auto& [name, func] : Process::lib)
     {

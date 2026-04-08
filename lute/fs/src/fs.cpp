@@ -405,6 +405,8 @@ static void initalizeFS(lua_State* L)
     lua_setuserdatametatable(L, kWatchHandleTag);
 }
 
+const char* const FS::properties[] = {};
+
 const luaL_Reg FS::lib[] = {
     {"open", fs::open},
     {"read", fs::read},

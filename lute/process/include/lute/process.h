@@ -18,6 +18,7 @@ struct Process : LuteLibrary<Process>
     static constexpr const char kName[] = "process";
     static int pushLibrary(lua_State* L);
     static const luaL_Reg lib[];
+    static const char* const properties[];
 
     static std::optional<std::string> getExecPath(std::string* error);
 };

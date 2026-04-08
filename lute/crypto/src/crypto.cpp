@@ -284,7 +284,7 @@ int makePasswordHashLibrary(lua_State* L)
 
 } // namespace crypto
 
-static const std::string properties[] = {
+const char* const Crypto::properties[] = {
     crypto::kHashProperty,
     crypto::kSecretboxProperty,
     crypto::kPasswordProperty,

@@ -18,6 +18,7 @@ struct NetClient : LuteLibrary<NetClient>
     static constexpr const char kName[] = "net.client";
     static int pushLibrary(lua_State* L);
     static const luaL_Reg lib[];
+    static const char* const properties[];
 };
 
 struct NetServer : LuteLibrary<NetServer>
@@ -25,10 +26,12 @@ struct NetServer : LuteLibrary<NetServer>
     static constexpr const char kName[] = "net.server";
     static int pushLibrary(lua_State* L);
     static const luaL_Reg lib[];
+    static const char* const properties[];
 };
 
 struct Net : LuteLibrary<Net>
 {
     static constexpr const char kName[] = "net";
     static int pushLibrary(lua_State* L);
+    static const char* const properties[];
 };

@@ -491,6 +491,8 @@ int serve(lua_State* L)
 
 } // namespace net::server
 
+const char* const NetServer::properties[] = {};
+
 const luaL_Reg NetServer::lib[] = {
     {"serve", net::server::serve},
     {nullptr, nullptr},

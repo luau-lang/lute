@@ -132,7 +132,7 @@ int lua_tmpdir(lua_State* L)
 }
 } // namespace libsystem
 
-static const std::string properties[] = {
+const char* const System::properties[] = {
     libsystem::kArchitectureProperty,
     libsystem::kOperatingSystemProperty,
 };

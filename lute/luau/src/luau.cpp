@@ -3091,7 +3091,7 @@ static int initLuauLibrary(lua_State* L)
 
 } // namespace luau
 
-static const std::string properties[] = {luau::kSpanType};
+const char* const LuauLib::properties[] = {luau::kSpanType};
 
 const luaL_Reg LuauLib::lib[] = {
     {"parse", luau::luau_parse},

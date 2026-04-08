@@ -57,4 +57,5 @@ struct Time : LuteLibrary<Time>
     static constexpr const char kName[] = "time";
     static int pushLibrary(lua_State* L);
     static const luaL_Reg lib[];
+    static const char* const properties[];
 };

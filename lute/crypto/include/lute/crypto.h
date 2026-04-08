@@ -15,4 +15,5 @@ struct Crypto : LuteLibrary<Crypto>
     static constexpr const char kName[] = "crypto";
     static int pushLibrary(lua_State* L);
     static const luaL_Reg lib[];
+    static const char* const properties[];
 };

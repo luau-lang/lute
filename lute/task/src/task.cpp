@@ -311,6 +311,8 @@ int lua_wait(lua_State* L)
 
 } // anonymous namespace
 
+const char* const Task::properties[] = {};
+
 const luaL_Reg Task::lib[] = {
     {"spawn", lua_spawn},
     {"defer", lua_defer},

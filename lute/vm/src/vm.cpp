@@ -2,6 +2,8 @@
 
 #include "lute/runtime.h"
 
+const char* const VM::properties[] = {};
+
 const luaL_Reg VM::lib[] = {
     {"create", VM::lua_spawn},
     {nullptr, nullptr},

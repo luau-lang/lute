@@ -16,4 +16,5 @@ struct VM : LuteLibrary<VM>
     static int lua_spawn(lua_State* L);
     static int pushLibrary(lua_State* L);
     static const luaL_Reg lib[];
+    static const char* const properties[];
 };

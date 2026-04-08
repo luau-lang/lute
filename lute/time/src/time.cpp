@@ -588,7 +588,7 @@ static int init_luau_lib(lua_State* L)
     return 0;
 }
 
-static const std::string properties[] = {kDurationLibraryIdentifier};
+const char* const Time::properties[] = {kDurationLibraryIdentifier};
 
 const luaL_Reg Time::lib[] = {
     {"now", lua_now},

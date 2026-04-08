@@ -15,4 +15,5 @@ struct Task : LuteLibrary<Task>
     static constexpr const char kName[] = "task";
     static int pushLibrary(lua_State* L);
     static const luaL_Reg lib[];
+    static const char* const properties[];
 };

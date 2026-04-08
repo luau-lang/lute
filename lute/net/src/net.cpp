@@ -2,9 +2,13 @@
 
 #include "lua.h"
 
+#include <iterator>
+
+const char* const Net::properties[] = {"client", "server"};
+
 int Net::pushLibrary(lua_State* L)
 {
-    lua_createtable(L, 0, 2);
+    lua_createtable(L, 0, std::size(Net::properties));
 
     NetClient::pushLibrary(L);
     lua_setfield(L, -2, "client");
