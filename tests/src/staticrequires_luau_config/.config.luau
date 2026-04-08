@@ -1,5 +1,7 @@
 return {
-	aliases = {
-		nested = "./dep/nested",
+	luau = {
+		aliases = {
+			nested = "./dep/nested",
+		},
 	},
 }
