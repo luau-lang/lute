@@ -27,6 +27,7 @@
 #include "lualib.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <ctime>
 #include <optional>
 #include <string>
@@ -659,6 +660,12 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
 {
     Luau::assertHandler() = assertionHandler;
     setLuauFlags();
+
+    if (const char* unbuffered = std::getenv("LUTE_UNBUFFERED"); std::string_view(unbuffered) == "1")
+    {
+        setvbuf(stdout, nullptr, _IONBF, 0);
+        setvbuf(stderr, nullptr, _IONBF, 0);
+    }
 
     std::string err = "";
 
