@@ -1,4 +1,3 @@
--- lute-lint-global-ignore(unused_variable)
 local client = require("@self/client")
 local server = require("@self/server")
 
