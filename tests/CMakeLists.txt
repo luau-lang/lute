@@ -8,11 +8,13 @@ target_sources(Lute.Test PRIVATE
     src/cliruntimefixture.h
     src/lutefixture.h
     src/luteprojectroot.h
+    src/tcmoduleresolverfixture.h
     src/testreporter.h
 
     src/cliruntimefixture.cpp
     src/lutefixture.cpp
     src/luteprojectroot.cpp
+    src/tcmoduleresolverfixture.cpp
     src/testreporter.cpp
 
     src/typeserializefixture.h

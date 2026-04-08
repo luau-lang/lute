@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lute/ref.h"
+#include "lute/reporter.h"
 
 #include "Luau/Variant.h"
 #include "Luau/VecDeque.h"
@@ -44,7 +45,7 @@ using RuntimeStep = Luau::Variant<StepSuccess, StepErr, StepEmpty>;
 
 struct Runtime
 {
-    Runtime();
+    Runtime(LuteReporter& reporter);
     ~Runtime();
 
     bool runToCompletion();
@@ -75,6 +76,8 @@ struct Runtime
     void releasePendingToken();
 
     uv_loop_t* getEventLoop();
+
+    LuteReporter& reporter;
 
     // VM for this runtime
     std::unique_ptr<lua_State, void (*)(lua_State*)> globalState;

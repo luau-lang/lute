@@ -8,6 +8,11 @@
 namespace Luau
 {
 
+LuteTypeCheckModuleResolver::LuteTypeCheckModuleResolver(LuteReporter& reporter)
+    : reporter(reporter)
+{
+}
+
 std::optional<Luau::SourceCode> LuteTypeCheckModuleResolver::readSource(const Luau::ModuleName& name)
 {
     if (name == "-")
@@ -46,7 +51,7 @@ std::optional<Luau::ModuleInfo> LuteTypeCheckModuleResolver::resolveModule(
         std::optional<ResolvedModule> resolved = ::resolveForTypeCheck(requirePath, std::move(requirerChunkname), &error);
         if (!resolved)
         {
-            printf("Failed to resolve require: %s\n", error.c_str());
+            reporter.formatError("Failed to resolve require: %s\n", error.c_str());
             return std::nullopt;
         }
 
