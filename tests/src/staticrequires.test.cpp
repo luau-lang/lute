@@ -335,3 +335,28 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_multiple_luaurc_files")
     const std::string* otherLuaurc = luauConfigFiles.find("other/.luaurc");
     REQUIRE(otherLuaurc != nullptr);
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_luau_config")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires_luau_config");
+    std::string entryPoint = joinPaths(testDir, "main.luau");
+
+    StaticRequireTracer tracer{getReporter()};
+    tracer.trace(entryPoint);
+
+    auto pairs = tracer.getStaticRequirePairs();
+
+    // main.luau requires @nested/example, should resolve via .config.luau alias
+    REQUIRE(pairs.size() == 2);
+    CHECK(pairs[0].first == "main.luau");
+
+    std::string absoluteExample = joinPaths(tracer.getLowestCommonRoot(), "dep/nested/example.luau");
+    CHECK(tracer.containsAbsolute(absoluteExample));
+
+    // Verify .config.luau file was discovered (not .luaurc)
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 1);
+    CHECK(luauConfigFiles.find(".config.luau") != nullptr);
+    CHECK(luauConfigFiles.find(".luaurc") == nullptr);
+}
