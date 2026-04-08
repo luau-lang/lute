@@ -1,8 +1,8 @@
-local net = require("@lute/net")
+local server = require("@lute/net/server")
 
 return {
 	serve = function()
-		net.serve({
+		server.serve({
 			handler = function(_)
 				return "Hello, lute!"
 			end,
