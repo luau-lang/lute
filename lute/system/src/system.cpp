@@ -15,6 +15,10 @@
 
 namespace libsystem
 {
+
+static const char kArchitectureProperty[] = "arch";
+static const char kOperatingSystemProperty[] = "os";
+
 int lua_cpus(lua_State* L)
 {
     int count = uv_available_parallelism();
@@ -128,19 +132,27 @@ int lua_tmpdir(lua_State* L)
 }
 } // namespace libsystem
 
-int luaopen_system(lua_State* L)
+static const std::string properties[] = {
+    libsystem::kArchitectureProperty,
+    libsystem::kOperatingSystemProperty,
+};
+
+const luaL_Reg System::lib[] = {
+    {"cpus", libsystem::lua_cpus},
+    {"threadCount", libsystem::lua_threadcount},
+    {"freeMemory", libsystem::lua_freememory},
+    {"totalMemory", libsystem::lua_totalmemory},
+    {"hostName", libsystem::lua_hostname},
+    {"uptime", libsystem::lua_uptime},
+    {"tmpdir", libsystem::lua_tmpdir},
+    {nullptr, nullptr},
+};
+
+int System::pushLibrary(lua_State* L)
 {
-    luteopen_system(L);
-    lua_setglobal(L, "system");
+    lua_createtable(L, 0, std::size(System::lib) + std::size(properties));
 
-    return 1;
-}
-
-int luteopen_system(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(libsystem::lib) + std::size(libsystem::properties));
-
-    for (auto& [name, func] : libsystem::lib)
+    for (auto& [name, func] : System::lib)
     {
         if (!name || !func)
             break;
@@ -162,4 +174,14 @@ int luteopen_system(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luaopen_system(lua_State* L)
+{
+    return System::openAsGlobal(L);
+}
+
+int luteopen_system(lua_State* L)
+{
+    return System::pushLibrary(L);
 }

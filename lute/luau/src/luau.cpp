@@ -29,6 +29,10 @@
 namespace luau
 {
 
+static constexpr const char kSpanType[] = "span";
+static constexpr const char kCompileResultType[] = "CompileResult";
+static constexpr const char kSpanCreateName[] = "span.create";
+
 // Recursively freezes the table at the top of the stack and any descendant tables.
 // The table must be at the top of the stack when called.
 static void deepFreeze(lua_State* L)
@@ -3087,22 +3091,26 @@ static int initLuauLibrary(lua_State* L)
 
 } // namespace luau
 
-int luaopen_luau(lua_State* L)
+static const std::string properties[] = {luau::kSpanType};
+
+const luaL_Reg LuauLib::lib[] = {
+    {"parse", luau::luau_parse},
+    {"parseExpr", luau::luau_parseexpr},
+    {"compile", luau::compile_luau},
+    {"load", luau::load_luau},
+    {"resolveModule", resolveModule_luau},
+    {"typeofModule", luau::typeofModule_luau},
+    {nullptr, nullptr},
+};
+
+int LuauLib::pushLibrary(lua_State* L)
 {
-    luaL_register(L, "luau", luau::lib);
+    lua_createtable(L, 0, std::size(LuauLib::lib) + std::size(properties));
 
-    return luau::initLuauLibrary(L);
-}
-
-int luteopen_luau(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(luau::lib) + std::size(luau::properties));
-
-    // span library
     luau::makeSpanLibrary(L);
     lua_setfield(L, -2, luau::kSpanType);
 
-    for (auto& [name, func] : luau::lib)
+    for (auto& [name, func] : LuauLib::lib)
     {
         if (!name || !func)
             break;
@@ -3114,4 +3122,14 @@ int luteopen_luau(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return luau::initLuauLibrary(L);
+}
+
+int luaopen_luau(lua_State* L)
+{
+    return LuauLib::openAsGlobal(L);
+}
+
+int luteopen_luau(lua_State* L)
+{
+    return LuauLib::pushLibrary(L);
 }

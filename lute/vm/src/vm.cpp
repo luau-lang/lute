@@ -2,18 +2,16 @@
 
 #include "lute/runtime.h"
 
-int luaopen_vm(lua_State* L)
+const luaL_Reg VM::lib[] = {
+    {"create", VM::lua_spawn},
+    {nullptr, nullptr},
+};
+
+int VM::pushLibrary(lua_State* L)
 {
-    luaL_register(L, "vm", vm::lib);
+    lua_createtable(L, 0, std::size(VM::lib));
 
-    return 1;
-}
-
-int luteopen_vm(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(vm::lib));
-
-    for (auto& [name, func] : vm::lib)
+    for (auto& [name, func] : VM::lib)
     {
         if (!name || !func)
             break;
@@ -25,4 +23,14 @@ int luteopen_vm(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luaopen_vm(lua_State* L)
+{
+    return VM::openAsGlobal(L);
+}
+
+int luteopen_vm(lua_State* L)
+{
+    return VM::pushLibrary(L);
 }

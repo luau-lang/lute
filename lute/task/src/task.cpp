@@ -89,7 +89,7 @@ static void yieldLuaStateFor(lua_State* L, uint64_t milliseconds, bool putDeltaT
     );
 }
 
-namespace task
+namespace
 {
 
 struct LuaThread
@@ -309,20 +309,23 @@ int lua_wait(lua_State* L)
     return lua_yield(L, 0);
 }
 
-} // namespace task
+} // anonymous namespace
 
-int luaopen_task(lua_State* L)
+const luaL_Reg Task::lib[] = {
+    {"spawn", lua_spawn},
+    {"defer", lua_defer},
+    {"resume", lute_resume},
+    {"deferSelf", lua_deferSelf},
+    {"wait", lua_wait},
+    {"delay", lua_delay},
+    {nullptr, nullptr},
+};
+
+int Task::pushLibrary(lua_State* L)
 {
-    luaL_register(L, "task", task::lib);
+    lua_createtable(L, 0, std::size(Task::lib));
 
-    return 1;
-}
-
-int luteopen_task(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(task::lib));
-
-    for (auto& [name, func] : task::lib)
+    for (auto& [name, func] : Task::lib)
     {
         if (!name || !func)
             break;
@@ -334,4 +337,14 @@ int luteopen_task(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luaopen_task(lua_State* L)
+{
+    return Task::openAsGlobal(L);
+}
+
+int luteopen_task(lua_State* L)
+{
+    return Task::pushLibrary(L);
 }
