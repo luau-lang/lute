@@ -3,7 +3,6 @@ local server = require("@lute/net/server")
 local test = require("@std/test")
 
 test.suite("NetTestSuite", function(suite)
-
 	suite:case("serveLocallyAndRequest", function(assert)
 		local server = server.serve({
 			handler = function(_req: server.ReceivedRequest): server.ServerResponse
