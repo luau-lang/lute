@@ -28,6 +28,7 @@ target_sources(Lute.Test PRIVATE
     src/moduleresolver.test.cpp
     src/packagerequire.test.cpp
     src/require.test.cpp
+    src/runtime.test.cpp
     src/typeserializer.test.cpp
     src/staticrequires.test.cpp
     src/stdsystem.test.cpp
