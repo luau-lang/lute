@@ -20,10 +20,6 @@ function client.request(url: string, metadata: Metadata?): Response
 	error("not implemented")
 end
 
-function net.request(url: string, metadata: Metadata?): Response
-	error("not implemented")
-end
-
 export type ReceivedRequest = {
 	method: string,
 	path: string,
@@ -55,10 +51,6 @@ export type Server = {
 }
 
 function server.serve(config: Handler | Configuration): Server
-	error("not implemented")
-end
-
-function net.serve(config: Handler | Configuration): Server
 	error("not implemented")
 end
 
