@@ -242,7 +242,7 @@ int request(lua_State* L)
 
 } // namespace net::client
 
-const char* const NetClient::properties[] = {};
+const char* const NetClient::properties[] = {nullptr};
 
 const luaL_Reg NetClient::lib[] = {
     {"request", net::client::request},

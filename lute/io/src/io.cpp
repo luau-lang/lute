@@ -115,7 +115,7 @@ int read(lua_State* L)
 
 } // anonymous namespace
 
-const char* const IO::properties[] = {};
+const char* const IO::properties[] = {nullptr};
 
 const luaL_Reg IO::lib[] = {
     {"read", read},
