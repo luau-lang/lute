@@ -600,7 +600,7 @@ int Time::pushLibrary(lua_State* L)
 {
     init_luau_lib(L);
 
-    lua_createtable(L, 0, std::size(Time::lib) + std::size(properties));
+    lua_createtable(L, 0, std::size(Time::lib) + std::size(Time::properties));
 
     // Duration sub-table
     lua_createtable(L, 0, std::size(duration::lib));

@@ -3105,7 +3105,7 @@ const luaL_Reg LuauLib::lib[] = {
 
 int LuauLib::pushLibrary(lua_State* L)
 {
-    lua_createtable(L, 0, std::size(LuauLib::lib) + std::size(properties));
+    lua_createtable(L, 0, std::size(LuauLib::lib) + std::size(LuauLib::properties));
 
     luau::makeSpanLibrary(L);
     lua_setfield(L, -2, luau::kSpanType);

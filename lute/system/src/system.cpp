@@ -150,7 +150,7 @@ const luaL_Reg System::lib[] = {
 
 int System::pushLibrary(lua_State* L)
 {
-    lua_createtable(L, 0, std::size(System::lib) + std::size(properties));
+    lua_createtable(L, 0, std::size(System::lib) + std::size(System::properties));
 
     for (auto& [name, func] : System::lib)
     {

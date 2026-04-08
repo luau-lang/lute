@@ -123,7 +123,7 @@ int lua_secretbox_keygen(lua_State* L)
 
     uint8_t* key = static_cast<uint8_t*>(lua_newbuffer(L, crypto_secretbox_keybytes()));
     crypto_secretbox_keygen(key);
-    
+
     return 1;
 }
 
@@ -160,7 +160,7 @@ int lua_secretbox_seal(lua_State* L)
         crypto_secretbox_keygen(key);
         lua_setfield(L, -2, kKeyField);
     }
-    
+
     // nonce
     uint8_t* nonce = static_cast<uint8_t*>(lua_newbuffer(L, crypto_secretbox_noncebytes()));
     randombytes_buf(nonce, crypto_secretbox_noncebytes());
@@ -297,7 +297,7 @@ const luaL_Reg Crypto::lib[] = {
 
 int Crypto::pushLibrary(lua_State* L)
 {
-    lua_createtable(L, 0, std::size(Crypto::lib) + std::size(properties));
+    lua_createtable(L, 0, std::size(Crypto::lib) + std::size(Crypto::properties));
 
     for (auto& [name, func] : Crypto::lib)
     {
