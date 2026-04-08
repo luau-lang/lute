@@ -27,6 +27,15 @@ struct ThreadToContinue
     std::function<void()> cont;
 };
 
+// Optional completion hook for threads that need native follow-up work once
+// they finish or error after one or more yields.
+struct ThreadCompletionHandler
+{
+    void (*onFinish)(lua_State* L, int status, void* userdata) = nullptr;
+    void (*destroy)(void* userdata) = nullptr;
+    void* userdata = nullptr;
+};
+
 struct StepErr
 {
     lua_State* L;
