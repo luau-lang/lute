@@ -457,9 +457,13 @@ static int lua_since(lua_State* L)
     return 1;
 }
 
-static void init_duration_lib(lua_State* L)
+void init_duration_lib(lua_State* L)
 {
-    luaL_newmetatable(L, kDurationType);
+    if (luaL_newmetatable(L, kDurationType) == 0)
+    {
+        lua_pop(L, 1);
+        return;
+    }
 
     // Protect metatable from being changed
     lua_pushstring(L, "The metatable is locked");

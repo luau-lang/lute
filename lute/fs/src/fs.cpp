@@ -1,6 +1,7 @@
 #include "lute/fs.h"
 
 #include "lute/runtime.h"
+#include "lute/time.h"
 #include "lute/userdatas.h"
 
 #include "lua.h"
@@ -369,6 +370,8 @@ int listdir(lua_State* L)
 
 static void initalizeFS(lua_State* L)
 {
+    init_duration_lib(L);
+
     luaL_newmetatable(L, "WatchHandle");
 
     lua_pushcfunction(

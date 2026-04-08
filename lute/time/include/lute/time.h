@@ -23,6 +23,7 @@ double getSecondsFromTimespec(uv_timespec64_t timespec);
 uv_timespec64_t getTimespecFromDuration(lua_State* L, int idx);
 int createDurationFromTimespec(lua_State* L, uv_timespec64_t timespec);
 int createDurationFromSeconds(lua_State* L, double seconds);
+void init_duration_lib(lua_State* L);
 
 namespace duration
 {
