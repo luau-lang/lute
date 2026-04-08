@@ -1,21 +1,26 @@
 // Simplified tests for module resolver functionality using public APIs.
 #include "lute/common.h"
 #include "lute/resolvemodule.h"
-#include "lute/tcmoduleresolver.h"
 
-#include "Luau/Ast.h"
 #include "Luau/FileUtils.h"
 
+#include <cstring>
 #include <string>
 
 #include "doctest.h"
 #include "luteprojectroot.h"
+#include "tcmoduleresolverfixture.h"
 
-TEST_CASE("moduleresolver_read_source")
+static Luau::AstExprConstantString makeStringNode(const char* path)
+{
+    Luau::AstArray<char> value{const_cast<char*>(path), std::strlen(path)};
+    return Luau::AstExprConstantString(Luau::Location{}, value, Luau::AstExprConstantString::QuotedSimple);
+}
+
+TEST_CASE_FIXTURE(TCModuleResolverFixture, "moduleresolver_readSource")
 {
     std::string root = getLuteProjectRootAbsolute();
     std::string file = joinPaths(root, "tests/src/resolver/mainmodule.luau");
-    Luau::LuteTypeCheckModuleResolver resolver;
     auto source = resolver.readSource(file);
     REQUIRE(source);
     CHECK(source->type == Luau::SourceCode::Module);
@@ -97,4 +102,54 @@ TEST_CASE("moduleresolver_typecheck_resolve")
     REQUIRE(resolved);
     CHECK(resolved->path == "@std/process.luau");
     CHECK(resolved->source.find("processlib") != std::string::npos);
+}
+
+TEST_CASE_FIXTURE(TCModuleResolverFixture, "moduleresolver_resolveModule")
+{
+    SUBCASE("resolves_std_module")
+    {
+        auto strNode = makeStringNode("@std/process");
+        auto result = resolver.resolveModule(&context, &strNode, limits);
+
+        REQUIRE(result.has_value());
+        CHECK(result->name == "@std/process.luau");
+        CHECK(getReporter().getErrors().empty());
+    }
+
+    SUBCASE("caches_resolved_module_source")
+    {
+        auto strNode = makeStringNode("@std/process");
+        resolver.resolveModule(&context, &strNode, limits);
+
+        CHECK(resolver.sourceCache.find("@std/process.luau") != nullptr);
+    }
+
+    SUBCASE("fails_for_nonexistent_module")
+    {
+        auto strNode = makeStringNode("@std/does_not_exist");
+        auto result = resolver.resolveModule(&context, &strNode, limits);
+
+        CHECK(!result.has_value());
+        REQUIRE(!getReporter().getErrors().empty());
+        CHECK(getReporter().getErrors()[0].find("Failed to resolve require") != std::string::npos);
+    }
+
+    SUBCASE("fails_for_self_from_userland")
+    {
+        auto strNode = makeStringNode("@self/platform");
+        auto result = resolver.resolveModule(&context, &strNode, limits);
+
+        CHECK(!result.has_value());
+        REQUIRE(!getReporter().getErrors().empty());
+    }
+
+    SUBCASE("returns_nullopt_silently_for_non_string_expr")
+    {
+        Luau::AstExprConstantNil nilNode(Luau::Location{});
+
+        auto result = resolver.resolveModule(&context, &nilNode, limits);
+
+        CHECK(!result.has_value());
+        CHECK(getReporter().getErrors().empty());
+    }
 }
