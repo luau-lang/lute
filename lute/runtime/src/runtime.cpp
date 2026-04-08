@@ -265,6 +265,27 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
     runLoopCv.notify_one();
 }
 
+void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
+{
+    std::unique_lock lock(continuationMutex);
+
+    continuations.push_back(
+        [this, callbackRef = std::move(callbackRef), argPusher = std::move(argPusher)]() mutable
+        {
+            lua_State* newThread = lua_newthread(GL);
+            std::shared_ptr<Ref> threadRef = getRefForThread(newThread);
+            lua_pop(GL, 1);
+
+            callbackRef->push(newThread);
+            int nargs = argPusher(newThread);
+
+            runningThreads.push_back({true, threadRef, nargs});
+        }
+    );
+
+    runLoopCv.notify_one();
+}
+
 void Runtime::runInWorkQueue(std::function<void()> f)
 {
     auto loop = getEventLoop();

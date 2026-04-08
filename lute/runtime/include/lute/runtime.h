@@ -69,6 +69,10 @@ struct Runtime
     // Resume thread with the results computed by the continuation
     void scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua_State*)> cont);
 
+    // Invoke a Luau callback function on a fresh thread.
+    // argPusher should push arguments onto the stack and return the count.
+    void scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher);
+
     // Run 'f' in a libuv work queue
     void runInWorkQueue(std::function<void()> f);
 
