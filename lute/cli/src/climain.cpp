@@ -577,7 +577,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
     }
 
     // Add the discovered luaurc configuration
-    payload.setLuauConfig(tracer.getLuaurcFiles());
+    payload.setLuauConfig(tracer.getLuauConfigFiles());
 
 
     // Encode the payload

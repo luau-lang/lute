@@ -23,9 +23,9 @@ std::string getConfigPathFromBundlePath(const std::string& path)
 
 } // namespace
 
-BundleVfs::BundleVfs(Luau::DenseHashMap<std::string, std::string> luaurcFiles, Luau::DenseHashMap<std::string, std::string> bundleMap)
+BundleVfs::BundleVfs(Luau::DenseHashMap<std::string, std::string> luauConfigFiles, Luau::DenseHashMap<std::string, std::string> bundleMap)
     : filePathToBytecode(std::move(bundleMap))
-    , luaurcFiles(std::move(luaurcFiles))
+    , luauConfigFiles(std::move(luauConfigFiles))
 {
 }
 
@@ -168,8 +168,8 @@ ConfigStatus BundleVfs::getConfigStatus() const
     const std::string luaurcPath = getConfigPathFromBundlePath(modulePath->getPotentialConfigPath(".luaurc"));
     const std::string luauConfigPath = getConfigPathFromBundlePath(modulePath->getPotentialConfigPath(".config.luau"));
 
-    const bool luaurcExists = luaurcFiles.find(luaurcPath) != nullptr;
-    const bool luauConfigExists = luaurcFiles.find(luauConfigPath) != nullptr;
+    const bool luaurcExists = luauConfigFiles.find(luaurcPath) != nullptr;
+    const bool luauConfigExists = luauConfigFiles.find(luauConfigPath) != nullptr;
 
     if (luaurcExists && luauConfigExists)
         return ConfigStatus::Ambiguous;
@@ -197,7 +197,7 @@ std::optional<std::string> BundleVfs::getConfig() const
 
     const std::string configPath = getConfigPathFromBundlePath(modulePath->getPotentialConfigPath(configName));
 
-    const std::string* configContent = luaurcFiles.find(configPath);
+    const std::string* configContent = luauConfigFiles.find(configPath);
     if (configContent != nullptr)
         return *configContent;
 
