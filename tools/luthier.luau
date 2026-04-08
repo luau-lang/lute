@@ -423,6 +423,8 @@ local function generateTypeDefinitionFiles()
 
 	dictionaryEntries["lint/types.luau"] =
 		readFileToString(projectRelative("lute", "cli", "commands", "lint", "types.luau"))
+	dictionaryEntries["transform/types.luau"] =
+		readFileToString(projectRelative("lute", "cli", "commands", "transform", "types.luau"))
 
 	local stringDictionary = ""
 	for key, value in dictionaryEntries do

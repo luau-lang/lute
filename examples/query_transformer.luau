@@ -2,9 +2,11 @@ local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
 local syntax_utils = require("@std/syntax/utils")
 
-local function transform(ctx)
+local transformTypes = require("@transform/types")
+
+local function transform(ctx: transformTypes.Context)
 	return query
-		.findAllFromRoot(ctx.parseresult.root, syntax_utils.isExprBinary)
+		.findAllFromRoot(ctx.parseresult :: syntax.ParseResult, syntax_utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "~="
 				and bin.lhsOperand.tag == "local"
