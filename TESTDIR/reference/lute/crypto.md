@@ -27,6 +27,8 @@ type Hash = { __hash: generic }
 type SecretBox = { ciphertext: buffer, key: buffer, nonce: buffer }
 ```
 
+## Properties and Functions
+
 ## crypto.digest
 ```luau
 function digest(hash: { __hash: any }, message: buffer | string) -> (buffer)

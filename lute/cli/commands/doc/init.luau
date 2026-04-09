@@ -195,6 +195,7 @@ local function generateMarkdown(
     end
 
     -- Detailed API reference
+	table.insert(lines, "## Properties and Functions\n")
     for _, def in definitions do
         table.insert(lines, `## {moduleName}.{def.name}`)
         table.insert(lines, "```luau")

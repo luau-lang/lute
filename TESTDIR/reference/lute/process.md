@@ -41,6 +41,8 @@ type ProcessSystemOptions = { cwd: string?, env: { [string]: any }?, stdio: "def
 type StdioKind = "default" | "inherit" | "none"
 ```
 
+## Properties and Functions
+
 ## process.args
 ```luau
 { [number]: any }

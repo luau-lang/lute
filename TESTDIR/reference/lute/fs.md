@@ -63,6 +63,8 @@ type WatchEvent = { change: boolean, rename: boolean }
 type WatchHandle = { close: (self: t1) -> () }
 ```
 
+## Properties and Functions
+
 ## fs.close
 ```luau
 function close(handle: { err: number, fd: number }) -> ()

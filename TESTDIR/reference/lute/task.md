@@ -17,6 +17,8 @@ local task = require("@lute/task")
 
 ---
 
+## Properties and Functions
+
 ## task.defer
 ```luau
 function defer<T..., U...>(routine: (T...) -> (U...) | thread, T...) -> (thread)

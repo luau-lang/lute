@@ -50,6 +50,8 @@ type Server = { close: () -> (), hostname: string, port: number }
 type ServerResponse = string | { body: string?, headers: { [string]: any }?, status: number? }
 ```
 
+## Properties and Functions
+
 ## net.client
 ```luau
 function client{ request: (url: string, metadata: { body: string?, headers: { [string]: any }?, method: string? }?) -> ({ body: string, headers: { [string]: any }, ok: boolean, status: number }) }

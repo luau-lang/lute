@@ -12,6 +12,8 @@ local io = require("@lute/io")
 
 ---
 
+## Properties and Functions
+
 ## io.read
 ```luau
 function read() -> (string)

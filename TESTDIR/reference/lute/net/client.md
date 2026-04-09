@@ -24,6 +24,8 @@ type Metadata = { body: string?, headers: { [string]: any }?, method: string? }
 type Response = { body: string, headers: { [string]: any }, ok: boolean, status: number }
 ```
 
+## Properties and Functions
+
 ## client.request
 ```luau
 function request(url: string, metadata: { body: string?, headers: { [string]: any }?, method: string? }?) -> ({ body: string, headers: { [string]: any }, ok: boolean, status: number })

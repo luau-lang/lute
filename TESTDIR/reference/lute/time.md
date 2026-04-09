@@ -26,6 +26,8 @@ type Duration = {}
 type Instant = {}
 ```
 
+## Properties and Functions
+
 ## time.duration
 ```luau
 function duration{ create: (seconds: number, subsecnanos: number) -> ({}), days: (days: number) -> ({}), hours: (hours: number) -> ({}), microseconds: (microseconds: number) -> ({}), milliseconds: (milliseconds: number) -> ({}), minutes: (minutes: number) -> ({}), nanoseconds: (nanoseconds: number) -> ({}), seconds: (seconds: number) -> ({}), weeks: (weeks: number) -> ({}) }

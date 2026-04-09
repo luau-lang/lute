@@ -39,6 +39,8 @@ type Server = { close: () -> (), hostname: string, port: number }
 type ServerResponse = string | { body: string?, headers: { [string]: any }?, status: number? }
 ```
 
+## Properties and Functions
+
 ## server.serve
 ```luau
 function serve(config: (request: { body: string, headers: { [string]: any }, method: string, path: string, query: { [string]: any } }) -> (string | { body: string?, headers: { [string]: any }?, status: number? }) | { handler: (request: { body: string, headers: { [string]: any }, method: string, path: string, query: { [string]: any } }) -> (string | { body: string?, headers: { [string]: any }?, status: number? }), hostname: string?, port: number?, reuseport: boolean?, tls: { cafilename: string?, certfilename: string, keyfilename: string, passphrase: string? }? }) -> ({ close: () -> (), hostname: string, port: number })

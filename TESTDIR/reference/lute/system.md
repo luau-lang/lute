@@ -27,6 +27,8 @@ local system = require("@lute/system")
 type CpuInfo = { model: string, speed: number, times: { idle: number, irq: number, nice: number, sys: number, user: number } }
 ```
 
+## Properties and Functions
+
 ## system.arch
 ```luau
 string
