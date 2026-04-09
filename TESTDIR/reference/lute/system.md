@@ -29,7 +29,7 @@ type CpuInfo = { model: string, speed: number, times: { idle: number, irq: numbe
 
 ## system.arch
 ```luau
-function archstring
+string
 ```
 ---
 
@@ -53,7 +53,7 @@ function hostName() -> (string)
 
 ## system.os
 ```luau
-function osstring
+string
 ```
 ---
 

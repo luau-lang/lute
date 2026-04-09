@@ -37,7 +37,7 @@ testing the block comment without = here
 
 ## crypto.hash
 ```luau
-function hash{ blake2b256: { __hash: "blake2b256" }, md5: { __hash: "md5" }, sha1: { __hash: "sha1" }, sha256: { __hash: "sha256" }, sha512: { __hash: "sha512" } }
+{ blake2b256: { __hash: "blake2b256" }, md5: { __hash: "md5" }, sha1: { __hash: "sha1" }, sha256: { __hash: "sha256" }, sha512: { __hash: "sha512" } }
 ```
 ---
 

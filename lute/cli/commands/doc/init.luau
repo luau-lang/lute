@@ -198,7 +198,13 @@ local function generateMarkdown(
     for _, def in definitions do
         table.insert(lines, `## {moduleName}.{def.name}`)
         table.insert(lines, "```luau")
-        table.insert(lines, `function {def.name}{def.signature}`)
+
+		if string.find(def.signature, "->") then
+			table.insert(lines, `function {def.name}{def.signature}`)
+		else
+			table.insert(lines, `{def.signature}`)
+		end
+
         table.insert(lines, "```")
         if def.doc then table.insert(lines, def.doc .. "\n") end
         table.insert(lines, "---\n")

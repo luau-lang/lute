@@ -43,7 +43,7 @@ type StdioKind = "default" | "inherit" | "none"
 
 ## process.args
 ```luau
-function args{ [number]: any }
+{ [number]: any }
 ```
 ---
 
@@ -55,7 +55,7 @@ function cwd() -> (string)
 
 ## process.env
 ```luau
-function env{ [string]: any }
+{ [string]: any }
 ```
 ---
 
