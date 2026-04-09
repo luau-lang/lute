@@ -67,7 +67,6 @@ struct ServerWebSocketHandle
 template <bool SSL>
 struct PerSocketData
 {
-    std::weak_ptr<ServerLoopState> state;
     std::shared_ptr<ServerWebSocketHandle> handle;
 };
 
@@ -547,7 +546,6 @@ static void setupAppAndListen(AppT* app, std::shared_ptr<ServerLoopState> state,
             [state](auto* ws)
             {
                 auto* data = ws->getUserData();
-                data->state = state;
                 data->handle = std::make_shared<ServerWebSocketHandle>();
                 data->handle->wsPtr = ws;
                 data->handle->sendFn = &wsSendImpl<SSL>;
