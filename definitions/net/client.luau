@@ -18,4 +18,22 @@ function client.request(url: string, metadata: Metadata?): Response
 	error("not implemented")
 end
 
+export type WebSocketOptions = {
+	headers: { [string]: string }?,
+	protocol: string?,
+	onopen: (() -> ())?,
+	onmessage: ((message: string, binary: boolean) -> ())?,
+	onclose: ((code: number, reason: string) -> ())?,
+	onerror: ((error: string) -> ())?,
+}
+
+export type WebSocket = {
+	send: (self: WebSocket, data: string, binary: boolean?) -> boolean,
+	close: (self: WebSocket) -> (),
+}
+
+function client.websocket(url: string, options: WebSocketOptions?): WebSocket
+	error("not implemented")
+end
+
 return client
