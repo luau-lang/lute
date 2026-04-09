@@ -53,17 +53,17 @@ local function lint(
 	end
 
 	-- Find all if statements
-	return query.findallfromroot(ast, utils.isStatIf):map(function(ifStat): lintTypes.LintViolation?
+	return query.findAllFromRoot(ast, utils.isStatIf):map(function(ifStat): lintTypes.LintViolation?
 		-- Check if the then block is empty
 		if
 			isBlockEmpty(
-				ifStat.thenblock,
+				ifStat.thenBlock,
 				commentsCount,
-				ifStat.thenkeyword.trailingtrivia,
+				ifStat.thenKeyword.trailingTrivia,
 				if #ifStat.elseifs > 0 -- trailingToken
-					then ifStat.elseifs[1].elseifkeyword.leadingtrivia
-					elseif ifStat.elsekeyword then ifStat.elsekeyword.leadingtrivia
-					else ifStat.endkeyword.leadingtrivia
+					then ifStat.elseifs[1].elseIfKeyword.leadingTrivia
+					elseif ifStat.elseKeyword then ifStat.elseKeyword.leadingTrivia
+					else ifStat.endKeyword.leadingTrivia
 			)
 		then
 			return {
@@ -80,13 +80,13 @@ local function lint(
 		for i, elseIfStat in ifStat.elseifs do
 			if
 				isBlockEmpty(
-					elseIfStat.thenblock,
+					elseIfStat.thenBlock,
 					commentsCount,
-					elseIfStat.thenkeyword.trailingtrivia,
+					elseIfStat.thenKeyword.trailingTrivia,
 					if i < #ifStat.elseifs -- trailingToken
-						then ifStat.elseifs[i + 1].elseifkeyword.leadingtrivia
-						elseif ifStat.elsekeyword then ifStat.elsekeyword.leadingtrivia
-						else ifStat.endkeyword.leadingtrivia
+						then ifStat.elseifs[i + 1].elseIfKeyword.leadingTrivia
+						elseif ifStat.elseKeyword then ifStat.elseKeyword.leadingTrivia
+						else ifStat.endKeyword.leadingTrivia
 				)
 			then
 				return {
@@ -101,14 +101,14 @@ local function lint(
 		end
 
 		-- Check else block if it exists
-		if ifStat.elseblock then
-			assert(ifStat.elsekeyword, "elseblock should have an elsekeyword")
+		if ifStat.elseBlock then
+			assert(ifStat.elseKeyword, "elseblock should have an elsekeyword")
 			if
 				isBlockEmpty(
-					ifStat.elseblock,
+					ifStat.elseBlock,
 					commentsCount,
-					ifStat.elsekeyword.trailingtrivia,
-					ifStat.endkeyword.leadingtrivia
+					ifStat.elseKeyword.trailingTrivia,
+					ifStat.endKeyword.leadingTrivia
 				)
 			then
 				return {

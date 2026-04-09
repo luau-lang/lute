@@ -27,6 +27,7 @@
 #include "lualib.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <ctime>
 #include <optional>
 #include <string>
@@ -394,7 +395,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         return 1;
     }
 
-    Runtime runtime;
+    Runtime runtime{reporter};
     lua_State* L;
 
     if (packageAwareness)
@@ -577,7 +578,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
     }
 
     // Add the discovered luaurc configuration
-    payload.setLuauConfig(tracer.getLuaurcFiles());
+    payload.setLuauConfig(tracer.getLuauConfigFiles());
 
 
     // Encode the payload
@@ -648,7 +649,7 @@ void setupVersionLibrary(lua_State* L)
 
 int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, LuteReporter& reporter)
 {
-    Runtime runtime;
+    Runtime runtime{reporter};
     lua_State* L = setupCliCommandState(runtime, setupVersionLibrary);
 
     std::string bytecode = Luau::compile(std::string(result.contents), copts());
@@ -660,12 +661,18 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     Luau::assertHandler() = assertionHandler;
     setLuauFlags();
 
+    if (const char* unbuffered = std::getenv("LUTE_UNBUFFERED"); unbuffered && std::string_view(unbuffered) == "1")
+    {
+        setvbuf(stdout, nullptr, _IONBF, 0);
+        setvbuf(stderr, nullptr, _IONBF, 0);
+    }
+
     std::string err = "";
 
     LuteExecutable exe{argv[0], reporter};
     if (auto payload = exe.extract())
     {
-        Runtime runtime;
+        Runtime runtime{reporter};
 
         lua_State* GL = setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
         std::string entryPoint = payload->entryPointPath;

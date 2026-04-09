@@ -576,3 +576,40 @@ TEST_CASE_FIXTURE(LuteFixture, "compile_command_e2e_requirealias")
     // Clean up
     std::remove(outputExePath.c_str());
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "compile_command_e2e_luau_config")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+
+    // Use a test file that resolves aliases via .config.luau (not .luaurc)
+    std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/staticrequires_luau_config/main.luau");
+
+    // Create a temporary output path for the compiled executable
+    std::string outputExePath = joinPaths(luteProjectRoot, "tests/temp_compiled_e2e_luau_config");
+#ifdef _WIN32
+    outputExePath += ".exe";
+#endif
+
+    char executablePlaceholder[] = "lute";
+    char compileCommand[] = "compile";
+    char outputFlag[] = "--output";
+
+    std::vector<char*> argv = {executablePlaceholder, compileCommand, testFilePath.data(), outputFlag, outputExePath.data()};
+
+    // Compile should succeed
+    int compileResult = cliMain(argv.size(), argv.data(), getReporter());
+    REQUIRE(compileResult == 0);
+
+    // Verify the output file was created
+    std::ifstream checkFile(outputExePath, std::ios::binary);
+    REQUIRE(checkFile.is_open());
+    checkFile.close();
+
+    // Run the compiled executable — alias resolution must work at runtime
+    std::vector<char*> runArgv = {outputExePath.data()};
+    int runResult = cliMain(runArgv.size(), runArgv.data(), getReporter());
+    CHECK(runResult == 0);
+
+    // Clean up
+    std::remove(outputExePath.c_str());
+}

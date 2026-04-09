@@ -21,7 +21,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 		local box = crypto.secretbox.seal(buf)
 		local opened = crypto.secretbox.open(box)
 
-		assert.buffereq(opened, buf)
+		assert.eq(opened, buf)
 	end)
 
 	suite:case("secretboxSeparateKeygen", function(assert)
@@ -44,7 +44,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 		local box = crypto.secretbox.seal(buf)
 		buffer.writeu32(box.ciphertext, 2, 10_11_2025)
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.open(box)
 		end)
 	end)
@@ -62,7 +62,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 			key = box.key,
 		}
 
-		assert.errors(function()
+		assert.throws(function()
 			-- We are testing that this fails when `ciphertext` is a string
 			-- rather than a buffer, so we must lie to Luau.
 			crypto.secretbox.open(other :: any)
@@ -82,7 +82,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 			key = buffer.create(5),
 		}
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.open(other)
 		end)
 	end)
@@ -90,35 +90,35 @@ test.suite("CryptoRuntimeTests", function(suite)
 	suite:case("secretboxOnIllTypedInputs", function(assert)
 		local message = "I see no reason why gunpowder treason should ever be forgot."
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.seal({ message } :: any)
 		end)
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.seal({ message, message, message } :: any)
 		end)
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.seal({ ciphertext = message, key = message, nonce = message } :: any)
 		end)
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.open(message :: any)
 		end)
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.open({ ciphertext = message, key = buffer.create(0), nonce = "woof" } :: any)
 		end)
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.open({ ciphertext = message, key = "woof", nonce = buffer.create(0) } :: any)
 		end)
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.open({ ciphertext = message } :: any)
 		end)
 
-		assert.errors(function()
+		assert.throws(function()
 			crypto.secretbox.open(nil :: any)
 		end)
 	end)

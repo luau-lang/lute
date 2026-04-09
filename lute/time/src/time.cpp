@@ -460,9 +460,13 @@ int lua_since(lua_State* L)
 }
 } // namespace libtime
 
-static void init_duration_lib(lua_State* L)
+void init_duration_lib(lua_State* L)
 {
-    luaL_newmetatable(L, kDurationType);
+    if (luaL_newmetatable(L, kDurationType) == 0)
+    {
+        lua_pop(L, 1);
+        return;
+    }
 
     // Protect metatable from being changed
     lua_pushstring(L, "The metatable is locked");
@@ -499,29 +503,29 @@ static void init_duration_lib(lua_State* L)
     // __index table
     lua_createtable(L, 0, 11);
 
-    lua_pushcfunction(L, duration_tonanoseconds, "Duration__tonanoseconds");
-    lua_setfield(L, -2, "tonanoseconds");
+    lua_pushcfunction(L, duration_tonanoseconds, "Duration__toNanoseconds");
+    lua_setfield(L, -2, "toNanoseconds");
 
-    lua_pushcfunction(L, duration_tomicroseconds, "Duration__tomicroseconds");
-    lua_setfield(L, -2, "tomicroseconds");
+    lua_pushcfunction(L, duration_tomicroseconds, "Duration__toMicroseconds");
+    lua_setfield(L, -2, "toMicroseconds");
 
-    lua_pushcfunction(L, duration_tomilliseconds, "Duration__tomilliseconds");
-    lua_setfield(L, -2, "tomilliseconds");
+    lua_pushcfunction(L, duration_tomilliseconds, "Duration__toMilliseconds");
+    lua_setfield(L, -2, "toMilliseconds");
 
-    lua_pushcfunction(L, duration_toseconds, "Duration__toseconds");
-    lua_setfield(L, -2, "toseconds");
+    lua_pushcfunction(L, duration_toseconds, "Duration__toSeconds");
+    lua_setfield(L, -2, "toSeconds");
 
-    lua_pushcfunction(L, duration_tominutes, "Duration__tominutes");
-    lua_setfield(L, -2, "tominutes");
+    lua_pushcfunction(L, duration_tominutes, "Duration__toMinutes");
+    lua_setfield(L, -2, "toMinutes");
 
-    lua_pushcfunction(L, duration_tohours, "Duration__tohours");
-    lua_setfield(L, -2, "tohours");
+    lua_pushcfunction(L, duration_tohours, "Duration__toHours");
+    lua_setfield(L, -2, "toHours");
 
-    lua_pushcfunction(L, duration_todays, "Duration__todays");
-    lua_setfield(L, -2, "todays");
+    lua_pushcfunction(L, duration_todays, "Duration__toDays");
+    lua_setfield(L, -2, "toDays");
 
-    lua_pushcfunction(L, duration_toweeks, "Duration__toweeks");
-    lua_setfield(L, -2, "toweeks");
+    lua_pushcfunction(L, duration_toweeks, "Duration__toWeeks");
+    lua_setfield(L, -2, "toWeeks");
 
     lua_pushcfunction(L, duration_subsecnanos, "Duration__subsecnanos");
     lua_setfield(L, -2, "subsecnanos");

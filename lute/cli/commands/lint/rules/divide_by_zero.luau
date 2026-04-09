@@ -18,23 +18,23 @@ local function lint(
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query
-		.findallfromroot(ast, utils.isExprBinary)
+		.findAllFromRoot(ast, utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "/" or bin.operator.text == "//" or bin.operator.text == "%"
 		end)
 		:filter(function(bin)
-			return isZeroLiteral(bin.rhsoperand)
+			return isZeroLiteral(bin.rhsOperand)
 		end)
-		:maptoarray(
+		:mapToArray(
 			function(
 				n: syntax.AstExprBinary
 			): lintTypes.LintViolation? -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
 				local suggestedfix = nil
 				if n.operator.text == "/" or n.operator.text == "//" then
-					if isZeroLiteral(n.lhsoperand) then
+					if isZeroLiteral(n.lhsOperand) then
 						suggestedfix = table.freeze({ fix = "math.nan" })
-					elseif n.lhsoperand.tag == "unary" and n.lhsoperand.operator.text == "-" then
-						if isZeroLiteral(n.lhsoperand.operand) then
+					elseif n.lhsOperand.tag == "unary" and n.lhsOperand.operator.text == "-" then
+						if isZeroLiteral(n.lhsOperand.operand) then
 							suggestedfix = table.freeze({ fix = "math.nan" })
 						else
 							suggestedfix = table.freeze({ fix = "-math.huge" })

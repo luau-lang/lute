@@ -13,20 +13,20 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 	local location = lint.location
 	local filepath = if lint.sourcepath then path.format(lint.sourcepath) else "input"
 
-	if location.beginline == location.endline then
-		local gutterSize = math.floor(math.log10(location.endline)) + 3 -- + 2 for padding around line number
+	if location.beginLine == location.endLine then
+		local gutterSize = math.floor(math.log10(location.endLine)) + 3 -- + 2 for padding around line number
 		local blankGutter = string.rep(" ", gutterSize)
 
 		-- Compute the number of tabs before the violation and within the violation
-		local prelintTabs = stringext.count(sourceLines[location.beginline], "\t", 1, location.begincolumn - 1)
+		local prelintTabs = stringext.count(sourceLines[location.beginLine], "\t", 1, location.beginColumn - 1)
 		local lintTabs =
-			stringext.count(sourceLines[location.beginline], "\t", location.begincolumn, location.endcolumn)
+			stringext.count(sourceLines[location.beginLine], "\t", location.beginColumn, location.endColumn)
 		-- Convert tabs in the source line to spaces
 		local sourceLine =
-			` {location.beginline} │ {sourceLines[location.beginline]:gsub("\t", string.rep(" ", TAB_SIZE))}`
+			` {location.beginLine} │ {sourceLines[location.beginLine]:gsub("\t", string.rep(" ", TAB_SIZE))}`
 
 		local filepathLine =
-			`{blankGutter}┌── {filepath}:{location.beginline}:{location.begincolumn}-{location.endcolumn} ──`
+			`{blankGutter}┌── {filepath}:{location.beginLine}:{location.beginColumn}-{location.endColumn} ──`
 		if #filepathLine < #sourceLine then
 			filepathLine ..= string.rep("─", #sourceLine - #filepathLine)
 		end
@@ -35,23 +35,23 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 		print(`{blankGutter}│`)
 		print(sourceLine)
 		print(
-			`{blankGutter}│ {string.rep(" ", location.begincolumn - 1 + (prelintTabs * (TAB_SIZE - 1)))}{string.rep(
+			`{blankGutter}│ {string.rep(" ", location.beginColumn - 1 + (prelintTabs * (TAB_SIZE - 1)))}{string.rep(
 				"^",
-				location.endcolumn - location.begincolumn + (lintTabs * (TAB_SIZE - 1))
+				location.endColumn - location.beginColumn + (lintTabs * (TAB_SIZE - 1))
 			)}`
 		)
 		print(`{blankGutter}│`)
 		print()
 	else
-		local gutterSize = math.floor(math.log10(location.endline)) + 3 -- + 2 for padding around line number
+		local gutterSize = math.floor(math.log10(location.endLine)) + 3 -- + 2 for padding around line number
 		local blankGutter = string.rep(" ", gutterSize)
 
-		local subbedSourceLine = sourceLines[location.beginline]:gsub("\t", string.rep(" ", TAB_SIZE))
+		local subbedSourceLine = sourceLines[location.beginLine]:gsub("\t", string.rep(" ", TAB_SIZE))
 		local renderedSourceLines = {
-			` {string.format(`%-{gutterSize - 2}d`, location.beginline)} │ ╭ {subbedSourceLine}`,
+			` {string.format(`%-{gutterSize - 2}d`, location.beginLine)} │ ╭ {subbedSourceLine}`,
 		}
 		local maxSourceLineLength = #renderedSourceLines[1]
-		for lineNum = location.beginline + 1, location.endline do
+		for lineNum = location.beginLine + 1, location.endLine do
 			subbedSourceLine = sourceLines[lineNum]:gsub("\t", string.rep(" ", TAB_SIZE))
 			table.insert(
 				renderedSourceLines,
@@ -61,7 +61,7 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 		end
 
 		local filepathLine =
-			`{blankGutter}┌── {filepath}:{location.beginline}:{location.begincolumn}-{location.endline}:{location.endcolumn} ──`
+			`{blankGutter}┌── {filepath}:{location.beginLine}:{location.beginColumn}-{location.endLine}:{location.endColumn} ──`
 		if #filepathLine < maxSourceLineLength then
 			filepathLine ..= string.rep("─", maxSourceLineLength - #filepathLine)
 		end
@@ -94,7 +94,7 @@ function printerLib.printLintsWithSource(lints: { types.LintViolation }, sourceC
 end
 
 function printerLib.printLintsWithPath(lints: { types.LintViolation }, sourcePath: path.Path): ()
-	printerLib.printLintsWithSource(lints, fs.readfiletostring(sourcePath))
+	printerLib.printLintsWithSource(lints, fs.readFileToString(sourcePath))
 end
 
 return table.freeze(printerLib)

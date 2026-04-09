@@ -516,7 +516,7 @@ std::optional<std::string> getExecPath(std::string* error)
     return *cachedPath;
 }
 
-int execpath(lua_State* L)
+int execPath(lua_State* L)
 {
     std::string error;
     std::optional<std::string> execPath = getExecPath(&error);

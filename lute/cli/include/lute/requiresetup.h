@@ -22,6 +22,6 @@ lua_State* setupPkgRunState(
 
 lua_State* setupBundleState(
     Runtime& runtime,
-    Luau::DenseHashMap<std::string, std::string> luaurcFiles,
+    Luau::DenseHashMap<std::string, std::string> luauConfigFiles,
     Luau::DenseHashMap<std::string, std::string> bundleMap
 );

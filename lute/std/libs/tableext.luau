@@ -50,7 +50,7 @@ end
 
 -- Functions on array-like tables
 
-function tableext.toset<T>(tbl: { T }): { [T]: true }
+function tableext.toSet<T>(tbl: { T }): { [T]: true }
 	local set: { [T]: true } = {}
 	for _, v in tbl do
 		set[v] = true

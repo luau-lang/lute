@@ -59,7 +59,7 @@ function posix.format(path: Pathlike): string
 	end
 end
 
-function posix.isabsolute(path: Pathlike): boolean
+function posix.isAbsolute(path: Pathlike): boolean
 	path = if typeof(path) == "string" then posix.parse(path) else path
 	return path.absolute
 end
@@ -178,7 +178,7 @@ function posix.resolve(...: Pathlike): Path
 	local path = posix.parse(parts[#parts])
 
 	for i = #parts - 1, 1, -1 do
-		if posix.isabsolute(path) then
+		if posix.isAbsolute(path) then
 			break
 		end
 
@@ -192,7 +192,7 @@ function posix.resolve(...: Pathlike): Path
 		path = segment
 	end
 
-	if not posix.isabsolute(path) then
+	if not posix.isAbsolute(path) then
 		local cwd = posix.parse(process.cwd())
 		joinHelper(cwd, path)
 		path = cwd

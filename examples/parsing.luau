@@ -2,5 +2,5 @@ local syntax = require("@std/syntax")
 
 local pretty = require("@batteries/pp")
 
-local foo = syntax.parseexpr("5")
+local foo = syntax.parseExpr("5")
 print(pretty(foo))

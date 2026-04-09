@@ -6,15 +6,15 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ nil_field_suite.access_field_of_nil
-	Runtime error: <ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:6: attempt to index nil with 'field'
+	Runtime error: <ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:7: attempt to index nil with 'field'
 Stacktrace:
-<ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:6: attempt to index nil with 'field'
-@std/test/failure.luau:27 function runtimeerror
-@std/test/runner.luau:117 function handlefailure
-<ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:6
-@std/test/runner.luau:130 function run
-@std/test/init.luau:103 function run
-<ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:10
+<ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:7: attempt to index nil with 'field'
+@std/test/failure.luau:29 function runtimeerror
+@std/test/runner.luau:119 function handlefailure
+<ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:7
+@std/test/runner.luau:132 function run
+@std/test/runner.luau:166 function runRegisteredTests
+<ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:12
 
 
 --------------------------------------------------

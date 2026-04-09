@@ -5,9 +5,9 @@ TEST RESULTS
 
 Failed Tests (1):
 
-❌ erroreq_error
-	<ROOT>/tests/std/snapshots/assert_error_eq_no_error.snap.luau:4
-		erroreq: Function did not error as expected.
+❌ throwsWithError
+	<ROOT>/tests/std/snapshots/assert_error_eq_no_error.snap.luau:5
+		throwsWith: Expected function to throw/raise error.
 
 --------------------------------------------------
 Total:  1

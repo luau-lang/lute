@@ -9,8 +9,8 @@ local snapty = require("./types")
 -- e.g. /foo/bar.snap.luau -> /foo/bar.snap
 local function artifactpath(filepath: path.Path): string
 	local f = path.format(filepath)
-	assert(strext.hassuffix(f, ".snap.luau"), `expected {f} to have suffix .snap.luau`)
-	return strext.removesuffix(f, ".luau") -- strips ".luau"
+	assert(strext.hasSuffix(f, ".snap.luau"), `expected {f} to have suffix .snap.luau`)
+	return strext.removeSuffix(f, ".luau") -- strips ".luau"
 end
 
 local function posixify(str)
@@ -33,7 +33,7 @@ function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 		new = {},
 	}
 
-	local execpath = path.format(process.execpath())
+	local execpath = path.format(process.execPath())
 
 	-- Compute the normalized current working directory exactly once
 	--[[
@@ -63,7 +63,7 @@ function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 			continue
 		end
 
-		local expected = fs.readfiletostring(artifactpath)
+		local expected = fs.readFileToString(artifactpath)
 
 		if actual == expected then
 			table.insert(result.passed, { filepath = filepath, artifactpath = artifactpath })

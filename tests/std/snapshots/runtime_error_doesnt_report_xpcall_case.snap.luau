@@ -1,4 +1,5 @@
 local test = require("@std/test")
+local runner = require("@std/test/runner")
 
 test.case("access_field_of_nil", function(assert)
 	local t = nil :: any
@@ -6,4 +7,4 @@ test.case("access_field_of_nil", function(assert)
 	print(value)
 end)
 
-test.run()
+runner.runRegisteredTests()

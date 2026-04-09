@@ -561,7 +561,7 @@ function json.object(props: { [string]: Value }): Object
 	return res
 end
 
-function json.asobject(value: Value): Object?
+function json.asObject(value: Value): Object?
 	if typeof(value) == "table" and value[object_key] then
 		return value :: Object
 	end
@@ -569,7 +569,7 @@ function json.asobject(value: Value): Object?
 	return nil
 end
 
-function json.asarray(value: Value): Array?
+function json.asArray(value: Value): Array?
 	if typeof(value) == "table" and not value[object_key] then
 		return value :: Array
 	end

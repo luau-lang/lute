@@ -2,10 +2,10 @@
 local luau = {}
 
 type SpanData = {
-	read beginline: number,
-	read begincolumn: number,
-	read endline: number,
-	read endcolumn: number,
+	read beginLine: number,
+	read beginColumn: number,
+	read endLine: number,
+	read endColumn: number,
 }
 type SpanMT = {
 	read __lt: (a: SpanData, b: SpanData) -> boolean,
@@ -14,7 +14,7 @@ export type Span = setmetatable<SpanData, SpanMT>
 
 luau.span = {}
 
-function luau.span.create(tbl: { beginline: number, begincolumn: number, endline: number, endcolumn: number }): Span
+function luau.span.create(tbl: { beginLine: number, beginColumn: number, endLine: number, endColumn: number }): Span
 	error("not implemented")
 end
 
@@ -40,10 +40,10 @@ export type MultiLineComment = {
 export type Trivia = Whitespace | SingleLineComment | MultiLineComment
 
 export type Token<Kind = string> = {
-	read leadingtrivia: { Trivia },
+	read leadingTrivia: { Trivia },
 	read location: Span,
 	read text: Kind,
-	read trailingtrivia: { Trivia },
+	read trailingTrivia: { Trivia },
 	read kind: "token",
 }
 
@@ -65,9 +65,9 @@ export type AstExprGroup = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "group",
-	read openparens: Token<"(">,
+	read openParens: Token<"(">,
 	read expression: AstExpr,
-	read closeparens: Token<")">,
+	read closeParens: Token<")">,
 }
 
 export type AstExprConstantNil = {
@@ -97,8 +97,8 @@ export type AstExprConstantString = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "string",
-	read quotestyle: "single" | "double" | "block" | "interp",
-	read blockdepth: number,
+	read quoteStyle: "single" | "double" | "block" | "interp",
+	read blockDepth: number,
 	read token: Token<string>,
 }
 
@@ -125,9 +125,9 @@ export type AstExprCall = {
 	read kind: "expr",
 	read tag: "call",
 	read func: AstExpr,
-	read openparens: Token<"(">?,
+	read openParens: Token<"(">?,
 	read arguments: Punctuated<AstExpr>,
-	read closeparens: Token<")">?,
+	read closeParens: Token<")">?,
 	read self: boolean,
 	read argLocation: Span,
 }
@@ -137,11 +137,11 @@ export type AstExprInstantiate = {
 	read kind: "expr",
 	read tag: "instantiate",
 	read expr: AstExpr,
-	read leftarrow1: Token<"<">,
-	read leftarrow2: Token<"<">,
-	read typearguments: Punctuated<AstType | AstTypePack>,
-	read rightarrow1: Token<">">,
-	read rightarrow2: Token<">">,
+	read leftArrow1: Token<"<">,
+	read leftArrow2: Token<"<">,
+	read typeArguments: Punctuated<AstType | AstTypePack>,
+	read rightArrow1: Token<">">,
+	read rightArrow2: Token<">">,
 }
 
 export type AstExprIndexName = {
@@ -151,7 +151,7 @@ export type AstExprIndexName = {
 	read expression: AstExpr,
 	read accessor: Token<"." | ":">,
 	read index: Token<string>,
-	read indexlocation: Span,
+	read indexLocation: Span,
 }
 
 export type AstExprIndexExpr = {
@@ -159,9 +159,9 @@ export type AstExprIndexExpr = {
 	read kind: "expr",
 	read tag: "index",
 	read expression: AstExpr,
-	read openbrackets: Token<"[">,
+	read openBrackets: Token<"[">,
 	read index: AstExpr,
-	read closebrackets: Token<"]">,
+	read closeBrackets: Token<"]">,
 }
 
 export type AstExprFunction = {
@@ -169,22 +169,22 @@ export type AstExprFunction = {
 	read kind: "expr",
 	read tag: "function",
 	read attributes: { AstAttribute },
-	read functionkeyword: Token<"function">,
-	read opengenerics: Token<"<">?,
+	read functionKeyword: Token<"function">,
+	read openGenerics: Token<"<">?,
 	read generics: Punctuated<AstGenericType>?,
-	read genericpacks: Punctuated<AstGenericTypePack>?,
-	read closegenerics: Token<">">?,
-	read openparens: Token<"(">,
+	read genericPacks: Punctuated<AstGenericTypePack>?,
+	read closeGenerics: Token<">">?,
+	read openParens: Token<"(">,
 	read self: AstLocal?,
 	read parameters: Punctuated<AstLocal>,
 	read vararg: Token<"...">?,
-	read varargcolon: Token<":">?,
-	read varargannotation: AstTypePack?,
-	read closeparens: Token<")">,
-	read returnspecifier: Token<":">?,
-	read returnannotation: AstTypePack?,
+	read varargColon: Token<":">?,
+	read varargAnnotation: AstTypePack?,
+	read closeParens: Token<")">,
+	read returnSpecifier: Token<":">?,
+	read returnAnnotation: AstTypePack?,
 	read body: AstStatBlock,
-	read endkeyword: Token<"end">,
+	read endKeyword: Token<"end">,
 }
 
 -- helper types for items contained in an AstExprTable, not actually AstExprs themselves
@@ -193,7 +193,7 @@ export type AstTableExprListItem = {
 	read kind: "list",
 	read value: AstExpr,
 	read separator: Token<"," | ";">?,
-	read istableitem: true,
+	read isTableItem: true,
 }
 
 export type AstTableExprRecordItem = {
@@ -203,19 +203,19 @@ export type AstTableExprRecordItem = {
 	read equals: Token<"=">,
 	read value: AstExpr,
 	read separator: Token<"," | ";">?,
-	read istableitem: true,
+	read isTableItem: true,
 }
 
 export type AstTableExprGeneralItem = {
 	read location: Span,
 	read kind: "general",
-	read indexeropen: Token<"[">,
+	read indexerOpen: Token<"[">,
 	read key: AstExpr,
-	read indexerclose: Token<"]">,
+	read indexerClose: Token<"]">,
 	read equals: Token<"=">,
 	read value: AstExpr,
 	read separator: Token<"," | ";">?,
-	read istableitem: true,
+	read isTableItem: true,
 }
 
 export type AstTableExprItem = AstTableExprListItem | AstTableExprRecordItem | AstTableExprGeneralItem
@@ -224,9 +224,9 @@ export type AstExprTable = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "table",
-	read openbrace: Token<"{">,
+	read openBrace: Token<"{">,
 	read entries: { AstTableExprItem },
-	read closebrace: Token<"}">,
+	read closeBrace: Token<"}">,
 }
 
 export type AstExprUnary = {
@@ -241,9 +241,9 @@ export type AstExprBinary = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "binary",
-	read lhsoperand: AstExpr,
+	read lhsOperand: AstExpr,
 	read operator: Token,
-	read rhsoperand: AstExpr,
+	read rhsOperand: AstExpr,
 }
 
 export type AstExprInterpString = {
@@ -265,23 +265,23 @@ export type AstExprTypeAssertion = {
 
 -- helper type for elseif clauses of an if-else expression, not actually an AstExpr itself
 export type AstElseIfExpr = {
-	read elseifkeyword: Token<"elseif">,
+	read elseIfKeyword: Token<"elseif">,
 	read condition: AstExpr,
-	read thenkeyword: Token<"then">,
-	read thenexpr: AstExpr,
+	read thenKeyword: Token<"then">,
+	read thenExpr: AstExpr,
 }
 
 export type AstExprIfElse = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "conditional",
-	read ifkeyword: Token<"if">,
+	read ifKeyword: Token<"if">,
 	read condition: AstExpr,
-	read thenkeyword: Token<"then">,
-	read thenexpr: AstExpr,
+	read thenKeyword: Token<"then">,
+	read thenExpr: AstExpr,
 	read elseifs: { AstElseIfExpr },
-	read elsekeyword: Token<"else">,
-	read elseexpr: AstExpr,
+	read elseKeyword: Token<"else">,
+	read elseExpr: AstExpr,
 }
 
 export type AstExpr =
@@ -316,50 +316,50 @@ export type AstStatDo = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "do",
-	read dokeyword: Token<"do">,
+	read doKeyword: Token<"do">,
 	read body: AstStatBlock,
-	read endkeyword: Token<"end">,
+	read endKeyword: Token<"end">,
 }
 
 export type AstElseIfStat = {
-	read elseifkeyword: Token<"elseif">,
+	read elseIfKeyword: Token<"elseif">,
 	read condition: AstExpr,
-	read thenkeyword: Token<"then">,
-	read thenblock: AstStatBlock,
+	read thenKeyword: Token<"then">,
+	read thenBlock: AstStatBlock,
 }
 
 export type AstStatIf = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "conditional",
-	read ifkeyword: Token<"if">,
+	read ifKeyword: Token<"if">,
 	read condition: AstExpr,
-	read thenkeyword: Token<"then">,
-	read thenblock: AstStatBlock,
+	read thenKeyword: Token<"then">,
+	read thenBlock: AstStatBlock,
 	read elseifs: { AstElseIfStat },
-	read elsekeyword: Token<"else">?, -- TODO: This could be elseif!
-	read elseblock: AstStatBlock?,
-	read endkeyword: Token<"end">,
+	read elseKeyword: Token<"else">?, -- TODO: This could be elseif!
+	read elseBlock: AstStatBlock?,
+	read endKeyword: Token<"end">,
 }
 
 export type AstStatWhile = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "while",
-	read whilekeyword: Token<"while">,
+	read whileKeyword: Token<"while">,
 	read condition: AstExpr,
-	read dokeyword: Token<"do">,
+	read doKeyword: Token<"do">,
 	read body: AstStatBlock,
-	read endkeyword: Token<"end">,
+	read endKeyword: Token<"end">,
 }
 
 export type AstStatRepeat = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "repeat",
-	read repeatkeyword: Token<"repeat">,
+	read repeatKeyword: Token<"repeat">,
 	read body: AstStatBlock,
-	read untilkeyword: Token<"until">,
+	read untilKeyword: Token<"until">,
 	read condition: AstExpr,
 }
 
@@ -376,7 +376,7 @@ export type AstStatReturn = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "return",
-	read returnkeyword: Token<"return">,
+	read returnKeyword: Token<"return">,
 	read expressions: Punctuated<AstExpr>,
 }
 
@@ -391,7 +391,7 @@ export type AstStatLocal = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "local",
-	read localkeyword: Token<"local">,
+	read localKeyword: Token<"local">,
 	read variables: Punctuated<AstLocal>,
 	read equals: Token<"=">?,
 	read values: Punctuated<AstExpr>,
@@ -401,30 +401,30 @@ export type AstStatFor = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "for",
-	read forkeyword: Token<"for">,
+	read forKeyword: Token<"for">,
 	read variable: AstLocal,
 	read equals: Token<"=">,
 	read from: AstExpr,
-	read tocomma: Token<",">,
+	read toComma: Token<",">,
 	read to: AstExpr,
-	read stepcomma: Token<",">?,
+	read stepComma: Token<",">?,
 	read step: AstExpr?,
-	read dokeyword: Token<"do">,
+	read doKeyword: Token<"do">,
 	read body: AstStatBlock,
-	read endkeyword: Token<"end">,
+	read endKeyword: Token<"end">,
 }
 
 export type AstStatForIn = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "forin",
-	read forkeyword: Token<"for">,
+	read forKeyword: Token<"for">,
 	read variables: Punctuated<AstLocal>,
-	read inkeyword: Token<"in">,
+	read inKeyword: Token<"in">,
 	read values: Punctuated<AstExpr>,
-	read dokeyword: Token<"do">,
+	read doKeyword: Token<"do">,
 	read body: AstStatBlock,
-	read endkeyword: Token<"end">,
+	read endKeyword: Token<"end">,
 }
 
 export type AstStatAssign = {
@@ -463,7 +463,7 @@ export type AstStatLocalFunction = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "localfunction",
-	read localkeyword: Token<"local">,
+	read localKeyword: Token<"local">,
 	read name: AstLocal,
 	read func: AstExprFunction,
 }
@@ -473,12 +473,12 @@ export type AstStatTypeAlias = {
 	read kind: "stat",
 	read tag: "typealias",
 	read export: Token<"export">?,
-	read typetoken: Token<"type">,
+	read typeToken: Token<"type">,
 	read name: Token,
-	read opengenerics: Token<"<">?,
+	read openGenerics: Token<"<">?,
 	read generics: Punctuated<AstGenericType>?,
-	read genericpacks: Punctuated<AstGenericTypePack>?,
-	read closegenerics: Token<">">?,
+	read genericPacks: Punctuated<AstGenericTypePack>?,
+	read closeGenerics: Token<">">?,
 	read equals: Token<"=">,
 	read type: AstType,
 }
@@ -534,11 +534,11 @@ export type AstTypeReference = {
 	read kind: "type",
 	read tag: "reference",
 	read prefix: Token<string>?,
-	read prefixpoint: Token<".">?,
+	read prefixPoint: Token<".">?,
 	read name: Token<string>,
-	read openparameters: Token<"<">?,
+	read openParameters: Token<"<">?,
 	read parameters: Punctuated<AstType | AstTypePack>?,
-	read closeparameters: Token<">">?,
+	read closeParameters: Token<">">?,
 }
 
 export type AstTypeSingletonBool = {
@@ -553,7 +553,7 @@ export type AstTypeSingletonString = {
 	read location: Span,
 	read kind: "type",
 	read tag: "string",
-	read quotestyle: "single" | "double",
+	read quoteStyle: "single" | "double",
 	read token: Token<string>,
 }
 
@@ -562,18 +562,18 @@ export type AstTypeTypeof = {
 	read kind: "type",
 	read tag: "typeof",
 	read typeof: Token<"typeof">,
-	read openparens: Token<"(">,
+	read openParens: Token<"(">,
 	read expression: AstExpr,
-	read closeparens: Token<")">,
+	read closeParens: Token<")">,
 }
 
 export type AstTypeGroup = {
 	read location: Span,
 	read kind: "type",
 	read tag: "group",
-	read openparens: Token<"(">,
+	read openParens: Token<"(">,
 	read type: AstType,
-	read closeparens: Token<")">,
+	read closeParens: Token<")">,
 }
 
 export type AstTypeOptional = { read location: Span, read kind: "type", read tag: "optional", read token: Token<"?"> }
@@ -599,18 +599,18 @@ export type AstTypeArray = {
 	read location: Span,
 	read kind: "type",
 	read tag: "array",
-	read openbrace: Token<"{">,
+	read openBrace: Token<"{">,
 	read access: Token<"read" | "write">?,
 	read type: AstType,
-	read closebrace: Token<"}">,
+	read closeBrace: Token<"}">,
 }
 
 export type AstTableTypeItemIndexer = {
 	read kind: "indexer",
 	read access: Token<"read" | "write">?,
-	read indexeropen: Token<"[">,
+	read indexerOpen: Token<"[">,
 	read key: AstType,
-	read indexerclose: Token<"]">,
+	read indexerClose: Token<"]">,
 	read colon: Token<":">,
 	read value: AstType,
 	read separator: Token<"," | ";">?,
@@ -619,9 +619,9 @@ export type AstTableTypeItemIndexer = {
 export type AstTableTypeItemStringProperty = {
 	read kind: "stringproperty",
 	read access: Token<"read" | "write">?,
-	read indexeropen: Token<"[">,
+	read indexerOpen: Token<"[">,
 	read key: AstTypeSingletonString,
-	read indexerclose: Token<"]">,
+	read indexerClose: Token<"]">,
 	read colon: Token<":">,
 	read value: AstType,
 	read separator: Token<"," | ";">?,
@@ -642,9 +642,9 @@ export type AstTypeTable = {
 	read location: Span,
 	read kind: "type",
 	read tag: "table",
-	read openbrace: Token<"{">,
+	read openBrace: Token<"{">,
 	read entries: { AstTableTypeItem },
-	read closebrace: Token<"}">,
+	read closeBrace: Token<"}">,
 }
 
 export type AstFunctionTypeParameter = {
@@ -659,16 +659,16 @@ export type AstTypeFunction = {
 	read location: Span,
 	read kind: "type",
 	read tag: "function",
-	read opengenerics: Token<"<">?,
+	read openGenerics: Token<"<">?,
 	read generics: Punctuated<AstGenericType>?,
-	read genericpacks: Punctuated<AstGenericTypePack>?,
-	read closegenerics: Token<">">?,
-	read openparens: Token<"(">,
+	read genericPacks: Punctuated<AstGenericTypePack>?,
+	read closeGenerics: Token<">">?,
+	read openParens: Token<"(">,
 	read parameters: Punctuated<AstFunctionTypeParameter>,
 	read vararg: AstTypePack?,
-	read closeparens: Token<")">,
-	read returnarrow: Token<"->">,
-	read returntypes: AstTypePack,
+	read closeParens: Token<")">,
+	read returnArrow: Token<"->">,
+	read returnTypes: AstTypePack,
 }
 
 export type AstType =
@@ -688,10 +688,10 @@ export type AstTypePackExplicit = {
 	read location: Span,
 	read kind: "typepack",
 	read tag: "explicit",
-	read openparens: Token<"(">?,
+	read openParens: Token<"(">?,
 	read types: Punctuated<AstType>,
-	read tailtype: AstTypePack?,
-	read closeparens: Token<")">?,
+	read tailType: AstTypePack?,
+	read closeParens: Token<")">?,
 }
 
 export type AstTypePackGeneric = {
@@ -719,14 +719,14 @@ export type ParseResult = {
 	read root: AstStatBlock,
 	read eof: Eof,
 	read lines: number,
-	read lineoffsets: { number },
+	read lineOffsets: { number },
 }
 
 function luau.parse(source: string): ParseResult
 	error("not implemented")
 end
 
-function luau.parseexpr(source: string): AstExpr
+function luau.parseExpr(source: string): AstExpr
 	error("not implemented")
 end
 

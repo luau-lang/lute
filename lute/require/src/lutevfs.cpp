@@ -24,7 +24,9 @@ const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
     map["@lute/crypto.luau"] = luteopen_crypto;
     map["@lute/fs.luau"] = luteopen_fs;
     map["@lute/luau.luau"] = luteopen_luau;
-    map["@lute/net.luau"] = luteopen_net;
+    map["@lute/net/init.luau"] = luteopen_net;
+    map["@lute/net/client.luau"] = luteopen_net_client;
+    map["@lute/net/server.luau"] = luteopen_net_server;
     map["@lute/process.luau"] = luteopen_process;
     map["@lute/task.luau"] = luteopen_task;
     map["@lute/vm.luau"] = luteopen_vm;
@@ -41,7 +43,20 @@ static bool isLuteModule(const std::string& path)
 
 static bool isLuteDirectory(const std::string& path)
 {
-    return path == "@lute";
+    if (path == "@lute")
+        return true;
+
+    std::string prefix = path + "/";
+    for (const auto& [modulePath, open] : kLuteModules)
+    {
+        if (modulePath.empty() || !open)
+            continue;
+
+        if (modulePath.rfind(prefix, 0) == 0)
+            return true;
+    }
+
+    return false;
 }
 
 NavigationStatus LuteVfs::resetToPath(const std::string& path)

@@ -13,10 +13,10 @@ export type Query<T = Node> = {
 	filter: (self: Query<T>, pred: (T) -> boolean) -> Query<T>,
 	replace: (self: Query<T>, repl: (T) -> string?) -> types.Replacements,
 	map: <U>(self: Query<T>, fn: (T) -> U?) -> Query<U>, -- recursion violation reported
-	foreach: (self: Query<T>, callback: (T) -> ()) -> Query<T>,
-	findall: <U>(self: Query<T>, fn: (Node) -> U?) -> Query<U>,
-	flatmap: <U>(self: Query<T>, fn: (T) -> { U }) -> Query<U>,
-	maptoarray: <U>(self: Query<T>, fn: (T) -> U?) -> { U },
+	forEach: (self: Query<T>, callback: (T) -> ()) -> Query<T>,
+	findAll: <U>(self: Query<T>, fn: (Node) -> U?) -> Query<U>,
+	flatMap: <U>(self: Query<T>, fn: (T) -> { U }) -> Query<U>,
+	mapToArray: <U>(self: Query<T>, fn: (T) -> U?) -> { U },
 }
 
 local queryLib = {}
@@ -56,7 +56,7 @@ function queryLib.map<T, U>(self: Query<T>, fn: (T) -> U?): Query<U>
 	return self
 end
 
-function queryLib.foreach<T>(self: Query<T>, callback: (T) -> ()): Query<T>
+function queryLib.forEach<T>(self: Query<T>, callback: (T) -> ()): Query<T>
 	for _, node in self.nodes do
 		callback(node)
 	end
@@ -83,7 +83,7 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visi
 	return selectVisitor
 end
 
-function queryLib.findall<T, U>(self: Query<T>, fn: (Node) -> U?): Query<U>
+function queryLib.findAll<T, U>(self: Query<T>, fn: (Node) -> U?): Query<U>
 	local selectedNodes: { U } = {}
 
 	local selectVisitor = newSelectVisitor(selectedNodes, fn)
@@ -97,7 +97,7 @@ function queryLib.findall<T, U>(self: Query<T>, fn: (Node) -> U?): Query<U>
 	return self
 end
 
-function queryLib.flatmap<T, U>(self: Query<T>, fn: (T) -> { U }): Query<U>
+function queryLib.flatMap<T, U>(self: Query<T>, fn: (T) -> { U }): Query<U>
 	local newNodes: { U } = {}
 	for _, node in self.nodes do
 		local mapped = fn(node)
@@ -109,7 +109,7 @@ function queryLib.flatmap<T, U>(self: Query<T>, fn: (T) -> { U }): Query<U>
 	return self
 end
 
-function queryLib.maptoarray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
+function queryLib.mapToArray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
 	local result = {}
 	for _, node in self.nodes do
 		local mapped = fn(node)
@@ -120,7 +120,7 @@ function queryLib.maptoarray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
 	return result
 end
 
-function queryLib.findallfromroot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
+function queryLib.findAllFromRoot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
 	local nodes: { T } = {}
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
@@ -133,10 +133,10 @@ function queryLib.findallfromroot<T>(ast: types.ParseResult | Node, fn: (Node) -
 		filter = queryLib.filter,
 		replace = queryLib.replace,
 		map = queryLib.map :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
-		foreach = queryLib.foreach,
-		findall = queryLib.findall :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
-		flatmap = queryLib.flatmap,
-		maptoarray = queryLib.maptoarray :: any, -- Any cast because maptoarray has generics quantified at a different level than the query type expects
+		forEach = queryLib.forEach,
+		findAll = queryLib.findAll :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
+		flatMap = queryLib.flatMap,
+		mapToArray = queryLib.mapToArray :: any, -- Any cast because mapToArray has generics quantified at a different level than the query type expects
 	}
 end
 

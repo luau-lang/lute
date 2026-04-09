@@ -8,11 +8,13 @@ target_sources(Lute.Test PRIVATE
     src/cliruntimefixture.h
     src/lutefixture.h
     src/luteprojectroot.h
+    src/tcmoduleresolverfixture.h
     src/testreporter.h
 
     src/cliruntimefixture.cpp
     src/lutefixture.cpp
     src/luteprojectroot.cpp
+    src/tcmoduleresolverfixture.cpp
     src/testreporter.cpp
 
     src/typeserializefixture.h
@@ -26,6 +28,7 @@ target_sources(Lute.Test PRIVATE
     src/moduleresolver.test.cpp
     src/packagerequire.test.cpp
     src/require.test.cpp
+    src/runtime.test.cpp
     src/typeserializer.test.cpp
     src/staticrequires.test.cpp
     src/stdsystem.test.cpp

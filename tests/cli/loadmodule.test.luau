@@ -15,16 +15,16 @@ print(result)
 
 local REQUIREE_CONTENTS = [[return "Success"]]
 
-local lutePath = process.execpath()
+local lutePath = process.execPath()
 
 local tmpDirStr = system.tmpdir()
 local testDir = path.join(tmpDirStr, "lute_require_test")
 local testDirStr = path.format(testDir)
 
 test.suite("LuteCliRun", function(suite)
-	suite:beforeall(function()
+	suite:beforeAll(function()
 		if not fs.exists(testDirStr) then
-			fs.createdirectory(testDirStr)
+			fs.createDirectory(testDirStr)
 		end
 	end)
 
@@ -50,9 +50,9 @@ test.suite("LuteCliRun", function(suite)
 		fs.remove(requireePath)
 	end)
 
-	suite:afterall(function()
+	suite:afterAll(function()
 		if fs.exists(testDirStr) then
-			fs.removedirectory(testDirStr)
+			fs.removeDirectory(testDirStr)
 		end
 	end)
 end)

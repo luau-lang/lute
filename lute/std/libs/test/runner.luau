@@ -1,10 +1,13 @@
 --!strict
 -- @std/test/runner
 -- Standard test runner library for Luau
+local ps = require("@std/process")
 
 local asserts = require("./assert")
 local failure = require("./failure")
+local reporter = require("./reporter")
 local types = require("./types")
+local env = require("./env")
 
 type Test = types.Test
 type TestCase = types.TestCase
@@ -22,16 +25,16 @@ function runner.run(env: TestEnvironment): TestRunResult
 	local failed = 0
 	local passed = 0
 
-	-- Error handler for beforeall hook
-	local function beforeallErrorHandler(suite: TestSuite)
+	-- Error handler for beforeAll hook
+	local function beforeAllErrorHandler(suite: TestSuite)
 		return function(err)
-			-- If beforeall fails, skip all tests in the suite
+			-- If beforeAll fails, skip all tests in the suite
 			total += #suite.cases
 			failed += #suite.cases
 			for _, tc in suite.cases do
 				local failedtest: FailedTest = {
 					test = `{suite.name}.{tc.name}`,
-					failure = failure.lifecycle("beforeall", err),
+					failure = failure.lifecycle("beforeAll", err),
 				}
 				table.insert(failures, failedtest)
 			end
@@ -39,38 +42,38 @@ function runner.run(env: TestEnvironment): TestRunResult
 		end
 	end
 
-	-- Error handler for beforeeach hook
-	local function beforeeachErrorHandler(testFullName: string)
+	-- Error handler for beforeEach hook
+	local function beforeEachErrorHandler(testFullName: string)
 		return function(err)
 			failed += 1
 			local failedtest: FailedTest = {
 				test = testFullName,
-				failure = failure.lifecycle("beforeeach", err),
+				failure = failure.lifecycle("beforeEach", err),
 			}
 			table.insert(failures, failedtest)
 			return err
 		end
 	end
 
-	-- Error handler for aftereach hook
-	local function afterachErrorHandler(testFullName: string)
+	-- Error handler for afterEach hook
+	local function afterEachErrorHandler(testFullName: string)
 		return function(err)
 			local failedtest: FailedTest = {
 				test = testFullName,
-				failure = failure.lifecycle("aftereach", err),
+				failure = failure.lifecycle("afterEach", err),
 			}
 			table.insert(failures, failedtest)
 			return err
 		end
 	end
 
-	-- Error handler for afterall hook
-	local function afterallErrorHandler(suiteName: string)
+	-- Error handler for afterAll hook
+	local function afterAllErrorHandler(suiteName: string)
 		return function(err)
 			failed += 1
 			local failedtest: FailedTest = {
 				test = suiteName,
-				failure = failure.lifecycle("afterall", err),
+				failure = failure.lifecycle("afterAll", err),
 			}
 			table.insert(failures, failedtest)
 			return err
@@ -98,11 +101,11 @@ function runner.run(env: TestEnvironment): TestRunResult
 
 	-- Run tests from suites
 	for _, suite in env.suites do
-		-- Run beforeall hook once per suite
-		if suite._beforeall then
-			local beforeallSuccess = xpcall(suite._beforeall, beforeallErrorHandler(suite))
-			if not beforeallSuccess then
-				-- If beforeall fails, skip all tests in the suite
+		-- Run beforeAll hook once per suite
+		if suite._beforeAll then
+			local beforeAllSuccess = xpcall(suite._beforeAll, beforeAllErrorHandler(suite))
+			if not beforeAllSuccess then
+				-- If beforeAll fails, skip all tests in the suite
 				continue
 			end
 		end
@@ -119,20 +122,20 @@ function runner.run(env: TestEnvironment): TestRunResult
 				table.insert(failures, failedtest)
 			end
 
-			-- Run beforeeach hook if it exists
-			if suite._beforeeach then
-				local beforeSuccess = xpcall(suite._beforeeach, beforeeachErrorHandler(testFullName))
+			-- Run beforeEach hook if it exists
+			if suite._beforeEach then
+				local beforeSuccess = xpcall(suite._beforeEach, beforeEachErrorHandler(testFullName))
 				if not beforeSuccess then
 					continue
 				end
 			end
 
 			local success = xpcall(tc.case, handlefailure, asserts)
-			-- Run aftereach hook if it exists (runs even if test failed)
-			if suite._aftereach then
-				local afterSuccess = xpcall(suite._aftereach, afterachErrorHandler(testFullName))
+			-- Run afterEach hook if it exists (runs even if test failed)
+			if suite._afterEach then
+				local afterSuccess = xpcall(suite._afterEach, afterEachErrorHandler(testFullName))
 				if not afterSuccess then
-					-- If test passed but aftereach failed, mark as failed
+					-- If test passed but afterEach failed, mark as failed
 					success = false
 				end
 			end
@@ -144,9 +147,9 @@ function runner.run(env: TestEnvironment): TestRunResult
 			end
 		end
 
-		-- Run afterall hook once per suite (runs even if tests failed)
-		if suite._afterall then
-			xpcall(suite._afterall, afterallErrorHandler(suite.name))
+		-- Run afterAll hook once per suite (runs even if tests failed)
+		if suite._afterAll then
+			xpcall(suite._afterAll, afterAllErrorHandler(suite.name))
 		end
 	end
 
@@ -156,6 +159,16 @@ function runner.run(env: TestEnvironment): TestRunResult
 		failed = failed,
 		passed = passed,
 	}
+end
+
+-- run all the tests
+function runner.runRegisteredTests()
+	local result = runner.run(env)
+	reporter.simple(result)
+	if result.failed ~= 0 then
+		ps.exit(1)
+	end
+	ps.exit(0)
 end
 
 return table.freeze(runner)

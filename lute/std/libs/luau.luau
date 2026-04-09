@@ -35,10 +35,10 @@ end
 export type TypePack = luteLuau.TypePack
 export type Type = luteLuau.Type
 
-function luau.typeofmodule(modulepath: path.Pathlike): (TypePack, {[string]: Type})
+function luau.typeofModule(modulepath: path.Pathlike): (TypePack, {[string]: Type})
 	local modulePathStr = if typeof(modulepath) == "string" then modulepath else path.format(modulepath)
 
-	return luteLuau.typeofmodule(modulePathStr)
+	return luteLuau.typeofModule(modulePathStr)
 end
 
 function luau.resolveModule(modulepath: string, frompath: path.Pathlike): path.Pathlike

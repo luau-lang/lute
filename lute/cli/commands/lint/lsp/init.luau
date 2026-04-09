@@ -29,12 +29,12 @@ end
 local function getRange(location: syntax.Span): lspTypes.Range
 	return table.freeze({
 		start = table.freeze({
-			line = location.beginline - 1,
-			character = location.begincolumn - 1,
+			line = location.beginLine - 1,
+			character = location.beginColumn - 1,
 		}),
 		["end"] = table.freeze({
-			line = location.endline - 1,
-			character = location.endcolumn - 1,
+			line = location.endLine - 1,
+			character = location.endColumn - 1,
 		}),
 	})
 end

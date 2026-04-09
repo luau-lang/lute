@@ -91,7 +91,7 @@ function win32.format(path: Pathlike): string
 	end
 end
 
-function win32.isabsolute(path: Pathlike): boolean
+function win32.isAbsolute(path: Pathlike): boolean
 	path = if typeof(path) == "string" then win32.parse(path) else path
 	return path.kind ~= "relative"
 end
@@ -285,7 +285,7 @@ function win32.resolve(...: Pathlike): Path
 	local path = win32.parse(parts[#parts])
 
 	for i = #parts - 1, 1, -1 do
-		if win32.isabsolute(path) then
+		if win32.isAbsolute(path) then
 			break
 		end
 
@@ -299,7 +299,7 @@ function win32.resolve(...: Pathlike): Path
 		path = segment
 	end
 
-	if not win32.isabsolute(path) then
+	if not win32.isAbsolute(path) then
 		local cwd = win32.parse(process.cwd())
 		joinHelper(cwd, path)
 		path = cwd

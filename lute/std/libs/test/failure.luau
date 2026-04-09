@@ -6,10 +6,12 @@ local types = require("./types")
 type Failure = types.Failure
 
 local failures = {}
+
 -- Generates the debug information needed to describe assertion failure locations
-function failures.assertion(msg: string): Failure
+function failures.assertion(msg: string, depth: number?): Failure
 	-- we need to go 5 function calls up to get to the actual assertion that invoked this
-	local filename, linenumber = debug.info(4, "sl")
+	local stackdepth = depth or 4
+	local filename, linenumber = debug.info(stackdepth, "sl")
 	local name = debug.info(2, "n")
 	return { assertion = name, msg = msg, filename = filename, linenumber = linenumber, __tag = "assertion" }
 end

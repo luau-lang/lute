@@ -11,7 +11,7 @@
 class BundleVfs
 {
 public:
-    BundleVfs(Luau::DenseHashMap<std::string, std::string> luaurcFiles, Luau::DenseHashMap<std::string, std::string> bundleMap);
+    BundleVfs(Luau::DenseHashMap<std::string, std::string> luauConfigFiles, Luau::DenseHashMap<std::string, std::string> bundleMap);
 
     NavigationStatus resetToPath(const std::string& path);
 
@@ -27,6 +27,6 @@ public:
 
 private:
     const Luau::DenseHashMap<std::string, std::string> filePathToBytecode;
-    const Luau::DenseHashMap<std::string, std::string> luaurcFiles;
+    const Luau::DenseHashMap<std::string, std::string> luauConfigFiles;
     std::optional<ModulePath> modulePath;
 };

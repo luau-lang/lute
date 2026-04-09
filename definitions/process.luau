@@ -50,7 +50,7 @@ function process.exit(exitcode: number): never
 	error("not implemented")
 end
 
-function process.execpath(): string
+function process.execPath(): string
 	error("not implemented")
 end
 

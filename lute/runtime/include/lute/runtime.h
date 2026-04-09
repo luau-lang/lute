@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lute/ref.h"
+#include "lute/reporter.h"
 
 #include "Luau/Variant.h"
 #include "Luau/VecDeque.h"
@@ -44,7 +45,7 @@ using RuntimeStep = Luau::Variant<StepSuccess, StepErr, StepEmpty>;
 
 struct Runtime
 {
-    Runtime();
+    Runtime(LuteReporter& reporter);
     ~Runtime();
 
     bool runToCompletion();
@@ -68,6 +69,10 @@ struct Runtime
     // Resume thread with the results computed by the continuation
     void scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua_State*)> cont);
 
+    // Invoke a Luau callback function on a fresh thread.
+    // argPusher should push arguments onto the stack and return the count.
+    void scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher);
+
     // Run 'f' in a libuv work queue
     void runInWorkQueue(std::function<void()> f);
 
@@ -75,6 +80,8 @@ struct Runtime
     void releasePendingToken();
 
     uv_loop_t* getEventLoop();
+
+    LuteReporter& reporter;
 
     // VM for this runtime
     std::unique_ptr<lua_State, void (*)(lua_State*)> globalState;

@@ -6,7 +6,7 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ neq_error
-	<ROOT>/tests/std/snapshots/assert_neq_error_message_in_case.snap.luau:4
+	<ROOT>/tests/std/snapshots/assert_neq_error_message_in_case.snap.luau:5
 		neq: 1 == 1
 
 --------------------------------------------------

@@ -44,11 +44,11 @@ function pathlib.format(path: Pathlike): string
 	end
 end
 
-function pathlib.isabsolute(path: Pathlike): boolean
+function pathlib.isAbsolute(path: Pathlike): boolean
 	if onWindows then
-		return win32.isabsolute(path :: win32.Pathlike)
+		return win32.isAbsolute(path :: win32.Pathlike)
 	else
-		return posix.isabsolute(path :: posix.Pathlike)
+		return posix.isAbsolute(path :: posix.Pathlike)
 	end
 end
 

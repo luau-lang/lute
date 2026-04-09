@@ -3,15 +3,11 @@
 -- Standard test library for Luau
 
 local types = require("@self/types")
-
-local reporter = require("@self/reporter")
-local runner = require("@self/runner")
-local ps = require("@std/process")
+local env = require("@self/env")
 
 type Test = types.Test
 type TestCase = types.TestCase
 type TestSuite = types.TestSuite
-type TestEnvironment = types.TestEnvironment
 type TestReporter = types.TestReporter
 
 local TestSuite = {}
@@ -21,10 +17,10 @@ function TestSuite.new(name: string): TestSuite
 	local self = setmetatable({
 		name = name,
 		cases = {},
-		_beforeeach = nil,
-		_beforeall = nil,
-		_aftereach = nil,
-		_afterall = nil,
+		_beforeEach = nil,
+		_beforeAll = nil,
+		_afterEach = nil,
+		_afterAll = nil,
 	}, TestSuite)
 	return self :: TestSuite
 end
@@ -33,23 +29,21 @@ function TestSuite:case(name: string, testCase: Test)
 	table.insert(self.cases, { name = name, case = testCase })
 end
 
-function TestSuite:beforeeach(hook: () -> ())
-	self._beforeeach = hook
+function TestSuite:beforeEach(hook: () -> ())
+	self._beforeEach = hook
 end
 
-function TestSuite:beforeall(hook: () -> ())
-	self._beforeall = hook
+function TestSuite:beforeAll(hook: () -> ())
+	self._beforeAll = hook
 end
 
-function TestSuite:aftereach(hook: () -> ())
-	self._aftereach = hook
+function TestSuite:afterEach(hook: () -> ())
+	self._afterEach = hook
 end
 
-function TestSuite:afterall(hook: () -> ())
-	self._afterall = hook
+function TestSuite:afterAll(hook: () -> ())
+	self._afterAll = hook
 end
-
-local env: TestEnvironment = { anonymous = {}, suites = {}, suiteindex = {}, caseindex = {} }
 
 -- Test library export surface
 local test = {}
@@ -96,16 +90,6 @@ function test._registered()
 		suiteindex = env.suiteindex,
 		caseindex = env.caseindex,
 	})
-end
-
--- run all the tests
-function test.run()
-	local failed = runner.run(env)
-	reporter.simple(failed)
-	if failed.failed ~= 0 then
-		ps.exit(1)
-	end
-	ps.exit(0)
 end
 
 return table.freeze(test)
