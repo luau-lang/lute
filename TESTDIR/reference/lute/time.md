@@ -30,18 +30,18 @@ type Instant = {}
 
 ## time.duration
 ```luau
-function duration{ create: (seconds: number, subsecnanos: number) -> ({}), days: (days: number) -> ({}), hours: (hours: number) -> ({}), microseconds: (microseconds: number) -> ({}), milliseconds: (milliseconds: number) -> ({}), minutes: (minutes: number) -> ({}), nanoseconds: (nanoseconds: number) -> ({}), seconds: (seconds: number) -> ({}), weeks: (weeks: number) -> ({}) }
+function duration{ create: (seconds: number, subsecnanos: number) -> (Duration), days: (days: number) -> (Duration), hours: (hours: number) -> (Duration), microseconds: (microseconds: number) -> (Duration), milliseconds: (milliseconds: number) -> (Duration), minutes: (minutes: number) -> (Duration), nanoseconds: (nanoseconds: number) -> (Duration), seconds: (seconds: number) -> (Duration), weeks: (weeks: number) -> (Duration) }
 ```
 ---
 
 ## time.now
 ```luau
-function now() -> ({})
+function now() -> (Duration)
 ```
 ---
 
 ## time.since
 ```luau
-function since(instant: {}) -> (number)
+function since(instant: Duration) -> (number)
 ```
 ---

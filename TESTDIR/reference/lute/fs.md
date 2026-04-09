@@ -67,7 +67,7 @@ type WatchHandle = { close: (self: t1) -> () }
 
 ## fs.close
 ```luau
-function close(handle: { err: number, fd: number }) -> ()
+function close(handle: FileHandle) -> ()
 ```
 ---
 
@@ -107,13 +107,13 @@ To set the permissions mode for a directory (Unix only), see @std/process for `r
 
 ## fs.open
 ```luau
-function open(path: string, mode: "a" | "a+" | "r" | "r+" | "w" | "w+" | "x" | "x+"?) -> ({ err: number, fd: number })
+function open(path: string, mode: HandleMode?) -> (FileHandle)
 ```
 ---
 
 ## fs.read
 ```luau
-function read(handle: { err: number, fd: number }) -> (string)
+function read(handle: FileHandle) -> (string)
 ```
 ---
 
@@ -131,7 +131,7 @@ function rmdir(path: string) -> ()
 
 ## fs.stat
 ```luau
-function stat(path: string) -> ({ accessed: {}, created: {}, modified: {}, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" })
+function stat(path: string) -> (FileMetadata)
 ```
 ---
 
@@ -143,18 +143,18 @@ function symlink(src: string, dest: string) -> ()
 
 ## fs.type
 ```luau
-function type(path: string) -> ("block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown")
+function type(path: string) -> (FileType)
 ```
 ---
 
 ## fs.watch
 ```luau
-function watch(path: string, callback: (filename: string, event: { change: boolean, rename: boolean }) -> ()) -> ({ close: (self: t1) -> () })
+function watch(path: string, callback: (filename: string, event: WatchEvent) -> ()) -> (WatchHandle)
 ```
 ---
 
 ## fs.write
 ```luau
-function write(handle: { err: number, fd: number }, contents: string) -> ()
+function write(handle: FileHandle, contents: string) -> ()
 ```
 ---

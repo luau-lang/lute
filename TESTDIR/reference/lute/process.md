@@ -81,12 +81,12 @@ function homedir() -> (string)
 
 ## process.run
 ```luau
-function run(args: { [number]: any }, options: { cwd: string?, env: { [string]: any }?, stdio: "default" | "inherit" | "none"? }?) -> ({ exitcode: number, ok: boolean, signal: string?, stderr: string, stdout: string })
+function run(args: { [number]: any }, options: ProcessRunOptions?) -> (ProcessResult)
 ```
 ---
 
 ## process.system
 ```luau
-function system(command: string, options: { cwd: string?, env: { [string]: any }?, stdio: "default" | "inherit" | "none"?, system: string? }?) -> ({ exitcode: number, ok: boolean, signal: string?, stderr: string, stdout: string })
+function system(command: string, options: ProcessSystemOptions?) -> (ProcessResult)
 ```
 ---

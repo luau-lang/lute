@@ -155,7 +155,7 @@ renderTypePack = function(tp: types.TypePack?, state: PrinterState, names: { str
 end
 
 return {
-	renderType = function(t: types.Type)
+	renderType = function(t: types.Type): string
 		return renderType(t, { visited = {}, cycles = {}, nextCycleId = 0 })
 	end,
 }

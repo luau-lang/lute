@@ -23,6 +23,11 @@ local STDLIB_MODULE_ALIASES = {
 	printer = "printerLib",
 }
 
+-- Escapes special Luau pattern characters for use in string.gsub
+local function escapeLuauPattern(s: string): string
+	return (string.gsub(s, "([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1"))
+end
+
 local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$" -- `---`
 local blockCommentStartPattern = "^%s*%-%-%[(=*)%[" -- `--[[` or `--[=[` etc.
 local whitespacePattern = "^%s*$"
@@ -188,7 +193,7 @@ local function generateMarkdown(
             table.insert(lines, `### {tName}`)
             table.insert(lines, "```luau")
             -- We pass nil for aliases here so the glossary actually expands the definition
-            local definition = typeprinter.renderType(exportedTypes[tName], nil)
+            local definition = typeprinter.renderType(exportedTypes[tName])
             table.insert(lines, `type {tName} = {definition}`)
             table.insert(lines, "```\n")
         end
@@ -223,18 +228,34 @@ local function parseModule(module: path.Pathlike, filePath: path.Pathlike)
         return {}, {}
     end
 
-    local aliasMap = {}
+    -- Build a map from expanded type string -> type name for string-based substitution of the user-defined types in the function signatures. This allows the signatures to use the named type aliases instead of the full expanded forms, which can be very long and difficult to read.
+    local expandedToName: { [string]: string } = {}
     if exportedTypes then
         for name, typeObj in pairs(exportedTypes) do
-            aliasMap[typeObj] = name
+            local expanded = typeprinter.renderType(typeObj)
+            expandedToName[expanded] = name
         end
     end
+
+    -- Sort expanded strings by length descending so longer matches are replaced first,
+    -- preventing partial substitutions (e.g. replacing a substring of a larger type).
+    local sortedExpanded: { string } = {}
+    for expanded in pairs(expandedToName) do
+        table.insert(sortedExpanded, expanded)
+    end
+    table.sort(sortedExpanded, function(a, b)
+        return #a > #b
+    end)
 
     local moduleType = returnTypePack.head[1]
     local moduleDefinitions = {}
     for name, prop in pairs(moduleType.properties or {}) do
         if prop.read then
-            local sig = typeprinter.renderType(prop.read, aliasMap)
+            local sig = typeprinter.renderType(prop.read)
+            -- Substitute any expanded type forms with their named aliases
+            for _, expanded in sortedExpanded do
+                sig = string.gsub(sig, escapeLuauPattern(expanded), expandedToName[expanded])
+            end
             table.insert(moduleDefinitions, {
                 name = name,
                 signature = sig,

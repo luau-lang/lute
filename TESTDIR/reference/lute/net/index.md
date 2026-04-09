@@ -54,12 +54,12 @@ type ServerResponse = string | { body: string?, headers: { [string]: any }?, sta
 
 ## net.client
 ```luau
-function client{ request: (url: string, metadata: { body: string?, headers: { [string]: any }?, method: string? }?) -> ({ body: string, headers: { [string]: any }, ok: boolean, status: number }) }
+function client{ request: (url: string, metadata: Metadata?) -> (Response) }
 ```
 ---
 
 ## net.server
 ```luau
-function server{ serve: (config: (request: { body: string, headers: { [string]: any }, method: string, path: string, query: { [string]: any } }) -> (string | { body: string?, headers: { [string]: any }?, status: number? }) | { handler: (request: { body: string, headers: { [string]: any }, method: string, path: string, query: { [string]: any } }) -> (string | { body: string?, headers: { [string]: any }?, status: number? }), hostname: string?, port: number?, reuseport: boolean?, tls: { cafilename: string?, certfilename: string, keyfilename: string, passphrase: string? }? }) -> ({ close: () -> (), hostname: string, port: number }) }
+function server{ serve: (config: Handler | Configuration) -> (Server) }
 ```
 ---

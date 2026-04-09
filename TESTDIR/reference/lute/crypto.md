@@ -51,7 +51,7 @@ function password{ hash: (password: string) -> (buffer), verify: (hash: buffer, 
 
 ## crypto.secretbox
 ```luau
-function secretbox{ keygen: () -> (buffer), open: (box: { ciphertext: buffer, key: buffer, nonce: buffer }) -> (buffer), seal: (message: buffer | string, key: buffer?) -> ({ ciphertext: buffer, key: buffer, nonce: buffer }) }
+function secretbox{ keygen: () -> (buffer), open: (box: SecretBox) -> (buffer), seal: (message: buffer | string, key: buffer?) -> (SecretBox) }
 ```
 testing the block comment here
 

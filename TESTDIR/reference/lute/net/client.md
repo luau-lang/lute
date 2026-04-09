@@ -28,6 +28,6 @@ type Response = { body: string, headers: { [string]: any }, ok: boolean, status:
 
 ## client.request
 ```luau
-function request(url: string, metadata: { body: string?, headers: { [string]: any }?, method: string? }?) -> ({ body: string, headers: { [string]: any }, ok: boolean, status: number })
+function request(url: string, metadata: Metadata?) -> (Response)
 ```
 ---
