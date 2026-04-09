@@ -86,9 +86,8 @@ static void initializeNetClient(lua_State* L)
     lua_setuserdatadtor(
         L,
         kWebSocketHandleTag,
-        [](lua_State* L, void* ud)
+        [](lua_State*, void* ud)
         {
-            (void)L;
             std::destroy_at(static_cast<std::shared_ptr<net::client::WebSocketHandle>*>(ud));
         }
     );
@@ -261,9 +260,8 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
             {
                 self->scheduleCallback(
                     self->onOpenRef,
-                    [](lua_State* L)
+                    [](lua_State*)
                     {
-                        (void)L;
                         return 0;
                     }
                 );
@@ -581,10 +579,9 @@ int ws_send(lua_State* L)
             }
 
             token->complete(
-                [](lua_State* L)
+                [](lua_State*)
                 {
-                    lua_pushboolean(L, 1);
-                    return 1;
+                    return 0;
                 }
             );
         }

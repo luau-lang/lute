@@ -28,7 +28,7 @@ export type WebSocketOptions = {
 }
 
 export type WebSocket = {
-	send: (self: WebSocket, data: string, binary: boolean?) -> boolean,
+	send: (self: WebSocket, data: string, binary: boolean?) -> (),
 	close: (self: WebSocket) -> (),
 }
 
