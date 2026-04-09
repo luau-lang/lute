@@ -16,13 +16,13 @@ export type ServerResponse = string | {
 }
 
 export type ServerWebSocket = {
-	send: (self: ServerWebSocket, data: string, binary: boolean?) -> number,
+	send: (self: ServerWebSocket, data: string | buffer) -> number,
 	close: (self: ServerWebSocket, code: number?, message: string?) -> (),
 }
 
 export type WebSocketHandlers = {
 	open: ((ws: ServerWebSocket) -> ())?,
-	message: ((ws: ServerWebSocket, message: string, binary: boolean) -> ())?,
+	message: ((ws: ServerWebSocket, message: string | buffer) -> ())?,
 	close: ((ws: ServerWebSocket, code: number, message: string) -> ())?,
 	drain: ((ws: ServerWebSocket) -> ())?,
 }

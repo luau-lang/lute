@@ -102,6 +102,13 @@ namespace net::client
 
 static const std::string kEmptyHeaderKey = "";
 
+struct WebSocketPayload
+{
+    const char* data = nullptr;
+    size_t length = 0;
+    bool binary = false;
+};
+
 struct CurlResponse
 {
     std::string error;
@@ -114,6 +121,25 @@ struct CurlResponse
     {
     }
 };
+
+static WebSocketPayload extractWebSocketPayload(lua_State* L, int index)
+{
+    if (lua_isstring(L, index))
+    {
+        size_t length = 0;
+        const char* data = lua_tolstring(L, index, &length);
+        return {data, length, false};
+    }
+
+    if (lua_isbuffer(L, index))
+    {
+        size_t length = 0;
+        void* data = lua_tobuffer(L, index, &length);
+        return {static_cast<const char*>(data), length, true};
+    }
+
+    luaL_typeerrorL(L, index, "string or buffer");
+}
 
 static size_t writeFunction(char* ptr, size_t size, size_t nmemb, void* userdata)
 {
@@ -371,9 +397,17 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
                                 self->onMessageRef,
                                 [message = std::move(message), binary](lua_State* L)
                                 {
-                                    lua_pushlstring(L, message.data(), message.size());
-                                    lua_pushboolean(L, binary);
-                                    return 2;
+                                    if (binary)
+                                    {
+                                        void* buf = lua_newbuffer(L, message.size());
+                                        if (!message.empty())
+                                            memcpy(buf, message.data(), message.size());
+                                    }
+                                    else
+                                    {
+                                        lua_pushlstring(L, message.data(), message.size());
+                                    }
+                                    return 1;
                                 }
                             );
                         }
@@ -528,6 +562,9 @@ int request(lua_State* L)
 
 int ws_send(lua_State* L)
 {
+    if (lua_gettop(L) != 2)
+        luaL_errorL(L, "websocket send expects exactly 1 payload argument");
+
     luaL_checktype(L, 1, LUA_TUSERDATA);
     auto* handleStorage = getWebSocketHandle(L, 1);
     if (!handleStorage || !(*handleStorage) || (*handleStorage)->isClosed.load())
@@ -535,15 +572,13 @@ int ws_send(lua_State* L)
 
     std::shared_ptr<WebSocketHandle> handle = *handleStorage;
 
-    size_t len = 0;
-    const char* data = luaL_checklstring(L, 2, &len);
-    bool binary = lua_isboolean(L, 3) && lua_toboolean(L, 3);
+    WebSocketPayload payloadData = extractWebSocketPayload(L, 2);
 
-    auto payload = std::make_shared<std::string>(data, len);
+    auto payload = std::make_shared<std::string>(payloadData.data, payloadData.length);
     auto token = getResumeToken(L);
 
     token->runtime->runInWorkQueue(
-        [handle = std::move(handle), payload = std::move(payload), binary, token]
+        [handle = std::move(handle), payload = std::move(payload), binary = payloadData.binary, token]
         {
             if (handle->isClosed.load())
             {

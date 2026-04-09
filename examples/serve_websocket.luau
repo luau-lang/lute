@@ -20,12 +20,16 @@ local instance = server.serve({
 			print("ws open")
 			ws:send("welcome")
 		end,
-		message = function(ws, message, binary)
-			print("ws message:", message, "binary:", binary)
-			ws:send(message, binary)
-			if message == "close" then
-				ws:close()
+		message = function(ws, message)
+			if type(message) == "buffer" then
+				print("ws binary message len:", buffer.len(message))
+			else
+				print("ws message:", message)
+				if message == "close" then
+					ws:close()
+				end
 			end
+			ws:send(message)
 		end,
 		close = function(_ws, code, message)
 			print("ws close:", code, message)

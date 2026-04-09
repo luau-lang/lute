@@ -12,8 +12,13 @@ socket[1] = client.websocket("wss://echo.websocket.events", {
 			ws:send("close")
 		end
 	end,
-	onmessage = function(message, binary)
-		print("received:", message, "binary:", binary)
+	onmessage = function(message)
+		if type(message) == "buffer" then
+			print("received binary message len:", buffer.len(message))
+			return
+		end
+
+		print("received:", message)
 		if message == "close" then
 			print("closing...")
 			local ws = socket[1]

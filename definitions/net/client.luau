@@ -22,13 +22,13 @@ export type WebSocketOptions = {
 	headers: { [string]: string }?,
 	protocol: string?,
 	onopen: (() -> ())?,
-	onmessage: ((message: string, binary: boolean) -> ())?,
+	onmessage: ((message: string | buffer) -> ())?,
 	onclose: ((code: number, reason: string) -> ())?,
 	onerror: ((error: string) -> ())?,
 }
 
 export type WebSocket = {
-	send: (self: WebSocket, data: string, binary: boolean?) -> (),
+	send: (self: WebSocket, data: string | buffer) -> (),
 	close: (self: WebSocket) -> (),
 }
 

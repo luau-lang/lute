@@ -24,8 +24,8 @@ test.suite("LuteNetSuite", function(suite)
 				}
 			end,
 			websocket = {
-				message = function(ws, message, binary)
-					local sendResult = ws:send(message, binary)
+				message = function(ws, message)
+					local sendResult = ws:send(message)
 					if firstServerSendResult == nil then
 						firstServerSendResult = sendResult
 					end
@@ -48,7 +48,7 @@ test.suite("LuteNetSuite", function(suite)
 				end
 			end,
 			onmessage = function(message)
-				if message == "hello" then
+				if type(message) == "string" and message == "hello" then
 					receivedEcho = true
 					if ws then
 						ws:send("bye")
@@ -79,6 +79,85 @@ test.suite("LuteNetSuite", function(suite)
 		assert.eq(true, firstServerSendResult > 0)
 		assert.eq(4001, serverCloseCode)
 		assert.eq("done", serverCloseMessage)
+
+		instance.close()
+	end)
+
+	suite:case("serveBinaryWebsocketAndConnect", function(assert)
+		local serverSawBinary = false
+		local clientSawBinary = false
+		local firstServerSendResult: number? = nil
+		local payload = buffer.create(4)
+		buffer.writeu8(payload, 0, 1)
+		buffer.writeu8(payload, 1, 2)
+		buffer.writeu8(payload, 2, 3)
+		buffer.writeu8(payload, 3, 4)
+
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest, current: server.Server): server.ServerResponse?
+				if current:upgrade(req) then
+					return nil
+				end
+
+				return {
+					status = 200,
+					body = "no upgrade",
+				}
+			end,
+			websocket = {
+				message = function(ws, message)
+					assert.eq("buffer", type(message))
+					serverSawBinary = true
+
+					local sendResult = ws:send(message)
+					if firstServerSendResult == nil then
+						firstServerSendResult = sendResult
+					end
+				end,
+			},
+		})
+
+		local closed = false
+		local ws: client.WebSocket?
+		ws = client.websocket(`ws://{instance.hostname}:{instance.port}`, {
+			onopen = function()
+				if ws then
+					ws:send(payload)
+				end
+			end,
+			onmessage = function(message)
+				if type(message) ~= "buffer" then
+					error("expected binary websocket message")
+				end
+				clientSawBinary = true
+				local messageBuffer: buffer = message
+				assert.eq(payload, messageBuffer)
+
+				if ws then
+					ws:close()
+				end
+			end,
+			onclose = function()
+				closed = true
+			end,
+			onerror = function(err: string)
+				error(err)
+			end,
+		})
+
+		local start = os.clock()
+		while (not serverSawBinary or not clientSawBinary or not closed) and os.clock() - start < 5 do
+			task.deferSelf()
+		end
+
+		assert.eq(true, serverSawBinary)
+		assert.eq(true, clientSawBinary)
+		assert.eq(true, closed)
+		if firstServerSendResult == nil then
+			error("binary server send result was not captured")
+		end
+		assert.eq(true, firstServerSendResult > 0)
 
 		instance.close()
 	end)

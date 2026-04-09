@@ -29,6 +29,13 @@ namespace net::server
 
 using uWSApp = Luau::Variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSLApp>>;
 
+struct WebSocketPayload
+{
+    const char* data = nullptr;
+    size_t length = 0;
+    bool binary = false;
+};
+
 static const int kEmptyServerKey = 0;
 static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
 static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
@@ -63,6 +70,25 @@ struct ServerWebSocketHandle
     int (*sendFn)(void* wsPtr, std::string_view data, bool binary) = nullptr;
     void (*closeFn)(void* wsPtr, uint16_t code, std::string_view message) = nullptr;
 };
+
+static WebSocketPayload extractWebSocketPayload(lua_State* L, int index)
+{
+    if (lua_isstring(L, index))
+    {
+        size_t length = 0;
+        const char* data = lua_tolstring(L, index, &length);
+        return {data, length, false};
+    }
+
+    if (lua_isbuffer(L, index))
+    {
+        size_t length = 0;
+        void* data = lua_tobuffer(L, index, &length);
+        return {static_cast<const char*>(data), length, true};
+    }
+
+    luaL_typeerrorL(L, index, "string or buffer");
+}
 
 template <bool SSL>
 struct PerSocketData
@@ -278,6 +304,9 @@ static void wsCloseImpl(void* wsPtr, uint16_t code, std::string_view message)
 
 static int server_ws_send(lua_State* L)
 {
+    if (lua_gettop(L) != 2)
+        luaL_errorL(L, "websocket send expects exactly 1 payload argument");
+
     luaL_checktype(L, 1, LUA_TUSERDATA);
     auto* handlePtr =
         static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_touserdatatagged(L, 1, kServerWebSocketHandleTag));
@@ -287,14 +316,12 @@ static int server_ws_send(lua_State* L)
         return 1;
     }
 
-    size_t len = 0;
-    const char* data = luaL_checklstring(L, 2, &len);
-    bool binary = lua_isboolean(L, 3) && lua_toboolean(L, 3);
+    WebSocketPayload payload = extractWebSocketPayload(L, 2);
 
     std::lock_guard<std::mutex> lock((*handlePtr)->sendMutex);
     int result = 0;
     if (!(*handlePtr)->closed.load() && (*handlePtr)->wsPtr && (*handlePtr)->sendFn)
-        result = (*handlePtr)->sendFn((*handlePtr)->wsPtr, std::string_view(data, len), binary);
+        result = (*handlePtr)->sendFn((*handlePtr)->wsPtr, std::string_view(payload.data, payload.length), payload.binary);
 
     lua_pushinteger(L, result);
     return 1;
@@ -579,9 +606,17 @@ static void setupAppAndListen(AppT* app, std::shared_ptr<ServerLoopState> state,
                     [handle, payload = std::move(payload), binary](lua_State* L)
                     {
                         pushServerWebSocket(L, handle);
-                        lua_pushlstring(L, payload.data(), payload.size());
-                        lua_pushboolean(L, binary);
-                        return 3;
+                        if (binary)
+                        {
+                            void* buf = lua_newbuffer(L, payload.size());
+                            if (!payload.empty())
+                                memcpy(buf, payload.data(), payload.size());
+                        }
+                        else
+                        {
+                            lua_pushlstring(L, payload.data(), payload.size());
+                        }
+                        return 2;
                     }
                 );
             };
