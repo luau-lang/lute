@@ -8,6 +8,8 @@ test.suite("LuteNetSuite", function(suite)
 	suite:case("serveWebsocketAndConnect", function(assert)
 		local receivedEcho = false
 		local clientClosed = false
+		local clientCloseCode: number? = nil
+		local clientCloseReason: string? = nil
 		local serverCloseCode: number? = nil
 		local serverCloseMessage: string? = nil
 		local firstServerSendResult: number? = nil
@@ -55,8 +57,10 @@ test.suite("LuteNetSuite", function(suite)
 					end
 				end
 			end,
-			onclose = function()
+			onclose = function(code, reason)
 				clientClosed = true
+				clientCloseCode = code
+				clientCloseReason = reason
 			end,
 			onerror = function(err: string)
 				error(err)
@@ -70,6 +74,9 @@ test.suite("LuteNetSuite", function(suite)
 
 		assert.eq(true, receivedEcho)
 		assert.eq(true, clientClosed)
+		if clientCloseCode == nil or clientCloseReason == nil then
+			error("client close callback did not capture close details")
+		end
 		if firstServerSendResult == nil then
 			error("server send result was not captured")
 		end
@@ -77,6 +84,8 @@ test.suite("LuteNetSuite", function(suite)
 			error("websocket close callback did not run")
 		end
 		assert.eq(true, firstServerSendResult > 0)
+		assert.eq(4001, clientCloseCode)
+		assert.eq("done", clientCloseReason)
 		assert.eq(4001, serverCloseCode)
 		assert.eq("done", serverCloseMessage)
 

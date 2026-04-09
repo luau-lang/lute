@@ -273,6 +273,62 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
         );
     }
 
+    void finishClose(bool sendCloseFrame)
+    {
+        {
+            std::lock_guard<std::mutex> lock(curlMutex);
+            if (curl)
+            {
+                if (sendCloseFrame)
+                {
+                    size_t sent = 0;
+                    (void)curl_ws_send(curl, "", 0, &sent, 0, CURLWS_CLOSE);
+                }
+
+                curl_easy_cleanup(curl);
+                curl = nullptr;
+            }
+
+            if (headerList)
+            {
+                curl_slist_free_all(headerList);
+                headerList = nullptr;
+            }
+        }
+
+        if (runtime)
+            runtime->releasePendingToken();
+    }
+
+    void closeWithCode(int closeCode = 1000, std::string closeReason = "", bool sendCloseFrame = true)
+    {
+        bool expected = false;
+        if (!isClosed.compare_exchange_strong(expected, true))
+            return;
+
+        scheduleCloseCallback(closeCode, std::move(closeReason));
+        finishClose(sendCloseFrame);
+    }
+
+    void closeWithError(std::string error)
+    {
+        bool expected = false;
+        if (!isClosed.compare_exchange_strong(expected, true))
+            return;
+
+        scheduleCallback(
+            onErrorRef,
+            [error = std::move(error)](lua_State* L)
+            {
+                lua_pushlstring(L, error.data(), error.size());
+                return 1;
+            }
+        );
+
+        scheduleCloseCallback(1006);
+        finishClose(false);
+    }
+
     void startRecvLoop()
     {
         {
@@ -323,16 +379,8 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
                         if (self->isClosed.load() || self->hasScheduledClose.load())
                             break;
 
-                        std::string error = curl_easy_strerror(result);
-                        self->scheduleCallback(
-                            self->onErrorRef,
-                            [error = std::move(error)](lua_State* L)
-                            {
-                                lua_pushlstring(L, error.data(), error.size());
-                                return 1;
-                            }
-                        );
-                        break;
+                        self->closeWithError(curl_easy_strerror(result));
+                        return;
                     }
 
                     if (!meta)
@@ -421,31 +469,7 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
 
     void close()
     {
-        bool expected = false;
-        if (!isClosed.compare_exchange_strong(expected, true))
-            return;
-
-        scheduleCloseCallback();
-
-        {
-            std::lock_guard<std::mutex> lock(curlMutex);
-            if (curl)
-            {
-                size_t sent = 0;
-                (void)curl_ws_send(curl, "", 0, &sent, 0, CURLWS_CLOSE);
-                curl_easy_cleanup(curl);
-                curl = nullptr;
-            }
-
-            if (headerList)
-            {
-                curl_slist_free_all(headerList);
-                headerList = nullptr;
-            }
-        }
-
-        if (runtime)
-            runtime->releasePendingToken();
+        closeWithCode();
     }
 
     ~WebSocketHandle()
