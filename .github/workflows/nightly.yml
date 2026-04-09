@@ -50,7 +50,7 @@ jobs:
 
           echo "proceed=$PROCEED" >> $GITHUB_OUTPUT
 
-  build-and-release:
+  release-common:
     needs: changes
     if: ${{ needs.changes.outputs.proceed == 'true' }}
     uses: ./.github/workflows/shared-build.yml

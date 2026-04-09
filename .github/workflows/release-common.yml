@@ -1,4 +1,4 @@
-name: _shared_release
+name: release-common
 
 on:
   workflow_call:
