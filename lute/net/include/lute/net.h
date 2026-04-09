@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/library.h"
+
 #include "lua.h"
 #include "lualib.h"
 
@@ -11,26 +13,26 @@ int luteopen_net(lua_State* L);
 int luteopen_net_client(lua_State* L);
 int luteopen_net_server(lua_State* L);
 
-namespace net::client
+struct NetClient : LuteLibrary<NetClient>
 {
-
-int request(lua_State* L);
-
-static const luaL_Reg lib[] = {
-    {"request", request},
-    {nullptr, nullptr},
+    static constexpr const char kName[] = "net.client";
+    static int pushLibrary(lua_State* L);
+    static const luaL_Reg lib[];
+    static const char* const properties[];
 };
 
-} // namespace net::client
-
-namespace net::server
+struct NetServer : LuteLibrary<NetServer>
 {
-
-int serve(lua_State* L);
-
-static const luaL_Reg lib[] = {
-    {"serve", serve},
-    {nullptr, nullptr},
+    static constexpr const char kName[] = "net.server";
+    static int pushLibrary(lua_State* L);
+    static const luaL_Reg lib[];
+    static const char* const properties[];
 };
 
-} // namespace net::server
+struct Net : LuteLibrary<Net>
+{
+    static constexpr const char kName[] = "net";
+    static int pushLibrary(lua_State* L);
+    static const luaL_Reg lib[];
+    static const char* const properties[];
+};

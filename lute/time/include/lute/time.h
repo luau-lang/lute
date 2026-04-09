@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/library.h"
+
 #include "lua.h"
 #include "lualib.h"
 
@@ -51,20 +53,10 @@ static const luaL_Reg lib[] = {
 
 } // namespace duration
 
-namespace libtime
+struct Time : LuteLibrary<Time>
 {
-int lua_now(lua_State* L);
-int lua_since(lua_State* L);
-
-static const luaL_Reg lib[] = {
-    {"now", lua_now},
-    {"since", lua_since},
-
-    {nullptr, nullptr},
+    static constexpr const char kName[] = "time";
+    static int pushLibrary(lua_State* L);
+    static const luaL_Reg lib[];
+    static const char* const properties[];
 };
-
-static const std::string properties[] = {
-    kDurationLibraryIdentifier,
-};
-
-} // namespace libtime

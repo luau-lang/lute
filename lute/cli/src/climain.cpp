@@ -610,7 +610,7 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
 
     // Get current executable path
     std::string errorMsg;
-    std::optional<std::string> exePath = process::getExecPath(&errorMsg);
+    std::optional<std::string> exePath = Process::getExecPath(&errorMsg);
     if (!exePath)
     {
         reporter.formatError("Error: Failed to get executable path: %s", errorMsg.c_str());

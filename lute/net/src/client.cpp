@@ -242,13 +242,20 @@ int request(lua_State* L)
 
 } // namespace net::client
 
-int luteopen_net_client(lua_State* L)
+const char* const NetClient::properties[] = {nullptr};
+
+const luaL_Reg NetClient::lib[] = {
+    {"request", net::client::request},
+    {nullptr, nullptr},
+};
+
+int NetClient::pushLibrary(lua_State* L)
 {
     globalCurlInit();
 
-    lua_createtable(L, 0, 1);
+    lua_createtable(L, 0, std::size(NetClient::lib));
 
-    for (auto& [name, func] : net::client::lib)
+    for (auto& [name, func] : NetClient::lib)
     {
         if (!name || !func)
             break;
@@ -260,4 +267,9 @@ int luteopen_net_client(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luteopen_net_client(lua_State* L)
+{
+    return NetClient::pushLibrary(L);
 }

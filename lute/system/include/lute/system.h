@@ -1,44 +1,19 @@
 #pragma once
 
+#include "lute/library.h"
+
 #include "lua.h"
 #include "lualib.h"
-
-#include <string>
 
 // open the library as a standard global luau library
 int luaopen_system(lua_State* L);
 // open the library as a table on top of the stack
 int luteopen_system(lua_State* L);
 
-namespace libsystem
+struct System : LuteLibrary<System>
 {
-
-static const char kArchitectureProperty[] = "arch";
-static const char kOperatingSystemProperty[] = "os";
-
-int lua_cpus(lua_State* L);
-int lua_threadcount(lua_State* L);
-int lua_freememory(lua_State* L);
-int lua_totalmemory(lua_State* L);
-int lua_hostname(lua_State* L);
-int lua_uptime(lua_State* L);
-int lua_tmpdir(lua_State* L);
-
-static const luaL_Reg lib[] = {
-    {"cpus", lua_cpus},
-    {"threadCount", lua_threadcount},
-    {"freeMemory", lua_freememory},
-    {"totalMemory", lua_totalmemory},
-    {"hostName", lua_hostname},
-    {"uptime", lua_uptime},
-    {"tmpdir", lua_tmpdir},
-
-    {nullptr, nullptr}
+    static constexpr const char kName[] = "system";
+    static int pushLibrary(lua_State* L);
+    static const luaL_Reg lib[];
+    static const char* const properties[];
 };
-
-static const std::string properties[] = {
-    kArchitectureProperty,
-    kOperatingSystemProperty,
-};
-
-} // namespace libsystem
