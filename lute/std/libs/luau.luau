@@ -38,9 +38,9 @@ function luau.loadModule(requirePath: path.Pathlike, env: { [any]: any }?): any
 	return luau.load(migrationBytecode, requirePathStr, env)()
 end
 
---- A pack of Luau types (e.g. the return types of a function).
+--- A Luau type pack, representing a sequence of types.
 export type TypePack = luteLuau.TypePack
---- A Luau type, as returned by the type-checker.
+--- A Luau type, representing the type of a value or expression.
 export type Type = luteLuau.Type
 
 --- Returns the type pack representing the return types of the module at `modulepath`, or `nil` if unavailable.
