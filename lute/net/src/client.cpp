@@ -43,7 +43,7 @@ namespace
 
 constexpr long kWebSocketSocketWaitTimeoutMs = 100;
 
-static void waitForSocketReadable(curl_socket_t socket, long timeoutMs)
+static void waitForSocketReady(curl_socket_t socket, long timeoutMs, bool waitForWrite)
 {
     if (socket == CURL_SOCKET_BAD)
     {
@@ -53,17 +53,27 @@ static void waitForSocketReadable(curl_socket_t socket, long timeoutMs)
 
 #ifdef _WIN32
     fd_set readfds;
+    fd_set writefds;
     FD_ZERO(&readfds);
-    FD_SET(socket, &readfds);
+    FD_ZERO(&writefds);
+    if (waitForWrite)
+    {
+        FD_SET(socket, &readfds);
+        FD_SET(socket, &writefds);
+    }
+    else
+    {
+        FD_SET(socket, &readfds);
+    }
 
     timeval timeout{};
     timeout.tv_sec = timeoutMs / 1000;
     timeout.tv_usec = (timeoutMs % 1000) * 1000;
-    (void)select(0, &readfds, nullptr, nullptr, &timeout);
+    (void)select(0, &readfds, &writefds, nullptr, &timeout);
 #else
     pollfd fd{};
     fd.fd = socket;
-    fd.events = POLLIN;
+    fd.events = waitForWrite ? short(POLLIN | POLLOUT) : POLLIN;
     (void)poll(&fd, 1, int(timeoutMs));
 #endif
 }
@@ -406,7 +416,7 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
 
                     if (result == CURLE_AGAIN)
                     {
-                        waitForSocketReadable(socket, kWebSocketSocketWaitTimeoutMs);
+                        waitForSocketReady(socket, kWebSocketSocketWaitTimeoutMs, false);
                         continue;
                     }
 
@@ -646,31 +656,56 @@ int ws_send(lua_State* L)
                 return;
             }
 
-            size_t sent = 0;
-            CURLcode result = CURLE_OK;
-
+            size_t offset = 0;
+            bool firstSend = true;
+            while (firstSend || offset < payload->size())
             {
-                std::lock_guard<std::mutex> lock(handle->curlMutex);
-                if (!handle->curl)
+                firstSend = false;
+
+                size_t sent = 0;
+                CURLcode result = CURLE_OK;
+                curl_socket_t socket = CURL_SOCKET_BAD;
+
                 {
-                    token->fail("websocket is closed");
+                    std::lock_guard<std::mutex> lock(handle->curlMutex);
+                    if (!handle->curl)
+                    {
+                        token->fail("websocket is closed");
+                        return;
+                    }
+
+                    result = curl_ws_send(
+                        handle->curl,
+                        payload->data() + offset,
+                        payload->size() - offset,
+                        &sent,
+                        0,
+                        binary ? CURLWS_BINARY : CURLWS_TEXT
+                    );
+
+                    if (result == CURLE_AGAIN || (result == CURLE_OK && sent == 0 && offset < payload->size()))
+                        (void)curl_easy_getinfo(handle->curl, CURLINFO_ACTIVESOCKET, &socket);
+                }
+
+                if (result == CURLE_AGAIN)
+                {
+                    waitForSocketReady(socket, kWebSocketSocketWaitTimeoutMs, true);
+                    continue;
+                }
+
+                if (result != CURLE_OK)
+                {
+                    token->fail("websocket send failed: " + std::string(curl_easy_strerror(result)));
                     return;
                 }
 
-                result = curl_ws_send(
-                    handle->curl,
-                    payload->data(),
-                    payload->size(),
-                    &sent,
-                    0,
-                    binary ? CURLWS_BINARY : CURLWS_TEXT
-                );
-            }
+                offset += sent;
 
-            if (result != CURLE_OK)
-            {
-                token->fail("websocket send failed: " + std::string(curl_easy_strerror(result)));
-                return;
+                if (offset >= payload->size())
+                    break;
+
+                if (sent == 0)
+                    waitForSocketReady(socket, kWebSocketSocketWaitTimeoutMs, true);
             }
 
             token->complete(
