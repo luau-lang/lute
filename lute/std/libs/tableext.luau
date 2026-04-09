@@ -7,7 +7,7 @@ local tableext = {}
 
 -- Functions on general tables
 
---- Returns a new table with the same keys as `table`, where each value has been transformed by `f`.
+--- Returns a new table with the same keys as `table`, where each value has been transformed by applying `f` to it.
 function tableext.map<K, A, B>(table: { [K]: A }, f: (A) -> B): { [K]: B }
 	local new = {}
 
