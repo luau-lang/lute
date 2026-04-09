@@ -13,9 +13,16 @@ local processlib = {}
 --- - `"inherit"`: Pass the parent process's stdio streams through to the child.
 --- - `"none"`: Discard the child's stdio streams.
 export type StdioKind = process.StdioKind
---- Options for `process.run`: controls stdio handling, working directory, environment, etc.
+--- Options for `process.run`:
+--- - `cwd`: The working directory for the child process. Defaults to the current working directory.
+--- - `stdio`: How to handle the child's stdio streams. Defaults to `"default"`.
+--- - `env`: Environment variables for the child process. If omitted, inherits the parent's environment.
 export type ProcessRunOptions = process.ProcessRunOptions
---- Options for `process.system`: controls stdio handling, working directory, environment, etc.
+--- Options for `process.system`:
+--- - `system`: The shell executable to use. If omitted, uses the platform default (`$SHELL` on Unix, `%COMSPEC%` on Windows).
+--- - `cwd`: The working directory for the child process. Defaults to the current working directory.
+--- - `stdio`: How to handle the child's stdio streams. Defaults to `"default"`.
+--- - `env`: Environment variables for the child process. If omitted, inherits the parent's environment.
 export type ProcessSystemOptions = process.ProcessSystemOptions
 --- The result of a completed process, including exit code and captured stdout/stderr.
 export type ProcessResult = process.ProcessResult

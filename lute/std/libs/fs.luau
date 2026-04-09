@@ -46,17 +46,20 @@ type Pathlike = pathlib.Pathlike
 type Path = pathlib.Path
 type win32path = win32paths.Path
 
---- Options for `createDirectory`.
+--- Options for `createDirectory`:
+--- - `makeParents`: If `true`, creates any missing parent directories. Defaults to `false`.
 export type CreateDirectoryOptions = {
 	makeParents: boolean?,
 }
 
---- Options for `removeDirectory`.
+--- Options for `removeDirectory`:
+--- - `recursive`: If `true`, removes all contents of the directory before deleting it. Defaults to `false`.
 export type RemoveDirectoryOptions = {
 	recursive: boolean?,
 }
 
---- Options for `walk`.
+--- Options for `walk`:
+--- - `recursive`: If `true`, descends into subdirectories. Defaults to `false`.
 export type WalkOptions = {
 	recursive: boolean?,
 }

@@ -6,7 +6,10 @@ local client = require("@lute/net/client")
 
 local netlib = {}
 
---- Metadata for an HTTP request, such as method, headers, and body.
+--- Options for an HTTP request:
+--- - `method`: The HTTP method (e.g. `"GET"`, `"POST"`). Defaults to `"GET"`.
+--- - `body`: The request body as a string. If omitted, no body is sent.
+--- - `headers`: A table of HTTP headers to include in the request.
 export type Metadata = client.Metadata
 --- An HTTP response, containing status, headers, and body.
 export type Response = client.Response
