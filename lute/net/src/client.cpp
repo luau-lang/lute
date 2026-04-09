@@ -9,9 +9,14 @@
 #include "lua.h"
 #include "lualib.h"
 
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
+
 #include "curl/curl.h"
 #include "curl/websockets.h"
 
+#include <chrono>
 #include <atomic>
 #include <cstring>
 #include <functional>
@@ -23,6 +28,10 @@
 #include <utility>
 #include <vector>
 
+#ifndef _WIN32
+#include <poll.h>
+#endif
+
 namespace net::client
 {
 struct WebSocketHandle;
@@ -32,6 +41,33 @@ int ws_close(lua_State* L);
 
 namespace
 {
+
+constexpr long kWebSocketSocketWaitTimeoutMs = 100;
+
+static void waitForSocketReadable(curl_socket_t socket, long timeoutMs)
+{
+    if (socket == CURL_SOCKET_BAD)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(timeoutMs));
+        return;
+    }
+
+#ifdef _WIN32
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(socket, &readfds);
+
+    timeval timeout{};
+    timeout.tv_sec = timeoutMs / 1000;
+    timeout.tv_usec = (timeoutMs % 1000) * 1000;
+    (void)select(0, &readfds, nullptr, nullptr, &timeout);
+#else
+    pollfd fd{};
+    fd.fd = socket;
+    fd.events = POLLIN;
+    (void)poll(&fd, 1, int(timeoutMs));
+#endif
+}
 
 struct CurlHolder
 {
@@ -331,11 +367,6 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
 
     void startRecvLoop()
     {
-        {
-            std::lock_guard<std::mutex> lock(curlMutex);
-            curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 1000L);
-        }
-
         std::shared_ptr<WebSocketHandle> self = shared_from_this();
         recvThread = std::thread(
             [self]
@@ -359,6 +390,7 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
                     size_t receivedLength = 0;
                     const curl_ws_frame* meta = nullptr;
                     CURLcode result = CURLE_OK;
+                    curl_socket_t socket = CURL_SOCKET_BAD;
 
                     {
                         std::lock_guard<std::mutex> lock(self->curlMutex);
@@ -366,13 +398,18 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
                             break;
 
                         result = curl_ws_recv(self->curl, buffer.data(), buffer.size(), &receivedLength, &meta);
+                        if (result == CURLE_AGAIN)
+                            (void)curl_easy_getinfo(self->curl, CURLINFO_ACTIVESOCKET, &socket);
                     }
 
                     if (self->isClosed.load())
                         break;
 
-                    if (result == CURLE_AGAIN || result == CURLE_OPERATION_TIMEDOUT)
+                    if (result == CURLE_AGAIN)
+                    {
+                        waitForSocketReadable(socket, kWebSocketSocketWaitTimeoutMs);
                         continue;
+                    }
 
                     if (result != CURLE_OK)
                     {
