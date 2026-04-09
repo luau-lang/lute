@@ -20,7 +20,6 @@ end
 
 export type WebSocketOptions = {
 	headers: { [string]: string }?,
-	protocol: string?,
 	onopen: (() -> ())?,
 	onmessage: ((message: string | buffer) -> ())?,
 	onclose: ((code: number, reason: string) -> ())?,

@@ -22,7 +22,6 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -701,7 +700,6 @@ int websocket(lua_State* L)
 {
     std::string url = luaL_checkstring(L, 1);
     std::vector<std::pair<std::string, std::string>> headers;
-    std::optional<std::string> protocol;
     std::shared_ptr<Ref> onOpenRef;
     std::shared_ptr<Ref> onMessageRef;
     std::shared_ptr<Ref> onCloseRef;
@@ -724,11 +722,6 @@ int websocket(lua_State* L)
                 lua_pop(L, 1);
             }
         }
-        lua_pop(L, 1);
-
-        lua_getfield(L, 2, "protocol");
-        if (lua_isstring(L, -1))
-            protocol = lua_tostring(L, -1);
         lua_pop(L, 1);
 
         lua_getfield(L, 2, "onopen");
@@ -760,7 +753,6 @@ int websocket(lua_State* L)
          runtime,
          url = std::move(url),
          headers = std::move(headers),
-         protocol = std::move(protocol),
          onOpenRef = std::move(onOpenRef),
          onMessageRef = std::move(onMessageRef),
          onCloseRef = std::move(onCloseRef),
@@ -778,12 +770,6 @@ int websocket(lua_State* L)
             curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
             curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
             curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 2L);
-
-            if (protocol)
-            {
-                std::string protocolHeader = "Sec-WebSocket-Protocol: " + *protocol;
-                headerList = curl_slist_append(headerList, protocolHeader.c_str());
-            }
 
             for (const auto& headerPair : headers)
             {
