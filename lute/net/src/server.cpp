@@ -60,7 +60,7 @@ struct ServerWebSocketHandle
     void* wsPtr = nullptr;
     std::atomic<bool> closed{false};
     std::mutex sendMutex;
-    bool (*sendFn)(void* wsPtr, std::string_view data, bool binary) = nullptr;
+    int (*sendFn)(void* wsPtr, std::string_view data, bool binary) = nullptr;
     void (*closeFn)(void* wsPtr, uint16_t code, std::string_view message) = nullptr;
 };
 
@@ -255,11 +255,18 @@ static int server_upgrade_do(lua_State* L)
 }
 
 template <bool SSL>
-static bool wsSendImpl(void* wsPtr, std::string_view data, bool binary)
+static int wsSendImpl(void* wsPtr, std::string_view data, bool binary)
 {
     auto* ws = static_cast<uWS::WebSocket<SSL, true, PerSocketData<SSL>>*>(wsPtr);
     auto status = ws->send(data, binary ? uWS::OpCode::BINARY : uWS::OpCode::TEXT);
-    return status != decltype(status)::DROPPED;
+
+    if (status == decltype(status)::BACKPRESSURE)
+        return -1;
+
+    if (status == decltype(status)::DROPPED)
+        return 0;
+
+    return int(data.size() > 0 ? data.size() : 1);
 }
 
 template <bool SSL>
@@ -276,7 +283,7 @@ static int server_ws_send(lua_State* L)
         static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_touserdatatagged(L, 1, kServerWebSocketHandleTag));
     if (!handlePtr || !(*handlePtr) || (*handlePtr)->closed.load())
     {
-        lua_pushboolean(L, 0);
+        lua_pushinteger(L, 0);
         return 1;
     }
 
@@ -285,13 +292,11 @@ static int server_ws_send(lua_State* L)
     bool binary = lua_isboolean(L, 3) && lua_toboolean(L, 3);
 
     std::lock_guard<std::mutex> lock((*handlePtr)->sendMutex);
-    bool ok = false;
+    int result = 0;
     if (!(*handlePtr)->closed.load() && (*handlePtr)->wsPtr && (*handlePtr)->sendFn)
-    {
-        ok = (*handlePtr)->sendFn((*handlePtr)->wsPtr, std::string_view(data, len), binary);
-    }
+        result = (*handlePtr)->sendFn((*handlePtr)->wsPtr, std::string_view(data, len), binary);
 
-    lua_pushboolean(L, ok);
+    lua_pushinteger(L, result);
     return 1;
 }
 
@@ -970,9 +975,8 @@ static void initializeNetServer(lua_State* L)
     lua_setuserdatadtor(
         L,
         kServerWebSocketHandleTag,
-        [](lua_State* L, void* ud)
+        [](lua_State*, void* ud)
         {
-            (void)L;
             std::destroy_at(static_cast<std::shared_ptr<net::server::ServerWebSocketHandle>*>(ud));
         }
     );

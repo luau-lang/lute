@@ -16,7 +16,7 @@ export type ServerResponse = string | {
 }
 
 export type ServerWebSocket = {
-	send: (self: ServerWebSocket, data: string, binary: boolean?) -> boolean,
+	send: (self: ServerWebSocket, data: string, binary: boolean?) -> number,
 	close: (self: ServerWebSocket, code: number?, message: string?) -> (),
 }
 

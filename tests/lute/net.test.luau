@@ -10,6 +10,7 @@ test.suite("LuteNetSuite", function(suite)
 		local clientClosed = false
 		local serverCloseCode: number? = nil
 		local serverCloseMessage: string? = nil
+		local firstServerSendResult: number? = nil
 
 		local instance = server.serve({
 			handler = function(req: server.ReceivedRequest, current: server.Server): server.ServerResponse?
@@ -24,7 +25,10 @@ test.suite("LuteNetSuite", function(suite)
 			end,
 			websocket = {
 				message = function(ws, message, binary)
-					ws:send(message, binary)
+					local sendResult = ws:send(message, binary)
+					if firstServerSendResult == nil then
+						firstServerSendResult = sendResult
+					end
 					if message == "bye" then
 						ws:close(4001, "done")
 					end
@@ -66,9 +70,13 @@ test.suite("LuteNetSuite", function(suite)
 
 		assert.eq(true, receivedEcho)
 		assert.eq(true, clientClosed)
+		if firstServerSendResult == nil then
+			error("server send result was not captured")
+		end
 		if serverCloseCode == nil or serverCloseMessage == nil then
 			error("websocket close callback did not run")
 		end
+		assert.eq(true, firstServerSendResult > 0)
 		assert.eq(4001, serverCloseCode)
 		assert.eq("done", serverCloseMessage)
 
