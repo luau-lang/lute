@@ -7,7 +7,7 @@ local duration = require("@self/duration")
 
 local time = {}
 
---- An opaque span of time.
+--- A span of time.
 export type Duration = duration.Duration
 --- An opaque point in time, used with `time.since` to measure elapsed time.
 export type Instant = luteTime.Instant
