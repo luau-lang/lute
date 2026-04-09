@@ -809,7 +809,7 @@ export type TypePack = {
 	ispack: boolean,
 }
 
-function luau.typeofmodule(modulepath: string): (TypePack, {[string]: Type})
+function luau.typeofModule(modulepath: string): (TypePack, {[string]: Type})
 	error("not implemented")
 end
 

@@ -11,7 +11,7 @@ local process = require("@lute/process")
 | [args](#processargs) |  |
 | [cwd](#processcwd) |  |
 | [env](#processenv) |  |
-| [execpath](#processexecpath) |  |
+| [execPath](#processexecpath) |  |
 | [exit](#processexit) |  |
 | [homedir](#processhomedir) |  |
 | [run](#processrun) |  |
@@ -59,9 +59,9 @@ function env{ [string]: any }
 ```
 ---
 
-## process.execpath
+## process.execPath
 ```luau
-function execpath() -> (string)
+function execPath() -> (string)
 ```
 ---
 

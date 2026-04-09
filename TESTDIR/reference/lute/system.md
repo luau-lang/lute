@@ -10,12 +10,12 @@ local system = require("@lute/system")
 | :--- | :--- |
 | [arch](#systemarch) |  |
 | [cpus](#systemcpus) |  |
-| [freememory](#systemfreememory) |  |
-| [hostname](#systemhostname) |  |
+| [freeMemory](#systemfreememory) |  |
+| [hostName](#systemhostname) |  |
 | [os](#systemos) |  |
-| [threadcount](#systemthreadcount) |  |
+| [threadCount](#systemthreadcount) |  |
 | [tmpdir](#systemtmpdir) |  |
-| [totalmemory](#systemtotalmemory) |  |
+| [totalMemory](#systemtotalmemory) |  |
 | [uptime](#systemuptime) |  |
 
 ---
@@ -39,15 +39,15 @@ function cpus() -> ({ [number]: any })
 ```
 ---
 
-## system.freememory
+## system.freeMemory
 ```luau
-function freememory() -> (number)
+function freeMemory() -> (number)
 ```
 ---
 
-## system.hostname
+## system.hostName
 ```luau
-function hostname() -> (string)
+function hostName() -> (string)
 ```
 ---
 
@@ -57,9 +57,9 @@ function osstring
 ```
 ---
 
-## system.threadcount
+## system.threadCount
 ```luau
-function threadcount() -> (number)
+function threadCount() -> (number)
 ```
 ---
 
@@ -69,9 +69,9 @@ function tmpdir() -> (string)
 ```
 ---
 
-## system.totalmemory
+## system.totalMemory
 ```luau
-function totalmemory() -> (number)
+function totalMemory() -> (number)
 ```
 ---
 

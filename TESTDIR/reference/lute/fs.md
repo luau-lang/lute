@@ -40,7 +40,7 @@ type FileHandle = { err: number, fd: number }
 
 ### FileMetadata
 ```luau
-type FileMetadata = { accessed: any, created: any, modified: any, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" }
+type FileMetadata = { accessed: {}, created: {}, modified: {}, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" }
 ```
 
 ### FileType
@@ -129,7 +129,7 @@ function rmdir(path: string) -> ()
 
 ## fs.stat
 ```luau
-function stat(path: string) -> ({ accessed: any, created: any, modified: any, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" })
+function stat(path: string) -> ({ accessed: {}, created: {}, modified: {}, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" })
 ```
 ---
 
