@@ -97,9 +97,6 @@ test.suite("LuteNetSuite", function(suite)
 			onopen = function()
 				opened = true
 			end,
-			onerror = function(err: string)
-				error(err)
-			end,
 		})
 
 		local start = os.clock()
@@ -121,6 +118,57 @@ test.suite("LuteNetSuite", function(suite)
 		end
 
 		assert.eq(true, opened)
+		instance.close()
+	end)
+
+	suite:case("clientInitiatedCloseRunsOnclose", function(assert)
+		local closed = false
+		local closeCode: number? = nil
+		local closeReason: string? = nil
+
+		local instance = server.serve({
+			handler = function(req: server.ReceivedRequest, current: server.Server): server.ServerResponse?
+				if current:upgrade(req) then
+					return nil
+				end
+
+				return {
+					status = 200,
+					body = "no upgrade",
+				}
+			end,
+			websocket = {},
+		})
+
+		local ws: client.WebSocket?
+		ws = client.websocket(`ws://{instance.hostname}:{instance.port}`, {
+			onopen = function()
+				if ws then
+					ws:close()
+				end
+			end,
+			onclose = function(code, reason)
+				closed = true
+				closeCode = code
+				closeReason = reason
+			end,
+			onerror = function(err: string)
+				error(err)
+			end,
+		})
+
+		local start = os.clock()
+		while not closed and os.clock() - start < 2 do
+			task.deferSelf()
+		end
+
+		assert.eq(true, closed)
+		if closeCode == nil or closeReason == nil then
+			error("client close callback did not capture close details")
+		end
+		assert.eq(1000, closeCode)
+		assert.eq("", closeReason)
+
 		instance.close()
 	end)
 end)

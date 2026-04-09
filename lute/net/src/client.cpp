@@ -220,6 +220,7 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
     std::shared_ptr<Ref> onErrorRef;
     std::thread recvThread;
     std::atomic<bool> isClosed{false};
+    std::atomic<bool> hasScheduledClose{false};
     std::mutex curlMutex;
 
     void scheduleCallback(const std::shared_ptr<Ref>& callback, std::function<int(lua_State*)> argPusher)
@@ -228,6 +229,23 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
             return;
 
         runtime->scheduleLuauCallback(callback, std::move(argPusher));
+    }
+
+    void scheduleCloseCallback(int closeCode = 1000, std::string closeReason = "")
+    {
+        bool expected = false;
+        if (!hasScheduledClose.compare_exchange_strong(expected, true))
+            return;
+
+        scheduleCallback(
+            onCloseRef,
+            [closeCode, closeReason = std::move(closeReason)](lua_State* L)
+            {
+                lua_pushinteger(L, closeCode);
+                lua_pushlstring(L, closeReason.data(), closeReason.size());
+                return 2;
+            }
+        );
     }
 
     void startRecvLoop()
@@ -278,6 +296,9 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
 
                     if (result != CURLE_OK)
                     {
+                        if (self->isClosed.load() || self->hasScheduledClose.load())
+                            break;
+
                         std::string error = curl_easy_strerror(result);
                         self->scheduleCallback(
                             self->onErrorRef,
@@ -297,30 +318,22 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
                     {
                         closePayload.append(buffer.data(), receivedLength);
 
-                        if (meta->bytesleft == 0)
+                        if (meta->bytesleft != 0)
+                            continue;
+
+                        int closeCode = 1000;
+                        std::string closeReason;
+
+                        if (closePayload.size() >= 2)
                         {
-                            int closeCode = 1000;
-                            std::string closeReason;
-
-                            if (closePayload.size() >= 2)
-                            {
-                                const unsigned char* payload =
-                                    reinterpret_cast<const unsigned char*>(closePayload.data());
-                                closeCode = int((payload[0] << 8) | payload[1]);
-                                if (closePayload.size() > 2)
-                                    closeReason.assign(closePayload.data() + 2, closePayload.size() - 2);
-                            }
-
-                            self->scheduleCallback(
-                                self->onCloseRef,
-                                [closeCode, closeReason = std::move(closeReason)](lua_State* L)
-                                {
-                                    lua_pushinteger(L, closeCode);
-                                    lua_pushlstring(L, closeReason.data(), closeReason.size());
-                                    return 2;
-                                }
-                            );
+                            const unsigned char* payload =
+                                reinterpret_cast<const unsigned char*>(closePayload.data());
+                            closeCode = int((payload[0] << 8) | payload[1]);
+                            if (closePayload.size() > 2)
+                                closeReason.assign(closePayload.data() + 2, closePayload.size() - 2);
                         }
+
+                        self->scheduleCloseCallback(closeCode, std::move(closeReason));
                         break;
                     }
 
@@ -379,6 +392,8 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
         bool expected = false;
         if (!isClosed.compare_exchange_strong(expected, true))
             return;
+
+        scheduleCloseCallback();
 
         {
             std::lock_guard<std::mutex> lock(curlMutex);
