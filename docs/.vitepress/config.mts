@@ -27,6 +27,6 @@ export default withSidebar(
     hyphenToSpace: true,
     sortMenusByFrontmatterOrder: true,
     frontmatterOrderDefaultValue: 100,
-    excludeByGlobPattern: ['**/test/**', 'README.md'],
+    excludeByGlobPattern: ['README.md'],
   }
 )
