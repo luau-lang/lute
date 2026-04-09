@@ -40,6 +40,7 @@ static const int kEmptyServerKey = 0;
 static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
 static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
+static int kRequestUpgradeKey = 0;
 
 struct ServerLoopState
 {
@@ -260,6 +261,31 @@ static int server_upgrade_noop(lua_State* L)
     return 1;
 }
 
+static int server_upgrade(lua_State* L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    luaL_checktype(L, 2, LUA_TTABLE);
+
+    if (!lua_getmetatable(L, 2))
+    {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    lua_pushlightuserdata(L, &kRequestUpgradeKey);
+    lua_rawget(L, -2);
+    if (!lua_isfunction(L, -1))
+    {
+        lua_pop(L, 2);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    lua_call(L, 0, 1);
+    lua_remove(L, -2);
+    return 1;
+}
+
 template <bool SSL>
 static int server_upgrade_do(lua_State* L)
 {
@@ -411,6 +437,16 @@ static PreparedHandler prepareServerHandlerThread(
     lua_pushstring(L, "body");
     lua_pushlstring(L, body.data(), body.size());
     lua_settable(L, -3);
+
+    int requestIndex = lua_absindex(L, -1);
+    lua_createtable(L, 0, 1);
+    pushUpvalues(L);
+    lua_pushcclosure(L, upgradeFn, "request.upgrade", nUpvalues);
+    lua_pushlightuserdata(L, &kRequestUpgradeKey);
+    lua_pushvalue(L, -2);
+    lua_rawset(L, -4);
+    lua_pop(L, 1);
+    lua_setmetatable(L, requestIndex);
 
     state->handlerRef->push(L);
 
@@ -942,7 +978,7 @@ int serve(lua_State* L)
     serverInstances[serverId] = std::move(app);
     serverStates[serverId] = state;
 
-    lua_createtable(L, 0, 3);
+    lua_createtable(L, 0, 4);
 
     lua_pushstring(L, "hostname");
     lua_pushstring(L, hostname.c_str());
@@ -967,6 +1003,10 @@ int serve(lua_State* L)
         1,
         nullptr
     );
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "upgrade");
+    lua_pushcfunction(L, server_upgrade, "server_upgrade");
     lua_settable(L, -3);
 
     state->serverRef = std::make_shared<Ref>(L, -1);
