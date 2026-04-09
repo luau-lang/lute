@@ -4,81 +4,56 @@
 local system = require("@lute/system")
 ```
 
-## Summary
-
-| Function / Property | Description |
-| :--- | :--- |
-| [arch](#systemarch) |  |
-| [cpus](#systemcpus) |  |
-| [freeMemory](#systemfreememory) |  |
-| [hostName](#systemhostname) |  |
-| [os](#systemos) |  |
-| [threadCount](#systemthreadcount) |  |
-| [tmpdir](#systemtmpdir) |  |
-| [totalMemory](#systemtotalmemory) |  |
-| [uptime](#systemuptime) |  |
-
----
-
-## Types
-
-### CpuInfo
-```luau
-type CpuInfo = { model: string, speed: number, times: { idle: number, irq: number, nice: number, sys: number, user: number } }
-```
-
-## Properties and Functions
-
 ## system.arch
+
 ```luau
 string
 ```
----
 
 ## system.cpus
+
 ```luau
-function cpus() -> ({ [number]: any })
+() -> { CpuInfo }
 ```
----
 
 ## system.freeMemory
+
 ```luau
-function freeMemory() -> (number)
+() -> number
 ```
----
 
 ## system.hostName
+
 ```luau
-function hostName() -> (string)
+() -> string
 ```
----
 
 ## system.os
+
 ```luau
 string
 ```
----
 
 ## system.threadCount
+
 ```luau
-function threadCount() -> (number)
+() -> number
 ```
----
 
 ## system.tmpdir
+
 ```luau
-function tmpdir() -> (string)
+() -> string
 ```
----
 
 ## system.totalMemory
+
 ```luau
-function totalMemory() -> (number)
+() -> number
 ```
----
 
 ## system.uptime
+
 ```luau
-function uptime() -> (number)
+() -> number
 ```
----

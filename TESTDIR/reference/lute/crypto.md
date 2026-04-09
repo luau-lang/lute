@@ -4,55 +4,40 @@
 local crypto = require("@lute/crypto")
 ```
 
-## Summary
-
-| Function / Property | Description |
-| :--- | :--- |
-| [digest](#cryptodigest) | testing the block comment without = here |
-| [hash](#cryptohash) |  |
-| [password](#cryptopassword) |  |
-| [secretbox](#cryptosecretbox) | testing the block comment here |
-
----
-
-## Types
-
-### Hash
-```luau
-type Hash = { __hash: generic }
-```
-
-### SecretBox
-```luau
-type SecretBox = { ciphertext: buffer, key: buffer, nonce: buffer }
-```
-
-## Properties and Functions
-
 ## crypto.digest
-```luau
-function digest(hash: { __hash: any }, message: buffer | string) -> (buffer)
-```
-testing the block comment without = here
 
----
-
-## crypto.hash
 ```luau
-{ blake2b256: { __hash: "blake2b256" }, md5: { __hash: "md5" }, sha1: { __hash: "sha1" }, sha256: { __hash: "sha256" }, sha512: { __hash: "sha512" } }
+(hash: Hash<any>, message: string | buffer) -> buffer
 ```
----
 
-## crypto.password
-```luau
-function password{ hash: (password: string) -> (buffer), verify: (hash: buffer, password: string) -> (boolean) }
-```
----
+## crypto.password.hash
 
-## crypto.secretbox
 ```luau
-function secretbox{ keygen: () -> (buffer), open: (box: SecretBox) -> (buffer), seal: (message: buffer | string, key: buffer?) -> (SecretBox) }
+(password: string) -> buffer
 ```
+
+## crypto.password.verify
+
+```luau
+(hash: buffer, password: string) -> boolean
+```
+
+## crypto.secretbox.keygen
+
 testing the block comment here
 
----
+```luau
+() -> buffer
+```
+
+## crypto.secretbox.open
+
+```luau
+(box: SecretBox) -> buffer
+```
+
+## crypto.secretbox.seal
+
+```luau
+(message: string | buffer, key: buffer?) -> SecretBox
+```

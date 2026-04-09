@@ -1,31 +1,19 @@
 # process
 
 ```luau
-local process = require("@lute/process")
-```
-
-## process.args
-
-```luau
-{ string }
+local process = require("@std/process")
 ```
 
 ## process.cwd
 
 ```luau
-() -> string
-```
-
-## process.env
-
-```luau
-{ [string]: string }
+() -> Path
 ```
 
 ## process.execPath
 
 ```luau
-() -> string
+() -> Path
 ```
 
 ## process.exit
@@ -37,7 +25,7 @@ local process = require("@lute/process")
 ## process.homedir
 
 ```luau
-() -> string
+() -> Path
 ```
 
 ## process.run

@@ -1,71 +1,59 @@
-# time
+# duration
 
 ```luau
-local time = require("@lute/time")
+local duration = require("@std/time/duration")
 ```
 
-## time.duration.create
+## duration.create
 
 ```luau
 (seconds: number, subsecnanos: number) -> Duration
 ```
 
-## time.duration.days
+## duration.days
 
 ```luau
 (days: number) -> Duration
 ```
 
-## time.duration.hours
+## duration.hours
 
 ```luau
 (hours: number) -> Duration
 ```
 
-## time.duration.microseconds
+## duration.microseconds
 
 ```luau
 (microseconds: number) -> Duration
 ```
 
-## time.duration.milliseconds
+## duration.milliseconds
 
 ```luau
 (milliseconds: number) -> Duration
 ```
 
-## time.duration.minutes
+## duration.minutes
 
 ```luau
 (minutes: number) -> Duration
 ```
 
-## time.duration.nanoseconds
+## duration.nanoseconds
 
 ```luau
 (nanoseconds: number) -> Duration
 ```
 
-## time.duration.seconds
+## duration.seconds
 
 ```luau
 (seconds: number) -> Duration
 ```
 
-## time.duration.weeks
+## duration.weeks
 
 ```luau
 (weeks: number) -> Duration
-```
-
-## time.now
-
-```luau
-() -> Instant
-```
-
-## time.since
-
-```luau
-(instant: Instant) -> number
 ```
