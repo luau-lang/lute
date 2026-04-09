@@ -11,26 +11,55 @@ local win32paths = require("@std/path/win32")
 
 local fslib = {}
 
+--- How a file should be opened:
+--- - `"r"`: Open for reading. Fails if the file does not exist.
+--- - `"w"`: Open for writing; creates the file if absent, truncates it if present.
+--- - `"x"`: Open for exclusive creation. Fails if the file already exists.
+--- - `"a"`: Open for appending; creates the file if absent, writes go to the end.
+--- - `"r+"`: Open for reading and writing. Fails if the file does not exist.
+--- - `"w+"`: Open for reading and writing; creates the file if absent, truncates it if present.
+--- - `"x+"`: Open for reading and exclusive creation. Fails if the file already exists.
+--- - `"a+"`: Open for reading and appending; creates the file if absent, writes go to the end.
 export type HandleMode = fs.HandleMode
+--- An open file handle.
 export type File = fs.FileHandle
+--- The type of a filesystem entry:
+--- - `"file"`: A regular file.
+--- - `"dir"`: A directory.
+--- - `"link"`: A symbolic link.
+--- - `"fifo"`: A named pipe (FIFO).
+--- - `"socket"`: A Unix domain socket.
+--- - `"char"`: A character device.
+--- - `"block"`: A block device.
+--- - `"unknown"`: An entry whose type could not be determined.
 export type FileType = fs.FileType
+--- Metadata about a filesystem entry, such as size, type, and timestamps.
 export type FileMetadata = fs.FileMetadata
+--- A single entry returned by `listDirectory`, containing the entry's name and type.
 export type DirectoryEntry = fs.DirectoryEntry
+--- A handle to an active filesystem watcher, returned by `watch`.
 export type WatchHandle = fs.WatchHandle
+--- A filesystem change event, yielded by a `Watcher`.
 export type WatchEvent = fs.WatchEvent
 
 type Pathlike = pathlib.Pathlike
 type Path = pathlib.Path
 type win32path = win32paths.Path
 
+--- Options for `createDirectory`:
+--- - `makeParents`: If `true`, creates any missing parent directories. Defaults to `false`.
 export type CreateDirectoryOptions = {
 	makeParents: boolean?,
 }
 
+--- Options for `removeDirectory`:
+--- - `recursive`: If `true`, removes all contents of the directory before deleting it. Defaults to `false`.
 export type RemoveDirectoryOptions = {
 	recursive: boolean?,
 }
 
+--- Options for `walk`:
+--- - `recursive`: If `true`, descends into subdirectories. Defaults to `false`.
 export type WalkOptions = {
 	recursive: boolean?,
 }
@@ -40,45 +69,54 @@ type Watcher = {
 	close: (self: Watcher) -> (),
 }
 
+--- Opens the file at `path` in the given `mode` (defaults to `"r"`). Returns a file handle.
 function fslib.open(path: Pathlike, mode: HandleMode?): File
 	return fs.open(pathlib.format(path), mode)
 end
 
+--- Reads the full contents of `file` and returns them as a string.
 function fslib.read(file: File): string
 	return fs.read(file)
 end
 
+--- Writes `contents` to `file`.
 function fslib.write(file: File, contents: string): ()
 	return fs.write(file, contents)
 end
 
+--- Closes `file`, flushing any pending writes.
 function fslib.close(file: File): ()
 	return fs.close(file)
 end
 
+--- Removes the file at `path`.
 function fslib.remove(path: Pathlike): ()
 	return fs.remove(pathlib.format(path))
 end
 
+--- Returns metadata for the file or directory at `path`.
 function fslib.metadata(path: Pathlike): FileMetadata
 	return fs.stat(pathlib.format(path))
 end
 
+--- Returns the `FileType` of the entry at `path` (e.g. `"file"`, `"dir"`, `"symlink"`).
 function fslib.type(path: Pathlike): FileType
 	return fs.type(pathlib.format(path))
 end
 
+--- Creates a hard link at `dest` pointing to `src`.
 function fslib.link(src: Pathlike, dest: Pathlike): ()
 	return fs.link(pathlib.format(src), pathlib.format(dest))
 end
 
+--- Creates a symbolic link at `dest` pointing to `src`.
 function fslib.symbolicLink(src: Pathlike, dest: Pathlike): ()
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 
---- Iterator function that yields filename and event pairs when changes occur in the watched path.
---- Also provides a `close` method to stop watching.
---- Note: for loops do not support yielding generalized iterators, so we cannot use fs.watch as `for _ in fs.watch(...) do` directly. A while loop can be used instead. See example/watch_directory.luau for usage.
+--- Watches `path` for filesystem changes. Returns a `Watcher` with a `next` method that returns the next
+--- `WatchEvent`, or `nil` if none is available, and a `close` method to stop watching.
+--- Note: a while loop must be used rather than a for loop. See example/watch_directory.luau for usage.
 function fslib.watch(path: Pathlike): Watcher
 	-- In the future this could be written with explicit instantiation syntax
 	-- as in:
@@ -106,18 +144,22 @@ function fslib.watch(path: Pathlike): Watcher
 	}
 end
 
+--- Returns `true` if a file or directory exists at `path`.
 function fslib.exists(path: Pathlike): boolean
 	return fs.exists(pathlib.format(path))
 end
 
+--- Copies the file at `src` to `dest`.
 function fslib.copy(src: Pathlike, dest: Pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
+--- Returns an array of `DirectoryEntry` values for the immediate children of the directory at `path`.
 function fslib.listDirectory(path: Pathlike): { DirectoryEntry }
 	return fs.listdir(pathlib.format(path))
 end
 
+--- Returns the entire contents of the file at `filepath` as a string.
 function fslib.readFileToString(filepath: Pathlike): string
 	local f = fs.open(pathlib.format(filepath), "r")
 	local contents = fs.read(f)
@@ -125,12 +167,14 @@ function fslib.readFileToString(filepath: Pathlike): string
 	return contents
 end
 
+--- Writes `contents` to the file at `filepath`, replacing any existing contents.
 function fslib.writeStringToFile(filepath: Pathlike, contents: string): ()
 	local f = fs.open(pathlib.format(filepath), "w+")
 	fs.write(f, contents)
 	fs.close(f)
 end
 
+--- Creates a directory at `path`. If `options.makeParents` is `true`, creates any missing parent directories as well.
 function fslib.createDirectory(path: Pathlike, options: CreateDirectoryOptions?): ()
 	if options and options.makeParents then
 		local parsed = pathlib.parse(path)
@@ -158,6 +202,7 @@ function fslib.createDirectory(path: Pathlike, options: CreateDirectoryOptions?)
 	end
 end
 
+--- Removes the directory at `path`. If `options.recursive` is `true`, removes all contents first.
 function fslib.removeDirectory(path: Pathlike, options: RemoveDirectoryOptions?): ()
 	if options and options.recursive then
 		-- Recursively delete all contents first
@@ -178,7 +223,8 @@ function fslib.removeDirectory(path: Pathlike, options: RemoveDirectoryOptions?)
 	end
 end
 
---- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead. See example/walk_directory.luau for usage.
+--- Returns an iterator over all paths under `path`. If `options.recursive` is `true`, descends into subdirectories.
+--- See example/walk_directory.luau for usage.
 function fslib.walk(path: Pathlike, options: WalkOptions?): () -> Path?
 	local queue: { Path } = { pathlib.parse(path) }
 	local recursive = if options then options.recursive else false

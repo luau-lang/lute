@@ -8,11 +8,13 @@ export type Pathlike = posixtypes.Pathlike
 local posix = {}
 posix.pathmt = {} :: pathinterface.PathInterface
 
+--- Returns the last component of `path`, or `nil` if the path has no components.
 function posix.basename(path: Pathlike): string?
 	path = if typeof(path) == "string" then posix.parse(path) else path
 	return if #path.parts > 0 then path.parts[#path.parts] else nil
 end
 
+--- Returns the directory portion of `path` as a string (everything except the last component).
 function posix.dirname(path: Pathlike): string
 	path = if typeof(path) == "string" then posix.parse(path) else path
 
@@ -26,6 +28,7 @@ function posix.dirname(path: Pathlike): string
 	end
 end
 
+--- Returns the file extension of `path` (including the leading dot), or `""` if there is none.
 function posix.extname(path: Pathlike): string
 	path = if typeof(path) == "string" then posix.parse(path) else path
 
@@ -47,6 +50,7 @@ function posix.extname(path: Pathlike): string
 	return filename:sub(dotIndex)
 end
 
+--- Converts `path` to its POSIX string representation.
 function posix.format(path: Pathlike): string
 	if typeof(path) == "string" then
 		return path
@@ -59,6 +63,7 @@ function posix.format(path: Pathlike): string
 	end
 end
 
+--- Returns `true` if `path` is absolute (begins with `/`).
 function posix.isAbsolute(path: Pathlike): boolean
 	path = if typeof(path) == "string" then posix.parse(path) else path
 	return path.absolute
@@ -79,6 +84,7 @@ local function joinHelper(path: Path, addend: Pathlike): ()
 	table.move(addend.parts, 1, #addend.parts, #path.parts + 1, path.parts)
 end
 
+--- Joins one or more path segments into a single `Path`. Each segment after the first must be relative.
 function posix.join(...: Pathlike): Path
 	local parts: { Pathlike } = { ... }
 	if #parts == 0 then
@@ -102,6 +108,7 @@ function posix.join(...: Pathlike): Path
 	return path
 end
 
+--- Returns a normalized form of `path`, resolving `.` and `..` components and removing redundant separators.
 function posix.normalize(path: Pathlike): Path
 	path = if typeof(path) == "string" then posix.parse(path) else path
 
@@ -132,6 +139,7 @@ function posix.normalize(path: Pathlike): Path
 	}, posix.pathmt)
 end
 
+--- Parses `path` into a structured `Path` value.
 function posix.parse(path: Pathlike): Path
 	if typeof(path) == "table" then
 		return setmetatable(path, posix.pathmt)
@@ -169,6 +177,7 @@ function posix.parse(path: Pathlike): Path
 	}, posix.pathmt)
 end
 
+--- Resolves a sequence of paths into an absolute `Path`, processing right-to-left and falling back to the current working directory.
 function posix.resolve(...: Pathlike): Path
 	local parts = { ... }
 	if #parts == 0 then
@@ -201,6 +210,7 @@ function posix.resolve(...: Pathlike): Path
 	return posix.normalize(path)
 end
 
+--- Returns the relative path from `from` to `to`. Both paths must be of the same kind (both absolute or both relative).
 function posix.relative(from: Pathlike, to: Pathlike): Path
 	from = if typeof(from) == "string" then posix.parse(from) else from
 	to = if typeof(to) == "string" then posix.parse(to) else to

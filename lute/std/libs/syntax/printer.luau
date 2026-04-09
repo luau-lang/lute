@@ -182,12 +182,14 @@ local function printVisitor(replacements: types.Replacements?)
 	return printer
 end
 
+--- Returns `node` as source text, optionally applying `replacements` to substitute specific nodes with new text.
 function printerLib.printNode(node: types.AstNode, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visit(node, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
+--- Returns an entire parsed file as source text, including the EOF token, optionally applying `replacements`.
 function printerLib.printFile(result: types.ParseResult, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visitBlock(result.root, printer)

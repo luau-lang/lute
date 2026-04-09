@@ -6,9 +6,11 @@ local luau = require("@lute/luau")
 export type Span = types.Span
 
 local span = {
+	--- Creates a `Span` from begin/end line and column values.
 	create = luau.span.create,
 }
 
+--- Returns `true` if `haystack` fully contains `needle`.
 function span.subsumes(haystack: Span, needle: Span): boolean
 	return (
 		if haystack.beginLine == needle.beginLine
