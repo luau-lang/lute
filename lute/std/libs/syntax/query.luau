@@ -8,7 +8,7 @@ local visitor = require("./visitor")
 
 type Node = types.AstNode
 
---- A lazy collection of AST nodes that supports chained filtering, mapping, and replacement operations.
+--- A collection of AST nodes that supports chained filtering, mapping, and replacement operations.
 export type Query<T = Node> = {
 	nodes: { T },
 	filter: (self: Query<T>, pred: (T) -> boolean) -> Query<T>,
