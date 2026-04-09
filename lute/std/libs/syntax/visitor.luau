@@ -6,9 +6,9 @@ local types = require("./types")
 
 local visitorlib = {}
 
---- A table of callbacks invoked during AST traversal. Each `visitXxx` callback receives the corresponding node and
+--- A table of callbacks invoked during AST traversal. Each `visit` callback receives the corresponding node and
 --- returns `true` to continue visiting its children, or `false` to skip them. "End" callbacks fire after all children
---- have been visited. Override only the callbacks you care about; unset callbacks default to visiting all children.
+--- of that sort have been visited. Override only the callbacks you care about; unset callbacks default to visiting all children.
 export type Visitor = {
 	visitStatBlock: (types.AstStatBlock) -> boolean,
 	visitStatBlockEnd: (types.AstStatBlock) -> (),
