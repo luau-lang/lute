@@ -53,7 +53,7 @@ jobs:
   release-common:
     needs: changes
     if: ${{ needs.changes.outputs.proceed == 'true' }}
-    uses: ./.github/workflows/shared-build.yml
+    uses: ./.github/workflows/release-common.yml
     with:
       branch: primary
     secrets: inherit
