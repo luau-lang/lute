@@ -4,11 +4,11 @@ local path = require("@std/path")
 local stringext = require("@std/stringext")
 
 local function istestfile(filename: string): boolean
-	return stringext.hassuffix(filename, ".test.luau") or stringext.hassuffix(filename, ".spec.luau")
+	return stringext.hasSuffix(filename, ".test.luau") or stringext.hasSuffix(filename, ".spec.luau")
 end
 
 local function issnapfile(filename: string): boolean
-	return stringext.hassuffix(filename, ".snap.luau")
+	return stringext.hasSuffix(filename, ".snap.luau")
 end
 
 local function findfiles(paths: { string }, predicate: (string) -> boolean): { path.Path }
@@ -26,7 +26,7 @@ local function findfiles(paths: { string }, predicate: (string) -> boolean): { p
 
 	local cwd = ps.cwd()
 	for _, p in paths do
-		if path.isabsolute(p) then
+		if path.isAbsolute(p) then
 			walk(p)
 		else
 			walk(path.join(cwd, p))

@@ -21,7 +21,7 @@ test.suite("CryptoRuntimeTests", function(suite)
 		local box = crypto.secretbox.seal(buf)
 		local opened = crypto.secretbox.open(box)
 
-		assert.buffereq(opened, buf)
+		assert.eq(opened, buf)
 	end)
 
 	suite:case("secretboxSeparateKeygen", function(assert)

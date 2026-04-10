@@ -1,4 +1,5 @@
 local test = require("@std/test")
+local runner = require("@std/test/runner")
 
 test.case("foo", function(assert)
 	assert.eq(3, 3)
@@ -14,23 +15,23 @@ test.case("baz", function(assert)
 end)
 
 test.suite("MySuite", function(suite)
-	-- beforeall runs once before all tests in the suite
-	suite:beforeall(function()
+	-- beforeAll runs once before all tests in the suite
+	suite:beforeAll(function()
 		print("Setting up MySuite - runs once before all tests")
 	end)
 
-	-- beforeeach runs before each individual test
-	suite:beforeeach(function()
+	-- beforeEach runs before each individual test
+	suite:beforeEach(function()
 		print("Running before each test")
 	end)
 
-	-- aftereach runs after each individual test
-	suite:aftereach(function()
+	-- afterEach runs after each individual test
+	suite:afterEach(function()
 		print("Cleaning up after each test")
 	end)
 
-	-- afterall runs once after all tests in the suite
-	suite:afterall(function()
+	-- afterAll runs once after all tests in the suite
+	suite:afterAll(function()
 		print("Tearing down MySuite - runs once after all tests")
 	end)
 
@@ -47,8 +48,8 @@ test.suite("MySuite", function(suite)
 	suite:case("table_comparison", function(assert)
 		local table1 = { a = 1, b = { c = 2, d = 3 } }
 		local table2 = { a = 1, b = { c = 2, d = 3 } }
-		assert.tableeq(table1, table2)
-		assert.tableeq(table1, { a = 1 })
+		assert.eq(table1, table2)
+		assert.eq(table1, { a = 1 })
 	end)
 
 	suite:case("expect_error", function(assert)
@@ -67,4 +68,4 @@ test.suite("MySuite", function(suite)
 	end)
 end)
 
-test.run()
+runner.runRegisteredTests()

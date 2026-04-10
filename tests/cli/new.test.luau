@@ -6,16 +6,16 @@ local test = require("@std/test")
 
 local tmpdir = system.tmpdir()
 local workdir = pathlib.join(tmpdir, "lute-new")
-local lutePath = pathlib.format(process.execpath())
+local lutePath = pathlib.format(process.execPath())
 local projectName = "myproject"
 local projectDir = pathlib.join(workdir, projectName)
 
 test.suite("LuteNew", function(suite)
-	suite:beforeeach(function()
+	suite:beforeEach(function()
 		if fs.exists(workdir) then
-			fs.removedirectory(workdir, { recursive = true })
+			fs.removeDirectory(workdir, { recursive = true })
 		end
-		fs.createdirectory(workdir)
+		fs.createDirectory(workdir)
 	end)
 
 	suite:case("createsProjectDirectory", function(assert)
@@ -30,8 +30,8 @@ test.suite("LuteNew", function(suite)
 
 		local mainPath = pathlib.join(workdir, projectName, "main.luau")
 		assert.that(fs.exists(mainPath))
-		local contents = fs.readfiletostring(mainPath)
-		assert.strcontains(contents, "Hello, world!")
+		local contents = fs.readFileToString(mainPath)
+		assert.strContains(contents, "Hello, world!")
 	end)
 
 	suite:case("createsTestScript", function(assert)
@@ -39,8 +39,8 @@ test.suite("LuteNew", function(suite)
 
 		local testPath = pathlib.join(workdir, projectName, "main.test.luau")
 		assert.that(fs.exists(testPath))
-		local contents = fs.readfiletostring(testPath)
-		assert.strcontains(contents, "@std/test")
+		local contents = fs.readFileToString(testPath)
+		assert.strContains(contents, "@std/test")
 	end)
 
 	suite:case("createsConfigFile", function(assert)
@@ -48,38 +48,38 @@ test.suite("LuteNew", function(suite)
 
 		local configPath = pathlib.join(workdir, projectName, ".config.luau")
 		assert.that(fs.exists(configPath))
-		local contents = fs.readfiletostring(configPath)
-		assert.strcontains(contents, "strict")
+		local contents = fs.readFileToString(configPath)
+		assert.strContains(contents, "strict")
 	end)
 
 	suite:case("printSuccessMessage", function(assert)
 		local result = process.run({ lutePath, "new", projectName }, { cwd = pathlib.format(workdir) })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, "Created project 'myproject'")
+		assert.strContains(result.stdout, "Created project 'myproject'")
 	end)
 
 	suite:case("failsWhenNoProjectNameGiven", function(assert)
 		local result = process.run({ lutePath, "new" }, { cwd = pathlib.format(workdir) })
 
 		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stdout, "Missing required argument <project-name>")
+		assert.strContains(result.stdout, "Missing required argument <project-name>")
 	end)
 
 	suite:case("failsWhenDirectoryAlreadyExists", function(assert)
-		fs.createdirectory(pathlib.join(workdir, projectName))
+		fs.createDirectory(pathlib.join(workdir, projectName))
 
 		local result = process.run({ lutePath, "new", projectName }, { cwd = pathlib.format(workdir) })
 
 		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stdout, "already exists")
+		assert.strContains(result.stdout, "already exists")
 	end)
 
 	suite:case("showsHelpWithFlag", function(assert)
 		local result = process.run({ lutePath, "new", "--help" }, { cwd = pathlib.format(workdir) })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, "Usage: lute new <project-name>")
+		assert.strContains(result.stdout, "Usage: lute new <project-name>")
 	end)
 
 	suite:case("typechecksOutOfTheBox", function(assert)

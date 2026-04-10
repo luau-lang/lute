@@ -20,8 +20,9 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
-Runtime::Runtime()
-    : globalState(nullptr, lua_close_checked)
+Runtime::Runtime(LuteReporter& reporter)
+    : reporter(reporter)
+    , globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
 {
 
@@ -88,7 +89,7 @@ RuntimeStep Runtime::runOnce()
 
     if (L == nullptr)
     {
-        fprintf(stderr, "Cannot resume a non-thread reference");
+        reporter.reportError("Cannot resume a non-thread reference");
         return StepErr{L};
     }
 
@@ -147,7 +148,7 @@ bool Runtime::runToCompletion()
         {
             if (err->L == nullptr)
             {
-                fprintf(stderr, "lua_State* L is nullptr");
+                reporter.reportError("lua_State* L is nullptr");
                 return false;
             }
 
@@ -176,7 +177,7 @@ void Runtime::reportError(lua_State* L)
     error += "\nstacktrace:\n";
     error += lua_debugtrace(L);
 
-    fprintf(stderr, "%s", error.c_str());
+    reporter.reportError(error);
 }
 
 void Runtime::runContinuously()
@@ -256,8 +257,33 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
             lua_State* L = lua_tothread(GL, -1);
             lua_pop(GL, 1);
 
+            bool isAlive = !lua_isthreadreset(L);
             int results = cont(L);
-            runningThreads.push_back({true, ref, results});
+            if (isAlive)
+            {
+                runningThreads.push_back({true, ref, results});
+            }
+        }
+    );
+
+    runLoopCv.notify_one();
+}
+
+void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
+{
+    std::unique_lock lock(continuationMutex);
+
+    continuations.push_back(
+        [this, callbackRef = std::move(callbackRef), argPusher = std::move(argPusher)]() mutable
+        {
+            lua_State* newThread = lua_newthread(GL);
+            std::shared_ptr<Ref> threadRef = getRefForThread(newThread);
+            lua_pop(GL, 1);
+
+            callbackRef->push(newThread);
+            int nargs = argPusher(newThread);
+
+            runningThreads.push_back({true, threadRef, nargs});
         }
     );
 

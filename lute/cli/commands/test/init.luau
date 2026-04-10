@@ -18,6 +18,7 @@ local function loadtests(testfiles: { path.Path })
 
 		if not success then
 			print(`Error loading {path.format(p)}: {err}`)
+			ps.exit(1)
 		end
 	end
 end

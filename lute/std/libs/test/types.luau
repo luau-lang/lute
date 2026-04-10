@@ -2,9 +2,16 @@
 -- @std/test/types
 -- Standard test types library for Luau
 
--- Test Reporting
-
-export type Hook = "beforeeach" | "beforeall" | "aftereach" | "afterall"
+--- The name of a lifecycle hook that can run around test cases:
+--- - `"beforeEach"`: Runs before each test case in the suite.
+--- - `"beforeAll"`: Runs once before all test cases in the suite.
+--- - `"afterEach"`: Runs after each test case in the suite.
+--- - `"afterAll"`: Runs once after all test cases in the suite.
+export type Hook = "beforeEach" | "beforeAll" | "afterEach" | "afterAll"
+--- Describes why a test failed:
+--- - `"assertion"`: An assertion (e.g. `t.eq`) failed. Includes the assertion name, message, filename, and line number.
+--- - `"lifecycle"`: A lifecycle hook threw an error. Includes the hook name, message, filename, and line number.
+--- - `"runtime_error"`: The test body threw an unhandled error. Includes the message and stack trace.
 export type Failure =
 	{
 		assertion: string, -- name of the assertion
@@ -26,43 +33,45 @@ export type Failure =
 		__tag: "runtime_error",
 	}
 
+--- The assertion functions passed to each test case. Each assertion returns a `Failure` on failure, or `nil` on success.
 export type Asserts = {
 	eq: <T>(T, T, string?) -> Failure?,
 	neq: <T>(T, T, string?) -> Failure?,
 	throws: <T...>((T...) -> ...unknown, T...) -> Failure?,
-	-- FIXME(Luau): We would like this to be two read-only indexers, but the
-	-- best option we have otherwise is two error suppressing indexers.
-	tableeq: ({ [any]: any }, { [any]: any }) -> Failure?,
-	buffereq: (buffer, buffer) -> Failure?,
 	throwsWith: <T...>(any, (T...) -> ...unknown, T...) -> Failure?,
-	strcontains: (string, string, number?, string?) -> Failure?,
-	strnotcontains: (string, string, string?) -> Failure?,
+	strContains: (string, string, number?, string?) -> Failure?,
+	strNotContains: (string, string, string?) -> Failure?,
 	that: (unknown, string?) -> Failure?,
 }
 
+--- A test function that receives the assertion helpers and runs one test case.
 export type Test = (Asserts) -> ()
 
+--- A named test case pairing a name with its test function.
 export type TestCase = { name: string, case: Test }
 
+--- A named collection of test cases with optional lifecycle hooks.
 export type TestSuite = {
 	name: string,
 	cases: { TestCase },
-	_beforeeach: (() -> ())?,
-	_beforeall: (() -> ())?,
-	_aftereach: (() -> ())?,
-	_afterall: (() -> ())?,
+	_beforeEach: (() -> ())?,
+	_beforeAll: (() -> ())?,
+	_afterEach: (() -> ())?,
+	_afterAll: (() -> ())?,
 	case: (self: TestSuite, string, Test) -> (),
-	beforeeach: (self: TestSuite, () -> ()) -> (),
-	beforeall: (self: TestSuite, () -> ()) -> (),
-	aftereach: (self: TestSuite, () -> ()) -> (),
-	afterall: (self: TestSuite, () -> ()) -> (),
+	beforeEach: (self: TestSuite, () -> ()) -> (),
+	beforeAll: (self: TestSuite, () -> ()) -> (),
+	afterEach: (self: TestSuite, () -> ()) -> (),
+	afterAll: (self: TestSuite, () -> ()) -> (),
 }
 
+--- A test case that failed, paired with the failure that caused it.
 export type FailedTest = {
 	test: string, -- name of the test case that failed
 	failure: Failure,
 }
 
+--- The aggregate results of a test run: total, passed, failed counts and the list of failures.
 export type TestRunResult = {
 	failures: { FailedTest },
 	total: number,
@@ -70,14 +79,17 @@ export type TestRunResult = {
 	passed: number,
 }
 
+--- A function that receives a `TestRunResult` and reports it (e.g. prints to stdout).
 export type TestReporter = (TestRunResult) -> ()
 
 -- Testing Environment
+--- An index entry mapping a test case name to all anonymous instances and suite instances with that name.
 export type CaseIndexEntry = {
 	anonymous: { TestCase },
 	suites: { [string]: { TestCase } },
 }
 
+--- The full set of discovered tests: anonymous cases, suites, and lookup indexes by name.
 export type TestEnvironment = {
 	anonymous: { TestCase },
 	suites: { TestSuite },
@@ -85,6 +97,7 @@ export type TestEnvironment = {
 	caseindex: { [string]: CaseIndexEntry },
 }
 
+--- A function that runs a `TestEnvironment` and returns the results.
 export type TestRunner = (TestEnvironment) -> TestRunResult
 
 return {}

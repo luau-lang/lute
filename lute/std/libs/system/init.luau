@@ -9,6 +9,7 @@ local platform = require("@self/platform")
 
 local systemlib = {}
 
+--- Returns the path of the system's temporary directory.
 function systemlib.tmpdir(): path.Path
 	return path.parse(system.tmpdir())
 end
@@ -17,10 +18,10 @@ end
 systemlib.os = system.os
 systemlib.arch = system.arch
 
-systemlib.threadcount = system.threadcount
-systemlib.hostname = system.hostname
-systemlib.totalmemory = system.totalmemory
-systemlib.freememory = system.freememory
+systemlib.threadCount = system.threadCount
+systemlib.hostName = system.hostName
+systemlib.totalMemory = system.totalMemory
+systemlib.freeMemory = system.freeMemory
 systemlib.uptime = system.uptime
 systemlib.cpus = system.cpus
 

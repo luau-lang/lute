@@ -8,28 +8,28 @@ local tmpdir = system.tmpdir()
 local testPath = path.join(tmpdir, "gitignore_test")
 
 test.suite("CliLibFiles", function(suite)
-	suite:beforeeach(function()
+	suite:beforeEach(function()
 		if fs.exists(testPath) then
-			fs.removedirectory(testPath, { recursive = true })
+			fs.removeDirectory(testPath, { recursive = true })
 		end
 	end)
 
 	suite:case("parseSimpleFilePattern", function(assert)
 		-- Setup
-		fs.createdirectory(testPath)
+		fs.createDirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
-		fs.writestringtofile(gitignorePath, "*.lua\n")
+		fs.writeStringToFile(gitignorePath, "*.lua\n")
 
 		local shouldIgnorePath = path.join(testPath, "debug.lua")
-		fs.writestringtofile(shouldIgnorePath, "")
+		fs.writeStringToFile(shouldIgnorePath, "")
 
 		local shouldNotIgnorePath = path.join(testPath, "readme.luau")
-		fs.writestringtofile(shouldNotIgnorePath, "")
+		fs.writeStringToFile(shouldNotIgnorePath, "")
 
 		local shouldNotIgnoreDirectory = path.join(testPath, "lua")
-		fs.createdirectory(shouldNotIgnoreDirectory)
+		fs.createDirectory(shouldNotIgnoreDirectory)
 		local shouldNotIgnoreNestedPath = path.join(shouldNotIgnoreDirectory, "readme.luau")
-		fs.writestringtofile(shouldNotIgnoreNestedPath, "")
+		fs.writeStringToFile(shouldNotIgnoreNestedPath, "")
 
 		-- Do
 		local results = files.getSourceFiles({ path.format(testPath) })
@@ -44,27 +44,27 @@ test.suite("CliLibFiles", function(suite)
 		assert.eq(resultPaths[path.format(shouldNotIgnoreNestedPath)], true)
 
 		-- Teardown
-		fs.removedirectory(testPath, { recursive = true })
+		fs.removeDirectory(testPath, { recursive = true })
 	end)
 
 	suite:case("parseDirectoryPattern", function(assert)
 		-- Setup
-		fs.createdirectory(testPath)
+		fs.createDirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
-		fs.writestringtofile(gitignorePath, "node_modules/\n")
+		fs.writeStringToFile(gitignorePath, "node_modules/\n")
 
 		local dirPath = path.join(testPath, "node_modules")
-		fs.createdirectory(dirPath)
+		fs.createDirectory(dirPath)
 		local shouldIgnoreFile = path.join(dirPath, "package.luau")
-		fs.writestringtofile(shouldIgnoreFile, "")
+		fs.writeStringToFile(shouldIgnoreFile, "")
 
 		local nestedDirPath = path.join(testPath, "a", "node_modules")
-		fs.createdirectory(nestedDirPath, { makeparents = true })
+		fs.createDirectory(nestedDirPath, { makeParents = true })
 		local shouldIgnoreNestedFile = path.join(nestedDirPath, "nested_package.luau")
-		fs.writestringtofile(shouldIgnoreNestedFile, "")
+		fs.writeStringToFile(shouldIgnoreNestedFile, "")
 
 		local shouldNotIgnoreFile = path.join(testPath, "node_modules.luau")
-		fs.writestringtofile(shouldNotIgnoreFile, "")
+		fs.writeStringToFile(shouldNotIgnoreFile, "")
 
 		-- Do
 		local results = files.getSourceFiles({ path.format(testPath) })
@@ -79,20 +79,20 @@ test.suite("CliLibFiles", function(suite)
 		assert.eq(resultPaths[path.format(shouldNotIgnoreFile)], true)
 
 		-- Teardown
-		fs.removedirectory(testPath, { recursive = true })
+		fs.removeDirectory(testPath, { recursive = true })
 	end)
 
 	suite:case("parseNegationPattern", function(assert)
 		-- Setup
-		fs.createdirectory(testPath)
+		fs.createDirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
-		fs.writestringtofile(gitignorePath, "*.lua\n!important.lua\n")
+		fs.writeStringToFile(gitignorePath, "*.lua\n!important.lua\n")
 
 		local shouldIgnorePath = path.join(testPath, "debug.lua")
-		fs.writestringtofile(shouldIgnorePath, "")
+		fs.writeStringToFile(shouldIgnorePath, "")
 
 		local shouldNotIgnorePath = path.join(testPath, "important.lua")
-		fs.writestringtofile(shouldNotIgnorePath, "")
+		fs.writeStringToFile(shouldNotIgnorePath, "")
 
 		-- Do
 		local results = files.getSourceFiles({ path.format(testPath) })
@@ -106,23 +106,23 @@ test.suite("CliLibFiles", function(suite)
 		assert.eq(resultPaths[path.format(shouldNotIgnorePath)], true)
 
 		-- Teardown
-		fs.removedirectory(testPath, { recursive = true })
+		fs.removeDirectory(testPath, { recursive = true })
 	end)
 
 	suite:case("parseLeadingDoubleAsteriskPattern", function(assert)
 		-- Setup
-		fs.createdirectory(testPath)
+		fs.createDirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
-		fs.writestringtofile(gitignorePath, "**/temp/foo\n")
+		fs.writeStringToFile(gitignorePath, "**/temp/foo\n")
 
 		local subdir = path.join(testPath, "src", "temp", "foo")
-		fs.createdirectory(subdir, { makeparents = true })
+		fs.createDirectory(subdir, { makeParents = true })
 
 		local shouldIgnorePath = path.join(subdir, "template.luau")
-		fs.writestringtofile(shouldIgnorePath, "")
+		fs.writeStringToFile(shouldIgnorePath, "")
 
 		local shouldntIgnorePath = path.join(testPath, "src", "temp", "hello.luau")
-		fs.writestringtofile(shouldntIgnorePath, "")
+		fs.writeStringToFile(shouldntIgnorePath, "")
 
 		-- Do
 		local results = files.getSourceFiles({ path.format(testPath) })
@@ -136,26 +136,26 @@ test.suite("CliLibFiles", function(suite)
 		assert.eq(resultPaths[path.format(shouldntIgnorePath)], true)
 
 		-- Teardown
-		fs.removedirectory(testPath, { recursive = true })
+		fs.removeDirectory(testPath, { recursive = true })
 	end)
 
 	suite:case("parseTrailingDoubleAsteriskPattern", function(assert)
 		-- Setup
-		fs.createdirectory(testPath)
+		fs.createDirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
-		fs.writestringtofile(gitignorePath, "temp/foo/**\n")
+		fs.writeStringToFile(gitignorePath, "temp/foo/**\n")
 
 		local subdir = path.join(testPath, "temp", "foo", "src")
-		fs.createdirectory(subdir, { makeparents = true })
+		fs.createDirectory(subdir, { makeParents = true })
 
 		local shouldIgnorePath = path.join(subdir, "template.luau")
-		fs.writestringtofile(shouldIgnorePath, "")
+		fs.writeStringToFile(shouldIgnorePath, "")
 
 		local shouldIgnorePath2 = path.join(testPath, "temp", "foo", "template.luau")
-		fs.writestringtofile(shouldIgnorePath2, "")
+		fs.writeStringToFile(shouldIgnorePath2, "")
 
 		local shouldntIgnorePath = path.join(testPath, "temp", "hello.luau")
-		fs.writestringtofile(shouldntIgnorePath, "")
+		fs.writeStringToFile(shouldntIgnorePath, "")
 
 		-- Do
 		local results = files.getSourceFiles({ path.format(testPath) })
@@ -170,29 +170,29 @@ test.suite("CliLibFiles", function(suite)
 		assert.eq(resultPaths[path.format(shouldntIgnorePath)], true)
 
 		-- Teardown
-		fs.removedirectory(testPath, { recursive = true })
+		fs.removeDirectory(testPath, { recursive = true })
 	end)
 
 	suite:case("parseMiddleDoubleAsteriskPattern", function(assert)
 		-- Setup
-		fs.createdirectory(testPath)
+		fs.createDirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
-		fs.writestringtofile(gitignorePath, "temp/**/foo\n")
+		fs.writeStringToFile(gitignorePath, "temp/**/foo\n")
 
 		local subdir = path.join(testPath, "temp", "src", "foo")
-		fs.createdirectory(subdir, { makeparents = true })
+		fs.createDirectory(subdir, { makeParents = true })
 
 		local shouldIgnorePath = path.join(subdir, "template.luau")
-		fs.writestringtofile(shouldIgnorePath, "")
+		fs.writeStringToFile(shouldIgnorePath, "")
 
 		local subdir2 = path.join(testPath, "temp", "src", "test", "foo")
-		fs.createdirectory(subdir2, { makeparents = true })
+		fs.createDirectory(subdir2, { makeParents = true })
 
 		local shouldIgnorePath2 = path.join(subdir2, "template.luau")
-		fs.writestringtofile(shouldIgnorePath2, "")
+		fs.writeStringToFile(shouldIgnorePath2, "")
 
 		local shouldntIgnorePath = path.join(testPath, "temp", "hello.luau")
-		fs.writestringtofile(shouldntIgnorePath, "")
+		fs.writeStringToFile(shouldntIgnorePath, "")
 
 		-- Do
 		local results = files.getSourceFiles({ path.format(testPath) })
@@ -207,24 +207,24 @@ test.suite("CliLibFiles", function(suite)
 		assert.eq(resultPaths[path.format(shouldntIgnorePath)], true)
 
 		-- Teardown
-		fs.removedirectory(testPath, { recursive = true })
+		fs.removeDirectory(testPath, { recursive = true })
 	end)
 
 	suite:case("parseRootedPattern", function(assert)
 		-- Setup
-		fs.createdirectory(testPath)
+		fs.createDirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
-		fs.writestringtofile(gitignorePath, "/build\n")
+		fs.writeStringToFile(gitignorePath, "/build\n")
 
-		fs.createdirectory(path.join(testPath, "build"), { makeparents = true })
+		fs.createDirectory(path.join(testPath, "build"), { makeParents = true })
 
 		local shouldIgnorePath = path.join(testPath, "build", "foo.luau")
-		fs.writestringtofile(shouldIgnorePath, "")
+		fs.writeStringToFile(shouldIgnorePath, "")
 
-		fs.createdirectory(path.join(testPath, "src", "build"), { makeparents = true })
+		fs.createDirectory(path.join(testPath, "src", "build"), { makeParents = true })
 
 		local shouldNotIgnorePath = path.join(testPath, "src", "build", "bar.luau")
-		fs.writestringtofile(shouldNotIgnorePath, "")
+		fs.writeStringToFile(shouldNotIgnorePath, "")
 
 		-- Do
 		local results = files.getSourceFiles({ path.format(testPath) })
@@ -238,23 +238,23 @@ test.suite("CliLibFiles", function(suite)
 		assert.eq(resultPaths[path.format(shouldNotIgnorePath)], true)
 
 		-- Teardown
-		fs.removedirectory(testPath, { recursive = true })
+		fs.removeDirectory(testPath, { recursive = true })
 	end)
 
 	suite:case("parseQuestionMarkPattern", function(assert)
 		-- Setup
-		fs.createdirectory(testPath)
+		fs.createDirectory(testPath)
 		local gitignorePath = path.join(testPath, ".gitignore")
-		fs.writestringtofile(gitignorePath, "file?.luau\n")
+		fs.writeStringToFile(gitignorePath, "file?.luau\n")
 
 		local shouldIgnorePath1 = path.join(testPath, "file1.luau")
-		fs.writestringtofile(shouldIgnorePath1, "")
+		fs.writeStringToFile(shouldIgnorePath1, "")
 
 		local shouldIgnorePath2 = path.join(testPath, "fileA.luau")
-		fs.writestringtofile(shouldIgnorePath2, "")
+		fs.writeStringToFile(shouldIgnorePath2, "")
 
 		local shouldNotIgnorePath = path.join(testPath, "file10.luau")
-		fs.writestringtofile(shouldNotIgnorePath, "")
+		fs.writeStringToFile(shouldNotIgnorePath, "")
 
 		-- Do
 		local results = files.getSourceFiles({ path.format(testPath) })
@@ -268,6 +268,6 @@ test.suite("CliLibFiles", function(suite)
 		assert.eq(resultPaths[path.format(shouldNotIgnorePath)], true)
 
 		-- Teardown
-		fs.removedirectory(testPath, { recursive = true })
+		fs.removeDirectory(testPath, { recursive = true })
 	end)
 end)

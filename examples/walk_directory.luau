@@ -7,7 +7,7 @@ local baseDir = path.join(tmpdir, "walk_directory_example")
 
 -- Setup: create a directory structure
 if not fslib.exists(baseDir) then
-	fslib.createdirectory(baseDir, { makeparents = true })
+	fslib.createDirectory(baseDir, { makeParents = true })
 end
 
 local subdirs = {
@@ -17,7 +17,7 @@ local subdirs = {
 
 for _, subdir in subdirs do
 	local fullPath = path.join(baseDir, subdir)
-	fslib.createdirectory(fullPath, { makeparents = true })
+	fslib.createDirectory(fullPath, { makeParents = true })
 end
 
 local files = {
@@ -28,7 +28,7 @@ local files = {
 
 for _, file in files do
 	local fullPath = path.join(baseDir, file)
-	fslib.writestringtofile(fullPath, "hello lute")
+	fslib.writeStringToFile(fullPath, "hello lute")
 end
 
 -- Walk the directory recursively
@@ -41,4 +41,4 @@ while walker do
 end
 
 -- Cleanup: remove the created directory structure
-fslib.removedirectory(baseDir, { recursive = true })
+fslib.removeDirectory(baseDir, { recursive = true })

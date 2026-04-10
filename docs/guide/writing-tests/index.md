@@ -156,7 +156,7 @@ will fail, which will be reported as a failed test case.
 ### Using Test Suites to organize tests
 While we're at it, we can also wrap all of these tests into a single test
 suite, which will group these tests together. Test suites also allow you to use
-lifecycle methods like `beforeeach`, `beforeall`, `aftereach`, and `afterall` to control setup and
+lifecycle methods like `beforeEach`, `beforeAll`, `afterEach`, and `afterAll` to control setup and
 tear down for tests.
 
 ```luau
@@ -208,7 +208,7 @@ files in a temporary directory. For example, testing that some code can create a
 set of files. When subsequent tests execute, they may be operating in a
 directory filled with files leftover from a previous test.
 
-In this situation, you could use the `beforeeach` method to execute some cleanup
+In this situation, you could use the `beforeEach` method to execute some cleanup
 of the temporary directory:
 
 ```luau
@@ -221,7 +221,7 @@ local system = require("@std/system")
 local testDir = path.join(system.tmpdir(), "test")
 
 test.suite("FileCreation", function()
-    test.beforeeach(function()
+    test.beforeEach(function()
         --Deletes the contents of the test directory before each test
         fs.removedirectory(testDir, {recursive = true})
         --Recreates the directory so it exists for the next test to use it

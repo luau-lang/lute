@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/library.h"
+
 #include "lua.h"
 #include "lualib.h"
 
@@ -21,6 +23,7 @@ double getSecondsFromTimespec(uv_timespec64_t timespec);
 uv_timespec64_t getTimespecFromDuration(lua_State* L, int idx);
 int createDurationFromTimespec(lua_State* L, uv_timespec64_t timespec);
 int createDurationFromSeconds(lua_State* L, double seconds);
+void init_duration_lib(lua_State* L);
 
 namespace duration
 {
@@ -50,20 +53,10 @@ static const luaL_Reg lib[] = {
 
 } // namespace duration
 
-namespace libtime
+struct Time : LuteLibrary<Time>
 {
-int lua_now(lua_State* L);
-int lua_since(lua_State* L);
-
-static const luaL_Reg lib[] = {
-    {"now", lua_now},
-    {"since", lua_since},
-
-    {nullptr, nullptr},
+    static constexpr const char kName[] = "time";
+    static int pushLibrary(lua_State* L);
+    static const luaL_Reg lib[];
+    static const char* const properties[];
 };
-
-static const std::string properties[] = {
-    kDurationLibraryIdentifier,
-};
-
-} // namespace libtime

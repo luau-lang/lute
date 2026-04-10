@@ -1,4 +1,6 @@
 -- lute-lint-global-ignore(unused_variable)
+local time = require("./time")
+
 local fs = {}
 
 export type FileHandle = {
@@ -13,9 +15,9 @@ export type FileMetadata = {
 	type: FileType,
 	permissions: { readonly: boolean },
 	size: number,
-	created: any,
-	accessed: any,
-	modified: any,
+	created: time.Duration,
+	accessed: time.Duration,
+	modified: time.Duration,
 }
 
 export type DirectoryEntry = {

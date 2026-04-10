@@ -1,5 +1,5 @@
+local git = require("../packagesource/git")
 local resolution = require("../resolver/resolution")
-local loomTypes = require("../loomtypes")
 local projectManifest = require("../manifest/projectmanifest")
 local pp = require("../../extern/pp")
 
@@ -12,7 +12,7 @@ local function executeLuauSource(source: string): any
 	return func()
 end
 
-function install(packageSource: loomTypes.PackageSource)
+local function install()
 	local manifestPath = "loom.config.luau"
 	local manifestContent = fsUtils.readfiletostring(manifestPath)
 	local manifestTable = executeLuauSource(manifestContent)
@@ -26,8 +26,8 @@ function install(packageSource: loomTypes.PackageSource)
 	for _, pkg in projectResolution.packages do
 		print(`package: {pkg.name}, Rev: {pkg.rev}, Source: {pkg.sourceKind} - {pkg.source}`)
 		if pkg.sourceKind == "github" then
-			local zipArchive = packageSource.git:downloadFromGitHubArchive(pkg.source)
-			packageSource.git:installZipArchive(pkg.name, pkg.rev, zipArchive)
+			local zipArchive = git:downloadFromGitHubArchive(pkg.source)
+			git:installZipArchive(pkg.name, pkg.rev, zipArchive)
 		end
 	end
 end

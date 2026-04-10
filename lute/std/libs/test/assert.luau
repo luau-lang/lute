@@ -63,14 +63,6 @@ local function tablesEqual(t1: unknown, t2: unknown, path: string): (boolean, st
 	return true, nil
 end
 
-local function eq<T>(lhs: T, rhs: T, msg: string?): Failure?
-	if lhs == rhs then
-		return nil
-	end
-
-	return assertion(msg or `{lhs} ~= {rhs}`)
-end
-
 local function neq<T>(lhs: T, rhs: T, msg: string?): Failure?
 	if lhs ~= rhs then
 		return nil
@@ -97,26 +89,32 @@ local function throws<T...>(func: (T...) -> ...unknown, ...: T...): Failure?
 	return assertion(`{func} did not throw error.`)
 end
 
+-- FIXME(Luau): We would like this to be two read-only indexers, but the
+-- best option we have otherwise is two error suppressing indexers.
 -- Table equality assertionsion with deep comparison
-local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }): Failure?
+local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }, depth: number?): Failure?
+	local stackdepth = depth or 4
+
 	local equal, msg = tablesEqual(lhs, rhs, "")
 	if equal then
 		return nil
 	end
-	return assertion(msg or "tables are not equal")
+	return assertion(msg or "tables are not equal", stackdepth)
 end
 
-local function buffereq(lhs: buffer, rhs: buffer): Failure?
+local function buffereq(lhs: buffer, rhs: buffer, depth: number?): Failure?
+	local stackdepth = depth or 4
+
 	if typeof(lhs) ~= "buffer" then
-		return assertion(`lhs is of type {typeof(lhs)}, not buffer`)
+		return assertion(`lhs is of type {typeof(lhs)}, not buffer`, stackdepth)
 	end
 
 	if typeof(rhs) ~= "buffer" then
-		return assertion(`rhs is of type {typeof(rhs)}, not buffer`)
+		return assertion(`rhs is of type {typeof(rhs)}, not buffer`, stackdepth)
 	end
 
 	if buffer.len(lhs) ~= buffer.len(rhs) then
-		return assertion("buffers are of unequal length")
+		return assertion("buffers are of unequal length", stackdepth)
 	end
 
 	local len = buffer.len(lhs)
@@ -125,10 +123,41 @@ local function buffereq(lhs: buffer, rhs: buffer): Failure?
 		local right = buffer.readu8(rhs, offset)
 
 		if left ~= right then
-			return assertion(string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right))
+			return assertion(
+				string.format("lhs[%d] = %02x, but rhs[%d] = %02x", offset, left, offset, right),
+				stackdepth
+			)
 		end
 	end
 	return nil
+end
+
+local function eq(lhs: unknown, rhs: unknown, msg: string?): Failure?
+	local stackdepth = 4
+
+	-- Simple equality check for non-tables
+	if lhs == rhs then
+		return nil
+	end
+
+	-- Handle type mismatch
+	if typeof(lhs) ~= typeof(rhs) then
+		return assertion(msg or `lhs is of type {typeof(lhs)}, but rhs is of type {typeof(rhs)}`)
+	end
+
+	-- Check for buffer equality
+	if typeof(lhs) == "buffer" then
+		-- increment stack depth for debug info by 1 when calling buffereq to account for additional function call (eq -> buffereq)
+		return buffereq(lhs :: buffer, rhs :: buffer, stackdepth + 1)
+	end
+
+	-- Check for table equality
+	if typeof(lhs) == "table" then
+		-- increment stack depth for debug info by 1 when calling tableeq to account for additional function call (eq -> tableeq)
+		return tableeq(lhs :: { [any]: any }, rhs :: { [any]: any }, stackdepth + 1)
+	end
+
+	return assertion(msg or `{lhs} ~= {rhs}`)
 end
 
 local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...): Failure?
@@ -141,7 +170,7 @@ local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...
 
 	if typeof(with) == "string" then
 		-- pcall appends filename and line number of the error, so we check suffix only
-		if not stringext.hassuffix(actualErrorMessage, with) then
+		if not stringext.hasSuffix(actualErrorMessage, with) then
 			return assertion(`Expected suffix of error message "{with}", but got "{actualErrorMessage}"`)
 		end
 	else
@@ -151,7 +180,7 @@ local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...
 	return nil
 end
 
-local function strcontains(haystack: string, needle: string, instances: number?, msg: string?): Failure?
+local function strContains(haystack: string, needle: string, instances: number?, msg: string?): Failure?
 	if instances == nil then
 		if haystack:find(needle, 1, true) == nil then
 			return assertion(if msg then msg else `Expected "{haystack}" to contain "{needle}".`)
@@ -173,7 +202,7 @@ local function strcontains(haystack: string, needle: string, instances: number?,
 	return nil
 end
 
-local function strnotcontains(haystack: string, needle: string, msg: string?): Failure?
+local function strNotContains(haystack: string, needle: string, msg: string?): Failure?
 	if haystack:find(needle, 1, true) ~= nil then
 		return assertion(if msg then msg else `Expected "{haystack}" to not contain "{needle}".`)
 	end
@@ -197,10 +226,8 @@ return table.freeze({
 	eq = reqassert(eq),
 	neq = reqassert(neq),
 	throws = reqassert(throws),
-	tableeq = reqassert(tableeq),
-	buffereq = reqassert(buffereq),
 	throwsWith = reqassert(throwsWith),
-	strcontains = reqassert(strcontains),
-	strnotcontains = reqassert(strnotcontains),
+	strContains = reqassert(strContains),
+	strNotContains = reqassert(strNotContains),
 	that = reqassert(that),
 }) :: Asserts

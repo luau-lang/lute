@@ -12,7 +12,7 @@
 #include <memory>
 
 
-namespace io
+namespace
 {
 
 struct IOHandle
@@ -113,19 +113,20 @@ int read(lua_State* L)
     return lua_yield(L, 0);
 }
 
-} // namespace io
+} // anonymous namespace
 
-int luaopen_io(lua_State* L)
+const char* const IO::properties[] = {nullptr};
+
+const luaL_Reg IO::lib[] = {
+    {"read", read},
+    {nullptr, nullptr},
+};
+
+int IO::pushLibrary(lua_State* L)
 {
-    luaL_register(L, "io", io::lib);
-    return 1;
-}
+    lua_createtable(L, 0, std::size(IO::lib));
 
-int luteopen_io(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(io::lib));
-
-    for (auto& [name, func] : io::lib)
+    for (auto& [name, func] : IO::lib)
     {
         if (!name || !func)
             break;
@@ -137,4 +138,14 @@ int luteopen_io(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luaopen_io(lua_State* L)
+{
+    return IO::openAsGlobal(L);
+}
+
+int luteopen_io(lua_State* L)
+{
+    return IO::pushLibrary(L);
 }

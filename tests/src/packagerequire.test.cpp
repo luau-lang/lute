@@ -21,7 +21,7 @@
 
 TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
 {
-    Runtime runtime;
+    Runtime runtime{getReporter()};
 
     setupState(
         runtime,

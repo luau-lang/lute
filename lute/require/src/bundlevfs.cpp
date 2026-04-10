@@ -11,9 +11,21 @@
 constexpr std::string_view kBundlePrefix = "@bundle";
 constexpr std::string_view kBundlePrefixPath = "@bundle/";
 
-BundleVfs::BundleVfs(Luau::DenseHashMap<std::string, std::string> luaurcFiles, Luau::DenseHashMap<std::string, std::string> bundleMap)
+namespace
+{
+
+std::string getConfigPathFromBundlePath(const std::string& path)
+{
+    if (path.rfind(kBundlePrefixPath, 0) == 0)
+        return path.substr(kBundlePrefixPath.size());
+    return path;
+}
+
+} // namespace
+
+BundleVfs::BundleVfs(Luau::DenseHashMap<std::string, std::string> luauConfigFiles, Luau::DenseHashMap<std::string, std::string> bundleMap)
     : filePathToBytecode(std::move(bundleMap))
-    , luaurcFiles(std::move(luaurcFiles))
+    , luauConfigFiles(std::move(luauConfigFiles))
 {
 }
 
@@ -153,15 +165,17 @@ ConfigStatus BundleVfs::getConfigStatus() const
 {
     LUTE_ASSERT(modulePath);
 
-    // Get the potential config path for the current module path
-    std::string configPath = modulePath->getPotentialConfigPath(".luaurc");
+    const std::string luaurcPath = getConfigPathFromBundlePath(modulePath->getPotentialConfigPath(".luaurc"));
+    const std::string luauConfigPath = getConfigPathFromBundlePath(modulePath->getPotentialConfigPath(".config.luau"));
 
-    // Strip @bundle/ prefix if present
-    if (configPath.rfind(kBundlePrefixPath, 0) == 0)
-        configPath = configPath.substr(kBundlePrefixPath.size());
+    const bool luaurcExists = luauConfigFiles.find(luaurcPath) != nullptr;
+    const bool luauConfigExists = luauConfigFiles.find(luauConfigPath) != nullptr;
 
-    // Check if this config file exists in our luaurc map
-    if (luaurcFiles.find(configPath) != nullptr)
+    if (luaurcExists && luauConfigExists)
+        return ConfigStatus::Ambiguous;
+    else if (luauConfigExists)
+        return ConfigStatus::PresentLuau;
+    else if (luaurcExists)
         return ConfigStatus::PresentJson;
 
     return ConfigStatus::Absent;
@@ -171,15 +185,19 @@ std::optional<std::string> BundleVfs::getConfig() const
 {
     LUTE_ASSERT(modulePath);
 
-    // Get the potential config path for the current module path
-    std::string configPath = modulePath->getPotentialConfigPath(".luaurc");
+    const ConfigStatus status = getConfigStatus();
 
-    // Strip @bundle/ prefix if present
-    if (configPath.rfind(kBundlePrefixPath, 0) == 0)
-        configPath = configPath.substr(kBundlePrefixPath.size());
+    std::string configName;
+    if (status == ConfigStatus::PresentJson)
+        configName = ".luaurc";
+    else if (status == ConfigStatus::PresentLuau)
+        configName = ".config.luau";
+    else
+        return std::nullopt;
 
-    // Look up the config content in our luaurc map
-    const std::string* configContent = luaurcFiles.find(configPath);
+    const std::string configPath = getConfigPathFromBundlePath(modulePath->getPotentialConfigPath(configName));
+
+    const std::string* configContent = luauConfigFiles.find(configPath);
     if (configContent != nullptr)
         return *configContent;
 

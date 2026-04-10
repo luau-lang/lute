@@ -345,32 +345,32 @@ end)
 
 test.suite("PathWin32IsAbsoluteSuite", function(suite)
 	suite:case("isAbsoluteWindowsAbsolutePath", function(assert)
-		local result = path.win32.isabsolute("C:\\Users\\username\\Documents\\file.txt")
+		local result = path.win32.isAbsolute("C:\\Users\\username\\Documents\\file.txt")
 		assert.that(result)
 	end)
 
 	suite:case("isAbsoluteWindowsRelativePath", function(assert)
-		local result = path.win32.isabsolute("Documents\\file.txt")
+		local result = path.win32.isAbsolute("Documents\\file.txt")
 		assert.eq(result, false)
 	end)
 
 	suite:case("isAbsoluteWindowsRelativeWithDrive", function(assert)
-		local result = path.win32.isabsolute("C:Documents\\file.txt")
+		local result = path.win32.isAbsolute("C:Documents\\file.txt")
 		assert.eq(result, false)
 	end)
 
 	suite:case("isAbsoluteWindowsUncPath", function(assert)
-		local result = path.win32.isabsolute("\\\\server\\share\\folder\\file.txt")
+		local result = path.win32.isAbsolute("\\\\server\\share\\folder\\file.txt")
 		assert.that(result)
 	end)
 
 	suite:case("isAbsoluteRootPath", function(assert)
-		local result = path.win32.isabsolute("C:\\")
+		local result = path.win32.isAbsolute("C:\\")
 		assert.that(result)
 	end)
 
 	suite:case("isAbsoluteEmptyPath", function(assert)
-		local result = path.win32.isabsolute("")
+		local result = path.win32.isAbsolute("")
 		assert.eq(result, false)
 	end)
 
@@ -380,7 +380,7 @@ test.suite("PathWin32IsAbsoluteSuite", function(suite)
 			kind = "absolute",
 			drive = "C" :: string?,
 		}, win32.pathmt)
-		local result = path.win32.isabsolute(pathobj)
+		local result = path.win32.isAbsolute(pathobj)
 		assert.that(result)
 	end)
 
@@ -390,7 +390,7 @@ test.suite("PathWin32IsAbsoluteSuite", function(suite)
 			kind = "relative",
 			drive = nil :: string?,
 		}, win32.pathmt)
-		local result = path.win32.isabsolute(pathobj)
+		local result = path.win32.isAbsolute(pathobj)
 		assert.eq(result, false)
 	end)
 end)

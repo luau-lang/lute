@@ -30,21 +30,21 @@ end
 -- TODO we're assuming the files are completely unmodified, but we really shouldn't do that.
 print(`Writing definitions at {BASE_PATH_PRETTY}`)
 if fs.exists(BASE_PATH) then
-	fs.removedirectory(BASE_PATH, { recursive = true })
+	fs.removeDirectory(BASE_PATH, { recursive = true })
 end
-fs.createdirectory(BASE_PATH, { makeparents = true })
+fs.createDirectory(BASE_PATH, { makeParents = true })
 
 for key, value in definitions :: { [string]: string } do
 	local filePath = path.join(BASE_PATH, key)
-	fs.createdirectory(path.dirname(filePath), { makeparents = true })
-	fs.writestringtofile(filePath, value)
+	fs.createDirectory(path.dirname(filePath), { makeParents = true })
+	fs.writeStringToFile(filePath, value)
 end
 
 local typedefsLuauRcPath = path.join(BASE_PATH, ".luaurc")
 
 -- LUAUFIX. Without an annotation on typedefs.LUAURC_TEMPLATE, we arent able to figure out the type of TEMPLATE
 -- If that table was declared in this file, this typechecks, but if it's in a different one, we'll get a type error here
-fs.writestringtofile(typedefsLuauRcPath, json.serialize(TEMPLATE, true))
+fs.writeStringToFile(typedefsLuauRcPath, json.serialize(TEMPLATE, true))
 
 print(`Successfully wrote type definition files to {BASE_PATH_PRETTY}`)
 
@@ -57,7 +57,7 @@ local rcFile = nil
 print(`Writing luaurc file at {luauRcPath}`)
 
 if fs.exists(luauRcPath) then
-	local contents = fs.readfiletostring(luauRcPath)
+	local contents = fs.readFileToString(luauRcPath)
 	rcFile = json.deserialize(contents) :: any
 
 	rcFile.aliases = rcFile.aliases or {}
@@ -67,6 +67,6 @@ if fs.exists(luauRcPath) then
 else
 	rcFile = TEMPLATE
 end
-fs.writestringtofile(luauRcPath, json.serialize(rcFile, true))
+fs.writeStringToFile(luauRcPath, json.serialize(rcFile, true))
 
 print(`Successfully wrote luaurc file to {luauRcPath}`)

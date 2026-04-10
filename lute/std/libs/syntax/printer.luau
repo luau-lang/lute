@@ -56,17 +56,17 @@ local function printString(self: PrintVisitor, expr: types.AstExprConstantString
 
 	self:printTriviaList(expr.token.leadingTrivia)
 
-	if expr.quotestyle == "single" then
+	if expr.quoteStyle == "single" then
 		self:write(`'{expr.token.text}'`)
-	elseif expr.quotestyle == "double" then
+	elseif expr.quoteStyle == "double" then
 		self:write(`"{expr.token.text}"`)
-	elseif expr.quotestyle == "block" then
-		local equals = string.rep("=", expr.blockdepth)
+	elseif expr.quoteStyle == "block" then
+		local equals = string.rep("=", expr.blockDepth)
 		self:write(`[{equals}[{expr.token.text}]{equals}]`)
-	elseif expr.quotestyle == "interp" then
+	elseif expr.quoteStyle == "interp" then
 		self:write("`" .. expr.token.text .. "`")
 	else
-		exhaustiveMatch(expr.quotestyle)
+		exhaustiveMatch(expr.quoteStyle)
 	end
 
 	self:printTriviaList(expr.token.trailingTrivia)
@@ -93,13 +93,13 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 		else
 			self:write("{")
 			self:printTriviaList(expr.strings[i].trailingTrivia)
-			visitor.visitexpression(expr.expressions[i], self)
+			visitor.visitExpression(expr.expressions[i], self)
 		end
 	end
 end
 
 local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: string)
-	local leftmostTrivia = triviaUtils.leftmosttrivia(node)
+	local leftmostTrivia = triviaUtils.leftmostTrivia(node)
 	if leftmostTrivia ~= nil then
 		self:printTriviaList(leftmostTrivia)
 	end
@@ -107,7 +107,7 @@ local function printReplacement(self: PrintVisitor, node: types.AstNode, replace
 	assert(typeof(replacement) == "string", "Unsupported replacement type")
 	self:write(replacement)
 
-	local rightmostTrivia = triviaUtils.rightmosttrivia(node)
+	local rightmostTrivia = triviaUtils.rightmostTrivia(node)
 	if rightmostTrivia ~= nil then
 		self:printTriviaList(rightmostTrivia)
 	end
@@ -182,16 +182,18 @@ local function printVisitor(replacements: types.Replacements?)
 	return printer
 end
 
-function printerLib.printnode(node: types.AstNode, replacements: types.Replacements?): string
+--- Returns `node` as source text, optionally applying `replacements` to substitute specific nodes with new text.
+function printerLib.printNode(node: types.AstNode, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visit(node, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
-function printerLib.printfile(result: types.ParseResult, replacements: types.Replacements?): string
+--- Returns an entire parsed file as source text, including the EOF token, optionally applying `replacements`.
+function printerLib.printFile(result: types.ParseResult, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
-	visitor.visitblock(result.root, printer)
-	visitor.visittoken(result.eof, printer)
+	visitor.visitBlock(result.root, printer)
+	visitor.visitToken(result.eof, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 

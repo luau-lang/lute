@@ -3,12 +3,15 @@
 -- JSON serialization and deserialization library
 
 local json = {
-	--- Not actually a nil value, a newproxy stand-in for a null value since Luau has no actual representation of `null`
+	--- A sentinel value representing JSON `null`. Not actually `nil` — use this when you need to serialize a null field.
 	null = newproxy() :: nil,
 }
 
+--- A JSON object: a table with string keys.
 export type Object = { [string]: Value }
+--- A JSON array: a table with integer keys.
 export type Array = { [number]: Value }
+--- Any JSON value: `null`, a number, string, boolean, array, or object.
 export type Value = nil | number | string | boolean | Array | Object
 
 -- a unique key to identify an object vs a table
@@ -522,6 +525,7 @@ end
 
 -- user-facing
 
+--- Serializes `value` to a JSON string. If `prettyPrint` is `true`, the output is indented for readability.
 function json.serialize(value: Value, prettyPrint: boolean?): string
 	local state: SerializerState = {
 		buf = buffer.create(bufferSize),
@@ -535,6 +539,7 @@ function json.serialize(value: Value, prettyPrint: boolean?): string
 	return buffer.readstring(state.buf, 0, state.cursor)
 end
 
+--- Parses a JSON string and returns the corresponding Luau value. Returns `json.null` for a JSON `null` literal; compare with `json.null` rather than `nil` to check for null.
 function json.deserialize(src: string): (Array | Object | boolean | number | string)?
 	local state = {
 		src = src,
@@ -551,6 +556,7 @@ function json.deserialize(src: string): (Array | Object | boolean | number | str
 	return result
 end
 
+--- Creates a JSON `Object` from `props`. Use this to distinguish an empty object `{}` from an empty array when serializing.
 function json.object(props: { [string]: Value }): Object
 	local res: Object = { [object_key] = true }
 
@@ -561,7 +567,8 @@ function json.object(props: { [string]: Value }): Object
 	return res
 end
 
-function json.asobject(value: Value): Object?
+--- Returns `value` as an `Object` if it is a JSON object, or `nil` otherwise.
+function json.asObject(value: Value): Object?
 	if typeof(value) == "table" and value[object_key] then
 		return value :: Object
 	end
@@ -569,7 +576,8 @@ function json.asobject(value: Value): Object?
 	return nil
 end
 
-function json.asarray(value: Value): Array?
+--- Returns `value` as an `Array` if it is a JSON array, or `nil` otherwise.
+function json.asArray(value: Value): Array?
 	if typeof(value) == "table" and not value[object_key] then
 		return value :: Array
 	end

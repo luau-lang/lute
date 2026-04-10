@@ -54,35 +54,35 @@ function instant.elapsed(self: Instant): number
 	error("not implemented")
 end
 
-function duration_ops.tonanoseconds(self: Duration): number
+function duration_ops.toNanoseconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tomicroseconds(self: Duration): number
+function duration_ops.toMicroseconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tomilliseconds(self: Duration): number
+function duration_ops.toMilliseconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.toseconds(self: Duration): number
+function duration_ops.toSeconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tominutes(self: Duration): number
+function duration_ops.toMinutes(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tohours(self: Duration): number
+function duration_ops.toHours(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.todays(self: Duration): number
+function duration_ops.toDays(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.toweeks(self: Duration): number
+function duration_ops.toWeeks(self: Duration): number
 	error("not implemented")
 end
 

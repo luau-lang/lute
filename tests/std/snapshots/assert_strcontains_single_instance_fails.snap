@@ -6,8 +6,8 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ strcontains_failure_suite.strcontains_error
-	<ROOT>/tests/std/snapshots/assert_strcontains_single_instance_fails.snap.luau:5
-		strcontains: Expected "hello world" to contain "goodbye".
+	<ROOT>/tests/std/snapshots/assert_strcontains_single_instance_fails.snap.luau:6
+		strContains: Expected "hello world" to contain "goodbye".
 
 --------------------------------------------------
 Total:  1
