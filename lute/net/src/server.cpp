@@ -14,6 +14,7 @@
 #include <cctype>
 #include <cstring>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -360,12 +361,20 @@ static int server_ws_close(lua_State* L)
         return 0;
 
     int code = 1000;
-    if (lua_isnumber(L, 2))
-        code = lua_tointeger(L, 2);
+    if (!lua_isnoneornil(L, 2))
+    {
+        code = int(luaL_checkinteger(L, 2));
+        if (code < 0 || code > std::numeric_limits<uint16_t>::max())
+            luaL_errorL(L, "invalid websocket close code %d", code);
+    }
 
     std::string message;
-    if (lua_isstring(L, 3))
-        message = lua_tostring(L, 3);
+    if (!lua_isnoneornil(L, 3))
+    {
+        size_t messageLength = 0;
+        const char* messageData = luaL_checklstring(L, 3, &messageLength);
+        message.assign(messageData, messageLength);
+    }
 
     if (!(*handlePtr)->closed.load() && (*handlePtr)->wsPtr && (*handlePtr)->closeFn)
     {
@@ -604,17 +613,24 @@ static void setupAppAndListen(AppT* app, std::shared_ptr<ServerLoopState> state,
 
                 if (status == LUA_YIELD)
                 {
-                    res->writeStatus("500 Internal Server Error");
-                    res->end("upgrade handler cannot yield");
-                    lua_pop(L, 1);
+                    lua_resetthread(L);
+
+                    if (!upgraded)
+                    {
+                        res->writeStatus("500 Internal Server Error");
+                        res->end("upgrade handler cannot yield");
+                    }
                     return;
                 }
 
                 if (status != LUA_OK)
                 {
                     std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
-                    res->writeStatus("500 Internal Server Error");
-                    res->end("Server error: " + error);
+                    if (!upgraded)
+                    {
+                        res->writeStatus("500 Internal Server Error");
+                        res->end("Server error: " + error);
+                    }
                     lua_pop(L, 1);
                     return;
                 }
