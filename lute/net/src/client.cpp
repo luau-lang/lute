@@ -115,10 +115,9 @@ struct WebSocketPollState
 
 struct PendingSend
 {
-    std::shared_ptr<std::string> payload;
+    std::string payload;
     bool binary = false;
     size_t offset = 0;
-    ResumeToken token;
 };
 
 struct CurlResponse
@@ -312,19 +311,15 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
         );
     }
 
-    void failPendingSends(const std::string& error)
+    void clearPendingSends()
     {
-        while (!pendingSends.empty())
-        {
-            pendingSends.front().token->fail(error);
-            pendingSends.pop_front();
-        }
+        pendingSends.clear();
     }
 
     void finishClose(bool sendCloseFrame)
     {
         stopPolling();
-        failPendingSends("websocket is closed");
+        clearPendingSends();
 
         {
             std::lock_guard<std::mutex> lock(curlMutex);
@@ -577,12 +572,12 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
                 std::lock_guard<std::mutex> lock(curlMutex);
                 if (!curl)
                 {
-                    failPendingSends("websocket is closed");
+                    clearPendingSends();
                     return;
                 }
 
-                size_t remaining = pending.payload->size() - pending.offset;
-                const char* data = remaining > 0 ? pending.payload->data() + pending.offset : pending.payload->data();
+                size_t remaining = pending.payload.size() - pending.offset;
+                const char* data = remaining > 0 ? pending.payload.data() + pending.offset : pending.payload.data();
 
                 result =
                     curl_ws_send(curl, data, remaining, &sent, 0, pending.binary ? CURLWS_BINARY : CURLWS_TEXT);
@@ -593,21 +588,14 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
 
             if (result != CURLE_OK)
             {
-                pending.token->fail("websocket send failed: " + std::string(curl_easy_strerror(result)));
-                pendingSends.pop_front();
-                continue;
+                closeWithError("websocket send failed: " + std::string(curl_easy_strerror(result)));
+                return;
             }
 
             pending.offset += sent;
 
-            if (pending.payload->empty() || pending.offset >= pending.payload->size())
+            if (pending.payload.empty() || pending.offset >= pending.payload.size())
             {
-                pending.token->complete(
-                    [](lua_State*)
-                    {
-                        return 0;
-                    }
-                );
                 pendingSends.pop_front();
                 continue;
             }
@@ -743,25 +731,9 @@ int ws_send(lua_State* L)
     std::shared_ptr<WebSocketHandle> handle = *handleStorage;
 
     WebSocketPayload payloadData = extractWebSocketPayload(L, 2);
-
-    auto payload = std::make_shared<std::string>(payloadData.data, payloadData.length);
-    auto token = getResumeToken(L);
-
-    handle->pendingSends.push_back({std::move(payload), payloadData.binary, 0, token});
-    token->runtime->schedule(
-        [handle = std::move(handle)]
-        {
-            if (handle->isClosed.load())
-            {
-                handle->failPendingSends("websocket is closed");
-                return;
-            }
-
-            handle->flushOutgoing();
-        }
-    );
-
-    return lua_yield(L, 0);
+    handle->pendingSends.push_back({std::string(payloadData.data, payloadData.length), payloadData.binary, 0});
+    handle->flushOutgoing();
+    return 0;
 }
 
 int ws_close(lua_State* L)
