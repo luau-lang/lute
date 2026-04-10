@@ -15,7 +15,6 @@
 #include <cstring>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -67,7 +66,7 @@ struct ServerWebSocketHandle
 {
     void* wsPtr = nullptr;
     std::atomic<bool> closed{false};
-    std::mutex sendMutex;
+    std::shared_ptr<Ref> userdataRef;
     int (*sendFn)(void* wsPtr, std::string_view data, bool binary) = nullptr;
     void (*closeFn)(void* wsPtr, uint16_t code, std::string_view message) = nullptr;
 };
@@ -344,7 +343,6 @@ static int server_ws_send(lua_State* L)
 
     WebSocketPayload payload = extractWebSocketPayload(L, 2);
 
-    std::lock_guard<std::mutex> lock((*handlePtr)->sendMutex);
     int result = 0;
     if (!(*handlePtr)->closed.load() && (*handlePtr)->wsPtr && (*handlePtr)->sendFn)
         result = (*handlePtr)->sendFn((*handlePtr)->wsPtr, std::string_view(payload.data, payload.length), payload.binary);
@@ -369,7 +367,6 @@ static int server_ws_close(lua_State* L)
     if (lua_isstring(L, 3))
         message = lua_tostring(L, 3);
 
-    std::lock_guard<std::mutex> lock((*handlePtr)->sendMutex);
     if (!(*handlePtr)->closed.load() && (*handlePtr)->wsPtr && (*handlePtr)->closeFn)
     {
         (*handlePtr)->closeFn((*handlePtr)->wsPtr, uint16_t(code), message);
@@ -378,8 +375,24 @@ static int server_ws_close(lua_State* L)
     return 0;
 }
 
-static void pushServerWebSocket(lua_State* L, const std::shared_ptr<ServerWebSocketHandle>& handle)
+static void pushServerWebSocket(
+    lua_State* L,
+    const std::shared_ptr<ServerWebSocketHandle>& handle,
+    const std::shared_ptr<Ref>& retainedRef = nullptr
+)
 {
+    if (retainedRef)
+    {
+        retainedRef->push(L);
+        return;
+    }
+
+    if (handle->userdataRef)
+    {
+        handle->userdataRef->push(L);
+        return;
+    }
+
     auto* storage =
         new (static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_newuserdatataggedwithmetatable(
             L,
@@ -387,6 +400,7 @@ static void pushServerWebSocket(lua_State* L, const std::shared_ptr<ServerWebSoc
             kServerWebSocketHandleTag
         ))) std::shared_ptr<ServerWebSocketHandle>(handle);
     (void)storage;
+    handle->userdataRef = std::make_shared<Ref>(L, -1);
 }
 
 struct PreparedHandler
@@ -675,10 +689,12 @@ static void setupAppAndListen(AppT* app, std::shared_ptr<ServerLoopState> state,
             [state](auto* ws, int code, std::string_view message)
             {
                 auto handle = ws->getUserData()->handle;
+                std::shared_ptr<Ref> userdataRef;
                 if (handle)
                 {
                     handle->closed.store(true);
                     handle->wsPtr = nullptr;
+                    userdataRef = std::move(handle->userdataRef);
                 }
 
                 std::string payload(message.data(), message.size());
@@ -686,9 +702,9 @@ static void setupAppAndListen(AppT* app, std::shared_ptr<ServerLoopState> state,
                 resumeWith(
                     state,
                     state->wsCloseRef,
-                    [handle, code, payload = std::move(payload)](lua_State* L)
+                    [handle, userdataRef = std::move(userdataRef), code, payload = std::move(payload)](lua_State* L)
                     {
-                        pushServerWebSocket(L, handle);
+                        pushServerWebSocket(L, handle, userdataRef);
                         lua_pushinteger(L, code);
                         lua_pushlstring(L, payload.data(), payload.size());
                         return 3;
