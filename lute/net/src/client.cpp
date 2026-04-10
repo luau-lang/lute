@@ -154,6 +154,12 @@ struct WebSocketPayload
     bool binary = false;
 };
 
+struct WebSocketPollState
+{
+    uv_poll_t handle{};
+    std::shared_ptr<WebSocketHandle> owner;
+};
+
 struct CurlResponse
 {
     std::string error;
@@ -288,10 +294,16 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
     std::shared_ptr<Ref> onMessageRef;
     std::shared_ptr<Ref> onCloseRef;
     std::shared_ptr<Ref> onErrorRef;
-    std::thread recvThread;
+    WebSocketPollState* pollState = nullptr;
     std::atomic<bool> isClosed{false};
     std::atomic<bool> hasScheduledClose{false};
+    std::atomic<bool> hasPendingToken{false};
     std::mutex curlMutex;
+    std::vector<char> recvBuffer = std::vector<char>(16 * 1024);
+    std::string currentMessage;
+    bool currentBinary = false;
+    bool hasCurrentMessage = false;
+    std::string closePayload;
 
     void scheduleCallback(const std::shared_ptr<Ref>& callback, std::function<int(lua_State*)> argPusher)
     {
@@ -318,8 +330,28 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
         );
     }
 
+    void stopPolling()
+    {
+        if (!pollState)
+            return;
+
+        WebSocketPollState* state = pollState;
+        pollState = nullptr;
+
+        uv_poll_stop(&state->handle);
+        uv_close(
+            reinterpret_cast<uv_handle_t*>(&state->handle),
+            [](uv_handle_t* handle)
+            {
+                delete static_cast<WebSocketPollState*>(handle->data);
+            }
+        );
+    }
+
     void finishClose(bool sendCloseFrame)
     {
+        stopPolling();
+
         {
             std::lock_guard<std::mutex> lock(curlMutex);
             if (curl)
@@ -341,7 +373,7 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
             }
         }
 
-        if (runtime)
+        if (runtime && hasPendingToken.exchange(false))
             runtime->releasePendingToken();
     }
 
@@ -374,143 +406,163 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
         finishClose(false);
     }
 
-    void startRecvLoop()
+    void processIncoming()
     {
-        std::shared_ptr<WebSocketHandle> self = shared_from_this();
-        recvThread = std::thread(
-            [self]
+        while (!isClosed.load())
+        {
+            size_t receivedLength = 0;
+            const curl_ws_frame* meta = nullptr;
+            CURLcode result = CURLE_OK;
+
             {
-                self->scheduleCallback(
-                    self->onOpenRef,
-                    [](lua_State*)
-                    {
-                        return 0;
-                    }
-                );
+                std::lock_guard<std::mutex> lock(curlMutex);
+                if (!curl)
+                    return;
 
-                std::vector<char> buffer(16 * 1024);
-                std::string currentMessage;
-                bool currentBinary = false;
-                bool hasCurrentMessage = false;
-                std::string closePayload;
+                result = curl_ws_recv(curl, recvBuffer.data(), recvBuffer.size(), &receivedLength, &meta);
+            }
 
-                while (!self->isClosed.load())
+            if (isClosed.load())
+                return;
+
+            if (result == CURLE_AGAIN)
+                return;
+
+            if (result != CURLE_OK)
+            {
+                if (isClosed.load() || hasScheduledClose.load())
+                    return;
+
+                closeWithError(curl_easy_strerror(result));
+                return;
+            }
+
+            if (!meta)
+                continue;
+
+            if (meta->flags & CURLWS_CLOSE)
+            {
+                closePayload.append(recvBuffer.data(), receivedLength);
+
+                if (meta->bytesleft != 0)
+                    continue;
+
+                int closeCode = 1000;
+                std::string closeReason;
+
+                if (closePayload.size() >= 2)
                 {
-                    size_t receivedLength = 0;
-                    const curl_ws_frame* meta = nullptr;
-                    CURLcode result = CURLE_OK;
-                    curl_socket_t socket = CURL_SOCKET_BAD;
-
-                    {
-                        std::lock_guard<std::mutex> lock(self->curlMutex);
-                        if (!self->curl)
-                            break;
-
-                        result = curl_ws_recv(self->curl, buffer.data(), buffer.size(), &receivedLength, &meta);
-                        if (result == CURLE_AGAIN)
-                            (void)curl_easy_getinfo(self->curl, CURLINFO_ACTIVESOCKET, &socket);
-                    }
-
-                    if (self->isClosed.load())
-                        break;
-
-                    if (result == CURLE_AGAIN)
-                    {
-                        waitForSocketReady(socket, kWebSocketSocketWaitTimeoutMs, false);
-                        continue;
-                    }
-
-                    if (result != CURLE_OK)
-                    {
-                        if (self->isClosed.load() || self->hasScheduledClose.load())
-                            break;
-
-                        self->closeWithError(curl_easy_strerror(result));
-                        return;
-                    }
-
-                    if (!meta)
-                        continue;
-
-                    if (meta->flags & CURLWS_CLOSE)
-                    {
-                        closePayload.append(buffer.data(), receivedLength);
-
-                        if (meta->bytesleft != 0)
-                            continue;
-
-                        int closeCode = 1000;
-                        std::string closeReason;
-
-                        if (closePayload.size() >= 2)
-                        {
-                            const unsigned char* payload =
-                                reinterpret_cast<const unsigned char*>(closePayload.data());
-                            closeCode = int((payload[0] << 8) | payload[1]);
-                            if (closePayload.size() > 2)
-                                closeReason.assign(closePayload.data() + 2, closePayload.size() - 2);
-                        }
-
-                        self->scheduleCloseCallback(closeCode, std::move(closeReason));
-                        break;
-                    }
-
-                    if (meta->flags & CURLWS_PING)
-                    {
-                        size_t sent = 0;
-                        std::lock_guard<std::mutex> lock(self->curlMutex);
-                        if (self->curl)
-                            (void)curl_ws_send(self->curl, buffer.data(), receivedLength, &sent, 0, CURLWS_PONG);
-                        continue;
-                    }
-
-                    if (meta->flags & (CURLWS_TEXT | CURLWS_BINARY | CURLWS_CONT))
-                    {
-                        if (meta->flags & (CURLWS_TEXT | CURLWS_BINARY))
-                        {
-                            currentMessage.clear();
-                            currentBinary = (meta->flags & CURLWS_BINARY) != 0;
-                            hasCurrentMessage = true;
-                        }
-                        else if (!hasCurrentMessage)
-                        {
-                            currentMessage.clear();
-                            currentBinary = false;
-                            hasCurrentMessage = true;
-                        }
-
-                        currentMessage.append(buffer.data(), receivedLength);
-
-                        if (meta->bytesleft == 0)
-                        {
-                            std::string message = std::move(currentMessage);
-                            bool binary = currentBinary;
-                            hasCurrentMessage = false;
-
-                            self->scheduleCallback(
-                                self->onMessageRef,
-                                [message = std::move(message), binary](lua_State* L)
-                                {
-                                    if (binary)
-                                    {
-                                        void* buf = lua_newbuffer(L, message.size());
-                                        if (!message.empty())
-                                            memcpy(buf, message.data(), message.size());
-                                    }
-                                    else
-                                    {
-                                        lua_pushlstring(L, message.data(), message.size());
-                                    }
-                                    return 1;
-                                }
-                            );
-                        }
-                    }
+                    const unsigned char* payload = reinterpret_cast<const unsigned char*>(closePayload.data());
+                    closeCode = int((payload[0] << 8) | payload[1]);
+                    if (closePayload.size() > 2)
+                        closeReason.assign(closePayload.data() + 2, closePayload.size() - 2);
                 }
 
-                self->close();
+                closeWithCode(closeCode, std::move(closeReason));
+                return;
+            }
+
+            if (meta->flags & CURLWS_PING)
+            {
+                size_t sent = 0;
+                std::lock_guard<std::mutex> lock(curlMutex);
+                if (curl)
+                    (void)curl_ws_send(curl, recvBuffer.data(), receivedLength, &sent, 0, CURLWS_PONG);
+                continue;
+            }
+
+            if (meta->flags & (CURLWS_TEXT | CURLWS_BINARY | CURLWS_CONT))
+            {
+                if (meta->flags & (CURLWS_TEXT | CURLWS_BINARY))
+                {
+                    currentMessage.clear();
+                    currentBinary = (meta->flags & CURLWS_BINARY) != 0;
+                    hasCurrentMessage = true;
+                }
+                else if (!hasCurrentMessage)
+                {
+                    currentMessage.clear();
+                    currentBinary = false;
+                    hasCurrentMessage = true;
+                }
+
+                currentMessage.append(recvBuffer.data(), receivedLength);
+
+                if (meta->bytesleft == 0)
+                {
+                    std::string message = std::move(currentMessage);
+                    bool binary = currentBinary;
+                    hasCurrentMessage = false;
+
+                    scheduleCallback(
+                        onMessageRef,
+                        [message = std::move(message), binary](lua_State* L)
+                        {
+                            if (binary)
+                            {
+                                void* buf = lua_newbuffer(L, message.size());
+                                if (!message.empty())
+                                    memcpy(buf, message.data(), message.size());
+                            }
+                            else
+                            {
+                                lua_pushlstring(L, message.data(), message.size());
+                            }
+                            return 1;
+                        }
+                    );
+                }
+            }
+        }
+    }
+
+    bool startPolling(curl_socket_t socket)
+    {
+        if (!runtime || socket == CURL_SOCKET_BAD)
+            return false;
+
+        auto* state = new WebSocketPollState();
+        state->owner = shared_from_this();
+        state->handle.data = state;
+
+        int initResult = uv_poll_init_socket(runtime->getEventLoop(), &state->handle, socket);
+        if (initResult != 0)
+        {
+            delete state;
+            return false;
+        }
+
+        pollState = state;
+
+        int startResult = uv_poll_start(
+            &state->handle,
+            UV_READABLE,
+            [](uv_poll_t* handle, int status, int events)
+            {
+                auto* state = static_cast<WebSocketPollState*>(handle->data);
+                if (!state)
+                    return;
+
+                if (status < 0)
+                {
+                    state->owner->closeWithError(uv_strerror(status));
+                    return;
+                }
+
+                if ((events & UV_READABLE) == 0)
+                    return;
+
+                state->owner->processIncoming();
             }
         );
+
+        if (startResult != 0)
+        {
+            stopPolling();
+            return false;
+        }
+
+        return true;
     }
 
     void close()
@@ -521,13 +573,6 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
     ~WebSocketHandle()
     {
         close();
-        if (recvThread.joinable())
-        {
-            if (std::this_thread::get_id() == recvThread.get_id())
-                recvThread.detach();
-            else
-                recvThread.join();
-        }
 
         onOpenRef.reset();
         onMessageRef.reset();
@@ -826,9 +871,20 @@ int websocket(lua_State* L)
                 return;
             }
 
+            curl_socket_t socket = CURL_SOCKET_BAD;
+            if (curl_easy_getinfo(curl, CURLINFO_ACTIVESOCKET, &socket) != CURLE_OK || socket == CURL_SOCKET_BAD)
+            {
+                if (headerList)
+                    curl_slist_free_all(headerList);
+                curl_easy_cleanup(curl);
+                token->fail("failed to get websocket socket");
+                return;
+            }
+
             token->complete(
                 [runtime,
                  curl,
+                 socket,
                  headerList,
                  onOpenRef = std::move(onOpenRef),
                  onMessageRef = std::move(onMessageRef),
@@ -844,6 +900,12 @@ int websocket(lua_State* L)
                     handle->onCloseRef = std::move(onCloseRef);
                     handle->onErrorRef = std::move(onErrorRef);
 
+                    if (!handle->startPolling(socket))
+                    {
+                        handle->finishClose(false);
+                        luaL_errorL(L, "failed to initialize websocket polling");
+                    }
+
                     auto* storage =
                         new (static_cast<std::shared_ptr<WebSocketHandle>*>(lua_newuserdatataggedwithmetatable(
                             L,
@@ -853,7 +915,14 @@ int websocket(lua_State* L)
                     (void)storage;
 
                     runtime->addPendingToken();
-                    handle->startRecvLoop();
+                    handle->hasPendingToken.store(true);
+                    handle->scheduleCallback(
+                        handle->onOpenRef,
+                        [](lua_State*)
+                        {
+                            return 0;
+                        }
+                    );
                     return 1;
                 }
             );
