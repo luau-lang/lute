@@ -20,7 +20,7 @@ jobs:
 
   release-common:
     needs: validate
-    uses: ./.github/workflows/shared-build.yml
+    uses: ./.github/workflows/release-common.yml
     with:
       branch: ${{ github.ref_name }}
     secrets: inherit
