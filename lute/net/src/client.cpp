@@ -5,31 +5,22 @@
 #include "lute/userdatas.h"
 
 #include "Luau/DenseHash.h"
+#include "Luau/VecDeque.h"
 
 #include "lua.h"
 #include "lualib.h"
 
-#ifdef _WIN32
-#include <winsock2.h>
-#endif
-
 #include "curl/curl.h"
 #include "curl/websockets.h"
 
-#include <chrono>
 #include <atomic>
 #include <cstring>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
-
-#ifndef _WIN32
-#include <poll.h>
-#endif
 
 namespace net::client
 {
@@ -40,44 +31,6 @@ int ws_close(lua_State* L);
 
 namespace
 {
-
-constexpr long kWebSocketSocketWaitTimeoutMs = 100;
-
-static void waitForSocketReady(curl_socket_t socket, long timeoutMs, bool waitForWrite)
-{
-    if (socket == CURL_SOCKET_BAD)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(timeoutMs));
-        return;
-    }
-
-#ifdef _WIN32
-    fd_set readfds;
-    fd_set writefds;
-    FD_ZERO(&readfds);
-    FD_ZERO(&writefds);
-    if (waitForWrite)
-    {
-        FD_SET(socket, &readfds);
-        FD_SET(socket, &writefds);
-    }
-    else
-    {
-        FD_SET(socket, &readfds);
-    }
-
-    timeval timeout{};
-    timeout.tv_sec = timeoutMs / 1000;
-    timeout.tv_usec = (timeoutMs % 1000) * 1000;
-    (void)select(0, &readfds, &writefds, nullptr, &timeout);
-#else
-    pollfd fd{};
-    fd.fd = socket;
-    fd.events = waitForWrite ? short(POLLIN | POLLOUT) : POLLIN;
-    (void)poll(&fd, 1, int(timeoutMs));
-#endif
-}
-
 struct CurlHolder
 {
     CurlHolder()
@@ -158,6 +111,14 @@ struct WebSocketPollState
 {
     uv_poll_t handle{};
     std::shared_ptr<WebSocketHandle> owner;
+};
+
+struct PendingSend
+{
+    std::shared_ptr<std::string> payload;
+    bool binary = false;
+    size_t offset = 0;
+    ResumeToken token;
 };
 
 struct CurlResponse
@@ -299,11 +260,13 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
     std::atomic<bool> hasScheduledClose{false};
     std::atomic<bool> hasPendingToken{false};
     std::mutex curlMutex;
+    int activePollEvents = 0;
     std::vector<char> recvBuffer = std::vector<char>(16 * 1024);
     std::string currentMessage;
     bool currentBinary = false;
     bool hasCurrentMessage = false;
     std::string closePayload;
+    Luau::VecDeque<PendingSend> pendingSends;
 
     void scheduleCallback(const std::shared_ptr<Ref>& callback, std::function<int(lua_State*)> argPusher)
     {
@@ -337,6 +300,7 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
 
         WebSocketPollState* state = pollState;
         pollState = nullptr;
+        activePollEvents = 0;
 
         uv_poll_stop(&state->handle);
         uv_close(
@@ -348,9 +312,19 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
         );
     }
 
+    void failPendingSends(const std::string& error)
+    {
+        while (!pendingSends.empty())
+        {
+            pendingSends.front().token->fail(error);
+            pendingSends.pop_front();
+        }
+    }
+
     void finishClose(bool sendCloseFrame)
     {
         stopPolling();
+        failPendingSends("websocket is closed");
 
         {
             std::lock_guard<std::mutex> lock(curlMutex);
@@ -375,6 +349,53 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
 
         if (runtime && hasPendingToken.exchange(false))
             runtime->releasePendingToken();
+    }
+
+    bool applyPollingEvents(int events)
+    {
+        if (!pollState)
+            return false;
+
+        if (activePollEvents == events)
+            return true;
+
+        int startResult = uv_poll_start(
+            &pollState->handle,
+            events,
+            [](uv_poll_t* handle, int status, int events)
+            {
+                auto* state = static_cast<WebSocketPollState*>(handle->data);
+                if (!state)
+                    return;
+
+                if (status < 0)
+                {
+                    state->owner->closeWithError(uv_strerror(status));
+                    return;
+                }
+
+                if (events & UV_READABLE)
+                    state->owner->processIncoming();
+
+                if (!state->owner->isClosed.load() && (events & UV_WRITABLE))
+                    state->owner->flushOutgoing();
+            }
+        );
+
+        if (startResult != 0)
+            return false;
+
+        activePollEvents = events;
+        return true;
+    }
+
+    bool updatePollingInterest()
+    {
+        int events = UV_READABLE;
+        if (!pendingSends.empty())
+            events |= UV_WRITABLE;
+
+        return applyPollingEvents(events);
     }
 
     void closeWithCode(int closeCode = 1000, std::string closeReason = "", bool sendCloseFrame = true)
@@ -534,35 +555,69 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
 
         pollState = state;
 
-        int startResult = uv_poll_start(
-            &state->handle,
-            UV_READABLE,
-            [](uv_poll_t* handle, int status, int events)
-            {
-                auto* state = static_cast<WebSocketPollState*>(handle->data);
-                if (!state)
-                    return;
-
-                if (status < 0)
-                {
-                    state->owner->closeWithError(uv_strerror(status));
-                    return;
-                }
-
-                if ((events & UV_READABLE) == 0)
-                    return;
-
-                state->owner->processIncoming();
-            }
-        );
-
-        if (startResult != 0)
+        if (!updatePollingInterest())
         {
             stopPolling();
             return false;
         }
 
         return true;
+    }
+
+    void flushOutgoing()
+    {
+        while (!pendingSends.empty() && !isClosed.load())
+        {
+            PendingSend& pending = pendingSends.front();
+
+            size_t sent = 0;
+            CURLcode result = CURLE_OK;
+
+            {
+                std::lock_guard<std::mutex> lock(curlMutex);
+                if (!curl)
+                {
+                    failPendingSends("websocket is closed");
+                    return;
+                }
+
+                size_t remaining = pending.payload->size() - pending.offset;
+                const char* data = remaining > 0 ? pending.payload->data() + pending.offset : pending.payload->data();
+
+                result =
+                    curl_ws_send(curl, data, remaining, &sent, 0, pending.binary ? CURLWS_BINARY : CURLWS_TEXT);
+            }
+
+            if (result == CURLE_AGAIN)
+                break;
+
+            if (result != CURLE_OK)
+            {
+                pending.token->fail("websocket send failed: " + std::string(curl_easy_strerror(result)));
+                pendingSends.pop_front();
+                continue;
+            }
+
+            pending.offset += sent;
+
+            if (pending.payload->empty() || pending.offset >= pending.payload->size())
+            {
+                pending.token->complete(
+                    [](lua_State*)
+                    {
+                        return 0;
+                    }
+                );
+                pendingSends.pop_front();
+                continue;
+            }
+
+            if (sent == 0)
+                break;
+        }
+
+        if (!isClosed.load() && !updatePollingInterest())
+            closeWithError("failed to update websocket polling");
     }
 
     void close()
@@ -692,73 +747,17 @@ int ws_send(lua_State* L)
     auto payload = std::make_shared<std::string>(payloadData.data, payloadData.length);
     auto token = getResumeToken(L);
 
-    token->runtime->runInWorkQueue(
-        [handle = std::move(handle), payload = std::move(payload), binary = payloadData.binary, token]
+    handle->pendingSends.push_back({std::move(payload), payloadData.binary, 0, token});
+    token->runtime->schedule(
+        [handle = std::move(handle)]
         {
             if (handle->isClosed.load())
             {
-                token->fail("websocket is closed");
+                handle->failPendingSends("websocket is closed");
                 return;
             }
 
-            size_t offset = 0;
-            bool firstSend = true;
-            while (firstSend || offset < payload->size())
-            {
-                firstSend = false;
-
-                size_t sent = 0;
-                CURLcode result = CURLE_OK;
-                curl_socket_t socket = CURL_SOCKET_BAD;
-
-                {
-                    std::lock_guard<std::mutex> lock(handle->curlMutex);
-                    if (!handle->curl)
-                    {
-                        token->fail("websocket is closed");
-                        return;
-                    }
-
-                    result = curl_ws_send(
-                        handle->curl,
-                        payload->data() + offset,
-                        payload->size() - offset,
-                        &sent,
-                        0,
-                        binary ? CURLWS_BINARY : CURLWS_TEXT
-                    );
-
-                    if (result == CURLE_AGAIN || (result == CURLE_OK && sent == 0 && offset < payload->size()))
-                        (void)curl_easy_getinfo(handle->curl, CURLINFO_ACTIVESOCKET, &socket);
-                }
-
-                if (result == CURLE_AGAIN)
-                {
-                    waitForSocketReady(socket, kWebSocketSocketWaitTimeoutMs, true);
-                    continue;
-                }
-
-                if (result != CURLE_OK)
-                {
-                    token->fail("websocket send failed: " + std::string(curl_easy_strerror(result)));
-                    return;
-                }
-
-                offset += sent;
-
-                if (offset >= payload->size())
-                    break;
-
-                if (sent == 0)
-                    waitForSocketReady(socket, kWebSocketSocketWaitTimeoutMs, true);
-            }
-
-            token->complete(
-                [](lua_State*)
-                {
-                    return 0;
-                }
-            );
+            handle->flushOutgoing();
         }
     );
 
