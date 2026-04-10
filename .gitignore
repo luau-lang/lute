@@ -1,4 +1,3 @@
-/build/
 /build[.-]*/
 /out
 /cmake/
@@ -14,6 +13,7 @@ __pycache__
 .cache
 .clangd
 **/.DS_Store
+build/
 compile_commands.json
 *~
 extern/*/
