@@ -42,18 +42,18 @@ test.suite("LuteNetSuite", function(suite)
 			},
 		})
 
-		local ws: client.WebSocket?
-		ws = client.websocket(`ws://{instance.hostname}:{instance.port}`, {
+		local _ws: client.WebSocket?
+		_ws = client.websocket(`ws://{instance.hostname}:{instance.port}`, {
 			onopen = function()
-				if ws then
-					ws:send("hello")
+				if _ws then
+					_ws:send("hello")
 				end
 			end,
 			onmessage = function(message)
 				if type(message) == "string" and message == "hello" then
 					receivedEcho = true
-					if ws then
-						ws:send("bye")
+					if _ws then
+						_ws:send("bye")
 					end
 				end
 			end,
@@ -128,11 +128,11 @@ test.suite("LuteNetSuite", function(suite)
 		})
 
 		local closed = false
-		local ws: client.WebSocket?
-		ws = client.websocket(`ws://{instance.hostname}:{instance.port}`, {
+		local _ws: client.WebSocket?
+		_ws = client.websocket(`ws://{instance.hostname}:{instance.port}`, {
 			onopen = function()
-				if ws then
-					ws:send(payload)
+				if _ws then
+					_ws:send(payload)
 				end
 			end,
 			onmessage = function(message)
@@ -143,8 +143,8 @@ test.suite("LuteNetSuite", function(suite)
 				local messageBuffer: buffer = message
 				assert.eq(payload, messageBuffer)
 
-				if ws then
-					ws:close()
+				if _ws then
+					_ws:close()
 				end
 			end,
 			onclose = function()
@@ -236,11 +236,11 @@ test.suite("LuteNetSuite", function(suite)
 			websocket = {},
 		})
 
-		local ws: client.WebSocket?
-		ws = client.websocket(`ws://{instance.hostname}:{instance.port}`, {
+		local _ws: client.WebSocket?
+		_ws = client.websocket(`ws://{instance.hostname}:{instance.port}`, {
 			onopen = function()
-				if ws then
-					ws:close()
+				if _ws then
+					_ws:close()
 				end
 			end,
 			onclose = function(code, reason)
