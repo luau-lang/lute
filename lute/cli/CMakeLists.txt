@@ -64,3 +64,8 @@ set_target_properties(Lute.CLI PROPERTIES OUTPUT_NAME lute)
 target_compile_features(Lute.CLI PUBLIC cxx_std_17)
 target_link_libraries(Lute.CLI PRIVATE Lute.CLI.lib Lute.Common)
 target_compile_options(Lute.CLI PRIVATE ${LUTE_OPTIONS})
+
+# Export symbols so native extensions loaded via dlopen can resolve Luau VM functions.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_options(Lute.CLI PRIVATE -rdynamic)
+endif()

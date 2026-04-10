@@ -7,6 +7,7 @@ target_sources(Lute.Require PRIVATE
     include/lute/filevfs.h
     include/lute/lutevfs.h
     include/lute/modulepath.h
+    include/lute/nativemodule.h
     include/lute/options.h
     include/lute/packagerequirevfs.h
     include/lute/require.h
@@ -20,6 +21,7 @@ target_sources(Lute.Require PRIVATE
     src/filevfs.cpp
     src/lutevfs.cpp
     src/modulepath.cpp
+    src/nativemodule.cpp
     src/options.cpp
     src/packagerequirevfs.cpp
     src/require.cpp

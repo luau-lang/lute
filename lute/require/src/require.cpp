@@ -3,6 +3,7 @@
 #include "lute/common.h"
 #include "lute/lutevfs.h"
 #include "lute/modulepath.h"
+#include "lute/nativemodule.h"
 #include "lute/options.h"
 
 #include "Luau/CodeGen.h"
@@ -159,6 +160,12 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
         lua_pushcfunction(L, *func, nullptr);
         lua_call(L, 0, 1);
         return 1;
+    }
+
+    // Native shared libraries (.dylib, .so, .dll) are loaded via dlopen.
+    if (isNativeLibrary(loadname))
+    {
+        return loadNativeModule(L, loadname);
     }
 
     // module needs to run in a new thread, isolated from the rest
