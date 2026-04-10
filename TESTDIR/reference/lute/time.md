@@ -4,68 +4,44 @@
 local time = require("@lute/time")
 ```
 
-## time.duration.create
+## Summary
 
+| Function / Property | Description |
+| :--- | :--- |
+| [duration](#timeduration) |  |
+| [now](#timenow) |  |
+| [since](#timesince) |  |
+
+---
+
+## Types
+
+### Duration
 ```luau
-(seconds: number, subsecnanos: number) -> Duration
+type Duration = {}
 ```
 
-## time.duration.days
-
+### Instant
 ```luau
-(days: number) -> Duration
+type Instant = {}
 ```
 
-## time.duration.hours
+## Properties and Functions
 
+## time.duration
 ```luau
-(hours: number) -> Duration
+function duration{ create: (seconds: number, subsecnanos: number) -> (Duration), days: (days: number) -> (Duration), hours: (hours: number) -> (Duration), microseconds: (microseconds: number) -> (Duration), milliseconds: (milliseconds: number) -> (Duration), minutes: (minutes: number) -> (Duration), nanoseconds: (nanoseconds: number) -> (Duration), seconds: (seconds: number) -> (Duration), weeks: (weeks: number) -> (Duration) }
 ```
-
-## time.duration.microseconds
-
-```luau
-(microseconds: number) -> Duration
-```
-
-## time.duration.milliseconds
-
-```luau
-(milliseconds: number) -> Duration
-```
-
-## time.duration.minutes
-
-```luau
-(minutes: number) -> Duration
-```
-
-## time.duration.nanoseconds
-
-```luau
-(nanoseconds: number) -> Duration
-```
-
-## time.duration.seconds
-
-```luau
-(seconds: number) -> Duration
-```
-
-## time.duration.weeks
-
-```luau
-(weeks: number) -> Duration
-```
+---
 
 ## time.now
-
 ```luau
-() -> Instant
+function now() -> (Duration)
 ```
+---
 
 ## time.since
-
 ```luau
-(instant: Instant) -> number
+function since(instant: Duration) -> (number)
 ```
+---

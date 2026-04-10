@@ -4,96 +4,157 @@
 local fs = require("@lute/fs")
 ```
 
-## fs.close
+## Summary
 
+| Function / Property | Description |
+| :--- | :--- |
+| [close](#fsclose) |  |
+| [copy](#fscopy) |  |
+| [exists](#fsexists) |  |
+| [link](#fslink) |  |
+| [listdir](#fslistdir) |  |
+| [mkdir](#fsmkdir) | Creates a directory at the specified path. |
+| [open](#fsopen) |  |
+| [read](#fsread) |  |
+| [remove](#fsremove) |  |
+| [rmdir](#fsrmdir) |  |
+| [stat](#fsstat) |  |
+| [symlink](#fssymlink) |  |
+| [type](#fstype) |  |
+| [watch](#fswatch) |  |
+| [write](#fswrite) |  |
+
+---
+
+## Types
+
+### DirectoryEntry
 ```luau
-(handle: FileHandle) -> ()
+type DirectoryEntry = { name: string, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" }
 ```
+
+### FileHandle
+```luau
+type FileHandle = { err: number, fd: number }
+```
+
+### FileMetadata
+```luau
+type FileMetadata = { accessed: {}, created: {}, modified: {}, permissions: { readonly: boolean }, size: number, type: "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown" }
+```
+
+### FileType
+```luau
+type FileType = "block" | "char" | "dir" | "fifo" | "file" | "link" | "socket" | "unknown"
+```
+
+### HandleMode
+```luau
+type HandleMode = "a" | "a+" | "r" | "r+" | "w" | "w+" | "x" | "x+"
+```
+
+### WatchEvent
+```luau
+type WatchEvent = { change: boolean, rename: boolean }
+```
+
+### WatchHandle
+```luau
+type WatchHandle = { close: (self: t1) -> () }
+```
+
+## Properties and Functions
+
+## fs.close
+```luau
+function close(handle: FileHandle) -> ()
+```
+---
 
 ## fs.copy
-
 ```luau
-(src: string, dest: string) -> ()
+function copy(src: string, dest: string) -> ()
 ```
+---
 
 ## fs.exists
-
 ```luau
-(path: string) -> boolean
+function exists(path: string) -> (boolean)
 ```
+---
 
 ## fs.link
-
 ```luau
-(src: string, dest: string) -> ()
+function link(src: string, dest: string) -> ()
 ```
+---
 
 ## fs.listdir
-
 ```luau
-(path: string) -> { DirectoryEntry }
+function listdir(path: string) -> ({ [number]: any })
 ```
+---
 
 ## fs.mkdir
-
+```luau
+function mkdir(path: string) -> ()
+```
 Creates a directory at the specified path.
 
 To set the permissions mode for a directory (Unix only), see @std/process for `run` or `system` to shell out to `chmod` or the equivalent.
 
-```luau
-(path: string) -> ()
-```
+---
 
 ## fs.open
-
 ```luau
-(path: string, mode: HandleMode?) -> FileHandle
+function open(path: string, mode: HandleMode?) -> (FileHandle)
 ```
+---
 
 ## fs.read
-
 ```luau
-(handle: FileHandle) -> string
+function read(handle: FileHandle) -> (string)
 ```
+---
 
 ## fs.remove
-
 ```luau
-(path: string) -> ()
+function remove(path: string) -> ()
 ```
+---
 
 ## fs.rmdir
-
 ```luau
-(path: string) -> ()
+function rmdir(path: string) -> ()
 ```
+---
 
 ## fs.stat
-
 ```luau
-(path: string) -> FileMetadata
+function stat(path: string) -> (FileMetadata)
 ```
+---
 
 ## fs.symlink
-
 ```luau
-(src: string, dest: string) -> ()
+function symlink(src: string, dest: string) -> ()
 ```
+---
 
 ## fs.type
-
 ```luau
-(path: string) -> FileType
+function type(path: string) -> (FileType)
 ```
+---
 
 ## fs.watch
-
 ```luau
-(path: string, callback: (filename: string, event: WatchEvent) -> ()) -> WatchHandle
+function watch(path: string, callback: (filename: string, event: WatchEvent) -> ()) -> (WatchHandle)
 ```
+---
 
 ## fs.write
-
 ```luau
-(handle: FileHandle, contents: string) -> ()
+function write(handle: FileHandle, contents: string) -> ()
 ```
+---

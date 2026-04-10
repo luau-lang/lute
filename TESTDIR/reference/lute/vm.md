@@ -4,8 +4,18 @@
 local vm = require("@lute/vm")
 ```
 
-## vm.create
+## Summary
 
+| Function / Property | Description |
+| :--- | :--- |
+| [create](#vmcreate) |  |
+
+---
+
+## Properties and Functions
+
+## vm.create
 ```luau
-(path: string) -> { [any]: any }
+function create(path: string) -> ({ [any]: any })
 ```
+---
