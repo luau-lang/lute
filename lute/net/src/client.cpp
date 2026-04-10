@@ -491,9 +491,18 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
             {
                 if (meta->flags & (CURLWS_TEXT | CURLWS_BINARY))
                 {
-                    currentMessage.clear();
-                    currentBinary = (meta->flags & CURLWS_BINARY) != 0;
-                    hasCurrentMessage = true;
+                    bool binary = (meta->flags & CURLWS_BINARY) != 0;
+                    if (!hasCurrentMessage)
+                    {
+                        currentMessage.clear();
+                        currentBinary = binary;
+                        hasCurrentMessage = true;
+                    }
+                    else if (currentBinary != binary)
+                    {
+                        closeWithError("websocket received mixed message types");
+                        return;
+                    }
                 }
                 else if (!hasCurrentMessage)
                 {
@@ -504,7 +513,7 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
 
                 currentMessage.append(recvBuffer.data(), receivedLength);
 
-                if (meta->bytesleft == 0)
+                if (meta->bytesleft == 0 && !(meta->flags & CURLWS_CONT))
                 {
                     std::string message = std::move(currentMessage);
                     bool binary = currentBinary;

@@ -41,6 +41,7 @@ static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
 static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
 static int kRequestUpgradeKey = 0;
+static constexpr unsigned int kWebSocketMaxPayloadLength = 16 * 1024 * 1024;
 
 struct ServerLoopState
 {
@@ -561,6 +562,7 @@ static void setupAppAndListen(AppT* app, std::shared_ptr<ServerLoopState> state,
     if (state->hasWebSocket)
     {
         typename uWS::TemplatedApp<SSL>::template WebSocketBehavior<PerSocketData<SSL>> behavior{};
+        behavior.maxPayloadLength = kWebSocketMaxPayloadLength;
         behavior.upgrade =
             [state](auto* res, auto* req, auto* context)
             {
