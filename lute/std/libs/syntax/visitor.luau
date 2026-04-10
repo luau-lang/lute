@@ -6,6 +6,9 @@ local types = require("./types")
 
 local visitorlib = {}
 
+--- A table of callbacks invoked during AST traversal. Each `visit` callback receives the corresponding node and
+--- returns `true` to continue visiting its children, or `false` to skip them. "End" callbacks fire after all children
+--- of that sort have been visited. Override only the callbacks you care about; unset callbacks default to visiting all children.
 export type Visitor = {
 	visitStatBlock: (types.AstStatBlock) -> boolean,
 	visitStatBlockEnd: (types.AstStatBlock) -> (),
@@ -967,6 +970,7 @@ function visitTypePack(type: types.AstTypePack, visitor: Visitor)
 	end
 end
 
+--- Creates a `Visitor` where every callback delegates to `visit`. If `visit` is omitted, all callbacks default to visiting every node.
 local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 	if visit then
 		return {
@@ -1055,6 +1059,7 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 	end
 end
 
+--- Dispatches `node` to the appropriate `visitor` callback based on its `kind`.
 local function visit(node: types.AstNode, visitor: Visitor)
 	if node.kind == "stat" then
 		visitStatement(node, visitor)
@@ -1077,13 +1082,21 @@ local function visit(node: types.AstNode, visitor: Visitor)
 	end
 end
 
+--- Creates a `Visitor` where every callback delegates to `visit`. If `visit` is omitted, all callbacks default to visiting every node.
 visitorlib.create = create
+--- Visits all statements in a block.
 visitorlib.visitBlock = visitStatBlock
+--- Visits a single statement, dispatching to the appropriate callback.
 visitorlib.visitStatement = visitStatement
+--- Visits an expression, dispatching to the appropriate callback.
 visitorlib.visitExpression = visitExpr
+--- Visits a type annotation, dispatching to the appropriate callback.
 visitorlib.visitType = visitType
+--- Visits a type pack, dispatching to the appropriate callback.
 visitorlib.visitTypePack = visitTypePack
+--- Visits a single token.
 visitorlib.visitToken = visitToken
+--- Visits any AST node, dispatching by `node.kind`.
 visitorlib.visit = visit
 
 return table.freeze(visitorlib)

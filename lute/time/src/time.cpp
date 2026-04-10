@@ -434,9 +434,7 @@ int lua_weeks(lua_State* L)
 
 } // namespace duration
 
-namespace libtime
-{
-int lua_now(lua_State* L)
+static int lua_now(lua_State* L)
 {
     uv_timespec64_t now;
 
@@ -453,12 +451,11 @@ int lua_now(lua_State* L)
     return 1;
 }
 
-int lua_since(lua_State* L)
+static int lua_since(lua_State* L)
 {
     lua_pushnumber(L, sinceTimespec(getTimespecFromInstant(L, 1)));
     return 1;
 }
-} // namespace libtime
 
 void init_duration_lib(lua_State* L)
 {
@@ -536,13 +533,13 @@ void init_duration_lib(lua_State* L)
     lua_pushcfunction(L, duration_subsecmillis, "Duration__subsecmillis");
     lua_setfield(L, -2, "subsecmillis");
 
-    lua_setreadonly(L, -1, true);
+    lua_setreadonly(L, -1, 1);
 
     // set __index
     lua_setfield(L, -2, "__index");
 
     // metatable is now in stack spot 1
-    lua_setreadonly(L, -1, true);
+    lua_setreadonly(L, -1, 1);
 
     lua_pop(L, 1);
 }
@@ -577,12 +574,12 @@ static void init_instant_lib(lua_State* L)
     lua_pushcfunction(L, instant_elapsed, "Instant__elapsed");
     lua_setfield(L, -2, "elapsed");
 
-    lua_setreadonly(L, -1, true);
+    lua_setreadonly(L, -1, 1);
 
     // __index set
     lua_setfield(L, -2, "__index");
 
-    lua_setreadonly(L, -1, true);
+    lua_setreadonly(L, -1, 1);
 
     lua_pop(L, 1);
 }
@@ -595,21 +592,19 @@ static int init_luau_lib(lua_State* L)
     return 0;
 }
 
-int luaopen_time(lua_State* L)
+const char* const Time::properties[] = {kDurationLibraryIdentifier};
+
+const luaL_Reg Time::lib[] = {
+    {"now", lua_now},
+    {"since", lua_since},
+    {nullptr, nullptr},
+};
+
+int Time::pushLibrary(lua_State* L)
 {
     init_luau_lib(L);
 
-    luaL_register(L, "time", libtime::lib);
-    lua_setglobal(L, "time");
-
-    return 1;
-}
-
-int luteopen_time(lua_State* L)
-{
-    init_luau_lib(L);
-
-    lua_createtable(L, 0, std::size(libtime::lib) + std::size(libtime::properties));
+    lua_createtable(L, 0, std::size(Time::lib) + std::size(Time::properties));
 
     // Duration sub-table
     lua_createtable(L, 0, std::size(duration::lib));
@@ -623,8 +618,7 @@ int luteopen_time(lua_State* L)
     }
     lua_setfield(L, -2, kDurationLibraryIdentifier);
 
-    // Main time library
-    for (auto& [name, func] : libtime::lib)
+    for (auto& [name, func] : Time::lib)
     {
         if (!name || !func)
             break;
@@ -636,4 +630,14 @@ int luteopen_time(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luaopen_time(lua_State* L)
+{
+    return Time::openAsGlobal(L);
+}
+
+int luteopen_time(lua_State* L)
+{
+    return Time::pushLibrary(L);
 }

@@ -19,6 +19,7 @@ type TestRunResult = types.TestRunResult
 
 local runner = {}
 
+--- Runs all test cases and suites in `env`, executing lifecycle hooks around each case. Returns the aggregate results.
 function runner.run(env: TestEnvironment): TestRunResult
 	local failures: { FailedTest } = {}
 	local total = 0
@@ -161,7 +162,7 @@ function runner.run(env: TestEnvironment): TestRunResult
 	}
 end
 
--- run all the tests
+--- Runs all globally registered tests, prints the results with the simple reporter, then exits the process with code 0 on success or 1 on failure.
 function runner.runRegisteredTests()
 	local result = runner.run(env)
 	reporter.simple(result)

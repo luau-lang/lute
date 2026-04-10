@@ -491,11 +491,18 @@ int serve(lua_State* L)
 
 } // namespace net::server
 
-int luteopen_net_server(lua_State* L)
-{
-    lua_createtable(L, 0, 1);
+const char* const NetServer::properties[] = {nullptr};
 
-    for (auto& [name, func] : net::server::lib)
+const luaL_Reg NetServer::lib[] = {
+    {"serve", net::server::serve},
+    {nullptr, nullptr},
+};
+
+int NetServer::pushLibrary(lua_State* L)
+{
+    lua_createtable(L, 0, std::size(NetServer::lib));
+
+    for (auto& [name, func] : NetServer::lib)
     {
         if (!name || !func)
             break;
@@ -507,4 +514,9 @@ int luteopen_net_server(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luteopen_net_server(lua_State* L)
+{
+    return NetServer::pushLibrary(L);
 }

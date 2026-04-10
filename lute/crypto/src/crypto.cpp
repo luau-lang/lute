@@ -15,6 +15,22 @@
 namespace crypto
 {
 
+static const char kHashProperty[] = "hash";
+static const char kSecretboxProperty[] = "secretbox";
+static const char kPasswordProperty[] = "password";
+
+static const char kDigestName[] = "digest";
+
+static const char kCiphertextField[] = "ciphertext";
+static const char kKeyField[] = "key";
+static const char kNonceField[] = "nonce";
+
+static const char kKeygenName[] = "keygen";
+static const char kSealName[] = "seal";
+static const char kOpenName[] = "open";
+static const char kPasswordHashName[] = "hash";
+static const char kVerifyPasswordHashName[] = "verify";
+
 struct HashFunction
 {
     std::string name;
@@ -107,7 +123,7 @@ int lua_secretbox_keygen(lua_State* L)
 
     uint8_t* key = static_cast<uint8_t*>(lua_newbuffer(L, crypto_secretbox_keybytes()));
     crypto_secretbox_keygen(key);
-    
+
     return 1;
 }
 
@@ -144,7 +160,7 @@ int lua_secretbox_seal(lua_State* L)
         crypto_secretbox_keygen(key);
         lua_setfield(L, -2, kKeyField);
     }
-    
+
     // nonce
     uint8_t* nonce = static_cast<uint8_t*>(lua_newbuffer(L, crypto_secretbox_noncebytes()));
     randombytes_buf(nonce, crypto_secretbox_noncebytes());
@@ -268,19 +284,22 @@ int makePasswordHashLibrary(lua_State* L)
 
 } // namespace crypto
 
-int luaopen_crypto(lua_State* L)
+const char* const Crypto::properties[] = {
+    crypto::kHashProperty,
+    crypto::kSecretboxProperty,
+    crypto::kPasswordProperty,
+};
+
+const luaL_Reg Crypto::lib[] = {
+    {crypto::kDigestName, crypto::lua_digest},
+    {nullptr, nullptr},
+};
+
+int Crypto::pushLibrary(lua_State* L)
 {
-    luteopen_crypto(L);
-    lua_setglobal(L, "crypto");
+    lua_createtable(L, 0, std::size(Crypto::lib) + std::size(Crypto::properties));
 
-    return 1;
-}
-
-int luteopen_crypto(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(crypto::lib) + std::size(crypto::properties));
-
-    for (auto& [name, func] : crypto::lib)
+    for (auto& [name, func] : Crypto::lib)
     {
         if (!name || !func)
             break;
@@ -298,7 +317,17 @@ int luteopen_crypto(lua_State* L)
     crypto::makePasswordHashLibrary(L);
     lua_setfield(L, -2, crypto::kPasswordProperty);
 
-    lua_setreadonly(L, -1, true);
+    lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luaopen_crypto(lua_State* L)
+{
+    return Crypto::openAsGlobal(L);
+}
+
+int luteopen_crypto(lua_State* L)
+{
+    return Crypto::pushLibrary(L);
 }
