@@ -30,33 +30,6 @@ local function hasConflict(specA: projectmanifest.DependencySpec, specB: project
 	return specA.rev ~= specB.rev or specA.source ~= specB.source or specA.sourceKind ~= specB.sourceKind
 end
 
-local function findConflict(
-	spec: projectmanifest.DependencySpec,
-	dependencies: { [string]: projectmanifest.DependencySpec },
-	nameIndex: { [string]: string }
-): string?
-	local conflictKey = nameIndex[spec.name]
-	if conflictKey and hasConflict(dependencies[conflictKey], spec) then
-		return conflictKey
-	end
-	return nil
-end
-
-local function checkForConflict(
-	spec: projectmanifest.DependencySpec,
-	dependencies: { [string]: projectmanifest.DependencySpec },
-	nameIndex: { [string]: string }
-): ()
-	local conflictKey = findConflict(spec, dependencies, nameIndex)
-	if conflictKey then
-		error(
-			`Version conflict for package '{spec.name}':\n`
-				.. `  but {conflictKey} is already resolved\n`
-				.. `Resolve by pinning both to the same revision.`
-		)
-	end
-end
-
 local function createLockfile(resolved: ResolvedGraph): lockfile.Lockfile
 	local deps: { [string]: lockfile.LockfileDependency } = {}
 
@@ -99,8 +72,6 @@ local function resolve(rootDirectory: string): ResolvedGraph
 	local dependencies: { [string]: projectmanifest.DependencySpec } = {}
 	local graph: { [string]: { [string]: string } } = {}
 
-	local nameIndex: { [string]: string } = {}
-
 	local rootManifest = projectmanifest.parseFile(rootManifestPath)
 	for _, spec in rootManifest.package.dependencies do
 		table.insert(packages, getKey(spec))
@@ -110,17 +81,22 @@ local function resolve(rootDirectory: string): ResolvedGraph
 	table.freeze(packages)
 
 	for _, spec in queue do
-		-- Check for version conflict (same name, different rev)
-		checkForConflict(spec, dependencies, nameIndex)
-
 		local key = getKey(spec)
+
 		if dependencies[key] then
-			-- Already resolved at this exact version — deduplicate
-			continue
+			if hasConflict(dependencies[key], spec) then
+				error(
+					`Version conflict for package '{spec.name}':\n`
+					.. `  but {key} is already resolved\n`
+					.. `Resolve by pinning both to the same revision.`
+				)
+			else
+				-- Already resolved at this exact version — deduplicate
+				continue
+			end
 		end
 
 		-- New package — resolve it
-		nameIndex[spec.name] = key
 		dependencies[key] = spec
 		graph[key] = {}
 
