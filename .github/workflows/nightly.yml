@@ -53,6 +53,8 @@ jobs:
   release-common:
     needs: changes
     if: ${{ needs.changes.outputs.proceed == 'true' }}
+    permissions:
+      contents: write
     uses: ./.github/workflows/release-common.yml
     with:
       branch: primary
