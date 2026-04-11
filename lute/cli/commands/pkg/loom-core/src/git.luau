@@ -1,15 +1,9 @@
-local authenticationStore = require("../authentication/authenticationstore")
-local fsUtils = require("../utils/fsutils")
+local authenticationStore = require("./authenticationstore.luau")
+local fs = require("@std/fs")
 local net = require("@std/net")
 local process = require("@std/process")
-local unzip = require("../../extern/unzip")
-
-export type Git = {
-	installZipArchive: (self: Git, name: string, version: string, content: string) -> (),
-	downloadFromGitHubArchive: (self: Git, url: string) -> string,
-}
-
-local Git = {} :: Git
+local projectmanifest = require("./projectmanifest")
+local unzip = require("../extern/unzip")
 
 local function sanitizePath(path: string): string
 	-- Input validation
@@ -60,7 +54,7 @@ local function getGithubAuthenticationToken(): string?
 	return nil
 end
 
-function Git:installZipArchive(name: string, _version: string, content: string)
+local function installZipArchive(content: string, installPath: string)
 	local reader = unzip.load(buffer.fromstring(content))
 
 	reader:walk(function(entry, _depth)
@@ -74,12 +68,12 @@ function Git:installZipArchive(name: string, _version: string, content: string)
 		local slash = string.find(sanitized, "/")
 		assert(slash, `Expected entry name to contain a slash: {sanitized}`)
 
-		local outputPath = `Packages/{name}/{string.sub(sanitized, slash)}`
-		fsUtils.writestringtofile(outputPath, content)
+		local outputPath = `{installPath}/{string.sub(sanitized, slash)}`
+		fs.writeStringToFile(outputPath, content)
 	end)
 end
 
-function Git:downloadFromGitHubArchive(url: string): string
+local function downloadFromGitHubArchive(url: string): string
 	local headers = {}
 
 	local token = getGithubAuthenticationToken()
@@ -94,4 +88,12 @@ function Git:downloadFromGitHubArchive(url: string): string
 	return response.body
 end
 
-return Git
+local function installPackage(pkg: projectmanifest.DependencySpec, installPath: string): ()
+	local url = `{pkg.source}/archive/{pkg.rev}.zip`
+	local zipArchive = downloadFromGitHubArchive(url)
+	installZipArchive(zipArchive, installPath)
+end
+
+return {
+	installPackage = installPackage,
+}
