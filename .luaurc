@@ -3,6 +3,7 @@
     "aliases": {
         "std": "./lute/std/libs",
         "lute": "./definitions",
+        "batteries": "./batteries",
         "commands": "./lute/cli/commands"
     }
 }
