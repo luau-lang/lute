@@ -63,7 +63,7 @@ local function resolve(rootDirectory: string): ResolvedGraph
 	-- for now, just clear the installation directory if it exists
 	local rootInstallPath = `{rootDirectory}/{getInstallPath("")}`
 	if fs.exists(rootInstallPath) then
-		fs.remove(rootInstallPath)
+		fs.removeDirectory(rootInstallPath, { recursive = true })
 	end
 
 	local queue: { projectmanifest.DependencySpec } = {}

@@ -1,6 +1,7 @@
 local authenticationStore = require("./authenticationstore")
 local fs = require("@std/fs")
 local net = require("@std/net")
+local path = require("@std/path")
 local process = require("@std/process")
 local projectmanifest = require("./projectmanifest")
 local unzip = require("../extern/unzip")
@@ -69,6 +70,7 @@ local function installZipArchive(content: string, installPath: string)
 		assert(slash, `Expected entry name to contain a slash: {sanitized}`)
 
 		local outputPath = `{installPath}/{string.sub(sanitized, slash)}`
+		fs.createDirectory(path.dirname(outputPath), { makeParents = true })
 		fs.writeStringToFile(outputPath, content)
 	end)
 end
