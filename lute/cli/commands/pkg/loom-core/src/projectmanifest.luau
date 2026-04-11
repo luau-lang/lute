@@ -32,7 +32,10 @@ local function parseManifest(t: any): ProjectManifest
 	local dependencies: { [string]: DependencySpec } = {}
 	if pkg.dependencies ~= nil then
 		for name, spec in pkg.dependencies do
-			assert(spec.rev ~= nil and type(spec.rev) == "string", `Expected 'rev' field in dependency spec for '{name}'`)
+			assert(
+				spec.rev ~= nil and type(spec.rev) == "string",
+				`Expected 'rev' field in dependency spec for '{name}'`
+			)
 			assert(
 				spec.sourceKind ~= nil and type(spec.sourceKind) == "string",
 				`Expected 'sourceKind' field in dependency spec for '{name}'`

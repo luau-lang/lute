@@ -39,7 +39,10 @@ local function findConflict(
 	return nil
 end
 
-local function checkForConflict(dependencies: { [string]: projectmanifest.DependencySpec }, spec: projectmanifest.DependencySpec): ()
+local function checkForConflict(
+	dependencies: { [string]: projectmanifest.DependencySpec },
+	spec: projectmanifest.DependencySpec
+): ()
 	local conflictKey = findConflict(dependencies, spec.name, spec.rev)
 	if conflictKey then
 		error(
