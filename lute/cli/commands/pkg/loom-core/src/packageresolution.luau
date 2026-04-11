@@ -50,7 +50,7 @@ local function checkForConflict(dependencies: { [string]: projectmanifest.Depend
 	end
 end
 
-local function createLockFile(resolved: ResolvedGraph): lockfile.Lockfile
+local function createLockfile(resolved: ResolvedGraph): lockfile.Lockfile
 	local deps: { [string]: lockfile.LockfileDependency } = {}
 
 	for key, pkg in resolved.dependencies do
@@ -137,7 +137,7 @@ local function resolve(directory: string): ResolvedGraph
 	})
 
 	local lockfilePath = getLockfilePath(directory)
-	local lf = createLockFile(resolved)
+	local lf = createLockfile(resolved)
 	fs.writeStringToFile(lockfilePath, `return {pp(lf)}\n`)
 
 	return resolved
