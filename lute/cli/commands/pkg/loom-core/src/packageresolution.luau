@@ -1,5 +1,5 @@
 local fs = require("@std/fs")
-local git = require("./git")
+local github = require("./github")
 local lockfile = require("./lockfile")
 local pp = require("@batteries/pp")
 local projectmanifest = require("./projectmanifest")
@@ -50,8 +50,8 @@ local function checkForConflict(dependencies: { [string]: projectmanifest.Depend
 	end
 end
 
-local function createLockFile(resolved: ResolvedGraph): lockfile.LockFile
-	local deps: { [string]: lockfile.LockFilePackage } = {}
+local function createLockFile(resolved: ResolvedGraph): lockfile.Lockfile
+	local deps: { [string]: lockfile.LockfileDependency } = {}
 
 	for key, pkg in resolved.dependencies do
 		deps[key] = {
@@ -109,7 +109,7 @@ local function resolve(directory: string): ResolvedGraph
 		-- Download and install
 		local installPath = getInstallPath(key)
 		if spec.sourceKind == "github" then
-			git.installPackage(spec, installPath)
+			github.installPackage(spec, installPath)
 		else
 			error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
 		end
