@@ -78,10 +78,19 @@ local function createLockfile(resolved: ResolvedGraph): lockfile.Lockfile
 	}
 end
 
-local function resolve(directory: string): ResolvedGraph
-	local manifestPath = getManifestPath(directory)
-	if not fs.exists(manifestPath) then
-		error(`Manifest file not found: {manifestPath}`)
+local function resolve(rootDirectory: string): ResolvedGraph
+	local rootManifestPath = getManifestPath(rootDirectory)
+	if not fs.exists(rootManifestPath) then
+		error(`Manifest file not found: {rootManifestPath}`)
+	end
+
+	local lockfilePath = getLockfilePath(rootDirectory)
+	-- TODO: read lockfile and diff against manifest to determine which packages need to be updated, deleted, etc.
+	-- local lockfile = lockfile.parseFile(lockfilePath)
+	-- for now, just clear the installation directory if it exists
+	local rootInstallPath = `{rootDirectory}/{getInstallPath("")}`
+	if fs.exists(rootInstallPath) then
+		fs.remove(rootInstallPath)
 	end
 
 	local queue: { projectmanifest.DependencySpec } = {}
@@ -92,7 +101,7 @@ local function resolve(directory: string): ResolvedGraph
 
 	local nameIndex: { [string]: string } = {}
 
-	local rootManifest = projectmanifest.parseFile(manifestPath)
+	local rootManifest = projectmanifest.parseFile(rootManifestPath)
 	for _, spec in rootManifest.package.dependencies do
 		table.insert(packages, getKey(spec))
 		table.insert(queue, spec)
@@ -116,7 +125,7 @@ local function resolve(directory: string): ResolvedGraph
 		graph[key] = {}
 
 		-- Download and install
-		local installPath = getInstallPath(key)
+		local installPath = `{rootDirectory}/{getInstallPath(key)}`
 		if spec.sourceKind == "github" then
 			github.installPackage(spec, installPath)
 		else
@@ -145,7 +154,6 @@ local function resolve(directory: string): ResolvedGraph
 		graph = graph,
 	})
 
-	local lockfilePath = getLockfilePath(directory)
 	local lf = createLockfile(resolved)
 	fs.writeStringToFile(lockfilePath, `return {pp(lf)}\n`)
 
