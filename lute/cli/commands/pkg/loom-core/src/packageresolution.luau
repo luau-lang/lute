@@ -80,15 +80,18 @@ local function resolve(rootDirectory: string): ResolvedGraph
 
 	table.freeze(packages)
 
+	local nameIndex: { [string]: string } = {}
+
 	for _, spec in queue do
 		local key = getKey(spec)
 
 		if dependencies[key] then
 			if hasConflict(dependencies[key], spec) then
 				error(
-					`Version conflict for package '{spec.name}':\n`
-					.. `  but {key} is already resolved\n`
-					.. `Resolve by pinning both to the same revision.`
+					`Source mismatch for package '{spec.name}':\n`
+						.. `  resolved: {dependencies[key].source} ({dependencies[key].sourceKind})\n`
+						.. `  incoming: {spec.source} ({spec.sourceKind})\n`
+						.. `Both resolve to '{key}' but from different sources.`
 				)
 			else
 				-- Already resolved at this exact version — deduplicate
@@ -96,7 +99,18 @@ local function resolve(rootDirectory: string): ResolvedGraph
 			end
 		end
 
+		local conflictKey = nameIndex[spec.name]
+		if conflictKey then
+			error(
+				`Version conflict for package '{spec.name}':\n`
+					.. `  resolved: {conflictKey}\n`
+					.. `  incoming: {key}\n`
+					.. `Resolve by pinning both to the same revision.`
+			)
+		end
+
 		-- New package — resolve it
+		nameIndex[spec.name] = key
 		dependencies[key] = spec
 		graph[key] = {}
 

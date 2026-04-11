@@ -11,7 +11,7 @@ export type DependencySpec = {
 export type PackageManifest = {
 	read name: string,
 	read version: string,
-	read dependencies: { [string]: DependencySpec },
+	read dependencies: { [string]: DependencySpec }, -- maps alias to dependency spec
 }
 
 export type ProjectManifest = {
@@ -33,6 +33,10 @@ local function parseManifest(t: any): ProjectManifest
 	if pkg.dependencies ~= nil then
 		for name, spec in pkg.dependencies do
 			assert(
+				spec.name == nil or type(spec.name) == "string",
+				`Optional 'name' field in dependency spec for '{name}' expected to be a string`
+			)
+			assert(
 				spec.rev ~= nil and type(spec.rev) == "string",
 				`Expected 'rev' field in dependency spec for '{name}'`
 			)
@@ -45,7 +49,7 @@ local function parseManifest(t: any): ProjectManifest
 				`Expected 'source' field in dependency spec for '{name}'`
 			)
 			dependencies[name] = table.freeze({
-				name = name,
+				name = spec.name or name, -- use the optional name if provided, otherwise use the alias
 				rev = spec.rev,
 				sourceKind = spec.sourceKind,
 				source = spec.source,
