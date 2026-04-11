@@ -2,25 +2,25 @@ local luau = require("@std/luau")
 
 -- TODO: Support path/registry dependencies
 export type DependencySpec = {
-	name: string,
-	rev: string,
-	source: string,
-	sourceKind: string,
+	read name: string,
+	read rev: string,
+	read source: string,
+	read sourceKind: string,
 }
 
 export type PackageManifest = {
-	name: string,
-	version: string,
-	dependencies: { [string]: DependencySpec },
+	read name: string,
+	read version: string,
+	read dependencies: { [string]: DependencySpec },
 }
 
 export type ProjectManifest = {
-	package: PackageManifest,
+	read package: PackageManifest,
 }
 
 -- FIXME(Luau): running into issues with getting this to type check properly.
 -- We also should also do proper error handling because this is user input.
-local function parseTable(t: any): ProjectManifest
+local function parseManifest(t: any): ProjectManifest
 	assert(t ~= nil and type<<unknown>>(t) == "table", "Expected a table")
 	assert(t.package ~= nil and type(t.package) == "table", "Expected 'package' field in manifest")
 
@@ -41,27 +41,28 @@ local function parseTable(t: any): ProjectManifest
 				spec.source ~= nil and type(spec.source) == "string",
 				`Expected 'source' field in dependency spec for '{name}'`
 			)
-			dependencies[name] = {
+			dependencies[name] = table.freeze({
 				name = name,
 				rev = spec.rev,
 				sourceKind = spec.sourceKind,
 				source = spec.source,
-			}
+			})
 		end
+		table.freeze(dependencies)
 	end
 
-	return {
-		package = {
+	return table.freeze({
+		package = table.freeze({
 			name = pkg.name,
 			version = pkg.version,
 			dependencies = dependencies,
-		},
-	}
+		}),
+	})
 end
 
 local function parseFile(manifestPath: string): ProjectManifest
 	local manifestTable = luau.loadModule(manifestPath)
-	return parseTable(manifestTable)
+	return parseManifest(manifestTable)
 end
 
 return {

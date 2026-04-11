@@ -1,18 +1,18 @@
 local luau = require("@std/luau")
 
-export type LockFilePackage = {
-	name: string,
-	rev: string,
-	source: string,
-	sourceKind: string,
-	installPath: string,
-	dependencies: { [string]: string },
+export type LockfileDependency = {
+	read name: string,
+	read rev: string,
+	read source: string,
+	read sourceKind: string,
+	read installPath: string,
+	read dependencies: { [string]: string },
 }
 
-export type LockFile = {
-	version: number,
-	packages: { string },
-	dependencies: { [string]: LockFilePackage },
+export type Lockfile = {
+	read version: number,
+	read packages: { string },
+	read dependencies: { [string]: LockfileDependency },
 }
 
 local function validatePackageEntry(key: string, entry: any)
@@ -27,32 +27,33 @@ local function validatePackageEntry(key: string, entry: any)
 		assert(type(alias) == "string", `Expected alias to be a string for dependency '{key}'`)
 		assert(type(depKey) == "string", `Expected dependency key to be a string for dependency '{key}'`)
 	end
+	table.freeze(entry.dependencies)
 end
 
-local function parseTable(t: any): LockFile
+local function parseLockfile(t: any): Lockfile
 	assert(t ~= nil and type(t) == "table", "Expected lockfile to be a table")
 	assert(t.version == 2, `Unsupported lockfile version: {t.version}`)
 	assert(type(t.packages) == "table", "Expected 'packages' field in lockfile")
 	assert(type(t.dependencies) == "table", "Expected 'dependencies' field in lockfile")
 
-	local dependencies = t.dependencies :: { [unknown]: unknown }
-
 	for _, key in t.packages do
 		assert(type(key) == "string", "Expected package key to be a string")
-		assert(dependencies[key] ~= nil, `Package '{key}' not found in dependencies`)
+		assert((t.dependencies :: { [unknown]: unknown })[key] ~= nil, `Package '{key}' not found in dependencies`)
 	end
+	table.freeze(t.packages)
 
-	for key, entry in dependencies do
+	for key, entry in t.dependencies do
 		assert(type(key) == "string", "Expected package key to be a string")
 		validatePackageEntry(key, entry)
 	end
+	table.freeze(t.dependencies)
 
-	return t
+	return table.freeze(t)
 end
 
-local function parseFile(lockfilePath: string): LockFile
+local function parseFile(lockfilePath: string): Lockfile
 	local t = luau.loadModule(lockfilePath)
-	return parseTable(t)
+	return parseLockfile(t)
 end
 
 return {
