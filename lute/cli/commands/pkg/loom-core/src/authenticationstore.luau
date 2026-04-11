@@ -19,12 +19,10 @@ end
 
 local function loadAuthenticationStore(): AuthenticationStore
 	local authPath = getAuthenticationFilePath()
-
 	local ok, result = pcall(luau.loadModule, authPath, nil)
 	if not ok or type(result) ~= "table" then
 		return {}
 	end
-
 	return result
 end
 
@@ -32,7 +30,7 @@ local function saveAuthenticationStore(store: AuthenticationStore)
 	local authPath = getAuthenticationFilePath()
 	local authDir = path.format(path.parse(path.dirname(authPath)))
 	fs.createDirectory(authDir, { makeParents = true })
-	fs.writeStringToFile(authPath, "return " .. pp(store) .. "\n")
+	fs.writeStringToFile(authPath, `return {pp(store)}\n`)
 end
 
 local function saveAuthenticationToken(domain: string, token: string)
