@@ -26,24 +26,28 @@ local function getKey(spec: projectmanifest.DependencySpec): string
 	return `{spec.name}@{spec.rev}`
 end
 
+local function hasConflict(specA: projectmanifest.DependencySpec, specB: projectmanifest.DependencySpec): boolean
+	return specA.rev ~= specB.rev or specA.source ~= specB.source or specA.sourceKind ~= specB.sourceKind
+end
+
 local function findConflict(
+	spec: projectmanifest.DependencySpec,
 	dependencies: { [string]: projectmanifest.DependencySpec },
-	name: string,
-	rev: string
+	nameIndex: { [string]: string }
 ): string?
-	for existingKey, existingPkg in dependencies do
-		if existingPkg.name == name and existingPkg.rev ~= rev then
-			return existingKey
-		end
+	local conflictKey = nameIndex[spec.name]
+	if conflictKey and hasConflict(dependencies[conflictKey], spec) then
+		return conflictKey
 	end
 	return nil
 end
 
 local function checkForConflict(
+	spec: projectmanifest.DependencySpec,
 	dependencies: { [string]: projectmanifest.DependencySpec },
-	spec: projectmanifest.DependencySpec
+	nameIndex: { [string]: string }
 ): ()
-	local conflictKey = findConflict(dependencies, spec.name, spec.rev)
+	local conflictKey = findConflict(spec, dependencies, nameIndex)
 	if conflictKey then
 		error(
 			`Version conflict for package '{spec.name}':\n`
@@ -86,26 +90,28 @@ local function resolve(directory: string): ResolvedGraph
 	local dependencies: { [string]: projectmanifest.DependencySpec } = {}
 	local graph: { [string]: { [string]: string } } = {}
 
+	local nameIndex: { [string]: string } = {}
+
 	local rootManifest = projectmanifest.parseFile(manifestPath)
 	for _, spec in rootManifest.package.dependencies do
-		table.insert(queue, spec)
 		table.insert(packages, getKey(spec))
+		table.insert(queue, spec)
 	end
 
 	table.freeze(packages)
 
 	for _, spec in queue do
-		local key = getKey(spec)
+		-- Check for version conflict (same name, different rev)
+		checkForConflict(spec, dependencies, nameIndex)
 
-		-- Already resolved at this exact version — deduplicate
+		local key = getKey(spec)
 		if dependencies[key] then
+			-- Already resolved at this exact version — deduplicate
 			continue
 		end
 
-		-- Check for version conflict (same name, different rev)
-		checkForConflict(dependencies, spec)
-
 		-- New package — resolve it
+		nameIndex[spec.name] = key
 		dependencies[key] = spec
 		graph[key] = {}
 
