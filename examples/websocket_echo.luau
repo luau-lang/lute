@@ -2,14 +2,14 @@ local client = require("@lute/net/client")
 
 print("connecting to echo server...")
 
-local ws: client.WebSocket?
-ws = client.websocket("wss://echo.websocket.org", {
+local _ws: client.WebSocket?
+_ws = client.websocket("_wss://echo.websocket.org", {
 	onopen = function()
 		print("websocket opened")
-		if ws then
-			ws:send("hello from lute over websockets")
-			ws:send(buffer.create(4))
-			ws:send("close")
+		if _ws then
+			_ws:send("hello from lute over websockets")
+			_ws:send(buffer.create(4))
+			_ws:send("close")
 		end
 	end,
 	onmessage = function(message)
@@ -21,8 +21,8 @@ ws = client.websocket("wss://echo.websocket.org", {
 		print("received:", message)
 		if message == "close" then
 			print("closing...")
-			if ws then
-				ws:close()
+			if _ws then
+				_ws:close()
 			end
 		end
 	end,
