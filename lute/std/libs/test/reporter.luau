@@ -25,6 +25,7 @@ local function printFailedTest(failed: FailedTest)
 	print()
 end
 
+--- Prints a simple human-readable summary of `result` to stdout, listing any failures and the pass/fail counts.
 function reporter.simple(result: TestRunResult)
 	print("\n" .. string.rep("=", 50))
 	print("TEST RESULTS")

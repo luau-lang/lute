@@ -101,11 +101,15 @@ struct PerSocketData
 static void parseQuery(const std::string_view& query, lua_State* L)
 {
     lua_createtable(L, 0, 0);
-    size_t start = 1; // Skip the '?'
-    size_t end = query.find('&');
-    while (end != std::string::npos)
+    size_t start = (!query.empty() && query[0] == '?') ? 1 : 0;
+    if (start >= query.size())
+        return;
+
+    while (start < query.size())
     {
-        std::string_view pair = std::string_view(query.data() + start, end - start);
+        size_t end = query.find('&', start);
+        size_t pairLength = (end == std::string::npos) ? (query.size() - start) : (end - start);
+        std::string_view pair = std::string_view(query.data() + start, pairLength);
         size_t eq = pair.find('=');
         if (eq != std::string::npos)
         {
@@ -115,18 +119,11 @@ static void parseQuery(const std::string_view& query, lua_State* L)
             lua_pushlstring(L, value.data(), value.size());
             lua_settable(L, -3);
         }
+
+        if (end == std::string::npos)
+            break;
+
         start = end + 1;
-        end = query.find('&', start);
-    }
-    std::string_view pair = std::string_view(query.data() + start, query.size());
-    size_t eq = pair.find('=');
-    if (eq != std::string::npos)
-    {
-        std::string_view key = std::string_view(pair.data(), eq);
-        std::string_view value = uWS::getDecodedQueryValue(key, query);
-        lua_pushlstring(L, key.data(), key.size());
-        lua_pushlstring(L, value.data(), value.size());
-        lua_settable(L, -3);
     }
 }
 
@@ -216,10 +213,14 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
 
     lua_getfield(L, responseIndex, "body");
 
-    std::string body = "";
-    size_t bodyLength;
-    const char* bodyData = lua_tolstring(L, -1, &bodyLength);
-    body.assign(bodyData, bodyData + bodyLength);
+    std::string body;
+    if (!lua_isnil(L, -1))
+    {
+        size_t bodyLength = 0;
+        const char* bodyData = lua_tolstring(L, -1, &bodyLength);
+        if (bodyData)
+            body.assign(bodyData, bodyLength);
+    }
     lua_pop(L, 1);
 
     res->end(body);
