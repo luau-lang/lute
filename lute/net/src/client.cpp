@@ -135,9 +135,11 @@ static CurlResponse requestData(
 
     std::vector<char> data;
     curl_slist* headerList = nullptr;
+    char errorBuffer[CURL_ERROR_SIZE] = {};
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorBuffer);
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
@@ -169,7 +171,7 @@ static CurlResponse requestData(
 
     if (res != CURLE_OK)
     {
-        resp.error = curl_easy_strerror(res);
+        resp.error = errorBuffer[0] != '\0' ? errorBuffer : curl_easy_strerror(res);
         curl_easy_cleanup(curl);
         return resp;
     }
