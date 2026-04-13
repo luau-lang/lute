@@ -31,9 +31,7 @@ struct ThreadToContinue
 // they finish or error after one or more yields.
 struct ThreadCompletionHandler
 {
-    void (*onFinish)(lua_State* L, int status, void* userdata) = nullptr;
-    void (*destroy)(void* userdata) = nullptr;
-    void* userdata = nullptr;
+    std::function<void(lua_State* L, int status)> onFinish;
 };
 
 struct StepErr

@@ -1,6 +1,5 @@
 #include "lute/net.h"
 
-#include "lute/common.h"
 #include "lute/runtime.h"
 
 #include "Luau/DenseHash.h"
@@ -8,8 +7,6 @@
 
 #include "lua.h"
 #include "lualib.h"
-
-#include "uv.h"
 
 #include <algorithm>
 #include <atomic>
@@ -182,19 +179,17 @@ struct HttpYieldContext
 };
 
 template <typename ResT>
-static void finishHttpYield(lua_State* L, int status, void* userdata)
+static void finishHttpYield(lua_State* L, int status, const std::shared_ptr<HttpYieldContext<ResT>>& ctx)
 {
-    auto* holder = static_cast<std::shared_ptr<HttpYieldContext<ResT>>*>(userdata);
-    if (!holder || !(*holder))
+    if (!ctx)
     {
         lua_settop(L, 0);
         return;
     }
 
-    auto& ctx = **holder;
-    ResT* res = ctx.res;
+    ResT* res = ctx->res;
 
-    if (!res || ctx.aborted.load())
+    if (!res || ctx->aborted.load())
     {
         lua_settop(L, 0);
         return;
@@ -211,14 +206,8 @@ static void finishHttpYield(lua_State* L, int status, void* userdata)
         res->end("Server error: " + error);
     }
 
-    ctx.res = nullptr;
+    ctx->res = nullptr;
     lua_settop(L, 0);
-}
-
-template <typename ResT>
-static void destroyHttpYield(void* userdata)
-{
-    delete static_cast<std::shared_ptr<HttpYieldContext<ResT>>*>(userdata);
 }
 
 static void processRequest(
@@ -281,12 +270,11 @@ static void processRequest(
             }
         );
 
-        auto* holder = new std::shared_ptr<HttpYieldContext<ResT>>(std::move(ctx));
-
         auto* completion = new ThreadCompletionHandler();
-        completion->onFinish = &finishHttpYield<ResT>;
-        completion->destroy = &destroyHttpYield<ResT>;
-        completion->userdata = holder;
+        completion->onFinish = [ctx](lua_State* L, int completionStatus)
+        {
+            finishHttpYield<ResT>(L, completionStatus, ctx);
+        };
 
         lua_setthreaddata(L, completion);
         lua_settop(L, 0);

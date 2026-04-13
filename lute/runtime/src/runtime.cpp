@@ -129,10 +129,7 @@ RuntimeStep Runtime::runOnce()
         lua_setthreaddata(L, nullptr);
 
         if (completion->onFinish)
-            completion->onFinish(L, status, completion->userdata);
-
-        if (completion->destroy)
-            completion->destroy(completion->userdata);
+            completion->onFinish(L, status);
 
         delete completion;
 
