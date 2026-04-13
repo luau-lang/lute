@@ -9,11 +9,13 @@ export type Pathlike = win32types.Pathlike
 local win32 = {}
 win32.pathmt = {} :: pathinterface.PathInterface
 
+--- Returns the last component of `path`, or `nil` if the path has no components.
 function win32.basename(path: Pathlike): string?
 	path = if typeof(path) == "string" then win32.parse(path) else path
 	return if #path.parts > 0 then path.parts[#path.parts] else nil
 end
 
+--- Returns the directory portion of `path` as a string (everything except the last component).
 function win32.dirname(path: Pathlike): string
 	path = if typeof(path) == "string" then win32.parse(path) else path
 
@@ -28,6 +30,7 @@ function win32.dirname(path: Pathlike): string
 	end
 end
 
+--- Returns the file extension of `path` (including the leading dot), or `""` if there is none.
 function win32.extname(path: Pathlike): string
 	path = if typeof(path) == "string" then win32.parse(path) else path
 
@@ -49,6 +52,7 @@ function win32.extname(path: Pathlike): string
 	return filename:sub(dotIndex)
 end
 
+--- Returns a `Path` representing just the drive root of `path` (e.g. `C:\`). Errors if `path` has no drive letter.
 function win32.drive(path: Pathlike): Path
 	path = if typeof(path) == "string" then win32.parse(path) else path
 
@@ -66,6 +70,7 @@ function win32.drive(path: Pathlike): Path
 	)
 end
 
+--- Converts `path` to its Windows string representation using backslash separators.
 function win32.format(path: Pathlike): string
 	if typeof(path) == "string" then
 		return path
@@ -91,6 +96,7 @@ function win32.format(path: Pathlike): string
 	end
 end
 
+--- Returns `true` if `path` is absolute (drive-rooted or UNC).
 function win32.isAbsolute(path: Pathlike): boolean
 	path = if typeof(path) == "string" then win32.parse(path) else path
 	return path.kind ~= "relative"
@@ -119,6 +125,7 @@ local function joinHelper(path: Path, addend: Pathlike): ()
 	end
 end
 
+--- Joins one or more path segments into a single `Path`. Each segment after the first must be relative.
 function win32.join(...: Pathlike): Path
 	local parts = { ... }
 	if #parts == 0 then
@@ -147,6 +154,7 @@ function win32.join(...: Pathlike): Path
 	return path
 end
 
+--- Returns a normalized form of `path`, resolving `.` and `..` components and removing redundant separators.
 function win32.normalize(path: Pathlike): Path
 	path = if typeof(path) == "string" then win32.parse(path) else path
 
@@ -178,6 +186,7 @@ function win32.normalize(path: Pathlike): Path
 	}, win32.pathmt)
 end
 
+--- Parses `path` into a structured `Path` value.
 function win32.parse(path: Pathlike): Path
 	if typeof(path) == "table" then
 		return setmetatable(path, win32.pathmt)
@@ -234,6 +243,7 @@ function win32.parse(path: Pathlike): Path
 	}, win32.pathmt)
 end
 
+--- Returns the relative path from `from` to `to`. Both paths must have the same kind and drive.
 function win32.relative(from: Pathlike, to: Pathlike): Path
 	from = if typeof(from) == "string" then win32.parse(from) else from
 	to = if typeof(to) == "string" then win32.parse(to) else to
@@ -276,6 +286,7 @@ function win32.relative(from: Pathlike, to: Pathlike): Path
 	}, win32.pathmt)
 end
 
+--- Resolves a sequence of paths into an absolute `Path`, processing right-to-left and falling back to the current working directory.
 function win32.resolve(...: Pathlike): Path
 	local parts = { ... }
 	if #parts == 0 then

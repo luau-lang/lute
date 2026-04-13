@@ -7,7 +7,7 @@ type Failure = types.Failure
 
 local failures = {}
 
--- Generates the debug information needed to describe assertion failure locations
+--- Returns a `Failure` describing an assertion failure at the call site, with `msg` as the failure message.
 function failures.assertion(msg: string, depth: number?): Failure
 	-- we need to go 5 function calls up to get to the actual assertion that invoked this
 	local stackdepth = depth or 4
@@ -16,14 +16,14 @@ function failures.assertion(msg: string, depth: number?): Failure
 	return { assertion = name, msg = msg, filename = filename, linenumber = linenumber, __tag = "assertion" }
 end
 
--- Generates the debug information needed to describe assertion failure locations
+--- Returns a `Failure` describing an error that occurred in the `hook` lifecycle callback.
 function failures.lifecycle(hook: types.Hook, err): Failure
 	-- we need to go 5 function calls up to get to the actual assertion that invoked this
 	local filename, linenumber = debug.info(3, "sl")
 	return { hook = hook, msg = tostring(err), filename = filename, linenumber = linenumber, __tag = "lifecycle" }
 end
 
--- Generates the debug information needed to describe runtime error failure
+--- Returns a `Failure` describing an unhandled runtime error, including a stack trace.
 function failures.runtimeerror(err): Failure
 	-- we need to go 5 function calls up to get to the actual assertion that invoked this
 	return { msg = tostring(err), stacktrace = debug.traceback(tostring(err)), __tag = "runtime_error" }

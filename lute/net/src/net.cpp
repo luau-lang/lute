@@ -2,25 +2,37 @@
 
 #include "lua.h"
 
-int luaopen_net(lua_State* L)
+#include <iterator>
+
+const luaL_Reg Net::lib[] = {
+    {nullptr, nullptr},
+};
+
+const char* const Net::properties[] = {"client", "server"};
+
+int Net::pushLibrary(lua_State* L)
 {
-    luteopen_net(L);
-    lua_setglobal(L, "net");
+    lua_createtable(L, 0, std::size(Net::properties));
 
-    return 1;
-}
-
-int luteopen_net(lua_State* L)
-{
-    lua_createtable(L, 0, 2);
-
-    luteopen_net_client(L);
+    NetClient::verifyInterface();
+    NetClient::pushLibrary(L);
     lua_setfield(L, -2, "client");
 
-    luteopen_net_server(L);
+    NetServer::verifyInterface();
+    NetServer::pushLibrary(L);
     lua_setfield(L, -2, "server");
 
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luaopen_net(lua_State* L)
+{
+    return Net::openAsGlobal(L);
+}
+
+int luteopen_net(lua_State* L)
+{
+    return Net::pushLibrary(L);
 }

@@ -1,6 +1,7 @@
 #include "lute/fs.h"
 
 #include "lute/runtime.h"
+#include "lute/time.h"
 #include "lute/userdatas.h"
 
 #include "lua.h"
@@ -369,6 +370,8 @@ int listdir(lua_State* L)
 
 static void initalizeFS(lua_State* L)
 {
+    init_duration_lib(L);
+
     luaL_newmetatable(L, "WatchHandle");
 
     lua_pushcfunction(
@@ -405,18 +408,37 @@ static void initalizeFS(lua_State* L)
     lua_setuserdatametatable(L, kWatchHandleTag);
 }
 
-int luaopen_fs(lua_State* L)
-{
-    luaL_register(L, "fs", fs::lib);
-    initalizeFS(L);
-    return 1;
-}
+const char* const FS::properties[] = {nullptr};
 
-int luteopen_fs(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(fs::lib));
+const luaL_Reg FS::lib[] = {
+    {"open", fs::open},
+    {"read", fs::read},
+    {"write", fs::write},
+    {"close", fs::close},
 
-    for (auto& [name, func] : fs::lib)
+    {"remove", fs::remove},
+
+    {"stat", fs::stat},
+    {"exists", fs::exists},
+    {"type", fs::type},
+
+    {"watch", fs::fs_watch},
+    {"link", fs::link},
+    {"symlink", fs::symlink},
+    {"copy", fs::copy},
+
+    {"mkdir", fs::mkdir},
+    {"listdir", fs::listdir},
+    {"rmdir", fs::rmdir},
+
+    {nullptr, nullptr},
+};
+
+int FS::pushLibrary(lua_State* L)
+{
+    lua_createtable(L, 0, std::size(FS::lib));
+
+    for (auto& [name, func] : FS::lib)
     {
         if (!name || !func)
             break;
@@ -430,4 +452,14 @@ int luteopen_fs(lua_State* L)
     initalizeFS(L);
 
     return 1;
+}
+
+int luaopen_fs(lua_State* L)
+{
+    return FS::openAsGlobal(L);
+}
+
+int luteopen_fs(lua_State* L)
+{
+    return FS::pushLibrary(L);
 }

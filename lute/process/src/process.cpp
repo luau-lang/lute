@@ -494,32 +494,10 @@ int cwd(lua_State* L)
     return 1;
 };
 
-std::optional<std::string> getExecPath(std::string* error)
-{
-    // Executable path is not expected to change during process lifetime, so we
-    // can safely cache it after the first retrieval.
-    static std::optional<std::string> cachedPath = std::nullopt;
-    if (cachedPath)
-        return *cachedPath;
-
-    char buf[LUTE_PATH_MAX];
-    size_t len = sizeof(buf);
-
-    if (int status = uv_exepath(buf, &len); status < 0)
-    {
-        if (error)
-            *error = uv_strerror(status);
-        return std::nullopt;
-    }
-
-    cachedPath = std::string(buf, len);
-    return *cachedPath;
-}
-
 int execPath(lua_State* L)
 {
     std::string error;
-    std::optional<std::string> execPath = getExecPath(&error);
+    std::optional<std::string> execPath = Process::getExecPath(&error);
     if (!execPath)
         luaL_error(L, "Failed to get executable path: %s", error.c_str());
 
@@ -653,17 +631,45 @@ static int envIter(lua_State* L)
 static const luaL_Reg processEnvMeta[] =
     {{"__index", process::envIndex}, {"__newindex", process::envNewindex}, {"__iter", process::envIter}, {nullptr, nullptr}};
 
-int luaopen_process(lua_State* L)
+std::optional<std::string> Process::getExecPath(std::string* error)
 {
-    luaL_register(L, "process", process::lib);
-    return 1;
+    // Executable path is not expected to change during process lifetime, so we
+    // can safely cache it after the first retrieval.
+    static std::optional<std::string> cachedPath = std::nullopt;
+    if (cachedPath)
+        return *cachedPath;
+
+    char buf[LUTE_PATH_MAX];
+    size_t len = sizeof(buf);
+
+    if (int status = uv_exepath(buf, &len); status < 0)
+    {
+        if (error)
+            *error = uv_strerror(status);
+        return std::nullopt;
+    }
+
+    cachedPath = std::string(buf, len);
+    return *cachedPath;
 }
 
-int luteopen_process(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(process::lib));
+const char* const Process::properties[] = {"env", "args"};
 
-    for (auto& [name, func] : process::lib)
+const luaL_Reg Process::lib[] = {
+    {"run", process::run},
+    {"system", process::system},
+    {"homedir", process::homedir},
+    {"cwd", process::cwd},
+    {"exit", process::exitFunc},
+    {"execPath", process::execPath},
+    {nullptr, nullptr},
+};
+
+int Process::pushLibrary(lua_State* L)
+{
+    lua_createtable(L, 0, std::size(Process::lib) + std::size(Process::properties));
+
+    for (auto& [name, func] : Process::lib)
     {
         if (!name || !func)
             break;
@@ -699,4 +705,14 @@ int luteopen_process(lua_State* L)
     lua_setreadonly(L, -1, 1); // process table
 
     return 1;
+}
+
+int luaopen_process(lua_State* L)
+{
+    return Process::openAsGlobal(L);
+}
+
+int luteopen_process(lua_State* L)
+{
+    return Process::pushLibrary(L);
 }

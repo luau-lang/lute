@@ -499,8 +499,7 @@ local function main(...: string)
 	local inputFiles = args:forwarded()
 	local stringInput = args:get("string-input")
 	if (inputFiles == nil or #inputFiles == 0) and not stringInput then
-		print("Error: No input files or string input specified.\n\n" .. USAGE .. "\nUse --help for more information.")
-		process.exit(1)
+		inputFiles = { pathLib.format(process.cwd()) }
 	end
 
 	local lintConfig: internalTypes.LintConfig = {}

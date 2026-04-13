@@ -716,12 +716,14 @@ local function run()
 	return call(cmd)
 end
 
-local ok, err = pcall(args.parse, args, { ... })
-if not ok then
+local parameters = { ... }
+xpcall(function()
+	args:parse(parameters)
+end, function(e)
 	-- Strip the "file:line: " prefix that Lua prepends to error messages
-	local message = string.gsub(tostring(err), "^.+:%d+: ", "")
+	local message = string.gsub(tostring(e), "^.+:%d+: ", "")
 	usageError(message, availableSubcommands())
-end
+end)
 
 cwd = getSourceRoot()
 

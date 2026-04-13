@@ -144,13 +144,6 @@ test.suite("lute lint", function(suite)
 		assert.strContains(result.stdout, USAGE)
 	end)
 
-	suite:case("luteLintNoInputFile", function(assert)
-		local result = process.run({ lutePath, "lint", "-r", "a_rule.luau" })
-
-		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stdout, "Error: No input files or string input specified.")
-	end)
-
 	suite:case("luteLintErrorCode0WithNoViolations", function(assert)
 		local output = lintTestHelper(assert, { content = "", expectedExitCode = 0 })
 
@@ -3596,5 +3589,63 @@ end
 				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 0 },
 			},
 		})
+	end)
+
+	suite:case("luteLintCurrentDirFindsLuauFiles", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createDirectory(testSubDir)
+
+		local violatorPath = path.format(path.join(testSubDir, "violator.luau"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0")
+
+		local result = process.run({ lutePath, "lint" }, {
+			cwd = path.format(testSubDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("luteLintCurrentDirFindsLuaFiles", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createDirectory(testSubDir)
+
+		local violatorPath = path.format(path.join(testSubDir, "violator.lua"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0")
+
+		local result = process.run({ lutePath, "lint" }, {
+			cwd = path.format(testSubDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("luteLintCurrentDirRecursive", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		local nestedDir = path.join(testSubDir, "nested")
+		fs.createDirectory(testSubDir)
+		fs.createDirectory(nestedDir)
+
+		local violatorPath = path.format(path.join(nestedDir, "violator.luau"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0")
+
+		local result = process.run({ lutePath, "lint" }, {
+			cwd = path.format(testSubDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("luteLintCurrentDirNoLuauFiles", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createDirectory(testSubDir)
+
+		local result = process.run({ lutePath, "lint" }, {
+			cwd = path.format(testSubDir),
+		})
+
+		assert.eq(result.exitcode, 0)
 	end)
 end)
