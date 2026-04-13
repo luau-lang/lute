@@ -4,6 +4,7 @@ target_sources(Lute.Net PRIVATE
     include/lute/net.h
 
     src/client.cpp
+    src/client_websocket.cpp
     src/net.cpp
     src/server.cpp
 )
