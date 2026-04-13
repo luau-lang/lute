@@ -92,6 +92,7 @@ static void initializeNetClient(lua_State* L)
 
 namespace net::client
 {
+
 static const std::string kEmptyHeaderKey = "";
 
 struct CurlResponse
@@ -243,6 +244,7 @@ int request(lua_State* L)
 
     auto token = getResumeToken(L);
 
+    // TODO: add cancellations
     token->runtime->runInWorkQueue(
         [url = std::move(url), method = std::move(method), body = std::move(body), headers = std::move(headers), token]
         {
@@ -288,6 +290,7 @@ int request(lua_State* L)
 
     return lua_yield(L, 0);
 }
+
 } // namespace net::client
 
 const char* const NetClient::properties[] = {nullptr};
