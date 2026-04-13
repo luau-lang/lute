@@ -1,8 +1,12 @@
 #include "lute/runtime.h"
 
 #include "lute/common.h"
+#include "lute/ref.h"
+
+#include "Luau/Compiler.h"
 
 #include "lua.h"
+#include "luacode.h"
 #include "lualib.h"
 
 #include "uv.h"
@@ -361,6 +365,52 @@ ResumeToken getResumeToken(lua_State* L)
     token->runtime->addPendingToken();
 
     return token;
+}
+
+bool Runtime::runBytecode(const std::string& bytecode, const std::string& chunkname, int argc, char** argv, std::function<void(lua_State*)> onLoaded)
+{
+    lua_State* L = lua_newthread(GL);
+
+    luaL_sandboxthread(L);
+
+    if (luau_load(L, chunkname.c_str(), bytecode.data(), bytecode.size(), 0) != 0)
+    {
+        reportError(L);
+        lua_pop(GL, 1);
+        return false;
+    }
+
+    if (onLoaded)
+        onLoaded(L);
+
+    if (argc > 0 && argv != nullptr)
+    {
+        if (!lua_checkstack(L, argc))
+        {
+            fprintf(stderr, "Failed to pass arguments to Luau\n");
+            lua_pop(GL, 1);
+            return false;
+        }
+
+        for (int i = 0; i < argc; ++i)
+            lua_pushstring(L, argv[i]);
+    }
+
+    args.clear();
+    for (int i = 0; i < argc; ++i)
+        args.emplace_back(argv[i]);
+
+    runningThreads.push_back({true, getRefForThread(L), argc});
+
+    lua_pop(GL, 1);
+
+    return runToCompletion();
+}
+
+bool Runtime::runSource(const std::string& source, const Luau::CompileOptions& compileOptions, const std::string& chunkname, int argc, char** argv)
+{
+    std::string bytecode = Luau::compile(source, compileOptions);
+    return runBytecode(bytecode, chunkname, argc, argv);
 }
 
 lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBeforeSandbox)
