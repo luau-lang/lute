@@ -3,7 +3,7 @@ local client = require("@lute/net/client")
 print("connecting to echo server...")
 
 local _ws: client.WebSocket?
-_ws = client.websocket("_wss://echo.websocket.org", {
+_ws = client.websocket("wss://echo.websocket.org", {
 	onopen = function()
 		print("websocket opened")
 		if _ws then
