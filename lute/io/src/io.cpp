@@ -28,7 +28,7 @@ struct StdinHandleOwner
 // We never call `uv_close` between reads, only `uv_read_stop`, so the underlying
 // file descriptor is never closed out from under the caller.
 //
-// The UV stream handle is heap-allocated separately so it can outlive the
+// The libuv stream handle is heap-allocated separately so it can outlive the
 // `IOHandle` during the async `uv_close`: the destructor schedules the close and
 // the close callback simply deletes the libuv struct, with no access back to the
 // (already-destroyed) `IOHandle`.
