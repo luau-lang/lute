@@ -34,7 +34,7 @@ struct StdinHandleOwner
 // (already-destroyed) `IOHandle`.
 struct IOHandle
 {
-    uv_stream_t* stream = nullptr;      // heap-allocated uv_pipe_t or uv_tty_t
+    uv_pipe_t* stream = nullptr;
     uv_loop_t* loop = nullptr;
     std::vector<char> readBuf;          // scratch buffer for libuv's alloc callback
     std::string lineBuffer;             // accumulated bytes; may span multiple reads
@@ -46,7 +46,7 @@ struct IOHandle
         if (!stream)
             return;
 
-        uv_read_stop(stream);
+        uv_read_stop(reinterpret_cast<uv_stream_t*>(stream));
         stream->data = nullptr;
 
         uv_close(
@@ -54,10 +54,7 @@ struct IOHandle
             [](uv_handle_t* h)
             {
                 // The `IOHandle` is already destroyed; just free the libuv struct.
-                if (h->type == UV_NAMED_PIPE)
-                    delete reinterpret_cast<uv_pipe_t*>(h);
-                else
-                    delete reinterpret_cast<uv_tty_t*>(h);
+                delete reinterpret_cast<uv_pipe_t*>(h);
             }
         );
     }
@@ -98,46 +95,35 @@ static IOHandle* getStdinHandle(lua_State* L, uv_loop_t* loop)
     handle->owner = owner;
     owner->handle = handle;
 
-    uv_handle_type ht = uv_guess_handle(fileno(stdin));
-    if (ht == UV_TTY)
+    // Use uv_pipe_t for all stdin types, including TTY.
+    //
+    // uv_tty_t is intentionally avoided: uv_tty_init() on macOS calls dup2()
+    // which closes the original stdin fd, and uv_read_start on a uv_tty_t puts
+    // the terminal into raw mode (disabling ICRNL, ICANON, ISIG, ECHO). Both
+    // are wrong for io.read(): raw mode breaks line editing, echo, Ctrl-C, and
+    // the \r -> \n translation that lets lineBuffer.find('\n') work.
+    //
+    // uv_pipe_t leaves the terminal in its default cooked mode and does not
+    // modify the fd, which is exactly what io.read() needs.
+    uv_pipe_t* pipe = new uv_pipe_t;
+    int initStatus = uv_pipe_init(loop, pipe, 0);
+    if (initStatus < 0)
     {
-        uv_tty_t* tty = new uv_tty_t;
-        int status = uv_tty_init(loop, tty, fileno(stdin), /* unused */ 0);
-        if (status < 0)
-        {
-            delete tty;
-            owner->handle.reset();
-            luaL_error(L, "Failed to initialize TTY: %s", uv_strerror(status));
-        }
-        handle->stream = reinterpret_cast<uv_stream_t*>(tty);
-    }
-    else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
-    {
-        uv_pipe_t* pipe = new uv_pipe_t;
-        int initStatus = uv_pipe_init(loop, pipe, 0);
-        if (initStatus < 0)
-        {
-            delete pipe;
-            owner->handle.reset();
-            luaL_error(L, "Failed to initialize pipe: %s", uv_strerror(initStatus));
-        }
-
-        int openStatus = uv_pipe_open(pipe, fileno(stdin));
-        if (openStatus < 0)
-        {
-            // `uv_pipe_init` registered the handle; `uv_close` is needed to free it.
-            // Set stream so `~IOHandle` will close it when `owner->handle` is reset.
-            handle->stream = reinterpret_cast<uv_stream_t*>(pipe);
-            owner->handle.reset();
-            luaL_error(L, "Failed to open stdin pipe: %s", uv_strerror(openStatus));
-        }
-        handle->stream = reinterpret_cast<uv_stream_t*>(pipe);
-    }
-    else
-    {
+        delete pipe;
         owner->handle.reset();
-        luaL_error(L, "Unsupported stdin type");
+        luaL_error(L, "Failed to initialize stdin: %s", uv_strerror(initStatus));
     }
+
+    int openStatus = uv_pipe_open(pipe, fileno(stdin));
+    if (openStatus < 0)
+    {
+        // `uv_pipe_init` registered the handle; `uv_close` is needed to free it.
+        // Set stream so `~IOHandle` will close it when `owner->handle` is reset.
+        handle->stream = pipe;
+        owner->handle.reset();
+        luaL_error(L, "Failed to open stdin: %s", uv_strerror(openStatus));
+    }
+    handle->stream = pipe;
 
     handle->stream->data = handle.get();
     return handle.get();
@@ -232,7 +218,7 @@ int read(lua_State* L)
     }
 
     handle->pendingToken = getResumeToken(L);
-    uv_read_start(handle->stream, allocBuffer, onStdinRead);
+    uv_read_start(reinterpret_cast<uv_stream_t*>(handle->stream), allocBuffer, onStdinRead);
     return lua_yield(L, 0);
 }
 
