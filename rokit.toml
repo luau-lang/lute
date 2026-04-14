@@ -1,3 +1,3 @@
 [tools]
 stylua = "JohnnyMorganz/StyLua@2.4.0"
-lute = "luau-lang/lute@0.1.0-nightly.20260403"
+lute = "luau-lang/lute@0.1.0-nightly.20260409"
