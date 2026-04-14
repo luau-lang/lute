@@ -45,6 +45,9 @@ jobs:
             artifact_name: lute-macos-aarch64
           - os: windows-latest
             artifact_name: lute-windows-x86_64
+          - os: windows-11-arm
+            artifact_name: lute-windows-aarch64
+            options: --c-compiler cl.exe --cxx-compiler cl.exe
       fail-fast: false
 
     needs: check
