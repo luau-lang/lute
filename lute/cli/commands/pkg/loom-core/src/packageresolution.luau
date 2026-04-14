@@ -19,7 +19,7 @@ local function getLockfilePath(directory: string): string
 end
 
 local function getInstallPath(key: string): string
-	return `Packages/_Index/{key}`
+	return `Packages/{key}`
 end
 
 local function getKey(spec: projectmanifest.DependencySpec): string
