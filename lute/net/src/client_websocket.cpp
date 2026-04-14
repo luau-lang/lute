@@ -442,7 +442,6 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
     std::shared_ptr<Ref> onErrorRef;
     std::weak_ptr<WebSocketConnection> connection;
     std::atomic<bool> hasScheduledClose{false};
-    std::atomic<bool> hasPendingToken{false};
     bool isActive = false;
 
     std::shared_ptr<WebSocketConnection> lockConnection() const
@@ -507,28 +506,7 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
     void handleClose(int closeCode, std::string closeReason)
     {
         scheduleCloseCallback(closeCode, std::move(closeReason));
-        finishTerminalState();
-    }
-
-    void handleError(std::string error)
-    {
-        scheduleErrorCallback(std::move(error));
-        scheduleCloseCallback(1006);
-        finishTerminalState();
-    }
-
-    void markPendingToken()
-    {
-        if (!runtime || hasPendingToken.exchange(true))
-            return;
-
-        runtime->addPendingToken();
-    }
-
-    void releasePendingToken()
-    {
-        if (runtime && hasPendingToken.exchange(false))
-            runtime->releasePendingToken();
+        releaseConnectionKeepAlive();
     }
 
     void releaseConnectionKeepAlive()
@@ -537,9 +515,10 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
             lockedConnection->releaseKeepAliveHandle();
     }
 
-    void finishTerminalState()
+    void handleError(std::string error)
     {
-        releasePendingToken();
+        scheduleErrorCallback(std::move(error));
+        scheduleCloseCallback(1006);
         releaseConnectionKeepAlive();
     }
 
@@ -597,7 +576,7 @@ struct WebSocketHandle : std::enable_shared_from_this<WebSocketHandle>
             lockedConnection->releaseKeepAliveHandle();
         }
 
-        finishTerminalState();
+        releaseConnectionKeepAlive();
     }
 
     ~WebSocketHandle()
@@ -801,7 +780,6 @@ int websocket(lua_State* L)
                         ))) std::shared_ptr<WebSocketHandle>(handle);
                     (void)storage;
 
-                    handle->markPendingToken();
                     handle->notifyOpen();
                     return 1;
                 }
