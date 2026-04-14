@@ -36,7 +36,7 @@ type PropertySignature = {
 }
 
 type Mapping = {
-	[string]: { alias: string, destination: path.Path },
+	[string]: { alias: string, destination: string },
 }
 
 local function printHelp()
@@ -359,7 +359,9 @@ local function generateDocsFromMapping(mapping: Mapping): ()
 			continue
 		end
 
-		local destinationPath = info.destination
+		local destinationPath = if path.isAbsolute(info.destination)
+			then path.parse(info.destination)
+			else path.resolve(process.cwd(), info.destination)
 		local alias = info.alias
 
 		print(
@@ -425,11 +427,11 @@ local function main(...: string)
 	local args = cli.parser()
 
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
-	args:add(
-		"mapping",
-		"option",
-		{ help = "Custom mapping for creating docs", default = tostring(DEFAULT_OUTPUT_DIR), aliases = { "m" } }
-	)
+	args:add("mapping", "option", {
+		help = "Custom mapping for generating documentation",
+		default = tostring(DEFAULT_OUTPUT_DIR),
+		aliases = { "m" },
+	})
 	args:add(
 		"output",
 		"option",
@@ -449,12 +451,10 @@ local function main(...: string)
 	end
 
 	local mapFile = args:get("mapping")
-	print(mapFile)
 	if mapFile then
 		local mapPath = path.join(process.cwd(), mapFile)
-		print(tostring(mapPath))
 		local mod = luau.loadModule(mapPath) :: Mapping
-		print("Using custom mapping from file: ", tostring(mapPath))
+		print(`Using custom mapping from file {tostring(mapPath)}`)
 		generateDocsFromMapping(mod)
 		return
 	end
