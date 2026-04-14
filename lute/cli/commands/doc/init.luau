@@ -429,7 +429,6 @@ local function main(...: string)
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
 	args:add("mapping", "option", {
 		help = "Custom mapping for generating documentation",
-		default = tostring(DEFAULT_OUTPUT_DIR),
 		aliases = { "m" },
 	})
 	args:add(
