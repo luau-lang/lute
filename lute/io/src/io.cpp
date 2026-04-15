@@ -22,15 +22,17 @@ struct IOHandle
     ResumeToken resumeToken;
     std::shared_ptr<IOHandle> self;
     std::vector<char> buffer;
+    uv_write_t writeReq;
+    uv_buf_t iov;
 
-    void closeHandles()
+    static void closeCb(uv_handle_t* handle)
     {
-        auto closeCb = [](uv_handle_t* handle)
-        {
-            IOHandle* ioh = static_cast<IOHandle*>(handle->data);
-            ioh->self.reset();
-        };
+        IOHandle* ioh = static_cast<IOHandle*>(handle->data);
+        ioh->self.reset();
+    }
 
+    void close()
+    {
         uv_stream_t* stream = getStream();
         uv_read_stop(stream);
         uv_close((uv_handle_t*)stream, closeCb);
@@ -76,44 +78,12 @@ static void onTtyRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
         handle->resumeToken->fail(uv_strerror(nread));
     }
 
-    handle->closeHandles();
+    handle->close();
 }
-
-struct IOWriteHandle
-{
-    Luau::Variant<uv_pipe_t, uv_tty_t> streamVariant;
-    uv_loop_t* loop = nullptr;
-    ResumeToken resumeToken;
-    std::shared_ptr<IOWriteHandle> self;
-    std::vector<char> data;
-    uv_write_t writeReq;
-    uv_buf_t iov;
-
-    void closeHandle()
-    {
-        auto closeCb = [](uv_handle_t* handle)
-        {
-            IOWriteHandle* ioh = static_cast<IOWriteHandle*>(handle->data);
-            ioh->self.reset();
-        };
-        uv_close((uv_handle_t*)getStream(), closeCb);
-    }
-
-    uv_stream_t* getStream()
-    {
-        return Luau::visit(
-            [](auto& stream) -> uv_stream_t*
-            {
-                return (uv_stream_t*)&stream;
-            },
-            streamVariant
-        );
-    }
-};
 
 static void onWrite(uv_write_t* req, int status)
 {
-    IOWriteHandle* handle = static_cast<IOWriteHandle*>(req->data);
+    IOHandle* handle = static_cast<IOHandle*>(req->data);
 
     if (status < 0)
         handle->resumeToken->fail(uv_strerror(status));
@@ -125,7 +95,7 @@ static void onWrite(uv_write_t* req, int status)
             }
         );
 
-    handle->closeHandle();
+    handle->close();
 }
 
 int write(lua_State* L)
@@ -143,11 +113,11 @@ int write(lua_State* L)
     if (toWrite.empty())
         return 0;
 
-    auto handle = std::make_shared<IOWriteHandle>();
+    auto handle = std::make_shared<IOHandle>();
     handle->loop = getRuntimeLoop(L);
     handle->resumeToken = getResumeToken(L);
     handle->self = handle;
-    handle->data.assign(toWrite.begin(), toWrite.end());
+    handle->buffer.assign(toWrite.begin(), toWrite.end());
 
     uv_handle_type ht = uv_guess_handle(fileno(stdout));
     if (ht == UV_TTY)
@@ -172,7 +142,7 @@ int write(lua_State* L)
 
     uv_stream_t* stream = handle->getStream();
     stream->data = handle.get();
-    handle->iov = uv_buf_init(handle->data.data(), handle->data.size());
+    handle->iov = uv_buf_init(handle->buffer.data(), handle->buffer.size());
     handle->writeReq.data = handle.get();
     uv_write(&handle->writeReq, stream, &handle->iov, 1, onWrite);
 
