@@ -88,7 +88,7 @@ struct Runtime
 
     // Attach native follow-up work to a specific Luau thread. The hook will run
     // once that thread eventually returns or errors after any number of yields.
-    void setThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion);
+    void addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion);
 
     // Run 'f' in a libuv work queue
     void runInWorkQueue(std::function<void()> f);

@@ -277,7 +277,7 @@ static void processRequest(
             finishHttpYield<ResT>(L, completionStatus, ctx);
         };
 
-        state->runtime->setThreadCompletionHandler(L, std::move(completion));
+        state->runtime->addThreadCompletionHandler(L, std::move(completion));
         lua_settop(L, 0);
         return;
     }

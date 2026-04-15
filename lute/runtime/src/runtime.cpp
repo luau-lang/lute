@@ -225,7 +225,7 @@ bool Runtime::hasThreads()
     return !runningThreads.empty();
 }
 
-void Runtime::setThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion)
+void Runtime::addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion)
 {
     threadCompletionHandlers[L] = std::move(completion);
 }
@@ -237,7 +237,7 @@ bool Runtime::runThreadCompletionHandler(lua_State* L, int status)
         return false;
 
     ThreadCompletionHandler completion = std::move(it->second);
-    threadCompletionHandlers.erase(it);
+    clearThreadCompletionHandler(L);
 
     if (completion.onFinish)
         completion.onFinish(L, status);
