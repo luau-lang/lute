@@ -125,7 +125,7 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
     frontendOptions.retainFullTypeGraphs = annotate;
     frontendOptions.runLintChecks = true;
 
-    Luau::LuteTypeCheckModuleResolver fileResolver;
+    Luau::LuteTypeCheckModuleResolver fileResolver{reporter};
     Luau::LuteConfigResolver configResolver(mode);
     Luau::Frontend frontend(Luau::SolverMode::New, &fileResolver, &configResolver, frontendOptions);
 

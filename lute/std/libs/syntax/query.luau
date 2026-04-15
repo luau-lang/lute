@@ -8,6 +8,7 @@ local visitor = require("./visitor")
 
 type Node = types.AstNode
 
+--- A collection of AST nodes that supports chained filtering, mapping, and replacement operations.
 export type Query<T = Node> = {
 	nodes: { T },
 	filter: (self: Query<T>, pred: (T) -> boolean) -> Query<T>,
@@ -21,6 +22,7 @@ export type Query<T = Node> = {
 
 local queryLib = {}
 
+--- Retains only the nodes for which `pred` returns `true`. Mutates and returns the query.
 function queryLib.filter<T>(self: Query<T>, pred: (T) -> boolean): Query<T>
 	local newNodes = {}
 	for _, node in self.nodes do
@@ -32,6 +34,7 @@ function queryLib.filter<T>(self: Query<T>, pred: (T) -> boolean): Query<T>
 	return self
 end
 
+--- Calls `repl` on each node and collects the non-nil results into a `Replacements` table for use with the printer.
 function queryLib.replace<T>(self: Query<T>, repl: (T) -> string?): types.Replacements
 	local replacements = {}
 	for _, node in self.nodes do
@@ -43,7 +46,7 @@ function queryLib.replace<T>(self: Query<T>, repl: (T) -> string?): types.Replac
 	return replacements
 end
 
--- map will return a query where its nodes are all the non-nil values returned by fn when called on each node of the original query
+--- Replaces the query's nodes with the non-nil values returned by `fn` for each node. Mutates and returns the query.
 function queryLib.map<T, U>(self: Query<T>, fn: (T) -> U?): Query<U>
 	local newNodes = {}
 	for _, node in self.nodes do
@@ -56,6 +59,7 @@ function queryLib.map<T, U>(self: Query<T>, fn: (T) -> U?): Query<U>
 	return self
 end
 
+--- Calls `callback` on each node. Returns the query unchanged for chaining.
 function queryLib.forEach<T>(self: Query<T>, callback: (T) -> ()): Query<T>
 	for _, node in self.nodes do
 		callback(node)
@@ -83,6 +87,7 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visi
 	return selectVisitor
 end
 
+--- Recursively visits every descendant of each node in the query and collects those for which `fn` returns a non-nil value. Mutates and returns the query.
 function queryLib.findAll<T, U>(self: Query<T>, fn: (Node) -> U?): Query<U>
 	local selectedNodes: { U } = {}
 
@@ -97,6 +102,7 @@ function queryLib.findAll<T, U>(self: Query<T>, fn: (Node) -> U?): Query<U>
 	return self
 end
 
+--- Replaces each node with the array of values returned by `fn`, flattening one level. Mutates and returns the query.
 function queryLib.flatMap<T, U>(self: Query<T>, fn: (T) -> { U }): Query<U>
 	local newNodes: { U } = {}
 	for _, node in self.nodes do
@@ -109,6 +115,7 @@ function queryLib.flatMap<T, U>(self: Query<T>, fn: (T) -> { U }): Query<U>
 	return self
 end
 
+--- Returns a plain array of the non-nil values produced by calling `fn` on each node. Does not mutate the query.
 function queryLib.mapToArray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
 	local result = {}
 	for _, node in self.nodes do
@@ -120,6 +127,7 @@ function queryLib.mapToArray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
 	return result
 end
 
+--- Creates a new `Query` by visiting every node in `ast` and collecting those for which `fn` returns a non-nil value.
 function queryLib.findAllFromRoot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
 	local nodes: { T } = {}
 

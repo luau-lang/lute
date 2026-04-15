@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/library.h"
+
 #include "lua.h"
 #include "lualib.h"
 
@@ -8,17 +10,10 @@ int luaopen_io(lua_State* L);
 // open the library as a table on top of the stack
 int luteopen_io(lua_State* L);
 
-namespace io
+struct IO : LuteLibrary<IO>
 {
-
-int read(lua_State* L);
-int flush(lua_State* L);
-
-static const luaL_Reg lib[] = {
-    {"read", read},
-    {"flush", flush},
-
-    {nullptr, nullptr}
+    static constexpr const char kName[] = "io";
+    static int pushLibrary(lua_State* L);
+    static const luaL_Reg lib[];
+    static const char* const properties[];
 };
-
-} // namespace io

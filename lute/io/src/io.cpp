@@ -12,7 +12,7 @@
 #include <memory>
 
 
-namespace io
+namespace
 {
 
 struct IOHandle
@@ -22,18 +22,20 @@ struct IOHandle
     ResumeToken resumeToken;
     std::shared_ptr<IOHandle> self;
     std::vector<char> buffer;
+    uv_write_t writeReq;
+    uv_buf_t iov;
 
-    void closeHandles()
+    static void closeCb(uv_handle_t* handle)
     {
-        auto closeCb = [](uv_handle_t* handle)
-        {
-            IOHandle* ioh = static_cast<IOHandle*>(handle->data);
-            ioh->self.reset();
-        };
+        IOHandle* ioh = static_cast<IOHandle*>(handle->data);
+        ioh->self.reset();
+    }
 
+    void close()
+    {
         uv_stream_t* stream = getStream();
         uv_read_stop(stream);
-        uv_close((uv_handle_t*)stream, closeCb);
+        uv_close(reinterpret_cast<uv_handle_t*>(stream), closeCb);
     }
 
     uv_stream_t* getStream()
@@ -41,7 +43,7 @@ struct IOHandle
         return Luau::visit(
             [](auto& stream) -> uv_stream_t*
             {
-                return (uv_stream_t*)&stream;
+                return reinterpret_cast<uv_stream_t*>(&stream);
             },
             streamVariant
         );
@@ -76,7 +78,75 @@ static void onTtyRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
         handle->resumeToken->fail(uv_strerror(nread));
     }
 
-    handle->closeHandles();
+    handle->close();
+}
+
+static void onWrite(uv_write_t* req, int status)
+{
+    IOHandle* handle = static_cast<IOHandle*>(req->data);
+
+    if (status < 0)
+        handle->resumeToken->fail(uv_strerror(status));
+    else
+        handle->resumeToken->complete(
+            [](lua_State* L)
+            {
+                return 0;
+            }
+        );
+
+    handle->close();
+}
+
+int write(lua_State* L)
+{
+    int nargs = lua_gettop(L);
+
+    std::string toWrite;
+    for (int i = 1; i <= nargs; i++)
+    {
+        size_t len;
+        const char* str = luaL_checklstring(L, i, &len);
+        toWrite.append(str, len);
+    }
+
+    if (toWrite.empty())
+        return 0;
+
+    auto handle = std::make_shared<IOHandle>();
+    handle->loop = getRuntimeLoop(L);
+    handle->resumeToken = getResumeToken(L);
+    handle->self = handle;
+    handle->buffer.assign(toWrite.begin(), toWrite.end());
+
+    uv_handle_type ht = uv_guess_handle(fileno(stdout));
+    if (ht == UV_TTY)
+    {
+        uv_tty_t& tty = handle->streamVariant.emplace<uv_tty_t>();
+        int status = uv_tty_init(handle->loop, &tty, fileno(stdout), 0);
+        if (status < 0)
+            luaL_error(L, "Failed to initialize TTY: %s", uv_strerror(status));
+    }
+    else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
+    {
+        uv_pipe_t& pipe = handle->streamVariant.emplace<uv_pipe_t>();
+        int status = uv_pipe_init(handle->loop, &pipe, 0);
+        if (status < 0)
+            luaL_error(L, "Failed to initialize pipe: %s", uv_strerror(status));
+        uv_pipe_open(&pipe, fileno(stdout));
+    }
+    else
+    {
+        luaL_error(L, "Unsupported stdout type");
+    }
+
+    uv_stream_t* stream = handle->getStream();
+    stream->data = handle.get();
+    handle->iov = uv_buf_init(handle->buffer.data(), handle->buffer.size());
+    handle->writeReq.data = handle.get();
+    uv_write(&handle->writeReq, stream, &handle->iov, 1, onWrite);
+
+    return lua_yield(L, 0);
 }
 
 int read(lua_State* L)
@@ -97,10 +167,10 @@ int read(lua_State* L)
     else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
     {
         uv_pipe_t& pipe = handle->streamVariant.emplace<uv_pipe_t>();
-        int status = uv_pipe_init(handle->loop, static_cast<uv_pipe_t*>(&pipe), 0);
+        int status = uv_pipe_init(handle->loop, &pipe, 0);
         if (status < 0)
             luaL_error(L, "Failed to initialize pipe: %s", uv_strerror(status));
-        uv_pipe_open(static_cast<uv_pipe_t*>(&pipe), fileno(stdin));
+        uv_pipe_open(&pipe, fileno(stdin));
     }
     else
     {
@@ -120,19 +190,22 @@ int flush(lua_State* L)
     return 0;
 }
 
-} // namespace io
+} // anonymous namespace
 
-int luaopen_io(lua_State* L)
+const char* const IO::properties[] = {nullptr};
+
+const luaL_Reg IO::lib[] = {
+    {"write", write},
+    {"read", read},
+    {"flush", flush},
+    {nullptr, nullptr},
+};
+
+int IO::pushLibrary(lua_State* L)
 {
-    luaL_register(L, "io", io::lib);
-    return 1;
-}
+    lua_createtable(L, 0, std::size(IO::lib));
 
-int luteopen_io(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(io::lib));
-
-    for (auto& [name, func] : io::lib)
+    for (auto& [name, func] : IO::lib)
     {
         if (!name || !func)
             break;
@@ -144,4 +217,14 @@ int luteopen_io(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luaopen_io(lua_State* L)
+{
+    return IO::openAsGlobal(L);
+}
+
+int luteopen_io(lua_State* L)
+{
+    return IO::pushLibrary(L);
 }

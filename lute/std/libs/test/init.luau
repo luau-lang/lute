@@ -13,6 +13,7 @@ type TestReporter = types.TestReporter
 local TestSuite = {}
 TestSuite.__index = TestSuite
 
+--- Creates a new, empty `TestSuite` with the given `name`.
 function TestSuite.new(name: string): TestSuite
 	local self = setmetatable({
 		name = name,
@@ -25,22 +26,27 @@ function TestSuite.new(name: string): TestSuite
 	return self :: TestSuite
 end
 
+--- Registers a test case with `name` in this suite.
 function TestSuite:case(name: string, testCase: Test)
 	table.insert(self.cases, { name = name, case = testCase })
 end
 
+--- Registers a hook to run before each test case in this suite.
 function TestSuite:beforeEach(hook: () -> ())
 	self._beforeEach = hook
 end
 
+--- Registers a hook to run once before all test cases in this suite.
 function TestSuite:beforeAll(hook: () -> ())
 	self._beforeAll = hook
 end
 
+--- Registers a hook to run after each test case in this suite.
 function TestSuite:afterEach(hook: () -> ())
 	self._afterEach = hook
 end
 
+--- Registers a hook to run once after all test cases in this suite.
 function TestSuite:afterAll(hook: () -> ())
 	self._afterAll = hook
 end
@@ -48,7 +54,7 @@ end
 -- Test library export surface
 local test = {}
 
--- register an anonymous test case
+--- Registers an anonymous (top-level) test case with the given `name`.
 function test.case(name: string, case: Test)
 	local testcase = { name = name, case = case }
 	table.insert(env.anonymous, testcase)
@@ -61,7 +67,7 @@ function test.case(name: string, case: Test)
 	end
 end
 
--- register a test suite
+--- Registers a test suite with `name`, using `registerFn` to define its test cases.
 function test.suite(name: string, registerFn: (TestSuite) -> ())
 	local suite = TestSuite.new(name)
 	registerFn(suite)

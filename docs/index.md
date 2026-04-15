@@ -12,7 +12,7 @@ hero:
       link: /guide/installation
     - theme: alt
       text: Reference
-      link: /reference/lute/crypto
+      link: /std
 
 # TODO: add buzz words
 # features:

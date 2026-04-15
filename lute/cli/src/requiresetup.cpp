@@ -99,7 +99,7 @@ static void* createPkgRunRequireContext(
 
 static void* createBundleRequireContext(
     lua_State* L,
-    Luau::DenseHashMap<std::string, std::string> luaurcFiles,
+    Luau::DenseHashMap<std::string, std::string> luauConfigFiles,
     Luau::DenseHashMap<std::string, std::string> bundleMap
 )
 {
@@ -114,7 +114,7 @@ static void* createBundleRequireContext(
 
     if (!ctx)
         luaL_error(L, "unable to allocate RequireCtx");
-    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(luaurcFiles), std::move(bundleMap)})};
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(luauConfigFiles), std::move(bundleMap)})};
 
     // Store RequireCtx in the registry to keep it alive for the lifetime of
     // this lua_State. Memory address is used as a key to avoid collisions.
@@ -177,18 +177,18 @@ lua_State* setupPkgRunState(
 
 lua_State* setupBundleState(
     Runtime& runtime,
-    Luau::DenseHashMap<std::string, std::string> luaurcFiles,
+    Luau::DenseHashMap<std::string, std::string> luauConfigFiles,
     Luau::DenseHashMap<std::string, std::string> bundleMap
 )
 {
     return setupState(
         runtime,
-        [luaurcFiles = std::move(luaurcFiles), bundleMap = std::move(bundleMap)](lua_State* L)
+        [luauConfigFiles = std::move(luauConfigFiles), bundleMap = std::move(bundleMap)](lua_State* L)
         {
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
-            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(luaurcFiles), std::move(bundleMap)));
+            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(luauConfigFiles), std::move(bundleMap)));
         }
     );
 }

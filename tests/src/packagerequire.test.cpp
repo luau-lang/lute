@@ -5,7 +5,6 @@
 #include "lute/runtime.h"
 #include "lute/userlandvfs.h"
 
-#include "Luau/Compiler.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Require.h"
 
@@ -24,7 +23,7 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
 {
     Runtime runtime{getReporter()};
 
-    lua_State* L = setupState(
+    setupState(
         runtime,
         [](lua_State* L)
         {
@@ -84,8 +83,7 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
     std::optional<std::string> contents = readFile(path);
     REQUIRE(contents);
 
-    std::string bytecode = Luau::compile(*contents, copts());
-    bool success = runBytecode(runtime, bytecode, "@" + path, L, 0, nullptr, getReporter());
+    bool success = runtime.runSource(*contents, copts(), "@" + path);
     CHECK(success);
 }
 
