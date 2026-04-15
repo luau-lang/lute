@@ -9,6 +9,8 @@
 
 #include "uv.h"
 
+#include <cerrno>
+#include <cstring>
 #include <memory>
 
 
@@ -186,7 +188,7 @@ int read(lua_State* L)
 int flush(lua_State* L)
 {
     if (fflush(stdout) != 0)
-        luaL_error(L, "Failed to flush stdout");
+        luaL_error(L, "Failed to flush stdout: %s", strerror(errno));
     return 0;
 }
 

@@ -37,6 +37,10 @@ struct StdoutCapture
         savedFd = dupFd(stdoutFd());
         REQUIRE(savedFd != -1);
         dup2Fd(fileFd(tmpf), stdoutFd());
+        // Ensure stdout is fully-buffered so writes stay in the C stdio buffer
+        // until explicitly flushed. Without this the buffering mode depends on
+        // whether the test runner's stdout is a TTY, making the test flaky.
+        setvbuf(stdout, nullptr, _IOFBF, BUFSIZ);
     }
 
     ~StdoutCapture()
