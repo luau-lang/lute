@@ -1,5 +1,6 @@
 local cli = require("@batteries/cli")
 local fs = require("@std/fs")
+local luau = require("@std/luau")
 local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
@@ -32,6 +33,10 @@ type PropertySignature = {
 	pendingDoc: { string },
 	inBlock: boolean,
 	blockEq: string?,
+}
+
+type Mapping = {
+	[string]: { alias: string, destination: string },
 }
 
 local function printHelp()
@@ -343,6 +348,30 @@ local function generateLibraryIndex(title: string, alias: string, modulePath: pa
 	return table.concat(lines, "\n")
 end
 
+local function generateDocsFromMapping(mapping: Mapping): ()
+	for sourcePath, info in pairs(mapping) do
+		local absSourcePath = if path.isAbsolute(sourcePath)
+			then path.parse(sourcePath)
+			else path.resolve(process.cwd(), sourcePath)
+
+		if not fs.exists(absSourcePath) then
+			print(`Warning: Source path does not exist: {tostring(absSourcePath)}`)
+			continue
+		end
+
+		local destinationPath = if path.isAbsolute(info.destination)
+			then path.parse(info.destination)
+			else path.resolve(process.cwd(), info.destination)
+		local alias = info.alias
+
+		print(
+			`Generating docs for {tostring(absSourcePath)} with alias @{alias} to destination {tostring(destinationPath)}...`
+		)
+		processDirectory(absSourcePath, destinationPath, absSourcePath, alias)
+		print(`Completed generating docs for {tostring(absSourcePath)}.`)
+	end
+end
+
 local function generateAllDocs(outputDir: path.Path, modulePaths: { string }): ()
 	-- Create top-level reference index page
 	local referenceBasePath = path.join(outputDir, "reference")
@@ -398,6 +427,10 @@ local function main(...: string)
 	local args = cli.parser()
 
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
+	args:add("mapping", "option", {
+		help = "Custom mapping for generating documentation",
+		aliases = { "m" },
+	})
 	args:add(
 		"output",
 		"option",
@@ -414,6 +447,15 @@ local function main(...: string)
 	local outputDir = path.parse(args:get("output") or tostring(DEFAULT_OUTPUT_DIR))
 	if not path.isAbsolute(outputDir) then
 		outputDir = path.resolve(process.cwd(), outputDir)
+	end
+
+	local mapFile = args:get("mapping")
+	if mapFile then
+		local mapPath = path.join(process.cwd(), mapFile)
+		local mod = luau.loadModule(mapPath) :: Mapping
+		print(`Using custom mapping from file {tostring(mapPath)}`)
+		generateDocsFromMapping(mod)
+		return
 	end
 
 	local modulePaths = args:forwarded()
