@@ -1,5 +1,5 @@
 local cli = require("@batteries/cli")
-local authStore = require("../authentication/authenticationstore")
+local authStore = require("../authenticationstore")
 
 local function authenticate(...: string)
 	local args = cli.parser()
