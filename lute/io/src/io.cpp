@@ -183,49 +183,11 @@ int read(lua_State* L)
     return lua_yield(L, 0);
 }
 
-struct FlushWork
-{
-    uv_work_t req;
-    ResumeToken token;
-    int flushResult = 0;
-    std::shared_ptr<FlushWork> self;
-};
-
-static void doFlush(uv_work_t* req)
-{
-    FlushWork* work = static_cast<FlushWork*>(req->data);
-    work->flushResult = fflush(stdout);
-}
-
-static void afterFlush(uv_work_t* req, int status)
-{
-    FlushWork* work = static_cast<FlushWork*>(req->data);
-
-    if (status < 0)
-        work->token->fail(uv_strerror(status));
-    else if (work->flushResult != 0)
-        work->token->fail("Failed to flush stdout");
-    else
-        work->token->complete(
-            [](lua_State* L)
-            {
-                return 0;
-            }
-        );
-
-    work->self.reset();
-}
-
 int flush(lua_State* L)
 {
-    auto work = std::make_shared<FlushWork>();
-    work->req.data = work.get();
-    work->token = getResumeToken(L);
-    work->self = work;
-
-    uv_queue_work(getRuntimeLoop(L), &work->req, doFlush, afterFlush);
-
-    return lua_yield(L, 0);
+    if (fflush(stdout) != 0)
+        luaL_error(L, "Failed to flush stdout");
+    return 0;
 }
 
 } // anonymous namespace
