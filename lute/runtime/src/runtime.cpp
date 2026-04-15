@@ -125,6 +125,8 @@ RuntimeStep Runtime::runOnce()
     }
 
     bool ranCompletionHandler = runThreadCompletionHandler(L, status);
+    // Completion handlers are responsible for consuming/reporting terminal errors
+    // for threads they own (for example, turning a failed HTTP handler into a 500).
     if (ranCompletionHandler && status != LUA_OK)
         return StepSuccess{L};
 
