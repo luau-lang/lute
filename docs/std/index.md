@@ -19,7 +19,7 @@ Roblox. The modules in this library are broadly categorized as follows:
    line, the file system, external processes, the network, etc.
 3. Platform abstractions -- e.g. file system path, measures of time, and
    cooperative multitasking
-4. General programming utilities - libraries for interacting with tables,
+4. General programming utilities -- libraries for interacting with tables,
    strings, json, and testing your code
 
 When writing programs against the standard library, you can require them using
