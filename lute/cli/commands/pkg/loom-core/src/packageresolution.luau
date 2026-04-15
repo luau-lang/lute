@@ -118,6 +118,8 @@ local function resolve(rootDirectory: string): ResolvedGraph
 		local installPath = `{rootDirectory}/{getInstallPath(key)}`
 		if spec.sourceKind == "github" then
 			github.installPackage(spec, installPath)
+		elseif spec.sourceKind == "github-release" then
+			github.installRelease(spec, installPath)
 		else
 			error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
 		end
