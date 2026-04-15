@@ -1,6 +1,7 @@
 #include "lute/io.h"
 
 #include "lute/runtime.h"
+#include "lute/UVRequest.h"
 
 #include "Luau/Variant.h"
 
@@ -79,6 +80,73 @@ static void onTtyRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
     handle->closeHandles();
 }
 
+struct IOWrite : uvutils::UVRequest<uv_fs_t>
+{
+    IOWrite(lua_State* L, const char* buf, size_t len)
+        : UVRequest(L)
+        , data(buf, buf + len)
+        , offset(0)
+    {
+    }
+
+    static void writeCallback(uv_fs_t* req);
+
+    std::vector<char> data;
+    uv_buf_t iov;
+    size_t offset;
+};
+
+void IOWrite::writeCallback(uv_fs_t* req)
+{
+    auto w = uvutils::retake<IOWrite>(req);
+    auto bytesWritten = req->result;
+
+    if (bytesWritten < 0)
+    {
+        w->fail("Error writing to stdout: %s", uv_strerror(bytesWritten));
+        return;
+    }
+
+    w->offset += bytesWritten;
+    if (w->offset >= w->data.size())
+    {
+        w->succeed(
+            [](lua_State* L)
+            {
+                return 0;
+            }
+        );
+        return;
+    }
+
+    // Partial write — write the remainder
+    w->iov = uv_buf_init(w->data.data() + w->offset, w->data.size() - w->offset);
+    uvutils::ScopedUVRequest<IOWrite> scopedReq{std::move(w)};
+    uv_fs_write(scopedReq->getLoop(), &scopedReq->req, fileno(stdout), &scopedReq->iov, 1, -1, IOWrite::writeCallback);
+}
+
+int write(lua_State* L)
+{
+    int nargs = lua_gettop(L);
+
+    std::string toWrite;
+    for (int i = 1; i <= nargs; i++)
+    {
+        size_t len;
+        const char* str = luaL_checklstring(L, i, &len);
+        toWrite.append(str, len);
+    }
+
+    if (toWrite.empty())
+        return 0;
+
+    uvutils::ScopedUVRequest<IOWrite> req{L, toWrite.data(), toWrite.size()};
+    req->iov = uv_buf_init(req->data.data(), req->data.size());
+    uv_fs_write(req->getLoop(), &req->req, fileno(stdout), &req->iov, 1, -1, IOWrite::writeCallback);
+
+    return lua_yield(L, 0);
+}
+
 int read(lua_State* L)
 {
     auto handle = std::make_shared<IOHandle>();
@@ -118,6 +186,7 @@ int read(lua_State* L)
 const char* const IO::properties[] = {nullptr};
 
 const luaL_Reg IO::lib[] = {
+    {"write", write},
     {"read", read},
     {nullptr, nullptr},
 };
