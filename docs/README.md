@@ -11,4 +11,4 @@ The terminal output should then tell you which `localhost` port the docsite is r
 
 ## Regenerating documentation files
 
-If you want to regenerate the documentation files in `docs/reference`, you will need to run `<path-to-lute> doc -o ./ ../definitions ../lute/std/libs` from the `docs` folder using a version of `lute` which supports `lute doc`.
+Run `npm run gen` from the `docs` folder to regenerate the reference content in `docs/std` and `docs/lute`. This uses `docgen.luau`, which maps `../lute/std/libs` to `docs/std` and `../definitions` to `docs/lute`.
