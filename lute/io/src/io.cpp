@@ -35,7 +35,7 @@ struct IOHandle
     {
         uv_stream_t* stream = getStream();
         uv_read_stop(stream);
-        uv_close((uv_handle_t*)stream, closeCb);
+        uv_close(reinterpret_cast<uv_handle_t*>(stream), closeCb);
     }
 
     uv_stream_t* getStream()
@@ -43,7 +43,7 @@ struct IOHandle
         return Luau::visit(
             [](auto& stream) -> uv_stream_t*
             {
-                return (uv_stream_t*)&stream;
+                return reinterpret_cast<uv_stream_t*>(&stream);
             },
             streamVariant
         );
@@ -167,10 +167,10 @@ int read(lua_State* L)
     else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
     {
         uv_pipe_t& pipe = handle->streamVariant.emplace<uv_pipe_t>();
-        int status = uv_pipe_init(handle->loop, static_cast<uv_pipe_t*>(&pipe), 0);
+        int status = uv_pipe_init(handle->loop, &pipe, 0);
         if (status < 0)
             luaL_error(L, "Failed to initialize pipe: %s", uv_strerror(status));
-        uv_pipe_open(static_cast<uv_pipe_t*>(&pipe), fileno(stdin));
+        uv_pipe_open(&pipe, fileno(stdin));
     }
     else
     {
