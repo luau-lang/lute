@@ -316,7 +316,7 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     }
     else if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
     {
-        stdio[0].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+        stdio[0].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE);
         stdio[0].data.stream = (uv_stream_t*)&handle->stdinPipe;
         stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
         stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
