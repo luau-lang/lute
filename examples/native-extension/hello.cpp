@@ -15,6 +15,21 @@ static int hello_add(lua_State* L)
     return 1;
 }
 
+// Type definitions embedded in the shared library, read by `lute check`.
+extern "C" const char lute_types[] = R"luau(
+local hello = {}
+
+function hello.world(): string
+    error("stub")
+end
+
+function hello.add(a: number, b: number): number
+    error("stub")
+end
+
+return table.freeze(hello)
+)luau";
+
 extern "C" int luteopen_hello(lua_State* L)
 {
     lua_createtable(L, 0, 2);

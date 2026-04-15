@@ -4,6 +4,7 @@
 #include "lute/filevfs.h"
 #include "lute/lutevfs.h"
 #include "lute/modulepath.h"
+#include "lute/nativemodule.h"
 #include "lute/stdlibvfs.h"
 
 #include "Luau/FileUtils.h"
@@ -238,6 +239,8 @@ struct LuteTypeCheckVfs
         case VFSType::Batteries:
             return batteriesVfs.getContents(identifier);
         default:
+            if (isNativeLibrary(identifier))
+                return readNativeModuleTypes(identifier);
             return readFile(identifier);
         }
     }

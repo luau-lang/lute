@@ -114,3 +114,24 @@ int loadNativeModule(lua_State* L, const std::string& path)
 
     return openFunc(L);
 }
+
+std::optional<std::string> readNativeModuleTypes(const std::string& path)
+{
+    uv_lib_t lib;
+    if (uv_dlopen(path.c_str(), &lib) != 0)
+    {
+        uv_dlclose(&lib);
+        return std::nullopt;
+    }
+
+    void* sym;
+    if (uv_dlsym(&lib, "lute_types", &sym) != 0 || !sym)
+    {
+        uv_dlclose(&lib);
+        return std::nullopt;
+    }
+
+    std::string types(static_cast<const char*>(sym));
+    uv_dlclose(&lib);
+    return types;
+}
