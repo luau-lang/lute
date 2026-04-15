@@ -110,6 +110,7 @@ RuntimeStep Runtime::runOnce()
     int co_status = lua_costatus(GL, L);
     if (co_status == LUA_COFIN)
     {
+        clearThreadCompletionHandler(L);
         return StepSuccess{L};
     }
 
@@ -123,20 +124,9 @@ RuntimeStep Runtime::runOnce()
         return StepSuccess{L};
     }
 
-    ThreadCompletionHandler* completion = static_cast<ThreadCompletionHandler*>(lua_getthreaddata(L));
-    if (completion)
-    {
-        lua_setthreaddata(L, nullptr);
-
-        if (completion->onFinish)
-            completion->onFinish(L, status);
-
-        delete completion;
-
-        // Completion hooks are responsible for consuming/reporting thread errors.
-        if (status != LUA_OK)
-            return StepSuccess{L};
-    }
+    bool ranCompletionHandler = runThreadCompletionHandler(L, status);
+    if (ranCompletionHandler && status != LUA_OK)
+        return StepSuccess{L};
 
     if (status != LUA_OK)
     {
@@ -227,6 +217,31 @@ bool Runtime::hasContinuations()
 bool Runtime::hasThreads()
 {
     return !runningThreads.empty();
+}
+
+void Runtime::setThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion)
+{
+    threadCompletionHandlers[L] = std::move(completion);
+}
+
+bool Runtime::runThreadCompletionHandler(lua_State* L, int status)
+{
+    auto it = threadCompletionHandlers.find(L);
+    if (it == threadCompletionHandlers.end())
+        return false;
+
+    ThreadCompletionHandler completion = std::move(it->second);
+    threadCompletionHandlers.erase(it);
+
+    if (completion.onFinish)
+        completion.onFinish(L, status);
+
+    return true;
+}
+
+void Runtime::clearThreadCompletionHandler(lua_State* L)
+{
+    threadCompletionHandlers.erase(L);
 }
 
 void Runtime::schedule(std::function<void()> f)

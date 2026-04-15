@@ -271,13 +271,13 @@ static void processRequest(
             }
         );
 
-        auto* completion = new ThreadCompletionHandler();
-        completion->onFinish = [ctx](lua_State* L, int completionStatus)
+        ThreadCompletionHandler completion;
+        completion.onFinish = [ctx](lua_State* L, int completionStatus)
         {
             finishHttpYield<ResT>(L, completionStatus, ctx);
         };
 
-        lua_setthreaddata(L, completion);
+        state->runtime->setThreadCompletionHandler(L, std::move(completion));
         lua_settop(L, 0);
         return;
     }
