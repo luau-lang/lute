@@ -98,9 +98,9 @@ local function installPackage(pkg: projectmanifest.DependencySpec, installPath: 
 end
 
 local function installRelease(pkg: projectmanifest.DependencySpec, installPath: string): ()
-    local url = `{pkg.source}/releases/download/{pkg.rev}/{pkg.name}-{system.os}-{system.arch}.zip`
-    local zipArchive = downloadFromGitHubArchive(url)
-    installZipArchive(zipArchive, installPath)
+	local url = `{pkg.source}/releases/download/{pkg.rev}/{pkg.name}-{system.os}-{system.arch}.zip`
+	local zipArchive = downloadFromGitHubArchive(url)
+	installZipArchive(zipArchive, installPath)
 end
 
 return {
