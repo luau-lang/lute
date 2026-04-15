@@ -79,6 +79,21 @@ test.suite("IoWriteSuite", function(suite)
 		assert.strContains(r.stdout, "from-print")
 	end)
 
+	suite:case("flushMakesWritePrintOrdered", function(assert)
+		local r = runScript(
+			"io_write_print_with_flush",
+			[[
+			local io = require("@std/io")
+			io.write("from-io-write")
+			io.flush()
+			print("from-print")
+		]]
+		)
+
+		assert.eq(r.exitcode, 0)
+		assert.eq(r.stdout, "from-io-writefrom-print\n")
+	end)
+
 	suite:case("writeEmptyString", function(assert)
 		local r = runScript(
 			"io_write_empty",
