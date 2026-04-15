@@ -15,6 +15,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 struct lua_State;
@@ -30,6 +31,13 @@ struct ThreadToContinue
     std::shared_ptr<Ref> ref;
     int argumentCount = 0;
     std::function<void()> cont;
+};
+
+// Optional completion hook for threads that need native follow-up work once
+// they finish or error after one or more yields.
+struct ThreadCompletionHandler
+{
+    std::function<void(lua_State* L, int status)> onFinish;
 };
 
 struct StepErr
@@ -78,6 +86,10 @@ struct Runtime
     // argPusher should push arguments onto the stack and return the count.
     void scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher);
 
+    // Attach native follow-up work to a specific Luau thread. The hook will run
+    // once that thread eventually returns or errors after any number of yields.
+    void addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion);
+
     // Run 'f' in a libuv work queue
     void runInWorkQueue(std::function<void()> f);
 
@@ -123,8 +135,12 @@ struct Runtime
     std::vector<std::string> args;
 
 private:
+    bool runThreadCompletionHandler(lua_State* L, int status);
+    void clearThreadCompletionHandler(lua_State* L);
+
     std::mutex continuationMutex;
     std::vector<std::function<void()>> continuations;
+    std::unordered_map<lua_State*, ThreadCompletionHandler> threadCompletionHandlers;
 
     // TODO: can this be handled by libuv?
     std::atomic<bool> stop;
