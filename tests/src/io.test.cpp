@@ -3,7 +3,22 @@
 
 #include <cstdio>
 #include <string>
+
+#ifdef _WIN32
+#include <io.h>
+static int stdoutFd() { return _fileno(stdout); }
+static int dupFd(int fd) { return _dup(fd); }
+static void dup2Fd(int src, int dst) { _dup2(src, dst); }
+static void closeFd(int fd) { _close(fd); }
+static int fileFd(FILE* f) { return _fileno(f); }
+#else
 #include <unistd.h>
+static int stdoutFd() { return STDOUT_FILENO; }
+static int dupFd(int fd) { return dup(fd); }
+static void dup2Fd(int src, int dst) { dup2(src, dst); }
+static void closeFd(int fd) { close(fd); }
+static int fileFd(FILE* f) { return fileno(f); }
+#endif
 
 // Redirects stdout to a temporary file for the duration of the test.
 // Restores stdout on destruction.
@@ -19,16 +34,16 @@ struct StdoutCapture
 
         tmpf = tmpfile();
         REQUIRE(tmpf != nullptr);
-        savedFd = dup(STDOUT_FILENO);
+        savedFd = dupFd(stdoutFd());
         REQUIRE(savedFd != -1);
-        dup2(fileno(tmpf), STDOUT_FILENO);
+        dup2Fd(fileFd(tmpf), stdoutFd());
     }
 
     ~StdoutCapture()
     {
         fflush(stdout);
-        dup2(savedFd, STDOUT_FILENO);
-        close(savedFd);
+        dup2Fd(savedFd, stdoutFd());
+        closeFd(savedFd);
         fclose(tmpf);
     }
 
