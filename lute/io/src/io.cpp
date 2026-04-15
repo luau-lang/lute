@@ -1,7 +1,6 @@
 #include "lute/io.h"
 
 #include "lute/runtime.h"
-#include "lute/UVRequest.h"
 
 #include "Luau/Variant.h"
 
@@ -80,49 +79,53 @@ static void onTtyRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
     handle->closeHandles();
 }
 
-struct IOWrite : uvutils::UVRequest<uv_fs_t>
+struct IOWriteHandle
 {
-    IOWrite(lua_State* L, const char* buf, size_t len)
-        : UVRequest(L)
-        , data(buf, buf + len)
-        , offset(0)
+    Luau::Variant<uv_pipe_t, uv_tty_t> streamVariant;
+    uv_loop_t* loop = nullptr;
+    ResumeToken resumeToken;
+    std::shared_ptr<IOWriteHandle> self;
+    std::vector<char> data;
+    uv_write_t writeReq;
+    uv_buf_t iov;
+
+    void closeHandle()
     {
+        auto closeCb = [](uv_handle_t* handle)
+        {
+            IOWriteHandle* ioh = static_cast<IOWriteHandle*>(handle->data);
+            ioh->self.reset();
+        };
+        uv_close((uv_handle_t*)getStream(), closeCb);
     }
 
-    static void writeCallback(uv_fs_t* req);
-
-    std::vector<char> data;
-    uv_buf_t iov;
-    size_t offset;
+    uv_stream_t* getStream()
+    {
+        return Luau::visit(
+            [](auto& stream) -> uv_stream_t*
+            {
+                return (uv_stream_t*)&stream;
+            },
+            streamVariant
+        );
+    }
 };
 
-void IOWrite::writeCallback(uv_fs_t* req)
+static void onWrite(uv_write_t* req, int status)
 {
-    auto w = uvutils::retake<IOWrite>(req);
-    auto bytesWritten = req->result;
+    IOWriteHandle* handle = static_cast<IOWriteHandle*>(req->data);
 
-    if (bytesWritten < 0)
-    {
-        w->fail("Error writing to stdout: %s", uv_strerror(bytesWritten));
-        return;
-    }
-
-    w->offset += bytesWritten;
-    if (w->offset >= w->data.size())
-    {
-        w->succeed(
+    if (status < 0)
+        handle->resumeToken->fail(uv_strerror(status));
+    else
+        handle->resumeToken->complete(
             [](lua_State* L)
             {
                 return 0;
             }
         );
-        return;
-    }
 
-    // Partial write — write the remainder
-    w->iov = uv_buf_init(w->data.data() + w->offset, w->data.size() - w->offset);
-    uvutils::ScopedUVRequest<IOWrite> scopedReq{std::move(w)};
-    uv_fs_write(scopedReq->getLoop(), &scopedReq->req, fileno(stdout), &scopedReq->iov, 1, -1, IOWrite::writeCallback);
+    handle->closeHandle();
 }
 
 int write(lua_State* L)
@@ -140,9 +143,38 @@ int write(lua_State* L)
     if (toWrite.empty())
         return 0;
 
-    uvutils::ScopedUVRequest<IOWrite> req{L, toWrite.data(), toWrite.size()};
-    req->iov = uv_buf_init(req->data.data(), req->data.size());
-    uv_fs_write(req->getLoop(), &req->req, fileno(stdout), &req->iov, 1, -1, IOWrite::writeCallback);
+    auto handle = std::make_shared<IOWriteHandle>();
+    handle->loop = getRuntimeLoop(L);
+    handle->resumeToken = getResumeToken(L);
+    handle->self = handle;
+    handle->data.assign(toWrite.begin(), toWrite.end());
+
+    uv_handle_type ht = uv_guess_handle(fileno(stdout));
+    if (ht == UV_TTY)
+    {
+        uv_tty_t& tty = handle->streamVariant.emplace<uv_tty_t>();
+        int status = uv_tty_init(handle->loop, &tty, fileno(stdout), 0);
+        if (status < 0)
+            luaL_error(L, "Failed to initialize TTY: %s", uv_strerror(status));
+    }
+    else if (ht == UV_NAMED_PIPE || ht == UV_FILE)
+    {
+        uv_pipe_t& pipe = handle->streamVariant.emplace<uv_pipe_t>();
+        int status = uv_pipe_init(handle->loop, &pipe, 0);
+        if (status < 0)
+            luaL_error(L, "Failed to initialize pipe: %s", uv_strerror(status));
+        uv_pipe_open(&pipe, fileno(stdout));
+    }
+    else
+    {
+        luaL_error(L, "Unsupported stdout type");
+    }
+
+    uv_stream_t* stream = handle->getStream();
+    stream->data = handle.get();
+    handle->iov = uv_buf_init(handle->data.data(), handle->data.size());
+    handle->writeReq.data = handle.get();
+    uv_write(&handle->writeReq, stream, &handle->iov, 1, onWrite);
 
     return lua_yield(L, 0);
 }
