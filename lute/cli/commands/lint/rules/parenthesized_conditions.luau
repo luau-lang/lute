@@ -10,52 +10,62 @@ local target = "https://lute.luau.org/cli/lint/parenthesized_conditions.html"
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	local violations: { lintTypes.LintViolation } = {}
 
 	query
-		.findallfromroot(ast, function(node: syntax.AstNode): (syntax.AstExprIfElse | syntax.AstStatIf)?
+		.findAllFromRoot(ast, function(node: syntax.AstNode): (syntax.AstExprIfElse | syntax.AstStatIf)?
 			if (node.kind == "expr" or node.kind == "stat") and node.tag == "conditional" then
 				return node
 			end
 			return nil
 		end)
-		:foreach(function(ifStat)
+		:forEach(function(ifStat)
 			if ifStat.condition.tag == "group" then
-				table.insert(violations, {
-					lintname = name,
-					location = ifStat.condition.location,
-					message = message,
-					severity = "info",
-					sourcepath = sourcepath,
-					suggestedfix = {
-						fix = syntaxPrinter.printnode(ifStat.condition.expression),
-					},
-					target = target,
-				})
-			end
-
-			for _, elseIfStat in ifStat.elseifs do
-				if elseIfStat.condition.tag == "group" then
-					table.insert(violations, {
+				-- LUAUFIX remove cast once we bump luau version 716
+				-- https://github.com/luau-lang/lute/issues/932
+				table.insert(
+					violations,
+					{
 						lintname = name,
-						location = elseIfStat.condition.location,
+						location = ifStat.condition.location,
 						message = message,
 						severity = "info",
 						sourcepath = sourcepath,
 						suggestedfix = {
-							fix = syntaxPrinter.printnode(elseIfStat.condition.expression),
+							fix = syntaxPrinter.printNode(ifStat.condition.expression),
 						},
 						target = target,
-					})
+					} :: lintTypes.LintViolation
+				)
+			end
+
+			for _, elseIfStat in ifStat.elseifs do
+				if elseIfStat.condition.tag == "group" then
+					-- LUAUFIX remove cast once we bump luau version 716
+					-- https://github.com/luau-lang/lute/issues/932
+					table.insert(
+						violations,
+						{
+							lintname = name,
+							location = elseIfStat.condition.location,
+							message = message,
+							severity = "info",
+							sourcepath = sourcepath,
+							suggestedfix = {
+								fix = syntaxPrinter.printNode(elseIfStat.condition.expression),
+							},
+							target = target,
+						} :: lintTypes.LintViolation
+					)
 				end
 			end
 		end)
 
 	query
-		.findallfromroot(ast, function(node: syntax.AstNode): (syntax.AstStatWhile | syntax.AstStatRepeat)?
+		.findAllFromRoot(ast, function(node: syntax.AstNode): (syntax.AstStatWhile | syntax.AstStatRepeat)?
 			if node.kind == "stat" and (node.tag == "while" or node.tag == "repeat") then
 				return node
 			end
@@ -64,18 +74,23 @@ local function lint(
 		:filter(function(n)
 			return n.condition.tag == "group"
 		end)
-		:foreach(function(n)
-			table.insert(violations, {
-				lintname = name,
-				location = n.condition.location,
-				message = message,
-				severity = "info",
-				sourcepath = sourcepath,
-				suggestedfix = {
-					fix = syntaxPrinter.printnode((n.condition :: syntax.AstExprGroup).expression),
-				},
-				target = target,
-			})
+		:forEach(function(n)
+			-- LUAUFIX remove cast once we bump luau version to 716
+			-- https://github.com/luau-lang/lute/issues/932
+			table.insert(
+				violations,
+				{
+					lintname = name,
+					location = n.condition.location,
+					message = message,
+					severity = "info",
+					sourcepath = sourcepath,
+					suggestedfix = {
+						fix = syntaxPrinter.printNode((n.condition :: syntax.AstExprGroup).expression),
+					},
+					target = target,
+				} :: lintTypes.LintViolation
+			)
 		end)
 
 	return violations

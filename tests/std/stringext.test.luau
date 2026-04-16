@@ -1,38 +1,38 @@
-local stringext = require("@std/stringext")
+local stringExt = require("@std/stringext")
 local test = require("@std/test")
 
 test.suite("StringExt", function(suite)
-	suite:case("hasprefixAndHassuffix", function(assert)
-		assert.eq(stringext.hasprefix("hello", "he"), true)
-		assert.eq(stringext.hasprefix("hi", "hello"), false)
+	suite:case("hasprefixAndHasSuffix", function(assert)
+		assert.that(stringExt.hasPrefix("hello", "he"))
+		assert.eq(stringExt.hasPrefix("hi", "hello"), false)
 
-		assert.eq(stringext.hassuffix("foobar", "bar"), true)
-		assert.eq(stringext.hassuffix("foo", "foobar"), false)
+		assert.that(stringExt.hasSuffix("foobar", "bar"))
+		assert.eq(stringExt.hasSuffix("foo", "foobar"), false)
 	end)
 
-	suite:case("removeprefixAndRemovesuffix", function(assert)
-		assert.eq(stringext.removeprefix("hello", "he"), "llo")
-		assert.eq(stringext.removeprefix("hello", "nope"), "hello")
+	suite:case("removePrefixAndRemovesuffix", function(assert)
+		assert.eq(stringExt.removePrefix("hello", "he"), "llo")
+		assert.eq(stringExt.removePrefix("hello", "nope"), "hello")
 
-		assert.eq(stringext.removesuffix("foobar", "bar"), "foo")
-		assert.eq(stringext.removesuffix("foobar", "nope"), "foobar")
+		assert.eq(stringExt.removeSuffix("foobar", "bar"), "foo")
+		assert.eq(stringExt.removeSuffix("foobar", "nope"), "foobar")
 	end)
 
 	suite:case("trim", function(assert)
-		assert.eq(stringext.trim("  a b  "), "a b")
-		assert.eq(stringext.trim("\n\thi\n"), "hi")
-		assert.eq(stringext.trim(""), "")
-		assert.eq(stringext.trim("   "), "")
+		assert.eq(stringExt.trim("  a b  "), "a b")
+		assert.eq(stringExt.trim("\n\thi\n"), "hi")
+		assert.eq(stringExt.trim(""), "")
+		assert.eq(stringExt.trim("   "), "")
 	end)
 
 	suite:case("count", function(assert)
-		assert.eq(stringext.count("hello world", "o"), 2)
-		assert.eq(stringext.count("hello world", "l", 4), 2) -- from position 4 to end
-		assert.eq(stringext.count("hello world", "l", nil, 5), 2) -- from start to position 5
-		assert.eq(stringext.count("hello world", "l", 4, 9), 1) -- from position 4 to position 9
-		assert.eq(stringext.count("aaaaaa", "aa"), 3) -- overlapping patterns
-		assert.eq(stringext.count("no matches here", "z"), 0)
-		assert.eq(stringext.count("hello world", "%s"), 1) -- patterns supported too
-		assert.eq(stringext.count("hello world", "[hw]"), 2) -- count h and w
+		assert.eq(stringExt.count("hello world", "o"), 2)
+		assert.eq(stringExt.count("hello world", "l", 4), 2) -- from position 4 to end
+		assert.eq(stringExt.count("hello world", "l", nil, 5), 2) -- from start to position 5
+		assert.eq(stringExt.count("hello world", "l", 4, 9), 1) -- from position 4 to position 9
+		assert.eq(stringExt.count("aaaaaa", "aa"), 3) -- overlapping patterns
+		assert.eq(stringExt.count("no matches here", "z"), 0)
+		assert.eq(stringExt.count("hello world", "%s"), 1) -- patterns supported too
+		assert.eq(stringExt.count("hello world", "[hw]"), 2) -- count h and w
 	end)
 end)

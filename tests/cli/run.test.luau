@@ -8,22 +8,22 @@ local tmpdir = system.tmpdir()
 
 local rundir = pathlib.join(tmpdir, "lute-run")
 
-local lutePath = pathlib.format(process.execpath())
+local lutePath = pathlib.format(process.execPath())
 
 test.suite("LuteRun", function(suite)
-	suite:beforeeach(function()
+	suite:beforeEach(function()
 		if fs.exists(rundir) then
-			fs.removedirectory(rundir, { recursive = true })
+			fs.removeDirectory(rundir, { recursive = true })
 		end
 	end)
 
 	suite:case("sameNamedFileAndDirectory", function(assert)
 		-- Setup
-		fs.createdirectory(rundir)
-		fs.createdirectory(pathlib.join(rundir, "hello"))
+		fs.createDirectory(rundir)
+		fs.createDirectory(pathlib.join(rundir, "hello"))
 
 		local helloFilePath = pathlib.join(rundir, "hello.luau")
-		fs.writestringtofile(helloFilePath, "print('Hello world')")
+		fs.writeStringToFile(helloFilePath, "print('Hello world')")
 
 		-- Execute
 		local result = process.run({ lutePath, pathlib.format(helloFilePath) })
@@ -35,6 +35,6 @@ test.suite("LuteRun", function(suite)
 			),
 			nil
 		)
-		assert.strnotcontains(result.stdout, "Hello world")
+		assert.strNotContains(result.stdout, "Hello world")
 	end)
 end)

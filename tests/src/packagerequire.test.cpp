@@ -5,7 +5,6 @@
 #include "lute/runtime.h"
 #include "lute/userlandvfs.h"
 
-#include "Luau/Compiler.h"
 #include "Luau/FileUtils.h"
 #include "Luau/Require.h"
 
@@ -22,9 +21,9 @@
 
 TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
 {
-    Runtime runtime;
+    Runtime runtime{getReporter()};
 
-    lua_State* L = setupState(
+    setupState(
         runtime,
         [](lua_State* L)
         {
@@ -84,8 +83,7 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
     std::optional<std::string> contents = readFile(path);
     REQUIRE(contents);
 
-    std::string bytecode = Luau::compile(*contents, copts());
-    bool success = runBytecode(runtime, bytecode, "@" + path, L, 0, nullptr, getReporter());
+    bool success = runtime.runSource(*contents, copts(), "@" + path);
     CHECK(success);
 }
 
@@ -100,4 +98,16 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_with_lockfile")
 
     CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
     auto rep = getReporter();
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_transitive_deps")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_transitive_deps/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
 }

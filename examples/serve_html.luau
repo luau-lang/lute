@@ -1,8 +1,8 @@
-local net = require("@lute/net")
+local server = require("@lute/net/server")
 
-local server = net.serve({
+local instance = server.serve({
 	port = 8080,
-	handler = function(req: net.ReceivedRequest): net.ServerResponse
+	handler = function(req: server.ReceivedRequest): server.ServerResponse
 		local headers = ""
 		for key, value in req.headers do
 			headers ..= `\n  {key}: {value}`
@@ -36,4 +36,4 @@ local server = net.serve({
 	end,
 })
 
-print(`Server listening on http://{server.hostname}:{server.port}`)
+print(`Server listening on http://{instance.hostname}:{instance.port}`)

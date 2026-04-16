@@ -8,35 +8,58 @@ local pathlib = require("@std/path")
 
 local processlib = {}
 
-export type stdiokind = process.StdioKind
-export type processrunoptions = process.ProcessRunOptions
-export type processsystemoptions = process.ProcessSystemOptions
-export type processresult = process.ProcessResult
-export type path = pathlib.path
-export type pathlike = pathlib.pathlike
+--- How a child process's standard streams should be handled:
+--- - `"default"`: Capture stdout and stderr to pipes, accessible via `ProcessResult`.
+--- - `"inherit"`: Pass the parent process's stdio streams through to the child.
+--- - `"none"`: Discard the child's stdio streams.
+export type StdioKind = process.StdioKind
+--- Options for `process.run`:
+--- - `cwd`: The working directory for the child process. Defaults to the current working directory.
+--- - `stdio`: How to handle the child's stdio streams. Defaults to `"default"`.
+--- - `env`: Environment variables for the child process. If omitted, inherits the parent's environment.
+export type ProcessRunOptions = process.ProcessRunOptions
+--- Options for `process.system`:
+--- - `system`: The shell executable to use. If omitted, uses the platform default (`$SHELL` on Unix, `%COMSPEC%` on Windows).
+--- - `cwd`: The working directory for the child process. Defaults to the current working directory.
+--- - `stdio`: How to handle the child's stdio streams. Defaults to `"default"`.
+--- - `env`: Environment variables for the child process. If omitted, inherits the parent's environment.
+export type ProcessSystemOptions = process.ProcessSystemOptions
+--- The result of a completed process, including exit code and captured stdout/stderr.
+export type ProcessResult = process.ProcessResult
+--- A structured, platform-aware file system path.
+export type Path = pathlib.Path
+--- Anything that can be used as a path: a string, a `Path`, or raw path data.
+export type Pathlike = pathlib.Pathlike
 
-function processlib.homedir(): path
+--- Returns the current user's home directory as a `Path`.
+function processlib.homedir(): Path
 	return pathlib.parse(process.homedir())
 end
 
-function processlib.cwd(): path
+--- Returns the current working directory as a `Path`.
+function processlib.cwd(): Path
 	return pathlib.parse(process.cwd())
 end
 
-function processlib.run(args: { string }, options: processrunoptions?): processresult
+--- Runs the program given by `args[1]` with the remaining entries as arguments.
+--- Returns the process result including exit code and any captured output.
+function processlib.run(args: { string }, options: ProcessRunOptions?): ProcessResult
 	return process.run(args, options)
 end
 
-function processlib.system(command: string, options: processsystemoptions?): processresult
+--- Runs `command` through the system shell. Returns the process result.
+function processlib.system(command: string, options: ProcessSystemOptions?): ProcessResult
 	return process.system(command, options)
 end
 
+--- Exits the current process with the given `exitcode`.
 function processlib.exit(exitcode: number): never
 	return process.exit(exitcode)
 end
 
-function processlib.execpath(): path
-	return pathlib.parse(process.execpath())
+--- Returns the path of the currently running lute executable as a `Path`.
+function processlib.execPath(): Path
+	return pathlib.parse(process.execPath())
 end
 
 -- re-exports

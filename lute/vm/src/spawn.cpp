@@ -1,4 +1,4 @@
-#include "lute/spawn.h"
+#include "lute/vm.h"
 
 #include "lute/ref.h"
 #include "lute/require.h"
@@ -169,9 +169,6 @@ static int crossVmMarshallCont(lua_State* L, int status)
     return 0;
 }
 
-namespace vm
-{
-
 static void* createChildVmRequireContext(lua_State* L)
 {
     void* ctx = lua_newuserdatadtor(
@@ -197,11 +194,11 @@ static void* createChildVmRequireContext(lua_State* L)
     return ctx;
 }
 
-int lua_spawn(lua_State* L)
+int VM::lua_spawn(lua_State* L)
 {
     const char* file = luaL_checkstring(L, 1);
 
-    auto child = std::make_shared<Runtime>();
+    auto child = std::make_shared<Runtime>(getRuntime(L)->reporter);
 
     setupState(
         *child,
@@ -293,5 +290,3 @@ int lua_spawn(lua_State* L)
 
     return 1;
 }
-
-} // namespace vm

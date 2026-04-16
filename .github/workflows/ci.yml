@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["primary"]
+    branches: ["primary", "release/**"]
   pull_request:
     branches: ["primary"]
 
@@ -65,11 +65,6 @@ jobs:
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
           use-bootstrap: ${{ matrix.use-bootstrap || 'false' }}
-
-      - name: Use CI .luaurc file
-        if: ${{ steps.should_run.outputs.proceed == 'true' }}
-        run: rm .luaurc && mv .luaurc.ci .luaurc
-
       - name: Run Luau Tests (POSIX)
         if: ${{ steps.should_run.outputs.proceed == 'true' }}
         run: ${{ steps.build_lute.outputs.exe_path }} test
@@ -193,7 +188,19 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Lute Check
-        run: ${{ steps.build_lute.outputs.exe_path }} tools/check.luau ${{ steps.build_lute.outputs.exe_path }}
+        run: |
+          # @lute typechecks
+          ${{ steps.build_lute.outputs.exe_path }} check definitions/**/*.luau
+          # @std and @cli commands typechecks
+          ${{ steps.build_lute.outputs.exe_path }} check lute/**/*.luau
+          # @batteries typechecks
+          ${{ steps.build_lute.outputs.exe_path }} check batteries/**/*.luau
+          # All tests typecheck
+          ${{ steps.build_lute.outputs.exe_path }} check tests/**/*.test.luau
+          # All tools typecheck
+          ${{ steps.build_lute.outputs.exe_path }} check tools/*.luau
+          # All examples typecheck
+          ${{ steps.build_lute.outputs.exe_path }} check examples/*.luau
 
   aggregator:
     name: Gated Commits

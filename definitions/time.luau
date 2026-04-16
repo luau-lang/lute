@@ -14,6 +14,10 @@ end
 
 time.duration = {}
 
+function time.duration.create(seconds: number, subsecnanos: number): Duration
+	error("not implemented")
+end
+
 function time.duration.nanoseconds(nanoseconds: number): Duration
 	error("not implemented")
 end
@@ -50,35 +54,35 @@ function instant.elapsed(self: Instant): number
 	error("not implemented")
 end
 
-function duration_ops.tonanoseconds(self: Duration): number
+function duration_ops.toNanoseconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tomicroseconds(self: Duration): number
+function duration_ops.toMicroseconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tomilliseconds(self: Duration): number
+function duration_ops.toMilliseconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.toseconds(self: Duration): number
+function duration_ops.toSeconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tominutes(self: Duration): number
+function duration_ops.toMinutes(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tohours(self: Duration): number
+function duration_ops.toHours(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.todays(self: Duration): number
+function duration_ops.toDays(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.toweeks(self: Duration): number
+function duration_ops.toWeeks(self: Duration): number
 	error("not implemented")
 end
 
@@ -100,6 +104,8 @@ export type Duration = setmetatable<Frozen, {
 	read __index: typeof(table.freeze(duration_ops)),
 	read __add: (Duration, Duration) -> Duration,
 	read __sub: (Duration, Duration) -> Duration,
+	read __mul: (Duration, number) -> Duration,
+	read __div: (Duration, number) -> Duration,
 	read __eq: (Duration, Duration) -> boolean,
 	read __lt: (Duration, Duration) -> boolean,
 	read __le: (Duration, Duration) -> boolean,

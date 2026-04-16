@@ -5,6 +5,7 @@ local fs = require("@lute/fs")
 local process = require("@lute/process")
 local system = require("@lute/system")
 local cli = require("@batteries/cli")
+local richterm = require("@batteries/richterm")
 local toml = require("@batteries/toml")
 
 type Tune = {
@@ -66,9 +67,9 @@ local targetMap: { [string]: { exeName: string } } = {
 local args = cli.parser()
 
 args:add("help", "flag", { help = "show the help message" })
-args:add("luthier", "positional", { help = "the luthier script", required = true }) -- should this be handled automatically?
-args:add("subcommand", "positional", { help = "command to execute", required = true })
-args:add("target", "positional", { help = "the thing to build or run", required = true })
+args:add("luthier", "positional", { help = "the luthier script", required = true, hidden = true }) -- should this be handled automatically?
+args:add("subcommand", "positional", { help = "command to execute", required = true, hidden = true })
+args:add("target", "positional", { help = "the thing to build or run" })
 args:add("verbose", "flag", { help = "show verbose compile output", aliases = { "v" } })
 args:add("config", "option", { help = "configuration (default is debug)", default = "debug" })
 args:add("clean", "flag", { help = "perform a clean build" })
@@ -295,7 +296,7 @@ local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
 		"",
 		`#include "{headerFile}"`,
 		"",
-		`constexpr std::pair<std::string_view, std::string_view> {config.arrayName}[] = \{`,
+		`const std::pair<std::string_view, std::string_view> {config.arrayName}[] = \{`,
 	})
 
 	local numItems = 0
@@ -533,6 +534,58 @@ local function check(exitCode: number)
 	end
 end
 
+local function printHelp()
+	print("luthier — a build tool for lute")
+	args:help(function(str)
+		return richterm.combine(richterm.bold, richterm.yellow)(str)
+	end)
+end
+
+local function usageError(message: string, details: string?, usage: string?)
+	local lowercased = string.lower(string.sub(message, 1, 1)) .. string.sub(message, 2)
+	print(richterm.combine(richterm.bold, richterm.red)(`Error: {lowercased}`))
+	print(richterm.combine(richterm.bold, richterm.yellow)(`Usage: {usage or args:usage("luthier <subcommand>")}`))
+	if details then
+		print(richterm.combine(richterm.bold, richterm.yellow)(details))
+	end
+	print()
+	printHelp()
+	process.exit(1)
+end
+
+local function subcommandUsage(subcommand: string): string
+	return args:usage(`luthier {subcommand}`)
+end
+
+local subcommands: { { string } } = {
+	{ "fetch" },
+	{ "generate" },
+	{ "configure", "tune" },
+	{ "build", "craft" },
+	{ "run", "play" },
+}
+
+local function availableSubcommands(): string
+	local parts = {}
+	for _, group in subcommands do
+		if #group > 1 then
+			table.insert(parts, `{group[1]} (or {group[2]})`)
+		else
+			table.insert(parts, group[1])
+		end
+	end
+	return `Available subcommands: {table.concat(parts, ", ")}`
+end
+
+local function availableTargets(): string
+	local targets = {}
+	for name in targetMap do
+		table.insert(targets, name)
+	end
+	table.sort(targets)
+	return `available targets: {table.concat(targets, ", ")}`
+end
+
 local function fetchDependency(dependencyInfo: Tune)
 	local dependency = dependencyInfo.dependency
 
@@ -663,12 +716,19 @@ local function run()
 	return call(cmd)
 end
 
-args:parse({ ... })
+local parameters = { ... }
+xpcall(function()
+	args:parse(parameters)
+end, function(e)
+	-- Strip the "file:line: " prefix that Lua prepends to error messages
+	local message = string.gsub(tostring(e), "^.+:%d+: ", "")
+	usageError(message, availableSubcommands())
+end)
 
 cwd = getSourceRoot()
 
 if args:has("help") then
-	print(args:help())
+	printHelp()
 	return
 end
 
@@ -689,6 +749,10 @@ elseif subcommand == "configure" or subcommand == "tune" then
 	generateFilesIfNeeded()
 	exitCode = configure()
 elseif subcommand == "build" or subcommand == "craft" then
+	if not args:get("target") then
+		usageError(`{subcommand} requires a target`, availableTargets(), subcommandUsage(subcommand))
+	end
+
 	generateFilesIfNeeded()
 
 	if not projectPathExists() or not areTuneFilesUpToDate() then
@@ -697,6 +761,10 @@ elseif subcommand == "build" or subcommand == "craft" then
 
 	exitCode = build()
 elseif subcommand == "run" or subcommand == "play" then
+	if not args:get("target") then
+		usageError(`{subcommand} requires a target`, availableTargets(), subcommandUsage(subcommand))
+	end
+
 	generateFilesIfNeeded()
 
 	if not projectPathExists() or not areTuneFilesUpToDate() then
@@ -709,9 +777,9 @@ elseif subcommand == "run" or subcommand == "play" then
 
 	exitCode = run()
 elseif subcommand ~= nil then
-	error("Unknown subcommand " .. subcommand)
+	usageError(`Unknown subcommand '{subcommand}'`, availableSubcommands())
 else
-	error("No subcommand given.")
+	usageError("No subcommand given.", availableSubcommands())
 end
 
 if exitCode ~= 0 then

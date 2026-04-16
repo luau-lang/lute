@@ -22,6 +22,7 @@ local DEFAULT_RULES = {
 	"divide_by_zero",
 	"duplicate_keys",
 	"empty_if_block",
+	"global_function_in_scope",
 	"parenthesized_conditions",
 	"unused_variable",
 }
@@ -80,7 +81,7 @@ local function isLintRule(rule: unknown, path: string): boolean
 		return false
 	end
 
-	if typeof(rule.lint) ~= "function" then -- LUAUFIX: rule got refined to { read name : string } so accessing lint errors
+	if typeof((rule :: { lint: unknown }).lint) ~= "function" then -- LUAUFIX: rule got refined to { read name : string } so accessing prop lint errors
 		if VERBOSE then
 			print(`Error loading lint rule from {path}: must return a table with a 'lint' function property`)
 		end
@@ -140,7 +141,7 @@ local function loadLintRules(
 					registerRule(rule, config, rootLocation, rules, ruleConfigs, ruleIgnores)
 				end
 			else
-				local entries = fs.listdirectory(currentPath)
+				local entries = fs.listDirectory(currentPath)
 				local childPaths = tableext.map(entries, function(entry)
 					return pathLib.format(pathLib.join(currentPathObj, entry.name))
 				end)
@@ -174,7 +175,7 @@ end
 local function parseDirectives(node: syntax.AstNode): { [string]: boolean }
 	local directives: { [string]: boolean } = {}
 
-	local leadingTrivia = triviaUtils.leftmosttrivia(node)
+	local leadingTrivia = triviaUtils.leftmostTrivia(node)
 	for _, trivia in leadingTrivia do
 		if trivia.tag == "blockcomment" or trivia.tag == "comment" then
 			for rule in trivia.text:gmatch("lute%-lint%-ignore%((.+)%)") do
@@ -253,7 +254,7 @@ local function violationIsSuppressed(
 
 	local suppressionVisitor = visitor.create(nodeIsSuppressed)
 
-	visitor.visitblock(ast, suppressionVisitor)
+	visitor.visitBlock(ast, suppressionVisitor)
 
 	return violationSuppressed
 end
@@ -275,18 +276,18 @@ end
 local function lintString(
 	source: string,
 	lintRules: { types.LintRule },
-	inputFilePath: pathLib.path?,
+	inputFilePath: pathLib.Path?,
 	configData: internalTypes.RuleConfigData
 ): { types.LintViolation }
 	if VERBOSE then
 		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
-	local ast = syntax.parseblock(source)
+	local ast = syntax.parseBlock(source)
 
 	if VERBOSE then
 		print(`Parsing global lint ignores in input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
-	local globalIgnores = parseGlobalIgnores(triviaUtils.leftmosttrivia(ast))
+	local globalIgnores = parseGlobalIgnores(triviaUtils.leftmostTrivia(ast))
 
 	if VERBOSE then
 		print("Applying lint rules")
@@ -303,7 +304,7 @@ local function lintString(
 		end
 
 		local ruleConfig = configData.ruleConfigs[rule.name]
-		local context = {
+		local context: types.RuleContext = {
 			globals = configData.globals,
 			options = if ruleConfig.options then ruleConfig.options else {},
 		}
@@ -334,7 +335,7 @@ local function lintString(
 end
 
 type fix = {
-	location: syntax.span,
+	location: syntax.Span,
 	replacement: string,
 }
 
@@ -347,10 +348,10 @@ local function applySuggestedFixes(source: string, fixes: { fix }): string
 	end)
 
 	for _, fix in fixes do
-		local beginLine = fix.location.beginline
-		local endLine = fix.location.endline
-		local beginColumn = fix.location.begincolumn
-		local endColumn = fix.location.endcolumn
+		local beginLine = fix.location.beginLine
+		local endLine = fix.location.endLine
+		local beginColumn = fix.location.beginColumn
+		local endColumn = fix.location.endColumn
 
 		if beginLine == endLine then
 			-- Single-line fix
@@ -379,7 +380,7 @@ local function applySuggestedFixes(source: string, fixes: { fix }): string
 end
 
 local function lintFile(
-	inputFilePath: pathLib.path,
+	inputFilePath: pathLib.Path,
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
 	configData: internalTypes.RuleConfigData
@@ -387,7 +388,7 @@ local function lintFile(
 	if VERBOSE then
 		print(`Reading input file '{inputFilePath}'`)
 	end
-	local fileContent = fs.readfiletostring(inputFilePath)
+	local fileContent = fs.readFileToString(inputFilePath)
 
 	local violations = lintString(fileContent, lintRules, inputFilePath, configData)
 
@@ -417,7 +418,7 @@ local function lintFile(
 
 	local newContent = applySuggestedFixes(fileContent, fixes)
 
-	fs.writestringtofile(inputFilePath, newContent)
+	fs.writeStringToFile(inputFilePath, newContent)
 
 	return lintString(newContent, lintRules, inputFilePath, configData)
 end
@@ -428,13 +429,13 @@ local function lintPaths(
 	autofixEnabled: boolean,
 	configData: internalTypes.RuleConfigData,
 	ignoreData: parseIgnores.GitignoreData
-): { [pathLib.path]: { types.LintViolation } }
+): { [pathLib.Path]: { types.LintViolation } }
 	if VERBOSE then
 		print("Filtering input files by gitignore")
 	end
 	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
 
-	local allViolations: { [pathLib.path]: { types.LintViolation } } = {}
+	local allViolations: { [pathLib.Path]: { types.LintViolation } } = {}
 	local hasIgnores = #ignoreData.ignores > 0
 
 	for _, inputPath in inputFiles do
@@ -498,23 +499,23 @@ local function main(...: string)
 	local inputFiles = args:forwarded()
 	local stringInput = args:get("string-input")
 	if (inputFiles == nil or #inputFiles == 0) and not stringInput then
-		print("Error: No input files or string input specified.\n\n" .. USAGE .. "\nUse --help for more information.")
-		process.exit(1)
+		inputFiles = { pathLib.format(process.cwd()) }
 	end
 
 	local lintConfig: internalTypes.LintConfig = {}
-	local configPath = args:get("config")
-	if configPath == nil then
-		-- search in calling dir
-		local cwd = process.cwd()
-		configPath = pathLib.join(cwd, ".config.luau")
-	elseif fs.type(configPath) ~= "file" then
-		print(`Error: Configuration path must point to a file, not {fs.type(configPath)}`)
+	local passedConfigVal = args:get("config")
+
+	if passedConfigVal and fs.type(passedConfigVal) ~= "file" then
+		print(`Error: Configuration path must point to a file, not {fs.type(passedConfigVal)}`)
 		process.exit(1)
 	end
 
+	local configPath: pathLib.Pathlike = if passedConfigVal
+		then passedConfigVal
+		else pathLib.join(process.cwd(), ".config.luau")
+
 	if fs.exists(configPath) then
-		local success, loadedConfig = pcall(luau.loadModule, configPath)
+		local success, loadedConfig = pcall(luau.loadModule, configPath, nil)
 		if success then
 			lintConfig = configUtils.extractConfig(loadedConfig)
 		elseif VERBOSE then
@@ -552,7 +553,7 @@ local function main(...: string)
 	end
 
 	-- load local rules from config rules path
-	local configuredRulePaths: { pathLib.pathlike } = if lintConfig.rulepaths then lintConfig.rulepaths else {}
+	local configuredRulePaths: { pathLib.Pathlike } = if lintConfig.rulepaths then lintConfig.rulepaths else {}
 	for _, path in configuredRulePaths do
 		local resolvedPath = pathLib.resolve(rootLocation, path)
 		local loadedRules, loadedConfigs, loadedIgnoreData =
@@ -577,7 +578,7 @@ local function main(...: string)
 
 		if args:has("json") then
 			local diagnostics = tableext.map(violations, lsp.diagnostic)
-			print(json.serialize(diagnostics :: json.array, true))
+			print(json.serialize(diagnostics :: json.Array, true))
 		elseif #violations > 0 then
 			if VERBOSE then
 				print(`Printing violations from string input\n`)
@@ -603,7 +604,7 @@ local function main(...: string)
 			lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, configContextData, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
-			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.object, true))
+			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))
 		else
 			if VERBOSE then
 				print(`Printing violations from {#allViolations} files\n`)

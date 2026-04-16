@@ -1,7 +1,0 @@
-{
-    "languageMode": "strict",
-    "aliases": {
-        "batteries": "./batteries",
-        "commands": "./lute/cli/commands"
-    }
-}

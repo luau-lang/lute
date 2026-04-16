@@ -1,8 +1,12 @@
 #include "lute/runtime.h"
 
 #include "lute/common.h"
+#include "lute/ref.h"
+
+#include "Luau/Compiler.h"
 
 #include "lua.h"
+#include "luacode.h"
 #include "lualib.h"
 
 #include "uv.h"
@@ -16,8 +20,9 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
-Runtime::Runtime()
-    : globalState(nullptr, lua_close_checked)
+Runtime::Runtime(LuteReporter& reporter)
+    : reporter(reporter)
+    , globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
 {
 
@@ -84,7 +89,7 @@ RuntimeStep Runtime::runOnce()
 
     if (L == nullptr)
     {
-        fprintf(stderr, "Cannot resume a non-thread reference");
+        reporter.reportError("Cannot resume a non-thread reference");
         return StepErr{L};
     }
 
@@ -92,6 +97,26 @@ RuntimeStep Runtime::runOnce()
     lua_pop(GL, 1);
 
     int status = LUA_OK;
+
+    // It's possible for a spawned task to be killed by a coroutine.close()
+    // before it gets processed in the runningThreads queue. This leads to situations where a thread was scheduled to resume
+    // but has already been killed.
+
+    // One example:
+    // 1) Main thread executes task.defer on a coroutine.create thread
+    // 2) Code is queued up on the thread
+    // 3) coroutine.cancel is invoked
+    // 4) runtime evaluates callbacks
+    // 5) runtime evaluates running threads <- UH OH, found a thread that was scheduled to resume but has already been killed
+    // 6) We can just step over it, because
+    // a) if it scheduled a resume, the corresponding pending token will have been cleared
+    // b) the corresponding ref for the lua state will be freed at the end of Runtime::runOnce()
+    int co_status = lua_costatus(GL, L);
+    if (co_status == LUA_COFIN)
+    {
+        clearThreadCompletionHandler(L);
+        return StepSuccess{L};
+    }
 
     if (!next.success)
         status = lua_resumeerror(L, nullptr);
@@ -102,6 +127,12 @@ RuntimeStep Runtime::runOnce()
     {
         return StepSuccess{L};
     }
+
+    bool ranCompletionHandler = runThreadCompletionHandler(L, status);
+    // Completion handlers are responsible for consuming/reporting terminal errors
+    // for threads they own (for example, turning a failed HTTP handler into a 500).
+    if (ranCompletionHandler && status != LUA_OK)
+        return StepSuccess{L};
 
     if (status != LUA_OK)
     {
@@ -124,7 +155,7 @@ bool Runtime::runToCompletion()
         {
             if (err->L == nullptr)
             {
-                fprintf(stderr, "lua_State* L is nullptr");
+                reporter.reportError("lua_State* L is nullptr");
                 return false;
             }
 
@@ -153,7 +184,7 @@ void Runtime::reportError(lua_State* L)
     error += "\nstacktrace:\n";
     error += lua_debugtrace(L);
 
-    fprintf(stderr, "%s", error.c_str());
+    reporter.reportError(error);
 }
 
 void Runtime::runContinuously()
@@ -192,6 +223,31 @@ bool Runtime::hasContinuations()
 bool Runtime::hasThreads()
 {
     return !runningThreads.empty();
+}
+
+void Runtime::addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion)
+{
+    threadCompletionHandlers[L] = std::move(completion);
+}
+
+bool Runtime::runThreadCompletionHandler(lua_State* L, int status)
+{
+    auto it = threadCompletionHandlers.find(L);
+    if (it == threadCompletionHandlers.end())
+        return false;
+
+    ThreadCompletionHandler completion = std::move(it->second);
+    clearThreadCompletionHandler(L);
+
+    if (completion.onFinish)
+        completion.onFinish(L, status);
+
+    return true;
+}
+
+void Runtime::clearThreadCompletionHandler(lua_State* L)
+{
+    threadCompletionHandlers.erase(L);
 }
 
 void Runtime::schedule(std::function<void()> f)
@@ -233,8 +289,33 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
             lua_State* L = lua_tothread(GL, -1);
             lua_pop(GL, 1);
 
+            bool isAlive = !lua_isthreadreset(L);
             int results = cont(L);
-            runningThreads.push_back({true, ref, results});
+            if (isAlive)
+            {
+                runningThreads.push_back({true, ref, results});
+            }
+        }
+    );
+
+    runLoopCv.notify_one();
+}
+
+void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
+{
+    std::unique_lock lock(continuationMutex);
+
+    continuations.push_back(
+        [this, callbackRef = std::move(callbackRef), argPusher = std::move(argPusher)]() mutable
+        {
+            lua_State* newThread = lua_newthread(GL);
+            std::shared_ptr<Ref> threadRef = getRefForThread(newThread);
+            lua_pop(GL, 1);
+
+            callbackRef->push(newThread);
+            int nargs = argPusher(newThread);
+
+            runningThreads.push_back({true, threadRef, nargs});
         }
     );
 
@@ -311,13 +392,57 @@ void ResumeTokenData::complete(std::function<int(lua_State*)> cont)
 ResumeToken getResumeToken(lua_State* L)
 {
     ResumeToken token = std::make_shared<ResumeTokenData>();
-
     token->runtime = getRuntime(L);
     token->ref = getRefForThread(L);
-
     token->runtime->addPendingToken();
 
     return token;
+}
+
+bool Runtime::runBytecode(const std::string& bytecode, const std::string& chunkname, int argc, char** argv, std::function<void(lua_State*)> onLoaded)
+{
+    lua_State* L = lua_newthread(GL);
+
+    luaL_sandboxthread(L);
+
+    if (luau_load(L, chunkname.c_str(), bytecode.data(), bytecode.size(), 0) != 0)
+    {
+        reportError(L);
+        lua_pop(GL, 1);
+        return false;
+    }
+
+    if (onLoaded)
+        onLoaded(L);
+
+    if (argc > 0 && argv != nullptr)
+    {
+        if (!lua_checkstack(L, argc))
+        {
+            fprintf(stderr, "Failed to pass arguments to Luau\n");
+            lua_pop(GL, 1);
+            return false;
+        }
+
+        for (int i = 0; i < argc; ++i)
+            lua_pushstring(L, argv[i]);
+    }
+
+    args.clear();
+    for (int i = 0; i < argc; ++i)
+        args.emplace_back(argv[i]);
+
+    runningThreads.push_back({true, getRefForThread(L), argc});
+
+    lua_pop(GL, 1);
+
+    return runToCompletion();
+}
+
+bool Runtime::runSource(const std::string& source, const Luau::CompileOptions& compileOptions, const std::string& chunkname, int argc, char** argv)
+{
+    std::string bytecode = Luau::compile(source, compileOptions);
+    return runBytecode(bytecode, chunkname, argc, argv);
 }
 
 lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBeforeSandbox)

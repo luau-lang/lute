@@ -6,9 +6,9 @@ local test = require("@std/test")
 
 local tmpDir = system.tmpdir()
 
-test.suite("LuauTypeOfModuleSuite", function(suite)
-	suite:case("typeofmoduleReturnsTable", function(assert)
-		local testPath = path.join(tmpDir, "typeofmodule_test.luau")
+test.suite("LuauTypeofModuleSuite", function(suite)
+	suite:case("typeofModuleReturnsTable", function(assert)
+		local testPath = path.join(tmpDir, "typeofModule_test.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
 			testFile,
@@ -24,7 +24,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		)
 		fs.close(testFile)
 
-		local typePack = luau.typeofmodule(testPath)
+		local typePack = luau.typeofModule(testPath)
 		assert.neq(typePack, nil)
 		if not typePack then
 			error("typePack should not be nil")
@@ -76,8 +76,8 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(foundProperty, true, "Should find example_string_func property")
 	end)
 
-	suite:case("typeofmoduleReturnsTypepackWithMultipleValues", function(assert)
-		local testPath = path.join(tmpDir, "typeofmodule_multiple.luau")
+	suite:case("typeofModuleReturnsTypepackWithMultipleValues", function(assert)
+		local testPath = path.join(tmpDir, "typeofModule_multiple.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
 			testFile,
@@ -87,7 +87,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		)
 		fs.close(testFile)
 
-		local typePack = luau.typeofmodule(testPath)
+		local typePack = luau.typeofModule(testPath)
 		assert.neq(typePack, nil)
 		if not typePack then
 			error("typePack should not be nil")
@@ -108,8 +108,8 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(typePack.head[3].tag, "boolean")
 	end)
 
-	suite:case("typeofmoduleReturnsTypepackWithVariadicTail", function(assert)
-		local testPath = path.join(tmpDir, "typeofmodule_variadic.luau")
+	suite:case("typeofModuleReturnsTypepackWithVariadicTail", function(assert)
+		local testPath = path.join(tmpDir, "typeofModule_variadic.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
 			testFile,
@@ -122,7 +122,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		)
 		fs.close(testFile)
 
-		local typePack = luau.typeofmodule(testPath)
+		local typePack = luau.typeofModule(testPath)
 		assert.neq(typePack, nil)
 		if not typePack then
 			error("typePack should not be nil")
@@ -176,10 +176,10 @@ test.suite("LuauRequiresSuite", function(suite)
 
 		local results = luau.requires(testPath)
 		assert.eq(#results, 1)
-		assert.eq(results[1].requireContent, "./requires_dep")
+		assert.eq(results[1].requirePath, "./requires_dep")
 		assert.neq(results[1].resolvedPath, nil)
-		assert.neq(results[1].requireAst, nil)
-		assert.eq(results[1].requireAst.func.tag, "global")
+		assert.neq(results[1].requireExpr, nil)
+		assert.eq(results[1].requireExpr.func.tag, "global")
 	end)
 
 	suite:case("requiresMultiple", function(assert)
@@ -200,8 +200,8 @@ test.suite("LuauRequiresSuite", function(suite)
 
 		local results = luau.requires(testPath)
 		assert.eq(#results, 2)
-		assert.eq(results[1].requireContent, "./requires_dep_a")
-		assert.eq(results[2].requireContent, "./requires_dep_b")
+		assert.eq(results[1].requirePath, "./requires_dep_a")
+		assert.eq(results[2].requirePath, "./requires_dep_b")
 	end)
 
 	suite:case("requiresUnresolvable", function(assert)
@@ -212,9 +212,9 @@ test.suite("LuauRequiresSuite", function(suite)
 
 		local results = luau.requires(testPath)
 		assert.eq(#results, 1)
-		assert.eq(results[1].requireContent, "./fake_module")
+		assert.eq(results[1].requirePath, "./fake_module")
 		assert.eq(results[1].resolvedPath, nil)
-		assert.neq(results[1].requireAst, nil)
+		assert.neq(results[1].requireExpr, nil)
 	end)
 
 	suite:case("requiresNone", function(assert)
@@ -235,8 +235,8 @@ test.suite("LuauRequiresSuite", function(suite)
 
 		local results = luau.requires(testPath)
 		assert.eq(#results, 1)
-		assert.eq(results[1].requireContent, "modName")
+		assert.eq(results[1].requirePath, "modName")
 		assert.eq(results[1].resolvedPath, nil)
-		assert.neq(results[1].requireAst, nil)
+		assert.neq(results[1].requireExpr, nil)
 	end)
 end)

@@ -2,7 +2,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local test = require("@std/test")
 
-local lutePath = path.format(process.execpath())
+local lutePath = path.format(process.execPath())
 
 local expected = [[Anonymous:
 	passing
@@ -20,7 +20,7 @@ test.suite("LuteTestCommand", function(suite)
 
 		-- Check that it exits successfully and prints help
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, "Usage:")
+		assert.strContains(result.stdout, "Usage:")
 	end)
 
 	suite:case("luteTestRunsTestsInDiscoveryFolder", function(assert)

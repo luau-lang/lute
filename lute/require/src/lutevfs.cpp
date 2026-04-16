@@ -5,6 +5,7 @@
 #include "lute/fs.h"
 #include "lute/io.h"
 #include "lute/luau.h"
+#include "lute/lutemodules.h"
 #include "lute/modulepath.h"
 #include "lute/net.h"
 #include "lute/process.h"
@@ -23,7 +24,9 @@ const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
     map["@lute/crypto.luau"] = luteopen_crypto;
     map["@lute/fs.luau"] = luteopen_fs;
     map["@lute/luau.luau"] = luteopen_luau;
-    map["@lute/net.luau"] = luteopen_net;
+    map["@lute/net/init.luau"] = luteopen_net;
+    map["@lute/net/client.luau"] = luteopen_net_client;
+    map["@lute/net/server.luau"] = luteopen_net_server;
     map["@lute/process.luau"] = luteopen_process;
     map["@lute/task.luau"] = luteopen_task;
     map["@lute/vm.luau"] = luteopen_vm;
@@ -40,7 +43,20 @@ static bool isLuteModule(const std::string& path)
 
 static bool isLuteDirectory(const std::string& path)
 {
-    return path == "@lute";
+    if (path == "@lute")
+        return true;
+
+    std::string prefix = path + "/";
+    for (const auto& [modulePath, open] : kLuteModules)
+    {
+        if (modulePath.empty() || !open)
+            continue;
+
+        if (modulePath.rfind(prefix, 0) == 0)
+            return true;
+    }
+
+    return false;
 }
 
 NavigationStatus LuteVfs::resetToPath(const std::string& path)
@@ -90,8 +106,10 @@ std::string LuteVfs::getIdentifier() const
 
 std::optional<std::string> LuteVfs::getContents(const std::string& path) const
 {
-    // Lute modules have no source code.
-    return "";
+    LuteModuleResult result = getLuteModule(path);
+    if (result.type == LuteModuleType::Module)
+        return std::string(result.contents);
+    return std::nullopt;
 }
 
 ConfigStatus LuteVfs::getConfigStatus() const

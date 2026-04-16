@@ -11,86 +11,124 @@ local win32paths = require("@std/path/win32")
 
 local fslib = {}
 
-export type handlemode = fs.HandleMode
-export type file = fs.FileHandle
-export type type = fs.FileType
-export type metadata = fs.FileMetadata
-export type directoryentry = fs.DirectoryEntry
-export type watchhandle = fs.WatchHandle
-export type watchevent = fs.WatchEvent
+--- How a file should be opened:
+--- - `"r"`: Open for reading. Fails if the file does not exist.
+--- - `"w"`: Open for writing; creates the file if absent, truncates it if present.
+--- - `"x"`: Open for exclusive creation. Fails if the file already exists.
+--- - `"a"`: Open for appending; creates the file if absent, writes go to the end.
+--- - `"r+"`: Open for reading and writing. Fails if the file does not exist.
+--- - `"w+"`: Open for reading and writing; creates the file if absent, truncates it if present.
+--- - `"x+"`: Open for reading and exclusive creation. Fails if the file already exists.
+--- - `"a+"`: Open for reading and appending; creates the file if absent, writes go to the end.
+export type HandleMode = fs.HandleMode
+--- An open file handle.
+export type File = fs.FileHandle
+--- The type of a filesystem entry:
+--- - `"file"`: A regular file.
+--- - `"dir"`: A directory.
+--- - `"link"`: A symbolic link.
+--- - `"fifo"`: A named pipe (FIFO).
+--- - `"socket"`: A Unix domain socket.
+--- - `"char"`: A character device.
+--- - `"block"`: A block device.
+--- - `"unknown"`: An entry whose type could not be determined.
+export type FileType = fs.FileType
+--- Metadata about a filesystem entry, such as size, type, and timestamps.
+export type FileMetadata = fs.FileMetadata
+--- A single entry returned by `listDirectory`, containing the entry's name and type.
+export type DirectoryEntry = fs.DirectoryEntry
+--- A handle to an active filesystem watcher, returned by `watch`.
+export type WatchHandle = fs.WatchHandle
+--- A filesystem change event, yielded by a `Watcher`.
+export type WatchEvent = fs.WatchEvent
 
-type pathlike = pathlib.pathlike
-type path = pathlib.path
-type win32path = win32paths.path
+type Pathlike = pathlib.Pathlike
+type Path = pathlib.Path
+type win32path = win32paths.Path
 
-export type createdirectoryoptions = {
-	makeparents: boolean?,
+--- Options for `createDirectory`:
+--- - `makeParents`: If `true`, creates any missing parent directories. Defaults to `false`.
+export type CreateDirectoryOptions = {
+	makeParents: boolean?,
 }
 
-export type removedirectoryoptions = {
+--- Options for `removeDirectory`:
+--- - `recursive`: If `true`, removes all contents of the directory before deleting it. Defaults to `false`.
+export type RemoveDirectoryOptions = {
 	recursive: boolean?,
 }
 
-export type walkoptions = {
+--- Options for `walk`:
+--- - `recursive`: If `true`, descends into subdirectories. Defaults to `false`.
+export type WalkOptions = {
 	recursive: boolean?,
 }
 
-type watcher = {
-	next: (watcher) -> watchevent?,
-	close: (self: watcher) -> (),
+type Watcher = {
+	next: (Watcher) -> WatchEvent?,
+	close: (self: Watcher) -> (),
 }
 
-function fslib.open(path: pathlike, mode: handlemode?): file
+--- Opens the file at `path` in the given `mode` (defaults to `"r"`). Returns a file handle.
+function fslib.open(path: Pathlike, mode: HandleMode?): File
 	return fs.open(pathlib.format(path), mode)
 end
 
-function fslib.read(file: file): string
+--- Reads the full contents of `file` and returns them as a string.
+function fslib.read(file: File): string
 	return fs.read(file)
 end
 
-function fslib.write(file: file, contents: string): ()
+--- Writes `contents` to `file`.
+function fslib.write(file: File, contents: string): ()
 	return fs.write(file, contents)
 end
 
-function fslib.close(file: file): ()
+--- Closes `file`, flushing any pending writes.
+function fslib.close(file: File): ()
 	return fs.close(file)
 end
 
-function fslib.remove(path: pathlike): ()
+--- Removes the file at `path`.
+function fslib.remove(path: Pathlike): ()
 	return fs.remove(pathlib.format(path))
 end
 
-function fslib.metadata(path: pathlike): metadata
+--- Returns metadata for the file or directory at `path`.
+function fslib.metadata(path: Pathlike): FileMetadata
 	return fs.stat(pathlib.format(path))
 end
 
-function fslib.type(path: pathlike): type
+--- Returns the `FileType` of the entry at `path` (e.g. `"file"`, `"dir"`, `"symlink"`).
+function fslib.type(path: Pathlike): FileType
 	return fs.type(pathlib.format(path))
 end
 
-function fslib.link(src: pathlike, dest: pathlike): ()
+--- Creates a hard link at `dest` pointing to `src`.
+function fslib.link(src: Pathlike, dest: Pathlike): ()
 	return fs.link(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.symboliclink(src: pathlike, dest: pathlike): ()
+--- Creates a symbolic link at `dest` pointing to `src`.
+function fslib.symbolicLink(src: Pathlike, dest: Pathlike): ()
 	return fs.symlink(pathlib.format(src), pathlib.format(dest))
 end
 
---- Iterator function that yields filename and event pairs when changes occur in the watched path.
---- Also provides a `close` method to stop watching.
---- Note: for loops do not support yielding generalized iterators, so we cannot use fs.watch as `for _ in fs.watch(...) do` directly. A while loop can be used instead. See example/watch_directory.luau for usage.
-function fslib.watch(path: pathlike): watcher
+--- Watches `path` for filesystem changes. Returns a `Watcher` with a `next` method that returns the next
+--- `WatchEvent`, or `nil` if none is available, and a `close` method to stop watching.
+--- Note: a while loop must be used rather than a for loop. See example/watch_directory.luau for usage.
+function fslib.watch(path: Pathlike): Watcher
 	-- In the future this could be written with explicit instantiation syntax
 	-- as in:
 	--
 	--	deque.new<<{ filename: path, event: watchevent }>>()
-	local deq = deque.new(nil :: { filename: path, event: watchevent }?)
+	local deq = deque.new(nil :: { filename: Path, event: WatchEvent }?)
 	local handle = fs.watch(pathlib.format(path), function(filename, event)
 		deq:pushback({ filename = pathlib.parse(filename), event = event })
 	end)
 
 	return {
-		next = function(_self: watcher): watchevent?
+		next = function(_self: Watcher): WatchEvent?
 			if not deq:peekfront() then
 				return nil
 			end
@@ -98,7 +136,7 @@ function fslib.watch(path: pathlike): watcher
 			assert(item)
 			return item.event
 		end,
-		close = function(_self: watcher): ()
+		close = function(_self: Watcher): ()
 			if handle then
 				handle:close()
 			end
@@ -106,38 +144,44 @@ function fslib.watch(path: pathlike): watcher
 	}
 end
 
-function fslib.exists(path: pathlike): boolean
+--- Returns `true` if a file or directory exists at `path`.
+function fslib.exists(path: Pathlike): boolean
 	return fs.exists(pathlib.format(path))
 end
 
-function fslib.copy(src: pathlike, dest: pathlike): ()
+--- Copies the file at `src` to `dest`.
+function fslib.copy(src: Pathlike, dest: Pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
-function fslib.listdirectory(path: pathlike): { directoryentry }
+--- Returns an array of `DirectoryEntry` values for the immediate children of the directory at `path`.
+function fslib.listDirectory(path: Pathlike): { DirectoryEntry }
 	return fs.listdir(pathlib.format(path))
 end
 
-function fslib.readfiletostring(filepath: pathlike): string
+--- Returns the entire contents of the file at `filepath` as a string.
+function fslib.readFileToString(filepath: Pathlike): string
 	local f = fs.open(pathlib.format(filepath), "r")
 	local contents = fs.read(f)
 	fs.close(f)
 	return contents
 end
 
-function fslib.writestringtofile(filepath: pathlike, contents: string): ()
+--- Writes `contents` to the file at `filepath`, replacing any existing contents.
+function fslib.writeStringToFile(filepath: Pathlike, contents: string): ()
 	local f = fs.open(pathlib.format(filepath), "w+")
 	fs.write(f, contents)
 	fs.close(f)
 end
 
-function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?): ()
-	if options and options.makeparents then
+--- Creates a directory at `path`. If `options.makeParents` is `true`, creates any missing parent directories as well.
+function fslib.createDirectory(path: Pathlike, options: CreateDirectoryOptions?): ()
+	if options and options.makeParents then
 		local parsed = pathlib.parse(path)
 		local parts: { string } = parsed.parts
 
-		local subdir: pathlike = "."
-		if pathlib.isabsolute(path) then
+		local subdir: Pathlike = "."
+		if pathlib.isAbsolute(path) then
 			if sys.win32 then
 				-- Windows path - get the drive root like "C:\"
 				subdir = pathlib.win32.drive(parsed :: win32path)
@@ -158,15 +202,16 @@ function fslib.createdirectory(path: pathlike, options: createdirectoryoptions?)
 	end
 end
 
-function fslib.removedirectory(path: pathlike, options: removedirectoryoptions?): ()
+--- Removes the directory at `path`. If `options.recursive` is `true`, removes all contents first.
+function fslib.removeDirectory(path: Pathlike, options: RemoveDirectoryOptions?): ()
 	if options and options.recursive then
 		-- Recursively delete all contents first
 		if fslib.exists(path) and fslib.type(path) == "dir" then
-			local entries = fslib.listdirectory(path)
+			local entries = fslib.listDirectory(path)
 			for _, entry in entries do
 				local entryPath = pathlib.join(path, entry.name)
 				if entry.type == "dir" then
-					fslib.removedirectory(entryPath, { recursive = true })
+					fslib.removeDirectory(entryPath, { recursive = true })
 				else
 					fslib.remove(entryPath)
 				end
@@ -178,9 +223,10 @@ function fslib.removedirectory(path: pathlike, options: removedirectoryoptions?)
 	end
 end
 
---- Note: for loops do not support yielding generalized iterators, so we cannot use fs.walk as `for path in fs.walk(...) do` directly. A while loop can be used instead. See example/walk_directory.luau for usage.
-function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
-	local queue: { path } = { pathlib.parse(path) }
+--- Returns an iterator over all paths under `path`. If `options.recursive` is `true`, descends into subdirectories.
+--- See example/walk_directory.luau for usage.
+function fslib.walk(path: Pathlike, options: WalkOptions?): () -> Path?
+	local queue: { Path } = { pathlib.parse(path) }
 	local recursive = if options then options.recursive else false
 
 	return function()
@@ -191,7 +237,7 @@ function fslib.walk(path: pathlike, options: walkoptions?): () -> path?
 			end
 
 			if fslib.type(current) == "dir" and recursive then
-				local entries = fslib.listdirectory(current)
+				local entries = fslib.listDirectory(current)
 				for _, entry in entries do
 					local fullPath = pathlib.join(current, entry.name)
 					table.insert(queue, fullPath)

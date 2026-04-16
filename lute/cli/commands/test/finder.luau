@@ -4,16 +4,16 @@ local path = require("@std/path")
 local stringext = require("@std/stringext")
 
 local function istestfile(filename: string): boolean
-	return stringext.hassuffix(filename, ".test.luau") or stringext.hassuffix(filename, ".spec.luau")
+	return stringext.hasSuffix(filename, ".test.luau") or stringext.hasSuffix(filename, ".spec.luau")
 end
 
 local function issnapfile(filename: string): boolean
-	return stringext.hassuffix(filename, ".snap.luau")
+	return stringext.hasSuffix(filename, ".snap.luau")
 end
 
-local function findfiles(paths: { string }, predicate: (string) -> boolean): { path.path }
+local function findfiles(paths: { string }, predicate: (string) -> boolean): { path.Path }
 	local files = {}
-	local function walk(p: path.pathlike)
+	local function walk(p: path.Pathlike)
 		local it = fs.walk(path.normalize(p), { recursive = true })
 		local file = it()
 		while file do
@@ -26,7 +26,7 @@ local function findfiles(paths: { string }, predicate: (string) -> boolean): { p
 
 	local cwd = ps.cwd()
 	for _, p in paths do
-		if path.isabsolute(p) then
+		if path.isAbsolute(p) then
 			walk(p)
 		else
 			walk(path.join(cwd, p))
@@ -36,11 +36,11 @@ local function findfiles(paths: { string }, predicate: (string) -> boolean): { p
 	return files
 end
 
-local function findtestfiles(paths: { string }): { path.path }
+local function findtestfiles(paths: { string }): { path.Path }
 	return findfiles(paths, istestfile)
 end
 
-local function findsnapfiles(paths: { string }): { path.path }
+local function findsnapfiles(paths: { string }): { path.Path }
 	return findfiles(paths, issnapfile)
 end
 

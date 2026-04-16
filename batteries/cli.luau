@@ -1,12 +1,13 @@
 local cli = {}
 cli.__index = cli
 
-type ArgKind = "positional" | "flag" | "option"
+type ArgKind = "positional" | "flag" | "option" | "variadic"
 type ArgOptions = {
 	help: string?,
 	aliases: { string }?,
 	default: string?,
 	required: boolean?,
+	hidden: boolean?,
 }
 
 type ArgData = {
@@ -18,12 +19,14 @@ type ArgData = {
 type ParseResult = {
 	values: { [string]: string? },
 	flags: { [string]: boolean },
+	variadics: { string },
 	fwdArgs: { string },
 }
 
 type ParserData = {
 	arguments: { [number]: ArgData },
 	positional: { [number]: ArgData },
+	variadicArg: ArgData?,
 	parsed: ParseResult,
 }
 
@@ -34,7 +37,8 @@ function cli.parser(): Parser
 	local self = {
 		arguments = {},
 		positional = {},
-		parsed = { values = {}, flags = {}, fwdArgs = {} },
+		variadicArg = nil :: ArgData?,
+		parsed = { values = {}, flags = {}, variadics = {}, fwdArgs = {} },
 	}
 
 	return setmetatable(self, cli)
@@ -50,6 +54,8 @@ function cli.add(self: Parser, name: string, kind: ArgKind, options: ArgOptions)
 	table.insert(self.arguments, argument)
 	if kind == "positional" then
 		table.insert(self.positional, argument)
+	elseif kind == "variadic" then
+		self.variadicArg = argument
 	end
 end
 
@@ -64,7 +70,7 @@ function cli.parse(self: Parser, args: { string }): ()
 
 		-- if the argument is exactly "--", we pass everything along
 		if arg == "--" then
-			table.move(args, i + 1, #args, 1, self.parsed.fwdArgs)
+			table.move(args, i + 1, #args, #self.parsed.fwdArgs + 1, self.parsed.fwdArgs)
 			break
 		end
 
@@ -133,16 +139,24 @@ function cli.parse(self: Parser, args: { string }): ()
 			continue
 		end
 
+		-- if we have a variadic argument, we can take this argument as part of it
+		if self.variadicArg then
+			table.insert(self.parsed.variadics, arg)
+			continue
+		end
+
 		-- otherwise, the argument is forwarded on
 		table.insert(self.parsed.fwdArgs, arg)
 	end
 
 	-- check that all required arguments are present, and set any default values as needed
 	for _, argument in self.arguments do
-		assert(argument)
-
-		if argument.options.required and self.parsed.values[argument.name] == nil then
-			assert(self.parsed.values[argument.name], "Missing required argument: " .. argument.name)
+		if argument.options.required then
+			if argument.kind == "variadic" then
+				assert(#self.parsed.variadics > 0, "Missing required variadic argument: " .. argument.name)
+			else
+				assert(self.parsed.values[argument.name], "Missing required argument: " .. argument.name)
+			end
 		end
 
 		if self.parsed.values[argument.name] == nil and argument.options.default then
@@ -159,16 +173,60 @@ function cli.has(self: Parser, name: string): boolean
 	return self.parsed.flags[name] ~= nil
 end
 
+function cli.variadics(self: Parser): { string }
+	return self.parsed.variadics
+end
+
 function cli.forwarded(self: Parser): { string }?
 	return self.parsed.fwdArgs
 end
 
-function cli.help(self: Parser): ()
-	print("Usage:")
+function cli.usage(self: Parser, name: string): string
+	local parts = { name }
+
+	for _, arg in self.positional do
+		if not arg.options.hidden then
+			if arg.options.required then
+				table.insert(parts, `<{arg.name}>`)
+			else
+				table.insert(parts, `[{arg.name}]`)
+			end
+		end
+	end
+
+	for _, arg in self.arguments do
+		if not arg.options.hidden and arg.kind ~= "positional" and arg.kind ~= "variadic" then
+			table.insert(parts, "[options]")
+			break
+		end
+	end
+
+	if self.variadicArg and not self.variadicArg.options.hidden then
+		local v = self.variadicArg
+		if v.options.required then
+			table.insert(parts, `<{v.name}...>`)
+		else
+			table.insert(parts, `[{v.name}...]`)
+		end
+	end
+
+	return table.concat(parts, " ")
+end
+
+function cli.help(self: Parser, formatter: ((s: string) -> string)?): ()
+	local fmt = formatter or function(s)
+		return s
+	end
+
+	print(fmt("Usage:"))
 	for _, argument in self.arguments do
+		if argument.options.hidden then
+			continue
+		end
+
 		local aliasStr = table.concat(argument.options.aliases or {}, ", ")
 		local reqStr = if argument.options.required then "(required) " else ""
-		print(string.format("  --%s (-%s) - %s%s", argument.name, aliasStr, reqStr, argument.options.help or ""))
+		print(fmt(string.format("  --%s (-%s) - %s%s", argument.name, aliasStr, reqStr, argument.options.help or "")))
 	end
 end
 

@@ -12,15 +12,15 @@
 #include <cstdint>
 #include <iterator>
 
-const int64_t NANOSECONDS_PER_SECOND = 1000000000;
-const int64_t MICROSECONDS_PER_SECOND = 1000000;
+const int64_t NANOSECONDS_PER_SECOND = 1'000'000'000;
+const int64_t MICROSECONDS_PER_SECOND = 1'000'000;
 const int64_t MILLISECONDS_PER_SECOND = 1000;
 const int64_t SECONDS_PER_MINUTE = 60;
 const int64_t SECONDS_PER_HOUR = 3600;
-const int64_t SECONDS_PER_DAY = 86400;
-const int64_t SECONDS_PER_WEEK = 604800;
+const int64_t SECONDS_PER_DAY = 86'400;
+const int64_t SECONDS_PER_WEEK = 604'800;
 const int64_t NANOSECONDS_PER_MICROSECOND = 1000;
-const int64_t NANOSECONDS_PER_MILLISECOND = 1000000;
+const int64_t NANOSECONDS_PER_MILLISECOND = 1'000'000;
 
 // Timespec helpers
 static float_t diffTimespecs(uv_timespec64_t left, uv_timespec64_t right)
@@ -50,6 +50,25 @@ double getSecondsFromTimespec(uv_timespec64_t timespec)
     return static_cast<double>(timespec.tv_sec) + static_cast<double>(timespec.tv_nsec) / NANOSECONDS_PER_SECOND;
 }
 
+uv_timespec64_t getTimespecFromSeconds(double seconds)
+{
+	int64_t sec = static_cast<int64_t>(seconds);
+	int32_t nsec = static_cast<int32_t>(fmod(seconds, 1) * NANOSECONDS_PER_SECOND);
+	return {sec, nsec};
+}
+
+uint64_t getNanosecondsFromTimespec(uv_timespec64_t timespec)
+{
+	return timespec.tv_sec * NANOSECONDS_PER_SECOND + timespec.tv_nsec;
+}
+
+uv_timespec64_t getTimespecFromNanoseconds(int64_t nanoseconds)
+{
+	int64_t sec = nanoseconds / NANOSECONDS_PER_SECOND ;
+	int32_t nsec = static_cast<int32_t>(fmod(nanoseconds, NANOSECONDS_PER_SECOND));
+	return {sec, nsec};
+}
+
 // Durations
 
 // returns the address of the timespec from the duration on the stack
@@ -72,7 +91,7 @@ int createDurationFromTimespec(lua_State* L, uv_timespec64_t timespec)
 
 int createDurationFromSeconds(lua_State* L, double seconds)
 {
-    return createDurationFromTimespec(L, {static_cast<int64_t>(seconds), static_cast<int32_t>(fmod(seconds, 1) * NANOSECONDS_PER_SECOND)});
+    return createDurationFromTimespec(L, getTimespecFromSeconds(seconds));
 }
 
 // Duration methods
@@ -86,14 +105,14 @@ static int duration_tonanoseconds(lua_State* L)
 static int duration_tomicroseconds(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, getSecondsFromTimespec(timespec) * MICROSECONDS_PER_SECOND);
+    lua_pushnumber(L, static_cast<double>(timespec.tv_sec) * MICROSECONDS_PER_SECOND + timespec.tv_nsec / NANOSECONDS_PER_MICROSECOND);
     return 1;
 }
 
 static int duration_tomilliseconds(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, getSecondsFromTimespec(timespec) * MILLISECONDS_PER_SECOND);
+    lua_pushnumber(L, static_cast<double>(timespec.tv_sec) * MILLISECONDS_PER_SECOND + timespec.tv_nsec / NANOSECONDS_PER_MILLISECOND);
     return 1;
 }
 
@@ -121,35 +140,35 @@ static int duration_tohours(lua_State* L)
 static int duration_todays(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, getSecondsFromTimespec(timespec) / SECONDS_PER_DAY);
+    lua_pushinteger(L, getSecondsFromTimespec(timespec) / SECONDS_PER_DAY);
     return 1;
 }
 
 static int duration_toweeks(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, getSecondsFromTimespec(timespec) / SECONDS_PER_WEEK);
+    lua_pushinteger(L, getSecondsFromTimespec(timespec) / SECONDS_PER_WEEK);
     return 1;
 }
 
 static int duration_subsecnanos(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, timespec.tv_nsec);
+    lua_pushinteger(L, timespec.tv_nsec);
     return 1;
 }
 
 static int duration_subsecmicros(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, static_cast<double>(timespec.tv_nsec) / NANOSECONDS_PER_MICROSECOND);
+    lua_pushinteger(L, timespec.tv_nsec / NANOSECONDS_PER_MICROSECOND);
     return 1;
 }
 
 static int duration_subsecmillis(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, static_cast<double>(timespec.tv_nsec) / NANOSECONDS_PER_MILLISECOND);
+    lua_pushinteger(L, timespec.tv_nsec / NANOSECONDS_PER_MILLISECOND);
     return 1;
 }
 
@@ -169,7 +188,7 @@ static int duration__add(lua_State* L)
     uv_timespec64_t right = getTimespecFromDuration(L, 2);
 
     uv_timespec64_t result = {left.tv_sec + right.tv_sec, left.tv_nsec + right.tv_nsec};
-    if (result.tv_nsec > NANOSECONDS_PER_SECOND)
+    if (result.tv_nsec >= NANOSECONDS_PER_SECOND)
     {
         result.tv_sec += 1;
         result.tv_nsec -= NANOSECONDS_PER_SECOND;
@@ -190,6 +209,24 @@ static int duration__sub(lua_State* L)
         result.tv_nsec += NANOSECONDS_PER_SECOND;
     }
 
+    return createDurationFromTimespec(L, {result.tv_sec >= 0 ? result.tv_sec : 0, result.tv_nsec >= 0 ? result.tv_nsec : 0});
+}
+
+static int duration__mul(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromDuration(L, 1);
+    double factor = luaL_checknumber(L, 2);
+
+    uv_timespec64_t result = getTimespecFromNanoseconds(getNanosecondsFromTimespec(left) * factor);
+    return createDurationFromTimespec(L, {result.tv_sec >= 0 ? result.tv_sec : 0, result.tv_nsec >= 0 ? result.tv_nsec : 0});
+}
+
+static int duration__div(lua_State* L)
+{
+    uv_timespec64_t left = getTimespecFromDuration(L, 1);
+    double factor = luaL_checknumber(L, 2);
+
+    uv_timespec64_t result = getTimespecFromNanoseconds(getNanosecondsFromTimespec(left) / factor);
     return createDurationFromTimespec(L, {result.tv_sec >= 0 ? result.tv_sec : 0, result.tv_nsec >= 0 ? result.tv_nsec : 0});
 }
 
@@ -271,15 +308,32 @@ static int instant__le(lua_State* L)
 
 namespace duration
 {
+
+int lua_createduration(lua_State* L)
+{
+    int64_t seconds = luaL_checkinteger(L, 1);
+    int64_t nanoseconds = static_cast<int64_t>(luaL_checkinteger(L, 2));
+    if (seconds < 0 || nanoseconds < 0)
+        luaL_error(L, "duration components cannot be negative");
+
+    if (nanoseconds >= NANOSECONDS_PER_SECOND)
+    {
+        seconds += nanoseconds / NANOSECONDS_PER_SECOND;
+        nanoseconds = fmod(nanoseconds, NANOSECONDS_PER_SECOND);
+    }
+
+    return createDurationFromTimespec(L, {seconds, static_cast<int32_t>(nanoseconds)});
+}
+
 int lua_nanoseconds(lua_State* L)
 {
     // int32_t doesn't have enough precision for nanoseconds
-    int64_t nanoseconds = static_cast<int64_t>(luaL_checknumber(L, 1));
+    int64_t nanoseconds = static_cast<int64_t>(luaL_checkinteger(L, 1));
     if (nanoseconds < 0)
         luaL_error(L, "duration cannot be negative");
 
     int64_t seconds = 0;
-    if (nanoseconds > NANOSECONDS_PER_SECOND)
+    if (nanoseconds >= NANOSECONDS_PER_SECOND)
     {
         seconds = static_cast<int64_t>(nanoseconds / NANOSECONDS_PER_SECOND);
         nanoseconds = static_cast<int64_t>(fmod(nanoseconds, NANOSECONDS_PER_SECOND));
@@ -310,14 +364,9 @@ int lua_milliseconds(lua_State* L)
     if (milliseconds < 0)
         luaL_error(L, "duration cannot be negative");
 
-    int64_t seconds = 0;
-    if (milliseconds > MILLISECONDS_PER_SECOND)
-    {
-        seconds = static_cast<int64_t>(milliseconds / MILLISECONDS_PER_SECOND);
-        milliseconds = fmod(milliseconds, MILLISECONDS_PER_SECOND);
-    }
+    uint64_t nanoseconds = milliseconds * NANOSECONDS_PER_MILLISECOND;
 
-    return createDurationFromTimespec(L, {seconds, static_cast<int32_t>(milliseconds * NANOSECONDS_PER_MILLISECOND)});
+    return createDurationFromTimespec(L, getTimespecFromNanoseconds(nanoseconds));
 }
 
 int lua_seconds(lua_State* L)
@@ -385,9 +434,7 @@ int lua_weeks(lua_State* L)
 
 } // namespace duration
 
-namespace libtime
-{
-int lua_now(lua_State* L)
+static int lua_now(lua_State* L)
 {
     uv_timespec64_t now;
 
@@ -404,16 +451,19 @@ int lua_now(lua_State* L)
     return 1;
 }
 
-int lua_since(lua_State* L)
+static int lua_since(lua_State* L)
 {
     lua_pushnumber(L, sinceTimespec(getTimespecFromInstant(L, 1)));
     return 1;
 }
-} // namespace libtime
 
-static void init_duration_lib(lua_State* L)
+void init_duration_lib(lua_State* L)
 {
-    luaL_newmetatable(L, kDurationType);
+    if (luaL_newmetatable(L, kDurationType) == 0)
+    {
+        lua_pop(L, 1);
+        return;
+    }
 
     // Protect metatable from being changed
     lua_pushstring(L, "The metatable is locked");
@@ -432,6 +482,12 @@ static void init_duration_lib(lua_State* L)
     lua_pushcfunction(L, duration__sub, "Duration__sub");
     lua_setfield(L, -2, "__sub");
 
+    lua_pushcfunction(L, duration__mul, "Duration__mul");
+    lua_setfield(L, -2, "__mul");
+
+    lua_pushcfunction(L, duration__div, "Duration__div");
+    lua_setfield(L, -2, "__div");
+
     lua_pushcfunction(L, duration__eq, "Duration__eq");
     lua_setfield(L, -2, "__eq");
 
@@ -444,29 +500,29 @@ static void init_duration_lib(lua_State* L)
     // __index table
     lua_createtable(L, 0, 11);
 
-    lua_pushcfunction(L, duration_tonanoseconds, "Duration__tonanoseconds");
-    lua_setfield(L, -2, "tonanoseconds");
+    lua_pushcfunction(L, duration_tonanoseconds, "Duration__toNanoseconds");
+    lua_setfield(L, -2, "toNanoseconds");
 
-    lua_pushcfunction(L, duration_tomicroseconds, "Duration__tomicroseconds");
-    lua_setfield(L, -2, "tomicroseconds");
+    lua_pushcfunction(L, duration_tomicroseconds, "Duration__toMicroseconds");
+    lua_setfield(L, -2, "toMicroseconds");
 
-    lua_pushcfunction(L, duration_tomilliseconds, "Duration__tomilliseconds");
-    lua_setfield(L, -2, "tomilliseconds");
+    lua_pushcfunction(L, duration_tomilliseconds, "Duration__toMilliseconds");
+    lua_setfield(L, -2, "toMilliseconds");
 
-    lua_pushcfunction(L, duration_toseconds, "Duration__toseconds");
-    lua_setfield(L, -2, "toseconds");
+    lua_pushcfunction(L, duration_toseconds, "Duration__toSeconds");
+    lua_setfield(L, -2, "toSeconds");
 
-    lua_pushcfunction(L, duration_tominutes, "Duration__tominutes");
-    lua_setfield(L, -2, "tominutes");
+    lua_pushcfunction(L, duration_tominutes, "Duration__toMinutes");
+    lua_setfield(L, -2, "toMinutes");
 
-    lua_pushcfunction(L, duration_tohours, "Duration__tohours");
-    lua_setfield(L, -2, "tohours");
+    lua_pushcfunction(L, duration_tohours, "Duration__toHours");
+    lua_setfield(L, -2, "toHours");
 
-    lua_pushcfunction(L, duration_todays, "Duration__todays");
-    lua_setfield(L, -2, "todays");
+    lua_pushcfunction(L, duration_todays, "Duration__toDays");
+    lua_setfield(L, -2, "toDays");
 
-    lua_pushcfunction(L, duration_toweeks, "Duration__toweeks");
-    lua_setfield(L, -2, "toweeks");
+    lua_pushcfunction(L, duration_toweeks, "Duration__toWeeks");
+    lua_setfield(L, -2, "toWeeks");
 
     lua_pushcfunction(L, duration_subsecnanos, "Duration__subsecnanos");
     lua_setfield(L, -2, "subsecnanos");
@@ -477,13 +533,13 @@ static void init_duration_lib(lua_State* L)
     lua_pushcfunction(L, duration_subsecmillis, "Duration__subsecmillis");
     lua_setfield(L, -2, "subsecmillis");
 
-    lua_setreadonly(L, -1, true);
+    lua_setreadonly(L, -1, 1);
 
     // set __index
     lua_setfield(L, -2, "__index");
 
     // metatable is now in stack spot 1
-    lua_setreadonly(L, -1, true);
+    lua_setreadonly(L, -1, 1);
 
     lua_pop(L, 1);
 }
@@ -518,12 +574,12 @@ static void init_instant_lib(lua_State* L)
     lua_pushcfunction(L, instant_elapsed, "Instant__elapsed");
     lua_setfield(L, -2, "elapsed");
 
-    lua_setreadonly(L, -1, true);
+    lua_setreadonly(L, -1, 1);
 
     // __index set
     lua_setfield(L, -2, "__index");
 
-    lua_setreadonly(L, -1, true);
+    lua_setreadonly(L, -1, 1);
 
     lua_pop(L, 1);
 }
@@ -536,21 +592,19 @@ static int init_luau_lib(lua_State* L)
     return 0;
 }
 
-int luaopen_time(lua_State* L)
+const char* const Time::properties[] = {kDurationLibraryIdentifier};
+
+const luaL_Reg Time::lib[] = {
+    {"now", lua_now},
+    {"since", lua_since},
+    {nullptr, nullptr},
+};
+
+int Time::pushLibrary(lua_State* L)
 {
     init_luau_lib(L);
 
-    luaL_register(L, "time", libtime::lib);
-    lua_setglobal(L, "time");
-
-    return 1;
-}
-
-int luteopen_time(lua_State* L)
-{
-    init_luau_lib(L);
-
-    lua_createtable(L, 0, std::size(libtime::lib) + std::size(libtime::properties));
+    lua_createtable(L, 0, std::size(Time::lib) + std::size(Time::properties));
 
     // Duration sub-table
     lua_createtable(L, 0, std::size(duration::lib));
@@ -564,8 +618,7 @@ int luteopen_time(lua_State* L)
     }
     lua_setfield(L, -2, kDurationLibraryIdentifier);
 
-    // Main time library
-    for (auto& [name, func] : libtime::lib)
+    for (auto& [name, func] : Time::lib)
     {
         if (!name || !func)
             break;
@@ -577,4 +630,14 @@ int luteopen_time(lua_State* L)
     lua_setreadonly(L, -1, 1);
 
     return 1;
+}
+
+int luaopen_time(lua_State* L)
+{
+    return Time::openAsGlobal(L);
+}
+
+int luteopen_time(lua_State* L)
+{
+    return Time::pushLibrary(L);
 }

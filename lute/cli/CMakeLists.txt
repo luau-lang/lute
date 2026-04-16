@@ -29,7 +29,6 @@ target_sources(Lute.CLI.lib PRIVATE
     include/lute/luauflags.h
     include/lute/packagerun.h
     include/lute/profiler.h
-    include/lute/reporter.h
     include/lute/requiresetup.h
     include/lute/staticrequires.h
     include/lute/tc.h
@@ -63,5 +62,5 @@ target_sources(Lute.CLI PRIVATE
 
 set_target_properties(Lute.CLI PROPERTIES OUTPUT_NAME lute)
 target_compile_features(Lute.CLI PUBLIC cxx_std_17)
-target_link_libraries(Lute.CLI PRIVATE Lute.CLI.lib)
+target_link_libraries(Lute.CLI PRIVATE Lute.CLI.lib Lute.Common)
 target_compile_options(Lute.CLI PRIVATE ${LUTE_OPTIONS})

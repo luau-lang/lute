@@ -27,7 +27,7 @@ function IgnoreResolver.new(): IgnoreResolver
 end
 
 --- Checks whether the given file matches an ignore
-function IgnoreResolver.isIgnoredFile(self: IgnoreResolver, filepath: path.path)
+function IgnoreResolver.isIgnoredFile(self: IgnoreResolver, filepath: path.Path)
 	local directory = if #filepath.parts > 0 then path.dirname(filepath) else nil
 	assert(directory ~= nil, "filepath has no directory!")
 
@@ -35,7 +35,7 @@ function IgnoreResolver.isIgnoredFile(self: IgnoreResolver, filepath: path.path)
 	return isIgnored(ignoreData, path.format(filepath), false)
 end
 
-function IgnoreResolver.isIgnoredDirectory(self: IgnoreResolver, directorypath: path.path)
+function IgnoreResolver.isIgnoredDirectory(self: IgnoreResolver, directorypath: path.Path)
 	-- Hardcode: skip the .git directory
 	local basename = path.basename(directorypath)
 	if basename == ".git" then

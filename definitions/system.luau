@@ -13,11 +13,11 @@ export type CpuInfo = {
 
 local system = {}
 
-function system.threadcount(): number
+function system.threadCount(): number
 	error("unimplemented")
 end
 
-function system.hostname(): string
+function system.hostName(): string
 	error("unimplemented")
 end
 
@@ -25,11 +25,11 @@ function system.tmpdir(): string
 	error("unimplemented")
 end
 
-function system.totalmemory(): number
+function system.totalMemory(): number
 	error("unimplemented")
 end
 
-function system.freememory(): number
+function system.freeMemory(): number
 	error("unimplemented")
 end
 

@@ -6,7 +6,7 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ neq_failure_suite.neq_error
-	<ROOT>/tests/std/snapshots/assertneq_error_message_in_suite.snap.luau:5
+	<ROOT>/tests/std/snapshots/assertneq_error_message_in_suite.snap.luau:6
 		neq: 1 == 1
 
 --------------------------------------------------

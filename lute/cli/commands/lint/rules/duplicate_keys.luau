@@ -10,10 +10,10 @@ local target = "https://lute.luau.org/cli/lint/duplicate_keys.html"
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
-	local function makeViolation(location: syntax.span): lintTypes.LintViolation
+	local function makeViolation(location: syntax.Span): lintTypes.LintViolation
 		return {
 			lintname = name,
 			location = location,
@@ -25,8 +25,8 @@ local function lint(
 	end
 
 	return query
-		.findallfromroot(ast, utils.isExprTable)
-		:flatmap(function(tableExpr: syntax.AstExprTable): { lintTypes.LintViolation }
+		.findAllFromRoot(ast, utils.isExprTable)
+		:flatMap(function(tableExpr: syntax.AstExprTable): { lintTypes.LintViolation }
 			local violations = {}
 
 			local seenKeys: { [string | number]: true } = {}

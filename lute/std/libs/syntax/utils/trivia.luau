@@ -3,8 +3,9 @@ local types = require("../types")
 
 local retrieverLib = {}
 
-function retrieverLib.leftmosttrivia(n: types.AstNode): { types.Trivia }
-	local q = query.findallfromroot<<types.Token>>(
+--- Returns the leading trivia of the leftmost token in `n`, or an empty array if there are no tokens.
+function retrieverLib.leftmostTrivia(n: types.AstNode): { types.Trivia }
+	local q = query.findAllFromRoot<<types.Token>>(
 		n :: any,
 		function(n: types.AstNode) -- LUAUFIX: Code too complex emitted because AstNode is very large
 			return if n.kind == "token" then n else nil
@@ -16,21 +17,22 @@ function retrieverLib.leftmosttrivia(n: types.AstNode): { types.Trivia }
 	for _, token in q.nodes do
 		if leftmostToken == nil then
 			leftmostToken = token
-		elseif token.location.beginline < leftmostToken.location.beginline then
+		elseif token.location.beginLine < leftmostToken.location.beginLine then
 			leftmostToken = token
 		elseif
-			token.location.beginline == leftmostToken.location.beginline
-			and token.location.begincolumn < leftmostToken.location.begincolumn
+			token.location.beginLine == leftmostToken.location.beginLine
+			and token.location.beginColumn < leftmostToken.location.beginColumn
 		then
 			leftmostToken = token
 		end
 	end
 
-	return if leftmostToken ~= nil then leftmostToken.leadingtrivia else {}
+	return if leftmostToken ~= nil then leftmostToken.leadingTrivia else {}
 end
 
-function retrieverLib.rightmosttrivia(n: types.AstNode): { types.Trivia }
-	local q = query.findallfromroot(
+--- Returns the trailing trivia of the rightmost token in `n`, or an empty array if there are no tokens.
+function retrieverLib.rightmostTrivia(n: types.AstNode): { types.Trivia }
+	local q = query.findAllFromRoot(
 		n :: any,
 		function(n: types.AstNode) -- LUAUFIX: Code too complex emitted because AstNode is very large
 			return if n.kind == "token" then n else nil
@@ -42,17 +44,17 @@ function retrieverLib.rightmosttrivia(n: types.AstNode): { types.Trivia }
 	for _, token in q.nodes do
 		if rightmostToken == nil then
 			rightmostToken = token
-		elseif token.location.beginline > rightmostToken.location.beginline then
+		elseif token.location.beginLine > rightmostToken.location.beginLine then
 			rightmostToken = token
 		elseif
-			token.location.beginline == rightmostToken.location.beginline
-			and token.location.begincolumn > rightmostToken.location.begincolumn
+			token.location.beginLine == rightmostToken.location.beginLine
+			and token.location.beginColumn > rightmostToken.location.beginColumn
 		then
 			rightmostToken = token
 		end
 	end
 
-	return if rightmostToken ~= nil then rightmostToken.trailingtrivia else {}
+	return if rightmostToken ~= nil then rightmostToken.trailingTrivia else {}
 end
 
 return table.freeze(retrieverLib)

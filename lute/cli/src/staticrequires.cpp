@@ -7,6 +7,7 @@
 #include "Luau/Ast.h"
 #include "Luau/Config.h"
 #include "Luau/FileUtils.h"
+#include "Luau/LuauConfig.h"
 #include "Luau/Parser.h"
 #include "Luau/VecDeque.h"
 
@@ -45,7 +46,7 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
     visited.clear();
     discovered.clear();
     requireGraph.clear();
-    luaurcFiles.clear();
+    luauConfigFiles.clear();
 
     if (!isAbsolutePath(entryPoint))
     {
@@ -54,7 +55,7 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
     }
 
     // Temporary set to collect absolute paths to .luaurc files
-    Luau::DenseHashSet<std::string> luaurcAbsolutePaths{""};
+    Luau::DenseHashSet<std::string> configAbsolutePaths{""};
 
     Luau::VecDeque<std::string> toProcess;
     toProcess.push_back(entryPoint);
@@ -90,11 +91,33 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
             while (!dir.empty())
             {
                 std::string luaurcPath = dir + "/" + Luau::kConfigName;
-                if (isFile(luaurcPath))
+                std::string luauConfigPath = dir + "/" + Luau::kLuauConfigName;
+
+                bool luaurcExists = isFile(luaurcPath);
+                bool luauConfigExists = isFile(luauConfigPath);
+
+                if (luaurcExists && luauConfigExists)
                 {
-                    luaurcAbsolutePaths.insert(luaurcPath);
-                    break;
+                    reporter.formatError(
+                        "Warning: Both %s and %s exist in '%s', preferring %s\n",
+                        Luau::kConfigName,
+                        Luau::kLuauConfigName,
+                        dir.c_str(),
+                        Luau::kLuauConfigName
+                    );
+                    configAbsolutePaths.insert(luauConfigPath);
                 }
+                else if (luauConfigExists)
+                {
+                    configAbsolutePaths.insert(luauConfigPath);
+                }
+                else if (luaurcExists)
+                {
+                    configAbsolutePaths.insert(luaurcPath);
+                }
+
+                if (luaurcExists || luauConfigExists)
+                    break;
 
                 // Move to parent directory
                 size_t parentSlash = dir.find_last_of("/\\");
@@ -137,47 +160,49 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
         // Store the resolved dependencies in the graph
         requireGraph[filePath] = std::move(resolvedDeps);
     }
-    
+
     // Include .luaurc files in the lowest common root calculation
     std::vector<std::string> allPaths = discovered;
-    for (const auto& luaurcPath : luaurcAbsolutePaths)
+    for (const auto& luaurcPath : configAbsolutePaths)
     {
         allPaths.push_back(luaurcPath);
     }
-    
+
     lowestCommonRoot = findLowestCommonRoot(allPaths);
 
     // Convert absolute .luaurc paths to LCR-relative .luaurc paths and read their content
     size_t commonRootLen = lowestCommonRoot.empty() ? 0 : lowestCommonRoot.length() + 1; // +1 for the trailing slash
 
-    for (const auto& absolutePath : luaurcAbsolutePaths)
+    for (const auto& absolutePath : configAbsolutePaths)
     {
-        // Get the directory containing the .luaurc file and append .luaurc
+        // Get the directory and filename of the config file
         std::string absoluteDir = absolutePath;
+        std::string configFileName = absoluteDir;
         size_t lastSlash = absoluteDir.find_last_of("/\\");
         if (lastSlash != std::string::npos)
         {
+            configFileName = absoluteDir.substr(lastSlash + 1);
             absoluteDir = absoluteDir.substr(0, lastSlash);
         }
 
-        // Convert to relative path and append .luaurc
-        std::string relativeLuaurc = ".luaurc";
+        // Convert to relative path and append the config filename
+        std::string relativeConfig = configFileName;
         if (commonRootLen > 0 && absoluteDir.length() > commonRootLen)
         {
             std::string relativeDir = absoluteDir.substr(commonRootLen);
-            relativeLuaurc = relativeDir + "/.luaurc";
+            relativeConfig = relativeDir + "/" + configFileName;
         }
 
         // Read the .luaurc file content
         std::optional<std::string> content = readFile(absolutePath);
         if (content)
         {
-            // Store using the .luaurc file path (e.g., "dir/.luaurc" or just ".luaurc")
-            luaurcFiles[relativeLuaurc] = *content;
+            // Store using the config file path (e.g., "dir/.luaurc", ".luaurc", or ".config.luau")
+            luauConfigFiles[relativeConfig] = *content;
         }
         else
         {
-            reporter.formatError("Warning: Could not read .luaurc file '%s'\n", absolutePath.c_str());
+            reporter.formatError("Warning: Could not read config file '%s'\n", absolutePath.c_str());
         }
     }
 }
@@ -263,10 +288,10 @@ void StaticRequireTracer::printRequireGraph() const
     }
 
     // Print luaurc files found
-    if (!luaurcFiles.empty())
+    if (!luauConfigFiles.empty())
     {
         reporter.reportOutput("\n.luaurc files found:");
-        for (const auto& [configDir, content] : luaurcFiles)
+        for (const auto& [configDir, content] : luauConfigFiles)
         {
             reporter.formatOutput("\t%s", configDir.c_str());
         }

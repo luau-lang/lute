@@ -23,7 +23,7 @@ local EXCLUDE_TYPECHECK = {
 	"tests/std/snapshots",
 }
 
-local function posixify(p: path.pathlike): string
+local function posixify(p: path.Pathlike): string
 	local normalized = path.normalize(p)
 	local posixy, _ = string.gsub(path.format(normalized), "\\", "/")
 	return posixy
@@ -63,7 +63,7 @@ end
 
 local function readFaillist(): string
 	-- LUAUFIX: the type of pcall is breaking things here, so we must cast
-	local ok: boolean, file: fs.file = (pcall :: any)(fs.open, FAILLIST_PATH, "r")
+	local ok: boolean, file: fs.File = (pcall :: any)(fs.open, FAILLIST_PATH, "r")
 	if not ok or not file then
 		return ""
 	end

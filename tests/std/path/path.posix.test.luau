@@ -7,7 +7,7 @@ local posix = require("@std/path/posix")
 test.suite("PathPosixParseSuite", function(suite)
 	suite:case("parsePosixAbsolutePath", function(assert)
 		local result = path.posix.parse("/home/user/documents/file.txt")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
@@ -31,7 +31,7 @@ test.suite("PathPosixParseSuite", function(suite)
 
 	suite:case("parseRootPath", function(assert)
 		local result = path.posix.parse("/")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 0)
 	end)
 
@@ -43,7 +43,7 @@ test.suite("PathPosixParseSuite", function(suite)
 	end)
 
 	suite:case("parsePathobjReturnsSame", function(assert)
-		local originalPath: posix.path = setmetatable({
+		local originalPath: posix.Path = setmetatable({
 			parts = { "folder", "file.txt" },
 			absolute = false,
 		}, posix.pathmt)
@@ -84,7 +84,7 @@ test.suite("PathPosixBasenameSuite", function(suite)
 	end)
 
 	suite:case("basenamePathobj", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = { "folder", "subfolder", "file.txt" },
 			absolute = false,
 		}, posix.pathmt)
@@ -95,7 +95,7 @@ end)
 
 test.suite("PathPosixFormatSuite", function(suite)
 	suite:case("formatPosixAbsolutePath", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = { "home", "user", "documents", "file.txt" },
 			absolute = true,
 		}, posix.pathmt)
@@ -104,7 +104,7 @@ test.suite("PathPosixFormatSuite", function(suite)
 	end)
 
 	suite:case("formatPosixRelativePath", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = { "documents", "file.txt" },
 			absolute = false,
 		}, posix.pathmt)
@@ -113,7 +113,7 @@ test.suite("PathPosixFormatSuite", function(suite)
 	end)
 
 	suite:case("formatEmptyRelativePath", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = {},
 			absolute = false,
 		}, posix.pathmt)
@@ -122,7 +122,7 @@ test.suite("PathPosixFormatSuite", function(suite)
 	end)
 
 	suite:case("formatRootPath", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = {},
 			absolute = true,
 		}, posix.pathmt)
@@ -168,7 +168,7 @@ test.suite("PathPosixDirnameSuite", function(suite)
 	end)
 
 	suite:case("dirnamePathobj", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = { "folder", "subfolder", "file.txt" },
 			absolute = false,
 		}, posix.pathmt)
@@ -219,7 +219,7 @@ test.suite("PathPosixExtnameSuite", function(suite)
 	end)
 
 	suite:case("extnamePathobj", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = { "folder", "file.pdf" },
 			absolute = false,
 		}, posix.pathmt)
@@ -243,42 +243,42 @@ test.suite("PathPosixExtnameSuite", function(suite)
 	end)
 end)
 
-test.suite("PathPosixIsAbsoluteSuite", function(suite)
+test.suite("PathPosixisAbsoluteSuite", function(suite)
 	suite:case("absolutePosixAbsolutePath", function(assert)
-		local result = path.posix.isabsolute("/home/user/documents/file.txt")
-		assert.eq(result, true)
+		local result = path.posix.isAbsolute("/home/user/documents/file.txt")
+		assert.that(result)
 	end)
 
 	suite:case("absolutePosixRelativePath", function(assert)
-		local result = path.posix.isabsolute("documents/file.txt")
+		local result = path.posix.isAbsolute("documents/file.txt")
 		assert.eq(result, false)
 	end)
 
 	suite:case("absoluteRootPath", function(assert)
-		local result = path.posix.isabsolute("/")
-		assert.eq(result, true)
+		local result = path.posix.isAbsolute("/")
+		assert.that(result)
 	end)
 
 	suite:case("absoluteEmptyPath", function(assert)
-		local result = path.posix.isabsolute("")
+		local result = path.posix.isAbsolute("")
 		assert.eq(result, false)
 	end)
 
 	suite:case("absolutePathobjAbsolute", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = { "home", "user", "file.txt" },
 			absolute = true,
 		}, posix.pathmt)
-		local result = path.posix.isabsolute(pathobj)
-		assert.eq(result, true)
+		local result = path.posix.isAbsolute(pathobj)
+		assert.that(result)
 	end)
 
 	suite:case("absolutePathobjRelative", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = { "folder", "file.txt" },
 			absolute = false,
 		}, posix.pathmt)
-		local result = path.posix.isabsolute(pathobj)
+		local result = path.posix.isAbsolute(pathobj)
 		assert.eq(result, false)
 	end)
 end)
@@ -286,7 +286,7 @@ end)
 test.suite("PathPosixNormalizeSuite", function(suite)
 	suite:case("normalizeRemovesCurrentDirectory", function(assert)
 		local result = path.posix.normalize("/home/./user/documents")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
@@ -295,7 +295,7 @@ test.suite("PathPosixNormalizeSuite", function(suite)
 
 	suite:case("normalizeResolvesParentDirectory", function(assert)
 		local result = path.posix.normalize("/home/user/../documents")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "documents")
@@ -303,7 +303,7 @@ test.suite("PathPosixNormalizeSuite", function(suite)
 
 	suite:case("normalizeMultipleDots", function(assert)
 		local result = path.posix.normalize("/home/user/./documents/../files/./")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
@@ -320,7 +320,7 @@ test.suite("PathPosixNormalizeSuite", function(suite)
 
 	suite:case("normalizeRemovesEmptySegments", function(assert)
 		local result = path.posix.normalize("/home//user///documents")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
@@ -329,7 +329,7 @@ test.suite("PathPosixNormalizeSuite", function(suite)
 
 	suite:case("normalizeParentBeyondRoot", function(assert)
 		local result = path.posix.normalize("/home/../..")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 0)
 	end)
 
@@ -346,12 +346,12 @@ test.suite("PathPosixNormalizeSuite", function(suite)
 	end)
 
 	suite:case("normalizePathobj", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = { "home", ".", "user", "..", "documents" },
 			absolute = true,
 		}, posix.pathmt)
 		local result = path.posix.normalize(pathobj)
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "documents")
@@ -403,7 +403,7 @@ end)
 test.suite("PathPosixJoinSuite", function(suite)
 	suite:case("joinAbsoluteAndRelative", function(assert)
 		local result = path.posix.join("/home/user", "documents", "file.txt")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
@@ -436,19 +436,19 @@ test.suite("PathPosixJoinSuite", function(suite)
 
 	suite:case("joinSingleArgument", function(assert)
 		local result = path.posix.join("/home/user")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
 	end)
 
 	suite:case("joinPathobjAndString", function(assert)
-		local pathobj: posix.path = setmetatable({
+		local pathobj: posix.Path = setmetatable({
 			parts = { "home", "user" },
 			absolute = true,
 		}, posix.pathmt)
 		local result = path.posix.join(pathobj, "documents/file.txt")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
@@ -457,7 +457,7 @@ test.suite("PathPosixJoinSuite", function(suite)
 		assert.eq(#pathobj.parts, 2) -- original pathobj should be unchanged
 		assert.eq(pathobj.parts[1], "home")
 		assert.eq(pathobj.parts[2], "user")
-		assert.eq(pathobj.absolute, true)
+		assert.that(pathobj.absolute)
 	end)
 
 	suite:case("joinErrorOnAbsoluteAddend", function(assert)
@@ -471,7 +471,7 @@ end)
 test.suite("PathPosixResolveSuite", function(suite)
 	suite:case("resolveAbsolutePath", function(assert)
 		local result = path.posix.resolve("/home/user/documents/file.txt")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 4)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
@@ -493,7 +493,7 @@ test.suite("PathPosixResolveSuite", function(suite)
 
 	suite:case("resolveMultiplePaths", function(assert)
 		local result = path.posix.resolve("/home", "user", "../admin", "documents")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "admin")
@@ -502,7 +502,7 @@ test.suite("PathPosixResolveSuite", function(suite)
 
 	suite:case("resolveWithAbsoluteInMiddle", function(assert)
 		local result = path.posix.resolve("relative", "/absolute/path", "more")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "absolute")
 		assert.eq(result.parts[2], "path")
@@ -519,7 +519,7 @@ test.suite("PathPosixResolveSuite", function(suite)
 
 	suite:case("resolveEmptyStrings", function(assert)
 		local result = path.posix.resolve("", "", "/home/user")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 2)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "user")
@@ -527,7 +527,7 @@ test.suite("PathPosixResolveSuite", function(suite)
 
 	suite:case("resolveWithDotSegments", function(assert)
 		local result = path.posix.resolve("/home/user", "../admin/./documents")
-		assert.eq(result.absolute, true)
+		assert.that(result.absolute)
 		assert.eq(#result.parts, 3)
 		assert.eq(result.parts[1], "home")
 		assert.eq(result.parts[2], "admin")
@@ -538,14 +538,14 @@ end)
 test.suite("PathPosixToStringSuite", function(suite)
 	suite:case("toStringPosixAbsolutePath", function(assert)
 		local filePath = "/home/user/documents/file.txt"
-		local pathobj: posix.path = posix.parse(filePath)
+		local pathobj: posix.Path = posix.parse(filePath)
 		local result = tostring(pathobj)
 		assert.eq(result, filePath)
 	end)
 
 	suite:case("toStringPosixRelativePath", function(assert)
 		local filePath = "documents/file.txt"
-		local pathobj: posix.path = posix.parse(filePath)
+		local pathobj: posix.Path = posix.parse(filePath)
 		local result = tostring(pathobj)
 		assert.eq(result, filePath)
 	end)
@@ -583,8 +583,8 @@ test.suite("PathPosixRelativeSuite", function(suite)
 	suite:case("relativeDifferentAbsoluteValues", function(assert)
 		local from = posix.parse("/home/user/documents")
 		local to = posix.parse("home/user/file.txt")
-		assert.erroreq(function()
+		assert.throwsWith("Cannot compute relative path between absolute and relative paths", function()
 			path.posix.relative(from, to)
-		end, "Cannot compute relative path between absolute and relative paths")
+		end)
 	end)
 end)

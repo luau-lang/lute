@@ -23,7 +23,7 @@ local location = rt.cyan
 local dim = rt.dim
 local separator = dim
 
-local function printFailure(failed: tys.failedtest)
+local function printFailure(failed: tys.FailedTest)
 	print(fail("  FAIL ") .. testname(failed.test))
 	if failed.failure.__tag == "assertion" then
 		print(location(`\t{failed.failure.filename}:{failed.failure.linenumber}`))
@@ -40,7 +40,7 @@ local function printFailure(failed: tys.failedtest)
 	end
 end
 
-local function printSummary(result: tys.testrunresult)
+local function printSummary(result: tys.TestRunResult)
 	print(separator(string.rep("─", 50)))
 	print(
 		rt.bold("Results: ")
@@ -51,7 +51,7 @@ local function printSummary(result: tys.testrunresult)
 	)
 end
 
-local function colorReporter(result: tys.testrunresult)
+local function colorReporter(result: tys.TestRunResult)
 	if #result.failures > 0 then
 		print("")
 		print(fail("Failures:"))

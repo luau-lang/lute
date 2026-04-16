@@ -1,5 +1,6 @@
 local cli = require("@batteries/cli")
 local fs = require("@std/fs")
+local luau = require("@std/luau")
 local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
@@ -32,6 +33,10 @@ type PropertySignature = {
 	pendingDoc: { string },
 	inBlock: boolean,
 	blockEq: string?,
+}
+
+type Mapping = {
+	[string]: { alias: string, destination: string },
 }
 
 local function printHelp()
@@ -182,8 +187,8 @@ type Definition = { name: string, signature: string, doc: string? }
 local function generateMarkdown(
 	moduleName: string,
 	definitions: { Definition },
-	filePath: path.pathlike,
-	libraryPath: path.pathlike,
+	filePath: path.Pathlike,
+	libraryPath: path.Pathlike,
 	requireLibraryAlias: string
 ): string
 	local libPathStr = tostring(libraryPath)
@@ -224,10 +229,10 @@ local function generateMarkdown(
 end
 
 local function parseModule(
-	module: path.pathlike,
-	filePath: path.pathlike
+	module: path.Pathlike,
+	filePath: path.Pathlike
 ): { { name: string, signature: string, doc: string? } }
-	local content = fs.readfiletostring(filePath)
+	local content = fs.readFileToString(filePath)
 	local lines = string.split(content, "\n")
 
 	local moduleDefinitions = {}
@@ -256,21 +261,21 @@ local function parseModule(
 end
 
 local function processDirectory(
-	modulePath: path.pathlike,
-	documentationPath: path.pathlike,
-	libraryPath: path.pathlike,
+	modulePath: path.Pathlike,
+	documentationPath: path.Pathlike,
+	libraryPath: path.Pathlike,
 	requireLibraryAlias: string
 )
-	fs.createdirectory(documentationPath, { makeparents = true })
+	fs.createDirectory(documentationPath, { makeParents = true })
 
-	local entries = fs.listdirectory(modulePath)
+	local entries = fs.listDirectory(modulePath)
 
 	for _, entry in entries do
 		local entryPath = path.join(modulePath, entry.name)
 		local docPath = path.join(documentationPath, entry.name)
 
 		if entry.type == "dir" then
-			fs.createdirectory(docPath, { makeparents = true })
+			fs.createDirectory(docPath, { makeParents = true })
 			processDirectory(entryPath, docPath, libraryPath, requireLibraryAlias)
 		elseif entry.type == "file" and string.find(entry.name, "%.luau$") then
 			local moduleName = string.gsub(entry.name, "%.luau$", "")
@@ -292,7 +297,7 @@ local function processDirectory(
 			local definitions = parseModule(moduleAlias, entryPath)
 			local markdown = generateMarkdown(moduleName, definitions, entryPath, libraryPath, requireLibraryAlias)
 
-			fs.writestringtofile(documentationFilePath, markdown)
+			fs.writeStringToFile(documentationFilePath, markdown)
 
 			print(`Generated {tostring(documentationFilePath)}`)
 		end
@@ -302,8 +307,8 @@ end
 type Module = { name: string, isDir: boolean }
 
 -- Helper to generate index with table of children
-local function generateLibraryIndex(title: string, alias: string, modulePath: path.pathlike): string
-	local entries = fs.listdirectory(modulePath)
+local function generateLibraryIndex(title: string, alias: string, modulePath: path.Pathlike): string
+	local entries = fs.listDirectory(modulePath)
 	local modules: { Module } = {}
 
 	for _, entry in entries do
@@ -343,10 +348,34 @@ local function generateLibraryIndex(title: string, alias: string, modulePath: pa
 	return table.concat(lines, "\n")
 end
 
-local function generateAllDocs(outputDir: path.path, modulePaths: { string }): ()
+local function generateDocsFromMapping(mapping: Mapping): ()
+	for sourcePath, info in pairs(mapping) do
+		local absSourcePath = if path.isAbsolute(sourcePath)
+			then path.parse(sourcePath)
+			else path.resolve(process.cwd(), sourcePath)
+
+		if not fs.exists(absSourcePath) then
+			print(`Warning: Source path does not exist: {tostring(absSourcePath)}`)
+			continue
+		end
+
+		local destinationPath = if path.isAbsolute(info.destination)
+			then path.parse(info.destination)
+			else path.resolve(process.cwd(), info.destination)
+		local alias = info.alias
+
+		print(
+			`Generating docs for {tostring(absSourcePath)} with alias @{alias} to destination {tostring(destinationPath)}...`
+		)
+		processDirectory(absSourcePath, destinationPath, absSourcePath, alias)
+		print(`Completed generating docs for {tostring(absSourcePath)}.`)
+	end
+end
+
+local function generateAllDocs(outputDir: path.Path, modulePaths: { string }): ()
 	-- Create top-level reference index page
 	local referenceBasePath = path.join(outputDir, "reference")
-	fs.createdirectory(referenceBasePath, { makeparents = true })
+	fs.createDirectory(referenceBasePath, { makeParents = true })
 
 	-- Generate reference index with frontmatter for sidebar ordering
 	local referenceIndex = [[---
@@ -361,7 +390,7 @@ API reference documentation for Lute's built-in libraries.
 	-- Generate docs for each specified module path
 	for _, modulePath in modulePaths do
 		local modulePathObj = path.parse(modulePath)
-		local absModulePath = if path.isabsolute(modulePathObj)
+		local absModulePath = if path.isAbsolute(modulePathObj)
 			then modulePathObj
 			else path.resolve(process.cwd(), modulePathObj)
 
@@ -378,7 +407,7 @@ API reference documentation for Lute's built-in libraries.
 
 		-- Generate module index with table of children
 		local moduleIndex = generateLibraryIndex(libraryAlias, libraryAlias, absModulePath)
-		fs.writestringtofile(path.join(documentationPath, "index.md"), moduleIndex)
+		fs.writeStringToFile(path.join(documentationPath, "index.md"), moduleIndex)
 
 		-- Add to the reference index with the correct alias
 		referenceIndex ..= "\n\n- [" .. libraryAlias .. "](./" .. libraryAlias .. "/index.md)"
@@ -391,13 +420,17 @@ API reference documentation for Lute's built-in libraries.
 		end
 	end
 
-	fs.writestringtofile(path.join(referenceBasePath, "index.md"), referenceIndex)
+	fs.writeStringToFile(path.join(referenceBasePath, "index.md"), referenceIndex)
 end
 
 local function main(...: string)
 	local args = cli.parser()
 
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
+	args:add("mapping", "option", {
+		help = "Custom mapping for generating documentation",
+		aliases = { "m" },
+	})
 	args:add(
 		"output",
 		"option",
@@ -412,8 +445,17 @@ local function main(...: string)
 	end
 
 	local outputDir = path.parse(args:get("output") or tostring(DEFAULT_OUTPUT_DIR))
-	if not path.isabsolute(outputDir) then
+	if not path.isAbsolute(outputDir) then
 		outputDir = path.resolve(process.cwd(), outputDir)
+	end
+
+	local mapFile = args:get("mapping")
+	if mapFile then
+		local mapPath = path.join(process.cwd(), mapFile)
+		local mod = luau.loadModule(mapPath) :: Mapping
+		print(`Using custom mapping from file {tostring(mapPath)}`)
+		generateDocsFromMapping(mod)
+		return
 	end
 
 	local modulePaths = args:forwarded()

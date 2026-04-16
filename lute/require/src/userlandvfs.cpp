@@ -133,6 +133,20 @@ NavigationStatus UserlandVfs::resetToPath(const std::string& path)
     return fileVfs.resetToPath(path);
 }
 
+NavigationStatus UserlandVfs::jumpToAlias(const std::string& path)
+{
+    for (const auto& [identifier, info] : allDependencies)
+    {
+        if (path.rfind(info.rootDirectory, 0) == 0)
+            return jumpToDependencySubtree(identifier);
+    }
+
+    currentSubtree = std::nullopt;
+    vfsType = VFSType::Disk;
+
+    return fileVfs.jumpToAlias(path);
+}
+
 NavigationStatus UserlandVfs::toAliasFallback(std::string_view aliasUnprefixed)
 {
     std::vector<Identifier> availableDependencies;

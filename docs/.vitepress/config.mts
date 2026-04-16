@@ -10,7 +10,7 @@ export default withSidebar(
       nav: [
         { text: 'Guide', link: '/guide/installation' },
         { text: 'CLI', link: '/cli/' },
-        { text: 'Reference', link: '/reference' },
+        { text: 'Standard Library', link: '/std' },
       ],
       search: { provider: 'local' },
       socialLinks: [
@@ -27,6 +27,6 @@ export default withSidebar(
     hyphenToSpace: true,
     sortMenusByFrontmatterOrder: true,
     frontmatterOrderDefaultValue: 100,
-    excludeByGlobPattern: ['**/test/**', 'README.md'],
+    excludeByGlobPattern: ['README.md'],
   }
 )
