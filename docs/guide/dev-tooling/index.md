@@ -19,4 +19,4 @@ tests for you.
 
 ## [Linting](../../cli/lint/index.md)
 
-lute lint is a programmable linter for Luau code, shipped as part of Lute. It is programmable - you can write custom rules for your repository in Luau. It ships with a number of builtin rules, which you can run on your current directory with `lute lint`. For more information, check out the [lint documentation](../../cli/lint/index.md)!
+`lute lint` is a programmable linter for Luau code, shipped as part of Lute. It is programmable - you can write custom rules for your repository in Luau. It ships with a number of builtin rules, which you can run on your current directory with `lute lint`. For more information, check out the [lint documentation](../../cli/lint/index.md)!

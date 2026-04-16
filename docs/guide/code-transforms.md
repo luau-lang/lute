@@ -3,7 +3,11 @@ order: 6
 ---
 
 # Code Transformations
-One of the coolest parts of Lute is that we've exposed many of the Luau internals programmatically. That means that things like types, require-resolution, the Luau AST(Abstract Syntax Tree), Luau bytecode, and so on are exposed with public facing apis that you can use. Of these features, one of the slickest things we've exposed is the ability to write automatic code transformations. Using Lute libraries, you can now programmatically  describe how to change Luau source code and `lute transform` will handle running these transformations for you. In the following sections, we'll walk through writing a simple code transformation which doubles any numbers in the source program (we assume some basic level of familiarity with what an [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) is). As in the previous library, we'll be creating a new directory, with one file - `transform.luau`. Make sure to run `lute setup` in this directory!
+One of the coolest parts of Lute is that we've exposed many parts of the Luau programming language like types, require-resolution, the Luau abstract syntax tree (AST), and Luau bytecode.
+We've used these APIs to build `lute transform`: A tool to write automated and deterministic code transformations.
+This means that you can now use Lute libraries to programmatically describe how to change Luau source code and apply these changes using `lute transform`. 
+In the following sections, we'll walk through writing a simple code transformation which doubles any numbers in the source program (we assume some basic level of familiarity with what an [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) is).
+As in the previous library, we'll be creating a new directory, with one file - `transform.luau`. Make sure to run `lute setup` in this directory!
 
 ## Defining a code transformation
 
@@ -20,11 +24,19 @@ export type Context<Options = { [any]: any }> = {
 
 Note that AST's are immutable - rather than mutating them in place, we specify the changes we would like to make using a table of replacements and `lute transform` applies them for us.
 
-Lute provides two ways of writing transforms - a declarative, query based approach, and a visitor based approach. Since we recommend using the query based approach, we'll focus on that, and show how to write a visitor based approach at the end.
+:::info
+The returned table of replacements should have type `{ [AstNode] : string }`, ie map `AstNode`'s to the strings we would like to replace them with.
+For now, we only support string replacements since manually constructing `AstNode` tables is more error prone. 
+If you still want to construct replacement `AstNode`'s by hand, you can use the `@std/printer` library to serialize them before inserting them into your replacement map.
+:::
+
+Lute provides two ways of writing transforms: A declarative, query based approach, and a visitor based approach. 
+Most transformations can be written with the query approach. We'll start with that and discuss a visitor approach later.
 
 ### Query Based AST transforms
 
-In this section, we build up an example of a declarative 'query' based implementation which doubles any numbers found in the source program. We begin by selecting every AST node we're interested in - in this case, every number:
+In this section, we build up an example of a query based implementation which doubles any numbers found in the source program.
+We begin by selecting every AST node we're interested in - in this case, every number:
 
 ```luau
 query.findAllFromRoot(astRoot, utils.isExprConstantNumber)
