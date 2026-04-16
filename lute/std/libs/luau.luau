@@ -16,6 +16,7 @@ local luau = {}
 --- Compiled Luau bytecode produced by `luau.compile`.
 export type Bytecode = luteLuau.Bytecode
 
+--- A `require(...)` call found in a source file, with its resolved absolute path and the raw require string.
 export type RequireNode = {
 	resolvedPath: string?,
 	requirePath: string?,
@@ -65,6 +66,7 @@ function luau.resolveModule(modulepath: string, frompath: path.Pathlike): path.P
 	return luteLuau.resolveModule(modulepath, `@{frompathString}`)
 end
 
+--- Returns all `require(...)` calls found in the file at `filePath`, with resolved absolute paths where available.
 function luau.requires(filePath: path.Pathlike): { RequireNode }
 	local filePathStr = if typeof(filePath) == "string" then filePath else path.format(filePath)
 
