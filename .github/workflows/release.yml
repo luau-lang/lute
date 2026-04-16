@@ -1,188 +1,28 @@
-name: Build and Release
+name: Release
 
 on:
-  schedule:
-    - cron: "0 0 * * *"
   workflow_dispatch:
-    inputs:
-      nightly:
-        description: "Trigger a nightly build"
-        required: false
-        default: false
-        type: boolean
 
 jobs:
-  check:
+  validate:
     runs-on: ubuntu-latest
-    outputs:
-      proceed: ${{ steps.check.outputs.proceed }}
-      nightly_tag: ${{ steps.set_nightly.outputs.nightly_tag }}
-    permissions:
-      contents: read
 
     steps:
-      - name: Validate CI status
+      - name: Validate branch format
         run: |
-          LAST_STATUS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/luau-lang/lute/actions/workflows/ci.yml/runs?branch=primary&status=completed&per_page=1" \
-            | jq -r '.workflow_runs[0].conclusion')
+          BRANCH="${{ github.ref_name }}"
 
-          if [[ "$LAST_STATUS" != "success" ]]; then
-            echo "The latest CI run on 'primary' branch did not succeed. Aborting release."
+          if [[ ! "$BRANCH" =~ ^release/v[0-9]+\.[0-9]+\.x$ ]]; then
+            echo "Invalid branch format: $BRANCH. Expected release/v{Major}.{Minor}.x"
+            echo "Dispatch this workflow on a release branch (e.g. release/v0.1.x)"
             exit 1
           fi
 
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check for changes since last nightly tag
-        id: check
-        run: |
-          PROCEED="true"
-
-          if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            echo "Schedule trigger: Checking changes..."
-
-            LATEST_NIGHTLY_TAG=$(git tag --sort=-creatordate --list '*-nightly.*' | head -n 1)
-
-            if [[ -n "$LATEST_NIGHTLY_TAG" ]]; then
-              echo "Latest nightly tag found: $LATEST_NIGHTLY_TAG"
-              LATEST_NIGHTLY_COMMIT=$(git rev-list -n 1 "$LATEST_NIGHTLY_TAG" 2>/dev/null)
-              CURRENT_HEAD_COMMIT=$(git rev-parse HEAD)
-
-              echo "Commit for tag $LATEST_NIGHTLY_TAG: $LATEST_NIGHTLY_COMMIT"
-              echo "Current HEAD commit: $CURRENT_HEAD_COMMIT"
-
-              if [[ "$LATEST_NIGHTLY_COMMIT" == "$CURRENT_HEAD_COMMIT" ]]; then
-                echo "No code changes detected since the last nightly release ($LATEST_NIGHTLY_TAG)."
-                PROCEED="false"
-              else
-                echo "Code changes detected since $LATEST_NIGHTLY_TAG. Proceeding with build."
-              fi
-            else
-              echo "No previous nightly tag found. Proceeding with build."
-            fi
-          else
-            echo "Manual trigger ('${{ github.event_name }}'). Proceeding with build."
-          fi
-
-          echo "proceed=$PROCEED" >> $GITHUB_OUTPUT
-
-      - name: Set nightly version suffix
-        id: set_nightly
-        if: github.event_name == 'schedule' || github.event.inputs.nightly
-        run: |
-          DATE=$(date +%Y%m%d)
-          echo "nightly_tag=nightly.$DATE" >> "$GITHUB_OUTPUT"
-
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-22.04
-            artifact_name: lute-linux-x86_64
-            options: --c-compiler clang --cxx-compiler clang++
-          - os: ubuntu-22.04-arm
-            artifact_name: lute-linux-aarch64
-            options: --c-compiler clang --cxx-compiler clang++
-            use-bootstrap: true
-          - os: macos-latest
-            artifact_name: lute-macos-aarch64
-          - os: windows-latest
-            artifact_name: lute-windows-x86_64
-      fail-fast: false
-
-    needs: check
-    if: ${{ needs.check.outputs.proceed == 'true' }}
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # Used for lute --version
-      - name: Set nightly version suffix
-        if: needs.check.outputs.nightly_tag
-        run: echo "LUTE_VERSION_SUFFIX=${{ needs.check.outputs.nightly_tag }}" >> "$GITHUB_ENV"
-
-      - name: Setup and Build Lute
-        id: build_lute
-        uses: ./.github/actions/setup-and-build
-        with:
-          target: Lute.CLI
-          config: release
-          options: ${{ matrix.options }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          use-bootstrap: ${{ matrix.use-bootstrap || 'false' }}
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          path: ${{ steps.build_lute.outputs.exe_path }}
-          name: ${{ matrix.artifact_name }}
-
-  release:
-    needs: [check, build]
-    runs-on: ubuntu-latest
-
+  release-common:
+    needs: validate
     permissions:
       contents: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: CMakeBuild/get_version.cmake
-
-      - name: Download Artifact
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - run: |
-          mkdir release
-          for dir in ./artifacts/*; do
-            base_name=$(basename "$dir")
-            chmod 755 "$dir"/* # Artifacts don't preserve permissions, so re-add them.
-            zip -rj release/"${base_name}.zip" "$dir"/*
-          done
-
-      - name: Get project version
-        id: get_version
-        run: |
-          VERSION=$(cmake -P CMakeBuild/get_version.cmake 2>&1)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Create Nightly Tag
-        id: tag_step
-        if: needs.check.outputs.nightly_tag
-        run: |
-          echo "tag=-${{ needs.check.outputs.nightly_tag }}" >> $GITHUB_OUTPUT
-
-      - name: Create Release Tag
-        id: tag_release
-        run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          NIGHTLY_TAG=${{ steps.tag_step.outputs.tag }}
-          RELEASE_TAG="$VERSION$NIGHTLY_TAG"
-          echo "tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
-
-      - name: Create Draft Release
-        uses: luau-lang/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag_release.outputs.tag }}
-          name: ${{ steps.tag_release.outputs.tag }}
-          draft: true
-          prerelease: ${{ github.event.inputs.nightly || github.event_name == 'schedule' }}
-          generate_release_notes: true
-          files: release/*.zip
-
-      - name: Wait for Tag Creation in GitHub
-        run: sleep 5
-
-      - name: Publish Release
-        run: gh release edit "${{ steps.tag_release.outputs.tag }}" --draft=false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    uses: ./.github/workflows/release-common.yml
+    with:
+      branch: ${{ github.ref_name }}
+    secrets: inherit

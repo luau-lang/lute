@@ -32,10 +32,6 @@ static void enableAllLuauFlags()
 void setLuauFlags()
 {
     enableAllLuauFlags();
-    // This flag causes a regression in typechecking, which means that
-    // the canonical test we use to figure out if you're in the new solver doesn't work correctly
-    // We'll disable this until it gets fixed in the next release.
-    setLuauFlag("LuauOverloadGetsInstantiated", false);
 
     // Individual flags can be overridden here as needed, e.g.:
     // setLuauFlag("LuauSomeFlagThatCausedARegression", false);

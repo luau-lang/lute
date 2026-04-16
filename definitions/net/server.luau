@@ -1,22 +1,5 @@
 -- lute-lint-global-ignore(unused_variable)
-local net = {}
-
-export type Metadata = {
-	method: string?,
-	body: string?,
-	headers: { [string]: string }?,
-}
-
-export type Response = {
-	body: string,
-	headers: { [string]: string },
-	status: number,
-	ok: boolean,
-}
-
-function net.request(url: string, metadata: Metadata?): Response
-	error("not implemented")
-end
+local server = {}
 
 export type ReceivedRequest = {
 	method: string,
@@ -48,8 +31,8 @@ export type Server = {
 	close: () -> (),
 }
 
-function net.serve(config: Handler | Configuration): Server
+function server.serve(config: Handler | Configuration): Server
 	error("not implemented")
 end
 
-return net
+return server

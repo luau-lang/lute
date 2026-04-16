@@ -38,12 +38,12 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_simple_dependencies")
     }
 
     // Verify .luaurc file was discovered
-    auto luaurcFiles = tracer.getLuaurcFiles();
-    REQUIRE(luaurcFiles.size() == 2);
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 2);
 
     // Check that .luaurc exists in the map
-    CHECK(luaurcFiles.find(".luaurc") != nullptr);
-    CHECK(luaurcFiles.find("other/.luaurc") != nullptr);
+    CHECK(luauConfigFiles.find(".luaurc") != nullptr);
+    CHECK(luauConfigFiles.find("other/.luaurc") != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_circular_dependencies")
@@ -71,9 +71,9 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_circular_dependencies")
     CHECK(tracer.containsAbsolute(absoluteB));
 
     // Verify .luaurc file was discovered
-    auto luaurcFiles = tracer.getLuaurcFiles();
-    REQUIRE(luaurcFiles.size() == 1);
-    CHECK(luaurcFiles.find(".luaurc") != nullptr);
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 1);
+    CHECK(luauConfigFiles.find(".luaurc") != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_no_dependencies")
@@ -92,9 +92,9 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_no_dependencies")
     CHECK(pairs[0].first == "utils.luau");
 
     // Verify .luaurc file was discovered (should find it in the same directory)
-    auto luaurcFiles = tracer.getLuaurcFiles();
-    REQUIRE(luaurcFiles.size() == 1);
-    CHECK(luaurcFiles.find(".luaurc") != nullptr);
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 1);
+    CHECK(luauConfigFiles.find(".luaurc") != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_relative_paths")
@@ -117,9 +117,9 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_relative_paths")
     CHECK(tracer.containsAbsolute(absoluteShared));
 
     // Verify .luaurc file was discovered (should find it in parent directory)
-    auto luaurcFiles = tracer.getLuaurcFiles();
-    REQUIRE(luaurcFiles.size() == 1);
-    CHECK(luaurcFiles.find(".luaurc") != nullptr);
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 1);
+    CHECK(luauConfigFiles.find(".luaurc") != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_requirealias")
@@ -145,9 +145,9 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_requirealias")
     CHECK(tracer.getLowestCommonRoot() == testDir);
 
     // Verify .luaurc file was discovered (should find it in parent directory)
-    auto luaurcFiles = tracer.getLuaurcFiles();
-    REQUIRE(luaurcFiles.size() == 1);
-    CHECK(luaurcFiles.find(".luaurc") != nullptr);
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 1);
+    CHECK(luauConfigFiles.find(".luaurc") != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_require_graph")
@@ -179,10 +179,10 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_require_graph")
 
 
     // Verify .luaurc file was discovered
-    auto luaurcFiles = tracer.getLuaurcFiles();
-    REQUIRE(luaurcFiles.size() == 2);
-    CHECK(luaurcFiles.find(".luaurc") != nullptr);
-    CHECK(luaurcFiles.find("other/.luaurc") != nullptr);
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 2);
+    CHECK(luauConfigFiles.find(".luaurc") != nullptr);
+    CHECK(luauConfigFiles.find("other/.luaurc") != nullptr);
 
     // Verify the graph can be printed without errors (visual inspection of output)
     tracer.printRequireGraph();
@@ -286,10 +286,10 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_bundle_paths_and_contains")
     CHECK(!tracer.containsAbsolute(nonExistentAbsolute));
 
     // Verify .luaurc file was discovered
-    auto luaurcFiles = tracer.getLuaurcFiles();
-    REQUIRE(luaurcFiles.size() == 2);
-    CHECK(luaurcFiles.find(".luaurc") != nullptr);
-    CHECK(luaurcFiles.find("other/.luaurc") != nullptr);
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 2);
+    CHECK(luauConfigFiles.find(".luaurc") != nullptr);
+    CHECK(luauConfigFiles.find("other/.luaurc") != nullptr);
 }
 
 TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_multiple_luaurc_files")
@@ -325,13 +325,38 @@ TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_multiple_luaurc_files")
     }
 
     // Verify both .luaurc files were discovered
-    auto luaurcFiles = tracer.getLuaurcFiles();
-    REQUIRE(luaurcFiles.size() == 2);
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 2);
 
     // Check that both .luaurc files exist in the map
-    const std::string* rootLuaurc = luaurcFiles.find(".luaurc");
+    const std::string* rootLuaurc = luauConfigFiles.find(".luaurc");
     REQUIRE(rootLuaurc != nullptr);
 
-    const std::string* otherLuaurc = luaurcFiles.find("other/.luaurc");
+    const std::string* otherLuaurc = luauConfigFiles.find("other/.luaurc");
     REQUIRE(otherLuaurc != nullptr);
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "staticrequiretracer_luau_config")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testDir = joinPaths(luteProjectRoot, "tests/src/staticrequires_luau_config");
+    std::string entryPoint = joinPaths(testDir, "main.luau");
+
+    StaticRequireTracer tracer{getReporter()};
+    tracer.trace(entryPoint);
+
+    auto pairs = tracer.getStaticRequirePairs();
+
+    // main.luau requires @nested/example, should resolve via .config.luau alias
+    REQUIRE(pairs.size() == 2);
+    CHECK(pairs[0].first == "main.luau");
+
+    std::string absoluteExample = joinPaths(tracer.getLowestCommonRoot(), "dep/nested/example.luau");
+    CHECK(tracer.containsAbsolute(absoluteExample));
+
+    // Verify .config.luau file was discovered (not .luaurc)
+    auto luauConfigFiles = tracer.getLuauConfigFiles();
+    REQUIRE(luauConfigFiles.size() == 1);
+    CHECK(luauConfigFiles.find(".config.luau") != nullptr);
+    CHECK(luauConfigFiles.find(".luaurc") == nullptr);
 }

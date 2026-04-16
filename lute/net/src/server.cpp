@@ -1,0 +1,590 @@
+#include "lute/net.h"
+
+#include "lute/runtime.h"
+
+#include "Luau/DenseHash.h"
+#include "Luau/Variant.h"
+
+#include "lua.h"
+#include "lualib.h"
+
+#include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+
+#include "App.h"
+#include "Loop.h"
+
+namespace net::server
+{
+
+using uWSApp = Luau::Variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSLApp>>;
+
+static const int kEmptyServerKey = 0;
+static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
+static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
+static int nextServerId = 1;
+
+struct ServerLoopState
+{
+    Luau::Variant<uWS::App*, uWS::SSLApp*> app;
+    Runtime* runtime;
+    bool running = true;
+    std::function<void()> loopFunction;
+    std::shared_ptr<Ref> handlerRef;
+    std::string hostname;
+    int port;
+    bool reusePort = false;
+};
+
+static void parseQuery(const std::string_view& query, lua_State* L)
+{
+    lua_createtable(L, 0, 0);
+    size_t start = (!query.empty() && query[0] == '?') ? 1 : 0;
+    if (start >= query.size())
+        return;
+
+    while (start < query.size())
+    {
+        size_t end = query.find('&', start);
+        size_t pairLength = (end == std::string::npos) ? (query.size() - start) : (end - start);
+        std::string_view pair = std::string_view(query.data() + start, pairLength);
+        size_t eq = pair.find('=');
+        if (eq != std::string::npos)
+        {
+            std::string_view key = std::string_view(pair.data(), eq);
+            std::string_view value = uWS::getDecodedQueryValue(key, query);
+            lua_pushlstring(L, key.data(), key.size());
+            lua_pushlstring(L, value.data(), value.size());
+            lua_settable(L, -3);
+        }
+
+        if (end == std::string::npos)
+            break;
+
+        start = end + 1;
+    }
+}
+
+static void parseHeaders(auto* req, lua_State* L)
+{
+    lua_createtable(L, 0, 0);
+    for (const auto& header : *req)
+    {
+        lua_pushlstring(L, header.first.data(), header.first.size());
+        lua_pushlstring(L, header.second.data(), header.second.size());
+        lua_settable(L, -3);
+    }
+}
+
+static void handleResponse(auto* res, lua_State* L, int responseIndex)
+{
+    if (lua_isstring(L, responseIndex))
+    {
+        std::string body = lua_tostring(L, responseIndex);
+        res->writeStatus("200 OK");
+        res->writeHeader("Content-Type", "text/html");
+        res->end(body);
+        return;
+    }
+
+    if (!lua_istable(L, responseIndex))
+    {
+        res->writeStatus("500 Internal Server Error");
+        res->end("Handler must return a string or a response table");
+        return;
+    }
+
+    lua_getfield(L, responseIndex, "status");
+    int status = lua_isnumber(L, -1) ? lua_tointeger(L, -1) : 200;
+    lua_pop(L, 1);
+
+    std::string statusText;
+    switch (status)
+    {
+    case 200:
+        statusText = "200 OK";
+        break;
+    case 201:
+        statusText = "201 Created";
+        break;
+    case 204:
+        statusText = "204 No Content";
+        break;
+    case 400:
+        statusText = "400 Bad Request";
+        break;
+    case 401:
+        statusText = "401 Unauthorized";
+        break;
+    case 403:
+        statusText = "403 Forbidden";
+        break;
+    case 404:
+        statusText = "404 Not Found";
+        break;
+    case 500:
+        statusText = "500 Internal Server Error";
+        break;
+    default:
+        statusText = std::to_string(status) + " Status";
+        break;
+    }
+    res->writeStatus(statusText);
+
+    lua_getfield(L, responseIndex, "headers");
+    if (lua_istable(L, -1))
+    {
+        lua_pushnil(L);
+        while (lua_next(L, -2))
+        {
+            if (lua_isstring(L, -2) && lua_isstring(L, -1))
+            {
+                std::string headerName = lua_tostring(L, -2);
+                std::string headerValue = lua_tostring(L, -1);
+                res->writeHeader(headerName, headerValue);
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, responseIndex, "body");
+
+    std::string body;
+    if (!lua_isnil(L, -1))
+    {
+        size_t bodyLength = 0;
+        const char* bodyData = lua_tolstring(L, -1, &bodyLength);
+        if (bodyData)
+            body.assign(bodyData, bodyLength);
+    }
+    lua_pop(L, 1);
+
+    res->end(body);
+}
+
+template <typename ResT>
+struct HttpYieldContext
+{
+    ResT* res = nullptr;
+    std::atomic<bool> aborted{false};
+    std::shared_ptr<Ref> threadRef;
+};
+
+template <typename ResT>
+static void finishHttpYield(lua_State* L, int status, const std::shared_ptr<HttpYieldContext<ResT>>& ctx)
+{
+    if (!ctx)
+    {
+        lua_settop(L, 0);
+        return;
+    }
+
+    ResT* res = ctx->res;
+
+    if (!res || ctx->aborted.load())
+    {
+        lua_settop(L, 0);
+        return;
+    }
+
+    if (status == LUA_OK)
+    {
+        handleResponse(res, L, -1);
+    }
+    else
+    {
+        std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
+        res->writeStatus("500 Internal Server Error");
+        res->end("Server error: " + error);
+    }
+
+    ctx->res = nullptr;
+    lua_settop(L, 0);
+}
+
+static void processRequest(
+    std::shared_ptr<ServerLoopState> state,
+    auto* res,
+    auto* req,
+    const std::string& method,
+    const std::string_view& path,
+    const std::string_view& query,
+    const std::string_view& body
+)
+{
+    lua_State* L = lua_newthread(state->runtime->GL);
+    luaL_sandboxthread(L);
+    std::shared_ptr<Ref> threadRef = getRefForThread(L);
+    lua_pop(state->runtime->GL, 1);
+
+    lua_createtable(L, 0, 5);
+
+    lua_pushstring(L, "method");
+    lua_pushstring(L, method.c_str());
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "path");
+    lua_pushlstring(L, path.data(), path.size());
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "query");
+    parseQuery(query, L);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "headers");
+    parseHeaders(req, L);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "body");
+    lua_pushlstring(L, body.data(), body.size());
+    lua_settable(L, -3);
+
+    state->handlerRef->push(L);
+
+    lua_pushvalue(L, -2);
+    lua_remove(L, -3);
+
+    int status = lua_resume(L, nullptr, 1);
+
+    if (status == LUA_YIELD)
+    {
+        using ResT = std::remove_pointer_t<decltype(res)>;
+
+        auto ctx = std::make_shared<HttpYieldContext<ResT>>();
+        ctx->res = res;
+        ctx->threadRef = std::move(threadRef);
+
+        res->onAborted(
+            [ctx]()
+            {
+                ctx->aborted.store(true);
+                ctx->res = nullptr;
+            }
+        );
+
+        ThreadCompletionHandler completion;
+        completion.onFinish = [ctx](lua_State* L, int completionStatus)
+        {
+            finishHttpYield<ResT>(L, completionStatus, ctx);
+        };
+
+        state->runtime->addThreadCompletionHandler(L, std::move(completion));
+        lua_settop(L, 0);
+        return;
+    }
+
+    if (status != LUA_OK)
+    {
+        std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
+        lua_pop(L, 1);
+
+        res->writeStatus("500 Internal Server Error");
+        res->end("Server error: " + error);
+        return;
+    }
+
+    handleResponse(res, L, -1);
+
+    lua_pop(L, 1);
+}
+
+static void setupAppAndListen(auto* app, std::shared_ptr<ServerLoopState> state, bool& success)
+{
+    app->any(
+        "/*",
+        [state](auto* res, auto* req)
+        {
+            std::string method = std::string(req->getMethod());
+            std::transform(method.begin(), method.end(), method.begin(), ::toupper);
+            std::string_view url = req->getFullUrl();
+            std::string_view path = url;
+
+            size_t queryPos = url.find('?');
+            std::string query;
+            if (queryPos != std::string::npos)
+            {
+                path = std::string_view(url.data(), queryPos);
+                query = std::string_view(url.data() + queryPos, url.size() - queryPos);
+            }
+
+            res->onAborted(
+                []()
+                {
+                    // TODO: handle aborted requests
+                }
+            );
+
+            std::unique_ptr<std::string> bodyBuffer;
+            res->onData(
+                [state, res, req, method, path, query, bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
+                {
+                    if (last)
+                    {
+                        if (bodyBuffer.get())
+                        {
+                            bodyBuffer->append(data);
+                            processRequest(state, res, req, method, path, query, *bodyBuffer);
+                        }
+                        else
+                        {
+                            processRequest(state, res, req, method, path, query, data);
+                        }
+                    }
+                    else
+                    {
+                        if (bodyBuffer.get())
+                        {
+                            bodyBuffer->append(data);
+                        }
+                        else
+                        {
+                            bodyBuffer = std::make_unique<std::string>(data);
+                        }
+                    }
+                }
+            );
+        }
+    );
+
+    int options = state->reusePort ? LIBUS_LISTEN_DEFAULT : LIBUS_LISTEN_EXCLUSIVE_PORT;
+
+    app->listen(
+        state->hostname,
+        state->port,
+        options,
+        [&success](auto* listen_socket)
+        {
+            success = (listen_socket != nullptr);
+        }
+    );
+}
+
+static bool closeServer(int serverId)
+{
+    if (!serverInstances.contains(serverId) || !serverStates.contains(serverId))
+    {
+        return false;
+    }
+
+    Luau::visit(
+        [](auto* appPtr)
+        {
+            if (appPtr)
+                appPtr->close();
+        },
+        serverStates[serverId]->app
+    );
+    serverStates[serverId]->running = false;
+
+    Luau::visit(
+        [](auto& ptr)
+        {
+            if (ptr)
+                ptr.reset();
+        },
+        serverInstances[serverId]
+    );
+    serverStates[serverId] = nullptr;
+
+    return true;
+}
+
+int serve(lua_State* L)
+{
+    uWS::Loop::get(getRuntimeLoop(L));
+
+    std::string hostname = "127.0.0.1";
+    int port = 3000;
+    bool reusePort = false;
+    std::optional<uWS::SocketContextOptions> tlsOptions;
+    int handlerIndex = 1;
+
+    if (lua_istable(L, 1))
+    {
+        lua_getfield(L, 1, "hostname");
+        if (lua_isstring(L, -1))
+        {
+            hostname = lua_tostring(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 1, "port");
+        if (lua_isnumber(L, -1))
+        {
+            port = lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 1, "reuseport");
+        if (lua_isboolean(L, -1))
+        {
+            reusePort = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 1, "tls");
+        if (lua_istable(L, -1))
+        {
+            tlsOptions.emplace();
+
+            lua_getfield(L, -1, "certfilename");
+            if (!lua_isstring(L, -1))
+            {
+                luaL_errorL(L, "tls config requires 'certfilename' (string)");
+                return 0;
+            }
+            tlsOptions->cert_file_name = lua_tostring(L, -1);
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "keyfilename");
+            if (!lua_isstring(L, -1))
+            {
+                luaL_errorL(L, "tls config requires 'keyfilename' (string)");
+                return 0;
+            }
+            tlsOptions->key_file_name = lua_tostring(L, -1);
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "passphrase");
+            if (lua_isstring(L, -1))
+            {
+                tlsOptions->passphrase = lua_tostring(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "cafilename");
+            if (lua_isstring(L, -1))
+            {
+                tlsOptions->ca_file_name = lua_tostring(L, -1);
+            }
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 1, "handler");
+        if (!lua_isfunction(L, -1))
+        {
+            lua_pop(L, 1);
+            luaL_errorL(L, "handler function is required in config table");
+            return 0;
+        }
+        lua_insert(L, -1);
+        handlerIndex = lua_gettop(L);
+    }
+    else if (!lua_isfunction(L, 1))
+    {
+        luaL_errorL(L, "serve requires a handler function or config table");
+        return 0;
+    }
+
+    Runtime* runtime = getRuntime(L);
+
+    int serverId = nextServerId++;
+
+    auto state = std::make_shared<ServerLoopState>();
+    state->runtime = runtime;
+    state->hostname = hostname;
+    state->port = port;
+    state->reusePort = reusePort;
+
+    lua_pushvalue(L, handlerIndex);
+    state->handlerRef = std::make_shared<Ref>(L, -1);
+    lua_pop(L, 1);
+
+    uWSApp app;
+    bool success = false;
+
+    if (tlsOptions)
+    {
+        auto ssl_app = std::make_unique<uWS::SSLApp>(*tlsOptions);
+        state->app = ssl_app.get();
+        setupAppAndListen(ssl_app.get(), state, success);
+        app = std::move(ssl_app);
+    }
+    else
+    {
+        auto plain_app = std::make_unique<uWS::App>();
+        state->app = plain_app.get();
+        setupAppAndListen(plain_app.get(), state, success);
+        app = std::move(plain_app);
+    }
+
+    if (!success)
+    {
+        luaL_errorL(L, "failed to listen on port %d, is it already in use? consider the reuseport option", port);
+        return 0;
+    }
+
+    serverInstances[serverId] = std::move(app);
+    serverStates[serverId] = state;
+
+    lua_createtable(L, 0, 3);
+
+    lua_pushstring(L, "hostname");
+    lua_pushstring(L, hostname.c_str());
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "port");
+    lua_pushinteger(L, port);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "close");
+    lua_pushinteger(L, serverId);
+    lua_pushcclosurek(
+        L,
+        [](lua_State* L) -> int
+        {
+            int serverId = lua_tointeger(L, lua_upvalueindex(1));
+
+            lua_pushboolean(L, closeServer(serverId));
+            return 1;
+        },
+        "server_close",
+        1,
+        nullptr
+    );
+    lua_settable(L, -3);
+
+    return 1;
+}
+
+} // namespace net::server
+
+const char* const NetServer::properties[] = {nullptr};
+
+const luaL_Reg NetServer::lib[] = {
+    {"serve", net::server::serve},
+    {nullptr, nullptr},
+};
+
+int NetServer::pushLibrary(lua_State* L)
+{
+    lua_createtable(L, 0, std::size(NetServer::lib));
+
+    for (auto& [name, func] : NetServer::lib)
+    {
+        if (!name || !func)
+            break;
+
+        lua_pushcfunction(L, func, name);
+        lua_setfield(L, -2, name);
+    }
+
+    lua_setreadonly(L, -1, 1);
+
+    return 1;
+}
+
+int luteopen_net_server(lua_State* L)
+{
+    return NetServer::pushLibrary(L);
+}

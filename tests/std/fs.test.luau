@@ -228,6 +228,30 @@ test.suite("FsSuite", function(suite)
 		assert.eq(fs.exists(file3), false)
 	end)
 
+	suite:case("metadataDurationsHaveWorkingMetatable", function(assert)
+		local file = path.join(tmpdir, "duration_meta_test.txt")
+		fs.writeStringToFile(file, "test")
+
+		local m = fs.metadata(file)
+
+		-- duration methods should work without requiring @lute/time
+		assert.that(m.created:toSeconds() > 0)
+		assert.that(m.accessed:toSeconds() > 0)
+		assert.that(m.modified:toSeconds() > 0)
+
+		-- __tostring should produce "seconds.nanoseconds" format, not "userdata: 0x..."
+		assert.that(tostring(m.created):match("^%d+%.%d+$"))
+
+		-- arithmetic should work
+		local sum = m.created + m.modified
+		assert.that(sum:toSeconds() > 0)
+
+		-- comparisons should work
+		assert.that(m.created <= m.modified or m.modified <= m.created)
+
+		fs.remove(file)
+	end)
+
 	suite:case("removeDirectoryRecursiveFalseWithContents", function(assert)
 		local dir = path.join(tmpdir, "non_empty_dir")
 		fs.createDirectory(dir, { makeParents = true })
