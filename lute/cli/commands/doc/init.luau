@@ -13,13 +13,13 @@ local STDLIB_MODULE_ALIASES = {
 	fs = "fslib",
 	io = "iolib",
 	process = "processlib",
-	task = "tasklib",
 	path = "pathlib",
 	system = "systemlib",
 	trivia = "retrieverLib",
 	visitor = "visitorlib",
 	query = "queryLib",
 	printer = "printerLib",
+	failure = "failures",
 }
 
 local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$"
