@@ -52,8 +52,7 @@ export type TypePack = luteLuau.TypePack
 --- A Luau type, representing the type of a value or expression.
 export type Type = luteLuau.Type
 
---- Returns the type pack representing the return types of the module at `modulepath`, or `nil` if unavailable.
-function luau.typeofModule(modulepath: path.Pathlike): TypePack?
+function luau.typeofModule(modulepath: path.Pathlike): (TypePack, {[string]: Type})
 	local modulePathStr = if typeof(modulepath) == "string" then modulepath else path.format(modulepath)
 
 	return luteLuau.typeofModule(modulePathStr)

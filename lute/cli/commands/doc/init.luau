@@ -4,6 +4,7 @@ local luau = require("@std/luau")
 local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
+local typeprinter = require("@std/syntax/typeprinter")
 
 local USAGE = "Usage: lute doc [OPTIONS] [...MODULE_PATHS]"
 local DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "docs")
@@ -22,17 +23,19 @@ local STDLIB_MODULE_ALIASES = {
 	printer = "printerLib",
 }
 
-local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$"
-local blockCommentStartPattern = "^%s*%-%-%[(=+)%["
+-- Escapes special Luau pattern characters for use in string.gsub
+local function escapeLuauPattern(s: string): string
+	return (string.gsub(s, "([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1"))
+end
+
+local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$" -- `---`
+local blockCommentStartPattern = "^%s*%-%-%[(=*)%[" -- `--[[` or `--[=[` etc.
 local whitespacePattern = "^%s*$"
 
-type PropertySignature = {
-	name: string?,
-	signature: string?,
+type Definition = {
+	name: string,
+	signature: string,
 	doc: string?,
-	pendingDoc: { string },
-	inBlock: boolean,
-	blockEq: string?,
 }
 
 type Mapping = {
@@ -60,24 +63,38 @@ EXAMPLES:
 ]])
 end
 
--- extractPropertySignature: (this function runs on one line at a time so we need to keep some states for block comments)
--- module (module name)
--- line (current line)
--- pendingDoc (accumulated doc lines so far)
--- inBlock (are we currently inside a block comment?)
--- blockEq (the "=" sequence used for block comment delimiting, e.g. "=" for --[=[  ; nil when not inside)
-local function extractPropertySignature(
-	module: string,
-	line: string,
-	pendingDoc: { string },
-	inBlock: boolean,
-	blockEq: string?
-): PropertySignature
-	-- 1) If we're *not* in a block, detect block start that may include = signs:
-	if not inBlock then
+local function collectDocs(content: string, moduleAlias: path.Pathlike): { [string]: string }
+	local lines = string.split(content, "\n")
+	local pendingDoc = {}
+	local docMap = {}
+	local inBlock = false
+	local blockEq: string? = nil
+
+	for _, line in lines do
+		-- handle block comment continuation
+		if inBlock then
+			local eq = blockEq or ""
+			local closingPattern = "%]" .. eq .. "%]"
+			local before = string.match(line, "^(.-)" .. closingPattern)
+			if before then
+				before = stringext.trim(before)
+				if before ~= "" then
+					table.insert(pendingDoc, before)
+				end
+				inBlock = false
+				blockEq = nil
+			else
+				local trimmed = stringext.trim(line)
+				if trimmed ~= "" then
+					table.insert(pendingDoc, trimmed)
+				end
+			end
+			continue
+		end
+
+		-- detect block comment start
 		local eq = string.match(line, blockCommentStartPattern)
-		if eq ~= nil then
-			-- start of block comment, capture part after the opening delimiter, if any
+		if eq then
 			local after = string.match(line, "^%s*%-%-%[" .. eq .. "%[(.*)$")
 			if after then
 				after = stringext.trim(after)
@@ -85,179 +102,173 @@ local function extractPropertySignature(
 					table.insert(pendingDoc, after)
 				end
 			end
-
-			return {
-				pendingDoc = pendingDoc,
-				inBlock = true,
-				blockEq = eq, -- remember the = count for closing pattern
-			}
+			inBlock = true
+			blockEq = eq
+			continue
 		end
-	end
 
-	-- 2) If we're inside a block, accumulate until we find the matching close
-	if inBlock then
-		local eq = blockEq or ""
-		-- find the closing pattern "]=]" that matches the # of "=" used in opening
-		local closingPattern = "%]" .. eq .. "%]"
-		local before = string.match(line, "^(.-)" .. closingPattern)
-		if before then
-			-- closing found on this line
-			before = stringext.trim(before)
-			if before ~= "" then
-				table.insert(pendingDoc, before)
+		-- triple-dash comment
+		local triple = string.match(line, tripleDashCommentPattern)
+		if triple then
+			local txt = stringext.trim(triple)
+			if txt ~= "" then
+				table.insert(pendingDoc, txt)
 			end
+			continue
+		end
 
-			-- there might be trailing comment markers like "]]" on the same line;
-			-- we've already captured inner content, so we just exit block mode.
-			inBlock = false
-			blockEq = nil
-		else
-			-- still inside block: append whole line (trimmed)
-			local trimmed = stringext.trim(line)
-			if trimmed ~= "" then
-				table.insert(pendingDoc, trimmed)
+		-- property assignment
+		local propName = string.match(line, `^{moduleAlias}%.([%w_]+)%s*=`)
+		if propName then
+			if #pendingDoc > 0 then
+				docMap[propName] = table.concat(pendingDoc, "\n\n")
+				pendingDoc = {}
 			end
+			continue
 		end
 
-		return {
-			pendingDoc = pendingDoc,
-			inBlock = inBlock,
-			blockEq = blockEq,
-		}
-	end
-
-	-- 3) Triple dash comment? (---)
-	local triple = string.match(line, tripleDashCommentPattern)
-	if triple then
-		local txt = stringext.trim(triple)
-		if txt ~= "" then
-			table.insert(pendingDoc, txt)
+		-- function declaration
+		local fnName = string.match(line, `^function%s+{moduleAlias}%.([%w_]+)`)
+		if fnName then
+			if #pendingDoc > 0 then
+				docMap[fnName] = table.concat(pendingDoc, "\n\n")
+				pendingDoc = {}
+			end
+			continue
 		end
-		return {
-			pendingDoc = pendingDoc,
-			inBlock = inBlock,
-			blockEq = blockEq,
-		}
+
+		-- reset on real code
+		if not string.match(line, whitespacePattern) then
+			pendingDoc = {}
+		end
 	end
 
-	-- 4) Match property declarations like: process.env = {} :: { [string]: string }
-	local propName, propType = string.match(line, `^{module}%.([%w_]+)%s*=%s*.-::%s*(.+)$`)
-	if propName and propType then
-		return {
-			name = propName,
-			signature = propType,
-			doc = if #pendingDoc > 0 then table.concat(pendingDoc, "\n\n") else nil,
-			pendingDoc = {},
-			inBlock = inBlock,
-			blockEq = blockEq,
-		}
-	end
-
-	-- 5) Match function declarations like: function crypto.password.hash(password: string): buffer
-	local fullName, params, _return, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
-	if fullName then
-		fullName = string.match(fullName, "^(.*)%b<>$") or fullName
-		returnType = if returnType == "" then "()" else returnType
-
-		return {
-			name = fullName,
-			signature = `{params} -> {returnType}`,
-			doc = if #pendingDoc > 0 then table.concat(pendingDoc, "\n\n") else nil,
-			pendingDoc = {},
-			inBlock = inBlock,
-			blockEq = blockEq,
-		}
-	end
-
-	-- 6) If we reach here and there's any non-whitespace (i.e., code), reset pendingDoc to clear old comments
-	if not string.match(line, whitespacePattern) then
-		pendingDoc = {}
-	end
-
-	-- nothing found on this line
-	return {
-		pendingDoc = pendingDoc,
-		inBlock = inBlock,
-		blockEq = blockEq,
-	}
+	return docMap
 end
-
-type Definition = { name: string, signature: string, doc: string? }
 
 local function generateMarkdown(
-	moduleName: string,
-	definitions: { Definition },
-	filePath: path.Pathlike,
-	libraryPath: path.Pathlike,
-	requireLibraryAlias: string
+    moduleName: string,
+    definitions: { Definition },
+    exportedTypes: { [string]: any },
+    filePath: path.Pathlike,
+    libraryPath: path.Pathlike,
+    requireLibraryAlias: string
 ): string
-	local libPathStr = tostring(libraryPath)
-	local filePathStr = tostring(filePath)
+    local libPathStr = tostring(libraryPath)
+    local filePathStr = tostring(filePath)
 
-	local relativePath = string.sub(filePathStr, #libPathStr + 2) -- gets the path relative to the require path (only relevant for subdirs like std/libs)
-	relativePath = string.gsub(relativePath, "%.luau$", "")
-	local requirePath = string.gsub(relativePath, "/init$", "") -- remove trailing /init and use the module dir name
+    local relativePath = string.sub(filePathStr, #libPathStr + 2)
+    relativePath = string.gsub(relativePath, "%.luau$", "")
+    local requirePath = string.gsub(relativePath, "/init$", "")
 
-	local lines = {
-		`# {moduleName}`,
-		"",
-		"```luau",
-		`local {moduleName} = require("@{requireLibraryAlias}/{requirePath}")`,
-		"```",
-		"",
-	}
+    local lines = {
+        `# {moduleName}`,
+        "",
+        "```luau",
+        `local {moduleName} = require("@{requireLibraryAlias}/{requirePath}")`,
+        "```",
+        "",
+        "## Summary",
+        "",
+        "| Function / Property | Description |",
+        "| :--- | :--- |",
+    }
 
-	-- LUAUFIX: we should not need to explicitly instantiate the type of `table.sort` here
-	table.sort<<Definition>>(definitions, function(a, b)
-		return a.name < b.name
-	end)
+    -- Sort definitions alphabetically
+    table.sort(definitions, function(a, b) return a.name < b.name end)
 
-	for _, def in definitions do
-		table.insert(lines, `## {moduleName}.{def.name}\n`)
+    for _, def in definitions do
+        local summary = if def.doc then string.split(def.doc, "\n")[1] else ""
+        -- Slugify link for Markdown compatibility
+        local anchor = `{moduleName:lower()}{def.name:lower()}`
+        table.insert(lines, `| [{def.name}](#{anchor}) | {summary} |`)
+    end
 
-		-- Insert the documentation if it exists
-		if def.doc then
-			table.insert(lines, `{def.doc}\n`)
+    table.insert(lines, "\n---\n")
+
+    -- User-Defined Types Glossary Section
+    local typeNames = {}
+    for name in pairs(exportedTypes) do table.insert(typeNames, name) end
+    
+    if #typeNames > 0 then
+        table.sort(typeNames)
+        table.insert(lines, "## Types\n")
+        for _, tName in typeNames do
+            table.insert(lines, `### {tName}`)
+            table.insert(lines, "```luau")
+            -- We pass nil for aliases here so the glossary actually expands the definition
+            local definition = typeprinter.renderType(exportedTypes[tName])
+            table.insert(lines, `type {tName} = {definition}`)
+            table.insert(lines, "```\n")
+        end
+    end
+
+    -- Detailed API reference
+	table.insert(lines, "## Properties and Functions\n")
+    for _, def in definitions do
+        table.insert(lines, `## {moduleName}.{def.name}`)
+        table.insert(lines, "```luau")
+
+		if string.find(def.signature, "->") then
+			table.insert(lines, `function {def.name}{def.signature}`)
+		else
+			table.insert(lines, `{def.signature}`)
 		end
-		table.insert(lines, "```luau")
-		table.insert(lines, def.signature)
-		table.insert(lines, "```")
-		table.insert(lines, "")
-	end
 
-	return table.concat(lines, "\n")
+        table.insert(lines, "```")
+        if def.doc then table.insert(lines, def.doc .. "\n") end
+        table.insert(lines, "---\n")
+    end
+
+    return table.concat(lines, "\n")
 end
 
-local function parseModule(
-	module: path.Pathlike,
-	filePath: path.Pathlike
-): { { name: string, signature: string, doc: string? } }
-	local content = fs.readFileToString(filePath)
-	local lines = string.split(content, "\n")
+local function parseModule(module: path.Pathlike, filePath: path.Pathlike)
+    local content = fs.readFileToString(filePath)
+    local docMap = collectDocs(content, module)
+    local returnTypePack, exportedTypes = luau.typeofModule(filePath)
+    
+    if not returnTypePack or not returnTypePack.head or #returnTypePack.head == 0 then
+        return {}, {}
+    end
 
-	local moduleDefinitions = {}
-	local pendingDoc = {}
-	local inBlock = false
-	local blockEq = nil
+    -- Build a map from expanded type string -> type name for string-based substitution of the user-defined types in the function signatures. This allows the signatures to use the named type aliases instead of the full expanded forms, which can be very long and difficult to read.
+    local expandedToName: { [string]: string } = {}
+    if exportedTypes then
+        for name, typeObj in pairs(exportedTypes) do
+            local expanded = typeprinter.renderType(typeObj)
+            expandedToName[expanded] = name
+        end
+    end
 
-	for _, line in lines do
-		local ps = extractPropertySignature(tostring(module), line, pendingDoc, inBlock, blockEq)
+    -- Sort expanded strings by length descending so longer matches are replaced first,
+    -- preventing partial substitutions (e.g. replacing a substring of a larger type).
+    local sortedExpanded: { string } = {}
+    for expanded in pairs(expandedToName) do
+        table.insert(sortedExpanded, expanded)
+    end
+    table.sort(sortedExpanded, function(a, b)
+        return #a > #b
+    end)
 
-		-- update state carried across lines
-		pendingDoc = ps.pendingDoc
-		inBlock = ps.inBlock
-		blockEq = ps.blockEq
+    local moduleType = returnTypePack.head[1]
+    local moduleDefinitions = {}
+    for name, prop in pairs(moduleType.properties or {}) do
+        if prop.read then
+            local sig = typeprinter.renderType(prop.read)
+            -- Substitute any expanded type forms with their named aliases
+            for _, expanded in sortedExpanded do
+                sig = string.gsub(sig, escapeLuauPattern(expanded), expandedToName[expanded])
+            end
+            table.insert(moduleDefinitions, {
+                name = name,
+                signature = sig,
+                doc = docMap[name],
+            })
+        end
+    end
 
-		if ps.name and ps.signature then
-			table.insert(moduleDefinitions, {
-				name = ps.name,
-				signature = ps.signature,
-				doc = ps.doc,
-			})
-		end
-	end
-
-	return moduleDefinitions
+    return moduleDefinitions, exportedTypes
 end
 
 local function processDirectory(
@@ -294,8 +305,8 @@ local function processDirectory(
 				then STDLIB_MODULE_ALIASES[moduleName] or moduleName
 				else moduleName
 
-			local definitions = parseModule(moduleAlias, entryPath)
-			local markdown = generateMarkdown(moduleName, definitions, entryPath, libraryPath, requireLibraryAlias)
+			local definitions, exportedTypes = parseModule(moduleAlias, entryPath)
+			local markdown = generateMarkdown(moduleName, definitions, exportedTypes, entryPath, libraryPath, requireLibraryAlias)
 
 			fs.writeStringToFile(documentationFilePath, markdown)
 

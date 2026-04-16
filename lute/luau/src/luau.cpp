@@ -16,6 +16,7 @@
 #include "Luau/Parser.h"
 #include "Luau/ParseResult.h"
 #include "Luau/ToString.h"
+#include "Luau/TypeInfer.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -3043,6 +3044,7 @@ int typeofModule_luau(lua_State* L)
     fopts.retainFullTypeGraphs = true;
 
     Luau::Frontend frontend(&moduleResolver, &configResolver, fopts);
+    frontend.setLuauSolverMode(Luau::SolverMode::New);
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
     Luau::freeze(frontend.globals.globalTypes);
 
@@ -3058,7 +3060,20 @@ int typeofModule_luau(lua_State* L)
     // Serialize and push the return type
     serializeTypePack(L, modulePtr->returnType);
 
-    return 1;
+    // second return value: A table of exported type aliases
+    // mapping [string TypeName] = SerializedTypeObject
+    lua_newtable(L);
+    for (const auto& [name, typeFun] : modulePtr->exportedTypeBindings)
+    {
+        lua_pushstring(L, name.c_str());
+        serializeType(L, typeFun.type); // TODO: need to call TypeChecker::instantiateTypeFun
+        lua_rawset(L, -3);
+    }
+    
+    // Uncomment to see the return type for debugging
+    // Luau::dump(modulePtr->returnType);
+
+    return 2;
 }
 
 // perform type mt registration, etc
