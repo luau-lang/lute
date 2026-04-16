@@ -2,10 +2,10 @@ local fs = require("@std/fs")
 local luau = require("@std/luau")
 local path = require("@std/path")
 local process = require("@std/process")
-local pp = require("../../extern/pp")
+local pp = require("@batteries/pp")
 
 export type AuthenticationEntry = {
-	token: string,
+	read token: string,
 }
 
 export type AuthenticationStore = {
@@ -19,27 +19,10 @@ end
 
 local function loadAuthenticationStore(): AuthenticationStore
 	local authPath = getAuthenticationFilePath()
-
-	local ok, content = pcall(fs.readFileToString, authPath)
-	if not ok then
+	local ok, result = pcall(luau.loadModule, authPath, nil)
+	if not ok or type(result) ~= "table" then
 		return {}
 	end
-
-	local compileOk, bytecode = pcall(luau.compile, content)
-	if not compileOk then
-		return {}
-	end
-
-	local loadOk, func = pcall(luau.load, bytecode, authPath, nil)
-	if not loadOk then
-		return {}
-	end
-
-	local execOk, result = pcall(func)
-	if not execOk or type(result) ~= "table" then
-		return {}
-	end
-
 	return result
 end
 
@@ -47,12 +30,12 @@ local function saveAuthenticationStore(store: AuthenticationStore)
 	local authPath = getAuthenticationFilePath()
 	local authDir = path.format(path.parse(path.dirname(authPath)))
 	fs.createDirectory(authDir, { makeParents = true })
-	fs.writeStringToFile(authPath, "return " .. pp(store) .. "\n")
+	fs.writeStringToFile(authPath, `return {pp(store)}\n`)
 end
 
 local function saveAuthenticationToken(domain: string, token: string)
 	local store = loadAuthenticationStore()
-	store[domain] = { token = token }
+	store[domain] = table.freeze({ token = token })
 	saveAuthenticationStore(store)
 	print(`Credentials saved for {domain}`)
 end

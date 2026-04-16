@@ -7,7 +7,7 @@ return {
 			rev = "v1.2.3",
 			source = "owner/dep",
 			sourceKind = "github",
-			installPath = "Packages/dep",
+			installPath = "Packages/dep@v1.2.3",
 			dependencies = {
 				internaldepAlias = "internaldep@v4.5.6",
 			},
@@ -17,7 +17,7 @@ return {
 			rev = "v4.5.6",
 			source = "owner/internaldep",
 			sourceKind = "github",
-			installPath = "Packages/internaldep",
+			installPath = "Packages/internaldep@v4.5.6",
 			dependencies = {},
 		},
 	},

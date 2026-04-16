@@ -13,7 +13,7 @@ and the program will tell them "Too high!" or "Too low!" until they guess right.
 
 
 ### Using the Lute standard library
-To start, we'll need some way of getting user input. Thankfully, Lute provides a utility for this in the [`io`](../reference/std/io) library. In `main.luau`, add:
+To start, we'll need some way of getting user input. Thankfully, Lute provides a utility for this in the [`io`](../std/io) library. In `main.luau`, add:
 ```luau
 local io = require("@std/io")
 ```

@@ -262,6 +262,46 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
     res->end(body);
 }
 
+template <typename ResT>
+struct HttpYieldContext
+{
+    ResT* res = nullptr;
+    std::atomic<bool> aborted{false};
+    std::shared_ptr<Ref> threadRef;
+};
+
+template <typename ResT>
+static void finishHttpYield(lua_State* L, int status, const std::shared_ptr<HttpYieldContext<ResT>>& ctx)
+{
+    if (!ctx)
+    {
+        lua_settop(L, 0);
+        return;
+    }
+
+    ResT* res = ctx->res;
+
+    if (!res || ctx->aborted.load())
+    {
+        lua_settop(L, 0);
+        return;
+    }
+
+    if (status == LUA_OK)
+    {
+        handleResponse(res, L, -1);
+    }
+    else
+    {
+        std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
+        res->writeStatus("500 Internal Server Error");
+        res->end("Server error: " + error);
+    }
+
+    ctx->res = nullptr;
+    lua_settop(L, 0);
+}
+
 static void resumeWith(
     std::shared_ptr<ServerLoopState> state,
     const std::shared_ptr<Ref>& callback,
@@ -450,16 +490,22 @@ static void pushServerWebSocket(
     handle->userdataRef = std::make_shared<Ref>(L, -1);
 }
 
-static lua_State* createHandlerThread(Runtime* runtime)
+struct HandlerThread
+{
+    lua_State* L = nullptr;
+    std::shared_ptr<Ref> threadRef;
+};
+
+static HandlerThread createHandlerThread(Runtime* runtime)
 {
     LUTE_ASSERT(runtime);
 
     lua_State* L = lua_newthread(runtime->GL);
     luaL_sandboxthread(L);
     lua_checkstack(L, 64);
-    getRefForThread(L);
+    std::shared_ptr<Ref> threadRef = getRefForThread(L);
     lua_pop(runtime->GL, 1);
-    return L;
+    return {L, std::move(threadRef)};
 }
 
 template <typename ReqT, typename PushUpvalues>
@@ -534,7 +580,7 @@ static void pushServerTable(
 }
 
 template <typename ReqT>
-static lua_State* prepareHttpHandlerThread(
+static HandlerThread prepareHttpHandlerThread(
     const std::shared_ptr<ServerLoopState>& state,
     ReqT* req,
     const RequestRouteData& route,
@@ -545,17 +591,18 @@ static lua_State* prepareHttpHandlerThread(
     LUTE_ASSERT(state->runtime);
     LUTE_ASSERT(state->handlerRef);
 
-    lua_State* L = createHandlerThread(state->runtime);
+    HandlerThread thread = createHandlerThread(state->runtime);
+    lua_State* L = thread.L;
 
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
     pushRequestTable(L, req, route, body, server_upgrade_noop, 0, [](lua_State*) {});
     pushServerTable(L, state->serverRef, server_upgrade_noop, 0, [](lua_State*) {});
-    return L;
+    return thread;
 }
 
 template <bool SSL>
-static lua_State* prepareUpgradeHandlerThread(
+static HandlerThread prepareUpgradeHandlerThread(
     const std::shared_ptr<ServerLoopState>& state,
     uWS::HttpResponse<SSL>* res,
     uWS::HttpRequest* req,
@@ -576,13 +623,14 @@ static lua_State* prepareUpgradeHandlerThread(
         lua_pushlightuserdata(L, &upgraded);
     };
 
-    lua_State* L = createHandlerThread(state->runtime);
+    HandlerThread thread = createHandlerThread(state->runtime);
+    lua_State* L = thread.L;
 
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
     pushRequestTable(L, req, route, std::string_view(""), server_upgrade_do<SSL>, 4, pushUpgradeUpvalues);
     pushServerTable(L, state->serverRef, server_upgrade_do<SSL>, 4, pushUpgradeUpvalues);
-    return L;
+    return thread;
 }
 
 template <typename ResT, typename ReqT>
@@ -601,11 +649,37 @@ static void processRequest(
         return;
     }
 
-    lua_State* L = prepareHttpHandlerThread(state, req, route, body);
+    HandlerThread thread = prepareHttpHandlerThread(state, req, route, body);
+    lua_State* L = thread.L;
     int status = lua_resume(L, nullptr, 2);
-    if (status != LUA_OK && status != LUA_YIELD)
+    if (status == LUA_YIELD)
     {
-        std::string error = lua_tostring(L, -1);
+        auto ctx = std::make_shared<HttpYieldContext<ResT>>();
+        ctx->res = res;
+        ctx->threadRef = std::move(thread.threadRef);
+
+        res->onAborted(
+            [ctx]()
+            {
+                ctx->aborted.store(true);
+                ctx->res = nullptr;
+            }
+        );
+
+        ThreadCompletionHandler completion;
+        completion.onFinish = [ctx](lua_State* L, int completionStatus)
+        {
+            finishHttpYield<ResT>(L, completionStatus, ctx);
+        };
+
+        state->runtime->addThreadCompletionHandler(L, std::move(completion));
+        lua_settop(L, 0);
+        return;
+    }
+
+    if (status != LUA_OK)
+    {
+        std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
         lua_pop(L, 1);
 
         res->writeStatus("500 Internal Server Error");
@@ -640,7 +714,8 @@ static void installWebSocketRoutes(AppT* app, const std::shared_ptr<ServerLoopSt
 
             RequestRouteData route = extractRequestRouteData(req);
             bool upgraded = false;
-            lua_State* L = prepareUpgradeHandlerThread<SSL>(state, res, req, context, route, upgraded);
+            HandlerThread thread = prepareUpgradeHandlerThread<SSL>(state, res, req, context, route, upgraded);
+            lua_State* L = thread.L;
             int status = lua_resume(L, nullptr, 2);
 
             if (status == LUA_YIELD)
