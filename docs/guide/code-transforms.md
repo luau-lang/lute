@@ -66,13 +66,13 @@ The manual work of collecting these replacements into a single table is handled 
 To get this code into a format that `lute transform` can understand and run, we return the replacements from a function which takes the `Context` mentioned above, and create a file which returns that function. Here's what that looks like with the relevant imports included:
 
 ```luau
-local codemod = require("@codemod/types")
+local transform = require("@transform")
 
 local ast = require("@std/syntax")
 local query = require("@std/syntax/query")
 local utils = require("@std/syntax/utils")
 
-local function transformQuery(ctx: codemod.Context)
+local function transformQuery(ctx: transform.Context)
 	return query.findAllFromRoot(ctx.parseResult, utils.isExprConstantNumber)
 			:replace(function(numLiteral: ast.AstExprConstantNumber)
 				return `{ e.value * 2 }`
@@ -156,10 +156,12 @@ visitorLib.visit(ast, myVisitor)
 Here's what that looks like in the format `lute transform` expects:
 
 ```luau
+local transform = require("@transform")
+
 local ast = require("@std/syntax")
 local visitorLib = require("@std/syntax/visitor")
 
-local function visitorTransformation(ctx)
+local function visitorTransformation(ctx: transform.Context)
 	local myVisitor = visitorLib.create()
 	local replacements : { [ast.AstNode] : string } = {}
 
