@@ -2,7 +2,7 @@
 order: 3
 ---
 
-# (@std) Standard Library
+# Standard Library (@std)
 The Lute Standard Library is a set of common utilities that you will almost
 certainly want to reach for when writing programs in Luau. In order to make Luau
 useful for general-purpose programming, Lute provides a standard library, under
