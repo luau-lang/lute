@@ -30,7 +30,7 @@ features:
 
 While [Luau](https://luau.org) is a powerful scripting language, it is sandboxed and primarily embedded in a larger program, like the Roblox game engine. This means
 it lacks built-in capabilities for interacting with the outside world. Lute fills the gap by providing a standalone runtime for Luau, designed for general-purpose
-programming outside of game engines. Think of it like [Node.js](https://nodejs.org/) or [Deno](https://deno.land/), but for Luau.
+programming outside of game engines. _Think of it like [Node.js](https://nodejs.org/) or [Deno](https://deno.land/), but for Luau._
 
 ## How can I use it?
 
