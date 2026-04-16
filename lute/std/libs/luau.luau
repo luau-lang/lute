@@ -7,11 +7,20 @@ local luteLuau = require("@lute/luau")
 
 local fs = require("@lute/fs")
 local path = require("@std/path")
+local query = require("@std/syntax/query")
+local utils = require("@std/syntax/utils")
+local printer = require("@std/syntax/printer")
 
 local luau = {}
 
 --- Compiled Luau bytecode produced by `luau.compile`.
 export type Bytecode = luteLuau.Bytecode
+
+export type RequireNode = {
+	resolvedPath: string?,
+	requirePath: string?,
+	requireExpr: luteLuau.AstExprCall,
+}
 
 --- Compiles Luau source code into bytecode.
 function luau.compile(source: string): Bytecode
@@ -54,6 +63,46 @@ end
 function luau.resolveModule(modulepath: string, frompath: path.Pathlike): path.Pathlike
 	local frompathString = if typeof(frompath) == "string" then frompath else path.format(frompath)
 	return luteLuau.resolveModule(modulepath, `@{frompathString}`)
+end
+
+function luau.requires(filePath: path.Pathlike): { RequireNode }
+	local filePathStr = if typeof(filePath) == "string" then filePath else path.format(filePath)
+
+	local handle = fs.open(filePathStr, "r")
+	local source = fs.read(handle)
+	fs.close(handle)
+
+	local ast = luteLuau.parse(source)
+
+	local requireCalls = query.findAllFromRoot(ast, utils.isRequireCall)
+
+	return requireCalls:mapToArray(function(call: luteLuau.AstExprCall): RequireNode?
+		local argNode = call.arguments[1].node
+		if argNode == nil then
+			return nil
+		end
+
+		local content: string? = nil
+		if argNode.tag == "string" then
+			content = (argNode :: luteLuau.AstExprConstantString).token.text
+		else
+			content = printer.printNode(argNode)
+		end
+
+		local resolved: string? = nil
+		if content ~= nil then
+			local ok, result = pcall(luteLuau.resolveModule, content, `@{filePathStr}`)
+			if ok then
+				resolved = result
+			end
+		end
+
+		return {
+			resolvedPath = resolved,
+			requirePath = content,
+			requireExpr = call,
+		}
+	end)
 end
 
 return table.freeze(luau)
