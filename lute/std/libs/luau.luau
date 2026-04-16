@@ -65,7 +65,7 @@ function luau.resolveModule(modulepath: string, frompath: path.Pathlike): path.P
 	return luteLuau.resolveModule(modulepath, `@{frompathString}`)
 end
 
-function luau.requires(filePath: path.pathlike): { RequireNode }
+function luau.requires(filePath: path.Pathlike): { RequireNode }
 	local filePathStr = if typeof(filePath) == "string" then filePath else path.format(filePath)
 
 	local handle = fs.open(filePathStr, "r")
