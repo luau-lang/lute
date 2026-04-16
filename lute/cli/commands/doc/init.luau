@@ -25,14 +25,22 @@ local STDLIB_MODULE_ALIASES = {
 local tripleDashCommentPattern = "^%s*%-%-%-%s?(.*)$"
 local blockCommentStartPattern = "^%s*%-%-%[(=+)%["
 local whitespacePattern = "^%s*$"
+local exportTypePattern = "^%s*export%s+type%s+([%w_]+)%s*=(.*)$"
 
 type PropertySignature = {
 	name: string?,
 	signature: string?,
 	doc: string?,
+	isType: boolean?,
 	pendingDoc: { string },
 	inBlock: boolean,
 	blockEq: string?,
+	-- multiline export type accumulation state
+	inTypeDef: boolean?,
+	typeDefName: string?,
+	typeDefLines: { string }?,
+	typeDefDepth: number?,
+	typeDefDoc: { string }?,
 }
 
 type Mapping = {
@@ -66,14 +74,70 @@ end
 -- pendingDoc (accumulated doc lines so far)
 -- inBlock (are we currently inside a block comment?)
 -- blockEq (the "=" sequence used for block comment delimiting, e.g. "=" for --[=[  ; nil when not inside)
+-- inTypeDef (are we currently accumulating a multiline export type?)
+-- typeDefName (the name of the type being accumulated)
+-- typeDefLines (accumulated lines of the type definition)
+-- typeDefDepth (current brace depth inside the type)
+-- typeDefDoc (saved pendingDoc to attach once the type is complete)
 local function extractPropertySignature(
 	module: string,
 	line: string,
 	pendingDoc: { string },
 	inBlock: boolean,
-	blockEq: string?
+	blockEq: string?,
+	inTypeDef: boolean?,
+	typeDefName: string?,
+	typeDefLines: { string }?,
+	typeDefDepth: number?,
+	typeDefDoc: { string }?
 ): PropertySignature
-	-- 1) If we're *not* in a block, detect block start that may include = signs:
+	-- 1) If we're accumulating a multiline export type, keep collecting until braces balance
+	if inTypeDef then
+		local tLines = typeDefLines or {}
+		local depth = typeDefDepth or 0
+		local name = typeDefName or ""
+		local savedDoc = typeDefDoc or {}
+
+		table.insert(tLines, line)
+
+		for char in string.gmatch(line, ".") do
+			if char == "{" then
+				depth += 1
+			elseif char == "}" then
+				depth -= 1
+			end
+		end
+
+		if depth <= 0 then
+			return {
+				name = name,
+				signature = table.concat(tLines, "\n"),
+				doc = if #savedDoc > 0 then table.concat(savedDoc, "\n\n") else nil,
+				isType = true,
+				pendingDoc = {},
+				inBlock = inBlock,
+				blockEq = blockEq,
+				inTypeDef = false,
+				typeDefName = nil,
+				typeDefLines = {},
+				typeDefDepth = 0,
+				typeDefDoc = nil,
+			}
+		else
+			return {
+				pendingDoc = pendingDoc,
+				inBlock = inBlock,
+				blockEq = blockEq,
+				inTypeDef = true,
+				typeDefName = name,
+				typeDefLines = tLines,
+				typeDefDepth = depth,
+				typeDefDoc = savedDoc,
+			}
+		end
+	end
+
+	-- 2) If we're *not* in a block, detect block start that may include = signs:
 	if not inBlock then
 		local eq = string.match(line, blockCommentStartPattern)
 		if eq ~= nil then
@@ -94,7 +158,7 @@ local function extractPropertySignature(
 		end
 	end
 
-	-- 2) If we're inside a block, accumulate until we find the matching close
+	-- 3) If we're inside a block, accumulate until we find the matching close
 	if inBlock then
 		local eq = blockEq or ""
 		-- find the closing pattern "]=]" that matches the # of "=" used in opening
@@ -126,7 +190,7 @@ local function extractPropertySignature(
 		}
 	end
 
-	-- 3) Triple dash comment? (---)
+	-- 4) Triple dash comment? (---)
 	local triple = string.match(line, tripleDashCommentPattern)
 	if triple then
 		local txt = stringext.trim(triple)
@@ -140,7 +204,52 @@ local function extractPropertySignature(
 		}
 	end
 
-	-- 4) Match property declarations like: process.env = {} :: { [string]: string }
+	-- 5) Export type declaration (exported types only; unexported types are internal)
+	local typeName, typeRest = string.match(line, exportTypePattern)
+	if typeName then
+		local trimmedRest = stringext.trim(typeRest)
+
+		local depth = 0
+		for char in string.gmatch(trimmedRest, ".") do
+			if char == "{" then
+				depth += 1
+			elseif char == "}" then
+				depth -= 1
+			end
+		end
+
+		local firstTypeLine = `type {typeName} = {trimmedRest}`
+
+		if depth <= 0 then
+			-- Single-line or already-balanced type
+			return {
+				name = typeName,
+				signature = firstTypeLine,
+				doc = if #pendingDoc > 0 then table.concat(pendingDoc, "\n\n") else nil,
+				isType = true,
+				pendingDoc = {},
+				inBlock = inBlock,
+				blockEq = blockEq,
+				inTypeDef = false,
+				typeDefLines = {},
+				typeDefDepth = 0,
+			}
+		else
+			-- Multiline type — begin accumulation, save pending doc for later
+			return {
+				pendingDoc = {},
+				inBlock = inBlock,
+				blockEq = blockEq,
+				inTypeDef = true,
+				typeDefName = typeName,
+				typeDefLines = { firstTypeLine },
+				typeDefDepth = depth,
+				typeDefDoc = pendingDoc,
+			}
+		end
+	end
+
+	-- 6) Match property declarations like: process.env = {} :: { [string]: string }
 	local propName, propType = string.match(line, `^{module}%.([%w_]+)%s*=%s*.-::%s*(.+)$`)
 	if propName and propType then
 		return {
@@ -153,7 +262,7 @@ local function extractPropertySignature(
 		}
 	end
 
-	-- 5) Match function declarations like: function crypto.password.hash(password: string): buffer
+	-- 7) Match function declarations like: function crypto.password.hash(password: string): buffer
 	local fullName, params, _return, returnType = string.match(line, `^function%s+{module}%.(.-)(%b())(:?)%s*(.*)$`)
 	if fullName then
 		fullName = string.match(fullName, "^(.*)%b<>$") or fullName
@@ -169,7 +278,7 @@ local function extractPropertySignature(
 		}
 	end
 
-	-- 6) If we reach here and there's any non-whitespace (i.e., code), reset pendingDoc to clear old comments
+	-- 8) If we reach here and there's any non-whitespace (i.e., code), reset pendingDoc to clear old comments
 	if not string.match(line, whitespacePattern) then
 		pendingDoc = {}
 	end
@@ -183,10 +292,94 @@ local function extractPropertySignature(
 end
 
 type Definition = { name: string, signature: string, doc: string? }
+type TypeDefinition = { name: string, signature: string, doc: string? }
+
+type ParseResult = {
+	definitions: { Definition },
+	typeDefinitions: { TypeDefinition },
+}
+
+local function parseModule(module: path.Pathlike, filePath: path.Pathlike): ParseResult
+	local content = fs.readFileToString(filePath)
+	local lines = string.split(content, "\n")
+
+	local moduleDefinitions: { Definition } = {}
+	local typeDefinitions: { TypeDefinition } = {}
+	local pendingDoc: { string } = {}
+	local inBlock = false
+	local blockEq = nil
+	local inTypeDef = false
+	local typeDefName = nil
+	local typeDefLines: { string } = {}
+	local typeDefDepth = 0
+	local typeDefDoc: { string } = {}
+
+	for _, line in lines do
+		local ps = extractPropertySignature(
+			tostring(module),
+			line,
+			pendingDoc,
+			inBlock,
+			blockEq,
+			inTypeDef,
+			typeDefName,
+			typeDefLines,
+			typeDefDepth,
+			typeDefDoc
+		)
+
+		-- update state carried across lines
+		pendingDoc = ps.pendingDoc
+		inBlock = ps.inBlock
+		blockEq = ps.blockEq
+		inTypeDef = ps.inTypeDef or false
+		typeDefName = ps.typeDefName
+		typeDefLines = ps.typeDefLines or {}
+		typeDefDepth = ps.typeDefDepth or 0
+		typeDefDoc = ps.typeDefDoc or {}
+
+		if ps.name and ps.signature then
+			if ps.isType then
+				table.insert(typeDefinitions, {
+					name = ps.name,
+					signature = ps.signature,
+					doc = ps.doc,
+				})
+			else
+				table.insert(moduleDefinitions, {
+					name = ps.name,
+					signature = ps.signature,
+					doc = ps.doc,
+				})
+			end
+		end
+	end
+
+	return {
+		definitions = moduleDefinitions,
+		typeDefinitions = typeDefinitions,
+	}
+end
+
+-- Returns the first line of a doc string, for use in summary tables.
+local function firstLine(doc: string?): string
+	if not doc then
+		return ""
+	end
+	return string.match(doc, "^([^\n]+)") or doc
+end
+
+-- Generates a GitHub-compatible anchor from a heading string.
+local function toAnchor(text: string): string
+	text = string.lower(text)
+	text = string.gsub(text, "[^%w%-]", "")
+	return text
+end
 
 local function generateMarkdown(
 	moduleName: string,
 	definitions: { Definition },
+	typeDefinitions: { TypeDefinition },
 	filePath: path.Pathlike,
 	libraryPath: path.Pathlike,
 	requireLibraryAlias: string
@@ -198,6 +391,14 @@ local function generateMarkdown(
 	relativePath = string.gsub(relativePath, "%.luau$", "")
 	local requirePath = string.gsub(relativePath, "/init$", "") -- remove trailing /init and use the module dir name
 
+	-- LUAUFIX: we should not need to explicitly instantiate the type of `table.sort` here
+	table.sort<<Definition>>(definitions, function(a, b)
+		return a.name < b.name
+	end)
+	table.sort<<TypeDefinition>>(typeDefinitions, function(a, b)
+		return a.name < b.name
+	end)
+
 	local lines = {
 		`# {moduleName}`,
 		"",
@@ -207,57 +408,71 @@ local function generateMarkdown(
 		"",
 	}
 
-	-- LUAUFIX: we should not need to explicitly instantiate the type of `table.sort` here
-	table.sort<<Definition>>(definitions, function(a, b)
-		return a.name < b.name
-	end)
+	-- Summary table
+	if #definitions > 0 or #typeDefinitions > 0 then
+		table.insert(lines, "## Summary")
+		table.insert(lines, "")
+		table.insert(lines, "| Entry | Description |")
+		table.insert(lines, "| :--- | :--- |")
 
-	for _, def in definitions do
-		table.insert(lines, `## {moduleName}.{def.name}\n`)
-
-		-- Insert the documentation if it exists
-		if def.doc then
-			table.insert(lines, `{def.doc}\n`)
+		for _, typeDef in typeDefinitions do
+			local anchor = toAnchor(typeDef.name)
+			table.insert(lines, `| [{typeDef.name}](#{anchor}) | {firstLine(typeDef.doc)} |`)
 		end
-		table.insert(lines, "```luau")
-		table.insert(lines, def.signature)
-		table.insert(lines, "```")
+
+		for _, def in definitions do
+			local anchor = toAnchor(`{moduleName}.{def.name}`)
+			table.insert(lines, `| [{def.name}](#{anchor}) | {firstLine(def.doc)} |`)
+		end
+
+		table.insert(lines, "")
+		table.insert(lines, "---")
 		table.insert(lines, "")
 	end
 
-	return table.concat(lines, "\n")
-end
+	-- Types section
+	if #typeDefinitions > 0 then
+		table.insert(lines, "## Types")
+		table.insert(lines, "")
 
-local function parseModule(
-	module: path.Pathlike,
-	filePath: path.Pathlike
-): { { name: string, signature: string, doc: string? } }
-	local content = fs.readFileToString(filePath)
-	local lines = string.split(content, "\n")
-
-	local moduleDefinitions = {}
-	local pendingDoc = {}
-	local inBlock = false
-	local blockEq = nil
-
-	for _, line in lines do
-		local ps = extractPropertySignature(tostring(module), line, pendingDoc, inBlock, blockEq)
-
-		-- update state carried across lines
-		pendingDoc = ps.pendingDoc
-		inBlock = ps.inBlock
-		blockEq = ps.blockEq
-
-		if ps.name and ps.signature then
-			table.insert(moduleDefinitions, {
-				name = ps.name,
-				signature = ps.signature,
-				doc = ps.doc,
-			})
+		for _, typeDef in typeDefinitions do
+			table.insert(lines, `### {typeDef.name}`)
+			table.insert(lines, "")
+			if typeDef.doc then
+				table.insert(lines, typeDef.doc)
+				table.insert(lines, "")
+			end
+			table.insert(lines, "```luau")
+			table.insert(lines, typeDef.signature)
+			table.insert(lines, "```")
+			table.insert(lines, "")
+			table.insert(lines, "---")
+			table.insert(lines, "")
 		end
 	end
 
-	return moduleDefinitions
+	-- Functions and Properties section
+	if #definitions > 0 then
+		table.insert(lines, "## Functions and Properties")
+		table.insert(lines, "")
+
+		for _, def in definitions do
+			table.insert(lines, `### {moduleName}.{def.name}`)
+			table.insert(lines, "")
+			if def.doc then
+				table.insert(lines, def.doc)
+				table.insert(lines, "")
+			end
+			table.insert(lines, "```luau")
+			table.insert(lines, def.signature)
+			table.insert(lines, "```")
+			table.insert(lines, "")
+			table.insert(lines, "---")
+			table.insert(lines, "")
+		end
+	end
+
+	return table.concat(lines, "\n")
 end
 
 local function processDirectory(
@@ -294,8 +509,15 @@ local function processDirectory(
 				then STDLIB_MODULE_ALIASES[moduleName] or moduleName
 				else moduleName
 
-			local definitions = parseModule(moduleAlias, entryPath)
-			local markdown = generateMarkdown(moduleName, definitions, entryPath, libraryPath, requireLibraryAlias)
+			local result = parseModule(moduleAlias, entryPath)
+			local markdown = generateMarkdown(
+				moduleName,
+				result.definitions,
+				result.typeDefinitions,
+				entryPath,
+				libraryPath,
+				requireLibraryAlias
+			)
 
 			fs.writeStringToFile(documentationFilePath, markdown)
 
