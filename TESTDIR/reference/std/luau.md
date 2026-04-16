@@ -6,7 +6,7 @@ local luau = require("@std/luau")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Bytecode](#bytecode) | Compiled Luau bytecode produced by `luau.compile`. |
 | [RequireNode](#requirenode) |  |

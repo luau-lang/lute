@@ -6,7 +6,7 @@ local path = require("@std/path")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Path](#path) | A structured, platform-aware file system path. |
 | [Pathlike](#pathlike) | Anything that can be used as a path: a string, a `Path`, or raw path data. |

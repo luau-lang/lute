@@ -6,7 +6,7 @@ local time = require("@std/time")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Duration](#duration) | A span of time. |
 | [Instant](#instant) | An opaque point in time, used with `time.since` to measure elapsed time. |

@@ -6,7 +6,7 @@ local test = require("@std/test")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [_registered](#testregistered) |  |
 | [case](#testcase) | Registers an anonymous (top-level) test case with the given `name`. |

@@ -6,7 +6,7 @@ local system = require("@std/system")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [tmpdir](#systemtmpdir) | Returns the path of the system's temporary directory. |
 

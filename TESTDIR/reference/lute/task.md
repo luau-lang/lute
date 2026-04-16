@@ -6,7 +6,7 @@ local task = require("@lute/task")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [defer](#taskdefer) |  |
 | [deferSelf](#taskdeferself) |  |

@@ -6,7 +6,7 @@ local visitor = require("@std/syntax/visitor")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Visitor](#visitor) | A table of callbacks invoked during AST traversal. Each `visit` callback receives the corresponding node and |
 

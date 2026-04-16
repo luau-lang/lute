@@ -6,7 +6,7 @@ local fs = require("@std/fs")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [CreateDirectoryOptions](#createdirectoryoptions) | Options for `createDirectory`: |
 | [DirectoryEntry](#directoryentry) | A single entry returned by `listDirectory`, containing the entry's name and type. |

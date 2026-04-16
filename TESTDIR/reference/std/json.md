@@ -6,7 +6,7 @@ local json = require("@std/json")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Array](#array) | A JSON array: a table with integer keys. |
 | [Object](#object) | A JSON object: a table with string keys. |

@@ -6,7 +6,7 @@ local tableext = require("@std/tableext")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [all](#tableextall) | Returns `true` if `predicate` returns `true` for every element of `arr`. |
 | [any](#tableextany) | Returns `true` if `predicate` returns `true` for at least one element of `arr`. |

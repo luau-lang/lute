@@ -6,7 +6,7 @@ local types = require("@std/test/types")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Asserts](#asserts) | The assertion functions passed to each test case. Each assertion returns a `Failure` on failure, or `nil` on success. |
 | [CaseIndexEntry](#caseindexentry) | An index entry mapping a test case name to all anonymous instances and suite instances with that name. |

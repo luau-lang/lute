@@ -6,7 +6,7 @@ local stringext = require("@std/stringext")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [count](#stringextcount) | Counts the number of occurrences of `pattern` in `str`, optionally restricted to the range `[startPos, endPos]`. |
 | [hasPrefix](#stringexthasprefix) | Returns `true` if `str` begins with `prefix`. |

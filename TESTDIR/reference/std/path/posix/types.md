@@ -6,7 +6,7 @@ local types = require("@std/path/posix/types")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Path](#path) | A structured POSIX path. |
 | [PathData](#pathdata) | The raw data of a POSIX path: an array of components and a flag indicating whether the path is absolute. |

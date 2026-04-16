@@ -6,7 +6,7 @@ local printer = require("@std/syntax/printer")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [printFile](#printerprintfile) | Returns an entire parsed file as source text, including the EOF token, optionally applying `replacements`. |
 | [printNode](#printerprintnode) | Returns `node` as source text, optionally applying `replacements` to substitute specific nodes with new text. |

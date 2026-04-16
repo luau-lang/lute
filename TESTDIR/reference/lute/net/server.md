@@ -6,7 +6,7 @@ local server = require("@lute/net/server")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Configuration](#configuration) |  |
 | [Handler](#handler) |  |

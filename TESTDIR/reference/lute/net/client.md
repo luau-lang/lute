@@ -6,7 +6,7 @@ local client = require("@lute/net/client")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Metadata](#metadata) |  |
 | [Response](#response) |  |

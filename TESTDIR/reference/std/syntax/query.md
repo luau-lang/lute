@@ -6,7 +6,7 @@ local query = require("@std/syntax/query")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [filter](#queryfilter) | Retains only the nodes for which `pred` returns `true`. Mutates and returns the query. |
 | [findAll](#queryfindall) | Recursively visits every descendant of each node in the query and collects those for which `fn` returns a non-nil value. Mutates and returns the query. |

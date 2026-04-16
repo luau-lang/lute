@@ -6,7 +6,7 @@ local system = require("@lute/system")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [CpuInfo](#cpuinfo) |  |
 | [arch](#systemarch) |  |

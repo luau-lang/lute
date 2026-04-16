@@ -6,7 +6,7 @@ local process = require("@lute/process")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [ProcessResult](#processresult) |  |
 | [ProcessRunOptions](#processrunoptions) |  |

@@ -6,7 +6,7 @@ local fs = require("@lute/fs")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [DirectoryEntry](#directoryentry) |  |
 | [FileHandle](#filehandle) |  |

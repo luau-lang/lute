@@ -6,7 +6,7 @@ local trivia = require("@std/syntax/utils/trivia")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [leftmostTrivia](#trivialeftmosttrivia) | Returns the leading trivia of the leftmost token in `n`, or an empty array if there are no tokens. |
 | [rightmostTrivia](#triviarightmosttrivia) | Returns the trailing trivia of the rightmost token in `n`, or an empty array if there are no tokens. |

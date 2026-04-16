@@ -6,7 +6,7 @@ local types = require("@std/syntax/types")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [AstAttribute](#astattribute) |  |
 | [AstElseIfExpr](#astelseifexpr) |  |

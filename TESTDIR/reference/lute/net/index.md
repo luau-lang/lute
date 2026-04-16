@@ -6,7 +6,7 @@ local net = require("@lute/net")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Configuration](#configuration) |  |
 | [Handler](#handler) |  |

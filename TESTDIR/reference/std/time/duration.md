@@ -6,7 +6,7 @@ local duration = require("@std/time/duration")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Duration](#duration) | A span of time. |
 | [create](#durationcreate) | Creates a `Duration` from a number of `seconds` and an additional number of nanoseconds, `subsecnanos`. |

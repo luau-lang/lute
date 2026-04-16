@@ -6,7 +6,7 @@ local net = require("@std/net")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Metadata](#metadata) | Options for an HTTP request: |
 | [Response](#response) | An HTTP response, containing status, headers, and body. |

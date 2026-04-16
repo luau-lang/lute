@@ -6,7 +6,7 @@ local types = require("@std/path/win32/types")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Path](#path) | A structured Windows path. |
 | [PathData](#pathdata) | The raw data of a Windows path: an array of components, the path kind, and an optional drive letter. |

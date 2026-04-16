@@ -6,7 +6,7 @@ local pathinterface = require("@std/path/pathinterface")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [PathInterface](#pathinterface) |  |
 

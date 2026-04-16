@@ -6,7 +6,7 @@ local win32 = require("@std/path/win32")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Path](#path) |  |
 | [PathKind](#pathkind) |  |

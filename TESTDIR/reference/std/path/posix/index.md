@@ -6,7 +6,7 @@ local posix = require("@std/path/posix")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Path](#path) |  |
 | [Pathlike](#pathlike) |  |

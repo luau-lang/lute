@@ -6,7 +6,7 @@ local reporter = require("@std/test/reporter")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [simple](#reportersimple) | Prints a simple human-readable summary of `result` to stdout, listing any failures and the pass/fail counts. |
 

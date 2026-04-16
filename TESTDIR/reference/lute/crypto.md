@@ -6,7 +6,7 @@ local crypto = require("@lute/crypto")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [SecretBox](#secretbox) |  |
 | [digest](#cryptodigest) |  |

@@ -6,7 +6,7 @@ local vm = require("@lute/vm")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [create](#vmcreate) |  |
 

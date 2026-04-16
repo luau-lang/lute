@@ -6,7 +6,7 @@ local io = require("@lute/io")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [read](#ioread) |  |
 | [write](#iowrite) |  |

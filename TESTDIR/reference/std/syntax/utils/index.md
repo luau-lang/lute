@@ -6,7 +6,7 @@ local utils = require("@std/syntax/utils")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [isAttribute](#utilsisattribute) | Returns `n` narrowed to `AstAttribute` if it is an attribute node, or `nil` otherwise. |
 | [isExpr](#utilsisexpr) | Returns `n` narrowed to `AstExpr` if it is any expression node, or `nil` otherwise. |

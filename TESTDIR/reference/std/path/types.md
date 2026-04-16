@@ -6,7 +6,7 @@ local types = require("@std/path/types")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Path](#path) |  |
 | [Pathlike](#pathlike) |  |

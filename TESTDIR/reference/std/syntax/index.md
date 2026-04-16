@@ -6,7 +6,7 @@ local syntax = require("@std/syntax")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [AstAttribute](#astattribute) |  |
 | [AstElseIfExpr](#astelseifexpr) |  |

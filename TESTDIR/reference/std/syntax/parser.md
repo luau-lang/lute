@@ -6,7 +6,7 @@ local parser = require("@std/syntax/parser")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [parse](#parserparse) | Parses `source` as a complete Luau file and returns the full `ParseResult`, including the root block and EOF token. |
 | [parseBlock](#parserparseblock) | Parses Luau source code into an AstStatBlock |

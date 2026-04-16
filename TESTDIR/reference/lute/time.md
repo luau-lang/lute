@@ -6,7 +6,7 @@ local time = require("@lute/time")
 
 ## Summary
 
-| Function / Property | Description |
+| Entry | Description |
 | :--- | :--- |
 | [Duration](#duration) |  |
 | [Instant](#instant) |  |
