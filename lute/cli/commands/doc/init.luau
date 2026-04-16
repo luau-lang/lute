@@ -412,7 +412,7 @@ local function generateMarkdown(
 	if #definitions > 0 or #typeDefinitions > 0 then
 		table.insert(lines, "## Summary")
 		table.insert(lines, "")
-		table.insert(lines, "| Function / Property | Description |")
+		table.insert(lines, "| Entry | Description |")
 		table.insert(lines, "| :--- | :--- |")
 
 		for _, typeDef in typeDefinitions do
