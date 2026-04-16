@@ -194,7 +194,11 @@ local function main(...: string)
 	local args = cli.parser()
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:add("dry-run", "flag", { help = "Preview changes without writing any files" })
-	args:add("interactive", "flag", { help = "Interactive mode, where you can preview and confirm changes", aliases = { "i" } })
+	args:add(
+		"interactive",
+		"flag",
+		{ help = "Interactive mode, where you can preview and confirm changes", aliases = { "i" } }
+	)
 	args:add("output", "option", { help = "Write output to this file (single input only)", aliases = { "o" } })
 	args:add("migration-path", "positional", { help = "Path to the migration script to run" })
 	args:add(
