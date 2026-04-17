@@ -3,7 +3,6 @@ local fs = require("@std/fs")
 local net = require("@std/net")
 local path = require("@std/path")
 local process = require("@std/process")
-local projectmanifest = require("./projectmanifest")
 local unzip = require("../extern/unzip")
 
 local function sanitizePath(path: string): string
@@ -90,8 +89,8 @@ local function downloadFromGitHubArchive(url: string): string
 	return response.body
 end
 
-local function installPackage(pkg: projectmanifest.DependencySpec, installPath: string): ()
-	local url = `{pkg.source}/archive/{pkg.rev}.zip`
+local function installPackage(source: string, rev: string, installPath: string): ()
+	local url = `{source}/archive/{rev}.zip`
 	local zipArchive = downloadFromGitHubArchive(url)
 	installZipArchive(zipArchive, installPath)
 end

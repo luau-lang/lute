@@ -136,17 +136,18 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
             return {};
 
         const Luau::ConfigTable* entry = v.get_if<Luau::ConfigTable>();
-        if (!entry || !entry->contains("name") || !entry->contains("rev"))
+        if (!entry || !entry->contains("name"))
             return {};
 
         const std::string* name = (*entry).find("name")->get_if<std::string>();
-        const std::string* rev = (*entry).find("rev")->get_if<std::string>();
-        if (!name || !rev)
+        if (!name)
             return {};
+
+        const std::string* rev = entry->contains("rev") ? (*entry).find("rev")->get_if<std::string>() : nullptr;
 
         Package::Identifier id;
         id.name = toLower(*name);
-        id.version = *rev;
+        id.version = rev ? *rev : "";
         keyToIdentifier[*packageKey] = id;
 
         Package::Info info;
