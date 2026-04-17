@@ -56,9 +56,13 @@ if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS)
     else()
         # MSVC equivalents: /Gy = function-level linking, /Gw = package
         # global data, /OPT:REF + /OPT:ICF = drop unused + fold identical.
+        # Restrict compile flags to C/C++ so they don't leak into the nasm
+        # invocations used by BoringSSL's AVX assembly on Windows (nasm
+        # treats `/Gy` as an input filename and errors out).
+        set(_lute_cxx_lang "$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>")
         add_compile_options(
-            "$<${_lute_release_cfg}:/Gy>"
-            "$<${_lute_release_cfg}:/Gw>"
+            "$<${_lute_release_cfg}:$<${_lute_cxx_lang}:/Gy>>"
+            "$<${_lute_release_cfg}:$<${_lute_cxx_lang}:/Gw>>"
         )
         add_link_options(
             "$<${_lute_release_cfg}:/OPT:REF>"
