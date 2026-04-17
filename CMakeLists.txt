@@ -133,6 +133,28 @@ if (LUTE_ENABLE_SANITIZERS AND NOT MSVC)
     target_compile_options(crypto PRIVATE -Wno-frame-larger-than)
 endif()
 
+# BoringSSL's Windows build defines `_HAS_EXCEPTIONS=0`, which changes the
+# layout of several MSVC STL types (e.g. the vtable of std::bad_optional_access)
+# compared to the default `_HAS_EXCEPTIONS=1` used by the rest of lute and its
+# other dependencies (notably Luau). Without LTO this is a latent ODR violation
+# that is harmless in practice because BoringSSL never actually throws. With
+# `/LTCG` enabled, however, the MSVC linker performs cross-TU ABI checks during
+# code generation and emits C4743 for the mismatching vtable sizes. BoringSSL
+# also sets `/WX`, which promotes that warning to an error and fails the link
+# with LNK1257. Disabling IPO on BoringSSL's C++ targets keeps their objects as
+# regular COFF so they don't participate in LTCG's cross-TU merging, while the
+# rest of the binary still benefits from LTO.
+if (MSVC AND LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS AND LUTE_IPO_SUPPORTED)
+    foreach(_bssl_target crypto ssl fipsmodule decrepit pki)
+        if (TARGET ${_bssl_target})
+            set_property(TARGET ${_bssl_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION FALSE)
+            set_property(TARGET ${_bssl_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE)
+            set_property(TARGET ${_bssl_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL FALSE)
+            set_property(TARGET ${_bssl_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO FALSE)
+        endif()
+    endforeach()
+endif()
+
 # curl setup
 
 set(USE_LIBIDN2 OFF)
