@@ -37,7 +37,11 @@ local function hasConflict(specA: projectmanifest.DependencySpec, specB: project
 	return specA.rev ~= specB.rev or specA.source ~= specB.source or specA.sourceKind ~= specB.sourceKind
 end
 
-local function normalizePathDependency(spec: projectmanifest.DependencySpec, installPath: string, rootDirectory: string): projectmanifest.DependencySpec
+local function normalizePathDependency(
+	spec: projectmanifest.DependencySpec,
+	installPath: string,
+	rootDirectory: string
+): projectmanifest.DependencySpec
 	if spec.sourceKind == "path" then
 		local sourcePath = path.format(path.resolve(installPath, spec.source))
 		if not fs.exists(sourcePath) then

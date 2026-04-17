@@ -18,7 +18,10 @@ export type Lockfile = {
 local function validatePackageEntry(key: string, entry: any)
 	assert(type(entry) == "table", `Expected table for dependency '{key}'`)
 	assert(type(entry.name) == "string", `Expected 'name' field in dependency '{key}'`)
-	assert(entry.rev == nil or type(entry.rev) == "string", `Expected 'rev' field to be a string or nil for dependency '{key}'`)
+	assert(
+		entry.rev == nil or type(entry.rev) == "string",
+		`Expected 'rev' field to be a string or nil for dependency '{key}'`
+	)
 	assert(type(entry.source) == "string", `Expected 'source' field in dependency '{key}'`)
 	assert(type(entry.sourceKind) == "string", `Expected 'sourceKind' field in dependency '{key}'`)
 	assert(type(entry.installPath) == "string", `Expected 'installPath' field in dependency '{key}'`)
