@@ -74,3 +74,137 @@ test.suite("TOML serialization", function(suite)
 		assert.eq(second.images["icon.png"].hash, "abc")
 	end)
 end)
+
+test.suite("TOML inline array deserialization", function(suite)
+	suite:case("singleStringElement", function(assert)
+		local result: any = toml.deserialize('args = ["--stdio"]\n')
+		assert.neq(result.args, nil)
+		assert.eq(#result.args, 1)
+		assert.eq(result.args[1], "--stdio")
+	end)
+
+	suite:case("multipleStringElements", function(assert)
+		local result: any = toml.deserialize('args = ["--stdio", "--port", "1234"]\n')
+		assert.eq(#result.args, 3)
+		assert.eq(result.args[1], "--stdio")
+		assert.eq(result.args[2], "--port")
+		assert.eq(result.args[3], "1234")
+	end)
+
+	suite:case("numberElements", function(assert)
+		local result: any = toml.deserialize("ports = [8080, 9090]\n")
+		assert.eq(#result.ports, 2)
+		assert.eq(result.ports[1], 8080)
+		assert.eq(result.ports[2], 9090)
+	end)
+
+	suite:case("booleanElements", function(assert)
+		local result: any = toml.deserialize("flags = [true, false, true]\n")
+		assert.eq(#result.flags, 3)
+		assert.eq(result.flags[1], true)
+		assert.eq(result.flags[2], false)
+		assert.eq(result.flags[3], true)
+	end)
+
+	suite:case("mixedPrimitiveElements", function(assert)
+		local result: any = toml.deserialize('mixed = ["hello", 42, true]\n')
+		assert.eq(#result.mixed, 3)
+		assert.eq(result.mixed[1], "hello")
+		assert.eq(result.mixed[2], 42)
+		assert.eq(result.mixed[3], true)
+	end)
+
+	suite:case("inlineArrayUnderSectionHeader", function(assert)
+		local input = '[mcp_servers.Roblox_Studio]\nargs = ["--stdio"]\ncommand = "/path/cmd"\nenabled = true\n'
+		local result: any = toml.deserialize(input)
+		assert.neq(result.mcp_servers, nil)
+		assert.neq(result.mcp_servers.Roblox_Studio, nil)
+		assert.eq(result.mcp_servers.Roblox_Studio.enabled, true)
+		assert.eq(result.mcp_servers.Roblox_Studio.command, "/path/cmd")
+		assert.eq(#result.mcp_servers.Roblox_Studio.args, 1)
+		assert.eq(result.mcp_servers.Roblox_Studio.args[1], "--stdio")
+	end)
+end)
+
+test.suite("TOML inline array serialization", function(suite)
+	suite:case("flatStringArrayIsInline", function(assert)
+		local output = toml.serialize({ args = { "--stdio" } })
+		assert.strContains(output, 'args = ["--stdio"]')
+	end)
+
+	suite:case("flatNumberArrayIsInline", function(assert)
+		local output = toml.serialize({ ports = { 8080, 9090 } })
+		assert.strContains(output, "ports = [8080, 9090]")
+	end)
+
+	suite:case("flatMixedArrayIsInline", function(assert)
+		local output = toml.serialize({ mixed = { "hello", 42 } })
+		assert.strContains(output, 'mixed = ["hello", 42]')
+	end)
+
+	suite:case("arrayOfTablesStillUsesDoubleBrackets", function(assert)
+		local output = toml.serialize({ items = { { name = "a" }, { name = "b" } } })
+		assert.strContains(output, "[[items]]")
+	end)
+
+	suite:case("sectionHeaderGeneratedWhenTableHasInlineArray", function(assert)
+		local input = {
+			mcp_servers = {
+				Roblox_Studio = {
+					args = { "--stdio" },
+					command = "/path/cmd",
+					enabled = true,
+				},
+			},
+		}
+		local output = toml.serialize(input)
+		assert.strContains(output, "[mcp_servers.Roblox_Studio]")
+		assert.strContains(output, 'args = ["--stdio"]')
+		assert.strContains(output, 'command = "/path/cmd"')
+		assert.strContains(output, "enabled = true")
+	end)
+
+	suite:case("inlineArrayNotEmittedAsArrayOfTables", function(assert)
+		-- flat arrays must NOT produce [[...]] array-of-tables syntax
+		local output = toml.serialize({ args = { "--stdio" } })
+		assert.eq(string.find(output, "[["), nil)
+	end)
+end)
+
+test.suite("TOML inline array round-trip", function(suite)
+	suite:case("flatStringArray", function(assert)
+		local serialized = toml.serialize({ args = { "--stdio", "--port", "1234" } })
+		local result: any = toml.deserialize(serialized)
+		assert.eq(#result.args, 3)
+		assert.eq(result.args[1], "--stdio")
+		assert.eq(result.args[2], "--port")
+		assert.eq(result.args[3], "1234")
+	end)
+
+	suite:case("flatNumberArray", function(assert)
+		local serialized = toml.serialize({ ports = { 8080, 9090 } })
+		local result: any = toml.deserialize(serialized)
+		assert.eq(#result.ports, 2)
+		assert.eq(result.ports[1], 8080)
+		assert.eq(result.ports[2], 9090)
+	end)
+
+	suite:case("mcpServerConfig", function(assert)
+		local input: any = {
+			mcp_servers = {
+				Roblox_Studio = {
+					args = { "--stdio" },
+					command = "/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP",
+					enabled = true,
+				},
+			},
+		}
+		local result: any = toml.deserialize(toml.serialize(input))
+		local server = result.mcp_servers.Roblox_Studio
+		assert.neq(server, nil)
+		assert.eq(server.enabled, true)
+		assert.eq(server.command, "/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP")
+		assert.eq(#server.args, 1)
+		assert.eq(server.args[1], "--stdio")
+	end)
+end)

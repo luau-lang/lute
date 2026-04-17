@@ -30,10 +30,24 @@ local function quoteKey(key: string): string
 	return key
 end
 
+local function isFlatArray(v: { [any]: any }): boolean
+	if #v == 0 then
+		return false
+	end
+	for _, item in v do
+		if typeof(item) == "table" then
+			return false
+		end
+	end
+	return true
+end
+
 local function hasNestedTables(tbl: { [unknown]: unknown }): boolean
 	for _, v in tbl do
 		if typeof(v) == "table" and next(v) ~= nil then
-			return true
+			if not isFlatArray(v :: any) then
+				return true
+			end
 		end
 	end
 	return false
@@ -47,9 +61,18 @@ local function tableToToml(tbl: { [any]: any }, parent: string?): string
 	for k, v in tbl do
 		if typeof(v) == "table" and next(v) ~= nil then
 			if #v > 0 then
-				for _, entry in v do
-					result ..= "\n[[" .. (parent and parent .. "." or "") .. quoteKey(k) .. "]]\n"
-					result ..= tableToToml(entry, nil)
+				if isFlatArray(v) then
+					local items = {}
+					for _, item in v do
+						table.insert(items, serializeValue(item))
+					end
+					hasDirectValues = true
+					result ..= quoteKey(k) .. " = [" .. table.concat(items, ", ") .. "]\n"
+				else
+					for _, entry in v do
+						result ..= "\n[[" .. (parent and parent .. "." or "") .. quoteKey(k) .. "]]\n"
+						result ..= tableToToml(entry, nil)
+					end
 				end
 			else
 				subTables[k] = v
@@ -190,6 +213,26 @@ local function deserialize(input: string): { [string]: unknown }
 				value = string.gsub(value, "\\\\", "\\")
 				value = string.gsub(value, "\\n", "\n")
 				value = string.gsub(value, "\\t", "\t")
+			elseif string.sub(value, 1, 1) == "[" then
+				local content = string.match(value, "^%[(.*)%]$")
+				if content then
+					local arr = {}
+					for item in string.gmatch(content .. ",", "([^,]+),") do
+						item = (string.match(item, "^%s*(.-)%s*$") :: string)
+						if item ~= "" then
+							if string.match(item, '^"(.*)"$') or string.match(item, "^'(.*)'$") then
+								table.insert(arr, string.sub(item, 2, -2))
+							elseif tonumber(item) then
+								table.insert(arr, tonumber(item))
+							elseif item == "true" then
+								table.insert(arr, true)
+							elseif item == "false" then
+								table.insert(arr, false)
+							end
+						end
+					end
+					value = arr
+				end
 			elseif tonumber(value) then
 				value = tonumber(value)
 			elseif value == "true" then
