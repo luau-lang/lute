@@ -65,12 +65,9 @@ target_compile_features(Lute.CLI PUBLIC cxx_std_17)
 target_link_libraries(Lute.CLI PRIVATE Lute.CLI.lib Lute.Common)
 target_compile_options(Lute.CLI PRIVATE ${LUTE_OPTIONS})
 
-# Strip symbols from release builds to reduce binary size. MSVC puts debug
-# information in a separate .pdb file by default, so stripping is a no-op
-# there. On Apple, `strip -x` keeps dynamic symbols (required for backtraces
-# via dladdr) while dropping locals; elsewhere we use the default behavior.
 if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS AND NOT MSVC AND CMAKE_STRIP)
     if (APPLE)
+        # -x keeps dynamic symbols so dladdr backtraces still work.
         set(_lute_strip_args -x)
     else()
         set(_lute_strip_args "")

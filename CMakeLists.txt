@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 # Make sure 'set' for variables is respected by options in nested files
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-# Honor CMAKE_INTERPROCEDURAL_OPTIMIZATION in subprojects (e.g. boringssl, luau)
-# whose minimum CMake version predates CMP0069 defaulting to NEW.
+# Let subprojects inherit CMAKE_INTERPROCEDURAL_OPTIMIZATION.
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -28,37 +27,23 @@ if (LUTE_ENABLE_SANITIZERS)
     endif()
 endif()
 
-# Size-optimization knobs applied globally so external libraries (luau,
-# boringssl, curl, libuv, zlib, ...) pick them up too. These are the biggest
-# single lever for reducing the final binary size, especially on Linux where
-# ld doesn't strip unreferenced functions by default.
 option(LUTE_OPTIMIZE_SIZE "Enable binary size optimizations for release builds" ON)
 if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS)
-    # Generator expression that is true for any non-Debug config. We want
-    # these flags for Release, MinSizeRel and RelWithDebInfo but not Debug.
     set(_lute_release_cfg "$<NOT:$<CONFIG:Debug>>")
 
     if (NOT MSVC)
-        # Emit each function/data symbol into its own section so the linker
-        # can drop unreferenced ones.
         add_compile_options(
             "$<${_lute_release_cfg}:-ffunction-sections>"
             "$<${_lute_release_cfg}:-fdata-sections>"
         )
 
         if (APPLE)
-            # ld64 already dead-strips by default; make it explicit.
             add_link_options("$<${_lute_release_cfg}:-Wl,-dead_strip>")
         else()
-            # GNU ld / lld / gold
             add_link_options("$<${_lute_release_cfg}:-Wl,--gc-sections>")
         endif()
     else()
-        # MSVC equivalents: /Gy = function-level linking, /Gw = package
-        # global data, /OPT:REF + /OPT:ICF = drop unused + fold identical.
-        # Restrict compile flags to C/C++ so they don't leak into the nasm
-        # invocations used by BoringSSL's AVX assembly on Windows (nasm
-        # treats `/Gy` as an input filename and errors out).
+        # Restrict to C/C++ so /Gy and /Gw don't leak into NASM invocations.
         set(_lute_cxx_lang "$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>")
         add_compile_options(
             "$<${_lute_release_cfg}:$<${_lute_cxx_lang}:/Gy>>"
@@ -70,9 +55,6 @@ if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS)
         )
     endif()
 
-    # Enable LTO/IPO for size-relevant configs if the toolchain supports it.
-    # Setting the per-config variable here means every target created in
-    # subsequent add_subdirectory() calls inherits it.
     include(CheckIPOSupported)
     check_ipo_supported(RESULT LUTE_IPO_SUPPORTED OUTPUT LUTE_IPO_ERROR)
     if (LUTE_IPO_SUPPORTED)
@@ -133,17 +115,8 @@ if (LUTE_ENABLE_SANITIZERS AND NOT MSVC)
     target_compile_options(crypto PRIVATE -Wno-frame-larger-than)
 endif()
 
-# BoringSSL's Windows build defines `_HAS_EXCEPTIONS=0`, which changes the
-# layout of several MSVC STL types (e.g. the vtable of std::bad_optional_access)
-# compared to the default `_HAS_EXCEPTIONS=1` used by the rest of lute and its
-# other dependencies (notably Luau). Without LTO this is a latent ODR violation
-# that is harmless in practice because BoringSSL never actually throws. With
-# `/LTCG` enabled, however, the MSVC linker performs cross-TU ABI checks during
-# code generation and emits C4743 for the mismatching vtable sizes. BoringSSL
-# also sets `/WX`, which promotes that warning to an error and fails the link
-# with LNK1257. Disabling IPO on BoringSSL's C++ targets keeps their objects as
-# regular COFF so they don't participate in LTCG's cross-TU merging, while the
-# rest of the binary still benefits from LTO.
+# BoringSSL's _HAS_EXCEPTIONS=0 changes MSVC STL vtables; under /LTCG this
+# trips C4743, which BoringSSL's /WX escalates to LNK1257. Keep it out of LTCG.
 if (MSVC AND LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS AND LUTE_IPO_SUPPORTED)
     foreach(_bssl_target crypto ssl fipsmodule decrepit pki)
         if (TARGET ${_bssl_target})
@@ -171,14 +144,7 @@ set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
-# Disable curl protocols that lute/net never uses. The net client in
-# `lute/net/src/client.cpp` only speaks HTTP/HTTPS, and the websocket client
-# in `lute/net/src/client_websocket.cpp` uses CURLOPT_CONNECT_ONLY=2 (curl's
-# WebSocket mode), so HTTP and WebSockets must remain enabled.
-#
-# We intentionally leave the following enabled since they affect user-visible
-# behavior for HTTP: cookies, auth (basic/bearer/digest/kerberos/negotiate/
-# NTLM), proxy, netrc, HSTS, alt-svc, DoH, verbose error strings.
+# lute/net only speaks HTTP/HTTPS/WebSocket.
 set(CURL_DISABLE_FTP    ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_TFTP   ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_FILE   ON CACHE BOOL "" FORCE)
