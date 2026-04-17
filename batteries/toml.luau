@@ -218,7 +218,7 @@ local function deserialize(input: string): { [string]: unknown }
 				if content then
 					local arr = {}
 					for item in string.gmatch(content .. ",", "([^,]+),") do
-						item = (string.match(item, "^%s*(.-)%s*$") :: string)
+						item = string.match(item, "^%s*(.-)%s*$") :: string
 						if item ~= "" then
 							if string.match(item, '^"(.*)"$') or string.match(item, "^'(.*)'$") then
 								table.insert(arr, string.sub(item, 2, -2))
