@@ -167,7 +167,7 @@ test.suite("TOML inline array serialization", function(suite)
 	suite:case("inlineArrayNotEmittedAsArrayOfTables", function(assert)
 		-- flat arrays must NOT produce [[...]] array-of-tables syntax
 		local output = toml.serialize({ args = { "--stdio" } })
-		assert.eq(string.find(output, "[["), nil)
+		assert.eq(string.find(output, "[[", 1, true), nil)
 	end)
 end)
 

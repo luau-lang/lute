@@ -216,7 +216,7 @@ local function deserialize(input: string): { [string]: unknown }
 			elseif string.sub(value, 1, 1) == "[" then
 				local content = string.match(value, "^%[(.*)%]$")
 				if content then
-					local arr = {}
+					local arr: { boolean | string | number } = {}
 					for item in string.gmatch(content .. ",", "([^,]+),") do
 						item = string.match(item, "^%s*(.-)%s*$") :: string
 						if item ~= "" then
