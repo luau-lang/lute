@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.13)
 
 # Make sure 'set' for variables is respected by options in nested files
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+# Honor CMAKE_INTERPROCEDURAL_OPTIMIZATION in subprojects (e.g. boringssl, luau)
+# whose minimum CMake version predates CMP0069 defaulting to NEW.
+set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -22,6 +25,59 @@ if (LUTE_ENABLE_SANITIZERS)
     if(NOT MSVC)
         add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
         add_link_options(-fsanitize=address,undefined)
+    endif()
+endif()
+
+# Size-optimization knobs applied globally so external libraries (luau,
+# boringssl, curl, libuv, zlib, ...) pick them up too. These are the biggest
+# single lever for reducing the final binary size, especially on Linux where
+# ld doesn't strip unreferenced functions by default.
+option(LUTE_OPTIMIZE_SIZE "Enable binary size optimizations for release builds" ON)
+if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS)
+    # Generator expression that is true for any non-Debug config. We want
+    # these flags for Release, MinSizeRel and RelWithDebInfo but not Debug.
+    set(_lute_release_cfg "$<NOT:$<CONFIG:Debug>>")
+
+    if (NOT MSVC)
+        # Emit each function/data symbol into its own section so the linker
+        # can drop unreferenced ones.
+        add_compile_options(
+            "$<${_lute_release_cfg}:-ffunction-sections>"
+            "$<${_lute_release_cfg}:-fdata-sections>"
+        )
+
+        if (APPLE)
+            # ld64 already dead-strips by default; make it explicit.
+            add_link_options("$<${_lute_release_cfg}:-Wl,-dead_strip>")
+        else()
+            # GNU ld / lld / gold
+            add_link_options("$<${_lute_release_cfg}:-Wl,--gc-sections>")
+        endif()
+    else()
+        # MSVC equivalents: /Gy = function-level linking, /Gw = package
+        # global data, /OPT:REF + /OPT:ICF = drop unused + fold identical.
+        add_compile_options(
+            "$<${_lute_release_cfg}:/Gy>"
+            "$<${_lute_release_cfg}:/Gw>"
+        )
+        add_link_options(
+            "$<${_lute_release_cfg}:/OPT:REF>"
+            "$<${_lute_release_cfg}:/OPT:ICF>"
+        )
+    endif()
+
+    # Enable LTO/IPO for size-relevant configs if the toolchain supports it.
+    # Setting the per-config variable here means every target created in
+    # subsequent add_subdirectory() calls inherits it.
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT LUTE_IPO_SUPPORTED OUTPUT LUTE_IPO_ERROR)
+    if (LUTE_IPO_SUPPORTED)
+        message(STATUS "Lute: enabling LTO for Release/MinSizeRel/RelWithDebInfo")
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE)
+    else()
+        message(STATUS "Lute: LTO not supported by this toolchain: ${LUTE_IPO_ERROR}")
     endif()
 endif()
 
@@ -88,6 +144,30 @@ set(BUILD_EXAMPLES OFF)
 set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
+
+# Disable curl protocols that lute/net never uses. The net client in
+# `lute/net/src/client.cpp` only speaks HTTP/HTTPS, and the websocket client
+# in `lute/net/src/client_websocket.cpp` uses CURLOPT_CONNECT_ONLY=2 (curl's
+# WebSocket mode), so HTTP and WebSockets must remain enabled.
+#
+# We intentionally leave the following enabled since they affect user-visible
+# behavior for HTTP: cookies, auth (basic/bearer/digest/kerberos/negotiate/
+# NTLM), proxy, netrc, HSTS, alt-svc, DoH, verbose error strings.
+set(CURL_DISABLE_FTP    ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_TFTP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_FILE   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_DICT   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_TELNET ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_LDAP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_LDAPS  ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_SMB    ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_SMTP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_IMAP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_POP3   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_GOPHER ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_RTSP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_MQTT   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_IPFS   ON CACHE BOOL "" FORCE)
 
 set(HAVE_BORINGSSL ON)
 add_subdirectory(extern/curl)
