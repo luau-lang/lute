@@ -223,7 +223,7 @@ local function deserialize(input: string): { [string]: unknown }
 							if string.match(item, '^"(.*)"$') or string.match(item, "^'(.*)'$") then
 								table.insert(arr, string.sub(item, 2, -2))
 							elseif tonumber(item) then
-								table.insert(arr, tonumber(item))
+								table.insert(arr, tonumber(item) :: number)
 							elseif item == "true" then
 								table.insert(arr, true)
 							elseif item == "false" then
