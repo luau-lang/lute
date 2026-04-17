@@ -1,9 +1,8 @@
 local luau = require("@std/luau")
 
--- TODO: Support path/registry dependencies
 export type DependencySpec = {
 	read name: string,
-	read rev: string,
+	read rev: string?,
 	read source: string,
 	read sourceKind: string,
 }
@@ -37,8 +36,8 @@ local function parseManifest(t: any): ProjectManifest
 				`Optional 'name' field in dependency spec for '{name}' expected to be a string`
 			)
 			assert(
-				spec.rev ~= nil and type(spec.rev) == "string",
-				`Expected 'rev' field in dependency spec for '{name}'`
+				spec.rev == nil or type(spec.rev) == "string",
+				`Expected 'rev' field to be a string or nil in dependency spec for '{name}'`
 			)
 			assert(
 				spec.sourceKind ~= nil and type(spec.sourceKind) == "string",
