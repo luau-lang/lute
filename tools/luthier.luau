@@ -179,6 +179,10 @@ local function projectPathExists(): boolean
 	return safeFsType(projectPath) == "dir"
 end
 
+local function buildManifestExists(): boolean
+	return safeFsType(joinPath(getProjectPath(), "build.ninja")) == "file"
+end
+
 local function hexify(digest)
 	local hex = {}
 	for i = 1, buffer.len(digest) do
@@ -774,7 +778,7 @@ elseif subcommand == "build" or subcommand == "craft" then
 
 	generateFilesIfNeeded()
 
-	if not projectPathExists() or not areTuneFilesUpToDate() then
+	if not projectPathExists() or not buildManifestExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 
@@ -786,7 +790,7 @@ elseif subcommand == "run" or subcommand == "play" then
 
 	generateFilesIfNeeded()
 
-	if not projectPathExists() or not areTuneFilesUpToDate() then
+	if not projectPathExists() or not buildManifestExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 
