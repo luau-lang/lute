@@ -15,6 +15,10 @@ int FFI::pushLibrary(lua_State* L)
 {
     lua_createtable(L, 0, std::size(FFI::properties) + std::size(FFI::lib));
 
+    FFIC::verifyInterface();
+    FFIC::pushLibrary(L);
+    lua_setfield(L, -2, "c");
+
     lua_setreadonly(L, -1, 1);
 
     return 1;

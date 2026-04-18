@@ -4,6 +4,7 @@ target_sources(Lute.FFI PRIVATE
     include/lute/ffi.h
 
     src/ffi.cpp
+    src/c.cpp
 )
 
 target_compile_features(Lute.FFI PUBLIC cxx_std_17)
