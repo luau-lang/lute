@@ -75,27 +75,6 @@ static std::string getEntryPoint(const std::string& packageRoot)
     return joinPaths(packageRoot, "src/init.luau");
 }
 
-// Extract a Luau array (numeric-keyed ConfigTable) as ordered strings.
-static std::vector<std::string> extractStringArray(const Luau::ConfigTable& table)
-{
-    std::vector<std::pair<size_t, std::string>> indexed;
-    for (const auto& [k, v] : table)
-    {
-        const double* key = k.get_if<double>();
-        const std::string* val = v.get_if<std::string>();
-        if (!key || !val)
-            continue;
-        indexed.emplace_back(static_cast<size_t>(*key), *val);
-    }
-    std::sort(indexed.begin(), indexed.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
-
-    std::vector<std::string> result;
-    result.reserve(indexed.size());
-    for (auto& [_, val] : indexed)
-        result.push_back(std::move(val));
-    return result;
-}
-
 std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Identifier, Package::Info>>> getDependenciesFromLockfile(
     const std::string& lockfilePath
 )
