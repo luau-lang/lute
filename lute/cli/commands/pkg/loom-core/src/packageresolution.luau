@@ -90,7 +90,9 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	table.freeze(packages)
 
 	-- Seed workspace member dependencies into the shared queue
+	local members: { [string]: lockfile.LockfileMember }? = nil
 	if rootManifest.workspace ~= nil then
+		local m: { [string]: lockfile.LockfileMember } = {}
 		for _, memberPath in rootManifest.workspace do
 			local memberDir = path.format(path.resolve(rootDirectory, memberPath))
 			local memberManifestPath = getManifestPath(memberDir)
@@ -98,11 +100,18 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 				error(`Workspace member manifest not found: {memberManifestPath}`)
 			end
 			local memberManifest = projectmanifest.parseFile(memberManifestPath)
+			local memberPackages: { string } = {}
 			for _, depSpec in memberManifest.package.dependencies do
 				local normalized = normalizePathDependency(depSpec, memberDir, rootDirectory)
+				table.insert(memberPackages, getKey(normalized))
 				table.insert(queue, normalized)
 			end
+			m[memberManifest.package.name] = table.freeze({
+				path = memberPath,
+				packages = table.freeze(memberPackages),
+			})
 		end
+		members = table.freeze(m)
 	end
 
 	local nameIndex: { [string]: string } = {}
@@ -213,6 +222,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	local lf: lockfile.Lockfile = table.freeze({
 		version = 2,
 		packages = packages,
+		members = members,
 		dependencies = dependencies,
 	})
 	fs.writeStringToFile(lockfilePath, `return {pp(lf)}\n`)

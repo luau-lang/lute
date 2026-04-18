@@ -97,7 +97,8 @@ static std::vector<std::string> extractStringArray(const Luau::ConfigTable& tabl
 }
 
 std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Identifier, Package::Info>>> getDependenciesFromLockfile(
-    const std::string& lockfilePath
+    const std::string& lockfilePath,
+    const std::string& entryFilePath
 )
 {
     LUTE_ASSERT(isFile(lockfilePath));
@@ -207,8 +208,53 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         }
     }
 
-    // Build direct dependencies from packages array
+    // Build direct dependencies from packages array.
+    // If the lockfile has a members table and the entry file is under a
+    // member's path, use that member's packages instead of the root's.
     std::vector<std::string> packageKeys = extractStringArray(*packagesTable);
+
+    if (!entryFilePath.empty() && config.contains("members"))
+    {
+        Luau::ConfigTable* membersTable = config["members"].get_if<Luau::ConfigTable>();
+        if (membersTable)
+        {
+            std::string normalizedEntry = normalizePath(entryFilePath);
+            std::string bestMemberPath;
+            const Luau::ConfigTable* bestMember = nullptr;
+
+            for (const auto& [mk, mv] : *membersTable)
+            {
+                const Luau::ConfigTable* member = mv.get_if<Luau::ConfigTable>();
+                if (!member || !member->contains("path") || !member->contains("packages"))
+                    continue;
+
+                const std::string* memberPath = (*member).find("path")->get_if<std::string>();
+                if (!memberPath)
+                    continue;
+
+                std::string resolvedMemberPath = normalizePath(joinPaths(*lockfileParentDir, *memberPath));
+                if (!resolvedMemberPath.empty() && resolvedMemberPath.back() != '/')
+                    resolvedMemberPath += '/';
+
+                if (normalizedEntry.substr(0, resolvedMemberPath.size()) == resolvedMemberPath)
+                {
+                    if (resolvedMemberPath.size() > bestMemberPath.size())
+                    {
+                        bestMemberPath = resolvedMemberPath;
+                        bestMember = member;
+                    }
+                }
+            }
+
+            if (bestMember)
+            {
+                const Luau::ConfigTable* memberPackages = (*bestMember).find("packages")->get_if<Luau::ConfigTable>();
+                if (memberPackages)
+                    packageKeys = extractStringArray(*memberPackages);
+            }
+        }
+    }
+
     std::vector<Package::Identifier> directDependencies;
     for (const std::string& key : packageKeys)
     {

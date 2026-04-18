@@ -9,9 +9,15 @@ export type LockfileDependency = {
 	read dependencies: { [string]: string },
 }
 
+export type LockfileMember = {
+	read path: string,
+	read packages: { string },
+}
+
 export type Lockfile = {
 	read version: number,
 	read packages: { string },
+	read members: { [string]: LockfileMember }?,
 	read dependencies: { [string]: LockfileDependency },
 }
 
@@ -50,6 +56,25 @@ local function parseLockfile(t: any): Lockfile
 		validatePackageEntry(key, entry)
 	end
 	table.freeze(t.dependencies)
+
+	if t.members ~= nil then
+		assert(type(t.members) == "table", "Expected 'members' field to be a table")
+		for memberName, member in t.members do
+			assert(type(memberName) == "string", "Expected member name to be a string")
+			assert(type(member) == "table", `Expected table for member '{memberName}'`)
+			assert(type(member.path) == "string", `Expected 'path' field in member '{memberName}'`)
+			assert(type(member.packages) == "table", `Expected 'packages' field in member '{memberName}'`)
+			for _, key in member.packages do
+				assert(type(key) == "string", `Expected package key to be a string in member '{memberName}'`)
+				assert(
+					(t.dependencies :: { [unknown]: unknown })[key] ~= nil,
+					`Package '{key}' in member '{memberName}' not found in dependencies`
+				)
+			end
+			table.freeze(member.packages)
+		end
+		table.freeze(t.members)
+	end
 
 	return table.freeze(t)
 end
