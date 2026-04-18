@@ -41,6 +41,11 @@ void LuteExePayload::setLuauConfig(const Luau::DenseHashMap<std::string, std::st
     luauConfigFiles = configs;
 }
 
+void LuteExePayload::setPackageAliases(std::vector<BundlePackageAlias> aliases)
+{
+    packageAliases = std::move(aliases);
+}
+
 std::optional<LuteEncodeResult> LuteExePayload::encode()
 {
     // Encoding an empty payload is an error
@@ -52,10 +57,28 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
 
     LuteEncodeResult result;
     // Step 1: Build uncompressed bundle
-    // Format: [num_config_entries][config entries...][file entries...]
+    // Format: [num_alias_entries][alias entries...][num_config_entries][config entries...][file entries...]
     std::string uncompressedBundle;
 
-    // Step 1a: Write .luaurc config files first
+    // Step 1a: Write package alias table. These let the bundle's BundleVfs
+    // resolve `@<dep>` requires at runtime, scoped to the requirer's subtree.
+    auto appendString = [&uncompressedBundle](const std::string& s)
+    {
+        uint32_t length = static_cast<uint32_t>(s.size());
+        uncompressedBundle.append(reinterpret_cast<const char*>(&length), sizeof(uint32_t));
+        uncompressedBundle.append(s);
+    };
+
+    uint32_t numAliasEntries = static_cast<uint32_t>(packageAliases.size());
+    uncompressedBundle.append(reinterpret_cast<const char*>(&numAliasEntries), sizeof(uint32_t));
+    for (const BundlePackageAlias& alias : packageAliases)
+    {
+        appendString(alias.requirerSubtreePrefix);
+        appendString(alias.aliasName);
+        appendString(alias.aliasBundlePath);
+    }
+
+    // Step 1b: Write .luaurc config files first
     uint32_t numConfigEntries = static_cast<uint32_t>(luauConfigFiles.size());
     uncompressedBundle.append(reinterpret_cast<const char*>(&numConfigEntries), sizeof(uint32_t));
 
@@ -76,7 +99,7 @@ std::optional<LuteEncodeResult> LuteExePayload::encode()
         uncompressedBundle.append(configContent);
     }
 
-    // Step 1b: Write bytecode files
+    // Step 1c: Write bytecode files
     for (const auto& sourcePath : filePaths)
     {
         // Get the bundle path (rooted path for the bundle)
@@ -304,8 +327,54 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
     size_t offset = 0;
     filePathToBytecode.clear();
     luauConfigFiles.clear();
+    packageAliases.clear();
 
-    // Step 1: Read num_config_entries
+    auto readLengthPrefixedString = [&](const char* fieldName, std::string& out) -> bool
+    {
+        if (offset + sizeof(uint32_t) > decompressedBundle.size())
+        {
+            reporter.formatError("Invalid bundle: incomplete %s length field", fieldName);
+            return false;
+        }
+        uint32_t length;
+        memcpy(&length, decompressedBundle.data() + offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
+
+        if (offset + length > decompressedBundle.size())
+        {
+            reporter.formatError("Invalid bundle: incomplete %s data", fieldName);
+            return false;
+        }
+        out.assign(decompressedBundle.data() + offset, length);
+        offset += length;
+        return true;
+    };
+
+    // Step 1: Read package alias entries
+    if (offset + sizeof(uint32_t) > decompressedBundle.size())
+    {
+        reporter.reportError("Invalid bundle: incomplete num_alias_entries field");
+        return false;
+    }
+
+    uint32_t numAliasEntries;
+    memcpy(&numAliasEntries, decompressedBundle.data() + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+
+    packageAliases.reserve(numAliasEntries);
+    for (uint32_t i = 0; i < numAliasEntries; ++i)
+    {
+        BundlePackageAlias alias;
+        if (!readLengthPrefixedString("alias subtree prefix", alias.requirerSubtreePrefix))
+            return false;
+        if (!readLengthPrefixedString("alias name", alias.aliasName))
+            return false;
+        if (!readLengthPrefixedString("alias value", alias.aliasBundlePath))
+            return false;
+        packageAliases.push_back(std::move(alias));
+    }
+
+    // Step 2: Read num_config_entries
     if (offset + sizeof(uint32_t) > decompressedBundle.size())
     {
         reporter.reportError("Invalid bundle: incomplete num_config_entries field");
@@ -316,7 +385,7 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
     memcpy(&numConfigEntries, decompressedBundle.data() + offset, sizeof(uint32_t));
     offset += sizeof(uint32_t);
 
-    // Step 2: Read each config entry
+    // Step 3: Read each config entry
     for (uint32_t i = 0; i < numConfigEntries; ++i)
     {
         // Read path length
@@ -365,7 +434,7 @@ bool LuteExePayload::parseFromDecompressedBundle(std::string_view decompressedBu
         luauConfigFiles[configPath] = luaurcContent;
     }
 
-    // Step 3: Read bytecode compiled scripts
+    // Step 4: Read bytecode compiled scripts
     while (offset < decompressedBundle.size())
     {
         // Read path length

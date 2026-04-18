@@ -532,12 +532,20 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
 
     // If the entry point lives inside a project with a loom.lock.luau, enable
     // package-aware require resolution so that @<dep> aliases declared in the
-    // lockfile bundle correctly. Without this, those requires would warn at
-    // compile time and fail at runtime in the produced executable.
+    // lockfile (a) bundle correctly during static tracing and (b) resolve
+    // correctly at runtime inside the produced executable via BundleVfs.
     if (std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(absoluteEntryPoint))
     {
         auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
-        tracer.setUserlandVfs(Package::UserlandVfs::create(std::move(directDependencies), std::move(allDependencies)));
+        std::optional<std::string> projectRoot = getParentPath(*lockfile);
+        if (projectRoot)
+        {
+            tracer.enablePackageMode(std::move(*projectRoot), std::move(directDependencies), std::move(allDependencies));
+        }
+        else
+        {
+            reporter.formatError("Warning: failed to derive project root from lockfile path '%s'\n", lockfile->c_str());
+        }
     }
 
     tracer.trace(absoluteEntryPoint);
@@ -558,6 +566,10 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
 
     // Add the discovered luaurc configuration
     payload.setLuauConfig(tracer.getLuauConfigFiles());
+
+    // Embed the package alias table so the produced executable can resolve
+    // `@<dep>` requires at runtime (for projects with a loom.lock.luau).
+    payload.setPackageAliases(tracer.getPackageAliases());
 
 
     // Encode the payload
@@ -675,7 +687,7 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     {
         Runtime runtime{reporter};
 
-        setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
+        setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode, payload->packageAliases);
         std::string entryPoint = payload->entryPointPath;
         auto entryModule = payload->filePathToBytecode.find(entryPoint);
         if (entryModule != nullptr)

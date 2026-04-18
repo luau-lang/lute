@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lute/bundlevfs.h"
 #include "lute/reporter.h"
 #include "lute/userlandvfs.h"
 
@@ -7,6 +8,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 class StaticRequireTracer
@@ -14,11 +16,22 @@ class StaticRequireTracer
 public:
     StaticRequireTracer(LuteReporter& reporter);
 
-    // Enables package-aware require resolution backed by a lockfile-derived
-    // UserlandVfs. After this is called, @<package_alias> requires encountered
-    // during tracing are resolved through the package graph (as well as via
-    // any nested packages those requires reach into).
-    void setUserlandVfs(Package::UserlandVfs userlandVfs);
+    // Enables package-aware require resolution and bundle alias generation
+    // from a lockfile's resolved dependency graph. After this is called,
+    // @<package_alias> requires encountered during tracing are resolved
+    // through the package graph, and the bundle's alias table will be
+    // populated so the produced executable can resolve those same aliases at
+    // runtime via BundleVfs.
+    //
+    // - projectRootDirectory: absolute path of the directory containing the
+    //   loom.lock.luau file (i.e., the project's package root).
+    // - directDependencies: aliases the project itself can require.
+    // - allDependencies: every package in the resolved graph, with its info.
+    void enablePackageMode(
+        std::string projectRootDirectory,
+        std::vector<Package::Identifier> directDependencies,
+        std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies
+    );
 
     // Trace dependencies starting from an entry point file
     // entryPoint: absolute path to entry point file
@@ -43,6 +56,13 @@ public:
         return luauConfigFiles;
     }
 
+    // Bundle-scoped package aliases derived from the lockfile after trace().
+    // Empty if package mode wasn't enabled.
+    const std::vector<BundlePackageAlias>& getPackageAliases() const
+    {
+        return packageAliases;
+    }
+
     void printRequireGraph() const;
     // Find the lowest common root directory from a collection of absolute paths
     static std::string findLowestCommonRoot(const std::vector<std::string>& paths);
@@ -55,6 +75,17 @@ private:
     std::string lowestCommonRoot;
 
     std::optional<Package::UserlandVfs> userlandVfs;
+
+    // Package alias data captured by enablePackageMode for later (post-trace)
+    // synthesis of `packageAliases` once we know the LCR.
+    std::optional<std::string> projectRootDirectory;
+    std::vector<Package::Identifier> projectDirectDependencies;
+    std::vector<std::pair<Package::Identifier, Package::Info>> allPackageDependencies;
+    std::vector<BundlePackageAlias> packageAliases;
+
+    // Synthesizes packageAliases from the captured package data and the
+    // current lowestCommonRoot. Called at the end of trace().
+    void synthesizePackageAliases();
 
     // Extract all require() paths from source code
     std::vector<std::string> extractRequires(const std::string& source);

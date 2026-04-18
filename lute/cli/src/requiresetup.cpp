@@ -130,7 +130,8 @@ static void* createPkgCliCommandRequireContext(
 static void* createBundleRequireContext(
     lua_State* L,
     Luau::DenseHashMap<std::string, std::string> luauConfigFiles,
-    Luau::DenseHashMap<std::string, std::string> bundleMap
+    Luau::DenseHashMap<std::string, std::string> bundleMap,
+    std::vector<BundlePackageAlias> packageAliases
 )
 {
     void* ctx = lua_newuserdatadtor(
@@ -144,7 +145,9 @@ static void* createBundleRequireContext(
 
     if (!ctx)
         luaL_error(L, "unable to allocate RequireCtx");
-    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(BundleVfs{std::move(luauConfigFiles), std::move(bundleMap)})};
+    BundleVfs bundleVfs{std::move(luauConfigFiles), std::move(bundleMap)};
+    bundleVfs.setPackageAliases(std::move(packageAliases));
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(std::move(bundleVfs))};
 
     // Store RequireCtx in the registry to keep it alive for the lifetime of
     // this lua_State. Memory address is used as a key to avoid collisions.
@@ -231,17 +234,22 @@ lua_State* setupPkgRunState(
 lua_State* setupBundleState(
     Runtime& runtime,
     Luau::DenseHashMap<std::string, std::string> luauConfigFiles,
-    Luau::DenseHashMap<std::string, std::string> bundleMap
+    Luau::DenseHashMap<std::string, std::string> bundleMap,
+    std::vector<BundlePackageAlias> packageAliases
 )
 {
     return setupState(
         runtime,
-        [luauConfigFiles = std::move(luauConfigFiles), bundleMap = std::move(bundleMap)](lua_State* L)
+        [luauConfigFiles = std::move(luauConfigFiles),
+         bundleMap = std::move(bundleMap),
+         packageAliases = std::move(packageAliases)](lua_State* L)
         {
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
-            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(luauConfigFiles), std::move(bundleMap)));
+            luaopen_require(
+                L, requireConfigInit, createBundleRequireContext(L, std::move(luauConfigFiles), std::move(bundleMap), std::move(packageAliases))
+            );
         }
     );
 }

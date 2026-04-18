@@ -1,11 +1,13 @@
 #pragma once
 
+#include "lute/bundlevfs.h"
 #include "lute/userlandvfs.h"
 
 #include "Luau/DenseHash.h"
 
 #include <functional>
 #include <string>
+#include <vector>
 
 struct lua_State;
 struct Runtime;
@@ -34,5 +36,6 @@ lua_State* setupPkgRunState(
 lua_State* setupBundleState(
     Runtime& runtime,
     Luau::DenseHashMap<std::string, std::string> luauConfigFiles,
-    Luau::DenseHashMap<std::string, std::string> bundleMap
+    Luau::DenseHashMap<std::string, std::string> bundleMap,
+    std::vector<BundlePackageAlias> packageAliases = {}
 );
