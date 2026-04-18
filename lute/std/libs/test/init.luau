@@ -22,6 +22,8 @@ function TestSuite.new(name: string): TestSuite
 		_beforeAll = nil,
 		_afterEach = nil,
 		_afterAll = nil,
+		_parallel = false,
+		_maxConcurrency = nil,
 	}, TestSuite)
 	return self :: TestSuite
 end
@@ -49,6 +51,19 @@ end
 --- Registers a hook to run once after all test cases in this suite.
 function TestSuite:afterAll(hook: () -> ())
 	self._afterAll = hook
+end
+
+--- Marks this suite to run its test cases concurrently. Each case is launched on its
+--- own coroutine, so yielding calls (e.g. `process.run`, `fs.*`, `net.*`) overlap via
+--- the event loop. `beforeAll`/`afterAll` still run sequentially around the batch.
+---
+--- `maxConcurrency` caps in-flight cases (default 8). Keep it modest on suites that
+--- spawn subprocesses to avoid running out of file descriptors.
+---
+--- Cases in a parallel suite must not share mutable state (tmp file paths, cwd, etc.).
+function TestSuite:parallel(maxConcurrency: number?)
+	self._parallel = true
+	self._maxConcurrency = maxConcurrency
 end
 
 -- Test library export surface

@@ -226,28 +226,24 @@ end
 --- Returns an iterator over all paths under `path`. If `options.recursive` is `true`, descends into subdirectories.
 --- See example/walk_directory.luau for usage.
 function fslib.walk(path: Pathlike, options: WalkOptions?): () -> Path?
-	local queue: { Path } = { pathlib.parse(path) }
+	local queue = deque.new(pathlib.parse(path))
 	local recursive = if options then options.recursive else false
 
 	return function()
-		while #queue > 0 do
-			local current = table.remove(queue, 1)
-			if not current then
-				return nil
-			end
-
-			if fslib.type(current) == "dir" and recursive then
-				local entries = fslib.listDirectory(current)
-				for _, entry in entries do
-					local fullPath = pathlib.join(current, entry.name)
-					table.insert(queue, fullPath)
-				end
-			end
-
-			return current
+		if #queue == 0 then
+			return nil
 		end
 
-		return nil
+		local current = queue:popfront()
+
+		if fslib.type(current) == "dir" and recursive then
+			local entries = fslib.listDirectory(current)
+			for _, entry in entries do
+				queue:pushback(pathlib.join(current, entry.name))
+			end
+		end
+
+		return current
 	end
 end
 

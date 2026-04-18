@@ -8,7 +8,34 @@ local testTypes = require("@std/test/types")
 
 local lutePath = path.format(process.execPath())
 local tmpDir = system.tmpdir()
-local rulesDir = path.format(path.join(".", "lints"))
+
+-- Tests that copy rule files out of `examples/lints/` (or `lute/cli/commands/lint/rules/`)
+-- need the project's `@commands` and `@std` aliases to resolve from the scratch dir.
+-- We seed each scratch dir with a `.luaurc` pointing at the project's lib dirs.
+local projectRoot = path.format(process.cwd())
+local luaurcContents = string.format(
+	[[{"aliases": {"std": %q, "commands": %q, "batteries": %q}}]],
+	path.format(path.join(projectRoot, "lute", "std", "libs")),
+	path.format(path.join(projectRoot, "lute", "cli", "commands")),
+	path.format(path.join(projectRoot, "batteries"))
+)
+
+-- Each test that touches the filesystem must use its own scratch directory so the
+-- suite can run with `suite:parallel()`. `freshScratchDir()` returns a fresh path
+-- under `tmpDir` per call. The counter is process-local; we clean any leftover
+-- directory from a previous run before reusing the slot.
+local scratchCounter = 0
+local function freshScratchDir(): string
+	scratchCounter += 1
+	local dir = path.format(path.join(tmpDir, `lint_test_{scratchCounter}`))
+	if fs.exists(dir) then
+		fs.removeDirectory(dir, { recursive = true })
+	end
+	fs.createDirectory(dir)
+	fs.writeStringToFile(path.format(path.join(dir, ".luaurc")), luaurcContents)
+	return dir
+end
+
 local defaultRulesFolder = path.format(path.join("lute", "cli", "commands", "lint", "rules"))
 local defaultRulesPaths = {
 	almost_swapped = path.format(path.join(defaultRulesFolder, "almost_swapped.luau")),
@@ -49,9 +76,9 @@ type lintTestParams = {
 }
 
 local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams): string
-	-- Setup
-	-- Create a file that violates the rule
-	local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+	-- Each invocation gets its own scratch dir so concurrent tests don't share files.
+	local scratch = freshScratchDir()
+	local violatorPath = path.format(path.join(scratch, "violator.luau"))
 	fs.writeStringToFile(violatorPath, params.content)
 
 	-- Do
@@ -63,7 +90,7 @@ local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams)
 		table.insert(lintArgs, "-r")
 		table.insert(lintArgs, params.rulePath)
 	elseif params.customRuleContents then
-		local customRulePath = path.format(path.join(tmpDir, "custom_rule.luau"))
+		local customRulePath = path.format(path.join(scratch, "custom_rule.luau"))
 		fs.writeStringToFile(customRulePath, params.customRuleContents)
 		table.insert(lintArgs, "-r")
 		table.insert(lintArgs, customRulePath)
@@ -79,7 +106,7 @@ local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams)
 
 	-- Create a config file if specified
 	if params.configContents then
-		local configPath = path.format(path.join(tmpDir, ".config.luau"))
+		local configPath = path.format(path.join(scratch, ".config.luau"))
 		fs.writeStringToFile(configPath, params.configContents)
 		table.insert(lintArgs, "-c")
 		table.insert(lintArgs, configPath)
@@ -115,17 +142,9 @@ local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams)
 end
 
 test.suite("lute lint", function(suite)
-	suite:beforeEach(function()
-		-- A test that creates rulesDir which fails won't cleanup after itself
-		if fs.exists(rulesDir) then
-			fs.removeDirectory(rulesDir, { recursive = true })
-		end
-
-		local modulePath = path.join(tmpDir, "module")
-		if fs.exists(modulePath) then
-			fs.removeDirectory(modulePath, { recursive = true })
-		end
-	end)
+	-- Run cases concurrently. Each test must use `freshScratchDir()` (or call
+	-- `lintTestHelper`, which does) for any filesystem state.
+	suite:parallel()
 
 	suite:case("luteLintHelpMessage", function(assert)
 		local result = process.run({ lutePath, "lint", "-h" })
@@ -329,7 +348,8 @@ end
 	end)
 
 	suite:case("luteLintCustomRulesDir", function(assert)
-		-- Setup
+		-- Use a per-test rules dir so parallel cases don't collide on `./lints`.
+		local rulesDir = path.format(path.join(freshScratchDir(), "lints"))
 		fs.createDirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
 		-- Because the default rules require types using a relative path, we copy from examples, which uses an absolute require path
@@ -381,12 +401,10 @@ violator.luau:3:1-4:6 ──
 				{ expectedOutput = LINT_RULE_MESSAGES.almost_swapped, count = 1 },
 			},
 		})
-
-		fs.removeDirectory(rulesDir, { recursive = true })
 	end)
 
 	suite:case("luteLintMultipleRulesButOneErrors", function(assert)
-		-- Setup
+		local rulesDir = path.format(path.join(freshScratchDir(), "lints"))
 		fs.createDirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
 		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
@@ -427,20 +445,16 @@ b = a
 
 		assert.neq(
 			output:find(
-				"Error applying lint rule 'AlwaysErrors': %.[/\\]lints[/\\]erroring_rule%.luau:4: This rule always errors",
+				"Error applying lint rule 'AlwaysErrors': .+[/\\]lints[/\\]erroring_rule%.luau:4: This rule always errors",
 				1
 			),
 			nil
 		)
-
-		-- Teardown
-		fs.removeDirectory(rulesDir, { recursive = true })
 	end)
 
 	suite:case("luteLintMultipleInputFiles", function(assert)
-		-- Setup
-		-- Create multiple files that violate the rule
-		local violatorPath1 = path.format(path.join(tmpDir, "violator1.luau"))
+		local scratch = freshScratchDir()
+		local violatorPath1 = path.format(path.join(scratch, "violator1.luau"))
 		fs.writeStringToFile(
 			violatorPath1,
 			[[
@@ -451,7 +465,7 @@ b = a
     ]]
 		)
 
-		local modulePath = path.join(tmpDir, "module")
+		local modulePath = path.join(scratch, "module")
 		fs.createDirectory(modulePath)
 		local violatorPath2 = path.format(path.join(modulePath, "violator2.lua"))
 		fs.writeStringToFile(
@@ -515,19 +529,14 @@ violator2.lua:5:1-6:6 ──
 		assert.strContains(result.stdout, expected)
 		expected = "Skipping non%-Luau file '.+[/\\]module[/\\]not_luau%.txt'"
 		assert.neq(result.stdout:find(expected, 1, false), nil)
-
-		-- Teardown
-		fs.remove(violatorPath1)
-		fs.removeDirectory(modulePath, { recursive = true })
 	end)
 
 	suite:case("luteLintMultipleFilesWithErrorsRecovers", function(assert)
-		-- Setup
-		-- Create multiple files that violate the rule
-		local lintee = path.format(path.join(tmpDir, "lintee.luau"))
+		local scratch = freshScratchDir()
+		local lintee = path.format(path.join(scratch, "lintee.luau"))
 		fs.writeStringToFile(lintee, "bogus")
 
-		local violatorPath = path.format(path.join(tmpDir, "violator1.luau"))
+		local violatorPath = path.format(path.join(scratch, "violator1.luau"))
 		fs.writeStringToFile(
 			violatorPath,
 			[[
@@ -538,11 +547,8 @@ b = a
     ]]
 		)
 
-		-- Do
-		-- Run the transformer on the transformee
 		local result = process.run({ lutePath, "lint", lintee, violatorPath })
 
-		-- Check
 		assert.eq(result.exitcode, 1)
 
 		local expected = [[
@@ -553,10 +559,6 @@ lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 
 		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
 		assert.strContains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
-
-		-- Teardown
-		fs.remove(lintee)
-		fs.remove(violatorPath)
 	end)
 
 	suite:case("luteLintDefaultRules", function(assert)
@@ -962,9 +964,7 @@ local x = 1 / 0
 	end)
 
 	suite:case("luteLintRespectsGitignore", function(assert)
-		-- Setup
-		-- Create a module directory with a .gitignore that ignores one file
-		local modulePath = path.join(tmpDir, "module")
+		local modulePath = path.join(freshScratchDir(), "module")
 		fs.createDirectory(modulePath)
 		local violatorPath1 = path.format(path.join(modulePath, "violator1.luau"))
 		fs.writeStringToFile(
@@ -982,11 +982,8 @@ local y = 10 / 0
 		)
 		fs.writeStringToFile(path.format(path.join(modulePath, ".gitignore")), "violator2.luau\n")
 
-		-- Do
-		-- Run the transformer on the transformee
 		local result = process.run({ lutePath, "lint", path.format(modulePath) })
 
-		-- Check
 		assert.eq(result.exitcode, 1)
 
 		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, 1)
@@ -1007,9 +1004,6 @@ violator2.lua:1:11-17 ──
    │
 ]]
 		assert.strNotContains(result.stdout, expected)
-
-		-- Teardown
-		fs.removeDirectory(modulePath, { recursive = true })
 	end)
 
 	suite:case("luteLintReportDirective", function(assert)
@@ -2540,7 +2534,7 @@ return {
 	end)
 
 	suite:case("luteLintAccountsForConfiguredIgnoresConfigPassedAsArg", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2572,7 +2566,7 @@ return {
 	end)
 
 	suite:case("luteLintAccountsForConfiguredIgnoresConfigAutoDetected", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2605,7 +2599,7 @@ return {
 	end)
 
 	suite:case("luteLintConfiguredIgnoresSupplementNotOverrideExistingGitignores", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2799,7 +2793,7 @@ local t = { [0] = 1 }
 	end)
 
 	suite:case("luteLintSupportsConfiguredDirectoryIgnores", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		-- Create a nested directory structure with violating files
@@ -2845,7 +2839,7 @@ local t = { [0] = 1 }
 	end)
 
 	suite:case("luteLintHandlesIgnoresWithRelativeConfigPath", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2880,7 +2874,7 @@ local t = { [0] = 1 }
 	end)
 
 	suite:case("luteLintHandlesIgnoresWithAbsoluteConfigPath", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
@@ -2960,7 +2954,7 @@ local t = { [0] = 1 }
 	end)
 
 	suite:case("luteLintAccountsForRuleSpecificIgnores", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local violatorFile = path.join(testSubDir, "violator.luau")
@@ -3009,7 +3003,7 @@ return {
 	end)
 
 	suite:case("luteLintAccountsForRuleSpecificDirectoryIgnores", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local ignoredDir = path.join(testSubDir, "ignoredDir")
@@ -3160,6 +3154,9 @@ return {
 	end)
 
 	suite:case("rulesGivenByConfigRulepathsAreLoadedInAdditionToCliPassedRulesAndRan", function(assert)
+		-- Inlined (not using lintTestHelper) so the config file, the relative-path
+		-- rule, and the violator all live in the same scratch dir. Lute resolves
+		-- `./configuredRelativeRule.luau` relative to the config file's directory.
 		local ruleTemplate = [[
 return {
 	name = %q,
@@ -3174,9 +3171,10 @@ return {
 		}
 	end
 }
-		]]
-		-- Create the config-provided rules (loaded via config.rulepaths, NOT via -r)
-		local configuredAbsoluteRulePath = path.format(path.join(tmpDir, "configuredAbsRule.luau"))
+]]
+		local scratch = freshScratchDir()
+
+		local configuredAbsoluteRulePath = path.format(path.join(scratch, "configuredAbsRule.luau"))
 		fs.writeStringToFile(
 			configuredAbsoluteRulePath,
 			(ruleTemplate :: any):format(
@@ -3185,7 +3183,7 @@ return {
 				"configuredAbsoluteRule ran."
 			)
 		)
-		local configuredRelativePath = path.format(path.join(tmpDir, "configuredRelativeRule.luau"))
+		local configuredRelativePath = path.format(path.join(scratch, "configuredRelativeRule.luau"))
 		fs.writeStringToFile(
 			configuredRelativePath,
 			(ruleTemplate :: any):format(
@@ -3195,12 +3193,10 @@ return {
 			)
 		)
 
-		-- The CLI-provided rule is passed via customRuleContents (which uses -r),
-		-- while the config-provided rules are referenced via config.rulepaths
-		lintTestHelper(assert, {
-			content = "local x = 1",
-			expectedExitCode = 1,
-			customRuleContents = [[
+		local cliRulePath = path.format(path.join(scratch, "custom_rule.luau"))
+		fs.writeStringToFile(
+			cliRulePath,
+			[[
 return {
 	name = "cliRule",
 	lint = function(ast, sourcepath, context)
@@ -3214,8 +3210,13 @@ return {
 		}
 	end
 }
-]],
-			configContents = ([[
+]]
+		)
+
+		local configPath = path.format(path.join(scratch, ".config.luau"))
+		fs.writeStringToFile(
+			configPath,
+			([[
 return {
 	lute = {
 		lint = {
@@ -3223,24 +3224,33 @@ return {
 		}
 	}
 }
-]]):format(configuredAbsoluteRulePath),
-			disableDefaultLints = true,
-			outputExpectations = {
-				-- both config-given and CLI-given rules should have ran
-				{ expectedOutput = "configuredAbsoluteRule ran.", count = 1 },
-				{ expectedOutput = "configuredRelativeRule ran.", count = 1 },
-				{ expectedOutput = "CLI Rule Ran.", count = 1 },
-			},
-			processOptions = {
-				cwd = path.format(tmpDir),
-			},
-		})
+]]):format(configuredAbsoluteRulePath)
+		)
+
+		local violatorPath = path.format(path.join(scratch, "violator.luau"))
+		fs.writeStringToFile(violatorPath, "local x = 1")
+
+		local result = process.run({
+			lutePath,
+			"lint",
+			"-r",
+			cliRulePath,
+			"--no-default-lints",
+			"-c",
+			configPath,
+			violatorPath,
+		}, { cwd = scratch })
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, "configuredAbsoluteRule ran.", 1)
+		assert.strContains(result.stdout, "configuredRelativeRule ran.", 1)
+		assert.strContains(result.stdout, "CLI Rule Ran.", 1)
 	end)
 
 	suite:case(
 		"lute lint properly loads rule-specific configuration for rules provided by config.rulepaths",
 		function(assert)
-			local testSubDir = path.join(tmpDir, "module")
+			local testSubDir = path.join(freshScratchDir(), "module")
 			fs.createDirectory(testSubDir)
 
 			local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
@@ -3592,7 +3602,7 @@ end
 	end)
 
 	suite:case("luteLintCurrentDirFindsLuauFiles", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local violatorPath = path.format(path.join(testSubDir, "violator.luau"))
@@ -3607,7 +3617,7 @@ end
 	end)
 
 	suite:case("luteLintCurrentDirFindsLuaFiles", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local violatorPath = path.format(path.join(testSubDir, "violator.lua"))
@@ -3622,7 +3632,7 @@ end
 	end)
 
 	suite:case("luteLintCurrentDirRecursive", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		local nestedDir = path.join(testSubDir, "nested")
 		fs.createDirectory(testSubDir)
 		fs.createDirectory(nestedDir)
@@ -3639,7 +3649,7 @@ end
 	end)
 
 	suite:case("luteLintCurrentDirNoLuauFiles", function(assert)
-		local testSubDir = path.join(tmpDir, "module")
+		local testSubDir = path.join(freshScratchDir(), "module")
 		fs.createDirectory(testSubDir)
 
 		local result = process.run({ lutePath, "lint" }, {

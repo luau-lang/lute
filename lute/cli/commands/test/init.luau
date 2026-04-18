@@ -8,17 +8,79 @@ local testtypes = require("@std/test/types")
 local runner = require("@std/test/runner")
 local reporter = require("@self/reporter")
 local test = require("@std/test")
+local time = require("@std/time")
 local snaprunner = require("@self/snap/runner")
 local updater = require("@self/snap/updater")
 
-local function loadtests(testfiles: { path.Path })
+local SLOW_LOAD_LIMIT = 10
+local SLOW_LOAD_THRESHOLD_SECONDS = 0.05
+
+local function formatSeconds(seconds: number): string
+	if seconds >= 1 then
+		return string.format("%.2fs", seconds)
+	elseif seconds >= 0.001 then
+		return string.format("%.1fms", seconds * 1000)
+	else
+		return string.format("%.0fµs", seconds * 1_000_000)
+	end
+end
+
+type LoadStats = {
+	totalseconds: number,
+	count: number,
+	perfile: { { file: string, seconds: number } },
+}
+
+local function loadtests(testfiles: { path.Path }): LoadStats
+	local loadstart = time.now()
+	local perfile: { { file: string, seconds: number } } = {}
 	-- Load all test files first
 	for _, p in testfiles do
+		local fstart = time.now()
 		local success, err = pcall(luau.loadModule, p, nil)
+		local elapsed = time.since(fstart)
 
 		if not success then
 			print(`Error loading {path.format(p)}: {err}`)
 			ps.exit(1)
+		end
+
+		table.insert(perfile, { file = path.format(p), seconds = elapsed })
+	end
+
+	return {
+		totalseconds = time.since(loadstart),
+		count = #testfiles,
+		perfile = perfile,
+	}
+end
+
+local function printLoadSummary(stats: LoadStats, discoverSeconds: number, discoveredCount: number)
+	print(
+		`Discovered {discoveredCount} test files in {formatSeconds(discoverSeconds)}; `
+			.. `loaded {stats.count} in {formatSeconds(stats.totalseconds)}`
+	)
+
+	local perfile = table.clone(stats.perfile)
+	table.sort(perfile, function(a, b)
+		return a.seconds > b.seconds
+	end)
+
+	local slow = {}
+	for _, entry in perfile do
+		if entry.seconds < SLOW_LOAD_THRESHOLD_SECONDS then
+			break
+		end
+		table.insert(slow, entry)
+		if #slow >= SLOW_LOAD_LIMIT then
+			break
+		end
+	end
+
+	if #slow > 0 then
+		print("Slowest test file loads:")
+		for _, entry in slow do
+			print(`  {formatSeconds(entry.seconds)}  {entry.file}`)
 		end
 	end
 end
@@ -40,10 +102,18 @@ local function listtests()
 	end
 end
 
-local function runtests(env: testtypes.TestEnvironment, runner: testtypes.TestRunner, reporter: testtypes.TestReporter)
-	local result = runner(env)
+local function runtests(
+	env: testtypes.TestEnvironment,
+	runFn: (testtypes.TestEnvironment) -> testtypes.TestRunResult,
+	reporter: testtypes.TestReporter,
+	afterRun: (() -> ())?
+)
+	local result = runFn(env)
 
 	reporter(result)
+	if afterRun then
+		afterRun()
+	end
 	if result.failed ~= 0 then
 		ps.exit(1)
 	end
@@ -73,6 +143,10 @@ local function main(...: string)
 	args:add("case", "option", { help = "Run only test cases matching the specified name", aliases = { "c" } })
 	args:add("interactive", "flag", { help = "Interactively accept/reject snapshot changes", aliases = { "i" } })
 	args:add("update", "flag", { help = "Auto-accept all snapshot changes", aliases = { "u" } })
+	args:add("parallel-suites", "option", {
+		help = "Run up to N suites concurrently (default 1, sequential).",
+		aliases = { "p" },
+	})
 
 	args:parse({ ... })
 
@@ -96,14 +170,44 @@ local function main(...: string)
 	end
 
 	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./" }
-	loadtests(finder.findtestfiles(searchpath))
+	local isList = args:has("list")
 
-	if args:has("list") then
+	local phaseStart = time.now()
+
+	local discoverstart = time.now()
+	local testfiles, walkStats = finder.findtestfiles(searchpath)
+	local discoverSeconds = time.since(discoverstart)
+
+	local stats = loadtests(testfiles)
+
+	if isList then
+		-- --list output is consumed by other tests verbatim; keep stdout clean.
 		listtests()
 	else
+		printLoadSummary(stats, discoverSeconds, #testfiles)
+		print(`Discovery walk: {walkStats.entriesVisited} filesystem entries visited`)
 		local env = test._registered() :: testtypes.TestEnvironment
 		local filteredEnv = filter.filtertests(env, args:get("suite"), args:get("case"))
-		runtests(filteredEnv, runner.run, reporter.color)
+		local setupSeconds = time.since(phaseStart)
+
+		local parallelSuitesArg = args:get("parallel-suites")
+		local parallelSuites = if parallelSuitesArg then tonumber(parallelSuitesArg) else nil
+		if parallelSuitesArg and not parallelSuites then
+			print(`Invalid --parallel-suites value: '{parallelSuitesArg}' (expected a number)`)
+			ps.exit(1)
+		end
+
+		local function runFn(e: testtypes.TestEnvironment): testtypes.TestRunResult
+			return runner.run(e, { parallelSuites = parallelSuites })
+		end
+
+		runtests(filteredEnv, runFn, reporter.color, function()
+			print(
+				`Phase timings: discover={formatSeconds(discoverSeconds)}, `
+					.. `load={formatSeconds(stats.totalseconds)}, `
+					.. `cli-setup(total before runner)={formatSeconds(setupSeconds)}`
+			)
+		end)
 	end
 end
 
