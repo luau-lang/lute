@@ -151,15 +151,15 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 
 	table.freeze(packages)
 
-	local lf: lockfile.Lockfile = table.freeze({
+	local lock: lockfile.Lockfile = table.freeze({
 		version = 3,
 		packages = packages,
 		dependencies = dependencies,
 	})
 
-	fs.writeStringToFile(lockfilePath, `return {pp(lf)}\n`)
+	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
 
-	return lf
+	return lock
 end
 
 return {
