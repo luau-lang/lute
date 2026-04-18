@@ -15,6 +15,7 @@ export type PackageManifest = {
 
 export type ProjectManifest = {
 	read package: PackageManifest,
+	read workspace: { string }?,
 }
 
 -- FIXME(Luau): running into issues with getting this to type check properly.
@@ -57,12 +58,22 @@ local function parseManifest(t: any): ProjectManifest
 		table.freeze(dependencies)
 	end
 
+	local workspace = t.workspace
+	if workspace ~= nil then
+		assert(type(workspace) == "table", "Expected 'workspace' field to be an array of strings")
+		for _, member in workspace do
+			assert(type(member) == "string", "Expected each workspace member to be a string path")
+		end
+		table.freeze(workspace)
+	end
+
 	return table.freeze({
 		package = table.freeze({
 			name = pkg.name,
 			version = pkg.version,
 			dependencies = dependencies,
 		}),
+		workspace = workspace,
 	})
 end
 

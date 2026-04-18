@@ -5,12 +5,6 @@ local path = require("@std/path")
 local pp = require("@batteries/pp")
 local projectmanifest = require("./projectmanifest")
 
-export type ResolvedGraph = {
-	read packages: { string },
-	read dependencies: { [string]: projectmanifest.DependencySpec },
-	read graph: { [string]: { [string]: string } },
-}
-
 local function getManifestPath(directory: string): string
 	return `{directory}/loom.config.luau`
 end
@@ -24,13 +18,6 @@ local function getKey(spec: projectmanifest.DependencySpec): string
 		return `{spec.name}@{spec.rev}`
 	end
 	return spec.name
-end
-
-local function getInstallPath(spec: projectmanifest.DependencySpec): string
-	if spec.sourceKind == "path" then
-		return spec.source
-	end
-	return `Packages/{getKey(spec)}`
 end
 
 local function hasConflict(specA: projectmanifest.DependencySpec, specB: projectmanifest.DependencySpec): boolean
@@ -66,7 +53,7 @@ local function fetchSource(spec: projectmanifest.DependencySpec, rootDirectory: 
 		return sourcePath
 	elseif spec.sourceKind == "github" then
 		assert(spec.rev ~= nil, `Expected rev to be non-nil for GitHub package '{spec.name}'`)
-		local sourcePath = `{rootDirectory}/{getInstallPath(spec)}`
+		local sourcePath = `{rootDirectory}/Packages/{getKey(spec)}`
 		github.installPackage(spec.source, spec.rev, sourcePath)
 		return sourcePath
 	else
@@ -74,28 +61,7 @@ local function fetchSource(spec: projectmanifest.DependencySpec, rootDirectory: 
 	end
 end
 
-local function createLockfile(resolved: ResolvedGraph): lockfile.Lockfile
-	local deps: { [string]: lockfile.LockfileDependency } = {}
-
-	for key, pkg in resolved.dependencies do
-		deps[key] = {
-			name = pkg.name,
-			rev = pkg.rev,
-			source = pkg.source,
-			sourceKind = pkg.sourceKind,
-			installPath = getInstallPath(pkg),
-			dependencies = resolved.graph[key] or {},
-		}
-	end
-
-	return {
-		version = 2,
-		packages = resolved.packages,
-		dependencies = deps,
-	}
-end
-
-local function resolve(rootDirectory: string): ResolvedGraph
+local function resolve(rootDirectory: string): lockfile.Lockfile
 	local rootManifestPath = getManifestPath(rootDirectory)
 	if not fs.exists(rootManifestPath) then
 		error(`Manifest file not found: {rootManifestPath}`)
@@ -113,8 +79,7 @@ local function resolve(rootDirectory: string): ResolvedGraph
 	local queue: { projectmanifest.DependencySpec } = {}
 
 	local packages: { string } = {}
-	local dependencies: { [string]: projectmanifest.DependencySpec } = {}
-	local graph: { [string]: { [string]: string } } = {}
+	local dependencies: { [string]: lockfile.LockfileDependency } = {}
 
 	local rootManifest = projectmanifest.parseFile(rootManifestPath)
 	for _, spec in rootManifest.package.dependencies do
@@ -123,6 +88,22 @@ local function resolve(rootDirectory: string): ResolvedGraph
 	end
 
 	table.freeze(packages)
+
+	-- Seed workspace member dependencies into the shared queue
+	if rootManifest.workspace ~= nil then
+		for _, memberPath in rootManifest.workspace do
+			local memberDir = path.format(path.resolve(rootDirectory, memberPath))
+			local memberManifestPath = getManifestPath(memberDir)
+			if not fs.exists(memberManifestPath) then
+				error(`Workspace member manifest not found: {memberManifestPath}`)
+			end
+			local memberManifest = projectmanifest.parseFile(memberManifestPath)
+			for _, depSpec in memberManifest.package.dependencies do
+				local normalized = normalizePathDependency(depSpec, memberDir, rootDirectory)
+				table.insert(queue, normalized)
+			end
+		end
+	end
 
 	local nameIndex: { [string]: string } = {}
 
@@ -155,8 +136,7 @@ local function resolve(rootDirectory: string): ResolvedGraph
 
 		-- New package — resolve it
 		nameIndex[spec.name] = key
-		dependencies[key] = spec
-		graph[key] = {}
+		local transitiveDependencies: { [string]: string } = {}
 
 		-- Download and install
 		local installPath = fetchSource(spec, rootDirectory)
@@ -165,30 +145,79 @@ local function resolve(rootDirectory: string): ResolvedGraph
 		local nestedManifestPath = getManifestPath(installPath)
 		if fs.exists(nestedManifestPath) then
 			local depManifest = projectmanifest.parseFile(nestedManifestPath)
+
+			if depManifest.workspace ~= nil then
+				local memberNames: { [string]: string } = {}
+
+				for _, memberPath in depManifest.workspace do
+					local memberDir = path.format(path.resolve(path.dirname(nestedManifestPath), memberPath))
+					local memberManifestPath = getManifestPath(memberDir)
+					if not fs.exists(memberManifestPath) then
+						error(`Workspace member manifest not found: {memberManifestPath}`)
+					end
+					local memberManifest = projectmanifest.parseFile(memberManifestPath)
+
+					local memberName = memberManifest.package.name
+					if memberNames[memberName] then
+						error(
+							`Duplicate workspace member name '{memberName}':\n`
+								.. `  {memberNames[memberName]}\n`
+								.. `  {memberPath}`
+						)
+					end
+					memberNames[memberName] = memberPath
+
+					-- resolve to the member package
+					if spec.name == memberName then
+						assert(
+							spec.name ~= depManifest.package.name,
+							"Workspace member cannot have the same name as the root package"
+						)
+						installPath = memberDir
+						depManifest = memberManifest
+					end
+
+					for _, depSpec in memberManifest.package.dependencies do
+						local normalized = normalizePathDependency(depSpec, memberDir, rootDirectory)
+						table.insert(queue, normalized)
+					end
+				end
+
+				if spec.name ~= depManifest.package.name and not memberNames[spec.name] then
+					error(`Package '{spec.name}' not found in workspace at '{installPath}'`)
+				end
+			end
+
 			for depAlias, depSpec in depManifest.package.dependencies do
 				-- Normalize transitive path dep sources to be rootDirectory-relative
 				local normalizedSpec = normalizePathDependency(depSpec, installPath, rootDirectory)
-				graph[key][depAlias] = getKey(normalizedSpec)
+				transitiveDependencies[depAlias] = getKey(normalizedSpec)
 				table.insert(queue, normalizedSpec)
 			end
 		end
 
-		table.freeze(graph[key])
+		table.freeze(transitiveDependencies)
+
+		dependencies[key] = table.freeze({
+			name = spec.name,
+			rev = spec.rev,
+			source = spec.source,
+			sourceKind = spec.sourceKind,
+			installPath = path.format(path.relative(rootDirectory, installPath)),
+			dependencies = transitiveDependencies,
+		})
 	end
 
 	table.freeze(dependencies)
-	table.freeze(graph)
 
-	local resolved = table.freeze({
+	local lf: lockfile.Lockfile = table.freeze({
+		version = 2,
 		packages = packages,
 		dependencies = dependencies,
-		graph = graph,
 	})
-
-	local lf = createLockfile(resolved)
 	fs.writeStringToFile(lockfilePath, `return {pp(lf)}\n`)
 
-	return resolved
+	return lf
 end
 
 return {
