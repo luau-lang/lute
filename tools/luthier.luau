@@ -473,6 +473,24 @@ local function call(cmd: { string }, passedCwd: string?): number
 	return process.run(cmd, { cwd = passedCwd or cwd, stdio = "inherit" }).exitcode
 end
 
+local function removePathRecursive(path: string)
+	local pathType = safeFsType(path)
+	if pathType == nil then
+		return
+	end
+
+	if pathType ~= "dir" then
+		fs.remove(path)
+		return
+	end
+
+	for _, entry in fs.listdir(path) do
+		removePathRecursive(joinPath(path, entry.name))
+	end
+
+	fs.rmdir(path)
+end
+
 local function build()
 	local target = args:get("target")
 	assert(target ~= nil)
@@ -499,7 +517,8 @@ local function getConfigureArguments()
 	end
 
 	if args:has("clean") then
-		call({ "rm", "-rf", projectPath })
+		print("> remove-tree " .. projectPath)
+		removePathRecursive(projectPath)
 	end
 
 	local configArgs =
