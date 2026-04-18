@@ -53,46 +53,44 @@ struct ProcessHandle
     bool completed = false;
     ResumeToken resumeToken;
     std::shared_ptr<ProcessHandle> self;
-    std::atomic<int> pendingCloses{0};
+    std::atomic<int> pendingCloses{1};
+
+    static void onHandleClose(uv_handle_t* handle)
+    {
+        ProcessHandle* ph = static_cast<ProcessHandle*>(handle->data);
+        if (--ph->pendingCloses == 0)
+            ph->self.reset();
+    }
 
     void closeHandles()
     {
-        auto closeCb = [](uv_handle_t* handle)
-        {
-            ProcessHandle* ph = static_cast<ProcessHandle*>(handle->data);
-            if (--ph->pendingCloses == 0)
-            {
-                ph->self.reset();
-            }
-        };
-
         if (!uv_is_closing((uv_handle_t*)&stdinPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stdinPipe);
-            uv_close((uv_handle_t*)&stdinPipe, closeCb);
+            uv_close((uv_handle_t*)&stdinPipe, onHandleClose);
         }
 
         if (!uv_is_closing((uv_handle_t*)&stdoutPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stdoutPipe);
-            uv_close((uv_handle_t*)&stdoutPipe, closeCb);
+            uv_close((uv_handle_t*)&stdoutPipe, onHandleClose);
         }
 
         if (!uv_is_closing((uv_handle_t*)&stderrPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stderrPipe);
-            uv_close((uv_handle_t*)&stderrPipe, closeCb);
+            uv_close((uv_handle_t*)&stderrPipe, onHandleClose);
         }
         if (!uv_is_closing((uv_handle_t*)&process))
         {
             pendingCloses++;
-            uv_close((uv_handle_t*)&process, closeCb);
+            uv_close((uv_handle_t*)&process, onHandleClose);
         }
 
-        if (pendingCloses == 0)
+        if (--pendingCloses == 0)
         {
             self.reset();
         }
@@ -316,7 +314,8 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     }
     else if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
     {
-        stdio[0].flags = UV_IGNORE;
+        stdio[0].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE);
+        stdio[0].data.stream = (uv_stream_t*)&handle->stdinPipe;
         stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
         stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
         stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
@@ -347,6 +346,13 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
         handle->closeHandles();
 
         luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
+    }
+
+    // Close our end of the child's stdin so it sees EOF instead of blocking.
+    if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
+    {
+        handle->pendingCloses++;
+        uv_close((uv_handle_t*)&handle->stdinPipe, ProcessHandle::onHandleClose);
     }
 
     uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
