@@ -2,6 +2,7 @@
 
 #include "lute/common.h"
 #include "lute/crypto.h"
+#include "lute/ffi.h"
 #include "lute/fs.h"
 #include "lute/io.h"
 #include "lute/luau.h"
@@ -33,6 +34,8 @@ const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
     map["@lute/system.luau"] = luteopen_system;
     map["@lute/time.luau"] = luteopen_time;
     map["@lute/io.luau"] = luteopen_io;
+    map["@lute/ffi/init.luau"] = luteopen_ffi;
+    map["@lute/ffi/c.luau"] = luteopen_ffi_c;
     return map;
 }();
 
