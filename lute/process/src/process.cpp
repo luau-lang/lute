@@ -348,7 +348,10 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
         luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
     }
 
-    // Close our end of the child's stdin so it sees EOF instead of blocking.
+    // In the default stdio mode we create a pipe for the child's stdin so that
+    // future APIs can feed data to it, but there is no API to write to it yet.
+    // Close our write end immediately so the child sees EOF on stdin instead
+    // of blocking forever on a read.
     if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
     {
         handle->pendingCloses++;
