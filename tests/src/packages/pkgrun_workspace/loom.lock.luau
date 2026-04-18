@@ -4,11 +4,13 @@ return {
 	members = {
 		["lib"] = {
 			path = "packages/lib",
-			packages = {},
+			dependencies = {},
 		},
 		["app"] = {
 			path = "packages/app",
-			packages = { "lib" },
+			dependencies = {
+				lib = "lib",
+			},
 		},
 	},
 	dependencies = {

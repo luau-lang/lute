@@ -100,15 +100,15 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 				error(`Workspace member manifest not found: {memberManifestPath}`)
 			end
 			local memberManifest = projectmanifest.parseFile(memberManifestPath)
-			local memberPackages: { string } = {}
-			for _, depSpec in memberManifest.package.dependencies do
+			local memberDeps: { [string]: string } = {}
+			for depAlias, depSpec in memberManifest.package.dependencies do
 				local normalized = normalizePathDependency(depSpec, memberDir, rootDirectory)
-				table.insert(memberPackages, getKey(normalized))
+				memberDeps[depAlias] = getKey(normalized)
 				table.insert(queue, normalized)
 			end
 			m[memberManifest.package.name] = table.freeze({
 				path = memberPath,
-				packages = table.freeze(memberPackages),
+				dependencies = table.freeze(memberDeps),
 			})
 		end
 		members = table.freeze(m)
@@ -155,7 +155,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 		if fs.exists(nestedManifestPath) then
 			local depManifest = projectmanifest.parseFile(nestedManifestPath)
 
-			if depManifest.workspace ~= nil then
+			if depManifest.workspace ~= nil and spec.name ~= depManifest.package.name then
 				local memberNames: { [string]: string } = {}
 
 				for _, memberPath in depManifest.workspace do
@@ -178,10 +178,6 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 
 					-- resolve to the member package
 					if spec.name == memberName then
-						assert(
-							spec.name ~= depManifest.package.name,
-							"Workspace member cannot have the same name as the root package"
-						)
 						installPath = memberDir
 						depManifest = memberManifest
 					end

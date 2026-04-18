@@ -225,7 +225,7 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
             for (const auto& [mk, mv] : *membersTable)
             {
                 const Luau::ConfigTable* member = mv.get_if<Luau::ConfigTable>();
-                if (!member || !member->contains("path") || !member->contains("packages"))
+                if (!member || !member->contains("path") || !member->contains("dependencies"))
                     continue;
 
                 const std::string* memberPath = (*member).find("path")->get_if<std::string>();
@@ -248,9 +248,17 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
 
             if (bestMember)
             {
-                const Luau::ConfigTable* memberPackages = (*bestMember).find("packages")->get_if<Luau::ConfigTable>();
-                if (memberPackages)
-                    packageKeys = extractStringArray(*memberPackages);
+                const Luau::ConfigTable* memberDeps = (*bestMember).find("dependencies")->get_if<Luau::ConfigTable>();
+                if (memberDeps)
+                {
+                    packageKeys.clear();
+                    for (const auto& [ak, av] : *memberDeps)
+                    {
+                        const std::string* depKey = av.get_if<std::string>();
+                        if (depKey)
+                            packageKeys.push_back(*depKey);
+                    }
+                }
             }
         }
     }
