@@ -316,8 +316,7 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     }
     else if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
     {
-        stdio[0].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE);
-        stdio[0].data.stream = (uv_stream_t*)&handle->stdinPipe;
+        stdio[0].flags = UV_IGNORE;
         stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
         stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
         stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
@@ -348,15 +347,6 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
         handle->closeHandles();
 
         luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
-    }
-
-    // In the default stdio mode we create a pipe for the child's stdin so that
-    // future APIs can feed data to it, but there is no API to write to it yet.
-    // Close our write end immediately so the child sees EOF on stdin instead
-    // of blocking forever on a read.
-    if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
-    {
-        uv_close((uv_handle_t*)&handle->stdinPipe, nullptr);
     }
 
     uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
