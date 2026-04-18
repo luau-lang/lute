@@ -191,7 +191,7 @@ local function main(...: string)
 		local setupSeconds = time.since(phaseStart)
 
 		local parallelSuitesArg = args:get("parallel-suites")
-		local parallelSuites = if parallelSuitesArg then tonumber(parallelSuitesArg) else nil
+		local parallelSuites = if parallelSuitesArg then tonumber(parallelSuitesArg) else 8
 		if parallelSuitesArg and not parallelSuites then
 			print(`Invalid --parallel-suites value: '{parallelSuitesArg}' (expected a number)`)
 			ps.exit(1)
