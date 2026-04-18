@@ -63,11 +63,14 @@ local function parseLockfile(t: any): Lockfile
 			assert(type(memberName) == "string", "Expected member name to be a string")
 			assert(type(member) == "table", `Expected table for member '{memberName}'`)
 			assert(type(member.path) == "string", `Expected 'path' field in member '{memberName}'`)
-			assert(type(member.packages) == "table", `Expected 'packages' field in member '{memberName}'`)
+			assert(
+				type((member :: { [string]: unknown }).packages) == "table",
+				`Expected 'packages' field in member '{memberName}'`
+			)
 			for _, key in member.packages do
 				assert(type(key) == "string", `Expected package key to be a string in member '{memberName}'`)
 				assert(
-					(t.dependencies :: { [unknown]: unknown })[key] ~= nil,
+					(t.dependencies :: { [string]: unknown })[key] ~= nil,
 					`Package '{key}' in member '{memberName}' not found in dependencies`
 				)
 			end
