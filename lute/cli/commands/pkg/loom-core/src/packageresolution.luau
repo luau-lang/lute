@@ -152,7 +152,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	table.freeze(packages)
 
 	local lf: lockfile.Lockfile = table.freeze({
-		version = 2,
+		version = 3,
 		packages = packages,
 		dependencies = dependencies,
 	})
