@@ -119,6 +119,13 @@ UserlandVfs::UserlandVfs(std::vector<Identifier> directDependencies, DependencyM
 {
 }
 
+NavigationStatus UserlandVfs::resetToStdIn()
+{
+    currentSubtree = std::nullopt;
+    vfsType = VFSType::Disk;
+    return fileVfs.resetToStdIn();
+}
+
 NavigationStatus UserlandVfs::resetToPath(const std::string& path)
 {
     for (const auto& [identifier, info] : allDependencies)

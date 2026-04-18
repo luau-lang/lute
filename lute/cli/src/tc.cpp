@@ -1,7 +1,9 @@
 #include "lute/tc.h"
 
 #include "lute/configresolver.h"
+#include "lute/packagerun.h"
 #include "lute/tcmoduleresolver.h"
+#include "lute/userlandvfs.h"
 
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/Error.h"
@@ -126,6 +128,21 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
     frontendOptions.runLintChecks = true;
 
     Luau::LuteTypeCheckModuleResolver fileResolver{reporter};
+
+    // Enable package-aware require resolution if any of the source files lives
+    // inside a project with a loom.lock.luau. We probe each file in turn until
+    // we find one with a discoverable lockfile, since the user can pass files
+    // from anywhere on disk.
+    for (const std::string& path : sourceFiles)
+    {
+        if (std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(path))
+        {
+            auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
+            fileResolver.setUserlandVfs(Package::UserlandVfs::create(std::move(directDependencies), std::move(allDependencies)));
+            break;
+        }
+    }
+
     Luau::LuteConfigResolver configResolver(mode);
     Luau::Frontend frontend(Luau::SolverMode::New, &fileResolver, &configResolver, frontendOptions);
 

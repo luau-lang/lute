@@ -97,6 +97,36 @@ static void* createPkgRunRequireContext(
     return ctx;
 }
 
+static void* createPkgCliCommandRequireContext(
+    lua_State* L,
+    std::vector<Package::Identifier> directDependencies,
+    std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies
+)
+{
+    void* ctx = lua_newuserdatadtor(
+        L,
+        sizeof(RequireCtx),
+        [](void* ptr)
+        {
+            std::destroy_at(static_cast<RequireCtx*>(ptr));
+        }
+    );
+
+    if (!ctx)
+        luaL_error(L, "unable to allocate RequireCtx");
+
+    Package::UserlandVfs userlandVfs = Package::UserlandVfs::create(std::move(directDependencies), std::move(allDependencies));
+    ctx = new (ctx) RequireCtx{std::make_unique<Package::RequireVfs>(std::move(userlandVfs), CliVfs{})};
+
+    // Store RequireCtx in the registry to keep it alive for the lifetime of
+    // this lua_State. Memory address is used as a key to avoid collisions.
+    lua_pushlightuserdata(L, ctx);
+    lua_insert(L, -2);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
+    return ctx;
+}
+
 static void* createBundleRequireContext(
     lua_State* L,
     Luau::DenseHashMap<std::string, std::string> luauConfigFiles,
@@ -151,6 +181,29 @@ lua_State* setupCliCommandState(Runtime& runtime, std::function<void(lua_State*)
                 Luau::CodeGen::create(L);
 
             luaopen_require(L, requireConfigInit, createCliCommandRequireContext(L));
+            if (preSandboxInit)
+                preSandboxInit(L);
+        }
+    );
+}
+
+lua_State* setupPkgCliCommandState(
+    Runtime& runtime,
+    std::vector<Package::Identifier> directDependencies,
+    std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies,
+    std::function<void(lua_State*)> preSandboxInit
+)
+{
+    return setupState(
+        runtime,
+        [directDependencies = std::move(directDependencies),
+         allDependencies = std::move(allDependencies),
+         preSandboxInit = std::move(preSandboxInit)](lua_State* L)
+        {
+            if (Luau::CodeGen::isSupported())
+                Luau::CodeGen::create(L);
+
+            luaopen_require(L, requireConfigInit, createPkgCliCommandRequireContext(L, std::move(directDependencies), std::move(allDependencies)));
             if (preSandboxInit)
                 preSandboxInit(L);
         }

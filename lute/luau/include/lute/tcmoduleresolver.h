@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lute/reporter.h"
+#include "lute/userlandvfs.h"
 
 #include "Luau/DenseHash.h"
 #include "Luau/FileResolver.h"
@@ -16,6 +17,11 @@ struct LuteTypeCheckModuleResolver : Luau::FileResolver
 {
     LuteTypeCheckModuleResolver(LuteReporter& reporter);
 
+    // Enables package-aware require resolution backed by a lockfile-derived
+    // UserlandVfs. After this is called, @<package_alias> requires are resolved
+    // through the package graph, in addition to the existing built-in aliases.
+    void setUserlandVfs(Package::UserlandVfs userlandVfs);
+
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override;
 
     // We are currently resolving modules and requires only, and will add support for Roblox globals / types in a subsequent PR.
@@ -24,6 +30,7 @@ struct LuteTypeCheckModuleResolver : Luau::FileResolver
 
     Luau::DenseHashMap<std::string, std::string> sourceCache{""};
     LuteReporter& reporter;
+    std::optional<Package::UserlandVfs> userlandVfs;
 };
 
 } // namespace Luau

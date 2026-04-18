@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lute/reporter.h"
+#include "lute/userlandvfs.h"
 
 #include "Luau/DenseHash.h"
 
@@ -12,6 +13,12 @@ class StaticRequireTracer
 {
 public:
     StaticRequireTracer(LuteReporter& reporter);
+
+    // Enables package-aware require resolution backed by a lockfile-derived
+    // UserlandVfs. After this is called, @<package_alias> requires encountered
+    // during tracing are resolved through the package graph (as well as via
+    // any nested packages those requires reach into).
+    void setUserlandVfs(Package::UserlandVfs userlandVfs);
 
     // Trace dependencies starting from an entry point file
     // entryPoint: absolute path to entry point file
@@ -46,6 +53,8 @@ private:
     Luau::DenseHashMap<std::string, std::vector<std::string>> requireGraph{""}; // Absolute paths
     Luau::DenseHashMap<std::string, std::string> luauConfigFiles{""};           // LCR-relative path -> content
     std::string lowestCommonRoot;
+
+    std::optional<Package::UserlandVfs> userlandVfs;
 
     // Extract all require() paths from source code
     std::vector<std::string> extractRequires(const std::string& source);
