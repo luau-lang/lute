@@ -124,12 +124,12 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
     if (!lockfileParentDir)
         return {};
 
-    // First pass: parse all dependency entries
+    // First pass: parse all package entries
     std::unordered_map<std::string, Package::Identifier> keyToIdentifier;
     std::unordered_map<std::string, Package::Info> keyToInfo;
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> keyToDepAliases;
 
-    for (const auto& [k, v] : *depsTable)
+    for (const auto& [k, v] : *packagesTable)
     {
         const std::string* packageKey = k.get_if<std::string>();
         if (!packageKey)
@@ -207,12 +207,14 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         }
     }
 
-    // Build direct dependencies from packages array
-    std::vector<std::string> packageKeys = extractStringArray(*packagesTable);
+    // Build direct dependencies from dependencies table (alias -> key map)
     std::vector<Package::Identifier> directDependencies;
-    for (const std::string& key : packageKeys)
+    for (const auto& [ak, av] : *depsTable)
     {
-        auto it = keyToIdentifier.find(key);
+        const std::string* depKey = av.get_if<std::string>();
+        if (!depKey)
+            continue;
+        auto it = keyToIdentifier.find(*depKey);
         if (it != keyToIdentifier.end())
             directDependencies.push_back(it->second);
     }

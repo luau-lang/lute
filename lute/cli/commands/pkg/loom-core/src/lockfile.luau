@@ -11,8 +11,8 @@ export type LockfileDependency = {
 
 export type Lockfile = {
 	read version: number,
-	read packages: { string },
-	read dependencies: { [string]: LockfileDependency },
+	read packages: { [string]: LockfileDependency },
+	read dependencies: { [string]: string },
 }
 
 local function validatePackageEntry(key: string, entry: any)
@@ -39,15 +39,16 @@ local function parseLockfile(t: any): Lockfile
 	assert(type(t.packages) == "table", "Expected 'packages' field in lockfile")
 	assert(type(t.dependencies) == "table", "Expected 'dependencies' field in lockfile")
 
-	for _, key in t.packages do
+	for key, entry in t.packages do
 		assert(type(key) == "string", "Expected package key to be a string")
-		assert((t.dependencies :: { [unknown]: unknown })[key] ~= nil, `Package '{key}' not found in dependencies`)
+		validatePackageEntry(key, entry)
 	end
 	table.freeze(t.packages)
 
-	for key, entry in t.dependencies do
-		assert(type(key) == "string", "Expected package key to be a string")
-		validatePackageEntry(key, entry)
+	for alias, key in t.dependencies do
+		assert(type(alias) == "string", "Expected dependency alias to be a string")
+		assert(type(key) == "string", "Expected dependency key to be a string")
+		assert(t.packages[key] ~= nil, `Dependency '{alias}' references package '{key}' which is not in packages`)
 	end
 	table.freeze(t.dependencies)
 
