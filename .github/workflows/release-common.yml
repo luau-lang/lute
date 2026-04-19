@@ -81,14 +81,25 @@ jobs:
             perl-IPC-Cmd \
             which
 
-          # Force clang to use the SYSTEM gcc 8.5 install (under /usr) for
+          # Force clang for the WHOLE build, including the bootstrap stage.
+          # Without this, `bootstrap.sh` runs `cmake` with no explicit
+          # compiler arg and CMake auto-detects the gcc-toolset-14 g++ that
+          # manylinux_2_28 puts at the front of PATH (the matrix's
+          # `--c-compiler clang` option only affects the post-bootstrap
+          # luthier invocations).
+          echo "CC=clang" >> "$GITHUB_ENV"
+          echo "CXX=clang++" >> "$GITHUB_ENV"
+
+          # Direct clang at the SYSTEM gcc 8.5 install (under /usr) for
           # libstdc++ headers and runtime, instead of the newer
           # gcc-toolset-14 that manylinux_2_28 puts on PATH. gcc 8.5's
           # libstdc++ only references symbols up through GLIBCXX_3.4.25 /
           # CXXABI_1.3.11, which matches what ships on every distro that
           # already has glibc 2.28 (RHEL 8, Debian 10, Ubuntu 20.04, etc.).
           # This lets us dynamically link libstdc++ without raising the
-          # runtime floor above glibc 2.28.
+          # runtime floor above glibc 2.28. `--gcc-toolchain=` is a clang
+          # driver flag, so this only works once CC/CXX above are set to
+          # clang.
           echo "CFLAGS=--gcc-toolchain=/usr" >> "$GITHUB_ENV"
           echo "CXXFLAGS=--gcc-toolchain=/usr" >> "$GITHUB_ENV"
           echo "LDFLAGS=--gcc-toolchain=/usr" >> "$GITHUB_ENV"
