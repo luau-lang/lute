@@ -22,20 +22,18 @@ jobs:
       - name: Validate CI status
         id: check
         run: |
-          echo "hi"
+          LAST_STATUS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/luau-lang/lute/actions/workflows/ci.yml/runs?branch=${{ inputs.branch }}&status=completed&per_page=1" \
+            | jq -r '.workflow_runs[0].conclusion')
+          if [[ "$LAST_STATUS" != "success" ]]; then
+            echo "The latest CI run on '${{ inputs.branch }}' branch did not succeed. Aborting release."
+            exit 1
+          fi
 
   build:
     strategy:
       matrix:
         include:
-          # Linux release binaries are built inside the manylinux_2_28
-          # container so the resulting executables only require glibc 2.28
-          # (RHEL 8 / Debian 10 / Ubuntu 20.04 era). The container provides a
-          # modern toolchain (clang/lld from `llvm-toolset` on top of
-          # `gcc-toolset-14`'s libstdc++), all linked against glibc 2.28.
-          # We use `use-bootstrap: true` on both Linux arches because the
-          # foreman binary distributed by `Roblox/setup-foreman` is built
-          # against glibc >= 2.29 and won't run inside the container.
           - os: ubuntu-latest
             artifact_name: lute-linux-x86_64
             options: --c-compiler clang --cxx-compiler clang++
@@ -64,7 +62,6 @@ jobs:
 
       - name: Set nightly version suffix
         if: ${{ env.IS_NIGHTLY == 'true' }}
-        shell: bash
         run: echo "LUTE_VERSION_SUFFIX=nightly.$(date +%Y%m%d)" >> "$GITHUB_ENV"
 
       - name: Set up Linux release toolchain
@@ -72,79 +69,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Install:
-          #   * llvm-toolset      - clang/lld (the compiler we'll actually use)
-          #   * gcc, gcc-c++,
-          #     libstdc++-devel,
-          #     glibc-devel       - the SYSTEM gcc 8.5 install, including
-          #                         crt files, libgcc, and libstdc++ headers
-          #                         that clang will be redirected to
-          #   * ninja-build,
-          #     perl-IPC-Cmd,
-          #     which             - required by the build
-          # manylinux_2_28 only ships gcc-toolset-14 by default; the system
-          # gcc 8.5 package is needed so `/usr/lib/gcc/<triple>/8/` actually
-          # exists with a complete install (crtbegin.o, libgcc.a, etc.) for
-          # clang to point at.
           dnf install -y --allowerasing \
-            llvm-toolset \
-            gcc \
-            gcc-c++ \
-            libstdc++-devel \
-            glibc-devel \
-            ninja-build \
-            perl-IPC-Cmd \
-            which
+            llvm-toolset gcc gcc-c++ libstdc++-devel glibc-devel \
+            ninja-build perl-IPC-Cmd which
 
-          # Force clang for the WHOLE build, including the bootstrap stage.
-          # Without this, `bootstrap.sh` runs `cmake` with no explicit
-          # compiler arg and CMake auto-detects the gcc-toolset-14 g++ that
-          # manylinux_2_28 puts at the front of PATH (the matrix's
-          # `--c-compiler clang` option only affects the post-bootstrap
-          # luthier invocations).
-          echo "CC=clang" >> "$GITHUB_ENV"
-          echo "CXX=clang++" >> "$GITHUB_ENV"
-
-          # Direct clang at exactly the SYSTEM gcc 8.5 install for libstdc++
-          # headers, runtime, and crt files, instead of the newer
-          # gcc-toolset-14 install that manylinux_2_28 puts on PATH. gcc
-          # 8.5's libstdc++ only references symbols up through GLIBCXX_3.4.25
-          # / CXXABI_1.3.11, which matches what ships on every distro that
-          # already has glibc 2.28 (RHEL 8, Debian 10, Ubuntu 20.04, etc.),
-          # so dynamically linking libstdc++ doesn't raise the runtime floor
-          # above glibc 2.28.
-          #
-          # `--gcc-install-dir=` (clang 16+) is more surgical than
-          # `--gcc-toolchain=`: it points clang at a single specific install
-          # rather than letting it scan a root (and accidentally pick up
-          # gcc-toolset-14 anyway, or falsely "succeed" against an absent
-          # install).
-          GCC_INSTALL_DIR="/usr/lib/gcc/$(uname -m)-redhat-linux/8"
-          if [[ ! -d "${GCC_INSTALL_DIR}" ]]; then
-            echo "ERROR: expected system gcc 8.5 install at ${GCC_INSTALL_DIR} not found" >&2
-            ls /usr/lib/gcc/ || true
-            exit 1
-          fi
-          echo "Using gcc install dir: ${GCC_INSTALL_DIR}"
-          ls -la "${GCC_INSTALL_DIR}" | head -n 20
-
-          GCC_FLAG="--gcc-install-dir=${GCC_INSTALL_DIR}"
-          echo "CFLAGS=${GCC_FLAG}" >> "$GITHUB_ENV"
-          echo "CXXFLAGS=${GCC_FLAG}" >> "$GITHUB_ENV"
-          echo "LDFLAGS=${GCC_FLAG}" >> "$GITHUB_ENV"
-
-          # Diagnostic: show which gcc install clang resolves and which
-          # libraries it would link against. Useful breadcrumb if things go
-          # sideways later.
-          echo "::group::clang -v sanity check"
-          clang++ ${GCC_FLAG} -v -E -x c++ - </dev/null
-          echo "::endgroup::"
-          echo "::group::clang pthread link check"
-          printf '#include <pthread.h>\nint main(void){pthread_create(0,0,0,0);return 0;}\n' \
-            > /tmp/pthread_check.c
-          clang ${GCC_FLAG} -v -pthread /tmp/pthread_check.c -o /tmp/pthread_check
-          rm -f /tmp/pthread_check.c /tmp/pthread_check
-          echo "::endgroup::"
+          # Force clang for the whole build (incl. bootstrap, where CMake
+          # would otherwise auto-pick gcc-toolset-14's g++ from PATH) and
+          # point it at the system gcc 8.5 install so libstdc++ stays at
+          # GLIBCXX_3.4.25 / CXXABI_1.3.11 (compatible with glibc 2.28).
+          GCC_FLAG="--gcc-install-dir=/usr/lib/gcc/$(uname -m)-redhat-linux/8"
+          {
+            echo "CC=clang"
+            echo "CXX=clang++"
+            echo "CFLAGS=${GCC_FLAG}"
+            echo "CXXFLAGS=${GCC_FLAG}"
+            echo "LDFLAGS=${GCC_FLAG}"
+          } >> "$GITHUB_ENV"
 
       - name: Setup and Build Lute
         id: build_lute
@@ -163,44 +103,22 @@ jobs:
         run: |
           set -euo pipefail
           exe="${{ steps.build_lute.outputs.exe_path }}"
-          echo "Dynamic dependencies of $exe:"
           ldd "$exe" || true
-          echo
-
-          # Helper: compare two dotted versions ("3.4.25" vs "3.4.30") and
-          # exit non-zero if $1 > $2.
-          ver_gt() {
-            [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" == "$1" \
-              && "$1" != "$2" ]]
-          }
-
-          check_max() {
-            local label="$1" prefix="$2" max_allowed="$3"
-            local found
-            found=$(objdump -T "$exe" 2>/dev/null \
+          check() {
+            local prefix=$1 limit=$2 max
+            max=$(objdump -T "$exe" 2>/dev/null \
               | grep -oE "${prefix}_[0-9]+(\.[0-9]+)+" \
-              | sort -uV || true)
-            local max
-            max=$(echo "$found" | tail -n 1)
-            echo "${label} symbols referenced:"
-            echo "${found:-  <none>}" | sed 's/^/  /'
-            echo "  -> max: ${max:-<none>} (limit: ${prefix}_${max_allowed})"
-            if [[ -n "${max:-}" ]]; then
-              local cur="${max#${prefix}_}"
-              if ver_gt "$cur" "$max_allowed"; then
-                echo "ERROR: binary requires ${max}, which exceeds the floor of ${prefix}_${max_allowed}" >&2
-                return 1
-              fi
+              | sort -uV | tail -n1)
+            echo "${prefix} max: ${max:-<none>} (limit: ${prefix}_${limit})"
+            if [[ -n "$max" && "$(printf '%s\n%s\n' "${max#${prefix}_}" "$limit" \
+              | sort -V | tail -n1)" != "$limit" ]]; then
+              echo "ERROR: $max exceeds ${prefix}_${limit}" >&2
+              exit 1
             fi
           }
-
-          # Targeted floors:
-          #   glibc      2.28        (manylinux_2_28 / RHEL 8 / Debian 10)
-          #   libstdc++  3.4.25      (gcc 8.5, ships on every glibc-2.28 distro)
-          #   libstdc++  CXXABI 1.3.11
-          check_max "GLIBC"   "GLIBC"   "2.28"
-          check_max "GLIBCXX" "GLIBCXX" "3.4.25"
-          check_max "CXXABI"  "CXXABI"  "1.3.11"
+          check GLIBC   2.28
+          check GLIBCXX 3.4.25
+          check CXXABI  1.3.11
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

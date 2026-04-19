@@ -21,7 +21,7 @@ inputs:
     required: false
     default: "false"
   install-system-deps:
-    description: "Whether to install system build dependencies (compiler, ninja, etc.) via the host package manager. Set to 'false' when the caller has already provisioned a toolchain (e.g. inside a custom container)."
+    description: "Whether to install system build dependencies via apt-get. Set to 'false' when the caller provisions its own toolchain (e.g. inside a custom container)."
     required: false
     default: "true"
 
