@@ -72,11 +72,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # `llvm-toolset` brings in clang/lld; `ninja-build`, `perl-IPC-Cmd`
-          # and `which` are required by the build (boringssl needs perl
-          # IPC::Cmd; foreman-style tooling occasionally calls `which`).
+          # Install:
+          #   * llvm-toolset      - clang/lld (the compiler we'll actually use)
+          #   * gcc, gcc-c++,
+          #     libstdc++-devel,
+          #     glibc-devel       - the SYSTEM gcc 8.5 install, including
+          #                         crt files, libgcc, and libstdc++ headers
+          #                         that clang will be redirected to
+          #   * ninja-build,
+          #     perl-IPC-Cmd,
+          #     which             - required by the build
+          # manylinux_2_28 only ships gcc-toolset-14 by default; the system
+          # gcc 8.5 package is needed so `/usr/lib/gcc/<triple>/8/` actually
+          # exists with a complete install (crtbegin.o, libgcc.a, etc.) for
+          # clang to point at.
           dnf install -y --allowerasing \
             llvm-toolset \
+            gcc \
+            gcc-c++ \
+            libstdc++-devel \
+            glibc-devel \
             ninja-build \
             perl-IPC-Cmd \
             which
@@ -90,19 +105,46 @@ jobs:
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
 
-          # Direct clang at the SYSTEM gcc 8.5 install (under /usr) for
-          # libstdc++ headers and runtime, instead of the newer
-          # gcc-toolset-14 that manylinux_2_28 puts on PATH. gcc 8.5's
-          # libstdc++ only references symbols up through GLIBCXX_3.4.25 /
-          # CXXABI_1.3.11, which matches what ships on every distro that
-          # already has glibc 2.28 (RHEL 8, Debian 10, Ubuntu 20.04, etc.).
-          # This lets us dynamically link libstdc++ without raising the
-          # runtime floor above glibc 2.28. `--gcc-toolchain=` is a clang
-          # driver flag, so this only works once CC/CXX above are set to
-          # clang.
-          echo "CFLAGS=--gcc-toolchain=/usr" >> "$GITHUB_ENV"
-          echo "CXXFLAGS=--gcc-toolchain=/usr" >> "$GITHUB_ENV"
-          echo "LDFLAGS=--gcc-toolchain=/usr" >> "$GITHUB_ENV"
+          # Direct clang at exactly the SYSTEM gcc 8.5 install for libstdc++
+          # headers, runtime, and crt files, instead of the newer
+          # gcc-toolset-14 install that manylinux_2_28 puts on PATH. gcc
+          # 8.5's libstdc++ only references symbols up through GLIBCXX_3.4.25
+          # / CXXABI_1.3.11, which matches what ships on every distro that
+          # already has glibc 2.28 (RHEL 8, Debian 10, Ubuntu 20.04, etc.),
+          # so dynamically linking libstdc++ doesn't raise the runtime floor
+          # above glibc 2.28.
+          #
+          # `--gcc-install-dir=` (clang 16+) is more surgical than
+          # `--gcc-toolchain=`: it points clang at a single specific install
+          # rather than letting it scan a root (and accidentally pick up
+          # gcc-toolset-14 anyway, or falsely "succeed" against an absent
+          # install).
+          GCC_INSTALL_DIR="/usr/lib/gcc/$(uname -m)-redhat-linux/8"
+          if [[ ! -d "${GCC_INSTALL_DIR}" ]]; then
+            echo "ERROR: expected system gcc 8.5 install at ${GCC_INSTALL_DIR} not found" >&2
+            ls /usr/lib/gcc/ || true
+            exit 1
+          fi
+          echo "Using gcc install dir: ${GCC_INSTALL_DIR}"
+          ls -la "${GCC_INSTALL_DIR}" | head -n 20
+
+          GCC_FLAG="--gcc-install-dir=${GCC_INSTALL_DIR}"
+          echo "CFLAGS=${GCC_FLAG}" >> "$GITHUB_ENV"
+          echo "CXXFLAGS=${GCC_FLAG}" >> "$GITHUB_ENV"
+          echo "LDFLAGS=${GCC_FLAG}" >> "$GITHUB_ENV"
+
+          # Diagnostic: show which gcc install clang resolves and which
+          # libraries it would link against. Useful breadcrumb if things go
+          # sideways later.
+          echo "::group::clang -v sanity check"
+          clang++ ${GCC_FLAG} -v -E -x c++ - </dev/null
+          echo "::endgroup::"
+          echo "::group::clang pthread link check"
+          printf '#include <pthread.h>\nint main(void){pthread_create(0,0,0,0);return 0;}\n' \
+            > /tmp/pthread_check.c
+          clang ${GCC_FLAG} -v -pthread /tmp/pthread_check.c -o /tmp/pthread_check
+          rm -f /tmp/pthread_check.c /tmp/pthread_check
+          echo "::endgroup::"
 
       - name: Setup and Build Lute
         id: build_lute
