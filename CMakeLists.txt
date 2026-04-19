@@ -35,6 +35,8 @@ if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS)
         add_compile_options(
             "$<${_lute_release_cfg}:-ffunction-sections>"
             "$<${_lute_release_cfg}:-fdata-sections>"
+            "$<${_lute_release_cfg}:-fvisibility=hidden>"
+            "$<${_lute_release_cfg}:$<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>>"
         )
 
         if (APPLE)
