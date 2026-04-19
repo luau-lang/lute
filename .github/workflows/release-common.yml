@@ -11,10 +11,6 @@ on:
 
 env:
   IS_NIGHTLY: ${{ inputs.branch == 'primary' }}
-  # Pinned LLVM 18 release used for the Linux release builds. The prebuilt
-  # tarballs are linked against glibc <= 2.28 so they run inside the
-  # manylinux_2_28 container we use as the build sysroot.
-  LLVM_VERSION: "18.1.8"
 
 jobs:
   check:
@@ -34,21 +30,22 @@ jobs:
         include:
           # Linux release binaries are built inside the manylinux_2_28
           # container so the resulting executables only require glibc 2.28
-          # (RHEL 8 / Debian 10 / Ubuntu 20.04 era) while still being
-          # compiled with a modern LLVM 18 toolchain.
+          # (RHEL 8 / Debian 10 / Ubuntu 20.04 era). The container provides a
+          # modern toolchain (clang/lld from `llvm-toolset` on top of
+          # `gcc-toolset-14`'s libstdc++), all linked against glibc 2.28.
+          # We use `use-bootstrap: true` on both Linux arches because the
+          # foreman binary distributed by `Roblox/setup-foreman` is built
+          # against glibc >= 2.29 and won't run inside the container.
           - os: ubuntu-latest
             artifact_name: lute-linux-x86_64
             options: --c-compiler clang --cxx-compiler clang++
+            use-bootstrap: true
             container: quay.io/pypa/manylinux_2_28_x86_64
-            llvm_arch: x86_64
-            llvm_asset: x86_64-linux-gnu-ubuntu-18.04
           - os: ubuntu-24.04-arm
             artifact_name: lute-linux-aarch64
             options: --c-compiler clang --cxx-compiler clang++
             use-bootstrap: true
             container: quay.io/pypa/manylinux_2_28_aarch64
-            llvm_arch: aarch64
-            llvm_asset: aarch64-linux-gnu
           - os: macos-latest
             artifact_name: lute-macos-aarch64
           - os: windows-latest
@@ -70,44 +67,31 @@ jobs:
         shell: bash
         run: echo "LUTE_VERSION_SUFFIX=nightly.$(date +%Y%m%d)" >> "$GITHUB_ENV"
 
-      - name: Cache LLVM ${{ env.LLVM_VERSION }} toolchain
-        if: ${{ matrix.container }}
-        id: cache-llvm
-        uses: actions/cache@v4
-        with:
-          path: /opt/llvm
-          key: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_arch }}
-
-      - name: Install LLVM ${{ env.LLVM_VERSION }} toolchain
-        if: ${{ matrix.container && steps.cache-llvm.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/clang+llvm-${LLVM_VERSION}-${{ matrix.llvm_asset }}.tar.xz"
-          echo "Downloading $url"
-          mkdir -p /opt/llvm
-          curl -fL --retry 3 --retry-delay 5 "$url" -o /tmp/llvm.tar.xz
-          tar -xf /tmp/llvm.tar.xz -C /opt/llvm --strip-components=1
-          rm -f /tmp/llvm.tar.xz
-
-      - name: Configure LLVM ${{ env.LLVM_VERSION }} environment
+      - name: Set up Linux release toolchain
         if: ${{ matrix.container }}
         shell: bash
         run: |
           set -euo pipefail
-          # Make sure the manylinux container has the build tools we rely on
-          # outside of LLVM itself (cmake/ninja/git ship with the image, but
-          # ninja-build is not always on PATH under that exact name).
-          dnf install -y --allowerasing ninja-build perl-IPC-Cmd which
+          # `llvm-toolset` brings in clang/lld; `ninja-build`, `perl-IPC-Cmd`
+          # and `which` are required by the build (boringssl needs perl
+          # IPC::Cmd; foreman-style tooling occasionally calls `which`).
+          dnf install -y --allowerasing \
+            llvm-toolset \
+            ninja-build \
+            perl-IPC-Cmd \
+            which
 
-          echo "/opt/llvm/bin" >> "$GITHUB_PATH"
-          echo "CC=/opt/llvm/bin/clang" >> "$GITHUB_ENV"
-          echo "CXX=/opt/llvm/bin/clang++" >> "$GITHUB_ENV"
-          # Build C++ against LLVM's libc++ and statically link both libc++
-          # and libc++abi so the resulting binary does not require an
-          # external libc++.so on user machines.
-          echo "CXXFLAGS=-stdlib=libc++" >> "$GITHUB_ENV"
-          echo "LDFLAGS=-stdlib=libc++ -static-libstdc++ -L/opt/llvm/lib" >> "$GITHUB_ENV"
+          # Force clang to use the SYSTEM gcc 8.5 install (under /usr) for
+          # libstdc++ headers and runtime, instead of the newer
+          # gcc-toolset-14 that manylinux_2_28 puts on PATH. gcc 8.5's
+          # libstdc++ only references symbols up through GLIBCXX_3.4.25 /
+          # CXXABI_1.3.11, which matches what ships on every distro that
+          # already has glibc 2.28 (RHEL 8, Debian 10, Ubuntu 20.04, etc.).
+          # This lets us dynamically link libstdc++ without raising the
+          # runtime floor above glibc 2.28.
+          echo "CFLAGS=--gcc-toolchain=/usr" >> "$GITHUB_ENV"
+          echo "CXXFLAGS=--gcc-toolchain=/usr" >> "$GITHUB_ENV"
+          echo "LDFLAGS=--gcc-toolchain=/usr" >> "$GITHUB_ENV"
 
       - name: Setup and Build Lute
         id: build_lute
@@ -120,7 +104,7 @@ jobs:
           use-bootstrap: ${{ matrix.use-bootstrap || 'false' }}
           install-system-deps: ${{ matrix.container && 'false' || 'true' }}
 
-      - name: Verify Linux binary glibc requirement
+      - name: Verify Linux binary symbol versions
         if: ${{ matrix.container }}
         shell: bash
         run: |
@@ -128,23 +112,42 @@ jobs:
           exe="${{ steps.build_lute.outputs.exe_path }}"
           echo "Dynamic dependencies of $exe:"
           ldd "$exe" || true
-          echo "GLIBC version references:"
-          # Fail the build if anything in the binary needs glibc > 2.28.
-          max_ver=$(objdump -T "$exe" 2>/dev/null \
-            | grep -oE 'GLIBC_[0-9]+\.[0-9]+(\.[0-9]+)?' \
-            | sort -uV \
-            | tail -n 1 || true)
-          echo "Max referenced glibc symbol: ${max_ver:-<none>}"
-          if [[ -n "${max_ver:-}" ]]; then
-            ver="${max_ver#GLIBC_}"
-            major="${ver%%.*}"
-            rest="${ver#*.}"
-            minor="${rest%%.*}"
-            if (( major > 2 || (major == 2 && minor > 28) )); then
-              echo "ERROR: binary requires ${max_ver}, which is newer than the targeted glibc 2.28" >&2
-              exit 1
+          echo
+
+          # Helper: compare two dotted versions ("3.4.25" vs "3.4.30") and
+          # exit non-zero if $1 > $2.
+          ver_gt() {
+            [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" == "$1" \
+              && "$1" != "$2" ]]
+          }
+
+          check_max() {
+            local label="$1" prefix="$2" max_allowed="$3"
+            local found
+            found=$(objdump -T "$exe" 2>/dev/null \
+              | grep -oE "${prefix}_[0-9]+(\.[0-9]+)+" \
+              | sort -uV || true)
+            local max
+            max=$(echo "$found" | tail -n 1)
+            echo "${label} symbols referenced:"
+            echo "${found:-  <none>}" | sed 's/^/  /'
+            echo "  -> max: ${max:-<none>} (limit: ${prefix}_${max_allowed})"
+            if [[ -n "${max:-}" ]]; then
+              local cur="${max#${prefix}_}"
+              if ver_gt "$cur" "$max_allowed"; then
+                echo "ERROR: binary requires ${max}, which exceeds the floor of ${prefix}_${max_allowed}" >&2
+                return 1
+              fi
             fi
-          fi
+          }
+
+          # Targeted floors:
+          #   glibc      2.28        (manylinux_2_28 / RHEL 8 / Debian 10)
+          #   libstdc++  3.4.25      (gcc 8.5, ships on every glibc-2.28 distro)
+          #   libstdc++  CXXABI 1.3.11
+          check_max "GLIBC"   "GLIBC"   "2.28"
+          check_max "GLIBCXX" "GLIBCXX" "3.4.25"
+          check_max "CXXABI"  "CXXABI"  "1.3.11"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
