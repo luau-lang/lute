@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.13)
 
+if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version")
+endif()
+
 # Make sure 'set' for variables is respected by options in nested files
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
