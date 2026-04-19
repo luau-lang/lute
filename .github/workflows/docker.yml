@@ -1,0 +1,147 @@
+name: Docker
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Lute version to publish (e.g. 1.0.0). Must match an existing GitHub release tag."
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        description: "Lute version to publish."
+        required: true
+        type: string
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      VERSION: ${{ inputs.version }}
+
+    steps:
+      - name: Validate version
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: $VERSION. Expected semver like 1.0.0 (no nightly suffix)."
+            exit 1
+          fi
+
+      - name: Verify release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release view "v$VERSION" --repo "${{ github.repository }}" > /dev/null
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: docker
+
+      - name: Compute version tags
+        id: tags
+        run: |
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f1-2)
+          echo "major=$MAJOR" >> "$GITHUB_OUTPUT"
+          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push bin image
+        id: build_bin
+        uses: docker/build-push-action@v7
+        with:
+          context: docker
+          file: docker/bin.dockerfile
+          platforms: linux/amd64,linux/arm64
+          provenance: false # SLSA provenance is attached separately via actions/attest
+          push: true
+          build-args: |
+            LUTE_VERSION=${{ env.VERSION }}
+          tags: |
+            ${{ env.IMAGE }}:bin
+            ${{ env.IMAGE }}:bin-${{ steps.tags.outputs.major }}
+            ${{ env.IMAGE }}:bin-${{ steps.tags.outputs.minor }}
+            ${{ env.IMAGE }}:bin-${{ env.VERSION }}
+
+      - name: Attest bin image
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build_bin.outputs.digest }}
+          push-to-registry: true
+
+      - name: Build and push debian image
+        id: build_debian
+        uses: docker/build-push-action@v7
+        with:
+          context: docker
+          file: docker/debian.dockerfile
+          platforms: linux/amd64,linux/arm64
+          provenance: false # SLSA provenance is attached separately via actions/attest
+          push: true
+          build-args: |
+            LUTE_VERSION=${{ env.VERSION }}
+            BIN_IMAGE=${{ env.IMAGE }}:bin-${{ env.VERSION }}
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.tags.outputs.major }}
+            ${{ env.IMAGE }}:${{ steps.tags.outputs.minor }}
+            ${{ env.IMAGE }}:${{ env.VERSION }}
+            ${{ env.IMAGE }}:debian
+            ${{ env.IMAGE }}:debian-${{ steps.tags.outputs.major }}
+            ${{ env.IMAGE }}:debian-${{ steps.tags.outputs.minor }}
+            ${{ env.IMAGE }}:debian-${{ env.VERSION }}
+
+      - name: Attest debian image
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build_debian.outputs.digest }}
+          push-to-registry: true
+
+      - name: Build and push distroless image
+        id: build_distroless
+        uses: docker/build-push-action@v7
+        with:
+          context: docker
+          file: docker/distroless.dockerfile
+          platforms: linux/amd64,linux/arm64
+          provenance: false # SLSA provenance is attached separately via actions/attest
+          push: true
+          build-args: |
+            LUTE_VERSION=${{ env.VERSION }}
+            BIN_IMAGE=${{ env.IMAGE }}:bin-${{ env.VERSION }}
+          tags: |
+            ${{ env.IMAGE }}:distroless
+            ${{ env.IMAGE }}:distroless-${{ steps.tags.outputs.major }}
+            ${{ env.IMAGE }}:distroless-${{ steps.tags.outputs.minor }}
+            ${{ env.IMAGE }}:distroless-${{ env.VERSION }}
+
+      - name: Attest distroless image
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build_distroless.outputs.digest }}
+          push-to-registry: true
