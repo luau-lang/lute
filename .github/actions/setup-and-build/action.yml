@@ -20,6 +20,10 @@ inputs:
     description: "Whether to use the bootstrap script to build the Lute used to run luthier"
     required: false
     default: "false"
+  install-system-deps:
+    description: "Whether to install system build dependencies (compiler, ninja, etc.) via the host package manager. Set to 'false' when the caller has already provisioned a toolchain (e.g. inside a custom container)."
+    required: false
+    default: "true"
 
 outputs:
   exe_path:
@@ -37,7 +41,7 @@ runs:
         allow-external-github-orgs: true
 
     - name: Install dependencies (Linux)
-      if: runner.os == 'Linux'
+      if: runner.os == 'Linux' && inputs.install-system-deps == 'true'
       shell: bash
       run: |
         sudo apt-get update

@@ -57,5 +57,5 @@ jobs:
       contents: write
     uses: ./.github/workflows/release-common.yml
     with:
-      branch: primary
+      branch: 2.28-test
     secrets: inherit
