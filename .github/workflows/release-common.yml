@@ -34,13 +34,16 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             artifact_name: lute-linux-x86_64
             options: --c-compiler clang --cxx-compiler clang++
-          - os: ubuntu-22.04-arm
+            use-bootstrap: true
+            container: quay.io/pypa/manylinux_2_28_x86_64
+          - os: ubuntu-24.04-arm
             artifact_name: lute-linux-aarch64
             options: --c-compiler clang --cxx-compiler clang++
             use-bootstrap: true
+            container: quay.io/pypa/manylinux_2_28_aarch64
           - os: macos-latest
             artifact_name: lute-macos-aarch64
           - os: windows-latest
@@ -49,6 +52,7 @@ jobs:
 
     needs: check
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
 
     steps:
       - name: Checkout code
@@ -60,6 +64,28 @@ jobs:
         if: ${{ env.IS_NIGHTLY == 'true' }}
         run: echo "LUTE_VERSION_SUFFIX=nightly.$(date +%Y%m%d)" >> "$GITHUB_ENV"
 
+      - name: Set up Linux release toolchain
+        if: ${{ matrix.container }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          dnf install -y --allowerasing \
+            llvm-toolset gcc gcc-c++ libstdc++-devel glibc-devel \
+            ninja-build perl-IPC-Cmd which
+
+          # Force clang for the whole build (incl. bootstrap, where CMake
+          # would otherwise auto-pick gcc-toolset-14's g++ from PATH) and
+          # point it at the system gcc 8.5 install so libstdc++ stays at
+          # GLIBCXX_3.4.25 / CXXABI_1.3.11 (compatible with glibc 2.28).
+          GCC_FLAG="--gcc-install-dir=/usr/lib/gcc/$(uname -m)-redhat-linux/8"
+          {
+            echo "CC=clang"
+            echo "CXX=clang++"
+            echo "CFLAGS=${GCC_FLAG}"
+            echo "CXXFLAGS=${GCC_FLAG}"
+            echo "LDFLAGS=${GCC_FLAG}"
+          } >> "$GITHUB_ENV"
+
       - name: Setup and Build Lute
         id: build_lute
         uses: ./.github/actions/setup-and-build
@@ -69,6 +95,7 @@ jobs:
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
           use-bootstrap: ${{ matrix.use-bootstrap || 'false' }}
+          install-system-deps: ${{ matrix.container && 'false' || 'true' }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
