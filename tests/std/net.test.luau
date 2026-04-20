@@ -6,6 +6,7 @@ local test = require("@std/test")
 test.suite("NetTestSuite", function(suite)
 	suite:case("serveHandlerCanYield", function(assert)
 		local instance = server.serve({
+			port = 0,
 			handler = function(_req: server.ReceivedRequest): server.ServerResponse
 				task.wait(0.01)
 				task.wait(0.01)
@@ -28,6 +29,7 @@ test.suite("NetTestSuite", function(suite)
 
 	suite:case("serveLocallyAndRequest", function(assert)
 		local instance = server.serve({
+			port = 0,
 			handler = function(_req: server.ReceivedRequest): server.ServerResponse
 				return {
 					status = 200,

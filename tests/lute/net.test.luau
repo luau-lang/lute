@@ -15,6 +15,7 @@ test.suite("LuteNetSuite", function(suite)
 		local firstServerSendResult: number? = nil
 
 		local instance = server.serve({
+			port = 0,
 			handler = function(req: server.ReceivedRequest, current: server.Server): server.ServerResponse?
 				if current:upgrade(req) then
 					return nil
@@ -175,6 +176,7 @@ test.suite("LuteNetSuite", function(suite)
 		local opened = false
 
 		local instance = server.serve({
+			port = 0,
 			handler = function(req: server.ReceivedRequest, current: server.Server): server.ServerResponse?
 				if current:upgrade(req) then
 					return nil
@@ -223,6 +225,7 @@ test.suite("LuteNetSuite", function(suite)
 		local closeReason: string? = nil
 
 		local instance = server.serve({
+			port = 0,
 			handler = function(req: server.ReceivedRequest, current: server.Server): server.ServerResponse?
 				if current:upgrade(req) then
 					return nil

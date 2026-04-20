@@ -179,6 +179,10 @@ local function projectPathExists(): boolean
 	return safeFsType(projectPath) == "dir"
 end
 
+local function buildManifestExists(): boolean
+	return safeFsType(joinPath(getProjectPath(), "build.ninja")) == "file"
+end
+
 local function hexify(digest)
 	local hex = {}
 	for i = 1, buffer.len(digest) do
@@ -473,6 +477,24 @@ local function call(cmd: { string }, passedCwd: string?): number
 	return process.run(cmd, { cwd = passedCwd or cwd, stdio = "inherit" }).exitcode
 end
 
+local function removePathRecursive(path: string)
+	local pathType = safeFsType(path)
+	if pathType == nil then
+		return
+	end
+
+	if pathType ~= "dir" then
+		fs.remove(path)
+		return
+	end
+
+	for _, entry in fs.listdir(path) do
+		removePathRecursive(joinPath(path, entry.name))
+	end
+
+	fs.rmdir(path)
+end
+
 local function build()
 	local target = args:get("target")
 	assert(target ~= nil)
@@ -499,7 +521,8 @@ local function getConfigureArguments()
 	end
 
 	if args:has("clean") then
-		call({ "rm", "-rf", projectPath })
+		print("> remove-tree " .. projectPath)
+		removePathRecursive(projectPath)
 	end
 
 	local configArgs =
@@ -755,7 +778,7 @@ elseif subcommand == "build" or subcommand == "craft" then
 
 	generateFilesIfNeeded()
 
-	if not projectPathExists() or not areTuneFilesUpToDate() then
+	if not projectPathExists() or not buildManifestExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 
@@ -767,7 +790,7 @@ elseif subcommand == "run" or subcommand == "play" then
 
 	generateFilesIfNeeded()
 
-	if not projectPathExists() or not areTuneFilesUpToDate() then
+	if not projectPathExists() or not buildManifestExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 
