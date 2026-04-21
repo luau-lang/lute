@@ -65,6 +65,11 @@ export type TestSuite = {
 	afterAll: (self: TestSuite, () -> ()) -> (),
 }
 
+-- Additional options for configuring the test runner
+export type TestRunnerOptions = {
+	verbose: boolean,
+}
+
 --- A test case that failed, paired with the failure that caused it.
 export type FailedTest = {
 	test: string, -- name of the test case that failed
@@ -98,6 +103,6 @@ export type TestEnvironment = {
 }
 
 --- A function that runs a `TestEnvironment` and returns the results.
-export type TestRunner = (TestEnvironment) -> TestRunResult
+export type TestRunner = (TestEnvironment, TestRunnerOptions?) -> TestRunResult
 
 return {}
