@@ -24,10 +24,6 @@ inputs:
     description: "Whether to install system build dependencies via apt-get. Set to 'false' when the caller provisions its own toolchain (e.g. inside a custom container)."
     required: false
     default: "true"
-  musl-target:
-    description: "If set (e.g. 'x86_64-linux-musl'), build the final lute binary against musl libc using zig as the cross compiler. Implies --static-cxx-runtime. Linux only."
-    required: false
-    default: ""
 
 outputs:
   exe_path:
@@ -66,32 +62,6 @@ runs:
       if: runner.os == 'Windows'
       uses: luau-lang/setup-nasm@v1
 
-    - name: Set up Zig (musl cross toolchain)
-      if: ${{ inputs.musl-target != '' }}
-      uses: mlugg/setup-zig@v2
-
-    - name: Create musl compiler wrappers
-      if: ${{ inputs.musl-target != '' }}
-      shell: bash
-      run: |
-        set -euo pipefail
-        wrappers="$RUNNER_TEMP/lute-musl"
-        mkdir -p "$wrappers"
-        cat > "$wrappers/cc" <<EOF
-        #!/bin/sh
-        exec zig cc -target ${{ inputs.musl-target }} "\$@"
-        EOF
-        cat > "$wrappers/c++" <<EOF
-        #!/bin/sh
-        exec zig c++ -target ${{ inputs.musl-target }} "\$@"
-        EOF
-        chmod +x "$wrappers/cc" "$wrappers/c++"
-        # Expose the resolved paths to subsequent steps; we deliberately don't
-        # set CC/CXX in the global env so the bootstrap step keeps using the
-        # host (glibc) toolchain.
-        echo "LUTE_MUSL_CC=$wrappers/cc" >> "$GITHUB_ENV"
-        echo "LUTE_MUSL_CXX=$wrappers/c++" >> "$GITHUB_ENV"
-
     - name: Cache extern folder
       uses: actions/cache@v4
       id: cache-extern
@@ -110,16 +80,6 @@ runs:
           echo "LUTE=lute" >> $GITHUB_ENV
         fi
 
-    - name: Compute luthier options
-      id: luthier_options
-      shell: bash
-      run: |
-        opts='${{ inputs.options }}'
-        if [[ -n "${{ inputs.musl-target }}" ]]; then
-          opts="$opts --c-compiler $LUTE_MUSL_CC --cxx-compiler $LUTE_MUSL_CXX --static-cxx-runtime"
-        fi
-        echo "options=$opts" >> "$GITHUB_OUTPUT"
-
     - name: Fetch ${{ inputs.target }}
       if: steps.cache-extern.outputs.cache-hit != 'true'
       shell: bash
@@ -127,11 +87,11 @@ runs:
 
     - name: Configure ${{ inputs.target }}
       shell: bash
-      run: $LUTE ./tools/luthier.luau configure ${{ inputs.target }} --config ${{ inputs.config }} ${{ steps.luthier_options.outputs.options }}
+      run: $LUTE ./tools/luthier.luau configure ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build ${{ inputs.target }}
       shell: bash
-      run: $LUTE ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} ${{ steps.luthier_options.outputs.options }}
+      run: $LUTE ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Get Artifact Path
       id: artifact_path
