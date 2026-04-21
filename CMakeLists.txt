@@ -1,7 +1,13 @@
 cmake_minimum_required(VERSION 3.13)
 
+if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version")
+endif()
+
 # Make sure 'set' for variables is respected by options in nested files
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+# Let subprojects inherit CMAKE_INTERPROCEDURAL_OPTIMIZATION.
+set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -22,6 +28,48 @@ if (LUTE_ENABLE_SANITIZERS)
     if(NOT MSVC)
         add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
         add_link_options(-fsanitize=address,undefined)
+    endif()
+endif()
+
+option(LUTE_OPTIMIZE_SIZE "Enable binary size optimizations for release builds" ON)
+if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS)
+    set(_lute_release_cfg "$<NOT:$<CONFIG:Debug>>")
+
+    if (NOT MSVC)
+        add_compile_options(
+            "$<${_lute_release_cfg}:-ffunction-sections>"
+            "$<${_lute_release_cfg}:-fdata-sections>"
+            "$<${_lute_release_cfg}:-fvisibility=hidden>"
+            "$<${_lute_release_cfg}:$<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>>"
+        )
+
+        if (APPLE)
+            add_link_options("$<${_lute_release_cfg}:-Wl,-dead_strip>")
+        else()
+            add_link_options("$<${_lute_release_cfg}:-Wl,--gc-sections>")
+        endif()
+    else()
+        # Restrict to C/C++ so /Gy and /Gw don't leak into NASM invocations.
+        set(_lute_cxx_lang "$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>")
+        add_compile_options(
+            "$<${_lute_release_cfg}:$<${_lute_cxx_lang}:/Gy>>"
+            "$<${_lute_release_cfg}:$<${_lute_cxx_lang}:/Gw>>"
+        )
+        add_link_options(
+            "$<${_lute_release_cfg}:/OPT:REF>"
+            "$<${_lute_release_cfg}:/OPT:ICF>"
+        )
+    endif()
+
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT LUTE_IPO_SUPPORTED OUTPUT LUTE_IPO_ERROR)
+    if (LUTE_IPO_SUPPORTED)
+        message(STATUS "Lute: enabling LTO for Release/MinSizeRel/RelWithDebInfo")
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE)
+    else()
+        message(STATUS "Lute: LTO not supported by this toolchain: ${LUTE_IPO_ERROR}")
     endif()
 endif()
 
@@ -73,6 +121,19 @@ if (LUTE_ENABLE_SANITIZERS AND NOT MSVC)
     target_compile_options(crypto PRIVATE -Wno-frame-larger-than)
 endif()
 
+# BoringSSL's _HAS_EXCEPTIONS=0 changes MSVC STL vtables; under /LTCG this
+# trips C4743, which BoringSSL's /WX escalates to LNK1257. Keep it out of LTCG.
+if (MSVC AND LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS AND LUTE_IPO_SUPPORTED)
+    foreach(_bssl_target crypto ssl fipsmodule decrepit pki)
+        if (TARGET ${_bssl_target})
+            set_property(TARGET ${_bssl_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION FALSE)
+            set_property(TARGET ${_bssl_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE)
+            set_property(TARGET ${_bssl_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL FALSE)
+            set_property(TARGET ${_bssl_target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO FALSE)
+        endif()
+    endforeach()
+endif()
+
 # curl setup
 
 set(USE_LIBIDN2 OFF)
@@ -88,6 +149,23 @@ set(BUILD_EXAMPLES OFF)
 set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
+
+# lute/net only speaks HTTP/HTTPS/WebSocket.
+set(CURL_DISABLE_FTP    ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_TFTP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_FILE   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_DICT   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_TELNET ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_LDAP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_LDAPS  ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_SMB    ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_SMTP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_IMAP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_POP3   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_GOPHER ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_RTSP   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_MQTT   ON CACHE BOOL "" FORCE)
+set(CURL_DISABLE_IPFS   ON CACHE BOOL "" FORCE)
 
 set(HAVE_BORINGSSL ON)
 add_subdirectory(extern/curl)
