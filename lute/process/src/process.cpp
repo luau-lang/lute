@@ -257,11 +257,10 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
         uv_env_item_t* currentEnvItems;
         int currentEnvCount;
         int err = uv_os_environ(&currentEnvItems, &currentEnvCount);
+        // if error is non-zero, no allocation happened
         if (err != 0)
-        {
-            uv_os_free_environ(currentEnvItems, currentEnvCount);
             luaL_error(L, "Failed to get current environment: %s", uv_strerror(err));
-        }
+
         for (int i = 0; i < currentEnvCount; i++)
         {
             if (currentEnvItems[i].name && currentEnvItems[i].value && opts.env.find(currentEnvItems[i].name) == opts.env.end())
@@ -269,20 +268,25 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
                 opts.env[currentEnvItems[i].name] = currentEnvItems[i].value;
             }
         }
+
+        // Free the environment items allocated by uv_os_environ
         uv_os_free_environ(currentEnvItems, currentEnvCount);
 
         // Turn the new environment into a char** array
         envStrings.reserve(opts.env.size());
         envPtr.reserve(opts.env.size() + 1);
+
         for (const auto& pair : opts.env)
         {
             envStrings.push_back(pair.first + "=" + pair.second);
         }
+
         for (auto& str : envStrings)
         {
             envPtr.push_back(&str[0]);
         }
         envPtr.push_back(nullptr);
+
         options.env = envPtr.data();
     }
 
@@ -539,6 +543,9 @@ static int envIndex(lua_State* L)
     if (err == UV_ENOBUFS)
     {
         char* buffer = (char*)malloc(size);
+        if (!buffer)
+            luaL_error(L, "out of memory");
+
         err = uv_os_getenv(key, buffer, &size);
         if (err == 0)
         {

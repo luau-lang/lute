@@ -59,7 +59,7 @@ uv_timespec64_t getTimespecFromSeconds(double seconds)
 
 uint64_t getNanosecondsFromTimespec(uv_timespec64_t timespec)
 {
-	return timespec.tv_sec * NANOSECONDS_PER_SECOND + timespec.tv_nsec;
+	return static_cast<uint64_t>(timespec.tv_sec) * static_cast<uint64_t>(NANOSECONDS_PER_SECOND) + static_cast<uint64_t>(timespec.tv_nsec);
 }
 
 uv_timespec64_t getTimespecFromNanoseconds(int64_t nanoseconds)
@@ -98,7 +98,7 @@ int createDurationFromSeconds(lua_State* L, double seconds)
 static int duration_tonanoseconds(lua_State* L)
 {
     uv_timespec64_t timespec = getTimespecFromDuration(L, 1);
-    lua_pushnumber(L, static_cast<double>(timespec.tv_sec * NANOSECONDS_PER_SECOND) + timespec.tv_nsec);
+    lua_pushnumber(L, static_cast<double>(timespec.tv_sec) * static_cast<double>(NANOSECONDS_PER_SECOND) + timespec.tv_nsec);
     return 1;
 }
 
@@ -217,7 +217,10 @@ static int duration__mul(lua_State* L)
     uv_timespec64_t left = getTimespecFromDuration(L, 1);
     double factor = luaL_checknumber(L, 2);
 
-    uv_timespec64_t result = getTimespecFromNanoseconds(getNanosecondsFromTimespec(left) * factor);
+    if (!std::isfinite(factor) || factor < 0)
+        luaL_error(L, "factor must be a finite non-negative number");
+
+    uv_timespec64_t result = getTimespecFromNanoseconds(static_cast<int64_t>(getNanosecondsFromTimespec(left) * factor));
     return createDurationFromTimespec(L, {result.tv_sec >= 0 ? result.tv_sec : 0, result.tv_nsec >= 0 ? result.tv_nsec : 0});
 }
 
@@ -226,7 +229,10 @@ static int duration__div(lua_State* L)
     uv_timespec64_t left = getTimespecFromDuration(L, 1);
     double factor = luaL_checknumber(L, 2);
 
-    uv_timespec64_t result = getTimespecFromNanoseconds(getNanosecondsFromTimespec(left) / factor);
+    if (!std::isfinite(factor) || factor <= 0)
+        luaL_error(L, "factor must be a finite positive number");
+
+    uv_timespec64_t result = getTimespecFromNanoseconds(static_cast<int64_t>(getNanosecondsFromTimespec(left) / factor));
     return createDurationFromTimespec(L, {result.tv_sec >= 0 ? result.tv_sec : 0, result.tv_nsec >= 0 ? result.tv_nsec : 0});
 }
 
