@@ -61,7 +61,8 @@ local function parseManifest(t: any): ProjectManifest
 	local workspace = t.workspace
 	if workspace ~= nil then
 		assert(type(workspace) == "table", "Expected 'workspace' field to be an array of strings")
-		for _, member in workspace do
+		for i, member in workspace do
+			assert(type(i) == "number", "Expected 'workspace' field to be an array of strings")
 			assert(type(member) == "string", "Expected each workspace member to be a string path")
 		end
 		table.freeze(workspace)

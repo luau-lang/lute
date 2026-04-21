@@ -217,8 +217,8 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 
 	local lock: lockfile.Lockfile = table.freeze({
 		version = 3,
-		packages = packages,
 		members = members,
+		packages = packages,
 		dependencies = dependencies,
 	})
 
