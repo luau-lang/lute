@@ -1,19 +1,20 @@
+local lockfile = require("../lockfile")
 local packageresolution = require("../packageresolution")
 local path = require("@std/path")
 local process = require("@std/process")
 
-local function printDiagnostics(graph: packageresolution.ResolvedGraph)
+local function printDiagnostics(lock: lockfile.Lockfile)
 	local depCount = 0
-	for _ in graph.dependencies do
+	for _ in lock.dependencies do
 		depCount += 1
 	end
 	print(`Resolved {depCount} package(s).`)
 
-	for key, pkg in graph.dependencies do
+	for _, key in lock.dependencies do
 		local transitive = 0
-		local deps = graph.graph[key]
-		if deps then
-			for _ in deps do
+		local pkg = lock.packages[key]
+		if pkg then
+			for _ in pkg.dependencies do
 				transitive += 1
 			end
 		end
@@ -23,8 +24,8 @@ end
 
 local function install()
 	local rootDirectory = path.format(process.cwd())
-	local graph = packageresolution.resolve(rootDirectory)
-	printDiagnostics(graph)
+	local lock = packageresolution.resolve(rootDirectory)
+	printDiagnostics(lock)
 end
 
 return install
