@@ -1,6 +1,8 @@
 #include "lute/runtime.h"
 #include "lute/userdatas.h"
 
+#include "system_ca.h"
+
 #include "Luau/VecDeque.h"
 
 #include "lua.h"
@@ -708,7 +710,7 @@ int websocket(lua_State* L)
             curl_slist* headerList = nullptr;
 
             curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-            curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+            net::applySystemCA(curl);
             curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 2L);
 
             for (const auto& headerPair : headers)
