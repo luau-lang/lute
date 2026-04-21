@@ -27,6 +27,26 @@
 namespace process
 {
 
+// Loads the current process environment into `map`. Returns the libuv error
+// code on failure, or an empty optional on success.
+static std::optional<int> getEnvironmentVariables(std::map<std::string, std::string>& map)
+{
+    uv_env_item_t* items;
+    int count;
+    int err = uv_os_environ(&items, &count);
+    if (err != 0)
+        return err;
+
+    for (int i = 0; i < count; i++)
+    {
+        if (items[i].name && items[i].value)
+            map[items[i].name] = items[i].value;
+    }
+
+    uv_os_free_environ(items, count);
+    return std::nullopt;
+}
+
 void convertCRLFtoLF(std::string& str)
 {
     size_t writePos = 0;
@@ -254,23 +274,15 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     if (!opts.env.empty())
     {
         // Copy current environment into the new environment
-        uv_env_item_t* currentEnvItems;
-        int currentEnvCount;
-        int err = uv_os_environ(&currentEnvItems, &currentEnvCount);
-        // if error is non-zero, no allocation happened
-        if (err != 0)
-            luaL_error(L, "Failed to get current environment: %s", uv_strerror(err));
+        std::map<std::string, std::string> currentEnv;
+        if (std::optional<int> err = getEnvironmentVariables(currentEnv))
+            luaL_error(L, "Failed to get current environment: %s", uv_strerror(*err));
 
-        for (int i = 0; i < currentEnvCount; i++)
+        for (const auto& [name, value] : currentEnv)
         {
-            if (currentEnvItems[i].name && currentEnvItems[i].value && opts.env.find(currentEnvItems[i].name) == opts.env.end())
-            {
-                opts.env[currentEnvItems[i].name] = currentEnvItems[i].value;
-            }
+            if (opts.env.find(name) == opts.env.end())
+                opts.env[name] = value;
         }
-
-        // Free the environment items allocated by uv_os_environ
-        uv_os_free_environ(currentEnvItems, currentEnvCount);
 
         // Turn the new environment into a char** array
         envStrings.reserve(opts.env.size());
