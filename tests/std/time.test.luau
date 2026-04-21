@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(divide_by_zero)
 local test = require("@std/test")
 local time = require("@std/time")
 
