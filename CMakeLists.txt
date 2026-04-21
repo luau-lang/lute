@@ -42,6 +42,18 @@ if (LUTE_STATIC_CXX_RUNTIME)
     endif()
 endif()
 
+option(LUTE_FULLY_STATIC "Statically link the entire binary, including libc. Intended for musl builds; not safe with glibc due to NSS/dlopen." OFF)
+if (LUTE_FULLY_STATIC)
+    if (MSVC)
+        message(WARNING "LUTE_FULLY_STATIC has no effect on MSVC.")
+    elseif (APPLE)
+        message(WARNING "LUTE_FULLY_STATIC has no effect on Apple platforms; the system frameworks are not statically linkable.")
+    else()
+        # `-static` already pulls libstdc++/libgcc statically; no need to combine with LUTE_STATIC_CXX_RUNTIME.
+        add_link_options(-static)
+    endif()
+endif()
+
 option(LUTE_OPTIMIZE_SIZE "Enable binary size optimizations for release builds" ON)
 if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS)
     set(_lute_release_cfg "$<NOT:$<CONFIG:Debug>>")
