@@ -546,10 +546,7 @@ local function generateCACertsIfNeeded()
 
 		local stagedCertdata = joinPath(sourceDir, "certdata.txt")
 		fs.copy(nssCertdata, stagedCertdata)
-		check(call(
-			{ "perl", mkCaBundle, "-n", "-q", "-f", "-d", "certdata.txt", "cacert.pem" },
-			sourceDir
-		))
+		check(call({ "perl", mkCaBundle, "-n", "-q", "-f", "-d", "certdata.txt", "cacert.pem" }, sourceDir))
 		fs.remove(stagedCertdata)
 
 		writeStringToFile(hashFile, currentHash)
