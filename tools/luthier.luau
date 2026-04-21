@@ -77,7 +77,6 @@ args:add("which", "flag", { help = "print out the path to the compiled binary an
 args:add("cxx-compiler", "option", { help = "C++ compiler to use" })
 args:add("c-compiler", "option", { help = "C compiler to use" })
 args:add("enable-sanitizers", "flag", { help = "enable sanitizers during configuration" })
-args:add("static-cxx-runtime", "flag", { help = "statically link the C/C++ runtime (useful for portable musl builds)" })
 args:add("fully-static", "flag", { help = "statically link the entire binary, including libc (musl only)" })
 
 if not isWindows and not isMac and not isLinux then
@@ -542,10 +541,6 @@ local function getConfigureArguments()
 
 	if args:has("enable-sanitizers") then
 		table.insert(configArgs, "-DLUTE_ENABLE_SANITIZERS=ON")
-	end
-
-	if args:has("static-cxx-runtime") then
-		table.insert(configArgs, "-DLUTE_STATIC_CXX_RUNTIME=ON")
 	end
 
 	if args:has("fully-static") then
