@@ -89,6 +89,15 @@ mkdir -p lute/definitions/src/generated
 exe cp ./tools/templates/definitions_impl.cpp ./lute/definitions/src/generated/modules.cpp
 exe cp ./tools/templates/definitions_header.h ./lute/definitions/src/generated/modules.h
 
+# place an empty Mozilla CA bundle. lute0 only runs luthier (which does not
+# make HTTPS requests), so an empty trust store here is harmless. luthier
+# replaces it with the real NSS-derived bundle when generating files.
+rm -rf lute/net/src/generated
+mkdir -p lute/net/src/generated
+
+exe cp ./tools/templates/cacerts_impl.cpp ./lute/net/src/generated/cacerts.cpp
+exe cp ./tools/templates/cacerts_header.h ./lute/net/src/generated/cacerts.h
+
 ## configure the build system for lute0
 os_type="$(uname)"
 BUILD_ROOT=""

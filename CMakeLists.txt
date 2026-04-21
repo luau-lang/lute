@@ -150,6 +150,11 @@ set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
+# Suppress libcurl's compile-time CA auto-detection. It otherwise bakes in
+# whatever path happens to exist on the build host
+set(CURL_CA_BUNDLE "none" CACHE STRING "" FORCE)
+set(CURL_CA_PATH   "none" CACHE STRING "" FORCE)
+
 # lute/net only speaks HTTP/HTTPS/WebSocket.
 set(CURL_DISABLE_FTP    ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_TFTP   ON CACHE BOOL "" FORCE)

@@ -429,38 +429,6 @@ local function generateTypeDefinitionFiles()
 	)
 end
 
-local function generateFilesIfNeeded()
-	generateEmbeddedModulesIfNeeded({
-		sourcePath = projectRelative("lute", "std", "libs"),
-		outputDir = projectRelative("lute", "std", "src", "generated"),
-		alias = "@std",
-		arrayName = "lutestdlib",
-		moduleName = "modules",
-	})
-	generateTypeDefinitionFiles()
-	generateEmbeddedModulesIfNeeded({
-		sourcePath = projectRelative("lute", "cli", "commands"),
-		outputDir = projectRelative("lute", "cli", "generated"),
-		alias = "@cli",
-		arrayName = "luteclicommands",
-		moduleName = "commands",
-	})
-	generateEmbeddedModulesIfNeeded({
-		sourcePath = projectRelative("batteries"),
-		outputDir = projectRelative("lute", "batteries", "generated"),
-		alias = "@batteries",
-		arrayName = "lutebatteries",
-		moduleName = "batteries",
-	})
-	generateEmbeddedModulesIfNeeded({
-		sourcePath = projectRelative("definitions"),
-		outputDir = projectRelative("lute", "definitions", "src", "generated"),
-		alias = "@lute",
-		arrayName = "lutedefinitions",
-		moduleName = "modules",
-	})
-end
-
 local function getExePath(): string
 	local target = args:get("target")
 	assert(target ~= nil)
@@ -559,6 +527,73 @@ local function check(exitCode: number)
 	if exitCode ~= 0 then
 		error("Command failed with exit code " .. exitCode)
 	end
+end
+
+local function generateCACertsIfNeeded()
+	local nssCertdata = projectRelative("extern", "nss", "lib", "ckfw", "builtins", "certdata.txt")
+	local mkCaBundle = projectRelative("extern", "curl", "scripts", "mk-ca-bundle.pl")
+	local generatedDir = projectRelative("lute", "net", "src", "generated")
+	local sourceDir = joinPath(generatedDir, "ca-source")
+	local hashFile = joinPath(generatedDir, "ca-source.hash.txt")
+
+	local toHash = readFileToString(nssCertdata) .. readFileToString(mkCaBundle)
+	local currentHash = hexify(crypto.digest(crypto.hash.blake2b256, toHash))
+
+	if not isHashUpToDate(hashFile, currentHash) then
+		print("Regenerating Mozilla CA bundle from NSS certdata.txt")
+		pcall(fs.mkdir, sourceDir)
+
+		local stagedCertdata = joinPath(sourceDir, "certdata.txt")
+		fs.copy(nssCertdata, stagedCertdata)
+		check(call(
+			{ "perl", mkCaBundle, "-n", "-q", "-f", "-d", "certdata.txt", "cacert.pem" },
+			sourceDir
+		))
+		fs.remove(stagedCertdata)
+
+		writeStringToFile(hashFile, currentHash)
+	end
+
+	generateEmbeddedModulesIfNeeded({
+		sourcePath = sourceDir,
+		outputDir = generatedDir,
+		alias = "@cacerts",
+		arrayName = "lutecacerts",
+		moduleName = "cacerts",
+	})
+end
+
+local function generateFilesIfNeeded()
+	generateEmbeddedModulesIfNeeded({
+		sourcePath = projectRelative("lute", "std", "libs"),
+		outputDir = projectRelative("lute", "std", "src", "generated"),
+		alias = "@std",
+		arrayName = "lutestdlib",
+		moduleName = "modules",
+	})
+	generateTypeDefinitionFiles()
+	generateEmbeddedModulesIfNeeded({
+		sourcePath = projectRelative("lute", "cli", "commands"),
+		outputDir = projectRelative("lute", "cli", "generated"),
+		alias = "@cli",
+		arrayName = "luteclicommands",
+		moduleName = "commands",
+	})
+	generateEmbeddedModulesIfNeeded({
+		sourcePath = projectRelative("batteries"),
+		outputDir = projectRelative("lute", "batteries", "generated"),
+		alias = "@batteries",
+		arrayName = "lutebatteries",
+		moduleName = "batteries",
+	})
+	generateEmbeddedModulesIfNeeded({
+		sourcePath = projectRelative("definitions"),
+		outputDir = projectRelative("lute", "definitions", "src", "generated"),
+		alias = "@lute",
+		arrayName = "lutedefinitions",
+		moduleName = "modules",
+	})
+	generateCACertsIfNeeded()
 end
 
 local function printHelp()

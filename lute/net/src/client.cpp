@@ -1,5 +1,6 @@
 #include "lute/net.h"
 
+#include "ca_certs.h"
 #include "lute/common.h"
 #include "lute/runtime.h"
 #include "lute/userdatas.h"
@@ -143,6 +144,8 @@ static CurlResponse requestData(
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+
+    applyEmbeddedCACerts(curl);
     curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 
     if (method != "GET")

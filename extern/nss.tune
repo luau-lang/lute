@@ -1,0 +1,5 @@
+[dependency]
+name = "nss"
+remote = "https://github.com/nss-dev/nss.git"
+branch = "NSS_3_123_RTM"
+revision = "34039afbf02973e61589a10fdc43107eb1d453a5"

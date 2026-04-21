@@ -1,3 +1,4 @@
+#include "ca_certs.h"
 #include "lute/runtime.h"
 #include "lute/userdatas.h"
 
@@ -708,6 +709,7 @@ int websocket(lua_State* L)
             curl_slist* headerList = nullptr;
 
             curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            applyEmbeddedCACerts(curl);
             curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
             curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 2L);
 
