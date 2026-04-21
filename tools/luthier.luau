@@ -1,9 +1,10 @@
 --!strict
 
 local crypto = require("@lute/crypto")
-local fs = require("@lute/fs")
-local process = require("@lute/process")
-local system = require("@lute/system")
+local fs = require("@std/fs")
+local pathlib = require("@std/path")
+local process = require("@std/process")
+local system = require("@std/system")
 local cli = require("@batteries/cli")
 local richterm = require("@batteries/richterm")
 local toml = require("@batteries/toml")
@@ -19,7 +20,7 @@ type Tune = {
 
 local BUILD_DIR = "build"
 
-local cwd = process.cwd()
+local cwd: pathlib.Path = process.cwd()
 
 local function gitVersion(): { major: number, minor: number, path: number }
 	local gitVersionString = process.run({ "git", "--version" }).stdout
@@ -32,25 +33,7 @@ local function gitVersion(): { major: number, minor: number, path: number }
 	}
 end
 
-local function readFileToString(path: string): string
-	local file = fs.open(path, "r")
-	local contents = fs.read(file)
-	fs.close(file)
-	return contents
-end
-
-local function writeStringToFile(path: string, contents: string): ()
-	local file = fs.open(path, "w+")
-	fs.write(file, contents)
-	fs.close(file)
-end
-
 local gitVersionInfo = gitVersion()
-
-local os = string.lower(system.os)
-local isWindows = string.find(os, "windows") ~= nil
-local isMac = string.find(os, "darwin") ~= nil
-local isLinux = string.find(os, "linux") ~= nil
 
 local targetMap: { [string]: { exeName: string } } = {
 	lute = {
@@ -78,36 +61,15 @@ args:add("cxx-compiler", "option", { help = "C++ compiler to use" })
 args:add("c-compiler", "option", { help = "C compiler to use" })
 args:add("enable-sanitizers", "flag", { help = "enable sanitizers during configuration" })
 
-if not isWindows and not isMac and not isLinux then
-	error("Unknown platform " .. os)
+if not system.win32 and not system.macos and not system.linux then
+	error("Unknown platform " .. system.os)
 end
 
-local pathSep = if isWindows then "\\" else "/"
-
-local function joinPath(...)
-	return table.concat({ ... }, pathSep)
+local function projectRelative(...: pathlib.Pathlike): pathlib.Path
+	return pathlib.join(cwd, ...)
 end
 
-local function projectRelative(...)
-	return joinPath(cwd, ...)
-end
-
-local function findLast(haystack: string, needle: string): number?
-	local lastPos
-	local currentPos = 1
-	while true do
-		local foundPos = string.find(haystack, needle, currentPos, true)
-		if foundPos then
-			lastPos = foundPos
-			currentPos = foundPos + 1
-		else
-			break -- No more occurrences
-		end
-	end
-	return lastPos
-end
-
-local function safeFsType(path: string): string?
+local function safeFsType(path: pathlib.Pathlike): string?
 	local success, res = pcall(fs.type, path)
 	if success then
 		return res
@@ -116,24 +78,24 @@ local function safeFsType(path: string): string?
 	end
 end
 
-local function getSourceRoot()
+local function getSourceRoot(): pathlib.Path
 	local cwd = process.cwd()
 
 	while true do
-		if safeFsType(cwd .. pathSep .. ".LUTE_SENTINEL") == "file" then
+		if safeFsType(pathlib.join(cwd, ".LUTE_SENTINEL")) == "file" then
 			return cwd
 		end
 
-		local lastSep = findLast(cwd, pathSep)
-		if lastSep then
-			cwd = string.sub(cwd, 1, lastSep - 1)
-		else
+		if #cwd.parts == 0 then
 			break
 		end
+
+		table.remove(cwd.parts, #cwd.parts)
 	end
 
-	if process.env.LUTE_ROOT_DIR then
-		return process.env.LUTE_ROOT_DIR
+	local envRoot = process.env.LUTE_ROOT_DIR
+	if envRoot then
+		return pathlib.parse(envRoot)
 	end
 
 	error(
@@ -143,12 +105,12 @@ end
 
 local function getExeName(target: string): string
 	local baseName = targetMap[target].exeName
-	local ext = if isWindows then ".exe" else ""
+	local ext = if system.win32 then ".exe" else ""
 	return baseName .. ext
 end
 
 local function getCompiler(): string
-	if isMac then
+	if system.macos then
 		return "xcode"
 	else
 		return "vs2022"
@@ -159,17 +121,17 @@ local function getConfig(): string
 	return assert(args:get("config"))
 end
 
-local function getBuildDir(): string
+local function getBuildDir(): pathlib.Path
 	local config = string.lower(getConfig())
 
-	if isLinux then
-		return joinPath(BUILD_DIR, config)
+	if system.linux then
+		return pathlib.join(BUILD_DIR, config)
 	else
-		return joinPath(BUILD_DIR, getCompiler(), config)
+		return pathlib.join(BUILD_DIR, getCompiler(), config)
 	end
 end
 
-local function getProjectPath(): string
+local function getProjectPath(): pathlib.Path
 	return projectRelative(getBuildDir())
 end
 
@@ -180,7 +142,7 @@ local function projectPathExists(): boolean
 end
 
 local function buildManifestExists(): boolean
-	return safeFsType(joinPath(getProjectPath(), "build.ninja")) == "file"
+	return safeFsType(pathlib.join(getProjectPath(), "build.ninja")) == "file"
 end
 
 local function hexify(digest)
@@ -191,21 +153,22 @@ local function hexify(digest)
 	return table.concat(hex)
 end
 
-local function traverseFileTree(path: string, callback: (string, string) -> ())
-	local directories: { { path: string, relativePath: string } } = { { path = path, relativePath = "" } }
+local function traverseFileTree(path: pathlib.Pathlike, callback: (pathlib.Path, string) -> ())
+	local directories: { { path: pathlib.Path, relativePath: string } } =
+		{ { path = pathlib.parse(path), relativePath = "" } }
 
 	while #directories > 0 do
 		local currentDir = directories[1]
 		callback(currentDir.path, currentDir.relativePath)
 
-		local contents = fs.listdir(currentDir.path)
+		local contents = fs.listDirectory(currentDir.path)
 		-- FIXME(Luau): bidirectional typing
 		table.sort(contents, function(a: fs.DirectoryEntry, b: fs.DirectoryEntry)
 			return a.name < b.name
 		end)
 
 		for _, file in contents do
-			local fullPath = currentDir.path .. "/" .. file.name
+			local fullPath = pathlib.join(currentDir.path, file.name)
 
 			if safeFsType(fullPath) ~= "file" then
 				continue
@@ -221,7 +184,7 @@ local function traverseFileTree(path: string, callback: (string, string) -> ())
 		end
 
 		for _, directory in contents do
-			local fullPath = currentDir.path .. "/" .. directory.name
+			local fullPath = pathlib.join(currentDir.path, directory.name)
 
 			if safeFsType(fullPath) ~= "dir" then
 				continue
@@ -244,37 +207,37 @@ local function writeLines(file, lines: { string })
 	fs.write(file, table.concat(lines, "\n") .. "\n")
 end
 
-local function hashDirectory(path: string): string
+local function hashDirectory(path: pathlib.Pathlike): string
 	local toHash = ""
 	traverseFileTree(path, function(filePath, relativePath)
 		if safeFsType(filePath) == "file" then
 			toHash ..= "./" .. relativePath
-			toHash ..= readFileToString(filePath)
+			toHash ..= fs.readFileToString(filePath)
 		end
 	end)
 	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
 	return hexify(digest)
 end
 
-local function isHashUpToDate(hashFile: string, currentHash: string): boolean
+local function isHashUpToDate(hashFile: pathlib.Pathlike, currentHash: string): boolean
 	if safeFsType(hashFile) ~= "file" then
 		return false
 	end
-	return readFileToString(hashFile) == currentHash
+	return fs.readFileToString(hashFile) == currentHash
 end
 
 type EmbeddedModuleConfig = {
-	sourcePath: string,
-	outputDir: string,
+	sourcePath: pathlib.Pathlike,
+	outputDir: pathlib.Pathlike,
 	alias: string,
 	arrayName: string,
 	moduleName: string,
 }
 
 local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
-	pcall(fs.mkdir, config.outputDir)
+	fs.createDirectory(config.outputDir, { makeParents = true })
 
-	local hashFile = joinPath(config.outputDir, "hash.txt")
+	local hashFile = pathlib.join(config.outputDir, "hash.txt")
 	local currentHash = hashDirectory(config.sourcePath)
 
 	if isHashUpToDate(hashFile, currentHash) then
@@ -292,11 +255,11 @@ local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
 		process.exit(1)
 	end
 
-	local cpp = fs.open(joinPath(config.outputDir, cppFile), "w+")
+	local cpp = fs.open(pathlib.join(config.outputDir, cppFile), "w+")
 
 	writeLines(cpp, {
 		"// This file is auto-generated by luthier.luau. Do not edit.",
-		`// Instead, you should modify the source files in \`{config.sourcePath}\`.`,
+		`// Instead, you should modify the source files in \`{pathlib.format(config.sourcePath)}\`.`,
 		"",
 		`#include "{headerFile}"`,
 		"",
@@ -313,7 +276,7 @@ local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
 		local aliasedPath = aliasWithSlash .. relativePath
 
 		if safeFsType(path) == "file" then
-			local libSrc = readFileToString(path)
+			local libSrc = fs.readFileToString(path)
 			if #libSrc > 16_000 then
 				-- https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/compiler-error-c2026
 				-- MSVC can't handle a single string literal being over 16380 single-byte characters,
@@ -343,7 +306,7 @@ local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
 	fs.write(cpp, "};\n")
 	fs.close(cpp)
 
-	local header = fs.open(joinPath(config.outputDir, headerFile), "w+")
+	local header = fs.open(pathlib.join(config.outputDir, headerFile), "w+")
 	writeLines(header, {
 		"// This file is auto-generated by luthier.luau. Do not edit.",
 		"#pragma once",
@@ -355,7 +318,7 @@ local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
 	})
 	fs.close(header)
 
-	writeStringToFile(hashFile, currentHash)
+	fs.writeStringToFile(hashFile, currentHash)
 end
 
 local function getTypeDefinitionsHash(): string
@@ -364,11 +327,11 @@ local function getTypeDefinitionsHash(): string
 
 	local toHash = ""
 
-	local function traverseDefs(path: string, namespace: string)
+	local function traverseDefs(path: pathlib.Pathlike, namespace: string)
 		traverseFileTree(path, function(path, relativePath)
 			if safeFsType(path) == "file" then
 				toHash ..= `./{namespace}/{relativePath}`
-				toHash ..= readFileToString(path)
+				toHash ..= fs.readFileToString(path)
 			end
 		end)
 	end
@@ -382,9 +345,9 @@ end
 
 local function generateTypeDefinitionFiles()
 	local generatedPath = projectRelative("lute", "cli", "commands", "setup", "generated")
-	pcall(fs.mkdir, generatedPath)
+	fs.createDirectory(generatedPath, { makeParents = true })
 
-	local hashFile = joinPath(generatedPath, "hash.txt")
+	local hashFile = pathlib.join(generatedPath, "hash.txt")
 	local currentHash = getTypeDefinitionsHash()
 
 	if isHashUpToDate(hashFile, currentHash) then
@@ -397,10 +360,10 @@ local function generateTypeDefinitionFiles()
 	local stdPath = projectRelative("lute", "std", "libs")
 	local dictionaryEntries: { [string]: string } = {}
 
-	local function traverseDefs(path: string, namespace: string)
+	local function traverseDefs(path: pathlib.Pathlike, namespace: string)
 		traverseFileTree(path, function(path, relativePath)
 			if safeFsType(path) == "file" then
-				local content = readFileToString(path)
+				local content = fs.readFileToString(path)
 				dictionaryEntries[`{namespace}/{relativePath}`] = content
 			end
 		end)
@@ -410,16 +373,16 @@ local function generateTypeDefinitionFiles()
 	traverseDefs(stdPath, "std")
 
 	dictionaryEntries["lint/types.luau"] =
-		readFileToString(projectRelative("lute", "cli", "commands", "lint", "types.luau"))
+		fs.readFileToString(projectRelative("lute", "cli", "commands", "lint", "types.luau"))
 
 	local stringDictionary = ""
 	for key, value in dictionaryEntries do
 		stringDictionary ..= string.format('["%*"] = [==[%*]==],', key, value)
 	end
 
-	writeStringToFile(hashFile, currentHash)
+	fs.writeStringToFile(hashFile, currentHash)
 
-	writeStringToFile(
+	fs.writeStringToFile(
 		projectRelative("lute", "cli", "commands", "setup", "generated", "definitions.luau"),
 		string.format("return {%*}", stringDictionary)
 	)
@@ -457,12 +420,12 @@ local function generateFilesIfNeeded()
 	})
 end
 
-local function getExePath(): string
+local function getExePath(): pathlib.Path
 	local target = args:get("target")
 	assert(target ~= nil)
 	local exeName = getExeName(target)
 
-	return joinPath(getProjectPath(), exeName)
+	return pathlib.join(getProjectPath(), exeName)
 end
 
 local function exeExists(): boolean
@@ -471,35 +434,17 @@ local function exeExists(): boolean
 	return safeFsType(exePath) == "file"
 end
 
-local function call(cmd: { string }, passedCwd: string?): number
+local function call(cmd: { string }, passedCwd: pathlib.Pathlike?): number
 	print("> " .. table.concat(cmd, " "))
 
-	return process.run(cmd, { cwd = passedCwd or cwd, stdio = "inherit" }).exitcode
-end
-
-local function removePathRecursive(path: string)
-	local pathType = safeFsType(path)
-	if pathType == nil then
-		return
-	end
-
-	if pathType ~= "dir" then
-		fs.remove(path)
-		return
-	end
-
-	for _, entry in fs.listdir(path) do
-		removePathRecursive(joinPath(path, entry.name))
-	end
-
-	fs.rmdir(path)
+	return process.run(cmd, { cwd = pathlib.format(passedCwd or cwd), stdio = "inherit" }).exitcode
 end
 
 local function build()
 	local target = args:get("target")
 	assert(target ~= nil)
 	local exeName = getExeName(target)
-	local projectPath = getProjectPath()
+	local projectPath = pathlib.format(getProjectPath())
 
 	if args:has("clean") then
 		call({ "ninja", "-C", projectPath, "clean" })
@@ -521,12 +466,16 @@ local function getConfigureArguments()
 	end
 
 	if args:has("clean") then
-		print("> remove-tree " .. projectPath)
-		removePathRecursive(projectPath)
+		print("> remove-tree " .. pathlib.format(projectPath))
+		fs.removeDirectory(projectPath, { recursive = true })
 	end
 
-	local configArgs =
-		{ "-G=Ninja", "-B " .. projectPath, "-DCMAKE_BUILD_TYPE=" .. config, "-DCMAKE_EXPORT_COMPILE_COMMANDS=1" }
+	local configArgs = {
+		"-G=Ninja",
+		"-B " .. pathlib.format(projectPath),
+		"-DCMAKE_BUILD_TYPE=" .. config,
+		"-DCMAKE_EXPORT_COMPILE_COMMANDS=1",
+	}
 
 	local cxx_compiler = args:get("cxx-compiler")
 	if cxx_compiler then
@@ -545,10 +494,10 @@ local function getConfigureArguments()
 	return configArgs
 end
 
-local function readTuneFile(path: string): Tune
+local function readTuneFile(path: pathlib.Pathlike): Tune
 	-- We're promising that the thing we read _actually_ looks like a `Tune`,
 	-- this could be ill advised.
-	return toml.deserialize(readFileToString(path)) :: Tune
+	return toml.deserialize(fs.readFileToString(path)) :: Tune
 end
 
 local function check(exitCode: number)
@@ -651,7 +600,7 @@ end
 
 local function getTuneFilesHash(): string
 	local externPath = projectRelative("extern")
-	local files = fs.listdir(externPath)
+	local files = fs.listDirectory(externPath)
 
 	-- FIXME(Luau): bidirectional typing.
 	table.sort(files, function(a: fs.DirectoryEntry, b: fs.DirectoryEntry)
@@ -670,7 +619,7 @@ local function getTuneFilesHash(): string
 		end
 
 		toHash ..= file.name
-		toHash ..= readFileToString(joinPath(externPath, file.name))
+		toHash ..= fs.readFileToString(pathlib.join(externPath, file.name))
 	end
 
 	local digest = crypto.digest(crypto.hash.blake2b256, toHash)
@@ -684,12 +633,12 @@ local function areTuneFilesUpToDate(): boolean
 		return false
 	end
 
-	local hash = readFileToString(hashFile)
+	local hash = fs.readFileToString(hashFile)
 	return hash == getTuneFilesHash()
 end
 
 local function fetchDependencies(): number
-	local files = fs.listdir(projectRelative("extern"))
+	local files = fs.listDirectory(projectRelative("extern"))
 
 	for _, file in files do
 		if string.find(file.name, "%.tune$") then
@@ -699,9 +648,9 @@ local function fetchDependencies(): number
 	end
 
 	local generatedPath = projectRelative("extern", "generated")
-	pcall(fs.mkdir, generatedPath)
+	fs.createDirectory(generatedPath, { makeParents = true })
 
-	local hash = fs.open(joinPath(generatedPath, "hash.txt"), "w+")
+	local hash = fs.open(pathlib.join(generatedPath, "hash.txt"), "w+")
 	fs.write(hash, getTuneFilesHash())
 	fs.close(hash)
 
@@ -726,12 +675,15 @@ local function configure()
 	check(fetchDependenciesIfNeeded())
 
 	local result = call(cmd)
-	fs.copy(joinPath(getProjectPath(), "compile_commands.json"), projectRelative(BUILD_DIR, "compile_commands.json"))
+	fs.copy(
+		pathlib.join(getProjectPath(), "compile_commands.json"),
+		projectRelative(BUILD_DIR, "compile_commands.json")
+	)
 	return result
 end
 
 local function run()
-	local cmd = { getExePath() }
+	local cmd = { pathlib.format(getExePath()) }
 	local forwarded = args:forwarded() or {}
 
 	table.move(forwarded, 1, #forwarded, 2, cmd)
@@ -756,7 +708,7 @@ if args:has("help") then
 end
 
 if args:has("which") then
-	print(getExePath())
+	print(pathlib.format(getExePath()))
 	return
 end
 
