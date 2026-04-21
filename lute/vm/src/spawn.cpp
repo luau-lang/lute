@@ -1,6 +1,5 @@
 #include "lute/vm.h"
 
-#include "lute/clivfs.h"
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/requirevfs.h"
@@ -189,7 +188,7 @@ static void* createChildVmRequireContext(lua_State* L)
     if (!ctx)
         luaL_error(L, "unable to allocate RequireCtx");
 
-    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(CliVfs{})};
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>()};
 
     // Store RequireCtx in the registry to keep it alive for the lifetime of
     // this lua_State. Memory address is used as a key to avoid collisions.
@@ -218,7 +217,7 @@ int VM::lua_spawn(lua_State* L)
     lua_getinfo(L, 1, "s", &ar);
 
     // Require the target module
-    RequireCtx ctx{std::make_unique<RequireVfs>(CliVfs{})};
+    RequireCtx ctx{std::make_unique<RequireVfs>()};
     luarequire_pushproxyrequire(child->GL, requireConfigInit, &ctx);
     lua_pushstring(child->GL, file);
     lua_pushstring(child->GL, ar.source);
