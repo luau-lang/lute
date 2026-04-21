@@ -57,7 +57,7 @@ Since we want to double all of these numbers, we extend our program to construct
 ```luau
 local replacements = query.findAllFromRoot(astRoot, utils.isExprConstantNumber)
 						:replace(function(numLiteral: AstExprConstantNumber)
-							return `{ e.value * 2 }`
+							return `{ numLiteral.value * 2 }`
 						end)
 ```
 
@@ -66,16 +66,14 @@ The manual work of collecting these replacements into a single table is handled 
 To get this code into a format that `lute transform` can understand and run, we return the replacements from a function which takes the `Context` mentioned above, and create a file which returns that function. Here's what that looks like with the relevant imports included:
 
 ```luau
-local transform = require("@transform")
-
 local ast = require("@std/syntax")
 local query = require("@std/syntax/query")
 local utils = require("@std/syntax/utils")
 
-local function transformQuery(ctx: transform.Context)
-	return query.findAllFromRoot(ctx.parseResult, utils.isExprConstantNumber)
+local function transformQuery(ctx)
+	return query.findAllFromRoot(ctx.parseresult, utils.isExprConstantNumber)
 			:replace(function(numLiteral: ast.AstExprConstantNumber)
-				return `{ e.value * 2 }`
+				return `{ numLiteral.value * 2 }`
 			end)
 end
 
@@ -88,7 +86,7 @@ Next, we paste the above into `transform.luau`, and create another file, `subjec
 
 If we now run:
 ```bash
-lute transform.luau subject.luau
+lute transform transform.luau subject.luau
 ```
 and open `subject.luau`, it should now contain `local x = 4` instead.
 
@@ -156,12 +154,10 @@ visitorLib.visit(ast, myVisitor)
 Here's what that looks like in the format `lute transform` expects:
 
 ```luau
-local transform = require("@transform")
-
 local ast = require("@std/syntax")
 local visitorLib = require("@std/syntax/visitor")
 
-local function visitorTransformation(ctx: transform.Context)
+local function visitorTransformation(ctx)
 	local myVisitor = visitorLib.create()
 	local replacements : { [ast.AstNode] : string } = {}
 
@@ -171,10 +167,10 @@ local function visitorTransformation(ctx: transform.Context)
 		return false
 	end
 
-	visitorLib.visit(ctx.parseResult.root, myVisitor)
+	visitorLib.visit(ctx.parseresult.root, myVisitor)
 
 	return replacements
 end
 
-return transformVisitor
+return visitorTransformation
 ```

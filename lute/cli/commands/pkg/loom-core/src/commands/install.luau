@@ -3,17 +3,20 @@ local packageresolution = require("../packageresolution")
 local path = require("@std/path")
 local process = require("@std/process")
 
-local function printDiagnostics(lockfile: lockfile.Lockfile)
+local function printDiagnostics(lock: lockfile.Lockfile)
 	local depCount = 0
-	for _ in lockfile.packages do
+	for _ in lock.dependencies do
 		depCount += 1
 	end
 	print(`Resolved {depCount} package(s).`)
 
-	for key, pkg in lockfile.dependencies do
+	for _, key in lock.dependencies do
 		local transitive = 0
-		for _ in pkg.dependencies do
-			transitive += 1
+		local pkg = lock.packages[key]
+		if pkg then
+			for _ in pkg.dependencies do
+				transitive += 1
+			end
 		end
 		print(`  {key} ({pkg.sourceKind}, {transitive} dep(s))`)
 	end
@@ -21,8 +24,8 @@ end
 
 local function install()
 	local rootDirectory = path.format(process.cwd())
-	local lockfile = packageresolution.resolve(rootDirectory)
-	printDiagnostics(lockfile)
+	local lock = packageresolution.resolve(rootDirectory)
+	printDiagnostics(lock)
 end
 
 return install

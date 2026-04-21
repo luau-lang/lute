@@ -68,6 +68,9 @@ int lua_cpus(lua_State* L)
         lua_settable(L, -3);
     };
 
+    // free the cpu info array allocated by libuv
+    uv_free_cpu_info(cpus, count);
+
     return 1;
 }
 

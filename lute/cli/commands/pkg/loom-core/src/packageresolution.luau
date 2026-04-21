@@ -78,16 +78,16 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 
 	local queue: { projectmanifest.DependencySpec } = {}
 
-	local packages: { string } = {}
-	local dependencies: { [string]: lockfile.LockfileDependency } = {}
+	local dependencies: { [string]: string } = {}
+	local packages: { [string]: lockfile.LockfileDependency } = {}
 
 	local rootManifest = projectmanifest.parseFile(rootManifestPath)
-	for _, spec in rootManifest.package.dependencies do
-		table.insert(packages, getKey(spec))
-		table.insert(queue, spec)
+	for depAlias, depSpec in rootManifest.package.dependencies do
+		dependencies[depAlias] = getKey(depSpec)
+		table.insert(queue, depSpec)
 	end
 
-	table.freeze(packages)
+	table.freeze(dependencies)
 
 	-- Seed workspace member dependencies into the shared queue
 	local members: { [string]: lockfile.LockfileMember }? = nil
@@ -119,11 +119,11 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	for _, spec in queue do
 		local key = getKey(spec)
 
-		if dependencies[key] then
-			if hasConflict(dependencies[key], spec) then
+		if packages[key] then
+			if hasConflict(packages[key], spec) then
 				error(
 					`Source mismatch for package '{spec.name}':\n`
-						.. `  resolved: {dependencies[key].source} ({dependencies[key].sourceKind})\n`
+						.. `  resolved: {packages[key].source} ({packages[key].sourceKind})\n`
 						.. `  incoming: {spec.source} ({spec.sourceKind})\n`
 						.. `Both resolve to '{key}' but from different sources.`
 				)
@@ -203,7 +203,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 
 		table.freeze(transitiveDependencies)
 
-		dependencies[key] = table.freeze({
+		packages[key] = table.freeze({
 			name = spec.name,
 			rev = spec.rev,
 			source = spec.source,
@@ -213,17 +213,18 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 		})
 	end
 
-	table.freeze(dependencies)
+	table.freeze(packages)
 
-	local lf: lockfile.Lockfile = table.freeze({
-		version = 2,
+	local lock: lockfile.Lockfile = table.freeze({
+		version = 3,
 		packages = packages,
 		members = members,
 		dependencies = dependencies,
 	})
-	fs.writeStringToFile(lockfilePath, `return {pp(lf)}\n`)
 
-	return lf
+	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
+
+	return lock
 end
 
 return {
