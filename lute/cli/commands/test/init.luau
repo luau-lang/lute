@@ -40,8 +40,13 @@ local function listtests()
 	end
 end
 
-local function runtests(env: testtypes.TestEnvironment, runner: testtypes.TestRunner, reporter: testtypes.TestReporter)
-	local result = runner(env)
+local function runtests(
+	env: testtypes.TestEnvironment,
+	runner: testtypes.TestRunner,
+	reporter: testtypes.TestReporter,
+	runOptions: testtypes.TestRunnerOptions
+)
+	local result = runner(env, runOptions)
 
 	reporter(result)
 	if result.failed ~= 0 then
@@ -69,6 +74,11 @@ local function main(...: string)
 
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:add("list", "flag", { help = "List all discovered test cases without running them" })
+	args:add(
+		"verbose",
+		"flag",
+		{ help = "Run tests verbosely (prints test case and suite names before executing)", aliases = { "v" } }
+	)
 	args:add("suite", "option", { help = "Run only tests in the specified suite", aliases = { "s" } })
 	args:add("case", "option", { help = "Run only test cases matching the specified name", aliases = { "c" } })
 	args:add("interactive", "flag", { help = "Interactively accept/reject snapshot changes", aliases = { "i" } })
@@ -102,8 +112,9 @@ local function main(...: string)
 		listtests()
 	else
 		local env = test._registered() :: testtypes.TestEnvironment
+		local runOpts: testtypes.TestRunnerOptions = { verbose = args:has("verbose") }
 		local filteredEnv = filter.filtertests(env, args:get("suite"), args:get("case"))
-		runtests(filteredEnv, runner.run, reporter.color)
+		runtests(filteredEnv, runner.run, reporter.color, runOpts)
 	end
 end
 
