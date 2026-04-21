@@ -108,13 +108,12 @@ jobs:
       - name: Verify binary is fully static
         run: |
           file "${{ steps.build_lute.outputs.exe_path }}"
-          # On a static binary, ldd either prints "not a dynamic executable"
-          # / "statically linked" or exits non-zero; either is success.
-          if ldd "${{ steps.build_lute.outputs.exe_path }}" 2>&1 | grep -qE "not a dynamic executable|statically linked"; then
+          # A fully static ELF has no PT_INTERP program header.
+          if ! readelf -l "${{ steps.build_lute.outputs.exe_path }}" | grep -q " INTERP "; then
             echo "OK: lute is statically linked"
           else
             echo "ERROR: lute is dynamically linked"
-            ldd "${{ steps.build_lute.outputs.exe_path }}" || true
+            readelf -l "${{ steps.build_lute.outputs.exe_path }}"
             exit 1
           fi
 
