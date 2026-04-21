@@ -541,6 +541,7 @@ local function generateCACertsIfNeeded()
 
 	if not isHashUpToDate(hashFile, currentHash) then
 		print("Regenerating Mozilla CA bundle from NSS certdata.txt")
+		pcall(fs.mkdir, generatedDir)
 		pcall(fs.mkdir, sourceDir)
 
 		local stagedCertdata = joinPath(sourceDir, "certdata.txt")
