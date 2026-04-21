@@ -21,6 +21,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "App.h"
 #include "Loop.h"
@@ -44,6 +45,25 @@ static int nextServerId = 1;
 static int kRequestUpgradeKey = 0;
 static constexpr unsigned int kWebSocketMaxPayloadLength = 16 * 1024 * 1024;
 
+enum class RouteHandlerKind
+{
+    Function,
+    StaticResponse,
+};
+
+struct RouteContext
+{
+    std::string pattern;
+    std::string method;
+    RouteHandlerKind kind = RouteHandlerKind::Function;
+    std::shared_ptr<Ref> ref;
+    std::vector<std::string> paramNames;
+    bool trailingWildcard = false;
+    int prefixSegments = 0;
+};
+
+using MatchedParams = std::vector<std::pair<std::string, std::string>>;
+
 struct ServerLoopState
 {
     Luau::Variant<uWS::App*, uWS::SSLApp*> app;
@@ -56,6 +76,7 @@ struct ServerLoopState
     std::shared_ptr<Ref> wsMessageRef;
     std::shared_ptr<Ref> wsCloseRef;
     std::shared_ptr<Ref> wsDrainRef;
+    std::vector<std::shared_ptr<RouteContext>> routes;
     bool hasWebSocket = false;
     std::string hostname;
     int port;
@@ -172,6 +193,161 @@ static void parseHeaders(ReqT* req, lua_State* L)
         lua_pushlstring(L, header.first.data(), header.first.size());
         lua_pushlstring(L, header.second.data(), header.second.size());
         lua_settable(L, -3);
+    }
+}
+
+static constexpr const char* kHttpMethodNames[] = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"};
+
+struct ParsedPattern
+{
+    std::vector<std::string> paramNames;
+    bool trailingWildcard = false;
+    int prefixSegments = 0;
+};
+
+static ParsedPattern parsePattern(lua_State* L, std::string_view pattern)
+{
+    if (pattern.empty() || pattern[0] != '/')
+        luaL_errorL(L, "route pattern '%.*s' must start with '/'", int(pattern.size()), pattern.data());
+
+    ParsedPattern info;
+    std::string_view body = pattern;
+    body.remove_prefix(1);
+
+    size_t start = 0;
+    while (start < body.size())
+    {
+        size_t end = body.find('/', start);
+        std::string_view seg = (end == std::string_view::npos) ? body.substr(start) : body.substr(start, end - start);
+
+        if (seg.size() == 1 && seg[0] == '*')
+        {
+            if (end != std::string_view::npos && end + 1 < body.size())
+                luaL_errorL(L, "route pattern '%.*s' must have '*' as the final segment", int(pattern.size()), pattern.data());
+            info.trailingWildcard = true;
+            break;
+        }
+
+        if (!seg.empty() && seg[0] == ':')
+        {
+            if (seg.size() < 2)
+                luaL_errorL(L, "route pattern '%.*s' has an empty parameter name", int(pattern.size()), pattern.data());
+            info.paramNames.emplace_back(seg.substr(1));
+            info.prefixSegments++;
+        }
+        else if (!seg.empty())
+        {
+            info.prefixSegments++;
+        }
+
+        if (end == std::string_view::npos)
+            break;
+        start = end + 1;
+    }
+
+    return info;
+}
+
+static std::string_view extractWildcardTail(std::string_view url, int prefixSegments)
+{
+    size_t pos = 0;
+    int slashes = 0;
+    int needed = prefixSegments + 1;
+    while (pos < url.size() && slashes < needed)
+    {
+        if (url[pos] == '/')
+            slashes++;
+        pos++;
+    }
+    return url.substr(pos);
+}
+
+static std::shared_ptr<RouteContext> makeRouteContext(
+    lua_State* L,
+    int valueIndex,
+    std::string pattern,
+    std::string method,
+    const ParsedPattern& info
+)
+{
+    auto ctx = std::make_shared<RouteContext>();
+    ctx->pattern = std::move(pattern);
+    ctx->method = std::move(method);
+    ctx->paramNames = info.paramNames;
+    ctx->trailingWildcard = info.trailingWildcard;
+    ctx->prefixSegments = info.prefixSegments;
+
+    int absIndex = lua_absindex(L, valueIndex);
+    if (lua_isfunction(L, absIndex))
+        ctx->kind = RouteHandlerKind::Function;
+    else if (lua_isstring(L, absIndex) || lua_istable(L, absIndex))
+        ctx->kind = RouteHandlerKind::StaticResponse;
+    else
+        luaL_errorL(L, "route handler must be a function, string, or response table");
+
+    lua_pushvalue(L, absIndex);
+    ctx->ref = std::make_shared<Ref>(L, -1);
+    lua_pop(L, 1);
+    return ctx;
+}
+
+static bool tableHasAnyHttpMethodKey(lua_State* L, int tableIndex)
+{
+    int absIndex = lua_absindex(L, tableIndex);
+    for (const char* m : kHttpMethodNames)
+    {
+        lua_getfield(L, absIndex, m);
+        bool present = !lua_isnil(L, -1);
+        lua_pop(L, 1);
+        if (present)
+            return true;
+    }
+    return false;
+}
+
+static void parseRoutesTable(lua_State* L, int tableIndex, ServerLoopState& state)
+{
+    int absIndex = lua_absindex(L, tableIndex);
+    lua_pushnil(L);
+    while (lua_next(L, absIndex))
+    {
+        if (lua_type(L, -2) != LUA_TSTRING)
+        {
+            lua_pop(L, 1);
+            continue;
+        }
+
+        size_t keyLen = 0;
+        const char* keyData = lua_tolstring(L, -2, &keyLen);
+        std::string pattern(keyData, keyLen);
+        ParsedPattern info = parsePattern(L, pattern);
+
+        int valueType = lua_type(L, -1);
+        if (valueType == LUA_TFUNCTION || valueType == LUA_TSTRING)
+        {
+            state.routes.push_back(makeRouteContext(L, -1, pattern, "*", info));
+        }
+        else if (valueType == LUA_TTABLE && tableHasAnyHttpMethodKey(L, -1))
+        {
+            int valueIdx = lua_gettop(L);
+            for (const char* m : kHttpMethodNames)
+            {
+                lua_getfield(L, valueIdx, m);
+                if (!lua_isnil(L, -1))
+                    state.routes.push_back(makeRouteContext(L, -1, pattern, m, info));
+                lua_pop(L, 1);
+            }
+        }
+        else if (valueType == LUA_TTABLE)
+        {
+            state.routes.push_back(makeRouteContext(L, -1, pattern, "*", info));
+        }
+        else
+        {
+            luaL_errorL(L, "route '%s' must map to a function, response table, or method-dispatch table", pattern.c_str());
+        }
+
+        lua_pop(L, 1);
     }
 }
 
@@ -516,10 +692,11 @@ static void pushRequestTable(
     std::string_view body,
     lua_CFunction upgradeFn,
     int nUpvalues,
-    PushUpvalues pushUpvalues
+    PushUpvalues pushUpvalues,
+    const MatchedParams* params = nullptr
 )
 {
-    lua_createtable(L, 0, 5);
+    lua_createtable(L, 0, 6);
 
     lua_pushstring(L, "method");
     lua_pushstring(L, route.method.c_str());
@@ -539,6 +716,23 @@ static void pushRequestTable(
 
     lua_pushstring(L, "body");
     lua_pushlstring(L, body.data(), body.size());
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "params");
+    if (params && !params->empty())
+    {
+        lua_createtable(L, 0, int(params->size()));
+        for (const auto& [k, v] : *params)
+        {
+            lua_pushlstring(L, k.data(), k.size());
+            lua_pushlstring(L, v.data(), v.size());
+            lua_settable(L, -3);
+        }
+    }
+    else
+    {
+        lua_createtable(L, 0, 0);
+    }
     lua_settable(L, -3);
 
     int requestIndex = lua_absindex(L, -1);
@@ -582,21 +776,23 @@ static void pushServerTable(
 template <typename ReqT>
 static HandlerThread prepareHttpHandlerThread(
     const std::shared_ptr<ServerLoopState>& state,
+    const std::shared_ptr<Ref>& handlerRef,
     ReqT* req,
     const RequestRouteData& route,
-    std::string_view body
+    std::string_view body,
+    const MatchedParams* params
 )
 {
     LUTE_ASSERT(state);
     LUTE_ASSERT(state->runtime);
-    LUTE_ASSERT(state->handlerRef);
+    LUTE_ASSERT(handlerRef);
 
     HandlerThread thread = createHandlerThread(state->runtime);
     lua_State* L = thread.L;
 
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
-    state->handlerRef->push(L);
-    pushRequestTable(L, req, route, body, server_upgrade_noop, 0, [](lua_State*) {});
+    handlerRef->push(L);
+    pushRequestTable(L, req, route, body, server_upgrade_noop, 0, [](lua_State*) {}, params);
     pushServerTable(L, state->serverRef, server_upgrade_noop, 0, [](lua_State*) {});
     return thread;
 }
@@ -636,20 +832,41 @@ static HandlerThread prepareUpgradeHandlerThread(
 template <typename ResT, typename ReqT>
 static void processRequest(
     const std::shared_ptr<ServerLoopState>& state,
+    const std::shared_ptr<RouteContext>& routeCtx,
     ResT* res,
     ReqT* req,
     const RequestRouteData& route,
-    std::string_view body
+    std::string_view body,
+    const MatchedParams* params
 )
 {
-    if (!state->handlerRef)
+    if (routeCtx && routeCtx->kind == RouteHandlerKind::StaticResponse)
     {
-        res->writeStatus("404 Not Found");
-        res->end("No handler configured");
+        HandlerThread thread = createHandlerThread(state->runtime);
+        lua_State* L = thread.L;
+        routeCtx->ref->push(L);
+        handleResponse(res, L, lua_gettop(L));
+        lua_pop(L, 1);
         return;
     }
 
-    HandlerThread thread = prepareHttpHandlerThread(state, req, route, body);
+    std::shared_ptr<Ref> handlerRef;
+    if (routeCtx)
+    {
+        handlerRef = routeCtx->ref;
+    }
+    else if (state->handlerRef)
+    {
+        handlerRef = state->handlerRef;
+    }
+    else
+    {
+        res->writeStatus("404 Not Found");
+        res->end("Not Found");
+        return;
+    }
+
+    HandlerThread thread = prepareHttpHandlerThread(state, handlerRef, req, route, body, params);
     lua_State* L = thread.L;
     int status = lua_resume(L, nullptr, 2);
     if (status == LUA_YIELD)
@@ -838,54 +1055,102 @@ static void installWebSocketRoutes(AppT* app, const std::shared_ptr<ServerLoopSt
     app->template ws<PerSocketData<SSL>>("/*", std::move(behavior));
 }
 
+template <typename ResT, typename ReqT>
+static void onRouteRequest(
+    const std::shared_ptr<ServerLoopState>& state,
+    const std::shared_ptr<RouteContext>& routeCtx,
+    ResT* res,
+    ReqT* req
+)
+{
+    RequestRouteData route = extractRequestRouteData(req);
+
+    MatchedParams params;
+    if (routeCtx)
+    {
+        params.reserve(routeCtx->paramNames.size() + (routeCtx->trailingWildcard ? 1 : 0));
+        for (size_t i = 0; i < routeCtx->paramNames.size(); ++i)
+        {
+            std::string_view value = req->getParameter(static_cast<unsigned short>(i));
+            params.emplace_back(routeCtx->paramNames[i], std::string(value.data(), value.size()));
+        }
+        if (routeCtx->trailingWildcard)
+        {
+            std::string_view tail = extractWildcardTail(req->getUrl(), routeCtx->prefixSegments);
+            params.emplace_back("*", std::string(tail.data(), tail.size()));
+        }
+    }
+
+    res->onAborted([]() {});
+
+    std::unique_ptr<std::string> bodyBuffer;
+    res->onData(
+        [state, routeCtx, res, req, route = std::move(route), params = std::move(params),
+         bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
+        {
+            if (last)
+            {
+                const MatchedParams* paramsPtr = params.empty() ? nullptr : &params;
+                if (bodyBuffer.get())
+                {
+                    bodyBuffer->append(data);
+                    processRequest(state, routeCtx, res, req, route, *bodyBuffer, paramsPtr);
+                }
+                else
+                {
+                    processRequest(state, routeCtx, res, req, route, data, paramsPtr);
+                }
+            }
+            else
+            {
+                if (bodyBuffer.get())
+                    bodyBuffer->append(data);
+                else
+                    bodyBuffer = std::make_unique<std::string>(data);
+            }
+        }
+    );
+}
+
+template <typename AppT>
+static void registerRouteWithApp(AppT* app, const std::shared_ptr<ServerLoopState>& state, const std::shared_ptr<RouteContext>& ctx)
+{
+    auto handler = [state, ctx](auto* res, auto* req)
+    {
+        onRouteRequest(state, ctx, res, req);
+    };
+
+    const std::string& m = ctx->method;
+    const std::string& p = ctx->pattern;
+    if (m == "GET")
+        app->get(p, std::move(handler));
+    else if (m == "POST")
+        app->post(p, std::move(handler));
+    else if (m == "PUT")
+        app->put(p, std::move(handler));
+    else if (m == "DELETE")
+        app->del(p, std::move(handler));
+    else if (m == "PATCH")
+        app->patch(p, std::move(handler));
+    else if (m == "HEAD")
+        app->head(p, std::move(handler));
+    else if (m == "OPTIONS")
+        app->options(p, std::move(handler));
+    else
+        app->any(p, std::move(handler));
+}
+
 template <typename AppT>
 static void installHttpRoutes(AppT* app, const std::shared_ptr<ServerLoopState>& state)
 {
+    for (const auto& ctx : state->routes)
+        registerRouteWithApp(app, state, ctx);
+
     app->any(
         "/*",
         [state](auto* res, auto* req)
         {
-            RequestRouteData route = extractRequestRouteData(req);
-
-            res->onAborted(
-                []()
-                {
-                    // TODO: handle aborted requests
-                }
-            );
-
-            std::unique_ptr<std::string> bodyBuffer;
-            res->onData(
-                [state, res, req, route = std::move(route), bodyBuffer = std::move(bodyBuffer)](
-                    std::string_view data,
-                    bool last
-                ) mutable
-                {
-                    if (last)
-                    {
-                        if (bodyBuffer.get())
-                        {
-                            bodyBuffer->append(data);
-                            processRequest(state, res, req, route, *bodyBuffer);
-                        }
-                        else
-                        {
-                            processRequest(state, res, req, route, data);
-                        }
-                    }
-                    else
-                    {
-                        if (bodyBuffer.get())
-                        {
-                            bodyBuffer->append(data);
-                        }
-                        else
-                        {
-                            bodyBuffer = std::make_unique<std::string>(data);
-                        }
-                    }
-                }
-            );
+            onRouteRequest(state, std::shared_ptr<RouteContext>(), res, req);
         }
     );
 }
@@ -948,6 +1213,7 @@ int serve(lua_State* L)
     std::optional<uWS::SocketContextOptions> tlsOptions;
     int handlerIndex = 0;
     int websocketIndex = 0;
+    int routesIndex = 0;
 
     if (lua_istable(L, 1))
     {
@@ -1031,9 +1297,19 @@ int serve(lua_State* L)
             lua_pop(L, 1);
         }
 
-        if (handlerIndex == 0 && websocketIndex == 0)
+        lua_getfield(L, 1, "routes");
+        if (lua_istable(L, -1))
         {
-            luaL_errorL(L, "config table requires a handler function, websocket config, or both");
+            routesIndex = lua_gettop(L);
+        }
+        else
+        {
+            lua_pop(L, 1);
+        }
+
+        if (handlerIndex == 0 && websocketIndex == 0 && routesIndex == 0)
+        {
+            luaL_errorL(L, "config table requires a handler function, routes table, websocket config, or any combination");
             return 0;
         }
     }
@@ -1062,6 +1338,11 @@ int serve(lua_State* L)
         lua_pushvalue(L, handlerIndex);
         state->handlerRef = std::make_shared<Ref>(L, -1);
         lua_pop(L, 1);
+    }
+
+    if (routesIndex != 0)
+    {
+        parseRoutesTable(L, routesIndex, *state);
     }
 
     if (websocketIndex != 0)
