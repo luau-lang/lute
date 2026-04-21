@@ -46,14 +46,14 @@ jobs:
             container: quay.io/pypa/manylinux_2_28_aarch64
           - os: ubuntu-latest
             artifact_name: lute-linux-musl-x86_64
-            options: --static-cxx-runtime
+            options: --c-compiler clang --cxx-compiler clang++ --fully-static
             use-bootstrap: true
-            container: alpine:3.20
+            container: alpine:3.23
           - os: ubuntu-24.04-arm
             artifact_name: lute-linux-musl-aarch64
-            options: --static-cxx-runtime
+            options: --c-compiler clang --cxx-compiler clang++ --fully-static
             use-bootstrap: true
-            container: alpine:3.20
+            container: alpine:3.23
           - os: macos-latest
             artifact_name: lute-macos-aarch64
           - os: windows-latest
@@ -71,7 +71,14 @@ jobs:
         run: |
           set -eu
           apk add --no-cache \
-            bash git build-base cmake ninja perl linux-headers
+            bash git build-base clang lld cmake ninja perl linux-headers
+          # Force clang/lld for both the bootstrap and the final build. lld
+          # is required for static linking with clang's LTO output.
+          {
+            echo "CC=clang"
+            echo "CXX=clang++"
+            echo "LDFLAGS=-fuse-ld=lld"
+          } >> "$GITHUB_ENV"
 
       - name: Checkout code
         uses: actions/checkout@v4

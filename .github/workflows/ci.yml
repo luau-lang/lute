@@ -71,7 +71,7 @@ jobs:
 
   run-lutecli-luau-tests-musl:
     runs-on: ubuntu-latest
-    container: alpine:3.20
+    container: alpine:3.23
     timeout-minutes: 20
 
     steps:
@@ -80,23 +80,43 @@ jobs:
         run: |
           set -eu
           apk add --no-cache \
-            bash git build-base cmake ninja perl linux-headers
+            bash git build-base clang lld cmake ninja perl linux-headers
+          # Force clang/lld for both the bootstrap and the final build. lld
+          # is required for static linking with clang's LTO output.
+          {
+            echo "CC=clang"
+            echo "CXX=clang++"
+            echo "LDFLAGS=-fuse-ld=lld"
+          } >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
 
-      - name: Setup and Build Lute (musl, static C++ runtime)
+      - name: Setup and Build Lute (musl, fully static)
         id: build_lute
         uses: ./.github/actions/setup-and-build
         with:
           target: Lute.CLI
           config: debug
-          options: --static-cxx-runtime
+          options: --c-compiler clang --cxx-compiler clang++ --fully-static
           token: ${{ secrets.GITHUB_TOKEN }}
           use-bootstrap: true
           install-system-deps: false
 
       - name: Run Luau Tests (musl)
         run: ${{ steps.build_lute.outputs.exe_path }} test
+
+      - name: Verify binary is fully static
+        run: |
+          file "${{ steps.build_lute.outputs.exe_path }}"
+          # On a static binary, ldd either prints "not a dynamic executable"
+          # / "statically linked" or exits non-zero; either is success.
+          if ldd "${{ steps.build_lute.outputs.exe_path }}" 2>&1 | grep -qE "not a dynamic executable|statically linked"; then
+            echo "OK: lute is statically linked"
+          else
+            echo "ERROR: lute is dynamically linked"
+            ldd "${{ steps.build_lute.outputs.exe_path }}" || true
+            exit 1
+          fi
 
   run-lute-cxx-unittests:
     runs-on: ${{ matrix.os }}
