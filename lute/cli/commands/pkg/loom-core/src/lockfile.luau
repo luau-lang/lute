@@ -16,6 +16,7 @@ export type LockfileMember = {
 
 export type Lockfile = {
 	read version: number,
+	read members: { [string]: LockfileMember }?,
 	read packages: { [string]: LockfileDependency },
 	read dependencies: { [string]: string },
 }
@@ -71,8 +72,8 @@ local function parseLockfile(t: any): Lockfile
 				assert(type(alias) == "string", `Expected alias to be a string in member '{memberName}'`)
 				assert(type(depKey) == "string", `Expected dependency key to be a string in member '{memberName}'`)
 				assert(
-					(t.dependencies :: { [string]: unknown })[depKey] ~= nil,
-					`Dependency '{depKey}' in member '{memberName}' not found in dependencies`
+					(t.packages :: { [string]: unknown })[depKey] ~= nil,
+					`Dependency '{depKey}' in member '{memberName}' not found in packages`
 				)
 			end
 			table.freeze(member.dependencies)

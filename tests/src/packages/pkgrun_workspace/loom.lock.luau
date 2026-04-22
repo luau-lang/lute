@@ -1,6 +1,5 @@
 return {
-	version = 2,
-	packages = {},
+	version = 3,
 	members = {
 		["lib"] = {
 			path = "packages/lib",
@@ -13,7 +12,7 @@ return {
 			},
 		},
 	},
-	dependencies = {
+	packages = {
 		["lib"] = {
 			name = "lib",
 			source = "packages/lib",
@@ -22,4 +21,5 @@ return {
 			dependencies = {},
 		},
 	},
+	dependencies = {},
 }
