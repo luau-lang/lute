@@ -65,6 +65,19 @@ local function colorReporter(result: tys.TestRunResult)
 	printSummary(result)
 end
 
+local function workerFailuresReporter(failures: { string })
+	if #failures == 0 then
+		return
+	end
+
+	print("")
+	print(fail("Worker failures:"))
+	print("")
+	for _, msg in failures do
+		print(errlabel("  WORKER ") .. msg)
+	end
+end
+
 local function snapReporter(result: snapty.snapresult)
 	local total = #result.passed + #result.failed + #result.new
 
@@ -105,4 +118,4 @@ local function snapReporter(result: snapty.snapresult)
 	print(snapsty.bold("Snapshots: ") .. table.concat(parts, snapsty.dim(", ")) .. snapsty.dim(` of {total}`))
 end
 
-return table.freeze({ color = colorReporter, snap = snapReporter })
+return table.freeze({ color = colorReporter, snap = snapReporter, workerFailures = workerFailuresReporter })

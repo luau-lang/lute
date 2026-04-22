@@ -48,10 +48,15 @@ local function runtests(
 	runOptions: testtypes.TestRunnerOptions
 )
 	local result = { failures = {}, total = 0, failed = 0, passed = 0 }
+	local workerFailures: { string } = {}
 	local nfiles = #testfiles
 
 	if nfiles > 0 then
 		local nworkers = math.max(1, math.min(system.threadCount(), nfiles))
+
+		if runOptions.verbose then
+			print(`Running tests on {nworkers} worker{if nworkers == 1 then "" else "s"}...`)
+		end
 
 		local cursor = 1
 		local function takenext(): path.Path?
@@ -74,31 +79,27 @@ local function runtests(
 						if not current then
 							break
 						end
-						local r = worker.runfile({
+						local res = worker.runfile({
 							file = path.format(current),
 							suite = suiteName,
 							case = caseName,
 							verbose = runOptions.verbose,
 						})
-						result.total += r.total
-						result.passed += r.passed
-						result.failed += r.failed
-						for _, f in r.failures do
-							table.insert(result.failures, f)
+						if res.__tag == "err" then
+							table.insert(workerFailures, res.error)
+						else
+							local r = res.value
+							result.total += r.total
+							result.passed += r.passed
+							result.failed += r.failed
+							for _, f in r.failures do
+								table.insert(result.failures, f)
+							end
 						end
 					end
 				end, function(err: any)
 					local where = if current then path.format(current) else "<worker setup>"
-					result.total += 1
-					result.failed += 1
-					table.insert(result.failures, {
-						test = where,
-						failure = {
-							__tag = "runtime_error",
-							msg = `worker errored on {where}: {tostring(err)}`,
-							stacktrace = debug.traceback(nil, 2),
-						},
-					})
+					table.insert(workerFailures, `worker errored while running {where}: {tostring(err)}`)
 				end)
 				done += 1
 			end)
@@ -110,7 +111,8 @@ local function runtests(
 	end
 
 	reporter.color(result)
-	if result.failed ~= 0 then
+	reporter.workerFailures(workerFailures)
+	if result.failed ~= 0 or #workerFailures > 0 then
 		ps.exit(1)
 	end
 	ps.exit(0)

@@ -4,6 +4,8 @@ local runner = require("@std/test/runner")
 local types = require("@std/test/types")
 local filter = require("./filter")
 
+export type Result<T, E> = { __tag: "ok", value: T } | { __tag: "err", error: E }
+
 local function reset()
 	table.clear(env.anonymous)
 	table.clear(env.suites)
@@ -11,30 +13,18 @@ local function reset()
 	table.clear(env.caseindex)
 end
 
-local function runfile(args: { file: string, suite: string?, case: string?, verbose: boolean? }): types.TestRunResult
+local function runfile(
+	args: { file: string, suite: string?, case: string?, verbose: boolean? }
+): Result<types.TestRunResult, string>
 	reset()
 
 	local ok, err = pcall(luau.loadModule, args.file, nil)
 	if not ok then
-		return {
-			failures = {
-				{
-					test = args.file,
-					failure = {
-						__tag = "runtime_error",
-						msg = `failed to load test file: {tostring(err)}`,
-						stacktrace = debug.traceback(nil, 2),
-					},
-				},
-			},
-			total = 1,
-			passed = 0,
-			failed = 1,
-		}
+		return { __tag = "err", error = tostring(err) }
 	end
 
 	local filtered = filter.filtertests(env, args.suite, args.case)
-	return runner.run(filtered, { verbose = args.verbose == true })
+	return { __tag = "ok", value = runner.run(filtered, { verbose = args.verbose == true }) }
 end
 
 return table.freeze({ runfile = runfile })
