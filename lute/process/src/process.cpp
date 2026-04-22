@@ -27,6 +27,26 @@
 namespace process
 {
 
+// Loads the current process environment into `map`. Returns the libuv error
+// code on failure, or an empty optional on success.
+static std::optional<int> getEnvironmentVariables(std::map<std::string, std::string>& map)
+{
+    uv_env_item_t* items;
+    int count;
+    int err = uv_os_environ(&items, &count);
+    if (err != 0)
+        return err;
+
+    for (int i = 0; i < count; i++)
+    {
+        if (items[i].name && items[i].value)
+            map[items[i].name] = items[i].value;
+    }
+
+    uv_os_free_environ(items, count);
+    return std::nullopt;
+}
+
 void convertCRLFtoLF(std::string& str)
 {
     size_t writePos = 0;
@@ -53,46 +73,44 @@ struct ProcessHandle
     bool completed = false;
     ResumeToken resumeToken;
     std::shared_ptr<ProcessHandle> self;
-    std::atomic<int> pendingCloses{0};
+    std::atomic<int> pendingCloses{1};
+
+    static void onHandleClose(uv_handle_t* handle)
+    {
+        ProcessHandle* ph = static_cast<ProcessHandle*>(handle->data);
+        if (--ph->pendingCloses == 0)
+            ph->self.reset();
+    }
 
     void closeHandles()
     {
-        auto closeCb = [](uv_handle_t* handle)
-        {
-            ProcessHandle* ph = static_cast<ProcessHandle*>(handle->data);
-            if (--ph->pendingCloses == 0)
-            {
-                ph->self.reset();
-            }
-        };
-
         if (!uv_is_closing((uv_handle_t*)&stdinPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stdinPipe);
-            uv_close((uv_handle_t*)&stdinPipe, closeCb);
+            uv_close((uv_handle_t*)&stdinPipe, onHandleClose);
         }
 
         if (!uv_is_closing((uv_handle_t*)&stdoutPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stdoutPipe);
-            uv_close((uv_handle_t*)&stdoutPipe, closeCb);
+            uv_close((uv_handle_t*)&stdoutPipe, onHandleClose);
         }
 
         if (!uv_is_closing((uv_handle_t*)&stderrPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stderrPipe);
-            uv_close((uv_handle_t*)&stderrPipe, closeCb);
+            uv_close((uv_handle_t*)&stderrPipe, onHandleClose);
         }
         if (!uv_is_closing((uv_handle_t*)&process))
         {
             pendingCloses++;
-            uv_close((uv_handle_t*)&process, closeCb);
+            uv_close((uv_handle_t*)&process, onHandleClose);
         }
 
-        if (pendingCloses == 0)
+        if (--pendingCloses == 0)
         {
             self.reset();
         }
@@ -256,35 +274,31 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     if (!opts.env.empty())
     {
         // Copy current environment into the new environment
-        uv_env_item_t* currentEnvItems;
-        int currentEnvCount;
-        int err = uv_os_environ(&currentEnvItems, &currentEnvCount);
-        if (err != 0)
+        std::map<std::string, std::string> currentEnv;
+        if (std::optional<int> err = getEnvironmentVariables(currentEnv))
+            luaL_error(L, "Failed to get current environment: %s", uv_strerror(*err));
+
+        for (const auto& [name, value] : currentEnv)
         {
-            uv_os_free_environ(currentEnvItems, currentEnvCount);
-            luaL_error(L, "Failed to get current environment: %s", uv_strerror(err));
+            if (opts.env.find(name) == opts.env.end())
+                opts.env[name] = value;
         }
-        for (int i = 0; i < currentEnvCount; i++)
-        {
-            if (currentEnvItems[i].name && currentEnvItems[i].value && opts.env.find(currentEnvItems[i].name) == opts.env.end())
-            {
-                opts.env[currentEnvItems[i].name] = currentEnvItems[i].value;
-            }
-        }
-        uv_os_free_environ(currentEnvItems, currentEnvCount);
 
         // Turn the new environment into a char** array
         envStrings.reserve(opts.env.size());
         envPtr.reserve(opts.env.size() + 1);
+
         for (const auto& pair : opts.env)
         {
             envStrings.push_back(pair.first + "=" + pair.second);
         }
+
         for (auto& str : envStrings)
         {
             envPtr.push_back(&str[0]);
         }
         envPtr.push_back(nullptr);
+
         options.env = envPtr.data();
     }
 
@@ -356,7 +370,8 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     // of blocking forever on a read.
     if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
     {
-        uv_close((uv_handle_t*)&handle->stdinPipe, nullptr);
+        handle->pendingCloses++;
+        uv_close((uv_handle_t*)&handle->stdinPipe, ProcessHandle::onHandleClose);
     }
 
     uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
@@ -540,6 +555,9 @@ static int envIndex(lua_State* L)
     if (err == UV_ENOBUFS)
     {
         char* buffer = (char*)malloc(size);
+        if (!buffer)
+            luaL_error(L, "out of memory");
+
         err = uv_os_getenv(key, buffer, &size);
         if (err == 0)
         {
