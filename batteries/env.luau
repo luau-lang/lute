@@ -504,8 +504,9 @@ function env.config(options: ConfigOptions?): Environment
 		env = baseEnv,
 	})
 
+	local target = if options and options.target then options.target else process.env
 	env.apply(values, {
-		target = if options then options.target else nil,
+		target = target,
 		override = if options then options.override else nil,
 	})
 
