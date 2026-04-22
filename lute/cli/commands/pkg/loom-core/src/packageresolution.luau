@@ -61,6 +61,21 @@ local function fetchSource(spec: projectmanifest.DependencySpec, rootDirectory: 
 	end
 end
 
+local function queueDependencies(
+	queue: { projectmanifest.DependencySpec },
+	deps: { [string]: projectmanifest.DependencySpec },
+	contextDir: string,
+	rootDirectory: string
+): { [string]: string }
+	local aliases: { [string]: string } = {}
+	for alias, depSpec in deps do
+		local normalized = normalizePathDependency(depSpec, contextDir, rootDirectory)
+		aliases[alias] = getKey(normalized)
+		table.insert(queue, normalized)
+	end
+	return aliases
+end
+
 local function resolve(rootDirectory: string): lockfile.Lockfile
 	local rootManifestPath = getManifestPath(rootDirectory)
 	if not fs.exists(rootManifestPath) then
@@ -78,15 +93,8 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 
 	local queue: { projectmanifest.DependencySpec } = {}
 
-	local dependencies: { [string]: string } = {}
-	local packages: { [string]: lockfile.LockfileDependency } = {}
-
 	local rootManifest = projectmanifest.parseFile(rootManifestPath)
-	for depAlias, depSpec in rootManifest.package.dependencies do
-		dependencies[depAlias] = getKey(depSpec)
-		table.insert(queue, depSpec)
-	end
-
+	local dependencies = queueDependencies(queue, rootManifest.package.dependencies, rootDirectory, rootDirectory)
 	table.freeze(dependencies)
 
 	-- Seed workspace member dependencies into the shared queue
@@ -100,12 +108,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 				error(`Workspace member manifest not found: {memberManifestPath}`)
 			end
 			local memberManifest = projectmanifest.parseFile(memberManifestPath)
-			local memberDeps: { [string]: string } = {}
-			for depAlias, depSpec in memberManifest.package.dependencies do
-				local normalized = normalizePathDependency(depSpec, memberDir, rootDirectory)
-				memberDeps[depAlias] = getKey(normalized)
-				table.insert(queue, normalized)
-			end
+			local memberDeps = queueDependencies(queue, memberManifest.package.dependencies, memberDir, rootDirectory)
 			m[memberManifest.package.name] = table.freeze({
 				path = memberPath,
 				dependencies = table.freeze(memberDeps),
@@ -114,6 +117,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 		members = table.freeze(m)
 	end
 
+	local packages: { [string]: lockfile.LockfileDependency } = {}
 	local nameIndex: { [string]: string } = {}
 
 	for _, spec in queue do
@@ -182,10 +186,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 						depManifest = memberManifest
 					end
 
-					for _, depSpec in memberManifest.package.dependencies do
-						local normalized = normalizePathDependency(depSpec, memberDir, rootDirectory)
-						table.insert(queue, normalized)
-					end
+					queueDependencies(queue, memberManifest.package.dependencies, memberDir, rootDirectory)
 				end
 
 				if spec.name ~= depManifest.package.name and not memberNames[spec.name] then
@@ -193,12 +194,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 				end
 			end
 
-			for depAlias, depSpec in depManifest.package.dependencies do
-				-- Normalize transitive path dep sources to be rootDirectory-relative
-				local normalizedSpec = normalizePathDependency(depSpec, installPath, rootDirectory)
-				transitiveDependencies[depAlias] = getKey(normalizedSpec)
-				table.insert(queue, normalizedSpec)
-			end
+			transitiveDependencies = queueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
 		end
 
 		table.freeze(transitiveDependencies)
