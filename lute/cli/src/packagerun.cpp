@@ -199,6 +199,62 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
             directDependencies.push_back(it->second);
     }
 
+    // If the entry file is inside a workspace member, override direct dependencies
+    // with that member's dependencies instead of the root's.
+    if (!entryFilePath.empty() && config.contains("members"))
+    {
+        Luau::ConfigTable* membersTable = config["members"].get_if<Luau::ConfigTable>();
+        if (membersTable)
+        {
+            std::string normalizedEntry = normalizePath(entryFilePath);
+            std::string bestMemberPath;
+            const Luau::ConfigTable* bestMember = nullptr;
+
+            for (const auto& [mk, mv] : *membersTable)
+            {
+                const Luau::ConfigTable* member = mv.get_if<Luau::ConfigTable>();
+                if (!member || !member->contains("path") || !member->contains("dependencies"))
+                    continue;
+                const std::string* memberPath = (*member).find("path")->get_if<std::string>();
+                if (!memberPath)
+                    continue;
+                std::string resolvedMemberPath = normalizePath(joinPaths(*lockfileParentDir, *memberPath));
+                if (!resolvedMemberPath.empty() && resolvedMemberPath.back() != '/')
+                    resolvedMemberPath += '/';
+                if (normalizedEntry.substr(0, resolvedMemberPath.size()) == resolvedMemberPath &&
+                    resolvedMemberPath.size() > bestMemberPath.size())
+                {
+                    bestMemberPath = resolvedMemberPath;
+                    bestMember = member;
+                }
+            }
+
+            if (bestMember)
+            {
+                const Luau::ConfigTable* memberDeps = (*bestMember).find("dependencies")->get_if<Luau::ConfigTable>();
+                if (memberDeps)
+                {
+                    directDependencies.clear();
+                    for (const auto& [dk, dv] : *memberDeps)
+                    {
+                        const std::string* alias = dk.get_if<std::string>();
+                        const std::string* depKey = dv.get_if<std::string>();
+                        if (!alias || !depKey)
+                            continue;
+                        auto it = keyToIdentifier.find(*depKey);
+                        if (it != keyToIdentifier.end())
+                        {
+                            Package::Identifier aliasedId;
+                            aliasedId.name = toLower(*alias);
+                            aliasedId.version = it->second.version;
+                            directDependencies.push_back(std::move(aliasedId));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Build all dependencies. Each package is registered under its canonical
     // name. Additionally, register alias entries so that require("@alias")
     // can find the package by the alias name used in the lockfile.
