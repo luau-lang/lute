@@ -23,7 +23,7 @@ local function runfile(args: { file: string, suite: string?, case: string?, verb
 					failure = {
 						__tag = "runtime_error",
 						msg = `failed to load test file: {tostring(err)}`,
-						stacktrace = "",
+						stacktrace = debug.traceback(nil, 2),
 					},
 				},
 			},

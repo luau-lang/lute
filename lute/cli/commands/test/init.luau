@@ -66,15 +66,16 @@ local function runtests(
 		local done = 0
 		for _ = 1, nworkers do
 			task.spawn(function()
+				local current: path.Path? = nil
 				xpcall(function()
 					local worker = vm.create("@self/worker")
 					while true do
-						local p = takenext()
-						if not p then
+						current = takenext()
+						if not current then
 							break
 						end
 						local r = worker.runfile({
-							file = path.format(p),
+							file = path.format(current),
 							suite = suiteName,
 							case = caseName,
 							verbose = runOptions.verbose,
@@ -87,18 +88,18 @@ local function runtests(
 						end
 					end
 				end, function(err: any)
+					local where = if current then path.format(current) else "<worker setup>"
 					result.total += 1
 					result.failed += 1
 					table.insert(result.failures, {
-						test = "<worker>",
+						test = where,
 						failure = {
 							__tag = "runtime_error",
-							msg = `worker errored: {tostring(err)}`,
+							msg = `worker errored on {where}: {tostring(err)}`,
 							stacktrace = debug.traceback(nil, 2),
 						},
 					})
 				end)
-
 				done += 1
 			end)
 		end
