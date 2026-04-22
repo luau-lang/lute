@@ -66,7 +66,7 @@ local function runtests(
 		local done = 0
 		for _ = 1, nworkers do
 			task.spawn(function()
-				local current: path.Path? = nil
+				local current = nil
 				xpcall(function()
 					local worker = vm.create("@self/worker")
 					while true do
