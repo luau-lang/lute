@@ -8,11 +8,11 @@ local task = require("@lute/task")
 local tmpdir = system.tmpdir()
 
 test.suite("FsSuite", function(suite)
-	suite:case("open_read_write_close_and_stat", function(assert)
+	suite:case("openReadWriteCloseAndStat", function(assert)
 		local file = path.join(tmpdir, "file.txt")
 
 		local h = fs.open(file, "w+")
-		assert.eq(fs.exists(file), true)
+		assert.that(fs.exists(file))
 		fs.write(h, "abc")
 		fs.close(h)
 
@@ -26,78 +26,78 @@ test.suite("FsSuite", function(suite)
 		fs.remove(file)
 	end)
 
-	suite:case("writestring_and_readfile", function(assert)
+	suite:case("writeStringAndReadfile", function(assert)
 		local file = path.join(tmpdir, "hello.txt")
-		fs.writestringtofile(file, "hello lute")
+		fs.writeStringToFile(file, "hello lute")
 
-		local contents = fs.readfiletostring(file)
+		local contents = fs.readFileToString(file)
 		assert.eq(contents, "hello lute")
 
 		fs.remove(file)
 	end)
 
-	suite:case("exists_and_type_file_and_dir", function(assert)
+	suite:case("existsAndTypeFileAndDir", function(assert)
 		local file = path.join(tmpdir, "roblox.txt")
-		fs.writestringtofile(file, "roblox")
+		fs.writeStringToFile(file, "roblox")
 
-		assert.eq(fs.exists(file), true)
+		assert.that(fs.exists(file))
 		assert.eq(fs.type(file), "file")
-		assert.eq(fs.exists(tmpdir), true)
+		assert.that(fs.exists(tmpdir))
 		assert.eq(fs.type(tmpdir), "dir")
 
 		fs.remove(file)
 	end)
 
-	suite:case("mkdir_listdir_rmdir", function(assert)
+	suite:case("mkdirListdirRmdir", function(assert)
 		local dir = path.join(tmpdir, "subdir")
 		if not fs.exists(dir) then
-			fs.createdirectory(dir, { makeparents = true })
+			fs.createDirectory(dir, { makeParents = true })
 		end
 
-		assert.eq(fs.exists(dir), true)
+		assert.that(fs.exists(dir))
 		assert.eq(fs.type(dir), "dir")
 
-		local entries = fs.listdirectory(tmpdir)
+		local entries = fs.listDirectory(tmpdir)
 		local found = false
 		for _, e in entries do
 			if e.name == "subdir" then
 				found = true
 			end
 		end
-		assert.eq(found, true)
-		fs.removedirectory(dir)
+		assert.that(found)
+		fs.removeDirectory(dir)
 	end)
 
-	suite:case("link_and_symlink_and_copy", function(assert)
+	suite:case("linkAndSymlinkAndCopy", function(assert)
 		local srcfile = "src.txt"
 		local src = path.join(tmpdir, srcfile)
-		fs.writestringtofile(src, "linkcontent")
+		fs.writeStringToFile(src, "linkcontent")
 
 		local dstlink = path.join(tmpdir, "dstlink")
 		fs.link(src, dstlink)
-		assert.eq(fs.readfiletostring(dstlink), "linkcontent")
+		assert.eq(fs.readFileToString(dstlink), "linkcontent")
 		fs.remove(dstlink)
 
 		local dstcopy = path.join(tmpdir, "dstcopy.txt")
 		fs.copy(src, dstcopy)
-		assert.eq(fs.readfiletostring(dstcopy), "linkcontent")
+		assert.eq(fs.readFileToString(dstcopy), "linkcontent")
 		fs.remove(dstcopy)
 
 		local dstsymlink = path.join(tmpdir, "dstsymlink")
-		fs.symboliclink(srcfile, dstsymlink)
-		assert.eq(fs.readfiletostring(dstsymlink), "linkcontent")
+		fs.symbolicLink(srcfile, dstsymlink)
+		assert.eq(fs.readFileToString(dstsymlink), "linkcontent")
 		fs.remove(dstsymlink)
 
 		fs.remove(src)
 	end)
 
-	suite:case("watch_iterator_on_change", function(assert)
+	suite:case("watchIteratorOnChange", function(assert)
 		local watchedFileName = "watched.txt"
 		local watched = path.join(tmpdir, watchedFileName)
 
 		local watcher = fs.watch(tmpdir)
 
-		fs.writestringtofile(watched, "hi")
+		fs.writeStringToFile(watched, "hi")
 
 		-- Note: we had a timeout for this loop before, but it was leading to a flaky test where event = nil, so we're removing it.
 		-- If this hangs indefinitely at, we'll see this test fail later and revisit.
@@ -115,7 +115,7 @@ test.suite("FsSuite", function(suite)
 			failure.assertion("watcher event was nil")
 			return
 		end
-		assert.eq(event.change or event.rename, true)
+		assert.that(event.change or event.rename)
 
 		watcher:close()
 		if fs.exists(watched) then
@@ -123,34 +123,40 @@ test.suite("FsSuite", function(suite)
 		end
 	end)
 
-	suite:case("createdirectory_makeparents_true", function(assert)
+	suite:case("createDirectoryMakeparentsTrue", function(assert)
 		local nestedDir = path.join(tmpdir, "nested", "directory")
-		fs.createdirectory(nestedDir, { makeparents = true })
-		assert.eq(fs.exists(nestedDir), true)
+		fs.createDirectory(nestedDir, { makeParents = true })
+		assert.that(fs.exists(nestedDir))
 
-		fs.removedirectory(nestedDir)
-		fs.removedirectory(path.join(tmpdir, "nested"))
+		fs.removeDirectory(nestedDir)
+		fs.removeDirectory(path.join(tmpdir, "nested"))
 	end)
 
-	suite:case("createdirectory_makeparents_false", function(assert)
+	suite:case("createDirectoryMakeparentsFalse", function(assert)
 		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
 		local success, err = pcall(function()
-			fs.createdirectory(nestedDir, { makeparents = false })
+			fs.createDirectory(nestedDir, { makeParents = false })
+
+			-- LUAUFIX: pcall's type is wrong, and we can mitigate that by returning nil from this function
+			return nil
 		end)
 		assert.neq(success, true)
 		assert.neq(err, nil)
 	end)
 
-	suite:case("createdirectory_no_options", function(assert)
+	suite:case("createDirectoryNoOptions", function(assert)
 		local nestedDir = path.join(tmpdir, "this", "should", "not", "work")
 		local success, err = pcall(function()
-			fs.createdirectory(nestedDir)
+			fs.createDirectory(nestedDir)
+
+			-- LUAUFIX: pcall's type is wrong, and we can mitigate that by returning nil from this function
+			return nil
 		end)
 		assert.neq(success, true)
 		assert.neq(err, nil)
 	end)
 
-	suite:case("fs_open_optional_mode", function(assert)
+	suite:case("fsOpenOptionalMode", function(assert)
 		local file = path.join(tmpdir, "optional_mode.txt")
 
 		local h1 = fs.open(file, "w+")
@@ -165,7 +171,7 @@ test.suite("FsSuite", function(suite)
 		fs.remove(file)
 	end)
 
-	suite:case("open_write_creates_new_file", function(assert)
+	suite:case("openWriteCreatesNewFile", function(assert)
 		local file = path.join(tmpdir, "new_write_only.txt")
 
 		-- Ensure file does not exist
@@ -174,47 +180,47 @@ test.suite("FsSuite", function(suite)
 		end
 
 		local h = fs.open(file, "w")
-		assert.eq(fs.exists(file), true)
+		assert.that(fs.exists(file))
 		fs.write(h, "hello")
 		fs.close(h)
 
-		assert.eq(fs.readfiletostring(file), "hello")
+		assert.eq(fs.readFileToString(file), "hello")
 
 		fs.remove(file)
 	end)
 
-	suite:case("removedirectory_non_recursive", function(assert)
+	suite:case("removeDirectoryNonRecursive", function(assert)
 		local dir = path.join(tmpdir, "empty_dir")
-		fs.createdirectory(dir, { makeparents = true })
-		assert.eq(fs.exists(dir), true)
+		fs.createDirectory(dir, { makeParents = true })
+		assert.that(fs.exists(dir))
 
-		fs.removedirectory(dir)
+		fs.removeDirectory(dir)
 		assert.eq(fs.exists(dir), false)
 	end)
 
-	suite:case("removedirectory_recursive", function(assert)
+	suite:case("removeDirectoryRecursive", function(assert)
 		local dir = path.join(tmpdir, "recursive_test")
 		local subdir1 = path.join(dir, "subdir1")
 		local subdir2 = path.join(dir, "subdir2")
 		local nestedDir = path.join(subdir1, "nested")
 
-		fs.createdirectory(nestedDir, { makeparents = true })
-		fs.createdirectory(subdir2, { makeparents = true })
+		fs.createDirectory(nestedDir, { makeParents = true })
+		fs.createDirectory(subdir2, { makeParents = true })
 
 		local file1 = path.join(dir, "file1.txt")
 		local file2 = path.join(subdir1, "file2.txt")
 		local file3 = path.join(nestedDir, "file3.txt")
 
-		fs.writestringtofile(file1, "content1")
-		fs.writestringtofile(file2, "content2")
-		fs.writestringtofile(file3, "content3")
+		fs.writeStringToFile(file1, "content1")
+		fs.writeStringToFile(file2, "content2")
+		fs.writeStringToFile(file3, "content3")
 
-		assert.eq(fs.exists(dir), true)
-		assert.eq(fs.exists(file1), true)
-		assert.eq(fs.exists(file2), true)
-		assert.eq(fs.exists(file3), true)
+		assert.that(fs.exists(dir))
+		assert.that(fs.exists(file1))
+		assert.that(fs.exists(file2))
+		assert.that(fs.exists(file3))
 
-		fs.removedirectory(dir, { recursive = true })
+		fs.removeDirectory(dir, { recursive = true })
 
 		assert.eq(fs.exists(dir), false)
 		assert.eq(fs.exists(file1), false)
@@ -222,15 +228,39 @@ test.suite("FsSuite", function(suite)
 		assert.eq(fs.exists(file3), false)
 	end)
 
-	suite:case("removedirectory_recursive_false_with_contents", function(assert)
+	suite:case("metadataDurationsHaveWorkingMetatable", function(assert)
+		local file = path.join(tmpdir, "duration_meta_test.txt")
+		fs.writeStringToFile(file, "test")
+
+		local m = fs.metadata(file)
+
+		-- duration methods should work without requiring @lute/time
+		assert.that(m.created:toSeconds() > 0)
+		assert.that(m.accessed:toSeconds() > 0)
+		assert.that(m.modified:toSeconds() > 0)
+
+		-- __tostring should produce "seconds.nanoseconds" format, not "userdata: 0x..."
+		assert.that(tostring(m.created):match("^%d+%.%d+$"))
+
+		-- arithmetic should work
+		local sum = m.created + m.modified
+		assert.that(sum:toSeconds() > 0)
+
+		-- comparisons should work
+		assert.that(m.created <= m.modified or m.modified <= m.created)
+
+		fs.remove(file)
+	end)
+
+	suite:case("removeDirectoryRecursiveFalseWithContents", function(assert)
 		local dir = path.join(tmpdir, "non_empty_dir")
-		fs.createdirectory(dir, { makeparents = true })
+		fs.createDirectory(dir, { makeParents = true })
 
 		local file = path.join(dir, "file.txt")
-		fs.writestringtofile(file, "content")
+		fs.writeStringToFile(file, "content")
 
 		local success, err = pcall(function()
-			fs.removedirectory(dir, { recursive = false })
+			fs.removeDirectory(dir, { recursive = false })
 			-- FIXME(Luau): We should add an overload to `pcall` that allows
 			-- passing a function that returns an empty pack.
 			return nil
@@ -241,13 +271,13 @@ test.suite("FsSuite", function(suite)
 
 		-- Cleanup
 		fs.remove(file)
-		fs.removedirectory(dir)
+		fs.removeDirectory(dir)
 	end)
 
-	suite:case("walk_directory_recursive", function(assert)
+	suite:case("walkDirectoryRecursive", function(assert)
 		local baseDir = path.join(tmpdir, "walktest")
 		local subDir = path.join(baseDir, "subdir")
-		fs.createdirectory(subDir, { makeparents = true })
+		fs.createDirectory(subDir, { makeParents = true })
 
 		local file1 = path.join(baseDir, "file1.txt")
 		local f1 = fs.open(file1, "w+")
@@ -280,9 +310,9 @@ test.suite("FsSuite", function(suite)
 					break
 				end
 			end
-			assert.eq(found, true)
+			assert.that(found)
 		end
 
-		fs.removedirectory(baseDir, { recursive = true })
+		fs.removeDirectory(baseDir, { recursive = true })
 	end)
 end)

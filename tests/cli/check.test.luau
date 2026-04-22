@@ -2,10 +2,10 @@ local path = require("@std/path")
 local process = require("@std/process")
 local test = require("@std/test")
 
-local lutePath = path.format(process.execpath())
+local lutePath = path.format(process.execPath())
 
 test.suite("LuteTypeCheck", function(suite)
-	suite:case("UsesNewSolver", function(assert)
+	suite:case("usesNewSolver", function(assert)
 		local testFilePath = path.format(path.join("tests", "src", "staticrequires", "newsolver.luau"))
 
 		local result = process.run({ lutePath, "check", testFilePath })

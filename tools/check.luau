@@ -23,12 +23,18 @@ local EXCLUDE_TYPECHECK = {
 	"tests/std/snapshots",
 }
 
+local function posixify(p: path.Pathlike): string
+	local normalized = path.normalize(p)
+	local posixy, _ = string.gsub(path.format(normalized), "\\", "/")
+	return posixy
+end
+
 local function collectFiles(dir: string): { string }
 	local files: { string } = {}
 	local it = fs.walk(dir, { recursive = true })
 	local p = it()
 	while p do
-		local pathStr = path.format(p)
+		local pathStr = posixify(p)
 		local excluded = false
 		for _, excl in EXCLUDE_TYPECHECK do
 			if string.find(pathStr, excl, 1, true) then
@@ -56,12 +62,13 @@ local function getAllFiles(): { string }
 end
 
 local function readFaillist(): string
-	local ok, file = pcall(fs.open, FAILLIST_PATH, "r")
+	-- LUAUFIX: the type of pcall is breaking things here, so we must cast
+	local ok: boolean, file: fs.File = (pcall :: any)(fs.open, FAILLIST_PATH, "r")
 	if not ok or not file then
 		return ""
 	end
 
-	local contents = fs.read(file)
+	local contents = string.gsub(fs.read(file), "\r", "")
 	fs.close(file)
 	return contents
 end
@@ -115,7 +122,7 @@ local function parseErrors(output: string, cwdStr: string): { ErrorEntry }
 
 		if file and lineNum then
 			table.insert(errors, {
-				file = relativePath(file, cwdStr),
+				file = relativePath(posixify(file), cwdStr),
 				line = tonumber(lineNum) :: number,
 				col = tonumber(col) :: number,
 				colEnd = tonumber(colEnd) :: number,
@@ -170,7 +177,7 @@ local function main(args: { string })
 	print("Running typecheck...")
 	local output = runTypecheck(lutePath, allFiles)
 
-	local cwdStr = path.format(process.cwd())
+	local cwdStr = posixify(process.cwd())
 	local errors = parseErrors(output, cwdStr)
 	local sortedErrors = sortErrors(errors)
 	local formattedOutput = formatFaillist(sortedErrors)

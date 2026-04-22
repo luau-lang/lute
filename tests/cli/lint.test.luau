@@ -6,7 +6,7 @@ local tableext = require("@std/tableext")
 local test = require("@std/test")
 local testTypes = require("@std/test/types")
 
-local lutePath = path.format(process.execpath())
+local lutePath = path.format(process.execPath())
 local tmpDir = system.tmpdir()
 local rulesDir = path.format(path.join(".", "lints"))
 local defaultRulesFolder = path.format(path.join("lute", "cli", "commands", "lint", "rules"))
@@ -16,6 +16,7 @@ local defaultRulesPaths = {
 	divide_by_zero = path.format(path.join(defaultRulesFolder, "divide_by_zero.luau")),
 	duplicate_keys = path.format(path.join(defaultRulesFolder, "duplicate_keys.luau")),
 	empty_if_block = path.format(path.join(defaultRulesFolder, "empty_if_block.luau")),
+	global_function_in_scope = path.format(path.join(defaultRulesFolder, "global_function_in_scope.luau")),
 	parenthesized_conditions = path.format(path.join(defaultRulesFolder, "parenthesized_conditions.luau")),
 	unused_variable = path.format(path.join(defaultRulesFolder, "unused_variable.luau")),
 }
@@ -26,6 +27,7 @@ local LINT_RULE_MESSAGES = {
 	divide_by_zero = "warning[divide_by_zero]: Division by zero detected.",
 	duplicate_keys = "warning[duplicate_keys]: Duplicate keys detected in table literal.",
 	empty_if_block = "warning[empty_if_block]: Empty if block detected. Consider removing it or adding to it.",
+	global_function_in_scope = "warning[global_function_in_scope]: Non-local function declaration found inside a nested scope. Use 'local function' instead, or move this to the top level.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
 	unused_variable = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
 }
@@ -35,21 +37,22 @@ local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 type lintTestParams = {
 	content: string,
 	expectedExitCode: number,
+	returnStdErr: true?,
 	rulePath: string?,
-	processOptions: process.processrunoptions?,
+	processOptions: process.ProcessRunOptions?,
 	customRuleContents: string?,
 	expectedAutofixContents: string?,
 	disableDefaultLints: true?,
 	configContents: string?,
 	extraOptions: { string }?,
-	outputExpectations: { { expectedOutput: string, count: number } }?,
+	outputExpectations: { { expectedOutput: string, count: number? } }?,
 }
 
-local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams): string
+local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams): string
 	-- Setup
 	-- Create a file that violates the rule
 	local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
-	fs.writestringtofile(violatorPath, params.content)
+	fs.writeStringToFile(violatorPath, params.content)
 
 	-- Do
 	local lintArgs = { lutePath, "lint" }
@@ -61,7 +64,7 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 		table.insert(lintArgs, params.rulePath)
 	elseif params.customRuleContents then
 		local customRulePath = path.format(path.join(tmpDir, "custom_rule.luau"))
-		fs.writestringtofile(customRulePath, params.customRuleContents)
+		fs.writeStringToFile(customRulePath, params.customRuleContents)
 		table.insert(lintArgs, "-r")
 		table.insert(lintArgs, customRulePath)
 	end
@@ -77,7 +80,7 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 	-- Create a config file if specified
 	if params.configContents then
 		local configPath = path.format(path.join(tmpDir, ".config.luau"))
-		fs.writestringtofile(configPath, params.configContents)
+		fs.writeStringToFile(configPath, params.configContents)
 		table.insert(lintArgs, "-c")
 		table.insert(lintArgs, configPath)
 	end
@@ -94,67 +97,60 @@ local function lintTestHelper(assert: testTypes.asserts, params: lintTestParams)
 	assert.eq(result.exitcode, params.expectedExitCode)
 
 	if params.expectedAutofixContents then
-		local fixedContents = fs.readfiletostring(violatorPath)
+		local fixedContents = fs.readFileToString(violatorPath)
 		assert.eq(fixedContents, params.expectedAutofixContents)
 	end
 
 	if params.outputExpectations then
 		for _, expectation in params.outputExpectations do
 			if expectation.count == 0 then
-				assert.strnotcontains(result.stdout, expectation.expectedOutput)
+				assert.strNotContains(result.stdout, expectation.expectedOutput)
 			else
-				assert.strcontains(result.stdout, expectation.expectedOutput, nil, expectation.count)
+				assert.strContains(result.stdout, expectation.expectedOutput, expectation.count)
 			end
 		end
 	end
 
-	return result.stdout
+	return if params.returnStdErr then result.stderr else result.stdout
 end
 
 test.suite("lute lint", function(suite)
-	suite:beforeeach(function()
+	suite:beforeEach(function()
 		-- A test that creates rulesDir which fails won't cleanup after itself
 		if fs.exists(rulesDir) then
-			fs.removedirectory(rulesDir, { recursive = true })
+			fs.removeDirectory(rulesDir, { recursive = true })
 		end
 
 		local modulePath = path.join(tmpDir, "module")
 		if fs.exists(modulePath) then
-			fs.removedirectory(modulePath, { recursive = true })
+			fs.removeDirectory(modulePath, { recursive = true })
 		end
 	end)
 
-	suite:case("lute lint help message", function(assert)
+	suite:case("luteLintHelpMessage", function(assert)
 		local result = process.run({ lutePath, "lint", "-h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, USAGE)
+		assert.strContains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "lint", "--h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, USAGE)
+		assert.strContains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "lint", "--help" })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, USAGE)
+		assert.strContains(result.stdout, USAGE)
 	end)
 
-	suite:case("lute lint no input file", function(assert)
-		local result = process.run({ lutePath, "lint", "-r", "a_rule.luau" })
-
-		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stdout, "Error: No input files or string input specified.")
-	end)
-
-	suite:case("lute lint error code 0 with no violations", function(assert)
+	suite:case("luteLintErrorCode0WithNoViolations", function(assert)
 		local output = lintTestHelper(assert, { content = "", expectedExitCode = 0 })
 
 		assert.eq(output, "")
 	end)
 
-	suite:case("lute lint verbose", function(assert)
+	suite:case("luteLintVerbose", function(assert)
 		local output = lintTestHelper(assert, {
 			content = "",
 			expectedExitCode = 0,
@@ -169,7 +165,7 @@ test.suite("lute lint", function(suite)
 		assert.neq(output:find("Parsing input file '.+violator%.luau'"), nil)
 	end)
 
-	suite:case("divide_by_zero", function(assert)
+	suite:case("divideByZero", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 1 / 0
@@ -193,7 +189,7 @@ violator.luau:1:11-16 ──
 		})
 	end)
 
-	suite:case("divide_by_zero auto-fix", function(assert)
+	suite:case("divideByZeroAutoFix", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local _x = 1 / 0
@@ -206,14 +202,14 @@ local _negnan = -0 / 0
 			expectedAutofixContents = [[
 local _x = math.huge
 local _y = -math.huge
-local _z = 0 / 0
-local _nan = 0 / 0
-local _negnan = 0 / 0
+local _z = math.nan
+local _nan = math.nan
+local _negnan = math.nan
 ]],
 		})
 	end)
 
-	suite:case("almost_swapped", function(assert)
+	suite:case("almostSwapped", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 a = b
@@ -294,7 +290,7 @@ Suggested fix: t["a"], t["b"] = t["b"], t["a"]
 		})
 	end)
 
-	suite:case("almost swapped auto-fix", function(assert)
+	suite:case("almostSwappedAutoFix", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 a = b
@@ -332,17 +328,17 @@ end
 		})
 	end)
 
-	suite:case("lute lint custom rules dir", function(assert)
+	suite:case("luteLintCustomRulesDir", function(assert)
 		-- Setup
-		fs.createdirectory(rulesDir)
+		fs.createDirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
 		-- Because the default rules require types using a relative path, we copy from examples, which uses an absolute require path
 		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
 		-- Copy divide_by_zero to rulesDir/divide_by_zero/init.luau
 		local divideByZeroDir = path.join(rulesDir, "divide_by_zero")
-		fs.createdirectory(divideByZeroDir)
+		fs.createDirectory(divideByZeroDir)
 		fs.copy(path.join("examples", "lints", "divide_by_zero.luau"), path.join(divideByZeroDir, "init.luau"))
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			path.join(rulesDir, "bogus.txt"),
 			[[
 not a luau file
@@ -386,16 +382,16 @@ violator.luau:3:1-4:6 ──
 			},
 		})
 
-		fs.removedirectory(rulesDir, { recursive = true })
+		fs.removeDirectory(rulesDir, { recursive = true })
 	end)
 
-	suite:case("lute lint multiple rules but one errors", function(assert)
+	suite:case("luteLintMultipleRulesButOneErrors", function(assert)
 		-- Setup
-		fs.createdirectory(rulesDir)
+		fs.createDirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
 		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
 		-- Create a rule that fails
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			path.join(rulesDir, "erroring_rule.luau"),
 			[[
 return table.freeze({
@@ -438,14 +434,14 @@ b = a
 		)
 
 		-- Teardown
-		fs.removedirectory(rulesDir, { recursive = true })
+		fs.removeDirectory(rulesDir, { recursive = true })
 	end)
 
-	suite:case("lute lint multiple input files", function(assert)
+	suite:case("luteLintMultipleInputFiles", function(assert)
 		-- Setup
 		-- Create multiple files that violate the rule
 		local violatorPath1 = path.format(path.join(tmpDir, "violator1.luau"))
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			violatorPath1,
 			[[
 local x = 1 / 0
@@ -456,9 +452,9 @@ b = a
 		)
 
 		local modulePath = path.join(tmpDir, "module")
-		fs.createdirectory(modulePath)
+		fs.createDirectory(modulePath)
 		local violatorPath2 = path.format(path.join(modulePath, "violator2.lua"))
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			violatorPath2,
 			[[
 local y = 10 / 0
@@ -469,7 +465,7 @@ x = y
 y = x
     ]]
 		)
-		fs.writestringtofile(path.format(path.join(modulePath, "not_luau.txt")), "blablabla")
+		fs.writeStringToFile(path.format(path.join(modulePath, "not_luau.txt")), "blablabla")
 
 		-- Do
 		-- Run the transformer on the transformee
@@ -486,7 +482,7 @@ violator1.luau:1:11-16 ──
    │           ^^^^^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:1:11-17 ──
@@ -495,7 +491,7 @@ violator2.lua:1:11-17 ──
    │           ^^^^^^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
 		assert.eq(#result.stdout:split(LINT_RULE_MESSAGES.almost_swapped), 3)
 		expected = [[
@@ -506,7 +502,7 @@ violator1.luau:3:1-4:6 ──
    │ ╰─────^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:5:1-6:6 ──
@@ -516,23 +512,23 @@ violator2.lua:5:1-6:6 ──
    │ ╰─────^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 		expected = "Skipping non%-Luau file '.+[/\\]module[/\\]not_luau%.txt'"
 		assert.neq(result.stdout:find(expected, 1, false), nil)
 
 		-- Teardown
 		fs.remove(violatorPath1)
-		fs.removedirectory(modulePath, { recursive = true })
+		fs.removeDirectory(modulePath, { recursive = true })
 	end)
 
-	suite:case("lute lint multiple files with errors recovers", function(assert)
+	suite:case("luteLintMultipleFilesWithErrorsRecovers", function(assert)
 		-- Setup
 		-- Create multiple files that violate the rule
 		local lintee = path.format(path.join(tmpDir, "lintee.luau"))
-		fs.writestringtofile(lintee, "bogus")
+		fs.writeStringToFile(lintee, "bogus")
 
 		local violatorPath = path.format(path.join(tmpDir, "violator1.luau"))
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			violatorPath,
 			[[
 local x = 1 / 0
@@ -553,17 +549,17 @@ b = a
 lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 (0, 0) - (0, 5): Incomplete statement: expected assignment or a function call
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
 
 		-- Teardown
 		fs.remove(lintee)
 		fs.remove(violatorPath)
 	end)
 
-	suite:case("lute lint default rules", function(assert)
+	suite:case("luteLintDefaultRules", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 1 / 0
@@ -600,7 +596,7 @@ violator.luau:3:1-4:6 ──
 		})
 	end)
 
-	suite:case("lute lint warning suppression", function(assert)
+	suite:case("luteLintWarningSuppression", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 -- lute-lint-ignore(divide_by_zero)
@@ -633,7 +629,7 @@ violator.luau:9:1-10:6 ──
 		})
 	end)
 
-	suite:case("suppression is limited to following statement", function(assert)
+	suite:case("suppressionIsLimitedToFollowingStatement", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 -- lute-lint-ignore(divide_by_zero)
@@ -674,7 +670,7 @@ violator.luau:8:11-16 ──
 		})
 	end)
 
-	suite:case("suppression is limited to following statement2", function(assert)
+	suite:case("suppressionIsLimitedToFollowingStatement2", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 1 / 0
@@ -715,7 +711,7 @@ violator.luau:8:11-16 ──
 		})
 	end)
 
-	suite:case("suppression is limited to following statement3", function(assert)
+	suite:case("suppressionIsLimitedToFollowingStatement3", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local function foo()
@@ -744,7 +740,7 @@ violator.luau:5:9-14 ──
 		})
 	end)
 
-	suite:case("suppression is limited to following statement4", function(assert)
+	suite:case("suppressionIsLimitedToFollowingStatement4", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 if true then
@@ -773,7 +769,7 @@ violator.luau:5:9-14 ──
 		})
 	end)
 
-	suite:case("suppression is limited to following statement5", function(assert)
+	suite:case("suppressionIsLimitedToFollowingStatement5", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 while true do
@@ -802,7 +798,7 @@ violator.luau:5:9-14 ──
 		})
 	end)
 
-	suite:case("suppression is limited to following statement6", function(assert)
+	suite:case("suppressionIsLimitedToFollowingStatement6", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = {}
@@ -832,7 +828,7 @@ violator.luau:6:9-14 ──
 		})
 	end)
 
-	suite:case("suppression for multi node violation", function(assert)
+	suite:case("suppressionForMultiNodeViolation", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 -- lute-lint-ignore(almost_swapped)
@@ -846,7 +842,7 @@ b = a
 		})
 	end)
 
-	suite:case("suppression for multi node violation", function(assert)
+	suite:case("suppressionForMultiNodeViolationPartial", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 -- lute-lint-ignore(almost_swapped)
@@ -872,7 +868,7 @@ violator.luau:3:1-4:6 ──
 		})
 	end)
 
-	suite:case("nested suppressions", function(assert)
+	suite:case("nestedSuppressions", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 -- lute-lint-ignore(divide_by_zero)
@@ -893,7 +889,7 @@ end
 		})
 	end)
 
-	suite:case("json output", function(assert)
+	suite:case("jsonOutput", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 1 / 0
@@ -965,26 +961,26 @@ local x = 1 / 0
 		})
 	end)
 
-	suite:case("lute lint respects gitignore", function(assert)
+	suite:case("luteLintRespectsGitignore", function(assert)
 		-- Setup
 		-- Create a module directory with a .gitignore that ignores one file
 		local modulePath = path.join(tmpDir, "module")
-		fs.createdirectory(modulePath)
+		fs.createDirectory(modulePath)
 		local violatorPath1 = path.format(path.join(modulePath, "violator1.luau"))
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			violatorPath1,
 			[[
 local x = 10 / 0
     ]]
 		)
 		local violatorPath2 = path.format(path.join(modulePath, "violator2.luau"))
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			violatorPath2,
 			[[
 local y = 10 / 0
     ]]
 		)
-		fs.writestringtofile(path.format(path.join(modulePath, ".gitignore")), "violator2.luau\n")
+		fs.writeStringToFile(path.format(path.join(modulePath, ".gitignore")), "violator2.luau\n")
 
 		-- Do
 		-- Run the transformer on the transformee
@@ -993,7 +989,7 @@ local y = 10 / 0
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, nil, 1)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, 1)
 		local expected = [[
 violator1.luau:1:11-17 ──
    │
@@ -1001,7 +997,7 @@ violator1.luau:1:11-17 ──
    │           ^^^^^^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 
 		expected = [[
 violator2.lua:1:11-17 ──
@@ -1010,13 +1006,13 @@ violator2.lua:1:11-17 ──
    │           ^^^^^^
    │
 ]]
-		assert.strnotcontains(result.stdout, expected)
+		assert.strNotContains(result.stdout, expected)
 
 		-- Teardown
-		fs.removedirectory(modulePath, { recursive = true })
+		fs.removeDirectory(modulePath, { recursive = true })
 	end)
 
-	suite:case("lute lint report directive", function(assert)
+	suite:case("luteLintReportDirective", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 1 / 0
@@ -1054,7 +1050,7 @@ violator.luau:6:12-18 ──
 		})
 	end)
 
-	suite:case("lute lint global ignore directive", function(assert)
+	suite:case("luteLintGlobalIgnoreDirective", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 -- lute-lint-global-ignore(divide_by_zero)
@@ -1083,7 +1079,7 @@ violator.luau:5:12-17 ──
 		})
 	end)
 
-	suite:case("lute lint string input", function(assert)
+	suite:case("luteLintStringInput", function(assert)
 		local inputString = [[
 a = b
 b = a
@@ -1096,7 +1092,7 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
 		local expected = [[
    ┌── input:1:1-2:6 ──
    │
@@ -1105,10 +1101,10 @@ b = a
    │ ╰─────^
    │
 ]]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 	end)
 
-	suite:case("lute lint string input verbose", function(assert)
+	suite:case("luteLintStringInputVerbose", function(assert)
 		local inputString = "local x = 1 / 0"
 
 		-- Do
@@ -1118,14 +1114,14 @@ b = a
 		-- Check
 		assert.eq(result.exitcode, 1)
 
-		assert.strcontains(result.stdout, "Parsing input string")
-		assert.strcontains(result.stdout, "Parsing global lint ignores in input string")
-		assert.strcontains(result.stdout, "Applying lint rules")
-		assert.strcontains(result.stdout, "Printing violations from string input")
-		assert.strcontains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+		assert.strContains(result.stdout, "Parsing input string")
+		assert.strContains(result.stdout, "Parsing global lint ignores in input string")
+		assert.strContains(result.stdout, "Applying lint rules")
+		assert.strContains(result.stdout, "Printing violations from string input")
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
 	end)
 
-	suite:case("lute lint string input with no violations", function(assert)
+	suite:case("luteLintStringInputWithNoViolations", function(assert)
 		local inputString = "x = 1 + 2"
 
 		-- Do
@@ -1134,10 +1130,10 @@ b = a
 
 		-- Check
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, "No lint violations found.")
+		assert.strContains(result.stdout, "No lint violations found.")
 	end)
 
-	suite:case("lute lint string input json output", function(assert)
+	suite:case("luteLintStringInputJsonOutput", function(assert)
 		local inputString = "local x = 1 / 0"
 
 		-- Do
@@ -1200,10 +1196,10 @@ b = a
         }
     }
 ]]=]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 	end)
 
-	suite:case("lute lint ignore (table item)", function(assert)
+	suite:case("luteLintIgnoreTableItem", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local y = {
@@ -1221,7 +1217,7 @@ local z = 5 / 0
 		})
 	end)
 
-	suite:case("parenthesized_conditions", function(assert)
+	suite:case("parenthesizedConditions", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 if (3 > 0) then
@@ -1318,7 +1314,7 @@ violator.luau:15:7-15 ──
 		})
 	end)
 
-	suite:case("parenthesized_conditions auto-fix", function(assert)
+	suite:case("parenthesizedConditionsAutoFix", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 if (3 > 0) then
@@ -1360,7 +1356,7 @@ until 5 == 5
 		})
 	end)
 
-	suite:case("report violations remaining after auto-fix", function(assert)
+	suite:case("reportViolationsRemainingAfterAutoFix", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 a = b
@@ -1384,7 +1380,7 @@ local x = t == { x = 3 }
 		})
 	end)
 
-	suite:case("constant_table_comparison", function(assert)
+	suite:case("constantTableComparison", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local a = { 1, 2, 3 } == t
@@ -1455,7 +1451,7 @@ violator.luau:5:11-24 ──
 		})
 	end)
 
-	suite:case("constant_table_comparison auto-fix", function(assert)
+	suite:case("constantTableComparisonAutoFix", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local a = {} == t
@@ -1477,7 +1473,7 @@ local e = next(t) ~= nil
 		})
 	end)
 
-	suite:case("lute lint json output includes suggestedfix", function(assert)
+	suite:case("luteLintJsonOutputIncludesSuggestedfix", function(assert)
 		local inputString = [[
 			a = b
 			b = a
@@ -1523,10 +1519,10 @@ local e = next(t) ~= nil
         }
     }
 ]]=]
-		assert.strcontains(result.stdout, expected)
+		assert.strContains(result.stdout, expected)
 	end)
 
-	suite:case("unused_variable_1", function(assert)
+	suite:case("unusedVariable1", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 3
@@ -1553,7 +1549,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_2", function(assert)
+	suite:case("unusedVariable2", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local _ = 3
@@ -1570,7 +1566,7 @@ local _ = 3
 		})
 	end)
 
-	suite:case("unused_variable_3", function(assert)
+	suite:case("unusedVariable3", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 for i = 3, 4 do
@@ -1599,7 +1595,7 @@ violator.luau:1:5-6 ──
 		})
 	end)
 
-	suite:case("unused_variable_4", function(assert)
+	suite:case("unusedVariable4", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = {1, 2, 3}
@@ -1639,7 +1635,7 @@ violator.luau:2:8-9 ──
 		})
 	end)
 
-	suite:case("unused_variable_5", function(assert)
+	suite:case("unusedVariable5", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1667,7 +1663,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_6", function(assert)
+	suite:case("unusedVariable6", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1697,7 +1693,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_7", function(assert)
+	suite:case("unusedVariable7", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1716,7 +1712,7 @@ print(x)
 		})
 	end)
 
-	suite:case("unused_variable_8", function(assert)
+	suite:case("unusedVariable8", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1744,7 +1740,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_9", function(assert)
+	suite:case("unusedVariable9", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1763,7 +1759,7 @@ print(x)
 		})
 	end)
 
-	suite:case("unused_variable_10", function(assert)
+	suite:case("unusedVariable10", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1791,7 +1787,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_11", function(assert)
+	suite:case("unusedVariable11", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local function _(x)
@@ -1820,7 +1816,7 @@ violator.luau:1:18-19 ──
 		})
 	end)
 
-	suite:case("unused_variable_12", function(assert)
+	suite:case("unusedVariable12", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1851,7 +1847,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_13", function(assert)
+	suite:case("unusedVariable13", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1880,7 +1876,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_14", function(assert)
+	suite:case("unusedVariable14", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1911,7 +1907,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_15", function(assert)
+	suite:case("unusedVariable15", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 4
@@ -1939,7 +1935,7 @@ violator.luau:2:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_16", function(assert)
+	suite:case("unusedVariable16", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local lib = require("whatever")
@@ -1957,7 +1953,7 @@ local _x : lib.num = 3
 		})
 	end)
 
-	suite:case("unused_variable_17", function(assert)
+	suite:case("unusedVariable17", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 for k, v in t do
@@ -1976,7 +1972,7 @@ end
 		})
 	end)
 
-	suite:case("unused_variable_18", function(assert)
+	suite:case("unusedVariable18", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 return {
@@ -1998,7 +1994,7 @@ return {
 		})
 	end)
 
-	suite:case("unused_variable_19", function(assert)
+	suite:case("unusedVariable19", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local T = {}
@@ -2029,7 +2025,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_20", function(assert)
+	suite:case("unusedVariable20", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local a, b = foo()
@@ -2067,7 +2063,7 @@ violator.luau:1:10-11 ──
 		})
 	end)
 
-	suite:case("unused_variable_21", function(assert)
+	suite:case("unusedVariable21", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local x = 3
@@ -2097,7 +2093,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable_22", function(assert)
+	suite:case("unusedVariable22", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 repeat
@@ -2117,7 +2113,7 @@ until x == 1
 		})
 	end)
 
-	suite:case("unused_variable_23", function(assert)
+	suite:case("unusedVariable23", function(assert)
 		lintTestHelper(assert, {
 			content = [=[
 for i = 0, num - 1 do
@@ -2136,7 +2132,7 @@ end
 		})
 	end)
 
-	suite:case("unused_variable_24", function(assert)
+	suite:case("unusedVariable24", function(assert)
 		lintTestHelper(assert, {
 			content = [=[
 function foo(t: { num: number })
@@ -2155,7 +2151,7 @@ end
 		})
 	end)
 
-	suite:case("unused_variable with table.insert default write-only API", function(assert)
+	suite:case("unusedVariableWithTableInsertDefaultWriteOnlyApi", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = {}
@@ -2183,7 +2179,7 @@ violator.luau:1:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable with custom write-only API (single level)", function(assert)
+	suite:case("unusedVariableWithCustomWriteOnlyApiSingleLevel", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local output = {}
@@ -2226,7 +2222,7 @@ violator.luau:1:7-13 ──
 		})
 	end)
 
-	suite:case("unused_variable with custom write-only API (nested)", function(assert)
+	suite:case("unusedVariableWithCustomWriteOnlyApiNested", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local buffer = {}
@@ -2269,7 +2265,7 @@ violator.luau:1:7-13 ──
 		})
 	end)
 
-	suite:case("unused_variable with custom write-only API (nested, index expr access)", function(assert)
+	suite:case("unusedVariableWithCustomWriteOnlyApiNestedIndexExprAccess", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local buffer = {}
@@ -2312,7 +2308,7 @@ violator.luau:1:7-13 ──
 		})
 	end)
 
-	suite:case("unused_variable with multiple write-only args", function(assert)
+	suite:case("unusedVariableWithMultipleWriteOnlyArgs", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local a = {}
@@ -2366,7 +2362,7 @@ violator.luau:2:7-8 ──
 		})
 	end)
 
-	suite:case("unused_variable with write-only arg at position 2", function(assert)
+	suite:case("unusedVariableWithWriteOnlyArgAtPosition2", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local config = "read"
@@ -2410,7 +2406,7 @@ violator.luau:2:7-13 ──
 		})
 	end)
 
-	suite:case("unused_variable with deep nesting errors", function(assert)
+	suite:case("unusedVariableWithDeepNestingErrors", function(assert)
 		lintTestHelper(assert, {
 			content = "local x = 1",
 			expectedExitCode = 0,
@@ -2440,7 +2436,7 @@ return {
 		})
 	end)
 
-	suite:case("unused_variable with conflicting API definitions errors", function(assert)
+	suite:case("unusedVariableWithConflictingApiDefinitionsErrors", function(assert)
 		lintTestHelper(assert, {
 			content = "local x = 1",
 			expectedExitCode = 0,
@@ -2471,18 +2467,28 @@ return {
 		})
 	end)
 
-	suite:case("throws error when config has invalid structure", function(assert)
-		-- local invalidGlobalConfig = [[
-		-- 	return {
-		-- 		lute = {
-		-- 			lint = {
-		-- 				globals = "should be table"
-		-- 			}
-		-- 		}
-		-- 	}
-		-- ]]
+	suite:case("throwsErrorWhenConfigHasInvalidGlobals", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
+			return {
+				lute = {
+					lint = {
+						globals = "should be table"
+					}
+				}
+			}
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strContains(err, "config.lute.lint.globals must be a table with string keys")
+	end)
 
-		local invalidIgnoresConfig = [[
+	suite:case("throwsErrorWhenConfigHasInvalidIgnores", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
 			return {
 				lute = {
 					lint = {
@@ -2490,39 +2496,52 @@ return {
 					}
 				}
 			}
-		]]
-
-		-- local invalidRulesConfig = [[
-		-- 	return {
-		-- 		lute = {
-		-- 			lint = {
-		-- 				ruleConfigs "should be table"
-		-- 			}
-		-- 		}
-		-- 	}
-		-- ]]
-
-		local configFile = path.join(tmpDir, ".config.luau")
-
-		-- -- fs.writestringtofile(path.format(configFile), invalidGlobalConfig)
-		-- local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
-		-- assert.eq(result.exitcode, 1)
-		-- assert.strcontains(result.stderr, "config.globals must be a table of [string] : unknown")
-
-		fs.writestringtofile(path.format(configFile), invalidIgnoresConfig)
-		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
-		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stderr, "config.lute.lint.ignores must be an array of filepath globs")
-
-		-- fs.writestringtofile(path.format(configFile), invalidRulesConfig)
-		-- result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(configFile) })
-		-- assert.eq(result.exitcode, 1)
-		-- assert.strcontains(result.stderr, "config.rules must be a table")
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strContains(err, "config.lute.lint.ignores must be an array of filepath globs")
 	end)
 
-	suite:case("lute lint accounts for configured ignores (config passed as arg)", function(assert)
+	suite:case("throwsErrorWhenConfigHasInvalidRulePaths", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
+			return {
+				lute = {
+					lint = {
+						rulepaths = "should be table"
+					}
+				}
+			}
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strContains(err, "config.lute.lint.rulepaths must be an array of filepath globs")
+	end)
+
+	suite:case("throwsErrorWhenConfigHasInvalidRuleConfigs", function(assert)
+		local err = lintTestHelper(assert, {
+			content = "",
+			configContents = [[
+			return {
+				lute = {
+					lint = {
+						ruleconfigs = "should be table"
+					}
+				}
+			}
+		]],
+			expectedExitCode = 1,
+			returnStdErr = true,
+		})
+		assert.strContains(err, "config.lute.lint.ruleconfigs must be a table with string keys")
+	end)
+
+	suite:case("luteLintAccountsForConfiguredIgnoresConfigPassedAsArg", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 		local notIgnoredFile = path.join(testSubDir, "valid.luau")
@@ -2531,8 +2550,8 @@ return {
 			b = a
 			c = 1 / 0
 		]]
-		fs.writestringtofile(ignoredFile, violatingContents)
-		fs.writestringtofile(notIgnoredFile, violatingContents)
+		fs.writeStringToFile(ignoredFile, violatingContents)
+		fs.writeStringToFile(notIgnoredFile, violatingContents)
 
 		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
@@ -2544,17 +2563,17 @@ return {
 			}
 		}
 		]]
-		fs.writestringtofile(configFile, configContents)
+		fs.writeStringToFile(configFile, configContents)
 
 		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
 		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
-		assert.strnotcontains(result.stdout, "ignored.luau")
-		assert.strcontains(result.stdout, "valid.luau")
+		assert.strNotContains(result.stdout, "ignored.luau")
+		assert.strContains(result.stdout, "valid.luau")
 	end)
 
-	suite:case("lute lint accounts for configured ignores (config auto-detected)", function(assert)
+	suite:case("luteLintAccountsForConfiguredIgnoresConfigAutoDetected", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 
@@ -2563,7 +2582,7 @@ return {
 			b = a
 			c = 1 / 0
 		]]
-		fs.writestringtofile(ignoredFile, violatingContents)
+		fs.writeStringToFile(ignoredFile, violatingContents)
 
 		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
@@ -2575,28 +2594,28 @@ return {
 			}
 		}
 		]]
-		fs.writestringtofile(configFile, configContents)
+		fs.writeStringToFile(configFile, configContents)
 
 		local result = process.run({ lutePath, "lint", path.format(testSubDir) }, {
 			cwd = path.format(testSubDir),
 		})
 		assert.eq(result.exitcode, 0) -- no errors
-		assert.strnotcontains(result.stdout, "almost_swapped")
-		assert.strnotcontains(result.stdout, "divide_by_zero")
+		assert.strNotContains(result.stdout, "almost_swapped")
+		assert.strNotContains(result.stdout, "divide_by_zero")
 	end)
 
-	suite:case("lute lint configured ignores supplement (NOT override) existing gitignores", function(assert)
+	suite:case("luteLintConfiguredIgnoresSupplementNotOverrideExistingGitignores", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 		local notIgnoredFile = path.join(testSubDir, "valid.luau")
 		local violatingContents = "c = 1 / 0"
-		fs.writestringtofile(ignoredFile, violatingContents)
-		fs.writestringtofile(notIgnoredFile, violatingContents)
+		fs.writeStringToFile(ignoredFile, violatingContents)
+		fs.writeStringToFile(notIgnoredFile, violatingContents)
 
 		local gitIgnore = path.join(testSubDir, ".gitignore") -- gitignore `valid.luau`
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			gitIgnore,
 			[[
 **/valid.luau
@@ -2613,15 +2632,15 @@ return {
 			}
 		}
 		]]
-		fs.writestringtofile(configFile, configContents)
+		fs.writeStringToFile(configFile, configContents)
 
 		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
 		assert.eq(result.exitcode, 0) -- no errors bc we ignore BOTH files in the dir
-		assert.strnotcontains(result.stdout, "almost_swapped")
-		assert.strnotcontains(result.stdout, "divide_by_zero")
+		assert.strNotContains(result.stdout, "almost_swapped")
+		assert.strNotContains(result.stdout, "divide_by_zero")
 	end)
 
-	suite:case("duplicate_keys list duplicates", function(assert)
+	suite:case("duplicateKeysListDuplicates", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = { 1, 2, [2] = 3 }
@@ -2645,7 +2664,7 @@ violator.luau:1:19-26 ──
 		})
 	end)
 
-	suite:case("duplicate_keys record duplicates", function(assert)
+	suite:case("duplicateKeysRecordDuplicates", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = { a = 1, a = 2 }
@@ -2669,7 +2688,7 @@ violator.luau:1:20-25 ──
 		})
 	end)
 
-	suite:case("duplicate_keys general string duplicates", function(assert)
+	suite:case("duplicateKeysGeneralStringDuplicates", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = { ["a"] = 1, ["a"] = 2 }
@@ -2693,7 +2712,7 @@ violator.luau:1:24-33 ──
 		})
 	end)
 
-	suite:case("duplicate_keys general number duplicates", function(assert)
+	suite:case("duplicateKeysGeneralNumberDuplicates", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = { [1] = 1, [1] = 2 }
@@ -2717,7 +2736,7 @@ violator.luau:1:22-29 ──
 		})
 	end)
 
-	suite:case("duplicate_keys general number clashes with array part", function(assert)
+	suite:case("duplicateKeysGeneralNumberClashesWithArrayPart", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = { 1, 2, [2] = 3 }
@@ -2741,7 +2760,7 @@ violator.luau:1:19-26 ──
 		})
 	end)
 
-	suite:case("duplicate_keys general string and record entry duplicates", function(assert)
+	suite:case("duplicateKeysGeneralStringAndRecordEntryDuplicates", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = { ["a"] = 1, a = 2 }
@@ -2765,7 +2784,7 @@ violator.luau:1:24-29 ──
 		})
 	end)
 
-	suite:case("duplicate_keys doesn't warn on general 0", function(assert)
+	suite:case("duplicateKeysDoesntWarnOnGeneral0", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 local t = { [0] = 1 }
@@ -2779,13 +2798,13 @@ local t = { [0] = 1 }
 		})
 	end)
 
-	suite:case("lute lint supports configured directory ignores", function(assert)
+	suite:case("luteLintSupportsConfiguredDirectoryIgnores", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+		fs.createDirectory(testSubDir)
 
 		-- Create a nested directory structure with violating files
 		local nestedDir = path.join(testSubDir, "shouldBeIgnored")
-		fs.createdirectory(nestedDir)
+		fs.createDirectory(nestedDir)
 
 		local file1 = path.join(nestedDir, "file1.luau")
 		local file2 = path.join(nestedDir, "file2.luau")
@@ -2796,9 +2815,9 @@ local t = { [0] = 1 }
 			b = a
 			c = 1 / 0
 		]]
-		fs.writestringtofile(file1, violatingContents)
-		fs.writestringtofile(file2, violatingContents)
-		fs.writestringtofile(file3, violatingContents)
+		fs.writeStringToFile(file1, violatingContents)
+		fs.writeStringToFile(file2, violatingContents)
+		fs.writeStringToFile(file3, violatingContents)
 
 		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
@@ -2810,24 +2829,24 @@ local t = { [0] = 1 }
 			}
 		}
 		]]
-		fs.writestringtofile(configFile, configContents)
+		fs.writeStringToFile(configFile, configContents)
 
 		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
 		assert.eq(result.exitcode, 1) -- errors but ONLY from notIgnored.luau
 
 		-- Should NOT contain violations from the ignored directory
-		assert.strnotcontains(result.stdout, "file1.luau")
-		assert.strnotcontains(result.stdout, "file2.luau")
+		assert.strNotContains(result.stdout, "file1.luau")
+		assert.strNotContains(result.stdout, "file2.luau")
 
 		-- Should contain violations from the non-ignored file
-		assert.strcontains(result.stdout, "notIgnored.luau")
-		assert.strcontains(result.stdout, "divide_by_zero")
-		assert.strcontains(result.stdout, "almost_swapped")
+		assert.strContains(result.stdout, "notIgnored.luau")
+		assert.strContains(result.stdout, "divide_by_zero")
+		assert.strContains(result.stdout, "almost_swapped")
 	end)
 
-	suite:case("lute lint handles ignores with relative config path", function(assert)
+	suite:case("luteLintHandlesIgnoresWithRelativeConfigPath", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 		local notIgnoredFile = path.join(testSubDir, "valid.luau")
@@ -2836,8 +2855,8 @@ local t = { [0] = 1 }
 			b = a
 			c = 1 / 0
 		]]
-		fs.writestringtofile(ignoredFile, violatingContents)
-		fs.writestringtofile(notIgnoredFile, violatingContents)
+		fs.writeStringToFile(ignoredFile, violatingContents)
+		fs.writeStringToFile(notIgnoredFile, violatingContents)
 
 		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
@@ -2849,20 +2868,20 @@ local t = { [0] = 1 }
 			}
 		}
 		]]
-		fs.writestringtofile(configFile, configContents)
+		fs.writeStringToFile(configFile, configContents)
 
 		-- Pass config as a relative path, setting cwd to ensure relative config path is correct
 		local result = process.run({ lutePath, "lint", "-c", ".config.luau", "." }, {
 			cwd = path.format(testSubDir),
 		})
 		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
-		assert.strnotcontains(result.stdout, "ignored.luau")
-		assert.strcontains(result.stdout, "valid.luau")
+		assert.strNotContains(result.stdout, "ignored.luau")
+		assert.strContains(result.stdout, "valid.luau")
 	end)
 
-	suite:case("lute lint handles ignores with absolute config path", function(assert)
+	suite:case("luteLintHandlesIgnoresWithAbsoluteConfigPath", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+		fs.createDirectory(testSubDir)
 
 		local ignoredFile = path.join(testSubDir, "ignored.luau")
 		local notIgnoredFile = path.join(testSubDir, "valid.luau")
@@ -2871,8 +2890,8 @@ local t = { [0] = 1 }
 			b = a
 			c = 1 / 0
 		]]
-		fs.writestringtofile(ignoredFile, violatingContents)
-		fs.writestringtofile(notIgnoredFile, violatingContents)
+		fs.writeStringToFile(ignoredFile, violatingContents)
+		fs.writeStringToFile(notIgnoredFile, violatingContents)
 
 		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
@@ -2884,16 +2903,16 @@ local t = { [0] = 1 }
 			}
 		}
 		]]
-		fs.writestringtofile(configFile, configContents)
+		fs.writeStringToFile(configFile, configContents)
 
 		-- Pass config as an absolute path, with cwd set to a different directory (homedir)
 		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
 		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
-		assert.strnotcontains(result.stdout, "ignored.luau")
-		assert.strcontains(result.stdout, "valid.luau")
+		assert.strNotContains(result.stdout, "ignored.luau")
+		assert.strContains(result.stdout, "valid.luau")
 	end)
 
-	suite:case("lute lint passes context through to rules", function(assert)
+	suite:case("luteLintPassesContextThroughToRules", function(assert)
 		-- custom rule that returns violating with globals and options in the message
 		local customRuleContents = [[
 			return {
@@ -2940,12 +2959,12 @@ local t = { [0] = 1 }
 		})
 	end)
 
-	suite:case("lute lint accounts for rule-specific ignores", function(assert)
+	suite:case("luteLintAccountsForRuleSpecificIgnores", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+		fs.createDirectory(testSubDir)
 
 		local violatorFile = path.join(testSubDir, "violator.luau")
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			violatorFile,
 			[[
 		local x = 1 / 0
@@ -2969,32 +2988,32 @@ return {
 	}
 }
 ]]
-		fs.writestringtofile(configFile, configContents)
+		fs.writeStringToFile(configFile, configContents)
 
 		-- assert that violations are present without config
 		local result = process.run({ lutePath, "lint", path.format(violatorFile) }, {
 			cwd = path.format(process.homedir()),
 		})
 		assert.eq(result.exitcode, 1) -- should be violations
-		assert.strcontains(result.stdout, "violator.luau")
-		assert.strcontains(result.stdout, "[divide_by_zero]")
-		assert.strcontains(result.stdout, "[almost_swapped]")
+		assert.strContains(result.stdout, "violator.luau")
+		assert.strContains(result.stdout, "[divide_by_zero]")
+		assert.strContains(result.stdout, "[almost_swapped]")
 
 		-- with config, there should be violations but NOT for divide_by_zero
 		result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) }, {
 			cwd = path.format(process.homedir()),
 		})
 		assert.eq(result.exitcode, 1)
-		assert.strnotcontains(result.stdout, "[divide_by_zero]")
-		assert.strcontains(result.stdout, "[almost_swapped]")
+		assert.strNotContains(result.stdout, "[divide_by_zero]")
+		assert.strContains(result.stdout, "[almost_swapped]")
 	end)
 
-	suite:case("lute lint accounts for rule-specific directory ignores", function(assert)
+	suite:case("luteLintAccountsForRuleSpecificDirectoryIgnores", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
-		fs.createdirectory(testSubDir)
+		fs.createDirectory(testSubDir)
 
 		local ignoredDir = path.join(testSubDir, "ignoredDir")
-		fs.createdirectory(ignoredDir)
+		fs.createDirectory(ignoredDir)
 
 		local ignoredFile = path.join(ignoredDir, "violator.luau")
 		local notIgnoredFile = path.join(testSubDir, "nonIgnored.luau")
@@ -3005,8 +3024,8 @@ local a, b
 a = b
 b = a
 ]]
-		fs.writestringtofile(ignoredFile, violatingContents)
-		fs.writestringtofile(notIgnoredFile, violatingContents)
+		fs.writeStringToFile(ignoredFile, violatingContents)
+		fs.writeStringToFile(notIgnoredFile, violatingContents)
 
 		local configFile = path.join(testSubDir, ".config.luau")
 		local configContents = [[
@@ -3022,20 +3041,20 @@ return {
 	}
 }
 ]]
-		fs.writestringtofile(configFile, configContents)
+		fs.writeStringToFile(configFile, configContents)
 
 		local result = process.run({ lutePath, "lint", "-c", path.format(configFile), path.format(testSubDir) })
 		assert.eq(result.exitcode, 1)
 
 		-- Both files should still report almost_swapped (the non-ignored rule)
-		assert.strcontains(result.stdout, "[almost_swapped]", nil, 2)
+		assert.strContains(result.stdout, "[almost_swapped]", 2)
 
 		-- Only 1 divide_by_zero: from the non-ignored file, not from ignoredDir
-		assert.strcontains(result.stdout, "[divide_by_zero]", nil, 1)
-		assert.strcontains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
+		assert.strContains(result.stdout, "[divide_by_zero]", 1)
+		assert.strContains(result.stdout, "nonIgnored.luau:1:11-16") -- the non-ignored file's violation
 	end)
 
-	suite:case("default rules configured with off do NOT run", function(assert)
+	suite:case("defaultRulesConfiguredWithOffDoNotRun", function(assert)
 		local violationContents = [[
 			a = b
 			b = a
@@ -3063,7 +3082,7 @@ return {
 		})
 	end)
 
-	suite:case("custom rules configured with off do NOT run", function(assert)
+	suite:case("customRulesConfiguredWithOffDoNotRun", function(assert)
 		local customRuleContents = [[
 		return {
 			name = "customRule",
@@ -3100,7 +3119,7 @@ return {
 			expectedExitCode = 1,
 			customRuleContents = customRuleContents,
 			disableDefaultLints = true,
-			outputExpectations = { { expectedOutput = "customRule", count = 1 } },
+			outputExpectations = { { expectedOutput = "customRule" } },
 		})
 
 		-- confirm file doesn't violate with disabled rule config
@@ -3114,7 +3133,7 @@ return {
 		})
 	end)
 
-	suite:case("configured rule severity overrides default", function(assert)
+	suite:case("configuredRuleSeverityOverridesDefault", function(assert)
 		local configContents = [[
 return {
 	lute = {
@@ -3140,7 +3159,7 @@ return {
 		})
 	end)
 
-	suite:case("rules given by config.rulepaths are loaded (in addition to CLI-passed rules) and ran", function(assert)
+	suite:case("rulesGivenByConfigRulepathsAreLoadedInAdditionToCliPassedRulesAndRan", function(assert)
 		local ruleTemplate = [[
 return {
 	name = %q,
@@ -3158,7 +3177,7 @@ return {
 		]]
 		-- Create the config-provided rules (loaded via config.rulepaths, NOT via -r)
 		local configuredAbsoluteRulePath = path.format(path.join(tmpDir, "configuredAbsRule.luau"))
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			configuredAbsoluteRulePath,
 			(ruleTemplate :: any):format(
 				"configuredAbsoluteRule",
@@ -3167,7 +3186,7 @@ return {
 			)
 		)
 		local configuredRelativePath = path.format(path.join(tmpDir, "configuredRelativeRule.luau"))
-		fs.writestringtofile(
+		fs.writeStringToFile(
 			configuredRelativePath,
 			(ruleTemplate :: any):format(
 				"configuredRelativeRule",
@@ -3222,7 +3241,7 @@ return {
 		"lute lint properly loads rule-specific configuration for rules provided by config.rulepaths",
 		function(assert)
 			local testSubDir = path.join(tmpDir, "module")
-			fs.createdirectory(testSubDir)
+			fs.createDirectory(testSubDir)
 
 			local configuredRulePath = path.join(testSubDir, "configuredRule.luau")
 			local configuredRuleContents = [[
@@ -3241,7 +3260,7 @@ return {
 			end
 		}
 		]]
-			fs.writestringtofile(configuredRulePath, configuredRuleContents)
+			fs.writeStringToFile(configuredRulePath, configuredRuleContents)
 
 			local configFile = path.join(testSubDir, ".config.luau")
 			local configContents = ([[
@@ -3261,17 +3280,17 @@ return {
 			}
 		}
 		]]):format(path.format(configuredRulePath))
-			fs.writestringtofile(configFile, configContents)
+			fs.writeStringToFile(configFile, configContents)
 
 			local ignoredDir = path.join(testSubDir, "ignoredDir")
 			local notIgnoredDir = path.join(testSubDir, "not_ignored")
-			fs.createdirectory(ignoredDir)
-			fs.createdirectory(notIgnoredDir)
+			fs.createDirectory(ignoredDir)
+			fs.createDirectory(notIgnoredDir)
 			local ignoredFile = path.join(ignoredDir, "ignored.luau")
 			local notIgnoredFile = path.join(notIgnoredDir, "valid.luau")
 			local violatingContents = "print('hello world')"
-			fs.writestringtofile(ignoredFile, violatingContents)
-			fs.writestringtofile(notIgnoredFile, violatingContents)
+			fs.writeStringToFile(ignoredFile, violatingContents)
+			fs.writeStringToFile(notIgnoredFile, violatingContents)
 
 			local result = process.run({
 				lutePath,
@@ -3281,13 +3300,13 @@ return {
 				path.format(testSubDir),
 			})
 			assert.eq(result.exitcode, 1) -- errors
-			assert.strnotcontains(result.stdout, "ignored.luau")
-			assert.strcontains(result.stdout, "valid.luau")
-			assert.strcontains(result.stdout, "Configured Rule Ran with options.a = 1") -- options are correctly passed through
+			assert.strNotContains(result.stdout, "ignored.luau")
+			assert.strContains(result.stdout, "valid.luau")
+			assert.strContains(result.stdout, "Configured Rule Ran with options.a = 1") -- options are correctly passed through
 		end
 	)
 
-	suite:case("empty_if_block basic", function(assert)
+	suite:case("emptyIfBlockBasic", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 if true then
@@ -3313,7 +3332,7 @@ violator.luau:1:1-2:4 ──
 		})
 	end)
 
-	suite:case("empty_if_block with non empty block", function(assert)
+	suite:case("emptyIfBlockWithNonEmptyBlock", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 if true then
@@ -3329,7 +3348,7 @@ end
 		})
 	end)
 
-	suite:case("empty_if_block with empty else", function(assert)
+	suite:case("emptyIfBlockWithEmptyElse", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 if true then
@@ -3359,7 +3378,7 @@ violator.luau:1:1-4:4 ──
 		})
 	end)
 
-	suite:case("empty_if_block with empty elseifs", function(assert)
+	suite:case("emptyIfBlockWithEmptyElseifs", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 if true then
@@ -3391,7 +3410,7 @@ violator.luau:1:1-5:4 ──
 		})
 	end)
 
-	suite:case("empty_if_block with comments (comments_count = false)", function(assert)
+	suite:case("emptyIfBlockWithCommentsCommentsCountFalse", function(assert)
 		lintTestHelper(assert, {
 			content = [[
 if true then
@@ -3441,7 +3460,7 @@ violator.luau:5:1-10:4 ──
 		})
 	end)
 
-	suite:case("empty_if_block with comments (comments_count = true)", function(assert)
+	suite:case("emptyIfBlockWithCommentsCommentsCountTrue", function(assert)
 		local configContents = [[
 return {
 	lute = { lint = { ruleconfigs = {
@@ -3481,5 +3500,152 @@ end
 				{ expectedOutput = LINT_RULE_MESSAGES.empty_if_block, count = 0 },
 			},
 		})
+	end)
+
+	suite:case("globalFunctionInScopeWarnsInsideIf", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	function foo()
+	end
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 1 },
+			},
+		})
+	end)
+
+	suite:case("globalFunctionInScopeWarnsInsideFunction", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function outer()
+	function inner()
+	end
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 1 },
+			},
+		})
+	end)
+
+	suite:case("globalFunctionInScopeAllowsTopLevel", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+function foo()
+end
+
+function bar()
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("globalFunctionInScopeAllowsLocalFunctionNested", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	local function foo()
+	end
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("globalFunctionInScopeAllowsTableMethods", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+if true then
+	local t = {}
+	function t:foo()
+	end
+	function t.bar()
+	end
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.global_function_in_scope,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("luteLintCurrentDirFindsLuauFiles", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createDirectory(testSubDir)
+
+		local violatorPath = path.format(path.join(testSubDir, "violator.luau"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0")
+
+		local result = process.run({ lutePath, "lint" }, {
+			cwd = path.format(testSubDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("luteLintCurrentDirFindsLuaFiles", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createDirectory(testSubDir)
+
+		local violatorPath = path.format(path.join(testSubDir, "violator.lua"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0")
+
+		local result = process.run({ lutePath, "lint" }, {
+			cwd = path.format(testSubDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("luteLintCurrentDirRecursive", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		local nestedDir = path.join(testSubDir, "nested")
+		fs.createDirectory(testSubDir)
+		fs.createDirectory(nestedDir)
+
+		local violatorPath = path.format(path.join(nestedDir, "violator.luau"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0")
+
+		local result = process.run({ lutePath, "lint" }, {
+			cwd = path.format(testSubDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("luteLintCurrentDirNoLuauFiles", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		fs.createDirectory(testSubDir)
+
+		local result = process.run({ lutePath, "lint" }, {
+			cwd = path.format(testSubDir),
+		})
+
+		assert.eq(result.exitcode, 0)
 	end)
 end)

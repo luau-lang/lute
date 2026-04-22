@@ -1,46 +1,50 @@
-local ps = require("@std/process")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local stringext = require("@std/stringext")
+local ignore = require("../lib/ignore")
 
 local function istestfile(filename: string): boolean
-	return stringext.hassuffix(filename, ".test.luau") or stringext.hassuffix(filename, ".spec.luau")
+	return stringext.hasSuffix(filename, ".test.luau") or stringext.hasSuffix(filename, ".spec.luau")
 end
 
 local function issnapfile(filename: string): boolean
-	return stringext.hassuffix(filename, ".snap.luau")
+	return stringext.hasSuffix(filename, ".snap.luau")
 end
 
-local function findfiles(paths: { string }, predicate: (string) -> boolean): { path.path }
+local function findfiles(paths: { string }, predicate: (string) -> boolean): { path.Path }
 	local files = {}
-	local function walk(p: path.pathlike)
-		local it = fs.walk(path.normalize(p), { recursive = true })
-		local file = it()
-		while file do
-			if fs.type(file) ~= "dir" and predicate(path.format(file)) then
-				table.insert(files, path.normalize(file))
+	local resolver = ignore.new()
+
+	local function walk(directory: path.Path)
+		for _, entry in fs.listDirectory(directory) do
+			local fullPath = path.join(directory, entry.name)
+			if entry.type == "dir" then
+				if not resolver:isIgnoredDirectory(fullPath) then
+					walk(fullPath)
+				end
+			elseif predicate(entry.name) and not resolver:isIgnoredFile(fullPath) then
+				table.insert(files, fullPath)
 			end
-			file = it()
 		end
 	end
 
-	local cwd = ps.cwd()
 	for _, p in paths do
-		if path.isabsolute(p) then
-			walk(p)
-		else
-			walk(path.join(cwd, p))
+		local rooted = path.resolve(p)
+		if fs.type(rooted) == "dir" then
+			walk(rooted)
+		elseif predicate(path.format(rooted)) then
+			table.insert(files, rooted)
 		end
 	end
 
 	return files
 end
 
-local function findtestfiles(paths: { string }): { path.path }
+local function findtestfiles(paths: { string }): { path.Path }
 	return findfiles(paths, istestfile)
 end
 
-local function findsnapfiles(paths: { string }): { path.path }
+local function findsnapfiles(paths: { string }): { path.Path }
 	return findfiles(paths, issnapfile)
 end
 

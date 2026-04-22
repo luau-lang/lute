@@ -27,6 +27,26 @@
 namespace process
 {
 
+// Loads the current process environment into `map`. Returns the libuv error
+// code on failure, or an empty optional on success.
+static std::optional<int> getEnvironmentVariables(std::map<std::string, std::string>& map)
+{
+    uv_env_item_t* items;
+    int count;
+    int err = uv_os_environ(&items, &count);
+    if (err != 0)
+        return err;
+
+    for (int i = 0; i < count; i++)
+    {
+        if (items[i].name && items[i].value)
+            map[items[i].name] = items[i].value;
+    }
+
+    uv_os_free_environ(items, count);
+    return std::nullopt;
+}
+
 void convertCRLFtoLF(std::string& str)
 {
     size_t writePos = 0;
@@ -42,6 +62,7 @@ void convertCRLFtoLF(std::string& str)
 struct ProcessHandle
 {
     uv_process_t process;
+    uv_pipe_t stdinPipe;
     uv_pipe_t stdoutPipe;
     uv_pipe_t stderrPipe;
     uv_loop_t* loop = nullptr;
@@ -52,38 +73,44 @@ struct ProcessHandle
     bool completed = false;
     ResumeToken resumeToken;
     std::shared_ptr<ProcessHandle> self;
-    std::atomic<int> pendingCloses{0};
+    std::atomic<int> pendingCloses{1};
+
+    static void onHandleClose(uv_handle_t* handle)
+    {
+        ProcessHandle* ph = static_cast<ProcessHandle*>(handle->data);
+        if (--ph->pendingCloses == 0)
+            ph->self.reset();
+    }
 
     void closeHandles()
     {
-        auto closeCb = [](uv_handle_t* handle)
+        if (!uv_is_closing((uv_handle_t*)&stdinPipe))
         {
-            ProcessHandle* ph = static_cast<ProcessHandle*>(handle->data);
-            if (--ph->pendingCloses == 0)
-            {
-                ph->self.reset();
-            }
-        };
+            pendingCloses++;
+            uv_read_stop((uv_stream_t*)&stdinPipe);
+            uv_close((uv_handle_t*)&stdinPipe, onHandleClose);
+        }
 
         if (!uv_is_closing((uv_handle_t*)&stdoutPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stdoutPipe);
-            uv_close((uv_handle_t*)&stdoutPipe, closeCb);
+            uv_close((uv_handle_t*)&stdoutPipe, onHandleClose);
         }
+
         if (!uv_is_closing((uv_handle_t*)&stderrPipe))
         {
             pendingCloses++;
             uv_read_stop((uv_stream_t*)&stderrPipe);
-            uv_close((uv_handle_t*)&stderrPipe, closeCb);
+            uv_close((uv_handle_t*)&stderrPipe, onHandleClose);
         }
         if (!uv_is_closing((uv_handle_t*)&process))
         {
             pendingCloses++;
-            uv_close((uv_handle_t*)&process, closeCb);
+            uv_close((uv_handle_t*)&process, onHandleClose);
         }
 
-        if (pendingCloses == 0)
+        if (--pendingCloses == 0)
         {
             self.reset();
         }
@@ -106,6 +133,7 @@ struct ProcessHandle
         {
             int64_t finalExitCode = exitCode;
             int finalTermSignal = termSignal;
+            // TODO: should we we put any leftover stdin data into the output here?
             std::string finalStdout = stdoutData;
             std::string finalStderr = stderrData;
             std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
@@ -246,35 +274,31 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     if (!opts.env.empty())
     {
         // Copy current environment into the new environment
-        uv_env_item_t* currentEnvItems;
-        int currentEnvCount;
-        int err = uv_os_environ(&currentEnvItems, &currentEnvCount);
-        if (err != 0)
+        std::map<std::string, std::string> currentEnv;
+        if (std::optional<int> err = getEnvironmentVariables(currentEnv))
+            luaL_error(L, "Failed to get current environment: %s", uv_strerror(*err));
+
+        for (const auto& [name, value] : currentEnv)
         {
-            uv_os_free_environ(currentEnvItems, currentEnvCount);
-            luaL_error(L, "Failed to get current environment: %s", uv_strerror(err));
+            if (opts.env.find(name) == opts.env.end())
+                opts.env[name] = value;
         }
-        for (int i = 0; i < currentEnvCount; i++)
-        {
-            if (currentEnvItems[i].name && currentEnvItems[i].value && opts.env.find(currentEnvItems[i].name) == opts.env.end())
-            {
-                opts.env[currentEnvItems[i].name] = currentEnvItems[i].value;
-            }
-        }
-        uv_os_free_environ(currentEnvItems, currentEnvCount);
 
         // Turn the new environment into a char** array
         envStrings.reserve(opts.env.size());
         envPtr.reserve(opts.env.size() + 1);
+
         for (const auto& pair : opts.env)
         {
             envStrings.push_back(pair.first + "=" + pair.second);
         }
+
         for (auto& str : envStrings)
         {
             envPtr.push_back(&str[0]);
         }
         envPtr.push_back(nullptr);
+
         options.env = envPtr.data();
     }
 
@@ -283,19 +307,22 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
         options.cwd = opts.cwd.c_str();
     }
 
+    uv_pipe_init(handle->loop, &handle->stdinPipe, 0);
     uv_pipe_init(handle->loop, &handle->stdoutPipe, 0);
     uv_pipe_init(handle->loop, &handle->stderrPipe, 0);
 
     options.stdio_count = 3;
     uv_stdio_container_t stdio[3];
-    stdio[0].flags = UV_IGNORE;
     if (opts.stdioKind == kStdioKindNone)
     {
+        stdio[0].flags = UV_IGNORE;
         stdio[1].flags = UV_IGNORE;
         stdio[2].flags = UV_IGNORE;
     }
     else if (opts.stdioKind == kStdioKindInherit)
     {
+        stdio[0].flags = UV_INHERIT_FD;
+        stdio[0].data.fd = fileno(stdin);
         stdio[1].flags = UV_INHERIT_FD;
         stdio[1].data.fd = fileno(stdout);
         stdio[2].flags = UV_INHERIT_FD;
@@ -303,6 +330,8 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     }
     else if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
     {
+        stdio[0].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE);
+        stdio[0].data.stream = (uv_stream_t*)&handle->stdinPipe;
         stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
         stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
         stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
@@ -315,6 +344,7 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
     options.stdio = stdio;
 
     handle->process.data = handle.get();
+    handle->stdinPipe.data = handle.get();
     handle->stdoutPipe.data = handle.get();
     handle->stderrPipe.data = handle.get();
 
@@ -332,6 +362,16 @@ int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions 
         handle->closeHandles();
 
         luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
+    }
+
+    // In the default stdio mode we create a pipe for the child's stdin so that
+    // future APIs can feed data to it, but there is no API to write to it yet.
+    // Close our write end immediately so the child sees EOF on stdin instead
+    // of blocking forever on a read.
+    if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
+    {
+        handle->pendingCloses++;
+        uv_close((uv_handle_t*)&handle->stdinPipe, ProcessHandle::onHandleClose);
     }
 
     uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
@@ -494,32 +534,10 @@ int cwd(lua_State* L)
     return 1;
 };
 
-std::optional<std::string> getExecPath(std::string* error)
-{
-    // Executable path is not expected to change during process lifetime, so we
-    // can safely cache it after the first retrieval.
-    static std::optional<std::string> cachedPath = std::nullopt;
-    if (cachedPath)
-        return *cachedPath;
-
-    char buf[LUTE_PATH_MAX];
-    size_t len = sizeof(buf);
-
-    if (int status = uv_exepath(buf, &len); status < 0)
-    {
-        if (error)
-            *error = uv_strerror(status);
-        return std::nullopt;
-    }
-
-    cachedPath = std::string(buf, len);
-    return *cachedPath;
-}
-
-int execpath(lua_State* L)
+int execPath(lua_State* L)
 {
     std::string error;
-    std::optional<std::string> execPath = getExecPath(&error);
+    std::optional<std::string> execPath = Process::getExecPath(&error);
     if (!execPath)
         luaL_error(L, "Failed to get executable path: %s", error.c_str());
 
@@ -537,6 +555,9 @@ static int envIndex(lua_State* L)
     if (err == UV_ENOBUFS)
     {
         char* buffer = (char*)malloc(size);
+        if (!buffer)
+            luaL_error(L, "out of memory");
+
         err = uv_os_getenv(key, buffer, &size);
         if (err == 0)
         {
@@ -653,17 +674,45 @@ static int envIter(lua_State* L)
 static const luaL_Reg processEnvMeta[] =
     {{"__index", process::envIndex}, {"__newindex", process::envNewindex}, {"__iter", process::envIter}, {nullptr, nullptr}};
 
-int luaopen_process(lua_State* L)
+std::optional<std::string> Process::getExecPath(std::string* error)
 {
-    luaL_register(L, "process", process::lib);
-    return 1;
+    // Executable path is not expected to change during process lifetime, so we
+    // can safely cache it after the first retrieval.
+    static std::optional<std::string> cachedPath = std::nullopt;
+    if (cachedPath)
+        return *cachedPath;
+
+    char buf[LUTE_PATH_MAX];
+    size_t len = sizeof(buf);
+
+    if (int status = uv_exepath(buf, &len); status < 0)
+    {
+        if (error)
+            *error = uv_strerror(status);
+        return std::nullopt;
+    }
+
+    cachedPath = std::string(buf, len);
+    return *cachedPath;
 }
 
-int luteopen_process(lua_State* L)
-{
-    lua_createtable(L, 0, std::size(process::lib));
+const char* const Process::properties[] = {"env", "args"};
 
-    for (auto& [name, func] : process::lib)
+const luaL_Reg Process::lib[] = {
+    {"run", process::run},
+    {"system", process::system},
+    {"homedir", process::homedir},
+    {"cwd", process::cwd},
+    {"exit", process::exitFunc},
+    {"execPath", process::execPath},
+    {nullptr, nullptr},
+};
+
+int Process::pushLibrary(lua_State* L)
+{
+    lua_createtable(L, 0, std::size(Process::lib) + std::size(Process::properties));
+
+    for (auto& [name, func] : Process::lib)
     {
         if (!name || !func)
             break;
@@ -678,7 +727,35 @@ int luteopen_process(lua_State* L)
     lua_setmetatable(L, -2);
     lua_setfield(L, -2, "env");
 
-    lua_setreadonly(L, -1, 1);
+    // Create process.args table
+    Runtime* runtime = getRuntime(L);
+    if (runtime)
+    {
+        lua_createtable(L, static_cast<int>(runtime->args.size()), 0);
+        for (int i = 0; i < static_cast<int>(runtime->args.size()); ++i)
+        {
+            lua_pushlstring(L, runtime->args[i].c_str(), runtime->args[i].size());
+            lua_rawseti(L, -2, i + 1);
+        }
+    }
+    else
+    {
+        lua_createtable(L, 0, 0);
+    }
+    lua_setreadonly(L, -1, 1); // args table
+    lua_setfield(L, -2, "args");
+
+    lua_setreadonly(L, -1, 1); // process table
 
     return 1;
+}
+
+int luaopen_process(lua_State* L)
+{
+    return Process::openAsGlobal(L);
+}
+
+int luteopen_process(lua_State* L)
+{
+    return Process::pushLibrary(L);
 }

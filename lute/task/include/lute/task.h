@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/library.h"
+
 #include "lua.h"
 #include "lualib.h"
 
@@ -8,24 +10,10 @@ int luaopen_task(lua_State* L);
 // open the library as a table on top of the stack
 int luteopen_task(lua_State* L);
 
-namespace task
+struct Task : LuteLibrary<Task>
 {
-
-int lua_defer(lua_State* L);
-int lua_wait(lua_State* L);
-int lua_spawn(lua_State* L);
-int lute_resume(lua_State* L);
-int lua_delay(lua_State* L);
-
-static const luaL_Reg lib[] = {
-    {"defer", lua_defer},
-    {"wait", lua_wait},
-    {"spawn", lua_spawn},
-    {"delay", lua_delay},
-
-    {"resume", lute_resume},
-
-    {nullptr, nullptr},
+    static constexpr const char kName[] = "task";
+    static int pushLibrary(lua_State* L);
+    static const luaL_Reg lib[];
+    static const char* const properties[];
 };
-
-} // namespace task

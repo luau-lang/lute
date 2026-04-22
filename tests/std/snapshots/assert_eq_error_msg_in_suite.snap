@@ -6,7 +6,7 @@ TEST RESULTS
 Failed Tests (1):
 
 ❌ eq_failure_suite.eq_error
-	<ROOT>/tests/std/snapshots/assert_eq_error_msg_in_suite.snap.luau:5
+	<ROOT>/tests/std/snapshots/assert_eq_error_msg_in_suite.snap.luau:6
 		eq: 1 ~= 2
 
 --------------------------------------------------

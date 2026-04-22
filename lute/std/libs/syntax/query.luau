@@ -5,24 +5,25 @@
 local tableext = require("@std/tableext")
 local types = require("./types")
 local visitor = require("./visitor")
-local utils = require("./utils")
 
-type node = types.AstNode
+type Node = types.AstNode
 
-export type query<T = node> = {
+--- A collection of AST nodes that supports chained filtering, mapping, and replacement operations.
+export type Query<T = Node> = {
 	nodes: { T },
-	filter: (self: query<T>, pred: (T) -> boolean) -> query<T>,
-	replace: (self: query<T>, repl: (T) -> types.replacement?) -> types.replacements,
-	map: <U>(self: query<T>, fn: (T) -> U?) -> query<U>, -- recursion violation reported
-	foreach: (self: query<T>, callback: (T) -> ()) -> query<T>,
-	findall: <U>(self: query<T>, fn: (node) -> U?) -> query<U>,
-	flatmap: <U>(self: query<T>, fn: (T) -> { U }) -> query<U>,
-	maptoarray: <U>(self: query<T>, fn: (T) -> U?) -> { U },
+	filter: (self: Query<T>, pred: (T) -> boolean) -> Query<T>,
+	replace: (self: Query<T>, repl: (T) -> string?) -> types.Replacements,
+	map: <U>(self: Query<T>, fn: (T) -> U?) -> Query<U>, -- recursion violation reported
+	forEach: (self: Query<T>, callback: (T) -> ()) -> Query<T>,
+	findAll: <U>(self: Query<T>, fn: (Node) -> U?) -> Query<U>,
+	flatMap: <U>(self: Query<T>, fn: (T) -> { U }) -> Query<U>,
+	mapToArray: <U>(self: Query<T>, fn: (T) -> U?) -> { U },
 }
 
 local queryLib = {}
 
-function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
+--- Retains only the nodes for which `pred` returns `true`. Mutates and returns the query.
+function queryLib.filter<T>(self: Query<T>, pred: (T) -> boolean): Query<T>
 	local newNodes = {}
 	for _, node in self.nodes do
 		if pred(node) then
@@ -33,7 +34,8 @@ function queryLib.filter<T>(self: query<T>, pred: (T) -> boolean): query<T>
 	return self
 end
 
-function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): types.replacements
+--- Calls `repl` on each node and collects the non-nil results into a `Replacements` table for use with the printer.
+function queryLib.replace<T>(self: Query<T>, repl: (T) -> string?): types.Replacements
 	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
@@ -44,8 +46,8 @@ function queryLib.replace<T>(self: query<T>, repl: (T) -> types.replacement?): t
 	return replacements
 end
 
--- map will return a query where its nodes are all the non-nil values returned by fn when called on each node of the original query
-function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
+--- Replaces the query's nodes with the non-nil values returned by `fn` for each node. Mutates and returns the query.
+function queryLib.map<T, U>(self: Query<T>, fn: (T) -> U?): Query<U>
 	local newNodes = {}
 	for _, node in self.nodes do
 		local mapped = fn(node)
@@ -57,15 +59,16 @@ function queryLib.map<T, U>(self: query<T>, fn: (T) -> U?): query<U>
 	return self
 end
 
-function queryLib.foreach<T>(self: query<T>, callback: (T) -> ()): query<T>
+--- Calls `callback` on each node. Returns the query unchanged for chaining.
+function queryLib.forEach<T>(self: Query<T>, callback: (T) -> ()): Query<T>
 	for _, node in self.nodes do
 		callback(node)
 	end
 	return self
 end
 
-local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visitor
-	local function visit(n: node) -- LUAUFIX: type checker doesn't like assigning visit in the visitor fields with n: node
+local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visitor
+	local function visit(n: Node)
 		local selected = fn(n)
 		if selected ~= nil then
 			table.insert(nodes, selected)
@@ -80,18 +83,12 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (node) -> T?): visitor.Visi
 		return true
 	end
 	selectVisitor.visitExprEnd = function(_) end
-	selectVisitor.visitToken = function(n)
-		if utils.isBaseToken(n) then
-			-- only visit if it is a base token, so we don't double count
-			return visit(n)
-		end
-		return true
-	end
 
 	return selectVisitor
 end
 
-function queryLib.findall<T, U>(self: query<T>, fn: (node) -> U?): query<U>
+--- Recursively visits every descendant of each node in the query and collects those for which `fn` returns a non-nil value. Mutates and returns the query.
+function queryLib.findAll<T, U>(self: Query<T>, fn: (Node) -> U?): Query<U>
 	local selectedNodes: { U } = {}
 
 	local selectVisitor = newSelectVisitor(selectedNodes, fn)
@@ -105,7 +102,8 @@ function queryLib.findall<T, U>(self: query<T>, fn: (node) -> U?): query<U>
 	return self
 end
 
-function queryLib.flatmap<T, U>(self: query<T>, fn: (T) -> { U }): query<U>
+--- Replaces each node with the array of values returned by `fn`, flattening one level. Mutates and returns the query.
+function queryLib.flatMap<T, U>(self: Query<T>, fn: (T) -> { U }): Query<U>
 	local newNodes: { U } = {}
 	for _, node in self.nodes do
 		local mapped = fn(node)
@@ -117,7 +115,8 @@ function queryLib.flatmap<T, U>(self: query<T>, fn: (T) -> { U }): query<U>
 	return self
 end
 
-function queryLib.maptoarray<T, U>(self: query<T>, fn: (T) -> U?): { U }
+--- Returns a plain array of the non-nil values produced by calling `fn` on each node. Does not mutate the query.
+function queryLib.mapToArray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
 	local result = {}
 	for _, node in self.nodes do
 		local mapped = fn(node)
@@ -128,24 +127,25 @@ function queryLib.maptoarray<T, U>(self: query<T>, fn: (T) -> U?): { U }
 	return result
 end
 
-function queryLib.findallfromroot<T>(ast: types.ParseResult | node, fn: (node) -> T?): query<T>
+--- Creates a new `Query` by visiting every node in `ast` and collecting those for which `fn` returns a non-nil value.
+function queryLib.findAllFromRoot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
 	local nodes: { T } = {}
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: node = if ast.root ~= nil then ast.root else ast
+	local root: Node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {
 		nodes = nodes,
 		filter = queryLib.filter,
 		replace = queryLib.replace,
-		map = queryLib.map,
-		foreach = queryLib.foreach,
-		findall = queryLib.findall,
-		flatmap = queryLib.flatmap,
-		maptoarray = queryLib.maptoarray,
-	} -- LUAUFIX: queryLib.map has generics quantified at a different level than expected
+		map = queryLib.map :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
+		forEach = queryLib.forEach,
+		findAll = queryLib.findAll :: any, -- LUAUFIX: Remove any cast once recursion restriction is loosened
+		flatMap = queryLib.flatMap,
+		mapToArray = queryLib.mapToArray :: any, -- Any cast because mapToArray has generics quantified at a different level than the query type expects
+	}
 end
 
 return table.freeze(queryLib)

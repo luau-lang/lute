@@ -1,0 +1,167 @@
+local fs = require("@std/fs")
+local github = require("./github")
+local lockfile = require("./lockfile")
+local path = require("@std/path")
+local pp = require("@batteries/pp")
+local projectmanifest = require("./projectmanifest")
+
+local function getManifestPath(directory: string): string
+	return `{directory}/loom.config.luau`
+end
+
+local function getLockfilePath(directory: string): string
+	return `{directory}/loom.lock.luau`
+end
+
+local function getKey(spec: projectmanifest.DependencySpec): string
+	if spec.rev ~= nil then
+		return `{spec.name}@{spec.rev}`
+	end
+	return spec.name
+end
+
+local function hasConflict(specA: projectmanifest.DependencySpec, specB: projectmanifest.DependencySpec): boolean
+	return specA.rev ~= specB.rev or specA.source ~= specB.source or specA.sourceKind ~= specB.sourceKind
+end
+
+local function normalizePathDependency(
+	spec: projectmanifest.DependencySpec,
+	installPath: string,
+	rootDirectory: string
+): projectmanifest.DependencySpec
+	if spec.sourceKind == "path" then
+		local sourcePath = path.format(path.resolve(installPath, spec.source))
+		if not fs.exists(sourcePath) then
+			error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
+		end
+		return table.freeze({
+			name = spec.name,
+			rev = spec.rev,
+			source = path.format(path.relative(rootDirectory, sourcePath)),
+			sourceKind = spec.sourceKind,
+		})
+	end
+	return spec
+end
+
+local function fetchSource(spec: projectmanifest.DependencySpec, rootDirectory: string): string
+	if spec.sourceKind == "path" then
+		local sourcePath = path.format(path.resolve(rootDirectory, spec.source))
+		if not fs.exists(sourcePath) then
+			error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
+		end
+		return sourcePath
+	elseif spec.sourceKind == "github" then
+		assert(spec.rev ~= nil, `Expected rev to be non-nil for GitHub package '{spec.name}'`)
+		local sourcePath = `{rootDirectory}/Packages/{getKey(spec)}`
+		github.installPackage(spec.source, spec.rev, sourcePath)
+		return sourcePath
+	else
+		error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
+	end
+end
+
+local function resolve(rootDirectory: string): lockfile.Lockfile
+	local rootManifestPath = getManifestPath(rootDirectory)
+	if not fs.exists(rootManifestPath) then
+		error(`Manifest file not found: {rootManifestPath}`)
+	end
+
+	local lockfilePath = getLockfilePath(rootDirectory)
+	-- TODO: read lockfile and diff against manifest to determine which packages need to be updated, deleted, etc.
+	-- local lockfile = lockfile.parseFile(lockfilePath)
+	-- for now, just clear the installation directory if it exists
+	local rootInstallPath = `{rootDirectory}/Packages/`
+	if fs.exists(rootInstallPath) then
+		fs.removeDirectory(rootInstallPath, { recursive = true })
+	end
+
+	local queue: { projectmanifest.DependencySpec } = {}
+
+	local dependencies: { [string]: string } = {}
+	local packages: { [string]: lockfile.LockfileDependency } = {}
+
+	local rootManifest = projectmanifest.parseFile(rootManifestPath)
+	for depAlias, depSpec in rootManifest.package.dependencies do
+		dependencies[depAlias] = getKey(depSpec)
+		table.insert(queue, depSpec)
+	end
+
+	table.freeze(dependencies)
+
+	local nameIndex: { [string]: string } = {}
+
+	for _, spec in queue do
+		local key = getKey(spec)
+
+		if packages[key] then
+			if hasConflict(packages[key], spec) then
+				error(
+					`Source mismatch for package '{spec.name}':\n`
+						.. `  resolved: {packages[key].source} ({packages[key].sourceKind})\n`
+						.. `  incoming: {spec.source} ({spec.sourceKind})\n`
+						.. `Both resolve to '{key}' but from different sources.`
+				)
+			else
+				-- Already resolved at this exact version — deduplicate
+				continue
+			end
+		end
+
+		local conflictKey = nameIndex[spec.name]
+		if conflictKey then
+			error(
+				`Version conflict for package '{spec.name}':\n`
+					.. `  resolved: {conflictKey}\n`
+					.. `  incoming: {key}\n`
+					.. `Resolve by pinning both to the same revision.`
+			)
+		end
+
+		-- New package — resolve it
+		nameIndex[spec.name] = key
+		local transitiveDependencies: { [string]: string } = {}
+
+		-- Download and install
+		local installPath = fetchSource(spec, rootDirectory)
+
+		-- Check for transitive dependencies
+		local nestedManifestPath = getManifestPath(installPath)
+		if fs.exists(nestedManifestPath) then
+			local depManifest = projectmanifest.parseFile(nestedManifestPath)
+			for depAlias, depSpec in depManifest.package.dependencies do
+				-- Normalize transitive path dep sources to be rootDirectory-relative
+				local normalizedSpec = normalizePathDependency(depSpec, installPath, rootDirectory)
+				transitiveDependencies[depAlias] = getKey(normalizedSpec)
+				table.insert(queue, normalizedSpec)
+			end
+		end
+
+		table.freeze(transitiveDependencies)
+
+		packages[key] = table.freeze({
+			name = spec.name,
+			rev = spec.rev,
+			source = spec.source,
+			sourceKind = spec.sourceKind,
+			installPath = path.format(path.relative(rootDirectory, installPath)),
+			dependencies = transitiveDependencies,
+		})
+	end
+
+	table.freeze(packages)
+
+	local lock: lockfile.Lockfile = table.freeze({
+		version = 3,
+		packages = packages,
+		dependencies = dependencies,
+	})
+
+	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
+
+	return lock
+end
+
+return {
+	resolve = resolve,
+}

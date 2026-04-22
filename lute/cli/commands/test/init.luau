@@ -11,13 +11,14 @@ local test = require("@std/test")
 local snaprunner = require("@self/snap/runner")
 local updater = require("@self/snap/updater")
 
-local function loadtests(testfiles: { path.path })
+local function loadtests(testfiles: { path.Path })
 	-- Load all test files first
 	for _, p in testfiles do
-		local success, err = pcall(luau.loadbypath, p, nil)
+		local success, err = pcall(luau.loadModule, p, nil)
 
 		if not success then
 			print(`Error loading {path.format(p)}: {err}`)
+			ps.exit(1)
 		end
 	end
 end
@@ -39,8 +40,13 @@ local function listtests()
 	end
 end
 
-local function runtests(env: testtypes.testenvironment, runner: testtypes.testrunner, reporter: testtypes.testreporter)
-	local result = runner(env)
+local function runtests(
+	env: testtypes.TestEnvironment,
+	runner: testtypes.TestRunner,
+	reporter: testtypes.TestReporter,
+	runOptions: testtypes.TestRunnerOptions
+)
+	local result = runner(env, runOptions)
 
 	reporter(result)
 	if result.failed ~= 0 then
@@ -68,6 +74,11 @@ local function main(...: string)
 
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:add("list", "flag", { help = "List all discovered test cases without running them" })
+	args:add(
+		"verbose",
+		"flag",
+		{ help = "Run tests verbosely (prints test case and suite names before executing)", aliases = { "v" } }
+	)
 	args:add("suite", "option", { help = "Run only tests in the specified suite", aliases = { "s" } })
 	args:add("case", "option", { help = "Run only test cases matching the specified name", aliases = { "c" } })
 	args:add("interactive", "flag", { help = "Interactively accept/reject snapshot changes", aliases = { "i" } })
@@ -94,15 +105,16 @@ local function main(...: string)
 		end
 	end
 
-	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./tests" }
+	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./" }
 	loadtests(finder.findtestfiles(searchpath))
 
 	if args:has("list") then
 		listtests()
 	else
-		local env = test._registered() :: testtypes.testenvironment
+		local env = test._registered() :: testtypes.TestEnvironment
+		local runOpts: testtypes.TestRunnerOptions = { verbose = args:has("verbose") }
 		local filteredEnv = filter.filtertests(env, args:get("suite"), args:get("case"))
-		runtests(filteredEnv, runner.run, reporter.color)
+		runtests(filteredEnv, runner.run, reporter.color, runOpts)
 	end
 end
 

@@ -9,19 +9,19 @@ local test = require("@std/test")
 local function checkReplacement(
 	source: string,
 	expected: string,
-	transformFn: (syntaxTypes.AstNode) -> syntaxTypes.replacements?,
-	assert: testtypes.asserts
+	transformFn: (syntaxTypes.AstNode) -> syntaxTypes.Replacements?,
+	assert: testtypes.Asserts
 )
 	local ast = syntax.parse(source)
 	local replacements = transformFn(ast.root)
 
-	local result = printer.printfile(ast, replacements)
+	local result = printer.printFile(ast, replacements)
 
 	assert.eq(result, expected)
 end
 
-test.suite("syntax_printer", function(suite)
-	suite:case("string_replacement", function(assert)
+test.suite("SyntaxPrinter", function(suite)
+	suite:case("stringReplacement", function(assert)
 		local source = [[
             local name = "World"
 ]]
@@ -29,13 +29,13 @@ test.suite("syntax_printer", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.text == "World" then "1 + 2" else nil
+			return query.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantString):replace(function(s)
+				return if s.token.text == "World" then "1 + 2" else nil
 			end)
 		end, assert)
 	end)
 
-	suite:case("expr_replacement", function(assert)
+	suite:case("exprReplacement", function(assert)
 		local source = [[
             local name = "World"
 ]]
@@ -43,13 +43,13 @@ test.suite("syntax_printer", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.text == "World" then syntax.parseexpr("1 + 2") else nil
+			return query.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantString):replace(function(s)
+				return if s.token.text == "World" then "1 + 2" else nil
 			end)
 		end, assert)
 	end)
 
-	suite:case("stat_replacement", function(assert)
+	suite:case("statReplacement", function(assert)
 		local source = [[
             local name = "World"
 ]]
@@ -57,57 +57,59 @@ test.suite("syntax_printer", function(suite)
 		local expected = "            local name = 1 + 2\n"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatLocal):replace(function(_)
-				return syntax.parseblock("local name = 1 + 2")
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function(_)
+					return "local name = 1 + 2"
+				end)
 		end, assert)
 	end)
 
-	suite:case("type_replacement", function(assert)
+	suite:case("typeReplacement", function(assert)
 		local source = [[local name: number = "World"]]
 		local expected = [[local name: string = "World"]]
 
-		local stat = syntax.parseblock("local x: string")
+		local stat = syntax.parseBlock("local x: string")
 		local ann = (stat.statements[1] :: syntaxTypes.AstStatLocal).variables[1].node.annotation
 
 		checkReplacement(source, expected, function(ast)
 			return query
-				.findallfromroot(ast, syntaxUtils.isStatLocal)
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:map(function(assign)
 					return assign.variables[1].node.annotation
 				end)
 				:replace(function(_)
-					return ann
+					return printer.printNode(ann :: any) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				end)
 		end, assert)
 	end)
 
-	suite:case("type_pack_replacement", function(assert)
+	suite:case("typePackReplacement", function(assert)
 		local source = [[type t = (...number) -> ()]]
 		local expected = [[type t = (...number) -> string, ...string)]]
 
-		local stat = syntax.parseblock("type t = () -> (string, ...string)")
-		local tp = ((stat.statements[1] :: syntaxTypes.AstStatTypeAlias).type :: syntaxTypes.AstTypeFunction).returntypes
+		local stat = syntax.parseBlock("type t = () -> (string, ...string)")
+		local tp = ((stat.statements[1] :: syntaxTypes.AstStatTypeAlias).type :: syntaxTypes.AstTypeFunction).returnTypes
 
 		checkReplacement(source, expected, function(ast)
 			return query
-				.findallfromroot(ast, syntaxUtils.isStatTypeAlias)
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatTypeAlias) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:map(function(ta)
-					return if ta.type.tag == "function" then ta.type.returntypes else nil
+					return if ta.type.tag == "function" then ta.type.returnTypes else nil
 				end)
 				:replace(function(_)
-					return tp
+					return printer.printNode(tp)
 				end)
 		end, assert)
 	end)
 
-	suite:case("expr_table_item_replacement", function(assert)
+	suite:case("exprTableItemReplacement", function(assert)
 		local source = "local tbl = { a = 1, }"
 		local expected = "local tbl = { b = 2, }"
 
 		checkReplacement(source, expected, function(ast)
 			return query
-				.findallfromroot(ast, syntaxUtils.isExprTable)
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:map(function(node)
 					return node.entries[1]
 				end)
@@ -117,237 +119,275 @@ test.suite("syntax_printer", function(suite)
 		end, assert)
 	end)
 
-	suite:case("exprgroup_trivia", function(assert)
+	suite:case("exprGroupTrivia", function(assert)
 		local source = [[local x =
 (1 + 2) -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprGroup):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprGroup) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprnil_trivia", function(assert)
+	suite:case("exprNilTrivia", function(assert)
 		local source = [[local x =
 nil -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprConstantNil):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantNil) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprbool_trivia", function(assert)
+	suite:case("exprBoolTrivia", function(assert)
 		local source = [[local x =
 true -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprConstantBool):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantBool) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprnumber_trivia", function(assert)
+	suite:case("exprNumberTrivia", function(assert)
 		local source = [[local x =
 235 -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprConstantNumber):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantNumber) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprlocal_trivia", function(assert)
+	suite:case("exprLocalTrivia", function(assert)
 		local source = [[local y = 3
 		local x =
 y -- after]]
 		local expected = "local y = 3\n\t\tlocal x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprLocal):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprglobal_trivia", function(assert)
+	suite:case("exprGlobalTrivia", function(assert)
 		local source = [[local x =
 y -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprGlobal):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprGlobal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprvarargs_trivia", function(assert)
+	suite:case("exprVarargsTrivia", function(assert)
 		local source = [[local x =
 ... -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprVarargs):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprVarargs) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprcall_trivia", function(assert)
+	suite:case("exprCallTrivia", function(assert)
 		local source = [[local x =
 print() -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprCall):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprCall) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprindexname_trivia", function(assert)
+	suite:case("exprIndexNameTrivia", function(assert)
 		local source = [[local x =
 hello.world -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprIndexName):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprIndexName) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprindexexpr_trivia", function(assert)
+	suite:case("exprIndexExprTrivia", function(assert)
 		local source = [[local x =
 hello['world'] -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprIndexExpr):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprIndexExpr) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprfunction_trivia", function(assert)
+	suite:case("exprFunctionTrivia", function(assert)
 		local source = [[local x =
 function() return end -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprFunction):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprtable_trivia", function(assert)
+	suite:case("exprTableTrivia", function(assert)
 		local source = [[local x =
 {} -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprTable):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprunary_trivia", function(assert)
+	suite:case("exprUnaryTrivia", function(assert)
 		local source = [[local x =
 #t -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprUnary):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprUnary) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprbinary_trivia", function(assert)
+	suite:case("exprBinaryTrivia", function(assert)
 		local source = [[local x =
 3 + 2 -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprBinary):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprBinary) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprinterpstring_trivia", function(assert)
+	suite:case("exprInterpStringTrivia", function(assert)
 		local source = [[local x =
 `hello {"world"}` -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprInterpString):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprInterpString) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprtypeassertion_trivia", function(assert)
+	suite:case("exprTypeAssertionTrivia", function(assert)
 		local source = [[local x =
 y :: number -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprTypeAssertion):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprTypeAssertion) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("exprifelse_trivia", function(assert)
+	suite:case("exprIfElseTrivia", function(assert)
 		local source = [[local x =
 if true then 'hello' else 'world' -- after]]
 		local expected = "local x =\nreplaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExprIfElse):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprIfElse) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("expr_trivia", function(assert)
+	suite:case("exprTrivia", function(assert)
 		local source = [[local x, y =
 if true then 'hello' else 'world', z :: string -- after]]
 		local expected = "local x, y =\nreplaced, replaced -- after"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isExpr):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isExpr) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statblock_trivia", function(assert)
+	suite:case("statBlockTrivia", function(assert)
 		local source = [[-- hello
 local y = 1
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatBlock):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatBlock) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statif_trivia", function(assert)
+	suite:case("statIfTrivia", function(assert)
 		local source = [[-- hello
 if true then
 	return 1
@@ -358,13 +398,15 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatIf):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatIf) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statwhile_trivia", function(assert)
+	suite:case("statWhileTrivia", function(assert)
 		local source = [[-- hello
 while true do
 	print("hello")
@@ -373,13 +415,15 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatWhile):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatWhile) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statrepeat_trivia", function(assert)
+	suite:case("statRepeatTrivia", function(assert)
 		local source = [[-- hello
 repeat
 	print("hello")
@@ -388,13 +432,15 @@ until true
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatRepeat):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatRepeat) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statbreak_trivia", function(assert)
+	suite:case("statBreakTrivia", function(assert)
 		local source = [[-- hello
 while true do
 	break
@@ -403,13 +449,15 @@ end
 		local expected = "-- hello\nwhile true do\n\treplaced\nend\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatBreak):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatBreak) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statcontinue_trivia", function(assert)
+	suite:case("statContinueTrivia", function(assert)
 		local source = [[-- hello
 while true do
 	continue
@@ -418,52 +466,60 @@ end
 		local expected = "-- hello\nwhile true do\n\treplaced\nend\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatContinue):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatContinue) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statreturn_trivia", function(assert)
+	suite:case("statReturnTrivia", function(assert)
 		local source = [[-- hello
 function foo() return 1, 2 end
 -- world]]
 		local expected = "-- hello\nfunction foo() replaced end\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatReturn):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatReturn) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statexpr_trivia", function(assert)
+	suite:case("statExprTrivia", function(assert)
 		local source = [[-- hello
 foobar()
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatExpr):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatExpr) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statlocal_trivia", function(assert)
+	suite:case("statLocalTrivia", function(assert)
 		local source = [[-- hello
 local x = 1
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatLocal):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statfor_trivia", function(assert)
+	suite:case("statForTrivia", function(assert)
 		local source = [[-- hello
 for i = 1, 10 do
 	print(i)
@@ -472,13 +528,15 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatFor):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatFor) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statforin_trivia", function(assert)
+	suite:case("statForInTrivia", function(assert)
 		local source = [[-- hello
 for i in {1, 2, 3} do
 	print(i)
@@ -487,13 +545,15 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatForIn):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatForIn) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statassign_trivia", function(assert)
+	suite:case("statAssignTrivia", function(assert)
 		local source = [[-- hello
 local y = 2
 y = 1
@@ -501,13 +561,15 @@ y = 1
 		local expected = "-- hello\nlocal y = 2\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatAssign):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatAssign) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statcompoundassign_trivia", function(assert)
+	suite:case("statCompoundAssignTrivia", function(assert)
 		local source = [[-- hello
 local y = 2
 y -= 1
@@ -515,13 +577,15 @@ y -= 1
 		local expected = "-- hello\nlocal y = 2\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatCompoundAssign):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatCompoundAssign) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statfunction_trivia", function(assert)
+	suite:case("statFunctionTrivia", function(assert)
 		local source = [[-- hello
 function foo()
 	return 1
@@ -530,13 +594,15 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatFunction):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("statlocalfunction_trivia", function(assert)
+	suite:case("statLocalFunctionTrivia", function(assert)
 		local source = [[-- hello
 local function foo()
 	return 1
@@ -545,39 +611,45 @@ end
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatLocalFunction):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatLocalFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("stattypealias_trivia", function(assert)
+	suite:case("statTypeAliasTrivia", function(assert)
 		local source = [[-- hello
 type foo = number
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatTypeAlias):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatTypeAlias) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("stattypefunction_trivia", function(assert)
+	suite:case("statTypeFunctionTrivia", function(assert)
 		local source = [[-- hello
 type function foo() return number end
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStatTypeFunction):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStatTypeFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("stat_trivia", function(assert)
+	suite:case("statTrivia", function(assert)
 		local source = [[-- hello
 local x = 1
 local y = 2
@@ -585,234 +657,270 @@ local y = 2
 		local expected = "-- hello\nreplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isStat):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isStat) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typereference_trivia", function(assert)
+	suite:case("typeReferenceTrivia", function(assert)
 		local source = [[-- hello
 type foo = number
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeReference):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeReference) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typesingletonbool_trivia", function(assert)
+	suite:case("typeSingletonBoolTrivia", function(assert)
 		local source = [[-- hello
 type foo = true
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeSingletonBool):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeSingletonBool) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typesingletonstring_trivia", function(assert)
+	suite:case("typeSingletonStringTrivia", function(assert)
 		local source = [[-- hello
 local x : "hello"
 -- world]]
 		local expected = "-- hello\nlocal x : replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeSingletonString):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeSingletonString) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typetypeof_trivia", function(assert)
+	suite:case("typeTypeOfTrivia", function(assert)
 		local source = [[-- hello
 type foo = typeof(123)
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeTypeof):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeTypeof) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typegroup_trivia", function(assert)
+	suite:case("typeGroupTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number)
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeGroup):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeGroup) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typeoptional_trivia", function(assert)
+	suite:case("typeOptionalTrivia", function(assert)
 		local source = [[-- hello
 type foo = true?
 -- world]]
 		local expected = "-- hello\ntype foo = truereplaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeOptional):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeOptional) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typeunion_trivia", function(assert)
+	suite:case("typeUnionTrivia", function(assert)
 		local source = [[-- hello
 type foo = true? | false
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeUnion):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeUnion) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typeintersection_trivia", function(assert)
+	suite:case("typeIntersectionTrivia", function(assert)
 		local source = [[-- hello
 type foo = true & false
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeIntersection):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeIntersection) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typearray_trivia", function(assert)
+	suite:case("typeArrayTrivia", function(assert)
 		local source = [[-- hello
 type foo = { number }
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeArray):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeArray) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typetable_trivia", function(assert)
+	suite:case("typeTableTrivia", function(assert)
 		local source = [[-- hello
 type foo = {}
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeTable):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typefunction_trivia", function(assert)
+	suite:case("typeFunctionTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> ()
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypeFunction):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypeFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("type_trivia", function(assert)
+	suite:case("typeTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> ()
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isType):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isType) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typepackexplicit_trivia", function(assert)
+	suite:case("typePackExplicitTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> (number, ...string)
 -- world]]
 		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypePackExplicit):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypePackExplicit) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typepackgeneric_trivia", function(assert)
+	suite:case("typePackGenericTrivia", function(assert)
 		local source = [[-- hello
 type foo = <G...>(number) -> (number, G...)
 -- world]]
 		local expected = "-- hello\ntype foo = <G...>(number) -> (number, replaced)\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypePackGeneric):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypePackGeneric) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typepackvariadic_trivia", function(assert)
+	suite:case("typePackVariadicTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> (...number)
 -- world]]
 		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypePackVariadic):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypePackVariadic) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("typepack_trivia", function(assert)
+	suite:case("typePackTrivia", function(assert)
 		local source = [[-- hello
 type foo = (number) -> (number, ...string)
 -- world]]
 		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isTypePack):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isTypePack) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("local_trivia", function(assert)
+	suite:case("localTrivia", function(assert)
 		local source = [[-- hello
 local x, y = 1, 2
 -- world]]
 		local expected = "-- hello\nlocal replaced, replaced = 1, 2\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isLocal):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("attribute_trivia", function(assert)
+	suite:case("attributeTrivia", function(assert)
 		local source = [[-- hello
 @checked
 function foo() return end
@@ -820,13 +928,15 @@ function foo() return end
 		local expected = "-- hello\nreplaced\nfunction foo() return end\n-- world"
 
 		checkReplacement(source, expected, function(ast)
-			return query.findallfromroot(ast, syntaxUtils.isAttribute):replace(function()
-				return "replaced"
-			end)
+			return query
+				.findAllFromRoot(ast :: any, syntaxUtils.isAttribute) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:replace(function()
+					return "replaced"
+				end)
 		end, assert)
 	end)
 
-	suite:case("comments_in_call", function(assert)
+	suite:case("commentsInCall", function(assert)
 		local source = [[foobar(
   foo, -- what about this
   bar, -- and this
@@ -837,7 +947,7 @@ function foo() return end
 
 		checkReplacement(source, expected, function(ast)
 			return query
-				.findallfromroot(ast, syntaxUtils.isExprGlobal)
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprGlobal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:filter(function(g)
 					return g.name.text == "baz"
 				end)
@@ -847,7 +957,7 @@ function foo() return end
 		end, assert)
 	end)
 
-	suite:case("comments_in_table", function(assert)
+	suite:case("commentsInTable", function(assert)
 		local source = [[local x = {
   foo = -- what about this
   1, 
@@ -868,8 +978,8 @@ function foo() return end
 
 		checkReplacement(source, expected, function(ast)
 			return query
-				.findallfromroot(ast, syntaxUtils.isExprTable)
-				:flatmap(function(t)
+				.findAllFromRoot(ast :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				:flatMap(function(t)
 					local l = {}
 					for _, entry in t.entries do
 						if entry.kind ~= "list" then

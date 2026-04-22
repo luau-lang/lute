@@ -2,10 +2,17 @@
 -- @std/test/types
 -- Standard test types library for Luau
 
--- Test Reporting
-
-export type hook = "beforeeach" | "beforeall" | "aftereach" | "afterall"
-export type failure =
+--- The name of a lifecycle hook that can run around test cases:
+--- - `"beforeEach"`: Runs before each test case in the suite.
+--- - `"beforeAll"`: Runs once before all test cases in the suite.
+--- - `"afterEach"`: Runs after each test case in the suite.
+--- - `"afterAll"`: Runs once after all test cases in the suite.
+export type Hook = "beforeEach" | "beforeAll" | "afterEach" | "afterAll"
+--- Describes why a test failed:
+--- - `"assertion"`: An assertion (e.g. `t.eq`) failed. Includes the assertion name, message, filename, and line number.
+--- - `"lifecycle"`: A lifecycle hook threw an error. Includes the hook name, message, filename, and line number.
+--- - `"runtime_error"`: The test body threw an unhandled error. Includes the message and stack trace.
+export type Failure =
 	{
 		assertion: string, -- name of the assertion
 		msg: string, -- failure message
@@ -14,7 +21,7 @@ export type failure =
 		__tag: "assertion",
 	}
 	| {
-		hook: hook, -- the name of the hook that broke
+		hook: Hook, -- the name of the hook that broke
 		msg: string, -- failure message
 		filename: string, -- filename
 		linenumber: number, -- linenumber
@@ -26,64 +33,76 @@ export type failure =
 		__tag: "runtime_error",
 	}
 
-export type asserts = {
-	eq: <T>(T, T, string?) -> failure?,
-	neq: <T>(T, T, string?) -> failure?,
-	errors: (() -> (), string?) -> failure?,
-	-- FIXME(Luau): We would like this to be two read-only indexers, but the
-	-- best option we have otherwise is two error suppressing indexers.
-	tableeq: ({ [any]: any }, { [any]: any }) -> failure?,
-	buffereq: (buffer, buffer) -> failure?,
-	erroreq: <A...>((A...) -> ...unknown, string, A...) -> failure?,
-	strcontains: (string, string, string?, number?) -> failure?,
-	strnotcontains: (string, string, string?) -> failure?,
+--- The assertion functions passed to each test case. Each assertion returns a `Failure` on failure, or `nil` on success.
+export type Asserts = {
+	eq: <T>(T, T, string?) -> Failure?,
+	neq: <T>(T, T, string?) -> Failure?,
+	throws: <T...>((T...) -> ...unknown, T...) -> Failure?,
+	throwsWith: <T...>(any, (T...) -> ...unknown, T...) -> Failure?,
+	strContains: (string, string, number?, string?) -> Failure?,
+	strNotContains: (string, string, string?) -> Failure?,
+	that: (unknown, string?) -> Failure?,
 }
 
-export type test = (asserts) -> ()
+--- A test function that receives the assertion helpers and runs one test case.
+export type Test = (Asserts) -> ()
 
-export type testcase = { name: string, case: test }
+--- A named test case pairing a name with its test function.
+export type TestCase = { name: string, case: Test }
 
-export type testsuite = {
+--- A named collection of test cases with optional lifecycle hooks.
+export type TestSuite = {
 	name: string,
-	cases: { testcase },
-	_beforeeach: (() -> ())?,
-	_beforeall: (() -> ())?,
-	_aftereach: (() -> ())?,
-	_afterall: (() -> ())?,
-	case: (self: testsuite, string, test) -> (),
-	beforeeach: (self: testsuite, () -> ()) -> (),
-	beforeall: (self: testsuite, () -> ()) -> (),
-	aftereach: (self: testsuite, () -> ()) -> (),
-	afterall: (self: testsuite, () -> ()) -> (),
+	cases: { TestCase },
+	_beforeEach: (() -> ())?,
+	_beforeAll: (() -> ())?,
+	_afterEach: (() -> ())?,
+	_afterAll: (() -> ())?,
+	case: (self: TestSuite, string, Test) -> (),
+	beforeEach: (self: TestSuite, () -> ()) -> (),
+	beforeAll: (self: TestSuite, () -> ()) -> (),
+	afterEach: (self: TestSuite, () -> ()) -> (),
+	afterAll: (self: TestSuite, () -> ()) -> (),
 }
 
-export type failedtest = {
+-- Additional options for configuring the test runner
+export type TestRunnerOptions = {
+	verbose: boolean,
+}
+
+--- A test case that failed, paired with the failure that caused it.
+export type FailedTest = {
 	test: string, -- name of the test case that failed
-	failure: failure,
+	failure: Failure,
 }
 
-export type testrunresult = {
-	failures: { failedtest },
+--- The aggregate results of a test run: total, passed, failed counts and the list of failures.
+export type TestRunResult = {
+	failures: { FailedTest },
 	total: number,
 	failed: number,
 	passed: number,
 }
 
-export type testreporter = (testrunresult) -> ()
+--- A function that receives a `TestRunResult` and reports it (e.g. prints to stdout).
+export type TestReporter = (TestRunResult) -> ()
 
 -- Testing Environment
-export type caseindexentry = {
-	anonymous: { testcase },
-	suites: { [string]: { testcase } },
+--- An index entry mapping a test case name to all anonymous instances and suite instances with that name.
+export type CaseIndexEntry = {
+	anonymous: { TestCase },
+	suites: { [string]: { TestCase } },
 }
 
-export type testenvironment = {
-	anonymous: { testcase },
-	suites: { testsuite },
-	suiteindex: { [string]: testsuite },
-	caseindex: { [string]: caseindexentry },
+--- The full set of discovered tests: anonymous cases, suites, and lookup indexes by name.
+export type TestEnvironment = {
+	anonymous: { TestCase },
+	suites: { TestSuite },
+	suiteindex: { [string]: TestSuite },
+	caseindex: { [string]: CaseIndexEntry },
 }
 
-export type testrunner = (testenvironment) -> testrunresult
+--- A function that runs a `TestEnvironment` and returns the results.
+export type TestRunner = (TestEnvironment, TestRunnerOptions?) -> TestRunResult
 
 return {}

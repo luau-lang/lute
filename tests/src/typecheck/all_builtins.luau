@@ -1,0 +1,6 @@
+local _fs = require("@std/fs")
+local _path = require("@std/path")
+local _process = require("@std/process")
+local _system = require("@std/system")
+local _task = require("@std/task")
+local _time = require("@std/time")

@@ -5,7 +5,7 @@ local system = require("@std/system")
 local tmpdir = system.tmpdir()
 local directory = path.join(tmpdir, "example_dir")
 
-fs.createdirectory(directory, { makeparents = true })
+fs.createDirectory(directory, { makeParents = true })
 
 if fs.exists(directory) and fs.type(directory) == "dir" then
 	print("Directory successfully created")
@@ -13,7 +13,7 @@ else
 	print("Failed to create directory")
 end
 
-fs.removedirectory(directory)
+fs.removeDirectory(directory)
 
 if not fs.exists(directory) then
 	print("Directory successfully removed")

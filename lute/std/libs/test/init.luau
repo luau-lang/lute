@@ -3,58 +3,58 @@
 -- Standard test library for Luau
 
 local types = require("@self/types")
+local env = require("@self/env")
 
-local reporter = require("@self/reporter")
-local runner = require("@self/runner")
-local ps = require("@std/process")
-
-type Test = types.test
-type TestCase = types.testcase
-type TestSuite = types.testsuite
-type TestEnvironment = types.testenvironment
-type TestReporter = types.testreporter
+type Test = types.Test
+type TestCase = types.TestCase
+type TestSuite = types.TestSuite
+type TestReporter = types.TestReporter
 
 local TestSuite = {}
 TestSuite.__index = TestSuite
 
+--- Creates a new, empty `TestSuite` with the given `name`.
 function TestSuite.new(name: string): TestSuite
 	local self = setmetatable({
 		name = name,
 		cases = {},
-		_beforeeach = nil,
-		_beforeall = nil,
-		_aftereach = nil,
-		_afterall = nil,
+		_beforeEach = nil,
+		_beforeAll = nil,
+		_afterEach = nil,
+		_afterAll = nil,
 	}, TestSuite)
 	return self :: TestSuite
 end
 
+--- Registers a test case with `name` in this suite.
 function TestSuite:case(name: string, testCase: Test)
 	table.insert(self.cases, { name = name, case = testCase })
 end
 
-function TestSuite:beforeeach(hook: () -> ())
-	self._beforeeach = hook
+--- Registers a hook to run before each test case in this suite.
+function TestSuite:beforeEach(hook: () -> ())
+	self._beforeEach = hook
 end
 
-function TestSuite:beforeall(hook: () -> ())
-	self._beforeall = hook
+--- Registers a hook to run once before all test cases in this suite.
+function TestSuite:beforeAll(hook: () -> ())
+	self._beforeAll = hook
 end
 
-function TestSuite:aftereach(hook: () -> ())
-	self._aftereach = hook
+--- Registers a hook to run after each test case in this suite.
+function TestSuite:afterEach(hook: () -> ())
+	self._afterEach = hook
 end
 
-function TestSuite:afterall(hook: () -> ())
-	self._afterall = hook
+--- Registers a hook to run once after all test cases in this suite.
+function TestSuite:afterAll(hook: () -> ())
+	self._afterAll = hook
 end
-
-local env: TestEnvironment = { anonymous = {}, suites = {}, suiteindex = {}, caseindex = {} }
 
 -- Test library export surface
 local test = {}
 
--- register an anonymous test case
+--- Registers an anonymous (top-level) test case with the given `name`.
 function test.case(name: string, case: Test)
 	local testcase = { name = name, case = case }
 	table.insert(env.anonymous, testcase)
@@ -67,7 +67,7 @@ function test.case(name: string, case: Test)
 	end
 end
 
--- register a test suite
+--- Registers a test suite with `name`, using `registerFn` to define its test cases.
 function test.suite(name: string, registerFn: (TestSuite) -> ())
 	local suite = TestSuite.new(name)
 	registerFn(suite)
@@ -96,16 +96,6 @@ function test._registered()
 		suiteindex = env.suiteindex,
 		caseindex = env.caseindex,
 	})
-end
-
--- run all the tests
-function test.run()
-	local failed = runner.run(env)
-	reporter.simple(failed)
-	if failed.failed ~= 0 then
-		ps.exit(1)
-	end
-	ps.exit(0)
 end
 
 return table.freeze(test)

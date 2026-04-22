@@ -29,7 +29,7 @@ end
 
 function compFuncs.exprIndexExprsSame(a: syntax.AstExprIndexExpr, b: syntax.AstExprIndexExpr): boolean
 	if a.index.tag == "string" and b.index.tag == "string" then
-		if a.index.text ~= b.index.text then
+		if a.index.token.text ~= b.index.token.text then
 			return false
 		else
 			return compFuncs.refExprsSame(a.expression, b.expression)
@@ -59,10 +59,10 @@ end
 
 -- Report instances of attempted swaps like:
 -- a = b; b = a
-local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTypes.LintViolation }
+local function lint(ast: syntax.AstStatBlock, sourcepath: path.Path?): { lintTypes.LintViolation }
 	local violations = {}
 
-	local nodes = query.findallfromroot(ast, utils.isStatBlock).nodes
+	local nodes = query.findAllFromRoot(ast, utils.isStatBlock).nodes
 
 	for _, block in nodes do
 		for i = 1, #block.statements - 1 do
@@ -88,10 +88,10 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.path?): { lintTyp
 					{
 						lintname = name,
 						location = syntax.span.create({
-							beginline = currStat.location.beginline,
-							begincolumn = currStat.location.begincolumn,
-							endline = nextStat.location.endline,
-							endcolumn = nextStat.location.endcolumn,
+							beginLine = currStat.location.beginLine,
+							beginColumn = currStat.location.beginColumn,
+							endLine = nextStat.location.endLine,
+							endColumn = nextStat.location.endColumn,
 						}),
 						message = message,
 						severity = "warning",

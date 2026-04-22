@@ -5,7 +5,8 @@
 
 local stringext = {}
 
-function stringext.hasprefix(str: string, prefix: string): boolean
+--- Returns `true` if `str` begins with `prefix`.
+function stringext.hasPrefix(str: string, prefix: string): boolean
 	if #prefix > #str then
 		return false
 	end
@@ -13,32 +14,36 @@ function stringext.hasprefix(str: string, prefix: string): boolean
 	return str:sub(1, #prefix) == prefix
 end
 
-function stringext.removeprefix(str: string, prefix: string): string
-	if not stringext.hasprefix(str, prefix) then
+--- Returns `str` with `prefix` removed from the front. If `str` does not start with `prefix`, returns `str` unchanged.
+function stringext.removePrefix(str: string, prefix: string): string
+	if not stringext.hasPrefix(str, prefix) then
 		return str
 	end
 
 	return str:sub(#prefix + 1)
 end
 
-function stringext.hassuffix(str: string, suffix: string): boolean
+--- Returns `true` if `str` ends with `suffix`.
+function stringext.hasSuffix(str: string, suffix: string): boolean
 	return str:sub(-#suffix) == suffix
 end
 
-function stringext.removesuffix(str: string, suffix: string): string
-	if not stringext.hassuffix(str, suffix) then
+--- Returns `str` with `suffix` removed from the end. If `str` does not end with `suffix`, returns `str` unchanged.
+function stringext.removeSuffix(str: string, suffix: string): string
+	if not stringext.hasSuffix(str, suffix) then
 		return str
 	end
 
 	return str:sub(0, -#suffix - 1)
 end
 
+--- Returns `str` with leading and trailing whitespace removed.
 function stringext.trim(str: string): string
 	-- Pattern is guaranteed to return a result
 	return str:match("^%s*(.-)%s*$") :: string
 end
 
--- Counts the number of occurrences of pattern in str between startPos and endPos (inclusive)
+--- Counts the number of occurrences of `pattern` in `str`, optionally restricted to the range `[startPos, endPos]`.
 function stringext.count(str: string, pattern: string, startPos: number?, endPos: number?): number
 	if startPos and endPos then
 		str = str:sub(startPos, endPos)

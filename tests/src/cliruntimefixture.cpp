@@ -1,9 +1,7 @@
 #include "cliruntimefixture.h"
 
-#include "lute/climain.h"
+#include "lute/options.h"
 #include "lute/requiresetup.h"
-
-#include "Luau/Compiler.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -18,7 +16,7 @@ static int report(lua_State* L)
 }
 
 CliRuntimeFixture::CliRuntimeFixture()
-    : runtime(std::make_unique<Runtime>())
+    : runtime(std::make_unique<Runtime>(getReporter()))
 {
     L = setupRunState(
         *runtime,
@@ -34,6 +32,5 @@ CliRuntimeFixture::CliRuntimeFixture()
 
 bool CliRuntimeFixture::runCode(const std::string& source)
 {
-    std::string bytecode = Luau::compile(source, Luau::CompileOptions());
-    return runBytecode(*runtime, bytecode, "=stdin", L, 0, nullptr, getReporter());
+    return runtime->runSource(source, copts());
 }

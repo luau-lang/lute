@@ -1,15 +1,22 @@
 local pathinterface = require("../pathinterface")
 
-export type pathkind = "unc" | "absolute" | "relative"
+--- Describes how a Windows path is rooted:
+--- - `"absolute"`: Drive-rooted path, e.g. `C:\foo`.
+--- - `"unc"`: UNC path, e.g. `\\server\share`.
+--- - `"relative"`: A path with no drive or UNC root.
+export type PathKind = "unc" | "absolute" | "relative"
 
-export type pathdata = {
+--- The raw data of a Windows path: an array of components, the path kind, and an optional drive letter.
+export type PathData = {
 	parts: { string },
-	kind: pathkind,
+	kind: PathKind,
 	drive: string?,
 }
 
-export type path = setmetatable<pathdata, pathinterface.pathinterface>
+--- A structured Windows path.
+export type Path = setmetatable<PathData, pathinterface.PathInterface>
 
-export type pathlike = string | pathdata | path
+--- Anything that can be used as a Windows path: a string, a `Path`, or raw `PathData`.
+export type Pathlike = string | PathData | Path
 
 return {}

@@ -7,10 +7,10 @@ local snapty = require("./types")
 
 -- Derive the .snap artifact path from a .snap.luau file path.
 -- e.g. /foo/bar.snap.luau -> /foo/bar.snap
-local function artifactpath(filepath: path.path): string
+local function artifactpath(filepath: path.Path): string
 	local f = path.format(filepath)
-	assert(strext.hassuffix(f, ".snap.luau"), `expected {f} to have suffix .snap.luau`)
-	return strext.removesuffix(f, ".luau") -- strips ".luau"
+	assert(strext.hasSuffix(f, ".snap.luau"), `expected {f} to have suffix .snap.luau`)
+	return strext.removeSuffix(f, ".luau") -- strips ".luau"
 end
 
 local function posixify(str)
@@ -26,14 +26,14 @@ end
 
 local runner = {}
 
-function runner.runsnapshots(files: { path.path }): snapty.snapresult
+function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 	local result: snapty.snapresult = {
 		passed = {},
 		failed = {},
 		new = {},
 	}
 
-	local execpath = path.format(process.execpath())
+	local execpath = path.format(process.execPath())
 
 	-- Compute the normalized current working directory exactly once
 	--[[
@@ -63,7 +63,7 @@ function runner.runsnapshots(files: { path.path }): snapty.snapresult
 			continue
 		end
 
-		local expected = fs.readfiletostring(artifactpath)
+		local expected = fs.readFileToString(artifactpath)
 
 		if actual == expected then
 			table.insert(result.passed, { filepath = filepath, artifactpath = artifactpath })

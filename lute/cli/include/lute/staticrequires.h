@@ -31,9 +31,9 @@ public:
 
     // Get discovered .luaurc files as a map of (lcrPath -> content)
     // lcrPath is the absolute path with the lowest common prefix stripped
-    const Luau::DenseHashMap<std::string, std::string>& getLuaurcFiles() const
+    const Luau::DenseHashMap<std::string, std::string>& getLuauConfigFiles() const
     {
-        return luaurcFiles;
+        return luauConfigFiles;
     }
 
     void printRequireGraph() const;
@@ -44,13 +44,13 @@ private:
     Luau::DenseHashSet<std::string> visited{""};
     std::vector<std::string> discovered;                                        // Absolute paths
     Luau::DenseHashMap<std::string, std::vector<std::string>> requireGraph{""}; // Absolute paths
-    Luau::DenseHashMap<std::string, std::string> luaurcFiles{""};               // LCR-relative path -> content
+    Luau::DenseHashMap<std::string, std::string> luauConfigFiles{""};           // LCR-relative path -> content
     std::string lowestCommonRoot;
 
     // Extract all require() paths from source code
     std::vector<std::string> extractRequires(const std::string& source);
 
     // Resolve a require path relative to the requiring file
-    std::optional<std::string> resolveRequire(const std::string& requirer, const std::string& required);
+    std::optional<std::string> resolveModule(const std::string& requirer, const std::string& required);
     LuteReporter& reporter;
 };

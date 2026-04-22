@@ -4,44 +4,59 @@ local time = {}
 local duration_ops = {}
 local instant = {}
 
+--- Returns the current time as an `Instant`.
 function time.now(): Instant
 	error("not implemented")
 end
 
+--- Returns the number of seconds elapsed since `instant`.
 function time.since(instant: Instant): number
 	error("not implemented")
 end
 
 time.duration = {}
 
+--- Creates a `Duration` from `seconds` and a fractional `subsecnanos` nanosecond component.
+function time.duration.create(seconds: number, subsecnanos: number): Duration
+	error("not implemented")
+end
+
+--- Creates a `Duration` from a number of nanoseconds.
 function time.duration.nanoseconds(nanoseconds: number): Duration
 	error("not implemented")
 end
 
+--- Creates a `Duration` from a number of microseconds.
 function time.duration.microseconds(microseconds: number): Duration
 	error("not implemented")
 end
 
+--- Creates a `Duration` from a number of milliseconds.
 function time.duration.milliseconds(milliseconds: number): Duration
 	error("not implemented")
 end
 
+--- Creates a `Duration` from a number of seconds.
 function time.duration.seconds(seconds: number): Duration
 	error("not implemented")
 end
 
+--- Creates a `Duration` from a number of minutes.
 function time.duration.minutes(minutes: number): Duration
 	error("not implemented")
 end
 
+--- Creates a `Duration` from a number of hours.
 function time.duration.hours(hours: number): Duration
 	error("not implemented")
 end
 
+--- Creates a `Duration` from a number of days.
 function time.duration.days(days: number): Duration
 	error("not implemented")
 end
 
+--- Creates a `Duration` from a number of weeks.
 function time.duration.weeks(weeks: number): Duration
 	error("not implemented")
 end
@@ -50,35 +65,35 @@ function instant.elapsed(self: Instant): number
 	error("not implemented")
 end
 
-function duration_ops.tonanoseconds(self: Duration): number
+function duration_ops.toNanoseconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tomicroseconds(self: Duration): number
+function duration_ops.toMicroseconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tomilliseconds(self: Duration): number
+function duration_ops.toMilliseconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.toseconds(self: Duration): number
+function duration_ops.toSeconds(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tominutes(self: Duration): number
+function duration_ops.toMinutes(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.tohours(self: Duration): number
+function duration_ops.toHours(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.todays(self: Duration): number
+function duration_ops.toDays(self: Duration): number
 	error("not implemented")
 end
 
-function duration_ops.toweeks(self: Duration): number
+function duration_ops.toWeeks(self: Duration): number
 	error("not implemented")
 end
 
@@ -95,16 +110,20 @@ function duration_ops.subsecmillis(self: Duration): number
 end
 
 type Frozen = typeof(table.freeze({}))
+--- A time duration with nanosecond precision. Supports arithmetic via `+`, `-`, `*`, `/`, and comparison operators.
 export type Duration = setmetatable<Frozen, {
 	read __metatable: "The metatable is locked!",
 	read __index: typeof(table.freeze(duration_ops)),
 	read __add: (Duration, Duration) -> Duration,
 	read __sub: (Duration, Duration) -> Duration,
+	read __mul: (Duration, number) -> Duration,
+	read __div: (Duration, number) -> Duration,
 	read __eq: (Duration, Duration) -> boolean,
 	read __lt: (Duration, Duration) -> boolean,
 	read __le: (Duration, Duration) -> boolean,
 }>
 
+--- A point in time with nanosecond precision. Can be subtracted from another `Instant` to produce a `Duration`.
 export type Instant = setmetatable<Frozen, {
 	read __metatable: "The metatable is locked!",
 	read __index: typeof(table.freeze(instant)),

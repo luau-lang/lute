@@ -1,35 +1,31 @@
-local resolution = require("../resolver/resolution")
-local loomTypes = require("../loomtypes")
-local projectManifest = require("../manifest/projectmanifest")
-local pp = require("../../extern/pp")
+local lockfile = require("../lockfile")
+local packageresolution = require("../packageresolution")
+local path = require("@std/path")
+local process = require("@std/process")
 
-local fsUtils = require("../utils/fsutils")
-local luau = require("@std/luau")
+local function printDiagnostics(lock: lockfile.Lockfile)
+	local depCount = 0
+	for _ in lock.dependencies do
+		depCount += 1
+	end
+	print(`Resolved {depCount} package(s).`)
 
-local function executeLuauSource(source: string): any
-	local bytecode = luau.compile(source)
-	local func = luau.load(bytecode, "loom.config.luau", {})
-	return func()
+	for _, key in lock.dependencies do
+		local transitive = 0
+		local pkg = lock.packages[key]
+		if pkg then
+			for _ in pkg.dependencies do
+				transitive += 1
+			end
+		end
+		print(`  {key} ({pkg.sourceKind}, {transitive} dep(s))`)
+	end
 end
 
-function install(packageSource: loomTypes.PackageSource)
-	local manifestPath = "loom.config.luau"
-	local manifestContent = fsUtils.readfiletostring(manifestPath)
-	local manifestTable = executeLuauSource(manifestContent)
-	local manifest = projectManifest.fromTable(manifestTable)
-
-	local projectResolution = resolution.fromManifest(manifest)
-
-	local lockfile = resolution.toLockFile(projectResolution)
-	fsUtils.writestringtofile("loom.lock.luau", "return " .. pp(lockfile))
-
-	for _, pkg in projectResolution.packages do
-		print(`package: {pkg.name}, Rev: {pkg.rev}, Source: {pkg.sourceKind} - {pkg.source}`)
-		if pkg.sourceKind == "github" then
-			local zipArchive = packageSource.git:downloadFromGitHubArchive(pkg.source)
-			packageSource.git:installZipArchive(pkg.name, pkg.rev, zipArchive)
-		end
-	end
+local function install()
+	local rootDirectory = path.format(process.cwd())
+	local lock = packageresolution.resolve(rootDirectory)
+	printDiagnostics(lock)
 end
 
 return install

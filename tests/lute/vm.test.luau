@@ -5,14 +5,14 @@ local process = require("@std/process")
 local system = require("@std/system")
 
 test.suite("LuteVmSuite", function(suite)
-	suite:case("child_vm_has_access_to_builtins", function(assert)
+	suite:case("childVmHasAccessToBuiltins", function(assert)
 		local tmpdir = system.tmpdir()
 		local child_vm = path.join(tmpdir, "child_vm.luau")
 		local parent_vm = path.join(tmpdir, "parent_vm.luau")
 
 		do
 			local handle = fs.open(child_vm, "w+")
-			assert.eq(fs.exists(child_vm), true)
+			assert.that(fs.exists(child_vm))
 			fs.write(
 				handle,
 				[[
@@ -44,7 +44,7 @@ test.suite("LuteVmSuite", function(suite)
 
 		do
 			local handle = fs.open(parent_vm, "w+")
-			assert.eq(fs.exists(parent_vm), true)
+			assert.that(fs.exists(parent_vm))
 			fs.write(
 				handle,
 				[[
@@ -59,7 +59,7 @@ test.suite("LuteVmSuite", function(suite)
 			fs.close(handle)
 		end
 
-		local result = process.run({ path.format(process.execpath()), path.format(parent_vm) })
+		local result = process.run({ path.format(process.execPath()), path.format(parent_vm) })
 		assert.eq(result.exitcode, 0)
 
 		fs.remove(child_vm)

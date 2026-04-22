@@ -1,4 +1,4 @@
-#include "lute/spawn.h"
+#include "lute/vm.h"
 
 #include "lute/ref.h"
 #include "lute/require.h"
@@ -134,29 +134,34 @@ static int crossVmMarshall(lua_State* L)
             auto co = getRefForThread(L);
             lua_pop(target.runtime->GL, 1);
 
-            target.runtime->runningThreads.push_back(
-                {true,
-                 co,
-                 argCount,
-                 [source, target = target.runtime, co]
-                 {
-                     co->push(target->GL);
-                     lua_State* L = lua_tothread(target->GL, -1);
-                     lua_pop(target->GL, 1);
+            ThreadCompletionHandler completion;
+            completion.onFinish = [source, target = target.runtime](lua_State* L, int status)
+            {
+                if (status != LUA_OK)
+                {
+                    const char* msg = lua_isstring(L, -1) ? lua_tostring(L, -1) : "cross-VM call failed";
+                    source->fail(std::string(msg));
+                    return;
+                }
 
-                     std::shared_ptr<Ref> rets = packStackValues(L, target);
+                std::shared_ptr<Ref> rets = packStackValues(L, target);
 
-                     source->complete(
-                         [target, rets](lua_State* L)
-                         {
-                             return unpackStackValue(target, L, rets);
-                         }
-                     );
-                 }}
-            );
+                source->complete(
+                    [target, rets](lua_State* L)
+                    {
+                        return unpackStackValue(target, L, rets);
+                    }
+                );
+            };
+
+            target.runtime->addThreadCompletionHandler(L, std::move(completion));
+            target.runtime->runningThreads.push_back({true, co, argCount});
         }
     );
 
+    // On resume Luau restores L->base to the C-call base, so anything left
+    // here would be counted by crossVmMarshallCont and returned as results.
+    lua_settop(L, 0);
     return lua_yield(L, 0);
 }
 
@@ -168,9 +173,6 @@ static int crossVmMarshallCont(lua_State* L, int status)
     luaL_error(L, "async function errored");
     return 0;
 }
-
-namespace vm
-{
 
 static void* createChildVmRequireContext(lua_State* L)
 {
@@ -197,11 +199,11 @@ static void* createChildVmRequireContext(lua_State* L)
     return ctx;
 }
 
-int lua_spawn(lua_State* L)
+int VM::lua_spawn(lua_State* L)
 {
     const char* file = luaL_checkstring(L, 1);
 
-    auto child = std::make_shared<Runtime>();
+    auto child = std::make_shared<Runtime>(getRuntime(L)->reporter);
 
     setupState(
         *child,
@@ -293,5 +295,3 @@ int lua_spawn(lua_State* L)
 
     return 1;
 }
-
-} // namespace vm

@@ -45,28 +45,28 @@ test.suite("Base64", function(suite)
 		local input = vector[1]
 		local expected_encoded = vector[2]
 
-		suite:case("Encode: '" .. input .. "'", function(assert)
+		suite:case("encode: '" .. input .. "'", function(assert)
 			local encoded = enc(input)
 			assert.eq(expected_encoded, encoded)
 		end)
 
-		suite:case("Decode: '" .. expected_encoded .. "'", function(assert)
+		suite:case("decode: '" .. expected_encoded .. "'", function(assert)
 			local decoded = dec(expected_encoded)
 			assert.eq(input, decoded)
 		end)
 	end
 
 	for _, invalid in invalidInputs do
-		suite:case("Invalid Decode: '" .. invalid .. "'", function(assert)
-			assert.errors(function()
+		suite:case("invalidDecode: '" .. invalid .. "'", function(assert)
+			assert.throws(function()
 				dec(invalid)
 			end)
 		end)
 	end
 
 	for _, invalid in invalidLastBytes do
-		suite:case("Invalid Decode (last bytes): '" .. invalid .. "'", function(assert)
-			assert.errors(function()
+		suite:case("invalidDecodeLastBytes: '" .. invalid .. "'", function(assert)
+			assert.throws(function()
 				dec(invalid)
 			end)
 		end)

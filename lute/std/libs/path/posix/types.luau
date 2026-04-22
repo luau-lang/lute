@@ -1,12 +1,15 @@
 local pathinterface = require("../pathinterface")
 
-export type pathdata = {
+--- The raw data of a POSIX path: an array of components and a flag indicating whether the path is absolute.
+export type PathData = {
 	parts: { string },
 	absolute: boolean,
 }
 
-export type path = setmetatable<pathdata, pathinterface.pathinterface>
+--- A structured POSIX path.
+export type Path = setmetatable<PathData, pathinterface.PathInterface>
 
-export type pathlike = string | path | pathdata
+--- Anything that can be used as a POSIX path: a string, a `Path`, or raw `PathData`.
+export type Pathlike = string | Path | PathData
 
 return {}

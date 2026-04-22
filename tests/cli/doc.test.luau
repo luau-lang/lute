@@ -6,59 +6,59 @@ local test = require("@std/test")
 
 local tmpDir = system.tmpdir()
 local tmpOutputDir = path.join(tmpDir, "lute-doc-output")
-local lutePath = path.format(process.execpath())
+local lutePath = path.format(process.execPath())
 
 local USAGE = "Usage: lute doc [OPTIONS]"
 
 -- Will add specific module test case (see examples/docs) once --module option is added
-test.suite("lute-doc", function(suite)
-	suite:case("lute-doc-help-message", function(assert)
+test.suite("LuteDoc", function(suite)
+	suite:case("luteDocHelpMessage", function(assert)
 		local result = process.run({ lutePath, "doc", "-h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, USAGE)
+		assert.strContains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "doc", "--h" })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, USAGE)
+		assert.strContains(result.stdout, USAGE)
 
 		result = process.run({ lutePath, "doc", "--help" })
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, USAGE)
+		assert.strContains(result.stdout, USAGE)
 	end)
 
-	suite:case("lute-doc-no-modules-provided", function(assert)
+	suite:case("luteDocNoModulesProvided", function(assert)
 		local result = process.system(`{lutePath} doc`)
 
 		assert.eq(result.exitcode, 1)
-		assert.strcontains(result.stderr, "Error: No module paths specified.")
+		assert.strContains(result.stderr, "Error: No module paths specified.")
 	end)
 
-	suite:case("lute-doc-default-directory", function(assert)
+	suite:case("luteDocDefaultDirectory", function(assert)
 		local result = process.system(`{lutePath} doc definitions lute/std/libs`)
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, "Documentation generation complete!")
+		assert.strContains(result.stdout, "Documentation generation complete!")
 	end)
 
-	suite:case("lute-doc-specified-directory", function(assert)
+	suite:case("luteDocSpecifiedDirectory", function(assert)
 		if fs.exists(tmpOutputDir) then
-			fs.removedirectory(tmpOutputDir, { recursive = true })
+			fs.removeDirectory(tmpOutputDir, { recursive = true })
 		end
 
-		fs.createdirectory(tmpOutputDir)
+		fs.createDirectory(tmpOutputDir)
 
 		local result = process.system(`{lutePath} doc -o {path.format(tmpOutputDir)} definitions lute/std/libs`)
 
 		assert.eq(result.exitcode, 0)
-		assert.strcontains(result.stdout, "Documentation generation complete!")
-		assert.strcontains(result.stdout, tostring(tmpOutputDir)) -- "Files written to: <output dir>"
+		assert.strContains(result.stdout, "Documentation generation complete!")
+		assert.strContains(result.stdout, tostring(tmpOutputDir)) -- "Files written to: <output dir>"
 
-		assert.eq(fs.exists(path.join(tmpOutputDir, "reference", "lute", "fs.md")), true)
-		assert.eq(fs.exists(path.join(tmpOutputDir, "reference", "std", "fs.md")), true)
+		assert.that(fs.exists(path.join(tmpOutputDir, "reference", "lute", "fs.md")))
+		assert.that(fs.exists(path.join(tmpOutputDir, "reference", "std", "fs.md")))
 
-		fs.removedirectory(tmpOutputDir, { recursive = true })
+		fs.removeDirectory(tmpOutputDir, { recursive = true })
 	end)
 end)

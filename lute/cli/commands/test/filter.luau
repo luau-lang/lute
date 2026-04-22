@@ -1,11 +1,11 @@
 local testtypes = require("@std/test/types")
 
 local function filtertests(
-	env: testtypes.testenvironment,
+	env: testtypes.TestEnvironment,
 	suiteName: string?,
 	caseName: string?
-): testtypes.testenvironment
-	local filtered: testtypes.testenvironment = {
+): testtypes.TestEnvironment
+	local filtered: testtypes.TestEnvironment = {
 		anonymous = {},
 		suites = {},
 		suiteindex = {},
@@ -23,14 +23,8 @@ local function filtertests(
 		if caseEntry and caseEntry.suites[suiteName] then
 			local suite = env.suiteindex[suiteName]
 			if suite then
-				local filteredSuite = {
-					name = suite.name,
-					cases = caseEntry.suites[suiteName],
-					_beforeeach = suite._beforeeach,
-					_beforeall = suite._beforeall,
-					_aftereach = suite._aftereach,
-					_afterall = suite._afterall,
-				}
+				local filteredSuite = table.clone(suite)
+				filteredSuite.cases = caseEntry.suites[suiteName]
 				table.insert(filtered.suites, filteredSuite)
 			end
 		end
@@ -51,14 +45,8 @@ local function filtertests(
 			for sName, cases in caseEntry.suites do
 				local suite = env.suiteindex[sName]
 				if suite then
-					local filteredSuite = {
-						name = suite.name,
-						cases = cases,
-						_beforeeach = suite._beforeeach,
-						_beforeall = suite._beforeall,
-						_aftereach = suite._aftereach,
-						_afterall = suite._afterall,
-					}
+					local filteredSuite = table.clone(suite)
+					filteredSuite.cases = cases
 					table.insert(filtered.suites, filteredSuite)
 				end
 			end

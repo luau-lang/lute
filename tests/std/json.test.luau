@@ -8,7 +8,7 @@ local failure = require("@std/test/failure")
 local suiteDir = "tests/std/JSONParsingTestSuite"
 
 test.suite("JSONParsingTestSuite", function(suite)
-	for _, entry in fs.listdirectory(suiteDir) do
+	for _, entry in fs.listDirectory(suiteDir) do
 		if entry.type ~= "file" then
 			continue
 		end
@@ -17,28 +17,28 @@ test.suite("JSONParsingTestSuite", function(suite)
 
 		suite:case(name, function(assert)
 			local p = path.join(suiteDir, name)
-			local src = fs.readfiletostring(path.format(p))
+			local src = fs.readFileToString(path.format(p))
 
 			-- attempt to parse .json and print the error if it fails
 			local ok, parsed = pcall(function()
 				return json.deserialize(src)
 			end)
 
-			if stringext.hasprefix(name, "y_") then
+			if stringext.hasPrefix(name, "y_") then
 				-- valid JSON: must parse
-				assert.eq(ok, true)
+				assert.that(ok)
 
 				-- serialize the parsed value and ensure it parses again
 				local _ok2, _ser = pcall(function()
 					return json.serialize(parsed)
 				end)
-				assert.eq(_ok2, true)
+				assert.that(_ok2)
 
 				local _ok3 = pcall(function()
 					json.deserialize(_ser)
 				end)
-				assert.eq(_ok3, true)
-			elseif stringext.hasprefix(name, "n_") then
+				assert.that(_ok3)
+			elseif stringext.hasPrefix(name, "n_") then
 				-- invalid JSON: must fail to parse
 				assert.eq(ok, false)
 			else
@@ -48,7 +48,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 		end)
 	end
 
-	suite:case("json_object_and_asobject", function(assert)
+	suite:case("jsonObjectAndasObject", function(assert)
 		local obj = json.object({
 			name = "Alice",
 			age = 30,
@@ -58,7 +58,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 		assert.eq(obj.age, 30)
 	end)
 
-	suite:case("json_asobject_test", function(assert)
+	suite:case("jsonasObjectTest", function(assert)
 		local myjsonstr = [[
 		{
 			"a": true,
@@ -70,15 +70,15 @@ test.suite("JSONParsingTestSuite", function(suite)
 		]]
 
 		local maybeJson = json.deserialize(myjsonstr)
-		local obj = json.asobject(maybeJson)
+		local obj = json.asObject(maybeJson)
 
 		if obj then
 			assert.eq(type(obj), "table")
-			assert.eq(obj.a, true)
+			assert.that(obj.a)
 			assert.eq(type(obj.b), "table")
-			local obj_b = json.asobject(obj.b)
+			local obj_b = json.asObject(obj.b)
 			if obj_b then
-				assert.eq(obj_b.c, true)
+				assert.that(obj_b.c)
 				local obj_b_d = obj_b.d
 				if typeof(obj_b_d) ~= "table" then
 					failure.assertion(`Expected obj.b.d to be a table, was a {typeof(obj_b_d)}`)

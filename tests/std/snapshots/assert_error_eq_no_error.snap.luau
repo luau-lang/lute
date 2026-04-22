@@ -1,9 +1,10 @@
 local test = require("@std/test")
+local runner = require("@std/test/runner")
 
-test.case("erroreq_error", function(assert)
-	assert.erroreq(function()
+test.case("throwsWithError", function(assert)
+	assert.throwsWith("expected message", function()
 		return
-	end, "expected message")
+	end)
 end)
 
-test.run()
+runner.runRegisteredTests()

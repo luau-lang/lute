@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "gen": "lute doc -o ./ ../definitions ../lute/std/libs",
+    "gen": "lute doc -m docgen.luau",
     "dev": "npm run gen && vitepress dev",
     "build": "npm run gen && vitepress build",
     "preview": "vitepress preview"

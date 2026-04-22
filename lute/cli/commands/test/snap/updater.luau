@@ -9,7 +9,7 @@ local strext = require("@std/stringext")
 -- Write content directly to a .snap artifact file.
 -- Used both for creating new snapshots and updating existing ones.
 local function writeSnapshot(snappath: string, content: string): boolean
-	local ok = pcall(fs.writestringtofile, snappath, content)
+	local ok = pcall(fs.writeStringToFile, snappath, content)
 	return ok
 end
 

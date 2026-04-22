@@ -6,9 +6,9 @@ local test = require("@std/test")
 
 local tmpDir = system.tmpdir()
 
-test.suite("LuauTypeOfModuleSuite", function(suite)
-	suite:case("typeofmodule_returns_table", function(assert)
-		local testPath = path.join(tmpDir, "typeofmodule_test.luau")
+test.suite("LuauTypeofModuleSuite", function(suite)
+	suite:case("typeofModuleReturnsTable", function(assert)
+		local testPath = path.join(tmpDir, "typeofModule_test.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
 			testFile,
@@ -24,7 +24,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		)
 		fs.close(testFile)
 
-		local typePack = luau.typeofmodule(testPath)
+		local typePack = luau.typeofModule(testPath)
 		assert.neq(typePack, nil)
 		if not typePack then
 			error("typePack should not be nil")
@@ -76,8 +76,8 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(foundProperty, true, "Should find example_string_func property")
 	end)
 
-	suite:case("typeofmodule_returns_typepack_with_multiple_values", function(assert)
-		local testPath = path.join(tmpDir, "typeofmodule_multiple.luau")
+	suite:case("typeofModuleReturnsTypepackWithMultipleValues", function(assert)
+		local testPath = path.join(tmpDir, "typeofModule_multiple.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
 			testFile,
@@ -87,7 +87,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		)
 		fs.close(testFile)
 
-		local typePack = luau.typeofmodule(testPath)
+		local typePack = luau.typeofModule(testPath)
 		assert.neq(typePack, nil)
 		if not typePack then
 			error("typePack should not be nil")
@@ -108,8 +108,8 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(typePack.head[3].tag, "boolean")
 	end)
 
-	suite:case("typeofmodule_returns_typepack_with_variadic_tail", function(assert)
-		local testPath = path.join(tmpDir, "typeofmodule_variadic.luau")
+	suite:case("typeofModuleReturnsTypepackWithVariadicTail", function(assert)
+		local testPath = path.join(tmpDir, "typeofModule_variadic.luau")
 		local testFile = fs.open(testPath, "w+")
 		fs.write(
 			testFile,
@@ -122,7 +122,7 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		)
 		fs.close(testFile)
 
-		local typePack = luau.typeofmodule(testPath)
+		local typePack = luau.typeofModule(testPath)
 		assert.neq(typePack, nil)
 		if not typePack then
 			error("typePack should not be nil")
@@ -149,15 +149,94 @@ test.suite("LuauTypeOfModuleSuite", function(suite)
 		assert.eq(funcType.returns.type.tag, "string")
 	end)
 
-	suite:case("resolverequire", function(assert)
-		local testPath = path.join(tmpDir, "resolverequire_test.luau")
+	suite:case("resolveModule", function(assert)
+		local testPath = path.join(tmpDir, "resolvemodule_test.luau")
 		local testFile = fs.open(testPath, "w+")
 
 		fs.write(testFile, 'print("Hello, World!")')
-		local resolvedPath = luau.resolverequire("@self", testPath)
+		local resolvedPath = luau.resolveModule("@self", testPath)
 		fs.close(testFile)
 
 		local expected = path.format(testPath):gsub("\\", "/")
 		assert.eq(resolvedPath, expected)
+	end)
+end)
+
+test.suite("LuauRequiresSuite", function(suite)
+	suite:case("requiresSingle", function(assert)
+		local depPath = path.join(tmpDir, "requires_dep.luau")
+		local depFile = fs.open(depPath, "w+")
+		fs.write(depFile, 'return "dep"')
+		fs.close(depFile)
+
+		local testPath = path.join(tmpDir, "requires_test.luau")
+		local testFile = fs.open(testPath, "w+")
+		fs.write(testFile, 'local dep = require("./requires_dep")\nreturn dep')
+		fs.close(testFile)
+
+		local results = luau.requires(testPath)
+		assert.eq(#results, 1)
+		assert.eq(results[1].requirePath, "./requires_dep")
+		assert.neq(results[1].resolvedPath, nil)
+		assert.neq(results[1].requireExpr, nil)
+		assert.eq(results[1].requireExpr.func.tag, "global")
+	end)
+
+	suite:case("requiresMultiple", function(assert)
+		local depAPath = path.join(tmpDir, "requires_dep_a.luau")
+		local depAFile = fs.open(depAPath, "w+")
+		fs.write(depAFile, 'return "a"')
+		fs.close(depAFile)
+
+		local depBPath = path.join(tmpDir, "requires_dep_b.luau")
+		local depBFile = fs.open(depBPath, "w+")
+		fs.write(depBFile, 'return "b"')
+		fs.close(depBFile)
+
+		local testPath = path.join(tmpDir, "requires_multiple.luau")
+		local testFile = fs.open(testPath, "w+")
+		fs.write(testFile, 'local a = require("./requires_dep_a")\nlocal b = require("./requires_dep_b")\nreturn a, b')
+		fs.close(testFile)
+
+		local results = luau.requires(testPath)
+		assert.eq(#results, 2)
+		assert.eq(results[1].requirePath, "./requires_dep_a")
+		assert.eq(results[2].requirePath, "./requires_dep_b")
+	end)
+
+	suite:case("requiresUnresolvable", function(assert)
+		local testPath = path.join(tmpDir, "requires_unresolvable.luau")
+		local testFile = fs.open(testPath, "w+")
+		fs.write(testFile, 'local x = require("./fake_module")\nreturn x')
+		fs.close(testFile)
+
+		local results = luau.requires(testPath)
+		assert.eq(#results, 1)
+		assert.eq(results[1].requirePath, "./fake_module")
+		assert.eq(results[1].resolvedPath, nil)
+		assert.neq(results[1].requireExpr, nil)
+	end)
+
+	suite:case("requiresNone", function(assert)
+		local testPath = path.join(tmpDir, "requires_none.luau")
+		local testFile = fs.open(testPath, "w+")
+		fs.write(testFile, "local x = 42\nreturn x")
+		fs.close(testFile)
+
+		local results = luau.requires(testPath)
+		assert.eq(#results, 0)
+	end)
+
+	suite:case("requiresDynamic", function(assert)
+		local testPath = path.join(tmpDir, "requires_dynamic.luau")
+		local testFile = fs.open(testPath, "w+")
+		fs.write(testFile, 'local modName = "./something"\nlocal x = require(modName)\nreturn x')
+		fs.close(testFile)
+
+		local results = luau.requires(testPath)
+		assert.eq(#results, 1)
+		assert.eq(results[1].requirePath, "modName")
+		assert.eq(results[1].resolvedPath, nil)
+		assert.neq(results[1].requireExpr, nil)
 	end)
 end)

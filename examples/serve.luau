@@ -1,13 +1,13 @@
-local net = require("@lute/net")
+local server = require("@lute/net/server")
 
 print("Starting server...")
 
 -- Start the server (non-blocking)
-local server = net.serve(function(_)
+local instance = server.serve(function(_)
 	return "Hello, lute!"
 end)
 
-print(`Server listening on http://{server.hostname}:{server.port}`)
+print(`Server listening on http://{instance.hostname}:{instance.port}`)
 
 print("Program ending, but server will continue running in the background")
 

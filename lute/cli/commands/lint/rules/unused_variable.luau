@@ -1,6 +1,7 @@
 local lintTypes = require("../types")
 local path = require("@std/path")
 local syntax = require("@std/syntax")
+local utils = require("@std/syntax/utils")
 local tableext = require("@std/tableext")
 local visitorLib = require("@std/syntax/visitor")
 
@@ -16,10 +17,6 @@ type branch = { tag: "branch", entries: { [string]: leaf } }
 -- If we need more levels in the future, we can generalize, but this greatly simplifies the logic.
 type smallTrie = { tag: "root", entries: { [string]: branch | leaf } }
 
-local function isRequireCall(expr: syntax.AstExpr)
-	return expr.tag == "call" and expr.func.tag == "global" and expr.func.name.text == "require"
-end
-
 local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie): { [number]: true }?
 	if func.tag == "global" then
 		local entry = writeOnlyAPIs.entries[func.name.text]
@@ -29,10 +26,17 @@ local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie):
 		end
 
 		return entry.vals
-	elseif
-		(func.tag == "indexname" and func.expression.tag == "global")
-		or (func.tag == "index" and func.expression.tag == "global" and func.index.tag == "string") -- LUAUFIX: Refinement bug here: func should be narrowed to AstExprIndexExpr (CLI-190889)
-	then
+	elseif func.tag == "indexname" and func.expression.tag == "global" then
+		local branch = writeOnlyAPIs.entries[(func.expression :: syntax.AstExprGlobal).name.text]
+
+		if not branch or branch.tag ~= "branch" then
+			return nil
+		end
+
+		local entry = branch.entries[func.index.text]
+
+		return if entry then entry.vals else nil
+	elseif func.tag == "index" and func.expression.tag == "global" and func.index.tag == "string" then
 		func = func :: syntax.AstExprIndexName | syntax.AstExprIndexExpr
 		local branch = writeOnlyAPIs.entries[(func.expression :: syntax.AstExprGlobal).name.text]
 
@@ -40,7 +44,7 @@ local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie):
 			return nil
 		end
 
-		local entry = branch.entries[(func.index :: syntax.Token<string>).text]
+		local entry = branch.entries[(func.index :: syntax.AstExprConstantString).token.text]
 
 		return if entry then entry.vals else nil
 	else
@@ -104,14 +108,14 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		-- For each (var, value) pair, ignore references to the var in the value
 		for i, localVar in stat.variables do
 			if stat.values[i] then
-				if isRequireCall(stat.values[i].node) then
+				if utils.isRequireCall(stat.values[i].node) then
 					visitor.requiredModules[localVar.node.name.text] = localVar.node
 				else
 					visitor.ignoreReferences[localVar.node] = true
 					if localVar.node.annotation then
-						visitorLib.visittype(localVar.node.annotation, visitor)
+						visitorLib.visitType(localVar.node.annotation, visitor)
 					end
-					visitorLib.visitexpression(stat.values[i].node, visitor)
+					visitorLib.visitExpression(stat.values[i].node, visitor)
 					visitor.ignoreReferences[localVar.node] = nil
 				end
 			end
@@ -159,15 +163,15 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 			if var.tag == "local" and not callFound then
 				visitor.ignoreReferences[var["local"]] = true
 
-				visitorLib.visitexpression(val, visitor)
+				visitorLib.visitExpression(val, visitor)
 
 				visitor.ignoreReferences[var["local"]] = nil
 			else
 				visitor.inLValueContext = true
-				visitorLib.visitexpression(var, visitor)
+				visitorLib.visitExpression(var, visitor)
 				visitor.inLValueContext = prevInLValueContext
 
-				visitorLib.visitexpression(val, visitor)
+				visitorLib.visitExpression(val, visitor)
 			end
 
 			if val.tag == "call" then
@@ -189,15 +193,15 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		-- x += x + 1
 		if stat.variable.tag == "local" then
 			visitor.ignoreReferences[stat.variable["local"]] = true
-			visitorLib.visitexpression(stat.value, visitor)
+			visitorLib.visitExpression(stat.value, visitor)
 			visitor.ignoreReferences[stat.variable["local"]] = nil
 		else
 			local prevInLValueContext = visitor.inLValueContext
 			visitor.inLValueContext = true
-			visitorLib.visitexpression(stat.variable, visitor)
+			visitorLib.visitExpression(stat.variable, visitor)
 			visitor.inLValueContext = prevInLValueContext
 
-			visitorLib.visitexpression(stat.value, visitor)
+			visitorLib.visitExpression(stat.value, visitor)
 		end
 
 		return false
@@ -212,24 +216,24 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 			end
 
 			visitor.ignoreReferences[stat.name["local"]] = true
-			visitorLib.visitexpression(stat.func, visitor)
+			visitorLib.visitExpression(stat.func, visitor)
 			visitor.ignoreReferences[stat.name["local"]] = nil
 		elseif stat.name.tag == "indexname" and stat.name.accessor.text == ":" then
 			local prevMethodContext = visitor.insideMethodContext
 			visitor.insideMethodContext = true
 
-			visitorLib.visitexpression(stat.func, visitor)
+			visitorLib.visitExpression(stat.func, visitor)
 
 			visitor.insideMethodContext = prevMethodContext
 		elseif stat.name.tag == "index" then
 			local prevInLValueContext = visitor.inLValueContext
 			visitor.inLValueContext = true
-			visitorLib.visitexpression(stat.name, visitor)
+			visitorLib.visitExpression(stat.name, visitor)
 			visitor.inLValueContext = prevInLValueContext
 
-			visitorLib.visitexpression(stat.func, visitor)
+			visitorLib.visitExpression(stat.func, visitor)
 		else
-			visitorLib.visitexpression(stat.func, visitor)
+			visitorLib.visitExpression(stat.func, visitor)
 		end
 
 		return false
@@ -239,7 +243,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		-- Recursive functions don't count as references to themselves
 		visitor.ignoreReferences[stat.name] = true
 
-		visitorLib.visitexpression(stat.func, visitor)
+		visitorLib.visitExpression(stat.func, visitor)
 
 		visitor.ignoreReferences[stat.name] = nil
 
@@ -254,11 +258,11 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 
 		-- Manually visit the block's states so we can keep the scope around
 		for _, bodyStat in stat.body.statements do
-			visitorLib.visitstatement(bodyStat, visitor)
+			visitorLib.visitStatement(bodyStat, visitor)
 		end
 
 		-- Visit the condition with the same scope as the body
-		visitorLib.visitexpression(stat.condition, visitor)
+		visitorLib.visitExpression(stat.condition, visitor)
 
 		popAndSaveUnusedLocals(stat)
 
@@ -319,11 +323,11 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 	end
 
 	function visitor.visitExprIndexExpr(node: syntax.AstExprIndexExpr)
-		visitorLib.visitexpression(node.expression, visitor)
+		visitorLib.visitExpression(node.expression, visitor)
 
 		local prevInLValueContext = visitor.inLValueContext
 		visitor.inLValueContext = false
-		visitorLib.visitexpression(node.index, visitor)
+		visitorLib.visitExpression(node.index, visitor)
 		visitor.inLValueContext = prevInLValueContext
 
 		return false
@@ -336,23 +340,23 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 			return true
 		end
 
-		visitorLib.visitexpression(node.func, visitor)
+		visitorLib.visitExpression(node.func, visitor)
 
 		for i, arg in node.arguments do
 			if writeOnlyIndices[i] then
 				local prevInLValueContext = visitor.inLValueContext
 				visitor.inLValueContext = true
-				visitorLib.visitexpression(arg.node, visitor)
+				visitorLib.visitExpression(arg.node, visitor)
 				visitor.inLValueContext = prevInLValueContext
 			else
-				visitorLib.visitexpression(arg.node, visitor)
+				visitorLib.visitExpression(arg.node, visitor)
 			end
 		end
 
 		return false
 	end
 
-	visitorLib.visitblock(block, visitor)
+	visitorLib.visitBlock(block, visitor)
 
 	return visitor.unusedLocals
 end
@@ -363,7 +367,7 @@ end
 
 local function lint(
 	ast: syntax.AstStatBlock,
-	sourcepath: path.path?,
+	sourcepath: path.Path?,
 	context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	-- Validate context.options, which should be of form { ["api"] = { number } },
@@ -404,12 +408,12 @@ local function lint(
 				)
 			end
 
-			writeOnlyAPIs.entries[parts[1]] = { tag = "leaf", vals = tableext.toset(v :: { number }) } -- We validate v above, so the cast is ok
+			writeOnlyAPIs.entries[parts[1]] = { tag = "leaf", vals = tableext.toSet(v :: { number }) } -- We validate v above, so the cast is ok
 		else
 			if not writeOnlyAPIs.entries[parts[1]] then
 				writeOnlyAPIs.entries[parts[1]] = {
 					tag = "branch",
-					entries = { [parts[2]] = { tag = "leaf", vals = tableext.toset(v :: { number }) } },
+					entries = { [parts[2]] = { tag = "leaf", vals = tableext.toSet(v :: { number }) } },
 				}
 			else
 				local branch = writeOnlyAPIs.entries[parts[1]]
@@ -418,12 +422,12 @@ local function lint(
 						`API '{parts[1]}' is already defined as a write-only API, so '{k}' cannot be added as a write-only API.`
 					)
 				end
-				branch.entries[parts[2]] = { tag = "leaf", vals = tableext.toset(v :: { number }) } -- We validate v above, so the cast is ok
+				branch.entries[parts[2]] = { tag = "leaf", vals = tableext.toSet(v :: { number }) } -- We validate v above, so the cast is ok
 			end
 		end
 	end
 
-	return tableext.map(unusedLocals(ast, writeOnlyAPIs), function(l): lintTypes.LintViolation
+	return tableext.map(unusedLocals(ast, writeOnlyAPIs), function(l: syntax.AstLocal): lintTypes.LintViolation
 		return {
 			lintname = name,
 			location = l.location, -- LUAUFIX: Bidirectional inference should let us know that l : syntax.AstLocal
