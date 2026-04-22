@@ -68,7 +68,8 @@ local function posixify(str)
 end
 
 local function normalizeSnapshotOutput(output: string, normalizedCwd: string): string
-	local nobackslash = posixify(output)
+	local noCrlf, _ = string.gsub(output, "\r\n", "\n")
+	local nobackslash = posixify(noCrlf)
 	local replacedCwd, _ = string.gsub(nobackslash, normalizedCwd, "<ROOT>")
 	return replacedCwd
 end
@@ -135,7 +136,8 @@ function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 			continue
 		end
 
-		local expected = fs.readFileToString(artifactpath)
+		local rawExpected = fs.readFileToString(artifactpath)
+		local expected, _ = string.gsub(rawExpected, "\r\n", "\n")
 
 		if actual == expected then
 			table.insert(result.passed, { filepath = filepath, artifactpath = artifactpath })

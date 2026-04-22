@@ -26,15 +26,17 @@ export type snapresult = {
 	new: { snapnew },
 }
 
+--- Configuration for an individual test
 export type TestConfiguration = {
 	--- Arguments to pass `lute` before the snapshot file
 	args: { string },
 }
 
+--- SnapshotConfiguration format
 export type SnapshotConfiguration = {
-	-- The arguments lute expects
+	--- Default arguments for the directory
 	config: TestConfiguration?,
-	-- Per test case overrides - in the format
+	--- Per test case overrides - each override is just the name of the snapshot (no file extensions)
 	overrides: { [string]: TestConfiguration? }?,
 }
 
