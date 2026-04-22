@@ -66,25 +66,39 @@ local function runtests(
 		local done = 0
 		for _ = 1, nworkers do
 			task.spawn(function()
-				local worker = vm.create("@self/worker")
-				while true do
-					local p = takenext()
-					if not p then
-						break
+				xpcall(function()
+					local worker = vm.create("@self/worker")
+					while true do
+						local p = takenext()
+						if not p then
+							break
+						end
+						local r = worker.runfile({
+							file = path.format(p),
+							suite = suiteName,
+							case = caseName,
+							verbose = runOptions.verbose,
+						})
+						result.total += r.total
+						result.passed += r.passed
+						result.failed += r.failed
+						for _, f in r.failures do
+							table.insert(result.failures, f)
+						end
 					end
-					local r = worker.runfile({
-						file = path.format(p),
-						suite = suiteName,
-						case = caseName,
-						verbose = runOptions.verbose,
+				end, function(err: any)
+					result.total += 1
+					result.failed += 1
+					table.insert(result.failures, {
+						test = "<worker>",
+						failure = {
+							__tag = "runtime_error",
+							msg = `worker errored: {tostring(err)}`,
+							stacktrace = debug.traceback(nil, 2),
+						},
 					})
-					result.total += r.total
-					result.passed += r.passed
-					result.failed += r.failed
-					for _, f in r.failures do
-						table.insert(result.failures, f)
-					end
-				end
+				end)
+
 				done += 1
 			end)
 		end

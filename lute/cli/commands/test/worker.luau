@@ -11,26 +11,22 @@ local function reset()
 	table.clear(env.caseindex)
 end
 
-local function loadFailure(filepath: string, err: any): types.FailedTest
-	return {
-		test = filepath,
-		failure = {
-			msg = `failed to load test file: {tostring(err)}`,
-			stacktrace = "",
-			__tag = "runtime_error",
-		},
-	}
-end
-
-local function runfile(
-	args: { file: string, suite: string?, case: string?, verbose: boolean? }
-): types.TestRunResult
+local function runfile(args: { file: string, suite: string?, case: string?, verbose: boolean? }): types.TestRunResult
 	reset()
 
 	local ok, err = pcall(luau.loadModule, args.file, nil)
 	if not ok then
 		return {
-			failures = { loadFailure(args.file, err) },
+			failures = {
+				{
+					test = args.file,
+					failure = {
+						__tag = "runtime_error",
+						msg = `failed to load test file: {tostring(err)}`,
+						stacktrace = "",
+					},
+				},
+			},
 			total = 1,
 			passed = 0,
 			failed = 1,
