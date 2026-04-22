@@ -21,6 +21,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "App.h"
 #include "Loop.h"
@@ -106,6 +107,19 @@ struct RequestRouteData
     std::string query;
 };
 
+using RequestHeaders = std::vector<std::pair<std::string, std::string>>;
+
+template <typename ReqT>
+static RequestHeaders extractRequestHeaders(ReqT* req)
+{
+    RequestHeaders headers;
+    for (const auto& header : *req)
+    {
+        headers.emplace_back(std::string(header.first), std::string(header.second));
+    }
+    return headers;
+}
+
 template <typename ReqT>
 static RequestRouteData extractRequestRouteData(ReqT* req)
 {
@@ -163,14 +177,13 @@ static void parseQuery(const std::string_view& query, lua_State* L)
     }
 }
 
-template <typename ReqT>
-static void parseHeaders(ReqT* req, lua_State* L)
+static void pushHeadersTable(const RequestHeaders& headers, lua_State* L)
 {
-    lua_createtable(L, 0, 0);
-    for (const auto& header : *req)
+    lua_createtable(L, 0, int(headers.size()));
+    for (const auto& [key, value] : headers)
     {
-        lua_pushlstring(L, header.first.data(), header.first.size());
-        lua_pushlstring(L, header.second.data(), header.second.size());
+        lua_pushlstring(L, key.data(), key.size());
+        lua_pushlstring(L, value.data(), value.size());
         lua_settable(L, -3);
     }
 }
@@ -508,10 +521,10 @@ static HandlerThread createHandlerThread(Runtime* runtime)
     return {L, std::move(threadRef)};
 }
 
-template <typename ReqT, typename PushUpvalues>
+template <typename PushUpvalues>
 static void pushRequestTable(
     lua_State* L,
-    ReqT* req,
+    const RequestHeaders& headers,
     const RequestRouteData& route,
     std::string_view body,
     lua_CFunction upgradeFn,
@@ -534,7 +547,7 @@ static void pushRequestTable(
     lua_settable(L, -3);
 
     lua_pushstring(L, "headers");
-    parseHeaders(req, L);
+    pushHeadersTable(headers, L);
     lua_settable(L, -3);
 
     lua_pushstring(L, "body");
@@ -579,10 +592,9 @@ static void pushServerTable(
     lua_remove(L, serverBaseIndex);
 }
 
-template <typename ReqT>
 static HandlerThread prepareHttpHandlerThread(
     const std::shared_ptr<ServerLoopState>& state,
-    ReqT* req,
+    const RequestHeaders& headers,
     const RequestRouteData& route,
     std::string_view body
 )
@@ -596,7 +608,7 @@ static HandlerThread prepareHttpHandlerThread(
 
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
-    pushRequestTable(L, req, route, body, server_upgrade_noop, 0, [](lua_State*) {});
+    pushRequestTable(L, headers, route, body, server_upgrade_noop, 0, [](lua_State*) {});
     pushServerTable(L, state->serverRef, server_upgrade_noop, 0, [](lua_State*) {});
     return thread;
 }
@@ -607,6 +619,7 @@ static HandlerThread prepareUpgradeHandlerThread(
     uWS::HttpResponse<SSL>* res,
     uWS::HttpRequest* req,
     us_socket_context_t* context,
+    const RequestHeaders& headers,
     const RequestRouteData& route,
     bool& upgraded
 )
@@ -628,16 +641,16 @@ static HandlerThread prepareUpgradeHandlerThread(
 
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
-    pushRequestTable(L, req, route, std::string_view(""), server_upgrade_do<SSL>, 4, pushUpgradeUpvalues);
+    pushRequestTable(L, headers, route, std::string_view(""), server_upgrade_do<SSL>, 4, pushUpgradeUpvalues);
     pushServerTable(L, state->serverRef, server_upgrade_do<SSL>, 4, pushUpgradeUpvalues);
     return thread;
 }
 
-template <typename ResT, typename ReqT>
+template <typename ResT>
 static void processRequest(
     const std::shared_ptr<ServerLoopState>& state,
     ResT* res,
-    ReqT* req,
+    const RequestHeaders& headers,
     const RequestRouteData& route,
     std::string_view body
 )
@@ -649,7 +662,7 @@ static void processRequest(
         return;
     }
 
-    HandlerThread thread = prepareHttpHandlerThread(state, req, route, body);
+    HandlerThread thread = prepareHttpHandlerThread(state, headers, route, body);
     lua_State* L = thread.L;
     int status = lua_resume(L, nullptr, 2);
     if (status == LUA_YIELD)
@@ -713,8 +726,9 @@ static void installWebSocketRoutes(AppT* app, const std::shared_ptr<ServerLoopSt
             }
 
             RequestRouteData route = extractRequestRouteData(req);
+            RequestHeaders headers = extractRequestHeaders(req);
             bool upgraded = false;
-            HandlerThread thread = prepareUpgradeHandlerThread<SSL>(state, res, req, context, route, upgraded);
+            HandlerThread thread = prepareUpgradeHandlerThread<SSL>(state, res, req, context, headers, route, upgraded);
             lua_State* L = thread.L;
             int status = lua_resume(L, nullptr, 2);
 
@@ -846,6 +860,7 @@ static void installHttpRoutes(AppT* app, const std::shared_ptr<ServerLoopState>&
         [state](auto* res, auto* req)
         {
             RequestRouteData route = extractRequestRouteData(req);
+            RequestHeaders headers = extractRequestHeaders(req);
 
             res->onAborted(
                 []()
@@ -856,21 +871,22 @@ static void installHttpRoutes(AppT* app, const std::shared_ptr<ServerLoopState>&
 
             std::unique_ptr<std::string> bodyBuffer;
             res->onData(
-                [state, res, req, route = std::move(route), bodyBuffer = std::move(bodyBuffer)](
-                    std::string_view data,
-                    bool last
-                ) mutable
+                [state,
+                 res,
+                 route = std::move(route),
+                 headers = std::move(headers),
+                 bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
                 {
                     if (last)
                     {
                         if (bodyBuffer.get())
                         {
                             bodyBuffer->append(data);
-                            processRequest(state, res, req, route, *bodyBuffer);
+                            processRequest(state, res, headers, route, *bodyBuffer);
                         }
                         else
                         {
-                            processRequest(state, res, req, route, data);
+                            processRequest(state, res, headers, route, data);
                         }
                     }
                     else
