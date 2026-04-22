@@ -265,14 +265,14 @@ static std::string_view extractWildcardTail(std::string_view url, int prefixSegm
 static std::shared_ptr<RouteContext> makeRouteContext(
     lua_State* L,
     int valueIndex,
-    std::string pattern,
-    std::string method,
+    const std::string& pattern,
+    const char* method,
     const ParsedPattern& info
 )
 {
     auto ctx = std::make_shared<RouteContext>();
-    ctx->pattern = std::move(pattern);
-    ctx->method = std::move(method);
+    ctx->pattern = pattern;
+    ctx->method = method;
     ctx->paramNames = info.paramNames;
     ctx->trailingWildcard = info.trailingWildcard;
     ctx->prefixSegments = info.prefixSegments;
@@ -842,11 +842,11 @@ static void processRequest(
 {
     if (routeCtx && routeCtx->kind == RouteHandlerKind::StaticResponse)
     {
-        HandlerThread thread = createHandlerThread(state->runtime);
-        lua_State* L = thread.L;
+        lua_State* L = state->runtime->GL;
+        int top = lua_gettop(L);
         routeCtx->ref->push(L);
         handleResponse(res, L, lua_gettop(L));
-        lua_pop(L, 1);
+        lua_settop(L, top);
         return;
     }
 
