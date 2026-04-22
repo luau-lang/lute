@@ -2,7 +2,7 @@ return [==[
 _lute_discover_scripts() {
     local dir="$PWD"
     local seen=()
-    local builtins=" run check compile setup lint test transform doc pkg completion "
+    local builtins=" run check compile setup lint test transform doc pkg new completion "
     while [[ "$dir" != "/" ]]; do
         if [[ -d "$dir/.lute" ]]; then
             for f in "$dir/.lute"/*.luau "$dir/.lute"/*.lua; do
@@ -68,7 +68,7 @@ _lute_completion() {
         if [[ "$cur" == -* ]]; then
             COMPREPLY=($(compgen -W "-h --help --version" -- "$cur"))
         else
-            local commands="run check compile setup lint test transform doc pkg completion"
+            local commands="run check compile setup lint test transform doc pkg new completion"
             local lute_scripts
             lute_scripts=$(_lute_discover_scripts)
             COMPREPLY=($(compgen -W "$commands $lute_scripts" -- "$cur"))
@@ -140,19 +140,19 @@ _lute_completion() {
                     return ;;
             esac
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=($(compgen -W "-h --help --list -s --suite -c --case -i --interactive -u --update" -- "$cur"))
+                COMPREPLY=($(compgen -W "-h --help --list -s --suite -c --case -i --interactive -u --update -v --verbose" -- "$cur"))
             else
                 COMPREPLY=($(compgen -d -- "$cur"))
             fi
             ;;
         transform)
             case "$prev" in
-                --output)
+                --output|-o)
                     COMPREPLY=($(compgen -f -- "$cur"))
                     return ;;
             esac
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=($(compgen -W "--dry-run --output" -- "$cur"))
+                COMPREPLY=($(compgen -W "-h --help --dry-run -o --output" -- "$cur"))
             else
                 COMPREPLY=($(_lute_luau_files "$cur"))
             fi
@@ -170,7 +170,31 @@ _lute_completion() {
             fi
             ;;
         pkg)
-            COMPREPLY=($(compgen -W "run install" -- "$cur"))
+            local pkg_sub="" seen_pkg=0 j
+            for ((j = 1; j < cword; j++)); do
+                [[ "${words[j]}" == -* ]] && continue
+                if (( seen_pkg )); then
+                    pkg_sub="${words[j]}"
+                    break
+                fi
+                seen_pkg=1
+            done
+
+            if [[ -z "$pkg_sub" ]]; then
+                COMPREPLY=($(compgen -W "run install auth" -- "$cur"))
+            elif [[ "$pkg_sub" == "auth" ]]; then
+                case "$prev" in
+                    --token|--domain) return ;;
+                esac
+                if [[ "$cur" == -* ]]; then
+                    COMPREPLY=($(compgen -W "--token --domain" -- "$cur"))
+                fi
+            fi
+            ;;
+        new)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=($(compgen -W "-h --help" -- "$cur"))
+            fi
             ;;
         completion)
             COMPREPLY=($(compgen -W "bash fish zsh" -- "$cur"))

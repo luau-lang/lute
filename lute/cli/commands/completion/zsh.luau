@@ -4,7 +4,7 @@ return [==[
 _lute_discover_scripts() {
     local dir="$PWD"
     local -A seen
-    local -a builtins=(run check compile setup lint test transform doc pkg completion)
+    local -a builtins=(run check compile setup lint test transform doc pkg new completion)
     while [[ "$dir" != "/" ]]; do
         if [[ -d "$dir/.lute" ]]; then
             for f in "$dir/.lute"/*.luau(N) "$dir/.lute"/*.lua(N); do
@@ -62,6 +62,7 @@ _lute() {
                 'transform:Run code transformation'
                 'doc:Generate documentation'
                 'pkg:Package management'
+                'new:Create a new Lute project'
                 'completion:Generate shell completion scripts'
             )
             _describe 'command' commands
@@ -114,12 +115,14 @@ _lute() {
                         '(-c --case)'{-c,--case}'[Run specific test case]:case' \
                         '(-i --interactive)'{-i,--interactive}'[Interactive snapshot review]' \
                         '(-u --update)'{-u,--update}'[Auto-accept snapshot changes]' \
+                        '(-v --verbose)'{-v,--verbose}'[Enable verbose output]' \
                         '*:directory:_files -/'
                     ;;
                 transform)
                     _arguments \
+                        '(-h --help)'{-h,--help}'[Display help message]' \
                         '--dry-run[Preview without writing]' \
-                        '--output[Output file path]:file:_files' \
+                        '(-o --output)'{-o,--output}'[Output file path]:file:_files' \
                         '*:file:_lute_luau_files'
                     ;;
                 doc)
@@ -129,11 +132,30 @@ _lute() {
                         '*:directory:_files -/'
                     ;;
                 pkg)
-                    local -a pkg_commands=(
-                        'run:Run with package awareness'
-                        'install:Install packages'
-                    )
-                    _describe 'pkg command' pkg_commands
+                    if (( CURRENT == 2 )); then
+                        local -a pkg_commands=(
+                            'run:Run with package awareness'
+                            'install:Install packages'
+                            'auth:Save authentication token'
+                        )
+                        _describe 'pkg command' pkg_commands
+                    else
+                        # shift "pkg" out so the nested _arguments sees the
+                        # pkg subcommand at $words[1].
+                        (( CURRENT-- ))
+                        shift words
+                        case $words[1] in
+                            auth)
+                                _arguments \
+                                    '--token[Authentication token]:token:' \
+                                    '--domain[Domain (default: github.com)]:domain:'
+                                ;;
+                        esac
+                    fi
+                    ;;
+                new)
+                    _arguments \
+                        '(-h --help)'{-h,--help}'[Display help message]'
                     ;;
                 completion)
                     compadd bash fish zsh
