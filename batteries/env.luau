@@ -287,8 +287,8 @@ local function expandEntries(entries: { [string]: Entry }, baseEnv: Environment)
 	local resolving: { [string]: number } = {}
 	local stack = {}
 
-	local expandValue
-	local resolveReference
+	local resolveReference: ((string) -> (string, boolean))? = nil
+	local expandValue: ((string) -> string)? = nil
 
 	local function resolveName(name: string): string
 		if resolved[name] ~= nil then
@@ -314,6 +314,7 @@ local function expandEntries(entries: { [string]: Entry }, baseEnv: Environment)
 
 		local value = entry.value
 		if entry.quote ~= "single" then
+			assert(expandValue ~= nil)
 			value = expandValue(value)
 		end
 
@@ -324,7 +325,7 @@ local function expandEntries(entries: { [string]: Entry }, baseEnv: Environment)
 		return value
 	end
 
-	function resolveReference(name: string): (string, boolean)
+	resolveReference = function(name: string): (string, boolean)
 		if entries[name] ~= nil then
 			return resolveName(name), true
 		end
@@ -337,7 +338,7 @@ local function expandEntries(entries: { [string]: Entry }, baseEnv: Environment)
 		return "", false
 	end
 
-	function expandValue(value: string): string
+	expandValue = function(value: string): string
 		local out = {}
 		local index = 1
 
@@ -371,11 +372,13 @@ local function expandEntries(entries: { [string]: Entry }, baseEnv: Environment)
 
 				local expression = string.sub(value, index + 2, closeIndex - 1)
 				local name, operator, rest = parseExpansionExpression(expression)
+				assert(resolveReference ~= nil)
 				local referenced, exists = resolveReference(name)
 				local shouldUseRest = false
 				local expandedRest = ""
 
 				if rest ~= nil then
+					assert(expandValue ~= nil)
 					expandedRest = expandValue(rest)
 					if operator == "-" then
 						shouldUseRest = not exists
@@ -395,6 +398,7 @@ local function expandEntries(entries: { [string]: Entry }, baseEnv: Environment)
 
 			local name = string.match(string.sub(value, index + 1), "^([%a_][%w_]*)")
 			if name then
+				assert(resolveReference ~= nil)
 				local referenced = resolveReference(name)
 				table.insert(out, referenced)
 				index += 1 + #name
