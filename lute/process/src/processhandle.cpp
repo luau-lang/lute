@@ -168,6 +168,7 @@ void ProcessHandle::spawn(lua_State* L)
     if (spawnResult != 0)
     {
         resumeToken->runtime->releasePendingToken();
+        state.completed = true; // Allow close callbacks to release self
         closeHandles();
         luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
     }
@@ -176,7 +177,7 @@ void ProcessHandle::spawn(lua_State* L)
     {
         // Close our write end of stdin so the child sees EOF instead of
         // blocking forever on a read.
-        stdinPipe->close([]() {});
+        closePipe(stdinPipe);
 
         // If we have created a pipe, then this process must be responsible for closing this pipe
         // If we haven't, then these pipes should be considered closed?
@@ -208,7 +209,8 @@ void ProcessHandle::spawn(lua_State* L)
 
 void ProcessHandle::onHandleClose()
 {
-    if (--pendingCloses == 0)
+    --pendingCloses;
+    if (pendingCloses == 0 && state.completed)
         self.reset();
 }
 
@@ -244,7 +246,7 @@ void ProcessHandle::closeHandles()
         );
     }
 
-    if (pendingCloses == 0)
+    if (pendingCloses == 0 && state.completed)
         self.reset();
 }
 
