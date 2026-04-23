@@ -49,11 +49,11 @@ test.suite("JSONParsingTestSuite", function(suite)
 	end
 
 	suite:case("compactSerializeHasNoSpaces", function(assert)
-		assert.eq(json.serialize({ 1, 2, 3 }), "[1,2,3]")
+		assert.eq(json.serialize({ 1, 2, 3 } :: json.Array), "[1,2,3]")
 		assert.eq(json.serialize({}), "[]")
 		assert.eq(json.serialize(json.object({})), "{}")
 		assert.eq(json.serialize({ nested = { 1, 2 } }), '{"nested":[1,2]}')
-		local mixed: json.Array = { "a", { 1, 2 }, "b" }
+		local mixed: json.Array = { "a", { 1, 2 } :: json.Array, "b" }
 		assert.eq(json.serialize(mixed), '["a",[1,2],"b"]')
 
 		local out = json.serialize({ a = 1, b = 2 })
@@ -61,7 +61,7 @@ test.suite("JSONParsingTestSuite", function(suite)
 	end)
 
 	suite:case("prettySerializeStillIndents", function(assert)
-		local out = json.serialize({ 1, 2, 3 }, true)
+		local out = json.serialize({ 1, 2, 3 } :: json.Array, true)
 		assert.eq(out, "[\n    1,\n    2,\n    3\n]")
 	end)
 
