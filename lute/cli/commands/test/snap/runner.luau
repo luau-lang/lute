@@ -1,7 +1,7 @@
 local fs = require("@std/fs")
+local luau = require("@std/luau")
 local process = require("@std/process")
 local path = require("@std/path")
-local luau = require("@std/luau")
 local strext = require("@std/stringext")
 
 local difftext = require("@batteries/difftext")
@@ -44,13 +44,15 @@ local function getArtifactTestConfiguration(
 	if pathEnd ~= nil then
 		testname = strext.removeSuffix(pathEnd, ".snap")
 	end
+	-- configuration here is the discovered file with snapshot testing config
+	-- it also has
 	if not configuration then
 		table.insert(args, filepath)
 		return args, expectedExit
 	end
 
 	-- Resolve args and expectedExitCode independently: override field takes priority, then base config
-	local base = configuration.config
+	local base = configuration.default
 	local override = if configuration.overrides then configuration.overrides[testname] else nil
 
 	local configArgs: { string }? = nil
@@ -164,7 +166,7 @@ function runner.runsnapshots(files: { path.Path }): snapty.SnapResult
 		end
 
 		local rawExpected = fs.readFileToString(artifactpath)
-		local expected, _ = string.gsub(rawExpected, "\r\n", "\n")
+		local expected = normalizeSnapshotOutput(rawExpected, cwd)
 		-- A test passes when a) no exit code checking is requested and b) actual == expected
 		-- It also passes when a) exit code checking is request and b) actual == expected
 		local exitCodePasses = not checkExitMismatch or checkExitMismatch.expected == checkExitMismatch.actual

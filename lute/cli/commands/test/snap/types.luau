@@ -43,7 +43,7 @@ export type TestConfiguration = {
 --- SnapshotConfiguration format
 export type SnapshotConfiguration = {
 	--- Default arguments for the directory
-	config: TestConfiguration?,
+	default: TestConfiguration?,
 	--- Per test case overrides - each override is just the name of the snapshot (no file extensions)
 	overrides: { [string]: TestConfiguration? }?,
 }
