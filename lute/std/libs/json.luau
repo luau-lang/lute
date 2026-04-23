@@ -381,19 +381,31 @@ local function deserializeString(state: DeserializerState): string
 	--   4. `\X` for X in `"/bfnrt`  -> corresponding char
 	--   5. 0x01                     -> `\` (thaw)
 	raw = string.gsub(raw, "\\\\", "\1")
-	raw = string.gsub(raw, "\\u([dD][89aAbB]%x%x)\\u([dD][c-fC-F]%x%x)", function(h, l)
-		return decodeSurrogatePair(h, l, cursor)
-	end :: any)
-	raw = string.gsub(raw, "\\u(%x%x%x%x)", function(code)
-		return decodeUnicodeEscape(code, cursor)
-	end :: any)
-	raw = string.gsub(raw, "\\(.)", function(esc)
-		local v = UNESCAPE[esc]
-		if not v then
-			error(`JSON error - Invalid escape sequence around {cursor}`)
-		end
-		return v
-	end :: any)
+	raw = string.gsub(
+		raw,
+		"\\u([dD][89aAbB]%x%x)\\u([dD][c-fC-F]%x%x)",
+		function(h, l)
+			return decodeSurrogatePair(h, l, cursor)
+		end :: any
+	)
+	raw = string.gsub(
+		raw,
+		"\\u(%x%x%x%x)",
+		function(code)
+			return decodeUnicodeEscape(code, cursor)
+		end :: any
+	)
+	raw = string.gsub(
+		raw,
+		"\\(.)",
+		function(esc)
+			local v = UNESCAPE[esc]
+			if not v then
+				error(`JSON error - Invalid escape sequence around {cursor}`)
+			end
+			return v
+		end :: any
+	)
 	raw = string.gsub(raw, "\1", "\\")
 
 	state.cursor = p + 1
