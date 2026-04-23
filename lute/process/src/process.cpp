@@ -1,6 +1,7 @@
 #include "lute/process.h"
 
 #include "lute/common.h"
+#include "lute/processhandle.h"
 #include "lute/runtime.h"
 #include "lute/uvutils.h"
 
@@ -12,10 +13,7 @@
 #include "uv.h"
 
 #include <climits> // IWYU pragma: keep
-#include <functional>
-#include <map>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 #ifdef PATH_MAX
@@ -27,356 +25,12 @@
 namespace process
 {
 
-// Loads the current process environment into `map`. Returns the libuv error
-// code on failure, or an empty optional on success.
-static std::optional<int> getEnvironmentVariables(std::map<std::string, std::string>& map)
-{
-    uv_env_item_t* items;
-    int count;
-    int err = uv_os_environ(&items, &count);
-    if (err != 0)
-        return err;
-
-    for (int i = 0; i < count; i++)
-    {
-        if (items[i].name && items[i].value)
-            map[items[i].name] = items[i].value;
-    }
-
-    uv_os_free_environ(items, count);
-    return std::nullopt;
-}
-
-void convertCRLFtoLF(std::string& str)
-{
-    size_t writePos = 0;
-    for (size_t readPos = 0; readPos < str.size(); ++readPos)
-    {
-        if (str[readPos] == '\r' && readPos + 1 < str.size() && str[readPos + 1] == '\n')
-            continue; // Skip the '\r' in CRLF
-        str[writePos++] = str[readPos];
-    }
-    str.resize(writePos);
-}
-
-struct ProcessHandle
-{
-    uv_process_t process;
-    uv_pipe_t stdinPipe;
-    uv_pipe_t stdoutPipe;
-    uv_pipe_t stderrPipe;
-    uv_loop_t* loop = nullptr;
-    std::string stdoutData;
-    std::string stderrData;
-    int64_t exitCode = -1;
-    int termSignal = 0;
-    bool completed = false;
-    ResumeToken resumeToken;
-    std::shared_ptr<ProcessHandle> self;
-    std::atomic<int> pendingCloses{1};
-
-    static void onHandleClose(uv_handle_t* handle)
-    {
-        ProcessHandle* ph = static_cast<ProcessHandle*>(handle->data);
-        if (--ph->pendingCloses == 0)
-            ph->self.reset();
-    }
-
-    void closeHandles()
-    {
-        if (!uv_is_closing((uv_handle_t*)&stdinPipe))
-        {
-            pendingCloses++;
-            uv_read_stop((uv_stream_t*)&stdinPipe);
-            uv_close((uv_handle_t*)&stdinPipe, onHandleClose);
-        }
-
-        if (!uv_is_closing((uv_handle_t*)&stdoutPipe))
-        {
-            pendingCloses++;
-            uv_read_stop((uv_stream_t*)&stdoutPipe);
-            uv_close((uv_handle_t*)&stdoutPipe, onHandleClose);
-        }
-
-        if (!uv_is_closing((uv_handle_t*)&stderrPipe))
-        {
-            pendingCloses++;
-            uv_read_stop((uv_stream_t*)&stderrPipe);
-            uv_close((uv_handle_t*)&stderrPipe, onHandleClose);
-        }
-        if (!uv_is_closing((uv_handle_t*)&process))
-        {
-            pendingCloses++;
-            uv_close((uv_handle_t*)&process, onHandleClose);
-        }
-
-        if (--pendingCloses == 0)
-        {
-            self.reset();
-        }
-    }
-
-    void triggerCompletion(bool success, const std::string& error_msg = "")
-    {
-        if (completed)
-            return;
-        completed = true;
-
-        closeHandles();
-
-        if (!resumeToken)
-        {
-            return;
-        }
-
-        if (success)
-        {
-            int64_t finalExitCode = exitCode;
-            int finalTermSignal = termSignal;
-            // TODO: should we we put any leftover stdin data into the output here?
-            std::string finalStdout = stdoutData;
-            std::string finalStderr = stderrData;
-            std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
-            convertCRLFtoLF(finalStdout);
-            convertCRLFtoLF(finalStderr);
-            resumeToken->complete(
-                [=](lua_State* L)
-                {
-                    lua_createtable(L, 0, 5); // ok, exitCode, stdout, stderr, signal
-
-                    bool ok = (finalExitCode == 0 && finalTermSignal == 0);
-
-                    lua_pushboolean(L, ok);
-                    lua_setfield(L, -2, "ok");
-
-                    lua_pushinteger(L, finalExitCode);
-                    lua_setfield(L, -2, "exitcode");
-
-                    lua_pushlstring(L, finalStdout.c_str(), finalStdout.length());
-                    lua_setfield(L, -2, "stdout");
-
-                    lua_pushlstring(L, finalStderr.c_str(), finalStderr.length());
-                    lua_setfield(L, -2, "stderr");
-
-                    if (!finalSignalStr.empty())
-                    {
-                        lua_pushlstring(L, finalSignalStr.c_str(), finalSignalStr.size());
-                    }
-                    else
-                    {
-                        lua_pushnil(L);
-                    }
-                    lua_setfield(L, -2, "signal");
-
-                    return 1;
-                }
-            );
-        }
-        else
-        {
-            resumeToken->fail("Process error: " + error_msg);
-        }
-
-        resumeToken.reset();
-    }
-};
-
-struct ProcessOptions
-{
-    std::string cwd;
-    std::string stdioKind;
-    std::map<std::string, std::string> env;
-    std::string customShell; // only used by system()
-};
-
-static void onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
-{
-    ProcessHandle* handle = static_cast<ProcessHandle*>(process->data);
-    if (!handle || handle->completed)
-        return;
-
-    handle->exitCode = exitStatus;
-    handle->termSignal = termSignal;
-
-    handle->triggerCompletion(true);
-}
-
-static void onPipeRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
-{
-    ProcessHandle* handle = static_cast<ProcessHandle*>(stream->data);
-
-    if (!handle || handle->completed)
-    {
-        if (buf->base)
-            free(buf->base);
-        return;
-    }
-
-    if (nread > 0)
-    {
-        std::string* targetBuffer = (stream == (uv_stream_t*)&handle->stdoutPipe) ? &handle->stdoutData : &handle->stderrData;
-        targetBuffer->append(buf->base, nread);
-    }
-    else if (nread < 0)
-    {
-        if (nread != UV_EOF)
-        {
-            std::string errorDetails = (stream == (uv_stream_t*)&handle->stdoutPipe) ? "stdout" : "stderr";
-            errorDetails += " read error: ";
-            errorDetails += uv_strerror(nread);
-            handle->triggerCompletion(false, errorDetails);
-        }
-    }
-
-    if (buf->base)
-    {
-        free(buf->base);
-    }
-}
-
-static void allocBuffer(uv_handle_t* handle, size_t suggestedSize, uv_buf_t* buf)
-{
-    buf->base = (char*)malloc(suggestedSize);
-    buf->len = buf->base ? suggestedSize : 0;
-    if (!buf->base)
-    {
-        fprintf(stderr, "Process pipe buffer allocation failed!\n");
-    }
-}
-
-const std::string kStdioKindDefault = "default";
-const std::string kStdioKindInherit = "inherit";
-const std::string kStdioKindNone = "none";
-// TODO: add forwarding
-// const std::string kStdioKindForward = "forward";
-
 // helper function for run() and system()
 int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions opts)
 {
-    auto handle = std::make_shared<ProcessHandle>();
-    handle->loop = getRuntimeLoop(L);
+    auto handle = std::make_shared<ProcessHandle>(L, opts, args, "Process Spawn");
     handle->self = handle;
-
-    uv_process_options_t options = {};
-    options.exit_cb = onProcessExit;
-    options.file = args[0].c_str();
-
-    std::vector<char*> processArgsPtr;
-    for (const auto& arg : args)
-    {
-        processArgsPtr.push_back(const_cast<char*>(arg.c_str()));
-    }
-    processArgsPtr.push_back(nullptr);
-    options.args = processArgsPtr.data();
-
-    std::vector<std::string> envStrings;
-    std::vector<char*> envPtr;
-    if (!opts.env.empty())
-    {
-        // Copy current environment into the new environment
-        std::map<std::string, std::string> currentEnv;
-        if (std::optional<int> err = getEnvironmentVariables(currentEnv))
-            luaL_error(L, "Failed to get current environment: %s", uv_strerror(*err));
-
-        for (const auto& [name, value] : currentEnv)
-        {
-            if (opts.env.find(name) == opts.env.end())
-                opts.env[name] = value;
-        }
-
-        // Turn the new environment into a char** array
-        envStrings.reserve(opts.env.size());
-        envPtr.reserve(opts.env.size() + 1);
-
-        for (const auto& pair : opts.env)
-        {
-            envStrings.push_back(pair.first + "=" + pair.second);
-        }
-
-        for (auto& str : envStrings)
-        {
-            envPtr.push_back(&str[0]);
-        }
-        envPtr.push_back(nullptr);
-
-        options.env = envPtr.data();
-    }
-
-    if (!opts.cwd.empty())
-    {
-        options.cwd = opts.cwd.c_str();
-    }
-
-    uv_pipe_init(handle->loop, &handle->stdinPipe, 0);
-    uv_pipe_init(handle->loop, &handle->stdoutPipe, 0);
-    uv_pipe_init(handle->loop, &handle->stderrPipe, 0);
-
-    options.stdio_count = 3;
-    uv_stdio_container_t stdio[3];
-    if (opts.stdioKind == kStdioKindNone)
-    {
-        stdio[0].flags = UV_IGNORE;
-        stdio[1].flags = UV_IGNORE;
-        stdio[2].flags = UV_IGNORE;
-    }
-    else if (opts.stdioKind == kStdioKindInherit)
-    {
-        stdio[0].flags = UV_INHERIT_FD;
-        stdio[0].data.fd = fileno(stdin);
-        stdio[1].flags = UV_INHERIT_FD;
-        stdio[1].data.fd = fileno(stdout);
-        stdio[2].flags = UV_INHERIT_FD;
-        stdio[2].data.fd = fileno(stderr);
-    }
-    else if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
-    {
-        stdio[0].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE);
-        stdio[0].data.stream = (uv_stream_t*)&handle->stdinPipe;
-        stdio[1].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-        stdio[1].data.stream = (uv_stream_t*)&handle->stdoutPipe;
-        stdio[2].flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-        stdio[2].data.stream = (uv_stream_t*)&handle->stderrPipe;
-    }
-    else
-    {
-        luaL_error(L, "Invalid stdio kind: %s", opts.stdioKind.c_str());
-    }
-    options.stdio = stdio;
-
-    handle->process.data = handle.get();
-    handle->stdinPipe.data = handle.get();
-    handle->stdoutPipe.data = handle.get();
-    handle->stderrPipe.data = handle.get();
-
-    handle->resumeToken = getResumeToken(L);
-
-    int spawnResult = uv_spawn(handle->loop, &handle->process, &options);
-
-    if (spawnResult != 0)
-    {
-        if (handle->resumeToken)
-        {
-            handle->resumeToken->runtime->releasePendingToken();
-            handle->resumeToken.reset();
-        }
-        handle->closeHandles();
-
-        luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
-    }
-
-    // In the default stdio mode we create a pipe for the child's stdin so that
-    // future APIs can feed data to it, but there is no API to write to it yet.
-    // Close our write end immediately so the child sees EOF on stdin instead
-    // of blocking forever on a read.
-    if (opts.stdioKind == kStdioKindDefault || opts.stdioKind.empty())
-    {
-        handle->pendingCloses++;
-        uv_close((uv_handle_t*)&handle->stdinPipe, ProcessHandle::onHandleClose);
-    }
-
-    uv_read_start((uv_stream_t*)&handle->stdoutPipe, allocBuffer, onPipeRead);
-    uv_read_start((uv_stream_t*)&handle->stderrPipe, allocBuffer, onPipeRead);
-
+    handle->spawn(L);
     return lua_yield(L, 0);
 }
 
@@ -412,7 +66,16 @@ ProcessOptions parseOptions(lua_State* L, int index)
     if (!lua_isnil(L, -1))
     {
         opts.stdioKind = luaL_checkstring(L, -1);
+        if (opts.stdioKind != kStdioKindNone && opts.stdioKind != kStdioKindDefault && opts.stdioKind != kStdioKindInherit)
+        {
+            luaL_error(L, "Invalid stdio kind: %s", opts.stdioKind.c_str());
+        }
     }
+    else
+    {
+        opts.stdioKind = kStdioKindDefault;
+    }
+
     lua_pop(L, 1);
 
     lua_getfield(L, index, "env");

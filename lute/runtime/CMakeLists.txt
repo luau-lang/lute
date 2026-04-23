@@ -5,6 +5,7 @@ target_sources(Lute.Runtime PRIVATE
     include/lute/runtime.h
     include/lute/userdatas.h
     include/lute/UVRequest.h
+    include/lute/UVStream.h
     include/lute/uvutils.h
 
     src/ref.cpp

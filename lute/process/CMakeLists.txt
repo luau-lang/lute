@@ -2,8 +2,10 @@ add_library(Lute.Process STATIC)
 
 target_sources(Lute.Process PRIVATE
     include/lute/process.h
+    include/lute/processhandle.h
 
     src/process.cpp
+    src/processhandle.cpp
 )
 
 target_compile_features(Lute.Process PUBLIC cxx_std_17)
