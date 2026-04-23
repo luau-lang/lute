@@ -1,20 +1,12 @@
 #include "lute/options.h"
 
-// TODO: this is never set to true today
-static bool codegen = true;
-
 Luau::CompileOptions copts()
 {
     Luau::CompileOptions result = {};
     result.optimizationLevel = 2;
-    result.debugLevel = 2;
-    result.typeInfoLevel = 1;
+    result.debugLevel = 1;
+    result.typeInfoLevel = 0;
     result.coverageLevel = 0;
 
     return result;
-}
-
-bool getCodegenEnabled()
-{
-    return codegen;
 }
