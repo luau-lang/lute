@@ -355,6 +355,8 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         return 1;
     }
 
+    setCodegenEnabled(true);
+
     Runtime runtime{reporter};
 
     if (packageAwareness)
@@ -618,6 +620,7 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
 {
     Luau::assertHandler() = assertionHandler;
     setLuauFlags();
+    setCodegenEnabled(false);
 
     if (const char* unbuffered = std::getenv("LUTE_UNBUFFERED"); unbuffered && std::string_view(unbuffered) == "1")
     {
@@ -632,6 +635,7 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     {
         Runtime runtime{reporter};
 
+        setCodegenEnabled(true);
         setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
         std::string entryPoint = payload->entryPointPath;
         auto entryModule = payload->filePathToBytecode.find(entryPoint);

@@ -2,6 +2,7 @@
 
 #include "lute/bundlevfs.h"
 #include "lute/clivfs.h"
+#include "lute/codegenoptions.h"
 #include "lute/packagerequirevfs.h"
 #include "lute/require.h"
 #include "lute/requirevfs.h"
@@ -16,6 +17,12 @@
 #include <memory>
 #include <string>
 #include <utility>
+
+static void createCodeGenIfEnabled(lua_State* L)
+{
+    if (getCodegenEnabled() && Luau::CodeGen::isSupported())
+        Luau::CodeGen::create(L);
+}
 
 static void* createRunRequireContext(lua_State* L)
 {
@@ -131,8 +138,7 @@ lua_State* setupRunState(Runtime& runtime, std::function<void(lua_State*)> preSa
         runtime,
         [preSandboxInit = std::move(preSandboxInit)](lua_State* L)
         {
-            if (Luau::CodeGen::isSupported())
-                Luau::CodeGen::create(L);
+            createCodeGenIfEnabled(L);
 
             luaopen_require(L, requireConfigInit, createRunRequireContext(L));
             if (preSandboxInit)
@@ -147,9 +153,6 @@ lua_State* setupCliCommandState(Runtime& runtime, std::function<void(lua_State*)
         runtime,
         [preSandboxInit = std::move(preSandboxInit)](lua_State* L)
         {
-            if (Luau::CodeGen::isSupported())
-                Luau::CodeGen::create(L);
-
             luaopen_require(L, requireConfigInit, createCliCommandRequireContext(L));
             if (preSandboxInit)
                 preSandboxInit(L);
@@ -167,8 +170,7 @@ lua_State* setupPkgRunState(
         runtime,
         [directDependencies = std::move(directDependencies), allDependencies = std::move(allDependencies)](lua_State* L)
         {
-            if (Luau::CodeGen::isSupported())
-                Luau::CodeGen::create(L);
+            createCodeGenIfEnabled(L);
 
             luaopen_require(L, requireConfigInit, createPkgRunRequireContext(L, std::move(directDependencies), std::move(allDependencies)));
         }
@@ -185,8 +187,7 @@ lua_State* setupBundleState(
         runtime,
         [luauConfigFiles = std::move(luauConfigFiles), bundleMap = std::move(bundleMap)](lua_State* L)
         {
-            if (Luau::CodeGen::isSupported())
-                Luau::CodeGen::create(L);
+            createCodeGenIfEnabled(L);
 
             luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(luauConfigFiles), std::move(bundleMap)));
         }

@@ -1,5 +1,6 @@
 #include "lute/vm.h"
 
+#include "lute/codegenoptions.h"
 #include "lute/clivfs.h"
 #include "lute/ref.h"
 #include "lute/require.h"
@@ -7,6 +8,7 @@
 #include "lute/runtime.h"
 
 #include "Luau/Require.h"
+#include "Luau/CodeGen.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -211,6 +213,9 @@ int VM::lua_spawn(lua_State* L)
         *child,
         [](lua_State* L)
         {
+            if (getCodegenEnabled() && Luau::CodeGen::isSupported())
+                Luau::CodeGen::create(L);
+
             luaopen_require(L, requireConfigInit, createChildVmRequireContext(L));
         }
     );
