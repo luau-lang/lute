@@ -209,7 +209,7 @@ serializeAny = function(state: SerializerState, value: Value): ()
 	elseif type(value) == "string" then
 		serializeString(state, value)
 	elseif type(value) == "table" then
-		if #value == 0 and next(value) ~= nil then
+		if #value == 0 and next(value :: { [unknown]: unknown }) ~= nil then
 			serializeTable(state, value :: Object)
 		else
 			serializeArray(state, value :: Array)
