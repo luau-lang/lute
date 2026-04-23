@@ -11,7 +11,6 @@ target_sources(Lute.Runtime PRIVATE
     src/ref.cpp
     src/runtime.cpp
     src/UVRequest.cpp
-    src/UVStream.cpp
     src/uvutils.cpp
 )
 

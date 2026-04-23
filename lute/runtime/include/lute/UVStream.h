@@ -5,6 +5,7 @@
 #include "uv.h"
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -28,11 +29,14 @@ struct UVStream
 {
 
     UVStream(uv_loop_t* loop, std::string handleContext = "")
-        : loop(loop)
-        , handleContext(handleContext)
+        : stream(std::make_unique<T>())
+        , loop(loop)
+
+        , handleContext(std::move(handleContext))
         , closed(false)
     {
-        stream.data = this;
+
+        stream->data = this;
     }
 
     UVStream(const UVStream&) = delete;
@@ -40,16 +44,16 @@ struct UVStream
     UVStream(UVStream&&) = delete;
     UVStream& operator=(UVStream&&) = delete;
 
-    T* getStream()
+    uv_stream_t* getStream()
     {
-        return static_cast<T*>(&stream);
+        return (uv_stream_t*)stream.get();
     }
 
     void read(OnRead&& onRead, OnStreamEnd&& onStreamEnd)
     {
-        callbacks.onRead = onRead;
-        callbacks.onStreamEnd = onStreamEnd;
-        uv_read_start((uv_stream_t*)&stream, allocBuffer, readStream);
+        callbacks.onRead = std::move(onRead);
+        callbacks.onStreamEnd = std::move(onStreamEnd);
+        uv_read_start(getStream(), allocBuffer, readStream);
     }
 
     bool isClosed() const
@@ -57,25 +61,26 @@ struct UVStream
         return closed;
     }
 
-    void close(OnClose&& onClose)
+    // Returns true if the close callback was registered successfully, false if the handle is already closed or closing.
+    bool close(OnClose&& onClose)
     {
         if (isClosed())
-            return;
+            return false;
+        if (uv_is_closing((uv_handle_t*)getStream()))
+            return false;
         callbacks.onClose = std::move(onClose);
-        if (!uv_is_closing((uv_handle_t*)&stream))
-        {
-            uv_read_stop((uv_stream_t*)&stream);
-            uv_close(
-                (uv_handle_t*)&stream,
-                [](uv_handle_t* handle)
-                {
-                    auto stream = static_cast<UVStream<T>*>(handle->data);
-                    LUTE_ASSERT(stream);
-                    stream->closed = true;
-                    stream->callbacks.onClose();
-                }
-            );
-        }
+        uv_read_stop(getStream());
+        uv_close(
+            (uv_handle_t*)getStream(),
+            [](uv_handle_t* handle)
+            {
+                auto stream = static_cast<UVStream<T>*>(handle->data);
+                LUTE_ASSERT(stream);
+                stream->closed = true;
+                stream->callbacks.onClose();
+            }
+        );
+        return true;
     }
 
     static void allocBuffer(uv_handle_t* handle, size_t newSize, uv_buf_t* buf)
@@ -121,7 +126,7 @@ struct UVStream
         }
     }
 
-    T stream;
+    std::unique_ptr<T> stream;
     uv_loop_t* loop;
     StreamCallbacks callbacks;
     std::string handleContext;
@@ -131,11 +136,10 @@ struct UVStream
 
 struct PipeStream : UVStream<uv_pipe_t>
 {
-
     PipeStream(uv_loop_t* loop, bool ipc, std::string handleContext)
         : UVStream<uv_pipe_t>(loop, handleContext)
     {
-        uv_pipe_init(loop, &stream, ipc);
+        uv_pipe_init(loop, stream.get(), ipc);
     }
 };
 

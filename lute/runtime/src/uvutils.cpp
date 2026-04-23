@@ -58,5 +58,4 @@ std::optional<int> getEnvironmentVariables(std::map<std::string, std::string>& m
     return std::nullopt;
 }
 
-
 } // namespace uvutils
