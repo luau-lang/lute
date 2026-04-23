@@ -1,35 +1,43 @@
 local path = require("@std/path")
 
-export type snappass = {
+export type SnapPass = {
 	filepath: path.Path,
 	artifactpath: string,
 }
 
-export type snapfail = {
+export type ProcessExitCondition = {
+	expected: number,
+	actual: number,
+}
+
+export type SnapFail = {
 	filepath: path.Path,
 	artifactpath: string,
 	actual: string,
 	expected: string,
+	exitCondition: ProcessExitCondition?,
 	diff: string,
 	stderr: string?,
 }
 
-export type snapnew = {
+export type SnapNew = {
 	filepath: path.Path,
 	artifactpath: string,
 	actual: string,
 }
 
-export type snapresult = {
-	passed: { snappass },
-	failed: { snapfail },
-	new: { snapnew },
+export type SnapResult = {
+	passed: { SnapPass },
+	failed: { SnapFail },
+	new: { SnapNew },
 }
 
 --- Configuration for an individual test
 export type TestConfiguration = {
 	--- Arguments to pass `lute` before the snapshot file
-	args: { string },
+	args: { string }?,
+	--- Expected process exit code - if nil, not checked
+	expectedExitCode: number?,
 }
 
 --- SnapshotConfiguration format

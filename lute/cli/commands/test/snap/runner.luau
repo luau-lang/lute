@@ -10,7 +10,7 @@ local snapty = require("./types")
 
 -- Derive the .snap artifact path from a .snap.luau file path.
 -- e.g. /foo/bar.snap.luau -> /foo/bar.snap
-local function artifactPath(filepath: path.Path): string
+local function artifactFromPath(filepath: path.Path): string
 	local f = path.format(filepath)
 	assert(strext.hasSuffix(f, ".snap.luau"), `expected {f} to have suffix .snap.luau`)
 	return strext.removeSuffix(f, ".luau") -- strips ".luau"
@@ -30,36 +30,55 @@ local function retrieveConfiguration(directory: string): snapty.SnapshotConfigur
 	return v
 end
 
-local function getCommandArgs(
+-- Returns the argument and expected exit code if any
+local function getArtifactTestConfiguration(
 	execpath: string,
 	filepath: string,
 	configuration: snapty.SnapshotConfiguration?,
 	artifactPath: string
-)
+): ({ string }, number?)
 	local args = { execpath }
-	local testname = strext.removeSuffix(artifactPath, ".snap")
+	local expectedExit = nil
+	local pathEnd = path.basename(path.parse(artifactPath))
+	local testname = ""
+	if pathEnd ~= nil then
+		testname = strext.removeSuffix(pathEnd, ".snap")
+	end
 	if not configuration then
 		table.insert(args, filepath)
-		return args
+		return args, expectedExit
 	end
 
-	-- Per-test override takes priority over base config
-	local config: snapty.TestConfiguration? = nil
-	if configuration.overrides ~= nil and configuration.overrides[testname] ~= nil then
-		config = configuration.overrides[testname]
-	elseif configuration.config ~= nil then
-		config = configuration.config
+	-- Resolve args and expectedExitCode independently: override field takes priority, then base config
+	local base = configuration.config
+	local override = if configuration.overrides then configuration.overrides[testname] else nil
+
+	local configArgs: { string }? = nil
+	if override and override.args then
+		configArgs = override.args
+	elseif base and base.args then
+		configArgs = base.args
+	end
+
+	local configExit: number? = nil
+	if override and override.expectedExitCode then
+		configExit = override.expectedExitCode
+	elseif base and base.expectedExitCode then
+		configExit = base.expectedExitCode
 	end
 
 	-- Config args go between execpath and filepath (e.g. lute lint --flags <filepath>)
-	if config then
-		for _, arg in config.args do
+	if configArgs then
+		for _, arg in configArgs do
 			table.insert(args, arg)
 		end
 	end
+	if configExit then
+		expectedExit = configExit
+	end
 
 	table.insert(args, filepath)
-	return args
+	return args, expectedExit
 end
 
 local function posixify(str)
@@ -76,8 +95,8 @@ end
 
 local runner = {}
 
-function runner.runsnapshots(files: { path.Path }): snapty.snapresult
-	local result: snapty.snapresult = {
+function runner.runsnapshots(files: { path.Path }): snapty.SnapResult
+	local result: snapty.SnapResult = {
 		passed = {},
 		failed = {},
 		new = {},
@@ -103,12 +122,14 @@ function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 		local directory = path.dirname(filepath)
 		local maybeConfig = configCache[directory]
 		if maybeConfig == nil then
-			local ok, conf = pcall(retrieveConfiguration, directory)
+			local ok, confOrErr = pcall(retrieveConfiguration, directory)
 			if not ok then
-				-- Something went wrong loading this module
+				-- Something went wrong loading this module, and pcall will have yielded an error for us
+				print(confOrErr)
 				break
 			end
 
+			local conf = confOrErr
 			-- it doesn't exist
 			if not conf then
 				configCache[directory] = "missing"
@@ -120,10 +141,16 @@ function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 			configuration = maybeConfig
 		end
 
-		local artifactpath = artifactPath(filepath)
-		local args = getCommandArgs(execpath, path.format(filepath), configuration, artifactpath)
+		local artifactpath = artifactFromPath(filepath)
+		local args, expectedExit =
+			getArtifactTestConfiguration(execpath, path.format(filepath), configuration, artifactpath)
 
 		local proc = process.run(args)
+		local checkExitMismatch: snapty.ProcessExitCondition? = nil
+		if expectedExit then
+			checkExitMismatch = { expected = expectedExit, actual = proc.exitcode }
+		end
+
 		local actual = normalizeSnapshotOutput(proc.stdout, cwd)
 
 		if not fs.exists(artifactpath) then
@@ -138,8 +165,11 @@ function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 
 		local rawExpected = fs.readFileToString(artifactpath)
 		local expected, _ = string.gsub(rawExpected, "\r\n", "\n")
+		-- A test passes when a) no exit code checking is requested and b) actual == expected
+		-- It also passes when a) exit code checking is request and b) actual == expected
+		local exitCodePasses = not checkExitMismatch or checkExitMismatch.expected == checkExitMismatch.actual
 
-		if actual == expected then
+		if actual == expected and exitCodePasses then
 			table.insert(result.passed, { filepath = filepath, artifactpath = artifactpath })
 		else
 			local diff = difftext.prettydiff(expected, actual, {
@@ -151,6 +181,7 @@ function runner.runsnapshots(files: { path.Path }): snapty.snapresult
 				artifactpath = artifactpath,
 				actual = actual,
 				expected = expected,
+				exitCondition = checkExitMismatch,
 				diff = diff,
 				stderr = if not proc.ok then proc.stderr else "",
 			})
