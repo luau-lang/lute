@@ -2,7 +2,7 @@
 
 #include "lute/fileutils.h"
 #include "lute/time.h"
-#include "lute/UVRequest.h"
+#include "lute/uvrequest.h"
 
 #include "lua.h"
 #include "lualib.h"

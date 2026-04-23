@@ -1,7 +1,7 @@
 #pragma once
 
 #include "lute/runtime.h"
-#include "lute/UVStream.h"
+#include "lute/uvstream.h"
 
 #include "lua.h"
 
