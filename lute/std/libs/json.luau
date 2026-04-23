@@ -73,9 +73,6 @@ end
 
 local serializeAny: (SerializerState, (Array | Object | boolean | number | string)?) -> ()
 
--- Map of bytes that must be escaped inside a JSON string. Built once at
--- module load; the slow-path `string.gsub` uses this as the replacement
--- table. Non-ASCII codepoints are emitted as raw UTF-8 (also valid JSON).
 local STRING_ESCAPES: { [string]: string } = {
 	["\\"] = "\\\\",
 	['"'] = '\\"',
@@ -95,9 +92,6 @@ end
 local STRING_NEEDS_ESCAPE = '[%z\1-\31"\\]'
 
 local function serializeString(state: SerializerState, str: string): ()
-	-- Fast path: no characters need escaping; copy the string straight in.
-	-- Slow path: a single `string.gsub` with the table above does all the
-	-- substitutions in one C call instead of looping byte-by-byte.
 	local escaped: string
 	if string.find(str, STRING_NEEDS_ESCAPE) then
 		escaped = string.gsub(str, STRING_NEEDS_ESCAPE, STRING_ESCAPES)
@@ -222,8 +216,6 @@ local function deserializerError(state: DeserializerState, msg: string): never
 end
 
 local function skipWhitespace(state: DeserializerState): boolean
-	-- Common case in compact JSON: cursor is already on a non-ws byte. Skip
-	-- the `string.find` C call in that case.
 	local b = string.byte(state.src, state.cursor)
 	if b == nil then
 		return false
@@ -319,10 +311,6 @@ local function deserializeString(state: DeserializerState): string
 	local startPos = state.cursor + 1
 	local src = state.src
 
-	-- Fast path: jump straight to the first interesting byte (quote,
-	-- backslash, or unescaped control char). If the first one we hit is a
-	-- closing quote, the contents are exactly the bytes between the quotes
-	-- and we're done in one substring.
 	local p = string.find(src, '[\\"%z\1-\31]', startPos)
 	if not p then
 		return deserializerError(state, "Unterminated string")
@@ -337,8 +325,6 @@ local function deserializeString(state: DeserializerState): string
 		return deserializerError(state, "Unescaped control character in string")
 	end
 
-	-- Slow path: there is at least one backslash. Walk to the closing quote
-	-- in one tight loop, skipping escape sequences so `\"` doesn't terminate.
 	local len = #src
 	while p <= len do
 		local c = string.byte(src, p)
@@ -360,15 +346,8 @@ local function deserializeString(state: DeserializerState): string
 	local raw = string.sub(src, startPos, p - 1)
 	local cursor = state.cursor
 
-	-- Resolve escapes in five gsub passes (vs. ten in the old code). We use
-	-- a 0x01 sentinel to "freeze" raw `\\` sequences before the other passes
-	-- run so a `\\u0000` source isn't mis-parsed as backslash + `\u0000`.
-	-- The fast-path scan above guarantees the input contains no 0x01 bytes.
-	--   1. `\\`                     -> 0x01 (freeze)
-	--   2. `\uHIGH\uLOW`            -> utf8 surrogate pair
-	--   3. `\uXXXX`                 -> utf8 single code point
-	--   4. `\X` for X in `"/bfnrt`  -> corresponding char
-	--   5. 0x01                     -> `\` (thaw)
+	-- Freeze raw `\\` as 0x01 so a `\\u0000` source isn't mis-parsed as
+	-- backslash + `\u0000`. The scan above guarantees no 0x01 in input.
 	raw = string.gsub(raw, "\\\\", "\1")
 	raw = string.gsub(
 		raw,
@@ -517,8 +496,6 @@ end
 deserialize = function(state: DeserializerState): Value
 	skipWhitespace(state)
 
-	-- Dispatch on the first byte directly. This avoids one to four
-	-- `string.sub` + `string.match` calls per parsed value.
 	local src = state.src
 	local cursor = state.cursor
 	local b = string.byte(src, cursor)
@@ -531,8 +508,7 @@ deserialize = function(state: DeserializerState): Value
 		return obj
 	elseif b == 0x5B then -- '['
 		return deserializeArray(state)
-	elseif b == 0x74 then -- 't' -> "true"; compare bytes directly to avoid
-		-- the substring allocation that `string.sub` would do.
+	elseif b == 0x74 then -- 't' -> "true"
 		local b1, b2, b3 = string.byte(src, cursor + 1, cursor + 3)
 		if b1 == 0x72 and b2 == 0x75 and b3 == 0x65 then
 			state.cursor = cursor + 4
