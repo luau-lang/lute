@@ -904,56 +904,56 @@ local x = 1 / 0
         {
             "items": [
                 {
-                    "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.", 
-                    "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html", 
-                    "source": "lute lint", 
-                    "code": "unused_variable", 
-                    "severity": 2, 
+                    "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+                    "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
+                    "source": "lute lint",
+                    "code": "unused_variable",
+                    "severity": 2,
                     "tags": [
                         1
-                    ], 
+                    ],
                     "range": {
                         "start": {
-                            "character": 6, 
+                            "character": 6,
                             "line": 0
-                        }, 
+                        },
                         "end": {
-                            "character": 7, 
+                            "character": 7,
                             "line": 0
                         }
                     }
                 },
                 {
-                    "message": "Division by zero detected.", 
-                    "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html", 
-                    "source": "lute lint", 
-                    "code": "divide_by_zero", 
-                    "severity": 2, 
+                    "message": "Division by zero detected.",
+                    "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
+                    "source": "lute lint",
+                    "code": "divide_by_zero",
+                    "severity": 2,
                     "range": {
                         "start": {
-                            "character": 10, 
+                            "character": 10,
                             "line": 0
-                        }, 
+                        },
                         "end": {
-                            "character": 15, 
+                            "character": 15,
                             "line": 0
                         }
-                    }, 
+                    },
                     "suggestedfix": {
                         "range": {
                             "start": {
-                                "character": 10, 
+                                "character": 10,
                                 "line": 0
-                            }, 
+                            },
                             "end": {
-                                "character": 15, 
+                                "character": 15,
                                 "line": 0
                             }
-                        }, 
+                        },
                         "fix": "math.huge"
                     }
                 }
-            ], 
+            ],
             "uri":]], -- URI has absolute tmpdir path, so we cut off here
 					count = 1,
 				},
@@ -1146,52 +1146,52 @@ b = a
 		local expected = [=[
 [
     {
-        "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.", 
-        "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html", 
-        "source": "lute lint", 
-        "code": "unused_variable", 
-        "severity": 2, 
+        "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+        "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
+        "source": "lute lint",
+        "code": "unused_variable",
+        "severity": 2,
         "tags": [
             1
-        ], 
+        ],
         "range": {
             "start": {
-                "character": 6, 
+                "character": 6,
                 "line": 0
-            }, 
+            },
             "end": {
-                "character": 7, 
+                "character": 7,
                 "line": 0
             }
         }
     },
     {
-        "message": "Division by zero detected.", 
-        "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html", 
-        "source": "lute lint", 
-        "code": "divide_by_zero", 
-        "severity": 2, 
+        "message": "Division by zero detected.",
+        "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
+        "source": "lute lint",
+        "code": "divide_by_zero",
+        "severity": 2,
         "range": {
             "start": {
-                "character": 10, 
+                "character": 10,
                 "line": 0
-            }, 
+            },
             "end": {
-                "character": 15, 
+                "character": 15,
                 "line": 0
             }
-        }, 
+        },
         "suggestedfix": {
             "range": {
                 "start": {
-                    "character": 10, 
+                    "character": 10,
                     "line": 0
-                }, 
+                },
                 "end": {
-                    "character": 15, 
+                    "character": 15,
                     "line": 0
                 }
-            }, 
+            },
             "fix": "math.huge"
         }
     }
@@ -1489,32 +1489,32 @@ local e = next(t) ~= nil
 		local expected = [=[
 [
     {
-        "message": "This looks like a failed attempt to swap.", 
-        "codeDescription": "https://lute.luau.org/cli/lint/almost_swapped.html", 
-        "source": "lute lint", 
-        "code": "almost_swapped", 
-        "severity": 2, 
+        "message": "This looks like a failed attempt to swap.",
+        "codeDescription": "https://lute.luau.org/cli/lint/almost_swapped.html",
+        "source": "lute lint",
+        "code": "almost_swapped",
+        "severity": 2,
         "range": {
             "start": {
-                "character": 3, 
+                "character": 3,
                 "line": 0
-            }, 
+            },
             "end": {
-                "character": 8, 
+                "character": 8,
                 "line": 1
             }
-        }, 
+        },
         "suggestedfix": {
             "range": {
                 "start": {
-                    "character": 3, 
+                    "character": 3,
                     "line": 0
-                }, 
+                },
                 "end": {
-                    "character": 8, 
+                    "character": 8,
                     "line": 1
                 }
-            }, 
+            },
             "fix": "a, b = b, a"
         }
     }

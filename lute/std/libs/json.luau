@@ -51,21 +51,15 @@ local function writeByte(state: SerializerState, byte: number): ()
 end
 
 local function writeSpaces(state: SerializerState): ()
-	if state.depth == 0 then
+	if not state.prettyPrint or state.depth == 0 then
 		return
 	end
 
-	if state.prettyPrint then
-		checkState(state, state.depth * 4)
+	checkState(state, state.depth * 4)
 
-		for _ = 1, state.depth do
-			buffer.writeu32(state.buf, state.cursor, 0x_20_20_20_20)
-			state.cursor += 4
-		end
-	else
-		buffer.writeu8(state.buf, state.cursor, (string.byte(" ")))
-
-		state.cursor += 1
+	for _ = 1, state.depth do
+		buffer.writeu32(state.buf, state.cursor, 0x_20_20_20_20)
+		state.cursor += 4
 	end
 end
 
@@ -136,9 +130,7 @@ local function serializeArray(state: SerializerState, array: Array): ()
 			end
 		end
 
-		if i ~= 1 or state.prettyPrint then
-			writeSpaces(state)
-		end
+		writeSpaces(state)
 
 		serializeAny(state, value)
 	end
@@ -170,7 +162,6 @@ local function serializeTable(state: SerializerState, object: Object): ()
 
 		if not first then
 			writeByte(state, string.byte(","))
-			writeByte(state, string.byte(" "))
 
 			if state.prettyPrint then
 				writeByte(state, string.byte("\n"))
@@ -182,7 +173,7 @@ local function serializeTable(state: SerializerState, object: Object): ()
 		writeSpaces(state)
 
 		serializeString(state, key)
-		writeString(state, ": ")
+		writeString(state, if state.prettyPrint then ": " else ":")
 
 		serializeAny(state, value)
 	end
