@@ -1,7 +1,7 @@
 #include "lute/options.h"
 
 // TODO: this is never set to true today
-static bool codegen = false;
+static bool codegen = true;
 
 Luau::CompileOptions copts()
 {
