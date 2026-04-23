@@ -1,7 +1,8 @@
 local fs = require("@std/fs")
 local luau = require("@std/luau")
-local process = require("@std/process")
 local path = require("@std/path")
+local process = require("@std/process")
+
 local strext = require("@std/stringext")
 
 local difftext = require("@batteries/difftext")
@@ -167,8 +168,8 @@ function runner.runsnapshots(files: { path.Path }): snapty.SnapResult
 
 		local rawExpected = fs.readFileToString(artifactpath)
 		local expected = normalizeSnapshotOutput(rawExpected, cwd)
-		-- A test passes when a) no exit code checking is requested and b) actual == expected
-		-- It also passes when a) exit code checking is request and b) actual == expected
+		-- A test passes when no exit code checking is requested and b) snapshot contents match
+		-- It also passes when exit code checking is requested and b)snapshot contents match and c) exit codes match
 		local exitCodePasses = not checkExitMismatch or checkExitMismatch.expected == checkExitMismatch.actual
 
 		if actual == expected and exitCodePasses then
