@@ -1,4 +1,5 @@
 --!strict
+--!native
 -- @std/test/assert
 -- Standard assertion library for Luau
 

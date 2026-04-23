@@ -1,4 +1,5 @@
 --!strict
+--!native
 -- @std/json
 -- JSON serialization and deserialization library
 

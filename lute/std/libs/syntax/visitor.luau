@@ -1,4 +1,5 @@
 --!strict
+--!native
 -- @std/syntax/visitor
 -- Visitor pattern implementation for traversing Luau AST nodes
 
