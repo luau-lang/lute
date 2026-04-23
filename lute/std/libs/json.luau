@@ -200,18 +200,16 @@ local function serializeTable(state: SerializerState, object: Object): ()
 end
 
 serializeAny = function(state: SerializerState, value: Value): ()
-	local valueType = type(value)
-
 	if value == json.null then
 		writeString(state, "null")
-	elseif valueType == "boolean" then
+	elseif type(value) == "boolean" then
 		writeString(state, if value then "true" else "false")
-	elseif valueType == "number" then
+	elseif type(value) == "number" then
 		writeString(state, tostring(value))
-	elseif valueType == "string" then
-		serializeString(state, value :: string)
-	elseif valueType == "table" then
-		if #(value :: {}) == 0 and next(value :: { [unknown]: unknown }) ~= nil then
+	elseif type(value) == "string" then
+		serializeString(state, value)
+	elseif type(value) == "table" then
+		if #value == 0 and next(value) ~= nil then
 			serializeTable(state, value :: Object)
 		else
 			serializeArray(state, value :: Array)
@@ -388,24 +386,16 @@ local function deserializeString(state: DeserializerState): string
 			return decodeSurrogatePair(h, l, cursor)
 		end :: any
 	)
-	raw = string.gsub(
-		raw,
-		"\\u(%x%x%x%x)",
-		function(code)
-			return decodeUnicodeEscape(code, cursor)
-		end :: any
-	)
-	raw = string.gsub(
-		raw,
-		"\\(.)",
-		function(esc)
-			local v = UNESCAPE[esc]
-			if not v then
-				error(`JSON error - Invalid escape sequence around {cursor}`)
-			end
-			return v
-		end :: any
-	)
+	raw = string.gsub(raw, "\\u(%x%x%x%x)", function(code)
+		return decodeUnicodeEscape(code, cursor)
+	end)
+	raw = string.gsub(raw, "\\(.)", function(esc)
+		local v = UNESCAPE[esc]
+		if not v then
+			error(`JSON error - Invalid escape sequence around {cursor}`)
+		end
+		return v
+	end)
 	raw = string.gsub(raw, "\1", "\\")
 
 	state.cursor = p + 1
