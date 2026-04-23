@@ -101,8 +101,17 @@ local function snapReporter(result: snapty.snapresult)
 				print("")
 			end
 
-			print(f.diff)
-			print("")
+			if f.exitCondition and f.exitCondition.expected ~= f.exitCondition.actual then
+				print(
+					snapsty.fail(
+						`Exit code mismatch: expected {f.exitCondition.expected}, got {f.exitCondition.actual}`
+					)
+				)
+				print("")
+			else
+				print(f.diff)
+				print("")
+			end
 		end
 	end
 
