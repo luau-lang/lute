@@ -132,11 +132,10 @@ static bool runBytecode(
         program_argv,
         [&](lua_State* L)
         {
-            if (getCodegenEnabled())
-            {
-                Luau::CodeGen::CompilationOptions nativeOptions;
-                Luau::CodeGen::compile(L, -1, nativeOptions);
-            }
+            Luau::CodeGen::CompilationOptions nativeOptions;
+            nativeOptions.flags = Luau::CodeGen::CodeGen_OnlyNativeModules;
+            Luau::CodeGen::compile(L, -1, nativeOptions);
+
             if (profileOptions)
                 profilerStart(L, profileOptions->frequency);
         }
@@ -354,8 +353,6 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         reporter.reportError("You passed --profile-output or --frequency without passing --profile.");
         return 1;
     }
-
-    setCodegenEnabled(true);
 
     Runtime runtime{reporter};
 
@@ -620,7 +617,6 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
 {
     Luau::assertHandler() = assertionHandler;
     setLuauFlags();
-    setCodegenEnabled(false);
 
     if (const char* unbuffered = std::getenv("LUTE_UNBUFFERED"); unbuffered && std::string_view(unbuffered) == "1")
     {
@@ -635,7 +631,6 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     {
         Runtime runtime{reporter};
 
-        setCodegenEnabled(true);
         setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
         std::string entryPoint = payload->entryPointPath;
         auto entryModule = payload->filePathToBytecode.find(entryPoint);
