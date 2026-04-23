@@ -10,10 +10,10 @@ Failed Tests (1):
 Stacktrace:
 <ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:7: attempt to index nil with 'field'
 @std/test/failure.luau:29 function runtimeerror
-@std/test/runner.luau:119 function handlefailure
+@std/test/runner.luau:136 function handlefailure
 <ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:7
-@std/test/runner.luau:132 function run
-@std/test/runner.luau:166 function runRegisteredTests
+@std/test/runner.luau:149 function run
+@std/test/runner.luau:182 function runRegisteredTests
 <ROOT>/tests/std/snapshots/runtime_error_doesnt_report_xpcall.snap.luau:12
 
 

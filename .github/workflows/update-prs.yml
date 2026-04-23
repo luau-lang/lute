@@ -89,6 +89,11 @@ jobs:
           echo "Latest Lute release: $LATEST_LUTE"
           echo "tag=$LATEST_LUTE" >> $GITHUB_OUTPUT
 
+          # rokit/foreman versions are SemVer and must not include a leading "v"
+          LATEST_LUTE_VERSION="${LATEST_LUTE#v}"
+          echo "Latest Lute version: $LATEST_LUTE_VERSION"
+          echo "version=$LATEST_LUTE_VERSION" >> $GITHUB_OUTPUT
+
       - name: Check current version
         id: current-version
         run: |
@@ -99,24 +104,24 @@ jobs:
       - name: Update version files
         run: |
           # Update lute version in rokit.toml and foreman.toml
-          if [ "${{ steps.current-version.outputs.lute }}" != "${{ steps.latest-release.outputs.tag }}" ]; then
-            sed -i 's/^lute = "luau-lang\/lute@.*"/lute = "luau-lang\/lute@${{ steps.latest-release.outputs.tag }}"/' rokit.toml
+          if [ "${{ steps.current-version.outputs.lute }}" != "${{ steps.latest-release.outputs.version }}" ]; then
+            sed -i 's/^lute = "luau-lang\/lute@.*"/lute = "luau-lang\/lute@${{ steps.latest-release.outputs.version }}"/' rokit.toml
             echo "Updated rokit.toml:"
             cat rokit.toml
             echo ""
-            sed -i 's/^lute = { github = "luau-lang\/lute", version = ".*" }/lute = { github = "luau-lang\/lute", version = "=${{ steps.latest-release.outputs.tag }}" }/' foreman.toml
+            sed -i 's/^lute = { github = "luau-lang\/lute", version = ".*" }/lute = { github = "luau-lang\/lute", version = "=${{ steps.latest-release.outputs.version }}" }/' foreman.toml
             echo "Updated foreman.toml:"
             cat foreman.toml
           fi
 
       - name: Create Pull Request
-        if: steps.current-version.outputs.lute != steps.latest-release.outputs.tag
+        if: steps.current-version.outputs.lute != steps.latest-release.outputs.version
         uses: luau-lang/create-pull-request@v7
         with:
           commit-message: "chore: update dependencies"
           title: "Update Lute to ${{ steps.latest-release.outputs.tag }}"
           body: |
-            ${{ format('**Lute**: Updated from `{0}` to `{1}`', steps.current-version.outputs.lute, steps.latest-release.outputs.tag)}}
+            ${{ format('**Lute**: Updated from `{0}` to `{1}`', steps.current-version.outputs.lute, steps.latest-release.outputs.version)}}
             
             **Release Notes:**
             ${{ format('https://github.com/luau-lang/lute/releases/tag/{0}', steps.latest-release.outputs.tag)}}
@@ -127,6 +132,6 @@ jobs:
           delete-branch: true
 
       - name: No update needed
-        if: steps.current-version.outputs.lute == steps.latest-release.outputs.tag
+        if: steps.current-version.outputs.lute == steps.latest-release.outputs.version
         run: |
           echo "Lute is already up to date: ${{ steps.current-version.outputs.lute }}"

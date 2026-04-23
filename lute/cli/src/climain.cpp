@@ -137,11 +137,10 @@ static bool runBytecode(
         program_argv,
         [&](lua_State* L)
         {
-            if (getCodegenEnabled())
-            {
-                Luau::CodeGen::CompilationOptions nativeOptions;
-                Luau::CodeGen::compile(L, -1, nativeOptions);
-            }
+            Luau::CodeGen::CompilationOptions nativeOptions;
+            nativeOptions.flags = Luau::CodeGen::CodeGen_OnlyNativeModules;
+            Luau::CodeGen::compile(L, -1, nativeOptions);
+
             if (profileOptions)
                 profilerStart(L, profileOptions->frequency);
         }
