@@ -8,9 +8,9 @@ lute completion <shell> [options]
 
 ## Supported shells
 
-### - `bash`
-### - `fish`
-### - `zsh`
+- `bash`
+- `fish`
+- `zsh`
 
 ## Options
 
@@ -34,13 +34,13 @@ eval "$(lute completion bash)"
 
 Generate the completion script:
 
-```fish
+```bash
 lute completion fish > ~/.config/fish/completions/lute.fish
 ```
 
 Alternatively, you can source it directly in `~/.config/fish/config.fish`:
 
-```fish
+```bash
 lute completion fish | source
 ```
 
@@ -48,19 +48,19 @@ lute completion fish | source
 
 Generate a `_lute` completion script and put it somewhere in your `$fpath`:
 
-```zsh
+```bash
 lute completion zsh > /usr/local/share/zsh/site-functions/_lute
 ```
 
 Ensure that the following is present in your `~/.zshrc`:
 
-```zsh
+```bash
 autoload -U compinit
 compinit -i
 ```
 
 Alternatively, you can source the completions directly in your `~/.zshrc`:
 
-```zsh
+```bash
 eval "$(lute completion zsh)"
 ```

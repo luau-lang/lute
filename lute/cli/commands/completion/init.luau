@@ -1,10 +1,9 @@
+local cli = require("@batteries/cli")
 local process = require("@std/process")
 
 local bashScript = require("@self/bash")
 local fishScript = require("@self/fish")
 local zshScript = require("@self/zsh")
-
-local args = { ... }
 
 local USAGE = [[Usage: lute completion <shell> [options]
 Generate tab-completion scripts for your shell.
@@ -31,12 +30,17 @@ Setup:
     Zsh (~/.zshrc):
         eval "$(lute completion zsh)"]]
 
-if #args == 0 or table.find(args, "-h") or table.find(args, "--help") then
+local args = cli.parser()
+args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
+args:add("shell", "positional", { help = "Shell type (bash, fish, zsh)" })
+args:parse({ ... })
+
+local shell = args:get("shell")
+
+if shell == nil or args:has("help") then
 	print(USAGE)
 	return
 end
-
-local shell = args[1]
 
 if shell == "bash" then
 	print(bashScript)

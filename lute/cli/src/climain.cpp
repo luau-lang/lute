@@ -81,6 +81,9 @@ Lint Options:
 Completion Options:
 	lute completion <shell> [options]
 		Generates a completion script for the specified shell.
+			bash    Bourne Again Shell.
+			fish    Friendly Interactive Shell.
+			zsh     Z Shell.
 
 General Options:
 	-h, --help    Display this usage message.
