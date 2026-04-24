@@ -188,13 +188,13 @@ end
 serializeAny = function(state: SerializerState, value: Value): ()
 	if value == json.null then
 		writeString(state, "null")
-	elseif type(value) == "boolean" then
+	elseif typeof(value) == "boolean" then
 		writeString(state, if value then "true" else "false")
-	elseif type(value) == "number" then
+	elseif typeof(value) == "number" then
 		writeString(state, tostring(value))
-	elseif type(value) == "string" then
+	elseif typeof(value) == "string" then
 		serializeString(state, value)
-	elseif type(value) == "table" then
+	elseif typeof(value) == "table" then
 		if #value == 0 and next(value :: { [unknown]: unknown }) ~= nil then
 			serializeTable(state, value :: Object)
 		else
