@@ -14,7 +14,6 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -142,10 +141,10 @@ private:
     std::vector<std::function<void()>> continuations;
     std::unordered_map<lua_State*, ThreadCompletionHandler> threadCompletionHandlers;
 
-    // TODO: can this be handled by libuv?
     std::atomic<bool> stop;
     std::condition_variable runLoopCv;
-    std::thread runLoopThread;
+    uv_thread_t runLoopThread = {};
+    bool runLoopThreadStarted = false;
 
     std::atomic<int> activeTokens;
     uv_loop_t eventLoop;

@@ -519,6 +519,13 @@ local x = 1
 		end, assert)
 	end)
 
+	suite:case("constDeclarationRoundTrip", function(assert)
+		local source = "const a = 'hello'"
+		local ast = syntax.parse(source)
+		local result = printer.printFile(ast)
+		assert.eq(result, source)
+	end)
+
 	suite:case("statForTrivia", function(assert)
 		local source = [[-- hello
 for i = 1, 10 do

@@ -75,27 +75,6 @@ static std::string getEntryPoint(const std::string& packageRoot)
     return joinPaths(packageRoot, "src/init.luau");
 }
 
-// Extract a Luau array (numeric-keyed ConfigTable) as ordered strings.
-static std::vector<std::string> extractStringArray(const Luau::ConfigTable& table)
-{
-    std::vector<std::pair<size_t, std::string>> indexed;
-    for (const auto& [k, v] : table)
-    {
-        const double* key = k.get_if<double>();
-        const std::string* val = v.get_if<std::string>();
-        if (!key || !val)
-            continue;
-        indexed.emplace_back(static_cast<size_t>(*key), *val);
-    }
-    std::sort(indexed.begin(), indexed.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
-
-    std::vector<std::string> result;
-    result.reserve(indexed.size());
-    for (auto& [_, val] : indexed)
-        result.push_back(std::move(val));
-    return result;
-}
-
 std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Identifier, Package::Info>>> getDependenciesFromLockfile(
     const std::string& lockfilePath
 )
@@ -124,29 +103,30 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
     if (!lockfileParentDir)
         return {};
 
-    // First pass: parse all dependency entries
+    // First pass: parse all package entries
     std::unordered_map<std::string, Package::Identifier> keyToIdentifier;
     std::unordered_map<std::string, Package::Info> keyToInfo;
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> keyToDepAliases;
 
-    for (const auto& [k, v] : *depsTable)
+    for (const auto& [k, v] : *packagesTable)
     {
         const std::string* packageKey = k.get_if<std::string>();
         if (!packageKey)
             return {};
 
         const Luau::ConfigTable* entry = v.get_if<Luau::ConfigTable>();
-        if (!entry || !entry->contains("name") || !entry->contains("rev"))
+        if (!entry || !entry->contains("name"))
             return {};
 
         const std::string* name = (*entry).find("name")->get_if<std::string>();
-        const std::string* rev = (*entry).find("rev")->get_if<std::string>();
-        if (!name || !rev)
+        if (!name)
             return {};
+
+        const std::string* rev = entry->contains("rev") ? (*entry).find("rev")->get_if<std::string>() : nullptr;
 
         Package::Identifier id;
         id.name = toLower(*name);
-        id.version = *rev;
+        id.version = rev ? *rev : "";
         keyToIdentifier[*packageKey] = id;
 
         Package::Info info;
@@ -206,12 +186,14 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         }
     }
 
-    // Build direct dependencies from packages array
-    std::vector<std::string> packageKeys = extractStringArray(*packagesTable);
+    // Build direct dependencies from dependencies table (alias -> key map)
     std::vector<Package::Identifier> directDependencies;
-    for (const std::string& key : packageKeys)
+    for (const auto& [ak, av] : *depsTable)
     {
-        auto it = keyToIdentifier.find(key);
+        const std::string* depKey = av.get_if<std::string>();
+        if (!depKey)
+            continue;
+        auto it = keyToIdentifier.find(*depKey);
         if (it != keyToIdentifier.end())
             directDependencies.push_back(it->second);
     }
