@@ -89,6 +89,8 @@ export type AstStatExpr = luau.AstStatExpr
 
 export type AstStatLocal = luau.AstStatLocal
 
+export type AstStatConst = luau.AstStatConst
+
 export type AstStatFor = luau.AstStatFor
 
 export type AstStatForIn = luau.AstStatForIn
