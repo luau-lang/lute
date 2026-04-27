@@ -70,7 +70,7 @@ void anchorLibHandle(lua_State* L, const std::string& path, uv_lib_t lib)
 
 } // namespace
 
-bool isNativeLibrary(const std::string& path)
+bool isNativeModule(const std::string& path)
 {
     return hasSuffix(path, ".dylib", 6) || hasSuffix(path, ".so", 3) || hasSuffix(path, ".dll", 4);
 }

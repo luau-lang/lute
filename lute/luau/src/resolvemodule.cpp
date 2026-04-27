@@ -239,7 +239,7 @@ struct LuteTypeCheckVfs
         case VFSType::Batteries:
             return batteriesVfs.getContents(identifier);
         default:
-            if (isNativeLibrary(identifier))
+            if (isNativeModule(identifier))
                 return readNativeModuleTypes(identifier);
             return readFile(identifier);
         }

@@ -163,7 +163,7 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     }
 
     // Native shared libraries (.dylib, .so, .dll) are loaded via dlopen.
-    if (isNativeLibrary(loadname))
+    if (isNativeModule(loadname))
     {
         return loadNativeModule(L, loadname);
     }

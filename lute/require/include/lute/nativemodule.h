@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-bool isNativeLibrary(const std::string& path);
+bool isNativeModule(const std::string& path);
 
 int loadNativeModule(lua_State* L, const std::string& path);
 
