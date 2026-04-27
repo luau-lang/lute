@@ -1607,10 +1607,13 @@ struct AstSerialize : public Luau::AstVisitor
         lua_rawcheckstack(L, 2);
         lua_createtable(L, 0, preambleSize + 4);
 
-        serializeNodePreamble(node, "local", "stat");
+        const char* keyword = node->isConst ? "const" : "local";
+        const char* keywordField = node->isConst ? "constKeyword" : "localKeyword";
 
-        serializeToken(node->location.begin, "local");
-        lua_setfield(L, -2, "localKeyword");
+        serializeNodePreamble(node, keyword, "stat");
+
+        serializeToken(node->location.begin, keyword);
+        lua_setfield(L, -2, keywordField);
 
         const auto cstNode = lookupCstNode<Luau::CstStatLocal>(node);
         serializePunctuated(node->vars, cstNode->varsCommaPositions, ",", cstNode->varsAnnotationColonPositions);

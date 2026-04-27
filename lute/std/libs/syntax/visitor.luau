@@ -22,6 +22,8 @@ export type Visitor = {
 	visitStatReturn: (types.AstStatReturn) -> boolean,
 	visitStatLocalDeclaration: (types.AstStatLocal) -> boolean,
 	visitStatLocalDeclarationEnd: (types.AstStatLocal) -> (),
+	visitStatConstDeclaration: (types.AstStatConst) -> boolean,
+	visitStatConstDeclarationEnd: (types.AstStatConst) -> (),
 	visitStatFor: (types.AstStatFor) -> boolean,
 	visitStatForEnd: (types.AstStatFor) -> (),
 	visitStatForIn: (types.AstStatForIn) -> boolean,
@@ -97,6 +99,8 @@ local defaultVisitor: Visitor = {
 	visitStatReturn = alwaysVisit,
 	visitStatLocalDeclaration = alwaysVisit,
 	visitStatLocalDeclarationEnd = alwaysVisit :: (types.AstNode) -> (),
+	visitStatConstDeclaration = alwaysVisit,
+	visitStatConstDeclarationEnd = alwaysVisit :: (types.AstNode) -> (),
 	visitStatFor = alwaysVisit,
 	visitStatForEnd = alwaysVisit :: (types.AstNode) -> (),
 	visitStatForIn = alwaysVisit,
@@ -281,6 +285,19 @@ local function visitLocalStatement(node: types.AstStatLocal, visitor: Visitor)
 		visitPunctuated(node.values, visitor, visitExpr)
 
 		visitor.visitStatLocalDeclarationEnd(node)
+	end
+end
+
+local function visitConstStatement(node: types.AstStatConst, visitor: Visitor)
+	if visitor.visitStatConstDeclaration(node) then
+		visitToken(node.constKeyword, visitor)
+		visitPunctuated(node.variables, visitor, visitLocal)
+		if node.equals then
+			visitToken(node.equals, visitor)
+		end
+		visitPunctuated(node.values, visitor, visitExpr)
+
+		visitor.visitStatConstDeclarationEnd(node)
 	end
 end
 
@@ -900,6 +917,8 @@ function visitStatement(statement: types.AstStat, visitor: Visitor)
 		visitStatExpr(statement, visitor)
 	elseif statement.tag == "local" then
 		visitLocalStatement(statement, visitor)
+	elseif statement.tag == "const" then
+		visitConstStatement(statement, visitor)
 	elseif statement.tag == "return" then
 		visitStatReturn(statement, visitor)
 	elseif statement.tag == "while" then
@@ -988,6 +1007,10 @@ local function create(visit: ((types.AstNode) -> boolean)?): Visitor
 			visitStatReturn = visit,
 			visitStatLocalDeclaration = visit,
 			visitStatLocalDeclarationEnd = function(s)
+				visit(s)
+			end,
+			visitStatConstDeclaration = visit,
+			visitStatConstDeclarationEnd = function(s)
 				visit(s)
 			end,
 			visitStatFor = visit,
