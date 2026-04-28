@@ -31,6 +31,7 @@ end
 
 local function collectTomlFiles(dir: string, results: { string }): ()
 	local entries = fs.listDirectory(dir)
+
 	for _, entry in entries do
 		local fullPath = `{dir}/{entry.name}`
 		if entry.type == "dir" then
@@ -48,12 +49,14 @@ local function isTagged(obj: any): boolean
 	if typeof(obj) ~= "table" then
 		return false
 	end
+
 	local count = 0
 	for k in obj do
 		if typeof(k) ~= "userdata" then
 			count += 1
 		end
 	end
+
 	return count == 2 and typeof(obj.type) == "string" and obj.value ~= nil
 end
 
@@ -65,37 +68,8 @@ local function flattenExpected(value: any): any
 	if typeof(value) ~= "table" then
 		return value
 	end
-	if isTagged(value) then
-		local typ: string = value.type
-		local val: any = value.value
-		if typ == "bool" then
-			return val == "true"
-		elseif typ == "integer" then
-			return tonumber(val)
-		elseif typ == "float" then
-			if val == "inf" or val == "+inf" then
-				return math.huge
-			elseif val == "-inf" then
-				return -math.huge
-			elseif val == "nan" then
-				return 0 / 0
-			else
-				return tonumber(val)
-			end
-		else
-			-- string, datetime, datetime-local, date-local, time-local
-			-- For datetime/time types, normalize trailing zeros in fractional seconds
-			-- so ".600" and ".6" compare equal (toml-test has inconsistent precision).
-			if typ ~= "string" then
-				-- FIXME(Luau): bidirectional typechecking should allow us to avoid this annotation
-				return (val :: string):gsub("%.(%d+)", function(frac: string): string
-					local stripped = frac:gsub("0+$", "")
-					return `.{if stripped ~= "" then stripped else "0"}`
-				end)
-			end
-			return val :: string
-		end
-	else
+
+	if not isTagged(value) then
 		local result: { [any]: any } = {}
 		for k, v in value do
 			if typeof(k) ~= "userdata" then
@@ -104,6 +78,42 @@ local function flattenExpected(value: any): any
 		end
 		return result
 	end
+
+	local typ: string = value.type
+	local val: any = value.value
+
+	if typ == "bool" then
+		return val == "true"
+	end
+
+	if typ == "integer" then
+		return tonumber(val)
+	end
+
+	if typ == "float" then
+		if val == "inf" or val == "+inf" then
+			return math.huge
+		elseif val == "-inf" then
+			return -math.huge
+		elseif val == "nan" then
+			return 0 / 0
+		else
+			return tonumber(val)
+		end
+	end
+
+	-- string, datetime, datetime-local, date-local, time-local
+	-- For datetime/time types, normalize trailing zeros in fractional seconds
+	-- so ".600" and ".6" compare equal (toml-test has inconsistent precision).
+	if typ ~= "string" then
+		-- FIXME(Luau): bidirectional typechecking should allow us to avoid this annotation
+		return (val :: string):gsub("%.(%d+)", function(frac: string): string
+			local stripped = frac:gsub("0+$", "")
+			return `.{if stripped ~= "" then stripped else "0"}`
+		end)
+	end
+
+	return val :: string
 end
 
 -- Deep equality that handles NaN == NaN (which `==` does not).
@@ -112,33 +122,43 @@ local function deepEq(a: any, b: any, path: string): (boolean, string)
 		if a ~= a and b ~= b then
 			return true, "" -- both NaN
 		end
+
 		if a == b then
 			return true, ""
 		end
+
 		return false, `{path}: {a} ~= {b}`
 	end
+
 	if typeof(a) ~= typeof(b) then
 		return false, `{path}: got {typeof(a)} ({tostring(a)}) but expected {typeof(b)} ({tostring(b)})`
 	end
+
 	if typeof(a) ~= "table" then
 		if a == b then
 			return true, ""
 		end
+
 		return false, `{path}: {tostring(a)} ~= {tostring(b)}`
 	end
+
 	for k, v in a :: { [any]: any } do
 		local keyPath = if path == "" then tostring(k) else `{path}.{k}`
+
 		local ok, msg = deepEq(v, (b :: any)[k], keyPath)
 		if not ok then
 			return false, msg
 		end
 	end
+
 	for k in b :: { [any]: any } do
 		if (a :: any)[k] == nil then
 			local keyPath = if path == "" then tostring(k) else `{path}.{k}`
+
 			return false, `{keyPath}: key present in expected but missing in actual`
 		end
 	end
+
 	return true, ""
 end
 
