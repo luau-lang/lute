@@ -328,6 +328,8 @@ local function deserialize(input: string): { [string]: TomlValue }
 		elseif c == 85 then return parseUnicodeEscape(true) -- \UXXXXXXXX
 		elseif c == 120 then return parseHexEscape() -- \xXX  (TOML 1.1)
 		else tomlParseError(`invalid escape sequence \\${string.char(c)}`) end
+		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
+		error("unreachable")
 	end
 
 	-- string parsers (pos is always past the opening delimiter on entry)
@@ -361,6 +363,8 @@ local function deserialize(input: string): { [string]: TomlValue }
 			end
 		end
 		tomlParseError("unterminated basic string")
+		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
+		error("unreachable")
 	end
 
 	local function parseMLBasicString(): string
@@ -423,6 +427,8 @@ local function deserialize(input: string): { [string]: TomlValue }
 			end
 		end
 		tomlParseError("unterminated multiline basic string")
+		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
+		error("unreachable")
 	end
 
 	local function parseLiteralString(): string
@@ -442,6 +448,8 @@ local function deserialize(input: string): { [string]: TomlValue }
 			end
 		end
 		tomlParseError("unterminated literal string")
+		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
+		error("unreachable")
 	end
 
 	local function parseMLLiteralString(): string
@@ -481,6 +489,8 @@ local function deserialize(input: string): { [string]: TomlValue }
 			end
 		end
 		tomlParseError("unterminated multiline literal string")
+		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
+		error("unreachable")
 	end
 
 	-- number / datetime helpers
@@ -777,6 +787,8 @@ local function deserialize(input: string): { [string]: TomlValue }
 		else
 			tomlParseError(`unexpected character '${string.char(c)}' in value`)
 		end
+		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
+		error("unreachable")
 	end
 
 	parseArray = function(): { TomlValue }
@@ -1008,6 +1020,8 @@ local function deserialize(input: string): { [string]: TomlValue }
 				tomlParseError(`key '${leafKey}' is not a table`)
 			end
 		end
+		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
+		error("unreachable")
 	end
 
 	-- main parse loop
