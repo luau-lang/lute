@@ -207,6 +207,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		if not tableMeta[tbl] then
 			tableMeta[tbl] = { kind = "implicit-header", keys = {} }
 		end
+
 		return tableMeta[tbl]
 	end
 
@@ -1093,7 +1094,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		if c == 110 then -- n
 			if string.sub(src, pos, pos + 2) == "nan" then
 				pos += 3
-				return  math.nan
+				return math.nan
 			end
 
 			tomlParseError("invalid value starting with 'n'")
