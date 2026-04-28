@@ -1058,7 +1058,7 @@ local x = 1 -- after
 
 		checkReplacement(source, expected, function(ast)
 			return query.findAllFromRoot(ast :: any, syntaxUtils.isStatLocal):replace(function(_)
-				return { content = "local y = 2", preserveTrivia = false }
+				return syntaxUtils.replacementWithoutTrivia("local y = 2")
 			end)
 		end, assert)
 	end)
@@ -1071,7 +1071,7 @@ local name:
 
 		checkReplacement(source, expected, function(ast)
 			return query.findAllFromRoot(ast :: any, syntaxUtils.isTypeReference):replace(function(_)
-				return { content = "string", preserveTrivia = false }
+				return syntaxUtils.replacementWithoutTrivia("string")
 			end)
 		end, assert)
 	end)
@@ -1096,7 +1096,7 @@ replaced_b]] -- newlines are in trailing trivia of "=" tokens
 				if i == 1 then
 					replacements[node] = "replaced_a"
 				else
-					replacements[node] = { content = "replaced_b", preserveTrivia = false }
+					replacements[node] = syntaxUtils.replacementWithoutTrivia("replaced_b")
 				end
 			end)
 			return replacements
