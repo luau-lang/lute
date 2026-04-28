@@ -159,6 +159,11 @@ function utils.isStatLocal(n: types.AstNode): types.AstStatLocal?
 	return if n.kind == "stat" and n.tag == "local" then n else nil
 end
 
+--- Returns `n` narrowed to `AstStatConst` if it is a const variable declaration, or `nil` otherwise.
+function utils.isStatConst(n: types.AstNode): types.AstStatConst?
+	return if n.kind == "stat" and n.tag == "const" then n else nil
+end
+
 --- Returns `n` narrowed to `AstStatFor` if it is a numeric for statement, or `nil` otherwise.
 function utils.isStatFor(n: types.AstNode): types.AstStatFor?
 	return if n.kind == "stat" and n.tag == "for" then n else nil
