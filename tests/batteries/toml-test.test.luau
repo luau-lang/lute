@@ -183,6 +183,7 @@ local function filter(files: { string }): { string }
 	end
 	return out
 end
+
 validFiles = filter(validFiles)
 invalidFiles = filter(invalidFiles)
 
