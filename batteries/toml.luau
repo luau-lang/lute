@@ -108,6 +108,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		while i <= n do
 			local b = string.byte(input, i)
 			local seqLen: number
+
 			if b < 0x80 then
 				seqLen = 1
 			elseif b < 0xC2 then
@@ -121,9 +122,11 @@ local function deserialize(input: string): { [string]: TomlValue }
 			else
 				error("TOML parse error: invalid UTF-8 byte at position " .. i)
 			end
+
 			if i + seqLen - 1 > n then
 				error("TOML parse error: truncated UTF-8 sequence at position " .. i)
 			end
+
 			-- Validate continuation bytes and overlong/surrogate checks
 			if seqLen == 2 then
 				local b2 = string.byte(input, i + 1)
@@ -153,6 +156,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				local b2 = string.byte(input, i + 1)
 				local b3 = string.byte(input, i + 2)
 				local b4 = string.byte(input, i + 3)
+
 				if b == 0xF0 then
 					if b2 < 0x90 or b2 > 0xBF then
 						error("TOML parse error: overlong UTF-8 sequence at position " .. i)
@@ -166,9 +170,11 @@ local function deserialize(input: string): { [string]: TomlValue }
 						error("TOML parse error: invalid UTF-8 continuation at position " .. (i + 1))
 					end
 				end
+
 				if b3 < 0x80 or b3 > 0xBF then
 					error("TOML parse error: invalid UTF-8 continuation at position " .. (i + 2))
 				end
+
 				if b4 < 0x80 or b4 > 0xBF then
 					error("TOML parse error: invalid UTF-8 continuation at position " .. (i + 3))
 				end
@@ -193,7 +199,8 @@ local function deserialize(input: string): { [string]: TomlValue }
 		| "array-value" -- a static array literal (cannot be navigated into)
 	type TableMeta = { kind: TableKind, keys: { [string]: boolean } }
 	local tableMeta: { [any]: TableMeta } = {}
-	-- tracks which Lua arrays are array-of-tables (vs regular array values)
+
+	-- tracks which Luau arrays are array-of-tables (vs regular array values)
 	local arrayTableSets: { [any]: boolean } = {}
 
 	local function getMeta(tbl: any): TableMeta
