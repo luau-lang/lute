@@ -10,26 +10,31 @@ type SpanData = {
 type SpanMT = {
 	read __lt: (a: SpanData, b: SpanData) -> boolean,
 }
+--- A source location range, defined by begin and end line/column positions.
 export type Span = setmetatable<SpanData, SpanMT>
 
 luau.span = {}
 
+--- Creates a `Span` from a table with `beginLine`, `beginColumn`, `endLine`, and `endColumn`.
 function luau.span.create(tbl: { beginLine: number, beginColumn: number, endLine: number, endColumn: number }): Span
 	error("not implemented")
 end
 
+--- A whitespace trivia token.
 export type Whitespace = {
 	read tag: "whitespace",
 	read location: Span,
 	read text: string,
 }
 
+--- A single-line comment trivia token (`--`).
 export type SingleLineComment = {
 	read tag: "comment",
 	read location: Span,
 	read text: string,
 }
 
+--- A multi-line block comment trivia token (`--[[...]]`).
 export type MultiLineComment = {
 	read tag: "blockcomment",
 	read location: Span,
@@ -37,6 +42,7 @@ export type MultiLineComment = {
 	-- TODO: depth: number,
 }
 
+--- Trivia attached to a token: whitespace or comments.
 export type Trivia = Whitespace | SingleLineComment | MultiLineComment
 
 export type Token<Kind = string> = {
@@ -47,11 +53,13 @@ export type Token<Kind = string> = {
 	read kind: "token",
 }
 
+--- The end-of-file token.
 export type Eof = Token<""> & { read tag: "eof" }
 
 export type Pair<T, Separator> = { read node: T, read separator: Token<Separator>? }
 export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
 
+--- A local variable binding site in the AST.
 export type AstLocal = {
 	read location: Span,
 	read kind: "local",
@@ -61,6 +69,7 @@ export type AstLocal = {
 	read shadows: AstLocal?,
 }
 
+--- A parenthesized expression node.
 export type AstExprGroup = {
 	read location: Span,
 	read kind: "expr",
@@ -70,6 +79,7 @@ export type AstExprGroup = {
 	read closeParens: Token<")">,
 }
 
+--- A `nil` literal node.
 export type AstExprConstantNil = {
 	read location: Span,
 	read kind: "expr",
@@ -77,6 +87,7 @@ export type AstExprConstantNil = {
 	read token: Token<"nil">,
 }
 
+--- A boolean literal node (`true` or `false`).
 export type AstExprConstantBool = {
 	read location: Span,
 	read kind: "expr",
@@ -85,6 +96,7 @@ export type AstExprConstantBool = {
 	read token: Token<"true" | "false">,
 }
 
+--- A number literal node.
 export type AstExprConstantNumber = {
 	read location: Span,
 	read kind: "expr",
@@ -93,6 +105,7 @@ export type AstExprConstantNumber = {
 	read token: Token<string>,
 }
 
+--- A string literal node.
 export type AstExprConstantString = {
 	read location: Span,
 	read kind: "expr",
@@ -102,6 +115,7 @@ export type AstExprConstantString = {
 	read token: Token<string>,
 }
 
+--- A reference to a local variable.
 export type AstExprLocal = {
 	read location: Span,
 	read kind: "expr",
@@ -111,8 +125,10 @@ export type AstExprLocal = {
 	read upvalue: boolean,
 }
 
+--- A reference to a global variable.
 export type AstExprGlobal = { read location: Span, read kind: "expr", read tag: "global", read name: Token }
 
+--- A varargs expression node (`...`).
 export type AstExprVarargs = {
 	read location: Span,
 	read kind: "expr",
@@ -120,6 +136,7 @@ export type AstExprVarargs = {
 	read token: Token<"...">,
 }
 
+--- A function call expression node.
 export type AstExprCall = {
 	read location: Span,
 	read kind: "expr",
@@ -132,6 +149,7 @@ export type AstExprCall = {
 	read argLocation: Span,
 }
 
+--- An explicit generic instantiation expression node (e.g., `f<<T>>`).
 export type AstExprInstantiate = {
 	read location: Span,
 	read kind: "expr",
@@ -144,6 +162,7 @@ export type AstExprInstantiate = {
 	read rightArrow2: Token<">">,
 }
 
+--- A dot or colon index expression node (e.g., `t.k` or `t:method`).
 export type AstExprIndexName = {
 	read location: Span,
 	read kind: "expr",
@@ -154,6 +173,7 @@ export type AstExprIndexName = {
 	read indexLocation: Span,
 }
 
+--- A bracketed index expression node (e.g., `t[k]`).
 export type AstExprIndexExpr = {
 	read location: Span,
 	read kind: "expr",
@@ -164,6 +184,7 @@ export type AstExprIndexExpr = {
 	read closeBrackets: Token<"]">,
 }
 
+--- An anonymous function expression node.
 export type AstExprFunction = {
 	read location: Span,
 	read kind: "expr",
@@ -188,6 +209,7 @@ export type AstExprFunction = {
 }
 
 -- helper types for items contained in an AstExprTable, not actually AstExprs themselves
+--- A positional table constructor entry (e.g., `value` in `{ value }`).
 export type AstTableExprListItem = {
 	read location: Span,
 	read kind: "list",
@@ -196,6 +218,7 @@ export type AstTableExprListItem = {
 	read isTableItem: true,
 }
 
+--- A named table constructor entry (e.g., `key = value`).
 export type AstTableExprRecordItem = {
 	read location: Span,
 	read kind: "record",
@@ -206,6 +229,7 @@ export type AstTableExprRecordItem = {
 	read isTableItem: true,
 }
 
+--- A table constructor entry with a computed key (e.g., `[expr] = value`).
 export type AstTableExprGeneralItem = {
 	read location: Span,
 	read kind: "general",
@@ -218,8 +242,10 @@ export type AstTableExprGeneralItem = {
 	read isTableItem: true,
 }
 
+--- Union of all table constructor entry types.
 export type AstTableExprItem = AstTableExprListItem | AstTableExprRecordItem | AstTableExprGeneralItem
 
+--- A table constructor expression node.
 export type AstExprTable = {
 	read location: Span,
 	read kind: "expr",
@@ -229,6 +255,7 @@ export type AstExprTable = {
 	read closeBrace: Token<"}">,
 }
 
+--- A unary expression node (e.g., `not x`, `-x`, `#x`).
 export type AstExprUnary = {
 	read location: Span,
 	read kind: "expr",
@@ -237,6 +264,7 @@ export type AstExprUnary = {
 	read operand: AstExpr,
 }
 
+--- A binary expression node (e.g., `a + b`).
 export type AstExprBinary = {
 	read location: Span,
 	read kind: "expr",
@@ -246,6 +274,7 @@ export type AstExprBinary = {
 	read rhsOperand: AstExpr,
 }
 
+--- An interpolated string expression node (e.g., `` `hello {name}` ``).
 export type AstExprInterpString = {
 	read location: Span,
 	read kind: "expr",
@@ -254,6 +283,7 @@ export type AstExprInterpString = {
 	read expressions: { AstExpr },
 }
 
+--- A type assertion expression node (e.g., `x :: T`).
 export type AstExprTypeAssertion = {
 	read location: Span,
 	read kind: "expr",
@@ -264,6 +294,7 @@ export type AstExprTypeAssertion = {
 }
 
 -- helper type for elseif clauses of an if-else expression, not actually an AstExpr itself
+--- An `elseif` clause in an if-else expression.
 export type AstElseIfExpr = {
 	read elseIfKeyword: Token<"elseif">,
 	read condition: AstExpr,
@@ -271,6 +302,7 @@ export type AstElseIfExpr = {
 	read thenExpr: AstExpr,
 }
 
+--- An if-else expression node.
 export type AstExprIfElse = {
 	read location: Span,
 	read kind: "expr",
@@ -284,6 +316,7 @@ export type AstExprIfElse = {
 	read elseExpr: AstExpr,
 }
 
+--- Union of all expression node types in the Luau AST.
 export type AstExpr =
 	| AstExprGroup
 	| AstExprConstantNil
@@ -305,6 +338,7 @@ export type AstExpr =
 	| AstExprTypeAssertion
 	| AstExprIfElse
 
+--- A block statement node (a sequence of statements).
 export type AstStatBlock = {
 	read location: Span,
 	read kind: "stat",
@@ -312,6 +346,7 @@ export type AstStatBlock = {
 	read statements: { AstStat },
 }
 
+--- A `do...end` block statement node.
 export type AstStatDo = {
 	read location: Span,
 	read kind: "stat",
@@ -321,6 +356,7 @@ export type AstStatDo = {
 	read endKeyword: Token<"end">,
 }
 
+--- An `elseif` clause in an if statement.
 export type AstElseIfStat = {
 	read elseIfKeyword: Token<"elseif">,
 	read condition: AstExpr,
@@ -328,6 +364,7 @@ export type AstElseIfStat = {
 	read thenBlock: AstStatBlock,
 }
 
+--- An `if...then...elseif...else...end` statement node.
 export type AstStatIf = {
 	read location: Span,
 	read kind: "stat",
@@ -342,6 +379,7 @@ export type AstStatIf = {
 	read endKeyword: Token<"end">,
 }
 
+--- A `while...do...end` loop statement node.
 export type AstStatWhile = {
 	read location: Span,
 	read kind: "stat",
@@ -353,6 +391,7 @@ export type AstStatWhile = {
 	read endKeyword: Token<"end">,
 }
 
+--- A `repeat...until` loop statement node.
 export type AstStatRepeat = {
 	read location: Span,
 	read kind: "stat",
@@ -363,8 +402,10 @@ export type AstStatRepeat = {
 	read condition: AstExpr,
 }
 
+--- A `break` statement node.
 export type AstStatBreak = { read location: Span, read kind: "stat", read tag: "break", read token: Token<"break"> }
 
+--- A `continue` statement node.
 export type AstStatContinue = {
 	read location: Span,
 	read kind: "stat",
@@ -372,6 +413,7 @@ export type AstStatContinue = {
 	read token: Token<"continue">,
 }
 
+--- A `return` statement node.
 export type AstStatReturn = {
 	read location: Span,
 	read kind: "stat",
@@ -380,6 +422,7 @@ export type AstStatReturn = {
 	read expressions: Punctuated<AstExpr>,
 }
 
+--- A statement consisting of a bare expression (e.g., a function call used as a statement).
 export type AstStatExpr = {
 	read location: Span,
 	read kind: "stat",
@@ -387,6 +430,7 @@ export type AstStatExpr = {
 	read expression: AstExpr,
 }
 
+--- A `local` variable declaration statement node.
 export type AstStatLocal = {
 	read location: Span,
 	read kind: "stat",
@@ -397,6 +441,18 @@ export type AstStatLocal = {
 	read values: Punctuated<AstExpr>,
 }
 
+--- A `const` variable declaration statement node.
+export type AstStatConst = {
+	read location: Span,
+	read kind: "stat",
+	read tag: "const",
+	read constKeyword: Token<"const">,
+	read variables: Punctuated<AstLocal>,
+	read equals: Token<"=">?,
+	read values: Punctuated<AstExpr>,
+}
+
+--- A numeric `for` loop statement node.
 export type AstStatFor = {
 	read location: Span,
 	read kind: "stat",
@@ -414,6 +470,7 @@ export type AstStatFor = {
 	read endKeyword: Token<"end">,
 }
 
+--- A generic `for...in` loop statement node.
 export type AstStatForIn = {
 	read location: Span,
 	read kind: "stat",
@@ -427,6 +484,7 @@ export type AstStatForIn = {
 	read endKeyword: Token<"end">,
 }
 
+--- An assignment statement node.
 export type AstStatAssign = {
 	read location: Span,
 	read kind: "stat",
@@ -436,6 +494,7 @@ export type AstStatAssign = {
 	read values: Punctuated<AstExpr>,
 }
 
+--- A compound assignment statement node (e.g., `x += 1`).
 export type AstStatCompoundAssign = {
 	read location: Span,
 	read kind: "stat",
@@ -445,12 +504,14 @@ export type AstStatCompoundAssign = {
 	read value: AstExpr,
 }
 
+--- A function attribute node (`@checked`, `@native`, or `@deprecated`).
 export type AstAttribute = {
 	read location: Span,
 	read kind: "attribute",
 	read token: Token<"@checked" | "@native" | "@deprecated">,
 }
 
+--- A function declaration statement node.
 export type AstStatFunction = {
 	read location: Span,
 	read kind: "stat",
@@ -459,6 +520,7 @@ export type AstStatFunction = {
 	read func: AstExprFunction,
 }
 
+--- A `local function` declaration statement node.
 export type AstStatLocalFunction = {
 	read location: Span,
 	read kind: "stat",
@@ -468,6 +530,7 @@ export type AstStatLocalFunction = {
 	read func: AstExprFunction,
 }
 
+--- A `type` alias declaration statement node.
 export type AstStatTypeAlias = {
 	read location: Span,
 	read kind: "stat",
@@ -484,6 +547,7 @@ export type AstStatTypeAlias = {
 }
 
 -- A type function
+--- A `type function` declaration statement node.
 export type AstStatTypeFunction = {
 	read location: Span,
 	read kind: "stat",
@@ -494,6 +558,7 @@ export type AstStatTypeFunction = {
 	read body: AstExprFunction,
 }
 
+--- Union of all statement node types in the Luau AST.
 export type AstStat =
 	| AstStatBlock
 	| AstStatDo
@@ -505,6 +570,7 @@ export type AstStat =
 	| AstStatReturn
 	| AstStatExpr
 	| AstStatLocal
+	| AstStatConst
 	| AstStatFor
 	| AstStatForIn
 	| AstStatAssign
@@ -514,6 +580,7 @@ export type AstStat =
 	| AstStatTypeAlias
 	| AstStatTypeFunction
 
+--- A generic type parameter (e.g., `T` in `function f<T>`).
 export type AstGenericType = {
 	read tag: "generic",
 	read name: Token<string>,
@@ -521,6 +588,7 @@ export type AstGenericType = {
 	read default: AstType?,
 }
 
+--- A generic type pack parameter (e.g., `T...` in `function f<T...>`).
 export type AstGenericTypePack = {
 	read tag: "genericpack",
 	read name: Token<string>,
@@ -529,6 +597,7 @@ export type AstGenericTypePack = {
 	read default: AstTypePack?,
 }
 
+--- A named type reference node (e.g., `string`, `MyType<T>`).
 export type AstTypeReference = {
 	read location: Span,
 	read kind: "type",
@@ -541,6 +610,7 @@ export type AstTypeReference = {
 	read closeParameters: Token<">">?,
 }
 
+--- A boolean singleton type node (`true` or `false`).
 export type AstTypeSingletonBool = {
 	read location: Span,
 	read kind: "type",
@@ -549,6 +619,7 @@ export type AstTypeSingletonBool = {
 	read token: Token<"true" | "false">,
 }
 
+--- A string singleton type node (e.g., `"hello"`).
 export type AstTypeSingletonString = {
 	read location: Span,
 	read kind: "type",
@@ -557,6 +628,7 @@ export type AstTypeSingletonString = {
 	read token: Token<string>,
 }
 
+--- A `typeof(expr)` type annotation node.
 export type AstTypeTypeof = {
 	read location: Span,
 	read kind: "type",
@@ -567,6 +639,7 @@ export type AstTypeTypeof = {
 	read closeParens: Token<")">,
 }
 
+--- A parenthesized type annotation node.
 export type AstTypeGroup = {
 	read location: Span,
 	read kind: "type",
@@ -576,8 +649,10 @@ export type AstTypeGroup = {
 	read closeParens: Token<")">,
 }
 
+--- An optional type annotation node (e.g., `T?`).
 export type AstTypeOptional = { read location: Span, read kind: "type", read tag: "optional", read token: Token<"?"> }
 
+--- A union type annotation node (e.g., `A | B`).
 export type AstTypeUnion = {
 	read location: Span,
 	read kind: "type",
@@ -587,6 +662,7 @@ export type AstTypeUnion = {
 	read types: Punctuated<AstType, "|">,
 }
 
+--- An intersection type annotation node (e.g., `A & B`).
 export type AstTypeIntersection = {
 	read location: Span,
 	read kind: "type",
@@ -595,6 +671,7 @@ export type AstTypeIntersection = {
 	read types: Punctuated<AstType, "&">,
 }
 
+--- An array type annotation node (e.g., `{ T }`).
 export type AstTypeArray = {
 	read location: Span,
 	read kind: "type",
@@ -605,6 +682,7 @@ export type AstTypeArray = {
 	read closeBrace: Token<"}">,
 }
 
+--- A computed-key indexer entry in a table type (e.g., `[K]: V`).
 export type AstTableTypeItemIndexer = {
 	read kind: "indexer",
 	read access: Token<"read" | "write">?,
@@ -616,6 +694,7 @@ export type AstTableTypeItemIndexer = {
 	read separator: Token<"," | ";">?,
 }
 
+--- A string-literal-keyed property entry in a table type (e.g., `["key"]: T`).
 export type AstTableTypeItemStringProperty = {
 	read kind: "stringproperty",
 	read access: Token<"read" | "write">?,
@@ -627,6 +706,7 @@ export type AstTableTypeItemStringProperty = {
 	read separator: Token<"," | ";">?,
 }
 
+--- A named property entry in a table type (e.g., `key: T`).
 export type AstTableTypeItemProperty = {
 	read kind: "property",
 	read access: Token<"read" | "write">?,
@@ -636,8 +716,10 @@ export type AstTableTypeItemProperty = {
 	read separator: Token<"," | ";">?,
 }
 
+--- Union of all table type entry kinds.
 export type AstTableTypeItem = AstTableTypeItemIndexer | AstTableTypeItemStringProperty | AstTableTypeItemProperty
 
+--- A table type annotation node.
 export type AstTypeTable = {
 	read location: Span,
 	read kind: "type",
@@ -647,6 +729,7 @@ export type AstTypeTable = {
 	read closeBrace: Token<"}">,
 }
 
+--- A parameter in a function type annotation.
 export type AstFunctionTypeParameter = {
 	read location: Span,
 	read name: Token?,
@@ -655,6 +738,7 @@ export type AstFunctionTypeParameter = {
 }
 
 -- A type representing a Luau function
+--- A function type annotation node.
 export type AstTypeFunction = {
 	read location: Span,
 	read kind: "type",
@@ -671,6 +755,7 @@ export type AstTypeFunction = {
 	read returnTypes: AstTypePack,
 }
 
+--- Union of all type annotation node types in the Luau AST.
 export type AstType =
 	| AstTypeReference
 	| AstTypeSingletonBool
@@ -684,6 +769,7 @@ export type AstType =
 	| AstTypeTable
 	| AstTypeFunction
 
+--- An explicit type pack annotation node (e.g., `(T, U)`).
 export type AstTypePackExplicit = {
 	read location: Span,
 	read kind: "typepack",
@@ -694,6 +780,7 @@ export type AstTypePackExplicit = {
 	read closeParens: Token<")">?,
 }
 
+--- A generic type pack annotation node (e.g., `T...`).
 export type AstTypePackGeneric = {
 	read location: Span,
 	read kind: "typepack",
@@ -702,6 +789,7 @@ export type AstTypePackGeneric = {
 	read ellipsis: Token<"...">,
 }
 
+--- A variadic type pack annotation node (e.g., `...T`).
 export type AstTypePackVariadic = {
 	read location: Span,
 	read kind: "typepack",
@@ -711,10 +799,13 @@ export type AstTypePackVariadic = {
 	read type: AstType,
 }
 
+--- Union of all type pack annotation node types in the Luau AST.
 export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
 
+--- Union of all node types in the Luau AST.
 export type AstNode = AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute | Token
 
+--- The result of parsing a Luau script, containing the root block, EOF token, and source location info.
 export type ParseResult = {
 	read root: AstStatBlock,
 	read eof: Eof,
@@ -722,28 +813,35 @@ export type ParseResult = {
 	read lineOffsets: { number },
 }
 
+--- Parses `source` as a Luau script and returns the resulting AST.
 function luau.parse(source: string): ParseResult
 	error("not implemented")
 end
 
+--- Parses `source` as a single Luau expression and returns the resulting AST node.
 function luau.parseExpr(source: string): AstExpr
 	error("not implemented")
 end
 
+--- Compiled Luau bytecode produced by `luau.compile`.
 export type Bytecode = { bytecode: string }
 
+--- Compiles Luau `source` to bytecode.
 function luau.compile(source: string): Bytecode
 	error("not implemented")
 end
 
+--- Loads `bytecode` into a callable function. `chunkname` names the chunk for error messages. An optional `env` table can override the global environment.
 function luau.load(bytecode: Bytecode, chunkname: string, env: { [any]: any }?): (...any) -> ...any
 	error("not implemented")
 end
 
+--- Resolves the require path `path` relative to `fromchunkname`, returning the absolute path.
 function luau.resolveModule(path: string, fromchunkname: string): string
 	error("not implemented")
 end
 
+--- A resolved Luau type, as returned by `typeofModule`.
 export type Type = {
 	tag: "nil"
 		| "unknown"
@@ -795,6 +893,7 @@ export type Type = {
 	ispack: boolean,
 }
 
+--- A resolved Luau type pack, as returned by `typeofModule`.
 export type TypePack = {
 	tag: "typepack" | "variadic" | "generic",
 	head: { Type }?,
@@ -809,6 +908,7 @@ export type TypePack = {
 	ispack: boolean,
 }
 
+--- Returns the type pack representing the return types of the module at `modulepath`, or `nil` if unavailable.
 function luau.typeofModule(modulepath: string): TypePack?
 	error("not implemented")
 end

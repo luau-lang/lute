@@ -1,11 +1,13 @@
 #include "lute/vm.h"
 
+#include "lute/clivfs.h"
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/requirevfs.h"
 #include "lute/runtime.h"
 
 #include "Luau/Require.h"
+#include "Luau/CodeGen.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -134,29 +136,34 @@ static int crossVmMarshall(lua_State* L)
             auto co = getRefForThread(L);
             lua_pop(target.runtime->GL, 1);
 
-            target.runtime->runningThreads.push_back(
-                {true,
-                 co,
-                 argCount,
-                 [source, target = target.runtime, co]
-                 {
-                     co->push(target->GL);
-                     lua_State* L = lua_tothread(target->GL, -1);
-                     lua_pop(target->GL, 1);
+            ThreadCompletionHandler completion;
+            completion.onFinish = [source, target = target.runtime](lua_State* L, int status)
+            {
+                if (status != LUA_OK)
+                {
+                    const char* msg = lua_isstring(L, -1) ? lua_tostring(L, -1) : "cross-VM call failed";
+                    source->fail(std::string(msg));
+                    return;
+                }
 
-                     std::shared_ptr<Ref> rets = packStackValues(L, target);
+                std::shared_ptr<Ref> rets = packStackValues(L, target);
 
-                     source->complete(
-                         [target, rets](lua_State* L)
-                         {
-                             return unpackStackValue(target, L, rets);
-                         }
-                     );
-                 }}
-            );
+                source->complete(
+                    [target, rets](lua_State* L)
+                    {
+                        return unpackStackValue(target, L, rets);
+                    }
+                );
+            };
+
+            target.runtime->addThreadCompletionHandler(L, std::move(completion));
+            target.runtime->runningThreads.push_back({true, co, argCount});
         }
     );
 
+    // On resume Luau restores L->base to the C-call base, so anything left
+    // here would be counted by crossVmMarshallCont and returned as results.
+    lua_settop(L, 0);
     return lua_yield(L, 0);
 }
 
@@ -183,7 +190,8 @@ static void* createChildVmRequireContext(lua_State* L)
     if (!ctx)
         luaL_error(L, "unable to allocate RequireCtx");
 
-    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>()};
+    // Explicit CliVfs should be removed with https://github.com/luau-lang/lute/issues/1027
+    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(CliVfs{})};
 
     // Store RequireCtx in the registry to keep it alive for the lifetime of
     // this lua_State. Memory address is used as a key to avoid collisions.
@@ -204,6 +212,9 @@ int VM::lua_spawn(lua_State* L)
         *child,
         [](lua_State* L)
         {
+            if (Luau::CodeGen::isSupported())
+                Luau::CodeGen::create(L);
+
             luaopen_require(L, requireConfigInit, createChildVmRequireContext(L));
         }
     );
@@ -211,8 +222,9 @@ int VM::lua_spawn(lua_State* L)
     lua_Debug ar;
     lua_getinfo(L, 1, "s", &ar);
 
-    // Require the target module
-    RequireCtx ctx{std::make_unique<RequireVfs>()};
+    // Require the target module.
+    // Explicit CliVfs should be removed with https://github.com/luau-lang/lute/issues/1027
+    RequireCtx ctx{std::make_unique<RequireVfs>(CliVfs{})};
     luarequire_pushproxyrequire(child->GL, requireConfigInit, &ctx);
     lua_pushstring(child->GL, file);
     lua_pushstring(child->GL, ar.source);

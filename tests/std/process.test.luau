@@ -1,3 +1,4 @@
+local fs = require("@std/fs")
 local pathlib = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
@@ -119,6 +120,32 @@ test.suite("ProcessSuite", function(suite)
 		-- We expect this to still work and ignore the non-string keys
 		local r = process.run({ "echo", "hello", foo = "bar" })
 		assert.eq(r.stdout, "hello\n")
+	end)
+
+	suite:case("runChildReadingStdinDoesNotHang", function(assert)
+		local lutePath = pathlib.format(process.execPath())
+		local tmpDir = system.tmpdir()
+		local scriptPath = pathlib.join(tmpDir, "process_stdin_eof.luau")
+
+		fs.writeStringToFile(
+			pathlib.format(scriptPath),
+			[[
+			local io = require("@std/io")
+			local ok = pcall(function()
+				io.input()
+			end)
+			if ok then
+				print("read-succeeded-unexpectedly")
+			else
+				print("saw-eof")
+			end
+		]]
+		)
+
+		local r = process.run({ lutePath, pathlib.format(scriptPath) })
+		fs.remove(scriptPath)
+
+		assert.strContains(r.stdout, "saw-eof")
 	end)
 
 	suite:case("processSystemOptionsErrorCases", function(assert)

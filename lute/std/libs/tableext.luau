@@ -55,6 +55,7 @@ end
 -- Functions on array-like tables
 
 --- Converts an array into a set-like table where each element maps to `true`.
+@native
 function tableext.toSet<T>(tbl: { T }): { [T]: true }
 	local set: { [T]: true } = {}
 	for _, v in tbl do

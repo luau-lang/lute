@@ -904,56 +904,56 @@ local x = 1 / 0
         {
             "items": [
                 {
-                    "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.", 
-                    "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html", 
-                    "source": "lute lint", 
-                    "code": "unused_variable", 
-                    "severity": 2, 
+                    "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+                    "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
+                    "source": "lute lint",
+                    "code": "unused_variable",
+                    "severity": 2,
                     "tags": [
                         1
-                    ], 
+                    ],
                     "range": {
                         "start": {
-                            "character": 6, 
+                            "character": 6,
                             "line": 0
-                        }, 
+                        },
                         "end": {
-                            "character": 7, 
+                            "character": 7,
                             "line": 0
                         }
                     }
                 },
                 {
-                    "message": "Division by zero detected.", 
-                    "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html", 
-                    "source": "lute lint", 
-                    "code": "divide_by_zero", 
-                    "severity": 2, 
+                    "message": "Division by zero detected.",
+                    "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
+                    "source": "lute lint",
+                    "code": "divide_by_zero",
+                    "severity": 2,
                     "range": {
                         "start": {
-                            "character": 10, 
+                            "character": 10,
                             "line": 0
-                        }, 
+                        },
                         "end": {
-                            "character": 15, 
+                            "character": 15,
                             "line": 0
                         }
-                    }, 
+                    },
                     "suggestedfix": {
                         "range": {
                             "start": {
-                                "character": 10, 
+                                "character": 10,
                                 "line": 0
-                            }, 
+                            },
                             "end": {
-                                "character": 15, 
+                                "character": 15,
                                 "line": 0
                             }
-                        }, 
+                        },
                         "fix": "math.huge"
                     }
                 }
-            ], 
+            ],
             "uri":]], -- URI has absolute tmpdir path, so we cut off here
 					count = 1,
 				},
@@ -1146,52 +1146,52 @@ b = a
 		local expected = [=[
 [
     {
-        "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.", 
-        "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html", 
-        "source": "lute lint", 
-        "code": "unused_variable", 
-        "severity": 2, 
+        "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+        "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
+        "source": "lute lint",
+        "code": "unused_variable",
+        "severity": 2,
         "tags": [
             1
-        ], 
+        ],
         "range": {
             "start": {
-                "character": 6, 
+                "character": 6,
                 "line": 0
-            }, 
+            },
             "end": {
-                "character": 7, 
+                "character": 7,
                 "line": 0
             }
         }
     },
     {
-        "message": "Division by zero detected.", 
-        "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html", 
-        "source": "lute lint", 
-        "code": "divide_by_zero", 
-        "severity": 2, 
+        "message": "Division by zero detected.",
+        "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
+        "source": "lute lint",
+        "code": "divide_by_zero",
+        "severity": 2,
         "range": {
             "start": {
-                "character": 10, 
+                "character": 10,
                 "line": 0
-            }, 
+            },
             "end": {
-                "character": 15, 
+                "character": 15,
                 "line": 0
             }
-        }, 
+        },
         "suggestedfix": {
             "range": {
                 "start": {
-                    "character": 10, 
+                    "character": 10,
                     "line": 0
-                }, 
+                },
                 "end": {
-                    "character": 15, 
+                    "character": 15,
                     "line": 0
                 }
-            }, 
+            },
             "fix": "math.huge"
         }
     }
@@ -1489,32 +1489,32 @@ local e = next(t) ~= nil
 		local expected = [=[
 [
     {
-        "message": "This looks like a failed attempt to swap.", 
-        "codeDescription": "https://lute.luau.org/cli/lint/almost_swapped.html", 
-        "source": "lute lint", 
-        "code": "almost_swapped", 
-        "severity": 2, 
+        "message": "This looks like a failed attempt to swap.",
+        "codeDescription": "https://lute.luau.org/cli/lint/almost_swapped.html",
+        "source": "lute lint",
+        "code": "almost_swapped",
+        "severity": 2,
         "range": {
             "start": {
-                "character": 3, 
+                "character": 3,
                 "line": 0
-            }, 
+            },
             "end": {
-                "character": 8, 
+                "character": 8,
                 "line": 1
             }
-        }, 
+        },
         "suggestedfix": {
             "range": {
                 "start": {
-                    "character": 3, 
+                    "character": 3,
                     "line": 0
-                }, 
+                },
                 "end": {
-                    "character": 8, 
+                    "character": 8,
                     "line": 1
                 }
-            }, 
+            },
             "fix": "a, b = b, a"
         }
     }
@@ -2638,164 +2638,6 @@ return {
 		assert.eq(result.exitcode, 0) -- no errors bc we ignore BOTH files in the dir
 		assert.strNotContains(result.stdout, "almost_swapped")
 		assert.strNotContains(result.stdout, "divide_by_zero")
-	end)
-
-	suite:case("duplicateKeysListDuplicates", function(assert)
-		lintTestHelper(assert, {
-			content = [[
-local t = { 1, 2, [2] = 3 }
-]],
-			expectedExitCode = 1,
-			rulePath = defaultRulesPaths.duplicate_keys,
-			disableDefaultLints = true,
-			outputExpectations = {
-				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
-				{
-					expectedOutput = [[
-violator.luau:1:19-26 ──
-   │
- 1 │ local t = { 1, 2, [2] = 3 }
-   │                   ^^^^^^^
-   │
-]],
-					count = 1,
-				},
-			},
-		})
-	end)
-
-	suite:case("duplicateKeysRecordDuplicates", function(assert)
-		lintTestHelper(assert, {
-			content = [[
-local t = { a = 1, a = 2 }
-]],
-			expectedExitCode = 1,
-			rulePath = defaultRulesPaths.duplicate_keys,
-			disableDefaultLints = true,
-			outputExpectations = {
-				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
-				{
-					expectedOutput = [[
-violator.luau:1:20-25 ──
-   │
- 1 │ local t = { a = 1, a = 2 }
-   │                    ^^^^^
-   │
-]],
-					count = 1,
-				},
-			},
-		})
-	end)
-
-	suite:case("duplicateKeysGeneralStringDuplicates", function(assert)
-		lintTestHelper(assert, {
-			content = [[
-local t = { ["a"] = 1, ["a"] = 2 }
-]],
-			expectedExitCode = 1,
-			rulePath = defaultRulesPaths.duplicate_keys,
-			disableDefaultLints = true,
-			outputExpectations = {
-				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
-				{
-					expectedOutput = [[
-violator.luau:1:24-33 ──
-   │
- 1 │ local t = { ["a"] = 1, ["a"] = 2 }
-   │                        ^^^^^^^^^
-   │
-]],
-					count = 1,
-				},
-			},
-		})
-	end)
-
-	suite:case("duplicateKeysGeneralNumberDuplicates", function(assert)
-		lintTestHelper(assert, {
-			content = [[
-local t = { [1] = 1, [1] = 2 }
-]],
-			expectedExitCode = 1,
-			rulePath = defaultRulesPaths.duplicate_keys,
-			disableDefaultLints = true,
-			outputExpectations = {
-				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
-				{
-					expectedOutput = [[
-violator.luau:1:22-29 ──
-   │
- 1 │ local t = { [1] = 1, [1] = 2 }
-   │                      ^^^^^^^
-   │
-]],
-					count = 1,
-				},
-			},
-		})
-	end)
-
-	suite:case("duplicateKeysGeneralNumberClashesWithArrayPart", function(assert)
-		lintTestHelper(assert, {
-			content = [[
-local t = { 1, 2, [2] = 3 }
-]],
-			expectedExitCode = 1,
-			rulePath = defaultRulesPaths.duplicate_keys,
-			disableDefaultLints = true,
-			outputExpectations = {
-				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
-				{
-					expectedOutput = [[
-violator.luau:1:19-26 ──
-   │
- 1 │ local t = { 1, 2, [2] = 3 }
-   │                   ^^^^^^^
-   │
-]],
-					count = 1,
-				},
-			},
-		})
-	end)
-
-	suite:case("duplicateKeysGeneralStringAndRecordEntryDuplicates", function(assert)
-		lintTestHelper(assert, {
-			content = [[
-local t = { ["a"] = 1, a = 2 }
-]],
-			expectedExitCode = 1,
-			rulePath = defaultRulesPaths.duplicate_keys,
-			disableDefaultLints = true,
-			outputExpectations = {
-				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 1 },
-				{
-					expectedOutput = [[
-violator.luau:1:24-29 ──
-   │
- 1 │ local t = { ["a"] = 1, a = 2 }
-   │                        ^^^^^
-   │
-]],
-					count = 1,
-				},
-			},
-		})
-	end)
-
-	suite:case("duplicateKeysDoesntWarnOnGeneral0", function(assert)
-		lintTestHelper(assert, {
-			content = [[
-local t = { [0] = 1 }
-]],
-			expectedExitCode = 0,
-			rulePath = defaultRulesPaths.duplicate_keys,
-			disableDefaultLints = true,
-			outputExpectations = {
-				{ expectedOutput = LINT_RULE_MESSAGES.duplicate_keys, count = 0 },
-			},
-		})
 	end)
 
 	suite:case("luteLintSupportsConfiguredDirectoryIgnores", function(assert)

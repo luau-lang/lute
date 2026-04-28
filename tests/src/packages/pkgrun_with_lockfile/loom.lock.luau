@@ -1,7 +1,9 @@
 return {
-	version = 2,
-	packages = { "dep@v1.2.3" },
+	version = 3,
 	dependencies = {
+		dep = "dep@v1.2.3",
+	},
+	packages = {
 		["dep@v1.2.3"] = {
 			name = "dep",
 			rev = "v1.2.3",

@@ -2,6 +2,9 @@
 
 #include "lute/common.h"
 #include "lute/runtime.h"
+#include "lute/userdatas.h"
+
+#include "system_ca.h"
 
 #include "Luau/DenseHash.h"
 
@@ -10,14 +13,22 @@
 
 #include "curl/curl.h"
 
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+namespace net::client
+{
+struct WebSocketHandle;
+int websocket(lua_State* L);
+int ws_send(lua_State* L);
+int ws_close(lua_State* L);
+}
+
 namespace
 {
-
 struct CurlHolder
 {
     CurlHolder()
@@ -37,6 +48,48 @@ static CurlHolder& globalCurlInit()
     return holder;
 }
 
+static void initializeNetClient(lua_State* L)
+{
+    luaL_newmetatable(L, "WebSocketHandle");
+
+    lua_pushcfunction(
+        L,
+        [](lua_State* L)
+        {
+            const char* index = luaL_checkstring(L, -1);
+
+            if (strcmp(index, "send") == 0)
+            {
+                lua_pushcfunction(L, net::client::ws_send, "WebSocketHandle.send");
+                return 1;
+            }
+
+            if (strcmp(index, "close") == 0)
+            {
+                lua_pushcfunction(L, net::client::ws_close, "WebSocketHandle.close");
+                return 1;
+            }
+
+            return 0;
+        },
+        "WebSocketHandle.__index"
+    );
+    lua_setfield(L, -2, "__index");
+
+    lua_pushstring(L, "WebSocketHandle");
+    lua_setfield(L, -2, "__type");
+
+    lua_setuserdatadtor(
+        L,
+        kWebSocketHandleTag,
+        [](lua_State*, void* ud)
+        {
+            std::destroy_at(static_cast<std::shared_ptr<net::client::WebSocketHandle>*>(ud));
+        }
+    );
+
+    lua_setuserdatametatable(L, kWebSocketHandleTag);
+}
 } // namespace
 
 namespace net::client
@@ -92,7 +145,7 @@ static CurlResponse requestData(
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-    curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+    applySystemCA(curl);
 
     if (method != "GET")
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
@@ -197,7 +250,7 @@ int request(lua_State* L)
 
     // TODO: add cancellations
     token->runtime->runInWorkQueue(
-        [=]
+        [url = std::move(url), method = std::move(method), body = std::move(body), headers = std::move(headers), token]
         {
             CurlResponse resp = requestData(url, method, body, headers);
             if (!resp.error.empty())
@@ -248,12 +301,14 @@ const char* const NetClient::properties[] = {nullptr};
 
 const luaL_Reg NetClient::lib[] = {
     {"request", net::client::request},
+    {"websocket", net::client::websocket},
     {nullptr, nullptr},
 };
 
 int NetClient::pushLibrary(lua_State* L)
 {
     globalCurlInit();
+    initializeNetClient(L);
 
     lua_createtable(L, 0, std::size(NetClient::lib));
 
