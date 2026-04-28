@@ -5,12 +5,21 @@ local process = require("@std/process")
 local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
 
+local richterm = require("@batteries/richterm")
+local io = require("@std/io")
+local printDiffHunks = require("./transform/printDiffHunks")
 local cli = require("@batteries/cli")
 local files = require("./lib/files")
 local types = require("@self/types")
 
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
+end
+
+local function confirmChange(prompt: string): boolean
+	local userInput = io.input(prompt)
+	local answer = userInput:match("^%s*(.-)%s*$") or ""
+	return answer:lower() == "y"
 end
 
 local function loadMigration(path: string): types.Migration
@@ -83,6 +92,7 @@ local function applyMigration(
 	paths: { pathLib.Path },
 	options: { [string]: string | boolean },
 	dryRun: boolean,
+	interactive: boolean,
 	outputPath: string?
 )
 	local deletedPaths = {}
@@ -122,15 +132,34 @@ local function applyMigration(
 			if outputFilePath then
 				print(`Skipping writing {pathStr} as it was marked for deletion`)
 			else
-				print(`Marking {pathStr} for deletion`)
-				table.insert(deletedPaths, pathStr)
+				local deletionConfirmed = true
+				if interactive then
+					-- prompt to confirm deletion
+					deletionConfirmed = confirmChange(richterm.bold(`\nDelete {pathStr}? (y/n)`))
+				end
+
+				if deletionConfirmed then
+					print(`Marking {pathStr} for deletion`)
+					table.insert(deletedPaths, pathStr)
+				end
 			end
 		elseif not dryRun then
 			if outputFilePath then
 				assert(outputFilePath ~= nil)
 				fs.writeStringToFile(outputFilePath, toWrite)
 			elseif toWrite ~= source then
-				fs.writeStringToFile(pathStr, toWrite)
+				local changesConfirmed = true
+				if interactive then
+					local fileDiff = printDiffHunks(source, toWrite)
+
+					-- First: print out diff w/ option to accept / deny
+					print(`\n` .. fileDiff .. `\n`)
+					changesConfirmed = confirmChange(richterm.bold(`Accept changes to {pathStr}? (y/n)`))
+					print(if changesConfirmed then `Changes confirmed` else `Changes denied` .. `\n`)
+				end
+				if changesConfirmed then
+					fs.writeStringToFile(pathStr, toWrite)
+				end
 			end
 		end
 	end
@@ -165,6 +194,11 @@ local function main(...: string)
 	local args = cli.parser()
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:add("dry-run", "flag", { help = "Preview changes without writing any files" })
+	args:add(
+		"interactive",
+		"flag",
+		{ help = "Interactive mode, where you can preview and confirm changes", aliases = { "i" } }
+	)
 	args:add("output", "option", { help = "Write output to this file (single input only)", aliases = { "o" } })
 	args:add("migration-path", "positional", { help = "Path to the migration script to run" })
 	args:add(
@@ -186,6 +220,7 @@ local function main(...: string)
 	end
 
 	local dryRun = args:has("dry-run")
+	local interactive = args:has("interactive")
 	local outputFile = args:get("output")
 
 	-- Split forwarded args into file paths and migration options.
@@ -209,6 +244,10 @@ local function main(...: string)
 		print("Executing in dry run mode")
 	end
 
+	if interactive then
+		print("Executing in interactive mode")
+	end
+
 	if outputFile then
 		print(`Output path specified: '{outputFile}'`)
 	end
@@ -226,7 +265,7 @@ local function main(...: string)
 	local processedOptions = processMigrationOptions(migration, migrationOptions)
 
 	print("Applying migration")
-	applyMigration(migration, sourceFiles, processedOptions, dryRun, outputFile)
+	applyMigration(migration, sourceFiles, processedOptions, dryRun, interactive, outputFile)
 
 	print(`Processed {#sourceFiles} files!`)
 end
