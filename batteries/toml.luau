@@ -932,7 +932,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 		if string.sub(src, pos, pos + 2) == "nan" then
 			pos += 3
-			return 0 / 0
+			return math.nan
 		end
 
 		if not isDigit(c) then
@@ -1065,6 +1065,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				end
 				return true
 			end
+
 			tomlParseError("invalid value starting with 't'")
 		end
 
@@ -1076,6 +1077,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				end
 				return false
 			end
+
 			tomlParseError("invalid value starting with 'f'")
 		end
 
@@ -1084,14 +1086,16 @@ local function deserialize(input: string): { [string]: TomlValue }
 				pos += 3
 				return math.huge
 			end
+
 			tomlParseError("invalid value starting with 'i'")
 		end
 
 		if c == 110 then -- n
 			if string.sub(src, pos, pos + 2) == "nan" then
 				pos += 3
-				return 0 / 0
+				return  math.nan
 			end
+
 			tomlParseError("invalid value starting with 'n'")
 		end
 
