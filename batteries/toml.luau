@@ -80,7 +80,9 @@ end
 
 -- deserialization
 
-local function deserialize(input: string): { [string]: unknown }
+export type TomlValue = string | number | boolean | { TomlValue } | { [string]: TomlValue }
+
+local function deserialize(input: string): { [string]: TomlValue }
 	-- Reject bare CR (only CRLF → LF is allowed)
 	if input:find("\r\n", 1, true) then
 		input = input:gsub("\r\n", "\n")
@@ -191,7 +193,7 @@ local function deserialize(input: string): { [string]: unknown }
 		return tableMeta[tbl]
 	end
 
-	local function err(msg: string): never
+	local function tomlParseError(msg: string): never
 		error(`TOML parse error at position {pos}: {msg}`)
 	end
 
@@ -249,7 +251,7 @@ local function deserialize(input: string): { [string]: unknown }
 			local c = buffer.readu8(srcBuf, pos - 1)
 			if c == 10 then break end
 			if isCtrl(c) then
-				err("control character in comment")
+				tomlParseError("control character in comment")
 			end
 			pos += 1
 		end
@@ -278,7 +280,7 @@ local function deserialize(input: string): { [string]: unknown }
 		if c == 10 then
 			pos += 1
 		else
-			err(`expected newline or EOF, got '${string.char(c :: number)}'`)
+			tomlParseError(`expected newline or EOF, got '${string.char(c :: number)}'`)
 		end
 	end
 
@@ -287,16 +289,16 @@ local function deserialize(input: string): { [string]: unknown }
 	local function parseUnicodeEscape(long: boolean): string
 		local n = if long then 8 else 4
 		local hexStr = string.sub(src, pos, pos + n - 1)
-		if #hexStr < n then err("incomplete unicode escape") end
+		if #hexStr < n then tomlParseError("incomplete unicode escape") end
 		for i = 1, n do
 			if not isHexDigit(string.byte(hexStr, i)) then
-				err("invalid hex digit in unicode escape")
+				tomlParseError("invalid hex digit in unicode escape")
 			end
 		end
 		pos += n
 		local cp = tonumber(hexStr, 16) :: number
-		if cp >= 0xD800 and cp <= 0xDFFF then err("surrogate codepoint in unicode escape") end
-		if cp > 0x10FFFF then err("unicode codepoint out of range") end
+		if cp >= 0xD800 and cp <= 0xDFFF then tomlParseError("surrogate codepoint in unicode escape") end
+		if cp > 0x10FFFF then tomlParseError("unicode codepoint out of range") end
 		return utf8.char(cp)
 	end
 
@@ -304,14 +306,14 @@ local function deserialize(input: string): { [string]: unknown }
 	local function parseHexEscape(): string
 		local hexStr = string.sub(src, pos, pos + 1)
 		if #hexStr < 2 or not isHexDigit(string.byte(hexStr, 1)) or not isHexDigit(string.byte(hexStr, 2)) then
-			err("invalid \\x escape")
+			tomlParseError("invalid \\x escape")
 		end
 		pos += 2
 		return utf8.char(tonumber(hexStr, 16) :: number)
 	end
 
 	local function parseEscape(): string
-		if pos > len then err("incomplete escape sequence") end
+		if pos > len then tomlParseError("incomplete escape sequence") end
 		local c = cb() :: number
 		pos += 1
 		if c == 98 then return "\b"
@@ -325,7 +327,7 @@ local function deserialize(input: string): { [string]: unknown }
 		elseif c == 117 then return parseUnicodeEscape(false) -- \uXXXX
 		elseif c == 85 then return parseUnicodeEscape(true) -- \UXXXXXXXX
 		elseif c == 120 then return parseHexEscape() -- \xXX  (TOML 1.1)
-		else err(`invalid escape sequence \\${string.char(c)}`) end
+		else tomlParseError(`invalid escape sequence \\${string.char(c)}`) end
 	end
 
 	-- string parsers (pos is always past the opening delimiter on entry)
@@ -353,12 +355,12 @@ local function deserialize(input: string): { [string]: unknown }
 				pos += 1
 				table.insert(parts, parseEscape())
 			elseif c == 10 then
-				err("unescaped newline in basic string")
+				tomlParseError("unescaped newline in basic string")
 			else
-				err("unescaped control character in basic string")
+				tomlParseError("unescaped control character in basic string")
 			end
 		end
-		err("unterminated basic string")
+		tomlParseError("unterminated basic string")
 	end
 
 	local function parseMLBasicString(): string
@@ -412,15 +414,15 @@ local function deserialize(input: string): { [string]: unknown }
 						pos += 1
 					end
 				elseif peek > len then
-					err("incomplete escape at end of file")
+					tomlParseError("incomplete escape at end of file")
 				else
 					table.insert(parts, parseEscape())
 				end
 			else -- ctrl char or DEL
-				err("unescaped control character in multiline basic string")
+				tomlParseError("unescaped control character in multiline basic string")
 			end
 		end
-		err("unterminated multiline basic string")
+		tomlParseError("unterminated multiline basic string")
 	end
 
 	local function parseLiteralString(): string
@@ -434,12 +436,12 @@ local function deserialize(input: string): { [string]: unknown }
 			elseif c == 9 or (c >= 32 and c ~= 127) or c >= 128 then
 				pos += 1 -- plain char (tab, printable ASCII, or multibyte UTF-8)
 			elseif c == 10 then
-				err("unescaped newline in literal string")
+				tomlParseError("unescaped newline in literal string")
 			else
-				err("unescaped control character in literal string")
+				tomlParseError("unescaped control character in literal string")
 			end
 		end
-		err("unterminated literal string")
+		tomlParseError("unterminated literal string")
 	end
 
 	local function parseMLLiteralString(): string
@@ -475,17 +477,17 @@ local function deserialize(input: string): { [string]: unknown }
 					pos += 1
 				end
 			else -- ctrl char or DEL
-				err("unescaped control character in multiline literal string")
+				tomlParseError("unescaped control character in multiline literal string")
 			end
 		end
-		err("unterminated multiline literal string")
+		tomlParseError("unterminated multiline literal string")
 	end
 
 	-- number / datetime helpers
 
 	-- parse a run of digits (with internal underscores allowed), return digits-only string
 	local function parseDigits(digitCheck: (number?) -> boolean): string
-		if not digitCheck(cb()) then err("expected digit") end
+		if not digitCheck(cb()) then tomlParseError("expected digit") end
 		local result = ""
 		local runStart = pos
 		while pos <= len do
@@ -495,10 +497,10 @@ local function deserialize(input: string): { [string]: unknown }
 			elseif c == 95 then -- underscore
 				result ..= string.sub(src, runStart, pos - 1)
 				pos += 1
-				if pos > len then err("trailing underscore in number") end
+				if pos > len then tomlParseError("trailing underscore in number") end
 				local nc = buffer.readu8(srcBuf, pos - 1)
-				if nc == 95 then err("consecutive underscores in number") end
-				if not digitCheck(nc) then err("trailing underscore in number") end
+				if nc == 95 then tomlParseError("consecutive underscores in number") end
+				if not digitCheck(nc) then tomlParseError("trailing underscore in number") end
 				runStart = pos
 			else
 				break
@@ -542,21 +544,21 @@ local function deserialize(input: string): { [string]: unknown }
 			-- Parse YYYY-MM-DD
 			local yearStr = string.sub(src, pos, pos + 3)
 			pos += 4
-			if cb() ~= 45 then err("expected '-' in date") end
+			if cb() ~= 45 then tomlParseError("expected '-' in date") end
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then err("expected 2-digit month") end
+			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit month") end
 			local monthStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local month = tonumber(monthStr) :: number
-			if month < 1 or month > 12 then err(`invalid month: {month}`) end
-			if cb() ~= 45 then err("expected '-' in date") end
+			if month < 1 or month > 12 then tomlParseError(`invalid month: {month}`) end
+			if cb() ~= 45 then tomlParseError("expected '-' in date") end
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then err("expected 2-digit day") end
+			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit day") end
 			local dayStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local day = tonumber(dayStr) :: number
 			local year = tonumber(yearStr) :: number
-			if day < 1 or day > daysInMonth(year, month) then err(`invalid day {day} for month {month}`) end
+			if day < 1 or day > daysInMonth(year, month) then tomlParseError(`invalid day {day} for month {month}`) end
 			result = `{yearStr}-{monthStr}-{dayStr}`
 
 			-- Optional datetime separator: T, t, or space followed by digit
@@ -572,36 +574,36 @@ local function deserialize(input: string): { [string]: unknown }
 		end
 
 		-- Parse HH:MM[:SS[.frac]]
-		if not (isDigit(cb(0)) and isDigit(cb(1))) then err("expected 2-digit hour") end
+		if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit hour") end
 		local hourStr = string.sub(src, pos, pos + 1)
 		pos += 2
 		local hour = tonumber(hourStr) :: number
-		if hour > 23 then err(`invalid hour: {hour}`) end
-		if cb() ~= 58 then err("expected ':' in time") end
+		if hour > 23 then tomlParseError(`invalid hour: {hour}`) end
+		if cb() ~= 58 then tomlParseError("expected ':' in time") end
 		pos += 1
-		if not (isDigit(cb(0)) and isDigit(cb(1))) then err("expected 2-digit minute") end
+		if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit minute") end
 		local minStr = string.sub(src, pos, pos + 1)
 		pos += 2
 		local minute = tonumber(minStr) :: number
-		if minute > 59 then err(`invalid minute: {minute}`) end
+		if minute > 59 then tomlParseError(`invalid minute: {minute}`) end
 		result ..= `{hourStr}:{minStr}`
 
 		-- Optional seconds (TOML 1.1)
 		local secStr = "00"
 		if cb() == 58 then
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then err("expected 2-digit second") end
+			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit second") end
 			secStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local sec = tonumber(secStr) :: number
-			if sec > 59 then err(`invalid second: {sec}`) end
+			if sec > 59 then tomlParseError(`invalid second: {sec}`) end
 		end
 		result ..= `:{secStr}`
 
 		-- Optional fractional seconds
 		if cb() == 46 then
 			pos += 1
-			if not isDigit(cb()) then err("expected digit after '.' in time") end
+			if not isDigit(cb()) then tomlParseError("expected digit after '.' in time") end
 			local fracStart = pos
 			while isDigit(cb()) do pos += 1 end
 			local fracPart = string.sub(src, fracStart, pos - 1)
@@ -611,34 +613,34 @@ local function deserialize(input: string): { [string]: unknown }
 		-- Optional offset: Z, +HH:MM, -HH:MM
 		local oc = cb()
 		if oc == 90 or oc == 122 then
-			if not hasDate then err("offset not allowed in time-local") end
+			if not hasDate then tomlParseError("offset not allowed in time-local") end
 			pos += 1
 			result ..= "Z"
 		elseif oc == 43 or oc == 45 then
-			if not hasDate then err("offset not allowed in time-local") end
-			local sign = string.char(oc)
+			if not hasDate then tomlParseError("offset not allowed in time-local") end
+			local sign = string.char(oc :: number)
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then err("expected 2-digit offset hour") end
+			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit offset hour") end
 			local ohStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local oh = tonumber(ohStr) :: number
-			if oh > 23 then err(`invalid offset hour: {oh}`) end
-			if cb() ~= 58 then err("expected ':' in offset") end
+			if oh > 23 then tomlParseError(`invalid offset hour: {oh}`) end
+			if cb() ~= 58 then tomlParseError("expected ':' in offset") end
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then err("expected 2-digit offset minute") end
+			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit offset minute") end
 			local omStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local om = tonumber(omStr) :: number
-			if om > 59 then err(`invalid offset minute: {om}`) end
+			if om > 59 then tomlParseError(`invalid offset minute: {om}`) end
 			result ..= `{sign}{ohStr}:{omStr}`
 		end
 
 		return result
 	end
 
-	local parseValue -- forward declaration
+	local parseValue: () -> TomlValue
 
-	local function parseNumOrDatetime(sign: string?): any
+	local function parseNumOrDatetime(sign: string?): string | number
 		local signStr = sign or ""
 		local c = cb()
 
@@ -652,7 +654,7 @@ local function deserialize(input: string): { [string]: unknown }
 			return 0 / 0
 		end
 
-		if not isDigit(c) then err(`expected digit, got '${string.char(c :: number)}'`) end
+		if not isDigit(c) then tomlParseError(`expected digit, got '${string.char(c :: number)}'`) end
 
 		-- prefixed integer bases (no sign allowed)
 		if sign == nil and c == 48 then
@@ -673,7 +675,7 @@ local function deserialize(input: string): { [string]: unknown }
 		local intDigits: string
 		if isZero then
 			pos += 1
-			if isDigit(cb()) then err("leading zero in integer") end
+			if isDigit(cb()) then tomlParseError("leading zero in integer") end
 			intDigits = "0"
 		else
 			intDigits = parseDigits(isDigit)
@@ -686,7 +688,7 @@ local function deserialize(input: string): { [string]: unknown }
 		if nc == 46 then -- '.'
 			isFloat = true
 			pos += 1
-			if not isDigit(cb()) then err("expected digit after decimal point") end
+			if not isDigit(cb()) then tomlParseError("expected digit after decimal point") end
 			result ..= "." .. parseDigits(isDigit)
 			nc = cb()
 		end
@@ -700,7 +702,7 @@ local function deserialize(input: string): { [string]: unknown }
 				expSign = string.char(ec :: number)
 				pos += 1
 			end
-			if not isDigit(cb()) then err("expected digit in exponent") end
+			if not isDigit(cb()) then tomlParseError("expected digit in exponent") end
 			result ..= "e" .. expSign .. parseDigits(isDigit)
 		end
 
@@ -708,14 +710,14 @@ local function deserialize(input: string): { [string]: unknown }
 	end
 
 	-- array and inline-table parsers (forward declared for mutual recursion)
-	local parseArray: () -> { any }
-	local parseInlineTable: () -> { [string]: any }
+	local parseArray: () -> { TomlValue }
+	local parseInlineTable: () -> { [string]: TomlValue }
 	local parseKey: () -> { string }
-	local setNestedKey: (tbl: any, parts: { string }, value: any, fromDottedKey: boolean) -> ()
+	local setNestedKey: (tbl: { [string]: TomlValue }, parts: { string }, value: TomlValue, fromDottedKey: boolean) -> ()
 
-	parseValue = function(): any
+	parseValue = function(): TomlValue
 		skipWS()
-		if pos > len then err("expected value") end
+		if pos > len then tomlParseError("expected value") end
 		local c = cb() :: number
 
 		if c == 34 then -- "
@@ -741,29 +743,29 @@ local function deserialize(input: string): { [string]: unknown }
 		elseif c == 116 then -- t
 			if string.sub(src, pos, pos + 3) == "true" then
 				pos += 4
-				if isBareKey(cb()) then err("invalid value") end
+				if isBareKey(cb()) then tomlParseError("invalid value") end
 				return true
 			end
-			err("invalid value starting with 't'")
+			tomlParseError("invalid value starting with 't'")
 		elseif c == 102 then -- f
 			if string.sub(src, pos, pos + 4) == "false" then
 				pos += 5
-				if isBareKey(cb()) then err("invalid value") end
+				if isBareKey(cb()) then tomlParseError("invalid value") end
 				return false
 			end
-			err("invalid value starting with 'f'")
+			tomlParseError("invalid value starting with 'f'")
 		elseif c == 105 then -- i
 			if string.sub(src, pos, pos + 2) == "inf" then
 				pos += 3
 				return math.huge
 			end
-			err("invalid value starting with 'i'")
+			tomlParseError("invalid value starting with 'i'")
 		elseif c == 110 then -- n
 			if string.sub(src, pos, pos + 2) == "nan" then
 				pos += 3
 				return 0 / 0
 			end
-			err("invalid value starting with 'n'")
+			tomlParseError("invalid value starting with 'n'")
 		elseif c == 43 then -- +
 			pos += 1
 			return parseNumOrDatetime("+")
@@ -773,22 +775,22 @@ local function deserialize(input: string): { [string]: unknown }
 		elseif isDigit(c) then
 			return parseNumOrDatetime(nil)
 		else
-			err(`unexpected character '${string.char(c)}' in value`)
+			tomlParseError(`unexpected character '${string.char(c)}' in value`)
 		end
 	end
 
-	parseArray = function(): { any }
-		local result: { any } = {}
+	parseArray = function(): { TomlValue }
+		local result: { TomlValue } = {}
 		tableMeta[result] = { kind = "array-value", keys = {} } -- mark as static array
 		skipWSNL()
 		if cb() == 93 then pos += 1; return result end -- empty []
 		while true do
 			skipWSNL()
-			if pos > len then err("unterminated array") end
+			if pos > len then tomlParseError("unterminated array") end
 			if cb() == 93 then pos += 1; break end -- trailing comma case
 			table.insert(result, parseValue())
 			skipWSNL()
-			if pos > len then err("unterminated array") end
+			if pos > len then tomlParseError("unterminated array") end
 			local c = cb()
 			if c == 44 then -- ','
 				pos += 1
@@ -796,7 +798,7 @@ local function deserialize(input: string): { [string]: unknown }
 				pos += 1
 				break
 			else
-				err(`expected ',' or ']' in array, got '${string.char(c :: number)}'`)
+				tomlParseError(`expected ',' or ']' in array, got '${string.char(c :: number)}'`)
 			end
 		end
 		return result
@@ -824,9 +826,9 @@ local function deserialize(input: string): { [string]: unknown }
 				part = string.sub(src, start, pos - 1)
 			else
 				if #parts == 0 then
-					err(`expected key, got '${string.char(c :: number or 0)}'`)
+					tomlParseError(`expected key, got '${string.char(c :: number or 0)}'`)
 				else
-					err("expected key segment after '.'")
+					tomlParseError("expected key segment after '.'")
 				end
 			end
 			table.insert(parts, part)
@@ -843,71 +845,71 @@ local function deserialize(input: string): { [string]: unknown }
 
 	-- navigate through dotted intermediate keys, creating tables as needed;
 	-- returns (leaf_table, leaf_key_string)
-	local function navigateDotted(tbl: any, parts: { string }, newKind: TableKind): (any, string)
-		local current = tbl
+	local function navigateDotted(tbl: { [string]: TomlValue }, parts: { string }, newKind: TableKind): ({ [string]: TomlValue }, string)
+		local current: { [string]: TomlValue } = tbl
 		for i = 1, #parts - 1 do
 			local k = parts[i]
 			local child = current[k]
 			if child == nil then
-				local newTbl: any = {}
+				local newTbl: { [string]: TomlValue } = {}
 				tableMeta[newTbl] = { kind = newKind, keys = {} }
 				current[k] = newTbl
 				getMeta(current).keys[k] = true
 				current = newTbl
-			elseif type(child) == "table" then
+			elseif typeof(child) == "table" then
 				if arrayTableSets[child] then
-					err(`cannot extend array-of-tables '${k}' via dotted key`)
+					tomlParseError(`cannot extend array-of-tables '${k}' via dotted key`)
 				end
 				local m = getMeta(child)
 				if m.kind == "array-value" then
-					err(`cannot navigate through static array value '${k}'`)
+					tomlParseError(`cannot navigate through static array value '${k}'`)
 				end
 				if m.kind == "inline" then
-					err(`cannot extend inline table via key '${k}'`)
+					tomlParseError(`cannot extend inline table via key '${k}'`)
 				end
 				if m.kind == "defined" or m.kind == "array-element" then
-					err(`cannot extend explicitly-defined table '${k}' via dotted key`)
+					tomlParseError(`cannot extend explicitly-defined table '${k}' via dotted key`)
 				end
-				current = child
+				current = child :: { [string]: TomlValue }
 			else
-				err(`key '${k}' is not a table`)
+				tomlParseError(`key '${k}' is not a table`)
 			end
 		end
 		return current, parts[#parts]
 	end
 
-	setNestedKey = function(tbl: any, parts: { string }, value: any, fromDottedKey: boolean)
+	setNestedKey = function(tbl: { [string]: TomlValue }, parts: { string }, value: TomlValue, fromDottedKey: boolean)
 		local newKind = if fromDottedKey then "implicit-dotted" else "implicit-header"
 		local leafTbl, leafKey = navigateDotted(tbl, parts, newKind)
 		local m = getMeta(leafTbl)
 		if m.keys[leafKey] then
-			err(`duplicate key '${leafKey}'`)
+			tomlParseError(`duplicate key '${leafKey}'`)
 		end
 		m.keys[leafKey] = true
 		leafTbl[leafKey] = value
 		-- tag any freshly assigned table value
-		if type(value) == "table" and not tableMeta[value] then
+		if typeof(value) == "table" and not tableMeta[value] then
 			tableMeta[value] = { kind = newKind, keys = {} }
 		end
 	end
 
-	parseInlineTable = function(): { [string]: any }
-		local result: any = {}
+	parseInlineTable = function(): { [string]: TomlValue }
+		local result: { [string]: TomlValue } = {}
 		tableMeta[result] = { kind = "inline", keys = {} }
 		skipWSNL() -- TOML 1.1: newlines allowed inside inline tables
 		if cb() == 125 then pos += 1; return result end -- empty {}
 		while true do
 			skipWSNL()
-			if pos > len then err("unterminated inline table") end
+			if pos > len then tomlParseError("unterminated inline table") end
 			if cb() == 125 then pos += 1; break end -- '}' (trailing comma support)
 			local keys = parseKey()
 			skipWS()
-			if cb() ~= 61 then err("expected '=' in inline table") end -- '='
+			if cb() ~= 61 then tomlParseError("expected '=' in inline table") end -- '='
 			pos += 1
 			local value = parseValue()
 			setNestedKey(result, keys, value, false)
 			skipWSNL()
-			if pos > len then err("unterminated inline table") end
+			if pos > len then tomlParseError("unterminated inline table") end
 			local c = cb()
 			if c == 44 then -- ','
 				pos += 1
@@ -915,39 +917,39 @@ local function deserialize(input: string): { [string]: unknown }
 				pos += 1
 				break
 			else
-				err(`expected ',' or '}}' in inline table, got '${string.char(c :: number)}'`)
+				tomlParseError(`expected ',' or '}}' in inline table, got '${string.char(c :: number)}'`)
 			end
 		end
 		return result
 	end
 
 	-- navigate to the table referenced by a [key] or [[key]] header
-	local function navigateToHeader(root: any, parts: { string }, isArrayTable: boolean): any
-		local current = root
+	local function navigateToHeader(root: { [string]: TomlValue }, parts: { string }, isArrayTable: boolean): { [string]: TomlValue }
+		local current: { [string]: TomlValue } = root
 		for i = 1, #parts - 1 do
 			local k = parts[i]
 			local child = current[k]
 			if child == nil then
-				local newTbl: any = {}
+				local newTbl: { [string]: TomlValue } = {}
 				tableMeta[newTbl] = { kind = "implicit-header", keys = {} }
 				current[k] = newTbl
 				getMeta(current).keys[k] = true
 				current = newTbl
-			elseif type(child) == "table" then
+			elseif typeof(child) == "table" then
 				if arrayTableSets[child] then
-					current = child[#child]
+					current = (child :: { TomlValue })[#(child :: { TomlValue })] :: { [string]: TomlValue }
 				else
 					local m = getMeta(child)
 					if m.kind == "array-value" then
-						err(`key '${k}' is a static array, cannot navigate through it`)
+						tomlParseError(`key '${k}' is a static array, cannot navigate through it`)
 					end
 					if m.kind == "inline" then
-						err("cannot extend inline table")
+						tomlParseError("cannot extend inline table")
 					end
-					current = child
+					current = child :: { [string]: TomlValue }
 				end
 			else
-				err(`key '${k}' is not a table`)
+				tomlParseError(`key '${k}' is not a table`)
 			end
 		end
 
@@ -956,63 +958,63 @@ local function deserialize(input: string): { [string]: unknown }
 
 		if isArrayTable then
 			if existing == nil then
-				local arr: any = {}
+				local arr: { { [string]: TomlValue } } = {}
 				arrayTableSets[arr] = true
-				current[leafKey] = arr
+				current[leafKey] = arr :: { TomlValue }
 				getMeta(current).keys[leafKey] = true
-				local entry: any = {}
+				local entry: { [string]: TomlValue } = {}
 				tableMeta[entry] = { kind = "array-element", keys = {} }
 				table.insert(arr, entry)
 				return entry
-			elseif type(existing) == "table" and arrayTableSets[existing] then
-				local entry: any = {}
+			elseif typeof(existing) == "table" and arrayTableSets[existing] then
+				local entry: { [string]: TomlValue } = {}
 				tableMeta[entry] = { kind = "array-element", keys = {} }
-				table.insert(existing, entry)
+				table.insert(existing :: { { [string]: TomlValue } }, entry)
 				return entry
 			else
-				err(`cannot define [[${leafKey}]]: key already exists as a different type`)
+				tomlParseError(`cannot define [[${leafKey}]]: key already exists as a different type`)
 			end
 		else
 			if existing == nil then
-				local newTbl: any = {}
+				local newTbl: { [string]: TomlValue } = {}
 				tableMeta[newTbl] = { kind = "defined", keys = {} }
 				current[leafKey] = newTbl
 				getMeta(current).keys[leafKey] = true
 				return newTbl
-			elseif type(existing) == "table" then
+			elseif typeof(existing) == "table" then
 				-- Check arrayTableSets BEFORE getMeta to avoid creating spurious meta
 				if arrayTableSets[existing] then
-					err(`cannot define [${leafKey}]: already an array-of-tables`)
+					tomlParseError(`cannot define [${leafKey}]: already an array-of-tables`)
 				end
 				local m = getMeta(existing)
 				if m.kind == "array-value" then
-					err(`cannot define [${leafKey}]: key is a static array value`)
+					tomlParseError(`cannot define [${leafKey}]: key is a static array value`)
 				end
 				if m.kind == "implicit-header" then
 					m.kind = "defined"
-					return existing
+					return existing :: { [string]: TomlValue }
 				elseif m.kind == "defined" then
-					err(`duplicate table header [${leafKey}]`)
+					tomlParseError(`duplicate table header [${leafKey}]`)
 				elseif m.kind == "inline" then
-					err("cannot extend inline table with a table header")
+					tomlParseError("cannot extend inline table with a table header")
 				elseif m.kind == "implicit-dotted" then
-					err(`table [${leafKey}] was already defined via a dotted key`)
+					tomlParseError(`table [${leafKey}] was already defined via a dotted key`)
 				elseif m.kind == "array-element" then
-					err(`cannot define [${leafKey}]: already an array-of-tables element`)
+					tomlParseError(`cannot define [${leafKey}]: already an array-of-tables element`)
 				else
-					err(`cannot redefine [${leafKey}]`)
+					tomlParseError(`cannot redefine [${leafKey}]`)
 				end
 			else
-				err(`key '${leafKey}' is not a table`)
+				tomlParseError(`key '${leafKey}' is not a table`)
 			end
 		end
 	end
 
 	-- main parse loop
 
-	local root: any = {}
+	local root: { [string]: TomlValue } = {}
 	tableMeta[root] = { kind = "root", keys = {} }
-	local currentTable = root
+	local currentTable: { [string]: TomlValue } = root
 
 	while pos <= len do
 		skipWSNL()
@@ -1026,7 +1028,7 @@ local function deserialize(input: string): { [string]: unknown }
 				skipWS()
 				local parts = parseKey()
 				skipWS()
-				if string.sub(src, pos, pos + 1) ~= "]]" then err("expected ']]'") end
+				if string.sub(src, pos, pos + 1) ~= "]]" then tomlParseError("expected ']]'") end
 				pos += 2
 				expectLineEnd()
 				currentTable = navigateToHeader(root, parts, true)
@@ -1035,7 +1037,7 @@ local function deserialize(input: string): { [string]: unknown }
 				skipWS()
 				local parts = parseKey()
 				skipWS()
-				if cb() ~= 93 then err("expected ']'") end -- ']'
+				if cb() ~= 93 then tomlParseError("expected ']'") end -- ']'
 				pos += 1
 				expectLineEnd()
 				currentTable = navigateToHeader(root, parts, false)
@@ -1043,7 +1045,7 @@ local function deserialize(input: string): { [string]: unknown }
 		else
 			local parts = parseKey()
 			skipWS()
-			if cb() ~= 61 then err("expected '='") end -- '='
+			if cb() ~= 61 then tomlParseError("expected '='") end -- '='
 			pos += 1
 			local value = parseValue()
 			setNestedKey(currentTable, parts, value, true)

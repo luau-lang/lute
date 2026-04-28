@@ -45,16 +45,16 @@ end
 -- @std/json adds a userdata marker key to every deserialized object, so we
 -- skip userdata keys when counting.
 local function isTagged(obj: any): boolean
-	if type(obj) ~= "table" then
+	if typeof(obj) ~= "table" then
 		return false
 	end
 	local count = 0
 	for k in obj do
-		if type(k) ~= "userdata" then
+		if typeof(k) ~= "userdata" then
 			count += 1
 		end
 	end
-	return count == 2 and type(obj.type) == "string" and obj.value ~= nil
+	return count == 2 and typeof(obj.type) == "string" and obj.value ~= nil
 end
 
 -- Recursively convert a toml-test JSON value tree into plain Lua values.
@@ -62,7 +62,7 @@ end
 -- arrays are recursed into. Userdata marker keys from the JSON deserializer
 -- are skipped.
 local function flattenExpected(value: any): any
-	if type(value) ~= "table" then
+	if typeof(value) ~= "table" then
 		return value
 	end
 	if isTagged(value) then
@@ -98,7 +98,7 @@ local function flattenExpected(value: any): any
 	else
 		local result: { [any]: any } = {}
 		for k, v in value do
-			if type(k) ~= "userdata" then
+			if typeof(k) ~= "userdata" then
 				result[k] = flattenExpected(v)
 			end
 		end
@@ -108,7 +108,7 @@ end
 
 -- Deep equality that handles NaN == NaN (which `==` does not).
 local function deepEq(a: any, b: any, path: string): (boolean, string)
-	if type(a) == "number" and type(b) == "number" then
+	if typeof(a) == "number" and typeof(b) == "number" then
 		if a ~= a and b ~= b then
 			return true, "" -- both NaN
 		end
@@ -117,10 +117,10 @@ local function deepEq(a: any, b: any, path: string): (boolean, string)
 		end
 		return false, `{path}: {a} ~= {b}`
 	end
-	if type(a) ~= type(b) then
-		return false, `{path}: got {type(a)} ({tostring(a)}) but expected {type(b)} ({tostring(b)})`
+	if typeof(a) ~= typeof(b) then
+		return false, `{path}: got {typeof(a)} ({tostring(a)}) but expected {typeof(b)} ({tostring(b)})`
 	end
-	if type(a) ~= "table" then
+	if typeof(a) ~= "table" then
 		if a == b then
 			return true, ""
 		end
