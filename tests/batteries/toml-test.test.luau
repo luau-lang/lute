@@ -5,10 +5,11 @@
 -- counterpart using the toml-test tagged-value format.
 -- Invalid tests: each .toml file must cause toml.deserialize to throw.
 
-local test = require("@std/test")
-local json = require("@std/json")
 local toml = require("@batteries/toml")
+
 local fs = require("@std/fs")
+local json = require("@std/json")
+local test = require("@std/test")
 
 local VALID_DIR = "extern/toml-test/tests/valid"
 local INVALID_DIR = "extern/toml-test/tests/invalid"
@@ -86,7 +87,8 @@ local function flattenExpected(value: any): any
 			-- For datetime/time types, normalize trailing zeros in fractional seconds
 			-- so ".600" and ".6" compare equal (toml-test has inconsistent precision).
 			if typ ~= "string" then
-				return (val :: string):gsub("%.(%d+)", function(frac)
+				-- FIXME(Luau): bidirectional typechecking should allow us to avoid this annotation
+				return (val :: string):gsub("%.(%d+)", function(frac: string): string
 					local stripped = frac:gsub("0+$", "")
 					return `.{if stripped ~= "" then stripped else "0"}`
 				end)
@@ -167,7 +169,7 @@ invalidFiles = filter(invalidFiles)
 table.sort(validFiles)
 table.sort(invalidFiles)
 
-test.suite("toml-test valid", function(suite)
+test.suite("toml-test-valid", function(suite)
 	for _, path in validFiles do
 		local name = testName(path, VALID_DIR)
 		local jsonPath = `{string.sub(path, 1, -6)}.json`
@@ -181,7 +183,7 @@ test.suite("toml-test valid", function(suite)
 	end
 end)
 
-test.suite("toml-test invalid", function(suite)
+test.suite("toml-test-invalid", function(suite)
 	for _, path in invalidFiles do
 		local name = testName(path, INVALID_DIR)
 
