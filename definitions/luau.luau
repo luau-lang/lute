@@ -441,6 +441,17 @@ export type AstStatLocal = {
 	read values: Punctuated<AstExpr>,
 }
 
+--- A `const` variable declaration statement node.
+export type AstStatConst = {
+	read location: Span,
+	read kind: "stat",
+	read tag: "const",
+	read constKeyword: Token<"const">,
+	read variables: Punctuated<AstLocal>,
+	read equals: Token<"=">?,
+	read values: Punctuated<AstExpr>,
+}
+
 --- A numeric `for` loop statement node.
 export type AstStatFor = {
 	read location: Span,
@@ -559,6 +570,7 @@ export type AstStat =
 	| AstStatReturn
 	| AstStatExpr
 	| AstStatLocal
+	| AstStatConst
 	| AstStatFor
 	| AstStatForIn
 	| AstStatAssign

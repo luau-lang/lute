@@ -17,4 +17,7 @@
         "luau-lsp.platform.type": "standard",
         "luau-lsp.fflags.enableByDefault": true,
     },
+    "extensions": {
+        "recommendations": ["johnnymorganz.luau-lsp"]
+    }
 }
