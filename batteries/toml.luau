@@ -166,6 +166,7 @@ local function deserialize(input: string): { [string]: unknown }
 	local src = input
 	local pos = 1
 	local len = #src
+	local srcBuf = buffer.fromstring(src)
 
 	-- Table metadata: maps table reference -> { kind, keys }
 	-- kind values:
@@ -194,7 +195,7 @@ local function deserialize(input: string): { [string]: unknown }
 
 	local function cb(offset: number?): number? -- byte at pos+offset
 		local p = pos + (offset or 0)
-		return if p <= len then string.byte(src, p) else nil
+		return if p <= len then buffer.readu8(srcBuf, p - 1) else nil
 	end
 
 	local function isDigit(c: number?): boolean
@@ -233,7 +234,9 @@ local function deserialize(input: string): { [string]: unknown }
 	-- whitespace skipping
 
 	local function skipWS()
-		while pos <= len and isWS(cb()) do
+		while pos <= len do
+			local c = buffer.readu8(srcBuf, pos - 1)
+			if c ~= 32 and c ~= 9 then break end
 			pos += 1
 		end
 	end
@@ -243,9 +246,11 @@ local function deserialize(input: string): { [string]: unknown }
 		if cb() ~= 35 then return end -- '#'
 		pos += 1
 		while pos <= len do
-			local c = cb()
+			local c = buffer.readu8(srcBuf, pos - 1)
 			if c == 10 then break end
-			if isCtrl(c) then err("control character in comment") end
+			if c <= 8 or c == 11 or c == 12 or (c >= 14 and c <= 31) or c == 127 then
+				err("control character in comment")
+			end
 			pos += 1
 		end
 	end
@@ -253,8 +258,8 @@ local function deserialize(input: string): { [string]: unknown }
 	-- skip horizontal whitespace, newlines, and comments
 	local function skipWSNL()
 		while pos <= len do
-			local c = cb()
-			if isWS(c) or c == 10 then
+			local c = buffer.readu8(srcBuf, pos - 1)
+			if c == 32 or c == 9 or c == 10 then
 				pos += 1
 			elseif c == 35 then
 				skipComment()
@@ -328,7 +333,19 @@ local function deserialize(input: string): { [string]: unknown }
 	local function parseBasicString(): string
 		local parts = {}
 		while pos <= len do
-			local c = cb() :: number
+			-- Fast path: scan forward over plain characters in one go
+			local runStart = pos
+			while pos <= len do
+				local c2 = buffer.readu8(srcBuf, pos - 1)
+				-- break on: " (34), \ (92), DEL (127), ctrl chars except tab (9)
+				if c2 == 34 or c2 == 92 or c2 == 127 or (c2 < 32 and c2 ~= 9) then break end
+				pos += 1
+			end
+			if pos > runStart then
+				table.insert(parts, string.sub(src, runStart, pos - 1))
+			end
+			if pos > len then break end
+			local c = buffer.readu8(srcBuf, pos - 1)
 			if c == 34 then -- closing "
 				pos += 1
 				return table.concat(parts)
@@ -337,11 +354,8 @@ local function deserialize(input: string): { [string]: unknown }
 				table.insert(parts, parseEscape())
 			elseif c == 10 then
 				err("unescaped newline in basic string")
-			elseif isCtrl(c) then
-				err("unescaped control character in basic string")
 			else
-				table.insert(parts, string.char(c))
-				pos += 1
+				err("unescaped control character in basic string")
 			end
 		end
 		err("unterminated basic string")
@@ -352,28 +366,49 @@ local function deserialize(input: string): { [string]: unknown }
 		if cb() == 10 then pos += 1 end
 		local parts = {}
 		while pos <= len do
-			local c = cb() :: number
-			if c == 34 and string.sub(src, pos, pos + 2) == '"""' then
-				pos += 3
-				-- up to two extra quotes are part of the string
-				local extra = 0
-				while pos <= len and cb() == 34 and extra < 2 do
+			-- Fast path: scan over plain chars (LF and tab are literal content too)
+			local runStart = pos
+			while pos <= len do
+				local c2 = buffer.readu8(srcBuf, pos - 1)
+				-- break on: " (34), \ (92), DEL (127), ctrl except tab (9) and LF (10)
+				if c2 == 34 or c2 == 92 or c2 == 127 or (c2 < 32 and c2 ~= 9 and c2 ~= 10) then break end
+				pos += 1
+			end
+			if pos > runStart then
+				table.insert(parts, string.sub(src, runStart, pos - 1))
+			end
+			if pos > len then break end
+			local c = buffer.readu8(srcBuf, pos - 1)
+			if c == 34 then
+				if string.sub(src, pos, pos + 2) == '"""' then
+					pos += 3
+					local extra = 0
+					while pos <= len and buffer.readu8(srcBuf, pos - 1) == 34 and extra < 2 do
+						table.insert(parts, '"')
+						pos += 1
+						extra += 1
+					end
+					return table.concat(parts)
+				else
+					-- lone " is valid content in a multiline basic string
 					table.insert(parts, '"')
 					pos += 1
-					extra += 1
 				end
-				return table.concat(parts)
 			elseif c == 92 then -- backslash
 				pos += 1
-				-- peek past any trailing horizontal whitespace to detect line-ending backslash
+				-- peek past trailing horizontal whitespace to detect line-ending backslash
 				local peek = pos
-				while peek <= len and isWS(string.byte(src, peek)) do
+				while peek <= len do
+					local pc = buffer.readu8(srcBuf, peek - 1)
+					if pc ~= 32 and pc ~= 9 then break end
 					peek += 1
 				end
-				if peek <= len and string.byte(src, peek) == 10 then
+				if peek <= len and buffer.readu8(srcBuf, peek - 1) == 10 then
 					-- line-ending backslash: skip newline and all following WS/NL
 					pos = peek + 1
-					while pos <= len and (isWS(cb()) or cb() == 10) do
+					while pos <= len do
+						local c3 = buffer.readu8(srcBuf, pos - 1)
+						if c3 ~= 32 and c3 ~= 9 and c3 ~= 10 then break end
 						pos += 1
 					end
 				elseif peek > len then
@@ -381,17 +416,8 @@ local function deserialize(input: string): { [string]: unknown }
 				else
 					table.insert(parts, parseEscape())
 				end
-			elseif c == 10 then
-				table.insert(parts, "\n")
-				pos += 1
-			elseif c == 9 then -- tab is allowed
-				table.insert(parts, "\t")
-				pos += 1
-			elseif isCtrl(c) then
+			else -- ctrl char or DEL
 				err("unescaped control character in multiline basic string")
-			else
-				table.insert(parts, string.char(c))
-				pos += 1
 			end
 		end
 		err("unterminated multiline basic string")
@@ -400,19 +426,17 @@ local function deserialize(input: string): { [string]: unknown }
 	local function parseLiteralString(): string
 		local start = pos
 		while pos <= len do
-			local c = cb() :: number
+			local c = buffer.readu8(srcBuf, pos - 1)
 			if c == 39 then -- closing '
 				local result = string.sub(src, start, pos - 1)
 				pos += 1
 				return result
+			elseif c == 9 or (c >= 32 and c ~= 127) or c >= 128 then
+				pos += 1 -- plain char (tab, printable ASCII, or multibyte UTF-8)
 			elseif c == 10 then
 				err("unescaped newline in literal string")
-			elseif c == 9 then
-				pos += 1 -- tab is allowed
-			elseif isCtrl(c) then
-				err("unescaped control character in literal string")
 			else
-				pos += 1
+				err("unescaped control character in literal string")
 			end
 		end
 		err("unterminated literal string")
@@ -422,27 +446,36 @@ local function deserialize(input: string): { [string]: unknown }
 		if cb() == 10 then pos += 1 end -- trim leading newline
 		local parts = {}
 		while pos <= len do
-			local c = cb() :: number
-			if c == 39 and string.sub(src, pos, pos + 2) == "'''" then
-				pos += 3
-				local extra = 0
-				while pos <= len and cb() == 39 and extra < 2 do
+			-- Fast path: scan over plain chars (LF and tab are literal content)
+			local runStart = pos
+			while pos <= len do
+				local c2 = buffer.readu8(srcBuf, pos - 1)
+				-- break on: ' (39), DEL (127), ctrl except tab (9) and LF (10)
+				if c2 == 39 or c2 == 127 or (c2 < 32 and c2 ~= 9 and c2 ~= 10) then break end
+				pos += 1
+			end
+			if pos > runStart then
+				table.insert(parts, string.sub(src, runStart, pos - 1))
+			end
+			if pos > len then break end
+			local c = buffer.readu8(srcBuf, pos - 1)
+			if c == 39 then
+				if string.sub(src, pos, pos + 2) == "'''" then
+					pos += 3
+					local extra = 0
+					while pos <= len and buffer.readu8(srcBuf, pos - 1) == 39 and extra < 2 do
+						table.insert(parts, "'")
+						pos += 1
+						extra += 1
+					end
+					return table.concat(parts)
+				else
+					-- lone ' is valid content in a multiline literal string
 					table.insert(parts, "'")
 					pos += 1
-					extra += 1
 				end
-				return table.concat(parts)
-			elseif c == 10 then
-				table.insert(parts, "\n")
-				pos += 1
-			elseif c == 9 then
-				table.insert(parts, "\t")
-				pos += 1
-			elseif isCtrl(c) then
+			else -- ctrl char or DEL
 				err("unescaped control character in multiline literal string")
-			else
-				table.insert(parts, string.char(c))
-				pos += 1
 			end
 		end
 		err("unterminated multiline literal string")
@@ -781,7 +814,13 @@ local function deserialize(input: string): { [string]: unknown }
 				part = parseLiteralString()
 			elseif isBareKey(c) then
 				local start = pos
-				while pos <= len and isBareKey(cb()) do pos += 1 end
+				while pos <= len do
+					local c2 = buffer.readu8(srcBuf, pos - 1)
+					if not ((c2 >= 97 and c2 <= 122) or (c2 >= 65 and c2 <= 90) or (c2 >= 48 and c2 <= 57) or c2 == 95 or c2 == 45) then
+						break
+					end
+					pos += 1
+				end
 				part = string.sub(src, start, pos - 1)
 			else
 				if #parts == 0 then
