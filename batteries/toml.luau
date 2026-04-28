@@ -82,8 +82,10 @@ end
 
 local function deserialize(input: string): { [string]: unknown }
 	-- Reject bare CR (only CRLF → LF is allowed)
-	input = input:gsub("\r\n", "\n")
-	if input:find("\r") then
+	if input:find("\r\n", 1, true) then
+		input = input:gsub("\r\n", "\n")
+	end
+	if input:find("\r", 1, true) then
 		error("TOML parse error: bare carriage return (\\r) not allowed")
 	end
 
@@ -169,18 +171,20 @@ local function deserialize(input: string): { [string]: unknown }
 	local srcBuf = buffer.fromstring(src)
 
 	-- Table metadata: maps table reference -> { kind, keys }
-	-- kind values:
-	--   "root"             – the document root
-	--   "defined"          – created by an explicit [header]
-	--   "implicit-header"  – implicitly created while navigating a [a.b.c] path
-	--   "implicit-dotted"  – implicitly created by a dotted key assignment (a.b = v)
-	--   "inline"           – an inline table; immutable after creation
-	--   "array-element"    – an element of an [[array-of-tables]]
-	local tableMeta: { [any]: { kind: string, keys: { [string]: boolean } } } = {}
+	type TableKind =
+		| "root" -- the document root
+		| "defined" -- created by an explicit [header]
+		| "implicit-header" -- implicitly created while navigating a [a.b.c] path
+		| "implicit-dotted" -- implicitly created by a dotted key assignment (a.b = v)
+		| "inline" -- an inline table; immutable after creation
+		| "array-element" -- an element of an [[array-of-tables]]
+		| "array-value" -- a static array literal (cannot be navigated into)
+	type TableMeta = { kind: TableKind, keys: { [string]: boolean } }
+	local tableMeta: { [any]: TableMeta } = {}
 	-- tracks which Lua arrays are array-of-tables (vs regular array values)
 	local arrayTableSets: { [any]: boolean } = {}
 
-	local function getMeta(tbl: any): { kind: string, keys: { [string]: boolean } }
+	local function getMeta(tbl: any): TableMeta
 		if not tableMeta[tbl] then
 			tableMeta[tbl] = { kind = "implicit-header", keys = {} }
 		end
@@ -220,10 +224,6 @@ local function deserialize(input: string): { [string]: unknown }
 		return (c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95 or c == 45
 	end
 
-	local function isWS(c: number?): boolean
-		return c == 32 or c == 9
-	end
-
 	-- control characters that are forbidden unescaped (everything < 0x20 except tab,
 	-- plus DEL 0x7F; LF 0x0A is handled separately per context)
 	local function isCtrl(c: number?): boolean
@@ -248,7 +248,7 @@ local function deserialize(input: string): { [string]: unknown }
 		while pos <= len do
 			local c = buffer.readu8(srcBuf, pos - 1)
 			if c == 10 then break end
-			if c <= 8 or c == 11 or c == 12 or (c >= 14 and c <= 31) or c == 127 then
+			if isCtrl(c) then
 				err("control character in comment")
 			end
 			pos += 1
@@ -486,33 +486,35 @@ local function deserialize(input: string): { [string]: unknown }
 	-- parse a run of digits (with internal underscores allowed), return digits-only string
 	local function parseDigits(digitCheck: (number?) -> boolean): string
 		if not digitCheck(cb()) then err("expected digit") end
-		local parts = { string.char(cb() :: number) }
-		pos += 1
+		local result = ""
+		local runStart = pos
 		while pos <= len do
-			local c = cb()
-			if c == 95 then -- underscore
+			local c = buffer.readu8(srcBuf, pos - 1)
+			if digitCheck(c) then
 				pos += 1
-				if cb() == 95 then err("consecutive underscores in number") end
-				if not digitCheck(cb()) then err("trailing underscore in number") end
-				table.insert(parts, string.char(cb() :: number))
+			elseif c == 95 then -- underscore
+				result ..= string.sub(src, runStart, pos - 1)
 				pos += 1
-			elseif digitCheck(c) then
-				table.insert(parts, string.char(c :: number))
-				pos += 1
+				if pos > len then err("trailing underscore in number") end
+				local nc = buffer.readu8(srcBuf, pos - 1)
+				if nc == 95 then err("consecutive underscores in number") end
+				if not digitCheck(nc) then err("trailing underscore in number") end
+				runStart = pos
 			else
 				break
 			end
 		end
-		return table.concat(parts)
+		result ..= string.sub(src, runStart, pos - 1)
+		return result
 	end
 
 	local function looksLikeDate(): boolean
 		-- YYYY- : 4 decimal digits followed by '-'
 		if pos + 4 > len then return false end
 		for i = 0, 3 do
-			if not isDigit(string.byte(src, pos + i)) then return false end
+			if not isDigit(buffer.readu8(srcBuf, pos + i - 1)) then return false end
 		end
-		return string.byte(src, pos + 4) == 45
+		return buffer.readu8(srcBuf, pos + 3) == 45
 	end
 
 	local function looksLikeTime(): boolean
@@ -709,7 +711,7 @@ local function deserialize(input: string): { [string]: unknown }
 	local parseArray: () -> { any }
 	local parseInlineTable: () -> { [string]: any }
 	local parseKey: () -> { string }
-	local setNestedKey: (tbl: any, parts: { string }, value: any, dottedImplicit: boolean) -> ()
+	local setNestedKey: (tbl: any, parts: { string }, value: any, fromDottedKey: boolean) -> ()
 
 	parseValue = function(): any
 		skipWS()
@@ -816,9 +818,7 @@ local function deserialize(input: string): { [string]: unknown }
 				local start = pos
 				while pos <= len do
 					local c2 = buffer.readu8(srcBuf, pos - 1)
-					if not ((c2 >= 97 and c2 <= 122) or (c2 >= 65 and c2 <= 90) or (c2 >= 48 and c2 <= 57) or c2 == 95 or c2 == 45) then
-						break
-					end
+					if not isBareKey(c2) then break end
 					pos += 1
 				end
 				part = string.sub(src, start, pos - 1)
@@ -843,7 +843,7 @@ local function deserialize(input: string): { [string]: unknown }
 
 	-- navigate through dotted intermediate keys, creating tables as needed;
 	-- returns (leaf_table, leaf_key_string)
-	local function navigateDotted(tbl: any, parts: { string }, newKind: string): (any, string)
+	local function navigateDotted(tbl: any, parts: { string }, newKind: TableKind): (any, string)
 		local current = tbl
 		for i = 1, #parts - 1 do
 			local k = parts[i]
@@ -876,8 +876,8 @@ local function deserialize(input: string): { [string]: unknown }
 		return current, parts[#parts]
 	end
 
-	setNestedKey = function(tbl: any, parts: { string }, value: any, dottedImplicit: boolean)
-		local newKind = if dottedImplicit then "implicit-dotted" else "implicit-header"
+	setNestedKey = function(tbl: any, parts: { string }, value: any, fromDottedKey: boolean)
+		local newKind = if fromDottedKey then "implicit-dotted" else "implicit-header"
 		local leafTbl, leafKey = navigateDotted(tbl, parts, newKind)
 		local m = getMeta(leafTbl)
 		if m.keys[leafKey] then
