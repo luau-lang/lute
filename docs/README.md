@@ -1,13 +1,19 @@
 # Editing Lute Documentation
 
-Lute's docs are generated from using [VitePress](https://vitepress.dev/). To run the docsite locally, you should have Node.js and NPM installed. Then, use the following to start running it locally:
+Lute's docs are generated from Markdown files using [VitePress](https://vitepress.dev/).
+To run the docsite locally, you should have Node.js and NPM installed.
+Then, use the following to start running it locally:
 
 1. `cd docs`
 2. `npm install`
-3. `npx vitepress build`
-4. `npm run preview`
+3. `npm run gen`
+4. `npx vitepress build`
+5. `npm run preview`
 
 The terminal output should then tell you which `localhost` port the docsite is running at.
+
+Note: Running `npm run gen` requires that you have `lute` on your `$PATH`.
+If you don't, (or have `lute` set as an alias in your shell), you can run `<Path to lute executable> doc -m docgen.luau` directly instead.
 
 ## Regenerating documentation files
 
