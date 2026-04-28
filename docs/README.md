@@ -6,13 +6,11 @@ Then, use the following to start running it locally:
 
 1. `cd docs`
 2. `npm install`
-3. `npm run gen`
-4. `npx vitepress build`
-5. `npm run preview`
+3. `npm run dev`
 
 The terminal output should then tell you which `localhost` port the docsite is running at.
 
-Note: Running `npm run gen` requires that you have `lute` on your `$PATH`.
+Note: Running `npm run dev` requires that you have `lute` on your `$PATH`.
 If you don't, (or have `lute` set as an alias in your shell), you can run `<Path to lute executable> doc -m docgen.luau` directly instead.
 
 ## Regenerating documentation files
