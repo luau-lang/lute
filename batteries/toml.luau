@@ -199,7 +199,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- character helpers (all operate on the shared pos/src/len upvalues)
 
-	local function cb(offset: number?): number? -- byte at pos+offset
+	local function byteAt(offset: number?): number? -- byte at pos+offset
 		local p = pos + (offset or 0)
 		return if p <= len then buffer.readu8(srcBuf, p - 1) else nil
 	end
@@ -228,14 +228,14 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- control characters that are forbidden unescaped (everything < 0x20 except tab,
 	-- plus DEL 0x7F; LF 0x0A is handled separately per context)
-	local function isCtrl(c: number?): boolean
+	local function isControlCharacter(c: number?): boolean
 		if c == nil then return false end
 		return c <= 8 or c == 11 or c == 12 or (c >= 14 and c <= 31) or c == 127
 	end
 
 	-- whitespace skipping
 
-	local function skipWS()
+	local function skipWhitespace()
 		while pos <= len do
 			local c = buffer.readu8(srcBuf, pos - 1)
 			if c ~= 32 and c ~= 9 then break end
@@ -245,12 +245,12 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- skip a # comment up to (but not including) the newline
 	local function skipComment()
-		if cb() ~= 35 then return end -- '#'
+		if byteAt() ~= 35 then return end -- '#'
 		pos += 1
 		while pos <= len do
 			local c = buffer.readu8(srcBuf, pos - 1)
 			if c == 10 then break end
-			if isCtrl(c) then
+			if isControlCharacter(c) then
 				tomlParseError("control character in comment")
 			end
 			pos += 1
@@ -258,7 +258,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	-- skip horizontal whitespace, newlines, and comments
-	local function skipWSNL()
+	local function skipWhitespaceNewlinesAndComments()
 		while pos <= len do
 			local c = buffer.readu8(srcBuf, pos - 1)
 			if c == 32 or c == 9 or c == 10 then
@@ -271,12 +271,12 @@ local function deserialize(input: string): { [string]: TomlValue }
 		end
 	end
 
-	-- after a value: consume trailing WS + optional comment, then require newline or EOF
+	-- after a value: consume trailing whitespace + optional comment, then require newline or EOF
 	local function expectLineEnd()
-		skipWS()
+		skipWhitespace()
 		skipComment()
 		if pos > len then return end
-		local c = cb()
+		local c = byteAt()
 		if c == 10 then
 			pos += 1
 		else
@@ -314,7 +314,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	local function parseEscape(): string
 		if pos > len then tomlParseError("incomplete escape sequence") end
-		local c = cb() :: number
+		local c = byteAt() :: number
 		pos += 1
 		if c == 98 then return "\b"
 		elseif c == 116 then return "\t"
@@ -367,9 +367,9 @@ local function deserialize(input: string): { [string]: TomlValue }
 		error("unreachable")
 	end
 
-	local function parseMLBasicString(): string
+	local function parseMultilineBasicString(): string
 		-- trim a single leading newline
-		if cb() == 10 then pos += 1 end
+		if byteAt() == 10 then pos += 1 end
 		local parts = {}
 		while pos <= len do
 			-- Fast path: scan over plain chars (LF and tab are literal content too)
@@ -410,7 +410,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 					peek += 1
 				end
 				if peek <= len and buffer.readu8(srcBuf, peek - 1) == 10 then
-					-- line-ending backslash: skip newline and all following WS/NL
+					-- line-ending backslash: skip newline and all following whitespace and newlines
 					pos = peek + 1
 					while pos <= len do
 						local c3 = buffer.readu8(srcBuf, pos - 1)
@@ -452,8 +452,8 @@ local function deserialize(input: string): { [string]: TomlValue }
 		error("unreachable")
 	end
 
-	local function parseMLLiteralString(): string
-		if cb() == 10 then pos += 1 end -- trim leading newline
+	local function parseMultilineLiteralString(): string
+		if byteAt() == 10 then pos += 1 end -- trim leading newline
 		local parts = {}
 		while pos <= len do
 			-- Fast path: scan over plain chars (LF and tab are literal content)
@@ -497,7 +497,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- parse a run of digits (with internal underscores allowed), return digits-only string
 	local function parseDigits(digitCheck: (number?) -> boolean): string
-		if not digitCheck(cb()) then tomlParseError("expected digit") end
+		if not digitCheck(byteAt()) then tomlParseError("expected digit") end
 		local result = ""
 		local runStart = pos
 		while pos <= len do
@@ -531,7 +531,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	local function looksLikeTime(): boolean
 		-- HH: : exactly 2 decimal digits followed by ':'
-		return isDigit(cb(0)) and isDigit(cb(1)) and cb(2) == 58
+		return isDigit(byteAt(0)) and isDigit(byteAt(1)) and byteAt(2) == 58
 	end
 
 	-- Returns days in month for given year and month (1-12)
@@ -554,16 +554,16 @@ local function deserialize(input: string): { [string]: TomlValue }
 			-- Parse YYYY-MM-DD
 			local yearStr = string.sub(src, pos, pos + 3)
 			pos += 4
-			if cb() ~= 45 then tomlParseError("expected '-' in date") end
+			if byteAt() ~= 45 then tomlParseError("expected '-' in date") end
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit month") end
+			if not (isDigit(byteAt(0)) and isDigit(byteAt(1))) then tomlParseError("expected 2-digit month") end
 			local monthStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local month = tonumber(monthStr) :: number
 			if month < 1 or month > 12 then tomlParseError(`invalid month: {month}`) end
-			if cb() ~= 45 then tomlParseError("expected '-' in date") end
+			if byteAt() ~= 45 then tomlParseError("expected '-' in date") end
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit day") end
+			if not (isDigit(byteAt(0)) and isDigit(byteAt(1))) then tomlParseError("expected 2-digit day") end
 			local dayStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local day = tonumber(dayStr) :: number
@@ -572,10 +572,10 @@ local function deserialize(input: string): { [string]: TomlValue }
 			result = `{yearStr}-{monthStr}-{dayStr}`
 
 			-- Optional datetime separator: T, t, or space followed by digit
-			local sep = cb()
+			local sep = byteAt()
 			if sep == 84 or sep == 116 then
 				pos += 1
-			elseif sep == 32 and isDigit(cb(1)) then
+			elseif sep == 32 and isDigit(byteAt(1)) then
 				pos += 1
 			else
 				return result -- date-local
@@ -584,14 +584,14 @@ local function deserialize(input: string): { [string]: TomlValue }
 		end
 
 		-- Parse HH:MM[:SS[.frac]]
-		if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit hour") end
+		if not (isDigit(byteAt(0)) and isDigit(byteAt(1))) then tomlParseError("expected 2-digit hour") end
 		local hourStr = string.sub(src, pos, pos + 1)
 		pos += 2
 		local hour = tonumber(hourStr) :: number
 		if hour > 23 then tomlParseError(`invalid hour: {hour}`) end
-		if cb() ~= 58 then tomlParseError("expected ':' in time") end
+		if byteAt() ~= 58 then tomlParseError("expected ':' in time") end
 		pos += 1
-		if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit minute") end
+		if not (isDigit(byteAt(0)) and isDigit(byteAt(1))) then tomlParseError("expected 2-digit minute") end
 		local minStr = string.sub(src, pos, pos + 1)
 		pos += 2
 		local minute = tonumber(minStr) :: number
@@ -600,9 +600,9 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 		-- Optional seconds (TOML 1.1)
 		local secStr = "00"
-		if cb() == 58 then
+		if byteAt() == 58 then
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit second") end
+			if not (isDigit(byteAt(0)) and isDigit(byteAt(1))) then tomlParseError("expected 2-digit second") end
 			secStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local sec = tonumber(secStr) :: number
@@ -611,17 +611,17 @@ local function deserialize(input: string): { [string]: TomlValue }
 		result ..= `:{secStr}`
 
 		-- Optional fractional seconds
-		if cb() == 46 then
+		if byteAt() == 46 then
 			pos += 1
-			if not isDigit(cb()) then tomlParseError("expected digit after '.' in time") end
+			if not isDigit(byteAt()) then tomlParseError("expected digit after '.' in time") end
 			local fracStart = pos
-			while isDigit(cb()) do pos += 1 end
+			while isDigit(byteAt()) do pos += 1 end
 			local fracPart = string.sub(src, fracStart, pos - 1)
 			result ..= `.{fracPart}`
 		end
 
 		-- Optional offset: Z, +HH:MM, -HH:MM
-		local oc = cb()
+		local oc = byteAt()
 		if oc == 90 or oc == 122 then
 			if not hasDate then tomlParseError("offset not allowed in time-local") end
 			pos += 1
@@ -630,14 +630,14 @@ local function deserialize(input: string): { [string]: TomlValue }
 			if not hasDate then tomlParseError("offset not allowed in time-local") end
 			local sign = string.char(oc :: number)
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit offset hour") end
+			if not (isDigit(byteAt(0)) and isDigit(byteAt(1))) then tomlParseError("expected 2-digit offset hour") end
 			local ohStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local oh = tonumber(ohStr) :: number
 			if oh > 23 then tomlParseError(`invalid offset hour: {oh}`) end
-			if cb() ~= 58 then tomlParseError("expected ':' in offset") end
+			if byteAt() ~= 58 then tomlParseError("expected ':' in offset") end
 			pos += 1
-			if not (isDigit(cb(0)) and isDigit(cb(1))) then tomlParseError("expected 2-digit offset minute") end
+			if not (isDigit(byteAt(0)) and isDigit(byteAt(1))) then tomlParseError("expected 2-digit offset minute") end
 			local omStr = string.sub(src, pos, pos + 1)
 			pos += 2
 			local om = tonumber(omStr) :: number
@@ -652,7 +652,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	local function parseNumOrDatetime(sign: string?): string | number
 		local signStr = sign or ""
-		local c = cb()
+		local c = byteAt()
 
 		-- bare inf / nan
 		if string.sub(src, pos, pos + 2) == "inf" then
@@ -668,7 +668,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 		-- prefixed integer bases (no sign allowed)
 		if sign == nil and c == 48 then
-			local nc = cb(1)
+			local nc = byteAt(1)
 			if nc == 120 then pos += 2; return tonumber(parseDigits(isHexDigit), 16) :: number end -- 0x
 			if nc == 111 then pos += 2; return tonumber(parseDigits(isOctDigit), 8) :: number end -- 0o
 			if nc == 98 then pos += 2; return tonumber(parseDigits(isBinDigit), 2) :: number end -- 0b
@@ -685,34 +685,34 @@ local function deserialize(input: string): { [string]: TomlValue }
 		local intDigits: string
 		if isZero then
 			pos += 1
-			if isDigit(cb()) then tomlParseError("leading zero in integer") end
+			if isDigit(byteAt()) then tomlParseError("leading zero in integer") end
 			intDigits = "0"
 		else
 			intDigits = parseDigits(isDigit)
 		end
 
-		local nc = cb()
+		local nc = byteAt()
 		local isFloat = false
 		local result = signStr .. intDigits
 
 		if nc == 46 then -- '.'
 			isFloat = true
 			pos += 1
-			if not isDigit(cb()) then tomlParseError("expected digit after decimal point") end
+			if not isDigit(byteAt()) then tomlParseError("expected digit after decimal point") end
 			result ..= "." .. parseDigits(isDigit)
-			nc = cb()
+			nc = byteAt()
 		end
 
 		if nc == 101 or nc == 69 then -- e / E
 			isFloat = true
 			pos += 1
 			local expSign = ""
-			local ec = cb()
+			local ec = byteAt()
 			if ec == 43 or ec == 45 then
 				expSign = string.char(ec :: number)
 				pos += 1
 			end
-			if not isDigit(cb()) then tomlParseError("expected digit in exponent") end
+			if not isDigit(byteAt()) then tomlParseError("expected digit in exponent") end
 			result ..= "e" .. expSign .. parseDigits(isDigit)
 		end
 
@@ -726,22 +726,22 @@ local function deserialize(input: string): { [string]: TomlValue }
 	local setNestedKey: (tbl: { [string]: TomlValue }, parts: { string }, value: TomlValue, fromDottedKey: boolean) -> ()
 
 	parseValue = function(): TomlValue
-		skipWS()
+		skipWhitespace()
 		if pos > len then tomlParseError("expected value") end
-		local c = cb() :: number
+		local c = byteAt() :: number
 
 		if c == 34 then -- "
 			pos += 1
 			if string.sub(src, pos, pos + 1) == '""' then
 				pos += 2
-				return parseMLBasicString()
+				return parseMultilineBasicString()
 			end
 			return parseBasicString()
 		elseif c == 39 then -- '
 			pos += 1
 			if string.sub(src, pos, pos + 1) == "''" then
 				pos += 2
-				return parseMLLiteralString()
+				return parseMultilineLiteralString()
 			end
 			return parseLiteralString()
 		elseif c == 91 then -- [
@@ -753,14 +753,14 @@ local function deserialize(input: string): { [string]: TomlValue }
 		elseif c == 116 then -- t
 			if string.sub(src, pos, pos + 3) == "true" then
 				pos += 4
-				if isBareKey(cb()) then tomlParseError("invalid value") end
+				if isBareKey(byteAt()) then tomlParseError("invalid value") end
 				return true
 			end
 			tomlParseError("invalid value starting with 't'")
 		elseif c == 102 then -- f
 			if string.sub(src, pos, pos + 4) == "false" then
 				pos += 5
-				if isBareKey(cb()) then tomlParseError("invalid value") end
+				if isBareKey(byteAt()) then tomlParseError("invalid value") end
 				return false
 			end
 			tomlParseError("invalid value starting with 'f'")
@@ -794,16 +794,16 @@ local function deserialize(input: string): { [string]: TomlValue }
 	parseArray = function(): { TomlValue }
 		local result: { TomlValue } = {}
 		tableMeta[result] = { kind = "array-value", keys = {} } -- mark as static array
-		skipWSNL()
-		if cb() == 93 then pos += 1; return result end -- empty []
+		skipWhitespaceNewlinesAndComments()
+		if byteAt() == 93 then pos += 1; return result end -- empty []
 		while true do
-			skipWSNL()
+			skipWhitespaceNewlinesAndComments()
 			if pos > len then tomlParseError("unterminated array") end
-			if cb() == 93 then pos += 1; break end -- trailing comma case
+			if byteAt() == 93 then pos += 1; break end -- trailing comma case
 			table.insert(result, parseValue())
-			skipWSNL()
+			skipWhitespaceNewlinesAndComments()
 			if pos > len then tomlParseError("unterminated array") end
-			local c = cb()
+			local c = byteAt()
 			if c == 44 then -- ','
 				pos += 1
 			elseif c == 93 then -- ']'
@@ -817,10 +817,10 @@ local function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	parseKey = function(): { string }
-		skipWS()
+		skipWhitespace()
 		local parts: { string } = {}
 		while true do
-			local c = cb()
+			local c = byteAt()
 			local part: string
 			if c == 34 then -- "
 				pos += 1
@@ -844,10 +844,10 @@ local function deserialize(input: string): { [string]: TomlValue }
 				end
 			end
 			table.insert(parts, part)
-			skipWS()
-			if cb() == 46 then -- '.'
+			skipWhitespace()
+			if byteAt() == 46 then -- '.'
 				pos += 1
-				skipWS()
+				skipWhitespace()
 			else
 				break
 			end
@@ -908,21 +908,21 @@ local function deserialize(input: string): { [string]: TomlValue }
 	parseInlineTable = function(): { [string]: TomlValue }
 		local result: { [string]: TomlValue } = {}
 		tableMeta[result] = { kind = "inline", keys = {} }
-		skipWSNL() -- TOML 1.1: newlines allowed inside inline tables
-		if cb() == 125 then pos += 1; return result end -- empty {}
+		skipWhitespaceNewlinesAndComments() -- TOML 1.1: newlines allowed inside inline tables
+		if byteAt() == 125 then pos += 1; return result end -- empty {}
 		while true do
-			skipWSNL()
+			skipWhitespaceNewlinesAndComments()
 			if pos > len then tomlParseError("unterminated inline table") end
-			if cb() == 125 then pos += 1; break end -- '}' (trailing comma support)
+			if byteAt() == 125 then pos += 1; break end -- '}' (trailing comma support)
 			local keys = parseKey()
-			skipWS()
-			if cb() ~= 61 then tomlParseError("expected '=' in inline table") end -- '='
+			skipWhitespace()
+			if byteAt() ~= 61 then tomlParseError("expected '=' in inline table") end -- '='
 			pos += 1
 			local value = parseValue()
 			setNestedKey(result, keys, value, false)
-			skipWSNL()
+			skipWhitespaceNewlinesAndComments()
 			if pos > len then tomlParseError("unterminated inline table") end
-			local c = cb()
+			local c = byteAt()
 			if c == 44 then -- ','
 				pos += 1
 			elseif c == 125 then -- '}'
@@ -1031,35 +1031,35 @@ local function deserialize(input: string): { [string]: TomlValue }
 	local currentTable: { [string]: TomlValue } = root
 
 	while pos <= len do
-		skipWSNL()
+		skipWhitespaceNewlinesAndComments()
 		if pos > len then break end
 
-		local c = cb() :: number
+		local c = byteAt() :: number
 
 		if c == 91 then -- '['
-			if cb(1) == 91 then -- '[['
+			if byteAt(1) == 91 then -- '[['
 				pos += 2
-				skipWS()
+				skipWhitespace()
 				local parts = parseKey()
-				skipWS()
+				skipWhitespace()
 				if string.sub(src, pos, pos + 1) ~= "]]" then tomlParseError("expected ']]'") end
 				pos += 2
 				expectLineEnd()
 				currentTable = navigateToHeader(root, parts, true)
 			else
 				pos += 1
-				skipWS()
+				skipWhitespace()
 				local parts = parseKey()
-				skipWS()
-				if cb() ~= 93 then tomlParseError("expected ']'") end -- ']'
+				skipWhitespace()
+				if byteAt() ~= 93 then tomlParseError("expected ']'") end -- ']'
 				pos += 1
 				expectLineEnd()
 				currentTable = navigateToHeader(root, parts, false)
 			end
 		else
 			local parts = parseKey()
-			skipWS()
-			if cb() ~= 61 then tomlParseError("expected '='") end -- '='
+			skipWhitespace()
+			if byteAt() ~= 61 then tomlParseError("expected '='") end -- '='
 			pos += 1
 			local value = parseValue()
 			setNestedKey(currentTable, parts, value, true)
