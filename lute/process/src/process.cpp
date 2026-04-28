@@ -413,12 +413,12 @@ int Process::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_process(lua_State* L)
+LUTE_API int luaopen_process(lua_State* L)
 {
     return Process::openAsGlobal(L);
 }
 
-int luteopen_process(lua_State* L)
+LUTE_API int luteopen_process(lua_State* L)
 {
     return Process::pushLibrary(L);
 }

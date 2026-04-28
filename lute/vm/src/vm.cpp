@@ -27,12 +27,12 @@ int VM::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_vm(lua_State* L)
+LUTE_API int luaopen_vm(lua_State* L)
 {
     return VM::openAsGlobal(L);
 }
 
-int luteopen_vm(lua_State* L)
+LUTE_API int luteopen_vm(lua_State* L)
 {
     return VM::pushLibrary(L);
 }

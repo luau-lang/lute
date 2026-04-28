@@ -1244,7 +1244,7 @@ int NetServer::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luteopen_net_server(lua_State* L)
+LUTE_API int luteopen_net_server(lua_State* L)
 {
     return NetServer::pushLibrary(L);
 }
