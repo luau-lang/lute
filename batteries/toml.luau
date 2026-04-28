@@ -8,21 +8,28 @@ local function serializeValue(value: string | number): string
 		value = string.gsub(value, "\n", "\\n")
 		value = string.gsub(value, "\t", "\\t")
 		return '"' .. value .. '"'
-	elseif value == math.huge then
-		return "inf"
-	elseif value == -math.huge then
-		return "-inf"
-	elseif value ~= value then
-		return "nan"
-	else
-		return tostring(value)
 	end
+
+	if value == math.huge then
+		return "inf"
+	end
+
+	if value == -math.huge then
+		return "-inf"
+	end
+
+	if value ~= value then
+		return "nan"
+	end
+
+	return tostring(value)
 end
 
 local function quoteKey(key: string): string
 	if not string.match(key, "^[%w_-]+$") then
-		return '"' .. key .. '"'
+		return `"{key}"`
 	end
+
 	return key
 end
 
@@ -32,6 +39,7 @@ local function hasNestedTables(tbl: { [unknown]: unknown }): boolean
 			return true
 		end
 	end
+
 	return false
 end
 
@@ -83,10 +91,12 @@ end
 export type TomlValue = string | number | boolean | { TomlValue } | { [string]: TomlValue }
 
 local function deserialize(input: string): { [string]: TomlValue }
-	-- Reject bare CR (only CRLF → LF is allowed)
+	-- convert CRLF to LF
 	if input:find("\r\n", 1, true) then
 		input = input:gsub("\r\n", "\n")
 	end
+
+	-- Reject bare CR (only CRLF → LF is allowed)
 	if input:find("\r", 1, true) then
 		error("TOML parse error: bare carriage return (\\r) not allowed")
 	end
@@ -362,7 +372,9 @@ local function deserialize(input: string): { [string]: TomlValue }
 				tomlParseError("unescaped control character in basic string")
 			end
 		end
+
 		tomlParseError("unterminated basic string")
+
 		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
 		error("unreachable")
 	end
@@ -370,6 +382,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 	local function parseMultilineBasicString(): string
 		-- trim a single leading newline
 		if byteAt() == 10 then pos += 1 end
+
 		local parts = {}
 		while pos <= len do
 			-- Fast path: scan over plain chars (LF and tab are literal content too)
@@ -426,7 +439,9 @@ local function deserialize(input: string): { [string]: TomlValue }
 				tomlParseError("unescaped control character in multiline basic string")
 			end
 		end
+
 		tomlParseError("unterminated multiline basic string")
+
 		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
 		error("unreachable")
 	end
@@ -447,7 +462,9 @@ local function deserialize(input: string): { [string]: TomlValue }
 				tomlParseError("unescaped control character in literal string")
 			end
 		end
+
 		tomlParseError("unterminated literal string")
+
 		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
 		error("unreachable")
 	end
@@ -488,7 +505,9 @@ local function deserialize(input: string): { [string]: TomlValue }
 				tomlParseError("unescaped control character in multiline literal string")
 			end
 		end
+
 		tomlParseError("unterminated multiline literal string")
+
 		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
 		error("unreachable")
 	end
@@ -736,6 +755,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				pos += 2
 				return parseMultilineBasicString()
 			end
+
 			return parseBasicString()
 		elseif c == 39 then -- '
 			pos += 1
@@ -743,6 +763,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				pos += 2
 				return parseMultilineLiteralString()
 			end
+
 			return parseLiteralString()
 		elseif c == 91 then -- [
 			pos += 1
@@ -756,6 +777,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				if isBareKey(byteAt()) then tomlParseError("invalid value") end
 				return true
 			end
+
 			tomlParseError("invalid value starting with 't'")
 		elseif c == 102 then -- f
 			if string.sub(src, pos, pos + 4) == "false" then
@@ -763,18 +785,21 @@ local function deserialize(input: string): { [string]: TomlValue }
 				if isBareKey(byteAt()) then tomlParseError("invalid value") end
 				return false
 			end
+
 			tomlParseError("invalid value starting with 'f'")
 		elseif c == 105 then -- i
 			if string.sub(src, pos, pos + 2) == "inf" then
 				pos += 3
 				return math.huge
 			end
+
 			tomlParseError("invalid value starting with 'i'")
 		elseif c == 110 then -- n
 			if string.sub(src, pos, pos + 2) == "nan" then
 				pos += 3
 				return 0 / 0
 			end
+
 			tomlParseError("invalid value starting with 'n'")
 		elseif c == 43 then -- +
 			pos += 1
@@ -787,6 +812,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		else
 			tomlParseError(`unexpected character '${string.char(c)}' in value`)
 		end
+
 		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
 		error("unreachable")
 	end
@@ -796,6 +822,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		tableMeta[result] = { kind = "array-value", keys = {} } -- mark as static array
 		skipWhitespaceNewlinesAndComments()
 		if byteAt() == 93 then pos += 1; return result end -- empty []
+
 		while true do
 			skipWhitespaceNewlinesAndComments()
 			if pos > len then tomlParseError("unterminated array") end
@@ -813,6 +840,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				tomlParseError(`expected ',' or ']' in array, got '${string.char(c :: number)}'`)
 			end
 		end
+
 		return result
 	end
 
@@ -852,6 +880,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				break
 			end
 		end
+
 		return parts
 	end
 
@@ -932,6 +961,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				tomlParseError(`expected ',' or '}}' in inline table, got '${string.char(c :: number)}'`)
 			end
 		end
+
 		return result
 	end
 
@@ -1020,6 +1050,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 				tomlParseError(`key '${leafKey}' is not a table`)
 			end
 		end
+
 		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
 		error("unreachable")
 	end
