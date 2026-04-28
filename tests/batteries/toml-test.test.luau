@@ -96,7 +96,7 @@ local function flattenExpected(value: any): any
 		elseif val == "-inf" then
 			return -math.huge
 		elseif val == "nan" then
-			return 0 / 0
+			return math.nan
 		else
 			return tonumber(val)
 		end
