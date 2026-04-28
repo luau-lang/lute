@@ -47,4 +47,36 @@ test.suite("NetTestSuite", function(suite)
 
 		instance.close()
 	end)
+
+	suite:case("serverCloseIsIdempotent", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest): server.ServerResponse
+				return "ok"
+			end,
+		})
+
+		assert.eq(true, instance.close())
+		assert.eq(false, instance.close())
+	end)
+
+	suite:case("serveStringResponsePreservesNulBytes", function(assert)
+		local body = "a\0b"
+		local instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest): server.ServerResponse
+				return body
+			end,
+		})
+
+		local response = net.request(`{instance.hostname}:{instance.port}`, {
+			method = "GET",
+		})
+		assert.eq(true, response.ok)
+		assert.eq(200, response.status)
+		assert.eq(3, #response.body)
+		assert.eq(body, response.body)
+
+		instance.close()
+	end)
 end)
