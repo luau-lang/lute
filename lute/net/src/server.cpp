@@ -71,8 +71,8 @@ struct RequestUpgradeContext
 {
     uWS::HttpResponse<SSL>* res = nullptr;
     uWS::HttpRequest* req = nullptr;
-    us_socket_context_t* context = nullptr;
-    bool active = true;
+    us_socket_context_t* socketContext = nullptr;
+    bool pointersValid = true;
     bool attempted = false;
     bool upgraded = false;
 };
@@ -403,17 +403,18 @@ static int server_upgrade_do(lua_State* L)
     }
 
     auto& upgradeContext = **contextPtr;
-    if (!upgradeContext.active || upgradeContext.attempted || !upgradeContext.res || !upgradeContext.req || !upgradeContext.context)
+    if (!upgradeContext.pointersValid || upgradeContext.attempted || !upgradeContext.res || !upgradeContext.req ||
+        !upgradeContext.socketContext)
     {
         lua_pushboolean(L, 0);
         return 1;
     }
 
     upgradeContext.attempted = true;
-    bool upgraded = performWebSocketUpgrade<SSL>(upgradeContext.res, upgradeContext.req, upgradeContext.context);
+    bool upgraded = performWebSocketUpgrade<SSL>(upgradeContext.res, upgradeContext.req, upgradeContext.socketContext);
     upgradeContext.upgraded = upgraded;
     if (upgraded)
-        upgradeContext.active = false;
+        upgradeContext.pointersValid = false;
 
     lua_pushboolean(L, upgraded);
     return 1;
@@ -756,12 +757,12 @@ static void installWebSocketRoutes(AppT* app, const std::shared_ptr<ServerLoopSt
             auto upgradeContext = std::make_shared<RequestUpgradeContext<SSL>>();
             upgradeContext->res = res;
             upgradeContext->req = req;
-            upgradeContext->context = context;
+            upgradeContext->socketContext = context;
 
             HandlerThread thread = prepareUpgradeHandlerThread<SSL>(state, headers, route, upgradeContext);
             lua_State* L = thread.L;
             int status = lua_resume(L, nullptr, 2);
-            upgradeContext->active = false;
+            upgradeContext->pointersValid = false;
             bool upgraded = upgradeContext->upgraded;
 
             if (status == LUA_YIELD)
