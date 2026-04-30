@@ -5,6 +5,10 @@
 
 #include <type_traits>
 
+#ifndef LUTE_API
+#define LUTE_API
+#endif
+
 // A uniform interface for Lute libraries.
 //
 // Each `Derived` Lute library must provide:
