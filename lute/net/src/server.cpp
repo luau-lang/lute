@@ -574,7 +574,7 @@ static void pushRequestTable(
     lua_settable(L, -3);
 
     lua_pushstring(L, "body");
-    lua_pushlstring(L, body.data(), body.size());
+    lua_pushlstring(L, body.data() != nullptr ? body.data() : "", body.size());
     lua_settable(L, -3);
 
     int requestIndex = lua_absindex(L, -1);
