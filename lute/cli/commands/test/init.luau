@@ -1,11 +1,12 @@
 local cli = require("@batteries/cli")
 local finder = require("@self/finder")
-local filter = require("@self/filter")
 local luau = require("@std/luau")
 local path = require("@std/path")
 local ps = require("@std/process")
+local system = require("@std/system")
+local task = require("@std/task")
+local vm = require("@lute/vm")
 local testtypes = require("@std/test/types")
-local runner = require("@std/test/runner")
 local reporter = require("@self/reporter")
 local test = require("@std/test")
 local snaprunner = require("@self/snap/runner")
@@ -40,11 +41,78 @@ local function listtests()
 	end
 end
 
-local function runtests(env: testtypes.TestEnvironment, runner: testtypes.TestRunner, reporter: testtypes.TestReporter)
-	local result = runner(env)
+local function runtests(
+	testfiles: { path.Path },
+	suiteName: string?,
+	caseName: string?,
+	runOptions: testtypes.TestRunnerOptions
+)
+	local result = { failures = {}, total = 0, failed = 0, passed = 0 }
+	local workerFailures: { string } = {}
+	local nfiles = #testfiles
 
-	reporter(result)
-	if result.failed ~= 0 then
+	if nfiles > 0 then
+		local nworkers = math.max(1, math.min(system.threadCount(), nfiles))
+
+		if runOptions.verbose then
+			print(`Running tests on {nworkers} worker{if nworkers == 1 then "" else "s"}...`)
+		end
+
+		local cursor = 1
+		local function takenext(): path.Path?
+			if cursor > nfiles then
+				return nil
+			end
+			local p = testfiles[cursor]
+			cursor += 1
+			return p
+		end
+
+		local done = 0
+		for _ = 1, nworkers do
+			task.spawn(function()
+				local current = nil
+				xpcall(function()
+					local worker = vm.create("@self/worker")
+					while true do
+						current = takenext()
+						if not current then
+							break
+						end
+						local res = worker.runfile({
+							file = path.format(current),
+							suite = suiteName,
+							case = caseName,
+							verbose = runOptions.verbose,
+						})
+						if res.__tag == "err" then
+							table.insert(workerFailures, res.error)
+						else
+							local r = res.value
+							result.total += r.total
+							result.passed += r.passed
+							result.failed += r.failed
+							for _, f in r.failures do
+								table.insert(result.failures, f)
+							end
+						end
+					end
+				end, function(err: any)
+					local where = if current then path.format(current) else "<worker setup>"
+					table.insert(workerFailures, `worker errored while running {where}: {tostring(err)}`)
+				end)
+				done += 1
+			end)
+		end
+
+		while done < nworkers do
+			task.wait()
+		end
+	end
+
+	reporter.color(result)
+	reporter.workerFailures(workerFailures)
+	if result.failed ~= 0 or #workerFailures > 0 then
 		ps.exit(1)
 	end
 	ps.exit(0)
@@ -69,6 +137,11 @@ local function main(...: string)
 
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:add("list", "flag", { help = "List all discovered test cases without running them" })
+	args:add(
+		"verbose",
+		"flag",
+		{ help = "Run tests verbosely (prints test case and suite names before executing)", aliases = { "v" } }
+	)
 	args:add("suite", "option", { help = "Run only tests in the specified suite", aliases = { "s" } })
 	args:add("case", "option", { help = "Run only test cases matching the specified name", aliases = { "c" } })
 	args:add("interactive", "flag", { help = "Interactively accept/reject snapshot changes", aliases = { "i" } })
@@ -96,14 +169,14 @@ local function main(...: string)
 	end
 
 	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./" }
-	loadtests(finder.findtestfiles(searchpath))
+	local testfiles = finder.findtestfiles(searchpath)
 
 	if args:has("list") then
+		loadtests(testfiles)
 		listtests()
 	else
-		local env = test._registered() :: testtypes.TestEnvironment
-		local filteredEnv = filter.filtertests(env, args:get("suite"), args:get("case"))
-		runtests(filteredEnv, runner.run, reporter.color)
+		local runOpts: testtypes.TestRunnerOptions = { verbose = args:has("verbose") }
+		runtests(testfiles, args:get("suite"), args:get("case"), runOpts)
 	end
 end
 

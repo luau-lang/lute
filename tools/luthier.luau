@@ -1,5 +1,9 @@
 --!strict
 
+-- Luthier intentionally uses the runtime `@lute` APIs, instead of the standard library in order to support bootstrapping from scratch.
+-- Since Luthier is responsible for generating the files that embed `@std` into Lute, it cannot depend on `@std` being available.
+-- Avoid using `@std` here to prevent bootstrap issues.
+
 local crypto = require("@lute/crypto")
 local fs = require("@lute/fs")
 local process = require("@lute/process")

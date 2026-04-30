@@ -1,7 +1,9 @@
 return {
-	version = 2,
-	packages = { "app" },
+	version = 3,
 	dependencies = {
+		app = "app",
+	},
+	packages = {
 		["app"] = {
 			name = "app",
 			source = "packages/app",

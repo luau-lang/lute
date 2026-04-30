@@ -1,4 +1,5 @@
 --!strict
+--!native
 -- @std/syntax/printer
 
 local triviaUtils = require("./utils/trivia")

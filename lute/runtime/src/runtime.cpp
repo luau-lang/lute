@@ -45,8 +45,11 @@ Runtime::~Runtime()
         runLoopCv.notify_one();
     }
 
-    if (runLoopThread.joinable())
-        runLoopThread.join();
+    if (runLoopThreadStarted)
+    {
+        uv_thread_join(&runLoopThread);
+        runLoopThreadStarted = false;
+    }
     // At this point, Runtime::hasWork will have returned false (i.e uv_loop_alive is false)
     // This means there are no outstanding handles, or file descriptors or work, to do, and we can exit
     uv_loop_close(&eventLoop);
@@ -189,29 +192,33 @@ void Runtime::reportError(lua_State* L)
 
 void Runtime::runContinuously()
 {
-    // TODO: another place for libuv
-    runLoopThread = std::thread(
-        [this]
+    runLoopThreadStarted = uv_thread_create(
+        &runLoopThread,
+        [](void* arg)
         {
-            while (!stop)
+            Runtime* self = static_cast<Runtime*>(arg);
+            while (!self->stop)
             {
-                // Block to wait on event
                 {
-                    std::unique_lock lock(continuationMutex);
+                    std::unique_lock lock(self->continuationMutex);
 
-                    runLoopCv.wait(
+                    self->runLoopCv.wait(
                         lock,
-                        [this]
+                        [self]
                         {
-                            return !continuations.empty() || stop;
+                            return !self->continuations.empty() || self->stop;
                         }
                     );
                 }
 
-                runToCompletion();
+                self->runToCompletion();
             }
-        }
-    );
+        },
+        this
+    ) == 0;
+
+    if (!runLoopThreadStarted)
+        LUTE_ASSERT("Failed to create runtime runloop thread");
 }
 
 bool Runtime::hasContinuations()

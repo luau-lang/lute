@@ -2,6 +2,7 @@
 -- @std/test/runner
 -- Standard test runner library for Luau
 local ps = require("@std/process")
+local rt = require("@batteries/richterm")
 
 local asserts = require("./assert")
 local failure = require("./failure")
@@ -17,10 +18,16 @@ type TestReporter = types.TestReporter
 type FailedTest = types.FailedTest
 type TestRunResult = types.TestRunResult
 
+local fmt = {
+	debug = function(txt)
+		print(rt.green(txt))
+	end,
+}
+
 local runner = {}
 
 --- Runs all test cases and suites in `env`, executing lifecycle hooks around each case. Returns the aggregate results.
-function runner.run(env: TestEnvironment): TestRunResult
+function runner.run(env: TestEnvironment, runOptions: types.TestRunnerOptions?): TestRunResult
 	local failures: { FailedTest } = {}
 	local total = 0
 	local failed = 0
@@ -83,6 +90,10 @@ function runner.run(env: TestEnvironment): TestRunResult
 
 	-- Run anonymous tests
 	for _, tc in env.anonymous do
+		if runOptions and runOptions.verbose then
+			fmt.debug(`Running Anonymous.{tc.name}`)
+		end
+
 		total += 1
 		local function handlefailure(err)
 			local wasruntimefailure = not (typeof(err) == "table" and err.__tag and err.__tag == "assertion")
@@ -112,6 +123,10 @@ function runner.run(env: TestEnvironment): TestRunResult
 		end
 
 		for _, tc in suite.cases do
+			if runOptions and runOptions.verbose then
+				fmt.debug(`{suite.name}.{tc.name}`)
+			end
+
 			total += 1
 			local testFullName = `{suite.name}.{tc.name}`
 			local function handlefailure(err)

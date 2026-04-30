@@ -26,3 +26,16 @@ jobs:
     with:
       branch: ${{ github.ref_name }}
     secrets: inherit
+
+  docker:
+    needs: release-common
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    uses: ./.github/workflows/docker.yml
+    with:
+      version: ${{ needs.release-common.outputs.version }}
+    secrets: inherit
