@@ -406,7 +406,7 @@ local function generateMarkdown(
 		`local {moduleName} = require("@{requireLibraryAlias}/{requirePath}")`,
 		"```",
 		":::warning",
-		"These apis are still a work in progress.  They may change in backwards incompatible ways.",
+		"These APIs are still open to future evolution.  In new major versions, they may change in backwards incompatible ways.",
 		":::",
 		"",
 	}
