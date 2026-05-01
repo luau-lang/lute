@@ -1,4 +1,4 @@
-#include "websocket_common.h"
+#include "wscommon.h"
 
 #include "lualib.h"
 
