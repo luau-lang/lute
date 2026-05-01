@@ -2,6 +2,7 @@
 #include "lute/userdatas.h"
 
 #include "system_ca.h"
+#include "websocket_common.h"
 
 #include "Luau/VecDeque.h"
 
@@ -25,13 +26,6 @@ namespace net::client
 struct WebSocketConnection;
 struct WebSocketHandle;
 
-struct WebSocketPayload
-{
-    const char* data = nullptr;
-    size_t length = 0;
-    bool binary = false;
-};
-
 struct PendingSend
 {
     std::string payload;
@@ -44,26 +38,6 @@ struct WebSocketPollState
     uv_poll_t handle{};
     std::shared_ptr<WebSocketConnection> owner;
 };
-
-static WebSocketPayload extractWebSocketPayload(lua_State* L, int index)
-{
-    if (lua_isstring(L, index))
-    {
-        size_t length = 0;
-        const char* data = lua_tolstring(L, index, &length);
-        return {data, length, false};
-    }
-
-    if (lua_isbuffer(L, index))
-    {
-        size_t length = 0;
-        void* data = lua_tobuffer(L, index, &length);
-        return {static_cast<const char*>(data), length, true};
-    }
-
-    luaL_typeerrorL(L, index, "string or buffer");
-    return {};
-}
 
 static void clearWebSocketPollState(WebSocketPollState*& pollState, int& activePollEvents)
 {

@@ -7,6 +7,8 @@
 #include "Luau/DenseHash.h"
 #include "Luau/Variant.h"
 
+#include "websocket_common.h"
+
 #include "lua.h"
 #include "lualib.h"
 
@@ -30,13 +32,6 @@ namespace net::server
 {
 
 using uWSApp = Luau::Variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSLApp>>;
-
-struct WebSocketPayload
-{
-    const char* data = nullptr;
-    size_t length = 0;
-    bool binary = false;
-};
 
 static const int kEmptyServerKey = 0;
 static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
@@ -74,25 +69,6 @@ struct ServerWebSocketHandle
     int (*sendFn)(void* wsPtr, std::string_view data, bool binary) = nullptr;
     void (*closeFn)(void* wsPtr, uint16_t code, std::string_view message) = nullptr;
 };
-
-static WebSocketPayload extractWebSocketPayload(lua_State* L, int index)
-{
-    if (lua_isstring(L, index))
-    {
-        size_t length = 0;
-        const char* data = lua_tolstring(L, index, &length);
-        return {data, length, false};
-    }
-
-    if (lua_isbuffer(L, index))
-    {
-        size_t length = 0;
-        void* data = lua_tobuffer(L, index, &length);
-        return {static_cast<const char*>(data), length, true};
-    }
-
-    luaL_typeerrorL(L, index, "string or buffer");
-}
 
 template <bool SSL>
 struct PerSocketData

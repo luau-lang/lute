@@ -9,6 +9,8 @@ target_sources(Lute.Net PRIVATE
     src/server.cpp
     src/system_ca.cpp
     src/system_ca.h
+    src/websocket_common.cpp
+    src/websocket_common.h
 )
 
 target_compile_features(Lute.Net PUBLIC cxx_std_17)
