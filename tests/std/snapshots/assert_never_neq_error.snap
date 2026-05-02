@@ -1,0 +1,17 @@
+
+==================================================
+TEST RESULTS
+==================================================
+
+Failed Tests (1):
+
+❌ never_neq_failure_suite.never_neq_error
+	<ROOT>/tests/std/snapshots/assert_never_neq_error.snap.luau:6
+		never_neq: 1 ~= 2
+
+--------------------------------------------------
+Total:  1
+Passed: 0 ✓
+Failed: 1 ✗
+==================================================
+

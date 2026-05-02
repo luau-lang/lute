@@ -1,0 +1,17 @@
+
+==================================================
+TEST RESULTS
+==================================================
+
+Failed Tests (1):
+
+❌ never_strcontains_failure_suite.never_strcontains_error
+	<ROOT>/tests/std/snapshots/assert_never_strcontains_error.snap.luau:6
+		never_strContains: Expected "hello world" to not contain "world".
+
+--------------------------------------------------
+Total:  1
+Passed: 0 ✓
+Failed: 1 ✗
+==================================================
+

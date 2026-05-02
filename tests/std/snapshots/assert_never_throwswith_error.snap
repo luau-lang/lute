@@ -1,0 +1,17 @@
+
+==================================================
+TEST RESULTS
+==================================================
+
+Failed Tests (1):
+
+❌ never_throwswith_failure_suite.never_throwswith_error
+	<ROOT>/tests/std/snapshots/assert_never_throwswith_error.snap.luau:6
+		never_throwsWith: Expected function to not throw error with suffix "expected message", but it did
+
+--------------------------------------------------
+Total:  1
+Passed: 0 ✓
+Failed: 1 ✗
+==================================================
+
