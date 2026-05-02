@@ -99,7 +99,7 @@ local function throws<T...>(negate: boolean, func: (T...) -> ...unknown, ...: T.
 		if success then
 			return nil
 		end
-		return assertion(`{func} threw an unexpected error.`)
+		return assertion(`{func} threw an unexpected error.`, nil, true)
 	end
 
 	if not success then
