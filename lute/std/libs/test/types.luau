@@ -42,6 +42,7 @@ export type Asserts = {
 	strContains: (string, string, number?, string?) -> Failure?,
 	strNotContains: (string, string, string?) -> Failure?,
 	that: (unknown, string?) -> Failure?,
+	never: Asserts,
 }
 
 --- A test function that receives the assertion helpers and runs one test case.

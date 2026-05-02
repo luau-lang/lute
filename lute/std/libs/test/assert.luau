@@ -14,6 +14,16 @@ type Asserts = types.Asserts
 -- more utils
 local assertion = failure.assertion
 
+local function check(negate: boolean, passed: boolean, msg: string, depth: number?): Failure?
+	if negate then
+		passed = not passed
+	end
+	if passed then
+		return nil
+	end
+	return assertion(msg, depth)
+end
+
 -- Helper to format values for error messages
 local function formatValue(val: any): string
 	if type(val) == "nil" then
@@ -64,46 +74,45 @@ local function tablesEqual(t1: unknown, t2: unknown, path: string): (boolean, st
 	return true, nil
 end
 
-local function neq<T>(lhs: T, rhs: T, msg: string?): Failure?
-	if lhs ~= rhs then
-		return nil
-	end
-
-	return assertion(msg or `{lhs} == {rhs}`)
+local function neq<T>(negate: boolean, lhs: T, rhs: T, msg: string?): Failure?
+	return check(negate, lhs ~= rhs, msg or if negate then `{lhs} ~= {rhs}` else `{lhs} == {rhs}`)
 end
 
-local function that(value: unknown, msg: string?): Failure?
-	if value then
-		return nil
-	end
-
-	return assertion(msg or `Expected a truthy value, but got {formatValue(value)}`)
+local function that(negate: boolean, value: unknown, msg: string?): Failure?
+	return check(
+		negate,
+		if value then true else false,
+		msg
+			or if negate
+				then `Expected a falsy value, but got {formatValue(value)}`
+				else `Expected a truthy value, but got {formatValue(value)}`
+	)
 end
 
-local function throws<T...>(func: (T...) -> ...unknown, ...: T...): Failure?
+local function throws<T...>(negate: boolean, func: (T...) -> ...unknown, ...: T...): Failure?
 	local success = pcall(func, ...)
-	-- if the callback failed, then this assert passes
-	if not success then
-		return nil
-	end
-
-	return assertion(`{func} did not throw error.`)
+	return check(
+		negate,
+		not success,
+		if negate then `{func} threw an unexpected error.` else `{func} did not throw error.`
+	)
 end
 
 -- FIXME(Luau): We would like this to be two read-only indexers, but the
 -- best option we have otherwise is two error suppressing indexers.
 -- Table equality assertionsion with deep comparison
-local function tableeq(lhs: { [any]: any }, rhs: { [any]: any }, depth: number?): Failure?
+local function tableeq(negate: boolean, lhs: { [any]: any }, rhs: { [any]: any }, depth: number?): Failure?
 	local stackdepth = depth or 4
-
 	local equal, msg = tablesEqual(lhs, rhs, "")
-	if equal then
-		return nil
-	end
-	return assertion(msg or "tables are not equal", stackdepth)
+	return check(
+		negate,
+		equal,
+		if negate then "expected tables to not be equal" else msg or "tables are not equal",
+		stackdepth
+	)
 end
 
-local function buffereq(lhs: buffer, rhs: buffer, depth: number?): Failure?
+local function buffereq(negate: boolean, lhs: buffer, rhs: buffer, depth: number?): Failure?
 	local stackdepth = depth or 4
 
 	if typeof(lhs) ~= "buffer" then
@@ -112,6 +121,18 @@ local function buffereq(lhs: buffer, rhs: buffer, depth: number?): Failure?
 
 	if typeof(rhs) ~= "buffer" then
 		return assertion(`rhs is of type {typeof(rhs)}, not buffer`, stackdepth)
+	end
+
+	if negate then
+		if buffer.len(lhs) ~= buffer.len(rhs) then
+			return nil
+		end
+		for offset = 0, buffer.len(lhs) - 1 do
+			if buffer.readu8(lhs, offset) ~= buffer.readu8(rhs, offset) then
+				return nil
+			end
+		end
+		return assertion("expected buffers to not be equal", stackdepth)
 	end
 
 	if buffer.len(lhs) ~= buffer.len(rhs) then
@@ -133,95 +154,141 @@ local function buffereq(lhs: buffer, rhs: buffer, depth: number?): Failure?
 	return nil
 end
 
-local function eq(lhs: unknown, rhs: unknown, msg: string?): Failure?
+local function eq(negate: boolean, lhs: unknown, rhs: unknown, msg: string?): Failure?
 	local stackdepth = 4
 
-	-- Simple equality check for non-tables
-	if lhs == rhs then
+	if negate then
+		if lhs == rhs then
+			return assertion(msg or `expected {formatValue(lhs)} to not equal {formatValue(rhs)}`)
+		end
+		if typeof(lhs) ~= typeof(rhs) then
+			return nil
+		end
+		if typeof(lhs) == "buffer" then
+			return buffereq(negate, lhs :: buffer, rhs :: buffer, stackdepth + 1)
+		end
+		if typeof(lhs) == "table" then
+			return tableeq(negate, lhs :: { [any]: any }, rhs :: { [any]: any }, stackdepth + 1)
+		end
 		return nil
 	end
 
-	-- Handle type mismatch
+	if lhs == rhs then
+		return nil
+	end
 	if typeof(lhs) ~= typeof(rhs) then
 		return assertion(msg or `lhs is of type {typeof(lhs)}, but rhs is of type {typeof(rhs)}`)
 	end
-
-	-- Check for buffer equality
 	if typeof(lhs) == "buffer" then
-		-- increment stack depth for debug info by 1 when calling buffereq to account for additional function call (eq -> buffereq)
-		return buffereq(lhs :: buffer, rhs :: buffer, stackdepth + 1)
+		return buffereq(negate, lhs :: buffer, rhs :: buffer, stackdepth + 1)
 	end
-
-	-- Check for table equality
 	if typeof(lhs) == "table" then
-		-- increment stack depth for debug info by 1 when calling tableeq to account for additional function call (eq -> tableeq)
-		return tableeq(lhs :: { [any]: any }, rhs :: { [any]: any }, stackdepth + 1)
+		return tableeq(negate, lhs :: { [any]: any }, rhs :: { [any]: any }, stackdepth + 1)
 	end
-
 	return assertion(msg or `{lhs} ~= {rhs}`)
 end
 
-local function throwsWith<T...>(with: any, func: (T...) -> ...unknown, ...: T...): Failure?
+local function throwsWith<T...>(negate: boolean, with: any, func: (T...) -> ...unknown, ...: T...): Failure?
 	local success, err = pcall(func, ...)
+
+	if negate then
+		if success then
+			return nil
+		end
+		local actualErrorMessage = tostring(err)
+		if typeof(with) == "string" then
+			if not stringext.hasSuffix(actualErrorMessage, with) then
+				return nil
+			end
+			return assertion(`Expected function to not throw error with suffix "{with}", but it did`)
+		else
+			return eq(true, err, with, `Expected function to not throw error "{formatValue(with)}", but it did`)
+		end
+	end
+
 	if success then
 		return assertion(`Expected function to throw/raise error.`)
 	end
 
 	local actualErrorMessage = tostring(err)
-
 	if typeof(with) == "string" then
-		-- pcall appends filename and line number of the error, so we check suffix only
 		if not stringext.hasSuffix(actualErrorMessage, with) then
 			return assertion(`Expected suffix of error message "{with}", but got "{actualErrorMessage}"`)
 		end
 	else
-		return eq(err, with, `Expected error "{with}", but got "{formatValue(err)}"`)
+		return eq(false, err, with, `Expected error "{with}", but got "{formatValue(err)}"`)
 	end
 
 	return nil
 end
 
-local function strContains(haystack: string, needle: string, instances: number?, msg: string?): Failure?
+local function strContains(
+	negate: boolean,
+	haystack: string,
+	needle: string,
+	instances: number?,
+	msg: string?
+): Failure?
 	if instances == nil then
-		if haystack:find(needle, 1, true) == nil then
-			return assertion(if msg then msg else `Expected "{haystack}" to contain "{needle}".`)
-		end
-
-		return nil
+		local found = haystack:find(needle, 1, true) ~= nil
+		return check(
+			negate,
+			found,
+			msg
+				or if negate
+					then `Expected "{haystack}" to not contain "{needle}".`
+					else `Expected "{haystack}" to contain "{needle}".`
+		)
 	end
-
-	instances = instances or 1
 
 	if instances <= 0 then
 		return assertion("instances must be greater than 0")
 	end
 
-	if #haystack:split(needle) ~= instances + 1 then
-		return assertion(if msg then msg else `Expected "{haystack}" to contain "{needle}" {instances} times.`)
-	end
-
-	return nil
+	local matched = #haystack:split(needle) == instances + 1
+	return check(
+		negate,
+		matched,
+		msg
+			or if negate
+				then `Expected "{haystack}" to not contain "{needle}" {instances} times.`
+				else `Expected "{haystack}" to contain "{needle}" {instances} times.`
+	)
 end
 
-local function strNotContains(haystack: string, needle: string, msg: string?): Failure?
-	if haystack:find(needle, 1, true) ~= nil then
-		return assertion(if msg then msg else `Expected "{haystack}" to not contain "{needle}".`)
-	end
-
-	return nil
+local function strNotContains(negate: boolean, haystack: string, needle: string, msg: string?): Failure?
+	local found = haystack:find(needle, 1, true) ~= nil
+	return check(
+		negate,
+		not found,
+		msg
+			or if negate
+				then `Expected "{haystack}" to contain "{needle}".`
+				else `Expected "{haystack}" to not contain "{needle}".`
+	)
 end
 
--- utility for taking an assertion and wrapping it as a check that must complete successfully or will return control flow to the error handler
-local function reqassert<T...>(req: (T...) -> Failure?): (T...) -> Failure?
+local function reqassert<T...>(req: (boolean, T...) -> Failure?, negate: boolean?): (T...) -> Failure?
 	return function(...): Failure?
-		local result: Failure? = req(...)
+		local result: Failure? = req(negate == true, ...)
 		if result ~= nil then
 			error(result)
 		end
-
 		return nil
 	end
 end
+
+-- when users index into never, modified is applied, all methods are inverted / negated
+
+local assertNegation = table.freeze({
+	eq = reqassert(eq, true),
+	neq = reqassert(neq, true),
+	throws = reqassert(throws, true),
+	throwsWith = reqassert(throwsWith, true),
+	strContains = reqassert(strContains, true),
+	strNotContains = reqassert(strNotContains, true),
+	that = reqassert(that, true),
+})
 
 return table.freeze({
 	eq = reqassert(eq),
@@ -231,4 +298,5 @@ return table.freeze({
 	strContains = reqassert(strContains),
 	strNotContains = reqassert(strNotContains),
 	that = reqassert(that),
+	never = assertNegation,
 }) :: Asserts
