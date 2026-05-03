@@ -73,6 +73,14 @@ if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS)
     endif()
 endif()
 
+# LUTE_EXTERN_C must be declared before extern/luau is configured so that
+# it can force LUAU_EXTERN_C on — Luau must use longjmp instead of C++
+# exceptions when lute's open functions are exposed with C linkage.
+option(LUTE_EXTERN_C "Use extern C Lute API functions" OFF)
+if(LUTE_EXTERN_C)
+    set(LUAU_EXTERN_C ON)
+endif()
+
 # luau setup
 set(LUAU_BUILD_CLI OFF)
 set(LUAU_BUILD_TESTS OFF)

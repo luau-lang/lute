@@ -1,8 +1,6 @@
 #include "lute/runtime.h"
 #include "lute/userdatas.h"
 
-#include "system_ca.h"
-
 #include "Luau/VecDeque.h"
 
 #include "lua.h"
@@ -20,17 +18,13 @@
 #include <utility>
 #include <vector>
 
+#include "system_ca.h"
+#include "wscommon.h"
+
 namespace net::client
 {
 struct WebSocketConnection;
 struct WebSocketHandle;
-
-struct WebSocketPayload
-{
-    const char* data = nullptr;
-    size_t length = 0;
-    bool binary = false;
-};
 
 struct PendingSend
 {
@@ -44,26 +38,6 @@ struct WebSocketPollState
     uv_poll_t handle{};
     std::shared_ptr<WebSocketConnection> owner;
 };
-
-static WebSocketPayload extractWebSocketPayload(lua_State* L, int index)
-{
-    if (lua_isstring(L, index))
-    {
-        size_t length = 0;
-        const char* data = lua_tolstring(L, index, &length);
-        return {data, length, false};
-    }
-
-    if (lua_isbuffer(L, index))
-    {
-        size_t length = 0;
-        void* data = lua_tobuffer(L, index, &length);
-        return {static_cast<const char*>(data), length, true};
-    }
-
-    luaL_typeerrorL(L, index, "string or buffer");
-    return {};
-}
 
 static void clearWebSocketPollState(WebSocketPollState*& pollState, int& activePollEvents)
 {
@@ -394,8 +368,7 @@ struct WebSocketConnection : std::enable_shared_from_this<WebSocketConnection>
                 }
 
                 size_t remaining = pending.payload.size() - pending.offset;
-                const char* data =
-                    remaining > 0 ? pending.payload.data() + pending.offset : pending.payload.data();
+                const char* data = remaining > 0 ? pending.payload.data() + pending.offset : pending.payload.data();
 
                 result = curl_ws_send(curl, data, remaining, &sent, 0, pending.binary ? CURLWS_BINARY : CURLWS_TEXT);
             }
@@ -774,12 +747,9 @@ int websocket(lua_State* L)
 
                     handle->activate();
 
-                    auto* storage =
-                        new (static_cast<std::shared_ptr<WebSocketHandle>*>(lua_newuserdatataggedwithmetatable(
-                            L,
-                            sizeof(std::shared_ptr<WebSocketHandle>),
-                            kWebSocketHandleTag
-                        ))) std::shared_ptr<WebSocketHandle>(handle);
+                    auto* storage = new (static_cast<std::shared_ptr<WebSocketHandle>*>(
+                        lua_newuserdatataggedwithmetatable(L, sizeof(std::shared_ptr<WebSocketHandle>), kWebSocketHandleTag)
+                    )) std::shared_ptr<WebSocketHandle>(handle);
                     (void)storage;
 
                     handle->notifyOpen();

@@ -265,7 +265,7 @@ int request(lua_State* L)
                     lua_createtable(L, 0, 4);
 
                     lua_pushstring(L, "body");
-                    lua_pushlstring(L, resp.body.data(), resp.body.size());
+                    lua_pushlstring(L, resp.body.empty() ? "" : resp.body.data(), resp.body.size());
                     lua_settable(L, -3);
 
                     lua_pushstring(L, "headers");
@@ -326,7 +326,7 @@ int NetClient::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luteopen_net_client(lua_State* L)
+LUTE_API int luteopen_net_client(lua_State* L)
 {
     return NetClient::pushLibrary(L);
 }

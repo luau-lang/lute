@@ -454,12 +454,12 @@ int FS::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_fs(lua_State* L)
+LUTE_API int luaopen_fs(lua_State* L)
 {
     return FS::openAsGlobal(L);
 }
 
-int luteopen_fs(lua_State* L)
+LUTE_API int luteopen_fs(lua_State* L)
 {
     return FS::pushLibrary(L);
 }
