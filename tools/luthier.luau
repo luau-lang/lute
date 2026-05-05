@@ -248,10 +248,14 @@ local function writeLines(file, lines: { string })
 	fs.write(file, table.concat(lines, "\n") .. "\n")
 end
 
+local function shouldEmbedFile(relativePath: string): boolean
+	return string.match(relativePath, "%.luau$") ~= nil or string.match(relativePath, "%.luaurc$") ~= nil
+end
+
 local function hashDirectory(path: string): string
 	local toHash = ""
 	traverseFileTree(path, function(filePath, relativePath)
-		if safeFsType(filePath) == "file" then
+		if safeFsType(filePath) == "file" and shouldEmbedFile(relativePath) then
 			toHash ..= "./" .. relativePath
 			toHash ..= readFileToString(filePath)
 		end
@@ -317,6 +321,10 @@ local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
 		local aliasedPath = aliasWithSlash .. relativePath
 
 		if safeFsType(path) == "file" then
+			if not shouldEmbedFile(relativePath) then
+				return
+			end
+
 			local libSrc = readFileToString(path)
 			if #libSrc > 16_000 then
 				-- https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/compiler-error-c2026
