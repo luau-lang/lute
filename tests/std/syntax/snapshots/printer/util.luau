@@ -1,9 +1,7 @@
 local fs = require("@std/fs")
 local printer = require("@std/syntax/printer")
-local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
 local syntaxTypes = require("@std/syntax/types")
-local syntaxUtils = require("@std/syntax/utils")
 
 local util = {}
 
