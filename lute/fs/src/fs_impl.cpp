@@ -578,6 +578,79 @@ int copy_impl(lua_State* L, const char* path, const char* dest)
     return lua_yield(L, 0);
 }
 
+int rename_impl(lua_State* L, const char* path, const char* dest)
+{
+    uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
+    uv_fs_rename(
+        req->getLoop(),
+        &req->req,
+        path,
+        dest,
+        [](uv_fs_t* req)
+        {
+            auto r = uvutils::retake<FSPathPairRequest>(req);
+            auto result = req->result;
+
+            if (result == 0)
+            {
+                r->succeed([](lua_State* L) { return 0; });
+                return;
+            }
+
+            if (result != UV_EXDEV)
+            {
+                r->fail("rename: Error renaming %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+                return;
+            }
+
+            // Cross-filesystem: fall back to copy + remove
+            uv_fs_req_cleanup(&r->req);
+            uvutils::ScopedUVRequest<FSPathPairRequest> copyReq{std::move(r)};
+            uv_fs_copyfile(
+                copyReq->getLoop(),
+                &copyReq->req,
+                copyReq->src.c_str(),
+                copyReq->dest.c_str(),
+                0,
+                [](uv_fs_t* req)
+                {
+                    auto r = uvutils::retake<FSPathPairRequest>(req);
+                    auto result = req->result;
+
+                    if (result < 0)
+                    {
+                        r->fail("rename: Error copying %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+                        return;
+                    }
+
+                    uv_fs_req_cleanup(&r->req);
+                    uvutils::ScopedUVRequest<FSPathPairRequest> unlinkReq{std::move(r)};
+                    uv_fs_unlink(
+                        unlinkReq->getLoop(),
+                        &unlinkReq->req,
+                        unlinkReq->src.c_str(),
+                        [](uv_fs_t* req)
+                        {
+                            auto r = uvutils::retake<FSPathPairRequest>(req);
+                            auto result = req->result;
+
+                            if (result < 0)
+                            {
+                                r->fail("rename: Error removing source %s: %s", r->src.c_str(), uv_strerror(result));
+                                return;
+                            }
+
+                            r->succeed([](lua_State* L) { return 0; });
+                        }
+                    );
+                }
+            );
+        }
+    );
+
+    return lua_yield(L, 0);
+}
+
 int mkdir_impl(lua_State* L, const char* path, int mode)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);

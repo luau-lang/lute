@@ -68,6 +68,21 @@ test.suite("FsSuite", function(suite)
 		fs.removeDirectory(dir)
 	end)
 
+	suite:case("renameFile", function(assert)
+		local src = path.join(tmpdir, "rename_src.txt")
+		local dest = path.join(tmpdir, "rename_dest.txt")
+
+		fs.writeStringToFile(src, "renamed content")
+
+		fs.rename(src, dest)
+
+		assert.eq(fs.exists(src), false)
+		assert.that(fs.exists(dest))
+		assert.eq(fs.readFileToString(dest), "renamed content")
+
+		fs.remove(dest)
+	end)
+
 	suite:case("linkAndSymlinkAndCopy", function(assert)
 		local srcfile = "src.txt"
 		local src = path.join(tmpdir, srcfile)

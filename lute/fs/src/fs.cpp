@@ -228,6 +228,20 @@ int symlink(lua_State* L)
     return symlink_impl(L, path, dest);
 }
 
+int rename(lua_State* L)
+{
+    int nArgs = lua_gettop(L);
+    if (nArgs > 2)
+    {
+        luaL_errorL(L, "rename: too many arguments supplied\n");
+    }
+
+    const char* path = luaL_checkstring(L, 1);
+    const char* dest = luaL_checkstring(L, 2);
+
+    return rename_impl(L, path, dest);
+}
+
 struct WatchHandle
 {
     WatchHandle(lua_State* L, int callbackIdx)
@@ -426,6 +440,7 @@ const luaL_Reg FS::lib[] = {
     {"link", fs::link},
     {"symlink", fs::symlink},
     {"copy", fs::copy},
+    {"rename", fs::rename},
 
     {"mkdir", fs::mkdir},
     {"listdir", fs::listdir},
