@@ -55,12 +55,16 @@ test.suite("LutePkgInstall", function(suite)
 		local libDir = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDir)
 		writeConfig(libDir, "lib", "")
-		writeConfig(workingDirectory, "root", [[
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
 
 			lib = {
 				sourceKind = "path",
 				source = "./lib",
-			},]])
+			},]]
+		)
 
 		local result = run(workingDirectory)
 
@@ -75,7 +79,10 @@ test.suite("LutePkgInstall", function(suite)
 			fs.createDirectory(dir)
 			writeConfig(dir, name, "")
 		end
-		writeConfig(workingDirectory, "root", [[
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
 
 			a = {
 				sourceKind = "path",
@@ -84,7 +91,8 @@ test.suite("LutePkgInstall", function(suite)
 			b = {
 				sourceKind = "path",
 				source = "./b",
-			},]])
+			},]]
+		)
 
 		local result = run(workingDirectory)
 
@@ -104,18 +112,26 @@ test.suite("LutePkgInstall", function(suite)
 		fs.createDirectory(bDir)
 
 		writeConfig(bDir, "b", "")
-		writeConfig(aDir, "a", [[
+		writeConfig(
+			aDir,
+			"a",
+			[[
 
 			b = {
 				sourceKind = "path",
 				source = "../b",
-			},]])
-		writeConfig(workingDirectory, "root", [[
+			},]]
+		)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
 
 			a = {
 				sourceKind = "path",
 				source = "./libs/a",
-			},]])
+			},]]
+		)
 
 		local result = run(workingDirectory)
 
@@ -132,12 +148,16 @@ test.suite("LutePkgInstall", function(suite)
 		local libDir = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDir)
 		writeConfig(libDir, "lib", "")
-		writeConfig(workingDirectory, "root", [[
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
 
 			lib = {
 				sourceKind = "path",
 				source = "./lib",
-			},]])
+			},]]
+		)
 
 		run(workingDirectory)
 
@@ -148,12 +168,16 @@ test.suite("LutePkgInstall", function(suite)
 	end)
 
 	suite:case("failsWhenPathDependencyMissing", function(assert)
-		writeConfig(workingDirectory, "root", [[
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
 
 			missing = {
 				sourceKind = "path",
 				source = "./does-not-exist",
-			},]])
+			},]]
+		)
 
 		local result = run(workingDirectory)
 
@@ -165,12 +189,16 @@ test.suite("LutePkgInstall", function(suite)
 		local libDir = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDir)
 		writeConfig(libDir, "lib", "")
-		writeConfig(workingDirectory, "root", [[
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
 
 			lib = {
 				sourceKind = "path",
 				source = "./lib",
-			},]])
+			},]]
+		)
 
 		local r1 = run(workingDirectory)
 		local r2 = run(workingDirectory)
