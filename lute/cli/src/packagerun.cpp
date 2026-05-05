@@ -134,7 +134,12 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         {
             const std::string* installPath = (*entry).find("installPath")->get_if<std::string>();
             if (installPath)
-                info.rootDirectory = joinPaths(*lockfileParentDir, *installPath);
+            {
+                if (isAbsolutePath(*installPath))
+                    info.rootDirectory = normalizePath(*installPath);
+                else
+                    info.rootDirectory = joinPaths(*lockfileParentDir, *installPath);
+            }
             else
                 info.rootDirectory = joinPaths(*lockfileParentDir, "Packages/" + *packageKey);
         }

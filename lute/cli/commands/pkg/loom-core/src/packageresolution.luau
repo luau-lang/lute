@@ -4,6 +4,7 @@ local lockfile = require("./lockfile")
 local path = require("@std/path")
 local pp = require("@batteries/pp")
 local projectmanifest = require("./projectmanifest")
+local store = require("./store")
 
 local function getManifestPath(directory: string): string
 	return `{directory}/loom.config.luau`
@@ -53,8 +54,14 @@ local function fetchSource(spec: projectmanifest.DependencySpec, rootDirectory: 
 		return sourcePath
 	elseif spec.sourceKind == "github" then
 		assert(spec.rev ~= nil, `Expected rev to be non-nil for GitHub package '{spec.name}'`)
-		local sourcePath = `{rootDirectory}/Packages/{getKey(spec)}`
-		github.installPackage(spec.source, spec.rev, sourcePath)
+		store.ensureStoreDirectory()
+
+		local key = getKey(spec)
+		local sourcePath = store.getPackagePath(key)
+		if not store.hasPackage(key) then
+			github.installPackage(spec.source, spec.rev, sourcePath)
+		end
+
 		return sourcePath
 	else
 		error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
@@ -68,13 +75,6 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	end
 
 	local lockfilePath = getLockfilePath(rootDirectory)
-	-- TODO: read lockfile and diff against manifest to determine which packages need to be updated, deleted, etc.
-	-- local lockfile = lockfile.parseFile(lockfilePath)
-	-- for now, just clear the installation directory if it exists
-	local rootInstallPath = `{rootDirectory}/Packages/`
-	if fs.exists(rootInstallPath) then
-		fs.removeDirectory(rootInstallPath, { recursive = true })
-	end
 
 	local queue: { projectmanifest.DependencySpec } = {}
 
@@ -144,7 +144,9 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 			rev = spec.rev,
 			source = spec.source,
 			sourceKind = spec.sourceKind,
-			installPath = path.format(path.relative(rootDirectory, installPath)),
+			installPath = if spec.sourceKind == "path"
+				then path.format(path.relative(rootDirectory, installPath))
+				else installPath,
 			dependencies = transitiveDependencies,
 		})
 	end
