@@ -110,6 +110,15 @@ struct FSPathPairRequest : FSRequest
     const std::string dest;
 };
 
+struct FSRename : FSPathPairRequest
+{
+    using FSPathPairRequest::FSPathPairRequest;
+
+    static void renameCallback(uv_fs_t* req);
+    static void copyCallback(uv_fs_t* req);
+    static void unlinkCallback(uv_fs_t* req);
+};
+
 int open_impl(lua_State* L, const char* path, int flags, int mode)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
@@ -191,12 +200,7 @@ void FSWrite::writeCallback(uv_fs_t* req)
     w->offset += bytesWritten;
     if (w->offset == w->toWrite.size())
     {
-        w->succeed(
-            [](lua_State* L)
-            {
-                return 0;
-            }
-        );
+        w->succeedTrivially();
 
         return;
     }
@@ -266,12 +270,7 @@ int close_impl(lua_State* L, UVFile* handle)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -295,12 +294,7 @@ int remove_impl(lua_State* L, const char* path)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -497,12 +491,7 @@ int link_impl(lua_State* L, const char* path, const char* dest)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -534,12 +523,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -566,15 +550,70 @@ int copy_impl(lua_State* L, const char* path, const char* dest)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
+    return lua_yield(L, 0);
+}
+
+void FSRename::renameCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    auto result = req->result;
+
+    if (result == 0)
+    {
+        r->succeedTrivially();
+        return;
+    }
+
+    if (result != UV_EXDEV)
+    {
+        r->fail("move: Error moving %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+        return;
+    }
+
+    // Cross-filesystem: fall back to copy + remove
+    uv_fs_req_cleanup(&r->req);
+    uvutils::ScopedUVRequest<FSRename> copyReq{std::move(r)};
+    uv_fs_copyfile(copyReq->getLoop(), &copyReq->req, copyReq->src.c_str(), copyReq->dest.c_str(), 0, FSRename::copyCallback);
+}
+
+void FSRename::copyCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    auto result = req->result;
+
+    if (result < 0)
+    {
+        r->fail("move: Error copying %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+        return;
+    }
+
+    uv_fs_req_cleanup(&r->req);
+    uvutils::ScopedUVRequest<FSRename> unlinkReq{std::move(r)};
+    uv_fs_unlink(unlinkReq->getLoop(), &unlinkReq->req, unlinkReq->src.c_str(), FSRename::unlinkCallback);
+}
+
+void FSRename::unlinkCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    auto result = req->result;
+
+    if (result < 0)
+    {
+        r->fail("move: Error removing source %s: %s", r->src.c_str(), uv_strerror(result));
+        return;
+    }
+
+    r->succeedTrivially();
+}
+
+int rename_impl(lua_State* L, const char* path, const char* dest)
+{
+    uvutils::ScopedUVRequest<FSRename> req{L, path, dest};
+    uv_fs_rename(req->getLoop(), &req->req, path, dest, FSRename::renameCallback);
     return lua_yield(L, 0);
 }
 
@@ -596,12 +635,7 @@ int mkdir_impl(lua_State* L, const char* path, int mode)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -626,12 +660,7 @@ int rmdir_impl(lua_State* L, const char* path)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
