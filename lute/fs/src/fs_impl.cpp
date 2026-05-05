@@ -570,7 +570,7 @@ void FSRename::renameCallback(uv_fs_t* req)
 
     if (result != UV_EXDEV)
     {
-        r->fail("rename: Error renaming %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+        r->fail("move: Error moving %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
         return;
     }
 
@@ -587,7 +587,7 @@ void FSRename::copyCallback(uv_fs_t* req)
 
     if (result < 0)
     {
-        r->fail("rename: Error copying %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+        r->fail("move: Error copying %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
         return;
     }
 
@@ -603,7 +603,7 @@ void FSRename::unlinkCallback(uv_fs_t* req)
 
     if (result < 0)
     {
-        r->fail("rename: Error removing source %s: %s", r->src.c_str(), uv_strerror(result));
+        r->fail("move: Error removing source %s: %s", r->src.c_str(), uv_strerror(result));
         return;
     }
 

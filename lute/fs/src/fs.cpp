@@ -233,7 +233,7 @@ int rename(lua_State* L)
     int nArgs = lua_gettop(L);
     if (nArgs > 2)
     {
-        luaL_errorL(L, "rename: too many arguments supplied\n");
+        luaL_errorL(L, "move: too many arguments supplied\n");
     }
 
     const char* path = luaL_checkstring(L, 1);
@@ -440,7 +440,7 @@ const luaL_Reg FS::lib[] = {
     {"link", fs::link},
     {"symlink", fs::symlink},
     {"copy", fs::copy},
-    {"rename", fs::rename},
+    {"move", fs::rename},
 
     {"mkdir", fs::mkdir},
     {"listdir", fs::listdir},

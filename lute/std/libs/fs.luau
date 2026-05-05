@@ -154,10 +154,10 @@ function fslib.copy(src: Pathlike, dest: Pathlike): ()
 	return fs.copy(pathlib.format(src), pathlib.format(dest))
 end
 
---- Renames (moves) the file or directory at `src` to `dest`.
+--- Moves the file or directory at `src` to `dest`.
 --- Falls back to a copy-then-remove if `src` and `dest` are on different filesystems.
-function fslib.rename(src: Pathlike, dest: Pathlike): ()
-	return fs.rename(pathlib.format(src), pathlib.format(dest))
+function fslib.move(src: Pathlike, dest: Pathlike): ()
+	return fs.move(pathlib.format(src), pathlib.format(dest))
 end
 
 --- Returns an array of `DirectoryEntry` values for the immediate children of the directory at `path`.

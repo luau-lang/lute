@@ -123,9 +123,9 @@ function fs.copy(src: string, dest: string): ()
 	error("not implemented")
 end
 
---- Renames (moves) the file or directory at `src` to `dest`.
+--- Moves the file or directory at `src` to `dest`.
 --- Falls back to a copy-then-remove if `src` and `dest` are on different filesystems.
-function fs.rename(src: string, dest: string): ()
+function fs.move(src: string, dest: string): ()
 	error("not implemented")
 end
 

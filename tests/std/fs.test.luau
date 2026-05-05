@@ -74,7 +74,7 @@ test.suite("FsSuite", function(suite)
 
 		fs.writeStringToFile(src, "renamed content")
 
-		fs.rename(src, dest)
+		fs.move(src, dest)
 
 		assert.eq(fs.exists(src), false)
 		assert.that(fs.exists(dest))
