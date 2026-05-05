@@ -146,7 +146,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 			sourceKind = spec.sourceKind,
 			installPath = if spec.sourceKind == "path"
 				then path.format(path.relative(rootDirectory, installPath))
-				else installPath,
+				else store.toStorePath(key),
 			dependencies = transitiveDependencies,
 		})
 	end

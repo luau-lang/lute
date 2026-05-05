@@ -2,9 +2,12 @@
 
 #include "lute/common.h"
 #include "lute/userlandvfs.h"
+#include "lute/uvutils.h"
 
 #include "Luau/FileUtils.h"
 #include "Luau/LuauConfig.h"
+
+#include "uv.h"
 
 #include <algorithm>
 #include <cctype>
@@ -12,6 +15,23 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+
+static constexpr std::string_view kStorePathPrefix = "@pkg/";
+
+// Expands "@pkg/<key>" to "<homedir>/.loom/store/<key>".
+// Returns nullopt if the home directory cannot be determined.
+static std::optional<std::string> expandStorePath(std::string_view path)
+{
+    if (path.substr(0, kStorePathPrefix.size()) != kStorePathPrefix)
+        return std::string(path);
+
+    auto result = uvutils::getStringFromUv(uv_os_homedir);
+    std::string* homeDir = result.get_if<std::string>();
+    if (!homeDir)
+        return std::nullopt;
+
+    return *homeDir + "/.loom/store/" + std::string(path.substr(kStorePathPrefix.size()));
+}
 
 std::optional<std::string> getAbsolutePathToNearestLockfile(std::string entryFile)
 {
@@ -135,10 +155,13 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
             const std::string* installPath = (*entry).find("installPath")->get_if<std::string>();
             if (installPath)
             {
-                if (isAbsolutePath(*installPath))
-                    info.rootDirectory = normalizePath(*installPath);
+                std::optional<std::string> expanded = expandStorePath(*installPath);
+                if (!expanded)
+                    return {};
+                if (isAbsolutePath(*expanded))
+                    info.rootDirectory = normalizePath(*expanded);
                 else
-                    info.rootDirectory = joinPaths(*lockfileParentDir, *installPath);
+                    info.rootDirectory = joinPaths(*lockfileParentDir, *expanded);
             }
             else
                 info.rootDirectory = joinPaths(*lockfileParentDir, "Packages/" + *packageKey);
