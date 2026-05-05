@@ -326,7 +326,7 @@ int NetClient::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luteopen_net_client(lua_State* L)
+LUTE_API int luteopen_net_client(lua_State* L)
 {
     return NetClient::pushLibrary(L);
 }

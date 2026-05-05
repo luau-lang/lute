@@ -341,12 +341,12 @@ int Task::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_task(lua_State* L)
+LUTE_API int luaopen_task(lua_State* L)
 {
     return Task::openAsGlobal(L);
 }
 
-int luteopen_task(lua_State* L)
+LUTE_API int luteopen_task(lua_State* L)
 {
     return Task::pushLibrary(L);
 }
