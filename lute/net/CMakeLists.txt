@@ -10,7 +10,7 @@ target_sources(Lute.Net PRIVATE
     src/wsclient.cpp
     src/wscommon.cpp
     src/wscommon.h
-    src/wsserver.cpp
+    src/server.cpp
 )
 
 target_compile_features(Lute.Net PUBLIC cxx_std_17)
