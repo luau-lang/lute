@@ -64,6 +64,11 @@ struct UVRequest
         token->complete(std::forward<F>(cont));
     }
 
+    void succeedTrivially()
+    {
+        succeed([](lua_State* L) { return 0; });
+    }
+
     ~UVRequest()
     {
         cleanup_uv_req(&req);

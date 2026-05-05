@@ -191,12 +191,7 @@ void FSWrite::writeCallback(uv_fs_t* req)
     w->offset += bytesWritten;
     if (w->offset == w->toWrite.size())
     {
-        w->succeed(
-            [](lua_State* L)
-            {
-                return 0;
-            }
-        );
+        w->succeedTrivially();
 
         return;
     }
@@ -266,12 +261,7 @@ int close_impl(lua_State* L, UVFile* handle)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -295,12 +285,7 @@ int remove_impl(lua_State* L, const char* path)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -497,12 +482,7 @@ int link_impl(lua_State* L, const char* path, const char* dest)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -534,12 +514,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -566,12 +541,7 @@ int copy_impl(lua_State* L, const char* path, const char* dest)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -593,7 +563,7 @@ int rename_impl(lua_State* L, const char* path, const char* dest)
 
             if (result == 0)
             {
-                r->succeed([](lua_State* L) { return 0; });
+                r->succeedTrivially();
                 return;
             }
 
@@ -640,7 +610,7 @@ int rename_impl(lua_State* L, const char* path, const char* dest)
                                 return;
                             }
 
-                            r->succeed([](lua_State* L) { return 0; });
+                            r->succeedTrivially();
                         }
                     );
                 }
@@ -669,12 +639,7 @@ int mkdir_impl(lua_State* L, const char* path, int mode)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -699,12 +664,7 @@ int rmdir_impl(lua_State* L, const char* path)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
