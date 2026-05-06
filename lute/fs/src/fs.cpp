@@ -30,14 +30,14 @@ static UVFile* getFileHandle(lua_State* L, int index)
     return handle;
 }
 
-std::optional<int> setFlags(const char* c, int* openFlags)
+std::optional<int> setFlags(const char* modeStr, int* openFlags)
 {
     int modeFlags = 0x0000;
 
-    for (const char* it = c; *it != '\0'; it++)
+    for (const char* it = modeStr; *it != '\0'; it++)
     {
-        char c = *it;
-        switch (c)
+        char modeChar = *it;
+        switch (modeChar)
         {
         case 'r':
             *openFlags |= O_RDONLY;
