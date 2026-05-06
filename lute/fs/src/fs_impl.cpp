@@ -84,13 +84,7 @@ struct FSWrite : FSRequest
 
 struct FSClose : FSRequest
 {
-    FSClose(lua_State* L, UVFile* file)
-        : FSRequest(L)
-        , file(file)
-    {
-    }
-
-    UVFile* file = nullptr;
+    using FSRequest::FSRequest;
 };
 
 struct FSPathPairRequest : FSRequest
@@ -250,11 +244,14 @@ int close_impl(lua_State* L, UVFile* handle)
         luaL_errorL(L, "File handle is already closed");
     }
 
-    uvutils::ScopedUVRequest<FSClose> req{L, handle};
+    auto fd = handle->fd.value();
+    handle->fd = std::nullopt;
+
+    uvutils::ScopedUVRequest<FSClose> req{L};
     uv_fs_close(
         req->getLoop(),
         &req->req,
-        handle->fd.value(),
+        fd,
         [](uv_fs_t* req)
         {
             auto r = uvutils::retake<FSClose>(req);
@@ -266,7 +263,6 @@ int close_impl(lua_State* L, UVFile* handle)
                 return;
             }
 
-            r->file->fd = std::nullopt;
             r->succeedTrivially();
         }
     );
