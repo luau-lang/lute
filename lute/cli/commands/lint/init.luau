@@ -23,7 +23,6 @@ local DEFAULT_RULES = {
 	"duplicate_keys",
 	"empty_if_block",
 	"global_function_in_scope",
-	"no_any",
 	"parenthesized_conditions",
 	"unused_variable",
 }
