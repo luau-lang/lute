@@ -168,10 +168,6 @@ void FSRead::readCallback(uv_fs_t* req)
     // Append the read data to our buffer
     r->buffer.insert(r->buffer.end(), r->chunk.begin(), r->chunk.begin() + bytesRead);
 
-    // It's possible that the next read call will read fewer than chunk.size() bytes
-    // In this case, the chunk buffer might still retain some data from this read. Just to be safe, zero it out
-    std::fill(r->chunk.begin(), r->chunk.end(), 0);
-
     uvutils::ScopedUVRequest<FSRead> scopedReq{std::move(r)};
     uv_fs_read(scopedReq->getLoop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSRead::readCallback);
 }
