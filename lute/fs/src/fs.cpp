@@ -377,7 +377,7 @@ int listdir(lua_State* L)
 
 } // namespace fs
 
-static void initalizeFS(lua_State* L)
+static void initializeFS(lua_State* L)
 {
     init_duration_lib(L);
 
@@ -479,7 +479,7 @@ int FS::pushLibrary(lua_State* L)
 
     lua_setreadonly(L, -1, 1);
 
-    initalizeFS(L);
+    initializeFS(L);
 
     return 1;
 }
