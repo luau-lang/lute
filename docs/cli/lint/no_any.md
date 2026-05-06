@@ -10,6 +10,7 @@ This lint rule checks for explicit uses of the `any` type annotation.
 The `any` type disables type checking entirely for any value it touches, allowing unsafe operations without compiler errors.
 This defeats the purpose of Luau's type system and can mask bugs that would otherwise be caught at analysis time.
 Use `unknown` instead, which is type-safe: it requires you to narrow the type (e.g. via `typeof` checks) before performing operations on the value.
+As an escape hatch, you may perform an unsound cast (`value :: T`), which both narrows the type and explicitly annotates the assumed runtime type contract.
 
 ## Example violations
 
