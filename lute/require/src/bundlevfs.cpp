@@ -5,6 +5,7 @@
 #include "Luau/Common.h"
 #include "Luau/DenseHash.h"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 
@@ -27,6 +28,85 @@ BundleVfs::BundleVfs(Luau::DenseHashMap<std::string, std::string> luauConfigFile
     : filePathToBytecode(std::move(bundleMap))
     , luauConfigFiles(std::move(luauConfigFiles))
 {
+}
+
+void BundleVfs::setPackageAliases(std::vector<BundlePackageAlias> aliases)
+{
+    packageAliases = std::move(aliases);
+    // Sort longest prefix first so the most specific subtree wins. Stable so
+    // tied prefixes keep their incoming order (which is typically insertion
+    // order of nested packages first).
+    std::stable_sort(
+        packageAliases.begin(),
+        packageAliases.end(),
+        [](const BundlePackageAlias& a, const BundlePackageAlias& b)
+        {
+            return a.requirerSubtreePrefix.size() > b.requirerSubtreePrefix.size();
+        }
+    );
+}
+
+void BundleVfs::setRequirer(std::string requirerBundlePath)
+{
+    requirerPath = std::move(requirerBundlePath);
+}
+
+namespace
+{
+
+// Returns true if `path` lies inside the directory `prefix`. The empty prefix
+// matches any path. A non-empty prefix only matches when followed by '/' (or
+// the rest of the path is exactly the prefix), so "Packages/dep" does not
+// match "Packages/depper/...".
+bool isSubtreePrefixOf(std::string_view prefix, std::string_view path)
+{
+    if (prefix.empty())
+        return true;
+    if (path.size() < prefix.size())
+        return false;
+    if (path.substr(0, prefix.size()) != prefix)
+        return false;
+    return path.size() == prefix.size() || path[prefix.size()] == '/';
+}
+
+} // namespace
+
+NavigationStatus BundleVfs::toAliasFallback(std::string_view aliasUnprefixed)
+{
+    if (packageAliases.empty())
+        return NavigationStatus::NotFound;
+
+    // Mirror Package::UserlandVfs's strict isolation: only aliases declared in
+    // the most-specific subtree containing the requirer are visible. We find
+    // that subtree first (longest matching prefix), then only consult aliases
+    // belonging to it. This prevents a transitive dep from accidentally
+    // resolving its parent project's aliases.
+    std::string_view bestPrefix;
+    bool foundSubtree = false;
+    for (const BundlePackageAlias& entry : packageAliases)
+    {
+        if (!isSubtreePrefixOf(entry.requirerSubtreePrefix, requirerPath))
+            continue;
+
+        bestPrefix = entry.requirerSubtreePrefix;
+        foundSubtree = true;
+        break; // packageAliases is sorted longest-prefix-first.
+    }
+
+    if (!foundSubtree)
+        return NavigationStatus::NotFound;
+
+    for (const BundlePackageAlias& entry : packageAliases)
+    {
+        if (entry.requirerSubtreePrefix != bestPrefix)
+            continue;
+        if (entry.aliasName != aliasUnprefixed)
+            continue;
+
+        return resetToPath(entry.aliasBundlePath);
+    }
+
+    return NavigationStatus::NotFound;
 }
 
 static bool isBundleModule(const Luau::DenseHashMap<std::string, std::string>& bundleMap, const std::string& path)

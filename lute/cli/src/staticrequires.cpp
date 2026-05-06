@@ -41,12 +41,25 @@ StaticRequireTracer::StaticRequireTracer(LuteReporter& reporter)
 {
 }
 
+void StaticRequireTracer::enablePackageMode(
+    std::string projectRootDirectory,
+    std::vector<Package::Identifier> directDependencies,
+    std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies
+)
+{
+    this->projectRootDirectory.emplace(std::move(projectRootDirectory));
+    projectDirectDependencies = directDependencies;
+    allPackageDependencies = allDependencies;
+    userlandVfs.emplace(Package::UserlandVfs::create(std::move(directDependencies), std::move(allDependencies)));
+}
+
 void StaticRequireTracer::trace(const std::string& entryPoint)
 {
     visited.clear();
     discovered.clear();
     requireGraph.clear();
     luauConfigFiles.clear();
+    packageAliases.clear();
 
     if (!isAbsolutePath(entryPoint))
     {
@@ -139,7 +152,8 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
             if (req.find("@std/") == 0 || req.find("@lute/") == 0)
                 continue;
             std::string err = "";
-            std::optional<std::string> resolvedPath = ::resolveModule(req, "@" + filePath, &err);
+            std::optional<std::string> resolvedPath =
+                userlandVfs ? ::resolvePackageModule(req, "@" + filePath, *userlandVfs, &err) : ::resolveModule(req, "@" + filePath, &err);
 
             if (resolvedPath)
             {
@@ -204,6 +218,115 @@ void StaticRequireTracer::trace(const std::string& entryPoint)
         {
             reporter.formatError("Warning: Could not read config file '%s'\n", absolutePath.c_str());
         }
+    }
+
+    synthesizePackageAliases();
+}
+
+void StaticRequireTracer::synthesizePackageAliases()
+{
+    if (!projectRootDirectory)
+        return;
+
+    // Convert an absolute path to a bundle-relative path (without the
+    // "@bundle/" prefix). Returns std::nullopt if the path doesn't lie under
+    // the lowest common root, which would mean it isn't represented in the
+    // bundle at all.
+    const std::string& root = lowestCommonRoot;
+    auto toBundleRelative = [&](const std::string& absolute) -> std::optional<std::string>
+    {
+        if (root.empty())
+            return absolute;
+
+        // Absolute path must equal LCR or sit under it as a child.
+        if (absolute == root)
+            return std::string{""};
+
+        // The +1 accounts for the path separator after `root`.
+        if (absolute.size() > root.size() + 1 && absolute.compare(0, root.size(), root) == 0 &&
+            (absolute[root.size()] == '/' || absolute[root.size()] == '\\'))
+        {
+            return absolute.substr(root.size() + 1);
+        }
+        return std::nullopt;
+    };
+
+    auto findInfo = [&](const Package::Identifier& id) -> const Package::Info*
+    {
+        for (const auto& [otherId, info] : allPackageDependencies)
+        {
+            if (otherId == id)
+                return &info;
+        }
+        return nullptr;
+    };
+
+    auto appendAliases = [&](const std::string& subtreePrefix, const std::vector<Package::Identifier>& deps)
+    {
+        for (const Package::Identifier& dep : deps)
+        {
+            const Package::Info* info = findInfo(dep);
+            if (!info)
+            {
+                reporter.formatError("Warning: package alias '%s' is missing from the resolved dependency graph\n", dep.name.c_str());
+                continue;
+            }
+
+            std::optional<std::string> entryRel = toBundleRelative(info->entryFile);
+            if (!entryRel)
+            {
+                reporter.formatError(
+                    "Warning: package '%s' entry file '%s' lies outside the bundle root '%s'; skipping alias\n",
+                    dep.name.c_str(),
+                    info->entryFile.c_str(),
+                    root.c_str()
+                );
+                continue;
+            }
+
+            BundlePackageAlias alias;
+            alias.requirerSubtreePrefix = subtreePrefix;
+            alias.aliasName = dep.name;
+            alias.aliasBundlePath = "@bundle/" + *entryRel;
+            packageAliases.push_back(std::move(alias));
+        }
+    };
+
+    // The project itself: any requirer at the bundle root (empty prefix) sees
+    // the project's direct dependencies.
+    std::optional<std::string> projectPrefix = toBundleRelative(*projectRootDirectory);
+    if (!projectPrefix)
+    {
+        reporter.formatError(
+            "Warning: project root '%s' lies outside the bundle root '%s'; package aliases will not be available at runtime\n",
+            projectRootDirectory->c_str(),
+            root.c_str()
+        );
+        return;
+    }
+    appendAliases(*projectPrefix, projectDirectDependencies);
+
+    // Each transitive package: requirers inside that package's root directory
+    // see only that package's own direct dependencies. This mirrors the
+    // per-package isolation that Package::UserlandVfs enforces at runtime.
+    for (const auto& [id, info] : allPackageDependencies)
+    {
+        if (info.dependencies.empty())
+            continue;
+
+        std::optional<std::string> packagePrefix = toBundleRelative(info.rootDirectory);
+        if (!packagePrefix)
+        {
+            reporter.formatError(
+                "Warning: package '%s' root '%s' lies outside the bundle root '%s'; aliases for its dependencies will not be available at runtime\n",
+                id.name.c_str(),
+                info.rootDirectory.c_str(),
+                root.c_str()
+            );
+            continue;
+        }
+
+        appendAliases(*packagePrefix, info.dependencies);
     }
 }
 

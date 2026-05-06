@@ -1,10 +1,12 @@
 #include "lute/resolvemodule.h"
 
 #include "lute/batteriesvfs.h"
+#include "lute/common.h"
 #include "lute/filevfs.h"
 #include "lute/lutevfs.h"
 #include "lute/modulepath.h"
 #include "lute/stdlibvfs.h"
+#include "lute/userlandvfs.h"
 
 #include "Luau/FileUtils.h"
 #include "Luau/RequireNavigator.h"
@@ -369,6 +371,377 @@ std::optional<ResolvedModule> resolveForTypeCheck(std::string requirePath, std::
     }
 
     LuteTypeCheckContext context{requirerChunkname};
+    ErrorCapturer errorCapturer{};
+
+    Luau::Require::Navigator navigator{context, errorCapturer};
+    Luau::Require::Navigator::Status status = navigator.navigate(requirePath);
+
+    if (status == Luau::Require::Navigator::Status::ErrorReported)
+    {
+        if (error && errorCapturer.error)
+            *error = *errorCapturer.error;
+        return std::nullopt;
+    }
+
+    std::optional<std::string> source = context.vfs.readSource();
+    if (!source)
+    {
+        if (error)
+            *error = "failed to read source for '" + context.vfs.getIdentifier() + "'";
+        return std::nullopt;
+    }
+
+    ResolvedModule result;
+    result.path = context.vfs.getIdentifier();
+    result.source = std::move(*source);
+
+    return result;
+}
+
+// PackageFileVfsContext is the package-aware analog of FileVfsContext: it
+// supports disk paths plus @<package_alias> requires drawn from a lockfile-
+// backed Package::UserlandVfs. It does not handle @std/@lute/@batteries; the
+// static require tracer (its sole consumer today) filters those out before
+// invoking the resolver.
+class PackageFileVfsContext : public Luau::Require::NavigationContext
+{
+public:
+    PackageFileVfsContext(std::string requirerChunkname, Package::UserlandVfs& userlandVfs);
+
+    NavigateResult resetToRequirer() override;
+    NavigateResult jumpToAlias(const std::string& path) override;
+
+    NavigateResult toAliasFallback(const std::string& aliasUnprefixed) override;
+
+    NavigateResult toParent() override;
+    NavigateResult toChild(const std::string& component) override;
+
+    ConfigStatus getConfigStatus() const override;
+
+    ConfigBehavior getConfigBehavior() const override;
+    std::optional<std::string> getAlias(const std::string& alias) const override;
+    std::optional<std::string> getConfig() const override;
+
+    Package::UserlandVfs& userlandVfs;
+    std::string requirerChunkname;
+};
+
+PackageFileVfsContext::PackageFileVfsContext(std::string requirerChunkname, Package::UserlandVfs& userlandVfs)
+    : userlandVfs(userlandVfs)
+    , requirerChunkname(std::move(requirerChunkname))
+{
+}
+
+NC::NavigateResult PackageFileVfsContext::resetToRequirer()
+{
+    return convert(userlandVfs.resetToPath(requirerChunkname));
+}
+
+NC::NavigateResult PackageFileVfsContext::jumpToAlias(const std::string& path)
+{
+    return convert(userlandVfs.jumpToAlias(path));
+}
+
+NC::NavigateResult PackageFileVfsContext::toAliasFallback(const std::string& aliasUnprefixed)
+{
+    return convert(userlandVfs.toAliasFallback(aliasUnprefixed));
+}
+
+NC::NavigateResult PackageFileVfsContext::toParent()
+{
+    return convert(userlandVfs.toParent());
+}
+
+NC::NavigateResult PackageFileVfsContext::toChild(const std::string& component)
+{
+    return convert(userlandVfs.toChild(component));
+}
+
+NC::ConfigStatus PackageFileVfsContext::getConfigStatus() const
+{
+    return convert(userlandVfs.getConfigStatus());
+}
+
+NC::ConfigBehavior PackageFileVfsContext::getConfigBehavior() const
+{
+    return NC::ConfigBehavior::GetConfig;
+}
+
+std::optional<std::string> PackageFileVfsContext::getAlias(const std::string& alias) const
+{
+    return std::nullopt;
+}
+
+std::optional<std::string> PackageFileVfsContext::getConfig() const
+{
+    return userlandVfs.getConfig();
+}
+
+// PackageTypeCheckVfs is the package-aware analog of LuteTypeCheckVfs: it
+// substitutes Package::UserlandVfs for the FileVfs in the disk slot so that
+// @<package_alias> resolution and disk navigation share state, then layers
+// stdlib/lute/batteries support on top via vfsType switches.
+struct PackageTypeCheckVfs
+{
+    Package::UserlandVfs* userlandVfs = nullptr;
+    StdLibVfs stdLibVfs;
+    LuteVfs luteVfs;
+    BatteriesVfs batteriesVfs;
+
+    enum class VFSType
+    {
+        Disk,
+        Std,
+        Lute,
+        Batteries,
+    };
+    VFSType vfsType = VFSType::Disk;
+
+    NavigationStatus jumpToAlias(const std::string& path)
+    {
+        if (vfsType == VFSType::Disk)
+        {
+            LUTE_ASSERT(userlandVfs);
+            return userlandVfs->jumpToAlias(path);
+        }
+        return resetToPath(path);
+    }
+
+    NavigationStatus resetToPath(const std::string& path)
+    {
+        if (path.rfind("@std", 0) == 0)
+        {
+            vfsType = VFSType::Std;
+            return stdLibVfs.resetToPath(path);
+        }
+        else if (path.rfind("@lute", 0) == 0)
+        {
+            vfsType = VFSType::Lute;
+            return luteVfs.resetToPath(path);
+        }
+        else if (path.rfind("@batteries", 0) == 0)
+        {
+            vfsType = VFSType::Batteries;
+            return batteriesVfs.resetToPath(path);
+        }
+        else
+        {
+            vfsType = VFSType::Disk;
+            std::string diskPath = path;
+            if (!diskPath.empty() && diskPath[0] == '@')
+                diskPath = diskPath.substr(1);
+            LUTE_ASSERT(userlandVfs);
+            return userlandVfs->resetToPath(diskPath);
+        }
+    }
+
+    NavigationStatus toParent()
+    {
+        switch (vfsType)
+        {
+        case VFSType::Disk:
+            LUTE_ASSERT(userlandVfs);
+            return userlandVfs->toParent();
+        case VFSType::Std:
+            return stdLibVfs.toParent();
+        case VFSType::Lute:
+            return luteVfs.toParent();
+        case VFSType::Batteries:
+            return batteriesVfs.toParent();
+        }
+        return NavigationStatus::NotFound;
+    }
+
+    NavigationStatus toChild(const std::string& component)
+    {
+        switch (vfsType)
+        {
+        case VFSType::Disk:
+            LUTE_ASSERT(userlandVfs);
+            return userlandVfs->toChild(component);
+        case VFSType::Std:
+            return stdLibVfs.toChild(component);
+        case VFSType::Lute:
+            return luteVfs.toChild(component);
+        case VFSType::Batteries:
+            return batteriesVfs.toChild(component);
+        }
+        return NavigationStatus::NotFound;
+    }
+
+    std::string getIdentifier() const
+    {
+        switch (vfsType)
+        {
+        case VFSType::Disk:
+            LUTE_ASSERT(userlandVfs);
+            return userlandVfs->getCurrentPath();
+        case VFSType::Std:
+            return stdLibVfs.getIdentifier();
+        case VFSType::Lute:
+            return luteVfs.getIdentifier();
+        case VFSType::Batteries:
+            return batteriesVfs.getIdentifier();
+        }
+        return "";
+    }
+
+    std::optional<std::string> readSource() const
+    {
+        std::string identifier = getIdentifier();
+        if (identifier.empty())
+            return std::nullopt;
+
+        switch (vfsType)
+        {
+        case VFSType::Std:
+            return stdLibVfs.getContents(identifier);
+        case VFSType::Lute:
+            return luteVfs.getContents(identifier);
+        case VFSType::Batteries:
+            return batteriesVfs.getContents(identifier);
+        default:
+            return readFile(identifier);
+        }
+    }
+};
+
+class PackageTypeCheckContext : public Luau::Require::NavigationContext
+{
+public:
+    PackageTypeCheckContext(std::string requirerChunkname, Package::UserlandVfs& userlandVfs)
+        : requirerChunkname(std::move(requirerChunkname))
+    {
+        vfs.userlandVfs = &userlandVfs;
+    }
+
+    NavigateResult resetToRequirer() override
+    {
+        return convert(vfs.resetToPath(requirerChunkname));
+    }
+
+    NavigateResult jumpToAlias(const std::string& path) override
+    {
+        return convert(vfs.jumpToAlias(path));
+    }
+
+    NavigateResult toParent() override
+    {
+        return convert(vfs.toParent());
+    }
+
+    NavigateResult toChild(const std::string& component) override
+    {
+        return convert(vfs.toChild(component));
+    }
+
+    NavigateResult toAliasOverride(const std::string& aliasUnprefixed) override
+    {
+        if (aliasUnprefixed == "std")
+        {
+            vfs.vfsType = PackageTypeCheckVfs::VFSType::Std;
+            return convert(vfs.stdLibVfs.resetToPath("@std"));
+        }
+        else if (aliasUnprefixed == "lute")
+        {
+            vfs.vfsType = PackageTypeCheckVfs::VFSType::Lute;
+            return convert(vfs.luteVfs.resetToPath("@lute"));
+        }
+        else if (aliasUnprefixed == "batteries" && vfs.vfsType != PackageTypeCheckVfs::VFSType::Disk)
+        {
+            vfs.vfsType = PackageTypeCheckVfs::VFSType::Batteries;
+            return convert(vfs.batteriesVfs.resetToPath("@batteries"));
+        }
+        return NC::NavigateResult::NotFound;
+    }
+
+    NavigateResult toAliasFallback(const std::string& aliasUnprefixed) override
+    {
+        if (vfs.vfsType != PackageTypeCheckVfs::VFSType::Disk)
+            return NC::NavigateResult::NotFound;
+        LUTE_ASSERT(vfs.userlandVfs);
+        return convert(vfs.userlandVfs->toAliasFallback(aliasUnprefixed));
+    }
+
+    ConfigStatus getConfigStatus() const override
+    {
+        if (vfs.vfsType == PackageTypeCheckVfs::VFSType::Disk)
+        {
+            LUTE_ASSERT(vfs.userlandVfs);
+            return convert(vfs.userlandVfs->getConfigStatus());
+        }
+        return NC::ConfigStatus::Absent;
+    }
+
+    ConfigBehavior getConfigBehavior() const override
+    {
+        return NC::ConfigBehavior::GetConfig;
+    }
+
+    std::optional<std::string> getAlias(const std::string& alias) const override
+    {
+        return std::nullopt;
+    }
+
+    std::optional<std::string> getConfig() const override
+    {
+        if (vfs.vfsType == PackageTypeCheckVfs::VFSType::Disk)
+        {
+            LUTE_ASSERT(vfs.userlandVfs);
+            return vfs.userlandVfs->getConfig();
+        }
+        return std::nullopt;
+    }
+
+    PackageTypeCheckVfs vfs;
+    std::string requirerChunkname;
+};
+
+std::optional<std::string> resolvePackageModule(
+    std::string requirePath,
+    std::string requirerChunkname,
+    Package::UserlandVfs& userlandVfs,
+    std::string* error
+)
+{
+    if (requirerChunkname.empty() || requirerChunkname[0] != '@')
+    {
+        if (error)
+            *error = "requirer chunkname must start with '@'";
+        return std::nullopt;
+    }
+
+    PackageFileVfsContext context{requirerChunkname.substr(1), userlandVfs};
+    ErrorCapturer errorCapturer{};
+
+    Luau::Require::Navigator navigator{context, errorCapturer};
+    Luau::Require::Navigator::Status status = navigator.navigate(requirePath);
+
+    if (status == Luau::Require::Navigator::Status::ErrorReported)
+    {
+        if (error && errorCapturer.error)
+            *error = *errorCapturer.error;
+        return std::nullopt;
+    }
+
+    return userlandVfs.getCurrentPath();
+}
+
+std::optional<ResolvedModule> resolveForPackageTypeCheck(
+    std::string requirePath,
+    std::string requirerChunkname,
+    Package::UserlandVfs& userlandVfs,
+    std::string* error
+)
+{
+    if (requirerChunkname.empty() || requirerChunkname[0] != '@')
+    {
+        if (error)
+            *error = "requirer chunkname must start with '@'";
+        return std::nullopt;
+    }
+
+    PackageTypeCheckContext context{requirerChunkname, userlandVfs};
     ErrorCapturer errorCapturer{};
 
     Luau::Require::Navigator navigator{context, errorCapturer};

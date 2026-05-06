@@ -72,6 +72,7 @@ class UserlandVfs
 public:
     static UserlandVfs create(std::vector<Identifier> directDependencies, std::vector<std::pair<Identifier, Info>> allDependencies);
 
+    NavigationStatus resetToStdIn();
     NavigationStatus resetToPath(const std::string& path);
     NavigationStatus jumpToAlias(const std::string& path);
     NavigationStatus toAliasFallback(std::string_view aliasUnprefixed);

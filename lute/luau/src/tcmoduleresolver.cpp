@@ -13,6 +13,11 @@ LuteTypeCheckModuleResolver::LuteTypeCheckModuleResolver(LuteReporter& reporter)
 {
 }
 
+void LuteTypeCheckModuleResolver::setUserlandVfs(Package::UserlandVfs userlandVfs)
+{
+    this->userlandVfs.emplace(std::move(userlandVfs));
+}
+
 std::optional<Luau::SourceCode> LuteTypeCheckModuleResolver::readSource(const Luau::ModuleName& name)
 {
     if (name == "-")
@@ -48,7 +53,9 @@ std::optional<Luau::ModuleInfo> LuteTypeCheckModuleResolver::resolveModule(
         if (requirerChunkname.empty() || requirerChunkname[0] != '@')
             requirerChunkname = "@" + requirerChunkname;
 
-        std::optional<ResolvedModule> resolved = ::resolveForTypeCheck(requirePath, std::move(requirerChunkname), &error);
+        std::optional<ResolvedModule> resolved = userlandVfs
+            ? ::resolveForPackageTypeCheck(requirePath, std::move(requirerChunkname), *userlandVfs, &error)
+            : ::resolveForTypeCheck(requirePath, std::move(requirerChunkname), &error);
         if (!resolved)
         {
             reporter.formatError("Failed to resolve require: %s\n", error.c_str());

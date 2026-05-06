@@ -93,10 +93,20 @@ Run Options:
 	-h, --help              Display this usage message.
 )";
 
+// 'lute pkg run' is a deprecated alias for 'lute run' and will be removed in
+// the next major release. The two commands now share an identical
+// implementation; package-aware require is enabled automatically whenever a
+// loom.lock.luau file is found in a parent directory of the entry script.
 static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkg run <script.luau> [args...]
 
+Note: 'lute pkg run' is a deprecated alias for 'lute run' and will be removed
+in the next major release. Use 'lute run' instead.
+
 Run Options:
-	-h, --help    Display this usage message.
+	--profile               Enable profiling for the script.
+	--profile-output <path> Output file for the profile (default: <datetime>_<filename>.json).
+	--frequency <Hz>        Profiler sampling frequency in Hz (default: 10000).
+	-h, --help              Display this usage message.
 )";
 
 static const char* CHECK_HELP_STRING = R"(Usage: lute check <file1.luau> [file2.luau...]
@@ -356,26 +366,25 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
 
     Runtime runtime{reporter};
 
-    if (packageAwareness)
+    // Both 'lute run' and the deprecated 'lute pkg run' alias share the same
+    // implementation. We look for a loom.lock.luau in a parent directory of
+    // the entry file: if one exists, the runtime is set up with package-aware
+    // require; otherwise we fall back to the plain require setup so that
+    // standalone scripts continue to work without a lockfile.
+    if (!isAbsolutePath(validPath))
     {
-        if (!isAbsolutePath(validPath))
+        std::optional<std::string> cwd = getCurrentWorkingDirectory();
+        if (!cwd)
         {
-            std::optional<std::string> cwd = getCurrentWorkingDirectory();
-            if (!cwd)
-            {
-                reporter.reportError("Error: Failed to get current working directory.\n");
-                return 1;
-            }
-            validPath = normalizePath(joinPaths(*cwd, validPath));
-        }
-
-        std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(validPath);
-        if (!lockfile)
-        {
-            reporter.formatError("Error: No loom.lock file found for '%s'", validPath.c_str());
+            reporter.reportError("Error: Failed to get current working directory.\n");
             return 1;
         }
+        validPath = normalizePath(joinPaths(*cwd, validPath));
+    }
 
+    std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(validPath);
+    if (lockfile)
+    {
         auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
         setupPkgRunState(runtime, std::move(directDependencies), std::move(allDependencies));
     }
@@ -519,6 +528,25 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
 
     // Perform static require trace
     StaticRequireTracer tracer{reporter};
+
+    // If the entry point lives inside a project with a loom.lock.luau, enable
+    // package-aware require resolution so that @<dep> aliases declared in the
+    // lockfile (a) bundle correctly during static tracing and (b) resolve
+    // correctly at runtime inside the produced executable via BundleVfs.
+    if (std::optional<std::string> lockfile = getAbsolutePathToNearestLockfile(absoluteEntryPoint))
+    {
+        auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
+        std::optional<std::string> projectRoot = getParentPath(*lockfile);
+        if (projectRoot)
+        {
+            tracer.enablePackageMode(std::move(*projectRoot), std::move(directDependencies), std::move(allDependencies));
+        }
+        else
+        {
+            reporter.formatError("Warning: failed to derive project root from lockfile path '%s'\n", lockfile->c_str());
+        }
+    }
+
     tracer.trace(absoluteEntryPoint);
 
     if (showRequireGraph)
@@ -537,6 +565,10 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
 
     // Add the discovered luaurc configuration
     payload.setLuauConfig(tracer.getLuauConfigFiles());
+
+    // Embed the package alias table so the produced executable can resolve
+    // `@<dep>` requires at runtime (for projects with a loom.lock.luau).
+    payload.setPackageAliases(tracer.getPackageAliases());
 
 
     // Encode the payload
@@ -608,7 +640,30 @@ void setupVersionLibrary(lua_State* L)
 int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, LuteReporter& reporter)
 {
     Runtime runtime{reporter};
-    setupCliCommandState(runtime, setupVersionLibrary);
+
+    // CLI commands like `lute test` and `lute lint` execute against the user's
+    // working directory. If we're inside a project with a loom.lock.luau, set
+    // up the require system to be package-aware so that user code loaded by
+    // those commands (test files, lint rules, etc.) can resolve @<dep> aliases
+    // from the lockfile alongside the usual @cli/@batteries/@std/@lute paths.
+    std::optional<std::string> lockfile;
+    if (std::optional<std::string> cwd = getCurrentWorkingDirectory())
+    {
+        // The lockfile probe walks up from the parent of its argument, so we
+        // anchor the search inside cwd by joining a placeholder filename onto
+        // it. This makes "lockfile lives directly in cwd" the first hit.
+        lockfile = getAbsolutePathToNearestLockfile(joinPaths(*cwd, "loom.lock.luau"));
+    }
+
+    if (lockfile)
+    {
+        auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
+        setupPkgCliCommandState(runtime, std::move(directDependencies), std::move(allDependencies), setupVersionLibrary);
+    }
+    else
+    {
+        setupCliCommandState(runtime, setupVersionLibrary);
+    }
 
     return runtime.runSource(std::string(result.contents), copts(), "@" + result.path, program_argc, program_argv) ? 0 : 1;
 }
@@ -637,7 +692,7 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     {
         Runtime runtime{reporter};
 
-        setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
+        setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode, payload->packageAliases);
         std::string entryPoint = payload->entryPointPath;
         auto entryModule = payload->filePathToBytecode.find(entryPoint);
         if (entryModule != nullptr)

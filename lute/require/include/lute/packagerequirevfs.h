@@ -1,9 +1,13 @@
 #pragma once
 
+#include "lute/batteriesvfs.h"
+#include "lute/clivfs.h"
 #include "lute/lutevfs.h"
 #include "lute/require.h"
 #include "lute/stdlibvfs.h"
 #include "lute/userlandvfs.h"
+
+#include <optional>
 
 namespace Package
 {
@@ -12,6 +16,10 @@ class RequireVfs : public IRequireVfs
 {
 public:
     RequireVfs(UserlandVfs);
+    // CLI-aware variant: enables @@cli/... chunks for the CLI command code itself
+    // and the @batteries alias. User code loaded under this VFS can still use
+    // @<package_alias> requires from the lockfile.
+    RequireVfs(UserlandVfs, CliVfs);
 
     bool isRequireAllowed(lua_State* L, std::string_view requirerChunkname) const override;
 
@@ -44,6 +52,8 @@ private:
         Userland,
         Std,
         Lute,
+        Cli,
+        Batteries,
     };
 
     VFSType vfsType = VFSType::Userland;
@@ -51,6 +61,8 @@ private:
     Package::UserlandVfs userlandVfs;
     StdLibVfs stdLibVfs;
     LuteVfs luteVfs;
+    BatteriesVfs batteriesVfs;
+    std::optional<CliVfs> cliVfs;
 };
 
 } // namespace Package

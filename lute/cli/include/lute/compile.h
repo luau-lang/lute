@@ -1,11 +1,13 @@
 #pragma once
 
+#include "lute/bundlevfs.h"
 #include "lute/reporter.h"
 
 #include "Luau/DenseHash.h"
 #include "Luau/FileUtils.h"
 
 #include <string_view>
+#include <vector>
 
 struct LuteDecodeResult;
 
@@ -21,6 +23,14 @@ struct LuteEncodeResult
  * Represents a bundle of compiled Luau files ready for injection.
  *
  * Uncompressed bundle format (before compression):
+ *   [num_alias_entries: uint32_t]
+ *   For each alias entry:
+ *     [subtree_prefix_length: uint32_t]
+ *     [subtree_prefix: char[subtree_prefix_length]]
+ *     [alias_name_length: uint32_t]
+ *     [alias_name: char[alias_name_length]]
+ *     [alias_value_length: uint32_t]
+ *     [alias_value: char[alias_value_length]]
  *   [num_config_entries: uint32_t]
  *   For each config entry:
  *     [path_length: uint32_t]
@@ -47,6 +57,10 @@ struct LuteExePayload
     LuteExePayload(LuteReporter& reporter);
     void add(const std::string& bundlePath, const std::string& sourcePath);
     void setLuauConfig(const Luau::DenseHashMap<std::string, std::string>& configs);
+    // Sets the package alias table that will be embedded in the bundle and
+    // consulted by BundleVfs at runtime to resolve `@<dep>` requires inside
+    // the produced executable.
+    void setPackageAliases(std::vector<BundlePackageAlias> aliases);
 
     std::optional<LuteEncodeResult> encode();
     static std::optional<LuteDecodeResult> decode(const std::string_view binary, LuteReporter& reporter);
@@ -54,6 +68,7 @@ struct LuteExePayload
     std::string entryPointPath;
     Luau::DenseHashMap<std::string, std::string> filePathToBytecode{""}; // path -> bytecode
     Luau::DenseHashMap<std::string, std::string> luauConfigFiles{""};    // path -> config
+    std::vector<BundlePackageAlias> packageAliases;                      // bundle-scoped package alias table
 
 private:
     LuteReporter& reporter;

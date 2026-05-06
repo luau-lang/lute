@@ -50,6 +50,10 @@ NavigationStatus RequireVfs::reset(lua_State* L, std::string_view requirerChunkn
     {
         vfsType = VFSType::Bundle;
         LUTE_ASSERT(bundleVfs);
+        // Capture the bundle-relative requirer path so toAliasFallback can
+        // scope package alias lookups to the requirer's subtree even after
+        // the navigator has walked the modulePath up looking for configs.
+        bundleVfs->setRequirer(std::string(requirerChunkname.substr(9)));
         return bundleVfs->resetToPath(std::string(requirerChunkname.substr(1)));
     }
 
@@ -121,6 +125,12 @@ NavigationStatus RequireVfs::toAliasOverride(lua_State* L, std::string_view alia
 
 NavigationStatus RequireVfs::toAliasFallback(lua_State* L, std::string_view aliasUnprefixed)
 {
+    if (vfsType == VFSType::Bundle)
+    {
+        LUTE_ASSERT(bundleVfs);
+        return bundleVfs->toAliasFallback(aliasUnprefixed);
+    }
+
     return NavigationStatus::NotFound;
 }
 
