@@ -1,6 +1,7 @@
 #include "fs_impl.h"
 
 #include "lute/time.h"
+#include "lute/userdatas.h"
 #include "lute/uvrequest.h"
 
 #include "lua.h"
@@ -82,18 +83,7 @@ struct FSWrite : FSRequest
 
 struct FSClose : FSRequest
 {
-    FSClose(lua_State* L, UVFile* file)
-        : FSRequest(L)
-        , file(file)
-    {
-    }
-
-    ~FSClose()
-    {
-        delete file;
-    }
-
-    UVFile* file = nullptr;
+    using FSRequest::FSRequest;
 };
 
 struct FSPathPairRequest : FSRequest
@@ -140,9 +130,9 @@ int open_impl(lua_State* L, const char* path, int flags, int mode)
             r->succeed(
                 [result](lua_State* L)
                 {
-                    auto* file = new UVFile();
+                    void* storage = lua_newuserdatataggedwithmetatable(L, sizeof(UVFile), kUVFileTag);
+                    auto* file = new (storage) UVFile();
                     file->fd = result;
-                    lua_pushlightuserdata(L, file);
                     return 1;
                 }
             );
@@ -253,11 +243,14 @@ int close_impl(lua_State* L, UVFile* handle)
         luaL_errorL(L, "File handle is already closed");
     }
 
-    uvutils::ScopedUVRequest<FSClose> req{L, handle};
+    auto fd = handle->fd.value();
+    handle->fd = std::nullopt;
+
+    uvutils::ScopedUVRequest<FSClose> req{L};
     uv_fs_close(
         req->getLoop(),
         &req->req,
-        handle->fd.value(),
+        fd,
         [](uv_fs_t* req)
         {
             auto r = uvutils::retake<FSClose>(req);
