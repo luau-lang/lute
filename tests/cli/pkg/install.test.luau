@@ -101,8 +101,6 @@ test.suite("LutePkgInstall", function(suite)
 	end)
 
 	suite:case("installsTransitivePathDependencies", function(assert)
-		-- Use "libs/" not "packages/" — on case-insensitive filesystems the latter
-		-- collides with the Packages/ directory that pkg install clears on startup.
 		local libsDir = path.join(workingDirectory, "libs")
 		fs.createDirectory(libsDir)
 
