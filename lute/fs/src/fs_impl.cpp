@@ -2,6 +2,7 @@
 
 #include "lute/fileutils.h"
 #include "lute/time.h"
+#include "lute/userdatas.h"
 #include "lute/uvrequest.h"
 
 #include "lua.h"
@@ -89,11 +90,6 @@ struct FSClose : FSRequest
     {
     }
 
-    ~FSClose()
-    {
-        delete file;
-    }
-
     UVFile* file = nullptr;
 };
 
@@ -141,9 +137,9 @@ int open_impl(lua_State* L, const char* path, int flags, int mode)
             r->succeed(
                 [result](lua_State* L)
                 {
-                    auto* file = new UVFile();
+                    void* storage = lua_newuserdatataggedwithmetatable(L, sizeof(UVFile), kUVFileTag);
+                    auto* file = new (storage) UVFile();
                     file->fd = result;
-                    lua_pushlightuserdata(L, file);
                     return 1;
                 }
             );
@@ -270,6 +266,7 @@ int close_impl(lua_State* L, UVFile* handle)
                 return;
             }
 
+            r->file->fd = std::nullopt;
             r->succeedTrivially();
         }
     );

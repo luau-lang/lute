@@ -21,15 +21,10 @@ namespace fs
 
 static UVFile* getFileHandle(lua_State* L, int index)
 {
-    if (!lua_islightuserdata(L, index))
-    {
-        luaL_errorL(L, "Error: expected file handle");
-    }
-
-    auto* handle = static_cast<UVFile*>(lua_tolightuserdata(L, index));
+    auto* handle = static_cast<UVFile*>(lua_touserdatatagged(L, index, kUVFileTag));
     if (!handle)
     {
-        luaL_errorL(L, "Error: invalid file handle");
+        luaL_errorL(L, "Error: expected file handle");
     }
 
     return handle;
@@ -385,6 +380,26 @@ int listdir(lua_State* L)
 static void initalizeFS(lua_State* L)
 {
     init_duration_lib(L);
+
+    luaL_newmetatable(L, "FileHandle");
+    lua_pushstring(L, "FileHandle");
+    lua_setfield(L, -2, "__type");
+    lua_setuserdatadtor(
+        L,
+        kUVFileTag,
+        [](lua_State*, void* ud)
+        {
+            auto* file = static_cast<fs::UVFile*>(ud);
+            if (file->fd.has_value())
+            {
+                uv_fs_t req;
+                uv_fs_close(nullptr, &req, *file->fd, nullptr);
+                uv_fs_req_cleanup(&req);
+            }
+            std::destroy_at(file);
+        }
+    );
+    lua_setuserdatametatable(L, kUVFileTag);
 
     luaL_newmetatable(L, "WatchHandle");
 
