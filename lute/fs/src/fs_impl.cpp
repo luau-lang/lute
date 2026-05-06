@@ -1,6 +1,5 @@
 #include "fs_impl.h"
 
-#include "lute/fileutils.h"
 #include "lute/time.h"
 #include "lute/uvrequest.h"
 
@@ -498,20 +497,57 @@ int link_impl(lua_State* L, const char* path, const char* dest)
     return lua_yield(L, 0);
 }
 
-int symlink_impl(lua_State* L, const char* path, const char* dest)
-{
-    uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
-    int flags = 0;
 #if _WIN32
-    flags = Lute::isDirectory(path) ? UV_FS_SYMLINK_DIR : 0;
+struct FSSymlink : FSPathPairRequest
+{
+    using FSPathPairRequest::FSPathPairRequest;
+
+    static void statCallback(uv_fs_t* req)
+    {
+        auto r = uvutils::retake<FSSymlink>(req);
+        int flags = (req->result >= 0 && S_ISDIR(req->statbuf.st_mode)) ? UV_FS_SYMLINK_DIR : 0;
+
+        uv_fs_req_cleanup(&r->req);
+        uvutils::ScopedUVRequest<FSSymlink> symlinkReq{std::move(r)};
+        uv_fs_symlink(
+            symlinkReq->getLoop(),
+            &symlinkReq->req,
+            symlinkReq->src.c_str(),
+            symlinkReq->dest.c_str(),
+            flags,
+            FSSymlink::symlinkCallback
+        );
+    }
+
+    static void symlinkCallback(uv_fs_t* req)
+    {
+        auto r = uvutils::retake<FSSymlink>(req);
+        auto result = req->result;
+
+        if (result < 0)
+        {
+            r->fail("symlink: Error creating symlink from %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+            return;
+        }
+
+        r->succeedTrivially();
+    }
+};
 #endif
 
+int symlink_impl(lua_State* L, const char* path, const char* dest)
+{
+#if _WIN32
+    uvutils::ScopedUVRequest<FSSymlink> req{L, path, dest};
+    uv_fs_stat(req->getLoop(), &req->req, path, FSSymlink::statCallback);
+#else
+    uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
     uv_fs_symlink(
         req->getLoop(),
         &req->req,
         path,
         dest,
-        flags,
+        0,
         [](uv_fs_t* req)
         {
             auto r = uvutils::retake<FSPathPairRequest>(req);
@@ -526,6 +562,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
             r->succeedTrivially();
         }
     );
+#endif
 
     return lua_yield(L, 0);
 }
