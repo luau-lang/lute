@@ -51,7 +51,8 @@ std::optional<int> setFlags(const char* modeStr, int* openFlags)
             modeFlags = 0666;
             break;
         case 'a':
-            *openFlags |= O_WRONLY | O_APPEND;
+            *openFlags |= O_WRONLY | O_APPEND | O_CREAT;
+            modeFlags = 0666;
             break;
         case '+':
             // If we have not set the truncate bit in 'w' mode,
