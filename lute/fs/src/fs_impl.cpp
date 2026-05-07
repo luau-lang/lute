@@ -168,10 +168,6 @@ void FSRead::readCallback(uv_fs_t* req)
     // Append the read data to our buffer
     r->buffer.insert(r->buffer.end(), r->chunk.begin(), r->chunk.begin() + bytesRead);
 
-    // It's possible that the next read call will read fewer than chunk.size() bytes
-    // In this case, the chunk buffer might still retain some data from this read. Just to be safe, zero it out
-    std::fill(r->chunk.begin(), r->chunk.end(), 0);
-
     uvutils::ScopedUVRequest<FSRead> scopedReq{std::move(r)};
     uv_fs_read(scopedReq->getLoop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSRead::readCallback);
 }
@@ -335,7 +331,7 @@ static const char* fileModeToType(uint64_t mode)
     }
 }
 
-static int createDurationFromTimespec32(lua_State* L, uv_timespec_t timespec)
+static int createDurationFromTimespec(lua_State* L, uv_timespec_t timespec)
 {
     uv_timespec64_t extended{static_cast<int64_t>(timespec.tv_sec), static_cast<int32_t>(timespec.tv_nsec)};
     return createDurationFromTimespec(L, extended);
@@ -372,13 +368,13 @@ int stat_impl(lua_State* L, const char* path)
                     lua_pushnumber(L, static_cast<double>(stat.st_size));
                     lua_setfield(L, -2, "size");
 
-                    createDurationFromTimespec32(L, stat.st_birthtim);
+                    createDurationFromTimespec(L, stat.st_birthtim);
                     lua_setfield(L, -2, "created");
 
-                    createDurationFromTimespec32(L, stat.st_atim);
+                    createDurationFromTimespec(L, stat.st_atim);
                     lua_setfield(L, -2, "accessed");
 
-                    createDurationFromTimespec32(L, stat.st_mtim);
+                    createDurationFromTimespec(L, stat.st_mtim);
                     lua_setfield(L, -2, "modified");
 
                     // permissions
