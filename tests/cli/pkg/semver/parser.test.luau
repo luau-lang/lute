@@ -77,6 +77,24 @@ test.suite("semver.parse", function(suite)
 		end)
 	end)
 
+	suite:case("emptyStringIsInvalid", function(assert)
+		assert.throws(function()
+			parser.parse("")
+		end)
+	end)
+
+	suite:case("missingPatchIsInvalid", function(assert)
+		assert.throws(function()
+			parser.parse("1.0")
+		end)
+	end)
+
+	suite:case("nonNumericComponentsAreInvalid", function(assert)
+		assert.throws(function()
+			parser.parse("a.b.c")
+		end)
+	end)
+
 	suite:case("tryParseReturnsNilOnInvalid", function(assert)
 		assert.eq(parser.tryParse("not-a-version"), nil)
 		assert.eq(parser.tryParse("01.0.0"), nil)
@@ -319,6 +337,72 @@ test.suite("semver.satisfies", function(suite)
 		-- * matches only stable releases, not pre-releases (npm semver behavior)
 		assert.eq(parser.satisfies(parser.parse("1.0.0-alpha"), parser.parseConstraint("*")), false)
 		assert.that(parser.satisfies(parser.parse("1.0.0"), parser.parseConstraint("*")))
+	end)
+
+	suite:case("prereleaseExcludedAtLtBoundary", function(assert)
+		-- <1.0.0 has no pre-release tag, so 1.0.0-beta is excluded despite being numerically less
+		local c = parser.parseConstraint("<1.0.0")
+		assert.eq(parser.satisfies(parser.parse("1.0.0-beta"), c), false)
+		assert.that(parser.satisfies(parser.parse("0.9.9"), c))
+	end)
+
+	suite:case("prereleaseOnDifferentTupleExcluded", function(assert)
+		-- >=2.1.0-alpha2 allows pre-releases on 2.1.0 but NOT on other M.m.p tuples
+		local c = parser.parseConstraint(">=2.1.0-alpha2")
+		assert.that(parser.satisfies(parser.parse("2.1.0-alpha2"), c))
+		assert.that(parser.satisfies(parser.parse("2.1.0-beta"), c))
+		assert.that(parser.satisfies(parser.parse("2.1.0"), c))
+		assert.that(parser.satisfies(parser.parse("3.0.0"), c))
+		assert.eq(parser.satisfies(parser.parse("3.0.0-alpha2"), c), false)
+		assert.eq(parser.satisfies(parser.parse("2.1.0-alpha1"), c), false)
+	end)
+
+	suite:case("prereleaseWithLeConstraint", function(assert)
+		-- <=2.1.0-alpha2 allows earlier pre-releases on 2.1.0 and lower stable releases,
+		-- but NOT the stable 2.1.0 (release > any pre-release of same M.m.p),
+		-- and NOT pre-releases on a different M.m.p tuple
+		local c = parser.parseConstraint("<=2.1.0-alpha2")
+		assert.that(parser.satisfies(parser.parse("2.1.0-alpha2"), c))
+		assert.that(parser.satisfies(parser.parse("2.1.0-alpha1"), c))
+		assert.that(parser.satisfies(parser.parse("2.0.0"), c))
+		assert.eq(parser.satisfies(parser.parse("2.1.0"), c), false)
+		assert.eq(parser.satisfies(parser.parse("1.0.0-alpha2"), c), false)
+	end)
+
+	suite:case("caretMajorOnly", function(assert)
+		-- ^1 -> >=1.0.0 <2.0.0
+		local c = parser.parseConstraint("^1")
+		assert.that(parser.satisfies(parser.parse("1.0.0"), c))
+		assert.that(parser.satisfies(parser.parse("1.9.9"), c))
+		assert.eq(parser.satisfies(parser.parse("2.0.0"), c), false)
+		assert.eq(parser.satisfies(parser.parse("0.9.9"), c), false)
+	end)
+
+	suite:case("caretMajorMinorOnly", function(assert)
+		-- ^1.1 -> >=1.1.0 <2.0.0
+		local c = parser.parseConstraint("^1.1")
+		assert.that(parser.satisfies(parser.parse("1.1.0"), c))
+		assert.that(parser.satisfies(parser.parse("1.9.9"), c))
+		assert.eq(parser.satisfies(parser.parse("1.0.9"), c), false)
+		assert.eq(parser.satisfies(parser.parse("2.0.0"), c), false)
+	end)
+
+	suite:case("tildeMajorOnly", function(assert)
+		-- ~1 -> >=1.0.0 <2.0.0
+		local c = parser.parseConstraint("~1")
+		assert.that(parser.satisfies(parser.parse("1.0.0"), c))
+		assert.that(parser.satisfies(parser.parse("1.9.9"), c))
+		assert.eq(parser.satisfies(parser.parse("2.0.0"), c), false)
+		assert.eq(parser.satisfies(parser.parse("0.9.9"), c), false)
+	end)
+
+	suite:case("tildeMajorMinorOnly", function(assert)
+		-- ~1.2 -> >=1.2.0 <1.3.0
+		local c = parser.parseConstraint("~1.2")
+		assert.that(parser.satisfies(parser.parse("1.2.0"), c))
+		assert.that(parser.satisfies(parser.parse("1.2.9"), c))
+		assert.eq(parser.satisfies(parser.parse("1.3.0"), c), false)
+		assert.eq(parser.satisfies(parser.parse("1.1.9"), c), false)
 	end)
 end)
 
