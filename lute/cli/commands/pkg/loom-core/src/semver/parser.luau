@@ -203,12 +203,11 @@ local function compare(a: Version, b: Version): number
 			return -1
 		end
 
-		if typeof(ai) ~= "number" and typeof(bi) ~= "number" then
+		if typeof(ai) ~= "number" and typeof(bi) == "number" then
 			return 1
 		end
 
-		assert(typeof(ai) == "string")
-		assert(typeof(bi) == "string")
+		assert(typeof(ai) == "string" and typeof(bi) == "string")
 
 		-- Both strings: ASCII lexicographic
 		return if ai < bi then -1 else 1
