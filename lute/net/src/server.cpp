@@ -72,10 +72,24 @@ struct RequestUpgradeContext
     uWS::HttpResponse<SSL>* res = nullptr;
     uWS::HttpRequest* req = nullptr;
     us_socket_context_t* socketContext = nullptr;
-    bool pointersValid = true;
     bool attempted = false;
     bool upgraded = false;
+
+    bool canAttempt() const
+    {
+        return !attempted && res && req && socketContext;
+    }
+
+    void invalidatePointers()
+    {
+        res = nullptr;
+        req = nullptr;
+        socketContext = nullptr;
+    }
 };
+
+template <bool SSL>
+using RequestUpgradeContextPtr = std::shared_ptr<RequestUpgradeContext<SSL>>;
 
 struct ServerWebSocketHandle
 {
@@ -391,30 +405,42 @@ static int server_upgrade(lua_State* L)
 }
 
 template <bool SSL>
+static RequestUpgradeContext<SSL>* getRequestUpgradeContext(lua_State* L)
+{
+    auto* contextPtr = static_cast<RequestUpgradeContextPtr<SSL>*>(lua_touserdata(L, lua_upvalueindex(1)));
+    return contextPtr ? contextPtr->get() : nullptr;
+}
+
+template <bool SSL>
+static void pushRequestUpgradeContext(lua_State* L, const RequestUpgradeContextPtr<SSL>& upgradeContext)
+{
+    auto* storage = static_cast<RequestUpgradeContextPtr<SSL>*>(lua_newuserdatadtor(
+        L,
+        sizeof(RequestUpgradeContextPtr<SSL>),
+        [](void* ptr)
+        {
+            std::destroy_at(static_cast<RequestUpgradeContextPtr<SSL>*>(ptr));
+        }
+    ));
+
+    new (storage) RequestUpgradeContextPtr<SSL>(upgradeContext);
+}
+
+template <bool SSL>
 static int server_upgrade_do(lua_State* L)
 {
-    using UpgradeContext = RequestUpgradeContext<SSL>;
-    auto* contextPtr = static_cast<std::shared_ptr<UpgradeContext>*>(lua_touserdata(L, lua_upvalueindex(1)));
-
-    if (!contextPtr || !(*contextPtr))
+    auto* upgradeContext = getRequestUpgradeContext<SSL>(L);
+    if (!upgradeContext || !upgradeContext->canAttempt())
     {
         lua_pushboolean(L, 0);
         return 1;
     }
 
-    auto& upgradeContext = **contextPtr;
-    if (!upgradeContext.pointersValid || upgradeContext.attempted || !upgradeContext.res || !upgradeContext.req ||
-        !upgradeContext.socketContext)
-    {
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    upgradeContext.attempted = true;
-    bool upgraded = performWebSocketUpgrade<SSL>(upgradeContext.res, upgradeContext.req, upgradeContext.socketContext);
-    upgradeContext.upgraded = upgraded;
+    upgradeContext->attempted = true;
+    bool upgraded = performWebSocketUpgrade<SSL>(upgradeContext->res, upgradeContext->req, upgradeContext->socketContext);
+    upgradeContext->upgraded = upgraded;
     if (upgraded)
-        upgradeContext.pointersValid = false;
+        upgradeContext->invalidatePointers();
 
     lua_pushboolean(L, upgraded);
     return 1;
@@ -551,7 +577,6 @@ static void pushRequestTable(
     const RequestRouteData& route,
     std::string_view body,
     lua_CFunction upgradeFn,
-    int nUpvalues,
     PushUpvalues pushUpvalues
 )
 {
@@ -580,7 +605,7 @@ static void pushRequestTable(
     int requestIndex = lua_absindex(L, -1);
     lua_createtable(L, 0, 1);
     lua_pushlightuserdata(L, &kRequestUpgradeKey);
-    pushUpvalues(L);
+    int nUpvalues = pushUpvalues(L);
     lua_pushcclosure(L, upgradeFn, "request.upgrade", nUpvalues);
     lua_rawset(L, -3);
     lua_setmetatable(L, requestIndex);
@@ -591,7 +616,6 @@ static void pushServerTable(
     lua_State* L,
     const std::shared_ptr<Ref>& serverRef,
     lua_CFunction upgradeFn,
-    int nUpvalues,
     PushUpvalues pushUpvalues
 )
 {
@@ -608,7 +632,7 @@ static void pushServerTable(
     lua_setfield(L, -2, "__index");
     lua_setmetatable(L, -2);
 
-    pushUpvalues(L);
+    int nUpvalues = pushUpvalues(L);
     lua_pushcclosure(L, upgradeFn, "server.upgrade", nUpvalues);
     lua_setfield(L, -2, "upgrade");
 
@@ -628,11 +652,15 @@ static HandlerThread prepareHttpHandlerThread(
 
     HandlerThread thread = createHandlerThread(state->runtime);
     lua_State* L = thread.L;
+    auto pushNoUpvalues = [](lua_State*)
+    {
+        return 0;
+    };
 
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
-    pushRequestTable(L, headers, route, body, server_upgrade_noop, 0, [](lua_State*) {});
-    pushServerTable(L, state->serverRef, server_upgrade_noop, 0, [](lua_State*) {});
+    pushRequestTable(L, headers, route, body, server_upgrade_noop, pushNoUpvalues);
+    pushServerTable(L, state->serverRef, server_upgrade_noop, pushNoUpvalues);
     return thread;
 }
 
@@ -641,7 +669,7 @@ static HandlerThread prepareUpgradeHandlerThread(
     const std::shared_ptr<ServerLoopState>& state,
     const RequestHeaders& headers,
     const RequestRouteData& route,
-    const std::shared_ptr<RequestUpgradeContext<SSL>>& upgradeContext
+    const RequestUpgradeContextPtr<SSL>& upgradeContext
 )
 {
     LUTE_ASSERT(state);
@@ -650,17 +678,9 @@ static HandlerThread prepareUpgradeHandlerThread(
 
     auto pushUpgradeUpvalues = [upgradeContext](lua_State* L)
     {
-        using UpgradeContext = RequestUpgradeContext<SSL>;
-        auto* storage = static_cast<std::shared_ptr<UpgradeContext>*>(lua_newuserdatadtor(
-            L,
-            sizeof(std::shared_ptr<UpgradeContext>),
-            [](void* ptr)
-            {
-                std::destroy_at(static_cast<std::shared_ptr<UpgradeContext>*>(ptr));
-            }
-        ));
-
-        new (storage) std::shared_ptr<UpgradeContext>(upgradeContext);
+        int top = lua_gettop(L);
+        pushRequestUpgradeContext<SSL>(L, upgradeContext);
+        return lua_gettop(L) - top;
     };
 
     HandlerThread thread = createHandlerThread(state->runtime);
@@ -668,8 +688,8 @@ static HandlerThread prepareUpgradeHandlerThread(
 
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
-    pushRequestTable(L, headers, route, std::string_view(""), server_upgrade_do<SSL>, 1, pushUpgradeUpvalues);
-    pushServerTable(L, state->serverRef, server_upgrade_do<SSL>, 1, pushUpgradeUpvalues);
+    pushRequestTable(L, headers, route, {}, server_upgrade_do<SSL>, pushUpgradeUpvalues);
+    pushServerTable(L, state->serverRef, server_upgrade_do<SSL>, pushUpgradeUpvalues);
     return thread;
 }
 
@@ -762,7 +782,7 @@ static void installWebSocketRoutes(AppT* app, const std::shared_ptr<ServerLoopSt
             HandlerThread thread = prepareUpgradeHandlerThread<SSL>(state, headers, route, upgradeContext);
             lua_State* L = thread.L;
             int status = lua_resume(L, nullptr, 2);
-            upgradeContext->pointersValid = false;
+            upgradeContext->invalidatePointers();
             bool upgraded = upgradeContext->upgraded;
 
             if (status == LUA_YIELD)
