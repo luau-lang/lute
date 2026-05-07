@@ -1,4 +1,4 @@
-local authenticationStore = require("./authenticationstore")
+local authenticationStore = require("./authentication")
 local fs = require("@std/fs")
 local net = require("@std/net")
 local path = require("@std/path")
@@ -101,14 +101,13 @@ local function installPackage(source: string, rev: string, installPath: string):
 		fs.removeDirectory(tempDir, { recursive = true })
 	end
 
-	local ok, err = pcall(installZipArchive, zipArchive, tempDir)
-
-	if not ok then
+	xpcall(installZipArchive, function(err)
 		if fs.exists(tempDir) then
 			fs.removeDirectory(tempDir, { recursive = true })
 		end
+
 		error(err, 0)
-	end
+	end, zipArchive, tempDir)
 
 	fs.move(tempDir, installPath)
 end
