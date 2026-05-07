@@ -3,7 +3,7 @@ local github = require("./github")
 local lockfile = require("./lockfile")
 local path = require("@std/path")
 local pp = require("@batteries/pp")
-local projectmanifest = require("./projectmanifest")
+local manifest = require("./manifest")
 local store = require("./store")
 
 local function getManifestPath(directory: string): string
@@ -14,22 +14,22 @@ local function getLockfilePath(directory: string): string
 	return `{directory}/loom.lock.luau`
 end
 
-local function getKey(spec: projectmanifest.DependencySpec): string
+local function getKey(spec: manifest.DependencySpec): string
 	if spec.rev ~= nil then
 		return `{spec.name}@{spec.rev}`
 	end
 	return spec.name
 end
 
-local function hasConflict(specA: projectmanifest.DependencySpec, specB: projectmanifest.DependencySpec): boolean
+local function hasConflict(specA: manifest.DependencySpec, specB: manifest.DependencySpec): boolean
 	return specA.rev ~= specB.rev or specA.source ~= specB.source or specA.sourceKind ~= specB.sourceKind
 end
 
 local function normalizePathDependency(
-	spec: projectmanifest.DependencySpec,
+	spec: manifest.DependencySpec,
 	installPath: string,
 	rootDirectory: string
-): projectmanifest.DependencySpec
+): manifest.DependencySpec
 	if spec.sourceKind == "path" then
 		local sourcePath = path.format(path.resolve(installPath, spec.source))
 		if not fs.exists(sourcePath) then
@@ -45,7 +45,7 @@ local function normalizePathDependency(
 	return spec
 end
 
-local function fetchSource(spec: projectmanifest.DependencySpec, rootDirectory: string): string
+local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string
 	if spec.sourceKind == "path" then
 		local sourcePath = path.format(path.resolve(rootDirectory, spec.source))
 		if not fs.exists(sourcePath) then
@@ -76,12 +76,12 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 
 	local lockfilePath = getLockfilePath(rootDirectory)
 
-	local queue: { projectmanifest.DependencySpec } = {}
+	local queue: { manifest.DependencySpec } = {}
 
 	local dependencies: { [string]: string } = {}
 	local packages: { [string]: lockfile.LockfileDependency } = {}
 
-	local rootManifest = projectmanifest.parseFile(rootManifestPath)
+	local rootManifest = manifest.parseFile(rootManifestPath)
 	for depAlias, depSpec in rootManifest.package.dependencies do
 		dependencies[depAlias] = getKey(depSpec)
 		table.insert(queue, depSpec)
@@ -128,7 +128,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 		-- Check for transitive dependencies
 		local nestedManifestPath = getManifestPath(installPath)
 		if fs.exists(nestedManifestPath) then
-			local depManifest = projectmanifest.parseFile(nestedManifestPath)
+			local depManifest = manifest.parseFile(nestedManifestPath)
 			for depAlias, depSpec in depManifest.package.dependencies do
 				-- Normalize transitive path dep sources to be rootDirectory-relative
 				local normalizedSpec = normalizePathDependency(depSpec, installPath, rootDirectory)

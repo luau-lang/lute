@@ -1,4 +1,4 @@
-local authenticationStore = require("./authenticationstore")
+local authenticationStore = require("./authentication")
 local fs = require("@std/fs")
 local net = require("@std/net")
 local path = require("@std/path")
