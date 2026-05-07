@@ -624,9 +624,15 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
         setvbuf(stderr, nullptr, _IONBF, 0);
     }
 
-    std::string err = "";
+    std::string err;
+    std::optional<std::string> exePath = Process::getExecPath(&err);
+    if (!exePath)
+    {
+	    reporter.formatError("Unable to find the `lute` executable path: Process::getExecPath failed with error: %s", err.c_str());
+        return 1;
+    }
 
-    LuteExecutable exe{argv[0], reporter};
+    LuteExecutable exe{*exePath, reporter};
     if (auto payload = exe.extract())
     {
         Runtime runtime{reporter};

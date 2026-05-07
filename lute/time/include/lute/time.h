@@ -10,9 +10,9 @@
 #include <string>
 
 // open the library as a standard global luau library
-int luaopen_time(lua_State* L);
+LUTE_API int luaopen_time(lua_State* L);
 // open the library as a table on top of the stack
-int luteopen_time(lua_State* L);
+LUTE_API int luteopen_time(lua_State* L);
 
 static const char kInstantType[] = "instant";
 static const char kDurationType[] = "duration";

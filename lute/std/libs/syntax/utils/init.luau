@@ -309,4 +309,14 @@ function utils.isAttribute(n: types.AstNode): types.AstAttribute?
 	return if n.kind == "attribute" then n else nil
 end
 
+--- Returns a `Replacement` that replaces the original node with the given content, preserving trivia.
+function utils.replacementWithTrivia(content: string): types.Replacement
+	return { content = content }
+end
+
+--- Returns a `Replacement` that replaces the original node with the given content, discarding trivia.
+function utils.replacementWithoutTrivia(content: string): types.Replacement
+	return { content = content, preserveTrivia = false }
+end
+
 return table.freeze(utils)

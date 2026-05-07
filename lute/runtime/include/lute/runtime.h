@@ -133,6 +133,10 @@ struct Runtime
     // CLI arguments passed after the script filename
     std::vector<std::string> args;
 
+    // Factory function for creating an identical require context in child
+    // Runtimes. Set during parent Runtime's setup.
+    std::function<void*(lua_State*)> requireContextFactory;
+
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);
     void clearThreadCompletionHandler(lua_State* L);

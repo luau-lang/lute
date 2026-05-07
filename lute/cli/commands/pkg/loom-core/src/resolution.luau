@@ -3,7 +3,8 @@ local github = require("./github")
 local lockfile = require("./lockfile")
 local path = require("@std/path")
 local pp = require("@batteries/pp")
-local projectmanifest = require("./projectmanifest")
+local manifest = require("./manifest")
+local store = require("./store")
 
 local function getManifestPath(directory: string): string
 	return `{directory}/loom.config.luau`
@@ -13,22 +14,22 @@ local function getLockfilePath(directory: string): string
 	return `{directory}/loom.lock.luau`
 end
 
-local function getKey(spec: projectmanifest.DependencySpec): string
+local function getKey(spec: manifest.DependencySpec): string
 	if spec.rev ~= nil then
 		return `{spec.name}@{spec.rev}`
 	end
 	return spec.name
 end
 
-local function hasConflict(specA: projectmanifest.DependencySpec, specB: projectmanifest.DependencySpec): boolean
+local function hasConflict(specA: manifest.DependencySpec, specB: manifest.DependencySpec): boolean
 	return specA.rev ~= specB.rev or specA.source ~= specB.source or specA.sourceKind ~= specB.sourceKind
 end
 
 local function normalizePathDependency(
-	spec: projectmanifest.DependencySpec,
+	spec: manifest.DependencySpec,
 	installPath: string,
 	rootDirectory: string
-): projectmanifest.DependencySpec
+): manifest.DependencySpec
 	if spec.sourceKind == "path" then
 		local sourcePath = path.format(path.resolve(installPath, spec.source))
 		if not fs.exists(sourcePath) then
@@ -44,7 +45,7 @@ local function normalizePathDependency(
 	return spec
 end
 
-local function fetchSource(spec: projectmanifest.DependencySpec, rootDirectory: string): string
+local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string
 	if spec.sourceKind == "path" then
 		local sourcePath = path.format(path.resolve(rootDirectory, spec.source))
 		if not fs.exists(sourcePath) then
@@ -53,8 +54,14 @@ local function fetchSource(spec: projectmanifest.DependencySpec, rootDirectory: 
 		return sourcePath
 	elseif spec.sourceKind == "github" then
 		assert(spec.rev ~= nil, `Expected rev to be non-nil for GitHub package '{spec.name}'`)
-		local sourcePath = `{rootDirectory}/Packages/{getKey(spec)}`
-		github.installPackage(spec.source, spec.rev, sourcePath)
+		store.ensureStoreDirectory()
+
+		local key = getKey(spec)
+		local sourcePath = store.getPackagePath(key)
+		if not store.hasPackage(key) then
+			github.installPackage(spec.source, spec.rev, sourcePath)
+		end
+
 		return sourcePath
 	else
 		error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
@@ -68,20 +75,13 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	end
 
 	local lockfilePath = getLockfilePath(rootDirectory)
-	-- TODO: read lockfile and diff against manifest to determine which packages need to be updated, deleted, etc.
-	-- local lockfile = lockfile.parseFile(lockfilePath)
-	-- for now, just clear the installation directory if it exists
-	local rootInstallPath = `{rootDirectory}/Packages/`
-	if fs.exists(rootInstallPath) then
-		fs.removeDirectory(rootInstallPath, { recursive = true })
-	end
 
-	local queue: { projectmanifest.DependencySpec } = {}
+	local queue: { manifest.DependencySpec } = {}
 
 	local dependencies: { [string]: string } = {}
 	local packages: { [string]: lockfile.LockfileDependency } = {}
 
-	local rootManifest = projectmanifest.parseFile(rootManifestPath)
+	local rootManifest = manifest.parseFile(rootManifestPath)
 	for depAlias, depSpec in rootManifest.package.dependencies do
 		dependencies[depAlias] = getKey(depSpec)
 		table.insert(queue, depSpec)
@@ -128,7 +128,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 		-- Check for transitive dependencies
 		local nestedManifestPath = getManifestPath(installPath)
 		if fs.exists(nestedManifestPath) then
-			local depManifest = projectmanifest.parseFile(nestedManifestPath)
+			local depManifest = manifest.parseFile(nestedManifestPath)
 			for depAlias, depSpec in depManifest.package.dependencies do
 				-- Normalize transitive path dep sources to be rootDirectory-relative
 				local normalizedSpec = normalizePathDependency(depSpec, installPath, rootDirectory)
@@ -144,7 +144,9 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 			rev = spec.rev,
 			source = spec.source,
 			sourceKind = spec.sourceKind,
-			installPath = path.format(path.relative(rootDirectory, installPath)),
+			installPath = if spec.sourceKind == "path"
+				then path.format(path.relative(rootDirectory, installPath))
+				else store.toStorePath(key),
 			dependencies = transitiveDependencies,
 		})
 	end

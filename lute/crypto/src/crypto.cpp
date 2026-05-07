@@ -322,12 +322,12 @@ int Crypto::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_crypto(lua_State* L)
+LUTE_API int luaopen_crypto(lua_State* L)
 {
     return Crypto::openAsGlobal(L);
 }
 
-int luteopen_crypto(lua_State* L)
+LUTE_API int luteopen_crypto(lua_State* L)
 {
     return Crypto::pushLibrary(L);
 }

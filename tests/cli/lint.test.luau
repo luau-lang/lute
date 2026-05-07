@@ -17,6 +17,7 @@ local defaultRulesPaths = {
 	duplicate_keys = path.format(path.join(defaultRulesFolder, "duplicate_keys.luau")),
 	empty_if_block = path.format(path.join(defaultRulesFolder, "empty_if_block.luau")),
 	global_function_in_scope = path.format(path.join(defaultRulesFolder, "global_function_in_scope.luau")),
+	no_any = path.format(path.join(defaultRulesFolder, "no_any.luau")),
 	parenthesized_conditions = path.format(path.join(defaultRulesFolder, "parenthesized_conditions.luau")),
 	unused_variable = path.format(path.join(defaultRulesFolder, "unused_variable.luau")),
 }
@@ -28,6 +29,7 @@ local LINT_RULE_MESSAGES = {
 	duplicate_keys = "warning[duplicate_keys]: Duplicate keys detected in table literal.",
 	empty_if_block = "warning[empty_if_block]: Empty if block detected. Consider removing it or adding to it.",
 	global_function_in_scope = "warning[global_function_in_scope]: Non-local function declaration found inside a nested scope. Use 'local function' instead, or move this to the top level.",
+	no_any = "warning[no_any]: Explicit 'any' type detected. Use 'unknown' for type-safe alternatives that require narrowing before use.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
 	unused_variable = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
 }
@@ -1520,6 +1522,129 @@ local e = next(t) ~= nil
     }
 ]]=]
 		assert.strContains(result.stdout, expected)
+	end)
+
+	suite:case("noAny", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local _x: any = 5
+local _y: unknown = 5
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.no_any,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.no_any, count = 1 },
+			},
+		})
+	end)
+
+	suite:case("noAnyFunctionParameter", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _f(_x: any, _y: unknown)
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.no_any,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.no_any, count = 1 },
+			},
+		})
+	end)
+
+	suite:case("noAnyReturnType", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _f(): any
+	return nil
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.no_any,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.no_any, count = 1 },
+			},
+		})
+	end)
+
+	suite:case("noAnyTypeAlias", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+type _T = any
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.no_any,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.no_any, count = 1 },
+			},
+		})
+	end)
+
+	suite:case("noAnyMultipleViolations", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local _x: any = 5
+local function _f(_y: any): any
+	return nil
+end
+type _T = any
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.no_any,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.no_any, count = 4 },
+			},
+		})
+	end)
+
+	suite:case("noAnyNoFalsePositiveOnPrefixed", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+type _T = module.any
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.no_any,
+			disableDefaultLints = true,
+		})
+	end)
+
+	suite:case("noAnyNoFalsePositiveOnUnknown", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local _x: unknown = 5
+local function _f(_y: unknown): unknown
+	return nil
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.no_any,
+			disableDefaultLints = true,
+		})
+	end)
+
+	suite:case("noAnyAutoFix", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local _x: any = 5
+local function _f(_y: any): any
+	return nil
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.no_any,
+			disableDefaultLints = true,
+			expectedAutofixContents = [[
+local _x: unknown = 5
+local function _f(_y: unknown): unknown
+	return nil
+end
+]],
+		})
 	end)
 
 	suite:case("unusedVariable1", function(assert)

@@ -48,6 +48,8 @@ int link_impl(lua_State* L, const char* path, const char* dest);
 int symlink_impl(lua_State* L, const char* path, const char* dest);
 int copy_impl(lua_State* L, const char* path, const char* dest);
 
+int rename_impl(lua_State* L, const char* path, const char* dest);
+
 int mkdir_impl(lua_State* L, const char* path, int mode);
 int rmdir_impl(lua_State* L, const char* path);
 int listdir_impl(lua_State* L, const char* path);
