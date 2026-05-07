@@ -80,27 +80,18 @@ local function lint(ast: syntax.AstStatBlock, sourcepath: path.Path?): { lintTyp
 			local nextVar, nextVal = nextStat.variables[1].node, nextStat.values[1].node
 
 			if compFuncs.refExprsSame(currVar, nextVal) and compFuncs.refExprsSame(nextVar, currVal) then
-				-- FIXME(Luau):
-				--	1. We don't infer "warning" as a singleton.
-				--	2. Bidirectional type checking of tables does not kick in.
-				table.insert(
-					violations,
-					{
-						lintname = name,
-						location = syntax.span.create({
-							beginLine = currStat.location.beginLine,
-							beginColumn = currStat.location.beginColumn,
-							endLine = nextStat.location.endLine,
-							endColumn = nextStat.location.endColumn,
-						}),
-						message = message,
-						severity = "warning",
-						sourcepath = sourcepath,
-						-- We should be able to remove this assertion
-						-- once we can bidirectionally infer instantiated
-						-- generic functions.
-					} :: lintTypes.LintViolation
-				)
+				table.insert(violations, {
+					lintname = name,
+					location = syntax.span.create({
+						beginLine = currStat.location.beginLine,
+						beginColumn = currStat.location.beginColumn,
+						endLine = nextStat.location.endLine,
+						endColumn = nextStat.location.endColumn,
+					}),
+					message = message,
+					severity = "warning" :: "warning", -- LUAUFIX cast needed because severity isn't inferred as a singleton
+					sourcepath = sourcepath,
+				})
 			end
 		end
 	end
