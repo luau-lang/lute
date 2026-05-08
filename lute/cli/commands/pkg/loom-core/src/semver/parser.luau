@@ -148,7 +148,7 @@ local function tryParse(s: string): Version?
 	return result
 end
 
--- Compare two versions per semver spec §11.
+-- Compare two versions per the semver spec.
 -- Returns -1 if a < b, 0 if a == b, 1 if a > b.
 -- Build metadata is ignored.
 local function compare(a: Version, b: Version): number
@@ -232,7 +232,7 @@ local function sort(versions: { Version }, descending: boolean?): { Version }
 	return copy
 end
 
--- Build metadata (§10) is intentionally omitted: it does not affect precedence
+-- Build metadata is intentionally omitted: it does not affect precedence
 -- and carries no meaning for package resolution.
 local function format(v: Version): string
 	local base = `{v.major}.{v.minor}.{v.patch}`
