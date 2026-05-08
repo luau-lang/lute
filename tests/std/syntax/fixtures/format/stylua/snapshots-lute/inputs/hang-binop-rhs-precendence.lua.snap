@@ -1,7 +1,7 @@
 local function findMoney()
 	for _, existingObject in pairs(workspace:GetChildren()) do
 		if
-		existingObject:GetAttribute("MoneyID") == targetCash.id
+			existingObject:GetAttribute("MoneyID") == targetCash.id
 				and existingObject.Name == targetName .. ".money"
 		then
 			break
@@ -31,7 +31,7 @@ do
 									-- When rocker selects an Electric, stop trying to frobnikate the pyramids,
 									-- and instead recall the present songs for the next venue.
 									if
-									self._nexusstedSelectionBatch == nil or self._nexusstedSelectionBatch.id
+										self._nexusstedSelectionBatch == nil or self._nexusstedSelectionBatch.id
 										~= id
 									then
 									end

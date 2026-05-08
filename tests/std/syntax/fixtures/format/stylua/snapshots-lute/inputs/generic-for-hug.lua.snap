@@ -118,7 +118,7 @@ do
 end
 
 do
-	for _, v in(foo({
+	for _, v in (foo({
 		Kind.SELECTION_sET,
 		Kind.DIRECTIVE,
 		Kind.OEPRATION_DEFINITION,

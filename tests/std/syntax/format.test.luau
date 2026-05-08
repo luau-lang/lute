@@ -66,6 +66,82 @@ test.suite("SyntaxFormat", function(suite)
 		checkFormat(assert, "-- comment\nlocal x=1", "-- comment\nlocal x = 1\n")
 	end)
 
+	suite:case("formatsMultilineFunctionBody", function(assert)
+		checkFormat(
+			assert,
+			"local function apply(\nvalue: string\n)local result=value\nreturn result\nend",
+			"local function apply(\n\tvalue: string\n)\n\tlocal result = value\n\treturn result\nend\n"
+		)
+	end)
+
+	suite:case("keepsInlineCommentAfterBlockStart", function(assert)
+		checkFormat(
+			assert,
+			"if value then -- inline\nreturn value\nend",
+			"if value then -- inline\n\treturn value\nend\n"
+		)
+	end)
+
+	suite:case("keepsInlineCommentAfterFunctionSignature", function(assert)
+		checkFormat(
+			assert,
+			"local function value(): number -- inline\nreturn 1\nend",
+			"local function value(): number -- inline\n\treturn 1\nend\n"
+		)
+	end)
+
+	suite:case("formatsSplitCommentAfterFunctionSignature", function(assert)
+		checkFormat(
+			assert,
+			"local function value(): number\n-- body comment\nreturn 1\nend",
+			"local function value(): number\n\t-- body comment\n\treturn 1\nend\n"
+		)
+	end)
+
+	suite:case("restoresIndentAfterNestedFunctions", function(assert)
+		checkFormat(
+			assert,
+			"local function outer(): { string }\nlocal inner=function() end\nreturn {}\nend\nlocal x=1",
+			"local function outer(): { string }\n\tlocal inner = function() end\n\treturn {}\nend\nlocal x = 1\n"
+		)
+	end)
+
+	suite:case("formatsChainAfterInlineComment", function(assert)
+		checkFormat(
+			assert,
+			"return query\n.findAllFromRoot(ast, pred) -- inline\n:replace(function()\nreturn nil\nend)",
+			"return query\n\t.findAllFromRoot(ast, pred) -- inline\n\t:replace(function()\n\t\treturn nil\n\tend)\n"
+		)
+	end)
+
+	suite:case("formatsTypeFunctionGenericSpacing", function(assert)
+		checkFormat(assert, "type A =<T>() -> ()", "type A = <T>() -> ()\n")
+	end)
+
+	suite:case("formatsTypeUnionContinuationAfterComments", function(assert)
+		checkFormat(
+			assert,
+			"type Kind =\n\t| \"root\" -- root\n\t| \"defined\" -- defined",
+			"type Kind =\n\t| \"root\" -- root\n\t| \"defined\" -- defined\n"
+		)
+	end)
+
+	suite:case("formatsUnaryMinusInIfExpression", function(assert)
+		checkFormat(
+			assert,
+			'return if sign == "-" then -math.huge else math.huge',
+			'return if sign == "-" then -math.huge else math.huge\n'
+		)
+	end)
+
+	suite:case("formatsMultilineIfExpression", function(assert)
+		checkFormat(
+			assert,
+			"local value = if condition\nthen foo\nelse bar",
+			"local value = if condition\n\tthen foo\n\telse bar\n"
+		)
+	end)
+
 	for _, fixture in collectStyluaFixtures() do
 		suite:case(`formatsStyLuaFixture_{fixture.sourcePath}`, function(assert)
 			local source = fs.readFileToString(fixture.sourcePath)

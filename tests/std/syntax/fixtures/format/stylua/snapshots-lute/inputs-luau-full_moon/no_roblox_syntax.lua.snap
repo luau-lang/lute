@@ -31,7 +31,7 @@ return function(origin, character, range, ignoreIf, blacklist)
 
 	local hit, point do
 		while true do
-			hit, point = Raycast(Ray.new(origin, (origin - character.PrimaryPart.Position).Unit *-range), blacklist)
+			hit, point = Raycast(Ray.new(origin, (origin - character.PrimaryPart.Position).Unit * -range), blacklist)
 
 			if hit and hit:IsDescendantOf(character) then
 				break

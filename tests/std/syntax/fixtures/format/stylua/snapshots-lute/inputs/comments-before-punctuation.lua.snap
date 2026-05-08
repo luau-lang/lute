@@ -3,7 +3,8 @@
 function fun(
 	a--[[ a commnet]] ,
 	b
-) end
+)
+end
 
 local tab = {
 	a = 1--[[@as integer ]] ,

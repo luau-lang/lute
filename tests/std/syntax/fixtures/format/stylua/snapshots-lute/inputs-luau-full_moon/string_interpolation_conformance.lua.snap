@@ -22,7 +22,7 @@ assertEq(`true = {true}`, "true = true")
 local name = "Luau"
 assertEq(`Welcome to {name}!`, "Welcome to Luau!")
 
-local nameNotConstantEvaluated =(function()
+local nameNotConstantEvaluated = (function()
 	return "Luau"
 end)()
 assertEq(`Welcome to {nameNotConstantEvaluated}!`, "Welcome to Luau!")

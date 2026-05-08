@@ -5,7 +5,7 @@ do
 			WallCollisionPart.Position.X,
 			(
 				(GeneratedTower.Top.PrimaryPart.Position.Y - GeneratedTower.Top.PrimaryPart.Size.Y / 2)
-					+(GeneratedTower.Bottom.PrimaryPart.Position.Y - GeneratedTower.Bottom.PrimaryPart.Size.Y / 2)
+					+ (GeneratedTower.Bottom.PrimaryPart.Position.Y - GeneratedTower.Bottom.PrimaryPart.Size.Y / 2)
 			) / 2,
 			WallCollisionPart.Position.Z
 		)
@@ -14,7 +14,7 @@ do
 			WallCollisionPart.Position.X,
 			(
 				(GeneratedTower.Top.PrimaryPart.Position.Y - GeneratedTower.Top.PrimaryPart.Size.Y / 2)
-					+(GeneratedTower.Bottom.PrimaryPart.Position.Y - GeneratedTower.Bottom.PrimaryPart.Size.Y / 2)
+					+ (GeneratedTower.Bottom.PrimaryPart.Position.Y - GeneratedTower.Bottom.PrimaryPart.Size.Y / 2)
 			) / AComplexFunctionCall(withAReallyLongArgument, "this is a complex function call message", anotherReallyLongArgument),
 			WallCollisionPart.Position.Z
 		)
@@ -24,7 +24,7 @@ do
 			AComplexFunctionCall(withAReallyLongArgument, "this is a complex function call message", anotherReallyLongArgument) /
 			(
 				(GeneratedTower.Top.PrimaryPart.Position.Y - GeneratedTower.Top.PrimaryPart.Size.Y / 2)
-					+(GeneratedTower.Bottom.PrimaryPart.Position.Y - GeneratedTower.Bottom.PrimaryPart.Size.Y / 2)
+					+ (GeneratedTower.Bottom.PrimaryPart.Position.Y - GeneratedTower.Bottom.PrimaryPart.Size.Y / 2)
 			),
 			WallCollisionPart.Position.Z
 		)

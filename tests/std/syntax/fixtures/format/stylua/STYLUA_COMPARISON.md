@@ -1,9 +1,9 @@
 # StyLua Snapshot Comparison
 
 Active copied fixtures: 229
-Exact matches against available StyLua snapshots: 66
+Exact matches against available StyLua snapshots: 79
 Active fixtures without a located StyLua snapshot: 0
-Known exact mismatches: 163
+Known exact mismatches: 150
 
 The Lute formatter snapshots in `snapshots-lute` are the enforced goldens for this repository.
 The exact-match count normalizes trailing file terminators and is tracked separately because Lute has fixed policy and does not expose StyLua configuration modes.
@@ -17,7 +17,6 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/comments-before-punctuation.lua`
 - `inputs/comments-buffer.lua`
 - `inputs/comments-function-args.lua`
-- `inputs/comments-function-params.lua`
 - `inputs/comments-keep-multiline.lua`
 - `inputs/comments-multiline-expression-2.lua`
 - `inputs/comments-multiline-expression.lua`
@@ -26,10 +25,8 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/condition-parentheses-comments.lua`
 - `inputs/condition-parentheses.lua`
 - `inputs/context-long-lines.lua`
-- `inputs/empty-function-2.lua`
 - `inputs/excess-parentheses-comments-2.lua`
 - `inputs/excess-parentheses-comments.lua`
-- `inputs/excess-parentheses-dont-remove.lua`
 - `inputs/function-call-2.lua`
 - `inputs/function-call-3.lua`
 - `inputs/function-call-6.lua`
@@ -39,7 +36,6 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/function-call-comments.lua`
 - `inputs/function-call-multiline-comment.lua`
 - `inputs/function-call.lua`
-- `inputs/function-def-comments.lua`
 - `inputs/function-def-multiline.lua`
 - `inputs/generic-for-hug.lua`
 - `inputs/generic-for-multiline-2.lua`
@@ -56,7 +52,6 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/hang-call-chain-small-prefix.lua`
 - `inputs/hang-call-chains-2.lua`
 - `inputs/hang-call-chains-inline.lua`
-- `inputs/hang-call-chains-static.lua`
 - `inputs/hang-call-chains.lua`
 - `inputs/hang-equality-op.lua`
 - `inputs/hang-parens-assign-no-indent.lua`
@@ -77,7 +72,6 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/multiline-expressions-2.lua`
 - `inputs/multiline-expressions-3.lua`
 - `inputs/multiline-expressions-4.lua`
-- `inputs/multiline-expressions-5.lua`
 - `inputs/multiline-expressions-indent-block.lua`
 - `inputs/multiline-expressions.lua`
 - `inputs/number.lua`
@@ -109,25 +103,12 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/table-multiline-fields.lua`
 - `inputs/var-expression-comments.lua`
 - `inputs/while-2.lua`
-- `inputs-luau/assignment-comments-1.lua`
 - `inputs-luau/assignment-hang-1.lua`
-- `inputs-luau/assignment-hang-2.lua`
-- `inputs-luau/attributes-2.lua`
-- `inputs-luau/excess-parentheses-type-assertion.lua`
+- `inputs-luau/attributes-3.lua`
 - `inputs-luau/excess-parentheses-type-pack-default.lua`
 - `inputs-luau/excess-parentheses.lua`
 - `inputs-luau/function-call-comments-1.lua`
 - `inputs-luau/function_types_2.lua`
 - `inputs-luau/function_types_3.lua`
-- `inputs-luau/generic-for-multiline.lua`
-- `inputs-luau/if-expression-2.lua`
-- `inputs-luau/if-expression-3.lua`
-- `inputs-luau/if-expression-4.lua`
-- `inputs-luau/if-expression-5.lua`
-- `inputs-luau/if-expression-6.lua`
-- `inputs-luau/if-expression-comments-2.lua`
-- `inputs-luau/if-expression-comments-3.lua`
-- `inputs-luau/if-expression-comments.lua`
-- `inputs-luau/if-expression.lua`
-- `inputs-luau/large_example.lua`
-- ... 43 more
+
+...and 50 more.

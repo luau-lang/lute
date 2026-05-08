@@ -3,23 +3,23 @@ local a = {
 	b = -- equals trailing comment
 	foo(),
 	c -- key trailing comment
-	= bar(),
+		= bar(),
 	-- expression leading comment
 	"d",
 	-- key leading comment
 	e -- key trailing comment
 	-- equals leading comment
-	= -- equals trailing comment
+		= -- equals trailing comment
 	baz(),
 
 	["f"] = -- equals trailing comment
 	foo(),
 	["g"] -- key trailing comment
-	= bar(),
+		= bar(),
 	-- key leading comment
 	["h"] -- key trailing comment
 	-- equals leading comment
-	= -- equals trailing comment
+		= -- equals trailing comment
 	baz(),
 }
 

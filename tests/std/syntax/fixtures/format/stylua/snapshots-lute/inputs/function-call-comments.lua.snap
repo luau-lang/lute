@@ -14,4 +14,4 @@ local AppRodux = RoactRodux.connect(
 	--     end
 	--   }
 	-- end
-	)(AppComponent)
+)(AppComponent)

@@ -87,6 +87,7 @@ type FormatToken = {
 	role: string?,
 	unary: boolean?,
 	trailingCommaAfter: boolean?,
+	multilineClose: boolean?,
 }
 
 type Replacement = {
@@ -124,7 +125,7 @@ local function quoteString(text: string, quoteStyle: string, blockDepth: number?
 		end
 		return "'" .. text .. "'"
 	elseif quoteStyle == "double" then
-		return '"' .. text:gsub("\\'", "'") .. '"'
+		return '"' .. text:gsub([[\']], "'") .. '"'
 	elseif quoteStyle == "block" then
 		local equals = string.rep("=", blockDepth or 0)
 		return `[{equals}[{text}]{equals}]`
@@ -202,7 +203,7 @@ local function itemTrailingTrivia(node)
 end
 
 local function mark(roles, token, role: string)
-	if token ~= nil then
+	if token ~= nil and roles[token] == nil then
 		roles[token] = role
 	end
 end
@@ -302,6 +303,7 @@ local function collectReplacementItems(parseResult, roles, trailingCommas)
 		mark(roles, node.closeParens, "functionParamsClose")
 		mark(roles, node.varargColon, "typeColon")
 		mark(roles, node.returnSpecifier, "typeColon")
+		mark(roles, node.endKeyword, "functionEnd")
 		if node.returnAnnotation ~= nil then
 			markLastReplacementRole(roles, node.returnAnnotation, "functionReturnAnnotationEnd")
 		end
@@ -313,6 +315,16 @@ local function collectReplacementItems(parseResult, roles, trailingCommas)
 		mark(roles, node.leftArrow2, "genericOpen")
 		mark(roles, node.rightArrow1, "genericClose")
 		mark(roles, node.rightArrow2, "genericClose")
+		return true
+	end
+
+	collect.visitExprIfElse = function(node)
+		mark(roles, node.thenKeyword, "ifExpressionKeyword")
+		mark(roles, node.elseKeyword, "ifExpressionKeyword")
+		for _, elseifNode in node.elseifs do
+			mark(roles, elseifNode.elseIfKeyword, "ifExpressionKeyword")
+			mark(roles, elseifNode.thenKeyword, "ifExpressionKeyword")
+		end
 		return true
 	end
 
@@ -431,8 +443,7 @@ local function buildFormatTokens(parseResult): { FormatToken }
 		local text = itemText(node)
 		table.insert(tokens, {
 			text = text,
-			kind = if node.kind == "expr" and (node.tag == "string" or node.tag == "interpolatedstring")
-				then "string"
+			kind = if node.kind == "expr" and (node.tag == "string" or node.tag == "interpolatedstring") then "string"
 				elseif node.kind == "type" and node.tag == "string" then "string"
 				else classifyText(text),
 			leadingNewlines = pendingNewlines,
@@ -463,12 +474,7 @@ local function buildFormatTokens(parseResult): { FormatToken }
 			end
 
 			local previousToken = tokens[previousIndex]
-			if
-				previousToken ~= nil
-				and previousToken.text ~= "{"
-				and previousToken.text ~= ","
-				and previousToken.text ~= ";"
-			then
+			if previousToken ~= nil and previousToken.text ~= "{" and previousToken.text ~= "," and previousToken.text ~= ";" then
 				previousToken.trailingCommaAfter = true
 			end
 		end
@@ -492,7 +498,15 @@ local function isUnaryContext(previous: FormatToken?): boolean
 		return true
 	end
 
-	if OPENERS[previous.text] or previous.text == "," or previous.text == "=" or previous.text == "return" then
+	if
+		OPENERS[previous.text]
+		or previous.text == ","
+		or previous.text == "="
+		or previous.text == "return"
+		or previous.text == "then"
+		or previous.text == "else"
+		or previous.text == "do"
+	then
 		return true
 	end
 
@@ -506,6 +520,10 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 
 	local previousText: string = previous.text
 	local currentText: string = current.text
+	local previousIsGenericClose = previous.role == "genericClose"
+		or (previous.role == "functionReturnAnnotationEnd" and previousText == ">")
+	local currentIsGenericClose = current.role == "genericClose"
+		or (current.role == "functionReturnAnnotationEnd" and currentText == ">")
 
 	if previous.kind == "commentBlock" and CLOSERS[currentText] then
 		return false
@@ -528,6 +546,10 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 	end
 
 	if previousText:sub(1, 1) == "@" and currentText:sub(1, 1) == "@" then
+		return false
+	end
+
+	if currentText == "::" or previousText == "::" then
 		return true
 	end
 
@@ -539,7 +561,11 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 		return true
 	end
 
-	if current.role == "genericOpen" or current.role == "genericClose" then
+	if previousText == "=" and current.role == "genericOpen" then
+		return true
+	end
+
+	if current.role == "genericOpen" or currentIsGenericClose then
 		return false
 	end
 
@@ -547,7 +573,7 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 		return false
 	end
 
-	if previous.role == "genericClose" and current.role == "genericClose" then
+	if previousIsGenericClose and (currentIsGenericClose or currentText == "(") then
 		return false
 	end
 
@@ -571,29 +597,36 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 		return false
 	end
 
-	if textEquals(previousText, "(") or textEquals(previousText, "[") then
+	if textEquals(currentText, "-") and isUnaryContext(previous) then
+		return BINARY_OPERATORS[previousText] == true or previous.kind == "keyword"
+	end
+
+	if textEquals(previousText, "-") and previous.unary then
 		return false
 	end
 
-	if
-		textEquals(currentText, "(")
-		and not textEquals(previousText, "if")
-		and not textEquals(previousText, "while")
-		and not textEquals(previousText, "for")
-	then
+	if textEquals(currentText, "(") then
+		if previousText == "function" then
+			return false
+		end
+
+		if previousText == "if" or previousText == "elseif" or previousText == "while" or previousText == "for" or previousText == "until" then
+			return true
+		end
+
+		if BINARY_OPERATORS[previousText] or previous.kind == "keyword" then
+			return true
+		end
+
+		return false
+	end
+
+	if textEquals(previousText, "(") or textEquals(previousText, "[") then
 		return false
 	end
 
 	if textEquals(previousText, "{") and not textEquals(currentText, "}") then
 		return true
-	end
-
-	if textEquals(currentText, "-") and isUnaryContext(previous) then
-		return false
-	end
-
-	if textEquals(previousText, "-") and previous.unary then
-		return false
 	end
 
 	if textEquals(currentText, "#") then
@@ -616,8 +649,9 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 		return true
 	end
 
-	if (previous.kind == "identifier" or previous.kind == "number" or previous.kind == "string")
-		and (current.kind == "identifier" or current.kind == "number" or current.kind == "string")
+	if
+		(previous.kind == "identifier" or previous.kind == "number" or previous.kind == "string")
+			and (current.kind == "identifier" or current.kind == "number" or current.kind == "string")
 	then
 		return true
 	end
@@ -642,7 +676,7 @@ local function shouldBreakBefore(previous: FormatToken?, current: FormatToken): 
 		return false
 	end
 
-	if current.text == "end" and previous.role == "functionParamsClose" then
+	if current.text == "end" and previous.role == "functionParamsClose" and not previous.multilineClose then
 		return false
 	end
 
@@ -650,11 +684,15 @@ local function shouldBreakBefore(previous: FormatToken?, current: FormatToken): 
 		return true
 	end
 
+	if current.text:sub(1, 1) == "@" and previous.text:sub(1, 1) == "@" then
+		return true
+	end
+
 	if current.leadingNewlines > 0 then
 		return true
 	end
 
-	if isMiddleBlockToken(current) or isClosingBlockToken(current) then
+	if current.role ~= "ifExpressionKeyword" and (isMiddleBlockToken(current) or isClosingBlockToken(current)) then
 		return true
 	end
 
@@ -666,7 +704,11 @@ local function shouldBreakAfter(current: FormatToken, nextToken: FormatToken?): 
 		return true, 1
 	end
 
-	if startsBlock(current) or current.text == "else" then
+	if
+		current.role ~= "ifExpressionKeyword"
+			and (startsBlock(current) or current.text == "else")
+			and not (nextToken ~= nil and nextToken.kind == "commentLine" and nextToken.leadingNewlines == 0)
+	then
 		return nextToken ~= nil and not isClosingBlockToken(nextToken) and not isMiddleBlockToken(nextToken)
 	end
 
@@ -684,13 +726,36 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 	local line = ""
 	local indent = 0
 	local parenDepth = 0
+	local blockDepth = 0
 	local awaitingFunctionParams = false
 	local functionParamDepths: { number } = {}
-	local parenIndentDepths: { number } = {}
+	local functionBodyStack: { { targetDepth: number, endIndent: number, restoreIndent: number } } = {}
+	local parenIndentDepths: { { depth: number, endIndent: number, restoreIndent: number } } = {}
 	local previous: FormatToken? = nil
 
 	local function indentation(): string
 		return string.rep(INDENT, math.max(indent, 0))
+	end
+
+	local function lineIndentLevel(): number
+		local whitespace = line:match("^\t*") or ""
+		return #whitespace
+	end
+
+	local function startFunctionBody()
+		local endIndent = lineIndentLevel()
+		table.insert(functionBodyStack, {
+			targetDepth = blockDepth + 1,
+			endIndent = endIndent,
+			restoreIndent = indent,
+		})
+		blockDepth += 1
+		indent = endIndent + 1
+	end
+
+	local function hasCurrentFunctionBody(): boolean
+		local functionBody = functionBodyStack[#functionBodyStack]
+		return functionBody ~= nil and functionBody.targetDepth == blockDepth
 	end
 
 	local function appendText(text: string)
@@ -759,41 +824,71 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 
 	for index, token in tokens do
 		local nextToken = tokens[index + 1]
+		local openedFunctionBody = false
+		local parenClose = if token.text == ")" then parenIndentDepths[#parenIndentDepths] else nil
+		if parenClose ~= nil and (parenClose.depth ~= parenDepth or (token.leadingNewlines == 0 and not token.multilineClose)) then
+			parenClose = nil
+		end
+		local functionBodyEnd = if token.role == "functionEnd" then functionBodyStack[#functionBodyStack] else nil
+		local closesInlineEmptyFunction = token.text == "end"
+				and previous ~= nil
+				and previous.role == "functionParamsClose"
+				and not previous.multilineClose
+		if closesInlineEmptyFunction then
+			functionBodyEnd = nil
+		end
+
 		if token.text == "-" and isUnaryContext(previous) then
 			token.unary = true
 		end
 
-		if (isClosingBlockToken(token) or isMiddleBlockToken(token)) and (line == "" or shouldBreakBefore(previous, token)) then
-			indent = math.max(indent - 1, 0)
+		if
+			(isClosingBlockToken(token) or isMiddleBlockToken(token))
+				and token.role ~= "ifExpressionKeyword"
+				and not closesInlineEmptyFunction
+				and (line == "" or shouldBreakBefore(previous, token))
+		then
+			if functionBodyEnd ~= nil then
+				indent = functionBodyEnd.endIndent
+			else
+				indent = math.max(indent - 1, 0)
+			end
 		end
 
-		if
-			token.text == ")"
-			and token.leadingNewlines > 0
-			and parenIndentDepths[#parenIndentDepths] == parenDepth
-		then
-			table.remove(parenIndentDepths)
-			indent = math.max(indent - 1, 0)
+		if parenClose ~= nil then
+			indent = parenClose.endIndent
+			token.multilineClose = true
 		end
 
 		if (token.text == "}" or token.text == "]" or token.role == "genericClose") and token.leadingNewlines > 0 then
 			indent = math.max(indent - 1, 0)
 		end
 
-		if
-			line == ""
-			and previous ~= nil
-			and previous.kind == "commentLine"
-			and (token.text == "." or token.text == ":")
-		then
+		if line == "" and previous ~= nil and previous.kind == "commentLine" and (token.text == "." or token.text == ":") then
 			appendText(indentation() .. INDENT)
+		elseif
+			line == ""
+				and previous ~= nil
+				and previous.kind == "commentLine"
+				and (token.text == "and" or token.text == "or" or (BINARY_OPERATORS[token.text] and not token.unary))
+		then
+			local continuationIndent = if token.text == "and" then INDENT .. INDENT else INDENT
+			appendText(indentation() .. continuationIndent)
 		elseif shouldBreakBefore(previous, token) then
 			newline(token.leadingNewlines)
-			if
+			if line == "" and token.role == "ifExpressionKeyword" then
+				appendText(indentation() .. INDENT)
+			elseif line == "" and previous ~= nil and previous.role == "ifExpressionKeyword" then
+				appendText(indentation() .. INDENT)
+			elseif
 				line == ""
-				and (token.text == "and" or token.text == "or" or (BINARY_OPERATORS[token.text] and not token.unary))
-				and previous ~= nil
+					and previous ~= nil
+					and (previous.text == "if" or previous.text == "elseif" or previous.text == "while" or previous.text == "until")
 			then
+				appendText(indentation() .. INDENT)
+			elseif line == "" and (token.text == "." or token.text == ":") and previous ~= nil then
+				appendText(indentation() .. INDENT)
+			elseif line == "" and (token.text == "and" or token.text == "or" or (BINARY_OPERATORS[token.text] and not token.unary)) and previous ~= nil then
 				local continuationIndent = if token.text == "and" then INDENT .. INDENT else INDENT
 				appendText(indentation() .. continuationIndent)
 			end
@@ -811,14 +906,25 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			appendText(",")
 		end
 
-		if token.role == "functionReturnAnnotationEnd" and nextToken ~= nil and nextToken.text ~= "end" then
-			indent += 1
+		if
+			token.role == "functionReturnAnnotationEnd"
+				and nextToken ~= nil
+				and nextToken.text ~= "end"
+				and not (nextToken.kind == "commentLine" and nextToken.leadingNewlines == 0)
+		then
+			startFunctionBody()
 			newline(nextToken.leadingNewlines)
 			nextToken.leadingNewlines = 0
 		end
 
-		if token.kind == "commentLine" and previous ~= nil and previous.role == "functionParamsClose" and token.leadingNewlines == 0 then
-			indent += 1
+		if
+			token.kind == "commentLine"
+				and previous ~= nil
+				and (previous.role == "functionParamsClose" or previous.role == "functionReturnAnnotationEnd")
+				and token.leadingNewlines == 0
+				and not hasCurrentFunctionBody()
+		then
+			startFunctionBody()
 		end
 
 		if token.text == "function" then
@@ -830,8 +936,13 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 				awaitingFunctionParams = false
 			end
 			if nextToken ~= nil and nextToken.leadingNewlines > 0 then
-				table.insert(parenIndentDepths, parenDepth)
-				indent += 1
+				local endIndent = lineIndentLevel()
+				table.insert(parenIndentDepths, {
+					depth = parenDepth,
+					endIndent = endIndent,
+					restoreIndent = indent,
+				})
+				indent = endIndent + 1
 			end
 		elseif token.text == ")" then
 			local functionParamDepth = functionParamDepths[#functionParamDepths]
@@ -842,24 +953,24 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 				table.remove(functionParamDepths)
 				if
 					nextToken ~= nil
-					and nextToken.text ~= ":"
-					and nextToken.text ~= "end"
-					and not (nextToken.kind == "commentLine" and nextToken.leadingNewlines == 0)
+						and nextToken.text ~= ":"
+						and nextToken.text ~= "end"
+						and not (nextToken.kind == "commentLine" and nextToken.leadingNewlines == 0)
 				then
-					indent += 1
+					startFunctionBody()
+					openedFunctionBody = true
 					newline(nextToken.leadingNewlines)
 					nextToken.leadingNewlines = 0
 				end
 			end
 		end
 
-		if
-			(token.text == "{" or token.role == "genericOpen")
-			and nextToken ~= nil
-			and nextToken.leadingNewlines > 0
-		then
+		if (token.text == "{" or token.role == "genericOpen") and nextToken ~= nil and nextToken.leadingNewlines > 0 then
 			indent += 1
-		elseif startsBlock(token) or token.text == "else" then
+		elseif token.role ~= "ifExpressionKeyword" and startsBlock(token) then
+			blockDepth += 1
+			indent += 1
+		elseif token.role ~= "ifExpressionKeyword" and token.text == "else" then
 			indent += 1
 		end
 
@@ -867,10 +978,19 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 		if breakAfter then
 			if
 				token.kind == "commentLine"
-				and nextToken ~= nil
-				and (nextToken.role == "genericClose" or nextToken.role == "tableClose")
+					and nextToken ~= nil
+					and (
+						nextToken.role == "genericClose"
+							or nextToken.role == "tableClose"
+							or (nextToken.text == ")" and parenIndentDepths[#parenIndentDepths] ~= nil and parenIndentDepths[#parenIndentDepths].depth == parenDepth)
+					)
 			then
-				indent = math.max(indent - 1, 0)
+				if nextToken.text == ")" and parenIndentDepths[#parenIndentDepths] ~= nil then
+					indent = parenIndentDepths[#parenIndentDepths].endIndent
+					nextToken.multilineClose = true
+				else
+					indent = math.max(indent - 1, 0)
+				end
 			end
 			newline(breakNewlines or (nextToken and nextToken.leadingNewlines or 1))
 			if nextToken then
@@ -881,6 +1001,19 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			if nextToken then
 				nextToken.leadingNewlines = 0
 			end
+		end
+
+		if token.text == "end" and functionBodyEnd ~= nil then
+			table.remove(functionBodyStack)
+			indent = functionBodyEnd.restoreIndent
+			blockDepth = math.max(blockDepth - 1, 0)
+		elseif parenClose ~= nil then
+			table.remove(parenIndentDepths)
+			if not openedFunctionBody then
+				indent = parenClose.restoreIndent
+			end
+		elseif isClosingBlockToken(token) and token.role ~= "ifExpressionKeyword" and not closesInlineEmptyFunction then
+			blockDepth = math.max(blockDepth - 1, 0)
 		end
 
 		previous = token

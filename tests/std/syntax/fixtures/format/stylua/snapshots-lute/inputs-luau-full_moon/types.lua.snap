@@ -3,17 +3,17 @@ local _fn3
 type Identity<T> = T
 type Array<T> = { [number]: T }
 type Map<K, V> = { [K]: V }
-type Function<T> =(...any) -> ...T
+type Function<T> = (...any) -> ...T
 type Object = { x: number, y: number }
 type Typeof = typeof(2 + 2 + _fn3())
 type FetchResult = "alice" | "mallet"
 type Element = { ["$$typeof"]: number }
 
-type Callback1 =(string) -> number
-type Callback2 =(string, string) -> number
-type Callback3 =(string, string) -> (string, nil)
-type Callback3a =(string, "error" | "success") -> (string, "weasel" | "basilisk")
-type Callback4 =(string) -> (string) -> ()
+type Callback1 = (string) -> number
+type Callback2 = (string, string) -> number
+type Callback3 = (string, string) -> (string, nil)
+type Callback3a = (string, "error" | "success") -> (string, "weasel" | "basilisk")
+type Callback4 = (string) -> (string) -> ()
 type NetworkError = { message: string? } & { handled: true }
 
 type Foo = {
@@ -47,5 +47,5 @@ local _fn3 = function(): number | nil
 end
 
 local function _concat<T, S>(source: Array<T>, ...: Array<S> | S): Array<T> & Array<S>
-return(source :: any) :: Array<S> & Array<T>
+	return (source :: any) :: Array<S> & Array<T>
 end

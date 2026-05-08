@@ -1,5 +1,5 @@
 function foo()
-	return(
+	return (
 		long_variable_name
 			+ long_variable_name
 			+ long_variable_name
@@ -40,7 +40,7 @@ function foo()
 end
 
 function foo()
-	return not(
+	return not (
 		long_variable_name
 			+ long_variable_name
 			+ long_variable_name

@@ -3,6 +3,6 @@ export type ReactNode =
 React_Element<any>
 	| ReactPortal
 --   | ReactText
-| ReactFragment
+	| ReactFragment
 --   | ReactProvider<any>
 --   | ReactConsumer<any>

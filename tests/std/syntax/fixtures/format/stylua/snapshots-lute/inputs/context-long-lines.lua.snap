@@ -1,5 +1,5 @@
 do
-	local region = Region3.new(part.Position -(0.5 * part.Size), part.Position +(0.5 * part.Size))
+	local region = Region3.new(part.Position - (0.5 * part.Size), part.Position + (0.5 * part.Size))
 
 	do
 		do

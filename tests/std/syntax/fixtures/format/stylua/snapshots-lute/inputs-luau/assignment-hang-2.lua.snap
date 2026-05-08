@@ -4,12 +4,12 @@ exports.createResource = function(
 	hasInput: (Input) -> Key,
 	config: Config?
 ): Pleasing<Input, Key, Value>
-config = config or {}
-local pleasing
-pleasing = {
-	clear = function(): ()
-		entries[pleasing] = nil
-	end,
-}
-return pleasing
+	config = config or {}
+	local pleasing
+	pleasing = {
+		clear = function(): ()
+			entries[pleasing] = nil
+		end,
+	}
+	return pleasing
 end

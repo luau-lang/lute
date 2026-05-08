@@ -3,8 +3,8 @@ end
 
 function noop()
 	-- comment
-	end
+end
 
-	call(function()
-		-- comment
-		end)
+call(function()
+	-- comment
+end)

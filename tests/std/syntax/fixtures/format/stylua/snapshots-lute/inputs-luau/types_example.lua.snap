@@ -16,7 +16,7 @@ export type SubscriptionArgs = {
 local function subscribe(
 	args: SubscriptionArgs
 ): Promise<Result>
-error("nope")
+	error("nope")
 end
 
 local function createEventStream(
@@ -26,7 +26,7 @@ local function createEventStream(
 	operationName: string?,
 	fieldResolver: Resolver<any, any>?
 ): Promise<Result>
-error("nope")
+	error("nope")
 end
 
 return {

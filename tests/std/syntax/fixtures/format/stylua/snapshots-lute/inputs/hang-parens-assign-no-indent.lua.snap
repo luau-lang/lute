@@ -18,7 +18,7 @@ function_call(
 	long_variable_name,
 	long_variable_name
 )
-local test =(
+local test = (
 	long_variable_name
 		+ long_variable_name
 		+ long_variable_name
@@ -32,7 +32,7 @@ local test =(
 )
 
 -- Multiple assigns
-local test, test2 =(
+local test, test2 = (
 	long_variable_name
 		+ long_variable_name
 		+ long_variable_name
@@ -71,7 +71,7 @@ local test, test2 = foo and bar or baz, (
 )
 
 -- Negated Assigns
-local test = not(
+local test = not (
 	long_variable_name
 		+ long_variable_name
 		+ long_variable_name

@@ -4,4 +4,4 @@ local a, b
 2 -- bdoc
 local a, -- adoc
 b -- bdoc
-= 1, 2
+	= 1, 2

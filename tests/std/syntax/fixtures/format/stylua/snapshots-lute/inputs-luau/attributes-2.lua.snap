@@ -1,5 +1,6 @@
 @native
 function foo() end
 
-@native @deprecated
+@native
+@deprecated
 function bar() end

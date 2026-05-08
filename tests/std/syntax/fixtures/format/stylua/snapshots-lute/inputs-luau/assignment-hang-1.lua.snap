@@ -8,7 +8,7 @@ function(displayName: string | nil, type_: ElementType): (string | nil, Array<st
 	local hocDisplayNames: Array<string>? = nil
 
 	if
-	type_ == ElementTypeClass
+		type_ == ElementTypeClass
 		or type_ == ElementTypeForwardRef
 		or type_ == ElementTypeFunction
 		or type_ == ElementTypeMemo
@@ -16,7 +16,7 @@ function(displayName: string | nil, type_: ElementType): (string | nil, Array<st
 		-- ROBLOX deviation: use match instead of indexOf
 		if (displayName :: string):match("%(") then
 			-- ROBLOX deviation: use gmatch instead of /[^()]+/g
-			local matches =(displayName :: string):gmatch("[^()]+")
+			local matches = (displayName :: string):gmatch("[^()]+")
 			local nextMatch = matches()
 			if nextMatch then
 				displayName = nextMatch

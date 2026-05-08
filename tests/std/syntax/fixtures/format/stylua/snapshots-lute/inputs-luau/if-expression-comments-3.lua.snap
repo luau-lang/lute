@@ -1,10 +1,8 @@
 -- https://github.com/JohnnyMorganz/StyLua/issues/520
 do
 	return if #timings <= workers
-	then
-		max
-	else
-		math.max(Array.reduce(timings, function(
+		then max
+		else math.max(Array.reduce(timings, function(
 			-- food
 			sum,
 			time_

@@ -9,7 +9,7 @@ local x = {
 		("fragment %s%s "):format(
 			tostring(name),
 			tostring(wrap("(", join(variableDefinitions, ", "), ")"))
-		) ..("on %s %s"):format(
+		) .. ("on %s %s"):format(
 			tostring(typeCondition),
 			tostring(wrap("", join(directives, " "), " "))
 		) .. tostring(selectionSet)
