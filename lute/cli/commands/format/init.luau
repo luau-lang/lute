@@ -1,14 +1,16 @@
 local cli = require("@batteries/cli")
 local files = require("./lib/files")
-local fs = require("@std/fs")
 local formatter = require("@std/syntax/format")
 local io = require("@std/io")
 local pathLib = require("@std/path")
 local process = require("@std/process")
-local printDiffHunks = require("./transform/printDiffHunks")
+local system = require("@std/system")
+local task = require("@std/task")
+local vm = require("@lute/vm")
 
 local STDIN_SENTINEL = "__lute_format_stdin__"
 local USAGE = "Usage: lute format [options] [paths...]"
+local CHUNKS_PER_WORKER = 4
 
 local function printHelp()
 	print(USAGE)
@@ -63,32 +65,95 @@ local function formatStdin(): ()
 	io.write(result)
 end
 
-local function formatPath(pathObj: pathLib.Path, check: boolean): boolean
-	local pathStr = pathLib.format(pathObj)
-	local source = fs.readFileToString(pathStr)
-	local ok, result = formatSource(source, pathStr)
+type FormatResult = {
+	ok: boolean,
+	changed: boolean,
+	output: string,
+}
 
-	if not ok then
-		print(result)
-		return false
+local function formatPaths(sourceFiles: { pathLib.Path }, check: boolean): boolean
+	local nfiles = #sourceFiles
+	local nworkers = math.max(1, math.min(system.threadCount(), nfiles))
+	local chunkSize = math.max(1, math.ceil(nfiles / (nworkers * CHUNKS_PER_WORKER)))
+	local pathStrings = table.create(nfiles) :: { string }
+	local results = table.create(nfiles) :: { FormatResult? }
+	local workerFailures: { string } = {}
+	local cursor = 1
+
+	for index, sourcePath in sourceFiles do
+		pathStrings[index] = pathLib.format(sourcePath)
 	end
 
-	if result == source then
-		return true
-	end
-
-	if check then
-		print(`Would reformat {pathStr}`)
-		local diff = printDiffHunks(source, result)
-		if diff ~= "" then
-			print(diff)
+	local function takenext(): (number?, { string }?)
+		if cursor > nfiles then
+			return nil, nil
 		end
-		return false
+
+		local startIndex = cursor
+		local endIndex = math.min(nfiles, startIndex + chunkSize - 1)
+		local chunk = table.create(endIndex - startIndex + 1) :: { string }
+		for index = startIndex, endIndex do
+			table.insert(chunk, pathStrings[index])
+		end
+		cursor = endIndex + 1
+		return startIndex, chunk
 	end
 
-	fs.writeStringToFile(pathStr, result)
-	print(`Formatted {pathStr}`)
-	return true
+	local done = 0
+	for _ = 1, nworkers do
+		task.spawn(function()
+			local currentPath: string? = nil
+			xpcall(function()
+				local worker = vm.create("@self/worker") :: any
+				while true do
+					local startIndex, chunk = takenext()
+					if startIndex == nil or chunk == nil then
+						break
+					end
+
+					currentPath = chunk[1]
+					local chunkResults = worker.formatfiles({
+						files = chunk,
+						check = check,
+					}) :: { FormatResult }
+					for offset, result in chunkResults do
+						results[startIndex + offset - 1] = result
+					end
+				end
+			end, function(err: any)
+				local where = currentPath or "<worker setup>"
+				table.insert(workerFailures, `worker errored while formatting {where}: {tostring(err)}`)
+			end)
+			done += 1
+		end)
+	end
+
+	while done < nworkers do
+		task.wait()
+	end
+
+	local allOk = #workerFailures == 0
+	for index = 1, nfiles do
+		local result = results[index]
+		if result == nil then
+			local pathStr = pathStrings[index]
+			print(`Error formatting {pathStr}: worker did not return a result`)
+			allOk = false
+		else
+			if result.output ~= "" then
+				io.write(result.output)
+			end
+			if not result.ok or (check and result.changed) then
+				allOk = false
+			end
+		end
+	end
+
+	for _, failure in workerFailures do
+		print(failure)
+	end
+
+	return allOk
 end
 
 local function main(...: string)
@@ -133,14 +198,7 @@ local function main(...: string)
 	end
 
 	local check = args:has("check")
-	local allOk = true
-	for _, sourcePath in sourceFiles do
-		if not formatPath(sourcePath, check) then
-			allOk = false
-		end
-	end
-
-	process.exit(if allOk then 0 else 1)
+	process.exit(if formatPaths(sourceFiles, check) then 0 else 1)
 end
 
 main(...)
