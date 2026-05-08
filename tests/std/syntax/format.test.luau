@@ -94,6 +94,26 @@ test.suite("SyntaxFormat", function(suite)
 		checkFormat(assert, "function noop()\n-- comment\n\nend", "function noop()\n\t-- comment\nend\n")
 	end)
 
+	suite:case("indentsExpressionAfterBlockCommentedAssignment", function(assert)
+		checkFormat(assert, "local value = --[[comment]]\nrequire(foo)", "local value = --[[comment]]\n\trequire(foo)\n")
+	end)
+
+	suite:case("breaksAlreadyMultilineIfConditionAfterKeyword", function(assert)
+		checkFormat(
+			assert,
+			"if code == 9 -- \\t\nor code == 32 -- <space>\nthen\nprint(code)\nend",
+			"if\n\tcode == 9 -- \\t\n\tor code == 32 -- <space>\nthen\n\tprint(code)\nend\n"
+		)
+	end)
+
+	suite:case("keepsMultilineReturnExpressionIndented", function(assert)
+		checkFormat(
+			assert,
+			"function foo()\nreturn\nfoo or\nbar\nend",
+			"function foo()\n\treturn\n\t\tfoo or\n\t\tbar\nend\n"
+		)
+	end)
+
 	suite:case("formatsMultilineFunctionBody", function(assert)
 		checkFormat(
 			assert,

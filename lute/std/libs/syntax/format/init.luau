@@ -400,6 +400,19 @@ local function collectReplacementItems(parseResult, roles, trailingCommas)
 		return true
 	end
 
+	collect.visitStatIf = function(node)
+		mark(roles, node.ifKeyword, "conditionOpen")
+		for _, elseifNode in node.elseifs do
+			mark(roles, elseifNode.elseIfKeyword, "conditionOpen")
+		end
+		return true
+	end
+
+	collect.visitStatWhile = function(node)
+		mark(roles, node.whileKeyword, "conditionOpen")
+		return true
+	end
+
 	collect.visitExprGroup = function(node)
 		if canRemoveGroupParens(node) then
 			mark(roles, node.openParens, "skip")
@@ -619,6 +632,35 @@ local function buildFormatTokens(parseResult): { FormatToken }
 				token.role = nil
 				if openToken ~= nil then
 					openToken.role = nil
+				end
+			end
+		end
+	end
+
+	for index, token in tokens do
+		local blockKeyword = nil
+		if token.role == "conditionOpen" then
+			if token.text == "while" then
+				blockKeyword = "do"
+			elseif token.text == "if" or token.text == "elseif" then
+				blockKeyword = "then"
+			end
+		end
+
+		if blockKeyword ~= nil then
+			local hasCommentedLogicalContinuation = false
+			for scanIndex = index + 1, #tokens do
+				local candidate = tokens[scanIndex]
+				if candidate.text == blockKeyword and candidate.role ~= "ifExpressionKeyword" then
+					if hasCommentedLogicalContinuation then
+						token.role = "multilineConditionOpen"
+					end
+					break
+				elseif candidate.kind == "commentLine" then
+					local afterComment = tokens[scanIndex + 1]
+					if afterComment ~= nil and (afterComment.text == "and" or afterComment.text == "or") then
+						hasCommentedLogicalContinuation = true
+					end
 				end
 			end
 		end
@@ -869,6 +911,10 @@ local function shouldBreakAfter(current: FormatToken, nextToken: FormatToken?): 
 		return true
 	end
 
+	if current.role == "multilineConditionOpen" then
+		return true
+	end
+
 	if
 		current.role ~= "ifExpressionKeyword"
 		and (startsBlock(current) or current.text == "else")
@@ -898,6 +944,7 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 	local parenIndentDepths: { { depth: number, endIndent: number, restoreIndent: number } } = {}
 	local braceIndentStack: { { endIndent: number, restoreIndent: number } } = {}
 	local previous: FormatToken? = nil
+	local previousCode: FormatToken? = nil
 
 	local function indentation(): string
 		return string.rep(INDENT, math.max(indent, 0))
@@ -1065,6 +1112,17 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			appendText(indentation() .. INDENT)
 		elseif line == "" and token.kind == "commentLine" and nextToken ~= nil and nextToken.role == "typeContinuationOperator" then
 			appendText(indentation() .. INDENT)
+		elseif
+			line == ""
+			and previous ~= nil
+			and previous.kind == "commentBlock"
+			and previousCode ~= nil
+			and previousCode.text == "="
+			and token.text == "require"
+		then
+			appendText(indentation() .. INDENT)
+		elseif line == "" and previous ~= nil and previous.role == "multilineConditionOpen" then
+			appendText(indentation() .. INDENT)
 		elseif shouldBreakBefore(previous, token) then
 			local previousLineIndent = lineIndentLevel()
 			local previousLine = line
@@ -1089,6 +1147,27 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 				line == ""
 				and previous ~= nil
 				and (previous.text == "if" or previous.text == "elseif" or previous.text == "while" or previous.text == "until")
+			then
+				appendText(indentation() .. INDENT)
+			elseif line == "" and previous ~= nil and previous.role == "multilineConditionOpen" then
+				appendText(indentation() .. INDENT)
+			elseif
+				line == ""
+				and previous ~= nil
+				and previous.text == "return"
+				and token.kind ~= "commentLine"
+				and token.kind ~= "commentBlock"
+				and not isClosingBlockToken(token)
+				and not isMiddleBlockToken(token)
+			then
+				appendText(indentation() .. INDENT)
+			elseif
+				line == ""
+				and previous ~= nil
+				and previous.kind == "commentBlock"
+				and previousCode ~= nil
+				and previousCode.text == "="
+				and token.text == "require"
 			then
 				appendText(indentation() .. INDENT)
 			elseif line == "" and (token.text == "." or token.text == ":") and previous ~= nil then
@@ -1301,6 +1380,9 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			blockDepth = math.max(blockDepth - 1, 0)
 		end
 
+		if token.kind ~= "commentLine" and token.kind ~= "commentBlock" and token.text ~= "" then
+			previousCode = token
+		end
 		previous = token
 	end
 
