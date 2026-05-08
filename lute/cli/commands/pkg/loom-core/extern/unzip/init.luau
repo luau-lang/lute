@@ -107,27 +107,27 @@ type ZipEntryInner = {
 	The OS that created the ZIP.
 ]=]
 export type MadeByOS =
-	| "FAT"           -- 0x0; MS-DOS and OS/2 (FAT / VFAT / FAT32 file systems)
-	| "AMIGA"         -- 0x1; Amiga
-	| "VMS"           -- 0x2; OpenVMS
-	| "UNIX"          -- 0x3; Unix
-	| "VM/CMS"        -- 0x4; VM/CMS
-	| "Atari ST"      -- 0x5; Atari ST
-	| "OS/2"          -- 0x6; OS/2 HPFS
-	| "MAC"           -- 0x7; Macintosh
-	| "Z-System"      -- 0x8; Z-System
-	| "CP/M"          -- 0x9; Original CP/M
-	| "NTFS"          -- 0xa; Windows NTFS
-	| "MVS"           -- 0xb; OS/390 & VM/ESA
-	| "VSE"           -- 0xc; VSE
-	| "Acorn RISCOS"  -- 0xd; Acorn RISCOS
-	| "VFAT"          -- 0xe; VFAT
+	| "FAT" -- 0x0; MS-DOS and OS/2 (FAT / VFAT / FAT32 file systems)
+	| "AMIGA" -- 0x1; Amiga
+	| "VMS" -- 0x2; OpenVMS
+	| "UNIX" -- 0x3; Unix
+	| "VM/CMS" -- 0x4; VM/CMS
+	| "Atari ST" -- 0x5; Atari ST
+	| "OS/2" -- 0x6; OS/2 HPFS
+	| "MAC" -- 0x7; Macintosh
+	| "Z-System" -- 0x8; Z-System
+	| "CP/M" -- 0x9; Original CP/M
+	| "NTFS" -- 0xa; Windows NTFS
+	| "MVS" -- 0xb; OS/390 & VM/ESA
+	| "VSE" -- 0xc; VSE
+	| "Acorn RISCOS" -- 0xd; Acorn RISCOS
+	| "VFAT" -- 0xe; VFAT
 	| "Alternate MVS" -- 0xf; Alternate MVS
-	| "BeOS"          -- 0x10; BeOS
-	| "TANDEM"        -- 0x11; Tandem
-	| "OS/400"        -- 0x12; OS/400
-	| "OS/X"          -- 0x13; Darwin
-	| "Unknown"       -- 0x14 - 0xff; Unused
+	| "BeOS" -- 0x10; BeOS
+	| "TANDEM" -- 0x11; Tandem
+	| "OS/400" -- 0x12; OS/400
+	| "OS/X" -- 0x13; Darwin
+	| "Unknown" -- 0x14 - 0xff; Unused
 
 -- stylua: ignore
 --[=[
@@ -166,30 +166,30 @@ export type MadeByOS =
 	Custom decompression routines can be registered via [ZipReader.new] to support
 	additional methods.
 ]=]
-export type CompressionMethod = 
-    | "STORE"       -- 0x00: No compression
-    | "SHRUNK"      -- 0x01: Shrunk
-    | "REDUCE_F1"   -- 0x02: Reduced factor 1
-    | "REDUCE_F2"   -- 0x03: Reduced factor 2
-    | "REDUCE_F3"   -- 0x04: Reduced factor 3
-    | "REDUCE_F4"   -- 0x05: Reduced factor 4
-    | "IMPLODE"     -- 0x06: Imploded
-    | "TOKENIZE"    -- 0x07: Reserved for Tokenizing
-    | "DEFLATE"     -- 0x08: Deflated (supported)
-    | "DEFLATE64"   -- 0x09: Enhanced Deflating
-    | "IMPLODE_DCL" -- 0x0A: PKWARE DCL Imploding
-    | "BZIP2"       -- 0x0C: BZIP2
-    | "LZMA"        -- 0x0E: LZMA
-    | "CMPSC"       -- 0x10: IBM z/OS CMPSC
-    | "TERSE"       -- 0x12: IBM TERSE (new)
-    | "LZ77"        -- 0x13: IBM LZ77 z Architecture
-    | "ZSTD"        -- 0x5D: Zstandard
-    | "MP3"         -- 0x5E: MP3 Compression
-    | "XZ"          -- 0x5F: XZ Compression
-    | "JPEG"        -- 0x60: JPEG variant
-    | "WAVPACK"     -- 0x61: WavPack
-    | "PPMD"        -- 0x62: PPMd version I, Rev 1
-    | "AE_X"        -- 0x63: AE-x encryption marker
+export type CompressionMethod =
+	| "STORE" -- 0x00: No compression
+	| "SHRUNK" -- 0x01: Shrunk
+	| "REDUCE_F1" -- 0x02: Reduced factor 1
+	| "REDUCE_F2" -- 0x03: Reduced factor 2
+	| "REDUCE_F3" -- 0x04: Reduced factor 3
+	| "REDUCE_F4" -- 0x05: Reduced factor 4
+	| "IMPLODE" -- 0x06: Imploded
+	| "TOKENIZE" -- 0x07: Reserved for Tokenizing
+	| "DEFLATE" -- 0x08: Deflated (supported)
+	| "DEFLATE64" -- 0x09: Enhanced Deflating
+	| "IMPLODE_DCL" -- 0x0A: PKWARE DCL Imploding
+	| "BZIP2" -- 0x0C: BZIP2
+	| "LZMA" -- 0x0E: LZMA
+	| "CMPSC" -- 0x10: IBM z/OS CMPSC
+	| "TERSE" -- 0x12: IBM TERSE (new)
+	| "LZ77" -- 0x13: IBM LZ77 z Architecture
+	| "ZSTD" -- 0x5D: Zstandard
+	| "MP3" -- 0x5E: MP3 Compression
+	| "XZ" -- 0x5F: XZ Compression
+	| "JPEG" -- 0x60: JPEG variant
+	| "WAVPACK" -- 0x61: WavPack
+	| "PPMD" -- 0x62: PPMd version I, Rev 1
+	| "AE_X" -- 0x63: AE-x encryption marker
 
 --[=[
 	@interface ZipEntryProperties

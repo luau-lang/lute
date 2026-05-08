@@ -25,17 +25,17 @@ local Data = {}
 export type Data = typeof(setmetatable({} :: DataInner, { __index = Data }))
 -- stylua: ignore
 export type DataInner = {
-    source: buffer,      -- Input buffer containing compressed data
-    sourceLen: number,   -- Cached length of source buffer
-    sourceIndex: number, -- Current position in source buffer
-    tag: number,         -- Bit buffer for reading compressed data
-    bitcount: number,    -- Number of valid bits in tag
+	source: buffer, -- Input buffer containing compressed data
+	sourceLen: number, -- Cached length of source buffer
+	sourceIndex: number, -- Current position in source buffer
+	tag: number, -- Bit buffer for reading compressed data
+	bitcount: number, -- Number of valid bits in tag
 
-    dest: buffer,       -- Output buffer for decompressed data
-    destLen: number,    -- Current length of decompressed data
+	dest: buffer, -- Output buffer for decompressed data
+	destLen: number, -- Current length of decompressed data
 
-    ltree: Tree,        -- Length/literal tree for current block
-    dtree: Tree,        -- Distance tree for current block
+	ltree: Tree, -- Length/literal tree for current block
+	dtree: Tree, -- Distance tree for current block
 }
 
 --- Creates a new Data instance with initialized compression state
@@ -69,9 +69,9 @@ local distBase = table.create(30, 0)
 -- Special ordering of code length codes used in dynamic Huffman trees
 -- stylua: ignore
 local clcIndex = {
-    16, 17, 18, 0, 8, 7, 9, 6,
-    10, 5, 11, 4, 12, 3, 13, 2,
-    14, 1, 15
+	16, 17, 18, 0, 8, 7, 9, 6,
+	10, 5, 11, 4, 12, 3, 13, 2,
+	14, 1, 15,
 }
 
 -- Tree used for decoding code lengths in dynamic blocks
