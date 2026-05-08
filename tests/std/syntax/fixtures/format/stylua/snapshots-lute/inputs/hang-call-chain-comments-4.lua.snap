@@ -1,4 +1,5 @@
 -- https://github.com/JohnnyMorganz/StyLua/issues/873
+
 x = a.b -- comment
 {
 	y,

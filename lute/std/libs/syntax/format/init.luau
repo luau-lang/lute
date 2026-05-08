@@ -693,7 +693,11 @@ local function shouldBreakBefore(previous: FormatToken?, current: FormatToken): 
 		return false
 	end
 
-	if current.text == "end" and previous.role == "functionParamsClose" and not previous.multilineClose then
+	if
+		current.text == "end"
+		and (previous.role == "functionParamsClose" or previous.role == "functionReturnAnnotationEnd")
+		and not previous.multilineClose
+	then
 		return false
 	end
 
@@ -857,7 +861,7 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 		local functionBodyEnd = if token.role == "functionEnd" then functionBodyStack[#functionBodyStack] else nil
 		local closesInlineEmptyFunction = token.text == "end"
 			and previous ~= nil
-			and previous.role == "functionParamsClose"
+			and (previous.role == "functionParamsClose" or previous.role == "functionReturnAnnotationEnd")
 			and not previous.multilineClose
 		if closesInlineEmptyFunction then
 			functionBodyEnd = nil

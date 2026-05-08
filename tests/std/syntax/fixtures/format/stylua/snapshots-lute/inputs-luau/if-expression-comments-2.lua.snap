@@ -8,7 +8,7 @@ context:reportError(("Required input field %s.%s cannot be deprecated."):format(
 	getDeprecatedNode((field :: InputField).astNode),
 	if field.astNode ~= nil
 	-- ROBLOX FUNTIME START: Luau
-	then (field :: any).astNode.type
+		then (field :: any).astNode.type
 -- ROBLOX FUNTIME END
 else nil,
 })

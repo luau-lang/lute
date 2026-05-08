@@ -12,4 +12,4 @@ x -- string
 -- string
 ]
 
-local x = foo[index--[[comment]]]
+local x = foo[index --[[comment]]]

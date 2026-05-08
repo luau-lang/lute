@@ -62,6 +62,14 @@ test.suite("SyntaxFormat", function(suite)
 		)
 	end)
 
+	suite:case("keepsTypedEmptyFunctionInline", function(assert)
+		checkFormat(
+			assert,
+			"function value(): number end",
+			"function value(): number end\n"
+		)
+	end)
+
 	suite:case("preservesComments", function(assert)
 		checkFormat(assert, "-- comment\nlocal x=1", "-- comment\nlocal x = 1\n")
 	end)

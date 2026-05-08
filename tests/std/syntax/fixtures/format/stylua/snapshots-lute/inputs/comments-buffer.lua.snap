@@ -7,6 +7,7 @@ local expr_result = 1 + 2 + 3 + 4 + 5 --a comment
 
 print "text" --a comment
 foo{ bar = baz } -- comment
+
 for foo, -- test
 bar in
 next, -- comment
@@ -19,7 +20,7 @@ end
 
 if code == 9 -- \t
 	or code == 32 -- <space>
-then
+		then
 	print(code)
 end
 

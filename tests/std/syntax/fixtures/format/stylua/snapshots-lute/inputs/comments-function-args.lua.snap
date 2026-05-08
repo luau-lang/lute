@@ -18,6 +18,7 @@ bar -- comment
 )
 
 foo(baz, bar) -- comment
+
 foo(
 	-- comment
 	baz,

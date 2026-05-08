@@ -9,12 +9,12 @@ local scale = if someReallyReallyLongFunctionNameThatForcesTheConditionToSpanMul
 local thing = makeSomething("Foo", {
 	OneChild = if someFlag() then
 		makeSomething("Bar", {
-		scale = 1,
-	})
+			scale = 1,
+		})
 		else
-		makeSomething("Bar", {
-		scale = 2,
-	}),
+			makeSomething("Bar", {
+				scale = 2,
+			}),
 	TwoChild = makeSomething("Baz"),
 })
 
@@ -34,14 +34,14 @@ local scale = if someFlag() then 1 elseif someOtherFlag() then 0.5 else 2
 local thing = makeSomething("Foo", {
 	OneChild = if someFlag()
 		then makeSomething("Bar", {
-		scale = 1,
-	})
+			scale = 1,
+		})
 		elseif someOtherFlag() then makeSomething("Bar", {
-		scale = 0.5,
-	})
+			scale = 0.5,
+		})
 		else makeSomething("Bar", {
-		scale = 2,
-	}),
+			scale = 2,
+		}),
 	TwoChild = makeSomething("Baz"),
 })
 do

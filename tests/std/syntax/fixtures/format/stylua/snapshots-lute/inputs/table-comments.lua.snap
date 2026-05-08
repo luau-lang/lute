@@ -10,8 +10,8 @@ local foo = {
 }
 
 local x = { -- comment
-hello = "world",
-foo = "bar",
+	hello = "world",
+	foo = "bar",
 }
 
 local foo = { -- bar
@@ -27,6 +27,7 @@ local baz = {
 local foobar = {
 	"string",
 } -- trailing comment
+
 local tbl = Roact.createElement({
 	-- comment
 	a = test,

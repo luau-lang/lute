@@ -2,7 +2,7 @@ local function findMoney()
 	for _, existingObject in pairs(workspace:GetChildren()) do
 		if
 			existingObject:GetAttribute("MoneyID") == targetCash.id
-				and existingObject.Name == targetName .. ".money"
+			and existingObject.Name == targetName .. ".money"
 		then
 			break
 		end

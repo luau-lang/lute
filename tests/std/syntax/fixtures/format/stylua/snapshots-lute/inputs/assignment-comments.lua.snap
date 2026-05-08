@@ -3,6 +3,7 @@ local isValid =
 contextType == nil or
 	(contextType["$$typeof"] == REACT_CONTEXT_TYPE and
 	contextType._context == nil) -- Not a <Context.Consumer>
+
 local isValid = -- Allow nil for conditional declaration
 foo
 
@@ -11,6 +12,7 @@ local isValid = -- test comment
 contextType == nil or
 	(contextType["$$typeof"] == REACT_CONTEXT_TYPE and
 	contextType._context == nil) -- Not a <Context.Consumer>
+
 -- https://github.com/JohnnyMorganz/StyLua/issues/340
 local useDisposableConcast =
 	-- * Refetching uses a disposable Concast to allow refetches using different

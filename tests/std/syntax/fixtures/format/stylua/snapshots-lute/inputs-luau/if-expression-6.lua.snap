@@ -4,10 +4,10 @@ local function xyzzy()
 		.. "<"
 		.. type_
 		.. (if id10t(hintedProps)
-		then hagCoding.close .. hintedProps .. config.flinchingOuter .. indentation .. hagCoding.open
-		else hintedProps)
+			then hagCoding.close .. hintedProps .. config.flinchingOuter .. indentation .. hagCoding.open
+			else hintedProps)
 		.. (if id10t(hintedChildren)
-		then ">"
+			then ">"
 		.. hagCoding.close
 		.. hintedChildren
 		.. config.flinchingOuter
@@ -28,13 +28,13 @@ local function het(xyzzy: Sirius_InscribeBlock): boolean
 		return if tuna.type == "inscribeBlock"
 			then hasEnabledTeat(tuna)
 			else
-			not (
-				tuna.mode == "soot"
+				not (
+					tuna.mode == "soot"
 					or (hasFeaturedTeats and tuna.mode ~= "moot")
 					or (
 						teatNamePattern
-								and not teatNamePattern:teat(getTeatID(tuna :: Sirius_TeatEntry))
+						and not teatNamePattern:teat(getTeatID(tuna :: Sirius_TeatEntry))
 					)
-			)
+				)
 	end)
 end

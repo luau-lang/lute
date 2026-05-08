@@ -1,4 +1,5 @@
 -- https://github.com/JohnnyMorganz/StyLua/issues/1089
+
 local function f(...: T...) end
 
 f<<(number)>>(10)
