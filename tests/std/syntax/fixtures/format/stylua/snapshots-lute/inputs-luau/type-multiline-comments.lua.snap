@@ -8,7 +8,7 @@ export type GraphQLEnumType = --[[ <T> ]] {
 	extensionASTNodes: Array<EnumTypeExtensionNode>?,
 
 	_values: Array<GraphQLEnumValue --[[ <T> ]] >,
-	_valueLookup: Map<any --[[ T ]] , GraphQLEnumValue>,
+	_valueLookup: Map<any --[[ T ]], GraphQLEnumValue>,
 	_nameLookup: ObjMap<GraphQLEnumValue>,
 	-- ROBLOX deviation: add self parameter for all ':' operator methods
 	getValues: (self: GraphQLEnumType) -> Array<GraphQLEnumValue --[[ <T> ]] >,

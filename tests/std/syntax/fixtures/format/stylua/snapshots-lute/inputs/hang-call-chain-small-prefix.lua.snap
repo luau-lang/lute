@@ -1,12 +1,12 @@
 -- https://github.com/JohnnyMorganz/StyLua/issues/514
 local function escape(str)
-	return (str:gsub("\\", "\\\\"):gsub("(%c)%f[0-9]", longControlCharEscapesssssssssssssssssssss):gsub("%c", shortControlCharEscapes))
+	return str:gsub("\\", "\\\\"):gsub("(%c)%f[0-9]", longControlCharEscapesssssssssssssssssssss):gsub("%c", shortControlCharEscapes)
 end
 
 do
 	function dec(data)
 		data = string.gsub(data, "[^" .. chars .. "=]", "")
-		return (data:gsub(".", function(x)
+		return data:gsub(".", function(x)
 			if (x == "=") then
 				return ""
 			end
@@ -24,6 +24,6 @@ do
 				c = c + (x:sub(i, i) == "1" and 2 ^ (8 - i) or 0)
 			end
 			return string.char(c)
-		end))
+		end)
 	end
 end

@@ -1,13 +1,13 @@
-if (foo) then
+if foo then
 	print("true")
-elseif (bar) then
+elseif bar then
 	print("false")
 end
 
-while (foo) do
+while foo do
 	print("true")
 end
 
 repeat
 	print("yes")
-until (foo)
+until foo

@@ -182,6 +182,14 @@ test.suite("SyntaxFormat", function(suite)
 		)
 	end)
 
+	suite:case("movesTypeUnionContinuationAfterLineComment", function(assert)
+		checkFormat(
+			assert,
+			"type Kind =\n\t\"Name\" |\n\t-- Document\n\t\"Document\"",
+			"type Kind =\n\t\"Name\"\n\t-- Document\n\t| \"Document\"\n"
+		)
+	end)
+
 	suite:case("formatsUnaryMinusInIfExpression", function(assert)
 		checkFormat(
 			assert,
@@ -294,6 +302,14 @@ test.suite("SyntaxFormat", function(suite)
 		)
 	end)
 
+	suite:case("indentsAfterContinuationComment", function(assert)
+		checkFormat(
+			assert,
+			"local value =\n-- comment\nfoo",
+			"local value =\n\t-- comment\n\tfoo\n"
+		)
+	end)
+
 	suite:case("formatsMultilineTableArgumentInIfExpression", function(assert)
 		checkFormat(
 			assert,
@@ -334,12 +350,24 @@ test.suite("SyntaxFormat", function(suite)
 		)
 	end)
 
+	suite:case("doesNotSpaceBlockCommentBeforeComma", function(assert)
+		checkFormat(
+			assert,
+			"call(value --[[ cast ]], next)",
+			"call(value --[[ cast ]], next)\n"
+		)
+	end)
+
 	suite:case("keepsSpaceBeforeComputedReadProperty", function(assert)
 		checkFormat(
 			assert,
 			'export type Range = { read ["end"]: number }',
 			'export type Range = { read ["end"]: number }\n'
 		)
+	end)
+
+	suite:case("removesSimpleExpressionGroupParens", function(assert)
+		checkFormat(assert, "local foo = (bar)\nreturn (foo())", "local foo = bar\nreturn foo()\n")
 	end)
 
 	for _, fixture in collectStyluaFixtures() do

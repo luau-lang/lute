@@ -291,6 +291,49 @@ local function tokenHasLeadingNewline(token): boolean
 	return false
 end
 
+local function tokenHasCommentTrivia(token): boolean
+	if token == nil then
+		return false
+	end
+
+	for _, trivia in token.leadingTrivia do
+		if trivia.tag == "comment" or trivia.tag == "blockcomment" then
+			return true
+		end
+	end
+
+	for _, trivia in token.trailingTrivia do
+		if trivia.tag == "comment" or trivia.tag == "blockcomment" then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function canRemoveGroupParens(node): boolean
+	local expression = node.expression
+	if expression == nil or expression.kind ~= "expr" then
+		return false
+	end
+
+	if tokenHasCommentTrivia(node.openParens) or tokenHasCommentTrivia(node.closeParens) then
+		return false
+	end
+
+	return expression.tag == "nil"
+		or expression.tag == "boolean"
+		or expression.tag == "number"
+		or expression.tag == "string"
+		or expression.tag == "local"
+		or expression.tag == "global"
+		or expression.tag == "vararg"
+		or expression.tag == "call"
+		or expression.tag == "instantiate"
+		or expression.tag == "indexname"
+		or expression.tag == "index"
+end
+
 local function collectReplacementItems(parseResult, roles, trailingCommas)
 	local items = {}
 	local collect = visitor.create()
@@ -330,6 +373,14 @@ local function collectReplacementItems(parseResult, roles, trailingCommas)
 		return true
 	end
 
+	collect.visitExprGroup = function(node)
+		if canRemoveGroupParens(node) then
+			mark(roles, node.openParens, "skip")
+			mark(roles, node.closeParens, "skip")
+		end
+		return true
+	end
+
 	collect.visitStatTypeAlias = function(node)
 		markGenerics(roles, node)
 		return true
@@ -350,6 +401,22 @@ local function collectReplacementItems(parseResult, roles, trailingCommas)
 
 		for _, entry in node.entries do
 			mark(roles, entry.colon, "typeColon")
+		end
+		return true
+	end
+
+	collect.visitTypeUnion = function(node)
+		mark(roles, node.leading, "typeContinuationOperator")
+		for _, typeNode in node.types do
+			mark(roles, typeNode.separator, "typeContinuationOperator")
+		end
+		return true
+	end
+
+	collect.visitTypeIntersection = function(node)
+		mark(roles, node.leading, "typeContinuationOperator")
+		for _, typeNode in node.types do
+			mark(roles, typeNode.separator, "typeContinuationOperator")
 		end
 		return true
 	end
@@ -489,6 +556,39 @@ local function buildFormatTokens(parseResult): { FormatToken }
 			nextToken.leadingNewlines = 0
 			tokens[index] = nextToken
 			tokens[index + 1] = token
+		elseif token.role == "typeContinuationOperator" and nextToken.kind == "commentLine" and nextToken.leadingNewlines > 0 then
+			local afterComment = tokens[index + 2]
+			token.leadingNewlines = 0
+			if afterComment ~= nil then
+				afterComment.leadingNewlines = 0
+			end
+			tokens[index] = nextToken
+			tokens[index + 1] = token
+		end
+	end
+
+	local removableGroupOpenStack = {}
+	for index, token in tokens do
+		if token.role == "skip" and token.text == "(" then
+			table.insert(removableGroupOpenStack, token)
+		elseif token.role == "skip" and token.text == ")" then
+			local openToken = table.remove(removableGroupOpenStack)
+			local nextToken = tokens[index + 1]
+			if
+				nextToken ~= nil
+				and (
+					nextToken.text == "."
+					or nextToken.text == ":"
+					or nextToken.text == "["
+					or nextToken.text == "("
+					or nextToken.role == "genericOpen"
+				)
+			then
+				token.role = nil
+				if openToken ~= nil then
+					openToken.role = nil
+				end
+			end
 		end
 	end
 
@@ -528,6 +628,10 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 		or (current.role == "functionReturnAnnotationEnd" and currentText == ">")
 
 	if previous.kind == "commentBlock" and CLOSERS[currentText] then
+		return false
+	end
+
+	if previous.kind == "commentBlock" and (currentText == "," or currentText == ";") then
 		return false
 	end
 
@@ -828,6 +932,12 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 	end
 
 	local function writeNode(token: FormatToken)
+		if token.role == "skip" then
+			replacements[token.node] = { content = pending, preserveTrivia = false }
+			pending = ""
+			return
+		end
+
 		if token.text == "" then
 			if line ~= "" then
 				newline(1)
@@ -913,6 +1023,8 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			and (token.text == "and" or token.text == "or" or (BINARY_OPERATORS[token.text] and not token.unary))
 		then
 			appendText(indentation() .. INDENT)
+		elseif line == "" and token.kind == "commentLine" and nextToken ~= nil and nextToken.role == "typeContinuationOperator" then
+			appendText(indentation() .. INDENT)
 		elseif shouldBreakBefore(previous, token) then
 			local previousLineIndent = lineIndentLevel()
 			local previousLine = line
@@ -931,6 +1043,8 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 				appendText(string.rep(INDENT, previousLineIndent + 1))
 			elseif line == "" and token.text == "then" and previous ~= nil and previous.kind == "commentLine" then
 				appendText(string.rep(INDENT, previousLineIndent + 1))
+			elseif line == "" and token.kind == "commentLine" and nextToken ~= nil and nextToken.role == "typeContinuationOperator" then
+				appendText(string.rep(INDENT, previousLineIndent))
 			elseif
 				line == ""
 				and previous ~= nil
@@ -1106,6 +1220,15 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 					and commentCodeLine:match("^%s*return%f[%W]") ~= nil
 				then
 					commentContinuationIndent = breakLineIndent + 1
+				elseif
+					token.leadingNewlines > 0
+					and breakLineIndent > indent
+					and not isClosingBlockToken(nextToken)
+					and not isMiddleBlockToken(nextToken)
+					and nextToken.role ~= "tableClose"
+					and nextToken.role ~= "genericClose"
+				then
+					commentContinuationIndent = breakLineIndent
 				end
 			end
 			newline(breakNewlines or (nextToken and nextToken.leadingNewlines or 1))

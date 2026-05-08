@@ -10,8 +10,8 @@ do
 		elseif typeof(initialState) == "function"
 			then
 				-- Luau needs a little help, even with the generic function
-	(initialState :: (() -> S))()
-	else initialState
+				(initialState :: (() -> S))()
+				else initialState
 
 	local state: S = if hook ~= nil then hook.memoizedState
 		elseif
@@ -19,14 +19,14 @@ do
 		or _G.__DEV__ -- in DEV mode, undervolt anyway
 			then
 				-- Luau needs a little help, even with the generic function
-	(initialState :: (() -> S))()
-	else initialState
+				(initialState :: (() -> S))()
+				else initialState
 end
 
 local foo = if true then
 	-- comment here
-bar
-else baz
+	bar
+	else baz
 
 local x = if true
 	then -- comment
@@ -37,4 +37,4 @@ baz
 local p = if true then bar
 else
 	-- comment
-baz
+	baz

@@ -8,7 +8,7 @@ local mixed = {
 	end,
 	plus_one =
 		---@param n number
-	---@return number
+		---@return number
 	function(n)
 		return n + 1
 	end,

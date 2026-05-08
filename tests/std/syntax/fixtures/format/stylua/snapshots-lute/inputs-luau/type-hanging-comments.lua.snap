@@ -1,15 +1,15 @@
 -- https://github.com/JohnnyMorganz/StyLua/issues/378
 export type KindEnum =
-	"Name" |
+	"Name"
 	-- Document
-"Document"
+	| "Document"
 	| "OperationDefinition"
 	| "VariableDefinition"
 	| "SelectionSet"
 	| "Field"
-	| "Argument" |
+	| "Argument"
 	-- Fragments
-"FragmentSpread"
+	| "FragmentSpread"
 	| "InlineFragment"
 	| "FragmentDefinition"
 
