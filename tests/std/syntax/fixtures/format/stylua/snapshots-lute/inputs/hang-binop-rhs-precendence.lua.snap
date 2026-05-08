@@ -18,7 +18,7 @@ do
 						do
 							function Venue:inspectElectrics(inspectElectricParams)
 								local id, pedal, fendererID =
-								inspectElectricParams.id,
+									inspectElectricParams.id,
 								inspectElectricParams.pedal,
 								inspectElectricParams.rendererID
 								local fenderer = self._fendererInterfaces[fendererID]

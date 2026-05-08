@@ -88,6 +88,8 @@ type FormatToken = {
 	unary: boolean?,
 	trailingCommaAfter: boolean?,
 	multilineClose: boolean?,
+	dedentedBefore: boolean?,
+	functionBodyStartedBefore: boolean?,
 }
 
 type Replacement = {
@@ -614,7 +616,14 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 			return true
 		end
 
-		if BINARY_OPERATORS[previousText] or previous.kind == "keyword" then
+		if
+			BINARY_OPERATORS[previousText]
+			or previousText == "return"
+			or previousText == "then"
+			or previousText == "else"
+			or previousText == "do"
+			or previousText == "not"
+		then
 			return true
 		end
 
@@ -753,9 +762,12 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 		indent = endIndent + 1
 	end
 
-	local function hasCurrentFunctionBody(): boolean
-		local functionBody = functionBodyStack[#functionBodyStack]
-		return functionBody ~= nil and functionBody.targetDepth == blockDepth
+	local function isContinuationOperator(token: FormatToken): boolean
+		if token.unary or not BINARY_OPERATORS[token.text] then
+			return false
+		end
+
+		return token.role ~= "genericClose" and token.role ~= "functionReturnAnnotationEnd"
 	end
 
 	local function appendText(text: string)
@@ -846,6 +858,7 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			(isClosingBlockToken(token) or isMiddleBlockToken(token))
 				and token.role ~= "ifExpressionKeyword"
 				and not closesInlineEmptyFunction
+				and not token.dedentedBefore
 				and (line == "" or shouldBreakBefore(previous, token))
 		then
 			if functionBodyEnd ~= nil then
@@ -862,6 +875,11 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 
 		if (token.text == "}" or token.text == "]" or token.role == "genericClose") and token.leadingNewlines > 0 then
 			indent = math.max(indent - 1, 0)
+		end
+
+		if token.kind == "commentLine" and nextToken ~= nil and isMiddleBlockToken(nextToken) then
+			indent = math.max(indent - 1, 0)
+			nextToken.dedentedBefore = true
 		end
 
 		if line == "" and previous ~= nil and previous.kind == "commentLine" and (token.text == "." or token.text == ":") then
@@ -891,6 +909,8 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			elseif line == "" and (token.text == "and" or token.text == "or" or (BINARY_OPERATORS[token.text] and not token.unary)) and previous ~= nil then
 				local continuationIndent = if token.text == "and" then INDENT .. INDENT else INDENT
 				appendText(indentation() .. continuationIndent)
+			elseif line == "" and previous ~= nil and isContinuationOperator(previous) then
+				appendText(indentation() .. INDENT)
 			end
 		elseif needsSpace(previous, token) then
 			writeSpace()
@@ -915,6 +935,7 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			startFunctionBody()
 			newline(nextToken.leadingNewlines)
 			nextToken.leadingNewlines = 0
+			nextToken.functionBodyStartedBefore = true
 		end
 
 		if
@@ -922,7 +943,7 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 				and previous ~= nil
 				and (previous.role == "functionParamsClose" or previous.role == "functionReturnAnnotationEnd")
 				and token.leadingNewlines == 0
-				and not hasCurrentFunctionBody()
+				and not token.functionBodyStartedBefore
 		then
 			startFunctionBody()
 		end
@@ -961,6 +982,7 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 					openedFunctionBody = true
 					newline(nextToken.leadingNewlines)
 					nextToken.leadingNewlines = 0
+					nextToken.functionBodyStartedBefore = true
 				end
 			end
 		end

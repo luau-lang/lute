@@ -1,5 +1,5 @@
 export type GraphQLInputType =
-GraphQLScalarType
+	GraphQLScalarType
 	| GraphQLEnumType
 	| GraphQLInputObjectType
 	| GraphQLList<GraphQLScalarType | GraphQLEnumType | GraphQLInputObjectType | GraphQLList<any> | GraphQLNonNull<GraphQLScalarType | GraphQLEnumType | GraphQLInputObjectType | GraphQLList<GraphQLScalarType | GraphQLEnumType | GraphQLInputObjectType | GraphQLList<any> | GraphQLNonNull<GraphQLScalarType | GraphQLEnumType | GraphQLInputObjectType>>>>

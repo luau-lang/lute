@@ -1,7 +1,7 @@
 if true then
-	-- foo
+-- foo
 elseif bar then
-	-- bar
+-- bar
 else
 	-- baz
 end

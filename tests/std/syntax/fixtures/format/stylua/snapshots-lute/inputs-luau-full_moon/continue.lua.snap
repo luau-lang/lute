@@ -3,5 +3,5 @@ while true do
 	continue
 end
 
-continue ()
+continue()
 local continue = 4

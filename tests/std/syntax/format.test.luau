@@ -106,6 +106,50 @@ test.suite("SyntaxFormat", function(suite)
 		)
 	end)
 
+	suite:case("doesNotSpaceRegularCalls", function(assert)
+		checkFormat(assert, 'if type(value) == "string" then\nreturn true\nend', 'if type(value) == "string" then\n\treturn true\nend\n')
+	end)
+
+	suite:case("formatsMultilineCallbackBody", function(assert)
+		checkFormat(
+			assert,
+			"return query:mapToArray(\nfunction(\nn: Node\n): Result -- inline\nlocal value=n\nreturn value\nend\n)",
+			"return query:mapToArray(\n\tfunction(\n\t\tn: Node\n\t): Result -- inline\n\t\tlocal value = n\n\t\treturn value\n\tend\n)\n"
+		)
+	end)
+
+	suite:case("formatsNestedMultilineCallbackBody", function(assert)
+		checkFormat(
+			assert,
+			"local function lint()\nreturn query:mapToArray(\nfunction(\nn: Node\n): Result -- inline\nlocal value=n\nreturn value\nend\n)\nend",
+			"local function lint()\n\treturn query:mapToArray(\n\t\tfunction(\n\t\t\tn: Node\n\t\t): Result -- inline\n\t\t\tlocal value = n\n\t\t\treturn value\n\t\tend\n\t)\nend\n"
+		)
+	end)
+
+	suite:case("formatsContinuationAfterAssignment", function(assert)
+		checkFormat(
+			assert,
+			"content =\nself:extract(value)",
+			"content =\n\tself:extract(value)\n"
+		)
+	end)
+
+	suite:case("doesNotContinueAfterGenericClose", function(assert)
+		checkFormat(
+			assert,
+			"local first: Array<string>\nlocal second: Map<number, string>",
+			"local first: Array<string>\nlocal second: Map<number, string>\n"
+		)
+	end)
+
+	suite:case("alignsCommentBeforeElseif", function(assert)
+		checkFormat(
+			assert,
+			"if type(key) ~= \"number\" then\nreturn false\nelseif key <= 0 then\nreturn false\n-- userdatas arent primitives\nelseif not primitive then\nreturn false\nend",
+			"if type(key) ~= \"number\" then\n\treturn false\nelseif key <= 0 then\n\treturn false\n-- userdatas arent primitives\nelseif not primitive then\n\treturn false\nend\n"
+		)
+	end)
+
 	suite:case("formatsChainAfterInlineComment", function(assert)
 		checkFormat(
 			assert,
