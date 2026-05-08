@@ -285,49 +285,102 @@ local function makeComparator(op: "=" | ">" | ">=" | "<" | "<=", v: Version): Co
 	return table.freeze({ op = op, version = v })
 end
 
+-- Expand partial-wildcard constraint: X.* / X.x / X.X → >=X.0.0 <(X+1).0.0
+--                                      X.Y.* / X.Y.x / X.Y.X → >=X.Y.0 <X.(Y+1).0
+-- Returns nil if `s` is not a wildcard pattern.
+local function expandWildcard(s: string): Constraint?
+	-- X.* or X.x or X.X — also handles X.*.* trailing double-wildcard
+	local majorStr = s:match("^(%d+)%.[*xX]$") or s:match("^(%d+)%.[*xX]%.[*xX]$")
+	if majorStr then
+		local major = tonumber(majorStr) :: number
+		return table.freeze({
+			makeComparator(">=", makeVersion(major, 0, 0)),
+			makeComparator("<", makeVersion(major + 1, 0, 0)),
+		})
+	end
+
+	-- X.Y.* or X.Y.x or X.Y.X
+	local majorStr2, minorStr = s:match("^(%d+)%.(%d+)%.[*xX]$")
+	if majorStr2 then
+		local major = tonumber(majorStr2) :: number
+		local minor = tonumber(minorStr) :: number
+		return table.freeze({
+			makeComparator(">=", makeVersion(major, minor, 0)),
+			makeComparator("<", makeVersion(major, minor + 1, 0)),
+		})
+	end
+
+	return nil
+end
+
 -- Expand caret constraint per npm semver semantics.
 local function expandCaret(s: string): Constraint
-	local major, minor, patch = parsePartialVersion(s)
+	-- Try a full version parse first to support pre-release lower bounds (e.g. ^1.4.2-beta.5).
+	local loFull = tryParse(s)
+	local major: number
+	local minor: number?
+	local patch: number?
+	local lo: Version
+
+	if loFull ~= nil then
+		major = loFull.major
+		minor = loFull.minor
+		patch = loFull.patch
+		lo = loFull
+	else
+		major, minor, patch = parsePartialVersion(s)
+		lo = makeVersion(major, minor or 0, patch or 0)
+	end
 
 	if major > 0 then
-		-- ^X.Y.Z -> >=X.Y.Z <X+1.0.0
-		local lo = makeVersion(major, minor or 0, patch or 0)
-		local hi = makeVersion(major + 1, 0, 0)
-		return table.freeze({ makeComparator(">=", lo), makeComparator("<", hi) })
+		-- ^X.Y.Z[-pre] -> >=lo <(X+1).0.0
+		return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(major + 1, 0, 0)) })
 	end
 
 	if minor ~= nil and minor > 0 then
-		-- ^0.Y.Z -> >=0.Y.Z <0.Y+1.0
-		local lo = makeVersion(0, minor, patch or 0)
-		local hi = makeVersion(0, minor + 1, 0)
-		return table.freeze({ makeComparator(">=", lo), makeComparator("<", hi) })
+		-- ^0.Y.Z[-pre] -> >=lo <0.(Y+1).0
+		return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(0, minor + 1, 0)) })
 	end
 
 	if patch ~= nil then
+		if loFull ~= nil and #loFull.prerelease > 0 then
+			-- ^0.0.Z-pre -> >=lo <0.0.(Z+1)
+			return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(0, 0, patch + 1)) })
+		end
 		-- ^0.0.Z -> =0.0.Z
-		local exact = makeVersion(0, 0, patch)
-		return table.freeze({ makeComparator("=", exact) })
+		return table.freeze({ makeComparator("=", lo) })
 	end
 
 	if minor ~= nil then
-		-- ^0.0 (minor present but zero, no patch) -> >=0.0.0 <0.1.0
-		local lo = makeVersion(0, 0, 0)
-		local hi = makeVersion(0, 1, 0)
-		return table.freeze({ makeComparator(">=", lo), makeComparator("<", hi) })
+		-- ^0.0 -> >=0.0.0 <0.1.0
+		return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(0, 1, 0)) })
 	end
 
-	-- ^0 (major only, zero) -> >=0.0.0 <1.0.0
-	local lo = makeVersion(0, 0, 0)
-	local hi = makeVersion(1, 0, 0)
-	return table.freeze({ makeComparator(">=", lo), makeComparator("<", hi) })
+	-- ^0 -> >=0.0.0 <1.0.0
+	return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(1, 0, 0)) })
 end
 
--- Expand tilde constraint: ~X.Y.Z -> >=X.Y.Z <X.Y+1.0
+-- Expand tilde constraint: ~X.Y.Z[-pre] -> >=lo <X.(Y+1).0
 local function expandTilde(s: string): Constraint
-	local major, minor, patch = parsePartialVersion(s)
+	-- Try a full version parse first to support pre-release lower bounds (e.g. ~1.2.3-beta.2).
+	local loFull = tryParse(s)
+	local major: number
+	local minor: number?
+	local lo: Version
 
-	local lo = makeVersion(major, minor or 0, patch or 0)
-	local hi = if minor then makeVersion(major, minor + 1, 0) else makeVersion(major + 1, 0, 0)
+	if loFull ~= nil then
+		major = loFull.major
+		minor = loFull.minor
+		lo = loFull
+	else
+		local patch: number?
+		major, minor, patch = parsePartialVersion(s)
+		lo = makeVersion(major, minor or 0, patch or 0)
+	end
+
+	local hi = if minor ~= nil
+		then makeVersion(major, minor + 1, 0)
+		else makeVersion(major + 1, 0, 0)
 
 	return table.freeze({ makeComparator(">=", lo), makeComparator("<", hi) })
 end
