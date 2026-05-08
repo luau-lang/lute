@@ -1,9 +1,9 @@
 # StyLua Snapshot Comparison
 
 Active copied fixtures: 229
-Exact matches against available StyLua snapshots: 83
+Exact matches against available StyLua snapshots: 84
 Active fixtures without a located StyLua snapshot: 0
-Known exact mismatches: 146
+Known exact mismatches: 145
 
 The Lute formatter snapshots in `snapshots-lute` are the enforced goldens for this repository.
 The exact-match count normalizes trailing file terminators and is tracked separately because Lute has fixed policy and does not expose StyLua configuration modes.
@@ -80,7 +80,6 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/number.lua`
 - `inputs/punctuated-comments.lua`
 - `inputs/return-comments-1.lua`
-- `inputs/return-comments-2.lua`
 - `inputs/return-hanging-expression-2.lua`
 - `inputs/return-hanging-expression-3.lua`
 - `inputs/return-hanging-expression.lua`
@@ -110,5 +109,6 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs-luau/attributes-3.lua`
 - `inputs-luau/excess-parentheses-type-pack-default.lua`
 - `inputs-luau/excess-parentheses.lua`
+- `inputs-luau/function-call-comments-1.lua`
 
-...and 46 more.
+...and 45 more.

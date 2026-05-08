@@ -238,6 +238,62 @@ test.suite("SyntaxFormat", function(suite)
 		)
 	end)
 
+	suite:case("indentsAfterInlineCommentInCall", function(assert)
+		checkFormat(
+			assert,
+			'foo( -- inline\n"bar"\n)',
+			'foo( -- inline\n\t"bar"\n)\n'
+		)
+	end)
+
+	suite:case("indentsAfterInlineCommentedCallComma", function(assert)
+		checkFormat(
+			assert,
+			'foo("first", -- inline\n"second")',
+			'foo("first", -- inline\n\t"second")\n'
+		)
+	end)
+
+	suite:case("doesNotOverindentMultilineCommentedCallComma", function(assert)
+		checkFormat(
+			assert,
+			"foo(\n\tfirst, -- inline\n\tsecond\n)",
+			"foo(\n\tfirst, -- inline\n\tsecond\n)\n"
+		)
+	end)
+
+	suite:case("doesNotOverindentNestedCallCommentedComma", function(assert)
+		checkFormat(
+			assert,
+			"foo(\n\tnested(bar), -- inline\n\tbaz\n)",
+			"foo(\n\tnested(bar), -- inline\n\tbaz\n)\n"
+		)
+	end)
+
+	suite:case("doesNotOverindentLeadingCommentInCall", function(assert)
+		checkFormat(
+			assert,
+			"foo(\n\t-- leading\n\tbar\n)",
+			"foo(\n\t-- leading\n\tbar\n)\n"
+		)
+	end)
+
+	suite:case("doesNotOverindentTableFieldCommentInCall", function(assert)
+		checkFormat(
+			assert,
+			"foo({\n\tfirst = bar(), -- inline\n\tsecond = baz(), -- inline\n})",
+			"foo({\n\tfirst = bar(), -- inline\n\tsecond = baz(), -- inline\n})\n"
+		)
+	end)
+
+	suite:case("indentsAfterInlineCommentedReturnComma", function(assert)
+		checkFormat(
+			assert,
+			"return foo, -- inline\nbar",
+			"return foo, -- inline\n\tbar\n"
+		)
+	end)
+
 	suite:case("formatsMultilineTableArgumentInIfExpression", function(assert)
 		checkFormat(
 			assert,

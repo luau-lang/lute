@@ -7,10 +7,10 @@ print({ foo_variable = "somenge", foo_variable = "malue", foo_variable = "alueee
 -- but not if there is a comment present
 
 foo( -- test
-{ bar })
+	{ bar })
 
 foo( -- test
-{
-	bar,
-}
+	{
+		bar,
+	}
 )

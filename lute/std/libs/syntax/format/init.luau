@@ -1051,6 +1051,15 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 		local breakAfter, breakNewlines = shouldBreakAfter(token, nextToken)
 		if breakAfter then
 			local breakLineIndent = lineIndentLevel()
+			local breakLine = line
+			local commentCodeLine = if token.kind == "commentLine"
+				then breakLine:sub(1, math.max(#breakLine - #token.text, 0))
+				else breakLine
+			local isInlineComment = token.kind == "commentLine" and token.leadingNewlines == 0 and commentCodeLine:match("%S") ~= nil
+			local _, openParenCount = commentCodeLine:gsub("%(", "")
+			local _, closeParenCount = commentCodeLine:gsub("%)", "")
+			local hasUnclosedLineParen = openParenCount > closeParenCount
+			local commentContinuationIndent: number? = nil
 			if
 				token.kind == "commentLine"
 				and nextToken ~= nil
@@ -1070,9 +1079,38 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 					indent = math.max(indent - 1, 0)
 				end
 			end
+			if
+				token.kind == "commentLine"
+				and nextToken ~= nil
+				and nextToken.text ~= ")"
+				and nextToken.text ~= "}"
+				and nextToken.text ~= "]"
+			then
+				if nextToken.text == "then" and nextToken.role == "ifExpressionKeyword" then
+					commentContinuationIndent = breakLineIndent + 1
+				elseif isInlineComment and previous ~= nil and previous.text == "(" then
+					commentContinuationIndent = breakLineIndent + 1
+				elseif
+					isInlineComment
+					and previous ~= nil
+					and previous.text == ","
+					and parenDepth > 0
+					and #braceIndentStack == 0
+					and hasUnclosedLineParen
+				then
+					commentContinuationIndent = breakLineIndent + 1
+				elseif
+					isInlineComment
+					and previous ~= nil
+					and previous.text == ","
+					and commentCodeLine:match("^%s*return%f[%W]") ~= nil
+				then
+					commentContinuationIndent = breakLineIndent + 1
+				end
+			end
 			newline(breakNewlines or (nextToken and nextToken.leadingNewlines or 1))
-			if token.kind == "commentLine" and nextToken ~= nil and nextToken.text == "then" and line == "" then
-				appendText(string.rep(INDENT, breakLineIndent + 1))
+			if commentContinuationIndent ~= nil and line == "" then
+				appendText(string.rep(INDENT, commentContinuationIndent))
 			end
 			if nextToken then
 				nextToken.leadingNewlines = 0

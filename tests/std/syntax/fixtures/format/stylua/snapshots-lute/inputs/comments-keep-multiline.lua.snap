@@ -1,9 +1,9 @@
 if
 	this -- foobar
-		then
+then
 elseif
 	foobar or code == 10 -- \n
-		then
+then
 	pos = 1
 	lexer.line = 1
 	lexer.lineStart = pos - 1
@@ -22,7 +22,7 @@ end
 if
 	foo
 -- comment
-	then
+then
 end
 
 while -- commend

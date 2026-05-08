@@ -1,5 +1,5 @@
 local foo_result = foo( --a comment
-"oof"
+	"oof"
 )
 
 local expr_result = 1 + 2 + 3 + 4 + 5 --a comment
@@ -14,15 +14,15 @@ next, -- comment
 value
 do
 	print("test", -- comment
-	"foo"
+		"foo"
 	)
 end
 
 if code == 9 -- \t
 	or code == 32 -- <space>
-		then
+then
 	print(code)
 end
 
 return foo, -- a comment
-bar
+	bar

@@ -1,5 +1,5 @@
 foo( -- comment
-baz
+	baz
 )
 
 foo(
