@@ -285,8 +285,9 @@ local function makeComparator(op: "=" | ">" | ">=" | "<" | "<=", v: Version): Co
 	return table.freeze({ op = op, version = v })
 end
 
--- Expand partial-wildcard constraint: X.* / X.x / X.X → >=X.0.0 <(X+1).0.0
---                                      X.Y.* / X.Y.x / X.Y.X → >=X.Y.0 <X.(Y+1).0
+-- Expand partial-wildcard constraint:
+--   X.* / X.x / X.X        ->  >=X.0.0 <(X+1).0.0
+--   X.Y.* / X.Y.x / X.Y.X  ->  >=X.Y.0 <X.(Y+1).0
 -- Returns nil if `s` is not a wildcard pattern.
 local function expandWildcard(s: string): Constraint?
 	-- X.* or X.x or X.X — also handles X.*.* trailing double-wildcard
@@ -333,34 +334,34 @@ local function expandCaret(s: string): Constraint
 	end
 
 	if major > 0 then
-		-- ^X.Y.Z[-pre] -> >=lo <(X+1).0.0
+		-- ^X.Y.Z[-pre]  ->  >=lo <(X+1).0.0
 		return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(major + 1, 0, 0)) })
 	end
 
 	if minor ~= nil and minor > 0 then
-		-- ^0.Y.Z[-pre] -> >=lo <0.(Y+1).0
+		-- ^0.Y.Z[-pre]  ->  >=lo <0.(Y+1).0
 		return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(0, minor + 1, 0)) })
 	end
 
 	if patch ~= nil then
 		if loFull ~= nil and #loFull.prerelease > 0 then
-			-- ^0.0.Z-pre -> >=lo <0.0.(Z+1)
+			-- ^0.0.Z-pre  ->  >=lo <0.0.(Z+1)
 			return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(0, 0, patch + 1)) })
 		end
-		-- ^0.0.Z -> =0.0.Z
+		-- ^0.0.Z  ->  =0.0.Z
 		return table.freeze({ makeComparator("=", lo) })
 	end
 
 	if minor ~= nil then
-		-- ^0.0 -> >=0.0.0 <0.1.0
+		-- ^0.0  ->  >=0.0.0 <0.1.0
 		return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(0, 1, 0)) })
 	end
 
-	-- ^0 -> >=0.0.0 <1.0.0
+	-- ^0  ->  >=0.0.0 <1.0.0
 	return table.freeze({ makeComparator(">=", lo), makeComparator("<", makeVersion(1, 0, 0)) })
 end
 
--- Expand tilde constraint: ~X.Y.Z[-pre] -> >=lo <X.(Y+1).0
+-- Expand tilde constraint: ~X.Y.Z[-pre]  ->  >=lo <X.(Y+1).0
 local function expandTilde(s: string): Constraint
 	-- Try a full version parse first to support pre-release lower bounds (e.g. ~1.2.3-beta.2).
 	local loFull = tryParse(s)
