@@ -361,7 +361,11 @@ end
 local function parseConstraint(s: string): Constraint
 	local trimmed = s:match("^%s*(.-)%s*$") :: string
 
-	if trimmed == "" or trimmed == "*" then
+	if trimmed == "" then
+		error(`invalid constraint: empty string`)
+	end
+
+	if trimmed == "*" then
 		return table.freeze({} :: Constraint)
 	end
 

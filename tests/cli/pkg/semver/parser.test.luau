@@ -209,9 +209,10 @@ test.suite("semver.satisfies", function(suite)
 		assert.that(parser.satisfies(parser.parse("99.99.99"), any))
 	end)
 
-	suite:case("emptyStringIsWildcard", function(assert)
-		local any = parser.parseConstraint("")
-		assert.that(parser.satisfies(parser.parse("1.2.3"), any))
+	suite:case("emptyStringIsInvalid", function(assert)
+		assert.throws(function()
+			parser.parseConstraint("")
+		end)
 	end)
 
 	suite:case("exact", function(assert)
