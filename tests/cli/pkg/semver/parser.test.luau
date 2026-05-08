@@ -388,6 +388,28 @@ test.suite("semver.satisfies", function(suite)
 		assert.eq(parser.satisfies(parser.parse("2.0.0"), c), false)
 	end)
 
+	suite:case("partialWildcardMajorStar", function(assert)
+		-- 1.* / 1.x / 1.X -> >=1.0.0 <2.0.0
+		for _, pattern in { "1.*", "1.x", "1.X" } do
+			local c = parser.parseConstraint(pattern)
+			assert.that(parser.satisfies(parser.parse("1.0.0"), c), `{pattern} should match 1.0.0`)
+			assert.that(parser.satisfies(parser.parse("1.9.9"), c), `{pattern} should match 1.9.9`)
+			assert.eq(parser.satisfies(parser.parse("2.0.0"), c), false, `{pattern} should not match 2.0.0`)
+			assert.eq(parser.satisfies(parser.parse("0.9.9"), c), false, `{pattern} should not match 0.9.9`)
+		end
+	end)
+
+	suite:case("partialWildcardPatchStar", function(assert)
+		-- 1.2.* / 1.2.x / 1.2.X -> >=1.2.0 <1.3.0
+		for _, pattern in { "1.2.*", "1.2.x", "1.2.X" } do
+			local c = parser.parseConstraint(pattern)
+			assert.that(parser.satisfies(parser.parse("1.2.0"), c), `{pattern} should match 1.2.0`)
+			assert.that(parser.satisfies(parser.parse("1.2.9"), c), `{pattern} should match 1.2.9`)
+			assert.eq(parser.satisfies(parser.parse("1.3.0"), c), false, `{pattern} should not match 1.3.0`)
+			assert.eq(parser.satisfies(parser.parse("1.1.9"), c), false, `{pattern} should not match 1.1.9`)
+		end
+	end)
+
 	suite:case("tildeMajorOnly", function(assert)
 		-- ~1 -> >=1.0.0 <2.0.0
 		local c = parser.parseConstraint("~1")

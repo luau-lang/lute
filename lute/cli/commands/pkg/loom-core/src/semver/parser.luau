@@ -430,6 +430,11 @@ local function parseConstraint(s: string): Constraint
 		return expandTilde(trimmed:sub(2))
 	end
 
+	local wildcard = expandWildcard(trimmed)
+	if wildcard ~= nil then
+		return wildcard
+	end
+
 	-- Space-separated comparators (AND)
 	local comparators: Constraint = {}
 	for token in trimmed:gmatch("%S+") do
