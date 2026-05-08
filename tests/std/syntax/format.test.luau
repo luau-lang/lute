@@ -66,6 +66,10 @@ test.suite("SyntaxFormat", function(suite)
 		checkFormat(assert, "-- comment\nlocal x=1", "-- comment\nlocal x = 1\n")
 	end)
 
+	suite:case("preservesBlankLineAfterComment", function(assert)
+		checkFormat(assert, "-- section\n\nlocal x=1", "-- section\n\nlocal x = 1\n")
+	end)
+
 	suite:case("formatsMultilineFunctionBody", function(assert)
 		checkFormat(
 			assert,
@@ -183,6 +187,94 @@ test.suite("SyntaxFormat", function(suite)
 			assert,
 			"local value = if condition\nthen foo\nelse bar",
 			"local value = if condition\n\tthen foo\n\telse bar\n"
+		)
+	end)
+
+	suite:case("formatsMultilineIfAndCondition", function(assert)
+		checkFormat(
+			assert,
+			"if foo\nand bar\nand baz then\nprint(foo)\nend",
+			"if foo\n\tand bar\n\tand baz then\n\tprint(foo)\nend\n"
+		)
+	end)
+
+	suite:case("formatsMultilineIfExpressionConditionWithComment", function(assert)
+		checkFormat(
+			assert,
+			"return if condition -- inline\nthen foo\nelse bar",
+			"return if condition -- inline\n\tthen foo\n\telse bar\n"
+		)
+	end)
+
+	suite:case("formatsIfExpressionContinuationAfterInlineThen", function(assert)
+		checkFormat(
+			assert,
+			'local value = if foo then "foo"\nelseif bar then "bar"\nelse "baz"',
+			'local value = if foo then "foo"\n\telseif bar then "bar"\n\telse "baz"\n'
+		)
+	end)
+
+	suite:case("alignsParenthesizedBooleanContinuation", function(assert)
+		checkFormat(
+			assert,
+			"return (\nfoo\nor bar\nor baz\n) ~= nil",
+			"return (\n\tfoo\n\tor bar\n\tor baz\n) ~= nil\n"
+		)
+	end)
+
+	suite:case("continuesParenthesizedConcatenation", function(assert)
+		checkFormat(
+			assert,
+			'print(\n"foo"\n.. "bar"\n.. "baz"\n)',
+			'print(\n\t"foo"\n\t\t.. "bar"\n\t\t.. "baz"\n)\n'
+		)
+	end)
+
+	suite:case("formatsMultilineTableArgumentInIfExpression", function(assert)
+		checkFormat(
+			assert,
+			"local x = if cond\nthen table.freeze({\na = 1,\nb = 2,\n})\nelse nil",
+			"local x = if cond\n\tthen table.freeze({\n\t\ta = 1,\n\t\tb = 2,\n\t})\n\telse nil\n"
+		)
+	end)
+
+	suite:case("formatsMultilineTableWithInlineOpenComment", function(assert)
+		checkFormat(
+			assert,
+			"table.insert(\nvalues,\n{ -- inline\nfoo = 1,\n}\n)",
+			"table.insert(\n\tvalues,\n\t{ -- inline\n\t\tfoo = 1,\n\t}\n)\n"
+		)
+	end)
+
+	suite:case("formatsNestedMultilineIfExpression", function(assert)
+		checkFormat(
+			assert,
+			"local _ = if true\nthen call()\nelse if false\nthen call()\nelse call()",
+			"local _ = if true\n\tthen call()\n\telse if false\n\t\tthen call()\n\t\telse call()\n"
+		)
+	end)
+
+	suite:case("restoresIndentAfterMultilineIfExpressionTableBranch", function(assert)
+		checkFormat(
+			assert,
+			"function join(parts): Path\nlocal path: Path = if typeof(parts[1]) == \"string\"\nthen parse(parts[1])\nelse setmetatable({\nparts = table.clone((parts[1] :: Path).parts), -- inline\nabsolute = (parts[1] :: Path).absolute, -- inline\n}, mt)\n\nfor i = 2, #parts do\njoinHelper(path, parts[i])\nend\n\nreturn path\nend",
+			"function join(parts): Path\n\tlocal path: Path = if typeof(parts[1]) == \"string\"\n\t\tthen parse(parts[1])\n\t\telse setmetatable({\n\t\t\tparts = table.clone((parts[1] :: Path).parts), -- inline\n\t\t\tabsolute = (parts[1] :: Path).absolute, -- inline\n\t\t}, mt)\n\n\tfor i = 2, #parts do\n\t\tjoinHelper(path, parts[i])\n\tend\n\n\treturn path\nend\n"
+		)
+	end)
+
+	suite:case("keepsSpaceBeforeInlineBlockComment", function(assert)
+		checkFormat(
+			assert,
+			"local position = math.max(0, size - (22 + 65536 --[[ max comment size ]]))",
+			"local position = math.max(0, size - (22 + 65536 --[[ max comment size ]]))\n"
+		)
+	end)
+
+	suite:case("keepsSpaceBeforeComputedReadProperty", function(assert)
+		checkFormat(
+			assert,
+			'export type Range = { read ["end"]: number }',
+			'export type Range = { read ["end"]: number }\n'
 		)
 	end)
 
