@@ -137,11 +137,7 @@ test.suite("semver.compare", function(suite)
 		}
 
 		for i = 1, #versions - 1 do
-			assert.eq(
-				parser.compare(versions[i], versions[i + 1]),
-				-1,
-				`expected versions[{i}] < versions[{i + 1}]`
-			)
+			assert.eq(parser.compare(versions[i], versions[i + 1]), -1, `expected versions[{i}] < versions[{i + 1}]`)
 		end
 	end)
 

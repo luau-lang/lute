@@ -120,11 +120,15 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 
 	for _, alias in rootAliases do
 		local req = roots[alias]
-		addConstraint(req.name, `root:{alias}`, table.freeze({
-			name = req.name,
-			constraint = req.constraint,
-			requiredBy = req.requiredBy,
-		}))
+		addConstraint(
+			req.name,
+			`root:{alias}`,
+			table.freeze({
+				name = req.name,
+				constraint = req.constraint,
+				requiredBy = req.requiredBy,
+			})
+		)
 	end
 
 	-- Tracks which versions have ever been selected per package.
@@ -180,8 +184,7 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 
 		-- Two PackageVersion objects with equal versions (differing only in build metadata)
 		-- are treated as the same selection.
-		local alreadySelected = selected[name] ~= nil
-			and parser.compare(selected[name].version, best.version) == 0
+		local alreadySelected = selected[name] ~= nil and parser.compare(selected[name].version, best.version) == 0
 		if alreadySelected then
 			continue
 		end
@@ -207,11 +210,15 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 		-- Publish constraints from the new selection.
 		local newKey = `{best.name}@{best.versionString}`
 		for _, dep in best.dependencies do
-			addConstraint(dep.name, newKey, table.freeze({
-				name = dep.name,
-				constraint = dep.constraint,
-				requiredBy = newKey,
-			}))
+			addConstraint(
+				dep.name,
+				newKey,
+				table.freeze({
+					name = dep.name,
+					constraint = dep.constraint,
+					requiredBy = newKey,
+				})
+			)
 		end
 	end
 

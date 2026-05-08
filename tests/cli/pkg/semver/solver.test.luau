@@ -2,11 +2,7 @@ local test = require("@std/test")
 local parser = require("@commands/pkg/loom-core/src/semver/parser")
 local solver = require("@commands/pkg/loom-core/src/semver/solver")
 
-local function namedVersion(
-	name: string,
-	vstr: string,
-	deps: { [string]: solver.Requirement }?
-): solver.PackageVersion
+local function namedVersion(name: string, vstr: string, deps: { [string]: solver.Requirement }?): solver.PackageVersion
 	local v = parser.parse(vstr)
 	return table.freeze({
 		name = name,

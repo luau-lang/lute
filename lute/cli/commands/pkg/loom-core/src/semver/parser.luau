@@ -378,9 +378,7 @@ local function expandTilde(s: string): Constraint
 		lo = makeVersion(major, minor or 0, patch or 0)
 	end
 
-	local hi = if minor ~= nil
-		then makeVersion(major, minor + 1, 0)
-		else makeVersion(major + 1, 0, 0)
+	local hi = if minor ~= nil then makeVersion(major, minor + 1, 0) else makeVersion(major + 1, 0, 0)
 
 	return table.freeze({ makeComparator(">=", lo), makeComparator("<", hi) })
 end
@@ -482,7 +480,8 @@ local function prereleaseExcluded(v: Version, comparators: Constraint): boolean
 
 	-- Allowed only if a comparator explicitly names a pre-release on the same M.m.p tuple.
 	for _, c in comparators do
-		if #c.version.prerelease > 0
+		if
+			#c.version.prerelease > 0
 			and c.version.major == v.major
 			and c.version.minor == v.minor
 			and c.version.patch == v.patch
