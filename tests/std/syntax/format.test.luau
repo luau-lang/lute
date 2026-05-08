@@ -46,12 +46,28 @@ test.suite("SyntaxFormat", function(suite)
 		checkFormat(assert, "local a=.5\nlocal b=-.2e-5", "local a = 0.5\nlocal b = -0.2e-5\n")
 	end)
 
+	suite:case("keepsUnaryMinusTightAfterLogicalOperator", function(assert)
+		checkFormat(assert, "local direction=input > 0 and 1 or -1", "local direction = input > 0 and 1 or -1\n")
+	end)
+
+	suite:case("keepsOptionalPostfixTightAfterGenericClose", function(assert)
+		checkFormat(
+			assert,
+			"local register = function(value: string?): Promise<string?>?\nend",
+			"local register = function(value: string?): Promise<string?>? end\n"
+		)
+	end)
+
 	suite:case("formatsMultipleAttributesInline", function(assert)
 		checkFormat(assert, "local value = @native @deprecated function() end", "local value = @native @deprecated function() end\n")
 	end)
 
 	suite:case("normalizesTypeTableSemicolons", function(assert)
 		checkFormat(assert, "type Foo = {\n\tbar: number;\n}", "type Foo = {\n\tbar: number,\n}\n")
+	end)
+
+	suite:case("keepsSpaceBeforeFunctionTypeInTypeTable", function(assert)
+		checkFormat(assert, "local listeners: { (any) -> () } = {}", "local listeners: { (any) -> () } = {}\n")
 	end)
 
 	suite:case("formatsBlockStatement", function(assert)
@@ -106,11 +122,115 @@ test.suite("SyntaxFormat", function(suite)
 		)
 	end)
 
+	suite:case("indentsContinuationUnderMultilineElseifCondition", function(assert)
+		checkFormat(
+			assert,
+			"if ok then\nelseif\nGetFlag()\nand code == 1\nthen\nend",
+			"if ok then\nelseif\n\tGetFlag()\n\t\tand code == 1\nthen\nend\n"
+		)
+	end)
+
+	suite:case("keepsRepeatedElseifConditionContinuationsAligned", function(assert)
+		checkFormat(
+			assert,
+			"if ok then\nelseif\nflag\nand value\nand value == 1\nthen\nend",
+			"if ok then\nelseif\n\tflag\n\t\tand value\n\t\tand value == 1\nthen\nend\n"
+		)
+	end)
+
 	suite:case("keepsMultilineReturnExpressionIndented", function(assert)
 		checkFormat(
 			assert,
 			"function foo()\nreturn\nfoo or\nbar\nend",
 			"function foo()\n\treturn\n\t\tfoo or\n\t\tbar\nend\n"
+		)
+	end)
+
+	suite:case("indentsReturnValueAfterComma", function(assert)
+		checkFormat(
+			assert,
+			"function foo()\nreturn label,\n{\nSize = 1,\n} :: any\nend",
+			"function foo()\n\treturn label,\n\t\t{\n\t\t\tSize = 1,\n\t\t} :: any\nend\n"
+		)
+	end)
+
+	suite:case("keepsReturnValueContinuationIndentAfterMultipleCommas", function(assert)
+		checkFormat(
+			assert,
+			"return first,\nsecond,\nthird,\nfourth",
+			"return first,\n\tsecond,\n\tthird,\n\tfourth\n"
+		)
+	end)
+
+	suite:case("keepsReturnTableFieldsIndented", function(assert)
+		checkFormat(
+			assert,
+			"function foo()\nreturn label,\n{\nfirst = 1,\nsecond = 2,\n} :: any\nend",
+			"function foo()\n\treturn label,\n\t\t{\n\t\t\tfirst = 1,\n\t\t\tsecond = 2,\n\t\t} :: any\nend\n"
+		)
+	end)
+
+	suite:case("alignsIfExpressionKeywordsAfterContinuationOperator", function(assert)
+		checkFormat(
+			assert,
+			"return {\n[ref] = if monthKey\n== selectedMonth\nthen defaultRef\nelse nil,\n}",
+			"return {\n\t[ref] = if monthKey\n\t\t== selectedMonth\n\t\tthen defaultRef\n\t\telse nil,\n}\n"
+		)
+	end)
+
+	suite:case("alignsIfExpressionKeywordsAfterMultilineElseif", function(assert)
+		checkFormat(
+			assert,
+			"local key = if first\nthen \"first\"\nelseif\nsecond\nthen \"second\"\nelse \"fallback\"",
+			"local key = if first\n\tthen \"first\"\n\telseif\n\t\tsecond\n\t\tthen \"second\"\n\t\telse \"fallback\"\n"
+		)
+	end)
+
+	suite:case("dedentsOuterIfExpressionElseAfterNestedElse", function(assert)
+		checkFormat(
+			assert,
+			"return {\nlookData = if item.type == \"Look\"\nthen if flag\nthen value\nelse nil\nelse nil,\n}",
+			"return {\n\tlookData = if item.type == \"Look\"\n\t\tthen if flag\n\t\t\tthen value\n\t\t\telse nil\n\t\telse nil,\n}\n"
+		)
+	end)
+
+	suite:case("indentsLogicalContinuationInCallArgumentFunction", function(assert)
+		checkFormat(
+			assert,
+			"return React.useCallback(\nfunction()\nreturn first\nand second\nend,\n{}\n)",
+			"return React.useCallback(\n\tfunction()\n\t\treturn first\n\t\t\tand second\n\tend,\n\t{}\n)\n"
+		)
+	end)
+
+	suite:case("indentsLogicalContinuationAfterAssignmentValue", function(assert)
+		checkFormat(
+			assert,
+			"hasOriginalStock = collectibleItemInfo\nand collectibleItemInfo.unitsAvailableForConsumption\nand collectibleItemInfo.unitsAvailableForConsumption > 0",
+			"hasOriginalStock = collectibleItemInfo\n\tand collectibleItemInfo.unitsAvailableForConsumption\n\tand collectibleItemInfo.unitsAvailableForConsumption > 0\n"
+		)
+	end)
+
+	suite:case("indentsComparisonContinuationAfterLogicalLine", function(assert)
+		checkFormat(
+			assert,
+			"if\ncaptureInfo.type == CaptureType.Video\nand captureInfo.videoCapture.CaptureTime\n~= content.Object.CaptureTime\nthen\nreturn\nend",
+			"if\n\tcaptureInfo.type == CaptureType.Video\n\tand captureInfo.videoCapture.CaptureTime\n\t\t~= content.Object.CaptureTime\nthen\n\treturn\nend\n"
+		)
+	end)
+
+	suite:case("indentsCallArgumentAfterInlineOpenComment", function(assert)
+		checkFormat(
+			assert,
+			"local value = call( -- inline\nfirst,\n{ second } :: { any }\n)",
+			"local value = call( -- inline\n\tfirst,\n\t{ second } :: { any }\n)\n"
+		)
+	end)
+
+	suite:case("keepsStatementBreakBeforeParenthesizedExpressionStatement", function(assert)
+		checkFormat(
+			assert,
+			"first(); (service :: any):method()",
+			"first();\n(service :: any):method()\n"
 		)
 	end)
 

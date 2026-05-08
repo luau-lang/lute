@@ -90,6 +90,7 @@ type FormatToken = {
 	multilineClose: boolean?,
 	dedentedBefore: boolean?,
 	functionBodyStartedBefore: boolean?,
+	alignWithPreviousLine: boolean?,
 }
 
 type Replacement = {
@@ -293,6 +294,42 @@ local function markLastReplacementRole(roles, node, role: string)
 	mark(roles, lastItem, role)
 end
 
+local function markFirstReplacementRole(roles, node, role: string)
+	local firstItem = nil
+	local finder = visitor.create()
+
+	finder.visitToken = function(candidate)
+		if firstItem == nil then
+			firstItem = candidate
+		end
+		return false
+	end
+
+	finder.visitExprConstantString = function(candidate)
+		if firstItem == nil then
+			firstItem = candidate
+		end
+		return false
+	end
+
+	finder.visitExprInterpString = function(candidate)
+		if firstItem == nil then
+			firstItem = candidate
+		end
+		return false
+	end
+
+	finder.visitTypeSingletonString = function(candidate)
+		if firstItem == nil then
+			firstItem = candidate
+		end
+		return false
+	end
+
+	visitor.visit(node, finder)
+	mark(roles, firstItem, role)
+end
+
 local function tokenHasLeadingNewline(token): boolean
 	if token == nil then
 		return false
@@ -410,6 +447,19 @@ local function collectReplacementItems(parseResult, roles, trailingCommas)
 
 	collect.visitStatWhile = function(node)
 		mark(roles, node.whileKeyword, "conditionOpen")
+		return true
+	end
+
+	collect.visitStatExpr = function(node)
+		markFirstReplacementRole(roles, node.expression, "statExprStart")
+		markLastReplacementRole(roles, node.expression, "statExprEnd")
+		return true
+	end
+
+	collect.visitStatReturn = function(node)
+		for _, expression in node.expressions do
+			mark(roles, expression.separator, "returnSeparator")
+		end
 		return true
 	end
 
@@ -666,6 +716,23 @@ local function buildFormatTokens(parseResult): { FormatToken }
 		end
 	end
 
+	for index, token in tokens do
+		if token.role == "ifExpressionKeyword" and token.text == "elseif" then
+			local nextToken = tokens[index + 1]
+			if nextToken ~= nil and nextToken.leadingNewlines > 0 then
+				for scanIndex = index + 1, #tokens do
+					local candidate = tokens[scanIndex]
+					if candidate.role == "ifExpressionKeyword" and candidate.text == "then" then
+						candidate.alignWithPreviousLine = true
+						break
+					elseif candidate.role == "ifExpressionKeyword" and (candidate.text == "elseif" or candidate.text == "else") then
+						break
+					end
+				end
+			end
+		end
+	end
+
 	return tokens
 end
 
@@ -686,7 +753,7 @@ local function isUnaryContext(previous: FormatToken?): boolean
 		return true
 	end
 
-	return BINARY_OPERATORS[previous.text] == true and previous.text ~= "and" and previous.text ~= "or"
+	return BINARY_OPERATORS[previous.text] == true
 end
 
 local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
@@ -729,6 +796,10 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 		return false
 	end
 
+	if currentText == "?" and previousIsGenericClose then
+		return false
+	end
+
 	if previousText:sub(1, 1) == "@" and currentText:sub(1, 1) == "@" then
 		return true
 	end
@@ -742,6 +813,10 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 	end
 
 	if previousText == "->" and currentText == "(" then
+		return true
+	end
+
+	if previousText == "{" and currentText == "(" then
 		return true
 	end
 
@@ -891,6 +966,10 @@ local function shouldBreakBefore(previous: FormatToken?, current: FormatToken): 
 		return true
 	end
 
+	if current.role == "statExprStart" and current.text == "(" and previous.role == "statExprEnd" then
+		return true
+	end
+
 	if current.leadingNewlines > 0 then
 		return true
 	end
@@ -942,9 +1021,11 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 	local functionParamDepths: { number } = {}
 	local functionBodyStack: { { targetDepth: number, endIndent: number, restoreIndent: number } } = {}
 	local parenIndentDepths: { { depth: number, endIndent: number, restoreIndent: number } } = {}
+	local inlineCommentParenIndents: { [number]: number } = {}
 	local braceIndentStack: { { endIndent: number, restoreIndent: number } } = {}
 	local previous: FormatToken? = nil
 	local previousCode: FormatToken? = nil
+	local activeConditionOpenText: string? = nil
 
 	local function indentation(): string
 		return string.rep(INDENT, math.max(indent, 0))
@@ -972,6 +1053,17 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 		end
 
 		return token.role ~= "genericClose" and token.role ~= "functionReturnAnnotationEnd"
+	end
+
+	local function lineHasAssignmentOperator(text: string): boolean
+		if text:find("=", 1, true) == nil then
+			return false
+		end
+
+		return text:find("==", 1, true) == nil
+			and text:find("~=", 1, true) == nil
+			and text:find("<=", 1, true) == nil
+			and text:find(">=", 1, true) == nil
 	end
 
 	local function appendText(text: string)
@@ -1068,6 +1160,10 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			token.unary = true
 		end
 
+		if token.role == "conditionOpen" then
+			activeConditionOpenText = token.text
+		end
+
 		if
 			(isClosingBlockToken(token) or isMiddleBlockToken(token))
 			and token.role ~= "ifExpressionKeyword"
@@ -1124,18 +1220,28 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 		elseif line == "" and previous ~= nil and previous.role == "multilineConditionOpen" then
 			appendText(indentation() .. INDENT)
 		elseif shouldBreakBefore(previous, token) then
+			if token.role == "statExprStart" and token.text == "(" and previous ~= nil and previous.role == "statExprEnd" then
+				appendText(";")
+			end
+
 			local previousLineIndent = lineIndentLevel()
 			local previousLine = line
 			newline(token.leadingNewlines)
 			if line == "" and token.role == "ifExpressionKeyword" then
-				local keywordIndent = if token.text == "then"
+				local previousLineStartsWithComparisonOperator = previousLine:match("^%s*[=~<>]") ~= nil
+				local previousLineStartsWithElseKeyword = previousLine:match("^%s*else%f[%W]") ~= nil
+				local shouldIndentKeyword = token.text == "then"
 					or (
 						token.text == "elseif"
 						and previousLine:find("%f[%w]then%f[%W]") ~= nil
 						and previousLine:match("^%s*then%f[%W]") == nil
 					)
-						then previousLineIndent + 1
-						else previousLineIndent
+				local keywordIndent = previousLineIndent
+				if shouldIndentKeyword and not previousLineStartsWithComparisonOperator and not token.alignWithPreviousLine then
+					keywordIndent += 1
+				elseif token.text == "else" and previousLineStartsWithElseKeyword then
+					keywordIndent = math.max(previousLineIndent - 1, 0)
+				end
 				appendText(string.rep(INDENT, keywordIndent))
 			elseif line == "" and previous ~= nil and previous.role == "ifExpressionKeyword" then
 				appendText(string.rep(INDENT, previousLineIndent + 1))
@@ -1143,23 +1249,20 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 				appendText(string.rep(INDENT, previousLineIndent + 1))
 			elseif line == "" and token.kind == "commentLine" and nextToken ~= nil and nextToken.role == "typeContinuationOperator" then
 				appendText(string.rep(INDENT, previousLineIndent))
-			elseif
-				line == ""
-				and previous ~= nil
-				and (previous.text == "if" or previous.text == "elseif" or previous.text == "while" or previous.text == "until")
-			then
+			elseif line == "" and previous ~= nil and (previous.text == "if" or previous.text == "elseif" or previous.text == "while" or previous.text == "until") then
 				appendText(indentation() .. INDENT)
+			elseif line == "" and previous ~= nil and previous.text == "," and #braceIndentStack > 0 and #parenIndentDepths == 0 and token.text ~= "}" and token.role ~= "tableClose" and token.role ~= "genericClose" then
+				appendText(string.rep(INDENT, braceIndentStack[#braceIndentStack].endIndent + 1))
+			elseif line == "" and previous ~= nil and previous.role == "returnSeparator" then
+				local returnContinuationIndent = if previousLine:match("^%s*return%f[%W]") ~= nil
+					then previousLineIndent + 1
+					else previousLineIndent
+				appendText(string.rep(INDENT, returnContinuationIndent))
+			elseif line == "" and previous ~= nil and previous.text == "," and inlineCommentParenIndents[parenDepth] ~= nil then
+				appendText(string.rep(INDENT, inlineCommentParenIndents[parenDepth]))
 			elseif line == "" and previous ~= nil and previous.role == "multilineConditionOpen" then
 				appendText(indentation() .. INDENT)
-			elseif
-				line == ""
-				and previous ~= nil
-				and previous.text == "return"
-				and token.kind ~= "commentLine"
-				and token.kind ~= "commentBlock"
-				and not isClosingBlockToken(token)
-				and not isMiddleBlockToken(token)
-			then
+			elseif line == "" and previous ~= nil and previous.text == "return" and token.kind ~= "commentLine" and token.kind ~= "commentBlock" and not isClosingBlockToken(token) and not isMiddleBlockToken(token) then
 				appendText(indentation() .. INDENT)
 			elseif
 				line == ""
@@ -1173,10 +1276,40 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			elseif line == "" and (token.text == "." or token.text == ":") and previous ~= nil then
 				appendText(indentation() .. INDENT)
 			elseif line == "" and (token.text == "and" or token.text == "or" or (BINARY_OPERATORS[token.text] and not token.unary)) and previous ~= nil then
-				local continuationIndent = if #parenIndentDepths > 0 and (token.text == "and" or token.text == "or")
-					then ""
-					else INDENT
-				appendText(indentation() .. continuationIndent)
+				if token.text == "and" or token.text == "or" then
+					local shouldAlignParenthesizedBoolean = #parenIndentDepths > 0
+						and previousLine:match("^%s*return%f[%W]") == nil
+
+					if shouldAlignParenthesizedBoolean then
+						appendText(indentation())
+					elseif activeConditionOpenText == "elseif" then
+						local previousLineStartsWithLogicalOperator = previousLine:match("^%s*and%f[%W]") ~= nil
+							or previousLine:match("^%s*or%f[%W]") ~= nil
+						local previousLineContainsComparison = previousLine:match("[=~<>]=") ~= nil
+							or previousLine:find("~=", 1, true) ~= nil
+						if previousLineStartsWithLogicalOperator then
+							appendText(string.rep(INDENT, previousLineIndent))
+						elseif not previousLineContainsComparison then
+							appendText(string.rep(INDENT, previousLineIndent + 1))
+						else
+							appendText(indentation() .. INDENT)
+						end
+					elseif #parenIndentDepths > 0 and previousLine:match("^%s*return%f[%W]") ~= nil then
+						appendText(string.rep(INDENT, previousLineIndent + 1))
+					elseif lineHasAssignmentOperator(previousLine) then
+						appendText(string.rep(INDENT, previousLineIndent + 1))
+					else
+						appendText(indentation() .. INDENT)
+					end
+				else
+					local previousLineStartsWithLogicalOperator = previousLine:match("^%s*and%f[%W]") ~= nil
+						or previousLine:match("^%s*or%f[%W]") ~= nil
+					if previousLineStartsWithLogicalOperator then
+						appendText(string.rep(INDENT, previousLineIndent + 1))
+					else
+						appendText(indentation() .. INDENT)
+					end
+				end
 			elseif line == "" and previous ~= nil and isContinuationOperator(previous) then
 				appendText(indentation() .. INDENT)
 			end
@@ -1219,6 +1352,17 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 		if token.text == "function" then
 			awaitingFunctionParams = true
 		elseif token.text == "(" then
+			local newParenDepth = parenDepth + 1
+			if
+				nextToken ~= nil
+				and nextToken.kind == "commentLine"
+				and nextToken.leadingNewlines == 0
+				and afterNextToken ~= nil
+				and afterNextToken.leadingNewlines > 0
+			then
+				inlineCommentParenIndents[newParenDepth] = lineIndentLevel() + 1
+			end
+
 			parenDepth += 1
 			if awaitingFunctionParams then
 				table.insert(functionParamDepths, parenDepth)
@@ -1236,6 +1380,7 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 		elseif token.text == ")" then
 			local functionParamDepth = functionParamDepths[#functionParamDepths]
 			local closesFunctionParams = functionParamDepth ~= nil and functionParamDepth == parenDepth
+			inlineCommentParenIndents[parenDepth] = nil
 			parenDepth = math.max(parenDepth - 1, 0)
 
 			if closesFunctionParams then
@@ -1319,34 +1464,32 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 				and nextToken.text ~= "}"
 				and nextToken.text ~= "]"
 			then
-				if nextToken.text == "then" and nextToken.role == "ifExpressionKeyword" then
-					commentContinuationIndent = breakLineIndent + 1
-				elseif isInlineComment and previous ~= nil and previous.text == "(" then
-					commentContinuationIndent = breakLineIndent + 1
-				elseif
-					isInlineComment
+				local shouldIndentInlineCommentCallArgument = isInlineComment
 					and previous ~= nil
 					and previous.text == ","
 					and parenDepth > 0
 					and #braceIndentStack == 0
 					and hasUnclosedLineParen
-				then
-					commentContinuationIndent = breakLineIndent + 1
-				elseif
-					isInlineComment
+				local shouldIndentInlineCommentReturnValue = isInlineComment
 					and previous ~= nil
 					and previous.text == ","
 					and commentCodeLine:match("^%s*return%f[%W]") ~= nil
-				then
-					commentContinuationIndent = breakLineIndent + 1
-				elseif
-					token.leadingNewlines > 0
+				local shouldPreserveStandaloneCommentIndent = token.leadingNewlines > 0
 					and breakLineIndent > indent
 					and not isClosingBlockToken(nextToken)
 					and not isMiddleBlockToken(nextToken)
 					and nextToken.role ~= "tableClose"
 					and nextToken.role ~= "genericClose"
-				then
+
+				if nextToken.text == "then" and nextToken.role == "ifExpressionKeyword" then
+					commentContinuationIndent = breakLineIndent + 1
+				elseif isInlineComment and previous ~= nil and previous.text == "(" then
+					commentContinuationIndent = breakLineIndent + 1
+				elseif shouldIndentInlineCommentCallArgument then
+					commentContinuationIndent = breakLineIndent + 1
+				elseif shouldIndentInlineCommentReturnValue then
+					commentContinuationIndent = breakLineIndent + 1
+				elseif shouldPreserveStandaloneCommentIndent then
 					commentContinuationIndent = breakLineIndent
 				end
 			end
@@ -1368,6 +1511,8 @@ local function buildReplacements(parseResult): { [any]: Replacement }
 			table.remove(functionBodyStack)
 			indent = functionBodyEnd.restoreIndent
 			blockDepth = math.max(blockDepth - 1, 0)
+		elseif token.text == "then" and token.role ~= "ifExpressionKeyword" then
+			activeConditionOpenText = nil
 		elseif braceClose ~= nil then
 			table.remove(braceIndentStack)
 			indent = braceClose.restoreIndent
