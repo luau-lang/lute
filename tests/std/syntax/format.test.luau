@@ -42,6 +42,18 @@ test.suite("SyntaxFormat", function(suite)
 		checkFormat(assert, "local x=1", "local x = 1\n")
 	end)
 
+	suite:case("normalizesLeadingDotNumbers", function(assert)
+		checkFormat(assert, "local a=.5\nlocal b=-.2e-5", "local a = 0.5\nlocal b = -0.2e-5\n")
+	end)
+
+	suite:case("formatsMultipleAttributesInline", function(assert)
+		checkFormat(assert, "local value = @native @deprecated function() end", "local value = @native @deprecated function() end\n")
+	end)
+
+	suite:case("normalizesTypeTableSemicolons", function(assert)
+		checkFormat(assert, "type Foo = {\n\tbar: number;\n}", "type Foo = {\n\tbar: number,\n}\n")
+	end)
+
 	suite:case("formatsBlockStatement", function(assert)
 		checkFormat(assert, "if x then print(x) end", "if x then\n\tprint(x)\nend\n")
 	end)
@@ -76,6 +88,10 @@ test.suite("SyntaxFormat", function(suite)
 
 	suite:case("preservesBlankLineAfterComment", function(assert)
 		checkFormat(assert, "-- section\n\nlocal x=1", "-- section\n\nlocal x = 1\n")
+	end)
+
+	suite:case("removesBlankLineBetweenCommentAndBlockEnd", function(assert)
+		checkFormat(assert, "function noop()\n-- comment\n\nend", "function noop()\n\t-- comment\nend\n")
 	end)
 
 	suite:case("formatsMultilineFunctionBody", function(assert)

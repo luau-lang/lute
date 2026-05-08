@@ -7,5 +7,4 @@ end
 
 call(function()
 	-- comment
-
 end)

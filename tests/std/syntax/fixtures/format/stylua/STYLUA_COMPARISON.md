@@ -1,9 +1,9 @@
 # StyLua Snapshot Comparison
 
 Active copied fixtures: 229
-Exact matches against available StyLua snapshots: 88
+Exact matches against available StyLua snapshots: 92
 Active fixtures without a located StyLua snapshot: 0
-Known exact mismatches: 141
+Known exact mismatches: 137
 
 The Lute formatter snapshots in `snapshots-lute` are the enforced goldens for this repository.
 The exact-match count normalizes trailing file terminators and is tracked separately because Lute has fixed policy and does not expose StyLua configuration modes.
@@ -24,7 +24,6 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/condition-operator-precedence.lua`
 - `inputs/condition-parentheses-comments.lua`
 - `inputs/context-long-lines.lua`
-- `inputs/empty-function-2.lua`
 - `inputs/excess-parentheses-comments-2.lua`
 - `inputs/excess-parentheses-comments.lua`
 - `inputs/function-call-2.lua`
@@ -75,7 +74,6 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/multiline-expressions-3.lua`
 - `inputs/multiline-expressions-4.lua`
 - `inputs/multiline-expressions.lua`
-- `inputs/number.lua`
 - `inputs/punctuated-comments.lua`
 - `inputs/return-comments-1.lua`
 - `inputs/return-hanging-expression-2.lua`
@@ -104,11 +102,13 @@ The exact-match count normalizes trailing file terminators and is tracked separa
 - `inputs/while-2.lua`
 - `inputs-luau/assignment-comments-1.lua`
 - `inputs-luau/assignment-hang-1.lua`
-- `inputs-luau/attributes-3.lua`
 - `inputs-luau/excess-parentheses-type-pack-default.lua`
 - `inputs-luau/excess-parentheses.lua`
 - `inputs-luau/function-call-comments-1.lua`
 - `inputs-luau/function_types_2.lua`
 - `inputs-luau/function_types_3.lua`
+- `inputs-luau/generic-for-multiline.lua`
+- `inputs-luau/if-expression-2.lua`
+- `inputs-luau/if-expression-4.lua`
 
-...and 41 more.
+...and 37 more.

@@ -162,9 +162,19 @@ local function rawInterpolatedString(node): string
 	return table.concat(pieces)
 end
 
+local function normalizeNumber(text: string): string
+	if text:match("^%.%d") then
+		return "0" .. text
+	end
+
+	return text
+end
+
 local function itemText(node): string
 	if node.kind == "token" then
-		return node.text
+		return normalizeNumber(node.text)
+	elseif node.kind == "expr" and node.tag == "number" then
+		return normalizeNumber(node.token.text)
 	elseif node.kind == "expr" and node.tag == "string" then
 		return quoteString(node.token.text, node.quoteStyle, node.blockDepth)
 	elseif node.kind == "type" and node.tag == "string" then
@@ -219,6 +229,12 @@ end
 local function markGenerics(roles, node)
 	mark(roles, node.openGenerics, "genericOpen")
 	mark(roles, node.closeGenerics, "genericClose")
+end
+
+local function markAttributes(roles, attributes, role: string)
+	for _, attribute in attributes do
+		mark(roles, attribute.token, role)
+	end
 end
 
 local function markLastReplacementItem(trailingCommas, node)
@@ -344,6 +360,7 @@ local function collectReplacementItems(parseResult, roles, trailingCommas)
 	end
 
 	collect.visitExprFunction = function(node)
+		markAttributes(roles, node.attributes, "exprAttribute")
 		markGenerics(roles, node)
 		mark(roles, node.closeParens, "functionParamsClose")
 		mark(roles, node.varargColon, "typeColon")
@@ -352,6 +369,16 @@ local function collectReplacementItems(parseResult, roles, trailingCommas)
 		if node.returnAnnotation ~= nil then
 			markLastReplacementRole(roles, node.returnAnnotation, "functionReturnAnnotationEnd")
 		end
+		return true
+	end
+
+	collect.visitStatFunction = function(node)
+		markAttributes(roles, node.func.attributes, "statAttribute")
+		return true
+	end
+
+	collect.visitStatLocalFunction = function(node)
+		markAttributes(roles, node.func.attributes, "statAttribute")
 		return true
 	end
 
@@ -401,6 +428,7 @@ local function collectReplacementItems(parseResult, roles, trailingCommas)
 
 		for _, entry in node.entries do
 			mark(roles, entry.colon, "typeColon")
+			mark(roles, entry.separator, "typeTableSeparator")
 		end
 		return true
 	end
@@ -509,7 +537,11 @@ local function buildFormatTokens(parseResult): { FormatToken }
 			end
 		end
 
+		local role = roles[node]
 		local text = itemText(node)
+		if role == "typeTableSeparator" and text == ";" then
+			text = ","
+		end
 		table.insert(tokens, {
 			text = text,
 			kind = if node.kind == "expr" and (node.tag == "string" or node.tag == "interpolatedstring") then "string"
@@ -517,7 +549,7 @@ local function buildFormatTokens(parseResult): { FormatToken }
 				else classifyText(text),
 			leadingNewlines = pendingNewlines,
 			node = node,
-			role = roles[node],
+			role = role,
 			trailingCommaAfter = trailingCommas[node],
 		})
 		pendingNewlines = 0
@@ -656,7 +688,7 @@ local function needsSpace(previous: FormatToken?, current: FormatToken): boolean
 	end
 
 	if previousText:sub(1, 1) == "@" and currentText:sub(1, 1) == "@" then
-		return false
+		return true
 	end
 
 	if currentText == "::" or previousText == "::" then
@@ -809,7 +841,11 @@ local function shouldBreakBefore(previous: FormatToken?, current: FormatToken): 
 		return true
 	end
 
-	if current.text:sub(1, 1) == "@" and previous.text:sub(1, 1) == "@" then
+	if current.role == "exprAttribute" and previous.role == "exprAttribute" then
+		return false
+	end
+
+	if current.role == "statAttribute" and previous.role == "statAttribute" then
 		return true
 	end
 
@@ -826,6 +862,10 @@ end
 
 local function shouldBreakAfter(current: FormatToken, nextToken: FormatToken?): (boolean, number?)
 	if current.kind == "commentLine" then
+		if nextToken ~= nil and isClosingBlockToken(nextToken) then
+			return true, 1
+		end
+
 		return true
 	end
 
