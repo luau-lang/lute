@@ -3,6 +3,10 @@ local syntax = require("@std/syntax")
 
 export type severity = "error" | "warning" | "info" | "hint"
 export type tag = "unnecessary" | "deprecated"
+export type fix = {
+	location: syntax.Span,
+	replacement: string,
+}
 
 export type LintViolation = {
 	lintname: string,
