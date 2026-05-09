@@ -100,6 +100,10 @@ set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 # zlib setup
 #
 set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "Do not build examples" FORCE)
+set(ZLIB_BUILD_TESTING OFF CACHE BOOL "Do not build zlib tests" FORCE)
+set(ZLIB_BUILD_SHARED OFF CACHE BOOL "Do not build shared zlib" FORCE)
+set(ZLIB_BUILD_STATIC ON CACHE BOOL "Build static zlib" FORCE)
+set(ZLIB_INSTALL OFF CACHE BOOL "Do not install zlib" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static zlib" FORCE)
 add_subdirectory(extern/zlib)
 if(TARGET zlibstatic AND NOT TARGET ZLIB::ZLIB)
@@ -109,20 +113,18 @@ endif()
 
 set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
 
-set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
-
 if(MSVC)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstaticd.lib")
+        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstaticd.lib" CACHE FILEPATH "" FORCE)
     else()
-        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstatic.lib")
+        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstatic.lib" CACHE FILEPATH "" FORCE)
     endif()
 else()
-    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.a")
+    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.a" CACHE FILEPATH "" FORCE)
 endif()
-set(ZLIB_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/zlib;${ZLIB_OUTPUT_DIR})
+set(ZLIB_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/zlib;${ZLIB_OUTPUT_DIR} CACHE PATH "" FORCE)
 set(ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE STRING "" FORCE)
-set(ZLIB_LIBRARIES ZLIB::ZLIB)
+set(ZLIB_LIBRARIES ZLIB::ZLIB CACHE STRING "" FORCE)
 
 # boringssl setup
 add_subdirectory(extern/boringssl)
