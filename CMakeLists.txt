@@ -162,6 +162,7 @@ set(BUILD_EXAMPLES OFF)
 set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
+set(CURL_ENABLE_EXPORT_TARGET OFF)
 
 # curl's OpenSSL-family probes run in nested try-compile projects, where the
 # in-tree ZLIB::ZLIB target is not visible. These are false for BoringSSL.
