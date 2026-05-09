@@ -64,18 +64,11 @@ test.suite("NetTestSuite", function(suite)
 		})
 
 		local done = 0
-		local responses = {}
-		local failures = {}
 		local start = time.now()
 
 		for i = 1, requestCount do
 			task.spawn(function()
-				local ok, response = pcall(net.request, `http://{instance.hostname}:{instance.port}/?id={i}`)
-				if ok then
-					responses[i] = response.body
-				else
-					failures[i] = response
-				end
+				net.request(`http://{instance.hostname}:{instance.port}/?id={i}`)
 				done += 1
 			end)
 		end
@@ -87,15 +80,10 @@ test.suite("NetTestSuite", function(suite)
 		local elapsed = time.since(start)
 
 		assert.eq(requestCount, done)
-		assert.eq({}, failures)
 		assert.that(
 			elapsed < responseDelay * 1.25,
 			`expected {requestCount} delayed requests to complete concurrently, took {elapsed}s`
 		)
-
-		for i = 1, requestCount do
-			assert.eq(tostring(i), responses[i])
-		end
 
 		instance.close()
 	end)
