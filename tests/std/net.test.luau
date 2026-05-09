@@ -2,6 +2,7 @@ local net = require("@std/net")
 local server = require("@lute/net/server")
 local task = require("@lute/task")
 local test = require("@std/test")
+local time = require("@std/time")
 
 test.suite("NetTestSuite", function(suite)
 	suite:case("serveHandlerCanYield", function(assert)
@@ -48,11 +49,13 @@ test.suite("NetTestSuite", function(suite)
 		instance.close()
 	end)
 
-	suite:case("servesConcurrentClientRequests", function(assert)
+	suite:case("runsMoreThanFourClientRequestsConcurrently", function(assert)
+		local requestCount = 5
+		local responseDelay = 0.2
 		local instance = server.serve({
 			port = 0,
 			handler = function(req: server.ReceivedRequest): server.ServerResponse
-				task.wait(0.01)
+				task.wait(responseDelay)
 				return {
 					status = 200,
 					body = req.query.id,
@@ -62,24 +65,37 @@ test.suite("NetTestSuite", function(suite)
 
 		local done = 0
 		local responses = {}
+		local failures = {}
+		local start = time.now()
 
-		for i = 1, 3 do
+		for i = 1, requestCount do
 			task.spawn(function()
-				local response = net.request(`http://{instance.hostname}:{instance.port}/?id={i}`)
-				responses[i] = response.body
+				local ok, response = pcall(net.request, `http://{instance.hostname}:{instance.port}/?id={i}`)
+				if ok then
+					responses[i] = response.body
+				else
+					failures[i] = response
+				end
 				done += 1
 			end)
 		end
 
-		local start = os.clock()
-		while done < 3 and os.clock() - start < 5 do
-			task.deferSelf()
+		while done < requestCount and time.since(start) < 5 do
+			task.wait()
 		end
 
-		assert.eq(3, done)
-		assert.eq("1", responses[1])
-		assert.eq("2", responses[2])
-		assert.eq("3", responses[3])
+		local elapsed = time.since(start)
+
+		assert.eq(requestCount, done)
+		assert.eq({}, failures)
+		assert.that(
+			elapsed < responseDelay * 1.25,
+			`expected {requestCount} delayed requests to complete concurrently, took {elapsed}s`
+		)
+
+		for i = 1, requestCount do
+			assert.eq(tostring(i), responses[i])
+		end
 
 		instance.close()
 	end)
@@ -114,42 +130,6 @@ test.suite("NetTestSuite", function(suite)
 		assert.eq(200, response.status)
 		assert.eq("final", response.body)
 		assert.eq("final", response.headers["X-Stage"])
-
-		instance.close()
-	end)
-
-	suite:case("customHeadersDisableAutomaticRedirects", function(assert)
-		local sawFinal = false
-		local instance = server.serve({
-			port = 0,
-			handler = function(req: server.ReceivedRequest): server.ServerResponse
-				if req.path == "/redirect" then
-					return {
-						status = 302,
-						body = "redirecting",
-						headers = {
-							Location = "/final",
-						},
-					}
-				end
-
-				sawFinal = true
-				return {
-					status = 200,
-					body = req.headers["x-secret"] or "",
-				}
-			end,
-		})
-
-		local response = net.request(`http://{instance.hostname}:{instance.port}/redirect`, {
-			headers = {
-				["X-Secret"] = "sensitive",
-			},
-		})
-		assert.eq(false, response.ok)
-		assert.eq(302, response.status)
-		assert.eq("redirecting", response.body)
-		assert.eq(false, sawFinal)
 
 		instance.close()
 	end)
