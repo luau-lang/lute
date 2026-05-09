@@ -1,5 +1,6 @@
 local inflate = require("@self/inflate")
 local validateCrc = require("@self/utils/validate_crc")
+local crc32 = require("@self/crc")
 local path = require("@self/utils/path")
 
 -- The maximum supported PKZIP format specification version that we support
@@ -16,29 +17,6 @@ local SIGNATURES = table.freeze({
 	-- Marks the end of the central directory
 	END_OF_CENTRAL_DIR = 0x06054b50,
 })
-
--- Decompression routines for each supported compression method
-local DECOMPRESSION_ROUTINES: { [number]: { name: CompressionMethod, decompress: (buffer, number, validateCrc.CrcValidationOptions) -> buffer } } =
-	{
-		-- `STORE` decompression method - No compression
-		[0x00] = {
-			name = "STORE" :: CompressionMethod,
-			decompress = function(buf, _, validation): buffer
-				validateCrc(buf, validation)
-				return buf
-			end,
-		},
-
-		-- `DEFLATE` decompression method - Compressed raw deflate chunks
-		[0x08] = {
-			name = "DEFLATE" :: CompressionMethod,
-			decompress = function(buf, uncompressedSize, validation): buffer
-				local decompressed = inflate(buf, uncompressedSize)
-				validateCrc(decompressed, validation)
-				return decompressed
-			end,
-		},
-	}
 
 -- Set of placeholder entry properties for incompatible entries
 local EMPTY_PROPERTIES: ZipEntryProperties = table.freeze({
@@ -76,7 +54,7 @@ local MADE_BY_OS_LOOKUP: { [number]: MadeByOS } = {
 
 --[=[
 	@class ZipEntry
-
+	
 	A single entry (a file or a directory) in a ZIP file, and its properties.
 ]=]
 local ZipEntry = {}
@@ -123,8 +101,8 @@ type ZipEntryInner = {
 
 -- stylua: ignore
 --[=[
-	@within ZipEntry
-	@type MadeByOS "FAT" | "AMIGA" | "VMS" | "UNIX" | "VM/CMS" | "Atari ST" | "OS/2" | "MAC" | "Z-System" | "CP/M" | "NTFS" | "MVS" | "VSE" | "Acorn RISCOS" | "VFAT" | "Alternate MVS" | "BeOS" | "TANDEM" | "OS/400" | "OS/X" | "Unknown"
+	@within ZipEntry	
+	@type MadeByOS "FAT" | "AMIGA" | "VMS" | "UNIX" | "VM/CMS" | "Atari ST" | "OS/2" | "MAC" | "Z-System" | "CP/M" | "NTFS" | "MVS" | "VSE" | "Acorn RISCOS" | "VFAT" | "Alternate MVS" | "BeOS" | "TANDEM" | "OS/400" | "OS/X" | "Unknown"     
 
 	The OS that created the ZIP.
 ]=]
@@ -151,22 +129,74 @@ export type MadeByOS =
 	| "OS/X"          -- 0x13; Darwin
 	| "Unknown"       -- 0x14 - 0xff; Unused
 
+-- stylua: ignore
 --[=[
 	@within ZipEntry
-	@type CompressionMethod "STORE" | "DEFLATE"
+	@type CompressionMethod "STORE" | "SHRUNK" | "REDUCE_F1" | "REDUCE_F2" | "REDUCE_F3" | "REDUCE_F4" | "IMPLODE" | "TOKENIZE" | "DEFLATE" | "DEFLATE64" | "IMPLODE_DCL" | "BZIP2" | "LZMA" | "CMPSC" | "TERSE" | "LZ77" | "ZSTD" | "MP3" | "XZ" | "JPEG" | "WAVPACK" | "PPMD" | "AE_X"
 
-	The method used to compress the file:
-	- `STORE` - No compression
-	- `DEFLATE` - Compressed raw deflate chunks
+	The method used to compress the file. See PKWARE APPNOTE §4.4.5 for details.
+
+	| Method        | Code | Description               |
+	|---------------|------|---------------------------|
+	| `STORE`       |    0 | No compression            |
+	| `SHRUNK`      |    1 | Shrunk                    |
+	| `REDUCE_F1`   |    2 | Reduced factor 1          |
+	| `REDUCE_F2`   |    3 | Reduced factor 2          |
+	| `REDUCE_F3`   |    4 | Reduced factor 3          |
+	| `REDUCE_F4`   |    5 | Reduced factor 4          |
+	| `IMPLODE`     |    6 | Imploded                  |
+	| `TOKENIZE`    |    7 | Reserved for Tokenizing   |
+	| `DEFLATE`     |    8 | Deflated (supported)      |
+	| `DEFLATE64`   |    9 | Enhanced Deflating        |
+	| `IMPLODE_DCL` |   10 | PKWARE DCL Imploding      |
+	| `BZIP2`       |   12 | BZIP2                     |
+	| `LZMA`        |   14 | LZMA                      |
+	| `CMPSC`       |   16 | IBM z/OS CMPSC            |
+	| `TERSE`       |   18 | IBM TERSE (new)           |
+	| `LZ77`        |   19 | IBM LZ77 z Architecture   |
+	| `ZSTD`        |   93 | Zstandard                 |
+	| `MP3`         |   94 | MP3 Compression           |
+	| `XZ`          |   95 | XZ Compression            |
+	| `JPEG`        |   96 | JPEG variant              |
+	| `WAVPACK`     |   97 | WavPack                   |
+	| `PPMD`        |   98 | PPMd version I, Rev 1     |
+	| `AE_X`        |   99 | AE-x encryption marker    |
+
+	Only `STORE` and `DEFLATE` are supported for extraction by this library.
+	Custom decompression routines can be registered via [ZipReader.new] to support
+	additional methods.
 ]=]
-export type CompressionMethod = "STORE" | "DEFLATE"
+export type CompressionMethod = 
+    | "STORE"       -- 0x00: No compression
+    | "SHRUNK"      -- 0x01: Shrunk
+    | "REDUCE_F1"   -- 0x02: Reduced factor 1
+    | "REDUCE_F2"   -- 0x03: Reduced factor 2
+    | "REDUCE_F3"   -- 0x04: Reduced factor 3
+    | "REDUCE_F4"   -- 0x05: Reduced factor 4
+    | "IMPLODE"     -- 0x06: Imploded
+    | "TOKENIZE"    -- 0x07: Reserved for Tokenizing
+    | "DEFLATE"     -- 0x08: Deflated (supported)
+    | "DEFLATE64"   -- 0x09: Enhanced Deflating
+    | "IMPLODE_DCL" -- 0x0A: PKWARE DCL Imploding
+    | "BZIP2"       -- 0x0C: BZIP2
+    | "LZMA"        -- 0x0E: LZMA
+    | "CMPSC"       -- 0x10: IBM z/OS CMPSC
+    | "TERSE"       -- 0x12: IBM TERSE (new)
+    | "LZ77"        -- 0x13: IBM LZ77 z Architecture
+    | "ZSTD"        -- 0x5D: Zstandard
+    | "MP3"         -- 0x5E: MP3 Compression
+    | "XZ"          -- 0x5F: XZ Compression
+    | "JPEG"        -- 0x60: JPEG variant
+    | "WAVPACK"     -- 0x61: WavPack
+    | "PPMD"        -- 0x62: PPMd version I, Rev 1
+    | "AE_X"        -- 0x63: AE-x encryption marker
 
 --[=[
 	@interface ZipEntryProperties
 	@within ZipEntry
 	@private
 
-	A set of properties that describe a ZIP entry. Used internally for construction of
+	A set of properties that describe a ZIP entry. Used internally for construction of 
 	[ZipEntry] objects.
 
 	@field versionMadeBy number -- Version of software and OS that created the ZIP
@@ -178,13 +208,13 @@ export type CompressionMethod = "STORE" | "DEFLATE"
 	@field crc number -- CRC32 checksum of the uncompressed data
 ]=]
 type ZipEntryProperties = {
-	read versionMadeBy: number,
-	read compressedSize: number,
-	read size: number,
-	read attributes: number,
-	read timestamp: number,
-	read method: CompressionMethod?,
-	read crc: number,
+	versionMadeBy: number,
+	compressedSize: number,
+	size: number,
+	attributes: number,
+	timestamp: number,
+	method: CompressionMethod?,
+	crc: number,
 }
 
 --[=[
@@ -239,7 +269,7 @@ end
 	@within ZipEntry
 	@method getPath
 
-	Resolves the path of the entry based on its relationship with other entries. It is recommended to use this
+	Resolves the path of the entry based on its relationship with other entries. It is recommended to use this 
 	method instead of accessing the `name` property directly, although they should be equivalent.
 
 	> [!WARNING]
@@ -301,7 +331,7 @@ end
 
 --[=[
 	@within ZipEntry
-	@method compressionEfficiency
+	@method compressionEfficiency 
 
 	Calculates the compression efficiency of the entry, or `nil` if the entry is a directory.
 
@@ -389,6 +419,73 @@ type ZipReaderInner = {
 	entries: { ZipEntry },
 	directories: { [string]: ZipEntry },
 	root: ZipEntry,
+	decompressionRoutines: DecompressionRoutinesWithDefaults,
+}
+
+--[=[
+	@interface CrcValidationOptions
+	@within ZipReader
+
+	Options passed to a decompression routine regarding CRC checksum
+	validation.
+
+	@field expected number -- The expected hash provided in the ZIP
+	@field skip boolean -- Whether to skip validation altogether 
+]=]
+export type CrcValidationOptions = validateCrc.CrcValidationOptions
+
+--[=[
+	@interface DecompressionRoutine
+	@within ZipReader
+
+	Represents a compression method's decompression implementation. 
+	
+	A default implementation is provided for all of [CompressionMethod]'s 
+	variants but this may be used to override or provide implementations for 
+	unsupported compression methods. 
+
+	Accepted as an argument for [ZipReader.new].
+]=]
+export type DecompressionRoutine = {
+	name: CompressionMethod,
+	decompress: (buffer, number, CrcValidationOptions) -> buffer,
+}
+
+--[=[
+	@interface DecompressionRoutines
+	@within ZipReader
+	@private
+
+	Implementations for decompression methods, keyed by the method's ID. 
+	
+	See [CompressionMethod] to find the ID for a compression method.
+]=]
+type DecompressionRoutines = { [number]: DecompressionRoutine }
+type DecompressionRoutinesWithDefaults = typeof(setmetatable(
+	{} :: DecompressionRoutines,
+	{ __index = {} :: DecompressionRoutines }
+))
+
+-- Default implementations for supported decompression routines
+local DEFAULT_DECOMPRESSION_ROUTINES: DecompressionRoutines = {
+	-- `STORE` decompression method - No compression
+	[0x00] = {
+		name = "STORE",
+		decompress = function(buf, _, validation): buffer
+			validateCrc(buf, validation)
+			return buf
+		end,
+	},
+
+	-- `DEFLATE` decompression method - Compressed raw deflate chunks
+	[0x08] = {
+		name = "DEFLATE",
+		decompress = function(buf, uncompressedSize, validation): buffer
+			local decompressed = inflate(buf, uncompressedSize)
+			validateCrc(decompressed, validation)
+			return decompressed
+		end,
+	},
 }
 
 --[=[
@@ -396,15 +493,20 @@ type ZipReaderInner = {
 	@function new
 
 	Creates a new ZipReader instance from the raw bytes of a ZIP file.
-
+	
 	**Errors if the ZIP file is invalid.**
 
 	@param data buffer -- The buffer containing the raw bytes of the ZIP
+	@param methods DecompressionRoutines? -- Custom implementations for decompression methods
 	@return ZipReader -- The new ZipReader instance
 ]=]
-function ZipReader.new(data): ZipReader
+function ZipReader.new(data: buffer, methods: DecompressionRoutines?): ZipReader
 	local root = ZipEntry.new(0, "/", EMPTY_PROPERTIES)
 	root.isDirectory = true
+
+	local decompressionRoutines = setmetatable((methods or {}) :: DecompressionRoutines, {
+		__index = DEFAULT_DECOMPRESSION_ROUTINES,
+	}) :: DecompressionRoutinesWithDefaults
 
 	local this = setmetatable(
 		{
@@ -412,6 +514,7 @@ function ZipReader.new(data): ZipReader
 			entries = {},
 			directories = {},
 			root = root,
+			decompressionRoutines = decompressionRoutines,
 		} :: ZipReaderInner,
 		{ __index = ZipReader }
 	)
@@ -430,8 +533,8 @@ end
 	implementation is inspired by that of [async_zip], a Rust library for parsing ZIP files
 	asynchronously.
 
-	This method involves buffered reading in reverse and reverse linear searching along those buffers
-	for the EoCD signature. As a result of the buffered approach, we reduce individual reads when compared
+	This method involves buffered reading in reverse and reverse linear searching along those buffers 
+	for the EoCD signature. As a result of the buffered approach, we reduce individual reads when compared 
 	to reading every single byte sequentially, by a factor of the buffer size (4 KB by default). The buffer
 	size of 4 KB was arrived at because it aligns with many systems' page sizes, and also provides a
 	good balance between read efficiency (not too small), memory usage (not too large) and CPU cache
@@ -508,7 +611,7 @@ export type EocdRecord = {
 	using the [ZipReader:findEocdPosition].
 
 	**Errors if the ZIP file is invalid.**
-
+	
 	@error "Invalid Central Directory offset or size"
 
 	@param pos number -- The offset to the End of Central Directory record
@@ -559,11 +662,11 @@ end
 	@method parseCentralDirectory
 	@private
 
-	Parses the central directory of the ZIP file and populates the `entries` and `directories`
+	Parses the central directory of the ZIP file and populates the `entries` and `directories` 
 	fields. Used internally during initialization of the [ZipReader].
 
 	**Errors if the ZIP file is invalid.**
-
+	
 	@error "Invalid Central Directory entry signature"
 	@error "Found different entries than specified in Central Directory"
 ]=]
@@ -626,7 +729,7 @@ function ZipReader.parseCentralDirectory(self: ZipReader): ()
 				compressedSize = compressedSize,
 				size = size,
 				crc = crc,
-				method = DECOMPRESSION_ROUTINES[compressionMethod].name :: CompressionMethod,
+				method = self.decompressionRoutines[compressionMethod].name :: CompressionMethod,
 				timestamp = timestamp,
 				attributes = externalAttrs,
 				isText = bit32.btest(internalAttrs, 0x0001),
@@ -649,7 +752,7 @@ end
 	@method buildDirectoryTree
 	@private
 
-	Builds the directory tree from the entries. Used internally during initialization of the
+	Builds the directory tree from the entries. Used internally during initialization of the 
 	[ZipReader].
 ]=]
 function ZipReader.buildDirectoryTree(self: ZipReader): ()
@@ -657,7 +760,7 @@ function ZipReader.buildDirectoryTree(self: ZipReader): ()
 	-- directories and files in separate passes over the entries, or sort
 	-- the entries so I handled the directories first -- I decided to do
 	-- the latter
-	table.sort<<ZipEntry>>(self.entries, function(a, b)
+	table.sort(self.entries, function(a, b)
 		if a.isDirectory ~= b.isDirectory then
 			return a.isDirectory
 		end
@@ -724,7 +827,7 @@ end
 --[=[
 	@within ZipReader
 	@method findEntry
-
+	
 	Finds a [ZipEntry] by its path in the ZIP archive.
 
 	@param path string -- Path to the entry to find
@@ -780,7 +883,7 @@ type ExtractionOptions = {
 	@within ZipReader
 	@method extract
 
-	Extracts the specified [ZipEntry] from the ZIP archive. See [ZipReader:extractDirectory] for
+	Extracts the specified [ZipEntry] from the ZIP archive. See [ZipReader:extractDirectory] for 
 	extracting directories.
 
 	@error "Cannot extract directory" -- If the entry is a directory, use [ZipReader:extractDirectory] instead
@@ -821,7 +924,13 @@ function ZipReader.extract(self: ZipReader, entry: ZipEntry, options: Extraction
 	}
 
 	-- TODO: Use a `Partial` type function for this in the future!
-	local optionsOrDefault = if options
+	local optionsOrDefault: {
+		followSymlinks: boolean,
+		decompress: boolean,
+		type: "binary" | "text",
+		skipCrcValidation: boolean,
+		skipSizeValidation: boolean,
+	} = if options
 		then setmetatable(options, { __index = defaultOptions }) :: any
 		else defaultOptions
 
@@ -889,7 +998,7 @@ function ZipReader.extract(self: ZipReader, entry: ZipEntry, options: Extraction
 
 	if optionsOrDefault.decompress then
 		local compressionMethod = buffer.readu16(self.data, entry.offset + 8)
-		local algo = DECOMPRESSION_ROUTINES[compressionMethod]
+		local algo = self.decompressionRoutines[compressionMethod]
 		if algo == nil then
 			error(`Unsupported compression, ID: {compressionMethod}`)
 		end
@@ -1017,9 +1126,9 @@ end
 	@interface ZipStatistics
 	@within ZipReader
 
-	@field fileCount number -- The number of files in the ZIP
-	@field dirCount number -- The number of directories in the ZIP
-	@field totalSize number -- The total size of all files in the ZIP
+	@field fileCount number -- The number of files in the ZIP 
+	@field dirCount number -- The number of directories in the ZIP 
+	@field totalSize number -- The total size of all files in the ZIP 
 ]=]
 export type ZipStatistics = { fileCount: number, dirCount: number, totalSize: number }
 
@@ -1053,8 +1162,13 @@ function ZipReader.getStats(self: ZipReader): ZipStatistics
 end
 
 return {
+	ZipReader = ZipReader,
+
 	-- Creates a `ZipReader` from a `buffer` of ZIP data.
 	load = function(data: buffer)
 		return ZipReader.new(data)
 	end,
+
+	-- Optimized Cyclic Redundancy Check (CRC32) computation implementation
+	crc32 = crc32,
 }

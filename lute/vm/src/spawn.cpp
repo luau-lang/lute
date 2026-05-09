@@ -1,13 +1,12 @@
-#include "lute/vm.h"
-
-#include "lute/clivfs.h"
+#include "lute/common.h"
 #include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/requirevfs.h"
 #include "lute/runtime.h"
+#include "lute/vm.h"
 
-#include "Luau/Require.h"
 #include "Luau/CodeGen.h"
+#include "Luau/Require.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -176,56 +175,33 @@ static int crossVmMarshallCont(lua_State* L, int status)
     return 0;
 }
 
-static void* createChildVmRequireContext(lua_State* L)
-{
-    void* ctx = lua_newuserdatadtor(
-        L,
-        sizeof(RequireCtx),
-        [](void* ptr)
-        {
-            std::destroy_at(static_cast<RequireCtx*>(ptr));
-        }
-    );
-
-    if (!ctx)
-        luaL_error(L, "unable to allocate RequireCtx");
-
-    // Explicit CliVfs should be removed with https://github.com/luau-lang/lute/issues/1027
-    ctx = new (ctx) RequireCtx{std::make_unique<RequireVfs>(CliVfs{})};
-
-    // Store RequireCtx in the registry to keep it alive for the lifetime of
-    // this lua_State. Memory address is used as a key to avoid collisions.
-    lua_pushlightuserdata(L, ctx);
-    lua_insert(L, -2);
-    lua_settable(L, LUA_REGISTRYINDEX);
-
-    return ctx;
-}
-
 int VM::lua_spawn(lua_State* L)
 {
     const char* file = luaL_checkstring(L, 1);
 
-    auto child = std::make_shared<Runtime>(getRuntime(L)->reporter);
+    Runtime* parent = getRuntime(L);
 
+    auto child = std::make_shared<Runtime>(parent->reporter);
+    child->requireContextFactory = parent->requireContextFactory;
+    LUTE_ASSERT(child->requireContextFactory);
+
+    void* childCtx = nullptr;
     setupState(
         *child,
-        [](lua_State* L)
+        [&factory = child->requireContextFactory, &childCtx](lua_State* childL)
         {
             if (Luau::CodeGen::isSupported())
-                Luau::CodeGen::create(L);
+                Luau::CodeGen::create(childL);
 
-            luaopen_require(L, requireConfigInit, createChildVmRequireContext(L));
+            childCtx = factory(childL);
+            luaopen_require(childL, requireConfigInit, childCtx);
         }
     );
 
     lua_Debug ar;
     lua_getinfo(L, 1, "s", &ar);
 
-    // Require the target module.
-    // Explicit CliVfs should be removed with https://github.com/luau-lang/lute/issues/1027
-    RequireCtx ctx{std::make_unique<RequireVfs>(CliVfs{})};
-    luarequire_pushproxyrequire(child->GL, requireConfigInit, &ctx);
+    luarequire_pushproxyrequire(child->GL, requireConfigInit, childCtx);
     lua_pushstring(child->GL, file);
     lua_pushstring(child->GL, ar.source);
     int status = lua_pcall(child->GL, 2, 1, 0);
