@@ -163,6 +163,12 @@ set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
 
+# curl's OpenSSL-family probes run in nested try-compile projects, where the
+# in-tree ZLIB::ZLIB target is not visible. These are false for BoringSSL.
+set(HAVE_DES_ECB_ENCRYPT "" CACHE INTERNAL "curl BoringSSL feature probe")
+set(HAVE_SSL_SET0_WBIO "" CACHE INTERNAL "curl BoringSSL feature probe")
+set(HAVE_OPENSSL_SRP "" CACHE INTERNAL "curl BoringSSL feature probe")
+
 # lute/net only speaks HTTP/HTTPS/WebSocket.
 set(CURL_DISABLE_FTP    ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_TFTP   ON CACHE BOOL "" FORCE)
