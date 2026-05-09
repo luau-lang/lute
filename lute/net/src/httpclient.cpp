@@ -26,7 +26,6 @@ static constexpr long kDefaultConnectTimeoutMs = 30 * 1000;
 
 struct CurlResponse
 {
-    std::string error;
     std::vector<char> body;
     Luau::DenseHashMap<std::string, std::string> headers;
     long status = 0;
@@ -49,7 +48,6 @@ struct HttpRequestState
     CurlResponse response;
     char errorBuffer[CURL_ERROR_SIZE] = {};
     ResumeToken token;
-    CurlMultiManager* manager = nullptr;
 
     ~HttpRequestState()
     {
@@ -170,7 +168,6 @@ struct CurlMultiManager
     bool closing = false;
     bool deleteWhenClosed = false;
     int pendingCloseHandles = 0;
-    int runningHandles = 0;
     std::string initError;
     std::unordered_map<curl_socket_t, CurlSocketState*> sockets;
     std::unordered_map<CURL*, std::unique_ptr<HttpRequestState>> requests;
@@ -189,7 +186,6 @@ struct CurlMultiManager
         }
 
         CURL* easy = state->easy;
-        state->manager = this;
         requests[easy] = std::move(state);
 
         CURLMcode result = curl_multi_add_handle(multi, easy);
@@ -211,6 +207,7 @@ struct CurlMultiManager
         if (closing || !multi)
             return;
 
+        int runningHandles = 0;
         CURLMcode result = curl_multi_socket_action(multi, socket, action, &runningHandles);
         if (result != CURLM_OK)
         {
@@ -625,12 +622,13 @@ static std::unique_ptr<HttpRequestState> createRequestState(
     for (const auto& headerPair : headers)
     {
         std::string headerString = headerPair.first + ": " + headerPair.second;
-        state->headerList = curl_slist_append(state->headerList, headerString.c_str());
-        if (!state->headerList)
+        curl_slist* next = curl_slist_append(state->headerList, headerString.c_str());
+        if (!next)
         {
             error = "failed to append request header";
             return nullptr;
         }
+        state->headerList = next;
     }
 
     if (state->headerList)
