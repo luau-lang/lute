@@ -10,7 +10,6 @@ local tableext = require("@std/tableext")
 local types = require("@self/types")
 local parseIgnores = require("./lib/parseIgnores")
 local lintCore = require("@self/lintCore")
-local deque = require("@batteries/collections/deque")
 local task = require("@std/task")
 local system = require("@std/system")
 local vm = require("@lute/vm")
@@ -53,7 +52,7 @@ local lintString = lintCore.lintString
 type fix = types.fix
 
 type Job = {
-	curr: pathLib.Path,
+	inputFile: pathLib.Path,
 	autoFixEnabled: boolean,
 }
 
@@ -73,22 +72,24 @@ local function lintPaths(
 	local allViolations: { [pathLib.Path]: { types.LintViolation } } = {}
 	local hasIgnores = #ignoreData.ignores > 0
 
-	local jobs = deque.new()
-	local traversedAllFiles = false
-	local maxWorkers = system.threadCount()
+	local maxWorkers = math.min(system.threadCount(), #inputFiles)
+	local curJob = 1
 	local curWorkers = 0
 	local doneWorkers = 0
 
 	local function lintNext(): Job?
-		while not traversedAllFiles and jobs:peekfront() == nil do
-			task.wait() -- yield
-		end
-
-		if jobs:peekfront() == nil then
+		if curJob > #inputFiles then
 			return nil
 		end
 
-		return jobs:popfront()
+		local nextJob: Job = {
+			inputFile = inputFiles[curJob],
+			autoFixEnabled = autofixEnabled,
+		}
+
+		curJob += 1
+
+		return nextJob
 	end
 
 	local function spawnWorker()
@@ -105,17 +106,40 @@ local function lintPaths(
 				local curJob = lintNext()
 				while curJob ~= nil do
 					local job = curJob :: Job
-					local success, res = pcall(function()
-						return lintFile.lintFile({
-							file = pathLib.format(job.curr),
-							autofix = job.autoFixEnabled,
-							verbose = VERBOSE,
-						})
-					end)
-					if success then
-						allViolations[job.curr] = res :: { types.LintViolation }
-					else
-						print(`(worker) Error linting file '{job.curr}': {res}`)
+
+					local walker = fs.walk(job.inputFile, { recursive = true })
+
+					local curr = walker()
+					while curr ~= nil do
+						if hasIgnores then
+							local inputFilePathString = pathLib.format(curr)
+
+							if
+								parseIgnores.isIgnored(
+									ignoreData,
+									inputFilePathString,
+									fs.type(inputFilePathString) == "dir"
+								)
+							then
+								curr = walker()
+								continue
+							end
+						end
+
+						local success, res = pcall(function()
+							return lintFile.lintFile({
+								file = pathLib.format(curr :: pathLib.Path),
+								autofix = job.autoFixEnabled,
+								verbose = VERBOSE,
+							})
+						end)
+						if success then
+							allViolations[curr] = res :: { types.LintViolation }
+						else
+							print(`(worker) Error linting file '{curr}': {res}`)
+						end
+
+						curr = walker()
 					end
 					curJob = lintNext()
 				end
@@ -127,35 +151,12 @@ local function lintPaths(
 		end)
 	end
 
-	for _, inputPath in inputFiles do
-		local walker = fs.walk(inputPath, { recursive = true })
-
-		local curr = walker()
-		while curr ~= nil do
-			if hasIgnores then
-				local inputFilePathString = pathLib.format(curr)
-
-				if parseIgnores.isIgnored(ignoreData, inputFilePathString, fs.type(inputFilePathString) == "dir") then
-					curr = walker()
-					continue
-				end
-			end
-
-			local fileJob: Job = {
-				curr = curr,
-				autoFixEnabled = autofixEnabled,
-			}
-			jobs:pushback(fileJob)
-			if curWorkers < maxWorkers then
-				spawnWorker()
-				curWorkers += 1
-			end
-
-			curr = walker()
+	for _ = 1, #inputFiles do
+		if curWorkers < maxWorkers then
+			spawnWorker()
+			curWorkers += 1
 		end
 	end
-
-	traversedAllFiles = true
 
 	while doneWorkers < curWorkers do
 		task.wait() -- wait for all jobs to run
