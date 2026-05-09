@@ -8,7 +8,6 @@
 
 #include "curl/curl.h"
 
-#include <cctype>
 #include <limits>
 #include <memory>
 #include <string>
@@ -533,7 +532,8 @@ static CurlMultiManager* getCurlMultiManager(Runtime* runtime, std::string& erro
 
 static bool isValidHeaderNameChar(unsigned char c)
 {
-    return std::isalnum(c) || c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == '\'' || c == '*' || c == '+' || c == '-' || c == '.' ||
+    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '!' || c == '#' || c == '$' || c == '%' || c == '&' ||
+           c == '\'' || c == '*' || c == '+' || c == '-' || c == '.' ||
            c == '^' || c == '_' || c == '`' || c == '|' || c == '~';
 }
 
@@ -551,9 +551,20 @@ static bool isValidHeaderName(const std::string& name)
     return true;
 }
 
-static bool containsCrLf(const std::string& value)
+static bool isValidHeaderValue(const std::string& value)
 {
-    return value.find('\r') != std::string::npos || value.find('\n') != std::string::npos;
+    for (unsigned char c : value)
+    {
+        if (c == '\t')
+            continue;
+
+        if (c >= 0x20 && c != 0x7f)
+            continue;
+
+        return false;
+    }
+
+    return true;
 }
 
 static std::unique_ptr<HttpRequestState> createRequestState(
@@ -657,10 +668,14 @@ int request(lua_State* L)
             lua_pushnil(L);
             while (lua_next(L, -2))
             {
-                if (lua_isstring(L, -2) && lua_isstring(L, -1))
+                if (lua_type(L, -2) == LUA_TSTRING && lua_isstring(L, -1))
                 {
-                    std::string key = lua_tostring(L, -2);
-                    std::string value = lua_tostring(L, -1);
+                    size_t keyLen = 0;
+                    size_t valueLen = 0;
+                    const char* keyData = lua_tolstring(L, -2, &keyLen);
+                    const char* valueData = lua_tolstring(L, -1, &valueLen);
+                    std::string key(keyData, keyLen);
+                    std::string value(valueData, valueLen);
                     headers.emplace_back(key, value);
                 }
                 lua_pop(L, 1);
@@ -674,10 +689,10 @@ int request(lua_State* L)
 
     for (const auto& header : headers)
     {
-        if (!isValidHeaderName(header.first) || containsCrLf(header.first))
+        if (!isValidHeaderName(header.first))
             luaL_error(L, "invalid request header name");
 
-        if (containsCrLf(header.second))
+        if (!isValidHeaderValue(header.second))
             luaL_error(L, "invalid request header value");
     }
 

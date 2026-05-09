@@ -143,10 +143,34 @@ test.suite("NetTestSuite", function(suite)
 			})
 		end)
 
+		assert.throwsWith("invalid request header name", function()
+			net.request("http://example.test", {
+				headers = {
+					["Bad\0Header"] = "value",
+				},
+			})
+		end)
+
 		assert.throwsWith("invalid request header value", function()
 			net.request("http://example.test", {
 				headers = {
 					["X-Test"] = "bad\r\nvalue",
+				},
+			})
+		end)
+
+		assert.throwsWith("invalid request header value", function()
+			net.request("http://example.test", {
+				headers = {
+					["X-Test"] = "bad\0value",
+				},
+			})
+		end)
+
+		assert.throwsWith("invalid request header value", function()
+			net.request("http://example.test", {
+				headers = {
+					["X-Test"] = "bad\1value",
 				},
 			})
 		end)
