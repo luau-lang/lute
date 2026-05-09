@@ -59,9 +59,9 @@ type Job = {
 
 local function lintPaths(
 	inputFilePaths: { string },
-	rulePath: string,
+	rulePath: string?,
 	noDefaults: boolean,
-	passedConfigVal: string,
+	passedConfigVal: string?,
 	autofixEnabled: boolean,
 	ignoreData: parseIgnores.GitignoreData
 ): { [pathLib.Path]: { types.LintViolation } }
@@ -73,7 +73,7 @@ local function lintPaths(
 	local allViolations: { [pathLib.Path]: { types.LintViolation } } = {}
 	local hasIgnores = #ignoreData.ignores > 0
 
-	local jobs = deque.new<<Job>>()
+	local jobs = deque.new()
 	local traversedAllFiles = false
 	local maxWorkers = system.threadCount()
 	local curWorkers = 0
@@ -93,15 +93,24 @@ local function lintPaths(
 
 	local function spawnWorker()
 		task.spawn(function()
-			local lintFile = vm.create("@self/lintFile")
-			lintFile.initialize(rulePath, noDefaults, passedConfigVal, VERBOSE)
-			pcall(function()
+			xpcall(function()
+				local lintFile = vm.create("@self/lintFile")
+				lintFile.initialize({
+					rulePath = rulePath,
+					noDefaults = noDefaults,
+					configPath = passedConfigVal,
+					verbose = VERBOSE,
+				})
+
 				local curJob = lintNext()
 				while curJob ~= nil do
 					local job = curJob :: Job
 					local success, res = pcall(function()
-						-- ONLY PASS THRU COMPATIBLE VALUES
-						return lintFile.lintFile(pathLib.format(job.curr), job.autoFixEnabled, VERBOSE)
+						return lintFile.lintFile({
+							file = pathLib.format(job.curr),
+							autofix = job.autoFixEnabled,
+							verbose = VERBOSE,
+						})
 					end)
 					if success then
 						allViolations[job.curr] = res :: { types.LintViolation }
@@ -110,9 +119,11 @@ local function lintPaths(
 					end
 					curJob = lintNext()
 				end
-
-				doneWorkers += 1
+			end, function(err: any)
+				print(`worker errored: {tostring(err)}`)
 			end)
+
+			doneWorkers += 1
 		end)
 	end
 
@@ -146,7 +157,7 @@ local function lintPaths(
 
 	traversedAllFiles = true
 
-	while jobs:peekfront() ~= nil and doneWorkers < curWorkers do
+	while doneWorkers < curWorkers do
 		task.wait() -- wait for all jobs to run
 	end
 

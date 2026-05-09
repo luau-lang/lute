@@ -5,6 +5,19 @@ local tableext = require("@std/tableext")
 local types = require("./types")
 local lintCore = require("./lintCore")
 
+type InitializeArgs = {
+	rulePath: string?,
+	noDefaults: boolean,
+	configPath: string?,
+	verbose: boolean,
+}
+
+type LintFileArgs = {
+	file: string,
+	autofix: boolean,
+	verbose: boolean,
+}
+
 -- populate in initialize
 local lintRules: { types.LintRule } = {}
 local configData: internalTypes.RuleConfigData = {
@@ -14,24 +27,23 @@ local configData: internalTypes.RuleConfigData = {
 }
 
 -- load config, load rules
-local function initialize(rulePath: string, noDefaults: boolean, passedConfigVal: string, VERBOSE: boolean)
-	local lintData = lintCore.initialize(passedConfigVal, noDefaults, rulePath, VERBOSE)
+local function initialize(args: InitializeArgs)
+	local lintData = lintCore.initialize(args.configPath, args.noDefaults, args.rulePath, args.verbose)
 	lintRules, configData = lintData.lintRules, lintData.configContextData
 end
 
-local function lintFile(
-	inputFilePath: pathLib.Pathlike,
-	autofixEnabled: boolean,
-	verbose: boolean
-): { types.LintViolation }
-	if verbose then
+local function lintFile(args: LintFileArgs): { types.LintViolation }
+	local inputFilePath = args.file
+	local resolvedInputFilePath = pathLib.resolve(inputFilePath)
+
+	if args.verbose then
 		print(`Reading input file '{inputFilePath}'`)
 	end
 	local fileContent = fs.readFileToString(inputFilePath)
 
-	local violations = lintCore.lintString(fileContent, lintRules, pathLib.resolve(inputFilePath), configData, verbose)
+	local violations = lintCore.lintString(fileContent, lintRules, resolvedInputFilePath, configData, args.verbose)
 
-	if not autofixEnabled then
+	if not args.autofix then
 		return violations
 	end
 
@@ -43,7 +55,7 @@ local function lintFile(
 		return violations
 	end
 
-	if verbose then
+	if args.verbose then
 		print(`Applying suggested fixes to file '{inputFilePath}'`)
 	end
 
@@ -59,7 +71,7 @@ local function lintFile(
 
 	fs.writeStringToFile(inputFilePath, newContent)
 
-	return lintCore.lintString(newContent, lintRules, inputFilePath, configData, verbose)
+	return lintCore.lintString(newContent, lintRules, resolvedInputFilePath, configData, args.verbose)
 end
 
 return {
