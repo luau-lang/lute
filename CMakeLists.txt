@@ -106,6 +106,10 @@ set(ZLIB_BUILD_STATIC ON CACHE BOOL "Build static zlib" FORCE)
 set(ZLIB_INSTALL OFF CACHE BOOL "Do not install zlib" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static zlib" FORCE)
 add_subdirectory(extern/zlib)
+if(TARGET zlibstatic AND NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB INTERFACE IMPORTED GLOBAL)
+    target_link_libraries(ZLIB::ZLIB INTERFACE "$<BUILD_INTERFACE:zlibstatic>")
+endif()
 
 set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
 
@@ -120,6 +124,7 @@ else()
 endif()
 set(ZLIB_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/zlib;${ZLIB_OUTPUT_DIR} CACHE PATH "" FORCE)
 set(ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE STRING "" FORCE)
+set(ZLIB_LIBRARIES ZLIB::ZLIB CACHE STRING "" FORCE)
 
 # boringssl setup
 add_subdirectory(extern/boringssl)
