@@ -362,7 +362,7 @@ local function applySuggestedFixes(source: string, fixes: { fix }): string
 	return table.concat(newLines, "\n")
 end
 
-local function initialize(passedConfigVal: string, noDefaults: boolean, rulePath: string, VERBOSE: boolean)
+local function initialize(passedConfigVal: string?, noDefaults: boolean, rulePath: string?, VERBOSE: boolean)
 	if passedConfigVal and fs.type(passedConfigVal) ~= "file" then
 		print(`Error: Configuration path must point to a file, not {fs.type(passedConfigVal)}`)
 		process.exit(1)
