@@ -17,8 +17,8 @@ local instance = server.serve({
 			}
 		end,
 
-		["/assets/*"] = function(req)
-			return { status = 200, body = `asset path = {req.params["*"]}` }
+		["/assets/*"] = function(_req)
+			return { status = 200, body = "asset fallback" }
 		end,
 
 		["/items/:id"] = {

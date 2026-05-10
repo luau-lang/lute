@@ -97,8 +97,8 @@ test.suite("NetTestSuite", function(suite)
 				["/users/:id"] = function(req)
 					return { status = 200, body = `user:{req.params.id}` }
 				end,
-				["/assets/*"] = function(req)
-					return { status = 200, body = `asset:{req.params["*"]}` }
+				["/assets/*"] = function(_req)
+					return { status = 200, body = "asset" }
 				end,
 			},
 		})
@@ -113,7 +113,7 @@ test.suite("NetTestSuite", function(suite)
 
 		local asset = net.request(`{instance.hostname}:{instance.port}/assets/images/logo.png`, { method = "GET" })
 		assert.eq(200, asset.status)
-		assert.eq("asset:images/logo.png", asset.body)
+		assert.eq("asset", asset.body)
 
 		local missing = net.request(`{instance.hostname}:{instance.port}/nope`, { method = "GET" })
 		assert.eq(404, missing.status)
@@ -131,6 +131,9 @@ test.suite("NetTestSuite", function(suite)
 					end,
 					POST = function(req)
 						return { status = 201, body = `post:{req.params.id}:{req.body}` }
+					end,
+					TRACE = function(req)
+						return { status = 200, body = `trace:{req.params.id}` }
 					end,
 				},
 			},
@@ -152,6 +155,10 @@ test.suite("NetTestSuite", function(suite)
 			body = "payload",
 		})
 		assert.eq(404, put.status)
+
+		local trace = net.request(`{instance.hostname}:{instance.port}/item/42`, { method = "TRACE" })
+		assert.eq(200, trace.status)
+		assert.eq("trace:42", trace.body)
 
 		instance.close()
 	end)

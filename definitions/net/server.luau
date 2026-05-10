@@ -28,6 +28,8 @@ export type MethodRoutes = {
 	PATCH: RouteHandler?,
 	HEAD: RouteHandler?,
 	OPTIONS: RouteHandler?,
+	CONNECT: RouteHandler?,
+	TRACE: RouteHandler?,
 }
 
 export type RouteEntry = RouteHandler | MethodRoutes

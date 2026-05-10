@@ -51,8 +51,6 @@ struct RouteContext
     RouteHandlerKind kind = RouteHandlerKind::Function;
     std::shared_ptr<Ref> ref;
     std::vector<std::string> paramNames;
-    bool trailingWildcard = false;
-    int prefixSegments = 0;
 };
 
 using MatchedParams = std::vector<std::pair<std::string, std::string>>;
@@ -182,13 +180,11 @@ static void pushHeadersTable(const RequestHeaders& headers, lua_State* L)
     }
 }
 
-static constexpr const char* kHttpMethodNames[] = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"};
+static constexpr const char* kHttpMethodNames[] = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "CONNECT", "TRACE"};
 
 struct ParsedPattern
 {
     std::vector<std::string> paramNames;
-    bool trailingWildcard = false;
-    int prefixSegments = 0;
 };
 
 static ParsedPattern parsePattern(lua_State* L, std::string_view pattern)
@@ -206,24 +202,11 @@ static ParsedPattern parsePattern(lua_State* L, std::string_view pattern)
         size_t end = body.find('/', start);
         std::string_view seg = (end == std::string_view::npos) ? body.substr(start) : body.substr(start, end - start);
 
-        if (seg.size() == 1 && seg[0] == '*')
-        {
-            if (end != std::string_view::npos && end + 1 < body.size())
-                luaL_errorL(L, "route pattern '%.*s' must have '*' as the final segment", int(pattern.size()), pattern.data());
-            info.trailingWildcard = true;
-            break;
-        }
-
         if (!seg.empty() && seg[0] == ':')
         {
             if (seg.size() < 2)
                 luaL_errorL(L, "route pattern '%.*s' has an empty parameter name", int(pattern.size()), pattern.data());
             info.paramNames.emplace_back(seg.substr(1));
-            info.prefixSegments++;
-        }
-        else if (!seg.empty())
-        {
-            info.prefixSegments++;
         }
 
         if (end == std::string_view::npos)
@@ -232,20 +215,6 @@ static ParsedPattern parsePattern(lua_State* L, std::string_view pattern)
     }
 
     return info;
-}
-
-static std::string_view extractWildcardTail(std::string_view url, int prefixSegments)
-{
-    size_t pos = 0;
-    int slashes = 0;
-    int needed = prefixSegments + 1;
-    while (pos < url.size() && slashes < needed)
-    {
-        if (url[pos] == '/')
-            slashes++;
-        pos++;
-    }
-    return url.substr(pos);
 }
 
 static std::shared_ptr<RouteContext> makeRouteContext(
@@ -260,8 +229,6 @@ static std::shared_ptr<RouteContext> makeRouteContext(
     ctx->pattern = pattern;
     ctx->method = method;
     ctx->paramNames = info.paramNames;
-    ctx->trailingWildcard = info.trailingWildcard;
-    ctx->prefixSegments = info.prefixSegments;
 
     int absIndex = lua_absindex(L, valueIndex);
     if (lua_isfunction(L, absIndex))
@@ -1028,16 +995,11 @@ static void onRouteRequest(
     MatchedParams params;
     if (routeCtx)
     {
-        params.reserve(routeCtx->paramNames.size() + (routeCtx->trailingWildcard ? 1 : 0));
-        for (size_t i = 0; i < routeCtx->paramNames.size(); ++i)
+        params.reserve(routeCtx->paramNames.size());
+        for (const std::string& name : routeCtx->paramNames)
         {
-            std::string_view value = req->getParameter(static_cast<unsigned short>(i));
-            params.emplace_back(routeCtx->paramNames[i], std::string(value.data(), value.size()));
-        }
-        if (routeCtx->trailingWildcard)
-        {
-            std::string_view tail = extractWildcardTail(req->getUrl(), routeCtx->prefixSegments);
-            params.emplace_back("*", std::string(tail.data(), tail.size()));
+            std::string_view value = req->getParameter(name);
+            params.emplace_back(name, std::string(value.data(), value.size()));
         }
     }
 
@@ -1096,6 +1058,10 @@ static void registerRouteWithApp(AppT* app, const std::shared_ptr<ServerLoopStat
         app->head(p, std::move(handler));
     else if (m == "OPTIONS")
         app->options(p, std::move(handler));
+    else if (m == "CONNECT")
+        app->connect(p, std::move(handler));
+    else if (m == "TRACE")
+        app->trace(p, std::move(handler));
     else
         app->any(p, std::move(handler));
 }
