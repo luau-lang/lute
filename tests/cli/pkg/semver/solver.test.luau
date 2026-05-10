@@ -201,6 +201,44 @@ test.suite("solver.solve", function(suite)
 		assert.eq(resolution.shared.versionString, "1.2.0")
 	end)
 
+	suite:case("keepsMultipleConstraintsFromSameVersion", function(assert)
+		local universe: solver.Universe = {
+			parent = {
+				namedVersion("parent", "1.0.0", {
+					sharedV1 = req("shared", "^1.0.0"),
+					sharedV2 = req("shared", "^2.0.0"),
+				}),
+			},
+			shared = {
+				namedVersion("shared", "2.0.0"),
+				namedVersion("shared", "1.0.0"),
+			},
+		}
+
+		assert.throws(function()
+			solver.solve(universe, {
+				parent = req("parent", "^1.0.0"),
+			})
+		end)
+	end)
+
+	suite:case("circularDependencyErrors", function(assert)
+		local universe: solver.Universe = {
+			a = {
+				namedVersion("a", "1.0.0", { b = req("b", "^1.0.0") }),
+			},
+			b = {
+				namedVersion("b", "1.0.0", { a = req("a", "^1.0.0") }),
+			},
+		}
+
+		assert.throws(function()
+			solver.solve(universe, {
+				a = req("a", "^1.0.0"),
+			})
+		end)
+	end)
+
 	suite:case("constraintRetraction", function(assert)
 		-- Exercises the retraction code path:
 		-- root requires pkga >=1.0.0 (allows 2.x) and pkgb ^1.0.0.
