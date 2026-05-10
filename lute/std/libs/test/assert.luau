@@ -64,14 +64,7 @@ local function tablesEqual(t1: unknown, t2: unknown, path: string): (boolean, st
 	return true, nil
 end
 
-local function neq<T>(negate: boolean, lhs: T, rhs: T, msg: string?): Failure?
-	if negate then
-		if lhs == rhs then
-			return nil
-		end
-		return assertion(msg or `{lhs} ~= {rhs}`, nil, true)
-	end
-
+local function neq<T>(_: boolean, lhs: T, rhs: T, msg: string?): Failure?
 	if lhs ~= rhs then
 		return nil
 	end
@@ -285,14 +278,7 @@ local function strContains(
 	return nil
 end
 
-local function strNotContains(negate: boolean, haystack: string, needle: string, msg: string?): Failure?
-	if negate then
-		if haystack:find(needle, 1, true) == nil then
-			return assertion(if msg then msg else `Expected "{haystack}" to contain "{needle}".`, nil, true)
-		end
-		return nil
-	end
-
+local function strNotContains(_: boolean, haystack: string, needle: string, msg: string?): Failure?
 	if haystack:find(needle, 1, true) ~= nil then
 		return assertion(if msg then msg else `Expected "{haystack}" to not contain "{needle}".`)
 	end
@@ -309,17 +295,15 @@ local function reqassert<T...>(req: (boolean, T...) -> Failure?, negate: boolean
 	end
 end
 
--- when users index into never, modified is applied, all methods are inverted / negated
-
-local assertNegation = table.freeze({
+-- `never` contains inversions for assertions without an explicit negative helper.
+local assertNegation = {
 	eq = reqassert(eq, true),
-	neq = reqassert(neq, true),
 	throws = reqassert(throws, true),
 	throwsWith = reqassert(throwsWith, true),
 	strContains = reqassert(strContains, true),
-	strNotContains = reqassert(strNotContains, true),
 	that = reqassert(that, true),
-})
+}
+table.freeze(assertNegation)
 
 return table.freeze({
 	eq = reqassert(eq),
