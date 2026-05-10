@@ -89,27 +89,22 @@ local function lint(
 				local currValStr = stringext.trim(printer.printNode(currVal))
 				local suggestedFix = `{currVarStr}, {currValStr} = {currValStr}, {currVarStr}`
 
-				-- LUAUFIX once we bump luau version to 716
-				-- https://github.com/luau-lang/lute/issues/932
-				table.insert(
-					violations,
-					{ -- LUAUFIX: inserted table isn't inferred as a LintViolation
-						lintname = name,
-						location = syntax.span.create({
-							beginLine = currStat.location.beginLine,
-							beginColumn = currStat.location.beginColumn,
-							endLine = nextStat.location.endLine,
-							endColumn = nextStat.location.endColumn,
-						}),
-						message = message,
-						severity = "warning" :: "warning", -- LUAUFIX: cast needed because severity isn't inferred as a singleton
-						sourcepath = sourcepath,
-						suggestedfix = {
-							fix = suggestedFix,
-						},
-						target = target,
-					} :: lintTypes.LintViolation
-				)
+				table.insert(violations, {
+					lintname = name,
+					location = syntax.span.create({
+						beginLine = currStat.location.beginLine,
+						beginColumn = currStat.location.beginColumn,
+						endLine = nextStat.location.endLine,
+						endColumn = nextStat.location.endColumn,
+					}),
+					message = message,
+					severity = "warning" :: "warning", -- LUAUFIX: cast needed because severity isn't inferred as a singleton
+					sourcepath = sourcepath,
+					suggestedfix = {
+						fix = suggestedFix,
+					},
+					target = target,
+				})
 			end
 		end
 	end

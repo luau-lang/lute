@@ -21,28 +21,23 @@ namespace fs
 
 static UVFile* getFileHandle(lua_State* L, int index)
 {
-    if (!lua_islightuserdata(L, index))
-    {
-        luaL_errorL(L, "Error: expected file handle");
-    }
-
-    auto* handle = static_cast<UVFile*>(lua_tolightuserdata(L, index));
+    auto* handle = static_cast<UVFile*>(lua_touserdatatagged(L, index, kUVFileTag));
     if (!handle)
     {
-        luaL_errorL(L, "Error: invalid file handle");
+        luaL_errorL(L, "Error: expected file handle");
     }
 
     return handle;
 }
 
-std::optional<int> setFlags(const char* c, int* openFlags)
+std::optional<int> setFlags(const char* modeStr, int* openFlags)
 {
     int modeFlags = 0x0000;
 
-    for (const char* it = c; *it != '\0'; it++)
+    for (const char* it = modeStr; *it != '\0'; it++)
     {
-        char c = *it;
-        switch (c)
+        char modeChar = *it;
+        switch (modeChar)
         {
         case 'r':
             *openFlags |= O_RDONLY;
@@ -52,11 +47,12 @@ std::optional<int> setFlags(const char* c, int* openFlags)
             modeFlags = 0666;
             break;
         case 'x':
-            *openFlags |= O_CREAT | O_EXCL;
-            modeFlags = 0700;
+            *openFlags |= O_WRONLY | O_CREAT | O_EXCL;
+            modeFlags = 0666;
             break;
         case 'a':
-            *openFlags |= O_WRONLY | O_APPEND;
+            *openFlags |= O_WRONLY | O_APPEND | O_CREAT;
+            modeFlags = 0666;
             break;
         case '+':
             // If we have not set the truncate bit in 'w' mode,
@@ -102,24 +98,12 @@ int write(lua_State* L)
 
 int open(lua_State* L)
 {
-    int nArgs = lua_gettop(L);
-    if (nArgs < 1)
-    {
-        luaL_errorL(L, "Error: no file supplied\n");
-    }
     const char* path = luaL_checkstring(L, 1);
 
     int openFlags = 0x0000;
     const char* mode = "r";
-    // Default to read mode if no mode is supplied (i.e., mode is nil in Luau)
-    if (nArgs < 2 || lua_isnil(L, 2))
-    {
-        openFlags = O_RDONLY;
-    }
-    else
-    {
+    if (!lua_isnoneornil(L, 2))
         mode = luaL_checkstring(L, 2);
-    }
 
     std::optional<int> modeFlags = setFlags(mode, &openFlags);
     if (!modeFlags)
@@ -132,50 +116,19 @@ int open(lua_State* L)
 
 int remove(lua_State* L)
 {
-    int nArgs = lua_gettop(L);
-    if (nArgs < 1)
-    {
-        luaL_errorL(L, "Error: no file supplied\n");
-    }
-
-    if (nArgs > 1)
-    {
-        luaL_errorL(L, "Error: too many arguments supplied\n");
-    }
     const char* path = luaL_checkstring(L, 1);
-
     return remove_impl(L, path);
 }
 
 int mkdir(lua_State* L)
 {
-    int nArgs = lua_gettop(L);
-    if (nArgs != 1)
-    {
-        luaL_errorL(L, "Error: expected 1 argument\n");
-    }
-
     const char* path = luaL_checkstring(L, 1);
-    int mode = 0777; // default permission for Unix, not used on Windows
-
-    return mkdir_impl(L, path, mode);
+    return mkdir_impl(L, path, 0777);
 }
 
 int rmdir(lua_State* L)
 {
-    int nArgs = lua_gettop(L);
-    if (nArgs < 1)
-    {
-        luaL_errorL(L, "rmdir: no path supplied\n");
-    }
-
-    if (nArgs > 1)
-    {
-        luaL_errorL(L, "rmdir: too many arguments supplied\n");
-    }
-
     const char* path = luaL_checkstring(L, 1);
-
     return rmdir_impl(L, path);
 }
 
@@ -188,44 +141,30 @@ int stat(lua_State* L)
 
 int copy(lua_State* L)
 {
-    int nArgs = lua_gettop(L);
-    if (nArgs > 2)
-    {
-        luaL_errorL(L, "copy: too many arguments supplied\n");
-    }
-
     const char* path = luaL_checkstring(L, 1);
     const char* dest = luaL_checkstring(L, 2);
-
     return copy_impl(L, path, dest);
 }
 
 int link(lua_State* L)
 {
-    int nArgs = lua_gettop(L);
-    if (nArgs > 2)
-    {
-        luaL_errorL(L, "link: too many arguments supplied\n");
-    }
-
     const char* path = luaL_checkstring(L, 1);
     const char* dest = luaL_checkstring(L, 2);
-
     return link_impl(L, path, dest);
 }
 
 int symlink(lua_State* L)
 {
-    int nArgs = lua_gettop(L);
-    if (nArgs > 2)
-    {
-        luaL_errorL(L, "symlink: too many arguments supplied\n");
-    }
-
     const char* path = luaL_checkstring(L, 1);
     const char* dest = luaL_checkstring(L, 2);
-
     return symlink_impl(L, path, dest);
+}
+
+int rename(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    const char* dest = luaL_checkstring(L, 2);
+    return rename_impl(L, path, dest);
 }
 
 struct WatchHandle
@@ -335,14 +274,7 @@ int fs_watch(lua_State* L)
 
 int exists(lua_State* L)
 {
-    int nArgs = lua_gettop(L);
-    if (nArgs > 1)
-    {
-        luaL_errorL(L, "exists: too many arguments supplied\n");
-    }
-
     const char* path = luaL_checkstring(L, 1);
-
     return exists_impl(L, path);
 }
 
@@ -355,22 +287,35 @@ int type(lua_State* L)
 
 int listdir(lua_State* L)
 {
-    int nArgs = lua_gettop(L);
-    if (nArgs > 1)
-    {
-        luaL_errorL(L, "listdir: too many arguments supplied\n");
-    }
-
     const char* path = luaL_checkstring(L, 1);
-
     return listdir_impl(L, path);
 }
 
 } // namespace fs
 
-static void initalizeFS(lua_State* L)
+static void initializeFS(lua_State* L)
 {
     init_duration_lib(L);
+
+    luaL_newmetatable(L, "FileHandle");
+    lua_pushstring(L, "FileHandle");
+    lua_setfield(L, -2, "__type");
+    lua_setuserdatadtor(
+        L,
+        kUVFileTag,
+        [](lua_State*, void* ud)
+        {
+            auto* file = static_cast<fs::UVFile*>(ud);
+            if (file->fd.has_value())
+            {
+                uv_fs_t req;
+                uv_fs_close(nullptr, &req, *file->fd, nullptr);
+                uv_fs_req_cleanup(&req);
+            }
+            std::destroy_at(file);
+        }
+    );
+    lua_setuserdatametatable(L, kUVFileTag);
 
     luaL_newmetatable(L, "WatchHandle");
 
@@ -426,6 +371,7 @@ const luaL_Reg FS::lib[] = {
     {"link", fs::link},
     {"symlink", fs::symlink},
     {"copy", fs::copy},
+    {"move", fs::rename},
 
     {"mkdir", fs::mkdir},
     {"listdir", fs::listdir},
@@ -449,17 +395,17 @@ int FS::pushLibrary(lua_State* L)
 
     lua_setreadonly(L, -1, 1);
 
-    initalizeFS(L);
+    initializeFS(L);
 
     return 1;
 }
 
-int luaopen_fs(lua_State* L)
+LUTE_API int luaopen_fs(lua_State* L)
 {
     return FS::openAsGlobal(L);
 }
 
-int luteopen_fs(lua_State* L)
+LUTE_API int luteopen_fs(lua_State* L)
 {
     return FS::pushLibrary(L);
 }

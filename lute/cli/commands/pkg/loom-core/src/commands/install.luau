@@ -1,5 +1,5 @@
 local lockfile = require("../lockfile")
-local packageresolution = require("../packageresolution")
+local resolution = require("../resolution")
 local path = require("@std/path")
 local process = require("@std/process")
 
@@ -24,7 +24,7 @@ end
 
 local function install()
 	local rootDirectory = path.format(process.cwd())
-	local lock = packageresolution.resolve(rootDirectory)
+	local lock = resolution.resolve(rootDirectory)
 	printDiagnostics(lock)
 end
 

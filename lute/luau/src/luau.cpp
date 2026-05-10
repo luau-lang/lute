@@ -3127,12 +3127,12 @@ int LuauLib::pushLibrary(lua_State* L)
     return luau::initLuauLibrary(L);
 }
 
-int luaopen_luau(lua_State* L)
+LUTE_API int luaopen_luau(lua_State* L)
 {
     return LuauLib::openAsGlobal(L);
 }
 
-int luteopen_luau(lua_State* L)
+LUTE_API int luteopen_luau(lua_State* L)
 {
     return LuauLib::pushLibrary(L);
 }
