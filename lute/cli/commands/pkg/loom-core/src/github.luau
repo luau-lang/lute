@@ -1,8 +1,9 @@
-local authenticationStore = require("./authenticationstore")
+local authenticationStore = require("./authentication")
 local fs = require("@std/fs")
 local net = require("@std/net")
 local path = require("@std/path")
 local process = require("@std/process")
+local system = require("@std/system")
 local unzip = require("../extern/unzip")
 
 local function sanitizePath(path: string): string
@@ -92,7 +93,23 @@ end
 local function installPackage(source: string, rev: string, installPath: string): ()
 	local url = `{source}/archive/{rev}.zip`
 	local zipArchive = downloadFromGitHubArchive(url)
-	installZipArchive(zipArchive, installPath)
+
+	local safeName = rev:gsub("[^%w%-_.]", "-")
+	local tempDir = path.format(path.join(system.tmpdir(), `lute-pkg-install-{safeName}`))
+
+	if fs.exists(tempDir) then
+		fs.removeDirectory(tempDir, { recursive = true })
+	end
+
+	xpcall(installZipArchive, function(err)
+		if fs.exists(tempDir) then
+			fs.removeDirectory(tempDir, { recursive = true })
+		end
+
+		error(err, 0)
+	end, zipArchive, tempDir)
+
+	fs.move(tempDir, installPath)
 end
 
 return {

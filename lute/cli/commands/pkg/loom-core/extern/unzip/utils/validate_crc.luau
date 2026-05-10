@@ -13,7 +13,7 @@ local function validateCrc(decompressed: buffer, validation: CrcValidationOption
 			validation.expected == computed,
 			`Validation failed; CRC checksum does not match: {string.format("%x", computed)} ~= {string.format(
 				"%x",
-				computed
+				validation.expected
 			)} (expected ~= got)`
 		)
 	end
