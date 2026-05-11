@@ -74,7 +74,6 @@ local function lintPaths(
 
 	local maxWorkers = math.min(system.threadCount(), #inputFiles)
 	local curJob = 1
-	local curWorkers = 0
 	local doneWorkers = 0
 
 	local function lintNext(): Job?
@@ -151,14 +150,11 @@ local function lintPaths(
 		end)
 	end
 
-	for _ = 1, #inputFiles do
-		if curWorkers < maxWorkers then
-			spawnWorker()
-			curWorkers += 1
-		end
+	for _ = 1, maxWorkers do
+		spawnWorker()
 	end
 
-	while doneWorkers < curWorkers do
+	while doneWorkers < maxWorkers do
 		task.wait() -- wait for all jobs to run
 	end
 
