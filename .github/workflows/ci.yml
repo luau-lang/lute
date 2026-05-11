@@ -67,9 +67,10 @@ jobs:
           use-bootstrap: ${{ matrix.use-bootstrap || 'false' }}
       - name: Run Luau Tests
         if: ${{ steps.should_run.outputs.proceed == 'true' }}
-        run: |
-          ${{ steps.build_lute.outputs.exe_path }} test --verbose
-          ${{ steps.build_lute.outputs.exe_path }} test snapshots
+        run: ${{ steps.build_lute.outputs.exe_path }} test --verbose
+      - name: Run Luau Snapshots
+        if: ${{ steps.should_run.outputs.proceed == 'true' }}
+        run: ${{ steps.build_lute.outputs.exe_path }} test snapshots
 
   run-lute-cxx-unittests:
     runs-on: ${{ matrix.os }}
