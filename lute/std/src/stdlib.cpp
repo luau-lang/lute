@@ -4,20 +4,24 @@
 // If it is not present or outdated, re-configure using luthier.luau.
 #include "generated/modules.h"
 
+#include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 
 StdLibModuleResult getStdLibModule(std::string_view path)
 {
-    for (const auto& [pathInLib, contents] : lutestdlib)
+    for (const EmbeddedModule& module : lutestdlib)
     {
-        if (path != pathInLib)
+        if (path != module.path)
             continue;
 
-        if (contents == "#directory")
+        if (module.isDirectory)
             return {StdLibModuleType::Directory};
-        else
-            return {StdLibModuleType::Module, contents};
+
+        std::optional<std::string> contents = decompressEmbeddedModule(module);
+        if (contents)
+            return {StdLibModuleType::Module, std::move(*contents)};
     }
 
     return {StdLibModuleType::NotFound};

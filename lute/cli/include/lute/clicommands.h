@@ -14,14 +14,14 @@ enum class CliModuleType
 struct CliModuleResult
 {
     CliModuleType type;
-    std::string_view contents;
+    std::string contents;
 };
 
 CliModuleResult getCliModule(std::string_view path);
 
 struct CliCommandResult
 {
-    std::string_view contents;
+    std::string contents;
     std::string path;
 };
 

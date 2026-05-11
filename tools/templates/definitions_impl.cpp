@@ -3,4 +3,4 @@
 
 #include "modules.h"
 
-constexpr std::pair<std::string_view, std::string_view> lutedefinitions[] = {{"", ""}};
+const EmbeddedModule lutedefinitions[] = {{"", std::string_view{}, 0, true}};

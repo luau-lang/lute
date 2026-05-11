@@ -3,4 +3,4 @@
 
 #include "batteries.h"
 
-constexpr std::pair<std::string_view, std::string_view> lutebatteries[] = {{"", ""}};
+const EmbeddedModule lutebatteries[] = {{"", std::string_view{}, 0, true}};

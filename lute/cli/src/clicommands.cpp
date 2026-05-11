@@ -5,20 +5,24 @@
 #include "commands.h"
 
 #include <array>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 
 CliModuleResult getCliModule(std::string_view path)
 {
-    for (const auto& [pathInLib, contents] : luteclicommands)
+    for (const EmbeddedModule& module : luteclicommands)
     {
-        if (path != pathInLib)
+        if (path != module.path)
             continue;
 
-        if (contents == "#directory")
+        if (module.isDirectory)
             return {CliModuleType::Directory};
-        else
-            return {CliModuleType::Module, contents};
+
+        std::optional<std::string> contents = decompressEmbeddedModule(module);
+        if (contents)
+            return {CliModuleType::Module, std::move(*contents)};
     }
 
     return {CliModuleType::NotFound};
@@ -33,7 +37,7 @@ std::optional<CliCommandResult> getCliCommand(std::string_view command)
         CliModuleResult result = getCliModule(path);
         if (result.type == CliModuleType::Module)
         {
-            return CliCommandResult{result.contents, path};
+            return CliCommandResult{std::move(result.contents), path};
         }
     }
 

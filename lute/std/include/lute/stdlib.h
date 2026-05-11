@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <string_view>
 
 enum class StdLibModuleType
@@ -12,7 +13,7 @@ enum class StdLibModuleType
 struct StdLibModuleResult
 {
     StdLibModuleType type;
-    std::string_view contents;
+    std::string contents;
 };
 
 StdLibModuleResult getStdLibModule(std::string_view path);
