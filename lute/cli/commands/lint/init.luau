@@ -149,14 +149,14 @@ local function main(...: string)
 		else pathLib.format(process.cwd())
 	local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
 
+	local lintData = lintCore.initialize(passedConfigVal, noDefaultLints, rulePath, VERBOSE)
+
+	local lintRules, configContextData = lintData.lintRules, lintData.configContextData
+
 	if stringInput ~= nil then
 		if args:has("auto-fix") then
 			print("Auto-fix has no effect on string input.")
 		end
-
-		local lintData = lintCore.initialize(passedConfigVal, noDefaultLints, rulePath, VERBOSE)
-
-		local lintRules, configContextData = lintData.lintRules, lintData.configContextData
 
 		local violations = lintString(stringInput, lintRules, nil, configContextData, VERBOSE)
 
@@ -185,7 +185,7 @@ local function main(...: string)
 		end
 
 		local allViolations =
-			lintPaths(inputFiles :: { string }, rulePath, noDefaultLints, passedConfigVal, autofixEnabled, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+			lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, configContextData, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))
