@@ -256,22 +256,31 @@ local EMBEDDED_MODULE_COMPRESSION_VERSION = "gzip-v1"
 
 local function gzipFile(path: string): string
 	local digest = hexify(crypto.digest(crypto.hash.blake2b256, path))
-	local outputPath = joinPath(system.tmpdir(), `lute-embedded-module-{digest}.gz`)
-	local inputArg = if isWindows then `"{path}"` else `'` .. string.gsub(path, "'", "'\\''") .. `'`
-	local outputArg = if isWindows then `"{outputPath}"` else `'` .. string.gsub(outputPath, "'", "'\\''") .. `'`
+	local inputName = `lute-embedded-module-{digest}`
+	local inputPath = joinPath(system.tmpdir(), inputName)
+	local outputPath = inputPath .. ".gz"
 
-	local success, result = pcall(process.system, `gzip -9 -n -c {inputArg} > {outputArg}`, nil)
+	pcall(fs.remove, inputPath)
+	pcall(fs.remove, outputPath)
+	fs.copy(path, inputPath)
+
+	local success, result = pcall(function()
+		return process.run({ "gzip", "-9", "-n", "-f", inputName }, { cwd = system.tmpdir() })
+	end)
 	if not success then
+		pcall(fs.remove, inputPath)
 		pcall(fs.remove, outputPath)
 		error(`gzip failed for {path}: {result}`)
 	end
 
 	if result.exitcode ~= 0 then
+		pcall(fs.remove, inputPath)
 		pcall(fs.remove, outputPath)
 		error(`gzip failed for {path}: {result.stderr}`)
 	end
 
 	local contents = readFileToString(outputPath)
+	pcall(fs.remove, inputPath)
 	pcall(fs.remove, outputPath)
 	return contents
 end
