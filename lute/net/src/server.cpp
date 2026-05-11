@@ -206,7 +206,12 @@ static ParsedPattern parsePattern(lua_State* L, std::string_view pattern)
         {
             if (seg.size() < 2)
                 luaL_errorL(L, "route pattern '%.*s' has an empty parameter name", int(pattern.size()), pattern.data());
-            info.paramNames.emplace_back(seg.substr(1));
+
+            std::string paramName(seg.substr(1));
+            if (std::find(info.paramNames.begin(), info.paramNames.end(), paramName) != info.paramNames.end())
+                luaL_errorL(L, "route pattern '%.*s' has duplicate parameter name '%s'", int(pattern.size()), pattern.data(), paramName.c_str());
+
+            info.paramNames.push_back(std::move(paramName));
         }
 
         if (end == std::string_view::npos)
@@ -266,8 +271,7 @@ static void parseRoutesTable(lua_State* L, int tableIndex, ServerLoopState& stat
     {
         if (lua_type(L, -2) != LUA_TSTRING)
         {
-            lua_pop(L, 1);
-            continue;
+            luaL_errorL(L, "route keys must be strings, got %s", luaL_typename(L, -2));
         }
 
         size_t keyLen = 0;
@@ -1069,9 +1073,6 @@ static void registerRouteWithApp(AppT* app, const std::shared_ptr<ServerLoopStat
 template<typename AppT>
 static void installHttpRoutes(AppT* app, const std::shared_ptr<ServerLoopState>& state)
 {
-    for (const auto& ctx : state->routes)
-        registerRouteWithApp(app, state, ctx);
-
     app->any(
         "/*",
         [state](auto* res, auto* req)
@@ -1079,6 +1080,9 @@ static void installHttpRoutes(AppT* app, const std::shared_ptr<ServerLoopState>&
             onRouteRequest(state, std::shared_ptr<RouteContext>(), res, req);
         }
     );
+
+    for (const auto& ctx : state->routes)
+        registerRouteWithApp(app, state, ctx);
 }
 
 template<bool SSL, typename AppT>
