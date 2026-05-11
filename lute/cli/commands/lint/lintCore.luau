@@ -362,6 +362,51 @@ local function applySuggestedFixes(source: string, fixes: { fix }): string
 	return table.concat(newLines, "\n")
 end
 
+local function lintFile(
+	inputFilePath: pathLib.Path,
+	lintRules: { types.LintRule },
+	autofixEnabled: boolean,
+	configData: internalTypes.RuleConfigData,
+	verbose: boolean
+): { types.LintViolation }
+	if verbose then
+		print(`Reading input file '{inputFilePath}'`)
+	end
+	local fileContent = fs.readFileToString(inputFilePath)
+
+	local violations = lintString(fileContent, lintRules, inputFilePath, configData, verbose)
+
+	if not autofixEnabled then
+		return violations
+	end
+
+	local hasSuggestedFixes = tableext.any(violations, function(violation)
+		return violation.suggestedfix ~= nil
+	end)
+
+	if not hasSuggestedFixes then
+		return violations
+	end
+
+	if verbose then
+		print(`Applying suggested fixes to file '{inputFilePath}'`)
+	end
+
+	local fixes: { fix } = {}
+	for _, violation in violations do
+		if violation.suggestedfix ~= nil then
+			local fixLocation = violation.suggestedfix.location or violation.location
+			table.insert(fixes, { location = fixLocation, replacement = violation.suggestedfix.fix })
+		end
+	end
+
+	local newContent = applySuggestedFixes(fileContent, fixes)
+
+	fs.writeStringToFile(inputFilePath, newContent)
+
+	return lintString(newContent, lintRules, inputFilePath, configData, verbose)
+end
+
 local function initialize(passedConfigVal: string?, noDefaults: boolean, rulePath: string?, VERBOSE: boolean)
 	if passedConfigVal and fs.type(passedConfigVal) ~= "file" then
 		print(`Error: Configuration path must point to a file, not {fs.type(passedConfigVal)}`)
@@ -427,9 +472,7 @@ end
 
 return table.freeze({
 	lintString = lintString,
-	loadDefaultRules = loadDefaultRules,
-	loadLintRules = loadLintRules,
-	applySuggestedFixes = applySuggestedFixes,
+	lintFile = lintFile,
 	loadConfig = loadConfig,
 	initialize = initialize,
 })
