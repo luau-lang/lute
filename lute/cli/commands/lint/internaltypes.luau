@@ -1,4 +1,4 @@
-local types = require("./types")
+local types = require("@lint")
 local parseIgnores = require("../lib/parseIgnores")
 local path = require("@std/path")
 

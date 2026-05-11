@@ -1,7 +1,7 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
 local stringext = require("@std/stringext")
-local types = require("./types")
+local types = require("@lint")
 
 local printerLib = {}
 

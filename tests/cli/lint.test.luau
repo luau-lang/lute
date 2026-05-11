@@ -342,12 +342,11 @@ end
 		-- Setup
 		fs.createDirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
-		-- Because the default rules require types using a relative path, we copy from examples, which uses an absolute require path
-		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
+		fs.copy(defaultRulesPaths.almost_swapped, path.join(rulesDir, "almost_swapped.luau"))
 		-- Copy divide_by_zero to rulesDir/divide_by_zero/init.luau
 		local divideByZeroDir = path.join(rulesDir, "divide_by_zero")
 		fs.createDirectory(divideByZeroDir)
-		fs.copy(path.join("examples", "lints", "divide_by_zero.luau"), path.join(divideByZeroDir, "init.luau"))
+		fs.copy(defaultRulesPaths.divide_by_zero, path.join(divideByZeroDir, "init.luau"))
 		fs.writeStringToFile(
 			path.join(rulesDir, "bogus.txt"),
 			[[
@@ -399,7 +398,7 @@ violator.luau:3:1-4:6 ──
 		-- Setup
 		fs.createDirectory(rulesDir)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
-		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
+		fs.copy(defaultRulesPaths.almost_swapped, path.join(rulesDir, "almost_swapped.luau"))
 		-- Create a rule that fails
 		fs.writeStringToFile(
 			path.join(rulesDir, "erroring_rule.luau"),

@@ -2,7 +2,7 @@ local query = require("@std/syntax/query")
 local syntax = require("@std/syntax")
 local syntax_utils = require("@std/syntax/utils")
 
-local transformTypes = require("@transform/types")
+local transformTypes = require("@transform")
 
 return {
 	options = {

@@ -3,6 +3,8 @@
     "aliases": {
         "std": "./lute/std/libs",
         "lute": "./definitions",
-        "commands": "./lute/cli/commands"
+        "commands": "./lute/cli/commands",
+        "lint": "@std/commands/lint/types",
+        "transform": "@std/commands/transform/types"
     }
 }

@@ -11,10 +11,10 @@ local TYPEDEFS_PATH = path.join(process.homedir(), TYPEDEFS_BASE_DIR)
 
 local TEMPLATE_RC_FILE: { [any]: any } = {
 	aliases = {
-		lint = `{TYPEDEFS_RELATIVE_DIR}/lint`,
 		lute = `{TYPEDEFS_RELATIVE_DIR}/lute`,
 		std = `{TYPEDEFS_RELATIVE_DIR}/std`,
-		transform = `{TYPEDEFS_RELATIVE_DIR}/transform`,
+		lint = "@std/commands/lint/types",
+		transform = "@std/commands/transform/types",
 	},
 }
 
