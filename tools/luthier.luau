@@ -255,12 +255,25 @@ end
 local EMBEDDED_MODULE_COMPRESSION_VERSION = "gzip-v1"
 
 local function gzipFile(path: string): string
-	local result = process.run({ "gzip", "-9", "-n", "-c", path })
+	local digest = hexify(crypto.digest(crypto.hash.blake2b256, path))
+	local outputPath = joinPath(system.tmpdir(), `lute-embedded-module-{digest}.gz`)
+	local inputArg = if isWindows then `"{path}"` else `'` .. string.gsub(path, "'", "'\\''") .. `'`
+	local outputArg = if isWindows then `"{outputPath}"` else `'` .. string.gsub(outputPath, "'", "'\\''") .. `'`
+
+	local success, result = pcall(process.system, `gzip -9 -n -c {inputArg} > {outputArg}`, nil)
+	if not success then
+		pcall(fs.remove, outputPath)
+		error(`gzip failed for {path}: {result}`)
+	end
+
 	if result.exitcode ~= 0 then
+		pcall(fs.remove, outputPath)
 		error(`gzip failed for {path}: {result.stderr}`)
 	end
 
-	return result.stdout
+	local contents = readFileToString(outputPath)
+	pcall(fs.remove, outputPath)
+	return contents
 end
 
 local function escapeCppStringLiteral(value: string): string
