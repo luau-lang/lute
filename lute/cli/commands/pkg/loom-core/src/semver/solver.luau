@@ -87,14 +87,15 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 	end
 
 	local function removeConstraintsFrom(sourceKey: string, deps: { [string]: Requirement })
-		for _, dep in deps do
+		for alias, dep in deps do
 			local targets = constraintsBySource[dep.name]
+			local key = `{sourceKey}:{alias}`
 
-			if not targets or targets[sourceKey] == nil then
+			if not targets or targets[key] == nil then
 				continue
 			end
 
-			targets[sourceKey] = nil
+			targets[key] = nil
 			enqueue(dep.name)
 		end
 	end
@@ -209,10 +210,10 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 
 		-- Publish constraints from the new selection.
 		local newKey = `{best.name}@{best.versionString}`
-		for _, dep in best.dependencies do
+		for alias, dep in best.dependencies do
 			addConstraint(
 				dep.name,
-				newKey,
+				`{newKey}:{alias}`,
 				table.freeze({
 					name = dep.name,
 					constraint = dep.constraint,
@@ -220,6 +221,37 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 				})
 			)
 		end
+	end
+
+	local visiting: { [string]: boolean } = {}
+	local done: { [string]: boolean } = {}
+
+	local function checkCycles(name: string)
+		if done[name] then
+			return
+		end
+
+		if visiting[name] then
+			error(`circular dependency detected for package '{name}'`)
+		end
+
+		visiting[name] = true
+
+		local pkg = selected[name]
+		if pkg then
+			for _, dep in pkg.dependencies do
+				if selected[dep.name] then
+					checkCycles(dep.name)
+				end
+			end
+		end
+
+		visiting[name] = false
+		done[name] = true
+	end
+
+	for name in selected do
+		checkCycles(name)
 	end
 
 	return table.freeze(selected)
