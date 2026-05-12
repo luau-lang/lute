@@ -28,7 +28,7 @@ local function findBest(versions: { PackageVersion }?, requirements: { Requireme
 		return nil
 	end
 
-	for _, pv in versions :: { PackageVersion } do
+	for _, pv in versions do
 		local ok = true
 		for _, req in requirements do
 			if not parser.satisfies(pv.version, req.constraint) then
