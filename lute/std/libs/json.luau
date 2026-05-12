@@ -21,12 +21,16 @@ local object_key = newproxy()
 -- serialization
 
 local bufferSize = 1024
+local keyCacheLimit = 128
 
 type SerializerState = {
 	buf: buffer,
 	cursor: number,
 	prettyPrint: boolean,
 	depth: number,
+	-- Per-serialize-call cache of escaped object keys, including their colon separator.
+	keyCache: { [string]: string },
+	keyCacheCount: number,
 }
 
 local function checkState(state: SerializerState, len: number): ()
@@ -108,6 +112,28 @@ local function serializeString(state: SerializerState, str: string): ()
 	state.cursor += sl + 2
 end
 
+local function serializeKeyString(state: SerializerState, str: string): ()
+	local cached = state.keyCache[str]
+	if cached ~= nil then
+		writeString(state, cached)
+		return
+	end
+
+	local escaped: string
+	if string.find(str, STRING_NEEDS_ESCAPE) then
+		escaped = string.gsub(str, STRING_NEEDS_ESCAPE, STRING_ESCAPES)
+	else
+		escaped = str
+	end
+	cached = '"' .. escaped .. (if state.prettyPrint then '": ' else '":')
+	if state.keyCacheCount < keyCacheLimit then
+		state.keyCache[str] = cached
+		state.keyCacheCount += 1
+	end
+
+	writeString(state, cached)
+end
+
 local function serializeArray(state: SerializerState, array: Array): ()
 	state.depth += 1
 
@@ -168,8 +194,7 @@ local function serializeTable(state: SerializerState, object: Object): ()
 
 		writeSpaces(state)
 
-		serializeString(state, key)
-		writeString(state, if state.prettyPrint then ": " else ":")
+		serializeKeyString(state, key)
 
 		serializeAny(state, value)
 	end
@@ -237,38 +262,82 @@ local function currentByte(state: DeserializerState): number
 end
 
 local function deserializeNumber(state: DeserializerState): number?
-	-- Integer part
-	local nStart, nEnd = string.find(state.src, "^-?[1-9]%d*", state.cursor)
-	if not nStart then
-		nStart, nEnd = string.find(state.src, "^-?0", state.cursor)
-		if not nStart then
-			deserializerError(state, "Malformed number (bad integer part)")
-		end
+	local src = state.src
+	local nStart = state.cursor
+	local cursor = nStart
+	local b = string.byte(src, cursor)
+	local sign = 1
+	local intValue = 0
+	local digitCount = 0
+	local isInteger = true
 
-		local nextChar = string.byte(state.src, nEnd :: number + 1)
-		if nextChar and nextChar >= string.byte("0") and nextChar <= string.byte("9") then
+	if b == 0x2D then -- '-'
+		sign = -1
+		cursor += 1
+		b = string.byte(src, cursor)
+	end
+
+	if b == 0x30 then -- '0'
+		digitCount = 1
+		cursor += 1
+		b = string.byte(src, cursor)
+		if b ~= nil and b >= 0x30 and b <= 0x39 then
 			deserializerError(state, "Malformed number (leading zeros not allowed)")
 		end
+	elseif b ~= nil and b >= 0x31 and b <= 0x39 then
+		repeat
+			digitCount += 1
+			if digitCount <= 15 then
+				intValue = intValue * 10 + ((b :: number) - 0x30)
+			end
+			cursor += 1
+			b = string.byte(src, cursor)
+		until b == nil or b < 0x30 or b > 0x39
+	else
+		deserializerError(state, "Malformed number (bad integer part)")
 	end
 
-	-- Decimal part
-	local decStart, decEnd = string.find(state.src, "^%.%d+", nEnd :: number + 1)
-	if decStart then
-		nEnd = decEnd
+	if b == 0x2E then -- '.'
+		isInteger = false
+		cursor += 1
+		b = string.byte(src, cursor)
+		if b == nil or b < 0x30 or b > 0x39 then
+			deserializerError(state, "Malformed number (bad decimal part)")
+		end
+		repeat
+			cursor += 1
+			b = string.byte(src, cursor)
+		until b == nil or b < 0x30 or b > 0x39
 	end
 
-	-- Exponential part
-	local expStart, expEnd = string.find(state.src, "^[eE][+-]?%d+", nEnd :: number + 1)
-	if expStart then
-		nEnd = expEnd
+	if b == 0x65 or b == 0x45 then -- 'e' or 'E'
+		isInteger = false
+		cursor += 1
+		b = string.byte(src, cursor)
+		if b == 0x2B or b == 0x2D then -- '+' or '-'
+			cursor += 1
+			b = string.byte(src, cursor)
+		end
+		if b == nil or b < 0x30 or b > 0x39 then
+			deserializerError(state, "Malformed number (bad exponent part)")
+		end
+		repeat
+			cursor += 1
+			b = string.byte(src, cursor)
+		until b == nil or b < 0x30 or b > 0x39
 	end
 
-	local num = tonumber(string.sub(state.src, nStart :: number, nEnd))
+	if isInteger and digitCount <= 15 then
+		state.cursor = cursor
+		return sign * intValue
+	end
+
+	local num = tonumber(string.sub(src, nStart, cursor - 1))
 	if not num then
 		deserializerError(state, "Malformed number value")
 	end
 
-	state.cursor = nEnd :: number + 1
+	state.cursor = cursor
 	return num
 end
 
@@ -447,8 +516,6 @@ local function deserializeObject(state: DeserializerState): Object
 			break
 		end
 
-		skipWhitespace(state)
-
 		if currentByte(state) ~= string.byte('"') then
 			return deserializerError(state, "Expected a string key")
 		end
@@ -470,8 +537,6 @@ local function deserializeObject(state: DeserializerState): Object
 		if not skipWhitespace(state) then
 			deserializerError(state, "Unterminated object")
 		end
-
-		skipWhitespace(state)
 
 		if currentByte(state) == string.byte(",") then
 			expectingValue = true
@@ -543,6 +608,8 @@ function json.serialize(value: Value, prettyPrint: boolean?): string
 		cursor = 0,
 		prettyPrint = prettyPrint or false,
 		depth = 0,
+		keyCache = {},
+		keyCacheCount = 0,
 	}
 
 	serializeAny(state, value)
