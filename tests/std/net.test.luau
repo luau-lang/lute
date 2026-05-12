@@ -162,6 +162,14 @@ test.suite("NetTestSuite", function(suite)
 				},
 			})
 		end)
+
+		assert.throwsWith("invalid request header value", function()
+			net.request("http://example.test", {
+				headers = {
+					["X-Test"] = "bad\128value",
+				},
+			})
+		end)
 	end)
 
 	suite:case("rejectsGetBody", function(assert)

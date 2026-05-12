@@ -225,7 +225,7 @@ struct CurlMultiManager
 
         int messagesLeft = 0;
         CURLMsg* message = nullptr;
-        while ((message = curl_multi_info_read(multi, &messagesLeft)))
+        while (!closing && multi && (message = curl_multi_info_read(multi, &messagesLeft)))
         {
             if (message->msg != CURLMSG_DONE)
                 continue;
@@ -555,7 +555,7 @@ static bool isValidHeaderValue(const std::string& value)
         if (c == '\t')
             continue;
 
-        if (c >= 0x20 && c != 0x7f)
+        if (c >= 0x20 && c <= 0x7e)
             continue;
 
         return false;
@@ -589,7 +589,6 @@ static std::unique_ptr<HttpRequestState> createRequestState(
 
     curl_easy_setopt(curl, CURLOPT_URL, state->url.c_str());
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, state->errorBuffer);
-    curl_easy_setopt(curl, CURLOPT_PRIVATE, state.get());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, state.get());
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, kDefaultRequestTimeoutMs);
