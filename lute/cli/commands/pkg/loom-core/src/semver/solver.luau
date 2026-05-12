@@ -1,6 +1,7 @@
 --!strict
 
 local tableext = require("@std/tableext")
+local deque = require("@batteries/collections/deque")
 
 local parser = require("./parser")
 
@@ -60,9 +61,7 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 	local selected: Resolution = {}
 
 	-- Set-based FIFO queue: each package name appears at most once at a time.
-	-- Using a head pointer avoids O(n) cost of table.remove.
-	local queue: { string } = {}
-	local head = 1
+	local queue = deque.new<<string>>()
 	local inQueue: { [string]: boolean } = {}
 
 	local function enqueue(name: string)
@@ -71,7 +70,13 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 		end
 
 		inQueue[name] = true
-		table.insert(queue, name)
+		queue:pushback(name)
+	end
+
+	local function dequeue(): string
+		local name = queue:popfront()
+		inQueue[name] = nil
+		return name
 	end
 
 	local function addConstraint(targetName: string, sourceKey: string, req: Requirement)
@@ -130,10 +135,8 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 	-- Re-selecting a version that was already unselected signals a circular dependency.
 	local everSelected: { [string]: { [string]: boolean } } = {}
 
-	while head <= #queue do
-		local name = queue[head]
-		head += 1
-		inQueue[name] = nil
+	while #queue > 0 do
+		local name = dequeue()
 
 		local constraints = getConstraintList(name)
 
@@ -154,22 +157,9 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 		local best = findBest(universe[name], constraints)
 
 		if best == nil then
-			-- Before erroring, check whether any constrainer is still pending
-			-- evaluation. A pending constrainer may retract its constraint once
-			-- re-evaluated, making this conflict spurious. Defer until settled.
-			local hasPendingConstrainer = false
-			for sourceKey, _ in constraintsBySource[name] or {} do
-				if not sourceKey:match("^root:") then
-					local constrainerName = sourceKey:match("^(.-)@")
-
-					if constrainerName and inQueue[constrainerName] then
-						hasPendingConstrainer = true
-						break
-					end
-				end
-			end
-
-			if hasPendingConstrainer then
+			-- A pending item may retract a constraint once evaluated, making this
+			-- conflict spurious. Defer until the queue is settled.
+			if #queue > 0 then
 				enqueue(name)
 				continue
 			end
