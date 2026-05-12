@@ -75,10 +75,7 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 	end
 
 	local function addConstraint(targetName: string, sourceKey: string, req: Requirement)
-		if not constraintsBySource[targetName] then
-			constraintsBySource[targetName] = {}
-		end
-
+		constraintsBySource[targetName] = constraintsBySource[targetName] or {}
 		constraintsBySource[targetName][sourceKey] = req
 		enqueue(targetName)
 	end
