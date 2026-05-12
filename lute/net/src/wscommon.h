@@ -14,6 +14,6 @@ struct WebSocketPayload
     bool binary = false;
 };
 
-WebSocketPayload extractWebSocketPayload(lua_State* L, int index);
+WebSocketPayload checkWebSocketPayload(lua_State* L, int index);
 
 } // namespace net

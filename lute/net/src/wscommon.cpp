@@ -5,7 +5,7 @@
 namespace net
 {
 
-WebSocketPayload extractWebSocketPayload(lua_State* L, int index)
+WebSocketPayload checkWebSocketPayload(lua_State* L, int index)
 {
     if (lua_isstring(L, index))
     {

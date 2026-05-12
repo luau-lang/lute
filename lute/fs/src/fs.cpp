@@ -19,7 +19,7 @@
 namespace fs
 {
 
-static UVFile* getFileHandle(lua_State* L, int index)
+static UVFile* checkFileHandle(lua_State* L, int index)
 {
     auto* handle = static_cast<UVFile*>(lua_touserdatatagged(L, index, kUVFileTag));
     if (!handle)
@@ -76,19 +76,19 @@ std::optional<int> setFlags(const char* modeStr, int* openFlags)
 
 int close(lua_State* L)
 {
-    auto* handle = getFileHandle(L, 1);
+    auto* handle = checkFileHandle(L, 1);
     return close_impl(L, handle);
 }
 
 int read(lua_State* L)
 {
-    auto* handle = getFileHandle(L, 1);
+    auto* handle = checkFileHandle(L, 1);
     return read_impl(L, handle);
 }
 
 int write(lua_State* L)
 {
-    auto* handle = getFileHandle(L, 1);
+    auto* handle = checkFileHandle(L, 1);
 
     size_t len;
     const char* data = luaL_checklstring(L, 2, &len);
