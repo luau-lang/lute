@@ -12,7 +12,7 @@ type Node = types.AstNode
 export type Query<T = Node> = {
 	nodes: { T },
 	filter: (self: Query<T>, pred: (T) -> boolean) -> Query<T>,
-	replace: (self: Query<T>, repl: (T) -> string?) -> types.Replacements,
+	replace: (self: Query<T>, repl: (T) -> types.Replacement?) -> types.Replacements,
 	map: <U>(self: Query<T>, fn: (T) -> U?) -> Query<U>, -- recursion violation reported
 	forEach: (self: Query<T>, callback: (T) -> ()) -> Query<T>,
 	findAll: <U>(self: Query<T>, fn: (Node) -> U?) -> Query<U>,
@@ -35,7 +35,7 @@ function queryLib.filter<T>(self: Query<T>, pred: (T) -> boolean): Query<T>
 end
 
 --- Calls `repl` on each node and collects the non-nil results into a `Replacements` table for use with the printer.
-function queryLib.replace<T>(self: Query<T>, repl: (T) -> string?): types.Replacements
+function queryLib.replace<T>(self: Query<T>, repl: (T) -> types.Replacement?): types.Replacements
 	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)

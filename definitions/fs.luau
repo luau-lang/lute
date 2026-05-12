@@ -123,6 +123,12 @@ function fs.copy(src: string, dest: string): ()
 	error("not implemented")
 end
 
+--- Moves the file or directory at `src` to `dest`.
+--- Falls back to a copy-then-remove if `src` and `dest` are on different filesystems.
+function fs.move(src: string, dest: string): ()
+	error("not implemented")
+end
+
 --- Returns an array of `DirectoryEntry` values for the immediate children of the directory at `path`.
 function fs.listdir(path: string): { DirectoryEntry }
 	error("not implemented")
