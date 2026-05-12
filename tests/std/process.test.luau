@@ -5,6 +5,12 @@ local system = require("@std/system")
 local test = require("@std/test")
 local windowsPath = require("@std/path/win32")
 
+local function normalizeLineEndings(contents: string): string
+	local normalized = contents:gsub("\r\n", "\n")
+	local lfOnly = normalized:gsub("\r", "\n")
+	return lfOnly
+end
+
 test.suite("ProcessSuite", function(suite)
 	suite:case("processArgsIsTable", function(assert)
 		assert.eq(type(process.args), "table")
@@ -46,7 +52,7 @@ test.suite("ProcessSuite", function(suite)
 
 	suite:case("runEchoArrayViaSystem", function(assert)
 		local r = process.system("echo hello-from-lute")
-		assert.eq(r.stdout, "hello-from-lute\n")
+		assert.eq(normalizeLineEndings(r.stdout), "hello-from-lute\n")
 	end)
 
 	suite:case("runSystemAndCwd", function(check)
@@ -80,6 +86,7 @@ test.suite("ProcessSuite", function(suite)
 
 		-- LUAUFIX: we shouldn't need to upcast the result of `process.system` to `{ [any]: any }`
 		local r2 = process.system("echo hello!") :: { [any]: any }
+		r2.stdout = normalizeLineEndings(r2.stdout)
 		check.eq(r2, {
 			exitcode = 0,
 			stdout = "hello!\n",

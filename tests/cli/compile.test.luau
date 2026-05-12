@@ -23,6 +23,12 @@ local COMPILEE_CONTENTS = [[return "Hello world"]]
 local lutePath = process.execPath()
 local tmpDir = system.tmpdir()
 
+local function normalizeLineEndings(contents: string): string
+	local normalized = contents:gsub("\r\n", "\n")
+	local lfOnly = normalized:gsub("\r", "\n")
+	return lfOnly
+end
+
 test.suite("LuteCliCompile", function(suite)
 	suite:case("runCompile", function(check)
 		-- Setup
@@ -40,7 +46,7 @@ test.suite("LuteCliCompile", function(suite)
 		local result = process.run({ path.format(lutePath), path.format(compilerPath), path.format(compileePath) })
 		-- Compilation should work with no memory leaks
 		check.eq(result.stderr, "")
-		check.eq(result.stdout, "SUCCESS\n")
+		check.eq(normalizeLineEndings(result.stdout), "SUCCESS\n")
 		check.eq(result.exitcode, 0)
 
 		-- -- Cleanup
