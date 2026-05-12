@@ -31,7 +31,6 @@ namespace luau
 
 static constexpr const char kSpanType[] = "span";
 static constexpr const char kCompileResultType[] = "CompileResult";
-static constexpr const char kSpanCreateName[] = "span.create";
 
 // Recursively freezes the table at the top of the stack and any descendant tables.
 // The table must be at the top of the stack when called.
@@ -191,10 +190,6 @@ static Span checkSpan(lua_State* L, int index)
 
 static int createSpan(lua_State* L)
 {
-    int argumentCount = lua_gettop(L);
-    if (argumentCount != 1)
-        luaL_error(L, "%s: expected 1 argument, but got %d", kSpanCreateName, argumentCount);
-
     lua_checkstack(L, 2);
 
     // check that the argument is compliant with the span interface!
