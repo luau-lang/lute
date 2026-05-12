@@ -48,13 +48,6 @@ end
 local lintString = lintCore.lintString
 local lintFile = lintCore.lintFile
 
-type fix = types.fix
-
-type Job = {
-	inputFile: pathLib.Path,
-	autoFixEnabled: boolean,
-}
-
 local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
@@ -138,20 +131,8 @@ local function main(...: string)
 	local noDefaultLints = args:has("no-default-lints")
 	local rulePath = args:get("rules")
 
-	local lintConfig = lintCore.loadConfig(passedConfigVal, VERBOSE)
-
-	local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
-	local configPath: pathLib.Pathlike = if passedConfigVal
-		then passedConfigVal
-		else pathLib.join(process.cwd(), ".config.luau")
-	local rootLocation = if fs.exists(configPath)
-		then pathLib.format(pathLib.resolve(pathLib.dirname(configPath)))
-		else pathLib.format(process.cwd())
-	local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
-
-	local lintData = lintCore.initialize(passedConfigVal, noDefaultLints, rulePath, VERBOSE)
-
-	local lintRules, configContextData = lintData.lintRules, lintData.configContextData
+	local lintRules, configContextData, ignoreData =
+		lintCore.initialize(passedConfigVal, noDefaultLints, rulePath, VERBOSE)
 
 	if stringInput ~= nil then
 		if args:has("auto-fix") then

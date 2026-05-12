@@ -137,23 +137,6 @@ local function loadDefaultRules(
 	return rules, ruleConfigs, ruleIgnores
 end
 
-local function loadConfig(passedConfigVal: pathLib.Pathlike?, VERBOSE: boolean): internalTypes.LintConfig
-	local lintConfig: internalTypes.LintConfig = {}
-	local configPath: pathLib.Pathlike = if passedConfigVal
-		then passedConfigVal
-		else pathLib.join(process.cwd(), ".config.luau")
-
-	if fs.exists(configPath) then
-		local success, loadedConfig = pcall(luau.loadModule, configPath, nil)
-		if success then
-			lintConfig = configUtils.extractConfig(loadedConfig)
-		elseif VERBOSE then
-			print(`Error loading config:\n{loadedConfig}\nProceeding with defaults.`)
-		end
-	end
-	return lintConfig
-end
-
 local function parseDirectives(node: syntax.AstNode): { [string]: boolean }
 	local directives: { [string]: boolean } = {}
 
@@ -255,7 +238,65 @@ local function parseGlobalIgnores(trivia: { syntax.Trivia }): { [string]: true }
 	return globalIgnores
 end
 
-local function lintString(
+type fix = types.fix
+
+local function applySuggestedFixes(source: string, fixes: { fix }): string
+	local lines = source:split("\n")
+
+	-- Sort fixes by starting location descending to avoid messing up locations of earlier fixes
+	table.sort(fixes, function(a: fix, b: fix)
+		return not (a.location < b.location)
+	end)
+
+	for _, fix in fixes do
+		local beginLine = fix.location.beginLine
+		local endLine = fix.location.endLine
+		local beginColumn = fix.location.beginColumn
+		local endColumn = fix.location.endColumn
+
+		if beginLine == endLine then
+			-- Single-line fix
+			local line = lines[beginLine]
+			lines[beginLine] = line:sub(1, beginColumn - 1) .. fix.replacement .. line:sub(endColumn)
+		else
+			-- Multi-line fix
+			local firstLine = lines[beginLine]
+			local lastLine = lines[endLine]
+
+			lines[beginLine] = firstLine:sub(1, beginColumn - 1) .. fix.replacement .. lastLine:sub(endColumn)
+
+			-- Remove the lines that were replaced
+			for i = beginLine + 1, endLine do
+				lines[i] = nil -- this is cheaper than doing table.remove, but we need to handle the resulting holes later
+			end
+		end
+	end
+
+	local newLines: { string } = {}
+	for _, line in lines do -- we rely on the assumption that we'll see the entries in the same order they were created in the array
+		table.insert(newLines, line)
+	end
+
+	return table.concat(newLines, "\n")
+end
+
+local lintCore = {}
+
+function lintCore.loadConfig(configPath: pathLib.Pathlike, VERBOSE: boolean): internalTypes.LintConfig
+	local lintConfig: internalTypes.LintConfig = {}
+
+	if fs.exists(configPath) then
+		local success, loadedConfig = pcall(luau.loadModule, configPath, nil)
+		if success then
+			lintConfig = configUtils.extractConfig(loadedConfig)
+		elseif VERBOSE then
+			print(`Error loading config:\n{loadedConfig}\nProceeding with defaults.`)
+		end
+	end
+	return lintConfig
+end
+
+function lintCore.lintString(
 	source: string,
 	lintRules: { types.LintRule },
 	inputFilePath: pathLib.Path?,
@@ -317,52 +358,7 @@ local function lintString(
 	return violations
 end
 
-type fix = {
-	location: syntax.Span,
-	replacement: string,
-}
-
-local function applySuggestedFixes(source: string, fixes: { fix }): string
-	local lines = source:split("\n")
-
-	-- Sort fixes by starting location descending to avoid messing up locations of earlier fixes
-	table.sort(fixes, function(a: fix, b: fix)
-		return not (a.location < b.location)
-	end)
-
-	for _, fix in fixes do
-		local beginLine = fix.location.beginLine
-		local endLine = fix.location.endLine
-		local beginColumn = fix.location.beginColumn
-		local endColumn = fix.location.endColumn
-
-		if beginLine == endLine then
-			-- Single-line fix
-			local line = lines[beginLine]
-			lines[beginLine] = line:sub(1, beginColumn - 1) .. fix.replacement .. line:sub(endColumn)
-		else
-			-- Multi-line fix
-			local firstLine = lines[beginLine]
-			local lastLine = lines[endLine]
-
-			lines[beginLine] = firstLine:sub(1, beginColumn - 1) .. fix.replacement .. lastLine:sub(endColumn)
-
-			-- Remove the lines that were replaced
-			for i = beginLine + 1, endLine do
-				lines[i] = nil -- this is cheaper than doing table.remove, but we need to handle the resulting holes later
-			end
-		end
-	end
-
-	local newLines: { string } = {}
-	for _, line in lines do -- we rely on the assumption that we'll see the entries in the same order they were created in the array
-		table.insert(newLines, line)
-	end
-
-	return table.concat(newLines, "\n")
-end
-
-local function lintFile(
+function lintCore.lintFile(
 	inputFilePath: pathLib.Path,
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
@@ -404,10 +400,15 @@ local function lintFile(
 
 	fs.writeStringToFile(inputFilePath, newContent)
 
-	return lintString(newContent, lintRules, inputFilePath, configData, verbose)
+	return lintCore.lintString(newContent, lintRules, inputFilePath, configData, verbose)
 end
 
-local function initialize(passedConfigVal: string?, noDefaults: boolean, rulePath: string?, VERBOSE: boolean)
+function lintCore.initialize(
+	passedConfigVal: string?,
+	noDefaults: boolean,
+	rulePath: string?,
+	VERBOSE: boolean
+): ({ types.LintRule }, internalTypes.RuleConfigData, parseIgnores.GitignoreData)
 	if passedConfigVal and fs.type(passedConfigVal) ~= "file" then
 		print(`Error: Configuration path must point to a file, not {fs.type(passedConfigVal)}`)
 		process.exit(1)
@@ -416,16 +417,18 @@ local function initialize(passedConfigVal: string?, noDefaults: boolean, rulePat
 	local configPath: pathLib.Pathlike = if passedConfigVal
 		then passedConfigVal
 		else pathLib.join(process.cwd(), ".config.luau")
+	local rootLocation = if fs.exists(configPath)
+		then pathLib.format(pathLib.resolve(pathLib.dirname(configPath)))
+		else pathLib.format(process.cwd())
 
-	local lintConfig: internalTypes.LintConfig = loadConfig(passedConfigVal, VERBOSE)
+	local lintConfig: internalTypes.LintConfig = loadConfig(configPath, VERBOSE)
 
 	local lintRules: { types.LintRule } = {}
 	local ruleConfigurations: internalTypes.RuleConfigurations = {}
 	local ruleIgnoreData: internalTypes.RuleIgnores = {}
 
-	local rootLocation = if fs.exists(configPath)
-		then pathLib.format(pathLib.resolve(pathLib.dirname(configPath)))
-		else pathLib.format(process.cwd())
+	local globalIgnores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
+	local globalIgnoreData = parseIgnores.parseIgnoreContents(rootLocation, globalIgnores)
 
 	if noDefaults then
 		if VERBOSE then
@@ -464,15 +467,7 @@ local function initialize(passedConfigVal: string?, noDefaults: boolean, rulePat
 		ruleIgnores = ruleIgnoreData,
 	}
 
-	return {
-		lintRules = lintRules,
-		configContextData = configContextData :: internalTypes.RuleConfigData,
-	}
+	return lintRules, configContextData :: internalTypes.RuleConfigData, globalIgnoreData
 end
 
-return table.freeze({
-	lintString = lintString,
-	lintFile = lintFile,
-	loadConfig = loadConfig,
-	initialize = initialize,
-})
+return table.freeze(lintCore)
