@@ -370,7 +370,7 @@ function lintCore.lintFile(
 	end
 	local fileContent = fs.readFileToString(inputFilePath)
 
-	local violations = lintString(fileContent, lintRules, inputFilePath, configData, verbose)
+	local violations = lintCore.lintString(fileContent, lintRules, inputFilePath, configData, verbose)
 
 	if not autofixEnabled then
 		return violations
@@ -421,7 +421,7 @@ function lintCore.initialize(
 		then pathLib.format(pathLib.resolve(pathLib.dirname(configPath)))
 		else pathLib.format(process.cwd())
 
-	local lintConfig: internalTypes.LintConfig = loadConfig(configPath, VERBOSE)
+	local lintConfig: internalTypes.LintConfig = lintCore.loadConfig(configPath, VERBOSE)
 
 	local lintRules: { types.LintRule } = {}
 	local ruleConfigurations: internalTypes.RuleConfigurations = {}
