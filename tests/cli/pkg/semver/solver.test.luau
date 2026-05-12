@@ -27,9 +27,11 @@ test.suite("solver.solve", function(suite)
 				namedVersion("lemon", "1.0.0"),
 			},
 		}
+
 		local resolution = solver.solve(universe, {
 			lemon = req("lemon", "^1.0.0"),
 		})
+
 		assert.neq(resolution.lemon, nil)
 		assert.eq(resolution.lemon.versionString, "1.0.0")
 	end)
@@ -43,9 +45,11 @@ test.suite("solver.solve", function(suite)
 				namedVersion("lemon", "1.0.0"),
 			},
 		}
+
 		local resolution = solver.solve(universe, {
 			lemon = req("lemon", "^1.0.0"),
 		})
+
 		assert.eq(resolution.lemon.versionString, "1.3.0")
 	end)
 
@@ -54,10 +58,12 @@ test.suite("solver.solve", function(suite)
 			lemon = { namedVersion("lemon", "1.3.0"), namedVersion("lemon", "1.0.0") },
 			lime = { namedVersion("lime", "0.5.1"), namedVersion("lime", "0.4.0") },
 		}
+
 		local resolution = solver.solve(universe, {
 			lemon = req("lemon", "^1.0.0"),
 			lime = req("lime", ">=0.5.0"),
 		})
+
 		assert.eq(resolution.lemon.versionString, "1.3.0")
 		assert.eq(resolution.lime.versionString, "0.5.1")
 	end)
@@ -81,10 +87,12 @@ test.suite("solver.solve", function(suite)
 				namedVersion("citrus", "1.0.0"),
 			},
 		}
+
 		local resolution = solver.solve(universe, {
 			lemon = req("lemon", "^1.0.0"),
 			lime = req("lime", "^0.5.0"),
 		})
+
 		assert.neq(resolution.citrus, nil)
 		-- Must satisfy both ^1.0.0 and ^1.2.0
 		assert.that(parser.satisfies(resolution.citrus.version, parser.parseConstraint("^1.0.0")))
@@ -168,16 +176,20 @@ test.suite("solver.solve", function(suite)
 		}
 		-- ^1.0.0 and ^2.0.0 conflict; error should mention both.
 		-- ^X.0.0 expands to ">=X.0.0 <X+1.0.0" so we match those substrings.
-		local ok, err = pcall(function()
+		local ok = xpcall(function()
 			solver.solve(universe, {
 				a = req("pkg", "^1.0.0", "root"),
 				b = req("pkg", "^2.0.0", "root"),
 			})
+
+			assert.that(false, "Expected solver to error due to conflict, but it succeeded")
+		end, function(err)
+			local errStr = tostring(err)
+			assert.strContains(errStr, ">=1.0.0")
+			assert.strContains(errStr, ">=2.0.0")
 		end)
+
 		assert.eq(ok, false)
-		local errStr = tostring(err)
-		assert.strContains(errStr, ">=1.0.0")
-		assert.strContains(errStr, ">=2.0.0")
 	end)
 
 	suite:case("deduplicatesSameRequirement", function(assert)
@@ -188,15 +200,18 @@ test.suite("solver.solve", function(suite)
 				namedVersion("shared", "1.0.0"),
 			},
 		}
+
 		local resolution = solver.solve(universe, {
 			a = req("shared", "^1.0.0"),
 			b = req("shared", ">=1.1.0"),
 		})
+
 		-- Only one entry for "shared"
 		local count = 0
 		for _ in resolution do
 			count += 1
 		end
+
 		assert.eq(count, 1)
 		assert.eq(resolution.shared.versionString, "1.2.0")
 	end)
@@ -264,13 +279,64 @@ test.suite("solver.solve", function(suite)
 				namedVersion("pkgc", "1.5.0"),
 			},
 		}
+
 		local resolution = solver.solve(universe, {
 			pkga = req("pkga", ">=1.0.0"),
 			pkgb = req("pkgb", "^1.0.0"),
 		})
+
 		-- pkga must have downgraded to 1.0.0 so its old pkgc <2.0.0 constraint is retracted
 		assert.eq(resolution.pkga.versionString, "1.0.0")
 		assert.eq(resolution.pkgb.versionString, "1.0.0")
 		assert.eq(resolution.pkgc.versionString, "3.0.0")
+	end)
+
+	suite:case("greedyFailure_siblingsWithIncompatibleLatest", function(assert)
+		local universe: solver.Universe = {
+			A = {
+				namedVersion("A", "1.1.0", { shared = req("shared", "^2.0.0") }),
+				namedVersion("A", "1.0.0", { shared = req("shared", "^1.0.0") }),
+			},
+			B = {
+				namedVersion("B", "1.1.0", { shared = req("shared", "^1.0.0") }),
+				namedVersion("B", "1.0.0", { shared = req("shared", "^1.0.0") }),
+			},
+			shared = {
+				namedVersion("shared", "2.0.0"),
+				namedVersion("shared", "1.0.0"),
+			},
+		}
+
+		local resolution = solver.solve(universe, {
+			A = req("A", "^1.0.0"),
+			B = req("B", "^1.0.0"),
+		})
+
+		assert.eq(resolution.A.versionString, "1.0.0")
+		assert.eq(resolution.B.versionString, "1.1.0")
+		assert.eq(resolution.shared.versionString, "1.0.0")
+	end)
+
+	suite:case("greedyFailure_noBackPressureOnUpperFork", function(assert)
+		local universe: solver.Universe = {
+			X = {
+				namedVersion("X", "1.1.0", { Y = req("Y", "^2.0.0") }),
+				namedVersion("X", "1.0.0", { Y = req("Y", "^1.0.0") }),
+			},
+			Y = {
+				namedVersion("Y", "2.0.0", { Z = req("Z", "^5.0.0") }),
+				namedVersion("Y", "1.0.0"),
+			},
+			Z = {
+				namedVersion("Z", "1.0.0"),
+			},
+		}
+
+		local resolution = solver.solve(universe, {
+			X = req("X", "^1.0.0"),
+		})
+
+		assert.eq(resolution.X.versionString, "1.0.0")
+		assert.eq(resolution.Y.versionString, "1.0.0")
 	end)
 end)
