@@ -34,7 +34,7 @@ export type Failure =
 	}
 
 --- The assertion functions passed to each test case. Each assertion returns a `Failure` on failure, or `nil` on success.
-export type AssertNegations = {
+export type NegatedAsserts = {
 	eq: <T>(T, T, string?) -> Failure?,
 	throws: <T...>((T...) -> ...unknown, T...) -> Failure?,
 	throwsWith: <T...>(any, (T...) -> ...unknown, T...) -> Failure?,
