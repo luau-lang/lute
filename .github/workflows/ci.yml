@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-2025-vs2026
             options: --c-compiler cl.exe --cxx-compiler cl.exe
             run-on-event: all
           - os: macos-latest
@@ -78,7 +78,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-2025-vs2026
             options: --c-compiler cl.exe --cxx-compiler cl.exe
           - os: ubuntu-latest
             options: --c-compiler gcc --cxx-compiler g++ --enable-sanitizers
