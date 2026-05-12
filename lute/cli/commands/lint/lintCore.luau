@@ -238,7 +238,7 @@ local function parseGlobalIgnores(trivia: { syntax.Trivia }): { [string]: true }
 	return globalIgnores
 end
 
-type fix = types.fix
+type fix = internalTypes.fix
 
 local function applySuggestedFixes(source: string, fixes: { fix }): string
 	local lines = source:split("\n")
