@@ -58,7 +58,7 @@ int makeHashFunctionMap(lua_State* L)
     return 1;
 }
 
-const env_md_st* getHashFunction(lua_State* L, int idx)
+const env_md_st* checkHashFunction(lua_State* L, int idx)
 {
     if (auto typ = static_cast<const env_md_st*>(lua_tolightuserdatatagged(L, idx, kHashFunctionTag)))
         return typ;
@@ -72,7 +72,7 @@ struct BinaryData
     size_t length;
 };
 
-BinaryData extractData(lua_State* L, int idx)
+BinaryData checkBinaryData(lua_State* L, int idx)
 {
     if (!lua_isstring(L, idx) && !lua_isbuffer(L, idx))
         luaL_typeerrorL(L, idx, "string or buffer");
@@ -100,8 +100,8 @@ BinaryData extractData(lua_State* L, int idx)
 // digest(hash: hash<any>, message: string | buffer): buffer
 int lua_digest(lua_State* L)
 {
-    const env_md_st* hashFunction = getHashFunction(L, 1);
-    BinaryData message = extractData(L, 2);
+    const env_md_st* hashFunction = checkHashFunction(L, 1);
+    BinaryData message = checkBinaryData(L, 2);
 
     uint8_t* buffer = static_cast<uint8_t*>(lua_newbuffer(L, EVP_MD_size(hashFunction)));
     if (EVP_Digest(message.data, message.length, buffer, nullptr, hashFunction, nullptr) == 0)
@@ -123,7 +123,7 @@ int lua_secretbox_keygen(lua_State* L)
 int lua_secretbox_seal(lua_State* L)
 {
     bool hasKey = !lua_isnoneornil(L, 2);
-    BinaryData message = extractData(L, 1);
+    BinaryData message = checkBinaryData(L, 1);
 
     lua_createtable(L, 0, 3);
 

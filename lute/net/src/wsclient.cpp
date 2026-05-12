@@ -595,7 +595,7 @@ int ws_send(lua_State* L)
     if (!handleStorage || !(*handleStorage) || (*handleStorage)->closed())
         luaL_errorL(L, "Invalid or closed websocket");
 
-    WebSocketPayload payload = extractWebSocketPayload(L, 2);
+    WebSocketPayload payload = checkWebSocketPayload(L, 2);
     (*handleStorage)->send(std::string(payload.data, payload.length), payload.binary);
     return 0;
 }
