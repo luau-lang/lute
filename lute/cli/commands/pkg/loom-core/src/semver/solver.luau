@@ -1,5 +1,7 @@
 --!strict
 
+local tableext = require("@std/tableext")
+
 local parser = require("./parser")
 
 export type PackageVersion = {
@@ -29,14 +31,9 @@ local function findBest(versions: { PackageVersion }?, requirements: { Requireme
 	end
 
 	for _, pv in versions do
-		local ok = true
-		for _, req in requirements do
-			if not parser.satisfies(pv.version, req.constraint) then
-				ok = false
-				break
-			end
-		end
-		if ok then
+		if tableext.all(requirements, function(req)
+			return parser.satisfies(pv.version, req.constraint)
+		end) then
 			return pv
 		end
 	end
