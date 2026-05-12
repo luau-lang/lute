@@ -89,9 +89,14 @@ local function posixify(str)
 	return posixy
 end
 
+local function normalizeLineEndings(str: string): string
+	local noCrlf, _ = string.gsub(str, "\r+\n", "\n")
+	local noCr, _ = string.gsub(noCrlf, "\r+", "\n")
+	return noCr
+end
+
 local function normalizeSnapshotOutput(output: string, normalizedCwd: string): string
-	local noCrlf, _ = string.gsub(output, "\r\n", "\n")
-	local nobackslash = posixify(noCrlf)
+	local nobackslash = posixify(normalizeLineEndings(output))
 	local replacedCwd, _ = string.gsub(nobackslash, normalizedCwd, "<ROOT>")
 	return replacedCwd
 end

@@ -3,6 +3,7 @@ local process = require("@std/process")
 local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
+local testutil = require("../testutil")
 
 local COMPILER_CONTENTS = [[
 local luau = require("@lute/luau")
@@ -40,7 +41,7 @@ test.suite("LuteCliCompile", function(suite)
 		local result = process.run({ path.format(lutePath), path.format(compilerPath), path.format(compileePath) })
 		-- Compilation should work with no memory leaks
 		check.eq(result.stderr, "")
-		check.eq(result.stdout, "SUCCESS\n")
+		check.eq(testutil.normalizeLineEndings(result.stdout), "SUCCESS\n")
 		check.eq(result.exitcode, 0)
 
 		-- -- Cleanup
