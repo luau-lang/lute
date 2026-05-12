@@ -1,14 +1,9 @@
 local path = require("@std/path")
 local process = require("@std/process")
 local test = require("@std/test")
+local testutil = require("../testutil")
 
 local lutePath = path.format(process.execPath())
-
-local function normalizeLineEndings(contents: string): string
-	local normalized = contents:gsub("\r\n", "\n")
-	local lfOnly = normalized:gsub("\r", "\n")
-	return lfOnly
-end
 
 local expected = [[Anonymous:
 	passing
@@ -43,7 +38,7 @@ test.suite("LuteTestCommand", function(suite)
 
 		-- Check that it discovers test files (.test.luau and .spec.luau)
 		assert.eq(result.exitcode, 0)
-		assert.eq(expected, normalizeLineEndings(result.stdout))
+		assert.eq(expected, testutil.normalizeLineEndings(result.stdout))
 	end)
 
 	suite:case("filterBySuiteName", function(assert)

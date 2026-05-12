@@ -3,6 +3,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
+local testutil = require("../testutil")
 
 local TRANSFORMEE_CONTENT = [[
 local x = math.sqrt(-1)
@@ -15,12 +16,6 @@ local transformeePath = path.format(path.join(tmpDir, "transformee.luau"))
 local outputPath = path.format(path.join(tmpDir, "transformee_output.luau"))
 
 local USAGE = "Usage: lute transform [options] <migration-path> [files...] [-- [--option value...]]"
-
-local function normalizeLineEndings(contents: string): string
-	local normalized = contents:gsub("\r\n", "\n")
-	local lfOnly = normalized:gsub("\r", "\n")
-	return lfOnly
-end
 
 test.suite("LuteTransform", function(suite)
 	suite:beforeEach(function()
@@ -60,7 +55,7 @@ test.suite("LuteTransform", function(suite)
 
 		assert.eq(result.exitcode, 1)
 		assert.strContains(
-			normalizeLineEndings(result.stdout),
+			testutil.normalizeLineEndings(result.stdout),
 			`Error: No code transformation script specified.\n\n{USAGE}\nUse --help for more information.`
 		)
 	end)

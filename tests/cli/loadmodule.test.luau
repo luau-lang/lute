@@ -3,6 +3,7 @@ local process = require("@std/process")
 local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
+local testutil = require("../testutil")
 
 local REQUIRER_CONTENTS = [[
 local args = { ... }
@@ -20,12 +21,6 @@ local lutePath = process.execPath()
 local tmpDirStr = system.tmpdir()
 local testDir = path.join(tmpDirStr, "lute_require_test")
 local testDirStr = path.format(testDir)
-
-local function normalizeLineEndings(contents: string): string
-	local normalized = contents:gsub("\r\n", "\n")
-	local lfOnly = normalized:gsub("\r", "\n")
-	return lfOnly
-end
 
 test.suite("LuteCliRun", function(suite)
 	suite:beforeAll(function()
@@ -49,7 +44,7 @@ test.suite("LuteCliRun", function(suite)
 
 		local result = process.run({ tostring(lutePath), requirerPath, requireePath })
 		check.eq(result.exitcode, 0)
-		check.eq(normalizeLineEndings(result.stdout), "Success\n")
+		check.eq(testutil.normalizeLineEndings(result.stdout), "Success\n")
 
 		-- Cleanup
 		fs.remove(requirerPath)

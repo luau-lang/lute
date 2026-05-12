@@ -90,8 +90,8 @@ local function posixify(str)
 end
 
 local function normalizeLineEndings(str: string): string
-	local noCrlf, _ = string.gsub(str, "\r\n", "\n")
-	local noCr, _ = string.gsub(noCrlf, "\r", "\n")
+	local noCrlf, _ = string.gsub(str, "\r+\n", "\n")
+	local noCr, _ = string.gsub(noCrlf, "\r+", "\n")
 	return noCr
 end
 

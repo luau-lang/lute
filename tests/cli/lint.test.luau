@@ -5,6 +5,7 @@ local system = require("@std/system")
 local tableext = require("@std/tableext")
 local test = require("@std/test")
 local testTypes = require("@std/test/types")
+local testutil = require("../testutil")
 
 local lutePath = path.format(process.execPath())
 local tmpDir = system.tmpdir()
@@ -36,16 +37,10 @@ local LINT_RULE_MESSAGES = {
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 
-local function normalizeLineEndings(contents: string): string
-	local normalized = contents:gsub("\r\n", "\n")
-	local lfOnly = normalized:gsub("\r", "\n")
-	return lfOnly
-end
-
 local function runProcess(args: { string }, options: process.ProcessRunOptions?): process.ProcessResult
 	local result = process.run(args, options)
-	result.stdout = normalizeLineEndings(result.stdout)
-	result.stderr = normalizeLineEndings(result.stderr)
+	result.stdout = testutil.normalizeLineEndings(result.stdout)
+	result.stderr = testutil.normalizeLineEndings(result.stderr)
 	return result
 end
 
