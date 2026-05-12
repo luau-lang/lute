@@ -172,4 +172,95 @@ test.suite("NetTestSuite", function(suite)
 			})
 		end)
 	end)
+
+	suite:case("rejectsHeadBody", function(assert)
+		assert.throwsWith("HEAD requests cannot include a body", function()
+			net.request("http://example.test", {
+				method = "HEAD",
+				body = "not allowed",
+			})
+		end)
+	end)
+
+	suite:case("twoRequestsCompleteWithoutCrashing", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest): server.ServerResponse
+				task.wait(0.05)
+				return { status = 200, body = "ok" }
+			end,
+		})
+
+		local done = 0
+
+		for _ = 1, 2 do
+			task.spawn(function()
+				net.request(`http://{instance.hostname}:{instance.port}/`)
+				done += 1
+			end)
+		end
+
+		local start = time.now()
+
+		while done < 2 and time.since(start) < 5 do
+			task.wait()
+		end
+
+		assert.eq(2, done)
+		instance.close()
+	end)
+
+	suite:case("postRequestSendsBody", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				return { status = 200, body = req.body }
+			end,
+		})
+
+		local response = net.request(`http://{instance.hostname}:{instance.port}/`, {
+			method = "POST",
+			body = "hello world",
+		})
+
+		assert.eq(true, response.ok)
+		assert.eq("hello world", response.body)
+		instance.close()
+	end)
+
+	suite:case("requestHeadersAreForwarded", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				return { status = 200, body = req.headers["x-custom"] or "" }
+			end,
+		})
+
+		local response = net.request(`http://{instance.hostname}:{instance.port}/`, {
+			headers = { ["X-Custom"] = "sentvalue" },
+		})
+
+		assert.eq("sentvalue", response.body)
+		instance.close()
+	end)
+
+	suite:case("requestToClosedPortFails", function(assert)
+		local failed = false
+		local done = false
+
+		task.spawn(function()
+			local ok = pcall(net.request, "http://127.0.0.1:0/")
+			failed = not ok
+			done = true
+		end)
+
+		local start = time.now()
+
+		while not done and time.since(start) < 5 do
+			task.wait()
+		end
+
+		assert.eq(true, done)
+		assert.eq(true, failed)
+	end)
 end)
