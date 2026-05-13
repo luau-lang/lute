@@ -25,6 +25,8 @@ export type AstExprConstantBool = luau.AstExprConstantBool
 
 export type AstExprConstantNumber = luau.AstExprConstantNumber
 
+export type AstExprConstantInteger = luau.AstExprConstantInteger
+
 export type AstExprConstantString = luau.AstExprConstantString
 
 export type AstExprLocal = luau.AstExprLocal

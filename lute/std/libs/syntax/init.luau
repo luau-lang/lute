@@ -47,6 +47,8 @@ export type AstExprConstantBool = types.AstExprConstantBool
 
 export type AstExprConstantNumber = types.AstExprConstantNumber
 
+export type AstExprConstantInteger = types.AstExprConstantInteger
+
 export type AstExprConstantString = types.AstExprConstantString
 
 export type AstExprLocal = types.AstExprLocal
