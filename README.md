@@ -19,7 +19,7 @@ Contributions to any of these libraries are welcome, and we encourage you to ope
 Lute has a fairly conventional C++ build system built atop CMake. However, in the interest of dogfooding Lute itself, and avoiding the trap of shipping elaborate, difficult-to-maintain CMake configurations that attempt to perform dependency resolution and code generation, we've written a build tool called `luthier` (located at `./tools/luthier.luau`).
 `luthier` is written to appropriately run or re-run any of the steps in the build process as needed based on local changes, which affords a more pleasant developer experience for folks working on `lute` than invoking each step manually. Some
 `luthier` subcommands like `configure` and `build` just wrap the standard CMake configuration and ninja invocations. Other commands include `fetch` which implements the logic to parse dependency information from the TOML files (named `extern/\*.tune`) and resolve them efficiently using `git`, and `generate` which performs the code generation steps necessary to embed both Lute's CLI frontend commands and Lute's standard library into the executable.
-The `generate` step in particular is necessary to producing a full `lute` executable, but we provide empty versions of both embeddings (in `./tools/templates`) to be used for any builds that do _not_ embed the standard library. Since you'll need `lute` to execute `luthier` and you'll need `luthier` to run the code generation step in particular, there are a few different paths to building Lute.
+The `generate` step in particular is necessary to producing a full `lute` executable. Since you'll need `lute` to execute `luthier` and you'll need `luthier` to run the code generation step in particular, there are a few different paths to building Lute. If you do not have `lute` available to run this step, the CMake option `-DLUTE_STDLESS=ON` can be passed to skip embedding entirely.
 
 ### Building Lute with `lute` installed
 
@@ -39,17 +39,8 @@ If you wish to build `lute` from scratch without a version of `lute` already pre
 
 ### Manually building Lute
 
-If you wish to work very manually with the build system, you can, of course, still invoke `cmake` and `ninja` directly after pulling external dependencies into `extern` by hand. In order for the build to succeed, you'll have to provide _some_ version of a handful of generated files, but we provide empty versions to use in `./tools/templates`. A manual build therefore would look something like:
+If you wish to work very manually with the build system, you can, of course, still invoke `cmake` and `ninja` directly after pulling external dependencies into `extern` by hand. A manual build therefore would look something like:
 
-- Copy all of the templates from `./tools/templates` into the right locations to support building a version with no embedded Luau functionality, e.g.
-  ```bash
-  mkdir -p ./lute/std/src/generated
-  cp ./tools/templates/std_impl.cpp ./lute/std/src/generated/modules.cpp
-  cp ./tools/templates/std_header.h ./lute/std/src/generated/modules.h
-  mkdir -p ./lute/cli/generated
-  cp ./tools/templates/cli_impl.cpp ./lute/cli/generated/commands.cpp
-  cp ./tools/templates/cli_header.h ./lute/cli/generated/commands.h
-  ```
-- Configure with `cmake -G=Ninja -B build  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=1`
+- Configure with `cmake -G=Ninja -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DLUTE_STDLESS=ON` to build a version with no embedded Luau functionality.
 - Build a `lute` executable with `ninja -C build lute/cli/lute` or our test suite with `ninja -C build tests/lute-tests`.
-- Optionally, use this version to run `luthier generate` to generate the files for embedded Luau functionality.
+- Optionally, use this version to run `luthier generate` to generate the embedded Luau source files, then reconfigure without `-DLUTE_STDLESS=ON` and rebuild to get a fully-featured `lute`.
