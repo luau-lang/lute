@@ -12,6 +12,7 @@ local processlib = {}
 --- - `"default"`: Capture stdout and stderr to pipes, accessible via `ProcessResult`.
 --- - `"inherit"`: Pass the parent process's stdio streams through to the child.
 --- - `"none"`: Discard the child's stdio streams.
+export type SignalHandle = process.SignalHandle
 export type StdioKind = process.StdioKind
 --- Options for `process.run`:
 --- - `cwd`: The working directory for the child process. Defaults to the current working directory.
@@ -60,6 +61,18 @@ end
 --- Returns the path of the currently running lute executable as a `Path`.
 function processlib.execPath(): Path
 	return pathlib.parse(process.execPath())
+end
+
+--- Registers `callback` to be called whenever `signal` is delivered to this process.
+--- Suppresses the default OS behavior (e.g. `"SIGINT"` will no longer terminate the process).
+--- Returns a handle; call `handle:close()` to deregister.
+function processlib.onSignal(signal: string, callback: () -> ()): SignalHandle
+	return process.onSignal(signal, callback)
+end
+
+--- Returns the PID of the current process.
+function processlib.pid(): number
+	return process.pid()
 end
 
 -- re-exports
