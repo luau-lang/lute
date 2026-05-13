@@ -1,6 +1,8 @@
+local configUtils = require("./configutils")
 local fs = require("@std/fs")
 local internalTypes = require("./internaltypes")
 local luau = require("@std/luau")
+local parseIgnores = require("../lib/parseIgnores")
 local pathLib = require("@std/path")
 local process = require("@std/process")
 local syntax = require("@std/syntax")
@@ -8,8 +10,6 @@ local tableext = require("@std/tableext")
 local triviaUtils = require("@std/syntax/utils/trivia")
 local types = require("./types")
 local visitor = require("@std/syntax/visitor")
-local configUtils = require("./configutils")
-local parseIgnores = require("../lib/parseIgnores")
 
 local DEFAULT_RULES = {
 	"almost_swapped",
