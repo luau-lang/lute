@@ -1958,4 +1958,13 @@ test.suite("AST_nodes_frozen", function(suite)
 			(eof :: any).tag = "modified"
 		end)
 	end)
+
+	suite:case("parseResultOnlyHasFourFields", function(assert)
+		local result = parser.parse("local x = 1")
+		local fieldCount = 0
+		for _k, _v in result :: any do
+			fieldCount = fieldCount + 1
+		end
+		assert.eq(fieldCount, 4)
+	end)
 end)

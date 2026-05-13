@@ -2890,9 +2890,10 @@ int luau_parse(lua_State* L)
 
     lua_rawcheckstack(L, 6);
 
+    AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
+
     lua_createtable(L, 0, 4);
 
-    AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
     serializer.visit(result.parseResult.root);
     lua_setfield(L, -2, "root");
 
