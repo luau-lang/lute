@@ -9,7 +9,7 @@ local testutil = require("../testutil")
 
 local lutePath = path.format(process.execPath())
 local tmpDir = system.tmpdir()
-local rulesDir = path.format(path.join(".", "lints"))
+local rulesDir = path.format(path.join(tmpDir, "lints"))
 local defaultRulesFolder = path.format(path.join("lute", "cli", "commands", "lint", "rules"))
 local defaultRulesPaths = {
 	almost_swapped = path.format(path.join(defaultRulesFolder, "almost_swapped.luau")),
@@ -36,6 +36,14 @@ local LINT_RULE_MESSAGES = {
 }
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
+
+local LUAURC_CONTENT = [[
+{
+    "aliases": {
+        "lint": "@std/commands/lint/types"
+    }
+}
+]]
 
 local function runProcess(args: { string }, options: process.ProcessRunOptions?): process.ProcessResult
 	local result = process.run(args, options)
@@ -348,6 +356,7 @@ end
 	suite:case("luteLintCustomRulesDir", function(assert)
 		-- Setup
 		fs.createDirectory(rulesDir)
+		fs.writeStringToFile(path.join(rulesDir, ".luaurc"), LUAURC_CONTENT)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
 		fs.copy(defaultRulesPaths.almost_swapped, path.join(rulesDir, "almost_swapped.luau"))
 		-- Copy divide_by_zero to rulesDir/divide_by_zero/init.luau
@@ -404,6 +413,7 @@ violator.luau:3:1-4:6 ──
 	suite:case("luteLintMultipleRulesButOneErrors", function(assert)
 		-- Setup
 		fs.createDirectory(rulesDir)
+		fs.writeStringToFile(path.join(rulesDir, ".luaurc"), LUAURC_CONTENT)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
 		fs.copy(defaultRulesPaths.almost_swapped, path.join(rulesDir, "almost_swapped.luau"))
 		-- Create a rule that fails
@@ -443,7 +453,7 @@ b = a
 
 		assert.neq(
 			output:find(
-				"Error applying lint rule 'AlwaysErrors': %.[/\\]lints[/\\]erroring_rule%.luau:4: This rule always errors",
+				"Error applying lint rule 'AlwaysErrors': .+[/\\]lints[/\\]erroring_rule%.luau:4: This rule always errors",
 				1
 			),
 			nil
