@@ -257,7 +257,7 @@ test.suite("NetTestSuite", function(suite)
 		local done = false
 
 		task.spawn(function()
-			local ok = pcall(net.request, "http://127.0.0.1:0/")
+			local ok = pcall(net.request, "http://127.0.0.1:0/", nil)
 			failed = not ok
 			done = true
 		end)
