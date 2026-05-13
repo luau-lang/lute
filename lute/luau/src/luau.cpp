@@ -879,6 +879,22 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "token");
     }
 
+    void serialize(Luau::AstExprConstantInteger* node)
+    {
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 2);
+
+        const auto cstNode = lookupCstNode<Luau::CstExprConstantInteger>(node);
+
+        serializeNodePreamble(node, "integer", "expr");
+
+        lua_pushnumber(L, node->value);
+        lua_setfield(L, -2, "value");
+
+        serializeToken(node->location.begin, cstNode->value.data);
+        lua_setfield(L, -2, "token");
+    }
+
     void serialize(Luau::AstExprConstantString* node)
     {
         lua_rawcheckstack(L, 2);
@@ -2521,6 +2537,12 @@ struct AstSerialize : public Luau::AstVisitor
     }
 
     bool visit(Luau::AstExprConstantNumber* node) override
+    {
+        serialize(node);
+        return false;
+    }
+
+    bool visit(Luau::AstExprConstantInteger* node) override
     {
         serialize(node);
         return false;

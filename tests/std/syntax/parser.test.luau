@@ -242,6 +242,14 @@ test.suite("parseExpr", function(suite)
 		assert.eq((floatExpr :: syntax.AstExprConstantNumber).value, 3.14)
 	end)
 
+	suite:case("parseExprInteger", function(assert)
+		local numberExpr = parser.parseExpr("42i")
+		assert.eq(numberExpr.tag, "integer")
+		assert.eq(numberExpr.kind, "expr")
+		assert.eq((numberExpr :: syntax.AstExprConstantInteger).token.text, "42i")
+		assert.eq((numberExpr :: syntax.AstExprConstantInteger).value, 42)
+	end)
+
 	suite:case("parseExprString", function(assert)
 		local singleQuoteExpr = parser.parseExpr("'hello'")
 		assert.eq(singleQuoteExpr.tag, "string")
@@ -1284,6 +1292,18 @@ test.suite("AST_nodes_frozen", function(suite)
 		local expr = parser.parseExpr("42")
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "number")
+		assert.throwsWith(frozenTableMessage, function()
+			(expr :: any).tag = "modified"
+		end)
+		assert.throwsWith(frozenTableMessage, function()
+			(expr :: any).token.text = "blah"
+		end)
+	end)
+
+	suite:case("astExprConstantIntegerFrozen", function(assert)
+		local expr = parser.parseExpr("42i")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "integer")
 		assert.throwsWith(frozenTableMessage, function()
 			(expr :: any).tag = "modified"
 		end)
