@@ -1,6 +1,7 @@
 {
     "languageMode": "strict",
     "aliases": {
-        "batteries": "../batteries"
+        "batteries": "../batteries",
+        "transform": "@std/commands/transform/types"
     }
 }
