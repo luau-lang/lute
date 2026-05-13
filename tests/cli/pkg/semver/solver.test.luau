@@ -151,7 +151,7 @@ test.suite("solver.solve", function(suite)
 				namedVersion("conflict", "1.0.0"),
 			},
 		}
-		assert.throws(function()
+		assert.throwsWith("  >=2.0.0 <3.0.0  (required by root)", function()
 			solver.solve(universe, {
 				v1 = req("conflict", "^1.0.0"),
 				v2 = req("conflict", "^2.0.0"),
@@ -161,7 +161,7 @@ test.suite("solver.solve", function(suite)
 
 	suite:case("unknownPackageErrors", function(assert)
 		local universe: solver.Universe = {}
-		assert.throws(function()
+		assert.throwsWith("unknown package 'lemon': not found in universe", function()
 			solver.solve(universe, {
 				lemon = req("lemon", "^1.0.0"),
 			})
@@ -230,7 +230,7 @@ test.suite("solver.solve", function(suite)
 			},
 		}
 
-		assert.throws(function()
+		assert.throwsWith("  >=1.0.0 <2.0.0  (required by parent@1.0.0)", function()
 			solver.solve(universe, {
 				parent = req("parent", "^1.0.0"),
 			})
@@ -247,7 +247,7 @@ test.suite("solver.solve", function(suite)
 			},
 		}
 
-		assert.throws(function()
+		assert.throwsWith("circular dependency detected for package 'a'", function()
 			solver.solve(universe, {
 				a = req("a", "^1.0.0"),
 			})
@@ -312,7 +312,7 @@ test.suite("solver.solve", function(suite)
 			},
 		}
 
-		assert.throws(function()
+		assert.throwsWith("  >=2.0.0 <3.0.0  (required by A@1.1.0)", function()
 			solver.solve(universe, {
 				A = req("A", "^1.0.0"),
 				B = req("B", "^1.0.0"),
@@ -340,7 +340,7 @@ test.suite("solver.solve", function(suite)
 			},
 		}
 
-		assert.throws(function()
+		assert.throwsWith("  >=5.0.0 <6.0.0  (required by Y@2.0.0)", function()
 			solver.solve(universe, {
 				X = req("X", "^1.0.0"),
 			})
