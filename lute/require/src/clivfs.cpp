@@ -76,12 +76,17 @@ std::optional<std::string> CliVfs::getContents(const std::string& path) const
 
 ConfigStatus CliVfs::getConfigStatus() const
 {
-    // Currently, we do not support .luaurc files in CLI commands.
-    return ConfigStatus::Absent;
+    return ConfigStatus::PresentJson;
 }
 
 std::optional<std::string> CliVfs::getConfig() const
 {
-    // Currently, we do not support .luaurc files in CLI commands.
-    return std::nullopt;
+    return R"(
+{
+    "aliases": {
+        "lint": "@std/commands/lint/types",
+        "transform": "@std/commands/transform/types"
+    }
+}
+)";
 }
