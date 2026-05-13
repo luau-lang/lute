@@ -1300,6 +1300,18 @@ test.suite("AST_nodes_frozen", function(suite)
 		end)
 	end)
 
+	suite:case("astExprConstantIntegerFrozen", function(assert)
+		local expr = parser.parseExpr("42i")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "integer")
+		assert.throwsWith(frozenTableMessage, function()
+			(expr :: any).tag = "modified"
+		end)
+		assert.throwsWith(frozenTableMessage, function()
+			(expr :: any).token.text = "blah"
+		end)
+	end)
+
 	suite:case("astExprConstantStringFrozen", function(assert)
 		local expr = parser.parseExpr("'hello'")
 		assert.eq(expr.kind, "expr")
