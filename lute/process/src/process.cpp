@@ -58,11 +58,15 @@ static int resolveSignal(lua_State* L, const char* name)
         return SIGINT;
     if (strcmp(name, "SIGTERM") == 0)
         return SIGTERM;
-    if (strcmp(name, "SIGHUP") == 0)
-        return SIGHUP;
 
     // Platform-conditional signals: return the signal number if available,
     // or -1 (no-op handle) if not defined on this platform.
+    if (strcmp(name, "SIGHUP") == 0)
+#ifdef SIGHUP
+        return SIGHUP;
+#else
+        return -1;
+#endif
     if (strcmp(name, "SIGQUIT") == 0)
 #ifdef SIGQUIT
         return SIGQUIT;
