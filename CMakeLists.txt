@@ -151,8 +151,33 @@ endif()
 
 # curl setup
 
+# nghttp2 setup
+set(ENABLE_LIB_ONLY ON CACHE BOOL "Only build libnghttp2" FORCE)
+set(ENABLE_APP OFF CACHE BOOL "Do not build nghttp2 applications" FORCE)
+set(ENABLE_HPACK_TOOLS OFF CACHE BOOL "Do not build nghttp2 HPACK tools" FORCE)
+set(ENABLE_EXAMPLES OFF CACHE BOOL "Do not build nghttp2 examples" FORCE)
+set(ENABLE_DOC OFF CACHE BOOL "Do not build nghttp2 documentation" FORCE)
+set(ENABLE_HTTP3 OFF CACHE BOOL "Do not build nghttp2 HTTP/3 tools" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
+set(BUILD_STATIC_LIBS ON CACHE BOOL "Build static libraries" FORCE)
+add_subdirectory(extern/nghttp2)
+
+set(CURL_USE_PKGCONFIG OFF CACHE BOOL "Do not use pkg-config for curl dependencies" FORCE)
+set(NGHTTP2_FOUND TRUE CACHE BOOL "" FORCE)
+set(NGHTTP2_VERSION "1.69.0" CACHE STRING "" FORCE)
+set(NGHTTP2_INCLUDE_DIRS
+    ${PROJECT_SOURCE_DIR}/extern/nghttp2/lib/includes
+    ${CMAKE_CURRENT_BINARY_DIR}/extern/nghttp2/lib/includes
+    CACHE STRING "" FORCE)
+set(NGHTTP2_LIBRARIES nghttp2_static CACHE STRING "" FORCE)
+set(NGHTTP2_LIBRARY nghttp2_static CACHE STRING "" FORCE)
+set(NGHTTP2_LIBRARY_DIRS "" CACHE STRING "" FORCE)
+set(NGHTTP2_CFLAGS "" CACHE STRING "" FORCE)
+
 set(USE_LIBIDN2 OFF)
-set(USE_NGHTTP2 OFF)
+set(USE_NGHTTP2 ON)
+set(CURL_DISABLE_INSTALL ON CACHE BOOL "Disable curl install targets" FORCE)
+set(CURL_ENABLE_EXPORT_TARGET OFF CACHE BOOL "Disable curl CMake export targets" FORCE)
 set(CURL_USE_LIBPSL OFF)
 set(CURL_USE_LIBSSH2 OFF)
 set(CURL_ZLIB ON)
