@@ -10,24 +10,34 @@ local x = math.sqrt(-1)
 local b = x ~= x
 ]]
 
+local LUAURC_CONTENT = [[
+{
+    "aliases": {
+        "transform": "@std/commands/transform/types"
+    }
+}
+]]
+
 local lutePath = path.format(process.execPath())
 local tmpDir = system.tmpdir()
 local transformeePath = path.format(path.join(tmpDir, "transformee.luau"))
 local outputPath = path.format(path.join(tmpDir, "transformee_output.luau"))
+local luaurcFile = path.format(path.join(tmpDir, ".luaurc"))
 
 local USAGE = "Usage: lute transform [options] <migration-path> [files...] [-- [--option value...]]"
 
 test.suite("LuteTransform", function(suite)
 	suite:beforeEach(function()
 		-- Create a transformee file
-		local transformeeHandle = fs.open(transformeePath, "w+")
-		fs.write(transformeeHandle, TRANSFORMEE_CONTENT)
-		fs.close(transformeeHandle)
+		fs.writeStringToFile(transformeePath, TRANSFORMEE_CONTENT)
+
+		fs.writeStringToFile(luaurcFile, LUAURC_CONTENT)
 	end)
 
 	suite:afterEach(function()
 		-- Remove the transformee file
 		fs.remove(transformeePath)
+		fs.remove(luaurcFile)
 		if fs.exists(outputPath) then
 			fs.remove(outputPath)
 		end

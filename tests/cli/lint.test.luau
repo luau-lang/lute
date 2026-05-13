@@ -137,6 +137,13 @@ test.suite("lute lint", function(suite)
 		end
 	end)
 
+	suite:afterEach(function()
+		local configPath = path.format(path.join(tmpDir, ".config.luau"))
+		if fs.exists(configPath) then
+			fs.remove(configPath)
+		end
+	end)
+
 	suite:case("luteLintHelpMessage", function(assert)
 		local result = runProcess({ lutePath, "lint", "-h" })
 
