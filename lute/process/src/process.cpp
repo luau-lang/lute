@@ -124,7 +124,10 @@ struct SignalHandle
 
         int err = uv_signal_init(runtime->getEventLoop(), uvHandle.get());
         if (err != 0)
+        {
+            uvHandle.reset();
             luaL_errorL(L, "uv_signal_init failed: %s", uv_strerror(err));
+        }
 
         err = uv_signal_start(
             uvHandle.get(),
