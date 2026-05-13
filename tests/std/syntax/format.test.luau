@@ -50,6 +50,10 @@ test.suite("SyntaxFormat", function(suite)
 		checkFormat(assert, "local direction=input > 0 and 1 or -1", "local direction = input > 0 and 1 or -1\n")
 	end)
 
+	suite:case("formatsInterpolatedStringExpressions", function(assert)
+		checkFormat(assert, "local message=`hello {first..second}`", "local message = `hello {first .. second}`\n")
+	end)
+
 	suite:case("keepsOptionalPostfixTightAfterGenericClose", function(assert)
 		checkFormat(
 			assert,
