@@ -95,8 +95,8 @@ local function lintPaths(
 	local function spawnWorker()
 		task.spawn(function()
 			xpcall(function()
-				local lintFile = vm.create("@self/lintFile")
-				lintFile.initialize({
+				local worker = vm.create("@self/worker")
+				worker.initialize({
 					rulePath = rulePath,
 					noDefaults = noDefaults,
 					configPath = passedConfigVal,
@@ -127,7 +127,7 @@ local function lintPaths(
 						end
 
 						local success, res = pcall(function()
-							return lintFile.lintFile({
+							return worker.lintFile({
 								file = pathLib.format(curr :: pathLib.Path),
 								autofix = job.autoFixEnabled,
 								verbose = VERBOSE,
