@@ -8,6 +8,7 @@ local printer = require("@self/printer")
 local process = require("@std/process")
 local tableext = require("@std/tableext")
 local types = require("@self/types")
+local internalTypes = require("@self/internaltypes")
 local parseIgnores = require("./lib/parseIgnores")
 local lintCore = require("@self/lintCore")
 local task = require("@std/task")
@@ -49,7 +50,7 @@ end
 
 local lintString = lintCore.lintString
 
-type fix = types.fix
+type fix = internalTypes.fix
 
 type Job = {
 	inputFile: pathLib.Path,
@@ -200,25 +201,13 @@ local function main(...: string)
 	local noDefaultLints = args:has("no-default-lints")
 	local rulePath = args:get("rules")
 
-	local lintConfig = lintCore.loadConfig(passedConfigVal, VERBOSE)
-
-	local ignores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
-	local configPath: pathLib.Pathlike = if passedConfigVal
-		then passedConfigVal
-		else pathLib.join(process.cwd(), ".config.luau")
-	local rootLocation = if fs.exists(configPath)
-		then pathLib.format(pathLib.resolve(pathLib.dirname(configPath)))
-		else pathLib.format(process.cwd())
-	local ignoreData = parseIgnores.parseIgnoreContents(rootLocation, ignores)
+	local lintRules, configContextData, ignoreData =
+		lintCore.initialize(passedConfigVal, noDefaultLints, rulePath, VERBOSE)
 
 	if stringInput ~= nil then
 		if args:has("auto-fix") then
 			print("Auto-fix has no effect on string input.")
 		end
-
-		local lintData = lintCore.initialize(passedConfigVal, noDefaultLints, rulePath, VERBOSE)
-
-		local lintRules, configContextData = lintData.lintRules, lintData.configContextData
 
 		local violations = lintString(stringInput, lintRules, nil, configContextData, VERBOSE)
 

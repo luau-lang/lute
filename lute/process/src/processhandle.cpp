@@ -1,6 +1,5 @@
 #include "lute/processhandle.h"
 
-#include "lute/common.h"
 #include "lute/uvutils.h"
 
 #include "lua.h"
@@ -20,18 +19,6 @@ namespace process
 const std::string kStdioKindDefault = "default";
 const std::string kStdioKindInherit = "inherit";
 const std::string kStdioKindNone = "none";
-
-void convertCRLFtoLF(std::string& str)
-{
-    size_t writePos = 0;
-    for (size_t readPos = 0; readPos < str.size(); ++readPos)
-    {
-        if (str[readPos] == '\r' && readPos + 1 < str.size() && str[readPos + 1] == '\n')
-            continue; // Skip the '\r' in CRLF
-        str[writePos++] = str[readPos];
-    }
-    str.resize(writePos);
-}
 
 ProcessExecutionState::ProcessExecutionState(int maxCompletions)
     : completed(false)
@@ -287,8 +274,6 @@ void ProcessHandle::completeProcessExecution()
         std::string finalStdout = state.stdoutData;
         std::string finalStderr = state.stderrData;
         std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
-        convertCRLFtoLF(finalStdout);
-        convertCRLFtoLF(finalStderr);
         resumeToken->complete(
             [=](lua_State* L)
             {
