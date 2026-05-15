@@ -129,6 +129,10 @@ local function lintPaths(
 			task.spawn(function()
 				xpcall(function()
 					local worker = vm.create("@self/worker")
+					-- Initialize will be UNNECESSARY once we can pass functions to separate VM
+					-- Once that is the case:
+					-- 		remove initialize
+					-- 		refactor to omit rulesPath / passedConfigVal and instead pass lintRules / configData directly to lintFile
 					worker.initialize(rulesPath, noDefaults, passedConfigVal, VERBOSE)
 
 					local activeJob = lintNext()
