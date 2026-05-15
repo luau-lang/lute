@@ -1,18 +1,18 @@
 local cli = require("@batteries/cli")
 local files = require("./lib/files")
 local fs = require("@std/fs")
+local internalTypes = require("@self/internaltypes")
 local json = require("@std/json")
+local lintCore = require("@self/lintCore")
 local lsp = require("@self/lsp")
+local parseIgnores = require("./lib/parseIgnores")
 local pathLib = require("@std/path")
 local printer = require("@self/printer")
 local process = require("@std/process")
-local tableext = require("@std/tableext")
-local types = require("@self/types")
-local internalTypes = require("@self/internaltypes")
-local parseIgnores = require("./lib/parseIgnores")
-local lintCore = require("@self/lintCore")
-local task = require("@std/task")
 local system = require("@std/system")
+local tableext = require("@std/tableext")
+local task = require("@std/task")
+local types = require("@self/types")
 local vm = require("@lute/vm")
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
@@ -38,6 +38,7 @@ OPTIONS:
   --auto-fix			  Automatically apply fixes for lint violations that provide a suggested fix.
 						  Assumes that suggested fixes do not overlap.
   --no-default-lints	  Disables the default lint rules.
+  -p, --parallel 		  Lint files in parallel.
 
 PATHS:
   Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
@@ -92,6 +93,9 @@ local function lintPaths(
 		return nextJob
 	end
 
+	-- Gate parallelization behind CLI flag
+	-- Remove walking, just lint input file (getSourceFiles returns no directories)
+
 	local function spawnWorker()
 		task.spawn(function()
 			xpcall(function()
@@ -103,45 +107,33 @@ local function lintPaths(
 					verbose = VERBOSE,
 				})
 
-				local curJob = lintNext()
-				while curJob ~= nil do
-					local job = curJob :: Job
+				local activeJob = lintNext()
+				while activeJob ~= nil do
+					local job = activeJob :: Job
+					local inputFilePathString = pathLib.format(activeJob.inputFile)
 
-					local walker = fs.walk(job.inputFile, { recursive = true })
-
-					local curr = walker()
-					while curr ~= nil do
-						if hasIgnores then
-							local inputFilePathString = pathLib.format(curr)
-
-							if
-								parseIgnores.isIgnored(
-									ignoreData,
-									inputFilePathString,
-									fs.type(inputFilePathString) == "dir"
-								)
-							then
-								curr = walker()
-								continue
-							end
-						end
-
+					if
+						not hasIgnores
+						or not parseIgnores.isIgnored(
+							ignoreData,
+							inputFilePathString,
+							fs.type(inputFilePathString) == "dir"
+						)
+					then
 						local success, res = pcall(function()
 							return worker.lintFile({
-								file = pathLib.format(curr :: pathLib.Path),
+								file = inputFilePathString,
 								autofix = job.autoFixEnabled,
 								verbose = VERBOSE,
 							})
 						end)
 						if success then
-							allViolations[curr] = res :: { types.LintViolation }
+							allViolations[activeJob.inputFile] = res :: { types.LintViolation }
 						else
-							print(`(worker) Error linting file '{curr}': {res}`)
+							print(`(worker) Error linting file '{activeJob.inputFile}': {res}`)
 						end
-
-						curr = walker()
 					end
-					curJob = lintNext()
+					activeJob = lintNext()
 				end
 			end, function(err: any)
 				print(`worker errored: {tostring(err)}`)
