@@ -656,7 +656,6 @@ lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 		local violatorPath = path.format(path.join(tmpDir, "parallel_violator.luau"))
 		fs.writeStringToFile(violatorPath, "local _x = 1 / 0")
 
-		-- Do
 		-- Run the linter in parallel on both files
 		local result = runProcess({
 			lutePath,
