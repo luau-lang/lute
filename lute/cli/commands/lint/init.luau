@@ -93,9 +93,6 @@ local function lintPaths(
 		return nextJob
 	end
 
-	-- Gate parallelization behind CLI flag
-	-- Remove walking, just lint input file (getSourceFiles returns no directories)
-
 	local function spawnWorker()
 		task.spawn(function()
 			xpcall(function()
