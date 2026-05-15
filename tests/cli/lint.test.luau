@@ -661,9 +661,6 @@ lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 			lutePath,
 			"lint",
 			"--parallel",
-			"--no-default-lints",
-			"-r",
-			defaultRulesPaths.divide_by_zero,
 			lintee,
 			violatorPath,
 		})
