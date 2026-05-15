@@ -17,6 +17,7 @@ local vm = require("@lute/vm")
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 local VERBOSE = false
+local PARALLEL = false
 
 local function printHelp()
 	print(USAGE)
@@ -60,7 +61,9 @@ type Job = {
 
 local function lintPaths(
 	inputFilePaths: { string },
-	rulePath: string?,
+	lintRules: { types.LintRule },
+	configData: internalTypes.RuleConfigData,
+	rulesPath: string?,
 	noDefaults: boolean,
 	passedConfigVal: string?,
 	autofixEnabled: boolean,
@@ -74,78 +77,92 @@ local function lintPaths(
 	local allViolations: { [pathLib.Path]: { types.LintViolation } } = {}
 	local hasIgnores = #ignoreData.ignores > 0
 
-	local maxWorkers = math.min(system.threadCount(), #inputFiles)
-	local curJob = 1
-	local doneWorkers = 0
+	if not PARALLEL then
+		for _, inputPath in inputFiles do
+			local walker = fs.walk(inputPath, { recursive = true })
 
-	local function lintNext(): Job?
-		if curJob > #inputFiles then
-			return nil
-		end
-
-		local nextJob: Job = {
-			inputFile = inputFiles[curJob],
-			autoFixEnabled = autofixEnabled,
-		}
-
-		curJob += 1
-
-		return nextJob
-	end
-
-	local function spawnWorker()
-		task.spawn(function()
-			xpcall(function()
-				local worker = vm.create("@self/worker")
-				worker.initialize({
-					rulePath = rulePath,
-					noDefaults = noDefaults,
-					configPath = passedConfigVal,
-					verbose = VERBOSE,
-				})
-
-				local activeJob = lintNext()
-				while activeJob ~= nil do
-					local job = activeJob :: Job
-					local inputFilePathString = pathLib.format(activeJob.inputFile)
+			local curr = walker()
+			while curr ~= nil do
+				if hasIgnores then
+					local inputFilePathString = pathLib.format(curr)
 
 					if
-						not hasIgnores
-						or not parseIgnores.isIgnored(
-							ignoreData,
-							inputFilePathString,
-							fs.type(inputFilePathString) == "dir"
-						)
+						parseIgnores.isIgnored(ignoreData, inputFilePathString, fs.type(inputFilePathString) == "dir")
 					then
-						local success, res = pcall(function()
-							return worker.lintFile({
-								file = inputFilePathString,
-								autofix = job.autoFixEnabled,
-								verbose = VERBOSE,
-							})
-						end)
-						if success then
-							allViolations[activeJob.inputFile] = res :: { types.LintViolation }
-						else
-							print(`(worker) Error linting file '{activeJob.inputFile}': {res}`)
-						end
+						curr = walker()
+						continue
 					end
-					activeJob = lintNext()
 				end
-			end, function(err: any)
-				print(`worker errored: {tostring(err)}`)
+
+				local success, err = pcall(lintCore.lintFile, curr, lintRules, autofixEnabled, configData, VERBOSE)
+				if success then
+					-- Violations are returned as the second return value from pcall
+					allViolations[curr] = err
+				else
+					print(`Error linting file '{curr}': {err}`)
+				end
+
+				curr = walker()
+			end
+		end
+	else
+		local maxWorkers = math.min(system.threadCount(), #inputFiles)
+		local curJob = 1
+		local doneWorkers = 0
+
+		local function lintNext(): Job?
+			if curJob > #inputFiles then
+				return nil
+			end
+
+			local nextJob: Job = {
+				inputFile = inputFiles[curJob],
+				autoFixEnabled = autofixEnabled,
+			}
+
+			curJob += 1
+
+			return nextJob
+		end
+
+		local function spawnWorker()
+			task.spawn(function()
+				xpcall(function()
+					local worker = vm.create("@self/worker")
+					worker.initialize(rulesPath, noDefaults, passedConfigVal, VERBOSE)
+
+					local activeJob = lintNext()
+					while activeJob ~= nil do
+						local job = activeJob :: Job
+						local inputFilePathString = pathLib.format(activeJob.inputFile)
+						local isIgnored = hasIgnores and parseIgnores.isIgnored(ignoreData, inputFilePathString, false)
+						if not isIgnored then
+							local success, res = pcall(function()
+								return worker.lintFile(inputFilePathString, job.autoFixEnabled, VERBOSE)
+							end)
+							if success then
+								allViolations[activeJob.inputFile] = res :: { types.LintViolation }
+							else
+								print(`(worker) Error linting file '{activeJob.inputFile}': {res}`)
+							end
+						end
+						activeJob = lintNext()
+					end
+				end, function(err: any)
+					print(`worker errored: {tostring(err)}`)
+				end)
+
+				doneWorkers += 1
 			end)
+		end
 
-			doneWorkers += 1
-		end)
-	end
+		for _ = 1, maxWorkers do
+			spawnWorker()
+		end
 
-	for _ = 1, maxWorkers do
-		spawnWorker()
-	end
-
-	while doneWorkers < maxWorkers do
-		task.wait() -- wait for all jobs to run
+		while doneWorkers < maxWorkers do
+			task.wait() -- wait for all jobs to run
+		end
 	end
 
 	return allViolations
@@ -170,6 +187,7 @@ local function main(...: string)
 		{ help = "Lint the provided string input instead of reading from files", aliases = { "s" } }
 	)
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
+	args:add("parallel", "flag", { help = "Lint files in parallel", aliases = { "p" } })
 
 	args:parse({ ... })
 
@@ -179,6 +197,7 @@ local function main(...: string)
 	end
 
 	VERBOSE = args:has("verbose")
+	PARALLEL = args:has("parallel")
 
 	local inputFiles = args:forwarded()
 	local stringInput = args:get("string-input")
@@ -188,10 +207,10 @@ local function main(...: string)
 
 	local passedConfigVal = args:get("config")
 	local noDefaultLints = args:has("no-default-lints")
-	local rulePath = args:get("rules")
+	local rulesPath = args:get("rules")
 
 	local lintRules, configContextData, ignoreData =
-		lintCore.initialize(passedConfigVal, noDefaultLints, rulePath, VERBOSE)
+		lintCore.initialize(passedConfigVal, noDefaultLints, rulesPath, VERBOSE)
 
 	if stringInput ~= nil then
 		if args:has("auto-fix") then
@@ -224,8 +243,16 @@ local function main(...: string)
 			print("Auto-fix is enabled.")
 		end
 
-		local allViolations =
-			lintPaths(inputFiles :: { string }, rulePath, noDefaultLints, passedConfigVal, autofixEnabled, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+		local allViolations = lintPaths(
+			inputFiles :: { string },
+			lintRules,
+			configContextData,
+			rulesPath,
+			noDefaultLints,
+			passedConfigVal,
+			autofixEnabled,
+			ignoreData
+		) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))

@@ -3,19 +3,6 @@ local pathLib = require("@std/path")
 local types = require("./types")
 local lintCore = require("./lintCore")
 
-type InitializeArgs = {
-	rulePath: string?,
-	noDefaults: boolean,
-	configPath: string?,
-	verbose: boolean,
-}
-
-type LintFileArgs = {
-	file: string,
-	autofix: boolean,
-	verbose: boolean,
-}
-
 -- populate in initialize
 local lintRules: { types.LintRule } = {}
 local configData: internalTypes.RuleConfigData = {
@@ -27,12 +14,12 @@ local configData: internalTypes.RuleConfigData = {
 local worker = {}
 
 -- load config, load rules
-function worker.initialize(args: InitializeArgs)
-	lintRules, configData = lintCore.initialize(args.configPath, args.noDefaults, args.rulePath, args.verbose)
+function worker.initialize(rulesPath: string?, noDefaults: boolean, configPath: string?, verbose: boolean)
+	lintRules, configData = lintCore.initialize(configPath, noDefaults, rulesPath, verbose)
 end
 
-function worker.lintFile(args: LintFileArgs): { types.LintViolation }
-	return lintCore.lintFile(pathLib.resolve(args.file), lintRules, args.autofix, configData, args.verbose)
+function worker.lintFile(file: string, autofix: boolean, verbose: boolean): { types.LintViolation }
+	return lintCore.lintFile(pathLib.resolve(file), lintRules, autofix, configData, verbose)
 end
 
 return table.freeze(worker)
