@@ -50,6 +50,9 @@ struct RouteContext
     std::string method;
     RouteHandlerKind kind = RouteHandlerKind::Function;
     std::shared_ptr<Ref> ref;
+    std::string staticStatus;
+    std::vector<std::pair<std::string, std::string>> staticHeaders;
+    std::string staticBody;
     std::vector<std::string> paramNames;
 };
 
@@ -187,6 +190,93 @@ struct ParsedPattern
     std::vector<std::string> paramNames;
 };
 
+static std::string getStatusText(int status)
+{
+    switch (status)
+    {
+    case 200:
+        return "200 OK";
+    case 201:
+        return "201 Created";
+    case 204:
+        return "204 No Content";
+    case 400:
+        return "400 Bad Request";
+    case 401:
+        return "401 Unauthorized";
+    case 403:
+        return "403 Forbidden";
+    case 404:
+        return "404 Not Found";
+    case 500:
+        return "500 Internal Server Error";
+    default:
+        return std::to_string(status) + " Status";
+    }
+}
+
+static void cacheStaticResponse(RouteContext& ctx, lua_State* L, int responseIndex)
+{
+    int absIndex = lua_absindex(L, responseIndex);
+
+    if (lua_isstring(L, absIndex))
+    {
+        size_t bodyLength = 0;
+        const char* bodyData = lua_tolstring(L, absIndex, &bodyLength);
+        ctx.staticStatus = "200 OK";
+        ctx.staticHeaders.emplace_back("Content-Type", "text/html");
+        if (bodyData)
+            ctx.staticBody.assign(bodyData, bodyLength);
+        return;
+    }
+
+    lua_getfield(L, absIndex, "status");
+    int status = lua_isnumber(L, -1) ? lua_tointeger(L, -1) : 200;
+    lua_pop(L, 1);
+    ctx.staticStatus = getStatusText(status);
+
+    lua_getfield(L, absIndex, "headers");
+    if (lua_istable(L, -1))
+    {
+        lua_pushnil(L);
+        while (lua_next(L, -2))
+        {
+            if (lua_type(L, -2) == LUA_TSTRING && lua_isstring(L, -1))
+            {
+                size_t headerNameLength = 0;
+                size_t headerValueLength = 0;
+                const char* headerName = lua_tolstring(L, -2, &headerNameLength);
+                const char* headerValue = lua_tolstring(L, -1, &headerValueLength);
+                ctx.staticHeaders.emplace_back(
+                    std::string(headerName, headerNameLength),
+                    std::string(headerValue, headerValueLength)
+                );
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, absIndex, "body");
+    if (!lua_isnil(L, -1))
+    {
+        size_t bodyLength = 0;
+        const char* bodyData = lua_tolstring(L, -1, &bodyLength);
+        if (bodyData)
+            ctx.staticBody.assign(bodyData, bodyLength);
+    }
+    lua_pop(L, 1);
+}
+
+template<typename ResT>
+static void replayStaticResponse(ResT* res, const RouteContext& ctx)
+{
+    res->writeStatus(ctx.staticStatus);
+    for (const auto& [name, value] : ctx.staticHeaders)
+        res->writeHeader(name, value);
+    res->end(ctx.staticBody);
+}
+
 static ParsedPattern parsePattern(lua_State* L, std::string_view pattern)
 {
     if (pattern.empty() || pattern[0] != '/')
@@ -243,9 +333,16 @@ static std::shared_ptr<RouteContext> makeRouteContext(
     else
         luaL_errorL(L, "route handler must be a function, string, or response table");
 
-    lua_pushvalue(L, absIndex);
-    ctx->ref = std::make_shared<Ref>(L, -1);
-    lua_pop(L, 1);
+    if (ctx->kind == RouteHandlerKind::Function)
+    {
+        lua_pushvalue(L, absIndex);
+        ctx->ref = std::make_shared<Ref>(L, -1);
+        lua_pop(L, 1);
+    }
+    else
+    {
+        cacheStaticResponse(*ctx, L, absIndex);
+    }
     return ctx;
 }
 
@@ -330,38 +427,7 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
     int status = lua_isnumber(L, -1) ? lua_tointeger(L, -1) : 200;
     lua_pop(L, 1);
 
-    std::string statusText;
-    switch (status)
-    {
-    case 200:
-        statusText = "200 OK";
-        break;
-    case 201:
-        statusText = "201 Created";
-        break;
-    case 204:
-        statusText = "204 No Content";
-        break;
-    case 400:
-        statusText = "400 Bad Request";
-        break;
-    case 401:
-        statusText = "401 Unauthorized";
-        break;
-    case 403:
-        statusText = "403 Forbidden";
-        break;
-    case 404:
-        statusText = "404 Not Found";
-        break;
-    case 500:
-        statusText = "500 Internal Server Error";
-        break;
-    default:
-        statusText = std::to_string(status) + " Status";
-        break;
-    }
-    res->writeStatus(statusText);
+    res->writeStatus(getStatusText(status));
 
     lua_getfield(L, responseIndex, "headers");
     if (lua_istable(L, -1))
@@ -774,16 +840,6 @@ static void processRequest(
     const MatchedParams* params
 )
 {
-    if (routeCtx && routeCtx->kind == RouteHandlerKind::StaticResponse)
-    {
-        lua_State* L = state->runtime->GL;
-        int top = lua_gettop(L);
-        routeCtx->ref->push(L);
-        handleResponse(res, L, lua_gettop(L));
-        lua_settop(L, top);
-        return;
-    }
-
     std::shared_ptr<Ref> handlerRef;
     if (routeCtx)
     {
@@ -993,6 +1049,13 @@ static void onRouteRequest(
     ReqT* req
 )
 {
+    if (routeCtx && routeCtx->kind == RouteHandlerKind::StaticResponse)
+    {
+        res->onAborted([]() {});
+        replayStaticResponse(res, *routeCtx);
+        return;
+    }
+
     RequestRouteData route = extractRequestRouteData(req);
     RequestHeaders headers = extractRequestHeaders(req);
 
