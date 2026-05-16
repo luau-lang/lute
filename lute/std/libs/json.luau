@@ -22,6 +22,7 @@ local object_key = newproxy()
 
 local bufferSize = 1024
 local keyCacheLimit = 128
+local keyCacheKeySizeLimit = 64
 
 type SerializerState = {
 	buf: buffer,
@@ -126,7 +127,7 @@ local function serializeKeyString(state: SerializerState, str: string): ()
 		escaped = str
 	end
 	cached = '"' .. escaped .. (if state.prettyPrint then '": ' else '":')
-	if state.keyCacheCount < keyCacheLimit then
+	if state.keyCacheCount < keyCacheLimit and #str <= keyCacheKeySizeLimit then
 		state.keyCache[str] = cached
 		state.keyCacheCount += 1
 	end
