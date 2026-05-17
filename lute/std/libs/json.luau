@@ -196,7 +196,7 @@ serializeAny = function(state: SerializerState, value: Value): ()
 	elseif typeof(value) == "boolean" then
 		writeString(state, if value then "true" else "false")
 	elseif typeof(value) == "number" then
-		if math.isnan(value) or value == math.huge or value == -math.huge then
+		if not math.isfinite(value) then
 			error("Cannot serialize non-finite number", 2)
 		end
 
