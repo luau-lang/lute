@@ -517,27 +517,17 @@ static void pushRequestTable(
     lua_setmetatable(L, requestIndex);
 }
 
-template<typename PushUpvalues>
-static void pushServerTable(lua_State* L, const std::shared_ptr<Ref>& serverRef, lua_CFunction upgradeFn, int nUpvalues, PushUpvalues pushUpvalues)
+static void pushServerTable(lua_State* L, const std::shared_ptr<Ref>& serverRef)
 {
     if (serverRef)
+    {
         serverRef->push(L);
-    else
-        lua_newtable(L);
+        return;
+    }
 
-    int serverBaseIndex = lua_absindex(L, -1);
-
-    lua_createtable(L, 0, 1);
-    lua_createtable(L, 0, 1);
-    lua_pushvalue(L, serverBaseIndex);
-    lua_setfield(L, -2, "__index");
-    lua_setmetatable(L, -2);
-
-    pushUpvalues(L);
-    lua_pushcclosure(L, upgradeFn, "server.upgrade", nUpvalues);
+    lua_newtable(L);
+    lua_pushcfunction(L, server_upgrade, "server_upgrade");
     lua_setfield(L, -2, "upgrade");
-
-    lua_remove(L, serverBaseIndex);
 }
 
 static HandlerThread prepareHttpHandlerThread(
@@ -557,7 +547,7 @@ static HandlerThread prepareHttpHandlerThread(
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
     pushRequestTable(L, headers, route, body, server_upgrade_noop, 0, [](lua_State*) {});
-    pushServerTable(L, state->serverRef, server_upgrade_noop, 0, [](lua_State*) {});
+    pushServerTable(L, state->serverRef);
     return thread;
 }
 
@@ -590,7 +580,7 @@ static HandlerThread prepareUpgradeHandlerThread(
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
     pushRequestTable(L, headers, route, std::string_view(""), server_upgrade_do<SSL>, 4, pushUpgradeUpvalues);
-    pushServerTable(L, state->serverRef, server_upgrade_do<SSL>, 4, pushUpgradeUpvalues);
+    pushServerTable(L, state->serverRef);
     return thread;
 }
 

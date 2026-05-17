@@ -49,6 +49,26 @@ test.suite("NetTestSuite", function(suite)
 		instance.close()
 	end)
 
+	suite:case("servePassesServerHandleToHandler", function(assert)
+		local instance: server.Server
+		instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest, current: server.Server): server.ServerResponse
+				return {
+					status = 200,
+					body = tostring(current == instance),
+				}
+			end,
+		})
+
+		local response = net.request(`{instance.hostname}:{instance.port}`, {
+			method = "GET",
+		})
+		assert.eq("true", response.body)
+
+		instance.close()
+	end)
+
 	suite:case("runsMoreThanFourClientRequestsConcurrently", function(assert)
 		local requestCount = 5
 		local responseDelay = 0.2
