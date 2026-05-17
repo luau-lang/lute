@@ -599,9 +599,6 @@ static void wsCloseImpl(void* wsPtr, uint16_t code, std::string_view message)
 
 static int server_ws_send(lua_State* L)
 {
-    if (lua_gettop(L) != 2)
-        luaL_errorL(L, "websocket send expects exactly 1 payload argument");
-
     luaL_checktype(L, 1, LUA_TUSERDATA);
     auto* handlePtr = static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_touserdatatagged(L, 1, kServerWebSocketHandleTag));
     if (!handlePtr || !(*handlePtr) || (*handlePtr)->closed.load())
@@ -610,7 +607,7 @@ static int server_ws_send(lua_State* L)
         return 1;
     }
 
-    WebSocketPayload payload = extractWebSocketPayload(L, 2);
+    WebSocketPayload payload = checkWebSocketPayload(L, 2);
 
     int result = 0;
     if (!(*handlePtr)->closed.load() && (*handlePtr)->wsPtr && (*handlePtr)->sendFn)

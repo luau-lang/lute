@@ -590,15 +590,12 @@ static std::shared_ptr<WebSocketHandle>* getWebSocketHandle(lua_State* L, int in
 
 int ws_send(lua_State* L)
 {
-    if (lua_gettop(L) != 2)
-        luaL_errorL(L, "websocket send expects exactly 1 payload argument");
-
     luaL_checktype(L, 1, LUA_TUSERDATA);
     auto* handleStorage = getWebSocketHandle(L, 1);
     if (!handleStorage || !(*handleStorage) || (*handleStorage)->closed())
         luaL_errorL(L, "Invalid or closed websocket");
 
-    WebSocketPayload payload = extractWebSocketPayload(L, 2);
+    WebSocketPayload payload = checkWebSocketPayload(L, 2);
     (*handleStorage)->send(std::string(payload.data, payload.length), payload.binary);
     return 0;
 }
