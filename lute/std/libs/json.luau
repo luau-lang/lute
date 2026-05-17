@@ -70,11 +70,13 @@ local function writeSpaces(state: SerializerState): ()
 end
 
 local function writeString(state: SerializerState, str: string): ()
-	checkState(state, #str)
+	local sl = #str
+	checkState(state, sl)
 
-	buffer.writestring(state.buf, state.cursor, str)
+	local cursor = state.cursor
+	buffer.writestring(state.buf, cursor, str)
 
-	state.cursor += #str
+	state.cursor = cursor + sl
 end
 
 local serializeAny: (SerializerState, (Array | Object | boolean | number | string)?) -> ()
@@ -107,10 +109,12 @@ local function serializeString(state: SerializerState, str: string): ()
 
 	local sl = #escaped
 	checkState(state, sl + 2)
-	buffer.writeu8(state.buf, state.cursor, 0x22)
-	buffer.writestring(state.buf, state.cursor + 1, escaped)
-	buffer.writeu8(state.buf, state.cursor + 1 + sl, 0x22)
-	state.cursor += sl + 2
+	local buf = state.buf
+	local cursor = state.cursor
+	buffer.writeu8(buf, cursor, 0x22)
+	buffer.writestring(buf, cursor + 1, escaped)
+	buffer.writeu8(buf, cursor + 1 + sl, 0x22)
+	state.cursor = cursor + sl + 2
 end
 
 local function serializeKeyString(state: SerializerState, str: string): ()
