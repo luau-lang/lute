@@ -14,7 +14,7 @@ enum class BatteryModuleType
 struct BatteryModuleResult
 {
     BatteryModuleType type;
-    std::string_view contents;
+    std::string contents;
 };
 
 BatteryModuleResult getBatteryModule(std::string_view path);

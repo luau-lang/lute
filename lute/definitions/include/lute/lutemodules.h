@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <string_view>
 
 enum class LuteModuleType
@@ -12,7 +13,7 @@ enum class LuteModuleType
 struct LuteModuleResult
 {
     LuteModuleType type;
-    std::string_view contents;
+    std::string contents;
 };
 
 LuteModuleResult getLuteModule(std::string_view path);

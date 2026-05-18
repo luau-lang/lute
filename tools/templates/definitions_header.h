@@ -2,7 +2,6 @@
 // Instead, you should modify the source files in `definitions`.
 #pragma once
 
-#include <string_view>
-#include <utility>
+#include "lute/embeddedmodule.h"
 
-extern const std::pair<std::string_view, std::string_view> lutedefinitions[1];
+extern const EmbeddedModule lutedefinitions[1];
