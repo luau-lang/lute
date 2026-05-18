@@ -296,14 +296,13 @@ local function reqassert<T...>(req: (boolean, T...) -> Failure?, negate: boolean
 end
 
 -- `never` contains inversions for assertions without an explicit negative helper.
-local assertNegation = {
+local assertNegation = table.freeze({
 	eq = reqassert(eq, true),
 	throws = reqassert(throws, true),
 	throwsWith = reqassert(throwsWith, true),
 	strContains = reqassert(strContains, true),
 	that = reqassert(that, true),
-}
-table.freeze(assertNegation)
+})
 
 return table.freeze({
 	eq = reqassert(eq),
