@@ -4,6 +4,7 @@ target_sources(Lute.Net PRIVATE
     include/lute/net.h
 
     src/client.cpp
+    src/httpclient.cpp
     src/net.cpp
     src/system_ca.cpp
     src/system_ca.h

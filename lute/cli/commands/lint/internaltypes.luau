@@ -1,6 +1,7 @@
 local types = require("./types")
 local parseIgnores = require("../lib/parseIgnores")
 local path = require("@std/path")
+local syntax = require("@std/syntax")
 
 export type RuleConfig = {
 	ignores: { string }?,
@@ -26,6 +27,11 @@ export type RuleConfigData = {
 	globals: types.GlobalsConfig,
 	ruleConfigs: RuleConfigurations,
 	ruleIgnores: RuleIgnores,
+}
+
+export type fix = {
+	location: syntax.Span,
+	replacement: string,
 }
 
 return {}
