@@ -35,23 +35,23 @@ static int resolveSignal(lua_State* L, const char* name)
 {
     // Uncatchable signals — always an error regardless of platform
     if (strcmp(name, "SIGKILL") == 0)
-        luaL_error(L, "SIGKILL cannot be handled");
+        luaL_errorL(L, "SIGKILL cannot be handled");
     if (strcmp(name, "SIGSTOP") == 0)
-        luaL_error(L, "SIGSTOP cannot be handled");
+        luaL_errorL(L, "SIGSTOP cannot be handled");
 
     // Reserved by libuv for child process tracking
     if (strcmp(name, "SIGCHLD") == 0)
-        luaL_error(L, "SIGCHLD is reserved by the runtime");
+        luaL_errorL(L, "SIGCHLD is reserved by the runtime");
 
     // Hardware synchronous signals — unsafe to handle from Luau
     if (strcmp(name, "SIGBUS") == 0)
-        luaL_error(L, "SIGBUS is a synchronous hardware signal and cannot be safely handled");
+        luaL_errorL(L, "SIGBUS is a synchronous hardware signal and cannot be safely handled");
     if (strcmp(name, "SIGFPE") == 0)
-        luaL_error(L, "SIGFPE is a synchronous hardware signal and cannot be safely handled");
+        luaL_errorL(L, "SIGFPE is a synchronous hardware signal and cannot be safely handled");
     if (strcmp(name, "SIGSEGV") == 0)
-        luaL_error(L, "SIGSEGV is a synchronous hardware signal and cannot be safely handled");
+        luaL_errorL(L, "SIGSEGV is a synchronous hardware signal and cannot be safely handled");
     if (strcmp(name, "SIGILL") == 0)
-        luaL_error(L, "SIGILL is a synchronous hardware signal and cannot be safely handled");
+        luaL_errorL(L, "SIGILL is a synchronous hardware signal and cannot be safely handled");
 
     // Always-available signals
     if (strcmp(name, "SIGINT") == 0)
@@ -110,8 +110,7 @@ static int resolveSignal(lua_State* L, const char* name)
         return -1;
 #endif
 
-    luaL_error(L, "unknown signal: %s", name);
-    return -1; // unreachable
+    luaL_errorL(L, "unknown signal: %s", name);
 }
 
 struct SignalHandle
