@@ -160,7 +160,7 @@ local function main(...: string)
 			passedConfigVal,
 			autofixEnabled,
 			ignoreData
-		) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+		)
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))
