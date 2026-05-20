@@ -64,13 +64,6 @@ local function tablesEqual(t1: unknown, t2: unknown, path: string): (boolean, st
 	return true, nil
 end
 
-local function neq<T>(_: boolean, lhs: T, rhs: T, msg: string?): Failure?
-	if lhs ~= rhs then
-		return nil
-	end
-	return assertion(msg or `{lhs} == {rhs}`)
-end
-
 local function that(negate: boolean, value: unknown, msg: string?): Failure?
 	if negate then
 		if not value then
@@ -278,13 +271,6 @@ local function strContains(
 	return nil
 end
 
-local function strNotContains(_: boolean, haystack: string, needle: string, msg: string?): Failure?
-	if haystack:find(needle, 1, true) ~= nil then
-		return assertion(if msg then msg else `Expected "{haystack}" to not contain "{needle}".`)
-	end
-	return nil
-end
-
 local function reqassert<T...>(req: (boolean, T...) -> Failure?, negate: boolean?): (T...) -> Failure?
 	return function(...): Failure?
 		local result: Failure? = req(negate == true, ...)
@@ -306,11 +292,11 @@ local assertNegation = table.freeze({
 
 return table.freeze({
 	eq = reqassert(eq),
-	neq = reqassert(neq),
+	neq = assertNegation.eq,
 	throws = reqassert(throws),
 	throwsWith = reqassert(throwsWith),
 	strContains = reqassert(strContains),
-	strNotContains = reqassert(strNotContains),
+	strNotContains = assertNegation.strContains,
 	that = reqassert(that),
 	never = assertNegation,
 }) :: Asserts
