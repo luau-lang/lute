@@ -71,9 +71,9 @@ Output lint violations in JSON format matching the LSP diagnostic spec.
 
 Lint the provided string input instead of reading from files.
 
-### `-p, --parallel`
+### `--sequential`
 
-Lint files in parallel instead of sequentially.
+Lint files sequentially instead of in parallel.
 
 ### `--auto-fix`
 
