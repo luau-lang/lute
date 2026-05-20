@@ -281,9 +281,6 @@ static std::vector<std::string> getLuteScripts(const std::string& luteFolderPath
     traverseDirectory(luteFolderPath, [&](const std::string& rawFilePath)
     {
         std::string filePath = normalizePath(rawFilePath);
-        if (filePath.size() <= normalizedPrefix.size() || filePath.substr(0, normalizedPrefix.size()) != normalizedPrefix)
-            return;
-
         std::string rel = filePath.substr(normalizedPrefix.size());
         size_t slashPos = rel.find('/');
 
