@@ -119,7 +119,7 @@ jobs:
           allow-external-github-orgs: true
 
       - name: Run StyLua
-        run: stylua --check .
+        run: stylua --check . .lute
 
   build-docs-site:
     runs-on: ubuntu-latest
