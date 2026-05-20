@@ -4,6 +4,7 @@ local lintCore = require("./lintCore")
 local parseIgnores = require("../lib/parseIgnores")
 local pathLib = require("@std/path")
 local system = require("@std/system")
+local task = require("@std/task")
 local types = require("./types")
 local vm = require("@lute/vm")
 
