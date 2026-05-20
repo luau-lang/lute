@@ -58,6 +58,13 @@ type lintTestParams = {
 	outputExpectations: { { expectedOutput: string, count: number? } }?,
 }
 
+type Mode = "parallel" | "sequential"
+
+local executionModeArgs: { [Mode]: { string } } = {
+	sequential = { "--sequential" },
+	parallel = {},
+}
+
 local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams): string
 	-- Setup
 	-- Create a file that violates the rule
@@ -101,27 +108,40 @@ local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams)
 
 	table.insert(lintArgs, violatorPath)
 
-	local result = runProcess(lintArgs, params.processOptions)
+	local results: { [Mode]: process.ProcessResult } = {
+		parallel = nil :: never,
+		sequential = nil :: never,
+	}
 
-	-- Check
-	assert.eq(result.exitcode, params.expectedExitCode)
+	for mode, args in executionModeArgs do
+		local modeArgs = table.clone(lintArgs)
+		tableext.extend(modeArgs, args)
+		local result = runProcess(modeArgs, params.processOptions)
 
-	if params.expectedAutofixContents then
-		local fixedContents = fs.readFileToString(violatorPath)
-		assert.eq(fixedContents, params.expectedAutofixContents)
-	end
+		results[mode] = result
 
-	if params.outputExpectations then
-		for _, expectation in params.outputExpectations do
-			if expectation.count == 0 then
-				assert.strNotContains(result.stdout, expectation.expectedOutput)
-			else
-				assert.strContains(result.stdout, expectation.expectedOutput, expectation.count)
+		-- Check
+		assert.eq(result.exitcode, params.expectedExitCode)
+
+		if params.expectedAutofixContents then
+			local fixedContents = fs.readFileToString(violatorPath)
+			assert.eq(fixedContents, params.expectedAutofixContents)
+		end
+
+		if params.outputExpectations then
+			for _, expectation in params.outputExpectations do
+				if expectation.count == 0 then
+					assert.strNotContains(result.stdout, expectation.expectedOutput)
+				else
+					assert.strContains(result.stdout, expectation.expectedOutput, expectation.count)
+				end
 			end
 		end
 	end
 
-	return if params.returnStdErr then result.stderr else result.stdout
+	assert.eq(results.parallel, results.sequential)
+
+	return if params.returnStdErr then results.parallel.stderr else results.parallel.stdout
 end
 
 test.suite("lute lint", function(suite)
@@ -531,84 +551,6 @@ violator2.lua:5:1-6:6 ──
 		fs.removeDirectory(modulePath, { recursive = true })
 	end)
 
-	suite:case("luteLintParallelMultipleInputFiles", function(assert)
-		-- Setup
-		-- Create multiple files that violate the rule
-		local modulePath = path.join(tmpDir, "module")
-		fs.createDirectory(modulePath)
-		local violatorPath1 = path.format(path.join(modulePath, "parallel_violator1.luau"))
-		fs.writeStringToFile(violatorPath1, "local _x = 1 / 0")
-		local violatorPath2 = path.format(path.join(modulePath, "parallel_violator2.lua"))
-		fs.writeStringToFile(violatorPath2, "local _y = 10 / 0")
-
-		local result = runProcess({
-			lutePath,
-			"lint",
-			"--parallel",
-			path.format(modulePath),
-		})
-
-		-- Check
-		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, 2)
-		assert.strContains(result.stdout, "parallel_violator1.luau:1:12-17")
-		assert.strContains(result.stdout, "parallel_violator2.lua:1:12-18")
-
-		-- Teardown
-		fs.removeDirectory(modulePath, { recursive = true })
-	end)
-
-	suite:case("luteLintParallelSingleInputFile", function(assert)
-		local violatorPath = path.format(path.join(tmpDir, "parallel_single_file.luau"))
-		fs.writeStringToFile(violatorPath, "local _x = 1 / 0")
-
-		local result = runProcess({
-			lutePath,
-			"lint",
-			"--parallel",
-			violatorPath,
-		})
-
-		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, 1)
-		assert.strContains(result.stdout, "parallel_single_file.luau")
-
-		fs.remove(violatorPath)
-	end)
-
-	suite:case("luteLintParallelDirectoryWithVariedFsStructure", function(assert)
-		local modulePath = path.join(tmpDir, "module")
-		local nestedPath = path.join(modulePath, "nested")
-		local deeplyNestedPath = path.join(nestedPath, "deeper")
-		fs.createDirectory(modulePath)
-		fs.createDirectory(nestedPath)
-		fs.createDirectory(deeplyNestedPath)
-
-		local rootFile = path.join(modulePath, "parallel_root.luau")
-		local nestedFile = path.join(nestedPath, "parallel_nested.lua")
-		local deeplyNestedFile = path.join(deeplyNestedPath, "parallel_deep.luau")
-		fs.writeStringToFile(rootFile, "local _root = 1 / 0")
-		fs.writeStringToFile(nestedFile, "local _nested = 2 / 0")
-		fs.writeStringToFile(deeplyNestedFile, "local _deep = 3 / 0")
-		fs.writeStringToFile(path.join(nestedPath, "not_luau.txt"), "local _skipped = 4 / 0")
-
-		local result = runProcess({
-			lutePath,
-			"lint",
-			"--parallel",
-			path.format(modulePath),
-		})
-
-		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero, 3)
-		assert.strContains(result.stdout, "parallel_root.luau")
-		assert.strContains(result.stdout, "parallel_nested.lua")
-		assert.strContains(result.stdout, "parallel_deep.luau")
-		assert.strNotContains(result.stdout, "not_luau.txt")
-
-		fs.removeDirectory(modulePath, { recursive = true })
-	end)
-
 	suite:case("luteLintMultipleFilesWithErrorsRecovers", function(assert)
 		-- Setup
 		-- Create multiple files that violate the rule
@@ -641,37 +583,6 @@ lintee.luau': @std/syntax/parser.luau:12: parsing failed:
 
 		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
 		assert.strContains(result.stdout, LINT_RULE_MESSAGES.almost_swapped)
-
-		-- Teardown
-		fs.remove(lintee)
-		fs.remove(violatorPath)
-	end)
-
-	suite:case("luteLintParallelMultipleFilesWithErrorsRecovers", function(assert)
-		-- Setup
-		-- Create multiple files where one fails to parse and another violates a rule
-		local lintee = path.format(path.join(tmpDir, "parallel_lintee.luau"))
-		fs.writeStringToFile(lintee, "bogus")
-
-		local violatorPath = path.format(path.join(tmpDir, "parallel_violator.luau"))
-		fs.writeStringToFile(violatorPath, "local _x = 1 / 0")
-
-		-- Run the linter in parallel on both files
-		local result = runProcess({
-			lutePath,
-			"lint",
-			"--parallel",
-			lintee,
-			violatorPath,
-		})
-
-		-- Check
-		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stdout, "(worker) Error linting file")
-		assert.strContains(result.stdout, "parallel_lintee.luau")
-		assert.strContains(result.stdout, "parsing failed")
-		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
-		assert.strContains(result.stdout, "parallel_violator.luau:1:12-17")
 
 		-- Teardown
 		fs.remove(lintee)
