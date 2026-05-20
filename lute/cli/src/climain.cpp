@@ -69,7 +69,7 @@ Transform Options:
 	lute transform <transformer script> [options...] <files...>
 		Runs the specified code transformation on the provided Luau files.
 			--dry-run               Runs the transformation without actually overwriting or deleting any files.
-			--output <path>         Specifies an output file for a transformed file. Only valid when 
+			--output <path>         Specifies an output file for a transformed file. Only valid when
 			                        transforming a single file. If not specified, files are overwritten in place.
 
 Lint Options:
@@ -263,9 +263,11 @@ static std::optional<std::string> getNearestLuteFolderPath()
     for (std::optional<std::string> currentPath = getCurrentWorkingDirectory(); currentPath; currentPath = getParentPath(*currentPath))
     {
         std::string lutePath = joinPaths(*currentPath, ".lute");
+
         if (isDirectory(lutePath))
             return lutePath;
     }
+
     return std::nullopt;
 }
 
@@ -285,19 +287,21 @@ static std::vector<std::string> getLuteScripts(const std::string& luteFolderPath
         std::string rel = filePath.substr(normalizedPrefix.size());
         size_t slashPos = rel.find('/');
 
-        if (slashPos == std::string::npos)
-        {
-            if (rel.size() > 5 && rel.substr(rel.size() - 5) == ".luau")
-                names.insert(rel.substr(0, rel.size() - 5));
-            else if (rel.size() > 4 && rel.substr(rel.size() - 4) == ".lua")
-                names.insert(rel.substr(0, rel.size() - 4));
-        }
-        else
+        // If there's a slash at the end, we'll check if the rest is init.luau or init.lua, and add it as a command if so.
+        if (slashPos != std::string::npos)
         {
             std::string rest = rel.substr(slashPos + 1);
-            if (rest.find('/') == std::string::npos && (rest == "init.lua" || rest == "init.luau"))
+            if (rest.find('/') == std::string::npos && (rest == "init.luau" || rest == "init.lua"))
                 names.insert(rel.substr(0, slashPos));
+
+            return;
         }
+
+        // Otherwise, we can just look for .luau or .lua files and add them as commands without the extension.
+        if (rel.size() > 5 && rel.substr(rel.size() - 5) == ".luau")
+            names.insert(rel.substr(0, rel.size() - 5));
+        else if (rel.size() > 4 && rel.substr(rel.size() - 4) == ".lua")
+            names.insert(rel.substr(0, rel.size() - 4));
     });
 
     return {names.begin(), names.end()};
