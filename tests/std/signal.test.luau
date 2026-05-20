@@ -21,7 +21,7 @@ test.suite("SignalSuite", function(suite)
 		end)
 	end)
 
-	suite:case("handleCloseIsIdempotent", function(assert)
+	suite:case("handleCloseIsIdempotent", function(_assert)
 		local handle = process.onSignal("SIGTERM", function() end)
 		handle:close()
 		handle:close()
