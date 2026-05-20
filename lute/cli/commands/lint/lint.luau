@@ -86,7 +86,7 @@ function lint.lintParallel(
 	local function spawnWorker()
 		task.spawn(function()
 			xpcall(function()
-				local worker = vm.create("@self/worker")
+				local worker = vm.create("./worker")
 				-- Initialize will be UNNECESSARY once we can pass functions to separate VM
 				-- Once that is the case:
 				-- 		remove initialize
