@@ -30,12 +30,12 @@ test.suite("SignalSuite", function(suite)
 	suite:case("signalIsDeliveredToHandler", function(assert)
 		local received = false
 
-		local handle = process.onSignal("SIGHUP", function()
+		local handle = process.onSignal("SIGTERM", function()
 			received = true
 		end)
 
 		local pid = process.pid()
-		process.run({ "kill", "-HUP", tostring(pid) })
+		process.run({ "kill", "-TERM", tostring(pid) })
 		task.wait(0.1)
 
 		handle:close()
@@ -45,15 +45,15 @@ test.suite("SignalSuite", function(suite)
 	suite:case("multipleHandlersFire", function(assert)
 		local count = 0
 
-		local h1 = process.onSignal("SIGHUP", function()
+		local h1 = process.onSignal("SIGTERM", function()
 			count += 1
 		end)
-		local h2 = process.onSignal("SIGHUP", function()
+		local h2 = process.onSignal("SIGTERM", function()
 			count += 1
 		end)
 
 		local pid = process.pid()
-		process.run({ "kill", "-HUP", tostring(pid) })
+		process.run({ "kill", "-TERM", tostring(pid) })
 		task.wait(0.1)
 
 		h1:close()
@@ -63,18 +63,23 @@ test.suite("SignalSuite", function(suite)
 
 	suite:case("closedHandlerDoesNotFire", function(assert)
 		local received = false
+		local safetyFired = false
 
-		local handle = process.onSignal("SIGWINCH", function()
+		-- Safety handler keeps SIGTERM caught so the process isn't terminated.
+		local safety = process.onSignal("SIGTERM", function()
+			safetyFired = true
+		end)
+		local handle = process.onSignal("SIGTERM", function()
 			received = true
 		end)
 		handle:close()
 
-		-- SIGWINCH has a safe default action (discard), so sending it with no
-		-- active handler does not terminate the process.
 		local pid = process.pid()
-		process.run({ "kill", "-WINCH", tostring(pid) })
+		process.run({ "kill", "-TERM", tostring(pid) })
 		task.wait(0.1)
 
+		safety:close()
+		assert.that(safetyFired)
 		assert.eq(received, false)
 	end)
 end)
