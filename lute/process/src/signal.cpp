@@ -142,10 +142,13 @@ struct SignalHandle
             },
             signum
         );
+
         if (err != 0)
         {
             uv_signal_stop(uvHandle.get());
+            callbackReference.reset();
             auto raw = uvHandle.release();
+
             uv_close((uv_handle_t*)raw, [](uv_handle_t* h) { delete (uv_signal_t*)h; });
             luaL_errorL(L, "uv_signal_start failed: %s", uv_strerror(err));
         }
@@ -164,6 +167,7 @@ struct SignalHandle
         uv_signal_stop(uvHandle.get());
         callbackReference.reset();
         auto raw = uvHandle.release();
+
         uv_close(
             (uv_handle_t*)raw,
             [](uv_handle_t* h)
