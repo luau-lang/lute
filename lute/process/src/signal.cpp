@@ -12,9 +12,17 @@
 #include <csignal>
 #include <cstring>
 #include <memory>
+#include <string_view>
+#include <unordered_set>
 
 namespace process
 {
+
+// These signals cannot be caught or ignored at the OS level.
+static const std::unordered_set<std::string_view> kUncatchableSignals = {"SIGKILL", "SIGSTOP"};
+
+// These signals are generated synchronously by hardware exceptions, and thus cannot be safely handled from Luau code.
+static const std::unordered_set<std::string_view> kHardwareSynchronousSignals = {"SIGBUS", "SIGFPE", "SIGSEGV", "SIGILL"};
 
 // Returns the signal number for a name.
 // Returns -1 for signals that are known but not available on this platform (no-op handle).
@@ -22,9 +30,7 @@ namespace process
 static int resolveSignal(lua_State* L, const char* name)
 {
     // Uncatchable signals — always an error regardless of platform
-    if (strcmp(name, "SIGKILL") == 0)
-        luaL_errorL(L, "%s cannot be handled", name);
-    if (strcmp(name, "SIGSTOP") == 0)
+    if (kUncatchableSignals.count(name))
         luaL_errorL(L, "%s cannot be handled", name);
 
     // Reserved by libuv for child process tracking
@@ -32,13 +38,7 @@ static int resolveSignal(lua_State* L, const char* name)
         luaL_errorL(L, "%s is reserved by the runtime", name);
 
     // Hardware synchronous signals — unsafe to handle from Luau
-    if (strcmp(name, "SIGBUS") == 0)
-        luaL_errorL(L, "%s is a synchronous hardware signal and cannot be safely handled", name);
-    if (strcmp(name, "SIGFPE") == 0)
-        luaL_errorL(L, "%s is a synchronous hardware signal and cannot be safely handled", name);
-    if (strcmp(name, "SIGSEGV") == 0)
-        luaL_errorL(L, "%s is a synchronous hardware signal and cannot be safely handled", name);
-    if (strcmp(name, "SIGILL") == 0)
+    if (kHardwareSynchronousSignals.count(name))
         luaL_errorL(L, "%s is a synchronous hardware signal and cannot be safely handled", name);
 
     // Always-available signals
@@ -55,42 +55,49 @@ static int resolveSignal(lua_State* L, const char* name)
 #else
         return -1;
 #endif
+
     if (strcmp(name, "SIGQUIT") == 0)
 #ifdef SIGQUIT
         return SIGQUIT;
 #else
         return -1;
 #endif
+
     if (strcmp(name, "SIGUSR1") == 0)
 #ifdef SIGUSR1
         return SIGUSR1;
 #else
         return -1;
 #endif
+
     if (strcmp(name, "SIGUSR2") == 0)
 #ifdef SIGUSR2
         return SIGUSR2;
 #else
         return -1;
 #endif
+
     if (strcmp(name, "SIGWINCH") == 0)
 #ifdef SIGWINCH
         return SIGWINCH;
 #else
         return -1;
 #endif
+
     if (strcmp(name, "SIGPIPE") == 0)
 #ifdef SIGPIPE
         return SIGPIPE;
 #else
         return -1;
 #endif
+
     if (strcmp(name, "SIGBREAK") == 0)
 #ifdef SIGBREAK
         return SIGBREAK;
 #else
         return -1;
 #endif
+
     if (strcmp(name, "SIGALRM") == 0)
 #ifdef SIGALRM
         return SIGALRM;
