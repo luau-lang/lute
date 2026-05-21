@@ -13,6 +13,7 @@ local processlib = {}
 --- - `"inherit"`: Pass the parent process's stdio streams through to the child.
 --- - `"none"`: Discard the child's stdio streams.
 export type SignalHandle = process.SignalHandle
+export type Signal = process.Signal
 export type StdioKind = process.StdioKind
 --- Options for `process.run`:
 --- - `cwd`: The working directory for the child process. Defaults to the current working directory.
@@ -66,7 +67,7 @@ end
 --- Registers `callback` to be called whenever `signal` is delivered to this process.
 --- Suppresses the default OS behavior (e.g. `"SIGINT"` will no longer terminate the process).
 --- Returns a handle; call `handle:close()` to deregister.
-function processlib.onSignal(signal: string, callback: () -> ()): SignalHandle
+function processlib.onSignal(signal: Signal, callback: () -> ()): SignalHandle
 	return process.onSignal(signal, callback)
 end
 
