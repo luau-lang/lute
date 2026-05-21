@@ -20,7 +20,7 @@ local object_key = newproxy()
 
 -- serialization
 
-local bufferSize = 1024
+local bufferSize = 0
 local keyCacheLimit = 128
 local keyCacheKeySizeLimit = 64
 
@@ -34,23 +34,24 @@ type SerializerState = {
 	keyCacheCount: number,
 }
 
-local function checkState(state: SerializerState, len: number): ()
-	local curLen = buffer.len(state.buf)
-	local requiredLen = state.cursor + len
-
-	if requiredLen <= curLen then
-		return
-	end
-
-	while curLen < requiredLen do
-		curLen *= 2
-	end
-
+local function checkStateSlow(state: SerializerState, curLen: number): ()
 	local newBuffer = buffer.create(curLen)
 
 	buffer.copy(newBuffer, 0, state.buf)
 
 	state.buf = newBuffer
+end
+
+local function checkState(state: SerializerState, len: number): ()
+	local cursor = state.cursor
+	local requiredLen = cursor + len
+	local bits = bit32.countlz(requiredLen)
+
+	if bit32.countlz(cursor) == bits then
+		return
+	end
+
+	checkStateSlow(state, 2 ^ (32 - bits))
 end
 
 local function writeByte(state: SerializerState, byte: number): ()
@@ -105,12 +106,9 @@ end
 local STRING_NEEDS_ESCAPE = '[%z\1-\31"\\]'
 
 local function serializeString(state: SerializerState, str: string): ()
-	local escaped: string
-	if string.find(str, STRING_NEEDS_ESCAPE) then
-		escaped = string.gsub(str, STRING_NEEDS_ESCAPE, STRING_ESCAPES)
-	else
-		escaped = str
-	end
+	local escaped = if string.find(str, STRING_NEEDS_ESCAPE)
+		then string.gsub(str, STRING_NEEDS_ESCAPE, STRING_ESCAPES)
+		else str
 
 	local sl = #escaped
 	checkState(state, sl + 2)
