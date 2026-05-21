@@ -28,7 +28,7 @@ namespace process
 
 static int pidFunc(lua_State* L)
 {
-    lua_pushinteger(L, (int)uv_os_getpid());
+    lua_pushinteger(L, uv_os_getpid());
     return 1;
 }
 
