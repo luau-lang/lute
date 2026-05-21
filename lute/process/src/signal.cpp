@@ -1,4 +1,4 @@
-#include "signal.h"
+#include "ossignal.h"
 
 #include "lute/common.h"
 #include "lute/runtime.h"

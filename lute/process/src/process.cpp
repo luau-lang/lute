@@ -4,7 +4,7 @@
 #include "lute/processhandle.h"
 #include "lute/runtime.h"
 #include "lute/uvutils.h"
-#include "signal.h"
+#include "ossignal.h"
 
 #include "Luau/Common.h"
 
