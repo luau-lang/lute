@@ -1222,6 +1222,13 @@ local function deserialize(input: string): { [string]: TomlValue }
 		return parts
 	end
 
+	local dottedKindErrors: { [string]: (key: string) -> string } = {
+		["array-element"] = function(k) return `cannot extend explicitly-defined table '{k}' via dotted key` end,
+		["array-value"] = function(k) return `cannot navigate through static array value '{k}'` end,
+		["defined"] = function(k) return `cannot extend explicitly-defined table '{k}' via dotted key` end,
+		["inline"] = function(k) return `cannot extend inline table via key '{k}'` end,
+	}
+
 	-- navigate through dotted intermediate keys, creating tables as needed;
 	-- returns (leaf_table, leaf_key_string)
 	local function navigateDotted(
@@ -1248,16 +1255,9 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 				local m = getMeta(child)
 
-				if m.kind == "array-value" then
-					tomlParseError(`cannot navigate through static array value '${k}'`)
-				end
-
-				if m.kind == "inline" then
-					tomlParseError(`cannot extend inline table via key '${k}'`)
-				end
-
-				if m.kind == "defined" or m.kind == "array-element" then
-					tomlParseError(`cannot extend explicitly-defined table '${k}' via dotted key`)
+				local kindError = dottedKindErrors[m.kind]
+				if kindError ~= nil then
+					tomlParseError(kindError(k))
 				end
 
 				current = child :: { [string]: TomlValue }
@@ -1342,6 +1342,21 @@ local function deserialize(input: string): { [string]: TomlValue }
 		return result
 	end
 
+	-- kind errors when traversing intermediate path components under a [header]
+	local headerPathKindErrors: { [string]: (key: string) -> string } = {
+		["array-value"] = function(k) return `key '{k}' is a static array, cannot navigate through it` end,
+		["inline"] = function(_) return "cannot extend inline table" end,
+	}
+
+	-- kind errors when the leaf key of a [header] already exists as a table
+	local headerLeafKindErrors: { [string]: (key: string) -> string } = {
+		["array-element"] = function(k) return `cannot define [{k}]: already an array-of-tables element` end,
+		["array-value"] = function(k) return `cannot define [{k}]: key is a static array value` end,
+		["defined"] = function(k) return `duplicate table header [{k}]` end,
+		["implicit-dotted"] = function(k) return `table [{k}] was already defined via a dotted key` end,
+		["inline"] = function(_) return "cannot extend inline table with a table header" end,
+	}
+
 	-- navigate to the table referenced by a [key] or [[key]] header
 	local function navigateToHeader(
 		root: { [string]: TomlValue },
@@ -1349,6 +1364,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		isArrayTable: boolean
 	): { [string]: TomlValue }
 		local current: { [string]: TomlValue } = root
+
 		for i = 1, #parts - 1 do
 			local k = parts[i]
 			local child = current[k]
@@ -1358,26 +1374,29 @@ local function deserialize(input: string): { [string]: TomlValue }
 				tableMeta[newTbl] = { kind = "implicit-header", keys = {} }
 				current[k] = newTbl
 				getMeta(current).keys[k] = true
+
 				current = newTbl
-			elseif typeof(child) == "table" then
-				if arrayTableSets[child] then
-					current = (child :: { TomlValue })[#(child :: { TomlValue })] :: { [string]: TomlValue }
-				else
-					local m = getMeta(child)
+				continue
+			end
 
-					if m.kind == "array-value" then
-						tomlParseError(`key '${k}' is a static array, cannot navigate through it`)
-					end
-
-					if m.kind == "inline" then
-						tomlParseError("cannot extend inline table")
-					end
-
-					current = child :: { [string]: TomlValue }
-				end
-			else
+			if typeof(child) ~= "table" then
 				tomlParseError(`key '${k}' is not a table`)
 			end
+
+			if arrayTableSets[child] then
+				local childAsArray = child :: { TomlValue }
+				current = childAsArray[#childAsArray] :: { [string]: TomlValue }
+				continue
+			end
+
+			local m = getMeta(child)
+
+			local kindError = headerPathKindErrors[m.kind]
+			if kindError ~= nil then
+				tomlParseError(kindError(k))
+			end
+
+			current = child :: { [string]: TomlValue }
 		end
 
 		local leafKey = parts[#parts]
@@ -1414,46 +1433,33 @@ local function deserialize(input: string): { [string]: TomlValue }
 			tableMeta[newTbl] = { kind = "defined", keys = {} }
 			current[leafKey] = newTbl
 			getMeta(current).keys[leafKey] = true
+
 			return newTbl
 		end
 
-		if typeof(existing) == "table" then
-			-- Check arrayTableSets BEFORE getMeta to avoid creating spurious meta
-			if arrayTableSets[existing] then
-				tomlParseError(`cannot define [${leafKey}]: already an array-of-tables`)
-			end
-
-			local m = getMeta(existing)
-
-			if m.kind == "array-value" then
-				tomlParseError(`cannot define [${leafKey}]: key is a static array value`)
-			end
-
-			if m.kind == "implicit-header" then
-				m.kind = "defined"
-				return existing :: { [string]: TomlValue }
-			end
-
-			if m.kind == "defined" then
-				tomlParseError(`duplicate table header [${leafKey}]`)
-			end
-
-			if m.kind == "inline" then
-				tomlParseError("cannot extend inline table with a table header")
-			end
-
-			if m.kind == "implicit-dotted" then
-				tomlParseError(`table [${leafKey}] was already defined via a dotted key`)
-			end
-
-			if m.kind == "array-element" then
-				tomlParseError(`cannot define [${leafKey}]: already an array-of-tables element`)
-			end
-
-			tomlParseError(`cannot redefine [${leafKey}]`)
+		if typeof(existing) ~= "table" then
+			tomlParseError(`key '${leafKey}' is not a table`)
 		end
 
-		tomlParseError(`key '${leafKey}' is not a table`)
+		-- Check arrayTableSets BEFORE getMeta to avoid creating spurious meta
+		if arrayTableSets[existing] then
+			tomlParseError(`cannot define [${leafKey}]: already an array-of-tables`)
+		end
+
+		local m = getMeta(existing)
+
+		if m.kind == "implicit-header" then
+			m.kind = "defined"
+			return existing :: { [string]: TomlValue }
+		end
+
+		local kindError = headerLeafKindErrors[m.kind]
+
+		if kindError ~= nil then
+			tomlParseError(kindError(leafKey))
+		end
+
+		tomlParseError(`cannot redefine [${leafKey}]`)
 
 		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
 		error("unreachable")
