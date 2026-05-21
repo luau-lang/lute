@@ -34,7 +34,7 @@ type SerializerState = {
 	keyCacheCount: number,
 }
 
-local function checkStateSlow(state: SerializerState, curLen: number): ()
+local function growBuffer(state: SerializerState, curLen: number): ()
 	local newBuffer = buffer.create(curLen)
 
 	buffer.copy(newBuffer, 0, state.buf)
@@ -51,7 +51,7 @@ local function checkState(state: SerializerState, len: number): ()
 		return
 	end
 
-	checkStateSlow(state, 2 ^ (32 - bits))
+	growBuffer(state, 2 ^ (32 - bits))
 end
 
 local function writeByte(state: SerializerState, byte: number): ()
