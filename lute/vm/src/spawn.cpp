@@ -51,6 +51,14 @@ static bool copyLuauObject(lua_State* from, lua_State* to, int fromIdx)
 #endif
     }
     break;
+    case LUA_TBUFFER:
+    {
+        size_t len = 0;
+        void* src = lua_tobuffer(from, fromIdx, &len);
+        void* dst = lua_newbuffer(to, len);
+        memcpy(dst, src, len);
+    }
+    break;
     case LUA_TTABLE:
         lua_createtable(to, 0, 0);
 
