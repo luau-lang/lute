@@ -6,6 +6,8 @@ target_sources(Lute.Process PRIVATE
 
     src/process.cpp
     src/processhandle.cpp
+    src/os_signal.cpp
+    src/os_signal.h
 )
 
 target_compile_features(Lute.Process PUBLIC cxx_std_17)
