@@ -5,9 +5,9 @@ TEST RESULTS
 
 Failed Tests (1):
 
-❌ neq_failure_suite.neq_error
-	<ROOT>/tests/std/snapshots/assertneq_error_message_in_suite.snap.luau:6
-		never_eq: expected 1 to not equal 1
+❌ never_tableeq_failure_suite.never_tableeq_error
+	<ROOT>/tests/std/snapshots/assert_never_tableeq_error.snap.luau:6
+		never_tableeq: expected tables to not be equal
 
 --------------------------------------------------
 Total:  1
