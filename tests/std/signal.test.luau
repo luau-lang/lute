@@ -1,4 +1,5 @@
 local process = require("@std/process")
+local system = require("@std/system")
 local task = require("@std/task")
 local test = require("@std/test")
 
@@ -27,59 +28,61 @@ test.suite("SignalSuite", function(suite)
 		handle:close()
 	end)
 
-	suite:case("signalIsDeliveredToHandler", function(assert)
-		local received = false
+	-- Signal delivery tests use the `kill` commands to send signals to the current process
+	-- Through a combination of both what libuv supports, what Windows supports, what's safe,
+	-- and what the testing environment actually allows, we can only reliably test this behavior
+	-- on Unix platforms, or without the use of address sanitizers (since ASAN appears to leverage
+	-- both SIGUSR1 and SIGUSR2). We may revisit this at some point for better Windows converage.
+	if system.unix then
+		suite:case("signalIsDeliveredToHandler", function(assert)
+			local received = false
 
-		local handle = process.onSignal("SIGTERM", function()
-			received = true
+			local handle = process.onSignal("SIGTERM", function()
+				received = true
+			end)
+
+			local pid = process.pid()
+			process.run({ "kill", "-TERM", tostring(pid) })
+			task.wait(0.1)
+
+			handle:close()
+			assert.that(received)
 		end)
 
-		local pid = process.pid()
-		process.run({ "kill", "-TERM", tostring(pid) })
-		task.wait(0.1)
+		suite:case("multipleHandlersFire", function(assert)
+			local count = 0
 
-		handle:close()
-		assert.that(received)
-	end)
+			local h1 = process.onSignal("SIGTERM", function()
+				count += 1
+			end)
+			local h2 = process.onSignal("SIGTERM", function()
+				count += 1
+			end)
 
-	suite:case("multipleHandlersFire", function(assert)
-		local count = 0
+			local pid = process.pid()
+			process.run({ "kill", "-TERM", tostring(pid) })
+			task.wait(0.1)
 
-		local h1 = process.onSignal("SIGTERM", function()
-			count += 1
+			h1:close()
+			h2:close()
+			assert.eq(count, 2)
 		end)
-		local h2 = process.onSignal("SIGTERM", function()
-			count += 1
+
+		suite:case("closedHandlerDoesNotFire", function(assert)
+			local received = false
+
+			local handle = process.onSignal("SIGWINCH", function()
+				received = true
+			end)
+			handle:close()
+
+			-- SIGWINCH's default action is discard, so sending it with no active
+			-- handler does not terminate the process.
+			local pid = process.pid()
+			process.run({ "kill", "-WINCH", tostring(pid) })
+			task.wait(0.1)
+
+			assert.eq(received, false)
 		end)
-
-		local pid = process.pid()
-		process.run({ "kill", "-TERM", tostring(pid) })
-		task.wait(0.1)
-
-		h1:close()
-		h2:close()
-		assert.eq(count, 2)
-	end)
-
-	suite:case("closedHandlerDoesNotFire", function(assert)
-		local received = false
-		local safetyFired = false
-
-		-- Safety handler keeps SIGTERM caught so the process isn't terminated.
-		local safety = process.onSignal("SIGTERM", function()
-			safetyFired = true
-		end)
-		local handle = process.onSignal("SIGTERM", function()
-			received = true
-		end)
-		handle:close()
-
-		local pid = process.pid()
-		process.run({ "kill", "-TERM", tostring(pid) })
-		task.wait(0.1)
-
-		safety:close()
-		assert.that(safetyFired)
-		assert.eq(received, false)
-	end)
+	end
 end)
