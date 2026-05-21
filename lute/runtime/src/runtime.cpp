@@ -55,6 +55,11 @@ Runtime::~Runtime()
     uv_loop_close(&eventLoop);
 }
 
+std::shared_ptr<Runtime> Runtime::create(LuteReporter& reporter)
+{
+    return std::shared_ptr<Runtime>(new Runtime(reporter));
+}
+
 bool Runtime::hasWork()
 {
     // TODO: activeTokens and uv_loop_alive have a decent amount of overlap.
@@ -371,6 +376,13 @@ uv_loop_t* Runtime::getEventLoop()
 Runtime* getRuntime(lua_State* L)
 {
     return static_cast<Runtime*>(lua_getthreaddata(lua_mainthread(L)));
+}
+
+std::shared_ptr<Runtime> getRuntimeShared(lua_State* L)
+{
+    if (Runtime* runtime = getRuntime(L))
+        return runtime->shared_from_this();
+    return {};
 }
 
 uv_loop_t* getRuntimeLoop(lua_State* L)

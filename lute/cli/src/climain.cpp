@@ -415,7 +415,8 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         return 1;
     }
 
-    Runtime runtime{reporter};
+    auto runtimeOwner = Runtime::create(reporter);
+    Runtime& runtime = *runtimeOwner;
 
     if (packageAwareness)
     {
@@ -668,7 +669,8 @@ void setupVersionLibrary(lua_State* L)
 
 int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, LuteReporter& reporter)
 {
-    Runtime runtime{reporter};
+    auto runtimeOwner = Runtime::create(reporter);
+    Runtime& runtime = *runtimeOwner;
     setupCliCommandState(runtime, setupVersionLibrary);
 
     return runtime.runSource(std::string(result.contents), copts(), "@" + result.path, program_argc, program_argv) ? 0 : 1;
@@ -696,7 +698,8 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     LuteExecutable exe{*exePath, reporter};
     if (auto payload = exe.extract())
     {
-        Runtime runtime{reporter};
+        auto runtimeOwner = Runtime::create(reporter);
+        Runtime& runtime = *runtimeOwner;
 
         setupBundleState(runtime, payload->luauConfigFiles, payload->filePathToBytecode);
         std::string entryPoint = payload->entryPointPath;

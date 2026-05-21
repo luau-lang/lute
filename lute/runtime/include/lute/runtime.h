@@ -55,9 +55,9 @@ struct StepEmpty
 
 using RuntimeStep = Luau::Variant<StepSuccess, StepErr, StepEmpty>;
 
-struct Runtime
+struct Runtime : std::enable_shared_from_this<Runtime>
 {
-    Runtime(LuteReporter& reporter);
+    static std::shared_ptr<Runtime> create(LuteReporter& reporter);
     ~Runtime();
 
     bool runToCompletion();
@@ -138,6 +138,8 @@ struct Runtime
     std::function<void*(lua_State*)> requireContextFactory;
 
 private:
+    Runtime(LuteReporter& reporter);
+
     bool runThreadCompletionHandler(lua_State* L, int status);
     void clearThreadCompletionHandler(lua_State* L);
 
@@ -155,6 +157,7 @@ private:
 };
 
 Runtime* getRuntime(lua_State* L);
+std::shared_ptr<Runtime> getRuntimeShared(lua_State* L);
 uv_loop_t* getRuntimeLoop(lua_State* L);
 
 struct ResumeTokenData;

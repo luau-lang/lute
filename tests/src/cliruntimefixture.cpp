@@ -16,7 +16,7 @@ static int report(lua_State* L)
 }
 
 CliRuntimeFixture::CliRuntimeFixture()
-    : runtime(std::make_unique<Runtime>(getReporter()))
+    : runtime(Runtime::create(getReporter()))
 {
     L = setupRunState(
         *runtime,

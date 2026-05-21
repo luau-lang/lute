@@ -199,7 +199,7 @@ int VM::lua_spawn(lua_State* L)
 
     Runtime* parent = getRuntime(L);
 
-    auto child = std::make_shared<Runtime>(parent->reporter);
+    auto child = Runtime::create(parent->reporter);
     child->requireContextFactory = parent->requireContextFactory;
     LUTE_ASSERT(child->requireContextFactory);
 

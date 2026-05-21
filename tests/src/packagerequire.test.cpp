@@ -21,7 +21,8 @@
 
 TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
 {
-    Runtime runtime{getReporter()};
+    auto runtimeOwner = Runtime::create(getReporter());
+    Runtime& runtime = *runtimeOwner;
 
     setupState(
         runtime,

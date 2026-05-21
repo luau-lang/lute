@@ -19,5 +19,5 @@ public:
     lua_State* L;
 
 private:
-    std::unique_ptr<Runtime> runtime;
+    std::shared_ptr<Runtime> runtime;
 };
