@@ -526,7 +526,7 @@ static void pushServerTable(lua_State* L, const std::shared_ptr<Ref>& serverRef)
     }
 
     lua_newtable(L);
-    lua_pushcfunction(L, server_upgrade, "server_upgrade");
+    lua_pushcfunction(L, server_upgrade, "server.upgrade");
     lua_setfield(L, -2, "upgrade");
 }
 
@@ -1095,7 +1095,7 @@ int serve(lua_State* L)
     lua_settable(L, -3);
 
     lua_pushstring(L, "upgrade");
-    lua_pushcfunction(L, server_upgrade, "server_upgrade");
+    lua_pushcfunction(L, server_upgrade, "server.upgrade");
     lua_settable(L, -3);
 
     state->serverRef = std::make_shared<Ref>(L, -1);
