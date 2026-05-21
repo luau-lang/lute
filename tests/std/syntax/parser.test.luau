@@ -242,6 +242,14 @@ test.suite("parseExpr", function(suite)
 		assert.eq((floatExpr :: syntax.AstExprConstantNumber).value, 3.14)
 	end)
 
+	suite:case("parseExprInteger", function(assert)
+		local numberExpr = parser.parseExpr("42i")
+		assert.eq(numberExpr.tag, "integer")
+		assert.eq(numberExpr.kind, "expr")
+		assert.eq((numberExpr :: syntax.AstExprConstantInteger).token.text, "42i")
+		assert.eq((numberExpr :: syntax.AstExprConstantInteger).value, 42)
+	end)
+
 	suite:case("parseExprString", function(assert)
 		local singleQuoteExpr = parser.parseExpr("'hello'")
 		assert.eq(singleQuoteExpr.tag, "string")
@@ -1292,6 +1300,18 @@ test.suite("AST_nodes_frozen", function(suite)
 		end)
 	end)
 
+	suite:case("astExprConstantIntegerFrozen", function(assert)
+		local expr = parser.parseExpr("42i")
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "integer")
+		assert.throwsWith(frozenTableMessage, function()
+			(expr :: any).tag = "modified"
+		end)
+		assert.throwsWith(frozenTableMessage, function()
+			(expr :: any).token.text = "blah"
+		end)
+	end)
+
 	suite:case("astExprConstantStringFrozen", function(assert)
 		local expr = parser.parseExpr("'hello'")
 		assert.eq(expr.kind, "expr")
@@ -1957,5 +1977,14 @@ test.suite("AST_nodes_frozen", function(suite)
 		assert.throwsWith(frozenTableMessage, function()
 			(eof :: any).tag = "modified"
 		end)
+	end)
+
+	suite:case("parseResultOnlyHasFourFields", function(assert)
+		local result = parser.parse("local x = 1")
+		local fieldCount = 0
+		for _k, _v in result :: any do
+			fieldCount = fieldCount + 1
+		end
+		assert.eq(fieldCount, 4)
 	end)
 end)

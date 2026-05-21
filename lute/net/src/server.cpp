@@ -166,10 +166,11 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
 {
     if (lua_isstring(L, responseIndex))
     {
-        std::string body = lua_tostring(L, responseIndex);
+        size_t bodyLength = 0;
+        const char* bodyData = lua_tolstring(L, responseIndex, &bodyLength);
         res->writeStatus("200 OK");
         res->writeHeader("Content-Type", "text/html");
-        res->end(body);
+        res->end(std::string_view(bodyData, bodyLength));
         return;
     }
 
@@ -225,9 +226,17 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
         {
             if (lua_isstring(L, -2) && lua_isstring(L, -1))
             {
-                std::string headerName = lua_tostring(L, -2);
-                std::string headerValue = lua_tostring(L, -1);
-                res->writeHeader(headerName, headerValue);
+                size_t headerNameLength = 0;
+                size_t headerValueLength = 0;
+                const char* headerName = lua_tolstring(L, -2, &headerNameLength);
+                const char* headerValue = lua_tolstring(L, -1, &headerValueLength);
+                if (headerName && headerValue)
+                {
+                    res->writeHeader(
+                        std::string_view(headerName, headerNameLength),
+                        std::string_view(headerValue, headerValueLength)
+                    );
+                }
             }
             lua_pop(L, 1);
         }
@@ -236,17 +245,17 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
 
     lua_getfield(L, responseIndex, "body");
 
-    std::string body;
+    std::string_view body;
     if (!lua_isnil(L, -1))
     {
         size_t bodyLength = 0;
         const char* bodyData = lua_tolstring(L, -1, &bodyLength);
         if (bodyData)
-            body.assign(bodyData, bodyLength);
+            body = std::string_view(bodyData, bodyLength);
     }
-    lua_pop(L, 1);
 
     res->end(body);
+    lua_pop(L, 1);
 }
 
 template<typename ResT>
@@ -387,9 +396,6 @@ static void wsCloseImpl(void* wsPtr, uint16_t code, std::string_view message)
 
 static int server_ws_send(lua_State* L)
 {
-    if (lua_gettop(L) != 2)
-        luaL_errorL(L, "websocket send expects exactly 1 payload argument");
-
     luaL_checktype(L, 1, LUA_TUSERDATA);
     auto* handlePtr = static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_touserdatatagged(L, 1, kServerWebSocketHandleTag));
     if (!handlePtr || !(*handlePtr) || (*handlePtr)->closed.load())
@@ -398,7 +404,7 @@ static int server_ws_send(lua_State* L)
         return 1;
     }
 
-    WebSocketPayload payload = extractWebSocketPayload(L, 2);
+    WebSocketPayload payload = checkWebSocketPayload(L, 2);
 
     int result = 0;
     if (!(*handlePtr)->closed.load() && (*handlePtr)->wsPtr && (*handlePtr)->sendFn)

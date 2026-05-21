@@ -3,6 +3,7 @@ local process = require("@std/process")
 local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
+local testutil = require("../testutil")
 
 local REQUIRER_CONTENTS = [[
 local args = { ... }
@@ -43,7 +44,7 @@ test.suite("LuteCliRun", function(suite)
 
 		local result = process.run({ tostring(lutePath), requirerPath, requireePath })
 		check.eq(result.exitcode, 0)
-		check.eq(result.stdout, "Success\n")
+		check.eq(testutil.normalizeLineEndings(result.stdout), "Success\n")
 
 		-- Cleanup
 		fs.remove(requirerPath)
@@ -52,7 +53,7 @@ test.suite("LuteCliRun", function(suite)
 
 	suite:afterAll(function()
 		if fs.exists(testDirStr) then
-			fs.removeDirectory(testDirStr)
+			fs.removeDirectory(testDirStr, { recursive = true })
 		end
 	end)
 end)

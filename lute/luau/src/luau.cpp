@@ -31,7 +31,6 @@ namespace luau
 
 static constexpr const char kSpanType[] = "span";
 static constexpr const char kCompileResultType[] = "CompileResult";
-static constexpr const char kSpanCreateName[] = "span.create";
 
 // Recursively freezes the table at the top of the stack and any descendant tables.
 // The table must be at the top of the stack when called.
@@ -191,10 +190,6 @@ static Span checkSpan(lua_State* L, int index)
 
 static int createSpan(lua_State* L)
 {
-    int argumentCount = lua_gettop(L);
-    if (argumentCount != 1)
-        luaL_error(L, "%s: expected 1 argument, but got %d", kSpanCreateName, argumentCount);
-
     lua_checkstack(L, 2);
 
     // check that the argument is compliant with the span interface!
@@ -876,6 +871,22 @@ struct AstSerialize : public Luau::AstVisitor
         const auto cstNode = lookupCstNode<Luau::CstExprConstantNumber>(node);
 
         serializeNodePreamble(node, "number", "expr");
+
+        lua_pushnumber(L, node->value);
+        lua_setfield(L, -2, "value");
+
+        serializeToken(node->location.begin, cstNode->value.data);
+        lua_setfield(L, -2, "token");
+    }
+
+    void serialize(Luau::AstExprConstantInteger* node)
+    {
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, 0, preambleSize + 2);
+
+        const auto cstNode = lookupCstNode<Luau::CstExprConstantInteger>(node);
+
+        serializeNodePreamble(node, "integer", "expr");
 
         lua_pushnumber(L, node->value);
         lua_setfield(L, -2, "value");
@@ -2531,6 +2542,12 @@ struct AstSerialize : public Luau::AstVisitor
         return false;
     }
 
+    bool visit(Luau::AstExprConstantInteger* node) override
+    {
+        serialize(node);
+        return false;
+    }
+
     bool visit(Luau::AstExprConstantString* node) override
     {
         serialize(node);
@@ -2895,9 +2912,10 @@ int luau_parse(lua_State* L)
 
     lua_rawcheckstack(L, 6);
 
+    AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
+
     lua_createtable(L, 0, 4);
 
-    AstSerialize serializer{L, source, result.parseResult.cstNodeMap, result.parseResult.commentLocations};
     serializer.visit(result.parseResult.root);
     lua_setfield(L, -2, "root");
 

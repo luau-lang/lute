@@ -61,34 +61,6 @@ for file in extern/*.tune; do
   fi
 done
 
-# place empty versions of the standard library
-rm -rf lute/std/src/generated
-mkdir -p lute/std/src/generated
-
-exe cp ./tools/templates/std_impl.cpp ./lute/std/src/generated/modules.cpp
-exe cp ./tools/templates/std_header.h ./lute/std/src/generated/modules.h
-
-# place empty versions of the luau-based lute subcommands for the cli
-rm -rf lute/cli/generated
-mkdir -p lute/cli/generated
-
-exe cp ./tools/templates/cli_impl.cpp ./lute/cli/generated/commands.cpp
-exe cp ./tools/templates/cli_header.h ./lute/cli/generated/commands.h
-
-# place empty versions of the batteries library
-rm -rf lute/batteries/generated
-mkdir -p lute/batteries/generated
-
-exe cp ./tools/templates/batteries_impl.cpp ./lute/batteries/generated/batteries.cpp
-exe cp ./tools/templates/batteries_header.h ./lute/batteries/generated/batteries.h
-
-# place empty versions of the lute definitions
-rm -rf lute/definitions/src/generated
-mkdir -p lute/definitions/src/generated
-
-exe cp ./tools/templates/definitions_impl.cpp ./lute/definitions/src/generated/modules.cpp
-exe cp ./tools/templates/definitions_header.h ./lute/definitions/src/generated/modules.h
-
 ## configure the build system for lute0
 os_type="$(uname)"
 BUILD_ROOT=""
@@ -106,7 +78,7 @@ fi
 
 BUILD_PATH=$BUILD_ROOT/debug
 rm -rf build && mkdir build
-exe cmake -G=Ninja -B $BUILD_PATH -DCMAKE_BUILD_TYPE=Debug
+exe cmake -G=Ninja -B $BUILD_PATH -DCMAKE_BUILD_TYPE=Debug -DLUTE_STDLESS=ON
 
 # build lute0
 exe ninja -C $BUILD_PATH $EXE_PATH

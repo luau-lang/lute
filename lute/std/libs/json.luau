@@ -36,12 +36,17 @@ type SerializerState = {
 
 local function checkState(state: SerializerState, len: number): ()
 	local curLen = buffer.len(state.buf)
+	local requiredLen = state.cursor + len
 
-	if state.cursor + len < curLen then
+	if requiredLen <= curLen then
 		return
 	end
 
-	local newBuffer = buffer.create(curLen * 2)
+	while curLen < requiredLen do
+		curLen *= 2
+	end
+
+	local newBuffer = buffer.create(curLen)
 
 	buffer.copy(newBuffer, 0, state.buf)
 
@@ -221,6 +226,10 @@ serializeAny = function(state: SerializerState, value: Value): ()
 	elseif typeof(value) == "boolean" then
 		writeString(state, if value then "true" else "false")
 	elseif typeof(value) == "number" then
+		if not math.isfinite(value) then
+			error("Cannot serialize non-finite number", 2)
+		end
+
 		writeString(state, tostring(value))
 	elseif typeof(value) == "string" then
 		serializeString(state, value)

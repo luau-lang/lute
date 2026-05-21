@@ -3,6 +3,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
+local testutil = require("../testutil")
 
 local TRANSFORMEE_CONTENT = [[
 local x = math.sqrt(-1)
@@ -54,7 +55,7 @@ test.suite("LuteTransform", function(suite)
 
 		assert.eq(result.exitcode, 1)
 		assert.strContains(
-			result.stdout,
+			testutil.normalizeLineEndings(result.stdout),
 			`Error: No code transformation script specified.\n\n{USAGE}\nUse --help for more information.`
 		)
 	end)

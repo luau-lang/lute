@@ -24,6 +24,7 @@ project(
 
 # Enable sanitizers globally before any subdirectory is added
 option(LUTE_ENABLE_SANITIZERS "Enable sanitizers" OFF)
+option(LUTE_STDLESS "Build without embedded Luau sources (for bootstrapping)" OFF)
 if (LUTE_ENABLE_SANITIZERS)
     if(NOT MSVC)
         add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
