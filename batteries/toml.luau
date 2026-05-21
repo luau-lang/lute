@@ -370,6 +370,21 @@ local function deserialize(input: string): { [string]: TomlValue }
 		return utf8.char(tonumber(hexStr, 16) :: number)
 	end
 
+	-- maps escape-sequence byte to its result (string) or a no-arg handler (() -> string)
+	local escapeMapping: { [number]: string | () -> string } = {
+		[34] = '"', -- \"
+		[85] = function() return parseUnicodeEscape(true) end, -- \UXXXXXXXX
+		[92] = "\\", -- \\
+		[98] = "\b", -- \b
+		[101] = "\x1B", -- \e  (TOML 1.1)
+		[102] = "\f", -- \f
+		[110] = "\n", -- \n
+		[114] = "\r", -- \r
+		[116] = "\t", -- \t
+		[117] = function() return parseUnicodeEscape(false) end, -- \uXXXX
+		[120] = parseHexEscape, -- \xXX  (TOML 1.1)
+	}
+
 	local function parseEscape(): string
 		if pos > len then
 			tomlParseError("incomplete escape sequence")
@@ -378,53 +393,17 @@ local function deserialize(input: string): { [string]: TomlValue }
 		local c = byteAt() :: number
 		pos += 1
 
-		if c == 98 then
-			return "\b"
+		local escapeResult = escapeMapping[c]
+
+		if escapeResult == nil then
+			tomlParseError(`invalid escape sequence \\${string.char(c)}`)
 		end
 
-		if c == 116 then
-			return "\t"
+		if typeof(escapeResult) == "function" then
+			return escapeResult()
 		end
 
-		if c == 110 then
-			return "\n"
-		end
-
-		if c == 102 then
-			return "\f"
-		end
-
-		if c == 114 then
-			return "\r"
-		end
-
-		if c == 34 then
-			return '"'
-		end
-
-		if c == 92 then
-			return "\\"
-		end
-
-		if c == 101 then
-			return "\x1B"
-		end -- \e  (TOML 1.1)
-
-		if c == 117 then
-			return parseUnicodeEscape(false)
-		end -- \uXXXX
-
-		if c == 85 then
-			return parseUnicodeEscape(true)
-		end -- \UXXXXXXXX
-
-		if c == 120 then
-			return parseHexEscape()
-		end -- \xXX  (TOML 1.1)
-
-		tomlParseError(`invalid escape sequence \\${string.char(c)}`)
-		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
-		error("unreachable")
+		return escapeResult
 	end
 
 	-- string parsers (pos is always past the opening delimiter on entry)
