@@ -1002,100 +1002,130 @@ local function deserialize(input: string): { [string]: TomlValue }
 	local parseKey: () -> { string }
 	local setNestedKey: (tbl: { [string]: TomlValue }, parts: { string }, value: TomlValue, fromDottedKey: boolean) -> ()
 
+	-- maps first byte of a value to its parser; digit range handled separately below
+	local valueDispatch: { [number]: () -> TomlValue } = {
+		-- when we find `"`...
+		[34] = function()
+			pos += 1
+
+			if string.sub(src, pos, pos + 1) == '""' then
+				pos += 2
+				return parseMultilineBasicString()
+			end
+
+			return parseBasicString()
+		end,
+
+		-- when we find `'`...
+		[39] = function()
+			pos += 1
+
+			if string.sub(src, pos, pos + 1) == "''" then
+				pos += 2
+				return parseMultilineLiteralString()
+			end
+
+			return parseLiteralString()
+		end,
+
+		-- when we find `+`...
+		[43] = function()
+			pos += 1
+			return parseNumOrDatetime("+")
+		end,
+
+		-- when we find `-`...
+		[45] = function()
+			pos += 1
+			return parseNumOrDatetime("-")
+		end,
+
+		-- when we find `[`...
+		[91] = function()
+			pos += 1
+			return parseArray()
+		end,
+
+		-- when we find `f`, check that it's `false`
+		[102] = function()
+			if string.sub(src, pos, pos + 4) ~= "false" then
+				tomlParseError("invalid value starting with 'f'")
+			end
+
+			-- advance past `false`
+			pos += 5
+
+			if isBareKey(byteAt()) then
+				tomlParseError("invalid value")
+			end
+
+			return false
+		end,
+
+		-- when we find `i`, check that it's `inf`
+		[105] = function()
+			if string.sub(src, pos, pos + 2) ~= "inf" then
+				tomlParseError("invalid value starting with 'i'")
+			end
+
+			-- advance past `inf`
+			pos += 3
+
+			return math.huge
+		end,
+
+		-- when we find `n`, check that it's `nan`
+		[110] = function()
+			if string.sub(src, pos, pos + 2) ~= "nan" then
+				tomlParseError("invalid value starting with 'n'")
+			end
+
+			-- advance past `nan`
+			pos += 3
+
+			return math.nan
+		end,
+
+		-- when we find `t`, check that it's `true`
+		[116] = function()
+			if string.sub(src, pos, pos + 3) ~= "true" then
+				tomlParseError("invalid value starting with 't'")
+			end
+
+			-- advance past `true`
+			pos += 4
+
+			if isBareKey(byteAt()) then
+				tomlParseError("invalid value")
+			end
+
+			return true
+		end,
+		-- when we find `{`...
+		[123] = function()
+			pos += 1
+			return parseInlineTable()
+		end,
+	}
+
 	parseValue = function(): TomlValue
 		skipWhitespace()
 		if pos > len then
 			tomlParseError("expected value")
 		end
+
 		local c = byteAt() :: number
 
-		if c == 34 then -- "
-			pos += 1
-			if string.sub(src, pos, pos + 1) == '""' then
-				pos += 2
-				return parseMultilineBasicString()
-			end
-			return parseBasicString()
+		local handler = valueDispatch[c]
+		if handler ~= nil then
+			return handler()
 		end
 
-		if c == 39 then -- '
-			pos += 1
-			if string.sub(src, pos, pos + 1) == "''" then
-				pos += 2
-				return parseMultilineLiteralString()
-			end
-			return parseLiteralString()
+		if not isDigit(c) then
+			tomlParseError(`unexpected character '${string.char(c)}' in value`)
 		end
 
-		if c == 91 then -- [
-			pos += 1
-			return parseArray()
-		end
-
-		if c == 123 then -- {
-			pos += 1
-			return parseInlineTable()
-		end
-
-		if c == 116 then -- t
-			if string.sub(src, pos, pos + 3) == "true" then
-				pos += 4
-				if isBareKey(byteAt()) then
-					tomlParseError("invalid value")
-				end
-				return true
-			end
-
-			tomlParseError("invalid value starting with 't'")
-		end
-
-		if c == 102 then -- f
-			if string.sub(src, pos, pos + 4) == "false" then
-				pos += 5
-				if isBareKey(byteAt()) then
-					tomlParseError("invalid value")
-				end
-				return false
-			end
-
-			tomlParseError("invalid value starting with 'f'")
-		end
-
-		if c == 105 then -- i
-			if string.sub(src, pos, pos + 2) == "inf" then
-				pos += 3
-				return math.huge
-			end
-
-			tomlParseError("invalid value starting with 'i'")
-		end
-
-		if c == 110 then -- n
-			if string.sub(src, pos, pos + 2) == "nan" then
-				pos += 3
-				return math.nan
-			end
-
-			tomlParseError("invalid value starting with 'n'")
-		end
-
-		if c == 43 then -- +
-			pos += 1
-			return parseNumOrDatetime("+")
-		end
-
-		if c == 45 then -- -
-			pos += 1
-			return parseNumOrDatetime("-")
-		end
-
-		if isDigit(c) then
-			return parseNumOrDatetime(nil)
-		end
-
-		tomlParseError(`unexpected character '${string.char(c)}' in value`)
-		-- FIXME(Luau): `tomlParseError` paths are not currently treated as not returning
-		error("unreachable")
+		return parseNumOrDatetime(nil)
 	end
 
 	parseArray = function(): { TomlValue }
