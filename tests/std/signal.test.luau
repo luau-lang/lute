@@ -4,21 +4,25 @@ local task = require("@std/task")
 local test = require("@std/test")
 
 test.suite("SignalSuite", function(suite)
+	-- the type of `process.onSignal` restricts unknown signals at compile-time,
+	-- but we cast anyway to verify the runtime checks are in place.
 	suite:case("unknownSignalThrows", function(assert)
 		assert.throwsWith("unknown signal: SIGFOO", function()
-			process.onSignal("SIGFOO", function() end)
+			process.onSignal("SIGFOO" :: any, function() end)
 		end)
 	end)
 
+	-- the type of `process.onSignal` restricts these cases at compile-time,
+	-- but we cast anyway to verify the runtime checks are in place.
 	suite:case("blockedSignalsThrow", function(assert)
 		assert.throwsWith("SIGKILL cannot be handled", function()
-			process.onSignal("SIGKILL", function() end)
+			process.onSignal("SIGKILL" :: any, function() end)
 		end)
 		assert.throwsWith("SIGCHLD is reserved by the runtime", function()
-			process.onSignal("SIGCHLD", function() end)
+			process.onSignal("SIGCHLD" :: any, function() end)
 		end)
 		assert.throwsWith("SIGSEGV is a synchronous hardware signal and cannot be safely handled", function()
-			process.onSignal("SIGSEGV", function() end)
+			process.onSignal("SIGSEGV" :: any, function() end)
 		end)
 	end)
 
