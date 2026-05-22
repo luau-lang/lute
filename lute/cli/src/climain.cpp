@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -68,7 +69,7 @@ Transform Options:
 	lute transform <transformer script> [options...] <files...>
 		Runs the specified code transformation on the provided Luau files.
 			--dry-run               Runs the transformation without actually overwriting or deleting any files.
-			--output <path>         Specifies an output file for a transformed file. Only valid when 
+			--output <path>         Specifies an output file for a transformed file. Only valid when
 			                        transforming a single file. If not specified, files are overwritten in place.
 
 Lint Options:
@@ -87,6 +88,7 @@ static const char* VERSION_STRING = LUTE_VERSION_FULL;
 static const char* RUN_HELP_STRING = R"(Usage: lute run <script.luau> [args...]
 
 Run Options:
+	--list                  List all available scripts in the nearest .lute folder.
 	--profile               Enable profiling for the script.
 	--profile-output <path> Output file for the profile (default: <datetime>_<filename>.json).
 	--frequency <Hz>        Profiler sampling frequency in Hz (default: 10000).
@@ -96,6 +98,7 @@ Run Options:
 static const char* PKGRUN_HELP_STRING = R"(Usage: lute pkg run <script.luau> [args...]
 
 Run Options:
+	--list        List all available scripts in the nearest .lute folder.
 	-h, --help    Display this usage message.
 )";
 
@@ -255,6 +258,52 @@ static std::pair<bool, std::string> getValidPath(std::string filePath)
     return {false, res};
 }
 
+static std::optional<std::string> getNearestLuteFolderPath()
+{
+    for (std::optional<std::string> currentPath = getCurrentWorkingDirectory(); currentPath; currentPath = getParentPath(*currentPath))
+    {
+        std::string lutePath = joinPaths(*currentPath, ".lute");
+
+        if (isDirectory(lutePath))
+            return lutePath;
+    }
+
+    return std::nullopt;
+}
+
+static std::vector<std::string> getLuteScripts(const std::string& luteFolderPath)
+{
+    std::set<std::string> names;
+    std::string normalizedPrefix = normalizePath(luteFolderPath);
+    if (!normalizedPrefix.empty() && normalizedPrefix.back() != '/')
+        normalizedPrefix += '/';
+
+    traverseDirectory(luteFolderPath, [&](const std::string& rawFilePath)
+    {
+        std::string filePath = normalizePath(rawFilePath);
+        std::string rel = filePath.substr(normalizedPrefix.size());
+        size_t slashPos = rel.find('/');
+
+        // If there's a slash at the end, we'll check if the rest is init.luau or init.lua, and add it as a command if so.
+        if (slashPos != std::string::npos)
+        {
+            std::string rest = rel.substr(slashPos + 1);
+            if (rest.find('/') == std::string::npos && (rest == "init.luau" || rest == "init.lua"))
+                names.insert(rel.substr(0, slashPos));
+
+            return;
+        }
+
+        // Otherwise, we can just look for .luau or .lua files and add them as commands without the extension.
+        if (rel.size() > 5 && rel.substr(rel.size() - 5) == ".luau")
+            names.insert(rel.substr(0, rel.size() - 5));
+        else if (rel.size() > 4 && rel.substr(rel.size() - 4) == ".lua")
+            names.insert(rel.substr(0, rel.size() - 4));
+    });
+
+    return {names.begin(), names.end()};
+}
+
 int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness, LuteReporter& reporter)
 {
     std::string command = packageAwareness ? "pkg run" : "run";
@@ -273,6 +322,18 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
         if (strcmp(currentArg, "-h") == 0 || strcmp(currentArg, "--help") == 0)
         {
             reporter.reportOutput(packageAwareness ? PKGRUN_HELP_STRING : RUN_HELP_STRING);
+            return 0;
+        }
+        else if (strcmp(currentArg, "--list") == 0)
+        {
+            std::optional<std::string> luteFolderPath = getNearestLuteFolderPath();
+            std::string output = "Commands\n";
+            if (luteFolderPath)
+            {
+                for (const std::string& name : getLuteScripts(*luteFolderPath))
+                    output += '\t' + name + '\n';
+            }
+            reporter.reportOutput(output.c_str());
             return 0;
         }
         else if (strcmp(currentArg, "--profile") == 0)

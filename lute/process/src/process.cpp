@@ -4,6 +4,7 @@
 #include "lute/processhandle.h"
 #include "lute/runtime.h"
 #include "lute/uvutils.h"
+#include "os_signal.h"
 
 #include "Luau/Common.h"
 
@@ -24,6 +25,12 @@
 
 namespace process
 {
+
+static int pidFunc(lua_State* L)
+{
+    lua_pushinteger(L, uv_os_getpid());
+    return 1;
+}
 
 // helper function for run() and system()
 int executionHelper(lua_State* L, std::vector<std::string> args, ProcessOptions opts)
@@ -368,6 +375,8 @@ const luaL_Reg Process::lib[] = {
     {"cwd", process::cwd},
     {"exit", process::exitFunc},
     {"execPath", process::execPath},
+    {"onSignal", process::signalFunc},
+    {"pid", process::pidFunc},
     {nullptr, nullptr},
 };
 
@@ -409,6 +418,8 @@ int Process::pushLibrary(lua_State* L)
     lua_setfield(L, -2, "args");
 
     lua_setreadonly(L, -1, 1); // process table
+
+    registerSignalHandle(L);
 
     return 1;
 }

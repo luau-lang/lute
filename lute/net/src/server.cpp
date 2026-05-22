@@ -409,10 +409,11 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
 {
     if (lua_isstring(L, responseIndex))
     {
-        std::string body = lua_tostring(L, responseIndex);
+        size_t bodyLength = 0;
+        const char* bodyData = lua_tolstring(L, responseIndex, &bodyLength);
         res->writeStatus("200 OK");
         res->writeHeader("Content-Type", "text/html");
-        res->end(body);
+        res->end(std::string_view(bodyData, bodyLength));
         return;
     }
 
@@ -437,9 +438,17 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
         {
             if (lua_isstring(L, -2) && lua_isstring(L, -1))
             {
-                std::string headerName = lua_tostring(L, -2);
-                std::string headerValue = lua_tostring(L, -1);
-                res->writeHeader(headerName, headerValue);
+                size_t headerNameLength = 0;
+                size_t headerValueLength = 0;
+                const char* headerName = lua_tolstring(L, -2, &headerNameLength);
+                const char* headerValue = lua_tolstring(L, -1, &headerValueLength);
+                if (headerName && headerValue)
+                {
+                    res->writeHeader(
+                        std::string_view(headerName, headerNameLength),
+                        std::string_view(headerValue, headerValueLength)
+                    );
+                }
             }
             lua_pop(L, 1);
         }
@@ -448,17 +457,17 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
 
     lua_getfield(L, responseIndex, "body");
 
-    std::string body;
+    std::string_view body;
     if (!lua_isnil(L, -1))
     {
         size_t bodyLength = 0;
         const char* bodyData = lua_tolstring(L, -1, &bodyLength);
         if (bodyData)
-            body.assign(bodyData, bodyLength);
+            body = std::string_view(bodyData, bodyLength);
     }
-    lua_pop(L, 1);
 
     res->end(body);
+    lua_pop(L, 1);
 }
 
 template<typename ResT>
@@ -747,27 +756,17 @@ static void pushRequestTable(
     lua_setmetatable(L, requestIndex);
 }
 
-template<typename PushUpvalues>
-static void pushServerTable(lua_State* L, const std::shared_ptr<Ref>& serverRef, lua_CFunction upgradeFn, int nUpvalues, PushUpvalues pushUpvalues)
+static void pushServerTable(lua_State* L, const std::shared_ptr<Ref>& serverRef)
 {
     if (serverRef)
+    {
         serverRef->push(L);
-    else
-        lua_newtable(L);
+        return;
+    }
 
-    int serverBaseIndex = lua_absindex(L, -1);
-
-    lua_createtable(L, 0, 1);
-    lua_createtable(L, 0, 1);
-    lua_pushvalue(L, serverBaseIndex);
-    lua_setfield(L, -2, "__index");
-    lua_setmetatable(L, -2);
-
-    pushUpvalues(L);
-    lua_pushcclosure(L, upgradeFn, "server.upgrade", nUpvalues);
+    lua_newtable(L);
+    lua_pushcfunction(L, server_upgrade, "server.upgrade");
     lua_setfield(L, -2, "upgrade");
-
-    lua_remove(L, serverBaseIndex);
 }
 
 static HandlerThread prepareHttpHandlerThread(
@@ -789,7 +788,7 @@ static HandlerThread prepareHttpHandlerThread(
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     handlerRef->push(L);
     pushRequestTable(L, headers, route, body, server_upgrade_noop, 0, [](lua_State*) {}, params);
-    pushServerTable(L, state->serverRef, server_upgrade_noop, 0, [](lua_State*) {});
+    pushServerTable(L, state->serverRef);
     return thread;
 }
 
@@ -822,7 +821,7 @@ static HandlerThread prepareUpgradeHandlerThread(
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
     pushRequestTable(L, headers, route, std::string_view(""), server_upgrade_do<SSL>, 4, pushUpgradeUpvalues);
-    pushServerTable(L, state->serverRef, server_upgrade_do<SSL>, 4, pushUpgradeUpvalues);
+    pushServerTable(L, state->serverRef);
     return thread;
 }
 
@@ -1419,7 +1418,7 @@ int serve(lua_State* L)
     lua_settable(L, -3);
 
     lua_pushstring(L, "upgrade");
-    lua_pushcfunction(L, server_upgrade, "server_upgrade");
+    lua_pushcfunction(L, server_upgrade, "server.upgrade");
     lua_settable(L, -3);
 
     state->serverRef = std::make_shared<Ref>(L, -1);

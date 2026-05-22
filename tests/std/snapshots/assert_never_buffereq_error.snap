@@ -5,9 +5,9 @@ TEST RESULTS
 
 Failed Tests (1):
 
-❌ neq_failure_suite.neq_error
-	<ROOT>/tests/std/snapshots/assertneq_error_message_in_suite.snap.luau:6
-		never_eq: expected 1 to not equal 1
+❌ never_buffereq_failure_suite.never_buffereq_error
+	<ROOT>/tests/std/snapshots/assert_never_buffereq_error.snap.luau:10
+		never_buffereq: expected buffers to not be equal
 
 --------------------------------------------------
 Total:  1

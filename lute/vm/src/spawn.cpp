@@ -41,6 +41,24 @@ static bool copyLuauObject(lua_State* from, lua_State* to, int fromIdx)
         lua_pushlstring(to, str, len);
     }
     break;
+    case LUA_TVECTOR:
+    {
+        const float* v = lua_tovector(from, fromIdx);
+#if LUA_VECTOR_SIZE == 4
+        lua_pushvector(to, v[0], v[1], v[2], v[3]);
+#else
+        lua_pushvector(to, v[0], v[1], v[2]);
+#endif
+    }
+    break;
+    case LUA_TBUFFER:
+    {
+        size_t len = 0;
+        void* src = lua_tobuffer(from, fromIdx, &len);
+        void* dst = lua_newbuffer(to, len);
+        memcpy(dst, src, len);
+    }
+    break;
     case LUA_TTABLE:
         lua_createtable(to, 0, 0);
 

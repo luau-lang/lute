@@ -1,12 +1,18 @@
 add_library(Lute.Std STATIC)
 
-target_sources(Lute.Std PRIVATE
-    include/lute/stdlib.h
-
-    src/stdlib.cpp
-    src/generated/modules.h
-    src/generated/modules.cpp
-)
+if (LUTE_STDLESS)
+    target_sources(Lute.Std PRIVATE
+        include/lute/stdlib.h
+        src/stdlib_stub.cpp
+    )
+else()
+    target_sources(Lute.Std PRIVATE
+        include/lute/stdlib.h
+        src/stdlib.cpp
+        src/generated/modules.h
+        src/generated/modules.cpp
+    )
+endif()
 
 target_compile_features(Lute.Std PUBLIC cxx_std_17)
 target_include_directories(Lute.Std PUBLIC "include")
