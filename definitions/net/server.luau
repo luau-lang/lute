@@ -8,6 +8,7 @@ export type ReceivedRequest = {
 	body: string,
 	query: { [string]: string },
 	headers: { [string]: string },
+	params: { [string]: string },
 }
 
 --- A response that can be returned from a server handler: a plain string body, or a table with status, body, and headers.
@@ -16,6 +17,27 @@ export type ServerResponse = string | {
 	body: string?,
 	headers: { [string]: string }?,
 }
+
+export type RouteHandler = Handler | ServerResponse
+
+export type MethodRoutes = {
+	GET: RouteHandler?,
+	POST: RouteHandler?,
+	PUT: RouteHandler?,
+	DELETE: RouteHandler?,
+	PATCH: RouteHandler?,
+	HEAD: RouteHandler?,
+	OPTIONS: RouteHandler?,
+	CONNECT: RouteHandler?,
+	TRACE: RouteHandler?,
+}
+
+export type RouteEntry = RouteHandler | MethodRoutes
+
+--- A routes table mapping URL patterns to handlers or responses. Patterns are matched
+--- in this order: exact path, parameter path (`/users/:id`), wildcard path (`/assets/*`),
+--- then global catch-all (`/*`). Unmatched requests fall back to the top-level `handler`.
+export type Routes = { [string]: RouteEntry }
 
 --- A server-side WebSocket connection handle.
 export type ServerWebSocket = {
@@ -49,6 +71,7 @@ export type Configuration = {
 	reuseport: boolean?,
 	tls: { certfilename: string, keyfilename: string, passphrase: string?, cafilename: string? }?,
 	handler: Handler?,
+	routes: Routes?,
 	websocket: WebSocketHandlers?,
 }
 
