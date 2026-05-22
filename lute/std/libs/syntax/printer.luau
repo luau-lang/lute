@@ -18,7 +18,7 @@ type PrintVisitor = visitor.Visitor & {
 	printToken: (self: PrintVisitor, token: types.Token) -> (),
 	printString: (self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString) -> (),
 	printInterpolatedString: (self: PrintVisitor, expr: types.AstExprInterpString) -> (),
-	printReplacement: (self: PrintVisitor, node: types.AstNode, replacement: string) -> (),
+	printReplacement: (self: PrintVisitor, node: types.AstNode, replacement: types.Replacement) -> (),
 }
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
@@ -99,18 +99,26 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 	end
 end
 
-local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: string)
-	local leftmostTrivia = triviaUtils.leftmostTrivia(node)
-	if leftmostTrivia ~= nil then
-		self:printTriviaList(leftmostTrivia)
+local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: types.Replacement)
+	assert(typeof(replacement) == "string" or typeof(replacement) == "table", "Unsupported replacement type")
+
+	local replacementContent = if typeof(replacement) == "string" then replacement else replacement.content
+	local preserveTrivia = if typeof(replacement) == "table" then replacement.preserveTrivia ~= false else true
+
+	if preserveTrivia then
+		local leftmostTrivia = triviaUtils.leftmostTrivia(node)
+		if leftmostTrivia ~= nil then
+			self:printTriviaList(leftmostTrivia)
+		end
 	end
 
-	assert(typeof(replacement) == "string", "Unsupported replacement type")
-	self:write(replacement)
+	self:write(replacementContent)
 
-	local rightmostTrivia = triviaUtils.rightmostTrivia(node)
-	if rightmostTrivia ~= nil then
-		self:printTriviaList(rightmostTrivia)
+	if preserveTrivia then
+		local rightmostTrivia = triviaUtils.rightmostTrivia(node)
+		if rightmostTrivia ~= nil then
+			self:printTriviaList(rightmostTrivia)
+		end
 	end
 end
 
@@ -143,7 +151,7 @@ local function printVisitor(replacements: types.Replacements?)
 		if replacements == nil then
 			return true
 		end
-		local replacement: string? = replacements[node]
+		local replacement: types.Replacement? = replacements[node]
 		if replacement == nil then
 			return true
 		end

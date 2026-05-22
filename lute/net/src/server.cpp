@@ -1,6 +1,5 @@
-#include "lute/net.h"
-
 #include "lute/common.h"
+#include "lute/net.h"
 #include "lute/runtime.h"
 #include "lute/userdatas.h"
 
@@ -25,18 +24,12 @@
 
 #include "App.h"
 #include "Loop.h"
+#include "wscommon.h"
 
 namespace net::server
 {
 
 using uWSApp = Luau::Variant<std::unique_ptr<uWS::App>, std::unique_ptr<uWS::SSLApp>>;
-
-struct WebSocketPayload
-{
-    const char* data = nullptr;
-    size_t length = 0;
-    bool binary = false;
-};
 
 static const int kEmptyServerKey = 0;
 static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
@@ -63,7 +56,7 @@ struct ServerLoopState
     bool reusePort = false;
 };
 
-template <bool SSL>
+template<bool SSL>
 struct PerSocketData;
 
 template <bool SSL>
@@ -86,26 +79,7 @@ struct ServerWebSocketHandle
     void (*closeFn)(void* wsPtr, uint16_t code, std::string_view message) = nullptr;
 };
 
-static WebSocketPayload extractWebSocketPayload(lua_State* L, int index)
-{
-    if (lua_isstring(L, index))
-    {
-        size_t length = 0;
-        const char* data = lua_tolstring(L, index, &length);
-        return {data, length, false};
-    }
-
-    if (lua_isbuffer(L, index))
-    {
-        size_t length = 0;
-        void* data = lua_tobuffer(L, index, &length);
-        return {static_cast<const char*>(data), length, true};
-    }
-
-    luaL_typeerrorL(L, index, "string or buffer");
-}
-
-template <bool SSL>
+template<bool SSL>
 struct PerSocketData
 {
     std::shared_ptr<ServerWebSocketHandle> handle;
@@ -120,7 +94,7 @@ struct RequestRouteData
 
 using RequestHeaders = std::vector<std::pair<std::string, std::string>>;
 
-template <typename ReqT>
+template<typename ReqT>
 static RequestHeaders extractRequestHeaders(ReqT* req)
 {
     RequestHeaders headers;
@@ -131,7 +105,7 @@ static RequestHeaders extractRequestHeaders(ReqT* req)
     return headers;
 }
 
-template <typename ReqT>
+template<typename ReqT>
 static RequestRouteData extractRequestRouteData(ReqT* req)
 {
     RequestRouteData route;
@@ -205,10 +179,9 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
     {
         size_t bodyLength = 0;
         const char* bodyData = lua_tolstring(L, responseIndex, &bodyLength);
-        std::string body(bodyData, bodyLength);
         res->writeStatus("200 OK");
         res->writeHeader("Content-Type", "text/html");
-        res->end(body);
+        res->end(std::string_view(bodyData, bodyLength));
         return;
     }
 
@@ -264,9 +237,17 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
         {
             if (lua_isstring(L, -2) && lua_isstring(L, -1))
             {
-                std::string headerName = lua_tostring(L, -2);
-                std::string headerValue = lua_tostring(L, -1);
-                res->writeHeader(headerName, headerValue);
+                size_t headerNameLength = 0;
+                size_t headerValueLength = 0;
+                const char* headerName = lua_tolstring(L, -2, &headerNameLength);
+                const char* headerValue = lua_tolstring(L, -1, &headerValueLength);
+                if (headerName && headerValue)
+                {
+                    res->writeHeader(
+                        std::string_view(headerName, headerNameLength),
+                        std::string_view(headerValue, headerValueLength)
+                    );
+                }
             }
             lua_pop(L, 1);
         }
@@ -275,20 +256,20 @@ static void handleResponse(auto* res, lua_State* L, int responseIndex)
 
     lua_getfield(L, responseIndex, "body");
 
-    std::string body;
+    std::string_view body;
     if (!lua_isnil(L, -1))
     {
         size_t bodyLength = 0;
         const char* bodyData = lua_tolstring(L, -1, &bodyLength);
         if (bodyData)
-            body.assign(bodyData, bodyLength);
+            body = std::string_view(bodyData, bodyLength);
     }
-    lua_pop(L, 1);
 
     res->end(body);
+    lua_pop(L, 1);
 }
 
-template <typename ResT>
+template<typename ResT>
 struct HttpYieldContext
 {
     ResT* res = nullptr;
@@ -296,7 +277,7 @@ struct HttpYieldContext
     std::shared_ptr<Ref> threadRef;
 };
 
-template <typename ResT>
+template<typename ResT>
 static void finishHttpYield(lua_State* L, int status, const std::shared_ptr<HttpYieldContext<ResT>>& ctx)
 {
     if (!ctx)
@@ -328,11 +309,7 @@ static void finishHttpYield(lua_State* L, int status, const std::shared_ptr<Http
     lua_settop(L, 0);
 }
 
-static void resumeWith(
-    std::shared_ptr<ServerLoopState> state,
-    const std::shared_ptr<Ref>& callback,
-    std::function<int(lua_State*)> argPusher
-)
+static void resumeWith(std::shared_ptr<ServerLoopState> state, const std::shared_ptr<Ref>& callback, std::function<int(lua_State*)> argPusher)
 {
     if (!callback)
         return;
@@ -340,12 +317,8 @@ static void resumeWith(
     state->runtime->scheduleLuauCallback(callback, std::move(argPusher));
 }
 
-template <bool SSL>
-static bool performWebSocketUpgrade(
-    uWS::HttpResponse<SSL>* res,
-    uWS::HttpRequest* req,
-    us_socket_context_t* context
-)
+template<bool SSL>
+static bool performWebSocketUpgrade(uWS::HttpResponse<SSL>* res, uWS::HttpRequest* req, us_socket_context_t* context)
 {
     std::string_view key = req->getHeader("sec-websocket-key");
     std::string_view protocol = req->getHeader("sec-websocket-protocol");
@@ -390,7 +363,7 @@ static int server_upgrade(lua_State* L)
     return 1;
 }
 
-template <bool SSL>
+template<bool SSL>
 static int server_upgrade_do(lua_State* L)
 {
     using UpgradeContext = RequestUpgradeContext<SSL>;
@@ -420,7 +393,7 @@ static int server_upgrade_do(lua_State* L)
     return 1;
 }
 
-template <bool SSL>
+template<bool SSL>
 static int wsSendImpl(void* wsPtr, std::string_view data, bool binary)
 {
     auto* ws = static_cast<uWS::WebSocket<SSL, true, PerSocketData<SSL>>*>(wsPtr);
@@ -435,7 +408,7 @@ static int wsSendImpl(void* wsPtr, std::string_view data, bool binary)
     return int(data.size() > 0 ? data.size() : 1);
 }
 
-template <bool SSL>
+template<bool SSL>
 static void wsCloseImpl(void* wsPtr, uint16_t code, std::string_view message)
 {
     auto* ws = static_cast<uWS::WebSocket<SSL, true, PerSocketData<SSL>>*>(wsPtr);
@@ -444,19 +417,15 @@ static void wsCloseImpl(void* wsPtr, uint16_t code, std::string_view message)
 
 static int server_ws_send(lua_State* L)
 {
-    if (lua_gettop(L) != 2)
-        luaL_errorL(L, "websocket send expects exactly 1 payload argument");
-
     luaL_checktype(L, 1, LUA_TUSERDATA);
-    auto* handlePtr =
-        static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_touserdatatagged(L, 1, kServerWebSocketHandleTag));
+    auto* handlePtr = static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_touserdatatagged(L, 1, kServerWebSocketHandleTag));
     if (!handlePtr || !(*handlePtr) || (*handlePtr)->closed.load())
     {
         lua_pushinteger(L, 0);
         return 1;
     }
 
-    WebSocketPayload payload = extractWebSocketPayload(L, 2);
+    WebSocketPayload payload = checkWebSocketPayload(L, 2);
 
     int result = 0;
     if (!(*handlePtr)->closed.load() && (*handlePtr)->wsPtr && (*handlePtr)->sendFn)
@@ -469,8 +438,7 @@ static int server_ws_send(lua_State* L)
 static int server_ws_close(lua_State* L)
 {
     luaL_checktype(L, 1, LUA_TUSERDATA);
-    auto* handlePtr =
-        static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_touserdatatagged(L, 1, kServerWebSocketHandleTag));
+    auto* handlePtr = static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_touserdatatagged(L, 1, kServerWebSocketHandleTag));
     if (!handlePtr || !(*handlePtr) || (*handlePtr)->closed.load() || !(*handlePtr)->wsPtr)
         return 0;
 
@@ -498,11 +466,7 @@ static int server_ws_close(lua_State* L)
     return 0;
 }
 
-static void pushServerWebSocket(
-    lua_State* L,
-    const std::shared_ptr<ServerWebSocketHandle>& handle,
-    const std::shared_ptr<Ref>& retainedRef = nullptr
-)
+static void pushServerWebSocket(lua_State* L, const std::shared_ptr<ServerWebSocketHandle>& handle, const std::shared_ptr<Ref>& retainedRef = nullptr)
 {
     if (retainedRef)
     {
@@ -516,12 +480,9 @@ static void pushServerWebSocket(
         return;
     }
 
-    auto* storage =
-        new (static_cast<std::shared_ptr<ServerWebSocketHandle>*>(lua_newuserdatataggedwithmetatable(
-            L,
-            sizeof(std::shared_ptr<ServerWebSocketHandle>),
-            kServerWebSocketHandleTag
-        ))) std::shared_ptr<ServerWebSocketHandle>(handle);
+    auto* storage = new (static_cast<std::shared_ptr<ServerWebSocketHandle>*>(
+        lua_newuserdatataggedwithmetatable(L, sizeof(std::shared_ptr<ServerWebSocketHandle>), kServerWebSocketHandleTag)
+    )) std::shared_ptr<ServerWebSocketHandle>(handle);
     (void)storage;
     handle->userdataRef = std::make_shared<Ref>(L, -1);
 }
@@ -544,7 +505,7 @@ static HandlerThread createHandlerThread(Runtime* runtime)
     return {L, std::move(threadRef)};
 }
 
-template <typename PushUpvalues>
+template<typename PushUpvalues>
 static void pushRequestTable(
     lua_State* L,
     const RequestHeaders& headers,
@@ -574,7 +535,7 @@ static void pushRequestTable(
     lua_settable(L, -3);
 
     lua_pushstring(L, "body");
-    lua_pushlstring(L, body.data(), body.size());
+    lua_pushlstring(L, body.data() != nullptr ? body.data() : "", body.size());
     lua_settable(L, -3);
 
     int requestIndex = lua_absindex(L, -1);
@@ -586,33 +547,17 @@ static void pushRequestTable(
     lua_setmetatable(L, requestIndex);
 }
 
-template <typename PushUpvalues>
-static void pushServerTable(
-    lua_State* L,
-    const std::shared_ptr<Ref>& serverRef,
-    lua_CFunction upgradeFn,
-    int nUpvalues,
-    PushUpvalues pushUpvalues
-)
+static void pushServerTable(lua_State* L, const std::shared_ptr<Ref>& serverRef)
 {
     if (serverRef)
+    {
         serverRef->push(L);
-    else
-        lua_newtable(L);
+        return;
+    }
 
-    int serverBaseIndex = lua_absindex(L, -1);
-
-    lua_createtable(L, 0, 1);
-    lua_createtable(L, 0, 1);
-    lua_pushvalue(L, serverBaseIndex);
-    lua_setfield(L, -2, "__index");
-    lua_setmetatable(L, -2);
-
-    pushUpvalues(L);
-    lua_pushcclosure(L, upgradeFn, "server.upgrade", nUpvalues);
+    lua_newtable(L);
+    lua_pushcfunction(L, server_upgrade, "server.upgrade");
     lua_setfield(L, -2, "upgrade");
-
-    lua_remove(L, serverBaseIndex);
 }
 
 static HandlerThread prepareHttpHandlerThread(
@@ -632,11 +577,11 @@ static HandlerThread prepareHttpHandlerThread(
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
     pushRequestTable(L, headers, route, body, server_upgrade_noop, 0, [](lua_State*) {});
-    pushServerTable(L, state->serverRef, server_upgrade_noop, 0, [](lua_State*) {});
+    pushServerTable(L, state->serverRef);
     return thread;
 }
 
-template <bool SSL>
+template<bool SSL>
 static HandlerThread prepareUpgradeHandlerThread(
     const std::shared_ptr<ServerLoopState>& state,
     const RequestHeaders& headers,
@@ -669,11 +614,11 @@ static HandlerThread prepareUpgradeHandlerThread(
     // `lua_resume(L, nullptr, 2)` expects the stack shape `[handler, request, server]`.
     state->handlerRef->push(L);
     pushRequestTable(L, headers, route, std::string_view(""), server_upgrade_do<SSL>, 1, pushUpgradeUpvalues);
-    pushServerTable(L, state->serverRef, server_upgrade_do<SSL>, 1, pushUpgradeUpvalues);
+    pushServerTable(L, state->serverRef);
     return thread;
 }
 
-template <typename ResT>
+template<typename ResT>
 static void processRequest(
     const std::shared_ptr<ServerLoopState>& state,
     ResT* res,
@@ -731,7 +676,7 @@ static void processRequest(
     lua_pop(L, 1);
 }
 
-template <bool SSL, typename AppT>
+template<bool SSL, typename AppT>
 static void installWebSocketRoutes(AppT* app, const std::shared_ptr<ServerLoopState>& state)
 {
     if (!state->hasWebSocket)
@@ -739,153 +684,148 @@ static void installWebSocketRoutes(AppT* app, const std::shared_ptr<ServerLoopSt
 
     typename uWS::TemplatedApp<SSL>::template WebSocketBehavior<PerSocketData<SSL>> behavior{};
     behavior.maxPayloadLength = kWebSocketMaxPayloadLength;
-    behavior.upgrade =
-        [state](auto* res, auto* req, auto* context)
+    behavior.upgrade = [state](auto* res, auto* req, auto* context)
+    {
+        if (!state->handlerRef)
         {
-            if (!state->handlerRef)
+            if (!performWebSocketUpgrade<SSL>(res, req, context))
             {
-                if (!performWebSocketUpgrade<SSL>(res, req, context))
-                {
-                    res->writeStatus("426 Upgrade Required");
-                    res->end("WebSocket upgrade required");
-                }
-                return;
+                res->writeStatus("426 Upgrade Required");
+                res->end("WebSocket upgrade required");
             }
+            return;
+        }
 
-            RequestRouteData route = extractRequestRouteData(req);
-            RequestHeaders headers = extractRequestHeaders(req);
-            auto upgradeContext = std::make_shared<RequestUpgradeContext<SSL>>();
-            upgradeContext->res = res;
-            upgradeContext->req = req;
-            upgradeContext->socketContext = context;
+        RequestRouteData route = extractRequestRouteData(req);
+        RequestHeaders headers = extractRequestHeaders(req);
+        auto upgradeContext = std::make_shared<RequestUpgradeContext<SSL>>();
+        upgradeContext->res = res;
+        upgradeContext->req = req;
+        upgradeContext->socketContext = context;
 
-            HandlerThread thread = prepareUpgradeHandlerThread<SSL>(state, headers, route, upgradeContext);
-            lua_State* L = thread.L;
-            int status = lua_resume(L, nullptr, 2);
-            upgradeContext->pointersValid = false;
-            bool upgraded = upgradeContext->upgraded;
+        HandlerThread thread = prepareUpgradeHandlerThread<SSL>(state, headers, route, upgradeContext);
+        lua_State* L = thread.L;
+        int status = lua_resume(L, nullptr, 2);
+        upgradeContext->pointersValid = false;
+        bool upgraded = upgradeContext->upgraded;
 
-            if (status == LUA_YIELD)
-            {
-                lua_resetthread(L);
-
-                if (!upgraded)
-                {
-                    res->writeStatus("500 Internal Server Error");
-                    res->end("upgrade handler cannot yield");
-                }
-                return;
-            }
-
-            if (status != LUA_OK)
-            {
-                std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
-                if (!upgraded)
-                {
-                    res->writeStatus("500 Internal Server Error");
-                    res->end("Server error: " + error);
-                }
-                lua_pop(L, 1);
-                return;
-            }
+        if (status == LUA_YIELD)
+        {
+            lua_resetthread(L);
 
             if (!upgraded)
-                handleResponse(res, L, -1);
-
-            lua_pop(L, 1);
-        };
-    behavior.open =
-        [state](auto* ws)
-        {
-            auto* data = ws->getUserData();
-            data->handle = std::make_shared<ServerWebSocketHandle>();
-            data->handle->wsPtr = ws;
-            data->handle->sendFn = &wsSendImpl<SSL>;
-            data->handle->closeFn = &wsCloseImpl<SSL>;
-
-            resumeWith(
-                state,
-                state->wsOpenRef,
-                [handle = data->handle](lua_State* L)
-                {
-                    pushServerWebSocket(L, handle);
-                    return 1;
-                }
-            );
-        };
-    behavior.message =
-        [state](auto* ws, std::string_view message, uWS::OpCode opCode)
-        {
-            auto handle = ws->getUserData()->handle;
-            std::string payload(message.data(), message.size());
-            bool binary = (opCode == uWS::OpCode::BINARY);
-
-            resumeWith(
-                state,
-                state->wsMessageRef,
-                [handle, payload = std::move(payload), binary](lua_State* L)
-                {
-                    pushServerWebSocket(L, handle);
-                    if (binary)
-                    {
-                        void* buf = lua_newbuffer(L, payload.size());
-                        if (!payload.empty())
-                            memcpy(buf, payload.data(), payload.size());
-                    }
-                    else
-                    {
-                        lua_pushlstring(L, payload.data(), payload.size());
-                    }
-                    return 2;
-                }
-            );
-        };
-    behavior.drain =
-        [state](auto* ws)
-        {
-            auto handle = ws->getUserData()->handle;
-
-            resumeWith(
-                state,
-                state->wsDrainRef,
-                [handle](lua_State* L)
-                {
-                    pushServerWebSocket(L, handle);
-                    return 1;
-                }
-            );
-        };
-    behavior.close =
-        [state](auto* ws, int code, std::string_view message)
-        {
-            auto handle = ws->getUserData()->handle;
-            std::shared_ptr<Ref> userdataRef;
-            if (handle)
             {
-                handle->closed.store(true);
-                handle->wsPtr = nullptr;
-                userdataRef = std::move(handle->userdataRef);
+                res->writeStatus("500 Internal Server Error");
+                res->end("upgrade handler cannot yield");
             }
+            return;
+        }
 
-            std::string payload(message.data(), message.size());
+        if (status != LUA_OK)
+        {
+            std::string error = lua_isstring(L, -1) ? lua_tostring(L, -1) : "Server error";
+            if (!upgraded)
+            {
+                res->writeStatus("500 Internal Server Error");
+                res->end("Server error: " + error);
+            }
+            lua_pop(L, 1);
+            return;
+        }
 
-            resumeWith(
-                state,
-                state->wsCloseRef,
-                [handle, userdataRef = std::move(userdataRef), code, payload = std::move(payload)](lua_State* L)
+        if (!upgraded)
+            handleResponse(res, L, -1);
+
+        lua_pop(L, 1);
+    };
+    behavior.open = [state](auto* ws)
+    {
+        auto* data = ws->getUserData();
+        data->handle = std::make_shared<ServerWebSocketHandle>();
+        data->handle->wsPtr = ws;
+        data->handle->sendFn = &wsSendImpl<SSL>;
+        data->handle->closeFn = &wsCloseImpl<SSL>;
+
+        resumeWith(
+            state,
+            state->wsOpenRef,
+            [handle = data->handle](lua_State* L)
+            {
+                pushServerWebSocket(L, handle);
+                return 1;
+            }
+        );
+    };
+    behavior.message = [state](auto* ws, std::string_view message, uWS::OpCode opCode)
+    {
+        auto handle = ws->getUserData()->handle;
+        std::string payload(message.data(), message.size());
+        bool binary = (opCode == uWS::OpCode::BINARY);
+
+        resumeWith(
+            state,
+            state->wsMessageRef,
+            [handle, payload = std::move(payload), binary](lua_State* L)
+            {
+                pushServerWebSocket(L, handle);
+                if (binary)
                 {
-                    pushServerWebSocket(L, handle, userdataRef);
-                    lua_pushinteger(L, code);
-                    lua_pushlstring(L, payload.data(), payload.size());
-                    return 3;
+                    void* buf = lua_newbuffer(L, payload.size());
+                    if (!payload.empty())
+                        memcpy(buf, payload.data(), payload.size());
                 }
-            );
-        };
+                else
+                {
+                    lua_pushlstring(L, payload.data(), payload.size());
+                }
+                return 2;
+            }
+        );
+    };
+    behavior.drain = [state](auto* ws)
+    {
+        auto handle = ws->getUserData()->handle;
+
+        resumeWith(
+            state,
+            state->wsDrainRef,
+            [handle](lua_State* L)
+            {
+                pushServerWebSocket(L, handle);
+                return 1;
+            }
+        );
+    };
+    behavior.close = [state](auto* ws, int code, std::string_view message)
+    {
+        auto handle = ws->getUserData()->handle;
+        std::shared_ptr<Ref> userdataRef;
+        if (handle)
+        {
+            handle->closed.store(true);
+            handle->wsPtr = nullptr;
+            userdataRef = std::move(handle->userdataRef);
+        }
+
+        std::string payload(message.data(), message.size());
+
+        resumeWith(
+            state,
+            state->wsCloseRef,
+            [handle, userdataRef = std::move(userdataRef), code, payload = std::move(payload)](lua_State* L)
+            {
+                pushServerWebSocket(L, handle, userdataRef);
+                lua_pushinteger(L, code);
+                lua_pushlstring(L, payload.data(), payload.size());
+                return 3;
+            }
+        );
+    };
 
     app->template ws<PerSocketData<SSL>>("/*", std::move(behavior));
 }
 
-template <typename AppT>
+template<typename AppT>
 static void installHttpRoutes(AppT* app, const std::shared_ptr<ServerLoopState>& state)
 {
     app->any(
@@ -904,11 +844,9 @@ static void installHttpRoutes(AppT* app, const std::shared_ptr<ServerLoopState>&
 
             std::unique_ptr<std::string> bodyBuffer;
             res->onData(
-                [state,
-                 res,
-                 route = std::move(route),
-                 headers = std::move(headers),
-                 bodyBuffer = std::move(bodyBuffer)](std::string_view data, bool last) mutable
+                [state, res, route = std::move(route), headers = std::move(headers), bodyBuffer = std::move(bodyBuffer)](
+                    std::string_view data, bool last
+                ) mutable
                 {
                     if (last)
                     {
@@ -939,7 +877,7 @@ static void installHttpRoutes(AppT* app, const std::shared_ptr<ServerLoopState>&
     );
 }
 
-template <bool SSL, typename AppT>
+template<bool SSL, typename AppT>
 static void listenApp(AppT* app, const std::shared_ptr<ServerLoopState>& state, bool& success)
 {
     int options = state->reusePort ? LIBUS_LISTEN_DEFAULT : LIBUS_LISTEN_EXCLUSIVE_PORT;
@@ -1197,7 +1135,7 @@ int serve(lua_State* L)
     lua_settable(L, -3);
 
     lua_pushstring(L, "upgrade");
-    lua_pushcfunction(L, server_upgrade, "server_upgrade");
+    lua_pushcfunction(L, server_upgrade, "server.upgrade");
     lua_settable(L, -3);
 
     state->serverRef = std::make_shared<Ref>(L, -1);
@@ -1277,7 +1215,7 @@ int NetServer::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luteopen_net_server(lua_State* L)
+LUTE_API int luteopen_net_server(lua_State* L)
 {
     return NetServer::pushLibrary(L);
 }

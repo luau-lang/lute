@@ -25,6 +25,8 @@ export type AstExprConstantBool = luau.AstExprConstantBool
 
 export type AstExprConstantNumber = luau.AstExprConstantNumber
 
+export type AstExprConstantInteger = luau.AstExprConstantInteger
+
 export type AstExprConstantString = luau.AstExprConstantString
 
 export type AstExprLocal = luau.AstExprLocal
@@ -161,7 +163,18 @@ export type AstNode = luau.AstNode
 
 export type ParseResult = luau.ParseResult
 
-export type Replacements = { [AstNode]: string }
+--- The type of a replacement for an AST node.
+--- A replacement can be:
+--- 1. A string, which will be used as the replacement text for the node, with any surrounding trivia preserved.
+--- 2. An object with a `content` property containing the replacement string, and an optional `preserveTrivia` boolean property.
+---    If `preserveTrivia` is true, the replaced AST node's attached trivia (whitespace and comments) will be reserialized with the replacement content.
+---    If false, the trivia will be discarded. If omitted, trivia is preserved by default.
+--- Note that trailing trivia for a token consists of all whitespace and comments that follow it up to and including a newline.
+--- Any trivia after the first seen newline is considered leading trivia for the next token.
+export type Replacement = string | { content: string, preserveTrivia: boolean? }
+
+--- A mapping of AST nodes to their replacements, used with `@std/syntax/printer` and `lute transform` to specify how ASTs should be mutated.
+export type Replacements = { [AstNode]: Replacement }
 
 export type Type = luau.Type
 

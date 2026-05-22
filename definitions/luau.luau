@@ -105,6 +105,15 @@ export type AstExprConstantNumber = {
 	read token: Token<string>,
 }
 
+--- An integer literal node.
+export type AstExprConstantInteger = {
+	read location: Span,
+	read kind: "expr",
+	read tag: "integer",
+	read value: number,
+	read token: Token<string>,
+}
+
 --- A string literal node.
 export type AstExprConstantString = {
 	read location: Span,
@@ -322,6 +331,7 @@ export type AstExpr =
 	| AstExprConstantNil
 	| AstExprConstantBool
 	| AstExprConstantNumber
+	| AstExprConstantInteger
 	| AstExprConstantString
 	| AstExprLocal
 	| AstExprGlobal

@@ -39,6 +39,27 @@ export type ProcessResult = {
 	signal: string?,
 }
 
+--- A handle returned by `process.signal`. Call `:close()` to deregister the handler.
+export type SignalHandle = {
+	close: (self: SignalHandle) -> (),
+}
+
+--- An operating system signal name.
+---
+--- Only `SIGINT` and `SIGTERM` are guaranteed to be supported on all platforms.
+--- Other signals may be unsupported, but will result in no-op behavior when used.
+export type Signal =
+	| "SIGINT"
+	| "SIGTERM"
+	| "SIGHUP"
+	| "SIGQUIT"
+	| "SIGUSR1"
+	| "SIGUSR2"
+	| "SIGWINCH"
+	| "SIGPIPE"
+	| "SIGBREAK"
+	| "SIGALRM"
+
 local process = {}
 
 --- Command-line arguments passed to the current script, as an array of strings.
@@ -73,6 +94,18 @@ end
 
 --- Returns the path of the currently running lute executable as a string.
 function process.execPath(): string
+	error("not implemented")
+end
+
+--- Returns the PID of the current process.
+function process.pid(): number
+	error("not implemented")
+end
+
+--- Registers `callback` to be called whenever `signal` is delivered to this process.
+--- Suppresses the default OS behavior (e.g. `"SIGINT"` will no longer terminate the process).
+--- Returns a handle; call `handle:close()` to deregister.
+function process.onSignal(signal: Signal, callback: () -> ()): SignalHandle
 	error("not implemented")
 end
 

@@ -30,17 +30,14 @@ local function lint(
 	function visitor.visitStatFunction(stat: syntax.AstStatFunction)
 		-- depth > 1 means we're inside a nested block (not the top-level block)
 		if depth > 1 and stat.name.tag ~= "indexname" then
-			table.insert(
-				violations,
-				{
-					lintname = name,
-					location = stat.location,
-					message = message,
-					severity = "warning",
-					sourcepath = sourcepath,
-					target = target,
-				} :: lintTypes.LintViolation
-			)
+			table.insert(violations, {
+				lintname = name,
+				location = stat.location,
+				message = message,
+				severity = "warning" :: "warning", -- LUAUFIX cast needed because severity isn't inferred as a singleton
+				sourcepath = sourcepath,
+				target = target,
+			})
 		end
 		return true
 	end

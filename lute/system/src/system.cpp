@@ -179,12 +179,12 @@ int System::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_system(lua_State* L)
+LUTE_API int luaopen_system(lua_State* L)
 {
     return System::openAsGlobal(L);
 }
 
-int luteopen_system(lua_State* L)
+LUTE_API int luteopen_system(lua_State* L)
 {
     return System::pushLibrary(L);
 }

@@ -149,7 +149,7 @@ end)
 
 runner.runRegisteredTests()
 			]],
-			"neq: 1 == 1",
+			"never_eq: expected 1 to not equal 1",
 			assert
 		)
 	end)
@@ -169,7 +169,7 @@ end)
 
 runner.runRegisteredTests()
 			]],
-			"neq: 1 == 1",
+			"never_eq: expected 1 to not equal 1",
 			assert
 		)
 	end)
