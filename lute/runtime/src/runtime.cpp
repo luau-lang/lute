@@ -50,8 +50,18 @@ Runtime::~Runtime()
         uv_thread_join(&runLoopThread);
         runLoopThreadStarted = false;
     }
-    // At this point, Runtime::hasWork will have returned false (i.e uv_loop_alive is false)
-    // This means there are no outstanding handles, or file descriptors or work, to do, and we can exit
+
+    for (auto& entry : cleanupHooks)
+    {
+        if (entry.second)
+            entry.second();
+    }
+    cleanupHooks.clear();
+
+    // Cleanup hooks may call uv_close on handles they own; give libuv one
+    // turn to run those close callbacks before uv_loop_close.
+    uv_run(&eventLoop, UV_RUN_NOWAIT);
+
     uv_loop_close(&eventLoop);
 }
 
@@ -235,6 +245,11 @@ bool Runtime::hasThreads()
 void Runtime::addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion)
 {
     threadCompletionHandlers[L] = std::move(completion);
+}
+
+void Runtime::addCleanupHook(void* key, std::function<void()> cleanup)
+{
+    cleanupHooks[key] = std::move(cleanup);
 }
 
 bool Runtime::runThreadCompletionHandler(lua_State* L, int status)

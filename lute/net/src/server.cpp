@@ -36,7 +36,20 @@ static Luau::DenseHashMap<int, uWSApp> serverInstances(kEmptyServerKey);
 static Luau::DenseHashMap<int, std::shared_ptr<struct ServerLoopState>> serverStates(kEmptyServerKey);
 static int nextServerId = 1;
 static int kRequestUpgradeKey = 0;
+static int kRuntimeCleanupKey = 0;
 static constexpr unsigned int kWebSocketMaxPayloadLength = 16 * 1024 * 1024;
+
+static bool hasActiveServer()
+{
+    for (const auto& entry : serverStates)
+    {
+        const auto& state = entry.second;
+        if (state)
+            return true;
+    }
+
+    return false;
+}
 
 struct ServerLoopState
 {
@@ -946,6 +959,24 @@ static bool closeServer(int serverId)
     return true;
 }
 
+static void cleanupRuntimeServers(Runtime* runtime)
+{
+    std::vector<int> serverIds;
+    for (const auto& entry : serverStates)
+    {
+        const int serverId = entry.first;
+        const std::shared_ptr<ServerLoopState>& state = entry.second;
+        if (state && state->runtime == runtime)
+            serverIds.push_back(serverId);
+    }
+
+    for (int serverId : serverIds)
+        closeServer(serverId);
+
+    if (!hasActiveServer())
+        uWS::Loop::get()->free();
+}
+
 int serve(lua_State* L)
 {
     uWS::Loop::get(getRuntimeLoop(L));
@@ -1056,6 +1087,7 @@ int serve(lua_State* L)
     }
 
     Runtime* runtime = getRuntime(L);
+    runtime->addCleanupHook(&kRuntimeCleanupKey, [runtime]() { cleanupRuntimeServers(runtime); });
 
     int serverId = nextServerId++;
 
