@@ -9,7 +9,7 @@ local message =
 local target = "https://lute.luau.org/cli/lint/global_function_in_scope.html"
 
 local function lint(
-	ast: syntax.AstStatBlock,
+	ast: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
@@ -18,16 +18,16 @@ local function lint(
 
 	local visitor: visitorLib.Visitor = visitorLib.create() :: any
 
-	function visitor.visitStatBlock(_: syntax.AstStatBlock)
+	function visitor.visitStatBlock(_: syntax.CstStatBlock)
 		depth += 1
 		return true
 	end
 
-	function visitor.visitStatBlockEnd(_: syntax.AstStatBlock)
+	function visitor.visitStatBlockEnd(_: syntax.CstStatBlock)
 		depth -= 1
 	end
 
-	function visitor.visitStatFunction(stat: syntax.AstStatFunction)
+	function visitor.visitStatFunction(stat: syntax.CstStatFunction)
 		-- depth > 1 means we're inside a nested block (not the top-level block)
 		if depth > 1 and stat.name.tag ~= "indexname" then
 			table.insert(violations, {

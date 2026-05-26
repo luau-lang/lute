@@ -20,7 +20,7 @@ export type Bytecode = luteLuau.Bytecode
 export type RequireNode = {
 	resolvedPath: string?,
 	requirePath: string?,
-	requireExpr: luteLuau.AstExprCall,
+	requireExpr: luteLuau.CstExprCall,
 }
 
 --- Compiles Luau source code into bytecode.
@@ -78,7 +78,7 @@ function luau.requires(filePath: path.Pathlike): { RequireNode }
 
 	local requireCalls = query.findAllFromRoot(ast, utils.isRequireCall)
 
-	return requireCalls:mapToArray(function(call: luteLuau.AstExprCall): RequireNode?
+	return requireCalls:mapToArray(function(call: luteLuau.CstExprCall): RequireNode?
 		local argNode = call.arguments[1].node
 		if argNode == nil then
 			return nil
@@ -86,7 +86,7 @@ function luau.requires(filePath: path.Pathlike): { RequireNode }
 
 		local content: string? = nil
 		if argNode.tag == "string" then
-			content = (argNode :: luteLuau.AstExprConstantString).token.text
+			content = (argNode :: luteLuau.CstExprConstantString).value.text
 		else
 			content = printer.printNode(argNode)
 		end

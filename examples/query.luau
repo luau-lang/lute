@@ -10,8 +10,8 @@ local p = query.findAllFromRoot(ast, utils.isRequireCall):filter(function(call)
 end)
 
 -- Can we improve the type solver here so we don't need to add this annotation?
-local argIndexNames = query.map(p, function(call: syntax.AstExprCall)
-	return call.arguments[1].node :: syntax.AstExprIndexName
+local argIndexNames = query.map(p, function(call: syntax.CstExprCall)
+	return call.arguments[1].node :: syntax.CstExprIndexName
 end)
 
 local _replacements = argIndexNames:replace(function(_)

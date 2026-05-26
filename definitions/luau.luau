@@ -546,7 +546,7 @@ export type CstStatTypeAlias = {
 	read kind: "stat",
 	read tag: "typealias",
 	read export: CstToken<"export">?,
-	read typeCstToken: CstToken<"type">,
+	read typeToken: CstToken<"type">,
 	read name: CstToken,
 	read openGenerics: CstToken<"<">?,
 	read generics: Punctuated<CstGenericType>?,
@@ -635,7 +635,7 @@ export type CstTypeSingletonString = {
 	read kind: "type",
 	read tag: "string",
 	read quoteStyle: "single" | "double",
-	read token: CstToken<string>,
+	read value: CstToken<string>,
 }
 
 --- A `typeof(expr)` type annotation node.

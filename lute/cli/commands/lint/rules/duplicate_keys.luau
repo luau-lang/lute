@@ -9,7 +9,7 @@ local message = "Duplicate keys detected in table literal."
 local target = "https://lute.luau.org/cli/lint/duplicate_keys.html"
 
 local function lint(
-	ast: syntax.AstStatBlock,
+	ast: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
@@ -26,7 +26,7 @@ local function lint(
 
 	return query
 		.findAllFromRoot(ast, utils.isExprTable)
-		:flatMap(function(tableExpr: syntax.AstExprTable): { lintTypes.LintViolation }
+		:flatMap(function(tableExpr: syntax.CstExprTable): { lintTypes.LintViolation }
 			local violations = {}
 
 			local seenKeys: { [string | number]: true } = {}
@@ -45,10 +45,10 @@ local function lint(
 					seenKeys[entry.key.text] = true
 				elseif entry.kind == "general" then
 					if entry.key.tag == "string" then
-						if seenKeys[entry.key.token.text] then
+						if seenKeys[entry.key.value.text] then
 							table.insert(violations, makeViolation(entry.location))
 						end
-						seenKeys[entry.key.token.text] = true
+						seenKeys[entry.key.value.text] = true
 					elseif entry.key.tag == "number" then
 						if seenKeys[entry.key.value] then
 							table.insert(violations, makeViolation(entry.location))

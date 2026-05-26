@@ -3,9 +3,9 @@ local query = require("@std/syntax/query")
 local test = require("@std/test")
 local utils = require("@std/syntax/utils")
 
-test.suite("AstQuery", function(suite)
+test.suite("CstQuery", function(suite)
 	suite:case("filter", function(assert)
-		local testQuery = query.findAllFromRoot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+		local testQuery = query.findAllFromRoot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber)
 
 		local filteredQuery = testQuery:filter(function(n)
 			return n.value > 2
@@ -18,7 +18,7 @@ test.suite("AstQuery", function(suite)
 	end)
 
 	suite:case("replace", function(assert)
-		local testQuery = query.findAllFromRoot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+		local testQuery = query.findAllFromRoot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber)
 
 		local replacements = testQuery:replace(function(n): string?
 			if n.value > 0 then
@@ -46,9 +46,9 @@ test.suite("AstQuery", function(suite)
 	end)
 
 	suite:case("map", function(assert)
-		local testQuery = query.findAllFromRoot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+		local testQuery = query.findAllFromRoot(syntax.parse("local _ = {0, 1, 2, 3, 4}"), utils.isExprConstantNumber)
 
-		local mappedQuery = query.map(testQuery, function(n: syntax.AstExprConstantNumber): number?
+		local mappedQuery = query.map(testQuery, function(n: syntax.CstExprConstantNumber): number?
 			if n.value % 2 == 0 then
 				return n.value * 10
 			end
@@ -62,10 +62,10 @@ test.suite("AstQuery", function(suite)
 	end)
 
 	suite:case("foreach", function(assert)
-		local testQuery = query.findAllFromRoot(syntax.parse("local _ = {0, 1, 2}"), utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+		local testQuery = query.findAllFromRoot(syntax.parse("local _ = {0, 1, 2}"), utils.isExprConstantNumber)
 
 		local sum = 0
-		testQuery:forEach(function(n: syntax.AstExprConstantNumber)
+		testQuery:forEach(function(n: syntax.CstExprConstantNumber)
 			sum = sum + n.value
 		end)
 
@@ -74,9 +74,9 @@ test.suite("AstQuery", function(suite)
 
 	suite:case("findallNums", function(assert)
 		local ast = syntax.parse("print(1 + 2)")
-		local queryResult: query.Query<syntax.AstExprConstantNumber> = query.findAllFromRoot(
-			ast, -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
-			function(n: syntax.AstNode): syntax.AstExprConstantNumber?
+		local queryResult: query.Query<syntax.CstExprConstantNumber> = query.findAllFromRoot(
+			ast,
+			function(n: syntax.CstNode): syntax.CstExprConstantNumber?
 				if n.kind == "expr" and n.tag == "number" then
 					return n
 				end
@@ -85,30 +85,30 @@ test.suite("AstQuery", function(suite)
 		)
 
 		assert.eq(#queryResult.nodes, 2)
-		local num: syntax.AstExpr = queryResult.nodes[1]
+		local num: syntax.CstExpr = queryResult.nodes[1]
 		assert.eq(num.kind, "expr")
 		assert.eq(num.tag, "number")
-		assert.eq((num :: syntax.AstExprConstantNumber).value, 1)
+		assert.eq((num :: syntax.CstExprConstantNumber).value, 1)
 		num = queryResult.nodes[2]
 		assert.eq(num.kind, "expr")
 		assert.eq(num.tag, "number")
-		assert.eq((num :: syntax.AstExprConstantNumber).value, 2)
+		assert.eq((num :: syntax.CstExprConstantNumber).value, 2)
 	end)
 
 	suite:case("findallUtils", function(assert)
 		local ast = syntax.parse("print(1 + 2)")
-		local queryResult: query.Query<syntax.AstExprConstantNumber> =
-			query.findAllFromRoot(ast, utils.isExprConstantNumber) -- LUAUFIX: Complains that AstStatBlock doesn't have location? field
+		local queryResult: query.Query<syntax.CstExprConstantNumber> =
+			query.findAllFromRoot(ast, utils.isExprConstantNumber)
 
 		assert.eq(#queryResult.nodes, 2)
-		local num: syntax.AstExpr = queryResult.nodes[1]
+		local num: syntax.CstExpr = queryResult.nodes[1]
 		assert.eq(num.kind, "expr")
 		assert.eq(num.tag, "number")
-		assert.eq((num :: syntax.AstExprConstantNumber).value, 1)
+		assert.eq((num :: syntax.CstExprConstantNumber).value, 1)
 		num = queryResult.nodes[2]
 		assert.eq(num.kind, "expr")
 		assert.eq(num.tag, "number")
-		assert.eq((num :: syntax.AstExprConstantNumber).value, 2)
+		assert.eq((num :: syntax.CstExprConstantNumber).value, 2)
 	end)
 
 	suite:case("findallTokens", function(assert)
@@ -189,13 +189,13 @@ test.suite("AstQuery", function(suite)
 		assert.eq(#locals.nodes, 1) -- Only 'local y = 1' has a value
 		assert.eq(locals.nodes[1].kind, "expr")
 		assert.eq(locals.nodes[1].tag, "number")
-		assert.eq((locals.nodes[1] :: syntax.AstExprConstantNumber).value, 1)
+		assert.eq((locals.nodes[1] :: syntax.CstExprConstantNumber).value, 1)
 	end)
 
 	suite:case("flatmapMultiple", function(assert)
 		-- Test flatmap with nodes that return multiple items
 		local ast = syntax.parse("local a, b = 1, 2; local c, d = 3, 4, 5")
-		local locals = query.findAllFromRoot(ast, utils.isStatLocal):flatMap(function(l: syntax.AstStatLocal)
+		local locals = query.findAllFromRoot(ast, utils.isStatLocal):flatMap(function(l: syntax.CstStatLocal)
 			local vars = {}
 			for _, v in l.variables do
 				table.insert(vars, v.node)
@@ -215,7 +215,7 @@ test.suite("AstQuery", function(suite)
 		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
 		local nums = query.findAllFromRoot(ast, utils.isExprConstantNumber)
 
-		local doubled = nums:mapToArray(function(n: syntax.AstExprConstantNumber): number
+		local doubled = nums:mapToArray(function(n: syntax.CstExprConstantNumber): number
 			return n.value * 2
 		end)
 
@@ -232,7 +232,7 @@ test.suite("AstQuery", function(suite)
 		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
 		local nums = query.findAllFromRoot(ast, utils.isExprConstantNumber)
 
-		local evenOnly = nums:mapToArray(function(n: syntax.AstExprConstantNumber): number?
+		local evenOnly = nums:mapToArray(function(n: syntax.CstExprConstantNumber): number?
 			if n.value % 2 == 0 then
 				return n.value
 			end

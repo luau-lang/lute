@@ -137,7 +137,7 @@ local function loadDefaultRules(
 	return rules, ruleConfigs, ruleIgnores
 end
 
-local function parseDirectives(node: syntax.AstNode): { [string]: boolean }
+local function parseDirectives(node: syntax.CstNode): { [string]: boolean }
 	local directives: { [string]: boolean } = {}
 
 	local leadingTrivia = triviaUtils.leftmostTrivia(node)
@@ -156,8 +156,8 @@ local function parseDirectives(node: syntax.AstNode): { [string]: boolean }
 end
 
 local function maybeParseDirectives(
-	node: syntax.AstNode,
-	cache: { [syntax.AstNode]: { [string]: boolean } }
+	node: syntax.CstNode,
+	cache: { [syntax.CstNode]: { [string]: boolean } }
 ): { [string]: boolean }
 	local directives = cache[node]
 	if directives == nil then
@@ -178,14 +178,14 @@ end
 
 local function violationIsSuppressed(
 	violation: types.LintViolation,
-	ast: syntax.AstStatBlock,
-	directiveCache: { [syntax.AstNode]: { [string]: boolean } },
+	ast: syntax.CstStatBlock,
+	directiveCache: { [syntax.CstNode]: { [string]: boolean } },
 	globalIgnores: { [string]: true }
 ): boolean
 	local violationSuppressed = globalIgnores[violation.lintname] == true
 
 	-- We want to find the lint directive with the tightest scope that applies to this violation
-	local function nodeIsSuppressed(node: syntax.AstNode): boolean
+	local function nodeIsSuppressed(node: syntax.CstNode): boolean
 		if syntax.span.subsumes(violation.location, node.location) then
 			-- The first node which is fully contained within a violation has the tightest relevant directive
 			local directives = maybeParseDirectives(node, directiveCache)
@@ -203,7 +203,7 @@ local function violationIsSuppressed(
 
 		local directives = maybeParseDirectives(node, directiveCache)
 
-		-- AstStatBlock suppressions should only apply to the first statement, not the block itself
+		-- CstStatBlock suppressions should only apply to the first statement, not the block itself
 		if node.kind == "stat" and node.tag == "block" then
 			return true
 		end

@@ -10,7 +10,7 @@ local message =
 local target = "https://lute.luau.org/cli/lint/no_any.html"
 
 local function lint(
-	ast: syntax.AstStatBlock,
+	ast: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
@@ -19,7 +19,7 @@ local function lint(
 		:filter(function(typeRef)
 			return typeRef.name.text == "any" and typeRef.prefix == nil
 		end)
-		:mapToArray(function(n: syntax.AstTypeReference): lintTypes.LintViolation?
+		:mapToArray(function(n: syntax.CstTypeReference): lintTypes.LintViolation?
 			return {
 				lintname = name,
 				location = n.location,

@@ -5,7 +5,7 @@ local syntaxTypes = require("@std/syntax/types")
 
 local util = {}
 
-function util.printReplacement(testName: string, transformFn: (syntax.AstStatBlock) -> syntaxTypes.Replacements)
+function util.printReplacement(testName: string, transformFn: (syntax.CstStatBlock) -> syntaxTypes.Replacements)
 	local inFile = `./tests/std/syntax/snapshots/printer/{testName}.in`
 	local source = fs.readFileToString(inFile)
 

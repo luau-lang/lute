@@ -18,7 +18,7 @@ local function containsComment(trivia: { syntax.Trivia }): boolean
 end
 
 local function isBlockEmpty(
-	block: syntax.AstStatBlock,
+	block: syntax.CstStatBlock,
 	commentsCount: boolean,
 	leadingTrivia: { syntax.Trivia },
 	trailingTrivia: { syntax.Trivia }
@@ -42,7 +42,7 @@ local function isBlockEmpty(
 end
 
 local function lint(
-	ast: syntax.AstStatBlock,
+	ast: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }

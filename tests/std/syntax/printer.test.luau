@@ -9,7 +9,7 @@ local test = require("@std/test")
 local function checkReplacement(
 	source: string,
 	expected: string,
-	transformFn: (syntaxTypes.AstNode) -> syntaxTypes.Replacements?,
+	transformFn: (syntaxTypes.CstNode) -> syntaxTypes.Replacements?,
 	assert: testtypes.Asserts
 )
 	local ast = syntax.parse(source)
@@ -30,7 +30,7 @@ test.suite("SyntaxPrinter", function(suite)
 
 		checkReplacement(source, expected, function(ast)
 			return query.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.token.text == "World" then "1 + 2" else nil
+				return if s.value.text == "World" then "1 + 2" else nil
 			end)
 		end, assert)
 	end)
@@ -44,7 +44,7 @@ test.suite("SyntaxPrinter", function(suite)
 
 		checkReplacement(source, expected, function(ast)
 			return query.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.token.text == "World" then "1 + 2" else nil
+				return if s.value.text == "World" then "1 + 2" else nil
 			end)
 		end, assert)
 	end)
@@ -70,7 +70,7 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = [[local name: string = "World"]]
 
 		local stat = syntax.parseBlock("local x: string")
-		local ann = (stat.statements[1] :: syntaxTypes.AstStatLocal).variables[1].node.annotation
+		local ann = (stat.statements[1] :: syntaxTypes.CstStatLocal).variables[1].node.annotation
 
 		checkReplacement(source, expected, function(ast)
 			return query
@@ -89,7 +89,7 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = [[type t = (...number) -> string, ...string)]]
 
 		local stat = syntax.parseBlock("type t = () -> (string, ...string)")
-		local tp = ((stat.statements[1] :: syntaxTypes.AstStatTypeAlias).type :: syntaxTypes.AstTypeFunction).returnTypes
+		local tp = ((stat.statements[1] :: syntaxTypes.CstStatTypeAlias).type :: syntaxTypes.CstTypeFunction).returnTypes
 
 		checkReplacement(source, expected, function(ast)
 			return query

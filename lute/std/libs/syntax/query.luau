@@ -1,14 +1,14 @@
 --!strict
 -- @std/syntax/query
--- Provides utility functions for querying Luau AST nodes
+-- Provides utility functions for querying Luau CST nodes
 
 local tableext = require("@std/tableext")
 local types = require("./types")
 local visitor = require("./visitor")
 
-type Node = types.AstNode
+type Node = types.CstNode
 
---- A collection of AST nodes that supports chained filtering, mapping, and replacement operations.
+--- A collection of CST nodes that supports chained filtering, mapping, and replacement operations.
 export type Query<T = Node> = {
 	nodes: { T },
 	filter: (self: Query<T>, pred: (T) -> boolean) -> Query<T>,

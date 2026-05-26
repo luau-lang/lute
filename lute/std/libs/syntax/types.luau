@@ -8,173 +8,173 @@ export type MultiLineComment = luau.MultiLineComment
 
 export type Trivia = luau.Trivia
 
-export type Token<Kind = string> = luau.Token<Kind>
+export type CstToken<Kind = string> = luau.CstToken<Kind>
 
-export type Eof = luau.Eof
+export type CstEof = luau.CstEof
 
 export type Pair<T, Separator> = luau.Pair<T, Separator>
 export type Punctuated<T, Separator = ","> = luau.Punctuated<T, Separator>
 
-export type AstLocal = luau.AstLocal
+export type CstLocal = luau.CstLocal
 
-export type AstExprGroup = luau.AstExprGroup
+export type CstExprGroup = luau.CstExprGroup
 
-export type AstExprConstantNil = luau.AstExprConstantNil
+export type CstExprConstantNil = luau.CstExprConstantNil
 
-export type AstExprConstantBool = luau.AstExprConstantBool
+export type CstExprConstantBool = luau.CstExprConstantBool
 
-export type AstExprConstantNumber = luau.AstExprConstantNumber
+export type CstExprConstantNumber = luau.CstExprConstantNumber
 
-export type AstExprConstantInteger = luau.AstExprConstantInteger
+export type CstExprConstantInteger = luau.CstExprConstantInteger
 
-export type AstExprConstantString = luau.AstExprConstantString
+export type CstExprConstantString = luau.CstExprConstantString
 
-export type AstExprLocal = luau.AstExprLocal
+export type CstExprLocal = luau.CstExprLocal
 
-export type AstExprGlobal = luau.AstExprGlobal
+export type CstExprGlobal = luau.CstExprGlobal
 
-export type AstExprVarargs = luau.AstExprVarargs
+export type CstExprVarargs = luau.CstExprVarargs
 
-export type AstExprCall = luau.AstExprCall
+export type CstExprCall = luau.CstExprCall
 
-export type AstExprInstantiate = luau.AstExprInstantiate
+export type CstExprInstantiate = luau.CstExprInstantiate
 
-export type AstExprIndexName = luau.AstExprIndexName
+export type CstExprIndexName = luau.CstExprIndexName
 
-export type AstExprIndexExpr = luau.AstExprIndexExpr
+export type CstExprIndexExpr = luau.CstExprIndexExpr
 
-export type AstExprFunction = luau.AstExprFunction
+export type CstExprFunction = luau.CstExprFunction
 
-export type AstTableExprListItem = luau.AstTableExprListItem
+export type CstTableExprListItem = luau.CstTableExprListItem
 
-export type AstTableExprRecordItem = luau.AstTableExprRecordItem
+export type CstTableExprRecordItem = luau.CstTableExprRecordItem
 
-export type AstTableExprGeneralItem = luau.AstTableExprGeneralItem
+export type CstTableExprGeneralItem = luau.CstTableExprGeneralItem
 
-export type AstTableExprItem = luau.AstTableExprItem
+export type CstTableExprItem = luau.CstTableExprItem
 
-export type AstExprTable = luau.AstExprTable
+export type CstExprTable = luau.CstExprTable
 
-export type AstExprUnary = luau.AstExprUnary
+export type CstExprUnary = luau.CstExprUnary
 
-export type AstExprBinary = luau.AstExprBinary
+export type CstExprBinary = luau.CstExprBinary
 
-export type AstExprInterpString = luau.AstExprInterpString
+export type CstExprInterpString = luau.CstExprInterpString
 
-export type AstExprTypeAssertion = luau.AstExprTypeAssertion
+export type CstExprTypeAssertion = luau.CstExprTypeAssertion
 
-export type AstElseIfExpr = luau.AstElseIfExpr
+export type CstElseIfExpr = luau.CstElseIfExpr
 
-export type AstExprIfElse = luau.AstExprIfElse
+export type CstExprIfElse = luau.CstExprIfElse
 
-export type AstExpr = luau.AstExpr
+export type CstExpr = luau.CstExpr
 
-export type AstStatBlock = luau.AstStatBlock
+export type CstStatBlock = luau.CstStatBlock
 
-export type AstStatDo = luau.AstStatDo
+export type CstStatDo = luau.CstStatDo
 
-export type AstElseIfStat = luau.AstElseIfStat
+export type CstElseIfStat = luau.CstElseIfStat
 
-export type AstStatIf = luau.AstStatIf
+export type CstStatIf = luau.CstStatIf
 
-export type AstStatWhile = luau.AstStatWhile
+export type CstStatWhile = luau.CstStatWhile
 
-export type AstStatRepeat = luau.AstStatRepeat
+export type CstStatRepeat = luau.CstStatRepeat
 
-export type AstStatBreak = luau.AstStatBreak
+export type CstStatBreak = luau.CstStatBreak
 
-export type AstStatContinue = luau.AstStatContinue
+export type CstStatContinue = luau.CstStatContinue
 
-export type AstStatReturn = luau.AstStatReturn
+export type CstStatReturn = luau.CstStatReturn
 
-export type AstStatExpr = luau.AstStatExpr
+export type CstStatExpr = luau.CstStatExpr
 
-export type AstStatLocal = luau.AstStatLocal
+export type CstStatLocal = luau.CstStatLocal
 
-export type AstStatConst = luau.AstStatConst
+export type CstStatConst = luau.CstStatConst
 
-export type AstStatFor = luau.AstStatFor
+export type CstStatFor = luau.CstStatFor
 
-export type AstStatForIn = luau.AstStatForIn
+export type CstStatForIn = luau.CstStatForIn
 
-export type AstStatAssign = luau.AstStatAssign
+export type CstStatAssign = luau.CstStatAssign
 
-export type AstStatCompoundAssign = luau.AstStatCompoundAssign
+export type CstStatCompoundAssign = luau.CstStatCompoundAssign
 
-export type AstAttribute = luau.AstAttribute
+export type CstAttribute = luau.CstAttribute
 
-export type AstStatFunction = luau.AstStatFunction
+export type CstStatFunction = luau.CstStatFunction
 
-export type AstStatLocalFunction = luau.AstStatLocalFunction
+export type CstStatLocalFunction = luau.CstStatLocalFunction
 
-export type AstStatTypeAlias = luau.AstStatTypeAlias
+export type CstStatTypeAlias = luau.CstStatTypeAlias
 
-export type AstStatTypeFunction = luau.AstStatTypeFunction
+export type CstStatTypeFunction = luau.CstStatTypeFunction
 
-export type AstStat = luau.AstStat
+export type CstStat = luau.CstStat
 
-export type AstGenericType = luau.AstGenericType
+export type CstGenericType = luau.CstGenericType
 
-export type AstGenericTypePack = luau.AstGenericTypePack
+export type CstGenericTypePack = luau.CstGenericTypePack
 
-export type AstTypeReference = luau.AstTypeReference
+export type CstTypeReference = luau.CstTypeReference
 
-export type AstTypeSingletonBool = luau.AstTypeSingletonBool
+export type CstTypeSingletonBool = luau.CstTypeSingletonBool
 
-export type AstTypeSingletonString = luau.AstTypeSingletonString
+export type CstTypeSingletonString = luau.CstTypeSingletonString
 
-export type AstTypeTypeof = luau.AstTypeTypeof
+export type CstTypeTypeof = luau.CstTypeTypeof
 
-export type AstTypeGroup = luau.AstTypeGroup
+export type CstTypeGroup = luau.CstTypeGroup
 
-export type AstTypeOptional = luau.AstTypeOptional
+export type CstTypeOptional = luau.CstTypeOptional
 
-export type AstTypeUnion = luau.AstTypeUnion
+export type CstTypeUnion = luau.CstTypeUnion
 
-export type AstTypeIntersection = luau.AstTypeIntersection
+export type CstTypeIntersection = luau.CstTypeIntersection
 
-export type AstTypeArray = luau.AstTypeArray
+export type CstTypeArray = luau.CstTypeArray
 
-export type AstTableTypeItemIndexer = luau.AstTableTypeItemIndexer
+export type CstTableTypeItemIndexer = luau.CstTableTypeItemIndexer
 
-export type AstTableTypeItemStringProperty = luau.AstTableTypeItemStringProperty
+export type CstTableTypeItemStringProperty = luau.CstTableTypeItemStringProperty
 
-export type AstTableTypeItemProperty = luau.AstTableTypeItemProperty
+export type CstTableTypeItemProperty = luau.CstTableTypeItemProperty
 
-export type AstTableTypeItem = luau.AstTableTypeItem
+export type CstTableTypeItem = luau.CstTableTypeItem
 
-export type AstTypeTable = luau.AstTypeTable
+export type CstTypeTable = luau.CstTypeTable
 
-export type AstFunctionTypeParameter = luau.AstFunctionTypeParameter
+export type CstFunctionTypeParameter = luau.CstFunctionTypeParameter
 
-export type AstTypeFunction = luau.AstTypeFunction
+export type CstTypeFunction = luau.CstTypeFunction
 
-export type AstType = luau.AstType
+export type CstType = luau.CstType
 
-export type AstTypePackExplicit = luau.AstTypePackExplicit
+export type CstTypePackExplicit = luau.CstTypePackExplicit
 
-export type AstTypePackGeneric = luau.AstTypePackGeneric
+export type CstTypePackGeneric = luau.CstTypePackGeneric
 
-export type AstTypePackVariadic = luau.AstTypePackVariadic
+export type CstTypePackVariadic = luau.CstTypePackVariadic
 
-export type AstTypePack = luau.AstTypePack
+export type CstTypePack = luau.CstTypePack
 
-export type AstNode = luau.AstNode
+export type CstNode = luau.CstNode
 
 export type ParseResult = luau.ParseResult
 
---- The type of a replacement for an AST node.
+--- The type of a replacement for a CST node.
 --- A replacement can be:
 --- 1. A string, which will be used as the replacement text for the node, with any surrounding trivia preserved.
 --- 2. An object with a `content` property containing the replacement string, and an optional `preserveTrivia` boolean property.
----    If `preserveTrivia` is true, the replaced AST node's attached trivia (whitespace and comments) will be reserialized with the replacement content.
+---    If `preserveTrivia` is true, the replaced CST node's attached trivia (whitespace and comments) will be reserialized with the replacement content.
 ---    If false, the trivia will be discarded. If omitted, trivia is preserved by default.
 --- Note that trailing trivia for a token consists of all whitespace and comments that follow it up to and including a newline.
 --- Any trivia after the first seen newline is considered leading trivia for the next token.
 export type Replacement = string | { content: string, preserveTrivia: boolean? }
 
---- A mapping of AST nodes to their replacements, used with `@std/syntax/printer` and `lute transform` to specify how ASTs should be mutated.
-export type Replacements = { [AstNode]: Replacement }
+--- A mapping of CST nodes to their replacements, used with `@std/syntax/printer` and `lute transform` to specify how CSTs should be mutated.
+export type Replacements = { [CstNode]: Replacement }
 
 export type Type = luau.Type
 
