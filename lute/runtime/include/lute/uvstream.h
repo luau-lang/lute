@@ -143,5 +143,14 @@ struct PipeStream : UVStream<uv_pipe_t>
     }
 };
 
+struct TTYStream : UVStream<uv_tty_t>
+{
+    TTYStream(uv_loop_t* loop, uv_file fd, std::string handleContext)
+        : UVStream<uv_tty_t>(loop, std::move(handleContext))
+    {
+        uv_tty_init(loop, stream.get(), fd, /* readable(unused)*/ -1);
+    }
+};
+
 
 } // namespace uvutils
