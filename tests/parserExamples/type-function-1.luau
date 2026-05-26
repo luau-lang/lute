@@ -1,6 +1,4 @@
 -- stylua: ignore start
-type function Foo()
-end
+type function Foo() end
 
-export type function Bar()
-end
+export type function Bar() end

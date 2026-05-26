@@ -1,1 +1,1 @@
-return {"result from .config.luau"}
+return { "result from .config.luau" }

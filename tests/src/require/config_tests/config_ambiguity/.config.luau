@@ -1,7 +1,7 @@
 return {
-    luau = {
-        aliases = {
-            dep = "./dependency"
-        }
-    }
+	luau = {
+		aliases = {
+			dep = "./dependency",
+		},
+	},
 }

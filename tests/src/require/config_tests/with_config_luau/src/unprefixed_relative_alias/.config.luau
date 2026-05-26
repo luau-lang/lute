@@ -1,7 +1,7 @@
 return {
-    luau = {
-        aliases = {
-            unprefixed_dep = "unprefixed_dep",
-        }
-    }
+	luau = {
+		aliases = {
+			unprefixed_dep = "unprefixed_dep",
+		},
+	},
 }

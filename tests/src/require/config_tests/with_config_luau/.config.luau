@@ -1,8 +1,8 @@
 return {
-    luau = {
-        aliases = {
-            dep = "./this_should_be_overwritten_by_child_luaurc",
-            otherdep = "./src/other_dependency"
-        }
-    }
+	luau = {
+		aliases = {
+			dep = "./this_should_be_overwritten_by_child_luaurc",
+			otherdep = "./src/other_dependency",
+		},
+	},
 }
