@@ -193,9 +193,8 @@ jobs:
       - name: Run Lute Check
         shell: bash
         run: |
-          echo "This specifically uses bash"
-          set +f
-          echo scratch/*.luau
+          shopt -s globstar
+          echo scratch/**/*.luau
           ${{ steps.build_lute.outputs.exe_path }} check scratch/**/*.luau
           echo $?
           # ${{ steps.build_lute.outputs.exe_path }} check tcfail.luau
