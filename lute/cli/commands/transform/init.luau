@@ -217,6 +217,10 @@ local function main(...: string)
 	if not migrationPath then
 		print(`Error: No code transformation script specified.\n\n{USAGE}\nUse --help for more information.`)
 		process.exit(1)
+
+		-- FIXME(Luau): the type system doesn't know `process.exit` never returns, and so we need to have an error
+		-- in order to ensure that type refinements still fire as we'd expect to make the type of `migrationPath` non-nil.
+		error("unreachable")
 	end
 
 	local dryRun = args:has("dry-run")
