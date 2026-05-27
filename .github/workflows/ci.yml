@@ -187,7 +187,7 @@ jobs:
         uses: ./.github/actions/setup-and-build
         with:
           target: Lute.CLI
-          config: release
+          config: debug
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Lute Check
