@@ -78,7 +78,7 @@ local function workerFailuresReporter(failures: { string })
 	end
 end
 
-local function snapReporter(result: snapty.SnapResult)
+local function snapReporter(result: snapty.snapresult)
 	local total = #result.passed + #result.failed + #result.new
 
 	for _, p in result.passed do

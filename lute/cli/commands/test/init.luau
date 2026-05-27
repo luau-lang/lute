@@ -71,7 +71,7 @@ local function runtests(
 		local done = 0
 		for _ = 1, nworkers do
 			task.spawn(function()
-				local current: path.Path? = nil
+				local current = nil
 				xpcall(function()
 					local worker = vm.create("@self/worker")
 					while true do
@@ -80,7 +80,7 @@ local function runtests(
 							break
 						end
 						local res = worker.runfile({
-							file = path.format(current :: path.Path),
+							file = path.format(current),
 							suite = suiteName,
 							case = caseName,
 							verbose = runOptions.verbose,

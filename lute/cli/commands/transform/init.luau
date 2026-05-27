@@ -217,7 +217,6 @@ local function main(...: string)
 	if not migrationPath then
 		print(`Error: No code transformation script specified.\n\n{USAGE}\nUse --help for more information.`)
 		process.exit(1)
-		-- error("unreachable") -- for type checking
 	end
 
 	local dryRun = args:has("dry-run")
