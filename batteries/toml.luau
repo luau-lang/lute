@@ -373,7 +373,10 @@ local function deserialize(input: string): { [string]: TomlValue }
 	-- maps escape-sequence byte to its result (string) or a no-arg handler (() -> string)
 	local escapeMapping: { [number]: string | () -> string } = {
 		[34] = '"', -- \"
-		[85] = function() return parseUnicodeEscape(true) end, -- \UXXXXXXXX
+		-- \UXXXXXXXX
+		[85] = function()
+			return parseUnicodeEscape(true)
+		end,
 		[92] = "\\", -- \\
 		[98] = "\b", -- \b
 		[101] = "\x1B", -- \e  (TOML 1.1)
@@ -381,7 +384,10 @@ local function deserialize(input: string): { [string]: TomlValue }
 		[110] = "\n", -- \n
 		[114] = "\r", -- \r
 		[116] = "\t", -- \t
-		[117] = function() return parseUnicodeEscape(false) end, -- \uXXXX
+		-- \uXXXX
+		[117] = function()
+			return parseUnicodeEscape(false)
+		end,
 		[120] = parseHexEscape, -- \xXX  (TOML 1.1)
 	}
 
@@ -1238,10 +1244,18 @@ local function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	local dottedKindErrors: { [string]: (key: string) -> string } = {
-		["array-element"] = function(k) return `cannot extend explicitly-defined table '{k}' via dotted key` end,
-		["array-value"] = function(k) return `cannot navigate through static array value '{k}'` end,
-		["defined"] = function(k) return `cannot extend explicitly-defined table '{k}' via dotted key` end,
-		["inline"] = function(k) return `cannot extend inline table via key '{k}'` end,
+		["array-element"] = function(k)
+			return `cannot extend explicitly-defined table '{k}' via dotted key`
+		end,
+		["array-value"] = function(k)
+			return `cannot navigate through static array value '{k}'`
+		end,
+		["defined"] = function(k)
+			return `cannot extend explicitly-defined table '{k}' via dotted key`
+		end,
+		["inline"] = function(k)
+			return `cannot extend inline table via key '{k}'`
+		end,
 	}
 
 	-- navigate through dotted intermediate keys, creating tables as needed;
@@ -1359,17 +1373,31 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- kind errors when traversing intermediate path components under a [header]
 	local headerPathKindErrors: { [string]: (key: string) -> string } = {
-		["array-value"] = function(k) return `key '{k}' is a static array, cannot navigate through it` end,
-		["inline"] = function(_) return "cannot extend inline table" end,
+		["array-value"] = function(k)
+			return `key '{k}' is a static array, cannot navigate through it`
+		end,
+		["inline"] = function(_)
+			return "cannot extend inline table"
+		end,
 	}
 
 	-- kind errors when the leaf key of a [header] already exists as a table
 	local headerLeafKindErrors: { [string]: (key: string) -> string } = {
-		["array-element"] = function(k) return `cannot define [{k}]: already an array-of-tables element` end,
-		["array-value"] = function(k) return `cannot define [{k}]: key is a static array value` end,
-		["defined"] = function(k) return `duplicate table header [{k}]` end,
-		["implicit-dotted"] = function(k) return `table [{k}] was already defined via a dotted key` end,
-		["inline"] = function(_) return "cannot extend inline table with a table header" end,
+		["array-element"] = function(k)
+			return `cannot define [{k}]: already an array-of-tables element`
+		end,
+		["array-value"] = function(k)
+			return `cannot define [{k}]: key is a static array value`
+		end,
+		["defined"] = function(k)
+			return `duplicate table header [{k}]`
+		end,
+		["implicit-dotted"] = function(k)
+			return `table [{k}] was already defined via a dotted key`
+		end,
+		["inline"] = function(_)
+			return "cannot extend inline table with a table header"
+		end,
 	}
 
 	-- navigate to the table referenced by a [key] or [[key]] header
