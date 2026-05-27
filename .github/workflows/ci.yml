@@ -193,8 +193,7 @@ jobs:
       - name: Run Lute Check
         run: |
           # @lute typechecks
-          ${{ steps.build_lute.outputs.exe_path }} check tcfail.luau
-          ${{ steps.build_lute.outputs.exe_path }} check tcpass.luau
+          ${{ steps.build_lute.outputs.exe_path }} check scratch/**/*.luau
 
   aggregator:
     name: Gated Commits
