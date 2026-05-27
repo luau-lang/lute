@@ -274,19 +274,19 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 			return false
 		end
 
-		local astlocal = node["local"]
+		local cstlocal = node["local"]
 
 		-- We only ignore writes to locals in the same scope
 		-- We don't want to warn writes to upvalues as unused
-		if visitor.inLValueContext and visitor.scopes[#visitor.scopes][astlocal] ~= nil then
+		if visitor.inLValueContext and visitor.scopes[#visitor.scopes][cstlocal] ~= nil then
 			return false
 		end
 
-		if visitor.ignoreReferences[astlocal] then
+		if visitor.ignoreReferences[cstlocal] then
 			return false
 		end
 
-		markVisited(astlocal)
+		markVisited(cstlocal)
 
 		return false
 	end
@@ -366,7 +366,7 @@ local function isPositiveInt(v: unknown): boolean
 end
 
 local function lint(
-	ast: syntax.CstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
@@ -427,7 +427,7 @@ local function lint(
 		end
 	end
 
-	return tableext.map(unusedLocals(ast, writeOnlyAPIs), function(l: syntax.CstLocal): lintTypes.LintViolation
+	return tableext.map(unusedLocals(cst, writeOnlyAPIs), function(l: syntax.CstLocal): lintTypes.LintViolation
 		return {
 			lintname = name,
 			location = l.location, -- LUAUFIX: Bidirectional inference should let us know that l : syntax.CstLocal

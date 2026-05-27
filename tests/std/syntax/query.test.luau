@@ -73,9 +73,9 @@ test.suite("CstQuery", function(suite)
 	end)
 
 	suite:case("findallNums", function(assert)
-		local ast = syntax.parse("print(1 + 2)")
+		local cst = syntax.parse("print(1 + 2)")
 		local queryResult: query.Query<syntax.CstExprConstantNumber> = query.findAllFromRoot(
-			ast,
+			cst,
 			function(n: syntax.CstNode): syntax.CstExprConstantNumber?
 				if n.kind == "expr" and n.tag == "number" then
 					return n
@@ -96,9 +96,9 @@ test.suite("CstQuery", function(suite)
 	end)
 
 	suite:case("findallUtils", function(assert)
-		local ast = syntax.parse("print(1 + 2)")
+		local cst = syntax.parse("print(1 + 2)")
 		local queryResult: query.Query<syntax.CstExprConstantNumber> =
-			query.findAllFromRoot(ast, utils.isExprConstantNumber)
+			query.findAllFromRoot(cst, utils.isExprConstantNumber)
 
 		assert.eq(#queryResult.nodes, 2)
 		local num: syntax.CstExpr = queryResult.nodes[1]
@@ -112,25 +112,25 @@ test.suite("CstQuery", function(suite)
 	end)
 
 	suite:case("findallTokens", function(assert)
-		local ast = syntax.parse("local x = 1 or nil")
+		local cst = syntax.parse("local x = 1 or nil")
 		-- verify that query doesn't doubly count tokens
-		local queryResult = query.findAllFromRoot(ast, utils.isToken)
+		local queryResult = query.findAllFromRoot(cst, utils.isToken)
 		assert.eq(#queryResult.nodes, 6)
 		queryResult:forEach(function(node)
 			assert.eq(node.kind, "token")
 		end)
-		local constNums = query.findAllFromRoot(ast, utils.isExprConstantNumber)
+		local constNums = query.findAllFromRoot(cst, utils.isExprConstantNumber)
 		assert.eq(#constNums.nodes, 1)
-		local constNils = query.findAllFromRoot(ast, utils.isExprConstantNil)
+		local constNils = query.findAllFromRoot(cst, utils.isExprConstantNil)
 		assert.eq(#constNils.nodes, 1)
-		local tokens = query.findAllFromRoot(ast, utils.isToken)
+		local tokens = query.findAllFromRoot(cst, utils.isToken)
 		assert.eq(#tokens.nodes, 6)
 	end)
 
 	suite:case("findall", function(assert)
 		-- Test selecting from a query of binary expressions to find their operands
-		local ast = syntax.parse("local x = 1 + 2")
-		local nums = query.findAllFromRoot(ast, utils.isExprBinary):findAll(utils.isExprConstantNumber)
+		local cst = syntax.parse("local x = 1 + 2")
+		local nums = query.findAllFromRoot(cst, utils.isExprBinary):findAll(utils.isExprConstantNumber)
 
 		assert.eq(#nums.nodes, 2)
 		assert.eq(nums.nodes[1].value, 1)
@@ -139,8 +139,8 @@ test.suite("CstQuery", function(suite)
 
 	suite:case("findall", function(assert)
 		-- Test selecting through nested structures
-		local ast = syntax.parse("local x = {a = 1 + 2, b = 3 + 4}")
-		local tables = query.findAllFromRoot(ast, utils.isExprTable)
+		local cst = syntax.parse("local x = {a = 1 + 2, b = 3 + 4}")
+		local tables = query.findAllFromRoot(cst, utils.isExprTable)
 
 		-- Select all binary expressions within the table
 		local binaryExprs = tables:findAll(utils.isExprBinary)
@@ -159,8 +159,8 @@ test.suite("CstQuery", function(suite)
 
 	suite:case("flatmap", function(assert)
 		-- Test flatmap to collect multiple items from each node
-		local ast = syntax.parse("local x = 1 + 2; local y = 3 + 4")
-		local locals = query.findAllFromRoot(ast, utils.isStatLocal):flatMap(function(l)
+		local cst = syntax.parse("local x = 1 + 2; local y = 3 + 4")
+		local locals = query.findAllFromRoot(cst, utils.isStatLocal):flatMap(function(l)
 			local values = {}
 			for _, v in l.values do
 				table.insert(values, v.node)
@@ -177,8 +177,8 @@ test.suite("CstQuery", function(suite)
 
 	suite:case("flatmapEmpty", function(assert)
 		-- Test flatmap with some nodes returning empty arrays
-		local ast = syntax.parse("local x; local y = 1; local z")
-		local locals = query.findAllFromRoot(ast, utils.isStatLocal):flatMap(function(l)
+		local cst = syntax.parse("local x; local y = 1; local z")
+		local locals = query.findAllFromRoot(cst, utils.isStatLocal):flatMap(function(l)
 			local values = {}
 			for _, v in l.values do
 				table.insert(values, v.node)
@@ -194,8 +194,8 @@ test.suite("CstQuery", function(suite)
 
 	suite:case("flatmapMultiple", function(assert)
 		-- Test flatmap with nodes that return multiple items
-		local ast = syntax.parse("local a, b = 1, 2; local c, d = 3, 4, 5")
-		local locals = query.findAllFromRoot(ast, utils.isStatLocal):flatMap(function(l: syntax.CstStatLocal)
+		local cst = syntax.parse("local a, b = 1, 2; local c, d = 3, 4, 5")
+		local locals = query.findAllFromRoot(cst, utils.isStatLocal):flatMap(function(l: syntax.CstStatLocal)
 			local vars = {}
 			for _, v in l.variables do
 				table.insert(vars, v.node)
@@ -212,8 +212,8 @@ test.suite("CstQuery", function(suite)
 
 	suite:case("maptoarray", function(assert)
 		-- Test maptoarray to convert query nodes to a simple array
-		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
-		local nums = query.findAllFromRoot(ast, utils.isExprConstantNumber)
+		local cst = syntax.parse("local _ = {0, 1, 2, 3, 4}")
+		local nums = query.findAllFromRoot(cst, utils.isExprConstantNumber)
 
 		local doubled = nums:mapToArray(function(n: syntax.CstExprConstantNumber): number
 			return n.value * 2
@@ -229,8 +229,8 @@ test.suite("CstQuery", function(suite)
 
 	suite:case("maptoarrayWithNil", function(assert)
 		-- Test maptoarray filtering out nil values
-		local ast = syntax.parse("local _ = {0, 1, 2, 3, 4}")
-		local nums = query.findAllFromRoot(ast, utils.isExprConstantNumber)
+		local cst = syntax.parse("local _ = {0, 1, 2, 3, 4}")
+		local nums = query.findAllFromRoot(cst, utils.isExprConstantNumber)
 
 		local evenOnly = nums:mapToArray(function(n: syntax.CstExprConstantNumber): number?
 			if n.value % 2 == 0 then

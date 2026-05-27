@@ -178,7 +178,7 @@ end
 
 local function violationIsSuppressed(
 	violation: types.LintViolation,
-	ast: syntax.CstStatBlock,
+	cst: syntax.CstStatBlock,
 	directiveCache: { [syntax.CstNode]: { [string]: boolean } },
 	globalIgnores: { [string]: true }
 ): boolean
@@ -219,7 +219,7 @@ local function violationIsSuppressed(
 
 	local suppressionVisitor = visitor.create(nodeIsSuppressed)
 
-	visitor.visitBlock(ast, suppressionVisitor)
+	visitor.visitBlock(cst, suppressionVisitor)
 
 	return violationSuppressed
 end
@@ -306,12 +306,12 @@ function lintCore.lintString(
 	if VERBOSE then
 		print(`Parsing input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
-	local ast = syntax.parseBlock(source)
+	local cst = syntax.parseBlock(source)
 
 	if VERBOSE then
 		print(`Parsing global lint ignores in input {if inputFilePath then `file '{inputFilePath}'` else "string"}`)
 	end
-	local globalIgnores = parseGlobalIgnores(triviaUtils.leftmostTrivia(ast))
+	local globalIgnores = parseGlobalIgnores(triviaUtils.leftmostTrivia(cst))
 
 	if VERBOSE then
 		print("Applying lint rules")
@@ -333,12 +333,12 @@ function lintCore.lintString(
 			options = if ruleConfig.options then ruleConfig.options else {},
 		}
 
-		local success, err = pcall(rule.lint, ast, inputFilePath, context)
+		local success, err = pcall(rule.lint, cst, inputFilePath, context)
 		local overwrittenSeverity = ruleConfig.severity
 		if success then
 			-- On success, err contains the returned violations
 			for _, violation in err do
-				if not violationIsSuppressed(violation, ast, directiveCache, globalIgnores) then
+				if not violationIsSuppressed(violation, cst, directiveCache, globalIgnores) then
 					violation.severity = if overwrittenSeverity then overwrittenSeverity else violation.severity
 					table.insert(violations, violation)
 				end

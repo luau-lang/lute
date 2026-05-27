@@ -59,10 +59,10 @@ end
 
 -- Report instances of attempted swaps like:
 -- a = b; b = a
-local function lint(ast: syntax.CstStatBlock, sourcepath: path.Path?): { lintTypes.LintViolation }
+local function lint(cst: syntax.CstStatBlock, sourcepath: path.Path?): { lintTypes.LintViolation }
 	local violations = {}
 
-	local nodes = query.findAllFromRoot(ast, utils.isStatBlock).nodes
+	local nodes = query.findAllFromRoot(cst, utils.isStatBlock).nodes
 
 	for _, block in nodes do
 		for i = 1, #block.statements - 1 do

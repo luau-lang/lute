@@ -127,13 +127,13 @@ function queryLib.mapToArray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
 	return result
 end
 
---- Creates a new `Query` by visiting every node in `ast` and collecting those for which `fn` returns a non-nil value.
-function queryLib.findAllFromRoot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
+--- Creates a new `Query` by visiting every node in `cst` and collecting those for which `fn` returns a non-nil value.
+function queryLib.findAllFromRoot<T>(cst: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
 	local nodes: { T } = {}
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: Node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
+	local root: Node = if (cst :: any).root ~= nil then (cst :: any).root else cst :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {

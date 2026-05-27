@@ -9,11 +9,11 @@ function util.printReplacement(testName: string, transformFn: (syntax.CstStatBlo
 	local inFile = `./tests/std/syntax/snapshots/printer/{testName}.in`
 	local source = fs.readFileToString(inFile)
 
-	local ast = syntax.parse(source)
+	local cst = syntax.parse(source)
 
-	local replacements = transformFn(ast.root)
+	local replacements = transformFn(cst.root)
 
-	print(printer.printFile(ast, replacements))
+	print(printer.printFile(cst, replacements))
 end
 
 return util

@@ -13,12 +13,12 @@ local function isZeroLiteral(expr: syntax.CstExpr): boolean
 end
 
 local function lint(
-	ast: syntax.CstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query
-		.findAllFromRoot(ast, utils.isExprBinary)
+		.findAllFromRoot(cst, utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "/" or bin.operator.text == "//" or bin.operator.text == "%"
 		end)

@@ -27,7 +27,7 @@ export type RuleContext = {
 }
 
 export type LintRule = {
-	read lint: (ast: syntax.CstStatBlock, sourcepath: path.Path?, context: RuleContext) -> { LintViolation },
+	read lint: (cst: syntax.CstStatBlock, sourcepath: path.Path?, context: RuleContext) -> { LintViolation },
 	read name: string,
 }
 

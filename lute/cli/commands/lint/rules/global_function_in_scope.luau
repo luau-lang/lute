@@ -9,7 +9,7 @@ local message =
 local target = "https://lute.luau.org/cli/lint/global_function_in_scope.html"
 
 local function lint(
-	ast: syntax.CstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
@@ -42,7 +42,7 @@ local function lint(
 		return true
 	end
 
-	visitorLib.visit(ast, visitor)
+	visitorLib.visit(cst, visitor)
 
 	return violations
 end

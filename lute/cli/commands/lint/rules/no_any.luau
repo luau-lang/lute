@@ -10,12 +10,12 @@ local message =
 local target = "https://lute.luau.org/cli/lint/no_any.html"
 
 local function lint(
-	ast: syntax.CstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query
-		.findAllFromRoot(ast, utils.isTypeReference)
+		.findAllFromRoot(cst, utils.isTypeReference)
 		:filter(function(typeRef)
 			return typeRef.name.text == "any" and typeRef.prefix == nil
 		end)
