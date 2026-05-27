@@ -371,7 +371,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	-- maps escape-sequence byte to its result (string) or a no-arg handler (() -> string)
-	const escapeMapping: { [number]: string | () -> string } = table.freeze {
+	const escapeMapping: { [number]: string | () -> string } = table.freeze({
 		[34] = '"', -- \"
 		-- \UXXXXXXXX
 		[85] = function()
@@ -389,7 +389,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 			return parseUnicodeEscape(false)
 		end,
 		[120] = parseHexEscape, -- \xXX  (TOML 1.1)
-	}
+	})
 
 	const function parseEscape(): string
 		if pos > len then
@@ -1024,7 +1024,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 	local setNestedKey: (tbl: { [string]: TomlValue }, parts: { string }, value: TomlValue, fromDottedKey: boolean) -> ()
 
 	-- maps first byte of a value to its parser; digit range handled separately below
-	const valueDispatch: { [number]: () -> TomlValue } = table.freeze {
+	const valueDispatch: { [number]: () -> TomlValue } = table.freeze({
 		-- when we find `"`...
 		[34] = function()
 			pos += 1
@@ -1127,7 +1127,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 			pos += 1
 			return parseInlineTable()
 		end,
-	}
+	})
 
 	parseValue = function(): TomlValue
 		skipWhitespace()
@@ -1382,7 +1382,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 	} :: any) -- FIXME(Luau): freezing the table breaks bidirectional typing
 
 	-- kind errors when the leaf key of a [header] already exists as a table
-	const headerLeafKindErrors: { [TableKind]: (key: string) -> string }  = table.freeze({
+	const headerLeafKindErrors: { [TableKind]: (key: string) -> string } = table.freeze({
 		["array-element"] = function(k)
 			return `cannot define [{k}]: already an array-of-tables element`
 		end,
