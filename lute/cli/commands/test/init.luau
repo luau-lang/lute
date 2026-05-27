@@ -71,20 +71,25 @@ local function runtests(
 		local done = 0
 		for _ = 1, nworkers do
 			task.spawn(function()
-				local current = nil
+				local current: path.Path? = nil
 				xpcall(function()
 					local worker = vm.create("@self/worker")
+
 					while true do
 						current = takenext()
+
 						if not current then
 							break
 						end
+
 						local res = worker.runfile({
-							file = path.format(current),
+							-- FIXME(Luau): we probably should not need the `path.Path` cast here to know `current` is non-nil.
+							file = path.format(current :: path.Path),
 							suite = suiteName,
 							case = caseName,
 							verbose = runOptions.verbose,
 						})
+
 						if res.__tag == "err" then
 							table.insert(workerFailures, res.error)
 						else
