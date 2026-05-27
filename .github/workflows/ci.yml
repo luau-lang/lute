@@ -195,6 +195,7 @@ jobs:
         run: |
           # @lute typechecks
           ${{ steps.build_lute.outputs.exe_path }} check tcfail.luau
+          ${{ steps.build_lute.outputs.exe_path }} check tcpass.luau
 
   aggregator:
     name: Gated Commits
