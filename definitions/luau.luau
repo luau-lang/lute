@@ -660,7 +660,8 @@ export type CstTypeGroup = {
 }
 
 --- An optional type annotation node (e.g., `T?`).
-export type CstTypeOptional = { read location: Span, read kind: "type", read tag: "optional", read token: CstToken<"?"> }
+export type CstTypeOptional =
+	{ read location: Span, read kind: "type", read tag: "optional", read token: CstToken<"?"> }
 
 --- A union type annotation node (e.g., `A | B`).
 export type CstTypeUnion = {
