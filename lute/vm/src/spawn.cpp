@@ -60,6 +60,9 @@ static bool copyLuauObject(lua_State* from, lua_State* to, int fromIdx)
     }
     break;
     case LUA_TTABLE:
+        if (!lua_checkstack(to, 3) || !lua_checkstack(from, 2))
+            return false;
+
         lua_createtable(to, 0, 0);
 
         for (int i = 0; i = lua_rawiter(from, fromIdx, i), i >= 0;)
