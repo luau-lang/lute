@@ -11,7 +11,7 @@ export type RuleConfig = {
 }
 
 export type LintConfig = {
-	ignores: { path.Pathlike }?, -- globs/paths to ignore as we walk lintee files
+	ignores: { string }?, -- globs/paths to ignore as we walk lintee files
 	globals: types.GlobalsConfig?, -- globals to pass down to all rules via context
 	rulepaths: { path.Pathlike }?, -- paths to local rules to use
 	ruleconfigs: {
