@@ -228,4 +228,91 @@ test.suite("LuteVmSuite", function(suite)
 		fs.remove(child_vm)
 		fs.remove(parent_vm)
 	end)
+
+	suite:case("deeplyNestedTableError", function(assert)
+		local tmpdir = system.tmpdir()
+		local child_vm = path.join(tmpdir, "child_vm_deep.luau")
+		local parent_vm = path.join(tmpdir, "parent_vm_deep.luau")
+
+		do
+			local handle = fs.open(child_vm, "w+")
+			assert.that(fs.exists(child_vm))
+			fs.write(handle, [[ return { echo = function(x: any): any return x end } ]])
+			fs.close(handle)
+		end
+
+		do
+			local handle = fs.open(parent_vm, "w+")
+			assert.that(fs.exists(parent_vm))
+			fs.write(
+				handle,
+				[[
+                local vm = require("@lute/vm")
+                local worker = vm.create("./child_vm_deep")
+
+                local function createNestedTable(depth: number): { any }
+                  local root = {}
+                  local current = root
+
+                  for _ = 1, depth do
+                    current.next = {}
+                    current = current.next
+                  end
+
+                  return root
+                end
+
+                worker.echo(createNestedTable(50000))
+            ]]
+			)
+			fs.close(handle)
+		end
+
+		local result = process.run({ path.format(process.execPath()), path.format(parent_vm) })
+		assert.eq(result.signal, nil)
+		assert.neq(result.exitcode, 0)
+		assert.strContains(result.stderr, "Failed to copy arguments between VMs")
+
+		fs.remove(child_vm)
+		fs.remove(parent_vm)
+	end)
+
+	suite:case("cyclicTableError", function(assert)
+		local tmpdir = system.tmpdir()
+		local child_vm = path.join(tmpdir, "child_vm_cycle.luau")
+		local parent_vm = path.join(tmpdir, "parent_vm_cycle.luau")
+
+		do
+			local handle = fs.open(child_vm, "w+")
+			assert.that(fs.exists(child_vm))
+			fs.write(handle, [[ return { echo = function(x: any): any return x end } ]])
+			fs.close(handle)
+		end
+
+		do
+			local handle = fs.open(parent_vm, "w+")
+			assert.that(fs.exists(parent_vm))
+			fs.write(
+				handle,
+				[[
+                local vm = require("@lute/vm")
+                local worker = vm.create("./child_vm_cycle")
+
+                local root = {}
+                root.self = root
+
+                worker.echo(root)
+            ]]
+			)
+			fs.close(handle)
+		end
+
+		local result = process.run({ path.format(process.execPath()), path.format(parent_vm) })
+		assert.eq(result.signal, nil)
+		assert.neq(result.exitcode, 0)
+		assert.strContains(result.stderr, "Failed to copy arguments between VMs")
+
+		fs.remove(child_vm)
+		fs.remove(parent_vm)
+	end)
 end)

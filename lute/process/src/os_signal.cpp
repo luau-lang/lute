@@ -1,4 +1,4 @@
-#include "os_signal.h"
+#include "lute/os_signal.h"
 
 #include "lute/common.h"
 #include "lute/runtime.h"
@@ -108,85 +108,69 @@ static int resolveSignal(lua_State* L, const char* name)
     luaL_errorL(L, "unknown signal: %s", name);
 }
 
-struct SignalHandle
+SignalHandle::SignalHandle(uv_loop_t* loop, int signum, std::function<void()> callback)
+    : callback(std::move(callback))
 {
-    SignalHandle(lua_State* L, int callbackIdx, int signum)
-        : runtime(getRuntime(L))
-        , callbackReference(std::make_shared<Ref>(L, callbackIdx))
+    if (signum < 0)
+        return;
+
+    uvHandle = std::make_unique<uv_signal_t>();
+    uvHandle->data = this;
+
+    int err = uv_signal_init(loop, uvHandle.get());
+    if (err != 0)
     {
-        if (signum < 0) // no-op: signal not available on this platform
-            return;
-
-        uvHandle = std::make_unique<uv_signal_t>();
-        uvHandle->data = this;
-
-        int err = uv_signal_init(runtime->getEventLoop(), uvHandle.get());
-        if (err != 0)
-        {
-            uvHandle.reset();
-            luaL_errorL(L, "uv_signal_init failed: %s", uv_strerror(err));
-        }
-
-        err = uv_signal_start(
-            uvHandle.get(),
-            [](uv_signal_t* h, int)
-            {
-                auto* self = static_cast<SignalHandle*>(h->data);
-                self->runtime->scheduleLuauCallback(
-                    self->callbackReference,
-                    [](lua_State*) -> int
-                    {
-                        return 0;
-                    }
-                );
-            },
-            signum
-        );
-
-        if (err != 0)
-        {
-            uv_signal_stop(uvHandle.get());
-            callbackReference.reset();
-            auto raw = uvHandle.release();
-
-            uv_close(reinterpret_cast<uv_handle_t*>(raw), [](uv_handle_t* h) { delete reinterpret_cast<uv_signal_t*>(h); });
-            luaL_errorL(L, "uv_signal_start failed: %s", uv_strerror(err));
-        }
+        uvHandle.reset();
+        return;
     }
 
-    void close()
+    err = uv_signal_start(
+        uvHandle.get(),
+        [](uv_signal_t* h, int)
+        {
+            auto* self = static_cast<SignalHandle*>(h->data);
+            self->callback();
+        },
+        signum
+    );
+
+    if (err != 0)
     {
-        if (isClosed)
-            return;
-
-        isClosed = true;
-
-        if (!uvHandle) // no-op handle
-            return;
-
         uv_signal_stop(uvHandle.get());
-        callbackReference.reset();
+        this->callback = nullptr;
         auto raw = uvHandle.release();
 
-        uv_close(
-            reinterpret_cast<uv_handle_t*>(raw),
-            [](uv_handle_t* h)
-            {
-                delete reinterpret_cast<uv_signal_t*>(h);
-            }
-        );
+        uv_close(reinterpret_cast<uv_handle_t*>(raw), [](uv_handle_t* h) { delete reinterpret_cast<uv_signal_t*>(h); });
     }
+}
 
-    ~SignalHandle()
-    {
-        close();
-    }
+void SignalHandle::close()
+{
+    if (isClosed)
+        return;
 
-    Runtime* runtime;
-    std::shared_ptr<Ref> callbackReference;
-    bool isClosed = false;
-    std::unique_ptr<uv_signal_t> uvHandle; // null for no-op handles
-};
+    isClosed = true;
+
+    if (!uvHandle)
+        return;
+
+    uv_signal_stop(uvHandle.get());
+    callback = nullptr;
+    auto raw = uvHandle.release();
+
+    uv_close(
+        reinterpret_cast<uv_handle_t*>(raw),
+        [](uv_handle_t* h)
+        {
+            delete reinterpret_cast<uv_signal_t*>(h);
+        }
+    );
+}
+
+SignalHandle::~SignalHandle()
+{
+    close();
+}
 
 static int closeSignalHandle(lua_State* L)
 {
@@ -205,8 +189,24 @@ int signalFunc(lua_State* L)
 
     int signum = resolveSignal(L, name);
 
+    auto* runtime = getRuntime(L);
+    auto callbackReference = std::make_shared<Ref>(L, 2);
+
     void* storage = lua_newuserdatataggedwithmetatable(L, sizeof(SignalHandle), kSignalHandleTag);
-    new (storage) SignalHandle(L, 2, signum);
+    new (storage) SignalHandle(
+        getRuntimeLoop(L),
+        signum,
+        [runtime, callbackReference]()
+        {
+            runtime->scheduleLuauCallback(
+                callbackReference,
+                [](lua_State*) -> int
+                {
+                    return 0;
+                }
+            );
+        }
+    );
 
     return 1;
 }

@@ -71,7 +71,7 @@ local function runtests(
 		local done = 0
 		for _ = 1, nworkers do
 			task.spawn(function()
-				local current = nil
+				local current: path.Path? = nil
 				xpcall(function()
 					local worker = vm.create("@self/worker")
 					while true do
@@ -80,7 +80,7 @@ local function runtests(
 							break
 						end
 						local res = worker.runfile({
-							file = path.format(current),
+							file = path.format(current :: path.Path), -- LUAUFIX: remove typecast when refinements supports break statements
 							suite = suiteName,
 							case = caseName,
 							verbose = runOptions.verbose,
