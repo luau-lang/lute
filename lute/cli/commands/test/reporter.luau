@@ -78,7 +78,7 @@ local function workerFailuresReporter(failures: { string })
 	end
 end
 
-local function snapReporter(result: snapty.snapresult)
+local function snapReporter(result: snapty.SnapResult)
 	local total = #result.passed + #result.failed + #result.new
 
 	for _, p in result.passed do
@@ -116,7 +116,7 @@ local function snapReporter(result: snapty.snapresult)
 	end
 
 	print(separator(string.rep("─", 50)))
-	local parts = {}
+	local parts: { string } = {}
 	table.insert(parts, snapsty.pass(`{#result.passed} passed`))
 	if #result.new > 0 then
 		table.insert(parts, snapsty.newstyle(`{#result.new} new`))
