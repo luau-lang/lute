@@ -371,7 +371,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	-- maps escape-sequence byte to its result (string) or a no-arg handler (() -> string)
-	local escapeMapping: { [number]: string | () -> string } = {
+	const escapeMapping: { [number]: string | () -> string } = table.freeze {
 		[34] = '"', -- \"
 		-- \UXXXXXXXX
 		[85] = function()
@@ -906,7 +906,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 
 	local parseValue: () -> TomlValue
 
-	local numberPrefixTable: { [number]: (() -> number)? } = {
+	const numberPrefixTable: { [number]: (() -> number)? } = table.freeze({
 		-- 0x
 		[120] = function()
 			return tonumber(parseDigits(isHexDigit), 16) :: number
@@ -921,7 +921,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 		[98] = function()
 			return tonumber(parseDigits(isBinDigit), 2) :: number
 		end,
-	}
+	} :: any) -- FIXME(Luau): freezing the table breaks bidirectional typing
 
 	const function parseNumOrDatetime(sign: string?): string | number
 		local signStr = sign or ""
@@ -1024,7 +1024,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 	local setNestedKey: (tbl: { [string]: TomlValue }, parts: { string }, value: TomlValue, fromDottedKey: boolean) -> ()
 
 	-- maps first byte of a value to its parser; digit range handled separately below
-	local valueDispatch: { [number]: () -> TomlValue } = {
+	const valueDispatch: { [number]: () -> TomlValue } = table.freeze {
 		-- when we find `"`...
 		[34] = function()
 			pos += 1
@@ -1243,7 +1243,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 		return parts
 	end
 
-	local dottedKindErrors: { [string]: (key: string) -> string } = {
+	const dottedKindErrors: { [TableKind]: (key: string) -> string } = table.freeze({
 		["array-element"] = function(k)
 			return `cannot extend explicitly-defined table '{k}' via dotted key`
 		end,
@@ -1256,7 +1256,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 		["inline"] = function(k)
 			return `cannot extend inline table via key '{k}'`
 		end,
-	}
+	} :: any) -- FIXME(Luau): freezing the table breaks bidirectional typing
 
 	-- navigate through dotted intermediate keys, creating tables as needed;
 	-- returns (leaf_table, leaf_key_string)
@@ -1372,17 +1372,17 @@ const function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	-- kind errors when traversing intermediate path components under a [header]
-	local headerPathKindErrors: { [string]: (key: string) -> string } = {
+	const headerPathKindErrors: { [TableKind]: (key: string) -> string } = table.freeze({
 		["array-value"] = function(k)
 			return `key '{k}' is a static array, cannot navigate through it`
 		end,
 		["inline"] = function(_)
 			return "cannot extend inline table"
 		end,
-	}
+	} :: any) -- FIXME(Luau): freezing the table breaks bidirectional typing
 
 	-- kind errors when the leaf key of a [header] already exists as a table
-	local headerLeafKindErrors: { [string]: (key: string) -> string } = {
+	const headerLeafKindErrors: { [TableKind]: (key: string) -> string }  = table.freeze({
 		["array-element"] = function(k)
 			return `cannot define [{k}]: already an array-of-tables element`
 		end,
@@ -1398,7 +1398,7 @@ const function deserialize(input: string): { [string]: TomlValue }
 		["inline"] = function(_)
 			return "cannot extend inline table with a table header"
 		end,
-	}
+	} :: any) -- FIXME(Luau): freezing the table breaks bidirectional typing
 
 	-- navigate to the table referenced by a [key] or [[key]] header
 	const function navigateToHeader(
