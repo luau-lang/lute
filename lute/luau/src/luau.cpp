@@ -805,7 +805,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_createtable(L, 0, preambleSize); // location, kind, token
 
         serializeToken(node->location.begin, ("@" + std::string(node->name.value)).c_str());
-        lua_setfield(L, -2, "token");
+        lua_setfield(L, -2, "name");
 
         lua_pushstring(L, "attribute");
         lua_setfield(L, -2, "kind");
@@ -924,7 +924,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "blockDepth");
 
         serializeToken(node->location.begin, cstNode->sourceString.data);
-        lua_setfield(L, -2, "token");
+        lua_setfield(L, -2, "value");
 
         // Unlike normal tokens, string content contains quotation marks that were not included during advancement
         // For simplicity, lets set the current position manually
@@ -2101,7 +2101,7 @@ struct AstSerialize : public Luau::AstVisitor
                         lua_setfield(L, -2, "quoteStyle");
 
                         serializeToken(item.stringPosition, item.stringInfo->sourceString.data);
-                        lua_setfield(L, -2, "token");
+                        lua_setfield(L, -2, "value");
 
                         // Unlike normal tokens, string content contains quotation marks that were not included during advancement
                         // For simplicity, lets set the current position manually
@@ -2366,7 +2366,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "quoteStyle");
 
         serializeToken(node->location.begin, cstNode->sourceString.data);
-        lua_setfield(L, -2, "token");
+        lua_setfield(L, -2, "value");
 
         // Unlike normal tokens, string content contains quotation marks that were not included during advancement
         // For simplicity, lets set the current position manually

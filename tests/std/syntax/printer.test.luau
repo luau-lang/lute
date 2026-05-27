@@ -9,13 +9,13 @@ local test = require("@std/test")
 local function checkReplacement(
 	source: string,
 	expected: string,
-	transformFn: (syntaxTypes.AstNode) -> syntaxTypes.Replacements?,
+	transformFn: (syntaxTypes.CstNode) -> syntaxTypes.Replacements?,
 	assert: testtypes.Asserts
 )
-	local ast = syntax.parse(source)
-	local replacements = transformFn(ast.root)
+	local cst = syntax.parse(source)
+	local replacements = transformFn(cst.root)
 
-	local result = printer.printFile(ast, replacements)
+	local result = printer.printFile(cst, replacements)
 
 	assert.eq(result, expected)
 end
@@ -28,9 +28,9 @@ test.suite("SyntaxPrinter", function(suite)
 
 		local expected = "            local name = 1 + 2\n"
 
-		checkReplacement(source, expected, function(ast)
-			return query.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.token.text == "World" then "1 + 2" else nil
+		checkReplacement(source, expected, function(cst)
+			return query.findAllFromRoot(cst :: any, syntaxUtils.isExprConstantString):replace(function(s)
+				return if s.value.text == "World" then "1 + 2" else nil
 			end)
 		end, assert)
 	end)
@@ -42,9 +42,9 @@ test.suite("SyntaxPrinter", function(suite)
 
 		local expected = "            local name = 1 + 2\n"
 
-		checkReplacement(source, expected, function(ast)
-			return query.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantString):replace(function(s)
-				return if s.token.text == "World" then "1 + 2" else nil
+		checkReplacement(source, expected, function(cst)
+			return query.findAllFromRoot(cst :: any, syntaxUtils.isExprConstantString):replace(function(s)
+				return if s.value.text == "World" then "1 + 2" else nil
 			end)
 		end, assert)
 	end)
@@ -56,9 +56,9 @@ test.suite("SyntaxPrinter", function(suite)
 
 		local expected = "            local name = 1 + 2\n"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function(_)
 					return "local name = 1 + 2"
 				end)
@@ -70,11 +70,11 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = [[local name: string = "World"]]
 
 		local stat = syntax.parseBlock("local x: string")
-		local ann = (stat.statements[1] :: syntaxTypes.AstStatLocal).variables[1].node.annotation
+		local ann = (stat.statements[1] :: syntaxTypes.CstStatLocal).variables[1].node.annotation
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:map(function(assign)
 					return assign.variables[1].node.annotation
 				end)
@@ -89,11 +89,11 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = [[type t = (...number) -> string, ...string)]]
 
 		local stat = syntax.parseBlock("type t = () -> (string, ...string)")
-		local tp = ((stat.statements[1] :: syntaxTypes.AstStatTypeAlias).type :: syntaxTypes.AstTypeFunction).returnTypes
+		local tp = ((stat.statements[1] :: syntaxTypes.CstStatTypeAlias).type :: syntaxTypes.CstTypeFunction).returnTypes
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatTypeAlias) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatTypeAlias) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:map(function(ta)
 					return if ta.type.tag == "function" then ta.type.returnTypes else nil
 				end)
@@ -107,9 +107,9 @@ test.suite("SyntaxPrinter", function(suite)
 		local source = "local tbl = { a = 1, }"
 		local expected = "local tbl = { b = 2, }"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:map(function(node)
 					return node.entries[1]
 				end)
@@ -124,9 +124,9 @@ test.suite("SyntaxPrinter", function(suite)
 (1 + 2) -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprGroup) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprGroup) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -138,9 +138,9 @@ test.suite("SyntaxPrinter", function(suite)
 nil -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantNil) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprConstantNil) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -152,9 +152,9 @@ nil -- after]]
 true -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantBool) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprConstantBool) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -166,9 +166,9 @@ true -- after]]
 235 -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprConstantNumber) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprConstantNumber) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -181,9 +181,9 @@ true -- after]]
 y -- after]]
 		local expected = "local y = 3\n\t\tlocal x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -195,9 +195,9 @@ y -- after]]
 y -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprGlobal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprGlobal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -209,9 +209,9 @@ y -- after]]
 ... -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprVarargs) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprVarargs) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -223,9 +223,9 @@ y -- after]]
 print() -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprCall) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprCall) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -237,9 +237,9 @@ print() -- after]]
 hello.world -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprIndexName) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprIndexName) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -251,9 +251,9 @@ hello.world -- after]]
 hello['world'] -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprIndexExpr) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprIndexExpr) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -265,9 +265,9 @@ hello['world'] -- after]]
 function() return end -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -279,9 +279,9 @@ function() return end -- after]]
 {} -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -293,9 +293,9 @@ function() return end -- after]]
 #t -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprUnary) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprUnary) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -307,9 +307,9 @@ function() return end -- after]]
 3 + 2 -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprBinary) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprBinary) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -321,9 +321,9 @@ function() return end -- after]]
 `hello {"world"}` -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprInterpString) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprInterpString) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -335,9 +335,9 @@ function() return end -- after]]
 y :: number -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprTypeAssertion) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprTypeAssertion) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -349,9 +349,9 @@ y :: number -- after]]
 if true then 'hello' else 'world' -- after]]
 		local expected = "local x =\nreplaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprIfElse) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprIfElse) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -363,9 +363,9 @@ if true then 'hello' else 'world' -- after]]
 if true then 'hello' else 'world', z :: string -- after]]
 		local expected = "local x, y =\nreplaced, replaced -- after"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExpr) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExpr) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -378,9 +378,9 @@ local y = 1
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatBlock) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatBlock) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -397,9 +397,9 @@ end
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatIf) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatIf) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -414,9 +414,9 @@ end
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatWhile) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatWhile) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -431,9 +431,9 @@ until true
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatRepeat) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatRepeat) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -448,9 +448,9 @@ end
 -- world]]
 		local expected = "-- hello\nwhile true do\n\treplaced\nend\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatBreak) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatBreak) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -465,9 +465,9 @@ end
 -- world]]
 		local expected = "-- hello\nwhile true do\n\treplaced\nend\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatContinue) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatContinue) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -480,9 +480,9 @@ function foo() return 1, 2 end
 -- world]]
 		local expected = "-- hello\nfunction foo() replaced end\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatReturn) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatReturn) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -495,9 +495,9 @@ foobar()
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatExpr) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatExpr) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -510,9 +510,9 @@ local x = 1
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -521,8 +521,8 @@ local x = 1
 
 	suite:case("constDeclarationRoundTrip", function(assert)
 		local source = "const a = 'hello'"
-		local ast = syntax.parse(source)
-		local result = printer.printFile(ast)
+		local cst = syntax.parse(source)
+		local result = printer.printFile(cst)
 		assert.eq(result, source)
 	end)
 
@@ -534,9 +534,9 @@ end
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatFor) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatFor) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -551,9 +551,9 @@ end
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatForIn) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatForIn) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -567,9 +567,9 @@ y = 1
 -- world]]
 		local expected = "-- hello\nlocal y = 2\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatAssign) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatAssign) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -583,9 +583,9 @@ y -= 1
 -- world]]
 		local expected = "-- hello\nlocal y = 2\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatCompoundAssign) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatCompoundAssign) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -600,9 +600,9 @@ end
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -617,9 +617,9 @@ end
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatLocalFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatLocalFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -632,9 +632,9 @@ type foo = number
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatTypeAlias) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatTypeAlias) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -647,9 +647,9 @@ type function foo() return number end
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStatTypeFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStatTypeFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -663,9 +663,9 @@ local y = 2
 -- world]]
 		local expected = "-- hello\nreplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isStat) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isStat) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -678,9 +678,9 @@ type foo = number
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeReference) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeReference) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -693,9 +693,9 @@ type foo = true
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeSingletonBool) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeSingletonBool) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -708,9 +708,9 @@ local x : "hello"
 -- world]]
 		local expected = "-- hello\nlocal x : replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeSingletonString) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeSingletonString) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -723,9 +723,9 @@ type foo = typeof(123)
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeTypeof) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeTypeof) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -738,9 +738,9 @@ type foo = (number)
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeGroup) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeGroup) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -753,9 +753,9 @@ type foo = true?
 -- world]]
 		local expected = "-- hello\ntype foo = truereplaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeOptional) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeOptional) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -768,9 +768,9 @@ type foo = true? | false
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeUnion) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeUnion) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -783,9 +783,9 @@ type foo = true & false
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeIntersection) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeIntersection) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -798,9 +798,9 @@ type foo = { number }
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeArray) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeArray) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -813,9 +813,9 @@ type foo = {}
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -828,9 +828,9 @@ type foo = (number) -> ()
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypeFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypeFunction) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -843,9 +843,9 @@ type foo = (number) -> ()
 -- world]]
 		local expected = "-- hello\ntype foo = replaced\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isType) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isType) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -858,9 +858,9 @@ type foo = (number) -> (number, ...string)
 -- world]]
 		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypePackExplicit) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypePackExplicit) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -873,9 +873,9 @@ type foo = <G...>(number) -> (number, G...)
 -- world]]
 		local expected = "-- hello\ntype foo = <G...>(number) -> (number, replaced)\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypePackGeneric) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypePackGeneric) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -888,9 +888,9 @@ type foo = (number) -> (...number)
 -- world]]
 		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypePackVariadic) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypePackVariadic) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -903,9 +903,9 @@ type foo = (number) -> (number, ...string)
 -- world]]
 		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isTypePack) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isTypePack) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -918,9 +918,9 @@ local x, y = 1, 2
 -- world]]
 		local expected = "-- hello\nlocal replaced, replaced = 1, 2\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -934,9 +934,9 @@ function foo() return end
 -- world]]
 		local expected = "-- hello\nreplaced\nfunction foo() return end\n-- world"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isAttribute) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isAttribute) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:replace(function()
 					return "replaced"
 				end)
@@ -952,9 +952,9 @@ function foo() return end
 
 		local expected = "foobar(\n  foo, -- what about this\n  bar, -- and this\n  quxx -- and this??\n)"
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprGlobal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprGlobal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:filter(function(g)
 					return g.name.text == "baz"
 				end)
@@ -983,9 +983,9 @@ function foo() return end
   replaced = 3 -- and this??
 }]]
 
-		checkReplacement(source, expected, function(ast)
+		checkReplacement(source, expected, function(cst)
 			return query
-				.findAllFromRoot(ast :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+				.findAllFromRoot(cst :: any, syntaxUtils.isExprTable) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:flatMap(function(t)
 					local l = {}
 					for _, entry in t.entries do

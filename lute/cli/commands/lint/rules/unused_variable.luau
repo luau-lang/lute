@@ -17,7 +17,7 @@ type branch = { tag: "branch", entries: { [string]: leaf } }
 -- If we need more levels in the future, we can generalize, but this greatly simplifies the logic.
 type smallTrie = { tag: "root", entries: { [string]: branch | leaf } }
 
-local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie): { [number]: true }?
+local function getWriteOnlyArgs(func: syntax.CstExpr, writeOnlyAPIs: smallTrie): { [number]: true }?
 	if func.tag == "global" then
 		local entry = writeOnlyAPIs.entries[func.name.text]
 
@@ -27,7 +27,7 @@ local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie):
 
 		return entry.vals
 	elseif func.tag == "indexname" and func.expression.tag == "global" then
-		local branch = writeOnlyAPIs.entries[(func.expression :: syntax.AstExprGlobal).name.text]
+		local branch = writeOnlyAPIs.entries[(func.expression :: syntax.CstExprGlobal).name.text]
 
 		if not branch or branch.tag ~= "branch" then
 			return nil
@@ -37,14 +37,14 @@ local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie):
 
 		return if entry then entry.vals else nil
 	elseif func.tag == "index" and func.expression.tag == "global" and func.index.tag == "string" then
-		func = func :: syntax.AstExprIndexName | syntax.AstExprIndexExpr
-		local branch = writeOnlyAPIs.entries[(func.expression :: syntax.AstExprGlobal).name.text]
+		func = func :: syntax.CstExprIndexName | syntax.CstExprIndexExpr
+		local branch = writeOnlyAPIs.entries[(func.expression :: syntax.CstExprGlobal).name.text]
 
 		if not branch or branch.tag ~= "branch" then
 			return nil
 		end
 
-		local entry = branch.entries[(func.index :: syntax.AstExprConstantString).token.text]
+		local entry = branch.entries[(func.index :: syntax.CstExprConstantString).value.text]
 
 		return if entry then entry.vals else nil
 	else
@@ -52,12 +52,12 @@ local function getWriteOnlyArgs(func: syntax.AstExpr, writeOnlyAPIs: smallTrie):
 	end
 end
 
-local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie): { syntax.AstLocal }
+local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie): { syntax.CstLocal }
 	local visitor: visitorLib.Visitor & {
-		unusedLocals: { syntax.AstLocal },
-		scopes: { { [syntax.AstLocal]: boolean } },
-		ignoreReferences: { [syntax.AstLocal]: true },
-		requiredModules: { [string]: syntax.AstLocal },
+		unusedLocals: { syntax.CstLocal },
+		scopes: { { [syntax.CstLocal]: boolean } },
+		ignoreReferences: { [syntax.CstLocal]: true },
+		requiredModules: { [string]: syntax.CstLocal },
 		insideMethodContext: boolean,
 		inLValueContext: boolean,
 	} =
@@ -70,7 +70,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 	visitor.insideMethodContext = false
 	visitor.inLValueContext = false
 
-	local function popAndSaveUnusedLocals(_: syntax.AstNode)
+	local function popAndSaveUnusedLocals(_: syntax.CstNode)
 		-- Pop scope and save unused locals
 		local scope = table.remove(visitor.scopes)
 		if not scope then
@@ -84,7 +84,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		end
 	end
 
-	local function markVisited(l: syntax.AstLocal)
+	local function markVisited(l: syntax.CstLocal)
 		-- Mark local as visited in closest scope
 		for i = #visitor.scopes, 1, -1 do
 			if visitor.scopes[i][l] ~= nil then
@@ -96,15 +96,15 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		error("Local variable not found in any scope")
 	end
 
-	function visitor.visitStatBlock(_: syntax.AstStatBlock)
+	function visitor.visitStatBlock(_: syntax.CstStatBlock)
 		-- Push a fresh scope
-		table.insert(visitor.scopes, {} :: { [syntax.AstLocal]: boolean })
+		table.insert(visitor.scopes, {} :: { [syntax.CstLocal]: boolean })
 		return true
 	end
 
 	visitor.visitStatBlockEnd = popAndSaveUnusedLocals
 
-	function visitor.visitStatLocalDeclaration(stat: syntax.AstStatLocal)
+	function visitor.visitStatLocalDeclaration(stat: syntax.CstStatLocal)
 		-- For each (var, value) pair, ignore references to the var in the value
 		for i, localVar in stat.variables do
 			if stat.values[i] then
@@ -129,7 +129,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		return false
 	end
 
-	function visitor.visitStatFor(stat: syntax.AstStatFor)
+	function visitor.visitStatFor(stat: syntax.CstStatFor)
 		-- Push a scope for the loop variable
 		table.insert(visitor.scopes, { [stat.variable] = false })
 		return true
@@ -137,9 +137,9 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 
 	visitor.visitStatForEnd = popAndSaveUnusedLocals
 
-	function visitor.visitStatForIn(stat: syntax.AstStatForIn)
+	function visitor.visitStatForIn(stat: syntax.CstStatForIn)
 		-- Push a scope for the loop variables
-		local newScope: { [syntax.AstLocal]: boolean } = {}
+		local newScope: { [syntax.CstLocal]: boolean } = {}
 		for _, var in stat.variables do
 			newScope[var.node] = false
 		end
@@ -149,7 +149,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 
 	visitor.visitStatForInEnd = popAndSaveUnusedLocals
 
-	function visitor.visitStatAssign(stat: syntax.AstStatAssign)
+	function visitor.visitStatAssign(stat: syntax.CstStatAssign)
 		local i = 1
 		local callFound = false
 		local prevInLValueContext = visitor.inLValueContext
@@ -187,7 +187,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		return false
 	end
 
-	function visitor.visitStatCompoundAssign(stat: syntax.AstStatCompoundAssign)
+	function visitor.visitStatCompoundAssign(stat: syntax.CstStatCompoundAssign)
 		-- An unused local doesn't become used just because it's used to assign to itself, eg:
 		-- local x
 		-- x += x + 1
@@ -207,7 +207,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		return false
 	end
 
-	function visitor.visitStatFunction(stat: syntax.AstStatFunction)
+	function visitor.visitStatFunction(stat: syntax.CstStatFunction)
 		-- This could be reassigning to a local, in which case we need to apply the same logic as visitStatAssign
 		if stat.name.tag == "local" then
 			-- If this shadows an unused local in the current scope, we need to mark it as unused
@@ -239,7 +239,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		return false
 	end
 
-	function visitor.visitStatLocalFunction(stat: syntax.AstStatLocalFunction)
+	function visitor.visitStatLocalFunction(stat: syntax.CstStatLocalFunction)
 		-- Recursive functions don't count as references to themselves
 		visitor.ignoreReferences[stat.name] = true
 
@@ -252,9 +252,9 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		return false
 	end
 
-	function visitor.visitStatRepeat(stat: syntax.AstStatRepeat)
+	function visitor.visitStatRepeat(stat: syntax.CstStatRepeat)
 		-- Push a fresh scope
-		table.insert(visitor.scopes, {} :: { [syntax.AstLocal]: boolean })
+		table.insert(visitor.scopes, {} :: { [syntax.CstLocal]: boolean })
 
 		-- Manually visit the block's states so we can keep the scope around
 		for _, bodyStat in stat.body.statements do
@@ -269,31 +269,31 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		return false
 	end
 
-	function visitor.visitExprLocal(node: syntax.AstExprLocal)
+	function visitor.visitExprLocal(node: syntax.CstExprLocal)
 		if node.token.text == "self" and visitor.insideMethodContext then
 			return false
 		end
 
-		local astlocal = node["local"]
+		local cstlocal = node["local"]
 
 		-- We only ignore writes to locals in the same scope
 		-- We don't want to warn writes to upvalues as unused
-		if visitor.inLValueContext and visitor.scopes[#visitor.scopes][astlocal] ~= nil then
+		if visitor.inLValueContext and visitor.scopes[#visitor.scopes][cstlocal] ~= nil then
 			return false
 		end
 
-		if visitor.ignoreReferences[astlocal] then
+		if visitor.ignoreReferences[cstlocal] then
 			return false
 		end
 
-		markVisited(astlocal)
+		markVisited(cstlocal)
 
 		return false
 	end
 
-	function visitor.visitExprFunction(node: syntax.AstExprFunction)
+	function visitor.visitExprFunction(node: syntax.CstExprFunction)
 		-- Push a scope for the function parameters
-		local newScope: { [syntax.AstLocal]: boolean } = {}
+		local newScope: { [syntax.CstLocal]: boolean } = {}
 
 		for _, param in node.parameters do
 			newScope[param.node] = false
@@ -306,7 +306,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 
 	visitor.visitExprFunctionEnd = popAndSaveUnusedLocals
 
-	function visitor.visitTypeReference(node: syntax.AstTypeReference)
+	function visitor.visitTypeReference(node: syntax.CstTypeReference)
 		if not node.prefix then
 			return true
 		end
@@ -322,7 +322,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		return true
 	end
 
-	function visitor.visitExprIndexExpr(node: syntax.AstExprIndexExpr)
+	function visitor.visitExprIndexExpr(node: syntax.CstExprIndexExpr)
 		visitorLib.visitExpression(node.expression, visitor)
 
 		local prevInLValueContext = visitor.inLValueContext
@@ -333,7 +333,7 @@ local function unusedLocals(block: syntax.AstStatBlock, writeOnlyAPIs: smallTrie
 		return false
 	end
 
-	function visitor.visitExprCall(node: syntax.AstExprCall)
+	function visitor.visitExprCall(node: syntax.CstExprCall)
 		local writeOnlyIndices = getWriteOnlyArgs(node.func, writeOnlyAPIs)
 
 		if not writeOnlyIndices then
@@ -366,7 +366,7 @@ local function isPositiveInt(v: unknown): boolean
 end
 
 local function lint(
-	ast: syntax.AstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
@@ -427,10 +427,10 @@ local function lint(
 		end
 	end
 
-	return tableext.map(unusedLocals(ast, writeOnlyAPIs), function(l: syntax.AstLocal): lintTypes.LintViolation
+	return tableext.map(unusedLocals(cst, writeOnlyAPIs), function(l: syntax.CstLocal): lintTypes.LintViolation
 		return {
 			lintname = name,
-			location = l.location, -- LUAUFIX: Bidirectional inference should let us know that l : syntax.AstLocal
+			location = l.location, -- LUAUFIX: Bidirectional inference should let us know that l : syntax.CstLocal
 			message = message,
 			severity = "warning",
 			sourcepath = sourcepath,

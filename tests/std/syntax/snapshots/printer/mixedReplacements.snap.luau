@@ -3,9 +3,9 @@ local syntaxTypes = require("@std/syntax/types")
 local syntaxUtils = require("@std/syntax/utils")
 local util = require("./util")
 
-util.printReplacement("mixedReplacements", function(ast)
+util.printReplacement("mixedReplacements", function(cst)
 	local replacements: syntaxTypes.Replacements = {}
-	local bools = query.findAllFromRoot(ast, syntaxUtils.isExprConstantBool)
+	local bools = query.findAllFromRoot(cst, syntaxUtils.isExprConstantBool)
 	local i = 0
 	bools:forEach(function(node)
 		i += 1

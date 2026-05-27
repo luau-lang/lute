@@ -406,7 +406,7 @@ violator.luau:3:1-4:6 ──
 			[[
 return table.freeze({
 	name = "AlwaysErrors",
-	lint = function(ast, sourcepath)
+	lint = function(cst, sourcepath)
 		error("This rule always errors")
 	end,
 })
@@ -2892,11 +2892,11 @@ return {
 		local customRuleContents = [[
 			return {
 				name = "testRule",
-				lint = function(ast, sourcepath, context)
+				lint = function(cst, sourcepath, context)
 					return {
 						{
 							lintname = "testRule",
-							location = ast.location,
+							location = cst.location,
 							severity = "warn",
 							message = `Globals: {context.globals["testGlobal"]} Options: {context.options["testOption"]}`
 						}
@@ -3061,13 +3061,13 @@ return {
 		local customRuleContents = [[
 		return {
 			name = "customRule",
-			lint = function(ast, _sourcepath, _context)
+			lint = function(cst, _sourcepath, _context)
 				return {
 					{
 						lintname = "customRule",
 						severity = "warning",
 						message = "customRule",
-						location = ast.location,
+						location = cst.location,
 					}
 				}
 			end
@@ -3138,13 +3138,13 @@ return {
 		local ruleTemplate = [[
 return {
 	name = %q,
-	lint = function(ast, sourcepath, context)
+	lint = function(cst, sourcepath, context)
 		return {
 			{
 				lintname = %q,
 				severity = "warn",
 				message = %q,
-				location = ast.location
+				location = cst.location
 			}
 		}
 	end
@@ -3178,13 +3178,13 @@ return {
 			customRuleContents = [[
 return {
 	name = "cliRule",
-	lint = function(ast, sourcepath, context)
+	lint = function(cst, sourcepath, context)
 		return {
 			{
 				lintname = "cliRule",
 				severity = "warn",
 				message = "CLI Rule Ran.",
-				location = ast.location
+				location = cst.location
 			}
 		}
 	end
@@ -3222,13 +3222,13 @@ return {
 			local configuredRuleContents = [[
 		return {
 			name = "configuredRule",
-			lint = function(ast, sourcepath, context)
+			lint = function(cst, sourcepath, context)
 				return {
 					{
 						lintname = "configuredRule",
 						severity = "warn",
 						message = `Configured Rule Ran with options.a = {context.options.a}`,
-						location = ast.location,
+						location = cst.location,
 						sourcepath = sourcepath,
 					}
 				}

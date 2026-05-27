@@ -9,14 +9,14 @@ local message = "Luau doesn't require parentheses around conditions. You can rem
 local target = "https://lute.luau.org/cli/lint/parenthesized_conditions.html"
 
 local function lint(
-	ast: syntax.AstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	local violations: { lintTypes.LintViolation } = {}
 
 	query
-		.findAllFromRoot(ast, function(node: syntax.AstNode): (syntax.AstExprIfElse | syntax.AstStatIf)?
+		.findAllFromRoot(cst, function(node: syntax.CstNode): (syntax.CstExprIfElse | syntax.CstStatIf)?
 			if (node.kind == "expr" or node.kind == "stat") and node.tag == "conditional" then
 				return node
 			end
@@ -55,7 +55,7 @@ local function lint(
 		end)
 
 	query
-		.findAllFromRoot(ast, function(node: syntax.AstNode): (syntax.AstStatWhile | syntax.AstStatRepeat)?
+		.findAllFromRoot(cst, function(node: syntax.CstNode): (syntax.CstStatWhile | syntax.CstStatRepeat)?
 			if node.kind == "stat" and (node.tag == "while" or node.tag == "repeat") then
 				return node
 			end
@@ -72,7 +72,7 @@ local function lint(
 				severity = "info" :: "info", -- LUAUFIX cast needed because severity isn't inferred as a singleton
 				sourcepath = sourcepath,
 				suggestedfix = {
-					fix = syntaxPrinter.printNode((n.condition :: syntax.AstExprGroup).expression),
+					fix = syntaxPrinter.printNode((n.condition :: syntax.CstExprGroup).expression),
 				},
 				target = target,
 			})

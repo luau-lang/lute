@@ -45,7 +45,7 @@ export type MultiLineComment = {
 --- Trivia attached to a token: whitespace or comments.
 export type Trivia = Whitespace | SingleLineComment | MultiLineComment
 
-export type Token<Kind = string> = {
+export type CstToken<Kind = string> = {
 	read leadingTrivia: { Trivia },
 	read location: Span,
 	read text: Kind,
@@ -54,782 +54,783 @@ export type Token<Kind = string> = {
 }
 
 --- The end-of-file token.
-export type Eof = Token<""> & { read tag: "eof" }
+export type CstEof = CstToken<""> & { read tag: "eof" }
 
-export type Pair<T, Separator> = { read node: T, read separator: Token<Separator>? }
+export type Pair<T, Separator> = { read node: T, read separator: CstToken<Separator>? }
 export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
 
---- A local variable binding site in the AST.
-export type AstLocal = {
+--- A local variable binding site in the CST.
+export type CstLocal = {
 	read location: Span,
 	read kind: "local",
-	read name: Token<string>,
-	read colon: Token<":">?,
-	read annotation: AstType?,
-	read shadows: AstLocal?,
+	read name: CstToken<string>,
+	read colon: CstToken<":">?,
+	read annotation: CstType?,
+	read shadows: CstLocal?,
 }
 
 --- A parenthesized expression node.
-export type AstExprGroup = {
+export type CstExprGroup = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "group",
-	read openParens: Token<"(">,
-	read expression: AstExpr,
-	read closeParens: Token<")">,
+	read openParens: CstToken<"(">,
+	read expression: CstExpr,
+	read closeParens: CstToken<")">,
 }
 
 --- A `nil` literal node.
-export type AstExprConstantNil = {
+export type CstExprConstantNil = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "nil",
-	read token: Token<"nil">,
+	read token: CstToken<"nil">,
 }
 
 --- A boolean literal node (`true` or `false`).
-export type AstExprConstantBool = {
+export type CstExprConstantBool = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "boolean",
 	read value: boolean,
-	read token: Token<"true" | "false">,
+	read token: CstToken<"true" | "false">,
 }
 
 --- A number literal node.
-export type AstExprConstantNumber = {
+export type CstExprConstantNumber = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "number",
 	read value: number,
-	read token: Token<string>,
+	read token: CstToken<string>,
 }
 
 --- An integer literal node.
-export type AstExprConstantInteger = {
+export type CstExprConstantInteger = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "integer",
 	read value: number,
-	read token: Token<string>,
+	read token: CstToken<string>,
 }
 
 --- A string literal node.
-export type AstExprConstantString = {
+export type CstExprConstantString = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "string",
 	read quoteStyle: "single" | "double" | "block" | "interp",
 	read blockDepth: number,
-	read token: Token<string>,
+	read value: CstToken<string>,
 }
 
 --- A reference to a local variable.
-export type AstExprLocal = {
+export type CstExprLocal = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "local",
-	read token: Token<string>,
-	read ["local"]: AstLocal,
+	read token: CstToken<string>,
+	read ["local"]: CstLocal,
 	read upvalue: boolean,
 }
 
 --- A reference to a global variable.
-export type AstExprGlobal = { read location: Span, read kind: "expr", read tag: "global", read name: Token }
+export type CstExprGlobal = { read location: Span, read kind: "expr", read tag: "global", read name: CstToken }
 
 --- A varargs expression node (`...`).
-export type AstExprVarargs = {
+export type CstExprVarargs = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "vararg",
-	read token: Token<"...">,
+	read token: CstToken<"...">,
 }
 
 --- A function call expression node.
-export type AstExprCall = {
+export type CstExprCall = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "call",
-	read func: AstExpr,
-	read openParens: Token<"(">?,
-	read arguments: Punctuated<AstExpr>,
-	read closeParens: Token<")">?,
+	read func: CstExpr,
+	read openParens: CstToken<"(">?,
+	read arguments: Punctuated<CstExpr>,
+	read closeParens: CstToken<")">?,
 	read self: boolean,
 	read argLocation: Span,
 }
 
 --- An explicit generic instantiation expression node (e.g., `f<<T>>`).
-export type AstExprInstantiate = {
+export type CstExprInstantiate = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "instantiate",
-	read expr: AstExpr,
-	read leftArrow1: Token<"<">,
-	read leftArrow2: Token<"<">,
-	read typeArguments: Punctuated<AstType | AstTypePack>,
-	read rightArrow1: Token<">">,
-	read rightArrow2: Token<">">,
+	read expr: CstExpr,
+	read leftArrow1: CstToken<"<">,
+	read leftArrow2: CstToken<"<">,
+	read typeArguments: Punctuated<CstType | CstTypePack>,
+	read rightArrow1: CstToken<">">,
+	read rightArrow2: CstToken<">">,
 }
 
 --- A dot or colon index expression node (e.g., `t.k` or `t:method`).
-export type AstExprIndexName = {
+export type CstExprIndexName = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "indexname",
-	read expression: AstExpr,
-	read accessor: Token<"." | ":">,
-	read index: Token<string>,
+	read expression: CstExpr,
+	read accessor: CstToken<"." | ":">,
+	read index: CstToken<string>,
 	read indexLocation: Span,
 }
 
 --- A bracketed index expression node (e.g., `t[k]`).
-export type AstExprIndexExpr = {
+export type CstExprIndexExpr = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "index",
-	read expression: AstExpr,
-	read openBrackets: Token<"[">,
-	read index: AstExpr,
-	read closeBrackets: Token<"]">,
+	read expression: CstExpr,
+	read openBrackets: CstToken<"[">,
+	read index: CstExpr,
+	read closeBrackets: CstToken<"]">,
 }
 
 --- An anonymous function expression node.
-export type AstExprFunction = {
+export type CstExprFunction = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "function",
-	read attributes: { AstAttribute },
-	read functionKeyword: Token<"function">,
-	read openGenerics: Token<"<">?,
-	read generics: Punctuated<AstGenericType>?,
-	read genericPacks: Punctuated<AstGenericTypePack>?,
-	read closeGenerics: Token<">">?,
-	read openParens: Token<"(">,
-	read self: AstLocal?,
-	read parameters: Punctuated<AstLocal>,
-	read vararg: Token<"...">?,
-	read varargColon: Token<":">?,
-	read varargAnnotation: AstTypePack?,
-	read closeParens: Token<")">,
-	read returnSpecifier: Token<":">?,
-	read returnAnnotation: AstTypePack?,
-	read body: AstStatBlock,
-	read endKeyword: Token<"end">,
+	read attributes: { CstAttribute },
+	read functionKeyword: CstToken<"function">,
+	read openGenerics: CstToken<"<">?,
+	read generics: Punctuated<CstGenericType>?,
+	read genericPacks: Punctuated<CstGenericTypePack>?,
+	read closeGenerics: CstToken<">">?,
+	read openParens: CstToken<"(">,
+	read self: CstLocal?,
+	read parameters: Punctuated<CstLocal>,
+	read vararg: CstToken<"...">?,
+	read varargColon: CstToken<":">?,
+	read varargAnnotation: CstTypePack?,
+	read closeParens: CstToken<")">,
+	read returnSpecifier: CstToken<":">?,
+	read returnAnnotation: CstTypePack?,
+	read body: CstStatBlock,
+	read endKeyword: CstToken<"end">,
 }
 
--- helper types for items contained in an AstExprTable, not actually AstExprs themselves
+-- helper types for items contained in an CstExprTable, not actually CstExprs themselves
 --- A positional table constructor entry (e.g., `value` in `{ value }`).
-export type AstTableExprListItem = {
+export type CstTableExprListItem = {
 	read location: Span,
 	read kind: "list",
-	read value: AstExpr,
-	read separator: Token<"," | ";">?,
+	read value: CstExpr,
+	read separator: CstToken<"," | ";">?,
 	read isTableItem: true,
 }
 
 --- A named table constructor entry (e.g., `key = value`).
-export type AstTableExprRecordItem = {
+export type CstTableExprRecordItem = {
 	read location: Span,
 	read kind: "record",
-	read key: Token<string>,
-	read equals: Token<"=">,
-	read value: AstExpr,
-	read separator: Token<"," | ";">?,
+	read key: CstToken<string>,
+	read equals: CstToken<"=">,
+	read value: CstExpr,
+	read separator: CstToken<"," | ";">?,
 	read isTableItem: true,
 }
 
 --- A table constructor entry with a computed key (e.g., `[expr] = value`).
-export type AstTableExprGeneralItem = {
+export type CstTableExprGeneralItem = {
 	read location: Span,
 	read kind: "general",
-	read indexerOpen: Token<"[">,
-	read key: AstExpr,
-	read indexerClose: Token<"]">,
-	read equals: Token<"=">,
-	read value: AstExpr,
-	read separator: Token<"," | ";">?,
+	read indexerOpen: CstToken<"[">,
+	read key: CstExpr,
+	read indexerClose: CstToken<"]">,
+	read equals: CstToken<"=">,
+	read value: CstExpr,
+	read separator: CstToken<"," | ";">?,
 	read isTableItem: true,
 }
 
 --- Union of all table constructor entry types.
-export type AstTableExprItem = AstTableExprListItem | AstTableExprRecordItem | AstTableExprGeneralItem
+export type CstTableExprItem = CstTableExprListItem | CstTableExprRecordItem | CstTableExprGeneralItem
 
 --- A table constructor expression node.
-export type AstExprTable = {
+export type CstExprTable = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "table",
-	read openBrace: Token<"{">,
-	read entries: { AstTableExprItem },
-	read closeBrace: Token<"}">,
+	read openBrace: CstToken<"{">,
+	read entries: { CstTableExprItem },
+	read closeBrace: CstToken<"}">,
 }
 
 --- A unary expression node (e.g., `not x`, `-x`, `#x`).
-export type AstExprUnary = {
+export type CstExprUnary = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "unary",
-	read operator: Token<"not" | "-" | "#">,
-	read operand: AstExpr,
+	read operator: CstToken<"not" | "-" | "#">,
+	read operand: CstExpr,
 }
 
 --- A binary expression node (e.g., `a + b`).
-export type AstExprBinary = {
+export type CstExprBinary = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "binary",
-	read lhsOperand: AstExpr,
-	read operator: Token,
-	read rhsOperand: AstExpr,
+	read lhsOperand: CstExpr,
+	read operator: CstToken,
+	read rhsOperand: CstExpr,
 }
 
 --- An interpolated string expression node (e.g., `` `hello {name}` ``).
-export type AstExprInterpString = {
+export type CstExprInterpString = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "interpolatedstring",
-	read strings: { Token<string> },
-	read expressions: { AstExpr },
+	read strings: { CstToken<string> },
+	read expressions: { CstExpr },
 }
 
 --- A type assertion expression node (e.g., `x :: T`).
-export type AstExprTypeAssertion = {
+export type CstExprTypeAssertion = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "cast",
-	read operand: AstExpr,
-	read operator: Token<"::">,
-	read annotation: AstType,
+	read operand: CstExpr,
+	read operator: CstToken<"::">,
+	read annotation: CstType,
 }
 
--- helper type for elseif clauses of an if-else expression, not actually an AstExpr itself
+-- helper type for elseif clauses of an if-else expression, not actually an CstExpr itself
 --- An `elseif` clause in an if-else expression.
-export type AstElseIfExpr = {
-	read elseIfKeyword: Token<"elseif">,
-	read condition: AstExpr,
-	read thenKeyword: Token<"then">,
-	read thenExpr: AstExpr,
+export type CstElseIfExpr = {
+	read elseIfKeyword: CstToken<"elseif">,
+	read condition: CstExpr,
+	read thenKeyword: CstToken<"then">,
+	read thenExpr: CstExpr,
 }
 
 --- An if-else expression node.
-export type AstExprIfElse = {
+export type CstExprIfElse = {
 	read location: Span,
 	read kind: "expr",
 	read tag: "conditional",
-	read ifKeyword: Token<"if">,
-	read condition: AstExpr,
-	read thenKeyword: Token<"then">,
-	read thenExpr: AstExpr,
-	read elseifs: { AstElseIfExpr },
-	read elseKeyword: Token<"else">,
-	read elseExpr: AstExpr,
+	read ifKeyword: CstToken<"if">,
+	read condition: CstExpr,
+	read thenKeyword: CstToken<"then">,
+	read thenExpr: CstExpr,
+	read elseifs: { CstElseIfExpr },
+	read elseKeyword: CstToken<"else">,
+	read elseExpr: CstExpr,
 }
 
---- Union of all expression node types in the Luau AST.
-export type AstExpr =
-	| AstExprGroup
-	| AstExprConstantNil
-	| AstExprConstantBool
-	| AstExprConstantNumber
-	| AstExprConstantInteger
-	| AstExprConstantString
-	| AstExprLocal
-	| AstExprGlobal
-	| AstExprVarargs
-	| AstExprCall
-	| AstExprInstantiate
-	| AstExprIndexName
-	| AstExprIndexExpr
-	| AstExprFunction
-	| AstExprTable
-	| AstExprUnary
-	| AstExprBinary
-	| AstExprInterpString
-	| AstExprTypeAssertion
-	| AstExprIfElse
+--- Union of all expression node types in the Luau CST.
+export type CstExpr =
+	| CstExprGroup
+	| CstExprConstantNil
+	| CstExprConstantBool
+	| CstExprConstantNumber
+	| CstExprConstantInteger
+	| CstExprConstantString
+	| CstExprLocal
+	| CstExprGlobal
+	| CstExprVarargs
+	| CstExprCall
+	| CstExprInstantiate
+	| CstExprIndexName
+	| CstExprIndexExpr
+	| CstExprFunction
+	| CstExprTable
+	| CstExprUnary
+	| CstExprBinary
+	| CstExprInterpString
+	| CstExprTypeAssertion
+	| CstExprIfElse
 
 --- A block statement node (a sequence of statements).
-export type AstStatBlock = {
+export type CstStatBlock = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "block",
-	read statements: { AstStat },
+	read statements: { CstStat },
 }
 
 --- A `do...end` block statement node.
-export type AstStatDo = {
+export type CstStatDo = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "do",
-	read doKeyword: Token<"do">,
-	read body: AstStatBlock,
-	read endKeyword: Token<"end">,
+	read doKeyword: CstToken<"do">,
+	read body: CstStatBlock,
+	read endKeyword: CstToken<"end">,
 }
 
 --- An `elseif` clause in an if statement.
-export type AstElseIfStat = {
-	read elseIfKeyword: Token<"elseif">,
-	read condition: AstExpr,
-	read thenKeyword: Token<"then">,
-	read thenBlock: AstStatBlock,
+export type CstElseIfStat = {
+	read elseIfKeyword: CstToken<"elseif">,
+	read condition: CstExpr,
+	read thenKeyword: CstToken<"then">,
+	read thenBlock: CstStatBlock,
 }
 
 --- An `if...then...elseif...else...end` statement node.
-export type AstStatIf = {
+export type CstStatIf = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "conditional",
-	read ifKeyword: Token<"if">,
-	read condition: AstExpr,
-	read thenKeyword: Token<"then">,
-	read thenBlock: AstStatBlock,
-	read elseifs: { AstElseIfStat },
-	read elseKeyword: Token<"else">?, -- TODO: This could be elseif!
-	read elseBlock: AstStatBlock?,
-	read endKeyword: Token<"end">,
+	read ifKeyword: CstToken<"if">,
+	read condition: CstExpr,
+	read thenKeyword: CstToken<"then">,
+	read thenBlock: CstStatBlock,
+	read elseifs: { CstElseIfStat },
+	read elseKeyword: CstToken<"else">?, -- TODO: This could be elseif!
+	read elseBlock: CstStatBlock?,
+	read endKeyword: CstToken<"end">,
 }
 
 --- A `while...do...end` loop statement node.
-export type AstStatWhile = {
+export type CstStatWhile = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "while",
-	read whileKeyword: Token<"while">,
-	read condition: AstExpr,
-	read doKeyword: Token<"do">,
-	read body: AstStatBlock,
-	read endKeyword: Token<"end">,
+	read whileKeyword: CstToken<"while">,
+	read condition: CstExpr,
+	read doKeyword: CstToken<"do">,
+	read body: CstStatBlock,
+	read endKeyword: CstToken<"end">,
 }
 
 --- A `repeat...until` loop statement node.
-export type AstStatRepeat = {
+export type CstStatRepeat = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "repeat",
-	read repeatKeyword: Token<"repeat">,
-	read body: AstStatBlock,
-	read untilKeyword: Token<"until">,
-	read condition: AstExpr,
+	read repeatKeyword: CstToken<"repeat">,
+	read body: CstStatBlock,
+	read untilKeyword: CstToken<"until">,
+	read condition: CstExpr,
 }
 
 --- A `break` statement node.
-export type AstStatBreak = { read location: Span, read kind: "stat", read tag: "break", read token: Token<"break"> }
+export type CstStatBreak = { read location: Span, read kind: "stat", read tag: "break", read token: CstToken<"break"> }
 
 --- A `continue` statement node.
-export type AstStatContinue = {
+export type CstStatContinue = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "continue",
-	read token: Token<"continue">,
+	read token: CstToken<"continue">,
 }
 
 --- A `return` statement node.
-export type AstStatReturn = {
+export type CstStatReturn = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "return",
-	read returnKeyword: Token<"return">,
-	read expressions: Punctuated<AstExpr>,
+	read returnKeyword: CstToken<"return">,
+	read expressions: Punctuated<CstExpr>,
 }
 
 --- A statement consisting of a bare expression (e.g., a function call used as a statement).
-export type AstStatExpr = {
+export type CstStatExpr = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "expression",
-	read expression: AstExpr,
+	read expression: CstExpr,
 }
 
 --- A `local` variable declaration statement node.
-export type AstStatLocal = {
+export type CstStatLocal = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "local",
-	read localKeyword: Token<"local">,
-	read variables: Punctuated<AstLocal>,
-	read equals: Token<"=">?,
-	read values: Punctuated<AstExpr>,
+	read localKeyword: CstToken<"local">,
+	read variables: Punctuated<CstLocal>,
+	read equals: CstToken<"=">?,
+	read values: Punctuated<CstExpr>,
 }
 
 --- A `const` variable declaration statement node.
-export type AstStatConst = {
+export type CstStatConst = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "const",
-	read constKeyword: Token<"const">,
-	read variables: Punctuated<AstLocal>,
-	read equals: Token<"=">?,
-	read values: Punctuated<AstExpr>,
+	read constKeyword: CstToken<"const">,
+	read variables: Punctuated<CstLocal>,
+	read equals: CstToken<"=">?,
+	read values: Punctuated<CstExpr>,
 }
 
 --- A numeric `for` loop statement node.
-export type AstStatFor = {
+export type CstStatFor = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "for",
-	read forKeyword: Token<"for">,
-	read variable: AstLocal,
-	read equals: Token<"=">,
-	read from: AstExpr,
-	read toComma: Token<",">,
-	read to: AstExpr,
-	read stepComma: Token<",">?,
-	read step: AstExpr?,
-	read doKeyword: Token<"do">,
-	read body: AstStatBlock,
-	read endKeyword: Token<"end">,
+	read forKeyword: CstToken<"for">,
+	read variable: CstLocal,
+	read equals: CstToken<"=">,
+	read from: CstExpr,
+	read toComma: CstToken<",">,
+	read to: CstExpr,
+	read stepComma: CstToken<",">?,
+	read step: CstExpr?,
+	read doKeyword: CstToken<"do">,
+	read body: CstStatBlock,
+	read endKeyword: CstToken<"end">,
 }
 
 --- A generic `for...in` loop statement node.
-export type AstStatForIn = {
+export type CstStatForIn = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "forin",
-	read forKeyword: Token<"for">,
-	read variables: Punctuated<AstLocal>,
-	read inKeyword: Token<"in">,
-	read values: Punctuated<AstExpr>,
-	read doKeyword: Token<"do">,
-	read body: AstStatBlock,
-	read endKeyword: Token<"end">,
+	read forKeyword: CstToken<"for">,
+	read variables: Punctuated<CstLocal>,
+	read inKeyword: CstToken<"in">,
+	read values: Punctuated<CstExpr>,
+	read doKeyword: CstToken<"do">,
+	read body: CstStatBlock,
+	read endKeyword: CstToken<"end">,
 }
 
 --- An assignment statement node.
-export type AstStatAssign = {
+export type CstStatAssign = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "assign",
-	read variables: Punctuated<AstExpr>,
-	read equals: Token<"=">,
-	read values: Punctuated<AstExpr>,
+	read variables: Punctuated<CstExpr>,
+	read equals: CstToken<"=">,
+	read values: Punctuated<CstExpr>,
 }
 
 --- A compound assignment statement node (e.g., `x += 1`).
-export type AstStatCompoundAssign = {
+export type CstStatCompoundAssign = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "compoundassign",
-	read variable: AstExpr,
-	read operand: Token, -- TODO: Enforce token type
-	read value: AstExpr,
+	read variable: CstExpr,
+	read operand: CstToken, -- TODO: Enforce token type
+	read value: CstExpr,
 }
 
 --- A function attribute node (`@checked`, `@native`, or `@deprecated`).
-export type AstAttribute = {
+export type CstAttribute = {
 	read location: Span,
 	read kind: "attribute",
-	read token: Token<"@checked" | "@native" | "@deprecated">,
+	read name: CstToken<"@checked" | "@native" | "@deprecated">,
 }
 
 --- A function declaration statement node.
-export type AstStatFunction = {
+export type CstStatFunction = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "function",
-	read name: AstExpr,
-	read func: AstExprFunction,
+	read name: CstExpr,
+	read func: CstExprFunction,
 }
 
 --- A `local function` declaration statement node.
-export type AstStatLocalFunction = {
+export type CstStatLocalFunction = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "localfunction",
-	read localKeyword: Token<"local">,
-	read name: AstLocal,
-	read func: AstExprFunction,
+	read localKeyword: CstToken<"local">,
+	read name: CstLocal,
+	read func: CstExprFunction,
 }
 
 --- A `type` alias declaration statement node.
-export type AstStatTypeAlias = {
+export type CstStatTypeAlias = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "typealias",
-	read export: Token<"export">?,
-	read typeToken: Token<"type">,
-	read name: Token,
-	read openGenerics: Token<"<">?,
-	read generics: Punctuated<AstGenericType>?,
-	read genericPacks: Punctuated<AstGenericTypePack>?,
-	read closeGenerics: Token<">">?,
-	read equals: Token<"=">,
-	read type: AstType,
+	read export: CstToken<"export">?,
+	read typeToken: CstToken<"type">,
+	read name: CstToken,
+	read openGenerics: CstToken<"<">?,
+	read generics: Punctuated<CstGenericType>?,
+	read genericPacks: Punctuated<CstGenericTypePack>?,
+	read closeGenerics: CstToken<">">?,
+	read equals: CstToken<"=">,
+	read type: CstType,
 }
 
 -- A type function
 --- A `type function` declaration statement node.
-export type AstStatTypeFunction = {
+export type CstStatTypeFunction = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "typefunction",
-	read export: Token<"export">?,
-	read type: Token<"type">,
-	read name: Token,
-	read body: AstExprFunction,
+	read export: CstToken<"export">?,
+	read type: CstToken<"type">,
+	read name: CstToken,
+	read body: CstExprFunction,
 }
 
---- Union of all statement node types in the Luau AST.
-export type AstStat =
-	| AstStatBlock
-	| AstStatDo
-	| AstStatIf
-	| AstStatWhile
-	| AstStatRepeat
-	| AstStatBreak
-	| AstStatContinue
-	| AstStatReturn
-	| AstStatExpr
-	| AstStatLocal
-	| AstStatConst
-	| AstStatFor
-	| AstStatForIn
-	| AstStatAssign
-	| AstStatCompoundAssign
-	| AstStatFunction
-	| AstStatLocalFunction
-	| AstStatTypeAlias
-	| AstStatTypeFunction
+--- Union of all statement node types in the Luau CST.
+export type CstStat =
+	| CstStatBlock
+	| CstStatDo
+	| CstStatIf
+	| CstStatWhile
+	| CstStatRepeat
+	| CstStatBreak
+	| CstStatContinue
+	| CstStatReturn
+	| CstStatExpr
+	| CstStatLocal
+	| CstStatConst
+	| CstStatFor
+	| CstStatForIn
+	| CstStatAssign
+	| CstStatCompoundAssign
+	| CstStatFunction
+	| CstStatLocalFunction
+	| CstStatTypeAlias
+	| CstStatTypeFunction
 
 --- A generic type parameter (e.g., `T` in `function f<T>`).
-export type AstGenericType = {
+export type CstGenericType = {
 	read tag: "generic",
-	read name: Token<string>,
-	read equals: Token<"=">?,
-	read default: AstType?,
+	read name: CstToken<string>,
+	read equals: CstToken<"=">?,
+	read default: CstType?,
 }
 
 --- A generic type pack parameter (e.g., `T...` in `function f<T...>`).
-export type AstGenericTypePack = {
+export type CstGenericTypePack = {
 	read tag: "genericpack",
-	read name: Token<string>,
-	read ellipsis: Token<"...">,
-	read equals: Token<"=">?,
-	read default: AstTypePack?,
+	read name: CstToken<string>,
+	read ellipsis: CstToken<"...">,
+	read equals: CstToken<"=">?,
+	read default: CstTypePack?,
 }
 
 --- A named type reference node (e.g., `string`, `MyType<T>`).
-export type AstTypeReference = {
+export type CstTypeReference = {
 	read location: Span,
 	read kind: "type",
 	read tag: "reference",
-	read prefix: Token<string>?,
-	read prefixPoint: Token<".">?,
-	read name: Token<string>,
-	read openParameters: Token<"<">?,
-	read parameters: Punctuated<AstType | AstTypePack>?,
-	read closeParameters: Token<">">?,
+	read prefix: CstToken<string>?,
+	read prefixPoint: CstToken<".">?,
+	read name: CstToken<string>,
+	read openParameters: CstToken<"<">?,
+	read parameters: Punctuated<CstType | CstTypePack>?,
+	read closeParameters: CstToken<">">?,
 }
 
 --- A boolean singleton type node (`true` or `false`).
-export type AstTypeSingletonBool = {
+export type CstTypeSingletonBool = {
 	read location: Span,
 	read kind: "type",
 	read tag: "boolean",
 	read value: boolean,
-	read token: Token<"true" | "false">,
+	read token: CstToken<"true" | "false">,
 }
 
 --- A string singleton type node (e.g., `"hello"`).
-export type AstTypeSingletonString = {
+export type CstTypeSingletonString = {
 	read location: Span,
 	read kind: "type",
 	read tag: "string",
 	read quoteStyle: "single" | "double",
-	read token: Token<string>,
+	read value: CstToken<string>,
 }
 
 --- A `typeof(expr)` type annotation node.
-export type AstTypeTypeof = {
+export type CstTypeTypeof = {
 	read location: Span,
 	read kind: "type",
 	read tag: "typeof",
-	read typeof: Token<"typeof">,
-	read openParens: Token<"(">,
-	read expression: AstExpr,
-	read closeParens: Token<")">,
+	read typeof: CstToken<"typeof">,
+	read openParens: CstToken<"(">,
+	read expression: CstExpr,
+	read closeParens: CstToken<")">,
 }
 
 --- A parenthesized type annotation node.
-export type AstTypeGroup = {
+export type CstTypeGroup = {
 	read location: Span,
 	read kind: "type",
 	read tag: "group",
-	read openParens: Token<"(">,
-	read type: AstType,
-	read closeParens: Token<")">,
+	read openParens: CstToken<"(">,
+	read type: CstType,
+	read closeParens: CstToken<")">,
 }
 
 --- An optional type annotation node (e.g., `T?`).
-export type AstTypeOptional = { read location: Span, read kind: "type", read tag: "optional", read token: Token<"?"> }
+export type CstTypeOptional =
+	{ read location: Span, read kind: "type", read tag: "optional", read token: CstToken<"?"> }
 
 --- A union type annotation node (e.g., `A | B`).
-export type AstTypeUnion = {
+export type CstTypeUnion = {
 	read location: Span,
 	read kind: "type",
 	read tag: "union",
-	read leading: Token<"|">?,
-	-- Separator may be nil for AstTypeOptional
-	read types: Punctuated<AstType, "|">,
+	read leading: CstToken<"|">?,
+	-- Separator may be nil for CstTypeOptional
+	read types: Punctuated<CstType, "|">,
 }
 
 --- An intersection type annotation node (e.g., `A & B`).
-export type AstTypeIntersection = {
+export type CstTypeIntersection = {
 	read location: Span,
 	read kind: "type",
 	read tag: "intersection",
-	read leading: Token<"&">?,
-	read types: Punctuated<AstType, "&">,
+	read leading: CstToken<"&">?,
+	read types: Punctuated<CstType, "&">,
 }
 
 --- An array type annotation node (e.g., `{ T }`).
-export type AstTypeArray = {
+export type CstTypeArray = {
 	read location: Span,
 	read kind: "type",
 	read tag: "array",
-	read openBrace: Token<"{">,
-	read access: Token<"read" | "write">?,
-	read type: AstType,
-	read closeBrace: Token<"}">,
+	read openBrace: CstToken<"{">,
+	read access: CstToken<"read" | "write">?,
+	read type: CstType,
+	read closeBrace: CstToken<"}">,
 }
 
 --- A computed-key indexer entry in a table type (e.g., `[K]: V`).
-export type AstTableTypeItemIndexer = {
+export type CstTableTypeItemIndexer = {
 	read kind: "indexer",
-	read access: Token<"read" | "write">?,
-	read indexerOpen: Token<"[">,
-	read key: AstType,
-	read indexerClose: Token<"]">,
-	read colon: Token<":">,
-	read value: AstType,
-	read separator: Token<"," | ";">?,
+	read access: CstToken<"read" | "write">?,
+	read indexerOpen: CstToken<"[">,
+	read key: CstType,
+	read indexerClose: CstToken<"]">,
+	read colon: CstToken<":">,
+	read value: CstType,
+	read separator: CstToken<"," | ";">?,
 }
 
 --- A string-literal-keyed property entry in a table type (e.g., `["key"]: T`).
-export type AstTableTypeItemStringProperty = {
+export type CstTableTypeItemStringProperty = {
 	read kind: "stringproperty",
-	read access: Token<"read" | "write">?,
-	read indexerOpen: Token<"[">,
-	read key: AstTypeSingletonString,
-	read indexerClose: Token<"]">,
-	read colon: Token<":">,
-	read value: AstType,
-	read separator: Token<"," | ";">?,
+	read access: CstToken<"read" | "write">?,
+	read indexerOpen: CstToken<"[">,
+	read key: CstTypeSingletonString,
+	read indexerClose: CstToken<"]">,
+	read colon: CstToken<":">,
+	read value: CstType,
+	read separator: CstToken<"," | ";">?,
 }
 
 --- A named property entry in a table type (e.g., `key: T`).
-export type AstTableTypeItemProperty = {
+export type CstTableTypeItemProperty = {
 	read kind: "property",
-	read access: Token<"read" | "write">?,
-	read key: Token,
-	read colon: Token<":">,
-	read value: AstType,
-	read separator: Token<"," | ";">?,
+	read access: CstToken<"read" | "write">?,
+	read key: CstToken,
+	read colon: CstToken<":">,
+	read value: CstType,
+	read separator: CstToken<"," | ";">?,
 }
 
 --- Union of all table type entry kinds.
-export type AstTableTypeItem = AstTableTypeItemIndexer | AstTableTypeItemStringProperty | AstTableTypeItemProperty
+export type CstTableTypeItem = CstTableTypeItemIndexer | CstTableTypeItemStringProperty | CstTableTypeItemProperty
 
 --- A table type annotation node.
-export type AstTypeTable = {
+export type CstTypeTable = {
 	read location: Span,
 	read kind: "type",
 	read tag: "table",
-	read openBrace: Token<"{">,
-	read entries: { AstTableTypeItem },
-	read closeBrace: Token<"}">,
+	read openBrace: CstToken<"{">,
+	read entries: { CstTableTypeItem },
+	read closeBrace: CstToken<"}">,
 }
 
 --- A parameter in a function type annotation.
-export type AstFunctionTypeParameter = {
+export type CstFunctionTypeParameter = {
 	read location: Span,
-	read name: Token?,
-	read colon: Token<":">?,
-	read type: AstType,
+	read name: CstToken?,
+	read colon: CstToken<":">?,
+	read type: CstType,
 }
 
 -- A type representing a Luau function
 --- A function type annotation node.
-export type AstTypeFunction = {
+export type CstTypeFunction = {
 	read location: Span,
 	read kind: "type",
 	read tag: "function",
-	read openGenerics: Token<"<">?,
-	read generics: Punctuated<AstGenericType>?,
-	read genericPacks: Punctuated<AstGenericTypePack>?,
-	read closeGenerics: Token<">">?,
-	read openParens: Token<"(">,
-	read parameters: Punctuated<AstFunctionTypeParameter>,
-	read vararg: AstTypePack?,
-	read closeParens: Token<")">,
-	read returnArrow: Token<"->">,
-	read returnTypes: AstTypePack,
+	read openGenerics: CstToken<"<">?,
+	read generics: Punctuated<CstGenericType>?,
+	read genericPacks: Punctuated<CstGenericTypePack>?,
+	read closeGenerics: CstToken<">">?,
+	read openParens: CstToken<"(">,
+	read parameters: Punctuated<CstFunctionTypeParameter>,
+	read vararg: CstTypePack?,
+	read closeParens: CstToken<")">,
+	read returnArrow: CstToken<"->">,
+	read returnTypes: CstTypePack,
 }
 
---- Union of all type annotation node types in the Luau AST.
-export type AstType =
-	| AstTypeReference
-	| AstTypeSingletonBool
-	| AstTypeSingletonString
-	| AstTypeTypeof
-	| AstTypeGroup
-	| AstTypeUnion
-	| AstTypeIntersection
-	| AstTypeOptional
-	| AstTypeArray
-	| AstTypeTable
-	| AstTypeFunction
+--- Union of all type annotation node types in the Luau CST.
+export type CstType =
+	| CstTypeReference
+	| CstTypeSingletonBool
+	| CstTypeSingletonString
+	| CstTypeTypeof
+	| CstTypeGroup
+	| CstTypeUnion
+	| CstTypeIntersection
+	| CstTypeOptional
+	| CstTypeArray
+	| CstTypeTable
+	| CstTypeFunction
 
 --- An explicit type pack annotation node (e.g., `(T, U)`).
-export type AstTypePackExplicit = {
+export type CstTypePackExplicit = {
 	read location: Span,
 	read kind: "typepack",
 	read tag: "explicit",
-	read openParens: Token<"(">?,
-	read types: Punctuated<AstType>,
-	read tailType: AstTypePack?,
-	read closeParens: Token<")">?,
+	read openParens: CstToken<"(">?,
+	read types: Punctuated<CstType>,
+	read tailType: CstTypePack?,
+	read closeParens: CstToken<")">?,
 }
 
 --- A generic type pack annotation node (e.g., `T...`).
-export type AstTypePackGeneric = {
+export type CstTypePackGeneric = {
 	read location: Span,
 	read kind: "typepack",
 	read tag: "generic",
-	read name: Token,
-	read ellipsis: Token<"...">,
+	read name: CstToken,
+	read ellipsis: CstToken<"...">,
 }
 
 --- A variadic type pack annotation node (e.g., `...T`).
-export type AstTypePackVariadic = {
+export type CstTypePackVariadic = {
 	read location: Span,
 	read kind: "typepack",
 	read tag: "variadic",
 	--- May be nil when present as the vararg annotation in a function body
-	read ellipsis: Token<"...">?,
-	read type: AstType,
+	read ellipsis: CstToken<"...">?,
+	read type: CstType,
 }
 
---- Union of all type pack annotation node types in the Luau AST.
-export type AstTypePack = AstTypePackExplicit | AstTypePackGeneric | AstTypePackVariadic
+--- Union of all type pack annotation node types in the Luau CST.
+export type CstTypePack = CstTypePackExplicit | CstTypePackGeneric | CstTypePackVariadic
 
---- Union of all node types in the Luau AST.
-export type AstNode = AstExpr | AstStat | AstType | AstTypePack | AstLocal | AstAttribute | Token
+--- Union of all node types in the Luau CST.
+export type CstNode = CstExpr | CstStat | CstType | CstTypePack | CstLocal | CstAttribute | CstToken
 
 --- The result of parsing a Luau script, containing the root block, EOF token, and source location info.
 export type ParseResult = {
-	read root: AstStatBlock,
-	read eof: Eof,
+	read root: CstStatBlock,
+	read eof: CstEof,
 	read lines: number,
 	read lineOffsets: { number },
 }
 
---- Parses `source` as a Luau script and returns the resulting AST.
+--- Parses `source` as a Luau script and returns the resulting CST.
 function luau.parse(source: string): ParseResult
 	error("not implemented")
 end
 
---- Parses `source` as a single Luau expression and returns the resulting AST node.
-function luau.parseExpr(source: string): AstExpr
+--- Parses `source` as a single Luau expression and returns the resulting CST node.
+function luau.parseExpr(source: string): CstExpr
 	error("not implemented")
 end
 
