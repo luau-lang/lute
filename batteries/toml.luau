@@ -900,6 +900,23 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	local parseValue: () -> TomlValue
 
+	local numberPrefixTable: { [number]: (() -> number)? } = {
+		-- 0x
+		[120] = function()
+			return tonumber(parseDigits(isHexDigit), 16) :: number
+		end,
+
+		-- 0o
+		[111] = function()
+			return tonumber(parseDigits(isOctDigit), 8) :: number
+		end,
+
+		-- 0b
+		[98] = function()
+			return tonumber(parseDigits(isBinDigit), 2) :: number
+		end,
+	}
+
 	local function parseNumOrDatetime(sign: string?): string | number
 		local signStr = sign or ""
 		local c = byteAt()
@@ -921,21 +938,13 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 		-- prefixed integer bases (no sign allowed)
 		if sign == nil and c == 48 then
-			local nc = byteAt(1)
-			if nc == 120 then
-				pos += 2
-				return tonumber(parseDigits(isHexDigit), 16) :: number
-			end -- 0x
+			local nc = byteAt(1) or 0
 
-			if nc == 111 then
+			local parser = numberPrefixTable[nc]
+			if parser then
 				pos += 2
-				return tonumber(parseDigits(isOctDigit), 8) :: number
-			end -- 0o
-
-			if nc == 98 then
-				pos += 2
-				return tonumber(parseDigits(isBinDigit), 2) :: number
-			end -- 0b
+				return parser()
+			end
 		end
 
 		-- datetime / time detection (no sign)
@@ -969,27 +978,33 @@ local function deserialize(input: string): { [string]: TomlValue }
 		local result = signStr .. intDigits
 
 		if nc == 46 then -- '.'
-			isFloat = true
 			pos += 1
+			isFloat = true
+
 			if not isDigit(byteAt()) then
 				tomlParseError("expected digit after decimal point")
 			end
+
 			result ..= "." .. parseDigits(isDigit)
 			nc = byteAt()
 		end
 
 		if nc == 101 or nc == 69 then -- e / E
-			isFloat = true
 			pos += 1
+			isFloat = true
+
 			local expSign = ""
+
 			local ec = byteAt()
 			if ec == 43 or ec == 45 then
 				expSign = string.char(ec :: number)
 				pos += 1
 			end
+
 			if not isDigit(byteAt()) then
 				tomlParseError("expected digit in exponent")
 			end
+
 			result ..= "e" .. expSign .. parseDigits(isDigit)
 		end
 
@@ -1482,36 +1497,48 @@ local function deserialize(input: string): { [string]: TomlValue }
 		if c == 91 then -- '['
 			if byteAt(1) == 91 then -- '[['
 				pos += 2
+
 				skipWhitespace()
 				local parts = parseKey()
 				skipWhitespace()
+
 				if string.sub(src, pos, pos + 1) ~= "]]" then
 					tomlParseError("expected ']]'")
 				end
+
 				pos += 2
 				expectLineEnd()
+
 				currentTable = navigateToHeader(root, parts, true)
 			else
 				pos += 1
+
 				skipWhitespace()
 				local parts = parseKey()
 				skipWhitespace()
+
 				if byteAt() ~= 93 then
 					tomlParseError("expected ']'")
 				end -- ']'
+
 				pos += 1
 				expectLineEnd()
+
 				currentTable = navigateToHeader(root, parts, false)
 			end
 		else
 			local parts = parseKey()
 			skipWhitespace()
+
 			if byteAt() ~= 61 then
 				tomlParseError("expected '='")
 			end -- '='
+
 			pos += 1
+
 			local value = parseValue()
 			setNestedKey(currentTable, parts, value, true)
+
 			expectLineEnd()
 		end
 	end
