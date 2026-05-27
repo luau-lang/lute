@@ -188,7 +188,6 @@ jobs:
         with:
           target: Lute.CLI
           config: release
-          use-bootstrap: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Lute Check
