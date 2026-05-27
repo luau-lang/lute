@@ -2,7 +2,7 @@ local toml = {}
 
 -- serialization
 
-local function serializeValue(value: string | number): string
+const function serializeValue(value: string | number): string
 	if typeof(value) == "string" then
 		value = string.gsub(value, "\\", "\\\\")
 		value = string.gsub(value, "\n", "\\n")
@@ -25,7 +25,7 @@ local function serializeValue(value: string | number): string
 	return tostring(value)
 end
 
-local function quoteKey(key: string): string
+const function quoteKey(key: string): string
 	if not string.match(key, "^[%w_-]+$") then
 		return `"{key}"`
 	end
@@ -33,7 +33,7 @@ local function quoteKey(key: string): string
 	return key
 end
 
-local function hasNestedTables(tbl: { [unknown]: unknown }): boolean
+const function hasNestedTables(tbl: { [unknown]: unknown }): boolean
 	for _, v in tbl do
 		if typeof(v) == "table" and next(v) ~= nil then
 			return true
@@ -43,7 +43,7 @@ local function hasNestedTables(tbl: { [unknown]: unknown }): boolean
 	return false
 end
 
-local function tableToToml(tbl: { [any]: any }, parent: string?): string
+const function tableToToml(tbl: { [any]: any }, parent: string?): string
 	local result = ""
 	local subTables = {}
 	local hasDirectValues = false
@@ -82,7 +82,7 @@ local function tableToToml(tbl: { [any]: any }, parent: string?): string
 	return result
 end
 
-local function serialize(tbl: { [any]: any }): string
+const function serialize(tbl: { [any]: any }): string
 	return tableToToml(tbl, nil)
 end
 
@@ -90,7 +90,7 @@ end
 
 export type TomlValue = string | number | boolean | { TomlValue } | { [string]: TomlValue }
 
-local function deserialize(input: string): { [string]: TomlValue }
+const function deserialize(input: string): { [string]: TomlValue }
 	-- convert CRLF to LF
 	if input:find("\r\n", 1, true) then
 		input = input:gsub("\r\n", "\n")
@@ -203,7 +203,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 	-- tracks which Luau arrays are array-of-tables (vs regular array values)
 	local arrayTableSets: { [any]: boolean } = {}
 
-	local function getMeta(tbl: any): TableMeta
+	const function getMeta(tbl: any): TableMeta
 		if not tableMeta[tbl] then
 			tableMeta[tbl] = { kind = "implicit-header", keys = {} }
 		end
@@ -211,35 +211,35 @@ local function deserialize(input: string): { [string]: TomlValue }
 		return tableMeta[tbl]
 	end
 
-	local function tomlParseError(msg: string): never
+	const function tomlParseError(msg: string): never
 		error(`TOML parse error at position {pos}: {msg}`)
 	end
 
 	-- character helpers (all operate on the shared pos/src/len upvalues)
 
-	local function byteAt(offset: number?): number? -- byte at pos+offset
+	const function byteAt(offset: number?): number? -- byte at pos+offset
 		local p = pos + (offset or 0)
 		return if p <= len then buffer.readu8(srcBuf, p - 1) else nil
 	end
 
-	local function isDigit(c: number?): boolean
+	const function isDigit(c: number?): boolean
 		return c ~= nil and c >= 48 and c <= 57
 	end
 
-	local function isHexDigit(c: number?): boolean
+	const function isHexDigit(c: number?): boolean
 		return c ~= nil and ((c >= 48 and c <= 57) or (c >= 65 and c <= 70) or (c >= 97 and c <= 102))
 	end
 
-	local function isOctDigit(c: number?): boolean
+	const function isOctDigit(c: number?): boolean
 		return c ~= nil and c >= 48 and c <= 55
 	end
 
-	local function isBinDigit(c: number?): boolean
+	const function isBinDigit(c: number?): boolean
 		return c ~= nil and (c == 48 or c == 49)
 	end
 
 	-- bare key chars: A-Z a-z 0-9 _ -
-	local function isBareKey(c: number?): boolean
+	const function isBareKey(c: number?): boolean
 		if c == nil then
 			return false
 		end
@@ -249,7 +249,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- control characters that are forbidden unescaped (everything < 0x20 except tab,
 	-- plus DEL 0x7F; LF 0x0A is handled separately per context)
-	local function isControlCharacter(c: number?): boolean
+	const function isControlCharacter(c: number?): boolean
 		if c == nil then
 			return false
 		end
@@ -259,7 +259,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- whitespace skipping
 
-	local function skipWhitespace()
+	const function skipWhitespace()
 		while pos <= len do
 			local c = buffer.readu8(srcBuf, pos - 1)
 
@@ -272,7 +272,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	-- skip a # comment up to (but not including) the newline
-	local function skipComment()
+	const function skipComment()
 		if byteAt() ~= 35 then
 			return
 		end -- '#'
@@ -295,7 +295,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	-- skip horizontal whitespace, newlines, and comments
-	local function skipWhitespaceNewlinesAndComments()
+	const function skipWhitespaceNewlinesAndComments()
 		while pos <= len do
 			local c = buffer.readu8(srcBuf, pos - 1)
 
@@ -310,7 +310,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	-- after a value: consume trailing whitespace + optional comment, then require newline or EOF
-	local function expectLineEnd()
+	const function expectLineEnd()
 		skipWhitespace()
 		skipComment()
 
@@ -328,7 +328,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- string escape helpers
 
-	local function parseUnicodeEscape(long: boolean): string
+	const function parseUnicodeEscape(long: boolean): string
 		local n = if long then 8 else 4
 		local hexStr = string.sub(src, pos, pos + n - 1)
 
@@ -358,7 +358,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 	end
 
 	-- \xXX escape (TOML 1.1): unicode codepoint U+0000..U+00FF
-	local function parseHexEscape(): string
+	const function parseHexEscape(): string
 		local hexStr = string.sub(src, pos, pos + 1)
 
 		if #hexStr < 2 or not isHexDigit(string.byte(hexStr, 1)) or not isHexDigit(string.byte(hexStr, 2)) then
@@ -391,7 +391,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		[120] = parseHexEscape, -- \xXX  (TOML 1.1)
 	}
 
-	local function parseEscape(): string
+	const function parseEscape(): string
 		if pos > len then
 			tomlParseError("incomplete escape sequence")
 		end
@@ -414,7 +414,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- string parsers (pos is always past the opening delimiter on entry)
 
-	local function parseBasicString(): string
+	const function parseBasicString(): string
 		local parts = {}
 
 		while pos <= len do
@@ -466,7 +466,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		error("unreachable")
 	end
 
-	local function parseMultilineBasicString(): string
+	const function parseMultilineBasicString(): string
 		-- trim a single leading newline
 		if byteAt() == 10 then
 			pos += 1
@@ -565,7 +565,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		error("unreachable")
 	end
 
-	local function parseLiteralString(): string
+	const function parseLiteralString(): string
 		local start = pos
 
 		while pos <= len do
@@ -594,7 +594,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		error("unreachable")
 	end
 
-	local function parseMultilineLiteralString(): string
+	const function parseMultilineLiteralString(): string
 		if byteAt() == 10 then
 			pos += 1
 		end -- trim leading newline
@@ -652,7 +652,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 	-- number / datetime helpers
 
 	-- parse a run of digits (with internal underscores allowed), return digits-only string
-	local function parseDigits(digitCheck: (number?) -> boolean): string
+	const function parseDigits(digitCheck: (number?) -> boolean): string
 		if not digitCheck(byteAt()) then
 			tomlParseError("expected digit")
 		end
@@ -692,7 +692,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		return result
 	end
 
-	local function looksLikeDate(): boolean
+	const function looksLikeDate(): boolean
 		-- YYYY- : 4 decimal digits followed by '-'
 		if pos + 4 > len then
 			return false
@@ -707,13 +707,13 @@ local function deserialize(input: string): { [string]: TomlValue }
 		return buffer.readu8(srcBuf, pos + 3) == 45
 	end
 
-	local function looksLikeTime(): boolean
+	const function looksLikeTime(): boolean
 		-- HH: : exactly 2 decimal digits followed by ':'
 		return isDigit(byteAt(0)) and isDigit(byteAt(1)) and byteAt(2) == 58
 	end
 
 	-- Returns days in month for given year and month (1-12)
-	local function daysInMonth(year: number, month: number): number
+	const function daysInMonth(year: number, month: number): number
 		if month == 2 then
 			local isLeap = (year % 4 == 0 and year % 100 ~= 0) or (year % 400 == 0)
 			return if isLeap then 29 else 28
@@ -726,7 +726,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		return 31
 	end
 
-	local function parseDatetime(): string
+	const function parseDatetime(): string
 		local hasDate = looksLikeDate()
 		local result = ""
 
@@ -923,7 +923,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 		end,
 	}
 
-	local function parseNumOrDatetime(sign: string?): string | number
+	const function parseNumOrDatetime(sign: string?): string | number
 		local signStr = sign or ""
 		local c = byteAt()
 
@@ -1260,7 +1260,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 
 	-- navigate through dotted intermediate keys, creating tables as needed;
 	-- returns (leaf_table, leaf_key_string)
-	local function navigateDotted(
+	const function navigateDotted(
 		tbl: { [string]: TomlValue },
 		parts: { string },
 		newKind: TableKind
@@ -1401,7 +1401,7 @@ local function deserialize(input: string): { [string]: TomlValue }
 	}
 
 	-- navigate to the table referenced by a [key] or [[key]] header
-	local function navigateToHeader(
+	const function navigateToHeader(
 		root: { [string]: TomlValue },
 		parts: { string },
 		isArrayTable: boolean
