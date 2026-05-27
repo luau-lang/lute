@@ -319,11 +319,11 @@ local function deserialize(input: string): { [string]: TomlValue }
 		end
 
 		local c = byteAt()
-		if c == 10 then
-			pos += 1
-		else
+		if c ~= 10 then
 			tomlParseError(`expected newline or EOF, got '${string.char(c :: number)}'`)
 		end
+
+		pos += 1
 	end
 
 	-- string escape helpers
