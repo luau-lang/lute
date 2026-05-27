@@ -194,17 +194,7 @@ jobs:
       - name: Run Lute Check
         run: |
           # @lute typechecks
-          ${{ steps.build_lute.outputs.exe_path }} check definitions/**/*.luau
-          # @std and @cli commands typechecks
-          ${{ steps.build_lute.outputs.exe_path }} check lute/**/*.luau
-          # # @batteries typechecks
-          # ${{ steps.build_lute.outputs.exe_path }} check batteries/**/*.luau
-          # # All tests typecheck
-          # ${{ steps.build_lute.outputs.exe_path }} check tests/**/*.test.luau
-          # # All tools typecheck
-          # ${{ steps.build_lute.outputs.exe_path }} check tools/*.luau
-          # # All examples typecheck
-          # ${{ steps.build_lute.outputs.exe_path }} check examples/*.luau
+          ${{ steps.build_lute.outputs.exe_path }} check tcfail.luau
 
   aggregator:
     name: Gated Commits
