@@ -4,12 +4,22 @@ export type SourceKind =
 	| "path"
 	| "github"
 
-export type DependencySpec = {
+export type PathDependencySpec = {
+	read sourceKind: "path",
 	read name: string,
-	read rev: string?,
 	read source: string,
-	read sourceKind: SourceKind,
 }
+
+export type GitHubDependencySpec = {
+	read sourceKind: "github",
+	read name: string,
+	read source: string,
+	read rev: string,
+}
+
+export type DependencySpec =
+  | PathDependencySpec
+  | GitHubDependencySpec
 
 export type PackageManifest = {
 	read name: string,
@@ -55,10 +65,6 @@ local function parseManifest(t: unknown): ProjectManifest
 				`Optional 'name' field in dependency spec for '{name}' expected to be a string`
 			)
 			assert(
-				spec.rev == nil or typeof(spec.rev) == "string",
-				`Expected 'rev' field to be a string or nil in dependency spec for '{name}'`
-			)
-			assert(
 				isSourceKind(spec.sourceKind),
 				`Expected 'sourceKind' to be 'path' or 'github' in dependency spec for '{name}', got '{spec.sourceKind}'`
 			)
@@ -66,12 +72,24 @@ local function parseManifest(t: unknown): ProjectManifest
 				spec.source ~= nil and typeof(spec.source) == "string",
 				`Expected 'source' field in dependency spec for '{name}'`
 			)
-			dependencies[name] = table.freeze({
-				name = spec.name or name, -- use the optional name if provided, otherwise use the alias
-				rev = spec.rev,
-				sourceKind = spec.sourceKind,
-				source = spec.source,
-			})
+
+			if spec.sourceKind == "path" then
+				dependencies[name] = table.freeze({
+					name = spec.name or name,
+					sourceKind = "path",
+					source = spec.source,
+				}) :: PathDependencySpec
+			end
+
+			if spec.sourceKind == "github" then
+				assert(typeof(spec.rev) == "string", `Expected 'rev' field for github dependency '{name}'`)
+				dependencies[name] = table.freeze({
+					name = spec.name or name, -- use the optional name if provided, otherwise use the alias
+					sourceKind = "github",
+					source = spec.source,
+					rev = spec.rev,
+				}) :: GitHubDependencySpec
+			end
 		end
 		table.freeze(dependencies)
 	end
