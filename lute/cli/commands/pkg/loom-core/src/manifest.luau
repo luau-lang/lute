@@ -1,10 +1,12 @@
 local luau = require("@std/luau")
 
+export type SourceKind = "path" | "github"
+
 export type DependencySpec = {
 	read name: string,
 	read rev: string?,
 	read source: string,
-	read sourceKind: string,
+	read sourceKind: SourceKind,
 }
 
 export type PackageManifest = {
@@ -16,6 +18,18 @@ export type PackageManifest = {
 export type ProjectManifest = {
 	read package: PackageManifest,
 }
+
+local function isSourceKind(s: unknown): boolean
+	return s == "path" or s == "github"
+end
+
+local function parseSourceKind(s: unknown): SourceKind?
+	if not isSourceKind(s) then
+		return nil
+	end
+
+	return s :: SourceKind
+end
 
 -- FIXME(Luau): running into issues with getting this to type check properly.
 -- We also should also do proper error handling because this is user input.
@@ -40,8 +54,8 @@ local function parseManifest(t: any): ProjectManifest
 				`Expected 'rev' field to be a string or nil in dependency spec for '{name}'`
 			)
 			assert(
-				spec.sourceKind ~= nil and type(spec.sourceKind) == "string",
-				`Expected 'sourceKind' field in dependency spec for '{name}'`
+				isSourceKind(spec.sourceKind),
+				`Expected 'sourceKind' to be 'path' or 'github' in dependency spec for '{name}', got '{spec.sourceKind}'`
 			)
 			assert(
 				spec.source ~= nil and type(spec.source) == "string",
@@ -72,5 +86,7 @@ local function parseFile(manifestPath: string): ProjectManifest
 end
 
 return {
+	isSourceKind = isSourceKind,
+	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
 }

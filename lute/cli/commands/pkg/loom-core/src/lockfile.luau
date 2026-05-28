@@ -1,10 +1,11 @@
 local luau = require("@std/luau")
+local manifest = require("./manifest")
 
 export type LockfileDependency = {
 	read name: string,
 	read rev: string?,
 	read source: string,
-	read sourceKind: string,
+	read sourceKind: manifest.SourceKind,
 	read installPath: string,
 	read dependencies: { [string]: string },
 }
@@ -23,7 +24,10 @@ local function validatePackageEntry(key: string, entry: any)
 		`Expected 'rev' field to be a string or nil for dependency '{key}'`
 	)
 	assert(type(entry.source) == "string", `Expected 'source' field in dependency '{key}'`)
-	assert(type(entry.sourceKind) == "string", `Expected 'sourceKind' field in dependency '{key}'`)
+	assert(
+		manifest.isSourceKind(entry.sourceKind),
+		`Expected 'sourceKind' to be 'path' or 'github' for dependency '{key}', got '{entry.sourceKind}'`
+	)
 	assert(type(entry.installPath) == "string", `Expected 'installPath' field in dependency '{key}'`)
 	assert(type(entry.dependencies) == "table", `Expected 'dependencies' field in dependency '{key}'`)
 	for alias, depKey in entry.dependencies do
