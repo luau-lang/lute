@@ -1,8 +1,6 @@
 local luau = require("@std/luau")
 
-export type SourceKind =
-	| "path"
-	| "github"
+export type SourceKind = "path" | "github"
 
 export type PathDependencySpec = {
 	read sourceKind: "path",
@@ -17,9 +15,7 @@ export type GitHubDependencySpec = {
 	read rev: string,
 }
 
-export type DependencySpec =
-  | PathDependencySpec
-  | GitHubDependencySpec
+export type DependencySpec = PathDependencySpec | GitHubDependencySpec
 
 export type PackageManifest = {
 	read name: string,
@@ -53,7 +49,10 @@ local function parseManifest(t: unknown): ProjectManifest
 	assert(pkg.name ~= nil and typeof(pkg.name) == "string", "Expected 'name' field in package manifest")
 	-- FIXME(Luau): Luau currently refines `pkg` to have `version` based on this check, but
 	-- also produces a type error for the access _in_ the condition without the cast here.
-	assert((pkg :: any).version ~= nil and typeof(pkg.version) == "string", "Expected 'version' field in package manifest")
+	assert(
+		(pkg :: any).version ~= nil and typeof(pkg.version) == "string",
+		"Expected 'version' field in package manifest"
+	)
 
 	local dependencies: { [string]: DependencySpec } = {}
 	-- FIXME(Luau): Luau currently refines `pkg` to have `dependencies` based on this check, but
