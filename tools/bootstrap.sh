@@ -76,17 +76,20 @@ else
   BUILD_ROOT=build
 fi
 
-BUILD_PATH=$BUILD_ROOT/debug
+# Use a dedicated directory for the STDLESS bootstrap build so that the
+# cmake cache with LUTE_STDLESS=ON never contaminates the real debug build
+# directory that luthier will configure afterwards.
+BOOTSTRAP_BUILD_PATH=build/lute0-bootstrap
 rm -rf build && mkdir build
-exe cmake -G=Ninja -B $BUILD_PATH -DCMAKE_BUILD_TYPE=Debug -DLUTE_STDLESS=ON
+exe cmake -G=Ninja -B $BOOTSTRAP_BUILD_PATH -DCMAKE_BUILD_TYPE=Debug -DLUTE_STDLESS=ON
 
 # build lute0
-exe ninja -C $BUILD_PATH $EXE_PATH
+exe ninja -C $BOOTSTRAP_BUILD_PATH $EXE_PATH
 echo ""
-echo "built lute0 at $BUILD_PATH/$EXE_PATH"
+echo "built lute0 at $BOOTSTRAP_BUILD_PATH/$EXE_PATH"
 
 # use lute0 to build lute with the standard library included.
-LUTESTRAP=./$BUILD_PATH/$EXE_PATH
+LUTESTRAP=./$BOOTSTRAP_BUILD_PATH/$EXE_PATH
 mv $LUTESTRAP $OUT_BINARY
 exe $OUT_BINARY tools/luthier.luau configure --config release --clean lute
 exe $OUT_BINARY tools/luthier.luau build --config release --clean lute
