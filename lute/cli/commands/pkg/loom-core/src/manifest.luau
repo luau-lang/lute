@@ -1,6 +1,8 @@
 local luau = require("@std/luau")
 
-export type SourceKind = "path" | "github"
+export type SourceKind =
+	| "path"
+	| "github"
 
 export type DependencySpec = {
 	read name: string,
@@ -31,8 +33,7 @@ local function parseSourceKind(s: unknown): SourceKind?
 	return s :: SourceKind
 end
 
--- FIXME(Luau): running into issues with getting this to type check properly.
--- We also should also do proper error handling because this is user input.
+-- TODO: We should do proper error handling because this is user input.
 local function parseManifest(t: unknown): ProjectManifest
 	assert(t ~= nil and typeof(t) == "table", "Expected a table")
 	assert(t.package ~= nil and typeof(t.package) == "table", "Expected 'package' field in manifest")
@@ -40,10 +41,14 @@ local function parseManifest(t: unknown): ProjectManifest
 	local pkg = t.package
 
 	assert(pkg.name ~= nil and typeof(pkg.name) == "string", "Expected 'name' field in package manifest")
-	assert(pkg.version ~= nil and typeof(pkg.version) == "string", "Expected 'version' field in package manifest")
+	-- FIXME(Luau): Luau currently refines `pkg` to have `version` based on this check, but
+	-- also produces a type error for the access _in_ the condition without the cast here.
+	assert((pkg :: any).version ~= nil and typeof(pkg.version) == "string", "Expected 'version' field in package manifest")
 
 	local dependencies: { [string]: DependencySpec } = {}
-	if pkg.dependencies ~= nil then
+	-- FIXME(Luau): Luau currently refines `pkg` to have `dependencies` based on this check, but
+	-- also produces a type error for the access _in_ the condition without the cast here.
+	if (pkg :: any).dependencies ~= nil then
 		for name, spec in pkg.dependencies do
 			assert(
 				spec.name == nil or typeof(spec.name) == "string",
