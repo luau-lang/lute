@@ -108,22 +108,22 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		-- For each (var, value) pair, ignore references to the var in the value
 		for i, localVar in stat.variables do
 			if stat.values[i] then
-				if utils.isRequireCall(stat.values[i].node) then
-					visitor.requiredModules[localVar.node.name.text] = localVar.node
+				if utils.isRequireCall(stat.values[i]) then
+					visitor.requiredModules[localVar.name.text] = localVar
 				else
-					visitor.ignoreReferences[localVar.node] = true
-					if localVar.node.annotation then
-						visitorLib.visitType(localVar.node.annotation, visitor)
+					visitor.ignoreReferences[localVar] = true
+					if localVar.annotation then
+						visitorLib.visitType(localVar.annotation, visitor)
 					end
-					visitorLib.visitExpression(stat.values[i].node, visitor)
-					visitor.ignoreReferences[localVar.node] = nil
+					visitorLib.visitExpression(stat.values[i], visitor)
+					visitor.ignoreReferences[localVar] = nil
 				end
 			end
 		end
 
 		-- Mark each var as unused in the current scope
 		for _, localVar in stat.variables do
-			visitor.scopes[#visitor.scopes][localVar.node] = false
+			visitor.scopes[#visitor.scopes][localVar] = false
 		end
 
 		return false
@@ -141,7 +141,7 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		-- Push a scope for the loop variables
 		local newScope: { [syntax.CstLocal]: boolean } = {}
 		for _, var in stat.variables do
-			newScope[var.node] = false
+			newScope[var] = false
 		end
 		table.insert(visitor.scopes, newScope)
 		return true
@@ -154,8 +154,8 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		local callFound = false
 		local prevInLValueContext = visitor.inLValueContext
 		while i <= math.min(#stat.variables, #stat.values) do
-			local var = stat.variables[i].node
-			local val = stat.values[i].node
+			local var = stat.variables[i]
+			local val = stat.values[i]
 			-- An unused local doesn't become used just because it's used to assign to itself, eg:
 			-- local x
 			-- x = x + 1
@@ -296,7 +296,7 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		local newScope: { [syntax.CstLocal]: boolean } = {}
 
 		for _, param in node.parameters do
-			newScope[param.node] = false
+			newScope[param] = false
 		end
 
 		table.insert(visitor.scopes, newScope)
@@ -346,10 +346,10 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 			if writeOnlyIndices[i] then
 				local prevInLValueContext = visitor.inLValueContext
 				visitor.inLValueContext = true
-				visitorLib.visitExpression(arg.node, visitor)
+				visitorLib.visitExpression(arg, visitor)
 				visitor.inLValueContext = prevInLValueContext
 			else
-				visitorLib.visitExpression(arg.node, visitor)
+				visitorLib.visitExpression(arg, visitor)
 			end
 		end
 

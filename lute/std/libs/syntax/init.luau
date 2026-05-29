@@ -34,7 +34,6 @@ export type CstToken<Kind = string> = types.CstToken<Kind>
 
 export type CstEof = types.CstEof
 
-export type Pair<T, Separator> = types.Pair<T, Separator>
 export type Punctuated<T, Separator = ","> = types.Punctuated<T, Separator>
 
 export type CstLocal = types.CstLocal

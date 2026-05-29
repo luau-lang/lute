@@ -56,8 +56,16 @@ export type CstToken<Kind = string> = {
 --- The end-of-file token.
 export type CstEof = CstToken<""> & { read tag: "eof" }
 
-export type Pair<T, Separator> = { read node: T, read separator: CstToken<Separator>? }
-export type Punctuated<T, Separator = ","> = { Pair<T, Separator> }
+type PunctuatedData<T, Separator = ","> = { read [number]: T, read separators: { CstToken<Separator> } }
+
+-- __len not needed because # already returns number of array entries in table
+type PunctuatedMT<T, Separator = ","> = {
+	read __iter: (PunctuatedData<T, Separator>) -> (({ read [number]: T }, number?) -> (number?, T), { T }),
+}
+
+--- A punctuated sequence of items (e.g., function parameters, arguments, type parameters) with separators (e.g., commas).
+--- The `__iter` metamethod modifies generalized iteration so that only nodes are iterated over
+export type Punctuated<T, Separator = ","> = setmetatable<PunctuatedData<T, Separator>, PunctuatedMT<T, Separator>>
 
 --- A local variable binding site in the CST.
 export type CstLocal = {
@@ -742,7 +750,6 @@ export type CstTypeTable = {
 
 --- A parameter in a function type annotation.
 export type CstFunctionTypeParameter = {
-	read location: Span,
 	read name: CstToken?,
 	read colon: CstToken<":">?,
 	read type: CstType,

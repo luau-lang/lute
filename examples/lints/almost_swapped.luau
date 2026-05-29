@@ -76,8 +76,8 @@ local function lint(cst: syntax.CstStatBlock, sourcepath: path.Path?): { lintTyp
 				continue
 			end
 
-			local currVar, currVal = currStat.variables[1].node, currStat.values[1].node
-			local nextVar, nextVal = nextStat.variables[1].node, nextStat.values[1].node
+			local currVar, currVal = currStat.variables[1], currStat.values[1]
+			local nextVar, nextVal = nextStat.variables[1], nextStat.values[1]
 
 			if compFuncs.refExprsSame(currVar, nextVal) and compFuncs.refExprsSame(nextVar, currVal) then
 				table.insert(violations, {
