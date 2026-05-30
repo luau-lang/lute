@@ -41,4 +41,14 @@ function client.websocket(url: string, options: WebSocketOptions?): WebSocket
 	error("not implemented")
 end
 
+export type TCPStreamHandle = {
+	write: (self: TCPStreamHandle, data: buffer | string) -> (),
+	read: (self: TCPStreamHandle, amount: number?) -> buffer,
+	close: (self: TCPStreamHandle) -> (),
+}
+
+function client.connect(host: string, port: number): TCPStreamHandle
+	error("not implemented")
+end
+
 return client

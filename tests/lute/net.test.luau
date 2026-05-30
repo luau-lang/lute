@@ -300,4 +300,28 @@ test.suite("LuteNetSuite", function(suite)
 
 		instance.close()
 	end)
+
+	suite:case("tcpConnectAndEcho", function(assert)
+		local payload = "Hello World!"
+
+		local instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest): server.ServerResponse
+				return {
+					status = 200,
+					body = payload,
+				}
+			end,
+		})
+
+		local connection = client.connect(instance.hostname, instance.port)
+		connection:write("GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+
+		local buf = connection:read()
+		local data = buffer.readstring(buf, 0, buffer.len(buf))
+		assert.eq(true, data:find(payload) ~= nil, "Expected to find payload in response")
+
+		connection:close()
+		instance.close()
+	end)
 end)

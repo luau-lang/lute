@@ -143,5 +143,49 @@ struct PipeStream : UVStream<uv_pipe_t>
     }
 };
 
+struct TCPStream : UVStream<uv_tcp_t>
+{
+    TCPStream(uv_loop_t* loop, std::string handleContext)
+        : UVStream<uv_tcp_t>(loop, handleContext)
+    {
+        uv_tcp_init(loop, stream.get());
+    }
+
+    void write(void* data, size_t dataLen, OnStreamEnd callback)
+    {
+        auto req = new uv_write_t;
+        req->data = new OnStreamEnd(std::move(callback));
+
+        uv_buf_t buf;
+        buf.base = static_cast<char*>(data);
+        buf.len = dataLen;
+
+        int result = uv_write(req, getStream(), &buf, 1,
+            [](uv_write_t* req, int status)
+            {
+                auto callbackPtr = static_cast<OnStreamEnd*>(req->data);
+                OnStreamEnd callback = std::move(*callbackPtr);
+                delete callbackPtr;
+                delete req;
+
+                if (status < 0)
+                {
+                    callback(std::make_optional<std::string>(uv_strerror(status)));
+                }
+                else
+                {
+                    callback(std::nullopt);
+                }
+            }
+        );
+
+        if (result < 0)
+        {
+            delete req;
+            callback(std::make_optional<std::string>(uv_strerror(result)));
+        }
+    }
+};
+
 
 } // namespace uvutils

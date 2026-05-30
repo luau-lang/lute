@@ -13,10 +13,15 @@
 namespace net::client
 {
 struct WebSocketHandle;
+struct TCPStreamHandle;
 int request(lua_State* L);
 int websocket(lua_State* L);
+int connect(lua_State* L);
 int ws_send(lua_State* L);
 int ws_close(lua_State* L);
+int tcp_write(lua_State* L);
+int tcp_read(lua_State* L);
+int tcp_close(lua_State* L);
 } // namespace net::client
 
 namespace
@@ -40,8 +45,7 @@ static CurlHolder& globalCurlInit()
     return holder;
 }
 
-static void initializeNetClient(lua_State* L)
-{
+static void initializeWebSocketHandle(lua_State* L) {
     luaL_newmetatable(L, "WebSocketHandle");
 
     lua_pushcfunction(
@@ -82,6 +86,61 @@ static void initializeNetClient(lua_State* L)
 
     lua_setuserdatametatable(L, kWebSocketHandleTag);
 }
+
+static void initializeTCPStreamHandle(lua_State* L) {
+    luaL_newmetatable(L, "TCPStreamHandle");
+
+    lua_pushcfunction(
+        L,
+        [](lua_State* L)
+        {
+            const char* index = luaL_checkstring(L, -1);
+
+            if (strcmp(index, "write") == 0)
+            {
+                lua_pushcfunction(L, net::client::tcp_write, "TCPStreamHandle.write");
+                return 1;
+            }
+
+            if (strcmp(index, "read") == 0)
+            {
+                lua_pushcfunction(L, net::client::tcp_read, "TCPStreamHandle.read");
+                return 1;
+            }
+
+            if (strcmp(index, "close") == 0)
+            {
+                lua_pushcfunction(L, net::client::tcp_close, "TCPStreamHandle.close");
+                return 1;
+            }
+
+            return 0;
+        },
+        "TCPStreamHandle.__index"
+    );
+    lua_setfield(L, -2, "__index");
+
+    lua_pushstring(L, "TCPStreamHandle");
+    lua_setfield(L, -2, "__type");
+
+    lua_setuserdatadtor(
+        L,
+        kTCPStreamHandleTag,
+        [](lua_State*, void* ud)
+        {
+            std::destroy_at(static_cast<std::shared_ptr<net::client::TCPStreamHandle>*>(ud));
+        }
+    );
+
+    lua_setuserdatametatable(L, kTCPStreamHandleTag);
+}
+
+
+static void initializeNetClient(lua_State* L)
+{
+    initializeWebSocketHandle(L);
+    initializeTCPStreamHandle(L);
+}
 } // namespace
 
 const char* const NetClient::properties[] = {nullptr};
@@ -89,6 +148,7 @@ const char* const NetClient::properties[] = {nullptr};
 const luaL_Reg NetClient::lib[] = {
     {"request", net::client::request},
     {"websocket", net::client::websocket},
+    {"connect", net::client::connect},
     {nullptr, nullptr},
 };
 

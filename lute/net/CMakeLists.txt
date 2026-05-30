@@ -8,6 +8,7 @@ target_sources(Lute.Net PRIVATE
     src/net.cpp
     src/system_ca.cpp
     src/system_ca.h
+    src/tcpclient.cpp
     src/wsclient.cpp
     src/wscommon.cpp
     src/wscommon.h
