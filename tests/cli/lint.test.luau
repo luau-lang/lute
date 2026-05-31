@@ -22,6 +22,7 @@ local defaultRulesPaths = {
 	no_any = path.format(path.join(defaultRulesFolder, "no_any.luau")),
 	parenthesized_conditions = path.format(path.join(defaultRulesFolder, "parenthesized_conditions.luau")),
 	unused_variable = path.format(path.join(defaultRulesFolder, "unused_variable.luau")),
+	reassigned_parameter = path.format(path.join(defaultRulesFolder, "reassigned_parameter.luau")),
 }
 
 local LINT_RULE_MESSAGES = {
@@ -34,6 +35,7 @@ local LINT_RULE_MESSAGES = {
 	no_any = "warning[no_any]: Consider using `unknown` instead of `any` as a type-safe alternative that requires narrowing before use.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
 	unused_variable = "warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.",
+	reassigned_parameter = "warning[reassigned_parameter]: Reassigning parameters is likely a mistake.",
 }
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
@@ -3611,6 +3613,103 @@ end
 			disableDefaultLints = true,
 			outputExpectations = {
 				{ expectedOutput = LINT_RULE_MESSAGES.global_function_in_scope, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("reassignedParameterBasic", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	x = 2
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:2:2-7 ──
+   │
+ 2 │     x = 2
+   │     ^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("reassignedParameterAllowsShadow", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	local x = 3
+	x = 2
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("reassignedParameterTriggersInDoBlock", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	do
+		x = 2
+	end
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:3:3-8 ──
+   │
+ 3 │         x = 2
+   │         ^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("reassignedParameterTriggersOnCompoundAssign", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	x += 2
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:2:2-8 ──
+   │
+ 2 │     x += 2
+   │     ^^^^^^
+   │
+]],
+					count = 1,
+				},
 			},
 		})
 	end)
