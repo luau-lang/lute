@@ -3,6 +3,7 @@ local test = require("@std/test")
 local client = require("@lute/net/client")
 local server = require("@lute/net/server")
 local task = require("@lute/task")
+local time = require("@lute/time")
 
 test.suite("LuteNetSuite", function(suite)
 	suite:case("serveWebsocketAndConnect", function(assert)
@@ -318,6 +319,39 @@ test.suite("LuteNetSuite", function(suite)
 		connection:write("GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
 
 		local buf = connection:read()
+		local data = buffer.readstring(buf, 0, buffer.len(buf))
+		assert.eq(true, data:find(payload) ~= nil, "Expected to find payload in response")
+
+		connection:close()
+		instance.close()
+	end)
+
+	suite:case("tcpTimeout", function(assert)
+		local payload = "Hello World!"
+
+		local instance = server.serve({
+			port = 0,
+			handler = function(_req: server.ReceivedRequest): server.ServerResponse
+				task.wait(0.3)
+				return {
+					status = 200,
+					body = payload,
+				}
+			end,
+		})
+
+		local connection = client.connect(instance.hostname, instance.port)
+		connection:write("GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+
+		assert.throws(function()
+			connection:read(time.duration.seconds(0))
+		end)
+
+		assert.throws(function()
+			connection:read(nil, time.duration.milliseconds(100))
+		end)
+
+		local buf = connection:read(nil, time.duration.milliseconds(400))
 		local data = buffer.readstring(buf, 0, buffer.len(buf))
 		assert.eq(true, data:find(payload) ~= nil, "Expected to find payload in response")
 

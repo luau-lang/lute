@@ -1,6 +1,7 @@
 #include "lute/runtime.h"
 #include "lute/userdatas.h"
 #include "lute/uvstream.h"
+#include "lute/time.h"
 
 #include "Luau/VecDeque.h"
 
@@ -34,17 +35,43 @@ struct TCPOptions
 };
 
 struct ReadWaiter {
+    std::shared_ptr<TCPStreamHandle> handle;
     ResumeToken token;
     size_t amount;
+    std::optional<uv_timer_t*> timeout;
+    bool invalid = false;
+
+    void stopTimeout() {
+        if (timeout && *timeout) {
+            auto timer = *timeout;
+            timeout = std::nullopt;
+
+            uv_timer_stop(timer);
+            uv_close((uv_handle_t*)timer, [](uv_handle_t* handle) {
+                auto* timer = reinterpret_cast<uv_timer_t*>(handle);
+                auto* waiter_ptr = static_cast<std::shared_ptr<ReadWaiter>*>(timer->data);
+                if (waiter_ptr) {
+                    auto& waiter = *waiter_ptr;
+                    waiter->timeout = std::nullopt;
+                    delete waiter_ptr;
+                }
+                delete timer;
+            });
+        }
+    }
+
+    ~ReadWaiter() {
+        stopTimeout();
+    }
 };
 
-struct TCPStreamHandle
+struct TCPStreamHandle : std::enable_shared_from_this<TCPStreamHandle>
 {
     uv_loop_t *loop;
     ResumeToken token;
     TCPOptions options;
     std::unique_ptr<uvutils::TCPStream> stream;
-    std::vector<ReadWaiter> readWaiters;
+    std::vector<std::shared_ptr<ReadWaiter>> readWaiters;
     std::vector<char> readBuffer;
     bool isActive = false;
     std::optional<std::string> pendingError;
@@ -60,14 +87,26 @@ struct TCPStreamHandle
             [this](std::string_view data)
             {
                 readBuffer.insert(readBuffer.end(), data.begin(), data.end());
-                while (!readWaiters.empty() && (readWaiters.front().amount == SIZE_MAX || readWaiters.front().amount <= readBuffer.size()))
-                {
+                while (!readWaiters.empty()) {
                     auto& waiter = readWaiters.front();
-                    auto amount = waiter.amount == SIZE_MAX ? readBuffer.size() : waiter.amount;
+
+                    if (waiter->invalid) {
+                        // Waiter is invalid, possibly because of timeout handler, just clean up the waiter
+                        readWaiters.erase(readWaiters.begin());
+                        continue;
+                    }
+
+                    if (waiter->amount != SIZE_MAX && waiter->amount > readBuffer.size())
+                        break;
+
+                    waiter->invalid = true;
+                    waiter->stopTimeout();
+
+                    auto amount = waiter->amount == SIZE_MAX ? readBuffer.size() : waiter->amount;
                     std::vector<char> buf(readBuffer.begin(), readBuffer.begin() + amount);
                     readBuffer.erase(readBuffer.begin(), readBuffer.begin() + amount);
 
-                    waiter.token->complete(
+                    waiter->token->complete(
                         [buf = std::move(buf)](lua_State* L)
                         {
                             void* luaData = lua_newbuffer(L, buf.size());
@@ -141,6 +180,27 @@ struct TCPStreamHandle
         return true;
     }
 
+    void startReadTimeout(std::shared_ptr<ReadWaiter> waiter, double timeoutSeconds)
+    {
+        auto timer = new uv_timer_t;
+        waiter->timeout = timer;
+
+        uv_timer_init(loop, timer);
+        timer->data = new (std::shared_ptr<ReadWaiter>)(waiter);
+        uv_timer_start(timer, [](uv_timer_t* handle) {
+            auto* waiter_ptr = static_cast<std::shared_ptr<ReadWaiter>*>(handle->data);
+            auto& waiter = *waiter_ptr;
+            if (waiter->invalid) {
+                waiter->stopTimeout();
+                return;
+            }
+
+            waiter->invalid = true;
+            waiter->token->fail("Read timed out");
+            waiter->stopTimeout();
+        }, static_cast<uint64_t>(timeoutSeconds * 1000), 0);
+    }
+
     void close(std::function<void()> onClose = [](){})
     {
         if (stream && !stream->closed)
@@ -151,15 +211,28 @@ struct TCPStreamHandle
                     if (!pendingError)
                         pendingError = "Connection closed";
 
-                    for (auto& waiter : readWaiters)
-                    {
-                        waiter.token->fail(*pendingError);
+                    for (auto& waiter : readWaiters) {
+                        if (waiter->invalid)
+                            continue;
+                        waiter->token->fail(*pendingError);
                     }
                     readWaiters.clear();
 
                     onClose();
                 }
             );
+        } else {
+            if (!pendingError)
+                pendingError = "Connection closed";
+
+            for (auto& waiter : readWaiters) {
+                if (waiter->invalid)
+                    continue;
+                waiter->token->fail(*pendingError);
+            }
+            readWaiters.clear();
+
+            onClose();
         }
     }
 
@@ -189,7 +262,11 @@ int tcp_read(lua_State* L)
 
     TCPStreamHandle* handle = (*handleStorage).get();
 
-    int _amount = luaL_optinteger(L, 2, -1);
+    // A nil amount means to read everything currently in the buffer
+    int _amount = -1;
+    if (lua_isnumber(L, 2)) {
+        _amount = lua_tointeger(L, 2);
+    }
     size_t amount = _amount < 0 ? SIZE_MAX : static_cast<size_t>(_amount);
     
     if (amount <= handle->readBuffer.size()) {
@@ -199,8 +276,31 @@ int tcp_read(lua_State* L)
         return 1;
     }
     else {
-        ResumeToken readToken = getResumeToken(L);
-        handle->readWaiters.push_back({readToken, amount});
+        // There's not enough data in the buffer, we need to wait for more data to arrive
+        double timeoutSeconds = -1;
+        if (_amount < 0 && lua_isuserdata(L, 2)) {
+            // Didn't read a number at index 2, but there is a userdata, which must be the duration
+            timeoutSeconds = getSecondsFromTimespec(getTimespecFromDuration(L, 2));
+        } else if (lua_isuserdata(L, 3)) {
+            timeoutSeconds = getSecondsFromTimespec(getTimespecFromDuration(L, 3));
+        }
+
+        if (timeoutSeconds == 0) {
+            luaL_error(L, "Read timed out");
+            return 0;
+        }
+
+        std::shared_ptr<ReadWaiter> waiter = std::make_shared<ReadWaiter>();
+        waiter->token = getResumeToken(L);
+        waiter->amount = amount;
+
+        if (timeoutSeconds > 0) {
+            auto duration = getTimespecFromDuration(L, 3);
+            auto seconds = getSecondsFromTimespec(duration);
+            handle->startReadTimeout(waiter, seconds);
+        }
+
+        handle->readWaiters.push_back(waiter);
         return lua_yield(L, 0);
     }
 }

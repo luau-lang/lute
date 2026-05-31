@@ -1,4 +1,6 @@
 -- lute-lint-global-ignore(unused_variable)
+local time = require("../time")
+
 local client = {}
 
 --- HTTP request metadata, including optional method, body, and headers.
@@ -43,7 +45,8 @@ end
 
 export type TCPStreamHandle = {
 	write: (self: TCPStreamHandle, data: buffer | string) -> (),
-	read: (self: TCPStreamHandle, amount: number?) -> buffer,
+	read: ((self: TCPStreamHandle, amount: number?, timeout: time.Duration?) -> buffer)
+		& ((self: TCPStreamHandle, timeout: time.Duration) -> buffer),
 	close: (self: TCPStreamHandle) -> (),
 }
 
