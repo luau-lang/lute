@@ -49,7 +49,7 @@ local function lint(
 	local visitor = visitorLib.create()
 
 	-- We could store parameters by scope here, which would make scope cleanup easier,
-	-- however, that comes at the cost of it being harder to check assigments
+	-- however, that comes at the cost of it being harder to check assignments
 	-- (we would then need to loop over every scope)
 	local parameters: { syntax.CstLocal } = {}
 
