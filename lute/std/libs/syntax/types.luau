@@ -12,7 +12,7 @@ export type CstToken<Kind = string> = luau.CstToken<Kind>
 
 export type CstEof = luau.CstEof
 
-export type Punctuated<T, Separator = ","> = luau.Punctuated<T, Separator>
+export type CstPunctuated<T, Separator = ","> = luau.CstPunctuated<T, Separator>
 
 export type CstLocal = luau.CstLocal
 

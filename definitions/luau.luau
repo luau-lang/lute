@@ -56,16 +56,16 @@ export type CstToken<Kind = string> = {
 --- The end-of-file token.
 export type CstEof = CstToken<""> & { read tag: "eof" }
 
-type PunctuatedData<T, Separator = ","> = { read [number]: T, read separators: { CstToken<Separator> } }
+type CstPunctuatedData<T, Separator = ","> = { read [number]: T, read separators: { CstToken<Separator> } }
 
 -- __len not needed because # already returns number of array entries in table
-type PunctuatedMT<T, Separator = ","> = {
-	read __iter: (PunctuatedData<T, Separator>) -> (({ read [number]: T }, number?) -> (number?, T), { T }),
+type CstPunctuatedMT<T, Separator = ","> = {
+	read __iter: (CstPunctuatedData<T, Separator>) -> (({ read [number]: T }, number?) -> (number?, T), { T }),
 }
 
 --- A punctuated sequence of items (e.g., function parameters, arguments, type parameters) with separators (e.g., commas).
 --- The `__iter` metamethod modifies generalized iteration so that only nodes are iterated over
-export type Punctuated<T, Separator = ","> = setmetatable<PunctuatedData<T, Separator>, PunctuatedMT<T, Separator>>
+export type CstPunctuated<T, Separator = ","> = setmetatable<CstPunctuatedData<T, Separator>, CstPunctuatedMT<T, Separator>>
 
 --- A local variable binding site in the CST.
 export type CstLocal = {
@@ -160,7 +160,7 @@ export type CstExprCall = {
 	read tag: "call",
 	read func: CstExpr,
 	read openParens: CstToken<"(">?,
-	read arguments: Punctuated<CstExpr>,
+	read arguments: CstPunctuated<CstExpr>,
 	read closeParens: CstToken<")">?,
 	read self: boolean,
 	read argLocation: Span,
@@ -174,7 +174,7 @@ export type CstExprInstantiate = {
 	read expr: CstExpr,
 	read leftArrow1: CstToken<"<">,
 	read leftArrow2: CstToken<"<">,
-	read typeArguments: Punctuated<CstType | CstTypePack>,
+	read typeArguments: CstPunctuated<CstType | CstTypePack>,
 	read rightArrow1: CstToken<">">,
 	read rightArrow2: CstToken<">">,
 }
@@ -209,12 +209,12 @@ export type CstExprFunction = {
 	read attributes: { CstAttribute },
 	read functionKeyword: CstToken<"function">,
 	read openGenerics: CstToken<"<">?,
-	read generics: Punctuated<CstGenericType>?,
-	read genericPacks: Punctuated<CstGenericTypePack>?,
+	read generics: CstPunctuated<CstGenericType>?,
+	read genericPacks: CstPunctuated<CstGenericTypePack>?,
 	read closeGenerics: CstToken<">">?,
 	read openParens: CstToken<"(">,
 	read self: CstLocal?,
-	read parameters: Punctuated<CstLocal>,
+	read parameters: CstPunctuated<CstLocal>,
 	read vararg: CstToken<"...">?,
 	read varargColon: CstToken<":">?,
 	read varargAnnotation: CstTypePack?,
@@ -437,7 +437,7 @@ export type CstStatReturn = {
 	read kind: "stat",
 	read tag: "return",
 	read returnKeyword: CstToken<"return">,
-	read expressions: Punctuated<CstExpr>,
+	read expressions: CstPunctuated<CstExpr>,
 }
 
 --- A statement consisting of a bare expression (e.g., a function call used as a statement).
@@ -454,9 +454,9 @@ export type CstStatLocal = {
 	read kind: "stat",
 	read tag: "local",
 	read localKeyword: CstToken<"local">,
-	read variables: Punctuated<CstLocal>,
+	read variables: CstPunctuated<CstLocal>,
 	read equals: CstToken<"=">?,
-	read values: Punctuated<CstExpr>,
+	read values: CstPunctuated<CstExpr>,
 }
 
 --- A `const` variable declaration statement node.
@@ -465,9 +465,9 @@ export type CstStatConst = {
 	read kind: "stat",
 	read tag: "const",
 	read constKeyword: CstToken<"const">,
-	read variables: Punctuated<CstLocal>,
+	read variables: CstPunctuated<CstLocal>,
 	read equals: CstToken<"=">?,
-	read values: Punctuated<CstExpr>,
+	read values: CstPunctuated<CstExpr>,
 }
 
 --- A numeric `for` loop statement node.
@@ -494,9 +494,9 @@ export type CstStatForIn = {
 	read kind: "stat",
 	read tag: "forin",
 	read forKeyword: CstToken<"for">,
-	read variables: Punctuated<CstLocal>,
+	read variables: CstPunctuated<CstLocal>,
 	read inKeyword: CstToken<"in">,
-	read values: Punctuated<CstExpr>,
+	read values: CstPunctuated<CstExpr>,
 	read doKeyword: CstToken<"do">,
 	read body: CstStatBlock,
 	read endKeyword: CstToken<"end">,
@@ -507,9 +507,9 @@ export type CstStatAssign = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "assign",
-	read variables: Punctuated<CstExpr>,
+	read variables: CstPunctuated<CstExpr>,
 	read equals: CstToken<"=">,
-	read values: Punctuated<CstExpr>,
+	read values: CstPunctuated<CstExpr>,
 }
 
 --- A compound assignment statement node (e.g., `x += 1`).
@@ -557,8 +557,8 @@ export type CstStatTypeAlias = {
 	read typeToken: CstToken<"type">,
 	read name: CstToken,
 	read openGenerics: CstToken<"<">?,
-	read generics: Punctuated<CstGenericType>?,
-	read genericPacks: Punctuated<CstGenericTypePack>?,
+	read generics: CstPunctuated<CstGenericType>?,
+	read genericPacks: CstPunctuated<CstGenericTypePack>?,
 	read closeGenerics: CstToken<">">?,
 	read equals: CstToken<"=">,
 	read type: CstType,
@@ -624,7 +624,7 @@ export type CstTypeReference = {
 	read prefixPoint: CstToken<".">?,
 	read name: CstToken<string>,
 	read openParameters: CstToken<"<">?,
-	read parameters: Punctuated<CstType | CstTypePack>?,
+	read parameters: CstPunctuated<CstType | CstTypePack>?,
 	read closeParameters: CstToken<">">?,
 }
 
@@ -678,7 +678,7 @@ export type CstTypeUnion = {
 	read tag: "union",
 	read leading: CstToken<"|">?,
 	-- Separator may be nil for CstTypeOptional
-	read types: Punctuated<CstType, "|">,
+	read types: CstPunctuated<CstType, "|">,
 }
 
 --- An intersection type annotation node (e.g., `A & B`).
@@ -687,7 +687,7 @@ export type CstTypeIntersection = {
 	read kind: "type",
 	read tag: "intersection",
 	read leading: CstToken<"&">?,
-	read types: Punctuated<CstType, "&">,
+	read types: CstPunctuated<CstType, "&">,
 }
 
 --- An array type annotation node (e.g., `{ T }`).
@@ -762,11 +762,11 @@ export type CstTypeFunction = {
 	read kind: "type",
 	read tag: "function",
 	read openGenerics: CstToken<"<">?,
-	read generics: Punctuated<CstGenericType>?,
-	read genericPacks: Punctuated<CstGenericTypePack>?,
+	read generics: CstPunctuated<CstGenericType>?,
+	read genericPacks: CstPunctuated<CstGenericTypePack>?,
 	read closeGenerics: CstToken<">">?,
 	read openParens: CstToken<"(">,
-	read parameters: Punctuated<CstFunctionTypeParameter>,
+	read parameters: CstPunctuated<CstFunctionTypeParameter>,
 	read vararg: CstTypePack?,
 	read closeParens: CstToken<")">,
 	read returnArrow: CstToken<"->">,
@@ -793,7 +793,7 @@ export type CstTypePackExplicit = {
 	read kind: "typepack",
 	read tag: "explicit",
 	read openParens: CstToken<"(">?,
-	read types: Punctuated<CstType>,
+	read types: CstPunctuated<CstType>,
 	read tailType: CstTypePack?,
 	read closeParens: CstToken<")">?,
 }

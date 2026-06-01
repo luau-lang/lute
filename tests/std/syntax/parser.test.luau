@@ -389,16 +389,16 @@ test.suite("parseExpr", function(suite)
 		assert.neq(funcExpr.openGenerics, nil)
 		assert.neq(funcExpr.generics, nil)
 
-		assert.eq(#funcExpr.generics :: syntax.Punctuated<syntax.CstGenericType>, 1)
-		local gen = (funcExpr.generics :: syntax.Punctuated<syntax.CstGenericType>)[1]
+		assert.eq(#funcExpr.generics :: syntax.CstPunctuated<syntax.CstGenericType>, 1)
+		local gen = (funcExpr.generics :: syntax.CstPunctuated<syntax.CstGenericType>)[1]
 		assert.eq(gen.name.text, "A")
 		assert.eq(gen.equals, nil)
 		assert.eq(gen.default, nil)
 
 		assert.neq(funcExpr.genericPacks, nil)
-		assert.eq(#funcExpr.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>, 1)
+		assert.eq(#funcExpr.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>, 1)
 
-		local genPack = (funcExpr.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>)[1]
+		local genPack = (funcExpr.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>)[1]
 		assert.eq(genPack.name.text, "B")
 		assert.eq(genPack.ellipsis.text, "...")
 		assert.eq(genPack.equals, nil)
@@ -878,9 +878,9 @@ test.suite("parse", function(suite)
 		assert.neq(typeAlias.openGenerics, nil)
 		assert.eq((typeAlias.openGenerics :: syntax.CstToken<"<">).text, "<")
 		assert.neq(typeAlias.generics, nil)
-		assert.eq(#typeAlias.generics :: syntax.Punctuated<syntax.CstGenericType>, 1)
+		assert.eq(#typeAlias.generics :: syntax.CstPunctuated<syntax.CstGenericType>, 1)
 		assert.neq(typeAlias.genericPacks, nil)
-		assert.eq(#typeAlias.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>, 1)
+		assert.eq(#typeAlias.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>, 1)
 		assert.neq(typeAlias.closeGenerics, nil)
 		assert.eq((typeAlias.closeGenerics :: syntax.CstToken<">">).text, ">")
 	end)
@@ -935,9 +935,9 @@ test.suite("parse types", function(suite)
 		assert.neq(typeRef.openParameters, nil)
 		assert.eq((typeRef.openParameters :: syntax.CstToken<"<">).text, "<")
 		assert.neq(typeRef.parameters, nil)
-		assert.eq(#typeRef.parameters :: syntax.Punctuated<syntax.CstType>, 2)
-		assert.eq((typeRef.parameters :: syntax.Punctuated<syntax.CstType>)[1].tag, "reference")
-		assert.eq((typeRef.parameters :: syntax.Punctuated<syntax.CstType>)[2].tag, "reference")
+		assert.eq(#typeRef.parameters :: syntax.CstPunctuated<syntax.CstType>, 2)
+		assert.eq((typeRef.parameters :: syntax.CstPunctuated<syntax.CstType>)[1].tag, "reference")
+		assert.eq((typeRef.parameters :: syntax.CstPunctuated<syntax.CstType>)[2].tag, "reference")
 		assert.neq(typeRef.closeParameters, nil)
 		assert.eq((typeRef.closeParameters :: syntax.CstToken<">">).text, ">")
 	end)
@@ -1223,12 +1223,12 @@ test.suite("parse types", function(suite)
 		assert.neq(funcType.openGenerics, nil)
 		assert.eq((funcType.openGenerics :: syntax.CstToken<"<">).text, "<")
 		assert.neq(funcType.generics, nil)
-		assert.eq(#funcType.generics :: syntax.Punctuated<syntax.CstGenericType>, 1)
+		assert.eq(#funcType.generics :: syntax.CstPunctuated<syntax.CstGenericType>, 1)
 		assert.neq(funcType.genericPacks, nil)
-		assert.eq(#funcType.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>, 1)
-		assert.eq((funcType.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>)[1].tag, "generic")
+		assert.eq(#funcType.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>, 1)
+		assert.eq((funcType.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>)[1].tag, "generic")
 
-		local genericTypePack = (funcType.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>)[1]
+		local genericTypePack = (funcType.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>)[1]
 		assert.eq(genericTypePack.name.text, "U")
 		assert.eq(genericTypePack.ellipsis.text, "...")
 
@@ -1952,19 +1952,6 @@ test.suite("CST_nodes_frozen", function(suite)
 		end)
 		assert.throwsWith(frozenTableMessage, function()
 			table.insert((result :: any).lineOffsets, nil)
-		end)
-	end)
-
-	-- Pair type (used in Punctuated)
-	suite:case("pairFrozen", function(assert)
-		local block = parser.parseBlock("local x, y = 1, 2")
-		local localStat = block.statements[1] :: syntax.CstStatLocal
-		local pair = localStat.variables[1]
-		assert.throwsWith(frozenTableMessage, function()
-			(pair :: any).node = nil
-		end)
-		assert.throwsWith(frozenTableMessage, function()
-			(pair :: any).separator = nil
 		end)
 	end)
 

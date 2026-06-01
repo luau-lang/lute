@@ -31,7 +31,7 @@ namespace luau
 
 static constexpr const char kSpanType[] = "span"; // Uncapitalized because the span library lives under `luau.{kSpanType}`
 static constexpr const char kCompileResultType[] = "CompileResult";
-static constexpr const char kPunctuatedType[] = "Punctuated";
+static constexpr const char kCstPunctuatedType[] = "CstPunctuated";
 
 // Recursively freezes the table at the top of the stack and any descendant tables.
 // The table must be at the top of the stack when called.
@@ -777,7 +777,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         lua_setfield(L, -2, "separators");
 
-        luaL_getmetatable(L, kPunctuatedType);
+        luaL_getmetatable(L, kCstPunctuatedType);
         lua_setmetatable(L, -2);
     }
 
@@ -807,7 +807,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         lua_setfield(L, -2, "separators");
 
-        luaL_getmetatable(L, kPunctuatedType);
+        luaL_getmetatable(L, kCstPunctuatedType);
         lua_setmetatable(L, -2);
     }
 
@@ -838,7 +838,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         lua_setfield(L, -2, "separators");
 
-        luaL_getmetatable(L, kPunctuatedType);
+        luaL_getmetatable(L, kCstPunctuatedType);
         lua_setmetatable(L, -2);
     }
 
@@ -2216,7 +2216,7 @@ struct AstSerialize : public Luau::AstVisitor
         serializeToken(cstNode->openArgsPosition, "(");
         lua_setfield(L, -2, "openParens");
 
-        // Punctuated<CstFunctionTypeParameter>
+        // CstPunctuated<CstFunctionTypeParameter>
         lua_createtable(L, node->argTypes.types.size, 1);
 
         lua_createtable(L, cstNode->argumentsCommaPositions.size, 0);
@@ -2253,7 +2253,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         lua_setfield(L, -2, "separators");
 
-        luaL_getmetatable(L, kPunctuatedType);
+        luaL_getmetatable(L, kCstPunctuatedType);
         lua_setmetatable(L, -2);
 
         lua_setfield(L, -2, "parameters");
@@ -2310,7 +2310,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_pushnil(L);
         lua_setfield(L, -2, "leading");
 
-        // types: Punctuated<CstType, "|">
+        // types: CstPunctuated<CstType, "|">
         lua_createtable(L, node->types.size, 1);
 
         // types.separators: { CstToken<"|"> }
@@ -2364,7 +2364,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         lua_setfield(L, -2, "separators");
 
-        luaL_getmetatable(L, kPunctuatedType);
+        luaL_getmetatable(L, kCstPunctuatedType);
         lua_setmetatable(L, -2);
 
         lua_setfield(L, -2, "types");
@@ -3166,7 +3166,7 @@ static int initLuauLibrary(lua_State* L)
 
     lua_pop(L, 1);
 
-    luaL_newmetatable(L, kPunctuatedType);
+    luaL_newmetatable(L, kCstPunctuatedType);
 
     lua_pushcfunction(L, luau::iterPunctuated, "punctuated.__iter");
     lua_setfield(L, -2, "__iter");
