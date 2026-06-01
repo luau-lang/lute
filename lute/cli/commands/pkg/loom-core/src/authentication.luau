@@ -20,7 +20,7 @@ end
 local function loadAuthenticationStore(): AuthenticationStore
 	local authPath = getAuthenticationFilePath()
 	local ok, result = pcall(luau.loadModule, authPath, nil)
-	if not ok or type(result) ~= "table" then
+	if not ok or typeof(result) ~= "table" then
 		return {}
 	end
 	return result

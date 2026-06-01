@@ -15,14 +15,27 @@ local function getLockfilePath(directory: string): string
 end
 
 local function getKey(spec: manifest.DependencySpec): string
-	if spec.rev ~= nil then
+	if spec.sourceKind == "github" then
 		return `{spec.name}@{spec.rev}`
 	end
+
 	return spec.name
 end
 
-local function hasConflict(specA: manifest.DependencySpec, specB: manifest.DependencySpec): boolean
-	return specA.rev ~= specB.rev or specA.source ~= specB.source or specA.sourceKind ~= specB.sourceKind
+local function hasConflict(resolved: lockfile.LockfileDependency, incoming: manifest.DependencySpec): boolean
+	if resolved.sourceKind ~= incoming.sourceKind then
+		return true
+	end
+
+	if resolved.source ~= incoming.source then
+		return true
+	end
+
+	if incoming.sourceKind == "github" then
+		return resolved.rev ~= incoming.rev
+	end
+
+	return false
 end
 
 local function normalizePathDependency(
@@ -30,19 +43,21 @@ local function normalizePathDependency(
 	installPath: string,
 	rootDirectory: string
 ): manifest.DependencySpec
-	if spec.sourceKind == "path" then
-		local sourcePath = path.format(path.resolve(installPath, spec.source))
-		if not fs.exists(sourcePath) then
-			error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
-		end
-		return table.freeze({
-			name = spec.name,
-			rev = spec.rev,
-			source = path.format(path.relative(rootDirectory, sourcePath)),
-			sourceKind = spec.sourceKind,
-		})
+	-- normalization is a no-op if it's not a path dependency
+	if spec.sourceKind ~= "path" then
+		return spec
 	end
-	return spec
+
+	local sourcePath = path.format(path.resolve(installPath, spec.source))
+	if not fs.exists(sourcePath) then
+		error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
+	end
+
+	return table.freeze({
+		name = spec.name,
+		sourceKind = "path",
+		source = path.format(path.relative(rootDirectory, sourcePath)),
+	}) :: manifest.PathDependencySpec
 end
 
 local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string
@@ -53,7 +68,6 @@ local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string)
 		end
 		return sourcePath
 	elseif spec.sourceKind == "github" then
-		assert(spec.rev ~= nil, `Expected rev to be non-nil for GitHub package '{spec.name}'`)
 		store.ensureStoreDirectory()
 
 		local key = getKey(spec)
@@ -141,7 +155,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 
 		packages[key] = table.freeze({
 			name = spec.name,
-			rev = spec.rev,
+			rev = if spec.sourceKind == "github" then spec.rev else nil,
 			source = spec.source,
 			sourceKind = spec.sourceKind,
 			installPath = if spec.sourceKind == "path"

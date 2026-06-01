@@ -8,7 +8,7 @@ local unzip = require("../extern/unzip")
 
 local function sanitizePath(path: string): string
 	-- Input validation
-	if not path or type(path) ~= "string" then
+	if not path or typeof(path) ~= "string" then
 		error("Path must be a string")
 	end
 
