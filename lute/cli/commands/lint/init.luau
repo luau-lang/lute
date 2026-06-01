@@ -1,19 +1,20 @@
 local cli = require("@batteries/cli")
 local files = require("./lib/files")
-local fs = require("@std/fs")
+local internalTypes = require("@self/internaltypes")
 local json = require("@std/json")
+local lint = require("@self/lint")
+local lintCore = require("@self/lintCore")
 local lsp = require("@self/lsp")
+local parseIgnores = require("./lib/parseIgnores")
 local pathLib = require("@std/path")
 local printer = require("@self/printer")
 local process = require("@std/process")
 local tableext = require("@std/tableext")
 local types = require("@self/types")
-local internalTypes = require("@self/internaltypes")
-local parseIgnores = require("./lib/parseIgnores")
-local lintCore = require("@self/lintCore")
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 local VERBOSE = false
+local SEQUENTIAL = false
 
 local function printHelp()
 	print(USAGE)
@@ -35,6 +36,7 @@ OPTIONS:
   --auto-fix			  Automatically apply fixes for lint violations that provide a suggested fix.
 						  Assumes that suggested fixes do not overlap.
   --no-default-lints	  Disables the default lint rules.
+  --sequential			  Lint files sequentially. Files are linted in parallel by default.
 
 PATHS:
   Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
@@ -46,13 +48,20 @@ EXAMPLES:
 end
 
 local lintString = lintCore.lintString
-local lintFile = lintCore.lintFile
+
+type Job = {
+	inputFile: pathLib.Path,
+	autoFixEnabled: boolean,
+}
 
 local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
-	autofixEnabled: boolean,
 	configData: internalTypes.RuleConfigData,
+	rulesPath: string?,
+	noDefaults: boolean,
+	passedConfigVal: string?,
+	autofixEnabled: boolean,
 	ignoreData: parseIgnores.GitignoreData
 ): { [pathLib.Path]: { types.LintViolation } }
 	if VERBOSE then
@@ -60,36 +69,11 @@ local function lintPaths(
 	end
 	local inputFiles = files.getSourceFiles(inputFilePaths, VERBOSE)
 
-	local allViolations: { [pathLib.Path]: { types.LintViolation } } = {}
-	local hasIgnores = #ignoreData.ignores > 0
-
-	for _, inputPath in inputFiles do
-		local walker = fs.walk(inputPath, { recursive = true })
-
-		local curr = walker()
-		while curr ~= nil do
-			if hasIgnores then
-				local inputFilePathString = pathLib.format(curr)
-
-				if parseIgnores.isIgnored(ignoreData, inputFilePathString, fs.type(inputFilePathString) == "dir") then
-					curr = walker()
-					continue
-				end
-			end
-
-			local success, err = pcall(lintFile, curr, lintRules, autofixEnabled, configData, VERBOSE)
-			if success then
-				-- Violations are returned as the second return value from pcall
-				allViolations[curr] = err
-			else
-				print(`Error linting file '{curr}': {err}`)
-			end
-
-			curr = walker()
-		end
+	if SEQUENTIAL then
+		return lint.lintSequential(inputFiles, lintRules, configData, autofixEnabled, ignoreData, VERBOSE)
 	end
 
-	return allViolations
+	return lint.lintParallel(inputFiles, rulesPath, noDefaults, passedConfigVal, autofixEnabled, ignoreData, VERBOSE)
 end
 
 local function main(...: string)
@@ -111,6 +95,7 @@ local function main(...: string)
 		{ help = "Lint the provided string input instead of reading from files", aliases = { "s" } }
 	)
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
+	args:add("sequential", "flag", { help = "Lint files sequentially (parallel by default)" })
 
 	args:parse({ ... })
 
@@ -120,6 +105,7 @@ local function main(...: string)
 	end
 
 	VERBOSE = args:has("verbose")
+	SEQUENTIAL = args:has("sequential")
 
 	local inputFiles = args:forwarded()
 	local stringInput = args:get("string-input")
@@ -129,10 +115,10 @@ local function main(...: string)
 
 	local passedConfigVal = args:get("config")
 	local noDefaultLints = args:has("no-default-lints")
-	local rulePath = args:get("rules")
+	local rulesPath = args:get("rules")
 
 	local lintRules, configContextData, ignoreData =
-		lintCore.initialize(passedConfigVal, noDefaultLints, rulePath, VERBOSE)
+		lintCore.initialize(passedConfigVal, noDefaultLints, rulesPath, VERBOSE)
 
 	if stringInput ~= nil then
 		if args:has("auto-fix") then
@@ -165,8 +151,16 @@ local function main(...: string)
 			print("Auto-fix is enabled.")
 		end
 
-		local allViolations =
-			lintPaths(inputFiles :: { string }, lintRules, autofixEnabled, configContextData, ignoreData) -- LUAUFIX: type refinement on line 305 should mean that cast on inputFiles isn't needed
+		local allViolations = lintPaths(
+			inputFiles :: { string },
+			lintRules,
+			configContextData,
+			rulesPath,
+			noDefaultLints,
+			passedConfigVal,
+			autofixEnabled,
+			ignoreData
+		)
 
 		if args:has("json") then
 			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))
