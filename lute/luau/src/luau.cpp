@@ -601,7 +601,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "value");
         }
 
-        if (cstNode->separator)
+        if (cstNode->separator != Luau::CstExprTable::Missing)
             serializeToken(cstNode->separatorPosition, cstNode->separator == Luau::CstExprTable::Comma ? "," : ";");
         else
             lua_pushnil(L);
@@ -2081,7 +2081,7 @@ struct AstSerialize : public Luau::AstVisitor
                 node->indexer->resultType->visit(this);
                 lua_setfield(L, -2, "value");
 
-                if (item.separator)
+                if (item.separator != Luau::CstExprTable::Missing)
                     serializeToken(item.separatorPosition, item.separator == Luau::CstExprTable::Comma ? "," : ";");
                 else
                     lua_pushnil(L);
@@ -2172,7 +2172,7 @@ struct AstSerialize : public Luau::AstVisitor
                 prop->type->visit(this);
                 lua_setfield(L, -2, "value");
 
-                if (item.separator)
+                if (item.separator != Luau::CstExprTable::Missing)
                     serializeToken(item.separatorPosition, item.separator == Luau::CstExprTable::Comma ? "," : ";");
                 else
                     lua_pushnil(L);
@@ -2232,8 +2232,8 @@ struct AstSerialize : public Luau::AstVisitor
                 lua_pushnil(L);
             lua_setfield(L, -2, "name");
 
-            if (i < cstNode->argumentNameColonPositions.size && cstNode->argumentNameColonPositions.data[i].has_value())
-                serializeToken(*cstNode->argumentNameColonPositions.data[i], ":");
+            if (i < cstNode->argumentNameColonPositions.size && cstNode->argumentNameColonPositions.data[i].hasValue())
+                serializeToken(cstNode->argumentNameColonPositions.data[i], ":");
             else
                 lua_pushnil(L);
             lua_setfield(L, -2, "colon");
@@ -2242,28 +2242,6 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "type");
 
             lua_rawseti(L, -3, i + 1);
-            lua_rawcheckstack(L, 2);
-            lua_createtable(L, 0, 2);
-
-            {
-                lua_rawcheckstack(L, 2);
-                lua_createtable(L, 0, 3);
-                if (i < node->argNames.size && node->argNames.data[i].has_value())
-                    serializeToken(node->argNames.data[i]->second.begin, node->argNames.data[i]->first.value);
-                else
-                    lua_pushnil(L);
-                lua_setfield(L, -2, "name");
-
-                if (i < cstNode->argumentNameColonPositions.size && cstNode->argumentNameColonPositions.data[i].hasValue())
-                    serializeToken(cstNode->argumentNameColonPositions.data[i], ":");
-                else
-                    lua_pushnil(L);
-                lua_setfield(L, -2, "colon");
-
-                node->argTypes.types.data[i]->visit(this);
-                lua_setfield(L, -2, "type");
-            }
-            lua_setfield(L, -2, "node");
 
             if (i < cstNode->argumentsCommaPositions.size)
                 serializeToken(cstNode->argumentsCommaPositions.data[i], ",");
