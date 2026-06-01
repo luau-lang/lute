@@ -65,7 +65,10 @@ type CstPunctuatedMT<T, Separator = ","> = {
 
 --- A punctuated sequence of items (e.g., function parameters, arguments, type parameters) with separators (e.g., commas).
 --- The `__iter` metamethod modifies generalized iteration so that only nodes are iterated over
-export type CstPunctuated<T, Separator = ","> = setmetatable<CstPunctuatedData<T, Separator>, CstPunctuatedMT<T, Separator>>
+export type CstPunctuated<T, Separator = ","> = setmetatable<
+	CstPunctuatedData<T, Separator>,
+	CstPunctuatedMT<T, Separator>
+>
 
 --- A local variable binding site in the CST.
 export type CstLocal = {
