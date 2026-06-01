@@ -1944,8 +1944,8 @@ test.suite("CST_nodes_frozen", function(suite)
 		end
 	end)
 
-	-- ParseResult type
-	suite:case("parseResultFrozen", function(assert)
+	-- CstParseResult type
+	suite:case("cstParseResultFrozen", function(assert)
 		local result = parser.parse("local x = 1")
 		assert.throwsWith(frozenTableMessage, function()
 			(result :: any).root = nil

@@ -17,8 +17,8 @@ function parser.parseExpr(source: string): types.CstExpr
 	return luau.parseExpr(source)
 end
 
---- Parses `source` as a complete Luau file and returns the full `ParseResult`, including the root block and EOF token.
-function parser.parse(source: string): types.ParseResult
+--- Parses `source` as a complete Luau file and returns the full `CstParseResult`, including the root block and EOF token.
+function parser.parse(source: string): types.CstParseResult
 	return luau.parse(source)
 end
 

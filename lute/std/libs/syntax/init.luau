@@ -181,7 +181,7 @@ export type CstTypePack = types.CstTypePack
 
 export type CstNode = types.CstNode
 
-export type ParseResult = types.ParseResult
+export type CstParseResult = types.CstParseResult
 
 return table.freeze({
 	parseBlock = parser.parseBlock,

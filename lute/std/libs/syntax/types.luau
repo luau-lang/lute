@@ -161,7 +161,7 @@ export type CstTypePack = luau.CstTypePack
 
 export type CstNode = luau.CstNode
 
-export type ParseResult = luau.ParseResult
+export type CstParseResult = luau.CstParseResult
 
 --- The type of a replacement for a CST node.
 --- A replacement can be:
