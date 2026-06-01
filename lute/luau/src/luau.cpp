@@ -29,8 +29,9 @@
 namespace luau
 {
 
-static constexpr const char kSpanType[] = "span";
+static constexpr const char kSpanType[] = "span"; // Uncapitalized because the span library lives under `luau.{kSpanType}`
 static constexpr const char kCompileResultType[] = "CompileResult";
+static constexpr const char kCstPunctuatedType[] = "CstPunctuated";
 
 // Recursively freezes the table at the top of the stack and any descendant tables.
 // The table must be at the top of the stack when called.
@@ -231,7 +232,6 @@ static int makeSpanLibrary(lua_State* L)
     return 1;
 }
 
-
 static int ltSpan(lua_State* L)
 {
     Span lhs = checkSpan(L, 1);
@@ -253,6 +253,36 @@ static int ltSpan(lua_State* L)
         lua_pushboolean(L, 0);
 
     return 1;
+}
+
+static int iterPunctuatedNext(lua_State* L)
+{
+    // args: PunctuatedData table, node index
+    int i = luaL_checkinteger(L, 2) + 1;
+
+    lua_rawcheckstack(L, 2);
+
+    lua_rawgeti(L, 1, i);
+
+    if (lua_isnil(L, -1))
+        return 1; // return nil to stop iteration
+
+    lua_pushinteger(L, i);
+    lua_insert(L, -2); // stack: ..., i + 1, value
+
+    return 2; // index, value
+}
+
+static int iterPunctuated(lua_State* L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+
+    lua_rawcheckstack(L, 3);
+
+    lua_pushcfunction(L, iterPunctuatedNext, "iterPunctuatedNext");
+    lua_pushvalue(L, 1);   // state = the punctuated table itself
+    lua_pushinteger(L, 0); // initial index
+    return 3;
 }
 
 struct AstSerialize : public Luau::AstVisitor
@@ -728,49 +758,57 @@ struct AstSerialize : public Luau::AstVisitor
     void serializePunctuated(Luau::AstArray<T> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText)
     {
         lua_rawcheckstack(L, 3);
-        lua_createtable(L, nodes.size, 0);
+
+        lua_createtable(L, nodes.size, 1);
+
+        lua_createtable(L, separators.size, 0);
 
         for (size_t i = 0; i < nodes.size; i++)
         {
-            lua_createtable(L, 0, 2);
-
             nodes.data[i]->visit(this);
-            lua_setfield(L, -2, "node");
+            lua_rawseti(L, -3, i + 1);
 
             if (i < separators.size)
+            {
                 serializeToken(separators.data[i], separatorText);
-            else
-                lua_pushnil(L);
-            lua_setfield(L, -2, "separator");
-
-            lua_rawseti(L, -2, i + 1);
+                lua_rawseti(L, -2, i + 1);
+            }
         }
+
+        lua_setfield(L, -2, "separators");
+
+        luaL_getmetatable(L, kCstPunctuatedType);
+        lua_setmetatable(L, -2);
     }
 
     void serializePunctuated(Luau::AstArray<Luau::AstTypeOrPack> nodes, Luau::AstArray<Luau::Position> separators, const char* separatorText)
     {
-        lua_rawcheckstack(L, 2);
-        lua_createtable(L, nodes.size, 0);
+        lua_rawcheckstack(L, 3);
+
+        lua_createtable(L, nodes.size, 1);
+
+        lua_createtable(L, separators.size, 0);
 
         for (size_t i = 0; i < nodes.size; i++)
         {
-            lua_rawcheckstack(L, 2);
-            lua_createtable(L, 0, 2);
-
-            if (nodes.data[i].type)
-                nodes.data[i].type->visit(this);
+            const Luau::AstTypeOrPack& node = nodes.data[i];
+            if (node.type)
+                node.type->visit(this);
             else
-                nodes.data[i].typePack->visit(this);
-            lua_setfield(L, -2, "node");
+                node.typePack->visit(this);
+            lua_rawseti(L, -3, i + 1);
 
             if (i < separators.size)
+            {
                 serializeToken(separators.data[i], separatorText);
-            else
-                lua_pushnil(L);
-            lua_setfield(L, -2, "separator");
-
-            lua_rawseti(L, -2, i + 1);
+                lua_rawseti(L, -2, i + 1);
+            }
         }
+
+        lua_setfield(L, -2, "separators");
+
+        luaL_getmetatable(L, kCstPunctuatedType);
+        lua_setmetatable(L, -2);
     }
 
     void serializePunctuated(
@@ -781,24 +819,29 @@ struct AstSerialize : public Luau::AstVisitor
     )
     {
         lua_rawcheckstack(L, 3);
-        lua_createtable(L, nodes.size, 0);
+
+        lua_createtable(L, nodes.size, 1);
+
+        lua_createtable(L, separators.size, 0);
 
         for (size_t i = 0; i < nodes.size; i++)
         {
-            lua_createtable(L, 0, 2);
-
-            serialize(nodes.data[i], /* createToken=*/true, colonPositions.size > i ? std::make_optional(colonPositions.data[i]) : std::nullopt);
-            lua_setfield(L, -2, "node");
+            serialize(nodes.data[i], /* createToken */ true, colonPositions.size > i ? std::make_optional(colonPositions.data[i]) : std::nullopt);
+            lua_rawseti(L, -3, i + 1);
 
             if (i < separators.size)
+            {
                 serializeToken(separators.data[i], separatorText);
-            else
-                lua_pushnil(L);
-            lua_setfield(L, -2, "separator");
-
-            lua_rawseti(L, -2, i + 1);
+                lua_rawseti(L, -2, i + 1);
+            }
         }
+
+        lua_setfield(L, -2, "separators");
+
+        luaL_getmetatable(L, kCstPunctuatedType);
+        lua_setmetatable(L, -2);
     }
+
     void serializeAttribute(Luau::AstAttr* node)
     {
         lua_rawcheckstack(L, 2);
@@ -2147,7 +2190,7 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeType(Luau::AstTypeFunction* node)
     {
-        lua_rawcheckstack(L, 2);
+        lua_rawcheckstack(L, 3);
         lua_createtable(L, 0, preambleSize + 10);
 
         serializeNodePreamble(node, "function", "type");
@@ -2173,40 +2216,46 @@ struct AstSerialize : public Luau::AstVisitor
         serializeToken(cstNode->openArgsPosition, "(");
         lua_setfield(L, -2, "openParens");
 
-        lua_createtable(L, node->argTypes.types.size, 0);
+        // CstPunctuated<CstFunctionTypeParameter>
+        lua_createtable(L, node->argTypes.types.size, 1);
+
+        lua_createtable(L, cstNode->argumentsCommaPositions.size, 0);
+
         for (size_t i = 0; i < node->argTypes.types.size; i++)
         {
-            lua_rawcheckstack(L, 2);
-            lua_createtable(L, 0, 2);
+            // CstFunctionTypeParameter
+            lua_createtable(L, 0, 3);
 
-            {
-                lua_rawcheckstack(L, 2);
-                lua_createtable(L, 0, 3);
-                if (i < node->argNames.size && node->argNames.data[i].has_value())
-                    serializeToken(node->argNames.data[i]->second.begin, node->argNames.data[i]->first.value);
-                else
-                    lua_pushnil(L);
-                lua_setfield(L, -2, "name");
+            if (i < node->argNames.size && node->argNames.data[i].has_value())
+                serializeToken(node->argNames.data[i]->second.begin, node->argNames.data[i]->first.value);
+            else
+                lua_pushnil(L);
+            lua_setfield(L, -2, "name");
 
-                if (i < cstNode->argumentNameColonPositions.size && cstNode->argumentNameColonPositions.data[i].has_value())
-                    serializeToken(*cstNode->argumentNameColonPositions.data[i], ":");
-                else
-                    lua_pushnil(L);
-                lua_setfield(L, -2, "colon");
+            if (i < cstNode->argumentNameColonPositions.size && cstNode->argumentNameColonPositions.data[i].has_value())
+                serializeToken(*cstNode->argumentNameColonPositions.data[i], ":");
+            else
+                lua_pushnil(L);
+            lua_setfield(L, -2, "colon");
 
-                node->argTypes.types.data[i]->visit(this);
-                lua_setfield(L, -2, "type");
-            }
-            lua_setfield(L, -2, "node");
+            node->argTypes.types.data[i]->visit(this);
+            lua_setfield(L, -2, "type");
+
+            lua_rawseti(L, -3, i + 1);
 
             if (i < cstNode->argumentsCommaPositions.size)
                 serializeToken(cstNode->argumentsCommaPositions.data[i], ",");
             else
                 lua_pushnil(L);
-            lua_setfield(L, -2, "separator");
 
             lua_rawseti(L, -2, i + 1);
         }
+
+        lua_setfield(L, -2, "separators");
+
+        luaL_getmetatable(L, kCstPunctuatedType);
+        lua_setmetatable(L, -2);
+
         lua_setfield(L, -2, "parameters");
 
         if (node->argTypes.tailType)
@@ -2250,7 +2299,7 @@ struct AstSerialize : public Luau::AstVisitor
     {
         const auto cstNode = lookupCstNode<Luau::CstTypeUnion>(node);
 
-        lua_rawcheckstack(L, 2);
+        lua_rawcheckstack(L, 4);
         lua_createtable(L, 0, preambleSize + 2);
 
         serializeNodePreamble(node, "union", "type");
@@ -2261,13 +2310,15 @@ struct AstSerialize : public Luau::AstVisitor
             lua_pushnil(L);
         lua_setfield(L, -2, "leading");
 
-        lua_createtable(L, node->types.size, 0);
+        // types: CstPunctuated<CstType, "|">
+        lua_createtable(L, node->types.size, 1);
+
+        // types.separators: { CstToken<"|"> }
+        lua_createtable(L, cstNode->separatorPositions.size, 0);
+
         size_t separatorPositions = 0;
         for (size_t i = 0; i < node->types.size; i++)
         {
-            lua_rawcheckstack(L, 2);
-            lua_createtable(L, 0, 2);
-
             if (node->types.data[i]->is<Luau::AstTypeOptional>())
             {
                 lua_createtable(L, 0, preambleSize + 1);
@@ -2277,7 +2328,8 @@ struct AstSerialize : public Luau::AstVisitor
                 serializeToken(node->types.data[i]->location.begin, "?");
                 lua_setfield(L, -2, "token");
 
-                lua_setfield(L, -2, "node");
+                // types[i + 1] = optionalNode
+                lua_rawseti(L, -3, i + 1);
 
                 // Since this option is an optional type, the separator is always present unless it's the last type
                 if (i < node->types.size - 1 && separatorPositions < cstNode->separatorPositions.size)
@@ -2287,12 +2339,14 @@ struct AstSerialize : public Luau::AstVisitor
                 }
                 else
                     lua_pushnil(L);
-                lua_setfield(L, -2, "separator");
+
+                lua_rawseti(L, -2, i + 1);
             }
             else
             {
                 node->types.data[i]->visit(this);
-                lua_setfield(L, -2, "node");
+
+                lua_rawseti(L, -3, i + 1);
 
                 // If the next type is optional, we don't have a separator token
                 if (i < node->types.size - 1 && !node->types.data[i + 1]->is<Luau::AstTypeOptional>() &&
@@ -2303,11 +2357,16 @@ struct AstSerialize : public Luau::AstVisitor
                 }
                 else
                     lua_pushnil(L);
-                lua_setfield(L, -2, "separator");
-            }
 
-            lua_rawseti(L, -2, i + 1);
+                lua_rawseti(L, -2, i + 1);
+            }
         }
+
+        lua_setfield(L, -2, "separators");
+
+        luaL_getmetatable(L, kCstPunctuatedType);
+        lua_setmetatable(L, -2);
+
         lua_setfield(L, -2, "types");
     }
 
@@ -3102,6 +3161,15 @@ static int initLuauLibrary(lua_State* L)
 
     lua_pushcfunction(L, luau::ltSpan, "span.__lt");
     lua_setfield(L, -2, "__lt");
+
+    lua_setreadonly(L, -1, 1);
+
+    lua_pop(L, 1);
+
+    luaL_newmetatable(L, kCstPunctuatedType);
+
+    lua_pushcfunction(L, luau::iterPunctuated, "punctuated.__iter");
+    lua_setfield(L, -2, "__iter");
 
     lua_setreadonly(L, -1, 1);
 

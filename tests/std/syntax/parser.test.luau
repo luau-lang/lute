@@ -105,7 +105,7 @@ test.suite("Parser", function(suite)
 		local firstStmt = block.statements[1]
 		assert.eq(firstStmt.tag, "local")
 
-		local trailingToken: syntax.CstExpr = (firstStmt :: syntax.CstStatLocal).values[1].node
+		local trailingToken: syntax.CstExpr = (firstStmt :: syntax.CstStatLocal).values[1]
 		assert.eq(trailingToken.tag, "string")
 		local expr = trailingToken :: syntax.CstExprConstantString
 		assert.eq(#expr.value.trailingTrivia, 3)
@@ -310,8 +310,8 @@ test.suite("parseExpr", function(suite)
 		assert.eq(callWithArgsExpr.tag, "call")
 		assert.eq(callWithArgsExpr.kind, "expr")
 		assert.eq(#(callWithArgsExpr :: syntax.CstExprCall).arguments, 2)
-		assert.eq((callWithArgsExpr :: syntax.CstExprCall).arguments[1].node.tag, "number")
-		assert.eq((callWithArgsExpr :: syntax.CstExprCall).arguments[2].node.tag, "number")
+		assert.eq((callWithArgsExpr :: syntax.CstExprCall).arguments[1].tag, "number")
+		assert.eq((callWithArgsExpr :: syntax.CstExprCall).arguments[2].tag, "number")
 	end)
 
 	suite:case("parseExprInstantiate", function(assert)
@@ -326,10 +326,10 @@ test.suite("parseExpr", function(suite)
 		assert.eq((instExpr :: syntax.CstExprInstantiate).leftArrow1.text, "<")
 		assert.eq((instExpr :: syntax.CstExprInstantiate).leftArrow2.text, "<")
 		assert.eq(#(instExpr :: syntax.CstExprInstantiate).typeArguments, 2)
-		assert.eq(((instExpr :: syntax.CstExprInstantiate).typeArguments[1].node).kind, "type")
-		assert.eq(((instExpr :: syntax.CstExprInstantiate).typeArguments[1].node).tag, "reference")
-		assert.eq(((instExpr :: syntax.CstExprInstantiate).typeArguments[2].node).kind, "typepack")
-		assert.eq(((instExpr :: syntax.CstExprInstantiate).typeArguments[2].node).tag, "variadic")
+		assert.eq(((instExpr :: syntax.CstExprInstantiate).typeArguments[1]).kind, "type")
+		assert.eq(((instExpr :: syntax.CstExprInstantiate).typeArguments[1]).tag, "reference")
+		assert.eq(((instExpr :: syntax.CstExprInstantiate).typeArguments[2]).kind, "typepack")
+		assert.eq(((instExpr :: syntax.CstExprInstantiate).typeArguments[2]).tag, "variadic")
 		assert.eq((instExpr :: syntax.CstExprInstantiate).rightArrow1.text, ">")
 		assert.eq((instExpr :: syntax.CstExprInstantiate).rightArrow2.text, ">")
 	end)
@@ -368,8 +368,8 @@ test.suite("parseExpr", function(suite)
 		assert.eq(funcExpr.self, nil)
 		assert.eq(funcExpr.openParens.text, "(")
 		assert.eq(#funcExpr.parameters, 2)
-		assert.eq(funcExpr.parameters[1].node.name.text, "a")
-		assert.eq(funcExpr.parameters[2].node.name.text, "b")
+		assert.eq(funcExpr.parameters[1].name.text, "a")
+		assert.eq(funcExpr.parameters[2].name.text, "b")
 		assert.eq(funcExpr.vararg, nil)
 		assert.eq(funcExpr.varargColon, nil)
 		assert.eq(funcExpr.varargAnnotation, nil)
@@ -389,16 +389,16 @@ test.suite("parseExpr", function(suite)
 		assert.neq(funcExpr.openGenerics, nil)
 		assert.neq(funcExpr.generics, nil)
 
-		assert.eq(#funcExpr.generics :: syntax.Punctuated<syntax.CstGenericType>, 1)
-		local gen = (funcExpr.generics :: syntax.Punctuated<syntax.CstGenericType>)[1].node
+		assert.eq(#funcExpr.generics :: syntax.CstPunctuated<syntax.CstGenericType>, 1)
+		local gen = (funcExpr.generics :: syntax.CstPunctuated<syntax.CstGenericType>)[1]
 		assert.eq(gen.name.text, "A")
 		assert.eq(gen.equals, nil)
 		assert.eq(gen.default, nil)
 
 		assert.neq(funcExpr.genericPacks, nil)
-		assert.eq(#funcExpr.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>, 1)
+		assert.eq(#funcExpr.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>, 1)
 
-		local genPack = (funcExpr.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>)[1].node
+		local genPack = (funcExpr.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>)[1]
 		assert.eq(genPack.name.text, "B")
 		assert.eq(genPack.ellipsis.text, "...")
 		assert.eq(genPack.equals, nil)
@@ -409,7 +409,7 @@ test.suite("parseExpr", function(suite)
 
 		assert.eq(funcExpr.openParens.text, "(")
 		assert.eq(#funcExpr.parameters, 1)
-		local param = funcExpr.parameters[1].node
+		local param = funcExpr.parameters[1]
 		assert.eq(param.name.text, "a")
 		assert.neq(param.colon, nil)
 		assert.eq((param.colon :: syntax.CstToken<":">).text, ":")
@@ -704,19 +704,19 @@ test.suite("parse", function(suite)
 		assert.eq(l.tag, "local")
 		assert.eq(l.localKeyword.text, "local")
 		assert.eq(#l.variables, 2)
-		assert.eq(l.variables[1].node.name.text, "b")
-		assert.neq(l.variables[1].separator, nil)
-		assert.eq((l.variables[1].separator :: syntax.CstToken<",">).text, ",")
-		assert.eq(l.variables[2].node.name.text, "c")
-		assert.eq(l.variables[2].separator, nil)
+		assert.eq(l.variables[1].name.text, "b")
+		assert.neq(l.variables.separators[1], nil)
+		assert.eq((l.variables.separators[1] :: syntax.CstToken<",">).text, ",")
+		assert.eq(l.variables[2].name.text, "c")
+		assert.eq(l.variables.separators[2], nil)
 		assert.neq(l.equals, nil)
 		assert.eq((l.equals :: syntax.CstToken<"=">).text, "=")
 		assert.eq(#l.values, 2)
-		assert.eq(l.values[1].node.tag, "number")
-		assert.neq(l.values[1].separator, nil)
-		assert.eq((l.values[1].separator :: syntax.CstToken<",">).text, ",")
-		assert.eq(l.values[2].node.tag, "number")
-		assert.eq(l.values[2].separator, nil)
+		assert.eq(l.values[1].tag, "number")
+		assert.neq(l.values.separators[1], nil)
+		assert.eq((l.values.separators[1] :: syntax.CstToken<",">).text, ",")
+		assert.eq(l.values[2].tag, "number")
+		assert.eq(l.values.separators[2], nil)
 
 		block = parser.parseBlock("local x")
 		checkIsBlock(block, assert)
@@ -727,8 +727,8 @@ test.suite("parse", function(suite)
 		assert.eq(l.tag, "local")
 		assert.eq(l.localKeyword.text, "local")
 		assert.eq(#l.variables, 1)
-		assert.eq(l.variables[1].node.name.text, "x")
-		assert.eq(l.variables[1].separator, nil)
+		assert.eq(l.variables[1].name.text, "x")
+		assert.eq(l.variables.separators[1], nil)
 		assert.eq(l.equals, nil)
 		assert.eq(#l.values, 0)
 	end)
@@ -784,11 +784,11 @@ test.suite("parse", function(suite)
 		assert.eq(forInStat.tag, "forin")
 		assert.eq(forInStat.forKeyword.text, "for")
 		assert.eq(#forInStat.variables, 2)
-		assert.eq(forInStat.variables[1].node.name.text, "key")
-		assert.eq(forInStat.variables[2].node.name.text, "value")
+		assert.eq(forInStat.variables[1].name.text, "key")
+		assert.eq(forInStat.variables[2].name.text, "value")
 		assert.eq(forInStat.inKeyword.text, "in")
 		assert.eq(#forInStat.values, 1)
-		assert.eq(forInStat.values[1].node.tag, "global")
+		assert.eq(forInStat.values[1].tag, "global")
 		assert.eq(forInStat.doKeyword.text, "do")
 		checkIsBlock(forInStat.body, assert)
 		assert.eq(#forInStat.body.statements, 1)
@@ -803,10 +803,10 @@ test.suite("parse", function(suite)
 		local assign = block.statements[1] :: syntax.CstStatAssign
 		assert.eq(assign.tag, "assign")
 		assert.eq(#assign.variables, 1)
-		assert.eq(assign.variables[1].node.tag, "global")
+		assert.eq(assign.variables[1].tag, "global")
 		assert.eq(assign.equals.text, "=")
 		assert.eq(#assign.values, 1)
-		assert.eq(assign.values[1].node.tag, "number")
+		assert.eq(assign.values[1].tag, "number")
 	end)
 
 	suite:case("parseStatCompoundAssign", function(assert)
@@ -878,9 +878,9 @@ test.suite("parse", function(suite)
 		assert.neq(typeAlias.openGenerics, nil)
 		assert.eq((typeAlias.openGenerics :: syntax.CstToken<"<">).text, "<")
 		assert.neq(typeAlias.generics, nil)
-		assert.eq(#typeAlias.generics :: syntax.Punctuated<syntax.CstGenericType>, 1)
+		assert.eq(#typeAlias.generics :: syntax.CstPunctuated<syntax.CstGenericType>, 1)
 		assert.neq(typeAlias.genericPacks, nil)
-		assert.eq(#typeAlias.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>, 1)
+		assert.eq(#typeAlias.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>, 1)
 		assert.neq(typeAlias.closeGenerics, nil)
 		assert.eq((typeAlias.closeGenerics :: syntax.CstToken<">">).text, ">")
 	end)
@@ -935,9 +935,9 @@ test.suite("parse types", function(suite)
 		assert.neq(typeRef.openParameters, nil)
 		assert.eq((typeRef.openParameters :: syntax.CstToken<"<">).text, "<")
 		assert.neq(typeRef.parameters, nil)
-		assert.eq(#typeRef.parameters :: syntax.Punctuated<syntax.CstType>, 2)
-		assert.eq((typeRef.parameters :: syntax.Punctuated<syntax.CstType>)[1].node.tag, "reference")
-		assert.eq((typeRef.parameters :: syntax.Punctuated<syntax.CstType>)[2].node.tag, "reference")
+		assert.eq(#typeRef.parameters :: syntax.CstPunctuated<syntax.CstType>, 2)
+		assert.eq((typeRef.parameters :: syntax.CstPunctuated<syntax.CstType>)[1].tag, "reference")
+		assert.eq((typeRef.parameters :: syntax.CstPunctuated<syntax.CstType>)[2].tag, "reference")
 		assert.neq(typeRef.closeParameters, nil)
 		assert.eq((typeRef.closeParameters :: syntax.CstToken<">">).text, ">")
 	end)
@@ -1009,9 +1009,9 @@ test.suite("parse types", function(suite)
 		local unionType = typeAlias.type :: syntax.CstTypeUnion
 		assert.eq(unionType.leading, nil)
 		assert.eq(#unionType.types, 3)
-		assert.eq(unionType.types[1].node.tag, "reference")
-		assert.eq(unionType.types[2].node.tag, "reference")
-		assert.eq(unionType.types[3].node.tag, "reference")
+		assert.eq(unionType.types[1].tag, "reference")
+		assert.eq(unionType.types[2].tag, "reference")
+		assert.eq(unionType.types[3].tag, "reference")
 
 		block = parser.parseBlock("type T = | number?")
 		typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
@@ -1021,9 +1021,9 @@ test.suite("parse types", function(suite)
 		assert.neq(unionType.leading, nil)
 		assert.eq((unionType.leading :: syntax.CstToken<"|">).text, "|")
 		assert.eq(#unionType.types, 2)
-		assert.eq(unionType.types[1].node.tag, "reference")
-		assert.eq(unionType.types[2].node.tag, "optional")
-		assert.eq((unionType.types[2].node :: syntax.CstTypeOptional).token.text, "?")
+		assert.eq(unionType.types[1].tag, "reference")
+		assert.eq(unionType.types[2].tag, "optional")
+		assert.eq((unionType.types[2] :: syntax.CstTypeOptional).token.text, "?")
 	end)
 
 	suite:case("testTypeUnionWithOptionalPart", function(assert)
@@ -1035,18 +1035,18 @@ test.suite("parse types", function(suite)
 		assert.eq(unionType.leading, nil)
 		assert.eq(#unionType.types, 3)
 
-		local pair1 = unionType.types[1]
-		assert.eq(pair1.node.tag, "reference")
-		assert.eq(pair1.separator, nil)
+		local node = unionType.types[1]
+		assert.eq(node.tag, "reference")
+		assert.eq(unionType.types.separators[1], nil)
 
-		local pair2 = unionType.types[2]
-		assert.eq(pair2.node.tag, "optional")
-		assert.neq(pair2.separator, nil)
-		assert.eq((pair2.separator :: syntax.CstToken<"|">).text, "|")
+		node = unionType.types[2]
+		assert.eq(node.tag, "optional")
+		assert.neq(unionType.types.separators[2], nil)
+		assert.eq((unionType.types.separators[2] :: syntax.CstToken<"|">).text, "|")
 
-		local pair3 = unionType.types[3]
-		assert.eq(pair3.node.tag, "reference")
-		assert.eq(pair3.separator, nil)
+		local node3 = unionType.types[3]
+		assert.eq(node3.tag, "reference")
+		assert.eq(unionType.types.separators[3], nil)
 	end)
 
 	suite:case("testTypeIntersection", function(assert)
@@ -1057,9 +1057,9 @@ test.suite("parse types", function(suite)
 		local intersectionType = typeAlias.type :: syntax.CstTypeIntersection
 		assert.eq(intersectionType.leading, nil)
 		assert.eq(#intersectionType.types, 3)
-		assert.eq(intersectionType.types[1].node.tag, "reference")
-		assert.eq(intersectionType.types[2].node.tag, "reference")
-		assert.eq(intersectionType.types[3].node.tag, "reference")
+		assert.eq(intersectionType.types[1].tag, "reference")
+		assert.eq(intersectionType.types[2].tag, "reference")
+		assert.eq(intersectionType.types[3].tag, "reference")
 
 		block = parser.parseBlock("type T = & B")
 		typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
@@ -1069,7 +1069,7 @@ test.suite("parse types", function(suite)
 		assert.neq(intersectionType.leading, nil)
 		assert.eq((intersectionType.leading :: syntax.CstToken<"&">).text, "&")
 		assert.eq(#intersectionType.types, 1)
-		assert.eq(intersectionType.types[1].node.tag, "reference")
+		assert.eq(intersectionType.types[1].tag, "reference")
 	end)
 
 	suite:case("testTypeArray", function(assert)
@@ -1198,14 +1198,14 @@ test.suite("parse types", function(suite)
 		assert.eq(funcType.openParens.text, "(")
 		assert.eq(#funcType.parameters, 2)
 
-		local param = funcType.parameters[1].node
+		local param = funcType.parameters[1]
 		assert.neq(param.name, nil)
 		assert.eq((param.name :: syntax.CstToken<string>).text, "n")
 		assert.neq(param.colon, nil)
 		assert.eq((param.colon :: syntax.CstToken<":">).text, ":")
 		assert.eq(param.type.tag, "reference")
 
-		param = funcType.parameters[2].node
+		param = funcType.parameters[2]
 		assert.eq(param.name, nil)
 		assert.eq(param.colon, nil)
 		assert.eq(param.type.tag, "reference")
@@ -1223,12 +1223,12 @@ test.suite("parse types", function(suite)
 		assert.neq(funcType.openGenerics, nil)
 		assert.eq((funcType.openGenerics :: syntax.CstToken<"<">).text, "<")
 		assert.neq(funcType.generics, nil)
-		assert.eq(#funcType.generics :: syntax.Punctuated<syntax.CstGenericType>, 1)
+		assert.eq(#funcType.generics :: syntax.CstPunctuated<syntax.CstGenericType>, 1)
 		assert.neq(funcType.genericPacks, nil)
-		assert.eq(#funcType.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>, 1)
-		assert.eq((funcType.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>)[1].node.tag, "generic")
+		assert.eq(#funcType.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>, 1)
+		assert.eq((funcType.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>)[1].tag, "generic")
 
-		local genericTypePack = (funcType.genericPacks :: syntax.Punctuated<syntax.CstGenericTypePack>)[1].node
+		local genericTypePack = (funcType.genericPacks :: syntax.CstPunctuated<syntax.CstGenericTypePack>)[1]
 		assert.eq(genericTypePack.name.text, "U")
 		assert.eq(genericTypePack.ellipsis.text, "...")
 
@@ -1327,7 +1327,7 @@ test.suite("CST_nodes_frozen", function(suite)
 	suite:case("cstExprLocalFrozen", function(assert)
 		local block = parser.parseBlock("local x = 1\nreturn x")
 		local returnStat = block.statements[2] :: syntax.CstStatReturn
-		local expr = returnStat.expressions[1].node
+		local expr = returnStat.expressions[1]
 		assert.eq(expr.kind, "expr")
 		assert.eq(expr.tag, "local")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1768,7 +1768,7 @@ test.suite("CST_nodes_frozen", function(suite)
 		local block = parser.parseBlock("type Foo = string?")
 		local typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
 		local unionType = typeAlias.type :: syntax.CstTypeUnion
-		local optionalType = unionType.types[2].node :: syntax.CstTypeOptional
+		local optionalType = unionType.types[2] :: syntax.CstTypeOptional
 		assert.eq(optionalType.kind, "type")
 		assert.eq(optionalType.tag, "optional")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1848,7 +1848,7 @@ test.suite("CST_nodes_frozen", function(suite)
 			(funcType :: any).returnspecifier = nil
 		end)
 		assert.throwsWith(frozenTableMessage, function()
-			(funcType :: any).parameters[1].node.name = nil
+			(funcType :: any).parameters[1].name = nil
 		end)
 	end)
 
@@ -1880,7 +1880,7 @@ test.suite("CST_nodes_frozen", function(suite)
 	suite:case("cstLocalFrozen", function(assert)
 		local block = parser.parseBlock("local x: number = 1")
 		local localStat = block.statements[1] :: syntax.CstStatLocal
-		local local_ = localStat.variables[1].node
+		local local_ = localStat.variables[1]
 		assert.eq(local_.kind, "local")
 		assert.throwsWith(frozenTableMessage, function()
 			(local_ :: any).name = nil
@@ -1890,7 +1890,7 @@ test.suite("CST_nodes_frozen", function(suite)
 	suite:case("cstGenericTypeFrozen", function(assert)
 		local block = parser.parseBlock("type Foo<T = number> = T")
 		local typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
-		local generic = (typeAlias.generics :: any)[1].node
+		local generic = (typeAlias.generics :: any)[1]
 		assert.eq(generic.tag, "generic")
 		assert.throwsWith(frozenTableMessage, function()
 			generic.name = nil
@@ -1900,7 +1900,7 @@ test.suite("CST_nodes_frozen", function(suite)
 	suite:case("cstGenericTypePackFrozen", function(assert)
 		local block = parser.parseBlock("type Foo<T, U...> = (T, U...) -> ()")
 		local typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
-		local genericPack = (typeAlias.genericPacks :: any)[1].node
+		local genericPack = (typeAlias.genericPacks :: any)[1]
 		assert.eq(genericPack.tag, "generic")
 		assert.eq(genericPack.kind, "typepack")
 		assert.throwsWith(frozenTableMessage, function()
@@ -1952,19 +1952,6 @@ test.suite("CST_nodes_frozen", function(suite)
 		end)
 		assert.throwsWith(frozenTableMessage, function()
 			table.insert((result :: any).lineOffsets, nil)
-		end)
-	end)
-
-	-- Pair type (used in Punctuated)
-	suite:case("pairFrozen", function(assert)
-		local block = parser.parseBlock("local x, y = 1, 2")
-		local localStat = block.statements[1] :: syntax.CstStatLocal
-		local pair = localStat.variables[1]
-		assert.throwsWith(frozenTableMessage, function()
-			(pair :: any).node = nil
-		end)
-		assert.throwsWith(frozenTableMessage, function()
-			(pair :: any).separator = nil
 		end)
 	end)
 

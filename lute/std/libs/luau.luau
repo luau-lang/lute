@@ -79,7 +79,7 @@ function luau.requires(filePath: path.Pathlike): { RequireNode }
 	local requireCalls = query.findAllFromRoot(cst, utils.isRequireCall)
 
 	return requireCalls:mapToArray(function(call: luteLuau.CstExprCall): RequireNode?
-		local argNode = call.arguments[1].node
+		local argNode = call.arguments[1]
 		if argNode == nil then
 			return nil
 		end
