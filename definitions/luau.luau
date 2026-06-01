@@ -827,7 +827,7 @@ export type CstTypePack = CstTypePackExplicit | CstTypePackGeneric | CstTypePack
 export type CstNode = CstExpr | CstStat | CstType | CstTypePack | CstLocal | CstAttribute | CstToken
 
 --- The result of parsing a Luau script, containing the root block, EOF token, and source location info.
-export type ParseResult = {
+export type CstParseResult = {
 	read root: CstStatBlock,
 	read eof: CstEof,
 	read lines: number,
@@ -835,7 +835,7 @@ export type ParseResult = {
 }
 
 --- Parses `source` as a Luau script and returns the resulting CST.
-function luau.parse(source: string): ParseResult
+function luau.parse(source: string): CstParseResult
 	error("not implemented")
 end
 

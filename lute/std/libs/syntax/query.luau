@@ -128,7 +128,7 @@ function queryLib.mapToArray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
 end
 
 --- Creates a new `Query` by visiting every node in `cst` and collecting those for which `fn` returns a non-nil value.
-function queryLib.findAllFromRoot<T>(cst: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
+function queryLib.findAllFromRoot<T>(cst: types.CstParseResult | Node, fn: (Node) -> T?): Query<T>
 	local nodes: { T } = {}
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
