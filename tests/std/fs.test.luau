@@ -103,11 +103,18 @@ test.suite("FsSuite", function(suite)
 		fs.removeDirectory(destDir, { recursive = true })
 	end)
 
-	-- Mirrors the `lute pkg install` flow: packages are extracted to system.tmpdir()
-	-- then moved to ~/.loom/store/. In GitHub Actions CI, /tmp and /github/home are
-	-- on different devices, so this exercises the EXDEV cross-device fallback.
+	-- Exercises the EXDEV cross-device fallback for fs.move.
+	-- Requires a cross-device mount to be set up in order to run.
+	--
+	-- In our CI, this is a tmpfs setup at `LUTE_CROSSDEV_TMPDIR`.
+	-- The test is skipped when `LUTE_CROSSDEV_TMPDIR` is not set.
 	suite:case("moveDirectoryAcrossDevices", function(assert)
-		local srcDir = path.join(tmpdir, "lute_crossdev_src")
+		local crossdevTmp = process.env["LUTE_CROSSDEV_TMPDIR"]
+		if crossdevTmp == nil then
+			return
+		end
+
+		local srcDir = path.join(crossdevTmp, "lute_crossdev_src")
 		local destDir = path.join(process.homedir(), ".lute-test-crossdev")
 
 		if fs.exists(srcDir) then
