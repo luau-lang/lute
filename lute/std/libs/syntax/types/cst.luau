@@ -1,27 +1,6 @@
-local parser = require("@self/parser")
-
 local cst = require("@lute/syntax/cst")
 
 export type Span = cst.Span
-
-local span = {
-	--- Creates a `Span` from begin/end line and column values.
-	create = cst.span.create,
-}
-
---- Returns `true` if `haystack` fully contains `needle`.
-function span.subsumes(haystack: Span, needle: Span): boolean
-	return (
-		if haystack.beginLine == needle.beginLine
-			then haystack.beginColumn <= needle.beginColumn
-			else haystack.beginLine < needle.beginLine
-	)
-		and (
-			if haystack.endLine == needle.endLine
-				then haystack.endColumn >= needle.endColumn
-				else haystack.endLine > needle.endLine
-		)
-end
 
 export type Whitespace = cst.Whitespace
 export type SingleLineComment = cst.SingleLineComment
@@ -111,6 +90,8 @@ export type CstStatExpr = cst.CstStatExpr
 
 export type CstStatLocal = cst.CstStatLocal
 
+export type CstStatConst = cst.CstStatConst
+
 export type CstStatFor = cst.CstStatFor
 
 export type CstStatForIn = cst.CstStatForIn
@@ -181,9 +162,4 @@ export type CstNode = cst.CstNode
 
 export type CstParseResult = cst.CstParseResult
 
-return table.freeze({
-	parseBlock = parser.parseBlock,
-	parseExpr = parser.parseExpr,
-	parse = parser.parse,
-	span = table.freeze(span),
-})
+return {}
