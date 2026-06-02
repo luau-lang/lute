@@ -130,14 +130,26 @@ test.suite("FsSuite", function(suite)
 		fs.writeStringToFile(path.join(srcDir, "a.txt"), "aaa")
 		fs.writeStringToFile(path.join(subDir, "b.txt"), "bbb")
 
-		fs.move(srcDir, destDir)
+		local ok, err = pcall(function()
+			fs.move(srcDir, destDir)
 
-		assert.eq(fs.exists(srcDir), false)
-		assert.that(fs.exists(destDir))
-		assert.eq(fs.readFileToString(path.join(destDir, "a.txt")), "aaa")
-		assert.eq(fs.readFileToString(path.join(destDir, "sub", "b.txt")), "bbb")
+			assert.eq(fs.exists(srcDir), false)
+			assert.that(fs.exists(destDir))
+			assert.eq(fs.readFileToString(path.join(destDir, "a.txt")), "aaa")
+			assert.eq(fs.readFileToString(path.join(destDir, "sub", "b.txt")), "bbb")
+		end)
 
-		fs.removeDirectory(destDir, { recursive = true })
+		if fs.exists(srcDir) then
+			fs.removeDirectory(srcDir, { recursive = true })
+		end
+
+		if fs.exists(destDir) then
+			fs.removeDirectory(destDir, { recursive = true })
+		end
+
+		if not ok then
+			error(err)
+		end
 	end)
 
 	suite:case("linkAndSymlinkAndCopy", function(assert)
