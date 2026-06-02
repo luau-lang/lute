@@ -128,6 +128,7 @@ set(ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE STRING "" FORCE)
 set(ZLIB_LIBRARIES ZLIB::ZLIB CACHE STRING "" FORCE)
 
 # boringssl setup
+set(BUILD_TESTING OFF)
 add_subdirectory(extern/boringssl)
 set(BORINGSSL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/boringssl")
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
@@ -189,6 +190,12 @@ set(CURL_DISABLE_GOPHER ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_RTSP   ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_MQTT   ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_IPFS   ON CACHE BOOL "" FORCE)
+
+# One more set of DISABLES. We might need to re-enable these at some point
+# if we need the features they provide
+set(CURL_DISABLE_AWS            ON  CACHE BOOL "" FORCE)
+set(CURL_DISABLE_INSTALL        ON  CACHE BOOL "" FORCE)
+set(ENABLE_UNIX_SOCKETS         OFF CACHE BOOL "" FORCE)
 
 set(HAVE_BORINGSSL ON)
 add_subdirectory(extern/curl)
