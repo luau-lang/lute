@@ -12,13 +12,13 @@ namespace uvutils
 {
 
 template<typename... Args>
-std::string formatUVError(const char* fmt, Args&&... args)
+std::string formatUVError(const char* fmt, Args... args)
 {
-    int size = snprintf(nullptr, 0, fmt, std::forward<Args>(args)...);
+    int size = snprintf(nullptr, 0, fmt, args...);
     if (size < 0)
         return "Format error";
     std::vector<char> buffer(size + 1);
-    snprintf(buffer.data(), buffer.size(), fmt, std::forward<Args>(args)...);
+    snprintf(buffer.data(), buffer.size(), fmt, args...);
     return std::string(buffer.data());
 }
 
