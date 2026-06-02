@@ -469,6 +469,27 @@ test.suite("parseExpr", function(suite)
 		assert.eq(entry3.separator, nil)
 	end)
 
+	suite:case("parseExprTableSeparators", function(assert)
+		-- Single item, no trailing separator: must not crash
+		local singleItem = parser.parseExpr("{a = 1}") :: syntax.CstExprTable
+		assert.eq(#singleItem.entries, 1)
+		assert.eq(singleItem.entries[1].separator, nil)
+
+		-- Comma separator must be preserved (Comma must not be treated as falsy)
+		local commaSep = parser.parseExpr("{1, 2}") :: syntax.CstExprTable
+		assert.eq(#commaSep.entries, 2)
+		assert.neq(commaSep.entries[1].separator, nil)
+		assert.eq((commaSep.entries[1].separator :: syntax.CstToken<",">).text, ",")
+		assert.eq(commaSep.entries[2].separator, nil)
+
+		-- Semicolon separator must be preserved
+		local semiSep = parser.parseExpr("{1; 2}") :: syntax.CstExprTable
+		assert.eq(#semiSep.entries, 2)
+		assert.neq(semiSep.entries[1].separator, nil)
+		assert.eq((semiSep.entries[1].separator :: syntax.CstToken<";">).text, ";")
+		assert.eq(semiSep.entries[2].separator, nil)
+	end)
+
 	suite:case("parseExprUnary", function(assert)
 		local notExpr = parser.parseExpr("not x")
 		assert.eq(notExpr.tag, "unary")
