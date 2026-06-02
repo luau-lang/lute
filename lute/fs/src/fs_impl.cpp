@@ -148,6 +148,8 @@ struct FSCopyDirectory
     size_t linkIdx = 0;
     size_t removeDirIdx = 0;
     std::string linkTarget; // readlink result held between readlinkCallback and symlinkCallback
+    std::vector<DirPair> pendingUnknown; // dirent-unknown entries awaiting per-entry lstat classification
+    size_t unknownIdx = 0;
 
     static FSCopyDirectory* fromReq(uv_fs_t* req)
     {
@@ -190,7 +192,23 @@ struct FSCopyDirectory
         startFileCopy();
     }
 
-    // Phase 2: copy+unlink the next pending regular file, or advance to symlink recreation.
+    // Phase 2: lstat each UV_DIRENT_UNKNOWN entry from the current scandir to classify it.
+    void startUnknownClassification()
+    {
+        if (unknownIdx < pendingUnknown.size())
+        {
+            uv_fs_lstat(loop, &req, pendingUnknown[unknownIdx].src.c_str(), FSCopyDirectory::unknownLstatCallback);
+            return;
+        }
+
+        pendingUnknown.clear();
+        unknownIdx = 0;
+        scannedDirs.push_back(pendingDirs.front().src);
+        pendingDirs.pop_front();
+        start();
+    }
+
+    // Phase 3: copy+unlink the next pending regular file, or advance to symlink recreation.
     void startFileCopy()
     {
         if (fileIdx < pendingFiles.size())
@@ -202,7 +220,7 @@ struct FSCopyDirectory
         startLinkCopy();
     }
 
-    // Phase 3: recreate symlinks at destination via readlink+symlink+unlink.
+    // Phase 4: recreate symlinks at destination via readlink+symlink+unlink.
     void startLinkCopy()
     {
         if (linkIdx < pendingLinks.size())
@@ -214,7 +232,7 @@ struct FSCopyDirectory
         startDirRemoval();
     }
 
-    // Phase 4: rmdir source dirs in reverse breadth-first order (children before parents).
+    // Phase 5: rmdir source dirs in reverse breadth-first order (children before parents).
     void startDirRemoval()
     {
         if (removeDirIdx < scannedDirs.size())
@@ -296,6 +314,10 @@ struct FSCopyDirectory
             {
                 self->pendingLinks.push_back({childSrc, childDest});
             }
+            else if (type == UV_DIRENT_UNKNOWN)
+            {
+                self->pendingUnknown.push_back({childSrc, childDest});
+            }
             else
             {
                 self->fail("move: Cannot move %s: unsupported file type", childSrc.c_str());
@@ -303,10 +325,64 @@ struct FSCopyDirectory
             }
         }
 
+        if (!self->pendingUnknown.empty())
+        {
+            self->startUnknownClassification();
+            return;
+        }
+
         self->scannedDirs.push_back(srcDir);
         self->pendingDirs.pop_front();
 
         self->start();
+    }
+
+    static void unknownLstatCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        auto result = req->result;
+
+        if (result < 0)
+        {
+            std::string path = self->pendingUnknown[self->unknownIdx].src;
+            uv_fs_req_cleanup(req);
+            self->fail(
+                "move: Error reading %s: %s; some destination subdirectories may have been created",
+                path.c_str(),
+                uv_strerror(result)
+            );
+            return;
+        }
+
+        auto mode = req->statbuf.st_mode;
+        const auto& entry = self->pendingUnknown[self->unknownIdx];
+
+        if (S_ISDIR(mode))
+        {
+            self->pendingDirs.push_back({entry.src, entry.dest});
+        }
+        else if (S_ISREG(mode))
+        {
+            self->pendingFiles.push_back({entry.src, entry.dest});
+        }
+        else if (S_ISLNK(mode))
+        {
+            self->pendingLinks.push_back({entry.src, entry.dest});
+        }
+        else
+        {
+            std::string path = entry.src;
+            uv_fs_req_cleanup(req);
+            self->fail(
+                "move: Cannot move %s: unsupported file type; some destination subdirectories may have been created",
+                path.c_str()
+            );
+            return;
+        }
+
+        uv_fs_req_cleanup(req);
+        ++self->unknownIdx;
+        self->startUnknownClassification();
     }
 
     static void copyFileCallback(uv_fs_t* req)
