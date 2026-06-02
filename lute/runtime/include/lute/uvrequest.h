@@ -6,9 +6,21 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace uvutils
 {
+
+template<typename... Args>
+std::string formatUVError(const char* fmt, Args&&... args)
+{
+    int size = snprintf(nullptr, 0, fmt, std::forward<Args>(args)...);
+    if (size < 0)
+        return "Format error";
+    std::vector<char> buffer(size + 1);
+    snprintf(buffer.data(), buffer.size(), fmt, std::forward<Args>(args)...);
+    return std::string(buffer.data());
+}
 
 template<typename ReqT>
 void cleanup_uv_req(ReqT* req)
@@ -40,22 +52,10 @@ struct UVRequest
     UVRequest(UVRequest&&) = delete;
     UVRequest& operator=(UVRequest&&) = delete;
 
-    // Proxy to token->fail with format string support
     template<typename... Args>
     void fail(const char* fmt, Args&&... args)
     {
-        // First, determine the required size
-        int size = snprintf(nullptr, 0, fmt, std::forward<Args>(args)...);
-        if (size < 0)
-        {
-            token->fail("Format error in fail");
-            return;
-        }
-
-        // Allocate buffer with exact size needed (+1 for null terminator)
-        std::vector<char> buffer(size + 1);
-        snprintf(buffer.data(), buffer.size(), fmt, std::forward<Args>(args)...);
-        token->fail(std::string(buffer.data()));
+        token->fail(formatUVError(fmt, std::forward<Args>(args)...));
     }
 
     template<typename F>
