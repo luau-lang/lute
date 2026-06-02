@@ -9,6 +9,8 @@
 
 #include "uv.h"
 
+#include "Luau/VecDeque.h"
+
 #ifdef _WIN32
 #include <direct.h>
 #else
@@ -103,9 +105,345 @@ struct FSRename : FSPathPairRequest
 {
     using FSPathPairRequest::FSPathPairRequest;
 
+    std::string linkTarget;
+
     static void renameCallback(uv_fs_t* req);
+    static void statCallback(uv_fs_t* req);
     static void copyCallback(uv_fs_t* req);
     static void unlinkCallback(uv_fs_t* req);
+    static void readlinkCallback(uv_fs_t* req);
+    static void symlinkCallback(uv_fs_t* req);
+#if _WIN32
+    static void symlinkStatCallback(uv_fs_t* req);
+#endif
+};
+
+// Handles a recursive cross-filesystem directory move as a self-managed async state machine.
+// Ownership: heap-allocated; calls `delete this` via succeed() or fail().
+struct FSCopyDirectory
+{
+    FSCopyDirectory(ResumeToken token, uv_loop_t* loop, std::string src, std::string dest)
+        : token(std::move(token))
+        , loop(loop)
+    {
+        req.data = this;
+        pendingDirs.push_back({std::move(src), std::move(dest)});
+    }
+
+    struct DirPair
+    {
+        std::string src;
+        std::string dest;
+    };
+
+    ResumeToken token;
+    uv_loop_t* loop;
+    uv_fs_t req;
+
+    Luau::VecDeque<DirPair> pendingDirs;  // source dirs awaiting mkdir+scandir
+    std::vector<std::string> scannedDirs; // source dirs in breadth-first order; rmdired in reverse
+    std::vector<DirPair> pendingFiles;    // regular files awaiting copyfile+unlink
+    std::vector<DirPair> pendingLinks;    // symlinks awaiting readlink+symlink+unlink
+    size_t fileIdx = 0;
+    size_t linkIdx = 0;
+    size_t removeDirIdx = 0;
+    std::string linkTarget; // readlink result held between readlinkCallback and symlinkCallback
+
+    static FSCopyDirectory* fromReq(uv_fs_t* req)
+    {
+        return static_cast<FSCopyDirectory*>(req->data);
+    }
+
+    template<typename... Args>
+    void fail(const char* fmt, Args&&... args)
+    {
+        int size = snprintf(nullptr, 0, fmt, std::forward<Args>(args)...);
+        if (size < 0)
+        {
+            token->fail("Format error in fail");
+            delete this;
+            return;
+        }
+
+        std::vector<char> buffer(size + 1);
+        snprintf(buffer.data(), buffer.size(), fmt, std::forward<Args>(args)...);
+        token->fail(std::string(buffer.data()));
+
+        delete this;
+    }
+
+    void succeed()
+    {
+        token->complete([](lua_State* L) { return 0; });
+        delete this;
+    }
+
+    // Phase 1: process the next pending source directory, or advance to file copying.
+    void start()
+    {
+        if (!pendingDirs.empty())
+        {
+            uv_fs_mkdir(loop, &req, pendingDirs.front().dest.c_str(), 0777, FSCopyDirectory::mkdirCallback);
+            return;
+        }
+
+        startFileCopy();
+    }
+
+    // Phase 2: copy+unlink the next pending regular file, or advance to symlink recreation.
+    void startFileCopy()
+    {
+        if (fileIdx < pendingFiles.size())
+        {
+            uv_fs_copyfile(loop, &req, pendingFiles[fileIdx].src.c_str(), pendingFiles[fileIdx].dest.c_str(), 0, FSCopyDirectory::copyFileCallback);
+            return;
+        }
+
+        startLinkCopy();
+    }
+
+    // Phase 3: recreate symlinks at destination via readlink+symlink+unlink.
+    void startLinkCopy()
+    {
+        if (linkIdx < pendingLinks.size())
+        {
+            uv_fs_readlink(loop, &req, pendingLinks[linkIdx].src.c_str(), FSCopyDirectory::readlinkCallback);
+            return;
+        }
+
+        startDirRemoval();
+    }
+
+    // Phase 4: rmdir source dirs in reverse breadth-first order (children before parents).
+    void startDirRemoval()
+    {
+        if (removeDirIdx < scannedDirs.size())
+        {
+            const auto& dir = scannedDirs[scannedDirs.size() - 1 - removeDirIdx];
+            uv_fs_rmdir(loop, &req, dir.c_str(), FSCopyDirectory::rmdirCallback);
+            return;
+        }
+
+        succeed();
+    }
+
+    static void mkdirCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        auto result = req->result;
+        uv_fs_req_cleanup(req);
+
+        if (result < 0 && result != UV_EEXIST)
+        {
+            self->fail("move: Error creating directory %s: %s", self->pendingDirs.front().dest.c_str(), uv_strerror(result));
+            return;
+        }
+
+        uv_fs_scandir(self->loop, &self->req, self->pendingDirs.front().src.c_str(), 0, FSCopyDirectory::scandirCallback);
+    }
+
+    static void scandirCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        auto result = req->result;
+
+        if (result < 0)
+        {
+            std::string srcPath = self->pendingDirs.front().src;
+            uv_fs_req_cleanup(req);
+            self->fail(
+                "move: Error reading directory %s: %s; some destination subdirectories may have been created",
+                srcPath.c_str(),
+                uv_strerror(result)
+            );
+            return;
+        }
+
+        // Collect all entries before req_cleanup, which frees the scandir data.
+        std::vector<std::pair<std::string, uv_dirent_type_t>> entries;
+        uv_dirent_t dirent;
+        int err;
+        while ((err = uv_fs_scandir_next(req, &dirent)) >= 0)
+            entries.emplace_back(dirent.name, dirent.type);
+
+        std::string srcDir = self->pendingDirs.front().src;
+        std::string destDir = self->pendingDirs.front().dest;
+        uv_fs_req_cleanup(req);
+
+        if (err != UV_EOF)
+        {
+            self->fail(
+                "move: Error reading directory entry in %s: %s; some destination subdirectories may have been created",
+                srcDir.c_str(),
+                uv_strerror(err)
+            );
+            return;
+        }
+
+        for (auto& [name, type] : entries)
+        {
+            std::string childSrc = srcDir + "/" + name;
+            std::string childDest = destDir + "/" + name;
+            if (type == UV_DIRENT_DIR)
+            {
+                self->pendingDirs.push_back({childSrc, childDest});
+            }
+            else if (type == UV_DIRENT_FILE)
+            {
+                self->pendingFiles.push_back({childSrc, childDest});
+            }
+            else if (type == UV_DIRENT_LINK)
+            {
+                self->pendingLinks.push_back({childSrc, childDest});
+            }
+            else
+            {
+                self->fail("move: Cannot move %s: unsupported file type", childSrc.c_str());
+                return;
+            }
+        }
+
+        self->scannedDirs.push_back(srcDir);
+        self->pendingDirs.pop_front();
+
+        self->start();
+    }
+
+    static void copyFileCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        auto result = req->result;
+        uv_fs_req_cleanup(req);
+
+        if (result < 0)
+        {
+            self->fail(
+                "move: Error copying file %s: %s; source and destination may be in an inconsistent state",
+                self->pendingFiles[self->fileIdx].src.c_str(),
+                uv_strerror(result)
+            );
+            return;
+        }
+
+        uv_fs_unlink(self->loop, &self->req, self->pendingFiles[self->fileIdx].src.c_str(), FSCopyDirectory::unlinkFileCallback);
+    }
+
+    static void unlinkFileCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        auto result = req->result;
+        uv_fs_req_cleanup(req);
+
+        if (result < 0)
+        {
+            self->fail(
+                "move: Error removing source file %s: %s; source and destination may be in an inconsistent state",
+                self->pendingFiles[self->fileIdx].src.c_str(),
+                uv_strerror(result)
+            );
+            return;
+        }
+
+        ++self->fileIdx;
+        self->startFileCopy();
+    }
+
+    static void readlinkCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        auto result = req->result;
+
+        if (result < 0)
+        {
+            std::string src = self->pendingLinks[self->linkIdx].src;
+            uv_fs_req_cleanup(req);
+            self->fail(
+                "move: Error reading symlink %s: %s; source and destination may be in an inconsistent state",
+                src.c_str(),
+                uv_strerror(result)
+            );
+            return;
+        }
+
+        // req->ptr holds the link target; copy it before cleanup frees it.
+        self->linkTarget = static_cast<const char*>(req->ptr);
+        uv_fs_req_cleanup(req);
+
+#if _WIN32
+        uv_fs_stat(self->loop, &self->req, self->linkTarget.c_str(), FSCopyDirectory::symlinkStatCallback);
+#else
+        uv_fs_symlink(self->loop, &self->req, self->linkTarget.c_str(), self->pendingLinks[self->linkIdx].dest.c_str(), 0, FSCopyDirectory::symlinkCallback);
+#endif
+    }
+
+#if _WIN32
+    static void symlinkStatCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        int flags = (req->result >= 0 && S_ISDIR(req->statbuf.st_mode)) ? UV_FS_SYMLINK_DIR : 0;
+        uv_fs_req_cleanup(req);
+        uv_fs_symlink(self->loop, &self->req, self->linkTarget.c_str(), self->pendingLinks[self->linkIdx].dest.c_str(), flags, FSCopyDirectory::symlinkCallback);
+    }
+#endif
+
+    static void symlinkCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        auto result = req->result;
+        uv_fs_req_cleanup(req);
+
+        if (result < 0)
+        {
+            self->fail(
+                "move: Error creating symlink %s: %s; source and destination may be in an inconsistent state",
+                self->pendingLinks[self->linkIdx].dest.c_str(),
+                uv_strerror(result)
+            );
+            return;
+        }
+
+        uv_fs_unlink(self->loop, &self->req, self->pendingLinks[self->linkIdx].src.c_str(), FSCopyDirectory::unlinkLinkCallback);
+    }
+
+    static void unlinkLinkCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        auto result = req->result;
+        uv_fs_req_cleanup(req);
+
+        if (result < 0)
+        {
+            self->fail(
+                "move: Error removing source symlink %s: %s; source and destination may be in an inconsistent state",
+                self->pendingLinks[self->linkIdx].src.c_str(),
+                uv_strerror(result)
+            );
+            return;
+        }
+
+        ++self->linkIdx;
+        self->startLinkCopy();
+    }
+
+    static void rmdirCallback(uv_fs_t* req)
+    {
+        auto* self = fromReq(req);
+        auto result = req->result;
+        uv_fs_req_cleanup(req);
+
+        if (result < 0)
+        {
+            self->fail(
+                "move: Error removing source directory %s: %s; the destination is complete but the source directory tree was not fully removed",
+                self->scannedDirs[self->scannedDirs.size() - 1 - self->removeDirIdx].c_str(),
+                uv_strerror(result)
+            );
+            return;
+        }
+
+        ++self->removeDirIdx;
+        self->startDirRemoval();
+    }
 };
 
 int open_impl(lua_State* L, const char* path, int flags, int mode)
@@ -600,8 +938,42 @@ void FSRename::renameCallback(uv_fs_t* req)
         return;
     }
 
-    // Cross-filesystem: fall back to copy + remove
+    // Cross-filesystem: stat the source first to determine whether it's a file or a directory,
+    // since the fallback copy strategy differs between the two.
     uv_fs_req_cleanup(&r->req);
+    uvutils::ScopedUVRequest<FSRename> statReq{std::move(r)};
+    uv_fs_lstat(statReq->getLoop(), &statReq->req, statReq->src.c_str(), FSRename::statCallback);
+}
+
+void FSRename::statCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    auto result = req->result;
+
+    if (result < 0)
+    {
+        r->fail("move: Error reading source %s: %s", r->src.c_str(), uv_strerror(result));
+        return;
+    }
+
+    if (S_ISLNK(req->statbuf.st_mode))
+    {
+        // Top-level source is a symlink: recreate it at the destination.
+        uv_fs_req_cleanup(&r->req);
+        uvutils::ScopedUVRequest<FSRename> readlinkReq{std::move(r)};
+        uv_fs_readlink(readlinkReq->getLoop(), &readlinkReq->req, readlinkReq->src.c_str(), FSRename::readlinkCallback);
+        return;
+    }
+
+    if (S_ISDIR(req->statbuf.st_mode))
+    {
+        // Directory: hand off to FSCopyDirectory. Moving the token transfers coroutine
+        // ownership; r is then destroyed cleanly with an empty token.
+        new FSCopyDirectory(std::move(r->token), r->loop, r->src, r->dest);
+        return;
+    }
+
+    // Regular file (or other): use the existing async copyfile → unlink chain.
     uvutils::ScopedUVRequest<FSRename> copyReq{std::move(r)};
     uv_fs_copyfile(copyReq->getLoop(), &copyReq->req, copyReq->src.c_str(), copyReq->dest.c_str(), 0, FSRename::copyCallback);
 }
@@ -634,6 +1006,56 @@ void FSRename::unlinkCallback(uv_fs_t* req)
     }
 
     r->succeedTrivially();
+}
+
+void FSRename::readlinkCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    auto result = req->result;
+
+    if (result < 0)
+    {
+        r->fail("move: Error reading symlink %s: %s", r->src.c_str(), uv_strerror(result));
+        return;
+    }
+
+    r->linkTarget = static_cast<const char*>(req->ptr);
+    uv_fs_req_cleanup(&r->req);
+
+#if _WIN32
+    uvutils::ScopedUVRequest<FSRename> statReq{std::move(r)};
+    uv_fs_stat(statReq->getLoop(), &statReq->req, statReq->linkTarget.c_str(), FSRename::symlinkStatCallback);
+#else
+    uvutils::ScopedUVRequest<FSRename> symlinkReq{std::move(r)};
+    uv_fs_symlink(symlinkReq->getLoop(), &symlinkReq->req, symlinkReq->linkTarget.c_str(), symlinkReq->dest.c_str(), 0, FSRename::symlinkCallback);
+#endif
+}
+
+#if _WIN32
+void FSRename::symlinkStatCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    int flags = (req->result >= 0 && S_ISDIR(req->statbuf.st_mode)) ? UV_FS_SYMLINK_DIR : 0;
+    uv_fs_req_cleanup(&r->req);
+    uvutils::ScopedUVRequest<FSRename> symlinkReq{std::move(r)};
+    uv_fs_symlink(symlinkReq->getLoop(), &symlinkReq->req, symlinkReq->linkTarget.c_str(), symlinkReq->dest.c_str(), flags, FSRename::symlinkCallback);
+}
+#endif
+
+void FSRename::symlinkCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    auto result = req->result;
+
+    if (result < 0)
+    {
+        r->fail("move: Error creating symlink %s: %s", r->dest.c_str(), uv_strerror(result));
+        return;
+    }
+
+    uv_fs_req_cleanup(&r->req);
+    uvutils::ScopedUVRequest<FSRename> unlinkReq{std::move(r)};
+    uv_fs_unlink(unlinkReq->getLoop(), &unlinkReq->req, unlinkReq->src.c_str(), FSRename::unlinkCallback);
 }
 
 int rename_impl(lua_State* L, const char* path, const char* dest)

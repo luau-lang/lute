@@ -83,6 +83,25 @@ test.suite("FsSuite", function(suite)
 		fs.remove(dest)
 	end)
 
+	suite:case("moveDirectory", function(assert)
+		local srcDir = path.join(tmpdir, "move_src_dir")
+		local subDir = path.join(srcDir, "sub")
+		local destDir = path.join(tmpdir, "move_dest_dir")
+
+		fs.createDirectory(subDir, { makeParents = true })
+		fs.writeStringToFile(path.join(srcDir, "a.txt"), "aaa")
+		fs.writeStringToFile(path.join(subDir, "b.txt"), "bbb")
+
+		fs.move(srcDir, destDir)
+
+		assert.eq(fs.exists(srcDir), false)
+		assert.that(fs.exists(destDir))
+		assert.eq(fs.readFileToString(path.join(destDir, "a.txt")), "aaa")
+		assert.eq(fs.readFileToString(path.join(destDir, "sub", "b.txt")), "bbb")
+
+		fs.removeDirectory(destDir, { recursive = true })
+	end)
+
 	suite:case("linkAndSymlinkAndCopy", function(assert)
 		local srcfile = "src.txt"
 		local src = path.join(tmpdir, srcfile)
