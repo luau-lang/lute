@@ -1,6 +1,7 @@
 local failure = require("@std/test/failure")
 local fs = require("@std/fs")
 local path = require("@std/path")
+local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
 local task = require("@lute/task")
@@ -88,6 +89,36 @@ test.suite("FsSuite", function(suite)
 		local subDir = path.join(srcDir, "sub")
 		local destDir = path.join(tmpdir, "move_dest_dir")
 
+		fs.createDirectory(subDir, { makeParents = true })
+		fs.writeStringToFile(path.join(srcDir, "a.txt"), "aaa")
+		fs.writeStringToFile(path.join(subDir, "b.txt"), "bbb")
+
+		fs.move(srcDir, destDir)
+
+		assert.eq(fs.exists(srcDir), false)
+		assert.that(fs.exists(destDir))
+		assert.eq(fs.readFileToString(path.join(destDir, "a.txt")), "aaa")
+		assert.eq(fs.readFileToString(path.join(destDir, "sub", "b.txt")), "bbb")
+
+		fs.removeDirectory(destDir, { recursive = true })
+	end)
+
+	-- Mirrors the `lute pkg install` flow: packages are extracted to system.tmpdir()
+	-- then moved to ~/.loom/store/. In GitHub Actions CI, /tmp and /github/home are
+	-- on different devices, so this exercises the EXDEV cross-device fallback.
+	suite:case("moveDirectoryAcrossDevices", function(assert)
+		local srcDir = path.join(tmpdir, "lute_crossdev_src")
+		local destDir = path.join(process.homedir(), ".lute-test-crossdev")
+
+		if fs.exists(srcDir) then
+			fs.removeDirectory(srcDir, { recursive = true })
+		end
+
+		if fs.exists(destDir) then
+			fs.removeDirectory(destDir, { recursive = true })
+		end
+
+		local subDir = path.join(srcDir, "sub")
 		fs.createDirectory(subDir, { makeParents = true })
 		fs.writeStringToFile(path.join(srcDir, "a.txt"), "aaa")
 		fs.writeStringToFile(path.join(subDir, "b.txt"), "bbb")
