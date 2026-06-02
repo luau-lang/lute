@@ -1,27 +1,7 @@
-local parser = require("@self/parser")
-
 local cst = require("@lute/syntax/cst")
+local luau = require("@lute/luau")
 
 export type Span = cst.Span
-
-local span = {
-	--- Creates a `Span` from begin/end line and column values.
-	create = cst.span.create,
-}
-
---- Returns `true` if `haystack` fully contains `needle`.
-function span.subsumes(haystack: Span, needle: Span): boolean
-	return (
-		if haystack.beginLine == needle.beginLine
-			then haystack.beginColumn <= needle.beginColumn
-			else haystack.beginLine < needle.beginLine
-	)
-		and (
-			if haystack.endLine == needle.endLine
-				then haystack.endColumn >= needle.endColumn
-				else haystack.endLine > needle.endLine
-		)
-end
 
 export type Whitespace = cst.Whitespace
 export type SingleLineComment = cst.SingleLineComment
@@ -111,6 +91,8 @@ export type CstStatExpr = cst.CstStatExpr
 
 export type CstStatLocal = cst.CstStatLocal
 
+export type CstStatConst = cst.CstStatConst
+
 export type CstStatFor = cst.CstStatFor
 
 export type CstStatForIn = cst.CstStatForIn
@@ -181,9 +163,21 @@ export type CstNode = cst.CstNode
 
 export type CstParseResult = cst.CstParseResult
 
-return table.freeze({
-	parseBlock = parser.parseBlock,
-	parseExpr = parser.parseExpr,
-	parse = parser.parse,
-	span = table.freeze(span),
-})
+--- The type of a replacement for a CST node.
+--- A replacement can be:
+--- 1. A string, which will be used as the replacement text for the node, with any surrounding trivia preserved.
+--- 2. An object with a `content` property containing the replacement string, and an optional `preserveTrivia` boolean property.
+---    If `preserveTrivia` is true, the replaced CST node's attached trivia (whitespace and comments) will be reserialized with the replacement content.
+---    If false, the trivia will be discarded. If omitted, trivia is preserved by default.
+--- Note that trailing trivia for a token consists of all whitespace and comments that follow it up to and including a newline.
+--- Any trivia after the first seen newline is considered leading trivia for the next token.
+export type Replacement = string | { content: string, preserveTrivia: boolean? }
+
+--- A mapping of CST nodes to their replacements, used with `@std/syntax/printer` and `lute transform` to specify how CSTs should be mutated.
+export type Replacements = { [CstNode]: Replacement }
+
+export type Type = luau.Type
+
+export type TypePack = luau.TypePack
+
+return {}
