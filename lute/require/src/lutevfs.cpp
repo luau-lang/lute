@@ -31,6 +31,7 @@ const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
     map["@lute/net/server.luau"] = luteopen_net_server;
     map["@lute/process.luau"] = luteopen_process;
     map["@lute/syntax/cst.luau"] = luteopen_syntax;
+    map["@lute/syntax/parser.luau"] = luteopen_syntax_parser;
     map["@lute/system.luau"] = luteopen_system;
     map["@lute/task.luau"] = luteopen_task;
     map["@lute/time.luau"] = luteopen_time;

@@ -3,8 +3,9 @@
 -- stdlib for `@lute/luau`
 -- Provides utilities for parsing and compiling Luau source code
 
-local luteLuau = require("@lute/luau")
 local cst = require("@lute/syntax/cst")
+local luteLuau = require("@lute/luau")
+local parser = require("@lute/syntax/parser")
 
 local fs = require("@lute/fs")
 local path = require("@std/path")
@@ -75,7 +76,7 @@ function luau.requires(filePath: path.Pathlike): { RequireNode }
 	local source = fs.read(handle)
 	fs.close(handle)
 
-	local cst = luteLuau.parse(source)
+	local cst = parser.parse(source)
 
 	local requireCalls = query.findAllFromRoot(cst, utils.isRequireCall)
 
