@@ -479,14 +479,14 @@ test.suite("parseExpr", function(suite)
 		local commaSep = parser.parseExpr("{1, 2}") :: syntax.CstExprTable
 		assert.eq(#commaSep.entries, 2)
 		assert.neq(commaSep.entries[1].separator, nil)
-		assert.eq((commaSep.entries[1].separator :: any).text, ",")
+		assert.eq((commaSep.entries[1].separator :: syntax.CstToken<",">).text, ",")
 		assert.eq(commaSep.entries[2].separator, nil)
 
 		-- Semicolon separator must be preserved
 		local semiSep = parser.parseExpr("{1; 2}") :: syntax.CstExprTable
 		assert.eq(#semiSep.entries, 2)
 		assert.neq(semiSep.entries[1].separator, nil)
-		assert.eq((semiSep.entries[1].separator :: any).text, ";")
+		assert.eq((semiSep.entries[1].separator :: syntax.CstToken<";">).text, ";")
 		assert.eq(semiSep.entries[2].separator, nil)
 	end)
 
