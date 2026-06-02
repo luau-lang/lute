@@ -1050,7 +1050,12 @@ void FSRename::statCallback(uv_fs_t* req)
         return;
     }
 
-    // Regular file (or other): use the existing async copyfile → unlink chain.
+    if (!S_ISREG(req->statbuf.st_mode))
+    {
+        r->fail("move: Cannot move %s: unsupported file type", r->src.c_str());
+        return;
+    }
+
     uvutils::ScopedUVRequest<FSRename> copyReq{std::move(r)};
     uv_fs_copyfile(copyReq->getLoop(), &copyReq->req, copyReq->src.c_str(), copyReq->dest.c_str(), 0, FSRename::copyCallback);
 }
