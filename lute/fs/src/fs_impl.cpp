@@ -160,7 +160,7 @@ private:
 };
 
 // Heap-managed primitive: moves a symlink from src to dest.
-// readlink(src) → FSCreateSymlink(linkTarget, dest) → unlink(src).
+// readlink(src) -> FSCreateSymlink(linkTarget, dest) -> unlink(src).
 // Calls onDone(0) on success, onDone(negative_uv_error) on failure. Self-deletes.
 struct FSMoveSymlink
 {
@@ -234,7 +234,7 @@ private:
 };
 
 // Heap-managed primitive: moves a regular file from src to dest.
-// copyfile(src, dest) → unlink(src).
+// copyfile(src, dest) -> unlink(src).
 // Calls onDone(0) on success, onDone(negative_uv_error) on failure. Self-deletes.
 struct FSMoveSingleFile
 {
