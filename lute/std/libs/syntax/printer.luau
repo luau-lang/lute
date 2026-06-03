@@ -199,7 +199,7 @@ function printerLib.printNode(node: types.CstNode, replacements: types.Replaceme
 end
 
 --- Returns an entire parsed file as source text, including the EOF token, optionally applying `replacements`.
-function printerLib.printFile(result: types.ParseResult, replacements: types.Replacements?): string
+function printerLib.printFile(result: types.CstParseResult, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visitBlock(result.root, printer)
 	visitor.visitToken(result.eof, printer)

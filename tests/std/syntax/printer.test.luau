@@ -70,13 +70,13 @@ test.suite("SyntaxPrinter", function(suite)
 		local expected = [[local name: string = "World"]]
 
 		local stat = syntax.parseBlock("local x: string")
-		local ann = (stat.statements[1] :: syntaxTypes.CstStatLocal).variables[1].node.annotation
+		local ann = (stat.statements[1] :: syntaxTypes.CstStatLocal).variables[1].annotation
 
 		checkReplacement(source, expected, function(cst)
 			return query
 				.findAllFromRoot(cst :: any, syntaxUtils.isStatLocal) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				:map(function(assign)
-					return assign.variables[1].node.annotation
+					return assign.variables[1].annotation
 				end)
 				:replace(function(_)
 					return printer.printNode(ann :: any) -- LUAUFIX: Remove any cast once code too complex no longer emitted

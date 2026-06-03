@@ -58,6 +58,13 @@ type lintTestParams = {
 	outputExpectations: { { expectedOutput: string, count: number? } }?,
 }
 
+type Mode = "parallel" | "sequential"
+
+local executionModeArgs: { [Mode]: { string } } = {
+	sequential = { "--sequential" },
+	parallel = {},
+}
+
 local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams): string
 	-- Setup
 	-- Create a file that violates the rule
@@ -101,27 +108,40 @@ local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams)
 
 	table.insert(lintArgs, violatorPath)
 
-	local result = runProcess(lintArgs, params.processOptions)
+	local results: { [Mode]: process.ProcessResult } = {
+		parallel = nil :: never,
+		sequential = nil :: never,
+	}
 
-	-- Check
-	assert.eq(result.exitcode, params.expectedExitCode)
+	for mode, args in executionModeArgs do
+		local modeArgs = table.clone(lintArgs)
+		tableext.extend(modeArgs, args)
+		local result = runProcess(modeArgs, params.processOptions)
 
-	if params.expectedAutofixContents then
-		local fixedContents = fs.readFileToString(violatorPath)
-		assert.eq(fixedContents, params.expectedAutofixContents)
-	end
+		results[mode] = result
 
-	if params.outputExpectations then
-		for _, expectation in params.outputExpectations do
-			if expectation.count == 0 then
-				assert.strNotContains(result.stdout, expectation.expectedOutput)
-			else
-				assert.strContains(result.stdout, expectation.expectedOutput, expectation.count)
+		-- Check
+		assert.eq(result.exitcode, params.expectedExitCode)
+
+		if params.expectedAutofixContents then
+			local fixedContents = fs.readFileToString(violatorPath)
+			assert.eq(fixedContents, params.expectedAutofixContents)
+		end
+
+		if params.outputExpectations then
+			for _, expectation in params.outputExpectations do
+				if expectation.count == 0 then
+					assert.strNotContains(result.stdout, expectation.expectedOutput)
+				else
+					assert.strContains(result.stdout, expectation.expectedOutput, expectation.count)
+				end
 			end
 		end
 	end
 
-	return if params.returnStdErr then result.stderr else result.stdout
+	assert.eq(results.parallel, results.sequential)
+
+	return if params.returnStdErr then results.parallel.stderr else results.parallel.stdout
 end
 
 test.suite("lute lint", function(suite)

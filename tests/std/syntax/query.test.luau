@@ -163,7 +163,7 @@ test.suite("CstQuery", function(suite)
 		local locals = query.findAllFromRoot(cst, utils.isStatLocal):flatMap(function(l)
 			local values = {}
 			for _, v in l.values do
-				table.insert(values, v.node)
+				table.insert(values, v)
 			end
 			return values
 		end)
@@ -181,7 +181,7 @@ test.suite("CstQuery", function(suite)
 		local locals = query.findAllFromRoot(cst, utils.isStatLocal):flatMap(function(l)
 			local values = {}
 			for _, v in l.values do
-				table.insert(values, v.node)
+				table.insert(values, v)
 			end
 			return values
 		end)
@@ -198,7 +198,7 @@ test.suite("CstQuery", function(suite)
 		local locals = query.findAllFromRoot(cst, utils.isStatLocal):flatMap(function(l: syntax.CstStatLocal)
 			local vars = {}
 			for _, v in l.variables do
-				table.insert(vars, v.node)
+				table.insert(vars, v)
 			end
 			return vars
 		end)

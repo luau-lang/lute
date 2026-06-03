@@ -3,7 +3,9 @@
 -- stdlib for `@lute/luau`
 -- Provides utilities for parsing and compiling Luau source code
 
+local cst = require("@lute/syntax/cst")
 local luteLuau = require("@lute/luau")
+local parser = require("@lute/syntax/parser")
 
 local fs = require("@lute/fs")
 local path = require("@std/path")
@@ -20,7 +22,7 @@ export type Bytecode = luteLuau.Bytecode
 export type RequireNode = {
 	resolvedPath: string?,
 	requirePath: string?,
-	requireExpr: luteLuau.CstExprCall,
+	requireExpr: cst.CstExprCall,
 }
 
 --- Compiles Luau source code into bytecode.
@@ -74,19 +76,19 @@ function luau.requires(filePath: path.Pathlike): { RequireNode }
 	local source = fs.read(handle)
 	fs.close(handle)
 
-	local cst = luteLuau.parse(source)
+	local cst = parser.parse(source)
 
 	local requireCalls = query.findAllFromRoot(cst, utils.isRequireCall)
 
-	return requireCalls:mapToArray(function(call: luteLuau.CstExprCall): RequireNode?
-		local argNode = call.arguments[1].node
+	return requireCalls:mapToArray(function(call: cst.CstExprCall): RequireNode?
+		local argNode = call.arguments[1]
 		if argNode == nil then
 			return nil
 		end
 
 		local content: string? = nil
 		if argNode.tag == "string" then
-			content = (argNode :: luteLuau.CstExprConstantString).value.text
+			content = (argNode :: cst.CstExprConstantString).value.text
 		else
 			content = printer.printNode(argNode)
 		end

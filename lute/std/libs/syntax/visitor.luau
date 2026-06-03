@@ -170,11 +170,12 @@ local function visitToken<T>(token: types.CstToken<T>, visitor: Visitor)
 	visitor.visitToken(token)
 end
 
-local function visitPunctuated<T, Separator>(list: types.Punctuated<T, Separator>, visitor: Visitor, apply: (T, Visitor) -> ())
-	for _, item in list do
-		apply(item.node, visitor)
-		if item.separator then
-			visitToken(item.separator, visitor)
+local function visitPunctuated<T, Separator>(list: types.CstPunctuated<T, Separator>, visitor: Visitor, apply: (T, Visitor) -> ())
+	for i, item in list do
+		apply(item, visitor)
+		local sep = list.separators[i]
+		if sep then
+			visitToken(sep, visitor)
 		end
 	end
 end
