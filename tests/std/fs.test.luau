@@ -119,7 +119,10 @@ test.suite("FsSuite", function(suite)
 		local crossdevStat = process.run({ "stat", deviceIdFlag, "%d", crossdevTmp })
 		local homeStat = process.run({ "stat", deviceIdFlag, "%d", tostring(process.homedir()) })
 
-		assert.that(crossdevStat.exitcode == 0, `stat failed for LUTE_CROSSDEV_TMPDIR={crossdevTmp}: {crossdevStat.stderr}`)
+		assert.that(
+			crossdevStat.exitcode == 0,
+			`stat failed for LUTE_CROSSDEV_TMPDIR={crossdevTmp}: {crossdevStat.stderr}`
+		)
 		assert.that(homeStat.exitcode == 0, `stat failed for home directory: {homeStat.stderr}`)
 		assert.neq(
 			crossdevStat.stdout:match("%d+"),
