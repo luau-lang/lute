@@ -292,7 +292,7 @@ struct FSRename : FSPathPairRequest
     using FSPathPairRequest::FSPathPairRequest;
 
     static void renameCallback(uv_fs_t* req);
-    static void statCallback(uv_fs_t* req);
+    static void crossDeviceFallback(uv_fs_t* req);
 };
 
 // Handles a recursive cross-filesystem directory move as a self-managed async state machine.
@@ -1056,10 +1056,10 @@ void FSRename::renameCallback(uv_fs_t* req)
     // since the fallback copy strategy differs between the two.
     uv_fs_req_cleanup(&r->req);
     uvutils::ScopedUVRequest<FSRename> statReq{std::move(r)};
-    uv_fs_lstat(statReq->getLoop(), &statReq->req, statReq->src.c_str(), FSRename::statCallback);
+    uv_fs_lstat(statReq->getLoop(), &statReq->req, statReq->src.c_str(), FSRename::crossDeviceFallback);
 }
 
-void FSRename::statCallback(uv_fs_t* req)
+void FSRename::crossDeviceFallback(uv_fs_t* req)
 {
     auto r = uvutils::retake<FSRename>(req);
     auto result = req->result;
