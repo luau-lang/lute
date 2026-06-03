@@ -1092,8 +1092,8 @@ void FSRename::statCallback(uv_fs_t* req)
     {
         // Directory: hand off to FSCopyDirectory. Moving the token transfers coroutine
         // ownership; r is then destroyed cleanly with an empty token.
-        /*auto* copyDir = */new FSCopyDirectory(std::move(r->token), r->loop, r->src, r->dest);
-        //copyDir->start(); FIXME: disabled to confirm that CI breaks if we remove it
+        auto* copyDir = new FSCopyDirectory(std::move(r->token), r->loop, r->src, r->dest);
+        copyDir->start();
         return;
     }
 

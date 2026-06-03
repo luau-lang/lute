@@ -114,6 +114,19 @@ test.suite("FsSuite", function(suite)
 			return
 		end
 
+		-- Verify the two paths are actually on different devices, so the EXDEV fallback is exercised.
+		local deviceIdFlag = if system.os == "macos" then "-f" else "-c"
+		local crossdevStat = process.run({ "stat", deviceIdFlag, "%d", crossdevTmp })
+		local homeStat = process.run({ "stat", deviceIdFlag, "%d", tostring(process.homedir()) })
+
+		assert.that(crossdevStat.exitcode == 0, `stat failed for LUTE_CROSSDEV_TMPDIR={crossdevTmp}: {crossdevStat.stderr}`)
+		assert.that(homeStat.exitcode == 0, `stat failed for home directory: {homeStat.stderr}`)
+		assert.neq(
+			crossdevStat.stdout:match("%d+"),
+			homeStat.stdout:match("%d+"),
+			`LUTE_CROSSDEV_TMPDIR={crossdevTmp} is on the same device as the home directory; the EXDEV fallback will not be exercised`
+		)
+
 		local srcDir = path.join(crossdevTmp, "lute_crossdev_src")
 		local destDir = path.join(process.homedir(), ".lute-test-crossdev")
 
