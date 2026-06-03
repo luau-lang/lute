@@ -115,20 +115,32 @@ test.suite("FsSuite", function(suite)
 		end
 
 		-- Verify the two paths are actually on different devices, so the EXDEV fallback is exercised.
-		local deviceIdFlag = if system.macos then "-f" else "-c"
-		local crossdevStat = process.run({ "stat", deviceIdFlag, "%d", crossdevTmp })
-		local homeStat = process.run({ "stat", deviceIdFlag, "%d", tostring(process.homedir()) })
+		if system.win32 then
+			-- On Windows, drive letters are the device identity; stat is not reliably available.
+			local crossdevDrive = path.win32.parse(crossdevTmp).drive
+			local homeDrive = path.win32.parse(tostring(process.homedir())).drive
+			assert.neq(
+				crossdevDrive,
+				homeDrive,
+				`LUTE_CROSSDEV_TMPDIR={crossdevTmp} is on the same drive as the home directory; the EXDEV fallback will not be exercised`
+			)
+		else
+			-- On Unix, the device ID from stat can be used to determine if two paths are on the same device.
+			local deviceIdFlag = if system.macos then "-f" else "-c"
+			local crossdevStat = process.run({ "stat", deviceIdFlag, "%d", crossdevTmp })
+			local homeStat = process.run({ "stat", deviceIdFlag, "%d", tostring(process.homedir()) })
 
-		assert.that(
-			crossdevStat.exitcode == 0,
-			`stat failed for LUTE_CROSSDEV_TMPDIR={crossdevTmp}: {crossdevStat.stderr}`
-		)
-		assert.that(homeStat.exitcode == 0, `stat failed for home directory: {homeStat.stderr}`)
-		assert.neq(
-			crossdevStat.stdout:match("%d+"),
-			homeStat.stdout:match("%d+"),
-			`LUTE_CROSSDEV_TMPDIR={crossdevTmp} is on the same device as the home directory; the EXDEV fallback will not be exercised`
-		)
+			assert.that(
+				crossdevStat.exitcode == 0,
+				`stat failed for LUTE_CROSSDEV_TMPDIR={crossdevTmp}: {crossdevStat.stderr}`
+			)
+			assert.that(homeStat.exitcode == 0, `stat failed for home directory: {homeStat.stderr}`)
+			assert.neq(
+				crossdevStat.stdout:match("%d+"),
+				homeStat.stdout:match("%d+"),
+				`LUTE_CROSSDEV_TMPDIR={crossdevTmp} is on the same device as the home directory; the EXDEV fallback will not be exercised`
+			)
+		end
 
 		local srcDir = path.join(crossdevTmp, "lute_crossdev_src")
 		local destDir = path.join(process.homedir(), ".lute-test-crossdev")
