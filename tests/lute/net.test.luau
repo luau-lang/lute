@@ -358,4 +358,33 @@ test.suite("LuteNetSuite", function(suite)
 		connection:close()
 		instance.close()
 	end)
+
+	suite:case("tcpTLS", function(assert)
+		local connection = client.connect({
+			tls = true,
+			hostname = "example.com",
+			port = 443,
+		})
+		connection:write("GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n")
+		local buf = connection:read()
+		local data = buffer.readstring(buf, 0, buffer.len(buf))
+		assert.eq(true, data:find("HTTP/1.1 200 OK") ~= nil, "Expected to find payload in response")
+		pcall(function()
+			-- Might fail because of `Connection: close`
+			connection:close()
+		end)
+	end)
+
+	suite:case("tcpTLSHandshake", function(assert)
+		local connection = client.connect("example.com", 443)
+		connection:handshake()
+		connection:write("GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n")
+		local buf = connection:read()
+		local data = buffer.readstring(buf, 0, buffer.len(buf))
+		assert.eq(true, data:find("HTTP/1.1 200 OK") ~= nil, "Expected to find payload in response")
+		pcall(function()
+			-- Might fail because of `Connection: close`
+			connection:close()
+		end)
+	end)
 end)

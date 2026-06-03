@@ -21,6 +21,7 @@ int ws_send(lua_State* L);
 int ws_close(lua_State* L);
 int tcp_write(lua_State* L);
 int tcp_read(lua_State* L);
+int tcp_handshake(lua_State* L);
 int tcp_close(lua_State* L);
 } // namespace net::client
 
@@ -111,6 +112,12 @@ static void initializeTCPStreamHandle(lua_State* L) {
             if (strcmp(index, "close") == 0)
             {
                 lua_pushcfunction(L, net::client::tcp_close, "TCPStreamHandle.close");
+                return 1;
+            }
+
+            if (strcmp(index, "handshake") == 0)
+            {
+                lua_pushcfunction(L, net::client::tcp_handshake, "TCPStreamHandle.handshake");
                 return 1;
             }
 

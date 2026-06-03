@@ -47,11 +47,15 @@ export type TCPStreamHandle = {
 	write: (self: TCPStreamHandle, data: buffer | string) -> (),
 	read: ((self: TCPStreamHandle, amount: number?, timeout: time.Duration?) -> buffer)
 		& ((self: TCPStreamHandle, timeout: time.Duration) -> buffer),
+	handshake: (self: TCPStreamHandle) -> (),
 	close: (self: TCPStreamHandle) -> (),
 }
 
-function client.connect(host: string, port: number): TCPStreamHandle
+client.connect = ((function()
 	error("not implemented")
-end
+end) :: any) :: (
+	((hostname: string, port: number) -> TCPStreamHandle)
+	& (({ hostname: string, port: number, tls: boolean? }) -> TCPStreamHandle)
+)
 
 return client
