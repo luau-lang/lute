@@ -103,15 +103,11 @@ struct ScopedUVRequest
 
     ~ScopedUVRequest()
     {
-        // The actual libuv C request struct retains a pointer to the request in the data field.
-        // If we don't call release, this unique_pointer will be freed at the end of the scope that
-        // contains the request, when we actually want this to be freed inside the asynchronously called callback.
-        // The user should then take ownership of the request from the data via `retake` and the destructr
-        // will automatically be invoked after we've scheduled the Luau code to resume
-        if (ptr)
-        {
-            ptr.release();
-        }
+        // The libuv request struct retains a raw pointer to this object via req->data.
+        // Releasing here intentionally leaks so the object stays alive until the callback fires.
+        // The callback must call retake() to reclaim ownership; the destructor then runs after
+        // the Luau coroutine has been scheduled to resume.
+        ptr.release();
     }
 
     // Non-copyable and non-movable to prevent accidental double-release
