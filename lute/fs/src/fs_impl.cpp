@@ -101,7 +101,8 @@ struct FSPathPairRequest : FSRequest
     const std::string dest;
 };
 
-// Heap-managed primitive: creates a symlink at `dest` pointing to `target`.
+// Creates a symlink at `dest` pointing to `target`.
+//
 // On Win32, stats `target` first to determine whether UV_FS_SYMLINK_DIR is needed.
 // Calls onDone(0) on success, onDone(negative_uv_error) on failure. Self-deletes.
 struct FSCreateSymlink
@@ -157,7 +158,8 @@ private:
     }
 };
 
-// Heap-managed primitive: moves a symlink from src to dest.
+// Moves a symlink from src to dest.
+//
 // readlink(src) -> FSCreateSymlink(linkTarget, dest) -> unlink(src).
 // Calls onDone(0) on success, onDone(negative_uv_error) on failure. Self-deletes.
 struct FSMoveSymlink
@@ -230,7 +232,8 @@ private:
     }
 };
 
-// Heap-managed primitive: moves a regular file from src to dest.
+// Moves a regular file from src to dest.
+//
 // copyfile(src, dest) -> unlink(src).
 // Calls onDone(0) on success, onDone(negative_uv_error) on failure. Self-deletes.
 struct FSMoveSingleFile

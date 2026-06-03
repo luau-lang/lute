@@ -115,7 +115,7 @@ test.suite("FsSuite", function(suite)
 		end
 
 		-- Verify the two paths are actually on different devices, so the EXDEV fallback is exercised.
-		local deviceIdFlag = if system.os == "macos" then "-f" else "-c"
+		local deviceIdFlag = if system.macos then "-f" else "-c"
 		local crossdevStat = process.run({ "stat", deviceIdFlag, "%d", crossdevTmp })
 		local homeStat = process.run({ "stat", deviceIdFlag, "%d", tostring(process.homedir()) })
 
