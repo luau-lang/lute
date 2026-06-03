@@ -66,7 +66,12 @@ struct UVRequest
 
     void succeedTrivially()
     {
-        succeed([](lua_State* L) { return 0; });
+        succeed(
+            [](lua_State* L)
+            {
+                return 0;
+            }
+        );
     }
 
     ~UVRequest()

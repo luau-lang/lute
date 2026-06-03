@@ -4,12 +4,12 @@
 #include "lute/userdatas.h"
 #include "lute/uvrequest.h"
 
+#include "Luau/VecDeque.h"
+
 #include "lua.h"
 #include "lualib.h"
 
 #include "uv.h"
-
-#include "Luau/VecDeque.h"
 
 #include <functional>
 
@@ -204,22 +204,21 @@ private:
         uv_fs_req_cleanup(req);
 
         (new FSCreateSymlink(
-            self->loop,
-            self->linkTarget,
-            self->dest,
-            [self](int err)
-            {
-                if (err < 0)
-                {
-                    auto done = std::move(self->onDone);
-                    delete self;
-                    done(err);
-                    return;
-                }
-                uv_fs_unlink(self->loop, &self->req, self->src.c_str(), FSMoveSymlink::unlinkCallback);
-            }
-        ))
-            ->start();
+             self->loop,
+             self->linkTarget,
+             self->dest,
+             [self](int err)
+             {
+                 if (err < 0)
+                 {
+                     auto done = std::move(self->onDone);
+                     delete self;
+                     done(err);
+                     return;
+                 }
+                 uv_fs_unlink(self->loop, &self->req, self->src.c_str(), FSMoveSymlink::unlinkCallback);
+             }
+         ))->start();
     }
 
     static void unlinkCallback(uv_fs_t* req)
@@ -341,7 +340,12 @@ struct FSCopyDirectory
 
     void succeed()
     {
-        token->complete([](lua_State* L) { return 0; });
+        token->complete(
+            [](lua_State* L)
+            {
+                return 0;
+            }
+        );
         delete this;
     }
 
@@ -373,31 +377,30 @@ struct FSCopyDirectory
         start();
     }
 
-    // Phase 2: copy+unlink the next pending regular file, or advance to symlink recreation.
+    // Phase 2: copy and unlink the next pending regular file, or advance to symlink recreation.
     void startFileCopy()
     {
         if (fileIdx < pendingFiles.size())
         {
             (new FSMoveSingleFile(
-                loop,
-                pendingFiles[fileIdx].src,
-                pendingFiles[fileIdx].dest,
-                [this](int err)
-                {
-                    if (err < 0)
-                    {
-                        fail(
-                            "move: Error moving file %s: %s; source and destination may be in an inconsistent state",
-                            pendingFiles[fileIdx].src.c_str(),
-                            uv_strerror(err)
-                        );
-                        return;
-                    }
-                    ++fileIdx;
-                    startFileCopy();
-                }
-            ))
-                ->start();
+                 loop,
+                 pendingFiles[fileIdx].src,
+                 pendingFiles[fileIdx].dest,
+                 [this](int err)
+                 {
+                     if (err < 0)
+                     {
+                         fail(
+                             "move: Error moving file %s: %s; source and destination may be in an inconsistent state",
+                             pendingFiles[fileIdx].src.c_str(),
+                             uv_strerror(err)
+                         );
+                         return;
+                     }
+                     ++fileIdx;
+                     startFileCopy();
+                 }
+             ))->start();
             return;
         }
 
@@ -410,25 +413,24 @@ struct FSCopyDirectory
         if (linkIdx < pendingLinks.size())
         {
             (new FSMoveSymlink(
-                loop,
-                pendingLinks[linkIdx].src,
-                pendingLinks[linkIdx].dest,
-                [this](int err)
-                {
-                    if (err < 0)
-                    {
-                        fail(
-                            "move: Error moving symlink %s: %s; source and destination may be in an inconsistent state",
-                            pendingLinks[linkIdx].src.c_str(),
-                            uv_strerror(err)
-                        );
-                        return;
-                    }
-                    ++linkIdx;
-                    startLinkCopy();
-                }
-            ))
-                ->start();
+                 loop,
+                 pendingLinks[linkIdx].src,
+                 pendingLinks[linkIdx].dest,
+                 [this](int err)
+                 {
+                     if (err < 0)
+                     {
+                         fail(
+                             "move: Error moving symlink %s: %s; source and destination may be in an inconsistent state",
+                             pendingLinks[linkIdx].src.c_str(),
+                             uv_strerror(err)
+                         );
+                         return;
+                     }
+                     ++linkIdx;
+                     startLinkCopy();
+                 }
+             ))->start();
             return;
         }
 
@@ -473,9 +475,7 @@ struct FSCopyDirectory
             std::string srcPath = self->pendingDirs.front().src;
             uv_fs_req_cleanup(req);
             self->fail(
-                "move: Error reading directory %s: %s; some destination subdirectories may have been created",
-                srcPath.c_str(),
-                uv_strerror(result)
+                "move: Error reading directory %s: %s; some destination subdirectories may have been created", srcPath.c_str(), uv_strerror(result)
             );
             return;
         }
@@ -549,11 +549,7 @@ struct FSCopyDirectory
         {
             std::string path = self->pendingUnknown[self->unknownIdx].src;
             uv_fs_req_cleanup(req);
-            self->fail(
-                "move: Error reading %s: %s; some destination subdirectories may have been created",
-                path.c_str(),
-                uv_strerror(result)
-            );
+            self->fail("move: Error reading %s: %s; some destination subdirectories may have been created", path.c_str(), uv_strerror(result));
             return;
         }
 
@@ -576,10 +572,7 @@ struct FSCopyDirectory
         {
             std::string path = entry.src;
             uv_fs_req_cleanup(req);
-            self->fail(
-                "move: Cannot move %s: unsupported file type; some destination subdirectories may have been created",
-                path.c_str()
-            );
+            self->fail("move: Cannot move %s: unsupported file type; some destination subdirectories may have been created", path.c_str());
             return;
         }
 
@@ -995,18 +988,22 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
     auto* loop = getRuntimeLoop(L);
     std::string src{path}, dst{dest};
     (new FSCreateSymlink(
-        loop,
-        src,
-        dst,
-        [token, src, dst](int err)
-        {
-            if (err < 0)
-                token->fail(uvutils::formatUVError("symlink: Error creating symlink from %s to %s: %s", src.c_str(), dst.c_str(), uv_strerror(err)));
-            else
-                token->complete([](lua_State* L) { return 0; });
-        }
-    ))
-        ->start();
+         loop,
+         src,
+         dst,
+         [token, src, dst](int err)
+         {
+             if (err < 0)
+                 token->fail(uvutils::formatUVError("symlink: Error creating symlink from %s to %s: %s", src.c_str(), dst.c_str(), uv_strerror(err)));
+             else
+                 token->complete(
+                     [](lua_State* L)
+                     {
+                         return 0;
+                     }
+                 );
+         }
+     ))->start();
     return lua_yield(L, 0);
 }
 
@@ -1076,19 +1073,18 @@ void FSRename::statCallback(uv_fs_t* req)
     {
         auto* raw = r.release();
         (new FSMoveSymlink(
-            raw->loop,
-            raw->src,
-            raw->dest,
-            [raw](int err)
-            {
-                std::unique_ptr<FSRename> r(raw);
-                if (err < 0)
-                    r->fail("move: Error moving symlink %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(err));
-                else
-                    r->succeedTrivially();
-            }
-        ))
-            ->start();
+             raw->loop,
+             raw->src,
+             raw->dest,
+             [raw](int err)
+             {
+                 std::unique_ptr<FSRename> r(raw);
+                 if (err < 0)
+                     r->fail("move: Error moving symlink %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(err));
+                 else
+                     r->succeedTrivially();
+             }
+         ))->start();
         return;
     }
 
@@ -1109,19 +1105,18 @@ void FSRename::statCallback(uv_fs_t* req)
 
     auto* raw = r.release();
     (new FSMoveSingleFile(
-        raw->loop,
-        raw->src,
-        raw->dest,
-        [raw](int err)
-        {
-            std::unique_ptr<FSRename> r(raw);
-            if (err < 0)
-                r->fail("move: Error moving file %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(err));
-            else
-                r->succeedTrivially();
-        }
-    ))
-        ->start();
+         raw->loop,
+         raw->src,
+         raw->dest,
+         [raw](int err)
+         {
+             std::unique_ptr<FSRename> r(raw);
+             if (err < 0)
+                 r->fail("move: Error moving file %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(err));
+             else
+                 r->succeedTrivially();
+         }
+     ))->start();
 }
 
 int rename_impl(lua_State* L, const char* path, const char* dest)
