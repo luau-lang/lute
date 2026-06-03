@@ -106,9 +106,9 @@ struct FSPathPairRequest : FSRequest
 // Heap-managed primitive: creates a symlink at `dest` pointing to `target`.
 // On Win32, stats `target` first to determine whether UV_FS_SYMLINK_DIR is needed.
 // Calls onDone(0) on success, onDone(negative_uv_error) on failure. Self-deletes.
-struct FSMakeSymlink
+struct FSCreateSymlink
 {
-    FSMakeSymlink(uv_loop_t* loop, std::string target, std::string dest, std::function<void(int)> onDone)
+    FSCreateSymlink(uv_loop_t* loop, std::string target, std::string dest, std::function<void(int)> onDone)
         : loop(loop)
         , target(std::move(target))
         , dest(std::move(dest))
@@ -120,7 +120,7 @@ struct FSMakeSymlink
     void start()
     {
 #if _WIN32
-        uv_fs_stat(loop, &req, target.c_str(), FSMakeSymlink::statCallback);
+        uv_fs_stat(loop, &req, target.c_str(), FSCreateSymlink::statCallback);
 #else
         doSymlink(this, 0);
 #endif
@@ -133,15 +133,15 @@ struct FSMakeSymlink
     std::function<void(int)> onDone;
 
 private:
-    static void doSymlink(FSMakeSymlink* self, int flags)
+    static void doSymlink(FSCreateSymlink* self, int flags)
     {
-        uv_fs_symlink(self->loop, &self->req, self->target.c_str(), self->dest.c_str(), flags, FSMakeSymlink::symlinkCallback);
+        uv_fs_symlink(self->loop, &self->req, self->target.c_str(), self->dest.c_str(), flags, FSCreateSymlink::symlinkCallback);
     }
 
 #if _WIN32
     static void statCallback(uv_fs_t* req)
     {
-        auto* self = static_cast<FSMakeSymlink*>(req->data);
+        auto* self = static_cast<FSCreateSymlink*>(req->data);
         int flags = (req->result >= 0 && S_ISDIR(req->statbuf.st_mode)) ? UV_FS_SYMLINK_DIR : 0;
         uv_fs_req_cleanup(req);
         doSymlink(self, flags);
@@ -150,7 +150,7 @@ private:
 
     static void symlinkCallback(uv_fs_t* req)
     {
-        auto* self = static_cast<FSMakeSymlink*>(req->data);
+        auto* self = static_cast<FSCreateSymlink*>(req->data);
         int result = req->result;
         uv_fs_req_cleanup(req);
         auto done = std::move(self->onDone);
@@ -160,7 +160,7 @@ private:
 };
 
 // Heap-managed primitive: moves a symlink from src to dest.
-// readlink(src) → FSMakeSymlink(linkTarget, dest) → unlink(src).
+// readlink(src) → FSCreateSymlink(linkTarget, dest) → unlink(src).
 // Calls onDone(0) on success, onDone(negative_uv_error) on failure. Self-deletes.
 struct FSMoveSymlink
 {
@@ -203,7 +203,7 @@ private:
         self->linkTarget = static_cast<const char*>(req->ptr);
         uv_fs_req_cleanup(req);
 
-        (new FSMakeSymlink(
+        (new FSCreateSymlink(
             self->loop,
             self->linkTarget,
             self->dest,
@@ -345,7 +345,7 @@ struct FSCopyDirectory
         delete this;
     }
 
-    // Phase 1: process the next pending source directory, or advance to file copying.
+    // Phase 1: mkdir + scandir the next pending source directory, or advance to file copying.
     void start()
     {
         if (!pendingDirs.empty())
@@ -357,7 +357,7 @@ struct FSCopyDirectory
         startFileCopy();
     }
 
-    // Phase 2: lstat each UV_DIRENT_UNKNOWN entry from the current scandir to classify it.
+    // Phase 1a: lstat each UV_DIRENT_UNKNOWN entry from the current scandir to classify it, then loop back to Phase 1.
     void startUnknownClassification()
     {
         if (unknownIdx < pendingUnknown.size())
@@ -373,7 +373,7 @@ struct FSCopyDirectory
         start();
     }
 
-    // Phase 3: copy+unlink the next pending regular file, or advance to symlink recreation.
+    // Phase 2: copy+unlink the next pending regular file, or advance to symlink recreation.
     void startFileCopy()
     {
         if (fileIdx < pendingFiles.size())
@@ -404,7 +404,7 @@ struct FSCopyDirectory
         startLinkCopy();
     }
 
-    // Phase 4: recreate symlinks at destination via FSMoveSymlink.
+    // Phase 3: recreate symlinks at destination via FSMoveSymlink.
     void startLinkCopy()
     {
         if (linkIdx < pendingLinks.size())
@@ -435,7 +435,7 @@ struct FSCopyDirectory
         startDirRemoval();
     }
 
-    // Phase 5: rmdir source dirs in reverse breadth-first order (children before parents).
+    // Phase 4: rmdir source dirs in reverse breadth-first order (children before parents).
     void startDirRemoval()
     {
         if (removeDirIdx < scannedDirs.size())
@@ -670,6 +670,7 @@ void FSRead::readCallback(uv_fs_t* req)
     r->buffer.insert(r->buffer.end(), r->chunk.begin(), r->chunk.begin() + bytesRead);
 
     uvutils::ScopedUVRequest<FSRead> scopedReq{std::move(r)};
+    uv_fs_req_cleanup(&scopedReq->req);
     uv_fs_read(scopedReq->getLoop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSRead::readCallback);
 }
 
@@ -698,6 +699,7 @@ void FSWrite::writeCallback(uv_fs_t* req)
     w->iov = uv_buf_init(w->chunk.data(), chunkSize);
 
     uvutils::ScopedUVRequest<FSWrite> scopedReq{std::move(w)};
+    uv_fs_req_cleanup(&scopedReq->req);
     uv_fs_write(scopedReq->getLoop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSWrite::writeCallback);
 }
 
@@ -992,7 +994,7 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
     auto token = getResumeToken(L);
     auto* loop = getRuntimeLoop(L);
     std::string src{path}, dst{dest};
-    (new FSMakeSymlink(
+    (new FSCreateSymlink(
         loop,
         src,
         dst,
@@ -1154,7 +1156,6 @@ int mkdir_impl(lua_State* L, const char* path, int mode)
     return lua_yield(L, 0);
 }
 
-
 int rmdir_impl(lua_State* L, const char* path)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
@@ -1178,7 +1179,6 @@ int rmdir_impl(lua_State* L, const char* path)
 
     return lua_yield(L, 0);
 }
-
 
 int listdir_impl(lua_State* L, const char* path)
 {
