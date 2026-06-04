@@ -57,3 +57,14 @@ This will have you performing the steps of the bootstrap script yourself. A manu
 - Configure with `cmake -G=Ninja -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DLUTE_STDLESS=ON` to build a version with no embedded Luau functionality.
 - Build a `lute` executable with `ninja -C build lute/cli/lute` or our test suite with `ninja -C build tests/lute-tests`.
 - Optionally, use this version to run `luthier generate` to generate the embedded Luau source files, then reconfigure without `-DLUTE_STDLESS=ON` and rebuild to get a fully-featured `lute`.
+
+### CCache support
+Lute uses ccache in CI to speed up builds. Both the `bootstrap` and `luthier` build scripts support a `--with-ccache` option, which proxies all compilation through ccache. To benefit from
+caching during local development, download ccache using your systems package manager (apt/brew/choco/etc), and perform a clean configure with `--with-ccache` passed. Subsequent builds
+will then use the cached build artifacts in the .ccache directory.
+Additionally, you'll need to set the following variables:
+```
+CCACHE_DIR=path/to/store/ccachedir
+CCACHE_MAXSIZE=maximum size of the cache
+CCACHE_COMPRESS=true
+```
