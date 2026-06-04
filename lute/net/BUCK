@@ -1,0 +1,30 @@
+load("//build_defs:defs.bzl", "lute_cxx_library")
+load("@prelude//utils/glob_defs.bzl", "subdir_glob")
+
+lute_cxx_library(
+    name = "Lute.Net",
+    srcs = [
+        "src/client.cpp",
+        "src/httpclient.cpp",
+        "src/net.cpp",
+        "src/system_ca.cpp",
+        "src/wsclient.cpp",
+        "src/wscommon.cpp",
+        "src/server.cpp",
+    ],
+    exported_headers = subdir_glob([("include", "**/*.h")]),
+    headers = [
+        "src/system_ca.h",
+        "src/wscommon.h",
+    ],
+    compiler_flags = ["-std=c++20"],
+    deps = [
+        "//lute/common:Lute.Common",
+        "//lute/runtime:Lute.Runtime",
+        "//extern:Luau.VM",
+        "//extern:libuv",
+        "//extern:curl",
+        "//extern:uWebSockets",
+        "//extern:zlib",
+    ],
+)

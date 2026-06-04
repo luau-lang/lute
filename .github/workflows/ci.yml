@@ -206,6 +206,104 @@ jobs:
           # All examples typecheck
           find examples -name "*.luau" -exec ${{ steps.build_lute.outputs.exe_path }} check {} +
 
+  buck2-macos:
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache extern folder
+        uses: actions/cache@v4
+        id: cache-extern
+        with:
+          path: extern
+          key: extern-${{ hashFiles('extern/*.tune') }}
+
+      - name: Install tools
+        uses: Roblox/setup-foreman@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allow-external-github-orgs: true
+
+      - name: Fetch extern dependencies
+        if: steps.cache-extern.outputs.cache-hit != 'true'
+        run: lute ./tools/luthier.luau fetch Lute.CLI
+
+      - name: Install Buck2
+        run: |
+          curl -sSL https://github.com/facebook/buck2/releases/download/latest/buck2-aarch64-apple-darwin.zst | zstd -d > /usr/local/bin/buck2
+          chmod +x /usr/local/bin/buck2
+
+      - name: Fetch prelude
+        run: ./tools/fetch-prelude.sh
+
+      - name: Build Lute
+        run: buck2 build //lute/cli:lute
+
+      - name: Build Tests
+        run: buck2 build //tests:lute-tests
+
+      - name: Run Luau Tests
+        run: |
+          LUTE=$(buck2 build //lute/cli:lute --show-output 2>&1 | grep "//lute/cli:lute" | awk '{print $2}')
+          $LUTE test --verbose
+
+      - name: Run C++ Tests
+        run: |
+          TESTS=$(buck2 build //tests:lute-tests --show-output 2>&1 | grep "//tests:lute-tests" | awk '{print $2}')
+          rm -f .luaurc
+          $TESTS
+
+  buck2-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache extern folder
+        uses: actions/cache@v4
+        id: cache-extern
+        with:
+          path: extern
+          key: extern-${{ hashFiles('extern/*.tune') }}
+
+      - name: Install tools
+        uses: Roblox/setup-foreman@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allow-external-github-orgs: true
+
+      - name: Fetch extern dependencies
+        if: steps.cache-extern.outputs.cache-hit != 'true'
+        run: lute ./tools/luthier.luau fetch Lute.CLI
+
+      - name: Install Buck2
+        run: |
+          curl -sSL https://github.com/facebook/buck2/releases/download/latest/buck2-x86_64-unknown-linux-gnu.zst | zstd -d > /usr/local/bin/buck2
+          chmod +x /usr/local/bin/buck2
+
+      - name: Fetch prelude
+        run: ./tools/fetch-prelude.sh
+
+      - name: Build Lute
+        run: buck2 build //lute/cli:lute
+
+      - name: Build Tests
+        run: buck2 build //tests:lute-tests
+
+      - name: Run Luau Tests
+        run: |
+          LUTE=$(buck2 build //lute/cli:lute --show-output 2>&1 | grep "//lute/cli:lute" | awk '{print $2}')
+          $LUTE test --verbose
+
+      - name: Run C++ Tests
+        run: |
+          TESTS=$(buck2 build //tests:lute-tests --show-output 2>&1 | grep "//tests:lute-tests" | awk '{print $2}')
+          rm -f .luaurc
+          $TESTS
+
   aggregator:
     name: Gated Commits
     runs-on: ubuntu-latest
@@ -213,6 +311,8 @@ jobs:
       [
         run-lutecli-luau-tests,
         run-lute-cxx-unittests,
+        buck2-macos,
+        buck2-linux,
         check-format,
         build-docs-site,
         lute-lint,

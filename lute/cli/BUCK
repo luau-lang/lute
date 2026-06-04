@@ -1,0 +1,94 @@
+load("//build_defs:defs.bzl", "lute_cxx_binary", "lute_cxx_library", "lute_genrule")
+load("@prelude//utils/glob_defs.bzl", "subdir_glob")
+
+lute_genrule(
+    name = "version.h",
+    cmd = """
+cat > $OUT <<'HEADER'
+#pragma once
+
+#define LUTE_VERSION "1.0.1"
+#define LUTE_VERSION_SUFFIX ""
+#define LUTE_VERSION_FULL "1.0.1"
+HEADER
+""",
+    out = "version.h",
+)
+
+lute_cxx_library(
+    name = "Lute.CLI.Commands",
+    srcs = [
+        "src/clicommands.cpp",
+        "generated/commands.cpp",
+    ],
+    exported_headers = {
+        "lute/clicommands.h": "include/lute/clicommands.h",
+    },
+    headers = {
+        "commands.h": "generated/commands.h",
+    },
+)
+
+lute_cxx_library(
+    name = "Lute.CLI.lib",
+    srcs = [
+        "src/climain.cpp",
+        "src/compile.cpp",
+        "src/coverage.cpp",
+        "src/luauflags.cpp",
+        "src/packagerun.cpp",
+        "src/profiler.cpp",
+        "src/requiresetup.cpp",
+        "src/staticrequires.cpp",
+        "src/tc.cpp",
+        "src/uvstate.cpp",
+    ],
+    exported_headers = {
+        "lute/climain.h": "include/lute/climain.h",
+        "lute/compile.h": "include/lute/compile.h",
+        "lute/coverage.h": "include/lute/coverage.h",
+        "lute/luauflags.h": "include/lute/luauflags.h",
+        "lute/packagerun.h": "include/lute/packagerun.h",
+        "lute/profiler.h": "include/lute/profiler.h",
+        "lute/requiresetup.h": "include/lute/requiresetup.h",
+        "lute/staticrequires.h": "include/lute/staticrequires.h",
+        "lute/tc.h": "include/lute/tc.h",
+        "lute/uvstate.h": "include/lute/uvstate.h",
+        "lute/version.h": ":version.h",
+    },
+    deps = [
+        "//lute/cli:Lute.CLI.Commands",
+        "//lute/common:Lute.Common",
+        "//lute/luau:Lute.Luau",
+        "//lute/process:Lute.Process",
+        "//lute/require:Lute.Require",
+        "//lute/runtime:Lute.Runtime",
+        "//extern:Luau.CLI.lib",
+        "//extern:Luau.CodeGen",
+        "//extern:Luau.Common",
+        "//extern:Luau.Compiler",
+        "//extern:Luau.Config",
+        "//extern:Luau.Analysis",
+        "//extern:Luau.VM",
+        "//extern:zlib",
+    ],
+)
+
+lute_cxx_binary(
+    name = "lute",
+    srcs = [
+        "src/clireporter.cpp",
+        "src/main.cpp",
+    ],
+    headers = {
+        "lute/clireporter.h": "include/lute/clireporter.h",
+    },
+    deps = [
+        "//lute/cli:Lute.CLI.lib",
+        "//lute/common:Lute.Common",
+        # Explicit deps to resolve link-time symbols from header-only cycle breakers
+        "//lute/vm:Lute.VM",
+        "//lute/luau:Lute.Luau",
+        "//lute/require:Lute.Require",
+    ],
+)

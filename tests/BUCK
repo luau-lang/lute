@@ -1,0 +1,19 @@
+load("//build_defs:defs.bzl", "lute_cxx_binary")
+
+lute_cxx_binary(
+    name = "lute-tests",
+    srcs = glob(["src/*.cpp"]),
+    headers = glob(["src/*.h"]),
+    deps = [
+        "//lute/cli:Lute.CLI.lib",
+        "//lute/common:Lute.Common",
+        "//lute/luau:Lute.Luau",
+        "//lute/require:Lute.Require",
+        "//lute/runtime:Lute.Runtime",
+        "//lute/vm:Lute.VM",
+        "//extern:Luau.CLI.lib",
+        "//extern:Luau.Analysis",
+        "//extern:Luau.Compiler",
+        "//extern:Luau.VM",
+    ],
+)

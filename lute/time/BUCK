@@ -1,0 +1,15 @@
+load("//build_defs:defs.bzl", "lute_cxx_library")
+load("@prelude//utils/glob_defs.bzl", "subdir_glob")
+
+lute_cxx_library(
+    name = "Lute.Time",
+    srcs = [
+        "src/time.cpp",
+    ],
+    exported_headers = subdir_glob([("include", "**/*.h")]),
+    deps = [
+        "//lute/runtime:Lute.Runtime",
+        "//extern:Luau.VM",
+        "//extern:libuv",
+    ],
+)

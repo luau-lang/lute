@@ -1,0 +1,62 @@
+load("//build_defs:defs.bzl", "lute_cxx_library")
+load("@prelude//rules.bzl", "cxx_library")
+load("@prelude//utils/glob_defs.bzl", "subdir_glob")
+
+# Header-only target to break circular deps with Lute.VM and Lute.Luau.
+cxx_library(
+    name = "Lute.Require.headers",
+    exported_headers = subdir_glob([("include", "**/*.h")]),
+    header_namespace = "",
+    exported_deps = [
+        "//extern:Luau.Require",
+    ],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+lute_cxx_library(
+    name = "Lute.Require",
+    srcs = [
+        "src/batteriesvfs.cpp",
+        "src/bundlevfs.cpp",
+        "src/clivfs.cpp",
+        "src/filevfs.cpp",
+        "src/lutevfs.cpp",
+        "src/modulepath.cpp",
+        "src/options.cpp",
+        "src/packagerequirevfs.cpp",
+        "src/require.cpp",
+        "src/requirevfs.cpp",
+        "src/stdlibvfs.cpp",
+        "src/userlandvfs.cpp",
+    ],
+    exported_headers = subdir_glob([("include", "**/*.h")]),
+    exported_deps = [
+        "//extern:Luau.Require",
+    ],
+    deps = [
+        "//extern:Luau.CLI.lib",
+        "//extern:Luau.Compiler",
+        "//extern:Luau.CodeGen",
+        "//extern:Luau.VM",
+        "//extern:libuv",
+        "//lute/batteries:Lute.Batteries",
+        "//lute/cli:Lute.CLI.Commands",
+        "//lute/common:Lute.Common",
+        "//lute/crypto:Lute.Crypto",
+        "//lute/definitions:Lute.Definitions",
+        "//lute/fs:Lute.Fs",
+        "//lute/io:Lute.IO",
+        "//lute/luau:Lute.Luau.headers",
+        "//lute/net:Lute.Net",
+        "//lute/process:Lute.Process",
+        "//lute/runtime:Lute.Runtime",
+        "//lute/std:Lute.Std",
+        "//lute/syntax:Lute.Syntax",
+        "//lute/system:Lute.System",
+        "//lute/task:Lute.Task",
+        "//lute/time:Lute.Time",
+        "//lute/vm:Lute.VM.headers",
+    ],
+)

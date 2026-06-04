@@ -1,0 +1,35 @@
+load("//build_defs:defs.bzl", "lute_cxx_library")
+load("@prelude//rules.bzl", "cxx_library")
+load("@prelude//utils/glob_defs.bzl", "subdir_glob")
+
+# Header-only target to break circular dep with Lute.Require.
+cxx_library(
+    name = "Lute.VM.headers",
+    exported_headers = subdir_glob([("include", "**/*.h")]),
+    header_namespace = "",
+    exported_deps = [
+        "//lute/runtime:Lute.Runtime",
+        "//extern:Luau.VM",
+    ],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+lute_cxx_library(
+    name = "Lute.VM",
+    srcs = [
+        "src/spawn.cpp",
+        "src/vm.cpp",
+    ],
+    exported_headers = subdir_glob([("include", "**/*.h")]),
+    deps = [
+        "//lute/common:Lute.Common",
+        "//lute/require:Lute.Require.headers",
+        "//lute/runtime:Lute.Runtime",
+        "//extern:Luau.CodeGen",
+        "//extern:Luau.VM",
+        "//extern:Luau.Require",
+        "//extern:libuv",
+    ],
+)

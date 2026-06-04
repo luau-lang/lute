@@ -17,7 +17,9 @@ __pycache__
 compile_commands.json
 *~
 extern/*/
-generated
 **/generated-types.luau
 WARP.md
 .ccache
+.ccache
+buck-out/
+prelude/

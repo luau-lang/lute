@@ -1,0 +1,538 @@
+load("@prelude//rules.bzl", "cxx_library", "genrule")
+load("@prelude//utils/glob_defs.bzl", "subdir_glob")
+load(":boringssl_sources.bzl", "bcm_sources", "bcm_sources_asm", "crypto_sources", "crypto_sources_asm", "ssl_sources")
+
+# =============================================================================
+# zlib
+# =============================================================================
+
+cxx_library(
+    name = "zlib",
+    srcs = [
+        "zlib/adler32.c",
+        "zlib/compress.c",
+        "zlib/crc32.c",
+        "zlib/deflate.c",
+        "zlib/gzclose.c",
+        "zlib/gzlib.c",
+        "zlib/gzread.c",
+        "zlib/gzwrite.c",
+        "zlib/infback.c",
+        "zlib/inffast.c",
+        "zlib/inflate.c",
+        "zlib/inftrees.c",
+        "zlib/trees.c",
+        "zlib/uncompr.c",
+        "zlib/zutil.c",
+    ],
+    exported_headers = {
+        "zconf.h": "zlib/zconf.h",
+        "zlib.h": "zlib/zlib.h",
+    },
+    headers = subdir_glob([("zlib", "*.h")]),
+    header_namespace = "",
+    exported_preprocessor_flags = ["-DZLIB_STATIC"],
+    compiler_flags = [
+        "-Wno-implicit-fallthrough",
+        "-Wno-implicit-function-declaration",
+        "-Wno-deprecated-non-prototype",
+    ],
+    preprocessor_flags = ["-DHAVE_UNISTD_H"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+# =============================================================================
+# libuv
+# =============================================================================
+
+_libuv_common_sources = glob(["libuv/src/*.c"])
+
+_libuv_unix_sources = [
+    "libuv/src/unix/async.c",
+    "libuv/src/unix/core.c",
+    "libuv/src/unix/dl.c",
+    "libuv/src/unix/fs.c",
+    "libuv/src/unix/getaddrinfo.c",
+    "libuv/src/unix/getnameinfo.c",
+    "libuv/src/unix/loop-watcher.c",
+    "libuv/src/unix/loop.c",
+    "libuv/src/unix/pipe.c",
+    "libuv/src/unix/poll.c",
+    "libuv/src/unix/process.c",
+    "libuv/src/unix/random-devurandom.c",
+    "libuv/src/unix/signal.c",
+    "libuv/src/unix/stream.c",
+    "libuv/src/unix/tcp.c",
+    "libuv/src/unix/thread.c",
+    "libuv/src/unix/tty.c",
+    "libuv/src/unix/udp.c",
+]
+
+_libuv_macos_sources = _libuv_unix_sources + [
+    "libuv/src/unix/proctitle.c",
+    "libuv/src/unix/bsd-ifaddrs.c",
+    "libuv/src/unix/kqueue.c",
+    "libuv/src/unix/random-getentropy.c",
+    "libuv/src/unix/darwin-proctitle.c",
+    "libuv/src/unix/darwin.c",
+    "libuv/src/unix/fsevents.c",
+]
+
+_libuv_linux_sources = _libuv_unix_sources + [
+    "libuv/src/unix/proctitle.c",
+    "libuv/src/unix/linux.c",
+    "libuv/src/unix/procfs-exepath.c",
+    "libuv/src/unix/random-getrandom.c",
+    "libuv/src/unix/random-sysctl-linux.c",
+]
+
+_libuv_platform_sources = _libuv_macos_sources if host_info().os.is_macos else _libuv_linux_sources
+
+cxx_library(
+    name = "libuv",
+    srcs = _libuv_common_sources + _libuv_platform_sources,
+    exported_headers = subdir_glob([
+        ("libuv/include", "uv.h"),
+        ("libuv/include", "uv/*.h"),
+    ]),
+    headers = subdir_glob([
+        ("libuv/src", "*.h"),
+        ("libuv/src/unix", "**/*.h"),
+    ]),
+    header_namespace = "",
+    preprocessor_flags = [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ] + ([
+        "-D_DARWIN_UNLIMITED_SELECT=1",
+        "-D_DARWIN_USE_64_BIT_INODE=1",
+    ] if host_info().os.is_macos else [
+        "-D_GNU_SOURCE",
+        "-D_POSIX_C_SOURCE=200112",
+    ]),
+    compiler_flags = [
+        "-std=gnu90",
+        "-fvisibility=hidden",
+        "-Wstrict-prototypes",
+        "-Wextra",
+        "-Wno-unused-parameter",
+        "-fno-strict-aliasing",
+        "-Iextern/libuv/include",
+        "-Iextern/libuv/src",
+    ],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+# =============================================================================
+# libsodium
+# =============================================================================
+
+_sodium_excluded_x86_patterns = [
+    "libsodium/src/libsodium/**/*aesni*",
+    "libsodium/src/libsodium/**/*avx*",
+    "libsodium/src/libsodium/**/*ssse3*",
+    "libsodium/src/libsodium/**/*sse2*",
+    "libsodium/src/libsodium/**/*sse41*",
+    "libsodium/src/libsodium/**/*xmm*",
+    "libsodium/src/libsodium/**/*sandy2x*",
+    "libsodium/src/libsodium/**/*dolbeau*",
+]
+
+cxx_library(
+    name = "sodium",
+    srcs = glob(
+        ["libsodium/src/libsodium/**/*.c"],
+        exclude = _sodium_excluded_x86_patterns + ["libsodium/src/libsodium/**/*.S"],
+    ),
+    exported_headers = subdir_glob([
+        ("libsodium/src/libsodium/include", "*.h"),
+        ("libsodium/src/libsodium/include", "sodium/*.h"),
+    ]),
+    headers = subdir_glob([
+        ("libsodium/src/libsodium/include/sodium", "**/*.h"),
+        ("libsodium/src/libsodium/crypto_core/ed25519/ref10", "**/*.h"),
+        ("libsodium/src/libsodium/crypto_scalarmult/curve25519/ref10", "*.h"),
+        ("libsodium/src/libsodium/crypto_scalarmult/curve25519", "*.h"),
+        ("libsodium/src/libsodium/crypto_stream/chacha20/ref", "*.h"),
+        ("libsodium/src/libsodium/crypto_stream/salsa20/ref", "*.h"),
+        ("libsodium/src/libsodium/crypto_onetimeauth/poly1305/donna", "*.h"),
+        ("libsodium/src/libsodium/crypto_onetimeauth/poly1305", "*.h"),
+        ("libsodium/src/libsodium/crypto_generichash/blake2b/ref", "*.h"),
+        ("libsodium/src/libsodium/crypto_pwhash/argon2", "*.h"),
+        ("libsodium/src/libsodium/crypto_shorthash/siphash24/ref", "*.h"),
+    ]),
+    header_namespace = "",
+    exported_preprocessor_flags = ["-DSODIUM_STATIC", "-DSODIUM_EXPORT="],
+    preprocessor_flags = [
+        "-DCONFIGURED",
+        "-DDEV_MODE",
+        "-D_GNU_SOURCE",
+        "-DHAVE_ATOMIC_OPS",
+        "-DNATIVE_LITTLE_ENDIAN",
+        "-DHAVE_C11_MEMORY_FENCES",
+        "-DHAVE_GCC_MEMORY_FENCES",
+        "-DHAVE_INLINE_ASM",
+        "-DASM_HIDE_SYMBOL=.private_extern",
+        "-DTLS=_Thread_local",
+        "-DHAVE_CATCHABLE_ABRT=1",
+        "-DHAVE_CATCHABLE_SEGV=1",
+        "-DHAVE_ARMCRYPTO",
+        "-DHAVE_PTHREAD",
+        "-DHAVE_MMAP",
+        "-DHAVE_MLOCK",
+        "-DHAVE_MADVISE",
+        "-DHAVE_MPROTECT",
+        "-DHAVE_POSIX_MEMALIGN",
+        "-DHAVE_NANOSLEEP",
+        "-DHAVE_GETPID",
+        "-DHAVE_CLOCK_GETTIME",
+        "-DHAVE_SYSCONF",
+        "-DHAVE_SYS_MMAN_H",
+        "-DHAVE_SYS_RANDOM_H",
+        "-DHAVE_SYS_PARAM_H",
+        "-DHAVE_WEAK_SYMBOLS",
+        "-DHAVE_MEMSET_S",
+        "-DHAVE_RAISE",
+    ],
+    compiler_flags = [
+        "-fno-strict-aliasing",
+        "-fwrapv",
+        "-flax-vector-conversions",
+        "-Wno-unused-function",
+        "-Wno-unknown-pragmas",
+        "-Ilibsodium/src/libsodium/include/sodium",
+    ],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+# =============================================================================
+# BoringSSL
+# =============================================================================
+
+_bcm_asm_macos_arm64 = ["boringssl/" + f for f in bcm_sources_asm if "apple" in f and ("armv8" in f or "aarch64" in f)]
+_crypto_asm_macos_arm64 = ["boringssl/" + f for f in crypto_sources_asm if "apple" in f and ("armv8" in f or "aarch64" in f)]
+_bcm_asm_linux_x86_64 = ["boringssl/" + f for f in bcm_sources_asm if "linux" in f and "x86_64" in f]
+_crypto_asm_linux_x86_64 = ["boringssl/" + f for f in crypto_sources_asm if "linux" in f and "x86_64" in f]
+_bcm_asm_linux_arm64 = ["boringssl/" + f for f in bcm_sources_asm if "linux" in f and ("armv8" in f or "aarch64" in f)]
+_crypto_asm_linux_arm64 = ["boringssl/" + f for f in crypto_sources_asm if "linux" in f and ("armv8" in f or "aarch64" in f)]
+_bcm_srcs = ["boringssl/" + f for f in bcm_sources]
+_crypto_srcs = ["boringssl/" + f for f in crypto_sources]
+_ssl_srcs = ["boringssl/" + f for f in ssl_sources]
+
+_boringssl_asm = _bcm_asm_macos_arm64 + _crypto_asm_macos_arm64 if host_info().os.is_macos else (
+    _bcm_asm_linux_x86_64 + _crypto_asm_linux_x86_64 if host_info().arch.is_x86_64 else
+    _bcm_asm_linux_arm64 + _crypto_asm_linux_arm64
+)
+
+cxx_library(
+    name = "crypto",
+    srcs = _bcm_srcs + _crypto_srcs + _boringssl_asm,
+    exported_headers = subdir_glob([("boringssl/include", "openssl/*.h")]),
+    headers = subdir_glob([
+        ("boringssl/crypto", "**/*.h"),
+        ("boringssl/crypto", "**/*.h.inc"),
+        ("boringssl/crypto", "**/*.cc.inc"),
+        ("boringssl/gen/bcm", "**/*.h"),
+        ("boringssl/gen/crypto", "**/*.h"),
+        ("boringssl/include", "**/*.h"),
+    ]),
+    header_namespace = "",
+    preprocessor_flags = [
+        "-DBORINGSSL_IMPLEMENTATION",
+        "-DBORINGSSL_NO_STATIC_INITIALIZER",
+    ],
+    compiler_flags = [
+        "-std=c++17",
+        "-fvisibility=hidden",
+        "-Wno-unused-parameter",
+        "-Iextern/boringssl/include",
+    ],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "ssl",
+    srcs = _ssl_srcs,
+    exported_headers = subdir_glob([("boringssl/include", "openssl/*.h")]),
+    headers = subdir_glob([
+        ("boringssl/ssl", "**/*.h"),
+        ("boringssl/include", "**/*.h"),
+    ]),
+    header_namespace = "",
+    preprocessor_flags = ["-DBORINGSSL_IMPLEMENTATION"],
+    compiler_flags = [
+        "-std=c++17",
+        "-fvisibility=hidden",
+        "-Wno-unused-parameter",
+        "-Iextern/boringssl/include",
+    ],
+    deps = [":crypto"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+# =============================================================================
+# curl
+# =============================================================================
+
+genrule(
+    name = "curl_config",
+    srcs = ["curl_config.h"],
+    cmd = "cp $SRCS $OUT",
+    out = "curl_config.h",
+    default_target_platform = "//platforms:default",
+)
+
+cxx_library(
+    name = "curl",
+    srcs = glob(["curl/lib/**/*.c"], exclude = ["curl/lib/dllmain.c", "curl/lib/vssh/*.c"]),
+    exported_headers = subdir_glob([("curl/include", "curl/*.h")]),
+    headers = subdir_glob([
+        ("curl/lib", "**/*.h"),
+        ("curl/lib", "**/*.c"),
+    ]) | {"curl_config.h": ":curl_config"},
+    header_namespace = "",
+    exported_preprocessor_flags = ["-DCURL_STATICLIB"],
+    preprocessor_flags = [
+        "-DBUILDING_LIBCURL",
+        "-DHAVE_CONFIG_H",
+        "-DCURL_STATICLIB",
+        "-Iextern/curl/lib",
+    ],
+    compiler_flags = [
+        "-Wno-unused-parameter",
+        "-Wno-deprecated-declarations",
+        "-Wno-unused-variable",
+    ],
+    deps = [":ssl", ":crypto", ":zlib"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+# =============================================================================
+# uSockets
+# =============================================================================
+
+cxx_library(
+    name = "uSockets",
+    srcs = glob(["uSockets/src/**/*.c"]) + glob(["uSockets/src/**/*.cpp"]),
+    exported_headers = {"libusockets.h": "uSockets/src/libusockets.h"},
+    headers = subdir_glob([("uSockets/src", "**/*.h")]),
+    header_namespace = "",
+    preprocessor_flags = ["-DLIBUS_USE_OPENSSL", "-DLIBUS_USE_LIBUV"],
+    compiler_flags = [
+        "-Wno-unused-parameter",
+        "-Wno-sign-compare",
+        "-Iextern/uSockets/src",
+    ],
+    lang_compiler_flags = {
+        "c": ["-std=c11"],
+        "cxx": ["-std=c++17"],
+    },
+    deps = [":ssl", ":crypto", ":libuv"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+# =============================================================================
+# uWebSockets (header-only)
+# =============================================================================
+
+cxx_library(
+    name = "uWebSockets",
+    exported_headers = subdir_glob([("uWebSockets/src", "*.h")]),
+    header_namespace = "",
+    exported_preprocessor_flags = [
+        "-DLIBUS_USE_OPENSSL",
+        "-DLIBUS_USE_LIBUV",
+        "-DUWS_WITH_PROXY",
+    ],
+    exported_deps = [":uSockets", ":zlib", ":libuv"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+# =============================================================================
+# Luau
+# =============================================================================
+
+cxx_library(
+    name = "Luau.Common",
+    srcs = [
+        "luau/Common/src/BytecodeWire.cpp",
+        "luau/Common/src/StringUtils.cpp",
+        "luau/Common/src/TimeTrace.cpp",
+    ],
+    exported_headers = subdir_glob([("luau/Common/include", "**/*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++17", "-Wno-unused-parameter", "-fvisibility=hidden"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "Luau.Ast",
+    srcs = [
+        "luau/Ast/src/Allocator.cpp",
+        "luau/Ast/src/Ast.cpp",
+        "luau/Ast/src/Confusables.cpp",
+        "luau/Ast/src/Cst.cpp",
+        "luau/Ast/src/Lexer.cpp",
+        "luau/Ast/src/Location.cpp",
+        "luau/Ast/src/Parser.cpp",
+        "luau/Ast/src/PrettyPrinter.cpp",
+    ],
+    exported_headers = subdir_glob([("luau/Ast/include", "**/*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++17", "-Wno-unused-parameter", "-fvisibility=hidden"],
+    deps = [":Luau.Common"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "Luau.Bytecode",
+    srcs = [
+        "luau/Bytecode/src/BytecodeBuilder.cpp",
+        "luau/Bytecode/src/BytecodeGraph.cpp",
+    ],
+    exported_headers = subdir_glob([("luau/Bytecode/include", "**/*.h")]),
+    headers = subdir_glob([("luau/Bytecode/src", "*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++17", "-Wno-unused-parameter", "-fvisibility=hidden"],
+    deps = [":Luau.Common"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "Luau.Compiler",
+    srcs = [
+        "luau/Compiler/src/Compiler.cpp",
+        "luau/Compiler/src/Builtins.cpp",
+        "luau/Compiler/src/BuiltinFolding.cpp",
+        "luau/Compiler/src/ConstantFolding.cpp",
+        "luau/Compiler/src/CostModel.cpp",
+        "luau/Compiler/src/TableShape.cpp",
+        "luau/Compiler/src/Types.cpp",
+        "luau/Compiler/src/ValueTracking.cpp",
+        "luau/Compiler/src/lcode.cpp",
+    ],
+    exported_headers = subdir_glob([("luau/Compiler/include", "**/*.h")]),
+    headers = subdir_glob([("luau/Compiler/src", "*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++17", "-Wno-unused-parameter", "-fvisibility=hidden"],
+    exported_deps = [":Luau.Ast", ":Luau.Bytecode", ":Luau.Common"],
+    deps = [":Luau.Ast", ":Luau.Bytecode", ":Luau.Common"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "Luau.VM",
+    srcs = glob(["luau/VM/src/*.cpp"]),
+    exported_headers = subdir_glob([("luau/VM/include", "**/*.h")]),
+    headers = subdir_glob([("luau/VM/src", "*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++11", "-Wno-unused-parameter", "-fvisibility=hidden", "-fno-math-errno"],
+    exported_deps = [":Luau.Common"],
+    deps = [":Luau.Common", ":Luau.Bytecode"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "Luau.Config",
+    srcs = [
+        "luau/Config/src/Config.cpp",
+        "luau/Config/src/LinterConfig.cpp",
+        "luau/Config/src/LuauConfig.cpp",
+    ],
+    exported_headers = subdir_glob([("luau/Config/include", "**/*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++17", "-Wno-unused-parameter", "-fvisibility=hidden"],
+    exported_deps = [":Luau.Ast", ":Luau.Common"],
+    deps = [":Luau.Ast", ":Luau.Compiler", ":Luau.VM", ":Luau.Common"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "Luau.Analysis",
+    srcs = glob(["luau/Analysis/src/*.cpp"]),
+    exported_headers = subdir_glob([("luau/Analysis/include", "**/*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++17", "-Wno-unused-parameter", "-fvisibility=hidden"],
+    deps = [":Luau.Ast", ":Luau.Bytecode", ":Luau.Compiler", ":Luau.Config", ":Luau.VM", ":Luau.Common"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "Luau.CodeGen",
+    srcs = glob(["luau/CodeGen/src/*.cpp"]),
+    exported_headers = subdir_glob([("luau/CodeGen/include", "**/*.h")]),
+    headers = subdir_glob([("luau/CodeGen/src", "*.h"), ("luau/VM/src", "*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++17", "-Wno-unused-parameter", "-fvisibility=hidden"],
+    deps = [":Luau.VM", ":Luau.Bytecode", ":Luau.Common"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "Luau.Require",
+    srcs = [
+        "luau/Require/src/AliasCycleTracker.cpp",
+        "luau/Require/src/Navigation.cpp",
+        "luau/Require/src/PathUtilities.cpp",
+        "luau/Require/src/Require.cpp",
+        "luau/Require/src/RequireImpl.cpp",
+        "luau/Require/src/RequireNavigator.cpp",
+    ],
+    exported_headers = subdir_glob([("luau/Require/include", "**/*.h")]),
+    headers = subdir_glob([("luau/Require/src", "*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++17", "-Wno-unused-parameter", "-fvisibility=hidden"],
+    exported_deps = [":Luau.Config", ":Luau.Common"],
+    deps = [":Luau.Ast", ":Luau.Config", ":Luau.VM", ":Luau.Common"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
+
+cxx_library(
+    name = "Luau.CLI.lib",
+    srcs = [
+        "luau/CLI/src/FileUtils.cpp",
+        "luau/CLI/src/Flags.cpp",
+        "luau/CLI/src/VfsNavigator.cpp",
+    ],
+    exported_headers = subdir_glob([("luau/CLI/include", "**/*.h")]),
+    header_namespace = "",
+    compiler_flags = ["-std=c++17", "-Wno-unused-parameter", "-fvisibility=hidden"],
+    deps = [":Luau.Common", ":Luau.Config", ":Luau.Require"],
+    preferred_linkage = "static",
+    default_target_platform = "//platforms:default",
+    visibility = ["PUBLIC"],
+)
