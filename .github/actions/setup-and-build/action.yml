@@ -20,6 +20,10 @@ inputs:
     description: "Whether to use the bootstrap script to build the Lute used to run luthier"
     required: false
     default: "false"
+  install-system-deps:
+    description: "Whether to install system build dependencies via apt-get. Set to 'false' when the caller provisions its own toolchain (e.g. inside a custom container)."
+    required: false
+    default: "true"
 
 outputs:
   exe_path:
@@ -37,7 +41,7 @@ runs:
         allow-external-github-orgs: true
 
     - name: Install dependencies (Linux)
-      if: runner.os == 'Linux'
+      if: runner.os == 'Linux' && inputs.install-system-deps == 'true'
       shell: bash
       run: |
         sudo apt-get update
@@ -65,12 +69,48 @@ runs:
         path: extern
         key: extern-${{ hashFiles('extern/*.tune') }}
 
+    - name: Install ccache
+      shell: bash
+      run: |
+        if [[ "${{ runner.os }}" == "Linux" ]]; then
+          sudo apt-get install -y ccache
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          brew install ccache
+        elif [[ "${{ runner.os }}" == "Windows" ]]; then
+          choco install ccache -y
+        fi
+
+    - name: Configure ccache
+      shell: bash
+      run: |
+        echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
+        echo "CCACHE_MAXSIZE=500M" >> $GITHUB_ENV
+        echo "CCACHE_COMPRESS=true" >> $GITHUB_ENV
+        echo "CCACHE_COMPRESSLEVEL=6" >> $GITHUB_ENV
+        # zero statistics
+        ccache -z
+
+    - name: Restore ccache
+      uses: actions/cache/restore@v4
+      id: cache-ccache
+      with:
+        path: .ccache
+        key: ccache-${{ runner.os }}-${{ inputs.options }}-
+        lookup-only: false
+
+
+    - name: ccache stats (pre-build)
+      shell: bash
+      run: |
+        echo "Cache status: ${{ steps.cache-ccache.outputs.cache-hit }}"
+        ccache -sv
+
     - name: Bootstrap Lute (if needed) and set LUTE
       shell: bash
       run: |
         if [[ "${{ inputs.use-bootstrap }}" == "true" ]]; then
           echo "Bootstrapping Lute..."
-          ./tools/bootstrap.sh
+          ./tools/bootstrap.sh --with-ccache --build-debug
           echo "LUTE=./build/lute0" >> $GITHUB_ENV
         else
           echo "LUTE=lute" >> $GITHUB_ENV
@@ -83,11 +123,22 @@ runs:
 
     - name: Configure ${{ inputs.target }}
       shell: bash
-      run: $LUTE ./tools/luthier.luau configure ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
+      run: $LUTE ./tools/luthier.luau configure ${{ inputs.target }} --with-ccache --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build ${{ inputs.target }}
       shell: bash
-      run: $LUTE ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
+      run: $LUTE ./tools/luthier.luau build ${{ inputs.target }} --with-ccache --config ${{ inputs.config }} ${{ inputs.options }}
+
+    - name: ccache stats (post-build)
+      shell: bash
+      run: ccache -sv
+
+    - name: Save ccache
+      if: github.ref_name == 'primary'
+      uses: actions/cache/save@v4
+      with:
+        path: .ccache
+        key: ccache-${{ runner.os }}-${{ inputs.options }}-${{ github.sha }}
 
     - name: Get Artifact Path
       id: artifact_path

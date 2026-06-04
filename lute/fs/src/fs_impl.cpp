@@ -1,8 +1,8 @@
 #include "fs_impl.h"
 
-#include "lute/fileutils.h"
 #include "lute/time.h"
-#include "lute/UVRequest.h"
+#include "lute/userdatas.h"
+#include "lute/uvrequest.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -83,18 +83,7 @@ struct FSWrite : FSRequest
 
 struct FSClose : FSRequest
 {
-    FSClose(lua_State* L, UVFile* file)
-        : FSRequest(L)
-        , file(file)
-    {
-    }
-
-    ~FSClose()
-    {
-        delete file;
-    }
-
-    UVFile* file = nullptr;
+    using FSRequest::FSRequest;
 };
 
 struct FSPathPairRequest : FSRequest
@@ -108,6 +97,15 @@ struct FSPathPairRequest : FSRequest
 
     const std::string src;
     const std::string dest;
+};
+
+struct FSRename : FSPathPairRequest
+{
+    using FSPathPairRequest::FSPathPairRequest;
+
+    static void renameCallback(uv_fs_t* req);
+    static void copyCallback(uv_fs_t* req);
+    static void unlinkCallback(uv_fs_t* req);
 };
 
 int open_impl(lua_State* L, const char* path, int flags, int mode)
@@ -132,9 +130,9 @@ int open_impl(lua_State* L, const char* path, int flags, int mode)
             r->succeed(
                 [result](lua_State* L)
                 {
-                    auto* file = new UVFile();
+                    void* storage = lua_newuserdatataggedwithmetatable(L, sizeof(UVFile), kUVFileTag);
+                    auto* file = new (storage) UVFile();
                     file->fd = result;
-                    lua_pushlightuserdata(L, file);
                     return 1;
                 }
             );
@@ -170,10 +168,6 @@ void FSRead::readCallback(uv_fs_t* req)
     // Append the read data to our buffer
     r->buffer.insert(r->buffer.end(), r->chunk.begin(), r->chunk.begin() + bytesRead);
 
-    // It's possible that the next read call will read fewer than chunk.size() bytes
-    // In this case, the chunk buffer might still retain some data from this read. Just to be safe, zero it out
-    std::fill(r->chunk.begin(), r->chunk.end(), 0);
-
     uvutils::ScopedUVRequest<FSRead> scopedReq{std::move(r)};
     uv_fs_read(scopedReq->getLoop(), &scopedReq->req, scopedReq->file->fd.value(), &scopedReq->iov, 1, -1, FSRead::readCallback);
 }
@@ -191,12 +185,7 @@ void FSWrite::writeCallback(uv_fs_t* req)
     w->offset += bytesWritten;
     if (w->offset == w->toWrite.size())
     {
-        w->succeed(
-            [](lua_State* L)
-            {
-                return 0;
-            }
-        );
+        w->succeedTrivially();
 
         return;
     }
@@ -250,11 +239,14 @@ int close_impl(lua_State* L, UVFile* handle)
         luaL_errorL(L, "File handle is already closed");
     }
 
-    uvutils::ScopedUVRequest<FSClose> req{L, handle};
+    auto fd = handle->fd.value();
+    handle->fd = std::nullopt;
+
+    uvutils::ScopedUVRequest<FSClose> req{L};
     uv_fs_close(
         req->getLoop(),
         &req->req,
-        handle->fd.value(),
+        fd,
         [](uv_fs_t* req)
         {
             auto r = uvutils::retake<FSClose>(req);
@@ -266,12 +258,7 @@ int close_impl(lua_State* L, UVFile* handle)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -295,12 +282,7 @@ int remove_impl(lua_State* L, const char* path)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -349,7 +331,7 @@ static const char* fileModeToType(uint64_t mode)
     }
 }
 
-static int createDurationFromTimespec32(lua_State* L, uv_timespec_t timespec)
+static int createDurationFromTimespec(lua_State* L, uv_timespec_t timespec)
 {
     uv_timespec64_t extended{static_cast<int64_t>(timespec.tv_sec), static_cast<int32_t>(timespec.tv_nsec)};
     return createDurationFromTimespec(L, extended);
@@ -386,13 +368,13 @@ int stat_impl(lua_State* L, const char* path)
                     lua_pushnumber(L, static_cast<double>(stat.st_size));
                     lua_setfield(L, -2, "size");
 
-                    createDurationFromTimespec32(L, stat.st_birthtim);
+                    createDurationFromTimespec(L, stat.st_birthtim);
                     lua_setfield(L, -2, "created");
 
-                    createDurationFromTimespec32(L, stat.st_atim);
+                    createDurationFromTimespec(L, stat.st_atim);
                     lua_setfield(L, -2, "accessed");
 
-                    createDurationFromTimespec32(L, stat.st_mtim);
+                    createDurationFromTimespec(L, stat.st_mtim);
                     lua_setfield(L, -2, "modified");
 
                     // permissions
@@ -497,32 +479,64 @@ int link_impl(lua_State* L, const char* path, const char* dest)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
     return lua_yield(L, 0);
 }
 
-int symlink_impl(lua_State* L, const char* path, const char* dest)
-{
-    uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
-    int flags = 0;
 #if _WIN32
-    flags = Lute::isDirectory(path) ? UV_FS_SYMLINK_DIR : 0;
+struct FSSymlink : FSPathPairRequest
+{
+    using FSPathPairRequest::FSPathPairRequest;
+
+    static void statCallback(uv_fs_t* req)
+    {
+        auto r = uvutils::retake<FSSymlink>(req);
+        int flags = (req->result >= 0 && S_ISDIR(req->statbuf.st_mode)) ? UV_FS_SYMLINK_DIR : 0;
+
+        uv_fs_req_cleanup(&r->req);
+        uvutils::ScopedUVRequest<FSSymlink> symlinkReq{std::move(r)};
+        uv_fs_symlink(
+            symlinkReq->getLoop(),
+            &symlinkReq->req,
+            symlinkReq->src.c_str(),
+            symlinkReq->dest.c_str(),
+            flags,
+            FSSymlink::symlinkCallback
+        );
+    }
+
+    static void symlinkCallback(uv_fs_t* req)
+    {
+        auto r = uvutils::retake<FSSymlink>(req);
+        auto result = req->result;
+
+        if (result < 0)
+        {
+            r->fail("symlink: Error creating symlink from %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+            return;
+        }
+
+        r->succeedTrivially();
+    }
+};
 #endif
 
+int symlink_impl(lua_State* L, const char* path, const char* dest)
+{
+#if _WIN32
+    uvutils::ScopedUVRequest<FSSymlink> req{L, path, dest};
+    uv_fs_stat(req->getLoop(), &req->req, path, FSSymlink::statCallback);
+#else
+    uvutils::ScopedUVRequest<FSPathPairRequest> req{L, path, dest};
     uv_fs_symlink(
         req->getLoop(),
         &req->req,
         path,
         dest,
-        flags,
+        0,
         [](uv_fs_t* req)
         {
             auto r = uvutils::retake<FSPathPairRequest>(req);
@@ -534,14 +548,10 @@ int symlink_impl(lua_State* L, const char* path, const char* dest)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
+#endif
 
     return lua_yield(L, 0);
 }
@@ -566,15 +576,70 @@ int copy_impl(lua_State* L, const char* path, const char* dest)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
+    return lua_yield(L, 0);
+}
+
+void FSRename::renameCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    auto result = req->result;
+
+    if (result == 0)
+    {
+        r->succeedTrivially();
+        return;
+    }
+
+    if (result != UV_EXDEV)
+    {
+        r->fail("move: Error moving %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+        return;
+    }
+
+    // Cross-filesystem: fall back to copy + remove
+    uv_fs_req_cleanup(&r->req);
+    uvutils::ScopedUVRequest<FSRename> copyReq{std::move(r)};
+    uv_fs_copyfile(copyReq->getLoop(), &copyReq->req, copyReq->src.c_str(), copyReq->dest.c_str(), 0, FSRename::copyCallback);
+}
+
+void FSRename::copyCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    auto result = req->result;
+
+    if (result < 0)
+    {
+        r->fail("move: Error copying %s to %s: %s", r->src.c_str(), r->dest.c_str(), uv_strerror(result));
+        return;
+    }
+
+    uv_fs_req_cleanup(&r->req);
+    uvutils::ScopedUVRequest<FSRename> unlinkReq{std::move(r)};
+    uv_fs_unlink(unlinkReq->getLoop(), &unlinkReq->req, unlinkReq->src.c_str(), FSRename::unlinkCallback);
+}
+
+void FSRename::unlinkCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSRename>(req);
+    auto result = req->result;
+
+    if (result < 0)
+    {
+        r->fail("move: Error removing source %s: %s", r->src.c_str(), uv_strerror(result));
+        return;
+    }
+
+    r->succeedTrivially();
+}
+
+int rename_impl(lua_State* L, const char* path, const char* dest)
+{
+    uvutils::ScopedUVRequest<FSRename> req{L, path, dest};
+    uv_fs_rename(req->getLoop(), &req->req, path, dest, FSRename::renameCallback);
     return lua_yield(L, 0);
 }
 
@@ -596,12 +661,7 @@ int mkdir_impl(lua_State* L, const char* path, int mode)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 
@@ -626,12 +686,7 @@ int rmdir_impl(lua_State* L, const char* path)
                 return;
             }
 
-            r->succeed(
-                [](lua_State* L)
-                {
-                    return 0;
-                }
-            );
+            r->succeedTrivially();
         }
     );
 

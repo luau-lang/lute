@@ -1,0 +1,17 @@
+
+==================================================
+TEST RESULTS
+==================================================
+
+Failed Tests (1):
+
+❌ never_that_failure_suite.never_that_error
+	<ROOT>/tests/std/snapshots/assert_never_that_error.snap.luau:6
+		never_that: Expected a falsy value, but got true
+
+--------------------------------------------------
+Total:  1
+Passed: 0 ✓
+Failed: 1 ✗
+==================================================
+

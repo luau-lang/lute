@@ -7,9 +7,9 @@
 #include "lualib.h"
 
 // open the library as a standard global luau library
-int luaopen_luau(lua_State* L);
+LUTE_API int luaopen_luau(lua_State* L);
 // open the library as a table on top of the stack
-int luteopen_luau(lua_State* L);
+LUTE_API int luteopen_luau(lua_State* L);
 
 struct LuauLib : LuteLibrary<LuauLib>
 {

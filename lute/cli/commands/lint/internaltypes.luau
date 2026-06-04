@@ -1,6 +1,7 @@
 local types = require("./types")
 local parseIgnores = require("../lib/parseIgnores")
 local path = require("@std/path")
+local syntax = require("@std/syntax")
 
 export type RuleConfig = {
 	ignores: { string }?,
@@ -10,7 +11,7 @@ export type RuleConfig = {
 }
 
 export type LintConfig = {
-	ignores: { path.Pathlike }?, -- globs/paths to ignore as we walk lintee files
+	ignores: { string }?, -- globs/paths to ignore as we walk lintee files
 	globals: types.GlobalsConfig?, -- globals to pass down to all rules via context
 	rulepaths: { path.Pathlike }?, -- paths to local rules to use
 	ruleconfigs: {
@@ -26,6 +27,11 @@ export type RuleConfigData = {
 	globals: types.GlobalsConfig,
 	ruleConfigs: RuleConfigurations,
 	ruleIgnores: RuleIgnores,
+}
+
+export type fix = {
+	location: syntax.Span,
+	replacement: string,
 }
 
 return {}

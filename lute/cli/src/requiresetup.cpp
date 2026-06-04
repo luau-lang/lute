@@ -127,6 +127,8 @@ static void* createBundleRequireContext(
 
 lua_State* setupRunState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
 {
+    runtime.requireContextFactory = createRunRequireContext;
+
     return setupState(
         runtime,
         [preSandboxInit = std::move(preSandboxInit)](lua_State* L)
@@ -143,6 +145,8 @@ lua_State* setupRunState(Runtime& runtime, std::function<void(lua_State*)> preSa
 
 lua_State* setupCliCommandState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
 {
+    runtime.requireContextFactory = createCliCommandRequireContext;
+
     return setupState(
         runtime,
         [preSandboxInit = std::move(preSandboxInit)](lua_State* L)
@@ -157,23 +161,41 @@ lua_State* setupCliCommandState(Runtime& runtime, std::function<void(lua_State*)
     );
 }
 
+struct PkgData
+{
+    std::vector<Package::Identifier> directDependencies;
+    std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies;
+};
+
 lua_State* setupPkgRunState(
     Runtime& runtime,
     std::vector<Package::Identifier> directDependencies,
     std::vector<std::pair<Package::Identifier, Package::Info>> allDependencies
 )
 {
+    std::shared_ptr<PkgData> pkgData = std::make_shared<PkgData>(PkgData{std::move(directDependencies), std::move(allDependencies)});
+    runtime.requireContextFactory = [pkgData = std::move(pkgData)](lua_State* L) -> void*
+    {
+        return createPkgRunRequireContext(L, pkgData->directDependencies, pkgData->allDependencies);
+    };
+
     return setupState(
         runtime,
-        [directDependencies = std::move(directDependencies), allDependencies = std::move(allDependencies)](lua_State* L)
+        [&factory = runtime.requireContextFactory](lua_State* L)
         {
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
-            luaopen_require(L, requireConfigInit, createPkgRunRequireContext(L, std::move(directDependencies), std::move(allDependencies)));
+            luaopen_require(L, requireConfigInit, factory(L));
         }
     );
 }
+
+struct BundleData
+{
+    Luau::DenseHashMap<std::string, std::string> luauConfigFiles;
+    Luau::DenseHashMap<std::string, std::string> bundleMap;
+};
 
 lua_State* setupBundleState(
     Runtime& runtime,
@@ -181,14 +203,20 @@ lua_State* setupBundleState(
     Luau::DenseHashMap<std::string, std::string> bundleMap
 )
 {
+    std::shared_ptr<BundleData> bundleData = std::make_shared<BundleData>(BundleData{std::move(luauConfigFiles), std::move(bundleMap)});
+    runtime.requireContextFactory = [bundleData = std::move(bundleData)](lua_State* L) -> void*
+    {
+        return createBundleRequireContext(L, bundleData->luauConfigFiles, bundleData->bundleMap);
+    };
+
     return setupState(
         runtime,
-        [luauConfigFiles = std::move(luauConfigFiles), bundleMap = std::move(bundleMap)](lua_State* L)
+        [&factory = runtime.requireContextFactory](lua_State* L)
         {
             if (Luau::CodeGen::isSupported())
                 Luau::CodeGen::create(L);
 
-            luaopen_require(L, requireConfigInit, createBundleRequireContext(L, std::move(luauConfigFiles), std::move(bundleMap)));
+            luaopen_require(L, requireConfigInit, factory(L));
         }
     );
 }
