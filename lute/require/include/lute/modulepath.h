@@ -110,26 +110,6 @@ public:
         return convert(current.toChild(component));
     }
 
-    ConfigStatus getConfigStatus() const override
-    {
-        return ConfigStatus::Absent;
-    }
-
-    ConfigBehavior getConfigBehavior() const override
-    {
-        return ConfigBehavior::GetConfig;
-    }
-
-    std::optional<std::string> getAlias(const std::string& alias) const override
-    {
-        return std::nullopt;
-    }
-
-    std::optional<std::string> getConfig() const override
-    {
-        return std::nullopt;
-    }
-
 private:
     ModulePath current;
     ModulePath start;

@@ -71,7 +71,6 @@ public:
     ConfigStatus getConfigStatus() const override;
 
     ConfigBehavior getConfigBehavior() const override;
-    std::optional<std::string> getAlias(const std::string& alias) const override;
     std::optional<std::string> getConfig() const override;
 
     FileVfs vfs;
@@ -111,11 +110,6 @@ NC::ConfigStatus FileVfsContext::getConfigStatus() const
 NC::ConfigBehavior FileVfsContext::getConfigBehavior() const
 {
     return NC::ConfigBehavior::GetConfig;
-}
-
-std::optional<std::string> FileVfsContext::getAlias(const std::string& alias) const
-{
-    return std::nullopt;
 }
 
 std::optional<std::string> FileVfsContext::getConfig() const
@@ -301,11 +295,6 @@ public:
     ConfigBehavior getConfigBehavior() const override
     {
         return NC::ConfigBehavior::GetConfig;
-    }
-
-    std::optional<std::string> getAlias(const std::string& alias) const override
-    {
-        return std::nullopt;
     }
 
     std::optional<std::string> getConfig() const override

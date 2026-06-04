@@ -1,5 +1,5 @@
 [dependency]
 name = "luau"
 remote = "https://github.com/luau-lang/luau.git"
-branch = "0.716"
-revision = "4ca11dbc3b31ddf27ee8ec1ab6c036676de9f240"
+branch = "0.723"
+revision = "e7500c93a7f78803baa4f14118fd95cd3a183cf0"

@@ -3,6 +3,7 @@ local pathlib = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
+local testutil = require("../testutil")
 local windowsPath = require("@std/path/win32")
 
 test.suite("ProcessSuite", function(suite)
@@ -26,9 +27,27 @@ test.suite("ProcessSuite", function(suite)
 		assert.eq(r.stdout, "hello-from-lute\n")
 	end)
 
+	suite:case("runPreservesCapturedOutputBytes", function(assert)
+		local lutePath = pathlib.format(process.execPath())
+		local scriptPath = pathlib.join(system.tmpdir(), "process_binary_stdout.luau")
+
+		fs.writeStringToFile(
+			pathlib.format(scriptPath),
+			[[
+			local io = require("@lute/io")
+			io.write("A\r\nB")
+		]]
+		)
+
+		local r = process.run({ lutePath, pathlib.format(scriptPath) })
+		fs.remove(scriptPath)
+
+		assert.eq(r.stdout, "A\r\nB")
+	end)
+
 	suite:case("runEchoArrayViaSystem", function(assert)
 		local r = process.system("echo hello-from-lute")
-		assert.eq(r.stdout, "hello-from-lute\n")
+		assert.eq(testutil.normalizeLineEndings(r.stdout), "hello-from-lute\n")
 	end)
 
 	suite:case("runSystemAndCwd", function(check)
@@ -62,6 +81,7 @@ test.suite("ProcessSuite", function(suite)
 
 		-- LUAUFIX: we shouldn't need to upcast the result of `process.system` to `{ [any]: any }`
 		local r2 = process.system("echo hello!") :: { [any]: any }
+		r2.stdout = testutil.normalizeLineEndings(r2.stdout)
 		check.eq(r2, {
 			exitcode = 0,
 			stdout = "hello!\n",

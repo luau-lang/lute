@@ -31,6 +31,16 @@ After creating the `foreman.toml` file, run the following command to install the
 foreman install
 ```
 
+## Docker
+
+Official container images are published to the GitHub Container Registry on every stable release. The default image is based on `debian:stable-slim`:
+
+```bash
+docker run --rm -it -v "$PWD:/app" -w /app ghcr.io/luau-lang/lute run script.luau
+```
+
+See the [Docker guide](./docker) for the full list of image variants and tags.
+
 ## Nightly Builds
 
 Unstable versions of Lute are available as a nightly build. You can find and download the latest build on [releases page](https://github.com/luau-lang/lute/releases).

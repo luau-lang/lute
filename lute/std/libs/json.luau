@@ -1,4 +1,5 @@
 --!strict
+--!native
 -- @std/json
 -- JSON serialization and deserialization library
 
@@ -19,27 +20,38 @@ local object_key = newproxy()
 
 -- serialization
 
-local bufferSize = 1024
+local bufferSize = 0
+local keyCacheLimit = 128
+local keyCacheKeySizeLimit = 64
 
 type SerializerState = {
 	buf: buffer,
 	cursor: number,
 	prettyPrint: boolean,
 	depth: number,
+	-- Per-serialize-call cache of escaped object keys, including their colon separator.
+	keyCache: { [string]: string },
+	keyCacheCount: number,
 }
 
-local function checkState(state: SerializerState, len: number): ()
-	local curLen = buffer.len(state.buf)
-
-	if state.cursor + len < curLen then
-		return
-	end
-
-	local newBuffer = buffer.create(curLen * 2)
+local function growBuffer(state: SerializerState, curLen: number): ()
+	local newBuffer = buffer.create(curLen)
 
 	buffer.copy(newBuffer, 0, state.buf)
 
 	state.buf = newBuffer
+end
+
+local function checkState(state: SerializerState, len: number): ()
+	local cursor = state.cursor
+	local requiredLen = cursor + len
+	local bits = bit32.countlz(requiredLen)
+
+	if bit32.countlz(cursor) == bits then
+		return
+	end
+
+	growBuffer(state, 2 ^ (32 - bits))
 end
 
 local function writeByte(state: SerializerState, byte: number): ()
@@ -51,71 +63,83 @@ local function writeByte(state: SerializerState, byte: number): ()
 end
 
 local function writeSpaces(state: SerializerState): ()
-	if state.depth == 0 then
+	if not state.prettyPrint or state.depth == 0 then
 		return
 	end
 
-	if state.prettyPrint then
-		checkState(state, state.depth * 4)
+	checkState(state, state.depth * 4)
 
-		for _ = 1, state.depth do
-			buffer.writeu32(state.buf, state.cursor, 0x_20_20_20_20)
-			state.cursor += 4
-		end
-	else
-		buffer.writeu8(state.buf, state.cursor, (string.byte(" ")))
-
-		state.cursor += 1
+	for _ = 1, state.depth do
+		buffer.writeu32(state.buf, state.cursor, 0x_20_20_20_20)
+		state.cursor += 4
 	end
 end
 
 local function writeString(state: SerializerState, str: string): ()
-	checkState(state, #str)
+	local sl = #str
+	checkState(state, sl)
 
-	buffer.writestring(state.buf, state.cursor, str)
+	local cursor = state.cursor
+	buffer.writestring(state.buf, cursor, str)
 
-	state.cursor += #str
+	state.cursor = cursor + sl
 end
 
 local serializeAny: (SerializerState, (Array | Object | boolean | number | string)?) -> ()
 
-local ESCAPE_MAP = {
-	[0x5C] = string.byte("\\"), -- 5C = '\'
-	[0x08] = string.byte("b"),
-	[0x0C] = string.byte("f"),
-	[0x0A] = string.byte("n"),
-	[0x0D] = string.byte("r"),
-	[0x09] = string.byte("t"),
-	[0x22] = string.byte('"'),
+local STRING_ESCAPES: { [string]: string } = {
+	["\\"] = "\\\\",
+	['"'] = '\\"',
+	["\b"] = "\\b",
+	["\f"] = "\\f",
+	["\n"] = "\\n",
+	["\r"] = "\\r",
+	["\t"] = "\\t",
 }
-
-local function serializeUnicode(codepoint: number): string
-	if codepoint >= 0x10000 then
-		local high = math.floor((codepoint - 0x10000) / 0x400) + 0xD800
-		local low = ((codepoint - 0x10000) % 0x400) + 0xDC00
-		return string.format("\\u%04x\\u%04x", high, low)
+for i = 0, 31 do
+	local c = string.char(i)
+	if not STRING_ESCAPES[c] then
+		STRING_ESCAPES[c] = string.format("\\u%04x", i)
 	end
-
-	return string.format("\\u%04x", codepoint)
 end
 
+local STRING_NEEDS_ESCAPE = '[%z\1-\31"\\]'
+
 local function serializeString(state: SerializerState, str: string): ()
-	checkState(state, #str)
+	local escaped = if string.find(str, STRING_NEEDS_ESCAPE)
+		then string.gsub(str, STRING_NEEDS_ESCAPE, STRING_ESCAPES)
+		else str
 
-	writeByte(state, string.byte('"'))
+	local sl = #escaped
+	checkState(state, sl + 2)
+	local buf = state.buf
+	local cursor = state.cursor
+	buffer.writeu8(buf, cursor, 0x22)
+	buffer.writestring(buf, cursor + 1, escaped)
+	buffer.writeu8(buf, cursor + 1 + sl, 0x22)
+	state.cursor = cursor + sl + 2
+end
 
-	for _, codepoint in utf8.codes(str) do
-		if ESCAPE_MAP[codepoint] then
-			writeByte(state, string.byte("\\"))
-			writeByte(state, ESCAPE_MAP[codepoint])
-		elseif codepoint < 32 or codepoint > 126 then
-			writeString(state, serializeUnicode(codepoint))
-		else
-			writeString(state, utf8.char(codepoint))
-		end
+local function serializeKeyString(state: SerializerState, str: string): ()
+	local cached = state.keyCache[str]
+	if cached ~= nil then
+		writeString(state, cached)
+		return
 	end
 
-	writeByte(state, string.byte('"'))
+	local escaped: string
+	if string.find(str, STRING_NEEDS_ESCAPE) then
+		escaped = string.gsub(str, STRING_NEEDS_ESCAPE, STRING_ESCAPES)
+	else
+		escaped = str
+	end
+	cached = '"' .. escaped .. (if state.prettyPrint then '": ' else '":')
+	if state.keyCacheCount < keyCacheLimit and #str <= keyCacheKeySizeLimit then
+		state.keyCache[str] = cached
+		state.keyCacheCount += 1
+	end
+
+	writeString(state, cached)
 end
 
 local function serializeArray(state: SerializerState, array: Array): ()
@@ -136,9 +160,7 @@ local function serializeArray(state: SerializerState, array: Array): ()
 			end
 		end
 
-		if i ~= 1 or state.prettyPrint then
-			writeSpaces(state)
-		end
+		writeSpaces(state)
 
 		serializeAny(state, value)
 	end
@@ -170,7 +192,6 @@ local function serializeTable(state: SerializerState, object: Object): ()
 
 		if not first then
 			writeByte(state, string.byte(","))
-			writeByte(state, string.byte(" "))
 
 			if state.prettyPrint then
 				writeByte(state, string.byte("\n"))
@@ -181,8 +202,7 @@ local function serializeTable(state: SerializerState, object: Object): ()
 
 		writeSpaces(state)
 
-		serializeString(state, key)
-		writeString(state, ": ")
+		serializeKeyString(state, key)
 
 		serializeAny(state, value)
 	end
@@ -199,18 +219,20 @@ local function serializeTable(state: SerializerState, object: Object): ()
 end
 
 serializeAny = function(state: SerializerState, value: Value): ()
-	local valueType = type(value)
-
 	if value == json.null then
 		writeString(state, "null")
-	elseif valueType == "boolean" then
+	elseif typeof(value) == "boolean" then
 		writeString(state, if value then "true" else "false")
-	elseif valueType == "number" then
+	elseif typeof(value) == "number" then
+		if not math.isfinite(value) then
+			error("Cannot serialize non-finite number", 2)
+		end
+
 		writeString(state, tostring(value))
-	elseif valueType == "string" then
-		serializeString(state, value :: string)
-	elseif valueType == "table" then
-		if #(value :: {}) == 0 and next(value :: { [unknown]: unknown }) ~= nil then
+	elseif typeof(value) == "string" then
+		serializeString(state, value)
+	elseif typeof(value) == "table" then
+		if #value == 0 and next(value :: { [unknown]: unknown }) ~= nil then
 			serializeTable(state, value :: Object)
 		else
 			serializeArray(state, value :: Array)
@@ -232,12 +254,18 @@ local function deserializerError(state: DeserializerState, msg: string): never
 end
 
 local function skipWhitespace(state: DeserializerState): boolean
-	state.cursor = string.find(state.src, "[^ \n\r\t]", state.cursor) :: number
+	local b = string.byte(state.src, state.cursor)
+	if b == nil then
+		return false
+	end
+	if b ~= 0x20 and b ~= 0x09 and b ~= 0x0A and b ~= 0x0D then
+		return true
+	end
 
+	state.cursor = string.find(state.src, "[^ \n\r\t]", state.cursor) :: number
 	if not state.cursor then
 		return false
 	end
-
 	return true
 end
 
@@ -246,130 +274,184 @@ local function currentByte(state: DeserializerState): number
 end
 
 local function deserializeNumber(state: DeserializerState): number?
-	-- Integer part
-	local nStart, nEnd = string.find(state.src, "^-?[1-9]%d*", state.cursor)
-	if not nStart then
-		nStart, nEnd = string.find(state.src, "^-?0", state.cursor)
-		if not nStart then
-			deserializerError(state, "Malformed number (bad integer part)")
-		end
+	local src = state.src
+	local nStart = state.cursor
+	local cursor = nStart
+	local b = string.byte(src, cursor)
+	local sign = 1
+	local intValue = 0
+	local digitCount = 0
+	local isInteger = true
 
-		local nextChar = string.byte(state.src, nEnd :: number + 1)
-		if nextChar and nextChar >= string.byte("0") and nextChar <= string.byte("9") then
+	if b == 0x2D then -- '-'
+		sign = -1
+		cursor += 1
+		b = string.byte(src, cursor)
+	end
+
+	if b == 0x30 then -- '0'
+		digitCount = 1
+		cursor += 1
+		b = string.byte(src, cursor)
+		if b ~= nil and b >= 0x30 and b <= 0x39 then
 			deserializerError(state, "Malformed number (leading zeros not allowed)")
 		end
+	elseif b ~= nil and b >= 0x31 and b <= 0x39 then
+		repeat
+			digitCount += 1
+			if digitCount <= 15 then
+				intValue = intValue * 10 + ((b :: number) - 0x30)
+			end
+			cursor += 1
+			b = string.byte(src, cursor)
+		until b == nil or b < 0x30 or b > 0x39
+	else
+		deserializerError(state, "Malformed number (bad integer part)")
 	end
 
-	-- Decimal part
-	local decStart, decEnd = string.find(state.src, "^%.%d+", nEnd :: number + 1)
-	if decStart then
-		nEnd = decEnd
+	if b == 0x2E then -- '.'
+		isInteger = false
+		cursor += 1
+		b = string.byte(src, cursor)
+		if b == nil or b < 0x30 or b > 0x39 then
+			deserializerError(state, "Malformed number (bad decimal part)")
+		end
+		repeat
+			cursor += 1
+			b = string.byte(src, cursor)
+		until b == nil or b < 0x30 or b > 0x39
 	end
 
-	-- Exponential part
-	local expStart, expEnd = string.find(state.src, "^[eE][+-]?%d+", nEnd :: number + 1)
-	if expStart then
-		nEnd = expEnd
+	if b == 0x65 or b == 0x45 then -- 'e' or 'E'
+		isInteger = false
+		cursor += 1
+		b = string.byte(src, cursor)
+		if b == 0x2B or b == 0x2D then -- '+' or '-'
+			cursor += 1
+			b = string.byte(src, cursor)
+		end
+		if b == nil or b < 0x30 or b > 0x39 then
+			deserializerError(state, "Malformed number (bad exponent part)")
+		end
+		repeat
+			cursor += 1
+			b = string.byte(src, cursor)
+		until b == nil or b < 0x30 or b > 0x39
 	end
 
-	local num = tonumber(string.sub(state.src, nStart :: number, nEnd))
+	if isInteger and digitCount <= 15 then
+		state.cursor = cursor
+		return sign * intValue
+	end
+
+	local num = tonumber(string.sub(src, nStart, cursor - 1))
 	if not num then
 		deserializerError(state, "Malformed number value")
 	end
 
-	state.cursor = nEnd :: number + 1
+	state.cursor = cursor
 	return num
 end
 
-local function decodeSurrogatePair(high, low): string?
-	local highVal = tonumber(high, 16)
-	local lowVal = tonumber(low, 16)
-	if not highVal or not lowVal then
-		return nil -- Invalid
+local UNESCAPE: { [string]: string } = {
+	['"'] = '"',
+	["\\"] = "\\",
+	["/"] = "/",
+	b = "\b",
+	f = "\f",
+	n = "\n",
+	r = "\r",
+	t = "\t",
+}
+
+local function decodeUnicodeEscape(hex: string, cursor: number): string
+	local cp = tonumber(hex, 16) :: number
+	if cp >= 0xD800 and cp <= 0xDBFF then
+		error(`JSON error - Incomplete surrogate pair around {cursor}`)
 	end
-	-- Calculate the actual Unicode codepoint
-	local codepoint = 0x10000 + ((highVal - 0xD800) * 0x400) + (lowVal - 0xDC00)
+	if cp >= 0xDC00 and cp <= 0xDFFF then
+		error(`JSON error - Lone low surrogate around {cursor}`)
+	end
+	return utf8.char(cp)
+end
+
+local function decodeSurrogatePair(highHex: string, lowHex: string, cursor: number): string
+	local high = tonumber(highHex, 16) :: number
+	local low = tonumber(lowHex, 16) :: number
+	if low < 0xDC00 or low > 0xDFFF then
+		error(`JSON error - Invalid unicode surrogate pair around {cursor}`)
+	end
+	local codepoint = 0x10000 + ((high - 0xD800) * 0x400) + (low - 0xDC00)
 	return utf8.char(codepoint)
 end
 
 local function deserializeString(state: DeserializerState): string
-	-- Must start with "
 	if currentByte(state) ~= string.byte('"') then
 		return deserializerError(state, "Expected string opening quote")
 	end
 
-	-- Skip opening quote "
-	state.cursor += 1
+	local startPos = state.cursor + 1
+	local src = state.src
 
-	local startPos = state.cursor
-
-	while state.cursor <= #state.src do
-		local byte = currentByte(state)
-
-		-- Check for unescaped control characters (0x00-0x1F)
-		if byte < 0x20 then
-			return deserializerError(state, "Unescaped control character in string")
-		end
-
-		if byte == string.byte('"') then
-			state.cursor += 1
-			local source = string.sub(state.src, startPos, state.cursor - 2)
-
-			-- Validate escape sequences
-			-- Remove valid \\ first
-			local temp = string.gsub(source, "\\\\", "")
-
-			-- Check for invalid single-char escapes
-			if temp:match('\\[^bfnrt"\\/u]') then
-				return deserializerError(state, "Invalid escape sequence")
-			end
-
-			-- Check that all \u escapes have exactly 4 hex digits
-			if temp:match("\\u[^0-9a-fA-F]") or temp:match("\\u%x?%x?%x?$") then
-				return deserializerError(state, "Incomplete or invalid \\u escape")
-			end
-
-			-- Handle all surrogate pairs
-			source = string.gsub(
-				source,
-				"\\u([dD][89aAbB][0-9a-fA-F][0-9a-fA-F])\\u([dD][c-fC-F][0-9a-fA-F][0-9a-fA-F])",
-				function(high, low)
-					return decodeSurrogatePair(high, low) or deserializerError(state, "Invalid unicode surrogate pair")
-				end :: any
-			)
-
-			-- Detect incomplete/invalid surrogates
-			if source:match("\\u[dD][89aAbB][0-9a-fA-F][0-9a-fA-F]") then
-				return deserializerError(state, "Incomplete surrogate pair")
-			end
-
-			-- Handle regular Unicode escapes
-			source = string.gsub(source, "\\u(%x%x%x%x)", function(code)
-				return utf8.char(tonumber(code, 16) :: number)
-			end)
-
-			source = string.gsub(source, "\\\\", "\0")
-			source = string.gsub(source, "\\b", "\b")
-			source = string.gsub(source, "\\f", "\f")
-			source = string.gsub(source, "\\n", "\n")
-			source = string.gsub(source, "\\r", "\r")
-			source = string.gsub(source, "\\t", "\t")
-			source = string.gsub(source, '\\"', '"')
-			source = string.gsub(source, "\\/", "/")
-			source = string.gsub(source, "\0", "\\")
-
-			return source
-		end
-
-		if byte == string.byte("\\") then
-			state.cursor += 1
-		end
-
-		state.cursor += 1
+	local p = string.find(src, '[\\"%z\1-\31]', startPos)
+	if not p then
+		return deserializerError(state, "Unterminated string")
+	end
+	local b = string.byte(src, p)
+	if b == 0x22 then
+		state.cursor = p + 1
+		return string.sub(src, startPos, p - 1)
+	end
+	if b ~= 0x5C then
+		state.cursor = p
+		return deserializerError(state, "Unescaped control character in string")
 	end
 
-	state.cursor = startPos
-	return deserializerError(state, "Unterminated string")
+	local len = #src
+	while p <= len do
+		local c = string.byte(src, p)
+		if c == 0x5C then
+			p += 2
+		elseif c == 0x22 then
+			break
+		elseif c < 0x20 then
+			state.cursor = p
+			return deserializerError(state, "Unescaped control character in string")
+		else
+			p += 1
+		end
+	end
+	if p > len then
+		return deserializerError(state, "Unterminated string")
+	end
+
+	local raw = string.sub(src, startPos, p - 1)
+	local cursor = state.cursor
+
+	-- Freeze raw `\\` as 0x01 so a `\\u0000` source isn't mis-parsed as
+	-- backslash + `\u0000`. The scan above guarantees no 0x01 in input.
+	raw = string.gsub(raw, "\\\\", "\1")
+	raw = string.gsub(
+		raw,
+		"\\u([dD][89aAbB]%x%x)\\u([dD][c-fC-F]%x%x)",
+		function(h, l)
+			return decodeSurrogatePair(h, l, cursor)
+		end :: any
+	)
+	raw = string.gsub(raw, "\\u(%x%x%x%x)", function(code)
+		return decodeUnicodeEscape(code, cursor)
+	end)
+	raw = string.gsub(raw, "\\(.)", function(esc)
+		local v = UNESCAPE[esc]
+		if not v then
+			error(`JSON error - Invalid escape sequence around {cursor}`)
+		end
+		return v
+	end)
+	raw = string.gsub(raw, "\1", "\\")
+
+	state.cursor = p + 1
+	return raw
 end
 
 local deserialize: (DeserializerState) -> (Array | Object | boolean | number | string)?
@@ -446,8 +528,6 @@ local function deserializeObject(state: DeserializerState): Object
 			break
 		end
 
-		skipWhitespace(state)
-
 		if currentByte(state) ~= string.byte('"') then
 			return deserializerError(state, "Expected a string key")
 		end
@@ -469,8 +549,6 @@ local function deserializeObject(state: DeserializerState): Object
 		if not skipWhitespace(state) then
 			deserializerError(state, "Unterminated object")
 		end
-
-		skipWhitespace(state)
 
 		if currentByte(state) == string.byte(",") then
 			expectingValue = true
@@ -496,31 +574,41 @@ end
 deserialize = function(state: DeserializerState): Value
 	skipWhitespace(state)
 
-	local fourChars = string.sub(state.src, state.cursor, state.cursor + 3)
+	local src = state.src
+	local cursor = state.cursor
+	local b = string.byte(src, cursor)
 
-	if string.match(fourChars, "^null") then
-		state.cursor += 4
-		return json.null
-	elseif string.match(fourChars, "^true") then
-		state.cursor += 4
-		return true
-	elseif string.match(string.sub(state.src, state.cursor, state.cursor + 4), "^false") then
-		state.cursor += 5
-		return false
-	elseif string.match(state.src, "^[%-%d]", state.cursor) then
-		-- potential number
-		return deserializeNumber(state)
-	elseif string.match(state.src, '^"', state.cursor) then
+	if b == 0x22 then -- '"'
 		return deserializeString(state)
-	elseif string.match(state.src, "^%[", state.cursor) then
-		return deserializeArray(state)
-	elseif string.match(state.src, "^{", state.cursor) then
+	elseif b == 0x7B then -- '{'
 		local obj = deserializeObject(state)
 		obj[object_key] = true
 		return obj
+	elseif b == 0x5B then -- '['
+		return deserializeArray(state)
+	elseif b == 0x74 then -- 't' -> "true"
+		local b1, b2, b3 = string.byte(src, cursor + 1, cursor + 3)
+		if b1 == 0x72 and b2 == 0x75 and b3 == 0x65 then
+			state.cursor = cursor + 4
+			return true
+		end
+	elseif b == 0x66 then -- 'f' -> "false"
+		local b1, b2, b3, b4 = string.byte(src, cursor + 1, cursor + 4)
+		if b1 == 0x61 and b2 == 0x6C and b3 == 0x73 and b4 == 0x65 then
+			state.cursor = cursor + 5
+			return false
+		end
+	elseif b == 0x6E then -- 'n' -> "null"
+		local b1, b2, b3 = string.byte(src, cursor + 1, cursor + 3)
+		if b1 == 0x75 and b2 == 0x6C and b3 == 0x6C then
+			state.cursor = cursor + 4
+			return json.null
+		end
+	elseif b == 0x2D or (b ~= nil and b >= 0x30 and b <= 0x39) then
+		return deserializeNumber(state)
 	end
 
-	return deserializerError(state, `Unexpected token '{string.sub(state.src, state.cursor, state.cursor)}'`)
+	return deserializerError(state, `Unexpected token '{string.sub(src, cursor, cursor)}'`)
 end
 
 -- user-facing
@@ -532,6 +620,8 @@ function json.serialize(value: Value, prettyPrint: boolean?): string
 		cursor = 0,
 		prettyPrint = prettyPrint or false,
 		depth = 0,
+		keyCache = {},
+		keyCacheCount = 0,
 	}
 
 	serializeAny(state, value)
@@ -543,7 +633,7 @@ end
 function json.deserialize(src: string): (Array | Object | boolean | number | string)?
 	local state = {
 		src = src,
-		cursor = 0,
+		cursor = 1,
 	}
 
 	local result = deserialize(state)

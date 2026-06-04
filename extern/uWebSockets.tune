@@ -1,5 +1,5 @@
 [dependency]
 name = "uWebSockets"
 remote = "https://github.com/uNetworking/uWebSockets.git"
-branch = "v20.74.0"
-revision = "c445faa38125bf782eed3fec97f83b4733c7fb91"
+branch = "v20.77.0"
+revision = "6b7f3540cec801a7f1cb01141eae8ab989dd4e70"

@@ -63,6 +63,9 @@ static void onTtyRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
     IOHandle* handle = static_cast<IOHandle*>(stream->data);
 
+    if (nread == 0)
+        return;
+
     if (nread > 0)
     {
         handle->resumeToken->complete(
@@ -73,7 +76,7 @@ static void onTtyRead(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
             }
         );
     }
-    else if (nread < 0)
+    else
     {
         handle->resumeToken->fail(uv_strerror(nread));
     }
@@ -211,12 +214,12 @@ int IO::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_io(lua_State* L)
+LUTE_API int luaopen_io(lua_State* L)
 {
     return IO::openAsGlobal(L);
 }
 
-int luteopen_io(lua_State* L)
+LUTE_API int luteopen_io(lua_State* L)
 {
     return IO::pushLibrary(L);
 }

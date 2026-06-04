@@ -8,17 +8,17 @@ local name = "divide_by_zero"
 local message = "Division by zero detected."
 local target = "https://lute.luau.org/cli/lint/divide_by_zero.html"
 
-local function isZeroLiteral(expr: syntax.AstExpr): boolean
+local function isZeroLiteral(expr: syntax.CstExpr): boolean
 	return expr.kind == "expr" and expr.tag == "number" and expr.value == 0
 end
 
 local function lint(
-	ast: syntax.AstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query
-		.findAllFromRoot(ast, utils.isExprBinary)
+		.findAllFromRoot(cst, utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "/" or bin.operator.text == "//" or bin.operator.text == "%"
 		end)
@@ -27,7 +27,7 @@ local function lint(
 		end)
 		:mapToArray(
 			function(
-				n: syntax.AstExprBinary
+				n: syntax.CstExprBinary
 			): lintTypes.LintViolation? -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
 				local suggestedfix = nil
 				if n.operator.text == "/" or n.operator.text == "//" then
