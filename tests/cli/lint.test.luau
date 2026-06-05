@@ -3301,6 +3301,470 @@ return {
 		end
 	)
 
+	suite:case("luteLintAppliesCumulativeOverridesByPath", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		local sourceDir = path.join(testSubDir, "src")
+		local legacyDir = path.join(sourceDir, "legacy")
+		local unmatchedDir = path.join(sourceDir, "unmatched")
+		fs.createDirectory(testSubDir)
+		fs.createDirectory(sourceDir)
+		fs.createDirectory(legacyDir)
+		fs.createDirectory(unmatchedDir)
+
+		local legacyFile = path.join(legacyDir, "file.luau")
+		local unmatchedFile = path.join(unmatchedDir, "file.luau")
+		fs.writeStringToFile(legacyFile, "print('legacy')")
+		fs.writeStringToFile(unmatchedFile, "print('unmatched')")
+
+		local customRulePath = path.join(testSubDir, "customRule.luau")
+		fs.writeStringToFile(
+			customRulePath,
+			[[
+return {
+	name = "customRule",
+	lint = function(cst, sourcepath, context)
+		return {
+			{
+				lintname = "customRule",
+				severity = "warning",
+				message = `mode={context.globals.mode} flag={context.options.flag}`,
+				location = cst.location,
+				sourcepath = sourcepath,
+			}
+		}
+	end
+}
+]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		fs.writeStringToFile(
+			configFile,
+			[[
+return {
+	lute = {
+		lint = {
+			globals = {
+				mode = "base",
+			},
+			ruleconfigs = {
+				customRule = {
+					options = {
+						flag = "base",
+					},
+				},
+			},
+			overrides = {
+				{
+					paths = { "**/legacy/**" },
+					globals = {
+						mode = "legacy",
+					},
+					ruleconfigs = {
+						customRule = {
+							severity = "error",
+							options = {
+								flag = "legacy",
+							},
+						},
+					},
+				},
+				{
+					paths = { "**/legacy/file.luau" },
+					globals = {
+						mode = "final",
+					},
+					ruleconfigs = {
+						customRule = {
+							options = {
+								flag = "final",
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+}
+]]
+		)
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"--no-default-lints",
+			"-r",
+			path.format(customRulePath),
+			"-c",
+			path.format(configFile),
+			path.format(sourceDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, "error[customRule]: mode=final flag=final", 1)
+		assert.strContains(result.stdout, "warning[customRule]: mode=base flag=base", 1)
+		assert.strNotContains(result.stdout, "mode=legacy flag=legacy")
+	end)
+
+	suite:case("luteLintMergesOverrideRuleIgnoresWithBaseRuleIgnores", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		local sourceDir = path.join(testSubDir, "src")
+		local legacyDir = path.join(sourceDir, "legacy")
+		fs.createDirectory(testSubDir)
+		fs.createDirectory(sourceDir)
+		fs.createDirectory(legacyDir)
+
+		local baseIgnoredFile = path.join(legacyDir, "baseIgnored.luau")
+		local overrideIgnoredFile = path.join(legacyDir, "overrideIgnored.luau")
+		local reportedFile = path.join(legacyDir, "reported.luau")
+		fs.writeStringToFile(baseIgnoredFile, "print('base ignored')")
+		fs.writeStringToFile(overrideIgnoredFile, "print('override ignored')")
+		fs.writeStringToFile(reportedFile, "print('reported')")
+
+		local customRulePath = path.join(testSubDir, "customRule.luau")
+		fs.writeStringToFile(
+			customRulePath,
+			[[
+local path = require("@std/path")
+
+return {
+	name = "customRule",
+	lint = function(cst, sourcepath, context)
+		return {
+			{
+				lintname = "customRule",
+				severity = "warning",
+				message = `custom rule ran on {path.basename(sourcepath)}`,
+				location = cst.location,
+				sourcepath = sourcepath,
+			}
+		}
+	end
+}
+]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		fs.writeStringToFile(
+			configFile,
+			[[
+return {
+	lute = {
+		lint = {
+			ruleconfigs = {
+				customRule = {
+					ignores = { "**/baseIgnored.luau" },
+				},
+			},
+			overrides = {
+				{
+					paths = { "**/legacy/**" },
+					ruleconfigs = {
+						customRule = {
+							ignores = { "**/overrideIgnored.luau" },
+						},
+					},
+				},
+			},
+		}
+	}
+}
+]]
+		)
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"--no-default-lints",
+			"-r",
+			path.format(customRulePath),
+			"-c",
+			path.format(configFile),
+			path.format(sourceDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strNotContains(result.stdout, "baseIgnored.luau")
+		assert.strNotContains(result.stdout, "overrideIgnored.luau")
+		assert.strContains(result.stdout, "reported.luau")
+		assert.strContains(result.stdout, "custom rule ran", 1)
+	end)
+
+	suite:case("luteLintAppliesOverrideIgnoresOnlyWithinMatchedOverride", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		local sourceDir = path.join(testSubDir, "src")
+		local legacyDir = path.join(sourceDir, "legacy")
+		local strictDir = path.join(sourceDir, "strict")
+		fs.createDirectory(testSubDir)
+		fs.createDirectory(sourceDir)
+		fs.createDirectory(legacyDir)
+		fs.createDirectory(strictDir)
+
+		local legacyIgnoredFile = path.join(legacyDir, "legacyIgnored.luau")
+		local legacyReportedFile = path.join(legacyDir, "legacyReported.luau")
+		local strictIgnoredFile = path.join(strictDir, "strictIgnored.luau")
+		fs.writeStringToFile(legacyIgnoredFile, "print('legacy ignored')")
+		fs.writeStringToFile(legacyReportedFile, "print('legacy reported')")
+		fs.writeStringToFile(strictIgnoredFile, "print('strict ignored')")
+
+		local customRulePath = path.join(testSubDir, "customRule.luau")
+		fs.writeStringToFile(
+			customRulePath,
+			[[
+local path = require("@std/path")
+
+return {
+	name = "customRule",
+	lint = function(cst, sourcepath, context)
+		return {
+			{
+				lintname = "customRule",
+				severity = "warning",
+				message = `custom rule ran on {path.basename(sourcepath)}`,
+				location = cst.location,
+				sourcepath = sourcepath,
+			}
+		}
+	end
+}
+]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		fs.writeStringToFile(
+			configFile,
+			[[
+return {
+	lute = {
+		lint = {
+			overrides = {
+				{
+					paths = { "**/legacy/**" },
+					ignores = { "**/legacyIgnored.luau" },
+				},
+			},
+		}
+	}
+}
+]]
+		)
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"--no-default-lints",
+			"-r",
+			path.format(customRulePath),
+			"-c",
+			path.format(configFile),
+			path.format(sourceDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strNotContains(result.stdout, "custom rule ran on legacyIgnored.luau")
+		assert.strContains(result.stdout, "custom rule ran on legacyReported.luau", 1)
+		assert.strContains(result.stdout, "custom rule ran on strictIgnored.luau", 1)
+	end)
+
+	suite:case("luteLintAppliesOverrideRulePathsOnlyWithinMatchedOverride", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		local sourceDir = path.join(testSubDir, "src")
+		local legacyDir = path.join(sourceDir, "legacy")
+		local strictDir = path.join(sourceDir, "strict")
+		fs.createDirectory(testSubDir)
+		fs.createDirectory(sourceDir)
+		fs.createDirectory(legacyDir)
+		fs.createDirectory(strictDir)
+
+		local legacyFile = path.join(legacyDir, "file.luau")
+		local strictFile = path.join(strictDir, "file.luau")
+		fs.writeStringToFile(legacyFile, "print('legacy')")
+		fs.writeStringToFile(strictFile, "print('strict')")
+
+		local baseRulePath = path.join(testSubDir, "baseRule.luau")
+		fs.writeStringToFile(
+			baseRulePath,
+			[[
+return {
+	name = "baseRule",
+	lint = function(cst, sourcepath, context)
+		return {
+			{
+				lintname = "baseRule",
+				severity = "warning",
+				message = "base rule ran",
+				location = cst.location,
+				sourcepath = sourcepath,
+			}
+		}
+	end
+}
+]]
+		)
+
+		local overrideRulePath = path.join(testSubDir, "overrideRule.luau")
+		fs.writeStringToFile(
+			overrideRulePath,
+			[[
+return {
+	name = "overrideRule",
+	lint = function(cst, sourcepath, context)
+		return {
+			{
+				lintname = "overrideRule",
+				severity = "warning",
+				message = "override rule ran",
+				location = cst.location,
+				sourcepath = sourcepath,
+			}
+		}
+	end
+}
+]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		fs.writeStringToFile(
+			configFile,
+			[[
+return {
+	lute = {
+		lint = {
+			overrides = {
+				{
+					paths = { "**/legacy/**" },
+					rulepaths = { "./overrideRule.luau" },
+				},
+			},
+		}
+	}
+}
+]]
+		)
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"--no-default-lints",
+			"-r",
+			path.format(baseRulePath),
+			"-c",
+			path.format(configFile),
+			path.format(sourceDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, "base rule ran", 2)
+		assert.strContains(result.stdout, "override rule ran", 1)
+	end)
+
+	suite:case("luteLintAppliesOverrideRuleConfigsToOverrideRulePaths", function(assert)
+		local testSubDir = path.join(tmpDir, "module")
+		local sourceDir = path.join(testSubDir, "src")
+		local legacyDir = path.join(sourceDir, "legacy")
+		local strictDir = path.join(sourceDir, "strict")
+		fs.createDirectory(testSubDir)
+		fs.createDirectory(sourceDir)
+		fs.createDirectory(legacyDir)
+		fs.createDirectory(strictDir)
+
+		local legacyFile = path.join(legacyDir, "file.luau")
+		local strictFile = path.join(strictDir, "file.luau")
+		fs.writeStringToFile(legacyFile, "print('legacy')")
+		fs.writeStringToFile(strictFile, "print('strict')")
+
+		local baseRulePath = path.join(testSubDir, "baseRule.luau")
+		fs.writeStringToFile(
+			baseRulePath,
+			[[
+local path = require("@std/path")
+
+return {
+	name = "baseRule",
+	lint = function(cst, sourcepath, context)
+		return {
+			{
+				lintname = "baseRule",
+				severity = "warning",
+				message = `base rule flag={context.options.flag} file={path.basename(sourcepath)}`,
+				location = cst.location,
+				sourcepath = sourcepath,
+			}
+		}
+	end
+}
+]]
+		)
+
+		local overrideRulePath = path.join(testSubDir, "overrideRule.luau")
+		fs.writeStringToFile(
+			overrideRulePath,
+			[[
+return {
+	name = "overrideRule",
+	lint = function(cst, sourcepath, context)
+		return {
+			{
+				lintname = "overrideRule",
+				severity = "warning",
+				message = `override rule flag={context.options.flag}`,
+				location = cst.location,
+				sourcepath = sourcepath,
+			}
+		}
+	end
+}
+]]
+		)
+
+		local configFile = path.join(testSubDir, ".config.luau")
+		fs.writeStringToFile(
+			configFile,
+			[[
+return {
+	lute = {
+		lint = {
+			overrides = {
+				{
+					paths = { "**/legacy/**" },
+					rulepaths = { "./overrideRule.luau" },
+					ruleconfigs = {
+						overrideRule = {
+							options = {
+								flag = "configured",
+							},
+						},
+						baseRule = {
+							options = {
+								flag = "configured",
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+}
+]]
+		)
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"--no-default-lints",
+			"-r",
+			path.format(baseRulePath),
+			"-c",
+			path.format(configFile),
+			path.format(sourceDir),
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, "override rule flag=configured", 1)
+		assert.strContains(result.stdout, "base rule flag=configured file=file.luau", 1)
+		assert.strContains(result.stdout, "base rule flag=nil file=file.luau", 1)
+	end)
+
 	suite:case("emptyIfBlockBasic", function(assert)
 		lintTestHelper(assert, {
 			content = [[
