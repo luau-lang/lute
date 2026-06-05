@@ -71,7 +71,7 @@ test.suite("NetTestSuite", function(suite)
 
 	suite:case("runsMoreThanFourClientRequestsConcurrently", function(assert)
 		local requestCount = 5
-		local responseDelay = 0.2
+		local responseDelay = 0.3
 		local instance = server.serve({
 			port = 0,
 			handler = function(req: server.ReceivedRequest): server.ServerResponse
