@@ -152,9 +152,8 @@ private:
         auto* self = static_cast<FSCreateSymlink*>(req->data);
         int result = req->result;
         uv_fs_req_cleanup(req);
-        auto done = std::move(self->onDone);
+        self->onDone(result);
         delete self;
-        done(result);
     }
 };
 
@@ -295,8 +294,7 @@ struct FSRename : FSPathPairRequest
     static void crossDeviceFallback(uv_fs_t* req);
 };
 
-// Handles a recursive cross-filesystem directory move as a self-managed async state machine.
-// Ownership: heap-allocated; calls `delete this` via succeed() or fail().
+// Handles a recursive move of a direcotry as a sequence of copy-and-delete.
 struct FSCopyDirectory
 {
     FSCopyDirectory(ResumeToken token, uv_loop_t* loop, std::string src, std::string dest)
@@ -311,6 +309,12 @@ struct FSCopyDirectory
     {
         std::string src;
         std::string dest;
+
+        DirPair(std::string src, std::string dest)
+            : src(std::move(src))
+            , dest(std::move(dest))
+        {
+        }
     };
 
     ResumeToken token;
@@ -373,7 +377,7 @@ struct FSCopyDirectory
 
         pendingUnknown.clear();
         unknownIdx = 0;
-        scannedDirs.push_back(pendingDirs.front().src);
+        scannedDirs.emplace_back(pendingDirs.front().src);
         pendingDirs.pop_front();
         start();
     }
@@ -512,15 +516,15 @@ struct FSCopyDirectory
             }
             else if (type == UV_DIRENT_FILE)
             {
-                self->pendingFiles.push_back({childSrc, childDest});
+                self->pendingFiles.emplace_back(childSrc, childDest);
             }
             else if (type == UV_DIRENT_LINK)
             {
-                self->pendingLinks.push_back({childSrc, childDest});
+                self->pendingLinks.emplace_back(childSrc, childDest);
             }
             else if (type == UV_DIRENT_UNKNOWN)
             {
-                self->pendingUnknown.push_back({childSrc, childDest});
+                self->pendingUnknown.emplace_back(childSrc, childDest);
             }
             else
             {
@@ -535,7 +539,7 @@ struct FSCopyDirectory
             return;
         }
 
-        self->scannedDirs.push_back(srcDir);
+        self->scannedDirs.emplace_back(srcDir);
         self->pendingDirs.pop_front();
 
         self->start();
@@ -563,11 +567,11 @@ struct FSCopyDirectory
         }
         else if (S_ISREG(mode))
         {
-            self->pendingFiles.push_back({entry.src, entry.dest});
+            self->pendingFiles.emplace_back(entry.src, entry.dest);
         }
         else if (S_ISLNK(mode))
         {
-            self->pendingLinks.push_back({entry.src, entry.dest});
+            self->pendingLinks.emplace_back(entry.src, entry.dest);
         }
         else
         {
