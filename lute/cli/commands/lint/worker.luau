@@ -5,10 +5,11 @@ local lintCore = require("./lintCore")
 
 -- populate in initialize
 local lintRules: { types.LintRule } = {}
-local configData: internalTypes.RuleConfigData = {
+local configData: internalTypes.GlobalRuleConfigData = {
 	ruleConfigs = {},
 	ruleIgnores = {},
 	globals = {},
+	overrides = {},
 }
 
 local worker = {}

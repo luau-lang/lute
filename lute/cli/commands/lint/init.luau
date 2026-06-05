@@ -57,7 +57,7 @@ type Job = {
 local function lintPaths(
 	inputFilePaths: { string },
 	lintRules: { types.LintRule },
-	configData: internalTypes.RuleConfigData,
+	configData: internalTypes.GlobalRuleConfigData,
 	rulesPath: string?,
 	noDefaults: boolean,
 	passedConfigVal: string?,

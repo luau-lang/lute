@@ -13,7 +13,7 @@ local lint = {}
 function lint.lintSequential(
 	inputFiles: { pathLib.Path },
 	lintRules: { types.LintRule },
-	configData: internalTypes.RuleConfigData,
+	configData: internalTypes.GlobalRuleConfigData,
 	autofixEnabled: boolean,
 	ignoreData: parseIgnores.GitignoreData,
 	verbose: boolean
