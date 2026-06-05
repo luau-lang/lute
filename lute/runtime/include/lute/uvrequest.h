@@ -6,9 +6,21 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace uvutils
 {
+
+template<typename... Args>
+std::string formatUVError(const char* fmt, Args... args)
+{
+    int size = snprintf(nullptr, 0, fmt, args...);
+    if (size < 0)
+        return "Format error";
+    std::vector<char> buffer(size + 1);
+    snprintf(buffer.data(), buffer.size(), fmt, args...);
+    return std::string(buffer.data());
+}
 
 template<typename ReqT>
 void cleanup_uv_req(ReqT* req)
@@ -40,22 +52,10 @@ struct UVRequest
     UVRequest(UVRequest&&) = delete;
     UVRequest& operator=(UVRequest&&) = delete;
 
-    // Proxy to token->fail with format string support
     template<typename... Args>
     void fail(const char* fmt, Args&&... args)
     {
-        // First, determine the required size
-        int size = snprintf(nullptr, 0, fmt, std::forward<Args>(args)...);
-        if (size < 0)
-        {
-            token->fail("Format error in fail");
-            return;
-        }
-
-        // Allocate buffer with exact size needed (+1 for null terminator)
-        std::vector<char> buffer(size + 1);
-        snprintf(buffer.data(), buffer.size(), fmt, std::forward<Args>(args)...);
-        token->fail(std::string(buffer.data()));
+        token->fail(formatUVError(fmt, std::forward<Args>(args)...));
     }
 
     template<typename F>
@@ -66,7 +66,12 @@ struct UVRequest
 
     void succeedTrivially()
     {
-        succeed([](lua_State* L) { return 0; });
+        succeed(
+            [](lua_State* L)
+            {
+                return 0;
+            }
+        );
     }
 
     ~UVRequest()
@@ -103,15 +108,11 @@ struct ScopedUVRequest
 
     ~ScopedUVRequest()
     {
-        // The actual libuv C request struct retains a pointer to the request in the data field.
-        // If we don't call release, this unique_pointer will be freed at the end of the scope that
-        // contains the request, when we actually want this to be freed inside the asynchronously called callback.
-        // The user should then take ownership of the request from the data via `retake` and the destructr
-        // will automatically be invoked after we've scheduled the Luau code to resume
-        if (ptr)
-        {
-            ptr.release();
-        }
+        // The libuv request struct retains a raw pointer to this object via req->data.
+        // Releasing here intentionally leaks so the object stays alive until the callback fires.
+        // The callback must call retake() to reclaim ownership; the destructor then runs after
+        // the Luau coroutine has been scheduled to resume.
+        ptr.release();
     }
 
     // Non-copyable and non-movable to prevent accidental double-release

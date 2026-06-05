@@ -65,6 +65,29 @@ jobs:
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
           use-bootstrap: ${{ matrix.use-bootstrap || 'false' }}
+
+      - name: Mount cross-device tmpfs for fs.move test
+        if: ${{ steps.should_run.outputs.proceed == 'true' && runner.os == 'Linux' }}
+        run: |
+          sudo mkdir /mnt/lute-test-tmp
+          sudo mount -t tmpfs tmpfs /mnt/lute-test-tmp
+          sudo chmod 777 /mnt/lute-test-tmp
+          echo "LUTE_CROSSDEV_TMPDIR=/mnt/lute-test-tmp" >> "$GITHUB_ENV"
+
+      - name: Mount cross-device RAM disk for fs.move test
+        if: ${{ steps.should_run.outputs.proceed == 'true' && runner.os == 'macOS' }}
+        run: |
+          DISK=$(hdiutil attach -nomount ram://131072 | xargs)
+          diskutil erasevolume HFS+ 'LuteTestDisk' "$DISK"
+          echo "LUTE_CROSSDEV_TMPDIR=/Volumes/LuteTestDisk" >> "$GITHUB_ENV"
+
+      - name: Set up cross-device directory for fs.move test
+        if: ${{ steps.should_run.outputs.proceed == 'true' && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "D:\lute-test-tmp"
+          echo "LUTE_CROSSDEV_TMPDIR=D:\lute-test-tmp" >> $env:GITHUB_ENV
+
       - name: Run Luau Tests
         if: ${{ steps.should_run.outputs.proceed == 'true' }}
         run: ${{ steps.build_lute.outputs.exe_path }} test --verbose
