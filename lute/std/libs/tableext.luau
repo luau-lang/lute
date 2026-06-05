@@ -107,4 +107,22 @@ function tableext.all<T>(arr: { T }, predicate: (T) -> boolean): boolean
 	return true
 end
 
+-- I want the mehtod to take a generic s.t it returns an identical shape (deepclone(object) -> same object structure)
+-- using K, V generics and { [K]: V } does not yield thise behavior
+-- only using T (afaik)
+-- This is why I must cast on line 119
+function tableext.deepclone<T>(tbl: T): T
+	local clone = {}
+	assert(typeof(tbl) == "table", `{tbl} is not a table`)
+
+	for k, v in tbl :: any do
+		if typeof(v) == "table" then
+			clone[k] = tableext.deepclone(v)
+		else
+			clone[k] = v
+		end
+	end
+	return clone
+end
+
 return table.freeze(tableext)
