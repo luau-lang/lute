@@ -50,7 +50,7 @@ type Config = {
                     -- Array of globs (.gitignore style) that are EXEMPT from this rule
                     ignores: { string }?,
                     -- Override a rule's default severity
-                    severity: ("warn" | "error" | "info" | "hint")?,
+                    severity: ("warning" | "error" | "info" | "hint")?,
                     -- Pass custom options through to a rule;
                     -- see specific rule's implementation / docs for expected options structure
                     options: { [string]: unknown }?,
@@ -58,9 +58,43 @@ type Config = {
                     off: boolean?,
                 },
             }?,
+            -- Apply lint configuration only to files matching one of the override's paths
+            overrides: {
+                {
+                    -- Array of globs (.gitignore style) that select files for this override
+                    paths: { string },
+                    -- Overrides support the same fields as the top-level lint config
+                    ignores: { string }?,
+                    globals: { [string]: unknown }?,
+                    rulepaths: { [string] }?,
+                    ruleconfigs: {
+                        [RuleName]: {
+                            ignores: { string }?,
+                            severity: ("warning" | "error" | "info" | "hint")?,
+                            options: { [string]: unknown }?,
+                            off: boolean?,
+                        },
+                    }?,
+                },
+            }?,
         }?,
     }?,
 }
+```
+
+#### Config Overrides
+
+Use `overrides` to apply lint configuration to specific paths in a repo. Each override has a required `paths` array containing `.gitignore`-style globs. When a file matches any glob in an override's `paths`, that override is applied for that file.
+
+Overrides are evaluated in order and are cumulative. If multiple overrides match a file, later overrides are merged on top of earlier ones.
+
+Merge behavior:
+
+- `ignores`, rule-specific `ignores`, and `rulepaths` are appended.
+- `globals` are shallow-merged, with later values replacing earlier values for the same key.
+- `ruleconfigs` are merged one level per rule. For example, an override can add `severity = "error"` to a rule while preserving that rule's existing `options`.
+
+ADD EXAMPLE
 ```
 
 ### `-j, --json`
