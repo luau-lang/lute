@@ -81,7 +81,7 @@ static bool isBundleDirectory(const Luau::DenseHashMap<std::string, std::string>
 NavigationStatus BundleVfs::resetToPath(const std::string& path)
 {
     // Handle "@bundle" root
-    if (path == "@bundle")
+    if (path == kBundlePrefix)
     {
         modulePath = ModulePath::create(
             "@bundle",
@@ -99,11 +99,20 @@ NavigationStatus BundleVfs::resetToPath(const std::string& path)
     }
 
     // Handle "@bundle/path/to/file"
-    if (path.rfind(kBundlePrefixPath, 0) != 0)
-        return NavigationStatus::NotFound;
+    std::string filePath;
 
-    // Strip "@bundle/" to get the actual path
-    std::string filePath = path.substr(kBundlePrefixPath.size());
+    if (path.rfind(kBundlePrefixPath, 0) == 0)
+    {
+        filePath = path.substr(kBundlePrefixPath.size());
+    }
+    else if (path.size() > 1 && path[0] == '~' && (path[1] == '/' || path[1] == '\\'))
+    {
+        filePath = path.substr(2);
+    }
+    else
+    {
+        return NavigationStatus::NotFound;
+    }
 
     modulePath = ModulePath::create(
         "@bundle",
