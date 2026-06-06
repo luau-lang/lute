@@ -4,13 +4,14 @@ target_sources(Lute.Net PRIVATE
     include/lute/net.h
 
     src/client.cpp
+    src/httpclient.cpp
     src/net.cpp
     src/system_ca.cpp
     src/system_ca.h
     src/wsclient.cpp
     src/wscommon.cpp
     src/wscommon.h
-    src/wsserver.cpp
+    src/server.cpp
 )
 
 target_compile_features(Lute.Net PUBLIC cxx_std_17)

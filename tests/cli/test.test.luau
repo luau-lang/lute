@@ -1,6 +1,7 @@
 local path = require("@std/path")
 local process = require("@std/process")
 local test = require("@std/test")
+local testutil = require("../testutil")
 
 local lutePath = path.format(process.execPath())
 
@@ -37,7 +38,7 @@ test.suite("LuteTestCommand", function(suite)
 
 		-- Check that it discovers test files (.test.luau and .spec.luau)
 		assert.eq(result.exitcode, 0)
-		assert.eq(expected, result.stdout)
+		assert.eq(expected, testutil.normalizeLineEndings(result.stdout))
 	end)
 
 	suite:case("filterBySuiteName", function(assert)

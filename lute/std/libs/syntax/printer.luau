@@ -15,10 +15,10 @@ type PrintVisitor = visitor.Visitor & {
 	write: (self: PrintVisitor, str: string) -> (),
 	printTrivia: (self: PrintVisitor, trivia: types.Trivia) -> (),
 	printTriviaList: (self: PrintVisitor, trivia: { types.Trivia }) -> (),
-	printToken: (self: PrintVisitor, token: types.Token) -> (),
-	printString: (self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString) -> (),
-	printInterpolatedString: (self: PrintVisitor, expr: types.AstExprInterpString) -> (),
-	printReplacement: (self: PrintVisitor, node: types.AstNode, replacement: string) -> (),
+	printToken: (self: PrintVisitor, token: types.CstToken) -> (),
+	printString: (self: PrintVisitor, expr: types.CstExprConstantString | types.CstTypeSingletonString) -> (),
+	printInterpolatedString: (self: PrintVisitor, expr: types.CstExprInterpString) -> (),
+	printReplacement: (self: PrintVisitor, node: types.CstNode, replacement: types.Replacement) -> (),
 }
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
@@ -38,7 +38,7 @@ local function printTriviaList(self: PrintVisitor, trivia: { types.Trivia })
 	end
 end
 
-local function printToken(self: PrintVisitor, token: types.Token)
+local function printToken(self: PrintVisitor, token: types.CstToken)
 	if self.replacements[token] ~= nil then
 		self:printReplacement(token, self.replacements[token])
 		return
@@ -49,31 +49,31 @@ local function printToken(self: PrintVisitor, token: types.Token)
 	self:printTriviaList(token.trailingTrivia)
 end
 
-local function printString(self: PrintVisitor, expr: types.AstExprConstantString | types.AstTypeSingletonString)
+local function printString(self: PrintVisitor, expr: types.CstExprConstantString | types.CstTypeSingletonString)
 	if self.replacements[expr] ~= nil then
 		self:printReplacement(expr, self.replacements[expr])
 		return
 	end
 
-	self:printTriviaList(expr.token.leadingTrivia)
+	self:printTriviaList(expr.value.leadingTrivia)
 
 	if expr.quoteStyle == "single" then
-		self:write(`'{expr.token.text}'`)
+		self:write(`'{expr.value.text}'`)
 	elseif expr.quoteStyle == "double" then
-		self:write(`"{expr.token.text}"`)
+		self:write(`"{expr.value.text}"`)
 	elseif expr.quoteStyle == "block" then
 		local equals = string.rep("=", expr.blockDepth)
-		self:write(`[{equals}[{expr.token.text}]{equals}]`)
+		self:write(`[{equals}[{expr.value.text}]{equals}]`)
 	elseif expr.quoteStyle == "interp" then
-		self:write("`" .. expr.token.text .. "`")
+		self:write("`" .. expr.value.text .. "`")
 	else
 		exhaustiveMatch(expr.quoteStyle)
 	end
 
-	self:printTriviaList(expr.token.trailingTrivia)
+	self:printTriviaList(expr.value.trailingTrivia)
 end
 
-local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprInterpString)
+local function printInterpolatedString(self: PrintVisitor, expr: types.CstExprInterpString)
 	if self.replacements[expr] ~= nil then
 		self:printReplacement(expr, self.replacements[expr])
 		return
@@ -99,18 +99,26 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.AstExprIn
 	end
 end
 
-local function printReplacement(self: PrintVisitor, node: types.AstNode, replacement: string)
-	local leftmostTrivia = triviaUtils.leftmostTrivia(node)
-	if leftmostTrivia ~= nil then
-		self:printTriviaList(leftmostTrivia)
+local function printReplacement(self: PrintVisitor, node: types.CstNode, replacement: types.Replacement)
+	assert(typeof(replacement) == "string" or typeof(replacement) == "table", "Unsupported replacement type")
+
+	local replacementContent = if typeof(replacement) == "string" then replacement else replacement.content
+	local preserveTrivia = if typeof(replacement) == "table" then replacement.preserveTrivia ~= false else true
+
+	if preserveTrivia then
+		local leftmostTrivia = triviaUtils.leftmostTrivia(node)
+		if leftmostTrivia ~= nil then
+			self:printTriviaList(leftmostTrivia)
+		end
 	end
 
-	assert(typeof(replacement) == "string", "Unsupported replacement type")
-	self:write(replacement)
+	self:write(replacementContent)
 
-	local rightmostTrivia = triviaUtils.rightmostTrivia(node)
-	if rightmostTrivia ~= nil then
-		self:printTriviaList(rightmostTrivia)
+	if preserveTrivia then
+		local rightmostTrivia = triviaUtils.rightmostTrivia(node)
+		if rightmostTrivia ~= nil then
+			self:printTriviaList(rightmostTrivia)
+		end
 	end
 end
 
@@ -139,11 +147,11 @@ local function printVisitor(replacements: types.Replacements?)
 	local printer: PrintVisitor = {} :: PrintVisitor
 
 	-- The visitor library doesn't use methods, so we access replacements through a closure
-	local function maybeReplace(node: types.AstNode): boolean
+	local function maybeReplace(node: types.CstNode): boolean
 		if replacements == nil then
 			return true
 		end
-		local replacement: string? = replacements[node]
+		local replacement: types.Replacement? = replacements[node]
 		if replacement == nil then
 			return true
 		end
@@ -163,19 +171,19 @@ local function printVisitor(replacements: types.Replacements?)
 	printer.printString = printString
 	printer.printInterpolatedString = printInterpolatedString
 	printer.printReplacement = printReplacement
-	printer.visitExprInterpString = function(node: types.AstExprInterpString)
+	printer.visitExprInterpString = function(node: types.CstExprInterpString)
 		printer:printInterpolatedString(node)
 		return false
 	end
-	printer.visitTypeSingletonString = function(node: types.AstTypeSingletonString)
+	printer.visitTypeSingletonString = function(node: types.CstTypeSingletonString)
 		printer:printString(node)
 		return false
 	end
-	printer.visitToken = function(node: types.Token)
+	printer.visitToken = function(node: types.CstToken)
 		printer:printToken(node)
 		return false
 	end
-	printer.visitExprConstantString = function(node: types.AstExprConstantString)
+	printer.visitExprConstantString = function(node: types.CstExprConstantString)
 		printer:printString(node)
 		return false
 	end
@@ -184,14 +192,14 @@ local function printVisitor(replacements: types.Replacements?)
 end
 
 --- Returns `node` as source text, optionally applying `replacements` to substitute specific nodes with new text.
-function printerLib.printNode(node: types.AstNode, replacements: types.Replacements?): string
+function printerLib.printNode(node: types.CstNode, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visit(node, printer)
 	return buffer.readstring(printer.result, 0, printer.cursor)
 end
 
 --- Returns an entire parsed file as source text, including the EOF token, optionally applying `replacements`.
-function printerLib.printFile(result: types.ParseResult, replacements: types.Replacements?): string
+function printerLib.printFile(result: types.CstParseResult, replacements: types.Replacements?): string
 	local printer = printVisitor(replacements)
 	visitor.visitBlock(result.root, printer)
 	visitor.visitToken(result.eof, printer)

@@ -65,6 +65,20 @@ test.suite("JSONParsingTestSuite", function(suite)
 		assert.eq(out, "[\n    1,\n    2,\n    3\n]")
 	end)
 
+	suite:case("serializeLargeString", function(assert)
+		local value = string.rep("a", 3000)
+		assert.eq(json.serialize(value), `"{value}"`)
+	end)
+
+	suite:case("serializeRejectsNonFiniteNumbers", function(assert)
+		for _, value in { math.nan, math.huge, -math.huge } do
+			local ok = pcall(function()
+				json.serialize(value)
+			end)
+			assert.eq(ok, false)
+		end
+	end)
+
 	suite:case("jsonObjectAndasObject", function(assert)
 		local obj = json.object({
 			name = "Alice",

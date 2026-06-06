@@ -1,15 +1,22 @@
 add_library(Lute.CLI.Commands STATIC)
 
-target_sources(Lute.CLI.Commands PRIVATE
-    generated/commands.h
-    generated/commands.cpp
-
-    include/lute/clicommands.h
-    src/clicommands.cpp
-)
-
-target_compile_features(Lute.CLI.Commands PUBLIC cxx_std_17)
-target_include_directories(Lute.CLI.Commands PUBLIC include generated)
+if (LUTE_STDLESS)
+    target_sources(Lute.CLI.Commands PRIVATE
+        include/lute/clicommands.h
+        src/clicommands_stub.cpp
+    )
+    target_compile_features(Lute.CLI.Commands PUBLIC cxx_std_17)
+    target_include_directories(Lute.CLI.Commands PUBLIC include)
+else()
+    target_sources(Lute.CLI.Commands PRIVATE
+        generated/commands.h
+        generated/commands.cpp
+        include/lute/clicommands.h
+        src/clicommands.cpp
+    )
+    target_compile_features(Lute.CLI.Commands PUBLIC cxx_std_17)
+    target_include_directories(Lute.CLI.Commands PUBLIC include generated)
+endif()
 target_compile_options(Lute.CLI.Commands PRIVATE ${LUTE_OPTIONS})
 
 set(CLI_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")

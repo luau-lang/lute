@@ -24,6 +24,7 @@ project(
 
 # Enable sanitizers globally before any subdirectory is added
 option(LUTE_ENABLE_SANITIZERS "Enable sanitizers" OFF)
+option(LUTE_STDLESS "Build without embedded Luau sources (for bootstrapping)" OFF)
 if (LUTE_ENABLE_SANITIZERS)
     if(NOT MSVC)
         add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
@@ -100,26 +101,34 @@ set(LIBUV_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/libuv/include)
 # zlib setup
 #
 set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "Do not build examples" FORCE)
+set(ZLIB_BUILD_TESTING OFF CACHE BOOL "Do not build zlib tests" FORCE)
+set(ZLIB_BUILD_SHARED OFF CACHE BOOL "Do not build shared zlib" FORCE)
+set(ZLIB_BUILD_STATIC ON CACHE BOOL "Build static zlib" FORCE)
+set(ZLIB_INSTALL OFF CACHE BOOL "Do not install zlib" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static zlib" FORCE)
 add_subdirectory(extern/zlib)
+if(TARGET zlibstatic AND NOT TARGET ZLIB::ZLIB)
+    add_library(ZLIB::ZLIB INTERFACE IMPORTED GLOBAL)
+    target_link_libraries(ZLIB::ZLIB INTERFACE "$<BUILD_INTERFACE:zlibstatic>")
+endif()
 
 set(ZLIB_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/zlib")
 
-set(ZLIB_FOUND TRUE CACHE BOOL "" FORCE)
-
 if(MSVC)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstaticd.lib")
+        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstaticd.lib" CACHE FILEPATH "" FORCE)
     else()
-        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstatic.lib")
+        set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/zlibstatic.lib" CACHE FILEPATH "" FORCE)
     endif()
 else()
-    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.a")
+    set(ZLIB_LIBRARY "${ZLIB_OUTPUT_DIR}/libz.a" CACHE FILEPATH "" FORCE)
 endif()
-set(ZLIB_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/zlib;${ZLIB_OUTPUT_DIR})
+set(ZLIB_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/zlib;${ZLIB_OUTPUT_DIR} CACHE PATH "" FORCE)
 set(ZLIB_INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} CACHE STRING "" FORCE)
+set(ZLIB_LIBRARIES ZLIB::ZLIB CACHE STRING "" FORCE)
 
 # boringssl setup
+set(BUILD_TESTING OFF)
 add_subdirectory(extern/boringssl)
 set(BORINGSSL_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/extern/boringssl")
 set(BORINGSSL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/boringssl/include)
@@ -157,6 +166,13 @@ set(BUILD_EXAMPLES OFF)
 set(BUILD_CURL_EXE OFF)
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_STATIC_LIBS ON)
+set(CURL_ENABLE_EXPORT_TARGET OFF)
+
+# curl's OpenSSL-family probes run in nested try-compile projects, where the
+# in-tree ZLIB::ZLIB target is not visible. These are false for BoringSSL.
+set(HAVE_DES_ECB_ENCRYPT "" CACHE INTERNAL "curl BoringSSL feature probe")
+set(HAVE_SSL_SET0_WBIO "" CACHE INTERNAL "curl BoringSSL feature probe")
+set(HAVE_OPENSSL_SRP "" CACHE INTERNAL "curl BoringSSL feature probe")
 
 # lute/net only speaks HTTP/HTTPS/WebSocket.
 set(CURL_DISABLE_FTP    ON CACHE BOOL "" FORCE)
@@ -174,6 +190,12 @@ set(CURL_DISABLE_GOPHER ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_RTSP   ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_MQTT   ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_IPFS   ON CACHE BOOL "" FORCE)
+
+# One more set of DISABLES. We might need to re-enable these at some point
+# if we need the features they provide
+set(CURL_DISABLE_AWS            ON  CACHE BOOL "" FORCE)
+set(CURL_DISABLE_INSTALL        ON  CACHE BOOL "" FORCE)
+set(ENABLE_UNIX_SOCKETS         OFF CACHE BOOL "" FORCE)
 
 set(HAVE_BORINGSSL ON)
 add_subdirectory(extern/curl)
@@ -232,6 +254,7 @@ add_subdirectory(lute/process)
 add_subdirectory(lute/system)
 add_subdirectory(lute/time)
 add_subdirectory(lute/io)
+add_subdirectory(lute/syntax)
 
 # executables
 add_subdirectory(lute/cli)
