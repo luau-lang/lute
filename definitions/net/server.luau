@@ -35,7 +35,7 @@ export type WebSocketHandlers = {
 export type Server = {
 	hostname: string,
 	port: number,
-	close: () -> (),
+	close: () -> boolean,
 	upgrade: (self: Server, req: ReceivedRequest) -> boolean,
 }
 

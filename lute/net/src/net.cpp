@@ -27,12 +27,12 @@ int Net::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_net(lua_State* L)
+LUTE_API int luaopen_net(lua_State* L)
 {
     return Net::openAsGlobal(L);
 }
 
-int luteopen_net(lua_State* L)
+LUTE_API int luteopen_net(lua_State* L)
 {
     return Net::pushLibrary(L);
 }

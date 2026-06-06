@@ -214,12 +214,12 @@ int IO::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_io(lua_State* L)
+LUTE_API int luaopen_io(lua_State* L)
 {
     return IO::openAsGlobal(L);
 }
 
-int luteopen_io(lua_State* L)
+LUTE_API int luteopen_io(lua_State* L)
 {
     return IO::pushLibrary(L);
 }

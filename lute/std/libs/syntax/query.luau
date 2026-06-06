@@ -1,18 +1,18 @@
 --!strict
 -- @std/syntax/query
--- Provides utility functions for querying Luau AST nodes
+-- Provides utility functions for querying Luau CST nodes
 
 local tableext = require("@std/tableext")
 local types = require("./types")
 local visitor = require("./visitor")
 
-type Node = types.AstNode
+type Node = types.CstNode
 
---- A collection of AST nodes that supports chained filtering, mapping, and replacement operations.
+--- A collection of CST nodes that supports chained filtering, mapping, and replacement operations.
 export type Query<T = Node> = {
 	nodes: { T },
 	filter: (self: Query<T>, pred: (T) -> boolean) -> Query<T>,
-	replace: (self: Query<T>, repl: (T) -> string?) -> types.Replacements,
+	replace: (self: Query<T>, repl: (T) -> types.Replacement?) -> types.Replacements,
 	map: <U>(self: Query<T>, fn: (T) -> U?) -> Query<U>, -- recursion violation reported
 	forEach: (self: Query<T>, callback: (T) -> ()) -> Query<T>,
 	findAll: <U>(self: Query<T>, fn: (Node) -> U?) -> Query<U>,
@@ -35,7 +35,7 @@ function queryLib.filter<T>(self: Query<T>, pred: (T) -> boolean): Query<T>
 end
 
 --- Calls `repl` on each node and collects the non-nil results into a `Replacements` table for use with the printer.
-function queryLib.replace<T>(self: Query<T>, repl: (T) -> string?): types.Replacements
+function queryLib.replace<T>(self: Query<T>, repl: (T) -> types.Replacement?): types.Replacements
 	local replacements = {}
 	for _, node in self.nodes do
 		local r = repl(node)
@@ -127,13 +127,13 @@ function queryLib.mapToArray<T, U>(self: Query<T>, fn: (T) -> U?): { U }
 	return result
 end
 
---- Creates a new `Query` by visiting every node in `ast` and collecting those for which `fn` returns a non-nil value.
-function queryLib.findAllFromRoot<T>(ast: types.ParseResult | Node, fn: (Node) -> T?): Query<T>
+--- Creates a new `Query` by visiting every node in `cst` and collecting those for which `fn` returns a non-nil value.
+function queryLib.findAllFromRoot<T>(cst: types.CstParseResult | Node, fn: (Node) -> T?): Query<T>
 	local nodes: { T } = {}
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: Node = if (ast :: any).root ~= nil then (ast :: any).root else ast :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
+	local root: Node = if (cst :: any).root ~= nil then (cst :: any).root else cst :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {

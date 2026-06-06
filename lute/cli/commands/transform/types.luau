@@ -4,7 +4,7 @@ local syntaxTypes = require("@std/syntax/types")
 export type Context<Options = { [any]: any }> = {
 	path: string,
 	source: string,
-	parseresult: syntax.ParseResult,
+	parseresult: syntax.CstParseResult,
 	options: Options,
 }
 

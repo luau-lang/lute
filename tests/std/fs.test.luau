@@ -1,6 +1,7 @@
 local failure = require("@std/test/failure")
 local fs = require("@std/fs")
 local path = require("@std/path")
+local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
 local task = require("@lute/task")
@@ -66,6 +67,117 @@ test.suite("FsSuite", function(suite)
 		end
 		assert.that(found)
 		fs.removeDirectory(dir)
+	end)
+
+	suite:case("renameFile", function(assert)
+		local src = path.join(tmpdir, "rename_src.txt")
+		local dest = path.join(tmpdir, "rename_dest.txt")
+
+		fs.writeStringToFile(src, "renamed content")
+
+		fs.move(src, dest)
+
+		assert.eq(fs.exists(src), false)
+		assert.that(fs.exists(dest))
+		assert.eq(fs.readFileToString(dest), "renamed content")
+
+		fs.remove(dest)
+	end)
+
+	suite:case("moveDirectory", function(assert)
+		local srcDir = path.join(tmpdir, "move_src_dir")
+		local subDir = path.join(srcDir, "sub")
+		local destDir = path.join(tmpdir, "move_dest_dir")
+
+		fs.createDirectory(subDir, { makeParents = true })
+		fs.writeStringToFile(path.join(srcDir, "a.txt"), "aaa")
+		fs.writeStringToFile(path.join(subDir, "b.txt"), "bbb")
+
+		fs.move(srcDir, destDir)
+
+		assert.eq(fs.exists(srcDir), false)
+		assert.that(fs.exists(destDir))
+		assert.eq(fs.readFileToString(path.join(destDir, "a.txt")), "aaa")
+		assert.eq(fs.readFileToString(path.join(destDir, "sub", "b.txt")), "bbb")
+
+		fs.removeDirectory(destDir, { recursive = true })
+	end)
+
+	-- Exercises the EXDEV cross-device fallback for fs.move.
+	-- Requires a cross-device mount to be set up in order to run.
+	--
+	-- In our CI, this is a tmpfs setup at `LUTE_CROSSDEV_TMPDIR`.
+	-- The test is skipped when `LUTE_CROSSDEV_TMPDIR` is not set.
+	suite:case("moveDirectoryAcrossDevices", function(assert)
+		local crossdevTmp = process.env["LUTE_CROSSDEV_TMPDIR"]
+		if crossdevTmp == nil then
+			return
+		end
+
+		-- Verify the two paths are actually on different devices, so the EXDEV fallback is exercised.
+		if system.win32 then
+			-- On Windows, drive letters are the device identity; stat is not reliably available.
+			local crossdevDrive = path.win32.parse(crossdevTmp).drive
+			local homeDrive = path.win32.parse(tostring(process.homedir())).drive
+			assert.neq(
+				crossdevDrive,
+				homeDrive,
+				`LUTE_CROSSDEV_TMPDIR={crossdevTmp} is on the same drive as the home directory; the EXDEV fallback will not be exercised`
+			)
+		else
+			-- On Unix, the device ID from stat can be used to determine if two paths are on the same device.
+			local deviceIdFlag = if system.macos then "-f" else "-c"
+			local crossdevStat = process.run({ "stat", deviceIdFlag, "%d", crossdevTmp })
+			local homeStat = process.run({ "stat", deviceIdFlag, "%d", tostring(process.homedir()) })
+
+			assert.that(
+				crossdevStat.exitcode == 0,
+				`stat failed for LUTE_CROSSDEV_TMPDIR={crossdevTmp}: {crossdevStat.stderr}`
+			)
+			assert.that(homeStat.exitcode == 0, `stat failed for home directory: {homeStat.stderr}`)
+			assert.neq(
+				crossdevStat.stdout:match("%d+"),
+				homeStat.stdout:match("%d+"),
+				`LUTE_CROSSDEV_TMPDIR={crossdevTmp} is on the same device as the home directory; the EXDEV fallback will not be exercised`
+			)
+		end
+
+		local srcDir = path.join(crossdevTmp, "lute_crossdev_src")
+		local destDir = path.join(process.homedir(), ".lute-test-crossdev")
+
+		if fs.exists(srcDir) then
+			fs.removeDirectory(srcDir, { recursive = true })
+		end
+
+		if fs.exists(destDir) then
+			fs.removeDirectory(destDir, { recursive = true })
+		end
+
+		local subDir = path.join(srcDir, "sub")
+		fs.createDirectory(subDir, { makeParents = true })
+		fs.writeStringToFile(path.join(srcDir, "a.txt"), "aaa")
+		fs.writeStringToFile(path.join(subDir, "b.txt"), "bbb")
+
+		local ok, err = pcall(function()
+			fs.move(srcDir, destDir)
+
+			assert.eq(fs.exists(srcDir), false)
+			assert.that(fs.exists(destDir))
+			assert.eq(fs.readFileToString(path.join(destDir, "a.txt")), "aaa")
+			assert.eq(fs.readFileToString(path.join(destDir, "sub", "b.txt")), "bbb")
+		end)
+
+		if fs.exists(srcDir) then
+			fs.removeDirectory(srcDir, { recursive = true })
+		end
+
+		if fs.exists(destDir) then
+			fs.removeDirectory(destDir, { recursive = true })
+		end
+
+		if not ok then
+			error(err)
+		end
 	end)
 
 	suite:case("linkAndSymlinkAndCopy", function(assert)

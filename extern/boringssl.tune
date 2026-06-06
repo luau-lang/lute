@@ -1,5 +1,5 @@
 [dependency]
 name = "boringssl"
 remote = "https://github.com/google/boringssl.git"
-branch = "0.20250415.0"
-revision = "2b44a3701a4788e1ef866ddc7f143060a3d196c9"
+branch = "0.20260413.0"
+revision = "78f7fbeec98a2fb15acea6f7a9f1def7f2e6d9a0"

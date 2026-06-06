@@ -638,12 +638,12 @@ int Time::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_time(lua_State* L)
+LUTE_API int luaopen_time(lua_State* L)
 {
     return Time::openAsGlobal(L);
 }
 
-int luteopen_time(lua_State* L)
+LUTE_API int luteopen_time(lua_State* L)
 {
     return Time::pushLibrary(L);
 }
