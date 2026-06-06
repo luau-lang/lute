@@ -98,13 +98,14 @@ NavigationStatus BundleVfs::resetToPath(const std::string& path)
         return modulePath ? NavigationStatus::Success : NavigationStatus::NotFound;
     }
 
-    // Handle "@bundle/path/to/file"
     std::string filePath;
 
+    // Handle "@bundle/path/to/file"
     if (path.rfind(kBundlePrefixPath, 0) == 0)
     {
         filePath = path.substr(kBundlePrefixPath.size());
     }
+    // Handle "~/path/to/file"
     else if (path.size() > 1 && path[0] == '~' && (path[1] == '/' || path[1] == '\\'))
     {
         filePath = path.substr(2);
