@@ -1,6 +1,12 @@
 #include "lua.h"
 #include "lualib.h"
 
+#if defined(_WIN32)
+#define LUTE_EXPORT __declspec(dllexport)
+#else
+#define LUTE_EXPORT
+#endif
+
 static int hello_world(lua_State* L)
 {
     lua_pushstring(L, "Hello from a native extension!");
@@ -15,8 +21,10 @@ static int hello_add(lua_State* L)
     return 1;
 }
 
+extern "C" LUTE_EXPORT const int lute_module_abi_version = 1;
+
 // Type definitions embedded in the shared library, read by `lute check`.
-extern "C" const char lute_types[] = R"luau(
+extern "C" LUTE_EXPORT const char lute_types[] = R"luau(
 local hello = {}
 
 function hello.world(): string
@@ -30,7 +38,7 @@ end
 return table.freeze(hello)
 )luau";
 
-extern "C" int luteopen_hello(lua_State* L)
+extern "C" LUTE_EXPORT int luteopen_hello(lua_State* L)
 {
     lua_createtable(L, 0, 2);
 

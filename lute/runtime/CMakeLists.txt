@@ -1,6 +1,7 @@
 add_library(Lute.Runtime)
 
 target_sources(Lute.Runtime PRIVATE
+    include/lute/nativemodule.h
     include/lute/ref.h
     include/lute/runtime.h
     include/lute/userdatas.h
@@ -8,6 +9,7 @@ target_sources(Lute.Runtime PRIVATE
     include/lute/uvstream.h
     include/lute/uvutils.h
 
+    src/nativemodule.cpp
     src/ref.cpp
     src/runtime.cpp
     src/uvrequest.cpp

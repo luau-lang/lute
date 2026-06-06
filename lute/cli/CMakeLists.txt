@@ -72,9 +72,12 @@ target_compile_features(Lute.CLI PUBLIC cxx_std_17)
 target_link_libraries(Lute.CLI PRIVATE Lute.CLI.lib Lute.Common)
 target_compile_options(Lute.CLI PRIVATE ${LUTE_OPTIONS})
 
-# Export symbols so native extensions loaded via dlopen can resolve Luau VM functions.
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_link_options(Lute.CLI PRIVATE -rdynamic)
+set_target_properties(Lute.CLI PROPERTIES ENABLE_EXPORTS ON)
+
+if(MSVC)
+    target_compile_definitions(Luau.VM PUBLIC "LUA_API=__declspec(dllexport)")
+else()
+    target_compile_definitions(Luau.VM PUBLIC "LUA_API=__attribute__((visibility(\"default\"))) extern")
 endif()
 
 if (LUTE_OPTIMIZE_SIZE AND NOT LUTE_ENABLE_SANITIZERS AND NOT MSVC AND CMAKE_STRIP)

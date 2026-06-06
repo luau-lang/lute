@@ -1,5 +1,7 @@
 #include "lute/modulepath.h"
 
+#include "lute/nativemodule.h"
+
 #include "Luau/FileUtils.h"
 
 #include <array>
@@ -9,8 +11,6 @@
 
 const std::array<std::string_view, 2> kSuffixes = {".luau", ".lua"};
 const std::array<std::string_view, 2> kInitSuffixes = {"/init.luau", "/init.lua"};
-
-const std::array<std::string_view, 3> kNativeSuffixes = {".dylib", ".so", ".dll"};
 
 static bool hasSuffix(std::string_view str, std::string_view suffix)
 {

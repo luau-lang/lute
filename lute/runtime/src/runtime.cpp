@@ -1,6 +1,7 @@
 #include "lute/runtime.h"
 
 #include "lute/common.h"
+#include "lute/nativemodule.h"
 #include "lute/ref.h"
 
 #include "Luau/Compiler.h"
@@ -17,7 +18,10 @@
 static void lua_close_checked(lua_State* L)
 {
     if (L)
+    {
         lua_close(L);
+        releaseNativeModules(L);
+    }
 }
 
 Runtime::Runtime(LuteReporter& reporter)
