@@ -1,9 +1,9 @@
 local fs = require("@std/fs")
 local lockfile = require("../lockfile")
-local resolution = require("../resolution")
 local path = require("@std/path")
 local pp = require("@batteries/pp")
 local process = require("@std/process")
+local resolution = require("../resolution")
 
 local function printDiagnostics(lock: lockfile.Lockfile)
 	local depCount = 0
