@@ -35,7 +35,7 @@ end
 
 local function normalizePathDependency(
 	spec: manifest.DependencySpec,
-	installPath: string,
+	contextDir: string,
 	rootDirectory: string
 ): manifest.DependencySpec
 	-- normalization is a no-op if it's not a path dependency
@@ -43,7 +43,7 @@ local function normalizePathDependency(
 		return spec
 	end
 
-	local sourcePath = path.format(path.resolve(installPath, spec.source))
+	local sourcePath = path.format(path.resolve(contextDir, spec.source))
 	if not fs.exists(sourcePath) then
 		error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
 	end
