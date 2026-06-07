@@ -1,7 +1,7 @@
 local fs = require("@std/fs")
 local lockfile = require("./lockfile")
-local path = require("@std/path")
 local manifest = require("./manifest")
+local path = require("@std/path")
 local source = require("./source")
 local store = require("./store")
 
