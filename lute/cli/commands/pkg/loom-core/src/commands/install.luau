@@ -1,7 +1,5 @@
-local fs = require("@std/fs")
 local lockfile = require("../lockfile")
 local path = require("@std/path")
-local pp = require("@batteries/pp")
 local process = require("@std/process")
 local resolution = require("../resolution")
 
@@ -24,16 +22,11 @@ local function printDiagnostics(lock: lockfile.Lockfile)
 	end
 end
 
-local function getLockfilePath(directory: string): string
-	return `{directory}/loom.lock.luau`
-end
-
 local function install()
 	local rootDirectory = path.format(process.cwd())
 	local lock = resolution.resolve(rootDirectory)
 	printDiagnostics(lock)
-	local lockfilePath = getLockfilePath(rootDirectory)
-	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
+	lockfile.writeLockfile(lock, rootDirectory)
 end
 
 return install

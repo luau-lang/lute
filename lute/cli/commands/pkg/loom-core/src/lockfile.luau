@@ -1,5 +1,7 @@
+local fs = require("@std/fs")
 local luau = require("@std/luau")
 local manifest = require("./manifest")
+local pp = require("@batteries/pp")
 
 export type LockfileDependency = {
 	read name: string,
@@ -93,6 +95,17 @@ local function parseFile(lockfilePath: string): Lockfile
 	return parseLockfile(t)
 end
 
+local function getLockfilePath(directory: string): string
+	return `{directory}/loom.lock.luau`
+end
+
+local function writeLockfile(lock: Lockfile, directory: string)
+	local lockfilePath = getLockfilePath(directory)
+	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
+end
+
 return {
 	parseFile = parseFile,
+	getLockfilePath = getLockfilePath,
+	writeLockfile = writeLockfile,
 }
