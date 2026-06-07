@@ -1,9 +1,9 @@
 local fs = require("@std/fs")
-local github = require("./github")
 local lockfile = require("./lockfile")
 local path = require("@std/path")
 local pp = require("@batteries/pp")
 local manifest = require("./manifest")
+local source = require("./source")
 local store = require("./store")
 
 local function getManifestPath(directory: string): string
@@ -12,14 +12,6 @@ end
 
 local function getLockfilePath(directory: string): string
 	return `{directory}/loom.lock.luau`
-end
-
-local function getKey(spec: manifest.DependencySpec): string
-	if spec.sourceKind == "github" then
-		return `{spec.name}@{spec.rev}`
-	end
-
-	return spec.name
 end
 
 local function hasConflict(resolved: lockfile.LockfileDependency, incoming: manifest.DependencySpec): boolean
@@ -60,28 +52,6 @@ local function normalizePathDependency(
 	}) :: manifest.PathDependencySpec
 end
 
-local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string
-	if spec.sourceKind == "path" then
-		local sourcePath = path.format(path.resolve(rootDirectory, spec.source))
-		if not fs.exists(sourcePath) then
-			error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
-		end
-		return sourcePath
-	elseif spec.sourceKind == "github" then
-		store.ensureStoreDirectory()
-
-		local key = getKey(spec)
-		local sourcePath = store.getPackagePath(key)
-		if not store.hasPackage(key) then
-			github.installPackage(spec.source, spec.rev, sourcePath)
-		end
-
-		return sourcePath
-	else
-		error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
-	end
-end
-
 local function queueDependencies(
 	queue: { manifest.DependencySpec },
 	deps: { [string]: manifest.DependencySpec },
@@ -91,7 +61,7 @@ local function queueDependencies(
 	local aliases: { [string]: string } = {}
 	for alias, depSpec in deps do
 		local normalized = normalizePathDependency(depSpec, contextDir, rootDirectory)
-		aliases[alias] = getKey(normalized)
+		aliases[alias] = source.getKey(normalized)
 		table.insert(queue, normalized)
 	end
 	return aliases
@@ -135,7 +105,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	local nameIndex: { [string]: string } = {}
 
 	for _, spec in queue do
-		local key = getKey(spec)
+		local key = source.getKey(spec)
 
 		if packages[key] then
 			if hasConflict(packages[key], spec) then
@@ -166,7 +136,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 		local transitiveDependencies: { [string]: string } = {}
 
 		-- Download and install
-		local installPath = fetchSource(spec, rootDirectory)
+		local installPath = source.fetch(spec, rootDirectory)
 
 		-- Check for transitive dependencies
 		local nestedManifestPath = getManifestPath(installPath)
