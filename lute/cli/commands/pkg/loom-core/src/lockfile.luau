@@ -90,22 +90,31 @@ local function parseLockfile(t: any): Lockfile
 	return table.freeze(t)
 end
 
-local function parseFile(lockfilePath: string): Lockfile
+local function resolveLockfilePath(directory: string): string
+	return `{directory}/loom.lock.luau`
+end
+
+local function parseLockfileFile(directory: string): Lockfile
+	local lockfilePath = resolveLockfilePath(directory)
+	if not fs.exists(lockfilePath) then
+		error(`Lockfile not found at: {lockfilePath}`)
+	end
 	local t = luau.loadModule(lockfilePath)
 	return parseLockfile(t)
 end
 
-local function getLockfilePath(directory: string): string
-	return `{directory}/loom.lock.luau`
+local function renderLockfile(lock: Lockfile): string
+	return `return {pp(lock)}\n`
 end
 
 local function writeLockfile(lock: Lockfile, directory: string)
-	local lockfilePath = getLockfilePath(directory)
-	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
+	local lockfilePath = resolveLockfilePath(directory)
+	fs.writeStringToFile(lockfilePath, renderLockfile(lock))
 end
 
 return {
-	parseFile = parseFile,
-	getLockfilePath = getLockfilePath,
+	resolveLockfilePath = resolveLockfilePath,
+	parseLockfile = parseLockfileFile,
+	renderLockfile = renderLockfile,
 	writeLockfile = writeLockfile,
 }

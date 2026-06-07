@@ -5,18 +5,6 @@ local path = require("@std/path")
 local source = require("./source")
 local store = require("./store")
 
-local function getManifestPath(directory: string): string
-	return `{directory}/loom.config.luau`
-end
-
-local function loadProjectManifest(directory: string): manifest.ProjectManifest
-	local manifestPath = getManifestPath(directory)
-	if not fs.exists(manifestPath) then
-		error(`Manifest not found at: {manifestPath}`)
-	end
-	return manifest.parseFile(manifestPath)
-end
-
 local function hasConflict(resolved: lockfile.LockfileDependency, incoming: manifest.DependencySpec): boolean
 	if resolved.sourceKind ~= incoming.sourceKind then
 		return true
@@ -86,7 +74,7 @@ local function seedWorkspaceMembers(
 	local members: { [string]: lockfile.LockfileMember } = {}
 	for _, memberPath in rootManifest.workspace do
 		local memberDir = path.format(path.resolve(rootDirectory, memberPath))
-		local memberManifest = loadProjectManifest(memberDir)
+		local memberManifest = manifest.parseManifest(memberDir)
 		local memberName = memberManifest.package.name
 		if members[memberName] then
 			error(
@@ -115,19 +103,19 @@ local function processSpec(
 	rootDirectory: string
 ): (string, { [string]: string })
 	local installPath = source.fetch(spec, rootDirectory)
-	local nestedManifestPath = getManifestPath(installPath)
+	local nestedManifestPath = manifest.resolveManifestPath(installPath)
 
 	if not fs.exists(nestedManifestPath) then
 		return installPath, table.freeze({} :: { [string]: string })
 	end
 
-	local depManifest = manifest.parseFile(nestedManifestPath)
+	local depManifest = manifest.parseManifest(nestedManifestPath)
 	if depManifest.workspace ~= nil and spec.name ~= depManifest.package.name then
 		local memberNames: { [string]: string } = {}
 
 		for _, memberPath in depManifest.workspace do
 			local memberDir = path.format(path.resolve(path.dirname(nestedManifestPath), memberPath))
-			local memberManifest = loadProjectManifest(memberDir)
+			local memberManifest = manifest.parseManifest(memberDir)
 
 			local memberName = memberManifest.package.name
 			if memberNames[memberName] then
@@ -216,7 +204,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	local packages: { [string]: lockfile.LockfileDependency } = {}
 	local nameIndex: { [string]: string } = {}
 
-	local rootManifest = loadProjectManifest(rootDirectory)
+	local rootManifest = manifest.parseManifest(rootDirectory)
 	local dependencies = queueDependencies(queue, rootManifest.package.dependencies, rootDirectory, rootDirectory)
 	local members = seedWorkspaceMembers(rootManifest, rootDirectory, queue, nameIndex)
 
