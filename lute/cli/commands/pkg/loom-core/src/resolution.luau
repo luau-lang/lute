@@ -76,6 +76,8 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	local lockfilePath = getLockfilePath(rootDirectory)
 
 	local queue: { manifest.DependencySpec } = {}
+	local packages: { [string]: lockfile.LockfileDependency } = {}
+	local nameIndex: { [string]: string } = {}
 
 	local rootManifest = manifest.parseFile(rootManifestPath)
 	local dependencies = queueDependencies(queue, rootManifest.package.dependencies, rootDirectory, rootDirectory)
@@ -92,17 +94,23 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 				error(`Workspace member manifest not found: {memberManifestPath}`)
 			end
 			local memberManifest = manifest.parseFile(memberManifestPath)
+			local memberName = memberManifest.package.name
+			if m[memberName] then
+				error(
+					`Duplicate workspace member name '{memberName}':\n`
+						.. `  {m[memberName].path}\n`
+						.. `  {memberPath}`
+				)
+			end
 			local memberDeps = queueDependencies(queue, memberManifest.package.dependencies, memberDir, rootDirectory)
-			m[memberManifest.package.name] = table.freeze({
+			m[memberName] = table.freeze({
 				path = memberPath,
 				dependencies = table.freeze(memberDeps),
 			})
+			nameIndex[memberName] = memberName
 		end
 		members = table.freeze(m)
 	end
-
-	local packages: { [string]: lockfile.LockfileDependency } = {}
-	local nameIndex: { [string]: string } = {}
 
 	for _, spec in queue do
 		local key = source.getKey(spec)
@@ -178,7 +186,8 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 				end
 			end
 
-			transitiveDependencies = queueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
+			transitiveDependencies =
+				queueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
 		end
 
 		table.freeze(transitiveDependencies)
