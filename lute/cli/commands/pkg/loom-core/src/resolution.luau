@@ -179,7 +179,7 @@ local function processSpecQueue(
 			sourceKind = spec.sourceKind,
 			installPath = if spec.sourceKind == "path"
 				then path.format(path.relative(rootDirectory, installPath))
-				else store.toStorePath(getKey(spec)),
+				else store.toStorePath(key),
 			dependencies = transitiveDependencies,
 		})
 	end
