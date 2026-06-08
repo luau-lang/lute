@@ -92,8 +92,8 @@ local function parseManifest(t: unknown): ProjectManifest
 				}) :: GitHubDependencySpec
 			end
 		end
-		table.freeze(dependencies)
 	end
+	table.freeze(dependencies)
 
 	local workspace = (t :: any).workspace
 	if workspace ~= nil then
