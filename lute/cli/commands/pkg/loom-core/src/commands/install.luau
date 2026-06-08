@@ -13,10 +13,8 @@ local function printDiagnostics(lock: lockfile.Lockfile)
 	for _, key in lock.dependencies do
 		local transitive = 0
 		local pkg = lock.packages[key]
-		if pkg then
-			for _ in pkg.dependencies do
-				transitive += 1
-			end
+		for _ in pkg.dependencies do
+			transitive += 1
 		end
 		print(`  {key} ({pkg.sourceKind}, {transitive} dep(s))`)
 	end
