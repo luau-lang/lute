@@ -51,7 +51,7 @@ local function normalizePathDependency(
 	})
 end
 
-local function queueDependencies(
+local function enqueueDependencies(
 	queue: { manifest.DependencySpec },
 	deps: { [string]: manifest.DependencySpec },
 	contextDir: string,
@@ -71,9 +71,9 @@ end
 -- registered in nameIndex so a member and a path dep can't both claim the same
 -- name without the main loop catching it.
 local function seedWorkspaceMembers(
+	queue: { manifest.DependencySpec },
 	rootManifest: manifest.ProjectManifest,
 	rootDirectory: string,
-	queue: { manifest.DependencySpec },
 	nameIndex: { [string]: string }
 ): { [string]: lockfile.LockfileMember }?
 	if rootManifest.workspace == nil then
@@ -91,7 +91,7 @@ local function seedWorkspaceMembers(
 					.. `  {memberPath}`
 			)
 		end
-		local memberDeps = queueDependencies(queue, memberManifest.package.dependencies, memberDir, rootDirectory)
+		local memberDeps = enqueueDependencies(queue, memberManifest.package.dependencies, memberDir, rootDirectory)
 		members[memberName] = table.freeze({
 			path = memberPath,
 			dependencies = memberDeps,
@@ -147,7 +147,7 @@ local function processWorkspaceMembers(depManifest: manifest.ProjectManifest, ne
 				depManifest = memberManifest
 			end
 
-			queueDependencies(queue, memberManifest.package.dependencies, memberDir, rootDirectory)
+			enqueueDependencies(queue, memberManifest.package.dependencies, memberDir, rootDirectory)
 		end
 
 		if spec.name ~= depManifest.package.name and not memberNames[spec.name] then
@@ -173,7 +173,7 @@ local function processSpec(
 
 	local depManifest = manifest.parseManifest(nestedManifestPath)
 	processWorkspaceMembers(depManifest, nestedManifestPath, installPath, rootDirectory, spec, queue)
-	local transitiveDependencies = queueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
+	local transitiveDependencies = enqueueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
 	return installPath, transitiveDependencies
 end
 
@@ -230,14 +230,8 @@ local function shouldDeduplicate(
 	return false
 end
 
-local function resolve(rootDirectory: string): lockfile.Lockfile
-	local queue: { manifest.DependencySpec } = {}
+local function processDependencyQueue(queue: { manifest.DependencySpec }, rootDirectory: string, nameIndex: { [string]: string }): { [string]: lockfile.LockfileDependency }
 	local packages: { [string]: lockfile.LockfileDependency } = {}
-	local nameIndex: { [string]: string } = {}
-
-	local rootManifest = manifest.parseManifest(rootDirectory)
-	local dependencies = queueDependencies(queue, rootManifest.package.dependencies, rootDirectory, rootDirectory)
-	local members = seedWorkspaceMembers(rootManifest, rootDirectory, queue, nameIndex)
 
 	for _, spec in queue do
 		local key = getKey(spec)
@@ -248,7 +242,22 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 		packages[key] = makeLockfileDependency(spec, installPath, rootDirectory, transitiveDependencies)
 	end
 
-	table.freeze(packages)
+	-- "destory" queue
+	table.clear(queue)
+	table.freeze(queue)
+
+	return table.freeze(packages)
+end
+
+local function resolve(rootDirectory: string): lockfile.Lockfile
+	local queue: { manifest.DependencySpec } = {}
+	local nameIndex: { [string]: string } = {}
+
+	local rootManifest = manifest.parseManifest(rootDirectory)
+
+	local dependencies = enqueueDependencies(queue, rootManifest.package.dependencies, rootDirectory, rootDirectory)
+	local members = seedWorkspaceMembers(queue, rootManifest, rootDirectory, nameIndex)
+	local packages = processDependencyQueue(queue, rootDirectory, nameIndex)
 
 	return table.freeze({
 		version = 3,
