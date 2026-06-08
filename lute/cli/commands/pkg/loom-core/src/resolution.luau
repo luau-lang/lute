@@ -9,6 +9,7 @@ local function getKey(spec: manifest.DependencySpec): string
 	if spec.sourceKind == "github" then
 		return `{spec.name}@{spec.rev}`
 	end
+
 	return spec.name
 end
 
