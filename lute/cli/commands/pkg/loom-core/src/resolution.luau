@@ -66,15 +66,11 @@ local function enqueueDependencies(
 	return table.freeze(aliases)
 end
 
--- Builds the lockfile members map and queues each member's deps onto the shared
--- queue. Returns nil if the project has no workspace declaration. Members are
--- registered in nameIndex so a member and a path dep can't both claim the same
--- name without the main loop catching it.
 local function seedWorkspaceMembers(
 	queue: { manifest.DependencySpec },
-	rootManifest: manifest.ProjectManifest,
+	nameIndex: { [string]: string },
 	rootDirectory: string,
-	nameIndex: { [string]: string }
+	rootManifest: manifest.ProjectManifest
 ): { [string]: lockfile.LockfileMember }?
 	if rootManifest.workspace == nil then
 		return nil
@@ -123,78 +119,6 @@ local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string)
 	end
 end
 
-local function processWorkspaceMembers(depManifest: manifest.ProjectManifest, nestedManifestPath: string, installPath: string, rootDirectory: string, spec: manifest.DependencySpec, queue: { manifest.DependencySpec })
-	if depManifest.workspace ~= nil and spec.name ~= depManifest.package.name then
-		local memberNames: { [string]: string } = {}
-
-		for _, memberPath in depManifest.workspace do
-			local memberDir = path.format(path.resolve(path.dirname(nestedManifestPath), memberPath))
-			local memberManifest = manifest.parseManifest(memberDir)
-
-			local memberName = memberManifest.package.name
-			if memberNames[memberName] then
-				error(
-					`Duplicate workspace member name '{memberName}':\n`
-						.. `  {memberNames[memberName]}\n`
-						.. `  {memberPath}`
-				)
-			end
-			memberNames[memberName] = memberPath
-
-			-- resolve to the member package
-			if spec.name == memberName then
-				installPath = memberDir
-				depManifest = memberManifest
-			end
-
-			enqueueDependencies(queue, memberManifest.package.dependencies, memberDir, rootDirectory)
-		end
-
-		if spec.name ~= depManifest.package.name and not memberNames[spec.name] then
-			error(`Package '{spec.name}' not found in workspace at '{installPath}'`)
-		end
-	end
-end
-
--- Fetches a spec's source, parses any nested manifest, and queues its transitive
--- deps. Returns the (possibly redirected, when a github source turns out to be a
--- workspace whose member we wanted) install path and the frozen alias→key map
--- of transitive deps queued.
-local function processSpec(
-	spec: manifest.DependencySpec,
-	queue: { manifest.DependencySpec },
-	rootDirectory: string
-): (string, { [string]: string })
-	local installPath = fetchSource(spec, rootDirectory)
-	local nestedManifestPath = manifest.resolveManifestPath(installPath)
-	if not fs.exists(nestedManifestPath) then
-		return installPath, table.freeze({} :: { [string]: string })
-	end
-
-	local depManifest = manifest.parseManifest(nestedManifestPath)
-	processWorkspaceMembers(depManifest, nestedManifestPath, installPath, rootDirectory, spec, queue)
-	local transitiveDependencies = enqueueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
-	return installPath, transitiveDependencies
-end
-
-local function makeLockfileDependency(
-	spec: manifest.DependencySpec,
-	installPath: string,
-	rootDirectory: string,
-	transitiveDependencies: { [string]: string }
-): lockfile.LockfileDependency
-	return table.freeze({
-		name = spec.name,
-		rev = if spec.sourceKind == "github" then spec.rev else nil,
-		source = spec.source,
-		sourceKind = spec.sourceKind,
-		installPath = if spec.sourceKind == "path"
-			then path.format(path.relative(rootDirectory, installPath))
-			else store.toStorePath(getKey(spec)),
-		dependencies = transitiveDependencies,
-	})
-end
-
 local function shouldDeduplicate(
 	key: string,
 	spec: manifest.DependencySpec,
@@ -230,7 +154,11 @@ local function shouldDeduplicate(
 	return false
 end
 
-local function processDependencyQueue(queue: { manifest.DependencySpec }, rootDirectory: string, nameIndex: { [string]: string }): { [string]: lockfile.LockfileDependency }
+local function processSpecQueue(
+	queue: { manifest.DependencySpec },
+	nameIndex: { [string]: string },
+	rootDirectory: string
+): { [string]: lockfile.LockfileDependency }
 	local packages: { [string]: lockfile.LockfileDependency } = {}
 
 	for _, spec in queue do
@@ -238,8 +166,22 @@ local function processDependencyQueue(queue: { manifest.DependencySpec }, rootDi
 		if shouldDeduplicate(key, spec, packages, nameIndex) then
 			continue
 		end
-		local installPath, transitiveDependencies = processSpec(spec, queue, rootDirectory)
-		packages[key] = makeLockfileDependency(spec, installPath, rootDirectory, transitiveDependencies)
+
+		local installPath = fetchSource(spec, rootDirectory)
+		local depManifest = manifest.parseManifest(installPath)
+		local transitiveDependencies =
+			enqueueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
+
+		packages[key] = table.freeze({
+			name = spec.name,
+			rev = if spec.sourceKind == "github" then spec.rev else nil,
+			source = spec.source,
+			sourceKind = spec.sourceKind,
+			installPath = if spec.sourceKind == "path"
+				then path.format(path.relative(rootDirectory, installPath))
+				else store.toStorePath(getKey(spec)),
+			dependencies = transitiveDependencies,
+		})
 	end
 
 	-- "destory" queue
@@ -256,8 +198,8 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	local rootManifest = manifest.parseManifest(rootDirectory)
 
 	local dependencies = enqueueDependencies(queue, rootManifest.package.dependencies, rootDirectory, rootDirectory)
-	local members = seedWorkspaceMembers(queue, rootManifest, rootDirectory, nameIndex)
-	local packages = processDependencyQueue(queue, rootDirectory, nameIndex)
+	local members = seedWorkspaceMembers(queue, nameIndex, rootDirectory, rootManifest)
+	local packages = processSpecQueue(queue, nameIndex, rootDirectory)
 
 	return table.freeze({
 		version = 3,
