@@ -1,9 +1,16 @@
 local fs = require("@std/fs")
+local github = require("./github")
 local lockfile = require("./lockfile")
 local manifest = require("./manifest")
 local path = require("@std/path")
-local source = require("./source")
 local store = require("./store")
+
+local function getKey(spec: manifest.DependencySpec): string
+	if spec.sourceKind == "github" then
+		return `{spec.name}@{spec.rev}`
+	end
+	return spec.name
+end
 
 local function hasConflict(resolved: lockfile.LockfileDependency, incoming: manifest.DependencySpec): boolean
 	if resolved.sourceKind ~= incoming.sourceKind then
@@ -52,7 +59,7 @@ local function queueDependencies(
 	local aliases: { [string]: string } = {}
 	for alias, depSpec in deps do
 		local normalized = normalizePathDependency(depSpec, contextDir, rootDirectory)
-		aliases[alias] = source.getKey(normalized)
+		aliases[alias] = getKey(normalized)
 		table.insert(queue, normalized)
 	end
 	return table.freeze(aliases)
@@ -93,23 +100,29 @@ local function seedWorkspaceMembers(
 	return table.freeze(members)
 end
 
--- Fetches a spec's source, parses any nested manifest, and queues its transitive
--- deps. Returns the (possibly redirected, when a github source turns out to be a
--- workspace whose member we wanted) install path and the frozen alias→key map
--- of transitive deps queued.
-local function processSpec(
-	spec: manifest.DependencySpec,
-	queue: { manifest.DependencySpec },
-	rootDirectory: string
-): (string, { [string]: string })
-	local installPath = source.fetch(spec, rootDirectory)
-	local nestedManifestPath = manifest.resolveManifestPath(installPath)
+local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string
+	if spec.sourceKind == "path" then
+		local sourcePath = path.format(path.resolve(rootDirectory, spec.source))
+		if not fs.exists(sourcePath) then
+			error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
+		end
+		return sourcePath
+	elseif spec.sourceKind == "github" then
+		store.ensureStoreDirectory()
 
-	if not fs.exists(nestedManifestPath) then
-		return installPath, table.freeze({} :: { [string]: string })
+		local key = getKey(spec)
+		local sourcePath = store.getPackagePath(key)
+		if not store.hasPackage(key) then
+			github.installPackage(spec.source, spec.rev, sourcePath)
+		end
+
+		return sourcePath
+	else
+		error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
 	end
+end
 
-	local depManifest = manifest.parseManifest(nestedManifestPath)
+local function processWorkspaceMembers(depManifest: manifest.ProjectManifest, nestedManifestPath: string, installPath: string, rootDirectory: string, spec: manifest.DependencySpec, queue: { manifest.DependencySpec })
 	if depManifest.workspace ~= nil and spec.name ~= depManifest.package.name then
 		local memberNames: { [string]: string } = {}
 
@@ -140,9 +153,26 @@ local function processSpec(
 			error(`Package '{spec.name}' not found in workspace at '{installPath}'`)
 		end
 	end
+end
 
-	local transitiveDependencies =
-		queueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
+-- Fetches a spec's source, parses any nested manifest, and queues its transitive
+-- deps. Returns the (possibly redirected, when a github source turns out to be a
+-- workspace whose member we wanted) install path and the frozen alias→key map
+-- of transitive deps queued.
+local function processSpec(
+	spec: manifest.DependencySpec,
+	queue: { manifest.DependencySpec },
+	rootDirectory: string
+): (string, { [string]: string })
+	local installPath = fetchSource(spec, rootDirectory)
+	local nestedManifestPath = manifest.resolveManifestPath(installPath)
+	if not fs.exists(nestedManifestPath) then
+		return installPath, table.freeze({} :: { [string]: string })
+	end
+
+	local depManifest = manifest.parseManifest(nestedManifestPath)
+	processWorkspaceMembers(depManifest, nestedManifestPath, installPath, rootDirectory, spec, queue)
+	local transitiveDependencies = queueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
 	return installPath, transitiveDependencies
 end
 
@@ -159,7 +189,7 @@ local function makeLockfileDependency(
 		sourceKind = spec.sourceKind,
 		installPath = if spec.sourceKind == "path"
 			then path.format(path.relative(rootDirectory, installPath))
-			else store.toStorePath(source.getKey(spec)),
+			else store.toStorePath(getKey(spec)),
 		dependencies = transitiveDependencies,
 	})
 end
@@ -209,7 +239,7 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	local members = seedWorkspaceMembers(rootManifest, rootDirectory, queue, nameIndex)
 
 	for _, spec in queue do
-		local key = source.getKey(spec)
+		local key = getKey(spec)
 		if shouldDeduplicate(key, spec, packages, nameIndex) then
 			continue
 		end
@@ -219,14 +249,12 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 
 	table.freeze(packages)
 
-	local lock: lockfile.Lockfile = table.freeze({
+	return table.freeze({
 		version = 3,
 		members = members,
 		packages = packages,
 		dependencies = dependencies,
 	})
-
-	return lock
 end
 
 return {
