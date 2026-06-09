@@ -211,7 +211,7 @@ test.suite("RegistryResolution", function(suite)
 			},
 		}
 
-		assert.throwsWith("  >=3.0.0 <4.0.0  (required by root)", function()
+		assert.throwsWith("  >=3.0.0 <4.0.0  (required by citrus)", function()
 			resolution.resolve(path.format(workingDirectory), universe)
 		end)
 	end)

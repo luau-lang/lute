@@ -106,6 +106,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 			registryRoots[depAlias] = {
 				name = depSpec.name,
 				constraint = semver.parseConstraint(depSpec.version),
+				requiredBy = depAlias,
 			}
 			continue
 		end
