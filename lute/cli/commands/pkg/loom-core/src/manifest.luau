@@ -72,7 +72,7 @@ local function parseManifest(t: unknown): ProjectManifest
 			)
 			assert(
 				isSourceKind(spec.sourceKind),
-				`Expected 'sourceKind' to be 'path' or 'github' in dependency spec for '{name}', got '{spec.sourceKind}'`
+				`Expected 'sourceKind' to be 'path', 'github', or 'registry' in dependency spec for '{name}', got '{spec.sourceKind}'`
 			)
 			assert(
 				spec.source ~= nil and typeof(spec.source) == "string",
