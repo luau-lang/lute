@@ -250,6 +250,46 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.1.0"].sourceKind, "registry")
 	end)
 
+	suite:case("transitiveDepsFromPathPackageAreResolved", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+		writeConfig(
+			libDir,
+			"lib",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^2.0.0",
+			},]]
+		)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "2.1.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.neq(lock.packages["lib"], nil)
+		assert.eq(lock.packages["lib"].sourceKind, "path")
+		assert.neq(lock.packages["citrus@2.1.0"], nil)
+		assert.eq(lock.packages["lib"].dependencies.citrus, "citrus@2.1.0")
+	end)
+
 	suite:case("writesLockfileToDisk", function(assert)
 		writeConfig(
 			workingDirectory,

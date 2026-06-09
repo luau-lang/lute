@@ -98,6 +98,8 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 
 	local rootManifest = manifest.parseFile(rootManifestPath)
 	local registryRoots: { [string]: semver.Requirement } = {}
+	local transitiveRegistryRequirements: { [string]: semver.Requirement } = {}
+	local transitiveRegistryDeps: { [string]: { [string]: string } } = {}
 
 	for depAlias, depSpec in rootManifest.package.dependencies do
 		if depSpec.sourceKind == "registry" then
@@ -157,6 +159,20 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 			for depAlias, depSpec in depManifest.package.dependencies do
 				-- Normalize transitive path dep sources to be rootDirectory-relative
 				local normalizedSpec = normalizePathDependency(depSpec, installPath, rootDirectory)
+
+				if normalizedSpec.sourceKind == "registry" then
+					transitiveRegistryRequirements[`{key}:{depAlias}`] = {
+						name = normalizedSpec.name,
+						constraint = semver.parseConstraint(normalizedSpec.version),
+						requiredBy = key,
+					}
+					if not transitiveRegistryDeps[key] then
+						transitiveRegistryDeps[key] = {}
+					end
+					transitiveRegistryDeps[key][depAlias] = normalizedSpec.name
+					continue
+				end
+
 				transitiveDependencies[depAlias] = getKey(normalizedSpec)
 				table.insert(queue, normalizedSpec)
 			end
@@ -177,10 +193,15 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 	end
 
 	-- Phase 2: resolve registry deps via the semver solver
-	if next(registryRoots) ~= nil then
+	if next(registryRoots) ~= nil or next(transitiveRegistryRequirements) ~= nil then
 		assert(universe ~= nil, "Registry dependencies require a universe to be provided")
 
-		local resolution = semver.solve(universe, registryRoots)
+		local solverInputs = table.clone(registryRoots)
+		for k, v in transitiveRegistryRequirements do
+			solverInputs[k] = v
+		end
+
+		local resolution = semver.solve(universe, solverInputs)
 
 		for name, pkgVersion in resolution do
 			local key = `{name}@{pkgVersion.versionString}`
@@ -200,6 +221,27 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 				sourceKind = "registry",
 				installPath = store.toStorePath(key),
 				dependencies = transitiveDependencies,
+			} :: lockfile.LockfileDependency)
+		end
+
+		-- Back-fill transitive registry dep keys into phase-1 package entries now that versions are known.
+		for pkgKey, pendingDeps in transitiveRegistryDeps do
+			local entry = packages[pkgKey]
+			local updatedDeps = table.clone(entry.dependencies)
+
+			for depAlias, registryName in pendingDeps do
+				local pkgVersion = resolution[registryName]
+				assert(pkgVersion ~= nil, `Solver did not resolve transitive registry dep '{registryName}'`)
+				updatedDeps[depAlias] = `{registryName}@{pkgVersion.versionString}`
+			end
+
+			packages[pkgKey] = table.freeze({
+				name = entry.name,
+				rev = entry.rev,
+				source = entry.source,
+				sourceKind = entry.sourceKind,
+				installPath = entry.installPath,
+				dependencies = table.freeze(updatedDeps),
 			} :: lockfile.LockfileDependency)
 		end
 
