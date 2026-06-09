@@ -314,6 +314,67 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["lib"].dependencies.citrus, "citrus@2.1.0")
 	end)
 
+	suite:case("aliasCanDifferFromPackageName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			mylib = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.2.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.mylib, "citrus@1.2.0")
+		assert.neq(lock.packages["citrus@1.2.0"], nil)
+		assert.eq(lock.packages["citrus@1.2.0"].name, "citrus")
+	end)
+
+	suite:case("conflictMessageAttributesConstraintsToAliases", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+			lime = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "citrus",
+				version = "^2.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+				namedVersion("citrus", "2.0.0"),
+			},
+		}
+
+		local ok = xpcall(resolution.resolve, function(msg)
+			assert.strContains(msg, "required by lemon")
+			assert.strContains(msg, "required by lime")
+		end, path.format(workingDirectory), universe)
+		assert.that(not ok)
+	end)
+
 	suite:case("writesLockfileToDisk", function(assert)
 		writeConfig(
 			workingDirectory,
