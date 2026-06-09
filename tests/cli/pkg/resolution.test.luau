@@ -105,6 +105,30 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(entry.installPath, "@pkg/citrus@1.2.0")
 	end)
 
+	suite:case("lockfileEntryPreservesSourceWhenDifferentFromName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus/citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.packages["citrus@1.0.0"].source, "citrus/citrus")
+	end)
+
 	suite:case("resolvesTransitiveDeps", function(assert)
 		writeConfig(
 			workingDirectory,

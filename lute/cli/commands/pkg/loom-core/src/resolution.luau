@@ -100,6 +100,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 	local registryRoots: { [string]: semver.Requirement } = {}
 	local transitiveRegistryRequirements: { [string]: semver.Requirement } = {}
 	local transitiveRegistryDeps: { [string]: { [string]: string } } = {}
+	local registrySources: { [string]: string } = {}
 
 	for depAlias, depSpec in rootManifest.package.dependencies do
 		if depSpec.sourceKind == "registry" then
@@ -108,6 +109,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 				constraint = semver.parseConstraint(depSpec.version),
 				requiredBy = depAlias,
 			}
+			registrySources[depSpec.name] = depSpec.source
 			continue
 		end
 
@@ -167,6 +169,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 						constraint = semver.parseConstraint(normalizedSpec.version),
 						requiredBy = key,
 					}
+					registrySources[normalizedSpec.name] = normalizedSpec.source
 					if not transitiveRegistryDeps[key] then
 						transitiveRegistryDeps[key] = {}
 					end
@@ -218,7 +221,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 			packages[key] = table.freeze({
 				name = name,
 				rev = pkgVersion.versionString,
-				source = name,
+				source = registrySources[name] or name,
 				sourceKind = "registry",
 				installPath = store.toStorePath(key),
 				dependencies = transitiveDependencies,
