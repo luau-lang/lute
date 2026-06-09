@@ -4,6 +4,7 @@ local lockfile = require("./lockfile")
 local path = require("@std/path")
 local pp = require("@batteries/pp")
 local manifest = require("./manifest")
+local semver = require("./semver")
 local store = require("./store")
 
 local function getManifestPath(directory: string): string
@@ -82,7 +83,7 @@ local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string)
 	end
 end
 
-local function resolve(rootDirectory: string): lockfile.Lockfile
+local function resolve(rootDirectory: string, universe: semver.Universe?): lockfile.Lockfile
 	local rootManifestPath = getManifestPath(rootDirectory)
 	if not fs.exists(rootManifestPath) then
 		error(`Manifest file not found: {rootManifestPath}`)
@@ -96,7 +97,17 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 	local packages: { [string]: lockfile.LockfileDependency } = {}
 
 	local rootManifest = manifest.parseFile(rootManifestPath)
+	local registryRoots: { [string]: semver.Requirement } = {}
+
 	for depAlias, depSpec in rootManifest.package.dependencies do
+		if depSpec.sourceKind == "registry" then
+			registryRoots[depAlias] = {
+				name = depSpec.name,
+				constraint = semver.parseConstraint(depSpec.version),
+			}
+			continue
+		end
+
 		dependencies[depAlias] = getKey(depSpec)
 		table.insert(queue, depSpec)
 	end
@@ -163,6 +174,43 @@ local function resolve(rootDirectory: string): lockfile.Lockfile
 				else store.toStorePath(key),
 			dependencies = transitiveDependencies,
 		})
+	end
+
+	-- Phase 2: resolve registry deps via the semver solver
+	if next(registryRoots) ~= nil then
+		assert(universe ~= nil, "Registry dependencies require a universe to be provided")
+
+		local resolution = semver.solve(universe, registryRoots)
+
+		for name, pkgVersion in resolution do
+			local key = `{name}@{pkgVersion.versionString}`
+
+			local transitiveDependencies: { [string]: string } = {}
+			for alias, dep in pkgVersion.dependencies do
+				local depPkgVersion = resolution[dep.name]
+				assert(depPkgVersion ~= nil, `Solver produced an incomplete resolution: missing '{dep.name}'`)
+				transitiveDependencies[alias] = `{dep.name}@{depPkgVersion.versionString}`
+			end
+			table.freeze(transitiveDependencies)
+
+			packages[key] = table.freeze({
+				name = name,
+				rev = pkgVersion.versionString,
+				source = name,
+				sourceKind = "registry",
+				installPath = store.toStorePath(key),
+				dependencies = transitiveDependencies,
+			} :: lockfile.LockfileDependency)
+		end
+
+		-- Write root-level registry dependency aliases now that versions are resolved
+		local mutableDependencies = table.clone(dependencies)
+		for alias, req in registryRoots do
+			local pkgVersion = resolution[req.name]
+			assert(pkgVersion ~= nil, `Solver did not resolve root dependency '{req.name}'`)
+			mutableDependencies[alias] = `{req.name}@{pkgVersion.versionString}`
+		end
+		dependencies = table.freeze(mutableDependencies)
 	end
 
 	table.freeze(packages)

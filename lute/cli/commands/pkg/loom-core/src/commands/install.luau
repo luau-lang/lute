@@ -24,7 +24,7 @@ end
 
 local function install()
 	local rootDirectory = path.format(process.cwd())
-	local lock = resolution.resolve(rootDirectory)
+	local lock = resolution.resolve(rootDirectory, nil)
 	printDiagnostics(lock)
 end
 

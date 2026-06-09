@@ -1,6 +1,6 @@
 local luau = require("@std/luau")
 
-export type SourceKind = "path" | "github"
+export type SourceKind = "path" | "github" | "registry"
 
 export type PathDependencySpec = {
 	read sourceKind: "path",
@@ -15,7 +15,14 @@ export type GitHubDependencySpec = {
 	read rev: string,
 }
 
-export type DependencySpec = PathDependencySpec | GitHubDependencySpec
+export type RegistryDependencySpec = {
+	read sourceKind: "registry",
+	read name: string,
+	read source: string,
+	read version: string,
+}
+
+export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec
 
 export type PackageManifest = {
 	read name: string,
@@ -28,7 +35,7 @@ export type ProjectManifest = {
 }
 
 local function isSourceKind(s: unknown): boolean
-	return s == "path" or s == "github"
+	return s == "path" or s == "github" or s == "registry"
 end
 
 local function parseSourceKind(s: unknown): SourceKind?
@@ -88,6 +95,19 @@ local function parseManifest(t: unknown): ProjectManifest
 					source = spec.source,
 					rev = spec.rev,
 				}) :: GitHubDependencySpec
+			end
+
+			if spec.sourceKind == "registry" then
+				assert(
+					typeof(spec.version) == "string",
+					`Expected 'version' field for registry dependency '{name}'`
+				)
+				dependencies[name] = table.freeze({
+					name = spec.name or name,
+					sourceKind = "registry",
+					source = spec.source,
+					version = spec.version,
+				}) :: RegistryDependencySpec
 			end
 		end
 		table.freeze(dependencies)
