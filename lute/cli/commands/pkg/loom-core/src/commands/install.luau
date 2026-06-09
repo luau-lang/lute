@@ -1,4 +1,6 @@
+local fs = require("@std/fs")
 local lockfile = require("../lockfile")
+local manifest = require("../manifest")
 local resolution = require("../resolution")
 local path = require("@std/path")
 local process = require("@std/process")
@@ -24,6 +26,17 @@ end
 
 local function install()
 	local rootDirectory = path.format(process.cwd())
+	local manifestPath = `{rootDirectory}/loom.config.luau`
+
+	if fs.exists(manifestPath) then
+		local rootManifest = manifest.parseFile(manifestPath)
+		for _, depSpec in rootManifest.package.dependencies do
+			if depSpec.sourceKind == "registry" then
+				error("Registry dependencies are not yet supported by the install command")
+			end
+		end
+	end
+
 	local lock = resolution.resolve(rootDirectory, nil)
 	printDiagnostics(lock)
 end
