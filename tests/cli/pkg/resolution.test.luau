@@ -17,11 +17,7 @@ local function writeConfig(dir: path.Path, name: string, deps: string)
 	)
 end
 
-local function namedVersion(
-	name: string,
-	vstr: string,
-	deps: { [string]: solver.Requirement }?
-): solver.PackageVersion
+local function namedVersion(name: string, vstr: string, deps: { [string]: solver.Requirement }?): solver.PackageVersion
 	local v = parser.parse(vstr)
 	return table.freeze({
 		name = name,

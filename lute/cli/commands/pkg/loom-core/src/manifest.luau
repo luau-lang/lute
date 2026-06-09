@@ -98,10 +98,7 @@ local function parseManifest(t: unknown): ProjectManifest
 			end
 
 			if spec.sourceKind == "registry" then
-				assert(
-					typeof(spec.version) == "string",
-					`Expected 'version' field for registry dependency '{name}'`
-				)
+				assert(typeof(spec.version) == "string", `Expected 'version' field for registry dependency '{name}'`)
 				dependencies[name] = table.freeze({
 					name = spec.name or name,
 					sourceKind = "registry",

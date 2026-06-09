@@ -92,34 +92,37 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 	local lockfilePath = getLockfilePath(rootDirectory)
 
 	local queue: { manifest.DependencySpec } = {}
-
 	local dependencies: { [string]: string } = {}
 	local packages: { [string]: lockfile.LockfileDependency } = {}
+	local nameIndex: { [string]: string } = {}
+
+	-- All registry solver inputs: root-level dependencies keyed by alias, transitive by "{pkgKey}:{dependencyAlias}".
+	local registryRequirements: { [string]: semver.Requirement } = {}
+	local registrySources: { [string]: string } = {}
+	-- Root aliases that need a resolved key written back into `dependencies` after solving.
+	local rootRegistryAliases: { string } = {}
+	-- Per-package registry aliases that need keys written into their dependency table after solving.
+	local unresolvedRegistryDependencies: { [string]: { [string]: string } } = {}
+	-- Open (not yet finalized) dependency maps for unversioned packages; registry entries are filled in during versioned resolution.
+	local openDependencies: { [string]: { [string]: string } } = {}
 
 	local rootManifest = manifest.parseFile(rootManifestPath)
-	local registryRoots: { [string]: semver.Requirement } = {}
-	local transitiveRegistryRequirements: { [string]: semver.Requirement } = {}
-	local transitiveRegistryDeps: { [string]: { [string]: string } } = {}
-	local registrySources: { [string]: string } = {}
 
-	for depAlias, depSpec in rootManifest.package.dependencies do
-		if depSpec.sourceKind == "registry" then
-			registryRoots[depAlias] = {
-				name = depSpec.name,
-				constraint = semver.parseConstraint(depSpec.version),
-				requiredBy = depAlias,
+	for dependencyAlias, dependencySpec in rootManifest.package.dependencies do
+		if dependencySpec.sourceKind == "registry" then
+			registryRequirements[dependencyAlias] = {
+				name = dependencySpec.name,
+				constraint = semver.parseConstraint(dependencySpec.version),
+				requiredBy = dependencyAlias,
 			}
-			registrySources[depSpec.name] = depSpec.source
+			registrySources[dependencySpec.name] = dependencySpec.source
+			table.insert(rootRegistryAliases, dependencyAlias)
 			continue
 		end
 
-		dependencies[depAlias] = getKey(depSpec)
-		table.insert(queue, depSpec)
+		dependencies[dependencyAlias] = getKey(dependencySpec)
+		table.insert(queue, dependencySpec)
 	end
-
-	table.freeze(dependencies)
-
-	local nameIndex: { [string]: string } = {}
 
 	for _, spec in queue do
 		local key = getKey(spec)
@@ -148,41 +151,36 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 			)
 		end
 
-		-- New package — resolve it
 		nameIndex[spec.name] = key
 		local transitiveDependencies: { [string]: string } = {}
+		openDependencies[key] = transitiveDependencies
 
-		-- Download and install
 		local installPath = fetchSource(spec, rootDirectory)
 
-		-- Check for transitive dependencies
 		local nestedManifestPath = getManifestPath(installPath)
 		if fs.exists(nestedManifestPath) then
-			local depManifest = manifest.parseFile(nestedManifestPath)
-			for depAlias, depSpec in depManifest.package.dependencies do
-				-- Normalize transitive path dep sources to be rootDirectory-relative
-				local normalizedSpec = normalizePathDependency(depSpec, installPath, rootDirectory)
+			local dependencyManifest = manifest.parseFile(nestedManifestPath)
+			for dependencyAlias, dependencySpec in dependencyManifest.package.dependencies do
+				local normalizedSpec = normalizePathDependency(dependencySpec, installPath, rootDirectory)
 
 				if normalizedSpec.sourceKind == "registry" then
-					transitiveRegistryRequirements[`{key}:{depAlias}`] = {
+					registryRequirements[`{key}:{dependencyAlias}`] = {
 						name = normalizedSpec.name,
 						constraint = semver.parseConstraint(normalizedSpec.version),
 						requiredBy = key,
 					}
 					registrySources[normalizedSpec.name] = normalizedSpec.source
-					if not transitiveRegistryDeps[key] then
-						transitiveRegistryDeps[key] = {}
+					if not unresolvedRegistryDependencies[key] then
+						unresolvedRegistryDependencies[key] = {}
 					end
-					transitiveRegistryDeps[key][depAlias] = normalizedSpec.name
+					unresolvedRegistryDependencies[key][dependencyAlias] = normalizedSpec.name
 					continue
 				end
 
-				transitiveDependencies[depAlias] = getKey(normalizedSpec)
+				transitiveDependencies[dependencyAlias] = getKey(normalizedSpec)
 				table.insert(queue, normalizedSpec)
 			end
 		end
-
-		table.freeze(transitiveDependencies)
 
 		packages[key] = table.freeze({
 			name = spec.name,
@@ -196,27 +194,21 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		})
 	end
 
-	-- Phase 2: resolve registry deps via the semver solver
-	if next(registryRoots) ~= nil or next(transitiveRegistryRequirements) ~= nil then
+	-- Versioned dependency resolution: solve registry dependencies and stitch them into the package graph.
+	if next(registryRequirements) ~= nil then
 		assert(universe ~= nil, "Registry dependencies require a universe to be provided")
 
-		local solverInputs = table.clone(registryRoots)
-		for k, v in transitiveRegistryRequirements do
-			solverInputs[k] = v
-		end
-
-		local resolution = semver.solve(universe, solverInputs)
+		local resolution = semver.solve(universe, registryRequirements)
 
 		for name, pkgVersion in resolution do
 			local key = `{name}@{pkgVersion.versionString}`
 
 			local transitiveDependencies: { [string]: string } = {}
-			for alias, dep in pkgVersion.dependencies do
-				local depPkgVersion = resolution[dep.name]
-				assert(depPkgVersion ~= nil, `Solver produced an incomplete resolution: missing '{dep.name}'`)
-				transitiveDependencies[alias] = `{dep.name}@{depPkgVersion.versionString}`
+			for alias, dependency in pkgVersion.dependencies do
+				local resolvedVersion = resolution[dependency.name]
+				assert(resolvedVersion ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
+				transitiveDependencies[alias] = `{dependency.name}@{resolvedVersion.versionString}`
 			end
-			table.freeze(transitiveDependencies)
 
 			packages[key] = table.freeze({
 				name = name,
@@ -224,42 +216,35 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 				source = registrySources[name] or name,
 				sourceKind = "registry",
 				installPath = store.toStorePath(key),
-				dependencies = transitiveDependencies,
+				dependencies = table.freeze(transitiveDependencies),
 			} :: lockfile.LockfileDependency)
 		end
 
-		-- Back-fill transitive registry dep keys into phase-1 package entries now that versions are known.
-		for pkgKey, pendingDeps in transitiveRegistryDeps do
-			local entry = packages[pkgKey]
-			local updatedDeps = table.clone(entry.dependencies)
-
-			for depAlias, registryName in pendingDeps do
+		-- Fill in pending registry dependency keys directly into the unversioned packages' dependency tables.
+		for pkgKey, unresolvedAliases in unresolvedRegistryDependencies do
+			local packageDependencies = openDependencies[pkgKey]
+			for dependencyAlias, registryName in unresolvedAliases do
 				local pkgVersion = resolution[registryName]
-				assert(pkgVersion ~= nil, `Solver did not resolve transitive registry dep '{registryName}'`)
-				updatedDeps[depAlias] = `{registryName}@{pkgVersion.versionString}`
+				assert(pkgVersion ~= nil, `Solver did not resolve transitive registry dependency '{registryName}'`)
+				packageDependencies[dependencyAlias] = `{registryName}@{pkgVersion.versionString}`
 			end
-
-			packages[pkgKey] = table.freeze({
-				name = entry.name,
-				rev = entry.rev,
-				source = entry.source,
-				sourceKind = entry.sourceKind,
-				installPath = entry.installPath,
-				dependencies = table.freeze(updatedDeps),
-			} :: lockfile.LockfileDependency)
 		end
 
-		-- Write root-level registry dependency aliases now that versions are resolved
-		local mutableDependencies = table.clone(dependencies)
-		for alias, req in registryRoots do
+		-- Write root-level registry dependency aliases now that versions are resolved.
+		for _, alias in rootRegistryAliases do
+			local req = registryRequirements[alias]
 			local pkgVersion = resolution[req.name]
 			assert(pkgVersion ~= nil, `Solver did not resolve root dependency '{req.name}'`)
-			mutableDependencies[alias] = `{req.name}@{pkgVersion.versionString}`
+			dependencies[alias] = `{req.name}@{pkgVersion.versionString}`
 		end
-		dependencies = table.freeze(mutableDependencies)
+	end
+
+	for _, packageDependencies in openDependencies do
+		table.freeze(packageDependencies)
 	end
 
 	table.freeze(packages)
+	table.freeze(dependencies)
 
 	local lock: lockfile.Lockfile = table.freeze({
 		version = 3,
