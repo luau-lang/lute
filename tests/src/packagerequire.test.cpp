@@ -135,3 +135,16 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_workspace")
 
     CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_workspace_sibling_prefix")
+{
+    std::string entry =
+        getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_workspace_sibling_prefix/packages/foobar/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+}
