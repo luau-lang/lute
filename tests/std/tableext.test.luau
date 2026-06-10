@@ -139,4 +139,87 @@ test.suite("TableExt", function(suite)
 		end)
 		assert.that(allInEmpty)
 	end)
+
+	suite:case("mappedConcat", function(assert)
+		local nums = { 1, 2, 3 }
+		local result = tableext.mappedConcat(nums, function(v: number)
+			return tostring(v)
+		end)
+		assert.eq(result, "123")
+
+		local withSep = tableext.mappedConcat(nums, function(v: number)
+			return tostring(v)
+		end, ", ")
+		assert.eq(withSep, "1, 2, 3")
+
+		local words = { "hello", "world" }
+		local joined = tableext.mappedConcat(words, function(v: string)
+			return v
+		end, " ")
+		assert.eq(joined, "hello world")
+
+		local empty: { number } = {}
+		local emptyResult = tableext.mappedConcat(empty, function(v: number)
+			return tostring(v)
+		end, ",")
+		assert.eq(emptyResult, "")
+
+		local single = { 42 }
+		local singleResult = tableext.mappedConcat(single, function(v: number)
+			return tostring(v)
+		end, ",")
+		assert.eq(singleResult, "42")
+	end)
+
+	suite:case("deepclone", function(assert)
+		-- Empty table
+		local empty = {}
+		local emptyClone = tableext.deepclone(empty)
+		assert.eq(#emptyClone, 0)
+		assert.that(emptyClone ~= empty)
+
+		-- Flat table: clone has same values
+		local flat = { a = 1, b = 2, c = 3 }
+		local flatClone = tableext.deepclone(flat)
+		assert.eq(flatClone.a, 1)
+		assert.eq(flatClone.b, 2)
+		assert.eq(flatClone.c, 3)
+		assert.that(flatClone ~= flat)
+
+		-- Flat table: mutating clone does not affect original
+		flatClone.a = 99
+		assert.eq(flat.a, 1)
+
+		-- Array-like table
+		local arr = { 10, 20, 30 }
+		local arrClone = tableext.deepclone(arr)
+		assert.eq(arrClone[1], 10)
+		assert.eq(arrClone[2], 20)
+		assert.eq(arrClone[3], 30)
+		assert.that(arrClone ~= arr)
+
+		-- Nested table: clone is deep (independent nested tables)
+		local nested = { x = { y = { z = 42 } } }
+		local nestedClone = tableext.deepclone(nested)
+		assert.eq(nestedClone.x.y.z, 42)
+		assert.that(nestedClone.x ~= nested.x)
+		assert.that(nestedClone.x.y ~= nested.x.y)
+
+		-- Nested table: mutating a nested clone does not affect original
+		nestedClone.x.y.z = 0
+		assert.eq(nested.x.y.z, 42)
+
+		-- Mixed table: nested arrays and dicts
+		local mixed = { nums = { 1, 2, 3 }, meta = { count = 3 } }
+		local mixedClone = tableext.deepclone(mixed)
+		assert.eq(mixedClone.nums[1], 1)
+		assert.eq(mixedClone.meta.count, 3)
+		assert.that(mixedClone.nums ~= mixed.nums)
+		assert.that(mixedClone.meta ~= mixed.meta)
+
+		mixedClone.nums[1] = 99
+		mixedClone.meta.count = 99
+		assert.eq(mixed.nums[1], 1)
+		assert.eq(mixed.meta.count, 3)
+	end)
 end)
