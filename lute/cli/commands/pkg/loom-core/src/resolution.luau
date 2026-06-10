@@ -184,7 +184,7 @@ local function processSpecQueue(
 		})
 	end
 
-	-- "destory" queue
+	-- "destroy" queue
 	table.clear(queue)
 	table.freeze(queue)
 
