@@ -31,7 +31,7 @@ test.suite("LutePkgInstall", function(suite)
 		local result = run(workingDirectory)
 
 		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stderr, "Manifest file not found")
+		assert.strContains(result.stderr, "Manifest not found")
 	end)
 
 	suite:case("succeedsWithNoDependencies", function(assert)
