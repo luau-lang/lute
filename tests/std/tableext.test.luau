@@ -174,13 +174,13 @@ test.suite("TableExt", function(suite)
 	suite:case("deepclone", function(assert)
 		-- Empty table
 		local empty = {}
-		local emptyClone = tableext.deepclone(empty)
+		local emptyClone = tableext.deepClone(empty)
 		assert.eq(#emptyClone, 0)
 		assert.that(emptyClone ~= empty)
 
 		-- Flat table: clone has same values
 		local flat = { a = 1, b = 2, c = 3 }
-		local flatClone = tableext.deepclone(flat)
+		local flatClone = tableext.deepClone(flat)
 		assert.eq(flatClone.a, 1)
 		assert.eq(flatClone.b, 2)
 		assert.eq(flatClone.c, 3)
@@ -192,7 +192,7 @@ test.suite("TableExt", function(suite)
 
 		-- Array-like table
 		local arr = { 10, 20, 30 }
-		local arrClone = tableext.deepclone(arr)
+		local arrClone = tableext.deepClone(arr)
 		assert.eq(arrClone[1], 10)
 		assert.eq(arrClone[2], 20)
 		assert.eq(arrClone[3], 30)
@@ -200,7 +200,7 @@ test.suite("TableExt", function(suite)
 
 		-- Nested table: clone is deep (independent nested tables)
 		local nested = { x = { y = { z = 42 } } }
-		local nestedClone = tableext.deepclone(nested)
+		local nestedClone = tableext.deepClone(nested)
 		assert.eq(nestedClone.x.y.z, 42)
 		assert.that(nestedClone.x ~= nested.x)
 		assert.that(nestedClone.x.y ~= nested.x.y)
@@ -211,7 +211,7 @@ test.suite("TableExt", function(suite)
 
 		-- Mixed table: nested arrays and dicts
 		local mixed = { nums = { 1, 2, 3 }, meta = { count = 3 } }
-		local mixedClone = tableext.deepclone(mixed)
+		local mixedClone = tableext.deepClone(mixed)
 		assert.eq(mixedClone.nums[1], 1)
 		assert.eq(mixedClone.meta.count, 3)
 		assert.that(mixedClone.nums ~= mixed.nums)
