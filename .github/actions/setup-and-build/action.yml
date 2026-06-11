@@ -98,7 +98,7 @@ runs:
       shell: bash
       run: |
         echo "Cache status: ${{ steps.cache-ccache.outputs.cache-hit }}"
-        ccache -sv
+        ccache -s
 
     - name: Bootstrap Lute (if needed) and set LUTE
       shell: bash
