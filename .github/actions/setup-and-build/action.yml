@@ -126,7 +126,7 @@ runs:
 
     - name: ccache stats (post-build)
       shell: bash
-      run: ccache -sv
+      run: ccache -s
 
     - name: Save ccache
       if: github.ref_name == 'primary'
