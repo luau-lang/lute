@@ -2620,6 +2620,19 @@ return {
 		})
 	end)
 
+	suite:case("unusedVariableRegressionTest", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local A = {}
+local B = require(A.Index)
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			outputExpectations = {},
+		})
+	end)
+
 	suite:case("throwsErrorWhenConfigHasInvalidGlobals", function(assert)
 		local err = lintTestHelper(assert, {
 			content = "",
