@@ -220,6 +220,16 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		local resolution = semver.solve(universe, registryRequirements)
 
 		for name, pkgVersion in resolution do
+			local conflictKey = nameIndex[name]
+			if conflictKey then
+				error(
+					`Package '{name}' is defined with two sources in the manifest:\n`
+						.. `  source one: {conflictKey} (kind: {packages[conflictKey].sourceKind})\n`
+						.. `  source two: {name}@{pkgVersion.versionString} (kind: registry)\n`
+						.. `Remove one of the conflicting sources.`
+				)
+			end
+
 			local key = `{name}@{pkgVersion.versionString}`
 
 			local transitiveDependencies: { [string]: string } = {}

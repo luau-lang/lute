@@ -371,6 +371,38 @@ test.suite("RegistryResolution", function(suite)
 		assert.that(not ok)
 	end)
 
+	suite:case("errorsWhenPathAndRegistryDepShareSameName", function(assert)
+		local citrusDir = path.join(workingDirectory, "citrus_local")
+		fs.createDirectory(citrusDir)
+		writeConfig(citrusDir, "citrus", "")
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus_local = {
+				sourceKind = "path",
+				name = "citrus",
+				source = "./citrus_local",
+			},
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		assert.throwsWith("Remove one of the conflicting sources.", function()
+			resolution.resolve(path.format(workingDirectory), universe)
+		end)
+	end)
+
 	suite:case("errorsOnConflictingSourcesForSameName", function(assert)
 		writeConfig(
 			workingDirectory,
