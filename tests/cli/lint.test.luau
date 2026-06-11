@@ -2624,12 +2624,17 @@ return {
 		lintTestHelper(assert, {
 			content = [[
 local A = {}
-local B = require(A.Index)
+local _ = require(A.Index)
 ]],
-			expectedExitCode = 0,
+			expectedExitCode = 1,
 			rulePath = defaultRulesPaths.unused_variable,
 			disableDefaultLints = true,
-			outputExpectations = {},
+			outputExpectations = {
+				{
+					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
+					count = 1,
+				},
+			},
 		})
 	end)
 
