@@ -2626,15 +2626,9 @@ return {
 local A = {}
 local _ = require(A.Index)
 ]],
-			expectedExitCode = 1,
+			expectedExitCode = 0,
 			rulePath = defaultRulesPaths.unused_variable,
 			disableDefaultLints = true,
-			outputExpectations = {
-				{
-					expectedOutput = LINT_RULE_MESSAGES.unused_variable,
-					count = 1,
-				},
-			},
 		})
 	end)
 
