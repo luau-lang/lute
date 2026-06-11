@@ -115,9 +115,9 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 					if localVar.annotation then
 						visitorLib.visitType(localVar.annotation, visitor)
 					end
-					visitorLib.visitExpression(stat.values[i], visitor)
 					visitor.ignoreReferences[localVar] = nil
 				end
+				visitorLib.visitExpression(stat.values[i], visitor)
 			end
 		end
 
