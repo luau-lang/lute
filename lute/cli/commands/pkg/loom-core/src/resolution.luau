@@ -170,9 +170,11 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 						requiredBy = key,
 					}
 					registrySources[normalizedSpec.name] = normalizedSpec.source
+
 					if not unresolvedRegistryDependencies[key] then
 						unresolvedRegistryDependencies[key] = {}
 					end
+
 					unresolvedRegistryDependencies[key][dependencyAlias] = normalizedSpec.name
 					continue
 				end
@@ -207,6 +209,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 			for alias, dependency in pkgVersion.dependencies do
 				local resolvedVersion = resolution[dependency.name]
 				assert(resolvedVersion ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
+
 				transitiveDependencies[alias] = `{dependency.name}@{resolvedVersion.versionString}`
 			end
 
