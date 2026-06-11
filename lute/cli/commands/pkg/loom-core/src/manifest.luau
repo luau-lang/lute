@@ -85,6 +85,8 @@ local function parseManifest(t: unknown): ProjectManifest
 					sourceKind = "path",
 					source = spec.source,
 				}) :: PathDependencySpec
+
+				continue
 			end
 
 			if spec.sourceKind == "github" then
@@ -95,6 +97,8 @@ local function parseManifest(t: unknown): ProjectManifest
 					source = spec.source,
 					rev = spec.rev,
 				}) :: GitHubDependencySpec
+
+				continue
 			end
 
 			if spec.sourceKind == "registry" then
@@ -105,6 +109,8 @@ local function parseManifest(t: unknown): ProjectManifest
 					source = spec.source,
 					version = spec.version,
 				}) :: RegistryDependencySpec
+
+				continue
 			end
 		end
 		table.freeze(dependencies)

@@ -371,6 +371,37 @@ test.suite("RegistryResolution", function(suite)
 		assert.that(not ok)
 	end)
 
+	suite:case("errorsOnConflictingSourcesForSameName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			a = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "org-one/citrus",
+				version = "^1.0.0",
+			},
+			b = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "org-two/citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		assert.throwsWith("Both reference the same package name with different sources.", function()
+			resolution.resolve(path.format(workingDirectory), universe)
+		end)
+	end)
+
 	suite:case("writesLockfileToDisk", function(assert)
 		writeConfig(
 			workingDirectory,

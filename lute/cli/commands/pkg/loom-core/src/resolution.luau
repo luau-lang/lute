@@ -99,6 +99,21 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 	-- All registry solver inputs: root-level dependencies keyed by alias, transitive by "{pkgKey}:{dependencyAlias}".
 	local registryRequirements: { [string]: semver.Requirement } = {}
 	local registrySources: { [string]: string } = {}
+
+	-- stores a solved source for a particular name, erroring if there's a conflict
+	local function registerSource(name: string, source: string)
+		local existing = registrySources[name]
+		if existing and existing ~= source then
+			error(
+				`Source conflict for package '{name}':\n`
+					.. `  '{existing}' vs '{source}'\n`
+					.. `Both reference the same package name with different sources.`
+			)
+		end
+
+		registrySources[name] = source
+	end
+
 	-- Root aliases that need a resolved key written back into `dependencies` after solving.
 	local rootRegistryAliases: { string } = {}
 	-- Per-package registry aliases that need keys written into their dependency table after solving.
@@ -115,7 +130,8 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 				constraint = semver.parseConstraint(dependencySpec.version),
 				requiredBy = dependencyAlias,
 			}
-			registrySources[dependencySpec.name] = dependencySpec.source
+
+			registerSource(dependencySpec.name, dependencySpec.source)
 			table.insert(rootRegistryAliases, dependencyAlias)
 			continue
 		end
@@ -169,7 +185,8 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 						constraint = semver.parseConstraint(normalizedSpec.version),
 						requiredBy = key,
 					}
-					registrySources[normalizedSpec.name] = normalizedSpec.source
+
+					registerSource(normalizedSpec.name, normalizedSpec.source)
 
 					if not unresolvedRegistryDependencies[key] then
 						unresolvedRegistryDependencies[key] = {}
