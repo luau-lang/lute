@@ -98,7 +98,7 @@ runs:
       shell: bash
       run: |
         echo "Cache status: ${{ steps.cache-ccache.outputs.cache-hit }}"
-        ccache -sv
+        ccache -s
 
     - name: Bootstrap Lute (if needed) and set LUTE
       shell: bash
@@ -126,7 +126,7 @@ runs:
 
     - name: ccache stats (post-build)
       shell: bash
-      run: ccache -sv
+      run: ccache -s
 
     - name: Save ccache
       if: github.ref_name == 'primary'
