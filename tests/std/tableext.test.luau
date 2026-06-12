@@ -19,6 +19,19 @@ test.suite("TableExt", function(suite)
 		assert.eq(filtered.c, 3)
 	end)
 
+	suite:case("find", function(assert)
+		local a: { [string]: number } = { a = 1, b = 2, c = 3 }
+		local b: { number } = { 1, 2, 3 }
+		local foundA = tableext.find(a, function(v: number)
+			return v % 2 == 0
+		end)
+		assert.eq(foundA, 2)
+		local foundB = tableext.find(b, function(v: number)
+			return v == 3
+		end)
+		assert.eq(foundB, 3)
+	end)
+
 	suite:case("extend", function(assert)
 		local a: { number } = { 1, 2 }
 		local b: { number } = { 3, 4 }
