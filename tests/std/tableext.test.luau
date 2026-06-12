@@ -140,38 +140,38 @@ test.suite("TableExt", function(suite)
 		assert.that(allInEmpty)
 	end)
 
-	suite:case("mappedConcat", function(assert)
+	suite:case("mapConcat", function(assert)
 		local nums = { 1, 2, 3 }
-		local result = tableext.mappedConcat(nums, function(v: number)
+		local result = tableext.mapConcat(nums, function(v: number)
 			return tostring(v)
 		end)
 		assert.eq(result, "123")
 
-		local withSep = tableext.mappedConcat(nums, function(v: number)
+		local withSep = tableext.mapConcat(nums, function(v: number)
 			return tostring(v)
 		end, ", ")
 		assert.eq(withSep, "1, 2, 3")
 
 		local words = { "hello", "world" }
-		local joined = tableext.mappedConcat(words, function(v: string)
+		local joined = tableext.mapConcat(words, function(v: string)
 			return v
 		end, " ")
 		assert.eq(joined, "hello world")
 
 		local empty: { number } = {}
-		local emptyResult = tableext.mappedConcat(empty, function(v: number)
+		local emptyResult = tableext.mapConcat(empty, function(v: number)
 			return tostring(v)
 		end, ",")
 		assert.eq(emptyResult, "")
 
 		local single = { 42 }
-		local singleResult = tableext.mappedConcat(single, function(v: number)
+		local singleResult = tableext.mapConcat(single, function(v: number)
 			return tostring(v)
 		end, ",")
 		assert.eq(singleResult, "42")
 	end)
 
-	suite:case("deepclone", function(assert)
+	suite:case("deepClone", function(assert)
 		-- Empty table
 		local empty = {}
 		local emptyClone = tableext.deepClone(empty)
@@ -221,5 +221,24 @@ test.suite("TableExt", function(suite)
 		mixedClone.meta.count = 99
 		assert.eq(mixed.nums[1], 1)
 		assert.eq(mixed.meta.count, 3)
+
+		-- Cyclic table
+		local a = { arbitrary = 1 }
+		local b = { prev = a }
+		a.next = b
+		local cyclicClone: typeof(a)
+		assert.never.throws(function()
+			cyclicClone = tableext.deepClone(a)
+		end)
+		assert.eq(cyclicClone.arbitrary, 1)
+		assert.eq(cyclicClone.next.prev.arbitrary, 1)
+		assert.that(cyclicClone.next.prev ~= a)
+		assert.that(cyclicClone.next.prev == cyclicClone) -- cyclic edge correctly points to clone of a, not original
+		assert.that(cyclicClone ~= a)
+
+		-- Throws with non-table input
+		assert.throws(function()
+			tableext.deepClone(1)
+		end)
 	end)
 end)

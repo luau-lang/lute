@@ -107,35 +107,31 @@ function tableext.all<T>(arr: { T }, predicate: (T) -> boolean): boolean
 	return true
 end
 
--- I want the method to take a generic s.t it returns an identical shape (deepclone(object) -> same object structure)
--- using K, V generics and { [K]: V } does not yield thise behavior
--- only using T (afaik)
--- This is why I must cast on line 119
-function tableext.deepClone<T>(tbl: T): T
+function deepClone<T>(tbl: T, seen: { [T]: T }): T
 	local clone = {}
-	assert(typeof(tbl) == "table", `{tbl} is not a table`)
+	assert(typeof(tbl) == "table", `deepClone only supports tables, you passed: {tbl}`)
 
+	seen[tbl] = clone
 	for k, v in tbl :: any do
 		if typeof(v) == "table" then
-			clone[k] = tableext.deepClone(v)
+			clone[k] = if seen[v] then seen[v] else deepClone(v, seen)
 		else
 			clone[k] = v
 		end
 	end
+
 	return clone
 end
 
+function tableext.deepClone<T>(tbl: T): T
+	local cloneCache = {}
+
+	return deepClone(tbl, cloneCache)
+end
+
 --- Maps each element of `arr` through `refine` and joins the resulting strings with `sep` (default "").
-function tableext.mappedConcat<T>(arr: { T }, map: (T) -> string, sep: string?): string
-	local separator = sep or ""
-	local buf = ""
-	for i, item in arr do
-		if i > 1 then
-			buf ..= separator
-		end
-		buf ..= map(item)
-	end
-	return buf
+function tableext.mapConcat<T>(arr: { T }, map: (T) -> string, sep: string?): string
+	return table.concat(tableext.map(arr, map), sep)
 end
 
 return table.freeze(tableext)
