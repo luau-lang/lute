@@ -1,7 +1,6 @@
 --!strict
 
 local tableext = require("@std/tableext")
-local deque = require("@batteries/collections/deque")
 
 local parser = require("./parser")
 
@@ -21,224 +20,329 @@ export type Requirement = {
 -- All known versions per package name, sorted newest-first.
 export type Universe = { [string]: { PackageVersion } }
 
--- One selected PackageVersion per package name.
+-- One selected PackageVersion per compatibility slot.
+-- Slot keys: "name@major" (major>0), "name@0.minor" (0.Y), "name@0.0.patch" (0.0.Z)
 export type Resolution = { [string]: PackageVersion }
 
--- Find the highest-precedence version in `versions` satisfying all requirements.
--- `versions` must already be sorted newest-first.
-local function findBest(versions: { PackageVersion }?, requirements: { Requirement }): PackageVersion?
-	if versions == nil then
+-- Constraints accumulated during the search, keyed by slot.
+type ConstraintSet = { [string]: { [string]: Requirement } }
+
+
+local function computeSlot(name: string, version: parser.Version): string
+	if version.major > 0 then
+		return `{name}@{version.major}`
+	elseif version.minor > 0 then
+		return `{name}@0.{version.minor}`
+	else
+		return `{name}@0.0.{version.patch}`
+	end
+end
+
+local function slotFromConstraint(name: string, constraint: parser.Constraint): string?
+	if #constraint == 0 then
 		return nil
 	end
 
-	for _, pv in versions do
-		if tableext.all(requirements, function(req)
-			return parser.satisfies(pv.version, req.constraint)
-		end) then
-			return pv
+	if #constraint == 1 and constraint[1].op == "=" then
+		return computeSlot(name, constraint[1].version)
+	end
+
+	local lower: parser.Version? = nil
+	local upper: parser.Version? = nil
+	for _, comp in constraint do
+		if (comp.op == ">=" or comp.op == ">") and lower == nil then
+			lower = comp.version
+		elseif comp.op == "<" and upper == nil then
+			upper = comp.version
 		end
 	end
+
+	-- split nil checks for better type inference.
+	if lower == nil then
+		return nil
+	end
+	if upper == nil then
+		return nil
+	end
+
+	if lower.major > 0 and upper.major <= lower.major + 1 then
+		return `{name}@{lower.major}`
+	elseif lower.major == 0 and lower.minor > 0 and upper.major == 0 and upper.minor <= lower.minor + 1 then
+		return `{name}@0.{lower.minor}`
+	elseif lower.major == 0 and lower.minor == 0 and upper.major == 0 and upper.minor == 0 then
+		return `{name}@0.0.{lower.patch}`
+	end
+
 	return nil
 end
 
-local function formatConflict(name: string, requirements: { Requirement }): string
-	local lines: { string } = { `version conflict for '{name}': no available version satisfies:` }
-
-	for _, req in requirements do
-		local source = req.requiredBy or "root"
-		table.insert(lines, `  {parser.formatConstraint(req.constraint)}  (required by {source})`)
-	end
-
-	return table.concat(lines, "\n")
+local function nameFromSlot(slotKey: string): string
+	local name = slotKey:match("^(.+)@")
+	return name or slotKey
 end
 
-local function solve(universe: Universe, roots: { [string]: Requirement }): Resolution
-	-- constraintsBySource[targetPkg][sourceKey] = Requirement.
-	-- Keyed by source lets us retract constraints when a selection changes.
-	-- Source keys: "root:<alias>" for root requirements, "<pkg>@<version>" for transitive deps.
-	local constraintsBySource: { [string]: { [string]: Requirement } } = {}
-
-	local selected: Resolution = {}
-
-	-- Set-based FIFO queue: each package name appears at most once at a time.
-	local queue = deque.new<<string>>()
-	local inQueue: { [string]: boolean } = {}
-
-	local function enqueue(name: string)
-		if inQueue[name] then
-			return
-		end
-
-		inQueue[name] = true
-		queue:pushback(name)
+local function resolveSlotKey(name: string, constraint: parser.Constraint, universe: Universe): string
+	local slot = slotFromConstraint(name, constraint)
+	if slot then
+		return slot
 	end
 
-	local function dequeue(): string
-		local name = queue:popfront()
-		inQueue[name] = nil
-		return name
-	end
-
-	local function addConstraint(targetName: string, sourceKey: string, req: Requirement)
-		constraintsBySource[targetName] = constraintsBySource[targetName] or {}
-		constraintsBySource[targetName][sourceKey] = req
-		enqueue(targetName)
-	end
-
-	local function removeConstraintsFrom(sourceKey: string, deps: { [string]: Requirement })
-		for alias, dep in deps do
-			local targets = constraintsBySource[dep.name]
-			local key = `{sourceKey}:{alias}`
-
-			if not targets or targets[key] == nil then
-				continue
+	local candidates = universe[name]
+	if candidates then
+		for _, c in candidates do
+			if parser.satisfies(c.version, constraint) then
+				return computeSlot(name, c.version)
 			end
-
-			targets[key] = nil
-			enqueue(dep.name)
 		end
 	end
 
-	local function getConstraintList(name: string): { Requirement }
-		local list: { Requirement } = {}
+	return `{name}@0`
+end
 
-		for _, req in constraintsBySource[name] or {} do
-			table.insert(list, req)
-		end
-
-		return list
+local function formatConflict(name: string, requirements: { Requirement }): string
+	local body: { string } = {}
+	for _, req in requirements do
+		local source = req.requiredBy or "root"
+		table.insert(body, `  {parser.formatConstraint(req.constraint)}  (required by {source})`)
 	end
+	table.sort(body)
 
-	-- Process root requirements in sorted alias order for deterministic resolution.
-	local rootAliases: { string } = {}
+	return `version conflict for '{name}': no available version satisfies:\n` .. table.concat(body, "\n")
+end
 
-	for alias, _ in roots do
-		table.insert(rootAliases, alias)
+local function constraintsFor(set: ConstraintSet, slotKey: string): { Requirement }
+	local list: { Requirement } = {}
+	for _, req in set[slotKey] or {} do
+		table.insert(list, req)
 	end
+	return list
+end
 
-	table.sort(rootAliases)
+-- Pick the slot with the fewest satisfying candidates (MRV heuristic).
+-- Tie-break alphabetically for determinism. 
+-- Returns nil when all constrained slots are already selected.
+local function pickPending(set: ConstraintSet, selected: Resolution, universe: Universe): string?
+	local best: string? = nil
+	local bestCount: number = math.huge
 
-	for _, alias in rootAliases do
-		local req = roots[alias]
-		addConstraint(
-			req.name,
-			`root:{alias}`,
-			table.freeze({
-				name = req.name,
-				constraint = req.constraint,
-				requiredBy = req.requiredBy,
-			})
-		)
-	end
-
-	-- Tracks which versions have ever been selected per package.
-	-- Re-selecting a version that was already unselected signals a circular dependency.
-	local everSelected: { [string]: { [string]: boolean } } = {}
-
-	while #queue > 0 do
-		local name = dequeue()
-
-		local constraints = getConstraintList(name)
-
-		if #constraints == 0 then
-			-- All constraints retracted: deselect and propagate retraction to dependents.
-			local old = selected[name]
-			if old then
-				selected[name] = nil
-				removeConstraintsFrom(`{old.name}@{old.versionString}`, old.dependencies)
-			end
+	for slotKey in set do
+		if selected[slotKey] ~= nil then
 			continue
 		end
+
+		local name = nameFromSlot(slotKey)
+		local candidates = universe[name]
+		if candidates == nil then
+			return slotKey
+		end
+
+		local reqs = constraintsFor(set, slotKey)
+		local count = 0
+		for _, candidate in candidates do
+			local satisfiesAll = tableext.all(reqs, function(req)
+				return parser.satisfies(candidate.version, req.constraint)
+			end)
+			if satisfiesAll then
+				count += 1
+			end
+		end
+
+		if count == 0 then
+			return slotKey
+		end
+		
+		-- fewest candiates with alphabetical tie-breaker
+		if best == nil or count < bestCount or (count == bestCount and slotKey < best) then
+			best = slotKey
+			bestCount = count
+		end
+	end
+
+	return best
+end
+
+-- Merge `deps` into the constraint set under sourceKey.
+-- TODO check the constraints against already-selected versions (forward checking). 
+local function propagateDeps(
+	set: ConstraintSet,
+	sourceKey: string,
+	deps: { [string]: Requirement },
+	universe: Universe
+): ConstraintSet
+	local out: ConstraintSet = table.clone(set)
+
+	for alias, dep in deps do
+		local slotKey = resolveSlotKey(dep.name, dep.constraint, universe)
+
+		local existing = out[slotKey]
+		local merged: { [string]: Requirement } = if existing then table.clone(existing) else {}
+		merged[`{sourceKey}:{alias}`] = table.freeze({
+			name = dep.name,
+			constraint = dep.constraint,
+			requiredBy = sourceKey,
+		})
+		out[slotKey] = merged
+	end
+
+	return out
+end
+
+local function checkAcyclic(selected: Resolution, universe: Universe)
+	local path: { string } = {}
+	local onPath: { [string]: number } = {}
+	local done: { [string]: boolean } = {}
+
+	local function visit(slotKey: string)
+		if done[slotKey] then
+			return
+		end
+		if onPath[slotKey] then
+			local cycleStart = onPath[slotKey]
+			local cycle: { string } = {}
+			for i = cycleStart, #path do
+				table.insert(cycle, path[i])
+			end
+			table.insert(cycle, slotKey)
+			error(`circular dependency: {table.concat(cycle, " -> ")}`)
+		end
+
+		table.insert(path, slotKey)
+		onPath[slotKey] = #path
+
+		local pkg = selected[slotKey]
+		if pkg then
+			for _, dep in pkg.dependencies do
+				local depSlot = resolveSlotKey(dep.name, dep.constraint, universe)
+				if selected[depSlot] then
+					visit(depSlot)
+				end
+			end
+		end
+
+		onPath[slotKey] = nil
+		table.remove(path)
+		done[slotKey] = true
+	end
+
+	for slotKey in selected do
+		visit(slotKey)
+	end
+end
+
+type DecisionFrame = {
+	read slotKey: string,
+	read candidates: { PackageVersion },
+	candidateIdx: number,
+	read prevConstraints: ConstraintSet,
+	read prevSelected: Resolution,
+}
+
+local function solve(universe: Universe, roots: { [string]: Requirement }): Resolution
+	-- Seed the constraint set from root requirements, keyed by slot.
+	local initial: ConstraintSet = {}
+	for alias, req in roots do
+		local slotKey = resolveSlotKey(req.name, req.constraint, universe)
+		initial[slotKey] = initial[slotKey] or {}
+		initial[slotKey][`root:{alias}`] = table.freeze({
+			name = req.name,
+			constraint = req.constraint,
+			requiredBy = req.requiredBy,
+		})
+	end
+
+	local stuck: { name: string, requirements: { Requirement }, depth: number }? = nil
+
+	local stack: { DecisionFrame } = {}
+	local constraints = initial
+	local selected: Resolution = {}
+
+	while true do
+		local slotKey = pickPending(constraints, selected, universe)
+
+		if slotKey == nil then
+			checkAcyclic(selected, universe)
+			return table.freeze(selected)
+		end
+
+		local name = nameFromSlot(slotKey)
 
 		if universe[name] == nil then
 			error(`unknown package '{name}': not found in universe`)
 		end
 
-		local best = findBest(universe[name], constraints)
+		local reqs = constraintsFor(constraints, slotKey)
 
-		if best == nil then
-			-- A pending item may retract a constraint once evaluated, making this
-			-- conflict spurious. Defer until the queue is settled.
-			if #queue > 0 then
-				enqueue(name)
-				continue
+		-- Filter candidates to those satisfying all current constraints.
+		local candidates: { PackageVersion } = {}
+		for _, candidate in universe[name] do
+			local satisfiesAll = tableext.all(reqs, function(r)
+				return parser.satisfies(candidate.version, r.constraint)
+			end)
+			if satisfiesAll then
+				table.insert(candidates, candidate)
+			end
+		end
+
+		-- Advance with the first candidate (universe is sorted newest-first).
+		if #candidates > 0 then
+			local candidate = candidates[1]
+			local sourceKey = `{candidate.name}@{candidate.versionString}`
+			local nextSelected = table.clone(selected)
+			nextSelected[slotKey] = candidate
+			local nextConstraints = propagateDeps(constraints, sourceKey, candidate.dependencies, universe)
+
+			table.insert(stack, {
+				slotKey = slotKey,
+				candidates = candidates,
+				candidateIdx = 1,
+				prevConstraints = constraints,
+				prevSelected = selected,
+			})
+			constraints = nextConstraints
+			selected = nextSelected
+		else
+			local depth = #stack
+			if stuck == nil or depth < stuck.depth then
+				stuck = { name = name, requirements = reqs, depth = depth }
 			end
 
-			error(formatConflict(name, constraints))
-		end
+			-- Backtrack: try next candidates at earlier decision levels.
+			local backtracked = false
+			while #stack > 0 do
+				local frame = stack[#stack]
 
-		-- Two PackageVersion objects with equal versions (differing only in build metadata)
-		-- are treated as the same selection.
-		local alreadySelected = selected[name] ~= nil and parser.compare(selected[name].version, best.version) == 0
-		if alreadySelected then
-			continue
-		end
+				if frame.candidateIdx < #frame.candidates then
+					local idx = frame.candidateIdx + 1
+					local candidate = frame.candidates[idx]
+					local sourceKey = `{candidate.name}@{candidate.versionString}`
+					local nextSelected = table.clone(frame.prevSelected)
+					nextSelected[frame.slotKey] = candidate
+					local nextConstraints = propagateDeps(
+						frame.prevConstraints, sourceKey,
+						candidate.dependencies, universe
+					)
 
-		-- Re-selecting a previously unselected version means circular dependency.
-		if not everSelected[name] then
-			everSelected[name] = {}
-		end
-
-		if everSelected[name][best.versionString] then
-			error(`circular dependency detected for package '{name}'`)
-		end
-		everSelected[name][best.versionString] = true
-
-		local old = selected[name]
-		selected[name] = best
-
-		-- Retract constraints contributed by the old selection.
-		if old then
-			removeConstraintsFrom(`{old.name}@{old.versionString}`, old.dependencies)
-		end
-
-		-- Publish constraints from the new selection.
-		local newKey = `{best.name}@{best.versionString}`
-		for alias, dep in best.dependencies do
-			addConstraint(
-				dep.name,
-				`{newKey}:{alias}`,
-				table.freeze({
-					name = dep.name,
-					constraint = dep.constraint,
-					requiredBy = newKey,
-				})
-			)
-		end
-	end
-
-	local visiting: { [string]: boolean } = {}
-	local done: { [string]: boolean } = {}
-
-	local function checkCycles(name: string)
-		if done[name] then
-			return
-		end
-
-		if visiting[name] then
-			error(`circular dependency detected for package '{name}'`)
-		end
-
-		visiting[name] = true
-
-		local pkg = selected[name]
-		if pkg then
-			for _, dep in pkg.dependencies do
-				if selected[dep.name] then
-					checkCycles(dep.name)
+					frame.candidateIdx = idx
+					constraints = nextConstraints
+					selected = nextSelected
+					backtracked = true
+					if stuck and stuck.depth > #stack then
+						stuck = nil
+					end
+					break
 				end
+
+				table.remove(stack)
+			end
+
+			if not backtracked then
+				if stuck then
+					error(formatConflict(stuck.name, stuck.requirements))
+				end
+				error("dependency resolution failed")
 			end
 		end
-
-		visiting[name] = false
-		done[name] = true
 	end
-
-	for name in selected do
-		checkCycles(name)
-	end
-
-	return table.freeze(selected)
 end
 
 return {
