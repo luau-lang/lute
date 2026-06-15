@@ -27,7 +27,6 @@ export type Resolution = { [string]: PackageVersion }
 -- Constraints accumulated during the search, keyed by slot.
 type ConstraintSet = { [string]: { [string]: Requirement } }
 
-
 local function computeSlot(name: string, version: parser.Version): string
 	if version.major > 0 then
 		return `{name}@{version.major}`
@@ -119,7 +118,7 @@ local function constraintsFor(set: ConstraintSet, slotKey: string): { Requiremen
 end
 
 -- Pick the slot with the fewest satisfying candidates (MRV heuristic).
--- Tie-break alphabetically for determinism. 
+-- Tie-break alphabetically for determinism.
 -- Returns nil when all constrained slots are already selected.
 local function pickPending(set: ConstraintSet, selected: Resolution, universe: Universe): string?
 	local best: string? = nil
@@ -150,7 +149,7 @@ local function pickPending(set: ConstraintSet, selected: Resolution, universe: U
 		if count == 0 then
 			return slotKey
 		end
-		
+
 		-- fewest candiates with alphabetical tie-breaker
 		if best == nil or count < bestCount or (count == bestCount and slotKey < best) then
 			best = slotKey
@@ -162,7 +161,7 @@ local function pickPending(set: ConstraintSet, selected: Resolution, universe: U
 end
 
 -- Merge `deps` into the constraint set under sourceKey.
--- TODO check the constraints against already-selected versions (forward checking). 
+-- TODO check the constraints against already-selected versions (forward checking).
 local function propagateDeps(
 	set: ConstraintSet,
 	sourceKey: string,
@@ -317,10 +316,8 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 					local sourceKey = `{candidate.name}@{candidate.versionString}`
 					local nextSelected = table.clone(frame.prevSelected)
 					nextSelected[frame.slotKey] = candidate
-					local nextConstraints = propagateDeps(
-						frame.prevConstraints, sourceKey,
-						candidate.dependencies, universe
-					)
+					local nextConstraints =
+						propagateDeps(frame.prevConstraints, sourceKey, candidate.dependencies, universe)
 
 					frame.candidateIdx = idx
 					constraints = nextConstraints
