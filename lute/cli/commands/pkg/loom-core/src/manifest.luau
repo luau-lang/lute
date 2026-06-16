@@ -82,35 +82,25 @@ local function parseManifest(t: unknown): ProjectManifest
 			if spec.sourceKind == "path" then
 				dependencies[name] = table.freeze({
 					name = spec.name or name,
-					sourceKind = "path",
+					sourceKind = "path" :: "path",
 					source = spec.source,
-				}) :: PathDependencySpec
-
-				continue
-			end
-
-			if spec.sourceKind == "github" then
+				})
+			elseif spec.sourceKind == "github" then
 				assert(typeof(spec.rev) == "string", `Expected 'rev' field for github dependency '{name}'`)
 				dependencies[name] = table.freeze({
 					name = spec.name or name, -- use the optional name if provided, otherwise use the alias
-					sourceKind = "github",
+					sourceKind = "github" :: "github",
 					source = spec.source,
 					rev = spec.rev,
-				}) :: GitHubDependencySpec
-
-				continue
-			end
-
-			if spec.sourceKind == "registry" then
+				})
+			elseif spec.sourceKind == "registry" then
 				assert(typeof(spec.version) == "string", `Expected 'version' field for registry dependency '{name}'`)
 				dependencies[name] = table.freeze({
 					name = spec.name or name,
-					sourceKind = "registry",
+					sourceKind = "registry" :: "registry",
 					source = spec.source,
 					version = spec.version,
-				}) :: RegistryDependencySpec
-
-				continue
+				})
 			end
 		end
 		table.freeze(dependencies)
