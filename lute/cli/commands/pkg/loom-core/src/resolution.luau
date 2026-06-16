@@ -210,10 +210,10 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 				name = name,
 				rev = pkgVersion.versionString,
 				source = registrySources[name] or name,
-				sourceKind = "registry",
+				sourceKind = "registry" :: "registry",
 				installPath = store.toStorePath(key),
 				dependencies = table.freeze(transitiveDependencies),
-			} :: lockfile.LockfileDependency)
+			})
 		end
 
 		-- Fill in pending registry dependency keys directly into the unversioned packages' dependency tables.
