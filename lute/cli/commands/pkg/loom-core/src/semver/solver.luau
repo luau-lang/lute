@@ -48,7 +48,10 @@ local function formatConflict(name: string, requirements: { Requirement }): stri
 	for _, req in requirements do
 		local source = req.requiredBy or "root"
 		if req.aliasedAs then
-			table.insert(lines, `  {parser.formatConstraint(req.constraint)}  (required by {source} as {req.aliasedAs})`)
+			table.insert(
+				lines,
+				`  {parser.formatConstraint(req.constraint)}  (required by {source} as {req.aliasedAs})`
+			)
 		else
 			table.insert(lines, `  {parser.formatConstraint(req.constraint)}  (required by {source})`)
 		end
