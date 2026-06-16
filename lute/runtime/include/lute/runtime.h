@@ -14,7 +14,6 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -134,6 +133,10 @@ struct Runtime
     // CLI arguments passed after the script filename
     std::vector<std::string> args;
 
+    // Factory function for creating an identical require context in child
+    // Runtimes. Set during parent Runtime's setup.
+    std::function<void*(lua_State*)> requireContextFactory;
+
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);
     void clearThreadCompletionHandler(lua_State* L);
@@ -142,10 +145,10 @@ private:
     std::vector<std::function<void()>> continuations;
     std::unordered_map<lua_State*, ThreadCompletionHandler> threadCompletionHandlers;
 
-    // TODO: can this be handled by libuv?
     std::atomic<bool> stop;
     std::condition_variable runLoopCv;
-    std::thread runLoopThread;
+    uv_thread_t runLoopThread = {};
+    bool runLoopThreadStarted = false;
 
     std::atomic<int> activeTokens;
     uv_loop_t eventLoop;

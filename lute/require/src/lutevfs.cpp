@@ -10,6 +10,7 @@
 #include "lute/modulepath.h"
 #include "lute/net.h"
 #include "lute/process.h"
+#include "lute/syntax.h"
 #include "lute/system.h"
 #include "lute/task.h"
 #include "lute/time.h"
@@ -24,18 +25,21 @@ const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
     Luau::DenseHashMap<std::string, lua_CFunction> map{""};
     map["@lute/crypto.luau"] = luteopen_crypto;
     map["@lute/fs.luau"] = luteopen_fs;
+    map["@lute/io.luau"] = luteopen_io;
     map["@lute/luau.luau"] = luteopen_luau;
     map["@lute/net/init.luau"] = luteopen_net;
     map["@lute/net/client.luau"] = luteopen_net_client;
     map["@lute/net/server.luau"] = luteopen_net_server;
     map["@lute/process.luau"] = luteopen_process;
-    map["@lute/task.luau"] = luteopen_task;
-    map["@lute/vm.luau"] = luteopen_vm;
+    map["@lute/syntax/cst.luau"] = luteopen_syntax;
+    map["@lute/syntax/parser.luau"] = luteopen_syntax_parser;
     map["@lute/system.luau"] = luteopen_system;
+    map["@lute/task.luau"] = luteopen_task;
     map["@lute/time.luau"] = luteopen_time;
     map["@lute/io.luau"] = luteopen_io;
     map["@lute/ffi/init.luau"] = luteopen_ffi;
     map["@lute/ffi/c.luau"] = luteopen_ffi_c;
+    map["@lute/vm.luau"] = luteopen_vm;
     return map;
 }();
 

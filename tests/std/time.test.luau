@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(divide_by_zero)
 local test = require("@std/test")
 local time = require("@std/time")
 
@@ -135,6 +136,37 @@ test.suite("TimeSuite", function(suite)
 		assert.that(c <= a)
 		assert.that(a <= b)
 		assert.eq(a < b, false)
+	end)
+
+	suite:case("largeSecondsDurationToNanoseconds", function(assert)
+		-- 10 billion seconds (~317 years) exceeds the ~292-year threshold at which
+		-- tv_sec * NANOSECONDS_PER_SECOND overflows int64. Before the fix, the
+		-- multiplication would overflow before being cast to double, yielding a large
+		-- negative value (~-8.45e18) instead of the correct 1e19.
+		local d = duration.seconds(10_000_000_000)
+		assert.eq(d:toNanoseconds(), 1e19)
+	end)
+
+	suite:case("mulDivInvalidFactorErrors", function(assert)
+		local d = duration.seconds(1)
+
+		-- infinite factor
+		assert.throws(function()
+			return d * math.huge
+		end)
+		assert.throws(function()
+			return d / math.huge
+		end)
+
+		-- negative factor
+		assert.throws(function()
+			return d * -1
+		end)
+
+		-- zero divisor
+		assert.throws(function()
+			return d / 0
+		end)
 	end)
 
 	suite:case("tostringFormat", function(assert)

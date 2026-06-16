@@ -180,11 +180,9 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     bool errored = true;
     if (luau_load(ML, chunkname, bytecode.data(), bytecode.size(), 0) == 0)
     {
-        if (getCodegenEnabled())
-        {
-            Luau::CodeGen::CompilationOptions nativeOptions;
-            Luau::CodeGen::compile(ML, -1, nativeOptions);
-        }
+        Luau::CodeGen::CompilationOptions nativeOptions;
+        nativeOptions.flags = Luau::CodeGen::CodeGen_OnlyNativeModules;
+        Luau::CodeGen::compile(ML, -1, nativeOptions);
 
         int status = lua_resume(ML, L, 0);
 

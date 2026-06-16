@@ -13,7 +13,7 @@ local function writeSnapshot(snappath: string, content: string): boolean
 	return ok
 end
 
-local function acceptAll(result: snapty.snapresult)
+local function acceptAll(result: snapty.SnapResult)
 	-- Auto-accept all new snapshots and failures
 	local accepted = 0
 	for _, n in result.new do
@@ -35,7 +35,7 @@ local function acceptAll(result: snapty.snapresult)
 	print(`\nUpdated {accepted} snapshot(s).`)
 end
 
-local function acceptInteractive(failures: { snapty.snapfail }, news: { snapty.snapnew }): number
+local function acceptInteractive(failures: { snapty.SnapFail }, news: { snapty.SnapNew }): number
 	local function prompt(acceptAll: boolean): string
 		if acceptAll then
 			return "a"
@@ -111,7 +111,7 @@ end
 
 local update = {}
 
-function update.updatesnapshot(result: snapty.snapresult, update: boolean, interactive: boolean)
+function update.updatesnapshot(result: snapty.SnapResult, update: boolean, interactive: boolean)
 	local hasNew = #result.new > 0
 	local hasFailed = #result.failed > 0
 	if hasNew or hasFailed then

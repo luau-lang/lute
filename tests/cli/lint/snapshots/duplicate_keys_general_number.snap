@@ -1,0 +1,10 @@
+warning[duplicate_keys]: Duplicate keys detected in table literal.
+
+   ┌── <ROOT>/tests/cli/lint/snapshots/duplicate_keys_general_number.snap.luau:1:22-29 ──
+   │
+ 1 │ local t = { [1] = 1, [1] = 2 }
+   │                      ^^^^^^^
+   │
+
+For additional info: https://lute.luau.org/cli/lint/duplicate_keys.html
+

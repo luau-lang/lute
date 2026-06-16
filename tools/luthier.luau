@@ -1,5 +1,9 @@
 --!strict
 
+-- Luthier intentionally uses the runtime `@lute` APIs, instead of the standard library in order to support bootstrapping from scratch.
+-- Since Luthier is responsible for generating the files that embed `@std` into Lute, it cannot depend on `@std` being available.
+-- Avoid using `@std` here to prevent bootstrap issues.
+
 local crypto = require("@lute/crypto")
 local fs = require("@lute/fs")
 local process = require("@lute/process")
@@ -77,6 +81,7 @@ args:add("which", "flag", { help = "print out the path to the compiled binary an
 args:add("cxx-compiler", "option", { help = "C++ compiler to use" })
 args:add("c-compiler", "option", { help = "C compiler to use" })
 args:add("enable-sanitizers", "flag", { help = "enable sanitizers during configuration" })
+args:add("with-ccache", "flag", { help = "use ccache as the compiler launcher" })
 
 if not isWindows and not isMac and not isLinux then
 	error("Unknown platform " .. os)
@@ -179,6 +184,10 @@ local function projectPathExists(): boolean
 	return safeFsType(projectPath) == "dir"
 end
 
+local function buildManifestExists(): boolean
+	return safeFsType(joinPath(getProjectPath(), "build.ninja")) == "file"
+end
+
 local function hexify(digest)
 	local hex = {}
 	for i = 1, buffer.len(digest) do
@@ -240,10 +249,14 @@ local function writeLines(file, lines: { string })
 	fs.write(file, table.concat(lines, "\n") .. "\n")
 end
 
+local function shouldEmbedFile(relativePath: string): boolean
+	return string.match(relativePath, "%.luau$") ~= nil or string.match(relativePath, "%.luaurc$") ~= nil
+end
+
 local function hashDirectory(path: string): string
 	local toHash = ""
 	traverseFileTree(path, function(filePath, relativePath)
-		if safeFsType(filePath) == "file" then
+		if safeFsType(filePath) == "file" and shouldEmbedFile(relativePath) then
 			toHash ..= "./" .. relativePath
 			toHash ..= readFileToString(filePath)
 		end
@@ -309,6 +322,10 @@ local function generateEmbeddedModulesIfNeeded(config: EmbeddedModuleConfig)
 		local aliasedPath = aliasWithSlash .. relativePath
 
 		if safeFsType(path) == "file" then
+			if not shouldEmbedFile(relativePath) then
+				return
+			end
+
 			local libSrc = readFileToString(path)
 			if #libSrc > 16_000 then
 				-- https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/compiler-error-c2026
@@ -473,6 +490,24 @@ local function call(cmd: { string }, passedCwd: string?): number
 	return process.run(cmd, { cwd = passedCwd or cwd, stdio = "inherit" }).exitcode
 end
 
+local function removePathRecursive(path: string)
+	local pathType = safeFsType(path)
+	if pathType == nil then
+		return
+	end
+
+	if pathType ~= "dir" then
+		fs.remove(path)
+		return
+	end
+
+	for _, entry in fs.listdir(path) do
+		removePathRecursive(joinPath(path, entry.name))
+	end
+
+	fs.rmdir(path)
+end
+
 local function build()
 	local target = args:get("target")
 	assert(target ~= nil)
@@ -499,11 +534,17 @@ local function getConfigureArguments()
 	end
 
 	if args:has("clean") then
-		call({ "rm", "-rf", projectPath })
+		print("> remove-tree " .. projectPath)
+		removePathRecursive(projectPath)
 	end
 
 	local configArgs =
 		{ "-G=Ninja", "-B " .. projectPath, "-DCMAKE_BUILD_TYPE=" .. config, "-DCMAKE_EXPORT_COMPILE_COMMANDS=1" }
+
+	if args:has("with-ccache") then
+		table.insert(configArgs, "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache")
+		table.insert(configArgs, "-DCMAKE_C_COMPILER_LAUNCHER=ccache")
+	end
 
 	local cxx_compiler = args:get("cxx-compiler")
 	if cxx_compiler then
@@ -755,7 +796,7 @@ elseif subcommand == "build" or subcommand == "craft" then
 
 	generateFilesIfNeeded()
 
-	if not projectPathExists() or not areTuneFilesUpToDate() then
+	if not projectPathExists() or not buildManifestExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 
@@ -767,7 +808,7 @@ elseif subcommand == "run" or subcommand == "play" then
 
 	generateFilesIfNeeded()
 
-	if not projectPathExists() or not areTuneFilesUpToDate() then
+	if not projectPathExists() or not buildManifestExists() or not areTuneFilesUpToDate() then
 		check(configure())
 	end
 

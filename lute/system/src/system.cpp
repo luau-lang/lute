@@ -68,6 +68,9 @@ int lua_cpus(lua_State* L)
         lua_settable(L, -3);
     };
 
+    // free the cpu info array allocated by libuv
+    uv_free_cpu_info(cpus, count);
+
     return 1;
 }
 
@@ -176,12 +179,12 @@ int System::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_system(lua_State* L)
+LUTE_API int luaopen_system(lua_State* L)
 {
     return System::openAsGlobal(L);
 }
 
-int luteopen_system(lua_State* L)
+LUTE_API int luteopen_system(lua_State* L)
 {
     return System::pushLibrary(L);
 }

@@ -405,6 +405,9 @@ local function generateMarkdown(
 		"```luau",
 		`local {moduleName} = require("@{requireLibraryAlias}/{requirePath}")`,
 		"```",
+		":::warning",
+		"These APIs are still open to future evolution.  In new major versions, they may change in backwards incompatible ways.",
+		":::",
 		"",
 	}
 

@@ -34,6 +34,14 @@ export type Failure =
 	}
 
 --- The assertion functions passed to each test case. Each assertion returns a `Failure` on failure, or `nil` on success.
+export type NegatedAsserts = {
+	eq: <T>(T, T, string?) -> Failure?,
+	throws: <T...>((T...) -> ...unknown, T...) -> Failure?,
+	throwsWith: <T...>(any, (T...) -> ...unknown, T...) -> Failure?,
+	strContains: (string, string, number?, string?) -> Failure?,
+	that: (unknown, string?) -> Failure?,
+}
+
 export type Asserts = {
 	eq: <T>(T, T, string?) -> Failure?,
 	neq: <T>(T, T, string?) -> Failure?,
@@ -42,6 +50,7 @@ export type Asserts = {
 	strContains: (string, string, number?, string?) -> Failure?,
 	strNotContains: (string, string, string?) -> Failure?,
 	that: (unknown, string?) -> Failure?,
+	never: NegatedAsserts,
 }
 
 --- A test function that receives the assertion helpers and runs one test case.
@@ -63,6 +72,11 @@ export type TestSuite = {
 	beforeAll: (self: TestSuite, () -> ()) -> (),
 	afterEach: (self: TestSuite, () -> ()) -> (),
 	afterAll: (self: TestSuite, () -> ()) -> (),
+}
+
+-- Additional options for configuring the test runner
+export type TestRunnerOptions = {
+	verbose: boolean,
 }
 
 --- A test case that failed, paired with the failure that caused it.
@@ -98,6 +112,6 @@ export type TestEnvironment = {
 }
 
 --- A function that runs a `TestEnvironment` and returns the results.
-export type TestRunner = (TestEnvironment) -> TestRunResult
+export type TestRunner = (TestEnvironment, TestRunnerOptions?) -> TestRunResult
 
 return {}

@@ -190,11 +190,6 @@ int lua_spawn(lua_State* L)
 
 int lua_deferSelf(lua_State* L)
 {
-    if (lua_gettop(L) != 0)
-    {
-        luaL_error(L, "task.deferSelf does not take any arguments");
-        return 0;
-    }
     lua_pushthread(L);
     LuaThread newThread{L, "task.deferSelf"};
     newThread.defer();
@@ -341,12 +336,12 @@ int Task::pushLibrary(lua_State* L)
     return 1;
 }
 
-int luaopen_task(lua_State* L)
+LUTE_API int luaopen_task(lua_State* L)
 {
     return Task::openAsGlobal(L);
 }
 
-int luteopen_task(lua_State* L)
+LUTE_API int luteopen_task(lua_State* L)
 {
     return Task::pushLibrary(L);
 }

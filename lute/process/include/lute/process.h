@@ -9,9 +9,9 @@
 #include <string>
 
 // open the library as a standard global luau library
-int luaopen_process(lua_State* L);
+LUTE_API int luaopen_process(lua_State* L);
 // open the library as a table on top of the stack
-int luteopen_process(lua_State* L);
+LUTE_API int luteopen_process(lua_State* L);
 
 struct Process : LuteLibrary<Process>
 {
