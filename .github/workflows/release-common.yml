@@ -75,7 +75,7 @@ jobs:
           set -euo pipefail
           dnf install -y --allowerasing \
             llvm-toolset gcc gcc-c++ libstdc++-devel glibc-devel \
-            ninja-build perl-IPC-Cmd which
+            ninja-build perl-IPC-Cmd which ccache
 
           # Force clang for the whole build (incl. bootstrap, where CMake
           # would otherwise auto-pick gcc-toolset-14's g++ from PATH) and
