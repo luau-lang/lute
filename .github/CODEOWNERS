@@ -5,4 +5,4 @@
 /.github/ @luau-lang/lute-maintainers
 
 # Package management
-/lute/cli/pkg/ @luau-lang/lute-pkg-maintainers
+/lute/cli/commands/pkg/ @luau-lang/lute-pkg-maintainers
