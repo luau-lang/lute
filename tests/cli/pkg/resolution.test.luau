@@ -371,7 +371,7 @@ test.suite("RegistryResolution", function(suite)
 		assert.that(not ok)
 	end)
 
-	suite:case("errorsWhenPathAndRegistryDepShareSameName", function(assert)
+	suite:case("allowsPathAndRegistryDepWithSameInternalName", function(assert)
 		local citrusDir = path.join(workingDirectory, "citrus_local")
 		fs.createDirectory(citrusDir)
 		writeConfig(citrusDir, "citrus", "")
@@ -398,12 +398,15 @@ test.suite("RegistryResolution", function(suite)
 			},
 		}
 
-		assert.throwsWith("Remove one of the conflicting sources.", function()
-			resolution.resolve(path.format(workingDirectory), universe)
-		end)
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.neq(lock.packages["citrus"], nil)
+		assert.eq(lock.packages["citrus"].sourceKind, "path")
+		assert.neq(lock.packages["citrus@1.0.0"], nil)
+		assert.eq(lock.packages["citrus@1.0.0"].sourceKind, "registry")
 	end)
 
-	suite:case("errorsOnConflictingSourcesForSameName", function(assert)
+	suite:case("allowsDifferentSourcesForSameNameUnderDifferentAliases", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
@@ -429,9 +432,10 @@ test.suite("RegistryResolution", function(suite)
 			},
 		}
 
-		assert.throwsWith("Both reference the same package name with different sources.", function()
-			resolution.resolve(path.format(workingDirectory), universe)
-		end)
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.a, "citrus@1.0.0")
+		assert.eq(lock.dependencies.b, "citrus@1.0.0")
 	end)
 
 	suite:case("writesLockfileToDisk", function(assert)

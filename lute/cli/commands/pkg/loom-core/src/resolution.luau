@@ -94,25 +94,10 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 	local queue: { manifest.DependencySpec } = {}
 	local dependencies: { [string]: string } = {}
 	local packages: { [string]: lockfile.LockfileDependency } = {}
-	local nameIndex: { [string]: string } = {}
 
 	-- All registry solver inputs: root-level dependencies keyed by alias, transitive by "{pkgKey}:{dependencyAlias}".
 	local registryRequirements: { [string]: semver.Requirement } = {}
 	local registrySources: { [string]: string } = {}
-
-	-- stores a solved source for a particular name, erroring if there's a conflict
-	local function registerSource(name: string, source: string)
-		local existing = registrySources[name]
-		if existing and existing ~= source then
-			error(
-				`Source conflict for package '{name}':\n`
-					.. `  '{existing}' vs '{source}'\n`
-					.. `Both reference the same package name with different sources.`
-			)
-		end
-
-		registrySources[name] = source
-	end
 
 	-- Root aliases that need a resolved key written back into `dependencies` after solving.
 	local rootRegistryAliases: { string } = {}
@@ -131,7 +116,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 				requiredBy = dependencyAlias,
 			}
 
-			registerSource(dependencySpec.name, dependencySpec.source)
+			registrySources[dependencySpec.name] = dependencySpec.source
 			table.insert(rootRegistryAliases, dependencyAlias)
 			continue
 		end
@@ -157,17 +142,6 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 			end
 		end
 
-		local conflictKey = nameIndex[spec.name]
-		if conflictKey then
-			error(
-				`Version conflict for package '{spec.name}':\n`
-					.. `  resolved: {conflictKey}\n`
-					.. `  incoming: {key}\n`
-					.. `Resolve by pinning both to the same revision.`
-			)
-		end
-
-		nameIndex[spec.name] = key
 		local transitiveDependencies: { [string]: string } = {}
 		openDependencies[key] = transitiveDependencies
 
@@ -186,7 +160,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 						requiredBy = key,
 					}
 
-					registerSource(normalizedSpec.name, normalizedSpec.source)
+					registrySources[normalizedSpec.name] = normalizedSpec.source
 
 					if not unresolvedRegistryDependencies[key] then
 						unresolvedRegistryDependencies[key] = {}
@@ -220,16 +194,6 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		local resolution = semver.solve(universe, registryRequirements)
 
 		for name, pkgVersion in resolution do
-			local conflictKey = nameIndex[name]
-			if conflictKey then
-				error(
-					`Package '{name}' is defined with two sources in the manifest:\n`
-						.. `  source one: {conflictKey} (kind: {packages[conflictKey].sourceKind})\n`
-						.. `  source two: {name}@{pkgVersion.versionString} (kind: registry)\n`
-						.. `Remove one of the conflicting sources.`
-				)
-			end
-
 			local key = `{name}@{pkgVersion.versionString}`
 
 			local transitiveDependencies: { [string]: string } = {}
