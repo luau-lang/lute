@@ -113,7 +113,8 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 			registryRequirements[dependencyAlias] = {
 				name = dependencySpec.name,
 				constraint = semver.parseConstraint(dependencySpec.version),
-				requiredBy = dependencyAlias,
+				requiredBy = rootManifest.package.name,
+				aliasedAs = if dependencyAlias ~= dependencySpec.name then dependencyAlias else nil,
 			}
 
 			registrySources[dependencySpec.name] = dependencySpec.source

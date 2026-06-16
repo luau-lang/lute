@@ -231,7 +231,7 @@ test.suite("RegistryResolution", function(suite)
 			},
 		}
 
-		assert.throwsWith("  >=3.0.0 <4.0.0  (required by citrus)", function()
+		assert.throwsWith("  >=3.0.0 <4.0.0  (required by root)", function()
 			resolution.resolve(path.format(workingDirectory), universe)
 		end)
 	end)
@@ -365,8 +365,8 @@ test.suite("RegistryResolution", function(suite)
 		}
 
 		local ok = xpcall(resolution.resolve, function(msg)
-			assert.strContains(msg, "required by lemon")
-			assert.strContains(msg, "required by lime")
+			assert.strContains(msg, "required by root as lemon")
+			assert.strContains(msg, "required by root as lime")
 		end, path.format(workingDirectory), universe)
 		assert.that(not ok)
 	end)
