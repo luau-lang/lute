@@ -1,0 +1,8 @@
+# Default
+* @luau-lang/lute-contrib
+
+# GitHub configuration
+/.github/ @luau-lang/lute-maintainers
+
+# Package management
+/lute/cli/pkg/ @luau-lang/lute-pkg-maintainers
