@@ -159,6 +159,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 						name = normalizedSpec.name,
 						constraint = semver.parseConstraint(normalizedSpec.version),
 						requiredBy = key,
+						aliasedAs = if dependencyAlias ~= normalizedSpec.name then dependencyAlias else nil,
 					}
 
 					registrySources[normalizedSpec.name] = normalizedSpec.source
