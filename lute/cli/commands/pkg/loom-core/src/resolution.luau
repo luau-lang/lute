@@ -167,7 +167,7 @@ local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string)
 	end
 end
 
-local function shouldDeduplicate(
+local function shouldProcess(
 	spec: manifest.DependencySpec,
 	packages: { [string]: lockfile.LockfileDependency },
 	registry: RegistryContext
@@ -184,7 +184,7 @@ local function shouldDeduplicate(
 			)
 		else
 			-- Already resolved at this exact version — deduplicate
-			return true
+			return false
 		end
 	end
 
@@ -200,7 +200,7 @@ local function shouldDeduplicate(
 
 	-- new dependency
 	registry.names[spec.name] = key
-	return false
+	return true
 end
 
 local function processSpecQueue(
@@ -211,7 +211,7 @@ local function processSpecQueue(
 	local packages: { [string]: lockfile.LockfileDependency } = {}
 
 	for _, spec in queue do
-		if shouldDeduplicate(spec, packages, registry) then
+		if not shouldProcess(spec, packages, registry) then
 			continue
 		end
 
