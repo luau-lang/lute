@@ -156,7 +156,7 @@ test.suite("LoomResolution", function(suite)
 
 		local ok, err = pcall(resolution.resolve, path.format(workingDirectory), nil)
 		assert.eq(ok, false)
-		assert.strContains(tostring(err), "Version conflict")
+		assert.strContains(tostring(err), "Name conflict")
 	end)
 end)
 
