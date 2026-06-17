@@ -103,7 +103,11 @@ local function formatConflict(name: string, requirements: { Requirement }): stri
 	local body: { string } = {}
 	for _, req in requirements do
 		local source = req.requiredBy or "root"
-		table.insert(body, `  {parser.formatConstraint(req.constraint)}  (required by {source})`)
+		if req.aliasedAs then
+			table.insert(body, `  {parser.formatConstraint(req.constraint)}  (required by {source} as {req.aliasedAs})`)
+		else
+			table.insert(body, `  {parser.formatConstraint(req.constraint)}  (required by {source})`)
+		end
 	end
 	table.sort(body)
 
@@ -247,6 +251,7 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 			name = req.name,
 			constraint = req.constraint,
 			requiredBy = req.requiredBy,
+			aliasedAs = req.aliasedAs,
 		})
 	end
 

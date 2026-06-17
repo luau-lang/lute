@@ -347,20 +347,20 @@ test.suite("RegistryResolution", function(suite)
 				sourceKind = "registry",
 				name = "citrus",
 				source = "citrus",
-				version = "^1.0.0",
+				version = "^1.5.0",
 			},
 			lime = {
 				sourceKind = "registry",
 				name = "citrus",
 				source = "citrus",
-				version = "^2.0.0",
+				version = "<1.3.0",
 			},]]
 		)
 
 		local universe: solver.Universe = {
 			citrus = {
-				namedVersion("citrus", "1.0.0"),
-				namedVersion("citrus", "2.0.0"),
+				namedVersion("citrus", "1.5.0"),
+				namedVersion("citrus", "1.2.0"),
 			},
 		}
 
