@@ -411,7 +411,7 @@ struct AstSerialize : public Luau::AstVisitor
         lua_rawcheckstack(L, 2);
 
 
-        if (item.kind == Luau::AstExprTable::Item::List)
+        if (item.kind == Luau::AstExprTable::Item::Kind::List)
         {
             lua_createtable(L, 0, 5);
             lua_pushstring(L, "list");
@@ -425,7 +425,7 @@ struct AstSerialize : public Luau::AstVisitor
             visit(item.value);
             lua_setfield(L, -2, "value");
         }
-        else if (item.kind == Luau::AstExprTable::Item::Record)
+        else if (item.kind == Luau::AstExprTable::Item::Kind::Record)
         {
             lua_createtable(L, 0, 7);
             lua_pushstring(L, "record");
@@ -447,7 +447,7 @@ struct AstSerialize : public Luau::AstVisitor
             visit(item.value);
             lua_setfield(L, -2, "value");
         }
-        else if (item.kind == Luau::AstExprTable::Item::General)
+        else if (item.kind == Luau::AstExprTable::Item::Kind::General)
         {
             lua_createtable(L, 0, 9);
             lua_pushstring(L, "general");
@@ -477,8 +477,8 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "value");
         }
 
-        if (cstNode->separator != Luau::CstExprTable::Missing)
-            serializeToken(cstNode->separatorPosition, cstNode->separator == Luau::CstExprTable::Comma ? "," : ";");
+        if (cstNode->separator != Luau::CstExprTable::Separator::Missing)
+            serializeToken(cstNode->separatorPosition, cstNode->separator == Luau::CstExprTable::Separator::Comma ? "," : ";");
         else
             lua_pushnil(L);
         lua_setfield(L, -2, "separator");
@@ -824,16 +824,16 @@ struct AstSerialize : public Luau::AstVisitor
 
         switch (cstNode->quoteStyle)
         {
-        case Luau::CstExprConstantString::QuotedSingle:
+        case Luau::CstExprConstantString::QuoteStyle::QuotedSingle:
             lua_pushstring(L, "single");
             break;
-        case Luau::CstExprConstantString::QuotedDouble:
+        case Luau::CstExprConstantString::QuoteStyle::QuotedDouble:
             lua_pushstring(L, "double");
             break;
-        case Luau::CstExprConstantString::QuotedRaw:
+        case Luau::CstExprConstantString::QuoteStyle::QuotedRaw:
             lua_pushstring(L, "block");
             break;
-        case Luau::CstExprConstantString::QuotedInterp:
+        case Luau::CstExprConstantString::QuoteStyle::QuotedInterp:
             lua_pushstring(L, "interp");
             break;
         }
@@ -1957,8 +1957,8 @@ struct AstSerialize : public Luau::AstVisitor
                 node->indexer->resultType->visit(this);
                 lua_setfield(L, -2, "value");
 
-                if (item.separator != Luau::CstExprTable::Missing)
-                    serializeToken(item.separatorPosition, item.separator == Luau::CstExprTable::Comma ? "," : ";");
+                if (item.separator != Luau::CstExprTable::Separator::Missing)
+                    serializeToken(item.separatorPosition, item.separator == Luau::CstExprTable::Separator::Comma ? "," : ";");
                 else
                     lua_pushnil(L);
                 lua_setfield(L, -2, "separator");
@@ -2008,10 +2008,10 @@ struct AstSerialize : public Luau::AstVisitor
 
                         switch (item.stringInfo->quoteStyle)
                         {
-                        case Luau::CstExprConstantString::QuotedSingle:
+                        case Luau::CstExprConstantString::QuoteStyle::QuotedSingle:
                             lua_pushstring(L, "single");
                             break;
-                        case Luau::CstExprConstantString::QuotedDouble:
+                        case Luau::CstExprConstantString::QuoteStyle::QuotedDouble:
                             lua_pushstring(L, "double");
                             break;
                         default:
@@ -2048,8 +2048,8 @@ struct AstSerialize : public Luau::AstVisitor
                 prop->type->visit(this);
                 lua_setfield(L, -2, "value");
 
-                if (item.separator != Luau::CstExprTable::Missing)
-                    serializeToken(item.separatorPosition, item.separator == Luau::CstExprTable::Comma ? "," : ";");
+                if (item.separator != Luau::CstExprTable::Separator::Missing)
+                    serializeToken(item.separatorPosition, item.separator == Luau::CstExprTable::Separator::Comma ? "," : ";");
                 else
                     lua_pushnil(L);
                 lua_setfield(L, -2, "separator");
@@ -2289,10 +2289,10 @@ struct AstSerialize : public Luau::AstVisitor
 
         switch (cstNode->quoteStyle)
         {
-        case Luau::CstExprConstantString::QuotedSingle:
+        case Luau::CstExprConstantString::QuoteStyle::QuotedSingle:
             lua_pushstring(L, "single");
             break;
-        case Luau::CstExprConstantString::QuotedDouble:
+        case Luau::CstExprConstantString::QuoteStyle::QuotedDouble:
             lua_pushstring(L, "double");
             break;
         default:
