@@ -1057,6 +1057,14 @@ struct AstSerialize : public Luau::AstVisitor
             serializeToken(cstNode->closeGenericsPosition, ">");
             lua_setfield(L, -2, "closeGenerics");
         }
+        else
+        {
+            lua_createtable(L, 0, 0);
+            lua_setfield(L, -2, "generics");
+
+            lua_createtable(L, 0, 0);
+            lua_setfield(L, -2, "genericPacks");
+        }
 
         if (node->self)
             serialize(node->self, /* createToken= */ false);

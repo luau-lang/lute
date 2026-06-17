@@ -505,12 +505,8 @@ local function visitExprFunction(
 		if node.openGenerics then
 			visitToken(node.openGenerics, visitor)
 		end
-		if node.generics then
-			visitPunctuated(node.generics, visitor, visitGeneric)
-		end
-		if node.genericPacks then
-			visitPunctuated(node.genericPacks, visitor, visitGenericPack)
-		end
+		visitPunctuated(node.generics, visitor, visitGeneric)
+		visitPunctuated(node.genericPacks, visitor, visitGenericPack)
 		if node.closeGenerics then
 			visitToken(node.closeGenerics, visitor)
 		end
