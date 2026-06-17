@@ -54,7 +54,7 @@ end
 
 local function normalizePathDependency(
 	spec: manifest.DependencySpec,
-	contextDirectory: string,
+	installPath: string,
 	rootDirectory: string
 ): manifest.DependencySpec
 	-- normalization is a no-op if it's not a path dependency
@@ -62,7 +62,7 @@ local function normalizePathDependency(
 		return spec
 	end
 
-	local sourcePath = path.format(path.resolve(contextDirectory, spec.source))
+	local sourcePath = path.format(path.resolve(installPath, spec.source))
 	if not fs.exists(sourcePath) then
 		error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
 	end
@@ -78,7 +78,7 @@ local function enqueueDependencies(
 	queue: { manifest.DependencySpec },
 	registry: RegistryContext,
 	dependencies: { [string]: manifest.DependencySpec },
-	contextDirectory: string,
+	installPath: string,
 	rootDirectory: string,
 	requiredBy: string
 ): { [string]: string }
@@ -99,7 +99,7 @@ local function enqueueDependencies(
 				name = dependencySpec.name,
 			})
 		else
-			local normalized = normalizePathDependency(dependencySpec, contextDirectory, rootDirectory)
+			local normalized = normalizePathDependency(dependencySpec, installPath, rootDirectory)
 			aliases[dependencyAlias] = getKey(normalized)
 			table.insert(queue, normalized)
 		end
