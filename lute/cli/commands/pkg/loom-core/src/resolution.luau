@@ -215,11 +215,18 @@ local function processSpecQueue(
 			continue
 		end
 
-		local key = getKey(spec)
 		local installPath = fetchSource(spec, rootDirectory)
-		local depManifest = manifest.parseFile(installPath)
-		local transitiveDependencies =
-			enqueueDependencies(queue, registry, depManifest.package.dependencies, installPath, rootDirectory, key)
+		local dependencyManifest = manifest.parseFile(installPath)
+
+		local key = getKey(spec)
+		local transitiveDependencies = enqueueDependencies(
+			queue,
+			registry,
+			dependencyManifest.package.dependencies,
+			installPath,
+			rootDirectory,
+			key
+		)
 
 		packages[key] = table.freeze({
 			name = spec.name,
@@ -309,8 +316,8 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		table.freeze(pkg.dependencies)
 	end
 
-	table.freeze(dependencies)
 	table.freeze(packages)
+	table.freeze(dependencies)
 
 	return table.freeze({
 		version = 3,
