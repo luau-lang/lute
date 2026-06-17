@@ -222,15 +222,8 @@ local function processSpecQueue(
 
 		local installPath = fetchSource(spec, rootDirectory)
 		local depManifest = manifest.parseManifest(installPath)
-		local transitiveDependencies = enqueueDependencies(
-			queue,
-			depManifest.package.dependencies,
-			installPath,
-			rootDirectory,
-			registry,
-			key,
-			key
-		)
+		local transitiveDependencies =
+			enqueueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory, registry, key, key)
 
 		packages[key] = table.freeze({
 			name = spec.name,
