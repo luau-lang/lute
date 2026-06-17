@@ -15,6 +15,7 @@ export type Requirement = {
 	read name: string,
 	read constraint: parser.Constraint,
 	read requiredBy: string?,
+	read aliasedAs: string?,
 }
 
 -- All known versions per package name, sorted newest-first.
