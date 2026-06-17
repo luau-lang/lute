@@ -28,7 +28,7 @@ test.suite("TableExt", function(suite)
 			return v % 2 == 0
 		end)
 		assert.eq(foundA, 2)
-		assert.eq(indexA, "a")
+		assert.eq(indexA, "b")
 		local foundB, indexB = tableext.find(b, function(v: number)
 			return v == 3
 		end)
