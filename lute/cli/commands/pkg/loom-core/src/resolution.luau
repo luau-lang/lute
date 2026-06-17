@@ -74,6 +74,64 @@ local function normalizePathDependency(
 	})
 end
 
+local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string
+	if spec.sourceKind == "path" then
+		local sourcePath = path.format(path.resolve(rootDirectory, spec.source))
+		if not fs.exists(sourcePath) then
+			error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
+		end
+		return sourcePath
+	elseif spec.sourceKind == "github" then
+		store.ensureStoreDirectory()
+
+		local key = getKey(spec)
+		local sourcePath = store.getPackagePath(key)
+		if not store.hasPackage(key) then
+			github.installPackage(spec.source, spec.rev, sourcePath)
+		end
+
+		return sourcePath
+	else
+		error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
+	end
+end
+
+local function shouldProcess(
+	spec: manifest.DependencySpec,
+	packages: { [string]: lockfile.LockfileDependency },
+	registry: RegistryContext
+): boolean
+	local key = getKey(spec)
+
+	if packages[key] then
+		if hasConflict(packages[key], spec) then
+			error(
+				`Source mismatch for package '{spec.name}':\n`
+					.. `  resolved: {packages[key].source} ({packages[key].sourceKind})\n`
+					.. `  incoming: {spec.source} ({spec.sourceKind})\n`
+					.. `Both resolve to '{key}' but from different sources.`
+			)
+		else
+			-- Already resolved at this exact version — deduplicate
+			return false
+		end
+	end
+
+	local conflictKey = registry.names[spec.name]
+	if conflictKey then
+		error(
+			`Name conflict for package '{spec.name}':\n`
+				.. `  resolved: {conflictKey}\n`
+				.. `  incoming: {key}\n`
+				.. `Two different sources claim the same package name.`
+		)
+	end
+
+	-- new dependency
+	registry.names[spec.name] = key
+	return true
+end
+
 local function enqueueDependencies(
 	queue: { manifest.DependencySpec },
 	registry: RegistryContext,
@@ -145,64 +203,6 @@ local function seedWorkspaceMembers(
 	return table.freeze(members)
 end
 
-local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string
-	if spec.sourceKind == "path" then
-		local sourcePath = path.format(path.resolve(rootDirectory, spec.source))
-		if not fs.exists(sourcePath) then
-			error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
-		end
-		return sourcePath
-	elseif spec.sourceKind == "github" then
-		store.ensureStoreDirectory()
-
-		local key = getKey(spec)
-		local sourcePath = store.getPackagePath(key)
-		if not store.hasPackage(key) then
-			github.installPackage(spec.source, spec.rev, sourcePath)
-		end
-
-		return sourcePath
-	else
-		error(`Unsupported source kind: {spec.sourceKind} for package {spec.name}`)
-	end
-end
-
-local function shouldProcess(
-	spec: manifest.DependencySpec,
-	packages: { [string]: lockfile.LockfileDependency },
-	registry: RegistryContext
-): boolean
-	local key = getKey(spec)
-
-	if packages[key] then
-		if hasConflict(packages[key], spec) then
-			error(
-				`Source mismatch for package '{spec.name}':\n`
-					.. `  resolved: {packages[key].source} ({packages[key].sourceKind})\n`
-					.. `  incoming: {spec.source} ({spec.sourceKind})\n`
-					.. `Both resolve to '{key}' but from different sources.`
-			)
-		else
-			-- Already resolved at this exact version — deduplicate
-			return false
-		end
-	end
-
-	local conflictKey = registry.names[spec.name]
-	if conflictKey then
-		error(
-			`Name conflict for package '{spec.name}':\n`
-				.. `  resolved: {conflictKey}\n`
-				.. `  incoming: {key}\n`
-				.. `Two different sources claim the same package name.`
-		)
-	end
-
-	-- new dependency
-	registry.names[spec.name] = key
-	return true
-end
-
 local function processSpecQueue(
 	queue: { manifest.DependencySpec },
 	registry: RegistryContext,
@@ -262,9 +262,10 @@ local function solveRegistryRequirements(
 
 		local transitiveDependencies: { [string]: string } = {}
 		for alias, dependency in pkgVersion.dependencies do
-			local resolvedDependency = resolution[dependency.name]
-			assert(resolvedDependency ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
-			transitiveDependencies[alias] = `{dependency.name}@{resolvedDependency.versionString}`
+			local resolvedVersion = resolution[dependency.name]
+			assert(resolvedVersion ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
+
+			transitiveDependencies[alias] = `{dependency.name}@{resolvedVersion.versionString}`
 		end
 
 		packages[key] = table.freeze({
