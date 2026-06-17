@@ -579,7 +579,7 @@ test.suite("RegistryResolution", function(suite)
 		}
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
-		lockfile.writeLockfile(lock, path.format(workingDirectory))
+		lockfile.writeFile(lock, path.format(workingDirectory))
 
 		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
 		assert.that(fs.exists(lockfilePath))

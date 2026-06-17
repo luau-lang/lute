@@ -122,7 +122,7 @@ local function seedWorkspaceMembers(
 	local members: { [string]: lockfile.LockfileMember } = {}
 	for _, memberPath in rootManifest.workspace do
 		local memberDir = path.format(path.resolve(rootDirectory, memberPath))
-		local memberManifest = manifest.parseManifest(memberDir)
+		local memberManifest = manifest.parseFile(memberDir)
 		local memberName = memberManifest.package.name
 		if members[memberName] then
 			error(
@@ -221,7 +221,7 @@ local function processSpecQueue(
 		end
 
 		local installPath = fetchSource(spec, rootDirectory)
-		local depManifest = manifest.parseManifest(installPath)
+		local depManifest = manifest.parseFile(installPath)
 		local transitiveDependencies =
 			enqueueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory, registry, key, key)
 
@@ -286,7 +286,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 	local nameIndex: { [string]: string } = {}
 	local registry = newRegistryContext()
 
-	local rootManifest = manifest.parseManifest(rootDirectory)
+	local rootManifest = manifest.parseFile(rootDirectory)
 
 	local dependencies = enqueueDependencies(
 		queue,

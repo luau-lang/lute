@@ -128,12 +128,12 @@ local function parseManifest(t: unknown): ProjectManifest
 	})
 end
 
-local function resolveManifestPath(directory: string): string
+local function resolvePath(directory: string): string
 	return `{directory}/loom.config.luau`
 end
 
-local function parseManifestFile(directory: string): ProjectManifest
-	local manifestPath = resolveManifestPath(directory)
+local function parseFile(directory: string): ProjectManifest
+	local manifestPath = resolvePath(directory)
 	if not fs.exists(manifestPath) then
 		error(`Manifest not found at: {manifestPath}`)
 	end
@@ -144,6 +144,6 @@ end
 return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
-	parseManifest = parseManifestFile,
-	resolveManifestPath = resolveManifestPath,
+	parseFile = parseFile,
+	resolvePath = resolvePath,
 }

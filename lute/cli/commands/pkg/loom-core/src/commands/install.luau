@@ -27,7 +27,7 @@ local function install()
 	local manifestPath = `{rootDirectory}/loom.config.luau`
 
 	if fs.exists(manifestPath) then
-		local rootManifest = manifest.parseManifest(rootDirectory)
+		local rootManifest = manifest.parseFile(rootDirectory)
 		for _, depSpec in rootManifest.package.dependencies do
 			if depSpec.sourceKind == "registry" then
 				error("Registry dependencies are not yet supported by the install command")
@@ -37,7 +37,7 @@ local function install()
 
 	local lock = resolution.resolve(rootDirectory, nil)
 	printDiagnostics(lock)
-	lockfile.writeLockfile(lock, rootDirectory)
+	lockfile.writeFile(lock, rootDirectory)
 end
 
 return install
