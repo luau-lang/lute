@@ -79,10 +79,10 @@ end
 -- path/github specs are normalized and pushed onto the queue.
 local function enqueueDependencies(
 	queue: { manifest.DependencySpec },
+	registry: RegistryContext,
 	dependencies: { [string]: manifest.DependencySpec },
 	contextDirectory: string,
 	rootDirectory: string,
-	registry: RegistryContext,
 	requiredBy: string
 ): { [string]: string }
 	local aliases: { [string]: string } = {}
@@ -112,9 +112,9 @@ end
 
 local function seedWorkspaceMembers(
 	queue: { manifest.DependencySpec },
+	registry: RegistryContext,
 	rootDirectory: string,
-	rootManifest: manifest.ProjectManifest,
-	registry: RegistryContext
+	rootManifest: manifest.ProjectManifest
 ): { [string]: lockfile.LockfileMember }?
 	if rootManifest.workspace == nil then
 		return nil
@@ -133,10 +133,10 @@ local function seedWorkspaceMembers(
 		end
 		local memberDependencies = enqueueDependencies(
 			queue,
+			registry,
 			memberManifest.package.dependencies,
 			memberDirectory,
 			rootDirectory,
-			registry,
 			memberName
 		)
 		members[memberName] = table.freeze({
@@ -171,11 +171,12 @@ local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string)
 end
 
 local function shouldDeduplicate(
-	key: string,
 	spec: manifest.DependencySpec,
 	packages: { [string]: lockfile.LockfileDependency },
 	registry: RegistryContext
 ): boolean
+	local key = getKey(spec)
+
 	if packages[key] then
 		if hasConflict(packages[key], spec) then
 			error(
@@ -207,21 +208,21 @@ end
 
 local function processSpecQueue(
 	queue: { manifest.DependencySpec },
-	rootDirectory: string,
-	registry: RegistryContext
+	registry: RegistryContext,
+	rootDirectory: string
 ): { [string]: lockfile.LockfileDependency }
 	local packages: { [string]: lockfile.LockfileDependency } = {}
 
 	for _, spec in queue do
-		local key = getKey(spec)
-		if shouldDeduplicate(key, spec, packages, registry) then
+		if shouldDeduplicate(spec, packages, registry) then
 			continue
 		end
 
+		local key = getKey(spec)
 		local installPath = fetchSource(spec, rootDirectory)
 		local depManifest = manifest.parseFile(installPath)
 		local transitiveDependencies =
-			enqueueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory, registry, key)
+			enqueueDependencies(queue, registry, depManifest.package.dependencies, installPath, rootDirectory, key)
 
 		packages[key] = table.freeze({
 			name = spec.name,
@@ -288,14 +289,14 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 
 	local dependencies = enqueueDependencies(
 		queue,
+		registry,
 		rootManifest.package.dependencies,
 		rootDirectory,
 		rootDirectory,
-		registry,
 		rootManifest.package.name
 	)
-	local members = seedWorkspaceMembers(queue, rootDirectory, rootManifest, registry)
-	local packages = processSpecQueue(queue, rootDirectory, registry)
+	local members = seedWorkspaceMembers(queue, registry, rootDirectory, rootManifest)
+	local packages = processSpecQueue(queue, registry, rootDirectory)
 
 	if next(registry.requirements) ~= nil then
 		assert(universe ~= nil, "Registry dependencies require a universe to be provided")
