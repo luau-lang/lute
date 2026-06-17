@@ -300,9 +300,6 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		solveRegistryRequirements(packages, registry, universe)
 	end
 
-	-- Freeze alias tables that we deliberately left open so registry fixups could
-	-- write back into them. Package entries are already shallow-frozen.
-	table.freeze(dependencies)
 	if members ~= nil then
 		for _, member in members do
 			table.freeze(member.dependencies)
@@ -311,6 +308,8 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 	for _, pkg in packages do
 		table.freeze(pkg.dependencies)
 	end
+
+	table.freeze(dependencies)
 	table.freeze(packages)
 
 	return table.freeze({
