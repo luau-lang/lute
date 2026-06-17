@@ -45,7 +45,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y ninja-build clang
+        sudo apt-get install -y ninja-build clang ccache
 
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
@@ -53,6 +53,12 @@ runs:
       run: |
         brew update
         brew unlink brotli zstd
+        brew install ccache
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: choco install ccache -y
 
     - name: Set up MSVC
       if: runner.os == 'Windows'
@@ -68,17 +74,6 @@ runs:
       with:
         path: extern
         key: extern-${{ hashFiles('extern/*.tune') }}
-
-    - name: Install ccache
-      shell: bash
-      run: |
-        if [[ "${{ runner.os }}" == "Linux" ]]; then
-          sudo apt-get install -y ccache
-        elif [[ "${{ runner.os }}" == "macOS" ]]; then
-          brew install ccache
-        elif [[ "${{ runner.os }}" == "Windows" ]]; then
-          choco install ccache -y
-        fi
 
     - name: Configure ccache
       shell: bash
@@ -103,7 +98,7 @@ runs:
       shell: bash
       run: |
         echo "Cache status: ${{ steps.cache-ccache.outputs.cache-hit }}"
-        ccache -sv
+        ccache -s
 
     - name: Bootstrap Lute (if needed) and set LUTE
       shell: bash
@@ -131,7 +126,7 @@ runs:
 
     - name: ccache stats (post-build)
       shell: bash
-      run: ccache -sv
+      run: ccache -s
 
     - name: Save ccache
       if: github.ref_name == 'primary'

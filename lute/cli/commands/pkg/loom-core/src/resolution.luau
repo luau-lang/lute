@@ -3,7 +3,28 @@ local github = require("./github")
 local lockfile = require("./lockfile")
 local manifest = require("./manifest")
 local path = require("@std/path")
+local semver = require("./semver")
 local store = require("./store")
+
+type RegistryFixup = {
+	aliases: { [string]: string },
+	alias: string,
+	name: string,
+}
+
+type RegistryContext = {
+	requirements: { [string]: semver.Requirement },
+	sources: { [string]: string },
+	fixups: { RegistryFixup },
+}
+
+local function newRegistryContext(): RegistryContext
+	return {
+		requirements = {},
+		sources = {},
+		fixups = {},
+	}
+end
 
 local function getKey(spec: manifest.DependencySpec): string
 	if spec.sourceKind == "github" then
@@ -51,26 +72,49 @@ local function normalizePathDependency(
 	})
 end
 
+-- Walk a dependency map and split it: registry specs become solver inputs (with a
+-- pending fixup so we can write the resolved key back into `aliases` post-solve);
+-- path/github specs are normalized and pushed onto the queue.
 local function enqueueDependencies(
 	queue: { manifest.DependencySpec },
 	deps: { [string]: manifest.DependencySpec },
 	contextDir: string,
-	rootDirectory: string
+	rootDirectory: string,
+	registry: RegistryContext,
+	requiredBy: string,
+	sourceKeyPrefix: string
 ): { [string]: string }
 	local aliases: { [string]: string } = {}
 	for alias, depSpec in deps do
-		local normalized = normalizePathDependency(depSpec, contextDir, rootDirectory)
-		aliases[alias] = getKey(normalized)
-		table.insert(queue, normalized)
+		if depSpec.sourceKind == "registry" then
+			local sourceKey = `{sourceKeyPrefix}:{alias}`
+			registry.requirements[sourceKey] = {
+				name = depSpec.name,
+				constraint = semver.parseConstraint(depSpec.version),
+				requiredBy = requiredBy,
+				aliasedAs = if alias ~= depSpec.name then alias else nil,
+			}
+			registry.sources[depSpec.name] = depSpec.source
+			table.insert(registry.fixups, {
+				aliases = aliases,
+				alias = alias,
+				name = depSpec.name,
+			})
+		else
+			local normalized = normalizePathDependency(depSpec, contextDir, rootDirectory)
+			aliases[alias] = getKey(normalized)
+			table.insert(queue, normalized)
+		end
 	end
-	return table.freeze(aliases)
+	return aliases
 end
 
 local function seedWorkspaceMembers(
 	queue: { manifest.DependencySpec },
 	nameIndex: { [string]: string },
 	rootDirectory: string,
-	rootManifest: manifest.ProjectManifest
+	rootManifest: manifest.ProjectManifest,
+	registry: RegistryContext
 ): { [string]: lockfile.LockfileMember }?
 	if rootManifest.workspace == nil then
 		return nil
@@ -87,7 +131,15 @@ local function seedWorkspaceMembers(
 					.. `  {memberPath}`
 			)
 		end
-		local memberDeps = enqueueDependencies(queue, memberManifest.package.dependencies, memberDir, rootDirectory)
+		local memberDeps = enqueueDependencies(
+			queue,
+			memberManifest.package.dependencies,
+			memberDir,
+			rootDirectory,
+			registry,
+			memberName,
+			`member:{memberName}`
+		)
 		members[memberName] = table.freeze({
 			path = memberPath,
 			dependencies = memberDeps,
@@ -157,7 +209,8 @@ end
 local function processSpecQueue(
 	queue: { manifest.DependencySpec },
 	nameIndex: { [string]: string },
-	rootDirectory: string
+	rootDirectory: string,
+	registry: RegistryContext
 ): { [string]: lockfile.LockfileDependency }
 	local packages: { [string]: lockfile.LockfileDependency } = {}
 
@@ -169,8 +222,15 @@ local function processSpecQueue(
 
 		local installPath = fetchSource(spec, rootDirectory)
 		local depManifest = manifest.parseManifest(installPath)
-		local transitiveDependencies =
-			enqueueDependencies(queue, depManifest.package.dependencies, installPath, rootDirectory)
+		local transitiveDependencies = enqueueDependencies(
+			queue,
+			depManifest.package.dependencies,
+			installPath,
+			rootDirectory,
+			registry,
+			key,
+			key
+		)
 
 		packages[key] = table.freeze({
 			name = spec.name,
@@ -188,18 +248,82 @@ local function processSpecQueue(
 	table.clear(queue)
 	table.freeze(queue)
 
-	return table.freeze(packages)
+	return packages
 end
 
-local function resolve(rootDirectory: string): lockfile.Lockfile
+-- Solve all collected registry requirements in one pass and stitch the resolved
+-- versions into the package graph: emit one packages entry per resolved version,
+-- and back-patch every fixup's alias table with the concrete `name@version` key.
+local function solveRegistryRequirements(
+	packages: { [string]: lockfile.LockfileDependency },
+	registry: RegistryContext,
+	universe: semver.Universe
+)
+	local resolution = semver.solve(universe, registry.requirements)
+
+	for name, pkgVersion in resolution do
+		local key = `{name}@{pkgVersion.versionString}`
+
+		local transitiveDependencies: { [string]: string } = {}
+		for alias, dependency in pkgVersion.dependencies do
+			local resolvedDep = resolution[dependency.name]
+			assert(resolvedDep ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
+			transitiveDependencies[alias] = `{dependency.name}@{resolvedDep.versionString}`
+		end
+
+		packages[key] = table.freeze({
+			name = name,
+			rev = pkgVersion.versionString,
+			source = registry.sources[name] or name,
+			sourceKind = "registry" :: "registry",
+			installPath = store.toStorePath(key),
+			dependencies = transitiveDependencies,
+		})
+	end
+
+	for _, fix in registry.fixups do
+		local pkgVersion = resolution[fix.name]
+		assert(pkgVersion ~= nil, `Solver did not resolve registry dependency '{fix.name}'`)
+		fix.aliases[fix.alias] = `{fix.name}@{pkgVersion.versionString}`
+	end
+end
+
+local function resolve(rootDirectory: string, universe: semver.Universe?): lockfile.Lockfile
 	local queue: { manifest.DependencySpec } = {}
 	local nameIndex: { [string]: string } = {}
+	local registry = newRegistryContext()
 
 	local rootManifest = manifest.parseManifest(rootDirectory)
 
-	local dependencies = enqueueDependencies(queue, rootManifest.package.dependencies, rootDirectory, rootDirectory)
-	local members = seedWorkspaceMembers(queue, nameIndex, rootDirectory, rootManifest)
-	local packages = processSpecQueue(queue, nameIndex, rootDirectory)
+	local dependencies = enqueueDependencies(
+		queue,
+		rootManifest.package.dependencies,
+		rootDirectory,
+		rootDirectory,
+		registry,
+		rootManifest.package.name,
+		"root"
+	)
+	local members = seedWorkspaceMembers(queue, nameIndex, rootDirectory, rootManifest, registry)
+	local packages = processSpecQueue(queue, nameIndex, rootDirectory, registry)
+
+	if next(registry.requirements) ~= nil then
+		assert(universe ~= nil, "Registry dependencies require a universe to be provided")
+		solveRegistryRequirements(packages, registry, universe)
+	end
+
+	-- Freeze alias tables that we deliberately left open so registry fixups could
+	-- write back into them. Package entries are already shallow-frozen.
+	table.freeze(dependencies)
+	if members ~= nil then
+		for _, member in members do
+			table.freeze(member.dependencies)
+		end
+	end
+	for _, pkg in packages do
+		table.freeze(pkg.dependencies)
+	end
+	table.freeze(packages)
 
 	return table.freeze({
 		version = 3,

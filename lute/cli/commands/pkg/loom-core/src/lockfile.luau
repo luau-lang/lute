@@ -34,7 +34,7 @@ local function validatePackageEntry(key: string, entry: any)
 	assert(typeof(entry.source) == "string", `Expected 'source' field in dependency '{key}'`)
 	assert(
 		manifest.isSourceKind(entry.sourceKind),
-		`Expected 'sourceKind' to be 'path' or 'github' for dependency '{key}', got '{entry.sourceKind}'`
+		`Expected 'sourceKind' to be 'path', 'github', or 'registry' for dependency '{key}', got '{entry.sourceKind}'`
 	)
 	assert(typeof(entry.installPath) == "string", `Expected 'installPath' field in dependency '{key}'`)
 	assert(typeof(entry.dependencies) == "table", `Expected 'dependencies' field in dependency '{key}'`)
