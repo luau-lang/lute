@@ -257,9 +257,9 @@ local function solveRegistryRequirements(
 
 		local transitiveDependencies: { [string]: string } = {}
 		for alias, dependency in pkgVersion.dependencies do
-			local resolvedDep = resolution[dependency.name]
-			assert(resolvedDep ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
-			transitiveDependencies[alias] = `{dependency.name}@{resolvedDep.versionString}`
+			local resolvedDependency = resolution[dependency.name]
+			assert(resolvedDependency ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
+			transitiveDependencies[alias] = `{dependency.name}@{resolvedDependency.versionString}`
 		end
 
 		packages[key] = table.freeze({
