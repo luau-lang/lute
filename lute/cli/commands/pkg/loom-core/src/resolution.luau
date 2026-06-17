@@ -74,9 +74,6 @@ local function normalizePathDependency(
 	})
 end
 
--- Walk a dependency map and split it: registry specs become solver inputs (with a
--- pending fixup so we can write the resolved key back into `aliases` post-solve);
--- path/github specs are normalized and pushed onto the queue.
 local function enqueueDependencies(
 	queue: { manifest.DependencySpec },
 	registry: RegistryContext,
