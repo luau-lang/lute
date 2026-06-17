@@ -1,6 +1,6 @@
 local luau = require("@std/luau")
 
-export type SourceKind = "path" | "github"
+export type SourceKind = "path" | "github" | "registry"
 
 export type PathDependencySpec = {
 	read sourceKind: "path",
@@ -15,7 +15,14 @@ export type GitHubDependencySpec = {
 	read rev: string,
 }
 
-export type DependencySpec = PathDependencySpec | GitHubDependencySpec
+export type RegistryDependencySpec = {
+	read sourceKind: "registry",
+	read name: string,
+	read source: string,
+	read version: string,
+}
+
+export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec
 
 export type PackageManifest = {
 	read name: string,
@@ -28,7 +35,7 @@ export type ProjectManifest = {
 }
 
 local function isSourceKind(s: unknown): boolean
-	return s == "path" or s == "github"
+	return s == "path" or s == "github" or s == "registry"
 end
 
 local function parseSourceKind(s: unknown): SourceKind?
@@ -65,7 +72,7 @@ local function parseManifest(t: unknown): ProjectManifest
 			)
 			assert(
 				isSourceKind(spec.sourceKind),
-				`Expected 'sourceKind' to be 'path' or 'github' in dependency spec for '{name}', got '{spec.sourceKind}'`
+				`Expected 'sourceKind' to be 'path', 'github', or 'registry' in dependency spec for '{name}', got '{spec.sourceKind}'`
 			)
 			assert(
 				spec.source ~= nil and typeof(spec.source) == "string",
@@ -75,19 +82,25 @@ local function parseManifest(t: unknown): ProjectManifest
 			if spec.sourceKind == "path" then
 				dependencies[name] = table.freeze({
 					name = spec.name or name,
-					sourceKind = "path",
+					sourceKind = "path" :: "path",
 					source = spec.source,
-				}) :: PathDependencySpec
-			end
-
-			if spec.sourceKind == "github" then
+				})
+			elseif spec.sourceKind == "github" then
 				assert(typeof(spec.rev) == "string", `Expected 'rev' field for github dependency '{name}'`)
 				dependencies[name] = table.freeze({
 					name = spec.name or name, -- use the optional name if provided, otherwise use the alias
-					sourceKind = "github",
+					sourceKind = "github" :: "github",
 					source = spec.source,
 					rev = spec.rev,
-				}) :: GitHubDependencySpec
+				})
+			elseif spec.sourceKind == "registry" then
+				assert(typeof(spec.version) == "string", `Expected 'version' field for registry dependency '{name}'`)
+				dependencies[name] = table.freeze({
+					name = spec.name or name,
+					sourceKind = "registry" :: "registry",
+					source = spec.source,
+					version = spec.version,
+				})
 			end
 		end
 		table.freeze(dependencies)
