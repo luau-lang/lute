@@ -1679,7 +1679,7 @@ struct AstSerialize : public Luau::AstVisitor
 
         const auto cstNode = lookupCstNode<Luau::CstStatCompoundAssign>(node);
         serializeToken(cstNode->opPosition, (Luau::toString(node->op) + "=").data());
-        lua_setfield(L, -2, "operand");
+        lua_setfield(L, -2, "operator");
 
         node->value->visit(this);
         lua_setfield(L, -2, "value");

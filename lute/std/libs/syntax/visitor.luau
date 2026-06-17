@@ -349,7 +349,7 @@ end
 local function visitStatCompoundAssign(node: types.CstStatCompoundAssign, visitor: Visitor)
 	if visitor.visitStatCompoundAssign(node) then
 		visitExpr(node.variable, visitor)
-		visitToken(node.operand, visitor)
+		visitToken(node.operator, visitor)
 		visitExpr(node.value, visitor)
 	end
 end

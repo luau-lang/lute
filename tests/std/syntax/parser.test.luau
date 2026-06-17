@@ -838,7 +838,7 @@ test.suite("parse", function(suite)
 		local compound = block.statements[1] :: syntax.CstStatCompoundAssign
 		assert.eq(compound.tag, "compoundassign")
 		assert.eq(compound.variable.tag, "global")
-		assert.eq(compound.operand.text, "+=")
+		assert.eq(compound.operator.text, "+=")
 		assert.eq(compound.value.tag, "number")
 	end)
 

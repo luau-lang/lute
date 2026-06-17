@@ -519,7 +519,7 @@ export type CstStatCompoundAssign = {
 	read kind: "stat",
 	read tag: "compoundassign",
 	read variable: CstExpr,
-	read operand: CstToken, -- TODO: Enforce token type
+	read operator: CstToken, -- TODO: Enforce token type
 	read value: CstExpr,
 }
 
