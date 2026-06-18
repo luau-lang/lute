@@ -91,7 +91,11 @@ local function downloadFromGitHubArchive(url: string): string
 end
 
 local function installPackage(source: string, rev: string, installPath: string): ()
-	local url = `{source}/archive/{rev}.zip`
+	local owner, repo = string.match(source, "^https?://github%.com/([^/]+)/([^/]+)")
+	if not owner or not repo then
+		error(`Unsupported GitHub source URL: {source}`)
+	end
+	local url = `https://api.github.com/repos/{owner}/{repo}/zipball/{rev}`
 	local zipArchive = downloadFromGitHubArchive(url)
 
 	local safeName = rev:gsub("[^%w%-_.]", "-")
