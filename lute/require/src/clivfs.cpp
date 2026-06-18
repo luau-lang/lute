@@ -7,6 +7,14 @@
 #include <string>
 
 constexpr std::string_view kCliAliasPrefix = "@cli";
+constexpr std::string_view kCliConfig = R"(
+{
+    "aliases": {
+        "lint": "@std/commands/lint/types",
+        "transform": "@std/commands/transform/types"
+    }
+}
+)";
 
 static bool isCliModule(const std::string& path)
 {
@@ -79,14 +87,7 @@ ConfigStatus CliVfs::getConfigStatus() const
     return ConfigStatus::PresentJson;
 }
 
-std::optional<std::string> CliVfs::getConfig() const
+std::optional<std::string_view> CliVfs::getConfig() const
 {
-    return R"(
-{
-    "aliases": {
-        "lint": "@std/commands/lint/types",
-        "transform": "@std/commands/transform/types"
-    }
-}
-)";
+    return kCliConfig;
 }
