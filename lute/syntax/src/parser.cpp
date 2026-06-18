@@ -753,7 +753,9 @@ struct AstSerialize : public Luau::AstVisitor
         node->expr->visit(this);
         lua_setfield(L, -2, "expression");
 
-        serializeToken(Luau::Position{node->location.end.line, node->location.end.column - 1}, ")");
+        const Luau::NotNull<Luau::CstExprGroup> cstNode = lookupCstNode<Luau::CstExprGroup>(node);
+
+        serializeToken(cstNode->closePosition, ")");
         lua_setfield(L, -2, "closeParens");
     }
 
@@ -2363,7 +2365,9 @@ struct AstSerialize : public Luau::AstVisitor
         node->type->visit(this);
         lua_setfield(L, -2, "type");
 
-        serializeToken(Luau::Position{node->location.end.line, node->location.end.column - 1}, ")");
+        const Luau::NotNull<Luau::CstTypeGroup> cstNode = lookupCstNode<Luau::CstTypeGroup>(node);
+
+        serializeToken(cstNode->closePosition, ")");
         lua_setfield(L, -2, "closeParens");
     }
 
