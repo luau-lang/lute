@@ -6,7 +6,7 @@ local transformTypes = require("@transform")
 
 local function transform(ctx: transformTypes.Context)
 	return query
-		.findAllFromRoot(ctx.parseresult :: syntax.ParseResult, syntax_utils.isExprBinary)
+		.findAllFromRoot(ctx.parseresult :: syntax.CstParseResult, syntax_utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "~="
 				and bin.lhsOperand.tag == "local"

@@ -11,7 +11,7 @@ return {
 	transform = function(ctx: transformTypes.Context)
 		local functionName = ctx.options.functionName
 		return query
-			.findAllFromRoot(ctx.parseresult :: syntax.ParseResult, syntax_utils.isExprBinary)
+			.findAllFromRoot(ctx.parseresult :: syntax.CstParseResult, syntax_utils.isExprBinary)
 			:filter(function(bin)
 				return bin.operator.text == "~="
 					and bin.lhsOperand.tag == "local"
