@@ -917,6 +917,7 @@ test.suite("parse", function(suite)
 
 		local typeFunc = block.statements[1] :: syntax.CstStatTypeFunction
 		assert.eq(typeFunc.tag, "typefunction")
+		assert.eq(typeFunc.isExported, false)
 		assert.eq(typeFunc.export, nil)
 		assert.eq(typeFunc.type.text, "type")
 		assert.eq(typeFunc.body.functionKeyword.text, "function")
@@ -927,6 +928,7 @@ test.suite("parse", function(suite)
 		assert.eq(#block.statements, 1)
 
 		typeFunc = block.statements[1] :: syntax.CstStatTypeFunction
+		assert.eq(typeFunc.isExported, true)
 		assert.neq(typeFunc.export, nil)
 		assert.eq((typeFunc.export :: syntax.CstToken<"export">).text, "export")
 	end)

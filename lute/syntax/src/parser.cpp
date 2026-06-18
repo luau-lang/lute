@@ -1814,17 +1814,28 @@ struct AstSerialize : public Luau::AstVisitor
     void serializeStat(Luau::AstStatTypeFunction* node)
     {
         lua_rawcheckstack(L, 3);
-        lua_createtable(L, 0, preambleSize + 4);
+        lua_createtable(L, 0, preambleSize + 5);
 
         const auto cstNode = lookupCstNode<Luau::CstStatTypeFunction>(node);
 
         serializeNodePreamble(node, "typefunction", "stat");
 
         if (node->exported)
+        {
+            lua_pushboolean(L, 1);
+            lua_setfield(L, -2, "isExported");
+
             serializeToken(node->location.begin, "export");
+            lua_setfield(L, -2, "export");
+        }
         else
+        {
+            lua_pushboolean(L, 0);
+            lua_setfield(L, -2, "isExported");
+
             lua_pushnil(L);
-        lua_setfield(L, -2, "export");
+            lua_setfield(L, -2, "export");
+        }
 
         serializeToken(cstNode->typeKeywordPosition, "type");
         lua_setfield(L, -2, "type");

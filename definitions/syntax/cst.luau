@@ -573,6 +573,7 @@ export type CstStatTypeFunction = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "typefunction",
+	read isExported: boolean,
 	read export: CstToken<"export">?,
 	read type: CstToken<"type">,
 	read name: CstToken,

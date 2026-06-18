@@ -573,7 +573,8 @@ end
 
 local function visitStatTypeFunction(node: types.CstStatTypeFunction, visitor: Visitor)
 	if visitor.visitStatTypeFunction(node) then
-		if node.export then
+		if node.isExported then
+			assert(node.export)
 			visitToken(node.export, visitor)
 		end
 		visitToken(node.type, visitor)
