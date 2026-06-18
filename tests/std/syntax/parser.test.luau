@@ -881,6 +881,7 @@ test.suite("parse", function(suite)
 
 		local typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
 		assert.eq(typeAlias.tag, "typealias")
+		assert.eq(typeAlias.isExported, false)
 		assert.eq(typeAlias.export, nil)
 		assert.eq(typeAlias.typeToken.text, "type")
 		assert.eq(typeAlias.name.text, "Vector3")
@@ -897,6 +898,7 @@ test.suite("parse", function(suite)
 
 		typeAlias = block.statements[1] :: syntax.CstStatTypeAlias
 		assert.neq(typeAlias.export, nil)
+		assert.eq(typeAlias.isExported, true)
 		assert.eq((typeAlias.export :: syntax.CstToken<"export">).text, "export")
 		assert.neq(typeAlias.openGenerics, nil)
 		assert.eq((typeAlias.openGenerics :: syntax.CstToken<"<">).text, "<")

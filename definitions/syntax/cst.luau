@@ -555,6 +555,7 @@ export type CstStatTypeAlias = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "typealias",
+	read isExported: boolean,
 	read export: CstToken<"export">?,
 	read typeToken: CstToken<"type">,
 	read name: CstToken,

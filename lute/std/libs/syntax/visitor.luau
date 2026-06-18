@@ -377,7 +377,8 @@ end
 
 local function visitStatTypeAlias(node: types.CstStatTypeAlias, visitor: Visitor)
 	if visitor.visitStatTypeAlias(node) then
-		if node.export then
+		if node.isExported then
+			assert(node.export)
 			visitToken(node.export, visitor)
 		end
 		visitToken(node.typeToken, visitor)
