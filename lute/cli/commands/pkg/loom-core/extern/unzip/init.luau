@@ -26,7 +26,7 @@ local EMPTY_PROPERTIES: ZipEntryProperties = table.freeze({
 	attributes = 0,
 	timestamp = 0,
 	crc = 0,
-})
+} :: any) -- FIXME(Luau): bidirectional typing breaks with table.freeze
 
 -- Lookup table for the OS that created the ZIP
 local MADE_BY_OS_LOOKUP: { [number]: MadeByOS } = {
@@ -54,7 +54,7 @@ local MADE_BY_OS_LOOKUP: { [number]: MadeByOS } = {
 
 --[=[
 	@class ZipEntry
-	
+
 	A single entry (a file or a directory) in a ZIP file, and its properties.
 ]=]
 local ZipEntry = {}
@@ -101,8 +101,8 @@ type ZipEntryInner = {
 
 -- stylua: ignore
 --[=[
-	@within ZipEntry	
-	@type MadeByOS "FAT" | "AMIGA" | "VMS" | "UNIX" | "VM/CMS" | "Atari ST" | "OS/2" | "MAC" | "Z-System" | "CP/M" | "NTFS" | "MVS" | "VSE" | "Acorn RISCOS" | "VFAT" | "Alternate MVS" | "BeOS" | "TANDEM" | "OS/400" | "OS/X" | "Unknown"     
+	@within ZipEntry
+	@type MadeByOS "FAT" | "AMIGA" | "VMS" | "UNIX" | "VM/CMS" | "Atari ST" | "OS/2" | "MAC" | "Z-System" | "CP/M" | "NTFS" | "MVS" | "VSE" | "Acorn RISCOS" | "VFAT" | "Alternate MVS" | "BeOS" | "TANDEM" | "OS/400" | "OS/X" | "Unknown"
 
 	The OS that created the ZIP.
 ]=]
@@ -166,7 +166,7 @@ export type MadeByOS =
 	Custom decompression routines can be registered via [ZipReader.new] to support
 	additional methods.
 ]=]
-export type CompressionMethod = 
+export type CompressionMethod =
     | "STORE"       -- 0x00: No compression
     | "SHRUNK"      -- 0x01: Shrunk
     | "REDUCE_F1"   -- 0x02: Reduced factor 1
@@ -196,7 +196,7 @@ export type CompressionMethod =
 	@within ZipEntry
 	@private
 
-	A set of properties that describe a ZIP entry. Used internally for construction of 
+	A set of properties that describe a ZIP entry. Used internally for construction of
 	[ZipEntry] objects.
 
 	@field versionMadeBy number -- Version of software and OS that created the ZIP
@@ -269,7 +269,7 @@ end
 	@within ZipEntry
 	@method getPath
 
-	Resolves the path of the entry based on its relationship with other entries. It is recommended to use this 
+	Resolves the path of the entry based on its relationship with other entries. It is recommended to use this
 	method instead of accessing the `name` property directly, although they should be equivalent.
 
 	> [!WARNING]
@@ -331,7 +331,7 @@ end
 
 --[=[
 	@within ZipEntry
-	@method compressionEfficiency 
+	@method compressionEfficiency
 
 	Calculates the compression efficiency of the entry, or `nil` if the entry is a directory.
 
@@ -430,7 +430,7 @@ type ZipReaderInner = {
 	validation.
 
 	@field expected number -- The expected hash provided in the ZIP
-	@field skip boolean -- Whether to skip validation altogether 
+	@field skip boolean -- Whether to skip validation altogether
 ]=]
 export type CrcValidationOptions = validateCrc.CrcValidationOptions
 
@@ -438,11 +438,11 @@ export type CrcValidationOptions = validateCrc.CrcValidationOptions
 	@interface DecompressionRoutine
 	@within ZipReader
 
-	Represents a compression method's decompression implementation. 
-	
-	A default implementation is provided for all of [CompressionMethod]'s 
-	variants but this may be used to override or provide implementations for 
-	unsupported compression methods. 
+	Represents a compression method's decompression implementation.
+
+	A default implementation is provided for all of [CompressionMethod]'s
+	variants but this may be used to override or provide implementations for
+	unsupported compression methods.
 
 	Accepted as an argument for [ZipReader.new].
 ]=]
@@ -456,8 +456,8 @@ export type DecompressionRoutine = {
 	@within ZipReader
 	@private
 
-	Implementations for decompression methods, keyed by the method's ID. 
-	
+	Implementations for decompression methods, keyed by the method's ID.
+
 	See [CompressionMethod] to find the ID for a compression method.
 ]=]
 type DecompressionRoutines = { [number]: DecompressionRoutine }
@@ -493,7 +493,7 @@ local DEFAULT_DECOMPRESSION_ROUTINES: DecompressionRoutines = {
 	@function new
 
 	Creates a new ZipReader instance from the raw bytes of a ZIP file.
-	
+
 	**Errors if the ZIP file is invalid.**
 
 	@param data buffer -- The buffer containing the raw bytes of the ZIP
@@ -533,8 +533,8 @@ end
 	implementation is inspired by that of [async_zip], a Rust library for parsing ZIP files
 	asynchronously.
 
-	This method involves buffered reading in reverse and reverse linear searching along those buffers 
-	for the EoCD signature. As a result of the buffered approach, we reduce individual reads when compared 
+	This method involves buffered reading in reverse and reverse linear searching along those buffers
+	for the EoCD signature. As a result of the buffered approach, we reduce individual reads when compared
 	to reading every single byte sequentially, by a factor of the buffer size (4 KB by default). The buffer
 	size of 4 KB was arrived at because it aligns with many systems' page sizes, and also provides a
 	good balance between read efficiency (not too small), memory usage (not too large) and CPU cache
@@ -611,7 +611,7 @@ export type EocdRecord = {
 	using the [ZipReader:findEocdPosition].
 
 	**Errors if the ZIP file is invalid.**
-	
+
 	@error "Invalid Central Directory offset or size"
 
 	@param pos number -- The offset to the End of Central Directory record
@@ -662,11 +662,11 @@ end
 	@method parseCentralDirectory
 	@private
 
-	Parses the central directory of the ZIP file and populates the `entries` and `directories` 
+	Parses the central directory of the ZIP file and populates the `entries` and `directories`
 	fields. Used internally during initialization of the [ZipReader].
 
 	**Errors if the ZIP file is invalid.**
-	
+
 	@error "Invalid Central Directory entry signature"
 	@error "Found different entries than specified in Central Directory"
 ]=]
@@ -752,7 +752,7 @@ end
 	@method buildDirectoryTree
 	@private
 
-	Builds the directory tree from the entries. Used internally during initialization of the 
+	Builds the directory tree from the entries. Used internally during initialization of the
 	[ZipReader].
 ]=]
 function ZipReader.buildDirectoryTree(self: ZipReader): ()
@@ -760,7 +760,7 @@ function ZipReader.buildDirectoryTree(self: ZipReader): ()
 	-- directories and files in separate passes over the entries, or sort
 	-- the entries so I handled the directories first -- I decided to do
 	-- the latter
-	table.sort(self.entries, function(a, b)
+	table.sort(self.entries, function(a: ZipEntry, b: ZipEntry)
 		if a.isDirectory ~= b.isDirectory then
 			return a.isDirectory
 		end
@@ -827,7 +827,7 @@ end
 --[=[
 	@within ZipReader
 	@method findEntry
-	
+
 	Finds a [ZipEntry] by its path in the ZIP archive.
 
 	@param path string -- Path to the entry to find
@@ -883,7 +883,7 @@ type ExtractionOptions = {
 	@within ZipReader
 	@method extract
 
-	Extracts the specified [ZipEntry] from the ZIP archive. See [ZipReader:extractDirectory] for 
+	Extracts the specified [ZipEntry] from the ZIP archive. See [ZipReader:extractDirectory] for
 	extracting directories.
 
 	@error "Cannot extract directory" -- If the entry is a directory, use [ZipReader:extractDirectory] instead
@@ -932,7 +932,7 @@ function ZipReader.extract(self: ZipReader, entry: ZipEntry, options: Extraction
 		skipSizeValidation: boolean,
 	} = if options
 		then setmetatable(options, { __index = defaultOptions }) :: any
-		else defaultOptions
+		else defaultOptions :: any
 
 	local pos = entry.offset
 	if buffer.readu32(self.data, pos) ~= SIGNATURES.LOCAL_FILE then
@@ -1022,8 +1022,10 @@ function ZipReader.extract(self: ZipReader, entry: ZipEntry, options: Extraction
 			optionsOrDefault.type = "binary"
 			optionsOrDefault.skipCrcValidation = true
 			optionsOrDefault.skipSizeValidation = true
-			content =
-				self:extract(self:findEntry(linkPath) or error("Symlink path not found"), optionsOrDefault) :: buffer
+			content = self:extract(
+				self:findEntry(linkPath) or error("Symlink path not found"),
+				optionsOrDefault :: ExtractionOptions
+			) :: buffer
 		end
 
 		content = algo.decompress(content, uncompressedSize, {
@@ -1126,9 +1128,9 @@ end
 	@interface ZipStatistics
 	@within ZipReader
 
-	@field fileCount number -- The number of files in the ZIP 
-	@field dirCount number -- The number of directories in the ZIP 
-	@field totalSize number -- The total size of all files in the ZIP 
+	@field fileCount number -- The number of files in the ZIP
+	@field dirCount number -- The number of directories in the ZIP
+	@field totalSize number -- The total size of all files in the ZIP
 ]=]
 export type ZipStatistics = { fileCount: number, dirCount: number, totalSize: number }
 

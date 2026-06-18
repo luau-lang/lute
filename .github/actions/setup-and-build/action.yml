@@ -45,7 +45,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y ninja-build clang
+        sudo apt-get install -y ninja-build clang ccache
 
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
@@ -53,6 +53,12 @@ runs:
       run: |
         brew update
         brew unlink brotli zstd
+        brew install ccache
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: choco install ccache -y
 
     - name: Set up MSVC
       if: runner.os == 'Windows'
@@ -63,18 +69,43 @@ runs:
       uses: luau-lang/setup-nasm@v1
 
     - name: Cache extern folder
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       id: cache-extern
       with:
         path: extern
         key: extern-${{ hashFiles('extern/*.tune') }}
+
+    - name: Configure ccache
+      shell: bash
+      run: |
+        echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
+        echo "CCACHE_MAXSIZE=500M" >> $GITHUB_ENV
+        echo "CCACHE_COMPRESS=true" >> $GITHUB_ENV
+        echo "CCACHE_COMPRESSLEVEL=6" >> $GITHUB_ENV
+        # zero statistics
+        ccache -z
+
+    - name: Restore ccache
+      uses: actions/cache/restore@v5
+      id: cache-ccache
+      with:
+        path: .ccache
+        key: ccache-${{ runner.os }}-${{ inputs.options }}-
+        lookup-only: false
+
+
+    - name: ccache stats (pre-build)
+      shell: bash
+      run: |
+        echo "Cache status: ${{ steps.cache-ccache.outputs.cache-hit }}"
+        ccache -s
 
     - name: Bootstrap Lute (if needed) and set LUTE
       shell: bash
       run: |
         if [[ "${{ inputs.use-bootstrap }}" == "true" ]]; then
           echo "Bootstrapping Lute..."
-          ./tools/bootstrap.sh
+          ./tools/bootstrap.sh --with-ccache --build-debug
           echo "LUTE=./build/lute0" >> $GITHUB_ENV
         else
           echo "LUTE=lute" >> $GITHUB_ENV
@@ -87,11 +118,22 @@ runs:
 
     - name: Configure ${{ inputs.target }}
       shell: bash
-      run: $LUTE ./tools/luthier.luau configure ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
+      run: $LUTE ./tools/luthier.luau configure ${{ inputs.target }} --with-ccache --config ${{ inputs.config }} ${{ inputs.options }}
 
     - name: Build ${{ inputs.target }}
       shell: bash
-      run: $LUTE ./tools/luthier.luau build ${{ inputs.target }} --config ${{ inputs.config }} ${{ inputs.options }}
+      run: $LUTE ./tools/luthier.luau build ${{ inputs.target }} --with-ccache --config ${{ inputs.config }} ${{ inputs.options }}
+
+    - name: ccache stats (post-build)
+      shell: bash
+      run: ccache -s
+
+    - name: Save ccache
+      if: github.ref_name == 'primary'
+      uses: actions/cache/save@v5
+      with:
+        path: .ccache
+        key: ccache-${{ runner.os }}-${{ inputs.options }}-${{ github.sha }}
 
     - name: Get Artifact Path
       id: artifact_path

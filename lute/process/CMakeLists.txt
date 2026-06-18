@@ -3,9 +3,11 @@ add_library(Lute.Process STATIC)
 target_sources(Lute.Process PRIVATE
     include/lute/process.h
     include/lute/processhandle.h
+    include/lute/os_signal.h
 
     src/process.cpp
     src/processhandle.cpp
+    src/os_signal.cpp
 )
 
 target_compile_features(Lute.Process PUBLIC cxx_std_17)

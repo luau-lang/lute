@@ -4,15 +4,15 @@ local types = require("../types")
 local retrieverLib = {}
 
 --- Returns the leading trivia of the leftmost token in `n`, or an empty array if there are no tokens.
-function retrieverLib.leftmostTrivia(n: types.AstNode): { types.Trivia }
-	local q = query.findAllFromRoot<<types.Token>>(
+function retrieverLib.leftmostTrivia(n: types.CstNode): { types.Trivia }
+	local q = query.findAllFromRoot<<types.CstToken>>(
 		n :: any,
-		function(n: types.AstNode) -- LUAUFIX: Code too complex emitted because AstNode is very large
+		function(n: types.CstNode) -- LUAUFIX: Code too complex emitted because CstNode is very large
 			return if n.kind == "token" then n else nil
 		end
 	)
 
-	local leftmostToken: types.Token? = nil
+	local leftmostToken: types.CstToken? = nil
 
 	for _, token in q.nodes do
 		if leftmostToken == nil then
@@ -31,15 +31,15 @@ function retrieverLib.leftmostTrivia(n: types.AstNode): { types.Trivia }
 end
 
 --- Returns the trailing trivia of the rightmost token in `n`, or an empty array if there are no tokens.
-function retrieverLib.rightmostTrivia(n: types.AstNode): { types.Trivia }
+function retrieverLib.rightmostTrivia(n: types.CstNode): { types.Trivia }
 	local q = query.findAllFromRoot(
 		n :: any,
-		function(n: types.AstNode) -- LUAUFIX: Code too complex emitted because AstNode is very large
+		function(n: types.CstNode) -- LUAUFIX: Code too complex emitted because CstNode is very large
 			return if n.kind == "token" then n else nil
 		end
 	)
 
-	local rightmostToken: types.Token? = nil
+	local rightmostToken: types.CstToken? = nil
 
 	for _, token in q.nodes do
 		if rightmostToken == nil then

@@ -21,6 +21,7 @@ target_sources(Lute.Test PRIVATE
     src/typeserializefixture.cpp
 
     # Test files
+    src/bundlevfs.test.cpp
     src/compile.test.cpp
     src/runsource.test.cpp
     src/configresolver.test.cpp

@@ -8,12 +8,18 @@ type Failure = types.Failure
 local failures = {}
 
 --- Returns a `Failure` describing an assertion failure at the call site, with `msg` as the failure message.
-function failures.assertion(msg: string, depth: number?): Failure
+function failures.assertion(msg: string, depth: number?, negation: boolean?): Failure
 	-- we need to go 5 function calls up to get to the actual assertion that invoked this
 	local stackdepth = depth or 4
 	local filename, linenumber = debug.info(stackdepth, "sl")
 	local name = debug.info(2, "n")
-	return { assertion = name, msg = msg, filename = filename, linenumber = linenumber, __tag = "assertion" }
+	return {
+		assertion = if negation then `never_{name}` else name,
+		msg = msg,
+		filename = filename,
+		linenumber = linenumber,
+		__tag = "assertion",
+	}
 end
 
 --- Returns a `Failure` describing an error that occurred in the `hook` lifecycle callback.

@@ -217,6 +217,7 @@ local function main(...: string)
 	if not migrationPath then
 		print(`Error: No code transformation script specified.\n\n{USAGE}\nUse --help for more information.`)
 		process.exit(1)
+		error("Unreachable") -- LUAUFIX: Remove once we can refine migrationPath is string outside this block
 	end
 
 	local dryRun = args:has("dry-run")

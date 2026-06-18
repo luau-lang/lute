@@ -12,15 +12,15 @@ local target = "https://lute.luau.org/cli/lint/almost_swapped.html"
 
 local compFuncs = {}
 
-function compFuncs.exprLocalsSame(a: syntax.AstExprLocal, b: syntax.AstExprLocal): boolean
+function compFuncs.exprLocalsSame(a: syntax.CstExprLocal, b: syntax.CstExprLocal): boolean
 	return a["local"] == b["local"]
 end
 
-function compFuncs.exprGlobalsSame(a: syntax.AstExprGlobal, b: syntax.AstExprGlobal): boolean
+function compFuncs.exprGlobalsSame(a: syntax.CstExprGlobal, b: syntax.CstExprGlobal): boolean
 	return a.name.text == b.name.text
 end
 
-function compFuncs.exprIndexNamesSame(a: syntax.AstExprIndexName, b: syntax.AstExprIndexName): boolean
+function compFuncs.exprIndexNamesSame(a: syntax.CstExprIndexName, b: syntax.CstExprIndexName): boolean
 	if a.index.text ~= b.index.text then
 		return false
 	end
@@ -28,9 +28,9 @@ function compFuncs.exprIndexNamesSame(a: syntax.AstExprIndexName, b: syntax.AstE
 	return compFuncs.refExprsSame(a.expression, b.expression)
 end
 
-function compFuncs.exprIndexExprsSame(a: syntax.AstExprIndexExpr, b: syntax.AstExprIndexExpr): boolean
+function compFuncs.exprIndexExprsSame(a: syntax.CstExprIndexExpr, b: syntax.CstExprIndexExpr): boolean
 	if a.index.tag == "string" and b.index.tag == "string" then
-		if a.index.token.text ~= b.index.token.text then
+		if a.index.value.text ~= b.index.value.text then
 			return false
 		else
 			return compFuncs.refExprsSame(a.expression, b.expression)
@@ -40,19 +40,19 @@ function compFuncs.exprIndexExprsSame(a: syntax.AstExprIndexExpr, b: syntax.AstE
 	end
 end
 
-function compFuncs.refExprsSame(a: syntax.AstExpr, b: syntax.AstExpr): boolean
+function compFuncs.refExprsSame(a: syntax.CstExpr, b: syntax.CstExpr): boolean
 	if a.tag ~= b.tag then
 		return false
 	end
 
 	if a.tag == "local" then
-		return compFuncs.exprLocalsSame(a, b :: syntax.AstExprLocal)
+		return compFuncs.exprLocalsSame(a, b :: syntax.CstExprLocal)
 	elseif a.tag == "global" then
-		return compFuncs.exprGlobalsSame(a, b :: syntax.AstExprGlobal)
+		return compFuncs.exprGlobalsSame(a, b :: syntax.CstExprGlobal)
 	elseif a.tag == "indexname" then
-		return compFuncs.exprIndexNamesSame(a, b :: syntax.AstExprIndexName)
+		return compFuncs.exprIndexNamesSame(a, b :: syntax.CstExprIndexName)
 	elseif a.tag == "index" then
-		return compFuncs.exprIndexExprsSame(a, b :: syntax.AstExprIndexExpr)
+		return compFuncs.exprIndexExprsSame(a, b :: syntax.CstExprIndexExpr)
 	else
 		return false
 	end
@@ -61,13 +61,13 @@ end
 -- Report instances of attempted swaps like:
 -- a = b; b = a
 local function lint(
-	ast: syntax.AstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	local violations = {}
 
-	local nodes = query.findAllFromRoot(ast, utils.isStatBlock).nodes
+	local nodes = query.findAllFromRoot(cst, utils.isStatBlock).nodes
 
 	for _, block in nodes do
 		for i = 1, #block.statements - 1 do
@@ -81,8 +81,8 @@ local function lint(
 				continue
 			end
 
-			local currVar, currVal = currStat.variables[1].node, currStat.values[1].node
-			local nextVar, nextVal = nextStat.variables[1].node, nextStat.values[1].node
+			local currVar, currVal = currStat.variables[1], currStat.values[1]
+			local nextVar, nextVal = nextStat.variables[1], nextStat.values[1]
 
 			if compFuncs.refExprsSame(currVar, nextVal) and compFuncs.refExprsSame(nextVar, currVal) then
 				local currVarStr = stringext.trim(printer.printNode(currVar))

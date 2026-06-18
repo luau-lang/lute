@@ -1,13 +1,12 @@
 local parser = require("@self/parser")
-local types = require("@self/types")
 
-local luau = require("@lute/luau")
+local cst = require("@lute/syntax/cst")
 
-export type Span = types.Span
+export type Span = cst.Span
 
 local span = {
 	--- Creates a `Span` from begin/end line and column values.
-	create = luau.span.create,
+	create = cst.span.create,
 }
 
 --- Returns `true` if `haystack` fully contains `needle`.
@@ -24,164 +23,163 @@ function span.subsumes(haystack: Span, needle: Span): boolean
 		)
 end
 
-export type Whitespace = types.Whitespace
-export type SingleLineComment = types.SingleLineComment
-export type MultiLineComment = types.MultiLineComment
+export type Whitespace = cst.Whitespace
+export type SingleLineComment = cst.SingleLineComment
+export type MultiLineComment = cst.MultiLineComment
 
-export type Trivia = types.Trivia
+export type Trivia = cst.Trivia
 
-export type Token<Kind = string> = types.Token<Kind>
+export type CstToken<Kind = string> = cst.CstToken<Kind>
 
-export type Eof = types.Eof
+export type CstEof = cst.CstEof
 
-export type Pair<T, Separator> = types.Pair<T, Separator>
-export type Punctuated<T, Separator = ","> = types.Punctuated<T, Separator>
+export type CstPunctuated<T, Separator = ","> = cst.CstPunctuated<T, Separator>
 
-export type AstLocal = types.AstLocal
+export type CstLocal = cst.CstLocal
 
-export type AstExprGroup = types.AstExprGroup
+export type CstExprGroup = cst.CstExprGroup
 
-export type AstExprConstantNil = types.AstExprConstantNil
+export type CstExprConstantNil = cst.CstExprConstantNil
 
-export type AstExprConstantBool = types.AstExprConstantBool
+export type CstExprConstantBool = cst.CstExprConstantBool
 
-export type AstExprConstantNumber = types.AstExprConstantNumber
+export type CstExprConstantNumber = cst.CstExprConstantNumber
 
-export type AstExprConstantInteger = types.AstExprConstantInteger
+export type CstExprConstantInteger = cst.CstExprConstantInteger
 
-export type AstExprConstantString = types.AstExprConstantString
+export type CstExprConstantString = cst.CstExprConstantString
 
-export type AstExprLocal = types.AstExprLocal
+export type CstExprLocal = cst.CstExprLocal
 
-export type AstExprGlobal = types.AstExprGlobal
+export type CstExprGlobal = cst.CstExprGlobal
 
-export type AstExprVarargs = types.AstExprVarargs
+export type CstExprVarargs = cst.CstExprVarargs
 
-export type AstExprCall = types.AstExprCall
+export type CstExprCall = cst.CstExprCall
 
-export type AstExprInstantiate = types.AstExprInstantiate
+export type CstExprInstantiate = cst.CstExprInstantiate
 
-export type AstExprIndexName = types.AstExprIndexName
+export type CstExprIndexName = cst.CstExprIndexName
 
-export type AstExprIndexExpr = types.AstExprIndexExpr
+export type CstExprIndexExpr = cst.CstExprIndexExpr
 
-export type AstExprFunction = types.AstExprFunction
+export type CstExprFunction = cst.CstExprFunction
 
-export type AstTableExprListItem = types.AstTableExprListItem
+export type CstTableExprListItem = cst.CstTableExprListItem
 
-export type AstTableExprRecordItem = types.AstTableExprRecordItem
+export type CstTableExprRecordItem = cst.CstTableExprRecordItem
 
-export type AstTableExprGeneralItem = types.AstTableExprGeneralItem
+export type CstTableExprGeneralItem = cst.CstTableExprGeneralItem
 
-export type AstTableExprItem = types.AstTableExprItem
+export type CstTableExprItem = cst.CstTableExprItem
 
-export type AstExprTable = types.AstExprTable
+export type CstExprTable = cst.CstExprTable
 
-export type AstExprUnary = types.AstExprUnary
+export type CstExprUnary = cst.CstExprUnary
 
-export type AstExprBinary = types.AstExprBinary
+export type CstExprBinary = cst.CstExprBinary
 
-export type AstExprInterpString = types.AstExprInterpString
+export type CstExprInterpString = cst.CstExprInterpString
 
-export type AstExprTypeAssertion = types.AstExprTypeAssertion
+export type CstExprTypeAssertion = cst.CstExprTypeAssertion
 
-export type AstElseIfExpr = types.AstElseIfExpr
+export type CstElseIfExpr = cst.CstElseIfExpr
 
-export type AstExprIfElse = types.AstExprIfElse
+export type CstExprIfElse = cst.CstExprIfElse
 
-export type AstExpr = types.AstExpr
+export type CstExpr = cst.CstExpr
 
-export type AstStatBlock = types.AstStatBlock
+export type CstStatBlock = cst.CstStatBlock
 
-export type AstStatDo = types.AstStatDo
+export type CstStatDo = cst.CstStatDo
 
-export type AstElseIfStat = types.AstElseIfStat
+export type CstElseIfStat = cst.CstElseIfStat
 
-export type AstStatIf = types.AstStatIf
+export type CstStatIf = cst.CstStatIf
 
-export type AstStatWhile = types.AstStatWhile
+export type CstStatWhile = cst.CstStatWhile
 
-export type AstStatRepeat = types.AstStatRepeat
+export type CstStatRepeat = cst.CstStatRepeat
 
-export type AstStatBreak = types.AstStatBreak
+export type CstStatBreak = cst.CstStatBreak
 
-export type AstStatContinue = types.AstStatContinue
+export type CstStatContinue = cst.CstStatContinue
 
-export type AstStatReturn = types.AstStatReturn
+export type CstStatReturn = cst.CstStatReturn
 
-export type AstStatExpr = types.AstStatExpr
+export type CstStatExpr = cst.CstStatExpr
 
-export type AstStatLocal = types.AstStatLocal
+export type CstStatLocal = cst.CstStatLocal
 
-export type AstStatFor = types.AstStatFor
+export type CstStatFor = cst.CstStatFor
 
-export type AstStatForIn = types.AstStatForIn
+export type CstStatForIn = cst.CstStatForIn
 
-export type AstStatAssign = types.AstStatAssign
+export type CstStatAssign = cst.CstStatAssign
 
-export type AstStatCompoundAssign = types.AstStatCompoundAssign
+export type CstStatCompoundAssign = cst.CstStatCompoundAssign
 
-export type AstAttribute = types.AstAttribute
+export type CstAttribute = cst.CstAttribute
 
-export type AstStatFunction = types.AstStatFunction
+export type CstStatFunction = cst.CstStatFunction
 
-export type AstStatLocalFunction = types.AstStatLocalFunction
+export type CstStatLocalFunction = cst.CstStatLocalFunction
 
-export type AstStatTypeAlias = types.AstStatTypeAlias
+export type CstStatTypeAlias = cst.CstStatTypeAlias
 
-export type AstStatTypeFunction = types.AstStatTypeFunction
+export type CstStatTypeFunction = cst.CstStatTypeFunction
 
-export type AstStat = types.AstStat
+export type CstStat = cst.CstStat
 
-export type AstGenericType = types.AstGenericType
+export type CstGenericType = cst.CstGenericType
 
-export type AstGenericTypePack = types.AstGenericTypePack
+export type CstGenericTypePack = cst.CstGenericTypePack
 
-export type AstTypeReference = types.AstTypeReference
+export type CstTypeReference = cst.CstTypeReference
 
-export type AstTypeSingletonBool = types.AstTypeSingletonBool
+export type CstTypeSingletonBool = cst.CstTypeSingletonBool
 
-export type AstTypeSingletonString = types.AstTypeSingletonString
+export type CstTypeSingletonString = cst.CstTypeSingletonString
 
-export type AstTypeTypeof = types.AstTypeTypeof
+export type CstTypeTypeof = cst.CstTypeTypeof
 
-export type AstTypeGroup = types.AstTypeGroup
+export type CstTypeGroup = cst.CstTypeGroup
 
-export type AstTypeOptional = types.AstTypeOptional
+export type CstTypeOptional = cst.CstTypeOptional
 
-export type AstTypeUnion = types.AstTypeUnion
+export type CstTypeUnion = cst.CstTypeUnion
 
-export type AstTypeIntersection = types.AstTypeIntersection
+export type CstTypeIntersection = cst.CstTypeIntersection
 
-export type AstTypeArray = types.AstTypeArray
+export type CstTypeArray = cst.CstTypeArray
 
-export type AstTableTypeItemIndexer = types.AstTableTypeItemIndexer
+export type CstTableTypeItemIndexer = cst.CstTableTypeItemIndexer
 
-export type AstTableTypeItemStringProperty = types.AstTableTypeItemStringProperty
+export type CstTableTypeItemStringProperty = cst.CstTableTypeItemStringProperty
 
-export type AstTableTypeItemProperty = types.AstTableTypeItemProperty
+export type CstTableTypeItemProperty = cst.CstTableTypeItemProperty
 
-export type AstTableTypeItem = types.AstTableTypeItem
+export type CstTableTypeItem = cst.CstTableTypeItem
 
-export type AstTypeTable = types.AstTypeTable
+export type CstTypeTable = cst.CstTypeTable
 
-export type AstFunctionTypeParameter = types.AstFunctionTypeParameter
+export type CstFunctionTypeParameter = cst.CstFunctionTypeParameter
 
-export type AstTypeFunction = types.AstTypeFunction
+export type CstTypeFunction = cst.CstTypeFunction
 
-export type AstType = types.AstType
+export type CstType = cst.CstType
 
-export type AstTypePackExplicit = types.AstTypePackExplicit
+export type CstTypePackExplicit = cst.CstTypePackExplicit
 
-export type AstTypePackGeneric = types.AstTypePackGeneric
+export type CstTypePackGeneric = cst.CstTypePackGeneric
 
-export type AstTypePackVariadic = types.AstTypePackVariadic
+export type CstTypePackVariadic = cst.CstTypePackVariadic
 
-export type AstTypePack = types.AstTypePack
+export type CstTypePack = cst.CstTypePack
 
-export type AstNode = types.AstNode
+export type CstNode = cst.CstNode
 
-export type ParseResult = types.ParseResult
+export type CstParseResult = cst.CstParseResult
 
 return table.freeze({
 	parseBlock = parser.parseBlock,

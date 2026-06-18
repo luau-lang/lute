@@ -230,7 +230,7 @@ test.suite("solver.solve", function(suite)
 			},
 		}
 
-		assert.throwsWith("  >=1.0.0 <2.0.0  (required by parent@1.0.0)", function()
+		assert.throwsWith("  >=1.0.0 <2.0.0  (required by parent@1.0.0 as sharedV1)", function()
 			solver.solve(universe, {
 				parent = req("parent", "^1.0.0"),
 			})

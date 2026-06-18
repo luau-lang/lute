@@ -18,7 +18,7 @@ local function containsComment(trivia: { syntax.Trivia }): boolean
 end
 
 local function isBlockEmpty(
-	block: syntax.AstStatBlock,
+	block: syntax.CstStatBlock,
 	commentsCount: boolean,
 	leadingTrivia: { syntax.Trivia },
 	trailingTrivia: { syntax.Trivia }
@@ -42,7 +42,7 @@ local function isBlockEmpty(
 end
 
 local function lint(
-	ast: syntax.AstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
@@ -53,7 +53,7 @@ local function lint(
 	end
 
 	-- Find all if statements
-	return query.findAllFromRoot(ast, utils.isStatIf):map(function(ifStat): lintTypes.LintViolation?
+	return query.findAllFromRoot(cst, utils.isStatIf):map(function(ifStat): lintTypes.LintViolation?
 		-- Check if the then block is empty
 		if
 			isBlockEmpty(

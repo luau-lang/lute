@@ -14,7 +14,7 @@
 static Luau::AstExprConstantString makeStringNode(const char* path)
 {
     Luau::AstArray<char> value{const_cast<char*>(path), std::strlen(path)};
-    return Luau::AstExprConstantString(Luau::Location{}, value, Luau::AstExprConstantString::QuotedSimple);
+    return Luau::AstExprConstantString(Luau::Location{}, value, Luau::AstExprConstantString::QuoteStyle::QuotedSimple);
 }
 
 TEST_CASE_FIXTURE(TCModuleResolverFixture, "moduleresolver_readSource")
@@ -45,7 +45,9 @@ TEST_CASE("moduleresolver_resolve_for_typecheck")
         auto resolved = resolveForTypeCheck("@batteries/base64", mainLuau, &error);
         if (resolved)
         {
-            REQUIRE_FALSE_MESSAGE(false, "This shouldn't resolve successfully - you might need to delete the .luaurc and replace it with the .luaurc.ci");
+            REQUIRE_FALSE_MESSAGE(
+                false, "This shouldn't resolve successfully - you might need to delete the .luaurc and replace it with the .luaurc.ci"
+            );
         }
         CHECK(!error.empty());
         CHECK(!resolved.has_value());

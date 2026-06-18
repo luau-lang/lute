@@ -19,7 +19,7 @@ return {
 					and bin.lhsOperand.token.text == bin.rhsOperand.token.text
 			end)
 			:replace(function(bin)
-				return `{functionName}({(bin.lhsOperand :: syntax.AstExprLocal).token.text})`
+				return `{functionName}({(bin.lhsOperand :: syntax.CstExprLocal).token.text})`
 			end)
 	end,
 }

@@ -8,3 +8,4 @@ constexpr int kHashFunctionTag = 124;
 constexpr int kWebSocketHandleTag = 123;
 constexpr int kServerWebSocketHandleTag = 122;
 constexpr int kUVFileTag = 121;
+constexpr int kSignalHandleTag = 120;

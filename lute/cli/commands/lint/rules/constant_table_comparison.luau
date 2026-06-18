@@ -11,13 +11,13 @@ local message =
 	"Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false."
 local target = "https://lute.luau.org/cli/lint/constant_table_comparison.html"
 
-local function isTableLiteral(expr: syntax.AstExpr): boolean
+local function isTableLiteral(expr: syntax.CstExpr): boolean
 	return expr.tag == "table"
 		or (expr.tag == "group" and isTableLiteral(expr.expression))
 		or (expr.tag == "cast" and isTableLiteral(expr.operand))
 end
 
-local function isEmptyTableLiteral(expr: syntax.AstExpr): boolean
+local function isEmptyTableLiteral(expr: syntax.CstExpr): boolean
 	if expr.tag == "table" then
 		return #expr.entries == 0
 	elseif expr.tag == "group" then
@@ -30,12 +30,12 @@ local function isEmptyTableLiteral(expr: syntax.AstExpr): boolean
 end
 
 local function lint(
-	ast: syntax.AstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
 	return query
-		.findAllFromRoot(ast, utils.isExprBinary)
+		.findAllFromRoot(cst, utils.isExprBinary)
 		:filter(function(bin)
 			return bin.operator.text == "==" or bin.operator.text == "~="
 		end)
@@ -44,7 +44,7 @@ local function lint(
 		end)
 		:mapToArray(
 			function(
-				bin: syntax.AstExprBinary
+				bin: syntax.CstExprBinary
 			): lintTypes.LintViolation -- LUAUFIX: Bidirectional inference of generics should let us not need this annotation
 				local suggestedFix: string? = nil
 

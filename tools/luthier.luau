@@ -81,6 +81,7 @@ args:add("which", "flag", { help = "print out the path to the compiled binary an
 args:add("cxx-compiler", "option", { help = "C++ compiler to use" })
 args:add("c-compiler", "option", { help = "C compiler to use" })
 args:add("enable-sanitizers", "flag", { help = "enable sanitizers during configuration" })
+args:add("with-ccache", "flag", { help = "use ccache as the compiler launcher" })
 
 if not isWindows and not isMac and not isLinux then
 	error("Unknown platform " .. os)
@@ -536,6 +537,11 @@ local function getConfigureArguments()
 
 	local configArgs =
 		{ "-G=Ninja", "-B " .. projectPath, "-DCMAKE_BUILD_TYPE=" .. config, "-DCMAKE_EXPORT_COMPILE_COMMANDS=1" }
+
+	if args:has("with-ccache") then
+		table.insert(configArgs, "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache")
+		table.insert(configArgs, "-DCMAKE_C_COMPILER_LAUNCHER=ccache")
+	end
 
 	local cxx_compiler = args:get("cxx-compiler")
 	if cxx_compiler then
