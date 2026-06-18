@@ -19,6 +19,7 @@ type PrintVisitor = visitor.Visitor & {
 	printString: (self: PrintVisitor, expr: types.CstExprConstantString | types.CstTypeSingletonString) -> (),
 	printInterpolatedString: (self: PrintVisitor, expr: types.CstExprInterpString) -> (),
 	printReplacement: (self: PrintVisitor, node: types.CstNode, replacement: types.Replacement) -> (),
+	printTableTypeItem: (self: PrintVisitor, node: types.CstTableTypeItem) -> (),
 }
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
@@ -99,6 +100,42 @@ local function printInterpolatedString(self: PrintVisitor, expr: types.CstExprIn
 	end
 end
 
+local function printTableTypeItem(self: PrintVisitor, node: types.CstTableTypeItem)
+	if node.access then
+		printToken(self, node.access)
+	end
+	if node.kind == "indexer" then
+		printToken(self, node.indexerOpen)
+		visitor.visitType(node.key, self)
+		printToken(self, node.indexerClose)
+	elseif node.kind == "property" then
+		if node.indexerOpen then
+			printToken(self, node.indexerOpen)
+		end
+
+		if node.quoteStyle then
+			self:write(if node.quoteStyle == "single" then "'" else '"')
+		end
+
+		printToken(self, node.key)
+
+		if node.quoteStyle then
+			self:write(if node.quoteStyle == "single" then "'" else '"')
+		end
+
+		if node.indexerClose then
+			printToken(self, node.indexerClose)
+		end
+	else
+		exhaustiveMatch(node.kind)
+	end
+	printToken(self, node.colon)
+	visitor.visitType(node.value, self)
+	if node.separator then
+		printToken(self, node.separator)
+	end
+end
+
 local function printReplacement(self: PrintVisitor, node: types.CstNode, replacement: types.Replacement)
 	assert(typeof(replacement) == "string" or typeof(replacement) == "table", "Unsupported replacement type")
 
@@ -171,6 +208,7 @@ local function printVisitor(replacements: types.Replacements?)
 	printer.printString = printString
 	printer.printInterpolatedString = printInterpolatedString
 	printer.printReplacement = printReplacement
+	printer.printTableTypeItem = printTableTypeItem
 	printer.visitExprInterpString = function(node: types.CstExprInterpString)
 		printer:printInterpolatedString(node)
 		return false
@@ -185,6 +223,10 @@ local function printVisitor(replacements: types.Replacements?)
 	end
 	printer.visitExprConstantString = function(node: types.CstExprConstantString)
 		printer:printString(node)
+		return false
+	end
+	printer.visitTableTypeItem = function(node: types.CstTableTypeItem)
+		printer:printTableTypeItem(node)
 		return false
 	end
 

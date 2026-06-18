@@ -1922,13 +1922,14 @@ struct AstSerialize : public Luau::AstVisitor
         for (size_t i = 0; i < cstNode->items.size; i++)
         {
             lua_rawcheckstack(L, 2);
-            lua_createtable(L, 0, 8);
 
             Luau::CstTypeTable::Item item = cstNode->items.data[i];
 
             if (item.kind == Luau::CstTypeTable::Item::Kind::Indexer)
             {
                 LUTE_ASSERT(node->indexer);
+
+                lua_createtable(L, 0, 8);
 
                 lua_pushstring(L, "indexer");
                 lua_setfield(L, -2, "kind");
@@ -1965,16 +1966,10 @@ struct AstSerialize : public Luau::AstVisitor
             }
             else
             {
-                if (item.kind == Luau::CstTypeTable::Item::Kind::StringProperty)
-                {
-                    lua_pushstring(L, "stringproperty");
-                    lua_setfield(L, -2, "kind");
-                }
-                else
-                {
-                    lua_pushstring(L, "property");
-                    lua_setfield(L, -2, "kind");
-                }
+                lua_createtable(L, 0, 9);
+
+                lua_pushstring(L, "property");
+                lua_setfield(L, -2, "kind");
 
                 if (prop->accessLocation)
                 {
@@ -1990,56 +1985,49 @@ struct AstSerialize : public Luau::AstVisitor
                     serializeToken(item.indexerOpenPosition, "[");
                     lua_setfield(L, -2, "indexerOpen");
 
+                    Luau::Position initialPosition = item.stringPosition;
+
+                    switch (item.stringInfo->quoteStyle)
                     {
-                        lua_rawcheckstack(L, 2);
-                        lua_createtable(L, 0, preambleSize + 2);
-
-                        Luau::Position initialPosition = item.stringPosition;
-                        Luau::Position endPosition = {
-                            initialPosition.line, initialPosition.column + static_cast<uint32_t>(strlen(item.stringInfo->sourceString.data))
-                        };
-                        withLocation(Luau::Location{initialPosition, endPosition});
-
-                        lua_pushstring(L, "type");
-                        lua_setfield(L, -2, "kind");
-
-                        lua_pushstring(L, "string");
-                        lua_setfield(L, -2, "tag");
-
-                        switch (item.stringInfo->quoteStyle)
-                        {
-                        case Luau::CstExprConstantString::QuoteStyle::QuotedSingle:
-                            lua_pushstring(L, "single");
-                            break;
-                        case Luau::CstExprConstantString::QuoteStyle::QuotedDouble:
-                            lua_pushstring(L, "double");
-                            break;
-                        default:
-                            LUTE_ASSERT(false);
-                        }
-                        lua_setfield(L, -2, "quoteStyle");
-
-                        serializeToken(item.stringPosition, item.stringInfo->sourceString.data);
-                        lua_setfield(L, -2, "value");
-
-                        // Unlike normal tokens, string content contains quotation marks that were not included during advancement
-                        // For simplicity, lets set the current position manually
-                        // If string part was single line, end position = current position + 2 (start and end character)
-                        // If string parts was multi line, end position = current position + 1 (just end character)
-                        if (initialPosition.line == currentPosition.line)
-                            currentPosition.column += 2;
-                        else
-                            currentPosition.column += 1;
+                    case Luau::CstExprConstantString::QuoteStyle::QuotedSingle:
+                        lua_pushstring(L, "single");
+                        break;
+                    case Luau::CstExprConstantString::QuoteStyle::QuotedDouble:
+                        lua_pushstring(L, "double");
+                        break;
+                    default:
+                        LUTE_ASSERT(false);
                     }
+                    lua_setfield(L, -2, "quoteStyle");
+
+                    serializeToken(item.stringPosition, item.stringInfo->sourceString.data);
                     lua_setfield(L, -2, "key");
+
+                    // Unlike normal tokens, string content contains quotation marks that were not included during advancement
+                    // For simplicity, lets set the current position manually
+                    // If string part was single line, end position = current position + 2 (start and end character)
+                    // If string parts was multi line, end position = current position + 1 (just end character)
+                    if (initialPosition.line == currentPosition.line)
+                        currentPosition.column += 2;
+                    else
+                        currentPosition.column += 1;
 
                     serializeToken(item.indexerClosePosition, "]");
                     lua_setfield(L, -2, "indexerClose");
                 }
                 else
                 {
+                    lua_pushnil(L);
+                    lua_setfield(L, -2, "indexerOpen");
+
+                    lua_pushnil(L);
+                    lua_setfield(L, -2, "quoteStyle");
+
                     serializeToken(prop->location.begin, prop->name.value);
                     lua_setfield(L, -2, "key");
+
+                    lua_pushnil(L);
+                    lua_setfield(L, -2, "indexerClose");
                 }
 
                 serializeToken(item.colonPosition, ":");

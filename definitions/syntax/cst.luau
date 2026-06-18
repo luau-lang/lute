@@ -714,30 +714,21 @@ export type CstTableTypeItemIndexer = {
 	read separator: CstToken<"," | ";">?,
 }
 
---- A string-literal-keyed property entry in a table type (e.g., `["key"]: T`).
-export type CstTableTypeItemStringProperty = {
-	read kind: "stringproperty",
-	read access: CstToken<"read" | "write">?,
-	read indexerOpen: CstToken<"[">,
-	read key: CstTypeSingletonString,
-	read indexerClose: CstToken<"]">,
-	read colon: CstToken<":">,
-	read value: CstType,
-	read separator: CstToken<"," | ";">?,
-}
-
 --- A named property entry in a table type (e.g., `key: T`).
 export type CstTableTypeItemProperty = {
 	read kind: "property",
 	read access: CstToken<"read" | "write">?,
+	read indexerOpen: CstToken<"[">?,
+	read quoteStyle: ("single" | "double")?,
 	read key: CstToken,
+	read indexerClose: CstToken<"]">?,
 	read colon: CstToken<":">,
 	read value: CstType,
 	read separator: CstToken<"," | ";">?,
 }
 
 --- Union of all table type entry kinds.
-export type CstTableTypeItem = CstTableTypeItemIndexer | CstTableTypeItemStringProperty | CstTableTypeItemProperty
+export type CstTableTypeItem = CstTableTypeItemIndexer | CstTableTypeItemProperty
 
 --- A table type annotation node.
 export type CstTypeTable = {
