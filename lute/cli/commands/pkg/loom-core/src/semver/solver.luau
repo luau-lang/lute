@@ -191,48 +191,6 @@ local function propagateDeps(
 	return out
 end
 
-local function checkAcyclic(selected: Resolution, universe: Universe)
-	local path: { string } = {}
-	local onPath: { [string]: number } = {}
-	local done: { [string]: boolean } = {}
-
-	local function visit(slotKey: string)
-		if done[slotKey] then
-			return
-		end
-		if onPath[slotKey] then
-			local cycleStart = onPath[slotKey]
-			local cycle: { string } = {}
-			for i = cycleStart, #path do
-				table.insert(cycle, path[i])
-			end
-			table.insert(cycle, slotKey)
-			error(`circular dependency: {table.concat(cycle, " -> ")}`)
-		end
-
-		table.insert(path, slotKey)
-		onPath[slotKey] = #path
-
-		local pkg = selected[slotKey]
-		if pkg then
-			for _, dep in pkg.dependencies do
-				local depSlot = resolveSlotKey(dep.name, dep.constraint, universe)
-				if selected[depSlot] then
-					visit(depSlot)
-				end
-			end
-		end
-
-		onPath[slotKey] = nil
-		table.remove(path)
-		done[slotKey] = true
-	end
-
-	for slotKey in selected do
-		visit(slotKey)
-	end
-end
-
 type DecisionFrame = {
 	read slotKey: string,
 	read candidates: { PackageVersion },
@@ -265,7 +223,6 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 		local slotKey = pickPending(constraints, selected, universe)
 
 		if slotKey == nil then
-			checkAcyclic(selected, universe)
 			return table.freeze(selected)
 		end
 

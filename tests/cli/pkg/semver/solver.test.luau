@@ -243,7 +243,7 @@ test.suite("solver.solve", function(suite)
 		assert.eq(resolution["shared@2"].versionString, "2.0.0")
 	end)
 
-	suite:case("circularDependencyErrors", function(assert)
+	suite:case("circularDependencyResolves", function(assert)
 		local universe: solver.Universe = {
 			a = {
 				namedVersion("a", "1.0.0", { b = req("b", "^1.0.0") }),
@@ -253,11 +253,11 @@ test.suite("solver.solve", function(suite)
 			},
 		}
 
-		assert.throwsWith("circular dependency: a@1 -> b@1 -> a@1", function()
-			solver.solve(universe, {
-				a = req("a", "^1.0.0"),
-			})
-		end)
+		local resolution = solver.solve(universe, {
+			a = req("a", "^1.0.0"),
+		})
+		assert.eq(resolution["a@1"].versionString, "1.0.0")
+		assert.eq(resolution["b@1"].versionString, "1.0.0")
 	end)
 
 	suite:case("backtracksWithinSameSlot", function(assert)
@@ -591,7 +591,7 @@ test.suite("solver.solve", function(suite)
 		assert.eq(resolution["Z@2"], nil)
 	end)
 
-	suite:case("indirectCircularDependencyShowsFullCycle", function(assert)
+	suite:case("indirectCircularDependencyResolves", function(assert)
 		local universe: solver.Universe = {
 			a = {
 				namedVersion("a", "1.0.0", { b = req("b", "^1.0.0") }),
@@ -603,11 +603,12 @@ test.suite("solver.solve", function(suite)
 				namedVersion("c", "1.0.0", { a = req("a", "^1.0.0") }),
 			},
 		}
-		assert.throwsWith("circular dependency: a@1 -> b@1 -> c@1 -> a@1", function()
-			solver.solve(universe, {
-				a = req("a", "^1.0.0"),
-			})
-		end)
+		local resolution = solver.solve(universe, {
+			a = req("a", "^1.0.0"),
+		})
+		assert.eq(resolution["a@1"].versionString, "1.0.0")
+		assert.eq(resolution["b@1"].versionString, "1.0.0")
+		assert.eq(resolution["c@1"].versionString, "1.0.0")
 	end)
 
 	suite:case("multiMajorBacktracking", function(assert)
