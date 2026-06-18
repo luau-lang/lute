@@ -76,7 +76,9 @@ local function installZipArchive(content: string, installPath: string)
 end
 
 local function downloadFromGitHubArchive(url: string): string
-	local headers = {}
+	local headers = {
+		["User-Agent"] = "lute-pkg",
+	}
 
 	local token = getGithubAuthenticationToken()
 	if token ~= nil and token ~= "" then
