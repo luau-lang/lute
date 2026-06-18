@@ -512,7 +512,8 @@ local function visitExprFunction(
 		end
 		visitToken(node.openParens, visitor)
 		visitPunctuated(node.parameters, visitor, visitLocal)
-		if node.vararg then
+		if node.hasVararg then
+			assert(node.vararg)
 			visitToken(node.vararg, visitor)
 		end
 		if node.varargColon then

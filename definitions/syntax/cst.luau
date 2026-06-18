@@ -216,6 +216,7 @@ export type CstExprFunction = {
 	read openParens: CstToken<"(">,
 	read self: CstLocal?,
 	read parameters: CstPunctuated<CstLocal>,
+	read hasVararg: boolean, -- Present so AstExprFunction subtypes structurally against CstExprFunction
 	read vararg: CstToken<"...">?,
 	read varargColon: CstToken<":">?,
 	read varargAnnotation: CstTypePack?,

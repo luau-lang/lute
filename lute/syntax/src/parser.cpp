@@ -1004,7 +1004,7 @@ struct AstSerialize : public Luau::AstVisitor
     void serialize(Luau::AstExprFunction* node, FunctionSerializationState state = NothingSerialized)
     {
         lua_rawcheckstack(L, 3);
-        lua_createtable(L, 0, preambleSize + 17);
+        lua_createtable(L, 0, preambleSize + 18);
 
         serializeNodePreamble(node, "function", "expr");
 
@@ -1082,10 +1082,21 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "parameters");
 
         if (node->vararg)
+        {
+            lua_pushboolean(L, 1);
+            lua_setfield(L, -2, "hasVararg");
+
             serializeToken(node->varargLocation.begin, "...");
+            lua_setfield(L, -2, "vararg");
+        }
         else
+        {
+            lua_pushboolean(L, 0);
+            lua_setfield(L, -2, "hasVararg");
+
             lua_pushnil(L);
-        lua_setfield(L, -2, "vararg");
+            lua_setfield(L, -2, "vararg");
+        }
 
         if (node->varargAnnotation)
             serializeToken(cstNode->varargAnnotationColonPosition, ":");
