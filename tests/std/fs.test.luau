@@ -220,7 +220,6 @@ test.suite("FsSuite", function(suite)
 			end
 		until event or (os.clock() - start > 2)
 
-		print("Watch iterator time taken: " .. (os.clock() - start))
 		if event == nil then
 			failure.assertion("watcher event was nil")
 			return
