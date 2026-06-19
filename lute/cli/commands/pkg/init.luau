@@ -12,8 +12,9 @@ local function printHelp()
 Loom package manager for Luau projects.
 
 COMMANDS:
-  install                                   Install dependencies from loom.config.luau
-  auth --token <token> [--domain <domain>]  Save authentication credentials
+  install                  Install dependencies from loom.config.luau
+  auth <action> [options]  Manage credentials in the OS-native credential store
+                           (actions: add, remove, migrate)
 
 Use --help with any command for more information.
 ]])
