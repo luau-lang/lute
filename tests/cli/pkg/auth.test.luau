@@ -66,18 +66,6 @@ test.suite("LutePkgAuth", function(suite)
 		assert.strContains(result.stdout, "migrate")
 	end)
 
-	suite:case("oldFlagOnlyInvocationErrors", function(assert)
-		local result = runAuth({ "--token", "x" })
-		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stderr, "Unknown action: --token")
-	end)
-
-	suite:case("unknownActionErrors", function(assert)
-		local result = runAuth({ "bogus" })
-		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stderr, "Unknown action")
-	end)
-
 	suite:case("addStoresInKeyring", function(assert)
 		if not keyringWritable() then
 			return

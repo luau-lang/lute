@@ -1,3 +1,4 @@
+-- lute-lint-global-ignore(unused_variable)
 local keyring = {}
 
 --- Stores `password` under (`service`, `account`) in the OS-native credential store.
