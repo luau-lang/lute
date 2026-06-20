@@ -19,29 +19,6 @@ Actions:
                                             from ~/.loom/auth.luau into the keyring
 ]]
 
-local function readAndDeleteLegacyTokens(): { read { read domain: string, read token: string } }
-	local tokens: { { read domain: string, read token: string } } = {}
-
-	local authPath = path.join(process.homedir(), ".loom", "auth.luau")
-	if not fs.exists(authPath) then
-		return table.freeze(tokens)
-	end
-
-	local ok, result = pcall(luau.loadModule, authPath, nil)
-	if not ok or typeof(result) ~= "table" then
-		return table.freeze(tokens)
-	end
-
-	pcall(fs.remove, authPath)
-
-	for key, value in result do
-		if typeof(key) == "string" and typeof(value) == "table" and typeof(value.token) == "string" then
-			table.insert(tokens, table.freeze({ domain = key, token = value.token }))
-		end
-	end
-	return table.freeze(tokens)
-end
-
 local function add(args: { string })
 	local parsed = cli.parser()
 	parsed:add("token", "option", { help = "Authentication token", required = true })
@@ -66,12 +43,36 @@ local function remove(args: { string })
 	print(`Credential removed for {domain}`)
 end
 
+local function readLegacyTokens(authPath: path.Pathlike)
+	local tokens: { { read domain: string, read token: string } } = {}
+
+	if fs.exists(authPath) then
+		local ok, result = pcall(luau.loadModule, authPath, nil)
+		if ok and typeof(result) == "table" then
+			for key, value in result do
+				if typeof(key) == "string" and typeof(value) == "table" and typeof(value.token) == "string" then
+					table.insert(tokens, table.freeze({ domain = key, token = value.token }))
+				end
+			end
+		end
+	end
+
+	return table.freeze(tokens)
+end
+
 local function migrate()
-	local tokens = readAndDeleteLegacyTokens()
+	local authPath = path.join(process.homedir(), ".loom", "auth.luau")
+	local tokens = readLegacyTokens(authPath)
+
 	if #tokens == 0 then
 		print("No legacy credentials to migrate")
 		return
 	end
+
+	for _, entry in tokens do
+		keyring.set(KEYRING_SERVICE, entry.domain, entry.token)
+	end
+	pcall(fs.remove, authPath)
 
 	print(`Migrated {#tokens} credential(s) to OS credential store:`)
 	for _, entry in tokens do
