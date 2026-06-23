@@ -210,12 +210,13 @@ export type CstExprFunction = {
 	read attributes: { CstAttribute },
 	read functionKeyword: CstToken<"function">,
 	read openGenerics: CstToken<"<">?,
-	read generics: CstPunctuated<CstGenericType>?,
-	read genericPacks: CstPunctuated<CstGenericTypePack>?,
+	read generics: CstPunctuated<CstGenericType>,
+	read genericPacks: CstPunctuated<CstGenericTypePack>,
 	read closeGenerics: CstToken<">">?,
 	read openParens: CstToken<"(">,
 	read self: CstLocal?,
 	read parameters: CstPunctuated<CstLocal>,
+	read hasVararg: boolean, -- Present so AstExprFunction subtypes structurally against CstExprFunction
 	read vararg: CstToken<"...">?,
 	read varargColon: CstToken<":">?,
 	read varargAnnotation: CstTypePack?,
@@ -519,7 +520,7 @@ export type CstStatCompoundAssign = {
 	read kind: "stat",
 	read tag: "compoundassign",
 	read variable: CstExpr,
-	read operand: CstToken, -- TODO: Enforce token type
+	read operator: CstToken, -- TODO: Enforce token type
 	read value: CstExpr,
 }
 
@@ -554,6 +555,7 @@ export type CstStatTypeAlias = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "typealias",
+	read isExported: boolean,
 	read export: CstToken<"export">?,
 	read typeToken: CstToken<"type">,
 	read name: CstToken,
@@ -571,6 +573,7 @@ export type CstStatTypeFunction = {
 	read location: Span,
 	read kind: "stat",
 	read tag: "typefunction",
+	read isExported: boolean,
 	read export: CstToken<"export">?,
 	read type: CstToken<"type">,
 	read name: CstToken,
