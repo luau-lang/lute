@@ -57,7 +57,7 @@ local function slotFromConstraint(name: string, constraint: parser.Constraint): 
 		end
 	end
 
-	-- split nil checks for better type inference.
+	-- FIXME(Luau): we had to split nil checks for better type inference, refinements _should_ still work if it was one check
 	if lower == nil then
 		return nil
 	end
