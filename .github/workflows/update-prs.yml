@@ -69,6 +69,7 @@ jobs:
             *This PR was automatically created by the [Update Luau workflow](https://github.com/${{ github.repository }}/actions/workflows/update-prs.yml)*
           branch: update-luau
           delete-branch: true
+          base: primary
 
       - name: No update needed
         if: steps.current-version.outputs.branch == steps.latest-release.outputs.tag
