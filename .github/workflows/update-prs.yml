@@ -180,4 +180,4 @@ jobs:
           curl -sS -o /dev/null -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
-            --data "$(jq -n --arg channel "C0ACC7FVC79" --arg text "$TEXT" '{channel: $channel, text: $text}')"
+            --data "$(jq -n --arg channel "C0BCHH2NESX" --arg text "$TEXT" '{channel: $channel, text: $text}')"
