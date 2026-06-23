@@ -1,13 +1,9 @@
 name: Update Luau/Lute
 
-# on:
-#   schedule:
-#     - cron: "0 0 * * 6"
-#   workflow_dispatch:
-
 on:
-  pull_request:
-    branches: ["primary"]
+  schedule:
+    - cron: "0 0 * * 6"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -128,7 +124,7 @@ jobs:
       - name: Create Pull Request
         id: create-pr
         if: steps.current-version.outputs.lute != steps.latest-release.outputs.version
-        uses: luau-lang/create-pull-request@v7
+        uses: luau-lang/create-pull-request@v7.0.9
         with:
           commit-message: "chore: update dependencies"
           title: "Update Lute to ${{ steps.latest-release.outputs.tag }}"
