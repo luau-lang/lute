@@ -163,11 +163,13 @@ jobs:
             LUTE_PR="${{ needs.update-lute.outputs.pull-request-url }}"
 
             if [[ -n "$LUAU_PR" ]]; then
-              TEXT="$TEXT\n• Luau PR: <$LUAU_PR>"
+              TEXT=$'$TEXT\n- Luau PR: <$LUAU_PR>'
             fi
             if [[ -n "$LUTE_PR" ]]; then
-              TEXT="$TEXT\n• Lute PR: <$LUTE_PR>"
+              TEXT=$'$TEXT\n- Lute PR: <$LUTE_PR>'
             fi
+
+            TEXT=$'$TEXT\nafter newline'
           else
             TEXT=":meow_sad_rain: *Update Luau/Lute workflow failed* (<$RUN_URL|view workflow run>)"
           fi
