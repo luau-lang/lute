@@ -38,10 +38,10 @@ end
 
 local function install(...: string)
 	local args = cli.parser()
-	args:add("no-dev", "flag", { help = "Skip dev dependencies" })
+	args:add("exclude-dev", "flag", { help = "Skip dev dependencies" })
 	args:parse({ ... })
 
-	local excludeDev = args:get("no-dev") == true
+	local excludeDev = args:get("exclude-dev") ~= nil
 	local rootDirectory = path.format(process.cwd())
 	local manifestPath = `{rootDirectory}/loom.config.luau`
 
