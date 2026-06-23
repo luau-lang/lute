@@ -83,7 +83,13 @@ local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string)
 	end
 end
 
-local function resolve(rootDirectory: string, universe: semver.Universe?): lockfile.Lockfile
+export type ResolveOptions = {
+	read excludeDev: boolean?,
+}
+
+local function resolve(rootDirectory: string, universe: semver.Universe?, options: ResolveOptions?): lockfile.Lockfile
+	local excludeDev = if options then options.excludeDev == true else false
+
 	local rootManifestPath = getManifestPath(rootDirectory)
 	if not fs.exists(rootManifestPath) then
 		error(`Manifest file not found: {rootManifestPath}`)
@@ -124,6 +130,26 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 
 		dependencies[dependencyAlias] = getKey(dependencySpec)
 		table.insert(queue, dependencySpec)
+	end
+
+	if not excludeDev then
+		for dependencyAlias, dependencySpec in rootManifest.package.devDependencies do
+			if dependencySpec.sourceKind == "registry" then
+				registryRequirements[dependencyAlias] = {
+					name = dependencySpec.name,
+					constraint = semver.parseConstraint(dependencySpec.version),
+					requiredBy = rootManifest.package.name,
+					aliasedAs = if dependencyAlias ~= dependencySpec.name then dependencyAlias else nil,
+				}
+
+				registrySources[dependencySpec.name] = dependencySpec.source
+				table.insert(rootRegistryAliases, dependencyAlias)
+				continue
+			end
+
+			dependencies[dependencyAlias] = getKey(dependencySpec)
+			table.insert(queue, dependencySpec)
+		end
 	end
 
 	for _, spec in queue do
