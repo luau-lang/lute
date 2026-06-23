@@ -2,7 +2,7 @@ name: Update Luau/Lute
 
 on:
   schedule:
-    - cron: '0 0 * * 6'
+    - cron: "0 0 * * 6"
   workflow_dispatch:
 
 permissions:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   update-luau:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -24,7 +24,7 @@ jobs:
           LATEST_TAG=$(curl -s https://api.github.com/repos/luau-lang/luau/releases/latest | jq -r '.tag_name')
           echo "Latest Luau release: $LATEST_TAG"
           echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-          
+
           # Fetch the commit hash for this tag
           COMMIT_HASH=$(curl -s https://api.github.com/repos/luau-lang/luau/git/ref/tags/$LATEST_TAG | jq -r '.object.sha')
           echo "Commit hash: $COMMIT_HASH"
@@ -36,7 +36,7 @@ jobs:
           CURRENT_BRANCH=$(grep '^branch' extern/luau.tune | sed -E 's/^branch *= *"(.*)"/\1/')
           echo "Current Luau version: $CURRENT_BRANCH"
           echo "branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
-          
+
       - name: Update version files
         if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag
         run: |
@@ -51,7 +51,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag
-        uses: luau-lang/create-pull-request@v7
+        uses: luau-lang/create-pull-request@v7.0.9
         with:
           commit-message: "chore: update dependencies"
           title: "Update Luau to ${{ steps.latest-release.outputs.tag }}"
@@ -60,11 +60,12 @@ jobs:
 
             **Release Notes:**
             ${{ format('https://github.com/luau-lang/luau/releases/tag/{0}', steps.latest-release.outputs.tag) }}
-            
+
             ---
             *This PR was automatically created by the [Update Luau workflow](https://github.com/${{ github.repository }}/actions/workflows/update-prs.yml)*
           branch: update-luau
           delete-branch: true
+          base: primary
 
       - name: No update needed
         if: steps.current-version.outputs.branch == steps.latest-release.outputs.tag
@@ -122,10 +123,10 @@ jobs:
           title: "Update Lute to ${{ steps.latest-release.outputs.tag }}"
           body: |
             ${{ format('**Lute**: Updated from `{0}` to `{1}`', steps.current-version.outputs.lute, steps.latest-release.outputs.version)}}
-            
+
             **Release Notes:**
             ${{ format('https://github.com/luau-lang/lute/releases/tag/{0}', steps.latest-release.outputs.tag)}}
-            
+
             ---
             *This PR was automatically created by the [Update Luau workflow](https://github.com/${{ github.repository }}/actions/workflows/update-prs.yml)*
           branch: update-lute
