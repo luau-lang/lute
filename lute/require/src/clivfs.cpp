@@ -7,6 +7,14 @@
 #include <string>
 
 constexpr std::string_view kCliAliasPrefix = "@cli";
+constexpr std::string_view kCliConfig = R"(
+{
+    "aliases": {
+        "lint": "@std/commands/lint/types",
+        "transform": "@std/commands/transform/types"
+    }
+}
+)";
 
 static bool isCliModule(const std::string& path)
 {
@@ -76,12 +84,10 @@ std::optional<std::string> CliVfs::getContents(const std::string& path) const
 
 ConfigStatus CliVfs::getConfigStatus() const
 {
-    // Currently, we do not support .luaurc files in CLI commands.
-    return ConfigStatus::Absent;
+    return ConfigStatus::PresentJson;
 }
 
-std::optional<std::string> CliVfs::getConfig() const
+std::optional<std::string_view> CliVfs::getConfig() const
 {
-    // Currently, we do not support .luaurc files in CLI commands.
-    return std::nullopt;
+    return kCliConfig;
 }

@@ -17,7 +17,7 @@ public:
     std::optional<std::string> getContents(const std::string& path) const;
 
     ConfigStatus getConfigStatus() const;
-    std::optional<std::string> getConfig() const;
+    std::optional<std::string_view> getConfig() const;
 
 private:
     std::optional<ModulePath> modulePath;
