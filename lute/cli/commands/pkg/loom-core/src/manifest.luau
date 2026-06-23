@@ -82,7 +82,10 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 				rev = spec.rev,
 			})
 		elseif spec.sourceKind == "registry" then
-			assert(typeof(spec.version) == "string", `Expected 'version' field for registry dependency '{name}' in {sectionName}`)
+			assert(
+				typeof(spec.version) == "string",
+				`Expected 'version' field for registry dependency '{name}' in {sectionName}`
+			)
 			result[name] = table.freeze({
 				name = spec.name or name,
 				sourceKind = "registry" :: "registry",
@@ -114,10 +117,7 @@ local function parseManifest(t: unknown): ProjectManifest
 	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies")
 
 	for alias in devDependencies do
-		assert(
-			dependencies[alias] == nil,
-			`Alias '{alias}' appears in both dependencies and dev_dependencies`
-		)
+		assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
 	end
 
 	return table.freeze({
