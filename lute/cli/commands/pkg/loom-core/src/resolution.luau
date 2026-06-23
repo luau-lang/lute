@@ -195,12 +195,19 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 
 		local resolution = semver.solve(universe, registryRequirements)
 
-		for name, pkgVersion in resolution do
+		-- Build a lookup from package name to resolved version(s) for slot-keyed results.
+		local versionsByPackageName = {}
+		for _, pkgVersion in resolution do
+			versionsByPackageName[pkgVersion.name] = pkgVersion
+		end
+
+		for _, pkgVersion in resolution do
+			local name = pkgVersion.name
 			local key = `{name}@{pkgVersion.versionString}`
 
 			local transitiveDependencies: { [string]: string } = {}
 			for alias, dependency in pkgVersion.dependencies do
-				local resolvedVersion = resolution[dependency.name]
+				local resolvedVersion = versionsByPackageName[dependency.name]
 				assert(resolvedVersion ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
 
 				transitiveDependencies[alias] = `{dependency.name}@{resolvedVersion.versionString}`
@@ -220,7 +227,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		for pkgKey, unresolvedAliases in unresolvedRegistryDependencies do
 			local packageDependencies = openDependencies[pkgKey]
 			for dependencyAlias, registryName in unresolvedAliases do
-				local pkgVersion = resolution[registryName]
+				local pkgVersion = versionsByPackageName[registryName]
 				assert(pkgVersion ~= nil, `Solver did not resolve transitive registry dependency '{registryName}'`)
 				packageDependencies[dependencyAlias] = `{registryName}@{pkgVersion.versionString}`
 			end
@@ -229,7 +236,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		-- Write root-level registry dependency aliases now that versions are resolved.
 		for _, alias in rootRegistryAliases do
 			local req = registryRequirements[alias]
-			local pkgVersion = resolution[req.name]
+			local pkgVersion = versionsByPackageName[req.name]
 			assert(pkgVersion ~= nil, `Solver did not resolve root dependency '{req.name}'`)
 			dependencies[alias] = `{req.name}@{pkgVersion.versionString}`
 		end
