@@ -211,8 +211,6 @@ test.suite("FsSuite", function(suite)
 
 		fs.writeStringToFile(watched, "hi")
 
-		-- Note: we had a timeout for this loop before, but it was leading to a flaky test where event = nil, so we're removing it.
-		-- If this hangs indefinitely at, we'll see this test fail later and revisit.
 		local start = os.clock()
 		local event
 		repeat
@@ -220,9 +218,8 @@ test.suite("FsSuite", function(suite)
 			if not event then
 				task.wait(0.01)
 			end
-		until event
+		until event or (os.clock() - start > 2)
 
-		print("Watch iterator time taken: " .. (os.clock() - start))
 		if event == nil then
 			failure.assertion("watcher event was nil")
 			return

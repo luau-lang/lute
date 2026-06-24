@@ -257,12 +257,19 @@ local function solveRegistryRequirements(
 )
 	local resolution = semver.solve(universe, registry.requirements)
 
-	for name, pkgVersion in resolution do
+	-- Solver returns slot-keyed entries; build a name lookup for dependency stitching.
+	local versionsByPackageName: { [string]: semver.PackageVersion } = {}
+	for _, pkgVersion in resolution do
+		versionsByPackageName[pkgVersion.name] = pkgVersion
+	end
+
+	for _, pkgVersion in resolution do
+		local name = pkgVersion.name
 		local key = `{name}@{pkgVersion.versionString}`
 
 		local transitiveDependencies: { [string]: string } = {}
 		for alias, dependency in pkgVersion.dependencies do
-			local resolvedVersion = resolution[dependency.name]
+			local resolvedVersion = versionsByPackageName[dependency.name]
 			assert(resolvedVersion ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
 
 			transitiveDependencies[alias] = `{dependency.name}@{resolvedVersion.versionString}`
@@ -279,7 +286,7 @@ local function solveRegistryRequirements(
 	end
 
 	for _, fix in registry.fixups do
-		local pkgVersion = resolution[fix.name]
+		local pkgVersion = versionsByPackageName[fix.name]
 		assert(pkgVersion ~= nil, `Solver did not resolve registry dependency '{fix.name}'`)
 		fix.aliases[fix.alias] = `{fix.name}@{pkgVersion.versionString}`
 	end

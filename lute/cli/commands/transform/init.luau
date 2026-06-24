@@ -10,7 +10,7 @@ local io = require("@std/io")
 local printDiffHunks = require("./transform/printDiffHunks")
 local cli = require("@batteries/cli")
 local files = require("./lib/files")
-local types = require("@self/types")
+local types = require("@transform")
 
 local function exhaustiveMatch(value: never): never
 	error(`Unknown value in exhaustive match: {value}`)
