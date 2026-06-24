@@ -96,6 +96,10 @@ local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string)
 	end
 end
 
+export type ResolveOptions = {
+	read excludeDev: boolean?,
+}
+
 local function shouldProcess(
 	spec: manifest.DependencySpec,
 	packages: { [string]: lockfile.LockfileDependency },
@@ -138,9 +142,10 @@ local function enqueueDependencies(
 	dependencies: { [string]: manifest.DependencySpec },
 	installPath: string,
 	rootDirectory: string,
-	requiredBy: string
+	requiredBy: string,
+	existingAliases: { [string]: string }?
 ): { [string]: string }
-	local aliases: { [string]: string } = {}
+	local aliases: { [string]: string } = existingAliases or {}
 	for dependencyAlias, dependencySpec in dependencies do
 		if dependencySpec.sourceKind == "registry" then
 			local sourceKey = `{requiredBy}:{dependencyAlias}`
@@ -292,7 +297,9 @@ local function solveRegistryRequirements(
 	end
 end
 
-local function resolve(rootDirectory: string, universe: semver.Universe?): lockfile.Lockfile
+local function resolve(rootDirectory: string, universe: semver.Universe?, options: ResolveOptions?): lockfile.Lockfile
+	local excludeDev = if options then options.excludeDev == true else false
+
 	local queue: { manifest.DependencySpec } = {}
 	local registry = createRegistryContext()
 
@@ -307,6 +314,17 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		rootDirectory,
 		rootManifest.package.name
 	)
+	if not excludeDev then
+		enqueueDependencies(
+			queue,
+			registry,
+			rootManifest.package.devDependencies,
+			rootDirectory,
+			rootDirectory,
+			rootManifest.package.name,
+			dependencies
+		)
+	end
 	local members = seedWorkspaceMembers(queue, registry, rootDirectory, rootManifest)
 	local packages = processSpecQueue(queue, registry, rootDirectory)
 

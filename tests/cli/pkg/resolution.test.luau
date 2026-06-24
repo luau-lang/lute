@@ -11,11 +11,17 @@ local solver = require("@commands/pkg/loom-core/src/semver/solver")
 local temporaryDirectory = system.tmpdir()
 local workingDirectory = path.join(temporaryDirectory, "lute-pkg-resolution")
 
-local function writeConfig(dir: path.Path, name: string, deps: string, workspace: string?)
+local function writeConfig(dir: path.Path, name: string, deps: string, devDeps: string?, workspace: string?)
+	local sections = `\t\tdependencies = \{{deps}\n\t\t}`
+	if devDeps then
+		sections ..= `,\n\t\tdev_dependencies = \{{devDeps}\n\t\t}`
+	end
+
 	local workspaceField = if workspace ~= nil then `,\n\tworkspace = \{{workspace}\n\t}` else ""
+
 	fs.writeStringToFile(
 		path.join(dir, "loom.config.luau"),
-		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n\t\tdependencies = \{{deps}\n\t\t},\n\t}{workspaceField},\n}\n`
+		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n{sections},\n\t}{workspaceField},\n}\n`
 	)
 end
 
@@ -57,6 +63,7 @@ test.suite("LoomResolution", function(suite)
 			workingDirectory,
 			"root",
 			"",
+			nil,
 			[[
 
 		"./packages/a",
@@ -83,6 +90,7 @@ test.suite("LoomResolution", function(suite)
 			workingDirectory,
 			"root",
 			"",
+			nil,
 			[[
 
 		"./packages/one",
@@ -105,6 +113,7 @@ test.suite("LoomResolution", function(suite)
 			libDir,
 			"libW",
 			"",
+			nil,
 			[[
 
 		"./core",]]
@@ -149,6 +158,7 @@ test.suite("LoomResolution", function(suite)
 				sourceKind = "path",
 				source = "./ext",
 			},]],
+			nil,
 			[[
 
 		"./internal",]]
@@ -587,5 +597,360 @@ test.suite("RegistryResolution", function(suite)
 		local content = fs.readFileToString(lockfilePath)
 		assert.strContains(content, '"registry"')
 		assert.strContains(content, "citrus@1.0.0")
+	end)
+end)
+
+test.suite("DevDependencies", function(suite)
+	suite:beforeEach(function()
+		if fs.exists(workingDirectory) then
+			fs.removeDirectory(workingDirectory, { recursive = true })
+		end
+		fs.createDirectory(workingDirectory)
+	end)
+
+	suite:case("devDependenciesResolvedForRoot", function(assert)
+		local devDir = path.join(workingDirectory, "testlib")
+		fs.createDirectory(devDir)
+		writeConfig(devDir, "testlib", "")
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			[[
+
+			testlib = {
+				sourceKind = "path",
+				source = "./testlib",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+
+		assert.eq(lock.dependencies.testlib, "testlib")
+		assert.eq(lock.packages["testlib"], {
+			name = "testlib",
+			sourceKind = "path",
+			source = "./testlib",
+			installPath = "testlib",
+			dependencies = {},
+		})
+	end)
+
+	suite:case("devDependenciesOfTransitivePathDepsExcluded", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+
+		local libDevDir = path.join(libDir, "libtest")
+		fs.createDirectory(libDevDir)
+		writeConfig(libDevDir, "libtest", "")
+
+		writeConfig(
+			libDir,
+			"lib",
+			"",
+			[[
+
+			libtest = {
+				sourceKind = "path",
+				source = "./libtest",
+			},]]
+		)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+
+		assert.eq(lock.dependencies.lib, "lib")
+		assert.eq(lock.packages["lib"], {
+			name = "lib",
+			sourceKind = "path",
+			source = "./lib",
+			installPath = "lib",
+			dependencies = {},
+		})
+		assert.eq(lock.packages["libtest"], nil)
+		assert.eq(lock.dependencies.libtest, nil)
+	end)
+
+	suite:case("devDependenciesOfTransitiveRegistryDepsExcluded", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		-- mocklib exists in the universe but is never required — verifies the solver
+		-- only resolves what's actually reachable through prod dependency edges
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+			mocklib = {
+				namedVersion("mocklib", "2.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(lock.packages["citrus@1.0.0"], {
+			name = "citrus",
+			rev = "1.0.0",
+			source = "citrus",
+			sourceKind = "registry",
+			installPath = "@pkg/citrus@1.0.0",
+			dependencies = {},
+		})
+		assert.eq(lock.packages["mocklib@2.0.0"], nil)
+		assert.eq(lock.dependencies.mocklib, nil)
+	end)
+
+	suite:case("devAndProdShareTransitiveDep", function(assert)
+		local sharedDir = path.join(workingDirectory, "shared")
+		fs.createDirectory(sharedDir)
+		writeConfig(sharedDir, "shared", "")
+
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+		writeConfig(
+			libDir,
+			"lib",
+			[[
+
+			shared = {
+				sourceKind = "path",
+				source = "../shared",
+			},]]
+		)
+
+		local testDir = path.join(workingDirectory, "testlib")
+		fs.createDirectory(testDir)
+		writeConfig(
+			testDir,
+			"testlib",
+			[[
+
+			shared = {
+				sourceKind = "path",
+				source = "../shared",
+			},]]
+		)
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]],
+			[[
+
+			testlib = {
+				sourceKind = "path",
+				source = "./testlib",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+
+		assert.eq(lock.dependencies.lib, "lib")
+		assert.eq(lock.dependencies.testlib, "testlib")
+		assert.eq(lock.packages["shared"], {
+			name = "shared",
+			sourceKind = "path",
+			source = "shared",
+			installPath = "shared",
+			dependencies = {},
+		})
+		assert.eq(lock.packages["lib"].dependencies.shared, "shared")
+		assert.eq(lock.packages["testlib"].dependencies.shared, "shared")
+	end)
+
+	suite:case("devRegistryDependencyResolved", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			[[
+
+			testing = {
+				sourceKind = "registry",
+				source = "testing",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			testing = {
+				namedVersion("testing", "1.2.0"),
+				namedVersion("testing", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.testing, "testing@1.2.0")
+		assert.eq(lock.packages["testing@1.2.0"], {
+			name = "testing",
+			rev = "1.2.0",
+			source = "testing",
+			sourceKind = "registry",
+			installPath = "@pkg/testing@1.2.0",
+			dependencies = {},
+		})
+	end)
+
+	suite:case("excludeDevSkipsDevDeps", function(assert)
+		local devDir = path.join(workingDirectory, "testlib")
+		fs.createDirectory(devDir)
+		writeConfig(devDir, "testlib", "")
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			[[
+
+			testlib = {
+				sourceKind = "path",
+				source = "./testlib",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil, { excludeDev = true })
+
+		assert.eq(lock.dependencies.testlib, nil)
+		assert.eq(lock.packages["testlib"], nil)
+	end)
+
+	suite:case("excludeDevKeepsProdDeps", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+		writeConfig(libDir, "lib", "")
+
+		local devDir = path.join(workingDirectory, "testlib")
+		fs.createDirectory(devDir)
+		writeConfig(devDir, "testlib", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]],
+			[[
+
+			testlib = {
+				sourceKind = "path",
+				source = "./testlib",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil, { excludeDev = true })
+
+		assert.eq(lock.dependencies.lib, "lib")
+		assert.eq(lock.packages["lib"], {
+			name = "lib",
+			sourceKind = "path",
+			source = "./lib",
+			installPath = "lib",
+			dependencies = {},
+		})
+		assert.eq(lock.dependencies.testlib, nil)
+		assert.eq(lock.packages["testlib"], nil)
+	end)
+
+	suite:case("excludeDevSkipsRegistryDevDeps", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			[[
+
+			testing = {
+				sourceKind = "registry",
+				source = "testing",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			testing = {
+				namedVersion("testing", "1.2.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe, { excludeDev = true })
+
+		assert.eq(lock.dependencies.testing, nil)
+		assert.eq(lock.packages["testing@1.2.0"], nil)
+	end)
+
+	suite:case("duplicateAliasAcrossSectionsErrors", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+		writeConfig(libDir, "lib", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]],
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		assert.throwsWith("Alias 'lib' appears in both dependencies and dev_dependencies", function()
+			resolution.resolve(path.format(workingDirectory), nil)
+		end)
+	end)
+
+	suite:case("lockfileVersionRemainsThree", function(assert)
+		local devDir = path.join(workingDirectory, "testlib")
+		fs.createDirectory(devDir)
+		writeConfig(devDir, "testlib", "")
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			[[
+
+			testlib = {
+				sourceKind = "path",
+				source = "./testlib",
+			},]]
+		)
+
+		resolution.resolve(path.format(workingDirectory), nil)
+
+		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
+		local content = fs.readFileToString(lockfilePath)
+		assert.strContains(content, "version = 3")
 	end)
 end)
