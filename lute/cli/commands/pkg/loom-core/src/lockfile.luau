@@ -74,18 +74,12 @@ local function parseFile(directory: string): Lockfile
 	return parseLockfile(t)
 end
 
-local function renderLockfile(lock: Lockfile): string
-	return `return {pp(lock)}\n`
-end
-
 local function writeFile(lock: Lockfile, directory: string)
 	local lockfilePath = resolvePath(directory)
-	fs.writeStringToFile(lockfilePath, renderLockfile(lock))
+	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
 end
 
 return {
 	parseFile = parseFile,
 	writeFile = writeFile,
-	resolvePath = resolvePath,
-	renderLockfile = renderLockfile,
 }

@@ -40,10 +40,10 @@ local function install(...: string)
 	args:add("exclude-dev", "flag", { help = "Skip dev dependencies" })
 	args:parse({ ... })
 
-	local excludeDev = args:get("exclude-dev") ~= nil
 	local rootDirectory = path.format(process.cwd())
-
 	local rootManifest = manifest.parseFile(rootDirectory)
+
+	local excludeDev = args:get("exclude-dev") ~= nil
 	local devAliases: { [string]: boolean } = {}
 
 	for _, depSpec in rootManifest.package.dependencies do
@@ -51,6 +51,7 @@ local function install(...: string)
 			error("Registry dependencies are not yet supported by the install command")
 		end
 	end
+
 	if not excludeDev then
 		for alias, depSpec in rootManifest.package.devDependencies do
 			if depSpec.sourceKind == "registry" then

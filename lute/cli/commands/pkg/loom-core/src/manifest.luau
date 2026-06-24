@@ -148,5 +148,4 @@ return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
-	resolvePath = resolvePath,
 }
