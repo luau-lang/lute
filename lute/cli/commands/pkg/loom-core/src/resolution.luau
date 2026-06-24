@@ -6,21 +6,21 @@ local path = require("@std/path")
 local semver = require("./semver")
 local store = require("./store")
 
-type RegistryFixup = {
-	read aliases: { [string]: string },
+type RegistryPatch = {
+	read parentAliases: { [string]: string },
 	read alias: string,
 	read name: string,
 }
 
 type RegistryContext = {
-	read fixups: { RegistryFixup },
+	read patches: { RegistryPatch },
 	read requirements: { [string]: semver.Requirement },
 	read sources: { [string]: string },
 }
 
 local function createRegistryContext(): RegistryContext
 	return table.freeze({
-		fixups = {},
+		patches = {},
 		requirements = {},
 		sources = {},
 	})
@@ -141,8 +141,8 @@ local function enqueueDependencies(
 				aliasedAs = if dependencyAlias ~= dependencySpec.name then dependencyAlias else nil,
 			}
 			registry.sources[dependencySpec.name] = dependencySpec.source
-			table.insert(registry.fixups, {
-				aliases = aliases,
+			table.insert(registry.patches, {
+				parentAliases = aliases,
 				alias = dependencyAlias,
 				name = dependencySpec.name,
 			})
@@ -234,10 +234,10 @@ local function solveRegistryRequirements(
 		})
 	end
 
-	for _, fix in registry.fixups do
-		local pkgVersion = versionsByPackageName[fix.name]
-		assert(pkgVersion ~= nil, `Solver did not resolve registry dependency '{fix.name}'`)
-		fix.aliases[fix.alias] = `{fix.name}@{pkgVersion.versionString}`
+	for _, patch in registry.patches do
+		local pkgVersion = versionsByPackageName[patch.name]
+		assert(pkgVersion ~= nil, `Solver did not resolve registry dependency '{patch.name}'`)
+		patch.parentAliases[patch.alias] = `{patch.name}@{pkgVersion.versionString}`
 	end
 end
 
