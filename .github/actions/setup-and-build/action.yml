@@ -69,7 +69,7 @@ runs:
       uses: luau-lang/setup-nasm@v1
 
     - name: Cache extern folder
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       id: cache-extern
       with:
         path: extern
@@ -86,7 +86,7 @@ runs:
         ccache -z
 
     - name: Restore ccache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       id: cache-ccache
       with:
         path: .ccache
@@ -98,7 +98,7 @@ runs:
       shell: bash
       run: |
         echo "Cache status: ${{ steps.cache-ccache.outputs.cache-hit }}"
-        ccache -sv
+        ccache -s
 
     - name: Bootstrap Lute (if needed) and set LUTE
       shell: bash
@@ -126,11 +126,11 @@ runs:
 
     - name: ccache stats (post-build)
       shell: bash
-      run: ccache -sv
+      run: ccache -s
 
     - name: Save ccache
       if: github.ref_name == 'primary'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: .ccache
         key: ccache-${{ runner.os }}-${{ inputs.options }}-${{ github.sha }}

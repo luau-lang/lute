@@ -75,8 +75,10 @@ local function installZipArchive(content: string, installPath: string)
 	end)
 end
 
-local function downloadFromGitHubArchive(url: string): string
-	local headers = {}
+local function downloadFromGitHub(url: string): string
+	local headers = {
+		["User-Agent"] = "lute-pkg",
+	}
 
 	local token = getGithubAuthenticationToken()
 	if token ~= nil and token ~= "" then
@@ -91,8 +93,12 @@ local function downloadFromGitHubArchive(url: string): string
 end
 
 local function installPackage(source: string, rev: string, installPath: string): ()
-	local url = `{source}/archive/{rev}.zip`
-	local zipArchive = downloadFromGitHubArchive(url)
+	local owner, repo = string.match(source, "^https?://github%.com/([^/]+)/([^/]+)")
+	if not owner or not repo then
+		error(`Unsupported GitHub source URL: {source}`)
+	end
+	local url = `https://api.github.com/repos/{owner}/{repo}/zipball/{rev}`
+	local zipArchive = downloadFromGitHub(url)
 
 	local safeName = rev:gsub("[^%w%-_.]", "-")
 	local tempDir = path.format(path.join(system.tmpdir(), `lute-pkg-install-{safeName}`))

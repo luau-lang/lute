@@ -1,4 +1,4 @@
-local lintTypes = require("../types")
+local lintTypes = require("@lint")
 local path = require("@std/path")
 local syntax = require("@std/syntax")
 local utils = require("@std/syntax/utils")
@@ -110,6 +110,7 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 			if stat.values[i] then
 				if utils.isRequireCall(stat.values[i]) then
 					visitor.requiredModules[localVar.name.text] = localVar
+					visitorLib.visitExpression(stat.values[i], visitor)
 				else
 					visitor.ignoreReferences[localVar] = true
 					if localVar.annotation then

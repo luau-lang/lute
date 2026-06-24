@@ -8,7 +8,7 @@ local process = require("@std/process")
 local syntax = require("@std/syntax")
 local tableext = require("@std/tableext")
 local triviaUtils = require("@std/syntax/utils/trivia")
-local types = require("./types")
+local types = require("@lint")
 local visitor = require("@std/syntax/visitor")
 
 local DEFAULT_RULES = {

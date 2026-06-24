@@ -349,7 +349,7 @@ end
 local function visitStatCompoundAssign(node: types.CstStatCompoundAssign, visitor: Visitor)
 	if visitor.visitStatCompoundAssign(node) then
 		visitExpr(node.variable, visitor)
-		visitToken(node.operand, visitor)
+		visitToken(node.operator, visitor)
 		visitExpr(node.value, visitor)
 	end
 end
@@ -377,7 +377,8 @@ end
 
 local function visitStatTypeAlias(node: types.CstStatTypeAlias, visitor: Visitor)
 	if visitor.visitStatTypeAlias(node) then
-		if node.export then
+		if node.isExported then
+			assert(node.export)
 			visitToken(node.export, visitor)
 		end
 		visitToken(node.typeToken, visitor)
@@ -505,18 +506,15 @@ local function visitExprFunction(
 		if node.openGenerics then
 			visitToken(node.openGenerics, visitor)
 		end
-		if node.generics then
-			visitPunctuated(node.generics, visitor, visitGeneric)
-		end
-		if node.genericPacks then
-			visitPunctuated(node.genericPacks, visitor, visitGenericPack)
-		end
+		visitPunctuated(node.generics, visitor, visitGeneric)
+		visitPunctuated(node.genericPacks, visitor, visitGenericPack)
 		if node.closeGenerics then
 			visitToken(node.closeGenerics, visitor)
 		end
 		visitToken(node.openParens, visitor)
 		visitPunctuated(node.parameters, visitor, visitLocal)
-		if node.vararg then
+		if node.hasVararg then
+			assert(node.vararg)
 			visitToken(node.vararg, visitor)
 		end
 		if node.varargColon then
@@ -575,7 +573,8 @@ end
 
 local function visitStatTypeFunction(node: types.CstStatTypeFunction, visitor: Visitor)
 	if visitor.visitStatTypeFunction(node) then
-		if node.export then
+		if node.isExported then
+			assert(node.export)
 			visitToken(node.export, visitor)
 		end
 		visitToken(node.type, visitor)

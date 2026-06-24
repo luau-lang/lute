@@ -422,9 +422,6 @@ local function generateTypeDefinitionFiles()
 	traverseDefs(libsPath, "lute")
 	traverseDefs(stdPath, "std")
 
-	dictionaryEntries["lint/types.luau"] =
-		readFileToString(projectRelative("lute", "cli", "commands", "lint", "types.luau"))
-
 	local stringDictionary = ""
 	for key, value in dictionaryEntries do
 		stringDictionary ..= string.format('["%*"] = [==[%*]==],', key, value)

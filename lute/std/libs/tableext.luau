@@ -31,6 +31,16 @@ function tableext.filter<K, V>(table: { [K]: V }, predicate: (V) -> boolean): { 
 	return new
 end
 
+--- Returns the first key-value pair from `table` for which `predicate` returns `true`. Returns `nil, nil` if the predicate does not hold for any value.
+function tableext.find<K, V>(table: { [K]: V }, predicate: (V) -> boolean): (V?, K?)
+	for k, v in table do
+		if predicate(v) then
+			return v, k
+		end
+	end
+	return nil, nil
+end
+
 --- Merges all additional tables into `tbl` in order. When the same key appears in multiple tables, the value from the last table containing that key wins. Returns `tbl`.
 function tableext.combine<K, V>(tbl: { [K]: V }, ...: { [K]: V }): { [K]: V }
 	local tables = table.pack(...)

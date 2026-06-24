@@ -9,7 +9,7 @@ local testutil = require("../testutil")
 
 local lutePath = path.format(process.execPath())
 local tmpDir = system.tmpdir()
-local rulesDir = path.format(path.join(".", "lints"))
+local rulesDir = path.format(path.join(tmpDir, "lints"))
 local defaultRulesFolder = path.format(path.join("lute", "cli", "commands", "lint", "rules"))
 local defaultRulesPaths = {
 	almost_swapped = path.format(path.join(defaultRulesFolder, "almost_swapped.luau")),
@@ -36,6 +36,14 @@ local LINT_RULE_MESSAGES = {
 }
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
+
+local LUAURC_CONTENT = [[
+{
+    "aliases": {
+        "lint": "@std/commands/lint/types"
+    }
+}
+]]
 
 local function runProcess(args: { string }, options: process.ProcessRunOptions?): process.ProcessResult
 	local result = process.run(args, options)
@@ -154,6 +162,13 @@ test.suite("lute lint", function(suite)
 		local modulePath = path.join(tmpDir, "module")
 		if fs.exists(modulePath) then
 			fs.removeDirectory(modulePath, { recursive = true })
+		end
+	end)
+
+	suite:afterEach(function()
+		local configPath = path.format(path.join(tmpDir, ".config.luau"))
+		if fs.exists(configPath) then
+			fs.remove(configPath)
 		end
 	end)
 
@@ -361,13 +376,13 @@ end
 	suite:case("luteLintCustomRulesDir", function(assert)
 		-- Setup
 		fs.createDirectory(rulesDir)
+		fs.writeStringToFile(path.join(rulesDir, ".luaurc"), LUAURC_CONTENT)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
-		-- Because the default rules require types using a relative path, we copy from examples, which uses an absolute require path
-		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
+		fs.copy(defaultRulesPaths.almost_swapped, path.join(rulesDir, "almost_swapped.luau"))
 		-- Copy divide_by_zero to rulesDir/divide_by_zero/init.luau
 		local divideByZeroDir = path.join(rulesDir, "divide_by_zero")
 		fs.createDirectory(divideByZeroDir)
-		fs.copy(path.join("examples", "lints", "divide_by_zero.luau"), path.join(divideByZeroDir, "init.luau"))
+		fs.copy(defaultRulesPaths.divide_by_zero, path.join(divideByZeroDir, "init.luau"))
 		fs.writeStringToFile(
 			path.join(rulesDir, "bogus.txt"),
 			[[
@@ -418,8 +433,9 @@ violator.luau:3:1-4:6 ──
 	suite:case("luteLintMultipleRulesButOneErrors", function(assert)
 		-- Setup
 		fs.createDirectory(rulesDir)
+		fs.writeStringToFile(path.join(rulesDir, ".luaurc"), LUAURC_CONTENT)
 		-- Copy almostSwapped.luau to rulesDir/almostSwapped.luau
-		fs.copy(path.join("examples", "lints", "almost_swapped.luau"), path.join(rulesDir, "almost_swapped.luau"))
+		fs.copy(defaultRulesPaths.almost_swapped, path.join(rulesDir, "almost_swapped.luau"))
 		-- Create a rule that fails
 		fs.writeStringToFile(
 			path.join(rulesDir, "erroring_rule.luau"),
@@ -457,7 +473,7 @@ b = a
 
 		assert.neq(
 			output:find(
-				"Error applying lint rule 'AlwaysErrors': %.[/\\]lints[/\\]erroring_rule%.luau:4: This rule always errors",
+				"Error applying lint rule 'AlwaysErrors': .+[/\\]lints[/\\]erroring_rule%.luau:4: This rule always errors",
 				1
 			),
 			nil
@@ -2617,6 +2633,18 @@ return {
 					count = 1,
 				},
 			},
+		})
+	end)
+
+	suite:case("unusedVariableRegressionTest", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local A = {}
+local _ = require(A.Index)
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
 		})
 	end)
 
