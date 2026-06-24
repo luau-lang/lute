@@ -1,4 +1,5 @@
 local fs = require("@std/fs")
+local json = require("@std/json")
 local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
@@ -3670,5 +3671,133 @@ end
 		})
 
 		assert.eq(result.exitcode, 0)
+	end)
+
+	suite:case("exactTextOutput", function(assert)
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"-r",
+			defaultRulesPaths.divide_by_zero,
+			"--no-default-lints",
+			"-s",
+			"local x = 1 / 0",
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.eq(
+			result.stdout,
+			"warning[divide_by_zero]: Division by zero detected.\n"
+				.. "\n"
+				.. "   ┌── input:1:11-16 ──\n"
+				.. "   │\n"
+				.. " 1 │ local x = 1 / 0\n"
+				.. "   │           ^^^^^\n"
+				.. "   │\n"
+				.. "\n"
+				.. "Suggested fix: math.huge\n"
+				.. "\n"
+				.. "For additional info: https://lute.luau.org/cli/lint/divide_by_zero.html\n"
+				.. "\n"
+		)
+	end)
+
+	suite:case("outputFlagWritesTextToFile", function(assert)
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		local outputPath = path.format(path.join(tmpDir, "lint_output.txt"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0\n")
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"-r",
+			defaultRulesPaths.divide_by_zero,
+			"--no-default-lints",
+			"-o",
+			outputPath,
+			violatorPath,
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.eq(fs.exists(outputPath), true)
+		local outputContent = fs.readFileToString(outputPath)
+		assert.strContains(outputContent, LINT_RULE_MESSAGES.divide_by_zero)
+		assert.strNotContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("outputFlagWritesJsonToFile", function(assert)
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		local outputPath = path.format(path.join(tmpDir, "lint_output.json"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0\n")
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"-r",
+			defaultRulesPaths.divide_by_zero,
+			"--no-default-lints",
+			"-j",
+			"-o",
+			outputPath,
+			violatorPath,
+		})
+
+		assert.eq(result.exitcode, 0)
+		assert.eq(fs.exists(outputPath), true)
+		local outputContent = fs.readFileToString(outputPath)
+		assert.never.throws(function()
+			json.deserialize(outputContent)
+		end)
+		assert.strContains(outputContent, "divide_by_zero")
+		assert.strContains(outputContent, '"items"')
+		assert.strNotContains(result.stdout, "divide_by_zero")
+	end)
+
+	suite:case("outputFlagStringInputWritesToFile", function(assert)
+		local outputPath = path.format(path.join(tmpDir, "lint_string_output.txt"))
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"-r",
+			defaultRulesPaths.divide_by_zero,
+			"--no-default-lints",
+			"-s",
+			"local x = 1 / 0",
+			"-o",
+			outputPath,
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.eq(fs.exists(outputPath), true)
+		local outputContent = fs.readFileToString(outputPath)
+		assert.strContains(outputContent, LINT_RULE_MESSAGES.divide_by_zero)
+		assert.strNotContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("outputFlagStringInputJsonWritesToFile", function(assert)
+		local outputPath = path.format(path.join(tmpDir, "lint_string_json_output.json"))
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"-r",
+			defaultRulesPaths.divide_by_zero,
+			"--no-default-lints",
+			"-s",
+			"local x = 1 / 0",
+			"-j",
+			"-o",
+			outputPath,
+		})
+
+		assert.eq(result.exitcode, 0)
+		assert.eq(fs.exists(outputPath), true)
+		local outputContent = fs.readFileToString(outputPath)
+		assert.never.throws(function()
+			json.deserialize(outputContent)
+		end)
+		assert.strContains(outputContent, "divide_by_zero")
+		assert.strNotContains(result.stdout, "divide_by_zero")
 	end)
 end)

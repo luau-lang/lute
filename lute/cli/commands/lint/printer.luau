@@ -7,8 +7,11 @@ local printerLib = {}
 
 local TAB_SIZE = 4
 
-local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
-	print(`{lint.severity}[{lint.lintname}]: {lint.message}\n`)
+local function formatLint(lint: types.LintViolation, sourceLines: { string }): string
+	local lines = {}
+
+	table.insert(lines, `{lint.severity}[{lint.lintname}]: {lint.message}`)
+	table.insert(lines, "")
 
 	local location = lint.location
 	local filepath = if lint.sourcepath then path.format(lint.sourcepath) else "input"
@@ -31,17 +34,18 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 			filepathLine ..= string.rep("─", #sourceLine - #filepathLine)
 		end
 
-		print(filepathLine)
-		print(`{blankGutter}│`)
-		print(sourceLine)
-		print(
+		table.insert(lines, filepathLine)
+		table.insert(lines, `{blankGutter}│`)
+		table.insert(lines, sourceLine)
+		table.insert(
+			lines,
 			`{blankGutter}│ {string.rep(" ", location.beginColumn - 1 + (prelintTabs * (TAB_SIZE - 1)))}{string.rep(
 				"^",
 				location.endColumn - location.beginColumn + (lintTabs * (TAB_SIZE - 1))
 			)}`
 		)
-		print(`{blankGutter}│`)
-		print()
+		table.insert(lines, `{blankGutter}│`)
+		table.insert(lines, "")
 	else
 		local gutterSize = math.floor(math.log10(location.endLine)) + 3 -- + 2 for padding around line number
 		local blankGutter = string.rep(" ", gutterSize)
@@ -66,31 +70,53 @@ local function printLint(lint: types.LintViolation, sourceLines: { string }): ()
 			filepathLine ..= string.rep("─", maxSourceLineLength - #filepathLine)
 		end
 
-		print(filepathLine)
-		print(`{blankGutter}│`)
+		table.insert(lines, filepathLine)
+		table.insert(lines, `{blankGutter}│`)
 		for _, line in renderedSourceLines do
-			print(line)
+			table.insert(lines, line)
 		end
-		print(`{blankGutter}│ ╰{string.rep("─", maxSourceLineLength - gutterSize - 8)}^`)
-		print(`{blankGutter}│`)
-		print()
+		table.insert(lines, `{blankGutter}│ ╰{string.rep("─", maxSourceLineLength - gutterSize - 8)}^`)
+		table.insert(lines, `{blankGutter}│`)
+		table.insert(lines, "")
 	end
 
 	if lint.suggestedfix then
-		print(`Suggested fix: {lint.suggestedfix.fix}\n`)
+		table.insert(lines, `Suggested fix: {lint.suggestedfix.fix}`)
+		table.insert(lines, "")
 	end
 
 	if lint.target then
-		print(`For additional info: {lint.target}\n`)
+		table.insert(lines, `For additional info: {lint.target}`)
+		table.insert(lines, "")
 	end
+
+	return table.concat(lines, "\n")
+end
+
+function printerLib.formatLintsWithSource(lints: { types.LintViolation }, sourceContent: string): string
+	local sourceLines = sourceContent:split("\n")
+	local parts = {}
+
+	for _, lint in lints do
+		table.insert(parts, formatLint(lint, sourceLines))
+	end
+
+	return table.concat(parts, "\n")
+end
+
+function printerLib.formatLintsWithPath(lints: { types.LintViolation }, sourcePath: path.Path): string
+	return printerLib.formatLintsWithSource(lints, fs.readFileToString(sourcePath))
 end
 
 function printerLib.printLintsWithSource(lints: { types.LintViolation }, sourceContent: string): ()
 	local sourceLines = sourceContent:split("\n")
+	local parts = {}
 
 	for _, lint in lints do
-		printLint(lint, sourceLines)
+		table.insert(parts, formatLint(lint, sourceLines))
 	end
+
+	print(table.concat(parts, "\n"))
 end
 
 function printerLib.printLintsWithPath(lints: { types.LintViolation }, sourcePath: path.Path): ()
