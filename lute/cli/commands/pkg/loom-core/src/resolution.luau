@@ -199,9 +199,6 @@ local function processSpecQueue(
 	return packages
 end
 
--- Solve all collected registry requirements in one pass and stitch the resolved
--- versions into the package graph: emit one packages entry per resolved version,
--- and back-patch every fixup's alias table with the concrete `name@version` key.
 local function solveRegistryRequirements(
 	packages: { [string]: lockfile.LockfileDependency },
 	registry: RegistryContext,
