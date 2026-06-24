@@ -10,7 +10,7 @@ local pathLib = require("@std/path")
 local printer = require("@self/printer")
 local process = require("@std/process")
 local tableext = require("@std/tableext")
-local types = require("@self/types")
+local types = require("@lint")
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 local VERBOSE = false

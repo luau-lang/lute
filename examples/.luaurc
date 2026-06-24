@@ -1,6 +1,8 @@
 {
-    "languageMode": "strict",
-    "aliases": {
-        "batteries": "../batteries"
-    }
+  "languageMode": "strict",
+  "aliases": {
+    "batteries": "../batteries",
+    "lint": "@std/commands/lint/types",
+    "transform": "@std/commands/transform/types"
+  }
 }

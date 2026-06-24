@@ -31,7 +31,7 @@ local function main(...: string)
 	local command = args[1]
 
 	if command == "install" then
-		install()
+		install(table.unpack(args, 2))
 	elseif command == "auth" then
 		authenticate(table.unpack(args, 2))
 	else

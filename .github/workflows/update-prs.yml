@@ -2,7 +2,7 @@ name: Update Luau/Lute
 
 on:
   schedule:
-    - cron: '0 0 * * 6'
+    - cron: "0 0 * * 6"
   workflow_dispatch:
 
 permissions:
@@ -12,7 +12,9 @@ permissions:
 jobs:
   update-luau:
     runs-on: ubuntu-latest
-    
+    outputs:
+      pull-request-url: ${{ steps.create-pr.outputs.pull-request-url }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -24,7 +26,7 @@ jobs:
           LATEST_TAG=$(curl -s https://api.github.com/repos/luau-lang/luau/releases/latest | jq -r '.tag_name')
           echo "Latest Luau release: $LATEST_TAG"
           echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-          
+
           # Fetch the commit hash for this tag
           COMMIT_HASH=$(curl -s https://api.github.com/repos/luau-lang/luau/git/ref/tags/$LATEST_TAG | jq -r '.object.sha')
           echo "Commit hash: $COMMIT_HASH"
@@ -36,7 +38,7 @@ jobs:
           CURRENT_BRANCH=$(grep '^branch' extern/luau.tune | sed -E 's/^branch *= *"(.*)"/\1/')
           echo "Current Luau version: $CURRENT_BRANCH"
           echo "branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
-          
+
       - name: Update version files
         if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag
         run: |
@@ -50,8 +52,9 @@ jobs:
           fi
 
       - name: Create Pull Request
+        id: create-pr
         if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag
-        uses: luau-lang/create-pull-request@v7
+        uses: luau-lang/create-pull-request@v7.0.9
         with:
           commit-message: "chore: update dependencies"
           title: "Update Luau to ${{ steps.latest-release.outputs.tag }}"
@@ -60,11 +63,12 @@ jobs:
 
             **Release Notes:**
             ${{ format('https://github.com/luau-lang/luau/releases/tag/{0}', steps.latest-release.outputs.tag) }}
-            
+
             ---
             *This PR was automatically created by the [Update Luau workflow](https://github.com/${{ github.repository }}/actions/workflows/update-prs.yml)*
           branch: update-luau
           delete-branch: true
+          base: primary
 
       - name: No update needed
         if: steps.current-version.outputs.branch == steps.latest-release.outputs.tag
@@ -74,6 +78,9 @@ jobs:
   update-lute:
     runs-on: ubuntu-latest
     needs: update-luau
+    outputs:
+      pull-request-url: ${{ steps.create-pr.outputs.pull-request-url }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -115,17 +122,18 @@ jobs:
           fi
 
       - name: Create Pull Request
+        id: create-pr
         if: steps.current-version.outputs.lute != steps.latest-release.outputs.version
-        uses: luau-lang/create-pull-request@v7
+        uses: luau-lang/create-pull-request@v7.0.9
         with:
           commit-message: "chore: update dependencies"
           title: "Update Lute to ${{ steps.latest-release.outputs.tag }}"
           body: |
             ${{ format('**Lute**: Updated from `{0}` to `{1}`', steps.current-version.outputs.lute, steps.latest-release.outputs.version)}}
-            
+
             **Release Notes:**
             ${{ format('https://github.com/luau-lang/lute/releases/tag/{0}', steps.latest-release.outputs.tag)}}
-            
+
             ---
             *This PR was automatically created by the [Update Luau workflow](https://github.com/${{ github.repository }}/actions/workflows/update-prs.yml)*
           branch: update-lute
@@ -135,3 +143,38 @@ jobs:
         if: steps.current-version.outputs.lute == steps.latest-release.outputs.version
         run: |
           echo "Lute is already up to date: ${{ steps.current-version.outputs.lute }}"
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [update-luau, update-lute]
+    if: always()
+    env:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+    steps:
+      - name: Send Slack notification
+        run: |
+          CHANNEL_ID="${{ secrets.SLACK_CHANNEL_ID }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [[ "${{ needs.update-luau.result }}" == "success" && "${{ needs.update-lute.result }}" == "success" ]]; then
+            TEXT=":meow_code: *Update Luau/Lute workflow succeeded*"
+
+            LUAU_PR="${{ needs.update-luau.outputs.pull-request-url }}"
+            LUTE_PR="${{ needs.update-lute.outputs.pull-request-url }}"
+
+            if [[ -n "$LUAU_PR" ]]; then
+              ESCAPED=$'\n• Luau PR: '
+              TEXT="$TEXT$ESCAPED <$LUAU_PR>"
+            fi
+            if [[ -n "$LUTE_PR" ]]; then
+              ESCAPED=$'\n• Lute PR: '
+              TEXT="$TEXT$ESCAPED <$LUTE_PR>"
+            fi
+          else
+            TEXT=":meow_sad_rain: *Update Luau/Lute workflow failed* (<$RUN_URL|view workflow run>)"
+          fi
+
+          curl -sS -o /dev/null -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data "$(jq -n --arg channel "$CHANNEL_ID" --arg text "$TEXT" '{channel: $channel, text: $text}')"

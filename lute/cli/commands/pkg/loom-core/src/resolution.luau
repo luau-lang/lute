@@ -83,7 +83,13 @@ local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string)
 	end
 end
 
-local function resolve(rootDirectory: string, universe: semver.Universe?): lockfile.Lockfile
+export type ResolveOptions = {
+	read excludeDev: boolean?,
+}
+
+local function resolve(rootDirectory: string, universe: semver.Universe?, options: ResolveOptions?): lockfile.Lockfile
+	local excludeDev = if options then options.excludeDev == true else false
+
 	local rootManifestPath = getManifestPath(rootDirectory)
 	if not fs.exists(rootManifestPath) then
 		error(`Manifest file not found: {rootManifestPath}`)
@@ -124,6 +130,26 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 
 		dependencies[dependencyAlias] = getKey(dependencySpec)
 		table.insert(queue, dependencySpec)
+	end
+
+	if not excludeDev then
+		for dependencyAlias, dependencySpec in rootManifest.package.devDependencies do
+			if dependencySpec.sourceKind == "registry" then
+				registryRequirements[dependencyAlias] = {
+					name = dependencySpec.name,
+					constraint = semver.parseConstraint(dependencySpec.version),
+					requiredBy = rootManifest.package.name,
+					aliasedAs = if dependencyAlias ~= dependencySpec.name then dependencyAlias else nil,
+				}
+
+				registrySources[dependencySpec.name] = dependencySpec.source
+				table.insert(rootRegistryAliases, dependencyAlias)
+				continue
+			end
+
+			dependencies[dependencyAlias] = getKey(dependencySpec)
+			table.insert(queue, dependencySpec)
+		end
 	end
 
 	for _, spec in queue do
@@ -195,12 +221,19 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 
 		local resolution = semver.solve(universe, registryRequirements)
 
-		for name, pkgVersion in resolution do
+		-- Build a lookup from package name to resolved version(s) for slot-keyed results.
+		local versionsByPackageName = {}
+		for _, pkgVersion in resolution do
+			versionsByPackageName[pkgVersion.name] = pkgVersion
+		end
+
+		for _, pkgVersion in resolution do
+			local name = pkgVersion.name
 			local key = `{name}@{pkgVersion.versionString}`
 
 			local transitiveDependencies: { [string]: string } = {}
 			for alias, dependency in pkgVersion.dependencies do
-				local resolvedVersion = resolution[dependency.name]
+				local resolvedVersion = versionsByPackageName[dependency.name]
 				assert(resolvedVersion ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
 
 				transitiveDependencies[alias] = `{dependency.name}@{resolvedVersion.versionString}`
@@ -220,7 +253,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		for pkgKey, unresolvedAliases in unresolvedRegistryDependencies do
 			local packageDependencies = openDependencies[pkgKey]
 			for dependencyAlias, registryName in unresolvedAliases do
-				local pkgVersion = resolution[registryName]
+				local pkgVersion = versionsByPackageName[registryName]
 				assert(pkgVersion ~= nil, `Solver did not resolve transitive registry dependency '{registryName}'`)
 				packageDependencies[dependencyAlias] = `{registryName}@{pkgVersion.versionString}`
 			end
@@ -229,7 +262,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?): lockf
 		-- Write root-level registry dependency aliases now that versions are resolved.
 		for _, alias in rootRegistryAliases do
 			local req = registryRequirements[alias]
-			local pkgVersion = resolution[req.name]
+			local pkgVersion = versionsByPackageName[req.name]
 			assert(pkgVersion ~= nil, `Solver did not resolve root dependency '{req.name}'`)
 			dependencies[alias] = `{req.name}@{pkgVersion.versionString}`
 		end
