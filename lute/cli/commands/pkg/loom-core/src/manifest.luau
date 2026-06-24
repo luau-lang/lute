@@ -1,3 +1,4 @@
+local fs = require("@std/fs")
 local luau = require("@std/luau")
 
 export type SourceKind = "path" | "github" | "registry"
@@ -130,7 +131,15 @@ local function parseManifest(t: unknown): ProjectManifest
 	})
 end
 
-local function parseFile(manifestPath: string): ProjectManifest
+local function resolvePath(directory: string): string
+	return `{directory}/loom.config.luau`
+end
+
+local function parseFile(directory: string): ProjectManifest
+	local manifestPath = resolvePath(directory)
+	if not fs.exists(manifestPath) then
+		error(`Manifest file not found: {manifestPath}`)
+	end
 	local manifestTable = luau.loadModule(manifestPath)
 	return parseManifest(manifestTable)
 end
@@ -139,4 +148,5 @@ return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
+	resolvePath = resolvePath,
 }
