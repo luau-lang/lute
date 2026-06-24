@@ -174,7 +174,8 @@ local function seedWorkspaceMembers(
 	queue: { manifest.DependencySpec },
 	registry: RegistryContext,
 	rootDirectory: string,
-	rootManifest: manifest.ProjectManifest
+	rootManifest: manifest.ProjectManifest,
+	excludeDev: boolean
 ): { [string]: lockfile.LockfileMember }?
 	if rootManifest.workspace == nil then
 		return nil
@@ -199,6 +200,17 @@ local function seedWorkspaceMembers(
 			rootDirectory,
 			memberName
 		)
+		if not excludeDev then
+			enqueueDependencies(
+				queue,
+				registry,
+				memberManifest.package.devDependencies,
+				memberDirectory,
+				rootDirectory,
+				memberName,
+				memberDependencies
+			)
+		end
 		members[memberName] = table.freeze({
 			path = memberPath,
 			dependencies = memberDependencies,
@@ -325,7 +337,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 			dependencies
 		)
 	end
-	local members = seedWorkspaceMembers(queue, registry, rootDirectory, rootManifest)
+	local members = seedWorkspaceMembers(queue, registry, rootDirectory, rootManifest, excludeDev)
 	local packages = processSpecQueue(queue, registry, rootDirectory)
 
 	if next(registry.requirements) ~= nil then
