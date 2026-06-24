@@ -505,7 +505,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["testlib"], {
 			name = "testlib",
 			sourceKind = "path",
-			source = "./testlib",
+			source = "testlib",
 			installPath = "testlib",
 			dependencies = {},
 		})
@@ -547,7 +547,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
-			source = "./lib",
+			source = "lib",
 			installPath = "lib",
 			dependencies = {},
 		})
@@ -745,7 +745,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
-			source = "./lib",
+			source = "lib",
 			installPath = "lib",
 			dependencies = {},
 		})
