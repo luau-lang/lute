@@ -280,7 +280,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 		if pkg.sourceKind ~= "registry" then
 			table.freeze(pkg.dependencies)
 		elseif not table.isfrozen(pkg.dependencies) then
-			error("Registry package dependencies are not frozen")
+			error("Registry package dependencies should be frozen")
 		end
 	end
 
