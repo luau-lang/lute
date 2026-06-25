@@ -84,21 +84,24 @@ function deepClone<T>(tbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
 	if opts.preserveMetatables then
 		local currentMeta = getmetatable(tbl)
 		if typeof(currentMeta) == "table" then
-			setmetatable(clone, getmetatable(tbl))
+			setmetatable(clone, currentMeta)
 		end
 	end
 
 	return clone
 end
 
---- Recursively clones the given `tbl` with optional support to preserve metatables (metatables are directly shared when preserved, not cloned) and deep clone keys that are tables.
-function tableext.deepClone<T>(tbl: T, opts: DeepCloneOptions?): T
+--- Recursively deep-clones `tbl`. By default, metatables are stripped and table-keys are kept as-is (same reference).
+--- If `options.preserveMetatables` is true, metatables are copied onto cloned tables (the metatable itself
+--- is shared, not cloned; tables with protected metatables via `__metatable` are skipped).
+--- If `options.cloneKeys` is true, keys that are tables will also be deep-cloned.
+function tableext.deepClone<T>(tbl: T, options: DeepCloneOptions?): T
 	local cloneCache = {}
 
 	return deepClone(
 		tbl,
 		cloneCache,
-		{ preserveMetatables = opts and opts.preserveMetatables == true, cloneKeys = opts and opts.cloneKeys == true }
+		{ preserveMetatables = options and options.preserveMetatables == true, cloneKeys = options and options.cloneKeys == true }
 	)
 end
 
