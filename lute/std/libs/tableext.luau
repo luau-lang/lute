@@ -101,7 +101,10 @@ function tableext.deepClone<T>(tbl: T, options: DeepCloneOptions?): T
 	return deepClone(
 		tbl,
 		cloneCache,
-		{ preserveMetatables = options and options.preserveMetatables == true, cloneKeys = options and options.cloneKeys == true }
+		{
+			preserveMetatables = options and options.preserveMetatables == true,
+			cloneKeys = options and options.cloneKeys == true,
+		}
 	)
 end
 
