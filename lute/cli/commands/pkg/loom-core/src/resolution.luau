@@ -85,7 +85,62 @@ end
 
 export type ResolveOptions = {
 	read excludeDev: boolean?,
+	read locked: boolean?,
 }
+
+local function pathDepsAreStale(lock: lockfile.Lockfile, rootDirectory: string): boolean
+	for key, pkg in lock.packages do
+		if pkg.sourceKind ~= "path" then
+			continue
+		end
+
+		local depManifestPath = path.format(path.join(rootDirectory, pkg.installPath, "loom.config.luau"))
+		if not fs.exists(depManifestPath) then
+			return true
+		end
+
+		local ok, depManifest = pcall(manifest.parseFile, depManifestPath)
+		if not ok then
+			return true
+		end
+
+		for alias in depManifest.package.dependencies do
+			if pkg.dependencies[alias] == nil then
+				return true
+			end
+		end
+
+		for alias in pkg.dependencies do
+			if depManifest.package.dependencies[alias] == nil then
+				return true
+			end
+		end
+
+		for alias, depSpec in depManifest.package.dependencies do
+			local recordedKey = pkg.dependencies[alias]
+			if recordedKey == nil then
+				continue
+			end
+			local recordedPkg = lock.packages[recordedKey]
+			if recordedPkg == nil then
+				return true
+			end
+			if recordedPkg.sourceKind ~= depSpec.sourceKind then
+				return true
+			end
+			if depSpec.sourceKind == "github" then
+				if recordedPkg.source ~= depSpec.source or recordedPkg.rev ~= depSpec.rev then
+					return true
+				end
+			elseif depSpec.sourceKind == "path" then
+				if recordedPkg.source ~= depSpec.source then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
 
 local function resolve(rootDirectory: string, universe: semver.Universe?, options: ResolveOptions?): lockfile.Lockfile
 	local excludeDev = if options then options.excludeDev == true else false
@@ -96,6 +151,42 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	end
 
 	local lockfilePath = getLockfilePath(rootDirectory)
+	local rootManifest = manifest.parseFile(rootManifestPath)
+
+	-- Attempt lockfile reuse
+	local existingLock = lockfile.tryParseFile(lockfilePath)
+
+	if options and options.locked and existingLock == nil then
+		error("--locked: no lockfile found. Run `lute pkg install` first.")
+	end
+
+	if existingLock then
+		local satisfied, reason = lockfile.satisfiesManifest(existingLock, rootManifest, excludeDev)
+
+		if options and options.locked then
+			if not satisfied then
+				error(`--locked: lockfile does not satisfy manifest ({reason}). Run \`lute pkg install\` to update.`)
+			end
+			print("Lockfile up to date.")
+			return existingLock
+		end
+
+		if satisfied and not pathDepsAreStale(existingLock, rootDirectory) then
+			print("Lockfile up to date.")
+			return existingLock
+		end
+	end
+
+	-- Extract locked registry versions for soft preference during re-resolution
+	local lockedRegistryVersions: { [string]: string }? = nil
+	if existingLock then
+		lockedRegistryVersions = {}
+		for _, pkg in existingLock.packages do
+			if pkg.sourceKind == "registry" and pkg.rev then
+				(lockedRegistryVersions :: { [string]: string })[pkg.name] = pkg.rev
+			end
+		end
+	end
 
 	local queue: { manifest.DependencySpec } = {}
 	local dependencies: { [string]: string } = {}
@@ -111,8 +202,6 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	local unresolvedRegistryDependencies: { [string]: { [string]: string } } = {}
 	-- Open (not yet finalized) dependency maps for unversioned packages; registry entries are filled in during versioned resolution.
 	local openDependencies: { [string]: { [string]: string } } = {}
-
-	local rootManifest = manifest.parseFile(rootManifestPath)
 
 	for dependencyAlias, dependencySpec in rootManifest.package.dependencies do
 		if dependencySpec.sourceKind == "registry" then
@@ -219,7 +308,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	if next(registryRequirements) ~= nil then
 		assert(universe ~= nil, "Registry dependencies require a universe to be provided")
 
-		local resolution = semver.solve(universe, registryRequirements)
+		local resolution = semver.solve(universe, registryRequirements, lockedRegistryVersions)
 
 		-- Build a lookup from package name to resolved version(s) for slot-keyed results.
 		local versionsByPackageName = {}

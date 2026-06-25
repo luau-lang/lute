@@ -199,7 +199,7 @@ type DecisionFrame = {
 	read prevSelected: Resolution,
 }
 
-local function solve(universe: Universe, roots: { [string]: Requirement }): Resolution
+local function solve(universe: Universe, roots: { [string]: Requirement }, locked: { [string]: string }?): Resolution
 	-- Seed the constraint set from root requirements, keyed by slot.
 	local initial: ConstraintSet = {}
 	for alias, req in roots do
@@ -242,6 +242,20 @@ local function solve(universe: Universe, roots: { [string]: Requirement }): Reso
 			end)
 			if satisfiesAll then
 				table.insert(candidates, candidate)
+			end
+		end
+
+		-- Prefer the previously-locked version if it satisfies current constraints.
+		if locked and #candidates > 1 then
+			local lockedVersion = locked[name]
+			if lockedVersion then
+				for i, candidate in candidates do
+					if candidate.versionString == lockedVersion and i > 1 then
+						table.remove(candidates, i)
+						table.insert(candidates, 1, candidate)
+						break
+					end
+				end
 			end
 		end
 
