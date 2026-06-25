@@ -108,19 +108,4 @@ function printerLib.formatLintsWithPath(lints: { types.LintViolation }, sourcePa
 	return printerLib.formatLintsWithSource(lints, fs.readFileToString(sourcePath))
 end
 
-function printerLib.printLintsWithSource(lints: { types.LintViolation }, sourceContent: string): ()
-	local sourceLines = sourceContent:split("\n")
-	local parts = {}
-
-	for _, lint in lints do
-		table.insert(parts, formatLint(lint, sourceLines))
-	end
-
-	print(table.concat(parts, "\n"))
-end
-
-function printerLib.printLintsWithPath(lints: { types.LintViolation }, sourcePath: path.Path): ()
-	printerLib.printLintsWithSource(lints, fs.readFileToString(sourcePath))
-end
-
 return table.freeze(printerLib)
