@@ -98,14 +98,10 @@ end
 function tableext.deepClone<T>(tbl: T, options: DeepCloneOptions?): T
 	local cloneCache = {}
 
-	return deepClone(
-		tbl,
-		cloneCache,
-		{
-			preserveMetatables = options and options.preserveMetatables == true,
-			cloneKeys = options and options.cloneKeys == true,
-		}
-	)
+	return deepClone(tbl, cloneCache, {
+		preserveMetatables = options and options.preserveMetatables == true,
+		cloneKeys = options and options.cloneKeys == true,
+	})
 end
 
 -- Functions on array-like tables
