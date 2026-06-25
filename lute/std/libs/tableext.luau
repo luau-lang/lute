@@ -62,6 +62,46 @@ function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 	return keys
 end
 
+type DeepCloneOptions = { preserveMetatables: boolean?, cloneKeys: boolean? }
+
+function resolveValue<T>(potentialTbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
+	return if seen[potentialTbl] then seen[potentialTbl] else deepClone(potentialTbl, seen, opts)
+end
+
+function deepClone<T>(tbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
+	local clone = {}
+
+	assert(typeof(tbl) == "table", `deepClone expects a table, but got: {typeof(tbl)}`)
+
+	seen[tbl] = clone
+
+	for k, v in tbl :: any do
+		local resolvedKey = if opts.cloneKeys and typeof(k) == "table" then resolveValue(k, seen, opts) else k
+
+		clone[resolvedKey] = if typeof(v) == "table" then resolveValue(v, seen, opts) else v
+	end
+
+	if opts.preserveMetatables then
+		local currentMeta = getmetatable(tbl)
+		if typeof(currentMeta) == "table" then
+			setmetatable(clone, getmetatable(tbl))
+		end
+	end
+
+	return clone
+end
+
+--- Recursively clones the given `tbl` with optional support to preserve metatables (metatables are directly shared when preserved, not cloned) and deep clone keys that are tables.
+function tableext.deepClone<T>(tbl: T, opts: DeepCloneOptions?): T
+	local cloneCache = {}
+
+	return deepClone(
+		tbl,
+		cloneCache,
+		{ preserveMetatables = opts and opts.preserveMetatables == true, cloneKeys = opts and opts.cloneKeys == true }
+	)
+end
+
 -- Functions on array-like tables
 
 --- Converts an array into a set-like table where each element maps to `true`.
@@ -117,29 +157,7 @@ function tableext.all<T>(arr: { T }, predicate: (T) -> boolean): boolean
 	return true
 end
 
-function deepClone<T>(tbl: T, seen: { [T]: T }): T
-	local clone = {}
-	assert(typeof(tbl) == "table", `deepClone only supports tables, you passed: {tbl}`)
-
-	seen[tbl] = clone
-	for k, v in tbl :: any do
-		if typeof(v) == "table" then
-			clone[k] = if seen[v] then seen[v] else deepClone(v, seen)
-		else
-			clone[k] = v
-		end
-	end
-
-	return clone
-end
-
-function tableext.deepClone<T>(tbl: T): T
-	local cloneCache = {}
-
-	return deepClone(tbl, cloneCache)
-end
-
---- Maps each element of `arr` through `refine` and joins the resulting strings with `sep` (default "").
+--- Maps each element of `arr` through `map` and joins the resulting strings with `sep` (default "").
 function tableext.mapConcat<T>(arr: { T }, map: (T) -> string, sep: string?): string
 	return table.concat(tableext.map(arr, map), sep)
 end

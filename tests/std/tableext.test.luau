@@ -261,9 +261,75 @@ test.suite("TableExt", function(suite)
 		assert.that(cyclicClone.next.prev == cyclicClone) -- cyclic edge correctly points to clone of a, not original
 		assert.that(cyclicClone ~= a)
 
+		local shared = { x = 1 }
+		local t = { a = shared, b = shared }
+		local clone = tableext.deepClone(t)
+		assert.that(clone.a == clone.b)
+		assert.that(clone.a ~= shared)
+		assert.that(clone.b ~= shared)
+
 		-- Throws with non-table input
 		assert.throws(function()
 			tableext.deepClone(1)
 		end)
+
+		-- Preserving metatables
+		local mt = {
+			__index = function(_, k)
+				return k .. "!"
+			end,
+		}
+		local withMt = setmetatable({ a = 1 }, mt)
+		local mtCloneDefault = tableext.deepClone(withMt)
+		assert.eq(getmetatable(mtCloneDefault), nil) -- metatables not preserved by default
+
+		local mtClonePreserved = tableext.deepClone(withMt, { preserveMetatables = true })
+		assert.eq(getmetatable(mtClonePreserved), mt)
+		assert.eq(mtClonePreserved.a, 1)
+		assert.eq(mtClonePreserved.missing, "missing!") -- __index works
+
+		-- Nested metatable preservation
+		local innerMt = {
+			__index = function()
+				return 99
+			end,
+		}
+		local nestedMt = { inner = setmetatable({ x = 1 }, innerMt) }
+		local nestedMtClone = tableext.deepClone(nestedMt, { preserveMetatables = true })
+		assert.that(nestedMtClone.inner ~= nestedMt.inner)
+		assert.eq(getmetatable(nestedMtClone.inner), innerMt)
+		assert.eq(nestedMtClone.inner.x, 1)
+		assert.eq(nestedMtClone.inner.anything, 99)
+
+		-- Doesn't throw on / ignores protected metatables
+		local protectedMt = {
+			__metatable = "nice",
+		}
+		local tbl = setmetatable({ a = 1 }, protectedMt)
+		local noMtClone
+		assert.never.throws(function()
+			noMtClone = tableext.deepClone(tbl, { preserveMetatables = true })
+		end)
+		assert.eq(getmetatable(noMtClone), nil)
+
+		-- Deep cloning keys
+		local keyTable = { id = "key1" }
+		local withTableKey = {}
+		withTableKey[keyTable] = "value1"
+
+		local keyClone = tableext.deepClone(withTableKey, { cloneKeys = true })
+		-- The table key should have been cloned (not the same reference)
+		for k, v in keyClone do
+			assert.eq(typeof(k), "table")
+			assert.that(k ~= keyTable) -- key is a clone, not original
+			assert.eq(k.id, "key1")
+			assert.eq(v, "value1")
+		end
+
+		-- Without cloneKeys, table keys are kept as-is
+		local noKeyClone = tableext.deepClone(withTableKey)
+		for k, _ in noKeyClone do
+			assert.that(k == keyTable) -- same reference
+		end
 	end)
 end)
