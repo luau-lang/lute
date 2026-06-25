@@ -230,7 +230,7 @@ local function solveRegistryRequirements(
 			source = registry.sources[name] or name,
 			sourceKind = "registry" :: "registry",
 			installPath = store.toStorePath(key),
-			dependencies = transitiveDependencies,
+			dependencies = table.freeze(transitiveDependencies),
 		})
 	end
 
@@ -277,7 +277,11 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	end
 
 	for _, pkg in packages do
-		table.freeze(pkg.dependencies)
+		if pkg.sourceKind ~= "registry" then
+			table.freeze(pkg.dependencies)
+		elseif not table.isfrozen(pkg.dependencies) then
+			error("Registry package dependencies are not frozen")
+		end
 	end
 
 	table.freeze(packages)
