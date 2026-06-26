@@ -82,6 +82,8 @@ export type Visitor = {
 	visitLocal: (types.CstLocal) -> boolean,
 
 	visitAttribute: (types.CstAttribute) -> boolean,
+	visitSimpleAttribute: (types.CstAttributeSimple) -> boolean,
+	visitParametrizedAttribute: (types.CstAttributeParametrized) -> boolean,
 }
 
 local function alwaysVisit(...: types.CstNode)
@@ -160,6 +162,8 @@ local defaultVisitor: Visitor = {
 	visitLocal = alwaysVisit,
 
 	visitAttribute = alwaysVisit,
+	visitSimpleAttribute = alwaysVisit,
+	visitParametrizedAttribute = alwaysVisit,
 }
 
 local function exhaustiveMatch(value: never): never
@@ -482,9 +486,30 @@ local function visitExprBinary(node: types.CstExprBinary, visitor: Visitor)
 	end
 end
 
+local function visitSimpleAttribute(node: types.CstAttributeSimple, visitor: Visitor)
+	if visitor.visitSimpleAttribute(node) then
+		visitToken(node.name, visitor)
+	end
+end
+
+local function visitParametrizedAttribute(node: types.CstAttributeParametrized, visitor: Visitor)
+	if visitor.visitParametrizedAttribute(node) then
+		visitToken(node.name, visitor)
+		visitToken(node.openParens, visitor)
+		visitPunctuated(node.arguments, visitor, visitExpr)
+		visitToken(node.closeParens, visitor)
+	end
+end
+
 local function visitAttribute(node: types.CstAttribute, visitor: Visitor)
 	if visitor.visitAttribute(node) then
-		visitToken(node.name, visitor)
+		if node.tag == "simple" then
+			visitSimpleAttribute(node, visitor)
+		elseif node.tag == "parametrized" then
+			visitParametrizedAttribute(node, visitor)
+		else
+			exhaustiveMatch(node.tag)
+		end
 	end
 end
 
@@ -1088,6 +1113,8 @@ local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 			visitExprVarargs = visit,
 
 			visitAttribute = visit,
+			visitSimpleAttribute = visit,
+			visitParametrizedAttribute = visit,
 		}
 	else
 		return table.clone(defaultVisitor)

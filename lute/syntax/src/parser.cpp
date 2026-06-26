@@ -720,16 +720,41 @@ struct AstSerialize : public Luau::AstVisitor
 
     void serializeAttribute(Luau::AstAttr* node)
     {
-        lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize); // location, kind, token
+        Luau::CstNode** cstNode = cstNodeMap.find(node);
+        LUTE_ASSERT(cstNode);
 
-        serializeToken(node->location.begin, ("@" + std::string(node->name.value)).c_str());
-        lua_setfield(L, -2, "name");
+        if (const Luau::CstParametrizedAttr* cstParametrized = (*cstNode)->as<Luau::CstParametrizedAttr>())
+        {
+            lua_rawcheckstack(L, 2);
+            lua_createtable(L, 0, preambleSize + 4); // name, openParens, arguments, closeParens
 
-        lua_pushstring(L, "attribute");
-        lua_setfield(L, -2, "kind");
+            serializeNodePreamble(node, "parametrized", "attribute");
 
-        withLocation(node->location);
+            serializeToken(node->location.begin, (std::string(node->name.value)).c_str());
+            lua_setfield(L, -2, "name");
+
+            serializeToken(cstParametrized->openParenPosition, "(");
+            lua_setfield(L, -2, "openParens");
+
+            serializePunctuated(node->args, cstParametrized->argsCommaPositions, ",");
+            lua_setfield(L, -2, "arguments");
+
+            serializeToken(cstParametrized->closeParenPosition, ")");
+            lua_setfield(L, -2, "closeParens");
+        }
+        else
+        {
+            const Luau::CstAttr* cstSimple = (*cstNode)->as<Luau::CstAttr>();
+            LUTE_ASSERT(cstSimple);
+
+            lua_rawcheckstack(L, 2);
+            lua_createtable(L, 0, preambleSize + 1); // location, kind, tag, name
+
+            serializeNodePreamble(node, "simple", "attribute");
+
+            serializeToken(node->location.begin, (cstSimple->hasAt ? "@" + std::string(node->name.value) : std::string(node->name.value)).c_str());
+            lua_setfield(L, -2, "name");
+        }
     }
 
     void serializeEof(Luau::Position eofPosition)
