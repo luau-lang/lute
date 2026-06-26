@@ -1,11 +1,12 @@
 #pragma once
 
-#include "debugger.h"
-#include "lutefixture.h"
 #include "lute/runtime.h"
 
 #include <memory>
 #include <string>
+
+#include "debugger.h"
+#include "lutefixture.h"
 
 class DebugFixture : public LuteFixture
 {
