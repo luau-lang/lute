@@ -1,6 +1,5 @@
 #pragma once
 
-#include "lute/clireporter.h"
 #include "lute/runtime.h"
 
 #include <map>
@@ -10,29 +9,28 @@
 
 namespace debug
 {
+enum class BreakpointStatus
+{
+    Pending,
+    Installed,
+    Invalid,
+};
+
 struct Breakpoint
 {
     int id;
     std::string sourcePath;
     int line;
-    bool installed;
-    Breakpoint(int id, std::string sourcePath, int line, bool installed);
+    BreakpointStatus status;
+    Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
     bool operator==(const Breakpoint& other) const
     {
         return id == other.id;
     }
 };
+
 struct Target
 {
-    std::string executablePath;
-    // TODO: have a way to change this reporter fror Runtime
-    Runtime& runtime;
-    bool launched;
-    std::vector<Breakpoint> pendingBreakpoints;
-    std::vector<Breakpoint> installedBreakpoints;
-    std::map<std::string, std::shared_ptr<Ref>> loadedSources;
-    int currentBreakpointId = 0;
-
     Target(std::string sourcePath, Runtime& runtime);
 
     // Setting breakpoints is a two step process. We add them to our Target. If they
@@ -42,11 +40,23 @@ struct Target
     // 2) we load sources dynamically with @require that a client may want to debug.
     // TODO: implement 2 and add some callback when breakpoints get installed
     Breakpoint addBreakpoint(std::string sourcePath, int line);
-    std::optional<Breakpoint> getBreakpointById(int breakpointId);
-    bool installBreakpoint(Breakpoint& bp, lua_State* L);
-    void installPendingBreakpoints(lua_State* L);
+    std::vector<Breakpoint> getBreakpoints() const;
+    std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
 
     bool launch(std::vector<std::string> args);
+
+private:
+    std::string executablePath;
+    Runtime& runtime;
+
+    int currentBreakpointId = 0;
+    std::vector<Breakpoint> pendingBreakpoints;
+    std::vector<Breakpoint> installedBreakpoints;
+
+    std::map<std::string, std::shared_ptr<Ref>> loadedSources;
+
+    bool installBreakpoint(Breakpoint& bp, lua_State* L);
+    void installPendingBreakpoints(lua_State* L);
 };
 
 } // namespace debug

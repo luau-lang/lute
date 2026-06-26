@@ -1,7 +1,5 @@
 #include "debugger.h"
 
-#include "lute/clireporter.h"
-
 #include "Luau/Compiler.h"
 
 #include "lua.h"
@@ -14,18 +12,17 @@
 
 namespace debug
 {
-Breakpoint::Breakpoint(int id, std::string sourcePath, int line, bool installed)
+Breakpoint::Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status)
     : id(id)
     , sourcePath(sourcePath)
     , line(line)
-    , installed(installed)
+    , status(status)
 {
 }
 
 Target::Target(std::string executablePath, Runtime& runtime)
     : executablePath(executablePath)
     , runtime(runtime)
-    , launched(false)
 {
 }
 
@@ -33,15 +30,24 @@ Breakpoint Target::addBreakpoint(std::string sourcePath, int line)
 {
     int id = currentBreakpointId;
     currentBreakpointId++;
-    Breakpoint bp(id, sourcePath, line, false);
-    if (!installBreakpoint(bp, runtime.GL))
-    {
+    Breakpoint bp(id, sourcePath, line, BreakpointStatus::Pending);
+    installBreakpoint(bp, runtime.GL);
+    if (bp.status == BreakpointStatus::Installed)
+        installedBreakpoints.push_back(bp);
+    else
         pendingBreakpoints.push_back(bp);
-    }
     return bp;
 }
 
-std::optional<Breakpoint> Target::getBreakpointById(int breakpointId)
+std::vector<Breakpoint> Target::getBreakpoints() const
+{
+    std::vector<Breakpoint> all;
+    all.insert(all.end(), installedBreakpoints.begin(), installedBreakpoints.end());
+    all.insert(all.end(), pendingBreakpoints.begin(), pendingBreakpoints.end());
+    return all;
+}
+
+std::optional<Breakpoint> Target::getBreakpointById(int breakpointId) const
 {
     for (const Breakpoint& bp : installedBreakpoints)
         if (bp.id == breakpointId)
@@ -55,34 +61,35 @@ std::optional<Breakpoint> Target::getBreakpointById(int breakpointId)
 bool Target::installBreakpoint(Breakpoint& bp, lua_State* L)
 {
     if (loadedSources.find(bp.sourcePath) == loadedSources.end())
-    {
         return false;
-    }
     loadedSources[bp.sourcePath]->push(L);
     int installedLine = lua_breakpoint(L, -1, bp.line, 1);
     lua_pop(L, 1);
     if (installedLine == -1)
     {
+        bp.status = BreakpointStatus::Invalid;
+        bp.line = -1;
         return false;
     }
-    auto it = std::find(pendingBreakpoints.begin(), pendingBreakpoints.end(), bp);
-    if (it != pendingBreakpoints.end())
-    {
-        pendingBreakpoints.erase(it);
-    }
-    bp.installed = true;
+    bp.status = BreakpointStatus::Installed;
     bp.line = installedLine;
-    installedBreakpoints.push_back(bp);
     return true;
 }
 
 void Target::installPendingBreakpoints(lua_State* L)
 {
-    // copy because we make modifications on pendingBreakpoints
-    std::vector<Breakpoint> pendingCopy = pendingBreakpoints;
-    for (Breakpoint& bp : pendingCopy)
+    for (auto it = pendingBreakpoints.begin(); it != pendingBreakpoints.end();)
     {
-        installBreakpoint(bp, L);
+        installBreakpoint(*it, L);
+        if (it->status == BreakpointStatus::Installed)
+        {
+            installedBreakpoints.push_back(*it);
+            it = pendingBreakpoints.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
     }
 }
 
@@ -90,9 +97,7 @@ bool Target::launch(std::vector<std::string> args)
 {
     std::ifstream file(executablePath);
     if (!file.is_open())
-    {
         return false;
-    }
     std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     Luau::CompileOptions debugOptions = {};
     debugOptions.optimizationLevel = 1;
@@ -104,9 +109,7 @@ bool Target::launch(std::vector<std::string> args)
     loadedSources[executablePath] = std::make_shared<Ref>(thread, -1);
     installPendingBreakpoints(thread);
     for (std::string& arg : args)
-    {
         lua_pushstring(thread, arg.c_str());
-    }
     runtime.runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
     lua_pop(runtime.GL, 1);
     return true;
