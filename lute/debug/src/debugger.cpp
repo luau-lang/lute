@@ -5,7 +5,6 @@
 #include "lua.h"
 #include "lualib.h"
 
-#include <algorithm>
 #include <fstream>
 #include <optional>
 #include <string>
