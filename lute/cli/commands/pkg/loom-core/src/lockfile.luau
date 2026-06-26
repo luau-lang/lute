@@ -77,7 +77,11 @@ local function tryParseFile(lockfilePath: string): Lockfile?
 	return result
 end
 
-local function satisfiesManifest(lock: Lockfile, rootManifest: manifest.ProjectManifest, excludeDev: boolean): (boolean, string?)
+local function satisfiesManifest(
+	lock: Lockfile,
+	rootManifest: manifest.ProjectManifest,
+	excludeDev: boolean
+): (boolean, string?)
 	local expectedAliases: { [string]: manifest.DependencySpec } = {}
 
 	for alias, spec in rootManifest.package.dependencies do
