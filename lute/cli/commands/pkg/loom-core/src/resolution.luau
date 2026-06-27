@@ -89,7 +89,7 @@ export type ResolveOptions = {
 }
 
 local function pathDepsAreStale(lock: lockfile.Lockfile, rootDirectory: string): boolean
-	for key, pkg in lock.packages do
+	for _, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
 			continue
 		end
