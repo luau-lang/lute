@@ -1008,9 +1008,12 @@ test.suite("LockfileReuse", function(suite)
 			},]]
 		)
 
-		assert.throwsWith("lockfile does not satisfy manifest (new dependency: lib). Run `lute pkg install` to update.", function()
-			resolution.resolve(path.format(workingDirectory), nil, { locked = true })
-		end)
+		assert.throwsWith(
+			"lockfile does not satisfy manifest (new dependency: lib). Run `lute pkg install` to update.",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil, { locked = true })
+			end
+		)
 	end)
 
 	suite:case("reResolvesWhenPathDepManifestChanges", function(assert)
@@ -1149,5 +1152,4 @@ test.suite("LockfileReuse", function(suite)
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 		assert.eq(lock.dependencies.citrus, "citrus@1.3.0")
 	end)
-
 end)
