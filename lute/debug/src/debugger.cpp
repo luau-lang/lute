@@ -54,9 +54,7 @@ bool Target::removeBreakpoint(int bpId)
             int removed_line = lua_breakpoint(runtime.GL, -1, bp.line, 0);
             lua_pop(runtime.GL, 1);
             if (removed_line == -1)
-            {
                 runtime.reporter.reportError("installed breakpoint is invalid in source");
-            }
         }
         else
         {
