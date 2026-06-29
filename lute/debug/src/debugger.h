@@ -2,9 +2,11 @@
 
 #include "lute/runtime.h"
 
-#include <map>
+#include "Luau/DenseHash.h"
+
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace debug
@@ -23,10 +25,6 @@ struct Breakpoint
     int line;
     BreakpointStatus status;
     explicit Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
-    bool operator==(const Breakpoint& other) const
-    {
-        return id == other.id;
-    }
 };
 
 struct Target
@@ -50,11 +48,9 @@ private:
     std::string sourcePath;
 
     int currentBreakpointId = 0;
-    std::vector<Breakpoint> pendingBreakpoints;
-    std::vector<Breakpoint> installedBreakpoints;
-    std::vector<Breakpoint> invalidBreakpoints;
+    std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id to breakpoint object (this is unordered_map to support erase)
 
-    std::map<std::string, std::shared_ptr<Ref>> loadedSources;
+    Luau::DenseHashMap<std::string, std::shared_ptr<Ref>> loadedSources; // source path -> reference to chunk
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
     void installPendingBreakpoints(lua_State* L);
