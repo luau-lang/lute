@@ -67,15 +67,6 @@ TEST_SUITE("Debug")
         CHECK(bp4.status == debug::BreakpointStatus::Installed);
         CHECK(bp4.line == 2);
         CHECK(bp4.id == 3);
-
-        // check removing breakpoints
-        bool ok = target.removeBreakpoint(3);
-        CHECK(ok);
-        REQUIRE(!target.getBreakpointById(3).has_value());
-        CHECK(target.getBreakpoints().size() == 3);
-
-        ok = target.removeBreakpoint(4);
-        CHECK(!ok);
     }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_removeBreakpoint")

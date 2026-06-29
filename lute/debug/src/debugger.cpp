@@ -77,6 +77,7 @@ std::vector<Breakpoint> Target::getBreakpoints() const
 std::vector<Breakpoint> Target::getBreakpointsByStatus(BreakpointStatus status) const
 {
     std::vector<Breakpoint> statusBps;
+    statusBps.reserve(breakpoints.size());
     for (auto& [_, bp] : breakpoints)
         if (bp.status == status)
             statusBps.push_back(bp);

@@ -36,7 +36,7 @@ struct Target
     // Setting breakpoints is a two step process. We add them to our Target. If they
     // involve a source that has already been loaded by the VM, we attempt to install that
     // breakpoint. Otherwise, it exists as a pending breakpoint until new sources are loaded.
-    // We do this because clients may 1) configure breakpoints before launch executables
+    // We do this because clients may 1) configure breakpoints before launching executables
     // 2) we load sources dynamically with @require that a client may want to debug.
     // TODO: implement 2 and add some callback when breakpoints get installed
     Breakpoint addBreakpoint(std::string sourcePath, int line);
@@ -53,7 +53,7 @@ private:
     std::string sourcePath;
 
     int currentBreakpointId = 0;
-    std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id to breakpoint object (this is unordered_map to support erase)
+    std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
 
     Luau::DenseHashMap<std::string, std::shared_ptr<Ref>> loadedSources; // source path -> reference to chunk
 
