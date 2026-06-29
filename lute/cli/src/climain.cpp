@@ -47,6 +47,7 @@ Commands:
 	setup           Generate type definition files for the language server.
 	transform       Run a specified code transformation on specified Luau files.
 	lint            Run linting rules on specified Luau files.
+	self            Manage the host lute installation in ~/.lute (install/update/uninstall).
 
 Run Options (when using 'run' or no command):
 	lute [run] <script.luau> [args...]
@@ -77,6 +78,13 @@ Lint Options:
 		Runs linting rules on the specified Luau files.
 			--rules <path>          Path to a single lint rule or a directory containing multiple lint rules.
 			                        If not specified, default lint rules are used.
+
+Self Options:
+	lute self <install|update|uninstall>
+		Manages the host lute installation in ~/.lute.
+			install                 Install the running lute as the host lute into ~/.lute/bin and update PATH.
+			update                  Update the host lute to the latest release.
+			uninstall               Remove the host lute installation and remove PATH entry.
 
 General Options:
 	-h, --help    Display this usage message.
