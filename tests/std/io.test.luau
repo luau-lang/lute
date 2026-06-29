@@ -170,14 +170,9 @@ test.suite("IoWriteSuite", function(suite)
 	end)
 end)
 
--- Pipes `line` into a short script that echoes what io.input() returned, wrapped
--- in delimiters so the assertion can see the exact bytes. The value is delivered
--- through a shell pipe (`echo line| lute script`), which appends the platform's
--- native line terminator: "\r\n" on Windows (the scenario from issue #1172) and
--- "\n" on Unix. This exercises the real platform terminator on each OS, so the
--- Windows CRLF path is covered by Windows CI. We avoid feeding stdin via file
--- redirection because reading a redirected file as stdin hangs on Windows,
--- independent of this code.
+-- Pipes `line` into a script that echoes io.input()'s result in delimiters. The pipe
+-- appends the platform's terminator (CRLF on Windows, LF on Unix), reproducing #1172.
+-- Paths are unquoted (no spaces) since libuv mangles embedded quotes for cmd.exe.
 local function inputOf(name: string, line: string): process.ProcessResult
 	local scriptPath = path.format(path.join(tmpDir, `{name}.luau`))
 	fs.writeStringToFile(
@@ -187,18 +182,13 @@ local function inputOf(name: string, line: string): process.ProcessResult
 		io.write("<" .. io.input() .. ">")
 	]]
 	)
-	-- No space before "|": cmd.exe's echo would otherwise include it in the output.
-	-- Paths are left unquoted: libuv mangles embedded quotes when handing the
-	-- command to cmd.exe, and the lute and temp paths used here contain no spaces.
 	local result = process.system(`echo {line}| {lutePath} {scriptPath}`)
 	fs.remove(scriptPath)
 	return result
 end
 
 test.suite("IoInputSuite", function(suite)
-	-- Issue #1172: on Windows the line read via io.input() carried the trailing
-	-- "\r\n", so the returned path failed in fs.open(). The terminator the platform
-	-- appends (CRLF on Windows, LF on Unix) must be stripped, leaving a clean string.
+	-- Issue #1172: the trailing terminator must be stripped, leaving a clean string.
 	suite:case("inputStripsTrailingNewline", function(assert)
 		local r = inputOf("io_input_basic", "x.txt")
 
@@ -206,8 +196,7 @@ test.suite("IoInputSuite", function(suite)
 		assert.eq(r.stdout, "<x.txt>")
 	end)
 
-	-- A realistic path with directory separators round-trips cleanly, matching the
-	-- "io.input() feeds fs.open()" use case the issue describes.
+	-- A path with separators round-trips cleanly (the "input feeds fs.open" case).
 	suite:case("inputStripsTrailingNewlineFromPath", function(assert)
 		local r = inputOf("io_input_path", "some/dir/file.txt")
 
@@ -215,8 +204,7 @@ test.suite("IoInputSuite", function(suite)
 		assert.eq(r.stdout, "<some/dir/file.txt>")
 	end)
 
-	-- Only the trailing terminator is removed: interior whitespace is meaningful
-	-- and must be preserved verbatim.
+	-- Only the terminator is removed; interior whitespace is preserved.
 	suite:case("inputPreservesInteriorWhitespace", function(assert)
 		local r = inputOf("io_input_ws", "a b")
 
