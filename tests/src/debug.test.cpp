@@ -1,7 +1,7 @@
 #include "debugfixture.h"
 #include "doctest.h"
 
-TEST_CASE_FIXTURE(DebugFixture, "Debug_addBreakpoint")
+TEST_CASE_FIXTURE(DebugFixture, "Debug_addRemoveBreakpoint")
 {
     std::string source = "local x = 1\nlocal y = 2\n\nlocal z = x + y\n";
     writeScript(source);
@@ -41,6 +41,9 @@ TEST_CASE_FIXTURE(DebugFixture, "Debug_addBreakpoint")
 
     // check breakpoints after launch
     CHECK(target.getBreakpoints().size() == 3);
+    CHECK(target.getBreakpointsByStatus(debug::BreakpointStatus::Pending).size() == 0);
+    CHECK(target.getBreakpointsByStatus(debug::BreakpointStatus::Installed).size() == 2);
+    CHECK(target.getBreakpointsByStatus(debug::BreakpointStatus::Invalid).size() == 1);
 
     std::optional<debug::Breakpoint> postLaunch = target.getBreakpointById(0);
     REQUIRE(postLaunch.has_value());
@@ -62,4 +65,14 @@ TEST_CASE_FIXTURE(DebugFixture, "Debug_addBreakpoint")
     CHECK(target.getBreakpoints().size() == 4);
     CHECK(bp4.status == debug::BreakpointStatus::Installed);
     CHECK(bp4.line == 2);
+    CHECK(bp4.id == 3);
+
+    // check removing breakpoints
+    bool ok = target.removeBreakpoint(3);
+    CHECK(ok);
+    REQUIRE(!target.getBreakpointById(3).has_value());
+    CHECK(target.getBreakpoints().size() == 3);
+
+    ok = target.removeBreakpoint(4);
+    CHECK(!ok);
 }

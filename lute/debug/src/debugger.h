@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <vector>
 
+struct lua_State;
+
 namespace debug
 {
 enum class BreakpointStatus
@@ -38,7 +40,10 @@ struct Target
     // 2) we load sources dynamically with @require that a client may want to debug.
     // TODO: implement 2 and add some callback when breakpoints get installed
     Breakpoint addBreakpoint(std::string sourcePath, int line);
+    bool removeBreakpoint(int bpId);
+
     std::vector<Breakpoint> getBreakpoints() const;
+    std::vector<Breakpoint> getBreakpointsByStatus(BreakpointStatus status) const;
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
 
     bool launch(const std::vector<std::string>& args);

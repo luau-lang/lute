@@ -39,6 +39,34 @@ Breakpoint Target::addBreakpoint(std::string sourcePath, int line)
     return bp;
 }
 
+bool Target::removeBreakpoint(int bpId)
+{
+    auto it = breakpoints.find(bpId);
+    if (it == breakpoints.end())
+        return false;
+    Breakpoint& bp = it->second;
+    if (bp.status == BreakpointStatus::Installed)
+    {
+        auto chunkRef = loadedSources.find(bp.sourcePath);
+        if (chunkRef)
+        {
+            (*chunkRef)->push(runtime.GL);
+            int removed_line = lua_breakpoint(runtime.GL, -1, bp.line, 0);
+            lua_pop(runtime.GL, 1);
+            if (removed_line == -1)
+            {
+                runtime.reporter.reportError("installed breakpoint is invalid in source");
+            }
+        }
+        else
+        {
+            runtime.reporter.reportError("installed breakpoint has no loaded source");
+        }
+    }
+    breakpoints.erase(it);
+    return true;
+}
+
 std::vector<Breakpoint> Target::getBreakpoints() const
 {
     std::vector<Breakpoint> all;
@@ -46,6 +74,15 @@ std::vector<Breakpoint> Target::getBreakpoints() const
     for (auto& [_, bp] : breakpoints)
         all.push_back(bp);
     return all;
+}
+
+std::vector<Breakpoint> Target::getBreakpointsByStatus(BreakpointStatus status) const
+{
+    std::vector<Breakpoint> statusBps;
+    for (auto& [_, bp] : breakpoints)
+        if (bp.status == status)
+            statusBps.push_back(bp);
+    return statusBps;
 }
 
 std::optional<Breakpoint> Target::getBreakpointById(int breakpointId) const
