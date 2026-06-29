@@ -22,7 +22,7 @@ struct Breakpoint
     std::string sourcePath;
     int line;
     BreakpointStatus status;
-    Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
+    explicit Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
     bool operator==(const Breakpoint& other) const
     {
         return id == other.id;
@@ -31,7 +31,7 @@ struct Breakpoint
 
 struct Target
 {
-    Target(std::string sourcePath, Runtime& runtime);
+    explicit Target(Runtime& runtime, std::string sourcePath);
 
     // Setting breakpoints is a two step process. We add them to our Target. If they
     // involve a source that has already been loaded by the VM, we attempt to install that
@@ -43,19 +43,20 @@ struct Target
     std::vector<Breakpoint> getBreakpoints() const;
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
 
-    bool launch(std::vector<std::string> args);
+    bool launch(const std::vector<std::string>& args);
 
 private:
-    std::string executablePath;
     Runtime& runtime;
+    std::string sourcePath;
 
     int currentBreakpointId = 0;
     std::vector<Breakpoint> pendingBreakpoints;
     std::vector<Breakpoint> installedBreakpoints;
+    std::vector<Breakpoint> invalidBreakpoints;
 
     std::map<std::string, std::shared_ptr<Ref>> loadedSources;
 
-    bool installBreakpoint(Breakpoint& bp, lua_State* L);
+    bool installBreakpoint(lua_State* L, Breakpoint& bp);
     void installPendingBreakpoints(lua_State* L);
 };
 

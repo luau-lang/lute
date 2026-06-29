@@ -5,7 +5,7 @@ TEST_CASE_FIXTURE(DebugFixture, "Debug_addBreakpoint")
 {
     std::string source = "local x = 1\nlocal y = 2\n\nlocal z = x + y\n";
     writeScript(source);
-    debug::Target target(scriptPath, *runtime);
+    debug::Target target(*runtime, scriptPath);
 
     // valid breakpoint
     debug::Breakpoint bp = target.addBreakpoint(scriptPath, 2);
@@ -60,8 +60,6 @@ TEST_CASE_FIXTURE(DebugFixture, "Debug_addBreakpoint")
     // check that adding breakpoints after launch should be immediately installed
     debug::Breakpoint bp4 = target.addBreakpoint(scriptPath, 2);
     CHECK(target.getBreakpoints().size() == 4);
-    postLaunch = target.getBreakpointById(3);
-    REQUIRE(postLaunch.has_value());
-    CHECK(postLaunch->status == debug::BreakpointStatus::Installed);
-    CHECK(postLaunch->line == 2);
+    CHECK(bp4.status == debug::BreakpointStatus::Installed);
+    CHECK(bp4.line == 2);
 }
