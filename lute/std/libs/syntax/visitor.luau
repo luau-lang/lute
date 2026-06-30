@@ -70,6 +70,7 @@ export type Visitor = {
 	visitTypeUnion: (types.CstTypeUnion) -> boolean,
 	visitTypeIntersection: (types.CstTypeIntersection) -> boolean,
 	visitTypeArray: (types.CstTypeArray) -> boolean,
+	visitTableTypeItem: (types.CstTableTypeItem) -> boolean,
 	visitTypeTable: (types.CstTypeTable) -> boolean,
 	visitTypeFunction: (types.CstTypeFunction) -> boolean,
 
@@ -148,7 +149,8 @@ local defaultVisitor: Visitor = {
 	visitTypeUnion = alwaysVisit,
 	visitTypeIntersection = alwaysVisit,
 	visitTypeArray = alwaysVisit,
-	visitTypeTable = alwaysVisit :: (types.CstTypeTable) -> boolean, -- LUAUFIX: Code too complex emitted in absence of cast
+	visitTableTypeItem = alwaysVisit :: (types.CstTableTypeItem) -> boolean,
+	visitTypeTable = alwaysVisit,
 	visitTypeFunction = alwaysVisit,
 
 	visitTypePackExplicit = alwaysVisit,
@@ -772,29 +774,39 @@ local function visitTypeArray(node: types.CstTypeArray, visitor: Visitor)
 	end
 end
 
+local function visitTableTypeItem(node: types.CstTableTypeItem, visitor: Visitor)
+	if visitor.visitTableTypeItem(node) then
+		if node.access then
+			visitToken(node.access, visitor)
+		end
+		if node.kind == "indexer" then
+			visitToken(node.indexerOpen, visitor)
+			visitType(node.key, visitor)
+			visitToken(node.indexerClose, visitor)
+		elseif node.kind == "property" then
+			if node.indexerOpen then
+				visitToken(node.indexerOpen, visitor)
+			end
+			visitToken(node.key, visitor)
+			if node.indexerClose then
+				visitToken(node.indexerClose, visitor)
+			end
+		else
+			exhaustiveMatch(node.kind)
+		end
+		visitToken(node.colon, visitor)
+		visitType(node.value, visitor)
+		if node.separator then
+			visitToken(node.separator, visitor)
+		end
+	end
+end
+
 local function visitTypeTable(node: types.CstTypeTable, visitor: Visitor)
 	if visitor.visitTypeTable(node) then
 		visitToken(node.openBrace, visitor)
 		for _, entry in node.entries do
-			if entry.access then
-				visitToken(entry.access, visitor)
-			end
-			if entry.kind == "indexer" then
-				visitToken(entry.indexerOpen, visitor)
-				visitType(entry.key, visitor)
-				visitToken(entry.indexerClose, visitor)
-			elseif entry.kind == "stringproperty" then
-				visitToken(entry.indexerOpen, visitor)
-				visitTypeSingletonString(entry.key, visitor)
-				visitToken(entry.indexerClose, visitor)
-			else
-				visitToken(entry.key, visitor)
-			end
-			visitToken(entry.colon, visitor)
-			visitType(entry.value, visitor)
-			if entry.separator then
-				visitToken(entry.separator, visitor)
-			end
+			visitTableTypeItem(entry, visitor)
 		end
 		visitToken(node.closeBrace, visitor)
 	end
@@ -1071,7 +1083,8 @@ local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 			visitTypeUnion = visit,
 			visitTypeIntersection = visit,
 			visitTypeArray = visit,
-			visitTypeTable = visit :: (types.CstTypeTable) -> boolean, -- LUAUFIX: Remove cast once code too complex no longer emitted
+			visitTableTypeItem = visit :: (types.CstTableTypeItem) -> boolean,
+			visitTypeTable = visit,
 			visitTypeFunction = visit,
 
 			visitTypePackExplicit = visit,
