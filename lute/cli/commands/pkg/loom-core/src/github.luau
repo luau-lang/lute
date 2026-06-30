@@ -1,5 +1,5 @@
-local authenticationStore = require("./authentication")
 local fs = require("@std/fs")
+local keyring = require("@lute/keyring")
 local net = require("@std/net")
 local path = require("@std/path")
 local process = require("@std/process")
@@ -45,13 +45,10 @@ local function getGithubAuthenticationToken(): string?
 	if githubToken ~= nil then
 		return githubToken
 	end
-
-	local store = authenticationStore.loadAuthenticationStore()
-	local entry = store["github.com"]
-	if entry ~= nil then
-		return entry.token
+	local keyringToken = if keyring.isSupported() then keyring.get("loom", "github.com") else nil
+	if keyringToken ~= nil then
+		return keyringToken
 	end
-
 	return nil
 end
 

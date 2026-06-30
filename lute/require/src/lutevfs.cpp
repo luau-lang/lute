@@ -4,6 +4,7 @@
 #include "lute/crypto.h"
 #include "lute/fs.h"
 #include "lute/io.h"
+#include "lute/keyring.h"
 #include "lute/luau.h"
 #include "lute/lutemodules.h"
 #include "lute/modulepath.h"
@@ -25,6 +26,7 @@ const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
     map["@lute/crypto.luau"] = luteopen_crypto;
     map["@lute/fs.luau"] = luteopen_fs;
     map["@lute/io.luau"] = luteopen_io;
+    map["@lute/keyring.luau"] = luteopen_keyring;
     map["@lute/luau.luau"] = luteopen_luau;
     map["@lute/net/init.luau"] = luteopen_net;
     map["@lute/net/client.luau"] = luteopen_net_client;
