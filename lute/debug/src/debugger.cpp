@@ -2,6 +2,7 @@
 
 #include "Luau/Compiler.h"
 #include "Luau/DenseHash.h"
+#include "Luau/StringUtils.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -33,10 +34,9 @@ Breakpoint Target::addBreakpoint(std::string sourcePath, int line)
 {
     int id = currentBreakpointId;
     currentBreakpointId++;
-    Breakpoint bp(id, sourcePath, line, BreakpointStatus::Pending);
-    installBreakpoint(runtime.GL, bp);
-    breakpoints.insert_or_assign(id, bp);
-    return bp;
+    auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint(id, sourcePath, line, BreakpointStatus::Pending));
+    installBreakpoint(runtime.GL, it->second);
+    return it->second;
 }
 
 bool Target::removeBreakpoint(int bpId)
@@ -54,11 +54,15 @@ bool Target::removeBreakpoint(int bpId)
             int removed_line = lua_breakpoint(runtime.GL, -1, bp.line, 0);
             lua_pop(runtime.GL, 1);
             if (removed_line == -1)
-                runtime.reporter.reportError("installed breakpoint is invalid in source");
+                runtime.reporter.reportError(
+                    Luau::format("breakpoint %d installed at line %d in %s could not be removed", bp.id, bp.line, bp.sourcePath.c_str())
+                );
         }
         else
         {
-            runtime.reporter.reportError("installed breakpoint has no loaded source");
+            runtime.reporter.reportError(
+                Luau::format("breakpoint %d installed at line %d in %s is missing a loaded source", bp.id, bp.line, bp.sourcePath.c_str())
+            );
         }
     }
     breakpoints.erase(it);
