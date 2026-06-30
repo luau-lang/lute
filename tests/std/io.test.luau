@@ -169,3 +169,46 @@ test.suite("IoWriteSuite", function(suite)
 		assert.eq(#r.stdout, 3)
 	end)
 end)
+
+-- Pipes `line` into a script that echoes io.input()'s result in delimiters. The pipe
+-- appends the platform's terminator (CRLF on Windows, LF on Unix), reproducing #1172.
+-- Paths are unquoted (no spaces) since libuv mangles embedded quotes for cmd.exe.
+local function inputOf(name: string, line: string): process.ProcessResult
+	local scriptPath = path.format(path.join(tmpDir, `{name}.luau`))
+	fs.writeStringToFile(
+		scriptPath,
+		[[
+		local io = require("@std/io")
+		io.write("<" .. io.input() .. ">")
+	]]
+	)
+	local result = process.system(`echo {line}| {lutePath} {scriptPath}`)
+	fs.remove(scriptPath)
+	return result
+end
+
+test.suite("IoInputSuite", function(suite)
+	-- Issue #1172: the trailing terminator must be stripped, leaving a clean string.
+	suite:case("inputStripsTrailingNewline", function(assert)
+		local r = inputOf("io_input_basic", "x.txt")
+
+		assert.eq(r.exitcode, 0)
+		assert.eq(r.stdout, "<x.txt>")
+	end)
+
+	-- A path with separators round-trips cleanly (the "input feeds fs.open" case).
+	suite:case("inputStripsTrailingNewlineFromPath", function(assert)
+		local r = inputOf("io_input_path", "some/dir/file.txt")
+
+		assert.eq(r.exitcode, 0)
+		assert.eq(r.stdout, "<some/dir/file.txt>")
+	end)
+
+	-- Only the terminator is removed; interior whitespace is preserved.
+	suite:case("inputPreservesInteriorWhitespace", function(assert)
+		local r = inputOf("io_input_ws", "a b")
+
+		assert.eq(r.exitcode, 0)
+		assert.eq(r.stdout, "<a b>")
+	end)
+end)
