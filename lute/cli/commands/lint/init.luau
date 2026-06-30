@@ -1,5 +1,6 @@
 local cli = require("@batteries/cli")
 local files = require("./lib/files")
+local fs = require("@std/fs")
 local internalTypes = require("@self/internaltypes")
 local json = require("@std/json")
 local lint = require("@self/lint")
@@ -28,9 +29,10 @@ OPTIONS:
   -c, --config [PATH]	  Path to configuration file. By default, lute lint will look for a
   						  the .config.luau file in the calling directory.
   -j, --json              Output lint violations in JSON format matching the LSP diagnostic spec.
-  -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder 
+  -o, --output [PATH]	  Write lint violation or JSON output to the specified file instead of stdout.
+  -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder
   						  is provided, any subfolders containing init.luau files will be treated as
-						  modules exporting lint rules, while all other .luau files will be treated 
+						  modules exporting lint rules, while all other .luau files will be treated
 						  as individual lint rules. If unspecified, the default lint rules are used.
   -s, --string-input	  Lint the provided string input instead of reading from files.
   --auto-fix			  Automatically apply fixes for lint violations that provide a suggested fix.
@@ -88,6 +90,7 @@ local function main(...: string)
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
 	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
 	args:add("no-default-lints", "flag", { help = "Disables the default lint rules" })
+	args:add("output", "option", { help = "Write diagnostics output to file", aliases = { "o" } })
 	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
 	args:add(
 		"string-input",
@@ -116,6 +119,15 @@ local function main(...: string)
 	local passedConfigVal = args:get("config")
 	local noDefaultLints = args:has("no-default-lints")
 	local rulesPath = args:get("rules")
+	local outputFile = args:get("output")
+
+	local function output(content: string)
+		if outputFile then
+			fs.writeStringToFile(outputFile, content)
+		else
+			print(content)
+		end
+	end
 
 	local lintRules, configContextData, ignoreData =
 		lintCore.initialize(passedConfigVal, noDefaultLints, rulesPath, VERBOSE)
@@ -129,13 +141,13 @@ local function main(...: string)
 
 		if args:has("json") then
 			local diagnostics = tableext.map(violations, lsp.diagnostic)
-			print(json.serialize(diagnostics :: json.Array, true))
+			output(json.serialize(diagnostics :: json.Array, true))
 		elseif #violations > 0 then
 			if VERBOSE then
 				print(`Printing violations from string input\n`)
 			end
 
-			printer.printLintsWithSource(violations, stringInput)
+			output(printer.formatLintsWithSource(violations, stringInput))
 
 			process.exit(1)
 		else
@@ -163,19 +175,24 @@ local function main(...: string)
 		)
 
 		if args:has("json") then
-			print(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))
+			output(json.serialize(lsp.workspaceDiagnosticReport(allViolations) :: json.Object, true))
 		else
 			if VERBOSE then
 				print(`Printing violations from {#allViolations} files\n`)
 			end
 
 			local violationsFound = false
+			local parts = {}
 
 			for sourcePath, violations in allViolations do
 				if #violations > 0 then
 					violationsFound = true
-					printer.printLintsWithPath(violations, sourcePath)
+					table.insert(parts, printer.formatLintsWithPath(violations, sourcePath))
 				end
+			end
+
+			if #parts > 0 then
+				output(table.concat(parts))
 			end
 
 			process.exit(if violationsFound then 1 else 0)
