@@ -29,7 +29,7 @@ OPTIONS:
   -c, --config [PATH]	  Path to configuration file. By default, lute lint will look for a
   						  the .config.luau file in the calling directory.
   -j, --json              Output lint violations in JSON format matching the LSP diagnostic spec.
-  -o, --output [PATH]	  Write diagnostics output to the specified file instead of stdout.
+  -o, --output [PATH]	  Write lint violation or JSON output to the specified file instead of stdout.
   -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder
   						  is provided, any subfolders containing init.luau files will be treated as
 						  modules exporting lint rules, while all other .luau files will be treated

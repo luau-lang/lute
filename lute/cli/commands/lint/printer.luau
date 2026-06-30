@@ -10,8 +10,7 @@ local TAB_SIZE = 4
 local function formatLint(lint: types.LintViolation, sourceLines: { string }): string
 	local lines = {}
 
-	table.insert(lines, `{lint.severity}[{lint.lintname}]: {lint.message}`)
-	table.insert(lines, "")
+	table.insert(lines, `{lint.severity}[{lint.lintname}]: {lint.message}\n`)
 
 	local location = lint.location
 	local filepath = if lint.sourcepath then path.format(lint.sourcepath) else "input"
@@ -76,18 +75,15 @@ local function formatLint(lint: types.LintViolation, sourceLines: { string }): s
 			table.insert(lines, line)
 		end
 		table.insert(lines, `{blankGutter}│ ╰{string.rep("─", maxSourceLineLength - gutterSize - 8)}^`)
-		table.insert(lines, `{blankGutter}│`)
-		table.insert(lines, "")
+		table.insert(lines, `{blankGutter}│\n`)
 	end
 
 	if lint.suggestedfix then
-		table.insert(lines, `Suggested fix: {lint.suggestedfix.fix}`)
-		table.insert(lines, "")
+		table.insert(lines, `Suggested fix: {lint.suggestedfix.fix}\n`)
 	end
 
 	if lint.target then
-		table.insert(lines, `For additional info: {lint.target}`)
-		table.insert(lines, "")
+		table.insert(lines, `For additional info: {lint.target}\n`)
 	end
 
 	return table.concat(lines, "\n")
