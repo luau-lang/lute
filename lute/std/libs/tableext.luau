@@ -62,6 +62,54 @@ function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 	return keys
 end
 
+type DeepCloneOptions = { preserveMetatables: boolean?, cloneKeys: boolean?, preserveFrozen: boolean? }
+
+function resolveValue<T>(potentialTbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
+	return if seen[potentialTbl] then seen[potentialTbl] else deepClone(potentialTbl, seen, opts)
+end
+
+function deepClone<T>(tbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
+	local clone = {}
+
+	assert(typeof(tbl) == "table", `deepClone expects a table, but got: {typeof(tbl)}`)
+
+	seen[tbl] = clone
+
+	for k, v in tbl :: any do
+		local resolvedKey = if opts.cloneKeys and typeof(k) == "table" then resolveValue(k, seen, opts) else k
+
+		clone[resolvedKey] = if typeof(v) == "table" then resolveValue(v, seen, opts) else v
+	end
+
+	if opts.preserveMetatables then
+		local currentMeta = getmetatable(tbl)
+		if typeof(currentMeta) == "table" then
+			setmetatable(clone, currentMeta)
+		end
+	end
+
+	if opts.preserveFrozen and table.isfrozen(tbl) then
+		table.freeze(clone)
+	end
+
+	return clone
+end
+
+--- Recursively deep-clones `tbl`. By default, metatables are stripped, table-keys are kept as-is (same reference), and frozen tables are not preserved.
+--- If `options.preserveMetatables` is true, metatables are copied onto cloned tables (the metatable itself
+--- is shared, not cloned; tables with protected metatables via `__metatable` are skipped).
+--- If `options.cloneKeys` is true, keys that are tables will also be deep-cloned.
+--- If `options.preserveFrozen` is true, any root level and nested tables that are frozen will be frozen in the clone.
+function tableext.deepClone<T>(tbl: T, options: DeepCloneOptions?): T
+	local cloneCache = {}
+
+	return deepClone(tbl, cloneCache, {
+		preserveFrozen = options and options.preserveFrozen == true,
+		preserveMetatables = options and options.preserveMetatables == true,
+		cloneKeys = options and options.cloneKeys == true,
+	})
+end
+
 -- Functions on array-like tables
 
 --- Converts an array into a set-like table where each element maps to `true`.
@@ -115,6 +163,11 @@ function tableext.all<T>(arr: { T }, predicate: (T) -> boolean): boolean
 		end
 	end
 	return true
+end
+
+--- Maps each element of `arr` through `map` and joins the resulting strings with `sep` (default "").
+function tableext.mapConcat<T>(arr: { T }, map: (T) -> string, sep: string?): string
+	return table.concat(tableext.map(arr, map), sep)
 end
 
 return table.freeze(tableext)
