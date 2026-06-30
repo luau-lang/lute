@@ -1,4 +1,6 @@
 -- lute-lint-global-ignore(unused_variable)
+local time = require("../time")
+
 local client = {}
 
 --- HTTP request metadata, including optional method, body, and headers.
@@ -40,5 +42,20 @@ export type WebSocket = {
 function client.websocket(url: string, options: WebSocketOptions?): WebSocket
 	error("not implemented")
 end
+
+export type TCPStreamHandle = {
+	write: (self: TCPStreamHandle, data: buffer | string) -> (),
+	read: ((self: TCPStreamHandle, amount: number?, timeout: time.Duration?) -> buffer)
+		& ((self: TCPStreamHandle, timeout: time.Duration) -> buffer),
+	handshake: (self: TCPStreamHandle) -> (),
+	close: (self: TCPStreamHandle) -> (),
+}
+
+client.connect = ((function()
+	error("not implemented")
+end) :: any) :: (
+	((hostname: string, port: number) -> TCPStreamHandle)
+	& (({ hostname: string, port: number, tls: boolean? }) -> TCPStreamHandle)
+)
 
 return client
