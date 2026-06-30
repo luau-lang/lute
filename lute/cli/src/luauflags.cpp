@@ -33,6 +33,7 @@ void setLuauFlags()
 {
     enableAllLuauFlags();
 
+    setLuauFlag("LuauRemovePrimitiveTypeConstraintAndSubtypingUnifier", false);
     // Individual flags can be overridden here as needed, e.g.:
     // setLuauFlag("LuauSomeFlagThatCausedARegression", false);
 }
