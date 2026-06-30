@@ -331,5 +331,17 @@ test.suite("TableExt", function(suite)
 		for k, _ in noKeyClone do
 			assert.that(k == keyTable) -- same reference
 		end
+
+		-- Frozen table preservation
+		local frozen = table.freeze({ key = "value" })
+		local clonedFrozen = tableext.deepClone(frozen, { preserveFrozen = true })
+		assert.eq(frozen, clonedFrozen)
+		assert.that(table.isfrozen(clonedFrozen))
+
+		local nestedFrozen = { key = table.freeze({ "cool" }) }
+		local nestedFrozenClone = tableext.deepClone(nestedFrozen, { preserveFrozen = true })
+		assert.eq(nestedFrozenClone, nestedFrozen)
+		assert.that(not table.isfrozen(nestedFrozenClone))
+		assert.that(table.isfrozen(nestedFrozenClone.key))
 	end)
 end)

@@ -62,7 +62,7 @@ function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 	return keys
 end
 
-type DeepCloneOptions = { preserveMetatables: boolean?, cloneKeys: boolean? }
+type DeepCloneOptions = { preserveMetatables: boolean?, cloneKeys: boolean?, preserveFrozen: boolean? }
 
 function resolveValue<T>(potentialTbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
 	return if seen[potentialTbl] then seen[potentialTbl] else deepClone(potentialTbl, seen, opts)
@@ -88,17 +88,23 @@ function deepClone<T>(tbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
 		end
 	end
 
+	if opts.preserveFrozen and table.isfrozen(tbl) then
+		table.freeze(clone)
+	end
+
 	return clone
 end
 
---- Recursively deep-clones `tbl`. By default, metatables are stripped and table-keys are kept as-is (same reference).
+--- Recursively deep-clones `tbl`. By default, metatables are stripped, table-keys are kept as-is (same reference), and frozen tables are not preserved.
 --- If `options.preserveMetatables` is true, metatables are copied onto cloned tables (the metatable itself
 --- is shared, not cloned; tables with protected metatables via `__metatable` are skipped).
 --- If `options.cloneKeys` is true, keys that are tables will also be deep-cloned.
+--- If `options.preserveFrozen` is true, any root level and nested tables that are frozen will be frozen in the clone.
 function tableext.deepClone<T>(tbl: T, options: DeepCloneOptions?): T
 	local cloneCache = {}
 
 	return deepClone(tbl, cloneCache, {
+		preserveFrozen = options and options.preserveFrozen == true,
 		preserveMetatables = options and options.preserveMetatables == true,
 		cloneKeys = options and options.cloneKeys == true,
 	})
