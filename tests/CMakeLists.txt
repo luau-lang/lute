@@ -28,6 +28,7 @@ target_sources(Lute.Test PRIVATE
     src/lutefs.test.cpp
     src/modulepath.test.cpp
     src/moduleresolver.test.cpp
+    src/netserver.test.cpp
     src/packagerequire.test.cpp
     src/require.test.cpp
     src/runtime.test.cpp

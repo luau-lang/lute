@@ -89,6 +89,10 @@ struct Runtime
     // once that thread eventually returns or errors after any number of yields.
     void addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion);
 
+    // Register native cleanup to run before the runtime closes its libuv loop.
+    // Reusing the same key replaces the previous cleanup hook.
+    void addCleanupHook(void* key, std::function<void()> cleanup);
+
     // Run 'f' in a libuv work queue
     void runInWorkQueue(std::function<void()> f);
 
@@ -144,6 +148,7 @@ private:
     std::mutex continuationMutex;
     std::vector<std::function<void()>> continuations;
     std::unordered_map<lua_State*, ThreadCompletionHandler> threadCompletionHandlers;
+    std::unordered_map<void*, std::function<void()>> cleanupHooks;
 
     std::atomic<bool> stop;
     std::condition_variable runLoopCv;
