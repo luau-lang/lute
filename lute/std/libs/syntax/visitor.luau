@@ -84,6 +84,7 @@ export type Visitor = {
 	visitAttribute: (types.CstAttribute) -> boolean,
 	visitSimpleAttribute: (types.CstAttributeSimple) -> boolean,
 	visitParametrizedAttribute: (types.CstAttributeParametrized) -> boolean,
+	visitAttributeList: (types.CstAttributeList) -> boolean,
 }
 
 local function alwaysVisit(...: types.CstNode)
@@ -164,6 +165,7 @@ local defaultVisitor: Visitor = {
 	visitAttribute = alwaysVisit,
 	visitSimpleAttribute = alwaysVisit,
 	visitParametrizedAttribute = alwaysVisit,
+	visitAttributeList = alwaysVisit,
 }
 
 local function exhaustiveMatch(value: never): never
@@ -501,12 +503,24 @@ local function visitParametrizedAttribute(node: types.CstAttributeParametrized, 
 	end
 end
 
-local function visitAttribute(node: types.CstAttribute, visitor: Visitor)
+local visitAttribute: (node: types.CstAttribute, visitor: Visitor) -> () = nil :: any
+
+local function visitAttributeList(node: types.CstAttributeList, visitor: Visitor)
+	if visitor.visitAttributeList(node) then
+		visitToken(node.atBracket, visitor)
+		visitPunctuated(node.attributes, visitor, visitAttribute)
+		visitToken(node.closeBracket, visitor)
+	end
+end
+
+visitAttribute = function(node: types.CstAttribute, visitor: Visitor)
 	if visitor.visitAttribute(node) then
 		if node.tag == "simple" then
 			visitSimpleAttribute(node, visitor)
 		elseif node.tag == "parametrized" then
 			visitParametrizedAttribute(node, visitor)
+		elseif node.tag == "list" then
+			visitAttributeList(node, visitor)
 		else
 			exhaustiveMatch(node.tag)
 		end
@@ -1115,6 +1129,7 @@ local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 			visitAttribute = visit,
 			visitSimpleAttribute = visit,
 			visitParametrizedAttribute = visit,
+			visitAttributeList = visit,
 		}
 	else
 		return table.clone(defaultVisitor)

@@ -309,6 +309,21 @@ function utils.isAttribute(n: types.CstNode): types.CstAttribute?
 	return if n.kind == "attribute" then n else nil
 end
 
+--- Returns `n` narrowed to `CstAttributeSimple` if it is a simple attribute node, or `nil` otherwise.
+function utils.isAttributeSimple(n: types.CstNode): types.CstAttributeSimple?
+	return if n.kind == "attribute" and n.tag == "simple" then n else nil
+end
+
+--- Returns `n` narrowed to `CstAttributeParametrized` if it is a parametrized attribute node, or `nil` otherwise.
+function utils.isAttributeParametrized(n: types.CstNode): types.CstAttributeParametrized?
+	return if n.kind == "attribute" and n.tag == "parametrized" then n else nil
+end
+
+--- Returns `n` narrowed to `CstAttributeList` if it is an attribute list node, or `nil` otherwise.
+function utils.isAttributeList(n: types.CstNode): types.CstAttributeList?
+	return if n.kind == "attribute" and n.tag == "list" then n else nil
+end
+
 --- Returns a `Replacement` that replaces the original node with the given content, preserving trivia.
 function utils.replacementWithTrivia(content: string): types.Replacement
 	return { content = content }

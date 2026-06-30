@@ -618,15 +618,99 @@ struct AstSerialize : public Luau::AstVisitor
         }
     }
 
-    void serializeAttributes(Luau::AstArray<Luau::AstAttr*>& attrs, size_t nrec = 0)
+    void serializeAttributeList(const Luau::AstArray<Luau::AstAttr*>& attrs, const Luau::CstAttrList& attrList, size_t& attrIndex)
     {
-        lua_rawcheckstack(L, 2);
-        lua_createtable(L, attrs.size, nrec);
+        LUTE_ASSERT(attrIndex < attrs.size);
 
-        for (size_t i = 0; i < attrs.size; i++)
+        lua_rawcheckstack(L, 4);
+        lua_createtable(L, 0, preambleSize + 3); // atBracket, attributes, closeBracket
+
+        withLocation(Luau::Location{attrList.atBracketPosition, attrList.closeBracketPosition});
+
+        lua_pushstring(L, "attribute");
+        lua_setfield(L, -2, "kind");
+
+        lua_pushstring(L, "list");
+        lua_setfield(L, -2, "tag");
+
+        LUTE_ASSERT(attrList.atBracketPosition.hasValue());
+        serializeToken(attrList.atBracketPosition, "@[");
+        lua_setfield(L, -2, "atBracket");
+
+        size_t lastAttrIndex = attrIndex + attrList.commaPositions.size + 1;
+        LUTE_ASSERT(lastAttrIndex <= attrs.size);
+
+        lua_createtable(L, attrList.commaPositions.size + 1, 1);
+
+        // separators
+        lua_createtable(L, attrList.commaPositions.size, 0);
+
+        size_t numAttrs = attrList.commaPositions.size + 1;
+        for (size_t i = 0; i < numAttrs; i++)
         {
-            serializeAttribute(attrs.data[i]);
-            lua_rawseti(L, -2, i + 1);
+            serializeAttribute(attrs.data[attrIndex]);
+            attrIndex++;
+            lua_rawseti(L, -3, static_cast<int>(i) + 1);
+
+            if (i < attrList.commaPositions.size)
+            {
+                serializeToken(attrList.commaPositions.data[i], ",");
+                lua_rawseti(L, -2, static_cast<int>(i) + 1);
+            }
+        }
+
+        lua_setfield(L, -2, "separators");
+
+        luaL_getmetatable(L, kCstPunctuatedType);
+        lua_setmetatable(L, -2);
+
+        lua_setfield(L, -2, "attributes");
+
+        LUTE_ASSERT(attrList.closeBracketPosition.hasValue());
+        serializeToken(attrList.closeBracketPosition, "]");
+        lua_setfield(L, -2, "closeBracket");
+    }
+
+    void serializeAttributes(Luau::AstArray<Luau::AstAttr*>& attrs, const Luau::AstArray<Luau::CstAttrList*>& attrLists)
+    {
+        LUTE_ASSERT(attrs.size >= attrLists.size);
+
+        lua_rawcheckstack(L, 2);
+        lua_createtable(L, attrLists.size, 0);
+
+        size_t attrIndex = 0;
+        size_t attrListIndex = 0;
+        size_t serializedArrIndex = 1;
+
+        for (; attrIndex < attrs.size;)
+        {
+            if (attrListIndex == attrLists.size)
+                break;
+
+            const Luau::AstAttr* attr = attrs.data[attrIndex];
+            const Luau::CstAttrList* attrList = attrLists.data[attrListIndex];
+
+            if (attr->location.begin < attrList->atBracketPosition)
+            {
+                serializeAttribute(attrs.data[attrIndex]);
+                lua_rawseti(L, -2, serializedArrIndex);
+                serializedArrIndex++;
+                attrIndex++;
+            }
+            else
+            {
+                serializeAttributeList(attrs, *attrList, attrIndex);
+                lua_rawseti(L, -2, serializedArrIndex);
+                serializedArrIndex++;
+                attrListIndex++;
+            }
+        }
+
+        for (; attrIndex < attrs.size; attrIndex++)
+        {
+            serializeAttribute(attrs.data[attrIndex]);
+            lua_rawseti(L, -2, serializedArrIndex);
+            serializedArrIndex++;
         }
     }
 
@@ -1061,7 +1145,7 @@ struct AstSerialize : public Luau::AstVisitor
             lua_setfield(L, -2, "attributes");
             break;
         case NothingSerialized:
-            serializeAttributes(node->attributes);
+            serializeAttributes(node->attributes, cstNode->attrLists);
             lua_setfield(L, -2, "attributes");
 
             serializeToken(cstNode->functionKeywordPosition, "function");
@@ -1741,7 +1825,7 @@ struct AstSerialize : public Luau::AstVisitor
         const auto cstNode = lookupCstNode<Luau::CstStatFunction>(node);
 
         // Serialization needs to happen in program-lexical order, so we serialize attributes and function keyword first
-        serializeAttributes(node->func->attributes);
+        serializeAttributes(node->func->attributes, cstNode->attrLists);
 
         serializeToken(cstNode->functionKeywordPosition, "function");
 
@@ -1759,10 +1843,10 @@ struct AstSerialize : public Luau::AstVisitor
 
         serializeNodePreamble(node, "localfunction", "stat");
 
-        // Serialization needs to happen in program-lexical order, so we serialize attributes and function keyword before the func expr
-        serializeAttributes(node->func->attributes);
-
         const auto cstNode = lookupCstNode<Luau::CstStatLocalFunction>(node);
+
+        // Serialization needs to happen in program-lexical order, so we serialize attributes and function keyword before the func expr
+        serializeAttributes(node->func->attributes, cstNode->attrLists);
 
         serializeToken(cstNode->localKeywordPosition, "local");
         lua_setfield(L, -3, "localKeyword");

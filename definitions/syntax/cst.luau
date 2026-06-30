@@ -543,8 +543,18 @@ export type CstAttributeParametrized = {
 	read closeParens: CstToken<")">,
 }
 
+-- A (possibly bracketed) list of comma-separated attributes
+export type CstAttributeList = {
+	read location: Span,
+	read kind: "attribute",
+	read tag: "list",
+	read atBracket: CstToken<"@[">,
+	read attributes: CstPunctuated<CstAttribute, ",">,
+	read closeBracket: CstToken<"]">,
+}
+
 --- Union of all attribute node types.
-export type CstAttribute = CstAttributeSimple | CstAttributeParametrized
+export type CstAttribute = CstAttributeSimple | CstAttributeParametrized | CstAttributeList
 
 --- A function declaration statement node.
 export type CstStatFunction = {

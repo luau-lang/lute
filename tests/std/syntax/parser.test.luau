@@ -191,8 +191,94 @@ test.suite("Parser", function(suite)
 			assert.eq(l.tag, "localfunction")
 
 			local lf = l :: syntax.CstStatLocalFunction
-			assert.eq(lf.func.attributes[1].name.text, subcase.attr)
+			assert.eq((lf.func.attributes[1] :: syntax.CstAttributeSimple).name.text, subcase.attr)
 		end
+	end)
+
+	suite:case("canParseParametrizedAttributes", function(assert)
+		local block = parser.parseBlock([[
+			@[deprecated({ reason = "reason" })]
+			function foo() end
+		]])
+		assert.eq(#block.statements, 1)
+
+		local funcStat = block.statements[1] :: syntax.CstStatFunction
+		assert.eq(funcStat.tag, "function")
+		assert.eq(#funcStat.func.attributes, 1)
+
+		local attrList = funcStat.func.attributes[1] :: any
+		assert.eq(attrList.kind, "attribute")
+		assert.eq(attrList.tag, "list")
+		assert.eq(attrList.atBracket.text, "@[")
+		assert.eq(attrList.closeBracket.text, "]")
+		assert.eq(#attrList.attributes, 1)
+
+		local attr = attrList.attributes[1]
+		assert.eq(attr.tag, "parametrized")
+		assert.eq(attr.kind, "attribute")
+		assert.eq(attr.name.text, "deprecated")
+		assert.eq(attr.openParens.text, "(")
+		assert.eq(#attr.arguments, 1)
+		assert.eq(attr.arguments[1].tag, "table")
+		assert.eq(attr.closeParens.text, ")")
+	end)
+
+	suite:case("canParseAttributeList", function(assert)
+		local block = parser.parseBlock([[
+			@[native, checked]
+			function foo() end
+		]])
+		assert.eq(#block.statements, 1)
+
+		local funcStat = block.statements[1] :: syntax.CstStatFunction
+		assert.eq(#funcStat.func.attributes, 1)
+
+		local attrList = funcStat.func.attributes[1] :: any
+		assert.eq(attrList.kind, "attribute")
+		assert.eq(attrList.tag, "list")
+		assert.eq(attrList.atBracket.text, "@[")
+		assert.eq(attrList.closeBracket.text, "]")
+		assert.eq(#attrList.attributes, 2)
+
+		local attr1 = attrList.attributes[1]
+		assert.eq(attr1.tag, "simple")
+		assert.eq(attr1.kind, "attribute")
+		assert.eq(attr1.name.text, "native")
+
+		local attr2 = attrList.attributes[2]
+		assert.eq(attr2.tag, "simple")
+		assert.eq(attr2.kind, "attribute")
+		assert.eq(attr2.name.text, "checked")
+
+		assert.neq(attrList.attributes.separators[1], nil)
+		assert.eq((attrList.attributes.separators[1] :: syntax.CstToken<",">).text, ",")
+	end)
+
+	suite:case("canParseMixedAttributes", function(assert)
+		local block = parser.parseBlock([[
+			@native @[deprecated({ reason = "reason" })]
+			function foo() end
+		]])
+		assert.eq(#block.statements, 1)
+
+		local funcStat = block.statements[1] :: syntax.CstStatFunction
+		assert.eq(#funcStat.func.attributes, 2)
+
+		local simpleAttr = funcStat.func.attributes[1] :: syntax.CstAttributeSimple
+		assert.eq(simpleAttr.tag, "simple")
+		assert.eq(simpleAttr.kind, "attribute")
+		assert.eq(simpleAttr.name.text, "@native")
+
+		local attrList = funcStat.func.attributes[2] :: syntax.CstAttributeList
+		assert.eq(attrList.kind, "attribute")
+		assert.eq(attrList.tag, "list")
+		assert.eq(#attrList.attributes, 1)
+
+		local paramAttr = attrList.attributes[1] :: syntax.CstAttributeParametrized
+		assert.eq(paramAttr.tag, "parametrized")
+		assert.eq(paramAttr.kind, "attribute")
+		assert.eq(paramAttr.name.text, "deprecated")
+		assert.eq(#paramAttr.arguments, 1)
 	end)
 end)
 
@@ -852,9 +938,9 @@ test.suite("parse", function(suite)
 		local funcStat = block.statements[1] :: syntax.CstStatFunction
 		assert.eq(funcStat.tag, "function")
 		assert.eq(#funcStat.func.attributes, 3)
-		assert.eq((funcStat.func.attributes[1] :: syntax.CstAttribute).name.text, "@checked")
-		assert.eq((funcStat.func.attributes[2] :: syntax.CstAttribute).name.text, "@native")
-		assert.eq((funcStat.func.attributes[3] :: syntax.CstAttribute).name.text, "@deprecated")
+		assert.eq((funcStat.func.attributes[1] :: syntax.CstAttributeSimple).name.text, "@checked")
+		assert.eq((funcStat.func.attributes[2] :: syntax.CstAttributeSimple).name.text, "@native")
+		assert.eq((funcStat.func.attributes[3] :: syntax.CstAttributeSimple).name.text, "@deprecated")
 		assert.eq(funcStat.func.functionKeyword.text, "function")
 		assert.eq(funcStat.name.tag, "global")
 		assert.eq((funcStat.name :: syntax.CstExprGlobal).name.text, "add")
