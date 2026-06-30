@@ -437,7 +437,7 @@ int handleRunCommand(int argc, char** argv, int argOffset, bool packageAwareness
             return 1;
         }
 
-        auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile);
+        auto [directDependencies, allDependencies] = getDependenciesFromLockfile(*lockfile, validPath);
         setupPkgRunState(runtime, std::move(directDependencies), std::move(allDependencies));
     }
     else

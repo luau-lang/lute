@@ -3,22 +3,25 @@ local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
 
+local lockfile = require("@commands/pkg/loom-core/src/lockfile")
 local resolution = require("@commands/pkg/loom-core/src/resolution")
 local parser = require("@commands/pkg/loom-core/src/semver/parser")
 local solver = require("@commands/pkg/loom-core/src/semver/solver")
 
 local temporaryDirectory = system.tmpdir()
-local workingDirectory = path.join(temporaryDirectory, "lute-pkg-registry")
+local workingDirectory = path.join(temporaryDirectory, "lute-pkg-resolution")
 
-local function writeConfig(dir: path.Path, name: string, deps: string, devDeps: string?)
+local function writeConfig(dir: path.Path, name: string, deps: string, devDeps: string?, workspace: string?)
 	local sections = `\t\tdependencies = \{{deps}\n\t\t}`
 	if devDeps then
 		sections ..= `,\n\t\tdev_dependencies = \{{devDeps}\n\t\t}`
 	end
 
+	local workspaceField = if workspace ~= nil then `,\n\tworkspace = \{{workspace}\n\t}` else ""
+
 	fs.writeStringToFile(
 		path.join(dir, "loom.config.luau"),
-		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n{sections},\n\t},\n}\n`
+		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n{sections},\n\t}{workspaceField},\n}\n`
 	)
 end
 
@@ -39,13 +42,136 @@ local function req(name: string, constraintStr: string): solver.Requirement
 	})
 end
 
-test.suite("RegistryResolution", function(suite)
-	suite:beforeEach(function()
-		if fs.exists(workingDirectory) then
-			fs.removeDirectory(workingDirectory, { recursive = true })
-		end
-		fs.createDirectory(workingDirectory)
+local function resetWorkingDirectory()
+	if fs.exists(workingDirectory) then
+		fs.removeDirectory(workingDirectory, { recursive = true })
+	end
+	fs.createDirectory(workingDirectory)
+end
+
+test.suite("LoomResolution", function(suite)
+	suite:beforeEach(resetWorkingDirectory)
+
+	suite:case("workspaceMembersAppearInLockfile", function(assert)
+		local pkgsDir = path.join(workingDirectory, "packages")
+		fs.createDirectory(pkgsDir)
+		fs.createDirectory(path.join(pkgsDir, "a"))
+		fs.createDirectory(path.join(pkgsDir, "b"))
+		writeConfig(path.join(pkgsDir, "a"), "a", "")
+		writeConfig(path.join(pkgsDir, "b"), "b", "")
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			nil,
+			[[
+
+		"./packages/a",
+		"./packages/b",]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory))
+
+		assert.that(lock.members ~= nil)
+		local members = lock.members :: any
+		assert.eq(members.a.path, "./packages/a")
+		assert.eq(members.b.path, "./packages/b")
 	end)
+
+	suite:case("workspaceFailsOnDuplicateMemberName", function(assert)
+		local pkgsDir = path.join(workingDirectory, "packages")
+		fs.createDirectory(pkgsDir)
+		fs.createDirectory(path.join(pkgsDir, "one"))
+		fs.createDirectory(path.join(pkgsDir, "two"))
+		-- Both members declare package.name = "shared"
+		writeConfig(path.join(pkgsDir, "one"), "shared", "")
+		writeConfig(path.join(pkgsDir, "two"), "shared", "")
+		writeConfig(
+			workingDirectory,
+			"root",
+			"",
+			nil,
+			[[
+
+		"./packages/one",
+		"./packages/two",]]
+		)
+
+		local ok, err = pcall(resolution.resolve, path.format(workingDirectory), nil)
+		assert.eq(ok, false)
+		assert.strContains(tostring(err), "Duplicate workspace member name 'shared'")
+	end)
+
+	suite:case("transitiveWorkspaceMembersDoNotLeak", function(assert)
+		-- libW is itself a workspace, but we depend on libW only as a path dep.
+		-- libW's internal member `libCore` should NOT appear in the root lockfile.
+		local libDir = path.join(workingDirectory, "libW")
+		fs.createDirectory(libDir)
+		fs.createDirectory(path.join(libDir, "core"))
+		writeConfig(path.join(libDir, "core"), "libCore", "")
+		writeConfig(
+			libDir,
+			"libW",
+			"",
+			nil,
+			[[
+
+		"./core",]]
+		)
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			libW = {
+				sourceKind = "path",
+				source = "./libW",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory))
+
+		assert.that(lock.packages.libW ~= nil)
+		assert.eq(lock.members, nil)
+		-- libCore is libW's internal member; it should not leak into root's graph
+		for _, pkg in lock.packages do
+			assert.never.eq(pkg.name, "libCore")
+		end
+	end)
+
+	suite:case("memberNameCollidesWithPathDep", function(assert)
+		local memberDir = path.join(workingDirectory, "internal")
+		local extDir = path.join(workingDirectory, "ext")
+		fs.createDirectory(memberDir)
+		fs.createDirectory(extDir)
+		-- Both packages declare package.name = "shared"
+		writeConfig(memberDir, "shared", "")
+		writeConfig(extDir, "shared", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			shared = {
+				sourceKind = "path",
+				source = "./ext",
+			},]],
+			nil,
+			[[
+
+		"./internal",]]
+		)
+
+		local ok, err = pcall(resolution.resolve, path.format(workingDirectory), nil)
+		assert.eq(ok, false)
+		assert.strContains(tostring(err), "Name conflict")
+	end)
+end)
+
+test.suite("RegistryResolution", function(suite)
+	suite:beforeEach(resetWorkingDirectory)
 
 	suite:case("resolvesHighestSatisfyingVersion", function(assert)
 		writeConfig(
@@ -443,7 +569,7 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.dependencies.b, "citrus@1.0.0")
 	end)
 
-	suite:case("writesLockfileToDisk", function(assert)
+	suite:case("writeLockfilePersistsRegistryEntries", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
@@ -462,7 +588,8 @@ test.suite("RegistryResolution", function(suite)
 			},
 		}
 
-		resolution.resolve(path.format(workingDirectory), universe)
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+		lockfile.writeFile(lock, path.format(workingDirectory))
 
 		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
 		assert.that(fs.exists(lockfilePath))

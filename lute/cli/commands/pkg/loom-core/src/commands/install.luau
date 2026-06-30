@@ -2,9 +2,9 @@ local cli = require("@batteries/cli")
 local fs = require("@std/fs")
 local lockfile = require("../lockfile")
 local manifest = require("../manifest")
-local resolution = require("../resolution")
 local path = require("@std/path")
 local process = require("@std/process")
+local resolution = require("../resolution")
 
 local function printDiagnostics(lock: lockfile.Lockfile, devAliases: { [string]: boolean })
 	local depCount = 0
@@ -26,10 +26,8 @@ local function printDiagnostics(lock: lockfile.Lockfile, devAliases: { [string]:
 	for alias, key in lock.dependencies do
 		local transitive = 0
 		local pkg = lock.packages[key]
-		if pkg then
-			for _ in pkg.dependencies do
-				transitive += 1
-			end
+		for _ in pkg.dependencies do
+			transitive += 1
 		end
 		local suffix = if devAliases[alias] then " [dev]" else ""
 		print(`  {key} ({pkg.sourceKind}, {transitive} dep(s)){suffix}`)
@@ -48,7 +46,7 @@ local function install(...: string)
 	local devAliases: { [string]: boolean } = {}
 
 	if fs.exists(manifestPath) then
-		local rootManifest = manifest.parseFile(manifestPath)
+		local rootManifest = manifest.parseFile(rootDirectory)
 		for _, depSpec in rootManifest.package.dependencies do
 			if depSpec.sourceKind == "registry" then
 				error("Registry dependencies are not yet supported by the install command")
@@ -66,6 +64,7 @@ local function install(...: string)
 
 	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev })
 	printDiagnostics(lock, devAliases)
+	lockfile.writeFile(lock, rootDirectory)
 end
 
 return install

@@ -1,5 +1,7 @@
+local fs = require("@std/fs")
 local luau = require("@std/luau")
 local manifest = require("./manifest")
+local pp = require("@batteries/pp")
 
 export type LockfileDependency = {
 	read name: string,
@@ -10,8 +12,14 @@ export type LockfileDependency = {
 	read dependencies: { [string]: string },
 }
 
+export type LockfileMember = {
+	read path: string,
+	read dependencies: { [string]: string },
+}
+
 export type Lockfile = {
 	read version: number,
+	read members: { [string]: LockfileMember }?,
 	read packages: { [string]: LockfileDependency },
 	read dependencies: { [string]: string },
 }
@@ -56,14 +64,57 @@ local function parseLockfile(t: any): Lockfile
 	end
 	table.freeze(t.dependencies)
 
+	if t.members ~= nil then
+		assert(type(t.members) == "table", "Expected 'members' field to be a table")
+		for memberName, member in t.members do
+			assert(type(memberName) == "string", "Expected member name to be a string")
+			assert(type(member) == "table", `Expected table for member '{memberName}'`)
+			assert(type(member.path) == "string", `Expected 'path' field in member '{memberName}'`)
+			assert(
+				type((member :: { [string]: unknown }).dependencies) == "table",
+				`Expected 'dependencies' field in member '{memberName}'`
+			)
+			for alias, depKey in member.dependencies do
+				assert(type(alias) == "string", `Expected alias to be a string in member '{memberName}'`)
+				assert(type(depKey) == "string", `Expected dependency key to be a string in member '{memberName}'`)
+				assert(
+					(t.packages :: { [string]: unknown })[depKey] ~= nil,
+					`Dependency '{depKey}' in member '{memberName}' not found in packages`
+				)
+			end
+			table.freeze(member.dependencies)
+		end
+		table.freeze(t.members)
+	end
+
 	return table.freeze(t)
 end
 
-local function parseFile(lockfilePath: string): Lockfile
+local function resolvePath(directory: string): string
+	return `{directory}/loom.lock.luau`
+end
+
+local function parseFile(directory: string): Lockfile
+	local lockfilePath = resolvePath(directory)
+	if not fs.exists(lockfilePath) then
+		error(`Lockfile not found at: {lockfilePath}`)
+	end
 	local t = luau.loadModule(lockfilePath)
 	return parseLockfile(t)
 end
 
+local function renderLockfile(lock: Lockfile): string
+	return `return {pp(lock)}\n`
+end
+
+local function writeFile(lock: Lockfile, directory: string)
+	local lockfilePath = resolvePath(directory)
+	fs.writeStringToFile(lockfilePath, renderLockfile(lock))
+end
+
 return {
 	parseFile = parseFile,
+	writeFile = writeFile,
+	resolvePath = resolvePath,
+	renderLockfile = renderLockfile,
 }

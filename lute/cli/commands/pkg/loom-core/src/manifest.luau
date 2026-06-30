@@ -1,3 +1,4 @@
+local fs = require("@std/fs")
 local luau = require("@std/luau")
 
 export type SourceKind = "path" | "github" | "registry"
@@ -33,6 +34,7 @@ export type PackageManifest = {
 
 export type ProjectManifest = {
 	read package: PackageManifest,
+	read workspace: { string }?,
 }
 
 local function isSourceKind(s: unknown): boolean
@@ -120,6 +122,16 @@ local function parseManifest(t: unknown): ProjectManifest
 		assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
 	end
 
+	local workspace = (t :: any).workspace
+	if workspace ~= nil then
+		assert(typeof(workspace) == "table", "Expected 'workspace' field to be an array of strings")
+		for i, member in workspace do
+			assert(typeof(i) == "number", "Expected 'workspace' field to be an array of strings")
+			assert(typeof(member) == "string", "Expected each workspace member to be a string path")
+		end
+		table.freeze(workspace)
+	end
+
 	return table.freeze({
 		package = table.freeze({
 			name = pkg.name,
@@ -127,16 +139,26 @@ local function parseManifest(t: unknown): ProjectManifest
 			dependencies = dependencies,
 			devDependencies = devDependencies,
 		}),
+		workspace = workspace,
 	})
 end
 
-local function parseFile(manifestPath: string): ProjectManifest
-	local manifestTable = luau.loadModule(manifestPath)
-	return parseManifest(manifestTable)
+local function resolvePath(directory: string): string
+	return `{directory}/loom.config.luau`
+end
+
+local function parseFile(directory: string): ProjectManifest
+	local manifestPath = resolvePath(directory)
+	if not fs.exists(manifestPath) then
+		error(`Manifest not found at: {manifestPath}`)
+	end
+	local t = luau.loadModule(manifestPath)
+	return parseManifest(t)
 end
 
 return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
+	resolvePath = resolvePath,
 }
