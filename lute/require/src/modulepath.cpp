@@ -1,5 +1,7 @@
 #include "lute/modulepath.h"
 
+#include "lute/nativemodule.h"
+
 #include "Luau/FileUtils.h"
 
 #include <array>
@@ -26,6 +28,14 @@ static std::string_view removeExtension(std::string_view path)
         }
     }
     for (std::string_view suffix : kSuffixes)
+    {
+        if (hasSuffix(path, suffix))
+        {
+            path.remove_suffix(suffix.size());
+            return path;
+        }
+    }
+    for (std::string_view suffix : kNativeSuffixes)
     {
         if (hasSuffix(path, suffix))
         {
@@ -112,6 +122,22 @@ ResolvedRealPath ModulePath::getRealPath() const
 
                 resolvedType = ResolvedRealPath::PathType::File;
                 suffix = potentialSuffix;
+            }
+        }
+
+        // Check for native shared libraries (.dylib, .so, .dll)
+        if (!resolvedType)
+        {
+            for (std::string_view potentialSuffix : kNativeSuffixes)
+            {
+                if (isAFile(partialRealPath + std::string(potentialSuffix)))
+                {
+                    if (resolvedType)
+                        return {NavigationStatus::Ambiguous};
+
+                    resolvedType = ResolvedRealPath::PathType::File;
+                    suffix = potentialSuffix;
+                }
             }
         }
     }
