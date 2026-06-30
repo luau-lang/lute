@@ -1,5 +1,4 @@
 local cli = require("@batteries/cli")
-local fs = require("@std/fs")
 local lockfile = require("../lockfile")
 local manifest = require("../manifest")
 local resolution = require("../resolution")
@@ -41,31 +40,30 @@ local function install(...: string)
 	args:add("exclude-dev", "flag", { help = "Skip dev dependencies" })
 	args:parse({ ... })
 
-	local excludeDev = args:get("exclude-dev") ~= nil
 	local rootDirectory = path.format(process.cwd())
-	local manifestPath = `{rootDirectory}/loom.config.luau`
+	local rootManifest = manifest.parseFile(rootDirectory)
 
+	local excludeDev = args:get("exclude-dev") ~= nil
 	local devAliases: { [string]: boolean } = {}
 
-	if fs.exists(manifestPath) then
-		local rootManifest = manifest.parseFile(manifestPath)
-		for _, depSpec in rootManifest.package.dependencies do
+	for _, depSpec in rootManifest.package.dependencies do
+		if depSpec.sourceKind == "registry" then
+			error("Registry dependencies are not yet supported by the install command")
+		end
+	end
+
+	if not excludeDev then
+		for alias, depSpec in rootManifest.package.devDependencies do
 			if depSpec.sourceKind == "registry" then
 				error("Registry dependencies are not yet supported by the install command")
 			end
-		end
-		if not excludeDev then
-			for alias, depSpec in rootManifest.package.devDependencies do
-				if depSpec.sourceKind == "registry" then
-					error("Registry dependencies are not yet supported by the install command")
-				end
-				devAliases[alias] = true
-			end
+			devAliases[alias] = true
 		end
 	end
 
 	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev })
 	printDiagnostics(lock, devAliases)
+	lockfile.writeFile(lock, rootDirectory)
 end
 
 return install

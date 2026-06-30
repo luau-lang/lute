@@ -3,6 +3,7 @@ local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
 
+local lockfile = require("@commands/pkg/loom-core/src/lockfile")
 local resolution = require("@commands/pkg/loom-core/src/resolution")
 local parser = require("@commands/pkg/loom-core/src/semver/parser")
 local solver = require("@commands/pkg/loom-core/src/semver/solver")
@@ -462,7 +463,8 @@ test.suite("RegistryResolution", function(suite)
 			},
 		}
 
-		resolution.resolve(path.format(workingDirectory), universe)
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+		lockfile.writeFile(lock, path.format(workingDirectory))
 
 		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
 		assert.that(fs.exists(lockfilePath))
@@ -503,7 +505,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["testlib"], {
 			name = "testlib",
 			sourceKind = "path",
-			source = "./testlib",
+			source = "testlib",
 			installPath = "testlib",
 			dependencies = {},
 		})
@@ -545,7 +547,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
-			source = "./lib",
+			source = "lib",
 			installPath = "lib",
 			dependencies = {},
 		})
@@ -743,7 +745,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
-			source = "./lib",
+			source = "lib",
 			installPath = "lib",
 			dependencies = {},
 		})
@@ -820,7 +822,8 @@ test.suite("DevDependencies", function(suite)
 			},]]
 		)
 
-		resolution.resolve(path.format(workingDirectory), nil)
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		lockfile.writeFile(lock, path.format(workingDirectory))
 
 		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
 		local content = fs.readFileToString(lockfilePath)
