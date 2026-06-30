@@ -4,6 +4,7 @@
 
 #include "Luau/DenseHash.h"
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -31,7 +32,7 @@ struct Breakpoint
 
 struct Target
 {
-    explicit Target(Runtime& runtime, std::string sourcePath);
+    explicit Target(Runtime& parentRuntime, std::string sourcePath, std::function<void(const Breakpoint& bp)> onBreakpointInstall = {});
 
     // Setting breakpoints is a two step process. We add them to our Target. If they
     // involve a source that has already been loaded by the VM, we attempt to install that
@@ -39,6 +40,11 @@ struct Target
     // We do this because clients may 1) configure breakpoints before launching executables
     // 2) we load sources dynamically with @require that a client may want to debug.
     // TODO: implement 2 and add some callback when breakpoints get installed
+    //
+    // Guarantees for when breakpoints are installed:
+    // Any breakpoint that is placed when the target process is paused (including before launch) and that
+    // have a loaded source are guaranteed to be installed after the process is resumed. Breakpoints placed on a loaded source
+    // when the target script is running may not be installed until the next time that script is paused.
     Breakpoint addBreakpoint(std::string sourcePath, int line);
     bool removeBreakpoint(int bpId);
 
@@ -49,11 +55,13 @@ struct Target
     bool launch(const std::vector<std::string>& args);
 
 private:
-    Runtime& runtime;
+    Runtime& parentRuntime;
+    std::shared_ptr<Runtime> childRuntime;
     std::string sourcePath;
 
     int currentBreakpointId = 0;
     std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
+    std::function<void(const Breakpoint& bp)> onBreakpointInstall;
 
     Luau::DenseHashMap<std::string, std::shared_ptr<Ref>> loadedSources; // source path -> reference to chunk
 

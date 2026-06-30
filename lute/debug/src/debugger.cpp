@@ -23,9 +23,10 @@ Breakpoint::Breakpoint(int id, std::string sourcePath, int line, BreakpointStatu
 {
 }
 
-Target::Target(Runtime& runtime, std::string sourcePath)
-    : runtime(runtime)
+Target::Target(Runtime& parentRuntime, std::string sourcePath, std::function<void(const Breakpoint& bp)> onBreakpointInstall)
+    : parentRuntime(parentRuntime)
     , sourcePath(sourcePath)
+    , onBreakpointInstall(onBreakpointInstall)
     , loadedSources("")
 {
 }
@@ -35,7 +36,20 @@ Breakpoint Target::addBreakpoint(std::string sourcePath, int line)
     int id = currentBreakpointId;
     currentBreakpointId++;
     auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint(id, sourcePath, line, BreakpointStatus::Pending));
-    installBreakpoint(runtime.GL, it->second);
+    if (childRuntime)
+        childRuntime->schedule(
+            [this, id]() mutable
+            {
+                auto it = breakpoints.find(id);
+                // check breakpoint has not been erased when this scheduled install has been fired
+                if (it != breakpoints.end())
+                {
+                    bool installed = installBreakpoint(childRuntime->GL, it->second);
+                    if (installed && onBreakpointInstall)
+                        onBreakpointInstall(it->second);
+                }
+            }
+        );
     return it->second;
 }
 
@@ -48,19 +62,25 @@ bool Target::removeBreakpoint(int bpId)
     if (bp.status == BreakpointStatus::Installed)
     {
         auto chunkRef = loadedSources.find(bp.sourcePath);
-        if (chunkRef)
+        if (chunkRef && childRuntime)
         {
-            (*chunkRef)->push(runtime.GL);
-            int removed_line = lua_breakpoint(runtime.GL, -1, bp.line, 0);
-            lua_pop(runtime.GL, 1);
+            (*chunkRef)->push(childRuntime->GL);
+            int removed_line = lua_breakpoint(childRuntime->GL, -1, bp.line, 0);
+            lua_pop(childRuntime->GL, 1);
             if (removed_line == -1)
-                runtime.reporter.reportError(
+                parentRuntime.reporter.reportError(
                     Luau::format("breakpoint %d installed at line %d in %s could not be removed", bp.id, bp.line, bp.sourcePath.c_str())
                 );
         }
+        else if (!childRuntime)
+        {
+            parentRuntime.reporter.reportError(
+                Luau::format("breakpoint %d installed at line %d in %s is missing a runtime", bp.id, bp.line, bp.sourcePath.c_str())
+            );
+        }
         else
         {
-            runtime.reporter.reportError(
+            parentRuntime.reporter.reportError(
                 Luau::format("breakpoint %d installed at line %d in %s is missing a loaded source", bp.id, bp.line, bp.sourcePath.c_str())
             );
         }
@@ -120,12 +140,19 @@ void Target::installPendingBreakpoints(lua_State* L)
     for (auto& [_, bp] : breakpoints)
     {
         if (bp.status == BreakpointStatus::Pending)
-            installBreakpoint(L, bp);
+        {
+            bool installed = installBreakpoint(L, bp);
+            if (installed && onBreakpointInstall)
+                onBreakpointInstall(bp);
+        }
     }
 }
 
 bool Target::launch(const std::vector<std::string>& args)
 {
+    childRuntime = std::make_shared<Runtime>(parentRuntime.reporter);
+    setupState(*childRuntime, nullptr);
+
     std::ifstream file(sourcePath);
     if (!file.is_open())
         return false;
@@ -134,15 +161,19 @@ bool Target::launch(const std::vector<std::string>& args)
     debugOptions.optimizationLevel = 1;
     debugOptions.debugLevel = 2;
     std::string bytecode = Luau::compile(source, debugOptions);
-    lua_State* thread = lua_newthread(runtime.GL);
+    lua_State* thread = lua_newthread(childRuntime->GL);
     luaL_sandboxthread(thread);
     luau_load(thread, sourcePath.c_str(), bytecode.c_str(), bytecode.size(), 0);
     loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
     installPendingBreakpoints(thread);
     for (const std::string& arg : args)
         lua_pushstring(thread, arg.c_str());
-    runtime.runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
-    lua_pop(runtime.GL, 1);
+    childRuntime->runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
+    lua_pop(childRuntime->GL, 1);
+
+    // the runtime provides the guarantees that C++ continuations (such as already enqueued breakpoints to install)
+    // happen before the first Luau thread runs
+    childRuntime->runContinuously();
     return true;
 }
 } // namespace debug

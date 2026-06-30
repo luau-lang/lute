@@ -1,3 +1,6 @@
+#include <chrono>
+#include <future>
+
 #include "debugfixture.h"
 #include "doctest.h"
 
@@ -6,7 +9,17 @@ TEST_SUITE("Debug")
     TEST_CASE_FIXTURE(DebugFixture, "Debug_addBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("simple.luau");
-        debug::Target target(*runtime, fixturePath);
+
+        std::promise<debug::Breakpoint> bp4Promise;
+        std::future<debug::Breakpoint> bp4Future = bp4Promise.get_future();
+
+        std::function<void(const debug::Breakpoint& bp)> onBreakpointInstall = [&bp4Promise](const debug::Breakpoint& bp)
+        {
+            if (bp.id == 3)
+                bp4Promise.set_value(bp);
+        };
+
+        debug::Target target(*runtime, fixturePath, onBreakpointInstall);
 
         // valid breakpoint
         debug::Breakpoint bp = target.addBreakpoint(fixturePath, 2);
@@ -63,10 +76,11 @@ TEST_SUITE("Debug")
 
         // check that adding breakpoints after launch should be immediately installed
         debug::Breakpoint bp4 = target.addBreakpoint(fixturePath, 2);
-        CHECK(target.getBreakpoints().size() == 4);
-        CHECK(bp4.status == debug::BreakpointStatus::Installed);
-        CHECK(bp4.line == 2);
-        CHECK(bp4.id == 3);
+        REQUIRE(bp4Future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        debug::Breakpoint installedBp4 = bp4Future.get();
+        CHECK(installedBp4.status == debug::BreakpointStatus::Installed);
+        CHECK(installedBp4.line == 2);
+        CHECK(installedBp4.id == 3);
     }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_removeBreakpoint")
