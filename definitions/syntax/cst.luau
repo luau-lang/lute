@@ -524,12 +524,37 @@ export type CstStatCompoundAssign = {
 	read value: CstExpr,
 }
 
---- A function attribute node (`@checked`, `@native`, or `@deprecated`).
-export type CstAttribute = {
+--- A simple function attribute node (e.g., `@checked`, `@native`, `@deprecated`).
+export type CstAttributeSimple = {
 	read location: Span,
 	read kind: "attribute",
-	read name: CstToken<"@checked" | "@native" | "@deprecated">,
+	read tag: "simple",
+	read name: CstToken,
 }
+
+--- A parametrized function attribute node (e.g., `@[deprecated("reason")]`).
+export type CstAttributeParametrized = {
+	read location: Span,
+	read kind: "attribute",
+	read tag: "parametrized",
+	read name: CstToken,
+	read openParens: CstToken<"(">,
+	read arguments: CstPunctuated<CstExpr>,
+	read closeParens: CstToken<")">,
+}
+
+-- A (possibly bracketed) list of comma-separated attributes
+export type CstAttributeList = {
+	read location: Span,
+	read kind: "attribute",
+	read tag: "list",
+	read atBracket: CstToken<"@[">,
+	read attributes: CstPunctuated<CstAttribute, ",">,
+	read closeBracket: CstToken<"]">,
+}
+
+--- Union of all attribute node types.
+export type CstAttribute = CstAttributeSimple | CstAttributeParametrized | CstAttributeList
 
 --- A function declaration statement node.
 export type CstStatFunction = {

@@ -82,6 +82,9 @@ export type Visitor = {
 	visitLocal: (types.CstLocal) -> boolean,
 
 	visitAttribute: (types.CstAttribute) -> boolean,
+	visitSimpleAttribute: (types.CstAttributeSimple) -> boolean,
+	visitParametrizedAttribute: (types.CstAttributeParametrized) -> boolean,
+	visitAttributeList: (types.CstAttributeList) -> boolean,
 }
 
 local function alwaysVisit(...: types.CstNode)
@@ -160,6 +163,9 @@ local defaultVisitor: Visitor = {
 	visitLocal = alwaysVisit,
 
 	visitAttribute = alwaysVisit,
+	visitSimpleAttribute = alwaysVisit,
+	visitParametrizedAttribute = alwaysVisit,
+	visitAttributeList = alwaysVisit,
 }
 
 local function exhaustiveMatch(value: never): never
@@ -482,9 +488,42 @@ local function visitExprBinary(node: types.CstExprBinary, visitor: Visitor)
 	end
 end
 
-local function visitAttribute(node: types.CstAttribute, visitor: Visitor)
-	if visitor.visitAttribute(node) then
+local function visitSimpleAttribute(node: types.CstAttributeSimple, visitor: Visitor)
+	if visitor.visitSimpleAttribute(node) then
 		visitToken(node.name, visitor)
+	end
+end
+
+local function visitParametrizedAttribute(node: types.CstAttributeParametrized, visitor: Visitor)
+	if visitor.visitParametrizedAttribute(node) then
+		visitToken(node.name, visitor)
+		visitToken(node.openParens, visitor)
+		visitPunctuated(node.arguments, visitor, visitExpr)
+		visitToken(node.closeParens, visitor)
+	end
+end
+
+local visitAttribute: (node: types.CstAttribute, visitor: Visitor) -> () = nil :: any
+
+local function visitAttributeList(node: types.CstAttributeList, visitor: Visitor)
+	if visitor.visitAttributeList(node) then
+		visitToken(node.atBracket, visitor)
+		visitPunctuated(node.attributes, visitor, visitAttribute)
+		visitToken(node.closeBracket, visitor)
+	end
+end
+
+visitAttribute = function(node: types.CstAttribute, visitor: Visitor)
+	if visitor.visitAttribute(node) then
+		if node.tag == "simple" then
+			visitSimpleAttribute(node, visitor)
+		elseif node.tag == "parametrized" then
+			visitParametrizedAttribute(node, visitor)
+		elseif node.tag == "list" then
+			visitAttributeList(node, visitor)
+		else
+			exhaustiveMatch(node.tag)
+		end
 	end
 end
 
@@ -1088,6 +1127,9 @@ local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 			visitExprVarargs = visit,
 
 			visitAttribute = visit,
+			visitSimpleAttribute = visit,
+			visitParametrizedAttribute = visit,
+			visitAttributeList = visit,
 		}
 	else
 		return table.clone(defaultVisitor)
