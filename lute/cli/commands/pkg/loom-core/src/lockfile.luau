@@ -1,5 +1,7 @@
+local fs = require("@std/fs")
 local luau = require("@std/luau")
 local manifest = require("./manifest")
+local semver = require("./semver")
 
 export type LockfileDependency = {
 	read name: string,
@@ -64,6 +66,77 @@ local function parseFile(lockfilePath: string): Lockfile
 	return parseLockfile(t)
 end
 
+local function tryParseFile(lockfilePath: string): Lockfile?
+	if not fs.exists(lockfilePath) then
+		return nil
+	end
+	local ok, result = pcall(parseFile, lockfilePath)
+	if not ok then
+		return nil
+	end
+	return result
+end
+
+local function satisfiesManifest(
+	lock: Lockfile,
+	rootManifest: manifest.ProjectManifest,
+	excludeDev: boolean
+): (boolean, string?)
+	local expectedAliases: { [string]: manifest.DependencySpec } = {}
+
+	for alias, spec in rootManifest.package.dependencies do
+		expectedAliases[alias] = spec
+	end
+
+	if not excludeDev then
+		for alias, spec in rootManifest.package.devDependencies do
+			expectedAliases[alias] = spec
+		end
+	end
+
+	for alias, spec in expectedAliases do
+		local key = lock.dependencies[alias]
+		if key == nil then
+			return false, `new dependency: {alias}`
+		end
+
+		local pkg = lock.packages[key]
+		if pkg == nil then
+			return false, `broken lockfile entry for: {alias}`
+		end
+
+		if pkg.sourceKind ~= spec.sourceKind then
+			return false, `source kind changed for: {alias}`
+		end
+
+		if spec.sourceKind == "github" then
+			if pkg.source ~= spec.source or pkg.rev ~= spec.rev then
+				return false, `github source changed for: {alias}`
+			end
+		elseif spec.sourceKind == "path" then
+			if pkg.source ~= spec.source then
+				return false, `path changed for: {alias}`
+			end
+		elseif spec.sourceKind == "registry" then
+			local constraint = semver.parseConstraint(spec.version)
+			local lockedVersion = semver.tryParse(pkg.rev :: string)
+			if lockedVersion == nil or not semver.satisfies(lockedVersion, constraint) then
+				return false, `registry constraint no longer satisfied for: {alias}`
+			end
+		end
+	end
+
+	for alias in lock.dependencies do
+		if expectedAliases[alias] == nil then
+			return false, `removed dependency: {alias}`
+		end
+	end
+
+	return true, nil
+end
+
 return {
 	parseFile = parseFile,
+	tryParseFile = tryParseFile,
+	satisfiesManifest = satisfiesManifest,
 }

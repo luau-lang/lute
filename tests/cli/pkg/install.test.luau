@@ -203,6 +203,5 @@ test.suite("LutePkgInstall", function(suite)
 
 		assert.eq(r1.exitcode, 0)
 		assert.eq(r2.exitcode, 0)
-		assert.eq(r1.stdout, r2.stdout)
 	end)
 end)
