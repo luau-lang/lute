@@ -1,3 +1,0 @@
-x.txt -> exit=0 <x.txt> len=5
-some/dir/file.txt -> exit=0 <some/dir/file.txt> len=17
-a b -> exit=0 <a b> len=3
