@@ -16,5 +16,5 @@ endif()
 
 target_compile_features(Lute.Std PUBLIC cxx_std_17)
 target_include_directories(Lute.Std PUBLIC "include")
-target_link_libraries(Lute.Std PRIVATE Lute.Runtime Luau.VM uv_a)
+target_link_libraries(Lute.Std PRIVATE Lute.Runtime Luau.VM libuv::libuv)
 target_compile_options(Lute.Std PRIVATE ${LUTE_OPTIONS})
