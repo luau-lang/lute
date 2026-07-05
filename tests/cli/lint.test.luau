@@ -33,7 +33,7 @@ local LINT_RULE_MESSAGES = {
 	global_function_in_scope = "warning[global_function_in_scope]: Non-local function declaration found inside a nested scope. Use 'local function' instead, or move this to the top level.",
 	no_any = "warning[no_any]: Use `unknown` instead of `any` as a type-safe alternative that requires narrowing before use.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
-	unused_variable = "warning[unused_variable]: This variable is unused, prefix it with '_' to indicate that it's intentional.",
+	unused_variable = "warning[unused_variable]: This variable is unused, prefix its name with '_' to indicate that it's intentional.",
 }
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
