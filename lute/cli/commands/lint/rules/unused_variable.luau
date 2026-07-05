@@ -6,8 +6,7 @@ local tableext = require("@std/tableext")
 local visitorLib = require("@std/syntax/visitor")
 
 local name = "unused_variable"
--- Message is prefixed with the variable name.
-local message = "is unused, prefix its name with '_' to indicate that it's intentional."
+local message = "This variable is unused, prefix its name with '_' to indicate that it's intentional."
 local target = "https://lute.luau.org/cli/lint/unused_variable.html"
 
 type leaf = { tag: "leaf", vals: { [number]: true } }
@@ -433,7 +432,7 @@ local function lint(
 		return {
 			lintname = name,
 			location = l.location, -- LUAUFIX: Bidirectional inference should let us know that l : syntax.CstLocal
-			message = `\`{ l.name.text }\` { message }`,
+			message = message,
 			severity = "warning",
 			sourcepath = sourcepath,
 			target = target,
