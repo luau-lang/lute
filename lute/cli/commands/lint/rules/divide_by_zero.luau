@@ -5,7 +5,7 @@ local syntax = require("@std/syntax")
 local utils = require("@std/syntax/utils")
 
 local name = "divide_by_zero"
-local message = "Division by zero detected."
+local message = "Dividing by zero will always result in NaN, consider using `math.nan` instead."
 local target = "https://lute.luau.org/cli/lint/divide_by_zero.html"
 
 local function isZeroLiteral(expr: syntax.CstExpr): boolean
