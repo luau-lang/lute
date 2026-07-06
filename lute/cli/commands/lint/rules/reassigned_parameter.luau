@@ -4,7 +4,7 @@ local syntax = require("@std/syntax")
 local visitorLib = require("@std/syntax/visitor")
 
 local name = "reassigned_parameter"
-local message = "Reassigning parameters is likely a mistake."
+local message = "Did you mean to reassign to a function parameter?"
 local target = "https://lute.luau.org/cli/lint/reassigned_parameter.html"
 
 local function checkAssignment(parameters: { syntax.CstLocal }, node: syntax.CstExpr): boolean
