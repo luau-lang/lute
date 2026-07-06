@@ -8,5 +8,15 @@ return {
 		["duplicate_keys_no_warn_general_zero"] = {
 			expectedExitCode = 0,
 		},
+		["output_flag_to_file"] = {
+			args = {
+				"lint",
+				"--no-default-lints",
+				"-r",
+				"lute/cli/commands/lint/rules/divide_by_zero.luau",
+				"-o",
+				"/tmp/lute_snap_output_flag_test.txt",
+			},
+		},
 	},
 }
