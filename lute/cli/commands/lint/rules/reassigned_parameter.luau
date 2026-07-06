@@ -40,7 +40,7 @@ local function createViolation(sourcepath: path.Path?, stat: syntax.CstStat): li
 end
 
 local function lint(
-	Cst: syntax.CstStatBlock,
+	cst: syntax.CstStatBlock,
 	sourcepath: path.Path?,
 	_context: lintTypes.RuleContext
 ): { lintTypes.LintViolation }
@@ -88,7 +88,7 @@ local function lint(
 		end
 	end
 
-	visitorLib.visitBlock(Cst, visitor)
+	visitorLib.visitBlock(cst, visitor)
 
 	return violations
 end
