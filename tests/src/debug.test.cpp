@@ -55,7 +55,6 @@ TEST_SUITE("Debug")
             CHECK(continuedProcess);
         };
 
-        debug::LaunchConfig config;
         config.onBreakpointInstall = onBreakpointInstall;
         config.onBreakpointHit = onBreakpointHit;
 
@@ -96,6 +95,8 @@ TEST_SUITE("Debug")
         CHECK(bp5.status == debug::BreakpointStatus::Installed);
         CHECK(bp5.id == 0);
         CHECK(bp5.line == 2);
+
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_removeBreakpoint")
@@ -152,7 +153,6 @@ TEST_SUITE("Debug")
             CHECK(continuedProcess);
         };
 
-        debug::LaunchConfig config;
         config.onBreakpointUninstall = onBreakpointUninstall;
         config.onBreakpointHit = onBreakpointHit;
         std::shared_ptr<debug::Process> process = target.launch({}, config);
@@ -173,6 +173,8 @@ TEST_SUITE("Debug")
         // check cannot remove never added breakpoint
         bool cannotRemove = target.removeBreakpoint(100);
         CHECK(!cannotRemove);
+
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_hitBreakpoint")
@@ -199,15 +201,7 @@ TEST_SUITE("Debug")
             process.continueProcess();
         };
 
-        std::promise<bool> exitPromise;
-        std::future<bool> exitFuture = exitPromise.get_future();
-
-        debug::LaunchConfig config;
         config.onBreakpointHit = onBreakpointHit;
-        config.onExit = [&exitPromise](bool success)
-        {
-            exitPromise.set_value(success);
-        };
         target.launch({}, config);
 
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
