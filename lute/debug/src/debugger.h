@@ -35,6 +35,14 @@ struct Breakpoint
 
 struct Process;
 
+struct LaunchConfig
+{
+    std::function<void(const Breakpoint& bp)> onBreakpointInstall;
+    std::function<void(const Breakpoint& bp)> onBreakpointUninstall;
+    std::function<void(Process& process, const Breakpoint& bp)> onBreakpointHit;
+    std::function<void(bool success)> onExit;
+};
+
 struct Target
 {
     explicit Target(Runtime& parentRuntime, std::string sourcePath);
@@ -58,12 +66,7 @@ struct Target
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
-    std::shared_ptr<Process> launch(
-        const std::vector<std::string>& args,
-        std::function<void(const Breakpoint& bp)> onBreakpointInstall = {},
-        std::function<void(const Breakpoint& bp)> onBreakpointUninstall = {},
-        std::function<void(Process& process, const Breakpoint& bp)> onBreakpointHit = {}
-    );
+    std::shared_ptr<Process> launch(const std::vector<std::string>& args, LaunchConfig config = {});
 
 private:
     Runtime& parentRuntime;
@@ -74,8 +77,8 @@ private:
     std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
     mutable std::mutex breakpointsMutex;
 
-    std::function<void(const Breakpoint& bp)> onBreakpointInstall;
-    std::function<void(const Breakpoint& bp)> onBreakpointUninstall;
+    std::shared_ptr<Process> activeProcess;
+    LaunchConfig launchConfig;
 
     Luau::DenseHashMap<std::string, std::shared_ptr<Ref>> loadedSources; // source path -> reference to chunk
 
@@ -85,16 +88,18 @@ private:
 
 struct Process
 {
-    explicit Process(Runtime& runtime, Target& parentTarget, std::function<void(Process& process, const Breakpoint& bp)> onBreakpointHit);
+    explicit Process(lua_State* thread, Target& parentTarget, LaunchConfig config);
     Target& getTarget();
     bool continueProcess();
 
 private:
+    lua_State* thread;
     Runtime& runtime;
     Target& parentTarget;
     ResumeToken resumeToken;
+    LaunchConfig config;
 
-    std::function<void(Process& process, const Breakpoint& bp)> onBreakpointHit;
     void installBpHitCallback();
+    void installExitCallback();
 };
 } // namespace debug

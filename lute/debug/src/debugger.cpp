@@ -214,7 +214,11 @@ void Target::installPendingBreakpoints(lua_State* L)
         {
             bool installed = installBreakpoint(L, bp);
             if (installed && launchConfig.onBreakpointInstall)
+            {
+                lock.unlock();
                 launchConfig.onBreakpointInstall(bp);
+                lock.lock();
+            }
         }
     }
 }
@@ -222,11 +226,10 @@ void Target::installPendingBreakpoints(lua_State* L)
 std::shared_ptr<Process> Target::launch(const std::vector<std::string>& args, LaunchConfig config)
 {
     // launch() cannot be called twice from the same target.
-    if (childRuntime != nullptr)
+    if (activeProcess != nullptr)
         return nullptr;
     childRuntime = std::make_shared<Runtime>(parentRuntime.reporter);
     setupState(*childRuntime, nullptr);
-
     launchConfig = config;
 
     std::ifstream file(sourcePath);
@@ -278,35 +281,36 @@ void Process::installBpHitCallback()
     cb->userdata = this;
     cb->debugbreak = [](lua_State* L, lua_Debug* ar)
     {
-        int line = ar->currentline;
-        lua_Debug info = {};
-        lua_getinfo(L, 0, "s", &info);
-
-        // TODO: this pause/resume mechanism assumes single co-routine runtime
         Process* process = static_cast<Process*>(lua_callbacks(L)->userdata);
+        // TODO: this pause/resume mechanism assumes single co-routine runtime
         process->resumeToken = getResumeToken(L);
+
+        lua_Debug info = {};
+        lua_getinfo(L, 0, "sl", &info);
+        int line = info.currentline;
+        if (!info.source)
+            process->runtime.reporter.reportError(Luau::format("breakpoint hit at line %d could not be find a runtime source", line));
         std::string source = info.source;
         std::optional<Breakpoint> bp = process->parentTarget.getBreakpointBySourceLine(source, line);
-        if (bp)
+        if (bp && bp->status == BreakpointStatus::Installed)
         {
-            if (bp->status == BreakpointStatus::Installed)
+            if (process->config.onBreakpointHit)
             {
-                // notify caller that we stopped
-                if (process->config.onBreakpointHit)
-                {
-                    process->config.onBreakpointHit(*process, bp.value());
-                }
-            }
-            else if (bp->status == BreakpointStatus::PendingUninstall)
-            {
-                process->continueProcess();
+                process->config.onBreakpointHit(*process, bp.value());
             }
         }
         else
         {
-            process->runtime.reporter.reportError(
-                Luau::format("breakpoint hit at line %d in %s could not be found in breakpoint map", line, source.c_str())
-            );
+            // it is normal to hit breakpoints that are pending uninstall but not normal
+            // to hit any other type of breakpoint
+            if (!bp || bp->status != BreakpointStatus::PendingUninstall)
+            {
+                process->runtime.reporter.reportError(
+                    Luau::format("breakpoint hit at line %d in %s could not be found in breakpoint map", line, source.c_str())
+                );
+            }
+            // this prevents us from hanging forever
+            process->continueProcess();
         }
     };
 }
