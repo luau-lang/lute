@@ -4,7 +4,7 @@ This lint rule checks for reassignment of function parameters.
 
 ## Why this is discouraged
 
-Normally, variables can be declared as `const` to avoid accidental reassignment. However, this is unavailable for function parameters, which can make it harder to understand the flow of the function if there are accidental reassignments.
+Sometimes, a parameter may be accidentally reassigned, especially if it is named fairly generically. This can lead to hard-to-spot bugs within the function.
 
 ## Example violations
 
