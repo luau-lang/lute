@@ -50,7 +50,7 @@ struct Target
     // Any breakpoint that is placed when the target process is paused (including before launch) and that
     // have a loaded source are guaranteed to be installed before the process is resumed. Breakpoints placed on a loaded source
     // when the target script is running may not be installed until the next time that script is paused.
-    Breakpoint addBreakpoint(std::string sourcePath, int line);
+    Breakpoint setBreakpoint(std::string sourcePath, int line);
     bool removeBreakpoint(int bpId);
 
     std::vector<Breakpoint> getBreakpoints() const;

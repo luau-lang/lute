@@ -6,17 +6,17 @@
 
 TEST_SUITE("Debug")
 {
-    TEST_CASE_FIXTURE(DebugFixture, "Debug_addBreakpoint")
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_setBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("simple.luau");
         debug::Target target(*runtime, fixturePath);
 
         // valid breakpoint
-        debug::Breakpoint bp = target.addBreakpoint(fixturePath, 2);
+        debug::Breakpoint bp = target.setBreakpoint(fixturePath, 2);
         // invalid breakpoint
-        debug::Breakpoint bp2 = target.addBreakpoint(fixturePath, 100);
+        debug::Breakpoint bp2 = target.setBreakpoint(fixturePath, 100);
         // breakpoint that will be moved on installation due to whitespace
-        debug::Breakpoint bp3 = target.addBreakpoint(fixturePath, 3);
+        debug::Breakpoint bp3 = target.setBreakpoint(fixturePath, 3);
 
         // check breakpoints before launch
         CHECK(bp.id == 0);
@@ -80,12 +80,18 @@ TEST_SUITE("Debug")
         CHECK(postLaunch->line == 4);
 
         // check that adding breakpoints after launch should be installed at some point
-        debug::Breakpoint bp4 = target.addBreakpoint(fixturePath, 1);
+        debug::Breakpoint bp4 = target.setBreakpoint(fixturePath, 1);
         REQUIRE(bp4Future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         debug::Breakpoint installedBp4 = bp4Future.get();
         CHECK(installedBp4.status == debug::BreakpointStatus::Installed);
         CHECK(installedBp4.line == 1);
         CHECK(installedBp4.id == 3);
+
+        // check that setting breakpoints at same breakpoint returns same id
+        debug::Breakpoint bp5 = target.setBreakpoint(fixturePath, 2);
+        CHECK(bp5.status == debug::BreakpointStatus::Installed);
+        CHECK(bp5.id == 0);
+        CHECK(bp5.line == 2);
     }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_removeBreakpoint")
@@ -94,7 +100,7 @@ TEST_SUITE("Debug")
         debug::Target target(*runtime, fixturePath);
 
         // check removing pending breakpoint
-        debug::Breakpoint bp = target.addBreakpoint(fixturePath, 2);
+        debug::Breakpoint bp = target.setBreakpoint(fixturePath, 2);
         CHECK(target.getBreakpoints().size() == 1);
 
         std::optional<debug::Breakpoint> preLaunch = target.getBreakpointById(bp.id);
@@ -107,8 +113,8 @@ TEST_SUITE("Debug")
         CHECK(target.getBreakpoints().size() == 0);
 
         // check removing installed breakpoints and invalid breakpoints
-        debug::Breakpoint bp2 = target.addBreakpoint(fixturePath, 3);
-        debug::Breakpoint bp3 = target.addBreakpoint(fixturePath, 100);
+        debug::Breakpoint bp2 = target.setBreakpoint(fixturePath, 3);
+        debug::Breakpoint bp3 = target.setBreakpoint(fixturePath, 100);
         CHECK(target.getBreakpoints().size() == 2);
 
         // We can do things like trigger breakpoint removals when our breakpoint is paused.

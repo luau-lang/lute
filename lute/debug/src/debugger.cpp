@@ -31,10 +31,10 @@ Target::Target(Runtime& parentRuntime, std::string sourcePath)
 {
 }
 
-Breakpoint Target::addBreakpoint(std::string sourcePath, int line)
+Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
 {
     std::optional<Breakpoint> preexistingBp = getBreakpointBySourceLine(sourcePath, line);
-    if(preexistingBp)
+    if (preexistingBp)
         return *preexistingBp;
     int id = currentBreakpointId;
     currentBreakpointId++;
