@@ -83,7 +83,7 @@ local function lint(
 		return true
 	end
 
-	visitor.visitExprFunctionEnd = function(node: syntax.CstExprFunction): ()
+	visitor.visitExprFunctionEnd = function(): ()
 		table.remove(scopes)
 	end
 
