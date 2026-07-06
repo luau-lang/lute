@@ -7,14 +7,18 @@ local name = "reassigned_parameter"
 local message = "Did you mean to reassign to a function parameter?"
 local target = "https://lute.luau.org/cli/lint/reassigned_parameter.html"
 
-local function checkAssignment(parameters: { syntax.CstLocal }, node: syntax.CstExpr): boolean
+type SavedScope = { [syntax.CstLocal]: true }
+
+local function checkAssignment(scopes: { SavedScope }, node: syntax.CstExpr): boolean
 	if node.tag ~= "local" then
 		return false
 	end
 
-	for _, parameter in parameters do
-		if node["local"] == parameter then
-			return true
+	for _, scope in scopes do
+		for parameter in scope do
+			if node["local"] == parameter then
+				return true
+			end
 		end
 	end
 
@@ -48,22 +52,22 @@ local function lint(
 
 	local visitor = visitorLib.create()
 
-	-- We could store parameters by scope here, which would make scope cleanup easier,
-	-- however, that comes at the cost of it being harder to check assignments
-	-- (we would then need to loop over every scope)
-	local parameters: { syntax.CstLocal } = {}
+	local scopes: { SavedScope } = {}
 
 	visitor.visitExprFunction = function(node: syntax.CstExprFunction): boolean
+		local scope: SavedScope = {}
 		for _, parameter in node.parameters do
-			table.insert(parameters, parameter)
+			scope[parameter] = true
 		end
+
+		table.insert(scopes, scope)
 
 		return true
 	end
 
 	visitor.visitStatAssign = function(stat: syntax.CstStatAssign): boolean
 		for _, variable in stat.variables do
-			if checkAssignment(parameters, variable) then
+			if checkAssignment(scopes, variable) then
 				table.insert(violations, createViolation(sourcepath, stat))
 			end
 		end
@@ -72,7 +76,7 @@ local function lint(
 	end
 
 	visitor.visitStatCompoundAssign = function(stat: syntax.CstStatCompoundAssign): boolean
-		if checkAssignment(parameters, stat.variable) then
+		if checkAssignment(scopes, stat.variable) then
 			table.insert(violations, createViolation(sourcepath, stat))
 		end
 
@@ -80,12 +84,7 @@ local function lint(
 	end
 
 	visitor.visitExprFunctionEnd = function(node: syntax.CstExprFunction): ()
-		for _, parameter in node.parameters do
-			local index = table.find(parameters, parameter)
-			if index then
-				table.remove(parameters, index)
-			end
-		end
+		table.remove(scopes)
 	end
 
 	visitorLib.visitBlock(cst, visitor)
