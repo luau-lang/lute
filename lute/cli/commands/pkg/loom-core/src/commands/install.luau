@@ -39,9 +39,11 @@ end
 local function install(...: string)
 	local args = cli.parser()
 	args:add("exclude-dev", "flag", { help = "Skip dev dependencies" })
+	args:add("locked", "flag", { help = "Error if lockfile doesn't match manifest (CI mode)" })
 	args:parse({ ... })
 
 	local excludeDev = args:get("exclude-dev") ~= nil
+	local locked = args:get("locked") ~= nil
 	local rootDirectory = path.format(process.cwd())
 	local manifestPath = `{rootDirectory}/loom.config.luau`
 
@@ -64,7 +66,7 @@ local function install(...: string)
 		end
 	end
 
-	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev })
+	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
 	printDiagnostics(lock, devAliases)
 end
 
