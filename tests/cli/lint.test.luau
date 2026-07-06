@@ -3714,6 +3714,55 @@ violator.luau:2:2-8 ──
 		})
 	end)
 
+	suite:case("reassignedParameterTriggersInNestedFunction", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	local function _(y)
+		x = 2
+	end
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:3:3-8 ──
+   │
+ 3 │         x = 2
+   │         ^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	-- `y` triggers an unknown global type error here, but the point is to check that parameter scopes are correctly popped.
+	suite:case("reassignedParameterAllowsPoppedScope", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	local function _(y)
+
+	end
+
+	y = 2
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 0 },
+			},
+		})
+	end)
+
 	suite:case("luteLintCurrentDirFindsLuauFiles", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
 		fs.createDirectory(testSubDir)
