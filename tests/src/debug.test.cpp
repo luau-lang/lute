@@ -60,7 +60,7 @@ TEST_SUITE("Debug")
         config.onBreakpointHit = onBreakpointHit;
 
         std::shared_ptr<debug::Process> process = target.launch({}, config);
-        REQUIRE(process != nullptr);
+        REQUIRE((bool)(process));
 
         // check breakpoints after launch
         CHECK(target.getBreakpoints().size() == 3);
@@ -156,7 +156,7 @@ TEST_SUITE("Debug")
         config.onBreakpointUninstall = onBreakpointUninstall;
         config.onBreakpointHit = onBreakpointHit;
         std::shared_ptr<debug::Process> process = target.launch({}, config);
-        REQUIRE(process != nullptr);
+        REQUIRE((bool)(process));
         std::optional<debug::Breakpoint> postLaunch = target.getBreakpointById(bp3.id);
         REQUIRE(postLaunch.has_value());
         CHECK(postLaunch->status == debug::BreakpointStatus::Invalid);
