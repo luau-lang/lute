@@ -1,7 +1,7 @@
-local syntax = require("@std/syntax")
+local lintTypes = require("@lint")
 local path = require("@std/path")
+local syntax = require("@std/syntax")
 local visitorLib = require("@std/syntax/visitor")
-local lintTypes = require("../types")
 
 local name = "reassigned_parameter"
 local message = "Reassigning parameters is likely a mistake."
@@ -55,7 +55,7 @@ local function lint(
 
 	visitor.visitExprFunction = function(node: syntax.CstExprFunction): boolean
 		for _, parameter in node.parameters do
-			table.insert(parameters, parameter.node)
+			table.insert(parameters, parameter)
 		end
 
 		return true
@@ -63,7 +63,7 @@ local function lint(
 
 	visitor.visitStatAssign = function(stat: syntax.CstStatAssign): boolean
 		for _, variable in stat.variables do
-			if checkAssignment(parameters, variable.node) then
+			if checkAssignment(parameters, variable) then
 				table.insert(violations, createViolation(sourcepath, stat))
 			end
 		end
@@ -81,7 +81,7 @@ local function lint(
 
 	visitor.visitExprFunctionEnd = function(node: syntax.CstExprFunction): ()
 		for _, parameter in node.parameters do
-			local index = table.find(parameters, parameter.node)
+			local index = table.find(parameters, parameter)
 			if index then
 				table.remove(parameters, index)
 			end
