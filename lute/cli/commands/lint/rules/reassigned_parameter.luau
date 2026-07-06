@@ -93,9 +93,9 @@ local function lint(
 	return violations
 end
 
-local rule: lintTypes.LintRule = {
+local rule: lintTypes.LintRule = table.freeze({
 	name = name,
 	lint = lint,
-}
+})
 
 return rule
