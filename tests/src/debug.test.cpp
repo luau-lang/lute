@@ -80,11 +80,11 @@ TEST_SUITE("Debug")
         CHECK(postLaunch->line == 4);
 
         // check that adding breakpoints after launch should be installed at some point
-        debug::Breakpoint bp4 = target.addBreakpoint(fixturePath, 2);
+        debug::Breakpoint bp4 = target.addBreakpoint(fixturePath, 1);
         REQUIRE(bp4Future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         debug::Breakpoint installedBp4 = bp4Future.get();
         CHECK(installedBp4.status == debug::BreakpointStatus::Installed);
-        CHECK(installedBp4.line == 2);
+        CHECK(installedBp4.line == 1);
         CHECK(installedBp4.id == 3);
     }
 

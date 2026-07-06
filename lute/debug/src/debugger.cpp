@@ -33,10 +33,14 @@ Target::Target(Runtime& parentRuntime, std::string sourcePath)
 
 Breakpoint Target::addBreakpoint(std::string sourcePath, int line)
 {
+    std::optional<Breakpoint> preexistingBp = getBreakpointBySourceLine(sourcePath, line);
+    if(preexistingBp)
+        return *preexistingBp;
     int id = currentBreakpointId;
     currentBreakpointId++;
     std::unique_lock lock(breakpointsMutex);
     auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint(id, sourcePath, line, BreakpointStatus::PendingInstall));
+    // We schedule breakpoint installs to happen async
     if (childRuntime)
         childRuntime->schedule(
             [this, id]() mutable
@@ -47,6 +51,7 @@ Breakpoint Target::addBreakpoint(std::string sourcePath, int line)
                 if (it != breakpoints.end())
                 {
                     bool installed = installBreakpoint(childRuntime->GL, it->second);
+                    lock.unlock();
                     if (installed && onBreakpointInstall)
                         onBreakpointInstall(it->second);
                 }
@@ -68,6 +73,7 @@ bool Target::removeBreakpoint(int bpId)
     }
     else if (bp.status == BreakpointStatus::Installed)
     {
+        // We schedule breakpoint uninstalls to happen async
         if (childRuntime)
         {
             bp.status = BreakpointStatus::PendingUninstall;
@@ -80,7 +86,10 @@ bool Target::removeBreakpoint(int bpId)
                     {
                         parentRuntime.reporter.reportError(
                             Luau::format(
-                                "breakpoint %d installed at line %d in %s is missing in breakpoint map", bp.id, bp.line, bp.sourcePath.c_str()
+                                "breakpoint %d installed at line %d in %s that is queued for uninstall is missing in breakpoint map",
+                                bp.id,
+                                bp.line,
+                                bp.sourcePath.c_str()
                             )
                         );
                         return;
@@ -90,7 +99,12 @@ bool Target::removeBreakpoint(int bpId)
                     if (!chunkRef)
                     {
                         parentRuntime.reporter.reportError(
-                            Luau::format("breakpoint %d installed at line %d in %s is missing a loaded source", bp.id, bp.line, bp.sourcePath.c_str())
+                            Luau::format(
+                                "breakpoint %d installed at line %d in %s that is queued for uninstall is missing a loaded source",
+                                bp.id,
+                                bp.line,
+                                bp.sourcePath.c_str()
+                            )
                         );
                         return;
                     }
@@ -100,10 +114,16 @@ bool Target::removeBreakpoint(int bpId)
                     if (removed_line == -1)
                     {
                         parentRuntime.reporter.reportError(
-                            Luau::format("breakpoint %d installed at line %d in %s could not be removed", bp.id, bp.line, bp.sourcePath.c_str())
+                            Luau::format(
+                                "breakpoint %d installed at line %d in %s that is queued for uninstall could not be removed",
+                                bp.id,
+                                bp.line,
+                                bp.sourcePath.c_str()
+                            )
                         );
                         return;
                     }
+                    lock.unlock();
                     if (onBreakpointUninstall)
                         onBreakpointUninstall(bp);
                 }
@@ -268,7 +288,7 @@ void Process::installBpHitCallback()
         process->resumeToken = getResumeToken(L);
         std::string source = info.source;
         std::optional<Breakpoint> bp = process->parentTarget.getBreakpointBySourceLine(source, line);
-        if (bp)
+        if (bp && bp->status == BreakpointStatus::Installed)
         {
             // notify caller that we stopped
             if (process->onBreakpointHit)
