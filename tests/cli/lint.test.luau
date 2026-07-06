@@ -35,7 +35,7 @@ local LINT_RULE_MESSAGES = {
 	no_any = "warning[no_any]: Consider using `unknown` instead of `any` as a type-safe alternative that requires narrowing before use.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
 	unused_variable = "warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.",
-	reassigned_parameter = "warning[reassigned_parameter]: Reassigning parameters is likely a mistake.",
+	reassigned_parameter = "warning[reassigned_parameter]: Did you mean to reassign to a function parameter?",
 }
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
