@@ -27,11 +27,11 @@ local defaultRulesPaths = {
 local LINT_RULE_MESSAGES = {
 	almost_swapped = "warning[almost_swapped]: This looks like a failed attempt to swap.",
 	constant_table_comparison = "warning[constant_table_comparison]: Comparing a table reference to a table literal will always evaluate to `false`.",
-	divide_by_zero = "warning[divide_by_zero]: Division by zero will always result in NaN, consider using `math.nan` instead.",
+	divide_by_zero = "warning[divide_by_zero]: Dividing by zero will always result in NaN, consider using `math.nan` instead.",
 	duplicate_keys = "warning[duplicate_keys]: Duplicate keys in table literals will result in only the last one being applied.",
 	empty_if_block = "warning[empty_if_block]: The `if` block is empty. Consider removing it or adding to it.",
 	global_function_in_scope = "warning[global_function_in_scope]: Non-local function declaration found inside a nested scope. Use 'local function' instead, or move this to the top level.",
-	no_any = "warning[no_any]: Use `unknown` instead of `any` as a type-safe alternative that requires narrowing before use.",
+	no_any = "warning[no_any]: Prefer `unknown` instead of `any` as a type-safe alternative that requires narrowing before use.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
 	unused_variable = "warning[unused_variable]: This variable is unused, prefix its name with '_' to indicate that it's intentional.",
 }
@@ -951,7 +951,7 @@ local x = 1 / 0
         {
             "items": [
                 {
-                    "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+                    "message": "This variable is unused, prefix its name with '_' to indicate that it's intentional.",
                     "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
                     "source": "lute lint",
                     "code": "unused_variable",
@@ -971,7 +971,7 @@ local x = 1 / 0
                     }
                 },
                 {
-                    "message": "Division by zero detected.",
+                    "message": "Dividing by zero will always result in NaN, consider using `math.nan` instead.",
                     "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
                     "source": "lute lint",
                     "code": "divide_by_zero",
@@ -1193,7 +1193,7 @@ b = a
 		local expected = [=[
 [
     {
-        "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+        "message": "This variable is unused, prefix its name with '_' to indicate that it's intentional.",
         "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
         "source": "lute lint",
         "code": "unused_variable",
@@ -1213,7 +1213,7 @@ b = a
         }
     },
     {
-        "message": "Division by zero detected.",
+        "message": "Dividing by zero will always result in NaN, consider using `math.nan` instead.",
         "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
         "source": "lute lint",
         "code": "divide_by_zero",
