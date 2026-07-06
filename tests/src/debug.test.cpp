@@ -55,7 +55,11 @@ TEST_SUITE("Debug")
             CHECK(continuedProcess);
         };
 
-        std::shared_ptr<debug::Process> process = target.launch({}, onBreakpointInstall, nullptr, onBreakpointHit);
+        debug::LaunchConfig config;
+        config.onBreakpointInstall = onBreakpointInstall;
+        config.onBreakpointHit = onBreakpointHit;
+
+        std::shared_ptr<debug::Process> process = target.launch({}, config);
         CHECK(process);
 
         // check breakpoints after launch
@@ -148,7 +152,10 @@ TEST_SUITE("Debug")
             CHECK(continuedProcess);
         };
 
-        std::shared_ptr<debug::Process> process = target.launch({}, nullptr, onBreakpointUninstall, onBreakpointHit);
+        debug::LaunchConfig config;
+        config.onBreakpointUninstall = onBreakpointUninstall;
+        config.onBreakpointHit = onBreakpointHit;
+        std::shared_ptr<debug::Process> process = target.launch({}, config);
         CHECK(process);
         std::optional<debug::Breakpoint> postLaunch = target.getBreakpointById(bp3.id);
         REQUIRE(postLaunch.has_value());
@@ -156,15 +163,56 @@ TEST_SUITE("Debug")
 
         bool removedBp3 = target.removeBreakpoint(bp3.id);
         CHECK(removedBp3);
-        REQUIRE(!target.getBreakpointById(bp3.id).has_value());
+        CHECK(!target.getBreakpointById(bp3.id).has_value());
 
         // check installed breakpoint is actually uninstalled
         REQUIRE(bp2Future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         CHECK(numUninstalledBps == 1);
-        REQUIRE(!target.getBreakpointById(bp2.id).has_value());
+        CHECK(!target.getBreakpointById(bp2.id).has_value());
 
         // check cannot remove never added breakpoint
         bool cannotRemove = target.removeBreakpoint(100);
         CHECK(!cannotRemove);
+    }
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_hitBreakpoint")
+    {
+        std::string fixturePath = getDebugFixturePath("loop.luau");
+        debug::Target target(*runtime, fixturePath);
+
+        // check removing pending breakpoint
+        debug::Breakpoint bp1 = target.setBreakpoint(fixturePath, 4);
+        debug::Breakpoint bp2 = target.setBreakpoint(fixturePath, 6);
+
+        int hitBp1 = 0, hitBp2 = 0;
+        std::function<void(debug::Process & process, const debug::Breakpoint& bp)> onBreakpointHit =
+            [bp1, bp2, &hitBp1, &hitBp2](debug::Process& process, const debug::Breakpoint& hitBp)
+        {
+            if (hitBp.id == bp1.id)
+            {
+                hitBp1++;
+            }
+            if (hitBp.id == bp2.id)
+            {
+                hitBp2++;
+            }
+            process.continueProcess();
+        };
+
+        std::promise<bool> exitPromise;
+        std::future<bool> exitFuture = exitPromise.get_future();
+
+        debug::LaunchConfig config;
+        config.onBreakpointHit = onBreakpointHit;
+        config.onExit = [&exitPromise](bool success)
+        {
+            exitPromise.set_value(success);
+        };
+        target.launch({}, config);
+
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(exitFuture.get() == true);
+        CHECK(hitBp1 == 5);
+        CHECK(hitBp2 == 25);
     }
 }
