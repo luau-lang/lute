@@ -9,7 +9,7 @@ TEST_SUITE("Debug")
     TEST_CASE_FIXTURE(DebugFixture, "Debug_setBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("simple.luau");
-        debug::Target target(*runtime, fixturePath);
+        debug::Target target(*runtime);
 
         // valid breakpoint
         debug::Breakpoint bp = target.setBreakpoint(fixturePath, 2);
@@ -58,7 +58,7 @@ TEST_SUITE("Debug")
         config.onBreakpointInstall = onBreakpointInstall;
         config.onBreakpointHit = onBreakpointHit;
 
-        std::shared_ptr<debug::Process> process = target.launch({}, config);
+        std::shared_ptr<debug::Process> process = target.launch(fixturePath, {}, config);
         REQUIRE((bool)(process));
 
         // check breakpoints after launch
@@ -103,7 +103,7 @@ TEST_SUITE("Debug")
     TEST_CASE_FIXTURE(DebugFixture, "Debug_removeBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("simple.luau");
-        debug::Target target(*runtime, fixturePath);
+        debug::Target target(*runtime);
 
         // check removing pending breakpoint
         debug::Breakpoint bp = target.setBreakpoint(fixturePath, 2);
@@ -155,7 +155,7 @@ TEST_SUITE("Debug")
 
         config.onBreakpointUninstall = onBreakpointUninstall;
         config.onBreakpointHit = onBreakpointHit;
-        std::shared_ptr<debug::Process> process = target.launch({}, config);
+        std::shared_ptr<debug::Process> process = target.launch(fixturePath, {}, config);
         REQUIRE((bool)(process));
         std::optional<debug::Breakpoint> postLaunch = target.getBreakpointById(bp3.id);
         REQUIRE(postLaunch.has_value());
@@ -182,7 +182,7 @@ TEST_SUITE("Debug")
     TEST_CASE_FIXTURE(DebugFixture, "Debug_hitBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("loop.luau");
-        debug::Target target(*runtime, fixturePath);
+        debug::Target target(*runtime);
 
         // check removing pending breakpoint
         debug::Breakpoint bp1 = target.setBreakpoint(fixturePath, 4);
@@ -200,7 +200,7 @@ TEST_SUITE("Debug")
         };
 
         config.onBreakpointHit = onBreakpointHit;
-        target.launch({}, config);
+        target.launch(fixturePath, {}, config);
 
         // wait until script is finished
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);

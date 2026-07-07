@@ -24,9 +24,8 @@ Breakpoint::Breakpoint(int id, std::string sourcePath, int line, BreakpointStatu
 {
 }
 
-Target::Target(Runtime& parentRuntime, std::string sourcePath)
+Target::Target(Runtime& parentRuntime)
     : parentRuntime(parentRuntime)
-    , sourcePath(sourcePath)
     , loadedSources("")
 {
 }
@@ -223,7 +222,7 @@ void Target::installPendingBreakpoints(lua_State* L)
     }
 }
 
-std::shared_ptr<Process> Target::launch(const std::vector<std::string>& args, LaunchConfig config)
+std::shared_ptr<Process> Target::launch(const std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     // launch() cannot be called twice from the same target.
     if (activeProcess != nullptr)
@@ -287,7 +286,8 @@ void Process::installBpHitCallback()
         lua_Debug info = {};
         lua_getinfo(L, 0, "sl", &info);
         int line = info.currentline;
-        if (!info.source) {
+        if (!info.source)
+        {
             process->runtime.reporter.reportError(Luau::format("breakpoint hit at line %d could not be find a runtime source", line));
             return;
         }
