@@ -296,6 +296,24 @@ function lintCore.loadConfig(configPath: pathLib.Pathlike, VERBOSE: boolean): in
 	return lintConfig
 end
 
+local function mergeIgnoreData(
+	base: parseIgnores.GitignoreData?,
+	override: parseIgnores.GitignoreData?
+): parseIgnores.GitignoreData?
+	if override == nil then
+		return base
+	end
+
+	if base == nil then
+		return tableext.deepclone(override)
+	end
+
+	tableext.extend(base.ignores, override.ignores)
+	tableext.extend(base.whitelists, override.whitelists)
+
+	return base
+end
+
 function lintCore.lintString(
 	source: string,
 	lintRules: { types.LintRule },
@@ -358,19 +376,93 @@ function lintCore.lintString(
 	return violations
 end
 
+function lintCore.mergeConfigs(
+	base: internalTypes.ResolvedFileConfig,
+	override: internalTypes.ResolvedOverride
+): internalTypes.ResolvedFileConfig
+	-- deep clone base; merge base with override (we don't want to effect the base table)
+	local clonedBase: internalTypes.ResolvedFileConfig = tableext.deepclone(base :: any)
+
+	tableext.combine<<string, unknown>>(clonedBase.globals, override.globals or {})
+	clonedBase.ignoreData = mergeIgnoreData(clonedBase.ignoreData, override.ignoreData)
+	for rule, overrideRuleIgnores in override.ruleIgnores do
+		clonedBase.ruleIgnores[rule] = mergeIgnoreData(clonedBase.ruleIgnores[rule], overrideRuleIgnores)
+	end
+	for rule, overrideRuleConfig in override.ruleConfigs do
+		local baseRuleConfig = clonedBase.ruleConfigs[rule]
+		if baseRuleConfig == nil then
+			clonedBase.ruleConfigs[rule] = tableext.deepclone(overrideRuleConfig)
+		else
+			-- figure out cast alterntive here
+			tableext.combine(baseRuleConfig :: any, overrideRuleConfig :: any)
+		end
+	end
+	tableext.extend(clonedBase.rules, override.rules)
+
+	return clonedBase
+end
+
+function lintCore.resolveFileConfig(
+	file: pathLib.Pathlike,
+	configData: internalTypes.GlobalRuleConfigData
+): internalTypes.ResolvedFileConfig
+	-- a file paths final rule config is:
+	-- 		if override applies to it (latest override in list of overrides:
+	-- 			merge of global config with override's config (we want to be particular about wht level we merge i.e not a full deep merge, but not a surface level merge either)
+	-- 			i think it should be manual:
+	--				ignores join (maybe, or should we override?)
+	--				globals merge (with identical keys in the override taking precedence)
+	--				ruleconfigs merge (with identical keys in the latter taking precedence)
+	--				joins are joined with global
+
+	local resolvedConfigData: internalTypes.ResolvedFileConfig = {
+		globals = tableext.deepclone(configData.globals),
+		ignoreData = nil,
+		ruleIgnores = tableext.deepclone(configData.ruleIgnores),
+		ruleConfigs = tableext.deepclone(configData.ruleConfigs),
+		rules = {},
+	}
+
+	for _, override in configData.overrides do
+		local matchedOverride = false
+		for _, path in override.paths do
+			if parseIgnores.matchesGlob(path, pathLib.format(file), fs.type(file) == "dir") then
+				matchedOverride = true
+				break
+			end
+		end
+		if matchedOverride then
+			resolvedConfigData = lintCore.mergeConfigs(resolvedConfigData, override)
+		end
+	end
+
+	return resolvedConfigData
+end
+
 function lintCore.lintFile(
 	inputFilePath: pathLib.Path,
 	lintRules: { types.LintRule },
 	autofixEnabled: boolean,
-	configData: internalTypes.RuleConfigData,
+	configData: internalTypes.GlobalRuleConfigData,
 	verbose: boolean
 ): { types.LintViolation }
 	if verbose then
 		print(`Reading input file '{inputFilePath}'`)
 	end
+	local resolvedConfig = lintCore.resolveFileConfig(pathLib.format(inputFilePath), configData)
+	if
+		resolvedConfig.ignoreData ~= nil
+		and parseIgnores.isIgnored(resolvedConfig.ignoreData, pathLib.format(inputFilePath), false)
+	then
+		return {}
+	end
+
+	local resolvedRules = table.clone(lintRules)
+	tableext.extend(resolvedRules, resolvedConfig.rules)
+	resolvedConfig.rules = resolvedRules
 	local fileContent = fs.readFileToString(inputFilePath)
 
-	local violations = lintCore.lintString(fileContent, lintRules, inputFilePath, configData, verbose)
+	local violations = lintCore.lintString(fileContent, resolvedConfig.rules, inputFilePath, resolvedConfig, verbose)
 
 	if not autofixEnabled then
 		return violations
@@ -400,7 +492,7 @@ function lintCore.lintFile(
 
 	fs.writeStringToFile(inputFilePath, newContent)
 
-	return lintCore.lintString(newContent, lintRules, inputFilePath, configData, verbose)
+	return lintCore.lintString(newContent, resolvedConfig.rules, inputFilePath, resolvedConfig, verbose)
 end
 
 function lintCore.initialize(
@@ -408,7 +500,7 @@ function lintCore.initialize(
 	noDefaults: boolean,
 	rulePath: string?,
 	VERBOSE: boolean
-): ({ types.LintRule }, internalTypes.RuleConfigData, parseIgnores.GitignoreData)
+): ({ types.LintRule }, internalTypes.GlobalRuleConfigData, parseIgnores.GitignoreData)
 	if passedConfigVal and fs.type(passedConfigVal) ~= "file" then
 		print(`Error: Configuration path must point to a file, not {fs.type(passedConfigVal)}`)
 		process.exit(1)
@@ -429,6 +521,47 @@ function lintCore.initialize(
 
 	local globalIgnores = if lintConfig.ignores ~= nil then lintConfig.ignores else {}
 	local globalIgnoreData = parseIgnores.parseIgnoreContents(rootLocation, globalIgnores)
+	local overrides: internalTypes.LintConfigOverrides = lintConfig.overrides or {}
+	-- parse overrides into list of: { paths: { Glob } } & LintConfigData
+	-- would like to do this more "type" safely
+	local resolvedOverrides: { internalTypes.ResolvedOverride } = {}
+	for i, override in overrides do
+		local overrideRules, overrideRuleConfigs, overrideRuleIgnores = {}, {}, {}
+		local overrideIgnoreData = if override.ignores ~= nil
+			then parseIgnores.parseIgnoreContents(rootLocation, override.ignores)
+			else nil
+		local globPaths = tableext.map(override.paths, function(path)
+			return parseIgnores.parseGlob(path)
+		end)
+		-- for each override rulepath
+		-- consolidate into single function for reusability; this is repeated elsewhere in file
+		for _, path in override.rulepaths or {} do
+			local resolvedPath = pathLib.resolve(rootLocation, path)
+			local loadedRules, loadedConfigs, loadedIgnoreData =
+				loadLintRules(pathLib.format(resolvedPath), lintConfig, rootLocation, VERBOSE)
+			tableext.extend(overrideRules, loadedRules)
+			tableext.combine(overrideRuleConfigs, loadedConfigs)
+			tableext.combine(overrideRuleIgnores, loadedIgnoreData)
+		end
+		for ruleName, ruleConfig in override.ruleconfigs or {} do
+			overrideRuleConfigs[ruleName] = ruleConfig
+			if ruleConfig.ignores ~= nil then
+				overrideRuleIgnores[ruleName] = mergeIgnoreData(
+					overrideRuleIgnores[ruleName],
+					parseIgnores.parseIgnoreContents(rootLocation, ruleConfig.ignores)
+				)
+			end
+		end
+
+		resolvedOverrides[i] = {
+			paths = globPaths,
+			rules = overrideRules,
+			ignoreData = overrideIgnoreData,
+			globals = if override.globals ~= nil then override.globals else {},
+			ruleConfigs = overrideRuleConfigs,
+			ruleIgnores = overrideRuleIgnores,
+		}
+	end
 
 	if noDefaults then
 		if VERBOSE then
@@ -461,13 +594,14 @@ function lintCore.initialize(
 		tableext.combine(ruleIgnoreData, loadedIgnoreData)
 	end
 
-	local configContextData = {
+	local configContextData: internalTypes.GlobalRuleConfigData = {
 		globals = if lintConfig.globals ~= nil then lintConfig.globals else {},
 		ruleConfigs = ruleConfigurations,
 		ruleIgnores = ruleIgnoreData,
+		overrides = resolvedOverrides,
 	}
 
-	return lintRules, configContextData :: internalTypes.RuleConfigData, globalIgnoreData
+	return lintRules, configContextData, globalIgnoreData
 end
 
 return table.freeze(lintCore)

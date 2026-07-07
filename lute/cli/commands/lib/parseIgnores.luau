@@ -18,7 +18,7 @@ local parseIgnores = {}
 
 --- Converts a glob pattern into a Luau string pattern for efficient matching
 --- The output pattern should be matched against a filepath that is relative to the .gitignore location
-local function parseGlob(glob: string): Glob
+function parseIgnores.parseGlob(glob: string): Glob
 	local onlyMatchDirectories = false
 
 	if glob:sub(-1) == "/" then
@@ -123,10 +123,10 @@ function parseIgnores.parseIgnoreContents(location: string, contents: string | {
 
 		if stringext.hasPrefix(line, "!") then
 			local globPattern = stringext.removePrefix(line, "!")
-			local glob = parseGlob(globPattern)
+			local glob = parseIgnores.parseGlob(globPattern)
 			table.insert(ignoreData.whitelists, glob)
 		else
-			local glob = parseGlob(line)
+			local glob = parseIgnores.parseGlob(line)
 			table.insert(ignoreData.ignores, glob)
 		end
 	end
