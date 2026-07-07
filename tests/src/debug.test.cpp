@@ -96,6 +96,7 @@ TEST_SUITE("Debug")
         CHECK(bp5.id == 0);
         CHECK(bp5.line == 2);
 
+        // wait until script is finished to call destructors
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
 
@@ -122,7 +123,6 @@ TEST_SUITE("Debug")
         debug::Breakpoint bp3 = target.setBreakpoint(fixturePath, 100);
         CHECK(target.getBreakpoints().size() == 2);
 
-        // We can do things like trigger breakpoint removals when our breakpoint is paused.
         int numUninstalledBps = 0;
         std::promise<debug::Breakpoint> bp2Promise;
         std::future<debug::Breakpoint> bp2Future = bp2Promise.get_future();
@@ -130,11 +130,11 @@ TEST_SUITE("Debug")
         {
             numUninstalledBps++;
             if (bp.id == 1)
-            {
                 bp2Promise.set_value(bp);
-            }
         };
 
+        // trigger breakpoint removals when our breakpoint is hit (thus, the execution is currently paused
+        // and we can see changes to it being pending uninstall)
         std::function<void(debug::Process & process, const debug::Breakpoint& bp)> onBreakpointHit =
             [](debug::Process& process, const debug::Breakpoint& bp)
         {
@@ -161,6 +161,7 @@ TEST_SUITE("Debug")
         REQUIRE(postLaunch.has_value());
         CHECK(postLaunch->status == debug::BreakpointStatus::Invalid);
 
+        // check invalid breakpoint is installed instantenously
         bool removedBp3 = target.removeBreakpoint(bp3.id);
         CHECK(removedBp3);
         CHECK(!target.getBreakpointById(bp3.id).has_value());
@@ -174,6 +175,7 @@ TEST_SUITE("Debug")
         bool cannotRemove = target.removeBreakpoint(100);
         CHECK(!cannotRemove);
 
+        // wait until script is finished to call destructors
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
 
@@ -191,19 +193,16 @@ TEST_SUITE("Debug")
             [bp1, bp2, &hitBp1, &hitBp2](debug::Process& process, const debug::Breakpoint& hitBp)
         {
             if (hitBp.id == bp1.id)
-            {
                 hitBp1++;
-            }
             if (hitBp.id == bp2.id)
-            {
                 hitBp2++;
-            }
             process.continueProcess();
         };
 
         config.onBreakpointHit = onBreakpointHit;
         target.launch({}, config);
 
+        // wait until script is finished
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         CHECK(exitFuture.get() == true);
         CHECK(hitBp1 == 5);
