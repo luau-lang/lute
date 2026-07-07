@@ -5,7 +5,8 @@ local syntax = require("@std/syntax")
 local utils = require("@std/syntax/utils")
 
 local name = "no_any"
-local message = "Consider using `unknown` instead of `any` as a type-safe alternative that requires narrowing before use."
+local message =
+	"Consider using `unknown` instead of `any` as a type-safe alternative that requires narrowing before use."
 local target = "https://lute.luau.org/cli/lint/no_any.html"
 
 local function lint(
