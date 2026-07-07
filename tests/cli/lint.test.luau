@@ -3748,9 +3748,7 @@ violator.luau:3:3-8 ──
 			content = [[
 local function _(x)
 	local function _(y)
-
 	end
-
 	y = 2
 end
 ]],
