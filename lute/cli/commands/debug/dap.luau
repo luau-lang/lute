@@ -79,7 +79,7 @@ local function dapLoop()
         if command == "initialize" then
             writeResponse(seq, true, command)
             writeEvent("initialized")
-        if command == "configurationDone" then
+        elseif command == "configurationDone" then
             writeResponse(seq, true, command)
         elseif command == "terminate" or command == "disconnect" then 
             writeResponse(seq, true, command)
