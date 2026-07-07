@@ -6,7 +6,7 @@ local tableext = require("@std/tableext")
 local visitorLib = require("@std/syntax/visitor")
 
 local name = "unused_variable"
-local message = "This variable is unused, prefix its name with '_' to indicate that it's intentional."
+local message = "This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused."
 local target = "https://lute.luau.org/cli/lint/unused_variable.html"
 
 type leaf = { tag: "leaf", vals: { [number]: true } }
