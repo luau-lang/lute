@@ -15,10 +15,8 @@ local function checkAssignment(scopes: { SavedScope }, node: syntax.CstExpr): bo
 	end
 
 	for _, scope in scopes do
-		for parameter in scope do
-			if node["local"] == parameter then
-				return true
-			end
+		if scope[node["local"]] then
+			return true
 		end
 	end
 
