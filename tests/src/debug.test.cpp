@@ -126,10 +126,10 @@ TEST_SUITE("Debug")
         int numUninstalledBps = 0;
         std::promise<debug::Breakpoint> bp2Promise;
         std::future<debug::Breakpoint> bp2Future = bp2Promise.get_future();
-        std::function<void(const debug::Breakpoint& bp)> onBreakpointUninstall = [&numUninstalledBps, &bp2Promise](const debug::Breakpoint& bp)
+        std::function<void(const debug::Breakpoint& bp)> onBreakpointUninstall = [&numUninstalledBps, &bp2Promise, &bp2](const debug::Breakpoint& bp)
         {
             numUninstalledBps++;
-            if (bp.id == 1)
+            if (bp.id == bp2.id)
                 bp2Promise.set_value(bp);
         };
 
