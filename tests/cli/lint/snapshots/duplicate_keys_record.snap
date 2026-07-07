@@ -1,4 +1,4 @@
-warning[duplicate_keys]: Duplicate keys in table literals will result in only the last one being applied.
+warning[duplicate_keys]: Duplicate keys in table literals will result in only the last one being included.
 
    ┌── <ROOT>/tests/cli/lint/snapshots/duplicate_keys_record.snap.luau:1:20-25 ──
    │
