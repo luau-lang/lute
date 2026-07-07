@@ -951,7 +951,7 @@ local x = 1 / 0
         {
             "items": [
                 {
-                    "message": "This variable is unused, prefix its name with '_' to indicate that it's intentional.",
+                    "message": "This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.",
                     "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
                     "source": "lute lint",
                     "code": "unused_variable",
@@ -1193,7 +1193,7 @@ b = a
 		local expected = [=[
 [
     {
-        "message": "This variable is unused, prefix its name with '_' to indicate that it's intentional.",
+        "message": "This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.",
         "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
         "source": "lute lint",
         "code": "unused_variable",
