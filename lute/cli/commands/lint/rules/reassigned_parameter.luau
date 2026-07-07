@@ -25,15 +25,10 @@ local function checkAssignment(scopes: { SavedScope }, node: syntax.CstExpr): bo
 	return false
 end
 
-local function createViolation(sourcepath: path.Path?, stat: syntax.CstStat): lintTypes.LintViolation
+local function createViolation(sourcepath: path.Path?, location: syntax.Span): lintTypes.LintViolation
 	local violation: lintTypes.LintViolation = {
 		lintname = name,
-		location = syntax.span.create({
-			beginLine = stat.location.beginLine,
-			beginColumn = stat.location.beginColumn,
-			endLine = stat.location.endLine,
-			endColumn = stat.location.endColumn,
-		}),
+		location = location,
 		message = message,
 		severity = "warning",
 		sourcepath = sourcepath,
@@ -68,7 +63,7 @@ local function lint(
 	visitor.visitStatAssign = function(stat: syntax.CstStatAssign): boolean
 		for _, variable in stat.variables do
 			if checkAssignment(scopes, variable) then
-				table.insert(violations, createViolation(sourcepath, stat))
+				table.insert(violations, createViolation(sourcepath, stat.location))
 			end
 		end
 
@@ -77,7 +72,7 @@ local function lint(
 
 	visitor.visitStatCompoundAssign = function(stat: syntax.CstStatCompoundAssign): boolean
 		if checkAssignment(scopes, stat.variable) then
-			table.insert(violations, createViolation(sourcepath, stat))
+			table.insert(violations, createViolation(sourcepath, stat.location))
 		end
 
 		return true
