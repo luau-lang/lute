@@ -29,11 +29,11 @@ local LINT_RULE_MESSAGES = {
 	constant_table_comparison = "warning[constant_table_comparison]: Comparing a table reference to a table literal will always evaluate to `false`.",
 	divide_by_zero = "warning[divide_by_zero]: Dividing by zero will always result in NaN, consider using `math.nan` instead.",
 	duplicate_keys = "warning[duplicate_keys]: Duplicate keys in table literals will result in only the last one being applied.",
-	empty_if_block = "warning[empty_if_block]: The `if` block is empty. Consider removing it or adding to it.",
+	empty_if_block = "warning[empty_if_block]: This `if` block is empty. Consider removing it or adding to it.",
 	global_function_in_scope = "warning[global_function_in_scope]: Non-local function declaration found inside a nested scope. Use 'local function' instead, or move this to the top level.",
-	no_any = "warning[no_any]: Prefer `unknown` instead of `any` as a type-safe alternative that requires narrowing before use.",
+	no_any = "warning[no_any]: Consider using `unknown` instead of `any` as a type-safe alternative that requires narrowing before use.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
-	unused_variable = "warning[unused_variable]: This variable is unused, prefix its name with '_' to indicate that it's intentional.",
+	unused_variable = "warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.",
 }
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
