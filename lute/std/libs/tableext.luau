@@ -95,7 +95,7 @@ function deepClone<T>(tbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
 	return clone
 end
 
---- Recursively deep-clones `tbl`. By default, metatables are stripped, table-keys are kept as-is (same reference), and frozen tables are not preserved.
+--- Recursively deep-clones `tbl`. By default, metatables are stripped, keys are kept as-is without any cloning, and frozenness of tables is not preserved.
 --- If `options.preserveMetatables` is true, metatables are copied onto cloned tables (the metatable itself
 --- is shared, not cloned; tables with protected metatables via `__metatable` are skipped).
 --- If `options.cloneKeys` is true, keys that are tables will also be deep-cloned.
