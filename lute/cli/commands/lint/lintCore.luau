@@ -20,7 +20,6 @@ local DEFAULT_RULES = {
 	"global_function_in_scope",
 	"parenthesized_conditions",
 	"unused_variable",
-	"reassigned_parameter",
 }
 
 local function isLintRule(rule: unknown, path: string, VERBOSE: boolean): boolean
