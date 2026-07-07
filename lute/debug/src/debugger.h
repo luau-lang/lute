@@ -45,7 +45,7 @@ struct LaunchConfig
 
 struct Target
 {
-    explicit Target(Runtime& parentRuntime, std::string sourcePath);
+    explicit Target(Runtime& parentRuntime);
 
     // Setting breakpoints is a two step process. We add them to our Target. If they
     // involve a source that has already been loaded by the VM, we attempt to install that
@@ -66,12 +66,11 @@ struct Target
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
-    std::shared_ptr<Process> launch(const std::vector<std::string>& args, LaunchConfig config = {});
+    std::shared_ptr<Process> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
 
 private:
     Runtime& parentRuntime;
     std::shared_ptr<Runtime> childRuntime;
-    std::string sourcePath;
 
     int currentBreakpointId = 0;
     std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
