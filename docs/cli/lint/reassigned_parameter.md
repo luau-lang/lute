@@ -4,7 +4,7 @@ This lint rule checks for reassignment of function parameters.
 
 ## Why this is discouraged
 
-Sometimes, a parameter may be accidentally reassigned, especially if it is named fairly generically. This can lead to hard-to-spot bugs within the function.
+A reassigned parameter may lead to hard-to-spot bugs.
 
 ## Example violations
 
