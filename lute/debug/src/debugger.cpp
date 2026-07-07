@@ -43,7 +43,7 @@ Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
     // We schedule breakpoint installs to happen async
     if (childRuntime)
         childRuntime->schedule(
-            [this, id]() mutable
+            [this, id]()
             {
                 std::unique_lock lock(breakpointsMutex);
                 auto it = breakpoints.find(id);
@@ -78,7 +78,7 @@ bool Target::removeBreakpoint(int bpId)
         {
             bp.status = BreakpointStatus::PendingUninstall;
             childRuntime->schedule(
-                [this, bp]() mutable
+                [this, bp]()
                 {
                     std::unique_lock lock(breakpointsMutex);
                     auto it = breakpoints.find(bp.id);
@@ -247,12 +247,11 @@ std::shared_ptr<Process> Target::launch(const std::vector<std::string>& args, La
     installPendingBreakpoints(thread);
     for (const std::string& arg : args)
         lua_pushstring(thread, arg.c_str());
-
-    auto process = std::make_shared<Process>(thread, *this, config);
-    activeProcess = process;
     childRuntime->runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
     lua_pop(childRuntime->GL, 1);
 
+    std::shared_ptr<Process> process = std::make_shared<Process>(thread, *this, config);
+    activeProcess = process;
     // All VM setup happens synchronously before runContinuously starts the background thread.
     // The no-op schedule wakes the event loop so it picks up the queued thread.
     childRuntime->schedule([]() {});
@@ -288,27 +287,25 @@ void Process::installBpHitCallback()
         lua_Debug info = {};
         lua_getinfo(L, 0, "sl", &info);
         int line = info.currentline;
-        if (!info.source)
+        if (!info.source) {
             process->runtime.reporter.reportError(Luau::format("breakpoint hit at line %d could not be find a runtime source", line));
+            return;
+        }
         std::string source = info.source;
         std::optional<Breakpoint> bp = process->parentTarget.getBreakpointBySourceLine(source, line);
         if (bp && bp->status == BreakpointStatus::Installed)
         {
             if (process->config.onBreakpointHit)
-            {
                 process->config.onBreakpointHit(*process, bp.value());
-            }
         }
         else
         {
             // it is normal to hit breakpoints that are pending uninstall but not normal
             // to hit any other type of breakpoint
             if (!bp || bp->status != BreakpointStatus::PendingUninstall)
-            {
                 process->runtime.reporter.reportError(
                     Luau::format("breakpoint hit at line %d in %s could not be found in breakpoint map", line, source.c_str())
                 );
-            }
             // this prevents us from hanging forever
             process->continueProcess();
         }
