@@ -89,6 +89,8 @@ local function dapLoop(reader: Reader, writer: Writer)
 		elseif command == "terminate" or command == "disconnect" then
 			writeResponse(seq, true, command)
 			break
+		elseif command == "launch" then
+			writeResponse(seq, true, command)
 		else
 			writeResponse(seq, false, command, `unsupported command: {command}`)
 		end

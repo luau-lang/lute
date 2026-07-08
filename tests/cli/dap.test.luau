@@ -38,7 +38,8 @@ test.suite("LuteDap", function(suite)
 	suite:case("basicInitializationTermination", function(assert)
 		local input = 'Content-Length: 100\r\n\r\n{"seq":1,"type":"request","command":"initialize","arguments":{"clientID":"test","adapterID":"lute"}}'
 			.. 'Content-Length: 56\r\n\r\n{"seq":2,"type":"request","command":"configurationDone"}'
-			.. 'Content-Length: 48\r\n\r\n{"seq":3,"type":"request","command":"terminate"}'
+			.. 'Content-Length: 45\r\n\r\n{"seq":3,"type":"request","command":"launch"}'
+			.. 'Content-Length: 48\r\n\r\n{"seq":4,"type":"request","command":"terminate"}'
 
 		local function checkEquivalence(written: string)
 			local msg1, rest1 = parseJsonMessage(written)
@@ -51,14 +52,28 @@ test.suite("LuteDap", function(suite)
 			local msg2, rest2 = parseJsonMessage(rest1)
 			assert.eq(msg2.type, "event")
 			assert.eq(msg2.event, "initialized")
+			assert.eq(msg2.seq, 2)
 
 			local msg3, rest3 = parseJsonMessage(rest2)
 			assert.eq(msg3.type, "response")
 			assert.eq(msg3.command, "configurationDone")
+			assert.eq(msg3.success, true)
+			assert.eq(msg3.request_seq, 2)
+			assert.eq(msg3.seq, 3)
 
-			local msg4, _ = parseJsonMessage(rest3)
+			local msg4, rest4 = parseJsonMessage(rest3)
 			assert.eq(msg4.type, "response")
-			assert.eq(msg4.command, "terminate")
+			assert.eq(msg4.command, "launch")
+			assert.eq(msg4.success, true)
+			assert.eq(msg4.request_seq, 3)
+			assert.eq(msg4.seq, 4)
+
+			local msg5, _ = parseJsonMessage(rest4)
+			assert.eq(msg5.type, "response")
+			assert.eq(msg5.command, "terminate")
+			assert.eq(msg5.success, true)
+			assert.eq(msg5.request_seq, 4)
+			assert.eq(msg5.seq, 5)
 		end
 
 		local reader = makeChunkReader(input, 16)
