@@ -1206,6 +1206,47 @@ test.suite("Overrides", function(suite)
 		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus@3.0.0")
 	end)
 
+	suite:case("versionRangeOverrideSelectsBestMatch", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^3.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "3.2.0"),
+				namedVersion("citrus", "3.1.0"),
+				namedVersion("citrus", "3.0.0"),
+				namedVersion("citrus", "2.1.0"),
+				namedVersion("citrus", "2.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.packages["citrus@3.2.0"].name, "citrus")
+		assert.eq(lock.packages["citrus@2.1.0"], nil)
+		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus@3.2.0")
+	end)
+
 	suite:case("versionPinWorksForDirectDep", function(assert)
 		writeConfig(
 			workingDirectory,

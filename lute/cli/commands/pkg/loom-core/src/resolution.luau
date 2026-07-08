@@ -117,11 +117,11 @@ local function buildEffectiveUniverse(
 	universe: semver.Universe,
 	overrides: { [string]: manifest.DependencySpec }
 ): (semver.Universe, { [string]: { [string]: string } })
-	local registryOverrides: { [string]: string } = {}
+	local registryOverrides: { [string]: semver.Constraint } = {}
 	local sourceOverrideNames: { [string]: boolean } = {}
 	for name, spec in overrides do
 		if spec.sourceKind == "registry" then
-			registryOverrides[name] = spec.version
+			registryOverrides[name] = semver.parseConstraint(spec.version)
 		else
 			sourceOverrideNames[name] = true
 		end
@@ -132,14 +132,14 @@ local function buildEffectiveUniverse(
 
 	for pkgName, versions in universe do
 		if registryOverrides[pkgName] then
-			effective[pkgName] = {}
+			local filtered: { semver.PackageVersion } = {}
 			for _, v in versions do
-				if v.versionString == registryOverrides[pkgName] then
-					effective[pkgName] = { v }
-					break
+				if semver.satisfies(v.version, registryOverrides[pkgName]) then
+					table.insert(filtered, v)
 				end
 			end
-			assert(#effective[pkgName] > 0, `Override pins '{pkgName}' to version {registryOverrides[pkgName]}, but that version does not exist in the registry`)
+			assert(#filtered > 0, `Override constrains '{pkgName}' to {overrides[pkgName].version}, but no matching version exists in the registry`)
+			effective[pkgName] = filtered
 		elseif sourceOverrideNames[pkgName] then
 			continue
 		else
@@ -150,7 +150,7 @@ local function buildEffectiveUniverse(
 					if registryOverrides[dep.name] then
 						newDeps[alias] = table.freeze({
 							name = dep.name,
-							constraint = semver.parseConstraint(`={registryOverrides[dep.name]}`),
+							constraint = registryOverrides[dep.name],
 							requiredBy = dep.requiredBy,
 							aliasedAs = dep.aliasedAs,
 						})
@@ -409,7 +409,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 		if overrideSpec.sourceKind == "registry" then
 			local overrideReq = {
 				name = overrideName,
-				constraint = semver.parseConstraint(`={overrideSpec.version}`),
+				constraint = semver.parseConstraint(overrideSpec.version),
 				requiredBy = "override",
 			}
 			registryRequirements[`override:{overrideName}`] = overrideReq
