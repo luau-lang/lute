@@ -46,6 +46,7 @@ struct LaunchConfig
 struct Target
 {
     explicit Target(Runtime& parentRuntime);
+    ~Target();
 
     // Setting breakpoints is a two step process. We add them to our Target. If they
     // involve a source that has already been loaded by the VM, we attempt to install that

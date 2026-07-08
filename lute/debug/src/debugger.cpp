@@ -30,6 +30,14 @@ Target::Target(Runtime& parentRuntime)
 {
 }
 
+Target::~Target()
+{
+    // We want to stop the runtime so nothing runs while we are destroying the target but first
+    // we need to clear all sources (which are stored as refs in the runtme).
+    loadedSources.clear();
+    childRuntime.reset();
+}
+
 Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
 {
     std::optional<Breakpoint> preexistingBp = getBreakpointBySourceLine(sourcePath, line);
