@@ -101,10 +101,7 @@ local function serializeOverrides(overrides: { [string]: manifest.DependencySpec
 	return result
 end
 
-local function overridesMatch(
-	locked: { [string]: string }?,
-	current: { [string]: string }
-): (boolean, string?)
+local function overridesMatch(locked: { [string]: string }?, current: { [string]: string }): (boolean, string?)
 	for name, value in current do
 		if locked == nil or locked[name] ~= value then
 			return false, `override changed: {name}`

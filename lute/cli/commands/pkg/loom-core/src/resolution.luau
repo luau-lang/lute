@@ -88,10 +88,7 @@ export type ResolveOptions = {
 	read locked: boolean?,
 }
 
-local function removeRequirementsForPackage(
-	registryRequirements: { [string]: semver.Requirement },
-	packageName: string
-)
+local function removeRequirementsForPackage(registryRequirements: { [string]: semver.Requirement }, packageName: string)
 	for reqKey, req in registryRequirements do
 		if req.name == packageName then
 			registryRequirements[reqKey] = nil
@@ -138,7 +135,10 @@ local function buildEffectiveUniverse(
 					table.insert(filtered, v)
 				end
 			end
-			assert(#filtered > 0, `Override constrains '{pkgName}' to {overrides[pkgName].version}, but no matching version exists in the registry`)
+			assert(
+				#filtered > 0,
+				`Override constrains '{pkgName}' to {overrides[pkgName].version}, but no matching version exists in the registry`
+			)
 			effective[pkgName] = filtered
 		elseif sourceOverrideNames[pkgName] then
 			continue
@@ -164,12 +164,15 @@ local function buildEffectiveUniverse(
 						newDeps[alias] = dep
 					end
 				end
-				table.insert(rewritten, table.freeze({
-					name = v.name,
-					version = v.version,
-					versionString = v.versionString,
-					dependencies = table.freeze(newDeps),
-				}))
+				table.insert(
+					rewritten,
+					table.freeze({
+						name = v.name,
+						version = v.version,
+						versionString = v.versionString,
+						dependencies = table.freeze(newDeps),
+					})
+				)
 			end
 			effective[pkgName] = rewritten
 		end
