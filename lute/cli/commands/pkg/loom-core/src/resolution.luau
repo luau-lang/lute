@@ -88,6 +88,96 @@ export type ResolveOptions = {
 	read locked: boolean?,
 }
 
+local function removeRequirementsForPackage(
+	registryRequirements: { [string]: semver.Requirement },
+	packageName: string
+)
+	for reqKey, req in registryRequirements do
+		if req.name == packageName then
+			registryRequirements[reqKey] = nil
+		end
+	end
+end
+
+local function serializeOverrides(overrides: { [string]: manifest.DependencySpec }): { [string]: string }
+	local result: { [string]: string } = {}
+	for name, spec in overrides do
+		if spec.sourceKind == "registry" then
+			result[name] = spec.version
+		elseif spec.sourceKind == "path" then
+			result[name] = `path:{spec.source}`
+		elseif spec.sourceKind == "github" then
+			result[name] = `github:{spec.source}@{spec.rev}`
+		end
+	end
+	return result
+end
+
+local function buildEffectiveUniverse(
+	universe: semver.Universe,
+	overrides: { [string]: manifest.DependencySpec }
+): (semver.Universe, { [string]: { [string]: string } })
+	local registryOverrides: { [string]: string } = {}
+	local sourceOverrideNames: { [string]: boolean } = {}
+	for name, spec in overrides do
+		if spec.sourceKind == "registry" then
+			registryOverrides[name] = spec.version
+		else
+			sourceOverrideNames[name] = true
+		end
+	end
+
+	local effective: semver.Universe = {}
+	local sourceOverridedDeps: { [string]: { [string]: string } } = {}
+
+	for pkgName, versions in universe do
+		if registryOverrides[pkgName] then
+			effective[pkgName] = {}
+			for _, v in versions do
+				if v.versionString == registryOverrides[pkgName] then
+					effective[pkgName] = { v }
+					break
+				end
+			end
+			assert(#effective[pkgName] > 0, `Override pins '{pkgName}' to version {registryOverrides[pkgName]}, but that version does not exist in the registry`)
+		elseif sourceOverrideNames[pkgName] then
+			continue
+		else
+			local rewritten: { semver.PackageVersion } = {}
+			for _, v in versions do
+				local newDeps: { [string]: semver.Requirement } = {}
+				for alias, dep in v.dependencies do
+					if registryOverrides[dep.name] then
+						newDeps[alias] = table.freeze({
+							name = dep.name,
+							constraint = semver.parseConstraint(`={registryOverrides[dep.name]}`),
+							requiredBy = dep.requiredBy,
+							aliasedAs = dep.aliasedAs,
+						})
+					elseif sourceOverrideNames[dep.name] then
+						local vKey = `{v.name}@{v.versionString}`
+						if not sourceOverridedDeps[vKey] then
+							sourceOverridedDeps[vKey] = {}
+						end
+						sourceOverridedDeps[vKey][alias] = dep.name
+					else
+						newDeps[alias] = dep
+					end
+				end
+				table.insert(rewritten, table.freeze({
+					name = v.name,
+					version = v.version,
+					versionString = v.versionString,
+					dependencies = table.freeze(newDeps),
+				}))
+			end
+			effective[pkgName] = rewritten
+		end
+	end
+
+	return effective, sourceOverridedDeps
+end
+
 local function pathDepsAreStale(lock: lockfile.Lockfile, rootDirectory: string): boolean
 	for _, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
@@ -177,12 +267,17 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 		end
 	end
 
-	-- Extract locked registry versions for soft preference during re-resolution
+	-- Extract locked registry versions for soft preference during re-resolution.
+	-- Skip packages that were previously overridden — removing an override should unlock the version.
 	local lockedRegistryVersions: { [string]: string }? = nil
 	if existingLock then
 		lockedRegistryVersions = {}
+		local previousOverrides = existingLock.overrides
 		for _, pkg in existingLock.packages do
 			if pkg.sourceKind == "registry" and pkg.rev then
+				if previousOverrides and previousOverrides[pkg.name] then
+					continue
+				end
 				(lockedRegistryVersions :: { [string]: string })[pkg.name] = pkg.rev
 			end
 		end
@@ -304,11 +399,104 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 		})
 	end
 
+	-- Apply overrides: version pins replace constraints; source overrides redirect to path/github.
+	local overrides = rootManifest.overrides
+	local overriddenPackages: { [string]: semver.Requirement } = {}
+
+	for overrideName, overrideSpec in overrides do
+		removeRequirementsForPackage(registryRequirements, overrideName)
+
+		if overrideSpec.sourceKind == "registry" then
+			local overrideReq = {
+				name = overrideName,
+				constraint = semver.parseConstraint(`={overrideSpec.version}`),
+				requiredBy = "override",
+			}
+			registryRequirements[`override:{overrideName}`] = overrideReq
+			overriddenPackages[overrideName] = overrideReq
+
+			if not registrySources[overrideName] then
+				registrySources[overrideName] = overrideSpec.source
+			end
+		else
+			local overrideKey = getKey(overrideSpec)
+
+			for pkgKey, unresolvedAliases in unresolvedRegistryDependencies do
+				for depAlias, registryName in unresolvedAliases do
+					if registryName == overrideName then
+						local packageDependencies = openDependencies[pkgKey]
+						if packageDependencies then
+							packageDependencies[depAlias] = overrideKey
+						end
+						unresolvedAliases[depAlias] = nil
+					end
+				end
+			end
+
+			-- Alias was removed from registryRequirements by the override; write override key directly.
+			for i = #rootRegistryAliases, 1, -1 do
+				if registryRequirements[rootRegistryAliases[i]] == nil then
+					dependencies[rootRegistryAliases[i]] = overrideKey
+					table.remove(rootRegistryAliases, i)
+				end
+			end
+
+			if not packages[overrideKey] then
+				local transitiveDependencies: { [string]: string } = {}
+				openDependencies[overrideKey] = transitiveDependencies
+
+				local installPath = fetchSource(overrideSpec, rootDirectory)
+				local nestedManifestPath = getManifestPath(installPath)
+				if fs.exists(nestedManifestPath) then
+					local dependencyManifest = manifest.parseFile(nestedManifestPath)
+					for dependencyAlias, dependencySpec in dependencyManifest.package.dependencies do
+						local normalizedSpec = normalizePathDependency(dependencySpec, installPath, rootDirectory)
+
+						if normalizedSpec.sourceKind == "registry" then
+							registryRequirements[`{overrideKey}:{dependencyAlias}`] = {
+								name = normalizedSpec.name,
+								constraint = semver.parseConstraint(normalizedSpec.version),
+								requiredBy = overrideKey,
+								aliasedAs = if dependencyAlias ~= normalizedSpec.name then dependencyAlias else nil,
+							}
+							registrySources[normalizedSpec.name] = normalizedSpec.source
+							if not unresolvedRegistryDependencies[overrideKey] then
+								unresolvedRegistryDependencies[overrideKey] = {}
+							end
+							unresolvedRegistryDependencies[overrideKey][dependencyAlias] = normalizedSpec.name
+							continue
+						end
+
+						transitiveDependencies[dependencyAlias] = getKey(normalizedSpec)
+					end
+				end
+
+				packages[overrideKey] = table.freeze({
+					name = overrideSpec.name,
+					rev = if overrideSpec.sourceKind == "github" then overrideSpec.rev else nil,
+					source = overrideSpec.source,
+					sourceKind = overrideSpec.sourceKind,
+					installPath = if overrideSpec.sourceKind == "path"
+						then path.format(path.relative(rootDirectory, installPath))
+						else store.toStorePath(overrideKey),
+					dependencies = transitiveDependencies,
+				})
+			end
+		end
+	end
+
+	-- Build a modified universe that respects overrides.
+	local effectiveUniverse = universe
+	local sourceOverridedDeps: { [string]: { [string]: string } } = {}
+	if universe ~= nil and next(overrides) ~= nil then
+		effectiveUniverse, sourceOverridedDeps = buildEffectiveUniverse(universe, overrides)
+	end
+
 	-- Versioned dependency resolution: solve registry dependencies and stitch them into the package graph.
 	if next(registryRequirements) ~= nil then
-		assert(universe ~= nil, "Registry dependencies require a universe to be provided")
+		assert(effectiveUniverse ~= nil, "Registry dependencies require a universe to be provided")
 
-		local resolution = semver.solve(universe, registryRequirements, lockedRegistryVersions)
+		local resolution = semver.solve(effectiveUniverse, registryRequirements, lockedRegistryVersions)
 
 		-- Build a lookup from package name to resolved version(s) for slot-keyed results.
 		local versionsByPackageName = {}
@@ -326,6 +514,16 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 				assert(resolvedVersion ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
 
 				transitiveDependencies[alias] = `{dependency.name}@{resolvedVersion.versionString}`
+			end
+
+			-- Add back dependencies that were stripped for source overrides.
+			if sourceOverridedDeps[key] then
+				for alias, overriddenName in sourceOverridedDeps[key] do
+					local overrideSpec = overrides[overriddenName]
+					if overrideSpec then
+						transitiveDependencies[alias] = getKey(overrideSpec)
+					end
+				end
 			end
 
 			packages[key] = table.freeze({
@@ -350,7 +548,10 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 
 		-- Write root-level registry dependency aliases now that versions are resolved.
 		for _, alias in rootRegistryAliases do
-			local req = registryRequirements[alias]
+			local req = registryRequirements[alias] or overriddenPackages[alias]
+			if req == nil then
+				continue
+			end
 			local pkgVersion = versionsByPackageName[req.name]
 			assert(pkgVersion ~= nil, `Solver did not resolve root dependency '{req.name}'`)
 			dependencies[alias] = `{req.name}@{pkgVersion.versionString}`
@@ -364,10 +565,16 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	table.freeze(packages)
 	table.freeze(dependencies)
 
+	local serializedOverrides = serializeOverrides(overrides)
+	local frozenOverrides: { [string]: string }? = if next(serializedOverrides)
+		then table.freeze(serializedOverrides)
+		else nil
+
 	local lock: lockfile.Lockfile = table.freeze({
-		version = 3,
+		version = if frozenOverrides then 4 else 3,
 		packages = packages,
 		dependencies = dependencies,
+		overrides = frozenOverrides,
 	})
 
 	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
