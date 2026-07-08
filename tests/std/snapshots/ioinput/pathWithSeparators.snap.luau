@@ -1,3 +1,3 @@
 local util = require("./util")
 
-util.printInput("pathWithSeparators")
+util.pipeInput("pathWithSeparators", "readinput.luau")

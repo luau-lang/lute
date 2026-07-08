@@ -1,3 +1,3 @@
 local util = require("./util")
 
-util.printInput("interiorWhitespace")
+util.pipeInput("interiorWhitespace", "readinput.luau")
