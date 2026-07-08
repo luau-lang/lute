@@ -226,7 +226,11 @@ function cli.help(self: Parser, formatter: ((s: string) -> string)?): ()
 
 		local aliasStr = table.concat(argument.options.aliases or {}, ", ")
 		local reqStr = if argument.options.required then "(required) " else ""
-		print(fmt(string.format("  --%s (-%s) - %s%s", argument.name, aliasStr, reqStr, argument.options.help or "")))
+		print(
+			fmt(
+				`  --{argument.name}{if #aliasStr > 0 then ` (-{aliasStr})` else ""} - {reqStr}{argument.options.help or ""}`
+			)
+		)
 	end
 end
 
