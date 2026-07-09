@@ -119,6 +119,13 @@ local function overridesMatch(locked: { [string]: string }?, current: { [string]
 	return true, nil
 end
 
+local function getEffectiveRootSpec(
+	spec: manifest.DependencySpec,
+	overrides: { [string]: manifest.DependencySpec }
+): manifest.DependencySpec
+	return overrides[spec.name] or spec
+end
+
 local function satisfiesManifest(
 	lock: Lockfile,
 	rootManifest: manifest.ProjectManifest,
@@ -137,6 +144,8 @@ local function satisfiesManifest(
 	end
 
 	for alias, spec in expectedAliases do
+		spec = getEffectiveRootSpec(spec, rootManifest.overrides)
+
 		local key = lock.dependencies[alias]
 		if key == nil then
 			return false, `new dependency: {alias}`
