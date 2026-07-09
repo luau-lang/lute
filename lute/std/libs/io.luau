@@ -18,7 +18,18 @@ function iolib.input(prompt: string?): string
 	if prompt then
 		io.write(prompt)
 	end
-	return io.read()
+
+	local line = io.read()
+
+	-- Strip a single trailing line terminator ("\r\n", "\n", or "\r"), leaving any
+	-- interior or leading whitespace intact.
+	if line:sub(-2) == "\r\n" then
+		return line:sub(1, -3)
+	elseif line:sub(-1) == "\n" or line:sub(-1) == "\r" then
+		return line:sub(1, -2)
+	end
+
+	return line
 end
 
 return table.freeze(iolib)
