@@ -1,5 +1,6 @@
 #include <chrono>
 #include <future>
+#include <thread>
 
 #include "debugfixture.h"
 #include "doctest.h"
@@ -42,7 +43,7 @@ TEST_SUITE("Debug")
 
         std::promise<debug::Breakpoint> bp4Promise;
         std::future<debug::Breakpoint> bp4Future = bp4Promise.get_future();
-        std::function<void(const debug::Breakpoint& bp)> onBreakpointInstall = [&bp4Promise](const debug::Breakpoint& bp)
+        std::function<void(const debug::Breakpoint& bp)> onBreakpointInstall = [&](const debug::Breakpoint& bp)
         {
             if (bp.id == 3)
                 bp4Promise.set_value(bp);
@@ -126,7 +127,7 @@ TEST_SUITE("Debug")
         int numUninstalledBps = 0;
         std::promise<debug::Breakpoint> bp2Promise;
         std::future<debug::Breakpoint> bp2Future = bp2Promise.get_future();
-        std::function<void(const debug::Breakpoint& bp)> onBreakpointUninstall = [&numUninstalledBps, &bp2Promise, &bp2](const debug::Breakpoint& bp)
+        std::function<void(const debug::Breakpoint& bp)> onBreakpointUninstall = [&](const debug::Breakpoint& bp)
         {
             numUninstalledBps++;
             if (bp.id == bp2.id)
@@ -190,7 +191,7 @@ TEST_SUITE("Debug")
 
         int hitBp1 = 0, hitBp2 = 0;
         std::function<void(debug::Process & process, const debug::Breakpoint& bp)> onBreakpointHit =
-            [bp1, bp2, &hitBp1, &hitBp2](debug::Process& process, const debug::Breakpoint& hitBp)
+            [&](debug::Process& process, const debug::Breakpoint& hitBp)
         {
             if (hitBp.id == bp1.id)
                 hitBp1++;
@@ -207,5 +208,50 @@ TEST_SUITE("Debug")
         CHECK(exitFuture.get() == true);
         CHECK(hitBp1 == 5);
         CHECK(hitBp2 == 25);
+    }
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_pausesOnBreakpoint")
+    {
+        std::string fixturePath = getDebugFixturePath("simple.luau");
+        debug::Target target(*runtime);
+        debug::Breakpoint bp1 = target.setBreakpoint(fixturePath, 1);
+        debug::Breakpoint bp2 = target.setBreakpoint(fixturePath, 2);
+
+
+        std::promise<void> hitPromise1;
+        std::future<void> hitFuture1 = hitPromise1.get_future();
+        std::promise<void> hitPromise2;
+        std::future<void> hitFuture2 = hitPromise2.get_future();
+
+        config.onBreakpointHit = [&](debug::Process& process, const debug::Breakpoint& bp)
+        {
+            if (bp.id == bp1.id)
+                hitPromise1.set_value();
+            else if (bp.id == bp2.id)
+                hitPromise2.set_value();
+        };
+
+        std::shared_ptr<debug::Process> process = target.launch(fixturePath, {}, config);
+        REQUIRE((bool)(process));
+        // check we have hit the breakpoint 1
+        REQUIRE(hitFuture1.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+        // check that we actually stopped at the breakpoint by having not hit the next breakpoint
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        REQUIRE(hitFuture2.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
+
+        // continue execution
+        bool continuedProcess = process->continueProcess();
+        CHECK(continuedProcess);
+
+        // check we have hit the breakpoint 2
+        REQUIRE(hitFuture2.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+        // check that we actually stopped at the breakpoint by having not hit the exit
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
+
+        // continue execution
+        continuedProcess = process->continueProcess();
+        CHECK(continuedProcess);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
 }

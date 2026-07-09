@@ -91,13 +91,14 @@ struct Process
     explicit Process(lua_State* thread, Target& parentTarget, LaunchConfig config);
     Target& getTarget();
     bool continueProcess();
-
+    int getCurrentLine() const;
 private:
     lua_State* thread;
     Runtime& runtime;
     Target& parentTarget;
     ResumeToken resumeToken;
     LaunchConfig config;
+    bool continueRequested = false;
 
     void installBpHitCallback();
     void installExitCallback();

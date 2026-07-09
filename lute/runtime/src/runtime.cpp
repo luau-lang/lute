@@ -126,7 +126,7 @@ RuntimeStep Runtime::runOnce()
     else
         status = lua_resume(L, nullptr, next.argumentCount);
 
-    if (status == LUA_YIELD)
+    if (status == LUA_YIELD || status == LUA_BREAK)
     {
         return StepSuccess{L};
     }
