@@ -2,7 +2,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 
-local dir = "tests/std/snapshots/ioinput"
+local dir = "tests/std/snapshots/io/input"
 
 local util = {}
 
