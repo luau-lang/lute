@@ -76,6 +76,7 @@ test.suite("LuteDap", function(suite)
 			assert.eq(msg5.seq, 5)
 		end
 
+		-- check for multiple different block sizes of the reader
 		local reader = makeChunkReader(input, 16)
 		local write, getWritten, clear = makeWriter()
 		dap.dapLoop(reader, write)
@@ -92,6 +93,11 @@ test.suite("LuteDap", function(suite)
 		checkEquivalence(getWritten())
 
 		reader = makeChunkReader(input, 2)
+		clear()
+		dap.dapLoop(reader, write)
+		checkEquivalence(getWritten())
+
+		reader = makeChunkReader(input, #input)
 		clear()
 		dap.dapLoop(reader, write)
 		checkEquivalence(getWritten())

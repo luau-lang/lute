@@ -1,4 +1,3 @@
-local io = require("@std/io")
 local json = require("@std/json")
 
 -- we want generic Reader/Writer functions to easily test + support
