@@ -96,19 +96,6 @@ local function removeRequirementsForPackage(registryRequirements: { [string]: se
 	end
 end
 
-local function serializeOverrides(overrides: { [string]: manifest.DependencySpec }): { [string]: string }
-	local result: { [string]: string } = {}
-	for name, spec in overrides do
-		if spec.sourceKind == "registry" then
-			result[name] = spec.version
-		elseif spec.sourceKind == "path" then
-			result[name] = `path:{spec.source}`
-		elseif spec.sourceKind == "github" then
-			result[name] = `github:{spec.source}@{spec.rev}`
-		end
-	end
-	return result
-end
 
 local function buildEffectiveUniverse(
 	universe: semver.Universe,
@@ -137,7 +124,7 @@ local function buildEffectiveUniverse(
 			end
 			assert(
 				#filtered > 0,
-				`Override constrains '{pkgName}' to {overrides[pkgName].version}, but no matching version exists in the registry`
+				`Override constrains '{pkgName}' to {semver.formatConstraint(registryOverrides[pkgName])}, but no matching version exists in the registry`
 			)
 			effective[pkgName] = filtered
 		elseif sourceOverrideNames[pkgName] then
@@ -568,7 +555,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	table.freeze(packages)
 	table.freeze(dependencies)
 
-	local serializedOverrides = serializeOverrides(overrides)
+	local serializedOverrides = lockfile.serializeOverrides(overrides)
 	local frozenOverrides: { [string]: string }? = if next(serializedOverrides)
 		then table.freeze(serializedOverrides)
 		else nil

@@ -187,4 +187,5 @@ return {
 	parseFile = parseFile,
 	tryParseFile = tryParseFile,
 	satisfiesManifest = satisfiesManifest,
+	serializeOverrides = serializeOverrides,
 }
