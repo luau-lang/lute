@@ -235,7 +235,7 @@ void Target::installPendingBreakpoints(lua_State* L)
         launchConfig.onBreakpointInstall(bp);
 }
 
-std::shared_ptr<Process> Target::launch(const std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
+std::shared_ptr<Process> Target::launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     // launch() cannot be called twice from the same target.
     if (activeProcess != nullptr)
@@ -298,6 +298,7 @@ void Process::installBpHitCallback()
         Process* process = static_cast<Process*>(lua_callbacks(L)->userdata);
         // TODO: this pause/resume mechanism assumes single co-routine runtime
         // We land on the same instruction after a continue() after hitting a bp so we basically don't do anything
+        std::unique_lock lock(process->continueMutex);
         if (process->continueRequestedBp)
         {
             process->continueRequestedBp = false;
@@ -318,6 +319,7 @@ void Process::installBpHitCallback()
         {
             process->bpHit = *bp;
             process->resumeToken = getResumeToken(L);
+            lock.unlock();
             lua_break(L);
             if (process->config.onBreakpointHit)
                 process->config.onBreakpointHit(*process, bp.value());
@@ -347,6 +349,7 @@ void Process::installExitCallback()
 
 bool Process::continueProcess()
 {
+    std::unique_lock lock(continueMutex);
     if (!resumeToken)
         return false;
     // we are continuing on a breakpoint and so might need to flag continueRequestedBp.

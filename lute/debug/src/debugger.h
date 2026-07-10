@@ -67,13 +67,15 @@ struct Target
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
-    std::shared_ptr<Process> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
+    std::shared_ptr<Process> launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
 
 private:
     Runtime& parentRuntime;
     std::unique_ptr<Runtime> childRuntime;
 
-    // breakpointsMutex protects currentBreakpointId and breakpoints itself
+    // breakpointsMutex protects currentBreakpointId and breakpoints itself.
+    // for deadlock concerns, mutexes in the Process object should always be locked before
+    // locking the breakpointsMutex. We should never take a Process object lock while already owning breakpointsMutex.
     mutable std::mutex breakpointsMutex;
     int currentBreakpointId = 0;
     std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
@@ -97,10 +99,13 @@ private:
     lua_State* thread;
     Runtime& runtime;
     Target& parentTarget;
-    ResumeToken resumeToken;
     LaunchConfig config;
+
+    // continueMutex protects continueRequestedBp, resumeToken, and bpHit
+    mutable std::mutex continueMutex;
     bool continueRequestedBp = false;
     std::optional<Breakpoint> bpHit;
+    ResumeToken resumeToken;
 
     void installBpHitCallback();
     void installExitCallback();
