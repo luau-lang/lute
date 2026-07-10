@@ -71,11 +71,12 @@ struct Target
 
 private:
     Runtime& parentRuntime;
-    std::shared_ptr<Runtime> childRuntime;
+    std::unique_ptr<Runtime> childRuntime;
 
+    // breakpointsMutex protects currentBreakpointId and breakpoints itself
+    mutable std::mutex breakpointsMutex;
     int currentBreakpointId = 0;
     std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
-    mutable std::mutex breakpointsMutex;
 
     std::shared_ptr<Process> activeProcess;
     LaunchConfig launchConfig;
@@ -91,7 +92,7 @@ struct Process
     explicit Process(lua_State* thread, Target& parentTarget, LaunchConfig config);
     Target& getTarget();
     bool continueProcess();
-    int getCurrentLine() const;
+
 private:
     lua_State* thread;
     Runtime& runtime;

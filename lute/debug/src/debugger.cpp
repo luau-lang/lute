@@ -33,7 +33,7 @@ Target::Target(Runtime& parentRuntime)
 Target::~Target()
 {
     // We want to stop the runtime so nothing runs while we are destroying the target but first
-    // we need to clear all sources (which are stored as refs in the runtme).
+    // we need to clear all sources (which are stored as refs in the runtime).
     loadedSources.clear();
     childRuntime.reset();
 }
@@ -43,24 +43,24 @@ Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
     std::optional<Breakpoint> preexistingBp = getBreakpointBySourceLine(sourcePath, line);
     if (preexistingBp)
         return *preexistingBp;
+    std::unique_lock lock(breakpointsMutex);
     int id = currentBreakpointId;
     currentBreakpointId++;
-    std::unique_lock lock(breakpointsMutex);
-    auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint(id, sourcePath, line, BreakpointStatus::PendingInstall));
+    auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint{id, sourcePath, line, BreakpointStatus::PendingInstall});
     // We schedule breakpoint installs to happen async
     if (childRuntime)
         childRuntime->schedule(
             [this, id]()
             {
                 std::unique_lock lock(breakpointsMutex);
-                auto it = breakpoints.find(id);
                 // check breakpoint has not been erased when this scheduled install has been fired
-                if (it != breakpoints.end())
+                if (auto it = breakpoints.find(id); it != breakpoints.end())
                 {
                     bool installed = installBreakpoint(childRuntime->GL, it->second);
+                    Breakpoint bp = it->second;
                     lock.unlock();
                     if (installed && launchConfig.onBreakpointInstall)
-                        launchConfig.onBreakpointInstall(it->second);
+                        launchConfig.onBreakpointInstall(bp);
                 }
             }
         );
@@ -185,12 +185,17 @@ std::optional<Breakpoint> Target::getBreakpointById(int breakpointId) const
 std::optional<Breakpoint> Target::getBreakpointBySourceLine(std::string source, int line) const
 {
     std::unique_lock lock(breakpointsMutex);
-    for (const auto& [_, bp] : breakpoints)
-    {
-        if (bp.sourcePath == source && bp.line == line)
-            return bp;
-    }
-    return std::nullopt;
+    auto it = std::find_if(
+        breakpoints.begin(),
+        breakpoints.end(),
+        [&source, line](const std::pair<const int, Breakpoint>& entry)
+        {
+            return entry.second.sourcePath == source && entry.second.line == line;
+        }
+    );
+    if (it == breakpoints.end())
+        return std::nullopt;
+    return it->second;
 }
 
 bool Target::installBreakpoint(lua_State* L, Breakpoint& bp)
@@ -215,19 +220,19 @@ bool Target::installBreakpoint(lua_State* L, Breakpoint& bp)
 void Target::installPendingBreakpoints(lua_State* L)
 {
     std::unique_lock lock(breakpointsMutex);
+    std::vector<Breakpoint> needCallback;
     for (auto& [_, bp] : breakpoints)
     {
         if (bp.status == BreakpointStatus::PendingInstall)
         {
             bool installed = installBreakpoint(L, bp);
             if (installed && launchConfig.onBreakpointInstall)
-            {
-                lock.unlock();
-                launchConfig.onBreakpointInstall(bp);
-                lock.lock();
-            }
+                needCallback.push_back(bp);
         }
     }
+    lock.unlock();
+    for (auto& bp : needCallback)
+        launchConfig.onBreakpointInstall(bp);
 }
 
 std::shared_ptr<Process> Target::launch(const std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
@@ -235,13 +240,16 @@ std::shared_ptr<Process> Target::launch(const std::string sourcePath, const std:
     // launch() cannot be called twice from the same target.
     if (activeProcess != nullptr)
         return nullptr;
-    childRuntime = std::make_shared<Runtime>(parentRuntime.reporter);
+    childRuntime = std::make_unique<Runtime>(parentRuntime.reporter);
     setupState(*childRuntime, nullptr);
     launchConfig = config;
 
     std::ifstream file(sourcePath);
     if (!file.is_open())
+    {
+        childRuntime.reset();
         return nullptr;
+    }
     std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     Luau::CompileOptions debugOptions = {};
     debugOptions.optimizationLevel = 1;
@@ -280,6 +288,7 @@ Target& Process::getTarget()
 {
     return parentTarget;
 }
+
 void Process::installBpHitCallback()
 {
     lua_Callbacks* cb = lua_callbacks(runtime.GL);
