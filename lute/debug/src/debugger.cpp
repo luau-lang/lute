@@ -352,6 +352,7 @@ bool Process::continueProcess()
     std::unique_lock lock(continueMutex);
     if (!resumeToken)
         return false;
+    ResumeToken token;
     // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
     if (bpHit)
     {
@@ -362,13 +363,16 @@ bool Process::continueProcess()
             continueRequestedBp = true;
         bpHit = std::nullopt;
     }
-    resumeToken->complete(
+    token = std::move(resumeToken);
+    lock.unlock();
+    // complete() holdes a continuation mutex that we want to avoid holding while holding continueMutex
+    // so we do the move above.
+    token->complete(
         [](lua_State* L)
         {
             return 0;
         }
     );
-    resumeToken = nullptr;
     return true;
 }
 } // namespace debug
