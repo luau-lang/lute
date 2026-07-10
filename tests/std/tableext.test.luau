@@ -75,6 +75,14 @@ test.suite("TableExt", function(suite)
 		end
 	end)
 
+	suite:case("values", function(assert)
+		local a = { a = 1, b = 2, c = 3 }
+		local values = tableext.values(a)
+		for _, value in a do
+			assert.neq(table.find(values, value), nil)
+		end
+	end)
+
 	suite:case("reverse", function(assert)
 		-- in-place
 		local a = { 1, 2, 3 }
