@@ -99,7 +99,8 @@ private:
     Target& parentTarget;
     ResumeToken resumeToken;
     LaunchConfig config;
-    bool continueRequested = false;
+    bool continueRequestedBp = false;
+    std::optional<Breakpoint> bpHit;
 
     void installBpHitCallback();
     void installExitCallback();

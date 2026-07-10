@@ -298,9 +298,9 @@ void Process::installBpHitCallback()
         Process* process = static_cast<Process*>(lua_callbacks(L)->userdata);
         // TODO: this pause/resume mechanism assumes single co-routine runtime
         // We land on the same instruction after a continue() after hitting a bp so we basically don't do anything
-        if (process->continueRequested)
+        if (process->continueRequestedBp)
         {
-            process->continueRequested = false;
+            process->continueRequestedBp = false;
             return;
         }
         lua_Debug info = {};
@@ -316,6 +316,7 @@ void Process::installBpHitCallback()
         // Only stop execution on installed breakpoints; otherwise, don't stop.
         if (bp && bp->status == BreakpointStatus::Installed)
         {
+            process->bpHit = *bp;
             process->resumeToken = getResumeToken(L);
             lua_break(L);
             if (process->config.onBreakpointHit)
@@ -348,7 +349,16 @@ bool Process::continueProcess()
 {
     if (!resumeToken)
         return false;
-    continueRequested = true;
+    // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
+    if (bpHit)
+    {
+        // we need to check if our breakpoint is still currently installed after
+        // onBreakpointHit() callback
+        std::optional<Breakpoint> currentBp = parentTarget.getBreakpointById(bpHit->id);
+        if (currentBp && currentBp->status == BreakpointStatus::Installed)
+            continueRequestedBp = true;
+        bpHit = std::nullopt;
+    }
     resumeToken->complete(
         [](lua_State* L)
         {
