@@ -283,31 +283,28 @@ static std::vector<std::string> getLuteScripts(const std::string& luteFolderPath
     if (!normalizedPrefix.empty() && normalizedPrefix.back() != '/')
         normalizedPrefix += '/';
 
-    traverseDirectory(
-        luteFolderPath,
-        [&](const std::string& rawFilePath)
+    traverseDirectory(luteFolderPath, [&](const std::string& rawFilePath)
+    {
+        std::string filePath = normalizePath(rawFilePath);
+        std::string rel = filePath.substr(normalizedPrefix.size());
+        size_t slashPos = rel.find('/');
+
+        // If there's a slash at the end, we'll check if the rest is init.luau or init.lua, and add it as a command if so.
+        if (slashPos != std::string::npos)
         {
-            std::string filePath = normalizePath(rawFilePath);
-            std::string rel = filePath.substr(normalizedPrefix.size());
-            size_t slashPos = rel.find('/');
+            std::string rest = rel.substr(slashPos + 1);
+            if (rest.find('/') == std::string::npos && (rest == "init.luau" || rest == "init.lua"))
+                names.insert(rel.substr(0, slashPos));
 
-            // If there's a slash at the end, we'll check if the rest is init.luau or init.lua, and add it as a command if so.
-            if (slashPos != std::string::npos)
-            {
-                std::string rest = rel.substr(slashPos + 1);
-                if (rest.find('/') == std::string::npos && (rest == "init.luau" || rest == "init.lua"))
-                    names.insert(rel.substr(0, slashPos));
-
-                return;
-            }
-
-            // Otherwise, we can just look for .luau or .lua files and add them as commands without the extension.
-            if (rel.size() > 5 && rel.substr(rel.size() - 5) == ".luau")
-                names.insert(rel.substr(0, rel.size() - 5));
-            else if (rel.size() > 4 && rel.substr(rel.size() - 4) == ".lua")
-                names.insert(rel.substr(0, rel.size() - 4));
+            return;
         }
-    );
+
+        // Otherwise, we can just look for .luau or .lua files and add them as commands without the extension.
+        if (rel.size() > 5 && rel.substr(rel.size() - 5) == ".luau")
+            names.insert(rel.substr(0, rel.size() - 5));
+        else if (rel.size() > 4 && rel.substr(rel.size() - 4) == ".lua")
+            names.insert(rel.substr(0, rel.size() - 4));
+    });
 
     return {names.begin(), names.end()};
 }
@@ -697,7 +694,7 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
     std::optional<std::string> exePath = Process::getExecPath(&err);
     if (!exePath)
     {
-        reporter.formatError("Unable to find the `lute` executable path: Process::getExecPath failed with error: %s", err.c_str());
+	    reporter.formatError("Unable to find the `lute` executable path: Process::getExecPath failed with error: %s", err.c_str());
         return 1;
     }
 
