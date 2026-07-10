@@ -1,6 +1,6 @@
 local test = require("@std/test")
 local json = require("@std/json")
-local dap = require("../../lute/cli/commands/debug/dap")
+local dapStream = require("../../lute/cli/commands/debug/dap")
 
 local function makeChunkReader(readMessage: string, blockSize: number)
 	local pos = 1
@@ -79,27 +79,27 @@ test.suite("LuteDap", function(suite)
 		-- check for multiple different block sizes of the reader
 		local reader = makeChunkReader(input, 16)
 		local write, getWritten, clear = makeWriter()
-		dap.dapLoop(reader, write)
+		dapStream.dapLoop(reader, write)
 		checkEquivalence(getWritten())
 
 		reader = makeChunkReader(input, 7)
 		clear()
-		dap.dapLoop(reader, write)
+		dapStream.dapLoop(reader, write)
 		checkEquivalence(getWritten())
 
 		reader = makeChunkReader(input, 4)
 		clear()
-		dap.dapLoop(reader, write)
+		dapStream.dapLoop(reader, write)
 		checkEquivalence(getWritten())
 
 		reader = makeChunkReader(input, 2)
 		clear()
-		dap.dapLoop(reader, write)
+		dapStream.dapLoop(reader, write)
 		checkEquivalence(getWritten())
 
 		reader = makeChunkReader(input, #input)
 		clear()
-		dap.dapLoop(reader, write)
+		dapStream.dapLoop(reader, write)
 		checkEquivalence(getWritten())
 	end)
 end)
