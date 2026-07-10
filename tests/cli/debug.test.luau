@@ -1,6 +1,11 @@
 local test = require("@std/test")
 local json = require("@std/json")
 local dapStream = require("../../lute/cli/commands/debug/dap")
+local path = require("@std/path")
+local process = require("@std/process")
+
+local lutePath = path.format(process.execPath())
+local USAGE = "Usage: lute debug serve"
 
 local function makeChunkReader(readMessage: string, blockSize: number)
 	local pos = 1
@@ -34,8 +39,8 @@ local function parseJsonMessage(msg: string): (json.Object, string)
 	return assert(json.asObject(json.deserialize(body)), "body is not a JSON object"), remaining
 end
 
-test.suite("LuteDap", function(suite)
-	suite:case("basicInitializationTermination", function(assert)
+test.suite("LuteDebug", function(suite)
+	suite:case("luteDebugDAPStream", function(assert)
 		local input = 'Content-Length: 100\r\n\r\n{"seq":1,"type":"request","command":"initialize","arguments":{"clientID":"test","adapterID":"lute"}}'
 			.. 'Content-Length: 56\r\n\r\n{"seq":2,"type":"request","command":"configurationDone"}'
 			.. 'Content-Length: 45\r\n\r\n{"seq":3,"type":"request","command":"launch"}'
@@ -101,5 +106,19 @@ test.suite("LuteDap", function(suite)
 		clear()
 		dapStream.dapLoop(reader, write)
 		checkEquivalence(getWritten())
+	end)
+	suite:case("luteDebugHelpMessage", function(assert)
+		local result = process.run({ lutePath, "debug", "-h" })
+
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, USAGE)
+
+		result = process.run({ lutePath, "debug", "--h" })
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, USAGE)
+
+		result = process.run({ lutePath, "debug", "--help" })
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, USAGE)
 	end)
 end)
