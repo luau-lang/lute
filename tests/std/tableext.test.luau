@@ -81,6 +81,7 @@ test.suite("TableExt", function(suite)
 		for _, value in a do
 			assert.neq(table.find(values, value), nil)
 		end
+		assert.eq(#values, 3)
 	end)
 
 	suite:case("reverse", function(assert)
