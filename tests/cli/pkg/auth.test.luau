@@ -18,11 +18,11 @@ local TEST_REPOSITORY = "luau-lang/lute"
 local TEST_TOKEN = "lute-authentication-provider-test-token"
 
 local function environment(): { [string]: string }
-	local env = table.clone(process.env)
-	env.HOME = path.format(workingDirectory)
-	env.USERPROFILE = path.format(workingDirectory)
-	env.GITHUB_TOKEN = ""
-	return env
+	return setmetatable({
+		HOME = path.format(workingDirectory),
+		USERPROFILE = path.format(workingDirectory),
+		GITHUB_TOKEN = "",
+	}, { __index = process.env }) :: any
 end
 
 local function writeConfig(content: string)
