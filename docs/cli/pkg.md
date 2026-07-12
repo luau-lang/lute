@@ -10,7 +10,7 @@ lute pkg install
 
 ## Credential resolution
 
-GitHub requests resolve credentials in this order:
+GitHub credentials are discovered in the following order:
 
 1. `GITHUB_TOKEN` environment variable
 2. User-defined credential resolver hook (`~/.lute/config.luau`)
@@ -18,7 +18,7 @@ GitHub requests resolve credentials in this order:
 
 If none of these returns a token, Lute performs the request without authentication.
 
-Credential resolvers are configured in `~/.lute/config.luau`. This is a trusted, user-owned configuration file; project `loom.config.luau` files cannot provide credential resolvers.
+Credential resolvers are configured in `~/.lute/config.luau`. This is a trusted, user-owned configuration file.
 
 ```luau
 local process = require("@std/process")
