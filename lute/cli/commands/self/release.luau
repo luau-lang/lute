@@ -5,7 +5,6 @@ local process = require("@std/process")
 local stringext = require("@std/stringext")
 local system = require("@std/system")
 
-local binary = require("./binary")
 local paths = require("./paths")
 local unzip = require("../pkg/loom-core/extern/unzip")
 
@@ -70,7 +69,7 @@ local function archSlug(): string
 	end
 end
 
-local function downloadBinary(tag: string, destination: string)
+local function downloadBinary(tag: string): string
 	tag = normalizeTag(tag)
 	local asset = `lute-{osSlug()}-{archSlug()}.zip`
 	local url = `https://github.com/{REPO}/releases/download/{tag}/{asset}`
@@ -96,7 +95,7 @@ local function downloadBinary(tag: string, destination: string)
 	if extracted == nil then
 		error(`Could not find {exeName} in {asset}`)
 	end
-	binary.installBinary(extracted, destination)
+	return extracted
 end
 
 return table.freeze({

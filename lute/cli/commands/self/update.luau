@@ -4,6 +4,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 
+local binary = require("./binary")
 local paths = require("./paths")
 local release = require("./release")
 
@@ -62,7 +63,8 @@ return function(...: string)
 	end
 
 	print(`Updating lute: {current or "(unknown)"} -> {tag}`)
-	release.downloadBinary(tag, destination)
+	local bytes = release.downloadBinary(tag)
+	binary.installBinary(bytes, destination)
 	print(`Updated lute to {tag} at {destination}`)
 
 	local setup = process.run({ destination, "setup" }, { stdio = "inherit" })

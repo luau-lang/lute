@@ -22,6 +22,10 @@ local function swapBinary(destination: string, new: string): ()
 		local ok, err = pcall(fs.move, new, destination)
 		if not ok then
 			pcall(fs.move, backup, destination)
+			local restored, restoreErr = pcall(fs.move, backup, destination)
+			if not restored then
+				error(`Failed to install the new binary: {err}\nThe previous binary remains at {backup}: {restoreErr}`)
+			end
 			pcall(fs.remove, backup)
 			error(err)
 		end
