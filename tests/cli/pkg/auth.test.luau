@@ -5,12 +5,13 @@ local system = require("@std/system")
 local test = require("@std/test")
 
 local lutePath = path.format(process.execPath())
+local testFilePath = debug.info(1, "s"):gsub("^@", "")
+local resolverFixture = path.join(path.dirname(testFilePath), "fixtures", "credential_resolver.luau")
 
 local workingDirectory = path.join(system.tmpdir(), "lute-pkg-auth")
 local luteConfigDirectory = path.join(workingDirectory, ".lute")
 local luteConfigPath = path.join(luteConfigDirectory, "config.luau")
 local loomAuthPath = path.join(workingDirectory, ".loom", "auth.luau")
-local resolverFixturePath = path.join(workingDirectory, "credential_resolver.luau")
 
 local TEST_DOMAIN = "github.com"
 local TEST_REPOSITORY = "luau-lang/lute"
@@ -47,7 +48,7 @@ end
 local function runResolver(domain: string, expectedToken: string): { exitcode: number, stdout: string, stderr: string }
 	return process.run({
 		lutePath,
-		path.format(resolverFixturePath),
+		path.format(resolverFixture),
 		"https",
 		domain,
 		TEST_REPOSITORY,
@@ -63,24 +64,6 @@ test.suite("LutePkgAuth", function(suite)
 			fs.removeDirectory(workingDirectory, { recursive = true })
 		end
 		fs.createDirectory(workingDirectory)
-		fs.writeStringToFile(
-			resolverFixturePath,
-			[[local credentials = require("@commands/pkg/loom-core/src/credentials")
-
-local protocol, host, repositoryPath, expectedToken = select(2, ...)
-local token = credentials.resolve(table.freeze({
-	protocol = protocol,
-	host = host,
-	path = repositoryPath,
-}))
-
-if expectedToken == "<nil>" then
-	assert(token == nil, `Expected no token, got {token}`)
-else
-	assert(token == expectedToken, `Expected token {expectedToken}, got {token}`)
-end
-]]
-		)
 	end)
 
 	suite:afterEach(function()
