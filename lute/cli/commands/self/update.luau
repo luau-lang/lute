@@ -8,6 +8,8 @@ local binary = require("./binary")
 local paths = require("./paths")
 local release = require("./release")
 
+local REPO = "luau-lang/lute"
+
 local HELP_STRING = [[
 Update the host lute binary to the latest release.
 
@@ -56,14 +58,14 @@ return function(...: string)
 		error("Automatic updates are not supported for nightly releases. Use --version to select a nightly release.")
 	end
 
-	local tag = if requested ~= nil then release.normalizeTag(requested) else release.queryLatestTag()
+	local tag = if requested ~= nil then release.normalizeTag(requested) else release.queryLatestTag(REPO)
 	if current == tag then
 		print(`lute is up to date ({tag})`)
 		return
 	end
 
 	print(`Updating lute: {current or "(unknown)"} -> {tag}`)
-	local bytes = release.downloadBinary(tag)
+	local bytes = release.downloadBinary(REPO, tag, paths.exeName())
 	binary.installBinary(bytes, destination)
 	print(`Updated lute to {tag} at {destination}`)
 

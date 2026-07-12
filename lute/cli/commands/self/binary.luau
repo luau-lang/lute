@@ -1,13 +1,9 @@
 local fs = require("@std/fs")
-local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 
-local paths = require("./paths")
-
 local function swapBinary(destination: string, new: string): ()
-	local directory = path.dirname(destination)
-	local backup = path.format(path.join(directory, `{paths.exeName()}.old`))
+	local backup = `{destination}.old`
 	pcall(fs.remove, backup)
 
 	do
@@ -21,7 +17,6 @@ local function swapBinary(destination: string, new: string): ()
 	do
 		local ok, err = pcall(fs.move, new, destination)
 		if not ok then
-			pcall(fs.move, backup, destination)
 			local restored, restoreErr = pcall(fs.move, backup, destination)
 			if not restored then
 				error(`Failed to install the new binary: {err}\nThe previous binary remains at {backup}: {restoreErr}`)
@@ -35,8 +30,7 @@ local function swapBinary(destination: string, new: string): ()
 end
 
 local function installBinary(bytes: string, destination: string): ()
-	local directory = path.dirname(destination)
-	local temporary = path.format(path.join(directory, `{paths.exeName()}.new`))
+	local temporary = `{destination}.new`
 	pcall(fs.remove, temporary)
 	fs.writeStringToFile(temporary, bytes)
 

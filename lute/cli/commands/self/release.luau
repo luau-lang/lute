@@ -4,11 +4,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
 local system = require("@std/system")
-
-local paths = require("./paths")
 local unzip = require("../pkg/loom-core/extern/unzip")
-
-local REPO = "luau-lang/lute"
 
 local function normalizeTag(tag: string): string
 	local trimmed = stringext.trim(tag)
@@ -31,8 +27,8 @@ local function headers(): { [string]: string }
 	return h
 end
 
-local function queryLatestTag(): string
-	local url = `https://api.github.com/repos/{REPO}/releases/latest`
+local function queryLatestTag(repo: string): string
+	local url = `https://api.github.com/repos/{repo}/releases/latest`
 	local res = net.request(url, { method = "GET", headers = headers() })
 	if not res.ok then
 		error(`Failed to query latest release: HTTP {res.status}\n{string.sub(res.body, 1, 200)}`)
@@ -69,10 +65,10 @@ local function archSlug(): string
 	end
 end
 
-local function downloadBinary(tag: string): string
+local function downloadBinary(repo: string, tag: string, executableName: string): string
 	tag = normalizeTag(tag)
 	local asset = `lute-{osSlug()}-{archSlug()}.zip`
-	local url = `https://github.com/{REPO}/releases/download/{tag}/{asset}`
+	local url = `https://github.com/{repo}/releases/download/{tag}/{asset}`
 
 	local res = net.request(url, { method = "GET", headers = headers() })
 	if not res.ok then
@@ -80,20 +76,19 @@ local function downloadBinary(tag: string): string
 	end
 
 	local reader = unzip.load(buffer.fromstring(res.body))
-	local exeName = paths.exeName()
 
 	local extracted: string? = nil
 	reader:walk(function(entry, _depth)
 		if extracted ~= nil or entry.isDirectory then
 			return
 		end
-		if path.basename(entry.name) == exeName then
+		if path.basename(entry.name) == executableName then
 			extracted = reader:extract(entry, { type = "text" }) :: string
 		end
 	end)
 
 	if extracted == nil then
-		error(`Could not find {exeName} in {asset}`)
+		error(`Could not find {executableName} in {asset}`)
 	end
 	return extracted
 end
