@@ -1,5 +1,5 @@
+local authenticationStore = require("../authenticationstore")
 local cli = require("@batteries/cli")
-local authStore = require("../authentication")
 
 local function authenticate(...: string)
 	local args = cli.parser()
@@ -13,7 +13,7 @@ local function authenticate(...: string)
 	end
 
 	local domain = args:get("domain") or "github.com"
-	authStore.saveAuthenticationToken(domain, token)
+	authenticationStore.saveAuthenticationToken(domain, token)
 end
 
 return authenticate

@@ -25,7 +25,7 @@ local process = require("@std/process")
 local stringext = require("@std/stringext")
 
 return {
-	credentialResolvers = {
+	auth = {
 		["github.com"] = function(request)
 			local result = process.run({
 				"gh",

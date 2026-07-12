@@ -1,5 +1,5 @@
-local authentication = require("./authentication")
-local credentials = require("./credentials")
+local authenticationProvider = require("./authenticationprovider")
+local authenticationStore = require("./authenticationstore")
 local fs = require("@std/fs")
 local net = require("@std/net")
 local path = require("@std/path")
@@ -47,18 +47,18 @@ local function getGithubAuthenticationToken(repositoryPath: string): string?
 		return githubToken
 	end
 
-	local resolvedToken = credentials.resolve({
+	local providedToken = authenticationProvider.resolveToken({
 		protocol = "https",
 		host = "github.com",
 		path = repositoryPath,
 	})
-	if resolvedToken ~= nil and resolvedToken ~= "" then
-		return resolvedToken
+	if providedToken ~= nil and providedToken ~= "" then
+		return providedToken
 	end
 
-	local store = authentication.loadAuthenticationStore()
+	local store = authenticationStore.loadAuthenticationStore()
 	local entry = store["github.com"]
-	if entry ~= nil and entry.token ~= "" then
+	if typeof(entry) == "table" and typeof(entry.token) == "string" and entry.token ~= "" then
 		return entry.token
 	end
 

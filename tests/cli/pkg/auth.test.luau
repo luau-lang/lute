@@ -81,7 +81,7 @@ test.suite("LutePkgAuth", function(suite)
 
 	suite:case("resolvesTokenFromUserConfig", function(assert)
 		writeConfig(
-			`return \{\n\tcredentialResolvers = \{\n\t\t["{TEST_DOMAIN}"] = function(request)\n\t\t\tassert(request.protocol == "https")\n\t\t\tassert(request.host == "{TEST_DOMAIN}")\n\t\t\tassert(request.path == "{TEST_REPOSITORY}")\n\t\t\treturn "{TEST_TOKEN}"\n\t\tend,\n\t\},\n\}\n`
+			`return \{\n\tauth = \{\n\t\t["{TEST_DOMAIN}"] = function(request)\n\t\t\tassert(request.protocol == "https")\n\t\t\tassert(request.host == "{TEST_DOMAIN}")\n\t\t\tassert(request.path == "{TEST_REPOSITORY}")\n\t\t\treturn "{TEST_TOKEN}"\n\t\tend,\n\t\},\n\}\n`
 		)
 
 		local result = runResolver(TEST_DOMAIN, TEST_TOKEN)
@@ -91,7 +91,7 @@ test.suite("LutePkgAuth", function(suite)
 
 	suite:case("resolvesTokenFromWildcardResolver", function(assert)
 		writeConfig(
-			`return \{\n\tcredentialResolvers = \{\n\t\t["*"] = function()\n\t\t\treturn "{TEST_TOKEN}"\n\t\tend,\n\t\},\n\}\n`
+			`return \{\n\tauth = \{\n\t\t["*"] = function()\n\t\t\treturn "{TEST_TOKEN}"\n\t\tend,\n\t\},\n\}\n`
 		)
 
 		local result = runResolver("some-other-host.com", TEST_TOKEN)
@@ -107,7 +107,7 @@ test.suite("LutePkgAuth", function(suite)
 
 	suite:case("propagatesResolverErrors", function(assert)
 		writeConfig([[return {
-	credentialResolvers = {
+	auth = {
 		["github.com"] = function()
 			error("resolver failed")
 		end,
@@ -117,13 +117,13 @@ test.suite("LutePkgAuth", function(suite)
 
 		local result = runResolver(TEST_DOMAIN, "<nil>")
 		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stderr, "Credential resolver for github.com failed")
+		assert.strContains(result.stderr, "Auth provider for github.com failed")
 		assert.strContains(result.stderr, "resolver failed")
 	end)
 
 	suite:case("rejectsTokenWithControlCharacters", function(assert)
 		writeConfig([[return {
-	credentialResolvers = {
+	auth = {
 		["github.com"] = function()
 			return "token\ninjection"
 		end,
