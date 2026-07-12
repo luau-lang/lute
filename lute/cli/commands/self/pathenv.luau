@@ -8,7 +8,7 @@ local paths = require("./paths")
 local BLOCK_BEGIN = "# >>> lute self install >>>"
 local BLOCK_END = "# <<< lute self install <<<"
 local PATH_EXPORT = 'export PATH="$HOME/.lute/bin:$PATH"'
-local BLOCK = `\n\n{BLOCK_BEGIN}\n{PATH_EXPORT}\n{BLOCK_END}\n\n`
+local BLOCK = `\n{BLOCK_BEGIN}\n{PATH_EXPORT}\n{BLOCK_END}\n`
 
 local function profilePath(name: string): string
 	return path.format(path.join(process.homedir(), name))
