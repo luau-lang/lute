@@ -80,7 +80,7 @@ Lint Options:
 			                        If not specified, default lint rules are used.
 
 Self Options:
-	lute self <install|update|uninstall>
+	lute self <install|uninstall|update>
 		Manages the host lute installation in ~/.lute.
 			install                 Install the running lute as the host lute into ~/.lute/bin and update PATH.
 			uninstall               Remove the host lute binary and PATH entry.

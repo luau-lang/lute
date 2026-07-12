@@ -59,6 +59,6 @@ local function installBinary(bytes: string, destination: string): ()
 	pcall(fs.remove, temporary)
 end
 
-return {
+return table.freeze({
 	installBinary = installBinary,
-}
+})
