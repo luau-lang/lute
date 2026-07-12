@@ -7,8 +7,7 @@ local syntaxPrinter = require("@std/syntax/printer")
 local utils = require("@std/syntax/utils")
 
 local name = "constant_table_comparison"
-local message =
-	"Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false."
+local message = "Comparing a table reference to a table literal will always evaluate to `false`."
 local target = "https://lute.luau.org/cli/lint/constant_table_comparison.html"
 
 local function isTableLiteral(expr: syntax.CstExpr): boolean

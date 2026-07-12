@@ -7,7 +7,7 @@ local syntax = require("@std/syntax")
 local utils = require("@std/syntax/utils")
 
 local name = "divide_by_zero"
-local message = "Division by zero detected."
+local message = "Dividing by zero will always result in NaN, consider using `math.nan` instead."
 
 local function lint(cst: syntax.CstStatBlock, sourcepath: path.Path?): { lintTypes.LintViolation }
 	return query

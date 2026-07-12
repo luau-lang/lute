@@ -1,4 +1,5 @@
 local fs = require("@std/fs")
+local json = require("@std/json")
 local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
@@ -21,18 +22,20 @@ local defaultRulesPaths = {
 	no_any = path.format(path.join(defaultRulesFolder, "no_any.luau")),
 	parenthesized_conditions = path.format(path.join(defaultRulesFolder, "parenthesized_conditions.luau")),
 	unused_variable = path.format(path.join(defaultRulesFolder, "unused_variable.luau")),
+	reassigned_parameter = path.format(path.join(defaultRulesFolder, "reassigned_parameter.luau")),
 }
 
 local LINT_RULE_MESSAGES = {
 	almost_swapped = "warning[almost_swapped]: This looks like a failed attempt to swap.",
-	constant_table_comparison = "warning[constant_table_comparison]: Constant table comparison detected. Comparing a table reference to a table literal will always evaluate to false.",
-	divide_by_zero = "warning[divide_by_zero]: Division by zero detected.",
-	duplicate_keys = "warning[duplicate_keys]: Duplicate keys detected in table literal.",
-	empty_if_block = "warning[empty_if_block]: Empty if block detected. Consider removing it or adding to it.",
+	constant_table_comparison = "warning[constant_table_comparison]: Comparing a table reference to a table literal will always evaluate to `false`.",
+	divide_by_zero = "warning[divide_by_zero]: Dividing by zero will always result in NaN, consider using `math.nan` instead.",
+	duplicate_keys = "warning[duplicate_keys]: Duplicate keys in table literals will result in only the last one being included.",
+	empty_if_block = "warning[empty_if_block]: This `if` block is empty. Consider removing it or adding to it.",
 	global_function_in_scope = "warning[global_function_in_scope]: Non-local function declaration found inside a nested scope. Use 'local function' instead, or move this to the top level.",
-	no_any = "warning[no_any]: Explicit 'any' type detected. Use 'unknown' for type-safe alternatives that require narrowing before use.",
+	no_any = "warning[no_any]: Consider using `unknown` instead of `any` as a type-safe alternative that requires narrowing before use.",
 	parenthesized_conditions = "info[parenthesized_conditions]: Luau doesn't require parentheses around conditions. You can remove them for readability.",
-	unused_variable = "warning[unused_variable]: Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+	unused_variable = "warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.",
+	reassigned_parameter = "warning[reassigned_parameter]: Did you mean to reassign to a function parameter?",
 }
 
 local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
@@ -950,7 +953,7 @@ local x = 1 / 0
         {
             "items": [
                 {
-                    "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+                    "message": "This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.",
                     "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
                     "source": "lute lint",
                     "code": "unused_variable",
@@ -970,7 +973,7 @@ local x = 1 / 0
                     }
                 },
                 {
-                    "message": "Division by zero detected.",
+                    "message": "Dividing by zero will always result in NaN, consider using `math.nan` instead.",
                     "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
                     "source": "lute lint",
                     "code": "divide_by_zero",
@@ -1192,7 +1195,7 @@ b = a
 		local expected = [=[
 [
     {
-        "message": "Unused variable detected. Prefix this variable with '_' to indicate that it's intentionally unused.",
+        "message": "This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.",
         "codeDescription": "https://lute.luau.org/cli/lint/unused_variable.html",
         "source": "lute lint",
         "code": "unused_variable",
@@ -1212,7 +1215,7 @@ b = a
         }
     },
     {
-        "message": "Division by zero detected.",
+        "message": "Dividing by zero will always result in NaN, consider using `math.nan` instead.",
         "codeDescription": "https://lute.luau.org/cli/lint/divide_by_zero.html",
         "source": "lute lint",
         "code": "divide_by_zero",
@@ -3614,6 +3617,150 @@ end
 		})
 	end)
 
+	suite:case("reassignedParameterBasic", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	x = 2
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:2:2-7 ──
+   │
+ 2 │     x = 2
+   │     ^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("reassignedParameterAllowsShadow", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	local x = 3
+	x = 2
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("reassignedParameterTriggersInDoBlock", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	do
+		x = 2
+	end
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:3:3-8 ──
+   │
+ 3 │         x = 2
+   │         ^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("reassignedParameterTriggersOnCompoundAssign", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	x += 2
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:2:2-8 ──
+   │
+ 2 │     x += 2
+   │     ^^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	suite:case("reassignedParameterTriggersInNestedFunction", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	local function _(y)
+		x = 2
+	end
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 1 },
+				{
+					expectedOutput = [[
+violator.luau:3:3-8 ──
+   │
+ 3 │         x = 2
+   │         ^^^^^
+   │
+]],
+					count = 1,
+				},
+			},
+		})
+	end)
+
+	-- `y` triggers an unknown global type error here, but the point is to check that parameter scopes are correctly popped.
+	suite:case("reassignedParameterAllowsPoppedScope", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local function _(x)
+	local function _(y)
+	end
+	y = 2
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.reassigned_parameter,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.reassigned_parameter, count = 0 },
+			},
+		})
+	end)
+
 	suite:case("luteLintCurrentDirFindsLuauFiles", function(assert)
 		local testSubDir = path.join(tmpDir, "module")
 		fs.createDirectory(testSubDir)
@@ -3670,5 +3817,104 @@ end
 		})
 
 		assert.eq(result.exitcode, 0)
+	end)
+
+	suite:case("outputFlagWritesTextToFile", function(assert)
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		local outputPath = path.format(path.join(tmpDir, "lint_output.txt"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0\n")
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"-r",
+			defaultRulesPaths.divide_by_zero,
+			"--no-default-lints",
+			"-o",
+			outputPath,
+			violatorPath,
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.eq(fs.exists(outputPath), true)
+		local outputContent = fs.readFileToString(outputPath)
+		assert.strContains(outputContent, LINT_RULE_MESSAGES.divide_by_zero)
+		assert.strNotContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("outputFlagWritesJsonToFile", function(assert)
+		local violatorPath = path.format(path.join(tmpDir, "violator.luau"))
+		local outputPath = path.format(path.join(tmpDir, "lint_output.json"))
+		fs.writeStringToFile(violatorPath, "local x = 1 / 0\n")
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"-r",
+			defaultRulesPaths.divide_by_zero,
+			"--no-default-lints",
+			"-j",
+			"-o",
+			outputPath,
+			violatorPath,
+		})
+
+		assert.eq(result.exitcode, 0)
+		assert.eq(fs.exists(outputPath), true)
+		local outputContent = fs.readFileToString(outputPath)
+		assert.never.throws(function()
+			json.deserialize(outputContent)
+		end)
+		assert.strContains(outputContent, "divide_by_zero")
+		assert.strContains(outputContent, '"items"')
+		assert.strNotContains(result.stdout, "divide_by_zero")
+	end)
+
+	suite:case("outputFlagStringInputWritesToFile", function(assert)
+		local outputPath = path.format(path.join(tmpDir, "lint_string_output.txt"))
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"-r",
+			defaultRulesPaths.divide_by_zero,
+			"--no-default-lints",
+			"-s",
+			"local x = 1 / 0",
+			"-o",
+			outputPath,
+		})
+
+		assert.eq(result.exitcode, 1)
+		assert.eq(fs.exists(outputPath), true)
+		local outputContent = fs.readFileToString(outputPath)
+		assert.strContains(outputContent, LINT_RULE_MESSAGES.divide_by_zero)
+		assert.strNotContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
+	end)
+
+	suite:case("outputFlagStringInputJsonWritesToFile", function(assert)
+		local outputPath = path.format(path.join(tmpDir, "lint_string_json_output.json"))
+
+		local result = runProcess({
+			lutePath,
+			"lint",
+			"-r",
+			defaultRulesPaths.divide_by_zero,
+			"--no-default-lints",
+			"-s",
+			"local x = 1 / 0",
+			"-j",
+			"-o",
+			outputPath,
+		})
+
+		assert.eq(result.exitcode, 0)
+		assert.eq(fs.exists(outputPath), true)
+		local outputContent = fs.readFileToString(outputPath)
+		assert.never.throws(function()
+			json.deserialize(outputContent)
+		end)
+		assert.strContains(outputContent, "divide_by_zero")
+		assert.strNotContains(result.stdout, "divide_by_zero")
 	end)
 end)
