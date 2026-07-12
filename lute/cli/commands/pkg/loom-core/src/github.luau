@@ -1,4 +1,5 @@
-local authenticationStore = require("./authentication")
+local authentication = require("./authentication")
+local credentials = require("./credentials")
 local fs = require("@std/fs")
 local net = require("@std/net")
 local path = require("@std/path")
@@ -40,15 +41,24 @@ local function sanitizePath(path: string): string
 	return normalized
 end
 
-local function getGithubAuthenticationToken(): string?
+local function getGithubAuthenticationToken(repositoryPath: string): string?
 	local githubToken = process.env.GITHUB_TOKEN
-	if githubToken ~= nil then
+	if githubToken ~= nil and githubToken ~= "" then
 		return githubToken
 	end
 
-	local store = authenticationStore.loadAuthenticationStore()
+	local resolvedToken = credentials.resolve({
+		protocol = "https",
+		host = "github.com",
+		path = repositoryPath,
+	})
+	if resolvedToken ~= nil and resolvedToken ~= "" then
+		return resolvedToken
+	end
+
+	local store = authentication.loadAuthenticationStore()
 	local entry = store["github.com"]
-	if entry ~= nil then
+	if entry ~= nil and entry.token ~= "" then
 		return entry.token
 	end
 
@@ -75,12 +85,11 @@ local function installZipArchive(content: string, installPath: string)
 	end)
 end
 
-local function downloadFromGitHub(url: string): string
+local function downloadFromGitHub(url: string, token: string?): string
 	local headers = {
 		["User-Agent"] = "lute-pkg",
 	}
 
-	local token = getGithubAuthenticationToken()
 	if token ~= nil and token ~= "" then
 		headers["Authorization"] = `Bearer {token}`
 	end
@@ -97,8 +106,12 @@ local function installPackage(source: string, rev: string, installPath: string):
 	if not owner or not repo then
 		error(`Unsupported GitHub source URL: {source}`)
 	end
-	local url = `https://api.github.com/repos/{owner}/{repo}/zipball/{rev}`
-	local zipArchive = downloadFromGitHub(url)
+
+	local repositoryPath = `{owner}/{repo}`
+	local url = `https://api.github.com/repos/{repositoryPath}/zipball/{rev}`
+
+	local token = getGithubAuthenticationToken(repositoryPath)
+	local zipArchive = downloadFromGitHub(url, token)
 
 	local safeName = rev:gsub("[^%w%-_.]", "-")
 	local tempDir = path.format(path.join(system.tmpdir(), `lute-pkg-install-{safeName}`))

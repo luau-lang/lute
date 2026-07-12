@@ -15,6 +15,8 @@ COMMANDS:
   install                                   Install dependencies from loom.config.luau
   auth --token <token> [--domain <domain>]  Save authentication credentials
 
+Credential resolvers can be configured in ~/.lute/config.luau.
+
 Use --help with any command for more information.
 ]])
 end
