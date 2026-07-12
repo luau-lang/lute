@@ -5,7 +5,7 @@ local system = require("@std/system")
 
 local paths = require("./paths")
 
-local function swapBinary(destination: string, temporary: string): ()
+local function swapBinary(destination: string, new: string): ()
 	local directory = path.dirname(destination)
 	local backup = path.format(path.join(directory, `{paths.exeName()}.old`))
 	pcall(fs.remove, backup)
@@ -13,16 +13,16 @@ local function swapBinary(destination: string, temporary: string): ()
 	do
 		local ok, err = pcall(fs.move, destination, backup)
 		if not ok then
-			pcall(fs.remove, temporary)
+			pcall(fs.remove, backup)
 			error(err)
 		end
 	end
 
 	do
-		local ok, err = pcall(fs.move, temporary, destination)
+		local ok, err = pcall(fs.move, new, destination)
 		if not ok then
 			pcall(fs.move, backup, destination)
-			pcall(fs.remove, temporary)
+			pcall(fs.remove, backup)
 			error(err)
 		end
 	end
