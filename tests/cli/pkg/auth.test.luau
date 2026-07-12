@@ -6,7 +6,7 @@ local test = require("@std/test")
 
 local lutePath = path.format(process.execPath())
 local testFilePath = debug.info(1, "s"):gsub("^@", "")
-local resolverFixture = path.join(path.dirname(testFilePath), "fixtures", "credential_resolver.luau")
+local providerFixture = path.join(path.dirname(testFilePath), "fixtures", "authentication_provider.luau")
 
 local workingDirectory = path.join(system.tmpdir(), "lute-pkg-auth")
 local luteConfigDirectory = path.join(workingDirectory, ".lute")
@@ -15,7 +15,7 @@ local loomAuthPath = path.join(workingDirectory, ".loom", "auth.luau")
 
 local TEST_DOMAIN = "github.com"
 local TEST_REPOSITORY = "luau-lang/lute"
-local TEST_TOKEN = "lute-credential-resolver-test-token"
+local TEST_TOKEN = "lute-authentication-provider-test-token"
 
 local function environment(): { [string]: string }
 	local env = table.clone(process.env)
@@ -45,10 +45,10 @@ local function runAuth(): { exitcode: number, stdout: string, stderr: string }
 	})
 end
 
-local function runResolver(domain: string, expectedToken: string): { exitcode: number, stdout: string, stderr: string }
+local function runProvider(domain: string, expectedToken: string): { exitcode: number, stdout: string, stderr: string }
 	return process.run({
 		lutePath,
-		path.format(resolverFixture),
+		path.format(providerFixture),
 		"https",
 		domain,
 		TEST_REPOSITORY,
@@ -84,28 +84,28 @@ test.suite("LutePkgAuth", function(suite)
 			`return \{\n\tauth = \{\n\t\t["{TEST_DOMAIN}"] = function(request)\n\t\t\tassert(request.protocol == "https")\n\t\t\tassert(request.host == "{TEST_DOMAIN}")\n\t\t\tassert(request.path == "{TEST_REPOSITORY}")\n\t\t\treturn "{TEST_TOKEN}"\n\t\tend,\n\t\},\n\}\n`
 		)
 
-		local result = runResolver(TEST_DOMAIN, TEST_TOKEN)
+		local result = runProvider(TEST_DOMAIN, TEST_TOKEN)
 		assert.eq(result.exitcode, 0)
 		assert.eq(result.stdout, "")
 	end)
 
-	suite:case("resolvesTokenFromWildcardResolver", function(assert)
+	suite:case("resolvesTokenFromWildcardProvider", function(assert)
 		writeConfig(
 			`return \{\n\tauth = \{\n\t\t["*"] = function()\n\t\t\treturn "{TEST_TOKEN}"\n\t\tend,\n\t\},\n\}\n`
 		)
 
-		local result = runResolver("some-other-host.com", TEST_TOKEN)
+		local result = runProvider("some-other-host.com", TEST_TOKEN)
 		assert.eq(result.exitcode, 0)
 		assert.eq(result.stdout, "")
 	end)
 
-	suite:case("returnsNilWithoutMatchingResolver", function(assert)
-		local result = runResolver(TEST_DOMAIN, "<nil>")
+	suite:case("returnsNilWithoutMatchingProvider", function(assert)
+		local result = runProvider(TEST_DOMAIN, "<nil>")
 		assert.eq(result.exitcode, 0)
 		assert.eq(result.stdout, "")
 	end)
 
-	suite:case("propagatesResolverErrors", function(assert)
+	suite:case("propagatesProviderErrors", function(assert)
 		writeConfig([[return {
 	auth = {
 		["github.com"] = function()
@@ -115,7 +115,7 @@ test.suite("LutePkgAuth", function(suite)
 }
 ]])
 
-		local result = runResolver(TEST_DOMAIN, "<nil>")
+		local result = runProvider(TEST_DOMAIN, "<nil>")
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stderr, "Auth provider for github.com failed")
 		assert.strContains(result.stderr, "resolver failed")
@@ -131,7 +131,7 @@ test.suite("LutePkgAuth", function(suite)
 }
 ]])
 
-		local result = runResolver(TEST_DOMAIN, "<nil>")
+		local result = runProvider(TEST_DOMAIN, "<nil>")
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stderr, "control characters")
 	end)
