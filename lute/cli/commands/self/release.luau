@@ -5,6 +5,7 @@ local process = require("@std/process")
 local stringext = require("@std/stringext")
 local system = require("@std/system")
 
+local binary = require("./binary")
 local paths = require("./paths")
 local unzip = require("../pkg/loom-core/extern/unzip")
 
@@ -17,6 +18,31 @@ local function normalizeTag(tag: string): string
 	end
 	local stripped = if string.match(trimmed, "^[vV]") then string.sub(trimmed, 2) else trimmed
 	return `v{string.lower(stripped)}`
+end
+
+local function headers(): { [string]: string }
+	local h = {
+		["User-Agent"] = "lute-self",
+		["Accept"] = "application/vnd.github+json",
+	}
+	local token = process.env.GITHUB_TOKEN
+	if token ~= nil and token ~= "" then
+		h["Authorization"] = `Bearer {token}`
+	end
+	return h
+end
+
+local function queryLatestTag(): string
+	local url = `https://api.github.com/repos/{REPO}/releases/latest`
+	local res = net.request(url, { method = "GET", headers = headers() })
+	if not res.ok then
+		error(`Failed to query latest release: HTTP {res.status}\n{string.sub(res.body, 1, 200)}`)
+	end
+	local data = json.deserialize(res.body) :: { tag_name: string? }
+	if data.tag_name == nil then
+		error("Latest GitHub release did not include a tag")
+	end
+	return normalizeTag(data.tag_name)
 end
 
 local function osSlug(): string
@@ -44,19 +70,7 @@ local function archSlug(): string
 	end
 end
 
-local function headers(): { [string]: string }
-	local h = {
-		["User-Agent"] = "lute-self",
-		["Accept"] = "application/vnd.github+json",
-	}
-	local token = process.env.GITHUB_TOKEN
-	if token ~= nil and token ~= "" then
-		h["Authorization"] = `Bearer {token}`
-	end
-	return h
-end
-
-local function download(tag: string): string
+local function downloadBinary(tag: string, destination: string)
 	tag = normalizeTag(tag)
 	local asset = `lute-{osSlug()}-{archSlug()}.zip`
 	local url = `https://github.com/{REPO}/releases/download/{tag}/{asset}`
@@ -82,24 +96,11 @@ local function download(tag: string): string
 	if extracted == nil then
 		error(`Could not find {exeName} in {asset}`)
 	end
-	return extracted
-end
-
-local function queryLatestTag(): string
-	local url = `https://api.github.com/repos/{REPO}/releases/latest`
-	local res = net.request(url, { method = "GET", headers = headers() })
-	if not res.ok then
-		error(`Failed to query latest release: HTTP {res.status}\n{string.sub(res.body, 1, 200)}`)
-	end
-	local data = json.deserialize(res.body) :: { tag_name: string? }
-	if data.tag_name == nil then
-		error("Latest GitHub release did not include a tag")
-	end
-	return normalizeTag(data.tag_name)
+	binary.installBinary(extracted, destination)
 end
 
 return table.freeze({
-	download = download,
 	normalizeTag = normalizeTag,
 	queryLatestTag = queryLatestTag,
+	downloadBinary = downloadBinary,
 })
