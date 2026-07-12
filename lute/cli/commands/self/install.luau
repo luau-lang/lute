@@ -5,7 +5,6 @@ local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
 
-local binary = require("./binary")
 local paths = require("./paths")
 local pathenv = require("./pathenv")
 
@@ -52,8 +51,7 @@ return function(...: string)
 	if source == destination then
 		print(`lute is already installed at {destination}`)
 	else
-		local bytes = fs.readFileToString(source)
-		binary.installBinary(bytes, destination)
+		fs.copy(source, destination)
 		print(`Installed lute to {destination}`)
 	end
 

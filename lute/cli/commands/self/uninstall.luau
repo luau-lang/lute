@@ -53,7 +53,7 @@ return function(...: string)
 		print(`Removed {target}`)
 	end
 
-	local affected = pathenv.removeFromPath(paths.binPath())
+	local affected = pathenv.removeFromPath()
 	if #affected > 0 then
 		print("Removed lute PATH entries from:")
 		for _, profile in affected do

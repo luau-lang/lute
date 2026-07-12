@@ -5,9 +5,8 @@ local process = require("@std/process")
 local stringext = require("@std/stringext")
 local system = require("@std/system")
 
-local unzip = require("../pkg/loom-core/extern/unzip")
-
 local paths = require("./paths")
+local unzip = require("../pkg/loom-core/extern/unzip")
 
 local REPO = "luau-lang/lute"
 
@@ -16,7 +15,8 @@ local function normalizeTag(tag: string): string
 	if trimmed == "" then
 		error("Release version cannot be empty")
 	end
-	return if string.match(trimmed, "^[vV]") then `v{string.sub(trimmed, 2)}` else `v{trimmed}`
+	local stripped = if string.match(trimmed, "^[vV]") then string.sub(trimmed, 2) else trimmed
+	return `v{string.lower(stripped)}`
 end
 
 local function osSlug(): string

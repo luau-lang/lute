@@ -42,14 +42,17 @@ return function(...: string)
 		error("Windows cannot replace a running executable. Run this command from another copy of lute.")
 	end
 
-	local result = process.run({ destination, "--version" })
-	if not result.ok then
-		error(`Failed to read the installed lute version:\n{result.stderr}`)
-	end
-	local current = release.normalizeTag(result.stdout)
-
 	local requested = args:get("version")
-	if requested == nil and string.find(current, "-nightly.", 1, true) ~= nil then
+
+	local current: string? = nil
+	local ok, result = pcall(process.run, { destination, "--version" }, nil)
+	if ok and result.ok then
+		current = release.normalizeTag(result.stdout)
+	else
+		print(`warning: could not read version from {destination}; proceeding with update`)
+	end
+
+	if requested == nil and current ~= nil and string.find(current, "-nightly.", 1, true) ~= nil then
 		error("Automatic updates are not supported for nightly releases. Use --version to select a nightly release.")
 	end
 
@@ -59,7 +62,7 @@ return function(...: string)
 		return
 	end
 
-	print(`Updating lute: {current} -> {tag}`)
+	print(`Updating lute: {current or "(unknown)"} -> {tag}`)
 	local bytes = release.download(tag)
 	binary.installBinary(bytes, destination)
 	print(`Updated lute to {tag} at {destination}`)
