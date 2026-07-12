@@ -43,3 +43,5 @@ Remove the host executable and its managed `PATH` entry:
 ```bash
 lute self uninstall
 ```
+
+Use `--remove-data` to also remove cached type definitions and other data under `~/.lute`.

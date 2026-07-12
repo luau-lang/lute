@@ -1,5 +1,7 @@
+local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
+local system = require("@std/system")
 local test = require("@std/test")
 
 local release = require("@commands/self/release")
@@ -41,5 +43,54 @@ test.suite("LuteSelf", function(suite)
 		assert.eq(release.normalizeTag("1.0.1"), "v1.0.1")
 		assert.eq(release.normalizeTag("v1.0.1"), "v1.0.1")
 		assert.eq(release.normalizeTag(" V1.0.1 "), "v1.0.1")
+	end)
+
+	suite:case("installsAndUninstallsHostBinary", function(assert)
+		local testHome = path.join(system.tmpdir(), `lute-self-{process.pid()}`)
+		local env = table.clone(process.env)
+		env.HOME = path.format(testHome)
+		env.USERPROFILE = path.format(testHome)
+		env.SHELL = "/bin/zsh"
+
+		local function runWithTestHome(...: string): process.ProcessResult
+			return process.run({ lutePath, "self", ... }, { env = env })
+		end
+
+		if fs.exists(testHome) then
+			fs.removeDirectory(testHome, { recursive = true })
+		end
+		fs.createDirectory(testHome, { makeParents = true })
+
+		local installArguments = { "install", "--force" }
+		local profile = path.join(testHome, ".zprofile")
+		if system.win32 then
+			table.insert(installArguments, "--no-modify-path")
+		else
+			fs.writeStringToFile(profile, "")
+		end
+
+		local installResult = runWithTestHome(table.unpack(installArguments))
+		assert.eq(installResult.exitcode, 0)
+
+		local executableName = if system.win32 then "lute.exe" else "lute"
+		local installedBinary = path.join(testHome, ".lute", "bin", executableName)
+		assert.that(fs.exists(installedBinary))
+
+		local versionResult = process.run({ path.format(installedBinary), "--version" })
+		assert.eq(versionResult.exitcode, 0)
+
+		if not system.win32 then
+			assert.strContains(fs.readFileToString(profile), "# >>> lute self install >>>")
+		end
+
+		local uninstallResult = runWithTestHome("uninstall", "--force", "--remove-data")
+		assert.eq(uninstallResult.exitcode, 0)
+		assert.eq(fs.exists(path.join(testHome, ".lute")), false)
+
+		if not system.win32 then
+			assert.strNotContains(fs.readFileToString(profile), "# >>> lute self install >>>")
+		end
+
+		fs.removeDirectory(testHome, { recursive = true })
 	end)
 end)

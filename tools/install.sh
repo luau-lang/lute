@@ -36,6 +36,11 @@ case "$arch" in
 		;;
 esac
 
+if [ "$os_name" = "macos" ] && [ "$arch_name" = "x86_64" ]; then
+	echo "lute: Intel macOS releases are not currently available" >&2
+	exit 1
+fi
+
 asset="lute-${os_name}-${arch_name}.zip"
 url="https://github.com/${REPO}/releases/latest/download/${asset}"
 
