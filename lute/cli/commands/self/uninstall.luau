@@ -1,6 +1,8 @@
 local cli = require("@batteries/cli")
 local fs = require("@std/fs")
 local io = require("@std/io")
+local path = require("@std/path")
+local process = require("@std/process")
 local stringext = require("@std/stringext")
 local system = require("@std/system")
 
@@ -8,10 +10,11 @@ local paths = require("./paths")
 local pathenv = require("./pathenv")
 
 local HELP_STRING = [[
-Remove the host lute installation at ~/.lute and strip PATH entries.
+Remove the host lute binary and strip PATH entries.
 
 OPTIONS:
-  -f, --force        Remove without prompting
+  --remove-data      Also remove cached type definitions and other data
+  --force            Remove without prompting
   -h, --help         Show this help message
 ]]
 
@@ -23,6 +26,7 @@ end
 
 return function(...: string)
 	local args = cli.parser()
+	args:add("remove-data", "flag", { help = "Remove all data under ~/.lute" })
 	args:add("force", "flag", { help = "Remove without confirming" })
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:parse({ ... })
@@ -33,11 +37,14 @@ return function(...: string)
 		return
 	end
 
-	local target = paths.lutePath()
+	local target = if args:has("remove-data") then paths.lutePath() else paths.binPath()
 
 	if not fs.exists(target) then
 		print(`Nothing to remove at {target}`)
 	else
+		if system.win32 and paths.exePath() == path.format(path.normalize(process.execPath())) then
+			error("Windows cannot remove a running executable. Run this command from another copy of lute.", 0)
+		end
 		if not args:has("force") and not confirm(`Remove {target}?`) then
 			print("Aborted uninstallation.")
 			return

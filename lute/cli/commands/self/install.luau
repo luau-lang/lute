@@ -4,8 +4,8 @@ local io = require("@std/io")
 local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
-local system = require("@std/system")
 
+local binary = require("./binary")
 local paths = require("./paths")
 local pathenv = require("./pathenv")
 
@@ -13,8 +13,8 @@ local HELP_STRING = [[
 Install the running lute as the host toolchain in ~/.lute/bin.
 
 OPTIONS:
-  --no-modify-path   Do not add lute to PATH
   --force            Continue without prompting
+  --no-modify-path   Do not add lute to PATH
   -h, --help         Show this help message
 ]]
 
@@ -26,8 +26,8 @@ end
 
 return function(...: string)
 	local args = cli.parser()
-	args:add("no-modify-path", "flag", { help = "Do not add lute to PATH" })
 	args:add("force", "flag", { help = "Continue without prompting" })
+	args:add("no-modify-path", "flag", { help = "Do not add lute to PATH" })
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:parse({ ... })
 
@@ -52,19 +52,13 @@ return function(...: string)
 	if source == destination then
 		print(`lute is already installed at {destination}`)
 	else
-		fs.copy(source, destination)
+		local bytes = fs.readFileToString(source)
+		binary.installBinary(bytes, destination)
 		print(`Installed lute to {destination}`)
 	end
 
-	if not system.win32 then
-		local chmod = process.run({ "chmod", "+x", destination })
-		if not chmod.ok then
-			error(`Failed to mark {destination} executable:\n{chmod.stderr}`)
-		end
-	end
-
 	if not args:has("no-modify-path") then
-		pathenv.ensureOnPath(paths.binPath())
+		pathenv.ensureOnPath()
 	end
 
 	local setup = process.run({ destination, "setup" }, { stdio = "inherit" })
