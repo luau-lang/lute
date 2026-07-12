@@ -12,15 +12,13 @@ lute pkg install
 
 GitHub requests resolve credentials in this order:
 
-1. Environment variable: `GITHUB_TOKEN`
-2. Credentials saved by `lute pkg auth`
-3. User-configured credential resolver
+1. `GITHUB_TOKEN` environment variable
+2. User-defined credential resolver hook (`~/.lute/config.luau`)
+3. Plaintext auth store (`~/.loom/auth.luau` via `lute pkg auth`)
 
 If none of these returns a token, Lute performs the request without authentication.
 
-Credential resolvers are configured in `~/.lute/config.luau`. This is a trusted,
-user-owned configuration file; project `loom.config.luau` files cannot provide
-credential resolvers.
+Credential resolvers are configured in `~/.lute/config.luau`. This is a trusted, user-owned configuration file; project `loom.config.luau` files cannot provide credential resolvers.
 
 ```luau
 local process = require("@std/process")
@@ -42,10 +40,6 @@ return {
 }
 ```
 
-Resolver functions receive a `CredentialRequest` containing `protocol`, `host`,
-and an optional repository `path`. A resolver returns a token string, or `nil`
-when no credential is available. A resolver registered under `"*"` is used when
-no host-specific resolver is configured.
+Resolver functions receive a `CredentialRequest` containing `protocol`, `host`, and an optional repository `path`. A resolver returns a token string, or `nil` when no credential is available. A resolver registered under `"*"` is used when no host-specific resolver is configured.
 
-Returning `nil` permits an unauthenticated request. Resolver errors propagate to
-the caller.
+Returning `nil` permits an unauthenticated request. Resolver errors propagate to the caller.
