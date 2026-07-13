@@ -6,7 +6,7 @@ local test = require("@std/test")
 
 local lutePath = path.format(process.execPath())
 local testFilePath = debug.info(1, "s"):gsub("^@", "")
-local providerFixture = path.join(path.dirname(testFilePath), "fixtures", "authentication_provider.luau")
+local providerFixture = path.join(path.dirname(testFilePath), "fixtures", "credential_provider.luau")
 
 local workingDirectory = path.join(system.tmpdir(), "lute-pkg-auth")
 local luteConfigDirectory = path.join(workingDirectory, ".lute")
@@ -15,7 +15,7 @@ local loomAuthPath = path.join(workingDirectory, ".loom", "auth.luau")
 
 local TEST_DOMAIN = "github.com"
 local TEST_REPOSITORY = "luau-lang/lute"
-local TEST_TOKEN = "lute-authentication-provider-test-token"
+local TEST_TOKEN = "lute-credential-provider-test-token"
 
 local function environment(): { [string]: string }
 	return setmetatable({
