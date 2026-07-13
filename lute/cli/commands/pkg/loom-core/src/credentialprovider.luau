@@ -1,4 +1,5 @@
 local fs = require("@std/fs")
+local luau = require("@std/luau")
 local path = require("@std/path")
 local process = require("@std/process")
 
@@ -18,7 +19,7 @@ local function loadProviders(): CredentialProviders
 		return {}
 	end
 
-	local config = require(path.format(configPath)) :: any
+	local config = luau.loadModule(path.format(configPath))
 	if typeof(config) ~= "table" then
 		error(`Expected {path.format(configPath)} to return a table`)
 	end
