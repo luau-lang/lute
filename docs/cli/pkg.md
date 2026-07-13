@@ -8,15 +8,15 @@ Manage dependencies declared in `loom.config.luau`.
 lute pkg install
 ```
 
-## Authentication resolution
+## Authentication token resolution
 
-The GitHub token is discovered in the following order:
+Lute resolves the GitHub authentication token by checking the following sources in order of precedence:
 
-1. `GITHUB_TOKEN` environment variable
-2. User-defined credential provider (`~/.lute/config.luau`)
-3. Plaintext auth store (`~/.loom/auth.luau` via `lute pkg auth`)
+1. The `GITHUB_TOKEN` environment variable.
+2. A user-defined credential provider in `~/.lute/config.luau`.
+3. The plaintext auth store at `~/.loom/auth.luau` (managed via `lute pkg auth`).
 
-If none of these returns a token, Lute performs the request without authentication.
+If no token is found, Lute proceeds with the request without authentication.
 
 Credential providers are configured in `~/.lute/config.luau`. This is a standard Luau module with full access to `@std` libraries.
 
