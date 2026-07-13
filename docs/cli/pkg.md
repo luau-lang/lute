@@ -13,19 +13,19 @@ lute pkg install
 The GitHub token is discovered in the following order:
 
 1. `GITHUB_TOKEN` environment variable
-2. User-defined authentication provider hook (`~/.lute/config.luau`)
+2. User-defined credential provider (`~/.lute/config.luau`)
 3. Plaintext auth store (`~/.loom/auth.luau` via `lute pkg auth`)
 
 If none of these returns a token, Lute performs the request without authentication.
 
-Authentication providers are configured in `~/.lute/config.luau`. This is a trusted, user-owned configuration file.
+Credential providers are configured in `~/.lute/config.luau`. This is a standard Luau module with full access to `@std` libraries.
 
 ```luau
 local process = require("@std/process")
 local stringext = require("@std/stringext")
 
 return {
-	auth = {
+	credentials = {
 		["github.com"] = function(request)
 			local result = process.run({
 				"gh",
@@ -40,6 +40,6 @@ return {
 }
 ```
 
-Provider functions receive an `AuthenticationRequest` containing `protocol`, `host`, and an optional repository `path`. A provider returns a token string, or `nil` when no token is available. A provider registered under `"*"` is used when no host-specific provider is configured.
+Provider functions receive an `CredentialRequest` containing `protocol`, `host`, and an optional repository `path`. A provider returns a token string, or `nil` when no token is available. A provider registered under `"*"` is used when no host-specific provider is configured.
 
 Returning `nil` permits an unauthenticated request. Provider errors propagate to the caller.
