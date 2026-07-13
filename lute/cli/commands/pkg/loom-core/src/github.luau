@@ -1,5 +1,5 @@
-local authenticationProvider = require("./authenticationprovider")
 local authenticationStore = require("./authenticationstore")
+local credentialProvider = require("./credentialprovider")
 local fs = require("@std/fs")
 local net = require("@std/net")
 local path = require("@std/path")
@@ -47,7 +47,7 @@ local function getGithubAuthenticationToken(repositoryPath: string): string?
 		return githubToken
 	end
 
-	local providedToken = authenticationProvider.resolveToken({
+	local providedToken = credentialProvider.resolveToken({
 		protocol = "https",
 		host = "github.com",
 		path = repositoryPath,
