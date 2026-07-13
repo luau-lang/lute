@@ -10,9 +10,9 @@ export type CredentialRequest = {
 
 export type CredentialProvider = (request: CredentialRequest) -> string?
 
-export type CredentialProvides = { [string]: CredentialProvider }
+export type CredentialProviders = { [string]: CredentialProvider }
 
-local function loadProviders(): CredentialProvides
+local function loadProviders(): CredentialProviders
 	local configPath = path.join(process.homedir(), ".lute", "config.luau")
 	if not fs.exists(configPath) then
 		return {}
@@ -31,7 +31,7 @@ local function loadProviders(): CredentialProvides
 		error(`Expected 'credentials' in {path.format(configPath)} to be a table`)
 	end
 
-	local providers: CredentialProvides = {}
+	local providers: CredentialProviders = {}
 	for host, provider in credentials do
 		if typeof(host) ~= "string" or typeof(provider) ~= "function" then
 			error("Credential entries must map host strings to functions")
