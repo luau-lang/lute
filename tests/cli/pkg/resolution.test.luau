@@ -1554,7 +1554,7 @@ test.suite("Overrides", function(suite)
 		assert.eq((lock.overrides :: any).citrus, "2.0.0")
 	end)
 
-	suite:case("lockfileVersionIsFourWithOverrides", function(assert)
+	suite:case("lockfileVersionIsThreeWithOverrides", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
@@ -1572,29 +1572,6 @@ test.suite("Overrides", function(suite)
 				sourceKind = "registry",
 				source = "citrus",
 				version = "1.0.0",
-			},]]
-		)
-
-		local universe: solver.Universe = {
-			citrus = {
-				namedVersion("citrus", "1.0.0"),
-			},
-		}
-
-		local lock = resolution.resolve(path.format(workingDirectory), universe)
-		assert.eq(lock.version, 4)
-	end)
-
-	suite:case("lockfileVersionIsThreeWithoutOverrides", function(assert)
-		writeConfig(
-			workingDirectory,
-			"root",
-			[[
-
-			citrus = {
-				sourceKind = "registry",
-				source = "citrus",
-				version = "^1.0.0",
 			},]]
 		)
 

@@ -42,7 +42,7 @@ end
 
 local function parseLockfile(t: any): Lockfile
 	assert(t ~= nil and typeof(t) == "table", "Expected lockfile to be a table")
-	assert(t.version == 3 or t.version == 4, `Unsupported lockfile version: {t.version}`)
+	assert(t.version == 3, `Unsupported lockfile version: {t.version}`)
 	assert(typeof(t.packages) == "table", "Expected 'packages' field in lockfile")
 	assert(typeof(t.dependencies) == "table", "Expected 'dependencies' field in lockfile")
 

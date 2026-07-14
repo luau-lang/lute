@@ -597,7 +597,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 		else nil
 
 	local lock: lockfile.Lockfile = table.freeze({
-		version = if frozenOverrides then 4 else 3,
+		version = 3,
 		packages = packages,
 		dependencies = dependencies,
 		overrides = frozenOverrides,
