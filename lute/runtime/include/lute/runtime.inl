@@ -12,7 +12,6 @@
 
 #include <assert.h>
 #include <string>
-#include <variant>
 
 static void inline lua_close_checked(lua_State* L)
 {
