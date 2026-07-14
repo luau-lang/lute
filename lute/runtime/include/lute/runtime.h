@@ -55,10 +55,11 @@ struct StepEmpty
 
 using RuntimeStep = Luau::Variant<StepSuccess, StepErr, StepEmpty>;
 
-struct Runtime
+template<bool DebugEnabled>
+struct RuntimeT
 {
-    Runtime(LuteReporter& reporter);
-    ~Runtime();
+    RuntimeT(LuteReporter& reporter);
+    ~RuntimeT();
 
     bool runToCompletion();
     RuntimeStep runOnce();
@@ -137,6 +138,9 @@ struct Runtime
     // Runtimes. Set during parent Runtime's setup.
     std::function<void*(lua_State*)> requireContextFactory;
 
+    template<bool D = DebugEnabled>
+    std::enable_if_t<D, void> installBreakpoint(lua_State* L, int funcindex, int line, int enabled);
+
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);
     void clearThreadCompletionHandler(lua_State* L);
@@ -152,26 +156,42 @@ private:
 
     std::atomic<int> activeTokens;
     uv_loop_t eventLoop;
+
+    std::conditional_t<DebugEnabled, std::mutex, std::monostate> debugMutex;
 };
 
-Runtime* getRuntime(lua_State* L);
+using Runtime = RuntimeT<false>;
+using DebugRuntime = RuntimeT<true>;
+
+template<bool DebugEnabled = false>
+RuntimeT<DebugEnabled>* getRuntime(lua_State* L);
+
+template<bool DebugEnabled = false>
 uv_loop_t* getRuntimeLoop(lua_State* L);
 
-struct ResumeTokenData;
-using ResumeToken = std::shared_ptr<ResumeTokenData>;
+template<bool DebugEnabled>
+struct ResumeTokenDataT;
+template<bool DebugEnabled>
+using ResumeTokenT = std::shared_ptr<ResumeTokenDataT<DebugEnabled>>;
 
-struct ResumeTokenData
+template<bool DebugEnabled>
+struct ResumeTokenDataT
 {
-    static ResumeToken get(lua_State* L);
+    static ResumeTokenT<DebugEnabled> get(lua_State* L);
 
     void fail(std::string error);
     void complete(std::function<int(lua_State*)> cont);
 
-    Runtime* runtime = nullptr;
+    RuntimeT<DebugEnabled>* runtime = nullptr;
     std::shared_ptr<Ref> ref;
     bool completed = false;
 };
 
-ResumeToken getResumeToken(lua_State* L);
+using ResumeToken = ResumeTokenT<false>;
+using ResumeTokenDebug = ResumeTokenT<true>;
 
-lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBeforeSandbox);
+template<bool DebugEnabled = false>
+ResumeTokenT<DebugEnabled> getResumeToken(lua_State* L);
+
+template<bool DebugEnabled = false>
+lua_State* setupState(RuntimeT<DebugEnabled>& runtime, std::function<void(lua_State*)> doBeforeSandbox);

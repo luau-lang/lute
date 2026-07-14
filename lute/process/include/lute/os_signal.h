@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lute/runtime.h"
+
 #include "lua.h"
 
 #include "uv.h"
@@ -7,7 +9,6 @@
 #include <functional>
 #include <memory>
 
-struct Runtime;
 
 namespace process
 {

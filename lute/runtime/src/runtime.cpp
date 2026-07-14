@@ -20,7 +20,8 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
-Runtime::Runtime(LuteReporter& reporter)
+template<bool DebugEnabled>
+RuntimeT<DebugEnabled>::RuntimeT(LuteReporter& reporter)
     : reporter(reporter)
     , globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
@@ -35,7 +36,8 @@ Runtime::Runtime(LuteReporter& reporter)
     }
 }
 
-Runtime::~Runtime()
+template<bool DebugEnabled>
+RuntimeT<DebugEnabled>::~RuntimeT()
 {
     {
         std::unique_lock lock(continuationMutex);
@@ -55,7 +57,8 @@ Runtime::~Runtime()
     uv_loop_close(&eventLoop);
 }
 
-bool Runtime::hasWork()
+template<bool DebugEnabled>
+bool RuntimeT<DebugEnabled>::hasWork()
 {
     // TODO: activeTokens and uv_loop_alive have a decent amount of overlap.
     // Unfortunately, we do currently have some places where we add/release
@@ -64,7 +67,8 @@ bool Runtime::hasWork()
     return hasContinuations() || hasThreads() || activeTokens.load() != 0 || uv_loop_alive(getEventLoop());
 }
 
-RuntimeStep Runtime::runOnce()
+template<bool DebugEnabled>
+RuntimeStep RuntimeT<DebugEnabled>::runOnce()
 {
     uv_run_mode mode = (hasContinuations() || hasThreads()) ? UV_RUN_NOWAIT : UV_RUN_ONCE;
     uv_run(getEventLoop(), mode);
@@ -148,12 +152,33 @@ RuntimeStep Runtime::runOnce()
     return StepSuccess{L};
 }
 
-bool Runtime::runToCompletion()
+template<bool DebugEnabled>
+template<bool D>
+std::enable_if_t<D, void> RuntimeT<DebugEnabled>::installBreakpoint(lua_State* L, int funcindex, int line, int enabled)
+{
+    if constexpr (DebugEnabled)
+    {
+        std::unique_lock lock(debugMutex);
+        lua_breakpoint(L, funcindex, line, enabled);
+    }
+}
+
+template<bool DebugEnabled>
+bool RuntimeT<DebugEnabled>::runToCompletion()
 {
     while (hasWork())
     {
-        auto step = runOnce();
-
+        RuntimeStep step;
+        if constexpr (DebugEnabled)
+        {
+            std::unique_lock lock(debugMutex);
+            step = runOnce();
+            lock.unlock();
+        }
+        else
+        {
+            step = runOnce();
+        }
         if (auto err = Luau::get_if<StepErr>(&step))
         {
             if (err->L == nullptr)
@@ -177,7 +202,8 @@ bool Runtime::runToCompletion()
     return true;
 }
 
-void Runtime::reportError(lua_State* L)
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::reportError(lua_State* L)
 {
     std::string error;
 
@@ -190,54 +216,59 @@ void Runtime::reportError(lua_State* L)
     reporter.reportError(error);
 }
 
-void Runtime::runContinuously()
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::runContinuously()
 {
     runLoopThreadStarted = uv_thread_create(
-        &runLoopThread,
-        [](void* arg)
-        {
-            Runtime* self = static_cast<Runtime*>(arg);
-            while (!self->stop)
-            {
-                {
-                    std::unique_lock lock(self->continuationMutex);
+                               &runLoopThread,
+                               [](void* arg)
+                               {
+                                   RuntimeT<DebugEnabled>* self = static_cast<RuntimeT<DebugEnabled>*>(arg);
+                                   while (!self->stop)
+                                   {
+                                       {
+                                           std::unique_lock lock(self->continuationMutex);
 
-                    self->runLoopCv.wait(
-                        lock,
-                        [self]
-                        {
-                            return !self->continuations.empty() || self->stop;
-                        }
-                    );
-                }
+                                           self->runLoopCv.wait(
+                                               lock,
+                                               [self]
+                                               {
+                                                   return !self->continuations.empty() || self->stop;
+                                               }
+                                           );
+                                       }
 
-                self->runToCompletion();
-            }
-        },
-        this
-    ) == 0;
+                                       self->runToCompletion();
+                                   }
+                               },
+                               this
+                           ) == 0;
 
     if (!runLoopThreadStarted)
         LUTE_ASSERT("Failed to create runtime runloop thread");
 }
 
-bool Runtime::hasContinuations()
+template<bool DebugEnabled>
+bool RuntimeT<DebugEnabled>::hasContinuations()
 {
     std::unique_lock lock(continuationMutex);
     return !continuations.empty();
 }
 
-bool Runtime::hasThreads()
+template<bool DebugEnabled>
+bool RuntimeT<DebugEnabled>::hasThreads()
 {
     return !runningThreads.empty();
 }
 
-void Runtime::addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion)
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion)
 {
     threadCompletionHandlers[L] = std::move(completion);
 }
 
-bool Runtime::runThreadCompletionHandler(lua_State* L, int status)
+template<bool DebugEnabled>
+bool RuntimeT<DebugEnabled>::runThreadCompletionHandler(lua_State* L, int status)
 {
     auto it = threadCompletionHandlers.find(L);
     if (it == threadCompletionHandlers.end())
@@ -252,12 +283,14 @@ bool Runtime::runThreadCompletionHandler(lua_State* L, int status)
     return true;
 }
 
-void Runtime::clearThreadCompletionHandler(lua_State* L)
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::clearThreadCompletionHandler(lua_State* L)
 {
     threadCompletionHandlers.erase(L);
 }
 
-void Runtime::schedule(std::function<void()> f)
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::schedule(std::function<void()> f)
 {
     std::unique_lock lock(continuationMutex);
 
@@ -266,7 +299,8 @@ void Runtime::schedule(std::function<void()> f)
     runLoopCv.notify_one();
 }
 
-void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
 {
     std::unique_lock lock(continuationMutex);
 
@@ -285,7 +319,8 @@ void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
     runLoopCv.notify_one();
 }
 
-void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua_State*)> cont)
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua_State*)> cont)
 {
     std::unique_lock lock(continuationMutex);
 
@@ -308,7 +343,8 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
     runLoopCv.notify_one();
 }
 
-void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
 {
     std::unique_lock lock(continuationMutex);
 
@@ -329,7 +365,8 @@ void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::functi
     runLoopCv.notify_one();
 }
 
-void Runtime::runInWorkQueue(std::function<void()> f)
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::runInWorkQueue(std::function<void()> f)
 {
     auto loop = getEventLoop();
     uv_work_t* work = new uv_work_t();
@@ -352,33 +389,39 @@ void Runtime::runInWorkQueue(std::function<void()> f)
     );
 }
 
-void Runtime::addPendingToken()
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::addPendingToken()
 {
     activeTokens.fetch_add(1);
 }
 
-void Runtime::releasePendingToken()
+template<bool DebugEnabled>
+void RuntimeT<DebugEnabled>::releasePendingToken()
 {
     [[maybe_unused]] int before = activeTokens.fetch_sub(1);
     assert(before > 0);
 }
 
-uv_loop_t* Runtime::getEventLoop()
+template<bool DebugEnabled>
+uv_loop_t* RuntimeT<DebugEnabled>::getEventLoop()
 {
     return &eventLoop;
 }
 
-Runtime* getRuntime(lua_State* L)
+template<bool DebugEnabled>
+RuntimeT<DebugEnabled>* getRuntime(lua_State* L)
 {
-    return static_cast<Runtime*>(lua_getthreaddata(lua_mainthread(L)));
+    return static_cast<RuntimeT<DebugEnabled>*>(lua_getthreaddata(lua_mainthread(L)));
 }
 
+template<bool DebugEnabled>
 uv_loop_t* getRuntimeLoop(lua_State* L)
 {
-    return getRuntime(L)->getEventLoop();
+    return getRuntime<DebugEnabled>(L)->getEventLoop();
 }
 
-void ResumeTokenData::fail(std::string error)
+template<bool DebugEnabled>
+void ResumeTokenDataT<DebugEnabled>::fail(std::string error)
 {
     assert(!completed);
     completed = true;
@@ -387,7 +430,8 @@ void ResumeTokenData::fail(std::string error)
     runtime->releasePendingToken();
 }
 
-void ResumeTokenData::complete(std::function<int(lua_State*)> cont)
+template<bool DebugEnabled>
+void ResumeTokenDataT<DebugEnabled>::complete(std::function<int(lua_State*)> cont)
 {
     assert(!completed);
     completed = true;
@@ -396,17 +440,25 @@ void ResumeTokenData::complete(std::function<int(lua_State*)> cont)
     runtime->releasePendingToken();
 }
 
-ResumeToken getResumeToken(lua_State* L)
+template<bool DebugEnabled>
+ResumeTokenT<DebugEnabled> getResumeToken(lua_State* L)
 {
-    ResumeToken token = std::make_shared<ResumeTokenData>();
-    token->runtime = getRuntime(L);
+    ResumeTokenT<DebugEnabled> token = std::make_shared<ResumeTokenDataT<DebugEnabled>>();
+    token->runtime = getRuntime<DebugEnabled>(L);
     token->ref = getRefForThread(L);
     token->runtime->addPendingToken();
 
     return token;
 }
 
-bool Runtime::runBytecode(const std::string& bytecode, const std::string& chunkname, int argc, char** argv, std::function<void(lua_State*)> onLoaded)
+template<bool DebugEnabled>
+bool RuntimeT<DebugEnabled>::runBytecode(
+    const std::string& bytecode,
+    const std::string& chunkname,
+    int argc,
+    char** argv,
+    std::function<void(lua_State*)> onLoaded
+)
 {
     lua_State* L = lua_newthread(GL);
 
@@ -446,13 +498,21 @@ bool Runtime::runBytecode(const std::string& bytecode, const std::string& chunkn
     return runToCompletion();
 }
 
-bool Runtime::runSource(const std::string& source, const Luau::CompileOptions& compileOptions, const std::string& chunkname, int argc, char** argv)
+template<bool DebugEnabled>
+bool RuntimeT<DebugEnabled>::runSource(
+    const std::string& source,
+    const Luau::CompileOptions& compileOptions,
+    const std::string& chunkname,
+    int argc,
+    char** argv
+)
 {
     std::string bytecode = Luau::compile(source, compileOptions);
     return runBytecode(bytecode, chunkname, argc, argv);
 }
 
-lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBeforeSandbox)
+template<bool DebugEnabled>
+lua_State* setupState(RuntimeT<DebugEnabled>& runtime, std::function<void(lua_State*)> doBeforeSandbox)
 {
     // Separate VM for data copies
     runtime.dataCopy.reset(luaL_newstate());
@@ -481,3 +541,23 @@ lua_State* setupState(Runtime& runtime, std::function<void(lua_State*)> doBefore
 
     return L;
 }
+
+// A list of explicit instantiations to maintain implementation vs definition separation.
+// Otherwise, all of the above code would be moved to the runtime .h file.
+template struct RuntimeT<false>;
+template struct RuntimeT<true>;
+
+template struct ResumeTokenDataT<false>;
+template struct ResumeTokenDataT<true>;
+
+template RuntimeT<false>* getRuntime<false>(lua_State*);
+template RuntimeT<true>* getRuntime<true>(lua_State*);
+
+template uv_loop_t* getRuntimeLoop<false>(lua_State*);
+template uv_loop_t* getRuntimeLoop<true>(lua_State*);
+
+template ResumeTokenT<false> getResumeToken<false>(lua_State*);
+template ResumeTokenT<true> getResumeToken<true>(lua_State*);
+
+template lua_State* setupState<false>(RuntimeT<false>&, std::function<void(lua_State*)>);
+template lua_State* setupState<true>(RuntimeT<true>&, std::function<void(lua_State*)>);
