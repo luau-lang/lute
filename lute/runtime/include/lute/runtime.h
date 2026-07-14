@@ -138,8 +138,9 @@ struct RuntimeT
     // Runtimes. Set during parent Runtime's setup.
     std::function<void*(lua_State*)> requireContextFactory;
 
+    // install a breakpoint and return the line it was installed on (-1 if it was invalid)
     template<bool D = DebugEnabled>
-    std::enable_if_t<D, void> installBreakpoint(lua_State* L, int funcindex, int line, int enabled);
+    std::enable_if_t<D, int> installBreakpoint(lua_State* L, int funcindex, int line, int enabled);
 
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);
@@ -195,3 +196,5 @@ ResumeTokenT<DebugEnabled> getResumeToken(lua_State* L);
 
 template<bool DebugEnabled = false>
 lua_State* setupState(RuntimeT<DebugEnabled>& runtime, std::function<void(lua_State*)> doBeforeSandbox);
+
+#include "runtime.inl"

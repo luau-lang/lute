@@ -1,7 +1,6 @@
-#include "lute/runtime.h"
-
 #include "lute/common.h"
 #include "lute/ref.h"
+#include "lute/runtime.h"
 
 #include "Luau/Compiler.h"
 
@@ -14,7 +13,7 @@
 #include <assert.h>
 #include <string>
 
-static void lua_close_checked(lua_State* L)
+static void inline lua_close_checked(lua_State* L)
 {
     if (L)
         lua_close(L);
@@ -154,13 +153,10 @@ RuntimeStep RuntimeT<DebugEnabled>::runOnce()
 
 template<bool DebugEnabled>
 template<bool D>
-std::enable_if_t<D, void> RuntimeT<DebugEnabled>::installBreakpoint(lua_State* L, int funcindex, int line, int enabled)
+std::enable_if_t<D, int> RuntimeT<DebugEnabled>::installBreakpoint(lua_State* L, int funcindex, int line, int enabled)
 {
-    if constexpr (DebugEnabled)
-    {
-        std::unique_lock lock(debugMutex);
-        lua_breakpoint(L, funcindex, line, enabled);
-    }
+    std::unique_lock lock(debugMutex);
+    return lua_breakpoint(L, funcindex, line, enabled);
 }
 
 template<bool DebugEnabled>
@@ -541,23 +537,3 @@ lua_State* setupState(RuntimeT<DebugEnabled>& runtime, std::function<void(lua_St
 
     return L;
 }
-
-// A list of explicit instantiations to maintain implementation vs definition separation.
-// Otherwise, all of the above code would be moved to the runtime .h file.
-template struct RuntimeT<false>;
-template struct RuntimeT<true>;
-
-template struct ResumeTokenDataT<false>;
-template struct ResumeTokenDataT<true>;
-
-template RuntimeT<false>* getRuntime<false>(lua_State*);
-template RuntimeT<true>* getRuntime<true>(lua_State*);
-
-template uv_loop_t* getRuntimeLoop<false>(lua_State*);
-template uv_loop_t* getRuntimeLoop<true>(lua_State*);
-
-template ResumeTokenT<false> getResumeToken<false>(lua_State*);
-template ResumeTokenT<true> getResumeToken<true>(lua_State*);
-
-template lua_State* setupState<false>(RuntimeT<false>&, std::function<void(lua_State*)>);
-template lua_State* setupState<true>(RuntimeT<true>&, std::function<void(lua_State*)>);
