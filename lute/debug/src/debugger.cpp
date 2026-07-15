@@ -1,5 +1,7 @@
 #include "debugger.h"
 
+#include "lute/common.h"
+
 #include "Luau/Compiler.h"
 #include "Luau/DenseHash.h"
 #include "Luau/StringUtils.h"
@@ -7,10 +9,12 @@
 #include "lua.h"
 #include "lualib.h"
 
+#include <cstddef>
 #include <fstream>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -117,7 +121,7 @@ std::vector<Breakpoint> Target::getBreakpoints() const
     std::vector<Breakpoint> all;
     all.reserve(breakpoints.size());
     for (auto& [_, bp] : breakpoints)
-        all.push_back(bp);
+        all.emplace_back(bp);
     return all;
 }
 
@@ -128,7 +132,7 @@ std::vector<Breakpoint> Target::getBreakpointsByStatus(BreakpointStatus status) 
     statusBps.reserve(breakpoints.size());
     for (auto& [_, bp] : breakpoints)
         if (bp.status == status)
-            statusBps.push_back(bp);
+            statusBps.emplace_back(bp);
     return statusBps;
 }
 
@@ -218,28 +222,27 @@ bool Target::uninstallBreakpoint(lua_State* L, Breakpoint& bp)
     return true;
 }
 
-// This returns the list of installed and unisntalled vectors for use in callbacks
+// This returns the list of installed and uninstalled vectors for use in callbacks
 // later.
 std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> Target::modifyPendingBreakpoints(lua_State* L)
 {
-    std::vector<Breakpoint> installedBpsCallback, uninstalledBpsCallback;
+    std::vector<Breakpoint> installedBpsCallback;
+    std::vector<Breakpoint> uninstalledBpsCallback;
     std::vector<int> toErase;
     for (auto& [id, bp] : breakpoints)
     {
         if (bp.status == BreakpointStatus::PendingInstall)
         {
-            bool installed = installBreakpoint(L, bp);
-            if (installed && launchConfig.onBreakpointInstall)
-                installedBpsCallback.push_back(bp);
+            if (installBreakpoint(L, bp) && launchConfig.onBreakpointInstall)
+                installedBpsCallback.emplace_back(bp);
         }
         if (bp.status == BreakpointStatus::PendingUninstall)
         {
-            bool uninstalled = uninstallBreakpoint(L, bp);
-            if (uninstalled)
+            if (uninstallBreakpoint(L, bp))
             {
                 if (launchConfig.onBreakpointUninstall)
-                    uninstalledBpsCallback.push_back(bp);
-                toErase.push_back(bp.id);
+                    uninstalledBpsCallback.emplace_back(bp);
+                toErase.emplace_back(bp.id);
             }
         }
     }
@@ -250,47 +253,50 @@ std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> Target::modifyPendin
 
 bool Target::launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
-    // launch() cannot be called twice from the same target.
-    std::unique_lock lock(targetMutex);
-    if (processThread != nullptr)
-        return false;
-    childRuntime = std::make_unique<Runtime>(parentRuntime.reporter);
-    setupState(*childRuntime, nullptr);
-    launchConfig = config;
-
-    std::ifstream file(sourcePath);
-    if (!file.is_open())
+    std::vector<Breakpoint> installedBps;
+    std::vector<Breakpoint> uninstalledBps;
     {
-        childRuntime.reset();
-        return false;
-    }
-    std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    Luau::CompileOptions debugOptions = {};
-    debugOptions.optimizationLevel = 1;
-    debugOptions.debugLevel = 2;
-    std::string bytecode = Luau::compile(source, debugOptions);
-    lua_State* thread = lua_newthread(childRuntime->GL);
-    luaL_sandboxthread(thread);
-    luau_load(thread, sourcePath.c_str(), bytecode.c_str(), bytecode.size(), 0);
-    loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
-    auto [installed, uninstalled] = modifyPendingBreakpoints(thread);
-    for (const std::string& arg : args)
-        lua_pushstring(thread, arg.c_str());
-    childRuntime->runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
-    lua_pop(childRuntime->GL, 1);
+        std::lock_guard lock(targetMutex);
+        // launch() cannot be called twice from the same target.
+        LUTE_ASSERT(!launched);
+        childRuntime = std::make_unique<Runtime>(parentRuntime.reporter);
+        setupState(*childRuntime, nullptr);
+        launchConfig = config;
 
-    processThread = thread;
-    installBpHitCallback();
-    installExitCallback();
-    // All VM setup happens synchronously before runContinuously starts the background thread.
-    // The no-op schedule wakes the event loop so it picks up the queued thread.
-    paused = false;
-    childRuntime->schedule([]() {});
-    childRuntime->runContinuously();
-    lock.unlock();
-    for (auto& bp : installed)
+        std::ifstream file(sourcePath);
+        if (!file.is_open())
+        {
+            childRuntime.reset();
+            return false;
+        }
+        std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        Luau::CompileOptions debugOptions = {};
+        debugOptions.optimizationLevel = 1;
+        debugOptions.debugLevel = 2;
+        std::string bytecode = Luau::compile(source, debugOptions);
+        lua_State* thread = lua_newthread(childRuntime->GL);
+        luaL_sandboxthread(thread);
+        luau_load(thread, sourcePath.c_str(), bytecode.c_str(), bytecode.size(), 0);
+        loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
+        std::tie(installedBps, uninstalledBps) = modifyPendingBreakpoints(thread);
+        for (const std::string& arg : args)
+            lua_pushstring(thread, arg.c_str());
+        childRuntime->runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
+        lua_pop(childRuntime->GL, 1);
+
+        scriptThread = thread;
+        installBpHitCallback();
+        installExitCallback();
+        // All VM setup happens synchronously before runContinuously starts the background thread.
+        // The no-op schedule wakes the event loop so it picks up the queued thread.
+        paused = false;
+        launched = true;
+        childRuntime->schedule([]() {});
+        childRuntime->runContinuously();
+    }
+    for (auto& bp : installedBps)
         launchConfig.onBreakpointInstall(bp);
-    for (auto& bp : uninstalled)
+    for (auto& bp : uninstalledBps)
         launchConfig.onBreakpointUninstall(bp);
     return true;
 }
@@ -301,7 +307,7 @@ void Target::installBpHitCallback()
     cb->userdata = this;
     cb->debugbreak = [](lua_State* L, lua_Debug* ar)
     {
-        Target* target = static_cast<Target*>(lua_callbacks(L)->userdata);
+        auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
         // TODO: this pause/resume mechanism assumes single co-routine runtime
         // We land on the same instruction after a continue() after hitting a bp so we basically don't do anything
         std::unique_lock lock(target->targetMutex);
@@ -327,7 +333,7 @@ void Target::installBpHitCallback()
             target->resumeToken = getResumeToken(L);
             target->paused = true;
             lua_break(L);
-            auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->processThread);
+            auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             lock.unlock();
             if (target->launchConfig.onBreakpointHit)
                 target->launchConfig.onBreakpointHit(bp.value());
@@ -356,15 +362,15 @@ void Target::installExitCallback()
         if (launchConfig.onExit)
             launchConfig.onExit(status == LUA_OK);
     };
-    childRuntime->addThreadCompletionHandler(processThread, std::move(completion));
+    childRuntime->addThreadCompletionHandler(scriptThread, std::move(completion));
 }
 
 bool Target::continueProcess()
 {
+
     std::unique_lock lock(targetMutex);
     if (!paused || !resumeToken)
         return false;
-    ResumeToken token;
     // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
     if (bpHit)
     {
@@ -375,17 +381,14 @@ bool Target::continueProcess()
             continueRequestedBp = true;
         bpHit = std::nullopt;
     }
-    token = std::move(resumeToken);
-    paused = false;
-    lock.unlock();
-    // complete() holdes a continuation mutex that we want to avoid holding while holding targetMutex()
-    // so we do the move above.
-    token->complete(
+    resumeToken->complete(
         [](lua_State* L)
         {
             return 0;
         }
     );
+    resumeToken = nullptr;
+    paused = false;
     return true;
 }
 } // namespace debug

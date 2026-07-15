@@ -5,7 +5,9 @@
 #include "debugfixture.h"
 #include "doctest.h"
 
-static void checkBreakpoint(debug::Target& target, int id, debug::BreakpointStatus status, int line)
+using namespace debug;
+
+static void checkBreakpoint(Target& target, int id, BreakpointStatus status, int line)
 {
     auto foundBp = target.getBreakpointById(id);
     REQUIRE(foundBp.has_value());
@@ -19,36 +21,36 @@ TEST_SUITE("Debug")
     TEST_CASE_FIXTURE(DebugFixture, "Debug_setBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("simple.luau");
-        debug::Target target(*runtime);
+        Target target(*runtime);
 
         // valid breakpoint
-        debug::Breakpoint bp = target.setBreakpoint(fixturePath, 2);
+        Breakpoint bp = target.setBreakpoint(fixturePath, 2);
         // invalid breakpoint
-        debug::Breakpoint bp2 = target.setBreakpoint(fixturePath, 100);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 100);
         // breakpoint that will be moved on installation due to whitespace
-        debug::Breakpoint bp3 = target.setBreakpoint(fixturePath, 3);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 3);
 
         // check breakpoints before launch
         CHECK(bp.id == 0);
-        checkBreakpoint(target, bp.id, debug::BreakpointStatus::PendingInstall, 2);
+        checkBreakpoint(target, bp.id, BreakpointStatus::PendingInstall, 2);
         CHECK(bp2.id == 1);
-        checkBreakpoint(target, bp2.id, debug::BreakpointStatus::PendingInstall, 100);
+        checkBreakpoint(target, bp2.id, BreakpointStatus::PendingInstall, 100);
         CHECK(bp3.id == 2);
-        checkBreakpoint(target, bp3.id, debug::BreakpointStatus::PendingInstall, 3);
+        checkBreakpoint(target, bp3.id, BreakpointStatus::PendingInstall, 3);
 
         // check cannot find not-set breakpoint
-        std::optional<debug::Breakpoint> found = target.getBreakpointById(999);
+        std::optional<Breakpoint> found = target.getBreakpointById(999);
         REQUIRE(!found.has_value());
 
         std::promise<void> bp4Promise;
         std::future<void> bp4Future = bp4Promise.get_future();
-        std::function<void(const debug::Breakpoint& bp)> onBreakpointInstall = [&](const debug::Breakpoint& bp)
+        std::function<void(const Breakpoint& bp)> onBreakpointInstall = [&](const Breakpoint& bp)
         {
             if (bp.id == 3)
                 bp4Promise.set_value();
         };
 
-        std::function<void(const debug::Breakpoint& bp)> onBreakpointHit = [&](const debug::Breakpoint& bp)
+        std::function<void(const Breakpoint& bp)> onBreakpointHit = [&](const Breakpoint& bp)
         {
             bool continuedProcess = target.continueProcess();
             CHECK(continuedProcess);
@@ -62,22 +64,22 @@ TEST_SUITE("Debug")
 
         // check breakpoints before launch are immediately installed after launch
         CHECK(target.getBreakpoints().size() == 3);
-        CHECK(target.getBreakpointsByStatus(debug::BreakpointStatus::PendingInstall).size() == 0);
-        CHECK(target.getBreakpointsByStatus(debug::BreakpointStatus::Installed).size() == 2);
-        CHECK(target.getBreakpointsByStatus(debug::BreakpointStatus::Invalid).size() == 1);
-        checkBreakpoint(target, bp.id, debug::BreakpointStatus::Installed, 2);
-        checkBreakpoint(target, bp2.id, debug::BreakpointStatus::Invalid, -1);
-        checkBreakpoint(target, bp3.id, debug::BreakpointStatus::Installed, 4);
+        CHECK(target.getBreakpointsByStatus(BreakpointStatus::PendingInstall).size() == 0);
+        CHECK(target.getBreakpointsByStatus(BreakpointStatus::Installed).size() == 2);
+        CHECK(target.getBreakpointsByStatus(BreakpointStatus::Invalid).size() == 1);
+        checkBreakpoint(target, bp.id, BreakpointStatus::Installed, 2);
+        checkBreakpoint(target, bp2.id, BreakpointStatus::Invalid, -1);
+        checkBreakpoint(target, bp3.id, BreakpointStatus::Installed, 4);
 
         // check that adding breakpoints after launch should be installed at some point
-        debug::Breakpoint bp4 = target.setBreakpoint(fixturePath, 1);
+        Breakpoint bp4 = target.setBreakpoint(fixturePath, 1);
         REQUIRE(bp4Future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
-        checkBreakpoint(target, bp4.id, debug::BreakpointStatus::Installed, 1);
+        checkBreakpoint(target, bp4.id, BreakpointStatus::Installed, 1);
 
         // check that setting breakpoints at same breakpoint returns same id
-        debug::Breakpoint bp5 = target.setBreakpoint(fixturePath, 2);
+        Breakpoint bp5 = target.setBreakpoint(fixturePath, 2);
         CHECK(bp5.id == 0);
-        checkBreakpoint(target, bp5.id, debug::BreakpointStatus::Installed, 2);
+        checkBreakpoint(target, bp5.id, BreakpointStatus::Installed, 2);
 
         // wait until script is finished to call destructors
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
@@ -86,26 +88,26 @@ TEST_SUITE("Debug")
     TEST_CASE_FIXTURE(DebugFixture, "Debug_removeBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("simple.luau");
-        debug::Target target(*runtime);
+        Target target(*runtime);
 
         // check removing pending breakpoint
-        debug::Breakpoint bp = target.setBreakpoint(fixturePath, 2);
+        Breakpoint bp = target.setBreakpoint(fixturePath, 2);
         CHECK(target.getBreakpoints().size() == 1);
-        checkBreakpoint(target, bp.id, debug::BreakpointStatus::PendingInstall, 2);
+        checkBreakpoint(target, bp.id, BreakpointStatus::PendingInstall, 2);
         bool removedBp1 = target.removeBreakpoint(bp.id);
         CHECK(removedBp1);
         REQUIRE(!target.getBreakpointById(bp.id).has_value());
         CHECK(target.getBreakpoints().size() == 0);
 
         // check removing installed breakpoints and invalid breakpoints
-        debug::Breakpoint bp2 = target.setBreakpoint(fixturePath, 3);
-        debug::Breakpoint bp3 = target.setBreakpoint(fixturePath, 100);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 3);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 100);
         CHECK(target.getBreakpoints().size() == 2);
 
         int numUninstalledBps = 0;
         std::promise<void> bp2Promise;
         std::future<void> bp2Future = bp2Promise.get_future();
-        std::function<void(const debug::Breakpoint& bp)> onBreakpointUninstall = [&](const debug::Breakpoint& bp)
+        std::function<void(const Breakpoint& bp)> onBreakpointUninstall = [&](const Breakpoint& bp)
         {
             numUninstalledBps++;
             if (bp.id == bp2.id)
@@ -114,9 +116,9 @@ TEST_SUITE("Debug")
 
         // trigger breakpoint removals when our breakpoint is hit (thus, the execution is currently paused
         // and we can see changes to it being pending uninstall)
-        std::function<void(const debug::Breakpoint& bp)> onBreakpointHit = [&](const debug::Breakpoint& bp)
+        std::function<void(const Breakpoint& bp)> onBreakpointHit = [&](const Breakpoint& bp)
         {
-            checkBreakpoint(target, bp.id, debug::BreakpointStatus::Installed, bp.line);
+            checkBreakpoint(target, bp.id, BreakpointStatus::Installed, bp.line);
 
             bool removedBp2 = target.removeBreakpoint(bp.id);
             CHECK(removedBp2);
@@ -131,7 +133,7 @@ TEST_SUITE("Debug")
         bool launched = target.launch(fixturePath, {}, config);
         CHECK(launched);
 
-        checkBreakpoint(target, bp3.id, debug::BreakpointStatus::Invalid, -1);
+        checkBreakpoint(target, bp3.id, BreakpointStatus::Invalid, -1);
         // check invalid breakpoint is installed instantenously
         bool removedBp3 = target.removeBreakpoint(bp3.id);
         CHECK(removedBp3);
@@ -153,15 +155,15 @@ TEST_SUITE("Debug")
     TEST_CASE_FIXTURE(DebugFixture, "Debug_hitBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("loop.luau");
-        debug::Target target(*runtime);
+        Target target(*runtime);
 
-        debug::Breakpoint bp1 = target.setBreakpoint(fixturePath, 4);
-        debug::Breakpoint bp2 = target.setBreakpoint(fixturePath, 6);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 4);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 6);
         // bp3 checks that removing a breakpoint makes sure that breakpoint is never hit again
-        debug::Breakpoint bp3 = target.setBreakpoint(fixturePath, 7);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 7);
         int hitBp1 = 0, hitBp2 = 0, hitBp3 = 0;
 
-        std::function<void(const debug::Breakpoint& bp)> onBreakpointHit = [&](const debug::Breakpoint& hitBp)
+        std::function<void(const Breakpoint& bp)> onBreakpointHit = [&](const Breakpoint& hitBp)
         {
             if (hitBp.id == bp1.id)
                 hitBp1++;
@@ -189,16 +191,16 @@ TEST_SUITE("Debug")
     TEST_CASE_FIXTURE(DebugFixture, "Debug_pausesOnBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("simple.luau");
-        debug::Target target(*runtime);
-        debug::Breakpoint bp1 = target.setBreakpoint(fixturePath, 1);
-        debug::Breakpoint bp2 = target.setBreakpoint(fixturePath, 2);
+        Target target(*runtime);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 1);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 2);
 
         std::promise<void> hitPromise1;
         std::future<void> hitFuture1 = hitPromise1.get_future();
         std::promise<void> hitPromise2;
         std::future<void> hitFuture2 = hitPromise2.get_future();
 
-        config.onBreakpointHit = [&](const debug::Breakpoint& bp)
+        config.onBreakpointHit = [&](const Breakpoint& bp)
         {
             if (bp.id == bp1.id)
                 hitPromise1.set_value();

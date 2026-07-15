@@ -65,12 +65,13 @@ struct Target
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
-    // For processes:
+    // For actively running scripts:
     bool launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
 
 private:
-    // targetMutex protects the entire Target, which basically serializes calls into it
+    // targetMutex protects the entire Target, since Target can be accessed from the main thread
+    // and the child runtime thread (i.e. in your debugbreak breakpoint callback).
     // This is ok because we are not looking for high performance but rather correctness.
     mutable std::mutex targetMutex;
 
@@ -79,6 +80,7 @@ private:
 
     int currentBreakpointId = 0;
     bool paused = true;
+    bool launched = false;
     std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
     bool continueRequestedBp = false;
     std::optional<Breakpoint> bpHit;
