@@ -71,7 +71,7 @@ struct Target
 
 private:
     // targetMutex protects the entire Target, since Target can be accessed from the main thread
-    // and the child runtime thread (i.e. in your debugbreak breakpoint callback).
+    // and the child runtime thread (i.e. in the debugbreak breakpoint callback).
     // This is ok because we are not looking for high performance but rather correctness.
     mutable std::mutex targetMutex;
 
@@ -89,8 +89,8 @@ private:
 
     Luau::DenseHashMap<std::string, std::shared_ptr<Ref>> loadedSources; // source path -> reference to chunk
 
-    // thread for our running process
-    lua_State* processThread = nullptr;
+    // thread for our launched script
+    lua_State* scriptThread = nullptr;
 
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
