@@ -33,13 +33,11 @@ struct Breakpoint
     explicit Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
 };
 
-struct Process;
-
 struct LaunchConfig
 {
     std::function<void(const Breakpoint& bp)> onBreakpointInstall;
     std::function<void(const Breakpoint& bp)> onBreakpointUninstall;
-    std::function<void(Process& process, const Breakpoint& bp)> onBreakpointHit;
+    std::function<void(const Breakpoint& bp)> onBreakpointHit;
     std::function<void(bool success)> onExit;
 };
 
@@ -67,45 +65,38 @@ struct Target
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
-    std::shared_ptr<Process> launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
+    // For processes:
+    bool launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
+    bool continueProcess();
 
 private:
+    // targetMutex protects the entire Target, which basically serializes calls into it
+    // This is ok because we are not looking for high performance but rather correctness.
+    mutable std::mutex targetMutex;
+
     Runtime& parentRuntime;
     std::unique_ptr<Runtime> childRuntime;
 
-    // breakpointsMutex protects currentBreakpointId and breakpoints itself.
-    // for deadlock concerns, mutexes in the Process object should always be locked before
-    // locking the breakpointsMutex. We should never take a Process object lock while already owning breakpointsMutex.
-    mutable std::mutex breakpointsMutex;
     int currentBreakpointId = 0;
+    bool paused = true;
     std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
-
-    std::shared_ptr<Process> activeProcess;
+    bool continueRequestedBp = false;
+    std::optional<Breakpoint> bpHit;
+    ResumeToken resumeToken;
     LaunchConfig launchConfig;
 
     Luau::DenseHashMap<std::string, std::shared_ptr<Ref>> loadedSources; // source path -> reference to chunk
 
+    // thread for our running process
+    lua_State* processThread = nullptr;
+
+    // private methods are meant for internal calls, so these don't lock targetMutex
+    std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
+    std::optional<Breakpoint> getBreakpointByIdHelper(int breakpointId) const;
+
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
-    void installPendingBreakpoints(lua_State* L);
-};
-
-struct Process
-{
-    explicit Process(lua_State* thread, Target& parentTarget, LaunchConfig config);
-    Target& getTarget();
-    bool continueProcess();
-
-private:
-    lua_State* thread;
-    Runtime& runtime;
-    Target& parentTarget;
-    LaunchConfig config;
-
-    // continueMutex protects continueRequestedBp, resumeToken, and bpHit
-    mutable std::mutex continueMutex;
-    bool continueRequestedBp = false;
-    std::optional<Breakpoint> bpHit;
-    ResumeToken resumeToken;
+    bool uninstallBreakpoint(lua_State* L, Breakpoint& bp);
+    std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> modifyPendingBreakpoints(lua_State* L);
 
     void installBpHitCallback();
     void installExitCallback();

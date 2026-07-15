@@ -48,18 +48,17 @@ TEST_SUITE("Debug")
                 bp4Promise.set_value();
         };
 
-        std::function<void(debug::Process & process, const debug::Breakpoint& bp)> onBreakpointHit =
-            [](debug::Process& process, const debug::Breakpoint& bp)
+        std::function<void(const debug::Breakpoint& bp)> onBreakpointHit = [&](const debug::Breakpoint& bp)
         {
-            bool continuedProcess = process.continueProcess();
+            bool continuedProcess = target.continueProcess();
             CHECK(continuedProcess);
         };
 
         config.onBreakpointInstall = onBreakpointInstall;
         config.onBreakpointHit = onBreakpointHit;
 
-        std::shared_ptr<debug::Process> process = target.launch(fixturePath, {}, config);
-        REQUIRE((bool)(process));
+        bool launched = target.launch(fixturePath, {}, config);
+        CHECK(launched);
 
         // check breakpoints before launch are immediately installed after launch
         CHECK(target.getBreakpoints().size() == 3);
@@ -115,24 +114,22 @@ TEST_SUITE("Debug")
 
         // trigger breakpoint removals when our breakpoint is hit (thus, the execution is currently paused
         // and we can see changes to it being pending uninstall)
-        std::function<void(debug::Process & process, const debug::Breakpoint& bp)> onBreakpointHit =
-            [](debug::Process& process, const debug::Breakpoint& bp)
+        std::function<void(const debug::Breakpoint& bp)> onBreakpointHit = [&](const debug::Breakpoint& bp)
         {
-            debug::Target& target = process.getTarget();
             checkBreakpoint(target, bp.id, debug::BreakpointStatus::Installed, bp.line);
 
             bool removedBp2 = target.removeBreakpoint(bp.id);
             CHECK(removedBp2);
-            checkBreakpoint(target, bp.id, debug::BreakpointStatus::PendingUninstall, bp.line);
+            REQUIRE(!target.getBreakpointById(bp.id).has_value());
 
-            bool continuedProcess = process.continueProcess();
+            bool continuedProcess = target.continueProcess();
             CHECK(continuedProcess);
         };
 
         config.onBreakpointUninstall = onBreakpointUninstall;
         config.onBreakpointHit = onBreakpointHit;
-        std::shared_ptr<debug::Process> process = target.launch(fixturePath, {}, config);
-        REQUIRE((bool)(process));
+        bool launched = target.launch(fixturePath, {}, config);
+        CHECK(launched);
 
         checkBreakpoint(target, bp3.id, debug::BreakpointStatus::Invalid, -1);
         // check invalid breakpoint is installed instantenously
@@ -164,8 +161,7 @@ TEST_SUITE("Debug")
         debug::Breakpoint bp3 = target.setBreakpoint(fixturePath, 7);
         int hitBp1 = 0, hitBp2 = 0, hitBp3 = 0;
 
-        std::function<void(debug::Process & process, const debug::Breakpoint& bp)> onBreakpointHit =
-            [&](debug::Process& process, const debug::Breakpoint& hitBp)
+        std::function<void(const debug::Breakpoint& bp)> onBreakpointHit = [&](const debug::Breakpoint& hitBp)
         {
             if (hitBp.id == bp1.id)
                 hitBp1++;
@@ -176,7 +172,7 @@ TEST_SUITE("Debug")
                 hitBp3++;
                 target.removeBreakpoint(bp3.id);
             }
-            process.continueProcess();
+            target.continueProcess();
         };
 
         config.onBreakpointHit = onBreakpointHit;
@@ -202,7 +198,7 @@ TEST_SUITE("Debug")
         std::promise<void> hitPromise2;
         std::future<void> hitFuture2 = hitPromise2.get_future();
 
-        config.onBreakpointHit = [&](debug::Process& process, const debug::Breakpoint& bp)
+        config.onBreakpointHit = [&](const debug::Breakpoint& bp)
         {
             if (bp.id == bp1.id)
                 hitPromise1.set_value();
@@ -210,8 +206,8 @@ TEST_SUITE("Debug")
                 hitPromise2.set_value();
         };
 
-        std::shared_ptr<debug::Process> process = target.launch(fixturePath, {}, config);
-        REQUIRE((bool)(process));
+        bool launched = target.launch(fixturePath, {}, config);
+        CHECK(launched);
         // check we have hit the breakpoint 1
         REQUIRE(hitFuture1.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
         // check that we actually stopped at the breakpoint by having not hit the next breakpoint
@@ -219,7 +215,7 @@ TEST_SUITE("Debug")
         REQUIRE(hitFuture2.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
 
         // continue execution
-        bool continuedProcess = process->continueProcess();
+        bool continuedProcess = target.continueProcess();
         CHECK(continuedProcess);
 
         // check we have hit the breakpoint 2
@@ -229,7 +225,7 @@ TEST_SUITE("Debug")
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
 
         // continue execution
-        continuedProcess = process->continueProcess();
+        continuedProcess = target.continueProcess();
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }

@@ -40,36 +40,30 @@ Target::~Target()
 
 Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
 {
-    std::optional<Breakpoint> preexistingBp = getBreakpointBySourceLine(sourcePath, line);
+    std::unique_lock lock(targetMutex);
+    std::optional<Breakpoint> preexistingBp = getBreakpointBySourceLineHelper(sourcePath, line);
     if (preexistingBp)
         return *preexistingBp;
-    std::unique_lock lock(breakpointsMutex);
     int id = currentBreakpointId;
     currentBreakpointId++;
     auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint{id, sourcePath, line, BreakpointStatus::PendingInstall});
-    // We schedule breakpoint installs to happen async
-    if (childRuntime)
-        childRuntime->schedule(
-            [this, id]()
-            {
-                std::unique_lock lock(breakpointsMutex);
-                // check breakpoint has not been erased when this scheduled install has been fired
-                if (auto it = breakpoints.find(id); it != breakpoints.end())
-                {
-                    bool installed = installBreakpoint(childRuntime->GL, it->second);
-                    Breakpoint bp = it->second;
-                    lock.unlock();
-                    if (installed && launchConfig.onBreakpointInstall)
-                        launchConfig.onBreakpointInstall(bp);
-                }
-            }
-        );
+    // We schedule breakpoint installs to happen when the runtime exists and we are paused. Otherwise,
+    // they are scheduled for pending installs.
+    if (childRuntime && paused)
+    {
+        bool installed = installBreakpoint(childRuntime->GL, it->second);
+        Breakpoint bpCopy = it->second;
+        lock.unlock();
+        if (installed && launchConfig.onBreakpointInstall)
+            launchConfig.onBreakpointInstall(bpCopy);
+        return bpCopy;
+    }
     return it->second;
 }
 
 bool Target::removeBreakpoint(int bpId)
 {
-    std::unique_lock lock(breakpointsMutex);
+    std::unique_lock lock(targetMutex);
     auto it = breakpoints.find(bpId);
     if (it == breakpoints.end())
         return false;
@@ -83,58 +77,23 @@ bool Target::removeBreakpoint(int bpId)
         // We schedule breakpoint uninstalls to happen async
         if (childRuntime)
         {
-            bp.status = BreakpointStatus::PendingUninstall;
-            childRuntime->schedule(
-                [this, bp]()
+            if (!paused)
+            {
+                bp.status = BreakpointStatus::PendingUninstall;
+            }
+            else
+            {
+                bool successful = uninstallBreakpoint(childRuntime->GL, bp);
+                if (!successful)
                 {
-                    std::unique_lock lock(breakpointsMutex);
-                    auto it = breakpoints.find(bp.id);
-                    if (it == breakpoints.end())
-                    {
-                        parentRuntime.reporter.reportError(
-                            Luau::format(
-                                "breakpoint %d installed at line %d in %s that is queued for uninstall is missing in breakpoint map",
-                                bp.id,
-                                bp.line,
-                                bp.sourcePath.c_str()
-                            )
-                        );
-                        return;
-                    }
-                    breakpoints.erase(it);
-                    auto chunkRef = loadedSources.find(bp.sourcePath);
-                    if (!chunkRef)
-                    {
-                        parentRuntime.reporter.reportError(
-                            Luau::format(
-                                "breakpoint %d installed at line %d in %s that is queued for uninstall is missing a loaded source",
-                                bp.id,
-                                bp.line,
-                                bp.sourcePath.c_str()
-                            )
-                        );
-                        return;
-                    }
-                    (*chunkRef)->push(childRuntime->GL);
-                    int removed_line = lua_breakpoint(childRuntime->GL, -1, bp.line, 0);
-                    lua_pop(childRuntime->GL, 1);
-                    if (removed_line == -1)
-                    {
-                        parentRuntime.reporter.reportError(
-                            Luau::format(
-                                "breakpoint %d installed at line %d in %s that is queued for uninstall could not be removed",
-                                bp.id,
-                                bp.line,
-                                bp.sourcePath.c_str()
-                            )
-                        );
-                        return;
-                    }
-                    lock.unlock();
-                    if (launchConfig.onBreakpointUninstall)
-                        launchConfig.onBreakpointUninstall(bp);
+                    return false;
                 }
-            );
+                Breakpoint bpCopy = bp;
+                breakpoints.erase(it);
+                lock.unlock();
+                if (launchConfig.onBreakpointUninstall)
+                    launchConfig.onBreakpointUninstall(bpCopy);
+            }
         }
         else
         {
@@ -154,7 +113,7 @@ bool Target::removeBreakpoint(int bpId)
 
 std::vector<Breakpoint> Target::getBreakpoints() const
 {
-    std::unique_lock lock(breakpointsMutex);
+    std::unique_lock lock(targetMutex);
     std::vector<Breakpoint> all;
     all.reserve(breakpoints.size());
     for (auto& [_, bp] : breakpoints)
@@ -164,7 +123,7 @@ std::vector<Breakpoint> Target::getBreakpoints() const
 
 std::vector<Breakpoint> Target::getBreakpointsByStatus(BreakpointStatus status) const
 {
-    std::unique_lock lock(breakpointsMutex);
+    std::unique_lock lock(targetMutex);
     std::vector<Breakpoint> statusBps;
     statusBps.reserve(breakpoints.size());
     for (auto& [_, bp] : breakpoints)
@@ -173,18 +132,22 @@ std::vector<Breakpoint> Target::getBreakpointsByStatus(BreakpointStatus status) 
     return statusBps;
 }
 
-std::optional<Breakpoint> Target::getBreakpointById(int breakpointId) const
+std::optional<Breakpoint> Target::getBreakpointByIdHelper(int breakpointId) const
 {
-    std::unique_lock lock(breakpointsMutex);
     auto it = breakpoints.find(breakpointId);
     if (it != breakpoints.end())
         return it->second;
     return std::nullopt;
 }
 
-std::optional<Breakpoint> Target::getBreakpointBySourceLine(std::string source, int line) const
+std::optional<Breakpoint> Target::getBreakpointById(int breakpointId) const
 {
-    std::unique_lock lock(breakpointsMutex);
+    std::unique_lock lock(targetMutex);
+    return getBreakpointByIdHelper(breakpointId);
+}
+
+std::optional<Breakpoint> Target::getBreakpointBySourceLineHelper(std::string source, int line) const
+{
     auto it = std::find_if(
         breakpoints.begin(),
         breakpoints.end(),
@@ -196,6 +159,12 @@ std::optional<Breakpoint> Target::getBreakpointBySourceLine(std::string source, 
     if (it == breakpoints.end())
         return std::nullopt;
     return it->second;
+}
+
+std::optional<Breakpoint> Target::getBreakpointBySourceLine(std::string source, int line) const
+{
+    std::unique_lock lock(targetMutex);
+    return getBreakpointBySourceLineHelper(source, line);
 }
 
 bool Target::installBreakpoint(lua_State* L, Breakpoint& bp)
@@ -217,29 +186,74 @@ bool Target::installBreakpoint(lua_State* L, Breakpoint& bp)
     return true;
 }
 
-void Target::installPendingBreakpoints(lua_State* L)
+// uninstallBreakpoint does not actually remove from the breakpoint map
+// to prevent issues with map iteration so callers should remember to do this.
+bool Target::uninstallBreakpoint(lua_State* L, Breakpoint& bp)
 {
-    std::unique_lock lock(breakpointsMutex);
-    std::vector<Breakpoint> needCallback;
-    for (auto& [_, bp] : breakpoints)
+    auto chunkRef = loadedSources.find(bp.sourcePath);
+    if (!chunkRef)
+    {
+        parentRuntime.reporter.reportError(
+            Luau::format(
+                "breakpoint %d installed at line %d in %s that is queued for uninstall is missing a loaded source",
+                bp.id,
+                bp.line,
+                bp.sourcePath.c_str()
+            )
+        );
+        return false;
+    }
+    (*chunkRef)->push(L);
+    int removed_line = lua_breakpoint(L, -1, bp.line, 0);
+    lua_pop(L, 1);
+    if (removed_line == -1)
+    {
+        parentRuntime.reporter.reportError(
+            Luau::format(
+                "breakpoint %d installed at line %d in %s that is queued for uninstall could not be removed", bp.id, bp.line, bp.sourcePath.c_str()
+            )
+        );
+        return false;
+    }
+    return true;
+}
+
+// This returns the list of installed and unisntalled vectors for use in callbacks
+// later.
+std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> Target::modifyPendingBreakpoints(lua_State* L)
+{
+    std::vector<Breakpoint> installedBpsCallback, uninstalledBpsCallback;
+    std::vector<int> toErase;
+    for (auto& [id, bp] : breakpoints)
     {
         if (bp.status == BreakpointStatus::PendingInstall)
         {
             bool installed = installBreakpoint(L, bp);
             if (installed && launchConfig.onBreakpointInstall)
-                needCallback.push_back(bp);
+                installedBpsCallback.push_back(bp);
+        }
+        if (bp.status == BreakpointStatus::PendingUninstall)
+        {
+            bool uninstalled = uninstallBreakpoint(L, bp);
+            if (uninstalled)
+            {
+                if (launchConfig.onBreakpointUninstall)
+                    uninstalledBpsCallback.push_back(bp);
+                toErase.push_back(bp.id);
+            }
         }
     }
-    lock.unlock();
-    for (auto& bp : needCallback)
-        launchConfig.onBreakpointInstall(bp);
+    for (int id : toErase)
+        breakpoints.erase(id);
+    return {installedBpsCallback, uninstalledBpsCallback};
 }
 
-std::shared_ptr<Process> Target::launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config)
+bool Target::launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     // launch() cannot be called twice from the same target.
-    if (activeProcess != nullptr)
-        return nullptr;
+    std::unique_lock lock(targetMutex);
+    if (processThread != nullptr)
+        return false;
     childRuntime = std::make_unique<Runtime>(parentRuntime.reporter);
     setupState(*childRuntime, nullptr);
     launchConfig = config;
@@ -248,7 +262,7 @@ std::shared_ptr<Process> Target::launch(const std::string& sourcePath, const std
     if (!file.is_open())
     {
         childRuntime.reset();
-        return nullptr;
+        return false;
     }
     std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     Luau::CompileOptions debugOptions = {};
@@ -259,49 +273,41 @@ std::shared_ptr<Process> Target::launch(const std::string& sourcePath, const std
     luaL_sandboxthread(thread);
     luau_load(thread, sourcePath.c_str(), bytecode.c_str(), bytecode.size(), 0);
     loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
-    installPendingBreakpoints(thread);
+    auto [installed, uninstalled] = modifyPendingBreakpoints(thread);
     for (const std::string& arg : args)
         lua_pushstring(thread, arg.c_str());
     childRuntime->runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
     lua_pop(childRuntime->GL, 1);
 
-    std::shared_ptr<Process> process = std::make_shared<Process>(thread, *this, config);
-    activeProcess = process;
-    // All VM setup happens synchronously before runContinuously starts the background thread.
-    // The no-op schedule wakes the event loop so it picks up the queued thread.
-    childRuntime->schedule([]() {});
-    childRuntime->runContinuously();
-    return process;
-}
-
-Process::Process(lua_State* thread, Target& parentTarget, LaunchConfig config)
-    : thread(thread)
-    , runtime(*getRuntime(thread))
-    , parentTarget(parentTarget)
-    , config(std::move(config))
-{
+    processThread = thread;
     installBpHitCallback();
     installExitCallback();
+    // All VM setup happens synchronously before runContinuously starts the background thread.
+    // The no-op schedule wakes the event loop so it picks up the queued thread.
+    paused = false;
+    childRuntime->schedule([]() {});
+    childRuntime->runContinuously();
+    lock.unlock();
+    for (auto& bp : installed)
+        launchConfig.onBreakpointInstall(bp);
+    for (auto& bp : uninstalled)
+        launchConfig.onBreakpointUninstall(bp);
+    return true;
 }
 
-Target& Process::getTarget()
+void Target::installBpHitCallback()
 {
-    return parentTarget;
-}
-
-void Process::installBpHitCallback()
-{
-    lua_Callbacks* cb = lua_callbacks(runtime.GL);
+    lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
     cb->userdata = this;
     cb->debugbreak = [](lua_State* L, lua_Debug* ar)
     {
-        Process* process = static_cast<Process*>(lua_callbacks(L)->userdata);
+        Target* target = static_cast<Target*>(lua_callbacks(L)->userdata);
         // TODO: this pause/resume mechanism assumes single co-routine runtime
         // We land on the same instruction after a continue() after hitting a bp so we basically don't do anything
-        std::unique_lock lock(process->continueMutex);
-        if (process->continueRequestedBp)
+        std::unique_lock lock(target->targetMutex);
+        if (target->continueRequestedBp)
         {
-            process->continueRequestedBp = false;
+            target->continueRequestedBp = false;
             return;
         }
         lua_Debug info = {};
@@ -309,26 +315,32 @@ void Process::installBpHitCallback()
         int line = info.currentline;
         if (!info.source)
         {
-            process->runtime.reporter.reportError(Luau::format("breakpoint hit at line %d could not find a runtime source", line));
+            target->parentRuntime.reporter.reportError(Luau::format("breakpoint hit at line %d could not find a runtime source", line));
             return;
         }
         std::string source = info.source;
-        std::optional<Breakpoint> bp = process->parentTarget.getBreakpointBySourceLine(source, line);
+        std::optional<Breakpoint> bp = target->getBreakpointBySourceLineHelper(source, line);
         // Only stop execution on installed breakpoints; otherwise, don't stop.
         if (bp && bp->status == BreakpointStatus::Installed)
         {
-            process->bpHit = *bp;
-            process->resumeToken = getResumeToken(L);
-            lock.unlock();
+            target->bpHit = *bp;
+            target->resumeToken = getResumeToken(L);
+            target->paused = true;
             lua_break(L);
-            if (process->config.onBreakpointHit)
-                process->config.onBreakpointHit(*process, bp.value());
+            auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->processThread);
+            lock.unlock();
+            if (target->launchConfig.onBreakpointHit)
+                target->launchConfig.onBreakpointHit(bp.value());
+            for (auto& bp : installed)
+                target->launchConfig.onBreakpointInstall(bp);
+            for (auto& bp : uninstalled)
+                target->launchConfig.onBreakpointUninstall(bp);
         }
         else if (!bp || bp->status != BreakpointStatus::PendingUninstall)
         {
             // It is normal to hit breakpoints that are pending uninstall but not normal
             // to hit any other type of breakpoint so we error in those cases.
-            process->runtime.reporter.reportError(
+            target->parentRuntime.reporter.reportError(
                 Luau::format("breakpoint hit at line %d in %s could not be found in breakpoint map", line, source.c_str())
             );
         }
@@ -336,21 +348,21 @@ void Process::installBpHitCallback()
 }
 
 // TODO: this exit handler assumes single coroutine runtime
-void Process::installExitCallback()
+void Target::installExitCallback()
 {
     ThreadCompletionHandler completion;
     completion.onFinish = [this](lua_State* L, int status)
     {
-        if (config.onExit)
-            config.onExit(status == LUA_OK);
+        if (launchConfig.onExit)
+            launchConfig.onExit(status == LUA_OK);
     };
-    runtime.addThreadCompletionHandler(thread, std::move(completion));
+    childRuntime->addThreadCompletionHandler(processThread, std::move(completion));
 }
 
-bool Process::continueProcess()
+bool Target::continueProcess()
 {
-    std::unique_lock lock(continueMutex);
-    if (!resumeToken)
+    std::unique_lock lock(targetMutex);
+    if (!paused || !resumeToken)
         return false;
     ResumeToken token;
     // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
@@ -358,14 +370,15 @@ bool Process::continueProcess()
     {
         // we need to check if our breakpoint is still currently installed after
         // onBreakpointHit() callback
-        std::optional<Breakpoint> currentBp = parentTarget.getBreakpointById(bpHit->id);
+        std::optional<Breakpoint> currentBp = getBreakpointByIdHelper(bpHit->id);
         if (currentBp && currentBp->status == BreakpointStatus::Installed)
             continueRequestedBp = true;
         bpHit = std::nullopt;
     }
     token = std::move(resumeToken);
+    paused = false;
     lock.unlock();
-    // complete() holdes a continuation mutex that we want to avoid holding while holding continueMutex
+    // complete() holdes a continuation mutex that we want to avoid holding while holding targetMutex()
     // so we do the move above.
     token->complete(
         [](lua_State* L)
