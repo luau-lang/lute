@@ -2,6 +2,7 @@
 
 #include "lute/common.h"
 #include "lute/crypto.h"
+#include "lute/debug.h"
 #include "lute/fs.h"
 #include "lute/io.h"
 #include "lute/luau.h"
@@ -36,6 +37,7 @@ const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
     map["@lute/task.luau"] = luteopen_task;
     map["@lute/time.luau"] = luteopen_time;
     map["@lute/vm.luau"] = luteopen_vm;
+    map["@lute/debug.luau"] = luteopen_debug;
     return map;
 }();
 

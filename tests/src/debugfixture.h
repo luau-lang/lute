@@ -1,11 +1,11 @@
 #pragma once
 
+#include "lute/debuginternals.h"
 #include "lute/runtime.h"
 
 #include <future>
 #include <string>
 
-#include "debugger.h"
 #include "lutefixture.h"
 
 std::string getDebugFixturePath(const std::string& name);
