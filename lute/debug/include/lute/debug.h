@@ -1,6 +1,5 @@
 #pragma once
 
-#include "lute/debuginternals.h"
 #include "lute/library.h"
 
 #include "lua.h"

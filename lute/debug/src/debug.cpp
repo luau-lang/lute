@@ -1,5 +1,6 @@
 #include "lute/debug.h"
 
+#include "lute/debuginternals.h"
 #include "lute/runtime.h"
 #include "lute/userdatas.h"
 
