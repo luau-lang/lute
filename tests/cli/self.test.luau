@@ -40,6 +40,10 @@ test.suite("LuteSelf", function(suite)
 	end)
 
 	suite:case("normalizesReleaseTags", function(assert)
+		assert.throws(function()
+			release.normalizeTag("")
+		end, "Release version cannot be empty")
+
 		assert.eq(release.normalizeTag("1.0.1"), "v1.0.1")
 		assert.eq(release.normalizeTag("v1.0.1"), "v1.0.1")
 		assert.eq(release.normalizeTag(" V1.0.1 "), "v1.0.1")
