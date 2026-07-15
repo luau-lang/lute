@@ -6,6 +6,12 @@
 #include "lua.h"
 #include "lualib.h"
 
+#include <cstring>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 static debug::Target* getTarget(lua_State* L, int index)
 {
     auto* storage = static_cast<std::shared_ptr<debug::Target>*>(lua_touserdatatagged(L, index, kTargetTag));

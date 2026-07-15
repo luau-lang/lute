@@ -26,7 +26,6 @@ export type LaunchConfig = {
 }
 
 --- A `Target` represents the target program under the debugger.
---- A `Target` generally handles what is relevant to static code, such as breakpoints.
 export type Target = {
 	--- Sets a breakpoint at `sourcePath` with a given line and queue it for installation.
 	--- If this bp already existed return the preexisting breakpoint. Otherwise, it returns the new one.
@@ -43,7 +42,7 @@ export type Target = {
 	--- Get a breakpoint at a `sourcePath` at a given line. Returns nil if not found.
 	getBreakpointBySourceLine: (self: Target, sourcePath: string, line: number) -> Breakpoint?,
 	--- Launch a Luau script at at `sourcePath` with the relevant `args` and callbacks.
-	--- Returns a `Process` handle or nil if the file was unable to be launched.
+	--- Returns whether the script could be launched.
 	launch: (self: Target, sourcePath: string, args: { string }?, config: LaunchConfig?) -> Process?,
 	--- Continues a target script if it has been stopped. Return `true` if the target was actually stopped
 	--- and `false` if it was not.
