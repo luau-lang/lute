@@ -77,7 +77,7 @@ test.suite("SyntaxPrinter", function(suite)
 					return assign.variables[1].annotation
 				end)
 				:replace(function(_)
-					return printer.printNode(ann) -- LUAUFIX: Remove any cast once code too complex no longer emitted
+					return printer.printNode(ann :: any) -- LUAUFIX: Remove any cast once code too complex no longer emitted
 				end)
 		end, assert)
 	end)

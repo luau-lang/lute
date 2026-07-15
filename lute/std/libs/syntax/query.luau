@@ -135,7 +135,7 @@ function queryLib.findAllFromRoot<T>(cst: types.CstParseResult | Node, fn: (Node
 
 	local root: Node = if (cst :: types.CstParseResult).root ~= nil
 		then (cst :: types.CstParseResult).root
-		else cst :: Node
+		else cst :: any -- LUAUFIX: Remove any cast once code too complex no longer emitted
 	visitor.visit(root, selectVisitor)
 
 	return {
