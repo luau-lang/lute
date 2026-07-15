@@ -10,15 +10,20 @@ local solver = require("@commands/pkg/loom-core/src/semver/solver")
 local temporaryDirectory = system.tmpdir()
 local workingDirectory = path.join(temporaryDirectory, "lute-pkg-registry")
 
-local function writeConfig(dir: path.Path, name: string, deps: string, devDeps: string?)
+local function writeConfig(dir: path.Path, name: string, deps: string, devDeps: string?, overrides: string?)
 	local sections = `\t\tdependencies = \{{deps}\n\t\t}`
 	if devDeps then
 		sections ..= `,\n\t\tdev_dependencies = \{{devDeps}\n\t\t}`
 	end
 
+	local overridesSection = ""
+	if overrides then
+		overridesSection = `\n\toverrides = \{{overrides}\n\t},`
+	end
+
 	fs.writeStringToFile(
 		path.join(dir, "loom.config.luau"),
-		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n{sections},\n\t},\n}\n`
+		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n{sections},\n\t},{overridesSection}\n}\n`
 	)
 end
 
@@ -1151,5 +1156,577 @@ test.suite("LockfileReuse", function(suite)
 		-- Re-resolves: locked 1.5.0 doesn't satisfy new constraint, falls back to newest valid (1.3.0)
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 		assert.eq(lock.dependencies.citrus, "citrus@1.3.0")
+	end)
+end)
+
+test.suite("Overrides", function(suite)
+	suite:beforeEach(function()
+		if fs.exists(workingDirectory) then
+			fs.removeDirectory(workingDirectory, { recursive = true })
+		end
+		fs.createDirectory(workingDirectory)
+	end)
+
+	suite:case("versionPinForcesExactVersion", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "3.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "3.0.0"),
+				namedVersion("citrus", "2.1.0"),
+				namedVersion("citrus", "2.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.packages["citrus@3.0.0"].name, "citrus")
+		assert.eq(lock.packages["citrus@2.1.0"], nil)
+		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus@3.0.0")
+	end)
+
+	suite:case("versionRangeOverrideSelectsBestMatch", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^3.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "3.2.0"),
+				namedVersion("citrus", "3.1.0"),
+				namedVersion("citrus", "3.0.0"),
+				namedVersion("citrus", "2.1.0"),
+				namedVersion("citrus", "2.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.packages["citrus@3.2.0"].name, "citrus")
+		assert.eq(lock.packages["citrus@2.1.0"], nil)
+		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus@3.2.0")
+	end)
+
+	suite:case("versionPinWorksForDirectDep", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "1.2.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.5.0"),
+				namedVersion("citrus", "1.2.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.citrus, "citrus@1.2.0")
+	end)
+
+	suite:case("sourceOverridePathBypassesRegistry", function(assert)
+		local overrideDir = path.join(workingDirectory, "citrus-fork")
+		fs.createDirectory(overrideDir)
+		writeConfig(overrideDir, "citrus", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./citrus-fork",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "2.1.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.packages["citrus"].sourceKind, "path")
+		assert.eq(lock.packages["citrus"].name, "citrus")
+		assert.eq(lock.packages["citrus@2.1.0"], nil)
+		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus")
+	end)
+
+	suite:case("sourceOverridePathResolvesNestedPathDeps", function(assert)
+		local sharedDir = path.join(workingDirectory, "shared")
+		fs.createDirectory(sharedDir)
+		writeConfig(sharedDir, "shared", "")
+
+		local overrideDir = path.join(workingDirectory, "citrus-fork")
+		fs.createDirectory(overrideDir)
+		writeConfig(
+			overrideDir,
+			"citrus",
+			[[
+
+			shared = {
+				sourceKind = "path",
+				source = "../shared",
+			},]]
+		)
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./citrus-fork",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "2.1.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.packages.citrus.dependencies.shared, "shared")
+		assert.eq(lock.packages.shared.name, "shared")
+		assert.eq(lock.packages.shared.sourceKind, "path")
+
+		local reused = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(reused.packages.citrus.dependencies.shared, "shared")
+	end)
+
+	suite:case("directRegistryOverrideOutsideOriginalRangeReusesLockfile", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "2.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		resolution.resolve(path.format(workingDirectory), universe)
+		local lock = resolution.resolve(path.format(workingDirectory), universe, { locked = true })
+
+		assert.eq(lock.dependencies.citrus, "citrus@2.0.0")
+	end)
+
+	suite:case("directSourceOverrideReusesLockfile", function(assert)
+		local overrideDir = path.join(workingDirectory, "citrus-fork")
+		fs.createDirectory(overrideDir)
+		writeConfig(overrideDir, "citrus", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./citrus-fork",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		resolution.resolve(path.format(workingDirectory), universe)
+		local lock = resolution.resolve(path.format(workingDirectory), universe, { locked = true })
+
+		assert.eq(lock.dependencies.citrus, "citrus")
+		assert.eq(lock.packages.citrus.sourceKind, "path")
+	end)
+
+	suite:case("registryOverrideWorksForAliasedDirectDep", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			localCitrus = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "2.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.localCitrus, "citrus@2.0.0")
+	end)
+
+	suite:case("sourceOverrideWorksForAliasedDirectDep", function(assert)
+		local overrideDir = path.join(workingDirectory, "citrus-fork")
+		fs.createDirectory(overrideDir)
+		writeConfig(overrideDir, "citrus", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			localCitrus = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./citrus-fork",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.localCitrus, "citrus")
+		assert.eq(lock.packages.citrus.sourceKind, "path")
+	end)
+
+	suite:case("lockfileIncludesOverrideFingerprint", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "2.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.neq(lock.overrides, nil)
+		assert.eq((lock.overrides :: any).citrus, "2.0.0")
+	end)
+
+	suite:case("lockfileVersionIsThreeWithOverrides", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock.version, 3)
+	end)
+
+	suite:case("reResolvesWhenOverrideAdded", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.5.0"),
+				namedVersion("citrus", "1.2.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock1.dependencies.citrus, "citrus@1.5.0")
+
+		-- Add an override to pin to 1.2.0
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "1.2.0",
+			},]]
+		)
+
+		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock2.dependencies.citrus, "citrus@1.2.0")
+	end)
+
+	suite:case("reResolvesWhenOverrideRemoved", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.5.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock1.dependencies.citrus, "citrus@1.0.0")
+
+		-- Remove the override
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock2.dependencies.citrus, "citrus@1.5.0")
+	end)
+
+	suite:case("overriddenPackageTransitiveDepsStillResolved", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "3.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { citrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "3.0.0", { zest = req("zest", "^1.0.0") }),
+				namedVersion("citrus", "2.0.0"),
+			},
+			zest = {
+				namedVersion("zest", "1.1.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.packages["citrus@3.0.0"].name, "citrus")
+		assert.eq(lock.packages["zest@1.1.0"].name, "zest")
+		assert.eq(lock.packages["citrus@3.0.0"].dependencies.zest, "zest@1.1.0")
+	end)
+
+	suite:case("noOverridesFieldInLockfileWhenEmpty", function(assert)
+		writeConfig(workingDirectory, "root", "")
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.overrides, nil)
 	end)
 end)

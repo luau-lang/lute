@@ -38,8 +38,8 @@ test.suite("CstQuery", function(suite)
 
 		-- Verify the replacement table only contains the expected entries
 		local count = 0
-		-- LUAUFIX: code too complex error here from `replacements` type being very large
-		for _, _ in replacements :: any do
+
+		for _, _ in replacements do
 			count += 1
 		end
 		assert.eq(count, 4) -- 4 non-nil replacements
