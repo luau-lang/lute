@@ -133,7 +133,9 @@ function queryLib.findAllFromRoot<T>(cst: types.CstParseResult | Node, fn: (Node
 
 	local selectVisitor = newSelectVisitor(nodes, fn)
 
-	local root: Node = if (cst :: any).root ~= nil then (cst :: any).root else cst :: any -- LUAUFIX: Replace any cast with cast to node once code too complex no longer emitted
+	local root: Node = if (cst :: types.CstParseResult).root ~= nil
+		then (cst :: types.CstParseResult).root
+		else cst :: Node
 	visitor.visit(root, selectVisitor)
 
 	return {
