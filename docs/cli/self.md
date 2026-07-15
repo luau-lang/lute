@@ -2,7 +2,7 @@
 order: 8
 ---
 
-# Self
+# self
 
 Manage a Lute installation stored in `~/.lute`.
 
