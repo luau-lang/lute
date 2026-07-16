@@ -62,6 +62,15 @@ function tableext.keys<K, V>(tbl: { [K]: V }): { K }
 	return keys
 end
 
+--- Returns an array of all values in `tbl`. Order is not guaranteed.
+function tableext.values<K, V>(tbl: { [K]: V }): { V }
+	local values = {}
+	for _, v in tbl do
+		table.insert(values, v)
+	end
+	return values
+end
+
 type DeepCloneOptions = { preserveMetatables: boolean?, cloneKeys: boolean?, preserveFrozen: boolean? }
 
 function resolveValue<T>(potentialTbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T

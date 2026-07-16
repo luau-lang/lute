@@ -132,20 +132,10 @@ exe $OUT_BINARY tools/luthier.luau build --config $build_config --clean $LUTHIER
 stage_end "build lute"
 
 # optionally install the final built lute version
-INSTALL_DIR=$HOME/.lute/bin
 BUILD_PATH=$BUILD_ROOT/release
 LUTESTRAP=./$BUILD_PATH/$EXE_PATH
 if $install_requested; then
-  # TODO: give the lute executable a self-install subcommand and just invoke that here instead
-  read -p "where would you like to install lute? (default: $INSTALL_DIR): " USER_PATH
-
-  # If user_input is empty, keep default_path; else update it
-  if [[ -n "$USER_PATH" ]]; then
-    INSTALL_DIR=$USER_PATH
-  fi
-  mkdir -p $INSTALL_DIR
-  cp $LUTESTRAP $INSTALL_DIR
-  echo ""
-  echo "installed lute to $INSTALL_DIR/lute"
-  echo "please ensure this is accessible on your \$PATH"
+  stage_start "install lute"
+  exe "$LUTESTRAP" self install
+  stage_end "install lute"
 fi

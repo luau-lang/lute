@@ -33,6 +33,7 @@ export type PackageManifest = {
 
 export type ProjectManifest = {
 	read package: PackageManifest,
+	read overrides: { [string]: DependencySpec },
 }
 
 local function isSourceKind(s: unknown): boolean
@@ -120,6 +121,8 @@ local function parseManifest(t: unknown): ProjectManifest
 		assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
 	end
 
+	local overrides = parseDependencyMap((t :: any).overrides, "overrides")
+
 	return table.freeze({
 		package = table.freeze({
 			name = pkg.name,
@@ -127,6 +130,7 @@ local function parseManifest(t: unknown): ProjectManifest
 			dependencies = dependencies,
 			devDependencies = devDependencies,
 		}),
+		overrides = overrides,
 	})
 end
 

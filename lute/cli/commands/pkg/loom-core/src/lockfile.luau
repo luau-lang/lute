@@ -16,6 +16,7 @@ export type Lockfile = {
 	read version: number,
 	read packages: { [string]: LockfileDependency },
 	read dependencies: { [string]: string },
+	read overrides: { [string]: string }?,
 }
 
 local function validatePackageEntry(key: string, entry: any)
@@ -58,6 +59,15 @@ local function parseLockfile(t: any): Lockfile
 	end
 	table.freeze(t.dependencies)
 
+	if t.overrides ~= nil then
+		assert(typeof(t.overrides) == "table", "Expected 'overrides' field to be a table")
+		for name, value in t.overrides do
+			assert(typeof(name) == "string", "Expected override key to be a string")
+			assert(typeof(value) == "string", "Expected override value to be a string")
+		end
+		table.freeze(t.overrides)
+	end
+
 	return table.freeze(t)
 end
 
@@ -75,6 +85,45 @@ local function tryParseFile(lockfilePath: string): Lockfile?
 		return nil
 	end
 	return result
+end
+
+local function serializeOverrides(overrides: { [string]: manifest.DependencySpec }): { [string]: string }
+	local result: { [string]: string } = {}
+	for name, spec in overrides do
+		if spec.sourceKind == "registry" then
+			result[name] = spec.version
+		elseif spec.sourceKind == "path" then
+			result[name] = `path:{spec.source}`
+		elseif spec.sourceKind == "github" then
+			result[name] = `github:{spec.source}@{spec.rev}`
+		end
+	end
+	return result
+end
+
+local function overridesMatch(locked: { [string]: string }?, current: { [string]: string }): (boolean, string?)
+	for name, value in current do
+		if locked == nil or locked[name] ~= value then
+			return false, `override changed: {name}`
+		end
+	end
+
+	if locked then
+		for name in locked do
+			if current[name] == nil then
+				return false, `override removed: {name}`
+			end
+		end
+	end
+
+	return true, nil
+end
+
+local function getEffectiveRootSpec(
+	spec: manifest.DependencySpec,
+	overrides: { [string]: manifest.DependencySpec }
+): manifest.DependencySpec
+	return overrides[spec.name] or spec
 end
 
 local function satisfiesManifest(
@@ -95,6 +144,8 @@ local function satisfiesManifest(
 	end
 
 	for alias, spec in expectedAliases do
+		spec = getEffectiveRootSpec(spec, rootManifest.overrides)
+
 		local key = lock.dependencies[alias]
 		if key == nil then
 			return false, `new dependency: {alias}`
@@ -132,6 +183,12 @@ local function satisfiesManifest(
 		end
 	end
 
+	local currentOverrides = serializeOverrides(rootManifest.overrides)
+	local overridesOk, overridesReason = overridesMatch(lock.overrides, currentOverrides)
+	if not overridesOk then
+		return false, overridesReason
+	end
+
 	return true, nil
 end
 
@@ -139,4 +196,5 @@ return {
 	parseFile = parseFile,
 	tryParseFile = tryParseFile,
 	satisfiesManifest = satisfiesManifest,
+	serializeOverrides = serializeOverrides,
 }
