@@ -30,16 +30,16 @@ export type Target = {
 	--- Sets a breakpoint at `sourcePath` with a given line and queue it for installation.
 	--- If this bp already existed return the preexisting breakpoint. Otherwise, it returns the new one.
 	setBreakpoint: (self: Target, sourcePath: string, line: number) -> Breakpoint,
-	--- Remove a breakpoint with a given id and queue for uninstall.
+	--- Remove a breakpoint with a given `id` and queue for uninstall.
 	--- Returns whether it was successful or not.
 	removeBreakpoint: (self: Target, id: number) -> boolean,
 	--- Get all breakpoints belonging to a target.
 	getBreakpoints: (self: Target) -> { Breakpoint },
 	--- Get all breakpoints belonging to a target with a certain status.
 	getBreakpointsByStatus: (self: Target, status: BreakpointStatus) -> { Breakpoint },
-	--- Get a breakpoint with a given id.
+	--- Get a breakpoint with a given id. Returns `nil` if not found.
 	getBreakpointById: (self: Target, id: number) -> Breakpoint?,
-	--- Get a breakpoint at a `sourcePath` at a given line. Returns nil if not found.
+	--- Get a breakpoint at a `sourcePath` at a given line. Returns `nil` if not found.
 	getBreakpointBySourceLine: (self: Target, sourcePath: string, line: number) -> Breakpoint?,
 	--- Launch a Luau script at at `sourcePath` with the relevant `args` and callbacks.
 	--- Returns whether the script could be launched.
