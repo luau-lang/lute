@@ -65,13 +65,10 @@ return function(...: string)
 		error("Automatic updates are not supported for nightly releases. Use --nightly or --version.")
 	end
 
-	local tag =
-	    if requested ~= nil then
-		    release.normalizeTag(requested)
-	    elseif nightly then
-		    release.queryLatestNightlyTag(REPO)
-	    else
-		    release.queryLatestTag(REPO)
+	local tag = if requested ~= nil
+		then release.normalizeTag(requested)
+		elseif nightly then release.queryLatestNightlyTag(REPO)
+		else release.queryLatestTag(REPO)
 
 	if current == tag then
 		print(`lute is up to date ({tag})`)
