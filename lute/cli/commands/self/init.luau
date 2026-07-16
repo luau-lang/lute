@@ -11,7 +11,7 @@ Manage the host lute installation in ~/.lute.
 COMMANDS:
   install      Install the running lute into ~/.lute/bin and update PATH
   uninstall    Remove the host lute binary and PATH entry
-  update       Update the host lute to the latest release
+  update       Update the host lute to the latest stable or nightly release
   help         Show this help message
 
 Use --help with any command for more information.

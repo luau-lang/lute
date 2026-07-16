@@ -84,7 +84,7 @@ Self Options:
 		Manages the host lute installation in ~/.lute.
 			install                 Install the running lute as the host lute into ~/.lute/bin and update PATH.
 			uninstall               Remove the host lute binary and PATH entry.
-			update                  Update the host lute to the latest release.
+			update                  Update the host lute to the latest stable or nightly release.
 
 General Options:
 	-h, --help    Display this usage message.

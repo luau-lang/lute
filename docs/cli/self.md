@@ -24,13 +24,19 @@ Update the installed host executable to the latest stable release:
 lute self update
 ```
 
+Update to the latest nightly build:
+
+```bash
+lute self update --nightly
+```
+
 Install a specific release with `--version`. Both `1.0.1` and `v1.0.1` are accepted:
 
 ```bash
 lute self update --version 1.0.1
 ```
 
-Specify the desired nightly version explicitly if desired:
+Specify a particular nightly version explicitly if desired:
 
 ```bash
 lute self update --version 1.0.1-nightly.20260710
