@@ -43,7 +43,7 @@ export type Target = {
 	getBreakpointBySourceLine: (self: Target, sourcePath: string, line: number) -> Breakpoint?,
 	--- Launch a Luau script at at `sourcePath` with the relevant `args` and callbacks.
 	--- Returns whether the script could be launched.
-	launch: (self: Target, sourcePath: string, args: { string }?, config: LaunchConfig?) -> Process?,
+	launch: (self: Target, sourcePath: string, args: { string }?, config: LaunchConfig?) -> boolean,
 	--- Continues a target script if it has been stopped. Return `true` if the target was actually stopped
 	--- and `false` if it was not.
 	continueProcess: (self: Target) -> boolean,
