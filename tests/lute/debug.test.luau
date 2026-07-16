@@ -31,11 +31,12 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		assert.eq(bp.status, "pendingInstall")
 		local numHits, onFinished, numBreakpointsInstalled = 0, false, 0
 		local targetLaunched = target:launch(fixturePath, {}, {
-			onBreakpointHit = function(bp)
+			onBreakpointHit = function(_bp)
 				numHits += 1
-				target:continueProcess()
+				local continued = target:continueProcess()
+				assert.that(continued)
 			end,
-			onBreakpointInstall = function(bp)
+			onBreakpointInstall = function(_bp)
 				numBreakpointsInstalled += 1
 			end,
 			onExit = function(status)
@@ -44,7 +45,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		assert.eq(targetLaunched, true)
+		assert.that(targetLaunched)
 		assert.eq(
 			waitUntil(function()
 				return onFinished
@@ -62,17 +63,17 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local bp1 = target:setBreakpoint(fixturePath, 6)
 		local bp2 = target:setBreakpoint(fixturePath, 7)
 		local bp3 = target:setBreakpoint(fixturePath, 4)
-		local bpGet = target:getBreakpointById(bp1.id)
+		local bpGet = target:getBreakpointById(bp1.id) :: debug.Breakpoint
 		assert.eq(bpGet.id, bp1.id)
 		assert.eq(bpGet.line, 6)
 		assert.eq(bpGet.sourcePath, fixturePath)
 		assert.eq(bpGet.status, "pendingInstall")
-		bpGet = target:getBreakpointById(bp2.id)
+		bpGet = target:getBreakpointById(bp2.id) :: debug.Breakpoint
 		assert.eq(bpGet.id, bp2.id)
 		assert.eq(bpGet.line, 7)
 		assert.eq(bpGet.sourcePath, fixturePath)
 		assert.eq(bpGet.status, "pendingInstall")
-		bpGet = target:getBreakpointById(bp3.id)
+		bpGet = target:getBreakpointById(bp3.id) :: debug.Breakpoint
 		assert.eq(bpGet.id, bp3.id)
 		assert.eq(bpGet.line, 4)
 		assert.eq(bpGet.sourcePath, fixturePath)
@@ -100,9 +101,10 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				else
 					numHitsBp3 += 1
 				end
-				target:continueProcess()
+				local continued = target:continueProcess()
+				assert.that(continued)
 			end,
-			onBreakpointUninstall = function(bp)
+			onBreakpointUninstall = function(_bp)
 				numBreakpointsUninstalled += 1
 			end,
 			onExit = function(status)
@@ -111,9 +113,9 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		assert.eq(targetLaunched, true)
+		assert.that(targetLaunched)
 		-- we expect this breakpoint to be immediately installed
-		bpGet = target:getBreakpointById(bp3.id)
+		bpGet = target:getBreakpointById(bp3.id) :: debug.Breakpoint
 		assert.eq(bpGet.id, bp3.id)
 		assert.eq(bpGet.line, 4)
 		assert.eq(bpGet.sourcePath, fixturePath)
@@ -130,5 +132,35 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		assert.eq(numHitsBp2, 1)
 		assert.eq(numHitsBp3, 5)
 		assert.eq(numBreakpointsUninstalled, 1)
+	end)
+	-- this test case checks bp actually pauses execution
+	suite:case("pauseBp", function(assert)
+		local target = debug.newTarget()
+		assert.eq(typeof(target), "Target")
+		local fixturePath = path.format(path.join(proc.cwd(), "tests/src/debug/simple.luau"))
+		local onFinished = false
+		target:setBreakpoint(fixturePath, 2)
+		local targetLaunched = target:launch(fixturePath, {}, {
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		assert.that(targetLaunched)
+		assert.eq(
+			waitUntil(function()
+				return onFinished
+			end, 1),
+			false
+		)
+		local continued = target:continueProcess()
+		assert.that(continued)
+		assert.eq(
+			waitUntil(function()
+				return onFinished
+			end, 1),
+			true
+		)
 	end)
 end)

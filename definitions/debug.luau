@@ -2,7 +2,7 @@
 local debug = {}
 
 --- The status of a breakpoint, where pendingInstall and pendingUninstall means that the corresponding
---- operation is queued asynchronously
+--- operation is queued to happen when the script is next paused.
 export type BreakpointStatus = "pendingInstall" | "pendingUninstall" | "installed" | "invalid"
 
 --- A breakpoint that stops execution when encountered during runtime
