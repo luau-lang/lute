@@ -15,6 +15,28 @@ local function normalizeTag(tag: string): string
 	return `v{string.lower(stripped)}`
 end
 
+local function isNightlyTag(tag: string): boolean
+	return string.find(normalizeTag(tag), "-nightly.", 1, true) ~= nil
+end
+
+type ReleaseInfo = {
+	read tag_name: string?,
+	read draft: boolean?,
+}
+
+local function selectLatestNightlyTag(releases: { ReleaseInfo }): string?
+	for _, release in releases do
+		if release.draft == true then
+			continue
+		end
+		local tag = release.tag_name
+		if tag ~= nil and isNightlyTag(tag) then
+			return normalizeTag(tag)
+		end
+	end
+	return nil
+end
+
 local function headers(): { [string]: string }
 	local h = {
 		["User-Agent"] = "lute-self",
@@ -38,6 +60,25 @@ local function queryLatestTag(repo: string): string
 		error("Latest GitHub release did not include a tag")
 	end
 	return normalizeTag(data.tag_name)
+end
+
+local function queryLatestNightlyTag(repo: string): string
+	for page = 1, 2 do
+		local url = `https://api.github.com/repos/{repo}/releases?per_page=100&page={page}`
+		local res = net.request(url, { method = "GET", headers = headers() })
+		if not res.ok then
+			error(`Failed to query nightly releases: HTTP {res.status}\n{string.sub(res.body, 1, 200)}`)
+		end
+		local data = json.deserialize(res.body) :: { ReleaseInfo }
+		if #data == 0 then
+			break
+		end
+		local tag = selectLatestNightlyTag(data)
+		if tag ~= nil then
+			return tag
+		end
+	end
+	error("No nightly GitHub release found")
 end
 
 local function osSlug(): string
@@ -94,7 +135,10 @@ local function downloadBinary(repo: string, tag: string, executableName: string)
 end
 
 return table.freeze({
+	isNightlyTag = isNightlyTag,
 	normalizeTag = normalizeTag,
+	selectLatestNightlyTag = selectLatestNightlyTag,
 	queryLatestTag = queryLatestTag,
+	queryLatestNightlyTag = queryLatestNightlyTag,
 	downloadBinary = downloadBinary,
 })

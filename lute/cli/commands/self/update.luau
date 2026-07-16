@@ -14,13 +14,15 @@ local HELP_STRING = [[
 Update the host lute binary to the latest release.
 
 OPTIONS:
+  --nightly           Install the latest nightly build
   --version <version> Install a specific release (e.g. 1.0.1)
-  -h, --help         Show this help message
+  -h, --help          Show this help message
 ]]
 
 return function(...: string)
 	local args = cli.parser()
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
+	args:add("nightly", "flag", { help = "Install the latest nightly build" })
 	args:add("version", "option", { help = "Install a specific release tag instead of the latest" })
 	args:parse({ ... })
 
@@ -45,6 +47,11 @@ return function(...: string)
 	end
 
 	local requested = args:get("version")
+	local nightly = args:has("nightly")
+
+	if requested ~= nil and nightly then
+		error("--nightly and --version are mutually exclusive")
+	end
 
 	local current: string? = nil
 	local ok, result = pcall(process.run, { destination, "--version" }, nil)
@@ -54,11 +61,19 @@ return function(...: string)
 		print(`warning: could not read version from {destination}; proceeding with update`)
 	end
 
-	if requested == nil and current ~= nil and string.find(current, "-nightly.", 1, true) ~= nil then
-		error("Automatic updates are not supported for nightly releases. Use --version to select a nightly release.")
+	if requested == nil and not nightly and current ~= nil and release.isNightlyTag(current) then
+		error("Automatic updates are not supported for nightly releases. Use --nightly or --version.")
 	end
 
-	local tag = if requested ~= nil then release.normalizeTag(requested) else release.queryLatestTag(REPO)
+	local tag: string
+	if requested ~= nil then
+		tag = release.normalizeTag(requested)
+	elseif nightly then
+		tag = release.queryLatestNightlyTag(REPO)
+	else
+		tag = release.queryLatestTag(REPO)
+	end
+
 	if current == tag then
 		print(`lute is up to date ({tag})`)
 		return
