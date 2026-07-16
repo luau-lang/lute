@@ -51,12 +51,8 @@ local function makeDapStreamSession(reader: Reader, writer: Writer)
 			success = success,
 			command = command,
 		}
-		if message then
-			response.message = message
-		end
-		if body then
-			response.body = body
-		end
+		response.message = message or nil
+		response.body = body or nil
 		local encoded = json.serialize(response)
 		writer(`Content-Length: {#encoded}\r\n\r\n{encoded}`)
 		seqNum = seqNum + 1
@@ -68,9 +64,7 @@ local function makeDapStreamSession(reader: Reader, writer: Writer)
 			type = "event",
 			event = event,
 		}
-		if body then
-			msg.body = body
-		end
+		msg.body = body or nil
 		local encoded = json.serialize(msg)
 		writer(`Content-Length: {#encoded}\r\n\r\n{encoded}`)
 		seqNum = seqNum + 1
