@@ -45,7 +45,7 @@ end
 
 local function resolveToken(request: CredentialRequest): string?
 	local providers = loadProviders()
-	local provider = providers[request.host] or providers["*"]
+	local provider = providers[request.host]
 	if provider == nil or typeof(provider) ~= "function" then
 		return nil
 	end

@@ -89,16 +89,6 @@ test.suite("LutePkgAuth", function(suite)
 		assert.eq(result.stdout, "")
 	end)
 
-	suite:case("resolvesTokenFromWildcardProvider", function(assert)
-		writeConfig(
-			`return \{\n\tcredentials = \{\n\t\t["*"] = function()\n\t\t\treturn "{TEST_TOKEN}"\n\t\tend,\n\t\},\n\}\n`
-		)
-
-		local result = runProvider("some-other-host.com", TEST_TOKEN)
-		assert.eq(result.exitcode, 0)
-		assert.eq(result.stdout, "")
-	end)
-
 	suite:case("returnsNilWithoutMatchingProvider", function(assert)
 		local result = runProvider(TEST_DOMAIN, "<nil>")
 		assert.eq(result.exitcode, 0)
