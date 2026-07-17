@@ -114,39 +114,52 @@ struct DefinitionEntry
     std::string path;
 };
 
-struct DefinitionExtractResult
+static std::optional<std::string> findProjectConfig()
 {
-    std::vector<DefinitionEntry> entries;
-    std::string error;
-
-    bool ok() const
+    for (auto dir = getCurrentWorkingDirectory(); dir; dir = getParentPath(*dir))
     {
-        return error.empty();
+        std::string candidate = joinPaths(*dir, Luau::kLuauConfigName);
+        if (isFile(candidate))
+            return candidate;
     }
-};
+    return std::nullopt;
+}
 
-static DefinitionExtractResult extractDefinitionEntries(const Luau::ConfigTable& configTable)
+static std::vector<DefinitionEntry> extractDefinitionEntries(
+    const Luau::ConfigTable& configTable,
+    const std::string& configDir,
+    std::string& error
+)
 {
     if (!configTable.contains("lute"))
         return {};
 
     const Luau::ConfigTable* luteTable = configTable.find("lute")->get_if<Luau::ConfigTable>();
     if (!luteTable)
-        return {{}, "configuration value for key \"lute\" must be a table"};
+    {
+        error = "configuration value for key \"lute\" must be a table";
+        return {};
+    }
 
     if (!luteTable->contains("check"))
         return {};
 
     const Luau::ConfigTable* checkTable = (*luteTable).find("check")->get_if<Luau::ConfigTable>();
     if (!checkTable)
-        return {{}, "configuration value for key \"lute.check\" must be a table"};
+    {
+        error = "configuration value for key \"lute.check\" must be a table";
+        return {};
+    }
 
     if (!checkTable->contains("definitions"))
         return {};
 
     const Luau::ConfigTable* defsTable = (*checkTable).find("definitions")->get_if<Luau::ConfigTable>();
     if (!defsTable)
-        return {{}, "configuration value for key \"lute.check.definitions\" must be a table"};
+    {
+        error = "configuration value for key \"lute.check.definitions\" must be a table";
+        return {};
+    }
 
     std::vector<DefinitionEntry> entries;
 
@@ -154,42 +167,41 @@ static DefinitionExtractResult extractDefinitionEntries(const Luau::ConfigTable&
     {
         const std::string* key = k.get_if<std::string>();
         if (!key)
-            return {{}, "configuration keys in \"lute.check.definitions\" must be strings"};
+        {
+            error = "configuration keys in \"lute.check.definitions\" must be strings";
+            return {};
+        }
 
         const std::string* value = v.get_if<std::string>();
         if (!value)
-            return {{}, "configuration values in \"lute.check.definitions\" must be strings (file paths)"};
+        {
+            error = "configuration values in \"lute.check.definitions\" must be strings (file paths)";
+            return {};
+        }
 
-        entries.push_back({*key, *value});
+        entries.push_back({*key, normalizePath(joinPaths(configDir, *value))});
     }
 
-    return {std::move(entries), {}};
+    return entries;
 }
 
-static int loadDefinitions(
-    Luau::Frontend& frontend,
-    const std::vector<DefinitionEntry>& entries,
-    const std::string& configDir,
-    LuteReporter& reporter
-)
+static int loadDefinitions(Luau::Frontend& frontend, const std::vector<DefinitionEntry>& entries, LuteReporter& reporter)
 {
     int failures = 0;
 
     for (const DefinitionEntry& entry : entries)
     {
-        std::string resolvedPath = normalizePath(joinPaths(configDir, entry.path));
-
-        if (!isFile(resolvedPath))
+        if (!isFile(entry.path))
         {
-            reporter.formatError("Error: Definition file not found: %s\n", resolvedPath.c_str());
+            reporter.formatError("Error: Definition file not found: %s\n", entry.path.c_str());
             failures++;
             continue;
         }
 
-        std::optional<std::string> source = readFile(resolvedPath);
+        std::optional<std::string> source = readFile(entry.path);
         if (!source)
         {
-            reporter.formatError("Error: Failed to read definition file: %s\n", resolvedPath.c_str());
+            reporter.formatError("Error: Failed to read definition file: %s\n", entry.path.c_str());
             failures++;
             continue;
         }
@@ -201,13 +213,13 @@ static int loadDefinitions(
 
         if (!result.success)
         {
-            reporter.formatError("Error: Failed to load definition file: %s\n", resolvedPath.c_str());
+            reporter.formatError("Error: Failed to load definition file: %s\n", entry.path.c_str());
 
             for (const auto& parseError : result.parseResult.errors)
             {
                 reporter.formatError(
                     "  %s:%d:%d: %s\n",
-                    resolvedPath.c_str(),
+                    entry.path.c_str(),
                     parseError.getLocation().begin.line + 1,
                     parseError.getLocation().begin.column + 1,
                     parseError.getMessage().c_str()
@@ -220,7 +232,7 @@ static int loadDefinitions(
                 {
                     reporter.formatError(
                         "  %s:%d:%d: %s\n",
-                        resolvedPath.c_str(),
+                        entry.path.c_str(),
                         error.location.begin.line + 1,
                         error.location.begin.column + 1,
                         Luau::toString(error).c_str()
@@ -235,17 +247,6 @@ static int loadDefinitions(
     return failures;
 }
 
-static std::optional<std::string> findProjectConfig()
-{
-    for (auto dir = getCurrentWorkingDirectory(); dir; dir = getParentPath(*dir))
-    {
-        std::string candidate = joinPaths(*dir, Luau::kLuauConfigName);
-        if (isFile(candidate))
-            return candidate;
-    }
-    return std::nullopt;
-}
-
 int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& reporter, std::optional<std::string> configPathOverride)
 {
     std::vector<std::string> sourceFiles = processSourceFiles(sourceFilesInput);
@@ -257,14 +258,11 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
     }
 
     std::vector<DefinitionEntry> definitionEntries;
-    std::string configDir;
 
     std::optional<std::string> configPath = configPathOverride ? configPathOverride : findProjectConfig();
     if (configPath)
     {
-        std::optional<std::string> parentDir = getParentPath(*configPath);
-        if (parentDir)
-            configDir = *parentDir;
+        std::optional<std::string> configDir = getParentPath(*configPath);
 
         std::optional<std::string> configSource = readFile(*configPath);
         if (configSource)
@@ -278,14 +276,13 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
                 return 1;
             }
 
-            DefinitionExtractResult extractResult = extractDefinitionEntries(*configTable);
-            if (!extractResult.ok())
+            std::string extractError;
+            definitionEntries = extractDefinitionEntries(*configTable, configDir.value_or(""), extractError);
+            if (!extractError.empty())
             {
-                reporter.formatError("Error in %s: %s\n", configPath->c_str(), extractResult.error.c_str());
+                reporter.formatError("Error in %s: %s\n", configPath->c_str(), extractError.c_str());
                 return 1;
             }
-
-            definitionEntries = std::move(extractResult.entries);
         }
     }
 
@@ -304,7 +301,7 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
 
     if (!definitionEntries.empty())
     {
-        int defFailures = loadDefinitions(frontend, definitionEntries, configDir, reporter);
+        int defFailures = loadDefinitions(frontend, definitionEntries, reporter);
         if (defFailures > 0)
         {
             Luau::freeze(frontend.globals.globalTypes);
