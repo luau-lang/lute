@@ -125,41 +125,39 @@ static std::optional<std::string> findProjectConfig()
     return std::nullopt;
 }
 
-static std::vector<DefinitionEntry> extractDefinitionEntries(
-    const Luau::ConfigTable& configTable,
-    const std::string& configDir,
-    std::string& error
-)
+struct DefinitionExtractResult
+{
+    std::vector<DefinitionEntry> entries;
+    std::string error;
+
+    bool ok() const
+    {
+        return error.empty();
+    }
+};
+
+static DefinitionExtractResult extractDefinitionEntries(const Luau::ConfigTable& configTable, const std::string& configDir)
 {
     if (!configTable.contains("lute"))
         return {};
 
     const Luau::ConfigTable* luteTable = configTable.find("lute")->get_if<Luau::ConfigTable>();
     if (!luteTable)
-    {
-        error = "configuration value for key \"lute\" must be a table";
-        return {};
-    }
+        return {{}, "configuration value for key \"lute\" must be a table"};
 
     if (!luteTable->contains("check"))
         return {};
 
     const Luau::ConfigTable* checkTable = (*luteTable).find("check")->get_if<Luau::ConfigTable>();
     if (!checkTable)
-    {
-        error = "configuration value for key \"lute.check\" must be a table";
-        return {};
-    }
+        return {{}, "configuration value for key \"lute.check\" must be a table"};
 
     if (!checkTable->contains("definitions"))
         return {};
 
     const Luau::ConfigTable* defsTable = (*checkTable).find("definitions")->get_if<Luau::ConfigTable>();
     if (!defsTable)
-    {
-        error = "configuration value for key \"lute.check.definitions\" must be a table";
-        return {};
-    }
+        return {{}, "configuration value for key \"lute.check.definitions\" must be a table"};
 
     std::vector<DefinitionEntry> entries;
 
@@ -167,22 +165,16 @@ static std::vector<DefinitionEntry> extractDefinitionEntries(
     {
         const std::string* key = k.get_if<std::string>();
         if (!key)
-        {
-            error = "configuration keys in \"lute.check.definitions\" must be strings";
-            return {};
-        }
+            return {{}, "configuration keys in \"lute.check.definitions\" must be strings"};
 
         const std::string* value = v.get_if<std::string>();
         if (!value)
-        {
-            error = "configuration values in \"lute.check.definitions\" must be strings (file paths)";
-            return {};
-        }
+            return {{}, "configuration values in \"lute.check.definitions\" must be strings (file paths)"};
 
         entries.push_back({*key, normalizePath(joinPaths(configDir, *value))});
     }
 
-    return entries;
+    return {std::move(entries), {}};
 }
 
 static int loadDefinitions(Luau::Frontend& frontend, const std::vector<DefinitionEntry>& entries, LuteReporter& reporter)
@@ -276,13 +268,14 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
                 return 1;
             }
 
-            std::string extractError;
-            definitionEntries = extractDefinitionEntries(*configTable, configDir.value_or(""), extractError);
-            if (!extractError.empty())
+            DefinitionExtractResult extractResult = extractDefinitionEntries(*configTable, configDir.value_or(""));
+            if (!extractResult.ok())
             {
-                reporter.formatError("Error in %s: %s\n", configPath->c_str(), extractError.c_str());
+                reporter.formatError("Error in %s: %s\n", configPath->c_str(), extractResult.error.c_str());
                 return 1;
             }
+
+            definitionEntries = std::move(extractResult.entries);
         }
     }
 
