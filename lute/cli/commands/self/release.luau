@@ -4,7 +4,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
 local system = require("@std/system")
-local unzip = require("../pkg/loom-core/extern/unzip")
+local unzip = require("@lib/extern/unzip")
 
 local function normalizeTag(tag: string): string
 	local trimmed = stringext.trim(tag)
