@@ -114,17 +114,6 @@ struct DefinitionEntry
     std::string path;
 };
 
-static std::optional<std::string> findProjectConfig()
-{
-    for (auto dir = getCurrentWorkingDirectory(); dir; dir = getParentPath(*dir))
-    {
-        std::string candidate = joinPaths(*dir, Luau::kLuauConfigName);
-        if (isFile(candidate))
-            return candidate;
-    }
-    return std::nullopt;
-}
-
 struct DefinitionExtractResult
 {
     std::vector<DefinitionEntry> entries;
@@ -175,6 +164,48 @@ static DefinitionExtractResult extractDefinitionEntries(const Luau::ConfigTable&
     }
 
     return {std::move(entries), {}};
+}
+
+static DefinitionExtractResult findDefinitions(const std::optional<std::string>& configPathOverride)
+{
+    if (configPathOverride)
+    {
+        std::optional<std::string> contents = readFile(*configPathOverride);
+        if (!contents)
+            return {};
+
+        std::string parseError;
+        std::optional<Luau::ConfigTable> configTable = Luau::extractConfig(*contents, {}, &parseError);
+        if (!configTable)
+            return {{}, "Error parsing " + *configPathOverride + ": " + parseError};
+
+        std::optional<std::string> configDir = getParentPath(*configPathOverride);
+        return extractDefinitionEntries(*configTable, configDir.value_or(""));
+    }
+
+    for (auto dir = getCurrentWorkingDirectory(); dir; dir = getParentPath(*dir))
+    {
+        std::string candidate = joinPaths(*dir, Luau::kLuauConfigName);
+        if (!isFile(candidate))
+            continue;
+
+        std::optional<std::string> contents = readFile(candidate);
+        if (!contents)
+            continue;
+
+        std::string parseError;
+        std::optional<Luau::ConfigTable> configTable = Luau::extractConfig(*contents, {}, &parseError);
+        if (!configTable)
+            return {{}, "Error parsing " + candidate + ": " + parseError};
+
+        DefinitionExtractResult result = extractDefinitionEntries(*configTable, *dir);
+        if (!result.ok())
+            return {{}, "Error in " + candidate + ": " + result.error};
+
+        if (!result.entries.empty())
+            return result;
+    }
+    return {};
 }
 
 static int loadDefinitions(Luau::Frontend& frontend, const std::vector<DefinitionEntry>& entries, LuteReporter& reporter)
@@ -249,34 +280,11 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
         return 1;
     }
 
-    std::vector<DefinitionEntry> definitionEntries;
-
-    std::optional<std::string> configPath = configPathOverride ? configPathOverride : findProjectConfig();
-    if (configPath)
+    DefinitionExtractResult definitions = findDefinitions(configPathOverride);
+    if (!definitions.ok())
     {
-        std::optional<std::string> configDir = getParentPath(*configPath);
-
-        std::optional<std::string> configSource = readFile(*configPath);
-        if (configSource)
-        {
-            std::string parseError;
-            std::optional<Luau::ConfigTable> configTable = Luau::extractConfig(*configSource, {}, &parseError);
-
-            if (!configTable)
-            {
-                reporter.formatError("Error parsing %s: %s\n", configPath->c_str(), parseError.c_str());
-                return 1;
-            }
-
-            DefinitionExtractResult extractResult = extractDefinitionEntries(*configTable, configDir.value_or(""));
-            if (!extractResult.ok())
-            {
-                reporter.formatError("Error in %s: %s\n", configPath->c_str(), extractResult.error.c_str());
-                return 1;
-            }
-
-            definitionEntries = std::move(extractResult.entries);
-        }
+        reporter.formatError("%s\n", definitions.error.c_str());
+        return 1;
     }
 
     Luau::Mode mode = Luau::Mode::Strict;
@@ -292,9 +300,9 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
 
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
 
-    if (!definitionEntries.empty())
+    if (!definitions.entries.empty())
     {
-        int defFailures = loadDefinitions(frontend, definitionEntries, reporter);
+        int defFailures = loadDefinitions(frontend, definitions.entries, reporter);
         if (defFailures > 0)
         {
             Luau::freeze(frontend.globals.globalTypes);
