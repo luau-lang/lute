@@ -1,7 +1,9 @@
 return {
     lute = {
-        definitions = {
-            missing = "./nonexistent.d.luau",
+        check = {
+            definitions = {
+                missing = "./nonexistent.d.luau",
+            },
         },
     },
 }

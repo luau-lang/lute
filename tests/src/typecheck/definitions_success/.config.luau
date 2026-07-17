@@ -1,7 +1,9 @@
 return {
     lute = {
-        definitions = {
-            globals = "../definitions/globals.d.luau",
+        check = {
+            definitions = {
+                globals = "../definitions/globals.d.luau",
+            },
         },
     },
 }

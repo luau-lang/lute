@@ -1,7 +1,9 @@
 return {
     lute = {
-        definitions = {
-            invalid = "../definitions/invalid.d.luau",
+        check = {
+            definitions = {
+                invalid = "../definitions/invalid.d.luau",
+            },
         },
     },
 }
