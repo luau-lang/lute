@@ -30,6 +30,10 @@ test.suite("LuteSelf", function(suite)
 			assert.eq(result.exitcode, 0)
 			assert.strContains(result.stdout, `Usage: lute self {command}`)
 		end
+
+		local updateHelp = run("update", "--help")
+		assert.strContains(updateHelp.stdout, "--nightly")
+		assert.strContains(updateHelp.stdout, "--version")
 	end)
 
 	suite:case("rejectsUnknownCommand", function(assert)
@@ -49,6 +53,40 @@ test.suite("LuteSelf", function(suite)
 		assert.eq(release.normalizeTag(" V1.0.1 "), "v1.0.1")
 		assert.eq(release.normalizeTag("1.0.1-nightly.20260710"), "v1.0.1-nightly.20260710")
 		assert.eq(release.normalizeTag("V1.0.1-NIGHTLY.20260710"), "v1.0.1-nightly.20260710")
+	end)
+
+	suite:case("classifiesNightlyTags", function(assert)
+		assert.eq(release.isNightlyTag("v1.0.1"), false)
+		assert.eq(release.isNightlyTag("1.0.1"), false)
+		assert.eq(release.isNightlyTag("v1.0.1-nightly.20260710"), true)
+		assert.eq(release.isNightlyTag("1.0.1-nightly.20260710"), true)
+		assert.eq(release.isNightlyTag("V1.0.1-NIGHTLY.20260710"), true)
+	end)
+
+	suite:case("selectsLatestNightlyTag", function(assert)
+		assert.eq(release.selectLatestNightlyTag({}), nil)
+		assert.eq(
+			release.selectLatestNightlyTag({
+				{ tag_name = "v1.0.1", draft = false },
+				{ tag_name = "v1.0.0", draft = false },
+			}),
+			nil
+		)
+		assert.eq(
+			release.selectLatestNightlyTag({
+				{ tag_name = "v1.0.1-nightly.20260715", draft = true },
+				{ tag_name = "v1.0.1", draft = false },
+				{ tag_name = "v1.0.1-nightly.20260714", draft = false },
+				{ tag_name = "v1.0.1-nightly.20260710", draft = false },
+			}),
+			"v1.0.1-nightly.20260714"
+		)
+		assert.eq(
+			release.selectLatestNightlyTag({
+				{ tag_name = "v1.0.1-nightly.20260715", draft = false },
+			}),
+			"v1.0.1-nightly.20260715"
+		)
 	end)
 
 	suite:case("installsAndUninstallsHostBinary", function(assert)
