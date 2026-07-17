@@ -2,6 +2,7 @@ local fs = require("@std/fs")
 local luau = require("@std/luau")
 local path = require("@std/path")
 local process = require("@std/process")
+local stringext = require("@std/stringext")
 
 export type CredentialRequest = {
 	read protocol: string,
@@ -38,36 +39,41 @@ local function loadProvider(path: string): CredentialProvider?
 	return if ok then parseProvider(provider) else nil
 end
 
+local function loadProviderFromConfig(directory: string): string?
+	local configPath = path.format(path.join(directory, ".config.luau"))
+	if fs.exists(configPath) then
+		local ok, config = pcall(luau.loadModule, configPath, nil)
+		if
+			ok
+			and typeof(config) == "table"
+			and typeof(config.lute) == "table"
+			and typeof(config.lute.credentials) == "table"
+			and typeof(config.lute.credentials.providers) == "string"
+		then
+			local resolvedPath = path.format(path.resolve(path.dirname(configPath), config.lute.credentials.providers))
+			if not fs.exists(resolvedPath) then
+				print(`Credential providers path {resolvedPath} for config {configPath} does not exist`)
+			else
+				return resolvedPath
+			end
+		end
+	end
+	return nil
+end
+
 local function findCredentialProvidersPath(): string?
 	local directory = path.format(process.cwd())
 	while true do
-		local configPath = path.format(path.join(directory, ".config.luau"))
-		if fs.exists(configPath) then
-			local ok, config = pcall(luau.loadModule, configPath, nil)
-			if
-				ok
-				and typeof(config) == "table"
-				and typeof(config.lute) == "table"
-				and typeof(config.lute.credentials) == "table"
-				and typeof(config.lute.credentials.providers) == "string"
-			then
-				local resolvedPath =
-					path.format(path.resolve(path.dirname(configPath), config.lute.credentials.providers))
-				if not fs.exists(resolvedPath) then
-					print(`Credential providers path {resolvedPath} for config {configPath} does not exist`)
-				else
-					return resolvedPath
-				end
-			end
+		local providersPath = loadProviderFromConfig(directory)
+		if providersPath ~= nil then
+			return providersPath
 		end
-
 		local parent = path.format(path.dirname(directory))
 		if parent == directory then
 			return nil
 		end
 		directory = parent
 	end
-	return nil
 end
 
 local function loadProviders(): CredentialProviders
@@ -109,27 +115,23 @@ local function resolveToken(request: CredentialRequest): string?
 	if provider == nil then
 		return nil
 	end
-
-	local frozenRequest = table.freeze({
-		protocol = request.protocol,
-		host = request.host,
-		path = request.path,
-	})
-
-	local ok, token = pcall(provider.resolve, frozenRequest)
+	local ok, token = pcall(provider.resolve, request)
 	if not ok then
 		error(`Credential provider for {request.host} failed: {token}`)
 	end
-	if token == nil or token == "" then
+	if token == nil then
 		return nil
 	end
 	if typeof(token) ~= "string" then
 		error(`Credential provider for {request.host} must return a string or nil`)
 	end
+	token = stringext.trim(token)
+	if token == "" then
+		return nil
+	end
 	if token:match("[\0-\31]") then
 		error(`Credential provider for {request.host} returned a token containing control characters`)
 	end
-
 	return token
 end
 
