@@ -1,4 +1,4 @@
-local credentialProvider = require("@commands/pkg/loom-core/src/credentialprovider")
+local credentialProvider = require("@commands/lib/credentials")
 
 local protocol, host, repositoryPath, expectedToken = select(2, ...)
 local token = credentialProvider.resolveToken(table.freeze({

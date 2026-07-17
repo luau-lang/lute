@@ -1,5 +1,5 @@
 local authenticationStore = require("./authenticationstore")
-local credentialProvider = require("./credentialprovider")
+local credentialProvider = require("@commands/lib/credentials")
 local fs = require("@std/fs")
 local net = require("@std/net")
 local path = require("@std/path")
