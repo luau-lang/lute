@@ -1,4 +1,4 @@
-local authenticationStore = require("@commands/lib/authenticationstore")
+local authenticationStore = require("../authenticationstore")
 local cli = require("@batteries/cli")
 
 local function authenticate(...: string)

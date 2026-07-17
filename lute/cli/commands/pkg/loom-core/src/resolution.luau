@@ -1,5 +1,5 @@
 local fs = require("@std/fs")
-local github = require("@commands/lib/github")
+local github = require("./github")
 local lockfile = require("./lockfile")
 local path = require("@std/path")
 local pp = require("@batteries/pp")
