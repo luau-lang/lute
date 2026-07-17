@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lute/require.h"
 #include "lute/runtime.h"
 
 #include "Luau/DenseHash.h"
@@ -46,6 +47,9 @@ struct Target
 {
     explicit Target(Runtime& parentRuntime);
     ~Target();
+
+    // Get list of sources
+    std::vector<std::string> getLoadedSources();
 
     // Setting breakpoints is a two step process. We add them to our Target. If they
     // involve a source that has already been loaded by the VM, we attempt to install that
@@ -95,6 +99,9 @@ private:
 
     // our stopped thread that we need to requeue when we continue
     lua_State* stoppedThread = nullptr;
+
+    // for require contexts
+    std::unique_ptr<RequireCtx> requireCtx;
 
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;

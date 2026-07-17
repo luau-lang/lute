@@ -176,14 +176,15 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
         luaL_error(L, "could not read file '%s'", loadname);
 
     // now we can compile & run module on the new thread
-    std::string bytecode = reqCtx->vfs->isPrecompiled() ? *contents : Luau::compile(*contents, copts());
+    std::string bytecode = reqCtx->vfs->isPrecompiled() ? *contents : Luau::compile(*contents, reqCtx->compileOptions);
     bool errored = true;
     if (luau_load(ML, chunkname, bytecode.data(), bytecode.size(), 0) == 0)
     {
         Luau::CodeGen::CompilationOptions nativeOptions;
         nativeOptions.flags = Luau::CodeGen::CodeGen_OnlyNativeModules;
         Luau::CodeGen::compile(ML, -1, nativeOptions);
-
+        if (reqCtx->onLoad)
+            reqCtx->onLoad(chunkname, ML);
         int status = lua_resume(ML, L, 0);
 
         if (status == 0)

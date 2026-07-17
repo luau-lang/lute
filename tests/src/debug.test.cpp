@@ -292,4 +292,38 @@ TEST_SUITE("Debug")
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_multiSource")
+    {
+        std::string mainPath = getDebugFixturePath("require_main.luau");
+        std::string triangPath = getDebugFixturePath("require_triang.luau");
+
+        int bpHit1 = 0, bpHit2 = 0, bpInstalled = 0;
+        Target target(*runtime);
+        Breakpoint bp1 = target.setBreakpoint(mainPath, 5);
+        Breakpoint bp2 = target.setBreakpoint(triangPath, 5);
+        config.onBreakpointInstall = [&](const Breakpoint& bp)
+        {
+            bpInstalled++;
+        };
+        config.onBreakpointHit = [&](const Breakpoint& bp)
+        {
+            if (bp.id == bp1.id)
+                bpHit1++;
+            else if (bp.id == bp2.id)
+                bpHit2++;
+            target.continueProcess();
+        };
+        bool launched = target.launch(mainPath, {}, config);
+        CHECK(launched);
+        // check we are done
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(bpHit1 == 5);
+        CHECK(bpHit2 == 15);
+        CHECK(bpInstalled == 2);
+        std::vector<std::string> sources = target.getLoadedSources();
+        CHECK(sources.size() == 2);
+        CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
+        CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
+    }
 }

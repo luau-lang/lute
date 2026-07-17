@@ -1,7 +1,9 @@
 #pragma once
 
 #include "lute/modulepath.h"
+#include "lute/options.h"
 
+#include "Luau/Compiler.h"
 #include "Luau/Require.h"
 
 #include <memory>
@@ -42,4 +44,7 @@ struct RequireCtx
     RequireCtx(std::unique_ptr<IRequireVfs> vfs);
 
     std::unique_ptr<IRequireVfs> vfs;
+
+    Luau::CompileOptions compileOptions = copts();
+    std::function<void(const std::string& chunkName, lua_State* L)> onLoad;
 };

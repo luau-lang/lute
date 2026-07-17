@@ -12,6 +12,6 @@ target_compile_features(Lute.Debug PUBLIC cxx_std_17)
 target_include_directories(Lute.Debug PUBLIC "include" PRIVATE src)
 target_link_libraries(Lute.Debug
     PUBLIC Lute.Runtime
-    PRIVATE Luau.Compiler Luau.VM Luau.Common
+    PRIVATE Luau.Compiler Luau.VM Luau.Common Lute.Require
 )
 target_compile_options(Lute.Debug PRIVATE ${LUTE_OPTIONS})
