@@ -2,6 +2,7 @@
     "languageMode": "strict",
     "aliases": {
         "batteries": "../../batteries",
+        "lib": "./commands/lib",
         "lint": "@std/commands/lint/types",
         "transform": "@std/commands/transform/types"
     }
