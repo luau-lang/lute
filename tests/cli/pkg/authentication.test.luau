@@ -6,11 +6,10 @@ local test = require("@std/test")
 
 local lutePath = path.format(process.execPath())
 local testFilePath = debug.info(1, "s"):gsub("^@", "")
-local providerFixture = path.join(path.dirname(testFilePath), "fixtures", "credential_provider.luau")
+local fixturesDir = path.join(path.dirname(testFilePath), "fixtures")
+local resolveFixture = path.join(fixturesDir, "resolve_credential.luau")
 
 local workingDirectory = path.join(system.tmpdir(), "lute-pkg-auth")
-local luteConfigDirectory = path.join(workingDirectory, ".lute")
-local luteConfigPath = path.join(luteConfigDirectory, "config.luau")
 local loomAuthPath = path.join(workingDirectory, ".loom", "auth.luau")
 
 local TEST_DOMAIN = "github.com"
@@ -23,11 +22,6 @@ local function environment(): { [string]: string }
 		USERPROFILE = path.format(workingDirectory),
 		GITHUB_TOKEN = "",
 	}, { __index = process.env }) :: any
-end
-
-local function writeConfig(content: string)
-	fs.createDirectory(luteConfigDirectory, { makeParents = true })
-	fs.writeStringToFile(luteConfigPath, content)
 end
 
 local function runAuth(): { exitcode: number, stdout: string, stderr: string }
@@ -45,15 +39,20 @@ local function runAuth(): { exitcode: number, stdout: string, stderr: string }
 	})
 end
 
-local function runProvider(domain: string, expectedToken: string): { exitcode: number, stdout: string, stderr: string }
+local function runResolve(
+	fixture: string,
+	domain: string,
+	expectedToken: string
+): { exitcode: number, stdout: string, stderr: string }
 	return process.run({
 		lutePath,
-		path.format(providerFixture),
+		path.format(resolveFixture),
 		"https",
 		domain,
 		TEST_REPOSITORY,
 		expectedToken,
 	}, {
+		cwd = path.format(path.join(fixturesDir, "credentials", fixture)),
 		env = environment(),
 	})
 end
@@ -79,50 +78,50 @@ test.suite("LutePkgAuth", function(suite)
 		assert.strContains(fs.readFileToString(loomAuthPath), TEST_TOKEN)
 	end)
 
-	suite:case("resolvesTokenFromUserConfig", function(assert)
-		writeConfig(
-			`return \{\n\tcredentials = \{\n\t\t["{TEST_DOMAIN}"] = function(request)\n\t\t\tassert(request.protocol == "https")\n\t\t\tassert(request.host == "{TEST_DOMAIN}")\n\t\t\tassert(request.path == "{TEST_REPOSITORY}")\n\t\t\treturn "{TEST_TOKEN}"\n\t\tend,\n\t\},\n\}\n`
-		)
-
-		local result = runProvider(TEST_DOMAIN, TEST_TOKEN)
+	suite:case("resolvesTokenFromConfiguredProvider", function(assert)
+		local result = runResolve("valid", TEST_DOMAIN, TEST_TOKEN)
 		assert.eq(result.exitcode, 0)
 		assert.eq(result.stdout, "")
 	end)
 
 	suite:case("returnsNilWithoutMatchingProvider", function(assert)
-		local result = runProvider(TEST_DOMAIN, "<nil>")
+		local result = runResolve("no-match", TEST_DOMAIN, "<nil>")
+		assert.eq(result.exitcode, 0)
+		assert.eq(result.stdout, "")
+	end)
+
+	suite:case("returnsNilWithoutConfig", function(assert)
+		-- workingDirectory has no .config.luau
+		local result = process.run({
+			lutePath,
+			path.format(resolveFixture),
+			"https",
+			TEST_DOMAIN,
+			TEST_REPOSITORY,
+			"<nil>",
+		}, {
+			cwd = path.format(workingDirectory),
+			env = environment(),
+		})
 		assert.eq(result.exitcode, 0)
 		assert.eq(result.stdout, "")
 	end)
 
 	suite:case("propagatesProviderErrors", function(assert)
-		writeConfig([[return {
-	credentials = {
-		["github.com"] = function()
-			error("resolver failed")
-		end,
-	},
-}
-]])
-
-		local result = runProvider(TEST_DOMAIN, "<nil>")
+		local result = runResolve("error", TEST_DOMAIN, "<nil>")
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stderr, "Credential provider for github.com failed")
 		assert.strContains(result.stderr, "resolver failed")
 	end)
 
 	suite:case("rejectsTokenWithControlCharacters", function(assert)
-		writeConfig([[return {
-	credentials = {
-		["github.com"] = function()
-			return "token\ninjection"
-		end,
-	},
-}
-]])
-
-		local result = runProvider(TEST_DOMAIN, "<nil>")
+		local result = runResolve("control-chars", TEST_DOMAIN, "<nil>")
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stderr, "control characters")
+	end)
+
+	suite:case("skipsInvalidProviderModules", function(assert)
+		local result = runResolve("invalid-module", TEST_DOMAIN, TEST_TOKEN)
+		assert.eq(result.exitcode, 0)
 	end)
 end)
