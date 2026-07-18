@@ -56,7 +56,6 @@ struct Target
     // breakpoint. Otherwise, it exists as a pending breakpoint until new sources are loaded.
     // We do this because clients may 1) configure breakpoints before launching executables
     // 2) we load sources dynamically with @require that a client may want to debug.
-    // TODO: implement 2
     //
     // Guarantees for when breakpoints are installed:
     // Any breakpoint that is placed when the target process is paused (including before launch) and that
