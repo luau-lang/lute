@@ -36,7 +36,7 @@ return function(...: string)
 		return
 	end
 
-	local destination = paths.exePath()
+	local destination = paths.exePath("lute")
 	local source = path.format(path.normalize(process.execPath()))
 
 	if fs.exists(destination) and source ~= destination then

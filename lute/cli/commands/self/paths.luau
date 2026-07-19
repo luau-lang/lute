@@ -10,12 +10,20 @@ local function binPath(): string
 	return path.format(path.join(lutePath(), "bin"))
 end
 
-local function exeName(): string
-	return if system.win32 then "lute.exe" else "lute"
+local function exeName(tool: string): string
+	return if system.win32 then `{tool}.exe` else tool
 end
 
-local function exePath(): string
-	return path.format(path.join(binPath(), exeName()))
+local function exePath(tool: string): string
+	return path.format(path.join(binPath(), exeName(tool)))
+end
+
+local function versionsPath(): string
+	return path.format(path.join(lutePath(), "versions"))
+end
+
+local function installationPath(tool: string, tag: string): string
+	return path.format(path.join(versionsPath(), tool, tag, exeName(tool)))
 end
 
 return table.freeze({
@@ -23,4 +31,5 @@ return table.freeze({
 	binPath = binPath,
 	exeName = exeName,
 	exePath = exePath,
+	installationPath = installationPath,
 })

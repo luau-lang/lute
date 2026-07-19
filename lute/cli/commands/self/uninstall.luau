@@ -42,7 +42,7 @@ return function(...: string)
 	if not fs.exists(target) then
 		print(`Nothing to remove at {target}`)
 	else
-		if system.win32 and paths.exePath() == path.format(path.normalize(process.execPath())) then
+		if system.win32 and paths.exePath("lute") == path.format(path.normalize(process.execPath())) then
 			error("Windows cannot remove a running executable. Run this command from another copy of lute.", 0)
 		end
 		if not args:has("force") and not confirm(`Remove {target}?`) then
