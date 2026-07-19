@@ -14,6 +14,7 @@
 #include "lute/runtime.h"
 #include "lute/staticrequires.h"
 #include "lute/tc.h"
+#include "lute/toolchain.h"
 #include "lute/version.h"
 
 #include "Luau/CodeGen.h"
@@ -726,6 +727,9 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
         reporter.reportOutput(HELP_STRING);
         return 0;
     }
+
+    if (int status = dispatchToPinnedLute(argc, argv, *exePath, reporter); status >= 0)
+        return status;
 
     const char* command = argv[1];
     const char* subcommand = argc >= 3 ? argv[2] : nullptr;

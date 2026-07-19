@@ -39,6 +39,7 @@ target_sources(Lute.CLI.lib PRIVATE
     include/lute/requiresetup.h
     include/lute/staticrequires.h
     include/lute/tc.h
+    include/lute/toolchain.h
     include/lute/uvstate.h
 
     src/climain.cpp
@@ -50,6 +51,7 @@ target_sources(Lute.CLI.lib PRIVATE
     src/requiresetup.cpp
     src/staticrequires.cpp
     src/tc.cpp
+    src/toolchain.cpp
     src/uvstate.cpp
 )
 
