@@ -4,7 +4,7 @@ local net = require("@std/net")
 local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
-local unzip = require("../extern/unzip")
+local unzip = require("./extern/unzip")
 
 local function sanitizePath(path: string): string
 	-- Input validation
