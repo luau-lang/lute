@@ -4,9 +4,9 @@ local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 
-local binary = require("./binary")
-local paths = require("./paths")
-local release = require("./release")
+local binary = require("../lib/binary")
+local paths = require("../lib/paths")
+local release = require("../lib/release")
 
 local REPO = "luau-lang/lute"
 
