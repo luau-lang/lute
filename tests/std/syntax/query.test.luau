@@ -563,4 +563,81 @@ end
 		local statTypeFunctions = query.findAllFromRoot(cst, utils.isStatTypeFunction)
 		assert.eq(#statTypeFunctions.nodes, 1)
 	end)
+
+	suite:case("queryTypeReference", function(assert)
+		local cst = syntax.parse("type T = number")
+
+		local typeReferences = query.findAllFromRoot(cst, utils.isTypeReference)
+		assert.eq(#typeReferences.nodes, 1)
+	end)
+
+	suite:case("queryTypeSingletonBool", function(assert)
+		local cst = syntax.parse("type T = true")
+
+		local typeSingletonBools = query.findAllFromRoot(cst, utils.isTypeSingletonBool)
+		assert.eq(#typeSingletonBools.nodes, 1)
+	end)
+
+	suite:case("queryTypeSingletonString", function(assert)
+		local cst = syntax.parse('type T = "hello"')
+
+		local typeSingletonStrings = query.findAllFromRoot(cst, utils.isTypeSingletonString)
+		assert.eq(#typeSingletonStrings.nodes, 1)
+	end)
+
+	suite:case("queryTypeTypeof", function(assert)
+		local cst = syntax.parse("type T = typeof(x)")
+
+		local typeTypeofs = query.findAllFromRoot(cst, utils.isTypeTypeof)
+		assert.eq(#typeTypeofs.nodes, 1)
+	end)
+
+	suite:case("queryTypeGroup", function(assert)
+		local cst = syntax.parse("type T = (number)")
+
+		local typeGroups = query.findAllFromRoot(cst, utils.isTypeGroup)
+		assert.eq(#typeGroups.nodes, 1)
+	end)
+
+	suite:case("queryTypeUnion", function(assert)
+		local cst = syntax.parse("type T = number | string")
+
+		local typeUnions = query.findAllFromRoot(cst, utils.isTypeUnion)
+		assert.eq(#typeUnions.nodes, 1)
+	end)
+
+	suite:case("queryTypeIntersection", function(assert)
+		local cst = syntax.parse("type T = A & B")
+
+		local typeIntersections = query.findAllFromRoot(cst, utils.isTypeIntersection)
+		assert.eq(#typeIntersections.nodes, 1)
+	end)
+
+	suite:case("queryTypeOptional", function(assert)
+		local cst = syntax.parse("type T = number?")
+
+		local typeOptionals = query.findAllFromRoot(cst, utils.isTypeOptional)
+		assert.eq(#typeOptionals.nodes, 1)
+	end)
+
+	suite:case("queryTypeArray", function(assert)
+		local cst = syntax.parse("type T = { number }")
+
+		local typeArrays = query.findAllFromRoot(cst, utils.isTypeArray)
+		assert.eq(#typeArrays.nodes, 1)
+	end)
+
+	suite:case("queryTypeTable", function(assert)
+		local cst = syntax.parse("type T = { x: number }")
+
+		local typeTables = query.findAllFromRoot(cst, utils.isTypeTable)
+		assert.eq(#typeTables.nodes, 1)
+	end)
+
+	suite:case("queryTypeFunction", function(assert)
+		local cst = syntax.parse("type T = () -> ()")
+
+		local typeFunctions = query.findAllFromRoot(cst, utils.isTypeFunction)
+		assert.eq(#typeFunctions.nodes, 1)
+	end)
 end)
