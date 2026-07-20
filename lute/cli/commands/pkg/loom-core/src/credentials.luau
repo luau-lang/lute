@@ -39,34 +39,46 @@ local function loadProvider(path: string): CredentialProvider?
 	return if ok then parseProvider(provider) else nil
 end
 
-local function loadProviderFromConfig(directory: string): string?
+local function resolveProviderPathsFromConfig(directory: string): { string }?
 	local configPath = path.format(path.join(directory, ".config.luau"))
-	if fs.exists(configPath) then
-		local ok, config = pcall(luau.loadModule, configPath, nil)
-		if
-			ok
-			and typeof(config) == "table"
-			and typeof(config.lute) == "table"
-			and typeof(config.lute.credentials) == "table"
-			and typeof(config.lute.credentials.providers) == "string"
-		then
-			local resolvedPath = path.format(path.resolve(path.dirname(configPath), config.lute.credentials.providers))
-			if not fs.exists(resolvedPath) then
-				print(`Credential providers path {resolvedPath} for config {configPath} does not exist`)
-			else
-				return resolvedPath
-			end
+	if not fs.exists(configPath) then
+		return nil
+	end
+
+	local ok, config = pcall(luau.loadModule, configPath, nil)
+	if
+		not ok
+		or typeof(config) ~= "table"
+		or typeof(config.lute) ~= "table"
+		or typeof(config.lute.credentials) ~= "table"
+		or typeof(config.lute.credentials.providers) ~= "table"
+	then
+		return nil
+	end
+
+	local resolvedPaths: { string } = {}
+	for _, providerPath in config.lute.credentials.providers do
+		if typeof(providerPath) ~= "string" then
+			error(`Credential provider path in config {configPath} must be a string`)
+		end
+		local resolvedPath = if path.isAbsolute(providerPath)
+			then providerPath
+			else path.format(path.resolve(path.dirname(configPath), providerPath))
+		if not fs.exists(resolvedPath) then
+			error(`Credential provider path {resolvedPath} for config {configPath} does not exist`)
+		else
+			table.insert(resolvedPaths, resolvedPath)
 		end
 	end
-	return nil
+	return table.freeze(resolvedPaths)
 end
 
-local function findCredentialProvidersPath(): string?
+local function findCredentialProviderPaths(): { string }?
 	local directory = path.format(process.cwd())
 	while true do
-		local providersPath = loadProviderFromConfig(directory)
-		if providersPath ~= nil then
-			return providersPath
+		local providerPaths = resolveProviderPathsFromConfig(directory)
+		if providerPaths ~= nil then
+			return providerPaths
 		end
 		local parent = path.format(path.dirname(directory))
 		if parent == directory then
@@ -81,22 +93,16 @@ local function loadProviders(): CredentialProviders
 		return cachedProviders
 	end
 
-	local providersPath = findCredentialProvidersPath()
-	if providersPath == nil then
-		cachedProviders = EMPTY_PROVIDERS
-		return EMPTY_PROVIDERS
-	end
-
-	if not fs.exists(providersPath) then
+	local providerPaths = findCredentialProviderPaths()
+	if providerPaths == nil then
 		cachedProviders = EMPTY_PROVIDERS
 		return EMPTY_PROVIDERS
 	end
 
 	local providers: CredentialProviders = {}
 
-	for _, entry in fs.listDirectory(providersPath) do
-		local entryPath = path.format(path.join(providersPath, entry.name))
-		local provider = loadProvider(entryPath)
+	for _, providerPath in providerPaths do
+		local provider = loadProvider(providerPath)
 		if provider ~= nil then
 			if providers[provider.host] ~= nil then
 				error(`Duplicate credential provider for host: {provider.host}`)

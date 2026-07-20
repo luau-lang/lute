@@ -20,21 +20,21 @@ If no token is found, Lute proceeds without authentication.
 
 ### Configuring credential providers
 
-Add a `credentials` table to your project's `.config.luau`:
+Add a `credentials` table to your project's `.config.luau`. The `providers` field is an array of paths, each pointing to a credential provider module:
 
 ```luau
 return {
 	lute = {
 		credentials = {
-			providers = "./credentials"
+			providers = { "./credentials/github.luau" }
 		}
 	}
 }
 ```
 
-Lute walks up the directory tree from the working directory to find the nearest `.config.luau` containing this field. The path is resolved relative to the config file's location.
+Lute walks up the directory tree from the working directory to find the nearest `.config.luau` containing this field. Each path is resolved relative to the config file's location.
 
-Each `.luau` file in the directory is a credential provider module with full access to `@std` libraries. Prefer secure helpers (for example `gh`) over plaintext tokens.
+Each listed `.luau` file is a credential provider module with full access to `@std` libraries. Prefer secure helpers (for example `gh`) over plaintext tokens.
 
 ```luau
 -- credentials/github.luau

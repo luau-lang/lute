@@ -1,7 +1,7 @@
 return {
 	lute = {
 		credentials = {
-			providers = "./credentials"
-		}
-	}
+			providers = { "./credentials/other.luau" },
+		},
+	},
 }
