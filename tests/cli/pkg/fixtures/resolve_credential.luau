@@ -1,7 +1,7 @@
-local credentialProvider = require("@commands/lib/credentials")
+local credentials = require("@commands/lib/credentials")
 
 local protocol, host, repositoryPath, expectedToken = select(2, ...)
-local token = credentialProvider.resolveToken(table.freeze({
+local token = credentials.resolveToken(table.freeze({
 	protocol = protocol,
 	host = host,
 	path = repositoryPath,
