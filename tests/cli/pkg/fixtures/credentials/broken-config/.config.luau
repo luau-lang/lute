@@ -1,2 +1,2 @@
--- Intentionally malformed (unterminated table) to exercise config load-failure handling.
-return {
+-- Errors at load time to exercise config load-failure handling.
+error("intentionally broken config")
