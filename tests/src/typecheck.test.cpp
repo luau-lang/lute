@@ -71,3 +71,23 @@ TEST_CASE_FIXTURE(LuteFixture, "typecheck_definition_file_parse_error")
     auto result = typecheck({testFilePath}, getReporter(), configPath);
     CHECK(result == 1);
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "typecheck_empty_check_config_succeeds")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/typecheck/definitions_empty_check/user_code.luau");
+    std::string configPath = joinPaths(luteProjectRoot, "tests/src/typecheck/definitions_empty_check/.config.luau");
+
+    auto result = typecheck({testFilePath}, getReporter(), configPath);
+    CHECK(result == 0);
+}
+
+TEST_CASE_FIXTURE(LuteFixture, "typecheck_empty_definitions_succeeds")
+{
+    std::string luteProjectRoot = getLuteProjectRootAbsolute();
+    std::string testFilePath = joinPaths(luteProjectRoot, "tests/src/typecheck/definitions_empty_defs/user_code.luau");
+    std::string configPath = joinPaths(luteProjectRoot, "tests/src/typecheck/definitions_empty_defs/.config.luau");
+
+    auto result = typecheck({testFilePath}, getReporter(), configPath);
+    CHECK(result == 0);
+}
