@@ -664,4 +664,14 @@ end
 		local typePackVariadics = query.findAllFromRoot(cst, utils.isTypePackVariadic)
 		assert.eq(#typePackVariadics.nodes, 1)
 	end)
+
+	suite:case("queryLocal", function(assert)
+		local cst = syntax.parse([[
+local x = 1
+print(x)
+]])
+
+		local locals = query.findAllFromRoot(cst, utils.isLocal)
+		assert.eq(#locals.nodes, 2)
+	end)
 end)
