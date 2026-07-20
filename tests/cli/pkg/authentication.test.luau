@@ -126,7 +126,24 @@ test.suite("LutePkgAuth", function(suite)
 	end)
 
 	suite:case("failsOnMalformedConfig", function(assert)
-		local result = runResolve("broken-config", TEST_DOMAIN, "<nil>")
+		-- Written at runtime rather than committed as a fixture so lute's own
+		-- config-loading tooling (e.g. `lute check`) never tries to load it.
+		fs.writeStringToFile(
+			path.format(path.join(workingDirectory, ".config.luau")),
+			'error("intentionally broken config")\n'
+		)
+
+		local result = process.run({
+			lutePath,
+			path.format(resolveFixture),
+			"https",
+			TEST_DOMAIN,
+			TEST_REPOSITORY,
+			"<nil>",
+		}, {
+			cwd = path.format(workingDirectory),
+			env = environment(),
+		})
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stderr, "Failed to load config")
 	end)
