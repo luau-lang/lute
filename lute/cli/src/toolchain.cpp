@@ -104,20 +104,22 @@ bool dispatchToPinnedLute(int argc, char** argv, LuteReporter& reporter)
                         {
                             runtime.reportError(thread);
                             failed = true;
-                            return;
                         }
-
-                        // The module must return a single string (path) or nil (stay on host).
-                        int type = lua_type(thread, 1);
-                        if (lua_gettop(thread) > 1 || (type != LUA_TNONE && type != LUA_TNIL && type != LUA_TSTRING))
+                        else if (lua_gettop(thread) > 1)
                         {
-                            reporter.reportError("Internal error: toolchain dispatch must return a single string or nil.\n");
+                            reporter.reportError("Internal error: toolchain dispatch must return at most one value.\n");
                             failed = true;
-                            return;
                         }
-
-                        if (type == LUA_TSTRING)
+                        else if (int type = lua_type(thread, 1); type == LUA_TSTRING)
+                        {
+                            // The module returns the pinned binary path, or nil to stay on the current binary.
                             resolved = lua_tostring(thread, 1);
+                        }
+                        else if (type != LUA_TNIL && type != LUA_TNONE)
+                        {
+                            reporter.reportError("Internal error: toolchain dispatch must return a string or nil.\n");
+                            failed = true;
+                        }
                     }
                 }
             );

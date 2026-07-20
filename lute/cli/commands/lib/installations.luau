@@ -7,47 +7,6 @@ local binary = require("./binary")
 local paths = require("./paths")
 local release = require("./release")
 
-local function ensureInstalled(tool: string, tag: string, repo: string): string
-	tag = release.normalizeTag(tag)
-	local destination = paths.installationPath(tool, tag)
-	if fs.exists(destination) then
-		return destination
-	end
-
-	fs.createDirectory(path.dirname(destination), { makeParents = true })
-	print(`Installing {tool} {tag}...`)
-	local bytes = release.downloadBinary(repo, tag, paths.exeName(tool))
-	binary.installBinary(bytes, destination)
-	return destination
-end
-
-local function parseToolVersion(rawConfig: { [any]: any }, tool: string): string?
-	local lute = rawConfig.lute
-	if lute == nil then
-		return nil
-	end
-	if typeof(lute) ~= "table" then
-		error("`.config.luau` field `lute` must be a table")
-	end
-
-	local toolchain = (lute :: { [any]: any }).toolchain
-	if toolchain == nil then
-		return nil
-	end
-	if typeof(toolchain) ~= "table" then
-		error("`.config.luau` field `lute.toolchain` must be a table")
-	end
-
-	local pinned = (toolchain :: { [any]: any })[tool]
-	if pinned == nil then
-		return nil
-	end
-	if typeof(pinned) ~= "string" then
-		error(`\`.config.luau\` field \`lute.toolchain.{tool}\` must be a string`)
-	end
-	return pinned :: string
-end
-
 local function walkConfigPaths(startDir: string?): () -> { [any]: any }
 	local current = path.format(path.normalize(startDir or process.cwd()))
 
@@ -73,6 +32,47 @@ local function walkConfigPaths(startDir: string?): () -> { [any]: any }
 
 		return nil :: any
 	end
+end
+
+local function parseToolVersion(rawConfig: { [any]: any }, tool: string): string?
+	local lute = rawConfig.lute
+	if lute == nil then
+		return nil
+	end
+	if typeof(lute) ~= "table" then
+		error("`.config.luau` field `lute` must be a table")
+	end
+
+	local toolchain = lute.toolchain
+	if toolchain == nil then
+		return nil
+	end
+	if typeof(toolchain) ~= "table" then
+		error("`.config.luau` field `lute.toolchain` must be a table")
+	end
+
+	local pinned = toolchain[tool]
+	if pinned == nil then
+		return nil
+	end
+	if typeof(pinned) ~= "string" then
+		error(`\`.config.luau\` field \`lute.toolchain.{tool}\` must be a string`)
+	end
+	return pinned
+end
+
+local function ensureInstalled(tool: string, tag: string, repo: string): string
+	tag = release.normalizeTag(tag)
+	local destination = paths.installationPath(tool, tag)
+	if fs.exists(destination) then
+		return destination
+	end
+
+	fs.createDirectory(path.dirname(destination), { makeParents = true })
+	print(`Installing {tool} {tag}...`)
+	local bytes = release.downloadBinary(repo, tag, paths.exeName(tool))
+	binary.installBinary(bytes, destination)
+	return destination
 end
 
 local function resolvePinnedTool(tool: string, repo: string): string?
