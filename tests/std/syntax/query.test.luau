@@ -640,4 +640,28 @@ end
 		local typeFunctions = query.findAllFromRoot(cst, utils.isTypeFunction)
 		assert.eq(#typeFunctions.nodes, 1)
 	end)
+
+	suite:case("queryTypePackExplicit", function(assert)
+		-- the function's return type pack `(number, string)` is explicit
+		local cst = syntax.parse("type T = () -> (number, string)")
+
+		local typePackExplicits = query.findAllFromRoot(cst, utils.isTypePackExplicit)
+		assert.eq(#typePackExplicits.nodes, 1)
+	end)
+
+	suite:case("queryTypePackGeneric", function(assert)
+		-- the function's return type pack `U...` is a generic type pack
+		local cst = syntax.parse("type T = () -> U...")
+
+		local typePackGenerics = query.findAllFromRoot(cst, utils.isTypePackGeneric)
+		assert.eq(#typePackGenerics.nodes, 1)
+	end)
+
+	suite:case("queryTypePackVariadic", function(assert)
+		-- the function's return type pack `...number` is variadic
+		local cst = syntax.parse("type T = () -> ...number")
+
+		local typePackVariadics = query.findAllFromRoot(cst, utils.isTypePackVariadic)
+		assert.eq(#typePackVariadics.nodes, 1)
+	end)
 end)
