@@ -46,18 +46,32 @@ local function resolveProviderPathsFromConfig(directory: string): { string }?
 	end
 
 	local ok, config = pcall(luau.loadModule, configPath, nil)
-	if
-		not ok
-		or typeof(config) ~= "table"
-		or typeof(config.lute) ~= "table"
-		or typeof(config.lute.credentials) ~= "table"
-		or typeof(config.lute.credentials.providers) ~= "table"
-	then
+	if not ok or typeof(config) ~= "table" then
+		error(`Failed to load config {configPath}: {config}`)
+	end
+
+	if config.lute == nil then
 		return nil
+	elseif typeof(config.lute) ~= "table" then
+		error(`Config {configPath}: lute must be a table`)
+	end
+
+	local credentials = config.lute.credentials
+	if credentials == nil then
+		return nil
+	elseif typeof(credentials) ~= "table" then
+		error(`Config {configPath}: lute.credentials must be a table`)
+	end
+
+	local providers = credentials.providers
+	if providers == nil then
+		return nil
+	elseif typeof(providers) ~= "table" then
+		error(`Config {configPath}: lute.credentials.providers must be an array of strings`)
 	end
 
 	local resolvedPaths: { string } = {}
-	for _, providerPath in config.lute.credentials.providers do
+	for _, providerPath in providers do
 		if typeof(providerPath) ~= "string" then
 			error(`Credential provider path in config {configPath} must be a string`)
 		end
