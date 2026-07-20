@@ -22,7 +22,10 @@ local function walkConfigPaths(startDir: string?): () -> { [any]: any }
 			end
 
 			if fs.exists(candidate) then
-				local root = luau.loadModule(candidate)
+				local ok, root = pcall(luau.loadModule, candidate, nil)
+				if not ok then
+					error(`Failed to load config {candidate}: {root}`)
+				end
 				if typeof(root) ~= "table" then
 					error(`{candidate} must return a table`)
 				end
