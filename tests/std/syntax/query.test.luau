@@ -682,4 +682,11 @@ print(x)
 		local attributes = query.findAllFromRoot(cst, utils.isAttribute)
 		assert.eq(#attributes.nodes, 1)
 	end)
+
+	suite:case("queryToken", function(assert)
+		local cst = syntax.parse("local x = 1")
+
+		local tokens = query.findAllFromRoot(cst, utils.isToken)
+		assert.eq(#tokens.nodes, 4)
+	end)
 end)
