@@ -21,6 +21,7 @@ If no command is specified, `run` is used by default.
 | [check](./check) | Type check Luau files. |
 | [compile](./compile) | Compile a Luau script into a standalone executable. |
 | [lint](./lint/index.md) | Lint the specified Luau file using the specified lint rule(s) or using the default rules. |
+| [pkg](./pkg) | Manage package dependencies. |
 | [run](./run) | Run a Luau script. |
 | [self](./self) | Manage a Lute installation stored in `~/.lute`. |
 | [setup](./setup) | Generate type definition files for the language server. |
