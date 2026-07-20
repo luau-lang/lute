@@ -1,4 +1,3 @@
-local fs = require("@std/fs")
 local json = require("@std/json")
 local net = require("@std/net")
 local path = require("@std/path")
@@ -7,7 +6,6 @@ local stringext = require("@std/stringext")
 local system = require("@std/system")
 local unzip = require("./extern/unzip")
 
-local binary = require("./binary")
 local paths = require("./paths")
 
 local function normalizeTag(tag: string): string
@@ -139,20 +137,6 @@ local function downloadBinary(repo: string, tag: string, toolName: string): stri
 	return extracted
 end
 
-local function ensureInstalled(repo: string, tag: string, toolName: string): string
-	tag = normalizeTag(tag)
-	local destination = paths.installationPath(toolName, tag)
-	if fs.exists(destination) then
-		return destination
-	end
-
-	fs.createDirectory(path.dirname(destination), { makeParents = true })
-	print(`Installing {toolName} {tag}...`)
-	local bytes = downloadBinary(repo, tag, paths.exeName(toolName))
-	binary.installBinary(bytes, destination)
-	return destination
-end
-
 return table.freeze({
 	isNightlyTag = isNightlyTag,
 	normalizeTag = normalizeTag,
@@ -160,5 +144,4 @@ return table.freeze({
 	queryLatestTag = queryLatestTag,
 	queryLatestNightlyTag = queryLatestNightlyTag,
 	downloadBinary = downloadBinary,
-	ensureInstalled = ensureInstalled,
 })
