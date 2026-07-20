@@ -6,8 +6,6 @@ local stringext = require("@std/stringext")
 local system = require("@std/system")
 local unzip = require("./extern/unzip")
 
-local paths = require("./paths")
-
 local function normalizeTag(tag: string): string
 	local trimmed = stringext.trim(tag)
 	if trimmed == "" then
@@ -108,7 +106,7 @@ local function archSlug(): string
 	end
 end
 
-local function downloadBinary(repo: string, tag: string, toolName: string): string
+local function downloadBinary(repo: string, tag: string, executableName: string): string
 	tag = normalizeTag(tag)
 	local asset = `lute-{osSlug()}-{archSlug()}.zip`
 	local url = `https://github.com/{repo}/releases/download/{tag}/{asset}`
@@ -118,7 +116,6 @@ local function downloadBinary(repo: string, tag: string, toolName: string): stri
 		error(`Failed to download {asset} from {tag}: HTTP {res.status}\n{string.sub(res.body, 1, 200)}`)
 	end
 
-	local executableName = paths.exeName(toolName)
 	local reader = unzip.load(buffer.fromstring(res.body))
 
 	local extracted: string? = nil
