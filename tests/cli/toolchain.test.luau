@@ -2,6 +2,7 @@ local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
+local task = require("@std/task")
 local test = require("@std/test")
 
 local lutePath = path.format(process.execPath())
@@ -9,9 +10,13 @@ local testRoot = path.join(system.tmpdir(), `lute-toolchain-test-{process.pid()}
 local hostVersion = string.match(process.run({ lutePath, "--version" }).stdout, "(%d+%.%d+%.%d+[%w%.%-]*)") or ""
 
 local function cleanup()
-	if fs.exists(testRoot) then
-		fs.removeDirectory(testRoot, { recursive = true })
+	if not fs.exists(testRoot) then
+		return
 	end
+	-- A just-exec'd binary can stay briefly locked on Windows after the child exits;
+	-- give the OS a moment to release it before removing.
+	task.wait(0.1)
+	fs.removeDirectory(testRoot, { recursive = true })
 end
 
 local function makeEnv(overrides: { [string]: string }?): { [string]: string }
