@@ -288,6 +288,29 @@ static int loadDefinitions(Luau::Frontend& frontend, const std::vector<Definitio
     return failures;
 }
 
+static int loadTypeDefinitions(Luau::Frontend& frontend, LuteReporter& reporter, std::optional<std::string> configPathOverride)
+{
+
+    std::string definitionsError;
+    std::optional<std::vector<DefinitionEntry>> definitions = findDefinitions(configPathOverride, definitionsError);
+    if (!definitions)
+    {
+        reporter.formatError("%s\n", definitionsError.c_str());
+        return 1;
+    }
+
+    if (!definitions->empty())
+    {
+        int defFailures = loadDefinitions(frontend, *definitions, reporter);
+        if (defFailures > 0)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& reporter, std::optional<std::string> configPathOverride)
 {
     std::vector<std::string> sourceFiles = processSourceFiles(sourceFilesInput);
@@ -295,14 +318,6 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
     if (sourceFiles.empty())
     {
         reporter.reportError("Error: lute check expects a file to type check.\n\n");
-        return 1;
-    }
-
-    std::string definitionsError;
-    std::optional<std::vector<DefinitionEntry>> definitions = findDefinitions(configPathOverride, definitionsError);
-    if (!definitions)
-    {
-        reporter.formatError("%s\n", definitionsError.c_str());
         return 1;
     }
 
@@ -318,18 +333,11 @@ int typecheck(const std::vector<std::string>& sourceFilesInput, LuteReporter& re
     Luau::Frontend frontend(Luau::SolverMode::New, &fileResolver, &configResolver, frontendOptions);
 
     Luau::registerBuiltinGlobals(frontend, frontend.globals);
-
-    if (!definitions->empty())
-    {
-        int defFailures = loadDefinitions(frontend, *definitions, reporter);
-        if (defFailures > 0)
-        {
-            Luau::freeze(frontend.globals.globalTypes);
-            return 1;
-        }
-    }
-
+    int definitionFailures = loadTypeDefinitions(frontend, reporter, configPathOverride);
     Luau::freeze(frontend.globals.globalTypes);
+
+    if (definitionFailures > 0)
+        return 1;
 
     for (const std::string& path : sourceFiles)
         frontend.queueModuleCheck(path);
