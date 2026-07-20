@@ -1,8 +1,9 @@
 local fs = require("@std/fs")
+local luau = require("@std/luau")
 local path = require("@std/path")
+local process = require("@std/process")
 
 local binary = require("./binary")
-local config = require("./config")
 local paths = require("./paths")
 local release = require("./release")
 
@@ -47,8 +48,35 @@ local function parseToolVersion(rawConfig: { [any]: any }, tool: string): string
 	return pinned :: string
 end
 
+local function walkConfigPaths(startDir: string?): () -> { [any]: any }
+    local current = path.format(path.normalize(startDir or process.cwd()))
+
+    return function(): { [any]: any }
+        while current do
+            local candidate = path.format(path.join(current, ".config.luau"))
+
+            local parent = path.format(path.dirname(current))
+            if parent == current then
+                current = nil
+            else
+                current = parent
+            end
+
+            if fs.exists(candidate) then
+				local root = luau.loadModule(candidate)
+				if typeof(root) ~= "table" then
+					error(`{candidate} must return a table`)
+				end
+                return root
+            end
+        end
+        
+        return nil :: any
+    end
+end
+
 local function resolvePinnedTool(repo: string, tool: string): string?
-	for rawConfig in config.walkConfigPaths() do
+	for rawConfig in walkConfigPaths() do
 		local pinned = parseToolVersion(rawConfig, tool)
 		if pinned ~= nil then
 			return ensureInstalled(repo, pinned, tool)
