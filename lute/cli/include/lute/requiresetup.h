@@ -10,6 +10,8 @@
 struct lua_State;
 struct Runtime;
 
+void setupVersionLibrary(lua_State* L);
+
 lua_State* setupRunState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit = nullptr);
 
 lua_State* setupCliCommandState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit = nullptr);

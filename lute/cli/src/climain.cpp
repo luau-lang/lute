@@ -657,24 +657,6 @@ int handleCompileCommand(int argc, char** argv, int argOffset, LuteReporter& rep
     return 0;
 }
 
-void setupVersionLibrary(lua_State* L)
-{
-    lua_checkstack(L, 2);
-
-    lua_createtable(L, 0, 3);
-
-    lua_pushstring(L, LUTE_VERSION);
-    lua_setfield(L, -2, "version");
-
-    lua_pushstring(L, LUTE_VERSION_SUFFIX);
-    lua_setfield(L, -2, "versionSuffix");
-
-    lua_pushstring(L, LUTE_VERSION_FULL);
-    lua_setfield(L, -2, "versionFull");
-
-    lua_setglobal(L, "version");
-}
-
 int handleCliCommand(CliCommandResult result, int program_argc, char** program_argv, LuteReporter& reporter)
 {
     Runtime runtime{reporter};
@@ -728,7 +710,7 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
         return 0;
     }
 
-    if (!dispatchToPinnedLute(argc, argv, *exePath, reporter))
+    if (!dispatchToPinnedLute(argc, argv, reporter))
         return 1;
 
     const char* command = argv[1];

@@ -7,6 +7,7 @@
 #include "lute/requirevfs.h"
 #include "lute/runtime.h"
 #include "lute/userlandvfs.h"
+#include "lute/version.h"
 
 #include "Luau/CodeGen.h"
 #include "Luau/Require.h"
@@ -123,6 +124,24 @@ static void* createBundleRequireContext(
     lua_settable(L, LUA_REGISTRYINDEX);
 
     return ctx;
+}
+
+void setupVersionLibrary(lua_State* L)
+{
+    lua_checkstack(L, 2);
+
+    lua_createtable(L, 0, 3);
+
+    lua_pushstring(L, LUTE_VERSION);
+    lua_setfield(L, -2, "version");
+
+    lua_pushstring(L, LUTE_VERSION_SUFFIX);
+    lua_setfield(L, -2, "versionSuffix");
+
+    lua_pushstring(L, LUTE_VERSION_FULL);
+    lua_setfield(L, -2, "versionFull");
+
+    lua_setglobal(L, "version");
 }
 
 lua_State* setupRunState(Runtime& runtime, std::function<void(lua_State*)> preSandboxInit)
