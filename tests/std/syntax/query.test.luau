@@ -244,4 +244,449 @@ test.suite("CstQuery", function(suite)
 		assert.eq(evenOnly[2], 2)
 		assert.eq(evenOnly[3], 4)
 	end)
+
+	suite:case("queryExprGroup", function(assert)
+		local cst = syntax.parse("local x = (1)")
+
+		local exprGroups = query.findAllFromRoot(cst, utils.isExprGroup)
+		assert.eq(#exprGroups.nodes, 1)
+	end)
+
+	suite:case("queryExprConstantNil", function(assert)
+		local cst = syntax.parse("local x = nil")
+
+		local exprNils = query.findAllFromRoot(cst, utils.isExprConstantNil)
+		assert.eq(#exprNils.nodes, 1)
+	end)
+
+	suite:case("queryExprConstantBool", function(assert)
+		local cst = syntax.parse("local x = true")
+
+		local exprBools = query.findAllFromRoot(cst, utils.isExprConstantBool)
+		assert.eq(#exprBools.nodes, 1)
+	end)
+
+	suite:case("queryExprConstantNumber", function(assert)
+		local cst = syntax.parse("local x = 1")
+
+		local exprNumbers = query.findAllFromRoot(cst, utils.isExprConstantNumber)
+		assert.eq(#exprNumbers.nodes, 1)
+	end)
+
+	suite:case("queryExprConstantInteger", function(assert)
+		local cst = syntax.parse("local x = 42i")
+
+		local exprIntegers = query.findAllFromRoot(cst, utils.isExprConstantInteger)
+		assert.eq(#exprIntegers.nodes, 1)
+	end)
+
+	suite:case("queryExprConstantString", function(assert)
+		local cst = syntax.parse('local x = "hello"')
+
+		local exprStrings = query.findAllFromRoot(cst, utils.isExprConstantString)
+		assert.eq(#exprStrings.nodes, 1)
+	end)
+
+	suite:case("queryExprLocal", function(assert)
+		local cst = syntax.parse([[
+local x = 1
+local y = x
+]])
+
+		local exprLocals = query.findAllFromRoot(cst, utils.isExprLocal)
+		assert.eq(#exprLocals.nodes, 1)
+	end)
+
+	suite:case("queryExprGlobal", function(assert)
+		local cst = syntax.parse("local x = foo")
+
+		local exprGlobals = query.findAllFromRoot(cst, utils.isExprGlobal)
+		assert.eq(#exprGlobals.nodes, 1)
+	end)
+
+	suite:case("queryExprVarargs", function(assert)
+		local cst = syntax.parse("local x = ...")
+
+		local exprVarargs = query.findAllFromRoot(cst, utils.isExprVarargs)
+		assert.eq(#exprVarargs.nodes, 1)
+	end)
+
+	suite:case("queryExprCall", function(assert)
+		local cst = syntax.parse("foo()")
+
+		local exprCalls = query.findAllFromRoot(cst, utils.isExprCall)
+		assert.eq(#exprCalls.nodes, 1)
+	end)
+
+	suite:case("queryExprInstantiate", function(assert)
+		local cst = syntax.parse("foo<<number>>()")
+
+		-- no utils predicate exists for instantiation, so match on the tag directly
+		local exprInstantiates = query.findAllFromRoot(cst, utils.isExprInstantiate)
+		assert.eq(#exprInstantiates.nodes, 1)
+	end)
+
+	suite:case("queryExprIndexName", function(assert)
+		local cst = syntax.parse("local x = a.b")
+
+		local exprIndexNames = query.findAllFromRoot(cst, utils.isExprIndexName)
+		assert.eq(#exprIndexNames.nodes, 1)
+	end)
+
+	suite:case("queryExprIndexExpr", function(assert)
+		local cst = syntax.parse("local x = a[b]")
+
+		local exprIndexExprs = query.findAllFromRoot(cst, utils.isExprIndexExpr)
+		assert.eq(#exprIndexExprs.nodes, 1)
+	end)
+
+	suite:case("queryExprFunction", function(assert)
+		local cst = syntax.parse([[
+local f = function() end
+function g() end
+]])
+
+		local exprFunctions = query.findAllFromRoot(cst, utils.isExprFunction)
+		assert.eq(#exprFunctions.nodes, 2)
+	end)
+
+	suite:case("queryExprTable", function(assert)
+		local cst = syntax.parse("local x = {}")
+
+		local exprTables = query.findAllFromRoot(cst, utils.isExprTable)
+		assert.eq(#exprTables.nodes, 1)
+	end)
+
+	suite:case("queryExprUnary", function(assert)
+		local cst = syntax.parse("local x = -y")
+
+		local exprUnaries = query.findAllFromRoot(cst, utils.isExprUnary)
+		assert.eq(#exprUnaries.nodes, 1)
+	end)
+
+	suite:case("queryExprBinary", function(assert)
+		local cst = syntax.parse("local x = 1 + 2")
+
+		local exprBinaries = query.findAllFromRoot(cst, utils.isExprBinary)
+		assert.eq(#exprBinaries.nodes, 1)
+	end)
+
+	suite:case("queryExprInterpString", function(assert)
+		local cst = syntax.parse("local x = `hello {y}`")
+
+		local exprInterpStrings = query.findAllFromRoot(cst, utils.isExprInterpString)
+		assert.eq(#exprInterpStrings.nodes, 1)
+	end)
+
+	suite:case("queryExprTypeAssertion", function(assert)
+		local cst = syntax.parse("local x = y :: number")
+
+		local exprTypeAssertions = query.findAllFromRoot(cst, utils.isExprTypeAssertion)
+		assert.eq(#exprTypeAssertions.nodes, 1)
+	end)
+
+	suite:case("queryExprIfElse", function(assert)
+		local cst = syntax.parse("local x = if a then b else c")
+
+		local exprIfElses = query.findAllFromRoot(cst, utils.isExprIfElse)
+		assert.eq(#exprIfElses.nodes, 1)
+	end)
+
+	suite:case("queryStatBlock", function(assert)
+		local cst = syntax.parse([[
+do
+	local x = 1
+end
+]])
+
+		-- the root block plus the do-block's body
+		local statBlocks = query.findAllFromRoot(cst, utils.isStatBlock)
+		assert.eq(#statBlocks.nodes, 2)
+	end)
+
+	suite:case("queryStatDo", function(assert)
+		local cst = syntax.parse([[
+do
+	local x = 1
+	local y = 2
+end
+]])
+
+		local statDos = query.findAllFromRoot(cst, utils.isStatDo)
+		assert.eq(#statDos.nodes, 1)
+	end)
+
+	suite:case("queryStatIf", function(assert)
+		local cst = syntax.parse([[
+if x then
+end
+]])
+
+		local statIfs = query.findAllFromRoot(cst, utils.isStatIf)
+		assert.eq(#statIfs.nodes, 1)
+	end)
+
+	suite:case("queryStatWhile", function(assert)
+		local cst = syntax.parse([[
+while x do
+end
+]])
+
+		local statWhiles = query.findAllFromRoot(cst, utils.isStatWhile)
+		assert.eq(#statWhiles.nodes, 1)
+	end)
+
+	suite:case("queryStatRepeat", function(assert)
+		local cst = syntax.parse([[
+repeat
+until x
+]])
+
+		local statRepeats = query.findAllFromRoot(cst, utils.isStatRepeat)
+		assert.eq(#statRepeats.nodes, 1)
+	end)
+
+	suite:case("queryStatBreak", function(assert)
+		local cst = syntax.parse([[
+while true do
+	break
+end
+]])
+
+		local statBreaks = query.findAllFromRoot(cst, utils.isStatBreak)
+		assert.eq(#statBreaks.nodes, 1)
+	end)
+
+	suite:case("queryStatContinue", function(assert)
+		local cst = syntax.parse([[
+while true do
+	continue
+end
+]])
+
+		local statContinues = query.findAllFromRoot(cst, utils.isStatContinue)
+		assert.eq(#statContinues.nodes, 1)
+	end)
+
+	suite:case("queryStatReturn", function(assert)
+		local cst = syntax.parse("return")
+
+		local statReturns = query.findAllFromRoot(cst, utils.isStatReturn)
+		assert.eq(#statReturns.nodes, 1)
+	end)
+
+	suite:case("queryStatExpr", function(assert)
+		local cst = syntax.parse("foo()")
+
+		local statExprs = query.findAllFromRoot(cst, utils.isStatExpr)
+		assert.eq(#statExprs.nodes, 1)
+	end)
+
+	suite:case("queryStatLocal", function(assert)
+		local cst = syntax.parse([[
+local x = 1
+local y = 2
+]])
+
+		local statLocals = query.findAllFromRoot(cst, utils.isStatLocal)
+		assert.eq(#statLocals.nodes, 2)
+	end)
+
+	suite:case("queryStatConst", function(assert)
+		local cst = syntax.parse([[
+const x = 1
+const y = 2
+]])
+
+		local statConsts = query.findAllFromRoot(cst, utils.isStatConst)
+		assert.eq(#statConsts.nodes, 2)
+	end)
+
+	suite:case("queryStatFor", function(assert)
+		local cst = syntax.parse([[
+for i = 1, 10 do
+end
+]])
+
+		local statFors = query.findAllFromRoot(cst, utils.isStatFor)
+		assert.eq(#statFors.nodes, 1)
+	end)
+
+	suite:case("queryStatForIn", function(assert)
+		local cst = syntax.parse([[
+for i, v in pairs(t) do
+end
+]])
+
+		local statForIns = query.findAllFromRoot(cst, utils.isStatForIn)
+		assert.eq(#statForIns.nodes, 1)
+	end)
+
+	suite:case("queryStatAssign", function(assert)
+		local cst = syntax.parse("x = 1")
+
+		local statAssigns = query.findAllFromRoot(cst, utils.isStatAssign)
+		assert.eq(#statAssigns.nodes, 1)
+	end)
+
+	suite:case("queryStatCompoundAssign", function(assert)
+		local cst = syntax.parse("x += 1")
+
+		local statCompoundAssigns = query.findAllFromRoot(cst, utils.isStatCompoundAssign)
+		assert.eq(#statCompoundAssigns.nodes, 1)
+	end)
+
+	suite:case("queryStatFunction", function(assert)
+		local cst = syntax.parse("function foo() end")
+
+		local statFunctions = query.findAllFromRoot(cst, utils.isStatFunction)
+		assert.eq(#statFunctions.nodes, 1)
+	end)
+
+	suite:case("queryStatLocalFunction", function(assert)
+		local cst = syntax.parse("local function foo() end")
+
+		local statLocalFunctions = query.findAllFromRoot(cst, utils.isStatLocalFunction)
+		assert.eq(#statLocalFunctions.nodes, 1)
+	end)
+
+	suite:case("queryStatTypeAlias", function(assert)
+		local cst = syntax.parse("type X = number")
+
+		local statTypeAliases = query.findAllFromRoot(cst, utils.isStatTypeAlias)
+		assert.eq(#statTypeAliases.nodes, 1)
+	end)
+
+	suite:case("queryStatTypeFunction", function(assert)
+		local cst = syntax.parse("type function foo() return types.number end")
+
+		local statTypeFunctions = query.findAllFromRoot(cst, utils.isStatTypeFunction)
+		assert.eq(#statTypeFunctions.nodes, 1)
+	end)
+
+	suite:case("queryTypeReference", function(assert)
+		local cst = syntax.parse("type T = number")
+
+		local typeReferences = query.findAllFromRoot(cst, utils.isTypeReference)
+		assert.eq(#typeReferences.nodes, 1)
+	end)
+
+	suite:case("queryTypeSingletonBool", function(assert)
+		local cst = syntax.parse("type T = true")
+
+		local typeSingletonBools = query.findAllFromRoot(cst, utils.isTypeSingletonBool)
+		assert.eq(#typeSingletonBools.nodes, 1)
+	end)
+
+	suite:case("queryTypeSingletonString", function(assert)
+		local cst = syntax.parse('type T = "hello"')
+
+		local typeSingletonStrings = query.findAllFromRoot(cst, utils.isTypeSingletonString)
+		assert.eq(#typeSingletonStrings.nodes, 1)
+	end)
+
+	suite:case("queryTypeTypeof", function(assert)
+		local cst = syntax.parse("type T = typeof(x)")
+
+		local typeTypeofs = query.findAllFromRoot(cst, utils.isTypeTypeof)
+		assert.eq(#typeTypeofs.nodes, 1)
+	end)
+
+	suite:case("queryTypeGroup", function(assert)
+		local cst = syntax.parse("type T = (number)")
+
+		local typeGroups = query.findAllFromRoot(cst, utils.isTypeGroup)
+		assert.eq(#typeGroups.nodes, 1)
+	end)
+
+	suite:case("queryTypeUnion", function(assert)
+		local cst = syntax.parse("type T = number | string")
+
+		local typeUnions = query.findAllFromRoot(cst, utils.isTypeUnion)
+		assert.eq(#typeUnions.nodes, 1)
+	end)
+
+	suite:case("queryTypeIntersection", function(assert)
+		local cst = syntax.parse("type T = A & B")
+
+		local typeIntersections = query.findAllFromRoot(cst, utils.isTypeIntersection)
+		assert.eq(#typeIntersections.nodes, 1)
+	end)
+
+	suite:case("queryTypeOptional", function(assert)
+		local cst = syntax.parse("type T = number?")
+
+		local typeOptionals = query.findAllFromRoot(cst, utils.isTypeOptional)
+		assert.eq(#typeOptionals.nodes, 1)
+	end)
+
+	suite:case("queryTypeArray", function(assert)
+		local cst = syntax.parse("type T = { number }")
+
+		local typeArrays = query.findAllFromRoot(cst, utils.isTypeArray)
+		assert.eq(#typeArrays.nodes, 1)
+	end)
+
+	suite:case("queryTypeTable", function(assert)
+		local cst = syntax.parse("type T = { x: number }")
+
+		local typeTables = query.findAllFromRoot(cst, utils.isTypeTable)
+		assert.eq(#typeTables.nodes, 1)
+	end)
+
+	suite:case("queryTypeFunction", function(assert)
+		local cst = syntax.parse("type T = () -> ()")
+
+		local typeFunctions = query.findAllFromRoot(cst, utils.isTypeFunction)
+		assert.eq(#typeFunctions.nodes, 1)
+	end)
+
+	suite:case("queryTypePackExplicit", function(assert)
+		-- the function's return type pack `(number, string)` is explicit
+		local cst = syntax.parse("type T = () -> (number, string)")
+
+		local typePackExplicits = query.findAllFromRoot(cst, utils.isTypePackExplicit)
+		assert.eq(#typePackExplicits.nodes, 1)
+	end)
+
+	suite:case("queryTypePackGeneric", function(assert)
+		-- the function's return type pack `U...` is a generic type pack
+		local cst = syntax.parse("type T = () -> U...")
+
+		local typePackGenerics = query.findAllFromRoot(cst, utils.isTypePackGeneric)
+		assert.eq(#typePackGenerics.nodes, 1)
+	end)
+
+	suite:case("queryTypePackVariadic", function(assert)
+		-- the function's return type pack `...number` is variadic
+		local cst = syntax.parse("type T = () -> ...number")
+
+		local typePackVariadics = query.findAllFromRoot(cst, utils.isTypePackVariadic)
+		assert.eq(#typePackVariadics.nodes, 1)
+	end)
+
+	suite:case("queryLocal", function(assert)
+		local cst = syntax.parse([[
+local x = 1
+print(x)
+]])
+
+		local locals = query.findAllFromRoot(cst, utils.isLocal)
+		assert.eq(#locals.nodes, 2)
+	end)
+
+	suite:case("queryAttribute", function(assert)
+		-- the `@native` attribute on the function is a CstAttribute
+		local cst = syntax.parse("@native function foo() end")
+
+		local attributes = query.findAllFromRoot(cst, utils.isAttribute)
+		assert.eq(#attributes.nodes, 1)
+	end)
+
+	suite:case("queryToken", function(assert)
+		local cst = syntax.parse("local x = 1")
+
+		local tokens = query.findAllFromRoot(cst, utils.isToken)
+		assert.eq(#tokens.nodes, 4)
+	end)
 end)

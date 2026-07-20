@@ -44,6 +44,7 @@ Commands:
 	run (default)   Run a Luau script.
 	check           Type check Luau files.
 	compile         Compile a Luau script into a standalone executable.
+    debug           Debug a Luau script.
 	setup           Generate type definition files for the language server.
 	transform       Run a specified code transformation on specified Luau files.
 	lint            Run linting rules on specified Luau files.
@@ -60,6 +61,10 @@ Check Options:
 Compile Options:
 	lute compile <entry.luau> [--output <executable>]
 		Compiles entry point and auto-discovered dependencies into a standalone executable.
+
+Debug Options:
+	lute debug serve
+		Serves a DAP server for Luau for use with a development environment.
 
 Setup Options:
 	lute setup

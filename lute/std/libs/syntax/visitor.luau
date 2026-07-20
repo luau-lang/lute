@@ -441,6 +441,7 @@ end
 local function visitExprLocal(node: types.CstExprLocal, visitor: Visitor)
 	if visitor.visitExprLocal(node) then
 		visitor.visitToken(node.token)
+		visitor.visitLocal(node["local"])
 	end
 end
 
