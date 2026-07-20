@@ -25,6 +25,7 @@ If no command is specified, `run` is used by default.
 | [self](./self) | Manage a Lute installation stored in `~/.lute`. |
 | [setup](./setup) | Generate type definition files for the language server. |
 | [test](./test) | Run tests discovered in .test.luau and .spec.luau files. |
+| [toolchain](./toolchain) | Managed toolchain installations. |
 | [transform](./transform) | Run a specified code transformation on specified Luau files. |
 
 ## Global Options

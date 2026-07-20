@@ -49,6 +49,7 @@ Commands:
 	transform       Run a specified code transformation on specified Luau files.
 	lint            Run linting rules on specified Luau files.
 	self            Manage the host lute installation in ~/.lute (install/update/uninstall).
+	toolchain       Manage project-local tool versions from .config.luau.
 
 Run Options (when using 'run' or no command):
 	lute [run] <script.luau> [args...]
@@ -86,6 +87,10 @@ Self Options:
 			install                 Install the running lute as the host lute into ~/.lute/bin and update PATH.
 			uninstall               Remove the host lute binary and PATH entry.
 			update                  Update the host lute to the latest stable or nightly release.
+
+Toolchain Options:
+	lute toolchain
+		Manages project-local tool versions from .config.luau (lute.toolchain).
 
 General Options:
 	-h, --help    Display this usage message.
