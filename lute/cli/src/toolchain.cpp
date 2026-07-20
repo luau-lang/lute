@@ -134,12 +134,12 @@ bool dispatchToPinnedLute(int argc, char** argv, LuteReporter& reporter)
     std::optional<std::string> exePath = Process::getExecPath(&errorMsg);
     if (!exePath)
     {
-        reporter.formatError("Error: Failed to get executable path: %s", errorMsg.c_str());
-        return 1;
+        reporter.formatError("Failed to get executable path: %s", errorMsg.c_str());
+        return false;
     }
 
     // Nothing to dispatch to when the pin already points at the running binary.
-    if (exePath && normalizePath(*exePath) == normalizePath(*resolved))
+    if (normalizePath(*exePath) == normalizePath(*resolved))
         return true;
 
     reExecInto(*resolved, argc, argv, reporter);
