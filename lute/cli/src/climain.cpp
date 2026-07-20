@@ -728,8 +728,8 @@ int cliMain(int argc, char** argv, LuteReporter& reporter)
         return 0;
     }
 
-    if (int status = dispatchToPinnedLute(argc, argv, *exePath, reporter); status >= 0)
-        return status;
+    if (!dispatchToPinnedLute(argc, argv, *exePath, reporter))
+        return 1;
 
     const char* command = argv[1];
     const char* subcommand = argc >= 3 ? argv[2] : nullptr;

@@ -4,7 +4,5 @@
 
 #include <string>
 
-// Attempts to re-exec into a project-pinned lute binary.
-// Returns -1 if no dispatch occurred (caller should proceed normally).
-// Returns 1 on error. Does not return on successful dispatch (execv).
-int dispatchToPinnedLute(int argc, char** argv, const std::string& currentExe, LuteReporter& reporter);
+// Return true on successful dispatch.
+bool dispatchToPinnedLute(int argc, char** argv, const std::string& currentExe, LuteReporter& reporter);
