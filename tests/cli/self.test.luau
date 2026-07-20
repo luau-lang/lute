@@ -4,7 +4,7 @@ local process = require("@std/process")
 local system = require("@std/system")
 local test = require("@std/test")
 
-local release = require("@commands/self/release")
+local release = require("@commands/lib/release")
 
 local lutePath = path.format(process.execPath())
 
