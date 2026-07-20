@@ -5,7 +5,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
 
-local paths = require("./paths")
+local paths = require("../lib/paths")
 local pathenv = require("./pathenv")
 
 local HELP_STRING = [[

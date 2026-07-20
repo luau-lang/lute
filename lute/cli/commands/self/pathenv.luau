@@ -3,7 +3,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
 
-local paths = require("./paths")
+local paths = require("../lib/paths")
 
 local BLOCK_BEGIN = "# >>> lute self install >>>"
 local BLOCK_END = "# <<< lute self install <<<"
