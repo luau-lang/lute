@@ -7,16 +7,16 @@ local binary = require("./binary")
 local paths = require("./paths")
 local release = require("./release")
 
-local function ensureInstalled(repo: string, tag: string, toolName: string): string
+local function ensureInstalled(tool: string, tag: string, repo: string): string
 	tag = release.normalizeTag(tag)
-	local destination = paths.installationPath(toolName, tag)
+	local destination = paths.installationPath(tool, tag)
 	if fs.exists(destination) then
 		return destination
 	end
 
 	fs.createDirectory(path.dirname(destination), { makeParents = true })
-	print(`Installing {toolName} {tag}...`)
-	local bytes = release.downloadBinary(repo, tag, paths.exeName(toolName))
+	print(`Installing {tool} {tag}...`)
+	local bytes = release.downloadBinary(repo, tag, paths.exeName(tool))
 	binary.installBinary(bytes, destination)
 	return destination
 end
@@ -75,11 +75,11 @@ local function walkConfigPaths(startDir: string?): () -> { [any]: any }
     end
 end
 
-local function resolvePinnedTool(repo: string, tool: string): string?
+local function resolvePinnedTool(tool: string, repo: string): string?
 	for rawConfig in walkConfigPaths() do
 		local pinned = parseToolVersion(rawConfig, tool)
 		if pinned ~= nil then
-			return ensureInstalled(repo, pinned, tool)
+			return ensureInstalled(tool, pinned, repo)
 		end
 	end
 	return nil
