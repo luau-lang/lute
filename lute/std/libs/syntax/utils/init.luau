@@ -124,9 +124,14 @@ function utils.isExpr(n: types.CstNode): types.CstExpr?
 	return if n.kind == "expr" then n else nil
 end
 
---- Returns `n` narrowed to `CstStatBlock` if it is a block statement (do...end), or `nil` otherwise.
+--- Returns `n` narrowed to `CstStatBlock` if it is a block statement, or `nil` otherwise.
 function utils.isStatBlock(n: types.CstNode): types.CstStatBlock?
 	return if n.kind == "stat" and n.tag == "block" then n else nil
+end
+
+--- Returns `n` narrowed to `CstStatDo` if it is a do block statement (do...end), or `nil` otherwise.
+function utils.isStatDo(n: types.CstNode): types.CstStatDo?
+	return if n.kind == "stat" and n.tag == "do" then n else nil
 end
 
 --- Returns `n` narrowed to `CstStatIf` if it is an if statement, or `nil` otherwise.

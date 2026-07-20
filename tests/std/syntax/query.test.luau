@@ -392,4 +392,175 @@ function g() end
 		assert.eq(#exprIfElses.nodes, 1)
 	end)
 
+	suite:case("queryStatBlock", function(assert)
+		local cst = syntax.parse([[
+do
+	local x = 1
+end
+]])
+
+		-- the root block plus the do-block's body
+		local statBlocks = query.findAllFromRoot(cst, utils.isStatBlock)
+		assert.eq(#statBlocks.nodes, 2)
+	end)
+
+	suite:case("queryStatDo", function(assert)
+		local cst = syntax.parse([[
+do
+	local x = 1
+	local y = 2
+end
+]])
+
+		local statDos = query.findAllFromRoot(cst, utils.isStatDo)
+		assert.eq(#statDos.nodes, 1)
+	end)
+
+	suite:case("queryStatIf", function(assert)
+		local cst = syntax.parse([[
+if x then
+end
+]])
+
+		local statIfs = query.findAllFromRoot(cst, utils.isStatIf)
+		assert.eq(#statIfs.nodes, 1)
+	end)
+
+	suite:case("queryStatWhile", function(assert)
+		local cst = syntax.parse([[
+while x do
+end
+]])
+
+		local statWhiles = query.findAllFromRoot(cst, utils.isStatWhile)
+		assert.eq(#statWhiles.nodes, 1)
+	end)
+
+	suite:case("queryStatRepeat", function(assert)
+		local cst = syntax.parse([[
+repeat
+until x
+]])
+
+		local statRepeats = query.findAllFromRoot(cst, utils.isStatRepeat)
+		assert.eq(#statRepeats.nodes, 1)
+	end)
+
+	suite:case("queryStatBreak", function(assert)
+		local cst = syntax.parse([[
+while true do
+	break
+end
+]])
+
+		local statBreaks = query.findAllFromRoot(cst, utils.isStatBreak)
+		assert.eq(#statBreaks.nodes, 1)
+	end)
+
+	suite:case("queryStatContinue", function(assert)
+		local cst = syntax.parse([[
+while true do
+	continue
+end
+]])
+
+		local statContinues = query.findAllFromRoot(cst, utils.isStatContinue)
+		assert.eq(#statContinues.nodes, 1)
+	end)
+
+	suite:case("queryStatReturn", function(assert)
+		local cst = syntax.parse("return")
+
+		local statReturns = query.findAllFromRoot(cst, utils.isStatReturn)
+		assert.eq(#statReturns.nodes, 1)
+	end)
+
+	suite:case("queryStatExpr", function(assert)
+		local cst = syntax.parse("foo()")
+
+		local statExprs = query.findAllFromRoot(cst, utils.isStatExpr)
+		assert.eq(#statExprs.nodes, 1)
+	end)
+
+	suite:case("queryStatLocal", function(assert)
+		local cst = syntax.parse([[
+local x = 1
+local y = 2
+]])
+
+		local statLocals = query.findAllFromRoot(cst, utils.isStatLocal)
+		assert.eq(#statLocals.nodes, 2)
+	end)
+
+	suite:case("queryStatConst", function(assert)
+		local cst = syntax.parse([[
+const x = 1
+const y = 2
+]])
+
+		local statConsts = query.findAllFromRoot(cst, utils.isStatConst)
+		assert.eq(#statConsts.nodes, 2)
+	end)
+
+	suite:case("queryStatFor", function(assert)
+		local cst = syntax.parse([[
+for i = 1, 10 do
+end
+]])
+
+		local statFors = query.findAllFromRoot(cst, utils.isStatFor)
+		assert.eq(#statFors.nodes, 1)
+	end)
+
+	suite:case("queryStatForIn", function(assert)
+		local cst = syntax.parse([[
+for i, v in pairs(t) do
+end
+]])
+
+		local statForIns = query.findAllFromRoot(cst, utils.isStatForIn)
+		assert.eq(#statForIns.nodes, 1)
+	end)
+
+	suite:case("queryStatAssign", function(assert)
+		local cst = syntax.parse("x = 1")
+
+		local statAssigns = query.findAllFromRoot(cst, utils.isStatAssign)
+		assert.eq(#statAssigns.nodes, 1)
+	end)
+
+	suite:case("queryStatCompoundAssign", function(assert)
+		local cst = syntax.parse("x += 1")
+
+		local statCompoundAssigns = query.findAllFromRoot(cst, utils.isStatCompoundAssign)
+		assert.eq(#statCompoundAssigns.nodes, 1)
+	end)
+
+	suite:case("queryStatFunction", function(assert)
+		local cst = syntax.parse("function foo() end")
+
+		local statFunctions = query.findAllFromRoot(cst, utils.isStatFunction)
+		assert.eq(#statFunctions.nodes, 1)
+	end)
+
+	suite:case("queryStatLocalFunction", function(assert)
+		local cst = syntax.parse("local function foo() end")
+
+		local statLocalFunctions = query.findAllFromRoot(cst, utils.isStatLocalFunction)
+		assert.eq(#statLocalFunctions.nodes, 1)
+	end)
+
+	suite:case("queryStatTypeAlias", function(assert)
+		local cst = syntax.parse("type X = number")
+
+		local statTypeAliases = query.findAllFromRoot(cst, utils.isStatTypeAlias)
+		assert.eq(#statTypeAliases.nodes, 1)
+	end)
+
+	suite:case("queryStatTypeFunction", function(assert)
+		local cst = syntax.parse("type function foo() return types.number end")
+
+		local statTypeFunctions = query.findAllFromRoot(cst, utils.isStatTypeFunction)
+		assert.eq(#statTypeFunctions.nodes, 1)
+	end)
 end)
