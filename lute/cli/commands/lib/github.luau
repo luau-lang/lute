@@ -41,7 +41,7 @@ local function sanitizePath(path: string): string
 	return normalized
 end
 
-local function getGithubAuthenticationToken(repositoryPath: string): string?
+local function getAuthenticationToken(repositoryPath: string): string?
 	local githubToken = process.env.GITHUB_TOKEN
 	if githubToken ~= nil and githubToken ~= "" then
 		return githubToken
@@ -110,7 +110,7 @@ local function installPackage(source: string, rev: string, installPath: string):
 	local repositoryPath = `{owner}/{repo}`
 	local url = `https://api.github.com/repos/{repositoryPath}/zipball/{rev}`
 
-	local token = getGithubAuthenticationToken(repositoryPath)
+	local token = getAuthenticationToken(repositoryPath)
 	local zipArchive = downloadFromGitHub(url, token)
 
 	local safeName = rev:gsub("[^%w%-_.]", "-")
@@ -133,4 +133,5 @@ end
 
 return {
 	installPackage = installPackage,
+	getAuthenticationToken = getAuthenticationToken,
 }

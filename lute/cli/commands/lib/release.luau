@@ -1,7 +1,7 @@
+local github = require("./github")
 local json = require("@std/json")
 local net = require("@std/net")
 local path = require("@std/path")
-local process = require("@std/process")
 local stringext = require("@std/stringext")
 local system = require("@std/system")
 local unzip = require("./extern/unzip")
@@ -37,12 +37,12 @@ local function selectLatestNightlyTag(releases: { ReleaseInfo }): string?
 	return nil
 end
 
-local function headers(): { [string]: string }
+local function headers(repo: string): { [string]: string }
 	local h = {
 		["User-Agent"] = "lute-self",
 		["Accept"] = "application/vnd.github+json",
 	}
-	local token = process.env.GITHUB_TOKEN
+	local token = github.getAuthenticationToken(repo)
 	if token ~= nil and token ~= "" then
 		h["Authorization"] = `Bearer {token}`
 	end
@@ -51,7 +51,7 @@ end
 
 local function queryLatestTag(repo: string): string
 	local url = `https://api.github.com/repos/{repo}/releases/latest`
-	local res = net.request(url, { method = "GET", headers = headers() })
+	local res = net.request(url, { method = "GET", headers = headers(repo) })
 	if not res.ok then
 		error(`Failed to query latest release: HTTP {res.status}\n{string.sub(res.body, 1, 200)}`)
 	end
@@ -65,7 +65,7 @@ end
 local function queryLatestNightlyTag(repo: string): string
 	for page = 1, 2 do
 		local url = `https://api.github.com/repos/{repo}/releases?per_page=100&page={page}`
-		local res = net.request(url, { method = "GET", headers = headers() })
+		local res = net.request(url, { method = "GET", headers = headers(repo) })
 		if not res.ok then
 			error(`Failed to query nightly releases: HTTP {res.status}\n{string.sub(res.body, 1, 200)}`)
 		end
@@ -111,7 +111,7 @@ local function downloadBinary(repo: string, tag: string, executableName: string)
 	local asset = `lute-{osSlug()}-{archSlug()}.zip`
 	local url = `https://github.com/{repo}/releases/download/{tag}/{asset}`
 
-	local res = net.request(url, { method = "GET", headers = headers() })
+	local res = net.request(url, { method = "GET", headers = headers(repo) })
 	if not res.ok then
 		error(`Failed to download {asset} from {tag}: HTTP {res.status}\n{string.sub(res.body, 1, 200)}`)
 	end
