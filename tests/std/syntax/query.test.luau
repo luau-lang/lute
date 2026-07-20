@@ -674,4 +674,12 @@ print(x)
 		local locals = query.findAllFromRoot(cst, utils.isLocal)
 		assert.eq(#locals.nodes, 2)
 	end)
+
+	suite:case("queryAttribute", function(assert)
+		-- the `@native` attribute on the function is a CstAttribute
+		local cst = syntax.parse("@native function foo() end")
+
+		local attributes = query.findAllFromRoot(cst, utils.isAttribute)
+		assert.eq(#attributes.nodes, 1)
+	end)
 end)
