@@ -83,6 +83,7 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visi
 		return true
 	end
 	selectVisitor.visitExprEnd = function(_) end
+	selectVisitor.visitExprFunctionEnd = function(_) end
 
 	return selectVisitor
 end
