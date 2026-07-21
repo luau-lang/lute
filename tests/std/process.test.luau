@@ -196,7 +196,7 @@ test.suite("ProcessSuite", function(suite)
 			process.system(`sh -c 'while true; do echo tick >> {tmpFileStr}; sleep 0.05; done'`, { timeout = 0.3 })
 		assert.that(r.timedOut)
 
-		-- Wait briefly, then check the file stopped growing 
+		-- Wait briefly, then check the file stopped growing
 		task.wait(0.2)
 		local contentAfter = fs.readFileToString(tmpFile)
 		task.wait(0.2)
