@@ -2,7 +2,7 @@
 
 #include "lute/common.h"
 #include "lute/crypto.h"
-#include "lute/debugger.h"
+#include "lute/debug.h"
 #include "lute/fs.h"
 #include "lute/io.h"
 #include "lute/luau.h"

@@ -1,4 +1,4 @@
-#include "lute/debugger.h"
+#include "lute/debug.h"
 
 #include "lute/debuginternals.h"
 #include "lute/runtime.h"
