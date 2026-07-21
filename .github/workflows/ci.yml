@@ -123,8 +123,6 @@ jobs:
           config: debug
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Remove .luaurc file
-        run: rm .luaurc
 
       - name: Run C++ Tests
         run: ${{ steps.build_tests.outputs.exe_path }}
