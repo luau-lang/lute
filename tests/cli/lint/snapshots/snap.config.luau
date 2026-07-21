@@ -1,6 +1,13 @@
 return {
 	default = {
-		args = { "lint", "--no-default-lints", "-r", "lute/cli/commands/lint/rules/duplicate_keys.luau" },
+		args = {
+			"lint",
+			"--no-default-lints",
+			"-c",
+			"tests/cli/lint/snapshots/lint.config.luau",
+			"-r",
+			"lute/cli/commands/lint/rules/duplicate_keys.luau",
+		},
 		-- lint exits with code 1 when warnings are found; use expectedExitCode = 0 for no-warning cases
 		expectedExitCode = 1,
 	},
@@ -12,6 +19,8 @@ return {
 			args = {
 				"lint",
 				"--no-default-lints",
+				"-c",
+				"tests/cli/lint/snapshots/lint.config.luau",
 				"-r",
 				"lute/cli/commands/lint/rules/divide_by_zero.luau",
 				"-o",
