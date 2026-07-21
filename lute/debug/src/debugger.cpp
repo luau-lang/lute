@@ -1,4 +1,4 @@
-#include "lute/debug.h"
+#include "lute/debugger.h"
 
 #include "lute/debuginternals.h"
 #include "lute/runtime.h"
@@ -17,7 +17,7 @@ static debug::Target* getTarget(lua_State* L, int index)
 {
     auto* storage = static_cast<std::shared_ptr<debug::Target>*>(lua_touserdatatagged(L, index, kTargetTag));
     if (!storage || !*storage)
-        luaL_errorL(L, "invalid target");
+        luaL_errorL(L, "the argument on the stack is not a Target object");
     return storage->get();
 }
 static const char* breakpointStatusToString(debug::BreakpointStatus status)
@@ -231,8 +231,8 @@ static int target_launch(lua_State* L)
             };
         }
     }
-    bool removed = target->launch(source, args, config);
-    lua_pushboolean(L, removed);
+    bool launched = target->launch(source, args, config);
+    lua_pushboolean(L, launched);
     return 1;
 }
 
@@ -299,17 +299,18 @@ static void initializeTarget(lua_State* L)
     lua_setuserdatametatable(L, kTargetTag);
 }
 
+const char* const Debugger::properties[] = {nullptr};
 
-const luaL_Reg Debug::lib[] = {
+const luaL_Reg Debugger::lib[] = {
     {"newTarget", debug_newTarget},
     {nullptr, nullptr},
 };
 
-int Debug::pushLibrary(lua_State* L)
+int Debugger::pushLibrary(lua_State* L)
 {
     initializeTarget(L);
-    lua_createtable(L, 0, std::size(Debug::lib));
-    for (auto& [name, func] : Debug::lib)
+    lua_createtable(L, 0, std::size(Debugger::lib));
+    for (auto& [name, func] : Debugger::lib)
     {
         if (!name || !func)
             break;
@@ -320,12 +321,12 @@ int Debug::pushLibrary(lua_State* L)
     return 1;
 }
 
-LUTE_API int luaopen_debug_lute(lua_State* L)
+LUTE_API int luaopen_debugger(lua_State* L)
 {
-    return Debug::openAsGlobal(L);
+    return Debugger::openAsGlobal(L);
 }
 
-LUTE_API int luteopen_debug(lua_State* L)
+LUTE_API int luteopen_debugger(lua_State* L)
 {
-    return Debug::pushLibrary(L);
+    return Debugger::pushLibrary(L);
 }

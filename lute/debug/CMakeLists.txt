@@ -1,11 +1,11 @@
 add_library(Lute.Debug STATIC)
 
 target_sources(Lute.Debug PRIVATE
-    include/lute/debug.h
+    include/lute/debugger.h
     include/lute/debuginternals.h
 
     src/debuginternals.cpp
-    src/debug.cpp
+    src/debugger.cpp
 )
 
 target_compile_features(Lute.Debug PUBLIC cxx_std_17)

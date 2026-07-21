@@ -1,7 +1,7 @@
 local test = require("@std/test")
 
 local task = require("@lute/task")
-local debug = require("@lute/debug")
+local debug = require("@lute/debugger")
 local path = require("@std/path")
 local proc = require("@std/process")
 

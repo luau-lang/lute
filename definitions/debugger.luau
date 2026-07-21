@@ -1,5 +1,5 @@
 -- lute-lint-global-ignore(unused_variable)
-local debug = {}
+local debugger = {}
 
 --- The status of a breakpoint, where pendingInstall and pendingUninstall means that the corresponding
 --- operation is queued to happen when the script is next paused.
