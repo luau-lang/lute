@@ -13,6 +13,12 @@
 #include <unordered_map>
 #include <vector>
 
+static void checkStack(lua_State* L, int n)
+{
+    if (!lua_checkstack(L, n))
+        luaL_error(L, "stack overflow while pushing return value during debugging");
+}
+
 static debug::Target* getTarget(lua_State* L, int index)
 {
     auto* storage = static_cast<std::shared_ptr<debug::Target>*>(lua_touserdatatagged(L, index, kTargetTag));
@@ -50,8 +56,9 @@ static debug::BreakpointStatus breakpointStringToStatus(const char* status)
     return debug::BreakpointStatus::Invalid;
 }
 
-static void pushBreakpoint(lua_State* L, const debug::Breakpoint& bp)
+static int pushBreakpoint(lua_State* L, const debug::Breakpoint& bp)
 {
+    checkStack(L, 2);
     lua_createtable(L, 0, 4);
     lua_pushinteger(L, bp.id);
     lua_setfield(L, -2, "id");
@@ -61,6 +68,7 @@ static void pushBreakpoint(lua_State* L, const debug::Breakpoint& bp)
     lua_setfield(L, -2, "sourcePath");
     lua_pushstring(L, breakpointStatusToString(bp.status));
     lua_setfield(L, -2, "status");
+    return 1;
 }
 
 static int target_setBreakpoint(lua_State* L)
@@ -69,8 +77,7 @@ static int target_setBreakpoint(lua_State* L)
     const char* source = luaL_checkstring(L, 2);
     int line = luaL_checkinteger(L, 3);
     debug::Breakpoint bp = target->setBreakpoint(source, line);
-    pushBreakpoint(L, bp);
-    return 1;
+    return pushBreakpoint(L, bp);
 }
 
 static int target_removeBreakpoint(lua_State* L)
@@ -78,6 +85,7 @@ static int target_removeBreakpoint(lua_State* L)
     debug::Target* target = getTarget(L, 1);
     int bpId = luaL_checkinteger(L, 2);
     bool removed = target->removeBreakpoint(bpId);
+    checkStack(L, 1);
     lua_pushboolean(L, removed);
     return 1;
 }
@@ -86,6 +94,7 @@ static int target_getBreakpoints(lua_State* L)
 {
     debug::Target* target = getTarget(L, 1);
     std::vector<debug::Breakpoint> breakpoints = target->getBreakpoints();
+    checkStack(L, 1);
     lua_createtable(L, breakpoints.size(), 0);
     for (int i = 0; i < (int)breakpoints.size(); i++)
     {
@@ -101,6 +110,7 @@ static int target_getBreakpointsByStatus(lua_State* L)
     const char* statusStr = luaL_checkstring(L, 2);
     debug::BreakpointStatus status = breakpointStringToStatus(statusStr);
     std::vector<debug::Breakpoint> breakpoints = target->getBreakpointsByStatus(status);
+    checkStack(L, 1);
     lua_createtable(L, breakpoints.size(), 0);
     for (int i = 0; i < (int)breakpoints.size(); i++)
     {
@@ -117,11 +127,11 @@ static int target_getBreakpointById(lua_State* L)
     std::optional<debug::Breakpoint> bp = target->getBreakpointById(id);
     if (!bp)
     {
+        checkStack(L, 1);
         lua_pushnil(L);
         return 1;
     }
-    pushBreakpoint(L, *bp);
-    return 1;
+    return pushBreakpoint(L, *bp);
 }
 
 static int target_getBreakpointBySourceLine(lua_State* L)
@@ -132,11 +142,11 @@ static int target_getBreakpointBySourceLine(lua_State* L)
     std::optional<debug::Breakpoint> bp = target->getBreakpointBySourceLine(source, line);
     if (!bp)
     {
+        checkStack(L, 1);
         lua_pushnil(L);
         return 1;
     }
-    pushBreakpoint(L, *bp);
-    return 1;
+    return pushBreakpoint(L, *bp);
 }
 
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
@@ -147,6 +157,22 @@ static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, co
         ref = std::make_shared<Ref>(L, -1);
     lua_pop(L, 1);
     return ref;
+}
+
+static std::function<void(const debug::Breakpoint&)> makeBreakpointCallback(std::shared_ptr<Ref> ref, Runtime* runtime)
+{
+    // this schedules the handler to run on the parent runtime queue.
+    return [ref, runtime](const debug::Breakpoint& bp)
+    {
+        runtime->scheduleLuauCallback(
+            ref,
+            [bp](lua_State* L)
+            {
+                pushBreakpoint(L, bp);
+                return 1;
+            }
+        );
+    };
 }
 
 static int target_launch(lua_State* L)
@@ -174,48 +200,11 @@ static int target_launch(lua_State* L)
     if (lua_istable(L, 4))
     {
         if (auto ref = getOptionalCallback(L, 4, "onBreakpointHit"))
-        {
-            // this schedules the handler to run on the parent runtime queue.
-            config.onBreakpointHit = [ref, runtime](const debug::Breakpoint& bp)
-            {
-                runtime->scheduleLuauCallback(
-                    ref,
-                    [bp](lua_State* L)
-                    {
-                        pushBreakpoint(L, bp);
-                        return 1;
-                    }
-                );
-            };
-        }
+            config.onBreakpointHit = makeBreakpointCallback(ref, runtime);
         if (auto ref = getOptionalCallback(L, 4, "onBreakpointInstall"))
-        {
-            config.onBreakpointInstall = [ref, runtime](const debug::Breakpoint& bp)
-            {
-                runtime->scheduleLuauCallback(
-                    ref,
-                    [bp](lua_State* L)
-                    {
-                        pushBreakpoint(L, bp);
-                        return 1;
-                    }
-                );
-            };
-        }
+            config.onBreakpointInstall = makeBreakpointCallback(ref, runtime);
         if (auto ref = getOptionalCallback(L, 4, "onBreakpointUninstall"))
-        {
-            config.onBreakpointUninstall = [ref, runtime](const debug::Breakpoint& bp)
-            {
-                runtime->scheduleLuauCallback(
-                    ref,
-                    [bp](lua_State* L)
-                    {
-                        pushBreakpoint(L, bp);
-                        return 1;
-                    }
-                );
-            };
-        }
+            config.onBreakpointUninstall = makeBreakpointCallback(ref, runtime);
         if (auto ref = getOptionalCallback(L, 4, "onExit"))
         {
             config.onExit = [ref, runtime](bool success)
@@ -232,6 +221,7 @@ static int target_launch(lua_State* L)
         }
     }
     bool launched = target->launch(source, args, config);
+    checkStack(L, 1);
     lua_pushboolean(L, launched);
     return 1;
 }
@@ -240,6 +230,7 @@ static int target_continueProcess(lua_State* L)
 {
     auto target = getTarget(L, 1);
     bool continued = target->continueProcess();
+    checkStack(L, 1);
     lua_pushboolean(L, continued);
     return 1;
 }
@@ -248,6 +239,7 @@ static int debug_newTarget(lua_State* L)
 {
     Runtime* runtime = getRuntime(L);
     auto target = std::make_shared<debug::Target>(*runtime);
+    checkStack(L, 1);
     new (lua_newuserdatataggedwithmetatable(L, sizeof(std::shared_ptr<debug::Target>), kTargetTag)) std::shared_ptr<debug::Target>(std::move(target));
     return 1;
 }
