@@ -351,7 +351,7 @@ void ProcessHandle::completeProcessExecution()
         resumeToken->complete(
             [=](lua_State* L)
             {
-                lua_createtable(L, 0, 6);
+                lua_createtable(L, 0, 6); // ok, exitCode, stdout, stderr, signal, timeout
 
                 bool ok = (finalExitCode == 0 && finalTermSignal == 0);
 
