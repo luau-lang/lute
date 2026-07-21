@@ -1,6 +1,7 @@
 #include "lute/tc.h"
 
 #include "lute/configresolver.h"
+#include "lute/result.h"
 #include "lute/tcmoduleresolver.h"
 
 #include "Luau/BuiltinDefinitions.h"
@@ -108,30 +109,6 @@ std::vector<std::string> processSourceFiles(const std::vector<std::string>& sour
     return files;
 }
 
-template<typename T>
-struct Result
-{
-    std::optional<T> value;
-    std::string error;
-
-    Result() = default;
-
-    Result(std::optional<T> value)
-        : value(std::move(value))
-    {
-    }
-
-    Result(std::string error)
-        : error(std::move(error))
-    {
-    }
-
-    bool ok() const
-    {
-        return error.empty();
-    }
-};
-
 struct DefinitionEntry
 {
     std::string name;
@@ -144,31 +121,33 @@ struct DefinitionEntry
     }
 };
 
-static Result<std::vector<DefinitionEntry>> extractDefinitionEntries(const Luau::ConfigTable& configTable, const std::string& configDir)
+static Lute::Result<std::vector<DefinitionEntry>> extractDefinitionEntries(const Luau::ConfigTable& configTable, const std::string& configDir)
 {
+    using Result = Lute::Result<std::vector<DefinitionEntry>>;
+
     auto* luteValue = configTable.find("lute");
     if (!luteValue)
-        return {std::nullopt};
+        return Result::success({});
 
     auto* luteTable = luteValue->get_if<Luau::ConfigTable>();
     if (!luteTable)
-        return {"configuration value for key \"lute\" must be a table"};
+        return Result::failure("configuration value for key \"lute\" must be a table");
 
     auto* checkValue = luteTable->find("check");
     if (!checkValue)
-        return {std::nullopt};
+        return Result::success({});
 
     auto* checkTable = checkValue->get_if<Luau::ConfigTable>();
     if (!checkTable)
-        return {"configuration value for key \"lute.check\" must be a table"};
+        return Result::failure("configuration value for key \"lute.check\" must be a table");
 
     auto* defsValue = checkTable->find("definitions");
     if (!defsValue)
-        return {std::nullopt};
+        return Result::success({});
 
     auto* defsTable = defsValue->get_if<Luau::ConfigTable>();
     if (!defsTable)
-        return {"configuration value for key \"lute.check.definitions\" must be a table"};
+        return Result::failure("configuration value for key \"lute.check.definitions\" must be a table");
 
     std::vector<DefinitionEntry> entries;
 
@@ -176,36 +155,35 @@ static Result<std::vector<DefinitionEntry>> extractDefinitionEntries(const Luau:
     {
         const std::string* key = k.get_if<std::string>();
         if (!key)
-            return {"configuration keys in \"lute.check.definitions\" must be strings"};
+            return Result::failure("configuration keys in \"lute.check.definitions\" must be strings");
 
         const std::string* value = v.get_if<std::string>();
         if (!value)
-            return {"configuration values in \"lute.check.definitions\" must be strings (file paths)"};
+            return Result::failure("configuration values in \"lute.check.definitions\" must be strings (file paths)");
 
         entries.emplace_back(*key, normalizePath(joinPaths(configDir, *value)));
     }
 
-    return {std::move(entries)};
+    return Result::success(std::move(entries));
 }
 
-static Result<std::vector<DefinitionEntry>> findDefinitions(const std::optional<std::string>& configPathOverride)
+static Lute::Result<std::vector<DefinitionEntry>> findDefinitions(const std::optional<std::string>& configPathOverride)
 {
+    using Result = Lute::Result<std::vector<DefinitionEntry>>;
+
     if (configPathOverride)
     {
         std::optional<std::string> contents = readFile(*configPathOverride);
         if (!contents)
-            return {std::vector<DefinitionEntry>{}};
+            return Result::success({});
 
         std::string parseError;
         std::optional<Luau::ConfigTable> configTable = Luau::extractConfig(*contents, {}, &parseError);
         if (!configTable)
-            return {std::move(parseError)};
+            return Result::failure(std::move(parseError));
 
         std::optional<std::string> configDir = getParentPath(*configPathOverride);
-        auto result = extractDefinitionEntries(*configTable, configDir.value_or(""));
-        if (!result.ok())
-            return {std::move(result.error)};
-        return {result.value.value_or(std::vector<DefinitionEntry>{})};
+        return extractDefinitionEntries(*configTable, configDir.value_or(""));
     }
 
     for (auto dir = getCurrentWorkingDirectory(); dir; dir = getParentPath(*dir))
@@ -221,15 +199,15 @@ static Result<std::vector<DefinitionEntry>> findDefinitions(const std::optional<
         std::string parseError;
         std::optional<Luau::ConfigTable> configTable = Luau::extractConfig(*contents, {}, &parseError);
         if (!configTable)
-            return {std::move(parseError)};
+            return Result::failure(std::move(parseError));
 
         auto result = extractDefinitionEntries(*configTable, *dir);
         if (!result.ok())
-            return {std::move(result.error)};
-        if (result.value)
-            return {std::move(*result.value)};
+            return Result::failure(result.error());
+        if (!result.value().empty())
+            return result;
     }
-    return {std::vector<DefinitionEntry>{}};
+    return Result::success({});
 }
 
 static int loadDefinitions(const std::vector<DefinitionEntry>& entries, Luau::Frontend& frontend, LuteReporter& reporter)
@@ -299,14 +277,14 @@ static int loadTypeDefinitions(Luau::Frontend& frontend, LuteReporter& reporter,
     auto definitions = findDefinitions(configPathOverride);
     if (!definitions.ok())
     {
-        reporter.formatError("%s\n", definitions.error.c_str());
+        reporter.formatError("%s\n", definitions.error().c_str());
         return 1;
     }
 
-    if (!definitions.value->empty())
+    const std::vector<DefinitionEntry>& entries = definitions.value();
+    if (!entries.empty())
     {
-        int defFailures = loadDefinitions(*definitions.value, frontend, reporter);
-        if (defFailures > 0)
+        if (int defFailures = loadDefinitions(entries, frontend, reporter); defFailures > 0)
             return 1;
     }
 
