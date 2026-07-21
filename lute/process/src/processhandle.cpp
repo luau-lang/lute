@@ -343,6 +343,7 @@ void ProcessHandle::completeProcessExecution()
     {
         int64_t finalExitCode = state.getExitCode();
         int finalTermSignal = state.getTermSignal();
+		// TODO: should we put any leftover stdin data into the output here?
         std::string finalStdout = state.stdoutData;
         std::string finalStderr = state.stderrData;
         std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
