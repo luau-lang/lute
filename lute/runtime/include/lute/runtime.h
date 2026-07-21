@@ -57,7 +57,7 @@ using RuntimeStep = Luau::Variant<StepSuccess, StepErr, StepEmpty>;
 
 struct Runtime
 {
-    Runtime(LuteReporter& reporter);
+    Runtime(LuteReporter& reporter, bool debugMode = false);
     ~Runtime();
 
     bool runToCompletion();
@@ -137,6 +137,10 @@ struct Runtime
     // Runtimes. Set during parent Runtime's setup.
     std::function<void*(lua_State*)> requireContextFactory;
 
+    // for debug mode only:
+    void stopDebug();
+    void continueDebug();
+
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);
     void clearThreadCompletionHandler(lua_State* L);
@@ -152,6 +156,12 @@ private:
 
     std::atomic<int> activeTokens;
     uv_loop_t eventLoop;
+
+    // for debug mode only:
+    const bool debugMode;
+    std::mutex debugMutex;
+    std::atomic<bool> debugStopped = false;
+    std::condition_variable debugStoppedCv;
 };
 
 Runtime* getRuntime(lua_State* L);

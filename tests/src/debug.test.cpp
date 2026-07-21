@@ -188,7 +188,7 @@ TEST_SUITE("Debug")
         CHECK(hitBp3 == 1);
     }
 
-    TEST_CASE_FIXTURE(DebugFixture, "Debug_pausesOnBreakpoint")
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_stopOnBreakpoint")
     {
         std::string fixturePath = getDebugFixturePath("simple.luau");
         Target target(*runtime);
@@ -228,6 +228,42 @@ TEST_SUITE("Debug")
 
         // continue execution
         continuedProcess = target.continueProcess();
+        CHECK(continuedProcess);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    }
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_pauseProcess")
+    {
+        std::string fixturePath = getDebugFixturePath("loop.luau");
+        Target target(*runtime);
+        target.setBreakpoint(fixturePath, 1);
+
+        int numPause = 0;
+        std::promise<void> hitPromise;
+        std::future<void> hitFuture = hitPromise.get_future();
+        // This tests whether we pause after continuing. This is pretty
+        // strange but is unfortunately, the best way of guaranteeing that a pause request
+        // goes through without timing conerns.
+        config.onBreakpointHit = [&](const Breakpoint& bp)
+        {
+            bool continuedProcess = target.continueProcess();
+            CHECK(continuedProcess);
+            bool pausedProcess = target.pauseProcess();
+            CHECK(pausedProcess);
+            hitPromise.set_value();
+        };
+        config.onPause = [&]()
+        {
+            numPause++;
+        };
+        bool launched = target.launch(fixturePath, {}, config);
+        CHECK(launched);
+        // we hit the breakpoint and should be paused now.
+        REQUIRE(hitFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
+        CHECK(numPause == 1);
+
+        bool continuedProcess = target.continueProcess();
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
