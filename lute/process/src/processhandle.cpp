@@ -76,6 +76,7 @@ ProcessHandle::ProcessHandle(lua_State* L, ProcessOptions& opts, std::vector<std
     , state(opts.stdioKind == kStdioKindDefault ? ProcessExecutionState::kWaitOnNForProcessCompletion : 1)
     , stdioKind(opts.stdioKind)
     , options({})
+    , timeoutSeconds(opts.timeout)
 {
     // When the process finishes, what do we do?
     options.exit_cb = ProcessHandle::onProcessExit;
@@ -146,6 +147,14 @@ ProcessHandle::ProcessHandle(lua_State* L, ProcessOptions& opts, std::vector<std
 
     options.stdio = stdio;
 
+    if (timeoutSeconds.has_value())
+    {
+        options.flags |= UV_PROCESS_DETACHED;
+        uv_timer_init(loop, &timeoutTimer);
+        timeoutTimer.data = this;
+        timeoutTimerInitialized = true;
+    }
+
     process.data = this;
 }
 
@@ -158,6 +167,12 @@ void ProcessHandle::spawn(lua_State* L)
         state.completed = true; // Allow close callbacks to release self
         closeHandles();
         luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
+    }
+
+    if (timeoutSeconds.has_value())
+    {
+        uint64_t timeoutMs = static_cast<uint64_t>(*timeoutSeconds * 1000.0);
+        uv_timer_start(&timeoutTimer, ProcessHandle::onTimeout, timeoutMs, 0);
     }
 
     if (stdioKind == kStdioKindDefault)
@@ -220,6 +235,40 @@ void ProcessHandle::closeHandles()
     closePipe(stdoutPipe);
     closePipe(stderrPipe);
 
+    if (timeoutTimerInitialized)
+    {
+        uv_timer_stop(&timeoutTimer);
+        if (!uv_is_closing((uv_handle_t*)&timeoutTimer))
+        {
+            pendingCloses++;
+            uv_close(
+                (uv_handle_t*)&timeoutTimer,
+                [](uv_handle_t* handle)
+                {
+                    auto ph = static_cast<ProcessHandle*>(handle->data);
+                    ph->onHandleClose();
+                }
+            );
+        }
+    }
+
+    if (killTimerInitialized)
+    {
+        uv_timer_stop(&killTimer);
+        if (!uv_is_closing((uv_handle_t*)&killTimer))
+        {
+            pendingCloses++;
+            uv_close(
+                (uv_handle_t*)&killTimer,
+                [](uv_handle_t* handle)
+                {
+                    auto ph = static_cast<ProcessHandle*>(handle->data);
+                    ph->onHandleClose();
+                }
+            );
+        }
+    }
+
     if (!uv_is_closing((uv_handle_t*)&process))
     {
         pendingCloses++;
@@ -235,6 +284,30 @@ void ProcessHandle::closeHandles()
 
     if (pendingCloses == 0 && state.completed)
         self.reset();
+}
+
+void ProcessHandle::onTimeout(uv_timer_t* timer)
+{
+    ProcessHandle* handle = static_cast<ProcessHandle*>(timer->data);
+    if (!handle || handle->state.completed)
+        return;
+
+    handle->timedOut = true;
+    uv_kill(-handle->process.pid, SIGTERM);
+
+    uv_timer_init(handle->loop, &handle->killTimer);
+    handle->killTimer.data = handle;
+    handle->killTimerInitialized = true;
+    uv_timer_start(&handle->killTimer, ProcessHandle::onKillTimeout, 2000, 0);
+}
+
+void ProcessHandle::onKillTimeout(uv_timer_t* timer)
+{
+    ProcessHandle* handle = static_cast<ProcessHandle*>(timer->data);
+    if (!handle || handle->state.completed)
+        return;
+
+    uv_kill(-handle->process.pid, SIGKILL);
 }
 
 void ProcessHandle::onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
@@ -270,14 +343,14 @@ void ProcessHandle::completeProcessExecution()
     {
         int64_t finalExitCode = state.getExitCode();
         int finalTermSignal = state.getTermSignal();
-        // TODO: should we put any leftover stdin data into the output here?
         std::string finalStdout = state.stdoutData;
         std::string finalStderr = state.stderrData;
         std::string finalSignalStr = finalTermSignal ? std::to_string(finalTermSignal) : "";
+        bool finalTimedOut = timedOut;
         resumeToken->complete(
             [=](lua_State* L)
             {
-                lua_createtable(L, 0, 5); // ok, exitCode, stdout, stderr, signal
+                lua_createtable(L, 0, 6);
 
                 bool ok = (finalExitCode == 0 && finalTermSignal == 0);
 
@@ -302,6 +375,12 @@ void ProcessHandle::completeProcessExecution()
                     lua_pushnil(L);
                 }
                 lua_setfield(L, -2, "signal");
+
+                if (finalTimedOut)
+                {
+                    lua_pushboolean(L, true);
+                    lua_setfield(L, -2, "timedOut");
+                }
 
                 return 1;
             }
