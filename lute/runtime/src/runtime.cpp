@@ -67,14 +67,6 @@ bool Runtime::hasWork()
 
 RuntimeStep Runtime::runOnce()
 {
-    if (debugMode)
-    {
-        // when paused while debugging, nothing should happen (not even I/O)
-        std::unique_lock<std::mutex> lock(debugMutex);
-        while (debugStopped)
-            debugStoppedCv.wait(lock);
-    }
-
     uv_run_mode mode = (hasContinuations() || hasThreads()) ? UV_RUN_NOWAIT : UV_RUN_ONCE;
     uv_run(getEventLoop(), mode);
 
@@ -161,6 +153,14 @@ bool Runtime::runToCompletion()
 {
     while (hasWork())
     {
+        if (debugMode)
+        {
+            // when paused while debugging, nothing should happen
+            std::unique_lock<std::mutex> lock(debugMutex);
+            while (debugStopped)
+                debugStoppedCv.wait(lock);
+        }
+
         auto step = runOnce();
 
         if (auto err = Luau::get_if<StepErr>(&step))
