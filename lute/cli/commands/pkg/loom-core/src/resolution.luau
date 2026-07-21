@@ -384,12 +384,10 @@ local function tryReuseLockfile(
 			if not satisfied then
 				error(`--locked: lockfile does not satisfy manifest ({reason}). Run \`lute pkg install\` to update.`)
 			end
-			print("Lockfile up to date.")
 			return existingLock, nil
 		end
 
 		if satisfied and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides) then
-			print("Lockfile up to date.")
 			return existingLock, nil
 		end
 	end
