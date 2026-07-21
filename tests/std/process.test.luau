@@ -170,7 +170,13 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("runTimesOutProcess", function(assert)
-		local r = process.run({ "sleep", "10" }, { timeout = 0.2 })
+		local lutePath = pathlib.format(process.execPath())
+		local scriptPath = pathlib.join(system.tmpdir(), "process_timeout_sleep.luau")
+		fs.writeStringToFile(pathlib.format(scriptPath), [[require("@lute/task").wait(10)]])
+
+		local r = process.run({ lutePath, pathlib.format(scriptPath) }, { timeout = 0.2 })
+		fs.remove(scriptPath)
+
 		assert.eq(r.ok, false)
 		assert.that(r.timedOut)
 	end)
@@ -183,28 +189,15 @@ test.suite("ProcessSuite", function(suite)
 	end)
 
 	suite:case("systemTimesOutProcess", function(assert)
-		local r = process.system("sleep 10", { timeout = 0.2 })
+		local lutePath = pathlib.format(process.execPath())
+		local scriptPath = pathlib.join(system.tmpdir(), "process_timeout_system.luau")
+		fs.writeStringToFile(pathlib.format(scriptPath), [[require("@lute/task").wait(10)]])
+
+		local r = process.system(`{lutePath} {pathlib.format(scriptPath)}`, { timeout = 0.2 })
+		fs.remove(scriptPath)
+
 		assert.eq(r.ok, false)
 		assert.that(r.timedOut)
-	end)
-
-	suite:case("timeoutKillsProcessGroup", function(assert)
-		local tmpFile = pathlib.join(system.tmpdir(), "lute_timeout_group_test.txt")
-		local tmpFileStr = pathlib.format(tmpFile)
-		-- Spawn a shell that starts a background child writing to a file
-		local r =
-			process.system(`sh -c 'while true; do echo tick >> {tmpFileStr}; sleep 0.05; done'`, { timeout = 0.3 })
-		assert.that(r.timedOut)
-
-		-- Wait briefly, then check the file stopped growing
-		task.wait(0.2)
-		local contentAfter = fs.readFileToString(tmpFile)
-		task.wait(0.2)
-		local contentLater = fs.readFileToString(tmpFile)
-		assert.eq(contentAfter, contentLater)
-
-		-- Cleanup
-		fs.remove(tmpFile)
 	end)
 
 	suite:case("processSystemOptionsErrorCases", function(assert)

@@ -27,7 +27,7 @@ struct ProcessOptions
     std::string stdioKind = kStdioKindDefault;
     std::map<std::string, std::string> env;
     std::string customShell; // only used by system()
-    std::optional<double> timeout; // seconds
+    double timeout = 0; // seconds; 0 means no timeout
 };
 
 void convertCRLFtoLF(std::string& str);
@@ -130,7 +130,7 @@ struct ProcessHandle
     bool timedOut = false;
     bool timeoutTimerInitialized = false;
     bool killTimerInitialized = false;
-    std::optional<double> timeoutSeconds;
+    double timeoutSeconds = 0;
 
     ProcessHandle(lua_State* L, ProcessOptions& opts, std::vector<std::string>& args, std::string context = "Process Spawn");
 

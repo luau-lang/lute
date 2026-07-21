@@ -147,7 +147,7 @@ ProcessHandle::ProcessHandle(lua_State* L, ProcessOptions& opts, std::vector<std
 
     options.stdio = stdio;
 
-    if (timeoutSeconds.has_value())
+    if (timeoutSeconds > 0)
     {
         options.flags |= UV_PROCESS_DETACHED;
         uv_timer_init(loop, &timeoutTimer);
@@ -169,9 +169,9 @@ void ProcessHandle::spawn(lua_State* L)
         luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
     }
 
-    if (timeoutSeconds.has_value())
+    if (timeoutSeconds > 0)
     {
-        uint64_t timeoutMs = static_cast<uint64_t>(*timeoutSeconds * 1000.0);
+        uint64_t timeoutMs = static_cast<uint64_t>(timeoutSeconds * 1000.0);
         uv_timer_start(&timeoutTimer, ProcessHandle::onTimeout, timeoutMs, 0);
     }
 
@@ -293,7 +293,8 @@ void ProcessHandle::onTimeout(uv_timer_t* timer)
         return;
 
     handle->timedOut = true;
-    uv_kill(-handle->process.pid, SIGTERM);
+    if (uv_kill(-handle->process.pid, SIGTERM) != 0)
+        uv_process_kill(&handle->process, SIGTERM);
 
     uv_timer_init(handle->loop, &handle->killTimer);
     handle->killTimer.data = handle;
@@ -307,7 +308,8 @@ void ProcessHandle::onKillTimeout(uv_timer_t* timer)
     if (!handle || handle->state.completed)
         return;
 
-    uv_kill(-handle->process.pid, SIGKILL);
+    if (uv_kill(-handle->process.pid, SIGKILL) != 0)
+        uv_process_kill(&handle->process, SIGKILL);
 }
 
 void ProcessHandle::onProcessExit(uv_process_t* process, int64_t exitStatus, int termSignal)
