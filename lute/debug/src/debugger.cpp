@@ -285,6 +285,8 @@ bool Target::launch(const std::string& sourcePath, const std::vector<std::string
         lua_pop(childRuntime->GL, 1);
 
         scriptThread = thread;
+        lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
+        cb->userdata = this;
         installBpHitCallback();
         installExitCallback();
         // All VM setup happens synchronously before runContinuously starts the background thread.
@@ -304,7 +306,6 @@ bool Target::launch(const std::string& sourcePath, const std::vector<std::string
 void Target::installBpHitCallback()
 {
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
-    cb->userdata = this;
     cb->debugbreak = [](lua_State* L, lua_Debug* ar)
     {
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
@@ -406,7 +407,6 @@ bool Target::pauseProcess()
     if (!launched || paused)
         return false;
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
-    cb->userdata = this;
     // the interrupt callback calls at any safepoint, which
     // is the soonest we can pause execution safely.
     // safepoints are loop back edges or function calls/returns.
