@@ -11,7 +11,7 @@ return {
 	},
 	lute = {
 		lint = {
-			ignores = { "**/*.snap.luau" },
+			ignores = { "**/*.d.luau", "**/*.snap.luau" },
 		},
 	},
 }
