@@ -257,6 +257,7 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
 
 static void initializeTarget(lua_State* L)
 {
+    checkStack(L, 2);
     luaL_newmetatable(L, "Target");
 
     lua_pushcfunction(
@@ -301,6 +302,7 @@ const luaL_Reg Debugger::lib[] = {
 int Debugger::pushLibrary(lua_State* L)
 {
     initializeTarget(L);
+    checkStack(L, 2);
     lua_createtable(L, 0, std::size(Debugger::lib));
     for (auto& [name, func] : Debugger::lib)
     {
