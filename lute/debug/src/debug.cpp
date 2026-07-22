@@ -213,6 +213,7 @@ static int target_launch(lua_State* L)
                     ref,
                     [success](lua_State* L)
                     {
+                        checkStack(L, 1);
                         lua_pushboolean(L, success);
                         return 1;
                     }
