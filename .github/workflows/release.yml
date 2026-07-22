@@ -22,6 +22,7 @@ jobs:
     needs: validate
     permissions:
       contents: write
+      actions: read
     uses: ./.github/workflows/release-common.yml
     with:
       branch: ${{ github.ref_name }}
