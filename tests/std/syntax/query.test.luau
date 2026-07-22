@@ -28,13 +28,13 @@ test.suite("CstQuery", function(suite)
 		end)
 
 		-- Should only have replacements for positive numbers
-		assert.eq(replacements[testQuery.nodes[2]], "positive_1") -- LUAUFIX CLI-178250: shouldn't need to cast
-		assert.eq(replacements[testQuery.nodes[3]], "positive_2") -- LUAUFIX CLI-178250: shouldn't need to cast
-		assert.eq(replacements[testQuery.nodes[4]], "positive_3") -- LUAUFIX CLI-178250: shouldn't need to cast
-		assert.eq(replacements[testQuery.nodes[5]], "positive_4") -- LUAUFIX CLI-178250: shouldn't need to cast
+		assert.eq(replacements[testQuery.nodes[2]], "positive_1")
+		assert.eq(replacements[testQuery.nodes[3]], "positive_2")
+		assert.eq(replacements[testQuery.nodes[4]], "positive_3")
+		assert.eq(replacements[testQuery.nodes[5]], "positive_4")
 
 		-- Non-positive numbers should not have replacements (nil values)
-		assert.eq(replacements[testQuery.nodes[1]], nil) -- LUAUFIX CLI-178250: shouldn't need to cast
+		assert.eq(replacements[testQuery.nodes[1]], nil)
 
 		-- Verify the replacement table only contains the expected entries
 		local count = 0
@@ -581,6 +581,13 @@ end
 
 		local statTypeFunctions = query.findAllFromRoot(cst, utils.isStatTypeFunction)
 		assert.eq(#statTypeFunctions.nodes, 1)
+	end)
+
+	suite:case("queryType", function(assert)
+		local cst = syntax.parse("type T = add<number, userdata>")
+
+		local typeReferences = query.findAllFromRoot(cst, utils.isType)
+		assert.eq(#typeReferences.nodes, 3)
 	end)
 
 	suite:case("queryTypeReference", function(assert)

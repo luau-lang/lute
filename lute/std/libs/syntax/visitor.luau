@@ -62,6 +62,7 @@ export type Visitor = {
 	visitExprIfElse: (types.CstExprIfElse) -> boolean,
 	visitExprVarargs: (types.CstExprVarargs) -> boolean,
 
+	visitType: (types.CstType) -> boolean,
 	visitTypeReference: (types.CstTypeReference) -> boolean,
 	visitTypeSingletonBool: (types.CstTypeSingletonBool) -> boolean,
 	visitTypeSingletonString: (types.CstTypeSingletonString) -> boolean,
@@ -142,6 +143,7 @@ local defaultVisitor: Visitor = {
 	visitExprIfElse = alwaysVisit,
 	visitExprVarargs = alwaysVisit,
 
+	visitType = alwaysVisit,
 	visitTypeReference = alwaysVisit,
 	visitTypeSingletonBool = alwaysVisit,
 	visitTypeSingletonString = alwaysVisit,
@@ -978,30 +980,32 @@ function visitStatement(statement: types.CstStat, visitor: Visitor)
 end
 
 function visitType(type: types.CstType, visitor: Visitor)
-	if type.tag == "reference" then
-		visitTypeReference(type, visitor)
-	elseif type.tag == "boolean" then
-		visitTypeSingletonBool(type, visitor)
-	elseif type.tag == "string" then
-		visitTypeSingletonString(type, visitor)
-	elseif type.tag == "typeof" then
-		visitTypeTypeof(type, visitor)
-	elseif type.tag == "group" then
-		visitTypeGroup(type, visitor)
-	elseif type.tag == "union" then
-		visitTypeUnion(type, visitor)
-	elseif type.tag == "intersection" then
-		visitTypeIntersection(type, visitor)
-	elseif type.tag == "optional" then
-		visitTypeOptional(type, visitor)
-	elseif type.tag == "array" then
-		visitTypeArray(type, visitor)
-	elseif type.tag == "table" then
-		visitTypeTable(type, visitor)
-	elseif type.tag == "function" then
-		visitTypeFunction(type, visitor)
-	else
-		exhaustiveMatch(type.tag)
+	if visitor.visitType(type) then
+		if type.tag == "reference" then
+			visitTypeReference(type, visitor)
+		elseif type.tag == "boolean" then
+			visitTypeSingletonBool(type, visitor)
+		elseif type.tag == "string" then
+			visitTypeSingletonString(type, visitor)
+		elseif type.tag == "typeof" then
+			visitTypeTypeof(type, visitor)
+		elseif type.tag == "group" then
+			visitTypeGroup(type, visitor)
+		elseif type.tag == "union" then
+			visitTypeUnion(type, visitor)
+		elseif type.tag == "intersection" then
+			visitTypeIntersection(type, visitor)
+		elseif type.tag == "optional" then
+			visitTypeOptional(type, visitor)
+		elseif type.tag == "array" then
+			visitTypeArray(type, visitor)
+		elseif type.tag == "table" then
+			visitTypeTable(type, visitor)
+		elseif type.tag == "function" then
+			visitTypeFunction(type, visitor)
+		else
+			exhaustiveMatch(type.tag)
+		end
 	end
 end
 
@@ -1080,6 +1084,7 @@ local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 			visitExprTypeAssertion = visit,
 			visitExprIfElse = visit,
 
+			visitType = visit,
 			visitTypeReference = visit,
 			visitTypeSingletonBool = visit,
 			visitTypeSingletonString = visit,
