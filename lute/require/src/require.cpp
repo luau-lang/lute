@@ -180,9 +180,13 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
     bool errored = true;
     if (luau_load(ML, chunkname, bytecode.data(), bytecode.size(), 0) == 0)
     {
-        Luau::CodeGen::CompilationOptions nativeOptions;
-        nativeOptions.flags = Luau::CodeGen::CodeGen_OnlyNativeModules;
-        Luau::CodeGen::compile(ML, -1, nativeOptions);
+        // if debug level == 2, we should not do native compilation even if that's flagged as allowed
+        if (reqCtx->compileOptions.debugLevel < 2)
+        {
+            Luau::CodeGen::CompilationOptions nativeOptions;
+            nativeOptions.flags = Luau::CodeGen::CodeGen_OnlyNativeModules;
+            Luau::CodeGen::compile(ML, -1, nativeOptions);
+        }
         if (reqCtx->onLoad)
             reqCtx->onLoad(chunkname, ML);
         int status = lua_resume(ML, L, 0);
