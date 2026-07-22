@@ -20,10 +20,11 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
-Runtime::Runtime(LuteReporter& reporter)
+Runtime::Runtime(LuteReporter& reporter, bool debugMode)
     : reporter(reporter)
     , globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
+    , debugMode(debugMode)
 {
 
     stop.store(false);
@@ -152,6 +153,14 @@ bool Runtime::runToCompletion()
 {
     while (hasWork())
     {
+        if (debugMode)
+        {
+            // when paused while debugging, nothing should happen
+            std::unique_lock<std::mutex> lock(debugMutex);
+            while (debugStopped)
+                debugStoppedCv.wait(lock);
+        }
+
         auto step = runOnce();
 
         if (auto err = Luau::get_if<StepErr>(&step))
@@ -361,6 +370,26 @@ void Runtime::releasePendingToken()
 {
     [[maybe_unused]] int before = activeTokens.fetch_sub(1);
     assert(before > 0);
+}
+
+void Runtime::continueDebug()
+{
+    LUTE_ASSERT(debugMode);
+    std::unique_lock<std::mutex> lock(debugMutex);
+    debugStopped = false;
+    debugStoppedCv.notify_one();
+}
+
+// stopDebug() actually allows for some C bookkeeping when we are unwinding the stack
+// when it is called within a callback such as debugbreak or debugInterrupt, which you could imagine might
+// lead to a race condition. The important thing is that this bookkeeping does not touch the Luau state that we can inspect
+// making this a nonissue.
+// We never schedule any Luau code to run afterwards, which means this is fine.
+void Runtime::stopDebug()
+{
+    LUTE_ASSERT(debugMode);
+    std::unique_lock<std::mutex> lock(debugMutex);
+    debugStopped = true;
 }
 
 uv_loop_t* Runtime::getEventLoop()
