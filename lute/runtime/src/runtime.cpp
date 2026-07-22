@@ -193,29 +193,29 @@ void Runtime::reportError(lua_State* L)
 void Runtime::runContinuously()
 {
     runLoopThreadStarted = uv_thread_create(
-        &runLoopThread,
-        [](void* arg)
-        {
-            Runtime* self = static_cast<Runtime*>(arg);
-            while (!self->stop)
-            {
-                {
-                    std::unique_lock lock(self->continuationMutex);
+                               &runLoopThread,
+                               [](void* arg)
+                               {
+                                   Runtime* self = static_cast<Runtime*>(arg);
+                                   while (!self->stop)
+                                   {
+                                       {
+                                           std::unique_lock lock(self->continuationMutex);
 
-                    self->runLoopCv.wait(
-                        lock,
-                        [self]
-                        {
-                            return !self->continuations.empty() || self->stop;
-                        }
-                    );
-                }
+                                           self->runLoopCv.wait(
+                                               lock,
+                                               [self]
+                                               {
+                                                   return !self->continuations.empty() || self->stop;
+                                               }
+                                           );
+                                       }
 
-                self->runToCompletion();
-            }
-        },
-        this
-    ) == 0;
+                                       self->runToCompletion();
+                                   }
+                               },
+                               this
+                           ) == 0;
 
     if (!runLoopThreadStarted)
         LUTE_ASSERT("Failed to create runtime runloop thread");
