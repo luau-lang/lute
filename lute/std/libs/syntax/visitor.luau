@@ -76,6 +76,7 @@ export type Visitor = {
 	visitTypeTable: (types.CstTypeTable) -> boolean,
 	visitTypeFunction: (types.CstTypeFunction) -> boolean,
 
+	visitTypePack: (types.CstTypePack) -> boolean,
 	visitTypePackExplicit: (types.CstTypePackExplicit) -> boolean,
 	visitTypePackGeneric: (types.CstTypePackGeneric) -> boolean,
 	visitTypePackVariadic: (types.CstTypePackVariadic) -> boolean,
@@ -157,6 +158,7 @@ local defaultVisitor: Visitor = {
 	visitTypeTable = alwaysVisit,
 	visitTypeFunction = alwaysVisit,
 
+	visitTypePack = alwaysVisit,
 	visitTypePackExplicit = alwaysVisit,
 	visitTypePackGeneric = alwaysVisit,
 	visitTypePackVariadic = alwaysVisit,
@@ -1010,14 +1012,16 @@ function visitType(type: types.CstType, visitor: Visitor)
 end
 
 function visitTypePack(type: types.CstTypePack, visitor: Visitor)
-	if type.tag == "explicit" then
-		visitTypePackExplicit(type, visitor)
-	elseif type.tag == "generic" then
-		visitTypePackGeneric(type, visitor)
-	elseif type.tag == "variadic" then
-		visitTypePackVariadic(type, visitor)
-	else
-		exhaustiveMatch(type.tag)
+	if visitor.visitTypePack(type) then
+		if type.tag == "explicit" then
+			visitTypePackExplicit(type, visitor)
+		elseif type.tag == "generic" then
+			visitTypePackGeneric(type, visitor)
+		elseif type.tag == "variadic" then
+			visitTypePackVariadic(type, visitor)
+		else
+			exhaustiveMatch(type.tag)
+		end
 	end
 end
 
@@ -1098,6 +1102,7 @@ local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 			visitTypeTable = visit,
 			visitTypeFunction = visit,
 
+			visitTypePack = visit,
 			visitTypePackExplicit = visit,
 			visitTypePackGeneric = visit,
 			visitTypePackVariadic = visit,

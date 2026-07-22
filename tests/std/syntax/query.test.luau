@@ -586,8 +586,8 @@ end
 	suite:case("queryType", function(assert)
 		local cst = syntax.parse("type T = add<number, userdata>")
 
-		local typeReferences = query.findAllFromRoot(cst, utils.isType)
-		assert.eq(#typeReferences.nodes, 3)
+		local types = query.findAllFromRoot(cst, utils.isType)
+		assert.eq(#types.nodes, 3)
 	end)
 
 	suite:case("queryTypeReference", function(assert)
@@ -665,6 +665,13 @@ end
 
 		local typeFunctions = query.findAllFromRoot(cst, utils.isTypeFunction)
 		assert.eq(#typeFunctions.nodes, 1)
+	end)
+
+	suite:case("queryTypePack", function(assert)
+		local cst = syntax.parse("type T = (...string) -> ...number")
+
+		local typePacks = query.findAllFromRoot(cst, utils.isTypePack)
+		assert.eq(#typePacks.nodes, 2)
 	end)
 
 	suite:case("queryTypePackExplicit", function(assert)

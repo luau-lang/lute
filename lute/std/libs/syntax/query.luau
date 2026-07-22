@@ -93,6 +93,9 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visi
 	selectVisitor.visitType = function(_)
 		return true
 	end
+	selectVisitor.visitTypePack = function(_)
+		return true
+	end
 
 	return selectVisitor
 end
