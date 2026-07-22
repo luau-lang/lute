@@ -245,6 +245,13 @@ test.suite("CstQuery", function(suite)
 		assert.eq(evenOnly[3], 4)
 	end)
 
+	suite:case("queryExpr", function(assert)
+		local cst = syntax.parse("local x = 1 + 2")
+
+		local exprs = query.findAllFromRoot(cst, utils.isExpr)
+		assert.eq(#exprs.nodes, 3)
+	end)
+
 	suite:case("queryExprGroup", function(assert)
 		local cst = syntax.parse("local x = (1)")
 
