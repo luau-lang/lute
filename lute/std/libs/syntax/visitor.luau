@@ -11,6 +11,7 @@ local visitorlib = {}
 --- returns `true` to continue visiting its children, or `false` to skip them. "End" callbacks fire after all children
 --- of that sort have been visited. Override only the callbacks you care about; unset callbacks default to visiting all children.
 export type Visitor = {
+	visitStat: (types.CstStat) -> boolean,
 	visitStatBlock: (types.CstStatBlock) -> boolean,
 	visitStatBlockEnd: (types.CstStatBlock) -> (),
 	visitStatDo: (types.CstStatDo) -> boolean,
@@ -90,6 +91,7 @@ local function alwaysVisit(...: types.CstNode)
 end
 
 local defaultVisitor: Visitor = {
+	visitStat = alwaysVisit,
 	visitStatBlock = alwaysVisit,
 	visitStatBlockEnd = alwaysVisit :: (types.CstNode) -> (),
 	visitStatDo = alwaysVisit,
@@ -930,46 +932,48 @@ function visitExpr(expression: types.CstExpr, visitor: Visitor)
 end
 
 function visitStatement(statement: types.CstStat, visitor: Visitor)
-	if statement.tag == "block" then
-		visitStatBlock(statement, visitor)
-	elseif statement.tag == "do" then
-		visitStatDo(statement, visitor)
-	elseif statement.tag == "conditional" then
-		visitStatIf(statement, visitor)
-	elseif statement.tag == "expression" then
-		visitStatExpr(statement, visitor)
-	elseif statement.tag == "local" then
-		visitLocalStatement(statement, visitor)
-	elseif statement.tag == "const" then
-		visitConstStatement(statement, visitor)
-	elseif statement.tag == "return" then
-		visitStatReturn(statement, visitor)
-	elseif statement.tag == "while" then
-		visitStatWhile(statement, visitor)
-	elseif statement.tag == "break" then
-		visitStatBreak(statement, visitor)
-	elseif statement.tag == "continue" then
-		visitStatContinue(statement, visitor)
-	elseif statement.tag == "repeat" then
-		visitStatRepeat(statement, visitor)
-	elseif statement.tag == "for" then
-		visitStatFor(statement, visitor)
-	elseif statement.tag == "forin" then
-		visitStatForIn(statement, visitor)
-	elseif statement.tag == "assign" then
-		visitStatAssign(statement, visitor)
-	elseif statement.tag == "compoundassign" then
-		visitStatCompoundAssign(statement, visitor)
-	elseif statement.tag == "function" then
-		visitStatFunction(statement, visitor)
-	elseif statement.tag == "localfunction" then
-		visitStatLocalFunction(statement, visitor)
-	elseif statement.tag == "typealias" then
-		visitStatTypeAlias(statement, visitor)
-	elseif statement.tag == "typefunction" then
-		visitStatTypeFunction(statement, visitor)
-	else
-		exhaustiveMatch(statement.tag)
+	if visitor.visitStat(statement) then
+		if statement.tag == "block" then
+			visitStatBlock(statement, visitor)
+		elseif statement.tag == "do" then
+			visitStatDo(statement, visitor)
+		elseif statement.tag == "conditional" then
+			visitStatIf(statement, visitor)
+		elseif statement.tag == "expression" then
+			visitStatExpr(statement, visitor)
+		elseif statement.tag == "local" then
+			visitLocalStatement(statement, visitor)
+		elseif statement.tag == "const" then
+			visitConstStatement(statement, visitor)
+		elseif statement.tag == "return" then
+			visitStatReturn(statement, visitor)
+		elseif statement.tag == "while" then
+			visitStatWhile(statement, visitor)
+		elseif statement.tag == "break" then
+			visitStatBreak(statement, visitor)
+		elseif statement.tag == "continue" then
+			visitStatContinue(statement, visitor)
+		elseif statement.tag == "repeat" then
+			visitStatRepeat(statement, visitor)
+		elseif statement.tag == "for" then
+			visitStatFor(statement, visitor)
+		elseif statement.tag == "forin" then
+			visitStatForIn(statement, visitor)
+		elseif statement.tag == "assign" then
+			visitStatAssign(statement, visitor)
+		elseif statement.tag == "compoundassign" then
+			visitStatCompoundAssign(statement, visitor)
+		elseif statement.tag == "function" then
+			visitStatFunction(statement, visitor)
+		elseif statement.tag == "localfunction" then
+			visitStatLocalFunction(statement, visitor)
+		elseif statement.tag == "typealias" then
+			visitStatTypeAlias(statement, visitor)
+		elseif statement.tag == "typefunction" then
+			visitStatTypeFunction(statement, visitor)
+		else
+			exhaustiveMatch(statement.tag)
+		end
 	end
 end
 
@@ -1017,6 +1021,7 @@ end
 local function create(visit: ((types.CstNode) -> boolean)?): Visitor
 	if visit then
 		return {
+			visitStat = visit,
 			visitStatBlock = visit,
 			visitStatBlockEnd = function(s)
 				visit(s)

@@ -399,6 +399,18 @@ function g() end
 		assert.eq(#exprIfElses.nodes, 1)
 	end)
 
+	suite:case("queryStat", function(assert)
+		local cst = syntax.parse([[
+local function func(x)
+	print(x)
+end
+]])
+
+		-- the overall block, the function declaration, the function body, and the print inside the function body
+		local stats = query.findAllFromRoot(cst, utils.isStat)
+		assert.eq(#stats.nodes, 4)
+	end)
+
 	suite:case("queryStatBlock", function(assert)
 		local cst = syntax.parse([[
 do
