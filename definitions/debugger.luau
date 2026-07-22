@@ -50,8 +50,8 @@ export type Target = {
 }
 
 --- Create a new Target handle on the current VM.
-function debug.newTarget(): Target
+function debugger.newTarget(): Target
 	error("not implemented")
 end
 
-return debug
+return debugger
