@@ -9,3 +9,4 @@ constexpr int kWebSocketHandleTag = 123;
 constexpr int kServerWebSocketHandleTag = 122;
 constexpr int kUVFileTag = 121;
 constexpr int kSignalHandleTag = 120;
+constexpr int kTCPStreamHandleTag = 119;

@@ -1,5 +1,6 @@
 #include "system_ca.h"
 
+#include "openssl/ssl.h"
 #include "curl/curl.h"
 
 #if defined(__linux__)
@@ -58,6 +59,48 @@ void applySystemCA(CURL* curl)
         curl_easy_setopt(curl, CURLOPT_CAINFO, cafile);
     if (capath)
         curl_easy_setopt(curl, CURLOPT_CAPATH, capath);
+#endif
+}
+
+void applySystemCASSL(void* ctx_)
+{
+    auto ctx = static_cast<SSL_CTX*>(ctx_);
+#if defined(_WIN32)
+    // BoringSSL doesn't implement SSL_CTX_load_verify_store, so we'll have to do it manually
+    HCERTSTORE store = CertOpenSystemStoreW(NULL, L"ROOT");
+    if (!store)
+        return;
+
+    X509_STORE* x509Store = SSL_CTX_get_cert_store(ctx);
+    PCCERT_CONTEXT cert = nullptr;
+
+    while ((cert = CertEnumCertificatesInStore(store, cert)) != nullptr)
+    {
+        const uint8_t* ptr =
+            reinterpret_cast<const uint8_t*>(cert->pbCertEncoded);
+
+        X509* x509 = d2i_X509(
+            nullptr,
+            &ptr,
+            cert->cbCertEncoded);
+
+        if (!x509)
+            continue;
+
+        X509_STORE_add_cert(x509Store, x509);
+        X509_free(x509);
+    }
+
+    CertCloseStore(store, 0);
+#elif defined(__APPLE__)
+    SSL_CTX_load_verify_locations(ctx, "/etc/ssl/cert.pem", nullptr);
+#elif defined(__linux__)
+    static const char* cafile = findPath(kCAFiles, sizeof(kCAFiles) / sizeof(kCAFiles[0]), false);
+    static const char* capath = findPath(kCADirs, sizeof(kCADirs) / sizeof(kCADirs[0]), true);
+    if (cafile)
+        SSL_CTX_load_verify_locations(ctx, cafile, nullptr);
+    if (capath)
+        SSL_CTX_load_verify_locations(ctx, nullptr, capath);
 #endif
 }
 
