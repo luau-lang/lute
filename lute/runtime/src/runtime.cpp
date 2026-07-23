@@ -34,6 +34,7 @@ Runtime::Runtime(LuteReporter& reporter, bool debugMode)
     {
         LUTE_ASSERT("Couldn't initialize runtime event loop");
     }
+    uv_async_init(&eventLoop, &wakeup, [](uv_async_t*) {});
 }
 
 Runtime::~Runtime()
@@ -51,6 +52,8 @@ Runtime::~Runtime()
         uv_thread_join(&runLoopThread);
         runLoopThreadStarted = false;
     }
+    uv_close((uv_handle_t*)&wakeup, nullptr);
+    uv_run(&eventLoop, UV_RUN_ONCE);
     // At this point, Runtime::hasWork will have returned false (i.e uv_loop_alive is false)
     // This means there are no outstanding handles, or file descriptors or work, to do, and we can exit
     uv_loop_close(&eventLoop);
@@ -336,6 +339,7 @@ void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::functi
     );
 
     runLoopCv.notify_one();
+    uv_async_send(&wakeup);
 }
 
 void Runtime::runInWorkQueue(std::function<void()> f)
