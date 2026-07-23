@@ -220,6 +220,19 @@ static int target_launch(lua_State* L)
                 );
             };
         }
+        if (auto ref = getOptionalCallback(L, 4, "onPause"))
+        {
+            config.onPause = [ref, runtime]()
+            {
+                runtime->scheduleLuauCallback(
+                    ref,
+                    [](lua_State* L)
+                    {
+                        return 0;
+                    }
+                );
+            };
+        }
     }
     bool launched = target->launch(source, args, config);
     checkStack(L, 1);
@@ -233,6 +246,15 @@ static int target_continueProcess(lua_State* L)
     bool continued = target->continueProcess();
     checkStack(L, 1);
     lua_pushboolean(L, continued);
+    return 1;
+}
+
+static int target_pauseProcess(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    bool paused = target->pauseProcess();
+    checkStack(L, 1);
+    lua_pushboolean(L, paused);
     return 1;
 }
 
@@ -253,7 +275,8 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"getBreakpointById", target_getBreakpointById},
     {"getBreakpointBySourceLine", target_getBreakpointBySourceLine},
     {"launch", target_launch},
-    {"continueProcess", target_continueProcess}
+    {"continueProcess", target_continueProcess},
+    {"pauseProcess", target_pauseProcess},
 };
 
 static void initializeTarget(lua_State* L)

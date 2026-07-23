@@ -23,6 +23,8 @@ export type LaunchConfig = {
 	onBreakpointUninstall: ((bp: Breakpoint) -> ())?,
 	--- called when the debugged script exits. `success` reflects if the script exited without errors.
 	onExit: ((success: boolean) -> ())?,
+	--- called when a script actually pauses execution after a call to pauseProcess().
+	onPause: (() -> ())?,
 }
 
 --- A `Target` represents the target program under the debugger.
@@ -47,6 +49,9 @@ export type Target = {
 	--- Continues a target script if it has been stopped. Return `true` if the target was actually stopped
 	--- and `false` if it was not.
 	continueProcess: (self: Target) -> boolean,
+	--- Pauses a target script if it is running. Return `true` if the target was successfully paused
+	--- and `false` if it was not.
+	pauseProcess: (self: Target) -> boolean,
 }
 
 --- Create a new Target handle on the current VM.
