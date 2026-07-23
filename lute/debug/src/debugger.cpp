@@ -258,7 +258,8 @@ bool Target::launch(const std::string& sourcePath, const std::vector<std::string
     {
         std::lock_guard lock(targetMutex);
         // launch() cannot be called twice from the same target.
-        LUTE_ASSERT(!launched);
+        if (launched)
+            return false;
         childRuntime = std::make_unique<Runtime>(parentRuntime.reporter, true);
         setupState(*childRuntime, nullptr);
         launchConfig = config;
