@@ -176,7 +176,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 	suite:case("pauseProcess", function(check)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
-		local fixturePath = path.format(path.join(proc.cwd(), "tests/src/debug/simple.luau"))
+		local fixturePath = path.format(path.join(proc.cwd(), "tests/src/debug/loop.luau"))
 		local onFinished = false
 		target:setBreakpoint(fixturePath, 2)
 		local paused = 0
