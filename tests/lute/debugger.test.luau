@@ -46,6 +46,9 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end,
 		})
 		check.that(targetLaunched)
+		-- check for relaunch
+		targetLaunched = target:launch(fixturePath, {}, {})
+		check.that(not targetLaunched)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -94,6 +97,12 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 					check.eq(bp.sourcePath, fixturePath)
 					check.eq(bp.status, "installed")
 					numHitsBp2 += 1
+					check.eq(#target:getBreakpointsByStatus("installed"), 2)
+					check.eq(#target:getBreakpointsByStatus("pendingInstall"), 0)
+					local bpBySourceId = target:getBreakpointBySourceLine(fixturePath, 4)
+					check.eq(assert(bpBySourceId).id, bp3.id)
+					bpBySourceId = target:getBreakpointBySourceLine(fixturePath, 6)
+					check.eq(bpBySourceId, nil)
 					target:removeBreakpoint(bp.id)
 					-- the removal should happen immediately given we are in paused state
 					bps = target:getBreakpoints()
