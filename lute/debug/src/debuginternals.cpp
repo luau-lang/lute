@@ -268,6 +268,7 @@ std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> Target::modifyPendin
 
 std::vector<std::string> Target::getLoadedSources()
 {
+    std::lock_guard lock(targetMutex);
     std::vector<std::string> sources;
     sources.reserve(loadedSources.size());
     for (auto& [path, _] : loadedSources)
