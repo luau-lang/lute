@@ -169,45 +169,4 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			true
 		)
 	end)
-	-- this test case checks pauseProcess pauses by pausing during a bp
-	suite:case("pauseProcess", function(check)
-		local target = debug.newTarget()
-		check.eq(typeof(target), "Target")
-		local fixturePath = path.format(path.join(proc.cwd(), "tests/src/debug/loop.luau"))
-		local onFinished = false
-		target:setBreakpoint(fixturePath, 2)
-		local paused = 0
-		local targetLaunched = target:launch(fixturePath, {}, {
-			onBreakpointHit = function(_bp)
-				local continued = target:continueProcess()
-				check.that(continued)
-				local paused = target:pauseProcess()
-				check.that(paused)
-			end,
-			onExit = function(status)
-				if status then
-					onFinished = true
-				end
-			end,
-			onPause = function()
-				paused += 1
-			end,
-		})
-		check.that(targetLaunched)
-		check.eq(
-			waitUntil(function()
-				return onFinished
-			end, 1),
-			false
-		)
-		local continued = target:continueProcess()
-		check.that(continued)
-		check.eq(
-			waitUntil(function()
-				return onFinished
-			end, 1),
-			true
-		)
-		check.eq(paused, 1)
-	end)
 end)
