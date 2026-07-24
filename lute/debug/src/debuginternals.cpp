@@ -1,4 +1,4 @@
-#include "debugger.h"
+#include "lute/debuginternals.h"
 
 #include "lute/common.h"
 
@@ -257,7 +257,9 @@ bool Target::launch(const std::string& sourcePath, const std::vector<std::string
     std::vector<Breakpoint> uninstalledBps;
     {
         std::lock_guard lock(targetMutex);
-        // launch() cannot be called twice from the same target.
+        // launch() cannot be called twice from the same target, so we assert in
+        // debug mode and return false when we are in release mode.
+        LUTE_ASSERT(!launched);
         if (launched)
             return false;
         childRuntime = std::make_unique<Runtime>(parentRuntime.reporter, true);
