@@ -37,13 +37,13 @@ Runtime::Runtime(LuteReporter& reporter, bool debugMode)
     }
 
     // We need a way to communicate from other uv threads to the main event loop.
-    if (uv_async_init(&eventLoop, &wakeup, [](uv_async_t*) {}) < 0)
+    if (uv_async_init(&eventLoop, &wakeupEventLoop, [](uv_async_t*) {}) < 0)
     {
         reporter.reportError("Couldn't initialize uv_async handle to wake up main event");
         LUTE_ASSERT(false);
     }
-    // This unreferences wakeup so that it does not count towards hasWork() through uv_loop_alive
-    uv_unref((uv_handle_t*)&wakeup);
+    // This unreferences wakeupEventLoop so that it does not count towards hasWork() through uv_loop_alive
+    uv_unref((uv_handle_t*)&wakeupEventLoop);
 }
 
 Runtime::~Runtime()
@@ -61,7 +61,7 @@ Runtime::~Runtime()
         uv_thread_join(&runLoopThread);
         runLoopThreadStarted = false;
     }
-    uv_close((uv_handle_t*)&wakeup, nullptr);
+    uv_close((uv_handle_t*)&wakeupEventLoop, nullptr);
     //  We need to run the event loop to process the uv_close since it is asynchronous
     uv_run(&eventLoop, UV_RUN_ONCE);
     //  At this point, Runtime::hasWork will have returned false (i.e uv_loop_alive is false)
@@ -292,7 +292,7 @@ void Runtime::schedule(std::function<void()> f)
     runLoopCv.notify_one();
     // We may be blocked on uv_run(getEventLoop(), UV_RUN_ONCE) in runOnce().
     // This signals the uv_loop and unblocks it to run the continuation.
-    uv_async_send(&wakeup);
+    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
@@ -312,7 +312,7 @@ void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
     );
 
     runLoopCv.notify_one();
-    uv_async_send(&wakeup);
+    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua_State*)> cont)
@@ -336,7 +336,7 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
     );
 
     runLoopCv.notify_one();
-    uv_async_send(&wakeup);
+    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
@@ -358,7 +358,7 @@ void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::functi
     );
 
     runLoopCv.notify_one();
-    uv_async_send(&wakeup);
+    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::runInWorkQueue(std::function<void()> f)
