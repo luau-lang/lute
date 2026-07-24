@@ -32,9 +32,18 @@ Runtime::Runtime(LuteReporter& reporter, bool debugMode)
 
     if (uv_loop_init(&eventLoop) < 0)
     {
-        LUTE_ASSERT("Couldn't initialize runtime event loop");
+        reporter.reportError("Couldn't initialize runtime event loop");
+        LUTE_ASSERT(false);
     }
-    uv_async_init(&eventLoop, &wakeup, [](uv_async_t*) {});
+
+    // We need a way to communicate from other uv threads to the main event loop.
+    if (uv_async_init(&eventLoop, &wakeup, [](uv_async_t*) {}) < 0)
+    {
+        reporter.reportError("Couldn't initialize uv_async handle to wake up main event");
+        LUTE_ASSERT(false);
+    }
+    // This unreferences wakeup so that it does not count towards hasWork() through uv_loop_alive
+    uv_unref((uv_handle_t*)&wakeup);
 }
 
 Runtime::~Runtime()
@@ -53,10 +62,15 @@ Runtime::~Runtime()
         runLoopThreadStarted = false;
     }
     uv_close((uv_handle_t*)&wakeup, nullptr);
+    //  We need to run the event loop to process the uv_close since it is asynchronous
     uv_run(&eventLoop, UV_RUN_ONCE);
-    // At this point, Runtime::hasWork will have returned false (i.e uv_loop_alive is false)
-    // This means there are no outstanding handles, or file descriptors or work, to do, and we can exit
-    uv_loop_close(&eventLoop);
+    //  At this point, Runtime::hasWork will have returned false (i.e uv_loop_alive is false)
+    //  This means there are no outstanding handles, or file descriptors or work, to do, and we can exit
+    if (uv_loop_close(&eventLoop) < 0)
+    {
+        reporter.reportError("uv main loop failed to destruct due to active handles");
+        LUTE_ASSERT(false);
+    }
 }
 
 bool Runtime::hasWork()
@@ -276,6 +290,8 @@ void Runtime::schedule(std::function<void()> f)
     continuations.push_back(std::move(f));
 
     runLoopCv.notify_one();
+    // We may be blocked on uv_run(getEventLoop(), UV_RUN_ONCE) in runOnce().
+    // This signals the uv_loop and unblocks it to run the continuation.
     uv_async_send(&wakeup);
 }
 
