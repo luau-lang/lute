@@ -153,10 +153,10 @@ private:
     std::condition_variable runLoopCv;
     uv_thread_t runLoopThread = {};
     bool runLoopThreadStarted = false;
-    uv_async_t wakeup;
 
     std::atomic<int> activeTokens;
     uv_loop_t eventLoop;
+    uv_async_t wakeupEventLoop;
 
     // for debug mode only:
     const bool debugMode;
