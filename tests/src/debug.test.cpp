@@ -9,7 +9,7 @@ using namespace debug;
 
 static void checkBreakpointId(Target& target, int id, BreakpointStatus status, std::string sourcePath, int line)
 {
-    auto foundBp = target.getBreakpointById(id);
+    std::optional<Breakpoint> foundBp = target.getBreakpointById(id);
     REQUIRE(foundBp.has_value());
     CHECK(foundBp->id == id);
     CHECK(foundBp->status == status);
@@ -19,7 +19,7 @@ static void checkBreakpointId(Target& target, int id, BreakpointStatus status, s
 
 static void checkBreakpointSourceLine(Target& target, int id, BreakpointStatus status, std::string sourcePath, int line)
 {
-    auto foundBp = target.getBreakpointBySourceLine(sourcePath, line);
+    std::optional<Breakpoint> foundBp = target.getBreakpointBySourceLine(sourcePath, line);
     REQUIRE(foundBp.has_value());
     CHECK(foundBp->id == id);
     CHECK(foundBp->status == status);
