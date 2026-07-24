@@ -223,7 +223,7 @@ static int target_launch(lua_State* L)
         for (int i = 1; i <= n; i++)
         {
             lua_rawgeti(L, 3, i);
-            args.push_back(luaL_checkstring(L, -1));
+            args.emplace_back(luaL_checkstring(L, -1));
             lua_pop(L, 1);
         }
     }
