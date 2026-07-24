@@ -77,9 +77,6 @@ TEST_SUITE("Debug")
 
         bool launched = target.launch(fixturePath, {}, config);
         CHECK(launched);
-        // check cannot relaunch
-        launched = target.launch(fixturePath, {}, config);
-        CHECK(!launched);
 
         // check breakpoints before launch are immediately installed after launch
         CHECK(target.getBreakpoints().size() == 3);

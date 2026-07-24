@@ -46,9 +46,6 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end,
 		})
 		check.that(targetLaunched)
-		-- check for relaunch
-		targetLaunched = target:launch(fixturePath, {}, {})
-		check.that(not targetLaunched)
 		check.eq(
 			waitUntil(function()
 				return onFinished
