@@ -43,6 +43,8 @@ export type Target = {
 	getBreakpointById: (self: Target, id: number) -> Breakpoint?,
 	--- Get a breakpoint at a `sourcePath` at a given line. Returns `nil` if not found.
 	getBreakpointBySourceLine: (self: Target, sourcePath: string, line: number) -> Breakpoint?,
+	--- Gets all Luau sources that have been loaded onto the debugger.
+	getLoadedSources: (self: Target) -> { string },
 	--- Launch a Luau script at at `sourcePath` with the relevant `args` and callbacks.
 	--- Returns whether the script could be launched.
 	launch: (self: Target, sourcePath: string, args: { string }?, config: LaunchConfig?) -> boolean,
