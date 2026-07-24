@@ -43,9 +43,8 @@ test.suite("LuteDebug", function(suite)
 	suite:case("luteDebugDAPStream", function(assert)
 		local input = 'Content-Length: 100\r\n\r\n{"seq":1,"type":"request","command":"initialize","arguments":{"clientID":"test","adapterID":"lute"}}'
 			.. 'Content-Length: 56\r\n\r\n{"seq":2,"type":"request","command":"configurationDone"}'
-			.. 'Content-Length: 45\r\n\r\n{"seq":3,"type":"request","command":"launch"}'
+			.. 'Content-Length: 82\r\n\r\n{"seq":3,"type":"request","command":"launch","arguments":{"program":"/test.luau"}}'
 			.. 'Content-Length: 48\r\n\r\n{"seq":4,"type":"request","command":"terminate"}'
-
 		local function checkEquivalence(written: string)
 			local msg1, rest1 = parseJsonMessage(written)
 			assert.eq(msg1.type, "response")
