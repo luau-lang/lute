@@ -9,7 +9,7 @@ export type Capability = {
 
 export type Source = {
 	path: string,
-	name: string?
+	name: string?,
 }
 
 export type SourceBreakpoint = {
