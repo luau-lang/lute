@@ -7,6 +7,11 @@ local process = require("@std/process")
 local lutePath = path.format(process.execPath())
 local USAGE = "Usage: lute debug serve"
 
+local function makeMessage(obj: { [string]: any }): string
+	local body = json.serialize(obj)
+	return `Content-Length: {#body}\r\n\r\n{body}`
+end
+
 local function makeChunkReader(readMessage: string, blockSize: number)
 	local pos = 1
 	return function()
@@ -40,11 +45,19 @@ local function parseJsonMessage(msg: string): (json.Object, string)
 end
 
 test.suite("LuteDebug", function(suite)
+	-- tests specifically for DAP Stream I/O
 	suite:case("luteDebugDAPStream", function(assert)
-		local input = 'Content-Length: 100\r\n\r\n{"seq":1,"type":"request","command":"initialize","arguments":{"clientID":"test","adapterID":"lute"}}'
-			.. 'Content-Length: 56\r\n\r\n{"seq":2,"type":"request","command":"configurationDone"}'
-			.. 'Content-Length: 82\r\n\r\n{"seq":3,"type":"request","command":"launch","arguments":{"program":"/test.luau"}}'
-			.. 'Content-Length: 48\r\n\r\n{"seq":4,"type":"request","command":"terminate"}'
+		local inMsg1 = makeMessage({
+			seq = 1,
+			type = "request",
+			command = "initialize",
+			arguments = { clientID = "test", adapterID = "lute" },
+		})
+		local inMsg2 = makeMessage({ seq = 2, type = "request", command = "configurationDone" })
+		local inMsg3 =
+			makeMessage({ seq = 3, type = "request", command = "launch", arguments = { program = "/test.luau" } })
+		local inMsg4 = makeMessage({ seq = 4, type = "request", command = "terminate" })
+		local input = inMsg1 .. inMsg2 .. inMsg3 .. inMsg4
 		local function checkEquivalence(written: string)
 			local msg1, rest1 = parseJsonMessage(written)
 			assert.eq(msg1.type, "response")
@@ -68,7 +81,7 @@ test.suite("LuteDebug", function(suite)
 			local msg4, rest4 = parseJsonMessage(rest3)
 			assert.eq(msg4.type, "response")
 			assert.eq(msg4.command, "launch")
-			assert.eq(msg4.success, true)
+			assert.eq(msg4.success, false)
 			assert.eq(msg4.request_seq, 3)
 			assert.eq(msg4.seq, 4)
 
@@ -105,6 +118,60 @@ test.suite("LuteDebug", function(suite)
 		clear()
 		dapStream.dapLoop(reader, write)
 		checkEquivalence(getWritten())
+	end)
+	-- tests specifically for DAP set breakpoints format
+	suite:case("luteDebugBreakpoints", function(assert)
+		local fixturePath = path.format(path.join(process.cwd(), "tests/src/debug/simple.luau"))
+		local inMsg1 = makeMessage({
+			seq = 1,
+			type = "request",
+			command = "initialize",
+			arguments = { clientID = "test", adapterID = "lute" },
+		})
+		local inMsg2 = makeMessage({
+			seq = 2,
+			type = "request",
+			command = "setBreakpoints",
+			arguments = { source = { path = fixturePath }, breakpoints = { { line = 2 } } },
+		})
+		local inMsg3 = makeMessage({ seq = 3, type = "request", command = "terminate" })
+		local input = inMsg1 .. inMsg2 .. inMsg3
+
+		local write, getWritten, _ = makeWriter()
+		dapStream.dapLoop(makeChunkReader(input, #input), write)
+		local written = getWritten()
+
+		local msg1, rest1 = parseJsonMessage(written)
+		assert.eq(msg1.type, "response")
+		assert.eq(msg1.command, "initialize")
+		assert.eq(msg1.success, true)
+
+		local msg2, rest2 = parseJsonMessage(rest1)
+		assert.eq(msg2.type, "event")
+		assert.eq(msg2.event, "initialized")
+
+		local msg3, rest3 = parseJsonMessage(rest2)
+		assert.eq(msg3.type, "response")
+		assert.eq(msg3.command, "setBreakpoints")
+		assert.eq(msg3.success, true)
+		local body = msg3.body :: json.Object
+		local bps = json.asArray(body.breakpoints) :: json.Array
+		assert.that(bps ~= nil)
+		assert.eq(#bps, 1)
+		local bp = json.asObject(bps[1]) :: json.Object
+		assert.that(bp ~= nil)
+		assert.eq(bp.verified, false)
+		assert.eq(bp.line, 2)
+		assert.eq(bp.reason, "pending")
+
+		local msg4, rest4 = parseJsonMessage(rest3)
+		assert.eq(msg4.type, "response")
+		assert.eq(msg4.command, "terminate")
+		assert.eq(msg4.success, true)
+
+		local msg5, _ = parseJsonMessage(rest4)
+		assert.eq(msg5.type, "event")
+		assert.eq(msg5.event, "terminated")
 	end)
 	suite:case("luteDebugHelpMessage", function(assert)
 		local result = process.run({ lutePath, "debug", "-h" })
