@@ -39,6 +39,7 @@ struct LaunchConfig
     std::function<void(const Breakpoint& bp)> onBreakpointUninstall;
     std::function<void(const Breakpoint& bp)> onBreakpointHit;
     std::function<void(bool success)> onExit;
+    std::function<void()> onPause;
 };
 
 struct Target
@@ -68,6 +69,7 @@ struct Target
     // For actively running scripts:
     bool launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
+    bool pauseProcess();
 
 private:
     // targetMutex protects the entire Target, since Target can be accessed from the main thread
@@ -84,13 +86,15 @@ private:
     std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
     bool continueRequestedBp = false;
     std::optional<Breakpoint> bpHit;
-    ResumeToken resumeToken;
     LaunchConfig launchConfig;
 
     Luau::DenseHashMap<std::string, std::shared_ptr<Ref>> loadedSources; // source path -> reference to chunk
 
     // thread for our launched script
     lua_State* scriptThread = nullptr;
+
+    // our stopped thread that we need to requeue when we continue
+    lua_State* stoppedThread = nullptr;
 
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;

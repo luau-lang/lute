@@ -4,6 +4,7 @@ target_sources(Lute.Common PRIVATE
     include/lute/common.h
     include/lute/fileutils.h
     include/lute/reporter.h
+    include/lute/result.h
 
     src/fileutils.cpp
 )
