@@ -28,6 +28,7 @@ enum class BreakpointStatus
 struct Breakpoint
 {
     int id;
+    // This will use forward slashes instead of backwards.
     std::string sourcePath;
     int line;
     BreakpointStatus status;
@@ -48,7 +49,9 @@ struct Target
     explicit Target(Runtime& parentRuntime);
     ~Target();
 
-    // Get list of sources
+    // Get list of sources, with sources using forward slahes consistently.
+    // Our principle in path format is that we accept any path format as input but will
+    // internally use and then output with paths that use exclusively forward slashes.
     std::vector<std::string> getLoadedSources();
 
     // Setting breakpoints is a two step process. We add them to our Target. If they
