@@ -14,7 +14,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 static void checkStack(lua_State* L, int n)
 {
     if (!lua_checkstack(L, n))
@@ -328,7 +327,8 @@ static void initializeTarget(lua_State* L)
     luaL_newmetatable(L, "Target");
 
     lua_createtable(L, 0, kTargetMethods.size());
-    for(auto [methodName, function]: kTargetMethods) {
+    for (auto [methodName, function] : kTargetMethods)
+    {
         lua_pushcfunction(L, function, methodName.c_str());
         lua_setfield(L, -2, methodName.c_str());
     }
