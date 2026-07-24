@@ -1,14 +1,15 @@
--- while these types may have additional fields, we only record
--- the ones the DAP server currently uses.
+-- these types reflect our requirements for our implementation of DAP, not
+-- necessarily the actual DAP specification. For example, sources in DAP could have
+-- path be optional, but we enforce that it is required.
 
-export type Capabilitiy = {
-	supportConfigurationDoneRequest: boolean?,
-	supportTerminateRequest: boolean?,
+export type Capability = {
+	supportConfigurationDoneRequest: boolean,
+	supportTerminateRequest: boolean,
 }
 
 export type Source = {
-	path: string?,
-	name: string?,
+	path: string,
+	name: string?
 }
 
 export type SourceBreakpoint = {
@@ -17,15 +18,15 @@ export type SourceBreakpoint = {
 
 export type SetBreakpointsArgs = {
 	source: Source,
-	breakpoints: { SourceBreakpoint }?,
+	breakpoints: { SourceBreakpoint },
 }
 
 export type Breakpoint = {
-	id: number?,
+	id: number,
 	verified: boolean,
-	source: Source?,
+	source: Source,
 	reason: ("pending" | "failed")?,
-	line: number?,
+	line: number,
 }
 
 export type LaunchArgs = {
