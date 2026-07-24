@@ -24,7 +24,7 @@ end
 local function clearAndSetBreakpoints(
 	target: debugger.Target,
 	sourcePath: string,
-	newBreakpoints: { dapTypes.SourceBreakpoint }?
+	requestedBreakpoints: { dapTypes.SourceBreakpoint }?
 ): { dapTypes.Breakpoint }
 	local currentBps = target:getBreakpoints()
 	for _, bp in currentBps do
@@ -32,13 +32,13 @@ local function clearAndSetBreakpoints(
 			target:removeBreakpoint(bp.id)
 		end
 	end
-	local requestedBps = {}
-	if newBreakpoints then
-		for _, setBp in newBreakpoints do
-			table.insert(requestedBps, debugToDapBreakpoint(target:setBreakpoint(sourcePath, setBp.line)))
+	local resultBps = {}
+	if requestedBreakpoints then
+		for _, setBp in requestedBreakpoints do
+			table.insert(resultBps, debugToDapBreakpoint(target:setBreakpoint(sourcePath, setBp.line)))
 		end
 	end
-	return requestedBps
+	return resultBps
 end
 
 local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
