@@ -15,7 +15,6 @@ OPTIONS:
   -c, --check      Check whether files are formatted
 ]]
 
-
 local function main(...: string)
 	local args = cli.parser()
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
@@ -39,7 +38,14 @@ local function main(...: string)
 
 	for _, pathlike in sourceFiles do
 		local source = fs.readFileToString(pathlike)
-		local formatted = format.format(source)
+		local formatted = format.format(
+			source,
+			table.freeze({
+				indentWidth = 4,
+				enableTabs = true,
+				width = 80,
+			})
+		)
 		if formatted ~= source then
 			if check then
 				table.insert(unformatted, path.format(pathlike))

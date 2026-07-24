@@ -8,7 +8,7 @@ local trivia = require("./trivia")
 
 local function toDoc(parseResult: syntax.CstParseResult): doc.Doc
 	local body = lower.block(parseResult.root)
-	local separator = if #parseResult.root.statements > 0 then doc.hardline else doc.nothing
+	local separator = if #parseResult.root.statements > 0 then doc.newline else doc.none
 	local trailing = trivia.leadingDoc(parseResult.eof)
 	return doc.concat({ body, separator, trailing })
 end
