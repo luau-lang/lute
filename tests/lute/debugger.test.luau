@@ -6,7 +6,7 @@ local path = require("@std/path")
 local proc = require("@std/process")
 
 local function normalizePath(p: string): string
-	return p:gsub("\\", "/")
+	return (p:gsub("\\", "/"))
 end
 
 -- a helper function that basically polls a boolean, since Luau does
