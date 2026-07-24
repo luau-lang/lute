@@ -45,12 +45,20 @@ Target::~Target()
     childRuntime.reset();
 }
 
-static std::string getChunkFromSource(std::string sourcePath)
+static std::string normalizeSeparators(std::string sourcePath)
+{
+    for (char& c : sourcePath)
+        if (c == '\\')
+            c = '/';
+    return sourcePath;
+}
+
+static std::string getChunkFromSource(const std::string& sourcePath)
 {
     return '@' + sourcePath;
 }
 
-static std::string getSourceFromChunk(std::string chunkname)
+static std::string getSourceFromChunk(const std::string& chunkname)
 {
     if (chunkname.size() > 0 && chunkname[0] == '@')
         return chunkname.substr(1);
@@ -60,6 +68,7 @@ static std::string getSourceFromChunk(std::string chunkname)
 Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
 {
     std::unique_lock lock(targetMutex);
+    sourcePath = normalizeSeparators(sourcePath);
     std::optional<Breakpoint> preexistingBp = getBreakpointBySourceLineHelper(sourcePath, line);
     if (preexistingBp)
         return *preexistingBp;
@@ -183,6 +192,7 @@ std::optional<Breakpoint> Target::getBreakpointBySourceLineHelper(std::string so
 std::optional<Breakpoint> Target::getBreakpointBySourceLine(std::string source, int line) const
 {
     std::unique_lock lock(targetMutex);
+    source = normalizeSeparators(source);
     return getBreakpointBySourceLineHelper(source, line);
 }
 
@@ -280,12 +290,13 @@ std::vector<std::string> Target::getLoadedSources()
     return sources;
 }
 
-bool Target::launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config)
+bool Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     std::vector<Breakpoint> installedBps;
     std::vector<Breakpoint> uninstalledBps;
     {
         std::lock_guard lock(targetMutex);
+        sourcePath = normalizeSeparators(sourcePath);
         // launch() cannot be called twice from the same target, so we assert in
         // debug mode and return false when we are in release mode.
         LUTE_ASSERT(!launched);

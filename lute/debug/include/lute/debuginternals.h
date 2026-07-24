@@ -70,7 +70,7 @@ struct Target
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
     // For actively running scripts:
-    bool launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
+    bool launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
     bool pauseProcess();
 
