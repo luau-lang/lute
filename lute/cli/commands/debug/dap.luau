@@ -94,8 +94,8 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			-- configuration is done.
 			ioSession.writeResponse(reqSeq, true, command)
 			if launchConfig then
-				target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
-				ioSession.writeResponse(launchSeq, true, "launch")
+				local launched = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
+				ioSession.writeResponse(launchSeq, launched, "launch")
 			end
 		elseif command == "setBreakpoints" then
 			local args = request.arguments :: json.Object
@@ -108,11 +108,11 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				breakpoints = requestedBreakpoints,
 			})
 		elseif command == "continue" then
-			target:continueProcess()
-			ioSession.writeResponse(reqSeq, true, command)
+			local continued = target:continueProcess()
+			ioSession.writeResponse(reqSeq, continued, command)
 		elseif command == "pause" then
-			target:pauseProcess()
-			ioSession.writeResponse(reqSeq, true, command)
+			local paused = target:pauseProcess()
+			ioSession.writeResponse(reqSeq, paused, command)
 		elseif command == "launch" then
 			local args = request.arguments :: dapTypes.LaunchArgs?
 			if args and args.program then
@@ -123,8 +123,9 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				launchSeq = reqSeq
 				-- configuration is already done, respond to launch
 				if configurationDone then
-					target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
-					ioSession.writeResponse(reqSeq, true, command)
+					-- TODO: better error handling when launching. report the error back to the user.
+					local launched = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
+					ioSession.writeResponse(reqSeq, launched, command)
 				end
 			end
 		-- dummy handler for threads
