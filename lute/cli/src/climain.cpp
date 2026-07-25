@@ -44,10 +44,10 @@ Commands:
 	run (default)   Run a Luau script.
 	check           Type check Luau files.
 	compile         Compile a Luau script into a standalone executable.
-    debug           Debug a Luau script.
-    format          Format specified Luau files.
-    lint            Run linting rules on specified Luau files.
-    self            Manage the host lute installation in ~/.lute (install/update/uninstall).
+	debug           Debug a Luau script.
+	format          Format specified Luau files.
+	lint            Run linting rules on specified Luau files.
+	self            Manage the host lute installation in ~/.lute (install/update/uninstall).
 	setup           Generate type definition files for the language server.
 	transform       Run a specified code transformation on specified Luau files.
 
