@@ -24,13 +24,6 @@ local function writeFile(target: string, contents: string): string
 	return target
 end
 
-local function readFile(target: string): string
-	local handle = fs.open(target, "r")
-	local contents = fs.read(handle)
-	fs.close(handle)
-	return contents
-end
-
 test.suite("LuteFormat", function(suite)
 	suite:case("prints help", function(assert)
 		local result = process.run({ lutePath, "format", "--help" })
@@ -74,7 +67,7 @@ test.suite("LuteFormat", function(suite)
 
 		local result = process.run({ lutePath, "format", target })
 		assert.eq(result.exitcode, 0)
-		assert.eq(readFile(target), source)
+		assert.eq(fs.readFileToString(target), source)
 
 		fs.removeDirectory(dir, { recursive = true })
 	end)
@@ -86,7 +79,7 @@ test.suite("LuteFormat", function(suite)
 
 		local result = process.run({ lutePath, "format", "--check", target })
 		assert.eq(result.exitcode, 0)
-		assert.eq(readFile(target), source)
+		assert.eq(fs.readFileToString(target), source)
 
 		fs.removeDirectory(dir, { recursive = true })
 	end)
