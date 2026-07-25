@@ -71,6 +71,7 @@ Format Options:
 	lute format [options...] <paths...>
 		Formats the specified Luau files in place. Defaults to the working directory.
 			-c, --check             Report unformatted files and exit 1 without modifying them.
+			-v, --verbose           Print each formatted file and a summary count.
 
 Lint Options:
 	lute lint [options...] <paths...>

@@ -51,11 +51,36 @@ test.suite("LuteFormat", function(suite)
 	suite:case("discovers Luau files recursively under a directory", function(assert)
 		local dir = makeDir("format_walk")
 		fs.createDirectory(childPath(dir, "nested"))
-		writeFile(childPath(childPath(dir, "nested"), "deep.luau"), "local x = 1\n")
+		writeFile(childPath(dir, "top.luau"), "local x = 1\n")
+		writeFile(childPath(childPath(dir, "nested"), "deep.luau"), "local y = 2\n")
+		writeFile(childPath(dir, "ignored.txt"), "not luau\n")
 
-		-- Exits 0 only because the walk reached `deep.luau`; an empty result errors.
-		local result = process.run({ lutePath, "format", dir })
+		local result = process.run({ lutePath, "format", "--verbose", dir })
 		assert.eq(result.exitcode, 0)
+		-- The count proves the walk descended into `nested` and skipped the .txt.
+		assert.strContains(result.stdout, "of 2 file(s)")
+
+		fs.removeDirectory(dir, { recursive = true })
+	end)
+
+	suite:case("--verbose reports a count in check mode", function(assert)
+		local dir = makeDir("format_verbose_check")
+		writeFile(childPath(dir, "clean.luau"), "local x = 1\n")
+
+		local result = process.run({ lutePath, "format", "--check", "--verbose", dir })
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "Would format 0 of 1 file(s).")
+
+		fs.removeDirectory(dir, { recursive = true })
+	end)
+
+	suite:case("accepts -v as an alias for --verbose", function(assert)
+		local dir = makeDir("format_verbose_alias")
+		writeFile(childPath(dir, "clean.luau"), "local x = 1\n")
+
+		local result = process.run({ lutePath, "format", "-v", dir })
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "of 1 file(s)")
 
 		fs.removeDirectory(dir, { recursive = true })
 	end)

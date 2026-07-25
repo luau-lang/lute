@@ -11,6 +11,7 @@ Format Luau source files.
 
 OPTIONS:
   -h, --help       Show this help message
+  -v, --verbose    Enable verbose output
   -c, --check      Check whether files are formatted
 ]]
 
@@ -22,6 +23,7 @@ end
 local function main(...: string)
 	local args = cli.parser()
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
+	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
 	args:add("check", "flag", { help = "Check formatting; exit 1 if any file is unformatted", aliases = { "c" } })
 	args:add("files", "variadic", { help = "Files or directories to format (defaults to current directory)" })
 	args:parse({ ... })
@@ -32,13 +34,14 @@ local function main(...: string)
 	end
 
 	local check = args:has("check")
+	local verbose = args:has("verbose")
 
 	local inputPaths = args:variadics()
 	if #inputPaths == 0 then
 		inputPaths = { path.format(process.cwd()) }
 	end
 
-	local sourceFiles = files.getSourceFiles(inputPaths)
+	local sourceFiles = files.getSourceFiles(inputPaths, verbose)
 	if #sourceFiles == 0 then
 		error("error: no Luau files found")
 	end
@@ -49,15 +52,30 @@ local function main(...: string)
 		local source = fs.readFileToString(pathlike)
 		local formatted = formatSource(source)
 		if formatted ~= source then
-			if check then
-				table.insert(unformatted, path.format(pathlike))
-			else
+			table.insert(unformatted, path.format(pathlike))
+			if not check then
 				fs.writeStringToFile(pathlike, formatted)
+				if verbose then
+					print(`Formatted {path.format(pathlike)}`)
+				end
 			end
 		end
 	end
 
-	if #unformatted > 0 then
+	if verbose then
+		if check then
+			if #unformatted == 0 then
+				print(`All {#sourceFiles} file(s) are formatted.`)
+			else
+				print(`Checked {#sourceFiles} file(s)`)
+				print(`{#unformatted} file(s) were not formatted`)
+			end
+		else
+			print(`Formatted {#unformatted} of {#sourceFiles} file(s).`)
+		end
+	end
+
+	if check and #unformatted > 0 then
 		print(`\n{#unformatted} file(s) not formatted:\n{table.concat(unformatted, "\n")}`)
 		process.exit(1)
 	end
