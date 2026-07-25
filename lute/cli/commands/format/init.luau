@@ -3,7 +3,6 @@ local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
 
-local format = require("@self/format")
 local files = require("./lib/files")
 
 local HELP_MESSAGE = [[Usage: lute format [options] [files...]
@@ -14,6 +13,11 @@ OPTIONS:
   -h, --help       Show this help message
   -c, --check      Check whether files are formatted
 ]]
+
+local function formatSource(source: string): string
+	-- stub format function
+	return source
+end
 
 local function main(...: string)
 	local args = cli.parser()
@@ -29,23 +33,21 @@ local function main(...: string)
 
 	local check = args:has("check")
 
-	local sourceFiles = files.getSourceFiles(args:variadics())
+	local inputPaths = args:variadics()
+	if #inputPaths == 0 then
+		inputPaths = { path.format(process.cwd()) }
+	end
+
+	local sourceFiles = files.getSourceFiles(inputPaths)
 	if #sourceFiles == 0 then
-		error("error: no source files provided")
+		error("error: no Luau files found")
 	end
 
 	local unformatted: { string } = {}
 
 	for _, pathlike in sourceFiles do
 		local source = fs.readFileToString(pathlike)
-		local formatted = format.format(
-			source,
-			table.freeze({
-				indentWidth = 4,
-				enableTabs = true,
-				width = 80,
-			})
-		)
+		local formatted = formatSource(source)
 		if formatted ~= source then
 			if check then
 				table.insert(unformatted, path.format(pathlike))
@@ -55,7 +57,7 @@ local function main(...: string)
 		end
 	end
 
-	if check and #unformatted > 0 then
+	if #unformatted > 0 then
 		print(`\n{#unformatted} file(s) not formatted:\n{table.concat(unformatted, "\n")}`)
 		process.exit(1)
 	end
