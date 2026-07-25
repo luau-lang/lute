@@ -38,6 +38,13 @@ test.suite("LuteFormat", function(suite)
 		assert.strContains(result.stdout, "Usage: lute format")
 	end)
 
+	suite:case("is listed in the top-level help", function(assert)
+		local result = process.run({ lutePath, "--help" })
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "format")
+		assert.strContains(result.stdout, "Format Options:")
+	end)
+
 	suite:case("errors when a path holds no Luau files", function(assert)
 		local dir = makeDir("format_empty")
 		writeFile(childPath(dir, "notes.txt"), "not luau\n")

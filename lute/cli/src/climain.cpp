@@ -45,10 +45,11 @@ Commands:
 	check           Type check Luau files.
 	compile         Compile a Luau script into a standalone executable.
     debug           Debug a Luau script.
+    format          Format specified Luau files.
+    lint            Run linting rules on specified Luau files.
+    self            Manage the host lute installation in ~/.lute (install/update/uninstall).
 	setup           Generate type definition files for the language server.
 	transform       Run a specified code transformation on specified Luau files.
-	lint            Run linting rules on specified Luau files.
-	self            Manage the host lute installation in ~/.lute (install/update/uninstall).
 
 Run Options (when using 'run' or no command):
 	lute [run] <script.luau> [args...]
@@ -66,17 +67,10 @@ Debug Options:
 	lute debug serve
 		Serves a DAP server for Luau for use with a development environment.
 
-Setup Options:
-	lute setup
-		Generates type definition files for the language server.
-			--with-luaurc           Defines aliases to the type definition files in the working directory's luaurc file.
-
-Transform Options:
-	lute transform <transformer script> [options...] <files...>
-		Runs the specified code transformation on the provided Luau files.
-			--dry-run               Runs the transformation without actually overwriting or deleting any files.
-			--output <path>         Specifies an output file for a transformed file. Only valid when
-			                        transforming a single file. If not specified, files are overwritten in place.
+Format Options:
+	lute format [options...] <paths...>
+		Formats the specified Luau files in place. Defaults to the working directory.
+			-c, --check             Report unformatted files and exit 1 without modifying them.
 
 Lint Options:
 	lute lint [options...] <paths...>
@@ -90,6 +84,18 @@ Self Options:
 			install                 Install the running lute as the host lute into ~/.lute/bin and update PATH.
 			uninstall               Remove the host lute binary and PATH entry.
 			update                  Update the host lute to the latest stable or nightly release.
+
+Setup Options:
+	lute setup
+		Generates type definition files for the language server.
+			--with-luaurc           Defines aliases to the type definition files in the working directory's luaurc file.
+
+Transform Options:
+	lute transform <transformer script> [options...] <files...>
+		Runs the specified code transformation on the provided Luau files.
+			--dry-run               Runs the transformation without actually overwriting or deleting any files.
+			--output <path>         Specifies an output file for a transformed file. Only valid when
+			                        transforming a single file. If not specified, files are overwritten in place.
 
 General Options:
 	-h, --help    Display this usage message.
