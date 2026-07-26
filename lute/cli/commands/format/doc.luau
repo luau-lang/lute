@@ -20,19 +20,45 @@ export type ChoiceDoc = { read tag: "choice", read broken: Doc, read flat: Doc }
 
 export type Doc = TextDoc | NewlineDoc | ConcatDoc | IndentDoc | SuffixDoc | GroupDoc | ChoiceDoc
 
+local function shouldPropogateBreak(node: Doc): boolean
+	if typeof(node) == "string" then
+		return false
+	elseif node.tag == "newline" then
+		return true
+	elseif node.tag == "concat" then
+		for _, part in node.parts do
+			if shouldPropogateBreak(part) then
+				return true
+			end
+		end
+		return false
+	elseif node.tag == "indent" then
+		return shouldPropogateBreak(node.contents)
+	elseif node.tag == "group" then
+		return node.shouldBreak
+	elseif node.tag == "choice" then
+		return shouldPropogateBreak(node.flat)
+	elseif node.tag == "suffix" then
+		return false
+	else
+		error(`unknown node type: {node.tag}`)
+	end
+end
+
 local function text(text: string): Doc
 	return text
 end
 
 local none = text("")
 
---- Prints `contents` flat if it fits in the remaining columns, otherwise broken.
---- `shouldBreak` skips the fitness measurement and always breaks.
+--- Prints `contents` as a flat group if it fits, otherwise as a broken group.
+--- `shouldBreak` forces the group to break.
 local function group(contents: Doc, options: { read shouldBreak: boolean? }?): Doc
+	local forced = options ~= nil and options.shouldBreak == true
 	return table.freeze({
 		tag = "group" :: "group",
 		contents = contents,
-		shouldBreak = if options ~= nil and options.shouldBreak then true else false,
+		shouldBreak = forced or shouldPropogateBreak(contents),
 	})
 end
 
@@ -62,7 +88,7 @@ local function concat(parts: { read [number]: Doc }, separator: Doc?): Doc
 end
 
 --- Picks a branch according to whether the enclosing group is flat or broken.
-local function choice(options: { read flat: Doc?, read broken: Doc?}): Doc
+local function choice(options: { read flat: Doc?, read broken: Doc? }): Doc
 	return table.freeze({
 		tag = "choice" :: "choice",
 		flat = options.flat or none,
@@ -82,6 +108,6 @@ return table.freeze({
 	concat = concat,
 	choice = choice,
 	newline = newline,
-	softline = choice(newline, none),
-	softspace = choice(newline, text(" ")),
+	softline = choice({ broken = newline, flat = none }),
+	softspace = choice({ broken = newline, flat = text(" ") }),
 })
