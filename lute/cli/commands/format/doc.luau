@@ -1,7 +1,7 @@
 --[[
-	A `Doc` describes the possible layouts of a fragment of source rather than one
-	concrete layout: `group` marks a region to keep on one line if it fits,
-	`softline` and `softspace` mark where to break when it does not.
+	A "Doc" is an IR for a partially formatted source tree. It encodes the possible
+	layout decisions that can be made to "groups" of other Docs, which concretely
+	map to function calls, table literals, and other grouping constructs in the AST.
 ]]
 
 export type TextDoc = string
@@ -18,7 +18,7 @@ export type GroupDoc = { read tag: "group", read contents: Doc, read shouldBreak
 
 export type ChoiceDoc = { read tag: "choice", read broken: Doc, read flat: Doc }
 
-export type Doc = TextDoc | ConcatDoc | IndentDoc | GroupDoc | ChoiceDoc | NewlineDoc | SuffixDoc
+export type Doc = TextDoc | NewlineDoc | ConcatDoc | IndentDoc | SuffixDoc | GroupDoc | ChoiceDoc
 
 local function text(text: string): Doc
 	return text
@@ -27,7 +27,7 @@ end
 local none = text("")
 
 --- Prints `contents` flat if it fits in the remaining columns, otherwise broken.
---- `shouldBreak` skips the measurement and always breaks.
+--- `shouldBreak` skips the fitness measurement and always breaks.
 local function group(contents: Doc, options: { read shouldBreak: boolean? }?): Doc
 	return table.freeze({
 		tag = "group" :: "group",
@@ -46,6 +46,7 @@ local function suffix(contents: Doc): Doc
 	return table.freeze({ tag = "suffix" :: "suffix", contents = contents })
 end
 
+-- Joins `parts` with an optional `separator`
 local function concat(parts: { read [number]: Doc }, separator: Doc?): Doc
 	if separator ~= nil then
 		local joined: { Doc } = {}
@@ -60,12 +61,12 @@ local function concat(parts: { read [number]: Doc }, separator: Doc?): Doc
 	return table.freeze({ tag = "concat" :: "concat", parts = parts })
 end
 
---- Picks a branch according to whether the enclosing group broke, e.g. a trailing comma.
-local function choice(broken: Doc, flat: Doc?): Doc
+--- Picks a branch according to whether the enclosing group is flat or broken.
+local function choice(options: { read flat: Doc?, read broken: Doc?}): Doc
 	return table.freeze({
 		tag = "choice" :: "choice",
-		broken = broken,
-		flat = if flat ~= nil then flat else none,
+		flat = options.flat or none,
+		broken = options.broken or none,
 	})
 end
 
