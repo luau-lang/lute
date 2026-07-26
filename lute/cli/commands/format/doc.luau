@@ -72,7 +72,7 @@ local function suffix(contents: Doc): Doc
 	return table.freeze({ tag = "suffix" :: "suffix", contents = contents })
 end
 
--- Joins `parts` with an optional `separator`
+-- Joins `parts` with an optional `separator` between each part, similar to `table.concat`.
 local function concat(parts: { read [number]: Doc }, separator: Doc?): Doc
 	if separator ~= nil then
 		local joined: { Doc } = {}
