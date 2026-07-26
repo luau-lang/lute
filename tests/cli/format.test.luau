@@ -44,6 +44,7 @@ test.suite("LuteFormat", function(suite)
 
 		local result = process.run({ lutePath, "format", dir })
 		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stdout, "no Luau files found")
 
 		fs.removeDirectory(dir, { recursive = true })
 	end)
@@ -69,7 +70,7 @@ test.suite("LuteFormat", function(suite)
 
 		local result = process.run({ lutePath, "format", "--check", "--verbose", dir })
 		assert.eq(result.exitcode, 0)
-		assert.strContains(result.stdout, "Would format 0 of 1 file(s).")
+		assert.strContains(result.stdout, "All 1 file(s) are formatted.")
 
 		fs.removeDirectory(dir, { recursive = true })
 	end)

@@ -43,20 +43,34 @@ local function main(...: string)
 
 	local sourceFiles = files.getSourceFiles(inputPaths, verbose)
 	if #sourceFiles == 0 then
-		error("error: no Luau files found")
+		print("Error: no Luau files found")
+		process.exit(1)
 	end
 
+	local failed: { string } = {}
 	local unformatted: { string } = {}
 
 	for _, pathlike in sourceFiles do
-		local source = fs.readFileToString(pathlike)
-		local formatted = formatSource(source)
+		local target = path.format(pathlike)
+
+		local read, source = pcall(fs.readFileToString, pathlike)
+		if not read then
+			table.insert(failed, `{target}: {source}`)
+			continue
+		end
+
+		local ok, formatted = pcall(formatSource, source :: string)
+		if not ok then
+			table.insert(failed, `{target}: {formatted}`)
+			continue
+		end
+
 		if formatted ~= source then
-			table.insert(unformatted, path.format(pathlike))
+			table.insert(unformatted, target)
 			if not check then
 				fs.writeStringToFile(pathlike, formatted)
 				if verbose then
-					print(`Formatted {path.format(pathlike)}`)
+					print(`Formatted {target}`)
 				end
 			end
 		end
@@ -77,6 +91,13 @@ local function main(...: string)
 
 	if check and #unformatted > 0 then
 		print(`\n{#unformatted} file(s) not formatted:\n{table.concat(unformatted, "\n")}`)
+	end
+
+	if #failed > 0 then
+		print(`\n{#failed} file(s) could not be formatted:\n{table.concat(failed, "\n")}`)
+	end
+
+	if #failed > 0 or (check and #unformatted > 0) then
 		process.exit(1)
 	end
 end
