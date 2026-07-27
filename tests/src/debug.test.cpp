@@ -344,4 +344,55 @@ TEST_SUITE("Debug")
         CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
         CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
     }
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_threadTracking")
+    {
+        std::string fixturePath = getDebugFixturePath("spawn.luau");
+        Target target(*runtime);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 7);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 14);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 22);
+
+        int maxThreadsSeen = 0;
+        int hitsBp1 = 0, hitsBp2 = 0;
+        config.onBreakpointHit = [&](const Thread& thread, const Breakpoint& bp)
+        {
+            if (bp.id == bp1.id)
+            {
+                CHECK(thread.id == 1);
+                hitsBp1++;
+                const std::vector<Thread>& threads = target.getThreads();
+                maxThreadsSeen = std::max(maxThreadsSeen, (int)threads.size());
+                if (threads.size() == 3)
+                {
+                    Thread t0(0, "Thread 0");
+                    Thread t1(1, "Thread 1");
+                    Thread t2(0, "Thread 2");
+                    CHECK(std::find(threads.begin(), threads.end(), t0) != threads.end());
+                    CHECK(std::find(threads.begin(), threads.end(), t1) != threads.end());
+                    CHECK(std::find(threads.begin(), threads.end(), t2) != threads.end());
+                }
+            }
+            else if (bp.id == bp2.id)
+            {
+                CHECK(thread.id == 2);
+                hitsBp2++;
+            }
+            else
+            {
+                // after joining all threads, we only have one left over (the main coroutine)
+                const std::vector<Thread>& threads = target.getThreads();
+                CHECK(thread.id == 0);
+                CHECK(threads.size() == 1);
+                CHECK(threads.at(0) == Thread(0, "Thread 0"));
+            }
+            target.continueProcess();
+            // we shouldn't get threads when things are crunning
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        // over the course of execution, the maximum number of threads encountered should be 3
+        CHECK(maxThreadsSeen == 3);
+        CHECK(hitsBp1 == 5);
+        CHECK(hitsBp2 == 5);
+    }
 }
