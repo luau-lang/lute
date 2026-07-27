@@ -378,7 +378,7 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"continueProcess", debug::target_continueProcess},
     {"pauseProcess", debug::target_pauseProcess},
     {"getLoadedSources", debug::target_getLoadedSources},
-    {"getThreasd", debug::target_getThreads}
+    {"getThreads", debug::target_getThreads}
 };
 
 static void initializeTarget(lua_State* L)
