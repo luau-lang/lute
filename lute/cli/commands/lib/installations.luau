@@ -6,16 +6,16 @@ local configs = require("./configs")
 local paths = require("./paths")
 local release = require("./release")
 
-local function ensureInstalled(tool: string, tag: string, repo: string): string
+local function ensureInstalled(tool: string, tag: string): string
 	tag = release.normalizeTag(tag)
-	local destination = path.format(path.join(paths.versionsPath(), "lute", tag, paths.exeName(tool)))
+	local destination = path.format(path.join(paths.versionsPath(), tool, tag, paths.exeName(tool)))
 	if fs.exists(destination) then
 		return destination
 	end
 
 	fs.createDirectory(path.dirname(destination), { makeParents = true })
 	print(`Installing {tool} {tag}...`)
-	local bytes = release.downloadBinary(repo, tag, paths.exeName(tool))
+	local bytes = release.downloadBinary("luau-lang/lute", tag, paths.exeName(tool))
 	binary.installBinary(bytes, destination)
 	return destination
 end
@@ -47,11 +47,11 @@ local function parseToolVersion(rawConfig: { [any]: any }, tool: string): string
 	return pinned
 end
 
-local function resolvePinnedTool(tool: string, repo: string): string?
+local function resolvePinnedTool(tool: string): string?
 	for _, rawConfig in configs.walkConfigPaths() do
 		local pinned = parseToolVersion(rawConfig, tool)
 		if pinned ~= nil then
-			return ensureInstalled(tool, pinned, repo)
+			return ensureInstalled(tool, pinned)
 		end
 	end
 	return nil
