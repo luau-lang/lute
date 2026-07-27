@@ -364,9 +364,9 @@ TEST_SUITE("Debug")
                 maxThreadsSeen = std::max(maxThreadsSeen, (int)threads.size());
                 if (threads.size() == 3)
                 {
-                    Thread t0(0, "Thread 0");
-                    Thread t1(1, "Thread 1");
-                    Thread t2(0, "Thread 2");
+                    Thread t0(0, "Coroutine 0");
+                    Thread t1(1, "Coroutine 1");
+                    Thread t2(2, "Coroutine 2");
                     CHECK(std::find(threads.begin(), threads.end(), t0) != threads.end());
                     CHECK(std::find(threads.begin(), threads.end(), t1) != threads.end());
                     CHECK(std::find(threads.begin(), threads.end(), t2) != threads.end());
@@ -383,7 +383,7 @@ TEST_SUITE("Debug")
                 const std::vector<Thread>& threads = target.getThreads();
                 CHECK(thread.id == 0);
                 CHECK(threads.size() == 1);
-                CHECK(threads.at(0) == Thread(0, "Thread 0"));
+                CHECK(threads.at(0) == Thread(0, "Coroutine 0"));
             }
             target.continueProcess();
             // we shouldn't get threads when things are crunning

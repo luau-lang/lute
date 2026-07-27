@@ -40,7 +40,7 @@ Thread::Thread(int id, std::string name)
 
 bool Thread::operator==(const Thread& other) const
 {
-    return id == other.id;
+    return id == other.id && name == other.name;
 }
 
 Target::Target(Runtime& parentRuntime)
