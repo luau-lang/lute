@@ -6,7 +6,7 @@ export type Options = {
 	read enableTabs: boolean?,
 }
 
--- "flat" mode means the group is allowed to print on one line if it fits
+-- "flat" mode means the group is allowed to print on one line
 -- "break" mode means the group must print on multiple lines
 type Mode = "flat" | "break"
 

@@ -6,46 +6,21 @@
 
 export type TextDoc = string
 
-export type NewlineDoc = { read tag: "newline" }
-
-export type ConcatDoc = { read tag: "concat", read parts: { read [number]: Doc } }
+export type GroupDoc = { read tag: "group", read contents: Doc, read shouldBreak: boolean }
 
 export type IndentDoc = { read tag: "indent", read contents: Doc }
 
 export type SuffixDoc = { read tag: "suffix", read contents: Doc }
 
-export type GroupDoc = { read tag: "group", read contents: Doc, read shouldBreak: boolean }
+export type ConcatDoc = { read tag: "concat", read parts: { read [number]: Doc } }
 
 export type ChoiceDoc = { read tag: "choice", read broken: Doc, read flat: Doc }
 
-export type Doc = TextDoc | NewlineDoc | ConcatDoc | IndentDoc | SuffixDoc | GroupDoc | ChoiceDoc
+export type NewlineDoc = { read tag: "newline" }
 
-local function shouldPropogateBreak(node: Doc): boolean
-	if typeof(node) == "string" then
-		return false
-	elseif node.tag == "newline" then
-		return true
-	elseif node.tag == "concat" then
-		for _, part in node.parts do
-			if shouldPropogateBreak(part) then
-				return true
-			end
-		end
-		return false
-	elseif node.tag == "indent" then
-		return shouldPropogateBreak(node.contents)
-	elseif node.tag == "group" then
-		return node.shouldBreak
-	elseif node.tag == "choice" then
-		return shouldPropogateBreak(node.flat)
-	elseif node.tag == "suffix" then
-		return false
-	else
-		error(`unknown node type: {node.tag}`)
-	end
-end
+export type Doc = TextDoc | GroupDoc | IndentDoc | SuffixDoc | ConcatDoc | ChoiceDoc | NewlineDoc
 
-local function text(text: string): Doc
+local function text(text: string): TextDoc
 	return text
 end
 
@@ -53,27 +28,26 @@ local none = text("")
 
 --- Prints `contents` as a flat group if it fits, otherwise as a broken group.
 --- `shouldBreak` forces the group to break.
-local function group(contents: Doc, options: { read shouldBreak: boolean? }?): Doc
-	local forced = options ~= nil and options.shouldBreak == true
+local function group(contents: Doc, options: { read shouldBreak: boolean? }?): GroupDoc
 	return table.freeze({
 		tag = "group" :: "group",
 		contents = contents,
-		shouldBreak = forced or shouldPropogateBreak(contents),
+		shouldBreak = options ~= nil and options.shouldBreak == true,
 	})
 end
 
 --- Indents newlines produced inside `contents` by one level.
-local function indent(contents: Doc): Doc
+local function indent(contents: Doc): IndentDoc
 	return table.freeze({ tag = "indent" :: "indent", contents = contents })
 end
 
 --- Defers `contents` until just before the next newline, so a trailing line comment cannot swallow the code after its token.
-local function suffix(contents: Doc): Doc
+local function suffix(contents: Doc): SuffixDoc
 	return table.freeze({ tag = "suffix" :: "suffix", contents = contents })
 end
 
 -- Joins `parts` with an optional `separator` between each part, similar to `table.concat`.
-local function concat(parts: { read [number]: Doc }, separator: Doc?): Doc
+local function concat(parts: { read [number]: Doc }, separator: Doc?): ConcatDoc
 	if separator ~= nil then
 		local joined: { Doc } = {}
 		for index, part in parts do
@@ -88,7 +62,7 @@ local function concat(parts: { read [number]: Doc }, separator: Doc?): Doc
 end
 
 --- Picks a branch according to whether the enclosing group is flat or broken.
-local function choice(options: { read flat: Doc?, read broken: Doc? }): Doc
+local function choice(options: { read flat: Doc?, read broken: Doc? }): ChoiceDoc
 	return table.freeze({
 		tag = "choice" :: "choice",
 		flat = options.flat or none,
@@ -97,7 +71,7 @@ local function choice(options: { read flat: Doc?, read broken: Doc? }): Doc
 end
 
 --- Always a newline, and forces every enclosing group to break.
-local newline = table.freeze({ tag = "newline" :: "newline" })
+local newline: NewlineDoc = table.freeze({ tag = "newline" :: "newline" })
 
 return table.freeze({
 	none = none,
