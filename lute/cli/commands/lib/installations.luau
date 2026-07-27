@@ -66,14 +66,14 @@ end
 
 local function ensureInstalled(tool: string, tag: string, repo: string): string
 	tag = release.normalizeTag(tag)
-	local destination = paths.installationPath(tool, tag)
+	local destination = path.format(path.join(paths.versionsPath(), "lute", tag, paths.exeName()))
 	if fs.exists(destination) then
 		return destination
 	end
 
 	fs.createDirectory(path.dirname(destination), { makeParents = true })
 	print(`Installing {tool} {tag}...`)
-	local bytes = release.downloadBinary(repo, tag, paths.exeName(tool))
+	local bytes = release.downloadBinary(repo, tag, paths.exeName())
 	binary.installBinary(bytes, destination)
 	return destination
 end

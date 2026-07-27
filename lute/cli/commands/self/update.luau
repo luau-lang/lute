@@ -32,7 +32,7 @@ return function(...: string)
 		return
 	end
 
-	local destination = paths.exePath("lute")
+	local destination = paths.exePath()
 	local source = path.format(path.normalize(process.execPath()))
 
 	if not fs.exists(destination) then
@@ -76,7 +76,7 @@ return function(...: string)
 	end
 
 	print(`Updating lute: {current or "(unknown)"} -> {tag}`)
-	local bytes = release.downloadBinary(REPO, tag, paths.exeName("lute"))
+	local bytes = release.downloadBinary(REPO, tag, paths.exeName())
 	binary.installBinary(bytes, destination)
 	print(`Updated lute to {tag} at {destination}`)
 
