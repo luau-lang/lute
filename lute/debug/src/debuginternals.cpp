@@ -405,8 +405,9 @@ void Target::installBpHitCallback()
     cb->debugbreak = [](lua_State* L, lua_Debug* ar)
     {
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
-        // We land on the same instruction after a continue() after hitting a bp so we basically don't do anything
         std::unique_lock lock(target->targetMutex);
+        // We land on the same instruction after a continue() after hitting a bp so if we have
+        // already have continue() on this thread, we basically don't do anything
         if (auto it = target->continueRequestedBp.find(L); it != target->continueRequestedBp.end())
         {
             target->continueRequestedBp.erase(it);
