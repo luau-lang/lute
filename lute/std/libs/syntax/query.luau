@@ -77,6 +77,9 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visi
 	end
 
 	local selectVisitor = visitor.create(visit)
+	selectVisitor.visitStat = function(_)
+		return true
+	end
 	selectVisitor.visitStatBlockEnd = function(_) end
 	selectVisitor.visitStatLocalDeclarationEnd = function(_) end
 	selectVisitor.visitStatConstDeclarationEnd = function(_) end
@@ -87,6 +90,12 @@ local function newSelectVisitor<T>(nodes: { T }, fn: (Node) -> T?): visitor.Visi
 	end
 	selectVisitor.visitExprEnd = function(_) end
 	selectVisitor.visitExprFunctionEnd = function(_) end
+	selectVisitor.visitType = function(_)
+		return true
+	end
+	selectVisitor.visitTypePack = function(_)
+		return true
+	end
 
 	return selectVisitor
 end

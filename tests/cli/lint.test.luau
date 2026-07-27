@@ -11,7 +11,7 @@ local testutil = require("../testutil")
 local lutePath = path.format(process.execPath())
 local tmpDir = system.tmpdir()
 local rulesDir = path.format(path.join(tmpDir, "lints"))
-local defaultRulesFolder = path.format(path.join("lute", "cli", "commands", "lint", "rules"))
+local defaultRulesFolder = path.format(path.join(process.cwd(), "lute", "cli", "commands", "lint", "rules"))
 local defaultRulesPaths = {
 	almost_swapped = path.format(path.join(defaultRulesFolder, "almost_swapped.luau")),
 	constant_table_comparison = path.format(path.join(defaultRulesFolder, "constant_table_comparison.luau")),
@@ -48,8 +48,8 @@ local LUAURC_CONTENT = [[
 }
 ]]
 
-local function runProcess(args: { string }, options: process.ProcessRunOptions?): process.ProcessResult
-	local result = process.run(args, options)
+local function runProcess(args: { string }, cwd: string?): process.ProcessResult
+	local result = process.run(args, { cwd = cwd or path.format(tmpDir) })
 	result.stdout = testutil.normalizeLineEndings(result.stdout)
 	result.stderr = testutil.normalizeLineEndings(result.stderr)
 	return result
@@ -60,7 +60,6 @@ type lintTestParams = {
 	expectedExitCode: number,
 	returnStdErr: true?,
 	rulePath: string?,
-	processOptions: process.ProcessRunOptions?,
 	customRuleContents: string?,
 	expectedAutofixContents: string?,
 	disableDefaultLints: true?,
@@ -127,7 +126,7 @@ local function lintTestHelper(assert: testTypes.Asserts, params: lintTestParams)
 	for mode, args in executionModeArgs do
 		local modeArgs = table.clone(lintArgs)
 		tableext.extend(modeArgs, args)
-		local result = runProcess(modeArgs, params.processOptions)
+		local result = runProcess(modeArgs)
 
 		results[mode] = result
 
@@ -2780,9 +2779,7 @@ local _ = require(A.Index)
 		]]
 		fs.writeStringToFile(configFile, configContents)
 
-		local result = runProcess({ lutePath, "lint", path.format(testSubDir) }, {
-			cwd = path.format(testSubDir),
-		})
+		local result = runProcess({ lutePath, "lint", path.format(testSubDir) }, path.format(testSubDir))
 		assert.eq(result.exitcode, 0) -- no errors
 		assert.strNotContains(result.stdout, "almost_swapped")
 		assert.strNotContains(result.stdout, "divide_by_zero")
@@ -2897,9 +2894,7 @@ local _ = require(A.Index)
 		fs.writeStringToFile(configFile, configContents)
 
 		-- Pass config as a relative path, setting cwd to ensure relative config path is correct
-		local result = runProcess({ lutePath, "lint", "-c", ".config.luau", "." }, {
-			cwd = path.format(testSubDir),
-		})
+		local result = runProcess({ lutePath, "lint", "-c", ".config.luau", "." }, path.format(testSubDir))
 		assert.eq(result.exitcode, 1) -- errors but ONLY from valid.luau
 		assert.strNotContains(result.stdout, "ignored.luau")
 		assert.strContains(result.stdout, "valid.luau")
@@ -3017,18 +3012,17 @@ return {
 		fs.writeStringToFile(configFile, configContents)
 
 		-- assert that violations are present without config
-		local result = runProcess({ lutePath, "lint", path.format(violatorFile) }, {
-			cwd = path.format(process.homedir()),
-		})
+		local result = runProcess({ lutePath, "lint", path.format(violatorFile) }, path.format(process.homedir()))
 		assert.eq(result.exitcode, 1) -- should be violations
 		assert.strContains(result.stdout, "violator.luau")
 		assert.strContains(result.stdout, "[divide_by_zero]")
 		assert.strContains(result.stdout, "[almost_swapped]")
 
 		-- with config, there should be violations but NOT for divide_by_zero
-		result = runProcess({ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) }, {
-			cwd = path.format(process.homedir()),
-		})
+		result = runProcess(
+			{ lutePath, "lint", "-c", path.format(configFile), path.format(violatorFile) },
+			path.format(process.homedir())
+		)
 		assert.eq(result.exitcode, 1)
 		assert.strNotContains(result.stdout, "[divide_by_zero]")
 		assert.strContains(result.stdout, "[almost_swapped]")
@@ -3256,9 +3250,6 @@ return {
 				{ expectedOutput = "configuredAbsoluteRule ran.", count = 1 },
 				{ expectedOutput = "configuredRelativeRule ran.", count = 1 },
 				{ expectedOutput = "CLI Rule Ran.", count = 1 },
-			},
-			processOptions = {
-				cwd = path.format(tmpDir),
 			},
 		})
 	end)
@@ -3768,9 +3759,7 @@ end
 		local violatorPath = path.format(path.join(testSubDir, "violator.luau"))
 		fs.writeStringToFile(violatorPath, "local x = 1 / 0")
 
-		local result = runProcess({ lutePath, "lint" }, {
-			cwd = path.format(testSubDir),
-		})
+		local result = runProcess({ lutePath, "lint" }, path.format(testSubDir))
 
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
@@ -3783,9 +3772,7 @@ end
 		local violatorPath = path.format(path.join(testSubDir, "violator.lua"))
 		fs.writeStringToFile(violatorPath, "local x = 1 / 0")
 
-		local result = runProcess({ lutePath, "lint" }, {
-			cwd = path.format(testSubDir),
-		})
+		local result = runProcess({ lutePath, "lint" }, path.format(testSubDir))
 
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
@@ -3800,9 +3787,7 @@ end
 		local violatorPath = path.format(path.join(nestedDir, "violator.luau"))
 		fs.writeStringToFile(violatorPath, "local x = 1 / 0")
 
-		local result = runProcess({ lutePath, "lint" }, {
-			cwd = path.format(testSubDir),
-		})
+		local result = runProcess({ lutePath, "lint" }, path.format(testSubDir))
 
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stdout, LINT_RULE_MESSAGES.divide_by_zero)
@@ -3812,9 +3797,7 @@ end
 		local testSubDir = path.join(tmpDir, "module")
 		fs.createDirectory(testSubDir)
 
-		local result = runProcess({ lutePath, "lint" }, {
-			cwd = path.format(testSubDir),
-		})
+		local result = runProcess({ lutePath, "lint" }, path.format(testSubDir))
 
 		assert.eq(result.exitcode, 0)
 	end)

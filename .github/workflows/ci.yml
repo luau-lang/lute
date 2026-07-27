@@ -123,8 +123,6 @@ jobs:
           config: debug
           options: ${{ matrix.options }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Remove .luaurc file
-        run: rm .luaurc
 
       - name: Run C++ Tests
         run: ${{ steps.build_tests.outputs.exe_path }}
@@ -196,7 +194,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Lute Lint
-        run: ${{ steps.build_lute.outputs.exe_path }} lint -v . -c lint.config.luau
+        run: ${{ steps.build_lute.outputs.exe_path }} lint -v .
 
   lute-check:
     runs-on: ubuntu-latest
