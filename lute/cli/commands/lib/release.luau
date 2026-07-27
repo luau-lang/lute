@@ -108,7 +108,7 @@ end
 
 local function downloadBinary(repo: string, tag: string, executableName: string): string
 	tag = normalizeTag(tag)
-	local asset = `lute-{osSlug()}-{archSlug()}.zip`
+	local asset = `{executableName}-{osSlug()}-{archSlug()}.zip`
 	local url = `https://github.com/{repo}/releases/download/{tag}/{asset}`
 
 	local res = net.request(url, { method = "GET", headers = headers(repo) })

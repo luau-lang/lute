@@ -14,7 +14,6 @@ local function ensureInstalled(tool: string, tag: string): string
 	end
 
 	fs.createDirectory(path.dirname(destination), { makeParents = true })
-	print(`Installing {tool} {tag}...`)
 	local bytes = release.downloadBinary("luau-lang/lute", tag, paths.exeName(tool))
 	binary.installBinary(bytes, destination)
 	return destination
