@@ -1,40 +1,23 @@
 local fs = require("@std/fs")
-local luau = require("@std/luau")
 local path = require("@std/path")
-local process = require("@std/process")
 
 local binary = require("./binary")
+local configs = require("./configs")
 local paths = require("./paths")
 local release = require("./release")
 
-local function walkConfigPaths(startDir: string?): () -> { [any]: any }
-	local current = path.format(path.normalize(startDir or process.cwd()))
-
-	return function(): { [any]: any }
-		while current do
-			local candidate = path.format(path.join(current, ".config.luau"))
-
-			local parent = path.format(path.dirname(current))
-			if parent == current then
-				current = nil
-			else
-				current = parent
-			end
-
-			if fs.exists(candidate) then
-				local ok, root = pcall(luau.loadModule, candidate, nil)
-				if not ok then
-					error(`Failed to load config {candidate}: {root}`)
-				end
-				if typeof(root) ~= "table" then
-					error(`{candidate} must return a table`)
-				end
-				return root
-			end
-		end
-
-		return nil :: any
+local function ensureInstalled(tool: string, tag: string, repo: string): string
+	tag = release.normalizeTag(tag)
+	local destination = path.format(path.join(paths.versionsPath(), "lute", tag, paths.exeName(tool)))
+	if fs.exists(destination) then
+		return destination
 	end
+
+	fs.createDirectory(path.dirname(destination), { makeParents = true })
+	print(`Installing {tool} {tag}...`)
+	local bytes = release.downloadBinary(repo, tag, paths.exeName(tool))
+	binary.installBinary(bytes, destination)
+	return destination
 end
 
 local function parseToolVersion(rawConfig: { [any]: any }, tool: string): string?
@@ -64,22 +47,8 @@ local function parseToolVersion(rawConfig: { [any]: any }, tool: string): string
 	return pinned
 end
 
-local function ensureInstalled(tool: string, tag: string, repo: string): string
-	tag = release.normalizeTag(tag)
-	local destination = path.format(path.join(paths.versionsPath(), "lute", tag, paths.exeName(tool)))
-	if fs.exists(destination) then
-		return destination
-	end
-
-	fs.createDirectory(path.dirname(destination), { makeParents = true })
-	print(`Installing {tool} {tag}...`)
-	local bytes = release.downloadBinary(repo, tag, paths.exeName(tool))
-	binary.installBinary(bytes, destination)
-	return destination
-end
-
 local function resolvePinnedTool(tool: string, repo: string): string?
-	for rawConfig in walkConfigPaths() do
+	for _, rawConfig in configs.walkConfigPaths() do
 		local pinned = parseToolVersion(rawConfig, tool)
 		if pinned ~= nil then
 			return ensureInstalled(tool, pinned, repo)
