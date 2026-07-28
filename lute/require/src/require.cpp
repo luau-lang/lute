@@ -187,8 +187,8 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
             nativeOptions.flags = Luau::CodeGen::CodeGen_OnlyNativeModules;
             Luau::CodeGen::compile(ML, -1, nativeOptions);
         }
-        if (reqCtx->onLoad)
-            reqCtx->onLoad(chunkname, ML);
+        if (reqCtx->onChunkLoad)
+            reqCtx->onChunkLoad(ML, chunkname);
         int status = lua_resume(ML, L, 0);
 
         if (status == 0)
@@ -245,7 +245,13 @@ void requireConfigInit(luarequire_Configuration* config)
     config->load = load;
 }
 
-RequireCtx::RequireCtx(std::unique_ptr<IRequireVfs> vfs)
+RequireCtx::RequireCtx(
+    std::unique_ptr<IRequireVfs> vfs,
+    Luau::CompileOptions compileOptions,
+    std::function<void(lua_State* L, const std::string& chunkName)> onChunkLoad
+)
     : vfs(std::move(vfs))
+    , compileOptions(std::move(compileOptions))
+    , onChunkLoad(std::move(onChunkLoad))
 {
 }

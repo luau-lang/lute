@@ -53,7 +53,7 @@ static std::string getChunkFromSource(const std::string& sourcePath)
 
 static std::string getSourceFromChunk(const std::string& chunkname)
 {
-    if (chunkname.size() > 0 && chunkname[0] == '@')
+    if (chunkname.rfind('@', 0) == 0)
         return chunkname.substr(1);
     return chunkname;
 }
@@ -293,21 +293,26 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
             return false;
         childRuntime = std::make_unique<Runtime>(parentRuntime.reporter, true);
         // Set up require system before launch.
-        requireCtx = std::make_unique<RequireCtx>(std::make_unique<RequireVfs>());
-        requireCtx->compileOptions.optimizationLevel = 1;
-        requireCtx->compileOptions.debugLevel = 2;
-        requireCtx->onLoad = [this](const std::string& chunkName, lua_State* ML)
+        Luau::CompileOptions options;
+        options.optimizationLevel = 1;
+        options.debugLevel = 2;
+        std::function<void(lua_State * L, const std::string& chunkName)> onChunkLoad = [this](lua_State* ML, const std::string& chunkName)
         {
-            std::unique_lock lock(targetMutex);
-            // this strips the potential leading @ from the chunkName for consistency when returning to DAP
-            loadedSources[getSourceFromChunk(chunkName)] = std::make_shared<Ref>(ML, -1);
-            auto [installed, uninstalled] = modifyPendingBreakpoints(ML);
-            lock.unlock();
+            std::string source = getSourceFromChunk(chunkName);
+            std::vector<Breakpoint> installed;
+            std::vector<Breakpoint> uninstalled;
+            {
+                std::scoped_lock(targetMutex);
+                // this strips the potential leading @ from the chunkName for consistency when returning to DAP
+                loadedSources[source] = std::make_shared<Ref>(ML, -1);
+                std::tie(installed, uninstalled) = modifyPendingBreakpoints(ML);
+            }
             for (auto& bp : installed)
                 launchConfig.onBreakpointInstall(bp);
             for (auto& bp : uninstalled)
                 launchConfig.onBreakpointUninstall(bp);
         };
+        requireCtx = std::make_unique<RequireCtx>(std::make_unique<RequireVfs>(), options, onChunkLoad);
         setupState(
             *childRuntime,
             [this](lua_State* L)
@@ -332,7 +337,12 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         luaL_sandboxthread(thread);
 
         std::string chunkname = getChunkFromSource(sourcePath);
-        luau_load(thread, chunkname.c_str(), bytecode.c_str(), bytecode.size(), 0);
+        // TODO: surface compilation errors to the user when debugging.
+        if (luau_load(thread, chunkname.c_str(), bytecode.c_str(), bytecode.size(), 0) != 0)
+        {
+            childRuntime.reset();
+            return false;
+        }
         loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
 
         std::tie(installedBps, uninstalledBps) = modifyPendingBreakpoints(thread);
