@@ -28,13 +28,13 @@ test.suite("CstQuery", function(suite)
 		end)
 
 		-- Should only have replacements for positive numbers
-		assert.eq(replacements[testQuery.nodes[2]], "positive_1") -- LUAUFIX CLI-178250: shouldn't need to cast
-		assert.eq(replacements[testQuery.nodes[3]], "positive_2") -- LUAUFIX CLI-178250: shouldn't need to cast
-		assert.eq(replacements[testQuery.nodes[4]], "positive_3") -- LUAUFIX CLI-178250: shouldn't need to cast
-		assert.eq(replacements[testQuery.nodes[5]], "positive_4") -- LUAUFIX CLI-178250: shouldn't need to cast
+		assert.eq(replacements[testQuery.nodes[2]], "positive_1")
+		assert.eq(replacements[testQuery.nodes[3]], "positive_2")
+		assert.eq(replacements[testQuery.nodes[4]], "positive_3")
+		assert.eq(replacements[testQuery.nodes[5]], "positive_4")
 
 		-- Non-positive numbers should not have replacements (nil values)
-		assert.eq(replacements[testQuery.nodes[1]], nil) -- LUAUFIX CLI-178250: shouldn't need to cast
+		assert.eq(replacements[testQuery.nodes[1]], nil)
 
 		-- Verify the replacement table only contains the expected entries
 		local count = 0
@@ -245,6 +245,13 @@ test.suite("CstQuery", function(suite)
 		assert.eq(evenOnly[3], 4)
 	end)
 
+	suite:case("queryExpr", function(assert)
+		local cst = syntax.parse("local x = 1 + 2")
+
+		local exprs = query.findAllFromRoot(cst, utils.isExpr)
+		assert.eq(#exprs.nodes, 3)
+	end)
+
 	suite:case("queryExprGroup", function(assert)
 		local cst = syntax.parse("local x = (1)")
 
@@ -390,6 +397,18 @@ function g() end
 
 		local exprIfElses = query.findAllFromRoot(cst, utils.isExprIfElse)
 		assert.eq(#exprIfElses.nodes, 1)
+	end)
+
+	suite:case("queryStat", function(assert)
+		local cst = syntax.parse([[
+local function func(x)
+	print(x)
+end
+]])
+
+		-- the overall block, the function declaration, the function body, and the print inside the function body
+		local stats = query.findAllFromRoot(cst, utils.isStat)
+		assert.eq(#stats.nodes, 4)
 	end)
 
 	suite:case("queryStatBlock", function(assert)
@@ -564,6 +583,13 @@ end
 		assert.eq(#statTypeFunctions.nodes, 1)
 	end)
 
+	suite:case("queryType", function(assert)
+		local cst = syntax.parse("type T = add<number, userdata>")
+
+		local types = query.findAllFromRoot(cst, utils.isType)
+		assert.eq(#types.nodes, 3)
+	end)
+
 	suite:case("queryTypeReference", function(assert)
 		local cst = syntax.parse("type T = number")
 
@@ -639,6 +665,13 @@ end
 
 		local typeFunctions = query.findAllFromRoot(cst, utils.isTypeFunction)
 		assert.eq(#typeFunctions.nodes, 1)
+	end)
+
+	suite:case("queryTypePack", function(assert)
+		local cst = syntax.parse("type T = (...string) -> ...number")
+
+		local typePacks = query.findAllFromRoot(cst, utils.isTypePack)
+		assert.eq(#typePacks.nodes, 2)
 	end)
 
 	suite:case("queryTypePackExplicit", function(assert)

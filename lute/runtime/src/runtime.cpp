@@ -20,10 +20,11 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
-Runtime::Runtime(LuteReporter& reporter)
+Runtime::Runtime(LuteReporter& reporter, bool debugMode)
     : reporter(reporter)
     , globalState(nullptr, lua_close_checked)
     , dataCopy(nullptr, lua_close_checked)
+    , debugMode(debugMode)
 {
 
     stop.store(false);
@@ -152,6 +153,14 @@ bool Runtime::runToCompletion()
 {
     while (hasWork())
     {
+        if (debugMode)
+        {
+            // when paused while debugging, nothing should happen
+            std::unique_lock<std::mutex> lock(debugMutex);
+            while (debugStopped)
+                debugStoppedCv.wait(lock);
+        }
+
         auto step = runOnce();
 
         if (auto err = Luau::get_if<StepErr>(&step))
@@ -193,29 +202,29 @@ void Runtime::reportError(lua_State* L)
 void Runtime::runContinuously()
 {
     runLoopThreadStarted = uv_thread_create(
-        &runLoopThread,
-        [](void* arg)
-        {
-            Runtime* self = static_cast<Runtime*>(arg);
-            while (!self->stop)
-            {
-                {
-                    std::unique_lock lock(self->continuationMutex);
+                               &runLoopThread,
+                               [](void* arg)
+                               {
+                                   Runtime* self = static_cast<Runtime*>(arg);
+                                   while (!self->stop)
+                                   {
+                                       {
+                                           std::unique_lock lock(self->continuationMutex);
 
-                    self->runLoopCv.wait(
-                        lock,
-                        [self]
-                        {
-                            return !self->continuations.empty() || self->stop;
-                        }
-                    );
-                }
+                                           self->runLoopCv.wait(
+                                               lock,
+                                               [self]
+                                               {
+                                                   return !self->continuations.empty() || self->stop;
+                                               }
+                                           );
+                                       }
 
-                self->runToCompletion();
-            }
-        },
-        this
-    ) == 0;
+                                       self->runToCompletion();
+                                   }
+                               },
+                               this
+                           ) == 0;
 
     if (!runLoopThreadStarted)
         LUTE_ASSERT("Failed to create runtime runloop thread");
@@ -361,6 +370,26 @@ void Runtime::releasePendingToken()
 {
     [[maybe_unused]] int before = activeTokens.fetch_sub(1);
     assert(before > 0);
+}
+
+void Runtime::continueDebug()
+{
+    LUTE_ASSERT(debugMode);
+    std::unique_lock<std::mutex> lock(debugMutex);
+    debugStopped = false;
+    debugStoppedCv.notify_one();
+}
+
+// stopDebug() actually allows for some C bookkeeping when we are unwinding the stack
+// when it is called within a callback such as debugbreak or debugInterrupt, which you could imagine might
+// lead to a race condition. The important thing is that this bookkeeping does not touch the Luau state that we can inspect
+// making this a nonissue.
+// We never schedule any Luau code to run afterwards, which means this is fine.
+void Runtime::stopDebug()
+{
+    LUTE_ASSERT(debugMode);
+    std::unique_lock<std::mutex> lock(debugMutex);
+    debugStopped = true;
 }
 
 uv_loop_t* Runtime::getEventLoop()
