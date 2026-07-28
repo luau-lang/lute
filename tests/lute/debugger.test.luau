@@ -217,7 +217,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 	suite:case("multithread", function(check)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
-		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/spawn.luau"))
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/task.luau"))
 		local bp1 = target:setBreakpoint(mainPath, 7)
 		local _bp2 = target:setBreakpoint(mainPath, 14)
 		local bpHit1 = 0

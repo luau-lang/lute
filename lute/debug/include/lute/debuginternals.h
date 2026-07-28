@@ -86,6 +86,11 @@ struct Target
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
     // For inspection while paused:
+    // About multiple coroutines: we don't currently handle task.spawn() but do handle task.defer().
+    // The difference is that task.spawn() tries to run the coroutine inline with our current execution, resulting
+    // in issues when trying to pause. Similar methods that also run coroutines inline with our current execution will not work.
+    // In contrast, in task.defer(), the coroutine is added to set of running coroutines but execution
+    // is deferred. Our pause mechanism will then work correctly.
     std::vector<Thread> getThreads() const;
 
     // For actively running scripts:

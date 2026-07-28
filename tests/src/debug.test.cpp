@@ -346,7 +346,7 @@ TEST_SUITE("Debug")
     }
     TEST_CASE_FIXTURE(DebugFixture, "Debug_threadTracking")
     {
-        std::string fixturePath = getDebugFixturePath("spawn.luau");
+        std::string fixturePath = getDebugFixturePath("task.luau");
         Target target(*runtime);
         Breakpoint bp1 = target.setBreakpoint(fixturePath, 7);
         Breakpoint bp2 = target.setBreakpoint(fixturePath, 14);
