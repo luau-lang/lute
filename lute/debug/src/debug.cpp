@@ -181,11 +181,10 @@ static int target_getLoadedSources(lua_State* L)
 {
     Target* target = getTarget(L, 1);
     std::vector<std::string> sources = target->getLoadedSources();
-    checkStack(L, 1);
+    checkStack(L, 2);
     lua_createtable(L, sources.size(), 0);
     for (int i = 0; i < (int)sources.size(); i++)
     {
-        checkStack(L, 1);
         lua_pushstring(L, sources[i].c_str());
         lua_rawseti(L, -2, i + 1);
     }

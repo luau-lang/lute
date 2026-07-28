@@ -6,6 +6,7 @@
 
 #include "Luau/Compiler.h"
 #include "Luau/DenseHash.h"
+#include "Luau/FileUtils.h"
 #include "Luau/StringUtils.h"
 
 #include "lua.h"
@@ -45,14 +46,6 @@ Target::~Target()
     childRuntime.reset();
 }
 
-static std::string normalizeSeparators(std::string sourcePath)
-{
-    for (char& c : sourcePath)
-        if (c == '\\')
-            c = '/';
-    return sourcePath;
-}
-
 static std::string getChunkFromSource(const std::string& sourcePath)
 {
     return '@' + sourcePath;
@@ -68,7 +61,7 @@ static std::string getSourceFromChunk(const std::string& chunkname)
 Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
 {
     std::unique_lock lock(targetMutex);
-    sourcePath = normalizeSeparators(sourcePath);
+    sourcePath = normalizePath(sourcePath);
     std::optional<Breakpoint> preexistingBp = getBreakpointBySourceLineHelper(sourcePath, line);
     if (preexistingBp)
         return *preexistingBp;
@@ -192,7 +185,7 @@ std::optional<Breakpoint> Target::getBreakpointBySourceLineHelper(std::string so
 std::optional<Breakpoint> Target::getBreakpointBySourceLine(std::string source, int line) const
 {
     std::unique_lock lock(targetMutex);
-    source = normalizeSeparators(source);
+    source = normalizePath(source);
     return getBreakpointBySourceLineHelper(source, line);
 }
 
@@ -282,11 +275,7 @@ std::vector<std::string> Target::getLoadedSources()
     std::vector<std::string> sources;
     sources.reserve(loadedSources.size());
     for (auto& [path, _] : loadedSources)
-    {
-        // we discard the empty sentinel value for loadedSources
-        if (path != "")
-            sources.emplace_back(path);
-    }
+        sources.emplace_back(path);
     return sources;
 }
 
@@ -296,7 +285,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
     std::vector<Breakpoint> uninstalledBps;
     {
         std::lock_guard lock(targetMutex);
-        sourcePath = normalizeSeparators(sourcePath);
+        sourcePath = normalizePath(sourcePath);
         // launch() cannot be called twice from the same target, so we assert in
         // debug mode and return false when we are in release mode.
         LUTE_ASSERT(!launched);
