@@ -293,9 +293,9 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
             return false;
         childRuntime = std::make_unique<Runtime>(parentRuntime.reporter, true);
         // Set up require system before launch.
-        Luau::CompileOptions options;
-        options.optimizationLevel = 1;
-        options.debugLevel = 2;
+        Luau::CompileOptions debugOptions;
+        debugOptions.optimizationLevel = 1;
+        debugOptions.debugLevel = 2;
         std::function<void(lua_State * L, const std::string& chunkName)> onChunkLoad = [this](lua_State* ML, const std::string& chunkName)
         {
             std::string source = getSourceFromChunk(chunkName);
@@ -312,7 +312,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
             for (auto& bp : uninstalled)
                 launchConfig.onBreakpointUninstall(bp);
         };
-        requireCtx = std::make_unique<RequireCtx>(std::make_unique<RequireVfs>(), options, onChunkLoad);
+        requireCtx = std::make_unique<RequireCtx>(std::make_unique<RequireVfs>(), debugOptions, onChunkLoad);
         setupState(
             *childRuntime,
             [this](lua_State* L)
@@ -329,9 +329,6 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
             return false;
         }
         std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        Luau::CompileOptions debugOptions = {};
-        debugOptions.optimizationLevel = 1;
-        debugOptions.debugLevel = 2;
         std::string bytecode = Luau::compile(source, debugOptions);
         lua_State* thread = lua_newthread(childRuntime->GL);
         luaL_sandboxthread(thread);

@@ -41,10 +41,11 @@ public:
 
 struct RequireCtx
 {
+    RequireCtx(std::unique_ptr<IRequireVfs> vfs);
     RequireCtx(
         std::unique_ptr<IRequireVfs> vfs,
-        Luau::CompileOptions compileOptions = copts(),
-        std::function<void(lua_State* L, const std::string& chunkName)> onChunkLoad = nullptr
+        Luau::CompileOptions compileOptions,
+        std::function<void(lua_State* L, const std::string& chunkName)> onChunkLoad
     );
 
     std::unique_ptr<IRequireVfs> vfs;

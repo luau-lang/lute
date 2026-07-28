@@ -245,6 +245,12 @@ void requireConfigInit(luarequire_Configuration* config)
     config->load = load;
 }
 
+RequireCtx::RequireCtx(std::unique_ptr<IRequireVfs> vfs)
+    : vfs(std::move(vfs))
+    , compileOptions(copts())
+{
+}
+
 RequireCtx::RequireCtx(
     std::unique_ptr<IRequireVfs> vfs,
     Luau::CompileOptions compileOptions,
