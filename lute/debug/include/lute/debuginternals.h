@@ -87,7 +87,7 @@ struct Target
 
     // For inspection while paused:
     // About multiple coroutines: we don't currently handle the original implementation of task.spawn(). Calling
-    // task.spawn() in the debugger calls task.defer() instead.
+    // task.spawn() when working in the debugger instead calls task.defer() instead.
     // The difference is that the original task.spawn() tries to run the coroutine inline with our current execution, resulting
     // in issues when trying to pause. Similar methods that also run coroutines inline with our current execution will not work.
     // In contrast, in task.defer(), the coroutine is added to set of running coroutines but execution

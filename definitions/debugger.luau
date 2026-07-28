@@ -31,7 +31,7 @@ export type LaunchConfig = {
 	onBreakpointUninstall: ((bp: Breakpoint) -> ())?,
 	--- called when the debugged script exits. `success` reflects if the script exited without errors.
 	onExit: ((success: boolean) -> ())?,
-	--- called when a pauseProcess() request ainterrupts thread `thread` and then actually stops all threads from execution.
+	--- called when a pauseProcess() interrupts `thread` and then actually stops all threads from execution.
 	onPause: ((thread: Thread) -> ())?,
 }
 

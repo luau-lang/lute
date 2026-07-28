@@ -2,14 +2,14 @@ local task = require("@lute/task")
 local total_sum = 0
 
 task.defer(function()
-	for i = 1, 5 do
+	for _i = 1, 5 do
 		task.wait(0)
 		total_sum += 1
 	end
 end)
 
 task.defer(function()
-	for i = 1, 5 do
+	for _i = 1, 5 do
 		task.wait(0)
 		total_sum += 1
 	end
