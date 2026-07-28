@@ -271,7 +271,7 @@ std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> Target::modifyPendin
 
 std::vector<std::string> Target::getLoadedSources()
 {
-    std::lock_guard lock(targetMutex);
+    std::scoped_lock lock(targetMutex);
     std::vector<std::string> sources;
     sources.reserve(loadedSources.size());
     for (auto& [path, _] : loadedSources)
@@ -284,7 +284,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
     std::vector<Breakpoint> installedBps;
     std::vector<Breakpoint> uninstalledBps;
     {
-        std::lock_guard lock(targetMutex);
+        std::scoped_lock lock(targetMutex);
         sourcePath = normalizePath(sourcePath);
         // launch() cannot be called twice from the same target, so we assert in
         // debug mode and return false when we are in release mode.
@@ -302,7 +302,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
             std::vector<Breakpoint> installed;
             std::vector<Breakpoint> uninstalled;
             {
-                std::scoped_lock(targetMutex);
+                std::scoped_lock lock(targetMutex);
                 // this strips the potential leading @ from the chunkName for consistency when returning to DAP
                 loadedSources[source] = std::make_shared<Ref>(ML, -1);
                 std::tie(installed, uninstalled) = modifyPendingBreakpoints(ML);
