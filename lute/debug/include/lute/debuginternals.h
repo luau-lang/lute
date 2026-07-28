@@ -86,8 +86,9 @@ struct Target
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
     // For inspection while paused:
-    // About multiple coroutines: we don't currently handle task.spawn() but do handle task.defer().
-    // The difference is that task.spawn() tries to run the coroutine inline with our current execution, resulting
+    // About multiple coroutines: we don't currently handle the original implementation of task.spawn(). Calling
+    // task.spawn() in the debugger calls task.defer() instead.
+    // The difference is that the original task.spawn() tries to run the coroutine inline with our current execution, resulting
     // in issues when trying to pause. Similar methods that also run coroutines inline with our current execution will not work.
     // In contrast, in task.defer(), the coroutine is added to set of running coroutines but execution
     // is deferred. Our pause mechanism will then work correctly.
@@ -110,7 +111,7 @@ private:
     int currentBreakpointId = 0;
     bool paused = true;
     bool launched = false;
-    std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
+    std::unordered_map<int, Breakpoint> breakpoints;    // breakpoint id -> breakpoint object (this is unordered_map to support erase)
     std::unordered_set<lua_State*> continueRequestedBp; // if the thread's lua_State* is in this set, we skip the next bp it hits
     std::optional<Breakpoint> bpHit;
     LaunchConfig launchConfig;
