@@ -84,6 +84,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			local capabilities = {
 				supportsConfigurationDoneRequest = true,
 				supportsTerminateRequest = true,
+				supportsLoadedSourcesRequest = true,
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
 			ioSession.writeEvent("initialized")
@@ -128,6 +129,18 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 					ioSession.writeResponse(reqSeq, launched, command)
 				end
 			end
+		elseif command == "loadedSources" then
+			local sources = target:getLoadedSources()
+			local dapSources = {}
+			for _, source in sources do
+				table.insert(dapSources, {
+					path = source,
+					name = source:match("[^/\\]+$"),
+				})
+			end
+			ioSession.writeResponse(reqSeq, true, command, nil, {
+				sources = dapSources,
+			})
 		-- dummy handler for threads
 		elseif command == "threads" then
 			ioSession.writeResponse(reqSeq, true, command, nil, {
