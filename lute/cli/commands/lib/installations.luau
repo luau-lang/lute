@@ -8,19 +8,6 @@ local release = require("./release")
 
 local REPO = "luau-lang/lute"
 
-local function ensureInstalled(tag: string): string
-	tag = release.normalizeTag(tag)
-	local destination = path.format(path.join(paths.versionsPath(), "lute", tag, paths.exeName()))
-	if fs.exists(destination) then
-		return destination
-	end
-
-	fs.createDirectory(path.dirname(destination), { makeParents = true })
-	local bytes = release.downloadBinary(REPO, tag, paths.exeName())
-	binary.installBinary(bytes, destination)
-	return destination
-end
-
 local function parseLuteVersion(rawConfig: { [any]: any }): string?
 	local lute = rawConfig.lute
 	if lute == nil then
@@ -46,6 +33,19 @@ local function parseLuteVersion(rawConfig: { [any]: any }): string?
 		error(`\`.config.luau\` field \`lute.toolchain.lute\` must be a string`)
 	end
 	return pinned
+end
+
+local function ensureInstalled(tag: string): string
+	tag = release.normalizeTag(tag)
+	local destination = path.format(path.join(paths.versionsPath(), "lute", tag, paths.exeName()))
+	if fs.exists(destination) then
+		return destination
+	end
+
+	fs.createDirectory(path.dirname(destination), { makeParents = true })
+	local bytes = release.downloadBinary(REPO, tag, paths.exeName())
+	binary.installBinary(bytes, destination)
+	return destination
 end
 
 local function resolvePinnedLute(): string?

@@ -11,7 +11,7 @@ local function binPath(): string
 end
 
 local function exeName(): string
-	return if system.win32 then `lute.exe` else "lute"
+	return if system.win32 then "lute.exe" else "lute"
 end
 
 local function exePath(): string
