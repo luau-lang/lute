@@ -39,7 +39,7 @@ int read_impl(lua_State* L, UVFile* handle);
 int write_impl(lua_State* L, UVFile* handle, const char* toWrite, size_t numBytes);
 int close_impl(lua_State* L, UVFile* handle);
 
-int readIntoBuffer_impl(lua_State* L, UVFile* handle, void* buf, size_t bufLen, int64_t fileOffset, size_t count, size_t bufferOffset);
+int readIntoBuffer_impl(lua_State* L, UVFile* handle, void* buf, size_t bufLen, int64_t fileOffset, size_t numBytes, size_t bufferOffset);
 int remove_impl(lua_State* L, const char* path);
 
 int stat_impl(lua_State* L, const char* path);
@@ -55,6 +55,5 @@ int rename_impl(lua_State* L, const char* path, const char* dest);
 int mkdir_impl(lua_State* L, const char* path, int mode);
 int rmdir_impl(lua_State* L, const char* path);
 int listdir_impl(lua_State* L, const char* path);
-
 
 } // namespace fs

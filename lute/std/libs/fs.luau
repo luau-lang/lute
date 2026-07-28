@@ -89,10 +89,10 @@ function fslib.close(file: File): ()
 	return fs.close(file)
 end
 
---- Reads up to `count` bytes from `file` at `fileOffset` into `buf` starting at `bufferOffset`.
+--- Reads up to `numBytes` bytes from `file` at `fileOffset` into `buf` starting at `bufferOffset`.
 --- Returns the number of bytes actually read.
-function fslib.readIntoBuffer(file: File, buf: buffer, fileOffset: number, count: number, bufferOffset: number?): number
-	return fs.readIntoBuffer(file, buf, fileOffset, count, bufferOffset)
+function fslib.readIntoBuffer(file: File, buf: buffer, fileOffset: number, numBytes: number, bufferOffset: number?): number
+	return fs.readIntoBuffer(file, buf, fileOffset, numBytes, bufferOffset)
 end
 
 --- Removes the file at `path`.

@@ -108,10 +108,10 @@ int readIntoBuffer(lua_State* L)
         luaL_errorL(L, "readIntoBuffer: fileOffset must be non-negative");
     int64_t fileOffset = int64_t(fo);
 
-    double c = luaL_checknumber(L, 4);
-    if (c < 0)
-        luaL_errorL(L, "readIntoBuffer: count must be non-negative");
-    size_t count = size_t(c);
+    double b = luaL_checknumber(L, 4);
+    if (b < 0)
+        luaL_errorL(L, "readIntoBuffer: numBytes must be non-negative");
+    size_t numBytes = size_t(b);
 
     size_t bufferOffset = 0;
     if (!lua_isnoneornil(L, 5))
@@ -122,7 +122,7 @@ int readIntoBuffer(lua_State* L)
         bufferOffset = size_t(bo);
     }
 
-    return readIntoBuffer_impl(L, handle, buf, bufLen, fileOffset, count, bufferOffset);
+    return readIntoBuffer_impl(L, handle, buf, bufLen, fileOffset, numBytes, bufferOffset);
 }
 
 int open(lua_State* L)
