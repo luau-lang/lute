@@ -1,3 +1,3 @@
 local installations = require("../lib/installations")
 
-return installations.resolvePinnedTool("lute")
+return installations.resolvePinnedLute()

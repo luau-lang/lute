@@ -6,20 +6,22 @@ local configs = require("./configs")
 local paths = require("./paths")
 local release = require("./release")
 
-local function ensureInstalled(tool: string, tag: string): string
+local REPO = "luau-lang/lute"
+
+local function ensureInstalled(tag: string): string
 	tag = release.normalizeTag(tag)
-	local destination = path.format(path.join(paths.versionsPath(), tool, tag, paths.exeName(tool)))
+	local destination = path.format(path.join(paths.versionsPath(), "lute", tag, paths.exeName()))
 	if fs.exists(destination) then
 		return destination
 	end
 
 	fs.createDirectory(path.dirname(destination), { makeParents = true })
-	local bytes = release.downloadBinary("luau-lang/lute", tag, paths.exeName(tool))
+	local bytes = release.downloadBinary(REPO, tag, paths.exeName())
 	binary.installBinary(bytes, destination)
 	return destination
 end
 
-local function parseToolVersion(rawConfig: { [any]: any }, tool: string): string?
+local function parseLuteVersion(rawConfig: { [any]: any }): string?
 	local lute = rawConfig.lute
 	if lute == nil then
 		return nil
@@ -36,26 +38,26 @@ local function parseToolVersion(rawConfig: { [any]: any }, tool: string): string
 		error("`.config.luau` field `lute.toolchain` must be a table")
 	end
 
-	local pinned = toolchain[tool]
+	local pinned = toolchain.lute
 	if pinned == nil then
 		return nil
 	end
 	if typeof(pinned) ~= "string" then
-		error(`\`.config.luau\` field \`lute.toolchain.{tool}\` must be a string`)
+		error(`\`.config.luau\` field \`lute.toolchain.lute\` must be a string`)
 	end
 	return pinned
 end
 
-local function resolvePinnedTool(tool: string): string?
+local function resolvePinnedLute(): string?
 	for _, rawConfig in configs.walkConfigPaths() do
-		local pinned = parseToolVersion(rawConfig, tool)
+		local pinned = parseLuteVersion(rawConfig)
 		if pinned ~= nil then
-			return ensureInstalled(tool, pinned)
+			return ensureInstalled(pinned)
 		end
 	end
 	return nil
 end
 
 return table.freeze({
-	resolvePinnedTool = resolvePinnedTool,
+	resolvePinnedLute = resolvePinnedLute,
 })

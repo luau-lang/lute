@@ -10,12 +10,12 @@ local function binPath(): string
 	return path.format(path.join(lutePath(), "bin"))
 end
 
-local function exeName(tool: string): string
-	return if system.win32 then `{tool}.exe` else tool
+local function exeName(): string
+	return if system.win32 then `lute.exe` else "lute"
 end
 
 local function exePath(): string
-	return path.format(path.join(binPath(), exeName("lute")))
+	return path.format(path.join(binPath(), exeName()))
 end
 
 local function versionsPath(): string
