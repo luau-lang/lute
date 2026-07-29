@@ -84,7 +84,7 @@ function deepClone<T>(tbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
 
 	seen[tbl] = clone
 
-	for k, v in pairs(tbl :: any) do
+	for k, v in pairs(tbl) do
 		local resolvedKey = if opts.cloneKeys and typeof(k) == "table" then resolveValue(k, seen, opts) else k
 
 		clone[resolvedKey] = if typeof(v) == "table" then resolveValue(v, seen, opts) else v

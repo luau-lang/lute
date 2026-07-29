@@ -353,7 +353,7 @@ test.suite("TableExt", function(suite)
 		assert.that(not table.isfrozen(nestedFrozenClone))
 		assert.that(table.isfrozen(nestedFrozenClone.key))
 
-		-- Preservation of tables with overwritten iter method
+		-- Correctly clones tables with iter metamethod
 		local overwrittenIter = setmetatable({ a = 1, b = { 2, 3 } }, {
 			__iter = function(self)
 				local index = 0
