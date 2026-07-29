@@ -42,11 +42,11 @@ TEST_SUITE("Debug")
         Breakpoint bp3 = target.setBreakpoint(fixturePath, 3);
 
         // check breakpoints before launch
-        CHECK(bp.id == 0);
+        CHECK(bp.id == 1);
         checkBreakpointId(target, bp.id, BreakpointStatus::PendingInstall, fixturePath, 2);
-        CHECK(bp2.id == 1);
+        CHECK(bp2.id == 2);
         checkBreakpointId(target, bp2.id, BreakpointStatus::PendingInstall, fixturePath, 100);
-        CHECK(bp3.id == 2);
+        CHECK(bp3.id == 3);
         checkBreakpointId(target, bp3.id, BreakpointStatus::PendingInstall, fixturePath, 3);
 
         // check cannot find not-set breakpoint
@@ -59,7 +59,7 @@ TEST_SUITE("Debug")
 
         std::function<void(const Breakpoint& bp)> onBreakpointInstall = [&](const Breakpoint& bp)
         {
-            if (bp.id == 3)
+            if (bp.id == 4)
                 bp4InstalledPromise.set_value();
         };
 
@@ -103,7 +103,7 @@ TEST_SUITE("Debug")
 
         // check that setting breakpoints at same breakpoint returns same id
         Breakpoint bp5 = target.setBreakpoint(fixturePath, 2);
-        CHECK(bp5.id == 0);
+        CHECK(bp5.id == 1);
         checkBreakpointId(target, bp5.id, BreakpointStatus::Installed, fixturePath, 2);
 
         // wait until script is finished to call destructors
@@ -358,15 +358,15 @@ TEST_SUITE("Debug")
         {
             if (bp.id == bp1.id)
             {
-                CHECK(thread.id == 1);
+                CHECK(thread.id == 2);
                 hitsBp1++;
                 const std::vector<Thread>& threads = target.getThreads();
                 maxThreadsSeen = std::max(maxThreadsSeen, (int)threads.size());
                 if (threads.size() == 3)
                 {
-                    Thread t0(0, "Coroutine 0");
-                    Thread t1(1, "Coroutine 1");
-                    Thread t2(2, "Coroutine 2");
+                    Thread t0(1, "Coroutine 1");
+                    Thread t1(2, "Coroutine 2");
+                    Thread t2(3, "Coroutine 3");
                     CHECK(std::find(threads.begin(), threads.end(), t0) != threads.end());
                     CHECK(std::find(threads.begin(), threads.end(), t1) != threads.end());
                     CHECK(std::find(threads.begin(), threads.end(), t2) != threads.end());
@@ -374,16 +374,16 @@ TEST_SUITE("Debug")
             }
             else if (bp.id == bp2.id)
             {
-                CHECK(thread.id == 2);
+                CHECK(thread.id == 3);
                 hitsBp2++;
             }
             else
             {
                 // after joining all threads, we only have one left over (the main coroutine)
                 const std::vector<Thread>& threads = target.getThreads();
-                CHECK(thread.id == 0);
+                CHECK(thread.id == 1);
                 CHECK(threads.size() == 1);
-                CHECK(threads.at(0) == Thread(0, "Coroutine 0"));
+                CHECK(threads.at(0) == Thread(1, "Coroutine 1"));
             }
             target.continueProcess();
             // we shouldn't get threads when things are crunning

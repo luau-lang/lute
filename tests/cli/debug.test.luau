@@ -203,8 +203,8 @@ test.suite("LuteDebug", function(suite)
 		assert.eq(#threads, 1)
 		local thread = json.asObject(threads[1]) :: json.Object
 		assert.that(thread ~= nil)
-		assert.eq(thread.id, 0)
-		assert.eq(thread.name, "Coroutine 0")
+		assert.eq(thread.id, 1)
+		assert.eq(thread.name, "Coroutine 1")
 
 		local msg8, rest8 = parseJsonMessage(rest7)
 		assert.eq(msg8.command, "terminate")

@@ -108,7 +108,7 @@ private:
     Runtime& parentRuntime;
     std::unique_ptr<Runtime> childRuntime;
 
-    int currentBreakpointId = 0;
+    int currentBreakpointId = 1;
     bool paused = true;
     bool launched = false;
     std::unordered_map<int, Breakpoint> breakpoints;    // breakpoint id -> breakpoint object (this is unordered_map to support erase)
@@ -128,7 +128,7 @@ private:
     std::unique_ptr<RequireCtx> requireCtx;
 
     // thread information
-    int threadId = 0;
+    int threadId = 1;
     std::unordered_map<lua_State*, Thread> stateToThread; // lua_State* -> thread information about that state
     std::unordered_map<int, lua_State*> threadIdToState;  // thread id -> lua_State*
 

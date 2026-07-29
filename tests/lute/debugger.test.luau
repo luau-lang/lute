@@ -29,7 +29,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(typeof(target), "Target")
 		local fixturePath = path.format(path.join(proc.cwd(), "tests/src/debug/loop.luau"))
 		local bp = target:setBreakpoint(fixturePath, 6)
-		check.eq(bp.id, 0)
+		check.eq(bp.id, 1)
 		check.eq(bp.line, 6)
 		check.eq(bp.sourcePath, normalizePath(fixturePath))
 		check.eq(bp.status, "pendingInstall")
@@ -227,12 +227,12 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local targetLaunched = target:launch(mainPath, {}, {
 			onBreakpointHit = function(thread, bp)
 				if bp.id == bp1.id then
-					check.eq(thread.id, 1)
-					check.eq(thread.name, "Coroutine 1")
-					bpHit1 += 1
-				else
 					check.eq(thread.id, 2)
 					check.eq(thread.name, "Coroutine 2")
+					bpHit1 += 1
+				else
+					check.eq(thread.id, 3)
+					check.eq(thread.name, "Coroutine 3")
 					bpHit2 += 1
 				end
 				local threads = target:getThreads()
