@@ -87,6 +87,12 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				line = line,
 			})
 		end,
+		onStepStop = function(_stepInfo: debugger.StepInfo)
+			ioSession.writeEvent("stopped", {
+				reason = "step",
+				threadId = 1,
+			})
+		end,
 	}
 	local configurationDone = false
 	local launchConfig: dapTypes.LaunchArgs? = nil
@@ -153,6 +159,16 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				sources = dapSources,
 			})
+		elseif command == "next" then
+			-- TODO: incorporate threads if that gets merged in
+			local stepped = target:stepOver()
+			ioSession.writeResponse(reqSeq, stepped, command)
+		elseif command == "stepIn" then
+			local stepped = target:stepIn()
+			ioSession.writeResponse(reqSeq, stepped, command)
+		elseif command == "stepOut" then
+			local stepped = target:stepOut()
+			ioSession.writeResponse(reqSeq, stepped, command)
 		elseif command == "threads" then
 			local threads = target:getThreads()
 			local dapThreads = {}
@@ -174,7 +190,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 						id = 0,
 						name = "main",
 						source = createSource(launchPath.program),
-						line = 1,
+						line = target:getLine(),
 						column = 0,
 					},
 				},
