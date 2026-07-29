@@ -22,7 +22,7 @@ export type Thread = {
 
 --- A set of callbacks that we configure before launching our debugger
 export type LaunchConfig = {
-	--- called when a breakpoint `bp` is hit; execution is paused until continueProcess() is called
+	--- called when a breakpoint `bp` is hit on `thread`; execution is paused until continueProcess() is called
 	onBreakpointHit: ((thread: Thread, bp: Breakpoint) -> ())?,
 	--- called when there is has been an attempt to install the breakpoint `bp` on the VM, regardless
 	--- of success and failure. check the status of `bp` to see if the attempt has succeeded or failed.
