@@ -679,26 +679,8 @@ bool Target::step(StepType type)
     if (!launched || !paused)
         return false;
     int startLine = stoppedLine, startDepth = lua_stackdepth(stoppedThread);
-    switch (type)
-    {
-    case StepType::StepIn:
-        stepPredicate = [startLine, startDepth](int depth, int line)
-        {
-            return line != startLine || depth != startDepth;
-        };
-        break;
-    case StepType::StepOver:
-        stepPredicate = [startLine, startDepth](int depth, int line)
-        {
-            return depth <= startDepth && line != startLine;
-        };
-        break;
-    case StepType::StepOut:
-        stepPredicate = [startDepth](int depth, int line)
-        {
-            return depth < startDepth;
-        };
-    }
+    stepInfo = {type, startLine, startDepth};
+    lua_singlestep(stoppedThread, 1);
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
     cb->debugstep = [](lua_State* L, lua_Debug* ar)
     {
@@ -708,20 +690,50 @@ bool Target::step(StepType type)
         {
             return;
         }
-        if (target->stepPredicate(lua_stackdepth(L), ar->currentline))
+        int line = ar->currentline;
+        int depth = lua_stackdepth(L);
+        if (!target->stepInfo)
+        {
+            target->parentRuntime.reporter.reportError(Luau::format("target lacks stepping info even while stepping at line %d", line));
+        }
+        bool stopStepping = false;
+        StepInfo stepInfo = *target->stepInfo;
+        switch (stepInfo.type)
+        {
+        case StepType::StepIn:
+            if (line != stepInfo.startLine || depth != stepInfo.startDepth)
+            {
+                stopStepping = true;
+            }
+            break;
+        case StepType::StepOver:
+            if (depth <= stepInfo.startDepth && line != stepInfo.startLine)
+            {
+                stopStepping = true;
+            }
+            break;
+        case StepType::StepOut:
+            if (depth < stepInfo.startDepth)
+            {
+                stopStepping = true;
+            }
+            break;
+        }
+        if (stopStepping)
         {
             target->paused = true;
             target->childRuntime->stopDebug();
             target->stoppedThread = L;
             target->stoppedLine = ar->currentline;
-            target->stepPredicate = nullptr;
+            target->stepInfo = std::nullopt;
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             lua_break(L);
+            lua_singlestep(L, 0);
             lua_callbacks(L)->debugstep = nullptr;
             lock.unlock();
             // Since pausing actually only happens when the step callback runs we have a callback
             if (target->launchConfig.onStepStop)
-                target->launchConfig.onStepStop();
+                target->launchConfig.onStepStop(stepInfo.type);
             for (auto& bp : installed)
                 target->launchConfig.onBreakpointInstall(bp);
             for (auto& bp : uninstalled)
@@ -734,6 +746,21 @@ bool Target::step(StepType type)
     };
     continueProcessHelper(true);
     return true;
+}
+
+bool Target::stepIn()
+{
+    return step(StepType::StepIn);
+}
+
+bool Target::stepOver()
+{
+    return step(StepType::StepOver);
+}
+
+bool Target::stepOut()
+{
+    return step(StepType::StepOut);
 }
 
 } // namespace debug

@@ -36,6 +36,20 @@ struct Breakpoint
     explicit Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
 };
 
+enum class StepType
+{
+    StepOver,
+    StepIn,
+    StepOut,
+};
+
+struct StepInfo
+{
+    StepType type;
+    int startLine;
+    int startDepth;
+};
+
 // Each Thread represents one coroutine in our Lute runtime.
 struct Thread
 {
@@ -54,7 +68,7 @@ struct LaunchConfig
     std::function<void(const Thread& thread, const Breakpoint& bp)> onBreakpointHit;
     std::function<void(bool success)> onExit;
     std::function<void(const Thread& thread)> onPause;
-    std::function<void()> onStepStop;
+    std::function<void(StepType stepType)> onStepStop;
     std::function<void(const std::string& message, const std::string& source, int line)> onPrint;
 };
 
@@ -109,6 +123,10 @@ struct Target
     bool continueProcess();
     bool pauseProcess();
     bool step(StepType type);
+    bool stepIn();
+    bool stepOver();
+    bool stepOut();
+
 
     int getLine();
 
@@ -149,7 +167,7 @@ private:
     std::unordered_map<int, lua_State*> threadIdToState;  // thread id -> lua_State*
 
     // only set when stepping
-    std::function<bool(int currentDepth, int currentLine)> stepPredicate;
+    std::optional<StepInfo> stepInfo;
 
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
