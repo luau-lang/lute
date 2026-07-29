@@ -63,6 +63,36 @@ static BreakpointStatus breakpointStringToStatus(const char* status)
     LUTE_UNREACHABLE();
 }
 
+
+// StepType is
+// "stepIn" | "stepOver" | "stepOut"
+static const char* stepTypeToString(StepType type)
+{
+    switch (type)
+    {
+    case StepType::StepIn:
+        return "stepIn";
+    case StepType::StepOut:
+        return "stepOut";
+    case StepType::StepOver:
+        return "stepOver";
+    }
+    LUTE_ASSERT(false);
+    LUTE_UNREACHABLE();
+}
+
+static StepType stepStringToStatus(const char* status)
+{
+    if (strcmp(status, "stepIn") == 0)
+        return StepType::StepIn;
+    if (strcmp(status, "stepOut") == 0)
+        return StepType::StepOut;
+    if (strcmp(status, "stepOver") == 0)
+        return StepType::StepOver;
+    LUTE_ASSERT(false);
+    LUTE_UNREACHABLE();
+}
+
 // Helper to push a Breakpoint type, which is
 // id: number
 // line: number
@@ -80,6 +110,23 @@ static int pushBreakpoint(lua_State* L, const Breakpoint& bp)
     lua_setfield(L, -2, "sourcePath");
     lua_pushstring(L, breakpointStatusToString(bp.status));
     lua_setfield(L, -2, "status");
+    return 1;
+}
+
+// Helper to push a StepInfo type, which is
+// type: StepType
+// startLine: int
+// startDepth: int
+static int pushStepInfo(lua_State* L, const StepInfo& stepInfo)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 3);
+    lua_pushstring(L, stepTypeToString(stepInfo.type));
+    lua_setfield(L, -2, "type");
+    lua_pushinteger(L, stepInfo.startLine);
+    lua_setfield(L, -2, "startLine");
+    lua_pushinteger(L, stepInfo.startDepth);
+    lua_setfield(L, -2, "startDepth");
     return 1;
 }
 
@@ -202,6 +249,52 @@ static int target_getLoadedSources(lua_State* L)
         lua_pushstring(L, sources[i].c_str());
         lua_rawseti(L, -2, i + 1);
     }
+    return 1;
+}
+
+// target.step(StepType type)
+// returns a boolean
+static int target_step(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    const char* statusStr = luaL_checkstring(L, 2);
+    StepType type = stepStringToStatus(statusStr);
+    bool step = target->step(type);
+    checkStack(L, 1);
+    lua_pushboolean(L, step);
+    return 1;
+}
+
+// target.stepIn()
+// returns a boolean
+static int target_stepIn(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    bool step = target->stepIn();
+    checkStack(L, 1);
+    lua_pushboolean(L, step);
+    return 1;
+}
+
+// target.stepOut()
+// returns a boolean
+static int target_stepOut(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    bool step = target->stepOut();
+    checkStack(L, 1);
+    lua_pushboolean(L, step);
+    return 1;
+}
+
+// target.stepOver()
+// returns a boolean
+static int target_stepOver(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    bool step = target->stepOver();
+    checkStack(L, 1);
+    lua_pushboolean(L, step);
     return 1;
 }
 
@@ -376,6 +469,20 @@ static int target_launch(lua_State* L)
                 );
             };
         }
+        if (auto ref = getOptionalCallback(L, 4, "onStepStop"))
+        {
+            config.onStepStop = [ref, runtime](const StepInfo& info)
+            {
+                runtime->scheduleLuauCallback(
+                    ref,
+                    [info](lua_State* L)
+                    {
+                        pushStepInfo(L, info);
+                        return 1;
+                    }
+                );
+            };
+        }
     }
     bool launched = target->launch(source, args, config);
     checkStack(L, 1);
@@ -428,6 +535,10 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"continueProcess", debug::target_continueProcess},
     {"pauseProcess", debug::target_pauseProcess},
     {"getLoadedSources", debug::target_getLoadedSources},
+    {"step", debug::target_step},
+    {"stepIn", debug::target_stepIn},
+    {"stepOut", debug::target_stepOut},
+    {"stepOver", debug::target_stepOver},
     {"getThreads", debug::target_getThreads},
     {"getMainThread", debug::target_getMainThread},
     {"getStoppedThread", debug::target_getStoppedThread},
