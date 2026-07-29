@@ -37,6 +37,8 @@ struct Breakpoint
 
 struct LaunchConfig
 {
+    // onBreakpointInstall is called whenever an installation attempt is actually made, regardless
+    // of whether it resulted in being installed or the bp being invalid.
     std::function<void(const Breakpoint& bp)> onBreakpointInstall;
     std::function<void(const Breakpoint& bp)> onBreakpointUninstall;
     std::function<void(const Breakpoint& bp)> onBreakpointHit;

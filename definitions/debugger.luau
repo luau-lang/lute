@@ -18,7 +18,8 @@ export type Breakpoint = {
 export type LaunchConfig = {
 	--- called when a breakpoint `bp` is hit; execution is paused until continueProcess() is called
 	onBreakpointHit: ((bp: Breakpoint) -> ())?,
-	--- called when breakpoint `bp` is successfully installed in the VM
+	--- called when there is has been an attempt to install the breakpoint `bp` on the VM, regardless
+	--- of success and failure. check the status of `bp` to see if the attempt has succeeded or failed.
 	onBreakpointInstall: ((bp: Breakpoint) -> ())?,
 	--- called when a breakpoint `bp` is uninstalled from the VM
 	onBreakpointUninstall: ((bp: Breakpoint) -> ())?,
