@@ -1,9 +1,12 @@
 #include "lute/debuginternals.h"
 
 #include "lute/common.h"
+#include "lute/require.h"
+#include "lute/requirevfs.h"
 
 #include "Luau/Compiler.h"
 #include "Luau/DenseHash.h"
+#include "Luau/FileUtils.h"
 #include "Luau/StringUtils.h"
 
 #include "lua.h"
@@ -11,6 +14,7 @@
 
 #include <cstddef>
 #include <fstream>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -42,9 +46,22 @@ Target::~Target()
     childRuntime.reset();
 }
 
+static std::string getChunkFromSource(const std::string& sourcePath)
+{
+    return '@' + sourcePath;
+}
+
+static std::string getSourceFromChunk(const std::string& chunkname)
+{
+    if (chunkname.rfind('@', 0) == 0)
+        return chunkname.substr(1);
+    return chunkname;
+}
+
 Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
 {
     std::unique_lock lock(targetMutex);
+    sourcePath = normalizePath(sourcePath);
     std::optional<Breakpoint> preexistingBp = getBreakpointBySourceLineHelper(sourcePath, line);
     if (preexistingBp)
         return *preexistingBp;
@@ -168,6 +185,7 @@ std::optional<Breakpoint> Target::getBreakpointBySourceLineHelper(std::string so
 std::optional<Breakpoint> Target::getBreakpointBySourceLine(std::string source, int line) const
 {
     std::unique_lock lock(targetMutex);
+    source = normalizePath(source);
     return getBreakpointBySourceLineHelper(source, line);
 }
 
@@ -251,19 +269,57 @@ std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> Target::modifyPendin
     return {installedBpsCallback, uninstalledBpsCallback};
 }
 
-bool Target::launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config)
+std::vector<std::string> Target::getLoadedSources()
+{
+    std::scoped_lock lock(targetMutex);
+    std::vector<std::string> sources;
+    sources.reserve(loadedSources.size());
+    for (auto& [path, _] : loadedSources)
+        sources.emplace_back(path);
+    return sources;
+}
+
+bool Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     std::vector<Breakpoint> installedBps;
     std::vector<Breakpoint> uninstalledBps;
     {
-        std::lock_guard lock(targetMutex);
+        std::scoped_lock lock(targetMutex);
+        sourcePath = normalizePath(sourcePath);
         // launch() cannot be called twice from the same target, so we assert in
         // debug mode and return false when we are in release mode.
         LUTE_ASSERT(!launched);
         if (launched)
             return false;
         childRuntime = std::make_unique<Runtime>(parentRuntime.reporter, true);
-        setupState(*childRuntime, nullptr);
+        // Set up require system before launch.
+        Luau::CompileOptions debugOptions;
+        debugOptions.optimizationLevel = 1;
+        debugOptions.debugLevel = 2;
+        std::function<void(lua_State * L, const std::string& chunkName)> onChunkLoad = [this](lua_State* ML, const std::string& chunkName)
+        {
+            std::string source = getSourceFromChunk(chunkName);
+            std::vector<Breakpoint> installed;
+            std::vector<Breakpoint> uninstalled;
+            {
+                std::scoped_lock lock(targetMutex);
+                // this strips the potential leading @ from the chunkName for consistency when returning to DAP
+                loadedSources[source] = std::make_shared<Ref>(ML, -1);
+                std::tie(installed, uninstalled) = modifyPendingBreakpoints(ML);
+            }
+            for (auto& bp : installed)
+                launchConfig.onBreakpointInstall(bp);
+            for (auto& bp : uninstalled)
+                launchConfig.onBreakpointUninstall(bp);
+        };
+        requireCtx = std::make_unique<RequireCtx>(std::make_unique<RequireVfs>(), debugOptions, onChunkLoad);
+        setupState(
+            *childRuntime,
+            [this](lua_State* L)
+            {
+                luaopen_require(L, requireConfigInit, requireCtx.get());
+            }
+        );
         launchConfig = config;
 
         std::ifstream file(sourcePath);
@@ -273,14 +329,19 @@ bool Target::launch(const std::string& sourcePath, const std::vector<std::string
             return false;
         }
         std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        Luau::CompileOptions debugOptions = {};
-        debugOptions.optimizationLevel = 1;
-        debugOptions.debugLevel = 2;
         std::string bytecode = Luau::compile(source, debugOptions);
         lua_State* thread = lua_newthread(childRuntime->GL);
         luaL_sandboxthread(thread);
-        luau_load(thread, sourcePath.c_str(), bytecode.c_str(), bytecode.size(), 0);
+
+        std::string chunkname = getChunkFromSource(sourcePath);
+        // TODO: surface compilation errors to the user when debugging.
+        if (luau_load(thread, chunkname.c_str(), bytecode.c_str(), bytecode.size(), 0) != 0)
+        {
+            childRuntime.reset();
+            return false;
+        }
         loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
+
         std::tie(installedBps, uninstalledBps) = modifyPendingBreakpoints(thread);
         for (const std::string& arg : args)
             lua_pushstring(thread, arg.c_str());
@@ -327,8 +388,8 @@ void Target::installBpHitCallback()
             target->parentRuntime.reporter.reportError(Luau::format("breakpoint hit at line %d could not find a runtime source", line));
             return;
         }
-        std::string source = info.source;
-        std::optional<Breakpoint> bp = target->getBreakpointBySourceLineHelper(source, line);
+        std::string chunkname = info.source;
+        std::optional<Breakpoint> bp = target->getBreakpointBySourceLineHelper(getSourceFromChunk(chunkname), line);
         // Only stop execution on installed breakpoints; otherwise, don't stop.
         if (bp && bp->status == BreakpointStatus::Installed)
         {
@@ -351,7 +412,7 @@ void Target::installBpHitCallback()
             // It is normal to hit breakpoints that are pending uninstall but not normal
             // to hit any other type of breakpoint so we error in those cases.
             target->parentRuntime.reporter.reportError(
-                Luau::format("breakpoint hit at line %d in %s could not be found in breakpoint map", line, source.c_str())
+                Luau::format("breakpoint hit at line %d in %s could not be found in breakpoint map", line, chunkname.c_str())
             );
         }
     };

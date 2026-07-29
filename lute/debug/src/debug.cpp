@@ -175,6 +175,22 @@ static int target_getBreakpointBySourceLine(lua_State* L)
     return pushBreakpoint(L, *bp);
 }
 
+// target.getLoadedSources()
+// returns a table of strings
+static int target_getLoadedSources(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    std::vector<std::string> sources = target->getLoadedSources();
+    checkStack(L, 2);
+    lua_createtable(L, sources.size(), 0);
+    for (int i = 0; i < (int)sources.size(); i++)
+    {
+        lua_pushstring(L, sources[i].c_str());
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
 {
     lua_getfield(L, tableIndex, field);
@@ -297,7 +313,7 @@ static int target_pauseProcess(lua_State* L)
     return 1;
 }
 
-// debugger.mewTarget()
+// debugger.newTarget()
 // returns Target
 static int debug_newTarget(lua_State* L)
 {
@@ -319,6 +335,7 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"launch", debug::target_launch},
     {"continueProcess", debug::target_continueProcess},
     {"pauseProcess", debug::target_pauseProcess},
+    {"getLoadedSources", debug::target_getLoadedSources},
 };
 
 static void initializeTarget(lua_State* L)

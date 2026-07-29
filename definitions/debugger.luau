@@ -9,6 +9,7 @@ export type BreakpointStatus = "pendingInstall" | "pendingUninstall" | "installe
 export type Breakpoint = {
 	id: number,
 	line: number,
+	--- this source path will use forward slashes
 	sourcePath: string,
 	status: BreakpointStatus,
 }
@@ -43,6 +44,8 @@ export type Target = {
 	getBreakpointById: (self: Target, id: number) -> Breakpoint?,
 	--- Get a breakpoint at a `sourcePath` at a given line. Returns `nil` if not found.
 	getBreakpointBySourceLine: (self: Target, sourcePath: string, line: number) -> Breakpoint?,
+	--- Gets all Luau sources that have been loaded onto the debugger, with sources using forward slashes.
+	getLoadedSources: (self: Target) -> { string },
 	--- Launch a Luau script at at `sourcePath` with the relevant `args` and callbacks.
 	--- Returns whether the script could be launched.
 	launch: (self: Target, sourcePath: string, args: { string }?, config: LaunchConfig?) -> boolean,
