@@ -733,7 +733,7 @@ bool Target::step(StepType type)
             lock.unlock();
             // Since pausing actually only happens when the step callback runs we have a callback
             if (target->launchConfig.onStepStop)
-                target->launchConfig.onStepStop(stepInfo.type);
+                target->launchConfig.onStepStop(stepInfo);
             for (auto& bp : installed)
                 target->launchConfig.onBreakpointInstall(bp);
             for (auto& bp : uninstalled)
