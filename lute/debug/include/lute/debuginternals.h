@@ -54,7 +54,15 @@ struct LaunchConfig
     std::function<void(const Thread& thread, const Breakpoint& bp)> onBreakpointHit;
     std::function<void(bool success)> onExit;
     std::function<void(const Thread& thread)> onPause;
+    std::function<void()> onStepStop;
     std::function<void(const std::string& message, const std::string& source, int line)> onPrint;
+};
+
+enum class StepType
+{
+    StepOver,
+    StepIn,
+    StepOut,
 };
 
 struct Target
@@ -100,6 +108,9 @@ struct Target
     bool launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
     bool pauseProcess();
+    bool step(StepType type);
+
+    int getLine();
 
 private:
     // targetMutex protects the entire Target, since Target can be accessed from the main thread
@@ -127,6 +138,7 @@ private:
     // our stopped thread that we need to requeue when we continue
     lua_State* stoppedThread = nullptr;
     std::shared_ptr<Ref> stoppedThreadRef;
+    int stoppedLine = -1;
 
     // for require contexts
     std::unique_ptr<RequireCtx> requireCtx;
@@ -136,13 +148,19 @@ private:
     std::unordered_map<lua_State*, Thread> stateToThread; // lua_State* -> thread information about that state
     std::unordered_map<int, lua_State*> threadIdToState;  // thread id -> lua_State*
 
+    // only set when stepping
+    std::function<bool(int currentDepth, int currentLine)> stepPredicate;
+
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
     std::optional<Breakpoint> getBreakpointByIdHelper(int breakpointId) const;
+    void continueProcessHelper(bool isStepping);
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
     bool uninstallBreakpoint(lua_State* L, Breakpoint& bp);
     std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> modifyPendingBreakpoints(lua_State* L);
+
+    void computeStoppedLine(lua_State* L);
 
     void installBpHitCallback();
     void installExitCallback();
