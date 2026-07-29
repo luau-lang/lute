@@ -299,4 +299,74 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(prints[2].msg, "custom_value\n")
 		check.eq(prints[2].line, 7)
 	end)
+	-- this test case focuses on stepping
+	suite:case("multisource", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/step.luau"))
+		target:setBreakpoint(mainPath, 9)
+		local bpHit = false
+		local stepsDone = 0
+		local onFinished = false
+		local targetLaunched = target:launch(mainPath, {}, {
+			onStepStop = function(info)
+				stepsDone += 1
+			end,
+			onBreakpointHit = function(bp)
+				bpHit = true
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.that(targetLaunched)
+		check.eq(
+			waitUntil(function()
+				return bpHit
+			end),
+			true
+		)
+		check.eq(target:getLine(), 9)
+		target:step("stepIn")
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 1
+			end),
+			true
+		)
+		check.eq(target:getLine(), 10)
+		target:stepIn()
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 2
+			end),
+			true
+		)
+		check.eq(target:getLine(), 2)
+		target:stepOut()
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 3
+			end),
+			true
+		)
+		check.eq(target:getLine(), 11)
+		target:stepOver()
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 4
+			end),
+			true
+		)
+		check.eq(target:getLine(), 12)
+		target:continueProcess()
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+	end)
 end)

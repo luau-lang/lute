@@ -412,7 +412,7 @@ TEST_SUITE("Debug")
         CHECK(target.getLine() == 2);
         stepPromise = std::promise<void>{};
         stepFuture = stepPromise.get_future();
-        // this steps out of function f
+        // this steps out of function to the next line in the caller
         stepped = target.stepOut();
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);

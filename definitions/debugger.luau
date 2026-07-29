@@ -76,9 +76,9 @@ export type Target = {
 	--- Pauses a target script if it is running. Return `true` if the target was successfully paused
 	--- and `false` if it was not.
 	pauseProcess: (self: Target) -> boolean,
-	--- Steps into the next line of the code, including into a function if the line contains a function.
+	--- Steps in the code, utilziing a certain step type `type`.
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
-	stepIn: (self: Target) -> boolean,
+	step: (self: Target, type: StepType) -> boolean,
 	--- Steps into the next line of the code, including into a function if the line contains a function.
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
 	stepIn: (self: Target) -> boolean,
@@ -89,7 +89,7 @@ export type Target = {
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
 	stepOut: (self: Target) -> boolean,
 	--- Gets our current line of execution when we are stopped.
-	--- Returns our current line or -1 if we are not stopped.
+	--- Returns -1 if we are not stopped.
 	getLine: (self: Target) -> number,
 	--- Gets a list of all Luau coroutines that are being used by the script.
 	getThreads: (self: Target) -> { Thread },
