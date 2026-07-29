@@ -45,10 +45,10 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 	local ioSession = dapStream.makeDapStreamSession(reader, writer)
 	local target = debugger.newTarget()
 	local launchCallbacks: debugger.LaunchConfig = {
-		onBreakpointHit = function(bp: debugger.Breakpoint)
+		onBreakpointHit = function(thread: debugger.Thread, bp: debugger.Breakpoint)
 			ioSession.writeEvent("stopped", {
 				reason = "breakpoint",
-				threadId = 1,
+				threadId = thread.id,
 				hitBreakpointIds = { bp.id },
 			})
 		end,
@@ -66,10 +66,10 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeEvent("terminated")
 		end,
 		-- we need to give a thread ID upon pausing for VSCode UI
-		onPause = function()
+		onPause = function(thread: debugger.Thread)
 			ioSession.writeEvent("stopped", {
 				reason = "pause",
-				threadId = 1,
+				threadId = thread.id,
 			})
 		end,
 	}
@@ -141,12 +141,17 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				sources = dapSources,
 			})
-		-- dummy handler for threads
 		elseif command == "threads" then
+			local threads = target:getThreads()
+			local dapThreads = {}
+			for _, thread in threads do
+				table.insert(dapThreads, {
+					id = thread.id,
+					name = thread.name,
+				})
+			end
 			ioSession.writeResponse(reqSeq, true, command, nil, {
-				threads = {
-					{ id = 1, name = "main thread" },
-				},
+				threads = dapThreads,
 			})
 		-- dummy handler for stackTrace
 		elseif command == "stackTrace" then
@@ -154,7 +159,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				stackFrames = {
 					{
-						id = 1,
+						id = 0,
 						name = "main",
 						source = { path = launchPath.program },
 						line = 1,
