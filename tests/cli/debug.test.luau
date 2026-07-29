@@ -123,9 +123,9 @@ test.suite("LuteDebug", function(suite)
 		dapStream.dapLoop(reader, write)
 		checkEquivalence(getWritten())
 	end)
-	-- tests specifically for DAP set breakpoints format
-	suite:case("luteDebugBreakpoints", function(assert)
-		local fixturePath = path.format(path.join(process.cwd(), "tests/src/debug/simple.luau"))
+	-- tests DAP setBreakpoints and loadedSources
+	suite:case("luteDebugBreakpointsSources", function(assert)
+		local fixturePath = path.format(path.join(process.cwd(), "tests/src/debug/loop.luau"))
 		local inMsg1 = makeMessage({
 			seq = 1,
 			type = "request",
@@ -136,49 +136,68 @@ test.suite("LuteDebug", function(suite)
 			seq = 2,
 			type = "request",
 			command = "setBreakpoints",
-			arguments = { source = { path = fixturePath }, breakpoints = { { line = 2 } } },
+			arguments = { source = { path = fixturePath }, breakpoints = { { line = 4 } } },
 		})
-		local inMsg3 = makeMessage({ seq = 3, type = "request", command = "terminate" })
-		local input = inMsg1 .. inMsg2 .. inMsg3
+		local inMsg3 = makeMessage({ seq = 3, type = "request", command = "configurationDone" })
+		local inMsg4 =
+			makeMessage({ seq = 4, type = "request", command = "launch", arguments = { program = fixturePath } })
+		local inMsg5 = makeMessage({ seq = 5, type = "request", command = "loadedSources" })
+		local inMsg6 = makeMessage({ seq = 6, type = "request", command = "terminate" })
+		local input = inMsg1 .. inMsg2 .. inMsg3 .. inMsg4 .. inMsg5 .. inMsg6
 
 		local write, getWritten, _ = makeWriter()
 		dapStream.dapLoop(makeChunkReader(input, #input), write)
 		local written = getWritten()
 
 		local msg1, rest1 = parseJsonMessage(written)
-		assert.eq(msg1.type, "response")
 		assert.eq(msg1.command, "initialize")
 		assert.eq(msg1.success, true)
 
 		local msg2, rest2 = parseJsonMessage(rest1)
-		assert.eq(msg2.type, "event")
 		assert.eq(msg2.event, "initialized")
 
 		local msg3, rest3 = parseJsonMessage(rest2)
-		assert.eq(msg3.type, "response")
 		assert.eq(msg3.command, "setBreakpoints")
 		assert.eq(msg3.success, true)
-		local body = msg3.body :: json.Object
-		local bps = json.asArray(body.breakpoints) :: json.Array
+		local bpBody = msg3.body :: json.Object
+		local bps = json.asArray(bpBody.breakpoints) :: json.Array
 		assert.that(bps ~= nil)
 		assert.eq(#bps, 1)
 		local bp = json.asObject(bps[1]) :: json.Object
 		assert.that(bp ~= nil)
 		assert.eq(bp.verified, false)
-		assert.eq(bp.line, 2)
+		assert.eq(bp.line, 4)
 		assert.eq(bp.reason, "pending")
 
 		local msg4, rest4 = parseJsonMessage(rest3)
-		assert.eq(msg4.type, "response")
-		assert.eq(msg4.command, "terminate")
+		assert.eq(msg4.command, "configurationDone")
 		assert.eq(msg4.success, true)
 
-		local msg5, _ = parseJsonMessage(rest4)
-		assert.eq(msg5.type, "event")
-		assert.eq(msg5.event, "terminated")
+		local msg5, rest5 = parseJsonMessage(rest4)
+		assert.eq(msg5.command, "launch")
+		assert.eq(msg5.success, true)
+
+		local msg6, rest6 = parseJsonMessage(rest5)
+		assert.eq(msg6.command, "loadedSources")
+		assert.eq(msg6.success, true)
+		local srcBody = msg6.body :: json.Object
+		local sources = json.asArray(srcBody.sources) :: json.Array
+		assert.that(sources ~= nil)
+		assert.eq(#sources, 1)
+		local source = json.asObject(sources[1]) :: json.Object
+		assert.that(source ~= nil)
+		assert.eq(source.path, fixturePath)
+		assert.eq(source.name, "loop.luau")
+
+		local msg7, rest7 = parseJsonMessage(rest6)
+		assert.eq(msg7.command, "terminate")
+		assert.eq(msg7.success, true)
+
+		local msg8, _ = parseJsonMessage(rest7)
+		assert.eq(msg8.event, "terminated")
 	end)
 	-- tests specifically for DAP unknown format
-	suite:case("unknown", function(assert)
+	suite:case("luteDebugUnknown", function(assert)
 		local inMsg1 = makeMessage({
 			seq = 1,
 			type = "request",
@@ -199,10 +218,12 @@ test.suite("LuteDebug", function(suite)
 		assert.eq(msg1.command, "bad")
 		assert.eq(msg1.message, "unsupported command: bad")
 		assert.eq(msg1.success, false)
+
 		local msg2, rest2 = parseJsonMessage(rest1)
 		assert.eq(msg2.type, "response")
 		assert.eq(msg2.command, "disconnect")
 		assert.eq(msg2.success, true)
+
 		local msg3, _ = parseJsonMessage(rest2)
 		assert.eq(msg3.type, "event")
 		assert.eq(msg3.event, "terminated")
