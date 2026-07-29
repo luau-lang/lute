@@ -85,12 +85,16 @@ test.suite("LuteDebug", function(suite)
 			assert.eq(msg4.request_seq, 3)
 			assert.eq(msg4.seq, 4)
 
-			local msg5, _ = parseJsonMessage(rest4)
+			local msg5, rest5 = parseJsonMessage(rest4)
 			assert.eq(msg5.type, "response")
 			assert.eq(msg5.command, "terminate")
 			assert.eq(msg5.success, true)
 			assert.eq(msg5.request_seq, 4)
 			assert.eq(msg5.seq, 5)
+
+			local msg6, _ = parseJsonMessage(rest5)
+			assert.eq(msg6.type, "event")
+			assert.eq(msg6.event, "terminated")
 		end
 
 		-- check for multiple different block sizes of the reader
@@ -172,6 +176,36 @@ test.suite("LuteDebug", function(suite)
 		local msg5, _ = parseJsonMessage(rest4)
 		assert.eq(msg5.type, "event")
 		assert.eq(msg5.event, "terminated")
+	end)
+	-- tests specifically for DAP unknown format
+	suite:case("unknown", function(assert)
+		local inMsg1 = makeMessage({
+			seq = 1,
+			type = "request",
+			command = "bad",
+		})
+		local inMsg2 = makeMessage({
+			seq = 2,
+			type = "request",
+			command = "disconnect",
+		})
+		local input = inMsg1 .. inMsg2
+		local write, getWritten, _ = makeWriter()
+		dapStream.dapLoop(makeChunkReader(input, #input), write)
+		local written = getWritten()
+
+		local msg1, rest1 = parseJsonMessage(written)
+		assert.eq(msg1.type, "response")
+		assert.eq(msg1.command, "bad")
+		assert.eq(msg1.message, "unsupported command: bad")
+		assert.eq(msg1.success, false)
+		local msg2, rest2 = parseJsonMessage(rest1)
+		assert.eq(msg2.type, "response")
+		assert.eq(msg2.command, "disconnect")
+		assert.eq(msg2.success, true)
+		local msg3, _ = parseJsonMessage(rest2)
+		assert.eq(msg3.type, "event")
+		assert.eq(msg3.event, "terminated")
 	end)
 	suite:case("luteDebugHelpMessage", function(assert)
 		local result = process.run({ lutePath, "debug", "-h" })
