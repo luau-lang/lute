@@ -255,6 +255,7 @@ TEST_SUITE("Debug")
         CHECK(target.getLine() == 2);
         // continue execution
         continuedProcess = target.continueProcess();
+        CHECK(target.getLine() == -1);
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }

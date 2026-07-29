@@ -298,6 +298,17 @@ static int target_stepOver(lua_State* L)
     return 1;
 }
 
+// target.getLine()
+// returns a integer
+static int target_getLine(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    int line = target->getLine();
+    checkStack(L, 1);
+    lua_pushinteger(L, line);
+    return 1;
+}
+
 // target.getThreads()
 // returns a table of Threads
 static int target_getThreads(lua_State* L)
@@ -539,6 +550,7 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"stepIn", debug::target_stepIn},
     {"stepOut", debug::target_stepOut},
     {"stepOver", debug::target_stepOver},
+    {"getLine", debug::target_getLine},
     {"getThreads", debug::target_getThreads},
     {"getMainThread", debug::target_getMainThread},
     {"getStoppedThread", debug::target_getStoppedThread},
