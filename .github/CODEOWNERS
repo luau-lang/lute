@@ -7,3 +7,8 @@
 # Package management
 /lute/cli/commands/pkg/ @luau-lang/lute-pkg-maintainers
 /tests/cli/pkg/ @luau-lang/lute-pkg-maintainers
+
+# Debugger
+/lute/cli/commands/debug/ @luau-lang/lute-debug-maintainers
+/tests/cli/debug.test.luau @luau-lang/lute-debug-maintainers
+

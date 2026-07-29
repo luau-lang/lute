@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lute/require.h"
 #include "lute/runtime.h"
 
 #include "Luau/DenseHash.h"
@@ -27,6 +28,7 @@ enum class BreakpointStatus
 struct Breakpoint
 {
     int id;
+    // This will use forward slashes instead of backwards.
     std::string sourcePath;
     int line;
     BreakpointStatus status;
@@ -35,6 +37,8 @@ struct Breakpoint
 
 struct LaunchConfig
 {
+    // onBreakpointInstall is called whenever an installation attempt is actually made, regardless
+    // of whether it resulted in being installed or the bp being invalid.
     std::function<void(const Breakpoint& bp)> onBreakpointInstall;
     std::function<void(const Breakpoint& bp)> onBreakpointUninstall;
     std::function<void(const Breakpoint& bp)> onBreakpointHit;
@@ -47,12 +51,16 @@ struct Target
     explicit Target(Runtime& parentRuntime);
     ~Target();
 
+    // Get list of sources, with sources using forward slahes consistently.
+    // Our principle in path format is that we accept any path format as input but will
+    // internally use and then output with paths that use exclusively forward slashes.
+    std::vector<std::string> getLoadedSources();
+
     // Setting breakpoints is a two step process. We add them to our Target. If they
     // involve a source that has already been loaded by the VM, we attempt to install that
     // breakpoint. Otherwise, it exists as a pending breakpoint until new sources are loaded.
     // We do this because clients may 1) configure breakpoints before launching executables
     // 2) we load sources dynamically with @require that a client may want to debug.
-    // TODO: implement 2
     //
     // Guarantees for when breakpoints are installed:
     // Any breakpoint that is placed when the target process is paused (including before launch) and that
@@ -67,7 +75,7 @@ struct Target
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
     // For actively running scripts:
-    bool launch(const std::string& sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
+    bool launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
     bool pauseProcess();
 
@@ -95,6 +103,9 @@ private:
 
     // our stopped thread that we need to requeue when we continue
     lua_State* stoppedThread = nullptr;
+
+    // for require contexts
+    std::unique_ptr<RequireCtx> requireCtx;
 
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
