@@ -7,6 +7,10 @@ local process = require("@std/process")
 local lutePath = path.format(process.execPath())
 local USAGE = "Usage: lute debug serve"
 
+local function normalizePath(p: string): string
+	return (p:gsub("\\", "/"))
+end
+
 local function makeMessage(obj: { [string]: any }): string
 	local body = json.serialize(obj)
 	return `Content-Length: {#body}\r\n\r\n{body}`
@@ -186,7 +190,7 @@ test.suite("LuteDebug", function(suite)
 		assert.eq(#sources, 1)
 		local source = json.asObject(sources[1]) :: json.Object
 		assert.that(source ~= nil)
-		assert.eq(source.path, fixturePath)
+		assert.eq(source.path, normalizePath(fixturePath))
 		assert.eq(source.name, "loop.luau")
 
 		local msg7, rest7 = parseJsonMessage(rest6)
