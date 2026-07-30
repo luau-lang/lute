@@ -6,7 +6,7 @@ local function f(x: int)
 	return tot
 end
 
-local a = 0
+local _a = 0
 local ret = f(5)
 local ret2 = f(9)
-a += ret + ret2
+_a += ret + ret2
