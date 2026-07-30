@@ -309,10 +309,10 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local stepsDone = 0
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
-			onStepStop = function(info)
+			onStepStop = function(_info)
 				stepsDone += 1
 			end,
-			onBreakpointHit = function(bp)
+			onBreakpointHit = function(_bp)
 				bpHit = true
 			end,
 			onExit = function(status)
