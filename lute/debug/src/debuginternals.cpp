@@ -687,36 +687,26 @@ bool Target::step(StepType type)
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
         std::unique_lock lock(target->targetMutex);
         if (L != target->stoppedThread)
-        {
             return;
-        }
         int line = ar->currentline;
         int depth = lua_stackdepth(L);
         if (!target->stepInfo)
-        {
             target->parentRuntime.reporter.reportError(Luau::format("target lacks stepping info even while stepping at line %d", line));
-        }
         bool stopStepping = false;
         StepInfo stepInfo = *target->stepInfo;
         switch (stepInfo.type)
         {
         case StepType::StepIn:
             if (line != stepInfo.startLine || depth != stepInfo.startDepth)
-            {
                 stopStepping = true;
-            }
             break;
         case StepType::StepOver:
             if (depth <= stepInfo.startDepth && line != stepInfo.startLine)
-            {
                 stopStepping = true;
-            }
             break;
         case StepType::StepOut:
             if (depth < stepInfo.startDepth)
-            {
                 stopStepping = true;
-            }
             break;
         }
         if (stopStepping)
