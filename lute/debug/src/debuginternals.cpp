@@ -438,8 +438,8 @@ void Target::installBpHitCallback()
         }
         lua_Debug info = {};
         lua_getinfo(L, 0, "s", &info);
-        target->stoppedLine = ar->currentline;
         int line = ar->currentline;
+        target->stoppedLine = line;
         if (!info.source)
         {
             target->parentRuntime.reporter.reportError(Luau::format("breakpoint hit at line %d could not find a runtime source", line));
