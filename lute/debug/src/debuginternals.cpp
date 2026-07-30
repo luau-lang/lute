@@ -338,14 +338,19 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
                 launchConfig.onBreakpointUninstall(bp);
         };
         requireCtx = std::make_unique<RequireCtx>(std::make_unique<RequireVfs>(), debugOptions, onChunkLoad);
+        launchConfig = config;
         setupState(
             *childRuntime,
             [this](lua_State* L)
             {
                 luaopen_require(L, requireConfigInit, requireCtx.get());
+                if (launchConfig.onPrint)
+                {
+                    lua_pushcfunction(childRuntime->GL, replacePrint, "print");
+                    lua_setglobal(childRuntime->GL, "print");
+                }
             }
         );
-        launchConfig = config;
 
         std::ifstream file(sourcePath);
         if (!file.is_open())
@@ -464,6 +469,25 @@ void Target::installExitCallback()
             launchConfig.onExit(status == LUA_OK);
     };
     childRuntime->addThreadCompletionHandler(scriptThread, std::move(completion));
+}
+
+int Target::replacePrint(lua_State* L)
+{
+    Target* target = static_cast<Target*>(lua_callbacks(L)->userdata);
+    std::string msg = "";
+    int n = lua_gettop(L);
+    for (int i = 1; i <= n; i++)
+    {
+        if (i > 1)
+            msg += "\t";
+        const char* s = luaL_tolstring(L, i, nullptr);
+        if (s)
+            msg += s;
+        lua_pop(L, 1);
+    }
+    if (target && target->launchConfig.onPrint)
+        target->launchConfig.onPrint(msg);
+    return 0;
 }
 
 void Target::installThreadCallback()

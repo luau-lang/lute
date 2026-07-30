@@ -347,6 +347,21 @@ TEST_SUITE("Debug")
         CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
         CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
     }
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_printReplace")
+    {
+        std::string fixturePath = getDebugFixturePath("print.luau");
+        Target target(*runtime);
+        std::vector<std::string> prints;
+        config.onPrint = [&](std::string message) {
+            prints.emplace_back(message);
+        };
+        bool launched = target.launch(fixturePath, {}, config);
+        CHECK(launched);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(prints.size() == 2);
+        CHECK(prints[0] == "3\tabc\tfalse");
+        CHECK(prints[1] == "custom_value");
+    }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_threadTracking")
     {
