@@ -375,8 +375,8 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
 
         // thread initialization
         scriptThread = thread;
-        threadIdToState[threadId] = thread;
-        stateToThread[thread] = Thread(threadId, "Coroutine " + std::to_string(threadId));
+        threadIdToState.insert_or_assign(threadId, thread);
+        stateToThread.insert_or_assign(thread, Thread(threadId, "Coroutine " + std::to_string(threadId)));
         threadId++;
 
         lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
@@ -432,7 +432,7 @@ void Target::installBpHitCallback()
             target->stoppedThread = L;
             lua_break(L);
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-            debug::Thread thread = target->stateToThread[L];
+            debug::Thread thread = target->stateToThread.at(L);
             lock.unlock();
             if (target->launchConfig.onBreakpointHit)
                 target->launchConfig.onBreakpointHit(thread, bp.value());
@@ -477,15 +477,12 @@ void Target::installThreadCallback()
         // this means a thread is being garbage collected
         if (LP == nullptr)
         {
+
             if (auto it = target->stateToThread.find(L); it != target->stateToThread.end())
             {
                 int id = it->second.id;
                 target->stateToThread.erase(it);
-                if (auto it2 = target->threadIdToState.find(id); it2 != target->threadIdToState.end())
-                {
-                    target->threadIdToState.erase(it2);
-                }
-                else
+                if (target->threadIdToState.erase(id) == 0)
                 {
                     target->parentRuntime.reporter.reportError(Luau::format("userthread callback fired for unregistered thread id %d", id));
                 }
@@ -497,11 +494,20 @@ void Target::installThreadCallback()
         }
         else
         {
-            target->threadIdToState[target->threadId] = L;
-            target->stateToThread[L] = Thread(target->threadId, "Coroutine " + std::to_string(target->threadId));
+            target->threadIdToState.insert_or_assign(target->threadId, L);
+            target->stateToThread.insert_or_assign(L, Thread(target->threadId, "Coroutine " + std::to_string(target->threadId)));
             target->threadId++;
         }
     };
+}
+
+
+std::optional<Thread> Target::getMainThread() const
+{
+    std::unique_lock lock(targetMutex);
+    if (!launched)
+        return std::nullopt;
+    return stateToThread.at(scriptThread);
 }
 
 std::vector<Thread> Target::getThreads() const
@@ -568,7 +574,7 @@ bool Target::pauseProcess()
         target->paused = true;
         target->childRuntime->stopDebug();
         target->stoppedThread = L;
-        debug::Thread thread = target->stateToThread[L];
+        debug::Thread thread = target->stateToThread.at(L);
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
         lua_break(L);

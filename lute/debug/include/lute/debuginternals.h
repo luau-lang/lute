@@ -41,7 +41,6 @@ struct Thread
 {
     int id = -1;
     std::string name;
-    Thread() = default; // for unordered_map
     Thread(int id, std::string name);
     bool operator==(const Thread& other) const;
 };
@@ -92,6 +91,8 @@ struct Target
     // in issues when trying to pause. Similar methods that also run coroutines inline with our current execution will not work.
     // In contrast, in task.defer(), the coroutine is added to set of running coroutines but execution
     // is deferred. Our pause mechanism will then work correctly.
+    std::optional<Thread> getMainThread() const;
+    std::optional<Thread> getStoppedThread() const;
     std::vector<Thread> getThreads() const;
 
     // For actively running scripts:
