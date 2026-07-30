@@ -50,6 +50,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				reason = "breakpoint",
 				threadId = thread.id,
 				hitBreakpointIds = { bp.id },
+				allThreadsStopped = true,
 			})
 		end,
 		onBreakpointInstall = function(bp: debugger.Breakpoint)
@@ -70,6 +71,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeEvent("stopped", {
 				reason = "pause",
 				threadId = thread.id,
+				allThreadsStopped = true,
 			})
 		end,
 	}
