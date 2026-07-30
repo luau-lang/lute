@@ -390,6 +390,7 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 //     onExit(bool success) -> ()
 //     onPause(Thread thread) -> ()
 //     onPrint(string message, string source, int line) -> ()
+//     onStepStop() -> ()
 // }
 // returns boolean
 static int target_launch(lua_State* L)
