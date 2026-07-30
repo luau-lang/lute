@@ -64,6 +64,10 @@ export type Target = {
 	pauseProcess: (self: Target) -> boolean,
 	--- Gets a list of all Luau coroutines that are being used by the script.
 	getThreads: (self: Target) -> { Thread },
+	--- Gets the main thread of the script, returning nil if debugger is not launched
+	getMainThread: (self: Target) -> Thread?,
+	--- Gets the current stopped thread of the script, returning nil if debugger is not paused
+	getStoppedThread: (self: Target) -> Thread?,
 }
 
 --- Create a new Target handle on the current VM.

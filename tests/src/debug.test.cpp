@@ -359,12 +359,15 @@ TEST_SUITE("Debug")
             if (bp.id == bp1.id)
             {
                 CHECK(thread.id == 2);
+                auto stoppedThread = target.getStoppedThread();
+                REQUIRE(stoppedThread.has_value());
+                CHECK(stoppedThread->id == 2);
                 hitsBp1++;
                 const std::vector<Thread>& threads = target.getThreads();
                 maxThreadsSeen = std::max(maxThreadsSeen, (int)threads.size());
                 if (threads.size() == 3)
                 {
-                    Thread t0(1, "Coroutine 1");
+                    Thread t0(1, "Main Coroutine");
                     Thread t1(2, "Coroutine 2");
                     Thread t2(3, "Coroutine 3");
                     CHECK(std::find(threads.begin(), threads.end(), t0) != threads.end());
@@ -375,20 +378,30 @@ TEST_SUITE("Debug")
             else if (bp.id == bp2.id)
             {
                 CHECK(thread.id == 3);
+                auto stoppedThread = target.getStoppedThread();
+                REQUIRE(stoppedThread.has_value());
+                CHECK(stoppedThread->id == 3);
                 hitsBp2++;
             }
             else
             {
                 // after joining all threads, we only have one left over (the main coroutine)
+                auto stoppedThread = target.getStoppedThread();
+                REQUIRE(stoppedThread.has_value());
+                CHECK(stoppedThread->id == 1);
                 const std::vector<Thread>& threads = target.getThreads();
                 CHECK(thread.id == 1);
                 CHECK(threads.size() == 1);
-                CHECK(threads.at(0) == Thread(1, "Coroutine 1"));
+                CHECK(threads.at(0) == Thread(1, "Main Coroutine"));
             }
             target.continueProcess();
             // we shouldn't get threads when things are crunning
         };
         target.launch(fixturePath, {}, config);
+        auto mainThread = target.getMainThread();
+        REQUIRE(mainThread.has_value());
+        CHECK(mainThread->id == 1);
+        CHECK(mainThread->name == "Main Coroutine");
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         // over the course of execution, the maximum number of threads encountered should be 3
         CHECK(maxThreadsSeen == 3);

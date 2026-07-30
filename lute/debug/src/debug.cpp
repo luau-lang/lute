@@ -221,6 +221,38 @@ static int target_getThreads(lua_State* L)
     return 1;
 }
 
+// target.getMainThread()
+// returns Thread | nil
+static int target_getMainThread(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    std::optional<Thread> thread = target->getMainThread();
+    checkStack(L, 1);
+    if (!thread)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    return pushThread(L, *thread);
+}
+
+// target.getStoppedThread()
+// returns Thread | nil
+static int target_getStoppedThread(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    std::optional<Thread> thread = target->getStoppedThread();
+    checkStack(L, 1);
+    if (!thread)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    return pushThread(L, *thread);
+}
+
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
 {
     lua_getfield(L, tableIndex, field);
@@ -378,7 +410,9 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"continueProcess", debug::target_continueProcess},
     {"pauseProcess", debug::target_pauseProcess},
     {"getLoadedSources", debug::target_getLoadedSources},
-    {"getThreads", debug::target_getThreads}
+    {"getThreads", debug::target_getThreads},
+    {"getMainThread", debug::target_getMainThread},
+    {"getStoppedThread", debug::target_getStoppedThread},
 };
 
 static void initializeTarget(lua_State* L)

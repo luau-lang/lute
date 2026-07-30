@@ -376,7 +376,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         // thread initialization
         scriptThread = thread;
         threadIdToState.insert_or_assign(threadId, thread);
-        stateToThread.insert_or_assign(thread, Thread(threadId, "Coroutine " + std::to_string(threadId)));
+        stateToThread.insert_or_assign(thread, Thread(threadId, "Main Coroutine"));
         threadId++;
 
         lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
@@ -501,13 +501,21 @@ void Target::installThreadCallback()
     };
 }
 
-
 std::optional<Thread> Target::getMainThread() const
 {
     std::unique_lock lock(targetMutex);
     if (!launched)
         return std::nullopt;
     return stateToThread.at(scriptThread);
+}
+
+
+std::optional<Thread> Target::getStoppedThread() const
+{
+    std::unique_lock lock(targetMutex);
+    if (!launched || !paused)
+        return std::nullopt;
+    return stateToThread.at(stoppedThread);
 }
 
 std::vector<Thread> Target::getThreads() const

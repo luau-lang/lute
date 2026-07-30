@@ -227,10 +227,14 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local targetLaunched = target:launch(mainPath, {}, {
 			onBreakpointHit = function(thread, bp)
 				if bp.id == bp1.id then
+					local stoppedThread = assert(target:getStoppedThread())
+					check.eq(stoppedThread.id, 2)
 					check.eq(thread.id, 2)
 					check.eq(thread.name, "Coroutine 2")
 					bpHit1 += 1
 				else
+					local stoppedThread = assert(target:getStoppedThread())
+					check.eq(stoppedThread.id, 3)
 					check.eq(thread.id, 3)
 					check.eq(thread.name, "Coroutine 3")
 					bpHit2 += 1
@@ -247,6 +251,9 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end,
 		})
 		check.that(targetLaunched)
+		local stoppedThread = assert(target:getMainThread())
+		check.eq(stoppedThread.id, 1)
+		check.eq(stoppedThread.name, "Main Coroutine")
 		check.eq(
 			waitUntil(function()
 				return onFinished
