@@ -264,4 +264,31 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(bpHit2, 5)
 		check.eq(maxThreads, 3)
 	end)
+	-- this test case focuses on replacing print
+	suite:case("multisource", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/print.luau"))
+		local prints = {}
+		local onFinished = false
+		local targetLaunched = target:launch(mainPath, {}, {
+			onPrint = function(msg)
+				table.insert(prints, msg)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.that(targetLaunched)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+		check.eq(prints[1], "3\tabc\tfalse")
+		check.eq(prints[2], "custom_value")
+	end)
 end)
