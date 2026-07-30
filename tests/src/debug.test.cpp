@@ -367,12 +367,12 @@ TEST_SUITE("Debug")
                 maxThreadsSeen = std::max(maxThreadsSeen, (int)threads.size());
                 if (threads.size() == 3)
                 {
-                    Thread t0(1, "Main Coroutine");
-                    Thread t1(2, "Coroutine 2");
-                    Thread t2(3, "Coroutine 3");
-                    CHECK(std::find(threads.begin(), threads.end(), t0) != threads.end());
+                    Thread t1(1, "Main Coroutine");
+                    Thread t2(2, "Coroutine 2");
+                    Thread t3(3, "Coroutine 3");
                     CHECK(std::find(threads.begin(), threads.end(), t1) != threads.end());
                     CHECK(std::find(threads.begin(), threads.end(), t2) != threads.end());
+                    CHECK(std::find(threads.begin(), threads.end(), t3) != threads.end());
                 }
             }
             else if (bp.id == bp2.id)
