@@ -47,6 +47,7 @@ Target::~Target()
     // any infinite/long-running coroutines.
     if (launched)
     {
+        childRuntime->continueDebug();
         lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
         cb->interrupt = [](lua_State* L, int gc)
         {
