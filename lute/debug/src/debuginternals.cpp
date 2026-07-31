@@ -485,8 +485,18 @@ int Target::replacePrint(lua_State* L)
             msg += s;
         lua_pop(L, 1);
     }
+    msg += '\n';
+    lua_Debug ar;
+    lua_getinfo(L, 1, "sl", &ar);
     if (target && target->launchConfig.onPrint)
-        target->launchConfig.onPrint(msg);
+    {
+        std::string source;
+        if (ar.source)
+            source = getSourceFromChunk(ar.source);
+        else
+            source = "";
+        target->launchConfig.onPrint(msg, source, ar.currentline);
+    }
     return 0;
 }
 

@@ -265,15 +265,16 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(maxThreads, 3)
 	end)
 	-- this test case focuses on replacing print
-	suite:case("multisource", function(check)
+	suite:case("print", function(check)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/print.luau"))
 		local prints = {}
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
-			onPrint = function(msg)
-				table.insert(prints, msg)
+			onPrint = function(msg, source, line)
+				table.insert(prints, { msg = msg, line = line })
+				check.eq(source, normalizePath(mainPath))
 			end,
 			onExit = function(status)
 				if status then
@@ -288,7 +289,10 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
-		check.eq(prints[1], "3\tabc\tfalse")
-		check.eq(prints[2], "custom_value")
+		check.eq(#prints, 2)
+		check.eq(prints[1].msg, "3\tabc\tfalse\n")
+		check.eq(prints[1].line, 5)
+		check.eq(prints[2].msg, "custom_value\n")
+		check.eq(prints[2].line, 6)
 	end)
 end)

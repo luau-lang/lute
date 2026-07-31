@@ -54,7 +54,7 @@ struct LaunchConfig
     std::function<void(const Thread& thread, const Breakpoint& bp)> onBreakpointHit;
     std::function<void(bool success)> onExit;
     std::function<void(const Thread& thread)> onPause;
-    std::function<void(const std::string& message)> onPrint;
+    std::function<void(const std::string& message, const std::string& source, int line)> onPrint;
 };
 
 struct Target
