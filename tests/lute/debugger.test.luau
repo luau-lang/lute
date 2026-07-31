@@ -269,11 +269,15 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/print.luau"))
-		local prints = {}
+		local prints: { { read msg: string, read line: number } } = {}
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
 			onPrint = function(msg, source, line)
-				table.insert(prints, { msg = msg, line = line })
+				local print = {
+					msg = msg,
+					line = line,
+				}
+				table.insert(prints, print)
 				check.eq(source, normalizePath(mainPath))
 			end,
 			onExit = function(status)

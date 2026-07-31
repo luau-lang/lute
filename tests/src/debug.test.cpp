@@ -362,8 +362,8 @@ TEST_SUITE("Debug")
         CHECK(launched);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         CHECK(prints.size() == 2);
-        CHECK(prints[0] == std::make_pair("3\tabc\tfalse\n", 5));
-        CHECK(prints[1] == std::make_pair("custom_value\n", 6));
+        CHECK(prints[0] == std::make_pair(std::string("3\tabc\tfalse\n"), 6));
+        CHECK(prints[1] == std::make_pair(std::string("custom_value\n"), 7));
     }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_threadTracking")
