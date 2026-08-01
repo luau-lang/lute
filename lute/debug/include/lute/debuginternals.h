@@ -120,8 +120,7 @@ struct Target
     bool stepOver();
     bool stepOut();
 
-
-    int getLine();
+    int getLine() const;
 
 private:
     // targetMutex protects the entire Target, since Target can be accessed from the main thread
