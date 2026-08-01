@@ -1,3 +1,5 @@
+#include "Luau/StringUtils.h"
+
 #include <chrono>
 #include <future>
 #include <thread>
@@ -75,8 +77,8 @@ TEST_SUITE("Debug")
         config.onBreakpointInstall = onBreakpointInstall;
         config.onBreakpointHit = onBreakpointHit;
 
-        bool launched = target.launch(fixturePath, {}, config);
-        CHECK(launched);
+        std::optional<std::string> error = target.launch(fixturePath, {}, config);
+        CHECK(!error);
 
         // check breakpoints before launch are immediately installed after launch
         CHECK(target.getBreakpoints().size() == 3);
@@ -155,8 +157,8 @@ TEST_SUITE("Debug")
 
         config.onBreakpointUninstall = onBreakpointUninstall;
         config.onBreakpointHit = onBreakpointHit;
-        bool launched = target.launch(fixturePath, {}, config);
-        CHECK(launched);
+        std::optional<std::string> error = target.launch(fixturePath, {}, config);
+        CHECK(!error);
 
         checkBreakpointId(target, bp3.id, BreakpointStatus::Invalid, fixturePath, -1);
         // check invalid breakpoint is installed instantenously
@@ -233,8 +235,8 @@ TEST_SUITE("Debug")
                 hitPromise2.set_value();
         };
 
-        bool launched = target.launch(fixturePath, {}, config);
-        CHECK(launched);
+        std::optional<std::string> error = target.launch(fixturePath, {}, config);
+        CHECK(!error);
         // check we have hit the breakpoint 1
         REQUIRE(hitFuture1.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
         // check that we actually stopped at the breakpoint by having not hit the next breakpoint
@@ -281,8 +283,8 @@ TEST_SUITE("Debug")
         {
             numPause++;
         };
-        bool launched = target.launch(fixturePath, {}, config);
-        CHECK(launched);
+        std::optional<std::string> error = target.launch(fixturePath, {}, config);
+        CHECK(!error);
         // we hit the breakpoint and should be paused now.
         REQUIRE(hitFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -335,8 +337,8 @@ TEST_SUITE("Debug")
                 bpHit2++;
             target.continueProcess();
         };
-        bool launched = target.launch(mainPath, {}, config);
-        CHECK(launched);
+        std::optional<std::string> error = target.launch(mainPath, {}, config);
+        CHECK(!error);
         // check we are done
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         CHECK(bpHit1 == 5);
@@ -346,6 +348,18 @@ TEST_SUITE("Debug")
         CHECK(sources.size() == 2);
         CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
         CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
+    }
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_badlaunch")
+    {
+        std::string badPath = getDebugFixturePath("bad.luau");
+        std::string mainPath = getDebugFixturePath("compile_error.txt");
+        Target target(*runtime);
+        std::optional<std::string> error = target.launch(badPath, {}, config);
+        REQUIRE(error.has_value());
+        CHECK(error == Luau::format("could not open file: %s", badPath.c_str()));
+        error = target.launch(mainPath, {}, config);
+        REQUIRE(error.has_value());
+        CHECK(error == Luau::format("%s:1: Expected identifier when parsing expression, got \')\'", mainPath.c_str()));
     }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_printReplace")

@@ -49,7 +49,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -123,7 +123,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		-- we expect this breakpoint to be immediately installed
 		bpGet = assert(target:getBreakpointById(bp3.id))
 		check.eq(bpGet.id, bp3.id)
@@ -157,7 +157,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -200,7 +200,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished

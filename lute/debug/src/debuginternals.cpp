@@ -307,7 +307,7 @@ std::vector<std::string> Target::getLoadedSources()
     return sources;
 }
 
-bool Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
+std::optional<std::string> Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     std::vector<Breakpoint> installedBps;
     std::vector<Breakpoint> uninstalledBps;
@@ -318,7 +318,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         // debug mode and return false when we are in release mode.
         LUTE_ASSERT(!launched);
         if (launched)
-            return false;
+            return "target already launched";
         childRuntime = std::make_unique<Runtime>(parentRuntime.reporter, true);
         // Set up require system before launch.
         Luau::CompileOptions debugOptions;
@@ -359,7 +359,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         if (!file.is_open())
         {
             childRuntime.reset();
-            return false;
+            return Luau::format("could not open file: %s", sourcePath.c_str());
         }
         std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         std::string bytecode = Luau::compile(source, debugOptions);
@@ -367,11 +367,11 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         luaL_sandboxthread(thread);
 
         std::string chunkname = getChunkFromSource(sourcePath);
-        // TODO: surface compilation errors to the user when debugging.
         if (luau_load(thread, chunkname.c_str(), bytecode.c_str(), bytecode.size(), 0) != 0)
         {
+            std::string error = lua_tostring(thread, -1);
             childRuntime.reset();
-            return false;
+            return error;
         }
         loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
 
@@ -404,7 +404,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         launchConfig.onBreakpointInstall(bp);
     for (auto& bp : uninstalledBps)
         launchConfig.onBreakpointUninstall(bp);
-    return true;
+    return std::nullopt;
 }
 
 void Target::installBpHitCallback()

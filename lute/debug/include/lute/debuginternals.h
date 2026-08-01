@@ -97,7 +97,7 @@ struct Target
     std::vector<Thread> getThreads() const;
 
     // For actively running scripts:
-    bool launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
+    std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
     bool pauseProcess();
 
