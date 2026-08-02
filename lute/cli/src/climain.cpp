@@ -45,7 +45,7 @@ Commands:
 	check           Type check Luau files.
 	compile         Compile a Luau script into a standalone executable.
 	debug           Debug a Luau script.
-	format          Format specified Luau files.
+	format          Format specified Luau files. (experimental)
 	lint            Run linting rules on specified Luau files.
 	self            Manage the host lute installation in ~/.lute (install/update/uninstall).
 	setup           Generate type definition files for the language server.
@@ -67,7 +67,7 @@ Debug Options:
 	lute debug serve
 		Serves a DAP server for Luau for use with a development environment.
 
-Format Options:
+Format Options: (experimental)
 	lute format [options...] <paths...>
 		Formats the specified Luau files in place. Defaults to the working directory.
 			-c, --check             Report unformatted files and exit 1 without modifying them.

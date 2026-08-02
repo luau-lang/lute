@@ -2,22 +2,18 @@ local cli = require("@batteries/cli")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
+local stringext = require("@std/stringext")
 
 local files = require("./lib/files")
 
-local HELP_MESSAGE = [[Usage: lute format [options] [files...]
+local DESCRIPTION = [[Format Luau source files.
 
-Format Luau source files.
-
-OPTIONS:
-  -h, --help       Show this help message
-  -v, --verbose    Enable verbose output
-  -c, --check      Check whether files are formatted
+Experimental: formatting is still under development, and its output will change.
 ]]
 
 local function formatSource(source: string): string
 	-- stub format function
-	return source
+	return stringext.trim(source) .. "\n"
 end
 
 local function main(...: string)
@@ -29,7 +25,8 @@ local function main(...: string)
 	args:parse({ ... })
 
 	if args:has("help") then
-		print(HELP_MESSAGE)
+		print(`Usage: {args:usage("lute format")}\n{DESCRIPTION}`)
+		args:help()
 		return
 	end
 
@@ -38,7 +35,7 @@ local function main(...: string)
 
 	local inputPaths = args:variadics()
 	if #inputPaths == 0 then
-		inputPaths = { path.format(process.cwd()) }
+		inputPaths = table.freeze({ "." })
 	end
 
 	local sourceFiles = files.getSourceFiles(inputPaths, verbose)
@@ -48,27 +45,31 @@ local function main(...: string)
 	end
 
 	local failed: { string } = {}
-	local unformatted: { string } = {}
+	local needsFormatting: { string } = {}
 
-	for _, pathlike in sourceFiles do
-		local target = path.format(pathlike)
+	for _, sourcePath in sourceFiles do
+		local target = path.format(sourcePath)
 
-		local read, source = pcall(fs.readFileToString, pathlike)
+		if verbose then
+			print(`Trying to format {target}`)
+		end
+
+		local read, source = pcall(fs.readFileToString, sourcePath)
 		if not read then
 			table.insert(failed, `{target}: {source}`)
 			continue
 		end
 
-		local ok, formatted = pcall(formatSource, source :: string)
+		local ok, formatted = pcall(formatSource, source)
 		if not ok then
 			table.insert(failed, `{target}: {formatted}`)
 			continue
 		end
 
 		if formatted ~= source then
-			table.insert(unformatted, target)
+			table.insert(needsFormatting, target)
 			if not check then
-				fs.writeStringToFile(pathlike, formatted)
+				fs.writeStringToFile(sourcePath, formatted)
 				if verbose then
 					print(`Formatted {target}`)
 				end
@@ -78,26 +79,26 @@ local function main(...: string)
 
 	if verbose then
 		if check then
-			if #unformatted == 0 then
-				print(`All {#sourceFiles} file(s) are formatted.`)
+			print(`Checked {#sourceFiles} file(s).`)
+			if #needsFormatting == 0 then
+				print(`All {#sourceFiles} file(s) were formatted properly.`)
 			else
-				print(`Checked {#sourceFiles} file(s)`)
-				print(`{#unformatted} file(s) were not formatted`)
+				print(`{#needsFormatting} file(s) were not formatted properly.`)
 			end
 		else
-			print(`Formatted {#unformatted} of {#sourceFiles} file(s).`)
+			print(`Formatted {#needsFormatting} of {#sourceFiles} file(s).`)
 		end
 	end
 
-	if check and #unformatted > 0 then
-		print(`\n{#unformatted} file(s) not formatted:\n{table.concat(unformatted, "\n")}`)
+	if check and #needsFormatting > 0 then
+		print(`\n{#needsFormatting} file(s) not formatted:\n\t- {table.concat(needsFormatting, "\n\t- ")}`)
 	end
 
 	if #failed > 0 then
-		print(`\n{#failed} file(s) could not be formatted:\n{table.concat(failed, "\n")}`)
+		print(`\n{#failed} file(s) could not be formatted:\n\t- {table.concat(failed, "\n\t- ")}`)
 	end
 
-	if #failed > 0 or (check and #unformatted > 0) then
+	if #failed > 0 or (check and #needsFormatting > 0) then
 		process.exit(1)
 	end
 end

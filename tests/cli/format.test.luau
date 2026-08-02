@@ -5,118 +5,121 @@ local system = require("@std/system")
 local test = require("@std/test")
 
 local lutePath = path.format(process.execPath())
+local workdir = path.join(system.tmpdir(), "lute_format_test")
 
-local function makeDir(name: string): string
-	local target = path.format(path.join(system.tmpdir(), name))
-	if fs.exists(target) then
-		fs.removeDirectory(target, { recursive = true })
-	end
-	fs.createDirectory(target, { makeParents = true })
-	return target
-end
+local FORMATTED = "local x = 1\n"
+local UNFORMATTED = "  local x = 1\n\n"
 
-local function childPath(dir: string, name: string): string
-	return path.format(path.join(path.parse(dir), name))
-end
-
-local function writeFile(target: string, contents: string): string
-	fs.writeStringToFile(target, contents)
-	return target
+local function child(...: string): string
+	return path.format(path.join(workdir, ...))
 end
 
 test.suite("LuteFormat", function(suite)
-	suite:case("prints help", function(assert)
-		local result = process.run({ lutePath, "format", "--help" })
-		assert.eq(result.exitcode, 0)
-		assert.strContains(result.stdout, "Usage: lute format")
+	suite:beforeEach(function()
+		if fs.exists(workdir) then
+			fs.removeDirectory(workdir, { recursive = true })
+		end
+		fs.createDirectory(workdir, { makeParents = true })
+	end)
+
+	suite:afterEach(function()
+		if fs.exists(workdir) then
+			fs.removeDirectory(workdir, { recursive = true })
+		end
 	end)
 
 	suite:case("is listed in the top-level help", function(assert)
 		local result = process.run({ lutePath, "--help" })
 		assert.eq(result.exitcode, 0)
-		assert.strContains(result.stdout, "format")
+		assert.strContains(result.stdout, "format          Format specified Luau files. (experimental)")
 		assert.strContains(result.stdout, "Format Options:")
 	end)
 
 	suite:case("errors when a path holds no Luau files", function(assert)
-		local dir = makeDir("format_empty")
-		writeFile(childPath(dir, "notes.txt"), "not luau\n")
+		fs.writeStringToFile(child("notes.txt"), "not luau\n")
 
-		local result = process.run({ lutePath, "format", dir })
+		local result = process.run({ lutePath, "format", path.format(workdir) })
 		assert.eq(result.exitcode, 1)
 		assert.strContains(result.stdout, "no Luau files found")
-
-		fs.removeDirectory(dir, { recursive = true })
 	end)
 
 	suite:case("discovers Luau files recursively under a directory", function(assert)
-		local dir = makeDir("format_walk")
-		fs.createDirectory(childPath(dir, "nested"))
-		writeFile(childPath(dir, "top.luau"), "local x = 1\n")
-		writeFile(childPath(childPath(dir, "nested"), "deep.luau"), "local y = 2\n")
-		writeFile(childPath(dir, "ignored.txt"), "not luau\n")
+		fs.createDirectory(child("nested"))
+		fs.writeStringToFile(child("top.luau"), "local x = 1\n")
+		fs.writeStringToFile(child("nested", "deep.luau"), "local y = 2\n")
+		fs.writeStringToFile(child("ignored.txt"), "not luau\n")
 
-		local result = process.run({ lutePath, "format", "--verbose", dir })
+		local result = process.run({ lutePath, "format", "--verbose", path.format(workdir) })
 		assert.eq(result.exitcode, 0)
-		-- The count proves the walk descended into `nested` and skipped the .txt.
-		assert.strContains(result.stdout, "of 2 file(s)")
-
-		fs.removeDirectory(dir, { recursive = true })
+		assert.strContains(result.stdout, `Trying to format {child("top.luau")}`)
+		assert.strContains(result.stdout, `Trying to format {child("nested", "deep.luau")}`)
+		assert.strNotContains(result.stdout, `Trying to format {child("ignored.txt")}`)
 	end)
 
-	suite:case("--verbose reports a count in check mode", function(assert)
-		local dir = makeDir("format_verbose_check")
-		writeFile(childPath(dir, "clean.luau"), "local x = 1\n")
+	suite:case("skips files and directories excluded by .gitignore", function(assert)
+		fs.writeStringToFile(child(".gitignore"), "generated.luau\nvendor/\n")
+		fs.createDirectory(child("vendor"))
+		fs.writeStringToFile(child("src.luau"), "local x = 1\n")
+		fs.writeStringToFile(child("generated.luau"), "local y = 2\n")
+		fs.writeStringToFile(child("vendor", "dep.luau"), "local z = 3\n")
 
-		local result = process.run({ lutePath, "format", "--check", "--verbose", dir })
+		local result = process.run({ lutePath, "format", "--verbose", path.format(workdir) })
 		assert.eq(result.exitcode, 0)
-		assert.strContains(result.stdout, "All 1 file(s) are formatted.")
-
-		fs.removeDirectory(dir, { recursive = true })
+		assert.strContains(result.stdout, `Trying to format {child("src.luau")}`)
+		assert.strNotContains(result.stdout, `Trying to format {child("generated.luau")}`)
+		assert.strNotContains(result.stdout, `Trying to format {child("vendor", "dep.luau")}`)
 	end)
 
-	suite:case("accepts -v as an alias for --verbose", function(assert)
-		local dir = makeDir("format_verbose_alias")
-		writeFile(childPath(dir, "clean.luau"), "local x = 1\n")
+	suite:case("rewrites a file in place when the formatter changes it", function(assert)
+		local target = child("unformatted.luau")
+		fs.writeStringToFile(target, UNFORMATTED)
 
-		local result = process.run({ lutePath, "format", "-v", dir })
+		local result = process.run({ lutePath, "format", "--verbose", target })
 		assert.eq(result.exitcode, 0)
-		assert.strContains(result.stdout, "of 1 file(s)")
-
-		fs.removeDirectory(dir, { recursive = true })
+		assert.eq(fs.readFileToString(target), FORMATTED)
+		assert.strContains(result.stdout, `Formatted {target}`)
+		assert.strContains(result.stdout, "Formatted 1 of 1 file(s).")
 	end)
 
 	suite:case("leaves a file byte-identical when the formatter reports no change", function(assert)
-		local dir = makeDir("format_noop")
-		local source = "local   x=1\nprint(  x  )\n"
-		local target = writeFile(childPath(dir, "messy.luau"), source)
+		local target = child("formatted.luau")
+		fs.writeStringToFile(target, FORMATTED)
 
-		local result = process.run({ lutePath, "format", target })
+		local result = process.run({ lutePath, "format", "--verbose", target })
 		assert.eq(result.exitcode, 0)
-		assert.eq(fs.readFileToString(target), source)
-
-		fs.removeDirectory(dir, { recursive = true })
+		assert.eq(fs.readFileToString(target), FORMATTED)
+		assert.strNotContains(result.stdout, `Formatted {target}`)
+		assert.strContains(result.stdout, "Formatted 0 of 1 file(s).")
 	end)
 
-	suite:case("--check exits 0 and writes nothing when no file needs formatting", function(assert)
-		local dir = makeDir("format_check")
-		local source = "local x = 1\n"
-		local target = writeFile(childPath(dir, "clean.luau"), source)
+	suite:case("--check reports unformatted files and exits 1 without writing", function(assert)
+		local target = child("unformatted.luau")
+		fs.writeStringToFile(target, UNFORMATTED)
 
 		local result = process.run({ lutePath, "format", "--check", target })
-		assert.eq(result.exitcode, 0)
-		assert.eq(fs.readFileToString(target), source)
-
-		fs.removeDirectory(dir, { recursive = true })
+		assert.eq(result.exitcode, 1)
+		assert.eq(fs.readFileToString(target), UNFORMATTED)
+		assert.strContains(result.stdout, `1 file(s) not formatted:\n\t- {target}`)
 	end)
 
-	suite:case("accepts -c as an alias for --check", function(assert)
-		local dir = makeDir("format_alias")
-		local target = writeFile(childPath(dir, "clean.luau"), "local x = 1\n")
+	suite:case("--check exits 0 when every file is already formatted", function(assert)
+		local target = child("formatted.luau")
+		fs.writeStringToFile(target, FORMATTED)
 
-		local result = process.run({ lutePath, "format", "-c", target })
+		local result = process.run({ lutePath, "format", "--check", "--verbose", target })
 		assert.eq(result.exitcode, 0)
+		assert.eq(fs.readFileToString(target), FORMATTED)
+		assert.strContains(result.stdout, "All 1 file(s) were formatted properly.")
+	end)
 
-		fs.removeDirectory(dir, { recursive = true })
+	suite:case("accepts -c and -v as aliases for --check and --verbose", function(assert)
+		local target = child("unformatted.luau")
+		fs.writeStringToFile(target, UNFORMATTED)
+
+		local long = process.run({ lutePath, "format", "--check", "--verbose", target })
+		local short = process.run({ lutePath, "format", "-cv", target })
+		assert.eq(long.exitcode, 1)
+		assert.eq(short.exitcode, long.exitcode)
+		assert.eq(short.stdout, long.stdout)
 	end)
 end)
