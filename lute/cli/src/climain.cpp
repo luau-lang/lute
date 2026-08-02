@@ -68,13 +68,13 @@ Debug Options:
 		Serves a DAP server for Luau for use with a development environment.
 
 Format Options: (experimental)
-	lute format [options...] <paths...>
+	lute format [options...] [paths...]
 		Formats the specified Luau files in place. Defaults to the working directory.
 			-c, --check             Report unformatted files and exit 1 without modifying them.
 			-v, --verbose           Print each formatted file and a summary count.
 
 Lint Options:
-	lute lint [options...] <paths...>
+	lute lint [options...] [paths...]
 		Runs linting rules on the specified Luau files.
 			--rules <path>          Path to a single lint rule or a directory containing multiple lint rules.
 			                        If not specified, default lint rules are used.
