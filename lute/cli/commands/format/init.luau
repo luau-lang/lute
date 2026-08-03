@@ -6,9 +6,9 @@ local process = require("@std/process")
 
 local files = require("./lib/files")
 
-local DESCRIPTION = [[Format Luau source files.
+local DESCRIPTION = [[
 
-Experimental: formatting is still under development, and its output will change.
+Format Luau source files. Experimental: formatting is still under development, and its output will change.
 ]]
 
 local function main(...: string)
@@ -20,7 +20,8 @@ local function main(...: string)
 	args:parse({ ... })
 
 	if args:has("help") then
-		print(`Usage: {args:usage("lute format")}\n{DESCRIPTION}`)
+		print(args:usage("lute format"))
+		print(DESCRIPTION)
 		args:help()
 		return
 	end

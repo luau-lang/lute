@@ -182,7 +182,7 @@ function cli.forwarded(self: Parser): { string }?
 end
 
 function cli.usage(self: Parser, name: string): string
-	local parts = { name }
+	local parts = { `Usage: {name}` }
 
 	for _, arg in self.positional do
 		if not arg.options.hidden then
