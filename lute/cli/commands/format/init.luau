@@ -1,8 +1,8 @@
 local cli = require("@batteries/cli")
+local formatter = require("@self/formatter")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
-local stringext = require("@std/stringext")
 
 local files = require("./lib/files")
 
@@ -10,11 +10,6 @@ local DESCRIPTION = [[Format Luau source files.
 
 Experimental: formatting is still under development, and its output will change.
 ]]
-
-local function formatSource(source: string): string
-	-- stub format function
-	return stringext.trim(source) .. "\n"
-end
 
 local function main(...: string)
 	local args = cli.parser()
@@ -60,7 +55,7 @@ local function main(...: string)
 			continue
 		end
 
-		local ok, formatted = pcall(formatSource, source)
+		local ok, formatted = pcall(formatter.formatSource, source)
 		if not ok then
 			table.insert(failed, `{target}: {formatted}`)
 			continue
