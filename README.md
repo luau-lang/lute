@@ -33,6 +33,7 @@ As a result, building a full version of Lute requires a local version of `lute` 
 The simplest way to build `lute` without a version of `lute` already present is by bootstrapping it yourself. Toward that end, we provide a small, easily auditable shell script `./tools/bootstrap.sh` that will perform the entire build process in sequence for a totally fresh build. This entails first building a debug version of `lute` called `lute0` without any of the CLI commands implemented in Luau, and without the standard library embedded into the executable. We can then use `lute0` to run `luthier`, perform the requisite code generation step, and then build a fresh release version of `lute`. The script supports a single command-line option `--install` which can be used to install this release executable to a desired location on your machine. By default, this is `$HOME/.lute/bin/lute`, but the script will provide a prompt during its execution about where `lute` should be placed. In order to then use this `lute` executable, please ensure that it is accessible on your `$PATH`.
 
 For subsequent builds, you can use your current copy of `lute` to invoke `luthier` directly to perform clean or incremental builds of the CLI executable or the test suite:
+
 ```bash
 # with `lute` on your path...
 lute tools/luthier.luau build --clean {lute | Lute.CLI | Lute.Test}
@@ -64,10 +65,12 @@ This will have you performing the steps of the bootstrap script yourself. A manu
 - Optionally, use this version to run `luthier generate` to generate the embedded Luau source files, then reconfigure without `-DLUTE_STDLESS=ON` and rebuild to get a fully-featured `lute`.
 
 ### CCache support
+
 Lute supports the use of ccache to speed up builds. Both the `bootstrap` and `luthier` build scripts support a `--with-ccache` option, which proxies all compilation through ccache. To benefit from
 caching during local development, download ccache using your systems package manager (apt/brew/choco/etc), and perform a clean configure with `--with-ccache` passed. Subsequent builds
 will then use the cached build artifacts in the .ccache directory.
 Additionally, you'll need to set the following variables:
+
 ```
 CCACHE_DIR=path/to/store/ccachedir
 CCACHE_MAXSIZE=maximum size of the cache
