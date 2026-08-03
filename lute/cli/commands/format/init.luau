@@ -1,5 +1,5 @@
 local cli = require("@batteries/cli")
-local formatter = require("@self/formatter")
+local format = require("@self/format")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
@@ -56,7 +56,7 @@ local function main(...: string)
 			continue
 		end
 
-		local ok, formatted = pcall(formatter.formatSource, source)
+		local ok, formatted = pcall(format.formatSource, source)
 		if not ok then
 			table.insert(failed, `{target}: {formatted}`)
 			continue
