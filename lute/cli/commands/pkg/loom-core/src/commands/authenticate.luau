@@ -13,7 +13,7 @@ local function authenticate(...: string)
 		error(err)
 	end
 
-	local token = args:get("token")
+	local token = args:get("token") :: string -- non-nil because required = true
 	local domain = args:get("domain") or "github.com"
 	authenticationStore.saveAuthenticationToken(domain, token)
 end
