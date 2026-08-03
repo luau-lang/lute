@@ -1,16 +1,21 @@
 # Lute [![CI](https://github.com/luau-lang/lute/actions/workflows/ci.yml/badge.svg)](https://github.com/luau-lang/lute/actions/workflows/ci.yml)
 
-Lute is a standalone runtime for general-purpose programming in [Luau](https://luau.org), and a collection of optional extension libraries for Luau embedders to include to expand the capabilities of the Luau scripts in their software.
-It is designed to make it readily feasible to use Luau to write any sort of general-purpose programs, including manipulating files, making network requests, opening sockets, and even making tooling that directly manipulates Luau scripts.
-Lute also features a standard library of Luau code, called `std`, that aims to expose a more featureful standard library for general-purpose programming that we hope can be an interface shared across Luau runtimes.
+Lute is a standalone runtime for general-purpose programming in [Luau](https://luau.org). It is designed to make it easy to write any sort of general-purpose programs in Luau, including manipulating files, making network requests, and even developing tooling that directly manipulates Luau scripts. In addition to the runtime, Lute also includes a standard library
+of Luau code, called `std`, that aims to expose a more featureful standard library for general-purpose programming beyond just the runtime capabilities. We're working within Roblox to make `std` a shared interface across our Luau runtimes, so that large portions of code written for Lute can be used in Roblox, and vice versa.
+
+### Goals of Lute
+
+In its current state, Lute provides a set of core runtime libraries that have already proven useful to us at Roblox in building both developer tooling for Luau and internal infrastructure projects. Our 1.0.0 release intended to provide a stable version that this infrastructure could rely on as we continue to develop Lute and its standard library further. Neither of these facts are intended to suggest that Lute is a finished product, and we expect to continue to develop it further in the future.
+
+Our high-level goal with Lute is to build out the requisite tooling and support for Luau to work effectively as general-purpose programming language, not limited to its current use in Roblox. We hope to continue to develop Lute and its standard library to provide a more complete experience for general-purpose programming in Luau, and we welcome contributions from the community to help us achieve this goal. There are still many gaps and areas we'd like to improve, and we expect it will take plenty of time to get there. We hope that Lute can serve as a useful tool for the community in the meantime, and again we welcome feedback and contributions to help us improve it.
 
 ### Lute Libraries
 
 The Lute repository fundamentally contains three sets of libraries. These are as follows:
 
-- `lute`: The core runtime libraries in C++, which provides the basic functionality for general-purpose Luau programming.
-- `std`: The standard library, which extends those core C++ libraries with additional functionality in Luau.
-- `batteries`: A collection of useful, standalone Luau libraries that do not depend on `lute`.
+- `lute`: The core runtime libraries in C++, which provides the basic functionality for general-purpose Luau programming. These libraries extend Luau with additional capabilities for file I/O, networking, and other general-purpose programming tasks.
+- `std`: The standard library, which extends those core C++ libraries with additional functionality in Luau. These libraries are embeddeded in Lute and any Lute-compiled executable, and can be treated as a extension of the runtime.
+- `batteries`: A collection of useful, standalone Luau libraries that do not depend on `lute`. These libraries are ones that we intend to eventually separate from Lute itself, and publish as independent packages once a good dependency management solution is in place.
 
 Contributions to any of these libraries are welcome, and we encourage you to open issues or pull requests if you have any feedback or contributions to make.
 
