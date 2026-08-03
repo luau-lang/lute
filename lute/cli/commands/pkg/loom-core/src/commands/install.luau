@@ -43,9 +43,9 @@ local function install(...: string)
 
 	local valid, err = pcall(cli.parse, args, { ... })
 	if not valid then
-	    print(err)
-	    args:help()
-	    error()
+		print(err)
+		args:help()
+		error(err)
 	end
 
 	local excludeDev = args:get("exclude-dev") ~= nil

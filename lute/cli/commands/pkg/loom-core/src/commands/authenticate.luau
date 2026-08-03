@@ -8,9 +8,9 @@ local function authenticate(...: string)
 
 	local valid, err = pcall(cli.parse, args, { ... })
 	if not valid then
-	    print(err)
-	    args:help()
-	    error()
+		print(err)
+		args:help()
+		error(err)
 	end
 
 	local token = args:get("token")
