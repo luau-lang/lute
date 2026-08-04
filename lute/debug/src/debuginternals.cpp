@@ -1,6 +1,7 @@
 #include "lute/debuginternals.h"
 
 #include "lute/common.h"
+#include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/requirevfs.h"
 
@@ -54,6 +55,8 @@ Target::~Target()
     // We want to stop the runtime so nothing runs while we are destroying the target but first
     // we need to clear all sources (which are stored as refs in the runtime).
     loadedSources.clear();
+    stoppedThreadRef = nullptr;
+    scriptThreadRef = nullptr;
     // this interrupts execution of runToCompletion() in order to stop
     // any infinite/long-running coroutines.
     if (launched)
@@ -370,15 +373,15 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         std::tie(installedBps, uninstalledBps) = modifyPendingBreakpoints(thread);
         for (const std::string& arg : args)
             lua_pushstring(thread, arg.c_str());
-        childRuntime->runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
-        lua_pop(childRuntime->GL, 1);
-
         // thread initialization
-        scriptThread = thread;
         threadIdToState.insert_or_assign(threadId, thread);
         stateToThread.insert_or_assign(thread, Thread(threadId, "Main Coroutine"));
         threadId++;
 
+        scriptThread = thread;
+        scriptThreadRef = getRefForThread(scriptThread);
+        childRuntime->runningThreads.push_back({true, scriptThreadRef, static_cast<int>(args.size())});
+        lua_pop(childRuntime->GL, 1);
         lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
         cb->userdata = this;
         installBpHitCallback();
@@ -430,6 +433,7 @@ void Target::installBpHitCallback()
             target->paused = true;
             target->childRuntime->stopDebug();
             target->stoppedThread = L;
+            target->stoppedThreadRef = getRefForThread(L);
             lua_break(L);
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             debug::Thread thread = target->stateToThread.at(L);
@@ -552,11 +556,12 @@ bool Target::continueProcess()
                 continueRequestedBp.insert(stoppedThread);
             bpHit = std::nullopt;
         }
-        childRuntime->runningThreads.push_back({true, getRefForThread(stoppedThread), 0});
+        childRuntime->runningThreads.push_back({true, stoppedThreadRef, 0});
         // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
         // runToCompletion() has not exited.
         childRuntime->schedule([]() {});
         stoppedThread = nullptr;
+        stoppedThreadRef = nullptr;
     }
     paused = false;
     childRuntime->continueDebug();
@@ -582,6 +587,7 @@ bool Target::pauseProcess()
         target->paused = true;
         target->childRuntime->stopDebug();
         target->stoppedThread = L;
+        target->stoppedThreadRef = getRefForThread(L);
         debug::Thread thread = target->stateToThread.at(L);
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
