@@ -45,8 +45,8 @@ export type LaunchConfig = {
 	onPause: ((thread: Thread) -> ())?,
 	--- called when print() would have printed out `message` and is called from `source` on line number `line`
 	onPrint: ((message: string, source: string, line: number) -> ())?,
-	--- called when our script finishes stepping. `info` reflects the information about our stepping command.
-	onStepStop: ((info: StepInfo) -> ())?,
+	--- called when our script finishes stepping on `thread`. `info` reflects the information about our stepping command.
+	onStepStop: ((thread: Thread, info: StepInfo) -> ())?,
 }
 
 --- A `Target` represents the target program under the debugger.
@@ -76,18 +76,18 @@ export type Target = {
 	--- Pauses a target script if it is running. Return `true` if the target was successfully paused
 	--- and `false` if it was not.
 	pauseProcess: (self: Target) -> boolean,
-	--- Steps in the code, utilziing a certain step type `type`.
+	--- Steps in the code at a certain thread with id `threadId`, utilizing a certain step type `type`.
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
-	step: (self: Target, type: StepType) -> boolean,
-	--- Steps into the next line of the code, including into a function if the line contains a function.
+	step: (self: Target, threadId: number, type: StepType) -> boolean,
+	--- Steps into the next line of the code in thread id `threadId`, including into a function if the line contains a function.
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
-	stepIn: (self: Target) -> boolean,
-	--- Steps over to the next line of the code, skipping over any function calls if our current line contains a function.
+	stepIn: (self: Target, threadId: number) -> boolean,
+	--- Steps over to the next line of the code in thread id `threadId`, skipping over any function calls if our current line contains a function.
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
-	stepOver: (self: Target) -> boolean,
-	--- Steps out of the current function call.
+	stepOver: (self: Target, threadId: number) -> boolean,
+	--- Steps out of the current function call in thread id `threadId`.
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
-	stepOut: (self: Target) -> boolean,
+	stepOut: (self: Target, threadId: number) -> boolean,
 	--- Gets our current line of execution when we are stopped.
 	--- Returns -1 if we are not stopped.
 	getLine: (self: Target) -> number,

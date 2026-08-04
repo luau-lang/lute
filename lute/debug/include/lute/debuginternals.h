@@ -36,6 +36,15 @@ struct Breakpoint
     explicit Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
 };
 
+// Each Thread represents one coroutine in our Lute runtime.
+struct Thread
+{
+    int id = -1;
+    std::string name;
+    Thread(int id, std::string name);
+    bool operator==(const Thread& other) const;
+};
+
 enum class StepType
 {
     StepOver,
@@ -45,18 +54,10 @@ enum class StepType
 
 struct StepInfo
 {
+    Thread thread;
     StepType type;
     int startLine;
     int startDepth;
-};
-
-// Each Thread represents one coroutine in our Lute runtime.
-struct Thread
-{
-    int id = -1;
-    std::string name;
-    Thread(int id, std::string name);
-    bool operator==(const Thread& other) const;
 };
 
 struct LaunchConfig
@@ -68,8 +69,8 @@ struct LaunchConfig
     std::function<void(const Thread& thread, const Breakpoint& bp)> onBreakpointHit;
     std::function<void(bool success)> onExit;
     std::function<void(const Thread& thread)> onPause;
-    std::function<void(StepInfo stepInfo)> onStepStop;
     std::function<void(const std::string& message, const std::string& source, int line)> onPrint;
+    std::function<void(const Thread& thread, const StepInfo& stepInfo)> onStepStop;
 };
 
 struct Target
@@ -100,27 +101,26 @@ struct Target
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
-    // For inspection while paused:
+    // For inspection:
     // About multiple coroutines: we don't currently handle the original implementation of task.spawn(). Calling
     // task.spawn() when working in the debugger instead calls task.defer() instead.
     // The difference is that the original task.spawn() tries to run the coroutine inline with our current execution, resulting
     // in issues when trying to pause. Similar methods that also run coroutines inline with our current execution will not work.
     // In contrast, in task.defer(), the coroutine is added to set of running coroutines but execution
     // is deferred. Our pause mechanism will then work correctly.
-    std::optional<Thread> getMainThread() const;
+    int getLine() const;
+    std::optional<Thread> getMainThread() const; // can be used when not paused
     std::optional<Thread> getStoppedThread() const;
-    std::vector<Thread> getThreads() const;
+    std::vector<Thread> getThreads() const; // can be used when not paused
 
     // For actively running scripts:
     bool launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
     bool pauseProcess();
-    bool step(StepType type);
-    bool stepIn();
-    bool stepOver();
-    bool stepOut();
-
-    int getLine() const;
+    bool step(int threadId, StepType type);
+    bool stepIn(int threadId);
+    bool stepOver(int threadId);
+    bool stepOut(int threadId);
 
 private:
     // targetMutex protects the entire Target, since Target can be accessed from the main thread
@@ -166,7 +166,7 @@ private:
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
     std::optional<Breakpoint> getBreakpointByIdHelper(int breakpointId) const;
-    void continueProcessHelper(bool isStepping);
+    void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
     bool uninstallBreakpoint(lua_State* L, Breakpoint& bp);

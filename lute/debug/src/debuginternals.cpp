@@ -586,7 +586,7 @@ std::vector<Thread> Target::getThreads() const
     return result;
 }
 
-void Target::continueProcessHelper(bool isStepping)
+void Target::continueProcessHelper()
 {
     // this clears the interrupts that triggers when the process is paused from client request
     // in case it has not actually been triggered.
@@ -620,7 +620,7 @@ bool Target::continueProcess()
     std::unique_lock lock(targetMutex);
     if (!launched || !paused)
         return false;
-    continueProcessHelper(false);
+    continueProcessHelper();
     return true;
 }
 
@@ -664,27 +664,41 @@ bool Target::pauseProcess()
     return true;
 }
 
-bool Target::step(StepType type)
+
+bool Target::step(int threadId, StepType type)
 {
     std::unique_lock lock(targetMutex);
     if (!launched || !paused)
         return false;
-    int startLine = stoppedLine, startDepth = lua_stackdepth(stoppedThread);
-    stepInfo = {type, startLine, startDepth};
-    lua_singlestep(stoppedThread, 1);
+    if (threadIdToState.find(threadId) == threadIdToState.end())
+        return false;
+    lua_State* stepThread = threadIdToState.at(threadId);
+    Thread threadInfo = stateToThread.at(stepThread);
+    int startLine = stoppedLine, startDepth = lua_stackdepth(stepThread);
+    stepInfo = {threadInfo, type, startLine, startDepth};
+    lua_singlestep(stepThread, 1);
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
     cb->debugstep = [](lua_State* L, lua_Debug* ar)
     {
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
         std::unique_lock lock(target->targetMutex);
-        if (L != target->stoppedThread)
+        if (!target->stepInfo)
+        {
+            target->parentRuntime.reporter.reportError(Luau::format("target lacks stepping info even while stepping at line %d", ar->currentline));
+            return;
+        }
+        bool stopStepping = false;
+        StepInfo stepInfo = *target->stepInfo;
+        if (target->threadIdToState.find(stepInfo.thread.id) == target->threadIdToState.end())
+        {
+            target->parentRuntime.reporter.reportError(Luau::format("could not finding stepping thread %d in thread map", stepInfo.thread.id));
+            return;
+        }
+        lua_State* steppingThread = target->threadIdToState[stepInfo.thread.id];
+        if (L != steppingThread)
             return;
         int line = ar->currentline;
         int depth = lua_stackdepth(L);
-        if (!target->stepInfo)
-            target->parentRuntime.reporter.reportError(Luau::format("target lacks stepping info even while stepping at line %d", line));
-        bool stopStepping = false;
-        StepInfo stepInfo = *target->stepInfo;
         switch (stepInfo.type)
         {
         case StepType::StepIn:
@@ -711,10 +725,11 @@ bool Target::step(StepType type)
             lua_break(L);
             lua_singlestep(L, 0);
             lua_callbacks(L)->debugstep = nullptr;
+            Thread thread = target->stateToThread.at(L);
             lock.unlock();
             // Since pausing actually only happens when the step callback runs we have a callback
             if (target->launchConfig.onStepStop)
-                target->launchConfig.onStepStop(stepInfo);
+                target->launchConfig.onStepStop(thread, stepInfo);
             for (auto& bp : installed)
                 target->launchConfig.onBreakpointInstall(bp);
             for (auto& bp : uninstalled)
@@ -725,23 +740,22 @@ bool Target::step(StepType type)
             return;
         }
     };
-    continueProcessHelper(true);
+    continueProcessHelper();
     return true;
 }
 
-bool Target::stepIn()
+bool Target::stepIn(int threadId)
 {
-    return step(StepType::StepIn);
+    return step(threadId, StepType::StepIn);
 }
 
-bool Target::stepOver()
+bool Target::stepOver(int threadId)
 {
-    return step(StepType::StepOver);
+    return step(threadId, StepType::StepOver);
 }
 
-bool Target::stepOut()
+bool Target::stepOut(int threadId)
 {
-    return step(StepType::StepOut);
+    return step(threadId, StepType::StepOut);
 }
-
 } // namespace debug

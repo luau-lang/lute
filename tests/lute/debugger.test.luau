@@ -300,7 +300,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(prints[2].line, 7)
 	end)
 	-- this test case focuses on stepping
-	suite:case("multisource", function(check)
+	suite:case("step", function(check)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/step.luau"))
@@ -309,7 +309,8 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local stepsDone = 0
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
-			onStepStop = function(_info)
+			onStepStop = function(thread, _info)
+				check.eq(thread.id, 1)
 				stepsDone += 1
 			end,
 			onBreakpointHit = function(_bp)
@@ -322,6 +323,8 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end,
 		})
 		check.that(targetLaunched)
+		local threads = target:getThreads()
+		local threadId = threads[1].id
 		check.eq(
 			waitUntil(function()
 				return bpHit
@@ -329,7 +332,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			true
 		)
 		check.eq(target:getLine(), 9)
-		target:step("stepIn")
+		target:step(threadId, "stepIn")
 		check.eq(
 			waitUntil(function()
 				return stepsDone == 1
@@ -337,7 +340,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			true
 		)
 		check.eq(target:getLine(), 10)
-		target:stepIn()
+		target:stepIn(threadId)
 		check.eq(
 			waitUntil(function()
 				return stepsDone == 2
@@ -345,7 +348,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			true
 		)
 		check.eq(target:getLine(), 2)
-		target:stepOut()
+		target:stepOut(threadId)
 		check.eq(
 			waitUntil(function()
 				return stepsDone == 3
@@ -353,7 +356,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			true
 		)
 		check.eq(target:getLine(), 11)
-		target:stepOver()
+		target:stepOver(threadId)
 		check.eq(
 			waitUntil(function()
 				return stepsDone == 4
