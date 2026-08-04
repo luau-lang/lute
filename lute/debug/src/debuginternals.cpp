@@ -569,14 +569,20 @@ std::vector<Thread> Target::getThreads() const
     return result;
 }
 
+
+int Target::getStackDepth(int threadId)
+{
+    if (!launched || !paused || threadIdToState.find(threadId) == threadIdToState.end())
+        return -1;
+    return lua_stackdepth(threadIdToState.at(threadId));
+}
+
 std::optional<StackFrame> Target::getStackFrameHelper(int threadId, int level)
 {
     if (!paused)
         return std::nullopt;
     if (threadIdToState.find(threadId) == threadIdToState.end())
-    {
         return std::nullopt;
-    }
     std::unordered_map<int, StackFrame>& levelMap = stateToStackFrame[threadId];
     auto it = levelMap.find(level);
     if (it == levelMap.end())
@@ -624,31 +630,21 @@ std::optional<std::vector<StackFrame>> Target::getStackTrace(int threadId, int s
     if (!paused)
         return std::nullopt;
     if (threadIdToState.find(threadId) == threadIdToState.end())
-    {
         return std::nullopt;
-    }
     int stackDepth = lua_stackdepth(threadIdToState[threadId]);
     if (startLevel >= stackDepth)
-    {
         return std::nullopt;
-    }
     int maximumLevel;
     if (numFrames == 0)
-    {
         maximumLevel = stackDepth;
-    }
     else
-    {
         maximumLevel = std::min(startLevel + numFrames, stackDepth);
-    }
     std::vector<StackFrame> stackTrace;
     for (int i = startLevel; i < maximumLevel; i++)
     {
         std::optional<StackFrame> frame = getStackFrameHelper(threadId, i);
         if (!frame)
-        {
             return std::nullopt;
-        }
         stackTrace.emplace_back(*frame);
     }
     return stackTrace;

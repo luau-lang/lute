@@ -80,6 +80,9 @@ export type Target = {
 	getMainThread: (self: Target) -> Thread?,
 	--- Gets the current stopped thread of the script, returning nil if debugger is not paused
 	getStoppedThread: (self: Target) -> Thread?,
+	--- Gets the depth of the call stack within thread with `threadId`. If not paused or not launched or if
+	--- such a thread does not exist, return `-1`.
+	getStackDepth: (self: Target, threadId: number) -> number,
 	--- Gets a stack frame on a coroutine with `threadId` at level `level` (where 0 is the shallowest). Return `nil`
 	--- if script is running or no such stack frame exists at that level.
 	getStackFrame: (self: Target, threadId: number, level: number) -> StackFrame?,

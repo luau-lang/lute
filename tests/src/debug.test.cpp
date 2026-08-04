@@ -471,7 +471,7 @@ TEST_SUITE("Debug")
                 hitA = true;
             }
             CHECK(stacktrace->size() == expectedTraceSize);
-
+            CHECK(target.getStackDepth(threadId) == expectedTraceSize);
             for (int i = 0; i < expectedTraceSize; i++)
             {
                 int line;

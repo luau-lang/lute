@@ -100,6 +100,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				supportsConfigurationDoneRequest = true,
 				supportsTerminateRequest = true,
 				supportsLoadedSourcesRequest = true,
+				supportsDelayedStackTraceLoading = true,
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
 			ioSession.writeEvent("initialized")
@@ -172,20 +173,32 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				threads = dapThreads,
 			})
-		-- dummy handler for stackTrace
 		elseif command == "stackTrace" then
-			local launchPath = assert(launchConfig, "not launched")
-			ioSession.writeResponse(reqSeq, true, command, nil, {
-				stackFrames = {
-					{
-						id = 0,
-						name = "main",
-						source = createSource(launchPath.program),
-						line = 1,
-						column = 0,
+			local args = request.arguments :: json.Object
+			local threadId = args.threadId :: number
+			local startFrame = args.startFrame :: number?
+			local levels = args.levels :: number?
+			local stackTrace = target:getStackTrace(threadId, startFrame, levels)
+			if not stackTrace then
+				ioSession.writeResponse(reqSeq, false, command, "notStopped")
+				continue
+			end
+			assert(stackTrace)
+			local dapStackTrace = {}
+			for _, frame in stackTrace do
+				table.insert(dapStackTrace, {
+					id = frame.id,
+					name = frame.name,
+					source = {
+						path = frame.sourcePath,
 					},
-				},
-				totalFrames = 1,
+					line = frame.line,
+					column = frame.column,
+				})
+			end
+			ioSession.writeResponse(reqSeq, true, command, nil, {
+				stackFrames = dapStackTrace,
+				totalFrames = target:getStackDepth(threadId),
 			})
 		elseif command == "terminate" or command == "disconnect" then
 			ioSession.writeResponse(reqSeq, true, command)

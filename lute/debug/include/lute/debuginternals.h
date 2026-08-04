@@ -104,6 +104,7 @@ struct Target
     std::optional<Thread> getMainThread() const;
     std::optional<Thread> getStoppedThread() const;
     std::vector<Thread> getThreads() const;
+    int getStackDepth(int threadId);
     std::optional<StackFrame> getStackFrame(int threadId, int level);
     std::optional<std::vector<StackFrame>> getStackTrace(int threadId, int startLevel = 0, int maximumLevel = 0);
 

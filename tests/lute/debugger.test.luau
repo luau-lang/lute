@@ -315,6 +315,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				local stacktrace = target:getStackTrace(threads[1].id)
 				assert(stacktrace)
 				check.eq(#stacktrace, hits + 1)
+				check.eq(target:getStackDepth(threads[1].id), hits + 1)
 				for i, frame in stacktrace do
 					check.eq(frame.id, i)
 					check.eq(frame.column, 0)
@@ -327,6 +328,12 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 						check.eq(frame.line, 5)
 					end
 				end
+				-- this a small check that getStackFrame() works
+				local specificFrame = target:getStackFrame(threads[1].id, 0)
+				assert(specificFrame)
+				check.eq(specificFrame.id, 1)
+				check.eq(specificFrame.column, 0)
+				check.eq(specificFrame.sourcePath, mainPath)
 				local continued = target:continueProcess()
 				check.that(continued)
 			end,

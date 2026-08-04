@@ -276,13 +276,25 @@ static int target_getStoppedThread(lua_State* L)
     return pushThread(L, *thread);
 }
 
+// target.getStackDepth(int threadId)
+// return an integer
+static int target_getStackDepth(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    int depth = target->getStackDepth(threadId);
+    checkStack(L, 1);
+    lua_pushinteger(L, depth);
+    return 1;
+}
+
 // target.getStackFrame(int threadId, int level)
 // return StackFrame | nil
 static int target_getStackFrame(lua_State* L)
 {
     auto target = getTarget(L, 1);
     int threadId = luaL_checkinteger(L, 2);
-    int level = luaL_checkinteger(L, 2);
+    int level = luaL_checkinteger(L, 3);
     std::optional<debug::StackFrame> stackframe = target->getStackFrame(threadId, level);
     if (!stackframe)
     {
@@ -499,8 +511,9 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"getThreads", debug::target_getThreads},
     {"getMainThread", debug::target_getMainThread},
     {"getStoppedThread", debug::target_getStoppedThread},
+    {"getStackDepth", debug::target_getStackDepth},
     {"getStackFrame", debug::target_getStackFrame},
-    {"getStackTrace", debug::target_getStackTrace}
+    {"getStackTrace", debug::target_getStackTrace},
 };
 
 static void initializeTarget(lua_State* L)
