@@ -121,9 +121,11 @@ private:
 
     // thread for our launched script
     lua_State* scriptThread = nullptr;
+    std::shared_ptr<Ref> scriptThreadRef;
 
     // our stopped thread that we need to requeue when we continue
     lua_State* stoppedThread = nullptr;
+    std::shared_ptr<Ref> stoppedThreadRef;
 
     // for require contexts
     std::unique_ptr<RequireCtx> requireCtx;
