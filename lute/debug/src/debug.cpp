@@ -83,6 +83,20 @@ static int pushBreakpoint(lua_State* L, const Breakpoint& bp)
     return 1;
 }
 
+// Helper to push a Thread type, which is
+// id: number
+// name: string
+static int pushThread(lua_State* L, const debug::Thread& thread)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 2);
+    lua_pushinteger(L, thread.id);
+    lua_setfield(L, -2, "id");
+    lua_pushstring(L, thread.name.c_str());
+    lua_setfield(L, -2, "name");
+    return 1;
+}
+
 // target.setBreakpoint(string sourcePath, int line)
 // returns a breakpoint
 static int target_setBreakpoint(lua_State* L)
@@ -191,6 +205,54 @@ static int target_getLoadedSources(lua_State* L)
     return 1;
 }
 
+// target.getThreads()
+// returns a table of Threads
+static int target_getThreads(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    const std::vector<debug::Thread>& threads = target->getThreads();
+    checkStack(L, 1);
+    lua_createtable(L, threads.size(), 0);
+    for (int i = 0; i < (int)threads.size(); i++)
+    {
+        pushThread(L, threads.at(i));
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+// target.getMainThread()
+// returns Thread | nil
+static int target_getMainThread(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    std::optional<Thread> thread = target->getMainThread();
+    checkStack(L, 1);
+    if (!thread)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    return pushThread(L, *thread);
+}
+
+// target.getStoppedThread()
+// returns Thread | nil
+static int target_getStoppedThread(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    std::optional<Thread> thread = target->getStoppedThread();
+    checkStack(L, 1);
+    if (!thread)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    return pushThread(L, *thread);
+}
+
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
 {
     lua_getfield(L, tableIndex, field);
@@ -218,11 +280,11 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 
 // target.launch(string sourcePath, vector<string> args, LaunchConfig callbacks) where
 // LaunchConfig = {
-//     onBreakpointHit(Breakpoint bp) -> ()
+//     onBreakpointHit(Thread thread, Breakpoint bp) -> ()
 //     onBreakpointInstall(Breakpoint bp) -> ()
 //     onBreakpointUninstall(Breakpoint bp) -> ()
 //     onExit(bool success) -> ()
-//     onPause() -> ()
+//     onPause(Thread thread) -> ()
 // }
 // returns boolean
 static int target_launch(lua_State* L)
@@ -251,7 +313,18 @@ static int target_launch(lua_State* L)
     {
         // all of these schedule the handler to run on the parent runtime queue.
         if (auto ref = getOptionalCallback(L, 4, "onBreakpointHit"))
-            config.onBreakpointHit = makeBreakpointCallback(ref, runtime);
+            config.onBreakpointHit = [ref, runtime](const Thread& thread, const Breakpoint& bp)
+            {
+                runtime->scheduleLuauCallback(
+                    ref,
+                    [thread, bp](lua_State* L)
+                    {
+                        pushThread(L, thread);
+                        pushBreakpoint(L, bp);
+                        return 2;
+                    }
+                );
+            };
         if (auto ref = getOptionalCallback(L, 4, "onBreakpointInstall"))
             config.onBreakpointInstall = makeBreakpointCallback(ref, runtime);
         if (auto ref = getOptionalCallback(L, 4, "onBreakpointUninstall"))
@@ -273,13 +346,14 @@ static int target_launch(lua_State* L)
         }
         if (auto ref = getOptionalCallback(L, 4, "onPause"))
         {
-            config.onPause = [ref, runtime]()
+            config.onPause = [ref, runtime](const Thread& thread)
             {
                 runtime->scheduleLuauCallback(
                     ref,
-                    [](lua_State* L)
+                    [thread](lua_State* L)
                     {
-                        return 0;
+                        pushThread(L, thread);
+                        return 1;
                     }
                 );
             };
@@ -336,6 +410,9 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"continueProcess", debug::target_continueProcess},
     {"pauseProcess", debug::target_pauseProcess},
     {"getLoadedSources", debug::target_getLoadedSources},
+    {"getThreads", debug::target_getThreads},
+    {"getMainThread", debug::target_getMainThread},
+    {"getStoppedThread", debug::target_getStoppedThread},
 };
 
 static void initializeTarget(lua_State* L)

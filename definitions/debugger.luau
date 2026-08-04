@@ -14,10 +14,16 @@ export type Breakpoint = {
 	status: BreakpointStatus,
 }
 
+--- A thread of execution, which represents one coroutine running on the runtime
+export type Thread = {
+	id: number,
+	name: string,
+}
+
 --- A set of callbacks that we configure before launching our debugger
 export type LaunchConfig = {
-	--- called when a breakpoint `bp` is hit; execution is paused until continueProcess() is called
-	onBreakpointHit: ((bp: Breakpoint) -> ())?,
+	--- called when a breakpoint `bp` is hit on `thread`; execution is paused until continueProcess() is called
+	onBreakpointHit: ((thread: Thread, bp: Breakpoint) -> ())?,
 	--- called when there is has been an attempt to install the breakpoint `bp` on the VM, regardless
 	--- of success and failure. check the status of `bp` to see if the attempt has succeeded or failed.
 	onBreakpointInstall: ((bp: Breakpoint) -> ())?,
@@ -25,8 +31,8 @@ export type LaunchConfig = {
 	onBreakpointUninstall: ((bp: Breakpoint) -> ())?,
 	--- called when the debugged script exits. `success` reflects if the script exited without errors.
 	onExit: ((success: boolean) -> ())?,
-	--- called when a script actually pauses execution after a call to pauseProcess().
-	onPause: (() -> ())?,
+	--- called when a pauseProcess() interrupts `thread` and then actually stops all threads from execution.
+	onPause: ((thread: Thread) -> ())?,
 }
 
 --- A `Target` represents the target program under the debugger.
@@ -56,6 +62,12 @@ export type Target = {
 	--- Pauses a target script if it is running. Return `true` if the target was successfully paused
 	--- and `false` if it was not.
 	pauseProcess: (self: Target) -> boolean,
+	--- Gets a list of all Luau coroutines that are being used by the script.
+	getThreads: (self: Target) -> { Thread },
+	--- Gets the main thread of the script, returning nil if debugger is not launched
+	getMainThread: (self: Target) -> Thread?,
+	--- Gets the current stopped thread of the script, returning nil if debugger is not paused
+	getStoppedThread: (self: Target) -> Thread?,
 }
 
 --- Create a new Target handle on the current VM.

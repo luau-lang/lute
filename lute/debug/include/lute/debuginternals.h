@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct lua_State;
@@ -35,15 +36,24 @@ struct Breakpoint
     explicit Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
 };
 
+// Each Thread represents one coroutine in our Lute runtime.
+struct Thread
+{
+    int id = -1;
+    std::string name;
+    Thread(int id, std::string name);
+    bool operator==(const Thread& other) const;
+};
+
 struct LaunchConfig
 {
     // onBreakpointInstall is called whenever an installation attempt is actually made, regardless
     // of whether it resulted in being installed or the bp being invalid.
     std::function<void(const Breakpoint& bp)> onBreakpointInstall;
     std::function<void(const Breakpoint& bp)> onBreakpointUninstall;
-    std::function<void(const Breakpoint& bp)> onBreakpointHit;
+    std::function<void(const Thread& thread, const Breakpoint& bp)> onBreakpointHit;
     std::function<void(bool success)> onExit;
-    std::function<void()> onPause;
+    std::function<void(const Thread& thread)> onPause;
 };
 
 struct Target
@@ -74,6 +84,17 @@ struct Target
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
+    // For inspection while paused:
+    // About multiple coroutines: we don't currently handle the original implementation of task.spawn(). Calling
+    // task.spawn() when working in the debugger instead calls task.defer() instead.
+    // The difference is that the original task.spawn() tries to run the coroutine inline with our current execution, resulting
+    // in issues when trying to pause. Similar methods that also run coroutines inline with our current execution will not work.
+    // In contrast, in task.defer(), the coroutine is added to set of running coroutines but execution
+    // is deferred. Our pause mechanism will then work correctly.
+    std::optional<Thread> getMainThread() const;
+    std::optional<Thread> getStoppedThread() const;
+    std::vector<Thread> getThreads() const;
+
     // For actively running scripts:
     bool launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
@@ -88,11 +109,11 @@ private:
     Runtime& parentRuntime;
     std::unique_ptr<Runtime> childRuntime;
 
-    int currentBreakpointId = 0;
+    int currentBreakpointId = 1;
     bool paused = true;
     bool launched = false;
-    std::unordered_map<int, Breakpoint> breakpoints; // breakpoint id -> breakpoint object (this is unordered_map to support erase)
-    bool continueRequestedBp = false;
+    std::unordered_map<int, Breakpoint> breakpoints;    // breakpoint id -> breakpoint object (this is unordered_map to support erase)
+    std::unordered_set<lua_State*> continueRequestedBp; // if the thread's lua_State* is in this set, we skip the next bp it hits
     std::optional<Breakpoint> bpHit;
     LaunchConfig launchConfig;
 
@@ -107,6 +128,11 @@ private:
     // for require contexts
     std::unique_ptr<RequireCtx> requireCtx;
 
+    // thread information
+    int threadId = 1;
+    std::unordered_map<lua_State*, Thread> stateToThread; // lua_State* -> thread information about that state
+    std::unordered_map<int, lua_State*> threadIdToState;  // thread id -> lua_State*
+
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
     std::optional<Breakpoint> getBreakpointByIdHelper(int breakpointId) const;
@@ -117,5 +143,6 @@ private:
 
     void installBpHitCallback();
     void installExitCallback();
+    void installThreadCallback();
 };
 } // namespace debug

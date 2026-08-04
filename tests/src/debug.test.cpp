@@ -42,11 +42,11 @@ TEST_SUITE("Debug")
         Breakpoint bp3 = target.setBreakpoint(fixturePath, 3);
 
         // check breakpoints before launch
-        CHECK(bp.id == 0);
+        CHECK(bp.id == 1);
         checkBreakpointId(target, bp.id, BreakpointStatus::PendingInstall, fixturePath, 2);
-        CHECK(bp2.id == 1);
+        CHECK(bp2.id == 2);
         checkBreakpointId(target, bp2.id, BreakpointStatus::PendingInstall, fixturePath, 100);
-        CHECK(bp3.id == 2);
+        CHECK(bp3.id == 3);
         checkBreakpointId(target, bp3.id, BreakpointStatus::PendingInstall, fixturePath, 3);
 
         // check cannot find not-set breakpoint
@@ -59,11 +59,11 @@ TEST_SUITE("Debug")
 
         std::function<void(const Breakpoint& bp)> onBreakpointInstall = [&](const Breakpoint& bp)
         {
-            if (bp.id == 3)
+            if (bp.id == 4)
                 bp4InstalledPromise.set_value();
         };
 
-        std::function<void(const Breakpoint& bp)> onBreakpointHit = [&](const Breakpoint& bp)
+        std::function<void(const Thread&, const Breakpoint& bp)> onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             // we wait until bp4 is added; otherwise we can get an error
             // where the program terminates before bp4 is added
@@ -103,7 +103,7 @@ TEST_SUITE("Debug")
 
         // check that setting breakpoints at same breakpoint returns same id
         Breakpoint bp5 = target.setBreakpoint(fixturePath, 2);
-        CHECK(bp5.id == 0);
+        CHECK(bp5.id == 1);
         checkBreakpointId(target, bp5.id, BreakpointStatus::Installed, fixturePath, 2);
 
         // wait until script is finished to call destructors
@@ -141,7 +141,7 @@ TEST_SUITE("Debug")
 
         // trigger breakpoint removals when our breakpoint is hit (thus, the execution is currently paused
         // and we can see changes to it being pending uninstall)
-        std::function<void(const Breakpoint& bp)> onBreakpointHit = [&](const Breakpoint& bp)
+        std::function<void(const Thread&, const Breakpoint& bp)> onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             checkBreakpointId(target, bp.id, BreakpointStatus::Installed, fixturePath, bp.line);
 
@@ -188,7 +188,7 @@ TEST_SUITE("Debug")
         Breakpoint bp3 = target.setBreakpoint(fixturePath, 7);
         int hitBp1 = 0, hitBp2 = 0, hitBp3 = 0;
 
-        std::function<void(const Breakpoint& bp)> onBreakpointHit = [&](const Breakpoint& hitBp)
+        std::function<void(const Thread&, const Breakpoint& bp)> onBreakpointHit = [&](const Thread&, const Breakpoint& hitBp)
         {
             if (hitBp.id == bp1.id)
                 hitBp1++;
@@ -225,7 +225,7 @@ TEST_SUITE("Debug")
         std::promise<void> hitPromise2;
         std::future<void> hitFuture2 = hitPromise2.get_future();
 
-        config.onBreakpointHit = [&](const Breakpoint& bp)
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             if (bp.id == bp1.id)
                 hitPromise1.set_value();
@@ -256,6 +256,7 @@ TEST_SUITE("Debug")
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
+
     TEST_CASE_FIXTURE(DebugFixture, "Debug_pauseProcess")
     {
         std::string fixturePath = getDebugFixturePath("loop.luau");
@@ -268,7 +269,7 @@ TEST_SUITE("Debug")
         // This tests whether we pause after continuing. This is pretty
         // strange but is unfortunately, the best way of guaranteeing that a pause request
         // goes through without timing conerns.
-        config.onBreakpointHit = [&](const Breakpoint& bp)
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             bool continuedProcess = target.continueProcess();
             CHECK(continuedProcess);
@@ -276,7 +277,7 @@ TEST_SUITE("Debug")
             CHECK(pausedProcess);
             hitPromise.set_value();
         };
-        config.onPause = [&]()
+        config.onPause = [&](const Thread&)
         {
             numPause++;
         };
@@ -292,6 +293,7 @@ TEST_SUITE("Debug")
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
+
     TEST_CASE_FIXTURE(DebugFixture, "Debug_destroyInfiniteLoop")
     {
         // This tests that we don't stall on the Runtime destruction even when we are running
@@ -311,6 +313,7 @@ TEST_SUITE("Debug")
         );
         REQUIRE(destroyFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
+
     TEST_CASE_FIXTURE(DebugFixture, "Debug_multiSource")
     {
         std::string mainPath = getDebugFixturePath("require_main.luau");
@@ -324,7 +327,7 @@ TEST_SUITE("Debug")
         {
             bpInstalled++;
         };
-        config.onBreakpointHit = [&](const Breakpoint& bp)
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             if (bp.id == bp1.id)
                 bpHit1++;
@@ -343,5 +346,70 @@ TEST_SUITE("Debug")
         CHECK(sources.size() == 2);
         CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
         CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
+    }
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_threadTracking")
+    {
+        std::string fixturePath = getDebugFixturePath("task.luau");
+        Target target(*runtime);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 7);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 14);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 22);
+
+        int maxThreadsSeen = 0;
+        int hitsBp1 = 0, hitsBp2 = 0;
+        config.onBreakpointHit = [&](const Thread& thread, const Breakpoint& bp)
+        {
+            if (bp.id == bp1.id)
+            {
+                CHECK(thread.id == 2);
+                auto stoppedThread = target.getStoppedThread();
+                REQUIRE(stoppedThread.has_value());
+                CHECK(stoppedThread->id == 2);
+                hitsBp1++;
+                const std::vector<Thread>& threads = target.getThreads();
+                maxThreadsSeen = std::max(maxThreadsSeen, (int)threads.size());
+                if (threads.size() == 3)
+                {
+                    Thread t1(1, "Main Coroutine");
+                    Thread t2(2, "Coroutine 2");
+                    Thread t3(3, "Coroutine 3");
+                    CHECK(std::find(threads.begin(), threads.end(), t1) != threads.end());
+                    CHECK(std::find(threads.begin(), threads.end(), t2) != threads.end());
+                    CHECK(std::find(threads.begin(), threads.end(), t3) != threads.end());
+                }
+            }
+            else if (bp.id == bp2.id)
+            {
+                CHECK(thread.id == 3);
+                auto stoppedThread = target.getStoppedThread();
+                REQUIRE(stoppedThread.has_value());
+                CHECK(stoppedThread->id == 3);
+                hitsBp2++;
+            }
+            else
+            {
+                // after joining all threads, we only have one left over (the main coroutine)
+                auto stoppedThread = target.getStoppedThread();
+                REQUIRE(stoppedThread.has_value());
+                CHECK(stoppedThread->id == 1);
+                const std::vector<Thread>& threads = target.getThreads();
+                CHECK(thread.id == 1);
+                CHECK(threads.size() == 1);
+                CHECK(threads.at(0) == Thread(1, "Main Coroutine"));
+            }
+            target.continueProcess();
+            // we shouldn't get threads when things are crunning
+        };
+        target.launch(fixturePath, {}, config);
+        auto mainThread = target.getMainThread();
+        REQUIRE(mainThread.has_value());
+        CHECK(mainThread->id == 1);
+        CHECK(mainThread->name == "Main Coroutine");
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        // over the course of execution, the maximum number of threads encountered should be 3
+        CHECK(maxThreadsSeen == 3);
+        CHECK(hitsBp1 == 5);
+        CHECK(hitsBp2 == 5);
     }
 }
