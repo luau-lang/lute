@@ -663,6 +663,12 @@ bool Target::continueProcess()
     // in case it has not actually been triggered.
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
     cb->interrupt = nullptr;
+
+    // we clear the stack frame information
+    stackframeId = 1;
+    stateToStackFrame.clear();
+    idToStackFrameInfo.clear();
+
     if (stoppedThread)
     {
         // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
@@ -681,6 +687,7 @@ bool Target::continueProcess()
         childRuntime->schedule([]() {});
         stoppedThread = nullptr;
         stoppedThreadRef = nullptr;
+        stoppedLine = -1;
     }
     paused = false;
     childRuntime->continueDebug();
