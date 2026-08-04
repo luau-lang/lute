@@ -349,10 +349,11 @@ TEST_SUITE("Debug")
         CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
         CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
     }
+
     TEST_CASE_FIXTURE(DebugFixture, "Debug_badlaunch")
     {
         std::string badPath = getDebugFixturePath("bad.luau");
-        std::string mainPath = getDebugFixturePath("compile_error.txt");
+        std::string mainPath = getDebugFixturePath("compile_error.luau");
         Target target(*runtime);
         std::optional<std::string> error = target.launch(badPath, {}, config);
         REQUIRE(error.has_value());
