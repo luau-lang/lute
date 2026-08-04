@@ -43,6 +43,19 @@ Target::~Target()
     // We want to stop the runtime so nothing runs while we are destroying the target but first
     // we need to clear all sources (which are stored as refs in the runtime).
     loadedSources.clear();
+    // this interrupts execution of runToCompletion() in order to stop
+    // any infinite/long-running coroutines.
+    if (launched)
+    {
+        childRuntime->continueDebug();
+        lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
+        cb->interrupt = [](lua_State* L, int gc)
+        {
+            if (gc != -1)
+                return;
+            lua_break(L);
+        };
+    }
     childRuntime.reset();
 }
 

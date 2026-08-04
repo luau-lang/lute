@@ -292,7 +292,25 @@ TEST_SUITE("Debug")
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_destroyInfiniteLoop")
+    {
+        // This tests that we don't stall on the Runtime destruction even when we are running
+        // an infinite loop.
+        std::string fixturePath = getDebugFixturePath("infiniteloop.luau");
 
+        std::future<void> destroyFuture = std::async(
+            std::launch::async,
+            [&]()
+            {
+                Target target(*runtime);
+                target.launch(fixturePath, {}, config);
+                // This is a timing pause to make sure that we actually start execution of the script.
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                // At this point target and its Runtime should be destroyed.
+            }
+        );
+        REQUIRE(destroyFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    }
     TEST_CASE_FIXTURE(DebugFixture, "Debug_multiSource")
     {
         std::string mainPath = getDebugFixturePath("require_main.luau");
