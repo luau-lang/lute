@@ -256,6 +256,7 @@ TEST_SUITE("Debug")
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
+
     TEST_CASE_FIXTURE(DebugFixture, "Debug_pauseProcess")
     {
         std::string fixturePath = getDebugFixturePath("loop.luau");
@@ -292,6 +293,7 @@ TEST_SUITE("Debug")
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
+
     TEST_CASE_FIXTURE(DebugFixture, "Debug_destroyInfiniteLoop")
     {
         // This tests that we don't stall on the Runtime destruction even when we are running
@@ -311,6 +313,7 @@ TEST_SUITE("Debug")
         );
         REQUIRE(destroyFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
+
     TEST_CASE_FIXTURE(DebugFixture, "Debug_multiSource")
     {
         std::string mainPath = getDebugFixturePath("require_main.luau");
@@ -344,6 +347,7 @@ TEST_SUITE("Debug")
         CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
         CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
     }
+
     TEST_CASE_FIXTURE(DebugFixture, "Debug_threadTracking")
     {
         std::string fixturePath = getDebugFixturePath("task.luau");
