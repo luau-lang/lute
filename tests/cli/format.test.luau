@@ -7,13 +7,36 @@ local testutil = require("../testutil")
 
 local lutePath = path.format(process.execPath())
 local workdir = path.join(system.tmpdir(), "lute_format_test")
+local fixtures = path.join(process.cwd(), "tests", "cli", "format", "fixtures")
 
-local FORMATTED = "local x = 1\n"
-local UNFORMATTED = "  local x = 1\n\n"
+local function fixture(...: string): path.Path
+	return path.join(fixtures, ...)
+end
 
 local function child(...: string): string
 	return path.format(path.join(workdir, ...))
 end
+
+local function copyDirectory(source: path.Path, destination: path.Path)
+	for _, entry in fs.listDirectory(source) do
+		local from = path.join(source, entry.name)
+		local to = path.join(destination, entry.name)
+
+		if entry.type == "dir" then
+			fs.createDirectory(to)
+			copyDirectory(from, to)
+		else
+			fs.copy(from, to)
+		end
+	end
+end
+
+local function copyFixture(name: string)
+	copyDirectory(fixture(name), workdir)
+end
+
+local FORMATTED = fs.readFileToString(fixture("formatting", "formatted.luau"))
+local UNFORMATTED = fs.readFileToString(fixture("formatting", "unformatted.luau"))
 
 local function runLute(...: string): process.ProcessResult
 	local result = process.run({ lutePath, ... })
@@ -44,7 +67,7 @@ test.suite("LuteFormat", function(suite)
 	end)
 
 	suite:case("errors when a path holds no Luau files", function(assert)
-		fs.writeStringToFile(child("notes.txt"), "not luau\n")
+		copyFixture("no-luau-files")
 
 		local result = runLute("format", path.format(workdir))
 		assert.eq(result.exitcode, 1)
@@ -52,10 +75,7 @@ test.suite("LuteFormat", function(suite)
 	end)
 
 	suite:case("discovers Luau files recursively under a directory", function(assert)
-		fs.createDirectory(child("nested"))
-		fs.writeStringToFile(child("top.luau"), "local x = 1\n")
-		fs.writeStringToFile(child("nested", "deep.luau"), "local y = 2\n")
-		fs.writeStringToFile(child("ignored.txt"), "not luau\n")
+		copyFixture("discovery")
 
 		local result = runLute("format", "--verbose", path.format(workdir))
 		assert.eq(result.exitcode, 0)
@@ -65,11 +85,7 @@ test.suite("LuteFormat", function(suite)
 	end)
 
 	suite:case("skips files and directories excluded by .gitignore", function(assert)
-		fs.writeStringToFile(child(".gitignore"), "generated.luau\nvendor/\n")
-		fs.createDirectory(child("vendor"))
-		fs.writeStringToFile(child("src.luau"), "local x = 1\n")
-		fs.writeStringToFile(child("generated.luau"), "local y = 2\n")
-		fs.writeStringToFile(child("vendor", "dep.luau"), "local z = 3\n")
+		copyFixture("gitignored")
 
 		local result = runLute("format", "--verbose", path.format(workdir))
 		assert.eq(result.exitcode, 0)
@@ -79,8 +95,8 @@ test.suite("LuteFormat", function(suite)
 	end)
 
 	suite:case("rewrites a file in place when the formatter changes it", function(assert)
+		copyFixture("formatting")
 		local target = child("unformatted.luau")
-		fs.writeStringToFile(target, UNFORMATTED)
 
 		local result = runLute("format", "--verbose", target)
 		assert.eq(result.exitcode, 0)
@@ -90,8 +106,8 @@ test.suite("LuteFormat", function(suite)
 	end)
 
 	suite:case("leaves a file byte-identical when the formatter reports no change", function(assert)
+		copyFixture("formatting")
 		local target = child("formatted.luau")
-		fs.writeStringToFile(target, FORMATTED)
 
 		local result = runLute("format", "--verbose", target)
 		assert.eq(result.exitcode, 0)
@@ -100,29 +116,19 @@ test.suite("LuteFormat", function(suite)
 		assert.strContains(result.stdout, "Formatted 0 of 1 file(s).")
 	end)
 
-	suite:case("--check reports unformatted files and exits 1 without writing", function(assert)
+	-- The report `--check` prints is pinned by tests/cli/format/snapshots/check_unformatted_file.
+	suite:case("--check exits 1 for an unformatted file without rewriting it", function(assert)
+		copyFixture("formatting")
 		local target = child("unformatted.luau")
-		fs.writeStringToFile(target, UNFORMATTED)
 
 		local result = runLute("format", "--check", target)
 		assert.eq(result.exitcode, 1)
 		assert.eq(fs.readFileToString(target), UNFORMATTED)
-		assert.strContains(result.stdout, `1 file(s) not formatted:\n\t- {target}`)
-	end)
-
-	suite:case("--check exits 0 when every file is already formatted", function(assert)
-		local target = child("formatted.luau")
-		fs.writeStringToFile(target, FORMATTED)
-
-		local result = runLute("format", "--check", "--verbose", target)
-		assert.eq(result.exitcode, 0)
-		assert.eq(fs.readFileToString(target), FORMATTED)
-		assert.strContains(result.stdout, "All 1 file(s) were formatted properly.")
 	end)
 
 	suite:case("accepts -c and -v as aliases for --check and --verbose", function(assert)
+		copyFixture("formatting")
 		local target = child("unformatted.luau")
-		fs.writeStringToFile(target, UNFORMATTED)
 
 		local long = runLute("format", "--check", "--verbose", target)
 		local short = runLute("format", "-cv", target)

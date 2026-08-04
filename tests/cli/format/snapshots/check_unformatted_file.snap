@@ -1,0 +1,7 @@
+<ROOT>/tests/cli/format/snapshots/check_unformatted_file.snap.luau
+Trying to format <ROOT>/tests/cli/format/snapshots/check_unformatted_file.snap.luau
+Checked 1 file(s).
+1 file(s) were not formatted properly.
+
+1 file(s) not formatted:
+	- <ROOT>/tests/cli/format/snapshots/check_unformatted_file.snap.luau
