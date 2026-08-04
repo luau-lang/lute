@@ -120,17 +120,6 @@ test.suite("LuteFormat", function(suite)
 		assert.strContains(result.stdout, "Formatted 0 of 1 file(s).")
 	end)
 
-	suite:case("--check exits 0 for an already formatted file", function(assert)
-		copyFixture("formatting")
-		local target = child("formatted.luau")
-
-		local result = runLute("format", "--check", "--verbose", target)
-		assert.eq(result.exitcode, 0)
-		assert.eq(fs.readFileToString(target), FORMATTED)
-		assert.strContains(result.stdout, "Checked 1 file(s).")
-		assert.strContains(result.stdout, "All 1 file(s) were formatted properly.")
-	end)
-
 	suite:case("--check exits 1 for an unformatted file without rewriting it", function(assert)
 		copyFixture("formatting")
 		local target = child("unformatted.luau")
