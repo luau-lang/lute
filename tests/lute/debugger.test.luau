@@ -319,7 +319,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				for i, frame in stacktrace do
 					check.eq(frame.id, i)
 					check.eq(frame.column, 0)
-					check.eq(frame.sourcePath, mainPath)
+					check.eq(frame.sourcePath, normalizePath(mainPath))
 					if i == #stacktrace then
 						check.eq(frame.name, "(entry)")
 						check.eq(frame.line, 8)
@@ -333,7 +333,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				assert(specificFrame)
 				check.eq(specificFrame.id, 1)
 				check.eq(specificFrame.column, 0)
-				check.eq(specificFrame.sourcePath, mainPath)
+				check.eq(specificFrame.sourcePath, normalizePath(mainPath))
 				local continued = target:continueProcess()
 				check.that(continued)
 			end,
