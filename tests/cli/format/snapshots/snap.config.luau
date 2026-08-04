@@ -10,8 +10,10 @@ return {
 			args = { "format", "--help" },
 		},
 		-- Deliberately unformatted, so `--check` reports it and exits 1. `unformatted` in the name is
-		-- what keeps stylua off it; see `.styluaignore`.
+		-- what keeps stylua off it (see `.styluaignore`), but that also matches this repository's
+		-- `lute.format.ignores`, hence `--no-ignore`.
 		["check_unformatted_file"] = {
+			args = { "format", "--check", "--verbose", "--no-ignore" },
 			expectedExitCode = 1,
 		},
 	},

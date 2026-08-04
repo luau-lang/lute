@@ -1,7 +1,8 @@
 local stringext = require("@std/stringext")
 
 local function formatSource(source: string): string
-	return stringext.trim(source) .. "\n"
+	local trimmed = stringext.trim(source)
+	return if trimmed == "" then trimmed else `{trimmed}\n`
 end
 
 return {

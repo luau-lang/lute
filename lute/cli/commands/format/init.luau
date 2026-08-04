@@ -68,6 +68,7 @@ local function main(...: string)
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
 	args:add("check", "flag", { help = "Check formatting; exit 1 if any file is unformatted", aliases = { "c" } })
+	args:add("no-ignore", "flag", { help = "Format every input, even ones matching lute.format.ignores" })
 	args:add("files", "variadic", { help = "Files or directories to format (defaults to current directory)" })
 	args:parse({ ... })
 
@@ -90,7 +91,9 @@ local function main(...: string)
 	local needsFormatting: { string } = {}
 
 	local sourceFiles = files.getSourceFiles(inputPaths, verbose)
-	sourceFiles = filterIgnored(sourceFiles, verbose)
+	if not args:has("no-ignore") then
+		sourceFiles = filterIgnored(sourceFiles, verbose)
+	end
 	if verbose then
 		print(`Found {#sourceFiles} file(s) to format.`)
 	end

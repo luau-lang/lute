@@ -6,4 +6,5 @@ Options:
   --help (-h) - Show this help message
   --verbose (-v) - Enable verbose output
   --check (-c) - Check formatting; exit 1 if any file is unformatted
+  --no-ignore - Format every input, even ones matching lute.format.ignores
   [files...] - Files or directories to format (defaults to current directory)

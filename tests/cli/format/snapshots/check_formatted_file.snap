@@ -1,4 +1,5 @@
 <ROOT>/tests/cli/format/snapshots/check_formatted_file.snap.luau
+Kept 1 file(s) after filtering.
 Found 1 file(s) to format.
 Trying to format <ROOT>/tests/cli/format/snapshots/check_formatted_file.snap.luau
 Checked 1 file(s).

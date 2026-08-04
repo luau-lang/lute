@@ -83,6 +83,16 @@ test.suite("LuteFormat", function(suite)
 		assert.strContains(result.stdout, "Formatted 0 of 0 file(s).")
 	end)
 
+	suite:case("leaves an empty file empty", function(assert)
+		copyFixture("empty-file")
+		local target = child("empty.luau")
+
+		local result = runLute("format", "--verbose", target)
+		assert.eq(result.exitcode, 0)
+		assert.eq(fs.readFileToString(target), "")
+		assert.strNotContains(result.stdout, `Formatted {target}`)
+	end)
+
 	suite:case("discovers Luau files recursively under a directory", function(assert)
 		copyFixture("discovery")
 
@@ -192,6 +202,25 @@ test.suite("LuteFormat", function(suite)
 
 		local result = runLute("format", "--check", path.format(workdir))
 		assert.eq(result.exitcode, 0)
+	end)
+
+	suite:case("--no-ignore formats a file that lute.format.ignores matches", function(assert)
+		copyFixture("configured-ignores")
+		local target = child("unformatted.luau")
+
+		local result = runLute("format", "--verbose", "--no-ignore", target)
+		assert.eq(result.exitcode, 0)
+		assert.strNotContains(result.stdout, `Skipping {target}`)
+		assert.eq(fs.readFileToString(target), FORMATTED)
+	end)
+
+	suite:case("--no-ignore makes --check exit 1 for an ignored unformatted file", function(assert)
+		copyFixture("configured-ignores")
+		local target = child("unformatted.luau")
+
+		local result = runLute("format", "--check", "--no-ignore", target)
+		assert.eq(result.exitcode, 1)
+		assert.eq(fs.readFileToString(target), UNFORMATTED)
 	end)
 
 	suite:case("errors when lute.format.ignores is not an array of globs", function(assert)
