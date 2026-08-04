@@ -224,7 +224,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local bpHit2 = 0
 		local onFinished = false
 		local maxThreads = 0
-		local targetLaunched = target:launch(mainPath, {}, {
+		local launchError = target:launch(mainPath, {}, {
 			onBreakpointHit = function(thread, bp)
 				if bp.id == bp1.id then
 					local stoppedThread = assert(target:getStoppedThread())
@@ -250,7 +250,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.eq(targetLaunched, nil)
+		check.eq(launchError, nil)
 		local stoppedThread = assert(target:getMainThread())
 		check.eq(stoppedThread.id, 1)
 		check.eq(stoppedThread.name, "Main Coroutine")
@@ -271,7 +271,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/print.luau"))
 		local prints: { { read msg: string, read line: number } } = {}
 		local onFinished = false
-		local targetLaunched = target:launch(mainPath, {}, {
+		local launchError = target:launch(mainPath, {}, {
 			onPrint = function(msg, source, line)
 				local print = {
 					msg = msg,
@@ -286,7 +286,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(launchError, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished

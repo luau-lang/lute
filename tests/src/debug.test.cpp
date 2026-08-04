@@ -373,8 +373,8 @@ TEST_SUITE("Debug")
             prints.emplace_back(std::make_pair(message, line));
             CHECK(source == fixturePath);
         };
-        bool launched = target.launch(fixturePath, {}, config);
-        CHECK(launched);
+        std::optional<std::string> error = target.launch(fixturePath, {}, config);
+        CHECK(!error);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         CHECK(prints.size() == 2);
         CHECK(prints[0] == std::make_pair(std::string("3\tabc\tfalse\n"), 6));
