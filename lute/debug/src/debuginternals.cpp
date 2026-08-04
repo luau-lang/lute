@@ -610,6 +610,7 @@ void Target::continueProcessHelper()
         childRuntime->schedule([]() {});
         stoppedThread = nullptr;
         stoppedThreadRef = nullptr;
+        stoppedLine = -1;
     }
     paused = false;
     childRuntime->continueDebug();
