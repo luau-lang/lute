@@ -285,6 +285,7 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 //     onBreakpointUninstall(Breakpoint bp) -> ()
 //     onExit(bool success) -> ()
 //     onPause(Thread thread) -> ()
+//     onPrint(string message, string source, int line) -> ()
 // }
 // returns boolean
 static int target_launch(lua_State* L)
@@ -354,6 +355,23 @@ static int target_launch(lua_State* L)
                     {
                         pushThread(L, thread);
                         return 1;
+                    }
+                );
+            };
+        }
+        if (auto ref = getOptionalCallback(L, 4, "onPrint"))
+        {
+            config.onPrint = [ref, runtime](std::string message, std::string source, int line)
+            {
+                runtime->scheduleLuauCallback(
+                    ref,
+                    [message, source, line](lua_State* L)
+                    {
+                        checkStack(L, 3);
+                        lua_pushstring(L, message.c_str());
+                        lua_pushstring(L, source.c_str());
+                        lua_pushinteger(L, line);
+                        return 3;
                     }
                 );
             };

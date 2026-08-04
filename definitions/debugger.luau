@@ -33,6 +33,8 @@ export type LaunchConfig = {
 	onExit: ((success: boolean) -> ())?,
 	--- called when a pauseProcess() interrupts `thread` and then actually stops all threads from execution.
 	onPause: ((thread: Thread) -> ())?,
+	--- called when print() would have printed out `message` and is called from `source` on line number `line`
+	onPrint: ((message: string, source: string, line: number) -> ())?,
 }
 
 --- A `Target` represents the target program under the debugger.
