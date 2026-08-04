@@ -250,7 +250,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		local stoppedThread = assert(target:getMainThread())
 		check.eq(stoppedThread.id, 1)
 		check.eq(stoppedThread.name, "Main Coroutine")
