@@ -13,6 +13,10 @@ local function fixture(...: string): path.Path
 	return path.join(fixtures, ...)
 end
 
+local function readNormalizedFile(file: path.Pathlike): string
+	return testutil.normalizeLineEndings(fs.readFileToString(file))
+end
+
 local function child(...: string): string
 	return path.format(path.join(workdir, ...))
 end
@@ -26,7 +30,7 @@ local function copyDirectory(source: path.Path, destination: path.Path)
 			fs.createDirectory(to)
 			copyDirectory(from, to)
 		else
-			fs.copy(from, to)
+			fs.writeStringToFile(to, readNormalizedFile(from))
 		end
 	end
 end
@@ -35,8 +39,8 @@ local function copyFixture(name: string)
 	copyDirectory(fixture(name), workdir)
 end
 
-local FORMATTED = fs.readFileToString(fixture("formatting", "formatted.luau"))
-local UNFORMATTED = fs.readFileToString(fixture("formatting", "unformatted.luau"))
+local FORMATTED = readNormalizedFile(fixture("formatting", "formatted.luau"))
+local UNFORMATTED = readNormalizedFile(fixture("formatting", "unformatted.luau"))
 
 local function runLute(...: string): process.ProcessResult
 	local result = process.run({ lutePath, ... })
@@ -116,7 +120,17 @@ test.suite("LuteFormat", function(suite)
 		assert.strContains(result.stdout, "Formatted 0 of 1 file(s).")
 	end)
 
-	-- The report `--check` prints is pinned by tests/cli/format/snapshots/check_unformatted_file.
+	suite:case("--check exits 0 for an already formatted file", function(assert)
+		copyFixture("formatting")
+		local target = child("formatted.luau")
+
+		local result = runLute("format", "--check", "--verbose", target)
+		assert.eq(result.exitcode, 0)
+		assert.eq(fs.readFileToString(target), FORMATTED)
+		assert.strContains(result.stdout, "Checked 1 file(s).")
+		assert.strContains(result.stdout, "All 1 file(s) were formatted properly.")
+	end)
+
 	suite:case("--check exits 1 for an unformatted file without rewriting it", function(assert)
 		copyFixture("formatting")
 		local target = child("unformatted.luau")
