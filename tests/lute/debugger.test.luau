@@ -308,7 +308,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local hits = 0
 		local onFinished = false
 		local launchError = target:launch(mainPath, {}, {
-			onBreakpointHit = function(thread, bp)
+			onBreakpointHit = function(_thread, _bp)
 				hits += 1
 				local threads = target:getThreads()
 				check.eq(#threads, 1)
