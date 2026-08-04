@@ -299,4 +299,49 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(prints[2].msg, "custom_value\n")
 		check.eq(prints[2].line, 7)
 	end)
+	-- this test case focuses on inspecting stack trace
+	suite:case("inspectStackTrace", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/pow.luau"))
+		target:setBreakpoint(mainPath, 5)
+		local hits = 0
+		local onFinished = false
+		local targetLaunched = target:launch(mainPath, {}, {
+			onBreakpointHit = function(thread, bp)
+				hits += 1
+				local threads = target:getThreads()
+				check.eq(#threads, 1)
+				local stacktrace = target:getStackTrace(threads[1].id)
+				assert(stacktrace)
+				check.eq(#stacktrace, hits + 1)
+				for i, frame in stacktrace do
+					check.eq(frame.id, i)
+					check.eq(frame.column, 0)
+					check.eq(frame.sourcePath, mainPath)
+					if i == #stacktrace then
+						check.eq(frame.name, "(anonymous)")
+						check.eq(frame.line, 8)
+					else
+						check.eq(frame.name, "pow")
+						check.eq(frame.line, 5)
+					end
+				end
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.that(targetLaunched)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+	end)
 end)
