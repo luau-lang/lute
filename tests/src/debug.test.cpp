@@ -385,7 +385,7 @@ TEST_SUITE("Debug")
 
         Target target(*runtime);
         Breakpoint bp = target.setBreakpoint(mainPath, 9);
-        config.onBreakpointHit = [&](const Breakpoint& bp)
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             hitPromise.set_value();
         };

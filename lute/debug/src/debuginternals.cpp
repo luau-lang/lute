@@ -588,15 +588,6 @@ std::vector<Thread> Target::getThreads() const
 
 void Target::continueProcessHelper(bool isStepping)
 {
-    if (stoppedThread)
-    {
-        childRuntime->runningThreads.push_back({true, getRefForThread(stoppedThread), 0});
-        // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
-        // runToCompletion() has not exited.
-        childRuntime->schedule([]() {});
-        if (!isStepping)
-            stoppedThread = nullptr;
-    }
     // this clears the interrupts that triggers when the process is paused from client request
     // in case it has not actually been triggered.
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
