@@ -633,7 +633,7 @@ std::optional<std::vector<StackFrame>> Target::getStackTrace(int threadId, int s
         return std::nullopt;
     int stackDepth = lua_stackdepth(threadIdToState[threadId]);
     if (startLevel >= stackDepth)
-        return std::nullopt;
+        return std::vector<StackFrame>{};
     int maximumLevel;
     if (numFrames == 0)
         maximumLevel = stackDepth;
