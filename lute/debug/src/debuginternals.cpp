@@ -591,10 +591,16 @@ std::optional<StackFrame> Target::getStackFrameHelper(int threadId, int level)
         frame.id = stackframeId;
         stackframeId++;
         lua_Debug ar = {};
-        if (!lua_getinfo(threadIdToState[threadId], level, "sln", &ar))
+        lua_State* threadLua = threadIdToState.at(threadId);
+        if (!lua_getinfo(threadLua, level, "sln", &ar))
             return std::nullopt;
-
-        frame.name = ar.name ? ar.name : "(anonymous)";
+        if (!ar.name)
+            if (threadLua == scriptThread && level == lua_stackdepth(threadLua) - 1)
+                frame.name = "(entry)";
+            else
+                frame.name = "(anonymous)";
+        else
+            frame.name = ar.name;
         if (ar.source)
         {
             frame.sourcePath = getSourceFromChunk(ar.source);

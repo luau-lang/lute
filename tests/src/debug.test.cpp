@@ -481,7 +481,7 @@ TEST_SUITE("Debug")
                 if (i == expectedTraceSize - 1)
                 {
                     line = 14;
-                    name = "(anonymous)";
+                    name = "(entry)";
                 }
                 else if ((hitA && i % 2 == 0) || (!hitA && i % 2 == 1))
                 {

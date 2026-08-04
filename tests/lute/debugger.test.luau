@@ -307,7 +307,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		target:setBreakpoint(mainPath, 5)
 		local hits = 0
 		local onFinished = false
-		local targetLaunched = target:launch(mainPath, {}, {
+		local launchError = target:launch(mainPath, {}, {
 			onBreakpointHit = function(thread, bp)
 				hits += 1
 				local threads = target:getThreads()
@@ -321,7 +321,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 					check.eq(frame.column, 0)
 					check.eq(frame.sourcePath, mainPath)
 					if i == #stacktrace then
-						check.eq(frame.name, "(anonymous)")
+						check.eq(frame.name, "(entry)")
 						check.eq(frame.line, 8)
 					else
 						check.eq(frame.name, "pow")
@@ -343,7 +343,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(launchError, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
