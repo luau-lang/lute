@@ -1,7 +1,6 @@
 Usage: lute format [options] [files...]
-Format Luau source files.
 
-Experimental: formatting is still under development, and its output will change.
+Format Luau source files. Experimental: formatting is still under development, and its output will change.
 
 Options:
   --help (-h) - Show this help message
