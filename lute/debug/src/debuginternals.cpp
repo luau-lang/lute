@@ -422,8 +422,9 @@ void Target::installBpHitCallback()
             return;
         }
         lua_Debug info = {};
-        lua_getinfo(L, 0, "sl", &info);
-        int line = info.currentline;
+        lua_getinfo(L, 0, "s", &info);
+        int line = ar->currentline;
+        target->stoppedLine = line;
         if (!info.source)
         {
             target->parentRuntime.reporter.reportError(Luau::format("breakpoint hit at line %d could not find a runtime source", line));
@@ -655,7 +656,6 @@ std::optional<std::vector<StackFrame>> Target::getStackTrace(int threadId, int s
 
 bool Target::continueProcess()
 {
-
     std::unique_lock lock(targetMutex);
     if (!launched || !paused)
         return false;
@@ -710,6 +710,9 @@ bool Target::pauseProcess()
         debug::Thread thread = target->stateToThread.at(L);
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
+        lua_Debug info = {};
+        lua_getinfo(L, 0, "l", &info);
+        target->stoppedLine = info.currentline;
         lua_break(L);
         // Clear out the interrupt callback after we are done.
         lua_callbacks(L)->interrupt = nullptr;

@@ -138,6 +138,9 @@ private:
     // our stopped thread that we need to requeue when we continue
     lua_State* stoppedThread = nullptr;
     std::shared_ptr<Ref> stoppedThreadRef;
+    // Due to the way Lua debugger callbacks works, we need to set the line in the callback. otherwise, outside of the callback, lua_getinfo
+    // will return the previous line.
+    int stoppedLine = -1;
 
     // for require contexts
     std::unique_ptr<RequireCtx> requireCtx;
