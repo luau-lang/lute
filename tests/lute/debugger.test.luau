@@ -49,7 +49,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -123,7 +123,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		-- we expect this breakpoint to be immediately installed
 		bpGet = assert(target:getBreakpointById(bp3.id))
 		check.eq(bpGet.id, bp3.id)
@@ -157,7 +157,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -200,7 +200,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -224,7 +224,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local bpHit2 = 0
 		local onFinished = false
 		local maxThreads = 0
-		local targetLaunched = target:launch(mainPath, {}, {
+		local launchError = target:launch(mainPath, {}, {
 			onBreakpointHit = function(thread, bp)
 				if bp.id == bp1.id then
 					local stoppedThread = assert(target:getStoppedThread())
@@ -250,7 +250,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(launchError, nil)
 		local stoppedThread = assert(target:getMainThread())
 		check.eq(stoppedThread.id, 1)
 		check.eq(stoppedThread.name, "Main Coroutine")
@@ -271,7 +271,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/print.luau"))
 		local prints: { { read msg: string, read line: number } } = {}
 		local onFinished = false
-		local targetLaunched = target:launch(mainPath, {}, {
+		local launchError = target:launch(mainPath, {}, {
 			onPrint = function(msg, source, line)
 				local print = {
 					msg = msg,
@@ -286,7 +286,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(launchError, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -308,7 +308,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local bpHit = false
 		local stepsDone = 0
 		local onFinished = false
-		local targetLaunched = target:launch(mainPath, {}, {
+		local error = target:launch(mainPath, {}, {
 			onStepStop = function(thread, _info)
 				check.eq(thread.id, 1)
 				stepsDone += 1
@@ -322,7 +322,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.that(error == nil)
 		check.eq(
 			waitUntil(function()
 				return bpHit

@@ -117,8 +117,12 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			-- configuration is done.
 			ioSession.writeResponse(reqSeq, true, command)
 			if launchConfig then
-				local launched = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
-				ioSession.writeResponse(launchSeq, launched, "launch")
+				local error = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
+				if error then
+					ioSession.writeResponse(launchSeq, false, "launch", error)
+				else
+					ioSession.writeResponse(launchSeq, true, "launch")
+				end
 			end
 		elseif command == "setBreakpoints" then
 			local args = request.arguments :: json.Object
@@ -146,9 +150,12 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				launchSeq = reqSeq
 				-- configuration is already done, respond to launch
 				if configurationDone then
-					-- TODO: better error handling when launching. report the error back to the user.
-					local launched = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
-					ioSession.writeResponse(reqSeq, launched, command)
+					local error = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
+					if error then
+						ioSession.writeResponse(reqSeq, false, command, error)
+					else
+						ioSession.writeResponse(reqSeq, true, command)
+					end
 				end
 			end
 		elseif command == "loadedSources" then
