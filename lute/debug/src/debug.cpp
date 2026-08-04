@@ -97,6 +97,29 @@ static int pushThread(lua_State* L, const debug::Thread& thread)
     return 1;
 }
 
+// Helper to push a StackFrame type, which is
+// id: number
+// name: string
+// sourcePath: string
+// line: number
+// column: number
+static int pushStackFrame(lua_State* L, const debug::StackFrame& frame)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 5);
+    lua_pushinteger(L, frame.id);
+    lua_setfield(L, -2, "id");
+    lua_pushstring(L, frame.name.c_str());
+    lua_setfield(L, -2, "name");
+    lua_pushstring(L, frame.sourcePath.c_str());
+    lua_setfield(L, -2, "sourcePath");
+    lua_pushinteger(L, frame.line);
+    lua_setfield(L, -2, "line");
+    lua_pushinteger(L, frame.column);
+    lua_setfield(L, -2, "column");
+    return 1;
+}
+
 // target.setBreakpoint(string sourcePath, int line)
 // returns a breakpoint
 static int target_setBreakpoint(lua_State* L)
@@ -251,6 +274,48 @@ static int target_getStoppedThread(lua_State* L)
         return 1;
     }
     return pushThread(L, *thread);
+}
+
+// target.getStackFrame(int threadId, int level)
+// return StackFrame | nil
+static int target_getStackFrame(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    int level = luaL_checkinteger(L, 2);
+    std::optional<debug::StackFrame> stackframe = target->getStackFrame(threadId, level);
+    if (!stackframe)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    return pushStackFrame(L, *stackframe);
+}
+
+// target.getStackTrace(int threadId, int startLevel = 0, int numFrames = 0)
+// return {StackFrame} | nil
+static int target_getStackTrace(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    int startLevel = (int)luaL_optinteger(L, 3, 0);
+    int numFrames = (int)luaL_optinteger(L, 4, 0);
+    std::optional<std::vector<debug::StackFrame>> stackframes = target->getStackTrace(threadId, startLevel, numFrames);
+    if (!stackframes)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    checkStack(L, 1);
+    lua_createtable(L, stackframes->size(), 0);
+    for (int i = 0; i < (int)stackframes->size(); i++)
+    {
+        pushStackFrame(L, stackframes->at(i));
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
 }
 
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
@@ -434,6 +499,8 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"getThreads", debug::target_getThreads},
     {"getMainThread", debug::target_getMainThread},
     {"getStoppedThread", debug::target_getStoppedThread},
+    {"getStackFrame", debug::target_getStackFrame},
+    {"getStackTrace", debug::target_getStackTrace}
 };
 
 static void initializeTarget(lua_State* L)
