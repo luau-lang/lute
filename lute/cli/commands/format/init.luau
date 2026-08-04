@@ -4,12 +4,64 @@ local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
 
+local configs = require("./lib/configs")
 local files = require("./lib/files")
+local parseIgnores = require("./lib/parseIgnores")
 
 local DESCRIPTION = [[
 
 Format Luau source files. Experimental: formatting is still under development, and its output will change.
 ]]
+
+local function findConfiguredIgnores(): parseIgnores.GitignoreData?
+	for configPath, config in configs.walkConfigPaths() do
+		local luteConfig = config.lute
+		if typeof(luteConfig) ~= "table" then
+			continue
+		end
+
+		local formatConfig = luteConfig.format
+		if typeof(formatConfig) ~= "table" or formatConfig.ignores == nil then
+			continue
+		end
+
+		local ignores = formatConfig.ignores
+		if typeof(ignores) ~= "table" then
+			error(`{configPath}: lute.format.ignores must be an array of filepath globs`, 0)
+		end
+
+		return parseIgnores.parseIgnoreContents(path.dirname(configPath), ignores)
+	end
+
+	return nil
+end
+
+local function filterIgnored(sourceFiles: { path.Path }, verbose: boolean): { path.Path }
+	local ignoreData = findConfiguredIgnores()
+	if ignoreData == nil then
+		return sourceFiles
+	end
+
+	local kept: { path.Path } = {}
+	for _, sourcePath in sourceFiles do
+		local target = path.format(sourcePath)
+
+		if parseIgnores.isIgnored(ignoreData, target, false) then
+			if verbose then
+				print(`Skipping {target}`)
+			end
+			continue
+		end
+
+		table.insert(kept, sourcePath)
+	end
+
+	if verbose then
+		print(`Kept {#kept} file(s) after filtering.`)
+	end
+
+	return table.freeze(kept)
+end
 
 local function main(...: string)
 	local args = cli.parser()
@@ -34,14 +86,14 @@ local function main(...: string)
 		inputPaths = table.freeze({ "." })
 	end
 
-	local sourceFiles = files.getSourceFiles(inputPaths, verbose)
-	if #sourceFiles == 0 then
-		print("Error: no Luau files found")
-		process.exit(1)
-	end
-
 	local failed: { string } = {}
 	local needsFormatting: { string } = {}
+
+	local sourceFiles = files.getSourceFiles(inputPaths, verbose)
+	sourceFiles = filterIgnored(sourceFiles, verbose)
+	if verbose then
+		print(`Found {#sourceFiles} file(s) to format.`)
+	end
 
 	for _, sourcePath in sourceFiles do
 		local target = path.format(sourcePath)
