@@ -1,2 +1,3 @@
 **/*.d.luau
 **/generated-types.luau
+tests/src/debug/compile_error.luau

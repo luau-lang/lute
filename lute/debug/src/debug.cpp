@@ -287,7 +287,7 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 //     onPause(Thread thread) -> ()
 //     onPrint(string message, string source, int line) -> ()
 // }
-// returns boolean
+// returns string | nil
 static int target_launch(lua_State* L)
 {
     Target* target = getTarget(L, 1);
@@ -377,9 +377,12 @@ static int target_launch(lua_State* L)
             };
         }
     }
-    bool launched = target->launch(source, args, config);
+    std::optional<std::string> error = target->launch(source, args, config);
     checkStack(L, 1);
-    lua_pushboolean(L, launched);
+    if (error)
+        lua_pushstring(L, error->c_str());
+    else
+        lua_pushnil(L);
     return 1;
 }
 

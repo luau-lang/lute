@@ -55,9 +55,9 @@ export type Target = {
 	getBreakpointBySourceLine: (self: Target, sourcePath: string, line: number) -> Breakpoint?,
 	--- Gets all Luau sources that have been loaded onto the debugger, with sources using forward slashes.
 	getLoadedSources: (self: Target) -> { string },
-	--- Launch a Luau script at at `sourcePath` with the relevant `args` and callbacks.
-	--- Returns whether the script could be launched.
-	launch: (self: Target, sourcePath: string, args: { string }?, config: LaunchConfig?) -> boolean,
+	--- Launch a Luau script at at `sourcePath` with the relevant `args` and callbacks defined in `config`.
+	--- Returns nil if launch is successful and an error string otherwise.
+	launch: (self: Target, sourcePath: string, args: { string }?, config: LaunchConfig?) -> string?,
 	--- Continues a target script if it has been stopped. Return `true` if the target was actually stopped
 	--- and `false` if it was not.
 	continueProcess: (self: Target) -> boolean,
