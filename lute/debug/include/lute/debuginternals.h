@@ -45,6 +45,15 @@ struct Thread
     bool operator==(const Thread& other) const;
 };
 
+struct StackFrame
+{
+    int id = -1;
+    std::string name;
+    std::string sourcePath;
+    int line = 0;
+    int column = 0;
+};
+
 struct LaunchConfig
 {
     // onBreakpointInstall is called whenever an installation attempt is actually made, regardless
@@ -95,6 +104,8 @@ struct Target
     std::optional<Thread> getMainThread() const;
     std::optional<Thread> getStoppedThread() const;
     std::vector<Thread> getThreads() const;
+    std::optional<StackFrame> getStackFrame(int threadId, int level);
+    std::optional<std::vector<StackFrame>> getStackTrace(int threadId, int startLevel = 0, int maximumLevel = 0);
 
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
@@ -136,9 +147,18 @@ private:
     std::unordered_map<lua_State*, Thread> stateToThread; // lua_State* -> thread information about that state
     std::unordered_map<int, lua_State*> threadIdToState;  // thread id -> lua_State*
 
+    // stack frame information
+    // note: stack frames are copies between these two data structures, not pointers. That's ok because the debugger
+    // should never modify the stack frames themselves.
+    // stack frame ID information is reset upon every continue(). The base id resets to 1 as well.
+    int stackframeId = 1;
+    std::unordered_map<int, std::unordered_map<int, StackFrame>> stateToStackFrame; // thread id -> level -> stackFrame
+    std::unordered_map<int, std::pair<int, int>> idToStackFrameInfo;                // stack frame id -> stack frame's (thread id, level)
+
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
     std::optional<Breakpoint> getBreakpointByIdHelper(int breakpointId) const;
+    std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
     bool uninstallBreakpoint(lua_State* L, Breakpoint& bp);
