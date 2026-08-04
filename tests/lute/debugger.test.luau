@@ -313,7 +313,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				check.eq(thread.id, 1)
 				stepsDone += 1
 			end,
-			onBreakpointHit = function(_bp)
+			onBreakpointHit = function(_thread, _bp)
 				bpHit = true
 			end,
 			onExit = function(status)
@@ -323,14 +323,14 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end,
 		})
 		check.that(targetLaunched)
-		local threads = target:getThreads()
-		local threadId = threads[1].id
 		check.eq(
 			waitUntil(function()
 				return bpHit
 			end),
 			true
 		)
+		local threads = target:getThreads()
+		local threadId = threads[1].id
 		check.eq(target:getLine(), 9)
 		target:step(threadId, "stepIn")
 		check.eq(
