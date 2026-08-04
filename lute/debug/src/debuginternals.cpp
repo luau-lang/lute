@@ -373,9 +373,6 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         std::tie(installedBps, uninstalledBps) = modifyPendingBreakpoints(thread);
         for (const std::string& arg : args)
             lua_pushstring(thread, arg.c_str());
-        childRuntime->runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
-        lua_pop(childRuntime->GL, 1);
-
         // thread initialization
         threadIdToState.insert_or_assign(threadId, thread);
         stateToThread.insert_or_assign(thread, Thread(threadId, "Main Coroutine"));
@@ -383,6 +380,8 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
 
         scriptThread = thread;
         scriptThreadRef = getRefForThread(scriptThread);
+        childRuntime->runningThreads.push_back({true, scriptThreadRef, static_cast<int>(args.size())});
+        lua_pop(childRuntime->GL, 1);
         lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
         cb->userdata = this;
         installBpHitCallback();
