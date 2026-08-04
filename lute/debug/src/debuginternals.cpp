@@ -719,6 +719,7 @@ bool Target::step(int threadId, StepType type)
             target->paused = true;
             target->childRuntime->stopDebug();
             target->stoppedThread = L;
+            target->stoppedThreadRef = getRefForThread(L);
             target->stoppedLine = ar->currentline;
             target->stepInfo = std::nullopt;
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
