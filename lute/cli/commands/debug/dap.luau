@@ -189,9 +189,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				table.insert(dapStackTrace, {
 					id = frame.id,
 					name = frame.name,
-					source = {
-						path = frame.sourcePath,
-					},
+					source = createSource(frame.sourcePath),
 					line = frame.line,
 					column = frame.column,
 				})
