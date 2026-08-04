@@ -21,7 +21,7 @@ test.suite("LuteTestCommand", function(suite)
 
 		-- Check that it exits successfully and prints help
 		assert.eq(result.exitcode, 0)
-		assert.strContains(result.stdout, "Usage:")
+		assert.strContains(result.stdout, "Options:")
 	end)
 
 	suite:case("luteTestRunsTestsInDiscoveryFolder", function(assert)
