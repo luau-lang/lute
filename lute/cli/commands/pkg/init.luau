@@ -14,6 +14,7 @@ Loom package manager for Luau projects.
 COMMANDS:
   install                                   Install dependencies from loom.config.luau
   auth --token <token> [--domain <domain>]  Save authentication credentials
+  run <script.luau> [args...]               Run a Luau script from loom.lock.
 
 Use --help with any command for more information.
 ]])
