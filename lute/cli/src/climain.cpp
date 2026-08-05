@@ -44,8 +44,7 @@ Commands:
 	run (default)   Run a Luau script.
 	check           Type check Luau files.
 	compile         Compile a Luau script into a standalone executable.
-	debug           Debug a Luau script.
-	pkg             Loom package manager for Luau projects (install/auth/run).
+    debug           Debug a Luau script.
 	setup           Generate type definition files for the language server.
 	transform       Run a specified code transformation on specified Luau files.
 	lint            Run linting rules on specified Luau files.
@@ -66,13 +65,6 @@ Compile Options:
 Debug Options:
 	lute debug serve
 		Serves a DAP server for Luau for use with a development environment.
-
-Pkg Options:
-	lute pkg <install|auth|run>
-		Loom package manager for Luau projects.
-			install                 Install dependencies from loom.config.luau
-			auth                    Save authentication credentials
-			run <script.luau>       Run a Luau script from loom.lock.
 
 Setup Options:
 	lute setup
