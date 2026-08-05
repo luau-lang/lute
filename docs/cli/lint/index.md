@@ -10,7 +10,7 @@ You can find the full suite of `lute lint`'s default rules documented as sub-pag
 ## Usage
 
 ```bash
-lute lint [OPTIONS] [...PATHS]
+lute lint [options] [paths...]
 ```
 
 ## Options

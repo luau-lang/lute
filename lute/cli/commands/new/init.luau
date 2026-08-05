@@ -4,18 +4,11 @@ local path = require("@std/path")
 local process = require("@std/process")
 local typedefs = require("./lib/typedefs")
 
-local USAGE = "Usage: lute new <project-name>"
-
-local function printHelp()
-	print(USAGE)
+local function printHelp(args: cli.Parser)
+	print(args:usage("lute new"))
+	print("\nCreate a new Lute project with a standard directory layout.\n")
+	print(args:help())
 	print([[
-Create a new Lute project with a standard directory layout.
-
-ARGUMENTS:
-  <project-name>    Name of the project to create
-
-OPTIONS:
-  -h, --help        Show this help message
 
 EXAMPLES:
   lute new myproject
@@ -25,17 +18,17 @@ end
 local function main(...: string)
 	local args = cli.parser()
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
-	args:add("name", "positional", { help = "Name of the project to create" })
+	args:add("project-name", "positional", { help = "Name of the project to create" })
 	args:parse({ ... })
 
 	if args:has("help") then
-		printHelp()
+		printHelp(args)
 		return
 	end
 
-	local projectName = args:get("name")
+	local projectName = args:get("project-name")
 	if projectName == nil or projectName == "" then
-		print("Error: Missing required argument <project-name>.\n\n" .. USAGE .. "\nUse --help for more information.")
+		print(`Error: Missing required argument <project-name>.\n\n{args:usage("lute new")}\nUse --help for more information.`)
 		process.exit(1)
 	end
 

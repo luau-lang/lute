@@ -19,8 +19,9 @@ test.suite("LuteTestCommand", function(suite)
 		-- Run lute test with -h flag
 		local result = process.run({ lutePath, "test", "-h" })
 
-		-- Check that it exits successfully and prints help
+		-- Check that it exits successfully and prints both the usage line and the options
 		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "Usage: lute test [options] [paths...]")
 		assert.strContains(result.stdout, "Options:")
 	end)
 

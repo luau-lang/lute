@@ -5,7 +5,6 @@ local path = require("@std/path")
 local process = require("@std/process")
 local stringext = require("@std/stringext")
 
-local USAGE = "Usage: lute doc [OPTIONS] [...MODULE_PATHS]"
 local DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "docs")
 
 local STDLIB_MODULE_ALIASES = {
@@ -47,14 +46,11 @@ type Mapping = {
 	[string]: { alias: string, destination: string },
 }
 
-local function printHelp()
-	print(USAGE)
+local function printHelp(args: cli.Parser)
+	print(args:usage("lute doc"))
+	print("\nGenerate Markdown documentation for Luau module(s).\n")
+	print(args:help())
 	print([[
-Generate Markdown documentation for Luau module(s).
-
-OPTIONS:
-  -h, --help              Show this help message
-  -o, --output=DIR        Output directory for generated docs (default: ./docs in current working directory)
 
 MODULE_PATHS:
   Path(s) to Luau module(s) to generate documentation for. Only files with .luau or .lua extensions will be processed.
@@ -661,11 +657,12 @@ local function main(...: string)
 		"option",
 		{ help = "Output directory for generated docs", default = tostring(DEFAULT_OUTPUT_DIR), aliases = { "o" } }
 	)
+	args:add("module-paths", "variadic", { help = "Luau module(s) to generate documentation for" })
 
 	args:parse({ ... })
 
 	if args:has("help") then
-		printHelp()
+		printHelp(args)
 		return
 	end
 
@@ -683,10 +680,14 @@ local function main(...: string)
 		return
 	end
 
-	local modulePaths = args:forwarded()
+	-- Paths land in variadics, but anything after `--` still arrives as forwarded args.
+	local modulePaths = table.clone(args:variadics())
+	local fwdArgs = args:forwarded() or {}
+	table.move(fwdArgs, 1, #fwdArgs, #modulePaths + 1, modulePaths)
+
 	assert(
-		modulePaths ~= nil and #modulePaths > 0,
-		"Error: No module paths specified.\n\n" .. USAGE .. "\n\nUse --help for more information."
+		#modulePaths > 0,
+		`Error: No module paths specified.\n\n{args:usage("lute doc")}\n\nUse --help for more information.`
 	)
 
 	print("Generating documentation...")

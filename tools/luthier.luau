@@ -574,15 +574,15 @@ end
 
 local function printHelp()
 	print("luthier — a build tool for lute")
-	args:help(function(str)
+	print(args:help(function(str)
 		return richterm.combine(richterm.bold, richterm.yellow)(str)
-	end)
+	end))
 end
 
 local function usageError(message: string, details: string?, usage: string?)
 	local lowercased = string.lower(string.sub(message, 1, 1)) .. string.sub(message, 2)
 	print(richterm.combine(richterm.bold, richterm.red)(`Error: {lowercased}`))
-	print(richterm.combine(richterm.bold, richterm.yellow)(`Usage: {usage or args:usage("luthier <subcommand>")}`))
+	print(richterm.combine(richterm.bold, richterm.yellow)(usage or args:usage("luthier <subcommand>")))
 	if details then
 		print(richterm.combine(richterm.bold, richterm.yellow)(details))
 	end

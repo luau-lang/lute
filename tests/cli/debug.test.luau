@@ -5,7 +5,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 
 local lutePath = path.format(process.execPath())
-local USAGE = "Usage: lute debug serve"
+local USAGE = "Usage: lute debug [subcommand] [options]"
 
 local function normalizePath(p: string): string
 	return (p:gsub("\\", "/"))
