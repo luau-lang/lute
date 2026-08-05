@@ -65,7 +65,7 @@ test.suite("LuteTransform", function(suite)
 
 		assert.eq(result.exitcode, 1)
 		assert.strContains(
-			testutil.normalizeLineEndings(result.stderr),
+			testutil.normalizeLineEndings(result.stdout),
 			`Error: No code transformation script specified.\n\n{USAGE}\nUse --help for more information.`
 		)
 	end)

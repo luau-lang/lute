@@ -63,7 +63,7 @@ test.suite("LuteNew", function(suite)
 		local result = process.run({ lutePath, "new" }, { cwd = pathlib.format(workdir) })
 
 		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stderr, "Error: Missing required argument <project-name>.")
+		assert.strContains(result.stdout, "Error: Missing required argument <project-name>.")
 	end)
 
 	suite:case("failsWhenDirectoryAlreadyExists", function(assert)
