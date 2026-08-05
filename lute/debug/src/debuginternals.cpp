@@ -439,7 +439,6 @@ void Target::installBpHitCallback()
         lua_Debug info = {};
         lua_getinfo(L, 0, "s", &info);
         int line = ar->currentline;
-        target->stoppedLine = line;
         if (!info.source)
         {
             target->parentRuntime.reporter.reportError(Luau::format("breakpoint hit at line %d could not find a runtime source", line));
@@ -453,6 +452,7 @@ void Target::installBpHitCallback()
             target->bpHit = *bp;
             target->paused = true;
             target->childRuntime->stopDebug();
+            target->stoppedLine = line;
             target->stoppedThread = L;
             target->stoppedThreadRef = getRefForThread(L);
             // Clear out stepping when this happens.
