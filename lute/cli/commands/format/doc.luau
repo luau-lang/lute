@@ -20,15 +20,15 @@ export type NewlineDoc = { read tag: "newline" }
 
 export type Doc = TextDoc | GroupDoc | IndentDoc | SuffixDoc | ConcatDoc | ChoiceDoc | NewlineDoc
 
-local function text(text: string): TextDoc
+const function text(text: string): TextDoc
 	return text
 end
 
-local none = text("")
+const none = text("")
 
 --- Prints `contents` as a flat group if it fits, otherwise as a broken group.
 --- `shouldBreak` forces the group to break.
-local function group(contents: Doc, options: { read shouldBreak: boolean? }?): GroupDoc
+const function group(contents: Doc, options: { read shouldBreak: boolean? }?): GroupDoc
 	return table.freeze({
 		tag = "group" :: "group",
 		contents = contents,
@@ -37,19 +37,19 @@ local function group(contents: Doc, options: { read shouldBreak: boolean? }?): G
 end
 
 --- Indents newlines produced inside `contents` by one level.
-local function indent(contents: Doc): IndentDoc
+const function indent(contents: Doc): IndentDoc
 	return table.freeze({ tag = "indent" :: "indent", contents = contents })
 end
 
 --- Defers `contents` until just before the next newline, so a trailing line comment cannot swallow the code after its token.
-local function suffix(contents: Doc): SuffixDoc
+const function suffix(contents: Doc): SuffixDoc
 	return table.freeze({ tag = "suffix" :: "suffix", contents = contents })
 end
 
 -- Joins `parts` with an optional `separator` between each part, similar to `table.concat`.
-local function concat(parts: { read [number]: Doc }, separator: Doc?): ConcatDoc
+const function concat(parts: { read [number]: Doc }, separator: Doc?): ConcatDoc
 	if separator ~= nil then
-		local joined: { Doc } = {}
+		const joined: { Doc } = {}
 		for index, part in parts do
 			if index > 1 then
 				table.insert(joined, separator)
@@ -62,7 +62,7 @@ local function concat(parts: { read [number]: Doc }, separator: Doc?): ConcatDoc
 end
 
 --- Picks a branch according to whether the enclosing group is flat or broken.
-local function choice(options: { read flat: Doc?, read broken: Doc? }): ChoiceDoc
+const function choice(options: { read flat: Doc?, read broken: Doc? }): ChoiceDoc
 	return table.freeze({
 		tag = "choice" :: "choice",
 		flat = options.flat or none,
@@ -71,7 +71,7 @@ local function choice(options: { read flat: Doc?, read broken: Doc? }): ChoiceDo
 end
 
 --- Always a newline, and forces every enclosing group to break.
-local newline: NewlineDoc = table.freeze({ tag = "newline" :: "newline" })
+const newline: NewlineDoc = table.freeze({ tag = "newline" :: "newline" })
 
 return table.freeze({
 	none = none,
