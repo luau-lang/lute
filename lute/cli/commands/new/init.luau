@@ -28,7 +28,9 @@ local function main(...: string)
 
 	local projectName = args:get("project-name")
 	if projectName == nil or projectName == "" then
-		print(`Error: Missing required argument <project-name>.\n\n{args:usage("lute new")}\nUse --help for more information.`)
+		print(
+			`Error: Missing required argument <project-name>.\n\n{args:usage("lute new")}\nUse --help for more information.`
+		)
 		process.exit(1)
 	end
 
