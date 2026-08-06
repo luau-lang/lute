@@ -26,7 +26,7 @@ local function checkScope(
 	check: any,
 	scopes: { debug.VariableScope },
 	name: string,
-	scopeType: debugger.VariableScopeType,
+	scopeType: debug.VariableScopeType,
 	threadId: number,
 	level: number
 )
