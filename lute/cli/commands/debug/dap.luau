@@ -223,6 +223,51 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				stackFrames = dapStackTrace,
 				totalFrames = target:getStackDepth(threadId),
 			})
+		elseif command == "scopes" then
+			local args = request.arguments :: json.Object
+			local frameId = args.frameId :: number
+			local scopes = target:getScopes(frameId)
+			if not scopes then
+				ioSession.writeResponse(reqSeq, false, command)
+				continue
+			end
+			assert(scopes)
+			local dapScope = {}
+			for _, scope in scopes do
+				local dapScopeItem = {
+					name = scope.name,
+					variablesReference = scope.variableRef,
+				}
+				if scope.type == "locals" then
+					dapScopeItem.presentationHint = "locals"
+				end
+				table.insert(dapScope, dapScopeItem)
+			end
+			ioSession.writeResponse(reqSeq, true, command, nil, {
+				scopes = dapScope,
+			})
+		elseif command == "variables" then
+			local args = request.arguments :: json.Object
+			local varRef = args.variablesReference :: number
+			local vars = target:getVariables(varRef)
+			if not vars then
+				ioSession.writeResponse(reqSeq, false, command)
+				continue
+			end
+			assert(vars)
+			local dapVars = {}
+			for _, var in vars do
+				local dapVarItem = {
+					name = var.name,
+					type = var.type,
+					value = var.value,
+					variablesReference = var.variableRef,
+				}
+				table.insert(dapVars, dapVarItem)
+			end
+			ioSession.writeResponse(reqSeq, true, command, nil, {
+				variables = dapVars,
+			})
 		elseif command == "terminate" or command == "disconnect" then
 			ioSession.writeResponse(reqSeq, true, command)
 			ioSession.writeEvent("terminated")
