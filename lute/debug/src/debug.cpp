@@ -540,7 +540,6 @@ static int target_getScopes(lua_State* L)
     return 1;
 }
 
-
 // target.getVariables(int variableRef)
 // returns {Variable} | nil
 static int target_getVariables(lua_State* L)
@@ -588,7 +587,6 @@ static int target_getVariablesByScopeType(lua_State* L)
     }
     return 1;
 }
-
 
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
 {

@@ -711,7 +711,7 @@ std::optional<std::vector<VariableScope>> Target::getScopesHelper(int threadId, 
     if (!frame)
         return std::nullopt;
     if (scopeCache.find(frame->id) != scopeCache.end())
-        return scopeCache[frame->id];
+        return scopeCache.at(frame->id);
     std::vector<VariableScope> contexts;
     VariableScope locals = VariableScope::makeLocals(variableRefId, threadId, level);
     variableContexts.insert_or_assign(variableRefId, locals);
@@ -734,7 +734,6 @@ std::optional<std::vector<VariableScope>> Target::getScopes(int frameId)
     if (it == idToStackFrameInfo.end())
         return std::nullopt;
     auto [threadId, level] = it->second;
-    fprintf(stderr, "done");
     return getScopesHelper(threadId, level);
 }
 
@@ -754,18 +753,13 @@ static std::string getKeyFromTableType(lua_State* L)
     switch (lua_type(L, -2))
     {
     case LUA_TSTRING:
-    {
         key = std::string(lua_tostring(L, -2));
         break;
-    }
     case LUA_TNUMBER:
         key = "[" + convertNumberToString(L, -2) + "]";
         break;
     case LUA_TBOOLEAN:
         key = lua_toboolean(L, -2) ? "[true]" : "[false]";
-        break;
-    case LUA_TTABLE:
-        key = "[table]";
         break;
     default:
         key = "[" + std::string(lua_typename(L, lua_type(L, -2))) + "]";
@@ -870,7 +864,7 @@ std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
     // when hitting a bp we try to re-enter
     bool fixedSavedpc = false;
     const Instruction* original = L->ci->savedpc;
-    if (level == 0 && L == stoppedThread && L->ci)
+    if (level == 0 && L == stoppedThread)
     {
         L->ci->savedpc = stoppedPc;
         fixedSavedpc = true;
@@ -878,11 +872,8 @@ std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
     const char* name;
     int n = 1;
     std::vector<Variable> vars;
-    while (true)
+    while ((name = lua_getlocal(L, level, n)) != nullptr)
     {
-        name = lua_getlocal(L, level, n);
-        if (name == nullptr)
-            break;
         vars.push_back(makeVariable(L, name));
         lua_pop(L, 1);
         n++;
@@ -899,14 +890,10 @@ std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level)
     lua_getinfo(L, level, "f", &ar);
     int n = 1;
     const char* name;
-    while (true)
+    while ((name = lua_getupvalue(L, -1, n)) != nullptr)
     {
-        name = lua_getupvalue(L, -1, n);
-        if (name == nullptr)
-            break;
-        Variable var = makeVariable(L, name);
+        vars.push_back(makeVariable(L, name));
         lua_pop(L, 1);
-        vars.push_back(var);
         n++;
     }
     lua_pop(L, 1);
@@ -927,27 +914,22 @@ std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
     return vars;
 }
 
-
 std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
 {
     auto it = variableContexts.find(varRef);
     if (it == variableContexts.end())
-    {
         return std::nullopt;
-    }
     VariableScope context = it->second;
     if (auto it2 = variableCache.find(varRef); it2 != variableCache.end())
-    {
         return it2->second;
-    }
     std::vector<Variable> vars;
     if (context.type == VariableScopeType::Locals)
     {
-        vars = getLocalsHelper(threadIdToState[context.threadId], context.level);
+        vars = getLocalsHelper(threadIdToState.at(context.threadId), context.level);
     }
     else if (context.type == VariableScopeType::Upvalues)
     {
-        vars = getUpvaluesHelper(threadIdToState[context.threadId], context.level);
+        vars = getUpvaluesHelper(threadIdToState.at(context.threadId), context.level);
     }
     else
     {
@@ -1009,6 +991,9 @@ void Target::continueProcessHelper()
     idToStackFrameInfo.clear();
 
     variableRefId = 1;
+    for (auto& [_, scope] : variableContexts)
+        if (scope.type == VariableScopeType::Table)
+            lua_unref(childRuntime->GL, scope.luaref);
     scopeCache.clear();
     variableContexts.clear();
     variableCache.clear();
