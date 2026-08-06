@@ -1003,10 +1003,15 @@ void Target::continueProcessHelper()
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
     cb->interrupt = nullptr;
 
-    // we clear the stack frame information
+    // we clear the inspect information
     stackframeId = 1;
     stateToStackFrame.clear();
     idToStackFrameInfo.clear();
+
+    variableRefId = 1;
+    scopeCache.clear();
+    variableContexts.clear();
+    variableCache.clear();
 
     if (stoppedThread)
     {
