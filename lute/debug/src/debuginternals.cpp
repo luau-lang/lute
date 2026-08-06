@@ -734,6 +734,7 @@ std::optional<std::vector<VariableScope>> Target::getScopes(int frameId)
     if (it == idToStackFrameInfo.end())
         return std::nullopt;
     auto [threadId, level] = it->second;
+    fprintf(stderr, "done");
     return getScopesHelper(threadId, level);
 }
 
