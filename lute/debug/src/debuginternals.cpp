@@ -1,6 +1,7 @@
 #include "lute/debuginternals.h"
 
 #include "lute/common.h"
+#include "lute/ref.h"
 #include "lute/require.h"
 #include "lute/requirevfs.h"
 
@@ -32,6 +33,17 @@ Breakpoint::Breakpoint(int id, std::string sourcePath, int line, BreakpointStatu
 {
 }
 
+Thread::Thread(int id, std::string name)
+    : id(id)
+    , name(name)
+{
+}
+
+bool Thread::operator==(const Thread& other) const
+{
+    return id == other.id && name == other.name;
+}
+
 Target::Target(Runtime& parentRuntime)
     : parentRuntime(parentRuntime)
     , loadedSources("")
@@ -43,6 +55,8 @@ Target::~Target()
     // We want to stop the runtime so nothing runs while we are destroying the target but first
     // we need to clear all sources (which are stored as refs in the runtime).
     loadedSources.clear();
+    stoppedThreadRef = nullptr;
+    scriptThreadRef = nullptr;
     // this interrupts execution of runToCompletion() in order to stop
     // any infinite/long-running coroutines.
     if (launched)
@@ -293,7 +307,7 @@ std::vector<std::string> Target::getLoadedSources()
     return sources;
 }
 
-bool Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
+std::optional<std::string> Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     std::vector<Breakpoint> installedBps;
     std::vector<Breakpoint> uninstalledBps;
@@ -304,7 +318,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         // debug mode and return false when we are in release mode.
         LUTE_ASSERT(!launched);
         if (launched)
-            return false;
+            return "target already launched";
         childRuntime = std::make_unique<Runtime>(parentRuntime.reporter, true);
         // Set up require system before launch.
         Luau::CompileOptions debugOptions;
@@ -327,20 +341,25 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
                 launchConfig.onBreakpointUninstall(bp);
         };
         requireCtx = std::make_unique<RequireCtx>(std::make_unique<RequireVfs>(), debugOptions, onChunkLoad);
+        launchConfig = config;
         setupState(
             *childRuntime,
             [this](lua_State* L)
             {
                 luaopen_require(L, requireConfigInit, requireCtx.get());
+                if (launchConfig.onPrint)
+                {
+                    lua_pushcfunction(childRuntime->GL, replacePrint, "print");
+                    lua_setglobal(childRuntime->GL, "print");
+                }
             }
         );
-        launchConfig = config;
 
         std::ifstream file(sourcePath);
         if (!file.is_open())
         {
             childRuntime.reset();
-            return false;
+            return Luau::format("could not open file: %s", sourcePath.c_str());
         }
         std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         std::string bytecode = Luau::compile(source, debugOptions);
@@ -348,25 +367,32 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         luaL_sandboxthread(thread);
 
         std::string chunkname = getChunkFromSource(sourcePath);
-        // TODO: surface compilation errors to the user when debugging.
         if (luau_load(thread, chunkname.c_str(), bytecode.c_str(), bytecode.size(), 0) != 0)
         {
+            std::string error = lua_tostring(thread, -1);
             childRuntime.reset();
-            return false;
+            return error;
         }
         loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
 
         std::tie(installedBps, uninstalledBps) = modifyPendingBreakpoints(thread);
         for (const std::string& arg : args)
             lua_pushstring(thread, arg.c_str());
-        childRuntime->runningThreads.push_back({true, getRefForThread(thread), static_cast<int>(args.size())});
-        lua_pop(childRuntime->GL, 1);
+        // thread initialization
+        threadIdToState.insert_or_assign(threadId, thread);
+        stateToThread.insert_or_assign(thread, Thread(threadId, "Main Coroutine"));
+        threadId++;
 
         scriptThread = thread;
+        scriptThreadRef = getRefForThread(scriptThread);
+        childRuntime->runningThreads.push_back({true, scriptThreadRef, static_cast<int>(args.size())});
+        lua_pop(childRuntime->GL, 1);
         lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
         cb->userdata = this;
         installBpHitCallback();
         installExitCallback();
+        installThreadCallback();
+
         // All VM setup happens synchronously before runContinuously starts the background thread.
         // The no-op schedule wakes the event loop so it picks up the queued thread.
         paused = false;
@@ -378,7 +404,7 @@ bool Target::launch(std::string sourcePath, const std::vector<std::string>& args
         launchConfig.onBreakpointInstall(bp);
     for (auto& bp : uninstalledBps)
         launchConfig.onBreakpointUninstall(bp);
-    return true;
+    return std::nullopt;
 }
 
 void Target::installBpHitCallback()
@@ -387,11 +413,12 @@ void Target::installBpHitCallback()
     cb->debugbreak = [](lua_State* L, lua_Debug* ar)
     {
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
-        // We land on the same instruction after a continue() after hitting a bp so we basically don't do anything
         std::unique_lock lock(target->targetMutex);
-        if (target->continueRequestedBp)
+        // We land on the same instruction after a continue() after hitting a bp so if we have
+        // already have continue() on this thread, we basically don't do anything
+        if (auto it = target->continueRequestedBp.find(L); it != target->continueRequestedBp.end())
         {
-            target->continueRequestedBp = false;
+            target->continueRequestedBp.erase(it);
             return;
         }
         lua_Debug info = {};
@@ -411,11 +438,13 @@ void Target::installBpHitCallback()
             target->paused = true;
             target->childRuntime->stopDebug();
             target->stoppedThread = L;
+            target->stoppedThreadRef = getRefForThread(L);
             lua_break(L);
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
+            debug::Thread thread = target->stateToThread.at(L);
             lock.unlock();
             if (target->launchConfig.onBreakpointHit)
-                target->launchConfig.onBreakpointHit(bp.value());
+                target->launchConfig.onBreakpointHit(thread, bp.value());
             for (auto& bp : installed)
                 target->launchConfig.onBreakpointInstall(bp);
             for (auto& bp : uninstalled)
@@ -446,33 +475,127 @@ void Target::installExitCallback()
     childRuntime->addThreadCompletionHandler(scriptThread, std::move(completion));
 }
 
+int Target::replacePrint(lua_State* L)
+{
+    Target* target = static_cast<Target*>(lua_callbacks(L)->userdata);
+    std::string msg = "";
+    int n = lua_gettop(L);
+    for (int i = 1; i <= n; i++)
+    {
+        if (i > 1)
+            msg += "\t";
+        const char* s = luaL_tolstring(L, i, nullptr);
+        if (s)
+            msg += s;
+        lua_pop(L, 1);
+    }
+    msg += '\n';
+    lua_Debug ar;
+    lua_getinfo(L, 1, "sl", &ar);
+    if (target && target->launchConfig.onPrint)
+    {
+        std::string source;
+        if (ar.source)
+            source = getSourceFromChunk(ar.source);
+        else
+            source = "";
+        target->launchConfig.onPrint(msg, source, ar.currentline);
+    }
+    return 0;
+}
+
+void Target::installThreadCallback()
+{
+    lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
+    cb->userthread = [](lua_State* LP, lua_State* L)
+    {
+        auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
+        std::unique_lock lock(target->targetMutex);
+
+        // this means a thread is being garbage collected
+        if (LP == nullptr)
+        {
+
+            if (auto it = target->stateToThread.find(L); it != target->stateToThread.end())
+            {
+                int id = it->second.id;
+                target->stateToThread.erase(it);
+                if (target->threadIdToState.erase(id) == 0)
+                {
+                    target->parentRuntime.reporter.reportError(Luau::format("userthread callback fired for unregistered thread id %d", id));
+                }
+            }
+            else
+            {
+                target->parentRuntime.reporter.reportError(Luau::format("userthread callback fired for unregistered lua_State* %p", (void*)L));
+            }
+        }
+        else
+        {
+            target->threadIdToState.insert_or_assign(target->threadId, L);
+            target->stateToThread.insert_or_assign(L, Thread(target->threadId, "Coroutine " + std::to_string(target->threadId)));
+            target->threadId++;
+        }
+    };
+}
+
+std::optional<Thread> Target::getMainThread() const
+{
+    std::unique_lock lock(targetMutex);
+    if (!launched)
+        return std::nullopt;
+    return stateToThread.at(scriptThread);
+}
+
+
+std::optional<Thread> Target::getStoppedThread() const
+{
+    std::unique_lock lock(targetMutex);
+    if (!launched || !paused)
+        return std::nullopt;
+    return stateToThread.at(stoppedThread);
+}
+
+std::vector<Thread> Target::getThreads() const
+{
+    std::unique_lock lock(targetMutex);
+    std::vector<Thread> result;
+    for (auto& [L, thread] : stateToThread)
+    {
+        if (lua_costatus(childRuntime->GL, L) != LUA_COFIN && lua_costatus(childRuntime->GL, L) != LUA_COERR)
+            result.emplace_back(thread);
+    }
+    return result;
+}
+
 bool Target::continueProcess()
 {
 
     std::unique_lock lock(targetMutex);
     if (!launched || !paused)
         return false;
-    if (stoppedThread)
-    {
-        childRuntime->runningThreads.push_back({true, getRefForThread(stoppedThread), 0});
-        // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
-        // runToCompletion() has not exited.
-        childRuntime->schedule([]() {});
-        stoppedThread = nullptr;
-    }
     // this clears the interrupts that triggers when the process is paused from client request
     // in case it has not actually been triggered.
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
     cb->interrupt = nullptr;
-    // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
-    if (bpHit)
+    if (stoppedThread)
     {
-        // we need to check if our breakpoint is still currently installed after
-        // onBreakpointHit() callback
-        std::optional<Breakpoint> currentBp = getBreakpointByIdHelper(bpHit->id);
-        if (currentBp && currentBp->status == BreakpointStatus::Installed)
-            continueRequestedBp = true;
-        bpHit = std::nullopt;
+        // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
+        if (bpHit)
+        {
+            // we need to check if our breakpoint is still currently installed after
+            // onBreakpointHit() callback
+            std::optional<Breakpoint> currentBp = getBreakpointByIdHelper(bpHit->id);
+            if (currentBp && currentBp->status == BreakpointStatus::Installed)
+                continueRequestedBp.insert(stoppedThread);
+            bpHit = std::nullopt;
+        }
+        childRuntime->runningThreads.push_back({true, stoppedThreadRef, 0});
+        // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
+        // runToCompletion() has not exited.
+        childRuntime->schedule([]() {});
+        stoppedThread = nullptr;
+        stoppedThreadRef = nullptr;
     }
     paused = false;
     childRuntime->continueDebug();
@@ -498,6 +621,8 @@ bool Target::pauseProcess()
         target->paused = true;
         target->childRuntime->stopDebug();
         target->stoppedThread = L;
+        target->stoppedThreadRef = getRefForThread(L);
+        debug::Thread thread = target->stateToThread.at(L);
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
         lua_break(L);
@@ -506,7 +631,7 @@ bool Target::pauseProcess()
         lock.unlock();
         // Since pausing actually only happens when the interrupt callback runs we have a callback
         if (target->launchConfig.onPause)
-            target->launchConfig.onPause();
+            target->launchConfig.onPause(thread);
         for (auto& bp : installed)
             target->launchConfig.onBreakpointInstall(bp);
         for (auto& bp : uninstalled)

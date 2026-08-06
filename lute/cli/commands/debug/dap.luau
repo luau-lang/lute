@@ -3,13 +3,18 @@ local dapTypes = require("./dapTypes")
 local debugger = require("@lute/debugger")
 local json = require("@std/json")
 
+local function createSource(sourcePath: string): dapTypes.Source
+	return {
+		path = sourcePath,
+		name = sourcePath:match("[^/\\]+$"),
+	}
+end
+
 local function debugToDapBreakpoint(breakpoint: debugger.Breakpoint): dapTypes.Breakpoint
 	local dapBreakpoint: dapTypes.Breakpoint = {
 		id = breakpoint.id,
 		verified = breakpoint.status == "installed",
-		source = {
-			path = breakpoint.sourcePath,
-		},
+		source = createSource(breakpoint.sourcePath),
 		line = breakpoint.line,
 	}
 	if breakpoint.status == "pendingInstall" then
@@ -45,11 +50,12 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 	local ioSession = dapStream.makeDapStreamSession(reader, writer)
 	local target = debugger.newTarget()
 	local launchCallbacks: debugger.LaunchConfig = {
-		onBreakpointHit = function(bp: debugger.Breakpoint)
+		onBreakpointHit = function(thread: debugger.Thread, bp: debugger.Breakpoint)
 			ioSession.writeEvent("stopped", {
 				reason = "breakpoint",
-				threadId = 1,
+				threadId = thread.id,
 				hitBreakpointIds = { bp.id },
+				allThreadsStopped = true,
 			})
 		end,
 		onBreakpointInstall = function(bp: debugger.Breakpoint)
@@ -66,10 +72,19 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeEvent("terminated")
 		end,
 		-- we need to give a thread ID upon pausing for VSCode UI
-		onPause = function()
+		onPause = function(thread: debugger.Thread)
 			ioSession.writeEvent("stopped", {
 				reason = "pause",
-				threadId = 1,
+				threadId = thread.id,
+				allThreadsStopped = true,
+			})
+		end,
+		onPrint = function(message: string, source: string, line: number)
+			ioSession.writeEvent("output", {
+				category = "stdout",
+				output = message,
+				source = createSource(source),
+				line = line,
 			})
 		end,
 	}
@@ -95,8 +110,12 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			-- configuration is done.
 			ioSession.writeResponse(reqSeq, true, command)
 			if launchConfig then
-				local launched = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
-				ioSession.writeResponse(launchSeq, launched, "launch")
+				local error = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
+				if error then
+					ioSession.writeResponse(launchSeq, false, "launch", error)
+				else
+					ioSession.writeResponse(launchSeq, true, "launch")
+				end
 			end
 		elseif command == "setBreakpoints" then
 			local args = request.arguments :: json.Object
@@ -124,29 +143,34 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				launchSeq = reqSeq
 				-- configuration is already done, respond to launch
 				if configurationDone then
-					-- TODO: better error handling when launching. report the error back to the user.
-					local launched = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
-					ioSession.writeResponse(reqSeq, launched, command)
+					local error = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
+					if error then
+						ioSession.writeResponse(reqSeq, false, command, error)
+					else
+						ioSession.writeResponse(reqSeq, true, command)
+					end
 				end
 			end
 		elseif command == "loadedSources" then
 			local sources = target:getLoadedSources()
 			local dapSources = {}
 			for _, source in sources do
-				table.insert(dapSources, {
-					path = source,
-					name = source:match("[^/\\]+$"),
-				})
+				table.insert(dapSources, createSource(source))
 			end
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				sources = dapSources,
 			})
-		-- dummy handler for threads
 		elseif command == "threads" then
+			local threads = target:getThreads()
+			local dapThreads = {}
+			for _, thread in threads do
+				table.insert(dapThreads, {
+					id = thread.id,
+					name = thread.name,
+				})
+			end
 			ioSession.writeResponse(reqSeq, true, command, nil, {
-				threads = {
-					{ id = 1, name = "main thread" },
-				},
+				threads = dapThreads,
 			})
 		-- dummy handler for stackTrace
 		elseif command == "stackTrace" then
@@ -154,9 +178,9 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				stackFrames = {
 					{
-						id = 1,
+						id = 0,
 						name = "main",
-						source = { path = launchPath.program },
+						source = createSource(launchPath.program),
 						line = 1,
 						column = 0,
 					},
