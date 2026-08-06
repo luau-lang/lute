@@ -69,8 +69,8 @@ struct VariableScope
     int variableReference;
     VariableScopeType type;
     std::string name;
-    int threadId; // for locals
-    int level;    // for locals
+    int threadId; // for locals and upvalues
+    int level;    // for locals and upvalues
     int luaref;   // for tables
 
     explicit VariableScope(int variableReference, VariableScopeType type, std::string name, int threadId = -1, int level = -1, int luaref = -1);
