@@ -19,7 +19,7 @@ local SEQUENTIAL = false
 local function printHelp(args: cli.Parser)
 	print(args:usage("lute lint"))
 	print("\nLint the specified Luau file using the specified lint rule(s) or using the default rules.\n")
-	args:help()
+	print(args:help())
 	print([[
 
 PATHS:

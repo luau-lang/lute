@@ -9,7 +9,7 @@ local function authenticate(...: string)
 	local valid, err = pcall(cli.parse, args, { ... })
 	if not valid then
 		print(err)
-		args:help()
+		print(args:help())
 		error(err)
 	end
 
