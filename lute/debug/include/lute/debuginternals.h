@@ -36,6 +36,14 @@ struct Breakpoint
     explicit Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
 };
 
+struct ExceptionBreakpointInfo
+{
+    bool uncaughtExceptions = false;
+    const int uncaughtId = -1;
+    bool caughtExceptions = false;
+    const int caughtId = -2;
+};
+
 // Each Thread represents one coroutine in our Lute runtime.
 struct Thread
 {
@@ -116,6 +124,7 @@ struct LaunchConfig
     std::function<void(const Thread& thread)> onPause;
     std::function<void(const std::string& message, const std::string& source, int line)> onPrint;
     std::function<void(const Thread& thread, const StepInfo& stepInfo)> onStepStop;
+    std::function<void(const Thread& thread, bool caught, const std::string& errorMessage)> onException;
 };
 
 struct Target
@@ -145,6 +154,10 @@ struct Target
     std::vector<Breakpoint> getBreakpointsByStatus(BreakpointStatus status) const;
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
+
+    // Exception breakpoints are mostly separate from normal breakpoints. They have negative
+    // breakpoint IDs for DAP purposes. 
+    ExceptionBreakpointInfo setExceptionBreakpoint(bool caught, bool uncaught);
 
     // For inspection:
     // About multiple coroutines: we don't currently handle the original implementation of task.spawn(). Calling
@@ -188,6 +201,8 @@ private:
     std::unordered_map<int, Breakpoint> breakpoints;    // breakpoint id -> breakpoint object (this is unordered_map to support erase)
     std::unordered_set<lua_State*> continueRequestedBp; // if the thread's lua_State* is in this set, we skip the next bp it hits
     std::optional<Breakpoint> bpHit;
+    ExceptionBreakpointInfo exceptionBpInfo;
+    bool stoppedUncaughtException = false;
     LaunchConfig launchConfig;
 
     Luau::DenseHashMap<std::string, std::shared_ptr<Ref>> loadedSources; // source path -> reference to chunk
@@ -199,8 +214,8 @@ private:
     // our stopped thread that we need to requeue when we continue
     lua_State* stoppedThread = nullptr;
     std::shared_ptr<Ref> stoppedThreadRef;
-    // Due to the way Lua debugger callbacks works, we need to set the stopped line/instruction in the callback. otherwise, outside of the callback, lua_getinfo
-    // will return the previous line/instruction.
+    // Due to the way Lua debugger callbacks works, we need to set the stopped line/instruction in the callback. otherwise, outside of the callback,
+    // lua_getinfo will return the previous line/instruction.
     int stoppedLine = -1;
     std::string stoppedLocation = "";
     const uint32_t* stoppedPc = nullptr;
@@ -253,6 +268,7 @@ private:
     void installBpHitCallback();
     void installExitCallback();
     void installThreadCallback();
+    void installExceptionCallback();
 
     static int replacePrint(lua_State* L);
 };
