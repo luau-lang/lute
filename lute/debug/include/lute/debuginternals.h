@@ -117,11 +117,11 @@ struct Target
     // in issues when trying to pause. Similar methods that also run coroutines inline with our current execution will not work.
     // In contrast, in task.defer(), the coroutine is added to set of running coroutines but execution
     // is deferred. Our pause mechanism will then work correctly.
-    int getLine() const;
+    std::optional<std::pair<std::string, int>> getStoppedLocation() const;
     int getStackDepth(int threadId);
     std::optional<Thread> getMainThread() const; // can be used when not paused
     std::optional<Thread> getStoppedThread() const;
-    std::vector<Thread> getThreads() const;
+    std::vector<Thread> getThreads() const; // can be used when not paused
     std::optional<StackFrame> getStackFrame(int threadId, int level);
     std::optional<std::vector<StackFrame>> getStackTrace(int threadId, int startLevel = 0, int maximumLevel = 0);
 
@@ -163,6 +163,7 @@ private:
     // Due to the way Lua debugger callbacks works, we need to set the line in the callback. otherwise, outside of the callback, lua_getinfo
     // will return the previous line.
     int stoppedLine = -1;
+    std::string stoppedLocation = "";
 
     // for require contexts
     std::unique_ptr<RequireCtx> requireCtx;
@@ -193,7 +194,7 @@ private:
     bool uninstallBreakpoint(lua_State* L, Breakpoint& bp);
     std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> modifyPendingBreakpoints(lua_State* L);
 
-    void computeStoppedLine(lua_State* L);
+    void computeStoppedLocation(lua_State* L);
 
     void installBpHitCallback();
     void installExitCallback();

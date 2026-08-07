@@ -331,7 +331,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		)
 		local threads = target:getThreads()
 		local threadId = threads[1].id
-		check.eq(target:getLine(), 9)
+		local source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 9)
 		target:step(threadId, "stepIn")
 		check.eq(
 			waitUntil(function()
@@ -339,7 +343,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
-		check.eq(target:getLine(), 10)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 10)
 		target:stepIn(threadId)
 		check.eq(
 			waitUntil(function()
@@ -347,7 +355,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
-		check.eq(target:getLine(), 2)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 2)
 		target:stepOut(threadId)
 		check.eq(
 			waitUntil(function()
@@ -355,7 +367,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
-		check.eq(target:getLine(), 11)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 11)
 		target:stepOver(threadId)
 		check.eq(
 			waitUntil(function()
@@ -363,7 +379,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
-		check.eq(target:getLine(), 12)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 12)
 		target:continueProcess()
 		check.eq(
 			waitUntil(function()

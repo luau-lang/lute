@@ -98,9 +98,9 @@ export type Target = {
 	--- Steps out of the current function call in thread id `threadId`.
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
 	stepOut: (self: Target, threadId: number) -> boolean,
-	--- Gets our current line of execution when we are stopped.
-	--- Returns -1 if we are not stopped.
-	getLine: (self: Target) -> number,
+	--- Gets our current stopped location, consisting of (sourcePath: string, line: number)
+	--- Returns nil if we are not stopped.
+	getStoppedLocation: (self: Target) -> (string?, number?),
 	--- Gets a list of all Luau coroutines that are being used by the script.
 	getThreads: (self: Target) -> { Thread },
 	--- Gets the main thread of the script, returning nil if debugger is not launched

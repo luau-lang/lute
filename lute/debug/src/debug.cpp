@@ -325,15 +325,23 @@ static int target_stepOver(lua_State* L)
     return 1;
 }
 
-// target.getLine()
-// returns a integer
-static int target_getLine(lua_State* L)
+// target.getStoppedLocation()
+// returns a (string, integer) | (nil, nil)
+static int target_getStoppedLocation(lua_State* L)
 {
     Target* target = getTarget(L, 1);
-    int line = target->getLine();
-    checkStack(L, 1);
-    lua_pushinteger(L, line);
-    return 1;
+    std::optional<std::pair<std::string, int>> stoppedLocation = target->getStoppedLocation();
+    if (!stoppedLocation)
+    {
+        checkStack(L, 2);
+        lua_pushnil(L);
+        lua_pushnil(L);
+        return 2;
+    }
+    checkStack(L, 2);
+    lua_pushstring(L, stoppedLocation->first.c_str());
+    lua_pushinteger(L, stoppedLocation->second);
+    return 2;
 }
 
 // target.getThreads()
@@ -636,7 +644,7 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"stepIn", debug::target_stepIn},
     {"stepOut", debug::target_stepOut},
     {"stepOver", debug::target_stepOver},
-    {"getLine", debug::target_getLine},
+    {"getStoppedLocation", debug::target_getStoppedLocation},
     {"getThreads", debug::target_getThreads},
     {"getMainThread", debug::target_getMainThread},
     {"getStoppedThread", debug::target_getStoppedThread},
