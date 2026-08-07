@@ -299,4 +299,77 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(prints[2].msg, "custom_value\n")
 		check.eq(prints[2].line, 7)
 	end)
+	-- this test case focuses on stepping
+	suite:case("step", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/step.luau"))
+		target:setBreakpoint(mainPath, 9)
+		local bpHit = false
+		local stepsDone = 0
+		local onFinished = false
+		local error = target:launch(mainPath, {}, {
+			onStepStop = function(thread, _info)
+				check.eq(thread.id, 1)
+				stepsDone += 1
+			end,
+			onBreakpointHit = function(_thread, _bp)
+				bpHit = true
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.that(error == nil)
+		check.eq(
+			waitUntil(function()
+				return bpHit
+			end),
+			true
+		)
+		local threads = target:getThreads()
+		local threadId = threads[1].id
+		check.eq(target:getLine(), 9)
+		target:step(threadId, "stepIn")
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 1
+			end),
+			true
+		)
+		check.eq(target:getLine(), 10)
+		target:stepIn(threadId)
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 2
+			end),
+			true
+		)
+		check.eq(target:getLine(), 2)
+		target:stepOut(threadId)
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 3
+			end),
+			true
+		)
+		check.eq(target:getLine(), 11)
+		target:stepOver(threadId)
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 4
+			end),
+			true
+		)
+		check.eq(target:getLine(), 12)
+		target:continueProcess()
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+	end)
 end)

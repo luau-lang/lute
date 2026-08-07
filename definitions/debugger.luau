@@ -14,6 +14,16 @@ export type Breakpoint = {
 	status: BreakpointStatus,
 }
 
+--- The type of step we are taking
+export type StepType = "stepIn" | "stepOut" | "stepOver"
+
+--- Information about the current step() command we are running
+export type StepInfo = {
+	type: StepType,
+	startLine: number,
+	startDepth: number,
+}
+
 --- A thread of execution, which represents one coroutine running on the runtime
 export type Thread = {
 	id: number,
@@ -35,6 +45,8 @@ export type LaunchConfig = {
 	onPause: ((thread: Thread) -> ())?,
 	--- called when print() would have printed out `message` and is called from `source` on line number `line`
 	onPrint: ((message: string, source: string, line: number) -> ())?,
+	--- called when our script finishes stepping on `thread`. `info` reflects the information about our stepping command.
+	onStepStop: ((thread: Thread, info: StepInfo) -> ())?,
 }
 
 --- A `Target` represents the target program under the debugger.
@@ -64,6 +76,21 @@ export type Target = {
 	--- Pauses a target script if it is running. Return `true` if the target was successfully paused
 	--- and `false` if it was not.
 	pauseProcess: (self: Target) -> boolean,
+	--- Steps in the code at a certain thread with id `threadId`, utilizing a certain step type `type`.
+	--- Returns `true` if target was paused before stepping and `false` otherwise.
+	step: (self: Target, threadId: number, type: StepType) -> boolean,
+	--- Steps into the next line of the code in thread id `threadId`, including into a function if the line contains a function.
+	--- Returns `true` if target was paused before stepping and `false` otherwise.
+	stepIn: (self: Target, threadId: number) -> boolean,
+	--- Steps over to the next line of the code in thread id `threadId`, skipping over any function calls if our current line contains a function.
+	--- Returns `true` if target was paused before stepping and `false` otherwise.
+	stepOver: (self: Target, threadId: number) -> boolean,
+	--- Steps out of the current function call in thread id `threadId`.
+	--- Returns `true` if target was paused before stepping and `false` otherwise.
+	stepOut: (self: Target, threadId: number) -> boolean,
+	--- Gets our current line of execution when we are stopped.
+	--- Returns -1 if we are not stopped.
+	getLine: (self: Target) -> number,
 	--- Gets a list of all Luau coroutines that are being used by the script.
 	getThreads: (self: Target) -> { Thread },
 	--- Gets the main thread of the script, returning nil if debugger is not launched
