@@ -87,6 +87,13 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				line = line,
 			})
 		end,
+		onStepStop = function(thread: debugger.Thread, _stepInfo: debugger.StepInfo)
+			ioSession.writeEvent("stopped", {
+				reason = "step",
+				threadId = thread.id,
+				allThreadsStopped = true,
+			})
+		end,
 	}
 	local configurationDone = false
 	local launchConfig: dapTypes.LaunchArgs? = nil
@@ -160,6 +167,21 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				sources = dapSources,
 			})
+		elseif command == "next" then
+			local args = request.arguments :: json.Object
+			local threadId = args.threadId :: number
+			local stepped = target:stepOver(threadId)
+			ioSession.writeResponse(reqSeq, stepped, command)
+		elseif command == "stepIn" then
+			local args = request.arguments :: json.Object
+			local threadId = args.threadId :: number
+			local stepped = target:stepIn(threadId)
+			ioSession.writeResponse(reqSeq, stepped, command)
+		elseif command == "stepOut" then
+			local args = request.arguments :: json.Object
+			local threadId = args.threadId :: number
+			local stepped = target:stepOut(threadId)
+			ioSession.writeResponse(reqSeq, stepped, command)
 		elseif command == "threads" then
 			local threads = target:getThreads()
 			local dapThreads = {}
@@ -181,7 +203,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 						id = 0,
 						name = "main",
 						source = createSource(launchPath.program),
-						line = 1,
+						line = target:getLine(),
 						column = 0,
 					},
 				},
