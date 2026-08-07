@@ -845,7 +845,7 @@ std::vector<Thread> Target::getThreads() const
     std::vector<Thread> result;
     for (auto& [L, thread] : stateToThread)
     {
-        if (lua_costatus(childRuntime->GL, L) != LUA_COFIN && lua_costatus(childRuntime->GL, L) != LUA_COERR)
+        if (L == stoppedThread || (lua_costatus(childRuntime->GL, L) != LUA_COFIN && lua_costatus(childRuntime->GL, L) != LUA_COERR))
             result.emplace_back(thread);
     }
     return result;
