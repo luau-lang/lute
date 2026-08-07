@@ -53,7 +53,7 @@ local function printHelp(args: cli.Parser)
 	print([[
 
 MODULE_PATHS:
-  Path(s) to Luau module(s) to generate documentation for. Only files with .luau or .lua extensions will be processed.
+  Paths to Luau modules to generate documentation for. Only files with .luau or .lua extensions will be processed.
   Paths can be absolute or relative to the current working directory.
 
 EXAMPLES:
@@ -657,7 +657,7 @@ local function main(...: string)
 		"option",
 		{ help = "Output directory for generated docs", default = tostring(DEFAULT_OUTPUT_DIR), aliases = { "o" } }
 	)
-	args:add("module-paths", "variadic", { help = "Luau module(s) to generate documentation for" })
+	args:add("module-paths", "variadic", { help = "Luau modules to generate documentation for" })
 
 	args:parse({ ... })
 

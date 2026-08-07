@@ -18,12 +18,12 @@ local SEQUENTIAL = false
 
 local function printHelp(args: cli.Parser)
 	print(args:usage("lute lint"))
-	print("\nLint the specified Luau file using the specified lint rule(s) or using the default rules.\n")
+	print("\nLint the specified Luau file using the specified lint rules or using the default rules.\n")
 	print(args:help())
 	print([[
 
 PATHS:
-  Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
+  Paths to the Luau files or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
 
 EXAMPLES:
   lute lint -r examples/lints/almost_swapped.luau bad_swap.luau
