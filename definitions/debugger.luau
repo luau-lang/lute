@@ -99,7 +99,7 @@ export type Target = {
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
 	stepOut: (self: Target, threadId: number) -> boolean,
 	--- Gets our current stopped location, consisting of (sourcePath: string, line: number)
-	--- Returns nil if we are not stopped.
+	--- Returns (nil, nil) if we are not stopped.
 	getStoppedLocation: (self: Target) -> (string?, number?),
 	--- Gets a list of all Luau coroutines that are being used by the script.
 	getThreads: (self: Target) -> { Thread },
