@@ -57,7 +57,18 @@ local function clearAndSetBreakpoints(
 end
 
 local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
-	local ioSession = dapStream.makeDapStreamSession(reader, writer)
+	local fs = require("@std/fs")
+	local logFile = fs.open("/tmp/lute-dap.log", "w")
+	local function log(msg: string)
+		fs.write(logFile, msg .. "\n")
+	end
+	local function loggingWriter(message: string)
+		local headerEnd = message:find("\r\n\r\n")
+		local body = if headerEnd then message:sub(headerEnd + 4) else message
+		log(`[send] {body}`)
+		writer(message)
+	end
+	local ioSession = dapStream.makeDapStreamSession(reader, loggingWriter)
 	local target = debugger.newTarget()
 	local launchCallbacks: debugger.LaunchConfig = {
 		onBreakpointHit = function(thread: debugger.Thread, bp: debugger.Breakpoint)
@@ -113,6 +124,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			})
 		end,
 		onException = function(thread: debugger.Thread, bpId: number, message: string)
+			log(`[exception] thread={thread.id} bpId={bpId} message={message}`)
 			ioSession.writeEvent("stopped", {
 				reason = "exception",
 				threadId = thread.id,
@@ -129,6 +141,8 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 		local request = ioSession.readDap()
 		local command = request.command :: string
 		local reqSeq = request.seq :: number
+		local argsJson = if request.arguments ~= nil then json.serialize(request.arguments :: json.Value) else "nil"
+		log(`[recv] {command} seq={reqSeq} args={argsJson}`)
 		if command == "initialize" then
 			local capabilities = {
 				supportsConfigurationDoneRequest = true,
@@ -194,7 +208,11 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 					caught = true
 				end
 			end
+			log(`[setExceptionBreakpoints] filters={table.concat(filters, ",")} caught={caught} uncaught={uncaught}`)
 			local exceptionInfo = target:setExceptionBreakpoint(caught, uncaught)
+			log(
+				`[setExceptionBreakpoints] result caughtId={exceptionInfo.caughtId} caughtExceptions={exceptionInfo.caughtExceptions} uncaughtId={exceptionInfo.uncaughtId} uncaughtExceptions={exceptionInfo.uncaughtExceptions}`
+			)
 			local requestedBreakpoints: { dapTypes.Breakpoint } = {}
 			for _, filter in filters do
 				if filter == "uncaught" then
@@ -215,6 +233,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			})
 		elseif command == "continue" then
 			local continued = target:continueProcess()
+			log(`[continue] continued={continued}`)
 			ioSession.writeResponse(reqSeq, continued, command)
 		elseif command == "pause" then
 			local paused = target:pauseProcess()
