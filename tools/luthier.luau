@@ -18,6 +18,7 @@ type Tune = {
 		remote: string,
 		branch: string,
 		revision: string,
+		patches: { string },
 	},
 }
 
@@ -624,6 +625,20 @@ local function availableTargets(): string
 	return `available targets: {table.concat(targets, ", ")}`
 end
 
+local function applyLuauPatch(patchPath: string): number
+	-- Git patch application is not idempotent - applying a patch twice will fail.
+	-- Instead, we need to check if applying the patch in reverse succeeds (-R, --check).
+	-- If so, the changes already exist and we can skip patch application
+	print("Applying luau specific patches ...")
+	local undo = call({ "git", "apply", "-R", "--check", patchPath, "--directory=extern/luau" })
+	if undo == 0 then
+		print(`Patch already applied to Luau tree, skipping application of {patchPath}`)
+	else
+		return call({ "git", "apply", patchPath, "--directory=extern/luau" })
+	end
+	return 0
+end
+
 local function fetchDependency(dependencyInfo: Tune)
 	local dependency = dependencyInfo.dependency
 
@@ -703,6 +718,18 @@ local function areTuneFilesUpToDate(): boolean
 	return hash == getTuneFilesHash()
 end
 
+local function applyPatches()
+	local files = fs.listdir(projectRelative("extern"))
+	for _, file in files do
+		if string.find(file.name, "%.tune$") then
+			local dep: Tune = readTuneFile(projectRelative("extern", file.name))
+			for _, patch in dep.dependency.patches do
+				applyLuauPatch(`extern/{patch}`)
+			end
+		end
+	end
+end
+
 local function fetchDependencies(): number
 	local files = fs.listdir(projectRelative("extern"))
 
@@ -739,6 +766,7 @@ local function configure()
 	table.move(arguments, 1, #arguments, 2, cmd)
 
 	check(fetchDependenciesIfNeeded())
+	applyPatches()
 
 	local result = call(cmd)
 	fs.copy(joinPath(getProjectPath(), "compile_commands.json"), projectRelative(BUILD_DIR, "compile_commands.json"))
