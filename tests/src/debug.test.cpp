@@ -1,3 +1,4 @@
+#include "lute/debuginternals.h"
 #include "Luau/StringUtils.h"
 
 #include <chrono>
@@ -1032,11 +1033,11 @@ TEST_SUITE("Debug")
     {
         std::string mainPath = getDebugFixturePath("exception.luau");
         Target target(*runtime);
-        target.setExceptionBreakpoint(true, true);
+        ExceptionBreakpointInfo info = target.setExceptionBreakpoint(true, true);
         int hits = 0;
-        config.onException = [&](const Thread& thread, bool caught, const std::string& message)
+        config.onException = [&](const Thread& thread, int bpId, const std::string& message)
         {
-            if (caught)
+            if (bpId == info.caughtId)
             {
                 hits++;
                 CHECK(message == Luau::format("%s:3: attempt to index nil with \'foo\'", mainPath.c_str()));

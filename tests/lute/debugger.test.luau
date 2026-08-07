@@ -825,4 +825,37 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			check.eq(logs[i], `wow {10 * (i - 1)}\n`)
 		end
 	end)
+	-- this test case focuses on exception breakpoints (both caught and uncaught)
+	suite:case("exception", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/exception.luau"))
+		local exceptionInfo = target:setExceptionBreakpoint(true, true)
+		local hits = 0
+		local onFinished = false
+		local targetLaunched = target:launch(mainPath, {}, {
+			onException = function(thread, id, message)
+				hits += 1
+				check.eq(thread.id, 1)
+				if id == exceptionInfo.caughtId then
+					check.eq(message, `{mainPath}:3: attempt to index nil with 'foo'`)
+				else
+					check.eq(message, `{mainPath}:7: attempt to index nil with 'foo'`)
+				end
+				target:continueProcess()
+			end,
+			onExit = function(status)
+				check.eq(status, false)
+				onFinished = true
+			end,
+		})
+		check.eq(targetLaunched, nil)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+		check.eq(hits, 2)
+	end)
 end)
