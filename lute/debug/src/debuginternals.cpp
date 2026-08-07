@@ -624,7 +624,7 @@ void Target::installExceptionCallback()
         for (auto& bp : uninstalled)
             target->launchConfig.onBreakpointUninstall(bp);
         if (target->launchConfig.onException)
-            target->launchConfig.onException(thread, false, errorMessage);
+            target->launchConfig.onException(thread, target->exceptionBpInfo.uncaughtId, errorMessage);
         return true;
     };
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
@@ -652,7 +652,7 @@ void Target::installExceptionCallback()
         for (auto& bp : uninstalled)
             target->launchConfig.onBreakpointUninstall(bp);
         if (target->launchConfig.onException)
-            target->launchConfig.onException(thread, true, errorMessage);
+            target->launchConfig.onException(thread, target->exceptionBpInfo.caughtId, errorMessage);
     };
 }
 

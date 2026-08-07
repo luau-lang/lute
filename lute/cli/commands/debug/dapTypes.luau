@@ -2,11 +2,19 @@
 -- necessarily the actual DAP specification. For example, sources in DAP could have
 -- path be optional, but we enforce that it is required.
 
+export type exceptionBreakpointFilter = {
+	filter: string,
+	label: string,
+	description: string,
+	default: boolean,
+}
+
 export type Capability = {
 	supportConfigurationDoneRequest: boolean,
 	supportTerminateRequest: boolean,
 	supportsLoadedSourcesRequest: boolean,
 	supportsDelayedStackTraceLoading: boolean,
+	exceptionBreakpointFilters: { exceptionBreakpointFilter },
 }
 
 export type Source = {
@@ -26,9 +34,9 @@ export type SetBreakpointsArgs = {
 export type Breakpoint = {
 	id: number,
 	verified: boolean,
-	source: Source,
+	source: Source?,
 	reason: ("pending" | "failed")?,
-	line: number,
+	line: number?,
 }
 
 export type LaunchArgs = {

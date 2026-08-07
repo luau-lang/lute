@@ -14,6 +14,14 @@ export type Breakpoint = {
 	status: BreakpointStatus,
 }
 
+--- Info about exception breakpoints and which ids they are using
+export type ExceptionBreakpointInfo = {
+	uncaughtExceptions: boolean,
+	uncaughtId: number,
+	caughtExceptions: boolean,
+	caughtId: number,
+}
+
 --- The type of step we are taking
 export type StepType = "stepIn" | "stepOut" | "stepOver"
 
@@ -95,6 +103,9 @@ export type LaunchConfig = {
 	onPrint: ((message: string, source: string, line: number) -> ())?,
 	--- called when our script finishes stepping on `thread`. `info` reflects the information about our stepping command.
 	onStepStop: ((thread: Thread, info: StepInfo) -> ())?,
+	--- called when hitting an exception on `thread`. `bpId` reflects the id of the bp hit. These ids
+	--- match what is returned by setExceptionBreakpoint. `message` is the message thrown by the exception.
+	onException: ((thread: Thread, bpId: number, message: string) -> ())?,
 }
 
 --- A `Target` represents the target program under the debugger.
@@ -113,6 +124,9 @@ export type Target = {
 	getBreakpointById: (self: Target, id: number) -> Breakpoint?,
 	--- Get a breakpoint at a `sourcePath` at a given line. Returns `nil` if not found.
 	getBreakpointBySourceLine: (self: Target, sourcePath: string, line: number) -> Breakpoint?,
+	--- Sets/removes whether we hit exception breakpoints for caught or uncaught exceptions based on the
+	--- booleans `caught` and `uncaught`. Returns a sumamry of the current exception bp state.
+	setExceptionBreakpoint: (self: Target, caught: boolean, uncaught: boolean) -> ExceptionBreakpointInfo,
 	--- Gets all Luau sources that have been loaded onto the debugger, with sources using forward slashes.
 	getLoadedSources: (self: Target) -> { string },
 	--- Launch a Luau script at at `sourcePath` with the relevant `args` and callbacks defined in `config`.

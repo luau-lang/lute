@@ -124,7 +124,7 @@ struct LaunchConfig
     std::function<void(const Thread& thread)> onPause;
     std::function<void(const std::string& message, const std::string& source, int line)> onPrint;
     std::function<void(const Thread& thread, const StepInfo& stepInfo)> onStepStop;
-    std::function<void(const Thread& thread, bool caught, const std::string& errorMessage)> onException;
+    std::function<void(const Thread& thread, int bpId, const std::string& errorMessage)> onException;
 };
 
 struct Target
