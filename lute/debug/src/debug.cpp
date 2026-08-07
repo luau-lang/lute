@@ -63,6 +63,36 @@ static BreakpointStatus breakpointStringToStatus(const char* status)
     LUTE_UNREACHABLE();
 }
 
+
+// StepType is
+// "stepIn" | "stepOver" | "stepOut"
+static const char* stepTypeToString(StepType type)
+{
+    switch (type)
+    {
+    case StepType::StepIn:
+        return "stepIn";
+    case StepType::StepOut:
+        return "stepOut";
+    case StepType::StepOver:
+        return "stepOver";
+    }
+    LUTE_ASSERT(false);
+    LUTE_UNREACHABLE();
+}
+
+static StepType stepStringToStatus(const char* status)
+{
+    if (strcmp(status, "stepIn") == 0)
+        return StepType::StepIn;
+    if (strcmp(status, "stepOut") == 0)
+        return StepType::StepOut;
+    if (strcmp(status, "stepOver") == 0)
+        return StepType::StepOver;
+    LUTE_ASSERT(false);
+    LUTE_UNREACHABLE();
+}
+
 // Helper to push a Breakpoint type, which is
 // id: number
 // line: number
@@ -117,6 +147,23 @@ static int pushStackFrame(lua_State* L, const debug::StackFrame& frame)
     lua_setfield(L, -2, "line");
     lua_pushinteger(L, frame.column);
     lua_setfield(L, -2, "column");
+    return 1;
+}
+
+// Helper to push a StepInfo type, which is
+// type: StepType
+// startLine: int
+// startDepth: int
+static int pushStepInfo(lua_State* L, const StepInfo& stepInfo)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 3);
+    lua_pushstring(L, stepTypeToString(stepInfo.type));
+    lua_setfield(L, -2, "type");
+    lua_pushinteger(L, stepInfo.startLine);
+    lua_setfield(L, -2, "startLine");
+    lua_pushinteger(L, stepInfo.startDepth);
+    lua_setfield(L, -2, "startDepth");
     return 1;
 }
 
@@ -225,6 +272,67 @@ static int target_getLoadedSources(lua_State* L)
         lua_pushstring(L, sources[i].c_str());
         lua_rawseti(L, -2, i + 1);
     }
+    return 1;
+}
+
+// target.step(int threadId, StepType type)
+// returns a boolean
+static int target_step(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    const char* statusStr = luaL_checkstring(L, 3);
+    StepType type = stepStringToStatus(statusStr);
+    bool step = target->step(threadId, type);
+    checkStack(L, 1);
+    lua_pushboolean(L, step);
+    return 1;
+}
+
+// target.stepIn(int threadId)
+// returns a boolean
+static int target_stepIn(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    bool step = target->stepIn(threadId);
+    checkStack(L, 1);
+    lua_pushboolean(L, step);
+    return 1;
+}
+
+// target.stepOut(int threadId)
+// returns a boolean
+static int target_stepOut(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    bool step = target->stepOut(threadId);
+    checkStack(L, 1);
+    lua_pushboolean(L, step);
+    return 1;
+}
+
+// target.stepOver()
+// returns a boolean
+static int target_stepOver(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    bool step = target->stepOver(threadId);
+    checkStack(L, 1);
+    lua_pushboolean(L, step);
+    return 1;
+}
+
+// target.getLine()
+// returns a integer
+static int target_getLine(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    int line = target->getLine();
+    checkStack(L, 1);
+    lua_pushinteger(L, line);
     return 1;
 }
 
@@ -363,6 +471,7 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 //     onExit(bool success) -> ()
 //     onPause(Thread thread) -> ()
 //     onPrint(string message, string source, int line) -> ()
+//     onStepStop(Thread thread, StepInfo stepInfo) -> ()
 // }
 // returns string | nil
 static int target_launch(lua_State* L)
@@ -453,6 +562,21 @@ static int target_launch(lua_State* L)
                 );
             };
         }
+        if (auto ref = getOptionalCallback(L, 4, "onStepStop"))
+        {
+            config.onStepStop = [ref, runtime](const Thread& thread, const StepInfo& stepInfo)
+            {
+                runtime->scheduleLuauCallback(
+                    ref,
+                    [thread, stepInfo](lua_State* L)
+                    {
+                        pushThread(L, thread);
+                        pushStepInfo(L, stepInfo);
+                        return 2;
+                    }
+                );
+            };
+        }
     }
     std::optional<std::string> error = target->launch(source, args, config);
     checkStack(L, 1);
@@ -508,6 +632,11 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"continueProcess", debug::target_continueProcess},
     {"pauseProcess", debug::target_pauseProcess},
     {"getLoadedSources", debug::target_getLoadedSources},
+    {"step", debug::target_step},
+    {"stepIn", debug::target_stepIn},
+    {"stepOut", debug::target_stepOut},
+    {"stepOver", debug::target_stepOver},
+    {"getLine", debug::target_getLine},
     {"getThreads", debug::target_getThreads},
     {"getMainThread", debug::target_getMainThread},
     {"getStoppedThread", debug::target_getStoppedThread},

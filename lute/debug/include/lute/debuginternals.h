@@ -54,6 +54,21 @@ struct StackFrame
     int column = 0;
 };
 
+enum class StepType
+{
+    StepOver,
+    StepIn,
+    StepOut,
+};
+
+struct StepInfo
+{
+    Thread thread;
+    StepType type;
+    int startLine;
+    int startDepth;
+};
+
 struct LaunchConfig
 {
     // onBreakpointInstall is called whenever an installation attempt is actually made, regardless
@@ -64,6 +79,7 @@ struct LaunchConfig
     std::function<void(bool success)> onExit;
     std::function<void(const Thread& thread)> onPause;
     std::function<void(const std::string& message, const std::string& source, int line)> onPrint;
+    std::function<void(const Thread& thread, const StepInfo& stepInfo)> onStepStop;
 };
 
 struct Target
@@ -94,17 +110,18 @@ struct Target
     std::optional<Breakpoint> getBreakpointById(int breakpointId) const;
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
-    // For inspection while paused:
+    // For inspection:
     // About multiple coroutines: we don't currently handle the original implementation of task.spawn(). Calling
     // task.spawn() when working in the debugger instead calls task.defer() instead.
     // The difference is that the original task.spawn() tries to run the coroutine inline with our current execution, resulting
     // in issues when trying to pause. Similar methods that also run coroutines inline with our current execution will not work.
     // In contrast, in task.defer(), the coroutine is added to set of running coroutines but execution
     // is deferred. Our pause mechanism will then work correctly.
-    std::optional<Thread> getMainThread() const;
+    int getLine() const;
+    int getStackDepth(int threadId);
+    std::optional<Thread> getMainThread() const; // can be used when not paused
     std::optional<Thread> getStoppedThread() const;
     std::vector<Thread> getThreads() const;
-    int getStackDepth(int threadId);
     std::optional<StackFrame> getStackFrame(int threadId, int level);
     std::optional<std::vector<StackFrame>> getStackTrace(int threadId, int startLevel = 0, int maximumLevel = 0);
 
@@ -112,6 +129,10 @@ struct Target
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
     bool pauseProcess();
+    bool step(int threadId, StepType type);
+    bool stepIn(int threadId);
+    bool stepOver(int threadId);
+    bool stepOut(int threadId);
 
 private:
     // targetMutex protects the entire Target, since Target can be accessed from the main thread
@@ -159,14 +180,20 @@ private:
     std::unordered_map<int, std::unordered_map<int, StackFrame>> stateToStackFrame; // thread id -> level -> stackFrame
     std::unordered_map<int, std::pair<int, int>> idToStackFrameInfo;                // stack frame id -> stack frame's (thread id, level)
 
+    // only set when stepping
+    std::optional<StepInfo> stepInfo;
+
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
     std::optional<Breakpoint> getBreakpointByIdHelper(int breakpointId) const;
     std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
+    void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
     bool uninstallBreakpoint(lua_State* L, Breakpoint& bp);
     std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> modifyPendingBreakpoints(lua_State* L);
+
+    void computeStoppedLine(lua_State* L);
 
     void installBpHitCallback();
     void installExitCallback();
