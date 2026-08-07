@@ -65,29 +65,29 @@ static BreakpointStatus breakpointStringToStatus(const char* status)
 
 // VariableScopeType is
 // "locals" | "upvalues" | "table"
-static const char* scopeTypeToString(debug::VariableScopeType type)
+static const char* scopeTypeToString(VariableScopeType type)
 {
     switch (type)
     {
-    case debug::VariableScopeType::Locals:
+    case VariableScopeType::Locals:
         return "locals";
-    case debug::VariableScopeType::Upvalues:
+    case VariableScopeType::Upvalues:
         return "upvalues";
-    case debug::VariableScopeType::Table:
+    case VariableScopeType::Table:
         return "table";
     }
     LUAU_ASSERT(false);
     LUAU_UNREACHABLE();
 }
 
-static debug::VariableScopeType scopeStringToType(const char* type)
+static VariableScopeType scopeStringToType(const char* type)
 {
     if (strcmp(type, "locals") == 0)
-        return debug::VariableScopeType::Locals;
+        return VariableScopeType::Locals;
     if (strcmp(type, "upvalues") == 0)
-        return debug::VariableScopeType::Upvalues;
+        return VariableScopeType::Upvalues;
     if (strcmp(type, "table") == 0)
-        return debug::VariableScopeType::Table;
+        return VariableScopeType::Table;
     LUAU_ASSERT(false);
     LUAU_UNREACHABLE();
 }
@@ -184,7 +184,7 @@ static int pushStackFrame(lua_State* L, const StackFrame& frame)
 // name: string
 // threadId: number
 // level: number
-static int pushVariableScope(lua_State* L, const debug::VariableScope& scope)
+static int pushVariableScope(lua_State* L, const VariableScope& scope)
 {
     checkStack(L, 2);
     lua_createtable(L, 0, 5);
@@ -206,7 +206,7 @@ static int pushVariableScope(lua_State* L, const debug::VariableScope& scope)
 // value: string
 // type: string
 // variableRef: number
-static int pushVariable(lua_State* L, const debug::Variable& variable)
+static int pushVariable(lua_State* L, const Variable& variable)
 {
     checkStack(L, 2);
     lua_createtable(L, 0, 4);
@@ -523,7 +523,7 @@ static int target_getScopes(lua_State* L)
 {
     auto target = getTarget(L, 1);
     int frameId = luaL_checkinteger(L, 2);
-    std::optional<std::vector<debug::VariableScope>> scopes = target->getScopes(frameId);
+    std::optional<std::vector<VariableScope>> scopes = target->getScopes(frameId);
     if (!scopes)
     {
         checkStack(L, 1);
@@ -546,7 +546,7 @@ static int target_getVariables(lua_State* L)
 {
     auto target = getTarget(L, 1);
     int variableRef = luaL_checkinteger(L, 2);
-    std::optional<std::vector<debug::Variable>> variables = target->getVariables(variableRef);
+    std::optional<std::vector<Variable>> variables = target->getVariables(variableRef);
     if (!variables)
     {
         checkStack(L, 1);
@@ -570,8 +570,8 @@ static int target_getVariablesByScopeType(lua_State* L)
     auto target = getTarget(L, 1);
     int frameId = luaL_checkinteger(L, 2);
     const char* typeStr = luaL_checkstring(L, 3);
-    debug::VariableScopeType type = scopeStringToType(typeStr);
-    std::optional<std::vector<debug::Variable>> variables = target->getVariablesByScopeType(frameId, type);
+    VariableScopeType type = scopeStringToType(typeStr);
+    std::optional<std::vector<Variable>> variables = target->getVariablesByScopeType(frameId, type);
     if (!variables)
     {
         checkStack(L, 1);
