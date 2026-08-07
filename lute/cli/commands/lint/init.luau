@@ -96,7 +96,7 @@ local function main(...: string)
 	-- Paths land in variadics, but anything after `--` still arrives as forwarded args.
 	local inputFiles = table.clone(args:variadics())
 	local fwdArgs = args:forwarded() or {}
-	table.move(fwdArgs, 1, #fwdArgs, #inputFiles + 1, inputFiles)
+	tableext.extend(inputFiles, fwdArgs)
 
 	local stringInput = args:get("string-input")
 	if #inputFiles == 0 and not stringInput then
