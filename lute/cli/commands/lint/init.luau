@@ -63,24 +63,36 @@ end
 local function main(...: string)
 	local args = cli.parser()
 
-	args:add(
-		"auto-fix",
-		"flag",
-		{ help = "Automatically apply fixes for lint violations that provide a suggested fix" }
-	)
-	args:add("config", "option", { help = "Path to configuration file", aliases = { "c" } })
+	args:add("auto-fix", "flag", {
+		help = "Automatically apply fixes for lint violations that provide a suggested fix. Assumes that suggested fixes do not overlap.",
+	})
+	args:add("config", "option", {
+		help = "Path to configuration file. By default, lute lint will look for the .config.luau file in the calling directory.",
+		aliases = { "c" },
+	})
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
-	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
+	args:add(
+		"json",
+		"flag",
+		{ help = "Output lint violations in JSON format matching the LSP diagnostic spec", aliases = { "j" } }
+	)
 	args:add("no-default-lints", "flag", { help = "Disables the default lint rules" })
-	args:add("output", "option", { help = "Write diagnostics output to file", aliases = { "o" } })
-	args:add("rules", "option", { help = "Linting rules to apply", aliases = { "r" } })
+	args:add(
+		"output",
+		"option",
+		{ help = "Write lint violation or JSON output to the specified file instead of stdout", aliases = { "o" } }
+	)
+	args:add("rules", "option", {
+		help = "Path to a single lint rule or a folder containing lint rules. If a folder is provided, any subfolders containing init.luau files will be treated as modules exporting lint rules, while all other .luau files will be treated as individual lint rules. If unspecified, the default lint rules are used",
+		aliases = { "r" },
+	})
 	args:add(
 		"string-input",
 		"option",
 		{ help = "Lint the provided string input instead of reading from files", aliases = { "s" } }
 	)
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
-	args:add("sequential", "flag", { help = "Lint files sequentially (parallel by default)" })
+	args:add("sequential", "flag", { help = "Lint files sequentially. Files are linted in parallel by default." })
 	args:add("paths", "variadic", { help = "Files or folders to lint (defaults to the current directory)" })
 
 	args:parse({ ... })
