@@ -73,7 +73,7 @@ local function main(...: string)
 	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
 	args:add("no-default-lints", "flag", { help = "Disables the default lint rules" })
 	args:add("output", "option", { help = "Write diagnostics output to file", aliases = { "o" } })
-	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
+	args:add("rules", "option", { help = "Linting rules to apply", aliases = { "r" } })
 	args:add(
 		"string-input",
 		"option",

@@ -48,7 +48,7 @@ type Mapping = {
 
 local function printHelp(args: cli.Parser)
 	print(args:usage("lute doc"))
-	print("\nGenerate Markdown documentation for Luau module(s).\n")
+	print("\nGenerate Markdown documentation for Luau modules.\n")
 	print(args:help())
 	print([[
 
