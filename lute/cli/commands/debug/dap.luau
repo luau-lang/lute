@@ -184,7 +184,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 						verified = true,
 					})
 				end
-				if filter == "uncaught" then
+				if filter == "caught" then
 					table.insert(requestedBreakpoints, {
 						id = exceptionInfo.caughtId,
 						verified = true,
