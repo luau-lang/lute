@@ -116,7 +116,7 @@ static int pushBreakpoint(lua_State* L, const Breakpoint& bp)
 // Helper to push a Thread type, which is
 // id: number
 // name: string
-static int pushThread(lua_State* L, const debug::Thread& thread)
+static int pushThread(lua_State* L, const Thread& thread)
 {
     checkStack(L, 2);
     lua_createtable(L, 0, 2);
@@ -133,7 +133,7 @@ static int pushThread(lua_State* L, const debug::Thread& thread)
 // sourcePath: string
 // line: number
 // column: number
-static int pushStackFrame(lua_State* L, const debug::StackFrame& frame)
+static int pushStackFrame(lua_State* L, const StackFrame& frame)
 {
     checkStack(L, 2);
     lua_createtable(L, 0, 5);
@@ -349,7 +349,7 @@ static int target_getStoppedLocation(lua_State* L)
 static int target_getThreads(lua_State* L)
 {
     auto target = getTarget(L, 1);
-    const std::vector<debug::Thread>& threads = target->getThreads();
+    const std::vector<Thread>& threads = target->getThreads();
     checkStack(L, 1);
     lua_createtable(L, threads.size(), 0);
     for (int i = 0; i < (int)threads.size(); i++)
@@ -411,7 +411,7 @@ static int target_getStackFrame(lua_State* L)
     auto target = getTarget(L, 1);
     int threadId = luaL_checkinteger(L, 2);
     int level = luaL_checkinteger(L, 3);
-    std::optional<debug::StackFrame> stackframe = target->getStackFrame(threadId, level);
+    std::optional<StackFrame> stackframe = target->getStackFrame(threadId, level);
     if (!stackframe)
     {
         checkStack(L, 1);
@@ -429,7 +429,7 @@ static int target_getStackTrace(lua_State* L)
     int threadId = luaL_checkinteger(L, 2);
     int startLevel = (int)luaL_optinteger(L, 3, 0);
     int numFrames = (int)luaL_optinteger(L, 4, 0);
-    std::optional<std::vector<debug::StackFrame>> stackframes = target->getStackTrace(threadId, startLevel, numFrames);
+    std::optional<std::vector<StackFrame>> stackframes = target->getStackTrace(threadId, startLevel, numFrames);
     if (!stackframes)
     {
         checkStack(L, 1);
