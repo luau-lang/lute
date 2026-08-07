@@ -197,7 +197,7 @@ local function main(...: string)
 		"flag",
 		{ help = "Interactive mode, where you can preview and confirm changes", aliases = { "i" } }
 	)
-	args:add("output", "option", { help = "Write output to this file (single input only)", aliases = { "o" } })
+	args:add("output", "option", { help = "Write output to a single file instead of in-place (only works if a single input file is specified)", aliases = { "o" } })
 	args:add("migration-path", "positional", { help = "Path to the migration script to run" })
 	args:add(
 		"files",
