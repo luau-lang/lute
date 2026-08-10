@@ -90,6 +90,8 @@ struct Variable
     int variableReference = 0;
 };
 
+using EvaluateResult = std::variant<Variable, std::string>;
+
 enum class StepType
 {
     StepOver,
@@ -164,6 +166,9 @@ struct Target
     std::optional<std::vector<Variable>> getVariables(int varRef);
     std::optional<std::vector<Variable>> getVariablesByScopeType(int frameId, VariableScopeType contextType);
 
+    // For evaluation:
+    EvaluateResult evaluateExpression(std::string expression, int frameId = -1);
+
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
@@ -199,8 +204,8 @@ private:
     // our stopped thread that we need to requeue when we continue
     lua_State* stoppedThread = nullptr;
     std::shared_ptr<Ref> stoppedThreadRef;
-    // Due to the way Lua debugger callbacks works, we need to set the stopped line/instruction in the callback. otherwise, outside of the callback, lua_getinfo
-    // will return the previous line/instruction.
+    // Due to the way Lua debugger callbacks works, we need to set the stopped line/instruction in the callback. otherwise, outside of the callback,
+    // lua_getinfo will return the previous line/instruction.
     int stoppedLine = -1;
     std::string stoppedLocation = "";
     const uint32_t* stoppedPc = nullptr;
@@ -237,6 +242,7 @@ private:
     std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
     std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
     std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
+    EvaluateResult evaluateExpressionHelper(lua_State* L, int level, std::string expression);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
@@ -249,6 +255,9 @@ private:
     std::vector<Variable> getLocalsHelper(lua_State* L, int level);
     std::vector<Variable> getUpvaluesHelper(lua_State* L, int level);
     std::vector<Variable> getTableHelper(lua_State* L, int idx);
+
+    void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
+    void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);
 
     void installBpHitCallback();
     void installExitCallback();
