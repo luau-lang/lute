@@ -6,11 +6,18 @@ local debugger = {}
 export type BreakpointStatus = "pendingInstall" | "pendingUninstall" | "installed" | "invalid"
 
 --- A breakpoint that stops execution when encountered during runtime
+--- if condition is not "", the condition must evaluate to true before stopping.
+--- if hitCondition is not "", a condition involving the hitCount must be true before stopping.
+--- if logMessage is not "", then instead of stopping we simply output an interpolated log message to the relevant callback.
 export type Breakpoint = {
 	id: number,
 	line: number,
 	--- this source path will use forward slashes
 	sourcePath: string,
+	condition: string,
+	hitCondition: string,
+	hitCount: number,
+	logMessage: string,
 	status: BreakpointStatus,
 }
 
@@ -98,13 +105,16 @@ export type LaunchConfig = {
 	onPrint: ((message: string, source: string, line: number) -> ())?,
 	--- called when our script finishes stepping on `thread`. `info` reflects the information about our stepping command.
 	onStepStop: ((thread: Thread, info: StepInfo) -> ())?,
+	--- called when we hit a log point `bp` and we are asked to log `message`
+	onLogpointHit: ((message: string, bp: Breakpoint) -> ())?,
 }
 
 --- A `Target` represents the target program under the debugger.
 export type Target = {
 	--- Sets a breakpoint at `sourcePath` with a given line and queue it for installation.
 	--- If this bp already existed return the preexisting breakpoint. Otherwise, it returns the new one.
-	setBreakpoint: (self: Target, sourcePath: string, line: number) -> Breakpoint,
+	--- Use `config` to add settings for conditional bps, hit condition bps, or logpoints.
+	setBreakpoint: (self: Target, sourcePath: string, line: number, config: BreakpointConfig?) -> Breakpoint,
 	--- Remove a breakpoint with a given `id` and queue for uninstall.
 	--- Returns whether it was successful or not.
 	removeBreakpoint: (self: Target, id: number) -> boolean,

@@ -611,4 +611,59 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			true
 		)
 	end)
+	-- this test case focuses on source breakpoints
+	suite:case("sourceBreakpoints", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/loop.luau"))
+		local normalBp = target:setBreakpoint(mainPath, 6)
+		local conditionalBp = target:setBreakpoint(mainPath, 7, { condition = "_step2 > 10" })
+		local hitConditionBp = target:setBreakpoint(mainPath, 8, { hitCondition = "3" })
+		local logPoint = target:setBreakpoint(mainPath, 4, { logMessage = "wow {_step2}" })
+		local onFinished = false
+		local logs = {}
+		local normalHits = 0
+		local conditionalHits = 0
+		local hitConditionHits = 0
+		local targetLaunched = target:launch(mainPath, {}, {
+			onBreakpointHit = function(thread, bp)
+				if bp.id == normalBp.id then
+					normalHits += 1
+				elseif bp.id == conditionalBp.id then
+					conditionalHits += 1
+					check.that(normalHits > 5)
+				elseif bp.id == hitConditionBp.id then
+					hitConditionHits += 1
+					check.eq(normalHits, 3)
+				end
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onLogpointHit = function(message, bp)
+				table.insert(logs, message)
+				check.eq(bp.id, logPoint.id)
+				check.eq(bp.sourcePath, mainPath)
+				check.eq(bp.line, 4)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(targetLaunched, nil)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+		check.eq(normalHits, 25)
+		check.eq(conditionalHits, 20)
+		check.eq(hitConditionHits, 1)
+		check.eq(#logs, 5)
+		for i = 1, 5 do
+			check.eq(logs[i], `wow {10 * (i - 1)}\n`)
+		end
+	end)
 end)
