@@ -129,21 +129,33 @@ static StepType stepStringToStatus(const char* status)
 // id: number
 // line: number
 // sourcePath: string
+// condition: string
+// hitCondition: string
+// logMessage: string
 // status: BreakpointStatus
 static int pushBreakpoint(lua_State* L, const Breakpoint& bp)
 {
     checkStack(L, 2);
-    lua_createtable(L, 0, 4);
+    lua_createtable(L, 0, 8);
     lua_pushinteger(L, bp.id);
     lua_setfield(L, -2, "id");
     lua_pushinteger(L, bp.line);
     lua_setfield(L, -2, "line");
     lua_pushstring(L, bp.sourcePath.c_str());
     lua_setfield(L, -2, "sourcePath");
+    lua_pushstring(L, bp.condition.c_str());
+    lua_setfield(L, -2, "condition");
+    lua_pushstring(L, bp.hitCondition.c_str());
+    lua_setfield(L, -2, "hitCondition");
+    lua_pushinteger(L, bp.hitCount);
+    lua_setfield(L, -2, "hitCount");
+    lua_pushstring(L, bp.logMessage.c_str());
+    lua_setfield(L, -2, "logMessage");
     lua_pushstring(L, breakpointStatusToString(bp.status));
     lua_setfield(L, -2, "status");
     return 1;
 }
+
 
 // Helper to push a Thread type, which is
 // id: number
@@ -242,14 +254,33 @@ static int pushStepInfo(lua_State* L, const StepInfo& stepInfo)
     return 1;
 }
 
-// target.setBreakpoint(string sourcePath, int line)
+// target.setBreakpoint(string sourcePath, int line, BreakpointConfig config)
+// BreakpointConfig = {condition: string, hitCondition: string, logMessage: string}
 // returns a breakpoint
 static int target_setBreakpoint(lua_State* L)
 {
     Target* target = getTarget(L, 1);
     const char* source = luaL_checkstring(L, 2);
     int line = luaL_checkinteger(L, 3);
-    Breakpoint bp = target->setBreakpoint(source, line);
+    BreakpointConfig config;
+    if (lua_istable(L, 4))
+    {
+        lua_getfield(L, 4, "condition");
+        if (lua_isstring(L, -1))
+            config.condition = lua_tostring(L, -1);
+        lua_pop(L, 1);
+
+        lua_getfield(L, 4, "hitCondition");
+        if (lua_isstring(L, -1))
+            config.hitCondition = lua_tostring(L, -1);
+        lua_pop(L, 1);
+
+        lua_getfield(L, 4, "logMessage");
+        if (lua_isstring(L, -1))
+            config.logMessage = lua_tostring(L, -1);
+        lua_pop(L, 1);
+    }
+    Breakpoint bp = target->setBreakpoint(source, line, config);
     return pushBreakpoint(L, bp);
 }
 
@@ -298,7 +329,6 @@ static int target_getBreakpointsByStatus(lua_State* L)
     }
     return 1;
 }
-
 
 // target.getBreakpointById(int bpId)
 // returns Breakpoint | nil
@@ -645,6 +675,7 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 //     onPause(Thread thread) -> ()
 //     onPrint(string message, string source, int line) -> ()
 //     onStepStop(Thread thread, StepInfo stepInfo) -> ()
+//     onLogpointHit(string message, Breakpoint bp) -> ()
 // }
 // returns string | nil
 static int target_launch(lua_State* L)
@@ -745,6 +776,22 @@ static int target_launch(lua_State* L)
                     {
                         pushThread(L, thread);
                         pushStepInfo(L, stepInfo);
+                        return 2;
+                    }
+                );
+            };
+        }
+        if (auto ref = getOptionalCallback(L, 4, "onLogpointHit"))
+        {
+            config.onLogpointHit = [ref, runtime](std::string message, const Breakpoint& bp)
+            {
+                runtime->scheduleLuauCallback(
+                    ref,
+                    [message, bp](lua_State* L)
+                    {
+                        checkStack(L, 2);
+                        lua_pushstring(L, message.c_str());
+                        pushBreakpoint(L, bp);
                         return 2;
                     }
                 );
