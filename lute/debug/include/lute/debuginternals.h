@@ -222,6 +222,7 @@ private:
     std::unordered_map<int, std::pair<int, int>> idToStackFrameInfo;                // stack frame id -> stack frame's (thread id, level)
 
     // variable information
+    // scope and variable information also resets upon every continue(). The base id resets to 1.
     int variableRefId = 1;
     std::unordered_map<int, std::vector<VariableScope>> scopeCache; // stack frame id -> scope
     std::unordered_map<int, std::vector<Variable>> variableCache;   // var reference -> all variables under that reference
