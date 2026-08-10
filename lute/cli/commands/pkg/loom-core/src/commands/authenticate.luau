@@ -5,13 +5,15 @@ local function authenticate(...: string)
 	local args = cli.parser()
 	args:add("token", "option", { help = "Authentication token", required = true })
 	args:add("domain", "option", { help = "Domain to authenticate with", default = "github.com" })
-	args:parse({ ... })
 
-	local token = args:get("token")
-	if not token then
-		error("Usage: `lute pkg auth --token <token> [--domain <domain>]`")
+	local valid, err = pcall(cli.parse, args, { ... })
+	if not valid then
+		print(err)
+		args:help()
+		error(err)
 	end
 
+	local token = args:get("token") :: string -- non-nil because required = true
 	local domain = args:get("domain") or "github.com"
 	authenticationStore.saveAuthenticationToken(domain, token)
 end

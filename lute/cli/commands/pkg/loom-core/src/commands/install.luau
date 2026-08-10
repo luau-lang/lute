@@ -40,7 +40,13 @@ local function install(...: string)
 	local args = cli.parser()
 	args:add("exclude-dev", "flag", { help = "Skip dev dependencies" })
 	args:add("locked", "flag", { help = "Error if lockfile doesn't match manifest (CI mode)" })
-	args:parse({ ... })
+
+	local valid, err = pcall(cli.parse, args, { ... })
+	if not valid then
+		print(err)
+		args:help()
+		error(err)
+	end
 
 	local excludeDev = args:get("exclude-dev") ~= nil
 	local locked = args:get("locked") ~= nil

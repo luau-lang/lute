@@ -138,6 +138,7 @@ struct Runtime
     std::function<void*(lua_State*)> requireContextFactory;
 
     // for debug mode only:
+    const bool debugMode;
     void stopDebug();
     void continueDebug();
 
@@ -159,7 +160,6 @@ private:
     uv_async_t wakeupEventLoop;
 
     // for debug mode only:
-    const bool debugMode;
     std::mutex debugMutex;
     std::atomic<bool> debugStopped = false;
     std::condition_variable debugStoppedCv;

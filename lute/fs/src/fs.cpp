@@ -96,6 +96,35 @@ int write(lua_State* L)
     return write_impl(L, handle, data, len);
 }
 
+int readIntoBuffer(lua_State* L)
+{
+    auto* handle = checkFileHandle(L, 1);
+
+    size_t bufLen = 0;
+    void* buf = luaL_checkbuffer(L, 2, &bufLen);
+
+    double fo = luaL_checknumber(L, 3);
+    if (fo < 0)
+        luaL_errorL(L, "readIntoBuffer: fileOffset must be non-negative");
+    int64_t fileOffset = int64_t(fo);
+
+    double b = luaL_checknumber(L, 4);
+    if (b < 0)
+        luaL_errorL(L, "readIntoBuffer: numBytes must be non-negative");
+    size_t numBytes = size_t(b);
+
+    size_t bufferOffset = 0;
+    if (!lua_isnoneornil(L, 5))
+    {
+        double bo = luaL_checknumber(L, 5);
+        if (bo < 0)
+            luaL_errorL(L, "readIntoBuffer: bufferOffset must be non-negative");
+        bufferOffset = size_t(bo);
+    }
+
+    return readIntoBuffer_impl(L, handle, buf, bufLen, fileOffset, numBytes, bufferOffset);
+}
+
 int open(lua_State* L)
 {
     const char* path = luaL_checkstring(L, 1);
@@ -361,6 +390,7 @@ const luaL_Reg FS::lib[] = {
     {"write", fs::write},
     {"close", fs::close},
 
+    {"readIntoBuffer", fs::readIntoBuffer},
     {"remove", fs::remove},
 
     {"stat", fs::stat},
