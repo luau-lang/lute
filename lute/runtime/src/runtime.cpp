@@ -127,6 +127,13 @@ RuntimeStep Runtime::runOnce()
     else
         status = lua_resume(L, nullptr, next.argumentCount);
 
+    // if we're in debugmode return step sucess here to pause execution
+    // and call the thread completion callback on target.continueProcess()
+    if (debugMode && status == LUA_ERRRUN && onUncaughtError && onUncaughtError(L))
+    {
+        return StepSuccess{L};
+    }
+
     if (status == LUA_YIELD || status == LUA_BREAK)
     {
         return StepSuccess{L};
@@ -390,6 +397,12 @@ void Runtime::stopDebug()
     LUTE_ASSERT(debugMode);
     std::unique_lock<std::mutex> lock(debugMutex);
     debugStopped = true;
+}
+
+bool Runtime::runUncaughtExceptionCompletion(lua_State* L)
+{
+    LUTE_ASSERT(debugMode);
+    return runThreadCompletionHandler(L, LUA_COERR);
 }
 
 uv_loop_t* Runtime::getEventLoop()

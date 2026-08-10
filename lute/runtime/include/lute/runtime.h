@@ -139,8 +139,10 @@ struct Runtime
 
     // for debug mode only:
     const bool debugMode;
+    std::function<bool(lua_State* L)> onUncaughtError;
     void stopDebug();
     void continueDebug();
+    bool runUncaughtExceptionCompletion(lua_State* L);
 
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);

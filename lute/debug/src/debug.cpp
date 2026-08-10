@@ -250,6 +250,26 @@ static int pushStepInfo(lua_State* L, const StepInfo& stepInfo)
     return 1;
 }
 
+// Helper to push an ExceptionBreakpointInfo type, which is
+// uncaughtExceptions: boolean,
+// uncaughtId: number,
+// caughtExceptions: boolean,
+// caughtId: number
+static int pushExceptionBreakpointInfo(lua_State* L, const ExceptionBreakpointInfo& info)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 4);
+    lua_pushboolean(L, info.uncaughtExceptions);
+    lua_setfield(L, -2, "uncaughtExceptions");
+    lua_pushinteger(L, info.uncaughtId);
+    lua_setfield(L, -2, "uncaughtId");
+    lua_pushboolean(L, info.caughtExceptions);
+    lua_setfield(L, -2, "caughtExceptions");
+    lua_pushinteger(L, info.caughtId);
+    lua_setfield(L, -2, "caughtId");
+    return 1;
+}
+
 // target.setBreakpoint(string sourcePath, int line, BreakpointConfig config)
 // BreakpointConfig = {condition: string, hitCondition: string, logMessage: string}
 // returns a breakpoint
@@ -358,6 +378,17 @@ static int target_getBreakpointBySourceLine(lua_State* L)
         return 1;
     }
     return pushBreakpoint(L, *bp);
+}
+
+// target.setExceptionBreakpoint(bool caught, bool uncaught)
+// returns a ExceptionBpInfo
+static int target_setExceptionBreakpoint(lua_State* L)
+{
+    Target* target = getTarget(L, 1);
+    bool caught = luaL_checkboolean(L, 2);
+    bool uncaught = luaL_checkboolean(L, 3);
+    ExceptionBreakpointInfo info = target->setExceptionBreakpoint(caught, uncaught);
+    return pushExceptionBreakpointInfo(L, info);
 }
 
 // target.getLoadedSources()
@@ -671,6 +702,7 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 //     onPause(Thread thread) -> ()
 //     onPrint(string message, string source, int line) -> ()
 //     onStepStop(Thread thread, StepInfo stepInfo) -> ()
+//     onException(Thread thread, int bpId, string errorMessage) -> ()
 //     onLogpointHit(string message, Breakpoint bp) -> ()
 // }
 // returns string | nil
@@ -777,6 +809,22 @@ static int target_launch(lua_State* L)
                 );
             };
         }
+        if (auto ref = getOptionalCallback(L, 4, "onException"))
+        {
+            config.onException = [ref, runtime](const Thread& thread, int bpId, const std::string& errorMessage)
+            {
+                runtime->scheduleLuauCallback(
+                    ref,
+                    [thread, bpId, errorMessage](lua_State* L)
+                    {
+                        pushThread(L, thread);
+                        lua_pushinteger(L, bpId);
+                        lua_pushstring(L, errorMessage.c_str());
+                        return 3;
+                    }
+                );
+            };
+        }
         if (auto ref = getOptionalCallback(L, 4, "onLogpointHit"))
         {
             config.onLogpointHit = [ref, runtime](std::string message, const Breakpoint& bp)
@@ -863,6 +911,7 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"getVariables", debug::target_getVariables},
     {"getVariablesByScopeType", debug::target_getVariablesByScopeType},
     {"evaluateExpression", debug::target_evaluateExpression},
+    {"setExceptionBreakpoint", debug::target_setExceptionBreakpoint}
 };
 
 static void initializeTarget(lua_State* L)
