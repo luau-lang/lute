@@ -26,14 +26,24 @@ enum class BreakpointStatus
     Invalid,
 };
 
+struct BreakpointConfig
+{
+    std::string condition = "";
+    std::string hitCondition = "";
+    std::string logMessage = "";
+};
+
 struct Breakpoint
 {
     int id;
-    // This will use forward slashes instead of backwards.
     std::string sourcePath;
     int line;
+    std::string condition;
+    std::string hitCondition;
+    int hitCount = 0;
+    std::string logMessage;
     BreakpointStatus status;
-    explicit Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status);
+    Breakpoint(int id, std::string sourcePath, int line, BreakpointConfig config, BreakpointStatus status);
 };
 
 // Each Thread represents one coroutine in our Lute runtime.
@@ -88,6 +98,7 @@ struct Variable
     std::string value;
     std::string type;
     int variableReference = 0;
+    bool isTrue();
 };
 
 using EvaluateResult = std::variant<Variable, std::string>;
@@ -114,6 +125,7 @@ struct LaunchConfig
     std::function<void(const Breakpoint& bp)> onBreakpointInstall;
     std::function<void(const Breakpoint& bp)> onBreakpointUninstall;
     std::function<void(const Thread& thread, const Breakpoint& bp)> onBreakpointHit;
+    std::function<void(const std::string& message, const Breakpoint& bp)> onLogpointHit;
     std::function<void(bool success)> onExit;
     std::function<void(const Thread& thread)> onPause;
     std::function<void(const std::string& message, const std::string& source, int line)> onPrint;
@@ -140,7 +152,7 @@ struct Target
     // Any breakpoint that is placed when the target process is paused (including before launch) and that
     // have a loaded source are guaranteed to be installed before the process is resumed. Breakpoints placed on a loaded source
     // when the target script is running may not be installed until the next time that script is paused.
-    Breakpoint setBreakpoint(std::string sourcePath, int line);
+    Breakpoint setBreakpoint(std::string sourcePath, int line, BreakpointConfig config = {});
     bool removeBreakpoint(int bpId);
 
     std::vector<Breakpoint> getBreakpoints() const;
@@ -248,6 +260,11 @@ private:
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
     bool uninstallBreakpoint(lua_State* L, Breakpoint& bp);
     std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> modifyPendingBreakpoints(lua_State* L);
+
+    // for conditional breakpoints:
+    bool evaluateBpCondition(lua_State* L, const Breakpoint& bp);
+    bool evaluateBpHitCondition(lua_State* L, const Breakpoint& bp);
+    std::string evaluateLogMessage(lua_State* L, const Breakpoint& bp);
 
     void computeStoppedLocation(lua_State* L);
 

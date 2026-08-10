@@ -27,10 +27,13 @@
 
 namespace debug
 {
-Breakpoint::Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status)
+Breakpoint::Breakpoint(int id, std::string sourcePath, int line, BreakpointConfig config, BreakpointStatus status)
     : id(id)
     , sourcePath(sourcePath)
     , line(line)
+    , condition(config.condition)
+    , hitCondition(config.hitCondition)
+    , logMessage(config.logMessage)
     , status(status)
 {
 }
@@ -69,6 +72,11 @@ VariableScope VariableScope::makeUpvalues(int variableReference, int threadId, i
 VariableScope VariableScope::makeTable(int variableReference, int luaref)
 {
     return VariableScope(variableReference, VariableScopeType::Table, "Table", -1, -1, luaref);
+}
+
+bool Variable::isTrue()
+{
+    return value != "false" && value != "nil" && type != "void";
 }
 
 Target::Target(Runtime& parentRuntime)
@@ -112,7 +120,7 @@ static std::string getSourceFromChunk(const std::string& chunkname)
     return chunkname;
 }
 
-Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
+Breakpoint Target::setBreakpoint(std::string sourcePath, int line, BreakpointConfig config)
 {
     std::unique_lock lock(targetMutex);
     sourcePath = normalizePath(sourcePath);
@@ -121,7 +129,7 @@ Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
         return *preexistingBp;
     int id = currentBreakpointId;
     currentBreakpointId++;
-    auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint{id, sourcePath, line, BreakpointStatus::PendingInstall});
+    auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint{id, sourcePath, line, config, BreakpointStatus::PendingInstall});
     // We schedule breakpoint installs to happen when the runtime exists and we are paused. Otherwise,
     // they are scheduled for pending installs.
     if (childRuntime && paused)
@@ -455,15 +463,95 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
     return std::nullopt;
 }
 
+std::string convertHitConditionToExpression(int hitCount, std::string hitExpression)
+{
+    size_t start = hitExpression.find_first_not_of(" \t");
+    if (start == std::string::npos)
+        return "true";
+    hitExpression = hitExpression.substr(start);
+    size_t end = hitExpression.find_last_not_of(" \t");
+    hitExpression = hitExpression.substr(0, end + 1);
+    std::string hitString = std::to_string(hitCount);
+    if (std::all_of(hitExpression.begin(), hitExpression.end(), ::isdigit))
+        return hitString + " == " + hitExpression;
+    if (hitExpression.size() > 0 && hitExpression[0] == '%')
+    {
+        hitExpression = hitExpression.substr(hitExpression.find_first_not_of(" \t", 1));
+        if (std::all_of(hitExpression.begin() + 1, hitExpression.end(), ::isdigit))
+            return hitString + "%" + hitExpression + " == 0";
+    }
+    return hitString + hitExpression;
+}
+
+bool Target::evaluateBpCondition(lua_State* L, const Breakpoint& bp)
+{
+    EvaluateResult result = evaluateExpressionHelper(L, 0, bp.condition);
+    if (std::holds_alternative<std::string>(result))
+    {
+        parentRuntime.reporter.reportError(
+            Luau::format("cannot evaluate breakpoint condition %s at line %d in %s", bp.condition.c_str(), bp.line, bp.sourcePath.c_str())
+        );
+        return false;
+    }
+    Variable var = std::get<Variable>(result);
+    return var.isTrue();
+}
+
+bool Target::evaluateBpHitCondition(lua_State* L, const Breakpoint& bp)
+{
+    std::string hitExpression = convertHitConditionToExpression(bp.hitCount, bp.hitCondition);
+    EvaluateResult result = evaluateExpressionHelper(L, 0, hitExpression);
+    if (std::holds_alternative<std::string>(result))
+    {
+        parentRuntime.reporter.reportError(
+            Luau::format(
+                "cannot evaluate breakpoint hit condition %s with %d hits at line %d in %s",
+                bp.hitCondition.c_str(),
+                bp.hitCount,
+                bp.line,
+                bp.sourcePath.c_str()
+            )
+        );
+        return false;
+    }
+    Variable var = std::get<Variable>(result);
+    return var.isTrue();
+}
+
+std::string Target::evaluateLogMessage(lua_State* L, const Breakpoint& bp)
+{
+    std::string logMessage = bp.logMessage;
+    size_t start;
+    while ((start = logMessage.find('{')) != std::string::npos)
+    {
+        size_t end = logMessage.find('}', start);
+        if (end == std::string::npos)
+        {
+            break;
+        }
+        std::string interpolateExpr = logMessage.substr(start + 1, end - start - 1);
+        EvaluateResult result = evaluateExpressionHelper(L, 0, interpolateExpr);
+        if (std::holds_alternative<std::string>(result))
+        {
+            parentRuntime.reporter.reportError(
+                Luau::format("cannot evaluate log point message %s at line %d in %s", logMessage.c_str(), bp.line, bp.sourcePath.c_str())
+            );
+            return logMessage;
+        }
+        Variable var = std::get<Variable>(result);
+        logMessage.replace(start, end - start + 1, var.value);
+    }
+    return logMessage + '\n';
+}
+
 void Target::installBpHitCallback()
 {
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
     cb->debugbreak = [](lua_State* L, lua_Debug* ar)
     {
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
+        // We land on the same instruction after a continue() after hitting a bp so we basically don't do anything
         std::unique_lock lock(target->targetMutex);
-        // We land on the same instruction after a continue() after hitting a bp so if we have
-        // already have continue() on this thread, we basically don't do anything
         if (auto it = target->continueRequestedBp.find(L); it != target->continueRequestedBp.end())
         {
             target->continueRequestedBp.erase(it);
@@ -471,17 +559,37 @@ void Target::installBpHitCallback()
         }
         lua_Debug info = {};
         lua_getinfo(L, 0, "s", &info);
+        target->stoppedLine = ar->currentline;
         int line = ar->currentline;
         if (!info.source)
         {
             target->parentRuntime.reporter.reportError(Luau::format("breakpoint hit at line %d could not find a runtime source", line));
             return;
         }
+        target->stoppedPc = L->ci->savedpc;
         std::string chunkname = info.source;
         std::optional<Breakpoint> bp = target->getBreakpointBySourceLineHelper(getSourceFromChunk(chunkname), line);
         // Only stop execution on installed breakpoints; otherwise, don't stop.
         if (bp && bp->status == BreakpointStatus::Installed)
         {
+            target->breakpoints.at(bp->id).hitCount++;
+            bp->hitCount = target->breakpoints.at(bp->id).hitCount;
+            if (bp->condition != "" && !target->evaluateBpCondition(L, *bp))
+            {
+                return;
+            }
+            if (bp->hitCondition != "" && !target->evaluateBpHitCondition(L, *bp))
+            {
+                return;
+            }
+            if (bp->logMessage != "")
+            {
+                lock.unlock();
+                std::string message = target->evaluateLogMessage(L, *bp);
+                if (target->launchConfig.onLogpointHit)
+                    target->launchConfig.onLogpointHit(message, bp.value());
+                return;
+            }
             target->bpHit = *bp;
             target->paused = true;
             target->childRuntime->stopDebug();
@@ -492,7 +600,7 @@ void Target::installBpHitCallback()
             lua_callbacks(L)->debugstep = nullptr;
             lua_break(L);
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-            debug::Thread thread = target->stateToThread.at(L);
+            Thread thread = target->stateToThread.at(L);
             lock.unlock();
             if (target->launchConfig.onBreakpointHit)
                 target->launchConfig.onBreakpointHit(thread, bp.value());
@@ -1185,7 +1293,7 @@ bool Target::pauseProcess()
         target->childRuntime->stopDebug();
         target->stoppedThread = L;
         target->stoppedThreadRef = getRefForThread(L);
-        debug::Thread thread = target->stateToThread.at(L);
+        Thread thread = target->stateToThread.at(L);
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
         target->computeStoppedLocation(L);
