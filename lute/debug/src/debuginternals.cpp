@@ -772,12 +772,7 @@ void Target::installExceptionCallback()
         std::unique_lock lock(target->targetMutex);
         if (!target->exceptionBpInfo.uncaughtExceptions)
             return false;
-        target->paused = true;
-        target->childRuntime->stopDebug();
-        target->stoppedThread = L;
-        target->stoppedThreadRef = getRefForThread(L);
-        target->computeStoppedLocation(L);
-        target->stepInfo = std::nullopt;
+        target->stoppedHelper(L);
         target->stoppedUncaughtException = true;
         Thread thread = target->stateToThread.at(L);
         const char* s = luaL_tolstring(L, -1, nullptr);
@@ -800,12 +795,7 @@ void Target::installExceptionCallback()
         std::unique_lock lock(target->targetMutex);
         if (!target->exceptionBpInfo.caughtExceptions)
             return;
-        target->paused = true;
-        target->childRuntime->stopDebug();
-        target->stoppedThread = L;
-        target->stoppedThreadRef = getRefForThread(L);
-        target->computeStoppedLocation(L);
-        target->stepInfo = std::nullopt;
+        target->stoppedHelper(L);
         Thread thread = target->stateToThread.at(L);
         const char* s = luaL_tolstring(L, -1, nullptr);
         std::string errorMessage = s ? s : "unknown error";
