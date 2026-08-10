@@ -696,4 +696,72 @@ TEST_SUITE("Debug")
         target.launch(fixturePath, {}, config);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_evalExpression")
+    {
+        std::string fixturePath = getDebugFixturePath("variables.luau");
+        Target target(*runtime);
+        target.setBreakpoint(fixturePath, 10);
+
+        std::vector<Variable> capturedLocals;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint&)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            std::optional<std::vector<StackFrame>> stackframe = target.getStackTrace(threads.at(0).id);
+            REQUIRE(stackframe.has_value());
+            EvaluateResult result = target.evaluateExpression("2", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            Variable var = std::get<Variable>(result);
+            CHECK(var.value == "2");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("2 * a", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "48");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("_d[3]", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "3");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("_e.b", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "\"5\"");
+            CHECK(var.type == "string");
+            result = target.evaluateExpression("g()", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "25.2");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("_e[4]", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "{r=13}");
+            CHECK(var.type == "table");
+            CHECK(var.variableReference > 0);
+            result = target.evaluateExpression("x + ", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<std::string>(result));
+            std::string errorMessage = std::get<std::string>(result);
+            CHECK(errorMessage == "eval:1: Expected identifier when parsing expression, got <eof>");
+            result = target.evaluateExpression("_e.bad + 1", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<std::string>(result));
+            errorMessage = std::get<std::string>(result);
+            CHECK(errorMessage == "eval:1: attempt to perform arithmetic (add) on nil and number");
+            result = target.evaluateExpression("_k", stackframe->at(1).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "nil");
+            CHECK(var.type == "nil");
+            result = target.evaluateExpression("tostring(42)", -1);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "\"42\"");
+            CHECK(var.type == "string");
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    };
 }

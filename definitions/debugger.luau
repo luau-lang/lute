@@ -55,6 +55,8 @@ export type VariableScope = {
 	level: number,
 }
 
+--- The type of a value in Lua. "void" exists only for
+--- evaluateExpressions that do not return anything.
 export type LuaValueType =
 	"nil"
 	| "boolean"
@@ -66,6 +68,7 @@ export type LuaValueType =
 	| "userdata"
 	| "thread"
 	| "buffer"
+	| "void"
 
 --- A Variable represents an inspected variable from the script, including its name,
 --- type, and a value.
