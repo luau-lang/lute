@@ -1035,6 +1035,142 @@ std::optional<std::vector<Variable>> Target::getVariablesByScopeType(int frameId
     return getVariablesHelper(it->variableReference);
 }
 
+void Target::injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex)
+{
+    bool fixedSavedpc = false;
+    const Instruction* original = L->ci->savedpc;
+    if (level == 0 && L == stoppedThread && L->ci)
+    {
+        L->ci->savedpc = stoppedPc;
+        fixedSavedpc = true;
+    }
+    const char* name;
+    int n = 1;
+    while (true)
+    {
+        name = lua_getlocal(L, level, n);
+        if (name == nullptr)
+            break;
+        lua_xmove(L, eval, 1);
+        lua_setfield(eval, evalTableIndex, name);
+        n++;
+    }
+    if (fixedSavedpc)
+        L->ci->savedpc = original;
+}
+
+
+void Target::injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex)
+{
+    lua_Debug ar = {};
+    if (lua_getinfo(L, level, "f", &ar) == 0)
+        return;
+    int n = 1;
+    const char* name;
+    while (true)
+    {
+        name = lua_getupvalue(L, -1, n);
+        if (name == nullptr)
+            break;
+        lua_xmove(L, eval, 1);
+        lua_setfield(eval, evalTableIndex, name);
+        n++;
+    }
+    lua_pop(L, 1);
+}
+
+EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::string expression)
+{
+    struct StackGuard
+    {
+        lua_State* L;
+        ~StackGuard()
+        {
+            lua_pop(L, 1);
+        }
+    };
+    // we 1) don't want to register the eval thread to stop re-entrancy on the mutex (and to not have floating threads on the screen)
+    // and consequently 2) don't want to run gc during evaluation
+    struct CallbackGuard
+    {
+        lua_State* global;
+        lua_Callbacks* cb;
+        decltype(cb->userthread) savedUserthread;
+        explicit CallbackGuard(lua_State* global)
+            : global(global)
+            , cb(lua_callbacks(global))
+            , savedUserthread(cb->userthread)
+        {
+            lua_gc(global, LUA_GCSTOP, 0);
+            cb->userthread = nullptr;
+        }
+        ~CallbackGuard()
+        {
+            cb->userthread = savedUserthread;
+            lua_gc(global, LUA_GCRESTART, 0);
+        }
+    };
+    Luau::CompileOptions debugOptions;
+    debugOptions.optimizationLevel = 1;
+    debugOptions.debugLevel = 2;
+    std::string bytecode = Luau::compile("return " + expression, debugOptions);
+    CallbackGuard callbackGuard(childRuntime->GL);
+    lua_State* evalThread = lua_newthread(childRuntime->GL);
+    StackGuard stackGuard{childRuntime->GL};
+    luaL_sandboxthread(evalThread);
+    // sets the previous global table is the top most scope of all variables
+    lua_newtable(evalThread);
+    lua_newtable(evalThread);
+    lua_pushvalue(evalThread, LUA_GLOBALSINDEX);
+    lua_setfield(evalThread, 2, "__index");
+    lua_setmetatable(evalThread, 1);
+    // inject locals + upvalues
+    if (L != nullptr)
+    {
+        int depth = lua_stackdepth(L);
+        for (int i = depth - 1; i >= level; i--)
+        {
+            injectUpvalues(L, i, evalThread, 1);
+            injectLocals(L, i, evalThread, 1);
+        }
+    }
+    lua_replace(evalThread, LUA_GLOBALSINDEX);
+    if (luau_load(evalThread, "=eval", bytecode.c_str(), bytecode.size(), 0) != 0)
+    {
+        std::string error = lua_tostring(evalThread, -1);
+        return error;
+    }
+    lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
+    auto savedBreak = cb->debugbreak;
+    cb->debugbreak = nullptr;
+    int status = lua_resume(evalThread, nullptr, 0);
+    cb->debugbreak = savedBreak;
+    if (status != LUA_OK)
+    {
+        const char* err = lua_tostring(evalThread, -1);
+        return std::string(err ? err : "runtime error");
+    }
+    if (lua_gettop(evalThread) == 0)
+        return Variable{expression, "(no value)", "void"};
+    return makeVariable(evalThread, expression);
+}
+
+EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
+{
+    std::unique_lock lock(targetMutex);
+    if (!paused)
+        return "target was not paused";
+    lua_State* thread = nullptr;
+    int level = -1;
+    if (frameId != -1)
+    {
+        auto [threadId, threadLevel] = idToStackFrameInfo.at(frameId);
+        thread = threadIdToState.at(threadId);
+        level = threadLevel;
+    }
+    return evaluateExpressionHelper(thread, level, expression);
+}
+
 void Target::continueProcessHelper()
 {
     // this clears the interrupts that triggers when the process is paused from client request

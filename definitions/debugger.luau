@@ -59,7 +59,8 @@ export type VariableScope = {
 	level: number,
 }
 
---- Represents possible types of variables in Luau.
+--- The type of a value in Luau. "void" exists only for
+--- evaluateExpressions that do not return anything.
 export type LuauValueType =
 	| "nil"
 	| "boolean"
@@ -71,6 +72,7 @@ export type LuauValueType =
 	| "userdata"
 	| "thread"
 	| "buffer"
+	| "void"
 
 --- A Variable represents an inspected variable from the script, including its name,
 --- type, and a value.
