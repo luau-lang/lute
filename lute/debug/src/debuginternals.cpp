@@ -362,6 +362,18 @@ void Target::computeStoppedLocation(lua_State* L)
         stoppedLocation = "";
 }
 
+void Target::stoppedHelper(lua_State* L)
+{
+    paused = true;
+    childRuntime->stopDebug();
+    computeStoppedLocation(L);
+    stoppedThread = L;
+    stoppedThreadRef = getRefForThread(L);
+    // Clear out stepping and pausing when this happens.
+    lua_callbacks(L)->debugstep = nullptr;
+    lua_callbacks(L)->interrupt = nullptr;
+}
+
 std::optional<std::string> Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     std::vector<Breakpoint> installedBps;
@@ -491,13 +503,7 @@ void Target::installBpHitCallback()
         if (bp && bp->status == BreakpointStatus::Installed)
         {
             target->bpHit = *bp;
-            target->paused = true;
-            target->childRuntime->stopDebug();
-            target->computeStoppedLocation(L);
-            target->stoppedThread = L;
-            target->stoppedThreadRef = getRefForThread(L);
-            // Clear out stepping when this happens.
-            lua_callbacks(L)->debugstep = nullptr;
+            target->stoppedHelper(L);
             lua_break(L);
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             debug::Thread thread = target->stateToThread.at(L);
@@ -606,12 +612,7 @@ void Target::installExceptionCallback()
         std::unique_lock lock(target->targetMutex);
         if (!target->exceptionBpInfo.uncaughtExceptions)
             return false;
-        target->paused = true;
-        target->childRuntime->stopDebug();
-        target->stoppedThread = L;
-        target->stoppedThreadRef = getRefForThread(L);
-        target->computeStoppedLocation(L);
-        target->stepInfo = std::nullopt;
+        target->stoppedHelper(L);
         target->stoppedUncaughtException = true;
         Thread thread = target->stateToThread.at(L);
         const char* s = luaL_tolstring(L, -1, nullptr);
@@ -634,12 +635,7 @@ void Target::installExceptionCallback()
         std::unique_lock lock(target->targetMutex);
         if (!target->exceptionBpInfo.caughtExceptions)
             return;
-        target->paused = true;
-        target->childRuntime->stopDebug();
-        target->stoppedThread = L;
-        target->stoppedThreadRef = getRefForThread(L);
-        target->computeStoppedLocation(L);
-        target->stepInfo = std::nullopt;
+        target->stoppedHelper(L);
         Thread thread = target->stateToThread.at(L);
         const char* s = luaL_tolstring(L, -1, nullptr);
         std::string errorMessage = s ? s : "unknown error";
@@ -1123,18 +1119,12 @@ bool Target::pauseProcess()
             return;
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
         std::unique_lock lock(target->targetMutex);
-        target->paused = true;
-        target->childRuntime->stopDebug();
-        target->stoppedThread = L;
-        target->stoppedThreadRef = getRefForThread(L);
+        target->stoppedHelper(L);
         debug::Thread thread = target->stateToThread.at(L);
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-        target->computeStoppedLocation(L);
         lua_break(L);
         // Clear out the interrupt and debugstep callback after we are done.
-        lua_callbacks(L)->interrupt = nullptr;
-        lua_callbacks(L)->debugstep = nullptr;
         lock.unlock();
         // Since pausing actually only happens when the interrupt callback runs we have a callback
         if (target->launchConfig.onPause)
@@ -1198,12 +1188,7 @@ bool Target::step(int threadId, StepType type)
         }
         if (stopStepping)
         {
-            target->paused = true;
-            target->childRuntime->stopDebug();
-            target->stoppedThread = L;
-            target->stoppedThreadRef = getRefForThread(L);
-            target->computeStoppedLocation(L);
-            target->stepInfo = std::nullopt;
+            target->stoppedHelper(L);
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             lua_break(L);
             lua_singlestep(L, 0);

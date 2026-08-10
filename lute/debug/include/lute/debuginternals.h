@@ -259,6 +259,7 @@ private:
     std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> modifyPendingBreakpoints(lua_State* L);
 
     void computeStoppedLocation(lua_State* L);
+    void stoppedHelper(lua_State* L);
 
     Variable makeVariable(lua_State* L, const std::string& name);
     std::vector<Variable> getLocalsHelper(lua_State* L, int level);
