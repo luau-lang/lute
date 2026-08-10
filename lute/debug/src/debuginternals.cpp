@@ -566,7 +566,7 @@ void Target::installThreadCallback()
         // this means a thread is being garbage collected
         if (LP == nullptr)
         {
-
+            // we can have unregistered threads such as eval threads that still get GC'ed.
             if (auto it = target->stateToThread.find(L); it != target->stateToThread.end())
             {
                 int id = it->second.id;
@@ -575,10 +575,6 @@ void Target::installThreadCallback()
                 {
                     target->parentRuntime.reporter.reportError(Luau::format("userthread callback fired for unregistered thread id %d", id));
                 }
-            }
-            else
-            {
-                target->parentRuntime.reporter.reportError(Luau::format("userthread callback fired for unregistered lua_State* %p", (void*)L));
             }
         }
         else
