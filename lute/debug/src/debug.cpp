@@ -588,6 +588,25 @@ static int target_getVariablesByScopeType(lua_State* L)
     return 1;
 }
 
+// target.evaluateExpression(string expression, int frameId = -1)
+// returns Variable | string
+static int target_evaluateExpression(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    std::string expression = luaL_checkstring(L, 2);
+    int frameId = (int)luaL_optinteger(L, 3, -1);
+    EvaluateResult result = target->evaluateExpression(expression, frameId);
+    if (std::holds_alternative<Variable>(result))
+    {
+        Variable var = std::get<Variable>(result);
+        return pushVariable(L, var);
+    }
+    std::string err = std::get<std::string>(result);
+    lua_checkstack(L, 1);
+    lua_pushstring(L, err.c_str());
+    return 1;
+}
+
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
 {
     lua_getfield(L, tableIndex, field);
@@ -796,6 +815,7 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"getScopes", debug::target_getScopes},
     {"getVariables", debug::target_getVariables},
     {"getVariablesByScopeType", debug::target_getVariablesByScopeType},
+    {"evaluateExpression", debug::target_evaluateExpression},
 };
 
 static void initializeTarget(lua_State* L)
