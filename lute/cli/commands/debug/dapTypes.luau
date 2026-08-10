@@ -9,6 +9,9 @@ export type Capability = {
 	supportsDelayedStackTraceLoading: boolean,
 	supportsVariableType: boolean,
 	supportsEvaluateForHovers: boolean,
+	supportsConditionalBreakpoints: boolean,
+	supportsHitConditionalBreakpoints: boolean,
+	supportsLogPoints: boolean,
 }
 
 export type Source = {
@@ -18,6 +21,9 @@ export type Source = {
 
 export type SourceBreakpoint = {
 	line: number,
+	condition: string?,
+	hitCondition: string?,
+	logMessage: string?,
 }
 
 export type SetBreakpointsArgs = {
