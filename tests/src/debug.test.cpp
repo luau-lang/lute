@@ -974,4 +974,57 @@ TEST_SUITE("Debug")
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         CHECK(numHits == 2);
     };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_sourceBreakpoints")
+    {
+        std::string fixturePath = getDebugFixturePath("loop.luau");
+        Target target(*runtime);
+        BreakpointConfig conditional = {"_step2 > 6"};
+        BreakpointConfig hitCondition;
+        hitCondition.hitCondition = " % 5";
+        BreakpointConfig log;
+        log.logMessage = "} my value is {_step2 * 3} and {_step1 + 5}";
+        Breakpoint normalBp = target.setBreakpoint(fixturePath, 6);
+        Breakpoint conditionalBp = target.setBreakpoint(fixturePath, 7, conditional);
+        Breakpoint hitConditionBp = target.setBreakpoint(fixturePath, 8, hitCondition);
+        Breakpoint logpoints = target.setBreakpoint(fixturePath, 4, log);
+        std::vector<std::string> logs;
+        config.onLogpointHit = [&](std::string message, const Breakpoint& bpHit)
+        {
+            logs.push_back(message);
+            CHECK(bpHit.sourcePath == fixturePath);
+            CHECK(bpHit.line == 4);
+        };
+        int hits = 0, conditionalStops = 0, hitConditionStops = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bpHit)
+        {
+            if (bpHit.id == normalBp.id)
+            {
+                hits++;
+            }
+            else if (bpHit.id == conditionalBp.id)
+            {
+                conditionalStops++;
+                CHECK(hits >= 3);
+                CHECK(conditionalStops == hits - 3);
+            }
+            else if (bpHit.id == hitConditionBp.id)
+            {
+                hitConditionStops++;
+                CHECK(hits % 5 == 0);
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(hits == 25);
+        CHECK(conditionalStops == 22);
+        CHECK(hitConditionStops == 5);
+        CHECK(logs.size() == 5);
+        for (int i = 0; i < (int)(logs.size()); i++)
+        {
+            std::string expected = Luau::format("} my value is %d and %d\n", 30 * i, 6 * i + 5);
+            CHECK(logs[i] == expected);
+        }
+    };
 }
