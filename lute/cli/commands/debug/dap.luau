@@ -111,6 +111,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				supportsTerminateRequest = true,
 				supportsLoadedSourcesRequest = true,
 				supportsDelayedStackTraceLoading = true,
+				supportsVariableType = true,
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
 			ioSession.writeEvent("initialized")
