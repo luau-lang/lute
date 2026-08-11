@@ -13,35 +13,17 @@ local process = require("@std/process")
 local tableext = require("@std/tableext")
 local types = require("@lint")
 
-local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
 local VERBOSE = false
 local SEQUENTIAL = false
 
-local function printHelp()
-	print(USAGE)
-	-- Ordering of options: help + verbose fist, then options with aliases in alphabetical order, then options without aliases in alphabetical order
+local function printHelp(args: cli.Parser)
+	print(args:usage("lute lint"))
+	print("\nLint the specified Luau file using the specified lint rules or using the default rules.\n")
+	print(args:help())
 	print([[
-Lint the specified Luau file using the specified lint rule(s) or using the default rules.
-
-OPTIONS:
-  -h, --help              Show this help message
-  -v, --verbose		  	  Enable verbose output
-  -c, --config [PATH]	  Path to configuration file. By default, lute lint will look for a
-  						  the .config.luau file in the calling directory.
-  -j, --json              Output lint violations in JSON format matching the LSP diagnostic spec.
-  -o, --output [PATH]	  Write lint violation or JSON output to the specified file instead of stdout.
-  -r, --rules [RULE]      Path to a single lint rule or a folder containing lint rules. If a folder
-  						  is provided, any subfolders containing init.luau files will be treated as
-						  modules exporting lint rules, while all other .luau files will be treated
-						  as individual lint rules. If unspecified, the default lint rules are used.
-  -s, --string-input	  Lint the provided string input instead of reading from files.
-  --auto-fix			  Automatically apply fixes for lint violations that provide a suggested fix.
-						  Assumes that suggested fixes do not overlap.
-  --no-default-lints	  Disables the default lint rules.
-  --sequential			  Lint files sequentially. Files are linted in parallel by default.
 
 PATHS:
-  Path(s) to the Luau file(s) or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
+  Paths to the Luau files or folders containing Luau files to be linted. Only files with .luau or .lua extensions will be linted.
 
 EXAMPLES:
   lute lint -r examples/lints/almost_swapped.luau bad_swap.luau
@@ -81,38 +63,55 @@ end
 local function main(...: string)
 	local args = cli.parser()
 
-	args:add(
-		"auto-fix",
-		"flag",
-		{ help = "Automatically apply fixes for lint violations that provide a suggested fix" }
-	)
-	args:add("config", "option", { help = "Path to configuration file", aliases = { "c" } })
+	args:add("auto-fix", "flag", {
+		help = "Automatically apply fixes for lint violations that provide a suggested fix. Assumes that suggested fixes do not overlap.",
+	})
+	args:add("config", "option", {
+		help = "Path to configuration file. By default, lute lint will look for the .config.luau file in the calling directory.",
+		aliases = { "c" },
+	})
 	args:add("help", "flag", { help = "Show help message", aliases = { "h" } })
-	args:add("json", "flag", { help = "Output lint violations in JSON format", aliases = { "j" } })
+	args:add(
+		"json",
+		"flag",
+		{ help = "Output lint violations in JSON format matching the LSP diagnostic spec", aliases = { "j" } }
+	)
 	args:add("no-default-lints", "flag", { help = "Disables the default lint rules" })
-	args:add("output", "option", { help = "Write diagnostics output to file", aliases = { "o" } })
-	args:add("rules", "option", { help = "Linting rule(s) to apply", aliases = { "r" } })
+	args:add(
+		"output",
+		"option",
+		{ help = "Write lint violation or JSON output to the specified file instead of stdout", aliases = { "o" } }
+	)
+	args:add("rules", "option", {
+		help = "Path to a single lint rule or a folder containing lint rules. If a folder is provided, any subfolders containing init.luau files will be treated as modules exporting lint rules, while all other .luau files will be treated as individual lint rules. If unspecified, the default lint rules are used",
+		aliases = { "r" },
+	})
 	args:add(
 		"string-input",
 		"option",
 		{ help = "Lint the provided string input instead of reading from files", aliases = { "s" } }
 	)
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
-	args:add("sequential", "flag", { help = "Lint files sequentially (parallel by default)" })
+	args:add("sequential", "flag", { help = "Lint files sequentially. Files are linted in parallel by default." })
+	args:add("paths", "variadic", { help = "Files or folders to lint (defaults to the current directory)" })
 
 	args:parse({ ... })
 
 	if args:has("help") then
-		printHelp()
+		printHelp(args)
 		return
 	end
 
 	VERBOSE = args:has("verbose")
 	SEQUENTIAL = args:has("sequential")
 
-	local inputFiles = args:forwarded()
+	-- Paths land in variadics, but anything after `--` still arrives as forwarded args.
+	local inputFiles = table.clone(args:variadics())
+	local fwdArgs = args:forwarded() or {}
+	tableext.extend(inputFiles, fwdArgs)
+
 	local stringInput = args:get("string-input")
-	if (inputFiles == nil or #inputFiles == 0) and not stringInput then
+	if #inputFiles == 0 and not stringInput then
 		inputFiles = { pathLib.format(process.cwd()) }
 	end
 

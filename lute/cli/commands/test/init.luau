@@ -10,6 +10,7 @@ local testtypes = require("@std/test/types")
 local reporter = require("@self/reporter")
 local test = require("@std/test")
 local snaprunner = require("@self/snap/runner")
+local tableext = require("@std/tableext")
 local updater = require("@self/snap/updater")
 
 local function loadtests(testfiles: { path.Path })
@@ -146,29 +147,34 @@ local function main(...: string)
 	args:add("case", "option", { help = "Run only test cases matching the specified name", aliases = { "c" } })
 	args:add("interactive", "flag", { help = "Interactively accept/reject snapshot changes", aliases = { "i" } })
 	args:add("update", "flag", { help = "Auto-accept all snapshot changes", aliases = { "u" } })
+	args:add("paths", "variadic", { help = "Directories or files to search for tests (default: ./)" })
 
 	args:parse({ ... })
 
 	if args:has("help") then
+		print(args:usage("lute test"))
+		print()
 		print(args:help())
 		return
 	end
 
-	local forwarded = args:forwarded()
+	local paths = table.clone(args:variadics())
+	tableext.extend(paths, args:forwarded())
+
 	-- Check if this is a snapshot subcommand
-	if forwarded and #forwarded > 0 and forwarded[1] == "snapshots" then
-		if #forwarded == 1 then
+	if paths[1] == "snapshots" then
+		if #paths == 1 then
 			runsnapshots({ "./tests" }, args:has("update"), args:has("interactive"))
 		else
 			local searchpaths = {}
-			for idx = 2, #forwarded do
-				table.insert(searchpaths, forwarded[idx])
+			for idx = 2, #paths do
+				table.insert(searchpaths, paths[idx])
 			end
 			runsnapshots(searchpaths, args:has("update"), args:has("interactive"))
 		end
 	end
 
-	local searchpath = if forwarded and #forwarded > 0 then forwarded else { "./" }
+	local searchpath = if #paths > 0 then paths else { "./" }
 	local testfiles = finder.findtestfiles(searchpath)
 
 	if args:has("list") then
