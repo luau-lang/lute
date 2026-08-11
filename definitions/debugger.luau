@@ -55,6 +55,7 @@ export type VariableScope = {
 	level: number,
 }
 
+--- Represents possible types of variables in Luau.
 export type LuaValueType =
 	"nil"
 	| "boolean"
