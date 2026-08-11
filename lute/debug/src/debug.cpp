@@ -672,7 +672,7 @@ static int target_evaluateExpression(lua_State* L)
     return 1;
 }
 
-// target.setVariable(int variableReference, std::string name, std::string setExpression)
+// target.setVariable(int variableReference, string name, string setExpression)
 // returns Variable | string
 static int target_setVariable(lua_State* L)
 {
@@ -681,6 +681,26 @@ static int target_setVariable(lua_State* L)
     std::string varName = luaL_checkstring(L, 3);
     std::string setExpression = luaL_checkstring(L, 4);
     EvaluateResult result = target->setVariable(varRef, varName, setExpression);
+    if (std::holds_alternative<Variable>(result))
+    {
+        Variable var = std::get<Variable>(result);
+        return pushVariable(L, var);
+    }
+    std::string err = std::get<std::string>(result);
+    lua_checkstack(L, 1);
+    lua_pushstring(L, err.c_str());
+    return 1;
+}
+
+// target.setVariable(string lExpression, string setExpression, int frameId = -1)
+// returns Variable | string
+static int target_setExpression(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    std::string lExpression = luaL_checkstring(L, 2);
+    std::string setExpression = luaL_checkstring(L, 3);
+    int frameId = (int)luaL_optinteger(L, 4, -1);
+    EvaluateResult result = target->setExpression(lExpression, setExpression, frameId);
     if (std::holds_alternative<Variable>(result))
     {
         Variable var = std::get<Variable>(result);
@@ -951,7 +971,8 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"getVariablesByScopeType", debug::target_getVariablesByScopeType},
     {"evaluateExpression", debug::target_evaluateExpression},
     {"setExceptionBreakpoint", debug::target_setExceptionBreakpoint},
-    {"setVariable", debug::target_setVariable}
+    {"setVariable", debug::target_setVariable},
+    {"setExpression", debug::target_setExpression}
 };
 
 static void initializeTarget(lua_State* L)

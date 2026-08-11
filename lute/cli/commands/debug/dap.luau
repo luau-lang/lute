@@ -161,6 +161,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 					},
 				},
 				supportsSetVariable = true, 
+				supportsSetExpression = true,
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
 			ioSession.writeEvent("initialized")
@@ -371,6 +372,22 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			local name = args.name :: string
 			local value = args.value :: string
 			local result = target:setVariable(varRef, name, value)
+			if type(result) == "string" then
+				ioSession.writeResponse(reqSeq, false, command, result)
+			else
+				local variable = result :: debugger.Variable
+				ioSession.writeResponse(reqSeq, true, command, nil, {
+					value = variable.value,
+					type = variable.type,
+					variablesReference = variable.variableRef,
+				})
+			end
+		elseif command == "setExpression" then
+			local args = request.arguments :: json.Object
+			local lExpr = args.expression :: string
+			local value = args.value :: string
+			local frameId = args.frameId :: number?
+			local result = target:setExpression(lExpr, value, frameId)
 			if type(result) == "string" then
 				ioSession.writeResponse(reqSeq, false, command, result)
 			else
