@@ -20,6 +20,7 @@ export type Capability = {
 	supportsHitConditionalBreakpoints: boolean,
 	supportsLogPoints: boolean,
 	exceptionBreakpointFilters: { exceptionBreakpointFilter },
+	supportsSetVariable: boolean,
 }
 
 export type Source = {
