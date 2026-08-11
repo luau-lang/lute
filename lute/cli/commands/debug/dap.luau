@@ -125,11 +125,16 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 	local configurationDone = false
 	local launchConfig: dapTypes.LaunchArgs? = nil
 	local launchSeq = -1
+	local canInvalidate = false
 	while true do
 		local request = ioSession.readDap()
 		local command = request.command :: string
 		local reqSeq = request.seq :: number
 		if command == "initialize" then
+			local args = request.arguments :: json.Object
+			if args.supportsInvalidatedEvent then
+				canInvalidate = true
+			end
 			local capabilities = {
 				supportsConfigurationDoneRequest = true,
 				supportsTerminateRequest = true,
@@ -154,7 +159,8 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				supportsConditionalBreakpoints = true,
 				supportsHitConditionalBreakpoints = true,
 				supportsLogPoints = true,
-				supportsSetVariable = true, 
+				supportsSetVariable = true,
+				supportsSetExpression = true,
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
 			ioSession.writeEvent("initialized")
@@ -347,7 +353,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 		elseif command == "evaluate" then
 			local args = request.arguments :: json.Object
 			local expression = args.expression :: string
-			local frameId = if args.frameId ~= nil then args.frameId :: number else -1
+			local frameId = args.frameId :: number?
 			local result = target:evaluateExpression(expression, frameId)
 			if type(result) == "string" then
 				ioSession.writeResponse(reqSeq, false, command, result)
@@ -374,6 +380,32 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 					type = variable.type,
 					variablesReference = variable.variableRef,
 				})
+				if canInvalidate then
+					ioSession.writeEvent("invalidated", {
+						areas = { "variables" },
+					})
+				end
+			end
+		elseif command == "setExpression" then
+			local args = request.arguments :: json.Object
+			local lExpr = args.expression :: string
+			local value = args.value :: string
+			local frameId = args.frameId :: number?
+			local result = target:setExpression(lExpr, value, frameId)
+			if type(result) == "string" then
+				ioSession.writeResponse(reqSeq, false, command, result)
+			else
+				local variable = result :: debugger.Variable
+				ioSession.writeResponse(reqSeq, true, command, nil, {
+					value = variable.value,
+					type = variable.type,
+					variablesReference = variable.variableRef,
+				})
+				if canInvalidate then
+					ioSession.writeEvent("invalidated", {
+						areas = { "variables" },
+					})
+				end
 			end
 		elseif command == "terminate" or command == "disconnect" then
 			ioSession.writeResponse(reqSeq, true, command)

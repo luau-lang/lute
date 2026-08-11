@@ -21,6 +21,7 @@ export type Capability = {
 	supportsHitConditionalBreakpoints: boolean,
 	supportsLogPoints: boolean,
 	supportsSetVariable: boolean,
+	supportsSetExpression: boolean,
 }
 
 export type Source = {
