@@ -9,6 +9,7 @@ export type Capability = {
 	supportsDelayedStackTraceLoading: boolean,
 	supportsVariableType: boolean,
 	supportsEvaluateForHovers: boolean,
+	supportsSetVariable: boolean,
 }
 
 export type Source = {

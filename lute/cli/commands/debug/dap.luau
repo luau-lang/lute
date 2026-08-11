@@ -113,6 +113,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				supportsDelayedStackTraceLoading = true,
 				supportsVariableType = true,
 				supportsEvaluateForHovers = true,
+				supportsSetVariable = true, 
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
 			ioSession.writeEvent("initialized")
@@ -281,6 +282,22 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				local variable = result :: debugger.Variable
 				ioSession.writeResponse(reqSeq, true, command, nil, {
 					result = variable.value,
+					type = variable.type,
+					variablesReference = variable.variableRef,
+				})
+			end
+		elseif command == "setVariable" then
+			local args = request.arguments :: json.Object
+			local varRef = args.variablesReference :: number
+			local name = args.name :: string
+			local value = args.value :: string
+			local result = target:setVariable(varRef, name, value)
+			if type(result) == "string" then
+				ioSession.writeResponse(reqSeq, false, command, result)
+			else
+				local variable = result :: debugger.Variable
+				ioSession.writeResponse(reqSeq, true, command, nil, {
+					value = variable.value,
 					type = variable.type,
 					variablesReference = variable.variableRef,
 				})
