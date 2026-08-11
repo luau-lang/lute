@@ -169,13 +169,18 @@ export type Target = {
 	--- Return `nil` if script is running or if such variables can not be found.
 	getVariablesByScopeType: (self: Target, frameId: number, scopeType: VariableScopeType) -> { Variable }?,
 	--- Evaluates an expression within the scope of a given stack frame id.
-	--- If `frameId` is -1, evaluate in the global scope.
+	--- If `frameId` is absent or -1, evaluate in the global scope.
 	--- Returns a `Variable` if expression could be evaluated or an error string if not.
-	evaluateExpression: (self: Target, expression: string, frameId: number) -> Variable | string,
+	evaluateExpression: (self: Target, expression: string, frameId: number?) -> Variable | string,
 	--- Sets a variable named `name` within the scope with reference `variableRef` equals to the value
 	--- that `setExpression` evaluates to. If this operation is not successful, it returns an error string.
 	--- Otherwise, it returns a `Variable` containing the new value.
-	setVariable: (self: Target, varRef: number, varName: string, setExpression: string) -> Variable | string
+	setVariable: (self: Target, varRef: number, varName: string, setExpression: string) -> Variable | string,
+	--- Sets the l-expression that `lExpression` is equal to to the value that `setExpression` evaluates to.
+	--- This is done within the scope of the stack frame with `frameID`. If `frameId` is absent or -1,
+	--- we are in the global scope. If this operation is not successful, it returns an error string.
+	--- Otherwise, it returns a `Variable` containing the new value.
+	setExpression: (self: Target, lExpression: string, setExpression: string, frameID: number?) -> Variable | string
 }
 
 --- Create a new Target handle on the current VM.

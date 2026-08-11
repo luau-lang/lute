@@ -114,6 +114,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				supportsVariableType = true,
 				supportsEvaluateForHovers = true,
 				supportsSetVariable = true, 
+				supportsSetExpression = true,
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
 			ioSession.writeEvent("initialized")
@@ -274,7 +275,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 		elseif command == "evaluate" then
 			local args = request.arguments :: json.Object
 			local expression = args.expression :: string
-			local frameId = if args.frameId ~= nil then args.frameId :: number else -1
+			local frameId = args.frameId :: number?
 			local result = target:evaluateExpression(expression, frameId)
 			if type(result) == "string" then
 				ioSession.writeResponse(reqSeq, false, command, result)
@@ -292,6 +293,22 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			local name = args.name :: string
 			local value = args.value :: string
 			local result = target:setVariable(varRef, name, value)
+			if type(result) == "string" then
+				ioSession.writeResponse(reqSeq, false, command, result)
+			else
+				local variable = result :: debugger.Variable
+				ioSession.writeResponse(reqSeq, true, command, nil, {
+					value = variable.value,
+					type = variable.type,
+					variablesReference = variable.variableRef,
+				})
+			end
+		elseif command == "setExpression" then
+			local args = request.arguments :: json.Object
+			local lExpr = args.expression :: string
+			local value = args.value :: string
+			local frameId = args.frameId :: number?
+			local result = target:setExpression(lExpr, value, frameId)
 			if type(result) == "string" then
 				ioSession.writeResponse(reqSeq, false, command, result)
 			else

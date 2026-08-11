@@ -10,6 +10,7 @@ export type Capability = {
 	supportsVariableType: boolean,
 	supportsEvaluateForHovers: boolean,
 	supportsSetVariable: boolean,
+	supportsSetExpression: boolean,
 }
 
 export type Source = {
