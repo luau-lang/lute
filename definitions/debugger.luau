@@ -212,7 +212,11 @@ export type Target = {
 	--- Evaluates an expression within the scope of a given stack frame id.
 	--- If `frameId` is -1 or absent, evaluate in the global scope.
 	--- Returns a `Variable` if expression could be evaluated or an error string if not.
-	evaluateExpression: (self: Target, expression: string, frameId: number?) -> Variable | string,
+	evaluateExpression: (self: Target, expression: string, frameId: number) -> Variable | string,
+	--- Sets a variable named `name` within the scope with reference `variableRef` equals to the value
+	--- that `setExpression` evaluates to. If this operation is not successful, it returns an error string.
+	--- Otherwise, it returns a `Variable` containing the new value.
+	setVariable: (self: Target, varRef: number, varName: string, setExpression: string) -> Variable | string
 }
 
 --- Create a new Target handle on the current VM.

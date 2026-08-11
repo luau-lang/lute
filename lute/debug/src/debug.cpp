@@ -672,6 +672,26 @@ static int target_evaluateExpression(lua_State* L)
     return 1;
 }
 
+// target.setVariable(int variableReference, std::string name, std::string setExpression)
+// returns Variable | string
+static int target_setVariable(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int varRef = luaL_checkinteger(L, 2);
+    std::string varName = luaL_checkstring(L, 3);
+    std::string setExpression = luaL_checkstring(L, 4);
+    EvaluateResult result = target->setVariable(varRef, varName, setExpression);
+    if (std::holds_alternative<Variable>(result))
+    {
+        Variable var = std::get<Variable>(result);
+        return pushVariable(L, var);
+    }
+    std::string err = std::get<std::string>(result);
+    lua_checkstack(L, 1);
+    lua_pushstring(L, err.c_str());
+    return 1;
+}
+
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
 {
     lua_getfield(L, tableIndex, field);
@@ -930,7 +950,8 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"getVariables", debug::target_getVariables},
     {"getVariablesByScopeType", debug::target_getVariablesByScopeType},
     {"evaluateExpression", debug::target_evaluateExpression},
-    {"setExceptionBreakpoint", debug::target_setExceptionBreakpoint}
+    {"setExceptionBreakpoint", debug::target_setExceptionBreakpoint},
+    {"setVariable", debug::target_setVariable}
 };
 
 static void initializeTarget(lua_State* L)
