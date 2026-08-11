@@ -1030,9 +1030,10 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int co
     struct StackGuard
     {
         lua_State* L;
+        int idx;
         ~StackGuard()
         {
-            lua_pop(L, 1);
+            lua_remove(L, idx);
         }
     };
     // we 1) don't want to register the eval thread to stop re-entrancy on the mutex (and to not have floating threads on the screen)
@@ -1062,7 +1063,8 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int co
     std::string bytecode = Luau::compile("return " + expression, debugOptions);
     CallbackGuard callbackGuard(childRuntime->GL);
     lua_State* evalThread = lua_newthread(childRuntime->GL);
-    StackGuard stackGuard{childRuntime->GL};
+    int evalThreadIdx = lua_gettop(childRuntime->GL);
+    StackGuard stackGuard{childRuntime->GL, evalThreadIdx};
     luaL_sandboxthread(evalThread);
     // sets the previous global table is the top most scope of all variables
     lua_newtable(evalThread);
