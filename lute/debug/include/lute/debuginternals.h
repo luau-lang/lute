@@ -69,14 +69,14 @@ struct VariableScope
     int variableReference;
     VariableScopeType type;
     std::string name;
-    int threadId; // for locals and upvalues
-    int level;    // for locals and upvalues
-    int luaref;   // for tables
+    int threadId;
+    int level;
+    int luaref; // for tables
 
     explicit VariableScope(int variableReference, VariableScopeType type, std::string name, int threadId = -1, int level = -1, int luaref = -1);
     static VariableScope makeLocals(int variableReference, int threadId, int level);
     static VariableScope makeUpvalues(int variableReference, int threadId, int level);
-    static VariableScope makeTable(int variableReference, int luaref);
+    static VariableScope makeTable(int variableReference, int threadId, int level, int luaref);
 };
 
 // Variables are generally returned by the getVariable() method. They only have
@@ -168,6 +168,7 @@ struct Target
 
     // For evaluation:
     EvaluateResult evaluateExpression(std::string expression, int frameId = -1);
+    EvaluateResult setVariable(int varRef, std::string varName, std::string setExpression);
 
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
@@ -242,7 +243,7 @@ private:
     std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
     std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
     std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
-    EvaluateResult evaluateExpressionHelper(lua_State* L, int level, std::string expression);
+    EvaluateResult evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread = nullptr);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
@@ -251,13 +252,16 @@ private:
 
     void computeStoppedLocation(lua_State* L);
 
-    Variable makeVariable(lua_State* L, const std::string& name);
-    std::vector<Variable> getLocalsHelper(lua_State* L, int level);
-    std::vector<Variable> getUpvaluesHelper(lua_State* L, int level);
-    std::vector<Variable> getTableHelper(lua_State* L, int idx);
+    Variable makeVariable(lua_State* L, const std::string& name, int parentRef);
+    std::vector<Variable> getLocalsHelper(lua_State* L, int level, int parentRef);
+    std::vector<Variable> getUpvaluesHelper(lua_State* L, int level, int parentRef);
+    std::vector<Variable> getTableHelper(lua_State* L, int idx, int parentRef);
 
     void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
     void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);
+
+    EvaluateResult setLocalsHelper(lua_State* L, int level, std::string setName, std::string value);
+    EvaluateResult setUpvaluesHelper(lua_State* L, int level, std::string setName, std::string value);
 
     void installBpHitCallback();
     void installExitCallback();
