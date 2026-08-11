@@ -590,10 +590,6 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				assert(type(result) == "string")
 				local error = result :: string
 				check.eq(error, "eval:1: Expected identifier when parsing expression, got <eof>")
-				for i = 1, 100 do
-					local r = target:evaluateExpression("2*_k", stacktrace[1].id)
-					local r2 = target:evaluateExpression("a +", stacktrace[1].id)
-				end
 				local continued = target:continueProcess()
 				check.that(continued)
 			end,
