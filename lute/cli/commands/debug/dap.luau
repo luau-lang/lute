@@ -131,11 +131,16 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 	local configurationDone = false
 	local launchConfig: dapTypes.LaunchArgs? = nil
 	local launchSeq = -1
+	local canInvalidate = false
 	while true do
 		local request = ioSession.readDap()
 		local command = request.command :: string
 		local reqSeq = request.seq :: number
 		if command == "initialize" then
+			local args = request.arguments :: json.Object
+			if args.supportsInvalidatedEvent then
+				canInvalidate = true
+			end
 			local capabilities = {
 				supportsConfigurationDoneRequest = true,
 				supportsTerminateRequest = true,
@@ -381,6 +386,11 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 					type = variable.type,
 					variablesReference = variable.variableRef,
 				})
+				if canInvalidate then
+					ioSession.writeEvent("invalidated", {
+						areas = { "variables" },
+					})
+				end
 			end
 		elseif command == "setExpression" then
 			local args = request.arguments :: json.Object
@@ -397,6 +407,11 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 					type = variable.type,
 					variablesReference = variable.variableRef,
 				})
+				if canInvalidate then
+					ioSession.writeEvent("invalidated", {
+						areas = { "variables" },
+					})
+				end
 			end
 		elseif command == "terminate" or command == "disconnect" then
 			ioSession.writeResponse(reqSeq, true, command)

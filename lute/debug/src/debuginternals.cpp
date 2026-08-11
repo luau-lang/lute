@@ -1481,6 +1481,7 @@ EvaluateResult Target::setLocalsHelper(lua_State* L, int contextLevel, std::stri
                 lua_setlocal(L, contextLevel, n);
             if (fixedSavedpc)
                 L->ci->savedpc = original;
+            variableCache.clear();
             return var;
         }
         n++;
@@ -1507,12 +1508,45 @@ EvaluateResult Target::setUpvaluesHelper(lua_State* L, int contextLevel, std::st
             if (std::holds_alternative<Variable>(var))
                 lua_setupvalue(L, funcIdx, n);
             lua_pop(L, 1);
+            variableCache.clear();
             return var;
         }
         n++;
     }
     lua_pop(L, 1);
     return "variable not found";
+}
+
+void pushTableKeyToFind(lua_State* L, std::string varName)
+{
+
+    if (varName.size() >= 2 && varName[0] == '[' && varName[varName.size() - 1] == ']')
+    {
+        varName = varName.substr(1, varName.size() - 2);
+    }
+    if (varName == "true" || varName == "false")
+    {
+        lua_pushboolean(L, varName == "true");
+    }
+    else
+    {
+        char* end = nullptr;
+        long long i = std::strtoll(varName.c_str(), &end, 10);
+        bool isInteger = !varName.empty() && end == varName.c_str() + varName.size();
+        if (isInteger)
+        {
+            lua_pushinteger(L, i);
+            return;
+        }
+        double d = std::strtod(varName.c_str(), &end);
+        bool isDouble = !varName.empty() && end == varName.c_str() + varName.size();
+        if (isDouble)
+        {
+            lua_pushnumber(L, d);
+            return;
+        }
+        lua_pushstring(L, varName.c_str());
+    }
 }
 
 EvaluateResult Target::setVariableHelper(VariableScope& context, std::string varName, std::string setExpression, int evalLevel)
@@ -1528,7 +1562,7 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
         lua_State* L = childRuntime->GL;
         lua_rawgeti(L, LUA_REGISTRYINDEX, context.luaref);
         int tableIdx = lua_gettop(L);
-        lua_pushstring(L, varName.c_str());
+        pushTableKeyToFind(L, varName);
         lua_rawget(L, tableIdx);
         bool exists = !lua_isnil(L, -1);
         lua_pop(L, 1);
@@ -1537,7 +1571,7 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
             lua_pop(L, 1);
             return "variable not found";
         }
-        lua_pushstring(L, varName.c_str());
+        pushTableKeyToFind(L, varName);
         EvaluateResult var = evaluateExpressionHelper(thread, evalLevel, "return " + setExpression, L);
         if (std::holds_alternative<std::string>(var))
         {
@@ -1546,6 +1580,7 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
         }
         lua_rawset(L, tableIdx);
         lua_pop(L, 1);
+        variableCache.clear();
         return var;
     }
     else if (context.type == VariableScopeType::Locals)
@@ -1614,6 +1649,7 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
         return write;
     }
     EvaluateResult newValue = evaluateExpressionHelper(thread, level, "return " + lExpression);
+    variableCache.clear();
     return newValue;
 }
 
