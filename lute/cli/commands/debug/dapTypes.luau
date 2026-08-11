@@ -5,6 +5,8 @@
 export type Capability = {
 	supportConfigurationDoneRequest: boolean,
 	supportTerminateRequest: boolean,
+	supportsLoadedSourcesRequest: boolean,
+	supportsDelayedStackTraceLoading: boolean,
 }
 
 export type Source = {

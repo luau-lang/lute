@@ -45,6 +45,15 @@ struct Thread
     bool operator==(const Thread& other) const;
 };
 
+struct StackFrame
+{
+    int id = -1;
+    std::string name;
+    std::string sourcePath;
+    int line = 0;
+    int column = 0;
+};
+
 enum class StepType
 {
     StepOver,
@@ -108,10 +117,13 @@ struct Target
     // in issues when trying to pause. Similar methods that also run coroutines inline with our current execution will not work.
     // In contrast, in task.defer(), the coroutine is added to set of running coroutines but execution
     // is deferred. Our pause mechanism will then work correctly.
-    int getLine() const;
+    std::optional<std::pair<std::string, int>> getStoppedLocation() const;
+    int getStackDepth(int threadId);
     std::optional<Thread> getMainThread() const; // can be used when not paused
     std::optional<Thread> getStoppedThread() const;
     std::vector<Thread> getThreads() const; // can be used when not paused
+    std::optional<StackFrame> getStackFrame(int threadId, int level);
+    std::optional<std::vector<StackFrame>> getStackTrace(int threadId, int startLevel = 0, int maximumLevel = 0);
 
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
@@ -151,6 +163,7 @@ private:
     // Due to the way Lua debugger callbacks works, we need to set the line in the callback. otherwise, outside of the callback, lua_getinfo
     // will return the previous line.
     int stoppedLine = -1;
+    std::string stoppedLocation = "";
 
     // for require contexts
     std::unique_ptr<RequireCtx> requireCtx;
@@ -160,19 +173,28 @@ private:
     std::unordered_map<lua_State*, Thread> stateToThread; // lua_State* -> thread information about that state
     std::unordered_map<int, lua_State*> threadIdToState;  // thread id -> lua_State*
 
+    // stack frame information
+    // note: stack frames are copies between these two data structures, not pointers. That's ok because the debugger
+    // should never modify the stack frames themselves.
+    // stack frame ID information is reset upon every continue(). The base id resets to 1 as well.
+    int stackframeId = 1;
+    std::unordered_map<int, std::unordered_map<int, StackFrame>> stateToStackFrame; // thread id -> level -> stackFrame
+    std::unordered_map<int, std::pair<int, int>> idToStackFrameInfo;                // stack frame id -> stack frame's (thread id, level)
+
     // only set when stepping
     std::optional<StepInfo> stepInfo;
 
     // private methods are meant for internal calls, so these don't lock targetMutex
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
     std::optional<Breakpoint> getBreakpointByIdHelper(int breakpointId) const;
+    std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
     bool uninstallBreakpoint(lua_State* L, Breakpoint& bp);
     std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> modifyPendingBreakpoints(lua_State* L);
 
-    void computeStoppedLine(lua_State* L);
+    void computeStoppedLocation(lua_State* L);
 
     void installBpHitCallback();
     void installExitCallback();

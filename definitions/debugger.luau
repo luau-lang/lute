@@ -30,6 +30,16 @@ export type Thread = {
 	name: string,
 }
 
+--- A stack frame of the execution. New stack frames are recreated every time execution is paused, and
+--- ids are reused.
+export type StackFrame = {
+	id: number,
+	name: string,
+	sourcePath: string,
+	line: number,
+	column: number,
+}
+
 --- A set of callbacks that we configure before launching our debugger
 export type LaunchConfig = {
 	--- called when a breakpoint `bp` is hit on `thread`; execution is paused until continueProcess() is called
@@ -88,15 +98,25 @@ export type Target = {
 	--- Steps out of the current function call in thread id `threadId`.
 	--- Returns `true` if target was paused before stepping and `false` otherwise.
 	stepOut: (self: Target, threadId: number) -> boolean,
-	--- Gets our current line of execution when we are stopped.
-	--- Returns -1 if we are not stopped.
-	getLine: (self: Target) -> number,
+	--- Gets our current stopped location, consisting of (sourcePath: string, line: number)
+	--- Returns (nil, nil) if we are not stopped.
+	getStoppedLocation: (self: Target) -> (string?, number?),
 	--- Gets a list of all Luau coroutines that are being used by the script.
 	getThreads: (self: Target) -> { Thread },
 	--- Gets the main thread of the script, returning nil if debugger is not launched
 	getMainThread: (self: Target) -> Thread?,
 	--- Gets the current stopped thread of the script, returning nil if debugger is not paused
 	getStoppedThread: (self: Target) -> Thread?,
+	--- Gets the depth of the call stack within thread with `threadId`. If not paused or not launched or if
+	--- such a thread does not exist, return `-1`.
+	getStackDepth: (self: Target, threadId: number) -> number,
+	--- Gets a stack frame on a coroutine with `threadId` at level `level` (where 0 is the shallowest). Return `nil`
+	--- if script is running or no such stack frame exists at that level.
+	getStackFrame: (self: Target, threadId: number, level: number) -> StackFrame?,
+	--- Gets a stack trace on a coroutine with `threadId` starting from level `startLevel` and going for at maximum
+	--- `numFrames` frames. If `startLevel` is not specified, we start at level 0. If `numFrames` is not specified,
+	--- we return until the deepest frame.
+	getStackTrace: (self: Target, threadId: number, startLevel: number?, numFrames: number?) -> { StackFrame }?,
 }
 
 --- Create a new Target handle on the current VM.

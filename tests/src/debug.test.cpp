@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <future>
+#include <optional>
 #include <thread>
 
 #include "debugfixture.h"
@@ -252,10 +253,11 @@ TEST_SUITE("Debug")
         // check that we actually stopped at the breakpoint by having not hit the exit
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
-        CHECK(target.getLine() == 2);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation() == std::make_pair(fixturePath, 2));
         // continue execution
         continuedProcess = target.continueProcess();
-        CHECK(target.getLine() == -1);
+        REQUIRE(!target.getStoppedLocation().has_value());
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
@@ -292,7 +294,8 @@ TEST_SUITE("Debug")
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
         CHECK(numPause == 1);
         // The pause should stop right after we finish the last line of the inner for loop.
-        CHECK(target.getLine() == 5);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 5);
         bool continuedProcess = target.continueProcess();
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
@@ -383,7 +386,6 @@ TEST_SUITE("Debug")
         CHECK(prints[1] == std::make_pair(std::string("custom_value\n"), 7));
     }
 
-
     TEST_CASE_FIXTURE(DebugFixture, "Debug_step")
     {
         std::string mainPath = getDebugFixturePath("step.luau");
@@ -413,39 +415,45 @@ TEST_SUITE("Debug")
         // check we have hit bp
         REQUIRE(hitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         // step in acts like step over when there's no function calls
-        CHECK(target.getLine() == 9);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 9);
         bool stepped = target.stepIn(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 10);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 10);
         stepPromise = std::promise<void>{};
         stepFuture = stepPromise.get_future();
         // step into function f
         stepped = target.stepIn(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 2);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 2);
         stepPromise = std::promise<void>{};
         stepFuture = stepPromise.get_future();
         // this steps out of function to the next line in the caller
         stepped = target.stepOut(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 11);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 11);
         stepPromise = std::promise<void>{};
         stepFuture = stepPromise.get_future();
         // this steps over a function
         stepped = target.stepOver(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 12);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 12);
         stepPromise = std::promise<void>{};
         stepFuture = stepPromise.get_future();
         // this steps to the virtual last line
         stepped = target.stepOver(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 13);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 13);
         target.stepOver(threadId);
 
         // check we are done
@@ -515,5 +523,79 @@ TEST_SUITE("Debug")
         CHECK(maxThreadsSeen == 3);
         CHECK(hitsBp1 == 5);
         CHECK(hitsBp2 == 5);
+    }
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_stackFrame")
+    {
+        std::string fixturePath = getDebugFixturePath("recursion.luau");
+        Target target(*runtime);
+        Breakpoint bpA = target.setBreakpoint(fixturePath, 4);
+        Breakpoint bpB = target.setBreakpoint(fixturePath, 8);
+        Breakpoint mainBp = target.setBreakpoint(fixturePath, 14);
+        int hits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            CHECK(threads.size() == 1);
+            int threadId = threads.at(0).id;
+            std::optional<std::vector<StackFrame>> stacktrace = target.getStackTrace(threadId);
+            REQUIRE(stacktrace.has_value());
+            // our stack trace should from the most deep stack frame go main -> a -> b -> a -> b ....
+            // the stack trace returns this in reverse since it starts from the shallowest stack frame.
+            hits++;
+            bool hitA = false;
+            int expectedTraceSize = hits;
+            if (bp.id == bpA.id)
+            {
+                hitA = true;
+            }
+            CHECK(stacktrace->size() == expectedTraceSize);
+            CHECK(target.getStackDepth(threadId) == expectedTraceSize);
+            for (int i = 0; i < expectedTraceSize; i++)
+            {
+                int line;
+                int column = 0;
+                std::string name;
+                std::string sourcePath = fixturePath;
+                if (i == expectedTraceSize - 1)
+                {
+                    line = 14;
+                    name = "(entry)";
+                }
+                else if ((hitA && i % 2 == 0) || (!hitA && i % 2 == 1))
+                {
+                    line = 4;
+                    name = "a";
+                }
+                else
+                {
+                    // the function name field is not set during the equality operation
+                    // so B stays anonymous
+                    name = "(anonymous)";
+                    if (!hitA && i == 0)
+                    {
+                        line = 8;
+                    }
+                    else
+                    {
+                        line = 11;
+                    }
+                }
+                StackFrame frame = stacktrace->at(i);
+                CHECK(frame.id == i + 1);
+                CHECK(frame.column == column);
+                CHECK(frame.line == line);
+                CHECK(frame.name == name);
+                CHECK(frame.sourcePath == sourcePath);
+            }
+            bool continued = target.continueProcess();
+            CHECK(continued);
+            stacktrace = target.getStackTrace(threadId);
+            // we shouldn't get stack trace when things are paused
+            REQUIRE(!stacktrace.has_value());
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(hits == 9);
     }
 }

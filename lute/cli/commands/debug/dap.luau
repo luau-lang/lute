@@ -3,7 +3,10 @@ local dapTypes = require("./dapTypes")
 local debugger = require("@lute/debugger")
 local json = require("@std/json")
 
-local function createSource(sourcePath: string): dapTypes.Source
+local function createSource(sourcePath: string): dapTypes.Source?
+	if sourcePath == "" or sourcePath == "=[C]" then
+		return nil
+	end
 	return {
 		path = sourcePath,
 		name = sourcePath:match("[^/\\]+$"),
@@ -14,7 +17,7 @@ local function debugToDapBreakpoint(breakpoint: debugger.Breakpoint): dapTypes.B
 	local dapBreakpoint: dapTypes.Breakpoint = {
 		id = breakpoint.id,
 		verified = breakpoint.status == "installed",
-		source = createSource(breakpoint.sourcePath),
+		source = assert(createSource(breakpoint.sourcePath)),
 		line = breakpoint.line,
 	}
 	if breakpoint.status == "pendingInstall" then
@@ -83,7 +86,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeEvent("output", {
 				category = "stdout",
 				output = message,
-				source = createSource(source),
+				source = assert(createSource(source)),
 				line = line,
 			})
 		end,
@@ -107,6 +110,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				supportsConfigurationDoneRequest = true,
 				supportsTerminateRequest = true,
 				supportsLoadedSourcesRequest = true,
+				supportsDelayedStackTraceLoading = true,
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
 			ioSession.writeEvent("initialized")
@@ -162,7 +166,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			local sources = target:getLoadedSources()
 			local dapSources = {}
 			for _, source in sources do
-				table.insert(dapSources, createSource(source))
+				table.insert(dapSources, assert(createSource(source)))
 			end
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				sources = dapSources,
@@ -194,20 +198,30 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				threads = dapThreads,
 			})
-		-- dummy handler for stackTrace
 		elseif command == "stackTrace" then
-			local launchPath = assert(launchConfig, "not launched")
+			local args = request.arguments :: json.Object
+			local threadId = args.threadId :: number
+			local startFrame = args.startFrame :: number?
+			local levels = args.levels :: number?
+			local stackTrace = target:getStackTrace(threadId, startFrame, levels)
+			if not stackTrace then
+				ioSession.writeResponse(reqSeq, false, command, "notStopped")
+				continue
+			end
+			assert(stackTrace)
+			local dapStackTrace = {}
+			for _, frame in stackTrace do
+				table.insert(dapStackTrace, {
+					id = frame.id,
+					name = frame.name,
+					source = createSource(frame.sourcePath),
+					line = frame.line,
+					column = frame.column,
+				})
+			end
 			ioSession.writeResponse(reqSeq, true, command, nil, {
-				stackFrames = {
-					{
-						id = 0,
-						name = "main",
-						source = createSource(launchPath.program),
-						line = target:getLine(),
-						column = 0,
-					},
-				},
-				totalFrames = 1,
+				stackFrames = dapStackTrace,
+				totalFrames = target:getStackDepth(threadId),
 			})
 		elseif command == "terminate" or command == "disconnect" then
 			ioSession.writeResponse(reqSeq, true, command)

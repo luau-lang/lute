@@ -331,7 +331,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		)
 		local threads = target:getThreads()
 		local threadId = threads[1].id
-		check.eq(target:getLine(), 9)
+		local source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 9)
 		target:step(threadId, "stepIn")
 		check.eq(
 			waitUntil(function()
@@ -339,7 +343,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
-		check.eq(target:getLine(), 10)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 10)
 		target:stepIn(threadId)
 		check.eq(
 			waitUntil(function()
@@ -347,7 +355,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
-		check.eq(target:getLine(), 2)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 2)
 		target:stepOut(threadId)
 		check.eq(
 			waitUntil(function()
@@ -355,7 +367,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
-		check.eq(target:getLine(), 11)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 11)
 		target:stepOver(threadId)
 		check.eq(
 			waitUntil(function()
@@ -363,8 +379,64 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
-		check.eq(target:getLine(), 12)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 12)
 		target:continueProcess()
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+	end)
+	-- this test case focuses on inspecting stack trace
+	suite:case("inspectStackTrace", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/pow.luau"))
+		target:setBreakpoint(mainPath, 5)
+		local hits = 0
+		local onFinished = false
+		local launchError = target:launch(mainPath, {}, {
+			onBreakpointHit = function(_thread, _bp)
+				hits += 1
+				local threads = target:getThreads()
+				check.eq(#threads, 1)
+				local stacktrace = target:getStackTrace(threads[1].id)
+				assert(stacktrace)
+				check.eq(#stacktrace, hits + 1)
+				check.eq(target:getStackDepth(threads[1].id), hits + 1)
+				for i, frame in stacktrace do
+					check.eq(frame.id, i)
+					check.eq(frame.column, 0)
+					check.eq(frame.sourcePath, normalizePath(mainPath))
+					if i == #stacktrace then
+						check.eq(frame.name, "(entry)")
+						check.eq(frame.line, 8)
+					else
+						check.eq(frame.name, "pow")
+						check.eq(frame.line, 5)
+					end
+				end
+				-- this a small check that getStackFrame() works
+				local specificFrame = target:getStackFrame(threads[1].id, 0)
+				assert(specificFrame)
+				check.eq(specificFrame.id, 1)
+				check.eq(specificFrame.column, 0)
+				check.eq(specificFrame.sourcePath, normalizePath(mainPath))
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(launchError, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
