@@ -202,6 +202,7 @@ struct Target
     // For evaluation:
     EvaluateResult evaluateExpression(std::string expression, int frameId = -1);
     EvaluateResult setVariable(int varRef, std::string varName, std::string setExpression);
+    EvaluateResult setExpression(std::string lExpression, std::string setExpression, int frameId = -1);
 
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
@@ -280,6 +281,7 @@ private:
     std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
     std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
     EvaluateResult evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread = nullptr);
+    EvaluateResult setVariableHelper(VariableScope& context, std::string varName, std::string setExpression, int evalLevel = -1);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
@@ -312,8 +314,8 @@ private:
     void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
     void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);
 
-    EvaluateResult setLocalsHelper(lua_State* L, int level, std::string setName, std::string value);
-    EvaluateResult setUpvaluesHelper(lua_State* L, int level, std::string setName, std::string value);
+    EvaluateResult setLocalsHelper(lua_State* L, int contextLevel, std::string setName, std::string value, int evalLevel);
+    EvaluateResult setUpvaluesHelper(lua_State* L, int contextLevel, std::string setName, std::string value, int evalLevel);
 
     void installBpHitCallback();
     void installExitCallback();
