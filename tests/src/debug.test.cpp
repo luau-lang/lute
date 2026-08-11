@@ -1,4 +1,5 @@
 #include "lute/debuginternals.h"
+
 #include "Luau/StringUtils.h"
 
 #include <chrono>
@@ -31,7 +32,7 @@ static void checkBreakpointSourceLine(Target& target, int id, BreakpointStatus s
     CHECK(foundBp->sourcePath == sourcePath);
 }
 
-static void checkScope(const std::vector<VariableScope>& scopes, VariableScopeType type, std::string name, int threadId, int level)
+static VariableScope checkScope(const std::vector<VariableScope>& scopes, VariableScopeType type, std::string name, int threadId, int level)
 {
     auto foundScope = std::find_if(
         scopes.begin(),
@@ -46,6 +47,7 @@ static void checkScope(const std::vector<VariableScope>& scopes, VariableScopeTy
     CHECK(foundScope->threadId == threadId);
     CHECK(foundScope->level == level);
     CHECK(foundScope->variableReference > 0);
+    return *foundScope;
 }
 
 static int checkVariable(const std::vector<Variable>& vars, const std::string& name, const std::string& value, const std::string& type, bool isTable)
@@ -646,8 +648,6 @@ TEST_SUITE("Debug")
         std::string fixturePath = getDebugFixturePath("variables.luau");
         Target target(*runtime);
         target.setBreakpoint(fixturePath, 10);
-
-        std::vector<Variable> capturedLocals;
         config.onBreakpointHit = [&](const Thread&, const Breakpoint&)
         {
             const std::vector<Thread>& threads = target.getThreads();
@@ -768,6 +768,7 @@ TEST_SUITE("Debug")
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     };
 
+
     TEST_CASE_FIXTURE(DebugFixture, "Debug_sourceBreakpoints")
     {
         std::string fixturePath = getDebugFixturePath("loop.luau");
@@ -850,4 +851,55 @@ TEST_SUITE("Debug")
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         CHECK(hits == 2);
     }
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_setVariable")
+    {
+        std::string fixturePath = getDebugFixturePath("variables.luau");
+        Target target(*runtime);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 6);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 9);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 10);
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            std::optional<std::vector<StackFrame>> stackframe = target.getStackTrace(threads.at(0).id);
+            REQUIRE(stackframe.has_value());
+            // stack frame at level 0
+            std::optional<std::vector<VariableScope>> scopes = target.getScopes(stackframe->at(0).id);
+            REQUIRE(scopes.has_value());
+            VariableScope locals = checkScope(*scopes, VariableScopeType::Locals, "Locals", 1, 0);
+            VariableScope upvalues = checkScope(*scopes, VariableScopeType::Upvalues, "Upvalues", 1, 0);
+            if (bp.id == bp1.id)
+            {
+                target.setVariable(locals.variableReference, "a", "35 - 13");
+                std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Locals);
+                REQUIRE(locals1.has_value());
+                int tableRef = checkVariable(*locals1, "_e", "{a=4, [4]={r=13}, b=\"5\"}", "table", true);
+                target.setVariable(tableRef, "b", "1 - 13");
+            }
+            if (bp.id == bp2.id)
+            {
+                std::optional<std::vector<Variable>> upvalues1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Upvalues);
+                REQUIRE(upvalues1.has_value());
+                checkVariable(*upvalues1, "a", "44", "number", false);
+                target.setVariable(upvalues.variableReference, "_b", "3 + 1.3");
+                std::optional<std::vector<Variable>> locals2 = target.getVariablesByScopeType(stackframe->at(2).id, VariableScopeType::Locals);
+                REQUIRE(locals2.has_value());
+                int tableRef = checkVariable(*locals2, "_e", "{a=4, [4]={r=13}, b=-12}", "table", true);
+                std::optional<std::vector<Variable>> table = target.getVariables(tableRef);
+                REQUIRE(table.has_value());
+                checkVariable(*table, "b", "-12", "number", false);
+            }
+            if (bp.id == bp3.id)
+            {
+                std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Locals);
+                REQUIRE(locals1.has_value());
+                checkVariable(*locals1, "k", "48.3", "number", false);
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    };
 }
