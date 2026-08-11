@@ -159,6 +159,7 @@ private:
 
     std::atomic<int> activeTokens;
     uv_loop_t eventLoop;
+    uv_async_t wakeupEventLoop;
 
     // for debug mode only:
     std::mutex debugMutex;
