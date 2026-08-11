@@ -18,7 +18,7 @@ type Tune = {
 		remote: string,
 		branch: string,
 		revision: string,
-		patches: { string },
+		patches: { string }?,
 	},
 }
 
@@ -723,7 +723,12 @@ local function applyPatches()
 	for _, file in files do
 		if string.find(file.name, "%.tune$") then
 			local dep: Tune = readTuneFile(projectRelative("extern", file.name))
-			for _, patch in dep.dependency.patches do
+			local patches = dep.dependency.patches
+			if not patches then
+				continue
+			end
+			assert(patches)
+			for _, patch in patches do
 				applyLuauPatch(`extern/{patch}`)
 			end
 		end

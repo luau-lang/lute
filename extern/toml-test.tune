@@ -3,4 +3,3 @@ name = "toml-test"
 remote = "https://github.com/toml-lang/toml-test.git"
 branch = "v2.1.0"
 revision = "08ed8697864548b3cdb4b8decbf496bef47e1c82"
-patches = []

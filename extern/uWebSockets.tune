@@ -3,4 +3,3 @@ name = "uWebSockets"
 remote = "https://github.com/uNetworking/uWebSockets.git"
 branch = "v20.77.0"
 revision = "6b7f3540cec801a7f1cb01141eae8ab989dd4e70"
-patches = []

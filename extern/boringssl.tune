@@ -3,4 +3,3 @@ name = "boringssl"
 remote = "https://github.com/google/boringssl.git"
 branch = "0.20260413.0"
 revision = "78f7fbeec98a2fb15acea6f7a9f1def7f2e6d9a0"
-patches = []

@@ -3,4 +3,3 @@ name = "curl"
 remote = "https://github.com/curl/curl.git"
 branch = "curl-8_21_0"
 revision = "68720b4837284335b2d63cb358f8f6ce65f5bc55"
-patches = []

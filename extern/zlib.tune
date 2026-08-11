@@ -3,4 +3,3 @@ name = "zlib"
 remote = "https://github.com/madler/zlib.git"
 branch = "v1.3.2"
 revision = "da607da739fa6047df13e66a2af6b8bec7c2a498"
-patches = []
