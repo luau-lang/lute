@@ -74,9 +74,9 @@ VariableScope VariableScope::makeGlobals(int variableReference, int threadId, in
     return VariableScope{variableReference, VariableScopeType::Global, "Globals", threadId, level, -1};
 }
 
-VariableScope VariableScope::makeTable(int variableReference, int luaref)
+VariableScope VariableScope::makeTable(int variableReference, int threadId, int level, int luaref)
 {
-    return VariableScope{variableReference, VariableScopeType::Table, "Table", -1, -1, luaref};
+    return VariableScope(variableReference, VariableScopeType::Table, "Table", threadId, level, luaref);
 }
 
 bool Variable::isTruthy()
@@ -1109,7 +1109,7 @@ static std::string printTable(lua_State* L, int idx, int levelsToPrint)
     return result + "}";
 }
 
-Variable Target::makeVariable(lua_State* L, const std::string& name)
+Variable Target::makeVariable(lua_State* L, const std::string& name, int parentRef)
 {
     Variable var;
     var.name = name;
@@ -1134,7 +1134,14 @@ Variable Target::makeVariable(lua_State* L, const std::string& name)
         lua_pushvalue(L, -1);
         int ref = lua_ref(L, -1);
         lua_pop(L, 1);
-        variableContexts.insert_or_assign(variableRefId, VariableScope::makeTable(variableRefId, ref));
+        int threadId = -1, level = -1;
+        if (parentRef != -1)
+        {
+            VariableScope scope = variableContexts.at(parentRef);
+            threadId = scope.threadId;
+            level = scope.level;
+        }
+        variableContexts.insert_or_assign(variableRefId, VariableScope::makeTable(variableRefId, threadId, level, ref));
         variableRefId++;
         break;
     }
@@ -1145,7 +1152,7 @@ Variable Target::makeVariable(lua_State* L, const std::string& name)
     return var;
 }
 
-std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
+std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level, int parentRef)
 {
     // when hitting a bp we try to re-enter
     bool fixedSavedpc = false;
@@ -1160,7 +1167,11 @@ std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
     std::vector<Variable> vars;
     while ((name = lua_getlocal(L, level, n)) != nullptr)
     {
+<<<<<<< HEAD
         vars.emplace_back(makeVariable(L, name));
+=======
+        vars.push_back(makeVariable(L, name, parentRef));
+>>>>>>> 189a6022 (set expression c++)
         lua_pop(L, 1);
         n++;
     }
@@ -1169,7 +1180,7 @@ std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
     return vars;
 }
 
-std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level)
+std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level, int parentRef)
 {
     std::vector<Variable> vars;
     lua_Debug ar = {};
@@ -1178,7 +1189,11 @@ std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level)
     const char* name;
     while ((name = lua_getupvalue(L, -1, n)) != nullptr)
     {
+<<<<<<< HEAD
         vars.emplace_back(makeVariable(L, name));
+=======
+        vars.push_back(makeVariable(L, name, parentRef));
+>>>>>>> 189a6022 (set expression c++)
         lua_pop(L, 1);
         n++;
     }
@@ -1197,6 +1212,9 @@ std::vector<Variable> Target::getGlobalsHelper(lua_State* L, int level)
 }
 
 std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
+=======
+std::vector<Variable> Target::getTableHelper(lua_State* L, int idx, int parentRef)
+>>>>>>> 189a6022 (set expression c++)
 {
     std::vector<Variable> vars;
     int absoluteIndex = lua_absindex(L, idx);
@@ -1204,7 +1222,11 @@ std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
     while (lua_next(L, absoluteIndex))
     {
         std::string key = getKeyFromTableType(L);
+<<<<<<< HEAD
         vars.emplace_back(makeVariable(L, key));
+=======
+        vars.push_back(makeVariable(L, key, parentRef));
+>>>>>>> 189a6022 (set expression c++)
         lua_pop(L, 1);
     }
     return vars;
@@ -1221,11 +1243,11 @@ std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
     std::vector<Variable> vars;
     if (context.type == VariableScopeType::Local)
     {
-        vars = getLocalsHelper(threadIdToState.at(context.threadId), context.level);
+        vars = getLocalsHelper(threadIdToState.at(context.threadId), context.level, varRef);
     }
     else if (context.type == VariableScopeType::Upvalue)
     {
-        vars = getUpvaluesHelper(threadIdToState.at(context.threadId), context.level);
+        vars = getUpvaluesHelper(threadIdToState.at(context.threadId), context.level, varRef);
     }
     else if (context.type == VariableScopeType::Global)
     {
@@ -1234,7 +1256,7 @@ std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
     else
     {
         lua_rawgeti(childRuntime->GL, LUA_REGISTRYINDEX, context.luaref);
-        vars = getTableHelper(childRuntime->GL, -1);
+        vars = getTableHelper(childRuntime->GL, -1, varRef);
         lua_pop(childRuntime->GL, 1);
     }
     variableCache[varRef] = vars;
@@ -1319,7 +1341,7 @@ void Target::injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTa
     lua_pop(L, 1);
 }
 
-EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::string expression)
+EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread)
 {
     // this guards against leaving the evalthread on the global thread of the child runtime.
     struct StackGuard
@@ -1378,10 +1400,10 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::st
     lua_setfield(evalThread, 2, "__index");
     lua_setmetatable(evalThread, 1);
     // inject locals + upvalues
-    if (L != nullptr)
+    if (contextThread != nullptr)
     {
-        injectUpvalues(L, level, evalThread, 1);
-        injectLocals(L, level, evalThread, 1);
+        injectUpvalues(contextThread, contextLevel, evalThread, 1);
+        injectLocals(contextThread, contextLevel, evalThread, 1);
     }
     lua_replace(evalThread, LUA_GLOBALSINDEX);
     if (luau_load(evalThread, "=eval", bytecode.c_str(), bytecode.size(), 0) != 0)
@@ -1402,7 +1424,12 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::st
     int numReturned = lua_gettop(evalThread);
     if (numReturned != 1)
         return Luau::format("expression %s evaluates to %d values not 1", expression.c_str(), numReturned);
-    return makeVariable(evalThread, expression);
+    if (lua_gettop(evalThread) == 0)
+        return Variable{expression, "(no value)", "void"};
+    Variable var = makeVariable(evalThread, expression, -1);
+    if (moveThread != nullptr)
+        lua_xmove(evalThread, moveThread, 1);
+    return var;
 }
 
 EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
@@ -1424,6 +1451,113 @@ EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
         level = threadLevel;
     }
     return evaluateExpressionHelper(thread, level, expression);
+}
+
+EvaluateResult Target::setLocalsHelper(lua_State* L, int level, std::string setName, std::string value)
+{
+    // when hitting a bp we try to re-enter
+    bool fixedSavedpc = false;
+    const Instruction* original = L->ci->savedpc;
+    if (level == 0 && L == stoppedThread)
+    {
+        L->ci->savedpc = stoppedPc;
+        fixedSavedpc = true;
+    }
+    const char* name;
+    int n = 1;
+    std::vector<Variable> vars;
+    while ((name = lua_getlocal(L, level, n)) != nullptr)
+    {
+        lua_pop(L, 1);
+        if (name == setName)
+        {
+            EvaluateResult var = evaluateExpressionHelper(L, level, value, L);
+            if (std::holds_alternative<Variable>(var))
+                lua_setlocal(L, level, n);
+            if (fixedSavedpc)
+                L->ci->savedpc = original;
+            return var;
+        }
+        n++;
+    }
+    if (fixedSavedpc)
+        L->ci->savedpc = original;
+    return "variable not found";
+}
+
+EvaluateResult Target::setUpvaluesHelper(lua_State* L, int level, std::string setName, std::string value)
+{
+    std::vector<Variable> vars;
+    lua_Debug ar = {};
+    lua_getinfo(L, level, "f", &ar);
+    int funcIdx = lua_gettop(L);
+    int n = 1;
+    const char* name;
+    while ((name = lua_getupvalue(L, funcIdx, n)) != nullptr)
+    {
+        lua_pop(L, 1);
+        if (name == setName)
+        {
+            EvaluateResult var = evaluateExpressionHelper(L, level, value, L);
+            if (std::holds_alternative<Variable>(var))
+                lua_setupvalue(L, funcIdx, n);
+            lua_pop(L, 1);
+            return var;
+        }
+        n++;
+    }
+    lua_pop(L, 1);
+    return "variable not found";
+}
+
+EvaluateResult Target::setVariable(int varRef, std::string varName, std::string setExpression)
+{
+    std::unique_lock lock(targetMutex);
+    if (!paused)
+        return "target was not paused";
+    auto it = variableContexts.find(varRef);
+    if (it == variableContexts.end())
+        return "variable reference not found";
+    VariableScope context = it->second;
+    if (context.threadId == -1)
+    {
+        return "need to be in valid context for evaluation";
+    }
+    lua_State* thread = threadIdToState.at(context.threadId);
+    int level = context.level;
+    if (context.type == VariableScopeType::Table)
+    {
+        lua_State* L = childRuntime->GL;
+        lua_rawgeti(L, LUA_REGISTRYINDEX, context.luaref);
+        int tableIdx = lua_gettop(L);
+        lua_pushstring(L, varName.c_str());
+        lua_rawget(L, tableIdx);
+        bool exists = !lua_isnil(L, -1);
+        lua_pop(L, 1);
+        if (!exists)
+        {
+            lua_pop(L, 1);
+            return "variable not found";
+        }
+        lua_pushstring(L, varName.c_str());
+        EvaluateResult var = evaluateExpressionHelper(thread, level, setExpression, L);
+        if (std::holds_alternative<std::string>(var))
+        {
+            lua_pop(L, 2);
+            return var;
+        }
+        lua_rawset(L, tableIdx);
+        lua_pop(L, 1);
+        return var;
+    }
+    else if (context.type == VariableScopeType::Locals)
+    {
+        return setLocalsHelper(thread, level, varName, setExpression);
+    }
+    else
+    {
+        return setUpvaluesHelper(thread, level, varName, setExpression);
+    }
 }
 
 void Target::continueProcessHelper()
