@@ -718,7 +718,7 @@ local function areTuneFilesUpToDate(): boolean
 	return hash == getTuneFilesHash()
 end
 
-local function applyPatches()
+local function applyPatches(): number
 	local files = fs.listdir(projectRelative("extern"))
 	for _, file in files do
 		if string.find(file.name, "%.tune$") then
@@ -729,10 +729,15 @@ local function applyPatches()
 			end
 			assert(patches)
 			for _, patch in patches do
-				applyLuauPatch(`extern/{patch}`)
+				local res = applyLuauPatch(`extern/{patch}`)
+				if res ~= 0 then
+					return res
+				end
 			end
 		end
 	end
+
+	return 0
 end
 
 local function fetchDependencies(): number
@@ -771,7 +776,7 @@ local function configure()
 	table.move(arguments, 1, #arguments, 2, cmd)
 
 	check(fetchDependenciesIfNeeded())
-	applyPatches()
+	check(applyPatches())
 
 	local result = call(cmd)
 	fs.copy(joinPath(getProjectPath(), "compile_commands.json"), projectRelative(BUILD_DIR, "compile_commands.json"))
