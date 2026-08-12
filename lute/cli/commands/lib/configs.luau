@@ -1,16 +1,18 @@
-local fs = require("@std/fs")
-local luau = require("@std/luau")
-local path = require("@std/path")
-local process = require("@std/process")
+const fs = require("@std/fs")
+const luau = require("@std/luau")
+const path = require("@std/path")
+const process = require("@std/process")
 
-local function walkConfigPaths(startDir: string?): () -> (string, { [any]: any })
+const configLib = {}
+
+function configLib.walkConfigPaths(startDir: string?): () -> (string, { [any]: any })
 	local current = path.format(path.normalize(startDir or process.cwd()))
 
 	return function(): (string, { [any]: any })
 		while current do
-			local candidate = path.format(path.join(current, ".config.luau"))
+			const candidate = path.format(path.join(current, ".config.luau"))
 
-			local parent = path.format(path.dirname(current))
+			const parent = path.format(path.dirname(current))
 			if parent == current then
 				current = nil
 			else
@@ -18,7 +20,7 @@ local function walkConfigPaths(startDir: string?): () -> (string, { [any]: any }
 			end
 
 			if fs.exists(candidate) then
-				local ok, root = pcall(luau.loadModule, candidate, nil)
+				const ok, root = pcall(luau.loadModule, candidate, nil)
 				if not ok then
 					error(`Failed to load config {candidate}: {root}`, 0)
 				end
@@ -33,6 +35,4 @@ local function walkConfigPaths(startDir: string?): () -> (string, { [any]: any }
 	end
 end
 
-return {
-	walkConfigPaths = walkConfigPaths,
-}
+return table.freeze(configLib)
