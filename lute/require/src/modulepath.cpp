@@ -132,17 +132,17 @@ ResolvedRealPath ModulePath::getRealPath() const
             }
         }
 
-        if (hasInit)
-        {
-            if (resolvedType)
-                return {NavigationStatus::Ambiguous};
+        // Path is a directory with an init file but there is also a sibling file with the same name (e.g. foo.luau and foo/init.luau), so this is ambiguous.
+        if (hasInit && resolvedType)
+            return {NavigationStatus::Ambiguous};
 
-            resolvedType = ResolvedRealPath::PathType::File;
-        }
-        else if (!resolvedType)
-        {
+        // Path is a directory with no init file and no sibling file, so we know this is a directory.
+        if (!resolvedType)
             resolvedType = ResolvedRealPath::PathType::Directory;
-        }
+
+        // Path is a directory with an init file and no sibling file, so we know this is a file (the init file).
+        if (hasInit)
+            resolvedType = ResolvedRealPath::PathType::File;
     }
 
     if (!resolvedType)
