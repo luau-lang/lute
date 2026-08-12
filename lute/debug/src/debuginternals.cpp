@@ -506,7 +506,7 @@ std::string convertHitConditionToExpression(int hitCount, std::string hitExpress
 
 bool Target::evaluateBpCondition(lua_State* L, const Breakpoint& bp)
 {
-    EvaluateResult result = evaluateExpressionHelper(L, 0, bp.condition);
+    EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + bp.condition);
     if (std::holds_alternative<std::string>(result))
     {
         parentRuntime.reporter.reportError(
@@ -521,7 +521,7 @@ bool Target::evaluateBpCondition(lua_State* L, const Breakpoint& bp)
 bool Target::evaluateBpHitCondition(lua_State* L, const Breakpoint& bp)
 {
     std::string hitExpression = convertHitConditionToExpression(bp.hitCount, bp.hitCondition);
-    EvaluateResult result = evaluateExpressionHelper(L, 0, hitExpression);
+    EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + hitExpression);
     if (std::holds_alternative<std::string>(result))
     {
         parentRuntime.reporter.reportError(
@@ -551,7 +551,7 @@ std::string Target::evaluateLogMessage(lua_State* L, const Breakpoint& bp)
             break;
         }
         std::string interpolateExpr = logMessage.substr(start + 1, end - start - 1);
-        EvaluateResult result = evaluateExpressionHelper(L, 0, interpolateExpr);
+        EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + interpolateExpr);
         if (std::holds_alternative<std::string>(result))
         {
             parentRuntime.reporter.reportError(
@@ -1246,12 +1246,8 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int co
     // inject locals + upvalues
     if (contextThread != nullptr)
     {
-        int depth = lua_stackdepth(contextThread);
-        for (int i = depth - 1; i >= contextLevel; i--)
-        {
-            injectUpvalues(contextThread, i, evalThread, 1);
-            injectLocals(contextThread, i, evalThread, 1);
-        }
+        injectUpvalues(contextThread, contextLevel, evalThread, 1);
+        injectLocals(contextThread, contextLevel, evalThread, 1);
     }
     lua_replace(evalThread, LUA_GLOBALSINDEX);
     if (luau_load(evalThread, "=eval", bytecode.c_str(), bytecode.size(), 0) != 0)
