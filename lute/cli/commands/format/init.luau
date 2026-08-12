@@ -6,62 +6,11 @@ const process = require("@std/process")
 
 const configs = require("./lib/configs")
 const files = require("./lib/files")
-const parseIgnores = require("./lib/parseIgnores")
 
 const DESCRIPTION = [[
 
 Format Luau source files. Experimental: formatting is still under development, and its output will change.
 ]]
-
-const function findConfiguredIgnores(): parseIgnores.GitignoreData?
-	for configPath, config in configs.walkConfigPaths() do
-		const luteConfig = config.lute
-		if typeof(luteConfig) ~= "table" then
-			continue
-		end
-
-		const formatConfig = luteConfig.format
-		if typeof(formatConfig) ~= "table" or formatConfig.ignores == nil then
-			continue
-		end
-
-		const ignores = formatConfig.ignores
-		if typeof(ignores) ~= "table" then
-			error(`{configPath}: lute.format.ignores must be an array of filepath globs`, 0)
-		end
-
-		return parseIgnores.parseIgnoreContents(path.dirname(configPath), ignores)
-	end
-
-	return nil
-end
-
-const function filterIgnored(sourceFiles: { path.Path }, verbose: boolean): { path.Path }
-	const ignoreData = findConfiguredIgnores()
-	if ignoreData == nil then
-		return sourceFiles
-	end
-
-	const kept: { path.Path } = {}
-	for _, sourcePath in sourceFiles do
-		const target = path.format(sourcePath)
-
-		if parseIgnores.isIgnored(ignoreData, target, false) then
-			if verbose then
-				print(`Skipping {target}`)
-			end
-			continue
-		end
-
-		table.insert(kept, sourcePath)
-	end
-
-	if verbose then
-		print(`Kept {#kept} file(s) after filtering.`)
-	end
-
-	return table.freeze(kept)
-end
 
 const function main(...: string)
 	const args = cli.parser()
@@ -92,7 +41,8 @@ const function main(...: string)
 
 	local sourceFiles = files.getSourceFiles(inputPaths, verbose)
 	if not args:has("no-ignore") then
-		sourceFiles = filterIgnored(sourceFiles, verbose)
+		const ignores = configs.findConfiguredIgnores("format")
+		sourceFiles = files.filterIgnored(sourceFiles, ignores, verbose)
 	end
 	if verbose then
 		print(`Found {#sourceFiles} file(s) to format.`)

@@ -228,7 +228,7 @@ test.suite("LuteFormat", function(suite)
 
 		local result = runLute("format", path.format(workdir))
 		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stderr, "lute.format.ignores must be an array of filepath globs")
+		assert.strContains(result.stderr, "lute.format.ignores must be an array of filepaths")
 		assert.eq(fs.readFileToString(child("unformatted.luau")), UNFORMATTED)
 	end)
 
