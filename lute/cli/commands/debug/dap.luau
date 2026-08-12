@@ -273,7 +273,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 		elseif command == "evaluate" then
 			local args = request.arguments :: json.Object
 			local expression = args.expression :: string
-			local frameId = if args.frameId ~= nil then args.frameId :: number else -1
+			local frameId = args.frameId :: number?
 			local result = target:evaluateExpression(expression, frameId)
 			if type(result) == "string" then
 				ioSession.writeResponse(reqSeq, false, command, result)

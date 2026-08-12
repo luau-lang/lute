@@ -173,9 +173,9 @@ export type Target = {
 	--- Return `nil` if script is running or if such variables can not be found.
 	getVariablesByScopeType: (self: Target, frameId: number, scopeType: VariableScopeType) -> { Variable }?,
 	--- Evaluates an expression within the scope of a given stack frame id.
-	--- If `frameId` is -1, evaluate in the global scope.
+	--- If `frameId` is -1 or absent, evaluate in the global scope.
 	--- Returns a `Variable` if expression could be evaluated or an error string if not.
-	evaluateExpression: (self: Target, expression: string, frameId: number) -> Variable | string,
+	evaluateExpression: (self: Target, expression: string, frameId: number?) -> Variable | string,
 }
 
 --- Create a new Target handle on the current VM.
