@@ -1123,12 +1123,8 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::st
     // inject locals + upvalues
     if (L != nullptr)
     {
-        int depth = lua_stackdepth(L);
-        for (int i = depth - 1; i >= level; i--)
-        {
-            injectUpvalues(L, i, evalThread, 1);
-            injectLocals(L, i, evalThread, 1);
-        }
+        injectUpvalues(L, level, evalThread, 1);
+        injectLocals(L, level, evalThread, 1);
     }
     lua_replace(evalThread, LUA_GLOBALSINDEX);
     if (luau_load(evalThread, "=eval", bytecode.c_str(), bytecode.size(), 0) != 0)
