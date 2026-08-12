@@ -49,3 +49,37 @@ TEST_CASE("module_path")
         }
     }
 }
+
+TEST_CASE("module_path_bare_directory_not_ambiguous")
+{
+    for (const std::string& luteProjectRoot : {getLuteProjectRootRelative(), getLuteProjectRootAbsolute()})
+    {
+        std::string modulePathRoot = joinPaths(luteProjectRoot, "tests/src/modulepathroot");
+        std::string file = "module/init.luau";
+
+        std::optional<ModulePath> mp = ModulePath::create(modulePathRoot, file, isFile, isDirectory);
+        REQUIRE(mp);
+
+        SUBCASE("file_with_sibling_bare_directory_resolves")
+        {
+            CHECK(mp->toParent() == NavigationStatus::Success);
+            CHECK(mp->toChild("baredir") == NavigationStatus::Success);
+            CHECK(mp->getRealPath().realPath == joinPaths(modulePathRoot, "baredir.luau"));
+            CHECK(mp->getRealPath().type == ResolvedRealPath::PathType::File);
+        }
+
+        SUBCASE("bare_directory_child_resolves")
+        {
+            CHECK(mp->toParent() == NavigationStatus::Success);
+            CHECK(mp->toChild("baredir") == NavigationStatus::Success);
+            CHECK(mp->toChild("child") == NavigationStatus::Success);
+            CHECK(mp->getRealPath().realPath == joinPaths(modulePathRoot, "baredir/child.luau"));
+        }
+
+        SUBCASE("file_with_sibling_init_directory_is_ambiguous")
+        {
+            CHECK(mp->toParent() == NavigationStatus::Success);
+            CHECK(mp->toChild("ambiguous") == NavigationStatus::Ambiguous);
+        }
+    }
+}
