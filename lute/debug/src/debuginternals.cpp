@@ -907,11 +907,40 @@ std::optional<std::vector<VariableScope>> Target::getScopes(int frameId)
 static std::string convertNumberToString(lua_State* L, int stackSlot)
 {
     double val = lua_tonumber(L, stackSlot);
-    if (val == trunc(val))
-        return std::to_string(lua_tointeger(L, stackSlot));
-    char buf[64];
+    char buf[350];
     snprintf(buf, sizeof(buf), "%.15g", val);
     return buf;
+}
+
+static std::string escapeString(const std::string& s)
+{
+    std::string result;
+    result.reserve(s.size());
+    for (char c : s)
+    {
+        switch (c)
+        {
+        case '\n':
+            result += "\\n";
+            break;
+        case '\r':
+            result += "\\r";
+            break;
+        case '\t':
+            result += "\\t";
+            break;
+        case '"':
+            result += "\\\"";
+            break;
+        case '\\':
+            result += "\\\\";
+            break;
+        default:
+            result += c;
+            break;
+        }
+    }
+    return result;
 }
 
 static std::string getKeyFromTableType(lua_State* L)
@@ -920,7 +949,7 @@ static std::string getKeyFromTableType(lua_State* L)
     switch (lua_type(L, -2))
     {
     case LUA_TSTRING:
-        key = std::string(lua_tostring(L, -2));
+        key = escapeString(std::string(lua_tostring(L, -2)));
         break;
     case LUA_TNUMBER:
         key = "[" + convertNumberToString(L, -2) + "]";
@@ -953,7 +982,7 @@ static std::string printTable(lua_State* L, int idx, int levelsToPrint)
             value = convertNumberToString(L, -1);
             break;
         case LUA_TSTRING:
-            value = "\"" + std::string(lua_tostring(L, -1)) + "\"";
+            value = "\"" + escapeString(std::string(lua_tostring(L, -1))) + "\"";
             break;
         case LUA_TBOOLEAN:
             value = lua_toboolean(L, -1) ? "true" : "false";
@@ -1003,7 +1032,7 @@ Variable Target::makeVariable(lua_State* L, const std::string& name, int parentR
         break;
     }
     case LUA_TSTRING:
-        var.value = "\"" + std::string(lua_tostring(L, -1)) + "\"";
+        var.value = "\"" + escapeString(std::string(lua_tostring(L, -1))) + "\"";
         break;
     case LUA_TBOOLEAN:
         var.value = lua_toboolean(L, -1) ? "true" : "false";
