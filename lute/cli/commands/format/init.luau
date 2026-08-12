@@ -108,8 +108,8 @@ const function main(...: string)
 		const read, source = pcall(fs.readFileToString, sourcePath)
 		if not read then
 			if verbose then
-                print(`Failed to read {target}`)
-            end
+				print(`Failed to read {target}`)
+			end
 			table.insert(failed, `{target}: {source}`)
 			continue
 		end
@@ -117,8 +117,8 @@ const function main(...: string)
 		const ok, formatted = pcall(format.formatSource, source)
 		if not ok then
 			if verbose then
-                print(`Failed to format {target}`)
-            end
+				print(`Failed to format {target}`)
+			end
 			table.insert(failed, `{target}: {formatted}`)
 			continue
 		end
