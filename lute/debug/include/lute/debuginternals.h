@@ -281,7 +281,7 @@ private:
     std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
     std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
     EvaluateResult evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread = nullptr);
-    EvaluateResult setVariableHelper(VariableScope& context, std::string varName, std::string setExpression, int evalLevel = -1);
+    EvaluateResult setVariableHelper(VariableScope& context, std::string varName, std::string setExpression);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
@@ -314,8 +314,8 @@ private:
     void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
     void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);
 
-    EvaluateResult setLocalsHelper(lua_State* L, int contextLevel, std::string setName, std::string value, int evalLevel);
-    EvaluateResult setUpvaluesHelper(lua_State* L, int contextLevel, std::string setName, std::string value, int evalLevel);
+    EvaluateResult setLocalsHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
+    EvaluateResult setUpvaluesHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
 
     void installBpHitCallback();
     void installExitCallback();
