@@ -8,6 +8,7 @@ local _largeinteger = 123456789101112
 local _smallnumber = 12e-15
 local _largenumber = 353e104
 local _escapechar = "\n\\\r\t\""
+local _precise =  1.234567891011
 
 local function g()
 	local _k = a + _b
