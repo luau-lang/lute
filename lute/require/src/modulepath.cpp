@@ -119,7 +119,6 @@ ResolvedRealPath ModulePath::getRealPath() const
     if (isADirectory(partialRealPath))
     {
         bool hasInit = false;
-        std::string_view initSuffix;
 
         for (std::string_view potentialSuffix : kInitSuffixes)
         {
@@ -129,7 +128,7 @@ ResolvedRealPath ModulePath::getRealPath() const
                     return {NavigationStatus::Ambiguous};
 
                 hasInit = true;
-                initSuffix = potentialSuffix;
+                suffix = potentialSuffix;
             }
         }
 
@@ -139,7 +138,6 @@ ResolvedRealPath ModulePath::getRealPath() const
                 return {NavigationStatus::Ambiguous};
 
             resolvedType = ResolvedRealPath::PathType::File;
-            suffix = initSuffix;
         }
         else if (!resolvedType)
         {

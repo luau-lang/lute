@@ -81,5 +81,21 @@ TEST_CASE("module_path_bare_directory_not_ambiguous")
             CHECK(mp->toParent() == NavigationStatus::Success);
             CHECK(mp->toChild("ambiguous") == NavigationStatus::Ambiguous);
         }
+
+        SUBCASE("case_mismatch_file_with_bare_directory_resolves")
+        {
+            CHECK(mp->toParent() == NavigationStatus::Success);
+            CHECK(mp->toChild("foo") == NavigationStatus::Success);
+            CHECK(mp->getRealPath().realPath == joinPaths(modulePathRoot, "foo.luau"));
+            CHECK(mp->getRealPath().type == ResolvedRealPath::PathType::File);
+        }
+
+        SUBCASE("case_mismatch_bare_directory_child_resolves")
+        {
+            CHECK(mp->toParent() == NavigationStatus::Success);
+            CHECK(mp->toChild("Foo") == NavigationStatus::Success);
+            CHECK(mp->toChild("bar") == NavigationStatus::Success);
+            CHECK(mp->getRealPath().realPath == joinPaths(modulePathRoot, "Foo/bar.luau"));
+        }
     }
 }
