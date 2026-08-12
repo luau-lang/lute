@@ -1,31 +1,31 @@
-local cli = require("@batteries/cli")
-local format = require("@self/format")
-local fs = require("@std/fs")
-local path = require("@std/path")
-local process = require("@std/process")
+const cli = require("@batteries/cli")
+const format = require("@self/format")
+const fs = require("@std/fs")
+const path = require("@std/path")
+const process = require("@std/process")
 
-local configs = require("./lib/configs")
-local files = require("./lib/files")
-local parseIgnores = require("./lib/parseIgnores")
+const configs = require("./lib/configs")
+const files = require("./lib/files")
+const parseIgnores = require("./lib/parseIgnores")
 
-local DESCRIPTION = [[
+const DESCRIPTION = [[
 
 Format Luau source files. Experimental: formatting is still under development, and its output will change.
 ]]
 
-local function findConfiguredIgnores(): parseIgnores.GitignoreData?
+const function findConfiguredIgnores(): parseIgnores.GitignoreData?
 	for configPath, config in configs.walkConfigPaths() do
-		local luteConfig = config.lute
+		const luteConfig = config.lute
 		if typeof(luteConfig) ~= "table" then
 			continue
 		end
 
-		local formatConfig = luteConfig.format
+		const formatConfig = luteConfig.format
 		if typeof(formatConfig) ~= "table" or formatConfig.ignores == nil then
 			continue
 		end
 
-		local ignores = formatConfig.ignores
+		const ignores = formatConfig.ignores
 		if typeof(ignores) ~= "table" then
 			error(`{configPath}: lute.format.ignores must be an array of filepath globs`, 0)
 		end
@@ -36,15 +36,15 @@ local function findConfiguredIgnores(): parseIgnores.GitignoreData?
 	return nil
 end
 
-local function filterIgnored(sourceFiles: { path.Path }, verbose: boolean): { path.Path }
-	local ignoreData = findConfiguredIgnores()
+const function filterIgnored(sourceFiles: { path.Path }, verbose: boolean): { path.Path }
+	const ignoreData = findConfiguredIgnores()
 	if ignoreData == nil then
 		return sourceFiles
 	end
 
-	local kept: { path.Path } = {}
+	const kept: { path.Path } = {}
 	for _, sourcePath in sourceFiles do
-		local target = path.format(sourcePath)
+		const target = path.format(sourcePath)
 
 		if parseIgnores.isIgnored(ignoreData, target, false) then
 			if verbose then
@@ -63,8 +63,8 @@ local function filterIgnored(sourceFiles: { path.Path }, verbose: boolean): { pa
 	return table.freeze(kept)
 end
 
-local function main(...: string)
-	local args = cli.parser()
+const function main(...: string)
+	const args = cli.parser()
 	args:add("help", "flag", { help = "Show this help message", aliases = { "h" } })
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
 	args:add("check", "flag", { help = "Check formatting; exit 1 if any file is unformatted", aliases = { "c" } })
@@ -79,16 +79,16 @@ local function main(...: string)
 		return
 	end
 
-	local check = args:has("check")
-	local verbose = args:has("verbose")
+	const check = args:has("check")
+	const verbose = args:has("verbose")
 
 	local inputPaths = args:variadics()
 	if #inputPaths == 0 then
 		inputPaths = table.freeze({ "." })
 	end
 
-	local failed: { string } = {}
-	local needsFormatting: { string } = {}
+	const failed: { string } = {}
+	const needsFormatting: { string } = {}
 
 	local sourceFiles = files.getSourceFiles(inputPaths, verbose)
 	if not args:has("no-ignore") then
@@ -99,19 +99,19 @@ local function main(...: string)
 	end
 
 	for _, sourcePath in sourceFiles do
-		local target = path.format(sourcePath)
+		const target = path.format(sourcePath)
 
 		if verbose then
 			print(`Trying to format {target}`)
 		end
 
-		local read, source = pcall(fs.readFileToString, sourcePath)
+		const read, source = pcall(fs.readFileToString, sourcePath)
 		if not read then
 			table.insert(failed, `{target}: {source}`)
 			continue
 		end
 
-		local ok, formatted = pcall(format.formatSource, source)
+		const ok, formatted = pcall(format.formatSource, source)
 		if not ok then
 			table.insert(failed, `{target}: {formatted}`)
 			continue
