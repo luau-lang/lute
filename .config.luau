@@ -19,6 +19,7 @@ return {
 				"**/generated-types.luau",
 				"**/*unformatted*.luau",
 				"tests/parserExamples/**",
+				"tests/src/debug/compile_error.luau",
 			},
 		},
 	},

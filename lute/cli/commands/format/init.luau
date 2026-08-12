@@ -75,7 +75,7 @@ local function main(...: string)
 	if args:has("help") then
 		print(args:usage("lute format"))
 		print(DESCRIPTION)
-		args:help()
+		print(args:help())
 		return
 	end
 
