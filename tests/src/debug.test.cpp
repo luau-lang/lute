@@ -644,7 +644,7 @@ TEST_SUITE("Debug")
     {
         std::string fixturePath = getDebugFixturePath("variables.luau");
         Target target(*runtime);
-        target.setBreakpoint(fixturePath, 10);
+        target.setBreakpoint(fixturePath, 14);
         config.onBreakpointHit = [&](const Thread&, const Breakpoint&)
         {
             const std::vector<Thread>& threads = target.getThreads();
@@ -675,6 +675,11 @@ TEST_SUITE("Debug")
             int ref1 = checkVariable(*locals1, "_d", "{1, 2, 3}", "table", true);
             int ref2 = checkVariable(*locals1, "_e", "{a=4, [4]={r=13}, b=\"5\"}", "table", true);
             checkVariable(*locals1, "_f", "true", "boolean", false);
+            checkVariable(*locals1, "g", "function", "function", false);
+            checkVariable(*locals1, "_largeinteger", "123456789101112", "number", false);
+            checkVariable(*locals1, "_smallnumber", "1.2e-14", "number", false);
+            checkVariable(*locals1, "_largenumber", "3.53e+106", "number", false);
+            checkVariable(*locals1, "_escapechar", "\"\\n\\\\\\r\\t\\\"\"", "string", false);
             std::optional<std::vector<Variable>> table = target.getVariables(ref1);
             REQUIRE(table.has_value());
             checkVariable(*table, "[1]", "1", "number", false);
