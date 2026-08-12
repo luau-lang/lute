@@ -775,7 +775,7 @@ TEST_SUITE("Debug")
     {
         std::string fixturePath = getDebugFixturePath("variables.luau");
         Target target(*runtime);
-        target.setBreakpoint(fixturePath, 10);
+        target.setBreakpoint(fixturePath, 15);
 
         std::vector<Variable> capturedLocals;
         config.onBreakpointHit = [&](const Thread&, const Breakpoint&)

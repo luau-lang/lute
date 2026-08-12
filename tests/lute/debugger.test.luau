@@ -636,10 +636,10 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
-		target:setBreakpoint(mainPath, 10)
+		target:setBreakpoint(mainPath, 15)
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
-			onBreakpointHit = function(thread, bp)
+			onBreakpointHit = function(_thread, _bp)
 				local threads = target:getThreads()
 				check.eq(#threads, 1)
 				local stacktrace = target:getStackTrace(threads[1].id)
@@ -649,11 +649,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				assert(type(result) ~= "string")
 				local variable = result :: debug.Variable
 				check.eq(variable.value, "50.4")
-				result = target:evaluateExpression("_e[4]", stacktrace[1].id)
+				result = target:evaluateExpression("_e[4]", stacktrace[2].id)
 				assert(type(result) ~= "string")
 				variable = result :: debug.Variable
 				check.eq(variable.value, "{r=13}")
-				result = target:evaluateExpression("a +", stacktrace[1].id)
+				result = target:evaluateExpression("a +", stacktrace[2].id)
 				assert(type(result) == "string")
 				local error = result :: string
 				check.eq(error, "eval:1: Expected identifier when parsing expression, got <eof>")
