@@ -5,7 +5,7 @@ local path = require("@std/path")
 local process = require("@std/process")
 
 local lutePath = path.format(process.execPath())
-local USAGE = "Usage: lute debug serve"
+local USAGE = "Usage: lute debug [subcommand] [options]"
 
 local function normalizePath(p: string): string
 	return (p:gsub("\\", "/"))
@@ -127,8 +127,8 @@ test.suite("LuteDebug", function(suite)
 		dapStream.dapLoop(reader, write)
 		checkEquivalence(getWritten())
 	end)
-	-- tests DAP setBreakpoints and loadedSources
-	suite:case("luteDebugBreakpointsSources", function(assert)
+	-- tests DAP can launch code, then tests setBreakpoints, threads, loadedSources
+	suite:case("luteDebugLaunch", function(assert)
 		local fixturePath = path.format(path.join(process.cwd(), "tests/src/debug/loop.luau"))
 		local inMsg1 = makeMessage({
 			seq = 1,
@@ -146,8 +146,9 @@ test.suite("LuteDebug", function(suite)
 		local inMsg4 =
 			makeMessage({ seq = 4, type = "request", command = "launch", arguments = { program = fixturePath } })
 		local inMsg5 = makeMessage({ seq = 5, type = "request", command = "loadedSources" })
-		local inMsg6 = makeMessage({ seq = 6, type = "request", command = "terminate" })
-		local input = inMsg1 .. inMsg2 .. inMsg3 .. inMsg4 .. inMsg5 .. inMsg6
+		local inMsg6 = makeMessage({ seq = 5, type = "request", command = "threads" })
+		local inMsg7 = makeMessage({ seq = 6, type = "request", command = "terminate" })
+		local input = inMsg1 .. inMsg2 .. inMsg3 .. inMsg4 .. inMsg5 .. inMsg6 .. inMsg7
 
 		local write, getWritten, _ = makeWriter()
 		dapStream.dapLoop(makeChunkReader(input, #input), write)
@@ -194,11 +195,23 @@ test.suite("LuteDebug", function(suite)
 		assert.eq(source.name, "loop.luau")
 
 		local msg7, rest7 = parseJsonMessage(rest6)
-		assert.eq(msg7.command, "terminate")
+		assert.eq(msg7.command, "threads")
 		assert.eq(msg7.success, true)
+		local threadBody = msg7.body :: json.Object
+		local threads = json.asArray(threadBody.threads) :: json.Array
+		assert.that(threads ~= nil)
+		assert.eq(#threads, 1)
+		local thread = json.asObject(threads[1]) :: json.Object
+		assert.that(thread ~= nil)
+		assert.eq(thread.id, 1)
+		assert.eq(thread.name, "Main Coroutine")
 
-		local msg8, _ = parseJsonMessage(rest7)
-		assert.eq(msg8.event, "terminated")
+		local msg8, rest8 = parseJsonMessage(rest7)
+		assert.eq(msg8.command, "terminate")
+		assert.eq(msg8.success, true)
+
+		local msg9, _ = parseJsonMessage(rest8)
+		assert.eq(msg9.event, "terminated")
 	end)
 	-- tests specifically for DAP unknown format
 	suite:case("luteDebugUnknown", function(assert)

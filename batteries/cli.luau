@@ -223,20 +223,22 @@ local function label(argument: ArgData): string
 	return `--{argument.name}{if #aliasStr > 0 then ` (-{aliasStr})` else ""}`
 end
 
-function cli.help(self: Parser, formatter: ((s: string) -> string)?): ()
+function cli.help(self: Parser, formatter: ((s: string) -> string)?): string
 	local fmt = formatter or function(s)
 		return s
 	end
 
-	print(fmt("Options:"))
+	local lines = { fmt("Options:") }
 	for _, argument in self.arguments do
 		if argument.options.hidden then
 			continue
 		end
 
 		local reqStr = if argument.options.required then "(required) " else ""
-		print(fmt(`  {label(argument)} - {reqStr}{argument.options.help or ""}`))
+		table.insert(lines, fmt(`  {label(argument)} - {reqStr}{argument.options.help or ""}`))
 	end
+
+	return table.concat(lines, "\n")
 end
 
 return table.freeze(cli)

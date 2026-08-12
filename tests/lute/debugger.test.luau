@@ -29,13 +29,13 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(typeof(target), "Target")
 		local fixturePath = path.format(path.join(proc.cwd(), "tests/src/debug/loop.luau"))
 		local bp = target:setBreakpoint(fixturePath, 6)
-		check.eq(bp.id, 0)
+		check.eq(bp.id, 1)
 		check.eq(bp.line, 6)
 		check.eq(bp.sourcePath, normalizePath(fixturePath))
 		check.eq(bp.status, "pendingInstall")
 		local numHits, onFinished, numBreakpointsInstalled = 0, false, 0
 		local targetLaunched = target:launch(fixturePath, {}, {
-			onBreakpointHit = function(_bp)
+			onBreakpointHit = function(_thread, _bp)
 				numHits += 1
 				local continued = target:continueProcess()
 				check.that(continued)
@@ -49,7 +49,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -91,7 +91,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(bpGet, nil)
 		local numHitsBp2, numHitsBp3, onFinished, numBreakpointsUninstalled = 0, 0, false, 0
 		local targetLaunched = target:launch(fixturePath, {}, {
-			onBreakpointHit = function(bp)
+			onBreakpointHit = function(_thread, bp)
 				if bp.id == bp2.id then
 					check.eq(bp.id, bp2.id)
 					check.eq(bp.line, 7)
@@ -123,7 +123,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		-- we expect this breakpoint to be immediately installed
 		bpGet = assert(target:getBreakpointById(bp3.id))
 		check.eq(bpGet.id, bp3.id)
@@ -157,7 +157,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -185,7 +185,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local bpHit2 = 0
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
-			onBreakpointHit = function(bp)
+			onBreakpointHit = function(_thread, bp)
 				if bp.id == bp1.id then
 					bpHit1 += 1
 				else
@@ -200,7 +200,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 			end,
 		})
-		check.that(targetLaunched)
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished
@@ -212,5 +212,236 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local source = target:getLoadedSources()
 		check.that(table.find(source, normalizePath(mainPath)))
 		check.that(table.find(source, normalizePath(triangPath)))
+	end)
+	-- this test case focuses on multiple threads
+	suite:case("multithread", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/task.luau"))
+		local bp1 = target:setBreakpoint(mainPath, 7)
+		local _bp2 = target:setBreakpoint(mainPath, 14)
+		local bpHit1 = 0
+		local bpHit2 = 0
+		local onFinished = false
+		local maxThreads = 0
+		local launchError = target:launch(mainPath, {}, {
+			onBreakpointHit = function(thread, bp)
+				if bp.id == bp1.id then
+					local stoppedThread = assert(target:getStoppedThread())
+					check.eq(stoppedThread.id, 2)
+					check.eq(thread.id, 2)
+					check.eq(thread.name, "Coroutine 2")
+					bpHit1 += 1
+				else
+					local stoppedThread = assert(target:getStoppedThread())
+					check.eq(stoppedThread.id, 3)
+					check.eq(thread.id, 3)
+					check.eq(thread.name, "Coroutine 3")
+					bpHit2 += 1
+				end
+				local threads = target:getThreads()
+				maxThreads = math.max(maxThreads, #threads)
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(launchError, nil)
+		local stoppedThread = assert(target:getMainThread())
+		check.eq(stoppedThread.id, 1)
+		check.eq(stoppedThread.name, "Main Coroutine")
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+		check.eq(bpHit1, 5)
+		check.eq(bpHit2, 5)
+		check.eq(maxThreads, 3)
+	end)
+	-- this test case focuses on replacing print
+	suite:case("print", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/print.luau"))
+		local prints: { { read msg: string, read line: number } } = {}
+		local onFinished = false
+		local launchError = target:launch(mainPath, {}, {
+			onPrint = function(msg, source, line)
+				local print = {
+					msg = msg,
+					line = line,
+				}
+				table.insert(prints, print)
+				check.eq(source, normalizePath(mainPath))
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(launchError, nil)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+		check.eq(#prints, 2)
+		check.eq(prints[1].msg, "3\tabc\tfalse\n")
+		check.eq(prints[1].line, 6)
+		check.eq(prints[2].msg, "custom_value\n")
+		check.eq(prints[2].line, 7)
+	end)
+	-- this test case focuses on stepping
+	suite:case("step", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/step.luau"))
+		target:setBreakpoint(mainPath, 9)
+		local bpHit = false
+		local stepsDone = 0
+		local onFinished = false
+		local error = target:launch(mainPath, {}, {
+			onStepStop = function(thread, _info)
+				check.eq(thread.id, 1)
+				stepsDone += 1
+			end,
+			onBreakpointHit = function(_thread, _bp)
+				bpHit = true
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.that(error == nil)
+		check.eq(
+			waitUntil(function()
+				return bpHit
+			end),
+			true
+		)
+		local threads = target:getThreads()
+		local threadId = threads[1].id
+		local source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 9)
+		target:step(threadId, "stepIn")
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 1
+			end),
+			true
+		)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 10)
+		target:stepIn(threadId)
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 2
+			end),
+			true
+		)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 2)
+		target:stepOut(threadId)
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 3
+			end),
+			true
+		)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 11)
+		target:stepOver(threadId)
+		check.eq(
+			waitUntil(function()
+				return stepsDone == 4
+			end),
+			true
+		)
+		source, line = target:getStoppedLocation()
+		assert(line)
+		assert(source)
+		check.eq(source, normalizePath(mainPath))
+		check.eq(line, 12)
+		target:continueProcess()
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+	end)
+	-- this test case focuses on inspecting stack trace
+	suite:case("inspectStackTrace", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/pow.luau"))
+		target:setBreakpoint(mainPath, 5)
+		local hits = 0
+		local onFinished = false
+		local launchError = target:launch(mainPath, {}, {
+			onBreakpointHit = function(_thread, _bp)
+				hits += 1
+				local threads = target:getThreads()
+				check.eq(#threads, 1)
+				local stacktrace = target:getStackTrace(threads[1].id)
+				assert(stacktrace)
+				check.eq(#stacktrace, hits + 1)
+				check.eq(target:getStackDepth(threads[1].id), hits + 1)
+				for i, frame in stacktrace do
+					check.eq(frame.id, i)
+					check.eq(frame.column, 0)
+					check.eq(frame.sourcePath, normalizePath(mainPath))
+					if i == #stacktrace then
+						check.eq(frame.name, "(entry)")
+						check.eq(frame.line, 8)
+					else
+						check.eq(frame.name, "pow")
+						check.eq(frame.line, 5)
+					end
+				end
+				-- this a small check that getStackFrame() works
+				local specificFrame = target:getStackFrame(threads[1].id, 0)
+				assert(specificFrame)
+				check.eq(specificFrame.id, 1)
+				check.eq(specificFrame.column, 0)
+				check.eq(specificFrame.sourcePath, normalizePath(mainPath))
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(launchError, nil)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
 	end)
 end)
