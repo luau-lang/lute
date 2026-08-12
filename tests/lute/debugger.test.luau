@@ -22,6 +22,59 @@ local function waitUntil(condition: () -> boolean, timeout: number?, pollInterva
 	return condition()
 end
 
+local function checkScope(
+	check: any,
+	scopes: { debug.VariableScope },
+	name: string,
+	scopeType: debug.VariableScopeType,
+	threadId: number,
+	level: number
+)
+	local found = nil
+	for _, scope in scopes do
+		if scope.name == name then
+			found = scope
+			break
+		end
+	end
+	check.that(found ~= nil)
+	if found then
+		check.eq(found.type, scopeType)
+		check.eq(found.threadId, threadId)
+		check.eq(found.level, level)
+		check.that(found.variableRef > 0)
+	end
+end
+
+local function checkVariable(
+	check: any,
+	vars: { debug.Variable },
+	name: string,
+	value: string,
+	varType: string,
+	isTable: boolean
+): number
+	local found = nil
+	for _, var in vars do
+		if var.name == name then
+			found = var
+			break
+		end
+	end
+	check.that(found ~= nil)
+	if found then
+		check.eq(found.value, value)
+		check.eq(found.type, varType)
+		if isTable then
+			check.that(found.variableRef > 0)
+		else
+			check.eq(found.variableRef, 0)
+		end
+		return found.variableRef
+	end
+	return 0
+end
+
 test.suite("LuteDebugLibrarySuite", function(suite)
 	-- this test cause mainly checks launching and hitting breakpoints
 	suite:case("launchAndHitBreakpoint", function(check)
@@ -437,6 +490,78 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end,
 		})
 		check.eq(launchError, nil)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+	end)
+	-- this test case focuses on inspecting variables
+	suite:case("inspectVariables", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
+		target:setBreakpoint(mainPath, 15)
+		local onFinished = false
+		local targetLaunched = target:launch(mainPath, {}, {
+			onBreakpointHit = function(_thread, _bp)
+				local threads = target:getThreads()
+				check.eq(#threads, 1)
+				local stacktrace = target:getStackTrace(threads[1].id)
+				assert(stacktrace)
+				check.eq(#stacktrace, 2)
+				local scopes = target:getScopes(stacktrace[1].id)
+				assert(scopes)
+				check.eq(#scopes, 2)
+				checkScope(check, scopes, "Locals", "locals", threads[1].id, 0)
+				checkScope(check, scopes, "Upvalues", "upvalues", threads[1].id, 0)
+				for _, scope in scopes do
+					if scope.type == "locals" then
+						local locals = target:getVariables(scope.variableRef)
+						assert(locals)
+						check.eq(#locals, 1)
+						checkVariable(check, locals, "_k", "25.2", "number", false)
+					end
+					if scope.type == "upvalues" then
+						local upvalues = target:getVariables(scope.variableRef)
+						assert(upvalues)
+						check.eq(#upvalues, 2)
+						checkVariable(check, upvalues, "a", "24", "number", false)
+						checkVariable(check, upvalues, "_b", "1.2", "number", false)
+					end
+				end
+				local locals = target:getVariablesByScopeType(stacktrace[2].id, "locals")
+				assert(locals)
+				check.eq(#locals, 12)
+				checkVariable(check, locals, "a", "24", "number", false)
+				checkVariable(check, locals, "_b", "1.2", "number", false)
+				checkVariable(check, locals, "_c", '"test"', "string", false)
+				local ref1 = checkVariable(check, locals, "_d", "{1, 2, 3}", "table", true)
+				checkVariable(check, locals, "_e", '{a=4, [4]={r=13}, b="5"}', "table", true)
+				checkVariable(check, locals, "_f", "true", "boolean", false)
+				checkVariable(check, locals, "g", "function", "function", false)
+				checkVariable(check, locals, "_largeinteger", "123456789101112", "number", false)
+				checkVariable(check, locals, "_smallnumber", "1.2e-14", "number", false)
+				checkVariable(check, locals, "_largenumber", "3.53e+106", "number", false)
+				checkVariable(check, locals, "_escapechar", '"\\n\\\\\\r\\t\\""', "string", false)
+				checkVariable(check, locals, "_precise", "1.234567891011", "number", false)
+				local tables = target:getVariables(ref1)
+				assert(tables)
+				check.eq(#tables, 3)
+				checkVariable(check, tables, "[1]", "1", "number", false)
+				checkVariable(check, tables, "[2]", "2", "number", false)
+				checkVariable(check, tables, "[3]", "3", "number", false)
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(targetLaunched, nil)
 		check.eq(
 			waitUntil(function()
 				return onFinished

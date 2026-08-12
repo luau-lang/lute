@@ -54,6 +54,42 @@ struct StackFrame
     int column = 0;
 };
 
+enum class VariableScopeType
+{
+    Locals,
+    Upvalues,
+    Table
+};
+
+// A VariableScope corresponds to an object with a variable reference.
+// Locals and upvalues are returned by the getScope() method. After calling getVariable,
+// we can use variable reference IDs to drill into tables if necessary.
+struct VariableScope
+{
+    int variableReference;
+    VariableScopeType type;
+    std::string name;
+    int threadId; // for locals and upvalues
+    int level;    // for locals and upvalues
+    int luaref;   // for tables
+
+    explicit VariableScope(int variableReference, VariableScopeType type, std::string name, int threadId = -1, int level = -1, int luaref = -1);
+    static VariableScope makeLocals(int variableReference, int threadId, int level);
+    static VariableScope makeUpvalues(int variableReference, int threadId, int level);
+    static VariableScope makeTable(int variableReference, int luaref);
+};
+
+// Variables are generally returned by the getVariable() method. They only have
+// a reference ID if they represent a table.
+struct Variable
+{
+    std::string name;
+    // a one line representation, especially if variable is a table
+    std::string value;
+    std::string type;
+    int variableReference = 0;
+};
+
 enum class StepType
 {
     StepOver,
@@ -124,6 +160,9 @@ struct Target
     std::vector<Thread> getThreads() const; // can be used when not paused
     std::optional<StackFrame> getStackFrame(int threadId, int level);
     std::optional<std::vector<StackFrame>> getStackTrace(int threadId, int startLevel = 0, int maximumLevel = 0);
+    std::optional<std::vector<VariableScope>> getScopes(int frameId);
+    std::optional<std::vector<Variable>> getVariables(int varRef);
+    std::optional<std::vector<Variable>> getVariablesByScopeType(int frameId, VariableScopeType contextType);
 
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
@@ -160,10 +199,11 @@ private:
     // our stopped thread that we need to requeue when we continue
     lua_State* stoppedThread = nullptr;
     std::shared_ptr<Ref> stoppedThreadRef;
-    // Due to the way Lua debugger callbacks works, we need to set the line in the callback. otherwise, outside of the callback, lua_getinfo
-    // will return the previous line.
+    // Due to the way Lua debugger callbacks works, we need to set the stopped line/instruction in the callback. otherwise, outside of the callback, lua_getinfo
+    // will return the previous line/instruction.
     int stoppedLine = -1;
     std::string stoppedLocation = "";
+    const uint32_t* stoppedPc = nullptr;
 
     // for require contexts
     std::unique_ptr<RequireCtx> requireCtx;
@@ -181,6 +221,13 @@ private:
     std::unordered_map<int, std::unordered_map<int, StackFrame>> stateToStackFrame; // thread id -> level -> stackFrame
     std::unordered_map<int, std::pair<int, int>> idToStackFrameInfo;                // stack frame id -> stack frame's (thread id, level)
 
+    // variable information
+    // scope and variable information also resets upon every continue(). The base id resets to 1.
+    int variableRefId = 1;
+    std::unordered_map<int, std::vector<VariableScope>> scopeCache; // stack frame id -> scope
+    std::unordered_map<int, std::vector<Variable>> variableCache;   // var reference -> all variables under that reference
+    std::unordered_map<int, VariableScope> variableContexts;        // var reference -> variableContext
+
     // only set when stepping
     std::optional<StepInfo> stepInfo;
 
@@ -188,6 +235,8 @@ private:
     std::optional<Breakpoint> getBreakpointBySourceLineHelper(std::string source, int line) const;
     std::optional<Breakpoint> getBreakpointByIdHelper(int breakpointId) const;
     std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
+    std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
+    std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
@@ -195,6 +244,11 @@ private:
     std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> modifyPendingBreakpoints(lua_State* L);
 
     void computeStoppedLocation(lua_State* L);
+
+    Variable makeVariable(lua_State* L, const std::string& name);
+    std::vector<Variable> getLocalsHelper(lua_State* L, int level);
+    std::vector<Variable> getUpvaluesHelper(lua_State* L, int level);
+    std::vector<Variable> getTableHelper(lua_State* L, int idx);
 
     void installBpHitCallback();
     void installExitCallback();

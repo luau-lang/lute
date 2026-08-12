@@ -63,6 +63,34 @@ static BreakpointStatus breakpointStringToStatus(const char* status)
     LUTE_UNREACHABLE();
 }
 
+// VariableScopeType is
+// "locals" | "upvalues" | "table"
+static const char* scopeTypeToString(VariableScopeType type)
+{
+    switch (type)
+    {
+    case VariableScopeType::Locals:
+        return "locals";
+    case VariableScopeType::Upvalues:
+        return "upvalues";
+    case VariableScopeType::Table:
+        return "table";
+    }
+    LUAU_ASSERT(false);
+    LUAU_UNREACHABLE();
+}
+
+static VariableScopeType scopeStringToType(const char* type)
+{
+    if (strcmp(type, "locals") == 0)
+        return VariableScopeType::Locals;
+    if (strcmp(type, "upvalues") == 0)
+        return VariableScopeType::Upvalues;
+    if (strcmp(type, "table") == 0)
+        return VariableScopeType::Table;
+    LUAU_ASSERT(false);
+    LUAU_UNREACHABLE();
+}
 
 // StepType is
 // "stepIn" | "stepOver" | "stepOut"
@@ -147,6 +175,49 @@ static int pushStackFrame(lua_State* L, const StackFrame& frame)
     lua_setfield(L, -2, "line");
     lua_pushinteger(L, frame.column);
     lua_setfield(L, -2, "column");
+    return 1;
+}
+
+// Helper to push a VariableScope type, which is
+// variableRef: number
+// type: string
+// name: string
+// threadId: number
+// level: number
+static int pushVariableScope(lua_State* L, const VariableScope& scope)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 5);
+    lua_pushinteger(L, scope.variableReference);
+    lua_setfield(L, -2, "variableRef");
+    lua_pushstring(L, scopeTypeToString(scope.type));
+    lua_setfield(L, -2, "type");
+    lua_pushstring(L, scope.name.c_str());
+    lua_setfield(L, -2, "name");
+    lua_pushinteger(L, scope.threadId);
+    lua_setfield(L, -2, "threadId");
+    lua_pushinteger(L, scope.level);
+    lua_setfield(L, -2, "level");
+    return 1;
+}
+
+// Helper to push a Variable type, which is
+// name: string
+// value: string
+// type: string
+// variableRef: number
+static int pushVariable(lua_State* L, const Variable& variable)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 4);
+    lua_pushstring(L, variable.name.c_str());
+    lua_setfield(L, -2, "name");
+    lua_pushstring(L, variable.value.c_str());
+    lua_setfield(L, -2, "value");
+    lua_pushstring(L, variable.type.c_str());
+    lua_setfield(L, -2, "type");
+    lua_pushinteger(L, variable.variableReference);
+    lua_setfield(L, -2, "variableRef");
     return 1;
 }
 
@@ -446,6 +517,77 @@ static int target_getStackTrace(lua_State* L)
     return 1;
 }
 
+// target.getScopes(int frameId)
+// returns {VariableScoope} | nil
+static int target_getScopes(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int frameId = luaL_checkinteger(L, 2);
+    std::optional<std::vector<VariableScope>> scopes = target->getScopes(frameId);
+    if (!scopes)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    checkStack(L, 1);
+    lua_createtable(L, scopes->size(), 0);
+    for (int i = 0; i < (int)scopes->size(); i++)
+    {
+        pushVariableScope(L, scopes->at(i));
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+// target.getVariables(int variableRef)
+// returns {Variable} | nil
+static int target_getVariables(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int variableRef = luaL_checkinteger(L, 2);
+    std::optional<std::vector<Variable>> variables = target->getVariables(variableRef);
+    if (!variables)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    checkStack(L, 1);
+    lua_createtable(L, variables->size(), 0);
+    for (int i = 0; i < (int)variables->size(); i++)
+    {
+        pushVariable(L, variables->at(i));
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+// target.getVariablesByScopeType(int frameId, VariableScopeType scopeType)
+// returns {Variable} | nil
+static int target_getVariablesByScopeType(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int frameId = luaL_checkinteger(L, 2);
+    const char* typeStr = luaL_checkstring(L, 3);
+    VariableScopeType type = scopeStringToType(typeStr);
+    std::optional<std::vector<Variable>> variables = target->getVariablesByScopeType(frameId, type);
+    if (!variables)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    checkStack(L, 1);
+    lua_createtable(L, variables->size(), 0);
+    for (int i = 0; i < (int)variables->size(); i++)
+    {
+        pushVariable(L, variables->at(i));
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
 {
     lua_getfield(L, tableIndex, field);
@@ -651,6 +793,9 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"getStackDepth", debug::target_getStackDepth},
     {"getStackFrame", debug::target_getStackFrame},
     {"getStackTrace", debug::target_getStackTrace},
+    {"getScopes", debug::target_getScopes},
+    {"getVariables", debug::target_getVariables},
+    {"getVariablesByScopeType", debug::target_getVariablesByScopeType},
 };
 
 static void initializeTarget(lua_State* L)
