@@ -1,3 +1,5 @@
+#include "lute/debuginternals.h"
+
 #include "Luau/StringUtils.h"
 
 #include <chrono>
@@ -531,6 +533,30 @@ TEST_SUITE("Debug")
                     CHECK(std::find(threads.begin(), threads.end(), t2) != threads.end());
                     CHECK(std::find(threads.begin(), threads.end(), t3) != threads.end());
                 }
+                std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                REQUIRE(stackTrace.has_value());
+                StackFrame threadStack = stackTrace->at(stackTrace->size() - 1);
+                CHECK(threadStack.line == 7);
+                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Locals);
+                REQUIRE(vars.has_value());
+                checkVariable(*vars, "_i", std::to_string(hitsBp1), "number", false);
+                for (const Thread& thread : threads)
+                {
+                    if (thread.id == 3)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 12 && line <= 15));
+                    }
+                    if (thread.id == 1)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 18 && line <= 20));
+                    }
+                }
             }
             else if (bp.id == bp2.id)
             {
@@ -538,7 +564,32 @@ TEST_SUITE("Debug")
                 auto stoppedThread = target.getStoppedThread();
                 REQUIRE(stoppedThread.has_value());
                 CHECK(stoppedThread->id == 3);
+                std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                REQUIRE(stackTrace.has_value());
+                StackFrame threadStack = stackTrace->at(stackTrace->size() - 1);
+                CHECK(threadStack.line == 14);
+                const std::vector<Thread>& threads = target.getThreads();
+                for (const Thread& thread : threads)
+                {
+                    if (thread.id == 2)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 5 && line <= 8));
+                    }
+                    if (thread.id == 1)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 18 && line <= 20));
+                    }
+                }
                 hitsBp2++;
+                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Locals);
+                REQUIRE(vars.has_value());
+                checkVariable(*vars, "_i", std::to_string(hitsBp2), "number", false);
             }
             else
             {
