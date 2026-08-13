@@ -1110,29 +1110,29 @@ static std::string printTable(lua_State* L, int idx, int levelsToPrint)
     return result + "}";
 }
 
-Variable Target::makeVariable(lua_State* L, const std::string& name, int parentRef)
+Variable Target::makeVariable(lua_State* L, int stackSlot, const std::string& name, int parentRef)
 {
     Variable var;
     var.name = name;
-    var.type = lua_typename(L, lua_type(L, -1));
+    var.type = lua_typename(L, lua_type(L, stackSlot));
     switch (lua_type(L, -1))
     {
     case LUA_TNUMBER:
     {
-        var.value = convertNumberToString(L, -1);
+        var.value = convertNumberToString(L, stackSlot);
         break;
     }
     case LUA_TSTRING:
-        var.value = "\"" + escapeString(std::string(lua_tostring(L, -1))) + "\"";
+        var.value = "\"" + escapeString(std::string(lua_tostring(L, stackSlot))) + "\"";
         break;
     case LUA_TBOOLEAN:
-        var.value = lua_toboolean(L, -1) ? "true" : "false";
+        var.value = lua_toboolean(L, stackSlot) ? "true" : "false";
         break;
     case LUA_TTABLE:
     {
-        var.value = printTable(L, -1, 2);
+        var.value = printTable(L, stackSlot, 2);
         var.variableReference = variableRefId;
-        lua_pushvalue(L, -1);
+        lua_pushvalue(L, stackSlot);
         int ref = lua_ref(L, -1);
         lua_pop(L, 1);
         int threadId = -1, level = -1;
@@ -1147,7 +1147,7 @@ Variable Target::makeVariable(lua_State* L, const std::string& name, int parentR
         break;
     }
     default:
-        var.value = lua_typename(L, lua_type(L, -1));
+        var.value = lua_typename(L, lua_type(L, stackSlot));
         break;
     }
     return var;
@@ -1169,10 +1169,14 @@ std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level, int paren
     while ((name = lua_getlocal(L, level, n)) != nullptr)
     {
 <<<<<<< HEAD
+<<<<<<< HEAD
         vars.emplace_back(makeVariable(L, name));
 =======
         vars.push_back(makeVariable(L, name, parentRef));
 >>>>>>> 189a6022 (set expression c++)
+=======
+        vars.push_back(makeVariable(L, -1, name, parentRef));
+>>>>>>> bce1d7b6 (fix multivalues)
         lua_pop(L, 1);
         n++;
     }
@@ -1191,10 +1195,14 @@ std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level, int par
     while ((name = lua_getupvalue(L, -1, n)) != nullptr)
     {
 <<<<<<< HEAD
+<<<<<<< HEAD
         vars.emplace_back(makeVariable(L, name));
 =======
         vars.push_back(makeVariable(L, name, parentRef));
 >>>>>>> 189a6022 (set expression c++)
+=======
+        vars.push_back(makeVariable(L, -1, name, parentRef));
+>>>>>>> bce1d7b6 (fix multivalues)
         lua_pop(L, 1);
         n++;
     }
@@ -1224,10 +1232,14 @@ std::vector<Variable> Target::getTableHelper(lua_State* L, int idx, int parentRe
     {
         std::string key = getKeyFromTableType(L);
 <<<<<<< HEAD
+<<<<<<< HEAD
         vars.emplace_back(makeVariable(L, key));
 =======
         vars.push_back(makeVariable(L, key, parentRef));
 >>>>>>> 189a6022 (set expression c++)
+=======
+        vars.push_back(makeVariable(L, -1, key, parentRef));
+>>>>>>> bce1d7b6 (fix multivalues)
         lua_pop(L, 1);
     }
     return vars;
@@ -1342,7 +1354,7 @@ void Target::injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTa
     lua_pop(L, 1);
 }
 
-EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread)
+EvaluateMultiResult Target::evaluateExpressionMultiHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread)
 {
     // this guards against leaving the evalthread on the global thread of the child runtime.
     struct StackGuard
@@ -1427,14 +1439,24 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int co
         return std::string(err ? err : "runtime error");
     }
     int numReturned = lua_gettop(evalThread);
-    if (numReturned != 1)
-        return Luau::format("expression %s evaluates to %d values not 1", expression.c_str(), numReturned);
-    if (lua_gettop(evalThread) == 0)
-        return Variable{expression, "(no value)", "void"};
-    Variable var = makeVariable(evalThread, expression, -1);
+    std::vector<Variable> vars;
+    for (int i = numReturned; i >= 1; i--)
+        vars.push_back(makeVariable(evalThread, -1 * i, expression, -1));
     if (moveThread != nullptr)
-        lua_xmove(evalThread, moveThread, 1);
-    return var;
+        lua_xmove(evalThread, moveThread, numReturned);
+    return vars;
+}
+
+// a version that returns only one variable
+EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread)
+{
+    EvaluateMultiResult result = evaluateExpressionMultiHelper(contextThread, contextLevel, expression, moveThread);
+    if (std::holds_alternative<std::string>(result))
+        return std::get<std::string>(result);
+    std::vector<Variable> vars = std::get<std::vector<Variable>>(result);
+    if (vars.size() != 1)
+        return Luau::format("expression %s evaluates to %d values not 1", expression.c_str(), (int)(vars.size()));
+    return std::get<std::vector<Variable>>(result).at(0);
 }
 
 EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
@@ -1635,13 +1657,13 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
             else
                 return result;
         }
-        return "l-expression is not in any local scope (global scope is currently not supported)";
+        return Luau::format("l-expression %s is not in any local scope (global scope is currently not supported)", lExpression.c_str());
     }
-    EvaluateResult write = evaluateExpressionHelper(thread, level, lExpression + " = " + setExpression);
+    EvaluateMultiResult write = evaluateExpressionMultiHelper(thread, level, lExpression + " = " + setExpression);
     if (std::holds_alternative<std::string>(write))
-    {
-        return write;
-    }
+        return std::get<std::string>(write);
+    if (std::get<std::vector<Variable>>(write).size() > 0)
+        return Luau::format("l-expression %s should not return values", lExpression.c_str());
     EvaluateResult newValue = evaluateExpressionHelper(thread, level, "return " + lExpression);
     variableCache.clear();
     return newValue;

@@ -116,6 +116,8 @@ struct Variable
     bool isTruthy();
 };
 
+// evaluate multi result exists to evaluate expressions that can return any amount of variables (including zero)
+using EvaluateMultiResult = std::variant<std::vector<Variable>, std::string>;
 using EvaluateResult = std::variant<Variable, std::string>;
 
 enum class StepType
@@ -280,6 +282,12 @@ private:
     std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
     std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
     std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
+    EvaluateMultiResult evaluateExpressionMultiHelper(
+        lua_State* contextThread,
+        int contextLevel,
+        std::string expression,
+        lua_State* moveThread = nullptr
+    );
     EvaluateResult evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread = nullptr);
     EvaluateResult setVariableHelper(VariableScope& context, std::string varName, std::string setExpression);
     void continueProcessHelper();
@@ -305,11 +313,11 @@ private:
     void stoppedSetState(lua_State* L, StopYieldMode yieldMode = StopYieldMode::Auto);
     void stoppedDispatchCallback(std::function<void()> debugStopCallback);
 
-    Variable makeVariable(lua_State* L, const std::string& name);
-    std::vector<Variable> getLocalsHelper(lua_State* L, int level);
-    std::vector<Variable> getUpvaluesHelper(lua_State* L, int level);
-    std::vector<Variable> getGlobalsHelper(lua_State* L, int level);
-    std::vector<Variable> getTableHelper(lua_State* L, int idx);
+    Variable makeVariable(lua_State* L, int stackSlot, const std::string& name, int parentRef);
+    std::vector<Variable> getLocalsHelper(lua_State* L, int level, int parentRef);
+    std::vector<Variable> getUpvaluesHelper(lua_State* L, int level, int parentRef);
+    std::vector<Variable> getGlobalsHelper(lua_State* L, int level, int parentRef);
+    std::vector<Variable> getTableHelper(lua_State* L, int idx, int parentRef);
 
     void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
     void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);

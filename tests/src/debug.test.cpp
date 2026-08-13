@@ -1116,8 +1116,8 @@ TEST_SUITE("Debug")
         std::string fixturePath = getDebugFixturePath("variables.luau");
         Target target(*runtime);
         Breakpoint bp1 = target.setBreakpoint(fixturePath, 6);
-        Breakpoint bp2 = target.setBreakpoint(fixturePath, 9);
-        Breakpoint bp3 = target.setBreakpoint(fixturePath, 10);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 14);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 15);
         config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             const std::vector<Thread>& threads = target.getThreads();
@@ -1179,8 +1179,8 @@ TEST_SUITE("Debug")
         std::string fixturePath = getDebugFixturePath("variables.luau");
         Target target(*runtime);
         Breakpoint bp1 = target.setBreakpoint(fixturePath, 6);
-        Breakpoint bp2 = target.setBreakpoint(fixturePath, 9);
-        Breakpoint bp3 = target.setBreakpoint(fixturePath, 10);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 14);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 15);
         config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             const std::vector<Thread>& threads = target.getThreads();
