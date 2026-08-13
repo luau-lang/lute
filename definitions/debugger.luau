@@ -56,8 +56,8 @@ export type VariableScope = {
 }
 
 --- Represents possible types of variables in Luau.
-export type LuaValueType =
-	"nil"
+export type LuauValueType =
+	| "nil"
 	| "boolean"
 	| "number"
 	| "vector"
@@ -75,7 +75,7 @@ export type LuaValueType =
 export type Variable = {
 	name: string,
 	value: string,
-	type: LuaValueType,
+	type: LuauValueType,
 	variableRef: number,
 }
 
