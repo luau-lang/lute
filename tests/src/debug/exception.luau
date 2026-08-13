@@ -1,4 +1,4 @@
-local ok, err = pcall(function()
+local _ok, _err = pcall(function()
 	local y = nil
 	return y.foo
 end)
