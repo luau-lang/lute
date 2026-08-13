@@ -838,9 +838,9 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				hits += 1
 				check.eq(thread.id, 1)
 				if id == exceptionInfo.caughtId then
-					check.eq(message, `{mainPath}:3: attempt to index nil with 'foo'`)
+					check.eq(message, `{normalizePath(mainPath)}:3: attempt to index nil with 'foo'`)
 				else
-					check.eq(message, `{mainPath}:7: attempt to index nil with 'foo'`)
+					check.eq(message, `{normalizePath(mainPath)}:7: attempt to index nil with 'foo'`)
 				end
 				target:continueProcess()
 			end,
