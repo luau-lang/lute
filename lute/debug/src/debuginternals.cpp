@@ -1156,7 +1156,10 @@ EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
     int level = -1;
     if (frameId != -1)
     {
-        auto [threadId, threadLevel] = idToStackFrameInfo.at(frameId);
+        auto it = idToStackFrameInfo.find(frameId);
+        if (it == idToStackFrameInfo.end())
+            return "frame was not found";
+        auto [threadId, threadLevel] = it->second;
         thread = threadIdToState.at(threadId);
         level = threadLevel;
     }
