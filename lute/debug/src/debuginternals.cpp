@@ -1077,6 +1077,7 @@ void Target::injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTa
 
 EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::string expression)
 {
+    // this guards against leaving the evalthread on the global thread of the child runtime.
     struct StackGuard
     {
         lua_State* L;
@@ -1086,7 +1087,7 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::st
         }
     };
     // we 1) don't want to register the eval thread to stop re-entrancy on the mutex (and to not have floating threads on the screen)
-    // and consequently 2) don't want to run gc during evaluation
+    // and consequently 2) don't want to run gc during evaluation.
     struct CallbackGuard
     {
         lua_State* global;
@@ -1142,8 +1143,9 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::st
         const char* err = lua_tostring(evalThread, -1);
         return std::string(err ? err : "runtime error");
     }
-    if (lua_gettop(evalThread) == 0)
-        return Variable{expression, "(no value)", "void"};
+    int numReturned = lua_gettop(evalThread);
+    if (numReturned != 1)
+        return Luau::format("expression %s evaluates to %d values not 1", expression.c_str(), numReturned);
     return makeVariable(evalThread, expression);
 }
 
