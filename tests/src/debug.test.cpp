@@ -1,5 +1,3 @@
-#include "lute/debuginternals.h"
-
 #include "Luau/StringUtils.h"
 
 #include <chrono>
