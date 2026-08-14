@@ -1114,11 +1114,12 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::st
     CallbackGuard callbackGuard(childRuntime->GL);
     lua_State* evalThread = lua_newthread(childRuntime->GL);
     StackGuard stackGuard{childRuntime->GL};
-    luaL_sandboxthread(evalThread);
-    // sets the previous global table is the top most scope of all variables
     lua_newtable(evalThread);
+    // sets the main script thread's global table as the top most scope of all variables for evaluation
+    // this is safe since globals are shared among tasks.
     lua_newtable(evalThread);
-    lua_pushvalue(evalThread, LUA_GLOBALSINDEX);
+    lua_pushvalue(scriptThread, LUA_GLOBALSINDEX);
+    lua_xmove(scriptThread, evalThread, 1);
     lua_setfield(evalThread, 2, "__index");
     lua_setmetatable(evalThread, 1);
     // inject locals + upvalues

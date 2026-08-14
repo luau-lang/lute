@@ -775,7 +775,7 @@ TEST_SUITE("Debug")
     {
         std::string fixturePath = getDebugFixturePath("variables.luau");
         Target target(*runtime);
-        target.setBreakpoint(fixturePath, 15);
+        target.setBreakpoint(fixturePath, 16);
 
         std::vector<Variable> capturedLocals;
         config.onBreakpointHit = [&](const Thread&, const Breakpoint&)
@@ -833,6 +833,11 @@ TEST_SUITE("Debug")
             var = std::get<Variable>(result);
             CHECK(var.value == "\"42\"");
             CHECK(var.type == "string");
+            result = target.evaluateExpression("_global_var", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "16");
+            CHECK(var.type == "number");
             target.continueProcess();
         };
         target.launch(fixturePath, {}, config);
