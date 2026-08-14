@@ -833,7 +833,7 @@ static int target_launch(lua_State* L)
         {
             config.onException = [ref, runtime](const Thread& thread, int bpId, const std::string& errorMessage)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread, bpId, errorMessage](lua_State* L)
                     {
