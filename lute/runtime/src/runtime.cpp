@@ -353,6 +353,7 @@ void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::functi
 
 void Runtime::scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
 {
+    LUTE_ASSERT(numLaunchedDebuggees > 0);
     scheduleLuauCallback(callbackRef, argPusher);
     // We may be blocked on uv_run(getEventLoop(), UV_RUN_ONCE) in runOnce().
     // This signals the uv_loop and unblocks it to run the continuation.

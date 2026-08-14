@@ -96,6 +96,7 @@ Target::~Target()
                 return;
             lua_break(L);
         };
+        parentRuntime.numLaunchedDebuggees--;
     }
     childRuntime.reset();
 }
@@ -445,6 +446,7 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
         // The no-op schedule wakes the event loop so it picks up the queued thread.
         paused = false;
         launched = true;
+        parentRuntime.numLaunchedDebuggees++;
         childRuntime->schedule([]() {});
         childRuntime->runContinuously();
     }

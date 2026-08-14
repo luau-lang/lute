@@ -139,6 +139,7 @@ struct Runtime
 
     // for debug mode only:
     const bool debugMode;
+    std::atomic<int> numLaunchedDebuggees = 0;
     void stopDebug();
     void continueDebug();
     // Same as scheduleLuauCallback but we since we don't call this within a libuv completion callback
