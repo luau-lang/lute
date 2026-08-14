@@ -655,7 +655,7 @@ std::optional<StackFrame> Target::getStackFrameHelper(int threadId, int level)
             frame.sourcePath = getSourceFromChunk(ar.source);
             // edge case: when we hit a breakpoint, the pc is sent backward one
             // so that we can hit it again, so lua_getinfo() fails.
-            if (level == 0 && stoppedLine != -1)
+            if (level == 0 && stoppedLine != -1 && threadLua == stoppedThread)
                 frame.line = stoppedLine;
             else
                 frame.line = ar.currentline;
