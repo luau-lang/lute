@@ -1,10 +1,10 @@
-local stringext = require("@std/stringext")
+const stringext = require("@std/stringext")
 
-local function formatSource(source: string): string
-	local trimmed = stringext.trim(source)
+const formatLib = {}
+
+function formatLib.formatSource(source: string): string
+	const trimmed = stringext.trim(source)
 	return if trimmed == "" then trimmed else `{trimmed}\n`
 end
 
-return {
-	formatSource = formatSource,
-}
+return table.freeze(formatLib)
