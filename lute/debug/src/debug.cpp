@@ -602,7 +602,7 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 {
     return [ref, runtime](const Breakpoint& bp)
     {
-        runtime->scheduleLuauCallback(
+        runtime->scheduleDebugLuauCallback(
             ref,
             [bp](lua_State* L)
             {
@@ -652,7 +652,7 @@ static int target_launch(lua_State* L)
         if (auto ref = getOptionalCallback(L, 4, "onBreakpointHit"))
             config.onBreakpointHit = [ref, runtime](const Thread& thread, const Breakpoint& bp)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread, bp](lua_State* L)
                     {
@@ -670,7 +670,7 @@ static int target_launch(lua_State* L)
         {
             config.onExit = [ref, runtime](bool success)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [success](lua_State* L)
                     {
@@ -685,7 +685,7 @@ static int target_launch(lua_State* L)
         {
             config.onPause = [ref, runtime](const Thread& thread)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread](lua_State* L)
                     {
@@ -699,7 +699,7 @@ static int target_launch(lua_State* L)
         {
             config.onPrint = [ref, runtime](std::string message, std::string source, int line)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [message, source, line](lua_State* L)
                     {
@@ -716,7 +716,7 @@ static int target_launch(lua_State* L)
         {
             config.onStepStop = [ref, runtime](const Thread& thread, const StepInfo& stepInfo)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread, stepInfo](lua_State* L)
                     {
