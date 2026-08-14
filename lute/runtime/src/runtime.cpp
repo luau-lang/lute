@@ -35,7 +35,6 @@ Runtime::Runtime(LuteReporter& reporter, bool debugMode)
         reporter.reportError("Couldn't initialize runtime event loop");
         LUTE_ASSERT(false);
     }
-
     // We need a way to communicate from other uv threads to the main event loop.
     if (uv_async_init(&eventLoop, &wakeupEventLoop, [](uv_async_t*) {}) < 0)
     {
@@ -357,7 +356,6 @@ void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::functi
 
 void Runtime::scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
 {
-    LUTE_ASSERT(debugMode);
     scheduleLuauCallback(callbackRef, argPusher);
     // We may be blocked on uv_run(getEventLoop(), UV_RUN_ONCE) in runOnce().
     // This signals the uv_loop and unblocks it to run the continuation.
