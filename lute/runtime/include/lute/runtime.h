@@ -141,6 +141,9 @@ struct Runtime
     const bool debugMode;
     void stopDebug();
     void continueDebug();
+    // Same as scheduleLuauCallback but we since we don't call this within a libuv completion callback
+    // we need to wake up the libuv event loop.
+    void scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher);
 
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);

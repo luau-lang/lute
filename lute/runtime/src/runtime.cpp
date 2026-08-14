@@ -290,9 +290,6 @@ void Runtime::schedule(std::function<void()> f)
     continuations.push_back(std::move(f));
 
     runLoopCv.notify_one();
-    // We may be blocked on uv_run(getEventLoop(), UV_RUN_ONCE) in runOnce().
-    // This signals the uv_loop and unblocks it to run the continuation.
-    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
@@ -312,7 +309,6 @@ void Runtime::scheduleLuauError(std::shared_ptr<Ref> ref, std::string error)
     );
 
     runLoopCv.notify_one();
-    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua_State*)> cont)
@@ -336,7 +332,6 @@ void Runtime::scheduleLuauResume(std::shared_ptr<Ref> ref, std::function<int(lua
     );
 
     runLoopCv.notify_one();
-    uv_async_send(&wakeupEventLoop);
 }
 
 void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
@@ -358,6 +353,14 @@ void Runtime::scheduleLuauCallback(std::shared_ptr<Ref> callbackRef, std::functi
     );
 
     runLoopCv.notify_one();
+}
+
+void Runtime::scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher)
+{
+    LUTE_ASSERT(debugMode);
+    scheduleLuauCallback(callbackRef, argPusher);
+    // We may be blocked on uv_run(getEventLoop(), UV_RUN_ONCE) in runOnce().
+    // This signals the uv_loop and unblocks it to run the continuation.
     uv_async_send(&wakeupEventLoop);
 }
 
