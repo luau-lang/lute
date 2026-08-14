@@ -84,6 +84,14 @@ TEST_CASE("module_path_bare_directory_not_ambiguous")
             CHECK(mp->getRealPath().type == ResolvedRealPath::PathType::File);
         }
 
+        SUBCASE("bare_directory_without_init_or_sibling_resolves_to_directory")
+        {
+            CHECK(mp->toParent() == NavigationStatus::Success);
+            CHECK(mp->toChild("plaindir") == NavigationStatus::Success);
+            CHECK(mp->getRealPath().realPath == joinPaths(modulePathRoot, "plaindir"));
+            CHECK(mp->getRealPath().type == ResolvedRealPath::PathType::Directory);
+        }
+
         SUBCASE("file_with_sibling_init_directory_is_ambiguous")
         {
             CHECK(mp->toParent() == NavigationStatus::Success);
