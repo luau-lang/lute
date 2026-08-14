@@ -32,14 +32,12 @@ Runtime::Runtime(LuteReporter& reporter, bool debugMode)
 
     if (uv_loop_init(&eventLoop) < 0)
     {
-        reporter.reportError("Couldn't initialize runtime event loop");
-        LUTE_ASSERT(false);
+        LUTE_ASSERT(!"Couldn't initialize runtime event loop");
     }
-    // We need a way to communicate from other uv threads to the main event loop.
+    // We need a way to communicate from other uv threads to the main event loop for scheduleDebugLuauCallback.
     if (uv_async_init(&eventLoop, &wakeupEventLoop, [](uv_async_t*) {}) < 0)
     {
-        reporter.reportError("Couldn't initialize uv_async handle to wake up main event");
-        LUTE_ASSERT(false);
+        LUTE_ASSERT(!"Couldn't initialize uv_async handle to wake up main event");
     }
     // This unreferences wakeupEventLoop so that it does not count towards hasWork() through uv_loop_alive
     uv_unref((uv_handle_t*)&wakeupEventLoop);
@@ -67,8 +65,7 @@ Runtime::~Runtime()
     //  This means there are no outstanding handles, or file descriptors or work, to do, and we can exit
     if (uv_loop_close(&eventLoop) < 0)
     {
-        reporter.reportError("uv main loop failed to destruct due to active handles");
-        LUTE_ASSERT(false);
+        LUTE_ASSERT(!"uv main loop failed to destruct due to active handles");
     }
 }
 
@@ -243,7 +240,7 @@ void Runtime::runContinuously()
                            ) == 0;
 
     if (!runLoopThreadStarted)
-        LUTE_ASSERT("Failed to create runtime runloop thread");
+        LUTE_ASSERT(!"Failed to create runtime runloop thread");
 }
 
 bool Runtime::hasContinuations()
