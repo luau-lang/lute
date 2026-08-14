@@ -636,7 +636,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
-		target:setBreakpoint(mainPath, 15)
+		target:setBreakpoint(mainPath, 16)
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
 			onBreakpointHit = function(_thread, _bp)
