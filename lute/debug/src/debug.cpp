@@ -785,7 +785,7 @@ static int target_launch(lua_State* L)
         {
             config.onLogpointHit = [ref, runtime](std::string message, const Breakpoint& bp)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [message, bp](lua_State* L)
                     {
