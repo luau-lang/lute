@@ -66,6 +66,11 @@ VariableScope VariableScope::makeUpvalues(int variableReference, int threadId, i
     return VariableScope(variableReference, VariableScopeType::Upvalues, "Upvalues", threadId, level, -1);
 }
 
+VariableScope VariableScope::makeGlobals(int variableReference)
+{
+    return VariableScope(variableReference, VariableScopeType::Globals, "Globals", -1, -1, -1);
+}
+
 VariableScope VariableScope::makeTable(int variableReference, int luaref)
 {
     return VariableScope(variableReference, VariableScopeType::Table, "Table", -1, -1, luaref);
@@ -718,11 +723,23 @@ std::optional<std::vector<VariableScope>> Target::getScopesHelper(int threadId, 
     VariableScope locals = VariableScope::makeLocals(variableRefId, threadId, level);
     variableContexts.insert_or_assign(variableRefId, locals);
     variableRefId++;
-    contexts.push_back(locals);
+    contexts.emplace_back(locals);
     VariableScope upvalues = VariableScope::makeUpvalues(variableRefId, threadId, level);
     variableContexts.insert_or_assign(variableRefId, upvalues);
     variableRefId++;
-    contexts.push_back(upvalues);
+    contexts.emplace_back(upvalues);
+    if (globalVariableRef)
+    {
+        contexts.emplace_back(variableContexts.at(*globalVariableRef));
+    }
+    else
+    {
+        VariableScope globals = VariableScope::makeGlobals(variableRefId);
+        variableContexts.insert_or_assign(variableRefId, globals);
+        globalVariableRef = variableRefId;
+        variableRefId++;
+        contexts.emplace_back(globals);
+    }
     scopeCache[frame->id] = contexts;
     return contexts;
 }
@@ -829,7 +846,7 @@ static std::string printTable(lua_State* L, int idx, int levelsToPrint)
             value = lua_typename(L, lua_type(L, -1));
             break;
         }
-        keyValues.push_back(std::make_pair(key, value));
+        keyValues.emplace_back(std::make_pair(key, value));
         lua_pop(L, 1);
     }
     // this is a "pure" array
@@ -905,7 +922,7 @@ std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
     std::vector<Variable> vars;
     while ((name = lua_getlocal(L, level, n)) != nullptr)
     {
-        vars.push_back(makeVariable(L, name));
+        vars.emplace_back(makeVariable(L, name));
         lua_pop(L, 1);
         n++;
     }
@@ -923,12 +940,17 @@ std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level)
     const char* name;
     while ((name = lua_getupvalue(L, -1, n)) != nullptr)
     {
-        vars.push_back(makeVariable(L, name));
+        vars.emplace_back(makeVariable(L, name));
         lua_pop(L, 1);
         n++;
     }
     lua_pop(L, 1);
     return vars;
+}
+
+std::vector<Variable> Target::getGlobalsHelper()
+{
+    return getTableHelper(scriptThread, LUA_GLOBALSINDEX);
 }
 
 std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
@@ -939,7 +961,7 @@ std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
     while (lua_next(L, absoluteIndex))
     {
         std::string key = getKeyFromTableType(L);
-        vars.push_back(makeVariable(L, key));
+        vars.emplace_back(makeVariable(L, key));
         lua_pop(L, 1);
     }
     return vars;
@@ -961,6 +983,10 @@ std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
     else if (context.type == VariableScopeType::Upvalues)
     {
         vars = getUpvaluesHelper(threadIdToState.at(context.threadId), context.level);
+    }
+    else if (context.type == VariableScopeType::Globals)
+    {
+        vars = getGlobalsHelper();
     }
     else
     {
@@ -1022,6 +1048,7 @@ void Target::continueProcessHelper()
     idToStackFrameInfo.clear();
 
     variableRefId = 1;
+    globalVariableRef = std::nullopt;
     for (auto& [_, scope] : variableContexts)
         if (scope.type == VariableScopeType::Table)
             lua_unref(childRuntime->GL, scope.luaref);

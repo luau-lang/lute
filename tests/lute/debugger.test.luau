@@ -553,7 +553,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
-		target:setBreakpoint(mainPath, 15)
+		target:setBreakpoint(mainPath, 16)
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
 			onBreakpointHit = function(_thread, _bp)
@@ -564,9 +564,10 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				check.eq(#stacktrace, 2)
 				local scopes = target:getScopes(stacktrace[1].id)
 				assert(scopes)
-				check.eq(#scopes, 2)
+				check.eq(#scopes, 3)
 				checkScope(check, scopes, "Locals", "locals", threads[1].id, 0)
 				checkScope(check, scopes, "Upvalues", "upvalues", threads[1].id, 0)
+				checkScope(check, scopes, "Globals", "globals", -1, -1)
 				for _, scope in scopes do
 					if scope.type == "locals" then
 						local locals = target:getVariables(scope.variableRef)
@@ -580,6 +581,12 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 						check.eq(#upvalues, 2)
 						checkVariable(check, upvalues, "a", "24", "number", false)
 						checkVariable(check, upvalues, "_b", "1.2", "number", false)
+					end
+					if scope.type == "globals" then
+						local globals = target:getVariables(scope.variableRef)
+						assert(globals)
+						check.eq(#globals, 1)
+						checkVariable(check, globals, "_global_var", "16", "number", false)
 					end
 				end
 				local locals = target:getVariablesByScopeType(stacktrace[2].id, "locals")
@@ -603,6 +610,10 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				checkVariable(check, tables, "[1]", "1", "number", false)
 				checkVariable(check, tables, "[2]", "2", "number", false)
 				checkVariable(check, tables, "[3]", "3", "number", false)
+				local globals = target:getVariablesByScopeType(stacktrace[2].id, "globals")
+				assert(globals)
+				check.eq(#globals, 1)
+				checkVariable(check, globals, "_global_var", "16", "number", false)
 				local continued = target:continueProcess()
 				check.that(continued)
 			end,
