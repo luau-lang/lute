@@ -510,7 +510,7 @@ TEST_SUITE("Debug")
         Breakpoint bp3 = target.setBreakpoint(fixturePath, 22);
 
         int maxThreadsSeen = 0;
-        int hitsBp1 = 0, hitsBp2 = 0;
+        int hitsBp1 = 0, hitsBp2 = 0, total_sum_val = 0;
         config.onBreakpointHit = [&](const Thread& thread, const Breakpoint& bp)
         {
             if (bp.id == bp1.id)
@@ -538,6 +538,10 @@ TEST_SUITE("Debug")
                 std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
                 REQUIRE(vars.has_value());
                 checkVariable(*vars, "_i", std::to_string(hitsBp1), "number", false);
+                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalues);
+                REQUIRE(upvalues.has_value());
+                checkVariable(*upvalues, "total_sum", std::to_string(total_sum_val), "number", false);
+                total_sum_val++;
                 for (const Thread& thread : threads)
                 {
                     if (thread.id == 3)
@@ -588,6 +592,10 @@ TEST_SUITE("Debug")
                 std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
                 REQUIRE(vars.has_value());
                 checkVariable(*vars, "_i", std::to_string(hitsBp2), "number", false);
+                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalues);
+                REQUIRE(upvalues.has_value());
+                checkVariable(*upvalues, "total_sum", std::to_string(total_sum_val), "number", false);
+                total_sum_val++;
             }
             else
             {
@@ -613,6 +621,7 @@ TEST_SUITE("Debug")
         CHECK(maxThreadsSeen == 3);
         CHECK(hitsBp1 == 5);
         CHECK(hitsBp2 == 5);
+        CHECK(total_sum_val == 10);
     }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_stackFrame")
