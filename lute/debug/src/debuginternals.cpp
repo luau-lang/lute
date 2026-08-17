@@ -1055,7 +1055,6 @@ void Target::injectLocals(lua_State* L, int level, lua_State* eval, int evalTabl
         L->ci->savedpc = original;
 }
 
-
 void Target::injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex)
 {
     lua_Debug ar = {};
