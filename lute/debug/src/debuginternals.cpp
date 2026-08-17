@@ -1068,7 +1068,7 @@ void Target::continueProcessHelper()
                 continueRequestedBp.insert(stoppedThread);
             bpHit = std::nullopt;
         }
-        childRuntime->runningThreads.push_back({true, stoppedThreadRef, 0});
+        childRuntime->runningThreads.push_front({true, stoppedThreadRef, 0});
         // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
         // runToCompletion() has not exited.
         childRuntime->schedule([]() {});
