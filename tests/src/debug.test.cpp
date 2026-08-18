@@ -510,7 +510,9 @@ TEST_SUITE("Debug")
         Breakpoint bp3 = target.setBreakpoint(fixturePath, 22);
 
         int maxThreadsSeen = 0;
-        int hitsBp1 = 0, hitsBp2 = 0, total_sum_val = 0;
+        int hitsBp1 = 0;
+        int hitsBp2 = 0;
+        int total_sum_val = 0;
         config.onBreakpointHit = [&](const Thread& thread, const Breakpoint& bp)
         {
             if (bp.id == bp1.id)
