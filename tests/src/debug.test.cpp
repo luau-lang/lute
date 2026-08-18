@@ -540,7 +540,7 @@ TEST_SUITE("Debug")
                 std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
                 REQUIRE(vars.has_value());
                 checkVariable(*vars, "_i", std::to_string(hitsBp1), "number", false);
-                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalues);
+                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalue);
                 REQUIRE(upvalues.has_value());
                 checkVariable(*upvalues, "total_sum", std::to_string(total_sum_val), "number", false);
                 total_sum_val++;
@@ -594,7 +594,7 @@ TEST_SUITE("Debug")
                 std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
                 REQUIRE(vars.has_value());
                 checkVariable(*vars, "_i", std::to_string(hitsBp2), "number", false);
-                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalues);
+                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalue);
                 REQUIRE(upvalues.has_value());
                 checkVariable(*upvalues, "total_sum", std::to_string(total_sum_val), "number", false);
                 total_sum_val++;
