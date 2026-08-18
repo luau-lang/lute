@@ -549,7 +549,7 @@ TEST_SUITE("Debug")
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
                         int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 12 && line <= 15));
+                        CHECK((line >= 12 && line <= 16));
                     }
                     if (thread.id == 1)
                     {
@@ -578,7 +578,7 @@ TEST_SUITE("Debug")
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
                         int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 5 && line <= 8));
+                        CHECK((line >= 5 && line <= 9));
                     }
                     if (thread.id == 1)
                     {

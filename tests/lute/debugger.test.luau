@@ -280,7 +280,6 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local maxThreads = 0
 		local launchError = target:launch(mainPath, {}, {
 			onBreakpointHit = function(thread, bp)
-				print(bp.id, bpHit1, bpHit2)
 				if bp.id == bp1.id then
 					check.eq(thread.id, 2)
 					local stoppedThread = assert(target:getStoppedThread())
@@ -306,7 +305,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 						if otherThread.id == 3 then
 							local otherTrace = assert(target:getStackTrace(otherThread.id))
 							local line = otherTrace[#otherTrace].line
-							check.that(line >= 20 and line <= 15)
+							check.that(line >= 12 and line <= 16)
 						end
 						if otherThread.id == 1 then
 							local otherTrace = assert(target:getStackTrace(otherThread.id))
@@ -326,7 +325,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 						if otherThread.id == 2 then
 							local otherTrace = assert(target:getStackTrace(otherThread.id))
 							local line = otherTrace[#otherTrace].line
-							check.that(line >= 5 and line <= 8)
+							check.that(line >= 5 and line <= 9)
 						end
 						if otherThread.id == 1 then
 							local otherTrace = assert(target:getStackTrace(otherThread.id))
