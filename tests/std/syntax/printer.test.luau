@@ -84,7 +84,7 @@ test.suite("SyntaxPrinter", function(suite)
 
 	suite:case("typePackReplacement", function(assert)
 		local source = [[type t = (...number) -> ()]]
-		local expected = [[type t = (...number) -> string, ...string)]]
+		local expected = [[type t = (...number) -> (string, ...string)]]
 
 		local stat = syntax.parseBlock("type t = () -> (string, ...string)")
 		local tp = ((stat.statements[1] :: syntaxTypes.CstStatTypeAlias).type :: syntaxTypes.CstTypeFunction).returnTypes
@@ -758,7 +758,7 @@ type foo = (number) -> ()
 		local source = [[-- hello
 type foo = (number) -> (number, ...string)
 -- world]]
-		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
+		local expected = "-- hello\ntype foo = (number) -> replaced\n-- world"
 
 		checkReplacement(source, expected, function(cst)
 			return query.findAllFromRoot(cst, syntaxUtils.isTypePackExplicit):replace(function()
@@ -797,7 +797,7 @@ type foo = (number) -> (...number)
 		local source = [[-- hello
 type foo = (number) -> (number, ...string)
 -- world]]
-		local expected = "-- hello\ntype foo = (number) -> (replaced)\n-- world"
+		local expected = "-- hello\ntype foo = (number) -> replaced\n-- world"
 
 		checkReplacement(source, expected, function(cst)
 			return query.findAllFromRoot(cst, syntaxUtils.isTypePack):replace(function()
