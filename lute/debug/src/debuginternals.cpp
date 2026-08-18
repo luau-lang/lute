@@ -439,7 +439,7 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
 
         scriptThread = thread;
         scriptThreadRef = getRefForThread(scriptThread);
-        childRuntime->runningThreads.push_back({true, scriptThreadRef, static_cast<int>(args.size())});
+        childRuntime->runningThreads.emplace_back(true, scriptThreadRef, static_cast<int>(args.size()));
         lua_pop(childRuntime->GL, 1);
         lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
         cb->userdata = this;
@@ -1068,7 +1068,7 @@ void Target::continueProcessHelper()
                 continueRequestedBp.insert(stoppedThread);
             bpHit = std::nullopt;
         }
-        childRuntime->runningThreads.push_front({true, stoppedThreadRef, 0});
+        childRuntime->runningThreads.emplace_front(true, stoppedThreadRef, 0);
         // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
         // runToCompletion() has not exited.
         childRuntime->schedule([]() {});

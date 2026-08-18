@@ -20,6 +20,13 @@ static void lua_close_checked(lua_State* L)
         lua_close(L);
 }
 
+ThreadToContinue::ThreadToContinue(bool success, std::shared_ptr<Ref> ref, int argumentCount)
+    : success(success)
+    , ref(std::move(ref))
+    , argumentCount(argumentCount)
+{
+}
+
 Runtime::Runtime(LuteReporter& reporter, bool debugMode)
     : reporter(reporter)
     , globalState(nullptr, lua_close_checked)
