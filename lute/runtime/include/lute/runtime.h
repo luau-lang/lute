@@ -30,6 +30,8 @@ struct ThreadToContinue
     std::shared_ptr<Ref> ref;
     int argumentCount = 0;
     std::function<void()> cont;
+    ThreadToContinue() = default;
+    ThreadToContinue(bool success, std::shared_ptr<Ref> ref, int argumentCount);
 };
 
 // Optional completion hook for threads that need native follow-up work once
