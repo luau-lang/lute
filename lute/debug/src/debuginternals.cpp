@@ -58,17 +58,17 @@ VariableScope::VariableScope(int variableReference, VariableScopeType type, std:
 
 VariableScope VariableScope::makeLocals(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Locals, "Locals", threadId, level, -1);
+    return VariableScope(variableReference, VariableScopeType::Local, "Locals", threadId, level, -1);
 }
 
 VariableScope VariableScope::makeUpvalues(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Upvalues, "Upvalues", threadId, level, -1);
+    return VariableScope(variableReference, VariableScopeType::Upvalue, "Upvalues", threadId, level, -1);
 }
 
 VariableScope VariableScope::makeGlobals(int variableReference)
 {
-    return VariableScope(variableReference, VariableScopeType::Globals, "Globals", -1, -1, -1);
+    return VariableScope(variableReference, VariableScopeType::Global, "Globals", -1, -1, -1);
 }
 
 VariableScope VariableScope::makeTable(int variableReference, int luaref)
@@ -976,15 +976,15 @@ std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
     if (auto it2 = variableCache.find(varRef); it2 != variableCache.end())
         return it2->second;
     std::vector<Variable> vars;
-    if (context.type == VariableScopeType::Locals)
+    if (context.type == VariableScopeType::Local)
     {
         vars = getLocalsHelper(threadIdToState.at(context.threadId), context.level);
     }
-    else if (context.type == VariableScopeType::Upvalues)
+    else if (context.type == VariableScopeType::Upvalue)
     {
         vars = getUpvaluesHelper(threadIdToState.at(context.threadId), context.level);
     }
-    else if (context.type == VariableScopeType::Globals)
+    else if (context.type == VariableScopeType::Global)
     {
         vars = getGlobalsHelper();
     }

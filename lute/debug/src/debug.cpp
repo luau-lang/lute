@@ -64,17 +64,17 @@ static BreakpointStatus breakpointStringToStatus(const char* status)
 }
 
 // VariableScopeType is
-// "locals" | "upvalues" | "globals" | "table"
+// "local" | "upvalue" | "global" | "table"
 static const char* scopeTypeToString(VariableScopeType type)
 {
     switch (type)
     {
-    case VariableScopeType::Locals:
-        return "locals";
-    case VariableScopeType::Upvalues:
-        return "upvalues";
-    case VariableScopeType::Globals:
-        return "globals";
+    case VariableScopeType::Local:
+        return "local";
+    case VariableScopeType::Upvalue:
+        return "upvalue";
+    case VariableScopeType::Global:
+        return "global";
     case VariableScopeType::Table:
         return "table";
     }
@@ -84,12 +84,12 @@ static const char* scopeTypeToString(VariableScopeType type)
 
 static VariableScopeType scopeStringToType(const char* type)
 {
-    if (strcmp(type, "locals") == 0)
-        return VariableScopeType::Locals;
-    if (strcmp(type, "upvalues") == 0)
-        return VariableScopeType::Upvalues;
-    if (strcmp(type, "globals") == 0)
-        return VariableScopeType::Globals;
+    if (strcmp(type, "local") == 0)
+        return VariableScopeType::Local;
+    if (strcmp(type, "upvalue") == 0)
+        return VariableScopeType::Upvalue;
+    if (strcmp(type, "global") == 0)
+        return VariableScopeType::Global;
     if (strcmp(type, "table") == 0)
         return VariableScopeType::Table;
     LUAU_ASSERT(false);

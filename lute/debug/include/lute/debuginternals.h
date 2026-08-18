@@ -56,9 +56,9 @@ struct StackFrame
 
 enum class VariableScopeType
 {
-    Locals,
-    Upvalues,
-    Globals,
+    Local,
+    Upvalue,
+    Global,
     Table
 };
 

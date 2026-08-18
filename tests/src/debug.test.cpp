@@ -535,7 +535,7 @@ TEST_SUITE("Debug")
                 REQUIRE(stackTrace.has_value());
                 StackFrame threadStack = stackTrace->at(stackTrace->size() - 1);
                 CHECK(threadStack.line == 7);
-                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Locals);
+                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
                 REQUIRE(vars.has_value());
                 checkVariable(*vars, "_i", std::to_string(hitsBp1), "number", false);
                 for (const Thread& thread : threads)
@@ -585,7 +585,7 @@ TEST_SUITE("Debug")
                     }
                 }
                 hitsBp2++;
-                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Locals);
+                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
                 REQUIRE(vars.has_value());
                 checkVariable(*vars, "_i", std::to_string(hitsBp2), "number", false);
             }
@@ -703,25 +703,25 @@ TEST_SUITE("Debug")
             // stack frame at level 0
             std::optional<std::vector<VariableScope>> scopes = target.getScopes(stackframe->at(0).id);
             REQUIRE(scopes.has_value());
-            checkScope(*scopes, VariableScopeType::Locals, "Locals", 1, 0);
-            checkScope(*scopes, VariableScopeType::Upvalues, "Upvalues", 1, 0);
-            checkScope(*scopes, VariableScopeType::Globals, "Globals", -1, -1);
-            std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalues);
+            checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 0);
+            checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 0);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
             REQUIRE(upvalues0.has_value());
             checkVariable(*upvalues0, "a", "24", "number", false);
             checkVariable(*upvalues0, "_b", "1.2", "number", false);
-            std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Locals);
+            std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Local);
             checkVariable(*locals0, "_k", "25.2", "number", false);
-            std::optional<std::vector<Variable>> globals = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Globals);
+            std::optional<std::vector<Variable>> globals = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Global);
             REQUIRE(globals.has_value());
             checkVariable(*globals, "_global_var", "16", "number", false);
             // stack frame at level 1
             scopes = target.getScopes(stackframe->at(1).id);
             REQUIRE(scopes.has_value());
-            checkScope(*scopes, VariableScopeType::Locals, "Locals", 1, 1);
-            checkScope(*scopes, VariableScopeType::Upvalues, "Upvalues", 1, 1);
-            checkScope(*scopes, VariableScopeType::Globals, "Globals", -1, -1);
-            std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Locals);
+            checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 1);
+            checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 1);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Local);
             REQUIRE(locals1.has_value());
             checkVariable(*locals1, "a", "24", "number", false);
             checkVariable(*locals1, "_b", "1.2", "number", false);
@@ -748,10 +748,10 @@ TEST_SUITE("Debug")
             table = target.getVariables(ref3);
             REQUIRE(table.has_value());
             checkVariable(*table, "r", "13", "number", false);
-            std::optional<std::vector<Variable>> upvalues1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Upvalues);
+            std::optional<std::vector<Variable>> upvalues1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Upvalue);
             REQUIRE(upvalues1.has_value());
             CHECK(upvalues1->size() == 0);
-            globals = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Globals);
+            globals = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Global);
             REQUIRE(globals.has_value());
             checkVariable(*globals, "_global_var", "16", "number", false);
             target.continueProcess();
