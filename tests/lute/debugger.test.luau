@@ -306,7 +306,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 						if otherThread.id == 3 then
 							local otherTrace = assert(target:getStackTrace(otherThread.id))
 							local line = otherTrace[#otherTrace].line
-							check.that(line >= 12 and line <= 15)
+							check.that(line >= 20 and line <= 15)
 						end
 						if otherThread.id == 1 then
 							local otherTrace = assert(target:getStackTrace(otherThread.id))
