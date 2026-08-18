@@ -280,6 +280,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local maxThreads = 0
 		local launchError = target:launch(mainPath, {}, {
 			onBreakpointHit = function(thread, bp)
+				print(bp.id, bpHit1, bpHit2)
 				if bp.id == bp1.id then
 					check.eq(thread.id, 2)
 					local stoppedThread = assert(target:getStoppedThread())
