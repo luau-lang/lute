@@ -1,3 +1,4 @@
+_global_var = 16
 local a = 12
 local _b = 1.2
 local _c = "test"

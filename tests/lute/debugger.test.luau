@@ -299,7 +299,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 					local stackTrace = assert(target:getStackTrace(thread.id))
 					local threadStack = stackTrace[#stackTrace]
 					check.eq(threadStack.line, 7)
-					local vars = assert(target:getVariablesByScopeType(threadStack.id, "locals"))
+					local vars = assert(target:getVariablesByScopeType(threadStack.id, "local"))
 					checkVariable(check, vars, "_i", tostring(bpHit1), "number", false)
 					for _, otherThread in threads do
 						if otherThread.id == 3 then
@@ -334,7 +334,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 						end
 					end
 					bpHit2 += 1
-					local vars = assert(target:getVariablesByScopeType(threadStack.id, "locals"))
+					local vars = assert(target:getVariablesByScopeType(threadStack.id, "local"))
 					checkVariable(check, vars, "_i", tostring(bpHit2), "number", false)
 				else
 					local stoppedThread = assert(target:getStoppedThread())
@@ -553,7 +553,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
-		target:setBreakpoint(mainPath, 15)
+		target:setBreakpoint(mainPath, 16)
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
 			onBreakpointHit = function(_thread, _bp)
@@ -564,25 +564,32 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				check.eq(#stacktrace, 2)
 				local scopes = target:getScopes(stacktrace[1].id)
 				assert(scopes)
-				check.eq(#scopes, 2)
-				checkScope(check, scopes, "Locals", "locals", threads[1].id, 0)
-				checkScope(check, scopes, "Upvalues", "upvalues", threads[1].id, 0)
+				check.eq(#scopes, 3)
+				checkScope(check, scopes, "Locals", "local", threads[1].id, 0)
+				checkScope(check, scopes, "Upvalues", "upvalue", threads[1].id, 0)
+				checkScope(check, scopes, "Globals", "global", -1, -1)
 				for _, scope in scopes do
-					if scope.type == "locals" then
+					if scope.type == "local" then
 						local locals = target:getVariables(scope.variableRef)
 						assert(locals)
 						check.eq(#locals, 1)
 						checkVariable(check, locals, "_k", "25.2", "number", false)
 					end
-					if scope.type == "upvalues" then
+					if scope.type == "upvalue" then
 						local upvalues = target:getVariables(scope.variableRef)
 						assert(upvalues)
 						check.eq(#upvalues, 2)
 						checkVariable(check, upvalues, "a", "24", "number", false)
 						checkVariable(check, upvalues, "_b", "1.2", "number", false)
 					end
+					if scope.type == "global" then
+						local globals = target:getVariables(scope.variableRef)
+						assert(globals)
+						check.eq(#globals, 1)
+						checkVariable(check, globals, "_global_var", "16", "number", false)
+					end
 				end
-				local locals = target:getVariablesByScopeType(stacktrace[2].id, "locals")
+				local locals = target:getVariablesByScopeType(stacktrace[2].id, "local")
 				assert(locals)
 				check.eq(#locals, 12)
 				checkVariable(check, locals, "a", "24", "number", false)
@@ -603,6 +610,10 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				checkVariable(check, tables, "[1]", "1", "number", false)
 				checkVariable(check, tables, "[2]", "2", "number", false)
 				checkVariable(check, tables, "[3]", "3", "number", false)
+				local globals = target:getVariablesByScopeType(stacktrace[2].id, "global")
+				assert(globals)
+				check.eq(#globals, 1)
+				checkVariable(check, globals, "_global_var", "16", "number", false)
 				local continued = target:continueProcess()
 				check.that(continued)
 			end,
