@@ -205,6 +205,7 @@ private:
     std::shared_ptr<Ref> scriptThreadRef;
 
     // our stopped thread that we need to requeue when we continue
+    bool stoppedNoYield = false;
     lua_State* stoppedThread = nullptr;
     std::shared_ptr<Ref> stoppedThreadRef;
     // Due to the way Lua debugger callbacks works, we need to set the stopped line/instruction in the callback. otherwise, outside of the callback,
