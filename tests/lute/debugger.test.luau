@@ -691,7 +691,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				local locals = target:getVariablesByScopeType(stacktrace[1].id, "local")
 				assert(locals)
 				if bp.id == bpErrorHandler.id then
-					local errorValue = string.format('"%s:2: attempt to call a nil value"', fixturePath)
+					local errorValue = string.format('"%s:2: attempt to call a nil value"', normalizePath(fixturePath))
 					checkVariable(check, locals, "_err", errorValue, "string", false)
 				end
 				if bp.id == bpOutside.id then
