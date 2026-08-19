@@ -24,7 +24,7 @@ local transformeePath = path.format(path.join(tmpDir, "transformee.luau"))
 local outputPath = path.format(path.join(tmpDir, "transformee_output.luau"))
 local luaurcFile = path.format(path.join(tmpDir, ".luaurc"))
 
-local USAGE = "Usage: lute transform [options] <migration-path> [files...] [-- [--option value...]]"
+local USAGE = "Usage: lute transform [migration-path] [options] [files...] [-- [--option value...]]"
 
 test.suite("LuteTransform", function(suite)
 	suite:beforeEach(function()

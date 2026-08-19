@@ -172,22 +172,20 @@ local function applyMigration(
 	end
 end
 
-local USAGE = "Usage: lute transform [options] <migration-path> [files...] [-- [--option value...]]"
+local function usageText(args: cli.Parser): string
+	return `{args:usage("lute transform")} [-- [--option value...]]`
+end
 
-local function printHelp()
-	print(USAGE)
+local function printHelp(args: cli.Parser)
+	print(usageText(args))
+	print("\nApply the specified code transformation to the given files.\n")
+	print(args:help())
 	print([[
-Apply the specified code transformation to the given files.
-
-OPTIONS:
-  -h, --help              Show this help message
-  --dry-run               Preview changes without writing files
-  -o, --output [FILE]     Write output to a single file instead of in-place (only works if a single input file is specified)
 
 lute transform also supports forwarding options to the code transformation script by placing them after a '--' separator. For example:
 
   lute transform my-migration.luau files/ -- --option value
-	]])
+]])
 end
 
 local function main(...: string)
@@ -199,7 +197,10 @@ local function main(...: string)
 		"flag",
 		{ help = "Interactive mode, where you can preview and confirm changes", aliases = { "i" } }
 	)
-	args:add("output", "option", { help = "Write output to this file (single input only)", aliases = { "o" } })
+	args:add("output", "option", {
+		help = "Write output to a single file instead of in-place (only works if a single input file is specified)",
+		aliases = { "o" },
+	})
 	args:add("migration-path", "positional", { help = "Path to the migration script to run" })
 	args:add(
 		"files",
@@ -209,13 +210,13 @@ local function main(...: string)
 	args:parse({ ... })
 
 	if args:has("help") then
-		printHelp()
+		printHelp(args)
 		return
 	end
 
 	local migrationPath = args:get("migration-path")
 	if not migrationPath then
-		print(`Error: No code transformation script specified.\n\n{USAGE}\nUse --help for more information.`)
+		print(`Error: No code transformation script specified.\n\n{usageText(args)}\nUse --help for more information.`)
 		process.exit(1)
 		error("Unreachable") -- LUAUFIX: Remove once we can refine migrationPath is string outside this block
 	end

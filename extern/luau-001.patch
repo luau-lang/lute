@@ -1,0 +1,391 @@
+From 5fa5d9f190fa0eaa2fc9d6ffcd92421590d6dd01 Mon Sep 17 00:00:00 2001
+From: Sora Kanosue <skanosue@roblox.com>
+Date: Mon, 3 Aug 2026 17:37:43 -0700
+Subject: [PATCH] #flagged CLI-218301 Only wrap function return types in
+ asttypegroup for unions/intersections (#168671)
+
+I came across this while trying to track down a Lute bug where we
+weren't reporting parentheses for a return type pack of a function type
+pack.
+
+When I made the change on line ~2620 of `Parser.cpp` to properly
+populate the fields of `CstTypePackExplicit`, this resulted in a bunch
+of pretty printer tests failing because function return type packs were
+suddenly having their parentheses printed twice.
+
+The cause there was that we were almost unconditionally wrapping the
+first type of a function return type pack in `AstTypeGroup`, in case the
+return type was a union or intersection (the motivating example being
+`(string) -> (string) & (number) -> (number)`, which is equivalent to
+`(string) -> ((string) & (number) -> (number))`, yuck). The fix was to
+only wrap in `AstTypeGroup` if we are actually parsing a union or
+intersection.
+
+JIRA Ticket:
+[CLI-218301](https://roblox.atlassian.net/browse/CLI-218301)
+---
+ Ast/src/Parser.cpp            | 10 +++++++---
+ tests/AstJsonEncoder.test.cpp |  5 ++++-
+ tests/Parser.test.cpp         | 37 +++++++++++++++++++++++++++++++++--
+ 3 files changed, 46 insertions(+), 6 deletions(-)
+
+diff --git a/Ast/src/Parser.cpp b/Ast/src/Parser.cpp
+index fbd620976a5a..aa81b7858cf4 100644
+--- a/Ast/src/Parser.cpp
++++ b/Ast/src/Parser.cpp
+@@ -32,6 +32,7 @@ LUAU_FASTFLAGVARIABLE(LuauDisallowExternClassInTypeDefinitions)
+ LUAU_FASTFLAGVARIABLE(LuauStoreConstKeywordBegin)
+ LUAU_FASTFLAGVARIABLE(LuauTrackPrefixLocal)
+ LUAU_FASTFLAGVARIABLE(LuauNoDuplicateBinaryPrefix)
++LUAU_FASTFLAGVARIABLE(LuauFunctionReturnTypePackLessTypeGroups)
+ 
+ // Clip with DebugLuauReportReturnTypeVariadicWithTypeSuffix
+ bool luau_telemetry_parsed_return_type_variadic_with_type_suffix = false;
+@@ -2560,7 +2561,7 @@ AstTypePack* Parser::parseReturnType()
+         }
+     }
+ 
+-    nextLexeme();
++    nextLexeme(); // Consume '('
+ 
+     matchRecoveryStopOnToken[Lexeme::SkinnyArrow]++;
+ 
+@@ -2593,7 +2594,8 @@ AstTypePack* Parser::parseReturnType()
+             // TODO(CLI-140667): stop parsing type suffix when varargAnnotation != nullptr - this should be a parse error
+             AstType* inner = nullptr;
+ 
+-            if (varargAnnotation == nullptr)
++            if (varargAnnotation == nullptr &&
++                (FFlag::LuauFunctionReturnTypePackLessTypeGroups ? (lexer.current().type == '&' || lexer.current().type == '|') : true))
+             {
+                 inner = allocator.alloc<AstTypeGroup>(location, result[0]);
+ 
+@@ -2616,7 +2618,9 @@ AstTypePack* Parser::parseReturnType()
+             AstTypePackExplicit* node =
+                 allocator.alloc<AstTypePackExplicit>(Location{location.begin, endPos}, AstTypeList{copy(&returnType, 1), varargAnnotation});
+             if (options.storeCstData)
+-                cstNodeMap[node] = allocator.alloc<CstTypePackExplicit>();
++                cstNodeMap[node] = FFlag::LuauFunctionReturnTypePackLessTypeGroups
++                                       ? allocator.alloc<CstTypePackExplicit>(location.begin, closeParenthesesPosition, copy(commaPositions))
++                                       : allocator.alloc<CstTypePackExplicit>();
+             return node;
+         }
+ 
+diff --git a/tests/AstJsonEncoder.test.cpp b/tests/AstJsonEncoder.test.cpp
+index 7505bc4897eb..24fb7829c676 100644
+--- a/tests/AstJsonEncoder.test.cpp
++++ b/tests/AstJsonEncoder.test.cpp
+@@ -13,6 +13,7 @@ using namespace Luau;
+ 
+ 
+ LUAU_FASTFLAG(LuauDisallowExternClassInTypeDefinitions)
++LUAU_FASTFLAG(LuauFunctionReturnTypePackLessTypeGroups)
+ 
+ struct JsonEncoderFixture
+ {
+@@ -482,10 +483,12 @@ TEST_CASE_FIXTURE(JsonEncoderFixture, "encode_AstStatDeclareClass")
+ 
+ TEST_CASE_FIXTURE(JsonEncoderFixture, "encode_annotation")
+ {
++    ScopedFastFlag sff{FFlag::LuauFunctionReturnTypePackLessTypeGroups, true};
++
+     AstStat* statement = expectParseStatement("type T = ((number) -> (string | nil)) & ((string) -> ())");
+ 
+     std::string_view expected =
+-        R"({"type":"AstStatTypeAlias","location":"0,0 - 0,56","name":"T","generics":[],"genericPacks":[],"value":{"type":"AstTypeIntersection","location":"0,9 - 0,56","types":[{"type":"AstTypeGroup","location":"0,9 - 0,37","inner":{"type":"AstTypeFunction","location":"0,10 - 0,36","attributes":[],"generics":[],"genericPacks":[],"argTypes":{"type":"AstTypeList","types":[{"type":"AstTypeReference","location":"0,11 - 0,17","name":"number","nameLocation":"0,11 - 0,17","parameters":[]}]},"argNames":[],"returnTypes":{"type":"AstTypePackExplicit","location":"0,22 - 0,36","typeList":{"type":"AstTypeList","types":[{"type":"AstTypeGroup","location":"0,22 - 0,36","inner":{"type":"AstTypeUnion","location":"0,23 - 0,35","types":[{"type":"AstTypeReference","location":"0,23 - 0,29","name":"string","nameLocation":"0,23 - 0,29","parameters":[]},{"type":"AstTypeReference","location":"0,32 - 0,35","name":"nil","nameLocation":"0,32 - 0,35","parameters":[]}]}}]}}}},{"type":"AstTypeGroup","location":"0,40 - 0,56","inner":{"type":"AstTypeFunction","location":"0,41 - 0,55","attributes":[],"generics":[],"genericPacks":[],"argTypes":{"type":"AstTypeList","types":[{"type":"AstTypeReference","location":"0,42 - 0,48","name":"string","nameLocation":"0,42 - 0,48","parameters":[]}]},"argNames":[],"returnTypes":{"type":"AstTypePackExplicit","location":"0,53 - 0,55","typeList":{"type":"AstTypeList","types":[]}}}}]},"exported":false})";
++        R"({"type":"AstStatTypeAlias","location":"0,0 - 0,56","name":"T","generics":[],"genericPacks":[],"value":{"type":"AstTypeIntersection","location":"0,9 - 0,56","types":[{"type":"AstTypeGroup","location":"0,9 - 0,37","inner":{"type":"AstTypeFunction","location":"0,10 - 0,36","attributes":[],"generics":[],"genericPacks":[],"argTypes":{"type":"AstTypeList","types":[{"type":"AstTypeReference","location":"0,11 - 0,17","name":"number","nameLocation":"0,11 - 0,17","parameters":[]}]},"argNames":[],"returnTypes":{"type":"AstTypePackExplicit","location":"0,22 - 0,36","typeList":{"type":"AstTypeList","types":[{"type":"AstTypeUnion","location":"0,23 - 0,35","types":[{"type":"AstTypeReference","location":"0,23 - 0,29","name":"string","nameLocation":"0,23 - 0,29","parameters":[]},{"type":"AstTypeReference","location":"0,32 - 0,35","name":"nil","nameLocation":"0,32 - 0,35","parameters":[]}]}]}}}},{"type":"AstTypeGroup","location":"0,40 - 0,56","inner":{"type":"AstTypeFunction","location":"0,41 - 0,55","attributes":[],"generics":[],"genericPacks":[],"argTypes":{"type":"AstTypeList","types":[{"type":"AstTypeReference","location":"0,42 - 0,48","name":"string","nameLocation":"0,42 - 0,48","parameters":[]}]},"argNames":[],"returnTypes":{"type":"AstTypePackExplicit","location":"0,53 - 0,55","typeList":{"type":"AstTypeList","types":[]}}}}]},"exported":false})";
+     CHECK(toJson(statement) == expected);
+ }
+ 
+diff --git a/tests/Parser.test.cpp b/tests/Parser.test.cpp
+index 56a9343ec4a2..43bbc09449c1 100644
+--- a/tests/Parser.test.cpp
++++ b/tests/Parser.test.cpp
+@@ -25,6 +25,7 @@ LUAU_FASTFLAG(LuauAllowGlobalDeclarationToBeCalledClass)
+ LUAU_FASTFLAG(LuauTrackPrefixLocal)
+ 
+ LUAU_FASTFLAG(LuauNoDuplicateBinaryPrefix)
++LUAU_FASTFLAG(LuauFunctionReturnTypePackLessTypeGroups)
+ 
+ // Clip with DebugLuauReportReturnTypeVariadicWithTypeSuffix
+ extern bool luau_telemetry_parsed_return_type_variadic_with_type_suffix;
+@@ -2957,8 +2958,10 @@ TEST_CASE_FIXTURE(Fixture, "parse_nested_ast_type_group")
+     CHECK(group2->type->is<AstTypeReference>());
+ }
+ 
+-TEST_CASE_FIXTURE(Fixture, "parse_return_type_ast_type_group")
++TEST_CASE_FIXTURE(Fixture, "parse_return_type_ast_type_pack_explicit")
+ {
++    ScopedFastFlag sff{FFlag::LuauFunctionReturnTypePackLessTypeGroups, true};
++
+     AstStatBlock* stat = parse(R"(
+         type Foo = () -> (string)
+     )");
+@@ -2975,7 +2978,7 @@ TEST_CASE_FIXTURE(Fixture, "parse_return_type_ast_type_group")
+     REQUIRE(returnTypePack);
+     REQUIRE_EQ(1, returnTypePack->typeList.types.size);
+     REQUIRE(!returnTypePack->typeList.tailType);
+-    CHECK(returnTypePack->typeList.types.data[0]->is<AstTypeGroup>());
++    CHECK(returnTypePack->typeList.types.data[0]->is<AstTypeReference>());
+ }
+ 
+ TEST_CASE_FIXTURE(Fixture, "inner_and_outer_scope_of_functions_have_correct_end_position")
+@@ -4126,6 +4129,36 @@ TEST_CASE_FIXTURE(Fixture, "type_group_with_cst")
+     CHECK_EQ(cstNode->closePosition, Position{1, 24});
+ }
+ 
++TEST_CASE_FIXTURE(Fixture, "type_pack_explicit_with_cst")
++{
++    ScopedFastFlag sff{FFlag::LuauFunctionReturnTypePackLessTypeGroups, true};
++
++    ParseOptions parseOptions;
++    parseOptions.storeCstData = true;
++
++    ParseResult result = parseEx("type T = () -> (number, ...string)", parseOptions);
++    REQUIRE(result.root);
++
++    REQUIRE_EQ(result.root->body.size, 1);
++    auto typeAlias = result.root->body.data[0]->as<AstStatTypeAlias>();
++    REQUIRE(typeAlias);
++    auto funcType = typeAlias->type->as<AstTypeFunction>();
++    REQUIRE(funcType);
++    auto typePack = funcType->returnTypes->as<AstTypePackExplicit>();
++    REQUIRE(typePack);
++    REQUIRE_EQ(typePack->typeList.types.size, 1);
++    REQUIRE(typePack->typeList.tailType);
++
++    const auto baseCstNode = result.cstNodeMap.find(typePack);
++    REQUIRE(baseCstNode);
++    const auto cstNode = (*baseCstNode)->as<CstTypePackExplicit>();
++    REQUIRE(cstNode);
++    CHECK_EQ(cstNode->openParenthesesPosition, Position{0, 15});
++    CHECK_EQ(cstNode->closeParenthesesPosition, Position{0, 33});
++    REQUIRE_EQ(cstNode->commaPositions.size, 1);
++    CHECK_EQ(cstNode->commaPositions.data[0], Position{0, 22});
++}
++
+ TEST_SUITE_END();
+ 
+ TEST_SUITE_BEGIN("ParseErrorRecovery");
+-- 
+2.50.1 (Apple Git-155)
+
+From 236c8c8e1b03cc4e531b908cd646a0716086f287 Mon Sep 17 00:00:00 2001
+From: Vighnesh Vijay <vvijay@roblox.com>
+Date: Tue, 11 Aug 2026 12:12:44 -0700
+Subject: [PATCH] #flagged CLI-219982 Fix a small parens misattribution bug in
+ the CST (#170482)
+
+While fast patching
+https://github.rbx.com/GameEngine/game-engine/pull/168671 into lute, I
+ran into a serialization assertion caused by us scanning a misattributed
+paren and emitting it at a position later than its original position in
+the source. The bug is caused by the CST parsing function return packs
+incorrectly and misattributing their close paren:
+```
+type X = () -> (a | b)?
+```
+The change above implemented correct attribution of parenthesis for type
+packs, carving out an exception for unions and intersections, which
+should be part of a Ast/CstGroup and retain ownership of any parens.
+However, it missed the the `optional` case, which then caused us to
+attribute the closing parenthesis in `(a | b **)**` to the whole type
+pack. Instead of emitting:
+```
+TypePack(
+    Union(
+        Group(Union(a,b)),
+        Optional
+     )
+ )
+```
+
+we ended up emitting something like:
+```
+TypePack(
+    Union(
+        a,
+        b,
+        Optional
+     )
+ )
+```
+
+which tripped lute's cst serializer, because it tries to emit the close
+paren at a location after its original source position.
+
+JIRA Ticket:
+[CLI-219982](https://roblox.atlassian.net/browse/CLI-219982)
+---
+ Ast/src/Parser.cpp    | 63 +++++++++++++++++++++++++++++++------------
+ tests/Parser.test.cpp | 42 ++++++++++++++++++++++++++++-
+ 2 files changed, 87 insertions(+), 18 deletions(-)
+
+diff --git a/Ast/src/Parser.cpp b/Ast/src/Parser.cpp
+index 18ee4720e7a3..3a15e0023066 100644
+--- a/Ast/src/Parser.cpp
++++ b/Ast/src/Parser.cpp
+@@ -33,6 +33,7 @@ LUAU_FASTFLAGVARIABLE(LuauStoreConstKeywordBegin)
+ LUAU_FASTFLAGVARIABLE(LuauTrackPrefixLocal)
+ LUAU_FASTFLAGVARIABLE(LuauNoDuplicateBinaryPrefix)
+ LUAU_FASTFLAGVARIABLE(LuauFunctionReturnTypePackLessTypeGroups)
++LUAU_FASTFLAGVARIABLE(LuauSingleTypeOptionalPackReturnsAttributeParens)
+ 
+ // Clip with DebugLuauReportReturnTypeVariadicWithTypeSuffix
+ bool luau_telemetry_parsed_return_type_variadic_with_type_suffix = false;
+@@ -2550,6 +2551,11 @@ AstTypePack* Parser::parseOptionalReturnType(Position* returnSpecifierPosition)
+     return nullptr;
+ }
+ 
++static bool isTypeFollow(Lexeme::Type c)
++{
++    return c == '|' || c == '?' || c == '&';
++}
++
+ // ReturnType ::= Type | `(' TypeList `)'
+ AstTypePack* Parser::parseReturnType()
+ {
+@@ -2606,16 +2612,33 @@ AstTypePack* Parser::parseReturnType()
+             // TODO(CLI-140667): stop parsing type suffix when varargAnnotation != nullptr - this should be a parse error
+             AstType* inner = nullptr;
+ 
+-            if (varargAnnotation == nullptr &&
+-                (FFlag::LuauFunctionReturnTypePackLessTypeGroups ? (lexer.current().type == '&' || lexer.current().type == '|') : true))
++            bool parensBelongToInnerGroup = false;
++            if (FFlag::LuauSingleTypeOptionalPackReturnsAttributeParens)
+             {
+-                inner = allocator.alloc<AstTypeGroup>(location, result[0]);
+-
+-                if (options.storeCstData)
+-                    cstNodeMap[inner] = allocator.alloc<CstTypeGroup>(closeParenFound ? closeParenthesesPosition : Position::missing());
++                if (varargAnnotation == nullptr && isTypeFollow(lexer.current().type))
++                {
++                    inner = allocator.alloc<AstTypeGroup>(location, result[0]);
++                    parensBelongToInnerGroup = true;
++                    if (options.storeCstData)
++                        cstNodeMap[inner] = allocator.alloc<CstTypeGroup>(closeParenFound ? closeParenthesesPosition : Position::missing());
++                }
++                else
++                    inner = result[0];
+             }
+             else
+-                inner = result[0];
++            {
++                if (varargAnnotation == nullptr &&
++                    (FFlag::LuauFunctionReturnTypePackLessTypeGroups ? (lexer.current().type == '&' || lexer.current().type == '|') : true))
++                {
++                    inner = allocator.alloc<AstTypeGroup>(location, result[0]);
++
++                    if (options.storeCstData)
++                        cstNodeMap[inner] = allocator.alloc<CstTypeGroup>(closeParenFound ? closeParenthesesPosition : Position::missing());
++                }
++                else
++                    inner = result[0];
++            }
++
+ 
+             AstType* returnType = parseTypeSuffix(inner, begin.location);
+ 
+@@ -2629,11 +2652,22 @@ AstTypePack* Parser::parseReturnType()
+ 
+             AstTypePackExplicit* node =
+                 allocator.alloc<AstTypePackExplicit>(Location{location.begin, endPos}, AstTypeList{copy(&returnType, 1), varargAnnotation});
+-            if (options.storeCstData)
+-                cstNodeMap[node] = FFlag::LuauFunctionReturnTypePackLessTypeGroups
+-                                       ? allocator.alloc<CstTypePackExplicit>(location.begin, closeParenthesesPosition, copy(commaPositions))
+-                                       : allocator.alloc<CstTypePackExplicit>();
+-            return node;
++            if (FFlag::LuauSingleTypeOptionalPackReturnsAttributeParens && options.storeCstData)
++            {
++
++                cstNodeMap[node] = parensBelongToInnerGroup
++                                       ? allocator.alloc<CstTypePackExplicit>()
++                                       : allocator.alloc<CstTypePackExplicit>(location.begin, closeParenthesesPosition, copy(commaPositions));
++                return node;
++            }
++            else
++            {
++                if (options.storeCstData)
++                    cstNodeMap[node] = FFlag::LuauFunctionReturnTypePackLessTypeGroups
++                                           ? allocator.alloc<CstTypePackExplicit>(location.begin, closeParenthesesPosition, copy(commaPositions))
++                                           : allocator.alloc<CstTypePackExplicit>();
++                return node;
++            }
+         }
+ 
+         AstTypePackExplicit* node = allocator.alloc<AstTypePackExplicit>(location, AstTypeList{copy(result), varargAnnotation});
+@@ -3042,11 +3076,6 @@ AstType* Parser::parseFunctionTypeTail(
+     );
+ }
+ 
+-static bool isTypeFollow(Lexeme::Type c)
+-{
+-    return c == '|' || c == '?' || c == '&';
+-}
+-
+ // Type ::=
+ //      nil |
+ //      Name[`.' Name] [`<' namelist `>'] |
+diff --git a/tests/Parser.test.cpp b/tests/Parser.test.cpp
+index 73e62b64721d..52570198e57d 100644
+--- a/tests/Parser.test.cpp
++++ b/tests/Parser.test.cpp
+@@ -26,7 +26,7 @@ LUAU_FASTFLAG(LuauTrackPrefixLocal)
+ 
+ LUAU_FASTFLAG(LuauNoDuplicateBinaryPrefix)
+ LUAU_FASTFLAG(LuauFunctionReturnTypePackLessTypeGroups)
+-
++LUAU_FASTFLAG(LuauSingleTypeOptionalPackReturnsAttributeParens)
+ // Clip with DebugLuauReportReturnTypeVariadicWithTypeSuffix
+ extern bool luau_telemetry_parsed_return_type_variadic_with_type_suffix;
+ 
+@@ -4203,6 +4203,46 @@ TEST_CASE_FIXTURE(Fixture, "type_pack_explicit_with_cst")
+     CHECK_EQ(cstNode->commaPositions.data[0], Position{0, 22});
+ }
+ 
++TEST_CASE_FIXTURE(Fixture, "optional_return_type_pack_with_cst_func_return")
++{
++    ScopedFastFlag sff2{FFlag::LuauSingleTypeOptionalPackReturnsAttributeParens, true};
++    ParseOptions parseOptions;
++    parseOptions.storeCstData = true;
++
++    // `(string | number)?` as a return type is a single optional type:
++    //     union( group( union(string, number) ), nil )
++    // The one pair of parens belongs to the GROUP, so the enclosing return
++    // type pack is implicit and must NOT record any parenthesis positions.
++    ParseResult result = parseEx("type T = () -> (string | number)?", parseOptions);
++    REQUIRE(result.root);
++    REQUIRE_EQ(result.root->body.size, 1);
++
++    auto typeAlias = result.root->body.data[0]->as<AstStatTypeAlias>();
++    REQUIRE(typeAlias);
++    auto funcType = typeAlias->type->as<AstTypeFunction>();
++    REQUIRE(funcType);
++
++    auto typePack = funcType->returnTypes->as<AstTypePackExplicit>();
++    REQUIRE(typePack);
++    REQUIRE_EQ(typePack->typeList.types.size, 1);
++    REQUIRE(!typePack->typeList.tailType);
++
++    // The sole return type is the optional union `(string | number)?`.
++    auto optional = typePack->typeList.types.data[0]->as<AstTypeUnion>();
++    REQUIRE(optional);
++    REQUIRE_EQ(optional->types.size, 2);
++    CHECK(optional->types.data[0]->is<AstTypeGroup>());    // (string | number)
++    CHECK(optional->types.data[1]->is<AstTypeOptional>()); // ?
++
++    // The parens belong to the group, NOT the return type pack.
++    const auto baseCstNode = result.cstNodeMap.find(typePack);
++    REQUIRE(baseCstNode);
++    const auto cstNode = (*baseCstNode)->as<CstTypePackExplicit>();
++    REQUIRE(cstNode);
++    CHECK_EQ(cstNode->openParenthesesPosition, Position::missing());
++    CHECK_EQ(cstNode->closeParenthesesPosition, Position::missing());
++}
++
+ TEST_SUITE_END();
+ 
+ TEST_SUITE_BEGIN("ParseErrorRecovery");
+-- 
+2.50.1 (Apple Git-155)
+

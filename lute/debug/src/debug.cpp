@@ -63,6 +63,38 @@ static BreakpointStatus breakpointStringToStatus(const char* status)
     LUTE_UNREACHABLE();
 }
 
+// VariableScopeType is
+// "local" | "upvalue" | "global" | "table"
+static const char* scopeTypeToString(VariableScopeType type)
+{
+    switch (type)
+    {
+    case VariableScopeType::Local:
+        return "local";
+    case VariableScopeType::Upvalue:
+        return "upvalue";
+    case VariableScopeType::Global:
+        return "global";
+    case VariableScopeType::Table:
+        return "table";
+    }
+    LUAU_ASSERT(false);
+    LUAU_UNREACHABLE();
+}
+
+static VariableScopeType scopeStringToType(const char* type)
+{
+    if (strcmp(type, "local") == 0)
+        return VariableScopeType::Local;
+    if (strcmp(type, "upvalue") == 0)
+        return VariableScopeType::Upvalue;
+    if (strcmp(type, "global") == 0)
+        return VariableScopeType::Global;
+    if (strcmp(type, "table") == 0)
+        return VariableScopeType::Table;
+    LUAU_ASSERT(false);
+    LUAU_UNREACHABLE();
+}
 
 // StepType is
 // "stepIn" | "stepOver" | "stepOut"
@@ -116,7 +148,7 @@ static int pushBreakpoint(lua_State* L, const Breakpoint& bp)
 // Helper to push a Thread type, which is
 // id: number
 // name: string
-static int pushThread(lua_State* L, const debug::Thread& thread)
+static int pushThread(lua_State* L, const Thread& thread)
 {
     checkStack(L, 2);
     lua_createtable(L, 0, 2);
@@ -124,6 +156,72 @@ static int pushThread(lua_State* L, const debug::Thread& thread)
     lua_setfield(L, -2, "id");
     lua_pushstring(L, thread.name.c_str());
     lua_setfield(L, -2, "name");
+    return 1;
+}
+
+// Helper to push a StackFrame type, which is
+// id: number
+// name: string
+// sourcePath: string
+// line: number
+// column: number
+static int pushStackFrame(lua_State* L, const StackFrame& frame)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 5);
+    lua_pushinteger(L, frame.id);
+    lua_setfield(L, -2, "id");
+    lua_pushstring(L, frame.name.c_str());
+    lua_setfield(L, -2, "name");
+    lua_pushstring(L, frame.sourcePath.c_str());
+    lua_setfield(L, -2, "sourcePath");
+    lua_pushinteger(L, frame.line);
+    lua_setfield(L, -2, "line");
+    lua_pushinteger(L, frame.column);
+    lua_setfield(L, -2, "column");
+    return 1;
+}
+
+// Helper to push a VariableScope type, which is
+// variableRef: number
+// type: string
+// name: string
+// threadId: number
+// level: number
+static int pushVariableScope(lua_State* L, const VariableScope& scope)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 5);
+    lua_pushinteger(L, scope.variableReference);
+    lua_setfield(L, -2, "variableRef");
+    lua_pushstring(L, scopeTypeToString(scope.type));
+    lua_setfield(L, -2, "type");
+    lua_pushstring(L, scope.name.c_str());
+    lua_setfield(L, -2, "name");
+    lua_pushinteger(L, scope.threadId);
+    lua_setfield(L, -2, "threadId");
+    lua_pushinteger(L, scope.level);
+    lua_setfield(L, -2, "level");
+    return 1;
+}
+
+// Helper to push a Variable type, which is
+// name: string
+// value: string
+// type: string
+// variableRef: number
+static int pushVariable(lua_State* L, const Variable& variable)
+{
+    checkStack(L, 2);
+    lua_createtable(L, 0, 4);
+    lua_pushstring(L, variable.name.c_str());
+    lua_setfield(L, -2, "name");
+    lua_pushstring(L, variable.value.c_str());
+    lua_setfield(L, -2, "value");
+    lua_pushstring(L, variable.type.c_str());
+    lua_setfield(L, -2, "type");
+    lua_pushinteger(L, variable.variableReference);
+    lua_setfield(L, -2, "variableRef");
     return 1;
 }
 
@@ -302,15 +400,23 @@ static int target_stepOver(lua_State* L)
     return 1;
 }
 
-// target.getLine()
-// returns a integer
-static int target_getLine(lua_State* L)
+// target.getStoppedLocation()
+// returns a (string, integer) | (nil, nil)
+static int target_getStoppedLocation(lua_State* L)
 {
     Target* target = getTarget(L, 1);
-    int line = target->getLine();
-    checkStack(L, 1);
-    lua_pushinteger(L, line);
-    return 1;
+    std::optional<std::pair<std::string, int>> stoppedLocation = target->getStoppedLocation();
+    if (!stoppedLocation)
+    {
+        checkStack(L, 2);
+        lua_pushnil(L);
+        lua_pushnil(L);
+        return 2;
+    }
+    checkStack(L, 2);
+    lua_pushstring(L, stoppedLocation->first.c_str());
+    lua_pushinteger(L, stoppedLocation->second);
+    return 2;
 }
 
 // target.getThreads()
@@ -318,7 +424,7 @@ static int target_getLine(lua_State* L)
 static int target_getThreads(lua_State* L)
 {
     auto target = getTarget(L, 1);
-    const std::vector<debug::Thread>& threads = target->getThreads();
+    const std::vector<Thread>& threads = target->getThreads();
     checkStack(L, 1);
     lua_createtable(L, threads.size(), 0);
     for (int i = 0; i < (int)threads.size(); i++)
@@ -361,6 +467,131 @@ static int target_getStoppedThread(lua_State* L)
     return pushThread(L, *thread);
 }
 
+// target.getStackDepth(int threadId)
+// return an integer
+static int target_getStackDepth(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    int depth = target->getStackDepth(threadId);
+    checkStack(L, 1);
+    lua_pushinteger(L, depth);
+    return 1;
+}
+
+// target.getStackFrame(int threadId, int level)
+// return StackFrame | nil
+static int target_getStackFrame(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    int level = luaL_checkinteger(L, 3);
+    std::optional<StackFrame> stackframe = target->getStackFrame(threadId, level);
+    if (!stackframe)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    return pushStackFrame(L, *stackframe);
+}
+
+// target.getStackTrace(int threadId, int startLevel = 0, int numFrames = 0)
+// return {StackFrame} | nil
+static int target_getStackTrace(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int threadId = luaL_checkinteger(L, 2);
+    int startLevel = (int)luaL_optinteger(L, 3, 0);
+    int numFrames = (int)luaL_optinteger(L, 4, 0);
+    std::optional<std::vector<StackFrame>> stackframes = target->getStackTrace(threadId, startLevel, numFrames);
+    if (!stackframes)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    checkStack(L, 1);
+    lua_createtable(L, stackframes->size(), 0);
+    for (int i = 0; i < (int)stackframes->size(); i++)
+    {
+        pushStackFrame(L, stackframes->at(i));
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+// target.getScopes(int frameId)
+// returns {VariableScoope} | nil
+static int target_getScopes(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int frameId = luaL_checkinteger(L, 2);
+    std::optional<std::vector<VariableScope>> scopes = target->getScopes(frameId);
+    if (!scopes)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    checkStack(L, 1);
+    lua_createtable(L, scopes->size(), 0);
+    for (int i = 0; i < (int)scopes->size(); i++)
+    {
+        pushVariableScope(L, scopes->at(i));
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+// target.getVariables(int variableRef)
+// returns {Variable} | nil
+static int target_getVariables(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int variableRef = luaL_checkinteger(L, 2);
+    std::optional<std::vector<Variable>> variables = target->getVariables(variableRef);
+    if (!variables)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    checkStack(L, 1);
+    lua_createtable(L, variables->size(), 0);
+    for (int i = 0; i < (int)variables->size(); i++)
+    {
+        pushVariable(L, variables->at(i));
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+// target.getVariablesByScopeType(int frameId, VariableScopeType scopeType)
+// returns {Variable} | nil
+static int target_getVariablesByScopeType(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    int frameId = luaL_checkinteger(L, 2);
+    const char* typeStr = luaL_checkstring(L, 3);
+    VariableScopeType type = scopeStringToType(typeStr);
+    std::optional<std::vector<Variable>> variables = target->getVariablesByScopeType(frameId, type);
+    if (!variables)
+    {
+        checkStack(L, 1);
+        lua_pushnil(L);
+        return 1;
+    }
+    checkStack(L, 1);
+    lua_createtable(L, variables->size(), 0);
+    for (int i = 0; i < (int)variables->size(); i++)
+    {
+        pushVariable(L, variables->at(i));
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
 {
     lua_getfield(L, tableIndex, field);
@@ -375,7 +606,7 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 {
     return [ref, runtime](const Breakpoint& bp)
     {
-        runtime->scheduleLuauCallback(
+        runtime->scheduleDebugLuauCallback(
             ref,
             [bp](lua_State* L)
             {
@@ -425,7 +656,7 @@ static int target_launch(lua_State* L)
         if (auto ref = getOptionalCallback(L, 4, "onBreakpointHit"))
             config.onBreakpointHit = [ref, runtime](const Thread& thread, const Breakpoint& bp)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread, bp](lua_State* L)
                     {
@@ -443,7 +674,7 @@ static int target_launch(lua_State* L)
         {
             config.onExit = [ref, runtime](bool success)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [success](lua_State* L)
                     {
@@ -458,7 +689,7 @@ static int target_launch(lua_State* L)
         {
             config.onPause = [ref, runtime](const Thread& thread)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread](lua_State* L)
                     {
@@ -472,7 +703,7 @@ static int target_launch(lua_State* L)
         {
             config.onPrint = [ref, runtime](std::string message, std::string source, int line)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [message, source, line](lua_State* L)
                     {
@@ -489,7 +720,7 @@ static int target_launch(lua_State* L)
         {
             config.onStepStop = [ref, runtime](const Thread& thread, const StepInfo& stepInfo)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread, stepInfo](lua_State* L)
                     {
@@ -559,10 +790,16 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"stepIn", debug::target_stepIn},
     {"stepOut", debug::target_stepOut},
     {"stepOver", debug::target_stepOver},
-    {"getLine", debug::target_getLine},
+    {"getStoppedLocation", debug::target_getStoppedLocation},
     {"getThreads", debug::target_getThreads},
     {"getMainThread", debug::target_getMainThread},
     {"getStoppedThread", debug::target_getStoppedThread},
+    {"getStackDepth", debug::target_getStackDepth},
+    {"getStackFrame", debug::target_getStackFrame},
+    {"getStackTrace", debug::target_getStackTrace},
+    {"getScopes", debug::target_getScopes},
+    {"getVariables", debug::target_getVariables},
+    {"getVariablesByScopeType", debug::target_getVariablesByScopeType},
 };
 
 static void initializeTarget(lua_State* L)

@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <future>
+#include <optional>
 #include <thread>
 
 #include "debugfixture.h"
@@ -27,6 +28,47 @@ static void checkBreakpointSourceLine(Target& target, int id, BreakpointStatus s
     CHECK(foundBp->status == status);
     CHECK(foundBp->line == line);
     CHECK(foundBp->sourcePath == sourcePath);
+}
+
+static void checkScope(const std::vector<VariableScope>& scopes, VariableScopeType type, std::string name, int threadId, int level)
+{
+    auto foundScope = std::find_if(
+        scopes.begin(),
+        scopes.end(),
+        [&](const VariableScope& scope)
+        {
+            return scope.name == name;
+        }
+    );
+    REQUIRE(foundScope != scopes.end());
+    CHECK(foundScope->type == type);
+    CHECK(foundScope->threadId == threadId);
+    CHECK(foundScope->level == level);
+    CHECK(foundScope->variableReference > 0);
+}
+
+static int checkVariable(const std::vector<Variable>& vars, const std::string& name, const std::string& value, const std::string& type, bool isTable)
+{
+    auto foundVar = std::find_if(
+        vars.begin(),
+        vars.end(),
+        [&](const Variable& v)
+        {
+            return v.name == name;
+        }
+    );
+    REQUIRE(foundVar != vars.end());
+    CHECK(foundVar->value == value);
+    CHECK(foundVar->type == type);
+    if (isTable)
+    {
+        CHECK(foundVar->variableReference > 0);
+    }
+    else
+    {
+        CHECK(foundVar->variableReference == 0);
+    }
+    return foundVar->variableReference;
 }
 
 TEST_SUITE("Debug")
@@ -252,10 +294,11 @@ TEST_SUITE("Debug")
         // check that we actually stopped at the breakpoint by having not hit the exit
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
-        CHECK(target.getLine() == 2);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation() == std::make_pair(fixturePath, 2));
         // continue execution
         continuedProcess = target.continueProcess();
-        CHECK(target.getLine() == -1);
+        REQUIRE(!target.getStoppedLocation().has_value());
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
@@ -292,7 +335,8 @@ TEST_SUITE("Debug")
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
         CHECK(numPause == 1);
         // The pause should stop right after we finish the last line of the inner for loop.
-        CHECK(target.getLine() == 5);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 5);
         bool continuedProcess = target.continueProcess();
         CHECK(continuedProcess);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
@@ -383,7 +427,6 @@ TEST_SUITE("Debug")
         CHECK(prints[1] == std::make_pair(std::string("custom_value\n"), 7));
     }
 
-
     TEST_CASE_FIXTURE(DebugFixture, "Debug_step")
     {
         std::string mainPath = getDebugFixturePath("step.luau");
@@ -413,39 +456,45 @@ TEST_SUITE("Debug")
         // check we have hit bp
         REQUIRE(hitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         // step in acts like step over when there's no function calls
-        CHECK(target.getLine() == 9);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 9);
         bool stepped = target.stepIn(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 10);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 10);
         stepPromise = std::promise<void>{};
         stepFuture = stepPromise.get_future();
         // step into function f
         stepped = target.stepIn(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 2);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 2);
         stepPromise = std::promise<void>{};
         stepFuture = stepPromise.get_future();
         // this steps out of function to the next line in the caller
         stepped = target.stepOut(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 11);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 11);
         stepPromise = std::promise<void>{};
         stepFuture = stepPromise.get_future();
         // this steps over a function
         stepped = target.stepOver(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 12);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 12);
         stepPromise = std::promise<void>{};
         stepFuture = stepPromise.get_future();
         // this steps to the virtual last line
         stepped = target.stepOver(threadId);
         CHECK(stepped);
         REQUIRE(stepFuture.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
-        CHECK(target.getLine() == 13);
+        REQUIRE(target.getStoppedLocation().has_value());
+        CHECK(target.getStoppedLocation()->second == 13);
         target.stepOver(threadId);
 
         // check we are done
@@ -461,7 +510,9 @@ TEST_SUITE("Debug")
         Breakpoint bp3 = target.setBreakpoint(fixturePath, 22);
 
         int maxThreadsSeen = 0;
-        int hitsBp1 = 0, hitsBp2 = 0;
+        int hitsBp1 = 0;
+        int hitsBp2 = 0;
+        int total_sum_val = 0;
         config.onBreakpointHit = [&](const Thread& thread, const Breakpoint& bp)
         {
             if (bp.id == bp1.id)
@@ -482,6 +533,34 @@ TEST_SUITE("Debug")
                     CHECK(std::find(threads.begin(), threads.end(), t2) != threads.end());
                     CHECK(std::find(threads.begin(), threads.end(), t3) != threads.end());
                 }
+                std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                REQUIRE(stackTrace.has_value());
+                StackFrame threadStack = stackTrace->at(stackTrace->size() - 1);
+                CHECK(threadStack.line == 7);
+                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
+                REQUIRE(vars.has_value());
+                checkVariable(*vars, "_i", std::to_string(hitsBp1), "number", false);
+                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalue);
+                REQUIRE(upvalues.has_value());
+                checkVariable(*upvalues, "total_sum", std::to_string(total_sum_val), "number", false);
+                total_sum_val++;
+                for (const Thread& thread : threads)
+                {
+                    if (thread.id == 3)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 12 && line <= 16));
+                    }
+                    if (thread.id == 1)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 18 && line <= 20));
+                    }
+                }
             }
             else if (bp.id == bp2.id)
             {
@@ -489,7 +568,36 @@ TEST_SUITE("Debug")
                 auto stoppedThread = target.getStoppedThread();
                 REQUIRE(stoppedThread.has_value());
                 CHECK(stoppedThread->id == 3);
+                std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                REQUIRE(stackTrace.has_value());
+                StackFrame threadStack = stackTrace->at(stackTrace->size() - 1);
+                CHECK(threadStack.line == 14);
+                const std::vector<Thread>& threads = target.getThreads();
+                for (const Thread& thread : threads)
+                {
+                    if (thread.id == 2)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 5 && line <= 9));
+                    }
+                    if (thread.id == 1)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 18 && line <= 20));
+                    }
+                }
                 hitsBp2++;
+                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
+                REQUIRE(vars.has_value());
+                checkVariable(*vars, "_i", std::to_string(hitsBp2), "number", false);
+                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalue);
+                REQUIRE(upvalues.has_value());
+                checkVariable(*upvalues, "total_sum", std::to_string(total_sum_val), "number", false);
+                total_sum_val++;
             }
             else
             {
@@ -515,5 +623,151 @@ TEST_SUITE("Debug")
         CHECK(maxThreadsSeen == 3);
         CHECK(hitsBp1 == 5);
         CHECK(hitsBp2 == 5);
+        CHECK(total_sum_val == 10);
     }
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_stackFrame")
+    {
+        std::string fixturePath = getDebugFixturePath("recursion.luau");
+        Target target(*runtime);
+        Breakpoint bpA = target.setBreakpoint(fixturePath, 4);
+        Breakpoint bpB = target.setBreakpoint(fixturePath, 8);
+        Breakpoint mainBp = target.setBreakpoint(fixturePath, 14);
+        int hits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            CHECK(threads.size() == 1);
+            int threadId = threads.at(0).id;
+            std::optional<std::vector<StackFrame>> stacktrace = target.getStackTrace(threadId);
+            REQUIRE(stacktrace.has_value());
+            // our stack trace should from the most deep stack frame go main -> a -> b -> a -> b ....
+            // the stack trace returns this in reverse since it starts from the shallowest stack frame.
+            hits++;
+            bool hitA = false;
+            int expectedTraceSize = hits;
+            if (bp.id == bpA.id)
+            {
+                hitA = true;
+            }
+            CHECK(stacktrace->size() == expectedTraceSize);
+            CHECK(target.getStackDepth(threadId) == expectedTraceSize);
+            for (int i = 0; i < expectedTraceSize; i++)
+            {
+                int line;
+                int column = 0;
+                std::string name;
+                std::string sourcePath = fixturePath;
+                if (i == expectedTraceSize - 1)
+                {
+                    line = 14;
+                    name = "(entry)";
+                }
+                else if ((hitA && i % 2 == 0) || (!hitA && i % 2 == 1))
+                {
+                    line = 4;
+                    name = "a";
+                }
+                else
+                {
+                    // the function name field is not set during the equality operation
+                    // so B stays anonymous
+                    name = "(anonymous)";
+                    if (!hitA && i == 0)
+                    {
+                        line = 8;
+                    }
+                    else
+                    {
+                        line = 11;
+                    }
+                }
+                StackFrame frame = stacktrace->at(i);
+                CHECK(frame.id == i + 1);
+                CHECK(frame.column == column);
+                CHECK(frame.line == line);
+                CHECK(frame.name == name);
+                CHECK(frame.sourcePath == sourcePath);
+            }
+            bool continued = target.continueProcess();
+            CHECK(continued);
+            stacktrace = target.getStackTrace(threadId);
+            // we shouldn't get stack trace when things are paused
+            REQUIRE(!stacktrace.has_value());
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(hits == 9);
+    }
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_variables")
+    {
+        std::string fixturePath = getDebugFixturePath("variables.luau");
+        Target target(*runtime);
+        target.setBreakpoint(fixturePath, 16);
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint&)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            std::optional<std::vector<StackFrame>> stackframe = target.getStackTrace(threads.at(0).id);
+            REQUIRE(stackframe.has_value());
+            // stack frame at level 0
+            std::optional<std::vector<VariableScope>> scopes = target.getScopes(stackframe->at(0).id);
+            REQUIRE(scopes.has_value());
+            checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 0);
+            checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 0);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
+            REQUIRE(upvalues0.has_value());
+            checkVariable(*upvalues0, "a", "24", "number", false);
+            checkVariable(*upvalues0, "_b", "1.2", "number", false);
+            std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Local);
+            checkVariable(*locals0, "_k", "25.2", "number", false);
+            std::optional<std::vector<Variable>> globals = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Global);
+            REQUIRE(globals.has_value());
+            checkVariable(*globals, "_global_var", "16", "number", false);
+            // stack frame at level 1
+            scopes = target.getScopes(stackframe->at(1).id);
+            REQUIRE(scopes.has_value());
+            checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 1);
+            checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 1);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Local);
+            REQUIRE(locals1.has_value());
+            checkVariable(*locals1, "a", "24", "number", false);
+            checkVariable(*locals1, "_b", "1.2", "number", false);
+            checkVariable(*locals1, "_c", "\"test\"", "string", false);
+            int ref1 = checkVariable(*locals1, "_d", "{1, 2, 3}", "table", true);
+            int ref2 = checkVariable(*locals1, "_e", "{a=4, [4]={r=13}, b=\"5\"}", "table", true);
+            checkVariable(*locals1, "_f", "true", "boolean", false);
+            checkVariable(*locals1, "g", "function", "function", false);
+            checkVariable(*locals1, "_largeinteger", "123456789101112", "number", false);
+            checkVariable(*locals1, "_smallnumber", "1.2e-14", "number", false);
+            checkVariable(*locals1, "_largenumber", "3.53e+106", "number", false);
+            checkVariable(*locals1, "_escapechar", "\"\\n\\\\\\r\\t\\\"\"", "string", false);
+            checkVariable(*locals1, "_precise", "1.234567891011", "number", false);
+            std::optional<std::vector<Variable>> table = target.getVariables(ref1);
+            REQUIRE(table.has_value());
+            checkVariable(*table, "[1]", "1", "number", false);
+            checkVariable(*table, "[2]", "2", "number", false);
+            checkVariable(*table, "[3]", "3", "number", false);
+            table = target.getVariables(ref2);
+            REQUIRE(table.has_value());
+            checkVariable(*table, "a", "4", "number", false);
+            int ref3 = checkVariable(*table, "[4]", "{r=13}", "table", true);
+            checkVariable(*table, "b", "\"5\"", "string", false);
+            table = target.getVariables(ref3);
+            REQUIRE(table.has_value());
+            checkVariable(*table, "r", "13", "number", false);
+            std::optional<std::vector<Variable>> upvalues1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Upvalue);
+            REQUIRE(upvalues1.has_value());
+            CHECK(upvalues1->size() == 0);
+            globals = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Global);
+            REQUIRE(globals.has_value());
+            checkVariable(*globals, "_global_var", "16", "number", false);
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    };
 }

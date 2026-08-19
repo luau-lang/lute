@@ -30,6 +30,8 @@ struct ThreadToContinue
     std::shared_ptr<Ref> ref;
     int argumentCount = 0;
     std::function<void()> cont;
+    ThreadToContinue() = default;
+    ThreadToContinue(bool success, std::shared_ptr<Ref> ref, int argumentCount);
 };
 
 // Optional completion hook for threads that need native follow-up work once
@@ -139,8 +141,12 @@ struct Runtime
 
     // for debug mode only:
     const bool debugMode;
+    std::atomic<int> numLaunchedDebuggees = 0;
     void stopDebug();
     void continueDebug();
+    // Same as scheduleLuauCallback but we since we don't call this within a libuv completion callback
+    // we need to wake up the libuv event loop.
+    void scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher);
 
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);
@@ -157,6 +163,7 @@ private:
 
     std::atomic<int> activeTokens;
     uv_loop_t eventLoop;
+    uv_async_t wakeupEventLoop;
 
     // for debug mode only:
     std::mutex debugMutex;

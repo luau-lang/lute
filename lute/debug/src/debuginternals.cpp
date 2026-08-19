@@ -23,6 +23,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "lstate.h"
+
 namespace debug
 {
 Breakpoint::Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status)
@@ -42,6 +44,36 @@ Thread::Thread(int id, std::string name)
 bool Thread::operator==(const Thread& other) const
 {
     return id == other.id && name == other.name;
+}
+
+VariableScope::VariableScope(int variableReference, VariableScopeType type, std::string name, int threadId, int level, int luaref)
+    : variableReference(variableReference)
+    , type(type)
+    , name(name)
+    , threadId(threadId)
+    , level(level)
+    , luaref(luaref)
+{
+}
+
+VariableScope VariableScope::makeLocals(int variableReference, int threadId, int level)
+{
+    return VariableScope(variableReference, VariableScopeType::Local, "Locals", threadId, level, -1);
+}
+
+VariableScope VariableScope::makeUpvalues(int variableReference, int threadId, int level)
+{
+    return VariableScope(variableReference, VariableScopeType::Upvalue, "Upvalues", threadId, level, -1);
+}
+
+VariableScope VariableScope::makeGlobals(int variableReference)
+{
+    return VariableScope(variableReference, VariableScopeType::Global, "Globals", -1, -1, -1);
+}
+
+VariableScope VariableScope::makeTable(int variableReference, int luaref)
+{
+    return VariableScope(variableReference, VariableScopeType::Table, "Table", -1, -1, luaref);
 }
 
 Target::Target(Runtime& parentRuntime)
@@ -69,6 +101,7 @@ Target::~Target()
                 return;
             lua_break(L);
         };
+        parentRuntime.numLaunchedDebuggees--;
     }
     childRuntime.reset();
 }
@@ -307,19 +340,25 @@ std::vector<std::string> Target::getLoadedSources()
     return sources;
 }
 
-int Target::getLine() const
+std::optional<std::pair<std::string, int>> Target::getStoppedLocation() const
 {
     std::unique_lock lock(targetMutex);
     if (!launched || !paused)
-        return -1;
-    return stoppedLine;
+        return std::nullopt;
+    return std::make_pair(stoppedLocation, stoppedLine);
 }
 
-void Target::computeStoppedLine(lua_State* L)
+void Target::computeStoppedLocation(lua_State* L)
 {
     lua_Debug info = {};
-    lua_getinfo(L, 0, "l", &info);
+    if (!lua_getinfo(L, 0, "sl", &info))
+        return;
     stoppedLine = info.currentline;
+    stoppedPc = L->ci->savedpc;
+    if (info.source)
+        stoppedLocation = getSourceFromChunk(info.source);
+    else
+        stoppedLocation = "";
 }
 
 std::optional<std::string> Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
@@ -400,7 +439,7 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
 
         scriptThread = thread;
         scriptThreadRef = getRefForThread(scriptThread);
-        childRuntime->runningThreads.push_back({true, scriptThreadRef, static_cast<int>(args.size())});
+        childRuntime->runningThreads.emplace_back(true, scriptThreadRef, static_cast<int>(args.size()));
         lua_pop(childRuntime->GL, 1);
         lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
         cb->userdata = this;
@@ -412,6 +451,7 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
         // The no-op schedule wakes the event loop so it picks up the queued thread.
         paused = false;
         launched = true;
+        parentRuntime.numLaunchedDebuggees++;
         childRuntime->schedule([]() {});
         childRuntime->runContinuously();
     }
@@ -452,7 +492,7 @@ void Target::installBpHitCallback()
             target->bpHit = *bp;
             target->paused = true;
             target->childRuntime->stopDebug();
-            target->stoppedLine = line;
+            target->computeStoppedLocation(L);
             target->stoppedThread = L;
             target->stoppedThreadRef = getRefForThread(L);
             // Clear out stepping when this happens.
@@ -586,12 +626,436 @@ std::vector<Thread> Target::getThreads() const
     return result;
 }
 
+int Target::getStackDepth(int threadId)
+{
+    if (!launched || !paused || threadIdToState.find(threadId) == threadIdToState.end())
+        return -1;
+    return lua_stackdepth(threadIdToState.at(threadId));
+}
+
+std::optional<StackFrame> Target::getStackFrameHelper(int threadId, int level)
+{
+    if (!paused)
+        return std::nullopt;
+    if (threadIdToState.find(threadId) == threadIdToState.end())
+        return std::nullopt;
+    std::unordered_map<int, StackFrame>& levelMap = stateToStackFrame[threadId];
+    auto it = levelMap.find(level);
+    if (it == levelMap.end())
+    {
+        StackFrame frame;
+        frame.id = stackframeId;
+        stackframeId++;
+        lua_Debug ar = {};
+        lua_State* threadLua = threadIdToState.at(threadId);
+        if (!lua_getinfo(threadLua, level, "sln", &ar))
+            return std::nullopt;
+        if (!ar.name)
+            if (threadLua == scriptThread && level == lua_stackdepth(threadLua) - 1)
+                frame.name = "(entry)";
+            else
+                frame.name = "(anonymous)";
+        else
+            frame.name = ar.name;
+        if (ar.source)
+        {
+            frame.sourcePath = getSourceFromChunk(ar.source);
+            // edge case: when we hit a breakpoint, the pc is sent backward one
+            // so that we can hit it again, so lua_getinfo() fails.
+            if (level == 0 && stoppedLine != -1 && threadLua == stoppedThread)
+                frame.line = stoppedLine;
+            else
+                frame.line = ar.currentline;
+        }
+        else
+        {
+            frame.sourcePath = "";
+            frame.line = 0;
+        }
+        frame.column = 0;
+        levelMap[level] = frame;
+        idToStackFrameInfo[frame.id] = std::make_pair(threadId, level);
+        return frame;
+    }
+    return it->second;
+}
+
+std::optional<StackFrame> Target::getStackFrame(int threadId, int level)
+{
+    std::unique_lock lock(targetMutex);
+    return getStackFrameHelper(threadId, level);
+}
+
+std::optional<std::vector<StackFrame>> Target::getStackTrace(int threadId, int startLevel, int numFrames)
+{
+    std::unique_lock lock(targetMutex);
+    if (!paused)
+        return std::nullopt;
+    if (threadIdToState.find(threadId) == threadIdToState.end())
+        return std::nullopt;
+    int stackDepth = lua_stackdepth(threadIdToState[threadId]);
+    if (startLevel >= stackDepth)
+        return std::vector<StackFrame>{};
+    int maximumLevel;
+    if (numFrames == 0)
+        maximumLevel = stackDepth;
+    else
+        maximumLevel = std::min(startLevel + numFrames, stackDepth);
+    std::vector<StackFrame> stackTrace;
+    for (int i = startLevel; i < maximumLevel; i++)
+    {
+        std::optional<StackFrame> frame = getStackFrameHelper(threadId, i);
+        if (!frame)
+            return std::nullopt;
+        stackTrace.emplace_back(*frame);
+    }
+    return stackTrace;
+}
+
+std::optional<std::vector<VariableScope>> Target::getScopesHelper(int threadId, int level)
+{
+    std::optional<StackFrame> frame = getStackFrameHelper(threadId, level);
+    if (!frame)
+        return std::nullopt;
+    if (scopeCache.find(frame->id) != scopeCache.end())
+        return scopeCache.at(frame->id);
+    std::vector<VariableScope> contexts;
+    VariableScope locals = VariableScope::makeLocals(variableRefId, threadId, level);
+    variableContexts.insert_or_assign(variableRefId, locals);
+    variableRefId++;
+    contexts.emplace_back(locals);
+    VariableScope upvalues = VariableScope::makeUpvalues(variableRefId, threadId, level);
+    variableContexts.insert_or_assign(variableRefId, upvalues);
+    variableRefId++;
+    contexts.emplace_back(upvalues);
+    if (globalVariableRef)
+    {
+        contexts.emplace_back(variableContexts.at(*globalVariableRef));
+    }
+    else
+    {
+        VariableScope globals = VariableScope::makeGlobals(variableRefId);
+        variableContexts.insert_or_assign(variableRefId, globals);
+        globalVariableRef = variableRefId;
+        variableRefId++;
+        contexts.emplace_back(globals);
+    }
+    scopeCache[frame->id] = contexts;
+    return contexts;
+}
+
+std::optional<std::vector<VariableScope>> Target::getScopes(int frameId)
+{
+    std::unique_lock lock(targetMutex);
+    if (!paused)
+        return std::nullopt;
+    auto it = idToStackFrameInfo.find(frameId);
+    if (it == idToStackFrameInfo.end())
+        return std::nullopt;
+    auto [threadId, level] = it->second;
+    return getScopesHelper(threadId, level);
+}
+
+static std::string convertNumberToString(lua_State* L, int stackSlot)
+{
+    double val = lua_tonumber(L, stackSlot);
+    char buf[350];
+    snprintf(buf, sizeof(buf), "%.15g", val);
+    return buf;
+}
+
+static std::string escapeString(const std::string& s)
+{
+    std::string result;
+    result.reserve(s.size());
+    for (char c : s)
+    {
+        switch (c)
+        {
+        case '\n':
+            result += "\\n";
+            break;
+        case '\r':
+            result += "\\r";
+            break;
+        case '\t':
+            result += "\\t";
+            break;
+        case '"':
+            result += "\\\"";
+            break;
+        case '\\':
+            result += "\\\\";
+            break;
+        default:
+            result += c;
+            break;
+        }
+    }
+    return result;
+}
+
+static std::string getKeyFromTableType(lua_State* L)
+{
+    std::string key;
+    switch (lua_type(L, -2))
+    {
+    case LUA_TSTRING:
+        key = escapeString(std::string(lua_tostring(L, -2)));
+        break;
+    case LUA_TNUMBER:
+        key = "[" + convertNumberToString(L, -2) + "]";
+        break;
+    case LUA_TBOOLEAN:
+        key = lua_toboolean(L, -2) ? "[true]" : "[false]";
+        break;
+    default:
+        key = "[" + std::string(lua_typename(L, lua_type(L, -2))) + "]";
+        break;
+    }
+    return key;
+}
+
+static std::string printTable(lua_State* L, int idx, int levelsToPrint)
+{
+    if (levelsToPrint <= 0)
+        return "{...}";
+    int absoluteIndex = lua_absindex(L, idx);
+    std::string result = "{";
+    lua_pushnil(L);
+    std::vector<std::pair<std::string, std::string>> keyValues;
+    while (lua_next(L, absoluteIndex))
+    {
+        std::string key = getKeyFromTableType(L);
+        std::string value;
+        switch (lua_type(L, -1))
+        {
+        case LUA_TNUMBER:
+            value = convertNumberToString(L, -1);
+            break;
+        case LUA_TSTRING:
+            value = "\"" + escapeString(std::string(lua_tostring(L, -1))) + "\"";
+            break;
+        case LUA_TBOOLEAN:
+            value = lua_toboolean(L, -1) ? "true" : "false";
+            break;
+        case LUA_TTABLE:
+            value = printTable(L, -1, levelsToPrint - 1);
+            break;
+        default:
+            value = lua_typename(L, lua_type(L, -1));
+            break;
+        }
+        keyValues.emplace_back(std::make_pair(key, value));
+        lua_pop(L, 1);
+    }
+    // this is a "pure" array
+    if ((int)(keyValues.size()) == lua_objlen(L, idx))
+    {
+        for (auto [_, value] : keyValues)
+        {
+            if (result != "{")
+                result += ", ";
+            result += value;
+        }
+    }
+    else
+    {
+        for (auto [key, value] : keyValues)
+        {
+            if (result != "{")
+                result += ", ";
+            result += key + "=" + value;
+        }
+    }
+    return result + "}";
+}
+
+Variable Target::makeVariable(lua_State* L, const std::string& name)
+{
+    Variable var;
+    var.name = name;
+    var.type = lua_typename(L, lua_type(L, -1));
+    switch (lua_type(L, -1))
+    {
+    case LUA_TNUMBER:
+    {
+        var.value = convertNumberToString(L, -1);
+        break;
+    }
+    case LUA_TSTRING:
+        var.value = "\"" + escapeString(std::string(lua_tostring(L, -1))) + "\"";
+        break;
+    case LUA_TBOOLEAN:
+        var.value = lua_toboolean(L, -1) ? "true" : "false";
+        break;
+    case LUA_TTABLE:
+    {
+        var.value = printTable(L, -1, 2);
+        var.variableReference = variableRefId;
+        lua_pushvalue(L, -1);
+        int ref = lua_ref(L, -1);
+        lua_pop(L, 1);
+        variableContexts.insert_or_assign(variableRefId, VariableScope::makeTable(variableRefId, ref));
+        variableRefId++;
+        break;
+    }
+    default:
+        var.value = lua_typename(L, lua_type(L, -1));
+        break;
+    }
+    return var;
+}
+
+std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
+{
+    // when hitting a bp we try to re-enter
+    bool fixedSavedpc = false;
+    const Instruction* original = L->ci->savedpc;
+    if (level == 0 && L == stoppedThread)
+    {
+        L->ci->savedpc = stoppedPc;
+        fixedSavedpc = true;
+    }
+    const char* name;
+    int n = 1;
+    std::vector<Variable> vars;
+    while ((name = lua_getlocal(L, level, n)) != nullptr)
+    {
+        vars.emplace_back(makeVariable(L, name));
+        lua_pop(L, 1);
+        n++;
+    }
+    if (fixedSavedpc)
+        L->ci->savedpc = original;
+    return vars;
+}
+
+std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level)
+{
+    std::vector<Variable> vars;
+    lua_Debug ar = {};
+    lua_getinfo(L, level, "f", &ar);
+    int n = 1;
+    const char* name;
+    while ((name = lua_getupvalue(L, -1, n)) != nullptr)
+    {
+        vars.emplace_back(makeVariable(L, name));
+        lua_pop(L, 1);
+        n++;
+    }
+    lua_pop(L, 1);
+    return vars;
+}
+
+std::vector<Variable> Target::getGlobalsHelper()
+{
+    return getTableHelper(scriptThread, LUA_GLOBALSINDEX);
+}
+
+std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
+{
+    std::vector<Variable> vars;
+    int absoluteIndex = lua_absindex(L, idx);
+    lua_pushnil(L);
+    while (lua_next(L, absoluteIndex))
+    {
+        std::string key = getKeyFromTableType(L);
+        vars.emplace_back(makeVariable(L, key));
+        lua_pop(L, 1);
+    }
+    return vars;
+}
+
+std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
+{
+    auto it = variableContexts.find(varRef);
+    if (it == variableContexts.end())
+        return std::nullopt;
+    VariableScope context = it->second;
+    if (auto it2 = variableCache.find(varRef); it2 != variableCache.end())
+        return it2->second;
+    std::vector<Variable> vars;
+    if (context.type == VariableScopeType::Local)
+    {
+        vars = getLocalsHelper(threadIdToState.at(context.threadId), context.level);
+    }
+    else if (context.type == VariableScopeType::Upvalue)
+    {
+        vars = getUpvaluesHelper(threadIdToState.at(context.threadId), context.level);
+    }
+    else if (context.type == VariableScopeType::Global)
+    {
+        vars = getGlobalsHelper();
+    }
+    else
+    {
+        lua_rawgeti(childRuntime->GL, LUA_REGISTRYINDEX, context.luaref);
+        vars = getTableHelper(childRuntime->GL, -1);
+        lua_pop(childRuntime->GL, 1);
+    }
+    variableCache[varRef] = vars;
+    return vars;
+}
+
+std::optional<std::vector<Variable>> Target::getVariables(int varRef)
+{
+    std::unique_lock lock(targetMutex);
+    if (!paused)
+    {
+        return std::nullopt;
+    }
+    return getVariablesHelper(varRef);
+}
+
+std::optional<std::vector<Variable>> Target::getVariablesByScopeType(int frameId, VariableScopeType contextType)
+{
+    std::unique_lock lock(targetMutex);
+    if (!paused)
+        return std::nullopt;
+    auto stackFrame = idToStackFrameInfo.find(frameId);
+    if (stackFrame == idToStackFrameInfo.end())
+        return std::nullopt;
+    auto [threadId, level] = stackFrame->second;
+    std::optional<std::vector<VariableScope>> scopes = getScopesHelper(threadId, level);
+    if (!scopes)
+        return std::nullopt;
+    auto it = std::find_if(
+        scopes->begin(),
+        scopes->end(),
+        [&](const VariableScope& ctx)
+        {
+            return ctx.type == contextType;
+        }
+    );
+    if (it == scopes->end())
+    {
+        return std::nullopt;
+    }
+    return getVariablesHelper(it->variableReference);
+}
+
 void Target::continueProcessHelper()
 {
     // this clears the interrupts that triggers when the process is paused from client request
     // in case it has not actually been triggered.
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
     cb->interrupt = nullptr;
+
+    // we clear the inspect information
+    stackframeId = 1;
+    stateToStackFrame.clear();
+    idToStackFrameInfo.clear();
+
+    variableRefId = 1;
+    globalVariableRef = std::nullopt;
+    for (auto& [_, scope] : variableContexts)
+        if (scope.type == VariableScopeType::Table)
+            lua_unref(childRuntime->GL, scope.luaref);
+    scopeCache.clear();
+    variableContexts.clear();
+    variableCache.clear();
+
     if (stoppedThread)
     {
         // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
@@ -604,13 +1068,15 @@ void Target::continueProcessHelper()
                 continueRequestedBp.insert(stoppedThread);
             bpHit = std::nullopt;
         }
-        childRuntime->runningThreads.push_back({true, stoppedThreadRef, 0});
+        childRuntime->runningThreads.emplace_front(true, stoppedThreadRef, 0);
         // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
         // runToCompletion() has not exited.
         childRuntime->schedule([]() {});
         stoppedThread = nullptr;
         stoppedThreadRef = nullptr;
         stoppedLine = -1;
+        stoppedLocation = "";
+        stoppedPc = nullptr;
     }
     paused = false;
     childRuntime->continueDebug();
@@ -648,7 +1114,7 @@ bool Target::pauseProcess()
         debug::Thread thread = target->stateToThread.at(L);
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-        target->computeStoppedLine(L);
+        target->computeStoppedLocation(L);
         lua_break(L);
         // Clear out the interrupt and debugstep callback after we are done.
         lua_callbacks(L)->interrupt = nullptr;
@@ -664,7 +1130,6 @@ bool Target::pauseProcess()
     };
     return true;
 }
-
 
 bool Target::step(int threadId, StepType type)
 {
@@ -721,7 +1186,7 @@ bool Target::step(int threadId, StepType type)
             target->childRuntime->stopDebug();
             target->stoppedThread = L;
             target->stoppedThreadRef = getRefForThread(L);
-            target->stoppedLine = ar->currentline;
+            target->computeStoppedLocation(L);
             target->stepInfo = std::nullopt;
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             lua_break(L);

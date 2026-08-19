@@ -38,7 +38,7 @@ local LINT_RULE_MESSAGES = {
 	reassigned_parameter = "warning[reassigned_parameter]: Did you mean to reassign to a function parameter?",
 }
 
-local USAGE = "Usage: lute lint [OPTIONS] [...PATHS]"
+local USAGE = "Usage: lute lint [options] [paths...]"
 
 local LUAURC_CONTENT = [[
 {
