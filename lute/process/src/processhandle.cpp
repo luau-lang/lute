@@ -76,7 +76,7 @@ ProcessHandle::ProcessHandle(lua_State* L, ProcessOptions& opts, std::vector<std
     , state(opts.stdioKind == kStdioKindDefault ? ProcessExecutionState::kWaitOnNForProcessCompletion : 1)
     , stdioKind(opts.stdioKind)
     , options({})
-    , timeoutSeconds(opts.timeout)
+    , timeoutMs(opts.timeout)
 {
     // When the process finishes, what do we do?
     options.exit_cb = ProcessHandle::onProcessExit;
@@ -147,7 +147,7 @@ ProcessHandle::ProcessHandle(lua_State* L, ProcessOptions& opts, std::vector<std
 
     options.stdio = stdio;
 
-    if (timeoutSeconds > 0)
+    if (timeoutMs > 0)
     {
         options.flags |= UV_PROCESS_DETACHED;
         uv_timer_init(loop, &timeoutTimer);
@@ -169,9 +169,8 @@ void ProcessHandle::spawn(lua_State* L)
         luaL_error(L, "Failed to spawn process: %s", uv_strerror(spawnResult));
     }
 
-    if (timeoutSeconds > 0)
+    if (timeoutMs > 0)
     {
-        uint64_t timeoutMs = static_cast<uint64_t>(timeoutSeconds * 1000.0);
         uv_timer_start(&timeoutTimer, ProcessHandle::onTimeout, timeoutMs, 0);
     }
 
