@@ -743,7 +743,7 @@ std::optional<std::vector<VariableScope>> Target::getScopesHelper(int threadId, 
 std::optional<std::vector<VariableScope>> Target::getScopes(int frameId)
 {
     std::unique_lock lock(targetMutex);
-    if (!paused)
+    if (!launched || !paused)
         return std::nullopt;
     auto it = idToStackFrameInfo.find(frameId);
     if (it == idToStackFrameInfo.end())
@@ -997,17 +997,15 @@ std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
 std::optional<std::vector<Variable>> Target::getVariables(int varRef)
 {
     std::unique_lock lock(targetMutex);
-    if (!paused)
-    {
+    if (!launched || !paused)
         return std::nullopt;
-    }
     return getVariablesHelper(varRef);
 }
 
 std::optional<std::vector<Variable>> Target::getVariablesByScopeType(int frameId, VariableScopeType contextType)
 {
     std::unique_lock lock(targetMutex);
-    if (!paused)
+    if (!launched || !paused)
         return std::nullopt;
     auto stackFrame = idToStackFrameInfo.find(frameId);
     if (stackFrame == idToStackFrameInfo.end())
@@ -1152,6 +1150,8 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::st
 EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
 {
     std::unique_lock lock(targetMutex);
+    if (!launched)
+        return "target was not launched";
     if (!paused)
         return "target was not paused";
     lua_State* thread = nullptr;
