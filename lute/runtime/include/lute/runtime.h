@@ -142,13 +142,16 @@ struct Runtime
     // for debug mode only:
     const bool debugMode;
     std::atomic<int> numLaunchedDebuggees = 0;
+    // Same as scheduleLuauCallback but we since we don't call this within a libuv completion callback
+    // we need to wake up the libuv event loop.
+    void scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher);
     std::function<void()> pendingDebugStopNotification;
     void stopDebug();
     void continueDebug();
     void waitForDebugContinue();
-    // Same as scheduleLuauCallback but we since we don't call this within a libuv completion callback
-    // we need to wake up the libuv event loop.
-    void scheduleDebugLuauCallback(std::shared_ptr<Ref> callbackRef, std::function<int(lua_State*)> argPusher);
+
+    std::function<bool(lua_State* L)> onUncaughtError;
+    bool runUncaughtExceptionCompletion(lua_State* L);
 
 private:
     bool runThreadCompletionHandler(lua_State* L, int status);
