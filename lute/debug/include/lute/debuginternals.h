@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 
 struct lua_State;
@@ -92,6 +93,8 @@ struct Variable
     int variableReference = 0;
 };
 
+using EvaluateResult = std::variant<Variable, std::string>;
+
 enum class StepType
 {
     StepOver,
@@ -165,6 +168,9 @@ struct Target
     std::optional<std::vector<VariableScope>> getScopes(int frameId);
     std::optional<std::vector<Variable>> getVariables(int varRef);
     std::optional<std::vector<Variable>> getVariablesByScopeType(int frameId, VariableScopeType contextType);
+
+    // For evaluation:
+    EvaluateResult evaluateExpression(std::string expression, int frameId = -1);
 
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
@@ -240,6 +246,7 @@ private:
     std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
     std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
     std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
+    EvaluateResult evaluateExpressionHelper(lua_State* L, int level, std::string expression);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
@@ -253,6 +260,9 @@ private:
     std::vector<Variable> getUpvaluesHelper(lua_State* L, int level);
     std::vector<Variable> getGlobalsHelper();
     std::vector<Variable> getTableHelper(lua_State* L, int idx);
+
+    void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
+    void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);
 
     void installBpHitCallback();
     void installExitCallback();

@@ -7,6 +7,8 @@ export type Capability = {
 	supportTerminateRequest: boolean,
 	supportsLoadedSourcesRequest: boolean,
 	supportsDelayedStackTraceLoading: boolean,
+	supportsVariableType: boolean,
+	supportsEvaluateForHovers: boolean,
 }
 
 export type Source = {

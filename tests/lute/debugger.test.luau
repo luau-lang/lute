@@ -631,4 +631,47 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			true
 		)
 	end)
+	-- this test case focuses on evaluating expressions
+	suite:case("evaluateExpressions", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
+		target:setBreakpoint(mainPath, 16)
+		local onFinished = false
+		local targetLaunched = target:launch(mainPath, {}, {
+			onBreakpointHit = function(_thread, _bp)
+				local threads = target:getThreads()
+				check.eq(#threads, 1)
+				local stacktrace = target:getStackTrace(threads[1].id)
+				assert(stacktrace)
+				check.eq(#stacktrace, 2)
+				local result = target:evaluateExpression("2*_k", stacktrace[1].id)
+				assert(type(result) ~= "string")
+				local variable = result :: debug.Variable
+				check.eq(variable.value, "50.4")
+				result = target:evaluateExpression("_e[4]", stacktrace[2].id)
+				assert(type(result) ~= "string")
+				variable = result :: debug.Variable
+				check.eq(variable.value, "{r=13}")
+				result = target:evaluateExpression("a +", stacktrace[2].id)
+				assert(type(result) == "string")
+				local error = result :: string
+				check.eq(error, "eval:1: Expected identifier when parsing expression, got <eof>")
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(targetLaunched, nil)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+	end)
 end)
