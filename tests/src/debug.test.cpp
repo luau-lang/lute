@@ -1115,9 +1115,9 @@ TEST_SUITE("Debug")
     {
         std::string fixturePath = getDebugFixturePath("variables.luau");
         Target target(*runtime);
-        Breakpoint bp1 = target.setBreakpoint(fixturePath, 6);
-        Breakpoint bp2 = target.setBreakpoint(fixturePath, 14);
-        Breakpoint bp3 = target.setBreakpoint(fixturePath, 15);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 7);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 15);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 16);
         config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             const std::vector<Thread>& threads = target.getThreads();
@@ -1127,15 +1127,15 @@ TEST_SUITE("Debug")
             // stack frame at level 0
             std::optional<std::vector<VariableScope>> scopes = target.getScopes(stackframe->at(0).id);
             REQUIRE(scopes.has_value());
-            VariableScope locals = checkScope(*scopes, VariableScopeType::Locals, "Locals", 1, 0);
-            VariableScope upvalues = checkScope(*scopes, VariableScopeType::Upvalues, "Upvalues", 1, 0);
+            VariableScope locals = checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 0);
+            VariableScope upvalues = checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 0);
             if (bp.id == bp1.id)
             {
                 EvaluateResult result = target.setVariable(locals.variableReference, "a", "35 - 13");
                 REQUIRE(std::holds_alternative<Variable>(result));
                 Variable var = std::get<Variable>(result);
                 CHECK(var.value == "22");
-                std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Locals);
+                std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Local);
                 REQUIRE(locals0.has_value());
                 int tableRef = checkVariable(*locals0, "_e", "{a=4, [4]={r=13}, b=\"5\"}", "table", true);
                 result = target.setVariable(tableRef, "b", "1 - 13");
@@ -1145,14 +1145,14 @@ TEST_SUITE("Debug")
             }
             if (bp.id == bp2.id)
             {
-                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalues);
+                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
                 REQUIRE(upvalues0.has_value());
                 checkVariable(*upvalues0, "a", "44", "number", false);
                 EvaluateResult result = target.setVariable(upvalues.variableReference, "_b", "3 + 1.3");
                 REQUIRE(std::holds_alternative<Variable>(result));
                 Variable var = std::get<Variable>(result);
                 CHECK(var.value == "4.3");
-                std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Locals);
+                std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Local);
                 REQUIRE(locals1.has_value());
                 int tableRef = checkVariable(*locals1, "_e", "{a=4, [4]={r=13}, b=-12}", "table", true);
                 std::optional<std::vector<Variable>> table = target.getVariables(tableRef);
@@ -1161,10 +1161,10 @@ TEST_SUITE("Debug")
             }
             if (bp.id == bp3.id)
             {
-                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalues);
+                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
                 REQUIRE(upvalues0.has_value());
                 checkVariable(*upvalues0, "_b", "4.3", "number", false);
-                std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Locals);
+                std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Local);
                 REQUIRE(locals0.has_value());
                 checkVariable(*locals0, "_k", "48.3", "number", false);
             }
@@ -1178,9 +1178,9 @@ TEST_SUITE("Debug")
     {
         std::string fixturePath = getDebugFixturePath("variables.luau");
         Target target(*runtime);
-        Breakpoint bp1 = target.setBreakpoint(fixturePath, 6);
-        Breakpoint bp2 = target.setBreakpoint(fixturePath, 14);
-        Breakpoint bp3 = target.setBreakpoint(fixturePath, 15);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 7);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 15);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 16);
         config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             const std::vector<Thread>& threads = target.getThreads();
@@ -1200,13 +1200,13 @@ TEST_SUITE("Debug")
             }
             if (bp.id == bp2.id)
             {
-                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalues);
+                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
                 REQUIRE(upvalues0.has_value());
                 checkVariable(*upvalues0, "a", "44", "number", false);
                 EvaluateResult result = target.setExpression("_b", "3 + 1.3", stackframe->at(0).id);
                 Variable var = std::get<Variable>(result);
                 CHECK(var.value == "4.3");
-                std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Locals);
+                std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Local);
                 REQUIRE(locals1.has_value());
                 int tableRef = checkVariable(*locals1, "_e", "{a=4, [4]={r=13}, b=-12}", "table", true);
                 std::optional<std::vector<Variable>> table = target.getVariables(tableRef);
@@ -1215,10 +1215,10 @@ TEST_SUITE("Debug")
             }
             if (bp.id == bp3.id)
             {
-                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalues);
+                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
                 REQUIRE(upvalues0.has_value());
                 checkVariable(*upvalues0, "_b", "4.3", "number", false);
-                std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Locals);
+                std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Local);
                 REQUIRE(locals0.has_value());
                 checkVariable(*locals0, "_k", "48.3", "number", false);
             }

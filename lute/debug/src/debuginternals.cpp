@@ -72,7 +72,7 @@ VariableScope VariableScope::makeUpvalues(int variableReference, int threadId, i
 
 VariableScope VariableScope::makeGlobals(int variableReference, int threadId, int level)
 {
-    return VariableScope{variableReference, VariableScopeType::Global, "Globals", threadId, level, -1};
+    return VariableScope(variableReference, VariableScopeType::Global, "Globals", threadId, level, -1);
 }
 
 VariableScope VariableScope::makeTable(int variableReference, int threadId, int level, int luaref)
@@ -1168,15 +1168,7 @@ std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level, int paren
     std::vector<Variable> vars;
     while ((name = lua_getlocal(L, level, n)) != nullptr)
     {
-<<<<<<< HEAD
-<<<<<<< HEAD
-        vars.emplace_back(makeVariable(L, name));
-=======
-        vars.push_back(makeVariable(L, name, parentRef));
->>>>>>> 189a6022 (set expression c++)
-=======
-        vars.push_back(makeVariable(L, -1, name, parentRef));
->>>>>>> bce1d7b6 (fix multivalues)
+        vars.emplace_back(makeVariable(L, -1, name, parentRef));
         lua_pop(L, 1);
         n++;
     }
@@ -1194,15 +1186,7 @@ std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level, int par
     const char* name;
     while ((name = lua_getupvalue(L, -1, n)) != nullptr)
     {
-<<<<<<< HEAD
-<<<<<<< HEAD
-        vars.emplace_back(makeVariable(L, name));
-=======
-        vars.push_back(makeVariable(L, name, parentRef));
->>>>>>> 189a6022 (set expression c++)
-=======
-        vars.push_back(makeVariable(L, -1, name, parentRef));
->>>>>>> bce1d7b6 (fix multivalues)
+        vars.emplace_back(makeVariable(L, -1, name, parentRef));
         lua_pop(L, 1);
         n++;
     }
@@ -1210,20 +1194,17 @@ std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level, int par
     return vars;
 }
 
-std::vector<Variable> Target::getGlobalsHelper(lua_State* L, int level)
+std::vector<Variable> Target::getGlobalsHelper(lua_State* L, int level, int parentRef)
 {
     lua_Debug ar = {};
     lua_getinfo(L, level, "f", &ar);
     lua_getfenv(L, -1);
-    std::vector<Variable> vars = getTableHelper(L, -1);
+    std::vector<Variable> vars = getTableHelper(L, -1, parentRef);
     lua_pop(L, 2);
     return vars;
 }
 
-std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
-=======
 std::vector<Variable> Target::getTableHelper(lua_State* L, int idx, int parentRef)
->>>>>>> 189a6022 (set expression c++)
 {
     std::vector<Variable> vars;
     int absoluteIndex = lua_absindex(L, idx);
@@ -1231,15 +1212,7 @@ std::vector<Variable> Target::getTableHelper(lua_State* L, int idx, int parentRe
     while (lua_next(L, absoluteIndex))
     {
         std::string key = getKeyFromTableType(L);
-<<<<<<< HEAD
-<<<<<<< HEAD
-        vars.emplace_back(makeVariable(L, key));
-=======
-        vars.push_back(makeVariable(L, key, parentRef));
->>>>>>> 189a6022 (set expression c++)
-=======
-        vars.push_back(makeVariable(L, -1, key, parentRef));
->>>>>>> bce1d7b6 (fix multivalues)
+        vars.emplace_back(makeVariable(L, -1, key, parentRef));
         lua_pop(L, 1);
     }
     return vars;
@@ -1577,7 +1550,33 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
         return "need to be in valid context for evaluation";
     lua_State* thread = threadIdToState.at(context.threadId);
     int contextLevel = context.level;
-    if (context.type == VariableScopeType::Table)
+    if (context.type == VariableScopeType::Global)
+    {
+        lua_State* L = scriptThread;
+        lua_pushvalue(L, LUA_GLOBALSINDEX);
+        int tableIdx = lua_gettop(L);
+        pushTableKeyToFind(L, varName);
+        lua_rawget(L, tableIdx);
+        bool exists = !lua_isnil(L, -1);
+        lua_pop(L, 1);
+        if (!exists)
+        {
+            lua_pop(L, 1);
+            return "variable not found";
+        }
+        pushTableKeyToFind(L, varName);
+        EvaluateResult var = evaluateExpressionHelper(thread, contextLevel, "return " + setExpression, L);
+        if (std::holds_alternative<std::string>(var))
+        {
+            lua_pop(L, 2);
+            return var;
+        }
+        lua_rawset(L, tableIdx);
+        lua_pop(L, 1);
+        variableCache.clear();
+        return var;
+    }
+    else if (context.type == VariableScopeType::Table)
     {
         lua_State* L = childRuntime->GL;
         lua_rawgeti(L, LUA_REGISTRYINDEX, context.luaref);
@@ -1603,7 +1602,7 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
         variableCache.clear();
         return var;
     }
-    else if (context.type == VariableScopeType::Locals)
+    else if (context.type == VariableScopeType::Local)
     {
         return setLocalsHelper(thread, contextLevel, varName, setExpression);
     }
@@ -1640,6 +1639,8 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
         thread = threadIdToState.at(threadId);
     }
     bool isTable = lExpression.find_first_of(".[") != std::string::npos;
+    // if our lExpression is unlikely to be a table lookup, we try to look through locals, upvalues, and globals
+    // to set our code correctly. if our lExpression cannot be found there, we default to setting it globally
     if (frameId != -1 && !isTable)
     {
         std::optional<std::vector<VariableScope>> scopes = getScopesHelper(threadId, level);
@@ -1657,7 +1658,6 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
             else
                 return result;
         }
-        return Luau::format("l-expression %s is not in any local scope (global scope is currently not supported)", lExpression.c_str());
     }
     EvaluateMultiResult write = evaluateExpressionMultiHelper(thread, level, lExpression + " = " + setExpression);
     if (std::holds_alternative<std::string>(write))

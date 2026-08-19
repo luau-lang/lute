@@ -873,8 +873,8 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
-		local bp1 = target:setBreakpoint(mainPath, 6)
-		target:setBreakpoint(mainPath, 10)
+		local bp1 = target:setBreakpoint(mainPath, 7)
+		target:setBreakpoint(mainPath, 65)
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
 			onBreakpointHit = function(_thread, bp)
@@ -884,9 +884,9 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				assert(stacktrace)
 				local scopes = target:getScopes(stacktrace[1].id)
 				assert(scopes)
-				check.eq(#scopes, 2)
+				check.eq(#scopes, 3)
 				if bp.id == bp1.id then
-					local locals = checkScope(check, scopes, "Locals", "locals", threads[1].id, 0)
+					local locals = checkScope(check, scopes, "Locals", "local", threads[1].id, 0)
 					local setResult = target:setVariable(locals.variableRef, "a", "35-13") :: debug.Variable
 					check.eq(setResult.value, "22")
 				else
@@ -915,8 +915,8 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
-		local bp1 = target:setBreakpoint(mainPath, 6)
-		target:setBreakpoint(mainPath, 10)
+		local bp1 = target:setBreakpoint(mainPath, 7)
+		target:setBreakpoint(mainPath, 16)
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
 			onBreakpointHit = function(_thread, bp)
@@ -926,7 +926,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				assert(stacktrace)
 				local scopes = target:getScopes(stacktrace[1].id)
 				assert(scopes)
-				check.eq(#scopes, 2)
+				check.eq(#scopes, 3)
 				if bp.id == bp1.id then
 					local setResult = target:setExpression("a", "35-13", stacktrace[1].id) :: debug.Variable
 					check.eq(setResult.value, "22")
