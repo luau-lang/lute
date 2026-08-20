@@ -272,6 +272,7 @@ private:
     std::string evaluateLogMessage(lua_State* L, const Breakpoint& bp);
 
     void computeStoppedLocation(lua_State* L);
+    void unsetStoppedLocation();    
     void stoppedSetState(lua_State* L);
     void stoppedDispatchCallback(std::function<void()> debugStopCallback);
 

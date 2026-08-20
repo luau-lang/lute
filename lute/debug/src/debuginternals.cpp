@@ -369,6 +369,13 @@ void Target::computeStoppedLocation(lua_State* L)
         stoppedLocation = "";
 }
 
+void Target::unsetStoppedLocation()
+{
+    stoppedLine = -1;
+    stoppedPc = nullptr;
+    stoppedLocation = "";
+}
+
 void Target::stoppedSetState(lua_State* L)
 {
     paused = true;
@@ -602,8 +609,9 @@ void Target::installBpHitCallback()
     cb->debugbreak = [](lua_State* L, lua_Debug* ar)
     {
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
-        // We land on the same instruction after a continue() after hitting a bp so we basically don't do anything
         std::unique_lock lock(target->targetMutex);
+        // We land on the same instruction after a continue() after hitting a bp so if we have
+        // already have continue() on this thread, we basically don't do anything
         if (auto it = target->continueRequestedBp.find(L); it != target->continueRequestedBp.end())
         {
             target->continueRequestedBp.erase(it);
@@ -611,14 +619,12 @@ void Target::installBpHitCallback()
         }
         lua_Debug info = {};
         lua_getinfo(L, 0, "s", &info);
-        target->stoppedLine = ar->currentline;
         int line = ar->currentline;
         if (!info.source)
         {
             target->parentRuntime.reporter.reportError(Luau::format("breakpoint hit at line %d could not find a runtime source", line));
             return;
         }
-        target->stoppedPc = L->ci->savedpc;
         std::string chunkname = info.source;
         std::optional<Breakpoint> bp = target->getBreakpointBySourceLineHelper(getSourceFromChunk(chunkname), line);
         // Only stop execution on installed breakpoints; otherwise, don't stop.
@@ -626,16 +632,21 @@ void Target::installBpHitCallback()
         {
             target->breakpoints.at(bp->id).hitCount++;
             bp->hitCount = target->breakpoints.at(bp->id).hitCount;
+            // We need to compute locations here for accurate evaluation.
+            target->computeStoppedLocation(L);
             if (bp->condition != "" && !target->evaluateBpCondition(L, *bp))
             {
+                target->unsetStoppedLocation();
                 return;
             }
             if (bp->hitCondition != "" && !target->evaluateBpHitCondition(L, *bp))
             {
+                target->unsetStoppedLocation();
                 return;
             }
             if (bp->logMessage != "")
             {
+                target->unsetStoppedLocation();
                 lock.unlock();
                 std::string message = target->evaluateLogMessage(L, *bp);
                 if (target->launchConfig.onLogpointHit)
@@ -1221,7 +1232,7 @@ void Target::injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTa
     lua_pop(L, 1);
 }
 
-EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, const std::string& expression)
+EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::string expression)
 {
     // this guards against leaving the evalthread on the global thread of the child runtime.
     struct StackGuard
@@ -1307,7 +1318,7 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, const s
     return makeVariable(evalThread, expression);
 }
 
-EvaluateResult Target::evaluateExpression(const std::string& expression, int frameId)
+EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
 {
     std::unique_lock lock(targetMutex);
     if (!launched)
@@ -1373,9 +1384,7 @@ void Target::continueProcessHelper()
         }
         stoppedThread = nullptr;
         stoppedThreadRef = nullptr;
-        stoppedLine = -1;
-        stoppedLocation = "";
-        stoppedPc = nullptr;
+        unsetStoppedLocation();
     }
     paused = false;
     childRuntime->continueDebug();
