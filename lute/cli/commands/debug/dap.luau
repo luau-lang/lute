@@ -388,7 +388,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				})
 				if canInvalidate then
 					ioSession.writeEvent("invalidated", {
-						areas = { "variables" },
+						areas = { "variables", "stacks" },
 					})
 				end
 			end
@@ -409,7 +409,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				})
 				if canInvalidate then
 					ioSession.writeEvent("invalidated", {
-						areas = { "variables" },
+						areas = { "variables", "stacks" },
 					})
 				end
 			end
