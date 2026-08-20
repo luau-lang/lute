@@ -20,7 +20,15 @@ export type RegistryDependencySpec = {
 	read name: string,
 	read source: string,
 	read version: string,
+	read registry: string?,
 }
+
+export type RegistryConfig = {
+	read url: string,
+	read default: boolean?,
+}
+
+export type RegistryMap = { [string]: RegistryConfig }
 
 export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec
 
@@ -34,6 +42,8 @@ export type PackageManifest = {
 export type ProjectManifest = {
 	read package: PackageManifest,
 	read overrides: { [string]: DependencySpec },
+	read registry: RegistryMap,
+	read defaultRegistry: string?,
 }
 
 local function isSourceKind(s: unknown): boolean
@@ -87,17 +97,76 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 				typeof(spec.version) == "string",
 				`Expected 'version' field for registry dependency '{name}' in {sectionName}`
 			)
+			assert(
+				spec.registry == nil or typeof(spec.registry) == "string",
+				`Optional 'registry' field for dependency '{name}' in {sectionName} must be a string`
+			)
 			result[name] = table.freeze({
 				name = spec.name or name,
 				sourceKind = "registry" :: "registry",
 				source = spec.source,
 				version = spec.version,
+				registry = spec.registry,
 			})
 		end
 	end
 
 	return table.freeze(result)
 end
+
+local function parseRegistryMap(raw: any): (RegistryMap, string?)
+	local result: RegistryMap = {}
+	if raw == nil then
+		return table.freeze(result), nil
+	end
+
+	assert(typeof(raw) == "table", "Expected 'registry' to be a table")
+
+	local defaultCount = 0
+	local defaultName: string? = nil
+	local firstName: string? = nil
+	local count = 0
+
+	for name, entry in raw do
+		assert(typeof(name) == "string", "Expected registry key to be a string")
+		assert(typeof(entry) == "table", `Expected registry entry '{name}' to be a table`)
+		assert(typeof(entry.url) == "string", `Expected 'url' field in registry '{name}'`)
+
+		local isDefault: boolean? = nil
+		if entry.default ~= nil then
+			assert(typeof(entry.default) == "boolean", `Expected 'default' to be a boolean in registry '{name}'`)
+			isDefault = entry.default
+			if isDefault then
+				defaultCount += 1
+				defaultName = name
+			end
+		end
+
+		if count == 0 then
+			firstName = name
+		end
+
+		result[name] = table.freeze({
+			url = entry.url,
+			default = isDefault,
+		})
+		count += 1
+	end
+
+	if count > 1 then
+		assert(
+			defaultCount == 1,
+			if defaultCount == 0
+				then "Multiple registries defined but none has 'default = true'"
+				else `Multiple registries have 'default = true' (found {defaultCount})`
+		)
+	end
+
+	local resolvedDefault = if count == 1 then firstName else defaultName
+
+	return table.freeze(result), resolvedDefault
+end
+
 
 -- TODO: We should do proper error handling because this is user input.
 local function parseManifest(t: unknown): ProjectManifest
@@ -122,6 +191,7 @@ local function parseManifest(t: unknown): ProjectManifest
 	end
 
 	local overrides = parseDependencyMap((t :: any).overrides, "overrides")
+	local registryMap, defaultRegistry = parseRegistryMap((t :: any).registry)
 
 	return table.freeze({
 		package = table.freeze({
@@ -131,6 +201,8 @@ local function parseManifest(t: unknown): ProjectManifest
 			devDependencies = devDependencies,
 		}),
 		overrides = overrides,
+		registry = registryMap,
+		defaultRegistry = defaultRegistry,
 	})
 end
 
