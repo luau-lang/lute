@@ -150,7 +150,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 					{
 						filter = "caught",
 						label = "Caught Exceptions",
-						description = "Stop debugger at all points where a caught exception is thrown in a pcall()",
+						description = "Stop debugger at all points where a caught exception is thrown in a pcall()/xpcall()",
 						default = false,
 					},
 				},
