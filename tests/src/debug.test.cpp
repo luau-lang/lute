@@ -1129,6 +1129,7 @@ TEST_SUITE("Debug")
             REQUIRE(scopes.has_value());
             VariableScope locals = checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 0);
             VariableScope upvalues = checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 0);
+            VariableScope globals = checkScope(*scopes, VariableScopeType::Global, "Globals", 1, 0);
             if (bp.id == bp1.id)
             {
                 EvaluateResult result = target.setVariable(locals.variableReference, "a", "35 - 13");
@@ -1142,6 +1143,10 @@ TEST_SUITE("Debug")
                 REQUIRE(std::holds_alternative<Variable>(result));
                 var = std::get<Variable>(result);
                 CHECK(var.value == "-12");
+                result = target.setVariable(globals.variableReference, "_global_var", "_d[2]");
+                REQUIRE(std::holds_alternative<Variable>(result));
+                var = std::get<Variable>(result);
+                CHECK(var.value == "2");
             }
             if (bp.id == bp2.id)
             {
@@ -1158,6 +1163,9 @@ TEST_SUITE("Debug")
                 std::optional<std::vector<Variable>> table = target.getVariables(tableRef);
                 REQUIRE(table.has_value());
                 checkVariable(*table, "b", "-12", "number", false);
+                std::optional<std::vector<Variable>> globals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Global);
+                REQUIRE(globals0.has_value());
+                checkVariable(*globals0, "_global_var", "2", "number", false);
             }
             if (bp.id == bp3.id)
             {
@@ -1197,6 +1205,10 @@ TEST_SUITE("Debug")
                 REQUIRE(std::holds_alternative<Variable>(result));
                 var = std::get<Variable>(result);
                 CHECK(var.value == "-12");
+                result = target.setExpression("_global_var", "10", stackframe->at(0).id);
+                REQUIRE(std::holds_alternative<Variable>(result));
+                var = std::get<Variable>(result);
+                CHECK(var.value == "10");
             }
             if (bp.id == bp2.id)
             {
@@ -1212,6 +1224,8 @@ TEST_SUITE("Debug")
                 std::optional<std::vector<Variable>> table = target.getVariables(tableRef);
                 REQUIRE(table.has_value());
                 checkVariable(*table, "b", "-12", "number", false);
+                std::optional<std::vector<Variable>> globals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Global);
+                checkVariable(*globals0, "_global_var", "10", "number", false);
             }
             if (bp.id == bp3.id)
             {

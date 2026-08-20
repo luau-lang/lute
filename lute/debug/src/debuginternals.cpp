@@ -1544,13 +1544,7 @@ void pushTableKeyToFind(lua_State* L, std::string varName)
     }
 }
 
-EvaluateResult Target::setTableEntryHelper(
-    lua_State* L,
-    int tableIdx,
-    int evalLevel,
-    std::string varName,
-    std::string setExpression
-)
+EvaluateResult Target::setTableEntryHelper(lua_State* L, int tableIdx, int evalLevel, std::string varName, std::string setExpression)
 {
     pushTableKeyToFind(L, varName);
     lua_rawget(L, tableIdx);
@@ -1603,7 +1597,7 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
 EvaluateResult Target::setVariable(int varRef, std::string varName, std::string setExpression)
 {
     std::unique_lock lock(targetMutex);
-    if (!paused)
+    if (!launched || !paused)
         return "target was not paused";
     auto it = variableContexts.find(varRef);
     if (it == variableContexts.end())
@@ -1616,7 +1610,7 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
     // only if lExpression refers to a preexisting local, global, or upvalue variable do we need to actually look up and call setVariable.
     // otherwise, since tables are passed by reference, we can just call evaluateExpression
     std::unique_lock lock(targetMutex);
-    if (!paused)
+    if (!launched || !paused)
         return "target was not paused";
     lua_State* thread = nullptr;
     int level = -1;
@@ -1634,6 +1628,7 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
         std::optional<std::vector<VariableScope>> scopes = getScopesHelper(threadId, level);
         if (!scopes)
             return "required scopes not found";
+        // getScopes() returns in local, upvalue, global order, so we always set at the smallest possible scope.
         for (VariableScope scope : *scopes)
         {
             EvaluateResult result = setVariableHelper(scope, lExpression, setExpression);
@@ -1646,8 +1641,9 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
             else
                 return result;
         }
+        return "variable value not found a preexisting local, global, or upvalue variable";
     }
-    // for unset global variables or for an lExpression referring to a value in a table, we can simply just
+    // for an lExpression referring to a value in a table, we can simply just
     // evaluate lExpression = setExpression to make changes.
     EvaluateMultiResult write = evaluateExpressionMultiHelper(thread, level, lExpression + " = " + setExpression);
     if (std::holds_alternative<std::string>(write))
