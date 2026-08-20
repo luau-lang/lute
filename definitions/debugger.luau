@@ -7,15 +7,15 @@ export type BreakpointStatus = "pendingInstall" | "pendingUninstall" | "installe
 
 --- A config for advanced breakpoint features
 export type BreakpointConfig = {
-	--- if condition is not "", the condition must evaluate to true before we stop on this bp.
+	--- if condition is not "" and not nil, the condition must evaluate to true before we stop on this bp.
 	condition: string?,
-	--- if hitCondition is not "", a condition involving the hitCount must be true before we stop on this bp.
+	--- if hitCondition is not "" and not nil, a condition involving the hitCount must be true before we stop on this bp.
 	--- if hitCondition is a single integer N, only stop when we have hit N times exactly.
 	--- if hitCondition is of the form "% N", only stop every N times we have hit this bp.
 	--- if hitCondition is anything else, we insert the number of times we hit in front of hitCondition and
 	--- attempt to evaluate an expression. For example, we can have ">= 5" or "* 3 - 5 > 6".
 	hitCondition: string?,
-	--- if logMessage is not "", then instead of stopping we simply output an interpolated log message to the relevant callback.
+	--- if logMessage is not "" and not nil, then instead of stopping we simply output an interpolated log message to the relevant callback.
 	--- all expressions within '{}' are interpolated.
 	logMessage: string?,
 }
