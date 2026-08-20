@@ -682,6 +682,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local bpErrorHandler = target:setBreakpoint(fixturePath, 4)
 		local bpOutside = target:setBreakpoint(fixturePath, 7)
 		local onFinished = false
+		local numHits = 0
 		local launchError = target:launch(fixturePath, {}, {
 			onBreakpointHit = function(_thread, bp)
 				local threads = target:getThreads()
@@ -693,10 +694,12 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				if bp.id == bpErrorHandler.id then
 					local errorValue = string.format('"%s:2: attempt to call a nil value"', normalizePath(fixturePath))
 					checkVariable(check, locals, "_err", errorValue, "string", false)
+					numHits += 1
 				end
 				if bp.id == bpOutside.id then
 					checkVariable(check, locals, "returned", "false", "boolean", false)
 					checkVariable(check, locals, "_data", '"error found"', "string", false)
+					numHits += 1
 				end
 				local continued = target:continueProcess()
 				check.that(continued)
@@ -714,6 +717,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
+		check.eq(numHits, 2)
 	end)
 	-- this test case checks we can pause in metatable methods
 	suite:case("metatable", function(check)
@@ -723,6 +727,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local bpIndex = target:setBreakpoint(fixturePath, 4)
 		local bpCall = target:setBreakpoint(fixturePath, 7)
 		local onFinished = false
+		local numHits = 0
 		local launchError = target:launch(fixturePath, {}, {
 			onBreakpointHit = function(_thread, bp)
 				local threads = target:getThreads()
@@ -733,9 +738,11 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				assert(locals)
 				if bp.id == bpIndex.id then
 					checkVariable(check, locals, "k", "7", "number", false)
+					numHits += 1
 				end
 				if bp.id == bpCall.id then
 					checkVariable(check, locals, "k", "5", "number", false)
+					numHits += 1
 				end
 				local continued = target:continueProcess()
 				check.that(continued)
@@ -753,5 +760,6 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
+		check.eq(numHits, 2)
 	end)
 end)

@@ -1202,7 +1202,7 @@ void Target::continueProcessHelper()
             // we need to check if our breakpoint is still currently installed after
             // onBreakpointHit() callback
             std::optional<Breakpoint> currentBp = getBreakpointByIdHelper(bpHit->id);
-            if (currentBp && currentBp->status == BreakpointStatus::Installed)
+            if (currentBp && !stoppedNoYield && currentBp->status == BreakpointStatus::Installed)
                 continueRequestedBp.insert(stoppedThread);
             bpHit = std::nullopt;
         }

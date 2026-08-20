@@ -850,6 +850,7 @@ TEST_SUITE("Debug")
         Target target(*runtime);
         Breakpoint bpErrorHandler = target.setBreakpoint(fixturePath, 4);
         Breakpoint bpOutside = target.setBreakpoint(fixturePath, 7);
+        int numHits = 0;
         config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             const std::vector<Thread>& threads = target.getThreads();
@@ -862,6 +863,7 @@ TEST_SUITE("Debug")
                 REQUIRE(locals.has_value());
                 std::string errorValue = "\"" + Luau::format("%s:2: attempt to call a nil value", fixturePath.c_str()) + "\"";
                 checkVariable(*locals, "_err", errorValue, "string", false);
+                numHits++;
             }
             if (bp.id == bpOutside.id)
             {
@@ -869,11 +871,13 @@ TEST_SUITE("Debug")
                 REQUIRE(locals.has_value());
                 checkVariable(*locals, "returned", "false", "boolean", false);
                 checkVariable(*locals, "_data", "\"error found\"", "string", false);
+                numHits++;
             }
             target.continueProcess();
         };
         target.launch(fixturePath, {}, config);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
     };
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_metatable")
@@ -882,6 +886,7 @@ TEST_SUITE("Debug")
         Target target(*runtime);
         Breakpoint bpIndex = target.setBreakpoint(fixturePath, 4);
         Breakpoint bpCall = target.setBreakpoint(fixturePath, 7);
+        int numHits = 0;
         config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
         {
             const std::vector<Thread>& threads = target.getThreads();
@@ -893,16 +898,19 @@ TEST_SUITE("Debug")
                 std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
                 REQUIRE(locals.has_value());
                 checkVariable(*locals, "k", "7", "number", false);
+                numHits++;
             }
             if (bp.id == bpCall.id)
             {
                 std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
                 REQUIRE(locals.has_value());
                 checkVariable(*locals, "k", "5", "number", false);
+                numHits++;
             }
             target.continueProcess();
         };
         target.launch(fixturePath, {}, config);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
     };
 }
