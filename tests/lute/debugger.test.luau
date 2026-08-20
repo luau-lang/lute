@@ -785,7 +785,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local conditionalHits = 0
 		local hitConditionHits = 0
 		local targetLaunched = target:launch(mainPath, {}, {
-			onBreakpointHit = function(thread, bp)
+			onBreakpointHit = function(_thread, bp)
 				if bp.id == normalBp.id then
 					normalHits += 1
 				elseif bp.id == conditionalBp.id then

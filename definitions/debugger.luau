@@ -5,12 +5,8 @@ local debugger = {}
 --- operation is queued to happen when the script is next paused.
 export type BreakpointStatus = "pendingInstall" | "pendingUninstall" | "installed" | "invalid"
 
---- A breakpoint that stops execution when encountered during runtime
-export type Breakpoint = {
-	id: number,
-	line: number,
-	--- this source path will use forward slashes
-	sourcePath: string,
+--- A config for advanced breakpoint features
+export type BreakpointConfig = {
 	--- if condition is not "", the condition must evaluate to true before stopping.
 	condition: string,
 	--- if hitCondition is not "", a condition involving the hitCount must be true before stopping.
@@ -19,10 +15,21 @@ export type Breakpoint = {
 	--- if hitCondition is anything else, we insert the number of times we hit in front of hitCondition and
 	--- attempt to evaluate an expression. For example, we can have ">= 5" or "* 3 - 5 > 6".
 	hitCondition: string,
-	--- the number of times this bp has been hit (note that we can hit a bp but not stop it due to conditions above).
-	hitCount: number,
 	--- if logMessage is not "", then instead of stopping we simply output an interpolated log message to the relevant callback.
 	--- all expressions within '{}' are interpolated.
+	logMessage: string,
+}
+
+--- A breakpoint that stops execution when encountered during runtime
+export type Breakpoint = {
+	id: number,
+	line: number,
+	--- this source path will use forward slashes
+	sourcePath: string,
+	condition: string,
+	hitCondition: string,
+	--- the number of times this bp has been hit (note that we can hit a bp but not stop it due to conditions above).
+	hitCount: number,
 	logMessage: string,
 	status: BreakpointStatus,
 }
