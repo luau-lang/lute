@@ -81,7 +81,7 @@ VariableScope VariableScope::makeTable(int variableReference, int luaref)
 
 bool Variable::isTrue()
 {
-    return value != "false" && value != "nil" && type != "void";
+    return value != "false" && value != "nil";
 }
 
 Target::Target(Runtime& parentRuntime)
@@ -524,9 +524,13 @@ std::string convertHitConditionToExpression(int hitCount, std::string hitExpress
         return hitString + " == " + hitExpression;
     if (hitExpression.size() > 0 && hitExpression[0] == '%')
     {
-        hitExpression = hitExpression.substr(hitExpression.find_first_not_of(" \t", 1));
-        if (std::all_of(hitExpression.begin() + 1, hitExpression.end(), ::isdigit))
-            return hitString + "%" + hitExpression + " == 0";
+        size_t digitsStart = hitExpression.find_first_not_of(" \t", 1);
+        if (digitsStart != std::string::npos)
+        {
+            std::string digits = hitExpression.substr(digitsStart);
+            if (!digits.empty() && std::all_of(digits.begin(), digits.end(), ::isdigit))
+                return hitString + "%" + digits + " == 0";
+        }
     }
     return hitString + hitExpression;
 }
@@ -1217,7 +1221,7 @@ void Target::injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTa
     lua_pop(L, 1);
 }
 
-EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::string expression)
+EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, const std::string& expression)
 {
     // this guards against leaving the evalthread on the global thread of the child runtime.
     struct StackGuard
@@ -1303,7 +1307,7 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::st
     return makeVariable(evalThread, expression);
 }
 
-EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
+EvaluateResult Target::evaluateExpression(const std::string& expression, int frameId)
 {
     std::unique_lock lock(targetMutex);
     if (!launched)

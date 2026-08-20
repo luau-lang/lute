@@ -37,6 +37,7 @@ struct BreakpointConfig
 struct Breakpoint
 {
     int id;
+    // This will use forward slashes instead of backwards.
     std::string sourcePath;
     int line;
     std::string condition;
@@ -182,7 +183,7 @@ struct Target
     std::optional<std::vector<Variable>> getVariablesByScopeType(int frameId, VariableScopeType contextType);
 
     // For evaluation:
-    EvaluateResult evaluateExpression(std::string expression, int frameId = -1);
+    EvaluateResult evaluateExpression(const std::string& expression, int frameId = -1);
 
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
@@ -258,7 +259,7 @@ private:
     std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
     std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
     std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
-    EvaluateResult evaluateExpressionHelper(lua_State* L, int level, std::string expression);
+    EvaluateResult evaluateExpressionHelper(lua_State* L, int level, const std::string& expression);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
