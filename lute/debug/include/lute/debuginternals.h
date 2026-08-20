@@ -322,6 +322,14 @@ private:
     void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
     void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);
 
+    EvaluateResult setTableEntryHelper(
+        lua_State* L,
+        int tableIdx,
+        lua_State* evalThread,
+        int evalLevel,
+        std::string varName,
+        std::string setExpression
+    );
     EvaluateResult setLocalsHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
     EvaluateResult setUpvaluesHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
 

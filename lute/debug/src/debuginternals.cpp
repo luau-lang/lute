@@ -1544,6 +1544,37 @@ void pushTableKeyToFind(lua_State* L, std::string varName)
     }
 }
 
+EvaluateResult Target::setTableEntryHelper(
+    lua_State* L,
+    int tableIdx,
+    lua_State* evalThread,
+    int evalLevel,
+    std::string varName,
+    std::string setExpression
+)
+{
+    pushTableKeyToFind(L, varName);
+    lua_rawget(L, tableIdx);
+    bool exists = !lua_isnil(L, -1);
+    lua_pop(L, 1);
+    if (!exists)
+    {
+        lua_pop(L, 1);
+        return "variable not found";
+    }
+    pushTableKeyToFind(L, varName);
+    EvaluateResult var = evaluateExpressionHelper(evalThread, evalLevel, "return " + setExpression, L);
+    if (std::holds_alternative<std::string>(var))
+    {
+        lua_pop(L, 2);
+        return var;
+    }
+    lua_rawset(L, tableIdx);
+    lua_pop(L, 1);
+    variableCache.clear();
+    return var;
+}
+
 EvaluateResult Target::setVariableHelper(VariableScope& context, std::string varName, std::string setExpression)
 {
     if (context.threadId == -1)
@@ -1554,53 +1585,13 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
     {
         lua_State* L = scriptThread;
         lua_pushvalue(L, LUA_GLOBALSINDEX);
-        int tableIdx = lua_gettop(L);
-        pushTableKeyToFind(L, varName);
-        lua_rawget(L, tableIdx);
-        bool exists = !lua_isnil(L, -1);
-        lua_pop(L, 1);
-        if (!exists)
-        {
-            lua_pop(L, 1);
-            return "variable not found";
-        }
-        pushTableKeyToFind(L, varName);
-        EvaluateResult var = evaluateExpressionHelper(thread, contextLevel, "return " + setExpression, L);
-        if (std::holds_alternative<std::string>(var))
-        {
-            lua_pop(L, 2);
-            return var;
-        }
-        lua_rawset(L, tableIdx);
-        lua_pop(L, 1);
-        variableCache.clear();
-        return var;
+        return setTableEntryHelper(L, lua_gettop(L), thread, contextLevel, varName, setExpression);
     }
     else if (context.type == VariableScopeType::Table)
     {
         lua_State* L = childRuntime->GL;
         lua_rawgeti(L, LUA_REGISTRYINDEX, context.luaref);
-        int tableIdx = lua_gettop(L);
-        pushTableKeyToFind(L, varName);
-        lua_rawget(L, tableIdx);
-        bool exists = !lua_isnil(L, -1);
-        lua_pop(L, 1);
-        if (!exists)
-        {
-            lua_pop(L, 1);
-            return "variable not found";
-        }
-        pushTableKeyToFind(L, varName);
-        EvaluateResult var = evaluateExpressionHelper(thread, contextLevel, "return " + setExpression, L);
-        if (std::holds_alternative<std::string>(var))
-        {
-            lua_pop(L, 2);
-            return var;
-        }
-        lua_rawset(L, tableIdx);
-        lua_pop(L, 1);
-        variableCache.clear();
-        return var;
+        return setTableEntryHelper(L, lua_gettop(L), thread, contextLevel, varName, setExpression);
     }
     else if (context.type == VariableScopeType::Local)
     {
