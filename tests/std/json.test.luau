@@ -121,4 +121,114 @@ test.suite("JSONParsingTestSuite", function(suite)
 			end
 		end
 	end)
+
+	suite:case("deserializeRejectsJsoncByDefault", function(assert)
+		assert.throws(json.deserialize, '{"a": 1} // a comment')
+		assert.throws(json.deserialize, '{/* a comment */ "a": 1}')
+		assert.throws(json.deserialize, '{"a": 1,}')
+		assert.throws(json.deserialize, "[1, 2,]")
+	end)
+
+	suite:case("deserializeAllowsLineComments", function(assert)
+		local src = [[
+		// a leading comment
+		{
+			"a": 1, // after a value
+			"b": "two"
+		}
+		// a trailing comment
+		]]
+
+		local obj = json.asObject(json.deserialize(src, { comments = true }))
+		if not obj then
+			failure.assertion("Expected the parsed value to be an object")
+			return
+		end
+
+		assert.eq(obj.a, 1)
+		assert.eq(obj.b, "two")
+	end)
+
+	suite:case("deserializeAllowsBlockComments", function(assert)
+		local src = '{ /* one */ "a": /* two */ [1, /* three */ 2] /* four */ }'
+
+		local obj = json.asObject(json.deserialize(src, { comments = true }))
+		if not obj then
+			failure.assertion("Expected the parsed value to be an object")
+			return
+		end
+
+		local array = json.asArray(obj.a)
+		if not array then
+			failure.assertion("Expected a to be an array")
+			return
+		end
+
+		assert.eq(array[1], 1)
+		assert.eq(array[2], 2)
+	end)
+
+	suite:case("deserializeKeepsCommentCharactersInsideStrings", function(assert)
+		local obj = json.asObject(json.deserialize('{"a": "// not /* a */ comment"}', { comments = true }))
+		if not obj then
+			failure.assertion("Expected the parsed value to be an object")
+			return
+		end
+
+		assert.eq(obj.a, "// not /* a */ comment")
+	end)
+
+	suite:case("deserializeAllowsTrailingCommas", function(assert)
+		local obj = json.asObject(json.deserialize('{"a": 1,}', { trailingCommas = true }))
+		if not obj then
+			failure.assertion("Expected the parsed value to be an object")
+			return
+		end
+
+		assert.eq(obj.a, 1)
+
+		local array = json.asArray(json.deserialize("[1, 2,]", { trailingCommas = true }))
+		if not array then
+			failure.assertion("Expected the parsed value to be an array")
+			return
+		end
+
+		assert.eq(#array, 2)
+		assert.eq(array[2], 2)
+	end)
+
+	suite:case("deserializeAcceptsLuaurcStyleConfig", function(assert)
+		local src = [[
+		{
+			// how strictly luau should typecheck this project
+			"languageMode": "strict",
+			"aliases": {
+				"std": "~/.lute/typedefs",
+			},
+		}
+		]]
+
+		local obj = json.asObject(json.deserialize(src, { comments = true, trailingCommas = true }))
+		if not obj then
+			failure.assertion("Expected the parsed value to be an object")
+			return
+		end
+
+		assert.eq(obj.languageMode, "strict")
+
+		local aliases = json.asObject(obj.aliases)
+		if not aliases then
+			failure.assertion("Expected aliases to be an object")
+			return
+		end
+
+		assert.eq(aliases.std, "~/.lute/typedefs")
+	end)
+
+	suite:case("deserializeRejectsMalformedComments", function(assert)
+		-- a block comment that is never closed
+		assert.throws(json.deserialize, "[1, 2] /* unterminated", { comments = true })
+		-- a lone slash is not a comment
+		assert.throws(json.deserialize, "[1, / 2]", { comments = true })
+	end)
 end)
