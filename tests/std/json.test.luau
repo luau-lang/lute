@@ -123,10 +123,18 @@ test.suite("JSONParsingTestSuite", function(suite)
 	end)
 
 	suite:case("deserializeRejectsJsoncByDefault", function(assert)
-		assert.throws(json.deserialize, '{"a": 1} // a comment')
-		assert.throws(json.deserialize, '{/* a comment */ "a": 1}')
-		assert.throws(json.deserialize, '{"a": 1,}')
-		assert.throws(json.deserialize, "[1, 2,]")
+		local sources = {
+			'{"a": 1} // a comment',
+			'{/* a comment */ "a": 1}',
+			'{"a": 1,}',
+			"[1, 2,]",
+		}
+
+		for _, src in sources do
+			assert.throws(function()
+				json.deserialize(src)
+			end)
+		end
 	end)
 
 	suite:case("deserializeAllowsLineComments", function(assert)
@@ -227,8 +235,12 @@ test.suite("JSONParsingTestSuite", function(suite)
 
 	suite:case("deserializeRejectsMalformedComments", function(assert)
 		-- a block comment that is never closed
-		assert.throws(json.deserialize, "[1, 2] /* unterminated", { comments = true })
+		assert.throws(function()
+			json.deserialize("[1, 2] /* unterminated", { comments = true })
+		end)
 		-- a lone slash is not a comment
-		assert.throws(json.deserialize, "[1, / 2]", { comments = true })
+		assert.throws(function()
+			json.deserialize("[1, / 2]", { comments = true })
+		end)
 	end)
 end)
