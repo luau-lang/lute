@@ -314,6 +314,11 @@ private:
     void stoppedDispatchCallback(std::function<void()> debugStopCallback);
 
     Variable makeVariable(lua_State* L, int stackSlot, const std::string& name, int parentRef);
+
+    // These helper functions are used to visit each variables in a scope.
+    void forEachLocal(lua_State* L, int level, const std::function<bool(const std::string& name, int n)>& visit);
+    void forEachUpvalue(lua_State* L, int level, const std::function<bool(const std::string& name, int n)>& visit);
+
     std::vector<Variable> getLocalsHelper(lua_State* L, int level, int parentRef);
     std::vector<Variable> getUpvaluesHelper(lua_State* L, int level, int parentRef);
     std::vector<Variable> getGlobalsHelper(lua_State* L, int level, int parentRef);
@@ -322,6 +327,8 @@ private:
     void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
     void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);
 
+    EvaluateResult setLocalHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
+    EvaluateResult setUpvalueHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
     EvaluateResult setTableEntryHelper(
         lua_State* L,
         int tableIdx,
@@ -330,8 +337,6 @@ private:
         std::string varName,
         std::string setExpression
     );
-    EvaluateResult setLocalsHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
-    EvaluateResult setUpvaluesHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
 
     void installBpHitCallback();
     void installExitCallback();
