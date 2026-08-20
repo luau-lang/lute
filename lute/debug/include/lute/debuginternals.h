@@ -332,7 +332,6 @@ private:
     EvaluateResult setTableEntryHelper(
         lua_State* L,
         int tableIdx,
-        lua_State* evalThread,
         int evalLevel,
         std::string varName,
         std::string setExpression

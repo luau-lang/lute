@@ -221,7 +221,7 @@ export type Target = {
 	--- This is done within the scope of the stack frame with `frameID`. If `frameId` is absent or -1,
 	--- we are in the global scope. If this operation is not successful, it returns an error string.
 	--- Otherwise, it returns a `Variable` containing the new value.
-	setExpression: (self: Target, lExpression: string, setExpression: string, frameID: number?) -> Variable | string
+	setExpression: (self: Target, lExpression: string, setExpression: string, frameID: number?) -> Variable | string,
 }
 
 --- Create a new Target handle on the current VM.

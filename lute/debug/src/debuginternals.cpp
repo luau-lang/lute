@@ -1351,10 +1351,9 @@ EvaluateMultiResult Target::evaluateExpressionMultiHelper(lua_State* contextThre
     struct StackGuard
     {
         lua_State* L;
-        int idx;
         ~StackGuard()
         {
-            lua_remove(L, idx);
+            lua_pop(L, 1);
         }
     };
     // we 1) don't want to register the eval thread to stop re-entrancy on the mutex (and to not have floating threads on the screen)
@@ -1384,8 +1383,7 @@ EvaluateMultiResult Target::evaluateExpressionMultiHelper(lua_State* contextThre
     std::string bytecode = Luau::compile(expression, debugOptions);
     CallbackGuard callbackGuard(childRuntime->GL);
     lua_State* evalThread = lua_newthread(childRuntime->GL);
-    int evalThreadIdx = lua_gettop(childRuntime->GL);
-    StackGuard stackGuard{childRuntime->GL, evalThreadIdx};
+    StackGuard stackGuard{childRuntime->GL};
     luaL_sandboxthread(evalThread);
     // sets the previous global table is the top most scope of all variables
     lua_newtable(evalThread);
@@ -1549,7 +1547,6 @@ void pushTableKeyToFind(lua_State* L, std::string varName)
 EvaluateResult Target::setTableEntryHelper(
     lua_State* L,
     int tableIdx,
-    lua_State* evalThread,
     int evalLevel,
     std::string varName,
     std::string setExpression
@@ -1565,7 +1562,7 @@ EvaluateResult Target::setTableEntryHelper(
         return "variable not found";
     }
     pushTableKeyToFind(L, varName);
-    EvaluateResult var = evaluateExpressionHelper(evalThread, evalLevel, "return " + setExpression, L);
+    EvaluateResult var = evaluateExpressionHelper(L, evalLevel, "return " + setExpression, L);
     if (std::holds_alternative<std::string>(var))
     {
         lua_pop(L, 2);
@@ -1585,15 +1582,13 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
     int contextLevel = context.level;
     if (context.type == VariableScopeType::Global)
     {
-        lua_State* L = scriptThread;
-        lua_pushvalue(L, LUA_GLOBALSINDEX);
-        return setTableEntryHelper(L, lua_gettop(L), thread, contextLevel, varName, setExpression);
+        lua_pushvalue(thread, LUA_GLOBALSINDEX);
+        return setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
     }
     else if (context.type == VariableScopeType::Table)
     {
-        lua_State* L = childRuntime->GL;
-        lua_rawgeti(L, LUA_REGISTRYINDEX, context.luaref);
-        return setTableEntryHelper(L, lua_gettop(L), thread, contextLevel, varName, setExpression);
+        lua_rawgeti(thread, LUA_REGISTRYINDEX, context.luaref);
+        return setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
     }
     else if (context.type == VariableScopeType::Local)
     {
@@ -1618,7 +1613,7 @@ EvaluateResult Target::setVariable(int varRef, std::string varName, std::string 
 
 EvaluateResult Target::setExpression(std::string lExpression, std::string setExpression, int frameId)
 {
-    // only if lExpression is a locals and upvalues do we need to actually look up and call setVariable.
+    // only if lExpression refers to a preexisting local, global, or upvalue variable do we need to actually look up and call setVariable.
     // otherwise, since tables are passed by reference, we can just call evaluateExpression
     std::unique_lock lock(targetMutex);
     if (!paused)
@@ -1652,11 +1647,13 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
                 return result;
         }
     }
+    // for unset global variables or for an lExpression referring to a value in a table, we can simply just
+    // evaluate lExpression = setExpression to make changes.
     EvaluateMultiResult write = evaluateExpressionMultiHelper(thread, level, lExpression + " = " + setExpression);
     if (std::holds_alternative<std::string>(write))
         return std::get<std::string>(write);
     if (std::get<std::vector<Variable>>(write).size() > 0)
-        return Luau::format("l-expression %s should not return values", lExpression.c_str());
+        return Luau::format("expression \"%s = %s\" should not return values", lExpression.c_str(), setExpression.c_str());
     EvaluateResult newValue = evaluateExpressionHelper(thread, level, "return " + lExpression);
     variableCache.clear();
     return newValue;
