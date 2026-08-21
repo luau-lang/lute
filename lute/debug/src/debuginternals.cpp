@@ -497,7 +497,10 @@ void Target::installBpHitCallback()
             target->stoppedThreadRef = getRefForThread(L);
             // Clear out stepping when this happens.
             lua_callbacks(L)->debugstep = nullptr;
-            lua_break(L);
+            if (lua_isyieldable(L))
+                lua_break(L);
+            else
+                target->stoppedNoYield = true;
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             debug::Thread thread = target->stateToThread.at(L);
             lock.unlock();
@@ -507,6 +510,8 @@ void Target::installBpHitCallback()
                 target->launchConfig.onBreakpointInstall(bp);
             for (auto& bp : uninstalled)
                 target->launchConfig.onBreakpointUninstall(bp);
+            if (target->stoppedNoYield)
+                target->childRuntime->waitForDebugContinue();
         }
         else if (!bp || bp->status != BreakpointStatus::PendingUninstall)
         {
@@ -1197,14 +1202,21 @@ void Target::continueProcessHelper()
             // we need to check if our breakpoint is still currently installed after
             // onBreakpointHit() callback
             std::optional<Breakpoint> currentBp = getBreakpointByIdHelper(bpHit->id);
-            if (currentBp && currentBp->status == BreakpointStatus::Installed)
+            if (currentBp && !stoppedNoYield && currentBp->status == BreakpointStatus::Installed)
                 continueRequestedBp.insert(stoppedThread);
             bpHit = std::nullopt;
         }
-        childRuntime->runningThreads.emplace_front(true, stoppedThreadRef, 0);
-        // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
-        // runToCompletion() has not exited.
-        childRuntime->schedule([]() {});
+        if (!stoppedNoYield)
+        {
+            childRuntime->runningThreads.emplace_front(true, stoppedThreadRef, 0);
+            // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
+            // runToCompletion() has not exited.
+            childRuntime->schedule([]() {});
+        }
+        else
+        {
+            stoppedNoYield = false;
+        }
         stoppedThread = nullptr;
         stoppedThreadRef = nullptr;
         stoppedLine = -1;
@@ -1248,7 +1260,10 @@ bool Target::pauseProcess()
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
         target->computeStoppedLocation(L);
-        lua_break(L);
+        if (lua_isyieldable(L))
+            lua_break(L);
+        else
+            target->stoppedNoYield = true;
         // Clear out the interrupt and debugstep callback after we are done.
         lua_callbacks(L)->interrupt = nullptr;
         lua_callbacks(L)->debugstep = nullptr;
@@ -1260,6 +1275,8 @@ bool Target::pauseProcess()
             target->launchConfig.onBreakpointInstall(bp);
         for (auto& bp : uninstalled)
             target->launchConfig.onBreakpointUninstall(bp);
+        if (target->stoppedNoYield)
+            target->childRuntime->waitForDebugContinue();
     };
     return true;
 }
@@ -1322,7 +1339,10 @@ bool Target::step(int threadId, StepType type)
             target->computeStoppedLocation(L);
             target->stepInfo = std::nullopt;
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-            lua_break(L);
+            if (lua_isyieldable(L))
+                lua_break(L);
+            else
+                target->stoppedNoYield = true;
             lua_singlestep(L, 0);
             lua_callbacks(L)->debugstep = nullptr;
             Thread thread = target->stateToThread.at(L);
@@ -1334,6 +1354,8 @@ bool Target::step(int threadId, StepType type)
                 target->launchConfig.onBreakpointInstall(bp);
             for (auto& bp : uninstalled)
                 target->launchConfig.onBreakpointUninstall(bp);
+            if (target->stoppedNoYield)
+                target->childRuntime->waitForDebugContinue();
         }
         else
         {

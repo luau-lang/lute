@@ -175,10 +175,7 @@ bool Runtime::runToCompletion()
     {
         if (debugMode)
         {
-            // when paused while debugging, nothing should happen
-            std::unique_lock<std::mutex> lock(debugMutex);
-            while (debugStopped)
-                debugStoppedCv.wait(lock);
+            waitForDebugContinue();
         }
 
         auto step = runOnce();
@@ -419,6 +416,14 @@ void Runtime::stopDebug()
     LUTE_ASSERT(debugMode);
     std::unique_lock<std::mutex> lock(debugMutex);
     debugStopped = true;
+}
+
+void Runtime::waitForDebugContinue()
+{
+    LUTE_ASSERT(debugMode);
+    std::unique_lock<std::mutex> lock(debugMutex);
+    while (debugStopped)
+        debugStoppedCv.wait(lock);
 }
 
 uv_loop_t* Runtime::getEventLoop()

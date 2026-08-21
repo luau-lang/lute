@@ -843,4 +843,74 @@ TEST_SUITE("Debug")
         target.launch(fixturePath, {}, config);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_xpcall")
+    {
+        std::string fixturePath = getDebugFixturePath("xpcall.luau");
+        Target target(*runtime);
+        Breakpoint bpErrorHandler = target.setBreakpoint(fixturePath, 4);
+        Breakpoint bpOutside = target.setBreakpoint(fixturePath, 7);
+        int numHits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            const std::optional<std::vector<StackFrame>> st = target.getStackTrace(threads[0].id);
+            REQUIRE(st.has_value());
+            if (bp.id == bpErrorHandler.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                std::string errorValue = "\"" + Luau::format("%s:2: attempt to call a nil value", fixturePath.c_str()) + "\"";
+                checkVariable(*locals, "_err", errorValue, "string", false);
+                numHits++;
+            }
+            if (bp.id == bpOutside.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                checkVariable(*locals, "returned", "false", "boolean", false);
+                checkVariable(*locals, "_data", "\"error found\"", "string", false);
+                numHits++;
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_metatable")
+    {
+        std::string fixturePath = getDebugFixturePath("metatable.luau");
+        Target target(*runtime);
+        Breakpoint bpIndex = target.setBreakpoint(fixturePath, 4);
+        Breakpoint bpCall = target.setBreakpoint(fixturePath, 7);
+        int numHits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            const std::optional<std::vector<StackFrame>> st = target.getStackTrace(threads[0].id);
+            REQUIRE(st.has_value());
+            if (bp.id == bpIndex.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                checkVariable(*locals, "k", "7", "number", false);
+                numHits++;
+            }
+            if (bp.id == bpCall.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                checkVariable(*locals, "k", "5", "number", false);
+                numHits++;
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
+    };
 }
