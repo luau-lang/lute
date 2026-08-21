@@ -278,7 +278,8 @@ jobs:
                 "${{ needs.build-docs-site.result }}" == "success" &&
                 "${{ needs.lute-lint.result }}" == "success" &&
                 "${{ needs.lute-check.result }}" == "success" &&
-                "${{ needs.lute-format.result }}" == "success" ]]; then
+                "${{ needs.lute-format.result }}" == "success" ]]
+          then
             echo "All jobs succeeded"
             echo "result=success" >> "$GITHUB_OUTPUT"
           else
