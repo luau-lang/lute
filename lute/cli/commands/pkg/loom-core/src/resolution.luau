@@ -100,6 +100,7 @@ type ResolutionState = {
 	packages: { [string]: lockfile.LockfileDependency },
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
+	registryAssignments: { [string]: string },
 	rootRegistryAliases: { RootRegistryAlias },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
 	openDependencies: { [string]: { [string]: string } },
@@ -121,6 +122,7 @@ local function collectSourcePackageDependencies(
 	queue: { manifest.DependencySpec },
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
+	registryAssignments: { [string]: string },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } }
 )
 	local nestedManifestPath = getManifestPath(installPath)
@@ -141,6 +143,10 @@ local function collectSourcePackageDependencies(
 			}
 
 			registrySources[normalizedSpec.name] = normalizedSpec.source
+
+			if normalizedSpec.registry and not registryAssignments[normalizedSpec.name] then
+				registryAssignments[normalizedSpec.name] = normalizedSpec.registry
+			end
 
 			if not unresolvedRegistryDependencies[key] then
 				unresolvedRegistryDependencies[key] = {}
@@ -163,6 +169,7 @@ local function resolveSourcePackage(
 	queue: { manifest.DependencySpec },
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
+	registryAssignments: { [string]: string },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } }
 ): string
 	local key = getKey(spec)
@@ -193,6 +200,7 @@ local function resolveSourcePackage(
 		queue,
 		registryRequirements,
 		registrySources,
+		registryAssignments,
 		unresolvedRegistryDependencies
 	)
 
@@ -223,6 +231,7 @@ local function processSourceQueue(state: ResolutionState, rootDirectory: string)
 			state.queue,
 			state.registryRequirements,
 			state.registrySources,
+			state.registryAssignments,
 			state.unresolvedRegistryDependencies
 		)
 	end
@@ -415,7 +424,9 @@ local function collectRootDependency(
 	state: ResolutionState,
 	rootPackageName: string,
 	dependencyAlias: string,
-	dependencySpec: manifest.DependencySpec
+	dependencySpec: manifest.DependencySpec,
+	registryMap: manifest.RegistryMap,
+	defaultRegistry: string?
 )
 	if dependencySpec.sourceKind == "registry" then
 		state.registryRequirements[dependencyAlias] = {
@@ -426,6 +437,15 @@ local function collectRootDependency(
 		}
 
 		state.registrySources[dependencySpec.name] = dependencySpec.source
+
+		local registryName = dependencySpec.registry or defaultRegistry
+		if registryName then
+			if not registryMap[registryName] then
+				error(`Dependency '{dependencyAlias}' references registry '{registryName}' which is not defined`)
+			end
+			state.registryAssignments[dependencySpec.name] = registryName
+		end
+
 		table.insert(state.rootRegistryAliases, { alias = dependencyAlias, name = dependencySpec.name })
 		return
 	end
@@ -442,18 +462,19 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 		packages = {},
 		registryRequirements = {},
 		registrySources = {},
+		registryAssignments = {},
 		rootRegistryAliases = {},
 		unresolvedRegistryDependencies = {},
 		openDependencies = {},
 	}
 
 	for dependencyAlias, dependencySpec in rootManifest.package.dependencies do
-		collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec)
+		collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec, rootManifest.registry, rootManifest.defaultRegistry)
 	end
 
 	if not excludeDev then
 		for dependencyAlias, dependencySpec in rootManifest.package.devDependencies do
-			collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec)
+			collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec, rootManifest.registry, rootManifest.defaultRegistry)
 		end
 	end
 
@@ -491,6 +512,7 @@ local function applyOverrides(
 				state.queue,
 				state.registryRequirements,
 				state.registrySources,
+				state.registryAssignments,
 				state.unresolvedRegistryDependencies
 			)
 
@@ -578,6 +600,7 @@ local function resolveRegistryDependencies(
 			sourceKind = "registry" :: "registry",
 			installPath = store.toStorePath(key),
 			dependencies = table.freeze(transitiveDependencies),
+			registry = state.registryAssignments[name],
 		})
 	end
 
@@ -606,6 +629,7 @@ end
 local function buildLockfile(
 	state: ResolutionState,
 	overrides: { [string]: manifest.DependencySpec },
+	registryMap: manifest.RegistryMap,
 	lockfilePath: string
 ): lockfile.Lockfile
 	for _, packageDependencies in state.openDependencies do
@@ -620,11 +644,17 @@ local function buildLockfile(
 		then table.freeze(serializedOverrides)
 		else nil
 
+	local serializedRegistry = lockfile.serializeRegistry(registryMap)
+	local frozenRegistry: manifest.RegistryMap? = if next(serializedRegistry)
+		then table.freeze(serializedRegistry)
+		else nil
+
 	local lock: lockfile.Lockfile = table.freeze({
 		version = 3,
 		packages = state.packages,
 		dependencies = state.dependencies,
 		overrides = frozenOverrides,
+		registry = frozenRegistry,
 	})
 
 	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
@@ -658,7 +688,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 
 	resolveRegistryDependencies(state, overriddenPackages, universe, overrides, lockedRegistryVersions)
 
-	return buildLockfile(state, overrides, lockfilePath)
+	return buildLockfile(state, overrides, rootManifest.registry, lockfilePath)
 end
 
 return {

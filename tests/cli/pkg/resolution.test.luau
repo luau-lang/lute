@@ -1730,3 +1730,487 @@ test.suite("Overrides", function(suite)
 		assert.eq(lock.overrides, nil)
 	end)
 end)
+
+local registryWorkingDirectory = path.join(temporaryDirectory, "lute-pkg-registry-config")
+
+local function writeConfigWithRegistry(
+	dir: path.Path,
+	name: string,
+	deps: string,
+	registrySection: string?,
+	devDeps: string?,
+	overrides: string?
+)
+	local sections = `\t\tdependencies = \{{deps}\n\t\t}`
+	if devDeps then
+		sections ..= `,\n\t\tdev_dependencies = \{{devDeps}\n\t\t}`
+	end
+
+	local overridesSection = ""
+	if overrides then
+		overridesSection = `\n\toverrides = \{{overrides}\n\t},`
+	end
+
+	local registryPart = ""
+	if registrySection then
+		registryPart = `\n\tregistry = \{{registrySection}\n\t},`
+	end
+
+	fs.writeStringToFile(
+		path.join(dir, "loom.config.luau"),
+		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n{sections},\n\t},{overridesSection}{registryPart}\n}\n`
+	)
+end
+
+test.suite("RegistryConfiguration", function(suite)
+	suite:beforeEach(function()
+		if fs.exists(registryWorkingDirectory) then
+			fs.removeDirectory(registryWorkingDirectory, { recursive = true })
+		end
+		fs.createDirectory(registryWorkingDirectory)
+	end)
+
+	suite:case("singleRegistryImplicitDefault", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(registryWorkingDirectory), universe)
+
+		local entry = lock.packages["citrus@1.0.0"]
+		assert.neq(entry, nil)
+		assert.eq(entry.registry, "main")
+	end)
+
+	suite:case("multipleRegistriesExplicitDefault", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+				default = true,
+			},
+			other = {
+				url = "https://other.example.com",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(registryWorkingDirectory), universe)
+
+		local entry = lock.packages["citrus@1.0.0"]
+		assert.neq(entry, nil)
+		assert.eq(entry.registry, "main")
+	end)
+
+	suite:case("depReferencesNonDefaultRegistry", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+				registry = "other",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+				default = true,
+			},
+			other = {
+				url = "https://other.example.com",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(registryWorkingDirectory), universe)
+
+		local entry = lock.packages["citrus@1.0.0"]
+		assert.neq(entry, nil)
+		assert.eq(entry.registry, "other")
+	end)
+
+	suite:case("errorOnMultipleRegistriesNoDefault", function(assert)
+		local ok = pcall(function()
+			writeConfigWithRegistry(
+				registryWorkingDirectory,
+				"root",
+				[[
+
+				citrus = {
+					sourceKind = "registry",
+					source = "citrus",
+					version = "^1.0.0",
+				},]],
+				[[
+
+				main = {
+					url = "https://registry.example.com",
+				},
+				other = {
+					url = "https://other.example.com",
+				},]]
+			)
+
+			local universe: solver.Universe = {
+				citrus = {
+					namedVersion("citrus", "1.0.0"),
+				},
+			}
+
+			resolution.resolve(path.format(registryWorkingDirectory), universe)
+		end)
+
+		assert.eq(ok, false)
+	end)
+
+	suite:case("errorOnMultipleRegistriesDuplicateDefault", function(assert)
+		local ok = pcall(function()
+			writeConfigWithRegistry(
+				registryWorkingDirectory,
+				"root",
+				[[
+
+				citrus = {
+					sourceKind = "registry",
+					source = "citrus",
+					version = "^1.0.0",
+				},]],
+				[[
+
+				main = {
+					url = "https://registry.example.com",
+					default = true,
+				},
+				other = {
+					url = "https://other.example.com",
+					default = true,
+				},]]
+			)
+
+			local universe: solver.Universe = {
+				citrus = {
+					namedVersion("citrus", "1.0.0"),
+				},
+			}
+
+			resolution.resolve(path.format(registryWorkingDirectory), universe)
+		end)
+
+		assert.eq(ok, false)
+	end)
+
+	suite:case("errorOnUndefinedRegistryReference", function(assert)
+		local ok = pcall(function()
+			writeConfigWithRegistry(
+				registryWorkingDirectory,
+				"root",
+				[[
+
+				citrus = {
+					sourceKind = "registry",
+					source = "citrus",
+					version = "^1.0.0",
+					registry = "nonexistent",
+				},]],
+				[[
+
+				main = {
+					url = "https://registry.example.com",
+				},]]
+			)
+
+			local universe: solver.Universe = {
+				citrus = {
+					namedVersion("citrus", "1.0.0"),
+				},
+			}
+
+			resolution.resolve(path.format(registryWorkingDirectory), universe)
+		end)
+
+		assert.eq(ok, false)
+	end)
+
+	suite:case("noRegistrySectionBackwardCompat", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(registryWorkingDirectory), universe)
+
+		local entry = lock.packages["citrus@1.0.0"]
+		assert.neq(entry, nil)
+		assert.eq(entry.registry, nil)
+	end)
+
+	suite:case("reResolvesWhenRegistryUrlChanges", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].registry, "main")
+
+		-- Change the URL
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://new-registry.example.com",
+			},]]
+		)
+
+		local lock2 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock2.packages["citrus@1.0.0"].registry, "main")
+		assert.neq(lock1, lock2)
+	end)
+
+	suite:case("reResolvesWhenDefaultRegistryChanges", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+				default = true,
+			},
+			other = {
+				url = "https://other.example.com",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].registry, "main")
+
+		-- Swap the default
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+			},
+			other = {
+				url = "https://other.example.com",
+				default = true,
+			},]]
+		)
+
+		local lock2 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock2.packages["citrus@1.0.0"].registry, "other")
+	end)
+
+	suite:case("reResolvesWhenRegistryAdded", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].registry, "main")
+
+		-- Add a new registry and make it default
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+			},
+			other = {
+				url = "https://other.example.com",
+				default = true,
+			},]]
+		)
+
+		local lock2 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock2.packages["citrus@1.0.0"].registry, "other")
+	end)
+
+	suite:case("reResolvesWhenRegistryRemoved", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+				default = true,
+			},
+			other = {
+				url = "https://other.example.com",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].registry, "main")
+
+		-- Remove "other", keep only "main" (now implicit default)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+			},]]
+		)
+
+		local lock2 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock2.packages["citrus@1.0.0"].registry, "main")
+		assert.neq(lock1, lock2)
+	end)
+end)

@@ -10,6 +10,7 @@ export type LockfileDependency = {
 	read sourceKind: manifest.SourceKind,
 	read installPath: string,
 	read dependencies: { [string]: string },
+	read registry: string?,
 }
 
 export type Lockfile = {
@@ -17,6 +18,7 @@ export type Lockfile = {
 	read packages: { [string]: LockfileDependency },
 	read dependencies: { [string]: string },
 	read overrides: { [string]: string }?,
+	read registry: manifest.RegistryMap?,
 }
 
 local function validatePackageEntry(key: string, entry: any)
@@ -38,6 +40,10 @@ local function validatePackageEntry(key: string, entry: any)
 		assert(typeof(depKey) == "string", `Expected dependency key to be a string for dependency '{key}'`)
 	end
 	table.freeze(entry.dependencies)
+	assert(
+		entry.registry == nil or typeof(entry.registry) == "string",
+		`Expected 'registry' field to be a string or nil for dependency '{key}'`
+	)
 end
 
 local function parseLockfile(t: any): Lockfile
@@ -66,6 +72,21 @@ local function parseLockfile(t: any): Lockfile
 			assert(typeof(value) == "string", "Expected override value to be a string")
 		end
 		table.freeze(t.overrides)
+	end
+
+	if t.registry ~= nil then
+		assert(typeof(t.registry) == "table", "Expected 'registry' field to be a table")
+		for name, entry in t.registry do
+			assert(typeof(name) == "string", "Expected registry key to be a string")
+			assert(typeof(entry) == "table", `Expected registry entry '{name}' to be a table`)
+			assert(typeof(entry.url) == "string", `Expected 'url' field in registry '{name}'`)
+			assert(
+				entry.default == nil or typeof(entry.default) == "boolean",
+				`Expected 'default' to be a boolean or nil in registry '{name}'`
+			)
+			table.freeze(entry)
+		end
+		table.freeze(t.registry)
 	end
 
 	return table.freeze(t)
@@ -112,6 +133,43 @@ local function overridesMatch(locked: { [string]: string }?, current: { [string]
 		for name in locked do
 			if current[name] == nil then
 				return false, `override removed: {name}`
+			end
+		end
+	end
+
+	return true, nil
+end
+
+local function serializeRegistry(registryMap: manifest.RegistryMap): manifest.RegistryMap
+	local result: manifest.RegistryMap = {}
+	for name, config in registryMap do
+		result[name] = table.freeze({
+			url = config.url,
+			default = if config.default == true then true else nil,
+		})
+	end
+	return result
+end
+
+local function registryMatch(locked: manifest.RegistryMap?, current: manifest.RegistryMap): (boolean, string?)
+	for name, currentConfig in current do
+		if locked == nil or locked[name] == nil then
+			return false, `registry added: {name}`
+		end
+		if locked[name].url ~= currentConfig.url then
+			return false, `registry url changed: {name}`
+		end
+		local lockedDefault = locked[name].default == true
+		local currentDefault = currentConfig.default == true
+		if lockedDefault ~= currentDefault then
+			return false, `registry default changed: {name}`
+		end
+	end
+
+	if locked then
+		for name in locked do
+			if current[name] == nil then
+				return false, `registry removed: {name}`
 			end
 		end
 	end
@@ -189,6 +247,12 @@ local function satisfiesManifest(
 		return false, overridesReason
 	end
 
+	local currentRegistry = serializeRegistry(rootManifest.registry)
+	local registryOk, registryReason = registryMatch(lock.registry, currentRegistry)
+	if not registryOk then
+		return false, registryReason
+	end
+
 	return true, nil
 end
 
@@ -197,4 +261,5 @@ return {
 	tryParseFile = tryParseFile,
 	satisfiesManifest = satisfiesManifest,
 	serializeOverrides = serializeOverrides,
+	serializeRegistry = serializeRegistry,
 }
