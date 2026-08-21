@@ -102,6 +102,7 @@ type ResolutionState = {
 	registrySources: { [string]: string },
 	registryAssignments: { [string]: string },
 	rootRegistryMap: manifest.RegistryMap,
+	defaultRegistry: string?,
 	rootRegistryAliases: { RootRegistryAlias },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
 	openDependencies: { [string]: { [string]: string } },
@@ -125,6 +126,7 @@ local function collectSourcePackageDependencies(
 	registrySources: { [string]: string },
 	registryAssignments: { [string]: string },
 	rootRegistryMap: manifest.RegistryMap,
+	defaultRegistry: string?,
 	unresolvedRegistryDependencies: { [string]: { [string]: string } }
 )
 	local nestedManifestPath = getManifestPath(installPath)
@@ -146,14 +148,19 @@ local function collectSourcePackageDependencies(
 
 			registrySources[normalizedSpec.name] = normalizedSpec.source
 
-			if normalizedSpec.registry then
-				if not rootRegistryMap[normalizedSpec.registry] then
+			local registryName = normalizedSpec.registry or defaultRegistry
+			if registryName then
+				if normalizedSpec.registry and not rootRegistryMap[normalizedSpec.registry] then
 					error(
 						`Transitive dependency '{dependencyAlias}' in '{key}' references registry '{normalizedSpec.registry}' which is not defined in the workspace`
 					)
 				end
 				if not registryAssignments[normalizedSpec.name] then
-					registryAssignments[normalizedSpec.name] = normalizedSpec.registry
+					registryAssignments[normalizedSpec.name] = registryName
+				elseif registryAssignments[normalizedSpec.name] ~= registryName then
+					error(
+						`Conflicting registry for '{normalizedSpec.name}': '{registryAssignments[normalizedSpec.name]}' vs '{registryName}' (from transitive dependency '{dependencyAlias}' in '{key}')`
+					)
 				end
 			end
 
@@ -180,6 +187,7 @@ local function resolveSourcePackage(
 	registrySources: { [string]: string },
 	registryAssignments: { [string]: string },
 	rootRegistryMap: manifest.RegistryMap,
+	defaultRegistry: string?,
 	unresolvedRegistryDependencies: { [string]: { [string]: string } }
 ): string
 	local key = getKey(spec)
@@ -212,6 +220,7 @@ local function resolveSourcePackage(
 		registrySources,
 		registryAssignments,
 		rootRegistryMap,
+		defaultRegistry,
 		unresolvedRegistryDependencies
 	)
 
@@ -244,6 +253,7 @@ local function processSourceQueue(state: ResolutionState, rootDirectory: string)
 			state.registrySources,
 			state.registryAssignments,
 			state.rootRegistryMap,
+			state.defaultRegistry,
 			state.unresolvedRegistryDependencies
 		)
 	end
@@ -323,7 +333,8 @@ end
 local function pathDepsAreStale(
 	lock: lockfile.Lockfile,
 	rootDirectory: string,
-	overrides: { [string]: manifest.DependencySpec }
+	overrides: { [string]: manifest.DependencySpec },
+	defaultRegistry: string?
 ): boolean
 	for _, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
@@ -379,6 +390,11 @@ local function pathDepsAreStale(
 				if recordedPkg.source ~= depSpec.source then
 					return true
 				end
+			elseif depSpec.sourceKind == "registry" then
+				local expectedRegistry = depSpec.registry or defaultRegistry
+				if recordedPkg.registry ~= expectedRegistry then
+					return true
+				end
 			end
 		end
 	end
@@ -408,7 +424,7 @@ local function tryReuseLockfile(
 			return existingLock, nil
 		end
 
-		if satisfied and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides) then
+		if satisfied and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides, rootManifest.defaultRegistry) then
 			return existingLock, nil
 		end
 	end
@@ -454,6 +470,12 @@ local function collectRootDependency(
 			if not state.rootRegistryMap[registryName] then
 				error(`Dependency '{dependencyAlias}' references registry '{registryName}' which is not defined`)
 			end
+			local existing = state.registryAssignments[dependencySpec.name]
+			if existing and existing ~= registryName then
+				error(
+					`Conflicting registry for '{dependencySpec.name}': '{existing}' vs '{registryName}' (from dependency '{dependencyAlias}')`
+				)
+			end
 			state.registryAssignments[dependencySpec.name] = registryName
 		end
 
@@ -475,6 +497,7 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 		registrySources = {},
 		registryAssignments = {},
 		rootRegistryMap = rootManifest.registry,
+		defaultRegistry = rootManifest.defaultRegistry,
 		rootRegistryAliases = {},
 		unresolvedRegistryDependencies = {},
 		openDependencies = {},
@@ -527,6 +550,14 @@ local function applyOverrides(
 			if not state.registrySources[overrideName] then
 				state.registrySources[overrideName] = overrideSpec.source
 			end
+
+			local registryName = overrideSpec.registry or state.defaultRegistry
+			if registryName then
+				if not state.rootRegistryMap[registryName] then
+					error(`Override '{overrideName}' references registry '{registryName}' which is not defined`)
+				end
+				state.registryAssignments[overrideName] = registryName
+			end
 		else
 			local overrideKey = resolveSourcePackage(
 				overrideSpec,
@@ -538,6 +569,7 @@ local function applyOverrides(
 				state.registrySources,
 				state.registryAssignments,
 				state.rootRegistryMap,
+				state.defaultRegistry,
 				state.unresolvedRegistryDependencies
 			)
 
@@ -669,10 +701,7 @@ local function buildLockfile(
 		then table.freeze(serializedOverrides)
 		else nil
 
-	local serializedRegistry = lockfile.serializeRegistry(registryMap)
-	local frozenRegistry: manifest.RegistryMap? = if next(serializedRegistry)
-		then table.freeze(serializedRegistry)
-		else nil
+	local frozenRegistry: manifest.RegistryMap? = if next(registryMap) then registryMap else nil
 
 	local lock: lockfile.Lockfile = table.freeze({
 		version = 3,

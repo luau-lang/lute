@@ -140,17 +140,6 @@ local function overridesMatch(locked: { [string]: string }?, current: { [string]
 	return true, nil
 end
 
-local function serializeRegistry(registryMap: manifest.RegistryMap): manifest.RegistryMap
-	local result: manifest.RegistryMap = {}
-	for name, config in registryMap do
-		result[name] = table.freeze({
-			url = config.url,
-			default = config.default,
-		})
-	end
-	return result
-end
-
 local function registryMatch(locked: manifest.RegistryMap?, current: manifest.RegistryMap): (boolean, string?)
 	for name, currentConfig in current do
 		if locked == nil or locked[name] == nil then
@@ -251,8 +240,7 @@ local function satisfiesManifest(
 		return false, overridesReason
 	end
 
-	local currentRegistry = serializeRegistry(rootManifest.registry)
-	local registryOk, registryReason = registryMatch(lock.registry, currentRegistry)
+	local registryOk, registryReason = registryMatch(lock.registry, rootManifest.registry)
 	if not registryOk then
 		return false, registryReason
 	end
@@ -265,5 +253,4 @@ return {
 	tryParseFile = tryParseFile,
 	satisfiesManifest = satisfiesManifest,
 	serializeOverrides = serializeOverrides,
-	serializeRegistry = serializeRegistry,
 }
