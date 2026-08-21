@@ -16,6 +16,18 @@ type ArgData = {
 	options: ArgOptions,
 }
 
+type CommandOptions = {
+	help: string?,
+	aliases: { string }?,
+	hidden: boolean?,
+}
+
+type CommandData = {
+	name: string,
+	parser: Parser,
+	options: CommandOptions,
+}
+
 type ParseResult = {
 	values: { [string]: string? },
 	flags: { [string]: boolean },
@@ -27,6 +39,8 @@ type ParserData = {
 	arguments: { [number]: ArgData },
 	positional: { [number]: ArgData },
 	variadicArg: ArgData?,
+	commands: { [number]: CommandData },
+	selectedCommand: CommandData?,
 	parsed: ParseResult,
 }
 
@@ -38,6 +52,8 @@ function cli.parser(): Parser
 		arguments = {},
 		positional = {},
 		variadicArg = nil :: ArgData?,
+		commands = {},
+		selectedCommand = nil :: CommandData?,
 		parsed = { values = {}, flags = {}, variadics = {}, fwdArgs = {} },
 	}
 
@@ -57,6 +73,30 @@ function cli.add(self: Parser, name: string, kind: ArgKind, options: ArgOptions)
 	elseif kind == "variadic" then
 		self.variadicArg = argument
 	end
+end
+
+function cli.subcommand(self: Parser, name: string, options: CommandOptions): Parser
+	local parser = cli.parser()
+
+	table.insert(self.commands, {
+		name = name,
+		parser = parser,
+		options = options or { aliases = {} },
+	})
+
+	return parser
+end
+
+local function findCommand(self: Parser, name: string): CommandData?
+	for _, command in self.commands do
+		local aliases = command.options.aliases or {}
+
+		if command.name == name or table.find(aliases, name) then
+			return command
+		end
+	end
+
+	return nil
 end
 
 function cli.parse(self: Parser, args: { string }): ()
@@ -132,6 +172,14 @@ function cli.parse(self: Parser, args: { string }): ()
 			continue
 		end
 
+		-- if the argument names a subcommand, that subcommand takes over the rest of the arguments
+		local command = findCommand(self, arg)
+		if command then
+			self.selectedCommand = command
+			command.parser:parse(table.move(args, i + 1, #args, 1, {}))
+			break
+		end
+
 		-- if we have positional arguments left, we can take this argument as one
 		if pos_index <= #self.positional then
 			self.parsed.values[self.positional[pos_index].name] = arg
@@ -181,6 +229,15 @@ function cli.forwarded(self: Parser): { string }?
 	return self.parsed.fwdArgs
 end
 
+function cli.selected(self: Parser): (string?, Parser?)
+	local command = self.selectedCommand
+	if not command then
+		return nil, nil
+	end
+
+	return command.name, command.parser
+end
+
 function cli.usage(self: Parser, name: string): string
 	local parts = { `Usage: {name}` }
 
@@ -191,6 +248,13 @@ function cli.usage(self: Parser, name: string): string
 			else
 				table.insert(parts, `[{arg.name}]`)
 			end
+		end
+	end
+
+	for _, command in self.commands do
+		if not command.options.hidden then
+			table.insert(parts, "<command>")
+			break
 		end
 	end
 
@@ -223,12 +287,37 @@ local function label(argument: ArgData): string
 	return `--{argument.name}{if #aliasStr > 0 then ` (-{aliasStr})` else ""}`
 end
 
+local function commandLabel(command: CommandData): string
+	local aliasStr = table.concat(command.options.aliases or {}, ", ")
+	return `{command.name}{if #aliasStr > 0 then ` ({aliasStr})` else ""}`
+end
+
 function cli.help(self: Parser, formatter: ((s: string) -> string)?): string
 	local fmt = formatter or function(s)
 		return s
 	end
 
-	local lines = { fmt("Options:") }
+	local lines: { string } = {}
+
+	local hasCommands = false
+	for _, command in self.commands do
+		if command.options.hidden then
+			continue
+		end
+
+		if not hasCommands then
+			table.insert(lines, fmt("Commands:"))
+			hasCommands = true
+		end
+
+		table.insert(lines, fmt(`  {commandLabel(command)} - {command.options.help or ""}`))
+	end
+
+	if hasCommands then
+		table.insert(lines, "")
+	end
+
+	table.insert(lines, fmt("Options:"))
 	for _, argument in self.arguments do
 		if argument.options.hidden then
 			continue
