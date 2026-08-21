@@ -469,12 +469,26 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 	}
 
 	for dependencyAlias, dependencySpec in rootManifest.package.dependencies do
-		collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec, rootManifest.registry, rootManifest.defaultRegistry)
+		collectRootDependency(
+			state,
+			rootManifest.package.name,
+			dependencyAlias,
+			dependencySpec,
+			rootManifest.registry,
+			rootManifest.defaultRegistry
+		)
 	end
 
 	if not excludeDev then
 		for dependencyAlias, dependencySpec in rootManifest.package.devDependencies do
-			collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec, rootManifest.registry, rootManifest.defaultRegistry)
+			collectRootDependency(
+				state,
+				rootManifest.package.name,
+				dependencyAlias,
+				dependencySpec,
+				rootManifest.registry,
+				rootManifest.defaultRegistry
+			)
 		end
 	end
 

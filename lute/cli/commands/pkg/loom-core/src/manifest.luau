@@ -167,7 +167,6 @@ local function parseRegistryMap(raw: any): (RegistryMap, string?)
 	return table.freeze(result), resolvedDefault
 end
 
-
 -- TODO: We should do proper error handling because this is user input.
 local function parseManifest(t: unknown): ProjectManifest
 	assert(t ~= nil and typeof(t) == "table", "Expected a table")
