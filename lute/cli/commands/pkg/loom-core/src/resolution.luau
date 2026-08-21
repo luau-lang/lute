@@ -101,6 +101,7 @@ type ResolutionState = {
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
 	registryAssignments: { [string]: string },
+	rootRegistryMap: manifest.RegistryMap,
 	rootRegistryAliases: { RootRegistryAlias },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
 	openDependencies: { [string]: { [string]: string } },
@@ -123,6 +124,7 @@ local function collectSourcePackageDependencies(
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
 	registryAssignments: { [string]: string },
+	rootRegistryMap: manifest.RegistryMap,
 	unresolvedRegistryDependencies: { [string]: { [string]: string } }
 )
 	local nestedManifestPath = getManifestPath(installPath)
@@ -144,8 +146,15 @@ local function collectSourcePackageDependencies(
 
 			registrySources[normalizedSpec.name] = normalizedSpec.source
 
-			if normalizedSpec.registry and not registryAssignments[normalizedSpec.name] then
-				registryAssignments[normalizedSpec.name] = normalizedSpec.registry
+			if normalizedSpec.registry then
+				if not rootRegistryMap[normalizedSpec.registry] then
+					error(
+						`Transitive dependency '{dependencyAlias}' in '{key}' references registry '{normalizedSpec.registry}' which is not defined in the workspace`
+					)
+				end
+				if not registryAssignments[normalizedSpec.name] then
+					registryAssignments[normalizedSpec.name] = normalizedSpec.registry
+				end
 			end
 
 			if not unresolvedRegistryDependencies[key] then
@@ -170,6 +179,7 @@ local function resolveSourcePackage(
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
 	registryAssignments: { [string]: string },
+	rootRegistryMap: manifest.RegistryMap,
 	unresolvedRegistryDependencies: { [string]: { [string]: string } }
 ): string
 	local key = getKey(spec)
@@ -201,6 +211,7 @@ local function resolveSourcePackage(
 		registryRequirements,
 		registrySources,
 		registryAssignments,
+		rootRegistryMap,
 		unresolvedRegistryDependencies
 	)
 
@@ -232,6 +243,7 @@ local function processSourceQueue(state: ResolutionState, rootDirectory: string)
 			state.registryRequirements,
 			state.registrySources,
 			state.registryAssignments,
+			state.rootRegistryMap,
 			state.unresolvedRegistryDependencies
 		)
 	end
@@ -425,7 +437,6 @@ local function collectRootDependency(
 	rootPackageName: string,
 	dependencyAlias: string,
 	dependencySpec: manifest.DependencySpec,
-	registryMap: manifest.RegistryMap,
 	defaultRegistry: string?
 )
 	if dependencySpec.sourceKind == "registry" then
@@ -440,7 +451,7 @@ local function collectRootDependency(
 
 		local registryName = dependencySpec.registry or defaultRegistry
 		if registryName then
-			if not registryMap[registryName] then
+			if not state.rootRegistryMap[registryName] then
 				error(`Dependency '{dependencyAlias}' references registry '{registryName}' which is not defined`)
 			end
 			state.registryAssignments[dependencySpec.name] = registryName
@@ -463,6 +474,7 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 		registryRequirements = {},
 		registrySources = {},
 		registryAssignments = {},
+		rootRegistryMap = rootManifest.registry,
 		rootRegistryAliases = {},
 		unresolvedRegistryDependencies = {},
 		openDependencies = {},
@@ -474,7 +486,6 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 			rootManifest.package.name,
 			dependencyAlias,
 			dependencySpec,
-			rootManifest.registry,
 			rootManifest.defaultRegistry
 		)
 	end
@@ -486,7 +497,6 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 				rootManifest.package.name,
 				dependencyAlias,
 				dependencySpec,
-				rootManifest.registry,
 				rootManifest.defaultRegistry
 			)
 		end
@@ -527,6 +537,7 @@ local function applyOverrides(
 				state.registryRequirements,
 				state.registrySources,
 				state.registryAssignments,
+				state.rootRegistryMap,
 				state.unresolvedRegistryDependencies
 			)
 

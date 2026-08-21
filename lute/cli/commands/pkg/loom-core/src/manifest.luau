@@ -124,6 +124,7 @@ local function parseRegistryMap(raw: any): (RegistryMap, string?)
 
 	local defaultCount = 0
 	local defaultName: string? = nil
+	local hasExplicitFalse = false
 	local firstName: string? = nil
 	local count = 0
 
@@ -139,6 +140,8 @@ local function parseRegistryMap(raw: any): (RegistryMap, string?)
 			if isDefault then
 				defaultCount += 1
 				defaultName = name
+			else
+				hasExplicitFalse = true
 			end
 		end
 
@@ -148,21 +151,25 @@ local function parseRegistryMap(raw: any): (RegistryMap, string?)
 
 		result[name] = table.freeze({
 			url = entry.url,
-			default = isDefault,
+			default = if isDefault == true then true else nil,
 		})
 		count += 1
 	end
 
-	if count > 1 then
-		assert(
-			defaultCount == 1,
-			if defaultCount == 0
-				then "Multiple registries defined but none has 'default = true'"
-				else `Multiple registries have 'default = true' (found {defaultCount})`
-		)
+	if count > 0 and defaultCount == 0 then
+		if count > 1 or hasExplicitFalse then
+			assert(false, "Registry configuration must have exactly one registry with 'default = true'")
+		end
+	elseif count > 1 and defaultCount > 1 then
+		assert(false, `Multiple registries have 'default = true' (found {defaultCount})`)
 	end
 
-	local resolvedDefault = if count == 1 then firstName else defaultName
+	local resolvedDefault: string? = nil
+	if defaultCount == 1 then
+		resolvedDefault = defaultName
+	elseif count == 1 and defaultCount == 0 then
+		resolvedDefault = firstName
+	end
 
 	return table.freeze(result), resolvedDefault
 end

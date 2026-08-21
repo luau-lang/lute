@@ -2213,4 +2213,95 @@ test.suite("RegistryConfiguration", function(suite)
 		assert.eq(lock2.packages["citrus@1.0.0"].registry, "main")
 		assert.neq(lock1, lock2)
 	end)
+
+	suite:case("errorOnSingleRegistryExplicitDefaultFalse", function(assert)
+		local ok = pcall(function()
+			writeConfigWithRegistry(
+				registryWorkingDirectory,
+				"root",
+				[[
+
+				citrus = {
+					sourceKind = "registry",
+					source = "citrus",
+					version = "^1.0.0",
+				},]],
+				[[
+
+				main = {
+					url = "https://registry.example.com",
+					default = false,
+				},]]
+			)
+
+			local universe: solver.Universe = {
+				citrus = {
+					namedVersion("citrus", "1.0.0"),
+				},
+			}
+
+			resolution.resolve(path.format(registryWorkingDirectory), universe)
+		end)
+
+		assert.eq(ok, false)
+	end)
+
+	suite:case("reResolvesWhenDepRegistryFieldChanges", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+				registry = "main",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+				default = true,
+			},
+			other = {
+				url = "https://other.example.com",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].registry, "main")
+
+		-- Change the dep's registry assignment from "main" to "other"
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+				registry = "other",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+				default = true,
+			},
+			other = {
+				url = "https://other.example.com",
+			},]]
+		)
+
+		local lock2 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock2.packages["citrus@1.0.0"].registry, "other")
+	end)
 end)

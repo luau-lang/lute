@@ -145,7 +145,7 @@ local function serializeRegistry(registryMap: manifest.RegistryMap): manifest.Re
 	for name, config in registryMap do
 		result[name] = table.freeze({
 			url = config.url,
-			default = if config.default == true then true else nil,
+			default = config.default,
 		})
 	end
 	return result
@@ -231,6 +231,10 @@ local function satisfiesManifest(
 			local lockedVersion = semver.tryParse(pkg.rev :: string)
 			if lockedVersion == nil or not semver.satisfies(lockedVersion, constraint) then
 				return false, `registry constraint no longer satisfied for: {alias}`
+			end
+			local expectedRegistry = spec.registry or rootManifest.defaultRegistry
+			if pkg.registry ~= expectedRegistry then
+				return false, `registry assignment changed for: {alias}`
 			end
 		end
 	end
