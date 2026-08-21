@@ -510,7 +510,9 @@ TEST_SUITE("Debug")
         Breakpoint bp3 = target.setBreakpoint(fixturePath, 22);
 
         int maxThreadsSeen = 0;
-        int hitsBp1 = 0, hitsBp2 = 0;
+        int hitsBp1 = 0;
+        int hitsBp2 = 0;
+        int total_sum_val = 0;
         config.onBreakpointHit = [&](const Thread& thread, const Breakpoint& bp)
         {
             if (bp.id == bp1.id)
@@ -531,6 +533,34 @@ TEST_SUITE("Debug")
                     CHECK(std::find(threads.begin(), threads.end(), t2) != threads.end());
                     CHECK(std::find(threads.begin(), threads.end(), t3) != threads.end());
                 }
+                std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                REQUIRE(stackTrace.has_value());
+                StackFrame threadStack = stackTrace->at(stackTrace->size() - 1);
+                CHECK(threadStack.line == 7);
+                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
+                REQUIRE(vars.has_value());
+                checkVariable(*vars, "_i", std::to_string(hitsBp1), "number", false);
+                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalue);
+                REQUIRE(upvalues.has_value());
+                checkVariable(*upvalues, "total_sum", std::to_string(total_sum_val), "number", false);
+                total_sum_val++;
+                for (const Thread& thread : threads)
+                {
+                    if (thread.id == 3)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 12 && line <= 16));
+                    }
+                    if (thread.id == 1)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 18 && line <= 20));
+                    }
+                }
             }
             else if (bp.id == bp2.id)
             {
@@ -538,7 +568,36 @@ TEST_SUITE("Debug")
                 auto stoppedThread = target.getStoppedThread();
                 REQUIRE(stoppedThread.has_value());
                 CHECK(stoppedThread->id == 3);
+                std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                REQUIRE(stackTrace.has_value());
+                StackFrame threadStack = stackTrace->at(stackTrace->size() - 1);
+                CHECK(threadStack.line == 14);
+                const std::vector<Thread>& threads = target.getThreads();
+                for (const Thread& thread : threads)
+                {
+                    if (thread.id == 2)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 5 && line <= 9));
+                    }
+                    if (thread.id == 1)
+                    {
+                        std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
+                        REQUIRE(stackTrace.has_value());
+                        int line = stackTrace->at(stackTrace->size() - 1).line;
+                        CHECK((line >= 18 && line <= 20));
+                    }
+                }
                 hitsBp2++;
+                std::optional<std::vector<Variable>> vars = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Local);
+                REQUIRE(vars.has_value());
+                checkVariable(*vars, "_i", std::to_string(hitsBp2), "number", false);
+                std::optional<std::vector<Variable>> upvalues = target.getVariablesByScopeType(threadStack.id, VariableScopeType::Upvalue);
+                REQUIRE(upvalues.has_value());
+                checkVariable(*upvalues, "total_sum", std::to_string(total_sum_val), "number", false);
+                total_sum_val++;
             }
             else
             {
@@ -564,6 +623,7 @@ TEST_SUITE("Debug")
         CHECK(maxThreadsSeen == 3);
         CHECK(hitsBp1 == 5);
         CHECK(hitsBp2 == 5);
+        CHECK(total_sum_val == 10);
     }
 
     TEST_CASE_FIXTURE(DebugFixture, "Debug_stackFrame")
@@ -644,7 +704,7 @@ TEST_SUITE("Debug")
     {
         std::string fixturePath = getDebugFixturePath("variables.luau");
         Target target(*runtime);
-        target.setBreakpoint(fixturePath, 15);
+        target.setBreakpoint(fixturePath, 16);
         config.onBreakpointHit = [&](const Thread&, const Breakpoint&)
         {
             const std::vector<Thread>& threads = target.getThreads();
@@ -654,20 +714,25 @@ TEST_SUITE("Debug")
             // stack frame at level 0
             std::optional<std::vector<VariableScope>> scopes = target.getScopes(stackframe->at(0).id);
             REQUIRE(scopes.has_value());
-            checkScope(*scopes, VariableScopeType::Locals, "Locals", 1, 0);
-            checkScope(*scopes, VariableScopeType::Upvalues, "Upvalues", 1, 0);
-            std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalues);
+            checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 0);
+            checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 0);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
             REQUIRE(upvalues0.has_value());
             checkVariable(*upvalues0, "a", "24", "number", false);
             checkVariable(*upvalues0, "_b", "1.2", "number", false);
-            std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Locals);
+            std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Local);
             checkVariable(*locals0, "_k", "25.2", "number", false);
+            std::optional<std::vector<Variable>> globals = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Global);
+            REQUIRE(globals.has_value());
+            checkVariable(*globals, "_global_var", "16", "number", false);
             // stack frame at level 1
             scopes = target.getScopes(stackframe->at(1).id);
             REQUIRE(scopes.has_value());
-            checkScope(*scopes, VariableScopeType::Locals, "Locals", 1, 1);
-            checkScope(*scopes, VariableScopeType::Upvalues, "Upvalues", 1, 1);
-            std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Locals);
+            checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 1);
+            checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 1);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Local);
             REQUIRE(locals1.has_value());
             checkVariable(*locals1, "a", "24", "number", false);
             checkVariable(*locals1, "_b", "1.2", "number", false);
@@ -694,12 +759,158 @@ TEST_SUITE("Debug")
             table = target.getVariables(ref3);
             REQUIRE(table.has_value());
             checkVariable(*table, "r", "13", "number", false);
-            std::optional<std::vector<Variable>> upvalues1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Upvalues);
+            std::optional<std::vector<Variable>> upvalues1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Upvalue);
             REQUIRE(upvalues1.has_value());
             CHECK(upvalues1->size() == 0);
+            globals = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Global);
+            REQUIRE(globals.has_value());
+            checkVariable(*globals, "_global_var", "16", "number", false);
             target.continueProcess();
         };
         target.launch(fixturePath, {}, config);
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_evalExpression")
+    {
+        std::string fixturePath = getDebugFixturePath("variables.luau");
+        Target target(*runtime);
+        target.setBreakpoint(fixturePath, 16);
+
+        std::vector<Variable> capturedLocals;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint&)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            std::optional<std::vector<StackFrame>> stackframe = target.getStackTrace(threads.at(0).id);
+            REQUIRE(stackframe.has_value());
+            EvaluateResult result = target.evaluateExpression("2", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            Variable var = std::get<Variable>(result);
+            CHECK(var.value == "2");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("2 * a", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "48");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("_d[3]", stackframe->at(1).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "3");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("_e.b", stackframe->at(1).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "\"5\"");
+            CHECK(var.type == "string");
+            result = target.evaluateExpression("g()", stackframe->at(1).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "25.2");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("_e[4]", stackframe->at(1).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "{r=13}");
+            CHECK(var.type == "table");
+            CHECK(var.variableReference > 0);
+            result = target.evaluateExpression("x + ", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<std::string>(result));
+            std::string errorMessage = std::get<std::string>(result);
+            CHECK(errorMessage == "eval:1: Expected identifier when parsing expression, got <eof>");
+            result = target.evaluateExpression("_e.bad + 1", stackframe->at(1).id);
+            REQUIRE(std::holds_alternative<std::string>(result));
+            errorMessage = std::get<std::string>(result);
+            CHECK(errorMessage == "eval:1: attempt to perform arithmetic (add) on nil and number");
+            result = target.evaluateExpression("_k", stackframe->at(1).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "nil");
+            CHECK(var.type == "nil");
+            result = target.evaluateExpression("tostring(42)", -1);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "\"42\"");
+            CHECK(var.type == "string");
+            result = target.evaluateExpression("_global_var", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "16");
+            CHECK(var.type == "number");
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_xpcall")
+    {
+        std::string fixturePath = getDebugFixturePath("xpcall.luau");
+        Target target(*runtime);
+        Breakpoint bpErrorHandler = target.setBreakpoint(fixturePath, 4);
+        Breakpoint bpOutside = target.setBreakpoint(fixturePath, 7);
+        int numHits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            const std::optional<std::vector<StackFrame>> st = target.getStackTrace(threads[0].id);
+            REQUIRE(st.has_value());
+            if (bp.id == bpErrorHandler.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                std::string errorValue = "\"" + Luau::format("%s:2: attempt to call a nil value", fixturePath.c_str()) + "\"";
+                checkVariable(*locals, "_err", errorValue, "string", false);
+                numHits++;
+            }
+            if (bp.id == bpOutside.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                checkVariable(*locals, "returned", "false", "boolean", false);
+                checkVariable(*locals, "_data", "\"error found\"", "string", false);
+                numHits++;
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_metatable")
+    {
+        std::string fixturePath = getDebugFixturePath("metatable.luau");
+        Target target(*runtime);
+        Breakpoint bpIndex = target.setBreakpoint(fixturePath, 4);
+        Breakpoint bpCall = target.setBreakpoint(fixturePath, 7);
+        int numHits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            const std::optional<std::vector<StackFrame>> st = target.getStackTrace(threads[0].id);
+            REQUIRE(st.has_value());
+            if (bp.id == bpIndex.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                checkVariable(*locals, "k", "7", "number", false);
+                numHits++;
+            }
+            if (bp.id == bpCall.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                checkVariable(*locals, "k", "5", "number", false);
+                numHits++;
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
     };
 }

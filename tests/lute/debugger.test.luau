@@ -272,7 +272,8 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/task.luau"))
 		local bp1 = target:setBreakpoint(mainPath, 7)
-		local _bp2 = target:setBreakpoint(mainPath, 14)
+		local bp2 = target:setBreakpoint(mainPath, 14)
+		local _bp3 = target:setBreakpoint(mainPath, 22)
 		local bpHit1 = 0
 		local bpHit2 = 0
 		local onFinished = false
@@ -280,20 +281,70 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local launchError = target:launch(mainPath, {}, {
 			onBreakpointHit = function(thread, bp)
 				if bp.id == bp1.id then
+					check.eq(thread.id, 2)
 					local stoppedThread = assert(target:getStoppedThread())
 					check.eq(stoppedThread.id, 2)
-					check.eq(thread.id, 2)
-					check.eq(thread.name, "Coroutine 2")
 					bpHit1 += 1
-				else
+					local threads = target:getThreads()
+					maxThreads = math.max(maxThreads, #threads)
+					if #threads == 3 then
+						local nameById = {}
+						for _, t in threads do
+							nameById[t.id] = t.name
+						end
+						check.eq(nameById[1], "Main Coroutine")
+						check.eq(nameById[2], "Coroutine 2")
+						check.eq(nameById[3], "Coroutine 3")
+					end
+					local stackTrace = assert(target:getStackTrace(thread.id))
+					local threadStack = stackTrace[#stackTrace]
+					check.eq(threadStack.line, 7)
+					local vars = assert(target:getVariablesByScopeType(threadStack.id, "local"))
+					checkVariable(check, vars, "_i", tostring(bpHit1), "number", false)
+					for _, otherThread in threads do
+						if otherThread.id == 3 then
+							local otherTrace = assert(target:getStackTrace(otherThread.id))
+							local line = otherTrace[#otherTrace].line
+							check.that(line >= 12 and line <= 16)
+						end
+						if otherThread.id == 1 then
+							local otherTrace = assert(target:getStackTrace(otherThread.id))
+							local line = otherTrace[#otherTrace].line
+							check.that(line >= 18 and line <= 20)
+						end
+					end
+				elseif bp.id == bp2.id then
+					check.eq(thread.id, 3)
 					local stoppedThread = assert(target:getStoppedThread())
 					check.eq(stoppedThread.id, 3)
-					check.eq(thread.id, 3)
-					check.eq(thread.name, "Coroutine 3")
+					local stackTrace = assert(target:getStackTrace(thread.id))
+					local threadStack = stackTrace[#stackTrace]
+					check.eq(threadStack.line, 14)
+					local threads = target:getThreads()
+					for _, otherThread in threads do
+						if otherThread.id == 2 then
+							local otherTrace = assert(target:getStackTrace(otherThread.id))
+							local line = otherTrace[#otherTrace].line
+							check.that(line >= 5 and line <= 9)
+						end
+						if otherThread.id == 1 then
+							local otherTrace = assert(target:getStackTrace(otherThread.id))
+							local line = otherTrace[#otherTrace].line
+							check.that(line >= 18 and line <= 20)
+						end
+					end
 					bpHit2 += 1
+					local vars = assert(target:getVariablesByScopeType(threadStack.id, "local"))
+					checkVariable(check, vars, "_i", tostring(bpHit2), "number", false)
+				else
+					local stoppedThread = assert(target:getStoppedThread())
+					check.eq(stoppedThread.id, 1)
+					local threads = target:getThreads()
+					check.eq(thread.id, 1)
+					check.eq(#threads, 1)
+					check.eq(threads[1].id, 1)
+					check.eq(threads[1].name, "Main Coroutine")
 				end
-				local threads = target:getThreads()
-				maxThreads = math.max(maxThreads, #threads)
 				local continued = target:continueProcess()
 				check.that(continued)
 			end,
@@ -502,7 +553,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local target = debug.newTarget()
 		check.eq(typeof(target), "Target")
 		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
-		target:setBreakpoint(mainPath, 15)
+		target:setBreakpoint(mainPath, 16)
 		local onFinished = false
 		local targetLaunched = target:launch(mainPath, {}, {
 			onBreakpointHit = function(_thread, _bp)
@@ -513,25 +564,32 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				check.eq(#stacktrace, 2)
 				local scopes = target:getScopes(stacktrace[1].id)
 				assert(scopes)
-				check.eq(#scopes, 2)
-				checkScope(check, scopes, "Locals", "locals", threads[1].id, 0)
-				checkScope(check, scopes, "Upvalues", "upvalues", threads[1].id, 0)
+				check.eq(#scopes, 3)
+				checkScope(check, scopes, "Locals", "local", threads[1].id, 0)
+				checkScope(check, scopes, "Upvalues", "upvalue", threads[1].id, 0)
+				checkScope(check, scopes, "Globals", "global", -1, -1)
 				for _, scope in scopes do
-					if scope.type == "locals" then
+					if scope.type == "local" then
 						local locals = target:getVariables(scope.variableRef)
 						assert(locals)
 						check.eq(#locals, 1)
 						checkVariable(check, locals, "_k", "25.2", "number", false)
 					end
-					if scope.type == "upvalues" then
+					if scope.type == "upvalue" then
 						local upvalues = target:getVariables(scope.variableRef)
 						assert(upvalues)
 						check.eq(#upvalues, 2)
 						checkVariable(check, upvalues, "a", "24", "number", false)
 						checkVariable(check, upvalues, "_b", "1.2", "number", false)
 					end
+					if scope.type == "global" then
+						local globals = target:getVariables(scope.variableRef)
+						assert(globals)
+						check.eq(#globals, 1)
+						checkVariable(check, globals, "_global_var", "16", "number", false)
+					end
 				end
-				local locals = target:getVariablesByScopeType(stacktrace[2].id, "locals")
+				local locals = target:getVariablesByScopeType(stacktrace[2].id, "local")
 				assert(locals)
 				check.eq(#locals, 12)
 				checkVariable(check, locals, "a", "24", "number", false)
@@ -552,6 +610,10 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				checkVariable(check, tables, "[1]", "1", "number", false)
 				checkVariable(check, tables, "[2]", "2", "number", false)
 				checkVariable(check, tables, "[3]", "3", "number", false)
+				local globals = target:getVariablesByScopeType(stacktrace[2].id, "global")
+				assert(globals)
+				check.eq(#globals, 1)
+				checkVariable(check, globals, "_global_var", "16", "number", false)
 				local continued = target:continueProcess()
 				check.that(continued)
 			end,
@@ -568,5 +630,136 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 			end),
 			true
 		)
+	end)
+	-- this test case focuses on evaluating expressions
+	suite:case("evaluateExpressions", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local mainPath = path.format(path.join(proc.cwd(), "tests/src/debug/variables.luau"))
+		target:setBreakpoint(mainPath, 16)
+		local onFinished = false
+		local targetLaunched = target:launch(mainPath, {}, {
+			onBreakpointHit = function(_thread, _bp)
+				local threads = target:getThreads()
+				check.eq(#threads, 1)
+				local stacktrace = target:getStackTrace(threads[1].id)
+				assert(stacktrace)
+				check.eq(#stacktrace, 2)
+				local result = target:evaluateExpression("2*_k", stacktrace[1].id)
+				assert(type(result) ~= "string")
+				local variable = result :: debug.Variable
+				check.eq(variable.value, "50.4")
+				result = target:evaluateExpression("_e[4]", stacktrace[2].id)
+				assert(type(result) ~= "string")
+				variable = result :: debug.Variable
+				check.eq(variable.value, "{r=13}")
+				result = target:evaluateExpression("a +", stacktrace[2].id)
+				assert(type(result) == "string")
+				local error = result :: string
+				check.eq(error, "eval:1: Expected identifier when parsing expression, got <eof>")
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(targetLaunched, nil)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+	end)
+	-- this test case checks we can pause in an error handler
+	suite:case("xpcall", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local fixturePath = path.format(path.join(proc.cwd(), "tests/src/debug/xpcall.luau"))
+		local bpErrorHandler = target:setBreakpoint(fixturePath, 4)
+		local bpOutside = target:setBreakpoint(fixturePath, 7)
+		local onFinished = false
+		local numHits = 0
+		local launchError = target:launch(fixturePath, {}, {
+			onBreakpointHit = function(_thread, bp)
+				local threads = target:getThreads()
+				check.eq(#threads, 1)
+				local stacktrace = target:getStackTrace(threads[1].id)
+				assert(stacktrace)
+				local locals = target:getVariablesByScopeType(stacktrace[1].id, "local")
+				assert(locals)
+				if bp.id == bpErrorHandler.id then
+					local errorValue = string.format('"%s:2: attempt to call a nil value"', normalizePath(fixturePath))
+					checkVariable(check, locals, "_err", errorValue, "string", false)
+					numHits += 1
+				end
+				if bp.id == bpOutside.id then
+					checkVariable(check, locals, "returned", "false", "boolean", false)
+					checkVariable(check, locals, "_data", '"error found"', "string", false)
+					numHits += 1
+				end
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(launchError, nil)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+		check.eq(numHits, 2)
+	end)
+	-- this test case checks we can pause in metatable methods
+	suite:case("metatable", function(check)
+		local target = debug.newTarget()
+		check.eq(typeof(target), "Target")
+		local fixturePath = path.format(path.join(proc.cwd(), "tests/src/debug/metatable.luau"))
+		local bpIndex = target:setBreakpoint(fixturePath, 4)
+		local bpCall = target:setBreakpoint(fixturePath, 7)
+		local onFinished = false
+		local numHits = 0
+		local launchError = target:launch(fixturePath, {}, {
+			onBreakpointHit = function(_thread, bp)
+				local threads = target:getThreads()
+				check.eq(#threads, 1)
+				local stacktrace = target:getStackTrace(threads[1].id)
+				assert(stacktrace)
+				local locals = target:getVariablesByScopeType(stacktrace[1].id, "local")
+				assert(locals)
+				if bp.id == bpIndex.id then
+					checkVariable(check, locals, "k", "7", "number", false)
+					numHits += 1
+				end
+				if bp.id == bpCall.id then
+					checkVariable(check, locals, "k", "5", "number", false)
+					numHits += 1
+				end
+				local continued = target:continueProcess()
+				check.that(continued)
+			end,
+			onExit = function(status)
+				if status then
+					onFinished = true
+				end
+			end,
+		})
+		check.eq(launchError, nil)
+		check.eq(
+			waitUntil(function()
+				return onFinished
+			end),
+			true
+		)
+		check.eq(numHits, 2)
 	end)
 end)

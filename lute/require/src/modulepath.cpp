@@ -136,13 +136,12 @@ ResolvedRealPath ModulePath::getRealPath() const
         if (hasInit && resolvedType)
             return {NavigationStatus::Ambiguous};
 
-        // Path is a directory with no init file and no sibling file, so we know this is a directory.
-        if (!resolvedType)
-            resolvedType = ResolvedRealPath::PathType::Directory;
-
         // Path is a directory with an init file and no sibling file, so we know this is a file (the init file).
+        // Otherwise if there is no sibling file either, we know this is a directory.
         if (hasInit)
             resolvedType = ResolvedRealPath::PathType::File;
+        else if (!resolvedType)
+            resolvedType = ResolvedRealPath::PathType::Directory;
     }
 
     if (!resolvedType)

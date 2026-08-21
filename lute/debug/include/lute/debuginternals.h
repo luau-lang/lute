@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 
 struct lua_State;
@@ -56,8 +57,9 @@ struct StackFrame
 
 enum class VariableScopeType
 {
-    Locals,
-    Upvalues,
+    Local,
+    Upvalue,
+    Global,
     Table
 };
 
@@ -76,6 +78,7 @@ struct VariableScope
     explicit VariableScope(int variableReference, VariableScopeType type, std::string name, int threadId = -1, int level = -1, int luaref = -1);
     static VariableScope makeLocals(int variableReference, int threadId, int level);
     static VariableScope makeUpvalues(int variableReference, int threadId, int level);
+    static VariableScope makeGlobals(int variableReference);
     static VariableScope makeTable(int variableReference, int luaref);
 };
 
@@ -89,6 +92,8 @@ struct Variable
     std::string type;
     int variableReference = 0;
 };
+
+using EvaluateResult = std::variant<Variable, std::string>;
 
 enum class StepType
 {
@@ -164,6 +169,9 @@ struct Target
     std::optional<std::vector<Variable>> getVariables(int varRef);
     std::optional<std::vector<Variable>> getVariablesByScopeType(int frameId, VariableScopeType contextType);
 
+    // For evaluation:
+    EvaluateResult evaluateExpression(std::string expression, int frameId = -1);
+
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
     bool continueProcess();
@@ -197,10 +205,11 @@ private:
     std::shared_ptr<Ref> scriptThreadRef;
 
     // our stopped thread that we need to requeue when we continue
+    bool stoppedNoYield = false;
     lua_State* stoppedThread = nullptr;
     std::shared_ptr<Ref> stoppedThreadRef;
-    // Due to the way Lua debugger callbacks works, we need to set the stopped line/instruction in the callback. otherwise, outside of the callback, lua_getinfo
-    // will return the previous line/instruction.
+    // Due to the way Lua debugger callbacks works, we need to set the stopped line/instruction in the callback. otherwise, outside of the callback,
+    // lua_getinfo will return the previous line/instruction.
     int stoppedLine = -1;
     std::string stoppedLocation = "";
     const uint32_t* stoppedPc = nullptr;
@@ -224,6 +233,7 @@ private:
     // variable information
     // scope and variable information also resets upon every continue(). The base id resets to 1.
     int variableRefId = 1;
+    std::optional<int> globalVariableRef;
     std::unordered_map<int, std::vector<VariableScope>> scopeCache; // stack frame id -> scope
     std::unordered_map<int, std::vector<Variable>> variableCache;   // var reference -> all variables under that reference
     std::unordered_map<int, VariableScope> variableContexts;        // var reference -> variableContext
@@ -237,6 +247,7 @@ private:
     std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
     std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
     std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
+    EvaluateResult evaluateExpressionHelper(lua_State* L, int level, std::string expression);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
@@ -248,7 +259,11 @@ private:
     Variable makeVariable(lua_State* L, const std::string& name);
     std::vector<Variable> getLocalsHelper(lua_State* L, int level);
     std::vector<Variable> getUpvaluesHelper(lua_State* L, int level);
+    std::vector<Variable> getGlobalsHelper();
     std::vector<Variable> getTableHelper(lua_State* L, int idx);
+
+    void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
+    void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);
 
     void installBpHitCallback();
     void installExitCallback();

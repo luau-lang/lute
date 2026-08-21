@@ -64,15 +64,17 @@ static BreakpointStatus breakpointStringToStatus(const char* status)
 }
 
 // VariableScopeType is
-// "locals" | "upvalues" | "table"
+// "local" | "upvalue" | "global" | "table"
 static const char* scopeTypeToString(VariableScopeType type)
 {
     switch (type)
     {
-    case VariableScopeType::Locals:
-        return "locals";
-    case VariableScopeType::Upvalues:
-        return "upvalues";
+    case VariableScopeType::Local:
+        return "local";
+    case VariableScopeType::Upvalue:
+        return "upvalue";
+    case VariableScopeType::Global:
+        return "global";
     case VariableScopeType::Table:
         return "table";
     }
@@ -82,10 +84,12 @@ static const char* scopeTypeToString(VariableScopeType type)
 
 static VariableScopeType scopeStringToType(const char* type)
 {
-    if (strcmp(type, "locals") == 0)
-        return VariableScopeType::Locals;
-    if (strcmp(type, "upvalues") == 0)
-        return VariableScopeType::Upvalues;
+    if (strcmp(type, "local") == 0)
+        return VariableScopeType::Local;
+    if (strcmp(type, "upvalue") == 0)
+        return VariableScopeType::Upvalue;
+    if (strcmp(type, "global") == 0)
+        return VariableScopeType::Global;
     if (strcmp(type, "table") == 0)
         return VariableScopeType::Table;
     LUAU_ASSERT(false);
@@ -588,6 +592,25 @@ static int target_getVariablesByScopeType(lua_State* L)
     return 1;
 }
 
+// target.evaluateExpression(string expression, int frameId = -1)
+// returns Variable | string
+static int target_evaluateExpression(lua_State* L)
+{
+    auto target = getTarget(L, 1);
+    std::string expression = luaL_checkstring(L, 2);
+    int frameId = (int)luaL_optinteger(L, 3, -1);
+    EvaluateResult result = target->evaluateExpression(expression, frameId);
+    if (std::holds_alternative<Variable>(result))
+    {
+        Variable var = std::get<Variable>(result);
+        return pushVariable(L, var);
+    }
+    std::string err = std::get<std::string>(result);
+    lua_checkstack(L, 1);
+    lua_pushstring(L, err.c_str());
+    return 1;
+}
+
 static std::shared_ptr<Ref> getOptionalCallback(lua_State* L, int tableIndex, const char* field)
 {
     lua_getfield(L, tableIndex, field);
@@ -602,7 +625,7 @@ static std::function<void(const Breakpoint&)> makeBreakpointCallback(std::shared
 {
     return [ref, runtime](const Breakpoint& bp)
     {
-        runtime->scheduleLuauCallback(
+        runtime->scheduleDebugLuauCallback(
             ref,
             [bp](lua_State* L)
             {
@@ -652,7 +675,7 @@ static int target_launch(lua_State* L)
         if (auto ref = getOptionalCallback(L, 4, "onBreakpointHit"))
             config.onBreakpointHit = [ref, runtime](const Thread& thread, const Breakpoint& bp)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread, bp](lua_State* L)
                     {
@@ -670,7 +693,7 @@ static int target_launch(lua_State* L)
         {
             config.onExit = [ref, runtime](bool success)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [success](lua_State* L)
                     {
@@ -685,7 +708,7 @@ static int target_launch(lua_State* L)
         {
             config.onPause = [ref, runtime](const Thread& thread)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread](lua_State* L)
                     {
@@ -699,7 +722,7 @@ static int target_launch(lua_State* L)
         {
             config.onPrint = [ref, runtime](std::string message, std::string source, int line)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [message, source, line](lua_State* L)
                     {
@@ -716,7 +739,7 @@ static int target_launch(lua_State* L)
         {
             config.onStepStop = [ref, runtime](const Thread& thread, const StepInfo& stepInfo)
             {
-                runtime->scheduleLuauCallback(
+                runtime->scheduleDebugLuauCallback(
                     ref,
                     [thread, stepInfo](lua_State* L)
                     {
@@ -796,6 +819,7 @@ static const std::unordered_map<std::string, lua_CFunction> kTargetMethods = {
     {"getScopes", debug::target_getScopes},
     {"getVariables", debug::target_getVariables},
     {"getVariablesByScopeType", debug::target_getVariablesByScopeType},
+    {"evaluateExpression", debug::target_evaluateExpression},
 };
 
 static void initializeTarget(lua_State* L)

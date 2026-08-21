@@ -40,18 +40,22 @@ export type StackFrame = {
 	column: number,
 }
 
---- The type of a VariableScope (i.e. whether it contains local variables, upvalues, or
+--- The type of a VariableScope (i.e. whether it contains local variables, upvalues, globals, or
 --- values from a table)
-export type VariableScopeType = "locals" | "upvalues" | "table"
+export type VariableScopeType = "local" | "upvalue" | "global" | "table"
 
 --- A VariableScope contains the contextual information for a collection of Variables
 --- such as what variable reference ID number to refer to this collection, what type of collection
 --- it is, etc. Variable reference IDs are reset upon continuing execution.
+--- Generally, VariableScope will have a type `locals`, `upvalues`, or `globals`. `table` is used in the C++ implementation
+--- but generally is not used in Luau code currently.
 export type VariableScope = {
 	variableRef: number,
 	type: VariableScopeType,
 	name: string,
+	--- threadId is `-1` for globals or tables
 	threadId: number,
+	--- level is `-1` for globals or tables
 	level: number,
 }
 
@@ -163,9 +167,13 @@ export type Target = {
 	--- or if such a scope does not exist.
 	getVariables: (self: Target, variableRef: number) -> { Variable }?,
 	--- Gets a set of variables belonging on the stack frame with id `frameID` with a certain `scopeType`.
-	--- `scopeType` should be `locals` or `upvalues`, not `table`.
+	--- `scopeType` should be `local`, `global`, or `upvalue`, not `table`.
 	--- Return `nil` if script is running or if such variables can not be found.
 	getVariablesByScopeType: (self: Target, frameId: number, scopeType: VariableScopeType) -> { Variable }?,
+	--- Evaluates an expression within the scope of a given stack frame id.
+	--- If `frameId` is -1 or absent, evaluate in the global scope.
+	--- Returns a `Variable` if expression could be evaluated or an error string if not.
+	evaluateExpression: (self: Target, expression: string, frameId: number?) -> Variable | string,
 }
 
 --- Create a new Target handle on the current VM.

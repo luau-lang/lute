@@ -6,6 +6,7 @@ local testTypes = require("@std/test/types")
 local parser = require("@std/syntax/parser")
 local printer = require("@std/syntax/printer")
 local syntax = require("@std/syntax")
+local trivia = require("@std/syntax/utils/trivia")
 
 local function assertEqualsLocation(
 	assert: testTypes.Asserts,
@@ -1074,6 +1075,29 @@ test.suite("parse types", function(suite)
 		local node3 = unionType.types[3]
 		assert.eq(node3.tag, "reference")
 		assert.eq(unionType.types.separators[3], nil)
+	end)
+
+	suite:case("parseTypePackExplicitWithCst", function(assert)
+		local result = parser.parse("type T = () -> (number, ...string)\n")
+		local tAlias = result.root.statements[1] :: syntax.CstStatTypeAlias
+		assert.eq(#result.root.statements, 1)
+		assert.eq(tAlias.name.text, "T")
+		local rhsAlias = tAlias.type :: syntax.CstTypeFunction
+		local explicit = rhsAlias.returnTypes :: syntax.CstTypePackExplicit
+		assert.eq(#explicit.types, 1)
+
+		local first = (explicit.types[1]) :: syntax.CstTypeReference
+		assert.eq(first.tag, "reference")
+		assert.eq(first.name.text, "number")
+
+		assert.that(explicit.tailType)
+		local tt = explicit.tailType :: syntax.CstTypePackVariadic
+		assert.eq((tt.type :: syntax.CstTypeReference).name.text, "string")
+		-- The rightmost trivia of the statement node must not contain the closing parenthesis from the typepack
+		local details = trivia.rightmostTrivia(tAlias)
+		assert.eq(#details, 1)
+		assert.eq(details[1].tag, "whitespace")
+		assert.eq(details[1].text, "\n")
 	end)
 
 	suite:case("testTypeIntersection", function(assert)
