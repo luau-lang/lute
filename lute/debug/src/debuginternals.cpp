@@ -913,7 +913,7 @@ std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
     // when hitting a bp we try to re-enter
     bool fixedSavedpc = false;
     const Instruction* original = L->ci->savedpc;
-    if (level == 0 && L == stoppedThread)
+    if (level == 0 && !stoppedNoYield && L == stoppedThread)
     {
         L->ci->savedpc = stoppedPc;
         fixedSavedpc = true;
@@ -1038,7 +1038,7 @@ void Target::injectLocals(lua_State* L, int level, lua_State* eval, int evalTabl
 {
     bool fixedSavedpc = false;
     const Instruction* original = L->ci->savedpc;
-    if (level == 0 && L == stoppedThread && L->ci)
+    if (level == 0 && !stoppedNoYield && L == stoppedThread && L->ci)
     {
         L->ci->savedpc = stoppedPc;
         fixedSavedpc = true;
