@@ -2,9 +2,39 @@ local fs = require("@lute/fs")
 local process = require("@lute/process")
 
 local ignore = require("./ignore")
+local parseIgnores = require("./parseIgnores")
 local path = require("@std/path")
 local stringext = require("@std/stringext")
 local tableext = require("@std/tableext")
+
+const function filterIgnored(
+	sourceFiles: { path.Path },
+	ignoreData: parseIgnores.GitignoreData?,
+	verbose: boolean?
+): { path.Path }
+	if ignoreData == nil then
+		return sourceFiles
+	end
+
+	const kept: { path.Path } = {}
+	for _, sourcePath in sourceFiles do
+		const target = path.format(sourcePath)
+		if parseIgnores.isIgnored(ignoreData, target, false) then
+			if verbose then
+				print(`Skipping {target}`)
+			end
+			continue
+		end
+
+		table.insert(kept, sourcePath)
+	end
+
+	if verbose then
+		print(`Kept {#kept} file(s) after filtering.`)
+	end
+
+	return table.freeze(kept)
+end
 
 local function traverseDirectoryRecursive(
 	directory: path.Path,
@@ -71,5 +101,6 @@ local function getSourceFiles(paths: { string }, verbose: boolean?): { path.Path
 end
 
 return {
+	filterIgnored = filterIgnored,
 	getSourceFiles = getSourceFiles,
 }
