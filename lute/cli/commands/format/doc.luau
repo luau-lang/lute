@@ -20,15 +20,17 @@ export type NewlineDoc = { read tag: "newline" }
 
 export type Doc = TextDoc | GroupDoc | IndentDoc | SuffixDoc | ConcatDoc | ChoiceDoc | NewlineDoc
 
-const function text(text: string): TextDoc
+const docLib = {}
+
+function docLib.text(text: string): TextDoc
 	return text
 end
 
-const none = text("")
+docLib.none = docLib.text("")
 
 --- Prints `contents` as a flat group if it fits, otherwise as a broken group.
 --- `shouldBreak` forces the group to break.
-const function group(contents: Doc, options: { read shouldBreak: boolean? }?): GroupDoc
+function docLib.group(contents: Doc, options: { read shouldBreak: boolean? }?): GroupDoc
 	return table.freeze({
 		tag = "group" :: "group",
 		contents = contents,
@@ -37,17 +39,17 @@ const function group(contents: Doc, options: { read shouldBreak: boolean? }?): G
 end
 
 --- Indents newlines produced inside `contents` by one level.
-const function indent(contents: Doc): IndentDoc
+function docLib.indent(contents: Doc): IndentDoc
 	return table.freeze({ tag = "indent" :: "indent", contents = contents })
 end
 
 --- Defers `contents` until just before the next newline, so a trailing line comment cannot swallow the code after its token.
-const function suffix(contents: Doc): SuffixDoc
+function docLib.suffix(contents: Doc): SuffixDoc
 	return table.freeze({ tag = "suffix" :: "suffix", contents = contents })
 end
 
 -- Joins `parts` with an optional `separator` between each part, similar to `table.concat`.
-const function concat(parts: { read [number]: Doc }, separator: Doc?): ConcatDoc
+function docLib.concat(parts: { read [number]: Doc }, separator: Doc?): ConcatDoc
 	if separator ~= nil then
 		const joined: { Doc } = {}
 		for index, part in parts do
@@ -62,26 +64,19 @@ const function concat(parts: { read [number]: Doc }, separator: Doc?): ConcatDoc
 end
 
 --- Picks a branch according to whether the enclosing group is flat or broken.
-const function choice(options: { read flat: Doc?, read broken: Doc? }): ChoiceDoc
+function docLib.choice(options: { read flat: Doc?, read broken: Doc? }): ChoiceDoc
 	return table.freeze({
 		tag = "choice" :: "choice",
-		flat = options.flat or none,
-		broken = options.broken or none,
+		flat = options.flat or docLib.none,
+		broken = options.broken or docLib.none,
 	})
 end
 
 --- Always a newline, and forces every enclosing group to break.
-const newline: NewlineDoc = table.freeze({ tag = "newline" :: "newline" })
+docLib.newline = table.freeze({ tag = "newline" :: "newline" })
 
-return table.freeze({
-	none = none,
-	text = text,
-	group = group,
-	indent = indent,
-	suffix = suffix,
-	concat = concat,
-	choice = choice,
-	newline = newline,
-	softline = choice({ broken = newline, flat = none }),
-	softspace = choice({ broken = newline, flat = text(" ") }),
-})
+docLib.softline = docLib.choice({ broken = docLib.newline, flat = docLib.none })
+
+docLib.softspace = docLib.choice({ broken = docLib.newline, flat = docLib.text(" ") })
+
+return table.freeze(docLib)
