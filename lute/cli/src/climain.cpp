@@ -46,6 +46,7 @@ Commands:
 	compile         Compile a Luau script into a standalone executable.
     debug           Debug a Luau script.
 	setup           Generate type definition files for the language server.
+	format          Format Luau source files.
 	transform       Run a specified code transformation on specified Luau files.
 	lint            Run linting rules on specified Luau files.
 	self            Manage the host lute installation in ~/.lute (install/update/uninstall).
@@ -70,6 +71,11 @@ Setup Options:
 	lute setup
 		Generates type definition files for the language server.
 			--with-luaurc           Defines aliases to the type definition files in the working directory's luaurc file.
+
+Format Options:
+	lute format [options...] <paths...>
+		Formats the specified Luau files in place.
+			--check                 Reports files that would change without writing them.
 
 Transform Options:
 	lute transform <transformer script> [options...] <files...>

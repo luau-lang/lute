@@ -1,0 +1,543 @@
+local fs = require("@std/fs")
+local formatter = require("@std/syntax/format")
+local path = require("@std/path")
+local test = require("@std/test")
+
+type Fixture = {
+	sourcePath: string,
+	snapshotPath: string,
+}
+
+local function checkFormat(assert: any, source: string, expected: string)
+	local formatted = formatter.formatCode(source)
+	assert.eq(formatted, expected)
+	assert.eq(formatter.formatCode(formatted), formatted)
+end
+
+local STYLUA_FIXTURE_ROOT = path.join("tests", "std", "syntax", "fixtures", "format", "stylua")
+
+local function collectStyluaFixtures(): { Fixture }
+	local fixtures = {}
+
+	for _, group in { "inputs", "inputs-luau", "inputs-luau-full_moon" } do
+		local groupPath = path.join(STYLUA_FIXTURE_ROOT, group)
+		for _, entry in fs.listDirectory(groupPath) do
+			if entry.type == "file" and entry.name:match("%.lua$") then
+				table.insert(fixtures, {
+					sourcePath = path.format(path.join(groupPath, entry.name)),
+					snapshotPath = path.format(path.join(STYLUA_FIXTURE_ROOT, "snapshots-lute", group, entry.name .. ".snap")),
+				})
+			end
+		end
+	end
+
+	table.sort(fixtures, function(a: Fixture, b: Fixture)
+		return a.sourcePath < b.sourcePath
+	end)
+	return fixtures
+end
+
+test.suite("SyntaxFormat", function(suite)
+	suite:case("formatsLocalDeclaration", function(assert)
+		checkFormat(assert, "local x=1", "local x = 1\n")
+	end)
+
+	suite:case("normalizesLeadingDotNumbers", function(assert)
+		checkFormat(assert, "local a=.5\nlocal b=-.2e-5", "local a = 0.5\nlocal b = -0.2e-5\n")
+	end)
+
+	suite:case("keepsUnaryMinusTightAfterLogicalOperator", function(assert)
+		checkFormat(assert, "local direction=input > 0 and 1 or -1", "local direction = input > 0 and 1 or -1\n")
+	end)
+
+	suite:case("formatsInterpolatedStringExpressions", function(assert)
+		checkFormat(assert, "local message=`hello {first..second}`", "local message = `hello {first .. second}`\n")
+	end)
+
+	suite:case("keepsOptionalPostfixTightAfterGenericClose", function(assert)
+		checkFormat(
+			assert,
+			"local register = function(value: string?): Promise<string?>?\nend",
+			"local register = function(value: string?): Promise<string?>? end\n"
+		)
+	end)
+
+	suite:case("formatsMultipleAttributesInline", function(assert)
+		checkFormat(assert, "local value = @native @deprecated function() end", "local value = @native @deprecated function() end\n")
+	end)
+
+	suite:case("normalizesTypeTableSemicolons", function(assert)
+		checkFormat(assert, "type Foo = {\n\tbar: number;\n}", "type Foo = {\n\tbar: number,\n}\n")
+	end)
+
+	suite:case("keepsSpaceBeforeFunctionTypeInTypeTable", function(assert)
+		checkFormat(assert, "local listeners: { (any) -> () } = {}", "local listeners: { (any) -> () } = {}\n")
+	end)
+
+	suite:case("formatsBlockStatement", function(assert)
+		checkFormat(assert, "if x then print(x) end", "if x then\n\tprint(x)\nend\n")
+	end)
+
+	suite:case("respectsExistingTableNewlines", function(assert)
+		checkFormat(
+			assert,
+			"local value={\nfoo=1,\nbar=2,\n}",
+			"local value = {\n\tfoo = 1,\n\tbar = 2,\n}\n"
+		)
+	end)
+
+	suite:case("formatsFunctionBody", function(assert)
+		checkFormat(
+			assert,
+			"local function identity(value)return value end",
+			"local function identity(value)\n\treturn value\nend\n"
+		)
+	end)
+
+	suite:case("keepsTypedEmptyFunctionInline", function(assert)
+		checkFormat(
+			assert,
+			"function value(): number end",
+			"function value(): number end\n"
+		)
+	end)
+
+	suite:case("preservesComments", function(assert)
+		checkFormat(assert, "-- comment\nlocal x=1", "-- comment\nlocal x = 1\n")
+	end)
+
+	suite:case("preservesBlankLineAfterComment", function(assert)
+		checkFormat(assert, "-- section\n\nlocal x=1", "-- section\n\nlocal x = 1\n")
+	end)
+
+	suite:case("removesBlankLineBetweenCommentAndBlockEnd", function(assert)
+		checkFormat(assert, "function noop()\n-- comment\n\nend", "function noop()\n\t-- comment\nend\n")
+	end)
+
+	suite:case("indentsExpressionAfterBlockCommentedAssignment", function(assert)
+		checkFormat(assert, "local value = --[[comment]]\nrequire(foo)", "local value = --[[comment]]\n\trequire(foo)\n")
+	end)
+
+	suite:case("breaksAlreadyMultilineIfConditionAfterKeyword", function(assert)
+		checkFormat(
+			assert,
+			"if code == 9 -- \\t\nor code == 32 -- <space>\nthen\nprint(code)\nend",
+			"if\n\tcode == 9 -- \\t\n\tor code == 32 -- <space>\nthen\n\tprint(code)\nend\n"
+		)
+	end)
+
+	suite:case("indentsContinuationUnderMultilineElseifCondition", function(assert)
+		checkFormat(
+			assert,
+			"if ok then\nelseif\nGetFlag()\nand code == 1\nthen\nend",
+			"if ok then\nelseif\n\tGetFlag()\n\t\tand code == 1\nthen\nend\n"
+		)
+	end)
+
+	suite:case("keepsRepeatedElseifConditionContinuationsAligned", function(assert)
+		checkFormat(
+			assert,
+			"if ok then\nelseif\nflag\nand value\nand value == 1\nthen\nend",
+			"if ok then\nelseif\n\tflag\n\t\tand value\n\t\tand value == 1\nthen\nend\n"
+		)
+	end)
+
+	suite:case("keepsMultilineReturnExpressionIndented", function(assert)
+		checkFormat(
+			assert,
+			"function foo()\nreturn\nfoo or\nbar\nend",
+			"function foo()\n\treturn\n\t\tfoo or\n\t\tbar\nend\n"
+		)
+	end)
+
+	suite:case("indentsReturnValueAfterComma", function(assert)
+		checkFormat(
+			assert,
+			"function foo()\nreturn label,\n{\nSize = 1,\n} :: any\nend",
+			"function foo()\n\treturn label,\n\t\t{\n\t\t\tSize = 1,\n\t\t} :: any\nend\n"
+		)
+	end)
+
+	suite:case("keepsReturnValueContinuationIndentAfterMultipleCommas", function(assert)
+		checkFormat(
+			assert,
+			"return first,\nsecond,\nthird,\nfourth",
+			"return first,\n\tsecond,\n\tthird,\n\tfourth\n"
+		)
+	end)
+
+	suite:case("keepsReturnTableFieldsIndented", function(assert)
+		checkFormat(
+			assert,
+			"function foo()\nreturn label,\n{\nfirst = 1,\nsecond = 2,\n} :: any\nend",
+			"function foo()\n\treturn label,\n\t\t{\n\t\t\tfirst = 1,\n\t\t\tsecond = 2,\n\t\t} :: any\nend\n"
+		)
+	end)
+
+	suite:case("alignsIfExpressionKeywordsAfterContinuationOperator", function(assert)
+		checkFormat(
+			assert,
+			"return {\n[ref] = if monthKey\n== selectedMonth\nthen defaultRef\nelse nil,\n}",
+			"return {\n\t[ref] = if monthKey\n\t\t== selectedMonth\n\t\tthen defaultRef\n\t\telse nil,\n}\n"
+		)
+	end)
+
+	suite:case("alignsIfExpressionKeywordsAfterMultilineElseif", function(assert)
+		checkFormat(
+			assert,
+			"local key = if first\nthen \"first\"\nelseif\nsecond\nthen \"second\"\nelse \"fallback\"",
+			"local key = if first\n\tthen \"first\"\n\telseif\n\t\tsecond\n\t\tthen \"second\"\n\t\telse \"fallback\"\n"
+		)
+	end)
+
+	suite:case("dedentsOuterIfExpressionElseAfterNestedElse", function(assert)
+		checkFormat(
+			assert,
+			"return {\nlookData = if item.type == \"Look\"\nthen if flag\nthen value\nelse nil\nelse nil,\n}",
+			"return {\n\tlookData = if item.type == \"Look\"\n\t\tthen if flag\n\t\t\tthen value\n\t\t\telse nil\n\t\telse nil,\n}\n"
+		)
+	end)
+
+	suite:case("indentsLogicalContinuationInCallArgumentFunction", function(assert)
+		checkFormat(
+			assert,
+			"return React.useCallback(\nfunction()\nreturn first\nand second\nend,\n{}\n)",
+			"return React.useCallback(\n\tfunction()\n\t\treturn first\n\t\t\tand second\n\tend,\n\t{}\n)\n"
+		)
+	end)
+
+	suite:case("indentsLogicalContinuationAfterAssignmentValue", function(assert)
+		checkFormat(
+			assert,
+			"hasOriginalStock = collectibleItemInfo\nand collectibleItemInfo.unitsAvailableForConsumption\nand collectibleItemInfo.unitsAvailableForConsumption > 0",
+			"hasOriginalStock = collectibleItemInfo\n\tand collectibleItemInfo.unitsAvailableForConsumption\n\tand collectibleItemInfo.unitsAvailableForConsumption > 0\n"
+		)
+	end)
+
+	suite:case("indentsComparisonContinuationAfterLogicalLine", function(assert)
+		checkFormat(
+			assert,
+			"if\ncaptureInfo.type == CaptureType.Video\nand captureInfo.videoCapture.CaptureTime\n~= content.Object.CaptureTime\nthen\nreturn\nend",
+			"if\n\tcaptureInfo.type == CaptureType.Video\n\tand captureInfo.videoCapture.CaptureTime\n\t\t~= content.Object.CaptureTime\nthen\n\treturn\nend\n"
+		)
+	end)
+
+	suite:case("indentsCallArgumentAfterInlineOpenComment", function(assert)
+		checkFormat(
+			assert,
+			"local value = call( -- inline\nfirst,\n{ second } :: { any }\n)",
+			"local value = call( -- inline\n\tfirst,\n\t{ second } :: { any }\n)\n"
+		)
+	end)
+
+	suite:case("keepsStatementBreakBeforeParenthesizedExpressionStatement", function(assert)
+		checkFormat(
+			assert,
+			"first(); (service :: any):method()",
+			"first();\n(service :: any):method()\n"
+		)
+	end)
+
+	suite:case("formatsMultilineFunctionBody", function(assert)
+		checkFormat(
+			assert,
+			"local function apply(\nvalue: string\n)local result=value\nreturn result\nend",
+			"local function apply(\n\tvalue: string\n)\n\tlocal result = value\n\treturn result\nend\n"
+		)
+	end)
+
+	suite:case("keepsInlineCommentAfterBlockStart", function(assert)
+		checkFormat(
+			assert,
+			"if value then -- inline\nreturn value\nend",
+			"if value then -- inline\n\treturn value\nend\n"
+		)
+	end)
+
+	suite:case("keepsInlineCommentAfterFunctionSignature", function(assert)
+		checkFormat(
+			assert,
+			"local function value(): number -- inline\nreturn 1\nend",
+			"local function value(): number -- inline\n\treturn 1\nend\n"
+		)
+	end)
+
+	suite:case("formatsSplitCommentAfterFunctionSignature", function(assert)
+		checkFormat(
+			assert,
+			"local function value(): number\n-- body comment\nreturn 1\nend",
+			"local function value(): number\n\t-- body comment\n\treturn 1\nend\n"
+		)
+	end)
+
+	suite:case("restoresIndentAfterNestedFunctions", function(assert)
+		checkFormat(
+			assert,
+			"local function outer(): { string }\nlocal inner=function() end\nreturn {}\nend\nlocal x=1",
+			"local function outer(): { string }\n\tlocal inner = function() end\n\treturn {}\nend\nlocal x = 1\n"
+		)
+	end)
+
+	suite:case("doesNotSpaceRegularCalls", function(assert)
+		checkFormat(assert, 'if type(value) == "string" then\nreturn true\nend', 'if type(value) == "string" then\n\treturn true\nend\n')
+	end)
+
+	suite:case("formatsMultilineCallbackBody", function(assert)
+		checkFormat(
+			assert,
+			"return query:mapToArray(\nfunction(\nn: Node\n): Result -- inline\nlocal value=n\nreturn value\nend\n)",
+			"return query:mapToArray(\n\tfunction(\n\t\tn: Node\n\t): Result -- inline\n\t\tlocal value = n\n\t\treturn value\n\tend\n)\n"
+		)
+	end)
+
+	suite:case("formatsNestedMultilineCallbackBody", function(assert)
+		checkFormat(
+			assert,
+			"local function lint()\nreturn query:mapToArray(\nfunction(\nn: Node\n): Result -- inline\nlocal value=n\nreturn value\nend\n)\nend",
+			"local function lint()\n\treturn query:mapToArray(\n\t\tfunction(\n\t\t\tn: Node\n\t\t): Result -- inline\n\t\t\tlocal value = n\n\t\t\treturn value\n\t\tend\n\t)\nend\n"
+		)
+	end)
+
+	suite:case("formatsContinuationAfterAssignment", function(assert)
+		checkFormat(
+			assert,
+			"content =\nself:extract(value)",
+			"content =\n\tself:extract(value)\n"
+		)
+	end)
+
+	suite:case("doesNotContinueAfterGenericClose", function(assert)
+		checkFormat(
+			assert,
+			"local first: Array<string>\nlocal second: Map<number, string>",
+			"local first: Array<string>\nlocal second: Map<number, string>\n"
+		)
+	end)
+
+	suite:case("alignsCommentBeforeElseif", function(assert)
+		checkFormat(
+			assert,
+			"if type(key) ~= \"number\" then\nreturn false\nelseif key <= 0 then\nreturn false\n-- userdatas arent primitives\nelseif not primitive then\nreturn false\nend",
+			"if type(key) ~= \"number\" then\n\treturn false\nelseif key <= 0 then\n\treturn false\n-- userdatas arent primitives\nelseif not primitive then\n\treturn false\nend\n"
+		)
+	end)
+
+	suite:case("formatsChainAfterInlineComment", function(assert)
+		checkFormat(
+			assert,
+			"return query\n.findAllFromRoot(ast, pred) -- inline\n:replace(function()\nreturn nil\nend)",
+			"return query\n\t.findAllFromRoot(ast, pred) -- inline\n\t:replace(function()\n\t\treturn nil\n\tend)\n"
+		)
+	end)
+
+	suite:case("formatsTypeFunctionGenericSpacing", function(assert)
+		checkFormat(assert, "type A =<T>() -> ()", "type A = <T>() -> ()\n")
+	end)
+
+	suite:case("formatsTypeUnionContinuationAfterComments", function(assert)
+		checkFormat(
+			assert,
+			"type Kind =\n\t| \"root\" -- root\n\t| \"defined\" -- defined",
+			"type Kind =\n\t| \"root\" -- root\n\t| \"defined\" -- defined\n"
+		)
+	end)
+
+	suite:case("movesTypeUnionContinuationAfterLineComment", function(assert)
+		checkFormat(
+			assert,
+			"type Kind =\n\t\"Name\" |\n\t-- Document\n\t\"Document\"",
+			"type Kind =\n\t\"Name\"\n\t-- Document\n\t| \"Document\"\n"
+		)
+	end)
+
+	suite:case("formatsUnaryMinusInIfExpression", function(assert)
+		checkFormat(
+			assert,
+			'return if sign == "-" then -math.huge else math.huge',
+			'return if sign == "-" then -math.huge else math.huge\n'
+		)
+	end)
+
+	suite:case("formatsMultilineIfExpression", function(assert)
+		checkFormat(
+			assert,
+			"local value = if condition\nthen foo\nelse bar",
+			"local value = if condition\n\tthen foo\n\telse bar\n"
+		)
+	end)
+
+	suite:case("formatsMultilineIfAndCondition", function(assert)
+		checkFormat(
+			assert,
+			"if foo\nand bar\nand baz then\nprint(foo)\nend",
+			"if foo\n\tand bar\n\tand baz then\n\tprint(foo)\nend\n"
+		)
+	end)
+
+	suite:case("formatsMultilineIfExpressionConditionWithComment", function(assert)
+		checkFormat(
+			assert,
+			"return if condition -- inline\nthen foo\nelse bar",
+			"return if condition -- inline\n\tthen foo\n\telse bar\n"
+		)
+	end)
+
+	suite:case("formatsIfExpressionContinuationAfterInlineThen", function(assert)
+		checkFormat(
+			assert,
+			'local value = if foo then "foo"\nelseif bar then "bar"\nelse "baz"',
+			'local value = if foo then "foo"\n\telseif bar then "bar"\n\telse "baz"\n'
+		)
+	end)
+
+	suite:case("alignsParenthesizedBooleanContinuation", function(assert)
+		checkFormat(
+			assert,
+			"return (\nfoo\nor bar\nor baz\n) ~= nil",
+			"return (\n\tfoo\n\tor bar\n\tor baz\n) ~= nil\n"
+		)
+	end)
+
+	suite:case("continuesParenthesizedConcatenation", function(assert)
+		checkFormat(
+			assert,
+			'print(\n"foo"\n.. "bar"\n.. "baz"\n)',
+			'print(\n\t"foo"\n\t\t.. "bar"\n\t\t.. "baz"\n)\n'
+		)
+	end)
+
+	suite:case("indentsAfterInlineCommentInCall", function(assert)
+		checkFormat(
+			assert,
+			'foo( -- inline\n"bar"\n)',
+			'foo( -- inline\n\t"bar"\n)\n'
+		)
+	end)
+
+	suite:case("indentsAfterInlineCommentedCallComma", function(assert)
+		checkFormat(
+			assert,
+			'foo("first", -- inline\n"second")',
+			'foo("first", -- inline\n\t"second")\n'
+		)
+	end)
+
+	suite:case("doesNotOverindentMultilineCommentedCallComma", function(assert)
+		checkFormat(
+			assert,
+			"foo(\n\tfirst, -- inline\n\tsecond\n)",
+			"foo(\n\tfirst, -- inline\n\tsecond\n)\n"
+		)
+	end)
+
+	suite:case("doesNotOverindentNestedCallCommentedComma", function(assert)
+		checkFormat(
+			assert,
+			"foo(\n\tnested(bar), -- inline\n\tbaz\n)",
+			"foo(\n\tnested(bar), -- inline\n\tbaz\n)\n"
+		)
+	end)
+
+	suite:case("doesNotOverindentLeadingCommentInCall", function(assert)
+		checkFormat(
+			assert,
+			"foo(\n\t-- leading\n\tbar\n)",
+			"foo(\n\t-- leading\n\tbar\n)\n"
+		)
+	end)
+
+	suite:case("doesNotOverindentTableFieldCommentInCall", function(assert)
+		checkFormat(
+			assert,
+			"foo({\n\tfirst = bar(), -- inline\n\tsecond = baz(), -- inline\n})",
+			"foo({\n\tfirst = bar(), -- inline\n\tsecond = baz(), -- inline\n})\n"
+		)
+	end)
+
+	suite:case("indentsAfterInlineCommentedReturnComma", function(assert)
+		checkFormat(
+			assert,
+			"return foo, -- inline\nbar",
+			"return foo, -- inline\n\tbar\n"
+		)
+	end)
+
+	suite:case("indentsAfterContinuationComment", function(assert)
+		checkFormat(
+			assert,
+			"local value =\n-- comment\nfoo",
+			"local value =\n\t-- comment\n\tfoo\n"
+		)
+	end)
+
+	suite:case("formatsMultilineTableArgumentInIfExpression", function(assert)
+		checkFormat(
+			assert,
+			"local x = if cond\nthen table.freeze({\na = 1,\nb = 2,\n})\nelse nil",
+			"local x = if cond\n\tthen table.freeze({\n\t\ta = 1,\n\t\tb = 2,\n\t})\n\telse nil\n"
+		)
+	end)
+
+	suite:case("formatsMultilineTableWithInlineOpenComment", function(assert)
+		checkFormat(
+			assert,
+			"table.insert(\nvalues,\n{ -- inline\nfoo = 1,\n}\n)",
+			"table.insert(\n\tvalues,\n\t{ -- inline\n\t\tfoo = 1,\n\t}\n)\n"
+		)
+	end)
+
+	suite:case("formatsNestedMultilineIfExpression", function(assert)
+		checkFormat(
+			assert,
+			"local _ = if true\nthen call()\nelse if false\nthen call()\nelse call()",
+			"local _ = if true\n\tthen call()\n\telse if false\n\t\tthen call()\n\t\telse call()\n"
+		)
+	end)
+
+	suite:case("restoresIndentAfterMultilineIfExpressionTableBranch", function(assert)
+		checkFormat(
+			assert,
+			"function join(parts): Path\nlocal path: Path = if typeof(parts[1]) == \"string\"\nthen parse(parts[1])\nelse setmetatable({\nparts = table.clone((parts[1] :: Path).parts), -- inline\nabsolute = (parts[1] :: Path).absolute, -- inline\n}, mt)\n\nfor i = 2, #parts do\njoinHelper(path, parts[i])\nend\n\nreturn path\nend",
+			"function join(parts): Path\n\tlocal path: Path = if typeof(parts[1]) == \"string\"\n\t\tthen parse(parts[1])\n\t\telse setmetatable({\n\t\t\tparts = table.clone((parts[1] :: Path).parts), -- inline\n\t\t\tabsolute = (parts[1] :: Path).absolute, -- inline\n\t\t}, mt)\n\n\tfor i = 2, #parts do\n\t\tjoinHelper(path, parts[i])\n\tend\n\n\treturn path\nend\n"
+		)
+	end)
+
+	suite:case("keepsSpaceBeforeInlineBlockComment", function(assert)
+		checkFormat(
+			assert,
+			"local position = math.max(0, size - (22 + 65536 --[[ max comment size ]]))",
+			"local position = math.max(0, size - (22 + 65536 --[[ max comment size ]]))\n"
+		)
+	end)
+
+	suite:case("doesNotSpaceBlockCommentBeforeComma", function(assert)
+		checkFormat(
+			assert,
+			"call(value --[[ cast ]], next)",
+			"call(value --[[ cast ]], next)\n"
+		)
+	end)
+
+	suite:case("keepsSpaceBeforeComputedReadProperty", function(assert)
+		checkFormat(
+			assert,
+			'export type Range = { read ["end"]: number }',
+			'export type Range = { read ["end"]: number }\n'
+		)
+	end)
+
+	suite:case("removesSimpleExpressionGroupParens", function(assert)
+		checkFormat(assert, "local foo = (bar)\nreturn (foo())", "local foo = bar\nreturn foo()\n")
+	end)
+
+	for _, fixture in collectStyluaFixtures() do
+		suite:case(`formatsStyLuaFixture_{fixture.sourcePath}`, function(assert)
+			local source = fs.readFileToString(fixture.sourcePath)
+			local formatted = formatter.formatCode(source)
+			local expected = fs.readFileToString(fixture.snapshotPath)
+
+			assert.eq(formatted, expected)
+			assert.eq(formatter.formatCode(formatted), formatted)
+		end)
+	end
+end)

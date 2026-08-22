@@ -20,6 +20,7 @@ If no command is specified, `run` is used by default.
 | ------- | ----------- |
 | [check](./check) | Type check Luau files. |
 | [compile](./compile) | Compile a Luau script into a standalone executable. |
+| [format](./format) | Format Luau source files. |
 | [lint](./lint/index.md) | Lint the specified Luau file using the specified lint rule(s) or using the default rules. |
 | [pkg](./pkg) | Manage package dependencies. |
 | [run](./run) | Run a Luau script. |
