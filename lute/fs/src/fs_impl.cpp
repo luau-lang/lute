@@ -607,6 +607,19 @@ struct FSCopyDirectory
     }
 };
 
+struct FSReadIntoBuffer : FSRequest
+{
+    FSReadIntoBuffer(lua_State* L, char* destBuf, size_t numBytes)
+        : FSRequest(L)
+        , iov(uv_buf_init(destBuf, numBytes))
+    {
+    }
+
+    static void readCallback(uv_fs_t* req);
+
+    uv_buf_t iov;
+};
+
 int open_impl(lua_State* L, const char* path, int flags, int mode)
 {
     uvutils::ScopedUVRequest<FSRequest> req(L);
@@ -762,6 +775,48 @@ int close_impl(lua_State* L, UVFile* handle)
             r->succeedTrivially();
         }
     );
+
+    return lua_yield(L, 0);
+}
+
+void FSReadIntoBuffer::readCallback(uv_fs_t* req)
+{
+    auto r = uvutils::retake<FSReadIntoBuffer>(req);
+    auto bytesRead = req->result;
+
+    if (bytesRead < 0)
+    {
+        r->fail("Error reading file: %s", uv_strerror(bytesRead));
+        return;
+    }
+
+    r->succeed(
+        [bytesRead](lua_State* L)
+        {
+            lua_pushnumber(L, static_cast<double>(bytesRead));
+            return 1;
+        }
+    );
+}
+
+int readIntoBuffer_impl(lua_State* L, UVFile* handle, void* buf, size_t bufLen, int64_t fileOffset, size_t numBytes, size_t bufferOffset)
+{
+    if (!handle->fd.has_value())
+        luaL_errorL(L, "File handle is closed");
+
+    if (bufferOffset > bufLen || numBytes > bufLen - bufferOffset)
+        luaL_errorL(L, "readIntoBuffer: buffer overflow (bufferOffset + numBytes exceeds buffer length)");
+
+    if (numBytes == 0)
+    {
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+
+    char* destBuf = static_cast<char*>(buf) + bufferOffset;
+    uvutils::ScopedUVRequest<FSReadIntoBuffer> req{L, destBuf, numBytes};
+
+    uv_fs_read(req->getLoop(), &req->req, handle->fd.value(), &req->iov, 1, fileOffset, FSReadIntoBuffer::readCallback);
 
     return lua_yield(L, 0);
 }

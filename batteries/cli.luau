@@ -182,7 +182,7 @@ function cli.forwarded(self: Parser): { string }?
 end
 
 function cli.usage(self: Parser, name: string): string
-	local parts = { name }
+	local parts = { `Usage: {name}` }
 
 	for _, arg in self.positional do
 		if not arg.options.hidden then
@@ -213,25 +213,32 @@ function cli.usage(self: Parser, name: string): string
 	return table.concat(parts, " ")
 end
 
-function cli.help(self: Parser, formatter: ((s: string) -> string)?): ()
+local function label(argument: ArgData): string
+	if argument.kind == "positional" or argument.kind == "variadic" then
+		local name = if argument.kind == "variadic" then `{argument.name}...` else argument.name
+		return if argument.options.required then `<{name}>` else `[{name}]`
+	end
+
+	local aliasStr = table.concat(argument.options.aliases or {}, ", ")
+	return `--{argument.name}{if #aliasStr > 0 then ` (-{aliasStr})` else ""}`
+end
+
+function cli.help(self: Parser, formatter: ((s: string) -> string)?): string
 	local fmt = formatter or function(s)
 		return s
 	end
 
-	print(fmt("Usage:"))
+	local lines = { fmt("Options:") }
 	for _, argument in self.arguments do
 		if argument.options.hidden then
 			continue
 		end
 
-		local aliasStr = table.concat(argument.options.aliases or {}, ", ")
 		local reqStr = if argument.options.required then "(required) " else ""
-		print(
-			fmt(
-				`  --{argument.name}{if #aliasStr > 0 then ` (-{aliasStr})` else ""} - {reqStr}{argument.options.help or ""}`
-			)
-		)
+		table.insert(lines, fmt(`  {label(argument)} - {reqStr}{argument.options.help or ""}`))
 	end
+
+	return table.concat(lines, "\n")
 end
 
 return table.freeze(cli)

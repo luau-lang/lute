@@ -61,7 +61,7 @@ fetch_dependency() {
 }
 
 stage_start "fetch dependencies"
-find "extern" -mindepth 1 ! -name "*.tune" -prune -exec rm -rf {} +
+find "extern" -mindepth 1 ! -name "*.tune" ! -name "*.patch" -prune -exec rm -rf {} +
 for file in extern/*.tune; do
   if [[ -f "$file" ]]; then
     echo "fetching $(basename "$file")"
@@ -79,6 +79,20 @@ mkdir -p extern/generated
   done
 } | b2sum -l 256 | cut -d' ' -f1 | tr -d '\n' > extern/generated/hash.txt
 stage_end "fetch dependencies"
+
+# Apply local patches:
+stage_start "apply patches"
+for patch in extern/*.patch; do
+    if [[ -f "$patch" ]]; then
+        echo "Checking if we can apply $patch.."
+        if exe git apply -R --check $patch --directory=extern/luau/; then
+            echo "Patch already applied to Luau tree, skipping application of $patch"
+        else
+            exe git apply $patch --directory=extern/luau/
+        fi
+    fi
+done
+stage_end "apply patches"
 
 ## configure the build system for lute0
 os_type="$(uname)"

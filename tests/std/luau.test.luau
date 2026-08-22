@@ -160,6 +160,63 @@ test.suite("LuauTypeofModuleSuite", function(suite)
 		local expected = path.format(testPath):gsub("\\", "/")
 		assert.eq(resolvedPath, expected)
 	end)
+
+	suite:case("resolveModuleBareDirectoryNotAmbiguous", function(assert)
+		-- Reproduces the structure from issue #1279:
+		-- project/
+		-- ├── root.luau
+		-- ├── foo.luau
+		-- └── Foo/
+		--     └── bar.luau
+		local projectDir = path.join(tmpDir, "resolvemodule_baredir")
+		if fs.exists(projectDir) then
+			fs.removeDirectory(projectDir, { recursive = true })
+		end
+		fs.createDirectory(projectDir)
+
+		local rootPath = path.join(projectDir, "root.luau")
+		fs.writeStringToFile(rootPath, 'return require("./foo")')
+
+		local fooPath = path.join(projectDir, "foo.luau")
+		fs.writeStringToFile(fooPath, 'return "foo"')
+
+		local fooDirPath = path.join(projectDir, "Foo")
+		fs.createDirectory(fooDirPath)
+		fs.writeStringToFile(path.join(fooDirPath, "bar.luau"), 'return "bar"')
+
+		-- ./foo should resolve to foo.luau (bare Foo/ directory is not a module)
+		local resolvedFoo = luau.resolveModule("./foo", rootPath)
+		local expectedFoo = path.format(fooPath):gsub("\\", "/")
+		assert.eq(resolvedFoo, expectedFoo)
+
+		-- ./Foo/bar should resolve to Foo/bar.luau
+		local resolvedBar = luau.resolveModule("./Foo/bar", rootPath)
+		local expectedBar = path.format(path.join(fooDirPath, "bar.luau")):gsub("\\", "/")
+		assert.eq(resolvedBar, expectedBar)
+	end)
+
+	suite:case("resolveModuleDirectoryWithInitIsAmbiguous", function(assert)
+		-- When a directory has an init file, it is ambiguous with a sibling file.
+		local projectDir = path.join(tmpDir, "resolvemodule_ambiguous")
+		if fs.exists(projectDir) then
+			fs.removeDirectory(projectDir, { recursive = true })
+		end
+		fs.createDirectory(projectDir)
+
+		local rootPath = path.join(projectDir, "root.luau")
+		fs.writeStringToFile(rootPath, 'return require("./foo")')
+
+		fs.writeStringToFile(path.join(projectDir, "foo.luau"), 'return "foo_file"')
+
+		local fooDirPath = path.join(projectDir, "foo")
+		fs.createDirectory(fooDirPath)
+		fs.writeStringToFile(path.join(fooDirPath, "init.luau"), 'return "foo_init"')
+
+		-- ./foo should be ambiguous (both foo.luau and foo/init.luau exist)
+		local ok, err = pcall(luau.resolveModule, "./foo", rootPath)
+		assert.eq(ok, false)
+		assert.strContains(tostring(err), "ambiguous")
+	end)
 end)
 
 test.suite("LuauRequiresSuite", function(suite)

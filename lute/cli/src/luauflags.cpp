@@ -33,7 +33,9 @@ void setLuauFlags()
 {
     enableAllLuauFlags();
 
-    setLuauFlag("LuauRemovePrimitiveTypeConstraintAndSubtypingUnifier", false);
+    setLuauFlag("LuauInstantiationCheckArguments", false);
+    // Clip this when lute depends on luau 0.735
+    setLuauFlag("LuauSingleTypeOptionalPackReturnsAttributeParens", true);
     // Individual flags can be overridden here as needed, e.g.:
     // setLuauFlag("LuauSomeFlagThatCausedARegression", false);
 }
