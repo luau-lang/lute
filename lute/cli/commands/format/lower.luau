@@ -14,7 +14,6 @@ function lowerLib.block(node: syntax.CstStatBlock): Doc
 	return verbatim(node)
 end
 
---- The parsed file as a Doc, including EOF trivia (trailing comments).
 function lowerLib.file(source: string): Doc
 	const parseResult = syntax.parse(source)
 	return doc.concat({

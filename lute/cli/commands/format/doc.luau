@@ -28,8 +28,8 @@ end
 
 docLib.none = docLib.text("")
 
---- Prints `contents` as a flat group if it fits, otherwise as a broken group.
---- `shouldBreak` forces the group to break.
+-- Prints `contents` as a flat group if it fits, otherwise as a broken group.
+-- `shouldBreak` forces the group to break.
 function docLib.group(contents: Doc, options: { read shouldBreak: boolean? }?): GroupDoc
 	return table.freeze({
 		tag = "group" :: "group",
@@ -38,12 +38,12 @@ function docLib.group(contents: Doc, options: { read shouldBreak: boolean? }?): 
 	})
 end
 
---- Indents newlines produced inside `contents` by one level.
+-- Indents newlines produced inside `contents` by one level.
 function docLib.indent(contents: Doc): IndentDoc
 	return table.freeze({ tag = "indent" :: "indent", contents = contents })
 end
 
---- Defers `contents` until just before the next newline, so a trailing line comment cannot swallow the code after its token.
+-- Defers `contents` until just before the next newline, so a trailing line comment cannot swallow the code after its token.
 function docLib.suffix(contents: Doc): SuffixDoc
 	return table.freeze({ tag = "suffix" :: "suffix", contents = contents })
 end
@@ -65,7 +65,7 @@ function docLib.concat(parts: { read [number]: Doc }, separator: Doc?): ConcatDo
 	return table.freeze({ tag = "concat" :: "concat", parts = parts })
 end
 
---- Picks a branch according to whether the enclosing group is flat or broken.
+-- Picks a branch according to whether the enclosing group is flat or broken.
 function docLib.choice(options: { read flat: Doc?, read broken: Doc? }): ChoiceDoc
 	return table.freeze({
 		tag = "choice" :: "choice",
@@ -74,7 +74,7 @@ function docLib.choice(options: { read flat: Doc?, read broken: Doc? }): ChoiceD
 	})
 end
 
---- Always a newline, and forces every enclosing group to break.
+-- Always a newline, and forces every enclosing group to break.
 docLib.newline = table.freeze({ tag = "newline" :: "newline" })
 
 docLib.softline = docLib.choice({ broken = docLib.newline, flat = docLib.none })
