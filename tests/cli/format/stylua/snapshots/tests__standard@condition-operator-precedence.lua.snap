@@ -1,0 +1,9 @@
+---
+source: tests/tests.rs
+expression: format(&contents)
+---
+local instance = someReallyLongConditionExtremelyLongSoLongYourMindWillMelt
+		and someReallyLongCondition
+		and someOtherReallyLongCondition
+	or somethingElse
+
