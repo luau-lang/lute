@@ -77,10 +77,10 @@ export type NewlineDoc = { read tag: "newline" }
 --- Always a newline, and forces every enclosing group to break.
 docLib.newline = table.freeze({ tag = "newline" :: "newline" })
 
---- A newline that does not force a break.
+--- Nothing when the enclosing group is flat, a newline when it is broken.
 docLib.softline = docLib.choice({ broken = docLib.newline, flat = docLib.none })
 
---- A space that does not force a break.
+--- A space when the enclosing group is flat, a newline when it is broken.
 docLib.softspace = docLib.choice({ broken = docLib.newline, flat = docLib.text(" ") })
 
 return table.freeze(docLib)
