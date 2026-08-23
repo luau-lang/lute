@@ -361,6 +361,47 @@ void Target::computeStoppedLocation(lua_State* L)
         stoppedLocation = "";
 }
 
+void Target::stoppedSetState(lua_State* L)
+{
+    paused = true;
+    childRuntime->stopDebug();
+    computeStoppedLocation(L);
+    stoppedThread = L;
+    stoppedThreadRef = getRefForThread(L);
+    stepInfo = std::nullopt;
+    // Clear out stepping and pausing when this happens.
+    lua_callbacks(L)->debugstep = nullptr;
+    lua_callbacks(L)->interrupt = nullptr;
+    // When in a yieldable state, we call lua_break to notify the runtime
+    // to yield our current thread of execution and then stop running further coroutines in the runtime.
+    // Otherwise, in a nonyieldable state, we simply set stoppedNoYield to be true. This
+    // will later force us to wait on a condition variable, preventing execution from continuing in our
+    // current coroutine.
+    if (lua_isyieldable(L))
+        lua_break(L);
+    else
+        stoppedNoYield = true;
+}
+
+void Target::stoppedDispatchCallback(std::function<void()> debugStopCallback)
+{
+    if (!stoppedNoYield)
+    {
+        // In a yieldable state, we add a pending callback that the runtime runs
+        // only after runOnce() returns. Thus, it is guaranteed that the entire runtime is paused.
+        // If we call immediately, the debuggee coroutine still needs to unwind and is still running
+        // leading to possible race conditons.
+        childRuntime->pendingDebugStopNotification = std::move(debugStopCallback);
+    }
+    else
+    {
+        // We are already inside the debug hook so the runtime cannot run any other code during this time.
+        // We can thus run the callbacks inline and then block here until continued.
+        debugStopCallback();
+        childRuntime->waitForDebugContinue();
+    }
+}
+
 std::optional<std::string> Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     std::vector<Breakpoint> installedBps;
@@ -490,28 +531,22 @@ void Target::installBpHitCallback()
         if (bp && bp->status == BreakpointStatus::Installed)
         {
             target->bpHit = *bp;
-            target->paused = true;
-            target->childRuntime->stopDebug();
-            target->computeStoppedLocation(L);
-            target->stoppedThread = L;
-            target->stoppedThreadRef = getRefForThread(L);
-            // Clear out stepping when this happens.
-            lua_callbacks(L)->debugstep = nullptr;
-            if (lua_isyieldable(L))
-                lua_break(L);
-            else
-                target->stoppedNoYield = true;
+            target->stoppedSetState(L);
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             debug::Thread thread = target->stateToThread.at(L);
             lock.unlock();
-            if (target->launchConfig.onBreakpointHit)
-                target->launchConfig.onBreakpointHit(thread, bp.value());
-            for (auto& bp : installed)
-                target->launchConfig.onBreakpointInstall(bp);
-            for (auto& bp : uninstalled)
-                target->launchConfig.onBreakpointUninstall(bp);
-            if (target->stoppedNoYield)
-                target->childRuntime->waitForDebugContinue();
+            // these are our callbacks to we wish to run to notify the Target's client that we are stopped
+            target->stoppedDispatchCallback(
+                [target, thread, hitBp = bp.value(), installed = std::move(installed), uninstalled = std::move(uninstalled)]()
+                {
+                    if (target->launchConfig.onBreakpointHit)
+                        target->launchConfig.onBreakpointHit(thread, hitBp);
+                    for (auto& bp : installed)
+                        target->launchConfig.onBreakpointInstall(bp);
+                    for (auto& bp : uninstalled)
+                        target->launchConfig.onBreakpointUninstall(bp);
+                }
+            );
         }
         else if (!bp || bp->status != BreakpointStatus::PendingUninstall)
         {
@@ -1252,31 +1287,22 @@ bool Target::pauseProcess()
             return;
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
         std::unique_lock lock(target->targetMutex);
-        target->paused = true;
-        target->childRuntime->stopDebug();
-        target->stoppedThread = L;
-        target->stoppedThreadRef = getRefForThread(L);
+        target->stoppedSetState(L);
         debug::Thread thread = target->stateToThread.at(L);
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-        target->computeStoppedLocation(L);
-        if (lua_isyieldable(L))
-            lua_break(L);
-        else
-            target->stoppedNoYield = true;
-        // Clear out the interrupt and debugstep callback after we are done.
-        lua_callbacks(L)->interrupt = nullptr;
-        lua_callbacks(L)->debugstep = nullptr;
         lock.unlock();
-        // Since pausing actually only happens when the interrupt callback runs we have a callback
-        if (target->launchConfig.onPause)
-            target->launchConfig.onPause(thread);
-        for (auto& bp : installed)
-            target->launchConfig.onBreakpointInstall(bp);
-        for (auto& bp : uninstalled)
-            target->launchConfig.onBreakpointUninstall(bp);
-        if (target->stoppedNoYield)
-            target->childRuntime->waitForDebugContinue();
+        target->stoppedDispatchCallback(
+            [target, thread, installed = std::move(installed), uninstalled = std::move(uninstalled)]()
+            {
+                if (target->launchConfig.onPause)
+                    target->launchConfig.onPause(thread);
+                for (auto& bp : installed)
+                    target->launchConfig.onBreakpointInstall(bp);
+                for (auto& bp : uninstalled)
+                    target->launchConfig.onBreakpointUninstall(bp);
+            }
+        );
     };
     return true;
 }
@@ -1332,30 +1358,23 @@ bool Target::step(int threadId, StepType type)
         }
         if (stopStepping)
         {
-            target->paused = true;
-            target->childRuntime->stopDebug();
-            target->stoppedThread = L;
-            target->stoppedThreadRef = getRefForThread(L);
-            target->computeStoppedLocation(L);
-            target->stepInfo = std::nullopt;
-            auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-            if (lua_isyieldable(L))
-                lua_break(L);
-            else
-                target->stoppedNoYield = true;
+            target->stoppedSetState(L);
             lua_singlestep(L, 0);
-            lua_callbacks(L)->debugstep = nullptr;
+            auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             Thread thread = target->stateToThread.at(L);
             lock.unlock();
             // Since pausing actually only happens when the step callback runs we have a callback
-            if (target->launchConfig.onStepStop)
-                target->launchConfig.onStepStop(thread, stepInfo);
-            for (auto& bp : installed)
-                target->launchConfig.onBreakpointInstall(bp);
-            for (auto& bp : uninstalled)
-                target->launchConfig.onBreakpointUninstall(bp);
-            if (target->stoppedNoYield)
-                target->childRuntime->waitForDebugContinue();
+            target->stoppedDispatchCallback(
+                [target, thread, stepInfo, installed = std::move(installed), uninstalled = std::move(uninstalled)]()
+                {
+                    if (target->launchConfig.onStepStop)
+                        target->launchConfig.onStepStop(thread, stepInfo);
+                    for (auto& bp : installed)
+                        target->launchConfig.onBreakpointInstall(bp);
+                    for (auto& bp : uninstalled)
+                        target->launchConfig.onBreakpointUninstall(bp);
+                }
+            );
         }
         else
         {

@@ -180,6 +180,13 @@ bool Runtime::runToCompletion()
 
         auto step = runOnce();
 
+        if (debugMode && pendingDebugStopNotification)
+        {
+            auto debugStopNotification = std::move(pendingDebugStopNotification);
+            pendingDebugStopNotification = nullptr;
+            debugStopNotification();
+        }
+
         if (auto err = Luau::get_if<StepErr>(&step))
         {
             if (err->L == nullptr)
