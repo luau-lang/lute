@@ -1,12 +1,13 @@
 const stringext = require("@std/stringext")
 
+const layout = require("./layout")
 const lower = require("./lower")
-const render = require("./render")
 
 const formatLib = {}
 
-function formatLib.formatSource(source: string, options: render.Options?): string
-	const rendered = render.render(lower.file(source), options)
+function formatLib.formatSource(source: string, options: layout.Options?): string
+	const document = lower.file(source)
+	const rendered = layout.render(document, options)
 	const trimmed = stringext.trim(rendered)
 	return if trimmed == "" then trimmed else `{trimmed}\n`
 end
