@@ -59,6 +59,8 @@ function docLib.concat(parts: { read [number]: Doc }, separator: Doc?): ConcatDo
 			table.insert(joined, part)
 		end
 		parts = table.freeze(joined)
+	else
+		parts = table.freeze(table.clone(parts))
 	end
 	return table.freeze({ tag = "concat" :: "concat", parts = parts })
 end
