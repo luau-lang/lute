@@ -1,0 +1,10 @@
+Vendored unmodified from https://github.com/JohnnyMorganz/StyLua
+commit 5ae6e7a55748414b4be30a832afd895014c65352
+
+Copied:
+  tests/inputs
+  tests/inputs-full_moon
+  tests/inputs-luau
+  tests/inputs-luau-full_moon
+  (matching files from tests/snapshots)
+  LICENSE.md
