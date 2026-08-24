@@ -1,4 +1,3 @@
-const difftext = require("../../../batteries/difftext")
 const format = require("@commands/format/format")
 const fs = require("@std/fs")
 const path = require("@std/path")
@@ -123,12 +122,7 @@ test.suite("StyLuaCorpus", function(suite)
 		suite:case(case.id, function(assert)
 			const expected = readSnapshot(case.snapshotPath)
 			const actual = formatCase(case)
-
-			const diff = difftext.prettydiff(expected, actual, {
-				detailed = true,
-				includeLineNumbers = true,
-			})
-			assert.eq(actual, expected, `StyLua output mismatch:\n{diff}`)
+			assert.eq(actual, expected, "StyLua output mismatch")
 			assert.eq(format.formatSource(actual), actual, "Formatter output is not idempotent")
 		end)
 	end
