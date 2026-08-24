@@ -112,7 +112,7 @@ local function serializeOverrides(overrides: { [string]: manifest.DependencySpec
 	local result: { [string]: string } = {}
 	for name, spec in overrides do
 		if spec.sourceKind == "registry" then
-			result[name] = spec.version
+			result[name] = if spec.registry then `{spec.version}@{spec.registry}` else spec.version
 		elseif spec.sourceKind == "path" then
 			result[name] = `path:{spec.source}`
 		elseif spec.sourceKind == "github" then
