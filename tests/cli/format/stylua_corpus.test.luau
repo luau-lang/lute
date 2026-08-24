@@ -48,11 +48,16 @@ const function listCases(): { Case }
 		end
 		table.sort(names)
 		for _, filename in names do
-			table.insert(cases, table.freeze({
-				id = `{suite.name}/{filename}`,
-				inputPath = path.format(path.join(CORPUS_ROOT, suite.name, filename)),
-				snapshotPath = path.format(path.join(CORPUS_ROOT, "snapshots", `{suite.snapshotPrefix}{filename}.snap`)),
-			}))
+			table.insert(
+				cases,
+				table.freeze({
+					id = `{suite.name}/{filename}`,
+					inputPath = path.format(path.join(CORPUS_ROOT, suite.name, filename)),
+					snapshotPath = path.format(
+						path.join(CORPUS_ROOT, "snapshots", `{suite.snapshotPrefix}{filename}.snap`)
+					),
+				})
+			)
 		end
 	end
 	return table.freeze(cases)
@@ -82,10 +87,7 @@ test.suite("StyLuaCorpus", function(suite)
 		for _, entry in fs.listDirectory(path.join(CORPUS_ROOT, "snapshots")) do
 			if entry.type == "file" and string.sub(entry.name, -5) == ".snap" then
 				const snapshotPath = path.format(path.join(CORPUS_ROOT, "snapshots", entry.name))
-				assert.that(
-					expectedSnapshots[snapshotPath] == true,
-					`Orphan StyLua snapshot: {entry.name}`
-				)
+				assert.that(expectedSnapshots[snapshotPath] == true, `Orphan StyLua snapshot: {entry.name}`)
 			end
 		end
 	end)
