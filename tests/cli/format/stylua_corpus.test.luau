@@ -1,4 +1,4 @@
-const difftext = require("@batteries/difftext")
+const difftext = require("../../../batteries/difftext")
 const format = require("@commands/format/format")
 const fs = require("@std/fs")
 const path = require("@std/path")

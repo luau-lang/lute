@@ -4,7 +4,6 @@ return {
 		lint = { ["*"] = true },
 		linterrors = true,
 		aliases = {
-			batteries = "./batteries",
 			commands = "./lute/cli/commands",
 			lute = "./definitions",
 			std = "./lute/std/libs",
