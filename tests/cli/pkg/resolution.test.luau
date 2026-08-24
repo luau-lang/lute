@@ -2584,4 +2584,143 @@ test.suite("RegistryConfiguration", function(suite)
 
 		assert.eq(ok, false)
 	end)
+
+	suite:case("reResolvesWhenOverrideRegistryFieldChanges", function(assert)
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+				default = true,
+			},
+			other = {
+				url = "https://other.example.com",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "1.0.0",
+				registry = "main",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].registry, "main")
+
+		-- Change only the override's registry field (same version). The serialized
+		-- override must encode the registry so this triggers re-resolution.
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+				default = true,
+			},
+			other = {
+				url = "https://other.example.com",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "1.0.0",
+				registry = "other",
+			},]]
+		)
+
+		local lock2 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock2.packages["citrus@1.0.0"].registry, "other")
+	end)
+
+	suite:case("reResolvesWhenPathDepRegistrySourceChanges", function(assert)
+		local libDir = path.join(registryWorkingDirectory, "lib")
+		fs.createDirectory(libDir)
+		writeConfigWithRegistry(
+			libDir,
+			"lib",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		writeConfigWithRegistry(
+			registryWorkingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]],
+			[[
+
+			main = {
+				url = "https://registry.example.com",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+			lemon = {
+				namedVersion("lemon", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].registry, "main")
+
+		-- Change the path dep's transitive registry dep to point at a different
+		-- source (same alias, same registry). Staleness must detect the source change.
+		writeConfigWithRegistry(
+			libDir,
+			"lib",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				name = "lemon",
+				source = "lemon",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local lock2 = resolution.resolve(path.format(registryWorkingDirectory), universe)
+		assert.eq(lock2.packages["citrus@1.0.0"], nil)
+		assert.eq(lock2.packages["lemon@1.0.0"].registry, "main")
+	end)
 end)

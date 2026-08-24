@@ -365,8 +365,9 @@ local function pathDepsAreStale(
 		end
 
 		for alias, depSpec in depManifest.package.dependencies do
-			local ok, normalizedDepSpec = pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
-			if not ok then
+			local normalizeOk, normalizedDepSpec =
+				pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
+			if not normalizeOk then
 				return true
 			end
 			depSpec = overrides[(normalizedDepSpec :: manifest.DependencySpec).name] or normalizedDepSpec
@@ -391,6 +392,9 @@ local function pathDepsAreStale(
 					return true
 				end
 			elseif depSpec.sourceKind == "registry" then
+				if recordedPkg.source ~= depSpec.source then
+					return true
+				end
 				local expectedRegistry = depSpec.registry or defaultRegistry
 				if recordedPkg.registry ~= expectedRegistry then
 					return true
@@ -455,8 +459,7 @@ local function collectRootDependency(
 	state: ResolutionState,
 	rootPackageName: string,
 	dependencyAlias: string,
-	dependencySpec: manifest.DependencySpec,
-	defaultRegistry: string?
+	dependencySpec: manifest.DependencySpec
 )
 	if dependencySpec.sourceKind == "registry" then
 		state.registryRequirements[dependencyAlias] = {
@@ -468,7 +471,7 @@ local function collectRootDependency(
 
 		state.registrySources[dependencySpec.name] = dependencySpec.source
 
-		local registryName = dependencySpec.registry or defaultRegistry
+		local registryName = dependencySpec.registry or state.defaultRegistry
 		if registryName then
 			if not state.rootRegistryMap[registryName] then
 				error(`Dependency '{dependencyAlias}' references registry '{registryName}' which is not defined`)
@@ -507,24 +510,12 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 	}
 
 	for dependencyAlias, dependencySpec in rootManifest.package.dependencies do
-		collectRootDependency(
-			state,
-			rootManifest.package.name,
-			dependencyAlias,
-			dependencySpec,
-			rootManifest.defaultRegistry
-		)
+		collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec)
 	end
 
 	if not excludeDev then
 		for dependencyAlias, dependencySpec in rootManifest.package.devDependencies do
-			collectRootDependency(
-				state,
-				rootManifest.package.name,
-				dependencyAlias,
-				dependencySpec,
-				rootManifest.defaultRegistry
-			)
+			collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec)
 		end
 	end
 
