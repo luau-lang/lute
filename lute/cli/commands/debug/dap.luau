@@ -326,7 +326,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 					name = scope.name,
 					variablesReference = scope.variableRef,
 				}
-				if scope.type == "locals" then
+				if scope.type == "local" then
 					dapScopeItem.presentationHint = "locals"
 				end
 				table.insert(dapScope, dapScopeItem)

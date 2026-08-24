@@ -1115,7 +1115,7 @@ Variable Target::makeVariable(lua_State* L, int stackSlot, const std::string& na
     Variable var;
     var.name = name;
     var.type = lua_typename(L, lua_type(L, stackSlot));
-    switch (lua_type(L, -1))
+    switch (lua_type(L, stackSlot))
     {
     case LUA_TNUMBER:
     {
