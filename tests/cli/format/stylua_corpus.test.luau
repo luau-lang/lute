@@ -122,8 +122,7 @@ test.suite("StyLuaCorpus", function(suite)
 
 		suite:case(case.id, function(assert)
 			const expected = readSnapshot(case.snapshotPath)
-			const ok, actual = pcall(formatCase, case)
-			assert.that(ok, `Lute failed to format {case.id}`)
+			const actual = formatCase(case)
 
 			const diff = difftext.prettydiff(expected, actual, {
 				detailed = true,
