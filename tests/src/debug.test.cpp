@@ -1,4 +1,5 @@
 #include "lute/debuginternals.h"
+
 #include "Luau/StringUtils.h"
 
 #include <chrono>
@@ -1057,5 +1058,48 @@ TEST_SUITE("Debug")
         // check we are done
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         CHECK(hits == 2);
+    }
+
+    // This test is specifically designed to make sure the error handler still runs after finishing with a caught exception.
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_exception_xpcall")
+    {
+        std::string mainPath = getDebugFixturePath("xpcall.luau");
+        Target target(*runtime);
+        ExceptionBreakpointInfo info = target.setExceptionBreakpoint(true, true);
+        target.setBreakpoint(mainPath, 7);
+        int hits = 0;
+        config.onException = [&](const Thread& thread, int bpId, const std::string& message)
+        {
+            if (bpId == info.caughtId)
+            {
+                hits++;
+                CHECK(message == Luau::format("%s:2: attempt to call a nil value", mainPath.c_str()));
+                CHECK(thread.id == 1);
+                target.continueProcess();
+            }
+        };
+        config.onBreakpointHit = [&](const Thread& thread, const Breakpoint&)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            std::optional<std::vector<StackFrame>> stackframe = target.getStackTrace(threads.at(0).id);
+            REQUIRE(stackframe.has_value());
+            EvaluateResult result = target.evaluateExpression("returned", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            Variable var = std::get<Variable>(result);
+            CHECK(var.value == "false");
+            CHECK(var.type == "boolean");
+            result = target.evaluateExpression("_data", stackframe->at(0).id);
+            REQUIRE(std::holds_alternative<Variable>(result));
+            var = std::get<Variable>(result);
+            CHECK(var.value == "\"error found\"");
+            CHECK(var.type == "string");
+            target.continueProcess();
+        };
+        std::optional<std::string> error = target.launch(mainPath, {}, config);
+        CHECK(!error);
+        // check we are done
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(hits == 1);
     }
 }
