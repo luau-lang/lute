@@ -65,6 +65,17 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 	end
 
 	for name, spec in raw do
+		if typeof(spec) == "string" then
+			result[name] = table.freeze({
+				name = name,
+				sourceKind = "registry" :: "registry",
+				source = name,
+				version = spec,
+				registry = nil,
+			})
+			continue
+		end
+
 		assert(
 			spec.name == nil or typeof(spec.name) == "string",
 			`Optional 'name' field in dependency spec for '{name}' in {sectionName} expected to be a string`
@@ -120,7 +131,15 @@ local function parseRegistryMap(raw: any): (RegistryMap, string?)
 		return table.freeze(result), nil
 	end
 
-	assert(typeof(raw) == "table", "Expected 'registry' to be a table")
+	if typeof(raw) == "string" then
+		result.main = table.freeze({
+			url = raw,
+			default = nil,
+		})
+		return table.freeze(result), "main"
+	end
+
+	assert(typeof(raw) == "table", "Expected 'registry' to be a table or a string")
 
 	local defaultCount = 0
 	local defaultName: string? = nil
