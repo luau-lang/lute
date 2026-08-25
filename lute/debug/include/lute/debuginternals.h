@@ -174,7 +174,7 @@ struct Target
     std::optional<Breakpoint> getBreakpointBySourceLine(std::string source, int line) const;
 
     // Exception breakpoints are mostly separate from normal breakpoints. They have negative
-    // breakpoint IDs for DAP purposes. 
+    // breakpoint IDs for DAP purposes.
     ExceptionBreakpointInfo setExceptionBreakpoint(bool caught, bool uncaught);
 
     // For inspection:
@@ -288,7 +288,14 @@ private:
 
     void computeStoppedLocation(lua_State* L);
     void unsetStoppedLocation();    
-    void stoppedSetState(lua_State* L);
+    // Controls how stoppedSetState decides between the yielding and non-yielding stop pathways.
+    enum class StopYieldMode
+    {
+        Auto,
+        ForceNoYield,
+        Neither,
+    };
+    void stoppedSetState(lua_State* L, StopYieldMode yieldMode = StopYieldMode::Auto);
     void stoppedDispatchCallback(std::function<void()> debugStopCallback);
 
     Variable makeVariable(lua_State* L, const std::string& name);

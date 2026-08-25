@@ -383,7 +383,7 @@ void Target::unsetStoppedLocation()
     stoppedLocation = "";
 }
 
-void Target::stoppedSetState(lua_State* L)
+void Target::stoppedSetState(lua_State* L, StopYieldMode yieldMode)
 {
     paused = true;
     childRuntime->stopDebug();
@@ -399,7 +399,10 @@ void Target::stoppedSetState(lua_State* L)
     // Otherwise, in a nonyieldable state, we simply set stoppedNoYield to be true. This
     // will later force us to wait on a condition variable, preventing execution from continuing in our
     // current coroutine.
-    if (lua_isyieldable(L))
+    if (yieldMode == StopYieldMode::Neither)
+        return;
+
+    if (lua_isyieldable(L) && yieldMode != StopYieldMode::ForceNoYield)
         lua_break(L);
     else
         stoppedNoYield = true;
@@ -772,7 +775,7 @@ void Target::installExceptionCallback()
         std::unique_lock lock(target->targetMutex);
         if (!target->exceptionBpInfo.uncaughtExceptions)
             return false;
-        target->stoppedHelper(L);
+        target->stoppedSetState(L, StopYieldMode::Neither);
         target->stoppedUncaughtException = true;
         Thread thread = target->stateToThread.at(L);
         const char* s = luaL_tolstring(L, -1, nullptr);
@@ -780,12 +783,17 @@ void Target::installExceptionCallback()
         lua_pop(L, 1);
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
         lock.unlock();
-        for (auto& bp : installed)
-            target->launchConfig.onBreakpointInstall(bp);
-        for (auto& bp : uninstalled)
-            target->launchConfig.onBreakpointUninstall(bp);
-        if (target->launchConfig.onException)
-            target->launchConfig.onException(thread, target->exceptionBpInfo.uncaughtId, errorMessage);
+        target->stoppedDispatchCallback(
+            [target, thread, installed = std::move(installed), uninstalled = std::move(uninstalled), errorMessage]()
+            {
+                if (target->launchConfig.onException)
+                    target->launchConfig.onException(thread, target->exceptionBpInfo.uncaughtId, errorMessage);
+                for (auto& bp : installed)
+                    target->launchConfig.onBreakpointInstall(bp);
+                for (auto& bp : uninstalled)
+                    target->launchConfig.onBreakpointUninstall(bp);
+            }
+        );
         return true;
     };
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
@@ -795,20 +803,24 @@ void Target::installExceptionCallback()
         std::unique_lock lock(target->targetMutex);
         if (!target->exceptionBpInfo.caughtExceptions)
             return;
-        target->stoppedHelper(L);
+        target->stoppedSetState(L, StopYieldMode::ForceNoYield);
         Thread thread = target->stateToThread.at(L);
         const char* s = luaL_tolstring(L, -1, nullptr);
         std::string errorMessage = s ? s : "unknown error";
         lua_pop(L, 1);
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-        lua_break(L);
         lock.unlock();
-        for (auto& bp : installed)
-            target->launchConfig.onBreakpointInstall(bp);
-        for (auto& bp : uninstalled)
-            target->launchConfig.onBreakpointUninstall(bp);
-        if (target->launchConfig.onException)
-            target->launchConfig.onException(thread, target->exceptionBpInfo.caughtId, errorMessage);
+        target->stoppedDispatchCallback(
+            [target, thread, installed = std::move(installed), uninstalled = std::move(uninstalled), errorMessage]()
+            {
+                if (target->launchConfig.onException)
+                    target->launchConfig.onException(thread, target->exceptionBpInfo.caughtId, errorMessage);
+                for (auto& bp : installed)
+                    target->launchConfig.onBreakpointInstall(bp);
+                for (auto& bp : uninstalled)
+                    target->launchConfig.onBreakpointUninstall(bp);
+            }
+        );
     };
 }
 
@@ -1419,20 +1431,27 @@ void Target::continueProcessHelper()
     {
         if (!stoppedUncaughtException)
         {
-            // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
-            if (bpHit)
+            if (!stoppedNoYield)
             {
-                // we need to check if our breakpoint is still currently installed after
-                // onBreakpointHit() callback
-                std::optional<Breakpoint> currentBp = getBreakpointByIdHelper(bpHit->id);
-                if (currentBp && !stoppedNoYield && currentBp->status == BreakpointStatus::Installed)
-                    continueRequestedBp.insert(stoppedThread);
-                bpHit = std::nullopt;
+                // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
+                if (bpHit)
+                {
+                    // we need to check if our breakpoint is still currently installed after
+                    // onBreakpointHit() callback
+                    std::optional<Breakpoint> currentBp = getBreakpointByIdHelper(bpHit->id);
+                    if (currentBp && currentBp->status == BreakpointStatus::Installed)
+                        continueRequestedBp.insert(stoppedThread);
+                }
+                childRuntime->runningThreads.emplace_front(true, stoppedThreadRef, 0);
+                // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
+                // runToCompletion() has not exited.
+                childRuntime->schedule([]() {});
             }
-            childRuntime->runningThreads.emplace_front(true, stoppedThreadRef, 0);
-            // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
-            // runToCompletion() has not exited.
-            childRuntime->schedule([]() {});
+            else
+            {
+                stoppedNoYield = false;
+            }
+            bpHit = std::nullopt;
         }
         else
         {
