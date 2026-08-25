@@ -255,6 +255,8 @@ private:
     std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> modifyPendingBreakpoints(lua_State* L);
 
     void computeStoppedLocation(lua_State* L);
+    void stoppedSetState(lua_State* L);
+    void stoppedDispatchCallback(std::function<void()> debugStopCallback);
 
     Variable makeVariable(lua_State* L, const std::string& name);
     std::vector<Variable> getLocalsHelper(lua_State* L, int level);

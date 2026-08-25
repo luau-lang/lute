@@ -142,6 +142,7 @@ struct Runtime
     // for debug mode only:
     const bool debugMode;
     std::atomic<int> numLaunchedDebuggees = 0;
+    std::function<void()> pendingDebugStopNotification;
     void stopDebug();
     void continueDebug();
     void waitForDebugContinue();

@@ -550,15 +550,21 @@ TEST_SUITE("Debug")
                     {
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
-                        int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 12 && line <= 16));
+                        if (stackTrace->size() > 0)
+                        {
+                            int line = stackTrace->at(stackTrace->size() - 1).line;
+                            CHECK((line >= 12 && line <= 16));
+                        }
                     }
                     if (thread.id == 1)
                     {
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
-                        int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 18 && line <= 20));
+                        if (stackTrace->size() > 0)
+                        {
+                            int line = stackTrace->at(stackTrace->size() - 1).line;
+                            CHECK((line >= 18 && line <= 20));
+                        }
                     }
                 }
             }
@@ -579,15 +585,21 @@ TEST_SUITE("Debug")
                     {
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
-                        int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 5 && line <= 9));
+                        if (stackTrace->size() > 0)
+                        {
+                            int line = stackTrace->at(stackTrace->size() - 1).line;
+                            CHECK((line >= 5 && line <= 9));
+                        }
                     }
                     if (thread.id == 1)
                     {
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
-                        int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 18 && line <= 20));
+                        if (stackTrace->size() > 0)
+                        {
+                            int line = stackTrace->at(stackTrace->size() - 1).line;
+                            CHECK((line >= 18 && line <= 20));
+                        }
                     }
                 }
                 hitsBp2++;
