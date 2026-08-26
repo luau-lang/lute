@@ -4,6 +4,7 @@ local lockfile = require("./lockfile")
 local path = require("@std/path")
 local pp = require("@batteries/pp")
 local manifest = require("./manifest")
+local registry = require("./registry")
 local semver = require("./semver")
 local store = require("./store")
 
@@ -610,6 +611,27 @@ local function resolveRegistryDependencies(
 	-- Versioned dependency resolution: solve registry dependencies and stitch them into the package graph.
 	if next(state.registryRequirements) == nil then
 		return
+	end
+
+	if effectiveUniverse == nil then
+		local packageNames: { string } = {}
+		local seen: { [string]: boolean } = {}
+		for _, req in state.registryRequirements do
+			if not seen[req.name] then
+				seen[req.name] = true
+				table.insert(packageNames, req.name)
+			end
+		end
+		effectiveUniverse = registry.buildUniverse(
+			packageNames,
+			state.registryAssignments,
+			state.rootRegistryMap,
+			state.defaultRegistry
+		)
+
+		if next(overrides) ~= nil then
+			effectiveUniverse, sourceOverridedDeps = buildEffectiveUniverse(effectiveUniverse, overrides)
+		end
 	end
 
 	assert(effectiveUniverse ~= nil, "Registry dependencies require a universe to be provided")

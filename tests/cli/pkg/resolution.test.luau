@@ -203,7 +203,7 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.5.0"].sourceKind, "registry")
 	end)
 
-	suite:case("errorsWithNilUniverseWhenRegistryDepPresent", function(assert)
+	suite:case("errorsWithNoRegistryConfiguredWhenRegistryDepPresent", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
@@ -216,7 +216,7 @@ test.suite("RegistryResolution", function(suite)
 			},]]
 		)
 
-		assert.throwsWith("Registry dependencies require a universe to be provided", function()
+		assert.throwsWith("No registry configured for package 'citrus'", function()
 			resolution.resolve(path.format(workingDirectory), nil)
 		end)
 	end)

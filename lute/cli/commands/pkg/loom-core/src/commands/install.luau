@@ -2,9 +2,11 @@ local cli = require("@batteries/cli")
 local fs = require("@std/fs")
 local lockfile = require("../lockfile")
 local manifest = require("../manifest")
+local registry = require("../registry")
 local resolution = require("../resolution")
 local path = require("@std/path")
 local process = require("@std/process")
+local store = require("../store")
 
 local function printDiagnostics(lock: lockfile.Lockfile, devAliases: { [string]: boolean })
 	local depCount = 0
@@ -55,24 +57,32 @@ local function install(...: string)
 
 	local devAliases: { [string]: boolean } = {}
 
-	if fs.exists(manifestPath) then
-		local rootManifest = manifest.parseFile(manifestPath)
-		for _, depSpec in rootManifest.package.dependencies do
-			if depSpec.sourceKind == "registry" then
-				error("Registry dependencies are not yet supported by the install command")
-			end
-		end
-		if not excludeDev then
-			for alias, depSpec in rootManifest.package.devDependencies do
-				if depSpec.sourceKind == "registry" then
-					error("Registry dependencies are not yet supported by the install command")
-				end
-				devAliases[alias] = true
-			end
+	if not fs.exists(manifestPath) then
+		error(`Manifest file not found: {manifestPath}`)
+	end
+
+	local rootManifest = manifest.parseFile(manifestPath)
+	if not excludeDev then
+		for alias in rootManifest.package.devDependencies do
+			devAliases[alias] = true
 		end
 	end
 
 	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
+
+	for key, pkg in lock.packages do
+		if pkg.sourceKind == "registry" and not store.hasPackage(key) then
+			store.ensureStoreDirectory()
+			local registryName = pkg.registry or rootManifest.defaultRegistry
+			if not registryName or not rootManifest.registry[registryName] then
+				error(`No registry URL found for package '{pkg.name}' (registry: {registryName or "nil"})`)
+			end
+			local registryUrl = rootManifest.registry[registryName].url
+			local installPath = store.getPackagePath(key)
+			registry.installPackage(registryUrl, pkg.name, pkg.rev :: string, installPath)
+		end
+	end
+
 	printDiagnostics(lock, devAliases)
 end
 
