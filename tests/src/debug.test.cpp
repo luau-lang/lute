@@ -925,4 +925,53 @@ TEST_SUITE("Debug")
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
         CHECK(numHits == 2);
     };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_globalscoping")
+    {
+        std::string fixturePath = getDebugFixturePath("global_scope.luau");
+        std::string importPath = getDebugFixturePath("global_import.luau");
+
+        Target target(*runtime);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 5);
+        Breakpoint bp2 = target.setBreakpoint(importPath, 6);
+        int numHits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            const std::optional<std::vector<StackFrame>> st = target.getStackTrace(threads[0].id);
+            REQUIRE(st.has_value());
+            if (bp.id == bp1.id)
+            {
+                std::optional<std::vector<Variable>> globals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Global);
+                REQUIRE(globals.has_value());
+                checkVariable(*globals, "_global_var", "3", "number", false);
+                checkVariable(*globals, "_global_var2", "5", "number", false);
+                REQUIRE(globals->size() == 2);
+                EvaluateResult result = target.evaluateExpression("_global_var * 5", st->at(0).id);
+                REQUIRE(std::holds_alternative<Variable>(result));
+                Variable var = std::get<Variable>(result);
+                CHECK(var.value == "15");
+                CHECK(var.type == "number");
+                numHits++;
+            }
+            if (bp.id == bp2.id)
+            {
+                std::optional<std::vector<Variable>> globals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Global);
+                REQUIRE(globals.has_value());
+                checkVariable(*globals, "_global_var", "6", "number", false);
+                REQUIRE(globals->size() == 1);
+                EvaluateResult result = target.evaluateExpression("_global_var * 5", st->at(0).id);
+                REQUIRE(std::holds_alternative<Variable>(result));
+                Variable var = std::get<Variable>(result);
+                CHECK(var.value == "30");
+                CHECK(var.type == "number");
+                numHits++;
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
+    };
 }
