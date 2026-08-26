@@ -1183,7 +1183,8 @@ void Target::forEachLocal(lua_State* L, int level, const std::function<bool(cons
 void Target::forEachUpvalue(lua_State* L, int level, const std::function<bool(const std::string& name, int n)>& visit)
 {
     lua_Debug ar = {};
-    lua_getinfo(L, level, "f", &ar);
+    if (lua_getinfo(L, level, "f", &ar) == 0)
+        return;
     int n = 1;
     const char* name;
     while ((name = lua_getupvalue(L, -1, n)) != nullptr)
@@ -1576,13 +1577,20 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
     int contextLevel = context.level;
     if (context.type == VariableScopeType::Global)
     {
-        lua_pushvalue(thread, LUA_GLOBALSINDEX);
+        lua_Debug ar = {};
+        if (lua_getinfo(thread, contextLevel, "f", &ar) == 0)
+            return "could not resolve frame for global assignment";
+        lua_getfenv(thread, -1);
+        EvaluateResult result = setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
+        lua_pop(thread, 2);
         return setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
     }
     else if (context.type == VariableScopeType::Table)
     {
         lua_rawgeti(thread, LUA_REGISTRYINDEX, context.luaref);
-        return setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
+        EvaluateResult result = setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
+        lua_pop(thread, 1);
+        return result;
     }
     else if (context.type == VariableScopeType::Local)
     {
