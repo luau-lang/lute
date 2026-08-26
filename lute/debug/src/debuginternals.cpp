@@ -1445,7 +1445,11 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int co
         return std::get<std::string>(result);
     std::vector<Variable> vars = std::get<std::vector<Variable>>(result);
     if (vars.size() != 1)
+    {
+        if (moveThread != nullptr)
+            lua_pop(moveThread, (int)vars.size());
         return Luau::format("expression %s evaluates to %d values not 1", expression.c_str(), (int)(vars.size()));
+    }
     return std::get<std::vector<Variable>>(result).at(0);
 }
 
@@ -1553,18 +1557,16 @@ EvaluateResult Target::setTableEntryHelper(lua_State* L, int tableIdx, int evalL
     lua_pop(L, 1);
     if (!exists)
     {
-        lua_pop(L, 1);
         return "variable not found";
     }
     pushTableKeyToFind(L, varName);
     EvaluateResult var = evaluateExpressionHelper(L, evalLevel, "return " + setExpression, L);
     if (std::holds_alternative<std::string>(var))
     {
-        lua_pop(L, 2);
+        lua_pop(L, 1);
         return var;
     }
     lua_rawset(L, tableIdx);
-    lua_pop(L, 1);
     variableCache.clear();
     return var;
 }
@@ -1583,7 +1585,7 @@ EvaluateResult Target::setVariableHelper(VariableScope& context, std::string var
         lua_getfenv(thread, -1);
         EvaluateResult result = setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
         lua_pop(thread, 2);
-        return setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
+        return result;
     }
     else if (context.type == VariableScopeType::Table)
     {
