@@ -728,7 +728,7 @@ TEST_SUITE("Debug")
             REQUIRE(scopes.has_value());
             checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 0);
             checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 0);
-            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", 1, 0);
             std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
             REQUIRE(upvalues0.has_value());
             checkVariable(*upvalues0, "a", "24", "number", false);
@@ -743,7 +743,7 @@ TEST_SUITE("Debug")
             REQUIRE(scopes.has_value());
             checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 1);
             checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 1);
-            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", 1, 1);
             std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Local);
             REQUIRE(locals1.has_value());
             checkVariable(*locals1, "a", "24", "number", false);
