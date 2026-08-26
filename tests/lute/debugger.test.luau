@@ -575,7 +575,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				check.eq(#scopes, 3)
 				checkScope(check, scopes, "Locals", "local", threads[1].id, 0)
 				checkScope(check, scopes, "Upvalues", "upvalue", threads[1].id, 0)
-				checkScope(check, scopes, "Globals", "global", -1, -1)
+				checkScope(check, scopes, "Globals", "global", threads[1].id, 0)
 				for _, scope in scopes do
 					if scope.type == "local" then
 						local locals = target:getVariables(scope.variableRef)

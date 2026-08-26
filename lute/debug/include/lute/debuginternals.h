@@ -71,14 +71,14 @@ struct VariableScope
     int variableReference;
     VariableScopeType type;
     std::string name;
-    int threadId; // for locals and upvalues
-    int level;    // for locals and upvalues
+    int threadId; // for locals, upvalues, and globals
+    int level;    // for locals, upvalues, and globals
     int luaref;   // for tables
 
     explicit VariableScope(int variableReference, VariableScopeType type, std::string name, int threadId = -1, int level = -1, int luaref = -1);
     static VariableScope makeLocals(int variableReference, int threadId, int level);
     static VariableScope makeUpvalues(int variableReference, int threadId, int level);
-    static VariableScope makeGlobals(int variableReference);
+    static VariableScope makeGlobals(int variableReference, int threadId, int level);
     static VariableScope makeTable(int variableReference, int luaref);
 };
 
@@ -233,7 +233,6 @@ private:
     // variable information
     // scope and variable information also resets upon every continue(). The base id resets to 1.
     int variableRefId = 1;
-    std::optional<int> globalVariableRef;
     std::unordered_map<int, std::vector<VariableScope>> scopeCache; // stack frame id -> scope
     std::unordered_map<int, std::vector<Variable>> variableCache;   // var reference -> all variables under that reference
     std::unordered_map<int, VariableScope> variableContexts;        // var reference -> variableContext
@@ -261,7 +260,7 @@ private:
     Variable makeVariable(lua_State* L, const std::string& name);
     std::vector<Variable> getLocalsHelper(lua_State* L, int level);
     std::vector<Variable> getUpvaluesHelper(lua_State* L, int level);
-    std::vector<Variable> getGlobalsHelper();
+    std::vector<Variable> getGlobalsHelper(lua_State* L, int level);
     std::vector<Variable> getTableHelper(lua_State* L, int idx);
 
     void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);

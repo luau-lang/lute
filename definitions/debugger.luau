@@ -47,7 +47,7 @@ export type VariableScopeType = "local" | "upvalue" | "global" | "table"
 --- A VariableScope contains the contextual information for a collection of Variables
 --- such as what variable reference ID number to refer to this collection, what type of collection
 --- it is, etc. Variable reference IDs are reset upon continuing execution.
---- Generally, VariableScope will have a type `locals`, `upvalues`, or `globals`. `table` is used in the C++ implementation
+--- Generally, VariableScope will have a type `local`, `upvalue`, or `global`. `table` is used in the C++ implementation
 --- but generally is not used in Luau code currently.
 export type VariableScope = {
 	variableRef: number,

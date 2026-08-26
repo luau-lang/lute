@@ -58,22 +58,22 @@ VariableScope::VariableScope(int variableReference, VariableScopeType type, std:
 
 VariableScope VariableScope::makeLocals(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Local, "Locals", threadId, level, -1);
+    return VariableScope{variableReference, VariableScopeType::Local, "Locals", threadId, level, -1};
 }
 
 VariableScope VariableScope::makeUpvalues(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Upvalue, "Upvalues", threadId, level, -1);
+    return VariableScope{variableReference, VariableScopeType::Upvalue, "Upvalues", threadId, level, -1};
 }
 
-VariableScope VariableScope::makeGlobals(int variableReference)
+VariableScope VariableScope::makeGlobals(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Global, "Globals", -1, -1, -1);
+    return VariableScope{variableReference, VariableScopeType::Global, "Globals", threadId, level, -1};
 }
 
 VariableScope VariableScope::makeTable(int variableReference, int luaref)
 {
-    return VariableScope(variableReference, VariableScopeType::Table, "Table", -1, -1, luaref);
+    return VariableScope{variableReference, VariableScopeType::Table, "Table", -1, -1, luaref};
 }
 
 Target::Target(Runtime& parentRuntime)
@@ -475,7 +475,7 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
             lua_pushstring(thread, arg.c_str());
         // thread initialization
         threadIdToState.insert_or_assign(threadId, thread);
-        stateToThread.insert_or_assign(thread, Thread(threadId, "Main Coroutine"));
+        stateToThread.insert_or_assign(thread, Thread{threadId, "Main Coroutine"});
         threadId++;
 
         scriptThread = thread;
@@ -627,7 +627,7 @@ void Target::installThreadCallback()
         else
         {
             target->threadIdToState.insert_or_assign(target->threadId, L);
-            target->stateToThread.insert_or_assign(L, Thread(target->threadId, "Coroutine " + std::to_string(target->threadId)));
+            target->stateToThread.insert_or_assign(L, Thread{target->threadId, "Coroutine " + std::to_string(target->threadId)});
             target->threadId++;
         }
     };
@@ -764,18 +764,10 @@ std::optional<std::vector<VariableScope>> Target::getScopesHelper(int threadId, 
     variableContexts.insert_or_assign(variableRefId, upvalues);
     variableRefId++;
     contexts.emplace_back(upvalues);
-    if (globalVariableRef)
-    {
-        contexts.emplace_back(variableContexts.at(*globalVariableRef));
-    }
-    else
-    {
-        VariableScope globals = VariableScope::makeGlobals(variableRefId);
-        variableContexts.insert_or_assign(variableRefId, globals);
-        globalVariableRef = variableRefId;
-        variableRefId++;
-        contexts.emplace_back(globals);
-    }
+    VariableScope globals = VariableScope::makeGlobals(variableRefId, threadId, level);
+    variableContexts.insert_or_assign(variableRefId, globals);
+    variableRefId++;
+    contexts.emplace_back(globals);
     scopeCache[frame->id] = contexts;
     return contexts;
 }
@@ -984,9 +976,14 @@ std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level)
     return vars;
 }
 
-std::vector<Variable> Target::getGlobalsHelper()
+std::vector<Variable> Target::getGlobalsHelper(lua_State* L, int level)
 {
-    return getTableHelper(scriptThread, LUA_GLOBALSINDEX);
+    lua_Debug ar = {};
+    lua_getinfo(L, level, "f", &ar);
+    lua_getfenv(L, -1);
+    std::vector<Variable> vars = getTableHelper(L, -1);
+    lua_pop(L, 2);
+    return vars;
 }
 
 std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
@@ -1022,7 +1019,7 @@ std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
     }
     else if (context.type == VariableScopeType::Global)
     {
-        vars = getGlobalsHelper();
+        vars = getGlobalsHelper(threadIdToState.at(context.threadId), context.level);
     }
     else
     {
@@ -1152,11 +1149,22 @@ EvaluateResult Target::evaluateExpressionHelper(lua_State* L, int level, std::st
     lua_State* evalThread = lua_newthread(childRuntime->GL);
     StackGuard stackGuard{childRuntime->GL};
     lua_newtable(evalThread);
-    // sets the main script thread's global table as the top most scope of all variables for evaluation
-    // this is safe since globals are shared among tasks.
     lua_newtable(evalThread);
-    lua_pushvalue(scriptThread, LUA_GLOBALSINDEX);
-    lua_xmove(scriptThread, evalThread, 1);
+    if (L != nullptr)
+    {
+        // use the fenv of the frame being evaluated as the top most scope
+        lua_Debug ar = {};
+        lua_getinfo(L, level, "f", &ar);
+        lua_getfenv(L, -1);
+        lua_xmove(L, evalThread, 1);
+        lua_pop(L, 1);
+    }
+    else
+    {
+        // fall back to the main script thread's globals if in global context
+        lua_pushvalue(scriptThread, LUA_GLOBALSINDEX);
+        lua_xmove(scriptThread, evalThread, 1);
+    }
     lua_setfield(evalThread, 2, "__index");
     lua_setmetatable(evalThread, 1);
     // inject locals + upvalues
@@ -1221,7 +1229,6 @@ void Target::continueProcessHelper()
     idToStackFrameInfo.clear();
 
     variableRefId = 1;
-    globalVariableRef = std::nullopt;
     for (auto& [_, scope] : variableContexts)
         if (scope.type == VariableScopeType::Table)
             lua_unref(childRuntime->GL, scope.luaref);
