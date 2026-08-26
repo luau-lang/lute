@@ -58,22 +58,22 @@ VariableScope::VariableScope(int variableReference, VariableScopeType type, std:
 
 VariableScope VariableScope::makeLocals(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Local, "Locals", threadId, level, -1);
+    return VariableScope{variableReference, VariableScopeType::Local, "Locals", threadId, level, -1};
 }
 
 VariableScope VariableScope::makeUpvalues(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Upvalue, "Upvalues", threadId, level, -1);
+    return VariableScope{variableReference, VariableScopeType::Upvalue, "Upvalues", threadId, level, -1};
 }
 
 VariableScope VariableScope::makeGlobals(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Global, "Globals", threadId, level, -1);
+    return VariableScope{variableReference, VariableScopeType::Global, "Globals", threadId, level, -1};
 }
 
 VariableScope VariableScope::makeTable(int variableReference, int luaref)
 {
-    return VariableScope(variableReference, VariableScopeType::Table, "Table", -1, -1, luaref);
+    return VariableScope{variableReference, VariableScopeType::Table, "Table", -1, -1, luaref};
 }
 
 Target::Target(Runtime& parentRuntime)
@@ -475,7 +475,7 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
             lua_pushstring(thread, arg.c_str());
         // thread initialization
         threadIdToState.insert_or_assign(threadId, thread);
-        stateToThread.insert_or_assign(thread, Thread(threadId, "Main Coroutine"));
+        stateToThread.insert_or_assign(thread, Thread{threadId, "Main Coroutine"});
         threadId++;
 
         scriptThread = thread;
@@ -627,7 +627,7 @@ void Target::installThreadCallback()
         else
         {
             target->threadIdToState.insert_or_assign(target->threadId, L);
-            target->stateToThread.insert_or_assign(L, Thread(target->threadId, "Coroutine " + std::to_string(target->threadId)));
+            target->stateToThread.insert_or_assign(L, Thread{target->threadId, "Coroutine " + std::to_string(target->threadId)});
             target->threadId++;
         }
     };
