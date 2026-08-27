@@ -454,6 +454,8 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
         std::function<void(lua_State * L, const std::string& chunkName)> onChunkLoad = [this](lua_State* ML, const std::string& chunkName)
         {
             std::string source = getSourceFromChunk(chunkName);
+            if (launchConfig.onSourceLoad)
+                launchConfig.onSourceLoad(source);
             std::vector<Breakpoint> installed;
             std::vector<Breakpoint> uninstalled;
             {
@@ -500,7 +502,15 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
             childRuntime.reset();
             return error;
         }
+        // All VM setup happens synchronously before runContinuously starts the background thread.
+        // The no-op schedule wakes the event loop so it picks up the queued thread.
+        paused = false;
+        launched = true;
+        parentRuntime.numLaunchedDebuggees++;
+
         loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
+        if (launchConfig.onSourceLoad)
+            launchConfig.onSourceLoad(sourcePath);
 
         std::tie(installedBps, uninstalledBps) = modifyPendingBreakpoints(thread);
         for (const std::string& arg : args)
@@ -521,11 +531,6 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
         installThreadCallback();
         installExceptionCallback();
 
-        // All VM setup happens synchronously before runContinuously starts the background thread.
-        // The no-op schedule wakes the event loop so it picks up the queued thread.
-        paused = false;
-        launched = true;
-        parentRuntime.numLaunchedDebuggees++;
         childRuntime->schedule([]() {});
         childRuntime->runContinuously();
     }

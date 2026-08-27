@@ -121,6 +121,12 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				hitBreakpointIds = { bpId },
 			})
 		end,
+		onSourceLoad = function(source: string)
+			local dapSource = createSource(source)
+			if dapSource then
+				ioSession.writeEvent("loadedSource", { reason = "new", source = dapSource })
+			end
+		end,
 	}
 	local configurationDone = false
 	local launchConfig: dapTypes.LaunchArgs? = nil

@@ -237,6 +237,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		local bpHit1 = 0
 		local bpHit2 = 0
 		local onFinished = false
+		local sourceEvents = {}
 		local targetLaunched = target:launch(mainPath, {}, {
 			onBreakpointHit = function(_thread, bp)
 				if bp.id == bp1.id then
@@ -246,6 +247,9 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				end
 				local continued = target:continueProcess()
 				check.that(continued)
+			end,
+			onSourceLoad = function(source) 
+				table.insert(sourceEvents, source)
 			end,
 			onExit = function(status)
 				if status then
@@ -263,8 +267,12 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 		check.eq(bpHit1, 5)
 		check.eq(bpHit2, 15)
 		local source = target:getLoadedSources()
+		check.eq(#source, 2)
 		check.that(table.find(source, normalizePath(mainPath)))
 		check.that(table.find(source, normalizePath(triangPath)))
+		check.eq(#sourceEvents, 2)
+		check.that(table.find(sourceEvents, normalizePath(mainPath)))
+		check.that(table.find(sourceEvents, normalizePath(triangPath)))
 	end)
 	-- this test case focuses on multiple threads
 	suite:case("multithread", function(check)
