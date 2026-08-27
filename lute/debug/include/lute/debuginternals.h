@@ -110,7 +110,7 @@ struct Variable
     std::string value;
     std::string type;
     int variableReference = 0;
-    bool isTrue();
+    bool isTruthy();
 };
 
 using EvaluateResult = std::variant<Variable, std::string>;

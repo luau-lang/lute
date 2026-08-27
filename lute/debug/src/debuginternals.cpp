@@ -79,7 +79,7 @@ VariableScope VariableScope::makeTable(int variableReference, int luaref)
     return VariableScope{variableReference, VariableScopeType::Table, "Table", -1, -1, luaref};
 }
 
-bool Variable::isTrue()
+bool Variable::isTruthy()
 {
     return value != "false" && value != "nil";
 }
@@ -564,7 +564,7 @@ bool Target::evaluateBpCondition(lua_State* L, const Breakpoint& bp)
         return false;
     }
     Variable var = std::get<Variable>(result);
-    return var.isTrue();
+    return var.isTruthy();
 }
 
 bool Target::evaluateBpHitCondition(lua_State* L, const Breakpoint& bp)
