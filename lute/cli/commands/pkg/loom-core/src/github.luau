@@ -120,13 +120,17 @@ local function installPackage(source: string, rev: string, installPath: string):
 		fs.removeDirectory(tempDir, { recursive = true })
 	end
 
-	xpcall(installZipArchive, function(err)
+	local extractErr: string? = nil
+	local ok = xpcall(installZipArchive, function(err)
 		if fs.exists(tempDir) then
 			fs.removeDirectory(tempDir, { recursive = true })
 		end
-
-		error(err, 0)
+		extractErr = err
 	end, zipArchive, tempDir)
+
+	if not ok then
+		error(extractErr, 0)
+	end
 
 	fs.move(tempDir, installPath)
 end

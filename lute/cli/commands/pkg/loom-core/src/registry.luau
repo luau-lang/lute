@@ -179,6 +179,13 @@ local function buildUniverse(
 					if not fetched[dep.name] and not universe[dep.name] then
 						table.insert(nextRound, dep.name)
 					end
+					if not registryAssignments[dep.name] then
+						registryAssignments[dep.name] = registryName
+					elseif registryAssignments[dep.name] ~= registryName then
+						error(
+							`Conflicting registry for '{dep.name}': '{registryAssignments[dep.name]}' vs '{registryName}' (from transitive dependency in '{name}')`
+						)
+					end
 				end
 			end
 		end
@@ -253,12 +260,17 @@ local function installPackage(registryUrl: string, packageName: string, version:
 		fs.removeDirectory(tempDir, { recursive = true })
 	end
 
-	xpcall(installZipArchive, function(err)
+	local extractErr: string? = nil
+	local ok = xpcall(installZipArchive, function(err)
 		if fs.exists(tempDir) then
 			fs.removeDirectory(tempDir, { recursive = true })
 		end
-		error(err, 0)
+		extractErr = err
 	end, response.body, tempDir)
+
+	if not ok then
+		error(extractErr, 0)
+	end
 
 	fs.move(tempDir, installPath)
 end

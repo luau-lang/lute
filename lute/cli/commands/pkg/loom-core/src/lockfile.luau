@@ -216,6 +216,9 @@ local function satisfiesManifest(
 				return false, `path changed for: {alias}`
 			end
 		elseif spec.sourceKind == "registry" then
+			if pkg.name ~= spec.name then
+				return false, `registry package name changed for: {alias}`
+			end
 			local constraint = semver.parseConstraint(spec.version)
 			local lockedVersion = semver.tryParse(pkg.rev :: string)
 			if lockedVersion == nil or not semver.satisfies(lockedVersion, constraint) then
