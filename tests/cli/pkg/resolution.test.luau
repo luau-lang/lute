@@ -203,7 +203,7 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.5.0"].sourceKind, "registry")
 	end)
 
-	suite:case("errorsWithNilUniverseWhenRegistryDepPresent", function(assert)
+	suite:case("errorsWithNoRegistryConfigured", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
@@ -216,9 +216,12 @@ test.suite("RegistryResolution", function(suite)
 			},]]
 		)
 
-		assert.throwsWith("Registry dependencies require a universe to be provided", function()
-			resolution.resolve(path.format(workingDirectory), nil)
-		end)
+		assert.throwsWith(
+			"No registry configured for package 'citrus'. Add a 'registry' field to your loom.config.luau.",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil)
+			end
+		)
 	end)
 
 	suite:case("errorsOnUnsatisfiableConstraint", function(assert)
@@ -283,16 +286,22 @@ test.suite("RegistryResolution", function(suite)
 	suite:case("transitiveDepsFromPathPackageAreResolved", function(assert)
 		local libDir = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDir)
-		writeConfig(
-			libDir,
-			"lib",
-			[[
-
+		fs.writeStringToFile(
+			path.join(libDir, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "lib",
+		version = "0.0.0",
+		dependencies = {
 			citrus = {
 				sourceKind = "registry",
 				source = "citrus",
 				version = "^2.0.0",
-			},]]
+			},
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
 		)
 		writeConfig(
 			workingDirectory,
@@ -1728,5 +1737,177 @@ test.suite("Overrides", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 		assert.eq(lock.overrides, nil)
+	end)
+
+	suite:case("shorthandStringSyntaxParsesAsRegistryDep", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			jest = "^1.0.0",
+			cryo = "^2.0.0",
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			jest = { namedVersion("jest", "1.2.0") },
+			cryo = { namedVersion("cryo", "2.1.0") },
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.jest, "jest@1.2.0")
+		assert.eq(lock.dependencies.cryo, "cryo@2.1.0")
+		assert.eq(lock.packages["jest@1.2.0"].sourceKind, "registry")
+		assert.eq(lock.packages["jest@1.2.0"].source, "jest")
+		assert.eq(lock.packages["cryo@2.1.0"].sourceKind, "registry")
+		assert.eq(lock.packages["cryo@2.1.0"].source, "cryo")
+	end)
+
+	suite:case("registryUrlStoredInLockfile", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = { namedVersion("citrus", "1.0.0") },
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.registry, "https://registry.example.com")
+		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://registry.example.com")
+	end)
+
+	suite:case("reResolvesWhenRegistryUrlChanges", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry-a.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.1.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock1.registry, "https://registry-a.example.com")
+		assert.eq(lock1.dependencies.citrus, "citrus@1.1.0")
+
+		-- Change registry URL — should trigger re-resolution
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry-b.example.com",
+}]]
+		)
+
+		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
+		-- Key assertion: lockfile was re-generated with new registry URL
+		assert.eq(lock2.registry, "https://registry-b.example.com")
+		assert.eq(lock2.packages["citrus@1.1.0"].registry, "https://registry-b.example.com")
+	end)
+
+	suite:case("reResolvesWhenRegistrySourceChanges", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = { namedVersion("citrus", "1.0.0") },
+		}
+
+		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].source, "citrus")
+
+		-- Change source — should trigger re-resolution
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "org/citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
+		-- Re-resolved: new source is stored in lockfile
+		assert.eq(lock2.packages["citrus@1.0.0"].source, "org/citrus")
+	end)
+
+	suite:case("noRegistryFieldInLockfileWhenNoRegistryDeps", function(assert)
+		writeConfig(workingDirectory, "root", "")
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.registry, nil)
 	end)
 end)
