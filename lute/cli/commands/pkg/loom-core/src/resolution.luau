@@ -346,7 +346,8 @@ local function pathDepsAreStale(
 		end
 
 		for alias, depSpec in depManifest.package.dependencies do
-			local normalizeOk, normalizedDepSpec = pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
+			local normalizeOk, normalizedDepSpec =
+				pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
 			if not normalizeOk then
 				return true
 			end
@@ -472,7 +473,11 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 	if not excludeDev then
 		for dependencyAlias, dependencySpec in rootManifest.package.devDependencies do
 			collectRootDependency(
-				state, rootManifest.package.name, dependencyAlias, dependencySpec, rootManifest.registry
+				state,
+				rootManifest.package.name,
+				dependencyAlias,
+				dependencySpec,
+				rootManifest.registry
 			)
 		end
 	end
@@ -588,12 +593,13 @@ local function resolveRegistryDependencies(
 		end
 	end
 
-	-- Build a modified universe that respects overrides. 
+	-- Build a modified universe that respects overrides.
 	if next(overrides) ~= nil then
 		effectiveUniverse, sourceOverridedDeps = buildEffectiveUniverse(effectiveUniverse :: semver.Universe, overrides)
 	end
 
-	local resolution = semver.solve(effectiveUniverse :: semver.Universe, state.registryRequirements, lockedRegistryVersions)
+	local resolution =
+		semver.solve(effectiveUniverse :: semver.Universe, state.registryRequirements, lockedRegistryVersions)
 
 	-- Build a lookup from package name to resolved version(s) for slot-keyed results.
 	local versionsByPackageName = {}

@@ -74,10 +74,7 @@ local function parseLockfile(t: any): Lockfile
 		table.freeze(t.overrides)
 	end
 
-	assert(
-		t.registry == nil or typeof(t.registry) == "string",
-		"Expected 'registry' field to be a string or nil"
-	)
+	assert(t.registry == nil or typeof(t.registry) == "string", "Expected 'registry' field to be a string or nil")
 
 	return table.freeze(t)
 end
