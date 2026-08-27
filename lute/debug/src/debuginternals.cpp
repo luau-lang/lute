@@ -568,7 +568,7 @@ std::string convertHitConditionToExpression(int hitCount, std::string hitExpress
 
 bool Target::evaluateBpCondition(lua_State* L, const Breakpoint& bp)
 {
-    EvaluateResult result = evaluateExpressionHelper(L, 0, bp.condition);
+    EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + bp.condition);
     if (std::holds_alternative<std::string>(result))
     {
         parentRuntime.reporter.reportError(
@@ -583,7 +583,7 @@ bool Target::evaluateBpCondition(lua_State* L, const Breakpoint& bp)
 bool Target::evaluateBpHitCondition(lua_State* L, const Breakpoint& bp)
 {
     std::string hitExpression = convertHitConditionToExpression(bp.hitCount, bp.hitCondition);
-    EvaluateResult result = evaluateExpressionHelper(L, 0, hitExpression);
+    EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + hitExpression);
     if (std::holds_alternative<std::string>(result))
     {
         parentRuntime.reporter.reportError(
@@ -613,7 +613,7 @@ std::string Target::evaluateLogMessage(lua_State* L, const Breakpoint& bp)
             break;
         }
         std::string interpolateExpr = logMessage.substr(start + 1, end - start - 1);
-        EvaluateResult result = evaluateExpressionHelper(L, 0, interpolateExpr);
+        EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + interpolateExpr);
         if (std::holds_alternative<std::string>(result))
         {
             parentRuntime.reporter.reportError(
@@ -1271,7 +1271,7 @@ std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
     }
     else if (context.type == VariableScopeType::Global)
     {
-        vars = getGlobalsHelper(threadIdToState.at(context.threadId), context.level);
+        vars = getGlobalsHelper(threadIdToState.at(context.threadId), context.level, varRef);
     }
     else
     {
@@ -1389,14 +1389,14 @@ EvaluateMultiResult Target::evaluateExpressionMultiHelper(lua_State* contextThre
     // sets the previous global table is the top most scope of all variables
     lua_newtable(evalThread);
     lua_newtable(evalThread);
-    if (L != nullptr)
+    if (contextThread != nullptr)
     {
         // use the fenv of the frame being evaluated as the top most scope
         lua_Debug ar = {};
-        lua_getinfo(L, level, "f", &ar);
-        lua_getfenv(L, -1);
-        lua_xmove(L, evalThread, 1);
-        lua_pop(L, 1);
+        lua_getinfo(contextThread, contextLevel, "f", &ar);
+        lua_getfenv(contextThread, -1);
+        lua_xmove(contextThread, evalThread, 1);
+        lua_pop(contextThread, 1);
     }
     else
     {
