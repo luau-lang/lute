@@ -585,7 +585,7 @@ bool Target::evaluateBpHitCondition(lua_State* L, const Breakpoint& bp)
         return false;
     }
     Variable var = std::get<Variable>(result);
-    return var.isTrue();
+    return var.isTruthy();
 }
 
 std::string Target::evaluateLogMessage(lua_State* L, const Breakpoint& bp)
