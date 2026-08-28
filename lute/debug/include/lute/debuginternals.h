@@ -48,12 +48,15 @@ struct Breakpoint
     Breakpoint(int id, std::string sourcePath, int line, BreakpointConfig config, BreakpointStatus status);
 };
 
+// Exception breakpoints act as filters, so only if uncaughtExceptions or caughtExceptions
+// is true do we surface these exceptions.
 struct ExceptionBreakpointInfo
 {
-    bool uncaughtExceptions = false;
+    bool uncaughtExceptions;
     const int uncaughtId = -1;
-    bool caughtExceptions = false;
+    bool caughtExceptions;
     const int caughtId = -2;
+    ExceptionBreakpointInfo(bool uncaughtExceptions, bool caughtExceptions);
 };
 
 // Each Thread represents one coroutine in our Lute runtime.

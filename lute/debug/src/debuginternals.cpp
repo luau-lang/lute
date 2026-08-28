@@ -84,8 +84,15 @@ bool Variable::isTruthy()
     return value != "false" && value != "nil";
 }
 
+ExceptionBreakpointInfo::ExceptionBreakpointInfo(bool uncaughtExceptions, bool caughtExceptions)
+    : uncaughtExceptions(uncaughtExceptions)
+    , caughtExceptions(caughtExceptions)
+{
+}
+
 Target::Target(Runtime& parentRuntime)
     : parentRuntime(parentRuntime)
+    , exceptionBpInfo(false, false)
     , loadedSources("")
 {
 }
