@@ -769,12 +769,16 @@ void Target::installThreadCallback()
 
 void Target::installExceptionCallback()
 {
+    // uncaught errors are (unlike any other debug callbacks) handled by the runtime
+    // when it detects that we've encountered a runtime error.
     childRuntime->onUncaughtError = [](lua_State* L)
     {
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
         std::unique_lock lock(target->targetMutex);
         if (!target->exceptionBpInfo.uncaughtExceptions)
             return false;
+        // we don't need to perform any stopping here because are coroutine is already unwound and finished.
+        // the only thing we want to do is to stop running of turue coroutines with stopDebug().
         target->stoppedSetState(L, StopYieldMode::Neither);
         target->stoppedUncaughtException = true;
         Thread thread = target->stateToThread.at(L);
@@ -797,12 +801,15 @@ void Target::installExceptionCallback()
         return true;
     };
     lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
+    // for caught exceptions:
     cb->debugprotectederror = [](lua_State* L)
     {
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
         std::unique_lock lock(target->targetMutex);
         if (!target->exceptionBpInfo.caughtExceptions)
             return;
+        // We force into the no yield state. Otherwise, if we yield the thread,
+        // we drop any potential error handlers that could be assosciated with an xpcall.
         target->stoppedSetState(L, StopYieldMode::ForceNoYield);
         Thread thread = target->stateToThread.at(L);
         const char* s = luaL_tolstring(L, -1, nullptr);
@@ -1455,6 +1462,7 @@ void Target::continueProcessHelper()
         }
         else
         {
+            // run the thread completion handler on the current thread.
             childRuntime->runUncaughtExceptionCompletion(stoppedThread);
             stoppedUncaughtException = false;
         }
