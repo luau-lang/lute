@@ -502,8 +502,6 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
             childRuntime.reset();
             return error;
         }
-        // All VM setup happens synchronously before runContinuously starts the background thread.
-        // The no-op schedule wakes the event loop so it picks up the queued thread.
         paused = false;
         launched = true;
         parentRuntime.numLaunchedDebuggees++;
@@ -531,6 +529,8 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
         installThreadCallback();
         installExceptionCallback();
 
+        // All VM setup happens synchronously before runContinuously starts the background thread.
+        // The no-op schedule wakes the event loop so it picks up the queued thread.
         childRuntime->schedule([]() {});
         childRuntime->runContinuously();
     }
