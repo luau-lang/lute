@@ -112,6 +112,15 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				line = breakpoint.line,
 			})
 		end,
+		onException = function(thread: debugger.Thread, bpId: number, message: string)
+			ioSession.writeEvent("stopped", {
+				reason = "exception",
+				threadId = thread.id,
+				allThreadsStopped = true,
+				text = message,
+				hitBreakpointIds = { bpId },
+			})
+		end,
 	}
 	local configurationDone = false
 	local launchConfig: dapTypes.LaunchArgs? = nil
@@ -131,6 +140,20 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				supportsConditionalBreakpoints = true,
 				supportsHitConditionalBreakpoints = true,
 				supportsLogPoints = true,
+				exceptionBreakpointFilters = {
+					{
+						filter = "uncaught",
+						label = "Uncaught Exceptions",
+						description = "Stop debugger at all points where an uncaught exception is thrown",
+						default = true,
+					},
+					{
+						filter = "caught",
+						label = "Caught Exceptions",
+						description = "Stop debugger at all points where a caught exception is thrown in a pcall()/xpcall()",
+						default = false,
+					},
+				},
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
 			ioSession.writeEvent("initialized")
@@ -155,6 +178,38 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			local newBreakpoints = args.breakpoints :: { dapTypes.SourceBreakpoint }?
 			local requestedBreakpoints = clearAndSetBreakpoints(target, path, newBreakpoints)
 
+			ioSession.writeResponse(reqSeq, true, command, nil, {
+				breakpoints = requestedBreakpoints,
+			})
+		elseif command == "setExceptionBreakpoints" then
+			local args = request.arguments :: json.Object
+			local filters = args.filters :: { string }
+			local uncaught = false
+			local caught = false
+			for _, filter in filters do
+				if filter == "uncaught" then
+					uncaught = true
+				end
+				if filter == "caught" then
+					caught = true
+				end
+			end
+			local exceptionInfo = target:setExceptionBreakpoint(uncaught, caught)
+			local requestedBreakpoints: { dapTypes.Breakpoint } = {}
+			for _, filter in filters do
+				if filter == "uncaught" then
+					table.insert(requestedBreakpoints, {
+						id = exceptionInfo.uncaughtId,
+						verified = true,
+					})
+				end
+				if filter == "caught" then
+					table.insert(requestedBreakpoints, {
+						id = exceptionInfo.caughtId,
+						verified = true,
+					})
+				end
+			end
 			ioSession.writeResponse(reqSeq, true, command, nil, {
 				breakpoints = requestedBreakpoints,
 			})
