@@ -3,13 +3,16 @@
 `lute debug serve` allows you to debug your Luau code in a development environment/IDE of your choosing. This command implements the Debug Adapter Protocol, currently over an stdio pipe, which you can then connect to your IDE to enable debugging capabilities in that IDE. For VSCode, this Lute debugger will come in-built into the `Mandolin` extension, when released. Otherwise, feel free to connect your development environment to Lute with whatever DAP capability it supports (e.g. `dap-mode` for Emacs).
 
 We currently implement:
-* setting and removing breakpoints (including dynamically changing breakpoints during code execution) 
+* setting and removing breakpoints (including dynamically changing breakpoints during code execution)
 * stepping into, out of, and over code
 * pausing and continuing code execution
 * inspecting across multiple coroutines, stack frames, and variables
 * redirecting `print` output
 * debugging across multiple Luau files that were imported via `require`
-* evaluation of Luau expressions within a given stack frame 
+* evaluation of Luau expressions within a given stack frame
+* adding conditional and hit conditional breakpoints as well as logpoints
+* stopping at both uncaught and caught exceptions
+* setting variables/expressions to the value of another Luau expression
 
 We also create the `lute/debugger` library that allows for Luau scripts to debug other scripts. Our DAP capabilities are implemented on top of this library. For more information, see [lute/debugger](#lutedebugger).
 
@@ -27,7 +30,7 @@ Show a help message.
 
 ## lute/debugger
 
-Besides the command above, there is also now a `lute/debugger` library so that you can write Luau scripts that have the capability to debug other Luau scripts. For a complete API, read the [reference](../reference/lute/debugger.md).
+Besides the command above, there is also now a `lute/debugger` library so that you can write Luau scripts that have the capability to debug other Luau scripts. For a complete API, read the [reference](../../reference/lute/debugger).
 
 First, to get debugging capabilities, construct your own `Target` object with `newTarget`. Then, you can use the variety of methods of this `Target` object to debug your code! 
 
