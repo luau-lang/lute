@@ -149,6 +149,8 @@ RuntimeStep Runtime::runOnce()
 
     // if we're in debugmode and encounter an exception, return step sucess here to pause execution.
     // We then call the thread completion callback with LUA_ERRRUN on target.continueProcess()
+    // We can never return StepErr here, so in the debug mode, the entirety of
+    // error reporting is the responsibility of the debugger onUncaughtException callback.
     if (debugMode && status == LUA_ERRRUN && onUncaughtError && onUncaughtError(L))
     {
         return StepSuccess{L};
@@ -422,7 +424,7 @@ void Runtime::continueDebug()
 
 // stopDebug() actually allows for some C bookkeeping when we are unwinding the stack
 // when it is called within a callback such as debugbreak or debugInterrupt.
-// We thus schedule any Luau callbacks to run after we are guaranteed to be stopped 
+// We thus schedule any Luau callbacks to run after we are guaranteed to be stopped
 // in runToCompletion().
 void Runtime::stopDebug()
 {
