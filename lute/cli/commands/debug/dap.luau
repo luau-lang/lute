@@ -165,7 +165,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 						default = false,
 					},
 				},
-				supportsSetVariable = true, 
+				supportsSetVariable = true,
 				supportsSetExpression = true,
 			}
 			ioSession.writeResponse(reqSeq, true, command, nil, capabilities)
