@@ -384,14 +384,14 @@ static int target_getBreakpointBySourceLine(lua_State* L)
     return pushBreakpoint(L, *bp);
 }
 
-// target.setExceptionBreakpoint(bool caught, bool uncaught)
+// target.setExceptionBreakpoint(bool uncaught, bool caught)
 // returns a ExceptionBpInfo
 static int target_setExceptionBreakpoint(lua_State* L)
 {
     Target* target = getTarget(L, 1);
-    bool caught = luaL_checkboolean(L, 2);
-    bool uncaught = luaL_checkboolean(L, 3);
-    ExceptionBreakpointInfo info = target->setExceptionBreakpoint(caught, uncaught);
+    bool uncaught = luaL_checkboolean(L, 2);
+    bool caught = luaL_checkboolean(L, 3);
+    ExceptionBreakpointInfo info = target->setExceptionBreakpoint(uncaught, caught);
     return pushExceptionBreakpointInfo(L, info);
 }
 

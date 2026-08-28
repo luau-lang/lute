@@ -338,10 +338,10 @@ std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> Target::modifyPendin
     return {installedBpsCallback, uninstalledBpsCallback};
 }
 
-ExceptionBreakpointInfo Target::setExceptionBreakpoint(bool caught, bool uncaught)
+ExceptionBreakpointInfo Target::setExceptionBreakpoint(bool uncaught, bool caught)
 {
-    exceptionBpInfo.caughtExceptions = caught;
     exceptionBpInfo.uncaughtExceptions = uncaught;
+    exceptionBpInfo.caughtExceptions = caught;
     return exceptionBpInfo;
 }
 

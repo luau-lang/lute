@@ -194,7 +194,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 					caught = true
 				end
 			end
-			local exceptionInfo = target:setExceptionBreakpoint(caught, uncaught)
+			local exceptionInfo = target:setExceptionBreakpoint(uncaught, caught)
 			local requestedBreakpoints: { dapTypes.Breakpoint } = {}
 			for _, filter in filters do
 				if filter == "uncaught" then

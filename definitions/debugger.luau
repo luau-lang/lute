@@ -152,9 +152,9 @@ export type Target = {
 	getBreakpointById: (self: Target, id: number) -> Breakpoint?,
 	--- Get a breakpoint at a `sourcePath` at a given line. Returns `nil` if not found.
 	getBreakpointBySourceLine: (self: Target, sourcePath: string, line: number) -> Breakpoint?,
-	--- Sets/removes whether we hit exception breakpoints for caught or uncaught exceptions based on the
-	--- booleans `caught` and `uncaught`. Returns a sumamry of the current exception bp state.
-	setExceptionBreakpoint: (self: Target, caught: boolean, uncaught: boolean) -> ExceptionBreakpointInfo,
+	--- Sets/removes whether we hit exception breakpoints for uncaught or caught exceptions based on the
+	--- booleans `uncaught` and `caught`. Returns a sumamry of the current exception bp state.
+	setExceptionBreakpoint: (self: Target, uncaught: boolean, caught: boolean) -> ExceptionBreakpointInfo,
 	--- Gets all Luau sources that have been loaded onto the debugger, with sources using forward slashes.
 	getLoadedSources: (self: Target) -> { string },
 	--- Launch a Luau script at at `sourcePath` with the relevant `args` and callbacks defined in `config`.

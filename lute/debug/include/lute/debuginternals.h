@@ -175,7 +175,7 @@ struct Target
 
     // Exception breakpoints are mostly separate from normal breakpoints. They have negative
     // breakpoint IDs for DAP purposes.
-    ExceptionBreakpointInfo setExceptionBreakpoint(bool caught, bool uncaught);
+    ExceptionBreakpointInfo setExceptionBreakpoint(bool uncaught, bool caught);
 
     // For inspection:
     // About multiple coroutines: we don't currently handle the original implementation of task.spawn(). Calling
