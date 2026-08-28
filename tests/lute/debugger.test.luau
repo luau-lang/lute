@@ -248,7 +248,7 @@ test.suite("LuteDebugLibrarySuite", function(suite)
 				local continued = target:continueProcess()
 				check.that(continued)
 			end,
-			onSourceLoad = function(source) 
+			onSourceLoad = function(source)
 				table.insert(sourceEvents, source)
 			end,
 			onExit = function(status)
