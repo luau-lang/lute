@@ -399,4 +399,194 @@ test.suite("CLI subcommands", function(suite)
 		p:subcommand("build", { hidden = true })
 		assert.eq(p:usage("tool"), "Usage: tool")
 	end)
+
+	suite:case("usageListsCommandBeforePositionals", function(assert)
+		local p = cli.parser()
+		p:add("file", "positional", {})
+		p:add("verbose", "flag", {})
+		p:subcommand("build", {})
+
+		-- parse matches a subcommand before it fills a positional, so usage says so too
+		assert.eq(p:usage("tool"), "Usage: tool <command> [file] [options]")
+	end)
+
+	suite:case("optionsAreOptionalWhenRegisteringACommand", function(assert)
+		local p = cli.parser()
+		local build = p:subcommand("build")
+		build:add("channel", "option")
+		p:parse({ "build", "--channel", "prod" })
+
+		assert.eq(p:selected(), "build")
+		assert.eq(build:get("channel"), "prod")
+	end)
+
+	suite:case("unknownCommandThrows", function(assert)
+		local p = cli.parser()
+		p:subcommand("build", {})
+
+		-- nothing else could absorb "buld", so it is reported rather than quietly forwarded
+		assert.throwsWith("Unknown command: buld", function()
+			p:parse({ "buld" })
+		end)
+	end)
+
+	suite:case("unknownCommandIsAPositionalWhenOneIsFree", function(assert)
+		local p = cli.parser()
+		p:add("file", "positional", {})
+		p:subcommand("build", {})
+		p:parse({ "buld" })
+
+		assert.eq(p:selected(), nil)
+		assert.eq(p:get("file"), "buld")
+	end)
+
+	suite:case("unknownCommandJoinsTheVariadicWhenOneExists", function(assert)
+		local p = cli.parser()
+		p:add("paths", "variadic", {})
+		p:subcommand("build", {})
+		p:parse({ "buld" })
+
+		assert.eq(p:selected(), nil)
+		assert.eq(p:variadics(), { "buld" })
+	end)
+
+	suite:case("argumentsAreStillForwardedWithoutCommands", function(assert)
+		local p = cli.parser()
+		p:parse({ "buld" })
+
+		assert.eq(p:forwarded(), { "buld" })
+	end)
+
+	suite:case("requiredParentArgumentMustPrecedeTheCommand", function(assert)
+		local p = cli.parser()
+		p:add("root", "option", { required = true })
+		p:subcommand("build", {})
+		p:parse({ "--root", "./src", "build" })
+
+		assert.eq(p:get("root"), "./src")
+		assert.eq(p:selected(), "build")
+	end)
+
+	suite:case("missingRequiredParentArgumentExplainsTheOrdering", function(assert)
+		local p = cli.parser()
+		p:add("root", "option", { required = true })
+		p:subcommand("build", {})
+
+		assert.throwsWith("Missing required argument: root (it has to be given before the 'build' command)", function()
+			p:parse({ "build" })
+		end)
+	end)
+
+	suite:case("missingRequiredVariadicExplainsTheOrdering", function(assert)
+		local p = cli.parser()
+		p:add("paths", "variadic", { required = true })
+		p:subcommand("build", {})
+
+		assert.throwsWith(
+			"Missing required variadic argument: paths (it has to be given before the 'build' command)",
+			function()
+				p:parse({ "build" })
+			end
+		)
+	end)
+
+	suite:case("missingRequiredArgumentIsUnchangedWithoutACommand", function(assert)
+		local p = cli.parser()
+		p:add("root", "option", { required = true })
+		p:subcommand("build", {})
+
+		assert.throwsWith("Missing required argument: root", function()
+			p:parse({})
+		end)
+	end)
+
+	suite:case("parentArgumentAfterTheCommandBelongsToTheCommand", function(assert)
+		local p = cli.parser()
+		p:add("root", "option", { required = true })
+		p:subcommand("build", {})
+
+		-- "build" hands the rest to its own parser, which has never heard of --root
+		assert.throwsWith("Unknown argument: root", function()
+			p:parse({ "build", "--root", "./src" })
+		end)
+	end)
+end)
+
+test.suite("CLI duplicate names", function(suite)
+	suite:case("duplicateArgumentNameThrows", function(assert)
+		local p = cli.parser()
+		p:add("verbose", "flag", {})
+
+		assert.throwsWith("Duplicate argument name: verbose", function()
+			p:add("verbose", "option", {})
+		end)
+	end)
+
+	suite:case("duplicateArgumentAliasThrows", function(assert)
+		local p = cli.parser()
+		p:add("verbose", "flag", { aliases = { "v" } })
+
+		assert.throwsWith("Duplicate argument alias: v", function()
+			p:add("version", "flag", { aliases = { "v" } })
+		end)
+	end)
+
+	suite:case("argumentNameCollidingWithAnAliasThrows", function(assert)
+		local p = cli.parser()
+		p:add("verbose", "flag", { aliases = { "quiet" } })
+
+		assert.throwsWith("Duplicate argument name: quiet", function()
+			p:add("quiet", "flag", {})
+		end)
+	end)
+
+	suite:case("duplicateCommandNameThrows", function(assert)
+		local p = cli.parser()
+		p:subcommand("build", {})
+
+		assert.throwsWith("Duplicate command name: build", function()
+			p:subcommand("build", {})
+		end)
+	end)
+
+	suite:case("duplicateCommandAliasThrows", function(assert)
+		local p = cli.parser()
+		p:subcommand("build", { aliases = { "b" } })
+
+		assert.throwsWith("Duplicate command alias: b", function()
+			p:subcommand("bundle", { aliases = { "b" } })
+		end)
+	end)
+
+	suite:case("commandNameCollidingWithAnAliasThrows", function(assert)
+		local p = cli.parser()
+		p:subcommand("package", { aliases = { "pkg" } })
+
+		assert.throwsWith("Duplicate command name: pkg", function()
+			p:subcommand("pkg", {})
+		end)
+	end)
+
+	suite:case("argumentsAndCommandsDoNotCollide", function(assert)
+		local p = cli.parser()
+		p:add("build", "flag", {})
+		local build = p:subcommand("build", {})
+		p:parse({ "--build", "build" })
+
+		-- "--build" and "build" are written differently, so they can share a name
+		assert.that(p:has("build"))
+		assert.eq(p:selected(), "build")
+		assert.that(select(2, p:selected()) == build)
+	end)
+
+	suite:case("aliasesMayRepeatAcrossNestedParsers", function(assert)
+		local p = cli.parser()
+		p:add("verbose", "flag", { aliases = { "v" } })
+		local build = p:subcommand("build", {})
+		build:add("verbose", "flag", { aliases = { "v" } })
+		p:parse({ "-v", "build", "-v" })
+
+		assert.that(p:has("verbose"))
+		assert.that(build:has("verbose"))
+	end)
 end)
