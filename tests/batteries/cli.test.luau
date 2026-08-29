@@ -457,6 +457,26 @@ test.suite("CLI subcommands", function(suite)
 		assert.eq(p:forwarded(), { "buld" })
 	end)
 
+	suite:case("extraArgumentsAreStillForwardedAlongsideCommands", function(assert)
+		local p = cli.parser()
+		p:add("file", "positional", {})
+		p:subcommand("build", {})
+		p:parse({ "notes.txt", "extra" })
+
+		-- the parser declares a positional, so a spare word is not assumed to be a command
+		assert.eq(p:get("file"), "notes.txt")
+		assert.eq(p:forwarded(), { "extra" })
+	end)
+
+	suite:case("forwardedArgumentsAfterDashDashIgnoreCommands", function(assert)
+		local p = cli.parser()
+		p:subcommand("build", {})
+		p:parse({ "--", "buld" })
+
+		assert.eq(p:selected(), nil)
+		assert.eq(p:forwarded(), { "buld" })
+	end)
+
 	suite:case("requiredParentArgumentMustPrecedeTheCommand", function(assert)
 		local p = cli.parser()
 		p:add("root", "option", { required = true })
@@ -564,6 +584,40 @@ test.suite("CLI duplicate names", function(suite)
 
 		assert.throwsWith("Duplicate command name: pkg", function()
 			p:subcommand("pkg", {})
+		end)
+	end)
+
+	suite:case("aliasMatchingItsOwnNameThrows", function(assert)
+		local p = cli.parser()
+
+		assert.throwsWith("Duplicate argument alias: verbose", function()
+			p:add("verbose", "flag", { aliases = { "verbose" } })
+		end)
+	end)
+
+	suite:case("aliasRepeatedInTheSameListThrows", function(assert)
+		local p = cli.parser()
+
+		assert.throwsWith("Duplicate argument alias: v", function()
+			p:add("verbose", "flag", { aliases = { "v", "v" } })
+		end)
+	end)
+
+	suite:case("commandAliasMatchingItsOwnNameThrows", function(assert)
+		local p = cli.parser()
+
+		assert.throwsWith("Duplicate command alias: build", function()
+			p:subcommand("build", { aliases = { "build" } })
+		end)
+	end)
+
+	suite:case("secondVariadicThrows", function(assert)
+		local p = cli.parser()
+		p:add("paths", "variadic", {})
+
+		-- the second would replace the first, leaving it registered but unreachable
+		assert.throwsWith("A parser can only have one variadic argument: rest", function()
+			p:add("rest", "variadic", {})
 		end)
 	end)
 

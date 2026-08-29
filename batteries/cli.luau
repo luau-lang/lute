@@ -89,9 +89,15 @@ function cli.add(self: Parser, name: string, kind: ArgKind, options: ArgOptions?
 
 	-- lookups return the first match, so a repeated name or alias would be unreachable
 	assert(findArgument(self, name) == nil, "Duplicate argument name: " .. name)
-	for _, alias in resolved.aliases or {} do
-		assert(findArgument(self, alias) == nil, "Duplicate argument alias: " .. alias)
+
+	local aliases = resolved.aliases or {}
+	for index, alias in aliases do
+		local repeated = alias == name or table.find(aliases, alias) ~= index or findArgument(self, alias) ~= nil
+		assert(not repeated, "Duplicate argument alias: " .. alias)
 	end
+
+	-- a second variadic would replace the first, leaving it registered but unreachable
+	assert(kind ~= "variadic" or self.variadicArg == nil, "A parser can only have one variadic argument: " .. name)
 
 	local argument: ArgData = {
 		name = name,
@@ -111,8 +117,11 @@ function cli.subcommand(self: Parser, name: string, options: CommandOptions?): P
 	local resolved: CommandOptions = options or { aliases = {} }
 
 	assert(findCommand(self, name) == nil, "Duplicate command name: " .. name)
-	for _, alias in resolved.aliases or {} do
-		assert(findCommand(self, alias) == nil, "Duplicate command alias: " .. alias)
+
+	local aliases = resolved.aliases or {}
+	for index, alias in aliases do
+		local repeated = alias == name or table.find(aliases, alias) ~= index or findCommand(self, alias) ~= nil
+		assert(not repeated, "Duplicate command alias: " .. alias)
 	end
 
 	local parser = cli.parser()
@@ -223,9 +232,12 @@ function cli.parse(self: Parser, args: { string }): ()
 			continue
 		end
 
-		-- a parser with subcommands has nothing else this argument could have meant, so
-		-- rather than forwarding a mistyped command we report it the way unknown flags are
-		assert(#self.commands == 0, "Unknown command: " .. arg)
+		-- a parser that declares subcommands but no positional or variadic has nothing else
+		-- this argument could have meant, so report a mistyped command the way unknown flags
+		-- are reported instead of quietly forwarding it. parsers that do declare one keep
+		-- forwarding, since there an unrecognized word is not necessarily a command at all
+		local absorbs = #self.positional > 0 or self.variadicArg ~= nil
+		assert(#self.commands == 0 or absorbs, "Unknown command: " .. arg)
 
 		-- otherwise, the argument is forwarded on
 		table.insert(self.parsed.fwdArgs, arg)
