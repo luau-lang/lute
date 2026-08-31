@@ -30,7 +30,7 @@ Show a help message.
 
 ## lute/debugger
 
-Besides the command above, there is also now a `lute/debugger` library so that you can write Luau scripts that have the capability to debug other Luau scripts. For a complete API, read the [reference](../../reference/lute/debugger). If you want a thorough understanding of the debugger, feel free to look at the [architecture](../architecture.md).
+Besides the command above, there is also now a `lute/debugger` library so that you can write Luau scripts that have the capability to debug other Luau scripts. For a complete API, read the [reference](../../lute/debugger). If you want a thorough understanding of the debugger, feel free to look at the [architecture](architecture.md).
 
 First, to get debugging capabilities, construct your own `Target` object with `newTarget`. Then, you can use the variety of methods of this `Target` object to debug your code! 
 

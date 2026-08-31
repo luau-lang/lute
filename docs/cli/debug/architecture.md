@@ -2,7 +2,7 @@
 
 ## Summary
 
-Our debugger is mostly built around the `lute/debugger` library, whose internals are written in C++ at [debug_internals.cpp](../../../lute/debug/src/debuginternals.cpp) and whose Luau bindings are exposed at [debug.cpp](../../../lute/debug/src/debug.cpp). This library's API can be found at this [reference document](../../reference/lute/debugger.md). 
+Our debugger is mostly built around the `lute/debugger` library, whose internals are written in C++ at [debug_internals.cpp](../../../lute/debug/src/debuginternals.cpp) and whose Luau bindings are exposed at [debug.cpp](../../../lute/debug/src/debug.cpp). This library's API can be found at this [reference document](../../lute/debugger). 
 
 On top of this library, we implement a DAP server at [dap.luau](../../../lute/cli/commands/debug/dap.luau). That allows this debugger to connect to any development environment that also implements the DAP protocol, such as VS Code, Emacs, Neovim, and more.
 
@@ -35,7 +35,7 @@ We default to yielding our coroutine because it lets the coroutine suspend clean
 In order to continue running our process, if we are in a yieldable state, we enqueue the currently stopped thread to the be the next thread to run. Under all cases, we call `continueDebug()` on the Runtime, which notifies everybody waiting on the condition variable that we can continue running coroutines. 
 
 ### Breakpoints
-Breakpoints can be set at any point the `Target` is paused, including before the program is launched. If a breakpoint is added/deleted while the program is running, this change is not actually reflected on the debuggee until the Target is next paused. We do this because changing breakpoints requires modifying the underlying Luau bytecode, which is dangerous while the code is still running. Hitting a breakpoint fires the Luau VM `debugbreak` callback, which stops the program and schedules user event coroutines as required.
+Breakpoints have their unique ID and are set a specific line at a specific source file. Breakpoints can be set at any point the `Target` is paused, including before the program is launched. If a breakpoint is added/deleted while the program is running, this change is not actually reflected on the debuggee until the Target is next paused. We do this because changing breakpoints requires modifying the underlying Luau bytecode, which is dangerous while the code is still running. Hitting a breakpoint fires the Luau VM `debugbreak` callback, which stops the program and schedules user event coroutines as required.
 
 In order to install breakpoints, we record which sources are currently available to the debugger. After we add a breakpoint, if the source is available and we are paused (or we are the launch process), we install that breakpoint using `lua_breakpoint`. A source becomes available if it is the starting file that we launched or if it is imported through the `require` system. We intercept calls to the `require` system through `onChunkLoad()`. 
 
@@ -64,6 +64,13 @@ When trying to pause our process, we set the `debuginterrupt` callback to stop R
 ### Output Redirection
 If your program wishes to redirect output from `stdout`, you can set the `onPrint` callback during launch. With this callback you can intercept statements that call `print()`. `onPrint` receives the message that was to be printed along with the source file and line number that print was called from.
 
+### Exceptions
+We can pause the runtime on both uncaught and caught exceptions. For the sake of DAP, exception breakpoints have their own fixed IDs and thus can be returned as DAP breakpoint objects. Their mechanism however is very different than normal breakpoints. Additionally, between themselves, uncaught and caught exceptions use different pathways.
+
+For uncaught exceptions, we actually have a callback situated in the Runtime called `onUncaughtError` that runs when we finish a coroutine that has status `LUA_ERRRUN`. This stops the runtime from any further execution through `Runtime::stopDebug()` (however, it does not need to dequeue the current executing coroutine because that has already executed with error). At this point, we can inspect into the coroutine that is stopped.
+
+For caught exceptions, we set the native Luau VM callback `debugprotectederror`. Things are similar to other callbacks where we want to pause Luau execution, except we force ourselves to go into non-yieldable stopping. This is because currently resuming from a yielded coroutine loses any error handler that was originally assosciated from a coroutine. Given that we are specifically trying to deal with the `pcall` or `xpcall` case here, we thus must stop wit the non-yieldable mechanism.
+
 ### Inspection
 
 We inspect in our Luau state through the following process, which is adopted from DAP. First, we observe coroutines. Then, per coroutine, we observe a stack trace. Then, into a stack trace, we can drill into variable scopes, which are grouping of variables. From these scopes, you can inspect into variables, including nested tables. 
@@ -82,7 +89,21 @@ Variables that are tables additionally get their own ID so that a user can inspe
 
 ### Expression Evaluation
 
+Expression are generally evaluated within the context of a certain stack frame, and so evaluateExpression takes in a stack frame id. If this stack frame id is -1, we actually just evaluate into the global frame. When we describe evaluating within the context of a certain stack frame, this means that we only have access to the the local variables, upvalues, and globals located within that stack frame. We thus exclude any available in parent stack frames, which is similar behavior to other debuggers.
 
+The pathway for evaluating an expression is actually similar to the pathway for launching the script in so far as that the debugger needs to compile the expression, create a new thread of execution, and then run that thread. In more detail:
+
+1. First, we compile our expression into Luau bytecode, spawn a new thread, and then load the bytecode onto that thread.
+2. The debugger injects all locals and upvalues that are on our relevant stack frame onto the thread that will actually run our expression. The mechanism for injecting variables this is similar to the one used to inspect variables, except we now copy the variable onto our new evaluation thread as well.
+3. We deactivate our our mechanisms to track breakpoints and threads along with turning off garbage collection. All of these mechanisms could lead to calling into the debugger  (or changing the state of the runtime unexpectedly in the case of garbage collection) during the eval thread, which we do not want to happen.
+4. We call lua_resume in line to finish executing our compiled and loaded bytecode. This is good because it runs the coroutine inline with our code, which is safe as we are paused, rather than doing scheduling. 
+5. We reactivate garbage collection and our mechanisms to track bps and threads.
+6. We parse the result of the expression into a variable off the stack of the evaluation thread.
+
+### Setting Variables and Expressions
+When we set a variable to the output of an expression, we are given the ID of the parent scope that may contain that variable. We then search through that scope to see if a matching variable exists. If it does, we then evaluate that expression and gets its value. We then call `setLocal`, `setUpvalue`, or simply modify the table containing that variable to actually set the variable. Notice that scopes contain which thread and level of stackframe they come from, which we then use to find the relevant stack frame to evaluate our RHS in.
+
+Setting expressions is relevatively similar to setting variables, except that the LHS can be more complicated. We first perform a search on the LHS, seeing if it is a local or upvalue. If it is, we call `Target::setVariable`. Otherwise, if the LHS resolves to a reference inside a table, we simply evaluate an expression with `LHS = RHS`. Because of the way we store tables, they are copied by reference, so evaluating this expression will change the value of the table scriptwide. Locals and upvalues are copied by value so we have to call into `setLocal` or `setUpvalue` explicitly through `setVariable`.
 
 ## Testing
 
