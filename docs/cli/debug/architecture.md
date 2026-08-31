@@ -34,6 +34,28 @@ We default to yielding our coroutine because it lets the coroutine suspend clean
 
 In order to continue running our process, if we are in a yieldable state, we enqueue the currently stopped thread to the be the next thread to run. Under all cases, we call `continueDebug()` on the Runtime, which notifies everybody waiting on the condition variable that we can continue running coroutines. 
 
+### Breakpoints
+Breakpoints can be set at any point the `Target` is paused, including before the program is launched. If a breakpoint is added/deleted while the program is running, this change is not actually reflected on the debuggee until the Target is next paused. We do this because changing breakpoints requires modifying the underlying Luau bytecode, which is dangerous while the code is still running. Hitting a breakpoint fires the Luau VM `debugbreak` callback, which stops the program and schedules user event coroutines as required.
+
+In order to install breakpoints, we record which sources are currently available to the debugger. After we add a breakpoint, if the source is available and we are paused (or we are the launch process), we install that breakpoint using `lua_breakpoint`. A source becomes available if it is the starting file that we launched or if it is imported through the `require` system. We intercept calls to the `require` system through `onChunkLoad()`. 
+
+We additionally implement special types of breakpoints, including conditional breakpoints, hit conditional breakpoints, and logpoints. Conditional breakpoints use the `Target::evaluateExpression` feature to make sure an expression evaluates to a truthy value before actually stopping the program. 
+
+Hit conditional breakpoints also use the `Target::evaluateExpression` feature but instead substitute the number of times a breakpoint has been hit (note: a hit is whenever we ran that line of code, not however many times we've stopped at that line). For a more in-depth explanation of how to specify hit conditional breakpoints, see `BreakpointConfig` at our [API](../../reference/lute/debugger.md). 
+
+Logpoints do not actually stop execution of the code. Instead, a logpoint produces a message string that is then sent to the debugger via `onLogpoint`, along with the source file and line number of where the logpoint is. This logpoint message will interpolate any expression within `{}`.
+
+Note: the expressions contained within each of these specialized breakpoints only evaluates within the variables available at the current stack frame, not in any stack frames above it. This follows the same principles outlined fr `evaluateExpression()`.
+
+### Stepping
+We have three types of stepping: step over, step into, and step out. Each of these variants relies on the same core stepping mechanism. Stepping involves setting the VM into stepping mode with `lua_singlestep()`. In this mode, after every bytecode is executed, the VM calls back using `debugstep`. In `debugstep`, we only stop our coroutine when a condition that depends on which type of stepping evaluates to true. Otherwise, we continue with normal execution.
+
+| Type of stepping | Condition |
+|---|---|
+| `stepIn` | `line number != start line number \|\| stack depth != start stack depth` |
+| `stepOver` | `line number != start line number && stack depth <= start stack depth` |
+| `stepOut` | `stack depth < start stack depth` |
+
 ### Inspection
 
 We inspect in our Luau state through the following process, which is adopted from DAP. First, we observe coroutines. Then, per coroutine, we observe a stack trace. Then, into a stack trace, we can drill into variable scopes, which are grouping of variables. From these scopes, you can inspect into variables, including nested tables. 
