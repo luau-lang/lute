@@ -23,4 +23,4 @@ tests for you.
 
 ## [Debugging](../../cli/debug/debug.md)
 
-`lute debug serve` connects Luau code to development environments via the Debug Adapter Protocol, allowing for easy debugging. Features supported include breakpoints, stepping, expression evaluation, and more. Additionally, you can use the `@lute/debugger` library to write your own personal debugging scripts! For more information, check out the [debug documentation](../../cli/debug.md).
+`lute debug serve` connects Luau code to development environments via the Debug Adapter Protocol, allowing for easy debugging. Features supported include breakpoints, stepping, expression evaluation, and more. Additionally, you can use the `@lute/debugger` library to write your own personal debugging scripts! For more information, check out the [debug documentation](../../cli/debug/debug.md).

@@ -2,9 +2,9 @@
 
 ## Summary
 
-Our debugger is mostly built around the `lute/debugger` library, whose internals are written in C++ at [debug_internals.cpp](../../../lute/debug/src/debuginternals.cpp) and whose Luau bindings are exposed at [debug.cpp](../../../lute/debug/src/debug.cpp). This library's API can be found at this [reference document](../../lute/debugger). 
+Our debugger is mostly built around the `lute/debugger` library, whose internals are written in C++ at `lute/debug/src/debug_internals.cpp`(../../../lute/debug/src/debuginternals.cpp) and whose Luau bindings are exposed at `lute/debug/src/debug.cpp`. This library's API can be found at this [reference document](../../lute/debugger). 
 
-On top of this library, we implement a DAP server at [dap.luau](../../../lute/cli/commands/debug/dap.luau). That allows this debugger to connect to any development environment that also implements the DAP protocol, such as VS Code, Emacs, Neovim, and more.
+On top of this library, we implement a DAP server at `lute/cli/commands/dap.luau`. That allows this debugger to connect to any development environment that also implements the DAP protocol, such as VS Code, Emacs, Neovim, and more.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ In order to install breakpoints, we record which sources are currently available
 
 We additionally implement special types of breakpoints, including conditional breakpoints, hit conditional breakpoints, and logpoints. Conditional breakpoints use the `Target::evaluateExpression` feature to make sure an expression evaluates to a truthy value before actually stopping the program. 
 
-Hit conditional breakpoints also use the `Target::evaluateExpression` feature but instead substitute the number of times a breakpoint has been hit (note: a hit is whenever we ran that line of code, not however many times we've stopped at that line). For a more in-depth explanation of how to specify hit conditional breakpoints, see `BreakpointConfig` at our [API](../../reference/lute/debugger.md). 
+Hit conditional breakpoints also use the `Target::evaluateExpression` feature but instead substitute the number of times a breakpoint has been hit (note: a hit is whenever we ran that line of code, not however many times we've stopped at that line). For a more in-depth explanation of how to specify hit conditional breakpoints, see `BreakpointConfig` at our [API](../../lute/debugger). 
 
 Logpoints do not actually stop execution of the code. Instead, a logpoint produces a message string that is then sent to the debugger via `onLogpoint`, along with the source file and line number of where the logpoint is. This logpoint message will interpolate any expression within `{}`.
 
@@ -107,8 +107,8 @@ Setting expressions is relevatively similar to setting variables, except that th
 
 ## Testing
 
-Testing for the C++ code is found at [debug_test.cpp](../../../tests/src/debug.test.cpp). Testing for the Luau bindings is found at [debugger.test.luau](../../../tests/lute/debugger.test.luau). The C++ tests are designed to be the most comprehensive in terms of edge case coverage but it remains worthwhile to also test the bindings to make sure that they are correct.
+Testing for the C++ code is found at `tests/src/debug.test.cpp`. Testing for the Luau bindings is found at `tests/lute/debugger.test.luau`. The C++ tests are designed to be the most comprehensive in terms of edge case coverage but it remains worthwhile to also test the bindings to make sure that they are correct.
 
 Additionally, it is worthwhile to test separately on Luau because in C++ tests, the user-defined event handlers will run inline with the rest of the C++ code. In Luau, these event handlers are instead scheduled as coroutines onto the parent runtime. This asynchronous scheduling is worth testing. 
 
-There is also basic testing for the DAP script at [debug.test.luau](../../../tests/cli/debug.test.luau). Unfortunately, because of the asynchronous way that event handlers work with `lute/debugger`, these tests remain limited in scope.
+There is also basic testing for the DAP script at `test/cli/debug.test.luau`. Unfortunately, because of the asynchronous way that event handlers work with `lute/debugger`, these tests remain limited in scope.
