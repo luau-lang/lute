@@ -56,6 +56,14 @@ We have three types of stepping: step over, step into, and step out. Each of the
 | `stepOver` | `line number != start line number && stack depth <= start stack depth` |
 | `stepOut` | `stack depth < start stack depth` |
 
+Note: If we hit a breakpoint or pause a process, stepping is stopped.
+
+### Pausing
+When trying to pause our process, we set the `debuginterrupt` callback to stop Runtime execution. This callback fires whenever we are at a safe point (i.e. a function call, a function return, or a loop jumpback). Thus, we can stop pausing of a program eventually when such a safe point is encountered.
+
+### Output Redirection
+If your program wishes to redirect output from `stdout`, you can set the `onPrint` callback during launch. With this callback you can intercept statements that call `print()`. `onPrint` receives the message that was to be printed along with the source file and line number that print was called from.
+
 ### Inspection
 
 We inspect in our Luau state through the following process, which is adopted from DAP. First, we observe coroutines. Then, per coroutine, we observe a stack trace. Then, into a stack trace, we can drill into variable scopes, which are grouping of variables. From these scopes, you can inspect into variables, including nested tables. 
