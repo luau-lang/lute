@@ -48,9 +48,14 @@ From each stack frame, you can inspect into scopes of variables. Scopes are not 
 
 Within each variable scope, you can inspect into its variables. Variable that are not tables have their name, value, and type saved. There are separate pathways for fetching this information for which type of scope the variables are coming from, so local variables are fetched via `lua_getlocal()` and upvalues are fetched via `lua_getupvalue()` and so on. 
 
-Variables that are tables additionally get their own ID so that a user can inspect further into them if required. Through this process of inspecting into tables, we can support multi-level nested tables, while only retrieving the necessary levels when it is needed. Because of this lazy inspection feature, we restrict the value of a table to only be a summary of its first two shallowest levels (see `Target::printTable()`).
+Variables that are tables additionally get their own ID so that a user can inspect further into them if required. Through this process of inspecting into tables, we can support multi-level nested tables, while only retrieving the necessary levels when it is needed. Because of this lazy inspection feature, we restrict the value of a table to only be a summary of its first two shallowest levels (see `printTable()`).
+
+### Expression Evaluation
+
+
 
 ## Testing
+
 Testing for the C++ code is found at [debug_test.cpp](../../../tests/src/debug.test.cpp). Testing for the Luau bindings is found at [debugger.test.luau](../../../tests/lute/debugger.test.luau). The C++ tests are designed to be the most comprehensive in terms of edge case coverage but it remains worthwhile to also test the bindings to make sure that they are correct.
 
 Additionally, it is worthwhile to test separately on Luau because in C++ tests, the user-defined event handlers will run inline with the rest of the C++ code. In Luau, these event handlers are instead scheduled as coroutines onto the parent runtime. This asynchronous scheduling is worth testing. 
