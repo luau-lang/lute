@@ -373,6 +373,7 @@ TEST_SUITE("Debug")
         Target target(*runtime);
         Breakpoint bp1 = target.setBreakpoint(mainPath, 5);
         Breakpoint bp2 = target.setBreakpoint(triangPath, 5);
+        std::vector<std::string> sourceEvents;
         config.onBreakpointInstall = [&](const Breakpoint& bp)
         {
             bpInstalled++;
@@ -385,7 +386,10 @@ TEST_SUITE("Debug")
                 bpHit2++;
             target.continueProcess();
         };
-        std::optional<std::string> error = target.launch(mainPath, {}, config);
+        config.onSourceLoad = [&](const std::string& source) {
+            sourceEvents.push_back(source);
+        };
+         std::optional<std::string> error = target.launch(mainPath, {}, config);
         CHECK(!error);
         // check we are done
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
@@ -394,6 +398,9 @@ TEST_SUITE("Debug")
         CHECK(bpInstalled == 2);
         std::vector<std::string> sources = target.getLoadedSources();
         CHECK(sources.size() == 2);
+        CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
+        CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
+        CHECK(sourceEvents.size() == 2);
         CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
         CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
     }

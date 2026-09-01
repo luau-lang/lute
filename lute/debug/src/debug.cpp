@@ -845,6 +845,21 @@ static int target_launch(lua_State* L)
                 );
             };
         }
+        if (auto ref = getOptionalCallback(L, 4, "onSourceLoad"))
+        {
+            config.onSourceLoad = [ref, runtime](std::string source)
+            {
+                runtime->scheduleDebugLuauCallback(
+                    ref,
+                    [source](lua_State* L)
+                    {
+                        checkStack(L, 1);
+                        lua_pushstring(L, source.c_str());
+                        return 1;
+                    }
+                );
+            };
+        }
     }
     std::optional<std::string> error = target->launch(source, args, config);
     checkStack(L, 1);

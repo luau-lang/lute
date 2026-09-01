@@ -133,6 +133,8 @@ export type LaunchConfig = {
 	--- called when hitting an exception on `thread`. `bpId` reflects the id of the bp hit. These ids
 	--- match what is returned by setExceptionBreakpoint. `message` is the message thrown by the exception.
 	onException: ((thread: Thread, bpId: number, message: string) -> ())?,
+	--- called when we load a source `source` (using absolute path)
+	onSourceLoad: ((source: string) -> ())?,
 }
 
 --- A `Target` represents the target program under the debugger.
