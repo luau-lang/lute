@@ -41,9 +41,9 @@ In order to install breakpoints, we record which sources are currently available
 
 We additionally implement special types of breakpoints, including conditional breakpoints, hit conditional breakpoints, and logpoints. Conditional breakpoints use the `Target::evaluateExpression` feature to make sure an expression evaluates to a truthy value before actually stopping the program. 
 
-Hit conditional breakpoints also use the `Target::evaluateExpression` feature but instead substitute the number of times a breakpoint has been hit (note: a hit is whenever we ran that line of code, not however many times we've stopped at that line). For a more in-depth explanation of how to specify hit conditional breakpoints, see `BreakpointConfig` at our [API](../../lute/debugger). 
+Hit conditional breakpoints also use the `Target::evaluateExpression` feature but instead substitute into a condition the number of times a breakpoint has been hit (note: a hit is whenever we ran that line of code, not however many times we've stopped at that line). For a more in-depth explanation of how to specify hit conditional breakpoints, see `BreakpointConfig` at our [API](../../lute/debugger). 
 
-Logpoints do not actually stop execution of the code. Instead, a logpoint produces a message string that is then sent to the debugger via `onLogpoint`, along with the source file and line number of where the logpoint is. This logpoint message will interpolate any expression within `{}`.
+Logpoints do not actually stop execution of the code. Instead, when hit, a logpoint logs a message that is then sent to the debugger via `onLogpoint`, along with the source file and line number of where the logpoint is. This logged message will interpolate any expression within `{}`.
 
 Note: the expressions contained within each of these specialized breakpoints only evaluate within the variables available at the current stack frame, not in any stack frames above it. This follows the same principles outlined for `evaluateExpression()`.
 
