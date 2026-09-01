@@ -2,7 +2,7 @@
 
 ## Summary
 
-Our debugger is mostly built around the `lute/debugger` library, whose internals are written in C++ at `lute/debug/src/debuginternals.cpp` and whose Luau bindings are exposed at `lute/debug/src/debug.cpp`. This library's API can be found at this [reference document](../../lute/debugger). 
+Our debugger is built around the `lute/debugger` library, whose internals are implemented in C++ at `lute/debug/src/debuginternals.cpp` and whose Luau bindings are exposed at `lute/debug/src/debug.cpp`. This library's API can be found at this [reference document](../../lute/debugger). 
 
 On top of this library, we implement a DAP server at `lute/cli/commands/debug/dap.luau`. That allows this debugger to connect to any development environment that also implements the DAP protocol, such as VS Code, Emacs, Neovim, and more.
 
