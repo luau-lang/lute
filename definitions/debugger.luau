@@ -213,7 +213,7 @@ export type Target = {
 	--- If `frameId` is -1 or absent, evaluate in the global scope.
 	--- Returns a `Variable` if expression could be evaluated or an error string if not.
 	evaluateExpression: (self: Target, expression: string, frameId: number?) -> Variable | string,
-	--- Sets a variable named `name` within the scope with reference `variableRef` equals to the value
+	--- Sets a variable named `name` within the scope with reference `variableRef` equal to the value
 	--- that `setExpression` evaluates to. If this operation is not successful, it returns an error string.
 	--- Otherwise, it returns a `Variable` containing the new value.
 	setVariable: (self: Target, varRef: number, varName: string, setExpression: string) -> Variable | string,
