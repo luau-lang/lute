@@ -9,6 +9,7 @@
 #include "Luau/DenseHash.h"
 #include "Luau/FileUtils.h"
 #include "Luau/StringUtils.h"
+#include "Luau/Variant.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -21,7 +22,6 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
-#include <variant>
 #include <vector>
 
 #include "lstate.h"
@@ -569,14 +569,14 @@ std::string convertHitConditionToExpression(int hitCount, std::string hitExpress
 bool Target::evaluateBpCondition(lua_State* L, const Breakpoint& bp)
 {
     EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + bp.condition);
-    if (std::holds_alternative<std::string>(result))
+    if (Luau::get_if<std::string>(&result))
     {
         parentRuntime.reporter.reportError(
             Luau::format("cannot evaluate breakpoint condition %s at line %d in %s", bp.condition.c_str(), bp.line, bp.sourcePath.c_str())
         );
         return false;
     }
-    Variable var = std::get<Variable>(result);
+    Variable var = *Luau::get_if<Variable>(&result);
     return var.isTruthy();
 }
 
@@ -584,7 +584,7 @@ bool Target::evaluateBpHitCondition(lua_State* L, const Breakpoint& bp)
 {
     std::string hitExpression = convertHitConditionToExpression(bp.hitCount, bp.hitCondition);
     EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + hitExpression);
-    if (std::holds_alternative<std::string>(result))
+    if (Luau::get_if<std::string>(&result))
     {
         parentRuntime.reporter.reportError(
             Luau::format(
@@ -597,7 +597,7 @@ bool Target::evaluateBpHitCondition(lua_State* L, const Breakpoint& bp)
         );
         return false;
     }
-    Variable var = std::get<Variable>(result);
+    Variable var = *Luau::get_if<Variable>(&result);
     return var.isTruthy();
 }
 
@@ -614,14 +614,14 @@ std::string Target::evaluateLogMessage(lua_State* L, const Breakpoint& bp)
         }
         std::string interpolateExpr = logMessage.substr(start + 1, end - start - 1);
         EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + interpolateExpr);
-        if (std::holds_alternative<std::string>(result))
+        if (Luau::get_if<std::string>(&result))
         {
             parentRuntime.reporter.reportError(
                 Luau::format("cannot evaluate log point message %s at line %d in %s", logMessage.c_str(), bp.line, bp.sourcePath.c_str())
             );
             return logMessage;
         }
-        Variable var = std::get<Variable>(result);
+        Variable var = *Luau::get_if<Variable>(&result);
         logMessage.replace(start, end - start + 1, var.value);
     }
     return logMessage + '\n';
@@ -1441,32 +1441,32 @@ EvaluateMultiResult Target::evaluateExpressionMultiHelper(lua_State* contextThre
 EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread)
 {
     EvaluateMultiResult result = evaluateExpressionMultiHelper(contextThread, contextLevel, expression, moveThread);
-    if (std::holds_alternative<std::string>(result))
-        return std::get<std::string>(result);
-    std::vector<Variable> vars = std::get<std::vector<Variable>>(result);
+    if (std::string* err = Luau::get_if<std::string>(&result))
+        return *err;
+    std::vector<Variable> vars = *Luau::get_if<std::vector<Variable>>(&result);
     if (vars.size() != 1)
     {
         if (moveThread != nullptr)
             lua_pop(moveThread, (int)vars.size());
         return Luau::format("expression %s evaluates to %d values not 1", expression.c_str(), (int)(vars.size()));
     }
-    return std::get<std::vector<Variable>>(result).at(0);
+    return vars.at(0);
 }
 
 EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
 {
     std::unique_lock lock(targetMutex);
     if (!launched)
-        return "target was not launched";
+        return std::string("target was not launched");
     if (!paused)
-        return "target was not paused";
+        return std::string("target was not paused");
     lua_State* thread = nullptr;
     int level = -1;
     if (frameId != -1)
     {
         auto it = idToStackFrameInfo.find(frameId);
         if (it == idToStackFrameInfo.end())
-            return "frame was not found";
+            return std::string("frame was not found");
         auto [threadId, threadLevel] = it->second;
         thread = threadIdToState.at(threadId);
         level = threadLevel;
@@ -1476,7 +1476,7 @@ EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
 
 EvaluateResult Target::setLocalHelper(lua_State* L, int contextLevel, std::string setName, std::string value)
 {
-    EvaluateResult result = "variable not found";
+    EvaluateResult result = std::string("variable not found");
     forEachLocal(
         L,
         contextLevel,
@@ -1486,7 +1486,7 @@ EvaluateResult Target::setLocalHelper(lua_State* L, int contextLevel, std::strin
             if (name != setName)
                 return true;
             EvaluateResult var = evaluateExpressionHelper(L, contextLevel, "return " + value, L);
-            if (std::holds_alternative<Variable>(var))
+            if (Luau::get_if<Variable>(&var))
                 lua_setlocal(L, contextLevel, n);
             variableCache.clear();
             result = var;
@@ -1498,7 +1498,7 @@ EvaluateResult Target::setLocalHelper(lua_State* L, int contextLevel, std::strin
 
 EvaluateResult Target::setUpvalueHelper(lua_State* L, int contextLevel, std::string setName, std::string value)
 {
-    EvaluateResult result = "variable not found";
+    EvaluateResult result = std::string("variable not found");
     forEachUpvalue(
         L,
         contextLevel,
@@ -1508,7 +1508,7 @@ EvaluateResult Target::setUpvalueHelper(lua_State* L, int contextLevel, std::str
             if (name != setName)
                 return true;
             EvaluateResult var = evaluateExpressionHelper(L, contextLevel, "return " + value, L);
-            if (std::holds_alternative<Variable>(var))
+            if (Luau::get_if<Variable>(&var))
                 lua_setupvalue(L, -2, n);
             variableCache.clear();
             result = var;
@@ -1557,11 +1557,11 @@ EvaluateResult Target::setTableEntryHelper(lua_State* L, int tableIdx, int evalL
     lua_pop(L, 1);
     if (!exists)
     {
-        return "variable not found";
+        return std::string("variable not found");
     }
     pushTableKeyToFind(L, varName);
     EvaluateResult var = evaluateExpressionHelper(L, evalLevel, "return " + setExpression, L);
-    if (std::holds_alternative<std::string>(var))
+    if (Luau::get_if<std::string>(&var))
     {
         lua_pop(L, 1);
         return var;
@@ -1574,14 +1574,14 @@ EvaluateResult Target::setTableEntryHelper(lua_State* L, int tableIdx, int evalL
 EvaluateResult Target::setVariableHelper(VariableScope& context, std::string varName, std::string setExpression)
 {
     if (context.threadId == -1)
-        return "need to be in valid context for evaluation";
+        return std::string("need to be in valid context for evaluation");
     lua_State* thread = threadIdToState.at(context.threadId);
     int contextLevel = context.level;
     if (context.type == VariableScopeType::Global)
     {
         lua_Debug ar = {};
         if (lua_getinfo(thread, contextLevel, "f", &ar) == 0)
-            return "could not resolve frame for global assignment";
+            return std::string("could not resolve frame for global assignment");
         lua_getfenv(thread, -1);
         EvaluateResult result = setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
         lua_pop(thread, 2);
@@ -1608,10 +1608,10 @@ EvaluateResult Target::setVariable(int varRef, std::string varName, std::string 
 {
     std::unique_lock lock(targetMutex);
     if (!launched || !paused)
-        return "target was not paused";
+        return std::string("target was not paused");
     auto it = variableContexts.find(varRef);
     if (it == variableContexts.end())
-        return "variable reference not found";
+        return std::string("variable reference not found");
     return setVariableHelper(it->second, varName, setExpression);
 }
 
@@ -1621,7 +1621,7 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
     // otherwise, since tables are passed by reference, we can just call evaluateExpression
     std::unique_lock lock(targetMutex);
     if (!launched || !paused)
-        return "target was not paused";
+        return std::string("target was not paused");
     lua_State* thread = nullptr;
     int level = -1;
     int threadId = -1;
@@ -1632,33 +1632,32 @@ EvaluateResult Target::setExpression(std::string lExpression, std::string setExp
     }
     bool isTable = lExpression.find_first_of(".[") != std::string::npos;
     // if our lExpression is unlikely to be a table lookup, we try to look through locals, upvalues, and globals
-    // to set our code correctly. if our lExpression cannot be found there, we default to setting it globally
+    // to set our code correctly. if our lExpression cannot be found as a preexisting variable, we error.
     if (frameId != -1 && !isTable)
     {
         std::optional<std::vector<VariableScope>> scopes = getScopesHelper(threadId, level);
         if (!scopes)
-            return "required scopes not found";
+            return std::string("required scopes not found");
         // getScopes() returns in local, upvalue, global order, so we always set at the smallest possible scope.
         for (VariableScope scope : *scopes)
         {
             EvaluateResult result = setVariableHelper(scope, lExpression, setExpression);
-            if (std::holds_alternative<std::string>(result))
+            if (std::string* error = Luau::get_if<std::string>(&result))
             {
-                std::string error = std::get<std::string>(result);
-                if (error != "variable not found")
-                    return error;
+                if (*error != "variable not found")
+                    return *error;
             }
             else
                 return result;
         }
-        return "variable value not found a preexisting local, global, or upvalue variable";
+        return std::string("variable value not found a preexisting local, global, or upvalue variable");
     }
     // for an lExpression referring to a value in a table, we can simply just
     // evaluate lExpression = setExpression to make changes.
     EvaluateMultiResult write = evaluateExpressionMultiHelper(thread, level, lExpression + " = " + setExpression);
-    if (std::holds_alternative<std::string>(write))
-        return std::get<std::string>(write);
-    if (std::get<std::vector<Variable>>(write).size() > 0)
+    if (std::string* error = Luau::get_if<std::string>(&write))
+        return *error;
+    if (Luau::get_if<std::vector<Variable>>(&write)->size() > 0)
         return Luau::format("expression \"%s = %s\" should not return values", lExpression.c_str(), setExpression.c_str());
     EvaluateResult newValue = evaluateExpressionHelper(thread, level, "return " + lExpression);
     variableCache.clear();

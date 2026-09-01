@@ -4,6 +4,7 @@
 #include "lute/runtime.h"
 
 #include "Luau/DenseHash.h"
+#include "Luau/Variant.h"
 
 #include <functional>
 #include <mutex>
@@ -11,7 +12,6 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <variant>
 #include <vector>
 
 struct lua_State;
@@ -117,8 +117,8 @@ struct Variable
 };
 
 // evaluate multi result exists to evaluate expressions that can return any amount of variables (including zero)
-using EvaluateMultiResult = std::variant<std::vector<Variable>, std::string>;
-using EvaluateResult = std::variant<Variable, std::string>;
+using EvaluateMultiResult = Luau::Variant<std::vector<Variable>, std::string>;
+using EvaluateResult = Luau::Variant<Variable, std::string>;
 
 enum class StepType
 {

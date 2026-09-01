@@ -661,12 +661,11 @@ static int target_evaluateExpression(lua_State* L)
     std::string expression = luaL_checkstring(L, 2);
     int frameId = (int)luaL_optinteger(L, 3, -1);
     EvaluateResult result = target->evaluateExpression(expression, frameId);
-    if (std::holds_alternative<Variable>(result))
+    if (Variable* var = Luau::get_if<Variable>(&result))
     {
-        Variable var = std::get<Variable>(result);
-        return pushVariable(L, var);
+        return pushVariable(L, *var);
     }
-    std::string err = std::get<std::string>(result);
+    std::string err = *Luau::get_if<std::string>(&result);
     lua_checkstack(L, 1);
     lua_pushstring(L, err.c_str());
     return 1;
@@ -681,12 +680,11 @@ static int target_setVariable(lua_State* L)
     std::string varName = luaL_checkstring(L, 3);
     std::string setExpression = luaL_checkstring(L, 4);
     EvaluateResult result = target->setVariable(varRef, varName, setExpression);
-    if (std::holds_alternative<Variable>(result))
+    if (Variable* var = Luau::get_if<Variable>(&result))
     {
-        Variable var = std::get<Variable>(result);
-        return pushVariable(L, var);
+        return pushVariable(L, *var);
     }
-    std::string err = std::get<std::string>(result);
+    std::string err = *Luau::get_if<std::string>(&result);
     lua_checkstack(L, 1);
     lua_pushstring(L, err.c_str());
     return 1;
@@ -701,12 +699,11 @@ static int target_setExpression(lua_State* L)
     std::string setExpression = luaL_checkstring(L, 3);
     int frameId = (int)luaL_optinteger(L, 4, -1);
     EvaluateResult result = target->setExpression(lExpression, setExpression, frameId);
-    if (std::holds_alternative<Variable>(result))
+    if (Variable* var = Luau::get_if<Variable>(&result))
     {
-        Variable var = std::get<Variable>(result);
-        return pushVariable(L, var);
+        return pushVariable(L, *var);
     }
-    std::string err = std::get<std::string>(result);
+    std::string err = *Luau::get_if<std::string>(&result);
     lua_checkstack(L, 1);
     lua_pushstring(L, err.c_str());
     return 1;

@@ -217,7 +217,7 @@ export type Target = {
 	--- that `setExpression` evaluates to. If this operation is not successful, it returns an error string.
 	--- Otherwise, it returns a `Variable` containing the new value.
 	setVariable: (self: Target, varRef: number, varName: string, setExpression: string) -> Variable | string,
-	--- Sets the l-expression that `lExpression` is equal to to the value that `setExpression` evaluates to.
+	--- Sets `lExpression` equal to to the value that `setExpression` evaluates to.
 	--- This is done within the scope of the stack frame with `frameID`. If `frameId` is absent or -1,
 	--- we are in the global scope. If this operation is not successful, it returns an error string.
 	--- Otherwise, it returns a `Variable` containing the new value.
