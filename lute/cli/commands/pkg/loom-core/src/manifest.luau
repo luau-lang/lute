@@ -27,7 +27,11 @@ export type WorkspaceDependencySpec = {
 	read name: string,
 }
 
-export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec | WorkspaceDependencySpec
+export type DependencySpec =
+	PathDependencySpec
+	| GitHubDependencySpec
+	| RegistryDependencySpec
+	| WorkspaceDependencySpec
 
 export type WorkspaceInherit = {
 	read workspace: true,
@@ -128,10 +132,7 @@ end
 local function parseWorkspace(raw: any): WorkspaceManifest
 	assert(typeof(raw) == "table", "Expected 'workspace' field to be a table")
 
-	assert(
-		raw.version == nil or typeof(raw.version) == "string",
-		"Expected 'version' in workspace to be a string"
-	)
+	assert(raw.version == nil or typeof(raw.version) == "string", "Expected 'version' in workspace to be a string")
 
 	assert(typeof(raw.members) == "table", "Expected 'members' field in workspace")
 	local members: { string } = {}
