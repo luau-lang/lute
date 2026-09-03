@@ -29,6 +29,10 @@ export type WorkspaceDependencySpec = {
 
 export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec | WorkspaceDependencySpec
 
+export type WorkspaceInherit = {
+	read workspace: true,
+}
+
 export type WorkspaceManifest = {
 	read version: string?,
 	read members: { string },
@@ -38,7 +42,7 @@ export type WorkspaceManifest = {
 
 export type PackageManifest = {
 	read name: string,
-	read version: string?,
+	read version: (string | WorkspaceInherit)?,
 	read dependencies: { [string]: DependencySpec },
 	read devDependencies: { [string]: DependencySpec },
 }
@@ -61,7 +65,7 @@ local function parseSourceKind(s: unknown): SourceKind?
 	return s :: SourceKind
 end
 
-local function parseDependencyMap(raw: any, sectionName: string): { [string]: DependencySpec }
+local function parseDependencyMap(raw: any, sectionName: string, allowWorkspace: boolean): { [string]: DependencySpec }
 	local result: { [string]: DependencySpec } = {}
 	if raw == nil then
 		return table.freeze(result)
@@ -69,6 +73,7 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 
 	for name, spec in raw do
 		if typeof(spec) == "table" and spec.workspace == true then
+			assert(allowWorkspace ~= false, `Workspace dependencies are not allowed in {sectionName}`)
 			result[name] = table.freeze({
 				name = name,
 				sourceKind = "workspace" :: "workspace",
@@ -153,7 +158,7 @@ local function parseWorkspace(raw: any): WorkspaceManifest
 
 	local dependencies: { [string]: DependencySpec }? = nil
 	if raw.dependencies ~= nil then
-		dependencies = parseDependencyMap(raw.dependencies, "workspace.dependencies")
+		dependencies = parseDependencyMap(raw.dependencies, "workspace.dependencies", false)
 	end
 
 	return table.freeze({
@@ -187,17 +192,17 @@ local function parseManifest(t: unknown): ProjectManifest
 		assert(rawPkg.name ~= nil and typeof(rawPkg.name) == "string", "Expected 'name' field in package manifest")
 
 		local rawVersion = (rawPkg :: any).version
-		local version: string? = nil
+		local version: (string | WorkspaceInherit)? = nil
 		if typeof(rawVersion) == "string" then
 			version = rawVersion
 		elseif typeof(rawVersion) == "table" and rawVersion.workspace == true then
-			version = nil
+			version = table.freeze({ workspace = true :: true })
 		else
 			error("Expected 'version' field in package manifest to be a string or { workspace = true }")
 		end
 
-		local dependencies = parseDependencyMap((rawPkg :: any).dependencies, "dependencies")
-		local devDependencies = parseDependencyMap((rawPkg :: any).dev_dependencies, "dev_dependencies")
+		local dependencies = parseDependencyMap((rawPkg :: any).dependencies, "dependencies", true)
+		local devDependencies = parseDependencyMap((rawPkg :: any).dev_dependencies, "dev_dependencies", true)
 
 		for alias in devDependencies do
 			assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
@@ -211,7 +216,7 @@ local function parseManifest(t: unknown): ProjectManifest
 		})
 	end
 
-	local overrides = parseDependencyMap(raw.overrides, "overrides")
+	local overrides = parseDependencyMap(raw.overrides, "overrides", false)
 
 	return table.freeze({
 		package = pkg,
