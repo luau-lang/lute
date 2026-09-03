@@ -1,6 +1,6 @@
 [dependency]
 name = "luau"
 remote = "https://github.com/luau-lang/luau.git"
-branch = "0.733"
-revision = "ca128af4c531310d6f5c1b354df4b79fdd782ede"
-patches = ["luau-001.patch"]
+branch = "0.736"
+revision = "c2ec0d4e5ca50796ba174a7565298f59aa572268"
+patches = []
