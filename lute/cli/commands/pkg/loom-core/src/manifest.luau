@@ -22,18 +22,39 @@ export type RegistryDependencySpec = {
 	read version: string,
 }
 
-export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec
+export type WorkspaceDependencySpec = {
+	read sourceKind: "workspace",
+	read name: string,
+}
+
+export type DependencySpec =
+	PathDependencySpec
+	| GitHubDependencySpec
+	| RegistryDependencySpec
+	| WorkspaceDependencySpec
+
+export type WorkspaceInherit = {
+	read workspace: true,
+}
+
+export type WorkspaceManifest = {
+	read version: string?,
+	read members: { string },
+	read defaultMember: string?,
+	read dependencies: { [string]: DependencySpec }?,
+}
 
 export type PackageManifest = {
 	read name: string,
-	read version: string,
+	read version: (string | WorkspaceInherit)?,
 	read dependencies: { [string]: DependencySpec },
 	read devDependencies: { [string]: DependencySpec },
 }
 
 export type ProjectManifest = {
-	read package: PackageManifest,
+	read package: PackageManifest?,
 	read overrides: { [string]: DependencySpec },
+	read workspace: WorkspaceManifest?,
 }
 
 local function isSourceKind(s: unknown): boolean
@@ -48,13 +69,22 @@ local function parseSourceKind(s: unknown): SourceKind?
 	return s :: SourceKind
 end
 
-local function parseDependencyMap(raw: any, sectionName: string): { [string]: DependencySpec }
+local function parseDependencyMap(raw: any, sectionName: string, allowWorkspace: boolean): { [string]: DependencySpec }
 	local result: { [string]: DependencySpec } = {}
 	if raw == nil then
 		return table.freeze(result)
 	end
 
 	for name, spec in raw do
+		if typeof(spec) == "table" and spec.workspace == true then
+			assert(allowWorkspace ~= false, `Workspace dependencies are not allowed in {sectionName}`)
+			result[name] = table.freeze({
+				name = name,
+				sourceKind = "workspace" :: "workspace",
+			})
+			continue
+		end
+
 		assert(
 			spec.name == nil or typeof(spec.name) == "string",
 			`Optional 'name' field in dependency spec for '{name}' in {sectionName} expected to be a string`
@@ -99,38 +129,100 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 	return table.freeze(result)
 end
 
+local function parseWorkspace(raw: any): WorkspaceManifest
+	assert(typeof(raw) == "table", "Expected 'workspace' field to be a table")
+
+	assert(raw.version == nil or typeof(raw.version) == "string", "Expected 'version' in workspace to be a string")
+
+	assert(typeof(raw.members) == "table", "Expected 'members' field in workspace")
+	local members: { string } = {}
+	for i, member in raw.members do
+		assert(typeof(member) == "string", `Expected workspace member at index {i} to be a string`)
+		table.insert(members, member)
+	end
+	assert(#members > 0, "Workspace must have at least one member")
+
+	local defaultMember: string? = nil
+	if raw.default_member ~= nil then
+		assert(typeof(raw.default_member) == "string", "Expected 'default_member' in workspace to be a string")
+		local found = false
+		for _, member in members do
+			local basename = string.match(member, "[^/]+$") or member
+			if basename == raw.default_member then
+				found = true
+				break
+			end
+		end
+		assert(found, `default_member '{raw.default_member}' is not a basename of any workspace member`)
+		defaultMember = raw.default_member
+	end
+
+	local dependencies: { [string]: DependencySpec }? = nil
+	if raw.dependencies ~= nil then
+		dependencies = parseDependencyMap(raw.dependencies, "workspace.dependencies", false)
+	end
+
+	return table.freeze({
+		version = raw.version,
+		members = table.freeze(members),
+		defaultMember = defaultMember,
+		dependencies = dependencies,
+	})
+end
+
 -- TODO: We should do proper error handling because this is user input.
 local function parseManifest(t: unknown): ProjectManifest
 	assert(t ~= nil and typeof(t) == "table", "Expected a table")
-	assert(t.package ~= nil and typeof(t.package) == "table", "Expected 'package' field in manifest")
 
-	local pkg = t.package
-
-	assert(pkg.name ~= nil and typeof(pkg.name) == "string", "Expected 'name' field in package manifest")
-	-- FIXME(Luau): Luau currently refines `pkg` to have `version` based on this check, but
-	-- also produces a type error for the access _in_ the condition without the cast here.
+	local raw = t :: any
 	assert(
-		(pkg :: any).version ~= nil and typeof(pkg.version) == "string",
-		"Expected 'version' field in package manifest"
+		raw.package ~= nil or raw.workspace ~= nil,
+		"Expected at least one of 'package' or 'workspace' field in manifest"
 	)
 
-	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies")
-	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies")
-
-	for alias in devDependencies do
-		assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
+	local workspace: WorkspaceManifest? = nil
+	if raw.workspace ~= nil then
+		workspace = parseWorkspace(raw.workspace)
 	end
 
-	local overrides = parseDependencyMap((t :: any).overrides, "overrides")
+	local pkg: PackageManifest? = nil
+	if raw.package ~= nil then
+		assert(typeof(raw.package) == "table", "Expected 'package' field to be a table")
 
-	return table.freeze({
-		package = table.freeze({
-			name = pkg.name,
-			version = pkg.version,
+		local rawPkg = raw.package
+		assert(rawPkg.name ~= nil and typeof(rawPkg.name) == "string", "Expected 'name' field in package manifest")
+
+		local rawVersion = (rawPkg :: any).version
+		local version: (string | WorkspaceInherit)? = nil
+		if typeof(rawVersion) == "string" then
+			version = rawVersion
+		elseif typeof(rawVersion) == "table" and rawVersion.workspace == true then
+			version = table.freeze({ workspace = true :: true })
+		else
+			error("Expected 'version' field in package manifest to be a string or { workspace = true }")
+		end
+
+		local dependencies = parseDependencyMap((rawPkg :: any).dependencies, "dependencies", true)
+		local devDependencies = parseDependencyMap((rawPkg :: any).dev_dependencies, "dev_dependencies", true)
+
+		for alias in devDependencies do
+			assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
+		end
+
+		pkg = table.freeze({
+			name = rawPkg.name,
+			version = version,
 			dependencies = dependencies,
 			devDependencies = devDependencies,
-		}),
+		})
+	end
+
+	local overrides = parseDependencyMap(raw.overrides, "overrides", false)
+
+	return table.freeze({
+		package = pkg,
 		overrides = overrides,
+		workspace = workspace,
 	})
 end
 
