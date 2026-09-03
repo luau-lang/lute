@@ -159,7 +159,7 @@ local function main(...: string)
 	end
 
 	local paths = table.clone(args:variadics())
-	tableext.extend(paths, args:forwarded())
+	tableext.extend(paths, args:forwarded() or {})
 
 	-- Check if this is a snapshot subcommand
 	if paths[1] == "snapshots" then
