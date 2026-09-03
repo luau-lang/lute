@@ -4,6 +4,7 @@
 #include "lute/runtime.h"
 
 #include "Luau/DenseHash.h"
+#include "Luau/Variant.h"
 
 #include <functional>
 #include <mutex>
@@ -11,7 +12,6 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <variant>
 #include <vector>
 
 struct lua_State;
@@ -93,15 +93,15 @@ struct VariableScope
     int variableReference;
     VariableScopeType type;
     std::string name;
-    int threadId; // for locals, upvalues, and globals
-    int level;    // for locals, upvalues, and globals
-    int luaref;   // for tables
+    int threadId;
+    int level;
+    int luaref; // for tables
 
     explicit VariableScope(int variableReference, VariableScopeType type, std::string name, int threadId = -1, int level = -1, int luaref = -1);
     static VariableScope makeLocals(int variableReference, int threadId, int level);
     static VariableScope makeUpvalues(int variableReference, int threadId, int level);
     static VariableScope makeGlobals(int variableReference, int threadId, int level);
-    static VariableScope makeTable(int variableReference, int luaref);
+    static VariableScope makeTable(int variableReference, int threadId, int level, int luaref);
 };
 
 // Variables are generally returned by the getVariable() method. They only have
@@ -116,7 +116,9 @@ struct Variable
     bool isTruthy();
 };
 
-using EvaluateResult = std::variant<Variable, std::string>;
+// evaluate multi result exists to evaluate expressions that can return any amount of variables (including zero)
+using EvaluateMultiResult = Luau::Variant<std::vector<Variable>, std::string>;
+using EvaluateResult = Luau::Variant<Variable, std::string>;
 
 enum class StepType
 {
@@ -146,6 +148,7 @@ struct LaunchConfig
     std::function<void(const std::string& message, const std::string& source, int line)> onPrint;
     std::function<void(const Thread& thread, const StepInfo& stepInfo)> onStepStop;
     std::function<void(const Thread& thread, int bpId, const std::string& errorMessage)> onException;
+    std::function<void(const std::string& source)> onSourceLoad;
 };
 
 struct Target
@@ -200,6 +203,8 @@ struct Target
 
     // For evaluation:
     EvaluateResult evaluateExpression(std::string expression, int frameId = -1);
+    EvaluateResult setVariable(int varRef, std::string varName, std::string setExpression);
+    EvaluateResult setExpression(std::string lExpression, std::string setExpression, int frameId = -1);
 
     // For actively running scripts:
     std::optional<std::string> launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config = {});
@@ -277,7 +282,14 @@ private:
     std::optional<StackFrame> getStackFrameHelper(int threadId, int level);
     std::optional<std::vector<VariableScope>> getScopesHelper(int threadId, int level);
     std::optional<std::vector<Variable>> getVariablesHelper(int varRef);
-    EvaluateResult evaluateExpressionHelper(lua_State* L, int level, std::string expression);
+    EvaluateMultiResult evaluateExpressionMultiHelper(
+        lua_State* contextThread,
+        int contextLevel,
+        std::string expression,
+        lua_State* moveThread = nullptr
+    );
+    EvaluateResult evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread = nullptr);
+    EvaluateResult setVariableHelper(VariableScope& context, std::string varName, std::string setExpression);
     void continueProcessHelper();
 
     bool installBreakpoint(lua_State* L, Breakpoint& bp);
@@ -301,14 +313,29 @@ private:
     void stoppedSetState(lua_State* L, StopYieldMode yieldMode = StopYieldMode::Auto);
     void stoppedDispatchCallback(std::function<void()> debugStopCallback);
 
-    Variable makeVariable(lua_State* L, const std::string& name);
-    std::vector<Variable> getLocalsHelper(lua_State* L, int level);
-    std::vector<Variable> getUpvaluesHelper(lua_State* L, int level);
-    std::vector<Variable> getGlobalsHelper(lua_State* L, int level);
-    std::vector<Variable> getTableHelper(lua_State* L, int idx);
+    Variable makeVariable(lua_State* L, int stackSlot, const std::string& name, int parentRef);
+
+    // These helper functions are used to visit each variables in a scope.
+    void forEachLocal(lua_State* L, int level, const std::function<bool(const std::string& name, int n)>& visit);
+    void forEachUpvalue(lua_State* L, int level, const std::function<bool(const std::string& name, int n)>& visit);
+
+    std::vector<Variable> getLocalsHelper(lua_State* L, int level, int parentRef);
+    std::vector<Variable> getUpvaluesHelper(lua_State* L, int level, int parentRef);
+    std::vector<Variable> getGlobalsHelper(lua_State* L, int level, int parentRef);
+    std::vector<Variable> getTableHelper(lua_State* L, int idx, int parentRef);
 
     void injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex);
     void injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex);
+
+    EvaluateResult setLocalHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
+    EvaluateResult setUpvalueHelper(lua_State* L, int contextLevel, std::string setName, std::string value);
+    EvaluateResult setTableEntryHelper(
+        lua_State* L,
+        int tableIdx,
+        int evalLevel,
+        std::string varName,
+        std::string setExpression
+    );
 
     void installBpHitCallback();
     void installExitCallback();

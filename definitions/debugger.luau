@@ -133,6 +133,8 @@ export type LaunchConfig = {
 	--- called when hitting an exception on `thread`. `bpId` reflects the id of the bp hit. These ids
 	--- match what is returned by setExceptionBreakpoint. `message` is the message thrown by the exception.
 	onException: ((thread: Thread, bpId: number, message: string) -> ())?,
+	--- called when we load a source `source` (using absolute path)
+	onSourceLoad: ((source: string) -> ())?,
 }
 
 --- A `Target` represents the target program under the debugger.
@@ -211,6 +213,15 @@ export type Target = {
 	--- If `frameId` is -1 or absent, evaluate in the global scope.
 	--- Returns a `Variable` if expression could be evaluated or an error string if not.
 	evaluateExpression: (self: Target, expression: string, frameId: number?) -> Variable | string,
+	--- Sets a variable named `name` within the scope with reference `variableRef` equal to the value
+	--- that `setExpression` evaluates to. If this operation is not successful, it returns an error string.
+	--- Otherwise, it returns a `Variable` containing the new value.
+	setVariable: (self: Target, varRef: number, varName: string, setExpression: string) -> Variable | string,
+	--- Sets `lExpression` equal to to the value that `setExpression` evaluates to.
+	--- This is done within the scope of the stack frame with `frameID`. If `frameId` is absent or -1,
+	--- we are in the global scope. If this operation is not successful, it returns an error string.
+	--- Otherwise, it returns a `Variable` containing the new value.
+	setExpression: (self: Target, lExpression: string, setExpression: string, frameID: number?) -> Variable | string,
 }
 
 --- Create a new Target handle on the current VM.
