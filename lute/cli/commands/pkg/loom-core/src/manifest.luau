@@ -22,7 +22,12 @@ export type RegistryDependencySpec = {
 	read version: string,
 }
 
-export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec
+export type WorkspaceDependencySpec = {
+	read sourceKind: "workspace",
+	read name: string,
+}
+
+export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec | WorkspaceDependencySpec
 
 export type WorkspaceManifest = {
 	read version: string?,
@@ -33,7 +38,7 @@ export type WorkspaceManifest = {
 
 export type PackageManifest = {
 	read name: string,
-	read version: string,
+	read version: string?,
 	read dependencies: { [string]: DependencySpec },
 	read devDependencies: { [string]: DependencySpec },
 }
@@ -63,6 +68,14 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 	end
 
 	for name, spec in raw do
+		if typeof(spec) == "table" and spec.workspace == true then
+			result[name] = table.freeze({
+				name = name,
+				sourceKind = "workspace" :: "workspace",
+			})
+			continue
+		end
+
 		assert(
 			spec.name == nil or typeof(spec.name) == "string",
 			`Optional 'name' field in dependency spec for '{name}' in {sectionName} expected to be a string`
@@ -105,42 +118,6 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 	end
 
 	return table.freeze(result)
-end
-
-local function resolveWorkspaceRefs(
-	raw: any,
-	workspaceDeps: { [string]: DependencySpec }?
-): any
-	if raw == nil then
-		return nil
-	end
-
-	local hasWorkspaceRefs = false
-	for _, spec in raw do
-		if typeof(spec) == "table" and spec.workspace == true then
-			hasWorkspaceRefs = true
-			break
-		end
-	end
-
-	if not hasWorkspaceRefs then
-		return raw
-	end
-
-	local resolved: { [string]: any } = {}
-	for name, spec in raw do
-		if typeof(spec) == "table" and spec.workspace == true then
-			assert(
-				workspaceDeps ~= nil and (workspaceDeps :: { [string]: DependencySpec })[name] ~= nil,
-				`Dependency '{name}' references workspace, but '{name}' is not defined in workspace.dependencies`
-			)
-			resolved[name] = (workspaceDeps :: { [string]: DependencySpec })[name]
-		else
-			resolved[name] = spec
-		end
-	end
-
-	return resolved
 end
 
 local function parseWorkspace(raw: any): WorkspaceManifest
@@ -187,68 +164,10 @@ local function parseWorkspace(raw: any): WorkspaceManifest
 	})
 end
 
-local function parsePackage(pkg: any): PackageManifest
-	assert(pkg.name ~= nil and typeof(pkg.name) == "string", "Expected 'name' field in package manifest")
-	-- FIXME(Luau): Luau currently refines `pkg` to have `version` based on this check, but
-	-- also produces a type error for the access _in_ the condition without the cast here.
-	assert(
-		(pkg :: any).version ~= nil and typeof(pkg.version) == "string",
-		"Expected 'version' field in package manifest"
-	)
-
-	local dependencies = parseDependencyMap((pkg :: any).dependencies, "dependencies")
-	local devDependencies = parseDependencyMap((pkg :: any).dev_dependencies, "dev_dependencies")
-
-	for alias in devDependencies do
-		assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
-	end
-
-	return table.freeze({
-		name = pkg.name,
-		version = pkg.version,
-		dependencies = dependencies,
-		devDependencies = devDependencies,
-	})
-end
-
-local function resolveWorkspaceField(raw: any, workspaceValue: string?, fieldName: string): string
-	if raw == nil or (typeof(raw) == "table" and raw.workspace == true) then
-		assert(
-			workspaceValue ~= nil,
-			`Member inherits '{fieldName}' from workspace, but workspace has no '{fieldName}'`
-		)
-		return workspaceValue :: string
-	end
-	assert(typeof(raw) == "string", `Expected '{fieldName}' to be a string or \{ workspace = true }`)
-	return raw
-end
-
-local function parseMemberManifest(t: unknown, workspace: WorkspaceManifest?): PackageManifest
-	assert(t ~= nil and typeof(t) == "table", "Expected a table")
-	assert(t.package ~= nil and typeof(t.package) == "table", "Expected 'package' field in member manifest")
-
-	local pkg = t.package
-
-	assert(pkg.name ~= nil and typeof(pkg.name) == "string", "Expected 'name' field in member manifest")
-
-	local version = resolveWorkspaceField((pkg :: any).version, if workspace then workspace.version else nil, "version")
-
-	local workspaceDeps = if workspace then workspace.dependencies else nil
-	local resolvedDeps = resolveWorkspaceRefs((pkg :: any).dependencies, workspaceDeps)
-	local resolvedDevDeps = resolveWorkspaceRefs((pkg :: any).dev_dependencies, workspaceDeps)
-
-	return parsePackage({
-		name = pkg.name,
-		version = version,
-		dependencies = resolvedDeps,
-		dev_dependencies = resolvedDevDeps,
-	})
-end
-
 -- TODO: We should do proper error handling because this is user input.
 local function parseManifest(t: unknown): ProjectManifest
 	assert(t ~= nil and typeof(t) == "table", "Expected a table")
-	
+
 	local raw = t :: any
 	assert(
 		raw.package ~= nil or raw.workspace ~= nil,
@@ -263,19 +182,33 @@ local function parseManifest(t: unknown): ProjectManifest
 	local pkg: PackageManifest? = nil
 	if raw.package ~= nil then
 		assert(typeof(raw.package) == "table", "Expected 'package' field to be a table")
-		if workspace ~= nil then
-			pkg = parseMemberManifest(raw, workspace)
-			local members: { string } = table.clone((workspace :: WorkspaceManifest).members)
-			table.insert(members, ".")
-			workspace = table.freeze({
-				version = (workspace :: WorkspaceManifest).version,
-				members = table.freeze(members),
-				defaultMember = (workspace :: WorkspaceManifest).defaultMember,
-				dependencies = (workspace :: WorkspaceManifest).dependencies,
-			})
+
+		local rawPkg = raw.package
+		assert(rawPkg.name ~= nil and typeof(rawPkg.name) == "string", "Expected 'name' field in package manifest")
+
+		local rawVersion = (rawPkg :: any).version
+		local version: string? = nil
+		if typeof(rawVersion) == "string" then
+			version = rawVersion
+		elseif typeof(rawVersion) == "table" and rawVersion.workspace == true then
+			version = nil
 		else
-			pkg = parsePackage(raw.package)
+			error("Expected 'version' field in package manifest to be a string or { workspace = true }")
 		end
+
+		local dependencies = parseDependencyMap((rawPkg :: any).dependencies, "dependencies")
+		local devDependencies = parseDependencyMap((rawPkg :: any).dev_dependencies, "dev_dependencies")
+
+		for alias in devDependencies do
+			assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
+		end
+
+		pkg = table.freeze({
+			name = rawPkg.name,
+			version = version,
+			dependencies = dependencies,
+			devDependencies = devDependencies,
+		})
 	end
 
 	local overrides = parseDependencyMap(raw.overrides, "overrides")
@@ -292,14 +225,8 @@ local function parseFile(manifestPath: string): ProjectManifest
 	return parseManifest(manifestTable)
 end
 
-local function parseMemberFile(manifestPath: string, workspace: WorkspaceManifest?): PackageManifest
-	local manifestTable = luau.loadModule(manifestPath)
-	return parseMemberManifest(manifestTable, workspace)
-end
-
 return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
-	parseMemberFile = parseMemberFile,
 }
