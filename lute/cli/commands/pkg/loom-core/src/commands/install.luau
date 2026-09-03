@@ -2,9 +2,11 @@ local cli = require("@batteries/cli")
 local fs = require("@std/fs")
 local lockfile = require("../lockfile")
 local manifest = require("../manifest")
+local registry = require("../registry")
 local resolution = require("../resolution")
 local path = require("@std/path")
 local process = require("@std/process")
+local store = require("../store")
 
 local function printDiagnostics(lock: lockfile.Lockfile, devAliases: { [string]: boolean })
 	local depCount = 0
@@ -57,22 +59,26 @@ local function install(...: string)
 
 	if fs.exists(manifestPath) then
 		local rootManifest = manifest.parseFile(manifestPath)
-		for _, depSpec in rootManifest.package.dependencies do
-			if depSpec.sourceKind == "registry" then
-				error("Registry dependencies are not yet supported by the install command")
-			end
-		end
 		if not excludeDev then
-			for alias, depSpec in rootManifest.package.devDependencies do
-				if depSpec.sourceKind == "registry" then
-					error("Registry dependencies are not yet supported by the install command")
-				end
+			for alias in rootManifest.package.devDependencies do
 				devAliases[alias] = true
 			end
 		end
 	end
 
 	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
+
+	for key, pkg in lock.packages do
+		if pkg.sourceKind == "registry" and pkg.rev then
+			store.ensureStoreDirectory()
+			if not store.hasPackage(key) then
+				local registryUrl = pkg.registry
+				assert(registryUrl ~= nil, `No registry URL for package '{pkg.name}'`)
+				registry.installPackage(registryUrl, pkg.name, pkg.rev, store.getPackagePath(key))
+			end
+		end
+	end
+
 	printDiagnostics(lock, devAliases)
 end
 

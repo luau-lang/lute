@@ -34,6 +34,7 @@ export type PackageManifest = {
 export type ProjectManifest = {
 	read package: PackageManifest,
 	read overrides: { [string]: DependencySpec },
+	read registry: string?,
 }
 
 local function isSourceKind(s: unknown): boolean
@@ -55,6 +56,16 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 	end
 
 	for name, spec in raw do
+		if typeof(spec) == "string" then
+			result[name] = table.freeze({
+				name = name,
+				sourceKind = "registry" :: "registry",
+				source = name,
+				version = spec,
+			})
+			continue
+		end
+
 		assert(
 			spec.name == nil or typeof(spec.name) == "string",
 			`Optional 'name' field in dependency spec for '{name}' in {sectionName} expected to be a string`
@@ -123,6 +134,12 @@ local function parseManifest(t: unknown): ProjectManifest
 
 	local overrides = parseDependencyMap((t :: any).overrides, "overrides")
 
+	local registry: string? = nil
+	if (t :: any).registry ~= nil then
+		assert(typeof((t :: any).registry) == "string", "Expected 'registry' field to be a string URL")
+		registry = (t :: any).registry
+	end
+
 	return table.freeze({
 		package = table.freeze({
 			name = pkg.name,
@@ -131,6 +148,7 @@ local function parseManifest(t: unknown): ProjectManifest
 			devDependencies = devDependencies,
 		}),
 		overrides = overrides,
+		registry = registry,
 	})
 end
 
