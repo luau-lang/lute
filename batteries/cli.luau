@@ -60,11 +60,16 @@ function cli.parser(): Parser
 	return setmetatable(self, cli)
 end
 
+-- an argument or a command answers to its own name and to any of its aliases
+local function isNamed(entry: ArgData | CommandData, name: string): boolean
+	local aliases = entry.options.aliases or {}
+
+	return entry.name == name or table.find(aliases, name) ~= nil
+end
+
 local function findArgument(self: Parser, name: string): ArgData?
 	for _, argument in self.arguments do
-		local aliases = argument.options.aliases or {}
-
-		if argument.name == name or table.find(aliases, name) then
+		if isNamed(argument, name) then
 			return argument
 		end
 	end
@@ -74,9 +79,7 @@ end
 
 local function findCommand(self: Parser, name: string): CommandData?
 	for _, command in self.commands do
-		local aliases = command.options.aliases or {}
-
-		if command.name == name or table.find(aliases, name) then
+		if isNamed(command, name) then
 			return command
 		end
 	end
@@ -156,30 +159,20 @@ function cli.parse(self: Parser, args: { string }): ()
 		-- if the argument starts with two dashes, we're parsing either a flag or an option
 		if string.sub(arg, 1, 2) == "--" then
 			local name = string.sub(arg, 3)
-			local found = false
+			local argument = findArgument(self, name)
 
-			for _, argument in self.arguments do
-				local aliases = argument.options.aliases or {}
+			assert(argument, "Unknown argument: " .. name)
 
-				if argument.name == name or table.find(aliases, name) then
-					found = true
+			if argument.kind == "option" then
+				-- advance past the argument
+				i += 1
 
-					if argument.kind == "option" then
-						-- advance past the argument
-						i += 1
-
-						assert(i <= #args, "Missing value for argument: " .. argument.name)
-						self.parsed.values[argument.name] = args[i]
-
-						break
-					end
-
-					self.parsed.flags[argument.name] = true
-					break
-				end
+				assert(i <= #args, "Missing value for argument: " .. argument.name)
+				self.parsed.values[argument.name] = args[i]
+			else
+				self.parsed.flags[argument.name] = true
 			end
 
-			assert(found, "Unknown argument: " .. name)
 			continue
 		end
 
@@ -189,23 +182,17 @@ function cli.parse(self: Parser, args: { string }): ()
 
 			for j = 1, #flags do
 				local name = string.sub(flags, j, j)
-				local found = false
-				for _, argument in self.arguments do
-					local aliases = argument.options.aliases or {}
-					if argument.name == name or table.find(aliases, name) then
-						found = true
-						if argument.kind == "option" then
-							i += 1
-							assert(i <= #args, "Missing value for argument: " .. argument.name)
-							self.parsed.values[argument.name] = args[i]
-						else
-							self.parsed.flags[argument.name] = true
-						end
-						break
-					end
-				end
+				local argument = findArgument(self, name)
 
-				assert(found, "Unknown argument: " .. name)
+				assert(argument, "Unknown argument: " .. name)
+
+				if argument.kind == "option" then
+					i += 1
+					assert(i <= #args, "Missing value for argument: " .. argument.name)
+					self.parsed.values[argument.name] = args[i]
+				else
+					self.parsed.flags[argument.name] = true
+				end
 			end
 
 			continue
