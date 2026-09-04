@@ -18,6 +18,9 @@ const function main(...: string)
 	args:add("verbose", "flag", { help = "Enable verbose output", aliases = { "v" } })
 	args:add("check", "flag", { help = "Check formatting; exit 1 if any file is unformatted", aliases = { "c" } })
 	args:add("no-ignore", "flag", { help = "Format every input, even ones matching lute.format.ignores" })
+	args:add("width", "option", { help = "Layout column width (default: 120)" })
+	args:add("indent-width", "option", { help = "Columns per indent level (default: 4)" })
+	args:add("use-spaces", "flag", { help = "Indent with spaces instead of tabs (default: false)" })
 	args:add("files", "variadic", { help = "Files or directories to format (defaults to current directory)" })
 	args:parse({ ... })
 
@@ -30,6 +33,11 @@ const function main(...: string)
 
 	const check = args:has("check")
 	const verbose = args:has("verbose")
+	const options = table.freeze({
+		width = tonumber(args:get("width")),
+		indentWidth = tonumber(args:get("indent-width")),
+		enableTabs = not args:has("use-spaces"),
+	})
 
 	local inputPaths = args:variadics()
 	if #inputPaths == 0 then
@@ -64,7 +72,7 @@ const function main(...: string)
 			continue
 		end
 
-		const ok, formatted = pcall(format.formatSource, source)
+		const ok, formatted = pcall(format.formatSource, source, options)
 		if not ok then
 			if verbose then
 				print(`Failed to format {target}`)
