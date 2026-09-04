@@ -7,6 +7,6 @@ target_sources(Lute.Crypto PRIVATE
 )
 
 target_compile_features(Lute.Crypto PUBLIC cxx_std_17)
-target_include_directories(Lute.Crypto PUBLIC "include" ${LIBUV_INCLUDE_DIR})
-target_link_libraries(Lute.Crypto PRIVATE Lute.Runtime Luau.VM uv_a ssl crypto sodium)
+target_include_directories(Lute.Crypto PUBLIC "include")
+target_link_libraries(Lute.Crypto PRIVATE Lute.Runtime libuv::libuv ssl crypto sodium PUBLIC Lute.Common)
 target_compile_options(Lute.Crypto PRIVATE ${LUTE_OPTIONS})
