@@ -595,6 +595,7 @@ static std::unique_ptr<HttpRequestState> createRequestState(
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, kDefaultConnectTimeoutMs);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 20L);
+    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
     applySystemCA(curl);
 
     if (state->method == "HEAD")
