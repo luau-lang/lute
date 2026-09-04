@@ -1,0 +1,4 @@
+-- hello
+@[native]
+function foo() return end
+-- world
