@@ -3,7 +3,10 @@ local path = require("@std/path")
 local system = require("@std/system")
 local test = require("@std/test")
 
-local resolution = require("@commands/pkg/loom-core/src/resolution")
+local resolutionModule = require("@commands/pkg/loom-core/src/resolution")
+local resolution = {
+	resolve = resolutionModule.resolveFromDirectory,
+}
 local parser = require("@commands/pkg/loom-core/src/semver/parser")
 local solver = require("@commands/pkg/loom-core/src/semver/solver")
 
@@ -76,8 +79,8 @@ test.suite("RegistryResolution", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.neq(lock.dependencies.citrus, nil)
-		assert.eq(lock.dependencies.citrus, "citrus@1.3.0")
+		assert.neq(lock.dependencies.root.citrus, nil)
+		assert.eq(lock.dependencies.root.citrus, "citrus@1.3.0")
 		assert.neq(lock.packages["citrus@1.3.0"], nil)
 	end)
 
@@ -342,7 +345,7 @@ test.suite("RegistryResolution", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.eq(lock.dependencies.mylib, "citrus@1.2.0")
+		assert.eq(lock.dependencies.root.mylib, "citrus@1.2.0")
 		assert.neq(lock.packages["citrus@1.2.0"], nil)
 		assert.eq(lock.packages["citrus@1.2.0"].name, "citrus")
 	end)
@@ -444,8 +447,8 @@ test.suite("RegistryResolution", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.eq(lock.dependencies.a, "citrus@1.0.0")
-		assert.eq(lock.dependencies.b, "citrus@1.0.0")
+		assert.eq(lock.dependencies.root.a, "citrus@1.0.0")
+		assert.eq(lock.dependencies.root.b, "citrus@1.0.0")
 	end)
 
 	suite:case("writesLockfileToDisk", function(assert)
@@ -504,7 +507,7 @@ test.suite("DevDependencies", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 
-		assert.eq(lock.dependencies.testlib, "testlib")
+		assert.eq(lock.dependencies.root.testlib, "testlib")
 		assert.eq(lock.packages["testlib"], {
 			name = "testlib",
 			sourceKind = "path",
@@ -546,7 +549,7 @@ test.suite("DevDependencies", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 
-		assert.eq(lock.dependencies.lib, "lib")
+		assert.eq(lock.dependencies.root.lib, "lib")
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
@@ -555,7 +558,7 @@ test.suite("DevDependencies", function(suite)
 			dependencies = {},
 		})
 		assert.eq(lock.packages["libtest"], nil)
-		assert.eq(lock.dependencies.libtest, nil)
+		assert.eq(lock.dependencies.root.libtest, nil)
 	end)
 
 	suite:case("devDependenciesOfTransitiveRegistryDepsExcluded", function(assert)
@@ -584,7 +587,7 @@ test.suite("DevDependencies", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.eq(lock.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(lock.dependencies.root.citrus, "citrus@1.0.0")
 		assert.eq(lock.packages["citrus@1.0.0"], {
 			name = "citrus",
 			rev = "1.0.0",
@@ -594,7 +597,7 @@ test.suite("DevDependencies", function(suite)
 			dependencies = {},
 		})
 		assert.eq(lock.packages["mocklib@2.0.0"], nil)
-		assert.eq(lock.dependencies.mocklib, nil)
+		assert.eq(lock.dependencies.root.mocklib, nil)
 	end)
 
 	suite:case("devAndProdShareTransitiveDep", function(assert)
@@ -647,8 +650,8 @@ test.suite("DevDependencies", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 
-		assert.eq(lock.dependencies.lib, "lib")
-		assert.eq(lock.dependencies.testlib, "testlib")
+		assert.eq(lock.dependencies.root.lib, "lib")
+		assert.eq(lock.dependencies.root.testlib, "testlib")
 		assert.eq(lock.packages["shared"], {
 			name = "shared",
 			sourceKind = "path",
@@ -683,7 +686,7 @@ test.suite("DevDependencies", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.eq(lock.dependencies.testing, "testing@1.2.0")
+		assert.eq(lock.dependencies.root.testing, "testing@1.2.0")
 		assert.eq(lock.packages["testing@1.2.0"], {
 			name = "testing",
 			rev = "1.2.0",
@@ -712,7 +715,7 @@ test.suite("DevDependencies", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil, { excludeDev = true })
 
-		assert.eq(lock.dependencies.testlib, nil)
+		assert.eq(lock.dependencies.root.testlib, nil)
 		assert.eq(lock.packages["testlib"], nil)
 	end)
 
@@ -744,7 +747,7 @@ test.suite("DevDependencies", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil, { excludeDev = true })
 
-		assert.eq(lock.dependencies.lib, "lib")
+		assert.eq(lock.dependencies.root.lib, "lib")
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
@@ -752,7 +755,7 @@ test.suite("DevDependencies", function(suite)
 			installPath = "lib",
 			dependencies = {},
 		})
-		assert.eq(lock.dependencies.testlib, nil)
+		assert.eq(lock.dependencies.root.testlib, nil)
 		assert.eq(lock.packages["testlib"], nil)
 	end)
 
@@ -778,7 +781,7 @@ test.suite("DevDependencies", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe, { excludeDev = true })
 
-		assert.eq(lock.dependencies.testing, nil)
+		assert.eq(lock.dependencies.root.testing, nil)
 		assert.eq(lock.packages["testing@1.2.0"], nil)
 	end)
 
@@ -809,7 +812,7 @@ test.suite("DevDependencies", function(suite)
 		end)
 	end)
 
-	suite:case("lockfileVersionRemainsThree", function(assert)
+	suite:case("lockfileVersionIsFour", function(assert)
 		local devDir = path.join(workingDirectory, "testlib")
 		fs.createDirectory(devDir)
 		writeConfig(devDir, "testlib", "")
@@ -829,7 +832,7 @@ test.suite("DevDependencies", function(suite)
 
 		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
 		local content = fs.readFileToString(lockfilePath)
-		assert.strContains(content, "version = 3")
+		assert.strContains(content, "version = 4")
 	end)
 end)
 
@@ -862,7 +865,7 @@ test.suite("LockfileReuse", function(suite)
 		}
 
 		local lock1 = resolution.resolve(path.format(workingDirectory), universe1)
-		assert.eq(lock1.dependencies.citrus, "citrus@1.3.0")
+		assert.eq(lock1.dependencies.root.citrus, "citrus@1.3.0")
 
 		-- Resolve again with a universe that has a newer version.
 		-- Manifest is unchanged so the fast path should return the lockfile as-is,
@@ -876,7 +879,7 @@ test.suite("LockfileReuse", function(suite)
 		}
 
 		local lock2 = resolution.resolve(path.format(workingDirectory), universe2)
-		assert.eq(lock2.dependencies.citrus, "citrus@1.3.0")
+		assert.eq(lock2.dependencies.root.citrus, "citrus@1.3.0")
 	end)
 
 	suite:case("reResolvesWhenNewDependencyAdded", function(assert)
@@ -917,8 +920,8 @@ test.suite("LockfileReuse", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 
-		assert.eq(lock.dependencies.lib, "lib")
-		assert.eq(lock.dependencies.lib2, "lib2")
+		assert.eq(lock.dependencies.root.lib, "lib")
+		assert.eq(lock.dependencies.root.lib2, "lib2")
 	end)
 
 	suite:case("reResolvesWhenDependencyRemoved", function(assert)
@@ -959,8 +962,8 @@ test.suite("LockfileReuse", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 
-		assert.eq(lock.dependencies.lib, "lib")
-		assert.eq(lock.dependencies.lib2, nil)
+		assert.eq(lock.dependencies.root.lib, "lib")
+		assert.eq(lock.dependencies.root.lib2, nil)
 	end)
 
 	suite:case("lockedFlagErrorsWithNoLockfile", function(assert)
@@ -990,7 +993,7 @@ test.suite("LockfileReuse", function(suite)
 
 		-- Should succeed with --locked since nothing changed
 		local lock = resolution.resolve(path.format(workingDirectory), nil, { locked = true })
-		assert.eq(lock.dependencies.lib, "lib")
+		assert.eq(lock.dependencies.root.lib, "lib")
 	end)
 
 	suite:case("lockedFlagErrorsWhenManifestChanged", function(assert)
@@ -1014,7 +1017,7 @@ test.suite("LockfileReuse", function(suite)
 		)
 
 		assert.throwsWith(
-			"lockfile does not satisfy manifest (new dependency: lib). Run `lute pkg install` to update.",
+			"lockfile does not satisfy manifest (new dependency: root:lib). Run `lute pkg install` to update.",
 			function()
 				resolution.resolve(path.format(workingDirectory), nil, { locked = true })
 			end
@@ -1080,7 +1083,7 @@ test.suite("LockfileReuse", function(suite)
 		}
 
 		local lock1 = resolution.resolve(path.format(workingDirectory), universe1)
-		assert.eq(lock1.dependencies.citrus, "citrus@1.3.0")
+		assert.eq(lock1.dependencies.root.citrus, "citrus@1.3.0")
 
 		-- Add a new dep to force re-resolution. Universe now has 1.5.0.
 		-- Without locked preference, solver would pick 1.5.0 (newest).
@@ -1113,7 +1116,7 @@ test.suite("LockfileReuse", function(suite)
 		}
 
 		local lock2 = resolution.resolve(path.format(workingDirectory), universe2)
-		assert.eq(lock2.dependencies.citrus, "citrus@1.3.0")
+		assert.eq(lock2.dependencies.root.citrus, "citrus@1.3.0")
 	end)
 
 	suite:case("lockedVersionFallsBackWhenConstraintNarrows", function(assert)
@@ -1155,7 +1158,7 @@ test.suite("LockfileReuse", function(suite)
 
 		-- Re-resolves: locked 1.5.0 doesn't satisfy new constraint, falls back to newest valid (1.3.0)
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
-		assert.eq(lock.dependencies.citrus, "citrus@1.3.0")
+		assert.eq(lock.dependencies.root.citrus, "citrus@1.3.0")
 	end)
 end)
 
@@ -1278,7 +1281,7 @@ test.suite("Overrides", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.eq(lock.dependencies.citrus, "citrus@1.2.0")
+		assert.eq(lock.dependencies.root.citrus, "citrus@1.2.0")
 	end)
 
 	suite:case("sourceOverridePathBypassesRegistry", function(assert)
@@ -1409,7 +1412,7 @@ test.suite("Overrides", function(suite)
 		resolution.resolve(path.format(workingDirectory), universe)
 		local lock = resolution.resolve(path.format(workingDirectory), universe, { locked = true })
 
-		assert.eq(lock.dependencies.citrus, "citrus@2.0.0")
+		assert.eq(lock.dependencies.root.citrus, "citrus@2.0.0")
 	end)
 
 	suite:case("directSourceOverrideReusesLockfile", function(assert)
@@ -1445,7 +1448,7 @@ test.suite("Overrides", function(suite)
 		resolution.resolve(path.format(workingDirectory), universe)
 		local lock = resolution.resolve(path.format(workingDirectory), universe, { locked = true })
 
-		assert.eq(lock.dependencies.citrus, "citrus")
+		assert.eq(lock.dependencies.root.citrus, "citrus")
 		assert.eq(lock.packages.citrus.sourceKind, "path")
 	end)
 
@@ -1480,7 +1483,7 @@ test.suite("Overrides", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.eq(lock.dependencies.localCitrus, "citrus@2.0.0")
+		assert.eq(lock.dependencies.root.localCitrus, "citrus@2.0.0")
 	end)
 
 	suite:case("sourceOverrideWorksForAliasedDirectDep", function(assert)
@@ -1516,7 +1519,7 @@ test.suite("Overrides", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.eq(lock.dependencies.localCitrus, "citrus")
+		assert.eq(lock.dependencies.root.localCitrus, "citrus")
 		assert.eq(lock.packages.citrus.sourceKind, "path")
 	end)
 
@@ -1607,7 +1610,7 @@ test.suite("Overrides", function(suite)
 		}
 
 		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
-		assert.eq(lock1.dependencies.citrus, "citrus@1.5.0")
+		assert.eq(lock1.dependencies.root.citrus, "citrus@1.5.0")
 
 		-- Add an override to pin to 1.2.0
 		writeConfig(
@@ -1631,7 +1634,7 @@ test.suite("Overrides", function(suite)
 		)
 
 		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
-		assert.eq(lock2.dependencies.citrus, "citrus@1.2.0")
+		assert.eq(lock2.dependencies.root.citrus, "citrus@1.2.0")
 	end)
 
 	suite:case("reResolvesWhenOverrideRemoved", function(assert)
@@ -1663,7 +1666,7 @@ test.suite("Overrides", function(suite)
 		}
 
 		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
-		assert.eq(lock1.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(lock1.dependencies.root.citrus, "citrus@1.0.0")
 
 		-- Remove the override
 		writeConfig(
@@ -1679,7 +1682,7 @@ test.suite("Overrides", function(suite)
 		)
 
 		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
-		assert.eq(lock2.dependencies.citrus, "citrus@1.5.0")
+		assert.eq(lock2.dependencies.root.citrus, "citrus@1.5.0")
 	end)
 
 	suite:case("overriddenPackageTransitiveDepsStillResolved", function(assert)
@@ -1728,5 +1731,76 @@ test.suite("Overrides", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 		assert.eq(lock.overrides, nil)
+	end)
+end)
+
+test.suite("WorkspaceResolution", function(suite)
+	suite:beforeEach(function()
+		if fs.exists(workingDirectory) then
+			fs.removeDirectory(workingDirectory, { recursive = true })
+		end
+		fs.createDirectory(workingDirectory)
+	end)
+
+	suite:case("expandsMembersAndScopesRootDependenciesByPackage", function(assert)
+		local firstDir = path.join(workingDirectory, "modules", "first")
+		local secondDir = path.join(workingDirectory, "modules", "second")
+		local secondSourceDir = path.join(secondDir, "src")
+		local firstLibDir = path.join(firstDir, "first-lib")
+		local secondLibDir = path.join(secondDir, "second-lib")
+		fs.createDirectory(path.join(workingDirectory, "modules"))
+		fs.createDirectory(firstDir)
+		fs.createDirectory(secondDir)
+		fs.createDirectory(secondSourceDir)
+		fs.createDirectory(firstLibDir)
+		fs.createDirectory(secondLibDir)
+		writeConfig(firstLibDir, "first-lib", "")
+		writeConfig(secondLibDir, "second-lib", "")
+		writeConfig(
+			firstDir,
+			"first",
+			[[
+			shared = { name = "first-lib", sourceKind = "path", source = "./first-lib" },
+		]]
+		)
+		writeConfig(
+			secondDir,
+			"second",
+			[[
+			shared = { name = "second-lib", sourceKind = "path", source = "./second-lib" },
+		]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+			workspace = { members = { "modules/*" }, default_member = "first" },
+		}
+		]]
+		)
+
+		local lock = resolution.resolve(path.format(secondSourceDir), nil)
+		assert.eq(lock.version, 4)
+		assert.eq(lock.dependencies.first.shared, "first-lib")
+		assert.eq(lock.dependencies.second.shared, "second-lib")
+		assert.eq(lock.packages["first-lib"].installPath, "modules/first/first-lib")
+		assert.eq(lock.packages["second-lib"].installPath, "modules/second/second-lib")
+	end)
+
+	suite:case("resolvesWorkspaceOnlyManifestFromWorkspaceRoot", function(assert)
+		local memberDir = path.join(workingDirectory, "modules", "member")
+		fs.createDirectory(path.join(workingDirectory, "modules"))
+		fs.createDirectory(memberDir)
+		writeConfig(memberDir, "member", "")
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+			workspace = { members = { "modules/*" } },
+		}
+		]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.version, 4)
+		assert.neq(lock.dependencies.member, nil)
 	end)
 end)
