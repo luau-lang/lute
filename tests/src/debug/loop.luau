@@ -5,5 +5,6 @@ for _ = 1, 5 do
 	for _ = 1, 5 do
 		_step2 = _step2 + 1
 		_step2 = _step2 + 1
+		_step1 = _step1 + 1
 	end
 end

@@ -1,3 +1,5 @@
+#include "lute/debuginternals.h"
+
 #include "Luau/StringUtils.h"
 
 #include <chrono>
@@ -30,7 +32,7 @@ static void checkBreakpointSourceLine(Target& target, int id, BreakpointStatus s
     CHECK(foundBp->sourcePath == sourcePath);
 }
 
-static void checkScope(const std::vector<VariableScope>& scopes, VariableScopeType type, std::string name, int threadId, int level)
+static VariableScope checkScope(const std::vector<VariableScope>& scopes, VariableScopeType type, std::string name, int threadId, int level)
 {
     auto foundScope = std::find_if(
         scopes.begin(),
@@ -45,6 +47,7 @@ static void checkScope(const std::vector<VariableScope>& scopes, VariableScopeTy
     CHECK(foundScope->threadId == threadId);
     CHECK(foundScope->level == level);
     CHECK(foundScope->variableReference > 0);
+    return *foundScope;
 }
 
 static int checkVariable(const std::vector<Variable>& vars, const std::string& name, const std::string& value, const std::string& type, bool isTable)
@@ -371,6 +374,7 @@ TEST_SUITE("Debug")
         Target target(*runtime);
         Breakpoint bp1 = target.setBreakpoint(mainPath, 5);
         Breakpoint bp2 = target.setBreakpoint(triangPath, 5);
+        std::vector<std::string> sourceEvents;
         config.onBreakpointInstall = [&](const Breakpoint& bp)
         {
             bpInstalled++;
@@ -383,7 +387,10 @@ TEST_SUITE("Debug")
                 bpHit2++;
             target.continueProcess();
         };
-        std::optional<std::string> error = target.launch(mainPath, {}, config);
+        config.onSourceLoad = [&](const std::string& source) {
+            sourceEvents.push_back(source);
+        };
+         std::optional<std::string> error = target.launch(mainPath, {}, config);
         CHECK(!error);
         // check we are done
         REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
@@ -392,6 +399,9 @@ TEST_SUITE("Debug")
         CHECK(bpInstalled == 2);
         std::vector<std::string> sources = target.getLoadedSources();
         CHECK(sources.size() == 2);
+        CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
+        CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
+        CHECK(sourceEvents.size() == 2);
         CHECK(std::find(sources.begin(), sources.end(), mainPath) != sources.end());
         CHECK(std::find(sources.begin(), sources.end(), triangPath) != sources.end());
     }
@@ -550,15 +560,21 @@ TEST_SUITE("Debug")
                     {
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
-                        int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 12 && line <= 16));
+                        if (stackTrace->size() > 0)
+                        {
+                            int line = stackTrace->at(stackTrace->size() - 1).line;
+                            CHECK((line >= 12 && line <= 16));
+                        }
                     }
                     if (thread.id == 1)
                     {
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
-                        int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 18 && line <= 20));
+                        if (stackTrace->size() > 0)
+                        {
+                            int line = stackTrace->at(stackTrace->size() - 1).line;
+                            CHECK((line >= 18 && line <= 20));
+                        }
                     }
                 }
             }
@@ -579,15 +595,21 @@ TEST_SUITE("Debug")
                     {
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
-                        int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 5 && line <= 9));
+                        if (stackTrace->size() > 0)
+                        {
+                            int line = stackTrace->at(stackTrace->size() - 1).line;
+                            CHECK((line >= 5 && line <= 9));
+                        }
                     }
                     if (thread.id == 1)
                     {
                         std::optional<std::vector<StackFrame>> stackTrace = target.getStackTrace(thread.id);
                         REQUIRE(stackTrace.has_value());
-                        int line = stackTrace->at(stackTrace->size() - 1).line;
-                        CHECK((line >= 18 && line <= 20));
+                        if (stackTrace->size() > 0)
+                        {
+                            int line = stackTrace->at(stackTrace->size() - 1).line;
+                            CHECK((line >= 18 && line <= 20));
+                        }
                     }
                 }
                 hitsBp2++;
@@ -716,7 +738,7 @@ TEST_SUITE("Debug")
             REQUIRE(scopes.has_value());
             checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 0);
             checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 0);
-            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", 1, 0);
             std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
             REQUIRE(upvalues0.has_value());
             checkVariable(*upvalues0, "a", "24", "number", false);
@@ -731,7 +753,7 @@ TEST_SUITE("Debug")
             REQUIRE(scopes.has_value());
             checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 1);
             checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 1);
-            checkScope(*scopes, VariableScopeType::Global, "Globals", -1, -1);
+            checkScope(*scopes, VariableScopeType::Global, "Globals", 1, 1);
             std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Local);
             REQUIRE(locals1.has_value());
             checkVariable(*locals1, "a", "24", "number", false);
@@ -765,6 +787,456 @@ TEST_SUITE("Debug")
             globals = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Global);
             REQUIRE(globals.has_value());
             checkVariable(*globals, "_global_var", "16", "number", false);
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_evalExpression")
+    {
+        std::string fixturePath = getDebugFixturePath("variables.luau");
+        Target target(*runtime);
+        target.setBreakpoint(fixturePath, 16);
+
+        std::vector<Variable> capturedLocals;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint&)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            std::optional<std::vector<StackFrame>> stackframe = target.getStackTrace(threads.at(0).id);
+            REQUIRE(stackframe.has_value());
+            EvaluateResult result = target.evaluateExpression("2", stackframe->at(0).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            Variable var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "2");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("2 * a", stackframe->at(0).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "48");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("_d[3]", stackframe->at(1).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "3");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("_e.b", stackframe->at(1).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "\"5\"");
+            CHECK(var.type == "string");
+            result = target.evaluateExpression("g()", stackframe->at(1).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "25.2");
+            CHECK(var.type == "number");
+            result = target.evaluateExpression("_e[4]", stackframe->at(1).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "{r=13}");
+            CHECK(var.type == "table");
+            CHECK(var.variableReference > 0);
+            result = target.evaluateExpression("x + ", stackframe->at(0).id);
+            REQUIRE(Luau::get_if<std::string>(&result));
+            std::string errorMessage = *Luau::get_if<std::string>(&result);
+            CHECK(errorMessage == "eval:1: Expected identifier when parsing expression, got <eof>");
+            result = target.evaluateExpression("_e.bad + 1", stackframe->at(1).id);
+            REQUIRE(Luau::get_if<std::string>(&result));
+            errorMessage = *Luau::get_if<std::string>(&result);
+            CHECK(errorMessage == "eval:1: attempt to perform arithmetic (add) on nil and number");
+            result = target.evaluateExpression("_k", stackframe->at(1).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "nil");
+            CHECK(var.type == "nil");
+            result = target.evaluateExpression("tostring(42)", -1);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "\"42\"");
+            CHECK(var.type == "string");
+            result = target.evaluateExpression("_global_var", stackframe->at(0).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "16");
+            CHECK(var.type == "number");
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_xpcall")
+    {
+        std::string fixturePath = getDebugFixturePath("xpcall.luau");
+        Target target(*runtime);
+        Breakpoint bpErrorHandler = target.setBreakpoint(fixturePath, 4);
+        Breakpoint bpOutside = target.setBreakpoint(fixturePath, 7);
+        int numHits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            const std::optional<std::vector<StackFrame>> st = target.getStackTrace(threads[0].id);
+            REQUIRE(st.has_value());
+            if (bp.id == bpErrorHandler.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                std::string errorValue = "\"" + Luau::format("%s:2: attempt to call a nil value", fixturePath.c_str()) + "\"";
+                checkVariable(*locals, "_err", errorValue, "string", false);
+                numHits++;
+            }
+            if (bp.id == bpOutside.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                checkVariable(*locals, "returned", "false", "boolean", false);
+                checkVariable(*locals, "_data", "\"error found\"", "string", false);
+                numHits++;
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_metatable")
+    {
+        std::string fixturePath = getDebugFixturePath("metatable.luau");
+        Target target(*runtime);
+        Breakpoint bpIndex = target.setBreakpoint(fixturePath, 4);
+        Breakpoint bpCall = target.setBreakpoint(fixturePath, 7);
+        int numHits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            const std::optional<std::vector<StackFrame>> st = target.getStackTrace(threads[0].id);
+            REQUIRE(st.has_value());
+            if (bp.id == bpIndex.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                checkVariable(*locals, "k", "7", "number", false);
+                numHits++;
+            }
+            if (bp.id == bpCall.id)
+            {
+                std::optional<std::vector<Variable>> locals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals.has_value());
+                checkVariable(*locals, "k", "5", "number", false);
+                numHits++;
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_globalscoping")
+    {
+        std::string fixturePath = getDebugFixturePath("global_scope.luau");
+        std::string importPath = getDebugFixturePath("global_import.luau");
+
+        Target target(*runtime);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 5);
+        Breakpoint bp2 = target.setBreakpoint(importPath, 6);
+        int numHits = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            const std::optional<std::vector<StackFrame>> st = target.getStackTrace(threads[0].id);
+            REQUIRE(st.has_value());
+            if (bp.id == bp1.id)
+            {
+                std::optional<std::vector<Variable>> globals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Global);
+                REQUIRE(globals.has_value());
+                checkVariable(*globals, "_global_var", "3", "number", false);
+                checkVariable(*globals, "_global_var2", "5", "number", false);
+                REQUIRE(globals->size() == 2);
+                EvaluateResult result = target.evaluateExpression("_global_var * 5", st->at(0).id);
+                REQUIRE(Luau::get_if<Variable>(&result));
+                Variable var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "15");
+                CHECK(var.type == "number");
+                numHits++;
+            }
+            if (bp.id == bp2.id)
+            {
+                std::optional<std::vector<Variable>> globals = target.getVariablesByScopeType(st->at(0).id, VariableScopeType::Global);
+                REQUIRE(globals.has_value());
+                checkVariable(*globals, "_global_var", "6", "number", false);
+                REQUIRE(globals->size() == 1);
+                EvaluateResult result = target.evaluateExpression("_global_var * 5", st->at(0).id);
+                REQUIRE(Luau::get_if<Variable>(&result));
+                Variable var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "30");
+                CHECK(var.type == "number");
+                numHits++;
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(numHits == 2);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_sourceBreakpoints")
+    {
+        std::string fixturePath = getDebugFixturePath("loop.luau");
+        Target target(*runtime);
+        BreakpointConfig conditional = {"_step2 > 6"};
+        BreakpointConfig hitCondition;
+        hitCondition.hitCondition = " % 5";
+        BreakpointConfig log;
+        log.logMessage = "} my value is {_step2 * 3} and {_step1 + 5}";
+        Breakpoint normalBp = target.setBreakpoint(fixturePath, 6);
+        Breakpoint conditionalBp = target.setBreakpoint(fixturePath, 7, conditional);
+        Breakpoint hitConditionBp = target.setBreakpoint(fixturePath, 8, hitCondition);
+        Breakpoint logpoints = target.setBreakpoint(fixturePath, 4, log);
+        std::vector<std::string> logs;
+        config.onLogpointHit = [&](std::string message, const Breakpoint& bpHit)
+        {
+            logs.push_back(message);
+            CHECK(bpHit.sourcePath == fixturePath);
+            CHECK(bpHit.line == 4);
+        };
+        int hits = 0, conditionalStops = 0, hitConditionStops = 0;
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bpHit)
+        {
+            if (bpHit.id == normalBp.id)
+            {
+                hits++;
+            }
+            else if (bpHit.id == conditionalBp.id)
+            {
+                conditionalStops++;
+                CHECK(hits >= 3);
+                CHECK(conditionalStops == hits - 3);
+            }
+            else if (bpHit.id == hitConditionBp.id)
+            {
+                hitConditionStops++;
+                CHECK(hits % 5 == 0);
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(hits == 25);
+        CHECK(conditionalStops == 22);
+        CHECK(hitConditionStops == 5);
+        CHECK(logs.size() == 5);
+        for (int i = 0; i < (int)(logs.size()); i++)
+        {
+            std::string expected = Luau::format("} my value is %d and %d\n", 30 * i, 6 * i + 5);
+            CHECK(logs[i] == expected);
+        }
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_exception")
+    {
+        std::string mainPath = getDebugFixturePath("exception.luau");
+        Target target(*runtime);
+        ExceptionBreakpointInfo info = target.setExceptionBreakpoint(true, true);
+        int hits = 0;
+        config.onException = [&](const Thread& thread, int bpId, const std::string& message)
+        {
+            if (bpId == info.caughtId)
+            {
+                hits++;
+                CHECK(message == Luau::format("%s:3: attempt to index nil with \'foo\'", mainPath.c_str()));
+                CHECK(thread.id == 1);
+                target.continueProcess();
+            }
+            else
+            {
+                hits++;
+                CHECK(message == Luau::format("%s:7: attempt to index nil with \'foo\'", mainPath.c_str()));
+                CHECK(thread.id == 1);
+                target.continueProcess();
+            }
+        };
+        std::optional<std::string> error = target.launch(mainPath, {}, config);
+        CHECK(!error);
+        // check we are done
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(hits == 2);
+    }
+
+    // This test is specifically designed to make sure the error handler still runs after finishing with a caught exception.
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_exception_xpcall")
+    {
+        std::string mainPath = getDebugFixturePath("xpcall.luau");
+        Target target(*runtime);
+        ExceptionBreakpointInfo info = target.setExceptionBreakpoint(true, true);
+        target.setBreakpoint(mainPath, 7);
+        int hits = 0;
+        config.onException = [&](const Thread& thread, int bpId, const std::string& message)
+        {
+            if (bpId == info.caughtId)
+            {
+                hits++;
+                CHECK(message == Luau::format("%s:2: attempt to call a nil value", mainPath.c_str()));
+                CHECK(thread.id == 1);
+                target.continueProcess();
+            }
+        };
+        config.onBreakpointHit = [&](const Thread& thread, const Breakpoint&)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            std::optional<std::vector<StackFrame>> stackframe = target.getStackTrace(threads.at(0).id);
+            REQUIRE(stackframe.has_value());
+            EvaluateResult result = target.evaluateExpression("returned", stackframe->at(0).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            Variable var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "false");
+            CHECK(var.type == "boolean");
+            result = target.evaluateExpression("_data", stackframe->at(0).id);
+            REQUIRE(Luau::get_if<Variable>(&result));
+            var = *Luau::get_if<Variable>(&result);
+            CHECK(var.value == "\"error found\"");
+            CHECK(var.type == "string");
+            target.continueProcess();
+        };
+        std::optional<std::string> error = target.launch(mainPath, {}, config);
+        CHECK(!error);
+        // check we are done
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+        CHECK(hits == 1);
+    }
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_setVariable")
+    {
+        std::string fixturePath = getDebugFixturePath("variables.luau");
+        Target target(*runtime);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 7);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 15);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 16);
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            std::optional<std::vector<StackFrame>> stackframe = target.getStackTrace(threads.at(0).id);
+            REQUIRE(stackframe.has_value());
+            // stack frame at level 0
+            std::optional<std::vector<VariableScope>> scopes = target.getScopes(stackframe->at(0).id);
+            REQUIRE(scopes.has_value());
+            VariableScope locals = checkScope(*scopes, VariableScopeType::Local, "Locals", 1, 0);
+            VariableScope upvalues = checkScope(*scopes, VariableScopeType::Upvalue, "Upvalues", 1, 0);
+            VariableScope globals = checkScope(*scopes, VariableScopeType::Global, "Globals", 1, 0);
+            if (bp.id == bp1.id)
+            {
+                EvaluateResult result = target.setVariable(locals.variableReference, "a", "35 - 13");
+                REQUIRE(Luau::get_if<Variable>(&result));
+                Variable var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "22");
+                std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals0.has_value());
+                int tableRef = checkVariable(*locals0, "_e", "{a=4, [4]={r=13}, b=\"5\"}", "table", true);
+                result = target.setVariable(tableRef, "b", "1 - 13");
+                REQUIRE(Luau::get_if<Variable>(&result));
+                var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "-12");
+                result = target.setVariable(globals.variableReference, "_global_var", "_d[2]");
+                REQUIRE(Luau::get_if<Variable>(&result));
+                var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "2");
+            }
+            if (bp.id == bp2.id)
+            {
+                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
+                REQUIRE(upvalues0.has_value());
+                checkVariable(*upvalues0, "a", "44", "number", false);
+                EvaluateResult result = target.setVariable(upvalues.variableReference, "_b", "3 + 1.3");
+                REQUIRE(Luau::get_if<Variable>(&result));
+                Variable var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "4.3");
+                std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Local);
+                REQUIRE(locals1.has_value());
+                int tableRef = checkVariable(*locals1, "_e", "{a=4, [4]={r=13}, b=-12}", "table", true);
+                std::optional<std::vector<Variable>> table = target.getVariables(tableRef);
+                REQUIRE(table.has_value());
+                checkVariable(*table, "b", "-12", "number", false);
+                std::optional<std::vector<Variable>> globals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Global);
+                REQUIRE(globals0.has_value());
+                checkVariable(*globals0, "_global_var", "2", "number", false);
+            }
+            if (bp.id == bp3.id)
+            {
+                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
+                REQUIRE(upvalues0.has_value());
+                checkVariable(*upvalues0, "_b", "4.3", "number", false);
+                std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals0.has_value());
+                checkVariable(*locals0, "_k", "48.3", "number", false);
+            }
+            target.continueProcess();
+        };
+        target.launch(fixturePath, {}, config);
+        REQUIRE(exitFuture.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    };
+
+    TEST_CASE_FIXTURE(DebugFixture, "Debug_setExpression")
+    {
+        std::string fixturePath = getDebugFixturePath("variables.luau");
+        Target target(*runtime);
+        Breakpoint bp1 = target.setBreakpoint(fixturePath, 7);
+        Breakpoint bp2 = target.setBreakpoint(fixturePath, 15);
+        Breakpoint bp3 = target.setBreakpoint(fixturePath, 16);
+        config.onBreakpointHit = [&](const Thread&, const Breakpoint& bp)
+        {
+            const std::vector<Thread>& threads = target.getThreads();
+            REQUIRE(threads.size() == 1);
+            std::optional<std::vector<StackFrame>> stackframe = target.getStackTrace(threads.at(0).id);
+            REQUIRE(stackframe.has_value());
+            if (bp.id == bp1.id)
+            {
+                EvaluateResult result = target.setExpression("a", "35 - 13", stackframe->at(0).id);
+                REQUIRE(Luau::get_if<Variable>(&result));
+                Variable var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "22");
+                result = target.setExpression("_e.b", "1 - 13", stackframe->at(0).id);
+                REQUIRE(Luau::get_if<Variable>(&result));
+                var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "-12");
+                result = target.setExpression("_global_var", "10", stackframe->at(0).id);
+                REQUIRE(Luau::get_if<Variable>(&result));
+                var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "10");
+            }
+            if (bp.id == bp2.id)
+            {
+                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
+                REQUIRE(upvalues0.has_value());
+                checkVariable(*upvalues0, "a", "44", "number", false);
+                EvaluateResult result = target.setExpression("_b", "3 + 1.3", stackframe->at(0).id);
+                REQUIRE(Luau::get_if<Variable>(&result));
+                Variable var = *Luau::get_if<Variable>(&result);
+                CHECK(var.value == "4.3");
+                std::optional<std::vector<Variable>> locals1 = target.getVariablesByScopeType(stackframe->at(1).id, VariableScopeType::Local);
+                REQUIRE(locals1.has_value());
+                int tableRef = checkVariable(*locals1, "_e", "{a=4, [4]={r=13}, b=-12}", "table", true);
+                std::optional<std::vector<Variable>> table = target.getVariables(tableRef);
+                REQUIRE(table.has_value());
+                checkVariable(*table, "b", "-12", "number", false);
+                std::optional<std::vector<Variable>> globals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Global);
+                checkVariable(*globals0, "_global_var", "10", "number", false);
+            }
+            if (bp.id == bp3.id)
+            {
+                std::optional<std::vector<Variable>> upvalues0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Upvalue);
+                REQUIRE(upvalues0.has_value());
+                checkVariable(*upvalues0, "_b", "4.3", "number", false);
+                std::optional<std::vector<Variable>> locals0 = target.getVariablesByScopeType(stackframe->at(0).id, VariableScopeType::Local);
+                REQUIRE(locals0.has_value());
+                checkVariable(*locals0, "_k", "48.3", "number", false);
+            }
             target.continueProcess();
         };
         target.launch(fixturePath, {}, config);

@@ -9,6 +9,7 @@
 #include "Luau/DenseHash.h"
 #include "Luau/FileUtils.h"
 #include "Luau/StringUtils.h"
+#include "Luau/Variant.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -27,10 +28,13 @@
 
 namespace debug
 {
-Breakpoint::Breakpoint(int id, std::string sourcePath, int line, BreakpointStatus status)
+Breakpoint::Breakpoint(int id, std::string sourcePath, int line, BreakpointConfig config, BreakpointStatus status)
     : id(id)
     , sourcePath(sourcePath)
     , line(line)
+    , condition(config.condition)
+    , hitCondition(config.hitCondition)
+    , logMessage(config.logMessage)
     , status(status)
 {
 }
@@ -58,27 +62,38 @@ VariableScope::VariableScope(int variableReference, VariableScopeType type, std:
 
 VariableScope VariableScope::makeLocals(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Local, "Locals", threadId, level, -1);
+    return VariableScope{variableReference, VariableScopeType::Local, "Locals", threadId, level, -1};
 }
 
 VariableScope VariableScope::makeUpvalues(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Upvalue, "Upvalues", threadId, level, -1);
+    return VariableScope{variableReference, VariableScopeType::Upvalue, "Upvalues", threadId, level, -1};
 }
 
-VariableScope VariableScope::makeGlobals(int variableReference)
+VariableScope VariableScope::makeGlobals(int variableReference, int threadId, int level)
 {
-    return VariableScope(variableReference, VariableScopeType::Global, "Globals", -1, -1, -1);
+    return VariableScope(variableReference, VariableScopeType::Global, "Globals", threadId, level, -1);
 }
 
-VariableScope VariableScope::makeTable(int variableReference, int luaref)
+VariableScope VariableScope::makeTable(int variableReference, int threadId, int level, int luaref)
 {
-    return VariableScope(variableReference, VariableScopeType::Table, "Table", -1, -1, luaref);
+    return VariableScope(variableReference, VariableScopeType::Table, "Table", threadId, level, luaref);
+}
+
+bool Variable::isTruthy()
+{
+    return value != "false" && value != "nil";
+}
+
+ExceptionBreakpointInfo::ExceptionBreakpointInfo(bool uncaughtExceptions, bool caughtExceptions)
+    : uncaughtExceptions(uncaughtExceptions)
+    , caughtExceptions(caughtExceptions)
+{
 }
 
 Target::Target(Runtime& parentRuntime)
     : parentRuntime(parentRuntime)
-    , loadedSources("")
+    , exceptionBpInfo(false, false)
 {
 }
 
@@ -118,7 +133,7 @@ static std::string getSourceFromChunk(const std::string& chunkname)
     return chunkname;
 }
 
-Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
+Breakpoint Target::setBreakpoint(std::string sourcePath, int line, BreakpointConfig config)
 {
     std::unique_lock lock(targetMutex);
     sourcePath = normalizePath(sourcePath);
@@ -127,7 +142,7 @@ Breakpoint Target::setBreakpoint(std::string sourcePath, int line)
         return *preexistingBp;
     int id = currentBreakpointId;
     currentBreakpointId++;
-    auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint{id, sourcePath, line, BreakpointStatus::PendingInstall});
+    auto [it, _] = breakpoints.insert_or_assign(id, Breakpoint{id, sourcePath, line, config, BreakpointStatus::PendingInstall});
     // We schedule breakpoint installs to happen when the runtime exists and we are paused. Otherwise,
     // they are scheduled for pending installs.
     if (childRuntime && paused)
@@ -330,6 +345,13 @@ std::pair<std::vector<Breakpoint>, std::vector<Breakpoint>> Target::modifyPendin
     return {installedBpsCallback, uninstalledBpsCallback};
 }
 
+ExceptionBreakpointInfo Target::setExceptionBreakpoint(bool uncaught, bool caught)
+{
+    exceptionBpInfo.uncaughtExceptions = uncaught;
+    exceptionBpInfo.caughtExceptions = caught;
+    return exceptionBpInfo;
+}
+
 std::vector<std::string> Target::getLoadedSources()
 {
     std::unique_lock lock(targetMutex);
@@ -361,6 +383,57 @@ void Target::computeStoppedLocation(lua_State* L)
         stoppedLocation = "";
 }
 
+void Target::unsetStoppedLocation()
+{
+    stoppedLine = -1;
+    stoppedPc = nullptr;
+    stoppedLocation = "";
+}
+
+void Target::stoppedSetState(lua_State* L, StopYieldMode yieldMode)
+{
+    paused = true;
+    childRuntime->stopDebug();
+    computeStoppedLocation(L);
+    stoppedThread = L;
+    stoppedThreadRef = getRefForThread(L);
+    stepInfo = std::nullopt;
+    // Clear out stepping and pausing when this happens.
+    lua_callbacks(L)->debugstep = nullptr;
+    lua_callbacks(L)->interrupt = nullptr;
+    // When in a yieldable state, we call lua_break to notify the runtime
+    // to yield our current thread of execution and then stop running further coroutines in the runtime.
+    // Otherwise, in a nonyieldable state, we simply set stoppedNoYield to be true. This
+    // will later force us to wait on a condition variable, preventing execution from continuing in our
+    // current coroutine.
+    if (yieldMode == StopYieldMode::Neither)
+        return;
+
+    if (lua_isyieldable(L) && yieldMode != StopYieldMode::ForceNoYield)
+        lua_break(L);
+    else
+        stoppedNoYield = true;
+}
+
+void Target::stoppedDispatchCallback(std::function<void()> debugStopCallback)
+{
+    if (!stoppedNoYield)
+    {
+        // In a yieldable state, we add a pending callback that the runtime runs
+        // only after runOnce() returns. Thus, it is guaranteed that the entire runtime is paused.
+        // If we call immediately, the debuggee coroutine still needs to unwind and is still running
+        // leading to possible race conditons.
+        childRuntime->pendingDebugStopNotification = std::move(debugStopCallback);
+    }
+    else
+    {
+        // We are already inside the debug hook so the runtime cannot run any other code during this time.
+        // We can thus run the callbacks inline and then block here until continued.
+        debugStopCallback();
+        childRuntime->waitForDebugContinue();
+    }
+}
+
 std::optional<std::string> Target::launch(std::string sourcePath, const std::vector<std::string>& args, LaunchConfig config)
 {
     std::vector<Breakpoint> installedBps;
@@ -376,11 +449,13 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
         childRuntime = std::make_unique<Runtime>(parentRuntime.reporter, true);
         // Set up require system before launch.
         Luau::CompileOptions debugOptions;
-        debugOptions.optimizationLevel = 1;
+        debugOptions.optimizationLevel = 0;
         debugOptions.debugLevel = 2;
         std::function<void(lua_State * L, const std::string& chunkName)> onChunkLoad = [this](lua_State* ML, const std::string& chunkName)
         {
             std::string source = getSourceFromChunk(chunkName);
+            if (launchConfig.onSourceLoad)
+                launchConfig.onSourceLoad(source);
             std::vector<Breakpoint> installed;
             std::vector<Breakpoint> uninstalled;
             {
@@ -427,14 +502,20 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
             childRuntime.reset();
             return error;
         }
+        paused = false;
+        launched = true;
+        parentRuntime.numLaunchedDebuggees++;
+
         loadedSources[sourcePath] = std::make_shared<Ref>(thread, -1);
+        if (launchConfig.onSourceLoad)
+            launchConfig.onSourceLoad(sourcePath);
 
         std::tie(installedBps, uninstalledBps) = modifyPendingBreakpoints(thread);
         for (const std::string& arg : args)
             lua_pushstring(thread, arg.c_str());
         // thread initialization
         threadIdToState.insert_or_assign(threadId, thread);
-        stateToThread.insert_or_assign(thread, Thread(threadId, "Main Coroutine"));
+        stateToThread.insert_or_assign(thread, Thread{threadId, "Main Coroutine"});
         threadId++;
 
         scriptThread = thread;
@@ -446,12 +527,10 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
         installBpHitCallback();
         installExitCallback();
         installThreadCallback();
+        installExceptionCallback();
 
         // All VM setup happens synchronously before runContinuously starts the background thread.
         // The no-op schedule wakes the event loop so it picks up the queued thread.
-        paused = false;
-        launched = true;
-        parentRuntime.numLaunchedDebuggees++;
         childRuntime->schedule([]() {});
         childRuntime->runContinuously();
     }
@@ -460,6 +539,91 @@ std::optional<std::string> Target::launch(std::string sourcePath, const std::vec
     for (auto& bp : uninstalledBps)
         launchConfig.onBreakpointUninstall(bp);
     return std::nullopt;
+}
+
+std::string convertHitConditionToExpression(int hitCount, std::string hitExpression)
+{
+    size_t start = hitExpression.find_first_not_of(" \t");
+    if (start == std::string::npos)
+        return "true";
+    hitExpression = hitExpression.substr(start);
+    size_t end = hitExpression.find_last_not_of(" \t");
+    hitExpression = hitExpression.substr(0, end + 1);
+    std::string hitString = std::to_string(hitCount);
+    if (std::all_of(hitExpression.begin(), hitExpression.end(), ::isdigit))
+        return hitString + " == " + hitExpression;
+    if (hitExpression.size() > 0 && hitExpression[0] == '%')
+    {
+        size_t digitsStart = hitExpression.find_first_not_of(" \t", 1);
+        if (digitsStart != std::string::npos)
+        {
+            std::string digits = hitExpression.substr(digitsStart);
+            if (!digits.empty() && std::all_of(digits.begin(), digits.end(), ::isdigit))
+                return hitString + "%" + digits + " == 0";
+        }
+    }
+    return hitString + hitExpression;
+}
+
+bool Target::evaluateBpCondition(lua_State* L, const Breakpoint& bp)
+{
+    EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + bp.condition);
+    if (Luau::get_if<std::string>(&result))
+    {
+        parentRuntime.reporter.reportError(
+            Luau::format("cannot evaluate breakpoint condition %s at line %d in %s", bp.condition.c_str(), bp.line, bp.sourcePath.c_str())
+        );
+        return false;
+    }
+    Variable var = *Luau::get_if<Variable>(&result);
+    return var.isTruthy();
+}
+
+bool Target::evaluateBpHitCondition(lua_State* L, const Breakpoint& bp)
+{
+    std::string hitExpression = convertHitConditionToExpression(bp.hitCount, bp.hitCondition);
+    EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + hitExpression);
+    if (Luau::get_if<std::string>(&result))
+    {
+        parentRuntime.reporter.reportError(
+            Luau::format(
+                "cannot evaluate breakpoint hit condition %s with %d hits at line %d in %s",
+                bp.hitCondition.c_str(),
+                bp.hitCount,
+                bp.line,
+                bp.sourcePath.c_str()
+            )
+        );
+        return false;
+    }
+    Variable var = *Luau::get_if<Variable>(&result);
+    return var.isTruthy();
+}
+
+std::string Target::evaluateLogMessage(lua_State* L, const Breakpoint& bp)
+{
+    std::string logMessage = bp.logMessage;
+    size_t start;
+    while ((start = logMessage.find('{')) != std::string::npos)
+    {
+        size_t end = logMessage.find('}', start);
+        if (end == std::string::npos)
+        {
+            break;
+        }
+        std::string interpolateExpr = logMessage.substr(start + 1, end - start - 1);
+        EvaluateResult result = evaluateExpressionHelper(L, 0, "return " + interpolateExpr);
+        if (Luau::get_if<std::string>(&result))
+        {
+            parentRuntime.reporter.reportError(
+                Luau::format("cannot evaluate log point message %s at line %d in %s", logMessage.c_str(), bp.line, bp.sourcePath.c_str())
+            );
+            return logMessage;
+        }
+        Variable var = *Luau::get_if<Variable>(&result);
+        logMessage.replace(start, end - start + 1, var.value);
+    }
+    return logMessage + '\n';
 }
 
 void Target::installBpHitCallback()
@@ -489,24 +653,46 @@ void Target::installBpHitCallback()
         // Only stop execution on installed breakpoints; otherwise, don't stop.
         if (bp && bp->status == BreakpointStatus::Installed)
         {
-            target->bpHit = *bp;
-            target->paused = true;
-            target->childRuntime->stopDebug();
+            target->breakpoints.at(bp->id).hitCount++;
+            bp->hitCount = target->breakpoints.at(bp->id).hitCount;
+            // We need to compute locations here for accurate evaluation.
             target->computeStoppedLocation(L);
-            target->stoppedThread = L;
-            target->stoppedThreadRef = getRefForThread(L);
-            // Clear out stepping when this happens.
-            lua_callbacks(L)->debugstep = nullptr;
-            lua_break(L);
+            if (bp->condition != "" && !target->evaluateBpCondition(L, *bp))
+            {
+                target->unsetStoppedLocation();
+                return;
+            }
+            if (bp->hitCondition != "" && !target->evaluateBpHitCondition(L, *bp))
+            {
+                target->unsetStoppedLocation();
+                return;
+            }
+            if (bp->logMessage != "")
+            {
+                target->unsetStoppedLocation();
+                lock.unlock();
+                std::string message = target->evaluateLogMessage(L, *bp);
+                if (target->launchConfig.onLogpointHit)
+                    target->launchConfig.onLogpointHit(message, bp.value());
+                return;
+            }
+            target->bpHit = *bp;
+            target->stoppedSetState(L);
             auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-            debug::Thread thread = target->stateToThread.at(L);
+            Thread thread = target->stateToThread.at(L);
             lock.unlock();
-            if (target->launchConfig.onBreakpointHit)
-                target->launchConfig.onBreakpointHit(thread, bp.value());
-            for (auto& bp : installed)
-                target->launchConfig.onBreakpointInstall(bp);
-            for (auto& bp : uninstalled)
-                target->launchConfig.onBreakpointUninstall(bp);
+            // these are our callbacks to we wish to run to notify the Target's client that we are stopped
+            target->stoppedDispatchCallback(
+                [target, thread, hitBp = bp.value(), installed = std::move(installed), uninstalled = std::move(uninstalled)]()
+                {
+                    if (target->launchConfig.onBreakpointHit)
+                        target->launchConfig.onBreakpointHit(thread, hitBp);
+                    for (auto& bp : installed)
+                        target->launchConfig.onBreakpointInstall(bp);
+                    for (auto& bp : uninstalled)
+                        target->launchConfig.onBreakpointUninstall(bp);
+                }
+            );
         }
         else if (!bp || bp->status != BreakpointStatus::PendingUninstall)
         {
@@ -573,7 +759,7 @@ void Target::installThreadCallback()
         // this means a thread is being garbage collected
         if (LP == nullptr)
         {
-
+            // we can have unregistered threads such as eval threads that still get GC'ed.
             if (auto it = target->stateToThread.find(L); it != target->stateToThread.end())
             {
                 int id = it->second.id;
@@ -583,17 +769,77 @@ void Target::installThreadCallback()
                     target->parentRuntime.reporter.reportError(Luau::format("userthread callback fired for unregistered thread id %d", id));
                 }
             }
-            else
-            {
-                target->parentRuntime.reporter.reportError(Luau::format("userthread callback fired for unregistered lua_State* %p", (void*)L));
-            }
         }
         else
         {
             target->threadIdToState.insert_or_assign(target->threadId, L);
-            target->stateToThread.insert_or_assign(L, Thread(target->threadId, "Coroutine " + std::to_string(target->threadId)));
+            target->stateToThread.insert_or_assign(L, Thread{target->threadId, "Coroutine " + std::to_string(target->threadId)});
             target->threadId++;
         }
+    };
+}
+
+void Target::installExceptionCallback()
+{
+    // uncaught errors are (unlike any other debug callbacks) handled by the runtime
+    // when it detects that we've encountered a runtime error.
+    childRuntime->onUncaughtError = [](lua_State* L)
+    {
+        auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
+        std::unique_lock lock(target->targetMutex);
+        if (!target->exceptionBpInfo.uncaughtExceptions)
+            return false;
+        // we don't need to perform any stopping here because are coroutine is already unwound and finished.
+        // the only thing we want to do is to stop running of turue coroutines with stopDebug().
+        target->stoppedSetState(L, StopYieldMode::Neither);
+        target->stoppedUncaughtException = true;
+        Thread thread = target->stateToThread.at(L);
+        const char* s = luaL_tolstring(L, -1, nullptr);
+        std::string errorMessage = s ? s : "unknown error";
+        lua_pop(L, 1);
+        auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
+        lock.unlock();
+        target->stoppedDispatchCallback(
+            [target, thread, installed = std::move(installed), uninstalled = std::move(uninstalled), errorMessage]()
+            {
+                if (target->launchConfig.onException)
+                    target->launchConfig.onException(thread, target->exceptionBpInfo.uncaughtId, errorMessage);
+                for (auto& bp : installed)
+                    target->launchConfig.onBreakpointInstall(bp);
+                for (auto& bp : uninstalled)
+                    target->launchConfig.onBreakpointUninstall(bp);
+            }
+        );
+        return true;
+    };
+    lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
+    // for caught exceptions:
+    cb->debugprotectederror = [](lua_State* L)
+    {
+        auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
+        std::unique_lock lock(target->targetMutex);
+        if (!target->exceptionBpInfo.caughtExceptions)
+            return;
+        // We force into the no yield state. Otherwise, if we yield the thread,
+        // we drop any potential error handlers that could be assosciated with an xpcall.
+        target->stoppedSetState(L, StopYieldMode::ForceNoYield);
+        Thread thread = target->stateToThread.at(L);
+        const char* s = luaL_tolstring(L, -1, nullptr);
+        std::string errorMessage = s ? s : "unknown error";
+        lua_pop(L, 1);
+        auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
+        lock.unlock();
+        target->stoppedDispatchCallback(
+            [target, thread, installed = std::move(installed), uninstalled = std::move(uninstalled), errorMessage]()
+            {
+                if (target->launchConfig.onException)
+                    target->launchConfig.onException(thread, target->exceptionBpInfo.caughtId, errorMessage);
+                for (auto& bp : installed)
+                    target->launchConfig.onBreakpointInstall(bp);
+                for (auto& bp : uninstalled)
+                    target->launchConfig.onBreakpointUninstall(bp);
+            }
+        );
     };
 }
 
@@ -620,7 +866,7 @@ std::vector<Thread> Target::getThreads() const
     std::vector<Thread> result;
     for (auto& [L, thread] : stateToThread)
     {
-        if (lua_costatus(childRuntime->GL, L) != LUA_COFIN && lua_costatus(childRuntime->GL, L) != LUA_COERR)
+        if (L == stoppedThread || (lua_costatus(childRuntime->GL, L) != LUA_COFIN && lua_costatus(childRuntime->GL, L) != LUA_COERR))
             result.emplace_back(thread);
     }
     return result;
@@ -728,18 +974,10 @@ std::optional<std::vector<VariableScope>> Target::getScopesHelper(int threadId, 
     variableContexts.insert_or_assign(variableRefId, upvalues);
     variableRefId++;
     contexts.emplace_back(upvalues);
-    if (globalVariableRef)
-    {
-        contexts.emplace_back(variableContexts.at(*globalVariableRef));
-    }
-    else
-    {
-        VariableScope globals = VariableScope::makeGlobals(variableRefId);
-        variableContexts.insert_or_assign(variableRefId, globals);
-        globalVariableRef = variableRefId;
-        variableRefId++;
-        contexts.emplace_back(globals);
-    }
+    VariableScope globals = VariableScope::makeGlobals(variableRefId, threadId, level);
+    variableContexts.insert_or_assign(variableRefId, globals);
+    variableRefId++;
+    contexts.emplace_back(globals);
     scopeCache[frame->id] = contexts;
     return contexts;
 }
@@ -747,7 +985,7 @@ std::optional<std::vector<VariableScope>> Target::getScopesHelper(int threadId, 
 std::optional<std::vector<VariableScope>> Target::getScopes(int frameId)
 {
     std::unique_lock lock(targetMutex);
-    if (!paused)
+    if (!launched || !paused)
         return std::nullopt;
     auto it = idToStackFrameInfo.find(frameId);
     if (it == idToStackFrameInfo.end())
@@ -871,48 +1109,58 @@ static std::string printTable(lua_State* L, int idx, int levelsToPrint)
     return result + "}";
 }
 
-Variable Target::makeVariable(lua_State* L, const std::string& name)
+Variable Target::makeVariable(lua_State* L, int stackSlot, const std::string& name, int parentRef)
 {
     Variable var;
     var.name = name;
-    var.type = lua_typename(L, lua_type(L, -1));
-    switch (lua_type(L, -1))
+    var.type = lua_typename(L, lua_type(L, stackSlot));
+    switch (lua_type(L, stackSlot))
     {
     case LUA_TNUMBER:
     {
-        var.value = convertNumberToString(L, -1);
+        var.value = convertNumberToString(L, stackSlot);
         break;
     }
     case LUA_TSTRING:
-        var.value = "\"" + escapeString(std::string(lua_tostring(L, -1))) + "\"";
+        var.value = "\"" + escapeString(std::string(lua_tostring(L, stackSlot))) + "\"";
         break;
     case LUA_TBOOLEAN:
-        var.value = lua_toboolean(L, -1) ? "true" : "false";
+        var.value = lua_toboolean(L, stackSlot) ? "true" : "false";
         break;
     case LUA_TTABLE:
     {
-        var.value = printTable(L, -1, 2);
+        var.value = printTable(L, stackSlot, 2);
         var.variableReference = variableRefId;
-        lua_pushvalue(L, -1);
+        lua_pushvalue(L, stackSlot);
         int ref = lua_ref(L, -1);
         lua_pop(L, 1);
-        variableContexts.insert_or_assign(variableRefId, VariableScope::makeTable(variableRefId, ref));
+        int threadId = -1, level = -1;
+        if (parentRef != -1)
+        {
+            VariableScope scope = variableContexts.at(parentRef);
+            threadId = scope.threadId;
+            level = scope.level;
+        }
+        variableContexts.insert_or_assign(variableRefId, VariableScope::makeTable(variableRefId, threadId, level, ref));
         variableRefId++;
         break;
     }
     default:
-        var.value = lua_typename(L, lua_type(L, -1));
+        var.value = lua_typename(L, lua_type(L, stackSlot));
         break;
     }
     return var;
 }
 
-std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
+
+// The visit function should return false when it's time to stop visiting. Additionally, the variable is pushed onto the top of the
+// stack per iteration. It is the job of the visit function to deal with this pushed value as it wants.
+void Target::forEachLocal(lua_State* L, int level, const std::function<bool(const std::string& name, int n)>& visit)
 {
     // when hitting a bp we try to re-enter
     bool fixedSavedpc = false;
     const Instruction* original = L->ci->savedpc;
-    if (level == 0 && L == stoppedThread)
+    if (level == 0 && !stoppedNoYield && L == stoppedThread)
     {
         L->ci->savedpc = stoppedPc;
         fixedSavedpc = true;
@@ -922,38 +1170,74 @@ std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level)
     std::vector<Variable> vars;
     while ((name = lua_getlocal(L, level, n)) != nullptr)
     {
-        vars.emplace_back(makeVariable(L, name));
-        lua_pop(L, 1);
+        if (!visit(name, n))
+            break;
         n++;
     }
     if (fixedSavedpc)
         L->ci->savedpc = original;
-    return vars;
 }
 
-std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level)
+// See above documentation for forEachLocal.
+void Target::forEachUpvalue(lua_State* L, int level, const std::function<bool(const std::string& name, int n)>& visit)
 {
-    std::vector<Variable> vars;
     lua_Debug ar = {};
-    lua_getinfo(L, level, "f", &ar);
+    if (lua_getinfo(L, level, "f", &ar) == 0)
+        return;
     int n = 1;
     const char* name;
     while ((name = lua_getupvalue(L, -1, n)) != nullptr)
     {
-        vars.emplace_back(makeVariable(L, name));
-        lua_pop(L, 1);
+        if (!visit(name, n))
+            break;
         n++;
     }
     lua_pop(L, 1);
+}
+
+std::vector<Variable> Target::getLocalsHelper(lua_State* L, int level, int parentRef)
+{
+    std::vector<Variable> vars;
+    forEachLocal(
+        L,
+        level,
+        [&](const std::string& name, int) -> bool
+        {
+            vars.emplace_back(makeVariable(L, -1, name, parentRef));
+            lua_pop(L, 1);
+            return true;
+        }
+    );
     return vars;
 }
 
-std::vector<Variable> Target::getGlobalsHelper()
+std::vector<Variable> Target::getUpvaluesHelper(lua_State* L, int level, int parentRef)
 {
-    return getTableHelper(scriptThread, LUA_GLOBALSINDEX);
+    std::vector<Variable> vars;
+    forEachUpvalue(
+        L,
+        level,
+        [&](const std::string& name, int) -> bool
+        {
+            vars.emplace_back(makeVariable(L, -1, name, parentRef));
+            lua_pop(L, 1);
+            return true;
+        }
+    );
+    return vars;
 }
 
-std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
+std::vector<Variable> Target::getGlobalsHelper(lua_State* L, int level, int parentRef)
+{
+    lua_Debug ar = {};
+    lua_getinfo(L, level, "f", &ar);
+    lua_getfenv(L, -1);
+    std::vector<Variable> vars = getTableHelper(L, -1, parentRef);
+    lua_pop(L, 2);
+    return vars;
+}
+
+std::vector<Variable> Target::getTableHelper(lua_State* L, int idx, int parentRef)
 {
     std::vector<Variable> vars;
     int absoluteIndex = lua_absindex(L, idx);
@@ -961,7 +1245,7 @@ std::vector<Variable> Target::getTableHelper(lua_State* L, int idx)
     while (lua_next(L, absoluteIndex))
     {
         std::string key = getKeyFromTableType(L);
-        vars.emplace_back(makeVariable(L, key));
+        vars.emplace_back(makeVariable(L, -1, key, parentRef));
         lua_pop(L, 1);
     }
     return vars;
@@ -978,20 +1262,20 @@ std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
     std::vector<Variable> vars;
     if (context.type == VariableScopeType::Local)
     {
-        vars = getLocalsHelper(threadIdToState.at(context.threadId), context.level);
+        vars = getLocalsHelper(threadIdToState.at(context.threadId), context.level, varRef);
     }
     else if (context.type == VariableScopeType::Upvalue)
     {
-        vars = getUpvaluesHelper(threadIdToState.at(context.threadId), context.level);
+        vars = getUpvaluesHelper(threadIdToState.at(context.threadId), context.level, varRef);
     }
     else if (context.type == VariableScopeType::Global)
     {
-        vars = getGlobalsHelper();
+        vars = getGlobalsHelper(threadIdToState.at(context.threadId), context.level, varRef);
     }
     else
     {
         lua_rawgeti(childRuntime->GL, LUA_REGISTRYINDEX, context.luaref);
-        vars = getTableHelper(childRuntime->GL, -1);
+        vars = getTableHelper(childRuntime->GL, -1, varRef);
         lua_pop(childRuntime->GL, 1);
     }
     variableCache[varRef] = vars;
@@ -1001,17 +1285,15 @@ std::optional<std::vector<Variable>> Target::getVariablesHelper(int varRef)
 std::optional<std::vector<Variable>> Target::getVariables(int varRef)
 {
     std::unique_lock lock(targetMutex);
-    if (!paused)
-    {
+    if (!launched || !paused)
         return std::nullopt;
-    }
     return getVariablesHelper(varRef);
 }
 
 std::optional<std::vector<Variable>> Target::getVariablesByScopeType(int frameId, VariableScopeType contextType)
 {
     std::unique_lock lock(targetMutex);
-    if (!paused)
+    if (!launched || !paused)
         return std::nullopt;
     auto stackFrame = idToStackFrameInfo.find(frameId);
     if (stackFrame == idToStackFrameInfo.end())
@@ -1035,6 +1317,352 @@ std::optional<std::vector<Variable>> Target::getVariablesByScopeType(int frameId
     return getVariablesHelper(it->variableReference);
 }
 
+void Target::injectLocals(lua_State* L, int level, lua_State* eval, int evalTableIndex)
+{
+    forEachLocal(
+        L,
+        level,
+        [&](std::string name, int) -> bool
+        {
+            lua_xmove(L, eval, 1);
+            lua_setfield(eval, evalTableIndex, name.c_str());
+            return true;
+        }
+    );
+}
+
+void Target::injectUpvalues(lua_State* L, int level, lua_State* eval, int evalTableIndex)
+{
+    forEachUpvalue(
+        L,
+        level,
+        [&](std::string name, int) -> bool
+        {
+            lua_xmove(L, eval, 1);
+            lua_setfield(eval, evalTableIndex, name.c_str());
+            return true;
+        }
+    );
+}
+
+EvaluateMultiResult Target::evaluateExpressionMultiHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread)
+{
+    // this guards against leaving the evalthread on the global thread of the child runtime.
+    struct StackGuard
+    {
+        lua_State* L;
+        ~StackGuard()
+        {
+            lua_pop(L, 1);
+        }
+    };
+    // we 1) don't want to register the eval thread to stop re-entrancy on the mutex (and to not have floating threads on the screen)
+    // and consequently 2) don't want to run gc during evaluation.
+    struct CallbackGuard
+    {
+        lua_State* global;
+        lua_Callbacks* cb;
+        decltype(cb->userthread) savedUserthread;
+        explicit CallbackGuard(lua_State* global)
+            : global(global)
+            , cb(lua_callbacks(global))
+            , savedUserthread(cb->userthread)
+        {
+            lua_gc(global, LUA_GCSTOP, 0);
+            cb->userthread = nullptr;
+        }
+        ~CallbackGuard()
+        {
+            cb->userthread = savedUserthread;
+            lua_gc(global, LUA_GCRESTART, 0);
+        }
+    };
+    Luau::CompileOptions debugOptions;
+    debugOptions.optimizationLevel = 0;
+    debugOptions.debugLevel = 2;
+    std::string bytecode = Luau::compile(expression, debugOptions);
+    CallbackGuard callbackGuard(childRuntime->GL);
+    lua_State* evalThread = lua_newthread(childRuntime->GL);
+    StackGuard stackGuard{childRuntime->GL};
+    luaL_sandboxthread(evalThread);
+    // sets the previous global table is the top most scope of all variables
+    lua_newtable(evalThread);
+    lua_newtable(evalThread);
+    if (contextThread != nullptr)
+    {
+        // use the fenv of the frame being evaluated as the top most scope
+        lua_Debug ar = {};
+        lua_getinfo(contextThread, contextLevel, "f", &ar);
+        lua_getfenv(contextThread, -1);
+        lua_xmove(contextThread, evalThread, 1);
+        lua_pop(contextThread, 1);
+    }
+    else
+    {
+        // fall back to the main script thread's globals if in global context
+        lua_pushvalue(scriptThread, LUA_GLOBALSINDEX);
+        lua_xmove(scriptThread, evalThread, 1);
+    }
+    lua_setfield(evalThread, 2, "__index");
+    lua_setmetatable(evalThread, 1);
+    // inject locals + upvalues
+    if (contextThread != nullptr)
+    {
+        injectUpvalues(contextThread, contextLevel, evalThread, 1);
+        injectLocals(contextThread, contextLevel, evalThread, 1);
+    }
+    lua_replace(evalThread, LUA_GLOBALSINDEX);
+    if (luau_load(evalThread, "=eval", bytecode.c_str(), bytecode.size(), 0) != 0)
+    {
+        std::string error = lua_tostring(evalThread, -1);
+        return error;
+    }
+    lua_Callbacks* cb = lua_callbacks(childRuntime->GL);
+    auto savedBreak = cb->debugbreak;
+    cb->debugbreak = nullptr;
+    int status = lua_resume(evalThread, nullptr, 0);
+    cb->debugbreak = savedBreak;
+    if (status != LUA_OK)
+    {
+        const char* err = lua_tostring(evalThread, -1);
+        return std::string(err ? err : "runtime error");
+    }
+    int numReturned = lua_gettop(evalThread);
+    std::vector<Variable> vars;
+    for (int i = numReturned; i >= 1; i--)
+        vars.push_back(makeVariable(evalThread, -1 * i, expression, -1));
+    if (moveThread != nullptr)
+        lua_xmove(evalThread, moveThread, numReturned);
+    return vars;
+}
+
+// a version that returns only one variable
+EvaluateResult Target::evaluateExpressionHelper(lua_State* contextThread, int contextLevel, std::string expression, lua_State* moveThread)
+{
+    EvaluateMultiResult result = evaluateExpressionMultiHelper(contextThread, contextLevel, expression, moveThread);
+    if (std::string* err = Luau::get_if<std::string>(&result))
+        return *err;
+    std::vector<Variable> vars = *Luau::get_if<std::vector<Variable>>(&result);
+    if (vars.size() != 1)
+    {
+        if (moveThread != nullptr)
+            lua_pop(moveThread, (int)vars.size());
+        return Luau::format("expression %s evaluates to %d values not 1", expression.c_str(), (int)(vars.size()));
+    }
+    return vars.at(0);
+}
+
+EvaluateResult Target::evaluateExpression(std::string expression, int frameId)
+{
+    std::unique_lock lock(targetMutex);
+    if (!launched)
+        return std::string("target was not launched");
+    if (!paused)
+        return std::string("target was not paused");
+    lua_State* thread = nullptr;
+    int level = -1;
+    if (frameId != -1)
+    {
+        auto it = idToStackFrameInfo.find(frameId);
+        if (it == idToStackFrameInfo.end())
+            return std::string("frame was not found");
+        auto [threadId, threadLevel] = it->second;
+        thread = threadIdToState.at(threadId);
+        level = threadLevel;
+    }
+    return evaluateExpressionHelper(thread, level, "return " + expression);
+}
+
+EvaluateResult Target::setLocalHelper(lua_State* L, int contextLevel, std::string setName, std::string value)
+{
+    EvaluateResult result = std::string("variable not found");
+    forEachLocal(
+        L,
+        contextLevel,
+        [&](std::string name, int n) -> bool
+        {
+            lua_pop(L, 1);
+            if (name != setName)
+                return true;
+            EvaluateResult var = evaluateExpressionHelper(L, contextLevel, "return " + value, L);
+            if (Luau::get_if<Variable>(&var))
+                lua_setlocal(L, contextLevel, n);
+            variableCache.clear();
+            result = var;
+            return false;
+        }
+    );
+    return result;
+}
+
+EvaluateResult Target::setUpvalueHelper(lua_State* L, int contextLevel, std::string setName, std::string value)
+{
+    EvaluateResult result = std::string("variable not found");
+    forEachUpvalue(
+        L,
+        contextLevel,
+        [&](std::string name, int n) -> bool
+        {
+            lua_pop(L, 1);
+            if (name != setName)
+                return true;
+            EvaluateResult var = evaluateExpressionHelper(L, contextLevel, "return " + value, L);
+            if (Luau::get_if<Variable>(&var))
+                lua_setupvalue(L, -2, n);
+            variableCache.clear();
+            result = var;
+            return false;
+        }
+    );
+    return result;
+}
+
+void pushTableKeyToFind(lua_State* L, std::string varName)
+{
+    if (varName.size() >= 2 && varName[0] == '[' && varName[varName.size() - 1] == ']')
+    {
+        varName = varName.substr(1, varName.size() - 2);
+    }
+    if (varName == "true" || varName == "false")
+    {
+        lua_pushboolean(L, varName == "true");
+    }
+    else
+    {
+        char* end = nullptr;
+        long long i = std::strtoll(varName.c_str(), &end, 10);
+        bool isInteger = !varName.empty() && end == varName.c_str() + varName.size();
+        if (isInteger)
+        {
+            lua_pushinteger(L, i);
+            return;
+        }
+        double d = std::strtod(varName.c_str(), &end);
+        bool isDouble = !varName.empty() && end == varName.c_str() + varName.size();
+        if (isDouble)
+        {
+            lua_pushnumber(L, d);
+            return;
+        }
+        lua_pushstring(L, varName.c_str());
+    }
+}
+
+EvaluateResult Target::setTableEntryHelper(lua_State* L, int tableIdx, int evalLevel, std::string varName, std::string setExpression)
+{
+    pushTableKeyToFind(L, varName);
+    lua_rawget(L, tableIdx);
+    bool exists = !lua_isnil(L, -1);
+    lua_pop(L, 1);
+    if (!exists)
+    {
+        return std::string("variable not found");
+    }
+    pushTableKeyToFind(L, varName);
+    EvaluateResult var = evaluateExpressionHelper(L, evalLevel, "return " + setExpression, L);
+    if (Luau::get_if<std::string>(&var))
+    {
+        lua_pop(L, 1);
+        return var;
+    }
+    lua_rawset(L, tableIdx);
+    variableCache.clear();
+    return var;
+}
+
+EvaluateResult Target::setVariableHelper(VariableScope& context, std::string varName, std::string setExpression)
+{
+    if (context.threadId == -1)
+        return std::string("need to be in valid context for evaluation");
+    lua_State* thread = threadIdToState.at(context.threadId);
+    int contextLevel = context.level;
+    if (context.type == VariableScopeType::Global)
+    {
+        lua_Debug ar = {};
+        if (lua_getinfo(thread, contextLevel, "f", &ar) == 0)
+            return std::string("could not resolve frame for global assignment");
+        lua_getfenv(thread, -1);
+        EvaluateResult result = setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
+        lua_pop(thread, 2);
+        return result;
+    }
+    else if (context.type == VariableScopeType::Table)
+    {
+        lua_rawgeti(thread, LUA_REGISTRYINDEX, context.luaref);
+        EvaluateResult result = setTableEntryHelper(thread, lua_gettop(thread), contextLevel, varName, setExpression);
+        lua_pop(thread, 1);
+        return result;
+    }
+    else if (context.type == VariableScopeType::Local)
+    {
+        return setLocalHelper(thread, contextLevel, varName, setExpression);
+    }
+    else
+    {
+        return setUpvalueHelper(thread, contextLevel, varName, setExpression);
+    }
+}
+
+EvaluateResult Target::setVariable(int varRef, std::string varName, std::string setExpression)
+{
+    std::unique_lock lock(targetMutex);
+    if (!launched || !paused)
+        return std::string("target was not paused");
+    auto it = variableContexts.find(varRef);
+    if (it == variableContexts.end())
+        return std::string("variable reference not found");
+    return setVariableHelper(it->second, varName, setExpression);
+}
+
+EvaluateResult Target::setExpression(std::string lExpression, std::string setExpression, int frameId)
+{
+    // only if lExpression refers to a preexisting local, global, or upvalue variable do we need to actually look up and call setVariable.
+    // otherwise, since tables are passed by reference, we can just call evaluateExpression
+    std::unique_lock lock(targetMutex);
+    if (!launched || !paused)
+        return std::string("target was not paused");
+    lua_State* thread = nullptr;
+    int level = -1;
+    int threadId = -1;
+    if (frameId != -1)
+    {
+        std::tie(threadId, level) = idToStackFrameInfo.at(frameId);
+        thread = threadIdToState.at(threadId);
+    }
+    bool isTable = lExpression.find_first_of(".[") != std::string::npos;
+    // if our lExpression is unlikely to be a table lookup, we try to look through locals, upvalues, and globals
+    // to set our code correctly. if our lExpression cannot be found as a preexisting variable, we error.
+    if (frameId != -1 && !isTable)
+    {
+        std::optional<std::vector<VariableScope>> scopes = getScopesHelper(threadId, level);
+        if (!scopes)
+            return std::string("required scopes not found");
+        // getScopes() returns in local, upvalue, global order, so we always set at the smallest possible scope.
+        for (VariableScope scope : *scopes)
+        {
+            EvaluateResult result = setVariableHelper(scope, lExpression, setExpression);
+            if (std::string* error = Luau::get_if<std::string>(&result))
+            {
+                if (*error != "variable not found")
+                    return *error;
+            }
+            else
+                return result;
+        }
+        return std::string("variable value not found a preexisting local, global, or upvalue variable");
+    }
+    // for an lExpression referring to a value in a table, we can simply just
+    // evaluate lExpression = setExpression to make changes.
+    EvaluateMultiResult write = evaluateExpressionMultiHelper(thread, level, lExpression + " = " + setExpression);
+    if (std::string* error = Luau::get_if<std::string>(&write))
+        return *error;
+    if (Luau::get_if<std::vector<Variable>>(&write)->size() > 0)
+        return Luau::format("expression \"%s = %s\" should not return values", lExpression.c_str(), setExpression.c_str());
+    EvaluateResult newValue = evaluateExpressionHelper(thread, level, "return " + lExpression);
+    variableCache.clear();
+    return newValue;
+}
+
 void Target::continueProcessHelper()
 {
     // this clears the interrupts that triggers when the process is paused from client request
@@ -1048,7 +1676,6 @@ void Target::continueProcessHelper()
     idToStackFrameInfo.clear();
 
     variableRefId = 1;
-    globalVariableRef = std::nullopt;
     for (auto& [_, scope] : variableContexts)
         if (scope.type == VariableScopeType::Table)
             lua_unref(childRuntime->GL, scope.luaref);
@@ -1058,25 +1685,39 @@ void Target::continueProcessHelper()
 
     if (stoppedThread)
     {
-        // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
-        if (bpHit)
+        if (!stoppedUncaughtException)
         {
-            // we need to check if our breakpoint is still currently installed after
-            // onBreakpointHit() callback
-            std::optional<Breakpoint> currentBp = getBreakpointByIdHelper(bpHit->id);
-            if (currentBp && currentBp->status == BreakpointStatus::Installed)
-                continueRequestedBp.insert(stoppedThread);
+            if (!stoppedNoYield)
+            {
+                // we are continuing on a breakpoint and so might need to flag continueRequestedBp.
+                if (bpHit)
+                {
+                    // we need to check if our breakpoint is still currently installed after
+                    // onBreakpointHit() callback
+                    std::optional<Breakpoint> currentBp = getBreakpointByIdHelper(bpHit->id);
+                    if (currentBp && currentBp->status == BreakpointStatus::Installed)
+                        continueRequestedBp.insert(stoppedThread);
+                }
+                childRuntime->runningThreads.emplace_front(true, stoppedThreadRef, 0);
+                // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
+                // runToCompletion() has not exited.
+                childRuntime->schedule([]() {});
+            }
+            else
+            {
+                stoppedNoYield = false;
+            }
             bpHit = std::nullopt;
         }
-        childRuntime->runningThreads.emplace_front(true, stoppedThreadRef, 0);
-        // This schedule() wakes up the runtime in runContinuously() to re-run runToCompletion() in case that has exited. This is a no-op if
-        // runToCompletion() has not exited.
-        childRuntime->schedule([]() {});
+        else
+        {
+            // run the thread completion handler on the current thread.
+            childRuntime->runUncaughtExceptionCompletion(stoppedThread);
+            stoppedUncaughtException = false;
+        }
         stoppedThread = nullptr;
         stoppedThreadRef = nullptr;
-        stoppedLine = -1;
-        stoppedLocation = "";
-        stoppedPc = nullptr;
+        unsetStoppedLocation();
     }
     paused = false;
     childRuntime->continueDebug();
@@ -1107,26 +1748,22 @@ bool Target::pauseProcess()
             return;
         auto target = static_cast<Target*>(lua_callbacks(L)->userdata);
         std::unique_lock lock(target->targetMutex);
-        target->paused = true;
-        target->childRuntime->stopDebug();
-        target->stoppedThread = L;
-        target->stoppedThreadRef = getRefForThread(L);
-        debug::Thread thread = target->stateToThread.at(L);
+        target->stoppedSetState(L);
+        Thread thread = target->stateToThread.at(L);
         // We transition into a paused state. Let's modify all pending breakpoints.
         auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-        target->computeStoppedLocation(L);
-        lua_break(L);
-        // Clear out the interrupt and debugstep callback after we are done.
-        lua_callbacks(L)->interrupt = nullptr;
-        lua_callbacks(L)->debugstep = nullptr;
         lock.unlock();
-        // Since pausing actually only happens when the interrupt callback runs we have a callback
-        if (target->launchConfig.onPause)
-            target->launchConfig.onPause(thread);
-        for (auto& bp : installed)
-            target->launchConfig.onBreakpointInstall(bp);
-        for (auto& bp : uninstalled)
-            target->launchConfig.onBreakpointUninstall(bp);
+        target->stoppedDispatchCallback(
+            [target, thread, installed = std::move(installed), uninstalled = std::move(uninstalled)]()
+            {
+                if (target->launchConfig.onPause)
+                    target->launchConfig.onPause(thread);
+                for (auto& bp : installed)
+                    target->launchConfig.onBreakpointInstall(bp);
+                for (auto& bp : uninstalled)
+                    target->launchConfig.onBreakpointUninstall(bp);
+            }
+        );
     };
     return true;
 }
@@ -1182,25 +1819,23 @@ bool Target::step(int threadId, StepType type)
         }
         if (stopStepping)
         {
-            target->paused = true;
-            target->childRuntime->stopDebug();
-            target->stoppedThread = L;
-            target->stoppedThreadRef = getRefForThread(L);
-            target->computeStoppedLocation(L);
-            target->stepInfo = std::nullopt;
-            auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
-            lua_break(L);
+            target->stoppedSetState(L);
             lua_singlestep(L, 0);
-            lua_callbacks(L)->debugstep = nullptr;
+            auto [installed, uninstalled] = target->modifyPendingBreakpoints(target->scriptThread);
             Thread thread = target->stateToThread.at(L);
             lock.unlock();
             // Since pausing actually only happens when the step callback runs we have a callback
-            if (target->launchConfig.onStepStop)
-                target->launchConfig.onStepStop(thread, stepInfo);
-            for (auto& bp : installed)
-                target->launchConfig.onBreakpointInstall(bp);
-            for (auto& bp : uninstalled)
-                target->launchConfig.onBreakpointUninstall(bp);
+            target->stoppedDispatchCallback(
+                [target, thread, stepInfo, installed = std::move(installed), uninstalled = std::move(uninstalled)]()
+                {
+                    if (target->launchConfig.onStepStop)
+                        target->launchConfig.onStepStop(thread, stepInfo);
+                    for (auto& bp : installed)
+                        target->launchConfig.onBreakpointInstall(bp);
+                    for (auto& bp : uninstalled)
+                        target->launchConfig.onBreakpointUninstall(bp);
+                }
+            );
         }
         else
         {

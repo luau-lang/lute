@@ -41,10 +41,10 @@ public:
     static std::string findLowestCommonRoot(const std::vector<std::string>& paths);
 
 private:
-    Luau::DenseHashSet<std::string> visited{""};
+    Luau::DenseHashSet<std::string> visited;
     std::vector<std::string> discovered;                                        // Absolute paths
-    Luau::DenseHashMap<std::string, std::vector<std::string>> requireGraph{""}; // Absolute paths
-    Luau::DenseHashMap<std::string, std::string> luauConfigFiles{""};           // LCR-relative path -> content
+    Luau::DenseHashMap<std::string, std::vector<std::string>> requireGraph; // Absolute paths
+    Luau::DenseHashMap<std::string, std::string> luauConfigFiles;           // LCR-relative path -> content
     std::string lowestCommonRoot;
 
     // Extract all require() paths from source code

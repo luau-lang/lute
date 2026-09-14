@@ -13,5 +13,14 @@ return {
 		lint = {
 			ignores = { "**/*.d.luau", "**/*.snap.luau" },
 		},
+		format = {
+			ignores = {
+				"**/*.d.luau",
+				"**/generated-types.luau",
+				"**/*unformatted*.luau",
+				"tests/parserExamples/**",
+				"tests/src/debug/compile_error.luau",
+			},
+		},
 	},
 }

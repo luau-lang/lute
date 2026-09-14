@@ -237,6 +237,23 @@ jobs:
           # All examples typecheck
           find examples -name "*.luau" -exec ${{ steps.build_lute.outputs.exe_path }} check {} +
 
+  lute-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup and Build Lute
+        id: build_lute
+        uses: ./.github/actions/setup-and-build
+        with:
+          target: Lute.CLI
+          config: debug
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Lute Format
+        run: ${{ steps.build_lute.outputs.exe_path }} format -c -v .
+
   aggregator:
     name: Gated Commits
     runs-on: ubuntu-latest
@@ -248,13 +265,21 @@ jobs:
         build-docs-site,
         lute-lint,
         lute-check,
+        lute-format,
       ]
     if: ${{ always() }}
     steps:
       - name: Aggregator
         id: aggregator
         run: |
-          if [ "${{ needs.run-lutecli-luau-tests.result }}" == "success" ] && [ "${{ needs.run-lute-cxx-unittests.result }}" == "success" ] && [ "${{ needs.check-format.result }}" == "success" ] && [ "${{ needs.build-docs-site.result }}" == "success" ] && [ "${{ needs.lute-lint.result }}" == "success" ] && [ "${{ needs.lute-check.result }}" == "success" ]; then
+          if [[ "${{ needs.run-lutecli-luau-tests.result }}" == "success" &&
+                "${{ needs.run-lute-cxx-unittests.result }}" == "success" &&
+                "${{ needs.check-format.result }}" == "success" &&
+                "${{ needs.build-docs-site.result }}" == "success" &&
+                "${{ needs.lute-lint.result }}" == "success" &&
+                "${{ needs.lute-check.result }}" == "success" &&
+                "${{ needs.lute-format.result }}" == "success" ]]
+          then
             echo "All jobs succeeded"
             echo "result=success" >> "$GITHUB_OUTPUT"
           else

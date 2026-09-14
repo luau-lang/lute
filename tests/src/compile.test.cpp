@@ -24,7 +24,7 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_single_file_roundtrip")
     originalPayload.add(testFilePath, testFilePath);
 
     // Add luaurc config
-    Luau::DenseHashMap<std::string, std::string> configs{""};
+    Luau::DenseHashMap<std::string, std::string> configs;
     configs[".luaurc"] = "{\"aliases\":{\"example\":\"./dep\"}}";
     originalPayload.setLuauConfig(configs);
 
@@ -87,7 +87,7 @@ TEST_CASE_FIXTURE(LuteFixture, "lutepayload_multiple_files_roundtrip")
     }
 
     // Add luaurc config
-    Luau::DenseHashMap<std::string, std::string> configs{""};
+    Luau::DenseHashMap<std::string, std::string> configs;
     configs[".luaurc"] = "{\"aliases\":{\"example\":\"./dep\"}}";
     originalPayload.setLuauConfig(configs);
 
@@ -318,7 +318,7 @@ TEST_CASE_FIXTURE(LuteFixture, "luteexecutable_single_file_roundtrip")
     originalPayload.add(testFilePath, testFilePath);
 
     // Add luaurc config
-    Luau::DenseHashMap<std::string, std::string> configs{""};
+    Luau::DenseHashMap<std::string, std::string> configs;
     configs[".luaurc"] = "{\"aliases\":{\"example\":\"./dep\"}}";
     originalPayload.setLuauConfig(configs);
 
@@ -390,7 +390,7 @@ TEST_CASE_FIXTURE(LuteFixture, "luteexecutable_multiple_files_roundtrip")
     }
 
     // Add luaurc config
-    Luau::DenseHashMap<std::string, std::string> configs{""};
+    Luau::DenseHashMap<std::string, std::string> configs;
     configs[".luaurc"] = "{\"aliases\":{\"example\":\"./dep\"}}";
     originalPayload.setLuauConfig(configs);
 

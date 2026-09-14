@@ -22,7 +22,7 @@
 
 const Luau::DenseHashMap<std::string, lua_CFunction> kLuteModules = []()
 {
-    Luau::DenseHashMap<std::string, lua_CFunction> map{""};
+    Luau::DenseHashMap<std::string, lua_CFunction> map;
     map["@lute/crypto.luau"] = luteopen_crypto;
     map["@lute/fs.luau"] = luteopen_fs;
     map["@lute/io.luau"] = luteopen_io;

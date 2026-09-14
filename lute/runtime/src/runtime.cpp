@@ -147,6 +147,15 @@ RuntimeStep Runtime::runOnce()
     else
         status = lua_resume(L, nullptr, next.argumentCount);
 
+    // if we're in debugmode and encounter an exception, return step sucess here to pause execution.
+    // We then call the thread completion callback with LUA_ERRRUN on target.continueProcess()
+    // We can never return StepErr here, so in the debug mode, the entirety of
+    // error reporting is the responsibility of the debugger onUncaughtException callback.
+    if (debugMode && status == LUA_ERRRUN && onUncaughtError && onUncaughtError(L))
+    {
+        return StepSuccess{L};
+    }
+
     if (status == LUA_YIELD || status == LUA_BREAK)
     {
         return StepSuccess{L};
@@ -175,13 +184,17 @@ bool Runtime::runToCompletion()
     {
         if (debugMode)
         {
-            // when paused while debugging, nothing should happen
-            std::unique_lock<std::mutex> lock(debugMutex);
-            while (debugStopped)
-                debugStoppedCv.wait(lock);
+            waitForDebugContinue();
         }
 
         auto step = runOnce();
+
+        if (debugMode && pendingDebugStopNotification)
+        {
+            auto debugStopNotification = std::move(pendingDebugStopNotification);
+            pendingDebugStopNotification = nullptr;
+            debugStopNotification();
+        }
 
         if (auto err = Luau::get_if<StepErr>(&step))
         {
@@ -410,15 +423,28 @@ void Runtime::continueDebug()
 }
 
 // stopDebug() actually allows for some C bookkeeping when we are unwinding the stack
-// when it is called within a callback such as debugbreak or debugInterrupt, which you could imagine might
-// lead to a race condition. The important thing is that this bookkeeping does not touch the Luau state that we can inspect
-// making this a nonissue.
-// We never schedule any Luau code to run afterwards, which means this is fine.
+// when it is called within a callback such as debugbreak or debugInterrupt.
+// We thus schedule any Luau callbacks to run after we are guaranteed to be stopped
+// in runToCompletion().
 void Runtime::stopDebug()
 {
     LUTE_ASSERT(debugMode);
     std::unique_lock<std::mutex> lock(debugMutex);
     debugStopped = true;
+}
+
+void Runtime::waitForDebugContinue()
+{
+    LUTE_ASSERT(debugMode);
+    std::unique_lock<std::mutex> lock(debugMutex);
+    while (debugStopped)
+        debugStoppedCv.wait(lock);
+}
+
+bool Runtime::runUncaughtExceptionCompletion(lua_State* L)
+{
+    LUTE_ASSERT(debugMode);
+    return runThreadCompletionHandler(L, LUA_ERRRUN);
 }
 
 uv_loop_t* Runtime::getEventLoop()

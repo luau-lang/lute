@@ -22,7 +22,7 @@ struct LuteTypeCheckModuleResolver : Luau::FileResolver
     std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node, const TypeCheckLimits& limits) override;
     std::string getHumanReadableModuleName(const Luau::ModuleName& name) const override;
 
-    Luau::DenseHashMap<std::string, std::string> sourceCache{""};
+    Luau::DenseHashMap<std::string, std::string> sourceCache;
     LuteReporter& reporter;
 };
 

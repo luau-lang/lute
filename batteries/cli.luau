@@ -16,6 +16,18 @@ type ArgData = {
 	options: ArgOptions,
 }
 
+type CommandOptions = {
+	help: string?,
+	aliases: { string }?,
+	hidden: boolean?,
+}
+
+type CommandData = {
+	name: string,
+	parser: Parser,
+	options: CommandOptions,
+}
+
 type ParseResult = {
 	values: { [string]: string? },
 	flags: { [string]: boolean },
@@ -27,6 +39,8 @@ type ParserData = {
 	arguments: { [number]: ArgData },
 	positional: { [number]: ArgData },
 	variadicArg: ArgData?,
+	commands: { [number]: CommandData },
+	selectedCommand: CommandData?,
 	parsed: ParseResult,
 }
 
@@ -38,17 +52,60 @@ function cli.parser(): Parser
 		arguments = {},
 		positional = {},
 		variadicArg = nil :: ArgData?,
+		commands = {},
+		selectedCommand = nil :: CommandData?,
 		parsed = { values = {}, flags = {}, variadics = {}, fwdArgs = {} },
 	}
 
 	return setmetatable(self, cli)
 end
 
-function cli.add(self: Parser, name: string, kind: ArgKind, options: ArgOptions): ()
+-- an argument or a command answers to its own name and to any of its aliases
+local function isNamed(entry: ArgData | CommandData, name: string): boolean
+	local aliases = entry.options.aliases or {}
+
+	return entry.name == name or table.find(aliases, name) ~= nil
+end
+
+local function findArgument(self: Parser, name: string): ArgData?
+	for _, argument in self.arguments do
+		if isNamed(argument, name) then
+			return argument
+		end
+	end
+
+	return nil
+end
+
+local function findCommand(self: Parser, name: string): CommandData?
+	for _, command in self.commands do
+		if isNamed(command, name) then
+			return command
+		end
+	end
+
+	return nil
+end
+
+function cli.add(self: Parser, name: string, kind: ArgKind, options: ArgOptions?): ()
+	local resolved: ArgOptions = options or { aliases = {}, required = false }
+
+	-- lookups return the first match, so a repeated name or alias would be unreachable
+	assert(findArgument(self, name) == nil, "Duplicate argument name: " .. name)
+
+	local aliases = resolved.aliases or {}
+	for index, alias in aliases do
+		local repeated = alias == name or table.find(aliases, alias) ~= index or findArgument(self, alias) ~= nil
+		assert(not repeated, "Duplicate argument alias: " .. alias)
+	end
+
+	-- a second variadic would replace the first, leaving it registered but unreachable
+	assert(kind ~= "variadic" or self.variadicArg == nil, "A parser can only have one variadic argument: " .. name)
+
 	local argument: ArgData = {
 		name = name,
 		kind = kind,
-		options = options or { aliases = {}, required = false },
+		options = resolved,
 	}
 
 	table.insert(self.arguments, argument)
@@ -59,6 +116,31 @@ function cli.add(self: Parser, name: string, kind: ArgKind, options: ArgOptions)
 	end
 end
 
+function cli.subcommand(self: Parser, name: string, options: CommandOptions?): Parser
+	local resolved: CommandOptions = options or { aliases = {} }
+
+	assert(findCommand(self, name) == nil, "Duplicate command name: " .. name)
+
+	local aliases = resolved.aliases or {}
+	for index, alias in aliases do
+		local repeated = alias == name or table.find(aliases, alias) ~= index or findCommand(self, alias) ~= nil
+		assert(not repeated, "Duplicate command alias: " .. alias)
+	end
+
+	local parser = cli.parser()
+
+	table.insert(self.commands, {
+		name = name,
+		parser = parser,
+		options = resolved,
+	})
+
+	return parser
+end
+
+-- arguments are matched against this parser until a subcommand name is reached; everything
+-- after that name belongs to the subcommand's own parser, so any argument declared here has
+-- to be given before it
 function cli.parse(self: Parser, args: { string }): ()
 	local i = 0
 	local pos_index = 1
@@ -77,30 +159,20 @@ function cli.parse(self: Parser, args: { string }): ()
 		-- if the argument starts with two dashes, we're parsing either a flag or an option
 		if string.sub(arg, 1, 2) == "--" then
 			local name = string.sub(arg, 3)
-			local found = false
+			local argument = findArgument(self, name)
 
-			for _, argument in self.arguments do
-				local aliases = argument.options.aliases or {}
+			assert(argument, "Unknown argument: " .. name)
 
-				if argument.name == name or table.find(aliases, name) then
-					found = true
+			if argument.kind == "option" then
+				-- advance past the argument
+				i += 1
 
-					if argument.kind == "option" then
-						-- advance past the argument
-						i += 1
-
-						assert(i <= #args, "Missing value for argument: " .. argument.name)
-						self.parsed.values[argument.name] = args[i]
-
-						break
-					end
-
-					self.parsed.flags[argument.name] = true
-					break
-				end
+				assert(i <= #args, "Missing value for argument: " .. argument.name)
+				self.parsed.values[argument.name] = args[i]
+			else
+				self.parsed.flags[argument.name] = true
 			end
 
-			assert(found, "Unknown argument: " .. name)
 			continue
 		end
 
@@ -110,26 +182,28 @@ function cli.parse(self: Parser, args: { string }): ()
 
 			for j = 1, #flags do
 				local name = string.sub(flags, j, j)
-				local found = false
-				for _, argument in self.arguments do
-					local aliases = argument.options.aliases or {}
-					if argument.name == name or table.find(aliases, name) then
-						found = true
-						if argument.kind == "option" then
-							i += 1
-							assert(i <= #args, "Missing value for argument: " .. argument.name)
-							self.parsed.values[argument.name] = args[i]
-						else
-							self.parsed.flags[argument.name] = true
-						end
-						break
-					end
-				end
+				local argument = findArgument(self, name)
 
-				assert(found, "Unknown argument: " .. name)
+				assert(argument, "Unknown argument: " .. name)
+
+				if argument.kind == "option" then
+					i += 1
+					assert(i <= #args, "Missing value for argument: " .. argument.name)
+					self.parsed.values[argument.name] = args[i]
+				else
+					self.parsed.flags[argument.name] = true
+				end
 			end
 
 			continue
+		end
+
+		-- if the argument names a subcommand, that subcommand takes over the rest of the arguments
+		local command = findCommand(self, arg)
+		if command then
+			self.selectedCommand = command
+			command.parser:parse(table.move(args, i + 1, #args, 1, {}))
+			break
 		end
 
 		-- if we have positional arguments left, we can take this argument as one
@@ -145,17 +219,27 @@ function cli.parse(self: Parser, args: { string }): ()
 			continue
 		end
 
+		-- a parser that declares subcommands but no positional or variadic has nothing else
+		-- this argument could have meant, so report a mistyped command the way unknown flags
+		-- are reported instead of quietly forwarding it. parsers that do declare one keep
+		-- forwarding, since there an unrecognized word is not necessarily a command at all
+		local absorbs = #self.positional > 0 or self.variadicArg ~= nil
+		assert(#self.commands == 0 or absorbs, "Unknown command: " .. arg)
+
 		-- otherwise, the argument is forwarded on
 		table.insert(self.parsed.fwdArgs, arg)
 	end
 
 	-- check that all required arguments are present, and set any default values as needed
+	local selected = self.selectedCommand
+	local ordering = if selected then ` (it has to be given before the '{selected.name}' command)` else ""
+
 	for _, argument in self.arguments do
 		if argument.options.required then
 			if argument.kind == "variadic" then
-				assert(#self.parsed.variadics > 0, "Missing required variadic argument: " .. argument.name)
+				assert(#self.parsed.variadics > 0, "Missing required variadic argument: " .. argument.name .. ordering)
 			else
-				assert(self.parsed.values[argument.name], "Missing required argument: " .. argument.name)
+				assert(self.parsed.values[argument.name], "Missing required argument: " .. argument.name .. ordering)
 			end
 		end
 
@@ -181,8 +265,25 @@ function cli.forwarded(self: Parser): { string }?
 	return self.parsed.fwdArgs
 end
 
+function cli.selected(self: Parser): (string?, Parser?)
+	local command = self.selectedCommand
+	if not command then
+		return nil, nil
+	end
+
+	return command.name, command.parser
+end
+
 function cli.usage(self: Parser, name: string): string
 	local parts = { `Usage: {name}` }
+
+	-- subcommands are matched before positionals in parse, so they are listed in that order
+	for _, command in self.commands do
+		if not command.options.hidden then
+			table.insert(parts, "<command>")
+			break
+		end
+	end
 
 	for _, arg in self.positional do
 		if not arg.options.hidden then
@@ -223,12 +324,37 @@ local function label(argument: ArgData): string
 	return `--{argument.name}{if #aliasStr > 0 then ` (-{aliasStr})` else ""}`
 end
 
+local function commandLabel(command: CommandData): string
+	local aliasStr = table.concat(command.options.aliases or {}, ", ")
+	return `{command.name}{if #aliasStr > 0 then ` ({aliasStr})` else ""}`
+end
+
 function cli.help(self: Parser, formatter: ((s: string) -> string)?): string
 	local fmt = formatter or function(s)
 		return s
 	end
 
-	local lines = { fmt("Options:") }
+	local lines: { string } = {}
+
+	local hasCommands = false
+	for _, command in self.commands do
+		if command.options.hidden then
+			continue
+		end
+
+		if not hasCommands then
+			table.insert(lines, fmt("Commands:"))
+			hasCommands = true
+		end
+
+		table.insert(lines, fmt(`  {commandLabel(command)} - {command.options.help or ""}`))
+	end
+
+	if hasCommands then
+		table.insert(lines, "")
+	end
+
+	table.insert(lines, fmt("Options:"))
 	for _, argument in self.arguments do
 		if argument.options.hidden then
 			continue

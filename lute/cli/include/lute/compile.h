@@ -52,14 +52,14 @@ struct LuteExePayload
     static std::optional<LuteDecodeResult> decode(const std::string_view binary, LuteReporter& reporter);
 
     std::string entryPointPath;
-    Luau::DenseHashMap<std::string, std::string> filePathToBytecode{""}; // path -> bytecode
-    Luau::DenseHashMap<std::string, std::string> luauConfigFiles{""};    // path -> config
+    Luau::DenseHashMap<std::string, std::string> filePathToBytecode; // path -> bytecode
+    Luau::DenseHashMap<std::string, std::string> luauConfigFiles;    // path -> config
 
 private:
     LuteReporter& reporter;
     bool parseFromDecompressedBundle(std::string_view decompressedBundle);
     std::vector<std::string> filePaths;
-    Luau::DenseHashMap<std::string, std::string> sourceToBundlePath{""};
+    Luau::DenseHashMap<std::string, std::string> sourceToBundlePath;
 };
 
 struct LuteDecodeResult
