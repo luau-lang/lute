@@ -111,6 +111,8 @@ export type CstStatExpr = cst.CstStatExpr
 
 export type CstStatLocal = cst.CstStatLocal
 
+export type CstStatConst = cst.CstStatConst
+
 export type CstStatFor = cst.CstStatFor
 
 export type CstStatForIn = cst.CstStatForIn
