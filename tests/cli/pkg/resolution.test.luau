@@ -1760,14 +1760,14 @@ test.suite("WorkspaceResolution", function(suite)
 			firstDir,
 			"first",
 			[[
-			shared = { sourceKind = "path", source = "./first-lib" },
+			shared = { name = "first-lib", sourceKind = "path", source = "./first-lib" },
 		]]
 		)
 		writeConfig(
 			secondDir,
 			"second",
 			[[
-			shared = { sourceKind = "path", source = "./second-lib" },
+			shared = { name = "second-lib", sourceKind = "path", source = "./second-lib" },
 		]]
 		)
 		fs.writeStringToFile(
