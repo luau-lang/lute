@@ -1745,11 +1745,13 @@ test.suite("WorkspaceResolution", function(suite)
 	suite:case("expandsMembersAndScopesRootDependenciesByPackage", function(assert)
 		local firstDir = path.join(workingDirectory, "modules", "first")
 		local secondDir = path.join(workingDirectory, "modules", "second")
+		local secondSourceDir = path.join(secondDir, "src")
 		local firstLibDir = path.join(firstDir, "first-lib")
 		local secondLibDir = path.join(secondDir, "second-lib")
 		fs.createDirectory(path.join(workingDirectory, "modules"))
 		fs.createDirectory(firstDir)
 		fs.createDirectory(secondDir)
+		fs.createDirectory(secondSourceDir)
 		fs.createDirectory(firstLibDir)
 		fs.createDirectory(secondLibDir)
 		writeConfig(firstLibDir, "first-lib", "")
@@ -1776,11 +1778,29 @@ test.suite("WorkspaceResolution", function(suite)
 		]]
 		)
 
-		local lock = resolution.resolve(path.format(secondDir), nil)
+		local lock = resolution.resolve(path.format(secondSourceDir), nil)
 		assert.eq(lock.version, 4)
 		assert.eq(lock.dependencies.first.shared, "first-lib")
 		assert.eq(lock.dependencies.second.shared, "second-lib")
 		assert.eq(lock.packages["first-lib"].installPath, "modules/first/first-lib")
 		assert.eq(lock.packages["second-lib"].installPath, "modules/second/second-lib")
+	end)
+
+	suite:case("resolvesWorkspaceOnlyManifestFromWorkspaceRoot", function(assert)
+		local memberDir = path.join(workingDirectory, "modules", "member")
+		fs.createDirectory(path.join(workingDirectory, "modules"))
+		fs.createDirectory(memberDir)
+		writeConfig(memberDir, "member", "")
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+			workspace = { members = { "modules/*" } },
+		}
+		]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.version, 4)
+		assert.neq(lock.dependencies.member, nil)
 	end)
 end)

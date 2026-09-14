@@ -45,6 +45,11 @@ local function hasGlob(pattern: string): boolean
 	return string.find(pattern, "[%*%?%[]") ~= nil
 end
 
+local function isWithinDirectory(directory: string, candidate: string): boolean
+	local relative = path.relative(directory, candidate)
+	return #relative.parts == 0 or relative.parts[1] ~= ".."
+end
+
 local function resolve(rootDirectory: string, rootManifest: manifest.ProjectManifest): Workspace
 	rootDirectory = formatDirectory(rootDirectory)
 	if rootManifest.workspace == nil then
@@ -104,7 +109,8 @@ local function resolve(rootDirectory: string, rootManifest: manifest.ProjectMani
 end
 
 local function findRoot(startDirectory: string): (string, manifest.ProjectManifest)
-	local directory = formatDirectory(startDirectory)
+	local start = formatDirectory(startDirectory)
+	local directory = start
 	local singlePackageDirectory: string? = nil
 	local singlePackageManifest: manifest.ProjectManifest? = nil
 	while true do
@@ -113,9 +119,11 @@ local function findRoot(startDirectory: string): (string, manifest.ProjectManife
 			local projectManifest = manifest.parseFile(configPath)
 			if projectManifest.workspace ~= nil then
 				local workspace = resolve(directory, projectManifest)
-				local start = formatDirectory(startDirectory)
+				if directory == start then
+					return directory, projectManifest
+				end
 				for _, member in workspace.members do
-					if member.directory == start then
+					if isWithinDirectory(member.directory, start) then
 						return directory, projectManifest
 					end
 				end
