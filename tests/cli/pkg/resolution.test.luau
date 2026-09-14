@@ -1017,7 +1017,7 @@ test.suite("LockfileReuse", function(suite)
 		)
 
 		assert.throwsWith(
-			"lockfile does not satisfy manifest (new dependency: lib). Run `lute pkg install` to update.",
+			"lockfile does not satisfy manifest (new dependency: root:lib). Run `lute pkg install` to update.",
 			function()
 				resolution.resolve(path.format(workingDirectory), nil, { locked = true })
 			end
