@@ -1410,7 +1410,9 @@ test.suite("Overrides", function(suite)
 				assert.eq(req.path, "/api/v1/package-index/citrus")
 				return {
 					status = 200,
-					body = [[[{"name":"citrus","version":"2.0.0","yanked":false,"dependencies":[]}]],
+					body = [[
+[{"name":"citrus","version":"2.0.0","yanked":false,"dependencies":[]}]
+]],
 				}
 			end,
 		})

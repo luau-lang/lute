@@ -157,7 +157,9 @@ test.suite("RegistryClient", function(suite)
 				assert.eq(req.path, "/api/v1/package-index/org/citrus")
 				return {
 					status = 200,
-					body = [[[{"name":"org/citrus","version":"1.0.0","yanked":false,"dependencies":[]}]],
+					body = [[
+[{"name":"org/citrus","version":"1.0.0","yanked":false,"dependencies":[]}]
+]],
 				}
 			end,
 		})
