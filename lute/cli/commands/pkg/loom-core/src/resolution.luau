@@ -589,6 +589,7 @@ local function resolveRegistryDependencies(
 			local partial = registry.fetchUniverse(url, names)
 			for name, versions in partial do
 				effectiveUniverse[name] = versions
+				state.registryUrlByPackage[name] = url
 			end
 		end
 	end
