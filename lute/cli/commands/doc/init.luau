@@ -138,8 +138,7 @@ local function extractPropertySignature(
 		local eq = string.match(line, blockCommentStartPattern)
 		if eq ~= nil then
 			-- start of block comment, capture part after the opening delimiter, if any
-			local after = string.match(line, "^%s*%-%-%[" .. eq .. "%[(.*)$")
-			if after then
+			if local after = string.match(line, "^%s*%-%-%[" .. eq .. "%[(.*)$") then
 				after = stringext.trim(after)
 				if after ~= "" then
 					table.insert(pendingDoc, after)
@@ -159,8 +158,7 @@ local function extractPropertySignature(
 		local eq = blockEq or ""
 		-- find the closing pattern "]=]" that matches the # of "=" used in opening
 		local closingPattern = "%]" .. eq .. "%]"
-		local before = string.match(line, "^(.-)" .. closingPattern)
-		if before then
+		if local before = string.match(line, "^(.-)" .. closingPattern) then
 			-- closing found on this line
 			before = stringext.trim(before)
 			if before ~= "" then
@@ -187,8 +185,7 @@ local function extractPropertySignature(
 	end
 
 	-- 4) Triple dash comment? (---)
-	local triple = string.match(line, tripleDashCommentPattern)
-	if triple then
+	if local triple = string.match(line, tripleDashCommentPattern) then
 		local txt = stringext.trim(triple)
 		if txt ~= "" then
 			table.insert(pendingDoc, txt)
@@ -671,8 +668,7 @@ local function main(...: string)
 		outputDir = path.resolve(process.cwd(), outputDir)
 	end
 
-	local mapFile = args:get("mapping")
-	if mapFile then
+	if local mapFile = args:get("mapping") then
 		local mapPath = path.join(process.cwd(), mapFile)
 		local mod = luau.loadModule(mapPath) :: Mapping
 		print(`Using custom mapping from file {tostring(mapPath)}`)

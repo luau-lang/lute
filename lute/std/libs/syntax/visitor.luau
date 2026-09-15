@@ -181,8 +181,7 @@ end
 local function visitPunctuated<T, Separator>(list: types.CstPunctuated<T, Separator>, visitor: Visitor, apply: (T, Visitor) -> ())
 	for i, item in list do
 		apply(item, visitor)
-		local sep = list.separators[i]
-		if sep then
+		if local sep = list.separators[i] then
 			visitToken(sep, visitor)
 		end
 	end
