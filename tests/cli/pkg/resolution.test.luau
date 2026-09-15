@@ -1,5 +1,6 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
+local server = require("@lute/net/server")
 local system = require("@std/system")
 local test = require("@std/test")
 
@@ -111,15 +112,15 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(entry.installPath, "@pkg/citrus@1.2.0")
 	end)
 
-	suite:case("lockfileEntryPreservesSourceWhenDifferentFromName", function(assert)
+	suite:case("lockfileEntryUsesSourceAsPackageName", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
 			[[
 
-			citrus = {
+			myCitrus = {
 				sourceKind = "registry",
-				source = "citrus/citrus",
+				source = "citrus",
 				version = "^1.0.0",
 			},]]
 		)
@@ -132,7 +133,8 @@ test.suite("RegistryResolution", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.eq(lock.packages["citrus@1.0.0"].source, "citrus/citrus")
+		assert.eq(lock.dependencies.myCitrus, "citrus@1.0.0")
+		assert.eq(lock.packages["citrus@1.0.0"].source, "citrus")
 	end)
 
 	suite:case("resolvesTransitiveDeps", function(assert)
@@ -163,6 +165,35 @@ test.suite("RegistryResolution", function(suite)
 		assert.neq(lock.packages["lemon@1.0.0"], nil)
 		assert.neq(lock.packages["citrus@2.1.0"], nil)
 		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus@2.1.0")
+	end)
+
+	suite:case("registryAliasesUseSourceAsThePackageName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			myLemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { myCitrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "2.1.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.myLemon, "lemon@1.0.0")
+		assert.eq(lock.packages["lemon@1.0.0"].dependencies.myCitrus, "citrus@2.1.0")
+		assert.eq(lock.packages["citrus@2.1.0"].source, "citrus")
 	end)
 
 	suite:case("resolvesDiamondDependency", function(assert)
@@ -203,7 +234,7 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.5.0"].sourceKind, "registry")
 	end)
 
-	suite:case("errorsWithNilUniverseWhenRegistryDepPresent", function(assert)
+	suite:case("errorsWithNoRegistryConfigured", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
@@ -216,9 +247,12 @@ test.suite("RegistryResolution", function(suite)
 			},]]
 		)
 
-		assert.throwsWith("Registry dependencies require a universe to be provided", function()
-			resolution.resolve(path.format(workingDirectory), nil)
-		end)
+		assert.throwsWith(
+			"No registry configured for package 'citrus'. Add a 'registry' field to your loom.config.luau.",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil)
+			end
+		)
 	end)
 
 	suite:case("errorsOnUnsatisfiableConstraint", function(assert)
@@ -283,16 +317,22 @@ test.suite("RegistryResolution", function(suite)
 	suite:case("transitiveDepsFromPathPackageAreResolved", function(assert)
 		local libDir = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDir)
-		writeConfig(
-			libDir,
-			"lib",
-			[[
-
+		fs.writeStringToFile(
+			path.join(libDir, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "lib",
+		version = "0.0.0",
+		dependencies = {
 			citrus = {
 				sourceKind = "registry",
 				source = "citrus",
 				version = "^2.0.0",
-			},]]
+			},
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
 		)
 		writeConfig(
 			workingDirectory,
@@ -328,7 +368,6 @@ test.suite("RegistryResolution", function(suite)
 
 			mylib = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "^1.0.0",
 			},]]
@@ -347,6 +386,28 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.2.0"].name, "citrus")
 	end)
 
+	suite:case("registryDependencyRejectsExplicitName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			myCitrus = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		assert.throwsWith(
+			"Registry dependency 'myCitrus' in dependencies does not support a 'name' field; use 'source' for the registry package name",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil)
+			end
+		)
+	end)
+
 	suite:case("conflictMessageAttributesConstraintsToAliases", function(assert)
 		writeConfig(
 			workingDirectory,
@@ -355,13 +416,11 @@ test.suite("RegistryResolution", function(suite)
 
 			lemon = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "^1.5.0",
 			},
 			lime = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "<1.3.0",
 			},]]
@@ -414,38 +473,6 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus"].sourceKind, "path")
 		assert.neq(lock.packages["citrus@1.0.0"], nil)
 		assert.eq(lock.packages["citrus@1.0.0"].sourceKind, "registry")
-	end)
-
-	suite:case("allowsDifferentSourcesForSameNameUnderDifferentAliases", function(assert)
-		writeConfig(
-			workingDirectory,
-			"root",
-			[[
-
-			a = {
-				sourceKind = "registry",
-				name = "citrus",
-				source = "org-one/citrus",
-				version = "^1.0.0",
-			},
-			b = {
-				sourceKind = "registry",
-				name = "citrus",
-				source = "org-two/citrus",
-				version = "^1.0.0",
-			},]]
-		)
-
-		local universe: solver.Universe = {
-			citrus = {
-				namedVersion("citrus", "1.0.0"),
-			},
-		}
-
-		local lock = resolution.resolve(path.format(workingDirectory), universe)
-
-		assert.eq(lock.dependencies.a, "citrus@1.0.0")
-		assert.eq(lock.dependencies.b, "citrus@1.0.0")
 	end)
 
 	suite:case("writesLockfileToDisk", function(assert)
@@ -1058,6 +1085,56 @@ test.suite("LockfileReuse", function(suite)
 		assert.eq(lock.packages["lib"].dependencies.util, "util")
 		assert.neq(lock.packages["util"], nil)
 	end)
+
+	suite:case("reResolvesWhenNestedRegistryUrlChanges", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+
+		local function writeLibConfig(registryUrl: string)
+			fs.writeStringToFile(path.join(libDir, "loom.config.luau"), [[return {
+	package = {
+		name = "lib",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "]] .. registryUrl .. [[",
+}
+]])
+		end
+
+		writeLibConfig("https://registry-a.example.com")
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].registry, "https://registry-a.example.com")
+
+		writeLibConfig("https://registry-b.example.com")
+
+		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock2.packages["citrus@1.0.0"].registry, "https://registry-b.example.com")
+	end)
+
 	suite:case("prefersLockedVersionOverNewest", function(assert)
 		writeConfig(
 			workingDirectory,
@@ -1322,6 +1399,54 @@ test.suite("Overrides", function(suite)
 		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus")
 	end)
 
+	suite:case("registryOverrideUsesRootRegistry", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+		writeConfig(libDir, "lib", "")
+
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				assert.eq(req.path, "/api/v1/package-index/citrus")
+				return {
+					status = 200,
+					body = [[
+[{"name":"citrus","version":"2.0.0","yanked":false,"dependencies":[]}]
+]],
+				}
+			end,
+		})
+		local registryUrl = `http://{instance.hostname}:{instance.port}`
+
+		fs.writeStringToFile(path.join(workingDirectory, "loom.config.luau"), [[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},
+		},
+	},
+	registry = "]] .. registryUrl .. [[",
+	overrides = {
+		citrus = {
+			sourceKind = "registry",
+			source = "citrus",
+			version = "2.0.0",
+		},
+	},
+}
+]])
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+
+		assert.eq(lock.packages["citrus@2.0.0"].registry, registryUrl)
+
+		instance.close()
+	end)
+
 	suite:case("sourceOverridePathResolvesNestedPathDeps", function(assert)
 		local sharedDir = path.join(workingDirectory, "shared")
 		fs.createDirectory(sharedDir)
@@ -1457,7 +1582,6 @@ test.suite("Overrides", function(suite)
 
 			localCitrus = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "^1.0.0",
 			},]],
@@ -1495,7 +1619,6 @@ test.suite("Overrides", function(suite)
 
 			localCitrus = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "^1.0.0",
 			},]],
@@ -1728,5 +1851,179 @@ test.suite("Overrides", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 		assert.eq(lock.overrides, nil)
+	end)
+
+	suite:case("shorthandStringSyntaxParsesAsRegistryDep", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			jest = "^1.0.0",
+			cryo = "^2.0.0",
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			jest = { namedVersion("jest", "1.2.0") },
+			cryo = { namedVersion("cryo", "2.1.0") },
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.jest, "jest@1.2.0")
+		assert.eq(lock.dependencies.cryo, "cryo@2.1.0")
+		assert.eq(lock.packages["jest@1.2.0"].sourceKind, "registry")
+		assert.eq(lock.packages["jest@1.2.0"].source, "jest")
+		assert.eq(lock.packages["cryo@2.1.0"].sourceKind, "registry")
+		assert.eq(lock.packages["cryo@2.1.0"].source, "cryo")
+	end)
+
+	suite:case("registryUrlStoredInLockfile", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = { namedVersion("citrus", "1.0.0") },
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.registry, "https://registry.example.com")
+		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://registry.example.com")
+	end)
+
+	suite:case("reResolvesWhenRegistryUrlChanges", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry-a.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.1.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock1.registry, "https://registry-a.example.com")
+		assert.eq(lock1.dependencies.citrus, "citrus@1.1.0")
+
+		-- Change registry URL — should trigger re-resolution
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry-b.example.com",
+}]]
+		)
+
+		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
+		-- Key assertion: lockfile was re-generated with new registry URL
+		assert.eq(lock2.registry, "https://registry-b.example.com")
+		assert.eq(lock2.packages["citrus@1.1.0"].registry, "https://registry-b.example.com")
+	end)
+
+	suite:case("reResolvesWhenRegistrySourceChanges", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = { namedVersion("citrus", "1.0.0") },
+			["org/citrus"] = { namedVersion("org/citrus", "1.0.0") },
+		}
+
+		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].source, "citrus")
+
+		-- Change source — should trigger re-resolution
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "org/citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
+		-- Re-resolved: new source is stored in lockfile
+		assert.eq(lock2.dependencies.citrus, "org/citrus@1.0.0")
+		assert.eq(lock2.packages["org/citrus@1.0.0"].source, "org/citrus")
+	end)
+
+	suite:case("noRegistryFieldInLockfileWhenNoRegistryDeps", function(assert)
+		writeConfig(workingDirectory, "root", "")
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.registry, nil)
 	end)
 end)
