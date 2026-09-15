@@ -1085,6 +1085,56 @@ test.suite("LockfileReuse", function(suite)
 		assert.eq(lock.packages["lib"].dependencies.util, "util")
 		assert.neq(lock.packages["util"], nil)
 	end)
+
+	suite:case("reResolvesWhenNestedRegistryUrlChanges", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+
+		local function writeLibConfig(registryUrl: string)
+			fs.writeStringToFile(path.join(libDir, "loom.config.luau"), [[return {
+	package = {
+		name = "lib",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},
+		},
+	},
+	registry = "]] .. registryUrl .. [[",
+}
+]])
+		end
+
+		writeLibConfig("https://registry-a.example.com")
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock1.packages["citrus@1.0.0"].registry, "https://registry-a.example.com")
+
+		writeLibConfig("https://registry-b.example.com")
+
+		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock2.packages["citrus@1.0.0"].registry, "https://registry-b.example.com")
+	end)
+
 	suite:case("prefersLockedVersionOverNewest", function(assert)
 		writeConfig(
 			workingDirectory,

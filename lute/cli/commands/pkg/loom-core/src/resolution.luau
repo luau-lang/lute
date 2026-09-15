@@ -372,6 +372,10 @@ local function pathDepsAreStale(
 				if recordedPkg.source ~= depSpec.source then
 					return true
 				end
+			elseif depSpec.sourceKind == "registry" then
+				if recordedPkg.source ~= depSpec.source or recordedPkg.registry ~= depManifest.registry then
+					return true
+				end
 			end
 		end
 	end
