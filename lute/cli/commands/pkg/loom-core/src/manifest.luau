@@ -17,6 +17,8 @@ export type GitHubDependencySpec = {
 
 export type RegistryDependencySpec = {
 	read sourceKind: "registry",
+	-- different to path/git, source is the name within the registry so derived from source
+	-- registry manifest entries do not accept `name`
 	read name: string,
 	read source: string,
 	read version: string,
@@ -98,8 +100,13 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 				typeof(spec.version) == "string",
 				`Expected 'version' field for registry dependency '{name}' in {sectionName}`
 			)
+			assert(
+				spec.name == nil,
+				`Registry dependency '{name}' in {sectionName} does not support a 'name' field; use 'source' for the registry package name`
+			)
 			result[name] = table.freeze({
-				name = spec.name or name,
+				-- this name is the name used by solver / lockfile
+				name = spec.source,
 				sourceKind = "registry" :: "registry",
 				source = spec.source,
 				version = spec.version,

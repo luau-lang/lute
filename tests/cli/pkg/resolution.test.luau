@@ -111,15 +111,15 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(entry.installPath, "@pkg/citrus@1.2.0")
 	end)
 
-	suite:case("lockfileEntryPreservesSourceWhenDifferentFromName", function(assert)
+	suite:case("lockfileEntryUsesSourceAsPackageName", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
 			[[
 
-			citrus = {
+			myCitrus = {
 				sourceKind = "registry",
-				source = "citrus/citrus",
+				source = "citrus",
 				version = "^1.0.0",
 			},]]
 		)
@@ -132,7 +132,8 @@ test.suite("RegistryResolution", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
-		assert.eq(lock.packages["citrus@1.0.0"].source, "citrus/citrus")
+		assert.eq(lock.dependencies.myCitrus, "citrus@1.0.0")
+		assert.eq(lock.packages["citrus@1.0.0"].source, "citrus")
 	end)
 
 	suite:case("resolvesTransitiveDeps", function(assert)
@@ -163,6 +164,35 @@ test.suite("RegistryResolution", function(suite)
 		assert.neq(lock.packages["lemon@1.0.0"], nil)
 		assert.neq(lock.packages["citrus@2.1.0"], nil)
 		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus@2.1.0")
+	end)
+
+	suite:case("registryAliasesUseSourceAsThePackageName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			myLemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { myCitrus = req("citrus", "^2.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "2.1.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.myLemon, "lemon@1.0.0")
+		assert.eq(lock.packages["lemon@1.0.0"].dependencies.myCitrus, "citrus@2.1.0")
+		assert.eq(lock.packages["citrus@2.1.0"].source, "citrus")
 	end)
 
 	suite:case("resolvesDiamondDependency", function(assert)
@@ -337,7 +367,6 @@ test.suite("RegistryResolution", function(suite)
 
 			mylib = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "^1.0.0",
 			},]]
@@ -356,6 +385,28 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.2.0"].name, "citrus")
 	end)
 
+	suite:case("registryDependencyRejectsExplicitName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			myCitrus = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		assert.throwsWith(
+			"Registry dependency 'myCitrus' in dependencies does not support a 'name' field; use 'source' for the registry package name",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil)
+			end
+		)
+	end)
+
 	suite:case("conflictMessageAttributesConstraintsToAliases", function(assert)
 		writeConfig(
 			workingDirectory,
@@ -364,13 +415,11 @@ test.suite("RegistryResolution", function(suite)
 
 			lemon = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "^1.5.0",
 			},
 			lime = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "<1.3.0",
 			},]]
@@ -423,38 +472,6 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus"].sourceKind, "path")
 		assert.neq(lock.packages["citrus@1.0.0"], nil)
 		assert.eq(lock.packages["citrus@1.0.0"].sourceKind, "registry")
-	end)
-
-	suite:case("allowsDifferentSourcesForSameNameUnderDifferentAliases", function(assert)
-		writeConfig(
-			workingDirectory,
-			"root",
-			[[
-
-			a = {
-				sourceKind = "registry",
-				name = "citrus",
-				source = "org-one/citrus",
-				version = "^1.0.0",
-			},
-			b = {
-				sourceKind = "registry",
-				name = "citrus",
-				source = "org-two/citrus",
-				version = "^1.0.0",
-			},]]
-		)
-
-		local universe: solver.Universe = {
-			citrus = {
-				namedVersion("citrus", "1.0.0"),
-			},
-		}
-
-		local lock = resolution.resolve(path.format(workingDirectory), universe)
-
-		assert.eq(lock.dependencies.a, "citrus@1.0.0")
-		assert.eq(lock.dependencies.b, "citrus@1.0.0")
 	end)
 
 	suite:case("writesLockfileToDisk", function(assert)
@@ -1466,7 +1483,6 @@ test.suite("Overrides", function(suite)
 
 			localCitrus = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "^1.0.0",
 			},]],
@@ -1504,7 +1520,6 @@ test.suite("Overrides", function(suite)
 
 			localCitrus = {
 				sourceKind = "registry",
-				name = "citrus",
 				source = "citrus",
 				version = "^1.0.0",
 			},]],
@@ -1875,6 +1890,7 @@ test.suite("Overrides", function(suite)
 
 		local universe: solver.Universe = {
 			citrus = { namedVersion("citrus", "1.0.0") },
+			["org/citrus"] = { namedVersion("org/citrus", "1.0.0") },
 		}
 
 		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
@@ -1901,7 +1917,8 @@ test.suite("Overrides", function(suite)
 
 		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
 		-- Re-resolved: new source is stored in lockfile
-		assert.eq(lock2.packages["citrus@1.0.0"].source, "org/citrus")
+		assert.eq(lock2.dependencies.citrus, "org/citrus@1.0.0")
+		assert.eq(lock2.packages["org/citrus@1.0.0"].source, "org/citrus")
 	end)
 
 	suite:case("noRegistryFieldInLockfileWhenNoRegistryDeps", function(assert)

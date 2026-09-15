@@ -74,7 +74,7 @@ local function install(...: string)
 			if not store.hasPackage(key) then
 				local registryUrl = pkg.registry
 				assert(registryUrl ~= nil, `No registry URL for package '{pkg.name}'`)
-				registry.installPackage(registryUrl, pkg.name, pkg.rev, store.getPackagePath(key))
+				registry.installPackage(registryUrl, pkg.source, pkg.rev, store.getPackagePath(key))
 			end
 		end
 	end

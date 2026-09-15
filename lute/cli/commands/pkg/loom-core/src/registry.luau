@@ -80,6 +80,10 @@ local function indexToPackageVersions(entries: any, packageName: string): { semv
 		if entry.yanked == true then
 			continue
 		end
+		assert(
+			typeof(entry.name) == "string" and entry.name == packageName,
+			`Package index for '{packageName}' contained an entry for a different package`
+		)
 
 		local version = semver.tryParse(entry.version)
 		if version == nil then
@@ -100,7 +104,7 @@ local function indexToPackageVersions(entries: any, packageName: string): { semv
 		table.insert(
 			versions,
 			table.freeze({
-				name = packageName,
+				name = entry.name,
 				version = version,
 				versionString = entry.version,
 				dependencies = table.freeze(dependencies),
@@ -111,49 +115,57 @@ local function indexToPackageVersions(entries: any, packageName: string): { semv
 	return versions
 end
 
-local function fetchPackageIndex(registryUrl: string, packageName: string): any
-	local body = registryRequest(registryUrl, `/api/v1/package-index/{packageName}`)
+local function fetchPackageIndex(registryUrl: string, packageSource: string): any
+	local body = registryRequest(registryUrl, `/api/v1/package-index/{packageSource}`)
 	local entries = json.deserialize(body) :: any
-	assert(entries ~= nil and typeof(entries) == "table", `Invalid package index response for '{packageName}'`)
+	assert(entries ~= nil and typeof(entries) == "table", `Invalid package index response for '{packageSource}'`)
 	return entries
 end
 
-local function fetchContentUrl(registryUrl: string, packageName: string, version: string): string
-	local body = registryRequest(registryUrl, `/api/v1/package-content-url/{packageName}/{version}`)
+local function fetchContentUrl(registryUrl: string, packageSource: string, version: string): string
+	local body = registryRequest(registryUrl, `/api/v1/package-content-url/{packageSource}/{version}`)
 	local data = json.deserialize(body) :: any
-	assert(data ~= nil and typeof(data) == "table", `Invalid content URL response for '{packageName}@{version}'`)
+	assert(data ~= nil and typeof(data) == "table", `Invalid content URL response for '{packageSource}@{version}'`)
 	assert(
 		typeof(data.contentUrl) == "string" and data.contentUrl ~= "",
-		`Missing contentUrl in response for '{packageName}@{version}'`
+		`Missing contentUrl in response for '{packageSource}@{version}'`
 	)
 	return data.contentUrl
 end
 
-local function fetchUniverse(registryUrl: string, packageNames: { string }): semver.Universe
+type PackageRequest = {
+	name: string,
+	source: string,
+}
+
+local function fetchUniverse(registryUrl: string, packageRequests: { PackageRequest }): semver.Universe
 	local universe: semver.Universe = {}
 	local fetched: { [string]: boolean } = {}
-	local queue: { string } = {}
+	local queue: { PackageRequest } = {}
 
-	for _, name in packageNames do
-		if not fetched[name] then
-			table.insert(queue, name)
-			fetched[name] = true
+	for _, packageRequest in packageRequests do
+		if not fetched[packageRequest.name] then
+			table.insert(queue, packageRequest)
+			fetched[packageRequest.name] = true
 		end
 	end
 
 	local queueIndex = 1
 	while queueIndex <= #queue do
-		local packageName = queue[queueIndex]
+		local packageRequest = queue[queueIndex]
 		queueIndex += 1
 
-		local entries = fetchPackageIndex(registryUrl, packageName)
-		local versions = indexToPackageVersions(entries, packageName)
-		universe[packageName] = versions
+		local entries = fetchPackageIndex(registryUrl, packageRequest.source)
+		local versions = indexToPackageVersions(entries, packageRequest.name)
+		universe[packageRequest.name] = versions
 
 		for _, pkgVersion in versions do
 			for _, dep in pkgVersion.dependencies do
 				if not fetched[dep.name] then
-					table.insert(queue, dep.name)
+					table.insert(queue, {
+						name = dep.name,
+						source = dep.name,
+					})
 					fetched[dep.name] = true
 				end
 			end
@@ -184,18 +196,18 @@ local function installZipArchive(content: string, installPath: string)
 	end)
 end
 
-local function installPackage(registryUrl: string, packageName: string, version: string, installPath: string)
-	local contentUrl = fetchContentUrl(registryUrl, packageName, version)
+local function installPackage(registryUrl: string, packageSource: string, version: string, installPath: string)
+	local contentUrl = fetchContentUrl(registryUrl, packageSource, version)
 	local headers: { [string]: string } = {
 		["User-Agent"] = "lute-pkg",
 	}
 
 	local response = net.request(contentUrl, { method = "GET", headers = headers })
 	if not response.ok then
-		error(`Failed to download package '{packageName}@{version}' from {contentUrl}: HTTP {response.status}`)
+		error(`Failed to download package '{packageSource}@{version}' from {contentUrl}: HTTP {response.status}`)
 	end
 
-	local safeName = string.gsub(`{packageName}-{version}`, "[^%w%-_.]", "-")
+	local safeName = string.gsub(`{packageSource}-{version}`, "[^%w%-_.]", "-")
 	local tempDir = path.format(path.join(system.tmpdir(), `lute-pkg-registry-{safeName}`))
 
 	if fs.exists(tempDir) then

@@ -563,7 +563,7 @@ local function resolveRegistryDependencies(
 	local sourceOverridedDeps: { [string]: { [string]: string } } = {}
 
 	if effectiveUniverse == nil then
-		local packagesByRegistryUrl: { [string]: { string } } = {}
+		local packagesByRegistryUrl: { [string]: { { name: string, source: string } } } = {}
 		local seen: { [string]: boolean } = {}
 
 		for _, req in state.registryRequirements do
@@ -581,7 +581,10 @@ local function resolveRegistryDependencies(
 			if not packagesByRegistryUrl[url] then
 				packagesByRegistryUrl[url] = {}
 			end
-			table.insert(packagesByRegistryUrl[url], req.name)
+			table.insert(packagesByRegistryUrl[url], {
+				name = req.name,
+				source = state.registrySources[req.name] or req.name,
+			})
 		end
 
 		effectiveUniverse = {}
