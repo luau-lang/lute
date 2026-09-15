@@ -488,7 +488,8 @@ end
 local function applyOverrides(
 	state: ResolutionState,
 	overrides: { [string]: manifest.DependencySpec },
-	rootDirectory: string
+	rootDirectory: string,
+	rootRegistryUrl: string?
 ): { [string]: semver.Requirement }
 	local overriddenPackages: { [string]: semver.Requirement } = {}
 
@@ -506,6 +507,9 @@ local function applyOverrides(
 
 			if not state.registrySources[overrideName] then
 				state.registrySources[overrideName] = overrideSpec.source
+			end
+			if rootRegistryUrl then
+				state.registryUrlByPackage[overrideName] = rootRegistryUrl
 			end
 		else
 			local overrideKey = resolveSourcePackage(
@@ -718,7 +722,7 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	processSourceQueue(state, rootDirectory)
 
 	local overrides = rootManifest.overrides
-	local overriddenPackages = applyOverrides(state, overrides, rootDirectory)
+	local overriddenPackages = applyOverrides(state, overrides, rootDirectory, rootManifest.registry)
 	processSourceQueue(state, rootDirectory)
 
 	resolveRegistryDependencies(state, overriddenPackages, universe, overrides, lockedRegistryVersions)

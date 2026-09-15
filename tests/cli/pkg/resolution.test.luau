@@ -1,5 +1,6 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
+local server = require("@lute/net/server")
 local system = require("@std/system")
 local test = require("@std/test")
 
@@ -1346,6 +1347,52 @@ test.suite("Overrides", function(suite)
 		assert.eq(lock.packages["citrus"].name, "citrus")
 		assert.eq(lock.packages["citrus@2.1.0"], nil)
 		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus")
+	end)
+
+	suite:case("registryOverrideUsesRootRegistry", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+		writeConfig(libDir, "lib", "")
+
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				assert.eq(req.path, "/api/v1/package-index/citrus")
+				return {
+					status = 200,
+					body = [[[{"name":"citrus","version":"2.0.0","yanked":false,"dependencies":[]}]],
+				}
+			end,
+		})
+		local registryUrl = `http://{instance.hostname}:{instance.port}`
+
+		fs.writeStringToFile(path.join(workingDirectory, "loom.config.luau"), [[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},
+		},
+	},
+	registry = "]] .. registryUrl .. [[",
+	overrides = {
+		citrus = {
+			sourceKind = "registry",
+			source = "citrus",
+			version = "2.0.0",
+		},
+	},
+}
+]])
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+
+		assert.eq(lock.packages["citrus@2.0.0"].registry, registryUrl)
+
+		instance.close()
 	end)
 
 	suite:case("sourceOverridePathResolvesNestedPathDeps", function(assert)
