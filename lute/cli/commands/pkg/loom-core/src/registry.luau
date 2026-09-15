@@ -186,13 +186,9 @@ end
 
 local function installPackage(registryUrl: string, packageName: string, version: string, installPath: string)
 	local contentUrl = fetchContentUrl(registryUrl, packageName, version)
-	local token = getAuthenticationToken(registryUrl)
 	local headers: { [string]: string } = {
 		["User-Agent"] = "lute-pkg",
 	}
-	if token ~= nil then
-		headers["Authorization"] = `Bearer {token}`
-	end
 
 	local response = net.request(contentUrl, { method = "GET", headers = headers })
 	if not response.ok then
