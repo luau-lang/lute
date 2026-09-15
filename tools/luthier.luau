@@ -102,7 +102,8 @@ local function findLast(haystack: string, needle: string): number?
 	local lastPos
 	local currentPos = 1
 	while true do
-		if local foundPos = string.find(haystack, needle, currentPos, true) then
+		local foundPos = string.find(haystack, needle, currentPos, true)
+		if foundPos then
 			lastPos = foundPos
 			currentPos = foundPos + 1
 		else
@@ -129,7 +130,8 @@ local function getSourceRoot()
 			return cwd
 		end
 
-		if local lastSep = findLast(cwd, pathSep) then
+		local lastSep = findLast(cwd, pathSep)
+		if lastSep then
 			cwd = string.sub(cwd, 1, lastSep - 1)
 		else
 			break
@@ -542,11 +544,13 @@ local function getConfigureArguments()
 		table.insert(configArgs, "-DCMAKE_C_COMPILER_LAUNCHER=ccache")
 	end
 
-	if local cxx_compiler = args:get("cxx-compiler") then
+	local cxx_compiler = args:get("cxx-compiler")
+	if cxx_compiler then
 		table.insert(configArgs, "-DCMAKE_CXX_COMPILER=" .. cxx_compiler)
 	end
 
-	if local c_compiler = args:get("c-compiler") then
+	local c_compiler = args:get("c-compiler")
+	if c_compiler then
 		table.insert(configArgs, "-DCMAKE_C_COMPILER=" .. c_compiler)
 	end
 
