@@ -485,8 +485,8 @@ local function tryReuseLockfile(
 					continue
 				end
 				local packageName = getRegistryPackageName(pkg.name, pkg.registry)
-				local lockedVersions = lockedRegistryVersions :: { [string]: string }
-				lockedVersions[packageName] = pkg.rev
+				local _lockedVersions = lockedRegistryVersions :: { [string]: string }
+				_lockedVersions[packageName] = pkg.rev
 			end
 		end
 	end
