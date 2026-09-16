@@ -378,7 +378,8 @@ end
 local function pathDepsAreStale(
 	lock: lockfile.Lockfile,
 	rootDirectory: string,
-	overrides: { [string]: manifest.DependencySpec }
+	overrides: { [string]: manifest.DependencySpec },
+	rootRegistryUrl: string?
 ): boolean
 	for _, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
@@ -414,7 +415,8 @@ local function pathDepsAreStale(
 			if not normalizeOk then
 				return true
 			end
-			depSpec = overrides[(normalizedDepSpec :: manifest.DependencySpec).name] or normalizedDepSpec
+			local overrideSpec = overrides[(normalizedDepSpec :: manifest.DependencySpec).name]
+			depSpec = overrideSpec or normalizedDepSpec
 
 			local recordedKey = pkg.dependencies[alias]
 			if recordedKey == nil then
@@ -436,7 +438,8 @@ local function pathDepsAreStale(
 					return true
 				end
 			elseif depSpec.sourceKind == "registry" then
-				if recordedPkg.source ~= depSpec.source or recordedPkg.registry ~= depManifest.registry then
+				local registryUrl = if overrideSpec then rootRegistryUrl else depManifest.registry
+				if recordedPkg.source ~= depSpec.source or recordedPkg.registry ~= registryUrl then
 					return true
 				end
 			end
@@ -468,7 +471,9 @@ local function tryReuseLockfile(
 			return existingLock, nil
 		end
 
-		if satisfied and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides) then
+		if satisfied
+			and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides, rootManifest.registry)
+		then
 			return existingLock, nil
 		end
 	end

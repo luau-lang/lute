@@ -1620,12 +1620,27 @@ test.suite("Overrides", function(suite)
 	suite:case("registryOverrideUsesRootRegistry", function(assert)
 		local libDir = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDir)
-		writeConfig(libDir, "lib", "")
+		writeConfig(
+			libDir,
+			"lib",
+			[[
 
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			"https://nested-registry.example.com"
+		)
+
+		local requestCount = 0
 		local instance = server.serve({
 			port = 0,
 			handler = function(req: server.ReceivedRequest): server.ServerResponse
 				assert.eq(req.path, "/api/v1/package-index/citrus")
+				requestCount += 1
 				return {
 					status = 200,
 					body = [[
@@ -1660,7 +1675,10 @@ test.suite("Overrides", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 
-		assert.eq(lock.packages["citrus@2.0.0"].registry, registryUrl)
+		local citrusKey = lock.packages.lib.dependencies.citrus
+		assert.eq(lock.packages[citrusKey].registry, registryUrl)
+		resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(requestCount, 1)
 
 		instance.close()
 	end)
