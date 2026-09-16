@@ -221,6 +221,7 @@ local function installPackage(registryUrl: string, packageSource: string, versio
 		error(err, 0)
 	end, response.body, tempDir)
 
+	fs.createDirectory(path.dirname(installPath), { makeParents = true })
 	fs.move(tempDir, installPath)
 end
 
