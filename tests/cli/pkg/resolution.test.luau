@@ -7,11 +7,19 @@ local test = require("@std/test")
 local resolution = require("@commands/pkg/loom-core/src/resolution")
 local parser = require("@commands/pkg/loom-core/src/semver/parser")
 local solver = require("@commands/pkg/loom-core/src/semver/solver")
+local store = require("@commands/pkg/loom-core/src/store")
 
 local temporaryDirectory = system.tmpdir()
 local workingDirectory = path.join(temporaryDirectory, "lute-pkg-registry")
 
-local function writeConfig(dir: path.Path, name: string, deps: string, devDeps: string?, overrides: string?)
+local function writeConfig(
+	dir: path.Path,
+	name: string,
+	deps: string,
+	devDeps: string?,
+	overrides: string?,
+	registryUrl: string?
+)
 	local sections = `\t\tdependencies = \{{deps}\n\t\t}`
 	if devDeps then
 		sections ..= `,\n\t\tdev_dependencies = \{{devDeps}\n\t\t}`
@@ -21,10 +29,11 @@ local function writeConfig(dir: path.Path, name: string, deps: string, devDeps: 
 	if overrides then
 		overridesSection = `\n\toverrides = \{{overrides}\n\t},`
 	end
+	local registrySection = if registryUrl then `\n\tregistry = "{registryUrl}",` else ""
 
 	fs.writeStringToFile(
 		path.join(dir, "loom.config.luau"),
-		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n{sections},\n\t},{overridesSection}\n}\n`
+		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n{sections},\n\t},{overridesSection}{registrySection}\n}\n`
 	)
 end
 
@@ -135,6 +144,56 @@ test.suite("RegistryResolution", function(suite)
 
 		assert.eq(lock.dependencies.myCitrus, "citrus@1.0.0")
 		assert.eq(lock.packages["citrus@1.0.0"].source, "citrus")
+	end)
+
+	suite:case("registryPackagesUseRegistryNamespacedStorePath", function(assert)
+		local firstRegistryUrl = "https://registry-one.example.com/"
+		local secondRegistryUrl = "https://registry-two.example.com"
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			firstRegistryUrl
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local firstLock = resolution.resolve(path.format(workingDirectory), universe)
+		local key = "citrus@1.0.0"
+		assert.eq(
+			firstLock.packages[key].installPath,
+			store.toStorePath(store.getRegistryPackageKey(key, firstRegistryUrl))
+		)
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			secondRegistryUrl
+		)
+
+		local secondLock = resolution.resolve(path.format(workingDirectory), universe)
+		assert.neq(firstLock.packages[key].installPath, secondLock.packages[key].installPath)
 	end)
 
 	suite:case("resolvesTransitiveDeps", function(assert)
@@ -358,6 +417,75 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["lib"].sourceKind, "path")
 		assert.neq(lock.packages["citrus@2.1.0"], nil)
 		assert.eq(lock.packages["lib"].dependencies.citrus, "citrus@2.1.0")
+	end)
+
+	suite:case("sameRegistryPackageFromDifferentRegistriesUsesDistinctPackageKeys", function(assert)
+		local function serveCitrusRegistry()
+			return server.serve({
+				port = 0,
+				handler = function(req): server.ServerResponse
+					assert.eq(req.path, "/api/v1/package-index/citrus")
+					return {
+						status = 200,
+						body = [[
+[{"name":"citrus","version":"1.0.0","yanked":false,"dependencies":[]}]
+]],
+					}
+				end,
+			})
+		end
+
+		local rootRegistry = serveCitrusRegistry()
+		local libRegistry = serveCitrusRegistry()
+		local rootRegistryUrl = `http://{rootRegistry.hostname}:{rootRegistry.port}`
+		local libRegistryUrl = `http://{libRegistry.hostname}:{libRegistry.port}`
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+		writeConfig(
+			libDir,
+			"lib",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			libRegistryUrl
+		)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			rootRegistryUrl
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		local rootCitrusKey = lock.dependencies.citrus
+		local libCitrusKey = lock.packages.lib.dependencies.citrus
+
+		assert.neq(rootCitrusKey, libCitrusKey)
+		assert.eq(lock.packages[rootCitrusKey].name, "citrus")
+		assert.eq(lock.packages[rootCitrusKey].registry, rootRegistryUrl)
+		assert.eq(lock.packages[libCitrusKey].name, "citrus")
+		assert.eq(lock.packages[libCitrusKey].registry, libRegistryUrl)
+
+		rootRegistry.close()
+		libRegistry.close()
 	end)
 
 	suite:case("aliasCanDifferFromPackageName", function(assert)
@@ -1356,6 +1484,96 @@ test.suite("Overrides", function(suite)
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
 
 		assert.eq(lock.dependencies.citrus, "citrus@1.2.0")
+	end)
+
+	suite:case("registryOverrideWithRootRegistryPreservesDirectDependency", function(assert)
+		local registryUrl = "https://registry.example.com"
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "2.0.0",
+			},]],
+			registryUrl
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.citrus, "citrus@2.0.0")
+		assert.eq(lock.packages[lock.dependencies.citrus].registry, registryUrl)
+	end)
+
+	suite:case("registryOverrideRemapsNestedDependenciesFromAnotherRegistry", function(assert)
+		local rootRegistryUrl = "https://registry-a.example.com"
+		local libRegistryUrl = "https://registry-b.example.com"
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+		writeConfig(
+			libDir,
+			"lib",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			libRegistryUrl
+		)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "2.0.0",
+			},]],
+			rootRegistryUrl
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+		local citrusKey = lock.packages.lib.dependencies.citrus
+
+		assert.neq(citrusKey, nil)
+		assert.eq(lock.packages[citrusKey].rev, "2.0.0")
+		assert.eq(lock.packages[citrusKey].registry, rootRegistryUrl)
 	end)
 
 	suite:case("sourceOverridePathBypassesRegistry", function(assert)

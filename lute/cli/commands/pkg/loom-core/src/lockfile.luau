@@ -2,6 +2,7 @@ local fs = require("@std/fs")
 local luau = require("@std/luau")
 local manifest = require("./manifest")
 local semver = require("./semver")
+local store = require("./store")
 
 export type LockfileDependency = {
 	read name: string,
@@ -202,6 +203,15 @@ local function satisfiesManifest(
 
 	if lock.registry ~= rootManifest.registry then
 		return false, "registry URL changed"
+	end
+
+	for key, pkg in lock.packages do
+		if pkg.sourceKind == "registry" and pkg.registry then
+			local expectedInstallPath = store.toStorePath(store.getRegistryPackageKey(key, pkg.registry))
+			if pkg.installPath ~= expectedInstallPath then
+				return false, `registry store path changed: {key}`
+			end
+		end
 	end
 
 	return true, nil

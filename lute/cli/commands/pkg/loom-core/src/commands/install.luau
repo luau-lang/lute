@@ -71,10 +71,11 @@ local function install(...: string)
 	for key, pkg in lock.packages do
 		if pkg.sourceKind == "registry" and pkg.rev then
 			store.ensureStoreDirectory()
-			if not store.hasPackage(key) then
-				local registryUrl = pkg.registry
-				assert(registryUrl ~= nil, `No registry URL for package '{pkg.name}'`)
-				registry.installPackage(registryUrl, pkg.source, pkg.rev, store.getPackagePath(key))
+			local registryUrl = pkg.registry
+			assert(registryUrl ~= nil, `No registry URL for package '{pkg.name}'`)
+			local storeKey = store.getRegistryPackageKey(key, registryUrl)
+			if not store.hasPackage(storeKey) then
+				registry.installPackage(registryUrl, pkg.source, pkg.rev, store.getPackagePath(storeKey))
 			end
 		end
 	end
