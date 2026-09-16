@@ -41,7 +41,7 @@ local function getAuthenticationToken(registryUrl: string): string?
 end
 
 local function registryRequest(registryUrl: string, endpoint: string): string
-	local url = `{registryUrl}{endpoint}`
+	local url = `{string.gsub(registryUrl, "/+$", "")}{endpoint}`
 	local token = getAuthenticationToken(registryUrl)
 
 	local headers: { [string]: string } = {
