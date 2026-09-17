@@ -1,9 +1,103 @@
+local fs = require("@std/fs")
+local path = require("@std/path")
+local process = require("@std/process")
 local test = require("@std/test")
 local server = require("@lute/net/server")
+local system = require("@std/system")
 
 local registry = require("@commands/pkg/loom-core/src/registry")
+local registryUrl = require("@commands/pkg/loom-core/src/registryurl")
+local store = require("@commands/pkg/loom-core/src/store")
+
+local lutePath = path.format(process.execPath())
+local testFilePath = debug.info(1, "s"):gsub("^@", "")
+local fetchRegistryFixture = path.join(path.dirname(testFilePath), "fixtures", "fetch_registry.luau")
+local credentialWorkingDirectory = path.join(system.tmpdir(), "lute-pkg-registry-credentials")
 
 test.suite("RegistryClient", function(suite)
+	suite:case("normalizesTrailingSlashesAndParsesProtocol", function(assert)
+		assert.eq(registryUrl.normalize("http://registry.example.com///"), "http://registry.example.com")
+		assert.that(registryUrl.equals("https://registry.example.com", "https://registry.example.com/"))
+		assert.eq(registryUrl.parse("http://registry.example.com/path").protocol, "http")
+		assert.eq(registryUrl.parse("http://registry.example.com/path").host, "registry.example.com")
+	end)
+
+	suite:case("usesUniqueStagingDirectoriesForIdenticalConcurrentInstalls", function(assert)
+		local registryUrlValue = "https://registry.example.com"
+		local first = registry.getTemporaryInstallDirectory(registryUrlValue, "org/citrus", "1.0.0")
+		local second = registry.getTemporaryInstallDirectory(registryUrlValue, "org/citrus", "1.0.0")
+
+		assert.neq(first, second)
+		assert.strContains(first, store.getRegistryIdentity(registryUrlValue))
+		assert.strContains(second, store.getRegistryIdentity(registryUrlValue))
+	end)
+
+	suite:case("authFailureSuggestsAuthCommand", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(): server.ServerResponse
+				return { status = 401, body = "unauthorized" }
+			end,
+		})
+
+		local ok, err = pcall(function()
+			registry.fetchUniverse(`http://{instance.hostname}:{instance.port}`, {
+				{ name = "citrus", source = "citrus" },
+			})
+		end)
+		assert.that(not ok)
+		assert.strContains(tostring(err), "Run `lute pkg auth --domain")
+
+		instance.close()
+	end)
+
+	suite:case("passesHttpRegistryProtocolToCredentialProvider", function(assert)
+		if fs.exists(credentialWorkingDirectory) then
+			fs.removeDirectory(credentialWorkingDirectory, { recursive = true })
+		end
+		fs.createDirectory(credentialWorkingDirectory)
+
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				assert.eq(req.path, "/api/v1/package-index/citrus")
+				return {
+					status = 200,
+					body = '[{"name":"citrus","version":"1.0.0","yanked":false,"dependencies":[]}]',
+				}
+			end,
+		})
+		local registryUrlValue = `http://{instance.hostname}:{instance.port}`
+		local registryHost = `{instance.hostname}:{instance.port}`
+
+		fs.writeStringToFile(
+			path.join(credentialWorkingDirectory, ".config.luau"),
+			[[return {
+		lute = {
+			credentials = {
+				providers = { "./credentials.luau" },
+			},
+		},
+	}
+]]
+		)
+		fs.writeStringToFile(
+			path.join(credentialWorkingDirectory, "credentials.luau"),
+			'return {\n\thost = "'
+				.. registryHost
+				.. '",\n\tresolve = function(request)\n\t\tassert(request.protocol == "http")\n\t\treturn "registry-test-token"\n\tend,\n}\n'
+		)
+
+		local result = process.run({ lutePath, path.format(fetchRegistryFixture), registryUrlValue }, {
+			cwd = path.format(credentialWorkingDirectory),
+			env = setmetatable({ LOOM_REGISTRY_TOKEN = "" }, { __index = process.env }),
+		})
+		assert.eq(result.exitcode, 0)
+
+		instance.close()
+		fs.removeDirectory(credentialWorkingDirectory, { recursive = true })
+	end)
+
 	suite:case("indexToPackageVersions_basicEntry", function(assert)
 		local entries = {
 			{

@@ -5,6 +5,7 @@ local path = require("@std/path")
 local pp = require("@batteries/pp")
 local manifest = require("./manifest")
 local registry = require("./registry")
+local registryUrlUtil = require("./registryurl")
 local semver = require("./semver")
 local store = require("./store")
 
@@ -439,7 +440,10 @@ local function pathDepsAreStale(
 				end
 			elseif depSpec.sourceKind == "registry" then
 				local registryUrl = if overrideSpec then rootRegistryUrl else depManifest.registry
-				if recordedPkg.source ~= depSpec.source or recordedPkg.registry ~= registryUrl then
+				if
+					recordedPkg.source ~= depSpec.source
+					or not registryUrlUtil.equals(recordedPkg.registry, registryUrl)
+				then
 					return true
 				end
 			end

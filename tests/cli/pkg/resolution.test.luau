@@ -1311,6 +1311,73 @@ test.suite("LockfileReuse", function(suite)
 		assert.eq(lock2.packages["citrus@1.0.0"].registry, "https://registry-b.example.com")
 	end)
 
+	suite:case("reusesLockfileWhenNestedRegistryUrlOnlyChangesTrailingSlash", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+
+		local requestCount = 0
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				assert.eq(req.path, "/api/v1/package-index/citrus")
+				requestCount += 1
+				return {
+					status = 200,
+					body = '[{"name":"citrus","version":"1.0.0","yanked":false,"dependencies":[]}]',
+				}
+			end,
+		})
+		local registryUrl = `http://{instance.hostname}:{instance.port}`
+
+		writeConfig(
+			libDir,
+			"lib",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			`{registryUrl}/`
+		)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(requestCount, 1)
+
+		writeConfig(
+			libDir,
+			"lib",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			registryUrl
+		)
+
+		resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(requestCount, 1)
+
+		instance.close()
+	end)
+
 	suite:case("prefersLockedVersionOverNewest", function(assert)
 		writeConfig(
 			workingDirectory,
@@ -2250,6 +2317,60 @@ test.suite("Overrides", function(suite)
 		-- Key assertion: lockfile was re-generated with new registry URL
 		assert.eq(lock2.registry, "https://registry-b.example.com")
 		assert.eq(lock2.packages["citrus@1.1.0"].registry, "https://registry-b.example.com")
+	end)
+
+	suite:case("lockedAcceptsRootRegistryUrlTrailingSlashChanges", function(assert)
+		local requestCount = 0
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				assert.eq(req.path, "/api/v1/package-index/citrus")
+				requestCount += 1
+				return {
+					status = 200,
+					body = '[{"name":"citrus","version":"1.0.0","yanked":false,"dependencies":[]}]',
+				}
+			end,
+		})
+		local registryUrl = `http://{instance.hostname}:{instance.port}`
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			`{registryUrl}/`
+		)
+
+		resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(requestCount, 1)
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			registryUrl
+		)
+
+		resolution.resolve(path.format(workingDirectory), nil, { locked = true })
+		assert.eq(requestCount, 1)
+
+		instance.close()
 	end)
 
 	suite:case("reResolvesWhenRegistrySourceChanges", function(assert)

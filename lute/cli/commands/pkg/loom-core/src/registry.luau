@@ -5,14 +5,27 @@ local json = require("@std/json")
 local net = require("@std/net")
 local path = require("@std/path")
 local process = require("@std/process")
+local registryUrlUtil = require("./registryurl")
 local semver = require("./semver")
+local store = require("./store")
 local system = require("@std/system")
 local unzip = require("../extern/unzip")
 
-local function parseHost(registryUrl: string): string
-	local host = registryUrl:match("^https?://([^/]+)")
-	assert(host, `Could not parse host from registry URL: {registryUrl}`)
-	return host
+local temporaryDirectoryCounter = 0
+
+local function getTemporaryInstallDirectory(registryUrl: string, packageSource: string, version: string): string
+	local safeName = string.gsub(`{packageSource}-{version}`, "[^%w%-_.]", "-")
+	temporaryDirectoryCounter += 1
+
+	return path.format(
+		path.join(
+			system.tmpdir(),
+			`lute-pkg-registry-{safeName}-{store.getRegistryIdentity(registryUrl)}-{process.pid()}-{temporaryDirectoryCounter}-{math.random(
+				0,
+				2147483647
+			)}`
+		)
+	)
 end
 
 local function getAuthenticationToken(registryUrl: string): string?
@@ -21,18 +34,18 @@ local function getAuthenticationToken(registryUrl: string): string?
 		return token
 	end
 
-	local host = parseHost(registryUrl)
+	local parsedUrl = registryUrlUtil.parse(registryUrl)
 
 	local providedToken = credentials.resolveToken({
-		protocol = "https",
-		host = host,
+		protocol = parsedUrl.protocol,
+		host = parsedUrl.host,
 	})
 	if providedToken ~= nil and providedToken ~= "" then
 		return providedToken
 	end
 
 	local store = authenticationStore.loadAuthenticationStore()
-	local entry = store[host]
+	local entry = store[parsedUrl.host]
 	if typeof(entry) == "table" and typeof(entry.token) == "string" and entry.token ~= "" then
 		return entry.token
 	end
@@ -41,7 +54,7 @@ local function getAuthenticationToken(registryUrl: string): string?
 end
 
 local function registryRequest(registryUrl: string, endpoint: string): string
-	local url = `{string.gsub(registryUrl, "/+$", "")}{endpoint}`
+	local url = `{registryUrlUtil.normalize(registryUrl)}{endpoint}`
 	local token = getAuthenticationToken(registryUrl)
 
 	local headers: { [string]: string } = {
@@ -56,9 +69,10 @@ local function registryRequest(registryUrl: string, endpoint: string): string
 	local response = net.request(url, { method = "GET", headers = headers })
 
 	if response.status == 401 or response.status == 403 then
+		local parsedUrl = registryUrlUtil.parse(registryUrl)
 		error(
 			`Registry authentication failed for {url}: HTTP {response.status}. `
-				.. `Run \`lute pkg authenticate --domain {parseHost(registryUrl)}\` to set credentials.`
+				.. `Run \`lute pkg auth --domain {parsedUrl.host}\` to set credentials.`
 		)
 	end
 
@@ -207,12 +221,7 @@ local function installPackage(registryUrl: string, packageSource: string, versio
 		error(`Failed to download package '{packageSource}@{version}' from {contentUrl}: HTTP {response.status}`)
 	end
 
-	local safeName = string.gsub(`{packageSource}-{version}`, "[^%w%-_.]", "-")
-	local tempDir = path.format(path.join(system.tmpdir(), `lute-pkg-registry-{safeName}`))
-
-	if fs.exists(tempDir) then
-		fs.removeDirectory(tempDir, { recursive = true })
-	end
+	local tempDir = getTemporaryInstallDirectory(registryUrl, packageSource, version)
 
 	xpcall(installZipArchive, function(err)
 		if fs.exists(tempDir) then
@@ -227,6 +236,7 @@ end
 
 return {
 	fetchUniverse = fetchUniverse,
+	getTemporaryInstallDirectory = getTemporaryInstallDirectory,
 	installPackage = installPackage,
 	indexToPackageVersions = indexToPackageVersions,
 }

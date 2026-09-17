@@ -1,6 +1,7 @@
 local fs = require("@std/fs")
 local luau = require("@std/luau")
 local manifest = require("./manifest")
+local registryUrlUtil = require("./registryurl")
 local semver = require("./semver")
 local store = require("./store")
 
@@ -201,7 +202,7 @@ local function satisfiesManifest(
 		return false, overridesReason
 	end
 
-	if lock.registry ~= rootManifest.registry then
+	if not registryUrlUtil.equals(lock.registry, rootManifest.registry) then
 		return false, "registry URL changed"
 	end
 
