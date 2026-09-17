@@ -7,10 +7,9 @@ export type Formatter = (s: string, nocolor: boolean?) -> string
 
 -- @noinline (if it ever exists)
 local function format(s: string, open: string, close: string, replace: string): string
-	local index = string.find(s, close, #open + 1, true)
 	local middle = s
 
-	if index then
+	if local index = string.find(s, close, #open + 1, true) then
 		local closeLen = #close
 		local middleTbl = {}
 		local cursor = 1
