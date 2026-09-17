@@ -9,11 +9,13 @@ export type StdioKind = "default" | "inherit" | "none"
 --- - `cwd`: The working directory for the child process. Defaults to the current working directory.
 --- - `stdio`: How to handle the child's stdio streams. Defaults to `"default"`.
 --- - `env`: Environment variables for the child process. If omitted, inherits the parent's environment.
+--- - `timeout`: Maximum time in seconds to wait for the process. If exceeded, the process group is killed.
 export type ProcessRunOptions = {
 	cwd: string?,
 	stdio: StdioKind?,
 
 	env: { [string]: string }?,
+	timeout: number?,
 }
 
 --- Options for `process.system`:
@@ -21,12 +23,14 @@ export type ProcessRunOptions = {
 --- - `cwd`: The working directory for the child process. Defaults to the current working directory.
 --- - `stdio`: How to handle the child's stdio streams. Defaults to `"default"`.
 --- - `env`: Environment variables for the child process. If omitted, inherits the parent's environment.
+--- - `timeout`: Maximum time in seconds to wait for the process. If exceeded, the process group is killed.
 export type ProcessSystemOptions = {
 	system: string?,
 	cwd: string?,
 	stdio: StdioKind?,
 
 	env: { [string]: string }?,
+	timeout: number?,
 }
 
 --- The result of a completed process, including exit code and captured stdout/stderr.
@@ -37,6 +41,7 @@ export type ProcessResult = {
 	ok: boolean,
 	exitcode: number,
 	signal: string?,
+	timedOut: boolean?,
 }
 
 --- A handle returned by `process.signal`. Call `:close()` to deregister the handler.

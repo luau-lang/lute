@@ -104,6 +104,16 @@ ProcessOptions parseOptions(lua_State* L, int index)
     }
     lua_pop(L, 1);
 
+    lua_getfield(L, index, "timeout");
+    if (!lua_isnil(L, -1))
+    {
+        double timeoutSeconds = luaL_checknumber(L, -1);
+        if (timeoutSeconds <= 0)
+            luaL_error(L, "process option 'timeout' must be a positive number");
+        opts.timeout = timeoutSeconds * 1000.0; // convert seconds (Luau API) to milliseconds (uv timer)
+    }
+    lua_pop(L, 1);
+
     return opts;
 }
 
