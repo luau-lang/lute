@@ -471,7 +471,8 @@ local function tryReuseLockfile(
 			return existingLock, nil
 		end
 
-		if satisfied
+		if
+			satisfied
 			and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides, rootManifest.registry)
 		then
 			return existingLock, nil
