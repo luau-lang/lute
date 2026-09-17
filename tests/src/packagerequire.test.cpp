@@ -123,3 +123,15 @@ TEST_CASE_FIXTURE(LuteFixture, "pkgrun_deep_path_deps")
 
     CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
 }
+
+TEST_CASE_FIXTURE(LuteFixture, "pkgrun_uses_registry_lockfile_identity")
+{
+    std::string entry = getLuteProjectRootAbsolute() + "/tests/src/packages/pkgrun_registry_identity/packageentry/entry.luau";
+
+    char executablePlaceholder[] = "lute";
+    char command[] = "pkg";
+    char subcommand[] = "run";
+    std::vector<char*> argv = {executablePlaceholder, command, subcommand, entry.data()};
+
+    CHECK_EQ(cliMain(argv.size(), argv.data(), getReporter()), 0);
+}

@@ -147,6 +147,7 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         Package::Identifier id;
         id.name = toLower(*name);
         id.version = rev ? *rev : "";
+        id.lockfileKey = *packageKey;
         keyToIdentifier[*packageKey] = id;
 
         Package::Info info;
@@ -208,6 +209,7 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
                     Package::Identifier aliasedId;
                     aliasedId.name = toLower(alias);
                     aliasedId.version = idIt->second.version;
+                    aliasedId.lockfileKey = idIt->second.lockfileKey;
                     info.dependencies.push_back(std::move(aliasedId));
                 }
             }
@@ -252,6 +254,7 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
                 Package::Identifier aliasId;
                 aliasId.name = lowerAlias;
                 aliasId.version = idIt->second.version;
+                aliasId.lockfileKey = idIt->second.lockfileKey;
                 allDependencies.emplace_back(std::move(aliasId), infoIt->second);
             }
         }
