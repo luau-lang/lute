@@ -208,7 +208,7 @@ local function satisfiesManifest(
 
 	for key, pkg in lock.packages do
 		if pkg.sourceKind == "registry" and pkg.registry then
-			local expectedInstallPath = store.toStorePath(store.getRegistryPackageKey(key, pkg.registry))
+			local expectedInstallPath = store.toStorePath(store.qualifyRegistryKey(key, pkg.registry))
 			if pkg.installPath ~= expectedInstallPath then
 				return false, `registry store path changed: {key}`
 			end

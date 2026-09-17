@@ -116,7 +116,7 @@ local function getRegistryPackageName(name: string, registryUrl: string?): strin
 		return name
 	end
 
-	return store.getRegistryPackageName(name, registryUrl)
+	return store.qualifyRegistryKey(name, registryUrl)
 end
 
 local function registerRegistryPackage(
@@ -798,7 +798,7 @@ local function resolveRegistryDependencies(
 		local registryPackageName = pkgVersion.name
 		local key = getRegistryLockKey(state, registryPackageName, pkgVersion.versionString)
 		local registryUrl = state.registryUrlByPackage[registryPackageName]
-		local storeKey = if registryUrl then store.getRegistryPackageKey(key, registryUrl) else key
+		local storeKey = if registryUrl then store.qualifyRegistryKey(key, registryUrl) else key
 
 		local transitiveDependencies: { [string]: string } = {}
 		for alias, dependency in pkgVersion.dependencies do

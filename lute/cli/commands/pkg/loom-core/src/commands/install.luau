@@ -87,7 +87,7 @@ local function install(...: string)
 			store.ensureStoreDirectory()
 			local registryUrl = pkg.registry
 			assert(registryUrl ~= nil, `No registry URL for package '{pkg.name}'`)
-			local storeKey = store.getRegistryPackageKey(key, registryUrl)
+			local storeKey = store.qualifyRegistryKey(key, registryUrl)
 			if not store.hasPackage(storeKey) then
 				registry.installPackage(registryUrl, pkg.source, pkg.rev, store.getPackagePath(storeKey))
 			end

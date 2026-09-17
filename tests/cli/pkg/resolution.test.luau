@@ -176,7 +176,7 @@ test.suite("RegistryResolution", function(suite)
 		local key = "citrus@1.0.0"
 		assert.eq(
 			firstLock.packages[key].installPath,
-			store.toStorePath(store.getRegistryPackageKey(key, firstRegistryUrl))
+			store.toStorePath(store.qualifyRegistryKey(key, firstRegistryUrl))
 		)
 
 		writeConfig(
@@ -481,6 +481,8 @@ test.suite("RegistryResolution", function(suite)
 		local libCitrusKey = lock.packages.lib.dependencies.citrus
 
 		assert.neq(rootCitrusKey, libCitrusKey)
+		assert.eq(lock.packages[rootCitrusKey].installPath, store.toStorePath(rootCitrusKey))
+		assert.eq(lock.packages[libCitrusKey].installPath, store.toStorePath(libCitrusKey))
 		assert.eq(lock.packages[rootCitrusKey].name, "citrus")
 		assert.eq(lock.packages[rootCitrusKey].registry, rootRegistryUrl)
 		assert.eq(lock.packages[libCitrusKey].name, "citrus")

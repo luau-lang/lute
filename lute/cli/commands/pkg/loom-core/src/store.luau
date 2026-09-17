@@ -29,12 +29,12 @@ local function getRegistryIdentity(registryUrl: string): string
 	return table.concat(hex)
 end
 
-local function getRegistryPackageName(name: string, registryUrl: string): string
-	return `{name}--registry-{getRegistryIdentity(registryUrl)}`
-end
-
-local function getRegistryPackageKey(key: string, registryUrl: string): string
-	return `{key}--registry-{getRegistryIdentity(registryUrl)}`
+local function qualifyRegistryKey(key: string, registryUrl: string): string
+	local qualifier = `--registry-{getRegistryIdentity(registryUrl)}`
+	if string.find(key, qualifier, 1, true) then
+		return key
+	end
+	return `{key}{qualifier}`
 end
 
 local function ensureStoreDirectory(): ()
@@ -55,8 +55,7 @@ return {
 	getPackagePath = getPackagePath,
 	hasPackage = hasPackage,
 	getRegistryIdentity = getRegistryIdentity,
-	getRegistryPackageName = getRegistryPackageName,
-	getRegistryPackageKey = getRegistryPackageKey,
+	qualifyRegistryKey = qualifyRegistryKey,
 	ensureStoreDirectory = ensureStoreDirectory,
 	toStorePath = toStorePath,
 }
