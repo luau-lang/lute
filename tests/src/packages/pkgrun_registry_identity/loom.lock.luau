@@ -2,7 +2,7 @@ return {
 	version = 3,
 	dependencies = {
 		app = "app",
-		citrus = "citrus--registry-root@1.0.0",
+		myCitrus = "citrus--registry-root@1.0.0",
 	},
 	packages = {
 		["app"] = {

@@ -190,7 +190,7 @@ local function satisfiesManifest(
 	end
 
 	for alias in lock.dependencies do
-		if expectedAliases[alias] == nil then
+		if not excludeDev and expectedAliases[alias] == nil then
 			return false, `removed dependency: {alias}`
 		end
 	end
@@ -217,9 +217,37 @@ local function satisfiesManifest(
 	return true, nil
 end
 
+local function getReachablePackageKeys(lock: Lockfile, rootAliases: { [string]: boolean }): { [string]: boolean }
+	local reachable: { [string]: boolean } = {}
+
+	local function visit(key: string)
+		if reachable[key] then
+			return
+		end
+
+		reachable[key] = true
+		local pkg = lock.packages[key]
+		if pkg then
+			for _, dependencyKey in pkg.dependencies do
+				visit(dependencyKey)
+			end
+		end
+	end
+
+	for alias in rootAliases do
+		local key = lock.dependencies[alias]
+		if key then
+			visit(key)
+		end
+	end
+
+	return reachable
+end
+
 return {
 	parseFile = parseFile,
 	tryParseFile = tryParseFile,
 	satisfiesManifest = satisfiesManifest,
+	getReachablePackageKeys = getReachablePackageKeys,
 	serializeOverrides = serializeOverrides,
 }

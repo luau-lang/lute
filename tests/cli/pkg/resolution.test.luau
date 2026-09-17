@@ -5,6 +5,8 @@ local system = require("@std/system")
 local test = require("@std/test")
 
 local resolution = require("@commands/pkg/loom-core/src/resolution")
+local lockfile = require("@commands/pkg/loom-core/src/lockfile")
+local manifest = require("@commands/pkg/loom-core/src/manifest")
 local parser = require("@commands/pkg/loom-core/src/semver/parser")
 local solver = require("@commands/pkg/loom-core/src/semver/solver")
 local store = require("@commands/pkg/loom-core/src/store")
@@ -935,6 +937,52 @@ test.suite("DevDependencies", function(suite)
 
 		assert.eq(lock.dependencies.testing, nil)
 		assert.eq(lock.packages["testing@1.2.0"], nil)
+	end)
+
+	suite:case("excludeDevReusesFullLockfileButSelectsOnlyProdGraph", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			myProd = {
+				sourceKind = "registry",
+				source = "prod",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			myDev = {
+				sourceKind = "registry",
+				source = "dev",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			prod = {
+				namedVersion("prod", "1.0.0", { shared = req("shared", "^1.0.0") }),
+			},
+			shared = {
+				namedVersion("shared", "1.0.0"),
+			},
+			dev = {
+				namedVersion("dev", "1.0.0", { devOnly = req("devOnly", "^1.0.0") }),
+			},
+			devOnly = {
+				namedVersion("devOnly", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+		local rootManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		assert.eq(lockfile.satisfiesManifest(lock, rootManifest, true), true)
+
+		local reachable = lockfile.getReachablePackageKeys(lock, { myProd = true })
+		assert.eq(reachable["prod@1.0.0"], true)
+		assert.eq(reachable["shared@1.0.0"], true)
+		assert.eq(reachable["dev@1.0.0"], nil)
+		assert.eq(reachable["devOnly@1.0.0"], nil)
 	end)
 
 	suite:case("duplicateAliasAcrossSectionsErrors", function(assert)

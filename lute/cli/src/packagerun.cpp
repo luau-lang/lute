@@ -220,12 +220,19 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
     std::vector<Package::Identifier> directDependencies;
     for (const auto& [ak, av] : *depsTable)
     {
+        const std::string* alias = ak.get_if<std::string>();
         const std::string* depKey = av.get_if<std::string>();
-        if (!depKey)
+        if (!alias || !depKey)
             continue;
         auto it = keyToIdentifier.find(*depKey);
         if (it != keyToIdentifier.end())
-            directDependencies.push_back(it->second);
+        {
+            Package::Identifier aliasedId;
+            aliasedId.name = toLower(*alias);
+            aliasedId.version = it->second.version;
+            aliasedId.lockfileKey = it->second.lockfileKey;
+            directDependencies.push_back(std::move(aliasedId));
+        }
     }
 
     // Build all dependencies. Each package is registered under its canonical
@@ -237,6 +244,29 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         auto infoIt = keyToInfo.find(key);
         if (infoIt != keyToInfo.end())
             allDependencies.emplace_back(id, infoIt->second);
+    }
+
+    // Direct dependencies also need alias entries: directDependencies controls
+    // which aliases are allowed from the project root, while allDependencies
+    // maps those aliases to their package source.
+    for (const auto& [ak, av] : *depsTable)
+    {
+        const std::string* alias = ak.get_if<std::string>();
+        const std::string* depKey = av.get_if<std::string>();
+        if (!alias || !depKey)
+            continue;
+
+        std::string lowerAlias = toLower(*alias);
+        auto idIt = keyToIdentifier.find(*depKey);
+        auto infoIt = keyToInfo.find(*depKey);
+        if (idIt != keyToIdentifier.end() && infoIt != keyToInfo.end() && lowerAlias != idIt->second.name)
+        {
+            Package::Identifier aliasId;
+            aliasId.name = std::move(lowerAlias);
+            aliasId.version = idIt->second.version;
+            aliasId.lockfileKey = idIt->second.lockfileKey;
+            allDependencies.emplace_back(std::move(aliasId), infoIt->second);
+        }
     }
 
     // Register alias entries: for each alias in every package's dependency
