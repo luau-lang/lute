@@ -1856,6 +1856,66 @@ test.suite("Overrides", function(suite)
 		assert.eq(reused.packages.citrus.dependencies.shared, "shared")
 	end)
 
+	suite:case("sourceOverrideAppliesRegistryOverridesToNestedDependencies", function(assert)
+		local consumerDir = path.join(workingDirectory, "consumer")
+		fs.createDirectory(consumerDir)
+		writeConfig(
+			consumerDir,
+			"consumer",
+			[[
+
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "^1.0.0",
+			},]],
+			nil,
+			nil,
+			"https://nested-registry.example.com"
+		)
+
+		local rootRegistryUrl = "https://root-registry.example.com"
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lemon = {
+				sourceKind = "registry",
+				source = "lemon",
+				version = "^1.0.0",
+			},]],
+			nil,
+			[[
+
+			consumer = {
+				sourceKind = "path",
+				source = "./consumer",
+			},
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "2.0.0",
+			},]],
+			rootRegistryUrl
+		)
+
+		local universe: solver.Universe = {
+			lemon = {
+				namedVersion("lemon", "1.0.0", { consumer = req("consumer", "^1.0.0") }),
+			},
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+		local citrusKey = lock.packages.consumer.dependencies.citrus
+
+		assert.eq(lock.packages[citrusKey].rev, "2.0.0")
+		assert.eq(lock.packages[citrusKey].registry, rootRegistryUrl)
+	end)
+
 	suite:case("directRegistryOverrideOutsideOriginalRangeReusesLockfile", function(assert)
 		writeConfig(
 			workingDirectory,
