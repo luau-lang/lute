@@ -451,6 +451,12 @@ local function pathDepsAreStale(
 				then
 					return true
 				end
+
+				local constraint = semver.parseConstraint(depSpec.version)
+				local lockedVersion = semver.tryParse(recordedPkg.rev :: string)
+				if lockedVersion == nil or not semver.satisfies(lockedVersion, constraint) then
+					return true
+				end
 			end
 		end
 	end

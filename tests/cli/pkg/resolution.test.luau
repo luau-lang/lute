@@ -1313,6 +1313,56 @@ test.suite("LockfileReuse", function(suite)
 		assert.eq(lock2.packages["citrus@1.0.0"].registry, "https://registry-b.example.com")
 	end)
 
+	suite:case("reResolvesWhenNestedRegistryConstraintNoLongerMatchesLockedVersion", function(assert)
+		local libDir = path.join(workingDirectory, "lib")
+		fs.createDirectory(libDir)
+
+		local function writeLibConfig(version: string)
+			fs.writeStringToFile(path.join(libDir, "loom.config.luau"), [[return {
+	package = {
+		name = "lib",
+		version = "0.0.0",
+		dependencies = {
+			citrus = {
+				sourceKind = "registry",
+				source = "citrus",
+				version = "]] .. version .. [[",
+			},
+		},
+	},
+	registry = "https://registry.example.com",
+}
+]])
+		end
+
+		writeLibConfig("^1.0.0")
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			lib = {
+				sourceKind = "path",
+				source = "./lib",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		}
+
+		local lock1 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock1.packages.lib.dependencies.citrus, "citrus@1.0.0")
+
+		writeLibConfig("^2.0.0")
+
+		local lock2 = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock2.packages.lib.dependencies.citrus, "citrus@2.0.0")
+	end)
+
 	suite:case("reusesLockfileWhenNestedRegistryUrlOnlyChangesTrailingSlash", function(assert)
 		local libDir = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDir)
