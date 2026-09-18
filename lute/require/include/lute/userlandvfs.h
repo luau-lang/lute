@@ -18,10 +18,11 @@ struct Identifier
 {
     std::string name;
     std::string version;
+    std::string lockfileKey;
 
     bool operator==(const Identifier& other) const
     {
-        return std::tie(name, version) == std::tie(other.name, other.version);
+        return std::tie(name, version, lockfileKey) == std::tie(other.name, other.version, other.lockfileKey);
     }
     bool operator!=(const Identifier& other) const
     {
@@ -33,7 +34,9 @@ struct IdentifierHashDefault
 {
     size_t operator()(const Identifier& id) const
     {
-        return Luau::detail::DenseHashDefault<std::string>()(Luau::format("%s:%s", id.name.c_str(), id.version.c_str()));
+        return Luau::detail::DenseHashDefault<std::string>()(
+            Luau::format("%s:%s:%s", id.name.c_str(), id.version.c_str(), id.lockfileKey.c_str())
+        );
     }
 };
 
