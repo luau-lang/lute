@@ -10,6 +10,7 @@ export type LockfileDependency = {
 	read sourceKind: manifest.SourceKind,
 	read installPath: string,
 	read dependencies: { [string]: string },
+	read registry: string?,
 }
 
 export type Lockfile = {
@@ -17,6 +18,7 @@ export type Lockfile = {
 	read packages: { [string]: LockfileDependency },
 	read dependencies: { [string]: string },
 	read overrides: { [string]: string }?,
+	read registry: string?,
 }
 
 local function validatePackageEntry(key: string, entry: any)
@@ -38,6 +40,10 @@ local function validatePackageEntry(key: string, entry: any)
 		assert(typeof(depKey) == "string", `Expected dependency key to be a string for dependency '{key}'`)
 	end
 	table.freeze(entry.dependencies)
+	assert(
+		entry.registry == nil or typeof(entry.registry) == "string",
+		`Expected 'registry' field to be a string or nil for dependency '{key}'`
+	)
 end
 
 local function parseLockfile(t: any): Lockfile
@@ -67,6 +73,8 @@ local function parseLockfile(t: any): Lockfile
 		end
 		table.freeze(t.overrides)
 	end
+
+	assert(t.registry == nil or typeof(t.registry) == "string", "Expected 'registry' field to be a string or nil")
 
 	return table.freeze(t)
 end
