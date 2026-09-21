@@ -1,7 +1,9 @@
 local fs = require("@std/fs")
 local luau = require("@std/luau")
 local manifest = require("./manifest")
+local registryUrlUtil = require("./registryurl")
 local semver = require("./semver")
+local store = require("./store")
 
 export type LockfileDependency = {
 	read name: string,
@@ -177,6 +179,9 @@ local function satisfiesManifest(
 				return false, `path changed for: {alias}`
 			end
 		elseif spec.sourceKind == "registry" then
+			if pkg.source ~= spec.source then
+				return false, `registry source changed for: {alias}`
+			end
 			local constraint = semver.parseConstraint(spec.version)
 			local lockedVersion = semver.tryParse(pkg.rev :: string)
 			if lockedVersion == nil or not semver.satisfies(lockedVersion, constraint) then
@@ -186,7 +191,7 @@ local function satisfiesManifest(
 	end
 
 	for alias in lock.dependencies do
-		if expectedAliases[alias] == nil then
+		if not excludeDev and expectedAliases[alias] == nil then
 			return false, `removed dependency: {alias}`
 		end
 	end
@@ -195,6 +200,19 @@ local function satisfiesManifest(
 	local overridesOk, overridesReason = overridesMatch(lock.overrides, currentOverrides)
 	if not overridesOk then
 		return false, overridesReason
+	end
+
+	if not registryUrlUtil.equals(lock.registry, rootManifest.registry) then
+		return false, "registry URL changed"
+	end
+
+	for key, pkg in lock.packages do
+		if pkg.sourceKind == "registry" and pkg.registry then
+			local expectedInstallPath = store.toStorePath(store.qualifyRegistryKey(key, pkg.registry))
+			if pkg.installPath ~= expectedInstallPath then
+				return false, `registry store path changed: {key}`
+			end
+		end
 	end
 
 	return true, nil
