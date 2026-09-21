@@ -6,6 +6,7 @@ local server = require("@lute/net/server")
 local system = require("@std/system")
 
 local registry = require("@commands/pkg/loom-core/src/registry")
+local store = require("@commands/pkg/loom-core/src/store")
 
 local lutePath = path.format(process.execPath())
 local testFilePath = debug.info(1, "s"):gsub("^@", "")
@@ -13,6 +14,16 @@ local fetchRegistryFixture = path.join(path.dirname(testFilePath), "fixtures", "
 local credentialWorkingDirectory = path.join(system.tmpdir(), "lute-pkg-registry-credentials")
 
 test.suite("RegistryClient", function(suite)
+	suite:case("usesUniqueStagingDirectoriesForIdenticalConcurrentInstalls", function(assert)
+		local registryUrlValue = "https://registry.example.com"
+		local first = registry.getTemporaryInstallDirectory(registryUrlValue, "org/citrus", "1.0.0")
+		local second = registry.getTemporaryInstallDirectory(registryUrlValue, "org/citrus", "1.0.0")
+
+		assert.neq(first, second)
+		assert.strContains(first, store.getRegistryIdentity(registryUrlValue))
+		assert.strContains(second, store.getRegistryIdentity(registryUrlValue))
+	end)
+
 	suite:case("authFailureSuggestsAuthCommand", function(assert)
 		local instance = server.serve({
 			port = 0,
