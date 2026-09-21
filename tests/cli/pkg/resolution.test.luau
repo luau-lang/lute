@@ -5,6 +5,8 @@ local system = require("@std/system")
 local test = require("@std/test")
 
 local resolution = require("@commands/pkg/loom-core/src/resolution")
+local lockfile = require("@commands/pkg/loom-core/src/lockfile")
+local manifest = require("@commands/pkg/loom-core/src/manifest")
 local parser = require("@commands/pkg/loom-core/src/semver/parser")
 local solver = require("@commands/pkg/loom-core/src/semver/solver")
 local store = require("@commands/pkg/loom-core/src/store")
@@ -516,6 +518,28 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.2.0"].name, "citrus")
 	end)
 
+	suite:case("registryDependencyRejectsExplicitName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			myCitrus = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		assert.throwsWith(
+			"Registry dependency 'myCitrus' in dependencies does not support a 'name' field; use 'source' for the registry package name",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil)
+			end
+		)
+	end)
+
 	suite:case("conflictMessageAttributesConstraintsToAliases", function(assert)
 		writeConfig(
 			workingDirectory,
@@ -915,6 +939,52 @@ test.suite("DevDependencies", function(suite)
 
 		assert.eq(lock.dependencies.testing, nil)
 		assert.eq(lock.packages["testing@1.2.0"], nil)
+	end)
+
+	suite:case("excludeDevReusesFullLockfileButSelectsOnlyProdGraph", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			myProd = {
+				sourceKind = "registry",
+				source = "prod",
+				version = "^1.0.0",
+			},]],
+			[[
+
+			myDev = {
+				sourceKind = "registry",
+				source = "dev",
+				version = "^1.0.0",
+			},]]
+		)
+
+		local universe: solver.Universe = {
+			prod = {
+				namedVersion("prod", "1.0.0", { shared = req("shared", "^1.0.0") }),
+			},
+			shared = {
+				namedVersion("shared", "1.0.0"),
+			},
+			dev = {
+				namedVersion("dev", "1.0.0", { devOnly = req("devOnly", "^1.0.0") }),
+			},
+			devOnly = {
+				namedVersion("devOnly", "1.0.0"),
+			},
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+		local rootManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		assert.eq(lockfile.satisfiesManifest(lock, rootManifest, true), true)
+
+		local reachable = lockfile.getReachablePackageKeys(lock, { myProd = true })
+		assert.eq(reachable["prod@1.0.0"], true)
+		assert.eq(reachable["shared@1.0.0"], true)
+		assert.eq(reachable["dev@1.0.0"], nil)
+		assert.eq(reachable["devOnly@1.0.0"], nil)
 	end)
 
 	suite:case("duplicateAliasAcrossSectionsErrors", function(assert)
@@ -2244,6 +2314,37 @@ test.suite("Overrides", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 		assert.eq(lock.overrides, nil)
+	end)
+
+	suite:case("shorthandStringSyntaxParsesAsRegistryDep", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			jest = "^1.0.0",
+			cryo = "^2.0.0",
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			jest = { namedVersion("jest", "1.2.0") },
+			cryo = { namedVersion("cryo", "2.1.0") },
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.jest, "jest@1.2.0")
+		assert.eq(lock.dependencies.cryo, "cryo@2.1.0")
+		assert.eq(lock.packages["jest@1.2.0"].sourceKind, "registry")
+		assert.eq(lock.packages["jest@1.2.0"].source, "jest")
+		assert.eq(lock.packages["cryo@2.1.0"].sourceKind, "registry")
+		assert.eq(lock.packages["cryo@2.1.0"].source, "cryo")
 	end)
 
 	suite:case("registryUrlStoredInLockfile", function(assert)

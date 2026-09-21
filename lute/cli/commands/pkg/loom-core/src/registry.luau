@@ -1,10 +1,32 @@
 local authenticationStore = require("./authenticationstore")
 local credentials = require("./credentials")
+local fs = require("@std/fs")
 local json = require("@std/json")
 local net = require("@std/net")
+local path = require("@std/path")
 local process = require("@std/process")
 local registryUrlUtil = require("./registryurl")
 local semver = require("./semver")
+local store = require("./store")
+local system = require("@std/system")
+local unzip = require("../extern/unzip")
+
+local temporaryDirectoryCounter = 0
+
+local function getTemporaryInstallDirectory(registryUrl: string, packageSource: string, version: string): string
+	local safeName = string.gsub(`{packageSource}-{version}`, "[^%w%-_.]", "-")
+	temporaryDirectoryCounter += 1
+
+	return path.format(
+		path.join(
+			system.tmpdir(),
+			`lute-pkg-registry-{safeName}-{store.getRegistryIdentity(registryUrl)}-{process.pid()}-{temporaryDirectoryCounter}-{math.random(
+				0,
+				2147483647
+			)}`
+		)
+	)
+end
 
 local function getAuthenticationToken(registryUrl: string): string?
 	local token = process.env.LOOM_REGISTRY_TOKEN
@@ -114,6 +136,17 @@ local function fetchPackageIndex(registryUrl: string, packageSource: string): an
 	return entries
 end
 
+local function fetchContentUrl(registryUrl: string, packageSource: string, version: string): string
+	local body = registryRequest(registryUrl, `/api/v1/package-content-url/{packageSource}/{version}`)
+	local data = json.deserialize(body) :: any
+	assert(data ~= nil and typeof(data) == "table", `Invalid content URL response for '{packageSource}@{version}'`)
+	assert(
+		typeof(data.contentUrl) == "string" and data.contentUrl ~= "",
+		`Missing contentUrl in response for '{packageSource}@{version}'`
+	)
+	return data.contentUrl
+end
+
 type PackageRequest = {
 	name: string,
 	source: string,
@@ -156,7 +189,54 @@ local function fetchUniverse(registryUrl: string, packageRequests: { PackageRequ
 	return universe
 end
 
+local function installZipArchive(content: string, installPath: string)
+	local reader = unzip.load(buffer.fromstring(content))
+
+	reader:walk(function(entry, _depth)
+		if entry.isDirectory then
+			return
+		end
+
+		local entryContent = reader:extract(entry, { type = "text" }) :: string
+
+		local safePath = entry:getSafePath()
+		if not safePath then
+			error(`Unsafe path in registry package archive: {entry.name}`)
+		end
+
+		local outputPath = `{installPath}/{safePath}`
+		fs.createDirectory(path.dirname(outputPath), { makeParents = true })
+		fs.writeStringToFile(outputPath, entryContent)
+	end)
+end
+
+local function installPackage(registryUrl: string, packageSource: string, version: string, installPath: string)
+	local contentUrl = fetchContentUrl(registryUrl, packageSource, version)
+	local headers: { [string]: string } = {
+		["User-Agent"] = "lute-pkg",
+	}
+
+	local response = net.request(contentUrl, { method = "GET", headers = headers })
+	if not response.ok then
+		error(`Failed to download package '{packageSource}@{version}' from {contentUrl}: HTTP {response.status}`)
+	end
+
+	local tempDir = getTemporaryInstallDirectory(registryUrl, packageSource, version)
+
+	xpcall(installZipArchive, function(err)
+		if fs.exists(tempDir) then
+			fs.removeDirectory(tempDir, { recursive = true })
+		end
+		error(err, 0)
+	end, response.body, tempDir)
+
+	fs.createDirectory(path.dirname(installPath), { makeParents = true })
+	fs.move(tempDir, installPath)
+end
+
 return {
 	fetchUniverse = fetchUniverse,
+	getTemporaryInstallDirectory = getTemporaryInstallDirectory,
+	installPackage = installPackage,
 	indexToPackageVersions = indexToPackageVersions,
 }
