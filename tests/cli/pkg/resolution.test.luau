@@ -5,8 +5,6 @@ local system = require("@std/system")
 local test = require("@std/test")
 
 local resolution = require("@commands/pkg/loom-core/src/resolution")
-local lockfile = require("@commands/pkg/loom-core/src/lockfile")
-local manifest = require("@commands/pkg/loom-core/src/manifest")
 local parser = require("@commands/pkg/loom-core/src/semver/parser")
 local solver = require("@commands/pkg/loom-core/src/semver/solver")
 local store = require("@commands/pkg/loom-core/src/store")
