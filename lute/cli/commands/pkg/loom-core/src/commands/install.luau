@@ -10,12 +10,13 @@ local store = require("../store")
 
 local function printDiagnostics(
 	lock: lockfile.Lockfile,
+	rootDependencies: { [string]: string },
 	rootAliases: { [string]: boolean },
 	devAliases: { [string]: boolean }
 )
 	local depCount = 0
 	local devCount = 0
-	for alias in lock.dependencies do
+	for alias in rootDependencies do
 		if rootAliases[alias] then
 			if devAliases[alias] then
 				devCount += 1
@@ -31,7 +32,7 @@ local function printDiagnostics(
 		print(`Resolved {depCount} package(s).`)
 	end
 
-	for alias, key in lock.dependencies do
+	for alias, key in rootDependencies do
 		if rootAliases[alias] then
 			local transitive = 0
 			local pkg = lock.packages[key]
@@ -65,10 +66,11 @@ local function install(...: string)
 
 	local devAliases: { [string]: boolean } = {}
 	local rootAliases: { [string]: boolean } = {}
+	local rootPackage: manifest.PackageManifest? = nil
 
 	if fs.exists(manifestPath) then
 		local rootManifest = manifest.parseFile(manifestPath)
-		local rootPackage = rootManifest.package
+		rootPackage = rootManifest.package
 		assert(
 			rootPackage ~= nil,
 			"The install command requires a package manifest until workspace installation is enabled"
@@ -85,7 +87,19 @@ local function install(...: string)
 	end
 
 	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
-	local reachablePackages = lockfile.getReachablePackageKeys(lock, rootAliases)
+	assert(
+		rootPackage ~= nil,
+		"The install command requires a package manifest until workspace installation is enabled"
+	)
+	local rootDependencies = lock.dependencies[rootPackage.name] or {}
+	local rootPackageKeys: { [string]: boolean } = {}
+	for alias in rootAliases do
+		local key = rootDependencies[alias]
+		if key then
+			rootPackageKeys[key] = true
+		end
+	end
+	local reachablePackages = lockfile.getReachablePackageKeys(lock, rootPackageKeys)
 
 	for key, pkg in lock.packages do
 		if reachablePackages[key] and pkg.sourceKind == "registry" and pkg.rev then
@@ -99,7 +113,7 @@ local function install(...: string)
 		end
 	end
 
-	printDiagnostics(lock, rootAliases, devAliases)
+	printDiagnostics(lock, rootDependencies, rootAliases, devAliases)
 end
 
 return install

@@ -8,6 +8,7 @@ local registry = require("./registry")
 local registryUrlUtil = require("./registryurl")
 local semver = require("./semver")
 local store = require("./store")
+local workspace = require("./workspace")
 
 local function getManifestPath(directory: string): string
 	return `{directory}/loom.config.luau`
@@ -91,6 +92,7 @@ export type ResolveOptions = {
 }
 
 type RootRegistryAlias = {
+	read member: string,
 	read alias: string,
 	read name: string,
 }
@@ -98,7 +100,7 @@ type RootRegistryAlias = {
 type ResolutionState = {
 	queue: { manifest.DependencySpec },
 	queueIndex: number,
-	dependencies: { [string]: string },
+	dependencies: { [string]: { [string]: string } },
 	packages: { [string]: lockfile.LockfileDependency },
 	registryRequirements: { [string]: semver.Requirement },
 	-- Maps a source-qualified package identity to its name in the registry.
@@ -470,7 +472,7 @@ local function pathDepsAreStale(
 end
 
 local function tryReuseLockfile(
-	rootManifest: manifest.ProjectManifest,
+	rootWorkspace: workspace.Workspace,
 	lockfilePath: string,
 	rootDirectory: string,
 	excludeDev: boolean,
@@ -483,7 +485,7 @@ local function tryReuseLockfile(
 	end
 
 	if existingLock then
-		local satisfied, reason = lockfile.satisfiesManifest(existingLock, rootManifest, excludeDev)
+		local satisfied, reason = lockfile.satisfiesManifest(existingLock, rootWorkspace, excludeDev)
 
 		if options and options.locked then
 			if not satisfied then
@@ -494,7 +496,7 @@ local function tryReuseLockfile(
 
 		if
 			satisfied
-			and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides, rootManifest.registry)
+			and not pathDepsAreStale(existingLock, rootDirectory, rootWorkspace.overrides, rootWorkspace.registry)
 		then
 			return existingLock, nil
 		end
@@ -546,11 +548,14 @@ local function collectRootDependency(
 			aliasedAs = if dependencyAlias ~= effectiveSpec.name then dependencyAlias else nil,
 		}
 
-		table.insert(state.rootRegistryAliases, { alias = dependencyAlias, name = registryPackageName })
+		table.insert(
+			state.rootRegistryAliases,
+			{ member = rootPackageName, alias = dependencyAlias, name = registryPackageName }
+		)
 		return
 	end
 
-	state.dependencies[dependencyAlias] = getKey(effectiveSpec)
+	state.dependencies[rootPackageName][dependencyAlias] = getKey(effectiveSpec)
 	table.insert(state.queue, effectiveSpec)
 end
 
@@ -570,6 +575,7 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 		openDependencies = {},
 		registryUrlByPackage = {},
 	}
+	state.dependencies[rootPackage.name] = {}
 
 	for dependencyAlias, dependencySpec in rootPackage.dependencies do
 		collectRootDependency(
@@ -814,7 +820,8 @@ local function resolveRegistryDependencies(
 		end
 		local pkgVersion = versionsByPackageName[req.name]
 		assert(pkgVersion ~= nil, `Solver did not resolve root dependency '{req.name}'`)
-		state.dependencies[rootAlias.alias] = getRegistryLockKey(state, req.name, pkgVersion.versionString)
+		state.dependencies[rootAlias.member][rootAlias.alias] =
+			getRegistryLockKey(state, req.name, pkgVersion.versionString)
 	end
 end
 
@@ -829,6 +836,9 @@ local function buildLockfile(
 	end
 
 	table.freeze(state.packages)
+	for _, dependencies in state.dependencies do
+		table.freeze(dependencies)
+	end
 	table.freeze(state.dependencies)
 
 	local serializedOverrides = lockfile.serializeOverrides(overrides)
@@ -837,7 +847,7 @@ local function buildLockfile(
 		else nil
 
 	local lock: lockfile.Lockfile = table.freeze({
-		version = 3,
+		version = 4,
 		packages = state.packages,
 		dependencies = state.dependencies,
 		overrides = frozenOverrides,
@@ -859,9 +869,10 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 
 	local lockfilePath = getLockfilePath(rootDirectory)
 	local rootManifest = manifest.parseFile(rootManifestPath)
+	local rootWorkspace = workspace.resolve(rootDirectory, rootManifest)
 
 	local reusedLock, lockedRegistryVersions =
-		tryReuseLockfile(rootManifest, lockfilePath, rootDirectory, excludeDev, options)
+		tryReuseLockfile(rootWorkspace, lockfilePath, rootDirectory, excludeDev, options)
 	if reusedLock then
 		return reusedLock
 	end
