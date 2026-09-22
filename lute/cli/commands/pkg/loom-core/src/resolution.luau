@@ -94,7 +94,7 @@ export type ResolveOptions = {
 type RootRegistryAlias = {
 	read member: string,
 	read alias: string,
-	read name: string,
+	read requirementKey: string,
 }
 
 type ResolutionState = {
@@ -157,6 +157,21 @@ local function getRegistryLockKey(state: ResolutionState, registryPackageName: s
 	return `{packageName}@{version}`
 end
 
+local function addRegistryRequirement(
+	registryRequirements: { [string]: semver.Requirement },
+	requirement: semver.Requirement
+): string
+	local index = 1
+	local key = `registry-requirement:{index}`
+	while registryRequirements[key] ~= nil do
+		index += 1
+		key = `registry-requirement:{index}`
+	end
+
+	registryRequirements[key] = requirement
+	return key
+end
+
 local function collectSourcePackageDependencies(
 	key: string,
 	installPath: string,
@@ -202,12 +217,12 @@ local function collectSourcePackageDependencies(
 				effectiveRegistryUrl
 			)
 
-			registryRequirements[`{key}:{dependencyAlias}`] = {
+			addRegistryRequirement(registryRequirements, {
 				name = registryPackageName,
 				constraint = semver.parseConstraint(effectiveSpec.version),
 				requiredBy = key,
 				aliasedAs = if dependencyAlias ~= effectiveSpec.name then dependencyAlias else nil,
-			}
+			})
 
 			if not unresolvedRegistryDependencies[key] then
 				unresolvedRegistryDependencies[key] = {}
@@ -542,17 +557,18 @@ local function collectRootDependency(
 			effectiveSpec.name,
 			registryUrl
 		)
-		state.registryRequirements[`{memberName}:{dependencyAlias}`] = {
+		local requirementKey = addRegistryRequirement(state.registryRequirements, {
 			name = registryPackageName,
 			constraint = semver.parseConstraint(effectiveSpec.version),
 			requiredBy = rootPackageName,
 			aliasedAs = if dependencyAlias ~= effectiveSpec.name then dependencyAlias else nil,
-		}
+		})
 
-		table.insert(
-			state.rootRegistryAliases,
-			{ member = memberName, alias = dependencyAlias, name = registryPackageName }
-		)
+		table.insert(state.rootRegistryAliases, {
+			member = memberName,
+			alias = dependencyAlias,
+			requirementKey = requirementKey,
+		})
 		return
 	end
 
@@ -820,7 +836,7 @@ local function resolveRegistryDependencies(
 
 	-- Write root-level registry dependency aliases now that versions are resolved.
 	for _, rootAlias in state.rootRegistryAliases do
-		local req = state.registryRequirements[`{rootAlias.member}:{rootAlias.alias}`]
+		local req = state.registryRequirements[rootAlias.requirementKey]
 		if req == nil then
 			continue
 		end

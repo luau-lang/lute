@@ -732,6 +732,42 @@ test.suite("WorkspaceResolution", function(suite)
 		)
 	end)
 
+	suite:case("keepsRegistryRequirementsDistinctWhenMemberNamesAndAliasesContainColons", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local firstDirectory = path.join(modulesDirectory, "first")
+		local secondDirectory = path.join(modulesDirectory, "second")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(firstDirectory)
+		fs.createDirectory(secondDirectory)
+		writeConfig(
+			firstDirectory,
+			"foo",
+			[[
+			["bar:baz"] = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		writeConfig(
+			secondDirectory,
+			"foo:bar",
+			[[
+			baz = { sourceKind = "registry", source = "lemon", version = "^1.0.0" },]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "modules/*" } },
+	registry = "https://registry.example.com",
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), {
+			citrus = { namedVersion("citrus", "1.0.0") },
+			lemon = { namedVersion("lemon", "1.1.0") },
+		})
+		assert.eq(lock.dependencies.foo["bar:baz"], "citrus@1.0.0")
+		assert.eq(lock.dependencies["foo:bar"].baz, "lemon@1.1.0")
+	end)
+
 	suite:case("appliesRootRegistryOverridesToDirectAndNestedMemberDependencies", function(assert)
 		local modulesDirectory = path.join(workingDirectory, "modules")
 		local firstDirectory = path.join(modulesDirectory, "first")
