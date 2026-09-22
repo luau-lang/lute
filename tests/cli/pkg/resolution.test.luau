@@ -511,7 +511,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["testlib"], {
 			name = "testlib",
 			sourceKind = "path",
-			source = "./testlib",
+			source = "testlib",
 			installPath = "testlib",
 			dependencies = {},
 		})
@@ -553,7 +553,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
-			source = "./lib",
+			source = "lib",
 			installPath = "lib",
 			dependencies = {},
 		})
@@ -751,7 +751,7 @@ test.suite("DevDependencies", function(suite)
 		assert.eq(lock.packages["lib"], {
 			name = "lib",
 			sourceKind = "path",
-			source = "./lib",
+			source = "lib",
 			installPath = "lib",
 			dependencies = {},
 		})
@@ -1557,7 +1557,7 @@ test.suite("Overrides", function(suite)
 		assert.eq((lock.overrides :: any).citrus, "2.0.0")
 	end)
 
-	suite:case("lockfileVersionIsThreeWithOverrides", function(assert)
+	suite:case("lockfileVersionIsFourWithOverrides", function(assert)
 		writeConfig(
 			workingDirectory,
 			"root",
@@ -1585,7 +1585,7 @@ test.suite("Overrides", function(suite)
 		}
 
 		local lock = resolution.resolve(path.format(workingDirectory), universe)
-		assert.eq(lock.version, 3)
+		assert.eq(lock.version, 4)
 	end)
 
 	suite:case("reResolvesWhenOverrideAdded", function(assert)
