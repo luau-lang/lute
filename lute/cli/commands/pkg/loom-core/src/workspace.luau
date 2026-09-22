@@ -133,7 +133,7 @@ local function findRoot(startDirectory: string): (string, manifest.ProjectManife
 			end
 		end
 
-		local parent = path.format(path.resolve(directory, ".."))
+		local parent = path.dirname(directory)
 		if parent == directory then
 			break
 		end
