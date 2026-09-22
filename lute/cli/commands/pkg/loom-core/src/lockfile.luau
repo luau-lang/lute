@@ -155,10 +155,6 @@ local function normalizeMemberPathSpec(
 		return spec
 	end
 
-	if memberDirectory == rootDirectory then
-		return spec
-	end
-
 	local sourcePath = path.format(path.resolve(memberDirectory, spec.source))
 	if not fs.exists(sourcePath) then
 		return spec

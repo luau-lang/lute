@@ -525,6 +525,7 @@ end
 
 local function collectRootDependency(
 	state: ResolutionState,
+	memberName: string,
 	rootPackageName: string,
 	dependencyAlias: string,
 	dependencySpec: manifest.DependencySpec,
@@ -541,7 +542,7 @@ local function collectRootDependency(
 			effectiveSpec.name,
 			registryUrl
 		)
-		state.registryRequirements[dependencyAlias] = {
+		state.registryRequirements[`{memberName}:{dependencyAlias}`] = {
 			name = registryPackageName,
 			constraint = semver.parseConstraint(effectiveSpec.version),
 			requiredBy = rootPackageName,
@@ -550,18 +551,16 @@ local function collectRootDependency(
 
 		table.insert(
 			state.rootRegistryAliases,
-			{ member = rootPackageName, alias = dependencyAlias, name = registryPackageName }
+			{ member = memberName, alias = dependencyAlias, name = registryPackageName }
 		)
 		return
 	end
 
-	state.dependencies[rootPackageName][dependencyAlias] = getKey(effectiveSpec)
+	state.dependencies[memberName][dependencyAlias] = getKey(effectiveSpec)
 	table.insert(state.queue, effectiveSpec)
 end
 
-local function collectRootDependencies(rootManifest: manifest.ProjectManifest, excludeDev: boolean): ResolutionState
-	local rootPackage = rootManifest.package
-	assert(rootPackage ~= nil, "The resolver requires a package manifest until workspace resolution is enabled")
+local function collectRootDependencies(rootWorkspace: workspace.Workspace, excludeDev: boolean): ResolutionState
 	local state: ResolutionState = {
 		queue = {},
 		queueIndex = 1,
@@ -575,29 +574,36 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 		openDependencies = {},
 		registryUrlByPackage = {},
 	}
-	state.dependencies[rootPackage.name] = {}
 
-	for dependencyAlias, dependencySpec in rootPackage.dependencies do
-		collectRootDependency(
-			state,
-			rootPackage.name,
-			dependencyAlias,
-			dependencySpec,
-			rootManifest.registry,
-			rootManifest.overrides
-		)
-	end
-
-	if not excludeDev then
-		for dependencyAlias, dependencySpec in rootPackage.devDependencies do
+	for _, member in rootWorkspace.members do
+		state.dependencies[member.name] = {}
+		for dependencyAlias, dependencySpec in member.package.dependencies do
+			local normalized = normalizePathDependency(dependencySpec, member.directory, rootWorkspace.rootDirectory)
 			collectRootDependency(
 				state,
-				rootPackage.name,
+				member.name,
+				member.package.name,
 				dependencyAlias,
-				dependencySpec,
-				rootManifest.registry,
-				rootManifest.overrides
+				normalized,
+				rootWorkspace.registry,
+				rootWorkspace.overrides
 			)
+		end
+
+		if not excludeDev then
+			for dependencyAlias, dependencySpec in member.package.devDependencies do
+				local normalized =
+					normalizePathDependency(dependencySpec, member.directory, rootWorkspace.rootDirectory)
+				collectRootDependency(
+					state,
+					member.name,
+					member.package.name,
+					dependencyAlias,
+					normalized,
+					rootWorkspace.registry,
+					rootWorkspace.overrides
+				)
+			end
 		end
 	end
 
@@ -814,7 +820,7 @@ local function resolveRegistryDependencies(
 
 	-- Write root-level registry dependency aliases now that versions are resolved.
 	for _, rootAlias in state.rootRegistryAliases do
-		local req = state.registryRequirements[rootAlias.alias]
+		local req = state.registryRequirements[`{rootAlias.member}:{rootAlias.alias}`]
 		if req == nil then
 			continue
 		end
@@ -859,17 +865,14 @@ local function buildLockfile(
 	return lock
 end
 
-local function resolve(rootDirectory: string, universe: semver.Universe?, options: ResolveOptions?): lockfile.Lockfile
+local function resolve(
+	rootWorkspace: workspace.Workspace,
+	universe: semver.Universe?,
+	options: ResolveOptions?
+): lockfile.Lockfile
 	local excludeDev = if options then options.excludeDev == true else false
-
-	local rootManifestPath = getManifestPath(rootDirectory)
-	if not fs.exists(rootManifestPath) then
-		error(`Manifest file not found: {rootManifestPath}`)
-	end
-
+	local rootDirectory = rootWorkspace.rootDirectory
 	local lockfilePath = getLockfilePath(rootDirectory)
-	local rootManifest = manifest.parseFile(rootManifestPath)
-	local rootWorkspace = workspace.resolve(rootDirectory, rootManifest)
 
 	local reusedLock, lockedRegistryVersions =
 		tryReuseLockfile(rootWorkspace, lockfilePath, rootDirectory, excludeDev, options)
@@ -877,16 +880,26 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 		return reusedLock
 	end
 
-	local state = collectRootDependencies(rootManifest, excludeDev)
-	local overrides = rootManifest.overrides
+	local state = collectRootDependencies(rootWorkspace, excludeDev)
+	local overrides = rootWorkspace.overrides
 	queueSourceOverrides(state, overrides)
-	processSourceQueue(state, rootDirectory, overrides, rootManifest.registry)
+	processSourceQueue(state, rootDirectory, overrides, rootWorkspace.registry)
 
 	resolveRegistryDependencies(state, universe, overrides, lockedRegistryVersions)
 
-	return buildLockfile(state, overrides, lockfilePath, rootManifest.registry)
+	return buildLockfile(state, overrides, lockfilePath, rootWorkspace.registry)
+end
+
+local function resolveFromDirectory(
+	startDirectory: string,
+	universe: semver.Universe?,
+	options: ResolveOptions?
+): lockfile.Lockfile
+	local rootDirectory, rootManifest = workspace.findRoot(startDirectory)
+	return resolve(workspace.resolve(rootDirectory, rootManifest), universe, options)
 end
 
 return {
 	resolve = resolve,
+	resolveFromDirectory = resolveFromDirectory,
 }
