@@ -142,13 +142,15 @@ local function satisfiesManifest(
 	excludeDev: boolean
 ): (boolean, string?)
 	local expectedAliases: { [string]: manifest.DependencySpec } = {}
+	local rootPackage = rootManifest.package
+	assert(rootPackage ~= nil, "A non-workspace manifest must declare a package")
 
-	for alias, spec in rootManifest.package.dependencies do
+	for alias, spec in rootPackage.dependencies do
 		expectedAliases[alias] = spec
 	end
 
 	if not excludeDev then
-		for alias, spec in rootManifest.package.devDependencies do
+		for alias, spec in rootPackage.devDependencies do
 			expectedAliases[alias] = spec
 		end
 	end
