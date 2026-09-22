@@ -32,12 +32,17 @@ test.suite("RegistryLockfileIdentity", function(suite)
 		assert.eq(store.qualifyRegistryKey(qualified, registryUrl), qualified)
 	end)
 
-	suite:case("parsesOptionalRegistryFieldsInVersionThreeLockfiles", function(assert)
+	suite:case("parsesOptionalRegistryFieldsInVersionFourLockfiles", function(assert)
 		writeLockfile([[return {
-	version = 3,
+	version = 4,
 	registry = "https://root-registry.example.com",
 	dependencies = {
-		citrus = "citrus@1.0.0",
+		app = {
+			citrus = "citrus@1.0.0",
+		},
+		tools = {
+			citrus = "citrus@1.0.0",
+		},
 	},
 	packages = {
 		["citrus@1.0.0"] = {
@@ -58,11 +63,13 @@ test.suite("RegistryLockfileIdentity", function(suite)
 		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://package-registry.example.com")
 	end)
 
-	suite:case("continuesToParseVersionThreeLockfilesWithoutRegistryFields", function(assert)
+	suite:case("continuesToParseVersionFourLockfilesWithoutRegistryFields", function(assert)
 		writeLockfile([[return {
-	version = 3,
+	version = 4,
 	dependencies = {
-		citrus = "citrus@1.0.0",
+		app = {
+			citrus = "citrus@1.0.0",
+		},
 	},
 	packages = {
 		["citrus@1.0.0"] = {
@@ -84,7 +91,7 @@ test.suite("RegistryLockfileIdentity", function(suite)
 
 	suite:case("rejectsNonStringRegistryFields", function(assert)
 		writeLockfile([[return {
-	version = 3,
+	version = 4,
 	registry = false,
 	dependencies = {},
 	packages = {},
@@ -96,9 +103,11 @@ test.suite("RegistryLockfileIdentity", function(suite)
 		end)
 
 		writeLockfile([[return {
-	version = 3,
+	version = 4,
 	dependencies = {
-		citrus = "citrus@1.0.0",
+		app = {
+			citrus = "citrus@1.0.0",
+		},
 	},
 	packages = {
 		["citrus@1.0.0"] = {
@@ -115,6 +124,40 @@ test.suite("RegistryLockfileIdentity", function(suite)
 ]])
 
 		assert.throwsWith("Expected 'registry' field to be a string or nil for dependency 'citrus@1.0.0'", function()
+			lockfile.parseFile(path.format(lockfilePath))
+		end)
+	end)
+
+	suite:case("rejectsMissingPackagesReferencedByMembers", function(assert)
+		writeLockfile([[return {
+	version = 4,
+	dependencies = {
+		app = { citrus = "citrus@1.0.0" },
+	},
+	packages = {},
+}
+]])
+
+		assert.throwsWith(
+			"Dependency 'app:citrus' references package 'citrus@1.0.0' which is not in packages",
+			function()
+				lockfile.parseFile(path.format(lockfilePath))
+			end
+		)
+	end)
+
+	suite:case("doesNotParseVersionThreeLockfilesAsVersionFour", function(assert)
+		writeLockfile([[return {
+	version = 3,
+	dependencies = {
+		citrus = "citrus@1.0.0",
+	},
+	packages = {},
+}
+]])
+
+		assert.eq(lockfile.tryParseFile(path.format(lockfilePath)), nil)
+		assert.throwsWith("Unsupported lockfile version: 3", function()
 			lockfile.parseFile(path.format(lockfilePath))
 		end)
 	end)
