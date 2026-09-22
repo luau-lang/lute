@@ -1,27 +1,29 @@
 local cli = require("@batteries/cli")
-local fs = require("@std/fs")
 local lockfile = require("../lockfile")
-local manifest = require("../manifest")
 local registry = require("../registry")
 local resolution = require("../resolution")
 local path = require("@std/path")
 local process = require("@std/process")
 local store = require("../store")
+local workspace = require("../workspace")
 
 local function printDiagnostics(
 	lock: lockfile.Lockfile,
-	rootDependencies: { [string]: string },
-	rootAliases: { [string]: boolean },
-	devAliases: { [string]: boolean }
+	rootAliases: { [string]: { [string]: boolean } },
+	devAliases: { [string]: { [string]: boolean } }
 )
 	local depCount = 0
 	local devCount = 0
-	for alias in rootDependencies do
-		if rootAliases[alias] then
-			if devAliases[alias] then
-				devCount += 1
-			else
-				depCount += 1
+	for member, memberDependencies in lock.dependencies do
+		local memberAliases = rootAliases[member]
+		local memberDevAliases = devAliases[member]
+		for alias in memberDependencies do
+			if memberAliases and memberAliases[alias] then
+				if memberDevAliases and memberDevAliases[alias] then
+					devCount += 1
+				else
+					depCount += 1
+				end
 			end
 		end
 	end
@@ -32,8 +34,13 @@ local function printDiagnostics(
 		print(`Resolved {depCount} package(s).`)
 	end
 
-	for alias, key in rootDependencies do
-		if rootAliases[alias] then
+	for member, memberDependencies in lock.dependencies do
+		local memberAliases = rootAliases[member]
+		local memberDevAliases = devAliases[member]
+		for alias, key in memberDependencies do
+			if not (memberAliases and memberAliases[alias]) then
+				continue
+			end
 			local transitive = 0
 			local pkg = lock.packages[key]
 			if pkg then
@@ -41,8 +48,8 @@ local function printDiagnostics(
 					transitive += 1
 				end
 			end
-			local suffix = if devAliases[alias] then " [dev]" else ""
-			print(`  {key} ({pkg.sourceKind}, {transitive} dep(s)){suffix}`)
+			local suffix = if memberDevAliases and memberDevAliases[alias] then " [dev]" else ""
+			print(`  {member}:{alias} -> {key} ({pkg.sourceKind}, {transitive} dep(s)){suffix}`)
 		end
 	end
 end
@@ -59,44 +66,41 @@ local function install(...: string)
 		error(err)
 	end
 
-	local excludeDev = args:get("exclude-dev") ~= nil
-	local locked = args:get("locked") ~= nil
-	local rootDirectory = path.format(process.cwd())
-	local manifestPath = `{rootDirectory}/loom.config.luau`
+	local excludeDev = args:has("exclude-dev")
+	local locked = args:has("locked")
+	local startingDirectory = path.format(process.cwd())
+	local rootDirectory, rootManifest = workspace.findRoot(startingDirectory)
+	local rootWorkspace = workspace.resolve(rootDirectory, rootManifest)
 
-	local devAliases: { [string]: boolean } = {}
-	local rootAliases: { [string]: boolean } = {}
-	local rootPackage: manifest.PackageManifest? = nil
-
-	if fs.exists(manifestPath) then
-		local rootManifest = manifest.parseFile(manifestPath)
-		rootPackage = rootManifest.package
-		assert(
-			rootPackage ~= nil,
-			"The install command requires a package manifest until workspace installation is enabled"
-		)
-		for alias in rootPackage.dependencies do
-			rootAliases[alias] = true
+	local devAliases: { [string]: { [string]: boolean } } = {}
+	local rootAliases: { [string]: { [string]: boolean } } = {}
+	for _, member in rootWorkspace.members do
+		local memberAliases: { [string]: boolean } = {}
+		rootAliases[member.name] = memberAliases
+		for alias in member.package.dependencies do
+			memberAliases[alias] = true
 		end
 		if not excludeDev then
-			for alias in rootPackage.devDependencies do
-				devAliases[alias] = true
-				rootAliases[alias] = true
+			local memberDevAliases: { [string]: boolean } = {}
+			devAliases[member.name] = memberDevAliases
+			for alias in member.package.devDependencies do
+				memberDevAliases[alias] = true
+				memberAliases[alias] = true
 			end
 		end
 	end
 
-	local lock = resolution.resolveFromDirectory(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
-	assert(
-		rootPackage ~= nil,
-		"The install command requires a package manifest until workspace installation is enabled"
-	)
-	local rootDependencies = lock.dependencies[rootPackage.name] or {}
+	local lock = resolution.resolve(rootWorkspace, nil, { excludeDev = excludeDev, locked = locked })
 	local rootPackageKeys: { [string]: boolean } = {}
-	for alias in rootAliases do
-		local key = rootDependencies[alias]
-		if key then
-			rootPackageKeys[key] = true
+	for member, memberAliases in rootAliases do
+		local memberDependencies = lock.dependencies[member]
+		if memberDependencies then
+			for alias in memberAliases do
+				local key = memberDependencies[alias]
+				if key then
+					rootPackageKeys[key] = true
+				end
+			end
 		end
 	end
 	local reachablePackages = lockfile.getReachablePackageKeys(lock, rootPackageKeys)
@@ -113,7 +117,7 @@ local function install(...: string)
 		end
 	end
 
-	printDiagnostics(lock, rootDependencies, rootAliases, devAliases)
+	printDiagnostics(lock, rootAliases, devAliases)
 end
 
 return install

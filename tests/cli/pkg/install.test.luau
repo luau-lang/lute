@@ -10,16 +10,32 @@ local temporaryDirectory = system.tmpdir()
 local workingDirectory = path.join(temporaryDirectory, "lute-pkg")
 local lutePath = path.format(process.execPath())
 
-local function writeConfig(dir: path.Path, name: string, deps: string, registryUrl: string?)
+local function writeConfig(dir: path.Path, name: string, deps: string, registryUrl: string?, devDeps: string?)
 	local registrySection = if registryUrl then `\n\tregistry = "{registryUrl}",` else ""
+	local devDependenciesSection = if devDeps then `,\n\t\tdev_dependencies = \{{devDeps}\n\t\t}` else ""
 	fs.writeStringToFile(
 		path.join(dir, "loom.config.luau"),
-		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n\t\tdependencies = \{{deps}\n\t\t},\n\t},{registrySection}\n}\n`
+		`return \{\n\tpackage = \{\n\t\tname = "{name}",\n\t\tversion = "0.0.0",\n\t\tdependencies = \{{deps}\n\t\t}{devDependenciesSection},\n\t},{registrySection}\n}\n`
+	)
+end
+
+local function writeWorkspace(memberPatterns: string, registryUrl: string?)
+	local registrySection = if registryUrl then `\n\tregistry = "{registryUrl}",` else ""
+	fs.writeStringToFile(
+		path.join(workingDirectory, "loom.config.luau"),
+		`return \{\n\tworkspace = \{ members = \{{memberPatterns}\} \},{registrySection}\n}\n`
 	)
 end
 
 local function run(cwd: path.Path): { exitcode: number, stdout: string, stderr: string }
 	return process.run({ lutePath, "pkg", "install" }, { cwd = path.format(cwd) })
+end
+
+local function runExcludeDev(
+	cwd: path.Path,
+	env: { [string]: string }
+): { exitcode: number, stdout: string, stderr: string }
+	return process.run({ lutePath, "pkg", "install", "--exclude-dev" }, { cwd = path.format(cwd), env = env })
 end
 
 local function runWithEnv(
@@ -243,6 +259,126 @@ test.suite("LutePkgInstall", function(suite)
 
 		assert.eq(r1.exitcode, 0)
 		assert.eq(r2.exitcode, 0)
+	end)
+
+	suite:case("installsAllWorkspaceMembersFromAMemberSubdirectory", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local firstDirectory = path.join(modulesDirectory, "first")
+		local secondDirectory = path.join(modulesDirectory, "second")
+		local firstLibDirectory = path.join(firstDirectory, "first-lib")
+		local secondLibDirectory = path.join(secondDirectory, "second-lib")
+		local sourceDirectory = path.join(secondDirectory, "src")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(firstDirectory)
+		fs.createDirectory(secondDirectory)
+		fs.createDirectory(firstLibDirectory)
+		fs.createDirectory(secondLibDirectory)
+		fs.createDirectory(sourceDirectory)
+		writeConfig(firstLibDirectory, "first-lib", "")
+		writeConfig(secondLibDirectory, "second-lib", "")
+		writeConfig(
+			firstDirectory,
+			"first",
+			[[
+			lib = { name = "first-lib", sourceKind = "path", source = "./first-lib" },]]
+		)
+		writeConfig(
+			secondDirectory,
+			"second",
+			[[
+			lib = { name = "second-lib", sourceKind = "path", source = "./second-lib" },]]
+		)
+		writeWorkspace('"modules/*"')
+
+		local result = run(sourceDirectory)
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "first:lib -> first-lib")
+		assert.strContains(result.stdout, "second:lib -> second-lib")
+		assert.that(fs.exists(path.join(workingDirectory, "loom.lock.luau")))
+	end)
+
+	suite:case("installsWorkspaceWithoutARootPackage", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local memberDirectory = path.join(modulesDirectory, "member")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(memberDirectory)
+		writeConfig(memberDirectory, "member", "")
+		writeWorkspace('"modules/*"')
+
+		local result = run(workingDirectory)
+		assert.eq(result.exitcode, 0)
+		assert.strContains(result.stdout, "Resolved 0 package(s).")
+	end)
+
+	suite:case("materializesSharedWorkspaceRegistryDependenciesOnceAndSkipsExcludedDevDependencies", function(assert)
+		local archiveRequests: { [string]: number } = {}
+		local instance: any
+		instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				local packageName = req.path:match("^/api/v1/package%-index/(.+)$")
+				if packageName then
+					return {
+						status = 200,
+						body = '[{"name":"' .. packageName .. '","version":"1.0.0","yanked":false,"dependencies":[]}]',
+					}
+				end
+				packageName = req.path:match("^/api/v1/package%-content%-url/(.+)/1%.0%.0$")
+				if packageName then
+					return {
+						status = 200,
+						body = `\{"contentUrl":"http://{instance.hostname}:{instance.port}/archive/{packageName}"\}`,
+					}
+				end
+				packageName = req.path:match("^/archive/(.+)$")
+				if packageName then
+					archiveRequests[packageName] = (archiveRequests[packageName] or 0) + 1
+					return { status = 200, body = archive }
+				end
+				return { status = 404, body = "not found" }
+			end,
+		})
+
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local firstDirectory = path.join(modulesDirectory, "first")
+		local secondDirectory = path.join(modulesDirectory, "second")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(firstDirectory)
+		fs.createDirectory(secondDirectory)
+		writeConfig(
+			firstDirectory,
+			"first",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]],
+			nil,
+			[[
+			devonly = { sourceKind = "registry", source = "devonly", version = "^1.0.0" },]]
+		)
+		writeConfig(
+			secondDirectory,
+			"second",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		local registryUrl = `http://{instance.hostname}:{instance.port}`
+		writeWorkspace('"modules/*"', registryUrl)
+
+		local homeDirectory = path.join(workingDirectory, "home")
+		fs.createDirectory(homeDirectory)
+		local env = setmetatable({
+			HOME = path.format(homeDirectory),
+			USERPROFILE = path.format(homeDirectory),
+			LOOM_REGISTRY_TOKEN = "",
+		}, { __index = process.env })
+
+		local result = runExcludeDev(workingDirectory, env)
+		assert.eq(result.exitcode, 0)
+		assert.eq(archiveRequests.citrus, 1)
+		assert.eq(archiveRequests.devonly or 0, 0)
+
+		local storeKey = store.qualifyRegistryKey("citrus@1.0.0", registryUrl)
+		assert.that(fs.exists(path.join(homeDirectory, ".loom", "store", storeKey, "src", "init.luau")))
+		instance.close()
 	end)
 
 	suite:case("installsRegistryArchiveIntoQualifiedStoreAndSkipsExistingPackage", function(assert)
