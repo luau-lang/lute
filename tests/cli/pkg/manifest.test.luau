@@ -33,7 +33,7 @@ test.suite("PackageManifest", function(suite)
 ]])
 
 		local parsed = manifest.parseFile(path.format(manifestPath))
-		local citrus = parsed.package.dependencies.citrus
+		local citrus = (parsed.package :: manifest.PackageManifest).dependencies.citrus
 		local registryCitrus = citrus :: manifest.RegistryDependencySpec
 
 		assert.eq(parsed.registry, "https://registry.example.com")
@@ -60,7 +60,7 @@ test.suite("PackageManifest", function(suite)
 ]])
 
 		local parsed = manifest.parseFile(path.format(manifestPath))
-		local citrus = parsed.package.dependencies.myCitrus
+		local citrus = (parsed.package :: manifest.PackageManifest).dependencies.myCitrus
 
 		assert.eq(citrus.name, "org/citrus")
 		assert.eq(citrus.source, "org/citrus")
