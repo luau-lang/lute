@@ -71,6 +71,26 @@ test.suite("Workspace", function(suite)
 		end)
 	end)
 
+	suite:case("rejectsMemberWithTheRootPackageName", function(assert)
+		local modules = path.join(workingDirectory, "modules")
+		local member = path.join(modules, "member")
+		fs.createDirectory(modules)
+		fs.createDirectory(member)
+		writePackage(member, "root")
+		writeManifest(
+			workingDirectory,
+			[[return {
+	package = { name = "root", version = "0.0.0" },
+	workspace = { members = { "modules/*" } },
+}
+]]
+		)
+
+		assert.throwsWith("Duplicate workspace package name: 'root'", function()
+			workspace.resolve(path.format(workingDirectory), parseRoot())
+		end)
+	end)
+
 	suite:case("rejectsMissingExplicitMemberDirectory", function(assert)
 		writeManifest(workingDirectory, [[return { workspace = { members = { "missing" } } }]])
 

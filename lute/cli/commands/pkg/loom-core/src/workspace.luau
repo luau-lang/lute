@@ -72,6 +72,7 @@ local function resolve(rootDirectory: string, rootManifest: manifest.ProjectMani
 
 	local members: { Member } = {}
 	local names: { [string]: boolean } = {}
+	local rootDirectoryMatched = false
 	for _, memberPattern in rootManifest.workspace.members do
 		local pattern = path.join(rootDirectory, memberPattern)
 		local discoveredMembers = glob.discover(pattern)
@@ -80,6 +81,9 @@ local function resolve(rootDirectory: string, rootManifest: manifest.ProjectMani
 		end
 		for _, discovered in discoveredMembers do
 			local directory = path.format(discovered)
+			if directory == rootDirectory then
+				rootDirectoryMatched = true
+			end
 			local configPath = manifestPath(directory)
 			assert(fs.exists(configPath), `Workspace member '{directory}' has no loom.config.luau`)
 			local memberManifest = manifest.parseFile(configPath)
@@ -99,7 +103,7 @@ local function resolve(rootDirectory: string, rootManifest: manifest.ProjectMani
 	end
 
 	-- A root package belongs to its workspace even when it is not listed in members.
-	if rootManifest.package ~= nil and not names[rootManifest.package.name] then
+	if rootManifest.package ~= nil and not rootDirectoryMatched then
 		addMember(members, names, rootDirectory, rootManifest)
 	end
 
