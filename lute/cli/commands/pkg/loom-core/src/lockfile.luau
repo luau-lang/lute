@@ -154,7 +154,7 @@ local function normalizeMemberPathSpec(
 	if spec.sourceKind ~= "path" then
 		return spec
 	end
-	
+
 	if memberDirectory == rootDirectory then
 		return spec
 	end
