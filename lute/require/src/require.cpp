@@ -4,6 +4,8 @@
 #include "lute/lutevfs.h"
 #include "lute/modulepath.h"
 #include "lute/options.h"
+#include "lute/ref.h"
+#include "lute/runtime.h"
 
 #include "Luau/CodeGen.h"
 #include "Luau/Compiler.h"
@@ -149,6 +151,15 @@ static luarequire_WriteResult get_config(lua_State* L, void* ctx, char* buffer, 
     return write(reqCtx->vfs->getConfig(L), buffer, buffer_size, size_out);
 }
 
+static std::string describeModuleFailure(lua_State* ML, int status, const std::string& path)
+{
+    if (status == LUA_OK)
+        return "module " + path + " must return a single value, if it has no return value, you should explicitly return `nil`";
+    if (lua_isstring(ML, -1))
+        return lua_tostring(ML, -1);
+    return "unknown error while running module";
+}
+
 static int load(lua_State* L, void* ctx, const char* path, const char* chunkname, const char* loadname)
 {
     // Lute modules are built-in and don't need to be compiled or executed.
@@ -191,29 +202,52 @@ static int load(lua_State* L, void* ctx, const char* path, const char* chunkname
             reqCtx->onChunkLoad(ML, chunkname);
         int status = lua_resume(ML, L, 0);
 
-        if (status == 0)
+        // If the module yielded, we yield the requiring thread as well. Once
+        // the module finishes, the requiring thread will be resumed as well.
+        if (status == LUA_YIELD)
         {
-            if (lua_gettop(ML) == 1)
-                errored = false;
-            else
-                lua_pushfstring(ML, "module %s must return a single value, if it has no return value, you should explicitly return `nil`\n", path);
+            ThreadCompletionHandler completion;
+            completion.onFinish = [callerToken = getResumeToken(L), modulePath = std::string(path)](lua_State* ML, int status)
+            {
+                if (status == LUA_OK && lua_gettop(ML) == 1)
+                {
+                    auto resultRef = std::make_shared<Ref>(ML, -1);
+                    callerToken->complete(
+                        [resultRef](lua_State* L)
+                        {
+                            resultRef->push(L);
+                            return 1;
+                        }
+                    );
+                    return;
+                }
+
+                std::string error = describeModuleFailure(ML, status, modulePath);
+                error += "\n";
+                error += lua_debugtrace(ML);
+
+                callerToken->fail(error);
+            };
+            getRuntime(ML)->addThreadCompletionHandler(ML, std::move(completion));
+
+            // Pop ML from L's stack and signal a yield.
+            lua_pop(L, 1);
+            return -1;
         }
-        else if (status == LUA_YIELD)
-        {
-            lua_pushstring(ML, "module can not yield\n");
-        }
-        else if (!lua_isstring(ML, -1))
-        {
-            lua_pushstring(ML, "unknown error while running module\n");
-        }
+
+        if (status == LUA_OK && lua_gettop(ML) == 1)
+            errored = false;
+        else
+            lua_pushstring(ML, describeModuleFailure(ML, status, path).c_str());
     }
 
     // add ML result to L stack
     lua_xmove(ML, L, 1);
     if (errored && lua_isstring(L, -1))
     {
+        lua_pushstring(L, "\n");
         lua_pushstring(L, lua_debugtrace(ML));
-        lua_concat(L, 2);
+        lua_concat(L, 3);
         lua_error(L);
     }
 
