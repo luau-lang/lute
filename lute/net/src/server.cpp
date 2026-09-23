@@ -948,7 +948,14 @@ static bool closeServer(int serverId)
 
 int serve(lua_State* L)
 {
-    uWS::Loop::get(getRuntimeLoop(L));
+    uWS::Loop* loop = uWS::Loop::get(getRuntimeLoop(L));
+    getRuntime(L)->addShutdownHookOnce(
+        loop,
+        [loop]()
+        {
+            loop->free();
+        }
+    );
 
     std::string hostname = "127.0.0.1";
     int port = 3000;
