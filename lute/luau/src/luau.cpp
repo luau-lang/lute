@@ -64,7 +64,7 @@ int compile_luau(lua_State* L)
     std::string* userdata = static_cast<std::string*>(lua_newuserdatadtor(
         L,
         sizeof(std::string),
-        [](void* ptr)
+        [](lua_State*, void* ptr)
         {
             std::destroy_at(static_cast<std::string*>(ptr));
         }

@@ -333,7 +333,7 @@ static int envIter(lua_State* L)
     EnvIter* iter = (EnvIter*)lua_newuserdatadtor(
         L,
         sizeof(EnvIter),
-        [](void* ptr)
+        [](lua_State*, void* ptr)
         {
             std::destroy_at(static_cast<EnvIter*>(ptr));
         }
