@@ -927,6 +927,44 @@ test.suite("WorkspaceResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://dependency-registry.example.com")
 	end)
 
+	suite:case("invalidatesLockReuseWhenAnExternalPathWorkspaceDefaultMemberChanges", function(assert)
+		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
+		local libDirectory = path.join(dependencyWorkspaceDirectory, "packages", "lib")
+		local otherDirectory = path.join(dependencyWorkspaceDirectory, "packages", "other")
+		fs.createDirectory(libDirectory, { makeParents = true })
+		fs.createDirectory(otherDirectory)
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			lib = { sourceKind = "path", source = "./dependency-workspace" },]]
+		)
+		writeConfig(libDirectory, "lib", "")
+		writeConfig(otherDirectory, "other", "")
+
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "lib" },
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.packages.lib.installPath, path.format(path.join("dependency-workspace", "packages", "lib")))
+
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "other" },
+}
+]]
+		)
+
+		lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.packages.lib.installPath, path.format(path.join("dependency-workspace", "packages", "other")))
+	end)
+
 	suite:case("resolvesAWorkspaceMemberFromAGitDependency", function(assert)
 		local dependencyPackageName = "external-git-workspace-default-alias-test"
 		local packageName = "external-git-workspace-lib-test"

@@ -511,16 +511,20 @@ local function pathDepsAreStale(
 			continue
 		end
 
-		local packageInstallPath = path.format(path.join(rootDirectory, pkg.installPath))
+		local packageSourcePath = path.format(path.resolve(rootDirectory, pkg.source))
 		local ok, result = pcall(getSourcePackage, {
 			name = pkg.name,
 			sourceKind = "path" :: "path",
 			source = pkg.source,
-		}, packageInstallPath)
+		}, packageSourcePath)
 		if not ok then
 			return true
 		end
 		local sourcePackage = result :: SourcePackage
+		local expectedInstallPath = path.format(path.relative(rootDirectory, sourcePackage.directory))
+		if pkg.installPath ~= expectedInstallPath then
+			return true
+		end
 		local depPackage = sourcePackage.package
 
 		for alias in depPackage.dependencies do
