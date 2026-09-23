@@ -92,7 +92,7 @@ struct Runtime
     // once that thread eventually returns or errors after any number of yields.
     void addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion);
 
-    void addShutdownHookOnce(const void* key, std::function<void()> hook);
+    void addShutdownHook(const void* key, std::function<void()> hook);
 
     // Run 'f' in a libuv work queue
     void runInWorkQueue(std::function<void()> f);

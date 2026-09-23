@@ -949,7 +949,7 @@ static bool closeServer(int serverId)
 int serve(lua_State* L)
 {
     uWS::Loop* loop = uWS::Loop::get(getRuntimeLoop(L));
-    getRuntime(L)->addShutdownHookOnce(
+    getRuntime(L)->addShutdownHook(
         loop,
         [loop]()
         {

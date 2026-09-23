@@ -284,7 +284,7 @@ void Runtime::addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler c
     threadCompletionHandlers[L] = std::move(completion);
 }
 
-void Runtime::addShutdownHookOnce(const void* key, std::function<void()> hook)
+void Runtime::addShutdownHook(const void* key, std::function<void()> hook)
 {
     shutdownHooks.try_insert(key, std::move(hook));
 }
