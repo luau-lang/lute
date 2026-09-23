@@ -821,6 +821,42 @@ test.suite("WorkspaceResolution", function(suite)
 		assert.eq(lock.packages["citrus@2.0.0"].registry, "https://root-registry.example.com")
 	end)
 
+	suite:case("inheritsRegistryForWorkspaceMembersReachedThroughPathDependencies", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local appDirectory = path.join(modulesDirectory, "app")
+		local libDirectory = path.join(modulesDirectory, "lib")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(appDirectory)
+		fs.createDirectory(libDirectory)
+		writeConfig(
+			appDirectory,
+			"app",
+			[[
+			lib = { sourceKind = "path", source = "../lib" },]]
+		)
+		writeConfig(
+			libDirectory,
+			"lib",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "modules/*" } },
+	registry = "https://registry.example.com",
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(appDirectory), {
+			citrus = { namedVersion("citrus", "1.0.0") },
+		})
+		assert.eq(lock.dependencies.app.lib, "lib")
+		assert.eq(lock.packages.lib.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://registry.example.com")
+	end)
+
 	suite:case("invalidatesLockReuseWhenAMemberChangesDependencies", function(assert)
 		local modulesDirectory = path.join(workingDirectory, "modules")
 		local firstDirectory = path.join(modulesDirectory, "first")

@@ -172,12 +172,26 @@ local function addRegistryRequirement(
 	return key
 end
 
+local function getSourcePackageRegistryUrl(
+	dependencyManifest: manifest.ProjectManifest,
+	installPath: string,
+	workspaceMemberDirectories: { [string]: boolean },
+	rootRegistryUrl: string?
+): string?
+	if workspaceMemberDirectories[installPath] then
+		return rootRegistryUrl
+	end
+
+	return dependencyManifest.registry
+end
+
 local function collectSourcePackageDependencies(
 	key: string,
 	installPath: string,
 	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
+	workspaceMemberDirectories: { [string]: boolean },
 	transitiveDependencies: { [string]: string },
 	queue: { manifest.DependencySpec },
 	registryRequirements: { [string]: semver.Requirement },
@@ -194,6 +208,8 @@ local function collectSourcePackageDependencies(
 	local dependencyManifest = manifest.parseFile(nestedManifestPath)
 	local dependencyPackage = dependencyManifest.package
 	assert(dependencyPackage ~= nil, `Source package '{installPath}' must declare a package`)
+	local dependencyRegistryUrl =
+		getSourcePackageRegistryUrl(dependencyManifest, installPath, workspaceMemberDirectories, rootRegistryUrl)
 
 	for dependencyAlias, dependencySpec in dependencyPackage.dependencies do
 		local normalizedSpec = normalizePathDependency(dependencySpec, installPath, rootDirectory)
@@ -202,13 +218,13 @@ local function collectSourcePackageDependencies(
 
 		if normalizedSpec.sourceKind == "registry" then
 			assert(
-				dependencyManifest.registry ~= nil,
+				dependencyRegistryUrl ~= nil,
 				`Package '{key}' has registry dependency '{normalizedSpec.name}' but no 'registry' field in its manifest.`
 			)
 		end
 
 		if effectiveSpec.sourceKind == "registry" then
-			local effectiveRegistryUrl = if overrideSpec then rootRegistryUrl else dependencyManifest.registry
+			local effectiveRegistryUrl = if overrideSpec then rootRegistryUrl else dependencyRegistryUrl
 			local registryPackageName = registerRegistryPackage(
 				registrySources,
 				registryIdentitiesBySource,
@@ -248,7 +264,8 @@ local function resolveSourcePackage(
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
 	registryUrlByPackage: { [string]: string },
 	overrides: { [string]: manifest.DependencySpec },
-	rootRegistryUrl: string?
+	rootRegistryUrl: string?,
+	workspaceMemberDirectories: { [string]: boolean }
 ): string
 	local key = getKey(spec)
 
@@ -276,6 +293,7 @@ local function resolveSourcePackage(
 		rootDirectory,
 		overrides,
 		rootRegistryUrl,
+		workspaceMemberDirectories,
 		transitiveDependencies,
 		queue,
 		registryRequirements,
@@ -303,7 +321,8 @@ local function processSourceQueue(
 	state: ResolutionState,
 	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
-	rootRegistryUrl: string?
+	rootRegistryUrl: string?,
+	workspaceMemberDirectories: { [string]: boolean }
 )
 	while state.queueIndex <= #state.queue do
 		local spec = state.queue[state.queueIndex]
@@ -321,7 +340,8 @@ local function processSourceQueue(
 			state.unresolvedRegistryDependencies,
 			state.registryUrlByPackage,
 			overrides,
-			rootRegistryUrl
+			rootRegistryUrl,
+			workspaceMemberDirectories
 		)
 	end
 end
@@ -404,7 +424,8 @@ local function pathDepsAreStale(
 	lock: lockfile.Lockfile,
 	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
-	rootRegistryUrl: string?
+	rootRegistryUrl: string?,
+	workspaceMemberDirectories: { [string]: boolean }
 ): boolean
 	for _, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
@@ -467,7 +488,13 @@ local function pathDepsAreStale(
 					return true
 				end
 			elseif depSpec.sourceKind == "registry" then
-				local registryUrl = if overrideSpec then rootRegistryUrl else depManifest.registry
+				local dependencyRegistryUrl = getSourcePackageRegistryUrl(
+					depManifest,
+					packageInstallPath,
+					workspaceMemberDirectories,
+					rootRegistryUrl
+				)
+				local registryUrl = if overrideSpec then rootRegistryUrl else dependencyRegistryUrl
 				if
 					recordedPkg.source ~= depSpec.source
 					or not registryUrlUtil.equals(recordedPkg.registry, registryUrl)
@@ -491,7 +518,8 @@ local function tryReuseLockfile(
 	lockfilePath: string,
 	rootDirectory: string,
 	excludeDev: boolean,
-	options: ResolveOptions?
+	options: ResolveOptions?,
+	workspaceMemberDirectories: { [string]: boolean }
 ): (lockfile.Lockfile?, { [string]: string }?)
 	local existingLock = lockfile.tryParseFile(lockfilePath)
 
@@ -511,7 +539,13 @@ local function tryReuseLockfile(
 
 		if
 			satisfied
-			and not pathDepsAreStale(existingLock, rootDirectory, rootWorkspace.overrides, rootWorkspace.registry)
+			and not pathDepsAreStale(
+				existingLock,
+				rootDirectory,
+				rootWorkspace.overrides,
+				rootWorkspace.registry,
+				workspaceMemberDirectories
+			)
 		then
 			return existingLock, nil
 		end
@@ -638,6 +672,14 @@ local function queueSourceOverrides(state: ResolutionState, overrides: { [string
 	for _, name in names do
 		table.insert(state.queue, overrides[name])
 	end
+end
+
+local function collectWorkspaceMemberDirectories(rootWorkspace: workspace.Workspace): { [string]: boolean }
+	local directories: { [string]: boolean } = {}
+	for _, member in rootWorkspace.members do
+		directories[member.directory] = true
+	end
+	return directories
 end
 
 local function namespaceRegistryUniverse(
@@ -889,9 +931,10 @@ local function resolve(
 	local excludeDev = if options then options.excludeDev == true else false
 	local rootDirectory = rootWorkspace.rootDirectory
 	local lockfilePath = getLockfilePath(rootDirectory)
+	local workspaceMemberDirectories = collectWorkspaceMemberDirectories(rootWorkspace)
 
 	local reusedLock, lockedRegistryVersions =
-		tryReuseLockfile(rootWorkspace, lockfilePath, rootDirectory, excludeDev, options)
+		tryReuseLockfile(rootWorkspace, lockfilePath, rootDirectory, excludeDev, options, workspaceMemberDirectories)
 	if reusedLock then
 		return reusedLock
 	end
@@ -899,7 +942,7 @@ local function resolve(
 	local state = collectRootDependencies(rootWorkspace, excludeDev)
 	local overrides = rootWorkspace.overrides
 	queueSourceOverrides(state, overrides)
-	processSourceQueue(state, rootDirectory, overrides, rootWorkspace.registry)
+	processSourceQueue(state, rootDirectory, overrides, rootWorkspace.registry, workspaceMemberDirectories)
 
 	resolveRegistryDependencies(state, universe, overrides, lockedRegistryVersions)
 
