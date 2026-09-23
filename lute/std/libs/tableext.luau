@@ -101,7 +101,7 @@ function deepClone<T>(tbl: T, seen: { [T]: T }, opts: DeepCloneOptions): T
 		table.freeze(clone)
 	end
 
-	return clone
+	return clone :: T
 end
 
 --- Recursively deep-clones `tbl`. By default, metatables are stripped, keys are kept as-is without any cloning, and frozenness of tables is not preserved.

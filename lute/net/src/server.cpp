@@ -390,7 +390,7 @@ static void pushRequestUpgradeContext(lua_State* L, const RequestUpgradeContextP
     auto* storage = static_cast<RequestUpgradeContextPtr<SSL>*>(lua_newuserdatadtor(
         L,
         sizeof(RequestUpgradeContextPtr<SSL>),
-        [](void* ptr)
+        [](lua_State*, void* ptr)
         {
             std::destroy_at(static_cast<RequestUpgradeContextPtr<SSL>*>(ptr));
         }

@@ -22,7 +22,7 @@ static void* createRunRequireContext(lua_State* L)
     void* ctx = lua_newuserdatadtor(
         L,
         sizeof(RequireCtx),
-        [](void* ptr)
+        [](lua_State*, void* ptr)
         {
             std::destroy_at(static_cast<RequireCtx*>(ptr));
         }
@@ -47,7 +47,7 @@ static void* createCliCommandRequireContext(lua_State* L)
     void* ctx = lua_newuserdatadtor(
         L,
         sizeof(RequireCtx),
-        [](void* ptr)
+        [](lua_State*, void* ptr)
         {
             std::destroy_at(static_cast<RequireCtx*>(ptr));
         }
@@ -76,7 +76,7 @@ static void* createPkgRunRequireContext(
     void* ctx = lua_newuserdatadtor(
         L,
         sizeof(RequireCtx),
-        [](void* ptr)
+        [](lua_State*, void* ptr)
         {
             std::destroy_at(static_cast<RequireCtx*>(ptr));
         }
@@ -106,7 +106,7 @@ static void* createBundleRequireContext(
     void* ctx = lua_newuserdatadtor(
         L,
         sizeof(RequireCtx),
-        [](void* ptr)
+        [](lua_State*, void* ptr)
         {
             std::destroy_at(static_cast<RequireCtx*>(ptr));
         }
