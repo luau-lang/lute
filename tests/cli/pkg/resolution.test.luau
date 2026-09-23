@@ -1026,7 +1026,7 @@ test.suite("WorkspaceResolution", function(suite)
 		assert.eq(lock.packages[packageKey].dependencies.citrus, "citrus@1.0.0")
 		assert.eq(
 			lock.packages[packageKey].installPath,
-			store.toStorePath(path.format(path.join(packageKey, "packages", "lib")))
+			path.format(path.join(store.toStorePath(packageKey), path.join("packages", "lib")))
 		)
 		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://git-workspace-registry.example.com")
 
