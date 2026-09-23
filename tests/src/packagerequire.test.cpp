@@ -58,7 +58,7 @@ TEST_CASE_FIXTURE(LuteFixture, "package_aware_require")
             void* ctx = lua_newuserdatadtor(
                 L,
                 sizeof(RequireCtx),
-                [](void* ptr)
+                [](lua_State*, void* ptr)
                 {
                     static_cast<RequireCtx*>(ptr)->~RequireCtx();
                 }

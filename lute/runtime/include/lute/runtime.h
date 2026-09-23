@@ -3,6 +3,7 @@
 #include "lute/ref.h"
 #include "lute/reporter.h"
 
+#include "Luau/DenseHash.h"
 #include "Luau/Variant.h"
 #include "Luau/VecDeque.h"
 
@@ -91,6 +92,8 @@ struct Runtime
     // once that thread eventually returns or errors after any number of yields.
     void addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion);
 
+    void addShutdownHook(const void* key, std::function<void()> hook);
+
     // Run 'f' in a libuv work queue
     void runInWorkQueue(std::function<void()> f);
 
@@ -160,6 +163,7 @@ private:
     std::mutex continuationMutex;
     std::vector<std::function<void()>> continuations;
     std::unordered_map<lua_State*, ThreadCompletionHandler> threadCompletionHandlers;
+    Luau::DenseHashMap<const void*, std::function<void()>> shutdownHooks;
 
     std::atomic<bool> stop;
     std::condition_variable runLoopCv;
