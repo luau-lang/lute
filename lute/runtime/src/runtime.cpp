@@ -65,6 +65,11 @@ Runtime::~Runtime()
         uv_thread_join(&runLoopThread);
         runLoopThreadStarted = false;
     }
+
+    for (auto& [key, hook] : shutdownHooks)
+        hook();
+    shutdownHooks.clear();
+
     uv_close((uv_handle_t*)&wakeupEventLoop, nullptr);
     //  We need to run the event loop to process the uv_close since it is asynchronous
     uv_run(&eventLoop, UV_RUN_ONCE);
@@ -277,6 +282,11 @@ bool Runtime::hasThreads()
 void Runtime::addThreadCompletionHandler(lua_State* L, ThreadCompletionHandler completion)
 {
     threadCompletionHandlers[L] = std::move(completion);
+}
+
+void Runtime::addShutdownHook(const void* key, std::function<void()> hook)
+{
+    shutdownHooks.try_insert(key, std::move(hook));
 }
 
 bool Runtime::runThreadCompletionHandler(lua_State* L, int status)
