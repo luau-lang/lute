@@ -176,6 +176,8 @@ type SourcePackage = {
 	directory: string,
 	package: manifest.PackageManifest,
 	registryUrl: string?,
+	workspaceRoot: string?,
+	workspaceDefaultMember: string?,
 	workspaceMemberDirectories: { [string]: boolean }?,
 }
 
@@ -230,6 +232,10 @@ local function getSourcePackage(spec: manifest.DependencySpec, sourceDirectory: 
 			directory = member.directory,
 			package = member.package,
 			registryUrl = resolvedWorkspace.registry,
+			workspaceRoot = workspaceRoot,
+			workspaceDefaultMember = if workspaceManifest.workspace
+				then workspaceManifest.workspace.defaultMember
+				else nil,
 			workspaceMemberDirectories = collectWorkspaceMemberDirectories(resolvedWorkspace),
 		}
 	end
@@ -256,7 +262,11 @@ local function normalizeSourceDependency(
 	end
 
 	local sourcePath = path.format(path.resolve(sourcePackage.directory, dependencySpec.source))
-	if sourcePackage.workspaceMemberDirectories and sourcePackage.workspaceMemberDirectories[sourcePath] then
+	local isWorkspaceMember = sourcePackage.workspaceMemberDirectories
+		and sourcePackage.workspaceMemberDirectories[sourcePath]
+	local isWorkspaceRootDefaultMember = sourcePackage.workspaceRoot == sourcePath
+		and sourcePackage.workspaceDefaultMember ~= nil
+	if isWorkspaceMember or isWorkspaceRootDefaultMember then
 		return table.freeze({
 			name = dependencySpec.name,
 			sourceKind = "github" :: "github",

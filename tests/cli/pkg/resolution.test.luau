@@ -971,11 +971,16 @@ test.suite("WorkspaceResolution", function(suite)
 		local utilityPackageName = "external-git-workspace-util-test"
 		local revision = "workspace-test-revision"
 		local packageKey = `{dependencyPackageName}@{revision}`
+		local defaultPackageKey = `{packageName}@{revision}`
 		local utilityPackageKey = `{utilityPackageName}@{revision}`
 		local sourceDirectory = store.getPackagePath(packageKey)
+		local defaultSourceDirectory = store.getPackagePath(defaultPackageKey)
 		local utilitySourceDirectory = store.getPackagePath(utilityPackageKey)
 		if fs.exists(sourceDirectory) then
 			fs.removeDirectory(sourceDirectory, { recursive = true })
+		end
+		if fs.exists(defaultSourceDirectory) then
+			fs.removeDirectory(defaultSourceDirectory, { recursive = true })
 		end
 		if fs.exists(utilitySourceDirectory) then
 			fs.removeDirectory(utilitySourceDirectory, { recursive = true })
@@ -1002,10 +1007,13 @@ test.suite("WorkspaceResolution", function(suite)
 			libDirectory,
 			packageName,
 			[[
+			gitDefault = { name = "external-git-workspace-lib-test", sourceKind = "path", source = "../.." },
 			gitUtil = { name = "external-git-workspace-util-test", sourceKind = "path", source = "../util" },
 			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
 		)
 		writeConfig(utilityDirectory, utilityPackageName, "")
+		fs.createDirectory(defaultSourceDirectory, { makeParents = true })
+		writeConfig(path.resolve(defaultSourceDirectory), packageName, "")
 		fs.createDirectory(utilitySourceDirectory, { makeParents = true })
 		writeConfig(path.resolve(utilitySourceDirectory), utilityPackageName, "")
 		fs.writeStringToFile(
@@ -1021,6 +1029,13 @@ test.suite("WorkspaceResolution", function(suite)
 			citrus = { namedVersion("citrus", "1.0.0") },
 		})
 		assert.eq(lock.dependencies.app.gitLib, packageKey)
+		assert.eq(lock.packages[packageKey].dependencies.gitDefault, defaultPackageKey)
+		assert.eq(lock.packages[defaultPackageKey].sourceKind, "github")
+		assert.eq(
+			lock.packages[defaultPackageKey].source,
+			"https://github.com/lute-test-fixtures/external-git-workspace"
+		)
+		assert.eq(lock.packages[defaultPackageKey].rev, revision)
 		assert.eq(lock.packages[packageKey].dependencies.gitUtil, utilityPackageKey)
 		assert.eq(lock.packages[utilityPackageKey].sourceKind, "github")
 		assert.eq(lock.packages[packageKey].dependencies.citrus, "citrus@1.0.0")
@@ -1031,6 +1046,7 @@ test.suite("WorkspaceResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://git-workspace-registry.example.com")
 
 		fs.removeDirectory(sourceDirectory, { recursive = true })
+		fs.removeDirectory(defaultSourceDirectory, { recursive = true })
 		fs.removeDirectory(utilitySourceDirectory, { recursive = true })
 	end)
 
