@@ -2370,6 +2370,36 @@ test.suite("Overrides", function(suite)
 		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus")
 	end)
 
+	suite:case("sourceOverrideBypassesMissingRootPathDependency", function(assert)
+		local overrideDir = path.join(workingDirectory, "citrus-fork")
+		fs.createDirectory(overrideDir)
+		writeConfig(overrideDir, "citrus", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./removed-citrus",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./citrus-fork",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+
+		assert.eq(lock.dependencies.root.citrus, "citrus")
+		assert.eq(lock.packages.citrus.sourceKind, "path")
+		assert.eq(lock.packages.citrus.source, "./citrus-fork")
+	end)
+
 	suite:case("registryOverrideUsesRootRegistry", function(assert)
 		local libDir = path.join(workingDirectory, "lib")
 		fs.createDirectory(libDir)

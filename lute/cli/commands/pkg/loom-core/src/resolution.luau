@@ -705,7 +705,9 @@ local function collectRootDependencies(rootWorkspace: workspace.Workspace, exclu
 	for _, member in rootWorkspace.members do
 		state.dependencies[member.name] = {}
 		for dependencyAlias, dependencySpec in member.package.dependencies do
-			local normalized = normalizePathDependency(dependencySpec, member.directory, rootWorkspace.rootDirectory)
+			local normalized = if rootWorkspace.overrides[dependencySpec.name]
+				then dependencySpec
+				else normalizePathDependency(dependencySpec, member.directory, rootWorkspace.rootDirectory)
 			collectRootDependency(
 				state,
 				member.name,
@@ -719,8 +721,9 @@ local function collectRootDependencies(rootWorkspace: workspace.Workspace, exclu
 
 		if not excludeDev then
 			for dependencyAlias, dependencySpec in member.package.devDependencies do
-				local normalized =
-					normalizePathDependency(dependencySpec, member.directory, rootWorkspace.rootDirectory)
+				local normalized = if rootWorkspace.overrides[dependencySpec.name]
+					then dependencySpec
+					else normalizePathDependency(dependencySpec, member.directory, rootWorkspace.rootDirectory)
 				collectRootDependency(
 					state,
 					member.name,
