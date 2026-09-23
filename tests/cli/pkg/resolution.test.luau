@@ -894,11 +894,45 @@ test.suite("WorkspaceResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://dependency-registry.example.com")
 	end)
 
+	suite:case("usesDefaultMemberForAnExternalPathWorkspaceRoot", function(assert)
+		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
+		local libDirectory = path.join(dependencyWorkspaceDirectory, "packages", "lib")
+		fs.createDirectory(libDirectory, { makeParents = true })
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			lib = { sourceKind = "path", source = "./dependency-workspace" },]]
+		)
+		writeConfig(
+			libDirectory,
+			"lib",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "lib" },
+	registry = "https://dependency-registry.example.com",
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), {
+			citrus = { namedVersion("citrus", "1.0.0") },
+		})
+		assert.eq(lock.dependencies.app.lib, "lib")
+		assert.eq(lock.packages.lib.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://dependency-registry.example.com")
+	end)
+
 	suite:case("resolvesAWorkspaceMemberFromAGitDependency", function(assert)
+		local dependencyPackageName = "external-git-workspace-default-alias-test"
 		local packageName = "external-git-workspace-lib-test"
 		local utilityPackageName = "external-git-workspace-util-test"
 		local revision = "workspace-test-revision"
-		local packageKey = `{packageName}@{revision}`
+		local packageKey = `{dependencyPackageName}@{revision}`
 		local utilityPackageKey = `{utilityPackageName}@{revision}`
 		local sourceDirectory = store.getPackagePath(packageKey)
 		local utilitySourceDirectory = store.getPackagePath(utilityPackageKey)
@@ -920,7 +954,7 @@ test.suite("WorkspaceResolution", function(suite)
 			"app",
 			[[
 			gitLib = {
-				name = "external-git-workspace-lib-test",
+				name = "external-git-workspace-default-alias-test",
 				sourceKind = "github",
 				source = "https://github.com/lute-test-fixtures/external-git-workspace",
 				rev = "workspace-test-revision",
@@ -939,7 +973,7 @@ test.suite("WorkspaceResolution", function(suite)
 		fs.writeStringToFile(
 			path.join(sourceDirectory, "loom.config.luau"),
 			[[return {
-	workspace = { members = { "packages/*" } },
+	workspace = { members = { "packages/*" }, default_member = "external-git-workspace-lib-test" },
 	registry = "https://git-workspace-registry.example.com",
 }
 ]]

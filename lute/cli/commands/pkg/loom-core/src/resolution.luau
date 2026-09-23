@@ -214,6 +214,12 @@ local function getSourcePackage(spec: manifest.DependencySpec, sourceDirectory: 
 	local member = if spec.sourceKind == "github"
 		then findWorkspaceMemberByName(resolvedWorkspace, spec.name)
 		else findWorkspaceMemberAtDirectory(resolvedWorkspace, sourceDirectory)
+	if member == nil and sourceDirectory == workspaceRoot and workspaceManifest.workspace then
+		local defaultMember = workspaceManifest.workspace.defaultMember
+		if defaultMember then
+			member = findWorkspaceMemberByName(resolvedWorkspace, defaultMember)
+		end
+	end
 
 	if spec.sourceKind == "github" then
 		assert(member ~= nil, `Git dependency '{spec.source}' does not contain package '{spec.name}'`)
