@@ -47,21 +47,13 @@ local function normalizePathDependency(
 	installPath: string,
 	rootDirectory: string
 ): manifest.DependencySpec
-	-- normalization is a no-op if it's not a path dependency
-	if spec.sourceKind ~= "path" then
-		return spec
+	local normalizedSpec, missingPath = lockfile.tryNormalizePathDependency(spec, installPath, rootDirectory)
+	if normalizedSpec == nil then
+		assert(missingPath ~= nil)
+		error(`Path dependency directory not found: {missingPath} (for package '{spec.name}')`)
 	end
 
-	local sourcePath = path.format(path.resolve(installPath, spec.source))
-	if not fs.exists(sourcePath) then
-		error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
-	end
-
-	return table.freeze({
-		name = spec.name,
-		sourceKind = "path",
-		source = path.format(path.relative(rootDirectory, sourcePath)),
-	}) :: manifest.PathDependencySpec
+	return normalizedSpec
 end
 
 local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string

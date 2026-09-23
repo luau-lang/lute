@@ -146,25 +146,35 @@ local function getEffectiveRootSpec(
 	return overrides[spec.name] or spec
 end
 
+local function tryNormalizePathDependency(
+	spec: manifest.DependencySpec,
+	installPath: string,
+	rootDirectory: string
+): (manifest.DependencySpec?, string?)
+	if spec.sourceKind ~= "path" then
+		return spec, nil
+	end
+
+	local sourcePath = path.format(path.resolve(installPath, spec.source))
+	if not fs.exists(sourcePath) then
+		return nil, sourcePath
+	end
+
+	local normalizedSpec = table.freeze({
+		name = spec.name,
+		sourceKind = "path" :: "path",
+		source = path.format(path.relative(rootDirectory, sourcePath)),
+	}) :: manifest.PathDependencySpec
+	return normalizedSpec, nil
+end
+
 local function normalizeMemberPathSpec(
 	spec: manifest.DependencySpec,
 	memberDirectory: string,
 	rootDirectory: string
 ): manifest.DependencySpec
-	if spec.sourceKind ~= "path" then
-		return spec
-	end
-
-	local sourcePath = path.format(path.resolve(memberDirectory, spec.source))
-	if not fs.exists(sourcePath) then
-		return spec
-	end
-
-	return table.freeze({
-		name = spec.name,
-		sourceKind = "path" :: "path",
-		source = path.format(path.relative(rootDirectory, sourcePath)),
-	}) :: manifest.PathDependencySpec
+	local normalizedSpec = tryNormalizePathDependency(spec, memberDirectory, rootDirectory)
+	return normalizedSpec or spec
 end
 
 local function satisfiesManifest(
@@ -296,4 +306,5 @@ return {
 	satisfiesManifest = satisfiesManifest,
 	getReachablePackageKeys = getReachablePackageKeys,
 	serializeOverrides = serializeOverrides,
+	tryNormalizePathDependency = tryNormalizePathDependency,
 }

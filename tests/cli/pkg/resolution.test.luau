@@ -2393,7 +2393,8 @@ test.suite("Overrides", function(suite)
 			},]]
 		)
 
-		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		resolution.resolve(path.format(workingDirectory), nil)
+		local lock = resolution.resolve(path.format(workingDirectory), nil, { locked = true })
 
 		assert.eq(lock.dependencies.root.citrus, "citrus")
 		assert.eq(lock.packages.citrus.sourceKind, "path")
