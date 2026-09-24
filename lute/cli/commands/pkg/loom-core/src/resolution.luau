@@ -202,9 +202,14 @@ local function findWorkspaceMemberByName(resolvedWorkspace: workspace.Workspace,
 	return nil
 end
 
-local function getSourcePackage(spec: manifest.DependencySpec, sourceDirectory: string): SourcePackage
-	local workspaceRoot, workspaceManifest = workspace.findRoot(sourceDirectory)
-	local resolvedWorkspace = workspace.resolve(workspaceRoot, workspaceManifest)
+local function getSourcePackage(
+	spec: manifest.DependencySpec,
+	sourceDirectory: string,
+	workspaceResolver: workspace.WorkspaceResolver
+): SourcePackage
+	local resolvedWorkspace = workspaceResolver:findResolvedRoot(sourceDirectory)
+	local workspaceRoot = resolvedWorkspace.rootDirectory
+	local workspaceManifest = resolvedWorkspace.rootManifest
 	local member = if spec.sourceKind == "github"
 		then findWorkspaceMemberByName(resolvedWorkspace, spec.name)
 		else findWorkspaceMemberAtDirectory(resolvedWorkspace, sourceDirectory)
@@ -338,7 +343,8 @@ local function resolveSourcePackage(
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
 	registryUrlByPackage: { [string]: string },
 	overrides: { [string]: manifest.DependencySpec },
-	rootRegistryUrl: string?
+	rootRegistryUrl: string?,
+	workspaceResolver: workspace.WorkspaceResolver
 ): string
 	local key = getKey(spec)
 
@@ -359,7 +365,7 @@ local function resolveSourcePackage(
 	openDependencies[key] = transitiveDependencies
 
 	local sourceDirectory = fetchSource(spec, rootDirectory)
-	local sourcePackage = getSourcePackage(spec, sourceDirectory)
+	local sourcePackage = getSourcePackage(spec, sourceDirectory, workspaceResolver)
 
 	collectSourcePackageDependencies(
 		key,
@@ -405,7 +411,8 @@ local function processSourceQueue(
 	state: ResolutionState,
 	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
-	rootRegistryUrl: string?
+	rootRegistryUrl: string?,
+	workspaceResolver: workspace.WorkspaceResolver
 )
 	while state.queueIndex <= #state.queue do
 		local spec = state.queue[state.queueIndex]
@@ -423,7 +430,8 @@ local function processSourceQueue(
 			state.unresolvedRegistryDependencies,
 			state.registryUrlByPackage,
 			overrides,
-			rootRegistryUrl
+			rootRegistryUrl,
+			workspaceResolver
 		)
 	end
 end
@@ -506,7 +514,8 @@ local function pathDepsAreStale(
 	lock: lockfile.Lockfile,
 	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
-	rootRegistryUrl: string?
+	rootRegistryUrl: string?,
+	workspaceResolver: workspace.WorkspaceResolver
 ): boolean
 	for _, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
@@ -518,7 +527,7 @@ local function pathDepsAreStale(
 			name = pkg.name,
 			sourceKind = "path" :: "path",
 			source = pkg.source,
-		}, packageSourcePath)
+		}, packageSourcePath, workspaceResolver)
 		if not ok then
 			return true
 		end
@@ -594,7 +603,8 @@ local function tryReuseLockfile(
 	lockfilePath: string,
 	rootDirectory: string,
 	excludeDev: boolean,
-	options: ResolveOptions?
+	options: ResolveOptions?,
+	workspaceResolver: workspace.WorkspaceResolver
 ): (lockfile.Lockfile?, { [string]: string }?)
 	local existingLock = lockfile.tryParseFile(lockfilePath)
 
@@ -614,7 +624,13 @@ local function tryReuseLockfile(
 
 		if
 			satisfied
-			and not pathDepsAreStale(existingLock, rootDirectory, rootWorkspace.overrides, rootWorkspace.registry)
+			and not pathDepsAreStale(
+				existingLock,
+				rootDirectory,
+				rootWorkspace.overrides,
+				rootWorkspace.registry,
+				workspaceResolver
+			)
 		then
 			return existingLock, nil
 		end
@@ -995,9 +1011,10 @@ local function resolve(
 	local excludeDev = if options then options.excludeDev == true else false
 	local rootDirectory = rootWorkspace.rootDirectory
 	local lockfilePath = getLockfilePath(rootDirectory)
+	local workspaceResolver = workspace.newWorkspaceResolver(rootWorkspace)
 
 	local reusedLock, lockedRegistryVersions =
-		tryReuseLockfile(rootWorkspace, lockfilePath, rootDirectory, excludeDev, options)
+		tryReuseLockfile(rootWorkspace, lockfilePath, rootDirectory, excludeDev, options, workspaceResolver)
 	if reusedLock then
 		return reusedLock
 	end
@@ -1005,7 +1022,7 @@ local function resolve(
 	local state = collectRootDependencies(rootWorkspace, excludeDev)
 	local overrides = rootWorkspace.overrides
 	queueSourceOverrides(state, overrides)
-	processSourceQueue(state, rootDirectory, overrides, rootWorkspace.registry)
+	processSourceQueue(state, rootDirectory, overrides, rootWorkspace.registry, workspaceResolver)
 
 	resolveRegistryDependencies(state, universe, overrides, lockedRegistryVersions)
 
@@ -1017,8 +1034,7 @@ local function resolveFromDirectory(
 	universe: semver.Universe?,
 	options: ResolveOptions?
 ): lockfile.Lockfile
-	local rootDirectory, rootManifest = workspace.findRoot(startDirectory)
-	return resolve(workspace.resolve(rootDirectory, rootManifest), universe, options)
+	return resolve(workspace.findResolvedRoot(startDirectory), universe, options)
 end
 
 return {

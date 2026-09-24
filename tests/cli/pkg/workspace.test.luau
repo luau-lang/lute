@@ -137,6 +137,53 @@ test.suite("Workspace", function(suite)
 		assert.neq(rootManifest.workspace, nil)
 	end)
 
+	suite:case("reusesSeededWorkspaceForMembers", function(assert)
+		local member = path.join(workingDirectory, "member")
+		fs.createDirectory(member)
+		writePackage(member, "member")
+		writeManifest(workingDirectory, [[return { workspace = { members = { "member" } } }]])
+
+		local rootWorkspace = workspace.resolve(path.format(workingDirectory), parseRoot())
+		local resolver = workspace.newWorkspaceResolver(rootWorkspace)
+		local resolvedWorkspace = resolver:findResolvedRoot(path.format(member))
+
+		assert.that(resolvedWorkspace == rootWorkspace)
+	end)
+
+	suite:case("cachesAnExternalWorkspace", function(assert)
+		local dependencyWorkspace = path.join(workingDirectory, "dependency-workspace")
+		local first = path.join(dependencyWorkspace, "packages", "first")
+		local second = path.join(dependencyWorkspace, "packages", "second")
+		fs.createDirectory(first, { makeParents = true })
+		fs.createDirectory(second)
+		writePackage(first, "first")
+		writePackage(second, "second")
+		writeManifest(dependencyWorkspace, [[return { workspace = { members = { "packages/*" } } }]])
+
+		local resolver = workspace.newWorkspaceResolver()
+		local firstWorkspace = resolver:findResolvedRoot(path.format(first))
+		local secondWorkspace = resolver:findResolvedRoot(path.format(second))
+
+		assert.that(firstWorkspace == secondWorkspace)
+	end)
+
+	suite:case("prefersNestedWorkspaceOverSeededOuterWorkspace", function(assert)
+		local outerMember = path.join(workingDirectory, "members", "outer")
+		local nestedWorkspace = path.join(outerMember, "nested")
+		local nestedMember = path.join(nestedWorkspace, "packages", "nested-member")
+		fs.createDirectory(nestedMember, { makeParents = true })
+		writePackage(outerMember, "outer")
+		writePackage(nestedMember, "nested-member")
+		writeManifest(nestedWorkspace, [[return { workspace = { members = { "packages/*" } } }]])
+		writeManifest(workingDirectory, [[return { workspace = { members = { "members/*" } } }]])
+
+		local rootWorkspace = workspace.resolve(path.format(workingDirectory), parseRoot())
+		local resolver = workspace.newWorkspaceResolver(rootWorkspace)
+		local resolvedWorkspace = resolver:findResolvedRoot(path.format(nestedMember))
+
+		assert.eq(resolvedWorkspace.rootDirectory, path.format(nestedWorkspace))
+	end)
+
 	suite:case("errorsWhenNoManifestExists", function(assert)
 		assert.throws(function()
 			workspace.findRoot(path.format(workingDirectory))

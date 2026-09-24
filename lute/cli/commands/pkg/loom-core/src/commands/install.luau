@@ -69,8 +69,7 @@ local function install(...: string)
 	local excludeDev = args:has("exclude-dev")
 	local locked = args:has("locked")
 	local startingDirectory = path.format(process.cwd())
-	local rootDirectory, rootManifest = workspace.findRoot(startingDirectory)
-	local rootWorkspace = workspace.resolve(rootDirectory, rootManifest)
+	local rootWorkspace = workspace.findResolvedRoot(startingDirectory)
 
 	local devAliases: { [string]: { [string]: boolean } } = {}
 	local rootAliases: { [string]: { [string]: boolean } } = {}

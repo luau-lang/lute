@@ -18,6 +18,10 @@ export type Workspace = {
 	read registry: string?,
 }
 
+export type WorkspaceResolver = {
+	findResolvedRoot: (self: WorkspaceResolver, startDirectory: string) -> Workspace,
+}
+
 local function manifestPath(directory: string): string
 	return path.format(path.join(directory, "loom.config.luau"))
 end
@@ -123,44 +127,73 @@ local function resolve(rootDirectory: string, rootManifest: manifest.ProjectMani
 	})
 end
 
-local function findRoot(startDirectory: string): (string, manifest.ProjectManifest)
-	local start = formatDirectory(startDirectory)
-	local directory = start
-	local singlePackageDirectory: string? = nil
-	local singlePackageManifest: manifest.ProjectManifest? = nil
-	while true do
-		local configPath = manifestPath(directory)
-		if fs.exists(configPath) then
-			local projectManifest = manifest.parseFile(configPath)
-			if projectManifest.workspace ~= nil then
-				local resolvedWorkspace = resolve(directory, projectManifest)
-				if directory == start then
-					return directory, projectManifest
-				end
-				for _, member in resolvedWorkspace.members do
-					if isWithinDirectory(member.directory, start) then
-						return directory, projectManifest
+local function newWorkspaceResolver(initialWorkspace: Workspace?): WorkspaceResolver
+	local workspacesByRoot: { [string]: Workspace } = {}
+	if initialWorkspace then
+		workspacesByRoot[initialWorkspace.rootDirectory] = initialWorkspace
+	end
+
+	local resolver: WorkspaceResolver = {
+		findResolvedRoot = function(_self, startDirectory: string): Workspace
+			local start = formatDirectory(startDirectory)
+			local directory = start
+			local singlePackageDirectory: string? = nil
+			local singlePackageManifest: manifest.ProjectManifest? = nil
+			while true do
+				local configPath = manifestPath(directory)
+				if fs.exists(configPath) then
+					local resolvedWorkspace = workspacesByRoot[directory]
+					if resolvedWorkspace == nil then
+						local projectManifest = manifest.parseFile(configPath)
+						if projectManifest.workspace ~= nil then
+							resolvedWorkspace = resolve(directory, projectManifest)
+							workspacesByRoot[directory] = resolvedWorkspace
+						elseif projectManifest.package ~= nil and singlePackageDirectory == nil then
+							singlePackageDirectory = directory
+							singlePackageManifest = projectManifest
+						end
+					end
+
+					if resolvedWorkspace ~= nil then
+						if directory == start then
+							return resolvedWorkspace
+						end
+						for _, member in resolvedWorkspace.members do
+							if isWithinDirectory(member.directory, start) then
+								return resolvedWorkspace
+							end
+						end
 					end
 				end
-			elseif projectManifest.package ~= nil and singlePackageDirectory == nil then
-				singlePackageDirectory = directory
-				singlePackageManifest = projectManifest
-			end
-		end
 
-		local parent = path.dirname(directory)
-		if parent == directory then
-			break
-		end
-		directory = parent
-	end
-	if singlePackageDirectory ~= nil and singlePackageManifest ~= nil then
-		return singlePackageDirectory, singlePackageManifest
-	end
-	error(`No package manifest found for: {startDirectory}`)
+				local parent = path.dirname(directory)
+				if parent == directory then
+					break
+				end
+				directory = parent
+			end
+			if singlePackageDirectory ~= nil and singlePackageManifest ~= nil then
+				return resolve(singlePackageDirectory, singlePackageManifest)
+			end
+			error(`No package manifest found for: {startDirectory}`)
+		end,
+	}
+
+	return resolver
+end
+
+local function findResolvedRoot(startDirectory: string): Workspace
+	return newWorkspaceResolver(nil):findResolvedRoot(startDirectory)
+end
+
+local function findRoot(startDirectory: string): (string, manifest.ProjectManifest)
+	local resolvedWorkspace = findResolvedRoot(startDirectory)
+	return resolvedWorkspace.rootDirectory, resolvedWorkspace.rootManifest
 end
 
 return {
 	resolve = resolve,
 	findRoot = findRoot,
+	findResolvedRoot = findResolvedRoot,
+	newWorkspaceResolver = newWorkspaceResolver,
 }
