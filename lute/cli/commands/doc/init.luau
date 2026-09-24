@@ -295,9 +295,49 @@ type ParseResult = {
 	typeDefinitions: { TypeDefinition },
 }
 
+-- Collapses multiline function declarations into a single line so extractPropertySignature can parse them like any other signature.
+local function joinMultilineFunctions(module: string, lines: { string }): { string }
+	local function parenDelta(s: string): number
+		local delta = 0
+		for char in string.gmatch(s, ".") do
+			if char == "(" then
+				delta += 1
+			elseif char == ")" then
+				delta -= 1
+			end
+		end
+		return delta
+	end
+
+	local merged: { string } = {}
+	local i = 1
+	while i <= #lines do
+		local line = lines[i]
+		local depth = parenDelta(line)
+		-- Only merge when a `function {module}.name(` line leaves its parens open.
+		if depth > 0 and string.match(line, `^function%s+{module}%.`) then
+			local parts = { stringext.trim(line) }
+			while depth > 0 and i < #lines do
+				i += 1
+				depth += parenDelta(lines[i])
+				table.insert(parts, stringext.trim(lines[i]))
+			end
+			local joined = string.gsub(table.concat(parts, " "), "%s+", " ")
+			-- Strip the padding the joins introduced just inside the parentheses.
+			joined = string.gsub(joined, "%(%s+", "(")
+			joined = string.gsub(joined, "%s+%)", ")")
+			table.insert(merged, joined)
+		else
+			table.insert(merged, line)
+		end
+		i += 1
+	end
+	return merged
+end
+
 local function parseModule(module: path.Pathlike, filePath: path.Pathlike): ParseResult
 	local content = fs.readFileToString(filePath)
-	local lines = string.split(content, "\n")
+	local lines = joinMultilineFunctions(tostring(module), string.split(content, "\n"))
 
 	local moduleDefinitions: { Definition } = {}
 	local typeDefinitions: { TypeDefinition } = {}
