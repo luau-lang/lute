@@ -89,12 +89,17 @@ type RootRegistryAlias = {
 	read requirementKey: string,
 }
 
+type RegistryRequirementCollection = {
+	items: { [string]: semver.Requirement },
+	nextIndex: number,
+}
+
 type ResolutionState = {
 	queue: { manifest.DependencySpec },
 	queueIndex: number,
 	dependencies: { [string]: { [string]: string } },
 	packages: { [string]: lockfile.LockfileDependency },
-	registryRequirements: { [string]: semver.Requirement },
+	registryRequirements: RegistryRequirementCollection,
 	-- Maps a source-qualified package identity to its name in the registry.
 	registrySources: { [string]: string },
 	-- Maps an unqualified registry package name to all source-qualified identities seen for it.
@@ -150,17 +155,12 @@ local function getRegistryLockKey(state: ResolutionState, registryPackageName: s
 end
 
 local function addRegistryRequirement(
-	registryRequirements: { [string]: semver.Requirement },
+	registryRequirements: RegistryRequirementCollection,
 	requirement: semver.Requirement
 ): string
-	local index = 1
-	local key = `registry-requirement:{index}`
-	while registryRequirements[key] ~= nil do
-		index += 1
-		key = `registry-requirement:{index}`
-	end
-
-	registryRequirements[key] = requirement
+	local key = `registry-requirement:{registryRequirements.nextIndex}`
+	registryRequirements.nextIndex += 1
+	registryRequirements.items[key] = requirement
 	return key
 end
 
@@ -284,7 +284,7 @@ local function collectSourcePackageDependencies(
 	githubSpec: manifest.GitHubDependencySpec?,
 	transitiveDependencies: { [string]: string },
 	queue: { manifest.DependencySpec },
-	registryRequirements: { [string]: semver.Requirement },
+	registryRequirements: RegistryRequirementCollection,
 	registrySources: { [string]: string },
 	registryIdentitiesBySource: { [string]: { [string]: boolean } },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
@@ -337,7 +337,7 @@ local function resolveSourcePackage(
 	packages: { [string]: lockfile.LockfileDependency },
 	openDependencies: { [string]: { [string]: string } },
 	queue: { manifest.DependencySpec },
-	registryRequirements: { [string]: semver.Requirement },
+	registryRequirements: RegistryRequirementCollection,
 	registrySources: { [string]: string },
 	registryIdentitiesBySource: { [string]: { [string]: boolean } },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
@@ -701,7 +701,10 @@ local function collectRootDependencies(rootWorkspace: workspace.Workspace, exclu
 		queueIndex = 1,
 		dependencies = {},
 		packages = {},
-		registryRequirements = {},
+		registryRequirements = {
+			items = {},
+			nextIndex = 1,
+		},
 		registrySources = {},
 		registryIdentitiesBySource = {},
 		rootRegistryAliases = {},
@@ -840,7 +843,7 @@ local function resolveRegistryDependencies(
 	lockedRegistryVersions: { [string]: string }?
 )
 	-- Versioned dependency resolution: solve registry dependencies and stitch them into the package graph.
-	if next(state.registryRequirements) == nil then
+	if next(state.registryRequirements.items) == nil then
 		return
 	end
 
@@ -852,7 +855,7 @@ local function resolveRegistryDependencies(
 		local packagesByRegistryUrl: { [string]: { { name: string, source: string } } } = {}
 		local seen: { [string]: boolean } = {}
 
-		for _, req in state.registryRequirements do
+		for _, req in state.registryRequirements.items do
 			if seen[req.name] then
 				continue
 			end
@@ -884,7 +887,7 @@ local function resolveRegistryDependencies(
 	else
 		effectiveUniverse = table.clone(universe)
 		local namespacedUrls: { [string]: boolean } = {}
-		for _, req in state.registryRequirements do
+		for _, req in state.registryRequirements.items do
 			local url = state.registryUrlByPackage[req.name]
 			if url and not namespacedUrls[url] then
 				local namespaced = namespaceRegistryUniverse(universe, url, state)
@@ -902,7 +905,7 @@ local function resolveRegistryDependencies(
 			buildEffectiveUniverse(effectiveUniverse, overrides, state.registrySources)
 	end
 
-	local resolution = semver.solve(effectiveUniverse, state.registryRequirements, lockedRegistryVersions)
+	local resolution = semver.solve(effectiveUniverse, state.registryRequirements.items, lockedRegistryVersions)
 
 	-- Build a lookup from package name to resolved version(s) for slot-keyed results.
 	local versionsByPackageName = {}
@@ -958,7 +961,7 @@ local function resolveRegistryDependencies(
 
 	-- Write root-level registry dependency aliases now that versions are resolved.
 	for _, rootAlias in state.rootRegistryAliases do
-		local req = state.registryRequirements[rootAlias.requirementKey]
+		local req = state.registryRequirements.items[rootAlias.requirementKey]
 		if req == nil then
 			continue
 		end
