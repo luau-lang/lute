@@ -68,11 +68,13 @@ local function install(...: string)
 
 	if fs.exists(manifestPath) then
 		local rootManifest = manifest.parseFile(manifestPath)
-		for alias in rootManifest.package.dependencies do
+		local rootPackage = rootManifest.package
+		assert(rootPackage ~= nil, "Expected 'package' field in manifest")
+		for alias in rootPackage.dependencies do
 			rootAliases[alias] = true
 		end
 		if not excludeDev then
-			for alias in rootManifest.package.devDependencies do
+			for alias in rootPackage.devDependencies do
 				devAliases[alias] = true
 				rootAliases[alias] = true
 			end

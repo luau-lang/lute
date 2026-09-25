@@ -142,13 +142,15 @@ local function satisfiesManifest(
 	excludeDev: boolean
 ): (boolean, string?)
 	local expectedAliases: { [string]: manifest.DependencySpec } = {}
+	local rootPackage = rootManifest.package
+	assert(rootPackage ~= nil, "Expected 'package' field in manifest")
 
-	for alias, spec in rootManifest.package.dependencies do
+	for alias, spec in rootPackage.dependencies do
 		expectedAliases[alias] = spec
 	end
 
 	if not excludeDev then
-		for alias, spec in rootManifest.package.devDependencies do
+		for alias, spec in rootPackage.devDependencies do
 			expectedAliases[alias] = spec
 		end
 	end
