@@ -31,7 +31,7 @@ test.suite("LutePkgInstall", function(suite)
 		local result = run(workingDirectory)
 
 		assert.eq(result.exitcode, 1)
-		assert.strContains(result.stderr, "Manifest file not found")
+		assert.strContains(result.stderr, "No package manifest found")
 	end)
 
 	suite:case("succeedsWithNoDependencies", function(assert)
@@ -160,7 +160,7 @@ test.suite("LutePkgInstall", function(suite)
 		run(workingDirectory)
 
 		local lockfile = fs.readFileToString(path.join(workingDirectory, "loom.lock.luau"))
-		assert.strContains(lockfile, "version = 3")
+		assert.strContains(lockfile, "version = 4")
 		assert.strContains(lockfile, '"path"')
 		assert.strContains(lockfile, "installPath")
 	end)
