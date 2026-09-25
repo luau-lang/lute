@@ -64,8 +64,7 @@ local function processMigrationOptions(migration: types.Migration, options: { [s
 	local processedOptions: { [string]: string | boolean } = {}
 
 	for _, option in migration.options do
-		local value = options[option.name]
-		if value then
+		if local value = options[option.name] then
 			if option.kind == "boolean" then
 				local lowered = value:lower()
 				assert(
