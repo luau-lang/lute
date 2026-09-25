@@ -1,6 +1,7 @@
 #include "lute/packagerun.h"
 
 #include "lute/common.h"
+#include "lute/fileutils.h"
 #include "lute/userlandvfs.h"
 #include "lute/uvutils.h"
 
@@ -73,6 +74,44 @@ static std::string toLower(std::string_view str)
     return result;
 }
 
+static std::optional<std::string> getEntryMemberName(const std::string& entryFile, const std::string& workspaceRoot)
+{
+    std::optional<std::string> currentPath = getParentPath(entryFile);
+    while (currentPath)
+    {
+        std::string manifestPath = joinPaths(*currentPath, "loom.config.luau");
+        if (isFile(manifestPath))
+        {
+            std::optional<std::string> contents = readFile(manifestPath);
+            if (!contents)
+                return std::nullopt;
+
+            std::optional<Luau::ConfigTable> config = Luau::extractConfig(*contents, {});
+            if (!config || !config->contains("package"))
+                return std::nullopt;
+
+            const Luau::ConfigTable* package = (*config)["package"].get_if<Luau::ConfigTable>();
+            if (!package || !package->contains("name"))
+                return std::nullopt;
+
+            if (const auto* nameValue = package->find("name"))
+            {
+                if (const std::string* name = nameValue->get_if<std::string>())
+                    return *name;
+            }
+
+            return std::nullopt;
+        }
+
+        if (*currentPath == workspaceRoot)
+            break;
+
+        currentPath = getParentPath(*currentPath);
+    }
+
+    return std::nullopt;
+}
+
 // TODO: lockfile must specify entry file location; for now, we try out a few
 // likely candidates.
 static std::string getEntryPoint(const std::string& packageRoot)
@@ -96,7 +135,8 @@ static std::string getEntryPoint(const std::string& packageRoot)
 }
 
 std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Identifier, Package::Info>>> getDependenciesFromLockfile(
-    const std::string& lockfilePath
+    const std::string& lockfilePath,
+    const std::string& entryFile
 )
 {
     LUTE_ASSERT(isFile(lockfilePath));
@@ -217,18 +257,13 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
     }
 
     std::vector<std::pair<std::string, std::string>> rootDependencyAliases;
+    bool hasMemberDependencyTables = false;
     for (const auto& [memberOrAlias, memberDependenciesOrKey] : *depsTable)
     {
         const Luau::ConfigTable* memberDependencies = memberDependenciesOrKey.get_if<Luau::ConfigTable>();
         if (memberDependencies)
         {
-            for (const auto& [aliasValue, dependencyKeyValue] : *memberDependencies)
-            {
-                const std::string* alias = aliasValue.get_if<std::string>();
-                const std::string* dependencyKey = dependencyKeyValue.get_if<std::string>();
-                if (alias && dependencyKey)
-                    rootDependencyAliases.emplace_back(*alias, *dependencyKey);
-            }
+            hasMemberDependencyTables = true;
             continue;
         }
 
@@ -236,6 +271,38 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         const std::string* dependencyKey = memberDependenciesOrKey.get_if<std::string>();
         if (alias && dependencyKey)
             rootDependencyAliases.emplace_back(*alias, *dependencyKey);
+    }
+
+    if (hasMemberDependencyTables)
+    {
+        rootDependencyAliases.clear();
+
+        std::optional<std::string> memberName = getEntryMemberName(entryFile, *lockfileParentDir);
+
+        if (!memberName)
+        {
+            std::optional<std::string> entryDirectory = getParentPath(entryFile);
+            if (entryDirectory)
+                memberName = Lute::getFilenameWithoutExtension(*entryDirectory);
+        }
+
+        if (memberName)
+        {
+            if (const auto* memberDependenciesValue = depsTable->find(*memberName))
+            {
+                const Luau::ConfigTable* memberDependencies = memberDependenciesValue->get_if<Luau::ConfigTable>();
+                if (memberDependencies)
+                {
+                    for (const auto& [aliasValue, dependencyKeyValue] : *memberDependencies)
+                    {
+                        const std::string* alias = aliasValue.get_if<std::string>();
+                        const std::string* dependencyKey = dependencyKeyValue.get_if<std::string>();
+                        if (alias && dependencyKey)
+                            rootDependencyAliases.emplace_back(*alias, *dependencyKey);
+                    }
+                }
+            }
+        }
     }
 
     // Build direct dependencies from root dependency aliases.

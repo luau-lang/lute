@@ -1,0 +1,5 @@
+return {
+	workspace = {
+		members = { "modules/*" },
+	},
+}
