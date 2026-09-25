@@ -425,6 +425,52 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["lib"].dependencies.citrus, "citrus@2.1.0")
 	end)
 
+	suite:case("manifestlessPathDependencyIsResolvedAsALeaf", function(assert)
+		local assetDirectory = path.join(workingDirectory, "asset")
+		fs.createDirectory(assetDirectory)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+			asset = {
+				sourceKind = "path",
+				source = "./asset",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.root.asset, "asset")
+		assert.eq(lock.packages.asset.installPath, "asset")
+		assert.eq(next(lock.packages.asset.dependencies), nil)
+	end)
+
+	suite:case("manifestlessGitDependencyIsResolvedAsALeaf", function(assert)
+		local revision = "manifestless-git-revision"
+		local packageKey = `gitAsset@{revision}`
+		local sourceDirectory = store.getPackagePath(packageKey)
+		if fs.exists(sourceDirectory) then
+			fs.removeDirectory(sourceDirectory, { recursive = true })
+		end
+		fs.createDirectory(sourceDirectory, { makeParents = true })
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+			gitAsset = {
+				sourceKind = "github",
+				source = "https://github.com/lute-test-fixtures/manifestless-git-asset",
+				rev = "manifestless-git-revision",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.root.gitAsset, packageKey)
+		assert.eq(lock.packages[packageKey].installPath, store.toStorePath(packageKey))
+		assert.eq(next(lock.packages[packageKey].dependencies), nil)
+
+		fs.removeDirectory(sourceDirectory, { recursive = true })
+	end)
+
 	suite:case("sameRegistryPackageFromDifferentRegistriesUsesDistinctPackageKeys", function(assert)
 		local function serveCitrusRegistry()
 			return server.serve({

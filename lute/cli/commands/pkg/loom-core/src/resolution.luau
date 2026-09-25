@@ -365,27 +365,33 @@ local function resolveSourcePackage(
 	openDependencies[key] = transitiveDependencies
 
 	local sourceDirectory = fetchSource(spec, rootDirectory)
-	local sourcePackage = getSourcePackage(spec, sourceDirectory, workspaceResolver)
+	local sourcePackage: SourcePackage? = nil
+	if fs.exists(getManifestPath(sourceDirectory)) then
+		sourcePackage = getSourcePackage(spec, sourceDirectory, workspaceResolver)
 
-	collectSourcePackageDependencies(
-		key,
-		sourcePackage,
-		rootDirectory,
-		overrides,
-		rootRegistryUrl,
-		if spec.sourceKind == "github" then spec else nil,
-		transitiveDependencies,
-		queue,
-		registryRequirements,
-		registrySources,
-		registryIdentitiesBySource,
-		unresolvedRegistryDependencies,
-		registryUrlByPackage
-	)
+		collectSourcePackageDependencies(
+			key,
+			sourcePackage,
+			rootDirectory,
+			overrides,
+			rootRegistryUrl,
+			if spec.sourceKind == "github" then spec else nil,
+			transitiveDependencies,
+			queue,
+			registryRequirements,
+			registrySources,
+			registryIdentitiesBySource,
+			unresolvedRegistryDependencies,
+			registryUrlByPackage
+		)
+	end
 
 	local installPath: string
 	if spec.sourceKind == "path" then
-		installPath = path.format(path.relative(rootDirectory, sourcePackage.directory))
+		local packageDirectory = if sourcePackage then sourcePackage.directory else sourceDirectory
+		installPath = path.format(path.relative(rootDirectory, packageDirectory))
+	elseif sourcePackage == nil then
+		installPath = store.toStorePath(key)
 	else
 		local memberRelativePath = path.relative(sourceDirectory, sourcePackage.directory)
 		if #memberRelativePath.parts == 0 then
