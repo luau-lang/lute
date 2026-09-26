@@ -1,0 +1,8 @@
+---
+source: tests/tests.rs
+expression: format(&contents)
+---
+export type Foo = {
+	test: boolean, -- true
+}
+

@@ -1,0 +1,8 @@
+---
+source: tests/tests.rs
+expression: format(&contents)
+---
+local x = function()
+	call(1)
+end
+
