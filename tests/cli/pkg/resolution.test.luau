@@ -4,7 +4,10 @@ local server = require("@lute/net/server")
 local system = require("@std/system")
 local test = require("@std/test")
 
-local resolution = require("@commands/pkg/loom-core/src/resolution")
+local resolutionModule = require("@commands/pkg/loom-core/src/resolution")
+local resolution = {
+	resolve = resolutionModule.resolveFromDirectory,
+}
 local lockfile = require("@commands/pkg/loom-core/src/lockfile")
 local manifest = require("@commands/pkg/loom-core/src/manifest")
 local parser = require("@commands/pkg/loom-core/src/semver/parser")
@@ -635,6 +638,278 @@ test.suite("RegistryResolution", function(suite)
 		local content = fs.readFileToString(lockfilePath)
 		assert.strContains(content, '"registry"')
 		assert.strContains(content, "citrus@1.0.0")
+	end)
+end)
+
+test.suite("WorkspaceResolution", function(suite)
+	suite:beforeEach(function()
+		if fs.exists(workingDirectory) then
+			fs.removeDirectory(workingDirectory, { recursive = true })
+		end
+		fs.createDirectory(workingDirectory)
+	end)
+
+	suite:case("scopesSameAliasPathDependenciesToTheirMembers", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local firstDirectory = path.join(modulesDirectory, "first")
+		local secondDirectory = path.join(modulesDirectory, "second")
+		local sourceDirectory = path.join(secondDirectory, "src")
+		local firstLibDirectory = path.join(firstDirectory, "first-lib")
+		local secondLibDirectory = path.join(secondDirectory, "second-lib")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(firstDirectory)
+		fs.createDirectory(secondDirectory)
+		fs.createDirectory(sourceDirectory)
+		fs.createDirectory(firstLibDirectory)
+		fs.createDirectory(secondLibDirectory)
+		writeConfig(firstLibDirectory, "first-lib", "")
+		writeConfig(secondLibDirectory, "second-lib", "")
+		writeConfig(
+			firstDirectory,
+			"first",
+			[[
+			shared = { name = "first-lib", sourceKind = "path", source = "./first-lib" },]]
+		)
+		writeConfig(
+			secondDirectory,
+			"second",
+			[[
+			shared = { name = "second-lib", sourceKind = "path", source = "./second-lib" },]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "modules/*" }, default_member = "first" },
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(sourceDirectory), nil)
+		assert.eq(lock.version, 4)
+		assert.eq(lock.dependencies.first.shared, "first-lib")
+		assert.eq(lock.dependencies.second.shared, "second-lib")
+		assert.eq(lock.packages["first-lib"].installPath, path.format(path.join("modules", "first", "first-lib")))
+		assert.eq(lock.packages["second-lib"].installPath, path.format(path.join("modules", "second", "second-lib")))
+	end)
+
+	suite:case("keepsRegistryAliasesMemberScoped", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local firstDirectory = path.join(modulesDirectory, "first")
+		local secondDirectory = path.join(modulesDirectory, "second")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(firstDirectory)
+		fs.createDirectory(secondDirectory)
+		writeConfig(
+			firstDirectory,
+			"first",
+			[[
+			shared = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		writeConfig(
+			secondDirectory,
+			"second",
+			[[
+			shared = { sourceKind = "registry", source = "lemon", version = "^1.0.0" },]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "modules/*" } },
+	registry = "https://registry.example.com",
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(firstDirectory), {
+			citrus = { namedVersion("citrus", "1.0.0") },
+			lemon = { namedVersion("lemon", "1.1.0") },
+		})
+		assert.eq(lock.dependencies.first.shared, "citrus@1.0.0")
+		assert.eq(lock.dependencies.second.shared, "lemon@1.1.0")
+		assert.eq(
+			lock.packages["citrus@1.0.0"].installPath,
+			store.toStorePath(store.qualifyRegistryKey("citrus@1.0.0", "https://registry.example.com"))
+		)
+	end)
+
+	suite:case("keepsRegistryRequirementsDistinctWhenMemberNamesAndAliasesContainColons", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local firstDirectory = path.join(modulesDirectory, "first")
+		local secondDirectory = path.join(modulesDirectory, "second")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(firstDirectory)
+		fs.createDirectory(secondDirectory)
+		writeConfig(
+			firstDirectory,
+			"foo",
+			[[
+			["bar:baz"] = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		writeConfig(
+			secondDirectory,
+			"foo:bar",
+			[[
+			baz = { sourceKind = "registry", source = "lemon", version = "^1.0.0" },]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "modules/*" } },
+	registry = "https://registry.example.com",
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), {
+			citrus = { namedVersion("citrus", "1.0.0") },
+			lemon = { namedVersion("lemon", "1.1.0") },
+		})
+		assert.eq(lock.dependencies.foo["bar:baz"], "citrus@1.0.0")
+		assert.eq(lock.dependencies["foo:bar"].baz, "lemon@1.1.0")
+	end)
+
+	suite:case("appliesRootRegistryOverridesToDirectAndNestedMemberDependencies", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local firstDirectory = path.join(modulesDirectory, "first")
+		local secondDirectory = path.join(modulesDirectory, "second")
+		local secondLibDirectory = path.join(secondDirectory, "lib")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(firstDirectory)
+		fs.createDirectory(secondDirectory)
+		fs.createDirectory(secondLibDirectory)
+		writeConfig(
+			firstDirectory,
+			"first",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		writeConfig(
+			secondLibDirectory,
+			"lib",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]],
+			nil,
+			nil,
+			"https://nested-registry.example.com"
+		)
+		writeConfig(
+			secondDirectory,
+			"second",
+			[[
+			lib = { sourceKind = "path", source = "./lib" },]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "modules/*" } },
+	registry = "https://root-registry.example.com",
+	overrides = {
+		citrus = { sourceKind = "registry", source = "citrus", version = "2.0.0" },
+	},
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), {
+			citrus = {
+				namedVersion("citrus", "2.0.0"),
+				namedVersion("citrus", "1.0.0"),
+			},
+		})
+		assert.eq(lock.dependencies.first.citrus, "citrus@2.0.0")
+		assert.eq(lock.packages.lib.dependencies.citrus, "citrus@2.0.0")
+		assert.eq(lock.packages["citrus@2.0.0"].registry, "https://root-registry.example.com")
+	end)
+
+	suite:case("inheritsRegistryForWorkspaceMembersReachedThroughPathDependencies", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local appDirectory = path.join(modulesDirectory, "app")
+		local libDirectory = path.join(modulesDirectory, "lib")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(appDirectory)
+		fs.createDirectory(libDirectory)
+		writeConfig(
+			appDirectory,
+			"app",
+			[[
+			lib = { sourceKind = "path", source = "../lib" },]]
+		)
+		writeConfig(
+			libDirectory,
+			"lib",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "modules/*" } },
+	registry = "https://registry.example.com",
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(appDirectory), {
+			citrus = { namedVersion("citrus", "1.0.0") },
+		})
+		assert.eq(lock.dependencies.app.lib, "lib")
+		assert.eq(lock.packages.lib.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://registry.example.com")
+	end)
+
+	suite:case("invalidatesLockReuseWhenAMemberChangesDependencies", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local firstDirectory = path.join(modulesDirectory, "first")
+		local secondDirectory = path.join(modulesDirectory, "second")
+		local libDirectory = path.join(secondDirectory, "lib")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(firstDirectory)
+		fs.createDirectory(secondDirectory)
+		fs.createDirectory(libDirectory)
+		writeConfig(firstDirectory, "first", "")
+		writeConfig(secondDirectory, "second", "")
+		writeConfig(libDirectory, "lib", "")
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "modules/*" } },
+}
+]]
+		)
+
+		resolution.resolve(path.format(workingDirectory), nil)
+		writeConfig(
+			secondDirectory,
+			"second",
+			[[
+			lib = { sourceKind = "path", source = "./lib" },]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.second.lib, "lib")
+
+		writeConfig(secondDirectory, "second", "")
+		lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.second.lib, nil)
+	end)
+
+	suite:case("resolvesWorkspaceOnlyManifest", function(assert)
+		local modulesDirectory = path.join(workingDirectory, "modules")
+		local memberDirectory = path.join(modulesDirectory, "member")
+		fs.createDirectory(modulesDirectory)
+		fs.createDirectory(memberDirectory)
+		writeConfig(memberDirectory, "member", "")
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "modules/*" } },
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.version, 4)
+		assert.neq(lock.dependencies.member, nil)
 	end)
 end)
 
