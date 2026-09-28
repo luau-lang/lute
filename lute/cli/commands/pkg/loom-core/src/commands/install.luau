@@ -86,7 +86,7 @@ local function install(...: string)
 		end
 	end
 
-	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
+	local lock = resolution.resolveFromDirectory(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
 	assert(
 		rootPackage ~= nil,
 		"The install command requires a package manifest until workspace installation is enabled"
