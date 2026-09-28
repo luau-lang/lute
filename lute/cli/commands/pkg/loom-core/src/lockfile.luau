@@ -173,6 +173,12 @@ local function normalizeMemberPathSpec(
 	memberDirectory: string,
 	rootDirectory: string
 ): manifest.DependencySpec
+	-- The pre-workspace resolver records root package paths exactly as declared.
+	-- Keep that representation until PR3 normalizes every root through the same path.
+	if memberDirectory == rootDirectory then
+		return spec
+	end
+
 	local normalizedSpec = tryNormalizePathDependency(spec, memberDirectory, rootDirectory)
 	return normalizedSpec or spec
 end
