@@ -173,6 +173,12 @@ local function normalizeMemberPathSpec(
 	memberDirectory: string,
 	rootDirectory: string
 ): manifest.DependencySpec
+	-- The single-package resolver still records root-relative paths verbatim.
+	-- Member paths become root-relative when workspace resolution is introduced.
+	if memberDirectory == rootDirectory then
+		return spec
+	end
+
 	local normalizedSpec = tryNormalizePathDependency(spec, memberDirectory, rootDirectory)
 	return normalizedSpec or spec
 end
