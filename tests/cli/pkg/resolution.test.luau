@@ -425,6 +425,52 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["lib"].dependencies.citrus, "citrus@2.1.0")
 	end)
 
+	suite:case("manifestlessPathDependencyIsResolvedAsALeaf", function(assert)
+		local assetDirectory = path.join(workingDirectory, "asset")
+		fs.createDirectory(assetDirectory)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+			asset = {
+				sourceKind = "path",
+				source = "./asset",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.root.asset, "asset")
+		assert.eq(lock.packages.asset.installPath, "asset")
+		assert.eq(next(lock.packages.asset.dependencies), nil)
+	end)
+
+	suite:case("manifestlessGitDependencyIsResolvedAsALeaf", function(assert)
+		local revision = "manifestless-git-revision"
+		local packageKey = `gitAsset@{revision}`
+		local sourceDirectory = store.getPackagePath(packageKey)
+		if fs.exists(sourceDirectory) then
+			fs.removeDirectory(sourceDirectory, { recursive = true })
+		end
+		fs.createDirectory(sourceDirectory, { makeParents = true })
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+			gitAsset = {
+				sourceKind = "github",
+				source = "https://github.com/lute-test-fixtures/manifestless-git-asset",
+				rev = "manifestless-git-revision",
+			},]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.root.gitAsset, packageKey)
+		assert.eq(lock.packages[packageKey].installPath, store.toStorePath(packageKey))
+		assert.eq(next(lock.packages[packageKey].dependencies), nil)
+
+		fs.removeDirectory(sourceDirectory, { recursive = true })
+	end)
+
 	suite:case("sameRegistryPackageFromDifferentRegistriesUsesDistinctPackageKeys", function(assert)
 		local function serveCitrusRegistry()
 			return server.serve({
@@ -855,6 +901,199 @@ test.suite("WorkspaceResolution", function(suite)
 		assert.eq(lock.dependencies.app.lib, "lib")
 		assert.eq(lock.packages.lib.dependencies.citrus, "citrus@1.0.0")
 		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://registry.example.com")
+	end)
+
+	suite:case("inheritsRegistryFromAnExternalPathWorkspace", function(assert)
+		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
+		local dependencyPackagesDirectory = path.join(dependencyWorkspaceDirectory, "packages")
+		local libDirectory = path.join(dependencyPackagesDirectory, "lib")
+		fs.createDirectory(dependencyPackagesDirectory, { makeParents = true })
+		fs.createDirectory(libDirectory)
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			lib = { sourceKind = "path", source = "./dependency-workspace/packages/lib" },]]
+		)
+		writeConfig(
+			libDirectory,
+			"lib",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" } },
+	registry = "https://dependency-registry.example.com",
+}
+]]
+		)
+
+		local universe = { citrus = { namedVersion("citrus", "1.0.0") } }
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock.dependencies.app.lib, "lib")
+		assert.eq(lock.packages.lib.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://dependency-registry.example.com")
+
+		lock = resolution.resolve(path.format(workingDirectory), universe)
+		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://dependency-registry.example.com")
+	end)
+
+	suite:case("usesDefaultMemberForAnExternalPathWorkspaceRoot", function(assert)
+		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
+		local libDirectory = path.join(dependencyWorkspaceDirectory, "packages", "lib")
+		fs.createDirectory(libDirectory, { makeParents = true })
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			lib = { sourceKind = "path", source = "./dependency-workspace" },]]
+		)
+		writeConfig(
+			libDirectory,
+			"lib",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "lib" },
+	registry = "https://dependency-registry.example.com",
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), {
+			citrus = { namedVersion("citrus", "1.0.0") },
+		})
+		assert.eq(lock.dependencies.app.lib, "lib")
+		assert.eq(lock.packages.lib.dependencies.citrus, "citrus@1.0.0")
+		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://dependency-registry.example.com")
+	end)
+
+	suite:case("invalidatesLockReuseWhenAnExternalPathWorkspaceDefaultMemberChanges", function(assert)
+		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
+		local libDirectory = path.join(dependencyWorkspaceDirectory, "packages", "lib")
+		local otherDirectory = path.join(dependencyWorkspaceDirectory, "packages", "other")
+		fs.createDirectory(libDirectory, { makeParents = true })
+		fs.createDirectory(otherDirectory)
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			lib = { sourceKind = "path", source = "./dependency-workspace" },]]
+		)
+		writeConfig(libDirectory, "lib", "")
+		writeConfig(otherDirectory, "other", "")
+
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "lib" },
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.packages.lib.installPath, path.format(path.join("dependency-workspace", "packages", "lib")))
+
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "other" },
+}
+]]
+		)
+
+		lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.packages.lib.installPath, path.format(path.join("dependency-workspace", "packages", "other")))
+	end)
+
+	suite:case("resolvesAWorkspaceMemberFromAGitDependency", function(assert)
+		local dependencyPackageName = "external-git-workspace-default-alias-test"
+		local packageName = "external-git-workspace-lib-test"
+		local utilityPackageName = "external-git-workspace-util-test"
+		local revision = "workspace-test-revision"
+		local packageKey = `{dependencyPackageName}@{revision}`
+		local defaultPackageKey = `{packageName}@{revision}`
+		local utilityPackageKey = `{utilityPackageName}@{revision}`
+		local sourceDirectory = store.getPackagePath(packageKey)
+		local defaultSourceDirectory = store.getPackagePath(defaultPackageKey)
+		local utilitySourceDirectory = store.getPackagePath(utilityPackageKey)
+		if fs.exists(sourceDirectory) then
+			fs.removeDirectory(sourceDirectory, { recursive = true })
+		end
+		if fs.exists(defaultSourceDirectory) then
+			fs.removeDirectory(defaultSourceDirectory, { recursive = true })
+		end
+		if fs.exists(utilitySourceDirectory) then
+			fs.removeDirectory(utilitySourceDirectory, { recursive = true })
+		end
+
+		local packagesDirectory = path.join(sourceDirectory, "packages")
+		local libDirectory = path.join(packagesDirectory, "lib")
+		local utilityDirectory = path.join(packagesDirectory, "util")
+		fs.createDirectory(packagesDirectory, { makeParents = true })
+		fs.createDirectory(libDirectory)
+		fs.createDirectory(utilityDirectory)
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			gitLib = {
+				name = "external-git-workspace-default-alias-test",
+				sourceKind = "github",
+				source = "https://github.com/lute-test-fixtures/external-git-workspace",
+				rev = "workspace-test-revision",
+			},]]
+		)
+		writeConfig(
+			libDirectory,
+			packageName,
+			[[
+			gitDefault = { name = "external-git-workspace-lib-test", sourceKind = "path", source = "../.." },
+			gitUtil = { name = "external-git-workspace-util-test", sourceKind = "path", source = "../util" },
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
+		)
+		writeConfig(utilityDirectory, utilityPackageName, "")
+		fs.createDirectory(defaultSourceDirectory, { makeParents = true })
+		writeConfig(path.resolve(defaultSourceDirectory), packageName, "")
+		fs.createDirectory(utilitySourceDirectory, { makeParents = true })
+		writeConfig(path.resolve(utilitySourceDirectory), utilityPackageName, "")
+		fs.writeStringToFile(
+			path.join(sourceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "external-git-workspace-lib-test" },
+	registry = "https://git-workspace-registry.example.com",
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), {
+			citrus = { namedVersion("citrus", "1.0.0") },
+		})
+		assert.eq(lock.dependencies.app.gitLib, packageKey)
+		assert.eq(lock.packages[packageKey].dependencies.gitDefault, defaultPackageKey)
+		assert.eq(lock.packages[defaultPackageKey].sourceKind, "github")
+		assert.eq(
+			lock.packages[defaultPackageKey].source,
+			"https://github.com/lute-test-fixtures/external-git-workspace"
+		)
+		assert.eq(lock.packages[defaultPackageKey].rev, revision)
+		assert.eq(lock.packages[packageKey].dependencies.gitUtil, utilityPackageKey)
+		assert.eq(lock.packages[utilityPackageKey].sourceKind, "github")
+		assert.eq(lock.packages[packageKey].dependencies.citrus, "citrus@1.0.0")
+		assert.eq(
+			lock.packages[packageKey].installPath,
+			path.format(path.join(store.toStorePath(packageKey), path.join("packages", "lib")))
+		)
+		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://git-workspace-registry.example.com")
+
+		fs.removeDirectory(sourceDirectory, { recursive = true })
+		fs.removeDirectory(defaultSourceDirectory, { recursive = true })
+		fs.removeDirectory(utilitySourceDirectory, { recursive = true })
 	end)
 
 	suite:case("invalidatesLockReuseWhenAMemberChangesDependencies", function(assert)
@@ -2175,6 +2414,37 @@ test.suite("Overrides", function(suite)
 		assert.eq(lock.packages["citrus"].name, "citrus")
 		assert.eq(lock.packages["citrus@2.1.0"], nil)
 		assert.eq(lock.packages["lemon@1.0.0"].dependencies.citrus, "citrus")
+	end)
+
+	suite:case("sourceOverrideBypassesMissingRootPathDependency", function(assert)
+		local overrideDir = path.join(workingDirectory, "citrus-fork")
+		fs.createDirectory(overrideDir)
+		writeConfig(overrideDir, "citrus", "")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./removed-citrus",
+			},]],
+			nil,
+			[[
+
+			citrus = {
+				sourceKind = "path",
+				source = "./citrus-fork",
+			},]]
+		)
+
+		resolution.resolve(path.format(workingDirectory), nil)
+		local lock = resolution.resolve(path.format(workingDirectory), nil, { locked = true })
+
+		assert.eq(lock.dependencies.root.citrus, "citrus")
+		assert.eq(lock.packages.citrus.sourceKind, "path")
+		assert.eq(lock.packages.citrus.source, "./citrus-fork")
 	end)
 
 	suite:case("registryOverrideUsesRootRegistry", function(assert)
