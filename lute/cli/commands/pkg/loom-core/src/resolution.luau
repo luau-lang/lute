@@ -26,8 +26,18 @@ local function getKey(spec: manifest.DependencySpec): string
 	return spec.name
 end
 
+local function getRequestedMemberName(spec: manifest.DependencySpec): string?
+	if spec.sourceKind == "path" or spec.sourceKind == "github" then
+		return spec.requestedMemberName
+	end
+	return nil
+end
+
 local function hasConflict(resolved: lockfile.LockfileDependency, incoming: manifest.DependencySpec): boolean
 	if resolved.sourceKind ~= incoming.sourceKind then
+		return true
+	end
+	if resolved.requestedMemberName ~= getRequestedMemberName(incoming) then
 		return true
 	end
 
@@ -169,7 +179,6 @@ type SourcePackage = {
 	package: manifest.PackageManifest,
 	registryUrl: string?,
 	workspaceRoot: string?,
-	workspaceDefaultMember: string?,
 	workspaceMemberDirectories: { [string]: boolean }?,
 }
 
@@ -203,7 +212,7 @@ local function findWorkspaceMemberByName(resolvedWorkspace: workspace.Workspace,
 end
 
 local function getSourcePackage(
-	spec: manifest.DependencySpec,
+	spec: manifest.PathDependencySpec | manifest.GitHubDependencySpec,
 	sourceDirectory: string,
 	workspaceResolver: workspace.WorkspaceResolver
 ): SourcePackage
@@ -211,20 +220,19 @@ local function getSourcePackage(
 	local workspaceRoot = resolvedWorkspace.rootDirectory
 	local workspaceManifest = resolvedWorkspace.rootManifest
 	local member: workspace.Member?
-	if spec.sourceKind == "github" then
-		member = findWorkspaceMemberByName(resolvedWorkspace, spec.name)
-	elseif
-		sourceDirectory == workspaceRoot
-		and workspaceManifest.workspace
-		and workspaceManifest.workspace.defaultMember
-	then
-		member = findWorkspaceMemberByName(resolvedWorkspace, workspaceManifest.workspace.defaultMember)
+	if sourceDirectory == workspaceRoot and workspaceManifest.workspace then
+		local selectedMemberName = spec.requestedMemberName or workspaceManifest.workspace.defaultMember
+		assert(
+			selectedMemberName ~= nil,
+			`Workspace source '{spec.source}' has no default_member; specify a dependency name to select a member`
+		)
+		member = findWorkspaceMemberByName(resolvedWorkspace, selectedMemberName)
+		assert(
+			member ~= nil,
+			`Workspace source '{spec.source}' does not contain package '{selectedMemberName}'`
+		)
 	else
 		member = findWorkspaceMemberAtDirectory(resolvedWorkspace, sourceDirectory)
-	end
-
-	if spec.sourceKind == "github" then
-		assert(member ~= nil, `Git dependency '{spec.source}' does not contain package '{spec.name}'`)
 	end
 
 	if member then
@@ -233,9 +241,6 @@ local function getSourcePackage(
 			package = member.package,
 			registryUrl = resolvedWorkspace.registry,
 			workspaceRoot = workspaceRoot,
-			workspaceDefaultMember = if workspaceManifest.workspace
-				then workspaceManifest.workspace.defaultMember
-				else nil,
 			workspaceMemberDirectories = collectWorkspaceMemberDirectories(resolvedWorkspace),
 		}
 	end
@@ -254,7 +259,8 @@ local function normalizeSourceDependency(
 	dependencySpec: manifest.DependencySpec,
 	sourcePackage: SourcePackage,
 	rootDirectory: string,
-	githubSpec: manifest.GitHubDependencySpec?
+	githubSpec: manifest.GitHubDependencySpec?,
+	workspaceResolver: workspace.WorkspaceResolver
 ): manifest.DependencySpec
 	local normalizedSpec = normalizePathDependency(dependencySpec, sourcePackage.directory, rootDirectory)
 	if githubSpec == nil or dependencySpec.sourceKind ~= "path" then
@@ -262,13 +268,18 @@ local function normalizeSourceDependency(
 	end
 
 	local sourcePath = path.format(path.resolve(sourcePackage.directory, dependencySpec.source))
-	local isWorkspaceMember = sourcePackage.workspaceMemberDirectories
-		and sourcePackage.workspaceMemberDirectories[sourcePath]
-	local isWorkspaceRootDefaultMember = sourcePackage.workspaceRoot == sourcePath
-		and sourcePackage.workspaceDefaultMember ~= nil
-	if isWorkspaceMember or isWorkspaceRootDefaultMember then
+	local selectedWorkspaceMemberName: string? = nil
+	if sourcePackage.workspaceMemberDirectories and sourcePackage.workspaceMemberDirectories[sourcePath] then
+		local resolvedWorkspace = workspaceResolver:findResolvedRoot(sourcePath)
+		local member = findWorkspaceMemberAtDirectory(resolvedWorkspace, sourcePath)
+		assert(member ~= nil, `Workspace member directory '{sourcePath}' could not be resolved`)
+		selectedWorkspaceMemberName = member.name
+	end
+	local isWorkspaceRoot = sourcePackage.workspaceRoot == sourcePath
+	if selectedWorkspaceMemberName or isWorkspaceRoot then
 		return table.freeze({
 			name = dependencySpec.name,
+			requestedMemberName = selectedWorkspaceMemberName or dependencySpec.requestedMemberName,
 			sourceKind = "github" :: "github",
 			source = githubSpec.source,
 			rev = githubSpec.rev,
@@ -291,10 +302,12 @@ local function collectSourcePackageDependencies(
 	registrySources: { [string]: string },
 	registryIdentitiesBySource: { [string]: { [string]: boolean } },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
-	registryUrlByPackage: { [string]: string }
+	registryUrlByPackage: { [string]: string },
+	workspaceResolver: workspace.WorkspaceResolver
 )
 	for dependencyAlias, dependencySpec in sourcePackage.package.dependencies do
-		local normalizedSpec = normalizeSourceDependency(dependencySpec, sourcePackage, rootDirectory, githubSpec)
+		local normalizedSpec =
+			normalizeSourceDependency(dependencySpec, sourcePackage, rootDirectory, githubSpec, workspaceResolver)
 		local overrideSpec = overrides[normalizedSpec.name]
 		local effectiveSpec = overrideSpec or normalizedSpec
 
@@ -370,7 +383,11 @@ local function resolveSourcePackage(
 	local sourceDirectory = fetchSource(spec, rootDirectory)
 	local sourcePackage: SourcePackage? = nil
 	if fs.exists(getManifestPath(sourceDirectory)) then
-		sourcePackage = getSourcePackage(spec, sourceDirectory, workspaceResolver)
+		sourcePackage = getSourcePackage(
+			spec :: manifest.PathDependencySpec | manifest.GitHubDependencySpec,
+			sourceDirectory,
+			workspaceResolver
+		)
 
 		collectSourcePackageDependencies(
 			key,
@@ -385,7 +402,8 @@ local function resolveSourcePackage(
 			registrySources,
 			registryIdentitiesBySource,
 			unresolvedRegistryDependencies,
-			registryUrlByPackage
+			registryUrlByPackage,
+			workspaceResolver
 		)
 	end
 
@@ -406,6 +424,7 @@ local function resolveSourcePackage(
 
 	packages[key] = table.freeze({
 		name = spec.name,
+		requestedMemberName = getRequestedMemberName(spec),
 		rev = if spec.sourceKind == "github" then spec.rev else nil,
 		source = spec.source,
 		sourceKind = spec.sourceKind,
@@ -544,9 +563,10 @@ local function pathDepsAreStale(
 		end
 		local ok, result = pcall(getSourcePackage, {
 			name = pkg.name,
+			requestedMemberName = pkg.requestedMemberName,
 			sourceKind = "path" :: "path",
 			source = pkg.source,
-		}, packageSourcePath, workspaceResolver)
+		} :: manifest.PathDependencySpec, packageSourcePath, workspaceResolver)
 		if not ok then
 			return true
 		end
@@ -587,6 +607,9 @@ local function pathDepsAreStale(
 				return true
 			end
 			if recordedPkg.sourceKind ~= depSpec.sourceKind then
+				return true
+			end
+			if recordedPkg.requestedMemberName ~= getRequestedMemberName(depSpec) then
 				return true
 			end
 			if depSpec.sourceKind == "github" then
