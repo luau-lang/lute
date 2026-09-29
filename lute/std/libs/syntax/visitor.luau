@@ -229,11 +229,21 @@ end
 local function visitStatIf(node: types.CstStatIf, visitor: Visitor)
 	if visitor.visitStatIf(node) then
 		visitToken(node.ifKeyword, visitor)
+		if node.localKeyword and node.conditionLocal and node.equals then
+			visitToken(node.localKeyword, visitor)
+			visitLocal(node.conditionLocal, visitor)
+			visitToken(node.equals, visitor)
+		end
 		visitExpr(node.condition, visitor)
 		visitToken(node.thenKeyword, visitor)
 		visitStatBlock(node.thenBlock, visitor)
 		for _, elseifNode in node.elseifs do
 			visitToken(elseifNode.elseIfKeyword, visitor)
+			if elseifNode.localKeyword and elseifNode.conditionLocal and elseifNode.equals then
+				visitToken(elseifNode.localKeyword, visitor)
+				visitLocal(elseifNode.conditionLocal, visitor)
+				visitToken(elseifNode.equals, visitor)
+			end
 			visitExpr(elseifNode.condition, visitor)
 			visitToken(elseifNode.thenKeyword, visitor)
 			visitStatBlock(elseifNode.thenBlock, visitor)

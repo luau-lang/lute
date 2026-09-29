@@ -379,6 +379,9 @@ export type CstStatDo = {
 --- An `elseif` clause in an if statement.
 export type CstElseIfStat = {
 	read elseIfKeyword: CstToken<"elseif">,
+	read localKeyword: CstToken<"local" | "const">?,
+	read conditionLocal: CstLocal?,
+	read equals: CstToken<"=">?,
 	read condition: CstExpr,
 	read thenKeyword: CstToken<"then">,
 	read thenBlock: CstStatBlock,
@@ -390,6 +393,9 @@ export type CstStatIf = {
 	read kind: "stat",
 	read tag: "conditional",
 	read ifKeyword: CstToken<"if">,
+	read localKeyword: CstToken<"local" | "const">?,
+	read conditionLocal: CstLocal?,
+	read equals: CstToken<"=">?,
 	read condition: CstExpr,
 	read thenKeyword: CstToken<"then">,
 	read thenBlock: CstStatBlock,
@@ -672,8 +678,7 @@ export type CstTypeGroup = {
 }
 
 --- An optional type annotation node (e.g., `T?`).
-export type CstTypeOptional =
-	{ read location: Span, read kind: "type", read tag: "optional", read token: CstToken<"?"> }
+export type CstTypeOptional = { read location: Span, read kind: "type", read tag: "optional", read token: CstToken<"?"> }
 
 --- A union type annotation node (e.g., `A | B`).
 export type CstTypeUnion = {

@@ -2650,6 +2650,97 @@ local _ = require(A.Index)
 		})
 	end)
 
+	suite:case("unusedVariableIfLocalUsed", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { x = 1 }
+if local v = t.x then
+	print(v)
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.unused_variable, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("unusedVariableIfLocalUnused", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { x = 1 }
+if local v = t.x then
+	print("found")
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.unused_variable, count = 1 },
+				{ expectedOutput = "violator.luau:2:10-11 ──", count = 1 },
+			},
+		})
+	end)
+
+	suite:case("unusedVariableIfConstUsed", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { x = 1 }
+if const v = t.x then
+	print(v)
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.unused_variable, count = 0 },
+			},
+		})
+	end)
+
+	suite:case("unusedVariableElseifLocalUnused", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local t = { x = 1 }
+if t.x == nil then
+	print("nil")
+elseif local v = t.x then
+	print("found")
+end
+]],
+			expectedExitCode = 1,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.unused_variable, count = 1 },
+			},
+		})
+	end)
+
+	suite:case("unusedVariableIfLocalScopedToThenBlock", function(assert)
+		lintTestHelper(assert, {
+			content = [[
+local v = 1
+local t = { x = 2 }
+if local v = t.x then
+	print(v)
+else
+	print(v)
+end
+]],
+			expectedExitCode = 0,
+			rulePath = defaultRulesPaths.unused_variable,
+			disableDefaultLints = true,
+			outputExpectations = {
+				{ expectedOutput = LINT_RULE_MESSAGES.unused_variable, count = 0 },
+			},
+		})
+	end)
+
 	suite:case("throwsErrorWhenConfigHasInvalidGlobals", function(assert)
 		local err = lintTestHelper(assert, {
 			content = "",
