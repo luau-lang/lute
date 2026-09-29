@@ -1,7 +1,9 @@
 local fs = require("@std/fs")
 local luau = require("@std/luau")
 local manifest = require("./manifest")
+local registryUrlUtil = require("./registryurl")
 local semver = require("./semver")
+local store = require("./store")
 
 export type LockfileDependency = {
 	read name: string,
@@ -10,6 +12,7 @@ export type LockfileDependency = {
 	read sourceKind: manifest.SourceKind,
 	read installPath: string,
 	read dependencies: { [string]: string },
+	read registry: string?,
 }
 
 export type Lockfile = {
@@ -17,6 +20,7 @@ export type Lockfile = {
 	read packages: { [string]: LockfileDependency },
 	read dependencies: { [string]: string },
 	read overrides: { [string]: string }?,
+	read registry: string?,
 }
 
 local function validatePackageEntry(key: string, entry: any)
@@ -38,6 +42,10 @@ local function validatePackageEntry(key: string, entry: any)
 		assert(typeof(depKey) == "string", `Expected dependency key to be a string for dependency '{key}'`)
 	end
 	table.freeze(entry.dependencies)
+	assert(
+		entry.registry == nil or typeof(entry.registry) == "string",
+		`Expected 'registry' field to be a string or nil for dependency '{key}'`
+	)
 end
 
 local function parseLockfile(t: any): Lockfile
@@ -67,6 +75,8 @@ local function parseLockfile(t: any): Lockfile
 		end
 		table.freeze(t.overrides)
 	end
+
+	assert(t.registry == nil or typeof(t.registry) == "string", "Expected 'registry' field to be a string or nil")
 
 	return table.freeze(t)
 end
@@ -169,6 +179,9 @@ local function satisfiesManifest(
 				return false, `path changed for: {alias}`
 			end
 		elseif spec.sourceKind == "registry" then
+			if pkg.source ~= spec.source then
+				return false, `registry source changed for: {alias}`
+			end
 			local constraint = semver.parseConstraint(spec.version)
 			local lockedVersion = semver.tryParse(pkg.rev :: string)
 			if lockedVersion == nil or not semver.satisfies(lockedVersion, constraint) then
@@ -178,7 +191,7 @@ local function satisfiesManifest(
 	end
 
 	for alias in lock.dependencies do
-		if expectedAliases[alias] == nil then
+		if not excludeDev and expectedAliases[alias] == nil then
 			return false, `removed dependency: {alias}`
 		end
 	end
@@ -189,12 +202,53 @@ local function satisfiesManifest(
 		return false, overridesReason
 	end
 
+	if not registryUrlUtil.equals(lock.registry, rootManifest.registry) then
+		return false, "registry URL changed"
+	end
+
+	for key, pkg in lock.packages do
+		if pkg.sourceKind == "registry" and pkg.registry then
+			local expectedInstallPath = store.toStorePath(store.qualifyRegistryKey(key, pkg.registry))
+			if pkg.installPath ~= expectedInstallPath then
+				return false, `registry store path changed: {key}`
+			end
+		end
+	end
+
 	return true, nil
+end
+
+local function getReachablePackageKeys(lock: Lockfile, rootAliases: { [string]: boolean }): { [string]: boolean }
+	local reachable: { [string]: boolean } = {}
+
+	local function visit(key: string)
+		if reachable[key] then
+			return
+		end
+
+		reachable[key] = true
+		local pkg = lock.packages[key]
+		if pkg then
+			for _, dependencyKey in pkg.dependencies do
+				visit(dependencyKey)
+			end
+		end
+	end
+
+	for alias in rootAliases do
+		local key = lock.dependencies[alias]
+		if key then
+			visit(key)
+		end
+	end
+
+	return reachable
 end
 
 return {
 	parseFile = parseFile,
 	tryParseFile = tryParseFile,
 	satisfiesManifest = satisfiesManifest,
+	getReachablePackageKeys = getReachablePackageKeys,
 	serializeOverrides = serializeOverrides,
 }

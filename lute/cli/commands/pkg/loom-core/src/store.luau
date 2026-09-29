@@ -1,6 +1,8 @@
+local crypto = require("@lute/crypto")
 local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
+local registryUrlUtil = require("./registryurl")
 
 local STORE_PATH_PREFIX = "@pkg/"
 
@@ -14,6 +16,25 @@ end
 
 local function hasPackage(key: string): boolean
 	return fs.exists(getPackagePath(key))
+end
+
+local function getRegistryIdentity(registryUrl: string): string
+	local digest = crypto.digest(crypto.hash.sha256, registryUrlUtil.normalize(registryUrl))
+	local hex = {}
+
+	for index = 0, buffer.len(digest) - 1 do
+		table.insert(hex, string.format("%02x", buffer.readu8(digest, index)))
+	end
+
+	return table.concat(hex)
+end
+
+local function qualifyRegistryKey(key: string, registryUrl: string): string
+	local qualifier = `--registry-{getRegistryIdentity(registryUrl)}`
+	if string.find(key, qualifier, 1, true) then
+		return key
+	end
+	return `{key}{qualifier}`
 end
 
 local function ensureStoreDirectory(): ()
@@ -33,6 +54,8 @@ return {
 	getStoreDirectory = getStoreDirectory,
 	getPackagePath = getPackagePath,
 	hasPackage = hasPackage,
+	getRegistryIdentity = getRegistryIdentity,
+	qualifyRegistryKey = qualifyRegistryKey,
 	ensureStoreDirectory = ensureStoreDirectory,
 	toStorePath = toStorePath,
 }
