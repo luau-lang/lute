@@ -981,6 +981,47 @@ test.suite("WorkspaceResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.0.0"].registry, "https://dependency-registry.example.com")
 	end)
 
+	suite:case("selectsDefaultOrExplicitMembersForAnExternalPathWorkspaceRoot", function(assert)
+		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
+		local defaultDirectory = path.join(dependencyWorkspaceDirectory, "packages", "default")
+		local selectedDirectory = path.join(dependencyWorkspaceDirectory, "packages", "selected")
+		fs.createDirectory(defaultDirectory, { makeParents = true })
+		fs.createDirectory(selectedDirectory)
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			implicit = { sourceKind = "path", source = "./dependency-workspace" },
+			explicit = { name = "selected-member", sourceKind = "path", source = "./dependency-workspace" },]]
+		)
+		writeConfig(defaultDirectory, "default-member", "")
+		writeConfig(selectedDirectory, "selected-member", "")
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "default-member" },
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.app.implicit, "implicit")
+		assert.eq(lock.dependencies.app.explicit, "selected-member")
+		assert.eq(
+			lock.packages.implicit.installPath,
+			path.format(path.join("dependency-workspace", "packages", "default"))
+		)
+		assert.eq(
+			lock.packages["selected-member"].installPath,
+			path.format(path.join("dependency-workspace", "packages", "selected"))
+		)
+
+		-- A reused lock must retain the implicit-versus-explicit distinction.
+		lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.app.implicit, "implicit")
+		assert.eq(lock.dependencies.app.explicit, "selected-member")
+	end)
+
 	suite:case("invalidatesLockReuseWhenAnExternalPathWorkspaceDefaultMemberChanges", function(assert)
 		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
 		local libDirectory = path.join(dependencyWorkspaceDirectory, "packages", "lib")
@@ -1107,6 +1148,72 @@ test.suite("WorkspaceResolution", function(suite)
 		fs.removeDirectory(sourceDirectory, { recursive = true })
 		fs.removeDirectory(defaultSourceDirectory, { recursive = true })
 		fs.removeDirectory(utilitySourceDirectory, { recursive = true })
+	end)
+
+	suite:case("selectsDefaultOrExplicitMembersForAGitWorkspaceRoot", function(assert)
+		local revision = "requested-member-revision"
+		local implicitKey = `implicit@{revision}`
+		local explicitKey = `selected-member@{revision}`
+		local implicitSourceDirectory = store.getPackagePath(implicitKey)
+		local explicitSourceDirectory = store.getPackagePath(explicitKey)
+		if fs.exists(implicitSourceDirectory) then
+			fs.removeDirectory(implicitSourceDirectory, { recursive = true })
+		end
+		if fs.exists(explicitSourceDirectory) then
+			fs.removeDirectory(explicitSourceDirectory, { recursive = true })
+		end
+
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			implicit = {
+				sourceKind = "github",
+				source = "https://github.com/lute-test-fixtures/requested-member-workspace",
+				rev = "requested-member-revision",
+			},
+			explicit = {
+				name = "selected-member",
+				sourceKind = "github",
+				source = "https://github.com/lute-test-fixtures/requested-member-workspace",
+				rev = "requested-member-revision",
+			},]]
+		)
+
+		for _, sourceDirectory in { implicitSourceDirectory, explicitSourceDirectory } do
+			local defaultDirectory = path.join(sourceDirectory, "packages", "default")
+			local selectedDirectory = path.join(sourceDirectory, "packages", "selected")
+			fs.createDirectory(defaultDirectory, { makeParents = true })
+			fs.createDirectory(selectedDirectory)
+			writeConfig(defaultDirectory, "default-member", "")
+			writeConfig(selectedDirectory, "selected-member", "")
+			fs.writeStringToFile(
+				path.join(sourceDirectory, "loom.config.luau"),
+				[[return {
+	workspace = { members = { "packages/*" }, default_member = "default-member" },
+}
+]]
+			)
+		end
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.app.implicit, implicitKey)
+		assert.eq(lock.dependencies.app.explicit, explicitKey)
+		assert.eq(
+			lock.packages[implicitKey].installPath,
+			path.format(path.join(store.toStorePath(implicitKey), "packages", "default"))
+		)
+		assert.eq(
+			lock.packages[explicitKey].installPath,
+			path.format(path.join(store.toStorePath(explicitKey), "packages", "selected"))
+		)
+
+		lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.app.implicit, implicitKey)
+		assert.eq(lock.dependencies.app.explicit, explicitKey)
+
+		fs.removeDirectory(implicitSourceDirectory, { recursive = true })
+		fs.removeDirectory(explicitSourceDirectory, { recursive = true })
 	end)
 
 	suite:case("errorsWhenAGitWorkspaceDoesNotContainTheRequestedMember", function(assert)
@@ -2702,6 +2809,58 @@ test.suite("Overrides", function(suite)
 
 		assert.eq(lock.dependencies.root.citrus, "citrus")
 		assert.eq(lock.packages.citrus.sourceKind, "path")
+	end)
+
+	suite:case("reResolvesNestedSourceOverrideWhenRequestedMemberChanges", function(assert)
+		local consumerDirectory = path.join(workingDirectory, "consumer")
+		local overrideWorkspaceDirectory = path.join(workingDirectory, "citrus-workspace")
+		local firstDirectory = path.join(overrideWorkspaceDirectory, "packages", "first")
+		local secondDirectory = path.join(overrideWorkspaceDirectory, "packages", "second")
+		fs.createDirectory(consumerDirectory)
+		fs.createDirectory(firstDirectory, { makeParents = true })
+		fs.createDirectory(secondDirectory)
+		writeConfig(
+			consumerDirectory,
+			"consumer",
+			[[
+			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]],
+			nil,
+			nil,
+			"https://registry.example.com"
+		)
+		writeConfig(firstDirectory, "first", "")
+		writeConfig(secondDirectory, "second", "")
+		fs.writeStringToFile(
+			path.join(overrideWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" } },
+}
+]]
+		)
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+			consumer = { sourceKind = "path", source = "./consumer" },]],
+			nil,
+			[[
+			citrus = { name = "first", sourceKind = "path", source = "./citrus-workspace" },]]
+		)
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.packages.consumer.dependencies.citrus, "first")
+
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+			consumer = { sourceKind = "path", source = "./consumer" },]],
+			nil,
+			[[
+			citrus = { name = "second", sourceKind = "path", source = "./citrus-workspace" },]]
+		)
+		lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.packages.consumer.dependencies.citrus, "second")
 	end)
 
 	suite:case("registryOverrideWorksForAliasedDirectDep", function(assert)
