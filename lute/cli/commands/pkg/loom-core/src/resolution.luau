@@ -227,10 +227,7 @@ local function getSourcePackage(
 			`Workspace source '{spec.source}' has no default_member; specify a dependency name to select a member`
 		)
 		member = findWorkspaceMemberByName(resolvedWorkspace, selectedMemberName)
-		assert(
-			member ~= nil,
-			`Workspace source '{spec.source}' does not contain package '{selectedMemberName}'`
-		)
+		assert(member ~= nil, `Workspace source '{spec.source}' does not contain package '{selectedMemberName}'`)
 	else
 		member = findWorkspaceMemberAtDirectory(resolvedWorkspace, sourceDirectory)
 	end
@@ -561,12 +558,17 @@ local function pathDepsAreStale(
 			end
 			continue
 		end
-		local ok, result = pcall(getSourcePackage, {
-			name = pkg.name,
-			requestedMemberName = pkg.requestedMemberName,
-			sourceKind = "path" :: "path",
-			source = pkg.source,
-		} :: manifest.PathDependencySpec, packageSourcePath, workspaceResolver)
+		local ok, result = pcall(
+			getSourcePackage,
+			{
+				name = pkg.name,
+				requestedMemberName = pkg.requestedMemberName,
+				sourceKind = "path" :: "path",
+				source = pkg.source,
+			} :: manifest.PathDependencySpec,
+			packageSourcePath,
+			workspaceResolver
+		)
 		if not ok then
 			return true
 		end
