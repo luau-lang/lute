@@ -442,6 +442,11 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.dependencies.root.asset, "asset")
 		assert.eq(lock.packages.asset.installPath, "asset")
 		assert.eq(next(lock.packages.asset.dependencies), nil)
+
+		local lockfilePath = path.join(workingDirectory, "loom.lock.luau")
+		fs.writeStringToFile(lockfilePath, `-- manifestless-path-lock-reuse\n{fs.readFileToString(lockfilePath)}`)
+		resolution.resolve(path.format(workingDirectory), nil)
+		assert.strContains(fs.readFileToString(lockfilePath), "-- manifestless-path-lock-reuse")
 	end)
 
 	suite:case("manifestlessGitDependencyIsResolvedAsALeaf", function(assert)
@@ -959,6 +964,11 @@ test.suite("WorkspaceResolution", function(suite)
 		fs.writeStringToFile(
 			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
 			[[return {
+	package = {
+		name = "dependency-workspace-root",
+		version = "0.0.0",
+		dependencies = {},
+	},
 	workspace = { members = { "packages/*" }, default_member = "lib" },
 	registry = "https://dependency-registry.example.com",
 }
@@ -1012,12 +1022,12 @@ test.suite("WorkspaceResolution", function(suite)
 	end)
 
 	suite:case("resolvesAWorkspaceMemberFromAGitDependency", function(assert)
-		local dependencyPackageName = "external-git-workspace-default-alias-test"
 		local packageName = "external-git-workspace-lib-test"
+		local rootPackageName = "external-git-workspace-root-test"
 		local utilityPackageName = "external-git-workspace-util-test"
 		local revision = "workspace-test-revision"
-		local packageKey = `{dependencyPackageName}@{revision}`
-		local defaultPackageKey = `{packageName}@{revision}`
+		local packageKey = `{packageName}@{revision}`
+		local defaultPackageKey = `{rootPackageName}@{revision}`
 		local utilityPackageKey = `{utilityPackageName}@{revision}`
 		local sourceDirectory = store.getPackagePath(packageKey)
 		local defaultSourceDirectory = store.getPackagePath(defaultPackageKey)
@@ -1043,7 +1053,7 @@ test.suite("WorkspaceResolution", function(suite)
 			"app",
 			[[
 			gitLib = {
-				name = "external-git-workspace-default-alias-test",
+				name = "external-git-workspace-lib-test",
 				sourceKind = "github",
 				source = "https://github.com/lute-test-fixtures/external-git-workspace",
 				rev = "workspace-test-revision",
@@ -1053,18 +1063,23 @@ test.suite("WorkspaceResolution", function(suite)
 			libDirectory,
 			packageName,
 			[[
-			gitDefault = { name = "external-git-workspace-lib-test", sourceKind = "path", source = "../.." },
+			gitDefault = { name = "external-git-workspace-root-test", sourceKind = "path", source = "../.." },
 			gitUtil = { name = "external-git-workspace-util-test", sourceKind = "path", source = "../util" },
 			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
 		)
 		writeConfig(utilityDirectory, utilityPackageName, "")
 		fs.createDirectory(defaultSourceDirectory, { makeParents = true })
-		writeConfig(path.resolve(defaultSourceDirectory), packageName, "")
+		writeConfig(path.resolve(defaultSourceDirectory), rootPackageName, "")
 		fs.createDirectory(utilitySourceDirectory, { makeParents = true })
 		writeConfig(path.resolve(utilitySourceDirectory), utilityPackageName, "")
 		fs.writeStringToFile(
 			path.join(sourceDirectory, "loom.config.luau"),
 			[[return {
+	package = {
+		name = "external-git-workspace-root-test",
+		version = "0.0.0",
+		dependencies = {},
+	},
 	workspace = { members = { "packages/*" }, default_member = "external-git-workspace-lib-test" },
 	registry = "https://git-workspace-registry.example.com",
 }
@@ -1094,6 +1109,45 @@ test.suite("WorkspaceResolution", function(suite)
 		fs.removeDirectory(sourceDirectory, { recursive = true })
 		fs.removeDirectory(defaultSourceDirectory, { recursive = true })
 		fs.removeDirectory(utilitySourceDirectory, { recursive = true })
+	end)
+
+	suite:case("errorsWhenAGitWorkspaceDoesNotContainTheRequestedMember", function(assert)
+		local missingPackageName = "missing-git-workspace-member"
+		local defaultPackageName = "git-workspace-default-member"
+		local revision = "missing-member-revision"
+		local packageKey = `{missingPackageName}@{revision}`
+		local sourceDirectory = store.getPackagePath(packageKey)
+		local defaultDirectory = path.join(sourceDirectory, "packages", "default")
+		if fs.exists(sourceDirectory) then
+			fs.removeDirectory(sourceDirectory, { recursive = true })
+		end
+		fs.createDirectory(defaultDirectory, { makeParents = true })
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			gitDependency = {
+				name = "missing-git-workspace-member",
+				sourceKind = "github",
+				source = "https://github.com/lute-test-fixtures/missing-git-workspace-member",
+				rev = "missing-member-revision",
+			},]]
+		)
+		writeConfig(defaultDirectory, defaultPackageName, "")
+		fs.writeStringToFile(
+			path.join(sourceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "git-workspace-default-member" },
+}
+]]
+		)
+
+		local ok = xpcall(resolution.resolve, function(message)
+			assert.strContains(message, "does not contain package 'missing-git-workspace-member'")
+		end, path.format(workingDirectory), nil)
+		assert.that(not ok)
+
+		fs.removeDirectory(sourceDirectory, { recursive = true })
 	end)
 
 	suite:case("invalidatesLockReuseWhenAMemberChangesDependencies", function(assert)

@@ -210,14 +210,17 @@ local function getSourcePackage(
 	local resolvedWorkspace = workspaceResolver:findResolvedRoot(sourceDirectory)
 	local workspaceRoot = resolvedWorkspace.rootDirectory
 	local workspaceManifest = resolvedWorkspace.rootManifest
-	local member = if spec.sourceKind == "github"
-		then findWorkspaceMemberByName(resolvedWorkspace, spec.name)
-		else findWorkspaceMemberAtDirectory(resolvedWorkspace, sourceDirectory)
-	if member == nil and sourceDirectory == workspaceRoot and workspaceManifest.workspace then
-		local defaultMember = workspaceManifest.workspace.defaultMember
-		if defaultMember then
-			member = findWorkspaceMemberByName(resolvedWorkspace, defaultMember)
-		end
+	local member: workspace.Member?
+	if spec.sourceKind == "github" then
+		member = findWorkspaceMemberByName(resolvedWorkspace, spec.name)
+	elseif
+		sourceDirectory == workspaceRoot
+		and workspaceManifest.workspace
+		and workspaceManifest.workspace.defaultMember
+	then
+		member = findWorkspaceMemberByName(resolvedWorkspace, workspaceManifest.workspace.defaultMember)
+	else
+		member = findWorkspaceMemberAtDirectory(resolvedWorkspace, sourceDirectory)
 	end
 
 	if spec.sourceKind == "github" then
@@ -529,6 +532,16 @@ local function pathDepsAreStale(
 		end
 
 		local packageSourcePath = path.format(path.resolve(rootDirectory, pkg.source))
+		if not fs.exists(packageSourcePath) then
+			return true
+		end
+		if not fs.exists(getManifestPath(packageSourcePath)) then
+			local expectedInstallPath = path.format(path.relative(rootDirectory, packageSourcePath))
+			if pkg.installPath ~= expectedInstallPath or next(pkg.dependencies) ~= nil then
+				return true
+			end
+			continue
+		end
 		local ok, result = pcall(getSourcePackage, {
 			name = pkg.name,
 			sourceKind = "path" :: "path",
