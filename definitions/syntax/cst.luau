@@ -316,6 +316,9 @@ export type CstExprTypeAssertion = {
 --- An `elseif` clause in an if-else expression.
 export type CstElseIfExpr = {
 	read elseIfKeyword: CstToken<"elseif">,
+	read localKeyword: CstToken<"local" | "const">?,
+	read conditionLocal: CstLocal?,
+	read equals: CstToken<"=">?,
 	read condition: CstExpr,
 	read thenKeyword: CstToken<"then">,
 	read thenExpr: CstExpr,
@@ -327,6 +330,9 @@ export type CstExprIfElse = {
 	read kind: "expr",
 	read tag: "conditional",
 	read ifKeyword: CstToken<"if">,
+	read localKeyword: CstToken<"local" | "const">?,
+	read conditionLocal: CstLocal?,
+	read equals: CstToken<"=">?,
 	read condition: CstExpr,
 	read thenKeyword: CstToken<"then">,
 	read thenExpr: CstExpr,

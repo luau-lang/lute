@@ -1,34 +1,32 @@
-local dispatch = { a = function() return 1 end }
+-- lute-lint-global-ignore(unused_variable)
 
-local function basic(c)
-	if local handler = dispatch[c] then
-		return handler()
-	end
-	return nil
+local t = { x = 1 }
+
+-- if-local statement forms
+
+if local handler = t.x then
+	print(handler)
 end
 
-local function withConst(c)
-	if const handler = dispatch[c] then
-		return handler()
-	end
-	return nil
+if const handler = t.x then
+	print(handler)
 end
 
-local function withAnnotation(t: { [string]: number }, k: string)
-	if local value: number = t[k] then
-		return value + 1
-	end
-	return 0
+if local value: number = t.x then
+	print(value)
 end
 
-local function withElseif(c)
-	if c == nil then
-		return -1
-	elseif local handler = dispatch[c] then
-		return handler()
-	else
-		return 0
-	end
+if t.x == nil then
+	print("nil")
+elseif local handler = t.x then
+	print(handler)
+else
+	print("else")
 end
 
-return { basic, withConst, withAnnotation, withElseif }
+-- if-local expression forms
+
+local exprBasic = if local v = t.x then v else 0
+local exprConst = if const v = t.x then v else 0
+local exprAnnotation = if local v: number = t.x then v else 0
+local exprElseif = if t.x == nil then -1 elseif local v = t.x then v else 0

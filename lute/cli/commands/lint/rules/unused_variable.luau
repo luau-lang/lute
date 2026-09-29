@@ -185,6 +185,39 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		return false
 	end
 
+	local function visitIfElseExprBranch(
+		conditionLocal: syntax.CstLocal?,
+		condition: syntax.CstExpr,
+		thenExpr: syntax.CstExpr
+	)
+		-- `if local` binding isn't in scope within its own initializer.
+		visitorLib.visitExpression(condition, visitor)
+
+		if conditionLocal then
+			-- `if local` binding is only in scope for the then-expression.
+			table.insert(visitor.scopes, { [conditionLocal] = false } :: { [syntax.CstLocal]: boolean })
+			if conditionLocal.annotation then
+				visitorLib.visitType(conditionLocal.annotation, visitor)
+			end
+			visitorLib.visitExpression(thenExpr, visitor)
+			popAndSaveUnusedLocals(thenExpr)
+		else
+			visitorLib.visitExpression(thenExpr, visitor)
+		end
+	end
+
+	function visitor.visitExprIfElse(expr: syntax.CstExprIfElse)
+		visitIfElseExprBranch(expr.conditionLocal, expr.condition, expr.thenExpr)
+
+		for _, elseifNode in expr.elseifs do
+			visitIfElseExprBranch(elseifNode.conditionLocal, elseifNode.condition, elseifNode.thenExpr)
+		end
+
+		visitorLib.visitExpression(expr.elseExpr, visitor)
+
+		return false
+	end
+
 	function visitor.visitStatAssign(stat: syntax.CstStatAssign)
 		local i = 1
 		local callFound = false
