@@ -191,7 +191,7 @@ local function satisfiesManifest(
 	end
 
 	for alias in lock.dependencies do
-		if not excludeDev and expectedAliases[alias] == nil then
+		if expectedAliases[alias] == nil then
 			return false, `removed dependency: {alias}`
 		end
 	end
