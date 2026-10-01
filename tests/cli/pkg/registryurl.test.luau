@@ -1,0 +1,27 @@
+local registryUrl = require("@commands/pkg/loom-core/src/registryurl")
+local test = require("@std/test")
+
+test.suite("RegistryUrl", function(suite)
+	suite:case("normalizesTrailingSlashes", function(assert)
+		assert.eq(registryUrl.normalize("http://registry.example.com///"), "http://registry.example.com")
+		assert.that(registryUrl.equals("https://registry.example.com", "https://registry.example.com/"))
+		assert.that(not registryUrl.equals("https://registry-a.example.com", "https://registry-b.example.com"))
+	end)
+
+	suite:case("comparesNilExactly", function(assert)
+		assert.that(registryUrl.equals(nil, nil))
+		assert.that(not registryUrl.equals(nil, "https://registry.example.com"))
+	end)
+
+	suite:case("parsesProtocolAndHost", function(assert)
+		local parsed = registryUrl.parse("http://registry.example.com/path")
+		assert.eq(parsed.protocol, "http")
+		assert.eq(parsed.host, "registry.example.com")
+	end)
+
+	suite:case("rejectsNonHttpUrls", function(assert)
+		assert.throwsWith("Could not parse registry URL: ftp://registry.example.com", function()
+			registryUrl.parse("ftp://registry.example.com")
+		end)
+	end)
+end)
