@@ -175,8 +175,10 @@ local function collectSourcePackageDependencies(
 	end
 
 	local dependencyManifest = manifest.parseFile(nestedManifestPath)
+	local dependencyPackage = dependencyManifest.package
+	assert(dependencyPackage ~= nil, `Source package '{installPath}' must declare a package`)
 
-	for dependencyAlias, dependencySpec in dependencyManifest.package.dependencies do
+	for dependencyAlias, dependencySpec in dependencyPackage.dependencies do
 		local normalizedSpec = normalizePathDependency(dependencySpec, installPath, rootDirectory)
 		local overrideSpec = overrides[normalizedSpec.name]
 		local effectiveSpec = overrideSpec or normalizedSpec
@@ -402,20 +404,24 @@ local function pathDepsAreStale(
 		if not ok then
 			return true
 		end
+		local depPackage = (depManifest :: manifest.ProjectManifest).package
+		if depPackage == nil then
+			return true
+		end
 
-		for alias in depManifest.package.dependencies do
+		for alias in depPackage.dependencies do
 			if pkg.dependencies[alias] == nil then
 				return true
 			end
 		end
 
 		for alias in pkg.dependencies do
-			if depManifest.package.dependencies[alias] == nil then
+			if depPackage.dependencies[alias] == nil then
 				return true
 			end
 		end
 
-		for alias, depSpec in depManifest.package.dependencies do
+		for alias, depSpec in depPackage.dependencies do
 			local normalizeOk, normalizedDepSpec =
 				pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
 			if not normalizeOk then
@@ -549,6 +555,8 @@ local function collectRootDependency(
 end
 
 local function collectRootDependencies(rootManifest: manifest.ProjectManifest, excludeDev: boolean): ResolutionState
+	local rootPackage = rootManifest.package
+	assert(rootPackage ~= nil, "Expected 'package' field in manifest")
 	local state: ResolutionState = {
 		queue = {},
 		queueIndex = 1,
@@ -563,10 +571,10 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 		registryUrlByPackage = {},
 	}
 
-	for dependencyAlias, dependencySpec in rootManifest.package.dependencies do
+	for dependencyAlias, dependencySpec in rootPackage.dependencies do
 		collectRootDependency(
 			state,
-			rootManifest.package.name,
+			rootPackage.name,
 			dependencyAlias,
 			dependencySpec,
 			rootManifest.registry,
@@ -575,10 +583,10 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 	end
 
 	if not excludeDev then
-		for dependencyAlias, dependencySpec in rootManifest.package.devDependencies do
+		for dependencyAlias, dependencySpec in rootPackage.devDependencies do
 			collectRootDependency(
 				state,
-				rootManifest.package.name,
+				rootPackage.name,
 				dependencyAlias,
 				dependencySpec,
 				rootManifest.registry,
