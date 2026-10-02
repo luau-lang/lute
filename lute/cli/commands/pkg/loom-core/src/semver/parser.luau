@@ -262,8 +262,7 @@ local function parsePartialVersion(s: string): (number, number?, number?)
 		return tonumber(ma) :: number, tonumber(mi), nil
 	end
 
-	local ma2 = s:match("^(%d+)$")
-	if ma2 then
+	if local ma2 = s:match("^(%d+)$") then
 		return tonumber(ma2) :: number, nil, nil
 	end
 
@@ -291,8 +290,7 @@ end
 -- Returns nil if `s` is not a wildcard pattern.
 local function expandWildcard(s: string): Constraint?
 	-- X.* or X.x or X.X — also handles X.*.* trailing double-wildcard
-	local majorStr = s:match("^(%d+)%.[*xX]$") or s:match("^(%d+)%.[*xX]%.[*xX]$")
-	if majorStr then
+	if local majorStr = s:match("^(%d+)%.[*xX]$") or s:match("^(%d+)%.[*xX]%.[*xX]$") then
 		local major = tonumber(majorStr) :: number
 		return table.freeze({
 			makeComparator(">=", makeVersion(major, 0, 0)),
@@ -429,8 +427,7 @@ local function parseConstraint(s: string): Constraint
 		return expandTilde(trimmed:sub(2))
 	end
 
-	local wildcard = expandWildcard(trimmed)
-	if wildcard ~= nil then
+	if local wildcard = expandWildcard(trimmed) then
 		return wildcard
 	end
 
