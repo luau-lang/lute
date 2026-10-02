@@ -1,0 +1,8 @@
+---
+source: tests/tests.rs
+expression: format(&contents)
+---
+local x = [=[This is
+several equal
+signs]=]
+
