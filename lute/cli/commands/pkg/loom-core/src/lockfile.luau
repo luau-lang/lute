@@ -9,6 +9,7 @@ local workspace = require("./workspace")
 
 export type LockfileDependency = {
 	read name: string,
+	read requestedMemberName: string?,
 	read rev: string?,
 	read source: string,
 	read sourceKind: manifest.SourceKind,
@@ -28,6 +29,10 @@ export type Lockfile = {
 local function validatePackageEntry(key: string, entry: any)
 	assert(typeof(entry) == "table", `Expected table for dependency '{key}'`)
 	assert(typeof(entry.name) == "string", `Expected 'name' field in dependency '{key}'`)
+	assert(
+		entry.requestedMemberName == nil or typeof(entry.requestedMemberName) == "string",
+		`Expected 'requestedMemberName' field to be a string or nil for dependency '{key}'`
+	)
 	assert(
 		entry.rev == nil or typeof(entry.rev) == "string",
 		`Expected 'rev' field to be a string or nil for dependency '{key}'`
@@ -107,15 +112,32 @@ local function tryParseFile(lockfilePath: string): Lockfile?
 	return result
 end
 
+local function getRequestedMemberName(spec: manifest.DependencySpec): string?
+	if spec.sourceKind == "path" or spec.sourceKind == "github" then
+		return spec.requestedMemberName
+	end
+	return nil
+end
+
+local function serializeRequestedMemberName(requestedMemberName: string?): string
+	if requestedMemberName == nil then
+		return "-"
+	end
+	return `{#requestedMemberName}:{requestedMemberName}`
+end
+
 local function serializeOverrides(overrides: { [string]: manifest.DependencySpec }): { [string]: string }
 	local result: { [string]: string } = {}
 	for name, spec in overrides do
 		if spec.sourceKind == "registry" then
 			result[name] = spec.version
 		elseif spec.sourceKind == "path" then
-			result[name] = `path:{spec.source}`
+			result[name] =
+				`path:{#spec.source}:{spec.source}:member:{serializeRequestedMemberName(spec.requestedMemberName)}`
 		elseif spec.sourceKind == "github" then
-			result[name] = `github:{spec.source}@{spec.rev}`
+			result[name] = `github:{#spec.source}:{spec.source}@{spec.rev}:member:{serializeRequestedMemberName(
+				spec.requestedMemberName
+			)}`
 		end
 	end
 	return result
@@ -162,6 +184,7 @@ local function tryNormalizePathDependency(
 
 	local normalizedSpec = table.freeze({
 		name = spec.name,
+		requestedMemberName = spec.requestedMemberName,
 		sourceKind = "path" :: "path",
 		source = path.format(path.relative(rootDirectory, sourcePath)),
 	}) :: manifest.PathDependencySpec
@@ -222,6 +245,10 @@ local function satisfiesManifest(
 
 			if pkg.sourceKind ~= spec.sourceKind then
 				return false, `source kind changed for: {member.name}:{alias}`
+			end
+
+			if pkg.requestedMemberName ~= getRequestedMemberName(spec) then
+				return false, `requested member changed for: {member.name}:{alias}`
 			end
 
 			if spec.sourceKind == "github" then

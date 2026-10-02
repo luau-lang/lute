@@ -26,8 +26,18 @@ local function getKey(spec: manifest.DependencySpec): string
 	return spec.name
 end
 
+local function getRequestedMemberName(spec: manifest.DependencySpec): string?
+	if spec.sourceKind == "path" or spec.sourceKind == "github" then
+		return spec.requestedMemberName
+	end
+	return nil
+end
+
 local function hasConflict(resolved: lockfile.LockfileDependency, incoming: manifest.DependencySpec): boolean
 	if resolved.sourceKind ~= incoming.sourceKind then
+		return true
+	end
+	if resolved.requestedMemberName ~= getRequestedMemberName(incoming) then
 		return true
 	end
 
@@ -47,21 +57,13 @@ local function normalizePathDependency(
 	installPath: string,
 	rootDirectory: string
 ): manifest.DependencySpec
-	-- normalization is a no-op if it's not a path dependency
-	if spec.sourceKind ~= "path" then
-		return spec
+	local normalizedSpec, missingPath = lockfile.tryNormalizePathDependency(spec, installPath, rootDirectory)
+	if normalizedSpec == nil then
+		assert(missingPath ~= nil)
+		error(`Path dependency directory not found: {missingPath} (for package '{spec.name}')`)
 	end
 
-	local sourcePath = path.format(path.resolve(installPath, spec.source))
-	if not fs.exists(sourcePath) then
-		error(`Path dependency directory not found: {sourcePath} (for package '{spec.name}')`)
-	end
-
-	return table.freeze({
-		name = spec.name,
-		sourceKind = "path",
-		source = path.format(path.relative(rootDirectory, sourcePath)),
-	}) :: manifest.PathDependencySpec
+	return normalizedSpec
 end
 
 local function fetchSource(spec: manifest.DependencySpec, rootDirectory: string): string
@@ -172,59 +174,149 @@ local function addRegistryRequirement(
 	return key
 end
 
-local function getSourcePackageRegistryUrl(
-	dependencyManifest: manifest.ProjectManifest,
-	installPath: string,
-	workspaceMemberDirectories: { [string]: boolean },
-	rootRegistryUrl: string?
-): string?
-	if workspaceMemberDirectories[installPath] then
-		return rootRegistryUrl
+type SourcePackage = {
+	directory: string,
+	package: manifest.PackageManifest,
+	registryUrl: string?,
+	workspaceRoot: string?,
+	workspaceMemberDirectories: { [string]: boolean }?,
+}
+
+local function collectWorkspaceMemberDirectories(resolvedWorkspace: workspace.Workspace): { [string]: boolean }
+	local directories: { [string]: boolean } = {}
+	for _, member in resolvedWorkspace.members do
+		directories[member.directory] = true
+	end
+	return directories
+end
+
+local function findWorkspaceMemberAtDirectory(
+	resolvedWorkspace: workspace.Workspace,
+	directory: string
+): workspace.Member?
+	for _, member in resolvedWorkspace.members do
+		if member.directory == directory then
+			return member
+		end
+	end
+	return nil
+end
+
+local function findWorkspaceMemberByName(resolvedWorkspace: workspace.Workspace, name: string): workspace.Member?
+	for _, member in resolvedWorkspace.members do
+		if member.name == name then
+			return member
+		end
+	end
+	return nil
+end
+
+local function getSourcePackage(
+	spec: manifest.PathDependencySpec | manifest.GitHubDependencySpec,
+	sourceDirectory: string,
+	workspaceResolver: workspace.WorkspaceResolver
+): SourcePackage
+	local resolvedWorkspace = workspaceResolver:findResolvedRoot(sourceDirectory)
+	local workspaceRoot = resolvedWorkspace.rootDirectory
+	local workspaceManifest = resolvedWorkspace.rootManifest
+	local member: workspace.Member?
+	if sourceDirectory == workspaceRoot and workspaceManifest.workspace then
+		local selectedMemberName = spec.requestedMemberName or workspaceManifest.workspace.defaultMember
+		assert(
+			selectedMemberName ~= nil,
+			`Workspace source '{spec.source}' has no default_member; specify a dependency name to select a member`
+		)
+		member = findWorkspaceMemberByName(resolvedWorkspace, selectedMemberName)
+		assert(member ~= nil, `Workspace source '{spec.source}' does not contain package '{selectedMemberName}'`)
+	else
+		member = findWorkspaceMemberAtDirectory(resolvedWorkspace, sourceDirectory)
 	end
 
-	return dependencyManifest.registry
+	if member then
+		return {
+			directory = member.directory,
+			package = member.package,
+			registryUrl = resolvedWorkspace.registry,
+			workspaceRoot = workspaceRoot,
+			workspaceMemberDirectories = collectWorkspaceMemberDirectories(resolvedWorkspace),
+		}
+	end
+
+	local sourceManifest = manifest.parseFile(getManifestPath(sourceDirectory))
+	local sourcePackage = sourceManifest.package
+	assert(sourcePackage ~= nil, `Source package '{sourceDirectory}' must declare a package`)
+	return {
+		directory = sourceDirectory,
+		package = sourcePackage,
+		registryUrl = sourceManifest.registry,
+	}
+end
+
+local function normalizeSourceDependency(
+	dependencySpec: manifest.DependencySpec,
+	sourcePackage: SourcePackage,
+	rootDirectory: string,
+	githubSpec: manifest.GitHubDependencySpec?,
+	workspaceResolver: workspace.WorkspaceResolver
+): manifest.DependencySpec
+	local normalizedSpec = normalizePathDependency(dependencySpec, sourcePackage.directory, rootDirectory)
+	if githubSpec == nil or dependencySpec.sourceKind ~= "path" then
+		return normalizedSpec
+	end
+
+	local sourcePath = path.format(path.resolve(sourcePackage.directory, dependencySpec.source))
+	local selectedWorkspaceMemberName: string? = nil
+	if sourcePackage.workspaceMemberDirectories and sourcePackage.workspaceMemberDirectories[sourcePath] then
+		local resolvedWorkspace = workspaceResolver:findResolvedRoot(sourcePath)
+		local member = findWorkspaceMemberAtDirectory(resolvedWorkspace, sourcePath)
+		assert(member ~= nil, `Workspace member directory '{sourcePath}' could not be resolved`)
+		selectedWorkspaceMemberName = member.name
+	end
+	local isWorkspaceRoot = sourcePackage.workspaceRoot == sourcePath
+	if selectedWorkspaceMemberName or isWorkspaceRoot then
+		return table.freeze({
+			name = dependencySpec.name,
+			requestedMemberName = selectedWorkspaceMemberName or dependencySpec.requestedMemberName,
+			sourceKind = "github" :: "github",
+			source = githubSpec.source,
+			rev = githubSpec.rev,
+		})
+	end
+
+	return normalizedSpec
 end
 
 local function collectSourcePackageDependencies(
 	key: string,
-	installPath: string,
+	sourcePackage: SourcePackage,
 	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
-	workspaceMemberDirectories: { [string]: boolean },
+	githubSpec: manifest.GitHubDependencySpec?,
 	transitiveDependencies: { [string]: string },
 	queue: { manifest.DependencySpec },
 	registryRequirements: RegistryRequirementCollection,
 	registrySources: { [string]: string },
 	registryIdentitiesBySource: { [string]: { [string]: boolean } },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
-	registryUrlByPackage: { [string]: string }
+	registryUrlByPackage: { [string]: string },
+	workspaceResolver: workspace.WorkspaceResolver
 )
-	local nestedManifestPath = getManifestPath(installPath)
-	if not fs.exists(nestedManifestPath) then
-		return
-	end
-
-	local dependencyManifest = manifest.parseFile(nestedManifestPath)
-	local dependencyPackage = dependencyManifest.package
-	assert(dependencyPackage ~= nil, `Source package '{installPath}' must declare a package`)
-	local dependencyRegistryUrl =
-		getSourcePackageRegistryUrl(dependencyManifest, installPath, workspaceMemberDirectories, rootRegistryUrl)
-
-	for dependencyAlias, dependencySpec in dependencyPackage.dependencies do
-		local normalizedSpec = normalizePathDependency(dependencySpec, installPath, rootDirectory)
+	for dependencyAlias, dependencySpec in sourcePackage.package.dependencies do
+		local normalizedSpec =
+			normalizeSourceDependency(dependencySpec, sourcePackage, rootDirectory, githubSpec, workspaceResolver)
 		local overrideSpec = overrides[normalizedSpec.name]
 		local effectiveSpec = overrideSpec or normalizedSpec
 
 		if normalizedSpec.sourceKind == "registry" then
 			assert(
-				dependencyRegistryUrl ~= nil,
+				sourcePackage.registryUrl ~= nil,
 				`Package '{key}' has registry dependency '{normalizedSpec.name}' but no 'registry' field in its manifest.`
 			)
 		end
 
 		if effectiveSpec.sourceKind == "registry" then
-			local effectiveRegistryUrl = if overrideSpec then rootRegistryUrl else dependencyRegistryUrl
+			local effectiveRegistryUrl = if overrideSpec then rootRegistryUrl else sourcePackage.registryUrl
 			local registryPackageName = registerRegistryPackage(
 				registrySources,
 				registryIdentitiesBySource,
@@ -265,7 +357,7 @@ local function resolveSourcePackage(
 	registryUrlByPackage: { [string]: string },
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
-	workspaceMemberDirectories: { [string]: boolean }
+	workspaceResolver: workspace.WorkspaceResolver
 ): string
 	local key = getKey(spec)
 
@@ -285,32 +377,55 @@ local function resolveSourcePackage(
 	local transitiveDependencies: { [string]: string } = {}
 	openDependencies[key] = transitiveDependencies
 
-	local installPath = fetchSource(spec, rootDirectory)
+	local sourceDirectory = fetchSource(spec, rootDirectory)
+	local sourcePackage: SourcePackage? = nil
+	if fs.exists(getManifestPath(sourceDirectory)) then
+		sourcePackage = getSourcePackage(
+			spec :: manifest.PathDependencySpec | manifest.GitHubDependencySpec,
+			sourceDirectory,
+			workspaceResolver
+		)
 
-	collectSourcePackageDependencies(
-		key,
-		installPath,
-		rootDirectory,
-		overrides,
-		rootRegistryUrl,
-		workspaceMemberDirectories,
-		transitiveDependencies,
-		queue,
-		registryRequirements,
-		registrySources,
-		registryIdentitiesBySource,
-		unresolvedRegistryDependencies,
-		registryUrlByPackage
-	)
+		collectSourcePackageDependencies(
+			key,
+			sourcePackage,
+			rootDirectory,
+			overrides,
+			rootRegistryUrl,
+			if spec.sourceKind == "github" then spec else nil,
+			transitiveDependencies,
+			queue,
+			registryRequirements,
+			registrySources,
+			registryIdentitiesBySource,
+			unresolvedRegistryDependencies,
+			registryUrlByPackage,
+			workspaceResolver
+		)
+	end
+
+	local installPath: string
+	if spec.sourceKind == "path" then
+		local packageDirectory = if sourcePackage then sourcePackage.directory else sourceDirectory
+		installPath = path.format(path.relative(rootDirectory, packageDirectory))
+	elseif sourcePackage == nil then
+		installPath = store.toStorePath(key)
+	else
+		local memberRelativePath = path.relative(sourceDirectory, sourcePackage.directory)
+		if #memberRelativePath.parts == 0 then
+			installPath = store.toStorePath(key)
+		else
+			installPath = path.format(path.join(store.toStorePath(key), memberRelativePath))
+		end
+	end
 
 	packages[key] = table.freeze({
 		name = spec.name,
+		requestedMemberName = getRequestedMemberName(spec),
 		rev = if spec.sourceKind == "github" then spec.rev else nil,
 		source = spec.source,
 		sourceKind = spec.sourceKind,
-		installPath = if spec.sourceKind == "path"
-			then path.format(path.relative(rootDirectory, installPath))
-			else store.toStorePath(key),
+		installPath = installPath,
 		dependencies = transitiveDependencies,
 	})
 
@@ -322,7 +437,7 @@ local function processSourceQueue(
 	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
-	workspaceMemberDirectories: { [string]: boolean }
+	workspaceResolver: workspace.WorkspaceResolver
 )
 	while state.queueIndex <= #state.queue do
 		local spec = state.queue[state.queueIndex]
@@ -341,7 +456,7 @@ local function processSourceQueue(
 			state.registryUrlByPackage,
 			overrides,
 			rootRegistryUrl,
-			workspaceMemberDirectories
+			workspaceResolver
 		)
 	end
 end
@@ -425,27 +540,44 @@ local function pathDepsAreStale(
 	rootDirectory: string,
 	overrides: { [string]: manifest.DependencySpec },
 	rootRegistryUrl: string?,
-	workspaceMemberDirectories: { [string]: boolean }
+	workspaceResolver: workspace.WorkspaceResolver
 ): boolean
 	for _, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
 			continue
 		end
 
-		local packageInstallPath = path.format(path.join(rootDirectory, pkg.installPath))
-		local depManifestPath = path.format(path.join(packageInstallPath, "loom.config.luau"))
-		if not fs.exists(depManifestPath) then
+		local packageSourcePath = path.format(path.resolve(rootDirectory, pkg.source))
+		if not fs.exists(packageSourcePath) then
 			return true
 		end
-
-		local ok, depManifest = pcall(manifest.parseFile, depManifestPath)
+		if not fs.exists(getManifestPath(packageSourcePath)) then
+			local expectedInstallPath = path.format(path.relative(rootDirectory, packageSourcePath))
+			if pkg.installPath ~= expectedInstallPath or next(pkg.dependencies) ~= nil then
+				return true
+			end
+			continue
+		end
+		local ok, result = pcall(
+			getSourcePackage,
+			{
+				name = pkg.name,
+				requestedMemberName = pkg.requestedMemberName,
+				sourceKind = "path" :: "path",
+				source = pkg.source,
+			} :: manifest.PathDependencySpec,
+			packageSourcePath,
+			workspaceResolver
+		)
 		if not ok then
 			return true
 		end
-		local depPackage = depManifest.package
-		if depPackage == nil then
+		local sourcePackage = result :: SourcePackage
+		local expectedInstallPath = path.format(path.relative(rootDirectory, sourcePackage.directory))
+		if pkg.installPath ~= expectedInstallPath then
 			return true
 		end
+		local depPackage = sourcePackage.package
 
 		for alias in depPackage.dependencies do
 			if pkg.dependencies[alias] == nil then
@@ -461,7 +593,7 @@ local function pathDepsAreStale(
 
 		for alias, depSpec in depPackage.dependencies do
 			local normalizeOk, normalizedDepSpec =
-				pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
+				pcall(normalizePathDependency, depSpec, sourcePackage.directory, rootDirectory)
 			if not normalizeOk then
 				return true
 			end
@@ -479,6 +611,9 @@ local function pathDepsAreStale(
 			if recordedPkg.sourceKind ~= depSpec.sourceKind then
 				return true
 			end
+			if recordedPkg.requestedMemberName ~= getRequestedMemberName(depSpec) then
+				return true
+			end
 			if depSpec.sourceKind == "github" then
 				if recordedPkg.source ~= depSpec.source or recordedPkg.rev ~= depSpec.rev then
 					return true
@@ -488,13 +623,7 @@ local function pathDepsAreStale(
 					return true
 				end
 			elseif depSpec.sourceKind == "registry" then
-				local dependencyRegistryUrl = getSourcePackageRegistryUrl(
-					depManifest,
-					packageInstallPath,
-					workspaceMemberDirectories,
-					rootRegistryUrl
-				)
-				local registryUrl = if overrideSpec then rootRegistryUrl else dependencyRegistryUrl
+				local registryUrl = if overrideSpec then rootRegistryUrl else sourcePackage.registryUrl
 				if
 					recordedPkg.source ~= depSpec.source
 					or not registryUrlUtil.equals(recordedPkg.registry, registryUrl)
@@ -519,7 +648,7 @@ local function tryReuseLockfile(
 	rootDirectory: string,
 	excludeDev: boolean,
 	options: ResolveOptions?,
-	workspaceMemberDirectories: { [string]: boolean }
+	workspaceResolver: workspace.WorkspaceResolver
 ): (lockfile.Lockfile?, { [string]: string }?)
 	local existingLock = lockfile.tryParseFile(lockfilePath)
 
@@ -544,7 +673,7 @@ local function tryReuseLockfile(
 				rootDirectory,
 				rootWorkspace.overrides,
 				rootWorkspace.registry,
-				workspaceMemberDirectories
+				workspaceResolver
 			)
 		then
 			return existingLock, nil
@@ -632,6 +761,7 @@ local function collectRootDependencies(rootWorkspace: workspace.Workspace, exclu
 		state.dependencies[member.name] = {}
 		for dependencyAlias, dependencySpec in member.package.dependencies do
 			local normalized = if member.directory == rootWorkspace.rootDirectory
+					or rootWorkspace.overrides[dependencySpec.name]
 				then dependencySpec
 				else normalizePathDependency(dependencySpec, member.directory, rootWorkspace.rootDirectory)
 			collectRootDependency(
@@ -648,6 +778,7 @@ local function collectRootDependencies(rootWorkspace: workspace.Workspace, exclu
 		if not excludeDev then
 			for dependencyAlias, dependencySpec in member.package.devDependencies do
 				local normalized = if member.directory == rootWorkspace.rootDirectory
+						or rootWorkspace.overrides[dependencySpec.name]
 					then dependencySpec
 					else normalizePathDependency(dependencySpec, member.directory, rootWorkspace.rootDirectory)
 				collectRootDependency(
@@ -678,14 +809,6 @@ local function queueSourceOverrides(state: ResolutionState, overrides: { [string
 	for _, name in names do
 		table.insert(state.queue, overrides[name])
 	end
-end
-
-local function collectWorkspaceMemberDirectories(rootWorkspace: workspace.Workspace): { [string]: boolean }
-	local directories: { [string]: boolean } = {}
-	for _, member in rootWorkspace.members do
-		directories[member.directory] = true
-	end
-	return directories
 end
 
 local function namespaceRegistryUniverse(
@@ -937,10 +1060,10 @@ local function resolve(
 	local excludeDev = if options then options.excludeDev == true else false
 	local rootDirectory = rootWorkspace.rootDirectory
 	local lockfilePath = getLockfilePath(rootDirectory)
-	local workspaceMemberDirectories = collectWorkspaceMemberDirectories(rootWorkspace)
+	local workspaceResolver = workspace.newWorkspaceResolver(rootWorkspace)
 
 	local reusedLock, lockedRegistryVersions =
-		tryReuseLockfile(rootWorkspace, lockfilePath, rootDirectory, excludeDev, options, workspaceMemberDirectories)
+		tryReuseLockfile(rootWorkspace, lockfilePath, rootDirectory, excludeDev, options, workspaceResolver)
 	if reusedLock then
 		return reusedLock
 	end
@@ -948,7 +1071,7 @@ local function resolve(
 	local state = collectRootDependencies(rootWorkspace, excludeDev)
 	local overrides = rootWorkspace.overrides
 	queueSourceOverrides(state, overrides)
-	processSourceQueue(state, rootDirectory, overrides, rootWorkspace.registry, workspaceMemberDirectories)
+	processSourceQueue(state, rootDirectory, overrides, rootWorkspace.registry, workspaceResolver)
 
 	resolveRegistryDependencies(state, universe, overrides, lockedRegistryVersions)
 
