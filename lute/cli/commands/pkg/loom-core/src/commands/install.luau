@@ -1,19 +1,20 @@
 local cli = require("@batteries/cli")
-local fs = require("@std/fs")
 local lockfile = require("../lockfile")
-local manifest = require("../manifest")
 local resolution = require("../resolution")
+local workspace = require("../workspace")
 local path = require("@std/path")
 local process = require("@std/process")
 
-local function printDiagnostics(lock: lockfile.Lockfile, devAliases: { [string]: boolean })
+local function printDiagnostics(lock: lockfile.Lockfile, devAliases: { [string]: { [string]: boolean } })
 	local depCount = 0
 	local devCount = 0
-	for alias in lock.dependencies do
-		if devAliases[alias] then
-			devCount += 1
-		else
-			depCount += 1
+	for member, dependencies in lock.dependencies do
+		for alias in dependencies do
+			if devAliases[member] and devAliases[member][alias] then
+				devCount += 1
+			else
+				depCount += 1
+			end
 		end
 	end
 
@@ -23,16 +24,18 @@ local function printDiagnostics(lock: lockfile.Lockfile, devAliases: { [string]:
 		print(`Resolved {depCount} package(s).`)
 	end
 
-	for alias, key in lock.dependencies do
-		local transitive = 0
-		local pkg = lock.packages[key]
-		if pkg then
-			for _ in pkg.dependencies do
-				transitive += 1
+	for member, dependencies in lock.dependencies do
+		for alias, key in dependencies do
+			local transitive = 0
+			local pkg = lock.packages[key]
+			if pkg then
+				for _ in pkg.dependencies do
+					transitive += 1
+				end
 			end
+			local suffix = if devAliases[member] and devAliases[member][alias] then " [dev]" else ""
+			print(`  {member}:{alias} -> {key} ({pkg.sourceKind}, {transitive} dep(s)){suffix}`)
 		end
-		local suffix = if devAliases[alias] then " [dev]" else ""
-		print(`  {key} ({pkg.sourceKind}, {transitive} dep(s)){suffix}`)
 	end
 end
 
@@ -51,28 +54,27 @@ local function install(...: string)
 	local excludeDev = args:get("exclude-dev") ~= nil
 	local locked = args:get("locked") ~= nil
 	local rootDirectory = path.format(process.cwd())
-	local manifestPath = `{rootDirectory}/loom.config.luau`
-
-	local devAliases: { [string]: boolean } = {}
-
-	if fs.exists(manifestPath) then
-		local rootManifest = manifest.parseFile(manifestPath)
-		for _, depSpec in rootManifest.package.dependencies do
+	local devAliases: { [string]: { [string]: boolean } } = {}
+	local workspaceRoot, rootManifest = workspace.findRoot(rootDirectory)
+	local resolvedWorkspace = workspace.resolve(workspaceRoot, rootManifest)
+	for _, member in resolvedWorkspace.members do
+		devAliases[member.name] = {}
+		for _, depSpec in member.package.dependencies do
 			if depSpec.sourceKind == "registry" then
 				error("Registry dependencies are not yet supported by the install command")
 			end
 		end
 		if not excludeDev then
-			for alias, depSpec in rootManifest.package.devDependencies do
+			for alias, depSpec in member.package.devDependencies do
 				if depSpec.sourceKind == "registry" then
 					error("Registry dependencies are not yet supported by the install command")
 				end
-				devAliases[alias] = true
+				devAliases[member.name][alias] = true
 			end
 		end
 	end
 
-	local lock = resolution.resolve(rootDirectory, nil, { excludeDev = excludeDev, locked = locked })
+	local lock = resolution.resolve(resolvedWorkspace, nil, { excludeDev = excludeDev, locked = locked })
 	printDiagnostics(lock, devAliases)
 end
 
