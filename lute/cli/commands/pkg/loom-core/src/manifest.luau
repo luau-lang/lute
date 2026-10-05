@@ -4,18 +4,12 @@ export type SourceKind = "path" | "github" | "registry"
 
 export type PathDependencySpec = {
 	read sourceKind: "path",
-	-- `name` is the dependency's stable identity. This records whether the
-	-- manifest explicitly requested a workspace member instead.
-	read requestedMemberName: string?,
 	read name: string,
 	read source: string,
 }
 
 export type GitHubDependencySpec = {
 	read sourceKind: "github",
-	-- Git sources are checked out at the workspace root, so this is needed to
-	-- distinguish an explicit member request from an alias-derived identity.
-	read requestedMemberName: string?,
 	read name: string,
 	read source: string,
 	read rev: string,
@@ -97,7 +91,6 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 		if spec.sourceKind == "path" then
 			result[name] = table.freeze({
 				name = spec.name or name,
-				requestedMemberName = spec.name,
 				sourceKind = "path" :: "path",
 				source = spec.source,
 			})
@@ -105,7 +98,6 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 			assert(typeof(spec.rev) == "string", `Expected 'rev' field for github dependency '{name}' in {sectionName}`)
 			result[name] = table.freeze({
 				name = spec.name or name,
-				requestedMemberName = spec.name,
 				sourceKind = "github" :: "github",
 				source = spec.source,
 				rev = spec.rev,

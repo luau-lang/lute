@@ -1022,6 +1022,69 @@ test.suite("WorkspaceResolution", function(suite)
 		assert.eq(lock.dependencies.app.explicit, "selected-member")
 	end)
 
+	suite:case("prefersAMemberMatchingThePathDependencyAliasOverTheDefaultMember", function(assert)
+		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
+		local defaultDirectory = path.join(dependencyWorkspaceDirectory, "packages", "default")
+		local selectedDirectory = path.join(dependencyWorkspaceDirectory, "packages", "selected")
+		fs.createDirectory(defaultDirectory, { makeParents = true })
+		fs.createDirectory(selectedDirectory)
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			fallback = { sourceKind = "path", source = "./dependency-workspace" },
+			["selected-member"] = { sourceKind = "path", source = "./dependency-workspace" },]]
+		)
+		writeConfig(defaultDirectory, "default-member", "")
+		writeConfig(selectedDirectory, "selected-member", "")
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" }, default_member = "default-member" },
+}
+]]
+		)
+
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.app.fallback, "fallback")
+		assert.eq(lock.dependencies.app["selected-member"], "selected-member")
+		assert.eq(
+			lock.packages.fallback.installPath,
+			path.format(path.join("dependency-workspace", "packages", "default"))
+		)
+		assert.eq(
+			lock.packages["selected-member"].installPath,
+			path.format(path.join("dependency-workspace", "packages", "selected"))
+		)
+	end)
+
+	suite:case("errorsWhenAPathWorkspaceHasNoMatchingMemberOrDefaultMember", function(assert)
+		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
+		local memberDirectory = path.join(dependencyWorkspaceDirectory, "packages", "member")
+		fs.createDirectory(memberDirectory, { makeParents = true })
+		writeConfig(
+			workingDirectory,
+			"app",
+			[[
+			missing = { sourceKind = "path", source = "./dependency-workspace" },]]
+		)
+		writeConfig(memberDirectory, "member", "")
+		fs.writeStringToFile(
+			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
+			[[return {
+	workspace = { members = { "packages/*" } },
+}
+]]
+		)
+
+		assert.throwsWith(
+			"Workspace source './dependency-workspace' does not contain package 'missing' and has no default_member",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil)
+			end
+		)
+	end)
+
 	suite:case("invalidatesLockReuseWhenAnExternalPathWorkspaceDefaultMemberChanges", function(assert)
 		local dependencyWorkspaceDirectory = path.join(workingDirectory, "dependency-workspace")
 		local libDirectory = path.join(dependencyWorkspaceDirectory, "packages", "lib")
@@ -1032,7 +1095,7 @@ test.suite("WorkspaceResolution", function(suite)
 			workingDirectory,
 			"app",
 			[[
-			lib = { sourceKind = "path", source = "./dependency-workspace" },]]
+			dependency = { sourceKind = "path", source = "./dependency-workspace" },]]
 		)
 		writeConfig(libDirectory, "lib", "")
 		writeConfig(otherDirectory, "other", "")
@@ -1046,7 +1109,10 @@ test.suite("WorkspaceResolution", function(suite)
 		)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
-		assert.eq(lock.packages.lib.installPath, path.format(path.join("dependency-workspace", "packages", "lib")))
+		assert.eq(
+			lock.packages.dependency.installPath,
+			path.format(path.join("dependency-workspace", "packages", "lib"))
+		)
 
 		fs.writeStringToFile(
 			path.join(dependencyWorkspaceDirectory, "loom.config.luau"),
@@ -1057,7 +1123,10 @@ test.suite("WorkspaceResolution", function(suite)
 		)
 
 		lock = resolution.resolve(path.format(workingDirectory), nil)
-		assert.eq(lock.packages.lib.installPath, path.format(path.join("dependency-workspace", "packages", "other")))
+		assert.eq(
+			lock.packages.dependency.installPath,
+			path.format(path.join("dependency-workspace", "packages", "other"))
+		)
 	end)
 
 	suite:case("resolvesAWorkspaceMemberFromAGitDependency", function(assert)
@@ -1103,7 +1172,7 @@ test.suite("WorkspaceResolution", function(suite)
 			packageName,
 			[[
 			gitDefault = { name = "external-git-workspace-root-test", sourceKind = "path", source = "../.." },
-			gitUtil = { name = "external-git-workspace-util-test", sourceKind = "path", source = "../util" },
+			gitUtilAlias = { sourceKind = "path", source = "../util" },
 			citrus = { sourceKind = "registry", source = "citrus", version = "^1.0.0" },]]
 		)
 		writeConfig(utilityDirectory, utilityPackageName, "")
@@ -1136,7 +1205,7 @@ test.suite("WorkspaceResolution", function(suite)
 			"https://github.com/lute-test-fixtures/external-git-workspace"
 		)
 		assert.eq(lock.packages[defaultPackageKey].rev, revision)
-		assert.eq(lock.packages[packageKey].dependencies.gitUtil, utilityPackageKey)
+		assert.eq(lock.packages[packageKey].dependencies.gitUtilAlias, utilityPackageKey)
 		assert.eq(lock.packages[utilityPackageKey].sourceKind, "github")
 		assert.eq(lock.packages[packageKey].dependencies.citrus, "citrus@1.0.0")
 		assert.eq(
@@ -1216,7 +1285,7 @@ test.suite("WorkspaceResolution", function(suite)
 		fs.removeDirectory(explicitSourceDirectory, { recursive = true })
 	end)
 
-	suite:case("errorsWhenAGitWorkspaceDoesNotContainTheRequestedMember", function(assert)
+	suite:case("fallsBackToTheDefaultMemberWhenAGitWorkspaceDoesNotContainTheRequestedMember", function(assert)
 		local missingPackageName = "missing-git-workspace-member"
 		local defaultPackageName = "git-workspace-default-member"
 		local revision = "missing-member-revision"
@@ -1247,10 +1316,12 @@ test.suite("WorkspaceResolution", function(suite)
 ]]
 		)
 
-		local ok = xpcall(resolution.resolve, function(message)
-			assert.strContains(message, "does not contain package 'missing-git-workspace-member'")
-		end, path.format(workingDirectory), nil)
-		assert.that(not ok)
+		local lock = resolution.resolve(path.format(workingDirectory), nil)
+		assert.eq(lock.dependencies.app.gitDependency, packageKey)
+		assert.eq(
+			lock.packages[packageKey].installPath,
+			path.format(path.join(store.toStorePath(packageKey), "packages", "default"))
+		)
 
 		fs.removeDirectory(sourceDirectory, { recursive = true })
 	end)
