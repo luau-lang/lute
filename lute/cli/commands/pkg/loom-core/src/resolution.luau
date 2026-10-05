@@ -26,18 +26,8 @@ local function getKey(spec: manifest.DependencySpec): string
 	return spec.name
 end
 
-local function getRequestedMemberName(spec: manifest.DependencySpec): string?
-	if spec.sourceKind == "path" or spec.sourceKind == "github" then
-		return spec.requestedMemberName
-	end
-	return nil
-end
-
 local function hasConflict(resolved: lockfile.LockfileDependency, incoming: manifest.DependencySpec): boolean
 	if resolved.sourceKind ~= incoming.sourceKind then
-		return true
-	end
-	if resolved.requestedMemberName ~= getRequestedMemberName(incoming) then
 		return true
 	end
 
@@ -221,13 +211,14 @@ local function getSourcePackage(
 	local workspaceManifest = resolvedWorkspace.rootManifest
 	local member: workspace.Member?
 	if sourceDirectory == workspaceRoot and workspaceManifest.workspace then
-		local selectedMemberName = spec.requestedMemberName or workspaceManifest.workspace.defaultMember
+		member = findWorkspaceMemberByName(resolvedWorkspace, spec.name)
+		if member == nil and workspaceManifest.workspace.defaultMember ~= nil then
+			member = findWorkspaceMemberByName(resolvedWorkspace, workspaceManifest.workspace.defaultMember)
+		end
 		assert(
-			selectedMemberName ~= nil,
-			`Workspace source '{spec.source}' has no default_member; specify a dependency name to select a member`
+			member ~= nil,
+			`Workspace source '{spec.source}' does not contain package '{spec.name}' and has no default_member`
 		)
-		member = findWorkspaceMemberByName(resolvedWorkspace, selectedMemberName)
-		assert(member ~= nil, `Workspace source '{spec.source}' does not contain package '{selectedMemberName}'`)
 	else
 		member = findWorkspaceMemberAtDirectory(resolvedWorkspace, sourceDirectory)
 	end
@@ -275,8 +266,7 @@ local function normalizeSourceDependency(
 	local isWorkspaceRoot = sourcePackage.workspaceRoot == sourcePath
 	if selectedWorkspaceMemberName or isWorkspaceRoot then
 		return table.freeze({
-			name = dependencySpec.name,
-			requestedMemberName = selectedWorkspaceMemberName or dependencySpec.requestedMemberName,
+			name = selectedWorkspaceMemberName or dependencySpec.name,
 			sourceKind = "github" :: "github",
 			source = githubSpec.source,
 			rev = githubSpec.rev,
@@ -421,7 +411,6 @@ local function resolveSourcePackage(
 
 	packages[key] = table.freeze({
 		name = spec.name,
-		requestedMemberName = getRequestedMemberName(spec),
 		rev = if spec.sourceKind == "github" then spec.rev else nil,
 		source = spec.source,
 		sourceKind = spec.sourceKind,
@@ -562,7 +551,6 @@ local function pathDepsAreStale(
 			getSourcePackage,
 			{
 				name = pkg.name,
-				requestedMemberName = pkg.requestedMemberName,
 				sourceKind = "path" :: "path",
 				source = pkg.source,
 			} :: manifest.PathDependencySpec,
@@ -611,7 +599,7 @@ local function pathDepsAreStale(
 			if recordedPkg.sourceKind ~= depSpec.sourceKind then
 				return true
 			end
-			if recordedPkg.requestedMemberName ~= getRequestedMemberName(depSpec) then
+			if recordedPkg.name ~= depSpec.name then
 				return true
 			end
 			if depSpec.sourceKind == "github" then
