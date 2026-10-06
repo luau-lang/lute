@@ -99,7 +99,7 @@ pkgs.stdenv.mkDerivation {
 		"-DLUTE_STDLESS=OFF"
 	];
 
-	doCheck = false;
+	doCheck = true;
 	checkPhase = ''
 		runHook preCheck
 
