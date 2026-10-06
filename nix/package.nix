@@ -55,7 +55,8 @@ let
 	in
 	{
 		name = dep.name;
-		src = pkgs.fetchgit {
+		# must be named value for listToAttrs name/value pairing
+		value = pkgs.fetchgit {
 			url = dep.remote;
 			rev = dep.revision;
 			hash = hash;
@@ -66,8 +67,16 @@ in
 pkgs.stdenv.mkDerivation {
 	inherit src pname version meta nativeBuildInputs;
 
+	passthru = builtins.listToAttrs(dependencies) // {
+		updateScript = pkgs.nix-update-script {
+			attrPath = "lute";
+			extraArgs = [ "--flake" "--version=skip" ]
+				++ lib.concatMap(dep: [ "--custom-dep" dep.name ])(dependencies);
+		};
+	};
+
 	postPatch = lib.concatMapStrings(dep: ''
-		cp -R ${dep.src} extern/${dep.name}
+		cp -R ${dep.value} extern/${dep.name}
 		chmod -R u+w extern/${dep.name}
 	'')(dependencies);
 

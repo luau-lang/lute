@@ -23,10 +23,13 @@
 	{
 		packages = forSystems ({ pkgs, system }: let
 			package = pkgs.callPackage ./nix/package.nix { inherit pkgs system; };
+			# the exported updateScript is an array but we wanna use it as a `nix run` script :P
+			update_args = pkgs.lib.escapeShellArgs(package.updateScript);
 		in
 		{
 			default = package;
 			lute = package;
+			update_package = pkgs.writeShellScriptBin "update_package" "exec ${update_args} \"$@\"";
 		});
 
 		devShells = forSystems ({ pkgs, system }: {
