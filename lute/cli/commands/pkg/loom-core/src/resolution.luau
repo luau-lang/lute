@@ -166,7 +166,7 @@ end
 
 type SourcePackage = {
 	directory: string,
-	package: manifest.PackageManifest,
+	package: manifest.ResolvedPackageManifest,
 	registryUrl: string?,
 	workspaceRoot: string?,
 	workspaceMemberDirectories: { [string]: boolean }?,
@@ -238,7 +238,7 @@ local function getSourcePackage(
 	assert(sourcePackage ~= nil, `Source package '{sourceDirectory}' must declare a package`)
 	return {
 		directory = sourceDirectory,
-		package = sourcePackage,
+		package = workspace.resolvePackage(sourcePackage, nil),
 		registryUrl = sourceManifest.registry,
 	}
 end

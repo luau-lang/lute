@@ -781,6 +781,54 @@ test.suite("WorkspaceResolution", function(suite)
 		)
 	end)
 
+	suite:case("resolvesInheritedWorkspaceDependenciesAndDevDependencies", function(assert)
+		local memberDirectory = path.join(workingDirectory, "member")
+		fs.createDirectory(memberDirectory)
+		fs.writeStringToFile(
+			path.join(memberDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "member",
+		version = { workspace = true },
+		dependencies = {
+			citrus = { workspace = true },
+		},
+		dev_dependencies = {
+			devonly = { workspace = true },
+		},
+	},
+}
+]]
+		)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	workspace = {
+		version = "1.2.3",
+		members = { "member" },
+		dependencies = {
+			citrus = "^1.0.0",
+			devonly = "^1.0.0",
+		},
+	},
+	registry = "https://registry.example.com",
+}
+]]
+		)
+
+		local universe = {
+			citrus = { namedVersion("citrus", "1.0.0") },
+			devonly = { namedVersion("devonly", "1.0.0") },
+		}
+		local lock = resolution.resolve(path.format(memberDirectory), universe)
+		assert.eq(lock.dependencies.member.citrus, "citrus@1.0.0")
+		assert.eq(lock.dependencies.member.devonly, "devonly@1.0.0")
+
+		local withoutDev = resolution.resolve(path.format(memberDirectory), universe, { excludeDev = true })
+		assert.eq(withoutDev.dependencies.member.citrus, "citrus@1.0.0")
+		assert.eq(withoutDev.dependencies.member.devonly, nil)
+	end)
+
 	suite:case("keepsRegistryRequirementsDistinctWhenMemberNamesAndAliasesContainColons", function(assert)
 		local modulesDirectory = path.join(workingDirectory, "modules")
 		local firstDirectory = path.join(modulesDirectory, "first")

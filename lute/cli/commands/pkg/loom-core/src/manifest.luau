@@ -26,7 +26,20 @@ export type RegistryDependencySpec = {
 
 export type DependencySpec = PathDependencySpec | GitHubDependencySpec | RegistryDependencySpec
 
+export type WorkspaceInheritance = {
+	read workspace: true,
+}
+
+export type DependencyDeclaration = DependencySpec | WorkspaceInheritance
+
 export type PackageManifest = {
+	read name: string,
+	read version: string | WorkspaceInheritance,
+	read dependencies: { [string]: DependencyDeclaration },
+	read devDependencies: { [string]: DependencyDeclaration },
+}
+
+export type ResolvedPackageManifest = {
 	read name: string,
 	read version: string,
 	read dependencies: { [string]: DependencySpec },
@@ -37,6 +50,7 @@ export type WorkspaceManifest = {
 	read version: string?,
 	read members: { string },
 	read defaultMember: string?,
+	read dependencies: { [string]: DependencySpec },
 }
 
 export type ProjectManifest = {
@@ -58,8 +72,16 @@ local function parseSourceKind(s: unknown): SourceKind?
 	return s :: SourceKind
 end
 
-local function parseDependencyMap(raw: any, sectionName: string): { [string]: DependencySpec }
-	local result: { [string]: DependencySpec } = {}
+local function isWorkspaceInheritance(value: unknown): boolean
+	return typeof(value) == "table" and (value :: any).workspace == true
+end
+
+local function parseDependencyMap(
+	raw: any,
+	sectionName: string,
+	allowWorkspaceInheritance: boolean
+): { [string]: DependencyDeclaration }
+	local result: { [string]: DependencyDeclaration } = {}
 	if raw == nil then
 		return table.freeze(result)
 	end
@@ -72,6 +94,19 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 				source = name,
 				version = spec,
 			})
+			continue
+		end
+
+		assert(
+			typeof(spec) == "table",
+			`Expected dependency spec for '{name}' in {sectionName} to be a string or table`
+		)
+		if isWorkspaceInheritance(spec) then
+			assert(
+				allowWorkspaceInheritance,
+				`Workspace dependency '{name}' in {sectionName} cannot inherit from another workspace dependency`
+			)
+			result[name] = table.freeze({ workspace = true }) :: WorkspaceInheritance
 			continue
 		end
 
@@ -123,6 +158,10 @@ local function parseDependencyMap(raw: any, sectionName: string): { [string]: De
 	return table.freeze(result)
 end
 
+local function parseConcreteDependencyMap(raw: any, sectionName: string): { [string]: DependencySpec }
+	return parseDependencyMap(raw, sectionName, false) :: { [string]: DependencySpec }
+end
+
 -- TODO: We should do proper error handling because this is user input.
 local function parseManifest(t: unknown): ProjectManifest
 	assert(t ~= nil and typeof(t) == "table", "Expected a table")
@@ -136,17 +175,20 @@ local function parseManifest(t: unknown): ProjectManifest
 		assert(pkg.name ~= nil and typeof(pkg.name) == "string", "Expected 'name' field in package manifest")
 		-- FIXME(Luau): Luau currently refines `pkg` to have `version` based on this check, but
 		-- also produces a type error for the access _in_ the condition without the cast here.
-		assert(pkg.version ~= nil and typeof(pkg.version) == "string", "Expected 'version' field in package manifest")
+		assert(
+			pkg.version ~= nil and (typeof(pkg.version) == "string" or isWorkspaceInheritance(pkg.version)),
+			"Expected 'version' field in package manifest to be a string or { workspace = true }"
+		)
 
-		local dependencies = parseDependencyMap(pkg.dependencies, "dependencies")
-		local devDependencies = parseDependencyMap(pkg.dev_dependencies, "dev_dependencies")
+		local dependencies = parseDependencyMap(pkg.dependencies, "dependencies", true)
+		local devDependencies = parseDependencyMap(pkg.dev_dependencies, "dev_dependencies", true)
 		for alias in devDependencies do
 			assert(dependencies[alias] == nil, `Alias '{alias}' appears in both dependencies and dev_dependencies`)
 		end
 
 		parsedPackage = table.freeze({
 			name = pkg.name,
-			version = pkg.version,
+			version = if typeof(pkg.version) == "string" then pkg.version else table.freeze({ workspace = true }),
 			dependencies = dependencies,
 			devDependencies = devDependencies,
 		})
@@ -173,14 +215,19 @@ local function parseManifest(t: unknown): ProjectManifest
 			workspace.default_member == nil or typeof(workspace.default_member) == "string",
 			"Expected workspace default_member to be a string"
 		)
+		assert(
+			workspace.dev_dependencies == nil,
+			"Workspace manifest does not support 'dev_dependencies'; use 'dependencies' for shared workspace dependencies"
+		)
 		parsedWorkspace = table.freeze({
 			version = workspace.version,
 			members = table.freeze(members),
 			defaultMember = workspace.default_member,
+			dependencies = parseConcreteDependencyMap(workspace.dependencies, "workspace.dependencies"),
 		})
 	end
 
-	local overrides = parseDependencyMap(raw.overrides, "overrides")
+	local overrides = parseConcreteDependencyMap(raw.overrides, "overrides")
 
 	local registry: string? = nil
 	if raw.registry ~= nil then
@@ -203,6 +250,7 @@ end
 
 return {
 	isSourceKind = isSourceKind,
+	isWorkspaceInheritance = isWorkspaceInheritance,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
 }

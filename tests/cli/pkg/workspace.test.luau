@@ -55,6 +55,104 @@ test.suite("Workspace", function(suite)
 		assert.eq(resolved.members[3].name, "root")
 	end)
 
+	suite:case("resolvesInheritedVersionsAndDependenciesForMembers", function(assert)
+		local member = path.join(workingDirectory, "member")
+		fs.createDirectory(member)
+		writeManifest(
+			member,
+			[[return {
+	package = {
+		name = "member",
+		version = { workspace = true },
+		dependencies = {
+			shared = { workspace = true },
+		},
+		dev_dependencies = {
+			devshared = { workspace = true },
+		},
+	},
+}
+]]
+		)
+		writeManifest(
+			workingDirectory,
+			[[return {
+	workspace = {
+		version = "1.2.3",
+		members = { "member" },
+		dependencies = {
+			shared = "^1.0.0",
+			devshared = { sourceKind = "path", source = "./devshared" },
+		},
+	},
+}
+]]
+		)
+
+		local resolved = workspace.resolve(path.format(workingDirectory), parseRoot())
+		local pkg = resolved.members[1].package
+		assert.eq(pkg.version, "1.2.3")
+		assert.eq(pkg.dependencies.shared.sourceKind, "registry")
+		assert.eq((pkg.dependencies.shared :: manifest.RegistryDependencySpec).version, "^1.0.0")
+		assert.eq(pkg.devDependencies.devshared.sourceKind, "path")
+		assert.eq(pkg.devDependencies.devshared.source, "./devshared")
+	end)
+
+	suite:case("rejectsInheritedVersionWithoutWorkspaceVersion", function(assert)
+		local member = path.join(workingDirectory, "member")
+		fs.createDirectory(member)
+		writeManifest(member, [[return { package = { name = "member", version = { workspace = true } } }]])
+		writeManifest(workingDirectory, [[return { workspace = { members = { "member" } } }]])
+
+		assert.throwsWith("Package 'member' inherits a workspace version, but none is declared", function()
+			workspace.resolve(path.format(workingDirectory), parseRoot())
+		end)
+	end)
+
+	suite:case("rejectsInheritedDependencyMissingFromWorkspace", function(assert)
+		local member = path.join(workingDirectory, "member")
+		fs.createDirectory(member)
+		writeManifest(
+			member,
+			[[return {
+	package = {
+		name = "member",
+		version = "0.0.0",
+		dependencies = { missing = { workspace = true } },
+	},
+}
+]]
+		)
+		writeManifest(workingDirectory, [[return { workspace = { members = { "member" } } }]])
+
+		assert.throwsWith(
+			"Package 'member' inherits dependency 'missing' in dependencies, but it is not declared in workspace.dependencies",
+			function()
+				workspace.resolve(path.format(workingDirectory), parseRoot())
+			end
+		)
+	end)
+
+	suite:case("rejectsWorkspaceDevDependencies", function(assert)
+		writeManifest(
+			workingDirectory,
+			[[return {
+	workspace = {
+		members = {},
+		dev_dependencies = { citrus = "^1.0.0" },
+	},
+}
+]]
+		)
+
+		assert.throwsWith(
+			"Workspace manifest does not support 'dev_dependencies'; use 'dependencies' for shared workspace dependencies",
+			function()
+				parseRoot()
+			end
+		)
+	end)
+
 	suite:case("rejectsDuplicateMemberPackageNames", function(assert)
 		local modules = path.join(workingDirectory, "modules")
 		local first = path.join(modules, "first")

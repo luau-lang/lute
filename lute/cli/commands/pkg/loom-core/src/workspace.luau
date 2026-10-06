@@ -7,7 +7,7 @@ export type Member = {
 	read name: string,
 	read directory: string,
 	read manifest: manifest.ProjectManifest,
-	read package: manifest.PackageManifest,
+	read package: manifest.ResolvedPackageManifest,
 }
 
 export type Workspace = {
@@ -30,14 +30,62 @@ local function formatDirectory(directory: path.Pathlike): string
 	return path.format(path.resolve(directory))
 end
 
+local function resolvePackage(
+	pkg: manifest.PackageManifest,
+	workspaceManifest: manifest.WorkspaceManifest?
+): manifest.ResolvedPackageManifest
+	local version: string
+	if typeof(pkg.version) == "string" then
+		version = pkg.version
+	else
+		assert(workspaceManifest ~= nil, `Package '{pkg.name}' uses workspace inheritance outside a workspace`)
+		assert(
+			workspaceManifest.version ~= nil,
+			`Package '{pkg.name}' inherits a workspace version, but none is declared`
+		)
+		version = workspaceManifest.version
+	end
+
+	local function resolveDependencies(
+		dependencies: { [string]: manifest.DependencyDeclaration },
+		sectionName: string
+	): { [string]: manifest.DependencySpec }
+		local resolved: { [string]: manifest.DependencySpec } = {}
+		for alias, spec in dependencies do
+			if manifest.isWorkspaceInheritance(spec) then
+				assert(workspaceManifest ~= nil, `Package '{pkg.name}' uses workspace inheritance outside a workspace`)
+				local workspace = workspaceManifest :: manifest.WorkspaceManifest
+				local inherited = workspace.dependencies[alias]
+				assert(
+					inherited ~= nil,
+					`Package '{pkg.name}' inherits dependency '{alias}' in {sectionName}, but it is not declared in workspace.dependencies`
+				)
+				resolved[alias] = inherited
+			else
+				resolved[alias] = spec :: manifest.DependencySpec
+			end
+		end
+		return table.freeze(resolved)
+	end
+
+	return table.freeze({
+		name = pkg.name,
+		version = version,
+		dependencies = resolveDependencies(pkg.dependencies, "dependencies"),
+		devDependencies = resolveDependencies(pkg.devDependencies, "dev_dependencies"),
+	})
+end
+
 local function addMember(
 	members: { Member },
 	names: { [string]: boolean },
 	directory: string,
-	projectManifest: manifest.ProjectManifest
+	projectManifest: manifest.ProjectManifest,
+	workspaceManifest: manifest.WorkspaceManifest?
 )
-	local pkg = projectManifest.package
-	assert(pkg ~= nil, `Workspace member '{directory}' must declare a package`)
+	local rawPackage = projectManifest.package
+	assert(rawPackage ~= nil, `Workspace member '{directory}' must declare a package`)
+	local pkg = resolvePackage(rawPackage, workspaceManifest)
 	assert(not names[pkg.name], `Duplicate workspace package name: '{pkg.name}'`)
 	names[pkg.name] = true
 	table.insert(
@@ -59,11 +107,12 @@ local function resolve(rootDirectory: string, rootManifest: manifest.ProjectMani
 	rootDirectory = formatDirectory(rootDirectory)
 	if rootManifest.workspace == nil then
 		assert(rootManifest.package ~= nil, "A non-workspace manifest must declare a package")
+		local rootPackage = resolvePackage(rootManifest.package, nil)
 		local rootMember: Member = table.freeze({
-			name = rootManifest.package.name,
+			name = rootPackage.name,
 			directory = rootDirectory,
 			manifest = rootManifest,
-			package = rootManifest.package,
+			package = rootPackage,
 		})
 		return table.freeze({
 			rootDirectory = rootDirectory,
@@ -102,13 +151,13 @@ local function resolve(rootDirectory: string, rootManifest: manifest.ProjectMani
 					)
 				end
 			end
-			addMember(members, names, directory, memberManifest)
+			addMember(members, names, directory, memberManifest, rootManifest.workspace)
 		end
 	end
 
 	-- A root package belongs to its workspace even when it is not listed in members.
 	if rootManifest.package ~= nil and not rootDirectoryMatched then
-		addMember(members, names, rootDirectory, rootManifest)
+		addMember(members, names, rootDirectory, rootManifest, rootManifest.workspace)
 	end
 
 	if rootManifest.workspace.defaultMember ~= nil then
@@ -196,4 +245,5 @@ return {
 	findRoot = findRoot,
 	findResolvedRoot = findResolvedRoot,
 	newWorkspaceResolver = newWorkspaceResolver,
+	resolvePackage = resolvePackage,
 }
