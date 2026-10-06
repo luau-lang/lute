@@ -649,6 +649,87 @@ test.suite("parse", function(suite)
 		assert.eq(simpleIfStat.endKeyword.text, "end")
 	end)
 
+	suite:case("parseIfLocalStatement", function(assert)
+		local block = parser.parseBlock("if local handler = dispatch[c] then handler() end")
+		assert.eq(#block.statements, 1)
+
+		local ifStat = block.statements[1] :: syntax.CstStatIf
+		assert.eq(ifStat.tag, "conditional")
+		assert.eq(ifStat.ifKeyword.text, "if")
+		assert.neq(ifStat.localKeyword, nil)
+		assert.eq((ifStat.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(ifStat.conditionLocal, nil)
+		assert.eq((ifStat.conditionLocal :: syntax.CstLocal).name.text, "handler")
+		assert.neq(ifStat.equals, nil)
+		assert.eq((ifStat.equals :: syntax.CstToken<"=">).text, "=")
+		-- `condition` holds the binding's initializer.
+		assert.eq(ifStat.condition.tag, "index")
+		assert.eq(ifStat.thenKeyword.text, "then")
+		checkIsBlock(ifStat.thenBlock, assert)
+
+		-- `if const` reports the keyword text as `const`.
+		local constBlock = parser.parseBlock("if const handler = dispatch[c] then handler() end")
+		local constIfStat = constBlock.statements[1] :: syntax.CstStatIf
+		assert.eq((constIfStat.localKeyword :: syntax.CstToken<"local" | "const">).text, "const")
+
+		-- `elseif local` populates the same fields on the elseif clause.
+		local elseifBlock = parser.parseBlock("if c then f() elseif local handler = dispatch[c] then handler() end")
+		local elseifIfStat = elseifBlock.statements[1] :: syntax.CstStatIf
+		assert.eq(#elseifIfStat.elseifs, 1)
+		local elseIf = elseifIfStat.elseifs[1]
+		assert.eq(elseIf.elseIfKeyword.text, "elseif")
+		assert.neq(elseIf.localKeyword, nil)
+		assert.eq((elseIf.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(elseIf.conditionLocal, nil)
+		assert.eq((elseIf.conditionLocal :: syntax.CstLocal).name.text, "handler")
+		assert.neq(elseIf.equals, nil)
+
+		-- A plain `if` leaves the binding fields unset.
+		local plainBlock = parser.parseBlock("if c then f() end")
+		local plainIfStat = plainBlock.statements[1] :: syntax.CstStatIf
+		assert.eq(plainIfStat.localKeyword, nil)
+		assert.eq(plainIfStat.conditionLocal, nil)
+		assert.eq(plainIfStat.equals, nil)
+	end)
+
+	suite:case("parseIfLocalExpression", function(assert)
+		local expr = parser.parseExpr("if local v = t.x then v else 0") :: syntax.CstExprIfElse
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "conditional")
+		assert.eq(expr.ifKeyword.text, "if")
+		assert.neq(expr.localKeyword, nil)
+		assert.eq((expr.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(expr.conditionLocal, nil)
+		assert.eq((expr.conditionLocal :: syntax.CstLocal).name.text, "v")
+		assert.neq(expr.equals, nil)
+		assert.eq((expr.equals :: syntax.CstToken<"=">).text, "=")
+		-- `condition` holds the binding's initializer.
+		assert.eq(expr.condition.tag, "indexname")
+		assert.eq(expr.thenKeyword.text, "then")
+
+		-- `if const` reports the keyword text as `const`.
+		local constExpr = parser.parseExpr("if const v = t.x then v else 0") :: syntax.CstExprIfElse
+		assert.eq((constExpr.localKeyword :: syntax.CstToken<"local" | "const">).text, "const")
+
+		-- `elseif local` populates the same fields on the elseif clause.
+		local elseifExpr =
+			parser.parseExpr("if c then 1 elseif local v = t.x then v else 0") :: syntax.CstExprIfElse
+		assert.eq(#elseifExpr.elseifs, 1)
+		local elseIf = elseifExpr.elseifs[1]
+		assert.eq(elseIf.elseIfKeyword.text, "elseif")
+		assert.neq(elseIf.localKeyword, nil)
+		assert.eq((elseIf.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(elseIf.conditionLocal, nil)
+		assert.eq((elseIf.conditionLocal :: syntax.CstLocal).name.text, "v")
+		assert.neq(elseIf.equals, nil)
+
+		-- A plain if-else expression leaves the binding fields unset.
+		local plainExpr = parser.parseExpr("if c then 1 else 0") :: syntax.CstExprIfElse
+		assert.eq(plainExpr.localKeyword, nil)
+		assert.eq(plainExpr.conditionLocal, nil)
+		assert.eq(plainExpr.equals, nil)
+	end)
+
 	suite:case("parseStatWhile", function(assert)
 		local block = parser.parseBlock("while i <= 10 do print(i); i = i + 1 end")
 		checkIsBlock(block, assert)
