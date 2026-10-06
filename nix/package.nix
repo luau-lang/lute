@@ -112,7 +112,7 @@ pkgs.stdenv.mkDerivation {
 			env HOME="$check_phase_homedir" ./build/tests/lute-tests
 		)
 
-		lute test
+		lute/cli/lute test
 
 		runHook postCheck
 	'';
