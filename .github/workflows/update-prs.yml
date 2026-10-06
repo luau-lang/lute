@@ -39,6 +39,10 @@ jobs:
           echo "Current Luau version: $CURRENT_BRANCH"
           echo "branch=$CURRENT_BRANCH" >> $GITHUB_OUTPUT
 
+      - name: Install Nix
+        if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag
+        uses: cachix/install-nix-action@v31
+
       - name: Update version files
         if: steps.current-version.outputs.branch != steps.latest-release.outputs.tag
         run: |
@@ -46,6 +50,11 @@ jobs:
           if [ "${{ steps.current-version.outputs.branch }}" != "${{ steps.latest-release.outputs.tag }}" ]; then
             sed -i 's/^branch = ".*"/branch = "${{ steps.latest-release.outputs.tag }}"/' extern/luau.tune
             sed -i 's/^revision = ".*"/revision = "${{ steps.latest-release.outputs.commit }}"/' extern/luau.tune
+
+            LUAU_HASH=$(nix run --inputs-from . nixpkgs#nix-prefetch-git -- \
+              --url https://github.com/luau-lang/luau.git \
+              --rev "${{ steps.latest-release.outputs.commit }}" --fetch-submodules | jq -er '.hash')
+            sed -i "s|luau = \".*\"|luau = \"$LUAU_HASH\"|" nix/package.nix
             
             echo "Updated luau.tune:"
             cat extern/luau.tune
@@ -108,6 +117,10 @@ jobs:
           echo "Current Lute version: $CURRENT_LUTE"
           echo "lute=$CURRENT_LUTE" >> $GITHUB_OUTPUT
 
+      - name: Install Nix
+        if: steps.current-version.outputs.lute != steps.latest-release.outputs.version
+        uses: cachix/install-nix-action@v31
+
       - name: Update version files
         run: |
           # Update lute version in rokit.toml and foreman.toml
@@ -119,6 +132,12 @@ jobs:
             sed -i 's/^lute = { github = "luau-lang\/lute", version = ".*" }/lute = { github = "luau-lang\/lute", version = "=${{ steps.latest-release.outputs.version }}" }/' foreman.toml
             echo "Updated foreman.toml:"
             cat foreman.toml
+
+            LUTE_HASH=$(nix store prefetch-file --json --unpack \
+              "https://github.com/luau-lang/lute/archive/${{ steps.latest-release.outputs.tag }}.tar.gz" | jq -er '.hash')
+            # rev is v${version}, so updating version updates the source revision too.
+            sed -i 's|version = ".*"|version = "${{ steps.latest-release.outputs.version }}"|' nix/package.nix
+            sed -i "/src = pkgs.fetchFromGitHub {/,/};/s|hash = \".*\"|hash = \"$LUTE_HASH\"|" nix/package.nix
           fi
 
       - name: Create Pull Request
