@@ -60,7 +60,7 @@ test.suite("PackageManifest", function(suite)
 ]])
 
 		local parsed = manifest.parseFile(path.format(manifestPath))
-		local citrus = (parsed.package :: manifest.PackageManifest).dependencies.myCitrus
+		local citrus = (parsed.package :: manifest.PackageManifest).dependencies.myCitrus :: manifest.RegistryDependencySpec
 
 		assert.eq(citrus.name, "org/citrus")
 		assert.eq(citrus.source, "org/citrus")
@@ -82,10 +82,14 @@ test.suite("PackageManifest", function(suite)
 ]])
 
 		local dependencies = (manifest.parseFile(path.format(manifestPath)).package :: manifest.PackageManifest).dependencies
-		assert.eq(dependencies.implicitPath.name, "implicitPath")
-		assert.eq(dependencies.explicitPath.name, "path-member")
-		assert.eq(dependencies.implicitGit.name, "implicitGit")
-		assert.eq(dependencies.explicitGit.name, "git-member")
+		local implicitPath = dependencies.implicitPath :: manifest.PathDependencySpec
+		local explicitPath = dependencies.explicitPath :: manifest.PathDependencySpec
+		local implicitGit = dependencies.implicitGit :: manifest.GitHubDependencySpec
+		local explicitGit = dependencies.explicitGit :: manifest.GitHubDependencySpec
+		assert.eq(implicitPath.name, "implicitPath")
+		assert.eq(explicitPath.name, "path-member")
+		assert.eq(implicitGit.name, "implicitGit")
+		assert.eq(explicitGit.name, "git-member")
 	end)
 
 	suite:case("rejectsExplicitNameForRegistryDependency", function(assert)
