@@ -42,8 +42,7 @@ function IgnoreResolver.isIgnoredDirectory(self: IgnoreResolver, directorypath: 
 		return true
 	end
 
-	local parentDirectory = if basename then path.dirname(directorypath) else nil
-	if parentDirectory then
+	if local parentDirectory = if basename then path.dirname(directorypath) else nil then
 		local ignoreData = self:_readIgnoreRecursive(parentDirectory)
 		return isIgnored(ignoreData, path.format(directorypath), true)
 	else

@@ -122,8 +122,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 			})
 		end,
 		onSourceLoad = function(source: string)
-			local dapSource = createSource(source)
-			if dapSource then
+			if local dapSource = createSource(source) then
 				ioSession.writeEvent("loadedSource", { reason = "new", source = dapSource })
 			end
 		end,
@@ -242,8 +241,7 @@ local function dapLoop(reader: dapStream.Reader, writer: dapStream.Writer)
 				launchSeq = reqSeq
 				-- configuration is already done, respond to launch
 				if configurationDone then
-					local error = target:launch(launchConfig.program, launchConfig.args, launchCallbacks)
-					if error then
+					if local error = target:launch(launchConfig.program, launchConfig.args, launchCallbacks) then
 						ioSession.writeResponse(reqSeq, false, command, error)
 					else
 						ioSession.writeResponse(reqSeq, true, command)

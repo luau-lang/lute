@@ -401,9 +401,7 @@ local function lint(
 		end
 
 		if #parts == 1 then
-			local entry = writeOnlyAPIs.entries[parts[1]]
-
-			if entry then
+			if local entry = writeOnlyAPIs.entries[parts[1]] then
 				error(
 					`API '{parts[1]}' is already defined as {if entry.tag == "branch" then "part of " else ""}a write-only API, so '{k}' cannot be added as a write-only API.`
 				)

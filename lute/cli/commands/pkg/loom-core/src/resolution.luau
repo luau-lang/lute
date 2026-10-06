@@ -564,8 +564,7 @@ local function resolveRegistryDependencies(
 		-- Add back dependencies that were stripped for source overrides.
 		if sourceOverridedDeps[key] then
 			for alias, overriddenName in sourceOverridedDeps[key] do
-				local overrideSpec = overrides[overriddenName]
-				if overrideSpec then
+				if local overrideSpec = overrides[overriddenName] then
 					transitiveDependencies[alias] = getKey(overrideSpec)
 				end
 			end
