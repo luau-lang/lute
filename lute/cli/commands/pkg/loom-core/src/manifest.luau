@@ -1,5 +1,6 @@
 local luau = require("@std/luau")
 local path = require("@std/path")
+local semver = require("./semver")
 
 export type SourceKind = "path" | "github" | "registry"
 
@@ -10,6 +11,8 @@ export type PathDependencySpec = {
 	-- normalized absolute path resolved from the declaring manifest, everything
 	-- after parsing uses this
 	read directory: string,
+	-- A publish-only registry requirement
+	read version: string?,
 }
 
 export type GitHubDependencySpec = {
@@ -18,6 +21,8 @@ export type GitHubDependencySpec = {
 	read source: string,
 	read rev: string,
 	read target: string?,
+	-- A publish-only registry requirement
+	read version: string?,
 }
 
 export type RegistryDependencySpec = {
@@ -121,6 +126,10 @@ local function parseDependencyMap(
 			spec.source ~= nil and typeof(spec.source) == "string",
 			`Expected 'source' field in dependency spec for '{name}' in {sectionName}`
 		)
+		assert(
+			spec.version == nil or typeof(spec.version) == "string",
+			`Optional 'version' field in dependency spec for '{name}' in {sectionName} expected to be a string`
+		)
 		if spec.sourceKind == "path" then
 			assert(
 				spec.target == nil,
@@ -131,6 +140,7 @@ local function parseDependencyMap(
 				sourceKind = "path" :: "path",
 				source = spec.source,
 				directory = path.format(path.resolve(manifestDirectory, spec.source)),
+				version = spec.version,
 			})
 		elseif spec.sourceKind == "github" then
 			assert(typeof(spec.rev) == "string", `Expected 'rev' field for github dependency '{name}' in {sectionName}`)
@@ -140,6 +150,7 @@ local function parseDependencyMap(
 				source = spec.source,
 				rev = spec.rev,
 				target = parseTarget(spec.target, name, sectionName),
+				version = spec.version,
 			})
 		elseif spec.sourceKind == "registry" then
 			assert(
@@ -220,8 +231,22 @@ local function parseFile(manifestPath: string): ProjectManifest
 	return parseManifest(manifestTable, path.dirname(path.format(path.resolve(manifestPath))))
 end
 
+local function validatePackageVersion(version: string): semver.Version
+	local parsed = semver.tryParse(version)
+	assert(parsed ~= nil, `Invalid package version: '{version}'`)
+	return parsed
+end
+
+local function validateDependencyVersionConstraint(version: string): semver.Constraint
+	local ok, constraint = pcall(semver.parseConstraint, version)
+	assert(ok, `Invalid dependency version constraint: '{version}'`)
+	return constraint :: semver.Constraint
+end
+
 return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
+	validatePackageVersion = validatePackageVersion,
+	validateDependencyVersionConstraint = validateDependencyVersionConstraint,
 }
