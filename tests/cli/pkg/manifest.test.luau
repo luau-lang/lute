@@ -66,6 +66,73 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(citrus.source, "org/citrus")
 	end)
 
+	suite:case("usesExplicitPathAndGitNamesOrTheirAliases", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			implicitPath = { sourceKind = "path", source = "./path" },
+			explicitPath = { name = "path-member", sourceKind = "path", source = "./path" },
+			implicitGit = { sourceKind = "github", source = "owner/repo", rev = "revision" },
+			explicitGit = { name = "git-member", sourceKind = "github", source = "owner/repo", rev = "revision" },
+		},
+	},
+}
+]])
+
+		local dependencies = (manifest.parseFile(path.format(manifestPath)).package :: manifest.PackageManifest).dependencies
+		assert.eq(dependencies.implicitPath.name, "implicitPath")
+		assert.eq(dependencies.explicitPath.name, "path-member")
+		assert.eq(dependencies.implicitGit.name, "implicitGit")
+		assert.eq(dependencies.explicitGit.name, "git-member")
+	end)
+
+	suite:case("preservesOptionalPublishVersionsForSourceDependencies", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			pathDependency = { sourceKind = "path", source = "./path", version = "^1.2.3" },
+			gitDependency = { sourceKind = "github", source = "owner/repo", rev = "revision", version = ">=2.0.0 <3.0.0" },
+		},
+	},
+}
+]])
+
+		local dependencies = (manifest.parseFile(path.format(manifestPath)).package :: manifest.PackageManifest).dependencies
+		assert.eq((dependencies.pathDependency :: manifest.PathDependencySpec).version, "^1.2.3")
+		assert.eq((dependencies.gitDependency :: manifest.GitHubDependencySpec).version, ">=2.0.0 <3.0.0")
+	end)
+
+	suite:case("evaluatesRequiredManifestValues", function(assert)
+		fs.writeStringToFile(path.join(workingDirectory, "shared.luau"), [[return {
+	version = "1.2.3",
+	dependencies = { utility = "^2.0.0" },
+}
+]])
+		writeManifest([[local shared = require("./shared")
+
+return { package = { name = "root", version = shared.version, dependencies = shared.dependencies } }
+]])
+
+		local package = manifest.parseFile(path.format(manifestPath)).package :: manifest.PackageManifest
+		assert.eq(package.version, "1.2.3")
+		assert.eq((package.dependencies.utility :: manifest.RegistryDependencySpec).version, "^2.0.0")
+	end)
+
+	suite:case("rejectsNonStringPublishVersionForSourceDependencies", function(assert)
+		writeManifest([[return { package = { name = "root", version = "0.0.0", dependencies = {
+	pathDependency = { sourceKind = "path", source = "./path", version = 1 },
+} } }]])
+
+		assert.throwsWith(
+			"Optional 'version' field in dependency spec for 'pathDependency' in dependencies expected to be a string",
+			function() manifest.parseFile(path.format(manifestPath)) end
+		)
+	end)
+
 	suite:case("rejectsExplicitNameForRegistryDependency", function(assert)
 		writeManifest([[return {
 	package = {
@@ -187,5 +254,17 @@ test.suite("PackageManifest", function(suite)
 				manifest.parseFile(path.format(manifestPath))
 			end
 		)
+	end)
+
+	suite:case("validatesPackageVersionsAndDependencyConstraints", function(assert)
+		assert.neq(manifest.validatePackageVersion("1.2.3-beta.1"), nil)
+		assert.neq(manifest.validateDependencyVersionConstraint("^1.2.3"), nil)
+
+		assert.throwsWith("Invalid package version: '^1.2.3'", function()
+			manifest.validatePackageVersion("^1.2.3")
+		end)
+		assert.throwsWith("Invalid dependency version constraint: 'not-a-version'", function()
+			manifest.validateDependencyVersionConstraint("not-a-version")
+		end)
 	end)
 end)
