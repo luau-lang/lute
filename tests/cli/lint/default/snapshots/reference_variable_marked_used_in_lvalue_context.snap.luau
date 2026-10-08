@@ -1,5 +1,5 @@
 local function fresh()
-    return { a = 1 }
+	return { a = 1 }
 end
 
 -- This should be considered 'used'

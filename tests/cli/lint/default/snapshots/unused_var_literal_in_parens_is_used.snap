@@ -1,8 +1,8 @@
 warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.
 
-   ┌── <ROOT>/tests/cli/lint/default/snapshots/unused_var_literal_in_parens_is_used.snap.luau:2:7-8 ──
+   ┌── <ROOT>/tests/cli/lint/default/snapshots/unused_var_literal_in_parens_is_used.snap.luau:3:7-8 ──
    │
- 2 │ local x = ({ a = 1 })
+ 3 │ local x = ({ a = 1 })
    │       ^
    │
 

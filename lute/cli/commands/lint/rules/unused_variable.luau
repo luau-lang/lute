@@ -59,7 +59,7 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		ignoreReferences: { [syntax.CstLocal]: true },
 		requiredModules: { [string]: syntax.CstLocal },
 		expressionIsLiteral: { [syntax.CstExpr]: boolean },
-		wasLiteralLocal : { [syntax.CstLocal]: boolean },
+		wasLiteralLocal: { [syntax.CstLocal]: boolean },
 		insideMethodContext: boolean,
 		inLValueContext: boolean,
 	} =
@@ -285,7 +285,11 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 
 		-- We only ignore writes to locals in the same scope
 		-- We don't want to warn writes to upvalues as unused
-		if visitor.inLValueContext and visitor.scopes[#visitor.scopes][cstlocal] ~= nil and visitor.wasLiteralLocal[cstlocal] then
+		if
+			visitor.inLValueContext
+			and visitor.scopes[#visitor.scopes][cstlocal] ~= nil
+			and visitor.wasLiteralLocal[cstlocal]
+		then
 			return false
 		end
 

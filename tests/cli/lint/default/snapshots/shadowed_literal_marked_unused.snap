@@ -2,7 +2,7 @@ warning[unused_variable]: This variable is unused. Prefix its name with '_' to i
 
    ┌── <ROOT>/tests/cli/lint/default/snapshots/shadowed_literal_marked_unused.snap.luau:2:7-8 ──
    │
- 2 │ local x = ({ a = 1 })
+ 2 │ local x = { a = 1 }
    │       ^
    │
 
@@ -10,9 +10,19 @@ For additional info: https://lute.luau.org/cli/lint/unused_variable.html
 
 warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.
 
-   ┌── <ROOT>/tests/cli/lint/default/snapshots/shadowed_literal_marked_unused.snap.luau:6:7-8 ──
+   ┌── <ROOT>/tests/cli/lint/default/snapshots/shadowed_literal_marked_unused.snap.luau:5:7-8 ──
    │
- 6 │ local x = { a = 1 }
+ 5 │ local x = { a = 1 }
+   │       ^
+   │
+
+For additional info: https://lute.luau.org/cli/lint/unused_variable.html
+
+warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.
+
+   ┌── <ROOT>/tests/cli/lint/default/snapshots/shadowed_literal_marked_unused.snap.luau:7:7-8 ──
+   │
+ 7 │ local y = { a = 1 }
    │       ^
    │
 
@@ -25,16 +35,6 @@ warning[unused_variable]: This variable is unused. Prefix its name with '_' to i
  9 │ local y = { a = 1 }
    │       ^
    │
-
-For additional info: https://lute.luau.org/cli/lint/unused_variable.html
-
-warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.
-
-    ┌── <ROOT>/tests/cli/lint/default/snapshots/shadowed_literal_marked_unused.snap.luau:11:7-8 ──
-    │
- 11 │ local y = { a = 1 }
-    │       ^
-    │
 
 For additional info: https://lute.luau.org/cli/lint/unused_variable.html
 
