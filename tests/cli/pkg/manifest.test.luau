@@ -66,6 +66,28 @@ test.suite("PackageManifest", function(suite)
 		assert.eq(citrus.source, "org/citrus")
 	end)
 
+	suite:case("usesExplicitPathAndGitNamesOrTheirAliases", function(assert)
+		writeManifest([[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			implicitPath = { sourceKind = "path", source = "./path" },
+			explicitPath = { name = "path-member", sourceKind = "path", source = "./path" },
+			implicitGit = { sourceKind = "github", source = "owner/repo", rev = "revision" },
+			explicitGit = { name = "git-member", sourceKind = "github", source = "owner/repo", rev = "revision" },
+		},
+	},
+}
+]])
+
+		local dependencies = (manifest.parseFile(path.format(manifestPath)).package :: manifest.PackageManifest).dependencies
+		assert.eq(dependencies.implicitPath.name, "implicitPath")
+		assert.eq(dependencies.explicitPath.name, "path-member")
+		assert.eq(dependencies.implicitGit.name, "implicitGit")
+		assert.eq(dependencies.explicitGit.name, "git-member")
+	end)
+
 	suite:case("rejectsExplicitNameForRegistryDependency", function(assert)
 		writeManifest([[return {
 	package = {
