@@ -34,6 +34,12 @@ NavigationStatus RequireVfs::reset(lua_State* L, std::string_view requirerChunkn
         return stdLibVfs.resetToPath(std::string(requirerChunkname.substr(1)));
     }
 
+    if ((requirerChunkname.size() >= 12 && requirerChunkname.substr(0, 12) == "@@batteries/"))
+    {
+        vfsType = VFSType::Batteries;
+        return batteriesVfs.resetToPath(std::string(requirerChunkname.substr(1)));
+    }
+
     vfsType = VFSType::Userland;
     if (requirerChunkname.empty() || requirerChunkname[0] != '@')
         return NavigationStatus::NotFound;
@@ -61,6 +67,9 @@ NavigationStatus RequireVfs::jumpToAlias(lua_State* L, std::string_view path)
     case VFSType::Lute:
         status = luteVfs.resetToPath(std::string(path));
         break;
+    case VFSType::Batteries:
+        status = batteriesVfs.resetToPath(std::string(path));
+        break;
     }
     return status;
 }
@@ -76,6 +85,11 @@ NavigationStatus RequireVfs::toAliasOverride(lua_State* L, std::string_view alia
     {
         vfsType = VFSType::Lute;
         return luteVfs.resetToPath("@lute");
+    }
+    else if (aliasUnprefixed == "batteries" && (vfsType == VFSType::Std || vfsType == VFSType::Batteries))
+    {
+        vfsType = VFSType::Batteries;
+        return batteriesVfs.resetToPath("@batteries");
     }
 
     return NavigationStatus::NotFound;
@@ -103,6 +117,9 @@ NavigationStatus RequireVfs::toParent(lua_State* L)
     case VFSType::Lute:
         status = luteVfs.toParent();
         break;
+    case VFSType::Batteries:
+        status = batteriesVfs.toParent();
+        break;
     }
 
     return status;
@@ -118,6 +135,8 @@ NavigationStatus RequireVfs::toChild(lua_State* L, std::string_view name)
         return stdLibVfs.toChild(std::string(name));
     case VFSType::Lute:
         return luteVfs.toChild(std::string(name));
+    case VFSType::Batteries:
+        return batteriesVfs.toChild(std::string(name));
     }
 
     return NavigationStatus::NotFound;
@@ -133,6 +152,8 @@ bool RequireVfs::isModulePresent(lua_State* L) const
         return stdLibVfs.isModulePresent();
     case VFSType::Lute:
         return luteVfs.isModulePresent();
+    case VFSType::Batteries:
+        return batteriesVfs.isModulePresent();
     }
 
     return false;
@@ -152,6 +173,9 @@ std::string RequireVfs::getContents(lua_State* L, const std::string& loadname) c
     case VFSType::Lute:
         contents = luteVfs.getContents(loadname);
         break;
+    case VFSType::Batteries:
+        contents = batteriesVfs.getContents(loadname);
+        break;
     }
     return contents ? *contents : "";
 }
@@ -169,6 +193,9 @@ std::string RequireVfs::getChunkname(lua_State* L) const
         break;
     case VFSType::Lute:
         chunkname = "@" + luteVfs.getIdentifier();
+        break;
+    case VFSType::Batteries:
+        chunkname = "@" + batteriesVfs.getIdentifier();
         break;
     }
     return chunkname;
@@ -188,6 +215,9 @@ std::string RequireVfs::getLoadname(lua_State* L) const
     case VFSType::Lute:
         loadname = luteVfs.getIdentifier();
         break;
+    case VFSType::Batteries:
+        loadname = batteriesVfs.getIdentifier();
+        break;
     }
     return loadname;
 }
@@ -205,6 +235,9 @@ std::string RequireVfs::getCacheKey(lua_State* L) const
         break;
     case VFSType::Lute:
         cacheKey = luteVfs.getIdentifier();
+        break;
+    case VFSType::Batteries:
+        cacheKey = batteriesVfs.getIdentifier();
         break;
     }
     return cacheKey;
@@ -224,6 +257,9 @@ ConfigStatus RequireVfs::getConfigStatus(lua_State* L) const
     case VFSType::Lute:
         status = luteVfs.getConfigStatus();
         break;
+    case VFSType::Batteries:
+        status = batteriesVfs.getConfigStatus();
+        break;
     }
     return status;
 }
@@ -241,6 +277,9 @@ std::string RequireVfs::getConfig(lua_State* L) const
         break;
     case VFSType::Lute:
         configContents = luteVfs.getConfig();
+        break;
+    case VFSType::Batteries:
+        configContents = batteriesVfs.getConfig();
         break;
     }
     return configContents ? *configContents : "";
