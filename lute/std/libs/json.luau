@@ -244,13 +244,63 @@ end
 
 -- deserialization
 
+--- Options for `deserialize`:
+--- - `comments`: If `true`, allows `//` line comments and `/* */` block comments. Defaults to `false`.
+--- - `trailingCommas`: If `true`, allows a trailing comma after the last element of an array or object. Defaults to `false`.
+export type DeserializeOptions = {
+	comments: boolean?,
+	trailingCommas: boolean?,
+}
+
 type DeserializerState = {
 	src: string,
 	cursor: number,
+	comments: boolean,
+	trailingCommas: boolean,
 }
 
 local function deserializerError(state: DeserializerState, msg: string): never
 	return error(`JSON error - {msg} around {state.cursor}`)
+end
+
+-- Consumes a run of comments along with the whitespace around them, starting at a '/'.
+-- Only reachable when comments are enabled.
+local function skipComments(state: DeserializerState): boolean
+	local src = state.src
+	local cursor = state.cursor
+
+	while string.byte(src, cursor) == 0x2F do -- '/'
+		local following = string.byte(src, cursor + 1)
+
+		if following == 0x2F then -- '//'
+			local lineEnd = string.find(src, "\n", cursor + 2, true)
+			if not lineEnd then
+				state.cursor = #src + 1
+				return false
+			end
+			cursor = lineEnd + 1
+		elseif following == 0x2A then -- '/*'
+			local _, blockEnd = string.find(src, "*/", cursor + 2, true)
+			if not blockEnd then
+				state.cursor = cursor
+				return deserializerError(state, "Unterminated block comment")
+			end
+			cursor = blockEnd + 1
+		else
+			-- A lone '/' never starts a comment, so leave it for the caller to reject.
+			break
+		end
+
+		local nextCursor = string.find(src, "[^ \n\r\t]", cursor)
+		if not nextCursor then
+			state.cursor = #src + 1
+			return false
+		end
+		cursor = nextCursor
+	end
+
+	state.cursor = cursor
+	return true
 end
 
 local function skipWhitespace(state: DeserializerState): boolean
@@ -259,12 +309,18 @@ local function skipWhitespace(state: DeserializerState): boolean
 		return false
 	end
 	if b ~= 0x20 and b ~= 0x09 and b ~= 0x0A and b ~= 0x0D then
+		if b == 0x2F and state.comments then -- '/'
+			return skipComments(state)
+		end
 		return true
 	end
 
 	state.cursor = string.find(state.src, "[^ \n\r\t]", state.cursor) :: number
 	if not state.cursor then
 		return false
+	end
+	if state.comments and string.byte(state.src, state.cursor) == 0x2F then -- '/'
+		return skipComments(state)
 	end
 	return true
 end
@@ -493,8 +549,8 @@ local function deserializeArray(state: DeserializerState): Array
 		else
 			-- Expect a value next
 			if currentByte(state) == string.byte("]") then
-				if index == 1 then
-					-- empty array is ok
+				-- an empty array is always ok, a trailing comma only when enabled
+				if index == 1 or state.trailingCommas then
 					state.cursor += 1
 					return current
 				else
@@ -558,7 +614,7 @@ local function deserializeObject(state: DeserializerState): Object
 		end
 	end
 
-	if expectingValue then
+	if expectingValue and not state.trailingCommas then
 		return deserializerError(state, "Trailing comma")
 	end
 
@@ -629,11 +685,13 @@ function json.serialize(value: Value, prettyPrint: boolean?): string
 	return buffer.readstring(state.buf, 0, state.cursor)
 end
 
---- Parses a JSON string and returns the corresponding Luau value. Returns `json.null` for a JSON `null` literal; compare with `json.null` rather than `nil` to check for null.
-function json.deserialize(src: string): (Array | Object | boolean | number | string)?
-	local state = {
+--- Parses a JSON string and returns the corresponding Luau value. Returns `json.null` for a JSON `null` literal; compare with `json.null` rather than `nil` to check for null. Pass `options` to also accept comments and trailing commas, as found in files like `.luaurc`.
+function json.deserialize(src: string, options: DeserializeOptions?): (Array | Object | boolean | number | string)?
+	local state: DeserializerState = {
 		src = src,
 		cursor = 1,
+		comments = (options and options.comments) or false,
+		trailingCommas = (options and options.trailingCommas) or false,
 	}
 
 	local result = deserialize(state)
