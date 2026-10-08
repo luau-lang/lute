@@ -1,8 +1,10 @@
 return {
-	version = 3,
+	version = 4,
 	dependencies = {
-		app = "app",
-		myCitrus = "citrus--registry-root@1.0.0",
+		packageentry = {
+			app = "app",
+			myCitrus = "citrus--registry-root@1.0.0",
+		},
 	},
 	packages = {
 		["app"] = {
