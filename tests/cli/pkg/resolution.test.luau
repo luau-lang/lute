@@ -516,6 +516,28 @@ test.suite("RegistryResolution", function(suite)
 		assert.eq(lock.packages["citrus@1.2.0"].name, "citrus")
 	end)
 
+	suite:case("registryDependencyRejectsExplicitName", function(assert)
+		writeConfig(
+			workingDirectory,
+			"root",
+			[[
+
+			myCitrus = {
+				sourceKind = "registry",
+				name = "citrus",
+				source = "citrus",
+				version = "^1.0.0",
+			},]]
+		)
+
+		assert.throwsWith(
+			"Registry dependency 'myCitrus' in dependencies does not support a 'name' field; use 'source' for the registry package name",
+			function()
+				resolution.resolve(path.format(workingDirectory), nil)
+			end
+		)
+	end)
+
 	suite:case("conflictMessageAttributesConstraintsToAliases", function(assert)
 		writeConfig(
 			workingDirectory,
@@ -2244,6 +2266,37 @@ test.suite("Overrides", function(suite)
 
 		local lock = resolution.resolve(path.format(workingDirectory), nil)
 		assert.eq(lock.overrides, nil)
+	end)
+
+	suite:case("shorthandStringSyntaxParsesAsRegistryDep", function(assert)
+		fs.writeStringToFile(
+			path.join(workingDirectory, "loom.config.luau"),
+			[[return {
+	package = {
+		name = "root",
+		version = "0.0.0",
+		dependencies = {
+			jest = "^1.0.0",
+			cryo = "^2.0.0",
+		},
+	},
+	registry = "https://registry.example.com",
+}]]
+		)
+
+		local universe: solver.Universe = {
+			jest = { namedVersion("jest", "1.2.0") },
+			cryo = { namedVersion("cryo", "2.1.0") },
+		}
+
+		local lock = resolution.resolve(path.format(workingDirectory), universe)
+
+		assert.eq(lock.dependencies.jest, "jest@1.2.0")
+		assert.eq(lock.dependencies.cryo, "cryo@2.1.0")
+		assert.eq(lock.packages["jest@1.2.0"].sourceKind, "registry")
+		assert.eq(lock.packages["jest@1.2.0"].source, "jest")
+		assert.eq(lock.packages["cryo@2.1.0"].sourceKind, "registry")
+		assert.eq(lock.packages["cryo@2.1.0"].source, "cryo")
 	end)
 
 	suite:case("registryUrlStoredInLockfile", function(assert)
