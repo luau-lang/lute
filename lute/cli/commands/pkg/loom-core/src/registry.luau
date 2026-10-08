@@ -228,7 +228,7 @@ local function installPackage(registryUrl: string, packageSource: string, versio
 		fs.createDirectory(path.dirname(installPath), { makeParents = true })
 		fs.move(tempDir, installPath)
 	end)
-	
+
 	if not ok then
 		if fs.exists(tempDir) then
 			fs.removeDirectory(tempDir, { recursive = true })
