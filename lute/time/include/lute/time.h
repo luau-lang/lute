@@ -16,6 +16,7 @@ LUTE_API int luteopen_time(lua_State* L);
 
 static const char kInstantType[] = "instant";
 static const char kDurationType[] = "duration";
+static const char kSystemInstanceType[] = "systemInstance";
 static const char kDurationLibraryIdentifier[] = "duration";
 
 // exposed utils
