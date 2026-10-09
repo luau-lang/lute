@@ -78,9 +78,6 @@ local function quote(value: string): string
 end
 
 local function formatKey(key: string): string
-	if key:match("^[%a_][%w_]*$") then
-		return key
-	end
 	return `[{quote(key)}]`
 end
 
@@ -186,7 +183,9 @@ local function flattenPackage(package: manifest.PackageManifest): string
 	table.insert(lines, "\t},")
 	table.insert(lines, "}")
 
-	return table.concat(lines, "\n") .. "\n"
+	local generatedManifest = table.concat(lines, "\n") .. "\n"
+	manifest.parseString(generatedManifest, "generated loom.config.luau")
+	return generatedManifest
 end
 
 return {
