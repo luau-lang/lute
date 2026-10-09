@@ -11,7 +11,45 @@ local store = require("@commands/pkg/loom-core/src/store")
 local lutePath = path.format(process.execPath())
 local testFilePath = debug.info(1, "s"):gsub("^@", "")
 local fetchRegistryFixture = path.join(path.dirname(testFilePath), "fixtures", "fetch_registry.luau")
+local publishRegistryFixture = path.join(path.dirname(testFilePath), "fixtures", "publish_registry.luau")
 local credentialWorkingDirectory = path.join(system.tmpdir(), "lute-pkg-registry-credentials")
+local publishWorkingDirectory = path.join(system.tmpdir(), "lute-pkg-registry-publish")
+
+local function preparePublishCredentialProvider(domain: string, token: string)
+	if fs.exists(publishWorkingDirectory) then
+		fs.removeDirectory(publishWorkingDirectory, { recursive = true })
+	end
+	fs.createDirectory(publishWorkingDirectory)
+	fs.writeStringToFile(
+		path.join(publishWorkingDirectory, ".config.luau"),
+		[[return {
+		lute = {
+			credentials = {
+				providers = { "./credentials.luau" },
+			},
+		},
+	}
+]]
+	)
+	fs.writeStringToFile(
+		path.join(publishWorkingDirectory, "credentials.luau"),
+		'return {\n\thost = "' .. domain .. '",\n\tresolve = function()\n\t\treturn "' .. token .. '"\n\tend,\n}\n'
+	)
+end
+
+local function runPublish(
+	registryUrl: string,
+	artifactoryToken: string?
+): { exitcode: number, stdout: string, stderr: string }
+	return process.run({ lutePath, path.format(publishRegistryFixture), registryUrl }, {
+		cwd = path.format(publishWorkingDirectory),
+		env = setmetatable({
+			HOME = path.format(publishWorkingDirectory),
+			LOOM_ARTIFACTORY_TOKEN = artifactoryToken or "",
+			USERPROFILE = path.format(publishWorkingDirectory),
+		}, { __index = process.env }),
+	})
+end
 
 test.suite("RegistryClient", function(suite)
 	suite:case("usesUniqueStagingDirectoriesForIdenticalConcurrentInstalls", function(assert)
@@ -41,6 +79,115 @@ test.suite("RegistryClient", function(suite)
 		assert.strContains(tostring(err), "Run `lute pkg auth --domain")
 
 		instance.close()
+	end)
+
+	suite:case("publishRequiresARegistry", function(assert)
+		assert.throwsWith(
+			"No registry configured for publishing. Add a 'registry' field to loom.config.luau.",
+			function()
+				registry.publishPackage(nil, buffer.create(0))
+			end
+		)
+	end)
+
+	suite:case("publishRequiresAnArtifactoryToken", function(assert)
+		if fs.exists(publishWorkingDirectory) then
+			fs.removeDirectory(publishWorkingDirectory, { recursive = true })
+		end
+		fs.createDirectory(publishWorkingDirectory)
+
+		local result = runPublish("https://registry.example.com", nil)
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stderr, "No Artifactory token configured for registry registry.example.com")
+		assert.strContains(result.stderr, "lute pkg auth --domain registry.example.com")
+	end)
+
+	suite:case("publishSendsRawZipWithTheResolvedArtifactoryToken", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				assert.eq(req.method, "POST")
+				assert.eq(req.path, "/api/v1/publish")
+				assert.eq(req.headers["artifactory-token"], "publish-test-token")
+				assert.eq(req.headers["content-type"], "application/zip")
+				assert.eq(req.body, "package archive\0body")
+				return { status = 200, body = "{}" }
+			end,
+		})
+		local registryUrlValue = `http://{instance.hostname}:{instance.port}`
+		preparePublishCredentialProvider(`{instance.hostname}:{instance.port}`, "publish-test-token")
+
+		local result = runPublish(registryUrlValue, nil)
+		assert.eq(result.exitcode, 0)
+
+		instance.close()
+		fs.removeDirectory(publishWorkingDirectory, { recursive = true })
+	end)
+
+	suite:case("publishUsesTheArtifactoryEnvironmentToken", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				assert.eq(req.headers["artifactory-token"], "environment-artifactory-token")
+				return { status = 200, body = "{}" }
+			end,
+		})
+		local registryUrlValue = `http://{instance.hostname}:{instance.port}`
+		if fs.exists(publishWorkingDirectory) then
+			fs.removeDirectory(publishWorkingDirectory, { recursive = true })
+		end
+		fs.createDirectory(publishWorkingDirectory)
+
+		local result = runPublish(registryUrlValue, "environment-artifactory-token")
+		assert.eq(result.exitcode, 0)
+
+		instance.close()
+		fs.removeDirectory(publishWorkingDirectory, { recursive = true })
+	end)
+
+	suite:case("publishReportsAuthenticationAndDuplicateVersionFailures", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(req: server.ReceivedRequest): server.ServerResponse
+				if req.headers["artifactory-token"] == "unauthorized-token" then
+					return { status = 401, body = "unauthorized" }
+				end
+				return { status = 409, body = "already exists" }
+			end,
+		})
+		local registryUrlValue = `http://{instance.hostname}:{instance.port}`
+		preparePublishCredentialProvider(`{instance.hostname}:{instance.port}`, "unauthorized-token")
+
+		local unauthorized = runPublish(registryUrlValue, nil)
+		assert.eq(unauthorized.exitcode, 1)
+		assert.strContains(unauthorized.stderr, "Registry publish authentication failed")
+
+		preparePublishCredentialProvider(`{instance.hostname}:{instance.port}`, "duplicate-token")
+		local duplicate = runPublish(registryUrlValue, nil)
+		assert.eq(duplicate.exitcode, 1)
+		assert.strContains(duplicate.stderr, "Package version already exists at registry")
+
+		instance.close()
+		fs.removeDirectory(publishWorkingDirectory, { recursive = true })
+	end)
+
+	suite:case("publishReportsUnexpectedResponses", function(assert)
+		local instance = server.serve({
+			port = 0,
+			handler = function(): server.ServerResponse
+				return { status = 500, body = "backend failure" }
+			end,
+		})
+		local registryUrlValue = `http://{instance.hostname}:{instance.port}`
+		preparePublishCredentialProvider(`{instance.hostname}:{instance.port}`, "publish-test-token")
+
+		local result = runPublish(registryUrlValue, nil)
+		assert.eq(result.exitcode, 1)
+		assert.strContains(result.stderr, "Registry publish failed")
+		assert.strContains(result.stderr, "backend failure")
+
+		instance.close()
+		fs.removeDirectory(publishWorkingDirectory, { recursive = true })
 	end)
 
 	suite:case("passesHttpRegistryProtocolToCredentialProvider", function(assert)
