@@ -230,8 +230,14 @@ local function parseFile(manifestPath: string): ProjectManifest
 	return parseManifest(manifestTable, path.dirname(path.format(path.resolve(manifestPath))))
 end
 
+local function parseString(contents: string, chunkname: string?): ProjectManifest
+	local manifestTable = luau.load(luau.compile(contents), chunkname)()
+	return parseManifest(manifestTable, ".")
+end
+
 return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
+	parseString = parseString,
 }
