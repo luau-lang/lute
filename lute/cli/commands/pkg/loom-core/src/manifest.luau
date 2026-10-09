@@ -144,7 +144,10 @@ local function parseManifest(t: unknown): ProjectManifest
 	if raw.package ~= nil then
 		assert(typeof(raw.package) == "table", "Expected 'package' field in manifest to be a table")
 		local pkg = raw.package
-		assert(pkg.name ~= nil and typeof(pkg.name) == "string", "Expected 'name' field in package manifest")
+		assert(
+			pkg.name ~= nil and typeof(pkg.name) == "string" and #pkg.name > 0,
+			"Expected 'name' field in package manifest to be a non-empty string"
+		)
 		-- FIXME(Luau): Luau currently refines `pkg` to have `version` based on this check, but
 		-- also produces a type error for the access _in_ the condition without the cast here.
 		assert(pkg.version ~= nil and typeof(pkg.version) == "string", "Expected 'version' field in package manifest")
@@ -212,6 +215,11 @@ local function parseFile(manifestPath: string): ProjectManifest
 	return parseManifest(manifestTable)
 end
 
+local function parseString(contents: string, chunkname: string?): ProjectManifest
+	local manifestTable = luau.load(luau.compile(contents), chunkname)()
+	return parseManifest(manifestTable)
+end
+
 local function validatePackageVersion(version: string): semver.Version
 	local parsed = semver.tryParse(version)
 	assert(parsed ~= nil, `Invalid package version: '{version}'`)
@@ -228,6 +236,7 @@ return {
 	isSourceKind = isSourceKind,
 	parseSourceKind = parseSourceKind,
 	parseFile = parseFile,
+	parseString = parseString,
 	validatePackageVersion = validatePackageVersion,
 	validateDependencyVersionConstraint = validateDependencyVersionConstraint,
 }

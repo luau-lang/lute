@@ -133,6 +133,30 @@ return {
 		assert.that(pathAliasIndex < registryAliasIndex)
 	end)
 
+	suite:case("quotesKeywordDependencyAliases", function(assert)
+		writeManifest(
+			workingDirectory,
+			[[return {
+	package = {
+		name = "publisher",
+		version = "1.2.3",
+		dependencies = {
+			["end"] = "^1.0.0",
+		},
+	},
+}
+]]
+		)
+
+		local sourceManifest = manifest.parseFile(path.format(path.join(workingDirectory, "loom.config.luau")))
+		local flattened = publishManifest.flattenPackage(sourceManifest.package :: manifest.PackageManifest)
+		assert.strContains(flattened, '["end"] = {')
+
+		local generated = parseGeneratedManifest(flattened)
+		local package = generated.package :: manifest.PackageManifest
+		assert.eq(package.dependencies["end"].source, "end")
+	end)
+
 	suite:case("rejectsProductionSourceDependencyWithoutAPublishVersion", function(assert)
 		writeManifest(
 			workingDirectory,
