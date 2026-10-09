@@ -5,9 +5,9 @@ local utils = require("@std/syntax/utils")
 local tableext = require("@std/tableext")
 local visitorLib = require("@std/syntax/visitor")
 
-local name = "unused_variable"
-local message = "This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused."
-local target = "https://lute.luau.org/cli/lint/unused_variable.html"
+const name = "unused_variable"
+const message = "This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused."
+const target = "https://lute.luau.org/cli/lint/unused_variable.html"
 
 type leaf = { tag: "leaf", vals: { [number]: true } }
 
@@ -58,6 +58,8 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		scopes: { { [syntax.CstLocal]: boolean } },
 		ignoreReferences: { [syntax.CstLocal]: true },
 		requiredModules: { [string]: syntax.CstLocal },
+		expressionIsLiteral: { [syntax.CstExpr]: boolean },
+		wasLiteralLocal: { [syntax.CstLocal]: boolean },
 		insideMethodContext: boolean,
 		inLValueContext: boolean,
 	} =
@@ -66,6 +68,8 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 	visitor.scopes = {}
 	visitor.ignoreReferences = {}
 	visitor.requiredModules = {}
+	visitor.expressionIsLiteral = {}
+	visitor.wasLiteralLocal = {}
 	-- Used to avoid lookups to `self`
 	visitor.insideMethodContext = false
 	visitor.inLValueContext = false
@@ -76,7 +80,6 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 		if not scope then
 			error("Expected a scope to pop")
 		end
-
 		for l, visited in scope do
 			if not visited and l.name.text:sub(1, 1) ~= "_" then
 				table.insert(visitor.unusedLocals, l)
@@ -117,6 +120,9 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 						visitorLib.visitType(localVar.annotation, visitor)
 					end
 					visitorLib.visitExpression(stat.values[i], visitor)
+					if visitor.expressionIsLiteral[stat.values[i]] then
+						visitor.wasLiteralLocal[localVar] = true
+					end
 					visitor.ignoreReferences[localVar] = nil
 				end
 			end
@@ -279,7 +285,11 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 
 		-- We only ignore writes to locals in the same scope
 		-- We don't want to warn writes to upvalues as unused
-		if visitor.inLValueContext and visitor.scopes[#visitor.scopes][cstlocal] ~= nil then
+		if
+			visitor.inLValueContext
+			and visitor.scopes[#visitor.scopes][cstlocal] ~= nil
+			and visitor.wasLiteralLocal[cstlocal]
+		then
 			return false
 		end
 
@@ -306,6 +316,44 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 	end
 
 	visitor.visitExprFunctionEnd = popAndSaveUnusedLocals
+
+	function visitor.visitExprConstantNil(node: syntax.CstExprConstantNil)
+		visitor.expressionIsLiteral[node] = true
+		return true
+	end
+
+	function visitor.visitExprConstantBool(node: syntax.CstExprConstantBool)
+		visitor.expressionIsLiteral[node] = true
+		return true
+	end
+
+	function visitor.visitExprConstantString(node: syntax.CstExprConstantString)
+		visitor.expressionIsLiteral[node] = true
+		return true
+	end
+
+	function visitor.visitExprConstantNumber(node: syntax.CstExprConstantNumber)
+		visitor.expressionIsLiteral[node] = true
+		return true
+	end
+
+	function visitor.visitExprConstantInteger(node: syntax.CstExprConstantInteger)
+		visitor.expressionIsLiteral[node] = true
+		return true
+	end
+
+	function visitor.visitExprTable(node: syntax.CstExprTable)
+		visitor.expressionIsLiteral[node] = true
+		return true
+	end
+
+	function visitor.visitExprGroup(node: syntax.CstExprGroup)
+		visitorLib.visitExpression(node.expression, visitor)
+		if visitor.expressionIsLiteral[node.expression] then
+			visitor.expressionIsLiteral[node] = true
+		end
+		return true
+	end
 
 	function visitor.visitTypeReference(node: syntax.CstTypeReference)
 		if not node.prefix then

@@ -1,0 +1,20 @@
+warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.
+
+   ┌── <ROOT>/tests/cli/lint/default/snapshots/shadowed_reference_variable_marked_unused.snap.luau:9:7-8 ──
+   │
+ 9 │ local x = fresh()
+   │       ^
+   │
+
+For additional info: https://lute.luau.org/cli/lint/unused_variable.html
+
+warning[unused_variable]: This variable is unused. Prefix its name with '_' to indicate that it is intentionally unused.
+
+    ┌── <ROOT>/tests/cli/lint/default/snapshots/shadowed_reference_variable_marked_unused.snap.luau:12:7-8 ──
+    │
+ 12 │ local y = fresh()
+    │       ^
+    │
+
+For additional info: https://lute.luau.org/cli/lint/unused_variable.html
+
