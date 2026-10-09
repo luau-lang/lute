@@ -6,7 +6,18 @@ Manage dependencies declared in `loom.config.luau`.
 
 ```bash
 lute pkg install
+lute pkg publish [--package <member-name>] [--dry-run]
 ```
+
+## Publishing
+
+Run `lute pkg publish` from a package directory to publish that package. At a workspace root with multiple packages, select one by its package name using `--package <member-name>`.
+
+Publishing evaluates `loom.config.luau`, including values inherited through `require`, and builds a ZIP containing the package files and a generated, flattened `loom.config.luau`. Production path and GitHub dependencies must declare a version constraint so they can be converted to registry dependencies. Development dependencies are retained. The original manifest is not modified.
+
+Use `--dry-run` to validate the manifest and build the ZIP in memory without uploading it. This does not require a registry or credentials and does not write an archive to disk.
+
+Uploads use the `registry` in the package's manifest, or the workspace root's manifest for workspace members. Publishing requires an Artifactory token, resolved in this order: `LOOM_ARTIFACTORY_TOKEN`, a configured credential provider, then the auth store managed by `lute pkg auth --domain <registry-host> --token <token>`. The ZIP is sent to `<registry>/api/v1/publish`.
 
 ## Package-source authentication
 
