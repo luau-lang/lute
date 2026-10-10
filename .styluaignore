@@ -1,6 +1,7 @@
 **/*.d.luau
 **/generated-types.luau
 **/*unformatted*.luau
+tests/cli/format/stylua/**
 tests/src/debug/compile_error.luau
 tests/src/debug/xpcall.luau
 tests/src/debug/exception.luau
