@@ -1,6 +1,7 @@
 #include "lute/packagerun.h"
 
 #include "lute/common.h"
+#include "lute/fileutils.h"
 #include "lute/userlandvfs.h"
 #include "lute/uvutils.h"
 
@@ -73,6 +74,44 @@ static std::string toLower(std::string_view str)
     return result;
 }
 
+static std::optional<std::string> getEntryMemberName(const std::string& entryFile, const std::string& workspaceRoot)
+{
+    std::optional<std::string> currentPath = getParentPath(entryFile);
+    while (currentPath)
+    {
+        std::string manifestPath = joinPaths(*currentPath, "loom.config.luau");
+        if (isFile(manifestPath))
+        {
+            std::optional<std::string> contents = readFile(manifestPath);
+            if (!contents)
+                return std::nullopt;
+
+            std::optional<Luau::ConfigTable> config = Luau::extractConfig(*contents, {});
+            if (!config || !config->contains("package"))
+                return std::nullopt;
+
+            const Luau::ConfigTable* package = (*config)["package"].get_if<Luau::ConfigTable>();
+            if (!package || !package->contains("name"))
+                return std::nullopt;
+
+            if (const auto* nameValue = package->find("name"))
+            {
+                if (const std::string* name = nameValue->get_if<std::string>())
+                    return *name;
+            }
+
+            return std::nullopt;
+        }
+
+        if (*currentPath == workspaceRoot)
+            break;
+
+        currentPath = getParentPath(*currentPath);
+    }
+
+    return std::nullopt;
+}
+
 // TODO: lockfile must specify entry file location; for now, we try out a few
 // likely candidates.
 static std::string getEntryPoint(const std::string& packageRoot)
@@ -96,7 +135,8 @@ static std::string getEntryPoint(const std::string& packageRoot)
 }
 
 std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Identifier, Package::Info>>> getDependenciesFromLockfile(
-    const std::string& lockfilePath
+    const std::string& lockfilePath,
+    const std::string& entryFile
 )
 {
     LUTE_ASSERT(isFile(lockfilePath));
@@ -216,19 +256,64 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
         }
     }
 
-    // Build direct dependencies from dependencies table (alias -> key map)
-    std::vector<Package::Identifier> directDependencies;
-    for (const auto& [ak, av] : *depsTable)
+    std::vector<std::pair<std::string, std::string>> rootDependencyAliases;
+    bool hasMemberDependencyTables = false;
+    for (const auto& [memberOrAlias, memberDependenciesOrKey] : *depsTable)
     {
-        const std::string* alias = ak.get_if<std::string>();
-        const std::string* depKey = av.get_if<std::string>();
-        if (!alias || !depKey)
+        const Luau::ConfigTable* memberDependencies = memberDependenciesOrKey.get_if<Luau::ConfigTable>();
+        if (memberDependencies)
+        {
+            hasMemberDependencyTables = true;
             continue;
-        auto it = keyToIdentifier.find(*depKey);
+        }
+
+        const std::string* alias = memberOrAlias.get_if<std::string>();
+        const std::string* dependencyKey = memberDependenciesOrKey.get_if<std::string>();
+        if (alias && dependencyKey)
+            rootDependencyAliases.emplace_back(*alias, *dependencyKey);
+    }
+
+    if (hasMemberDependencyTables)
+    {
+        rootDependencyAliases.clear();
+
+        std::optional<std::string> memberName = getEntryMemberName(entryFile, *lockfileParentDir);
+
+        if (!memberName)
+        {
+            std::optional<std::string> entryDirectory = getParentPath(entryFile);
+            if (entryDirectory)
+                memberName = Lute::getFilenameWithoutExtension(*entryDirectory);
+        }
+
+        if (memberName)
+        {
+            if (const auto* memberDependenciesValue = depsTable->find(*memberName))
+            {
+                const Luau::ConfigTable* memberDependencies = memberDependenciesValue->get_if<Luau::ConfigTable>();
+                if (memberDependencies)
+                {
+                    for (const auto& [aliasValue, dependencyKeyValue] : *memberDependencies)
+                    {
+                        const std::string* alias = aliasValue.get_if<std::string>();
+                        const std::string* dependencyKey = dependencyKeyValue.get_if<std::string>();
+                        if (alias && dependencyKey)
+                            rootDependencyAliases.emplace_back(*alias, *dependencyKey);
+                    }
+                }
+            }
+        }
+    }
+
+    // Build direct dependencies from root dependency aliases.
+    std::vector<Package::Identifier> directDependencies;
+    for (const auto& [alias, dependencyKey] : rootDependencyAliases)
+    {
+        auto it = keyToIdentifier.find(dependencyKey);
         if (it != keyToIdentifier.end())
         {
             Package::Identifier aliasedId;
-            aliasedId.name = toLower(*alias);
+            aliasedId.name = toLower(alias);
             aliasedId.version = it->second.version;
             aliasedId.lockfileKey = it->second.lockfileKey;
             directDependencies.push_back(std::move(aliasedId));
@@ -248,16 +333,11 @@ std::pair<std::vector<Package::Identifier>, std::vector<std::pair<Package::Ident
 
     // directDependencies controls root-level permissions, while allDependencies
     // maps root aliases to their package source.
-    for (const auto& [ak, av] : *depsTable)
+    for (const auto& [alias, dependencyKey] : rootDependencyAliases)
     {
-        const std::string* alias = ak.get_if<std::string>();
-        const std::string* depKey = av.get_if<std::string>();
-        if (!alias || !depKey)
-            continue;
-
-        std::string lowerAlias = toLower(*alias);
-        auto idIt = keyToIdentifier.find(*depKey);
-        auto infoIt = keyToInfo.find(*depKey);
+        std::string lowerAlias = toLower(alias);
+        auto idIt = keyToIdentifier.find(dependencyKey);
+        auto infoIt = keyToInfo.find(dependencyKey);
         if (idIt != keyToIdentifier.end() && infoIt != keyToInfo.end() && lowerAlias != idIt->second.name)
         {
             Package::Identifier aliasId;
