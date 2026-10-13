@@ -223,6 +223,9 @@ local function satisfiesManifest(
 			if pkg.sourceKind ~= spec.sourceKind then
 				return false, `source kind changed for: {member.name}:{alias}`
 			end
+			if pkg.name ~= spec.name then
+				return false, `dependency name changed for: {member.name}:{alias}`
+			end
 
 			if spec.sourceKind == "github" then
 				if pkg.source ~= spec.source or pkg.rev ~= spec.rev then
