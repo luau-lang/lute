@@ -2,6 +2,7 @@ local process = require("@std/process")
 
 local install = require("@self/loom-core/src/commands/install")
 local authenticate = require("@self/loom-core/src/commands/authenticate")
+local publish = require("@self/loom-core/src/commands/publish")
 
 local USAGE = "Usage: lute pkg <command>"
 
@@ -12,9 +13,10 @@ local function printHelp()
 Loom package manager for Luau projects.
 
 COMMANDS:
-  install                                   Install dependencies from loom.config.luau
-  auth --token <token> [--domain <domain>]  Save authentication credentials
-  run <script.luau> [args...]               Run a Luau script from loom.lock.
+  install                                   		Install dependencies from loom.config.luau
+  auth --token <token> [--domain <domain>]  		Save authentication credentials
+  run <script.luau> [args...]               		Run a Luau script from loom.lock.
+  publish [--package <member-name>] [--dry-run]  	Publish a package to its registry
 
 Use --help with any command for more information.
 ]])
@@ -34,6 +36,8 @@ local function main(...: string)
 		install(table.unpack(args, 2))
 	elseif command == "auth" then
 		authenticate(table.unpack(args, 2))
+	elseif command == "publish" then
+		publish(table.unpack(args, 2))
 	else
 		print(`Unknown command: {command}\n`)
 		printHelp()
