@@ -1217,6 +1217,39 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "annotation");
     }
 
+    // Serializes the `local`/`const` binding of an `if local`/`if const` conditional (statement or
+    // expression form, including `elseif local` branches). For a plain conditional the three fields
+    // are set to nil. `CstNodeType` is the CST node holding the annotation colon position.
+    template<typename CstNodeType, typename AstNodeType>
+    void serializeIfLocalBinding(AstNodeType* node)
+    {
+        if (node->conditionLocal)
+        {
+            LUTE_ASSERT(node->conditionKeywordLocation);
+            serializeToken(node->conditionKeywordLocation->begin, node->conditionIsConst ? "const" : "local");
+            lua_setfield(L, -2, "localKeyword");
+
+            const auto cstNode = lookupCstNode<CstNodeType>(node);
+            serialize(node->conditionLocal, /* createToken= */ true, std::make_optional(cstNode->annotationColonPosition));
+            lua_setfield(L, -2, "conditionLocal");
+
+            LUTE_ASSERT(node->conditionEqualsLocation);
+            serializeToken(node->conditionEqualsLocation->begin, "=");
+            lua_setfield(L, -2, "equals");
+        }
+        else
+        {
+            lua_pushnil(L);
+            lua_setfield(L, -2, "localKeyword");
+
+            lua_pushnil(L);
+            lua_setfield(L, -2, "conditionLocal");
+
+            lua_pushnil(L);
+            lua_setfield(L, -2, "equals");
+        }
+    }
+
     void serialize(Luau::AstExprIfElse* node)
     {
         auto cstNode = lookupCstNode<Luau::CstExprIfElse>(node);
@@ -1228,6 +1261,8 @@ struct AstSerialize : public Luau::AstVisitor
 
         serializeToken(node->location.begin, "if");
         lua_setfield(L, -2, "ifKeyword");
+
+        serializeIfLocalBinding<Luau::CstExprIfElse>(node);
 
         node->condition->visit(this);
         lua_setfield(L, -2, "condition");
@@ -1247,13 +1282,15 @@ struct AstSerialize : public Luau::AstVisitor
         int i = 0;
         while (node->hasElse && node->falseExpr->is<Luau::AstExprIfElse>() && cstNode->isElseIf)
         {
-            lua_createtable(L, 0, 4);
+            lua_createtable(L, 0, 7);
 
             node = node->falseExpr->as<Luau::AstExprIfElse>();
             cstNode = lookupCstNode<Luau::CstExprIfElse>(node);
 
             serializeToken(node->location.begin, "elseif");
             lua_setfield(L, -2, "elseIfKeyword");
+
+            serializeIfLocalBinding<Luau::CstExprIfElse>(node);
 
             node->condition->visit(this);
             lua_setfield(L, -2, "condition");
@@ -1392,12 +1429,14 @@ struct AstSerialize : public Luau::AstVisitor
     void serializeStat(Luau::AstStatIf* node)
     {
         lua_rawcheckstack(L, 2);
-        lua_createtable(L, 0, preambleSize + 8);
+        lua_createtable(L, 0, preambleSize + 11);
 
         serializeNodePreamble(node, "conditional", "stat");
 
         serializeToken(node->location.begin, "if");
         lua_setfield(L, -2, "ifKeyword");
+
+        serializeIfLocalBinding<Luau::CstStatIf>(node);
 
         node->condition->visit(this);
         lua_setfield(L, -2, "condition");
@@ -1412,11 +1451,13 @@ struct AstSerialize : public Luau::AstVisitor
         int i = 0;
         while (node->elsebody && node->elsebody->is<Luau::AstStatIf>())
         {
-            lua_createtable(L, 0, 4);
+            lua_createtable(L, 0, 7);
 
             auto elseif = node->elsebody->as<Luau::AstStatIf>();
             serializeToken(elseif->location.begin, "elseif");
             lua_setfield(L, -2, "elseIfKeyword");
+
+            serializeIfLocalBinding<Luau::CstStatIf>(elseif);
 
             elseif->condition->visit(this);
             lua_setfield(L, -2, "condition");
