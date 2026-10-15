@@ -712,8 +712,7 @@ test.suite("parse", function(suite)
 		assert.eq((constExpr.localKeyword :: syntax.CstToken<"local" | "const">).text, "const")
 
 		-- `elseif local` populates the same fields on the elseif clause.
-		local elseifExpr =
-			parser.parseExpr("if c then 1 elseif local v = t.x then v else 0") :: syntax.CstExprIfElse
+		local elseifExpr = parser.parseExpr("if c then 1 elseif local v = t.x then v else 0") :: syntax.CstExprIfElse
 		assert.eq(#elseifExpr.elseifs, 1)
 		local elseIf = elseifExpr.elseifs[1]
 		assert.eq(elseIf.elseIfKeyword.text, "elseif")
