@@ -4,6 +4,8 @@ local lockfile = require("./lockfile")
 local path = require("@std/path")
 local pp = require("@batteries/pp")
 local manifest = require("./manifest")
+local registry = require("./registry")
+local registryUrlUtil = require("./registryurl")
 local semver = require("./semver")
 local store = require("./store")
 
@@ -99,29 +101,73 @@ type ResolutionState = {
 	dependencies: { [string]: string },
 	packages: { [string]: lockfile.LockfileDependency },
 	registryRequirements: { [string]: semver.Requirement },
+	-- Maps a source-qualified package identity to its name in the registry.
 	registrySources: { [string]: string },
+	-- Maps an unqualified registry package name to all source-qualified identities seen for it.
+	registryIdentitiesBySource: { [string]: { [string]: boolean } },
 	rootRegistryAliases: { RootRegistryAlias },
 	unresolvedRegistryDependencies: { [string]: { [string]: string } },
 	openDependencies: { [string]: { [string]: string } },
+	registryUrlByPackage: { [string]: string },
 }
 
-local function removeRequirementsForPackage(registryRequirements: { [string]: semver.Requirement }, packageName: string)
-	for reqKey, req in registryRequirements do
-		if req.name == packageName then
-			registryRequirements[reqKey] = nil
+local function getRegistryPackageName(name: string, registryUrl: string?): string
+	if registryUrl == nil then
+		return name
+	end
+
+	return store.qualifyRegistryKey(name, registryUrl)
+end
+
+local function registerRegistryPackage(
+	registrySources: { [string]: string },
+	registryIdentitiesBySource: { [string]: { [string]: boolean } },
+	registryUrlByPackage: { [string]: string },
+	name: string,
+	registryUrl: string?
+): string
+	local registryPackageName = getRegistryPackageName(name, registryUrl)
+	registrySources[registryPackageName] = name
+
+	if not registryIdentitiesBySource[name] then
+		registryIdentitiesBySource[name] = {}
+	end
+	registryIdentitiesBySource[name][registryPackageName] = true
+
+	if registryUrl then
+		registryUrlByPackage[registryPackageName] = registryUrl
+	end
+
+	return registryPackageName
+end
+
+local function getRegistryLockKey(state: ResolutionState, registryPackageName: string, version: string): string
+	local source = state.registrySources[registryPackageName] or registryPackageName
+	local identities = state.registryIdentitiesBySource[source]
+	local identityCount = 0
+	if identities then
+		for _ in identities do
+			identityCount += 1
 		end
 	end
+
+	local packageName = if identityCount > 1 then registryPackageName else source
+	return `{packageName}@{version}`
 end
 
 local function collectSourcePackageDependencies(
 	key: string,
 	installPath: string,
 	rootDirectory: string,
+	overrides: { [string]: manifest.DependencySpec },
+	rootRegistryUrl: string?,
 	transitiveDependencies: { [string]: string },
 	queue: { manifest.DependencySpec },
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
-	unresolvedRegistryDependencies: { [string]: { [string]: string } }
+	registryIdentitiesBySource: { [string]: { [string]: boolean } },
+	unresolvedRegistryDependencies: { [string]: { [string]: string } },
+	registryUrlByPackage: { [string]: string }
 )
 	local nestedManifestPath = getManifestPath(installPath)
 	if not fs.exists(nestedManifestPath) then
@@ -129,29 +175,45 @@ local function collectSourcePackageDependencies(
 	end
 
 	local dependencyManifest = manifest.parseFile(nestedManifestPath)
+
 	for dependencyAlias, dependencySpec in dependencyManifest.package.dependencies do
 		local normalizedSpec = normalizePathDependency(dependencySpec, installPath, rootDirectory)
+		local overrideSpec = overrides[normalizedSpec.name]
+		local effectiveSpec = overrideSpec or normalizedSpec
 
 		if normalizedSpec.sourceKind == "registry" then
-			registryRequirements[`{key}:{dependencyAlias}`] = {
-				name = normalizedSpec.name,
-				constraint = semver.parseConstraint(normalizedSpec.version),
-				requiredBy = key,
-				aliasedAs = if dependencyAlias ~= normalizedSpec.name then dependencyAlias else nil,
-			}
+			assert(
+				dependencyManifest.registry ~= nil,
+				`Package '{key}' has registry dependency '{normalizedSpec.name}' but no 'registry' field in its manifest.`
+			)
+		end
 
-			registrySources[normalizedSpec.name] = normalizedSpec.source
+		if effectiveSpec.sourceKind == "registry" then
+			local effectiveRegistryUrl = if overrideSpec then rootRegistryUrl else dependencyManifest.registry
+			local registryPackageName = registerRegistryPackage(
+				registrySources,
+				registryIdentitiesBySource,
+				registryUrlByPackage,
+				effectiveSpec.name,
+				effectiveRegistryUrl
+			)
+
+			registryRequirements[`{key}:{dependencyAlias}`] = {
+				name = registryPackageName,
+				constraint = semver.parseConstraint(effectiveSpec.version),
+				requiredBy = key,
+				aliasedAs = if dependencyAlias ~= effectiveSpec.name then dependencyAlias else nil,
+			}
 
 			if not unresolvedRegistryDependencies[key] then
 				unresolvedRegistryDependencies[key] = {}
 			end
 
-			unresolvedRegistryDependencies[key][dependencyAlias] = normalizedSpec.name
-			continue
+			unresolvedRegistryDependencies[key][dependencyAlias] = registryPackageName
+		else
+			transitiveDependencies[dependencyAlias] = getKey(effectiveSpec)
+			table.insert(queue, effectiveSpec)
 		end
-
-		transitiveDependencies[dependencyAlias] = getKey(normalizedSpec)
-		table.insert(queue, normalizedSpec)
 	end
 end
 
@@ -163,7 +225,11 @@ local function resolveSourcePackage(
 	queue: { manifest.DependencySpec },
 	registryRequirements: { [string]: semver.Requirement },
 	registrySources: { [string]: string },
-	unresolvedRegistryDependencies: { [string]: { [string]: string } }
+	registryIdentitiesBySource: { [string]: { [string]: boolean } },
+	unresolvedRegistryDependencies: { [string]: { [string]: string } },
+	registryUrlByPackage: { [string]: string },
+	overrides: { [string]: manifest.DependencySpec },
+	rootRegistryUrl: string?
 ): string
 	local key = getKey(spec)
 
@@ -189,11 +255,15 @@ local function resolveSourcePackage(
 		key,
 		installPath,
 		rootDirectory,
+		overrides,
+		rootRegistryUrl,
 		transitiveDependencies,
 		queue,
 		registryRequirements,
 		registrySources,
-		unresolvedRegistryDependencies
+		registryIdentitiesBySource,
+		unresolvedRegistryDependencies,
+		registryUrlByPackage
 	)
 
 	packages[key] = table.freeze({
@@ -210,7 +280,12 @@ local function resolveSourcePackage(
 	return key
 end
 
-local function processSourceQueue(state: ResolutionState, rootDirectory: string)
+local function processSourceQueue(
+	state: ResolutionState,
+	rootDirectory: string,
+	overrides: { [string]: manifest.DependencySpec },
+	rootRegistryUrl: string?
+)
 	while state.queueIndex <= #state.queue do
 		local spec = state.queue[state.queueIndex]
 		state.queueIndex += 1
@@ -223,14 +298,19 @@ local function processSourceQueue(state: ResolutionState, rootDirectory: string)
 			state.queue,
 			state.registryRequirements,
 			state.registrySources,
-			state.unresolvedRegistryDependencies
+			state.registryIdentitiesBySource,
+			state.unresolvedRegistryDependencies,
+			state.registryUrlByPackage,
+			overrides,
+			rootRegistryUrl
 		)
 	end
 end
 
 local function buildEffectiveUniverse(
 	universe: semver.Universe,
-	overrides: { [string]: manifest.DependencySpec }
+	overrides: { [string]: manifest.DependencySpec },
+	registrySources: { [string]: string }
 ): (semver.Universe, { [string]: { [string]: string } })
 	local registryOverrides: { [string]: semver.Constraint } = {}
 	local sourceOverrideNames: { [string]: boolean } = {}
@@ -246,38 +326,40 @@ local function buildEffectiveUniverse(
 	local sourceOverridedDeps: { [string]: { [string]: string } } = {}
 
 	for pkgName, versions in universe do
-		if registryOverrides[pkgName] then
+		local sourceName = registrySources[pkgName] or pkgName
+		if registryOverrides[sourceName] then
 			local filtered: { semver.PackageVersion } = {}
 			for _, v in versions do
-				if semver.satisfies(v.version, registryOverrides[pkgName]) then
+				if semver.satisfies(v.version, registryOverrides[sourceName]) then
 					table.insert(filtered, v)
 				end
 			end
 			assert(
 				#filtered > 0,
-				`Override constrains '{pkgName}' to {semver.formatConstraint(registryOverrides[pkgName])}, but no matching version exists in the registry`
+				`Override constrains '{sourceName}' to {semver.formatConstraint(registryOverrides[sourceName])}, but no matching version exists in the registry`
 			)
 			effective[pkgName] = filtered
-		elseif sourceOverrideNames[pkgName] then
+		elseif sourceOverrideNames[sourceName] then
 			continue
 		else
 			local rewritten: { semver.PackageVersion } = {}
 			for _, v in versions do
 				local newDeps: { [string]: semver.Requirement } = {}
 				for alias, dep in v.dependencies do
-					if registryOverrides[dep.name] then
+					local dependencySource = registrySources[dep.name] or dep.name
+					if registryOverrides[dependencySource] then
 						newDeps[alias] = table.freeze({
 							name = dep.name,
-							constraint = registryOverrides[dep.name],
+							constraint = registryOverrides[dependencySource],
 							requiredBy = dep.requiredBy,
 							aliasedAs = dep.aliasedAs,
 						})
-					elseif sourceOverrideNames[dep.name] then
+					elseif sourceOverrideNames[dependencySource] then
 						local vKey = `{v.name}@{v.versionString}`
 						if not sourceOverridedDeps[vKey] then
 							sourceOverridedDeps[vKey] = {}
 						end
-						sourceOverridedDeps[vKey][alias] = dep.name
+						sourceOverridedDeps[vKey][alias] = dependencySource
 					else
 						newDeps[alias] = dep
 					end
@@ -302,7 +384,8 @@ end
 local function pathDepsAreStale(
 	lock: lockfile.Lockfile,
 	rootDirectory: string,
-	overrides: { [string]: manifest.DependencySpec }
+	overrides: { [string]: manifest.DependencySpec },
+	rootRegistryUrl: string?
 ): boolean
 	for _, pkg in lock.packages do
 		if pkg.sourceKind ~= "path" then
@@ -333,11 +416,13 @@ local function pathDepsAreStale(
 		end
 
 		for alias, depSpec in depManifest.package.dependencies do
-			local ok, normalizedDepSpec = pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
-			if not ok then
+			local normalizeOk, normalizedDepSpec =
+				pcall(normalizePathDependency, depSpec, packageInstallPath, rootDirectory)
+			if not normalizeOk then
 				return true
 			end
-			depSpec = overrides[(normalizedDepSpec :: manifest.DependencySpec).name] or normalizedDepSpec
+			local overrideSpec = overrides[(normalizedDepSpec :: manifest.DependencySpec).name]
+			depSpec = overrideSpec or normalizedDepSpec
 
 			local recordedKey = pkg.dependencies[alias]
 			if recordedKey == nil then
@@ -356,6 +441,20 @@ local function pathDepsAreStale(
 				end
 			elseif depSpec.sourceKind == "path" then
 				if recordedPkg.source ~= depSpec.source then
+					return true
+				end
+			elseif depSpec.sourceKind == "registry" then
+				local registryUrl = if overrideSpec then rootRegistryUrl else depManifest.registry
+				if
+					recordedPkg.source ~= depSpec.source
+					or not registryUrlUtil.equals(recordedPkg.registry, registryUrl)
+				then
+					return true
+				end
+
+				local constraint = semver.parseConstraint(depSpec.version)
+				local lockedVersion = semver.tryParse(recordedPkg.rev :: string)
+				if lockedVersion == nil or not semver.satisfies(lockedVersion, constraint) then
 					return true
 				end
 			end
@@ -387,7 +486,10 @@ local function tryReuseLockfile(
 			return existingLock, nil
 		end
 
-		if satisfied and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides) then
+		if
+			satisfied
+			and not pathDepsAreStale(existingLock, rootDirectory, rootManifest.overrides, rootManifest.registry)
+		then
 			return existingLock, nil
 		end
 	end
@@ -403,7 +505,9 @@ local function tryReuseLockfile(
 				if previousOverrides and previousOverrides[pkg.name] then
 					continue
 				end
-				(lockedRegistryVersions :: { [string]: string })[pkg.name] = pkg.rev
+				local packageName = getRegistryPackageName(pkg.name, pkg.registry)
+				local _lockedVersions = lockedRegistryVersions :: { [string]: string }
+				_lockedVersions[packageName] = pkg.rev
 			end
 		end
 	end
@@ -415,23 +519,33 @@ local function collectRootDependency(
 	state: ResolutionState,
 	rootPackageName: string,
 	dependencyAlias: string,
-	dependencySpec: manifest.DependencySpec
+	dependencySpec: manifest.DependencySpec,
+	registryUrl: string?,
+	overrides: { [string]: manifest.DependencySpec }
 )
-	if dependencySpec.sourceKind == "registry" then
+	local effectiveSpec = overrides[dependencySpec.name] or dependencySpec
+
+	if effectiveSpec.sourceKind == "registry" then
+		local registryPackageName = registerRegistryPackage(
+			state.registrySources,
+			state.registryIdentitiesBySource,
+			state.registryUrlByPackage,
+			effectiveSpec.name,
+			registryUrl
+		)
 		state.registryRequirements[dependencyAlias] = {
-			name = dependencySpec.name,
-			constraint = semver.parseConstraint(dependencySpec.version),
+			name = registryPackageName,
+			constraint = semver.parseConstraint(effectiveSpec.version),
 			requiredBy = rootPackageName,
-			aliasedAs = if dependencyAlias ~= dependencySpec.name then dependencyAlias else nil,
+			aliasedAs = if dependencyAlias ~= effectiveSpec.name then dependencyAlias else nil,
 		}
 
-		state.registrySources[dependencySpec.name] = dependencySpec.source
-		table.insert(state.rootRegistryAliases, { alias = dependencyAlias, name = dependencySpec.name })
+		table.insert(state.rootRegistryAliases, { alias = dependencyAlias, name = registryPackageName })
 		return
 	end
 
-	state.dependencies[dependencyAlias] = getKey(dependencySpec)
-	table.insert(state.queue, dependencySpec)
+	state.dependencies[dependencyAlias] = getKey(effectiveSpec)
+	table.insert(state.queue, effectiveSpec)
 end
 
 local function collectRootDependencies(rootManifest: manifest.ProjectManifest, excludeDev: boolean): ResolutionState
@@ -442,104 +556,193 @@ local function collectRootDependencies(rootManifest: manifest.ProjectManifest, e
 		packages = {},
 		registryRequirements = {},
 		registrySources = {},
+		registryIdentitiesBySource = {},
 		rootRegistryAliases = {},
 		unresolvedRegistryDependencies = {},
 		openDependencies = {},
+		registryUrlByPackage = {},
 	}
 
 	for dependencyAlias, dependencySpec in rootManifest.package.dependencies do
-		collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec)
+		collectRootDependency(
+			state,
+			rootManifest.package.name,
+			dependencyAlias,
+			dependencySpec,
+			rootManifest.registry,
+			rootManifest.overrides
+		)
 	end
 
 	if not excludeDev then
 		for dependencyAlias, dependencySpec in rootManifest.package.devDependencies do
-			collectRootDependency(state, rootManifest.package.name, dependencyAlias, dependencySpec)
+			collectRootDependency(
+				state,
+				rootManifest.package.name,
+				dependencyAlias,
+				dependencySpec,
+				rootManifest.registry,
+				rootManifest.overrides
+			)
 		end
 	end
 
 	return state
 end
 
-local function applyOverrides(
-	state: ResolutionState,
-	overrides: { [string]: manifest.DependencySpec },
-	rootDirectory: string
-): { [string]: semver.Requirement }
-	local overriddenPackages: { [string]: semver.Requirement } = {}
+local function queueSourceOverrides(state: ResolutionState, overrides: { [string]: manifest.DependencySpec })
+	local names: { string } = {}
+	for name, spec in overrides do
+		if spec.sourceKind ~= "registry" then
+			table.insert(names, name)
+		end
+	end
+	table.sort(names)
 
-	for overrideName, overrideSpec in overrides do
-		removeRequirementsForPackage(state.registryRequirements, overrideName)
+	for _, name in names do
+		table.insert(state.queue, overrides[name])
+	end
+end
 
-		if overrideSpec.sourceKind == "registry" then
-			local overrideReq = {
-				name = overrideName,
-				constraint = semver.parseConstraint(overrideSpec.version),
-				requiredBy = "override",
-			}
-			state.registryRequirements[`override:{overrideName}`] = overrideReq
-			overriddenPackages[overrideName] = overrideReq
+local function namespaceRegistryUniverse(
+	universe: semver.Universe,
+	registryUrl: string,
+	state: ResolutionState
+): semver.Universe
+	local namespaced: semver.Universe = {}
+	local visited: { [string]: boolean } = {}
 
-			if not state.registrySources[overrideName] then
-				state.registrySources[overrideName] = overrideSpec.source
+	local function namespacePackage(source: string)
+		local packageName = registerRegistryPackage(
+			state.registrySources,
+			state.registryIdentitiesBySource,
+			state.registryUrlByPackage,
+			source,
+			registryUrl
+		)
+		if visited[packageName] then
+			return
+		end
+		visited[packageName] = true
+
+		local versions = universe[source]
+		if versions == nil then
+			return
+		end
+
+		local transformed: { semver.PackageVersion } = {}
+		for _, version in versions do
+			local dependencies: { [string]: semver.Requirement } = {}
+			for alias, dependency in version.dependencies do
+				local dependencyName = registerRegistryPackage(
+					state.registrySources,
+					state.registryIdentitiesBySource,
+					state.registryUrlByPackage,
+					dependency.name,
+					registryUrl
+				)
+				dependencies[alias] = table.freeze({
+					name = dependencyName,
+					constraint = dependency.constraint,
+					requiredBy = dependency.requiredBy,
+					aliasedAs = dependency.aliasedAs,
+				})
 			end
-		else
-			local overrideKey = resolveSourcePackage(
-				overrideSpec,
-				rootDirectory,
-				state.packages,
-				state.openDependencies,
-				state.queue,
-				state.registryRequirements,
-				state.registrySources,
-				state.unresolvedRegistryDependencies
+
+			table.insert(
+				transformed,
+				table.freeze({
+					name = packageName,
+					version = version.version,
+					versionString = version.versionString,
+					dependencies = table.freeze(dependencies),
+				})
 			)
+		end
+		namespaced[packageName] = transformed
 
-			for pkgKey, unresolvedAliases in state.unresolvedRegistryDependencies do
-				for depAlias, registryName in unresolvedAliases do
-					if registryName == overrideName then
-						local packageDependencies = state.openDependencies[pkgKey]
-						if packageDependencies then
-							packageDependencies[depAlias] = overrideKey
-						end
-						unresolvedAliases[depAlias] = nil
-					end
-				end
-			end
-
-			-- Alias was removed from registryRequirements by the override; write override key directly.
-			for i = #state.rootRegistryAliases, 1, -1 do
-				local rootAlias = state.rootRegistryAliases[i]
-				if rootAlias.name == overrideName then
-					state.dependencies[rootAlias.alias] = overrideKey
-					table.remove(state.rootRegistryAliases, i)
-				end
+		for _, version in versions do
+			for _, dependency in version.dependencies do
+				namespacePackage(dependency.name)
 			end
 		end
 	end
 
-	return overriddenPackages
+	for source in universe do
+		namespacePackage(source)
+	end
+
+	return namespaced
 end
 
 local function resolveRegistryDependencies(
 	state: ResolutionState,
-	overriddenPackages: { [string]: semver.Requirement },
 	universe: semver.Universe?,
 	overrides: { [string]: manifest.DependencySpec },
 	lockedRegistryVersions: { [string]: string }?
 )
-	-- Build a modified universe that respects overrides.
-	local effectiveUniverse = universe
-	local sourceOverridedDeps: { [string]: { [string]: string } } = {}
-	if universe ~= nil and next(overrides) ~= nil then
-		effectiveUniverse, sourceOverridedDeps = buildEffectiveUniverse(universe, overrides)
-	end
-
 	-- Versioned dependency resolution: solve registry dependencies and stitch them into the package graph.
 	if next(state.registryRequirements) == nil then
 		return
 	end
 
-	assert(effectiveUniverse ~= nil, "Registry dependencies require a universe to be provided")
+	-- Build or fetch the universe.
+	local effectiveUniverse: semver.Universe
+	local sourceOverridedDeps: { [string]: { [string]: string } } = {}
+
+	if universe == nil then
+		local packagesByRegistryUrl: { [string]: { { name: string, source: string } } } = {}
+		local seen: { [string]: boolean } = {}
+
+		for _, req in state.registryRequirements do
+			if seen[req.name] then
+				continue
+			end
+			seen[req.name] = true
+
+			local url = state.registryUrlByPackage[req.name]
+			assert(
+				url ~= nil,
+				`No registry configured for package '{req.name}'. Add a 'registry' field to your loom.config.luau.`
+			)
+
+			if not packagesByRegistryUrl[url] then
+				packagesByRegistryUrl[url] = {}
+			end
+			table.insert(packagesByRegistryUrl[url], {
+				name = state.registrySources[req.name] or req.name,
+				source = state.registrySources[req.name] or req.name,
+			})
+		end
+
+		effectiveUniverse = {}
+		for url, names in packagesByRegistryUrl do
+			local partial = registry.fetchUniverse(url, names)
+			local namespaced = namespaceRegistryUniverse(partial, url, state)
+			for name, versions in namespaced do
+				effectiveUniverse[name] = versions
+			end
+		end
+	else
+		effectiveUniverse = table.clone(universe)
+		local namespacedUrls: { [string]: boolean } = {}
+		for _, req in state.registryRequirements do
+			local url = state.registryUrlByPackage[req.name]
+			if url and not namespacedUrls[url] then
+				local namespaced = namespaceRegistryUniverse(universe, url, state)
+				for name, versions in namespaced do
+					effectiveUniverse[name] = versions
+				end
+				namespacedUrls[url] = true
+			end
+		end
+	end
+
+	-- Build a modified universe that respects overrides.
+	if next(overrides) ~= nil then
+		effectiveUniverse, sourceOverridedDeps =
+			buildEffectiveUniverse(effectiveUniverse, overrides, state.registrySources)
+	end
 
 	local resolution = semver.solve(effectiveUniverse, state.registryRequirements, lockedRegistryVersions)
 
@@ -550,20 +753,23 @@ local function resolveRegistryDependencies(
 	end
 
 	for _, pkgVersion in resolution do
-		local name = pkgVersion.name
-		local key = `{name}@{pkgVersion.versionString}`
+		local registryPackageName = pkgVersion.name
+		local key = getRegistryLockKey(state, registryPackageName, pkgVersion.versionString)
+		local registryUrl = state.registryUrlByPackage[registryPackageName]
+		local storeKey = if registryUrl then store.qualifyRegistryKey(key, registryUrl) else key
 
 		local transitiveDependencies: { [string]: string } = {}
 		for alias, dependency in pkgVersion.dependencies do
 			local resolvedVersion = versionsByPackageName[dependency.name]
 			assert(resolvedVersion ~= nil, `Solver produced an incomplete resolution: missing '{dependency.name}'`)
 
-			transitiveDependencies[alias] = `{dependency.name}@{resolvedVersion.versionString}`
+			transitiveDependencies[alias] = getRegistryLockKey(state, dependency.name, resolvedVersion.versionString)
 		end
 
 		-- Add back dependencies that were stripped for source overrides.
-		if sourceOverridedDeps[key] then
-			for alias, overriddenName in sourceOverridedDeps[key] do
+		local solverKey = `{registryPackageName}@{pkgVersion.versionString}`
+		if sourceOverridedDeps[solverKey] then
+			for alias, overriddenName in sourceOverridedDeps[solverKey] do
 				local overrideSpec = overrides[overriddenName]
 				if overrideSpec then
 					transitiveDependencies[alias] = getKey(overrideSpec)
@@ -572,12 +778,13 @@ local function resolveRegistryDependencies(
 		end
 
 		state.packages[key] = table.freeze({
-			name = name,
+			name = state.registrySources[registryPackageName] or registryPackageName,
 			rev = pkgVersion.versionString,
-			source = state.registrySources[name] or name,
+			source = state.registrySources[registryPackageName] or registryPackageName,
 			sourceKind = "registry" :: "registry",
-			installPath = store.toStorePath(key),
+			installPath = store.toStorePath(storeKey),
 			dependencies = table.freeze(transitiveDependencies),
+			registry = registryUrl,
 		})
 	end
 
@@ -587,26 +794,27 @@ local function resolveRegistryDependencies(
 		for dependencyAlias, registryName in unresolvedAliases do
 			local pkgVersion = versionsByPackageName[registryName]
 			assert(pkgVersion ~= nil, `Solver did not resolve transitive registry dependency '{registryName}'`)
-			packageDependencies[dependencyAlias] = `{registryName}@{pkgVersion.versionString}`
+			packageDependencies[dependencyAlias] = getRegistryLockKey(state, registryName, pkgVersion.versionString)
 		end
 	end
 
 	-- Write root-level registry dependency aliases now that versions are resolved.
 	for _, rootAlias in state.rootRegistryAliases do
-		local req = state.registryRequirements[rootAlias.alias] or overriddenPackages[rootAlias.name]
+		local req = state.registryRequirements[rootAlias.alias]
 		if req == nil then
 			continue
 		end
 		local pkgVersion = versionsByPackageName[req.name]
 		assert(pkgVersion ~= nil, `Solver did not resolve root dependency '{req.name}'`)
-		state.dependencies[rootAlias.alias] = `{req.name}@{pkgVersion.versionString}`
+		state.dependencies[rootAlias.alias] = getRegistryLockKey(state, req.name, pkgVersion.versionString)
 	end
 end
 
 local function buildLockfile(
 	state: ResolutionState,
 	overrides: { [string]: manifest.DependencySpec },
-	lockfilePath: string
+	lockfilePath: string,
+	registryUrl: string?
 ): lockfile.Lockfile
 	for _, packageDependencies in state.openDependencies do
 		table.freeze(packageDependencies)
@@ -625,6 +833,7 @@ local function buildLockfile(
 		packages = state.packages,
 		dependencies = state.dependencies,
 		overrides = frozenOverrides,
+		registry = registryUrl,
 	})
 
 	fs.writeStringToFile(lockfilePath, `return {pp(lock)}\n`)
@@ -650,15 +859,13 @@ local function resolve(rootDirectory: string, universe: semver.Universe?, option
 	end
 
 	local state = collectRootDependencies(rootManifest, excludeDev)
-	processSourceQueue(state, rootDirectory)
-
 	local overrides = rootManifest.overrides
-	local overriddenPackages = applyOverrides(state, overrides, rootDirectory)
-	processSourceQueue(state, rootDirectory)
+	queueSourceOverrides(state, overrides)
+	processSourceQueue(state, rootDirectory, overrides, rootManifest.registry)
 
-	resolveRegistryDependencies(state, overriddenPackages, universe, overrides, lockedRegistryVersions)
+	resolveRegistryDependencies(state, universe, overrides, lockedRegistryVersions)
 
-	return buildLockfile(state, overrides, lockfilePath)
+	return buildLockfile(state, overrides, lockfilePath, rootManifest.registry)
 end
 
 return {
