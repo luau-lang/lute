@@ -160,7 +160,7 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 
 		if conditionLocal then
 			-- `if local` binding is only in scope for the then-block.
-			table.insert(visitor.scopes, { [conditionLocal] = false } :: { [syntax.CstLocal]: boolean })
+			table.insert(visitor.scopes, { [conditionLocal] = false })
 			if conditionLocal.annotation then
 				visitorLib.visitType(conditionLocal.annotation, visitor)
 			end
@@ -195,7 +195,7 @@ local function unusedLocals(block: syntax.CstStatBlock, writeOnlyAPIs: smallTrie
 
 		if conditionLocal then
 			-- `if local` binding is only in scope for the then-expression.
-			table.insert(visitor.scopes, { [conditionLocal] = false } :: { [syntax.CstLocal]: boolean })
+			table.insert(visitor.scopes, { [conditionLocal] = false })
 			if conditionLocal.annotation then
 				visitorLib.visitType(conditionLocal.annotation, visitor)
 			end

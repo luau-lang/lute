@@ -1217,6 +1217,39 @@ struct AstSerialize : public Luau::AstVisitor
         lua_setfield(L, -2, "annotation");
     }
 
+    // Serializes the `local`/`const` binding of an `if local`/`if const` conditional (statement or
+    // expression form, including `elseif local` branches). For a plain conditional the three fields
+    // are set to nil. `CstNodeType` is the CST node holding the annotation colon position.
+    template<typename CstNodeType, typename AstNodeType>
+    void serializeIfLocalBinding(AstNodeType* node)
+    {
+        if (node->conditionLocal)
+        {
+            LUTE_ASSERT(node->conditionKeywordLocation);
+            serializeToken(node->conditionKeywordLocation->begin, node->conditionIsConst ? "const" : "local");
+            lua_setfield(L, -2, "localKeyword");
+
+            const auto cstNode = lookupCstNode<CstNodeType>(node);
+            serialize(node->conditionLocal, /* createToken= */ true, std::make_optional(cstNode->annotationColonPosition));
+            lua_setfield(L, -2, "conditionLocal");
+
+            LUTE_ASSERT(node->conditionEqualsLocation);
+            serializeToken(node->conditionEqualsLocation->begin, "=");
+            lua_setfield(L, -2, "equals");
+        }
+        else
+        {
+            lua_pushnil(L);
+            lua_setfield(L, -2, "localKeyword");
+
+            lua_pushnil(L);
+            lua_setfield(L, -2, "conditionLocal");
+
+            lua_pushnil(L);
+            lua_setfield(L, -2, "equals");
+        }
+    }
+
     void serialize(Luau::AstExprIfElse* node)
     {
         auto cstNode = lookupCstNode<Luau::CstExprIfElse>(node);
@@ -1390,39 +1423,6 @@ struct AstSerialize : public Luau::AstVisitor
 
             serializeStats(node->body);
             lua_setfield(L, -2, "statements");
-        }
-    }
-
-    // Serializes the `local`/`const` binding of an `if local`/`if const` conditional (statement or
-    // expression form, including `elseif local` branches). For a plain conditional the three fields
-    // are set to nil. `CstNodeType` is the CST node holding the annotation colon position.
-    template<typename CstNodeType, typename AstNodeType>
-    void serializeIfLocalBinding(AstNodeType* node)
-    {
-        if (node->conditionLocal)
-        {
-            LUTE_ASSERT(node->conditionKeywordLocation);
-            serializeToken(node->conditionKeywordLocation->begin, node->conditionIsConst ? "const" : "local");
-            lua_setfield(L, -2, "localKeyword");
-
-            const auto cstNode = lookupCstNode<CstNodeType>(node);
-            serialize(node->conditionLocal, /* createToken= */ true, std::make_optional(cstNode->annotationColonPosition));
-            lua_setfield(L, -2, "conditionLocal");
-
-            LUTE_ASSERT(node->conditionEqualsLocation);
-            serializeToken(node->conditionEqualsLocation->begin, "=");
-            lua_setfield(L, -2, "equals");
-        }
-        else
-        {
-            lua_pushnil(L);
-            lua_setfield(L, -2, "localKeyword");
-
-            lua_pushnil(L);
-            lua_setfield(L, -2, "conditionLocal");
-
-            lua_pushnil(L);
-            lua_setfield(L, -2, "equals");
         }
     }
 
