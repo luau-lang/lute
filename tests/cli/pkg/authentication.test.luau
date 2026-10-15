@@ -13,6 +13,7 @@ local workingDirectory = path.join(system.tmpdir(), "lute-pkg-auth")
 local loomAuthPath = path.join(workingDirectory, ".loom", "auth.luau")
 
 local TEST_DOMAIN = "github.com"
+local TEST_REGISTRY_DOMAIN = "registry.example.com"
 local TEST_REPOSITORY = "luau-lang/lute"
 local TEST_TOKEN = "lute-credential-provider-test-token"
 
@@ -42,12 +43,13 @@ end
 local function runResolve(
 	fixture: string,
 	domain: string,
-	expectedToken: string
+	expectedToken: string,
+	protocol: string?
 ): { exitcode: number, stdout: string, stderr: string }
 	return process.run({
 		lutePath,
 		path.format(resolveFixture),
-		"https",
+		protocol or "https",
 		domain,
 		TEST_REPOSITORY,
 		expectedToken,
@@ -80,6 +82,12 @@ test.suite("LutePkgAuth", function(suite)
 
 	suite:case("resolvesTokenFromConfiguredProvider", function(assert)
 		local result = runResolve("valid", TEST_DOMAIN, TEST_TOKEN)
+		assert.eq(result.exitcode, 0)
+		assert.eq(result.stdout, "")
+	end)
+
+	suite:case("passesHttpProtocolToConfiguredProvider", function(assert)
+		local result = runResolve("http", TEST_REGISTRY_DOMAIN, TEST_TOKEN, "http")
 		assert.eq(result.exitcode, 0)
 		assert.eq(result.stdout, "")
 	end)

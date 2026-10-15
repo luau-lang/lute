@@ -647,6 +647,76 @@ test.suite("parse", function(suite)
 		assert.eq(simpleIfStat.elseKeyword, nil)
 		assert.eq(simpleIfStat.elseBlock, nil)
 		assert.eq(simpleIfStat.endKeyword.text, "end")
+
+		-- A plain `if` leaves the `if local` binding fields unset.
+		assert.eq(simpleIfStat.localKeyword, nil)
+		assert.eq(simpleIfStat.conditionLocal, nil)
+		assert.eq(simpleIfStat.equals, nil)
+
+		-- `if local` populates the binding fields.
+		local localBlock = parser.parseBlock("if local handler = dispatch[c] then handler() end")
+		local localIfStat = localBlock.statements[1] :: syntax.CstStatIf
+		assert.neq(localIfStat.localKeyword, nil)
+		assert.eq((localIfStat.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(localIfStat.conditionLocal, nil)
+		assert.eq((localIfStat.conditionLocal :: syntax.CstLocal).name.text, "handler")
+		assert.neq(localIfStat.equals, nil)
+		assert.eq((localIfStat.equals :: syntax.CstToken<"=">).text, "=")
+		-- `condition` holds the binding's initializer.
+		assert.eq(localIfStat.condition.tag, "index")
+
+		-- `if const` reports the keyword text as `const`.
+		local constBlock = parser.parseBlock("if const handler = dispatch[c] then handler() end")
+		local constIfStat = constBlock.statements[1] :: syntax.CstStatIf
+		assert.eq((constIfStat.localKeyword :: syntax.CstToken<"local" | "const">).text, "const")
+
+		-- `elseif local` populates the same fields on the elseif clause.
+		local elseifBlock = parser.parseBlock("if c then f() elseif local handler = dispatch[c] then handler() end")
+		local elseifIfStat = elseifBlock.statements[1] :: syntax.CstStatIf
+		assert.eq(#elseifIfStat.elseifs, 1)
+		local localElseIf = elseifIfStat.elseifs[1]
+		assert.neq(localElseIf.localKeyword, nil)
+		assert.eq((localElseIf.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(localElseIf.conditionLocal, nil)
+		assert.eq((localElseIf.conditionLocal :: syntax.CstLocal).name.text, "handler")
+		assert.neq(localElseIf.equals, nil)
+	end)
+
+	suite:case("parseExprIfElse", function(assert)
+		local expr = parser.parseExpr("if local v = t.x then v else 0") :: syntax.CstExprIfElse
+		assert.eq(expr.kind, "expr")
+		assert.eq(expr.tag, "conditional")
+		assert.eq(expr.ifKeyword.text, "if")
+		assert.neq(expr.localKeyword, nil)
+		assert.eq((expr.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(expr.conditionLocal, nil)
+		assert.eq((expr.conditionLocal :: syntax.CstLocal).name.text, "v")
+		assert.neq(expr.equals, nil)
+		assert.eq((expr.equals :: syntax.CstToken<"=">).text, "=")
+		-- `condition` holds the binding's initializer.
+		assert.eq(expr.condition.tag, "indexname")
+		assert.eq(expr.thenKeyword.text, "then")
+
+		-- `if const` reports the keyword text as `const`.
+		local constExpr = parser.parseExpr("if const v = t.x then v else 0") :: syntax.CstExprIfElse
+		assert.eq((constExpr.localKeyword :: syntax.CstToken<"local" | "const">).text, "const")
+
+		-- `elseif local` populates the same fields on the elseif clause.
+		local elseifExpr = parser.parseExpr("if c then 1 elseif local v = t.x then v else 0") :: syntax.CstExprIfElse
+		assert.eq(#elseifExpr.elseifs, 1)
+		local elseIf = elseifExpr.elseifs[1]
+		assert.eq(elseIf.elseIfKeyword.text, "elseif")
+		assert.neq(elseIf.localKeyword, nil)
+		assert.eq((elseIf.localKeyword :: syntax.CstToken<"local" | "const">).text, "local")
+		assert.neq(elseIf.conditionLocal, nil)
+		assert.eq((elseIf.conditionLocal :: syntax.CstLocal).name.text, "v")
+		assert.neq(elseIf.equals, nil)
+
+		-- A plain if-else expression leaves the binding fields unset.
+		local plainExpr = parser.parseExpr("if c then 1 else 0") :: syntax.CstExprIfElse
+		assert.eq(plainExpr.localKeyword, nil)
+		assert.eq(plainExpr.conditionLocal, nil)
+		assert.eq(plainExpr.equals, nil)
 	end)
 
 	suite:case("parseStatWhile", function(assert)
